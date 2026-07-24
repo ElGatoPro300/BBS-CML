@@ -628,6 +628,13 @@ public abstract class Form extends ValueGroup
             color.r = Lerps.lerp(1F, color.r, intensity);
             color.g = Lerps.lerp(1F, color.g, intensity);
             color.b = Lerps.lerp(1F, color.b, intensity);
+
+            /* Unused Blend defaults (opacity field present but 0 + intensity 0) → opaque. */
+            if (opacityA <= 0.001F && intensity <= 0.001F)
+            {
+                opacityA = 1F;
+            }
+
             color.a = opacityA;
             valueColor.set(color);
         }
@@ -643,7 +650,7 @@ public abstract class Form extends ValueGroup
     }
 
     /**
-     * Soft-fade alpha for shadows / depth sorting. Reads traditional {@code color.a} when present.
+     * Soft-fade alpha for shadows / depth sorting. Reads traditional {@code color.a}.
      */
     public float getFormOpacity()
     {
@@ -658,10 +665,17 @@ public abstract class Form extends ValueGroup
     }
 
     /**
-     * Kept for call-site compatibility. Opacity lives in {@code color.a} again.
+     * Writes form opacity onto a render tint whose alpha was forced to 1 by
+     * {@link Color#copyWithBlendIntensity()}.
      */
     public void applyFormOpacity(Color color)
     {
+        if (color == null)
+        {
+            return;
+        }
+
+        color.a = MathUtils.clamp(this.getFormOpacity(), 0F, 1F);
     }
 
     @Override

@@ -956,10 +956,12 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
             if (drawIrisLive)
             {
                 /* Complementary VL: soft opacity waits until after translucent terrain
-                 * (water/lava/portals). Near-opaque stays live with depth for pack shading. */
+                 * (water/lava/portals). Near-opaque stays live with depth for pack shading.
+                 * Never defer in UI previews — the post-deferred queue only flushes on world
+                 * render events, so any alpha &lt; 0.999 would queue a draw that never runs. */
                 boolean filmRenderDepth = renderContext != null && renderContext.renderDepthFrame != null;
 
-                if (ShaderOpacityPatch.shouldDelayUntilPostDeferred(opacityAlpha, filmRenderDepth))
+                if (!ui && ShaderOpacityPatch.shouldDelayUntilPostDeferred(opacityAlpha, filmRenderDepth))
                 {
                     /* Iris: entity-local matrices + restore camera ModelView.
                      * No-shader: camera-baked matrices + identity ModelView (BBS path). */
@@ -1901,13 +1903,7 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
             return true;
         }
 
-        float intensity = MathUtils.clamp(color.a, 0F, 1F);
-
-        if (intensity <= 0.001F)
-        {
-            return false;
-        }
-
+        /* Alpha is traditional opacity — do not treat it as blend tint intensity. */
         return color.r < 0.999F || color.g < 0.999F || color.b < 0.999F;
     }
 
@@ -2267,7 +2263,11 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
                 return;
             }
 
-            this.renderModel(context.entity, shader, context.stack, model, context.light, context.overlay, color, false, context.stencilMap, context.getTransition(), context.renderEquipment, context.world, context);
+            /* Form editor / model-renderer preview must not use the world post-deferred opacity
+             * queue (it never flushes during GUI) — any a&lt;1 looked fully invisible. */
+            boolean uiPreview = context.ui || context.modelRenderer;
+
+            this.renderModel(context.entity, shader, context.stack, model, context.light, context.overlay, color, uiPreview, context.stencilMap, context.getTransition(), context.renderEquipment, context.world, context);
         }
     }
 
@@ -2312,8 +2312,9 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
 
         Supplier<ShaderProgram> mainShader = this.getModelShader(model);
         Supplier<ShaderProgram> shader = this.getShader(context, mainShader, BBSShaders::getPickerModelsProgram);
+        boolean uiPreview = context.ui || context.modelRenderer;
 
-        this.renderModel(context.entity, shader, context.stack, model, context.light, context.overlay, color, false, context.stencilMap, context.getTransition(), context.renderEquipment, context.world, context);
+        this.renderModel(context.entity, shader, context.stack, model, context.light, context.overlay, color, uiPreview, context.stencilMap, context.getTransition(), context.renderEquipment, context.world, context);
     }
 
     @Override

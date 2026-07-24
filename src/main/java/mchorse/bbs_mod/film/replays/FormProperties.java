@@ -50,6 +50,9 @@ public class FormProperties extends ValueGroup
 {
     public final Map<String, KeyframeChannel> properties = new HashMap<>();
 
+    /** One-shot: leftover Blend {@code color.a=0} / orphan opacity channel cleaned. */
+    private boolean blendEraColorAlphaNormalized;
+
     public FormProperties(String id)
     {
         super(id);
@@ -133,6 +136,21 @@ public class FormProperties extends ValueGroup
             return;
         }
 
+        /* Drop leftover opacity channel if migration did not run yet (hot reload / old instance). */
+        if (!this.blendEraColorAlphaNormalized)
+        {
+            KeyframeChannel<?> leftoverOpacity = this.properties.get("opacity");
+
+            if (leftoverOpacity != null)
+            {
+                this.properties.remove("opacity");
+                this.remove(leftoverOpacity);
+            }
+
+            this.normalizeBlendEraZeroAlphaColorKeyframes();
+            this.blendEraColorAlphaNormalized = true;
+        }
+
         /* First pass: apply standard properties */
         for (KeyframeChannel value : this.properties.values())
         {
@@ -148,6 +166,37 @@ public class FormProperties extends ValueGroup
             if (value.getId().indexOf(':') != -1)
             {
                 this.applyProperty(tick, form, value, blend);
+            }
+        }
+    }
+
+    /**
+     * Blend-era color keyframes used {@code a = 0} for "no tint". Under traditional alpha that
+     * is fully invisible — rewrite to opaque white. Idempotent.
+     */
+    private void normalizeBlendEraZeroAlphaColorKeyframes()
+    {
+        KeyframeChannel<?> colorAny = this.properties.get("color");
+
+        if (colorAny == null || colorAny.getFactory() != KeyframeFactories.COLOR)
+        {
+            return;
+        }
+
+        @SuppressWarnings("unchecked")
+        KeyframeChannel<Color> colorChannel = (KeyframeChannel<Color>) colorAny;
+
+        for (Object kfObj : colorChannel.getKeyframes())
+        {
+            Keyframe<?> kf = (Keyframe<?>) kfObj;
+            Object v = kf.getValue();
+
+            if (v instanceof Color color && color.a <= 0.001F)
+            {
+                color.r = 1F;
+                color.g = 1F;
+                color.b = 1F;
+                color.a = 1F;
             }
         }
     }
@@ -1135,12 +1184,35 @@ public class FormProperties extends ValueGroup
         return new Color(1F, 1F, 1F, 1F);
     }
 
+    private float sampleOpacityChannel(KeyframeChannel<?> opacityChannel, float tick)
+    {
+        if (opacityChannel == null || opacityChannel.isEmpty())
+        {
+            return 1F;
+        }
+
+        KeyframeSegment segment = opacityChannel.find(tick);
+
+        if (segment != null)
+        {
+            Object interpolated = segment.createInterpolated();
+
+            if (interpolated instanceof Number number)
+            {
+                return MathUtils.clamp(number.floatValue(), 0F, 1F);
+            }
+        }
+
+        return 1F;
+    }
+
     @Override
     public void fromData(BaseType data)
     {
         /* FormProperties stores dynamic channels; rebuild from serialized data to avoid stale channels. */
         this.properties.clear();
         this.removeAll();
+        this.blendEraColorAlphaNormalized = false;
 
         if (!data.isMap())
         {
@@ -1445,16 +1517,19 @@ public class FormProperties extends ValueGroup
         }
         catch (Throwable ignored) {}
 
-        /* Migration: Blend Opacity track + color.a intensity → traditional color.a opacity */
+        /* Migration: leftover Blend Opacity track → color-track keyframes (traditional color.a).
+         * Then force any remaining blend-era color.a≈0 (intensity off) to opaque so film actors
+         * match the already-migrated morph preview. */
         try
         {
             KeyframeChannel<?> opacityAny = this.properties.get("opacity");
             KeyframeChannel<?> colorAny = this.properties.get("color");
+            boolean hadOpacityChannel = opacityAny != null
+                && (opacityAny.getFactory() == KeyframeFactories.FLOAT || opacityAny.getFactory() == KeyframeFactories.DOUBLE);
 
-            if (opacityAny != null && opacityAny.getFactory() == KeyframeFactories.FLOAT)
+            if (hadOpacityChannel)
             {
-                @SuppressWarnings("unchecked")
-                KeyframeChannel<Float> opacityChannel = (KeyframeChannel<Float>) opacityAny;
+                KeyframeChannel<?> opacityChannel = opacityAny;
                 KeyframeChannel<Color> colorChannel;
 
                 if (colorAny != null && colorAny.getFactory() == KeyframeFactories.COLOR)
@@ -1472,40 +1547,54 @@ public class FormProperties extends ValueGroup
                     this.add(colorChannel);
                 }
 
-                for (Object kfObj : opacityChannel.getKeyframes())
+                if (!opacityChannel.isEmpty())
                 {
-                    Keyframe<?> opacityKf = (Keyframe<?>) kfObj;
-                    Object opacityValue = opacityKf.getValue();
+                    TreeSet<Float> ticks = new TreeSet<>();
 
-                    if (!(opacityValue instanceof Float))
+                    for (Object kfObj : opacityChannel.getKeyframes())
                     {
-                        continue;
+                        ticks.add(((Keyframe<?>) kfObj).getTick());
                     }
 
-                    float tick = opacityKf.getTick();
-                    float opacityA = MathUtils.clamp((Float) opacityValue, 0F, 1F);
-                    Color color = this.sampleColorChannel(colorChannel, tick);
-                    float intensity = MathUtils.clamp(color.a, 0F, 1F);
-
-                    color.r = Lerps.lerp(1F, color.r, intensity);
-                    color.g = Lerps.lerp(1F, color.g, intensity);
-                    color.b = Lerps.lerp(1F, color.b, intensity);
-                    color.a = opacityA;
-
-                    int index = colorChannel.insert(tick, color);
-                    Keyframe<Color> colorKf = colorChannel.get(index);
-
-                    if (colorKf != null)
+                    for (Object kfObj : colorChannel.getKeyframes())
                     {
-                        colorKf.getInterpolation().copy(opacityKf.getInterpolation());
-                        colorKf.setNoshadingOpacity(opacityKf.isNoshadingOpacity());
+                        ticks.add(((Keyframe<?>) kfObj).getTick());
                     }
+
+                    for (float tick : ticks)
+                    {
+                        float opacityA = this.sampleOpacityChannel(opacityChannel, tick);
+                        Color color = this.sampleColorChannel(colorChannel, tick);
+                        float intensity = MathUtils.clamp(color.a, 0F, 1F);
+
+                        /* Bake blend intensity into RGB; opacity track owns alpha. */
+                        color.r = Lerps.lerp(1F, color.r, intensity);
+                        color.g = Lerps.lerp(1F, color.g, intensity);
+                        color.b = Lerps.lerp(1F, color.b, intensity);
+
+                        /* Unused Blend defaults (empty Float keyframe = 0 + intensity 0) → opaque. */
+                        if (opacityA <= 0.001F && intensity <= 0.001F)
+                        {
+                            opacityA = 1F;
+                        }
+
+                        color.a = opacityA;
+                        colorChannel.insert(tick, color);
+                    }
+                }
+                else if (colorChannel.isEmpty())
+                {
+                    /* Opacity channel present but empty: ensure an opaque color keyframe exists. */
+                    colorChannel.insert(0F, new Color(1F, 1F, 1F, 1F));
                 }
 
                 this.properties.remove("opacity");
                 this.remove(opacityChannel);
             }
-            else if (colorAny != null && colorAny.getFactory() == KeyframeFactories.COLOR)
+
+            colorAny = this.properties.get("color");
+
+            if (colorAny != null && colorAny.getFactory() == KeyframeFactories.COLOR)
             {
                 @SuppressWarnings("unchecked")
                 KeyframeChannel<Color> colorChannel = (KeyframeChannel<Color>) colorAny;
@@ -1517,7 +1606,7 @@ public class FormProperties extends ValueGroup
 
                     if (v instanceof Color color && color.a <= 0.001F)
                     {
-                        /* Blend-era intensity off → fully opaque white under traditional alpha. */
+                        /* Blend-era intensity off → opaque under traditional alpha. */
                         color.r = 1F;
                         color.g = 1F;
                         color.b = 1F;
@@ -1525,6 +1614,8 @@ public class FormProperties extends ValueGroup
                     }
                 }
             }
+
+            this.blendEraColorAlphaNormalized = true;
         }
         catch (Throwable ignored) {}
 

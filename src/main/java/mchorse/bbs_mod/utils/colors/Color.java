@@ -155,8 +155,8 @@ public class Color
     }
 
     /**
-     * Legacy no-op kept for call-site compatibility. {@link #a} is form opacity again
-     * (traditional color), not blend tint strength.
+     * Legacy no-op name: {@link #a} is traditional opacity, not blend tint strength.
+     * Tint RGB is used as-is; callers apply opacity via {@code Form.applyFormOpacity}.
      */
     public Color applyBlendIntensity()
     {
@@ -165,7 +165,8 @@ public class Color
 
     /**
      * Copy for rendering when Color Grade is applied in-shader (FormColorGrade).
-     * Keeps {@link #a} as opacity; clears baked grade fields so the shader owns them.
+     * Forces {@link #a} to 1 so FormColorTint carries RGB only; opacity is applied
+     * separately onto vertex color via {@code Form.applyFormOpacity}.
      */
     public Color copyWithBlendIntensityOnly()
     {
@@ -175,13 +176,15 @@ public class Color
         copy.contrast = 0F;
         copy.hue = 0F;
         copy.saturation = 0F;
+        copy.a = 1F;
 
         return copy;
     }
 
     /**
      * Copy for rendering with brightness/contrast/hue/saturation baked into RGB.
-     * Keeps {@link #a} as traditional opacity (does not treat alpha as tint intensity).
+     * Forces {@link #a} to 1 (tint); traditional opacity is applied via
+     * {@code Form.applyFormOpacity}.
      */
     public Color copyWithBlendIntensity()
     {
@@ -201,6 +204,8 @@ public class Color
         {
             ColorAdjustments.apply(copy, brightness, contrast, hue, saturation);
         }
+
+        copy.a = 1F;
 
         return copy;
     }
