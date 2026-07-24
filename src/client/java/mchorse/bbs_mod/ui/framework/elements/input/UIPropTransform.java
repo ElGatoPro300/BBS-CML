@@ -109,8 +109,6 @@ public class UIPropTransform extends UITransform
     private boolean axisProjectedTranslation;
     private boolean rayDragInitialized;
     private boolean rayDragReanchor;
-    /** Ignore sub-pixel / 1–2px click jitter so a pure click never writes transform values. */
-    private static final int DRAG_APPLY_THRESHOLD_SQ = 9;
 
     /* Trackball (free-rotate sphere) drag state. Kept separate from the legacy
      * {@link #freeRotation} 2D-delta mode: the trackball accumulates rotation as a
@@ -1392,93 +1390,8 @@ public class UIPropTransform extends UITransform
 
     private boolean hasDragPointerMoved(UIContext context)
     {
-        int dx = this.resolveDragMouseX(context) - this.dragAnchorX;
-        int dy = this.resolveDragMouseY(context) - this.dragAnchorY;
-
-        return dx * dx + dy * dy >= DRAG_APPLY_THRESHOLD_SQ;
-    }
-
-    /**
-     * While the pointer is still inside the click deadzone, keep ray baselines on the current
-     * pick so matrix/camera jitter between mouse-down and the first real drag cannot dump a
-     * huge fake delta into the numbers.
-     */
-    private void reanchorRayDragBaseline(UIContext context)
-    {
-        if (!this.rayDragInitialized || this.gizmoRayProvider == null || context == null)
-        {
-            return;
-        }
-
-        if (!this.gizmoRayProvider.getGizmoMatrix(this.rayGizmoMatrix))
-        {
-            return;
-        }
-
-        if (!this.gizmoRayProvider.getMouseRay(context, this.resolveDragMouseX(context), this.resolveDragMouseY(context), this.rayOrigin, this.rayDirection))
-        {
-            return;
-        }
-
-        this.rayGizmoMatrix.getTranslation(this.rayGizmoOrigin);
-        this.extractAxisWorld(this.axis, this.rayPrimaryAxis);
-
-        if (this.viewRing)
-        {
-            this.rayPlaneNormal.set(
-                (float) (this.rayOrigin.x - this.rayGizmoOrigin.x),
-                (float) (this.rayOrigin.y - this.rayGizmoOrigin.y),
-                (float) (this.rayOrigin.z - this.rayGizmoOrigin.z)
-            );
-
-            if (this.normalizeSafe(this.rayPlaneNormal) && this.intersectCurrentRay(this.rayCurrentPoint))
-            {
-                this.rayDragStartPoint.set(this.rayCurrentPoint);
-                this.rayLastPoint.set(this.rayCurrentPoint);
-                this.resetViewSweepUnwrap();
-            }
-        }
-        else if (this.mode == 2 && !this.freeRotation)
-        {
-            this.rayPlaneNormal.set(this.rayPrimaryAxis);
-
-            if (this.normalizeSafe(this.rayPlaneNormal) && this.intersectCurrentRay(this.rayCurrentPoint))
-            {
-                this.rayDragStartPoint.set(this.rayCurrentPoint);
-                this.rayLastPoint.set(this.rayCurrentPoint);
-                this.resetPlaneSweepUnwrap();
-            }
-        }
-        else if (this.mode == 0 && (this.freeTranslation || this.secondaryAxis != null))
-        {
-            if (this.freeTranslation)
-            {
-                this.rayPlaneNormal.set(this.rayDirection);
-            }
-            else
-            {
-                this.extractAxisWorld(this.secondaryAxis, this.raySecondaryAxis);
-                this.rayPlaneNormal.set(this.rayPrimaryAxis).cross(this.raySecondaryAxis);
-            }
-
-            if (this.normalizeSafe(this.rayPlaneNormal) && this.intersectCurrentRay(this.rayCurrentPoint))
-            {
-                this.rayDragStartPoint.set(this.rayCurrentPoint);
-                this.rayLastPoint.set(this.rayCurrentPoint);
-            }
-        }
-        else if ((this.mode == 0 || this.mode == 1) && !this.uniformScale)
-        {
-            double axisValue = this.computeAxisValue(this.rayOrigin, this.rayDirection, this.rayPrimaryAxis);
-
-            if (Double.isFinite(axisValue))
-            {
-                this.rayLastAxisValue = axisValue;
-                this.rayDragStartAxisValue = axisValue;
-                this.rayDragStartTranslate.set(this.getValue());
-                this.scaleProgressLength = 0F;
-            }
-        }
+        return this.resolveDragMouseX(context) != this.dragAnchorX
+            || this.resolveDragMouseY(context) != this.dragAnchorY;
     }
 
     public void enableMode(int mode, Axis axis)
@@ -2852,8 +2765,6 @@ public class UIPropTransform extends UITransform
         {
             if (!this.hasDragPointerMoved(context))
             {
-                this.reanchorRayDragBaseline(context);
-
                 return true;
             }
 
@@ -2872,24 +2783,13 @@ public class UIPropTransform extends UITransform
             return this.applyViewRingDrag();
         }
 
-        if (this.mode == 0 && !this.hasDragPointerMoved(context))
+        if (this.mode == 0 && !this.freeTranslation && !this.hasDragPointerMoved(context))
         {
-            this.reanchorRayDragBaseline(context);
-
-            return true;
-        }
-
-        if (this.mode == 1 && !this.uniformScale && !this.hasDragPointerMoved(context))
-        {
-            this.reanchorRayDragBaseline(context);
-
             return true;
         }
 
         if (this.mode == 2 && !this.freeRotation && !this.trackball && !this.hasDragPointerMoved(context))
         {
-            this.reanchorRayDragBaseline(context);
-
             return true;
         }
 
@@ -3146,11 +3046,6 @@ public class UIPropTransform extends UITransform
 
     private boolean applyTrackballDragDelta(UIContext context, int dx, int dy)
     {
-        if (!this.hasDragPointerMoved(context))
-        {
-            return true;
-        }
-
         if (dx != 0 || dy != 0)
         {
             Vector3f right = new Vector3f(1F, 0F, 0F);
@@ -3242,13 +3137,6 @@ public class UIPropTransform extends UITransform
         {
             this.rayLastSpherePoint.set(current);
             this.raySphereDragInitialized = true;
-
-            return true;
-        }
-
-        if (!this.hasDragPointerMoved(context))
-        {
-            this.rayLastSpherePoint.set(current);
 
             return true;
         }

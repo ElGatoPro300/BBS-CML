@@ -8,7 +8,6 @@ import mchorse.bbs_mod.blocks.entities.ModelProperties;
 import mchorse.bbs_mod.camera.CameraUtils;
 import mchorse.bbs_mod.client.BBSRendering;
 import mchorse.bbs_mod.data.types.MapType;
-import mchorse.bbs_mod.forms.FormUtils;
 import mchorse.bbs_mod.forms.forms.Form;
 import mchorse.bbs_mod.graphics.Draw;
 import mchorse.bbs_mod.graphics.texture.Texture;
@@ -203,7 +202,6 @@ public class UIModelBlockPanel extends UIDashboardPanel implements IFlightSuppor
     public UIItemStack armorFeet;
     public UIElement properties;
 
-    private UIFormPalette formPalette;
     private ModelBlockEntity modelBlock;
     private ModelBlockEntity hovered;
     private Vector3f mouseDirection = new Vector3f();
@@ -269,83 +267,45 @@ public class UIModelBlockPanel extends UIDashboardPanel implements IFlightSuppor
         this.modelBlocks.background(0);
 
         this.pickEdit = new UINestedEdit((editing) -> {
-            Consumer<Form> callback = (f) -> {
-                Form copy = FormUtils.copy(f);
+            UIFormPalette palette = UIFormPalette.open(this, editing, this.modelBlock.getProperties().getForm(),
+                    (f) -> {
+                        this.beginUndoCapture();
+                        this.pickEdit.setForm(f);
+                        this.modelBlock.getProperties().setForm(f);
+                        this.endUndoCapture();
+                    });
 
-                this.beginUndoCapture();
-                this.pickEdit.setForm(copy);
-                this.modelBlock.getProperties().setForm(copy);
-                this.endUndoCapture();
-            };
-
-            UIFormPalette palette = this.formPalette;
-
-            if (palette != null && palette.getParent() == null)
+            palette.immersive();
+            palette.editor.keys().register(Keys.MODEL_BLOCKS_TOGGLE_RENDERING,
+                    () -> toggleRendering = !toggleRendering);
+            palette.editor.renderer.full(dashboard.getRoot());
+            palette.editor.renderer.setTarget(this.modelBlock.getEntity());
+            /* Interaction (gizmos / bone pick) can stay on with F7 when the setting allows it;
+             * the mesh itself is still suppressed so the world copy is not doubled. */
+            palette.editor.renderer.setRenderForm(() ->
+                !toggleRendering || BBSSettings.gizmosWorldRendering.get());
+            palette.editor.renderer.setRenderFormMesh(() -> !toggleRendering);
+            palette.getEvents().register(UIToggleEditorEvent.class, (e) ->
             {
-                palette.callback = callback;
-                palette.resetFlex().full(this);
-                this.add(palette);
-                palette.setSelected(this.modelBlock.getProperties().getForm());
-                palette.edit(editing);
-                palette.resize();
-            }
-            else if (palette != null && palette.getParent() != null)
-            {
-                palette.callback = callback;
-                palette.setSelected(this.modelBlock.getProperties().getForm());
-                palette.edit(editing);
-                palette.resize();
-            }
-            else
-            {
-                UIFormPalette created = UIFormPalette.open(this, editing, this.modelBlock.getProperties().getForm(), callback);
-
-                if (created == null)
+                if (e.editing)
                 {
-                    return;
+                    this.addCameraController(palette);
                 }
-
-                this.formPalette = created;
-                created.immersive();
-                created.editor.keys().register(Keys.MODEL_BLOCKS_TOGGLE_RENDERING,
-                        () -> toggleRendering = !toggleRendering);
-                created.editor.renderer.full(dashboard.getRoot());
-                created.editor.renderer.setTarget(this.modelBlock.getEntity());
-                /* Interaction (gizmos / bone pick) can stay on with F7 when the setting allows it;
-                 * the mesh itself is still suppressed so the world copy is not doubled. */
-                created.editor.renderer.setRenderForm(() ->
-                    !toggleRendering || BBSSettings.gizmosWorldRendering.get());
-                created.editor.renderer.setRenderFormMesh(() -> !toggleRendering);
-                created.getEvents().register(UIToggleEditorEvent.class, (e) ->
+                else
                 {
-                    if (e.editing)
-                    {
-                        this.addCameraController(created);
-                    }
-                    else
-                    {
-                        this.removeCameraController();
-                    }
-                });
-                created.getEvents().register(UIRemovedEvent.class, (e) ->
-                {
-                    /* resize() recomputes every card's visibility from scratch. */
-                    this.resize();
-                });
-                created.resize();
-            }
-
-            final UIFormPalette activePalette = this.formPalette;
-
-            if (activePalette == null)
+                    this.removeCameraController();
+                }
+            });
+            palette.getEvents().register(UIRemovedEvent.class, (e) ->
             {
-                return;
-            }
+                /* resize() recomputes every card's visibility from scratch. */
+                this.resize();
+            });
 
-            activePalette.editor.renderer.setTarget(this.modelBlock.getEntity());
+            palette.resize();
 
             if (editing) {
-                this.addCameraController(activePalette);
+                this.addCameraController(palette);
             }
 
             /*
@@ -1251,21 +1211,11 @@ public class UIModelBlockPanel extends UIDashboardPanel implements IFlightSuppor
                 int midY = resizer.area.y + resizer.area.h / 2;
                 int color = active ? activeColor : idleColor;
                 c.batcher.box(resizer.area.x, midY - 1, resizer.area.ex(), midY + 1, color);
-
-                if (active)
-                {
-                    c.requestCursor(GLFW.GLFW_VRESIZE_CURSOR);
-                }
             } else {
                 /* Vertical splitter — full column height, 2px bar centered. */
                 int midX = resizer.area.x + resizer.area.w / 2;
                 int color = active ? activeColor : idleColor;
                 c.batcher.box(midX - 1, resizer.area.y, midX + 1, resizer.area.ey(), color);
-
-                if (active)
-                {
-                    c.requestCursor(GLFW.GLFW_HRESIZE_CURSOR);
-                }
             }
         } else {
             int color = active ? (0xFF000000 | BBSSettings.primaryColor.get()) : 0xFF888888;
@@ -1274,11 +1224,6 @@ public class UIModelBlockPanel extends UIDashboardPanel implements IFlightSuppor
             c.batcher.box(rx + 2, ry + 5, rx + 6, ry + 6, color);
             c.batcher.box(rx + 4, ry + 3, rx + 6, ry + 4, color);
             c.batcher.box(rx + 5, ry + 1, rx + 6, ry + 2, color);
-
-            if (active)
-            {
-                c.requestCursor(GLFW.GLFW_HRESIZE_CURSOR);
-            }
         }
     }
 
@@ -2411,9 +2356,6 @@ public class UIModelBlockPanel extends UIDashboardPanel implements IFlightSuppor
         }
 
         MinecraftClient mc = MinecraftClient.getInstance();
-        int[] prevViewport = new int[4];
-
-        GL11.glGetIntegerv(GL11.GL_VIEWPORT, prevViewport);
 
         this.gizmoStencil.setup(Link.bbs("stencil_model_block"));
 
@@ -2437,10 +2379,7 @@ public class UIModelBlockPanel extends UIDashboardPanel implements IFlightSuppor
         this.gizmoStencil.unbind(this.gizmoStencilMap);
         this.gizmoController.updateHover();
 
-        /* beginWrite(true) clears the main FB → white wash + corrupted GUI text. */
-        BBSRendering.ensureMainFramebuffer();
-        mc.getFramebuffer().beginWrite(false);
-        GL11.glViewport(prevViewport[0], prevViewport[1], prevViewport[2], prevViewport[3]);
+        mc.getFramebuffer().beginWrite(true);
     }
 
     @Override

@@ -636,8 +636,8 @@ public class ToolbarMenu extends UIElement
         this.renderItems(context);
         context.batcher.unclip(context);
 
-        this.verticalScroll.renderScrollbar(context);
-        this.horizontalScroll.renderScrollbar(context);
+        this.verticalScroll.renderScrollbar(context.batcher);
+        this.horizontalScroll.renderScrollbar(context.batcher);
 
         super.render(context);
 

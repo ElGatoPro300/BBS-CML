@@ -3,9 +3,9 @@ package mchorse.bbs_mod.ui.forms.editors.panels.widgets;
 import mchorse.bbs_mod.forms.forms.utils.EffectTransform;
 import mchorse.bbs_mod.ui.UIKeys;
 import mchorse.bbs_mod.ui.framework.elements.UIElement;
+import mchorse.bbs_mod.ui.framework.elements.buttons.UIButton;
 import mchorse.bbs_mod.ui.framework.elements.input.UIAnimatedCollapseShell;
 import mchorse.bbs_mod.ui.framework.elements.input.UIEffectTransformCollapse;
-import mchorse.bbs_mod.ui.framework.elements.input.UIPoseSectionCollapse;
 import mchorse.bbs_mod.ui.framework.elements.input.UITrackpad;
 import mchorse.bbs_mod.ui.framework.elements.input.keyframes.UIKeyframes;
 import mchorse.bbs_mod.ui.utils.UI;
@@ -18,15 +18,12 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 
 /**
- * Color grade disclosure: closed shows only a slim Color grade bar with arrow;
- * open reveals brightness / contrast / saturation / hue with animated height,
- * each with its own Transform collapse.
+ * Color grade disclosure: closed shows only the Color grade tab; open reveals
+ * brightness / contrast / saturation / hue with animated height, each with its
+ * own Transform collapse.
  */
 public class UIFormColorAdjustments extends UIElement
 {
-    private static final int HEADER_H = 16;
-    private static final int COLOR_GRADE_COLOR = 0xfa0e49;
-
     public final UITrackpad brightness;
     public final UITrackpad contrast;
     public final UITrackpad saturation;
@@ -38,7 +35,7 @@ public class UIFormColorAdjustments extends UIElement
 
     private final Supplier<Color> color;
     private final Consumer<Color> setter;
-    private final UIPoseSectionCollapse.SectionHeader toggle;
+    private final UIButton toggle;
     private final UIAnimatedCollapseShell shell;
     private boolean expanded;
 
@@ -48,12 +45,11 @@ public class UIFormColorAdjustments extends UIElement
 
         this.color = color;
         this.setter = setter;
-        this.h(HEADER_H);
+        this.h(20);
 
-        this.toggle = new UIPoseSectionCollapse.SectionHeader((b) -> this.setExpanded(!this.expanded));
-        this.toggle.full(this).h(HEADER_H);
-        this.toggle.setLabel(UIKeys.FORMS_EDITORS_COLOR_GRADE);
-        this.toggle.setTrackColor(COLOR_GRADE_COLOR);
+        this.toggle = new UIButton(UIKeys.FORMS_EDITORS_COLOR_GRADE, (b) -> this.setExpanded(!this.expanded));
+        this.toggle.color(0xfffa0e49).h(20);
+        this.toggle.full(this);
 
         this.brightness = this.createTrackpad(ColorAdjustments.MIN_BRIGHTNESS, ColorAdjustments.MAX_BRIGHTNESS, (value) ->
         {
@@ -155,53 +151,12 @@ public class UIFormColorAdjustments extends UIElement
             return;
         }
 
+        this.expanded = expanded;
+        this.toggle.label = expanded
+            ? UIKeys.FORMS_EDITORS_COLOR_GRADE_HIDE
+            : UIKeys.FORMS_EDITORS_COLOR_GRADE;
+
         this.shell.setExpanded(expanded, this);
-
-        this.expanded = this.shell.isOpen() || (expanded && this.shell.isAnimating());
-        this.toggle.setLabel(UIKeys.FORMS_EDITORS_COLOR_GRADE);
-        this.toggle.setExpanded(this.expanded);
-    }
-
-    public boolean isExpanded()
-    {
-        return this.expanded || this.shell.isOpen();
-    }
-
-    public void saveCollapseState(CollapseState state)
-    {
-        if (state == null)
-        {
-            return;
-        }
-
-        state.gradeOpen = this.isExpanded();
-        state.brightnessTransformOpen = this.brightnessTransform.isExpanded();
-        state.contrastTransformOpen = this.contrastTransform.isExpanded();
-        state.saturationTransformOpen = this.saturationTransform.isExpanded();
-        state.hueTransformOpen = this.hueTransform.isExpanded();
-    }
-
-    public void restoreCollapseState(CollapseState state)
-    {
-        if (state == null)
-        {
-            return;
-        }
-
-        this.setExpanded(state.gradeOpen);
-        this.brightnessTransform.setExpanded(state.brightnessTransformOpen);
-        this.contrastTransform.setExpanded(state.contrastTransformOpen);
-        this.saturationTransform.setExpanded(state.saturationTransformOpen);
-        this.hueTransform.setExpanded(state.hueTransformOpen);
-    }
-
-    public static final class CollapseState
-    {
-        public boolean gradeOpen;
-        public boolean brightnessTransformOpen;
-        public boolean contrastTransformOpen;
-        public boolean saturationTransformOpen;
-        public boolean hueTransformOpen;
     }
 
     private UIEffectTransformCollapse createTransform(Function<Color, EffectTransform> getter, BiConsumer<Color, EffectTransform> assign)

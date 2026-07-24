@@ -401,10 +401,9 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
             /* Noshading opacity: redraw after paint via BBS translucent queue, not Iris post-deferred. */
             boolean noshadingPaintPath = BBSRendering.needsIrisNoshadingOpacityDeferral(color.a, this.form.noshadingOpacity.get());
             boolean afterFluids = ShaderOpacityPatch.shouldFlushAfterFluids(color.a);
-            /* Never gate depth-write on renderDepthEnabled — translucent billboard quads would
-             * stamp opaque depth and punch holes through the parent mesh (eye flares, etc.).
-             * Soft-opacity depth write stays opacity-based; layering uses sortDepth + getFade. */
-            boolean depthWrite = ShaderOpacityPatch.shouldWriteDepthForOpacity(color.a);
+            boolean depthWrite = afterFluids
+                ? ShaderOpacityPatch.shouldWriteDepthForOpacity(color.a)
+                : this.form.renderDepthEnabled.get();
             double sortDepth = FormRenderDepth.resolveSortDepth(this.form, deferContext == null ? null : deferContext.renderDepthFrame);
             double distanceSq = 0D;
             /* Iris deferred: apply FormColorGrade in model.fsh on the post-deferred BBS draw. */
@@ -559,7 +558,7 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
             {
                 BufferBuilder builder = Tessellator.getInstance().begin(VertexFormat.DrawMode.TRIANGLES, format);
 
-        /* Front */
+                /* Front */
                 this.fill(format, builder, matrix, quad.p3.x, quad.p3.y, FACE_Z_BIAS, color, uvQuad.p3.x, uvQuad.p3.y, overlay, light, entry, 1F);
                 this.fill(format, builder, matrix, quad.p2.x, quad.p2.y, FACE_Z_BIAS, color, uvQuad.p2.x, uvQuad.p2.y, overlay, light, entry, 1F);
                 this.fill(format, builder, matrix, quad.p1.x, quad.p1.y, FACE_Z_BIAS, color, uvQuad.p1.x, uvQuad.p1.y, overlay, light, entry, 1F);
@@ -568,7 +567,7 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
                 this.fill(format, builder, matrix, quad.p4.x, quad.p4.y, FACE_Z_BIAS, color, uvQuad.p4.x, uvQuad.p4.y, overlay, light, entry, 1F);
                 this.fill(format, builder, matrix, quad.p2.x, quad.p2.y, FACE_Z_BIAS, color, uvQuad.p2.x, uvQuad.p2.y, overlay, light, entry, 1F);
 
-        /* Back */
+                /* Back */
                 this.fill(format, builder, matrix, quad.p1.x, quad.p1.y, -FACE_Z_BIAS, color, uvQuad.p1.x, uvQuad.p1.y, overlay, light, entry, -1F);
                 this.fill(format, builder, matrix, quad.p2.x, quad.p2.y, -FACE_Z_BIAS, color, uvQuad.p2.x, uvQuad.p2.y, overlay, light, entry, -1F);
                 this.fill(format, builder, matrix, quad.p3.x, quad.p3.y, -FACE_Z_BIAS, color, uvQuad.p3.x, uvQuad.p3.y, overlay, light, entry, -1F);
@@ -577,8 +576,8 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
                 this.fill(format, builder, matrix, quad.p4.x, quad.p4.y, -FACE_Z_BIAS, color, uvQuad.p4.x, uvQuad.p4.y, overlay, light, entry, -1F);
                 this.fill(format, builder, matrix, quad.p3.x, quad.p3.y, -FACE_Z_BIAS, color, uvQuad.p3.x, uvQuad.p3.y, overlay, light, entry, -1F);
 
-        RenderSystem.enableBlend();
-        RenderSystem.defaultBlendFunc();
+                RenderSystem.enableBlend();
+                RenderSystem.defaultBlendFunc();
 
                 if (useFormColorGrade)
                 {
@@ -589,7 +588,7 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
                     ModelVAORenderer.setupUniforms(gradeStack, gradeShader);
                 }
 
-        BufferRenderer.drawWithGlobalProgram(builder.end());
+                BufferRenderer.drawWithGlobalProgram(builder.end());
             }
             finally
             {

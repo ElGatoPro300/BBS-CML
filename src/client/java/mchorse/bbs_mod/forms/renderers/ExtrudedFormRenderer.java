@@ -421,7 +421,7 @@ public class ExtrudedFormRenderer extends FormRenderer<ExtrudedForm>
             TextureBlend textureBlendSnapshot = textureBlend == null ? null : new TextureBlend(textureBlend.from, textureBlend.to, textureBlend.blend);
             float opacityAlpha = color.a;
 
-            if (ShaderOpacityPatch.shouldDelayUntilPostDeferred(opacityAlpha, false))
+            if (ShaderOpacityPatch.shouldDelayUntilPostDeferred(opacityAlpha, renderContext != null && renderContext.renderDepthFrame != null))
             {
                 boolean irisCamera = BBSRendering.isIrisWorldModelPass() && !bbsModelShader;
                 Matrix4f positionMatrix = irisCamera

@@ -729,7 +729,7 @@ public class UIFormModelEditor extends UIElement implements IUIModelPanelHost
         {
             if (section instanceof UIModelGeneralSection)
             {
-                section.section.setExpanded(true);
+                section.fields.setVisible(true);
             }
         }
 

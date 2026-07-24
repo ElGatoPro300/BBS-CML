@@ -95,7 +95,6 @@ import java.util.function.Supplier;
 public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITickable
 {
     private static Matrix4f uiMatrix = new Matrix4f();
-    private static final ThreadLocal<Float> UI_ANGLE_OVERRIDE = new ThreadLocal<>();
 
     private MatrixCache bones = new MatrixCache();
 
@@ -110,7 +109,6 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
     private boolean constraintsAppliedThisRender;
 
     private int lastAge = -1;
-    private int lastUiAnimTick = Integer.MIN_VALUE;
 
     private IEntity entity = new StubEntity();
 
@@ -143,43 +141,16 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
         }
     }
 
-    /**
-     * Optional yaw (radians) for UI thumbnails — used when baking preview cache so
-     * scratch-FBO fills match the intended orbit bucket instead of screen mouseX.
-     */
-    public static void setUIAngleOverride(Float angleRadians)
-    {
-        if (angleRadians == null)
-        {
-            UI_ANGLE_OVERRIDE.remove();
-        }
-        else
-        {
-            UI_ANGLE_OVERRIDE.set(angleRadians);
-        }
-    }
-
     public static Matrix4f getUIMatrix(UIContext context, int x1, int y1, int x2, int y2)
     {
         float scale = (y2 - y1) / 2.5F;
         int x = x1 + (x2 - x1) / 2;
         float y = y1 + (y2 - y1) * 0.85F;
-        Float override = UI_ANGLE_OVERRIDE.get();
-        float angle;
+        float angle = MathUtils.toRad(context.mouseX - (x1 + x2) / 2) + MathUtils.PI;
 
-        if (override != null)
+        if (BBSSettings.freezeModels.get())
         {
-            angle = override;
-        }
-        else
-        {
-            /* +PI aligns model north toward the UI camera (same as world render flip). */
-            angle = MathUtils.toRad(context.mouseX - (x1 + x2) / 2) + MathUtils.PI;
-
-            if (BBSSettings.freezeModels.get())
-            {
-                angle = -MathUtils.PI + MathUtils.PI / 8F;
-            }
+            angle = -MathUtils.PI + MathUtils.PI / 8;
         }
 
         uiMatrix.identity();
@@ -348,7 +319,6 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
                 poseTransform.glowingColor.lerp(value.glowingColor, value.fix);
                 poseTransform.glowIntensity = Lerps.lerp(poseTransform.glowIntensity, value.glowIntensity, value.fix);
                 poseTransform.glowRadius = Lerps.lerp(poseTransform.glowRadius, value.glowRadius, value.fix);
-                poseTransform.opacity = Lerps.lerp(poseTransform.opacity, value.opacity, value.fix);
                 poseTransform.lighting = Lerps.lerp(poseTransform.lighting, value.lighting, value.fix);
             }
             else
@@ -358,7 +328,6 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
                 poseTransform.glowingColor.lerp(value.glowingColor, Math.abs(value.glowIntensity));
                 poseTransform.glowIntensity = Lerps.lerp(poseTransform.glowIntensity, value.glowIntensity, Math.abs(value.glowIntensity));
                 poseTransform.glowRadius = Lerps.lerp(poseTransform.glowRadius, value.glowRadius, Math.abs(value.glowRadius) > 0F ? Math.abs(value.glowRadius) : 1F);
-                poseTransform.opacity *= value.opacity;
                 poseTransform.lighting += value.lighting;
             }
 
@@ -488,31 +457,7 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
 
             model.model.resetPose();
 
-            /* Morph / form-list thumbnails stay on bind pose until the form is selected
-             * (clicked); then idle plays. Mouse orbit is separate. */
-            if (FormUtilsClient.isUIPreviewAnimating() && this.animator != null)
-            {
-                MinecraftClient client = MinecraftClient.getInstance();
-                int tick = client.world != null ? (int) (client.world.getTime() & 0x7FFFFFFF) : this.lastUiAnimTick + 1;
-
-                /* Advance animator once per game tick — apply every frame for smooth blend. */
-                if (tick != this.lastUiAnimTick)
-                {
-                    this.lastUiAnimTick = tick;
-
-                    /* Recent / applied forms often share this renderer with the world tick.
-                     * Sync movement tracking so UI never inherits a fake "running" action. */
-                    if (this.animator instanceof Animator keyframeAnimator)
-                    {
-                        keyframeAnimator.syncUIPreviewEntity(this.entity);
-                    }
-
-                    this.animator.update(this.entity);
-                }
-
-                this.animator.applyActions(null, model, context.getTransition());
-            }
-
+            this.animator.applyActions(null, model, context.getTransition());
             model.model.applyPose(this.getPose());
 
             MatrixStackUtils.multiply(stack, uiMatrix);
@@ -544,24 +489,15 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
 
             DiffuseLighting.disableGuiDepthLighting();
             RenderSystem.depthFunc(GL11.GL_ALWAYS);
-            BBSRendering.restoreGuiRenderState();
         }
         else
         {
             String modelId = this.form.model.get();
-
-            if (modelId != null && !modelId.isEmpty())
+            if (modelId != null && BBSModClient.getModels().isLoading(modelId))
             {
-                /* Visible cells jump the load queue ahead of background preload. */
-                BBSModClient.getModels().getModel(modelId, true);
-
-                if (BBSModClient.getModels().isLoading(modelId))
-                {
-                    float cx = x1 + (x2 - x1) / 2.0F;
-                    float cy = y1 + (y2 - y1) / 2.0F;
-
-                    UILoader.draw(context, cx, cy, 1.25F, null);
-                }
+                float cx = x1 + (x2 - x1) / 2.0F;
+                float cy = y1 + (y2 - y1) / 2.0F;
+                UILoader.draw(context, cx, cy, 1.25F, null);
             }
         }
     }
@@ -691,10 +627,6 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
         ModelVAORenderer.setGlow(glow, glowColor.r, glowColor.g, glowColor.b, legacyGlow);
 
         boolean shadowPass = (renderContext != null && renderContext.isShadowPass) || BBSRendering.isIrisShadowPass();
-        /* Orbit form/model editors draw outside the world post-deferred flush — treat like UI
-         * so soft opacity stays live in the preview instead of vanishing into that queue. */
-        boolean orbitEditor = renderContext != null && renderContext.modelRenderer;
-        boolean softOpacityLive = ui || orbitEditor;
         boolean irisWorldPaintDeferral = BBSRendering.isIrisWorldPaintDeferral();
         boolean paintActive = this.hasAnyPaint(model);
         boolean bbsModelShader = this.usesBbsModelShader(model);
@@ -714,7 +646,7 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
         /* Positive glow stays on the Iris entity pass for pack emission/bloom. Occlusion
          * uses deferred queue only when another occluder (panel / other entity) is in front —
          * not when this form alone is slightly translucent (that stole Iris lighting at #fa). */
-        boolean deferForRenderDepth = !softOpacityLive && !shadowPass
+        boolean deferForRenderDepth = !ui && !shadowPass
             && !hasEmissiveGlow
             && renderContext != null
             && renderContext.renderDepthFrame != null
@@ -726,8 +658,8 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
                 FormRenderDepth.getEntityDistanceSq(renderContext.entity, renderContext.camera, transition),
                 renderContext.renderDepthFrame.occluders);
         float opacityAlpha = color.a;
-        boolean lowAlphaDefer = !softOpacityLive && !shadowPass && BBSRendering.needsIrisTranslucentModelDeferral(opacityAlpha);
-        boolean noshadingOpacityDefer = !softOpacityLive && !shadowPass
+        boolean lowAlphaDefer = !ui && !shadowPass && BBSRendering.needsIrisTranslucentModelDeferral(opacityAlpha);
+        boolean noshadingOpacityDefer = !ui && !shadowPass
             && BBSRendering.needsIrisNoshadingOpacityDeferral(opacityAlpha, this.form.noshadingOpacity.get());
         boolean opacityDefer = lowAlphaDefer || noshadingOpacityDefer;
 
@@ -735,7 +667,7 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
         /* Soft Opacity + Noshading off stays on Iris post-deferred (pack body shadows).
          * Frame-end Blend Color overlays use DST_COLOR and ignore form alpha (opaque mask).
          * Bake Blend into vertex RGB on that path instead; Noshading still uses the BBS queue. */
-        boolean softOpacityIrisPath = !softOpacityLive && !shadowPass
+        boolean softOpacityIrisPath = !ui && !shadowPass
             && irisWorldPaintDeferral
             && opacityAlpha > 0.001F
             && opacityAlpha < ShaderOpacityPatch.LIVE_DEPTH_WRITE_ALPHA
@@ -790,7 +722,7 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
         /* Opacity defer replaces the live Iris mesh. Color-grade overlay keeps Iris live. */
         boolean drawIrisLive = !deferTranslucentModel;
 
-        if (!deferTranslucentModel && !softOpacityLive && !shadowPass)
+        if (!deferTranslucentModel && !ui && !shadowPass)
         {
             color.a = BBSRendering.easeIrisModelAlpha(opacityAlpha);
         }
@@ -1024,15 +956,10 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
             if (drawIrisLive)
             {
                 /* Complementary VL: soft opacity waits until after translucent terrain
-                 * (water/lava/portals). Near-opaque stays live with depth for pack shading.
-                 * Orbit editors / UI previews must stay live — post-deferred never redraws them. */
-                /* Soft opacity only — opaque film actors already sort by render depth in
-                 * BaseFilmController. Forcing filmRenderDepth here put solid meshes on the
-                 * translucent deferred queue and made them see-through / holey. */
-                boolean delaySoftOpacity = !softOpacityLive
-                    && ShaderOpacityPatch.shouldDelayUntilPostDeferred(opacityAlpha, false);
+                 * (water/lava/portals). Near-opaque stays live with depth for pack shading. */
+                boolean filmRenderDepth = renderContext != null && renderContext.renderDepthFrame != null;
 
-                if (delaySoftOpacity)
+                if (ShaderOpacityPatch.shouldDelayUntilPostDeferred(opacityAlpha, filmRenderDepth))
                 {
                     /* Iris: entity-local matrices + restore camera ModelView.
                      * No-shader: camera-baked matrices + identity ModelView (BBS path). */
@@ -2321,9 +2248,7 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
 
             Supplier<ShaderProgram> mainShader = this.getModelShader(model);
             Supplier<ShaderProgram> shader = this.getShader(context, mainShader, BBSShaders::getPickerModelsProgram);
-            boolean deferParentMesh = FormRenderDepth.BODY_PART_RENDER_DEPTH
-                && context.renderDepthFrame != null
-                && !this.form.parts.getAllTyped().isEmpty();
+            boolean deferParentMesh = context.renderDepthFrame != null && !this.form.parts.getAllTyped().isEmpty();
 
             if (deferParentMesh)
             {
@@ -2428,24 +2353,13 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
 
         try
         {
-            if (FormRenderDepth.BODY_PART_RENDER_DEPTH && context.renderDepthFrame != null)
+            if (context.renderDepthFrame != null)
             {
                 this.renderDepthSortedBodyParts(context, parts);
             }
             else
             {
-                FormRenderDepth.Frame savedFrame = context.renderDepthFrame;
-
-                context.renderDepthFrame = null;
-
-                try
-                {
-                    this.renderBodyPartLayers(context, parts);
-                }
-                finally
-                {
-                    context.renderDepthFrame = savedFrame;
-                }
+                this.renderBodyPartLayers(context, parts);
             }
         }
         finally

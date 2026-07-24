@@ -22,7 +22,6 @@ import mchorse.bbs_mod.ui.framework.elements.UIElement;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIButton;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIIcon;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIToggle;
-import mchorse.bbs_mod.ui.framework.elements.input.UIPoseSectionCollapse;
 import mchorse.bbs_mod.ui.framework.elements.input.UITrackpad;
 import mchorse.bbs_mod.ui.framework.elements.input.keyframes.factories.UIAnchorKeyframeFactory;
 import mchorse.bbs_mod.ui.framework.elements.input.text.UITextbox;
@@ -388,8 +387,7 @@ public class UIReplaysOverlayPanel extends UIOverlayPanel
             int color = Colors.setA(BBSSettings.primaryColor.get(), this.dockedResizer.isDragging() || this.dockedResizer.area.isInside(context) ? 0.75F : 0.45F);
 
             context.batcher.box(this.dockedResizer.area.x, this.dockedResizer.area.y + 2, this.dockedResizer.area.ex(), this.dockedResizer.area.ey() - 2, color);
-        }).dragEnd(this::flushDockedReplaysHeight)
-            .cursors(GLFW.GLFW_VRESIZE_CURSOR, GLFW.GLFW_VRESIZE_CURSOR);
+        }).dragEnd(this::flushDockedReplaysHeight);
 
         this.content.add(this.replays, this.replayProperties, this.groupProperties, this.dockedResizer);
         this.replayProperties.relative(this.content).x(0).y(0).w(1F).h(1F);
@@ -404,11 +402,30 @@ public class UIReplaysOverlayPanel extends UIOverlayPanel
 
     private void addPropertySection(IKey title, UIElement content)
     {
-        UIPoseSectionCollapse section = new UIPoseSectionCollapse(title, Colors.ACTIVE, content);
+        UIElement section = new UIElement();
 
-        /* Parent first — setExpanded attaches the body as the next sibling. */
+        section.column(4).vertical().stretch();
+
+        UICollapseHeader header = new UICollapseHeader(title);
+
+        header.h(16);
+        header.onToggle(() ->
+        {
+            if (header.expanded)
+            {
+                section.add(content);
+            }
+            else
+            {
+                section.remove(content);
+            }
+
+            this.resize();
+        });
+
+        section.add(header, content);
+
         this.replayProperties.add(section);
-        section.setExpanded(true);
     }
 
     public void attachPropertiesHost(UIElement host)
@@ -888,6 +905,58 @@ public class UIReplaysOverlayPanel extends UIOverlayPanel
         if (this.replays.getList().isEmpty())
         {
             UIDataUtils.renderRightClickHere(context, this.replays.area, 0xFF141418);
+        }
+    }
+
+    public static class UICollapseHeader extends UIElement
+    {
+        public IKey title;
+        public boolean expanded = true;
+
+        private Runnable onToggle;
+
+        public UICollapseHeader(IKey title)
+        {
+            this.title = title;
+        }
+
+        public UICollapseHeader onToggle(Runnable onToggle)
+        {
+            this.onToggle = onToggle;
+
+            return this;
+        }
+
+        @Override
+        protected boolean subMouseClicked(UIContext context)
+        {
+            if (this.area.isInside(context) && context.mouseButton == 0)
+            {
+                this.expanded = !this.expanded;
+
+                if (this.onToggle != null)
+                {
+                    this.onToggle.run();
+                }
+
+                return true;
+            }
+
+            return super.subMouseClicked(context);
+        }
+
+        @Override
+        public void render(UIContext context)
+        {
+            boolean hover = this.area.isInside(context);
+            int background = Colors.setA(BBSSettings.primaryColor.get(), hover ? 0.5F : 0.3F);
+            int textHeight = context.batcher.getFont().getHeight();
+
+            context.batcher.box(this.area.x, this.area.y, this.area.ex(), this.area.ey(), background);
+            context.batcher.icon(this.expanded ? Icons.ARROW_DOWN : Icons.ARROW_RIGHT, Colors.WHITE, this.area.x + 4, this.area.my(), 0F, 0.5F);
+            context.batcher.textShadow(this.title.get(), this.area.x + 18, this.area.my() - textHeight / 2, Colors.WHITE);
+
+            super.render(context);
         }
     }
 }

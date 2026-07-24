@@ -20,6 +20,7 @@ public class UIModelHandsSection extends UIModelSection
     {
         super(editor);
 
+        this.title.label = UIKeys.MODELS_HANDS;
         this.fields.add(UI.row(
             new UIButton(UIKeys.MODELS_ITEMS_FP_MAIN, (b) -> this.openArmorSlotContextMenu(this.config.fpMain)),
             new UIButton(UIKeys.MODELS_ITEMS_FP_OFF, (b) -> this.openArmorSlotContextMenu(this.config.fpOffhand))

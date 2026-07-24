@@ -169,8 +169,7 @@ public class UIPoseKeyframeFactory extends UIKeyframeFactory<Pose>
         }
 
         boolean categoriesEnabled = BBSSettings.modelBlockCategoriesPanelEnabled != null && BBSSettings.modelBlockCategoriesPanelEnabled.get();
-        /* Wide Film Properties: Pick beside Opacity. Narrow + Model Editor stay stacked. */
-        UIElement footer = this.poseEditor.createPoseFooter(wide);
+        UIElement footer = this.poseEditor.createPoseFooter();
 
         if (wide)
         {
