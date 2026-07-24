@@ -43,6 +43,13 @@ public class ColorKeyframeFactory implements IKeyframeFactory<Color>
                 color.r = Lerps.lerp(1F, color.r, intensity);
                 color.g = Lerps.lerp(1F, color.g, intensity);
                 color.b = Lerps.lerp(1F, color.b, intensity);
+
+                /* Opacity often lived on the separate track; ARGB a=0 here was unused / intensity
+                 * leftover and must not become traditional full transparency. */
+                if (color.a <= 0.001F)
+                {
+                    color.a = 1F;
+                }
             }
 
             if (map.has("transform"))

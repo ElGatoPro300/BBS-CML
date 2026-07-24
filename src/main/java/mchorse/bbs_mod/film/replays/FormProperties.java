@@ -172,7 +172,7 @@ public class FormProperties extends ValueGroup
 
     /**
      * Blend-era color keyframes used {@code a = 0} for "no tint". Under traditional alpha that
-     * is fully invisible — rewrite to opaque white. Idempotent.
+     * is fully invisible — force opaque. Keep RGB (may already contain a baked tint).
      */
     private void normalizeBlendEraZeroAlphaColorKeyframes()
     {
@@ -193,9 +193,6 @@ public class FormProperties extends ValueGroup
 
             if (v instanceof Color color && color.a <= 0.001F)
             {
-                color.r = 1F;
-                color.g = 1F;
-                color.b = 1F;
                 color.a = 1F;
             }
         }
@@ -1567,13 +1564,14 @@ public class FormProperties extends ValueGroup
                         Color color = this.sampleColorChannel(colorChannel, tick);
                         float intensity = MathUtils.clamp(color.a, 0F, 1F);
 
-                        /* Bake blend intensity into RGB; opacity track owns alpha. */
+                        /* Bake blend intensity into RGB; traditional color.a is opacity only. */
                         color.r = Lerps.lerp(1F, color.r, intensity);
                         color.g = Lerps.lerp(1F, color.g, intensity);
                         color.b = Lerps.lerp(1F, color.b, intensity);
 
-                        /* Unused Blend defaults (empty Float keyframe = 0 + intensity 0) → opaque. */
-                        if (opacityA <= 0.001F && intensity <= 0.001F)
+                        /* Residual Opacity-track 0 was the unused Float default, not a fade-out.
+                         * Keeping it as alpha made actors with a tint fully invisible. */
+                        if (opacityA <= 0.001F)
                         {
                             opacityA = 1F;
                         }
@@ -1606,10 +1604,7 @@ public class FormProperties extends ValueGroup
 
                     if (v instanceof Color color && color.a <= 0.001F)
                     {
-                        /* Blend-era intensity off → opaque under traditional alpha. */
-                        color.r = 1F;
-                        color.g = 1F;
-                        color.b = 1F;
+                        /* Blend-era a≈0 (intensity off / bad opacity merge) → opaque; keep RGB. */
                         color.a = 1F;
                     }
                 }

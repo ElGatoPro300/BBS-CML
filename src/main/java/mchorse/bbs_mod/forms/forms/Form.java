@@ -625,12 +625,14 @@ public abstract class Form extends ValueGroup
 
             float intensity = MathUtils.clamp(color.a, 0F, 1F);
 
+            /* Bake Blend tint intensity into RGB; traditional color.a is opacity only. */
             color.r = Lerps.lerp(1F, color.r, intensity);
             color.g = Lerps.lerp(1F, color.g, intensity);
             color.b = Lerps.lerp(1F, color.b, intensity);
 
-            /* Unused Blend defaults (opacity field present but 0 + intensity 0) → opaque. */
-            if (opacityA <= 0.001F && intensity <= 0.001F)
+            /* Residual Blend opacity default was 0 (ValueFloat unused) — that was not a real
+             * fade-out. Treating it as opacity made tinted morphs fully invisible. */
+            if (opacityA <= 0.001F)
             {
                 opacityA = 1F;
             }
@@ -640,10 +642,8 @@ public abstract class Form extends ValueGroup
         }
         else if (color.a <= 0.001F)
         {
-            /* Blend-era default (intensity off) would be invisible under traditional alpha. */
-            color.r = 1F;
-            color.g = 1F;
-            color.b = 1F;
+            /* Blend-era intensity off (no opacity field) → opaque under traditional alpha.
+             * Keep RGB when a previous bad merge already baked tint into it. */
             color.a = 1F;
             valueColor.set(color);
         }

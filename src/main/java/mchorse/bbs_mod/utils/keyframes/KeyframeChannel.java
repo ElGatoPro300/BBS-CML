@@ -315,6 +315,13 @@ public class KeyframeChannel <T> extends ValueList<Keyframe<T>>
     {
         this.preNotify();
 
+        /* Always store an owned copy so factory scratch buffers / shared Color instances
+         * cannot leak across keyframes. */
+        if (value != null && this.factory != null)
+        {
+            value = this.factory.copy(value);
+        }
+
         Keyframe<T> prev;
 
         if (!this.list.isEmpty())

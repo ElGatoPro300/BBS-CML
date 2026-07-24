@@ -1974,6 +1974,11 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
                     BaseValueBasic formProperty = FormUtils.getProperty(DUMMY_FORM, key);
                     UIKeyframeSheet sheet = new UIKeyframeSheet(getColor(key), false, property, formProperty);
 
+                    if (property.getFactory() == KeyframeFactories.COLOR)
+                    {
+                        sheet.defaultInsertValue = new Color(1F, 1F, 1F, 1F);
+                    }
+
                     sheets.add(withTrackIcon(sheet, key));
                 }
             }
@@ -2059,6 +2064,12 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
                     UIKeyframeSheet sheet = customTitle != null && !customTitle.isEmpty()
                         ? new UIKeyframeSheet(key, IKey.constant(customTitle), sheetColor, false, property, formProperty)
                         : new UIKeyframeSheet(key, IKey.constant(title), sheetColor, false, property, formProperty);
+
+                    if (property.getFactory() == KeyframeFactories.COLOR)
+                    {
+                        /* Empty color track inserts opaque white, not leftover morph/runtime color. */
+                        sheet.defaultInsertValue = new Color(1F, 1F, 1F, 1F);
+                    }
 
                     sheets.add(withTrackIcon(sheet, key));
                 }
