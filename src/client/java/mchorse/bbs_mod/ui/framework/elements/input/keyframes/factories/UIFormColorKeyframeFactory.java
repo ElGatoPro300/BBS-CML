@@ -21,7 +21,6 @@ import mchorse.bbs_mod.ui.framework.elements.input.keyframes.UIKeyframeSheet;
 import mchorse.bbs_mod.ui.framework.elements.input.keyframes.UIKeyframes;
 import mchorse.bbs_mod.ui.utils.UI;
 import mchorse.bbs_mod.ui.utils.icons.Icons;
-import mchorse.bbs_mod.utils.MathUtils;
 import mchorse.bbs_mod.utils.colors.Color;
 import mchorse.bbs_mod.utils.keyframes.Keyframe;
 import mchorse.bbs_mod.utils.keyframes.KeyframeChannel;
@@ -31,8 +30,8 @@ import java.util.List;
 import java.util.function.Consumer;
 
 /**
- * Film Color track: Blend Color (RGB + intensity + Transform) and Paint Color (RGB + intensity + Transform).
- * Label/text forms only expose Blend Color itself. Trail forms hide Color grade but keep transforms.
+ * Film Color track: Color (RGBA + Transform) and Paint Color (RGB + intensity + Transform).
+ * Label/text forms only expose Color itself. Trail forms hide Color grade but keep transforms.
  */
 public class UIFormColorKeyframeFactory extends UIKeyframeFactory<Color>
 {
@@ -40,7 +39,6 @@ public class UIFormColorKeyframeFactory extends UIKeyframeFactory<Color>
     private final boolean hideColorGrade;
 
     private UIColor blendColor;
-    private UITrackpad blendIntensity;
     private UIFormColorAdjustments blendAdjustments;
     private UIEffectTransformCollapse blendTransform;
     private UIColor paintColor;
@@ -57,28 +55,21 @@ public class UIFormColorKeyframeFactory extends UIKeyframeFactory<Color>
 
         this.blendColor = new UIColor((c) -> this.applyColorEdit((color) ->
         {
-            Color value = Color.rgb(c);
-            float intensity = color.a;
+            Color rgba = Color.rgba(c);
 
-            color.set(value.r, value.g, value.b, intensity);
-        }));
-        this.blendColor.setColor(keyframe.getValue().getRGBColor());
+            color.set(rgba.r, rgba.g, rgba.b, rgba.a);
+        })).withAlpha();
+        this.blendColor.setColor(keyframe.getValue().getARGBColor());
 
         this.spectrum = new UIToggle(UIKeys.GENERIC_KEYFRAMES_COLOR_SPECTRUM, (b) -> this.setSpectrum(b.getValue()));
         this.spectrum.tooltip(UIKeys.GENERIC_KEYFRAMES_COLOR_SPECTRUM_TOOLTIP);
         this.spectrum.setValue(keyframe.isSpectrum());
 
-        this.scroll.add(UI.label(UIKeys.FORMS_EDITORS_BLEND_COLOR).marginTop(4));
+        this.scroll.add(UI.label(UIKeys.FILM_REPLAY_TRACK_COLOR).marginTop(4));
         this.scroll.add(this.blendColor);
 
         if (!this.simpleBlendColorOnly)
         {
-            this.blendIntensity = new UITrackpad((value) -> this.applyColorEdit((color) ->
-                color.a = MathUtils.clamp(value.floatValue(), 0F, 1F)));
-            this.blendIntensity.limit(0F, 1F).values(0.1D, 0.05D, 0.2D);
-            this.blendIntensity.tooltip(UIKeys.FORMS_EDITORS_BLEND_INTENSITY);
-            this.wireUndo(this.blendIntensity);
-
             this.blendTransform = new UIEffectTransformCollapse((apply) -> this.applyColorEdit((color) ->
             {
                 if (color.transform == null)
@@ -110,7 +101,6 @@ public class UIFormColorKeyframeFactory extends UIKeyframeFactory<Color>
             /* Paint lives on a hidden channel (not a timeline sheet); undo via color-sheet
              * cache/submit would not capture paint and was snapping the intensity bar back. */
 
-            this.scroll.add(UI.label(UIKeys.FORMS_EDITORS_BLEND_INTENSITY), this.blendIntensity);
             this.scroll.add(this.blendTransform);
             this.scroll.add(UI.label(UIKeys.FORMS_EDITORS_PAINT_COLOR).marginTop(4));
             this.scroll.add(this.paintColor);
@@ -118,7 +108,6 @@ public class UIFormColorKeyframeFactory extends UIKeyframeFactory<Color>
             this.scroll.add(this.paintTransform);
             this.scroll.add(this.spectrum.marginTop(8));
 
-            this.wireResetThisValue(this.blendIntensity, () -> this.applyColorEdit((color) -> color.a = 0F));
             this.wireResetThisValue(this.paintIntensity, () -> this.applyPaintEdit((settings) -> settings.intensity = 0F));
 
             if (!this.hideColorGrade)
@@ -292,7 +281,7 @@ public class UIFormColorKeyframeFactory extends UIKeyframeFactory<Color>
 
         Color value = this.getOrCreateColor(this.keyframe.getValue());
 
-        this.blendColor.setColor(value.getRGBColor());
+        this.blendColor.setColor(value.getARGBColor());
         this.spectrum.setValue(this.keyframe.isSpectrum());
 
         if (this.simpleBlendColorOnly)
@@ -301,8 +290,6 @@ public class UIFormColorKeyframeFactory extends UIKeyframeFactory<Color>
         }
 
         PaintSettings paint = this.getPaintSettingsAtTick(this.keyframe.getTick());
-
-        this.blendIntensity.setValue(MathUtils.clamp(value.a, 0F, 1F));
 
         if (this.blendAdjustments != null)
         {

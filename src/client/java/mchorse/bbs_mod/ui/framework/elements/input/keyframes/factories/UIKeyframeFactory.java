@@ -159,19 +159,6 @@ public abstract class UIKeyframeFactory <T> extends UIElement
             }
         }
 
-        if (keyframe.getFactory() == KeyframeFactories.FLOAT && editor != null)
-        {
-            UIKeyframeSheet sheet = editor.getGraph().getSheet(keyframe);
-
-            if (sheet != null && "opacity".equals(sheet.id))
-            {
-                @SuppressWarnings("unchecked")
-                Keyframe<Float> opacityKeyframe = (Keyframe<Float>) keyframe;
-
-                return new UIOpacityKeyframeFactory(opacityKeyframe, editor);
-            }
-        }
-
         IUIKeyframeFactoryFactory<T> factory = FACTORIES.get(keyframe.getFactory());
         UIKeyframeFactory uiEditor = factory == null ? null : factory.create(keyframe, editor);
 

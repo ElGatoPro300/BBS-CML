@@ -114,7 +114,7 @@ public class UIItemFormPanel extends UIFormPanel<ItemForm>
             UIKeys.FILM_REPLAY_TRACK_COLOR,
             UIReplaysEditor.getColor("color"),
             UI.column(
-                UI.label(UIKeys.FORMS_EDITORS_BLEND_COLOR).marginTop(4),
+                UI.label(UIKeys.FILM_REPLAY_TRACK_COLOR).marginTop(4),
                 this.color,
                 UI.label(UIKeys.FORMS_EDITORS_PAINT_COLOR).marginTop(4),
                 this.paintColor,

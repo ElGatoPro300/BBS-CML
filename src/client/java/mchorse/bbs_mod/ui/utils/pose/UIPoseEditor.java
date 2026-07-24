@@ -80,7 +80,6 @@ public class UIPoseEditor extends UIElement
     public UITrackpad fix;
     public UIButton pickTexture;
     public UIColor color;
-    public UITrackpad blendIntensity;
     public UIEffectTransformCollapse colorTransform;
     public UIColor paintColor;
     public UITrackpad paintIntensity;
@@ -415,49 +414,18 @@ public class UIPoseEditor extends UIElement
             }
 
             if (this.onChange != null) this.onChange.run();
-        });
-        this.color.tooltip(UIKeys.FORMS_EDITORS_BLEND_COLOR);
+        }).withAlpha();
+        this.color.tooltip(UIKeys.FILM_REPLAY_TRACK_COLOR);
         this.color.context((menu) ->
         {
             menu.action(Icons.DOWNLOAD, UIKeys.POSE_CONTEXT_APPLY, () ->
             {
-                this.applyChildren((p) -> this.setColor(p, this.color.picker.color.getRGBColor()));
+                this.applyChildren((p) -> this.setColor(p, this.color.picker.color.getARGBColor()));
                 if (this.onChange != null) this.onChange.run();
             });
             menu.action(Icons.DOWNLOAD, UIKeys.POSE_CATEGORIES_CONTEXT_APPLY_CATEGORY, () ->
             {
-                this.applyCategory((p) -> this.setColor(p, this.color.picker.color.getRGBColor()));
-                if (this.onChange != null) this.onChange.run();
-            });
-        });
-        this.blendIntensity = new UITrackpad((value) ->
-        {
-            String selectedCategory = this.categories != null ? this.categories.getCurrentFirst() : null;
-            if (selectedCategory != null && !selectedCategory.isEmpty())
-            {
-                this.applyCategory((p) -> this.setBlendIntensity(p, value.floatValue()));
-            }
-            else if (this.applyLiveMirror((p) -> this.setBlendIntensity(p, value.floatValue())))
-            {}
-            else if (this.transform.getTransform() instanceof PoseTransform poseTransform)
-            {
-                this.setBlendIntensity(poseTransform, value.floatValue());
-            }
-
-            if (this.onChange != null) this.onChange.run();
-        });
-        this.blendIntensity.limit(0F, 1F).values(0.1D, 0.05D, 0.2D);
-        this.blendIntensity.tooltip(UIKeys.FORMS_EDITORS_BLEND_INTENSITY);
-        this.blendIntensity.context((menu) ->
-        {
-            menu.action(Icons.DOWNLOAD, UIKeys.POSE_CONTEXT_APPLY, () ->
-            {
-                this.applyChildren((p) -> this.setBlendIntensity(p, (float) this.blendIntensity.getValue()));
-                if (this.onChange != null) this.onChange.run();
-            });
-            menu.action(Icons.DOWNLOAD, UIKeys.POSE_CATEGORIES_CONTEXT_APPLY_CATEGORY, () ->
-            {
-                this.applyCategory((p) -> this.setBlendIntensity(p, (float) this.blendIntensity.getValue()));
+                this.applyCategory((p) -> this.setColor(p, this.color.picker.color.getARGBColor()));
                 if (this.onChange != null) this.onChange.run();
             });
         });
@@ -619,10 +587,8 @@ public class UIPoseEditor extends UIElement
             UIKeys.FILM_REPLAY_TRACK_COLOR,
             UIReplaysEditor.getColor("color"),
             UI.column(
-                UI.label(UIKeys.FORMS_EDITORS_BLEND_COLOR).marginTop(4),
+                UI.label(UIKeys.FILM_REPLAY_TRACK_COLOR).marginTop(4),
                 this.color,
-                UI.label(UIKeys.FORMS_EDITORS_BLEND_INTENSITY),
-                this.blendIntensity,
                 this.colorTransform,
                 UI.label(UIKeys.FORMS_EDITORS_PAINT_COLOR).marginTop(4),
                 this.paintColor,
@@ -826,7 +792,6 @@ public class UIPoseEditor extends UIElement
         }
         this.fix.setVisible(!groups.isEmpty());
         this.color.setVisible(!groups.isEmpty());
-        this.blendIntensity.setVisible(!groups.isEmpty());
         this.paintColor.setVisible(!groups.isEmpty());
         this.paintIntensity.setVisible(!groups.isEmpty());
         this.glowingColor.setVisible(!groups.isEmpty());
@@ -1128,7 +1093,6 @@ public class UIPoseEditor extends UIElement
 
         this.fix.setVisible(true);
         this.color.setVisible(true);
-        this.blendIntensity.setVisible(true);
         this.paintColor.setVisible(true);
         this.paintIntensity.setVisible(true);
         this.glowingColor.setVisible(true);
@@ -1140,7 +1104,6 @@ public class UIPoseEditor extends UIElement
 
         this.fix.setEnabled(isPoseTransform);
         this.color.setEnabled(isPoseTransform);
-        this.blendIntensity.setEnabled(isPoseTransform);
         this.paintColor.setEnabled(isPoseTransform);
         this.paintIntensity.setEnabled(isPoseTransform);
         this.glowingColor.setEnabled(isPoseTransform);
@@ -1168,7 +1131,6 @@ public class UIPoseEditor extends UIElement
 
         this.fix.setVisible(true);
         this.color.setVisible(true);
-        this.blendIntensity.setVisible(true);
         this.paintColor.setVisible(true);
         this.paintIntensity.setVisible(true);
         this.glowingColor.setVisible(true);
@@ -1180,7 +1142,6 @@ public class UIPoseEditor extends UIElement
 
         this.fix.setEnabled(true);
         this.color.setEnabled(true);
-        this.blendIntensity.setEnabled(true);
         this.paintColor.setEnabled(true);
         this.paintIntensity.setEnabled(true);
         this.glowingColor.setEnabled(true);
@@ -1193,8 +1154,7 @@ public class UIPoseEditor extends UIElement
         if (poseTransform != null)
         {
             this.fix.setValue(poseTransform.fix);
-            this.color.setColor(poseTransform.color.getRGBColor());
-            this.blendIntensity.setValue(MathUtils.clamp(poseTransform.color.a, 0F, 1F));
+            this.color.setColor(poseTransform.color.getARGBColor());
             this.colorTransform.setEffectTransform(poseTransform.color.transform);
             this.paintColor.setColor(poseTransform.paintColor.getRGBColor());
             this.paintIntensity.setValue(poseTransform.paintColor.a);
@@ -1209,7 +1169,6 @@ public class UIPoseEditor extends UIElement
         {
             this.fix.setValue(0F);
             this.color.setColor(Colors.WHITE);
-            this.blendIntensity.setValue(1F);
             this.colorTransform.setEffectTransform(new EffectTransform());
             this.paintColor.setColor(0xFFFFFF);
             this.paintIntensity.setValue(0F);
@@ -1229,15 +1188,9 @@ public class UIPoseEditor extends UIElement
 
     protected void setColor(PoseTransform transform, int value)
     {
-        float intensity = transform.color.a;
+        Color rgba = Color.rgba(value);
 
-        transform.color.set(value, false);
-        transform.color.a = intensity;
-    }
-
-    protected void setBlendIntensity(PoseTransform transform, float value)
-    {
-        transform.color.a = MathUtils.clamp(value, 0F, 1F);
+        transform.color.set(rgba.r, rgba.g, rgba.b, rgba.a);
     }
 
     protected void setPaintColor(PoseTransform transform, int value)

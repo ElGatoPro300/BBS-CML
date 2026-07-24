@@ -86,7 +86,7 @@ public class UIModelFormPanel extends UIFormPanel<ModelForm>
         this.color = new UIColor((c) ->
         {
             Color color = this.form.color.get().copy();
-            Color value = new Color().set(c);
+            Color value = Color.rgba(c);
 
             color.set(value.r, value.g, value.b, value.a);
             this.form.color.set(color);
@@ -186,7 +186,7 @@ public class UIModelFormPanel extends UIFormPanel<ModelForm>
             UIKeys.FILM_REPLAY_TRACK_COLOR,
             UIReplaysEditor.getColor("color"),
             UI.column(
-                UI.label(UIKeys.FORMS_EDITORS_BLEND_COLOR).marginTop(4),
+                UI.label(UIKeys.FILM_REPLAY_TRACK_COLOR).marginTop(4),
                 this.color,
                 this.colorTransform,
                 UI.label(UIKeys.FORMS_EDITORS_PAINT_COLOR).marginTop(4),

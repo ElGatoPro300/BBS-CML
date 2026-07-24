@@ -15,9 +15,10 @@ isProject: true
 
 # Revert temporal: Blend Color + Opacity track
 
-> **Estado:** plan acordado — **aún no ejecutado**.  
+> **Estado:** Fase A completada (commit). Fase B **completada** (cambios sin commit; color tradicional restaurado).  
 > **Base estable:** `a75c46b6c4c2e3603dadec8e92cc948c70df2bfb` (*Remove 170º limit from fish eye effect*).  
-> **Introducción del sistema a deshacer:** `c48885dd958fcb133368e54db9d9b563a6b2ff4d` (*New color and opacity*), completado en UI por `a5a1577ba` → `2d244a9fd` (ya incluidos en el beta estable).
+> **Introducción del sistema a deshacer:** `c48885dd958fcb133368e54db9d9b563a6b2ff4d` (*New color and opacity*), completado en UI por `a5a1577ba` → `2d244a9fd` (ya incluidos en el beta estable).  
+> **Nota UI (Fase C):** conservar Color Grade, Glow/Bright, Paint, Shape+transforms; **mejorar su UI** respecto a la actual para más consistencia con el resto de paneles (el color picker ya tiene slider alpha vía `editAlpha` / `.withAlpha()`).
 
 ---
 
@@ -115,6 +116,29 @@ No forman parte del “lote SIRSYP a revertir” (p. ej. ElGatoPro300, ElRedston
 - El proyecto compila (`./gradlew build` o al menos compilación client/main).
 - No se ha empezado aún el rollback de Blend Color (eso es Fase B).
 
+### Registro de ejecución (2026-07-24)
+
+Aplicado con `git revert --no-commit` (sin commits todavía; ~117 archivos en staging).
+
+| Acción | Resultado |
+| --- | --- |
+| `257364f1c` merge `-m 1` | OK (deshace `56dbeafb7`); conflicto resuelto en `ModelFormRenderer` |
+| `58a86aee4` | OK; conflicto resuelto en `FormProperties` (eliminado `writeCompatibleColorValue`) |
+| `ad1b4abae` | OK |
+| `8471eb1c0` merge | **Omitido** (solo traía limpieza de dumps `.cursor`; no aporta bugs) |
+| `fda424b80` | OK; conflicto resuelto en `UIPoseSectionCollapse` |
+| `a22ab2dba` … `7a6ec494f` | OK |
+| `f5ba4cff0` | OK; conflicto resuelto restaurando `UIWorldFilmsBrowserPanel` pre-commit |
+| `efd90d471` | OK; conflicto de imports resuelto en `UIPoseEditor` |
+| `0b63a91c8` | OK; conflicto de imports resuelto en `UIModelPartsSection` |
+| `9b6696908` | OK |
+| `ae8b38fd6` | OK; se mantuvo `BlockState` (estilo, sin `var`) |
+| `757b07335` | **Conservado** |
+
+Verificación: `./gradlew compileJava compileClientJava` OK.
+
+Siguiente: **Fase B** (rollback quirúrgico Blend Color + Opacity). En **Fase C**, además del alpha del picker, reajustar UI de Color Grade / Glow / Paint para consistencia visual con el resto de paneles.
+
 ---
 
 ## Fase B — Rollback quirúrgico Blend Color + Opacity track
@@ -154,6 +178,26 @@ No forman parte del “lote SIRSYP a revertir” (p. ej. ElGatoPro300, ElRedston
 - Films/forms cargan sin depender de migración blend→opacity.
 - Paint / Bright / Grade / Shape siguen existiendo a nivel de datos.
 
+### Registro de ejecución (2026-07-24)
+
+Rollback quirúrgico (sin `git revert` de `c488`/`a5a`/`2d2`):
+
+| Área | Cambio |
+| --- | --- |
+| `Form.java` | Eliminado `ValueFloat opacity`; `getFormOpacity()` lee `color.a`; `applyFormOpacity` no-op; merge one-shot opacity→color al cargar; `toData` quita `opacity` |
+| `Color.java` | `copyWithBlendIntensity*` ya no trata `a` como intensidad; conserva alpha + aplica Color Grade |
+| `FormColorBlend` | `wantsColorTransformMask` ignora alpha; solo RGB≠blanco o transform |
+| Forms defaults | `color.a` default `1F` (antes `0F` = invisible bajo alpha tradicional) |
+| `FormProperties` | Merge canal `opacity` → `color.a` al cargar; eliminado dual-write compatible; noshading solo en Color |
+| UI paneles/keyframes/pose | Sin blend intensity ni opacity trackpad; color con `.withAlpha()` |
+| `UIReplaysEditor` | Track `opacity` de forms retirado de listas |
+| Render Label/Fluid | Usan `color.a` |
+
+Verificación: `./gradlew compileJava compileClientJava` OK.
+
+Siguiente: **Fase C** (pulir UI Paint/Bright/Grade + consistencia; alpha del picker ya existe).
+**Nota:** `UIOpacityKeyframeFactory.java` queda huérfano (se puede borrar en limpieza).
+
 ---
 
 ## Fase C — UI user-friendly (Paint / Bright / Grade + color picker)
@@ -168,8 +212,8 @@ No forman parte del “lote SIRSYP a revertir” (p. ej. ElGatoPro300, ElRedston
 
 ### C2 — Paint / Bright / Color Grade / Shape
 
-- Mantener features.
-- Reorganizar UI para estilo similar al resto de paneles BBS (labels, collapses, densidades coherentes).
+- Mantener features (Color Grade, Glow/Bright, Paint, Shape+transforms).
+- **Reorganizar / mejorar UI** para estilo similar al resto de paneles BBS (labels, collapses, densidades, espaciado coherentes) — la UI actual de estos bloques se considera inconsistente y debe alinearse.
 - Evitar duplicar “intensidad de blend” en el color principal; intensidad de Paint/Glow sigue en sus propios campos.
 
 ### C3 — Preview / overlays
