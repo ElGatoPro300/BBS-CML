@@ -54,7 +54,7 @@ public class UITrailFormPanel extends UIFormPanel<TrailForm>
             color.set(next.r, next.g, next.b, next.a);
             this.form.color.set(color);
         }).direction(Direction.LEFT).withAlpha();
-        this.color.tooltip(UIKeys.FILM_REPLAY_TRACK_COLOR);
+        this.color.tooltip(UIKeys.FORMS_EDITORS_BLEND_COLOR);
         this.colorTransform = new UIEffectTransformCollapse((apply) ->
         {
             Color copy = this.form.color.get().copy();
@@ -138,7 +138,7 @@ public class UITrailFormPanel extends UIFormPanel<TrailForm>
             UIKeys.FILM_REPLAY_TRACK_COLOR,
             UIReplaysEditor.getColor("color"),
             UI.column(
-                UI.label(UIKeys.FILM_REPLAY_TRACK_COLOR).marginTop(4),
+                UI.label(UIKeys.FORMS_EDITORS_BLEND_COLOR).marginTop(4),
                 this.color,
                 this.colorTransform,
                 UI.label(UIKeys.FORMS_EDITORS_PAINT_COLOR).marginTop(4),

@@ -13,7 +13,6 @@ import mchorse.bbs_mod.utils.keyframes.Keyframe;
 import mchorse.bbs_mod.utils.keyframes.KeyframeChannel;
 import mchorse.bbs_mod.utils.keyframes.KeyframeSegment;
 import mchorse.bbs_mod.utils.keyframes.factories.IKeyframeFactory;
-import mchorse.bbs_mod.utils.keyframes.factories.KeyframeFactories;
 
 import java.util.List;
 
@@ -157,23 +156,7 @@ public interface IUIKeyframeGraph
             }
             else if (property != null)
             {
-                /* Empty track: drop leftover runtime from deleted keyframes so the next insert
-                 * does not resurrect the previous value (especially Color / Blend-era a=0). */
-                if (sheet.channel.isEmpty())
-                {
-                    property.setRuntimeValue(null);
-                }
-
-                /* Color on an empty channel must use factory defaults (opaque white), not the
-                 * morph color — Blend-era morphs often still carry a=0 / last edited tint. */
-                if (sheet.channel.isEmpty() && sheet.channel.getFactory() == KeyframeFactories.COLOR)
-                {
-                    value = sheet.channel.getFactory().createEmpty();
-                }
-                else
-                {
-                    value = sheet.channel.getFactory().copy(property.get());
-                }
+                value = sheet.channel.getFactory().copy(property.get());
             }
             else
             {
@@ -205,7 +188,6 @@ public interface IUIKeyframeGraph
         UIReplaysEditorUtils.removeCompanionPaintForColorKeyframe(this.getHostKeyframes(), keyframe);
 
         sheet.remove(keyframe);
-        this.clearPropertyRuntimeIfEmpty(sheet);
         this.clearSelection();
         this.pickKeyframe(null);
     }
@@ -217,22 +199,9 @@ public interface IUIKeyframeGraph
         for (UIKeyframeSheet sheet : this.getSheets())
         {
             sheet.selection.removeSelected();
-            this.clearPropertyRuntimeIfEmpty(sheet);
         }
 
         this.pickKeyframe(null);
-    }
-
-    /**
-     * When the last keyframe is gone, clear form property runtime so playback and the next
-     * insert fall back to the morph base instead of the deleted keyframe's value.
-     */
-    public default void clearPropertyRuntimeIfEmpty(UIKeyframeSheet sheet)
-    {
-        if (sheet != null && sheet.channel.isEmpty() && sheet.property != null)
-        {
-            sheet.property.setRuntimeValue(null);
-        }
     }
 
     public Pair<Keyframe, KeyframeType> findKeyframe(int mouseX, int mouseY);

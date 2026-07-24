@@ -61,6 +61,7 @@ public class UILabelFormPanel extends UIFormPanel<LabelForm>
     public UITrackpad letterSpacing;
     public UITrackpad lineHeight;
     public UICirculate textAlign;
+    public UITrackpad opacity;
     
     public UIToggle underline;
     public UIToggle strikethrough;
@@ -73,11 +74,7 @@ public class UILabelFormPanel extends UIFormPanel<LabelForm>
     public UITrackpad gradientOffset;
     public UIButton resetGradient;
 
-    private UIElement advancedSection;
-    private UIElement advancedHeaderRow;
-    private UIIcon advancedToggle;
-    private UIButton advancedHeader;
-    private boolean advancedExpanded = false;
+    public UIPoseSectionCollapse advancedSection;
 
     public UILabelFormPanel(UIForm editor)
     {
@@ -88,7 +85,7 @@ public class UILabelFormPanel extends UIFormPanel<LabelForm>
         this.nametag = new UIToggle(UIKeys.FORMS_EDITORS_LABEL_NAMETAG, (b) -> this.form.nametag.set(b.getValue()));
         this.nametag.tooltip(UIKeys.FORMS_EDITORS_LABEL_NAMETAG_HINT);
         this.color = new UIColor((c) -> this.form.color.set(Color.rgba(c))).withAlpha();
-        this.color.tooltip(UIKeys.FILM_REPLAY_TRACK_COLOR);
+        this.color.tooltip(UIKeys.FORMS_EDITORS_BLEND_COLOR);
         this.glowingColor = new UIColor((c) ->
         {
             Color color = Color.rgba(c);
@@ -199,6 +196,9 @@ public class UILabelFormPanel extends UIFormPanel<LabelForm>
         this.lineHeight = new UITrackpad((v) -> this.form.lineHeight.set(v.floatValue()));
         this.lineHeight.limit(0F, 100F).values(0.1F);
         
+        this.opacity = new UITrackpad((v) -> this.form.opacity.set(v.floatValue()));
+        this.opacity.limit(0F, 1F).values(0.05F);
+
         this.underline = new UIToggle(UIKeys.FORMS_EDITORS_LABEL_UNDERLINE, (b) -> this.form.underline.set(b.getValue()));
         this.strikethrough = new UIToggle(UIKeys.FORMS_EDITORS_LABEL_STRIKETHROUGH, (b) -> this.form.strikethrough.set(b.getValue()));
         
@@ -235,62 +235,25 @@ public class UILabelFormPanel extends UIFormPanel<LabelForm>
         this.options.add(UI.label(UIKeys.FORMS_EDITORS_LABEL_BACKGROUND).marginTop(8), this.background, this.offset);
         this.options.add(UI.label(UIKeys.FORMS_EDITORS_LABEL_COLOR_FORMAT_GUIDE).marginTop(8), new UIMinecraftColorGuide());
 
-        /* Advanced Layout */
-        this.advancedToggle = new UIIcon(Icons.ARROW_DOWN, (b) -> this.toggleAdvancedSection());
-        this.advancedHeader = new UIButton(UIKeys.FORMS_EDITORS_LABEL_ADVANCED_TEXT, (b) -> this.toggleAdvancedSection())
-            .background(false);
-
-        this.advancedSection = new UIElement();
-        this.advancedSection.column(5).vertical().stretch().padding(6);
-        this.advancedSection.add(
-            UI.label(UIKeys.FORMS_EDITORS_LABEL_FONT), this.font, this.openFontsFolder,
-            UI.row(this.fontSize, this.bold),
-            UI.row(this.fontStyle, this.textAlign),
-            UI.row(this.letterSpacing, this.lineHeight),
-            UI.row(this.underline, this.strikethrough),
-            UI.label(UIKeys.FORMS_EDITORS_LABEL_EFFECTS).marginTop(8),
-            UI.label(UIKeys.FORMS_EDITORS_LABEL_SHADOW_BLUR), this.shadowBlur,
-            this.outline, this.outlineColor, this.outlineWidth,
-            this.gradient, this.gradientEndColor, this.gradientOffset, this.resetGradient
+        /* Advanced text — same animated colored disclosure as Glow / Color. */
+        this.advancedSection = new UIPoseSectionCollapse(
+            UIKeys.FORMS_EDITORS_LABEL_ADVANCED_TEXT,
+            Colors.ACTIVE,
+            UI.column(
+                UI.label(UIKeys.FORMS_EDITORS_LABEL_FONT), this.font, this.openFontsFolder,
+                UI.row(this.fontSize, this.bold),
+                UI.row(this.fontStyle, this.textAlign),
+                UI.row(this.letterSpacing, this.lineHeight),
+                UI.label(UIKeys.FORMS_EDITORS_LABEL_OPACITY), this.opacity,
+                UI.row(this.underline, this.strikethrough),
+                UI.label(UIKeys.FORMS_EDITORS_LABEL_EFFECTS).marginTop(8),
+                UI.label(UIKeys.FORMS_EDITORS_LABEL_SHADOW_BLUR), this.shadowBlur,
+                this.outline, this.outlineColor, this.outlineWidth,
+                this.gradient, this.gradientEndColor, this.gradientOffset, this.resetGradient
+            )
         );
-
-        this.advancedHeaderRow = new UIElement()
-        {
-            @Override
-            public void render(UIContext context)
-            {
-                this.area.render(context.batcher, Colors.A100 + BBSSettings.primaryColor.get());
-                super.render(context);
-            }
-        };
-        this.advancedHeaderRow.row(5).padding(4).height(20);
-        this.advancedHeaderRow.add(this.advancedToggle, this.advancedHeader);
-        this.advancedHeaderRow.marginTop(12);
-        this.options.add(this.advancedHeaderRow);
-        this.setAdvancedExpanded(false);
-    }
-
-    private void toggleAdvancedSection()
-    {
-        this.setAdvancedExpanded(!this.advancedExpanded);
-    }
-
-    private void setAdvancedExpanded(boolean expanded)
-    {
-        this.advancedExpanded = expanded;
-        this.advancedToggle.both(expanded ? Icons.ARROW_DOWN : Icons.ARROW_RIGHT);
-        if (expanded)
-        {
-            if (!this.advancedSection.hasParent())
-            {
-                this.options.addAfter(this.advancedHeaderRow, this.advancedSection);
-            }
-        }
-        else
-        {
-            this.advancedSection.removeFromParent();
-        }
-        this.options.resize();
+        this.advancedSection.marginTop(12);
+        this.options.add(this.advancedSection);
     }
 
     @Override
@@ -332,6 +295,7 @@ public class UILabelFormPanel extends UIFormPanel<LabelForm>
         this.textAlign.setValue(form.textAlign.get());
         this.letterSpacing.setValue(form.letterSpacing.get());
         this.lineHeight.setValue(form.lineHeight.get());
+        this.opacity.setValue(form.opacity.get());
         this.underline.setValue(form.underline.get());
         this.strikethrough.setValue(form.strikethrough.get());
         this.shadowBlur.setValue(form.shadowBlur.get());

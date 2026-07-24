@@ -31,7 +31,6 @@ public class UIModelItemsSection extends UIModelSection
     {
         super(editor);
 
-        this.title.label = UIKeys.MODELS_ITEMS;
         this.fields.add(UI.row(
             new UIButton(UIKeys.MODELS_ITEMS_MAIN, (b) -> this.openContextMenu(this.config.itemsMain)),
             new UIButton(UIKeys.MODELS_ITEMS_OFF, (b) -> this.openContextMenu(this.config.itemsOff))

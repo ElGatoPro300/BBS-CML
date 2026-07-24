@@ -67,6 +67,9 @@ public class StructurePickerClient
     private static BlockPos lastPaintedBlock;
     private static Direction triangleFacing;
 
+    private static BlockPos modelBlockFlashPos;
+    private static long modelBlockFlashUntilMs;
+
     public static StructurePickerMode getMode()
     {
         return StructurePickerClient.mode;
@@ -75,6 +78,43 @@ public class StructurePickerClient
     public static void setMode(StructurePickerMode mode)
     {
         StructurePickerClient.mode = mode;
+    }
+
+    public static void startModelBlockFlash(BlockPos pos)
+    {
+        StructurePickerClient.modelBlockFlashPos = pos.toImmutable();
+        StructurePickerClient.modelBlockFlashUntilMs = System.currentTimeMillis() + 3000L;
+    }
+
+    public static BlockPos getModelBlockFlashPos()
+    {
+        if (StructurePickerClient.modelBlockFlashPos == null)
+        {
+            return null;
+        }
+
+        if (System.currentTimeMillis() > StructurePickerClient.modelBlockFlashUntilMs)
+        {
+            StructurePickerClient.modelBlockFlashPos = null;
+
+            return null;
+        }
+
+        return StructurePickerClient.modelBlockFlashPos;
+    }
+
+    public static float getModelBlockFlashAlpha()
+    {
+        if (StructurePickerClient.getModelBlockFlashPos() == null)
+        {
+            return 0F;
+        }
+
+        long remaining = StructurePickerClient.modelBlockFlashUntilMs - System.currentTimeMillis();
+        long elapsed = 3000L - remaining;
+
+        /* Blink roughly 4 times per second */
+        return (elapsed / 250L) % 2L == 0L ? 0.95F : 0F;
     }
 
     public static boolean isSubtractMode()
@@ -878,6 +918,11 @@ public class StructurePickerClient
 
     public static void importSelection(boolean toModelBlock)
     {
+        StructurePickerClient.importSelection(toModelBlock, null);
+    }
+
+    public static void importSelection(boolean toModelBlock, String customName)
+    {
         MinecraftClient mc = MinecraftClient.getInstance();
         World world = mc.world;
 
@@ -903,16 +948,18 @@ public class StructurePickerClient
         }
 
         BlockPos placement = StructurePickerExporter.getPlacementPos(min, max);
+        String name = customName == null ? "" : customName.trim();
 
         if (toModelBlock)
         {
+            StructurePickerClient.startModelBlockFlash(placement);
             StructurePickerClient.runOnServer(mc, (serverWorld) ->
             {
-                String path = StructurePickerExporter.export(serverWorld, blocks);
+                String path = StructurePickerExporter.export(serverWorld, blocks, name);
 
                 if (path != null)
                 {
-                    StructurePickerExporter.placeModelBlock(serverWorld, placement, path);
+                    StructurePickerExporter.placeModelBlock(serverWorld, placement, path, name);
                 }
             });
         }
@@ -920,7 +967,7 @@ public class StructurePickerClient
         {
             StructurePickerClient.runOnServer(mc, (serverWorld) ->
             {
-                String path = StructurePickerExporter.export(serverWorld, blocks);
+                String path = StructurePickerExporter.export(serverWorld, blocks, name);
 
                 if (path != null)
                 {

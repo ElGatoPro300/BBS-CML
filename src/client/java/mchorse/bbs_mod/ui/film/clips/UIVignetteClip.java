@@ -32,7 +32,7 @@ public class UIVignetteClip extends UIClip<VignetteClip>
         this.color = new UIColor((c) -> this.editor.editMultiple(this.clip.color, (value) ->
         {
             value.set(c);
-        }));
+        })).withAlpha();
 
         this.keyframes = new UIKeyframeEditor((consumer) -> new UIFilmKeyframes(this.editor, consumer));
         this.keyframes.view.backgroundRenderer((context) ->

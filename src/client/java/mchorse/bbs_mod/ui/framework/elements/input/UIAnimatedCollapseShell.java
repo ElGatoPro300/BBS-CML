@@ -39,6 +39,7 @@ public class UIAnimatedCollapseShell extends UIElement
     private long animStartNs;
     private int lastAppliedHeight = -1;
     private int naturalHeight;
+    private UIElement scrollAnchor;
 
     public UIAnimatedCollapseShell(UIElement content)
     {
@@ -111,6 +112,19 @@ public class UIAnimatedCollapseShell extends UIElement
      */
     public void setExpanded(boolean expanded, UIElement host)
     {
+        this.scrollAnchor = host;
+
+        if (expanded)
+        {
+            this.attachAfter(host);
+
+            /* Host not parented yet — do not claim open (avoids ▼ with empty body). */
+            if (!this.hasParent())
+            {
+                return;
+            }
+        }
+
         if (this.open == expanded && !this.animating && this.hasParent() == expanded)
         {
             return;
@@ -126,7 +140,6 @@ public class UIAnimatedCollapseShell extends UIElement
 
         if (expanded)
         {
-            this.attachAfter(host);
             this.naturalHeight = this.measureNaturalHeightQuiet();
             this.applyHeight(true);
         }
@@ -197,6 +210,7 @@ public class UIAnimatedCollapseShell extends UIElement
         this.animating = false;
         this.h(0);
         this.lastAppliedHeight = 0;
+        this.scrollAnchor = null;
         this.unregisterActive();
 
         if (this.hasParent())
@@ -394,7 +408,8 @@ public class UIAnimatedCollapseShell extends UIElement
     }
 
     /**
-     * @param shrinkPx positive when the shell got shorter (closing)
+     * Keep the disclosure header visually fixed while the body grows/shrinks.
+     * Previous shrink-scroll compensation pulled the whole panel upward on close.
      */
     private void resizeWithScrollCompensation(int shrinkPx)
     {
@@ -408,6 +423,8 @@ public class UIAnimatedCollapseShell extends UIElement
         UIScrollView scrollView = this.findScrollView();
         Scroll scroll = scrollView == null ? null : scrollView.scroll;
         double scrollBefore = scroll == null ? 0D : scroll.getScroll();
+        UIElement anchor = this.resolveScrollAnchor();
+        int anchorYBefore = anchor == null ? Integer.MIN_VALUE : anchor.area.y;
 
         /* Resize the column that owns this shell (or scroll content), never an
          * ancestor shell alone — isolated shell.resize() corrupts ColumnResizer. */
@@ -415,20 +432,49 @@ public class UIAnimatedCollapseShell extends UIElement
         this.syncAncestorShellsToContent();
         this.resizeLayoutRoot(parent);
 
-        if (scroll != null)
+        if (scroll == null)
         {
-            if (shrinkPx > 0)
-            {
-                /* Keep lower widgets from snapping when max-scroll shrinks. */
-                scroll.setScroll(scrollBefore - shrinkPx);
-            }
-            else
-            {
-                scroll.setScroll(scrollBefore);
-            }
-
-            scroll.clamp();
+            return;
         }
+
+        if (anchor != null && anchorYBefore != Integer.MIN_VALUE)
+        {
+            /* visualY ~= layoutY - scroll — keep the header's visualY stable. */
+            int dy = anchor.area.y - anchorYBefore;
+
+            scroll.setScroll(scrollBefore + dy);
+        }
+        else
+        {
+            scroll.setScroll(scrollBefore);
+        }
+
+        scroll.clamp();
+    }
+
+    private UIElement resolveScrollAnchor()
+    {
+        if (this.scrollAnchor != null && this.scrollAnchor.hasParent())
+        {
+            return this.scrollAnchor;
+        }
+
+        UIElement parent = this.getParent();
+
+        if (parent == null)
+        {
+            return null;
+        }
+
+        List<IUIElement> children = parent.getChildren();
+        int index = children.indexOf(this);
+
+        if (index > 0 && children.get(index - 1) instanceof UIElement previous)
+        {
+            return previous;
+        }
+
+        return null;
     }
 
     /**

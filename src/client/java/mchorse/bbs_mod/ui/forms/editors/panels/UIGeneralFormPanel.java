@@ -3,16 +3,24 @@ package mchorse.bbs_mod.ui.forms.editors.panels;
 import mchorse.bbs_mod.forms.FormUtils;
 import mchorse.bbs_mod.forms.FormUtilsClient;
 import mchorse.bbs_mod.forms.forms.Form;
+import mchorse.bbs_mod.forms.forms.utils.EffectTransform;
+import mchorse.bbs_mod.forms.forms.utils.GlowSettings;
 import mchorse.bbs_mod.forms.forms.utils.Illusion;
 import mchorse.bbs_mod.forms.forms.utils.InverseKinematics;
 import mchorse.bbs_mod.forms.forms.utils.LookAt;
+import mchorse.bbs_mod.forms.forms.utils.PaintSettings;
 import mchorse.bbs_mod.l10n.keys.IKey;
+import mchorse.bbs_mod.settings.values.base.BaseValue;
+import mchorse.bbs_mod.settings.values.core.ValueColor;
 import mchorse.bbs_mod.ui.UIKeys;
 import mchorse.bbs_mod.ui.film.replays.UIReplaysEditor;
 import mchorse.bbs_mod.ui.forms.editors.forms.UIForm;
+import mchorse.bbs_mod.ui.forms.editors.panels.widgets.UIFormColorAdjustments;
 import mchorse.bbs_mod.ui.framework.elements.UIElement;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIButton;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIToggle;
+import mchorse.bbs_mod.ui.framework.elements.input.UIColor;
+import mchorse.bbs_mod.ui.framework.elements.input.UIEffectTransformCollapse;
 import mchorse.bbs_mod.ui.framework.elements.input.UIInverseKinematicsEditor;
 import mchorse.bbs_mod.ui.framework.elements.input.UIKeybind;
 import mchorse.bbs_mod.ui.framework.elements.input.UILookAtEditor;
@@ -24,6 +32,10 @@ import mchorse.bbs_mod.ui.framework.elements.input.text.UITextbox;
 import mchorse.bbs_mod.ui.utils.UI;
 import mchorse.bbs_mod.ui.utils.icons.Icons;
 import mchorse.bbs_mod.ui.utils.keys.KeyCombo;
+import mchorse.bbs_mod.utils.Direction;
+import mchorse.bbs_mod.utils.MathUtils;
+import mchorse.bbs_mod.utils.colors.Color;
+import mchorse.bbs_mod.utils.colors.Colors;
 
 import com.mojang.logging.LogUtils;
 
@@ -41,9 +53,11 @@ public class UIGeneralFormPanel extends UIFormPanel
     public UIToggle animatable;
     public UITextbox trackName;
     public UIToggle lighting;
+    public UIToggle noshadingOpacity;
     public UIToggle shaderShadow;
     public UITrackpad renderDepth;
     public UIToggle renderDepthEnabled;
+    public UIPoseSectionCollapse renderDepthSection;
     public UILookAtEditor lookAt;
     public UIInverseKinematicsEditor inverseKinematics;
     public UITrackpad illusionCount;
@@ -78,11 +92,25 @@ public class UIGeneralFormPanel extends UIFormPanel
     public UITextbox name;
     public UIPropTransform transform;
 
+    public UIColor color;
+    public UITrackpad blendIntensity;
+    public UIFormColorAdjustments colorAdjustments;
+    public UIEffectTransformCollapse colorTransform;
+    public UIColor paintColor;
+    public UITrackpad paintIntensity;
+    public UIEffectTransformCollapse paintTransform;
+    public UIColor glowingColor;
+    public UITrackpad glowIntensity;
+    public UITrackpad opacity;
+    public UIPoseSectionCollapse colorSection;
+    public UIPoseSectionCollapse glowSection;
+
     public UIToggle hitbox;
     public UITrackpad hitboxWidth;
     public UITrackpad hitboxHeight;
     public UITrackpad hitboxSneakMultiplier;
     public UITrackpad hitboxEyeHeight;
+    public UIPoseSectionCollapse hitboxSection;
 
     public UITrackpad hp;
     public UITrackpad speed;
@@ -100,15 +128,18 @@ public class UIGeneralFormPanel extends UIFormPanel
         {
             this.form.hotkey.set(combo.keys.isEmpty() ? 0 : combo.keys.get(0));
         });
-        this.hotkey.single().tooltip(UIKeys.FORMS_EDITORS_GENERAL_HOTKEY);
+        this.hotkey.single().emptyLabel(UIKeys.FORMS_EDITORS_GENERAL_HOTKEY).tooltip(UIKeys.FORMS_EDITORS_GENERAL_HOTKEY);
 
         this.visible = new UIToggle(UIKeys.FORMS_EDITORS_GENERAL_VISIBLE, (b) -> this.form.visible.set(b.getValue()));
         this.animatable = new UIToggle(UIKeys.FORMS_EDITORS_GENERAL_ANIMATABLE, (b) -> this.form.animatable.set(b.getValue()));
         this.animatable.tooltip(UIKeys.FORMS_EDITORS_GENERAL_ANIMATABLE_TOOLTIP);
         this.trackName = new UITextbox(120, (t) -> this.form.trackName.set(t));
+        this.trackName.placeholder(UIKeys.FORMS_EDITORS_GENERAL_TRACK_NAME);
         this.trackName.tooltip(UIKeys.FORMS_EDITORS_GENERAL_TRACK_NAME_TOOLTIP);
         this.lighting = new UIToggle(UIKeys.FORMS_EDITORS_GENERAL_LIGHTING, (b) -> this.form.lighting.set(b.getValue() ? 1F : 0F));
         this.lighting.tooltip(UIKeys.FORMS_EDITORS_GENERAL_LIGHTING_TOOLTIP);
+        this.noshadingOpacity = new UIToggle(UIKeys.FORMS_EDITORS_COLOR_NOSHADING_OPACITY, (b) -> this.form.noshadingOpacity.set(b.getValue()));
+        this.noshadingOpacity.tooltip(UIKeys.FORMS_EDITORS_COLOR_NOSHADING_OPACITY_TOOLTIP);
         this.shaderShadow = new UIToggle(UIKeys.FORMS_EDITORS_GENERAL_SHADER_SHADOW, (b) -> this.form.shaderShadow.set(b.getValue()));
         this.renderDepth = new UITrackpad((v) -> this.form.renderDepth.set(v.floatValue()));
         this.renderDepth.tooltip(UIKeys.FORMS_EDITORS_GENERAL_RENDER_DEPTH_TOOLTIP);
@@ -186,9 +217,12 @@ public class UIGeneralFormPanel extends UIFormPanel
             this.form.name.set(t);
             LOGGER.info("Form display name changed: formId={}, name={}", this.form.getFormId(), t);
         });
+        this.name.placeholder(UIKeys.FORMS_EDITORS_GENERAL_DISPLAY);
 
         this.transform = new UIPropTransform().callbacks(() -> this.form.transform);
         this.transform.enableHotkeys().relative(this).x(0.5F).y(1F, -10).anchor(0.5F, 1F);
+
+        this.setupColorAndGlow();
 
         this.hitbox = new UIToggle(UIKeys.FORMS_EDITORS_GENERAL_HITBOX, (b) -> this.form.hitbox.set(b.getValue()));
         this.hitboxWidth = new UITrackpad((v) -> this.form.hitboxWidth.set(v.floatValue()));
@@ -206,6 +240,27 @@ public class UIGeneralFormPanel extends UIFormPanel
         this.speed.limit(0F);
         this.stepHeight = new UITrackpad((v) -> this.form.stepHeight.set(v.floatValue()));
         this.stepHeight.limit(0F);
+
+        this.renderDepthSection = new UIPoseSectionCollapse(
+            UIKeys.FORMS_EDITORS_GENERAL_RENDER_DEPTH,
+            UIReplaysEditor.getColor("render_depth"),
+            UI.column(5, 0,
+                this.renderDepthEnabled,
+                this.renderDepth
+            )
+        );
+        this.hitboxSection = new UIPoseSectionCollapse(
+            UIKeys.FORMS_EDITORS_GENERAL_HITBOX,
+            0x66aa44,
+            UI.column(5, 0,
+                this.hitbox,
+                UI.row(this.hitboxWidth, this.hitboxHeight),
+                UI.label(UIKeys.FORMS_EDITORS_GENERAL_HITBOX_SNEAK_MULTIPLIER),
+                this.hitboxSneakMultiplier,
+                UI.label(UIKeys.FORMS_EDITORS_GENERAL_HITBOX_EYE_HEIGHT),
+                this.hitboxEyeHeight
+            )
+        );
 
         this.lookAtSection = new UIPoseSectionCollapse(
             UIKeys.FORMS_EDITORS_GENERAL_LOOK_AT,
@@ -251,20 +306,286 @@ public class UIGeneralFormPanel extends UIFormPanel
             () -> this.illusionTransformEditor.resize()
         );
 
-        this.options.add(UI.label(UIKeys.FORMS_EDITORS_GENERAL_DISPLAY), this.name);
-        this.options.add(this.hotkey, this.visible, this.animatable, this.trackName, this.lighting, this.shaderShadow);
-        this.options.add(this.renderDepthEnabled, this.renderDepth);
-        this.options.add(UI.label(UIKeys.FORMS_EDITORS_GENERAL_UI_SCALE), this.uiScale);
+        this.options.add(this.name);
+        this.options.add(this.hotkey, this.trackName, this.animatable);
+        this.options.add(this.colorSection, this.glowSection);
+        this.options.add(this.visible);
+        this.options.add(UI.label(UIKeys.FILM_REPLAY_TRACK_OPACITY).marginTop(4), this.opacity);
+        this.options.add(this.noshadingOpacity, this.shaderShadow);
         this.options.add(this.transform.marginTop(8));
+        this.options.add(UI.label(UIKeys.FORMS_EDITORS_GENERAL_UI_SCALE), this.uiScale);
+        this.options.add(this.renderDepthSection);
         this.options.add(this.lookAtSection);
-        this.options.add(this.inverseKinematicsSection);
         this.options.add(this.illusionSection);
-        this.options.add(this.hitbox.marginTop(12), UI.row(this.hitboxWidth, this.hitboxHeight));
-        this.options.add(UI.label(UIKeys.FORMS_EDITORS_GENERAL_HITBOX_SNEAK_MULTIPLIER), this.hitboxSneakMultiplier);
-        this.options.add(UI.label(UIKeys.FORMS_EDITORS_GENERAL_HITBOX_EYE_HEIGHT), this.hitboxEyeHeight);
+        this.options.add(this.inverseKinematicsSection);
+        this.options.add(this.hitboxSection);
         this.options.add(UI.label(UIKeys.FORMS_EDITORS_GENERAL_HP).marginTop(12), this.hp);
         this.options.add(UI.label(UIKeys.FORMS_EDITORS_GENERAL_MOVEMENT_SPEED), this.speed.tooltip(UIKeys.FORMS_EDITORS_GENERAL_MOVEMENT_SPEED_TOOLTIP));
         this.options.add(UI.label(UIKeys.FORMS_EDITORS_GENERAL_STEP_HEIGHT), this.stepHeight);
+    }
+
+    private ValueColor getFormColorValue()
+    {
+        if (this.form == null)
+        {
+            return null;
+        }
+
+        BaseValue value = this.form.get("color");
+
+        return value instanceof ValueColor ? (ValueColor) value : null;
+    }
+
+    private void setupColorAndGlow()
+    {
+        this.color = new UIColor((c) ->
+        {
+            ValueColor valueColor = this.getFormColorValue();
+
+            if (valueColor == null)
+            {
+                return;
+            }
+
+            Color color = valueColor.get().copy();
+            Color value = Color.rgb(c);
+            float intensity = color.a;
+
+            color.set(value.r, value.g, value.b, intensity);
+            valueColor.set(color);
+        });
+        this.color.direction(Direction.LEFT);
+        this.color.context((menu) -> menu.action(Icons.COLOR, UIKeys.KEYFRAMES_RESET_COLOR, this::resetMainColor));
+        this.blendIntensity = new UITrackpad((value) ->
+        {
+            ValueColor valueColor = this.getFormColorValue();
+
+            if (valueColor == null)
+            {
+                return;
+            }
+
+            Color color = valueColor.get().copy();
+
+            color.a = MathUtils.clamp(value.floatValue(), 0F, 1F);
+            valueColor.set(color);
+        });
+        this.blendIntensity.limit(0F, 1F).values(0.1D, 0.05D, 0.2D);
+        this.blendIntensity.tooltip(UIKeys.FORMS_EDITORS_BLEND_INTENSITY);
+        this.colorAdjustments = new UIFormColorAdjustments(() ->
+        {
+            ValueColor valueColor = this.getFormColorValue();
+
+            return valueColor == null ? Color.white() : valueColor.get();
+        }, (color) ->
+        {
+            ValueColor valueColor = this.getFormColorValue();
+
+            if (valueColor == null)
+            {
+                return;
+            }
+
+            valueColor.setRuntimeValue(null);
+            valueColor.set(color);
+            this.blendIntensity.setValue(MathUtils.clamp(color.a, 0F, 1F));
+        });
+        this.colorTransform = new UIEffectTransformCollapse((apply) ->
+        {
+            ValueColor valueColor = this.getFormColorValue();
+
+            if (valueColor == null)
+            {
+                return;
+            }
+
+            Color copy = valueColor.get().copy();
+
+            if (copy.transform == null)
+            {
+                copy.transform = new EffectTransform();
+            }
+
+            apply.accept(copy.transform);
+            valueColor.setRuntimeValue(null);
+            valueColor.set(copy);
+        });
+        this.paintColor = new UIColor((c) ->
+        {
+            Color color = new Color().set(c);
+            PaintSettings settings = this.form.paintSettings.get().copy();
+
+            color.a = settings.intensity;
+            this.form.paintColor.set(color);
+
+            settings.r = color.r;
+            settings.g = color.g;
+            settings.b = color.b;
+            settings.applyAutoShaderShadow();
+            this.form.paintSettings.set(settings);
+        });
+        this.paintColor.direction(Direction.LEFT);
+        this.paintColor.tooltip(UIKeys.FORMS_EDITORS_PAINT_COLOR);
+        this.paintColor.context((menu) -> menu.action(Icons.COLOR, UIKeys.KEYFRAMES_RESET_COLOR, this::resetPaintColor));
+        this.paintIntensity = new UITrackpad((value) ->
+        {
+            PaintSettings settings = this.form.paintSettings.get().copy();
+            float intensity = PaintSettings.clampIntensity(value.floatValue());
+
+            settings.intensity = intensity;
+            settings.applyAutoShaderShadow();
+            this.form.paintSettings.set(settings);
+
+            Color legacy = this.form.paintColor.get().copy();
+
+            legacy.a = intensity;
+            this.form.paintColor.set(legacy);
+        });
+        this.paintIntensity.increment(0.05D).values(0.1D, 0.05D, 0.2D).limit(PaintSettings.MIN_INTENSITY, PaintSettings.MAX_INTENSITY);
+        this.paintIntensity.tooltip(UIKeys.FORMS_EDITORS_PAINT_INTENSITY);
+        this.paintTransform = new UIEffectTransformCollapse((apply) ->
+        {
+            PaintSettings settings = this.form.paintSettings.get().copy();
+
+            if (settings.transform == null)
+            {
+                settings.transform = new EffectTransform();
+            }
+
+            apply.accept(settings.transform);
+            this.form.paintSettings.set(settings);
+        });
+        this.glowingColor = new UIColor((c) ->
+        {
+            Color color = new Color().set(c);
+
+            color.a = 1F;
+            this.form.glowingColor.set(color);
+
+            GlowSettings settings = this.form.glowSettings.get().copy();
+
+            settings.r = color.r;
+            settings.g = color.g;
+            settings.b = color.b;
+            this.form.glowSettings.set(settings);
+        });
+        this.glowingColor.direction(Direction.LEFT);
+        this.glowingColor.tooltip(UIKeys.FORMS_EDITORS_GLOW);
+        this.glowingColor.context((menu) -> menu.action(Icons.COLOR, UIKeys.KEYFRAMES_RESET_COLOR, this::resetGlowColor));
+        this.glowIntensity = new UITrackpad((value) ->
+        {
+            GlowSettings settings = this.form.glowSettings.get().copy();
+
+            settings.intensity = value.floatValue();
+            this.form.glowSettings.set(settings);
+        });
+        this.glowIntensity.increment(0.05D).values(0.1D, 0.05D, 0.2D);
+        this.glowIntensity.tooltip(UIKeys.FORMS_EDITORS_GLOW_INTENSITY);
+        this.opacity = new UITrackpad((value) ->
+        {
+            this.form.opacity.set(MathUtils.clamp(value.intValue(), 0, 255) / 255F);
+        });
+        this.opacity.integer().limit(0, 255).plainFormat().values(1D, 1D, 16D);
+        this.opacity.tooltip(UIKeys.FILM_REPLAY_TRACK_OPACITY);
+        this.colorSection = new UIPoseSectionCollapse(
+            UIKeys.FILM_REPLAY_TRACK_COLOR,
+            UIReplaysEditor.getColor("color"),
+            UI.column(
+                UI.label(UIKeys.FORMS_EDITORS_BLEND_COLOR).marginTop(4),
+                this.color,
+                UI.label(UIKeys.FORMS_EDITORS_BLEND_INTENSITY),
+                this.blendIntensity,
+                this.colorTransform,
+                UI.label(UIKeys.FORMS_EDITORS_PAINT_COLOR).marginTop(4),
+                this.paintColor,
+                UI.label(UIKeys.FORMS_EDITORS_PAINT_INTENSITY),
+                this.paintIntensity,
+                this.paintTransform,
+                this.colorAdjustments.marginTop(4)
+            )
+        );
+        this.glowSection = new UIPoseSectionCollapse(
+            UIKeys.FORMS_EDITORS_GLOW,
+            Colors.ORANGE,
+            UI.column(
+                this.lighting.marginTop(4),
+                UI.label(UIKeys.FORMS_EDITORS_GLOWING_COLOR).marginTop(4),
+                this.glowingColor,
+                UI.label(UIKeys.FORMS_EDITORS_GLOW_INTENSITY),
+                this.glowIntensity
+            )
+        );
+    }
+
+    private void resetMainColor()
+    {
+        ValueColor valueColor = this.getFormColorValue();
+
+        if (valueColor == null)
+        {
+            return;
+        }
+
+        Color white = Color.white();
+
+        valueColor.set(white.copy());
+        this.color.setColor(white.getRGBColor());
+        this.blendIntensity.setValue(MathUtils.clamp(white.a, 0F, 1F));
+        this.colorTransform.setEffectTransform(new EffectTransform());
+        this.colorAdjustments.syncFromForm();
+        this.editor.startEdit(this.form);
+    }
+
+    private void syncColorSectionVisibility()
+    {
+        ValueColor valueColor = this.getFormColorValue();
+
+        if (valueColor != null)
+        {
+            if (!this.colorSection.hasParent())
+            {
+                this.options.addAfter(this.trackName, this.colorSection);
+            }
+        }
+        else
+        {
+            this.colorSection.removeFromParent();
+        }
+    }
+
+    private void resetPaintColor()
+    {
+        if (this.form == null)
+        {
+            return;
+        }
+
+        Color legacy = new Color().set(1F, 1F, 1F, 0F);
+        PaintSettings settings = new PaintSettings();
+
+        this.form.paintColor.set(legacy.copy());
+        this.form.paintSettings.set(settings);
+        this.paintColor.setColor(legacy.getRGBColor());
+        this.paintIntensity.setValue(settings.intensity);
+        this.paintTransform.setEffectTransform(new EffectTransform());
+        this.editor.startEdit(this.form);
+    }
+
+    private void resetGlowColor()
+    {
+        if (this.form == null)
+        {
+            return;
+        }
+
+        Color legacy = new Color().set(1F, 1F, 1F, 1F);
+        GlowSettings settings = new GlowSettings();
+
+        this.form.glowingColor.set(legacy.copy());
+        this.form.glowSettings.set(settings);
+        this.glowingColor.setColor(legacy.getRGBColor());
+        this.glowIntensity.setValue(settings.intensity);
+        this.editor.startEdit(this.form);
     }
 
     private void refreshLookAt()
@@ -337,15 +658,57 @@ public class UIGeneralFormPanel extends UIFormPanel
     {
         super.startEdit(form);
 
-        this.hotkey.setKeyCombo(new KeyCombo(IKey.EMPTY, form.hotkey.get()));
+        int hotkey = form.hotkey.get();
+
+        if (hotkey == 0)
+        {
+            KeyCombo empty = new KeyCombo(IKey.EMPTY);
+            empty.keys.clear();
+            this.hotkey.setKeyCombo(empty);
+        }
+        else
+        {
+            this.hotkey.setKeyCombo(new KeyCombo(IKey.EMPTY, hotkey));
+        }
 
         this.visible.setValue(form.visible.get());
         this.animatable.setValue(form.animatable.get());
         this.trackName.setText(form.trackName.get());
         this.lighting.setValue(form.lighting.get() > 0F);
+        this.noshadingOpacity.setValue(form.noshadingOpacity.get());
         this.shaderShadow.setValue(form.shaderShadow.get());
         this.renderDepth.setValue(form.renderDepth.get());
         this.renderDepthEnabled.setValue(form.renderDepthEnabled.get());
+        this.syncColorSectionVisibility();
+
+        ValueColor valueColor = this.getFormColorValue();
+
+        if (valueColor != null)
+        {
+            Color formColor = valueColor.get();
+
+            this.color.setColor(formColor.getRGBColor());
+            this.blendIntensity.setValue(MathUtils.clamp(formColor.a, 0F, 1F));
+            this.colorAdjustments.syncFromForm();
+            this.colorTransform.setEffectTransform(formColor.transform == null ? new EffectTransform() : formColor.transform);
+        }
+
+        PaintSettings paint = form.paintSettings.get();
+        Color paintDisplay = new Color();
+
+        paint.resolveColor(form.paintColor.get(), paintDisplay);
+        this.paintColor.setColor(paintDisplay.getRGBColor());
+        this.paintIntensity.setValue(paint.intensity);
+        this.paintTransform.setEffectTransform(paint.transform == null ? new EffectTransform() : paint.transform);
+
+        GlowSettings glow = form.glowSettings.get();
+        Color glowDisplay = new Color();
+
+        glow.resolveColor(form.glowingColor.get(), glowDisplay);
+        this.glowingColor.setColor(glowDisplay.getRGBColor());
+        this.glowIntensity.setValue(glow.intensity);
+        this.opacity.setValue(Math.round(MathUtils.clamp(form.opacity.get(), 0F, 1F) * 255F));
+
         this.lookAt.fillBones(FormUtilsClient.getRenderer(FormUtils.getRoot(form)).collectMatrices(this.editor.editor.renderer.getTargetEntity(), 0F).keySet());
         this.lookAt.refresh();
         this.inverseKinematics.fillBones(FormUtilsClient.getRenderer(FormUtils.getRoot(form)).collectMatrices(this.editor.editor.renderer.getTargetEntity(), 0F).keySet());

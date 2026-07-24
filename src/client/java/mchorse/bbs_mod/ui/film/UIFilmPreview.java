@@ -217,6 +217,24 @@ public class UIFilmPreview extends UIElement
                 }
             });
 
+            menu.action(Icons.FULLSCREEN, UIKeys.CAMERA_EDITOR_KEYS_EDITOR_PLAY_FULLSCREEN, () ->
+            {
+                if (!this.panel.canToggleVisibility())
+                {
+                    return;
+                }
+
+                if (!this.panel.isRunning())
+                {
+                    this.panel.togglePlayback();
+                }
+
+                if (this.panel.dashboard.main.isVisible())
+                {
+                    this.panel.dashboard.main.toggleVisible();
+                }
+            });
+
             menu.action(Icons.PAUSE, UIKeys.CAMERA_EDITOR_KEYS_EDITOR_FREEZE_PAUSED, !this.panel.getController().isPaused(), () ->
             {
                 this.panel.getController().setPaused(!this.panel.getController().isPaused());

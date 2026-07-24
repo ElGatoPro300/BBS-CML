@@ -297,7 +297,9 @@ public class Keyframe <T> extends BaseValueGroup
 
         if (map.has("tick")) this.tick = map.getFloat("tick");
         if (map.has("duration")) this.duration = map.getFloat("duration");
-        if (map.has("value")) this.value = this.factory.fromData(map.get("value"));
+        /* value_bbs keeps Color Grade / blend_a across save_as_compatible Int flattening. */
+        if (map.has("value_bbs")) this.value = this.factory.fromData(map.get("value_bbs"));
+        else if (map.has("value")) this.value = this.factory.fromData(map.get("value"));
         if (map.has("interp")) this.interp.fromData(map.get("interp"));
         if (map.has("lx")) this.lx = map.getFloat("lx");
         if (map.has("ly")) this.ly = map.getFloat("ly");

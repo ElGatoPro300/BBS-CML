@@ -3,6 +3,7 @@ package mchorse.bbs_mod.forms.renderers;
 import mchorse.bbs_mod.BBSModClient;
 import mchorse.bbs_mod.client.BBSRendering;
 import mchorse.bbs_mod.client.BBSShaders;
+import mchorse.bbs_mod.forms.FormUtilsClient;
 import mchorse.bbs_mod.forms.ITickable;
 import mchorse.bbs_mod.forms.entities.IEntity;
 import mchorse.bbs_mod.forms.forms.ParticleForm;
@@ -95,6 +96,12 @@ public class ParticleFormRenderer extends FormRenderer<ParticleForm> implements 
         {
             MatrixStack stack = context.batcher.getContext().getMatrices();
             int scale = (y2 - y1) / 2;
+            boolean wasPaused = emitter.paused;
+
+            if (!FormUtilsClient.isUIPreviewAnimating())
+            {
+                emitter.paused = true;
+            }
 
             stack.push();
             stack.translate((x2 + x1) / 2, (y2 + y1) / 2, 40);
@@ -109,6 +116,7 @@ public class ParticleFormRenderer extends FormRenderer<ParticleForm> implements 
             emitter.clearGlow();
 
             stack.pop();
+            emitter.paused = wasPaused;
         }
     }
 

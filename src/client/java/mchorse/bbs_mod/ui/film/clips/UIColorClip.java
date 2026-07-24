@@ -1,9 +1,6 @@
 package mchorse.bbs_mod.ui.film.clips;
 
 import mchorse.bbs_mod.camera.clips.screen.ColorClip;
-import mchorse.bbs_mod.data.types.MapType;
-import mchorse.bbs_mod.l10n.L10n;
-import mchorse.bbs_mod.l10n.keys.IKey;
 import mchorse.bbs_mod.ui.Keys;
 import mchorse.bbs_mod.ui.UIKeys;
 import mchorse.bbs_mod.ui.film.IUIClipsDelegate;
@@ -13,30 +10,21 @@ import mchorse.bbs_mod.ui.framework.elements.buttons.UIButton;
 import mchorse.bbs_mod.ui.framework.elements.input.UIColor;
 import mchorse.bbs_mod.ui.framework.elements.input.keyframes.UIKeyframeEditor;
 import mchorse.bbs_mod.ui.framework.elements.input.keyframes.UIKeyframeSheet;
-import mchorse.bbs_mod.ui.framework.elements.input.keyframes.UIKeyframes;
 import mchorse.bbs_mod.ui.utils.UI;
 import mchorse.bbs_mod.utils.clips.Clips;
 import mchorse.bbs_mod.utils.colors.Colors;
-import mchorse.bbs_mod.utils.keyframes.KeyframeChannel;
 
-import java.util.HashMap;
-import java.util.Map;
-
+/**
+ * Color clip editor: classic overlay color with alpha only
+ * (no grade / lift / gamma / gain tracks in the UI).
+ */
 public class UIColorClip extends UIClip<ColorClip>
 {
     private static final int COLOR_OVERLAY = Colors.YELLOW;
-    private static final int COLOR_VIGNETTE = Colors.CYAN;
-    private static final int COLOR_GRADE = Colors.MAGENTA;
-    private static final int COLOR_LIFT = Colors.RED;
-    private static final int COLOR_GAMMA = Colors.GREEN;
-    private static final int COLOR_GAIN = 0xffffff;
-    private static final int COLOR_GROUP = Colors.LIGHTEST_GRAY & 0xffffff;
 
     public UIColor overlayColor;
     public UIButton edit;
     public UIKeyframeEditor keyframes;
-
-    private final Map<String, Boolean> collapsed = new HashMap<>();
 
     public UIColorClip(ColorClip clip, IUIClipsDelegate editor)
     {
@@ -48,10 +36,26 @@ public class UIColorClip extends UIClip<ColorClip>
     {
         super.registerUI();
 
-        this.overlayColor = new UIColor((c) -> this.editor.editMultiple(this.clip.overlayColor, (value) ->
+        this.overlayColor = new UIColor((c) ->
         {
-            value.set(c);
-        }));
+            this.editor.editMultiple(this.clip.overlayColor, c);
+
+            /* Keep opacity keyframe in sync with picker alpha (0–4 scale like before). */
+            float a = Colors.getA(c);
+            int tick = Math.max(0, this.editor.getCursor() - this.clip.tick.get());
+
+            this.editor.editMultiple(this.clip.overlayAlpha, (channel) ->
+            {
+                if (channel.isEmpty())
+                {
+                    channel.insert(0, (double) (a * 4F));
+                }
+                else
+                {
+                    channel.insert(tick, (double) (a * 4F));
+                }
+            });
+        }).withAlpha();
 
         this.keyframes = new UIKeyframeEditor((consumer) -> new UIFilmKeyframes(this.editor, consumer));
         this.keyframes.view.backgroundRenderer((context) ->
@@ -84,70 +88,25 @@ public class UIColorClip extends UIClip<ColorClip>
     {
         super.fillData();
 
-        this.overlayColor.setColor(this.clip.overlayColor.get());
+        int rgb = this.clip.overlayColor.get();
+        float alpha = this.clip.overlayAlpha.isEmpty()
+            ? Colors.getA(rgb)
+            : (float) (double) this.clip.overlayAlpha.interpolate(Math.max(0, this.editor.getCursor() - this.clip.tick.get())) * 0.25F;
+
+        this.overlayColor.setColor(Colors.setA(rgb, alpha));
         this.rebuildChannels();
     }
 
     private void rebuildChannels()
     {
-        UIKeyframes view = this.keyframes.view;
+        this.keyframes.view.removeAllSheets();
 
-        view.removeAllSheets();
+        UIKeyframeSheet sheet = new UIKeyframeSheet(COLOR_OVERLAY, false, this.clip.overlayAlpha, null);
 
-        this.addGroup(view, "overlay", UIKeys.COLOR_CLIP_OVERLAY, COLOR_OVERLAY,
-            new KeyframeChannel[] {this.clip.overlayAlpha},
-            new int[] {COLOR_OVERLAY});
-
-        this.addGroup(view, "grade", UIKeys.COLOR_CLIP_GRADE, COLOR_GRADE,
-            new KeyframeChannel[] {this.clip.saturation, this.clip.hue, this.clip.brightness, this.clip.contrast},
-            new int[] {Colors.YELLOW, Colors.MAGENTA, Colors.WHITE & 0xffffff, Colors.CYAN});
-
-        this.addGroup(view, "lift", UIKeys.COLOR_CLIP_LIFT, COLOR_LIFT,
-            new KeyframeChannel[] {this.clip.liftR, this.clip.liftG, this.clip.liftB},
-            new int[] {Colors.RED, Colors.GREEN, Colors.BLUE});
-
-        this.addGroup(view, "gamma", UIKeys.COLOR_CLIP_GAMMA, COLOR_GAMMA,
-            new KeyframeChannel[] {this.clip.gammaR, this.clip.gammaG, this.clip.gammaB},
-            new int[] {Colors.RED, Colors.GREEN, Colors.BLUE});
-
-        this.addGroup(view, "gain", UIKeys.COLOR_CLIP_GAIN, COLOR_GAIN,
-            new KeyframeChannel[] {this.clip.gainR, this.clip.gainG, this.clip.gainB},
-            new int[] {Colors.RED, Colors.GREEN, Colors.BLUE});
-
+        sheet.title = UIKeys.SCREEN_PANELS_OVERLAY_COLOR;
+        sheet.limit(0D, 4D);
+        this.keyframes.view.addSheet(sheet);
         this.keyframes.view.getGraph().clearSelection();
-    }
-
-    private void addGroup(UIKeyframes view, String key, IKey title, int color, KeyframeChannel[] channels, int[] colors)
-    {
-        boolean expanded = !this.collapsed.getOrDefault(key, false);
-
-        UIKeyframeSheet header = UIKeyframeSheet.groupHeader(
-            "__color__" + key,
-            title,
-            COLOR_GROUP,
-            key,
-            expanded,
-            () ->
-            {
-                this.collapsed.put(key, !this.collapsed.getOrDefault(key, false));
-                this.rebuildChannels();
-            }
-        );
-
-        header.level = 0;
-        view.addSheet(header);
-
-        if (expanded)
-        {
-            for (int i = 0; i < channels.length; i++)
-            {
-                UIKeyframeSheet sheet = new UIKeyframeSheet(colors[i % colors.length], false, channels[i], null);
-
-                sheet.level = 1;
-                sheet.groupKey = key;
-                view.addSheet(sheet);
-            }
-        }
     }
 
     @Override

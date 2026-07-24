@@ -22,6 +22,12 @@ import io.netty.util.collection.IntObjectMap;
  */
 public class FormRenderDepth
 {
+    /**
+     * TEMP: when false, body-part forms ignore render-depth sort/fade/occlusion so nested
+     * billboards keep editor-like transparency in film. Re-enable after billboard depth fix.
+     */
+    public static final boolean BODY_PART_RENDER_DEPTH = false;
+
     public static final class Occluder
     {
         public final Form form;
@@ -103,6 +109,11 @@ public class FormRenderDepth
         }
 
         List<BodyPart> parts = form.parts.getAllTyped();
+
+        if (!BODY_PART_RENDER_DEPTH)
+        {
+            return;
+        }
 
         for (BodyPart part : parts)
         {

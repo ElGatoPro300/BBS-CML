@@ -98,8 +98,11 @@ public final class FilmPoseGizmoDrag
             transform.setInvertFilmArcballDragY(false);
             transform.setFilmArcballTrackball(true);
             transform.setFilmMatchPoseTrackball(false);
+            transform.setInvertRotationArcSweep(false);
             transform.setInvertRotationArcViewRing(false);
-            transform.setInvertRotationArcZ(false);
+            /* Y/Z process bars wind opposite arc3D with filmArcball (X keeps the X/Z undo). */
+            transform.setInvertRotationArcY(true);
+            transform.setInvertRotationArcZ(true);
             transform.setForceFrozenRotationArc(false);
 
             /* Pose editor may be built before the model is known (scale defaults to 16). */
@@ -117,6 +120,7 @@ public final class FilmPoseGizmoDrag
             transform.clearTrackballEulerInverts();
             transform.setInvertTrackballDragY(false);
             transform.setInvertRotationArcViewRing(false);
+            transform.setInvertRotationArcY(false);
             transform.setInvertRotationArcZ(false);
             transform.setForceFrozenRotationArc(false);
 
@@ -176,6 +180,9 @@ public final class FilmPoseGizmoDrag
             transform.clearTrackballEulerInverts();
             transform.setInvertTrackballDragY(filmTransformGizmo);
             transform.setInvertFilmArcballDragY(false);
+            transform.setInvertRotationArcY(false);
+            transform.setInvertRotationArcZ(false);
+            transform.setInvertRotationArcViewRing(false);
         }
 
         transform.setFilmMatchPoseTrackball(filmTransformGizmo);

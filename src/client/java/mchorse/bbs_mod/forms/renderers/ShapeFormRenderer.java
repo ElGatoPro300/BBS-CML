@@ -261,9 +261,8 @@ public class ShapeFormRenderer extends FormRenderer<ShapeForm>
             /* Noshading opacity: redraw after paint via BBS translucent queue, not Iris post-deferred. */
             boolean noshadingPaintPath = BBSRendering.needsIrisNoshadingOpacityDeferral(c.a, this.form.noshadingOpacity.get());
             boolean afterFluids = ShaderOpacityPatch.shouldFlushAfterFluids(c.a);
-            boolean depthWrite = afterFluids
-                ? ShaderOpacityPatch.shouldWriteDepthForOpacity(c.a)
-                : this.form.renderDepthEnabled.get();
+            /* Same as billboards: renderDepthEnabled must not force depth writes on flats. */
+            boolean depthWrite = ShaderOpacityPatch.shouldWriteDepthForOpacity(c.a);
             double sortDepth = FormRenderDepth.resolveSortDepth(this.form, renderContext == null ? null : renderContext.renderDepthFrame);
             double distanceSq = 0D;
 

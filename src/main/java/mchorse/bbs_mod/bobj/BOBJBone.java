@@ -112,6 +112,13 @@ public class BOBJBone
         this.mat.translate(this.transform.translate);
         this.originMat.translate(this.transform.translate);
 
+        /* Keep gizmo / rotation center at translate + pivot (same as Transform.setupMatrix). */
+        if (this.transform.pivot.x != 0F || this.transform.pivot.y != 0F || this.transform.pivot.z != 0F)
+        {
+            this.mat.translate(this.transform.pivot);
+            this.originMat.translate(this.transform.pivot);
+        }
+
         if (this.orient != null)
         {
             /* orient already folds rotate2, so the euler triples are skipped. */
@@ -129,6 +136,11 @@ public class BOBJBone
         }
 
         this.mat.scale(this.transform.scale);
+
+        if (this.transform.pivot.x != 0F || this.transform.pivot.y != 0F || this.transform.pivot.z != 0F)
+        {
+            this.mat.translate(-this.transform.pivot.x, -this.transform.pivot.y, -this.transform.pivot.z);
+        }
     }
 
     /**

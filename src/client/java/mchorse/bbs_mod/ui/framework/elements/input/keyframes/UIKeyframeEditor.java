@@ -225,6 +225,13 @@ public class UIKeyframeEditor extends UIElement
         this.applyLayout();
         this.resize();
 
+        if (this.editor != null)
+        {
+            this.editor.restoreUiState();
+            this.applyLayout();
+            this.resize();
+        }
+
         /* Only when a keyframe is picked — clearing selection (setChannels / deselect)
          * must not force the Properties tab away from Camera/Action Properties. */
         if (keyframe != null && this.pickListener != null)

@@ -349,27 +349,6 @@ public class UIOpenAssetOverlayPanel extends UIOverlayPanel
 
     void handleCardClick(String id, boolean isFolder, int mouseX, int mouseY)
     {
-        if (!this.dragMode)
-        {
-            if (isFolder)
-            {
-                if (id.equals(".."))
-                {
-                    this.navigateUp();
-                }
-                else
-                {
-                    this.navigateInto(id);
-                }
-            }
-            else
-            {
-                this.openAsset(id);
-            }
-
-            return;
-        }
-
         long now = System.currentTimeMillis();
 
         if (id.equals(this.lastClickedId) && now - this.lastClickTime < 400)
@@ -398,12 +377,16 @@ public class UIOpenAssetOverlayPanel extends UIOverlayPanel
         {
             this.lastClickedId = id;
             this.lastClickTime = now;
-            this.dragId = id;
-            this.dragIsFolder = isFolder;
-            this.dragStartX = mouseX;
-            this.dragStartY = mouseY;
-            this.isDragging = false;
-            this.dragHighlightFolder = null;
+
+            if (this.dragMode)
+            {
+                this.dragId = id;
+                this.dragIsFolder = isFolder;
+                this.dragStartX = mouseX;
+                this.dragStartY = mouseY;
+                this.isDragging = false;
+                this.dragHighlightFolder = null;
+            }
         }
     }
 

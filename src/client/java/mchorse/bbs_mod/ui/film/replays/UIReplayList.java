@@ -114,7 +114,6 @@ public class UIReplayList extends UIList<Replay> {
     static final Vector3f LIGHT_B = new Vector3f(-0.85F, 0.85F, 1F).normalize();
 
     private static String LAST_PROCESS = "v";
-    private static String LAST_PICK_FAVORITE_CATEGORY_ID = null;
     private static String LAST_OFFSET = "0";
     private static List<String> LAST_PROCESS_PROPERTIES = Arrays.asList("x");
     private static int LAST_PROCESS_SECTION = 0;
@@ -143,6 +142,7 @@ public class UIReplayList extends UIList<Replay> {
     public UIFilmPanel panel;
     public UIReplaysOverlayPanel overlay;
 
+    private UIFormPalette formPalette;
     private Map<String, Boolean> expandedGroups = new HashMap<>();
     private List<Replay> visualList = new ArrayList<>();
 
@@ -1710,7 +1710,7 @@ public class UIReplayList extends UIList<Replay> {
             target = this.getParentContainer();
         }
 
-        UIFormPalette palette = UIFormPalette.open(target, editing, form.get(), (f) -> {
+        Consumer<Form> callback = (f) -> {
             for (Replay replay : this.getCurrent()) {
                 replay.form.set(FormUtils.copy(f));
             }
@@ -1722,19 +1722,35 @@ public class UIReplayList extends UIList<Replay> {
             } else {
                 this.overlay.pickEdit.setForm(f);
             }
-        });
+        };
 
-        if (!editing) {
-            palette.favorites();
+        /* Reuse the same palette as B morphing (warm thumbs, no rebuild). */
+        if (this.formPalette != null)
+        {
+            this.formPalette.callback = callback;
 
-            if (!palette.list.hasFavoriteCategory(LAST_PICK_FAVORITE_CATEGORY_ID))
+            if (this.formPalette.getParent() == null)
             {
-                LAST_PICK_FAVORITE_CATEGORY_ID = null;
+                this.formPalette.resetFlex().full(target);
+                target.add(this.formPalette);
             }
 
-            palette.list.setFavoriteCategoryChangedListener((categoryId) -> LAST_PICK_FAVORITE_CATEGORY_ID = categoryId);
-            palette.list.setActiveFavoriteCategoryWithFallback(LAST_PICK_FAVORITE_CATEGORY_ID);
+            this.formPalette.setSelected(form.get());
+            this.formPalette.edit(editing);
+            this.formPalette.resize();
+
+            return;
         }
+
+        UIFormPalette palette = UIFormPalette.open(target, editing, form.get(), callback);
+
+        if (palette == null)
+        {
+            return;
+        }
+
+        this.formPalette = palette;
+        palette.immersive();
         palette.updatable();
     }
 
@@ -1828,6 +1844,8 @@ public class UIReplayList extends UIList<Replay> {
         ArrayList<ModelBlockEntity> modelBlocks = new ArrayList<>(BBSRendering.capturedModelBlocks);
         UISearchList<String> search = new UISearchList<>(new UIStringList(null));
         UIList<String> list = search.list;
+        MinecraftClient client = MinecraftClient.getInstance();
+        Vec3d playerPos = client.player != null ? client.player.getPos() : Vec3d.ZERO;
 
         list.multi();
 
@@ -1858,10 +1876,13 @@ public class UIReplayList extends UIList<Replay> {
 
         panel.resizable().minSize(300, 300);
 
-        modelBlocks.sort(Comparator.comparing(ModelBlockEntity::getName));
+        modelBlocks.sort(Comparator.comparingDouble((ModelBlockEntity block) ->
+            playerPos.squaredDistanceTo(Vec3d.ofCenter(block.getPos()))));
 
         for (ModelBlockEntity modelBlock : modelBlocks) {
-            list.add(modelBlock.getName());
+            int blocksAway = (int) Math.round(Math.sqrt(playerPos.squaredDistanceTo(Vec3d.ofCenter(modelBlock.getPos()))));
+
+            list.add(modelBlock.getName() + " — " + UIKeys.SCENE_REPLAYS_CONTEXT_FROM_MODEL_BLOCK_DISTANCE.format(blocksAway).get());
         }
 
         list.background();

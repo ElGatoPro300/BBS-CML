@@ -516,6 +516,9 @@ public class UIModelEditorRenderer extends UIModelRenderer implements GizmoSurfa
             Texture fboTexture = this.stencil.getFramebuffer().getMainTexture();
             int fboW = fboTexture.width;
             int fboH = fboTexture.height;
+            int[] prevViewport = new int[4];
+
+            GL11.glGetIntegerv(GL11.GL_VIEWPORT, prevViewport);
 
             GlStateManager._disableScissorTest();
 
@@ -551,7 +554,12 @@ public class UIModelEditorRenderer extends UIModelRenderer implements GizmoSurfa
 
             this.endStencilViewport();
 
-            MinecraftClient.getInstance().getFramebuffer().beginWrite(true);
+            /* beginWrite(true) clears the main FB → white wash + corrupted GUI text. */
+            BBSRendering.ensureMainFramebuffer();
+            MinecraftClient.getInstance().getFramebuffer().beginWrite(false);
+            GL11.glViewport(prevViewport[0], prevViewport[1], prevViewport[2], prevViewport[3]);
+            RenderSystem.enableBlend();
+            RenderSystem.defaultBlendFunc();
 
             GlStateManager._enableScissorTest();
         }

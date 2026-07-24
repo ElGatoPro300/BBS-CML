@@ -615,7 +615,12 @@ public class UIDockLayout extends UIElement
         handle.reference(() -> this.getSplitterHandleReferencePosition(index))
             .referenceAxis(!this.splitterHandleInfos.get(index).horizontal, this.splitterHandleInfos.get(index).horizontal);
         handle.rendering((context) -> this.renderSplitter(context, index));
-        this.applySplitterHandleBounds(handle, this.splitterHandleInfos.get(index));
+
+        EditorLayoutNode.SplitterHandleInfo info = this.splitterHandleInfos.get(index);
+        int resizeCursor = info.horizontal ? GLFW.GLFW_VRESIZE_CURSOR : GLFW.GLFW_HRESIZE_CURSOR;
+
+        handle.cursors(resizeCursor, resizeCursor);
+        this.applySplitterHandleBounds(handle, info);
 
         return handle;
     }

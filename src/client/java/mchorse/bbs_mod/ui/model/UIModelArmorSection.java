@@ -6,11 +6,8 @@ import mchorse.bbs_mod.cubic.model.ArmorType;
 import mchorse.bbs_mod.cubic.model.ModelConfig;
 import mchorse.bbs_mod.l10n.keys.IKey;
 import mchorse.bbs_mod.ui.UIKeys;
-import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIButton;
-import mchorse.bbs_mod.ui.framework.elements.utils.UILabel;
 import mchorse.bbs_mod.ui.utils.pose.UIPoseEditor;
-import mchorse.bbs_mod.utils.colors.Colors;
 import mchorse.bbs_mod.utils.pose.Transform;
 
 import java.util.ArrayList;
@@ -28,6 +25,8 @@ public class UIModelArmorSection extends UIModelSection
         super(editor);
 
         this.pickArmor = new UIButton(IKey.constant("<none>"), (b) -> this.openArmorMenu());
+
+        this.section.onToggle(() -> this.updateUI(this.editor.getSelectedBone()));
 
         this.fields.add(this.pickArmor, new UIButton(UIKeys.MODELS_HANDS_EDIT, (b) ->
         {
@@ -138,17 +137,6 @@ public class UIModelArmorSection extends UIModelSection
         ArmorType type = this.getTypeForSlot(slot);
         
         this.pickArmor.label = IKey.constant(type == null ? "<none>" : type.name().toLowerCase());
-    }
-
-    @Override
-    public boolean subMouseClicked(UIContext context)
-    {
-        if (this.title.area.isInside(context) && context.mouseButton == 0)
-        {
-            this.updateUI(this.editor.getSelectedBone());
-        }
-
-        return super.subMouseClicked(context);
     }
 
     @Override

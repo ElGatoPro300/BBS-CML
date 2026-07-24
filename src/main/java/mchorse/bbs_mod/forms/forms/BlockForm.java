@@ -14,7 +14,7 @@ public class BlockForm extends Form
 {
     public final ValueBlockState blockState = new ValueBlockState("block_state");
     public final ValueString blockEntityNbt = new ValueString("block_entity_nbt", "");
-    public final ValueColor color = new ValueColor("color", new Color(1F, 1F, 1F, 1F));
+    public final ValueColor color = new ValueColor("color", new Color(1F, 1F, 1F, 0F));
     public final ValueInt breaking = new ValueInt("breaking", 0, 0, 10);
     public final ValueInt repeatX = new ValueInt("repeat_x", 1, 1, 64);
     public final ValueInt repeatY = new ValueInt("repeat_y", 1, 1, 64);

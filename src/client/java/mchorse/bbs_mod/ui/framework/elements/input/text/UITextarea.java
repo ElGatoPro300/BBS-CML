@@ -1442,8 +1442,8 @@ public class UITextarea <T extends TextLine> extends UIElement implements IFocus
             context.batcher.box(cx, cy - 1, cx + 1, cy + font.getHeight() + 1, c);
         }
 
-        this.horizontal.renderScrollbar(context.batcher);
-        this.vertical.renderScrollbar(context.batcher);
+        this.horizontal.renderScrollbar(context);
+        this.vertical.renderScrollbar(context);
 
         this.renderForeground(font, context);
 

@@ -31,8 +31,6 @@ public class UIModelGeneralSection extends UIModelSection
     {
         super(editor);
 
-        this.title.label = UIKeys.MODELS_GENERAL;
-
         this.procedural = new UIToggle(UIKeys.MODELS_PROCEDURAL, (b) ->
         {
             if (this.config != null)

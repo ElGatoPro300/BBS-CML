@@ -526,4 +526,17 @@ public class Scroll
             }
         }
     }
+
+    /**
+     * Draw the scrollbar and set the finger cursor while hovering / dragging it.
+     */
+    public void renderScrollbar(UIContext context)
+    {
+        this.renderScrollbar(context.batcher);
+
+        if (this.scrollbar && (this.dragging || (this.hasScrollbar() && this.getScrollArea().isInside(context.mouseX, context.mouseY))))
+        {
+            context.requestCursor(GLFW.GLFW_HAND_CURSOR);
+        }
+    }
 }

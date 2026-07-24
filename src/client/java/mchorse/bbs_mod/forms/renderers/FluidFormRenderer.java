@@ -204,7 +204,8 @@ public class FluidFormRenderer extends FormRenderer<FluidForm> implements ITicka
         BufferBuilder builder = tessellator.begin(VertexFormat.DrawMode.TRIANGLES, format);
 
         Color color = this.form.color.get();
-        Color finalColor = color.copy();
+        float opacity = this.form.opacity.get();
+        Color finalColor = new Color(color.r, color.g, color.b, opacity);
         
         /* Multiply by overlay color (usually WHITE unless hit) */
         finalColor.mul(overlayColor);

@@ -169,7 +169,8 @@ public class UIPoseKeyframeFactory extends UIKeyframeFactory<Pose>
         }
 
         boolean categoriesEnabled = BBSSettings.modelBlockCategoriesPanelEnabled != null && BBSSettings.modelBlockCategoriesPanelEnabled.get();
-        UIElement footer = this.poseEditor.createPoseFooter();
+        /* Wide Film Properties: Pick beside Opacity. Narrow + Model Editor stay stacked. */
+        UIElement footer = this.poseEditor.createPoseFooter(wide);
 
         if (wide)
         {
@@ -392,10 +393,18 @@ public class UIPoseKeyframeFactory extends UIKeyframeFactory<Pose>
         {
             apply(this.editor, this.keyframe, this.getGroup(transform), (poseT) ->
             {
-                Color rgba = Color.rgba(value);
+                float intensity = poseT.color.a;
 
-                poseT.color.set(rgba.r, rgba.g, rgba.b, rgba.a);
+                poseT.color.set(value, false);
+                poseT.color.a = intensity;
             });
+        }
+
+        @Override
+        protected void setBlendIntensity(PoseTransform transform, float value)
+        {
+            apply(this.editor, this.keyframe, this.getGroup(transform), (poseT) ->
+                poseT.color.a = MathUtils.clamp(value, 0F, 1F));
         }
 
         @Override

@@ -449,6 +449,37 @@ public class MobFormRenderer extends FormRenderer<MobForm> implements ITickable
 
             MatrixStackUtils.invertUiNormalY(stack);
 
+            if (!FormUtilsClient.isUIPreviewAnimating() && this.entity instanceof LivingEntity living)
+            {
+                living.age = 0;
+                living.hurtTime = 0;
+                living.limbAnimator.setSpeed(0F);
+
+                if (living.limbAnimator instanceof LimbAnimatorAccessor limb)
+                {
+                    limb.setPos(0F);
+                    limb.setSpeed(0F);
+                    limb.setPrevSpeed(0F);
+                }
+            }
+            else if (FormUtilsClient.isUIPreviewAnimating() && this.entity instanceof LivingEntity living)
+            {
+                /* Drive idle/bob from world time so selected previews animate smoothly. */
+                MinecraftClient client = MinecraftClient.getInstance();
+                int age = client.world != null ? (int) (client.world.getTime() % 72000L) : living.age + 1;
+
+                living.age = age;
+                living.hurtTime = 0;
+                living.limbAnimator.setSpeed(0F);
+
+                if (living.limbAnimator instanceof LimbAnimatorAccessor limb)
+                {
+                    limb.setPos(age * 0.1F);
+                    limb.setSpeed(0F);
+                    limb.setPrevSpeed(0F);
+                }
+            }
+
             BooleanHolder first = new BooleanHolder();
 
             CustomVertexConsumerProvider.hijackVertexFormat((layer) ->

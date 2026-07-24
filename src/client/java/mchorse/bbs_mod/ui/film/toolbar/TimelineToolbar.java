@@ -947,7 +947,7 @@ public class TimelineToolbar extends UIElement
 
         context.batcher.unclip(context);
 
-        this.sectionsScroll.renderScrollbar(context.batcher);
+        this.sectionsScroll.renderScrollbar(context);
 
         this.updateHoverSwitch(context);
         this.updateDockDrag(context);

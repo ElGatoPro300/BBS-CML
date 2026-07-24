@@ -18,7 +18,7 @@ public class BillboardForm extends Form
     public final ValueBoolean mipmap = new ValueBoolean("mipmap", false);
     public final ValueVector4f crop = new ValueVector4f("crop", new Vector4f(0, 0, 0, 0));
     public final ValueBoolean resizeCrop = new ValueBoolean( "resizeCrop", false);
-    public final ValueColor color = new ValueColor("color", new Color(1F, 1F, 1F, 1F));
+    public final ValueColor color = new ValueColor("color", new Color(1F, 1F, 1F, 0F));
     public final ValueFloat offsetX = new ValueFloat("offsetX", 0F);
     public final ValueFloat offsetY = new ValueFloat("offsetY", 0F);
     public final ValueFloat rotation = new ValueFloat("rotation", 0F);

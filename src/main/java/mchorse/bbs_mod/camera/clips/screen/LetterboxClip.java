@@ -171,7 +171,8 @@ public class LetterboxClip extends CameraClip
             this.effect.size = Math.max(0F, sz * factor);
             this.effect.width = barWidth;
             this.effect.smoothness = smooth;
-            this.effect.color = Colors.setA(this.valueColor(this.color, this.uniform.color, t, DEFAULT_COLOR).getARGBColor(), 1F);
+            /* Keep alpha from the letterbox color (opacity in the color picker). */
+            this.effect.color = this.valueColor(this.color, this.uniform.color, t, DEFAULT_COLOR).getARGBColor();
             this.effect.rotation = rot;
             this.effect.zoom = Math.max(0.01F, zm);
             this.effect.offsetX = offX;

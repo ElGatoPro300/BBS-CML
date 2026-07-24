@@ -418,7 +418,7 @@ public class UIFormCategory extends UIElement
                     context.batcher.outline(cx, cy, cx + CELL_WIDTH, cy + CELL_HEIGHT, Colors.A50 | BBSSettings.primaryColor.get(), 2);
                 }
 
-                FormUtilsClient.renderUI(form, context, cx, cy, cx + CELL_WIDTH, cy + CELL_HEIGHT);
+                this.list.renderFormThumbnail(context, form, cx, cy, cx + CELL_WIDTH, cy + CELL_HEIGHT);
                 context.batcher.unclip(context);
 
                 UIFormList.FavoriteMarker marker = this.list.getFavoriteMarker(form);
@@ -458,7 +458,7 @@ public class UIFormCategory extends UIElement
             context.batcher.box(cx, cy, cx + CELL_WIDTH, cy + CELL_HEIGHT, Colors.A50 | BBSSettings.primaryColor.get());
             context.batcher.outline(cx, cy, cx + CELL_WIDTH, cy + CELL_HEIGHT, Colors.A50 | BBSSettings.primaryColor.get(), 2);
 
-            FormUtilsClient.renderUI(form, context, cx, cy, cx + CELL_WIDTH, cy + CELL_HEIGHT);
+            this.list.renderFormThumbnail(context, form, cx, cy, cx + CELL_WIDTH, cy + CELL_HEIGHT);
         }
     }
 

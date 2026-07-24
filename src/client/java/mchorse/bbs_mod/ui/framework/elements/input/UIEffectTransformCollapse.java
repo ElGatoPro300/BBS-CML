@@ -5,7 +5,6 @@ import mchorse.bbs_mod.forms.forms.utils.PaintMaskShape;
 import mchorse.bbs_mod.l10n.keys.IKey;
 import mchorse.bbs_mod.ui.UIKeys;
 import mchorse.bbs_mod.ui.framework.elements.UIElement;
-import mchorse.bbs_mod.ui.framework.elements.buttons.UIButton;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIIcons;
 import mchorse.bbs_mod.ui.framework.elements.input.keyframes.UIKeyframes;
 import mchorse.bbs_mod.ui.utils.UI;
@@ -14,13 +13,17 @@ import mchorse.bbs_mod.ui.utils.icons.Icons;
 import java.util.function.Consumer;
 
 /**
- * Compact "Transform" disclosure. When closed only the button stays in layout so
- * following sections (e.g. Paint Color) sit directly underneath. The body opens
- * and closes with a height animation under an {@link UIAnimatedCollapseShell}.
+ * Slim "Transform" disclosure (left label, right arrow). When closed only the
+ * header stays in layout so following sections sit directly underneath. The body
+ * opens and closes with a height animation under an {@link UIAnimatedCollapseShell}.
  */
 public class UIEffectTransformCollapse extends UIElement
 {
-    private final UIButton toggle;
+    private static final int HEADER_H = 16;
+    private static final int TRANSFORM_COLOR = 0x3a6dff;
+
+    private IKey baseLabel = UIKeys.FORMS_EDITORS_COLOR_TRANSFORM;
+    private final UIPoseSectionCollapse.SectionHeader toggle;
     private final UIAnimatedCollapseShell shell;
     private final UIIcons shapeIcons;
     private final UIEffectKeyframeTransform transform;
@@ -30,10 +33,12 @@ public class UIEffectTransformCollapse extends UIElement
     {
         super();
 
-        this.h(16);
+        this.h(HEADER_H);
 
-        this.toggle = new UIButton(UIKeys.FORMS_EDITORS_COLOR_TRANSFORM, (b) -> this.setExpanded(!this.expanded));
-        this.toggle.full(this);
+        this.toggle = new UIPoseSectionCollapse.SectionHeader((b) -> this.setExpanded(!this.expanded));
+        this.toggle.full(this).h(HEADER_H);
+        this.toggle.setLabel(this.baseLabel);
+        this.toggle.setTrackColor(TRANSFORM_COLOR);
 
         this.shapeIcons = new UIIcons((b) -> apply.accept((effect) ->
             effect.shape = PaintMaskShape.fromId(b.getValue())));
@@ -54,7 +59,8 @@ public class UIEffectTransformCollapse extends UIElement
 
     public UIEffectTransformCollapse label(IKey label)
     {
-        this.toggle.label = label;
+        this.baseLabel = label == null ? IKey.EMPTY : label;
+        this.toggle.setLabel(this.baseLabel);
 
         return this;
     }
@@ -79,11 +85,15 @@ public class UIEffectTransformCollapse extends UIElement
             return;
         }
 
-        this.expanded = expanded;
-        this.toggle.label = expanded
-            ? UIKeys.FORMS_EDITORS_COLOR_TRANSFORM_HIDE
-            : UIKeys.FORMS_EDITORS_COLOR_TRANSFORM;
-
         this.shell.setExpanded(expanded, this);
+
+        this.expanded = this.shell.isOpen() || (expanded && this.shell.isAnimating());
+        this.toggle.setLabel(this.baseLabel);
+        this.toggle.setExpanded(this.expanded);
+    }
+
+    public boolean isExpanded()
+    {
+        return this.expanded || this.shell.isOpen();
     }
 }

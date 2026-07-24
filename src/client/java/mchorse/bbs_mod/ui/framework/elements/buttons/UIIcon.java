@@ -24,6 +24,7 @@ public class UIIcon extends UIClickable<UIIcon>
     private int activeBackground;
 
     private boolean active;
+    private boolean dangerAccent = true;
 
     public UIIcon(Icon icon, Consumer<UIIcon> callback)
     {
@@ -105,6 +106,13 @@ public class UIIcon extends UIClickable<UIIcon>
         return this;
     }
 
+    public UIIcon dangerAccent(boolean enabled)
+    {
+        this.dangerAccent = enabled;
+
+        return this;
+    }
+
     public UIIcon active(boolean active)
     {
         this.active = active;
@@ -129,7 +137,7 @@ public class UIIcon extends UIClickable<UIIcon>
         Icon icon = this.getIcon();
         int color;
 
-        if (this.isEnabled() && (icon == Icons.REMOVE || icon == Icons.TRASH))
+        if (this.dangerAccent && this.isEnabled() && (icon == Icons.REMOVE || icon == Icons.TRASH))
         {
             context.batcher.box(this.area.x, this.area.y, this.area.x + 2, this.area.ey(), Colors.A100 | Colors.RED);
             context.batcher.gradientHBox(this.area.x + 2, this.area.y, this.area.ex(), this.area.ey(), Colors.A25 | Colors.RED, Colors.RED);

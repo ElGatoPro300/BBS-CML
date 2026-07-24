@@ -247,6 +247,7 @@ public class BBSSettings
     public static ValueString cdnUrl;
     public static ValueString cdnToken;
     public static ValueBoolean morphingAutoMorph;
+    public static ValueBoolean autoSpectatorInEditors;
 
     public static ValueBoolean usingInMemoryClipboard;
     public static ValueBoolean discordPresence;
@@ -587,6 +588,7 @@ public class BBSSettings
         clickSound = builder.getBoolean("click_sound", false);
         pickLimbTexture = builder.getBoolean("pick_limb_texture", true);
         morphingAutoMorph = builder.getBoolean("auto_morph", false);
+        autoSpectatorInEditors = builder.getBoolean("auto_spectator_in_editors", true);
         editorSimplifyAnimations = builder.getBoolean("simplify_animations", false);
         favoriteColors = new ValueColors("favorite_colors");
         favoriteModelForms = new ValueStringKeys("favorite_model_forms");

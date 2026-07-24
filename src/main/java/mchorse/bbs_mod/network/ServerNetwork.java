@@ -50,6 +50,7 @@ import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.util.Identifier;
 import net.minecraft.util.math.BlockPos;
+import net.minecraft.world.GameMode;
 import net.minecraft.world.World;
 
 import java.util.ArrayList;
@@ -98,6 +99,7 @@ public class ServerNetwork
     public static final Identifier SERVER_PAUSE_FILM = Identifier.of(BBSMod.MOD_ID, "s13");
     public static final Identifier SERVER_TRIGGER_BLOCK_UPDATE = Identifier.of(BBSMod.MOD_ID, "s14");
     public static final Identifier SERVER_TRIGGER_BLOCK_CLICK = Identifier.of(BBSMod.MOD_ID, "s15");
+    public static final Identifier SERVER_SET_GAME_MODE = Identifier.of(BBSMod.MOD_ID, "s16");
 
     private static ServerPacketCrusher crusher = new ServerPacketCrusher();
 
@@ -171,6 +173,7 @@ public class ServerNetwork
         PayloadTypeRegistry.playC2S().register(idFor(SERVER_PAUSE_FILM), BufPayload.codecFor(idFor(SERVER_PAUSE_FILM)));
         PayloadTypeRegistry.playC2S().register(idFor(SERVER_TRIGGER_BLOCK_UPDATE), BufPayload.codecFor(idFor(SERVER_TRIGGER_BLOCK_UPDATE)));
         PayloadTypeRegistry.playC2S().register(idFor(SERVER_TRIGGER_BLOCK_CLICK), BufPayload.codecFor(idFor(SERVER_TRIGGER_BLOCK_CLICK)));
+        PayloadTypeRegistry.playC2S().register(idFor(SERVER_SET_GAME_MODE), BufPayload.codecFor(idFor(SERVER_SET_GAME_MODE)));
 
         try {
             Class<?> envTypeClass = Class.forName("net.fabricmc.api.EnvType");
@@ -217,6 +220,7 @@ public class ServerNetwork
         ServerPlayNetworking.registerGlobalReceiver(idFor(SERVER_PAUSE_FILM), (payload, context) -> handlePauseFilmPacket(context.server(), context.player(), payload.asPacketByteBuf()));
         ServerPlayNetworking.registerGlobalReceiver(idFor(SERVER_TRIGGER_BLOCK_UPDATE), (payload, context) -> handleTriggerBlockUpdatePacket(context.server(), context.player(), payload.asPacketByteBuf()));
         ServerPlayNetworking.registerGlobalReceiver(idFor(SERVER_TRIGGER_BLOCK_CLICK), (payload, context) -> handleTriggerBlockClickPacket(context.server(), context.player(), payload.asPacketByteBuf()));
+        ServerPlayNetworking.registerGlobalReceiver(idFor(SERVER_SET_GAME_MODE), (payload, context) -> handleSetGameModePacket(context.server(), context.player(), payload.asPacketByteBuf()));
     }
 
     /* Handlers */
@@ -311,6 +315,34 @@ public class ServerNetwork
             if (be instanceof TriggerBlockEntity trigger)
             {
                 trigger.trigger(player, false);
+            }
+        });
+    }
+
+    /**
+     * Silent gamemode change for Film / Model Block editors (no chat feedback).
+     */
+    private static void handleSetGameModePacket(MinecraftServer server, ServerPlayerEntity player, PacketByteBuf buf)
+    {
+        int modeId = buf.readVarInt();
+
+        if (!PermissionUtils.arePanelsAllowed(server, player))
+        {
+            return;
+        }
+
+        GameMode mode = GameMode.byId(modeId);
+
+        if (mode == null)
+        {
+            return;
+        }
+
+        server.execute(() ->
+        {
+            if (player.interactionManager.getGameMode() != mode)
+            {
+                player.changeGameMode(mode);
             }
         });
     }

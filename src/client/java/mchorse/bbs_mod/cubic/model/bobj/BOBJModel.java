@@ -10,6 +10,7 @@ import mchorse.bbs_mod.cubic.data.model.ModelGroup;
 import mchorse.bbs_mod.cubic.render.vao.BOBJModelSimpleVAO;
 import mchorse.bbs_mod.cubic.render.vao.BOBJModelVAO;
 import mchorse.bbs_mod.forms.entities.IEntity;
+import mchorse.bbs_mod.utils.MathUtils;
 import mchorse.bbs_mod.utils.pose.Pose;
 import mchorse.bbs_mod.utils.pose.PoseTransform;
 import mchorse.bbs_mod.utils.pose.Transform;
@@ -150,12 +151,14 @@ public class BOBJModel implements IModel
 
             bone.lighting = transform.lighting;
             bone.color.copy(transform.color);
+            bone.color.a *= MathUtils.clamp(transform.opacity, 0F, 1F);
             bone.texture = transform.texture;
             bone.textureBlend = transform.textureBlend;
             bone.transform.translate.add(transform.translate);
             bone.transform.scale.add(transform.scale).sub(1, 1, 1);
             bone.transform.rotate.add(transform.rotate);
             bone.transform.rotate2.add(transform.rotate2);
+            bone.transform.pivot.add(transform.pivot);
         }
     }
 

@@ -616,7 +616,7 @@ public abstract class UIList <T> extends UIElement
 
         context.batcher.clip(this.area, context);
         this.renderList(context);
-        this.scroll.renderScrollbar(context.batcher);
+        this.scroll.renderScrollbar(context);
         context.batcher.unclip(context);
 
         this.renderLockedArea(context);

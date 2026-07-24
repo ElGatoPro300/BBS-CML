@@ -317,6 +317,24 @@ public class BBSRendering
         toggleFramebuffer(false);
     }
 
+    /**
+     * Reset GL state after mid-UI 3D form/model draws so later Batcher2D text is not
+     * left with additive blend / depthMask false / grade uniforms (white doubled glyphs).
+     */
+    public static void restoreGuiRenderState()
+    {
+        ModelVAORenderer.clearFormColorGrade();
+        RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
+        RenderSystem.colorMask(true, true, true, true);
+        RenderSystem.depthMask(true);
+        RenderSystem.enableBlend();
+        RenderSystem.defaultBlendFunc();
+        RenderSystem.disableCull();
+        RenderSystem.depthFunc(GL11.GL_ALWAYS);
+        GL11.glPolygonOffset(0F, 0F);
+        GL11.glDisable(GL11.GL_POLYGON_OFFSET_FILL);
+    }
+
     public static Texture getTexture()
     {
         if (texture == null)

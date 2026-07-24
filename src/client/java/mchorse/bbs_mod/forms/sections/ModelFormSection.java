@@ -66,6 +66,9 @@ public class ModelFormSection extends SubFormSection
         }
 
         this.lastHierarchyEnabled = hierarchyEnabled;
+
+        /* Warm the async model queue so morph thumbnails are not all BBS spinners. */
+        BBSModClient.getModels().preloadAll();
     }
 
     @Override

@@ -13,6 +13,7 @@ import mchorse.bbs_mod.ui.framework.elements.UIScrollView;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIButton;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIIcon;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIToggle;
+import mchorse.bbs_mod.ui.framework.elements.input.UIPoseSectionCollapse;
 import mchorse.bbs_mod.ui.framework.elements.input.UITrackpad;
 import mchorse.bbs_mod.ui.framework.elements.overlay.UIOverlay;
 import mchorse.bbs_mod.ui.framework.elements.overlay.UIOverlayPanel;
@@ -44,13 +45,11 @@ public class UIMobCaptureRecordOverlayPanel extends UIOverlayPanel
 
     private UIToggle captureToggle;
     private UITrackpad radius;
-    private UIElement listHeader;
-    private UIIcon listHeaderIcon;
-    private UIButton listHeaderButton;
+    private UIPoseSectionCollapse mobsSection;
+    private UIElement mobsColumn;
     private UIScrollView scroll;
     private UIElement typeList;
 
-    private boolean mobsListExpanded = false;
     private final Map<String, Boolean> expandedTypes = new HashMap<>();
     private Map<String, MobCaptureAreaScanner.TypeBucket> lastBuckets = new HashMap<>();
 
@@ -145,17 +144,18 @@ public class UIMobCaptureRecordOverlayPanel extends UIOverlayPanel
         this.radius.setValue(this.setup.areaSize);
         this.radius.relative(this.content).x(0.5F).y(78).w(0.45F).anchorX(0.5F);
 
-        this.listHeaderIcon = new UIIcon(Icons.ARROW_DOWN, (b) -> this.toggleMobsList());
-        this.listHeaderButton = new UIButton(IKey.EMPTY, (b) -> this.toggleMobsList());
-        this.listHeaderButton.w(1F);
-        this.listHeader = UI.row(4, 0, 20, this.listHeaderIcon, this.listHeaderButton);
-        this.listHeader.relative(this.content).x(12).y(106).w(1F, -24).h(20);
-
         this.typeList = UI.column(4, 0);
         this.scroll = new UIScrollView();
         this.scroll.add(this.typeList);
         this.typeList.relative(this.scroll).w(1F, -12);
-        this.scroll.relative(this.content).x(12).y(130).w(1F, -24).h(1F, -168);
+        this.scroll.h(180);
+
+        this.mobsSection = new UIPoseSectionCollapse(UIKeys.FILM_MOB_CAPTURE_EMPTY, Colors.ACTIVE, this.scroll);
+        this.mobsColumn = new UIElement();
+
+        this.mobsColumn.column(4).vertical().stretch();
+        this.mobsColumn.relative(this.content).x(12).y(106).w(1F, -24);
+        this.mobsColumn.add(this.mobsSection);
 
         UIButton start = new UIButton(UIKeys.FILM_MOB_CAPTURE_START, (b) -> this.submit());
         UIButton cancel = new UIButton(UIKeys.CONFIG_CANCEL, (b) -> this.close());
@@ -168,7 +168,7 @@ public class UIMobCaptureRecordOverlayPanel extends UIOverlayPanel
         footer.w(FOOTER_BUTTON_WIDTH * 2 + FOOTER_GAP).h(20);
         footer.relative(this.content).x(0.5F).y(1F, -12).anchor(0.5F, 1F);
 
-        this.content.add(description, this.captureToggle, radiusLabel, this.radius, this.listHeader, this.scroll, footer);
+        this.content.add(description, this.captureToggle, radiusLabel, this.radius, this.mobsColumn, footer);
 
         this.onClose((event) ->
         {
@@ -184,19 +184,12 @@ public class UIMobCaptureRecordOverlayPanel extends UIOverlayPanel
         this.refreshTypes();
     }
 
-    private void toggleMobsList()
-    {
-        this.mobsListExpanded = !this.mobsListExpanded;
-        this.refreshTypes();
-    }
-
     private void updateListVisibility()
     {
         boolean visible = this.setup.captureMobs;
 
-        this.scroll.setVisible(visible);
+        this.mobsColumn.setVisible(visible);
         this.radius.setVisible(visible);
-        this.listHeader.setVisible(visible);
 
         if (visible)
         {
@@ -219,23 +212,14 @@ public class UIMobCaptureRecordOverlayPanel extends UIOverlayPanel
 
         if (this.lastBuckets.isEmpty())
         {
-            this.listHeaderButton.label = UIKeys.FILM_MOB_CAPTURE_EMPTY;
-            this.listHeaderIcon.both(Icons.ARROW_RIGHT);
-            this.scroll.setVisible(false);
+            this.mobsSection.setBaseLabel(UIKeys.FILM_MOB_CAPTURE_EMPTY);
+            this.mobsSection.setExpanded(false);
+            this.mobsSection.resize();
 
             return;
         }
 
-        this.scroll.setVisible(this.setup.captureMobs);
-        this.listHeaderButton.label = UIKeys.FILM_MOB_CAPTURE_SUMMARY.format(String.valueOf(total), String.valueOf(this.lastBuckets.size()));
-        this.listHeaderIcon.both(this.mobsListExpanded ? Icons.ARROW_DOWN : Icons.ARROW_RIGHT);
-
-        if (!this.mobsListExpanded)
-        {
-            this.scroll.resize();
-
-            return;
-        }
+        this.mobsSection.setBaseLabel(UIKeys.FILM_MOB_CAPTURE_SUMMARY.format(String.valueOf(total), String.valueOf(this.lastBuckets.size())));
 
         this.addColumnHeaderRow();
         this.addSelectAllRow();
@@ -336,6 +320,7 @@ public class UIMobCaptureRecordOverlayPanel extends UIOverlayPanel
 
         this.typeList.resize();
         this.scroll.resize();
+        this.mobsSection.resize();
     }
 
     private void addColumnHeaderRow()

@@ -823,8 +823,10 @@ public class BBSModClient implements ClientModInitializer
             {
                 UIDashboard dashboard = getDashboard();
 
-                UIScreen.open(dashboard);
+                /* Select Morphing before open so onOpen does not briefly apply
+                 * Spectator from a leftover Film / Model Block panel. */
                 dashboard.setPanel(dashboard.getPanel(UIMorphingPanel.class));
+                UIScreen.open(dashboard);
             }
             while (keyDemorph.wasPressed()) ClientNetwork.sendPlayerForm(null);
             while (keyTeleport.wasPressed()) this.keyTeleport();

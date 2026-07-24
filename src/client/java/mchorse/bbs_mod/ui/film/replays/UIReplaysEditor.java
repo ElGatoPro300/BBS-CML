@@ -202,11 +202,12 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
         COLORS.put("transform", Colors.GREEN);
         COLORS.put("transform_overlay", 0xaaff00);
         COLORS.put("color", Colors.RED);
+        COLORS.put("opacity", 0xFF88AACC);
         COLORS.put("paint_color", Colors.INACTIVE);
         COLORS.put("paint", Colors.INACTIVE);
         COLORS.put("glow", Colors.YELLOW);
         COLORS.put("lighting", Colors.YELLOW);
-        COLORS.put("render_depth", Colors.CYAN);
+        COLORS.put("render_depth", 0x1a6a7a);
         COLORS.put("look_at", 0x007f70);
         COLORS.put("inverse_kinematics", 0x6b4c9a);
         COLORS.put("illusion", Colors.DEEP_PINK);
@@ -271,6 +272,7 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
         ICONS.put("pose", Icons.POSE);
         ICONS.put("transform", Icons.ALL_DIRECTIONS);
         ICONS.put("color", Icons.BUCKET);
+        ICONS.put("opacity", Icons.VISIBLE);
         ICONS.put("paint_color", Icons.BUCKET);
         ICONS.put("paint", Icons.BUCKET);
         ICONS.put("glow", Icons.LIGHT);
@@ -1442,8 +1444,8 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
     }
 
     private static final List<String> WORLD_CHANNELS = Arrays.asList("x", "y", "z", "vX", "vY", "vZ", "yaw", "pitch", "headYaw", "bodyYaw", "grounded", "damage", "death_time", "using_item", "item_use_time", "fire", "particles", "active_hand", "fall", "sneaking", "riding", "sprinting", "swimming", "flying", "fall_flying", "crawling", "climbing", "blocking", "sleeping", "riptide", "item_main_hand", "item_off_hand", "item_head", "item_chest", "item_legs", "item_feet", "selected_slot", "stick_lx", "stick_ly", "stick_rx", "stick_ry", "trigger_l", "trigger_r", "extra1_x", "extra1_y", "extra2_x", "extra2_y", "shadow");
-    private static final List<String> MODEL_PROPERTIES = Arrays.asList("visible", "render", "lighting", "render_depth", "transform", "transform_overlay", "pose", "pose_overlay", "anchor", "look_at", "inverse_kinematics", "illusion", "illusion_transform", "color", "paint", "paint_color", "glow", "texture", "pbr_normal_intensity", "pbr_specular_intensity", "model", "actions", "shape_keys", "block_state", "item_stack", "modelTransform", "same_animation_when_dropped", "settings", "paused", "frequency", "count", "structure_file", "biome_id", "emit_light", "light_intensity", "structure_light", "enabled", "level", "effect");
-    private static final Set<String> HIDDEN_MODEL_PROPERTIES = Set.of("glowing_color", "glow_settings", "glow_intensity", "paint_color", "paint", "opacity");
+    private static final List<String> MODEL_PROPERTIES = Arrays.asList("visible", "render", "lighting", "render_depth", "transform", "transform_overlay", "pose", "pose_overlay", "anchor", "look_at", "inverse_kinematics", "illusion", "illusion_transform", "color", "opacity", "paint", "paint_color", "glow", "texture", "pbr_normal_intensity", "pbr_specular_intensity", "model", "actions", "shape_keys", "block_state", "item_stack", "modelTransform", "same_animation_when_dropped", "settings", "paused", "frequency", "count", "structure_file", "biome_id", "emit_light", "light_intensity", "structure_light", "enabled", "level", "effect");
+    private static final Set<String> HIDDEN_MODEL_PROPERTIES = Set.of("glowing_color", "glow_settings", "glow_intensity", "paint_color", "paint");
 
     private static boolean isFormItemUseTimeTrack(UIKeyframeSheet sheet)
     {
@@ -1727,6 +1729,11 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
             return UIKeys.FILM_REPLAY_TRACK_COLOR;
         }
 
+        if (trackName.equals("opacity"))
+        {
+            return UIKeys.FILM_REPLAY_TRACK_OPACITY;
+        }
+
         if (trackName.equals("render_depth"))
         {
             return UIKeys.FORMS_EDITORS_GENERAL_RENDER_DEPTH;
@@ -1948,6 +1955,7 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
             properties.add("visible");
             properties.add("render");
             properties.add("color");
+            properties.add("opacity");
             properties.add("transform");
             properties.add("transform_overlay");
 
@@ -1973,11 +1981,6 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
                 {
                     BaseValueBasic formProperty = FormUtils.getProperty(DUMMY_FORM, key);
                     UIKeyframeSheet sheet = new UIKeyframeSheet(getColor(key), false, property, formProperty);
-
-                    if (property.getFactory() == KeyframeFactories.COLOR)
-                    {
-                        sheet.defaultInsertValue = new Color(1F, 1F, 1F, 1F);
-                    }
 
                     sheets.add(withTrackIcon(sheet, key));
                 }
@@ -2014,12 +2017,6 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
 
             for (String key : this.replay.properties.properties.keySet())
             {
-                /* Leftover Blend Opacity track: no form property anymore; never show/edit it. */
-                if ("opacity".equals(key) || key.endsWith("/opacity"))
-                {
-                    continue;
-                }
-
                 if (this.isCompatiblePropertyPath(this.replay.form.get(), key))
                 {
                     propertyPaths.add(key);
@@ -2064,12 +2061,6 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
                     UIKeyframeSheet sheet = customTitle != null && !customTitle.isEmpty()
                         ? new UIKeyframeSheet(key, IKey.constant(customTitle), sheetColor, false, property, formProperty)
                         : new UIKeyframeSheet(key, IKey.constant(title), sheetColor, false, property, formProperty);
-
-                    if (property.getFactory() == KeyframeFactories.COLOR)
-                    {
-                        /* Empty color track inserts opaque white, not leftover morph/runtime color. */
-                        sheet.defaultInsertValue = new Color(1F, 1F, 1F, 1F);
-                    }
 
                     sheets.add(withTrackIcon(sheet, key));
                 }
@@ -2143,6 +2134,7 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
                 if (name.equals("biome_id")) return 62;
                 if (name.equals("structure_light")) return 63;
                 if (name.equals("color")) return 64;
+                if (name.equals("opacity")) return 65;
                 if (name.equals("paint_color") || name.equals("paint")) return 66;
                 if (name.equals("glow") || name.equals("glow_settings")) return 67;
                 if (name.equals("texture")) return 68;
@@ -2588,12 +2580,6 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
             }).target(this.filmPanel.editArea);
             this.keyframeEditor.setUndoId("replay_keyframe_editor");
 
-            /* Reset */
-            if (lastEditor != null)
-            {
-                this.keyframeEditor.view.copyViewport(lastEditor);
-            }
-
             this.keyframeEditor.view.backgroundRenderer((context) ->
             {
                 UIKeyframes view = this.keyframeEditor.view;
@@ -2669,6 +2655,17 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
                 this.keyframeEditor.view.addSheet(sheet);
             }
 
+            /* Restore viewport after sheets exist so Y scroll is not clamped away. */
+            if (lastEditor != null)
+            {
+                this.keyframeEditor.view.copyViewport(lastEditor);
+            }
+
+            if (this.keyframeEditor.view.getGraph() instanceof UIKeyframeDopeSheet dopeSheet)
+            {
+                dopeSheet.onSheetsRebuilt();
+            }
+
             this.add(this.keyframeEditor);
             this.applyToolbarDockLayout();
 
@@ -2679,6 +2676,11 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
         }
 
         this.resize();
+
+        if (this.keyframeEditor != null && this.keyframeEditor.view.getGraph() instanceof UIKeyframeDopeSheet dopeSheet)
+        {
+            dopeSheet.reanchorFoldAfterLayout();
+        }
 
         if (this.keyframeEditor != null && lastEditor == null)
         {

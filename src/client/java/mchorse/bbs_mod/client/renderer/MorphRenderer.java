@@ -99,7 +99,7 @@ public class MorphRenderer
 
                 matrixStack.pop();
 
-                RenderSystem.disableDepthTest();
+                restoreWorldRenderState();
             }
 
             return true;
@@ -177,11 +177,26 @@ public class MorphRenderer
 
             matrixStack.pop();
 
-            RenderSystem.disableDepthTest();
+            restoreWorldRenderState();
 
             return true;
         }
 
         return false;
+    }
+
+    /**
+     * Soft-opacity / glow / equipment passes can leave depthMask/blend/depthTest wrong.
+     * That poisons Iris shadow intensity and later world draws after a morph.
+     */
+    private static void restoreWorldRenderState()
+    {
+        RenderSystem.depthMask(true);
+        RenderSystem.colorMask(true, true, true, true);
+        RenderSystem.enableDepthTest();
+        RenderSystem.depthFunc(GL11.GL_LEQUAL);
+        RenderSystem.enableBlend();
+        RenderSystem.defaultBlendFunc();
+        RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
     }
 }

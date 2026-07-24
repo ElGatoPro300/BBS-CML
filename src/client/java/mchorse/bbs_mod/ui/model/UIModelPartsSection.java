@@ -10,11 +10,9 @@ import mchorse.bbs_mod.l10n.keys.IKey;
 import mchorse.bbs_mod.resources.Link;
 import mchorse.bbs_mod.ui.UIKeys;
 import mchorse.bbs_mod.ui.forms.editors.UIFormModelEditor;
-import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIButton;
 import mchorse.bbs_mod.ui.framework.elements.input.UIColor;
 import mchorse.bbs_mod.ui.framework.elements.input.UITexturePicker;
-import mchorse.bbs_mod.ui.framework.elements.utils.UILabel;
 import mchorse.bbs_mod.ui.utils.UI;
 import mchorse.bbs_mod.ui.utils.UIUtils;
 import mchorse.bbs_mod.ui.utils.pose.UIPoseEditor;
@@ -115,12 +113,8 @@ public class UIModelPartsSection extends UIModelSection
             this.poseEditor.prepend(this.texture);
         }
         this.poseEditor.prepend(this.openModel);
-    }
-    
-    @Override
-    public boolean subMouseClicked(UIContext context)
-    {
-        if (this.title.area.isInside(context) && context.mouseButton == 0)
+
+        this.section.onToggle(() ->
         {
             this.editor.setRight(this.poseEditor);
 
@@ -128,9 +122,7 @@ public class UIModelPartsSection extends UIModelSection
             {
                 formModelEditor.onPoseSectionOpened();
             }
-        }
-
-        return super.subMouseClicked(context);
+        });
     }
 
     public void selectBone(String bone)

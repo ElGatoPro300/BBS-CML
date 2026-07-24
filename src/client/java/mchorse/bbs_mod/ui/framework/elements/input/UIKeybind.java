@@ -2,6 +2,7 @@ package mchorse.bbs_mod.ui.framework.elements.input;
 
 import mchorse.bbs_mod.BBSSettings;
 import mchorse.bbs_mod.graphics.window.Window;
+import mchorse.bbs_mod.l10n.keys.IKey;
 import mchorse.bbs_mod.ui.UIKeys;
 import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.ui.framework.elements.UIElement;
@@ -23,6 +24,7 @@ public class UIKeybind extends UIElement
     private boolean single;
     private boolean mouse;
     private boolean escape;
+    private IKey emptyLabel = UIKeys.GENERAL_NONE;
 
     private boolean first;
 
@@ -54,6 +56,13 @@ public class UIKeybind extends UIElement
     public UIKeybind escape()
     {
         this.escape = true;
+
+        return this;
+    }
+
+    public UIKeybind emptyLabel(IKey emptyLabel)
+    {
+        this.emptyLabel = emptyLabel == null ? UIKeys.GENERAL_NONE : emptyLabel;
 
         return this;
     }
@@ -186,7 +195,7 @@ public class UIKeybind extends UIElement
     @Override
     public void render(UIContext context)
     {
-        String label = this.combo.keys.isEmpty() ? UIKeys.GENERAL_NONE.get() : this.combo.getKeyCombo();
+        String label = this.combo.keys.isEmpty() ? this.emptyLabel.get() : this.combo.getKeyCombo();
         FontRenderer font = context.batcher.getFont();
         int w = font.getWidth(label) - 1;
 

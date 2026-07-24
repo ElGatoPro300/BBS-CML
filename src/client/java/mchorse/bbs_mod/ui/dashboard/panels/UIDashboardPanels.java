@@ -3,6 +3,7 @@ package mchorse.bbs_mod.ui.dashboard.panels;
 import mchorse.bbs_mod.BBSSettings;
 import mchorse.bbs_mod.l10n.keys.IKey;
 import mchorse.bbs_mod.ui.UIKeys;
+import mchorse.bbs_mod.ui.dashboard.EditorSpectatorHelper;
 import mchorse.bbs_mod.ui.dashboard.UIDashboard;
 import mchorse.bbs_mod.ui.film.UIWorldFilmsBrowserPanel;
 import mchorse.bbs_mod.ui.framework.UIContext;
@@ -180,6 +181,8 @@ public class UIDashboardPanels extends UIElement
             this.panel.appear();
             this.panel.resize();
         }
+
+        EditorSpectatorHelper.syncForPanel(this.panel);
     }
 
     private void setPanelPlacement(UIDashboardPanel panel)

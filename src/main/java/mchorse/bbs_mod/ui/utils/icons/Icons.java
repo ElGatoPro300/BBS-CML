@@ -264,6 +264,18 @@ public class Icons
     public static final Icon HORIZONTAL = register(new Icon(ATLAS, "horizontal", 0, 160));
     public static final Icon LAYOUT = register(new Icon(ATLAS, "layout", 240, 144));
 
+    /* Structure Picker mode shapes — 16×16 pixel icons matching icons.png style.
+     * Block cell is intentionally smaller than Cube. */
+    public static final Link STRUCTURE_PICKER_ATLAS = Link.assets("textures/structure_picker_icons.png");
+    public static final Icon SP_BLOCK = register(new Icon(STRUCTURE_PICKER_ATLAS, "sp_block", 0, 0, 16, 16, 128, 16));
+    public static final Icon SP_RECTANGLE = register(new Icon(STRUCTURE_PICKER_ATLAS, "sp_rectangle", 16, 0, 16, 16, 128, 16));
+    public static final Icon SP_CUBE = register(new Icon(STRUCTURE_PICKER_ATLAS, "sp_cube", 32, 0, 16, 16, 128, 16));
+    public static final Icon SP_CIRCLE = register(new Icon(STRUCTURE_PICKER_ATLAS, "sp_circle", 48, 0, 16, 16, 128, 16));
+    public static final Icon SP_SPHERE = register(new Icon(STRUCTURE_PICKER_ATLAS, "sp_sphere", 64, 0, 16, 16, 128, 16));
+    public static final Icon SP_TRIANGLE = register(new Icon(STRUCTURE_PICKER_ATLAS, "sp_triangle", 80, 0, 16, 16, 128, 16));
+    public static final Icon SP_CONE = register(new Icon(STRUCTURE_PICKER_ATLAS, "sp_cone", 96, 0, 16, 16, 128, 16));
+    public static final Icon SP_CYLINDER = register(new Icon(STRUCTURE_PICKER_ATLAS, "sp_cylinder", 112, 0, 16, 16, 128, 16));
+
     public static final Icon MOUSE_BODY = new Icon(ATLAS, "mouse_body", 241, 237, 14, 18);
     public static final Icon MOUSE_LMB = new Icon(ATLAS, "mouse_lmb", 242, 229, 6, 7);
     public static final Icon MOUSE_RMB = new Icon(ATLAS, "mouse_rmb", 248, 229, 6, 7);

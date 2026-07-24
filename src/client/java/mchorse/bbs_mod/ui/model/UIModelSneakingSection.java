@@ -17,8 +17,6 @@ public class UIModelSneakingSection extends UIModelSection
     {
         super(editor);
 
-        this.title.label = UIKeys.MODELS_SNEAKING_TITLE;
-
         this.menu = new UIButton(UIKeys.MODELS_PICK_SNEAKING_POSE, (b) ->
             {
                 if (this.config == null)

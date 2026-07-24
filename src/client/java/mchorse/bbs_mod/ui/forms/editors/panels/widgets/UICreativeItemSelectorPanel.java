@@ -397,7 +397,7 @@ public class UICreativeItemSelectorPanel extends UIOverlayPanel
                 }
             }
 
-            this.scroll.renderScrollbar(context.batcher);
+            this.scroll.renderScrollbar(context);
             context.batcher.unclip(context);
 
             if (!hoveredStack.isEmpty())

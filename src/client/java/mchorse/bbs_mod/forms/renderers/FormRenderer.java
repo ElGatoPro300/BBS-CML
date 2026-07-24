@@ -202,7 +202,14 @@ public abstract class FormRenderer <T extends Form>
 
         if (origin)
         {
+            /* Gizmo preview must sit at the rotation/scale center (translate + pivot),
+             * not only at translate — otherwise editing pivot XYZ leaves the gizmo behind. */
             stack.translate(transform.translate.x, transform.translate.y, transform.translate.z);
+
+            if (transform.pivot.x != 0F || transform.pivot.y != 0F || transform.pivot.z != 0F)
+            {
+                stack.translate(transform.pivot.x, transform.pivot.y, transform.pivot.z);
+            }
         }
         else
         {
@@ -290,16 +297,30 @@ public abstract class FormRenderer <T extends Form>
             return;
         }
 
-        List<BodyPart> parts = this.getSortedBodyParts(context);
+        FormRenderDepth.Frame savedFrame = context.renderDepthFrame;
 
-        if (ItemBodyPartBatch.renderBodyParts(this, parts, context))
+        if (!FormRenderDepth.BODY_PART_RENDER_DEPTH)
         {
-            return;
+            context.renderDepthFrame = null;
         }
 
-        for (BodyPart part : parts)
+        try
         {
-            this.renderBodyPart(part, context);
+            List<BodyPart> parts = this.getSortedBodyParts(context);
+
+            if (ItemBodyPartBatch.renderBodyParts(this, parts, context))
+            {
+                return;
+            }
+
+            for (BodyPart part : parts)
+            {
+                this.renderBodyPart(part, context);
+            }
+        }
+        finally
+        {
+            context.renderDepthFrame = savedFrame;
         }
     }
 
@@ -307,7 +328,7 @@ public abstract class FormRenderer <T extends Form>
     {
         List<BodyPart> parts = new ArrayList<>(this.form.parts.getAllTyped());
 
-        if (context.renderDepthFrame == null)
+        if (!FormRenderDepth.BODY_PART_RENDER_DEPTH || context.renderDepthFrame == null)
         {
             return parts;
         }

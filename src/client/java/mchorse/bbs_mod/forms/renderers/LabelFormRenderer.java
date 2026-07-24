@@ -10,6 +10,7 @@ import mchorse.bbs_mod.forms.renderers.utils.FormColorBlend;
 import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.ui.framework.elements.utils.FontRenderer;
 import mchorse.bbs_mod.utils.FontUtils;
+import mchorse.bbs_mod.utils.MathUtils;
 import mchorse.bbs_mod.utils.MatrixStackUtils;
 import mchorse.bbs_mod.utils.StringUtils;
 import mchorse.bbs_mod.utils.TextureFont;
@@ -75,18 +76,48 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
 
         int argb = color.getARGBColor();
         String text = StringUtils.processColoredText(this.form.text.get());
-        List<String> wrap = context.batcher.getFont().wrap(text, x2 - x1 - 4);
 
-        int th = context.batcher.getFont().getHeight();
-        int lineHeight = th + 4;
-        int h = th + (wrap.size() - 1) * lineHeight;
-        int y = (y2 + y1) / 2 - h / 2;
+        if (text == null || text.isEmpty())
+        {
+            text = "Text";
+        }
+
+        FontRenderer font = context.batcher.getFont();
+        int cellW = Math.max(8, x2 - x1 - 6);
+        int cellH = Math.max(8, y2 - y1 - 6);
+        List<String> wrap = font.wrap(text, Math.max(16, cellW * 2));
+        int th = font.getHeight();
+        int lineHeight = th + 2;
+        int textH = th + Math.max(0, wrap.size() - 1) * lineHeight;
+        int textW = 1;
 
         for (String s : wrap)
         {
-            context.batcher.textShadow(s, x1 + 2, y, argb);
+            textW = Math.max(textW, font.getWidth(s));
+        }
 
-            y += lineHeight;
+        /* Fit label into the thumbnail cell (cache supersamples then downscales). */
+        float scale = Math.min((float) cellW / (float) textW, (float) cellH / (float) textH);
+
+        scale = MathUtils.clamp(scale, 0.75F, 4F);
+
+        float drawW = textW * scale;
+        float drawH = textH * scale;
+        float startX = (x1 + x2) / 2F - drawW / 2F;
+        float y = (y1 + y2) / 2F - drawH / 2F;
+
+        MatrixStack stack = context.batcher.getContext().getMatrices();
+
+        stack.push();
+        stack.translate(startX, y, 0F);
+        stack.scale(scale, scale, 1F);
+
+        float lineY = 0F;
+
+        for (String s : wrap)
+        {
+            context.batcher.textShadow(s, 0, (int) lineY, argb);
+            lineY += lineHeight;
         }
 
         if (glowIntensity > 0F)
@@ -99,22 +130,24 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
             glowColor.b *= color.b;
 
             int glowArgb = glowColor.getARGBColor();
-            int glowY = (y2 + y1) / 2 - h / 2;
 
             RenderSystem.enableBlend();
             RenderSystem.blendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE);
             RenderSystem.setShaderColor(shaderScale, shaderScale, shaderScale, 1F);
 
+            lineY = 0F;
+
             for (String s : wrap)
             {
-                context.batcher.text(s, x1 + 2, glowY, glowArgb);
-
-                glowY += lineHeight;
+                context.batcher.text(s, 0, (int) lineY, glowArgb);
+                lineY += lineHeight;
             }
 
             RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
             RenderSystem.defaultBlendFunc();
         }
+
+        stack.pop();
     }
 
     @Override
@@ -403,9 +436,10 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
 
         shadowColor.a *= this.nametagAlpha;
         color.a *= this.nametagAlpha;
-
-        float formOpacity = this.form.color.get().a;
-        shadowColor.a *= formOpacity;
+        
+        float opacity = this.form.opacity.get();
+        color.a *= opacity;
+        shadowColor.a *= opacity;
 
         shadowColor.mul(context.color);
 
@@ -414,7 +448,7 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
         if (this.form.outline.get())
         {
             Color outlineColor = this.form.outlineColor.get().copy();
-            outlineColor.a *= formOpacity;
+            outlineColor.a *= opacity;
             int oc = outlineColor.getARGBColor();
             float ow = this.form.outlineWidth.get();
             
@@ -448,7 +482,7 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
             {
                 Color gradientColor = this.form.gradientEndColor.get().copy();
                 
-                gradientColor.a *= formOpacity;
+                gradientColor.a *= opacity;
                 gradientColor.mul(context.color);
                 c2 = gradientColor.getARGBColor();
             }
@@ -549,8 +583,9 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
             FormColorBlend.blendFormGlowBrighten(color, glowSettings, legacyGlow);
         }
         
-        float formOpacity = this.form.color.get().a;
-        shadowColor.a *= formOpacity;
+        float opacity = this.form.opacity.get();
+        color.a *= opacity;
+        shadowColor.a *= opacity;
 
         shadowColor.mul(context.color);
         shadowColor.a *= this.nametagAlpha;
@@ -582,7 +617,7 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
             if (this.form.outline.get())
             {
                 Color outlineColor = this.form.outlineColor.get().copy();
-                outlineColor.a *= formOpacity;
+                outlineColor.a *= opacity;
                 int oc = outlineColor.getARGBColor();
                 float ow = this.form.outlineWidth.get();
                 
@@ -615,7 +650,7 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
                 {
                     Color gradientColor = this.form.gradientEndColor.get().copy();
                     
-                    gradientColor.a *= formOpacity;
+                    gradientColor.a *= opacity;
                     gradientColor.mul(context.color);
                     c2 = gradientColor.getARGBColor();
                 }

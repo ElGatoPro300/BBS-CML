@@ -2270,7 +2270,7 @@ public class UIClips extends UIElement
         batcher.unclip(context);
         batcher.clip(this.vertical.area, context);
 
-        this.vertical.renderScrollbar(batcher);
+        this.vertical.renderScrollbar(context);
 
         batcher.unclip(context);
     }

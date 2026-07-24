@@ -27,6 +27,7 @@ public class UIFluidFormPanel extends UIFormPanel<FluidForm>
     public UIToggle smoothShading;
     public UIToggle debug;
     public UIColor color;
+    public UITrackpad opacity;
     public UIButton texture;
 
     // Ocean
@@ -82,6 +83,9 @@ public class UIFluidFormPanel extends UIFormPanel<FluidForm>
 
         this.color = new UIColor((c) -> this.form.color.set(Color.rgba(c))).direction(Direction.LEFT).withAlpha();
         
+        this.opacity = new UITrackpad((v) -> this.form.opacity.set(v.floatValue()));
+        this.opacity.tooltip(UIKeys.FLUID_OPACITY);
+        
         this.texture = new UIButton(UIKeys.FORMS_EDITORS_BILLBOARD_PICK_TEXTURE, (b) -> {
             UITexturePicker.open(this.getContext(), this.form.texture.get(), (l) -> this.form.texture.set(l));
         });
@@ -123,7 +127,7 @@ public class UIFluidFormPanel extends UIFormPanel<FluidForm>
         this.options.add(UI.label(categoryCommon).marginTop(8));
         this.options.add(this.texture, this.color);
         this.options.add(UI.row(this.flowSpeed, this.turbulence, this.physicsSensitivity));
-        this.options.add(this.subdivisions);
+        this.options.add(UI.row(this.opacity, this.subdivisions));
         this.options.add(UI.row(this.smoothShading, this.debug));
 
         this.options.add(UI.label(categoryOcean).marginTop(8));
@@ -201,6 +205,7 @@ public class UIFluidFormPanel extends UIFormPanel<FluidForm>
         this.smoothShading.setValue(form.smoothShading.get());
         this.debug.setValue(form.debug.get());
         this.color.setColor(form.color.get().getARGBColor());
+        this.opacity.setValue(form.opacity.get());
         
         this.sizeX.setValue(form.sizeX.get());
         this.sizeY.setValue(form.sizeY.get());

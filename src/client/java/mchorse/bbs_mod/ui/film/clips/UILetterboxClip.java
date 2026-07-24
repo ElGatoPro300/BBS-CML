@@ -49,16 +49,16 @@ public class UILetterboxClip extends UIClip<LetterboxClip>
     {
         super.registerUI();
 
-        this.color = this.createColorField(this.clip.color, this.clip.uniform.color);
+        this.color = this.createColorField(this.clip.color, this.clip.uniform.color).withAlpha();
 
-        /* All numeric letterbox fields: 0 → ∞ (no upper cap). */
-        this.rotation = this.createDoubleTrackpad(this.clip.rotation, this.clip.uniform.rotation, 0F, UIKeys.SCREEN_PANELS_LETTERBOX_ROTATION);
+        /* Height/width/zoom: 0 → ∞. Rotation and offsets: unbounded (negative allowed). */
+        this.rotation = this.createDoubleTrackpad(this.clip.rotation, this.clip.uniform.rotation, UIKeys.SCREEN_PANELS_LETTERBOX_ROTATION);
         this.zoom = this.createDoubleTrackpad(this.clip.zoom, this.clip.uniform.zoom, 0F, UIKeys.SCREEN_PANELS_LETTERBOX_ZOOM);
         this.width = this.createDoubleTrackpad(this.clip.width, this.clip.uniform.width, 0F, UIKeys.SCREEN_PANELS_LETTERBOX_WIDTH);
         this.height = this.createDoubleTrackpad(this.clip.height, this.clip.uniform.height, 0F, UIKeys.SCREEN_PANELS_LETTERBOX_HEIGHT);
         this.height.increment(0.01D).values(0.1D, 0.01D, 0.25D);
-        this.offsetX = this.createDoubleTrackpad(this.clip.offsetX, this.clip.uniform.offsetX, 0F, UIKeys.SCREEN_PANELS_LETTERBOX_OFFSET_X);
-        this.offsetY = this.createDoubleTrackpad(this.clip.offsetY, this.clip.uniform.offsetY, 0F, UIKeys.SCREEN_PANELS_LETTERBOX_OFFSET_Y);
+        this.offsetX = this.createDoubleTrackpad(this.clip.offsetX, this.clip.uniform.offsetX, UIKeys.SCREEN_PANELS_LETTERBOX_OFFSET_X);
+        this.offsetY = this.createDoubleTrackpad(this.clip.offsetY, this.clip.uniform.offsetY, UIKeys.SCREEN_PANELS_LETTERBOX_OFFSET_Y);
 
         this.useKeyframes = new UIToggle(UIKeys.SCREEN_PANELS_USE_KEYFRAMES, (b) ->
         {
@@ -107,7 +107,7 @@ public class UILetterboxClip extends UIClip<LetterboxClip>
     {
         return new UIColor((c) ->
         {
-            this.writeColor(channel, uniform, Color.rgba(Colors.setA(c, 1F)));
+            this.writeColor(channel, uniform, Color.rgba(c));
             this.fillData();
         });
     }
@@ -214,7 +214,7 @@ public class UILetterboxClip extends UIClip<LetterboxClip>
         /* Skip rewriting focused keyframe factory inputs mid-edit. */
         if (!this.keyframes.isEditorInputFocused())
         {
-            this.color.setColor(Colors.setA(this.getColorValue(this.clip.color, this.clip.uniform.color, DEFAULT_COLOR).getARGBColor(), 1F));
+            this.color.setColor(this.getColorValue(this.clip.color, this.clip.uniform.color, DEFAULT_COLOR).getARGBColor());
             this.rotation.setValue(this.getDoubleValue(this.clip.rotation, this.clip.uniform.rotation, 0D));
             this.zoom.setValue(this.getDoubleValue(this.clip.zoom, this.clip.uniform.zoom, 1D));
             this.width.setValue(this.getDoubleValue(this.clip.width, this.clip.uniform.width, 1D));
@@ -254,12 +254,16 @@ public class UILetterboxClip extends UIClip<LetterboxClip>
                 sheet.defaultInsertValue = 1D;
                 sheet.limit(0D, null);
             }
-            else if ("rotation".equals(sheet.id)
-                || "offsetX".equals(sheet.id)
-                || "offsetY".equals(sheet.id)
-                || "smoothness".equals(sheet.id))
+            else if ("smoothness".equals(sheet.id))
             {
                 sheet.limit(0D, null);
+            }
+            else if ("rotation".equals(sheet.id)
+                || "offsetX".equals(sheet.id)
+                || "offsetY".equals(sheet.id))
+            {
+                /* Unbounded — negative rotation / offsets allowed. */
+                sheet.limit(null, null);
             }
         }
 

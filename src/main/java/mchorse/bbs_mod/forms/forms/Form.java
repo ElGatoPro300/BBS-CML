@@ -3,6 +3,7 @@ package mchorse.bbs_mod.forms.forms;
 import mchorse.bbs_mod.BBSMod;
 import mchorse.bbs_mod.BBSSettings;
 import mchorse.bbs_mod.data.types.BaseType;
+import mchorse.bbs_mod.data.types.IntType;
 import mchorse.bbs_mod.data.types.MapType;
 import mchorse.bbs_mod.forms.FormUtils;
 import mchorse.bbs_mod.forms.ITickable;
@@ -34,7 +35,7 @@ import mchorse.bbs_mod.settings.values.numeric.ValueInt;
 import mchorse.bbs_mod.utils.MathUtils;
 import mchorse.bbs_mod.utils.StringUtils;
 import mchorse.bbs_mod.utils.colors.Color;
-import mchorse.bbs_mod.utils.interps.Lerps;
+import mchorse.bbs_mod.utils.colors.Colors;
 import mchorse.bbs_mod.utils.pose.Transform;
 
 import net.minecraft.entity.LivingEntity;
@@ -56,7 +57,7 @@ public abstract class Form extends ValueGroup
      * semi-transparent form with lower render depth occludes forms behind it that have a
      * higher render depth (they fail the depth test instead of blending through). */
     public final ValueFloat renderDepth = new ValueFloat("render_depth", 0F);
-    public final ValueBoolean renderDepthEnabled = new ValueBoolean("render_depth_enabled", true);
+    public final ValueBoolean renderDepthEnabled = new ValueBoolean("render_depth_enabled", false);
     public final ValueString name = new ValueString("name", "");
     public final ValueTransform transform = new ValueTransform("transform", new Transform());
     public final ValueTransform transformOverlay = new ValueTransform("transform_overlay", new Transform());
@@ -66,11 +67,18 @@ public abstract class Form extends ValueGroup
     public final ValueInverseKinematics inverseKinematics = new ValueInverseKinematics("inverse_kinematics", new InverseKinematics());
     public final ValueBoolean shaderShadow = new ValueBoolean("shaderShadow", true);
     /**
-     * When true under Iris, this form uses the clean deferred opacity path for its
-     * {@code color} alpha (same compositing as post-{@code #1b}) without affecting
-     * paint redraw. Legacy films may still store this flag on Color keyframes.
+     * Opacity-track "No shading" (Iris opacity-fix tradeoff): ON = redraw soft form after
+     * paint so paint behind stays visible (pack body shadows lost). OFF = Iris soft path
+     * keeps pack sun shadows on the mesh (paint behind stays depth-clipped). Legacy films
+     * may still store this flag on Color keyframes.
      */
     public final ValueBoolean noshadingOpacity = new ValueBoolean("noshading_opacity", false);
+
+    /**
+     * Form display opacity (film Opacity track). Multiplied with {@code color.a} when rendering.
+     * Blend Color keeps RGB on {@code color}; this float owns soft fades independently.
+     */
+    public final ValueFloat opacity = new ValueFloat("opacity", 1F, 0F, 1F);
 
     /* FS-style paint overlay: paintSettings controls color and intensity; paintColor is kept for backward compatibility */
     public final ValueColor paintColor = new ValueColor("paint_color", new Color().set(1F, 1F, 1F, 0F));
@@ -164,6 +172,7 @@ public abstract class Form extends ValueGroup
         this.add(this.inverseKinematics);
         this.add(this.shaderShadow);
         this.add(this.noshadingOpacity);
+        this.add(this.opacity);
         this.add(this.paintColor);
         this.add(this.paintSettings);
         this.add(this.glowingColor);
@@ -474,6 +483,10 @@ public abstract class Form extends ValueGroup
                 map.put("glow", map.get("glow_settings"));
                 map.remove("glow_settings");
             }
+
+            /* render_depth_enabled briefly defaulted to true and was written onto every morph.
+             * Drop that baked-on state when depth was never customized (still 0). */
+            this.stripLegacyDefaultRenderDepthEnabled(map);
         }
 
         super.fromData(data);
@@ -492,23 +505,8 @@ public abstract class Form extends ValueGroup
                     settings.r = glowing.r;
                     settings.g = glowing.g;
                     settings.b = glowing.b;
-                    if (!glowMap.has("intensity"))
-                    {
-                        settings.intensity = this.resolveLegacyGlowIntensity(glowing);
-                    }
                     this.glowSettings.set(settings);
                 }
-            }
-            else if (map.has("glowing_color") && !map.has("glow_intensity"))
-            {
-                GlowSettings settings = this.glowSettings.get().copy();
-                Color glowing = this.glowingColor.get();
-
-                settings.r = glowing.r;
-                settings.g = glowing.g;
-                settings.b = glowing.b;
-                settings.intensity = this.resolveLegacyGlowIntensity(glowing);
-                this.glowSettings.set(settings);
             }
 
             if (map.has("paint"))
@@ -539,134 +537,52 @@ public abstract class Form extends ValueGroup
                 this.paintSettings.set(settings);
             }
 
-            /* Keep legacy color alphas in sync with modern intensity (0 = effect off). */
-            this.syncLegacyPaintAndGlowColors();
-
             /* Compatibility with state triggers */
             FormUtils.readOldStateTriggers(this, map);
 
-            /* One-shot merge: Blend Color era stored fade in "opacity" and tint strength in
-             * color.a. Traditional color uses color.a as opacity; bake intensity into RGB. */
-            this.mergeLegacyOpacityIntoColor(map);
-        }
-    }
-
-    /**
-     * Writes modern paint/glow intensity back into legacy color alphas so bone checks and
-     * old UI paths that still read {@code paint_color.a} / glowing alpha stay consistent.
-     * Intensity {@code 0} clears legacy alpha so white paint_color cannot revive full paint.
-     */
-    private void syncLegacyPaintAndGlowColors()
-    {
-        PaintSettings paint = this.paintSettings.get();
-        Color paintLegacy = this.paintColor.get().copy();
-        float paintIntensity = PaintSettings.clampIntensity(paint.intensity);
-
-        paintLegacy.r = paint.r;
-        paintLegacy.g = paint.g;
-        paintLegacy.b = paint.b;
-        paintLegacy.a = paintIntensity;
-        this.paintColor.set(paintLegacy);
-
-        GlowSettings glow = this.glowSettings.get();
-        Color glowLegacy = this.glowingColor.get().copy();
-
-        glowLegacy.r = glow.r;
-        glowLegacy.g = glow.g;
-        glowLegacy.b = glow.b;
-        glowLegacy.a = 1F;
-        this.glowingColor.set(glowLegacy);
-    }
-
-    private float resolveLegacyGlowIntensity(Color glowing)
-    {
-        if (glowing == null)
-        {
-            return 0F;
-        }
-
-        if (glowing.r == 1F && glowing.g == 1F && glowing.b == 1F)
-        {
-            return 0F;
-        }
-
-        if (glowing.a > 0F && glowing.a < 1F)
-        {
-            return glowing.a;
-        }
-
-        return 1F;
-    }
-
-    /**
-     * Converts Blend Color + Opacity-track form data into traditional {@code color.a} opacity.
-     */
-    private void mergeLegacyOpacityIntoColor(MapType map)
-    {
-        BaseValue colorValue = this.get("color");
-
-        if (!(colorValue instanceof ValueColor valueColor))
-        {
-            return;
-        }
-
-        Color color = valueColor.get().copy();
-        boolean hadOpacityField = map.has("opacity");
-
-        if (hadOpacityField)
-        {
-            float opacityA = 1F;
-            BaseType opacityType = map.get("opacity");
-
-            if (opacityType != null && opacityType.isNumeric())
+            /* Split legacy color.a into opacity when the form had no opacity field yet.
+             * Skip a≈0 — that is Blend Color intensity off, not invisible opacity. */
+            if (!map.has("opacity"))
             {
-                opacityA = MathUtils.clamp(opacityType.asNumeric().floatValue(), 0F, 1F);
+                BaseValue colorValue = this.get("color");
+
+                if (colorValue instanceof ValueColor valueColor)
+                {
+                    Color color = valueColor.get().copy();
+
+                    if (color.a > 0.001F && color.a < 0.999F)
+                    {
+                        this.opacity.set(MathUtils.clamp(color.a, 0F, 1F));
+                        color.a = 1F;
+                        valueColor.set(color);
+                    }
+                }
             }
-
-            float intensity = MathUtils.clamp(color.a, 0F, 1F);
-
-            /* Bake Blend tint intensity into RGB; traditional color.a is opacity only. */
-            color.r = Lerps.lerp(1F, color.r, intensity);
-            color.g = Lerps.lerp(1F, color.g, intensity);
-            color.b = Lerps.lerp(1F, color.b, intensity);
-
-            /* Residual Blend opacity default was 0 (ValueFloat unused) — that was not a real
-             * fade-out. Treating it as opacity made tinted morphs fully invisible. */
-            if (opacityA <= 0.001F)
+            else
             {
-                opacityA = 1F;
-            }
+                /* Compatible Int dual-write put opacity into color.a; Opacity owns fade now. */
+                BaseValue colorValue = this.get("color");
 
-            color.a = opacityA;
-            valueColor.set(color);
-        }
-        else if (color.a <= 0.001F)
-        {
-            /* Blend-era intensity off (no opacity field) → opaque under traditional alpha.
-             * Keep RGB when a previous bad merge already baked tint into it. */
-            color.a = 1F;
-            valueColor.set(color);
+                if (colorValue instanceof ValueColor valueColor)
+                {
+                    Color color = valueColor.get().copy();
+
+                    color.a = 0F;
+                    valueColor.set(color);
+                }
+            }
         }
     }
 
-    /**
-     * Soft-fade alpha for shadows / depth sorting. Reads traditional {@code color.a}.
-     */
     public float getFormOpacity()
     {
-        BaseValue colorValue = this.get("color");
-
-        if (colorValue instanceof ValueColor valueColor)
-        {
-            return MathUtils.clamp(valueColor.get().a, 0F, 1F);
-        }
-
-        return 1F;
+        return MathUtils.clamp(this.opacity.get(), 0F, 1F);
     }
 
     /**
-     * Writes form opacity onto a render tint whose alpha was forced to 1 by
-     * {@link Color#copyWithBlendIntensity()}.
+     * Multiplies {@code color.a} by the Opacity track. Blend Color stores tint strength in
+     * {@code color.a}; call {@link Color#applyBlendIntensity()} first so RGB is resolved and
+     * opacity stays independent.
      */
     public void applyFormOpacity(Color color)
     {
@@ -675,7 +591,7 @@ public abstract class Form extends ValueGroup
             return;
         }
 
-        color.a = MathUtils.clamp(this.getFormOpacity(), 0F, 1F);
+        color.a = MathUtils.clamp(color.a * this.getFormOpacity(), 0F, 1F);
     }
 
     @Override
@@ -686,9 +602,58 @@ public abstract class Form extends ValueGroup
         if (data instanceof MapType map)
         {
             BBSMod.getForms().appendId(this, map);
-            map.remove("opacity");
+
+            if (BBSSettings.isSaveAsCompatible())
+            {
+                this.dualWriteOpacityIntoColor(map);
+            }
         }
 
         return data;
+    }
+
+    /**
+     * Older builds fade via {@code color.a} only. Write Int ARGB (not Map) so Int-only
+     * Color factories in older builds do not ClassCastException.
+     */
+    private void dualWriteOpacityIntoColor(MapType map)
+    {
+        float opacityA = MathUtils.clamp(this.opacity.get(), 0F, 1F);
+
+        if (opacityA > 0.999F)
+        {
+            return;
+        }
+
+        BaseValue colorValue = this.get("color");
+
+        if (!(colorValue instanceof ValueColor valueColor))
+        {
+            return;
+        }
+
+        Color source = valueColor.get().copy();
+
+        map.put("color", new IntType(Colors.setA(source.getRGBColor(), opacityA)));
+    }
+
+    /**
+     * Older builds defaulted {@code render_depth_enabled} to true and saved it on every morph.
+     * Remove that baked-on flag when depth was never customized so the feature stays off by default.
+     */
+    private void stripLegacyDefaultRenderDepthEnabled(MapType map)
+    {
+        if (!map.has("render_depth_enabled"))
+        {
+            return;
+        }
+
+        boolean enabled = map.getBool("render_depth_enabled");
+        float depth = map.has("render_depth") ? map.getFloat("render_depth") : 0F;
+
+        if (enabled && Math.abs(depth) < 0.0001F)
+        {
+            map.remove("render_depth_enabled");
+        }
     }
 }
