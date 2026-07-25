@@ -3,7 +3,7 @@ package mchorse.bbs_mod.particles.components.appearance;
 import mchorse.bbs_mod.data.types.BaseType;
 import mchorse.bbs_mod.data.types.ListType;
 import mchorse.bbs_mod.data.types.MapType;
-import mchorse.bbs_mod.forms.renderers.utils.FormColorBlend;
+import mchorse.bbs_mod.forms.renderers.utils.FormColorEffects;
 import mchorse.bbs_mod.math.molang.MolangException;
 import mchorse.bbs_mod.math.molang.MolangParser;
 import mchorse.bbs_mod.math.molang.expressions.MolangExpression;
@@ -604,7 +604,7 @@ public class ParticleComponentAppearanceBillboard extends ParticleComponentBase 
 
             if (glowIntensity < 0F)
             {
-                FormColorBlend.blendFormGlowBrighten(color, emitter.glowSettings, legacyGlow);
+                FormColorEffects.blendFormGlowBrighten(color, emitter.glowSettings, legacyGlow);
             }
         }
 

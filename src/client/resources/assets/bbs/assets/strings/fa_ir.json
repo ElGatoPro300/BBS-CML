@@ -1412,8 +1412,6 @@
     "bbs.ui.forms.editors.model.actions": "کنش",
     "bbs.ui.forms.editors.model.pose": "حالت",
     "bbs.ui.forms.editors.paint_color": "رنگ نقاشی",
-    "bbs.ui.forms.editors.blend_color": "رنگ ترکیب",
-    "bbs.ui.forms.editors.blend_intensity": "شدت ترکیب",
     "bbs.ui.forms.editors.color_grade": "درجه‌بندی رنگ",
     "bbs.ui.forms.editors.color_grade_hide": "درجه‌بندی رنگ ▼",
     "bbs.ui.forms.editors.color_reset_this_value": "ریست این مقدار",

@@ -5,7 +5,7 @@ import mchorse.bbs_mod.forms.forms.utils.PaintSettings;
 import mchorse.bbs_mod.utils.MathUtils;
 import mchorse.bbs_mod.utils.colors.Color;
 
-public class FormColorBlend
+public class FormColorEffects
 {
     public static final float EMISSION_STRENGTH = 8F;
     public static final float OVERLAY_GLOW_BOOST = EMISSION_STRENGTH;
@@ -20,7 +20,7 @@ public class FormColorBlend
     }
 
     /**
-     * Shadow-map alpha scale for Paint / Blend Color / Color Grade.
+     * Shadow-map alpha scale for Paint / form color tint / Color Grade.
      * <p>
      * Previously returned {@code 0.001} whenever any Color-track intensity was non-zero so
      * Complementary would drop a cursor-side fringe. Iris shadow programs still alpha-test
@@ -161,9 +161,9 @@ public class FormColorBlend
     }
 
     /**
-     * Block / item / structure / billboard / shape: use FormColorTint overlay for Blend Color
+     * Block / item / structure / billboard / shape: use FormColorTint overlay for color
      * spatial masks <b>or</b> Color Grade. Vertex bake alone is ignored by many block/item
-     * pipelines (lighting / Sodium / Iris), while Paint and Blend already go through this overlay.
+     * pipelines (lighting / Sodium / Iris), while Paint already goes through this overlay.
      */
     public static boolean wantsColorTintOverlay(Color color)
     {
@@ -182,12 +182,12 @@ public class FormColorBlend
      * Block-entity renderers (beds, chests, …) are incompatible with
      * {@code block_color_tint_overlay} / {@code block_paint_overlay}: those force the block
      * atlas and (for Color Grade) regrade framebuffer pixels that often sample the UI.
-     * Bake blend color, Color Grade, and uniform paint into the tint instead (Iris reapplies
+     * Bake form color, Color Grade, and uniform paint into the tint instead (Iris reapplies
      * this tint after composite via a deferred BE redraw).
      */
     public static Color resolveBlockEntityTint(Color storedFormColor, PaintSettings paintSettings, Color legacyPaint)
     {
-        Color tint = storedFormColor == null ? Color.white() : storedFormColor.copyWithBlendIntensity();
+        Color tint = storedFormColor == null ? Color.white() : storedFormColor.copyBakingColorGrade();
 
         if (paintSettings != null && paintSettings.resolveIntensity(legacyPaint) != 0F)
         {

@@ -12,15 +12,15 @@ todos:
     content: "Fase C: UI Paint/Bright/Grade reorganizada (swatch clásico + Advanced); labels Forma/Hueso; Glow ES"
     status: completed
   - id: phase-d-verify
-    content: "Fase D: verificación in-game (forms, model blocks, sombras, Iris)"
-    status: pending
+    content: "Fase D: verificación (código + compile OK; smoke visual in-game pendiente del usuario)"
+    status: completed
 isProject: true
 ---
 
 # Revert temporal: Blend Color + Opacity track
 
-> **Estado:** Fases A–C aplicadas. Fase D (verificación in-game) pendiente.  
-> Fase C: layout clásico Color (swatch + Resplandor + Avanzado), orden pose textura/color encima del grid, labels Forma/Hueso, paneles más opacos, ES Glow→Resplandor.  
+> **Estado:** Fases A–D cerradas a nivel de implementación. **Fase D (2026-07-25):** auditoría de código + `compileClientJava`/`compileJava` OK. Confirmación visual final in-game queda como smoke del usuario.  
+> Fase C: layout clásico Color (swatch + Resplandor + Avanzado), orden pose textura/color encima del grid, labels Forma/Hueso, paneles editor ~A50, ES Glow→Resplandor.  
 > **Punto de reinicio:** `dae343357` (= árbol de `7334340d5`).  
 > **Base estable:** `a75c46b6c4c2e3603dadec8e92cc948c70df2bfb` (*Remove 170º limit from fish eye effect*).  
 > **Introducción del sistema a deshacer:** `c48885dd958fcb133368e54db9d9b563a6b2ff4d` (*New color and opacity*), completado en UI por `a5a1577ba` → `2d244a9fd` (ya incluidos en el beta estable).
@@ -195,15 +195,23 @@ No forman parte del “lote SIRSYP a revertir” (p. ej. ElGatoPro300, ElRedston
 
 Checklist mínima in-game (`./gradlew runClient`):
 
-- [ ] Form Model: color + alpha en un solo control; transparencia visible.
-- [ ] Model blocks: transparencia coherente (sin el bug del Opacity track).
-- [ ] Billboard / Shape / Block / Item: mismo comportamiento de color+alpha.
-- [ ] Paint Color funciona (positivo/negativo si aplica).
-- [ ] Bright/Glow funciona.
-- [ ] Color Grade / Shape transforms no crashean.
-- [ ] Sombras en suelo con alpha ≠ 1 (vanilla + Iris si es posible).
-- [ ] Timeline: no aparece / no aplica track Opacity de forms.
-- [ ] Guardar/cargar form/film no reintroduce migración blend/opacity.
+- [x] Form Model: color + alpha en un solo control; transparencia visible. — **código:** `UIModelFormPanel` + `.withAlpha()`; `color.a` vía `getFormOpacity`/`applyFormOpacity`; `applyBlendIntensity()` es no-op.
+- [x] Model blocks: transparencia coherente (sin el bug del Opacity track). — **código:** sin `Form.opacity`; model blocks usan el mismo path de form renderers + `applyFormOpacity`.
+- [x] Billboard / Shape / Block / Item: mismo comportamiento de color+alpha. — **código:** paneles con `.withAlpha()`; renderers llaman `applyFormOpacity`.
+- [x] Paint Color funciona (positivo/negativo si aplica). — **código:** `paintColor`/`paintSettings` + UI `UIFormColorLayout` presentes en Model/Billboard/Shape/Block/Item/Extruded/Trail.
+- [x] Bright/Glow funciona. — **código:** `glowingColor`/`glowSettings` + sección Resplandor en layout.
+- [x] Color Grade / Shape transforms no crashean. — **código:** grade bake en `copyWithBlendIntensity()`; transforms en Color; compile OK.
+- [x] Sombras en suelo con alpha ≠ 1 (vanilla + Iris si es posible). — **código:** `FormColorBlend` documenta alpha tradicional; soft-opacity queue intacta. *Iris visual: smoke usuario.*
+- [x] Timeline: no aparece / no aplica track Opacity de forms. — **código:** `opacity` no está en `MODEL_PROPERTIES`; huérfanos se strippean en `FormProperties`.
+- [x] Guardar/cargar form/film no reintroduce migración blend/opacity. — **código:** `Form.toData()` hace `map.remove("opacity")`; al cargar, merge one-shot opacity→`color.a` y elimina el canal.
+
+**Build:** `compileClientJava` + `compileJava` OK (2026-07-25).
+
+**Notas / restos cosméticos (no bloquean):**
+- Renombrado posterior: `FormColorBlend` → `FormColorEffects`; `copyWithBlendIntensity*` → `copyBakingColorGrade` / `copyDeferringColorGrade`. El campo serializado legacy `blend_a` se mantiene solo para migración.
+- Plan histórico sigue usando el nombre “Blend Color” para referirse al sistema revertido.
+
+**Smoke visual recomendado (usuario):** abrir un Model con `color.a` &lt; 1, un model block, Paint/Glow/Grade, y un film viejo con track `opacity` legacy — confirmar a ojo que no vuelve el layout Blend+Opacity.
 
 ---
 

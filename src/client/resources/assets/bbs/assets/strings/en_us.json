@@ -1448,8 +1448,6 @@
     "bbs.ui.forms.editors.model.actions": "Actions",
     "bbs.ui.forms.editors.model.pose": "Pose",
     "bbs.ui.forms.editors.colors_and_glow": "Colors and glow",
-    "bbs.ui.forms.editors.blend_color": "Blend Color",
-    "bbs.ui.forms.editors.blend_intensity": "Blend intensity",
     "bbs.ui.forms.editors.color_grade": "Color grade",
     "bbs.ui.forms.editors.color_grade_hide": "Color grade ▼",
     "bbs.ui.forms.editors.color_extra": "Extra",

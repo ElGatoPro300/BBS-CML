@@ -6,7 +6,7 @@ import mchorse.bbs_mod.forms.CustomVertexConsumerProvider;
 import mchorse.bbs_mod.forms.FormUtilsClient;
 import mchorse.bbs_mod.forms.forms.LabelForm;
 import mchorse.bbs_mod.forms.forms.utils.GlowSettings;
-import mchorse.bbs_mod.forms.renderers.utils.FormColorBlend;
+import mchorse.bbs_mod.forms.renderers.utils.FormColorEffects;
 import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.ui.framework.elements.utils.FontRenderer;
 import mchorse.bbs_mod.utils.FontUtils;
@@ -70,7 +70,7 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
 
         if (glowIntensity < 0F)
         {
-            FormColorBlend.blendFormGlowBrighten(color, glowSettings, legacyGlow);
+            FormColorEffects.blendFormGlowBrighten(color, glowSettings, legacyGlow);
         }
 
         int argb = color.getARGBColor();
@@ -91,8 +91,8 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
 
         if (glowIntensity > 0F)
         {
-            Color glowColor = FormColorBlend.resolveGlowOverlayEmissionColor(glowSettings, legacyGlow, 1F, glowIntensity);
-            float shaderScale = FormColorBlend.resolveGlowOverlayShaderScale(glowIntensity);
+            Color glowColor = FormColorEffects.resolveGlowOverlayEmissionColor(glowSettings, legacyGlow, 1F, glowIntensity);
+            float shaderScale = FormColorEffects.resolveGlowOverlayShaderScale(glowIntensity);
 
             glowColor.r *= color.r;
             glowColor.g *= color.g;
@@ -308,8 +308,8 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
             RenderSystem.blendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE);
         });
 
-        Color glowColor = FormColorBlend.resolveGlowOverlayEmissionColor(glowSettings, legacyGlow, alpha, glowIntensity);
-        float shaderScale = FormColorBlend.resolveGlowOverlayShaderScale(glowIntensity);
+        Color glowColor = FormColorEffects.resolveGlowOverlayEmissionColor(glowSettings, legacyGlow, alpha, glowIntensity);
+        float shaderScale = FormColorEffects.resolveGlowOverlayShaderScale(glowIntensity);
         int maxLight = LightmapTextureManager.MAX_LIGHT_COORDINATE;
         boolean savedDepthMask = GL11.glGetBoolean(GL11.GL_DEPTH_WRITEMASK);
         boolean savedPolygonOffsetFill = GL11.glGetBoolean(GL11.GL_POLYGON_OFFSET_FILL);
@@ -398,7 +398,7 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
 
         if (glowIntensity < 0F)
         {
-            FormColorBlend.blendFormGlowBrighten(color, glowSettings, legacyGlow);
+            FormColorEffects.blendFormGlowBrighten(color, glowSettings, legacyGlow);
         }
 
         shadowColor.a *= this.nametagAlpha;
@@ -546,7 +546,7 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
 
         if (glowIntensity < 0F)
         {
-            FormColorBlend.blendFormGlowBrighten(color, glowSettings, legacyGlow);
+            FormColorEffects.blendFormGlowBrighten(color, glowSettings, legacyGlow);
         }
         
         float formOpacity = this.form.color.get().a;

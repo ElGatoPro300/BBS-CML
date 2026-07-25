@@ -17,7 +17,7 @@ public class Color
     public float contrast;
     public float hue;
     public float saturation;
-    /** Spatial mask for Blend Color (RGB tint). */
+    /** Spatial mask for form color tint (RGB). */
     public EffectTransform transform = new EffectTransform();
     /** Spatial mask for brightness grade only. */
     public EffectTransform brightnessTransform = new EffectTransform();
@@ -168,19 +168,10 @@ public class Color
     }
 
     /**
-     * Legacy no-op kept for call-site compatibility. {@link #a} is form opacity again
-     * (traditional color), not blend tint strength.
-     */
-    public Color applyBlendIntensity()
-    {
-        return this;
-    }
-
-    /**
      * Copy for rendering when Color Grade is applied in-shader (FormColorGrade).
      * Keeps {@link #a} as opacity; clears baked grade fields so the shader owns them.
      */
-    public Color copyWithBlendIntensityOnly()
+    public Color copyDeferringColorGrade()
     {
         Color copy = this.copy();
 
@@ -196,7 +187,7 @@ public class Color
      * Copy for rendering with brightness/contrast/hue/saturation baked into RGB.
      * Keeps {@link #a} as traditional opacity (does not treat alpha as tint intensity).
      */
-    public Color copyWithBlendIntensity()
+    public Color copyBakingColorGrade()
     {
         Color copy = this.copy();
         float brightness = copy.brightness;

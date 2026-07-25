@@ -532,14 +532,14 @@ public abstract class Form extends ValueGroup
             /* Compatibility with state triggers */
             FormUtils.readOldStateTriggers(this, map);
 
-            /* One-shot merge: Blend Color era stored fade in "opacity" and tint strength in
+            /* One-shot merge: legacy era stored fade in "opacity" and tint strength in
              * color.a. Traditional color uses color.a as opacity; bake intensity into RGB. */
             this.mergeLegacyOpacityIntoColor(map);
         }
     }
 
     /**
-     * Converts Blend Color + Opacity-track form data into traditional {@code color.a} opacity.
+     * Converts legacy Opacity-track form data into traditional {@code color.a} opacity.
      */
     private void mergeLegacyOpacityIntoColor(MapType map)
     {
@@ -573,7 +573,7 @@ public abstract class Form extends ValueGroup
         }
         else if (color.a <= 0.001F)
         {
-            /* Blend-era default (intensity off) would be invisible under traditional alpha. */
+            /* Legacy tint-off default would be invisible under traditional alpha. */
             color.r = 1F;
             color.g = 1F;
             color.b = 1F;

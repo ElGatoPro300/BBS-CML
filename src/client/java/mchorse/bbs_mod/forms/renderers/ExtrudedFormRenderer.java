@@ -12,7 +12,7 @@ import mchorse.bbs_mod.forms.forms.utils.EffectTransformMath;
 import mchorse.bbs_mod.forms.forms.utils.GlowSettings;
 import mchorse.bbs_mod.forms.forms.utils.PaintSettings;
 import mchorse.bbs_mod.forms.forms.utils.TextureBlend;
-import mchorse.bbs_mod.forms.renderers.utils.FormColorBlend;
+import mchorse.bbs_mod.forms.renderers.utils.FormColorEffects;
 import mchorse.bbs_mod.forms.renderers.utils.FormTextureBlendRenderer;
 import mchorse.bbs_mod.resources.Link;
 import mchorse.bbs_mod.ui.framework.UIContext;
@@ -195,7 +195,7 @@ public class ExtrudedFormRenderer extends FormRenderer<ExtrudedForm>
             boolean ui = modelRenderer;
 
             this.form.applyFormOpacity(color);
-            FormColorBlend.applyShadowPassColorFix(color, storedFormColor, this.form.paintSettings.get(), this.form.paintColor.get(), shadowPass);
+            FormColorEffects.applyShadowPassColorFix(color, storedFormColor, this.form.paintSettings.get(), this.form.paintColor.get(), shadowPass);
 
             if (color.a <= 0.001F && !shadowPass)
             {
@@ -252,8 +252,8 @@ public class ExtrudedFormRenderer extends FormRenderer<ExtrudedForm>
                 && !livePackGrade;
             boolean uploadGrade = useFormColorGrade || livePackGrade;
             Color formColor = (uploadGrade || useColorGradeOverlay)
-                ? storedFormColor.copyWithBlendIntensityOnly()
-                : storedFormColor.copyWithBlendIntensity();
+                ? storedFormColor.copyDeferringColorGrade()
+                : storedFormColor.copyBakingColorGrade();
 
             color.mul(formColor);
 
@@ -269,7 +269,7 @@ public class ExtrudedFormRenderer extends FormRenderer<ExtrudedForm>
 
             if (!bbsModelShader && !shaderOverlay && !deferPaintToOverlay && !paintOnlyGlow && !deferTranslucentModel)
             {
-                FormColorBlend.blendFormGlowBrighten(color, glow, legacyGlow);
+                FormColorEffects.blendFormGlowBrighten(color, glow, legacyGlow);
             }
 
             Matrix4f formRootInverse = new Matrix4f();

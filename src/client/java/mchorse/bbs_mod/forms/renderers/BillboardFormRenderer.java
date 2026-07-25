@@ -13,7 +13,7 @@ import mchorse.bbs_mod.forms.forms.utils.PaintSettings;
 import mchorse.bbs_mod.forms.renderers.utils.FlatColorTintOverlayPass;
 import mchorse.bbs_mod.forms.renderers.utils.FlatGlowOverlayPass;
 import mchorse.bbs_mod.forms.renderers.utils.FlatPaintOverlayPass;
-import mchorse.bbs_mod.forms.renderers.utils.FormColorBlend;
+import mchorse.bbs_mod.forms.renderers.utils.FormColorEffects;
 import mchorse.bbs_mod.forms.renderers.utils.FormTextureBlendRenderer;
 import mchorse.bbs_mod.graphics.texture.Texture;
 import mchorse.bbs_mod.resources.Link;
@@ -250,7 +250,7 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
     {
         Color storedFormColor = this.form.color.get();
         boolean hasColorAdjustments = storedFormColor != null && storedFormColor.hasColorAdjustments();
-        boolean colorTransformWanted = FormColorBlend.wantsColorTransformMask(storedFormColor);
+        boolean colorTransformWanted = FormColorEffects.wantsColorTransformMask(storedFormColor);
         Color color = new Color().set(overlayColor, true);
         Matrix4f matrix = matrices.peek().getPositionMatrix();
         MatrixStack.Entry entry = matrices.peek();
@@ -261,7 +261,7 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
          * (ColorGradeOverlay scene-replace makes thin billboards look invisible). */
         boolean useFormColorGrade = hasColorAdjustments && !irisWorld;
         boolean irisDeferredColorGrade = hasColorAdjustments && irisWorld;
-        Color formColor = storedFormColor.copyWithBlendIntensityOnly().copy();
+        Color formColor = storedFormColor.copyDeferringColorGrade().copy();
 
         /* Bake blend into vertices when FlatColorTint will not apply; grade stays in-shader / deferred. */
         if (colorTransformWanted)
@@ -272,11 +272,11 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
         }
         else if (useFormColorGrade || irisDeferredColorGrade)
         {
-            color.mul(storedFormColor.copyWithBlendIntensityOnly());
+            color.mul(storedFormColor.copyDeferringColorGrade());
         }
         else
         {
-            color.mul(storedFormColor.copyWithBlendIntensity());
+            color.mul(storedFormColor.copyBakingColorGrade());
         }
 
         this.form.applyFormOpacity(color);
@@ -285,7 +285,7 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
 
         boolean shadowPass = shadowPassEarly;
 
-        FormColorBlend.applyShadowPassColorFix(color, this.form.color.get(), this.form.paintSettings.get(), this.form.paintColor.get(), shadowPass);
+        FormColorEffects.applyShadowPassColorFix(color, this.form.color.get(), this.form.paintSettings.get(), this.form.paintColor.get(), shadowPass);
 
         if (color.a <= 0.001F && !shadowPass)
         {
@@ -299,7 +299,7 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
 
         if (paintStrength < 0F)
         {
-            FormColorBlend.applyPaintBlend(color, paintSettings, legacyPaint);
+            FormColorEffects.applyPaintBlend(color, paintSettings, legacyPaint);
         }
 
         GlowSettings glowSettings = this.form.glowSettings.get();
@@ -308,7 +308,7 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
 
         if (glowIntensity < 0F)
         {
-            FormColorBlend.blendFormGlowBrighten(color, glowSettings, legacyGlow);
+            FormColorEffects.blendFormGlowBrighten(color, glowSettings, legacyGlow);
         }
 
         /* World/entity billboard: face the camera and ignore authored rotation.
@@ -369,9 +369,9 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
          * Color Grade: never use ColorGradeOverlay on billboards — scene capture misses the
          * thin plane and the overlay paints background (looks invisible). Defer + FormColorGrade. */
         boolean opacityPatch = ShaderOpacityPatch.isActive();
-        /* Paint / Blend Color overlays must not write into the shadow map (same as Structure/Block). */
-        boolean positivePaint = !shadowPass && FormColorBlend.hasPositivePaint(paintSettings, legacyPaint);
-        Color resolvedPaint = positivePaint ? FormColorBlend.resolvePaintColor(paintSettings, legacyPaint) : null;
+        /* Paint / color-tint overlays must not write into the shadow map (same as Structure/Block). */
+        boolean positivePaint = !shadowPass && FormColorEffects.hasPositivePaint(paintSettings, legacyPaint);
+        Color resolvedPaint = positivePaint ? FormColorEffects.resolvePaintColor(paintSettings, legacyPaint) : null;
         boolean applyColorTint = colorTransformWanted && !shadowPass;
         boolean deferForColorGrade = hasColorAdjustments && irisWorld;
         boolean deferTranslucent = !modelRenderer && !shadowPass
@@ -1138,6 +1138,6 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
         Color glowResolved = new Color();
 
         glowSettings.resolveColor(legacyGlow, glowResolved);
-        FormColorBlend.blendEmission(paintOverlay, glowResolved, glowIntensity);
+        FormColorEffects.blendEmission(paintOverlay, glowResolved, glowIntensity);
     }
 }

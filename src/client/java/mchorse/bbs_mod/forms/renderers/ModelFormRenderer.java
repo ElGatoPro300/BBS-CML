@@ -36,7 +36,7 @@ import mchorse.bbs_mod.forms.forms.utils.EffectTransformMath;
 import mchorse.bbs_mod.forms.forms.utils.GlowSettings;
 import mchorse.bbs_mod.forms.forms.utils.PaintSettings;
 import mchorse.bbs_mod.forms.forms.utils.TextureBlend;
-import mchorse.bbs_mod.forms.renderers.utils.FormColorBlend;
+import mchorse.bbs_mod.forms.renderers.utils.FormColorEffects;
 import mchorse.bbs_mod.forms.renderers.utils.MatrixCache;
 import mchorse.bbs_mod.forms.renderers.utils.MatrixCacheEntry;
 import mchorse.bbs_mod.obj.shapes.ShapeKeys;
@@ -559,7 +559,7 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
 
         if (stencilMap != null)
         {
-            Color stencilFormColor = this.form.color.get().copyWithBlendIntensity();
+            Color stencilFormColor = this.form.color.get().copyBakingColorGrade();
             boolean stencilColorTransformActive = this.canApplyColorTransformMask(model);
 
             try
@@ -638,7 +638,7 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
         boolean hasGlow = this.hasAnyGlow(model);
         boolean syncedGlow = hasGlow && glow.resolveSync();
         boolean paintOnlyGlow = glow.resolvePaintOnly();
-        boolean hasEmissiveGlow = hasGlow && !paintOnlyGlow && FormColorBlend.hasPositiveGlow(glow, legacyGlow);
+        boolean hasEmissiveGlow = hasGlow && !paintOnlyGlow && FormColorEffects.hasPositiveGlow(glow, legacyGlow);
         /* Do not gate on supportsBbsModelShaderEffects — Iris entity_translucent discards
          * below alphaTestRef (~0.1); deferred BBS redraw is Iris-only (no-shader models keep
          * the normal BBS path so mesh depth / shading stay correct). */
@@ -651,7 +651,7 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
 
         boolean deferTranslucentModel = opacityDefer;
         /* Soft Opacity + Noshading off stays on Iris post-deferred (pack body shadows).
-         * Frame-end Blend Color overlays use DST_COLOR and ignore form alpha (opaque mask).
+         * Frame-end color-tint overlays use DST_COLOR and ignore form alpha (opaque mask).
          * Bake Blend into vertex RGB on that path instead; Noshading still uses the BBS queue. */
         boolean softOpacityIrisPath = !ui && !shadowPass
             && irisWorldPaintDeferral
@@ -677,8 +677,8 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
             && !shadowPass
             && model.supportsBbsModelShaderEffects();
         Color formColor = (uploadFormGradeToShader || useColorGradeOverlay)
-            ? storedFormColor.copyWithBlendIntensityOnly()
-            : storedFormColor.copyWithBlendIntensity();
+            ? storedFormColor.copyDeferringColorGrade()
+            : storedFormColor.copyBakingColorGrade();
         boolean bakeSoftIrisBlend = softOpacityIrisPath && colorTransformWanted;
 
         if (bakeSoftIrisBlend)
@@ -689,7 +689,7 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
             color.b *= formColor.b;
         }
 
-        /* Multiply tint for Blend Color spatial mask only — Color Grade uses FormColorGrade / overlay. */
+        /* Multiply tint for color spatial mask only — Color Grade uses FormColorGrade / overlay. */
         boolean deferColorTintToOverlay = colorTransformWanted && irisWorldPaintDeferral && !deferTranslucentModel && !bakeSoftIrisBlend;
         boolean colorTransformActive = colorTransformWanted && (bbsModelShader || deferTranslucentModel || deferColorTintToOverlay);
         /* Paint stays on the Iris frame-end overlay (keeps pack body shadows with Noshading off).
@@ -716,11 +716,11 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
         if (irisWorldPaintDeferral && hasEmissiveGlow && !deferTranslucentModel)
         {
             /* Must hit the Iris entity/gbuffer pass — post-composite BBS additive never blooms. */
-            FormColorBlend.blendFormGlowBrighten(color, glow, legacyGlow);
+            FormColorEffects.blendFormGlowBrighten(color, glow, legacyGlow);
         }
         else if (!bbsModelShader && !shaderOverlay && !deferPaintToOverlay && !paintOnlyGlow && !shapeKeyPositiveOverlay && !deferTranslucentModel)
         {
-            FormColorBlend.blendFormGlowBrighten(color, glow, legacyGlow);
+            FormColorEffects.blendFormGlowBrighten(color, glow, legacyGlow);
         }
 
         /* Position attributes are already in form/model space; camera/UI matrices must not
@@ -1643,7 +1643,7 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
 
     private void renderShapeKeyGlowOverlay(MatrixStack stack, ModelInstance model, int overlay, StencilMap stencilMap, Color color, Link defaultTexture, TextureBlend textureBlend, GlowSettings glow, Color legacyGlow)
     {
-        boolean formPositive = FormColorBlend.hasPositiveGlow(glow, legacyGlow);
+        boolean formPositive = FormColorEffects.hasPositiveGlow(glow, legacyGlow);
         boolean bonePositive = this.hasBonePositiveGlow(model);
 
         if (!formPositive && !bonePositive)
@@ -1749,7 +1749,7 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
 
     private boolean hasAnyPositiveGlow(ModelInstance model, GlowSettings glow, Color legacyGlow)
     {
-        if (FormColorBlend.hasPositiveGlow(glow, legacyGlow))
+        if (FormColorEffects.hasPositiveGlow(glow, legacyGlow))
         {
             return true;
         }
@@ -1901,7 +1901,7 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
     }
 
     /**
-     * Blend Color uses the BBS tint / Iris multiply-overlay path whenever RGB is tinted or a
+     * Form color tint uses the BBS tint / Iris multiply-overlay path whenever RGB is tinted or a
      * spatial transform is active — same lighting-safe path as moving Transform numbers.
      */
     private boolean canApplyColorTransformMask(ModelInstance model)
@@ -1947,7 +1947,7 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
     }
 
     /**
-     * Vertex bake for Blend Color intensity. Color Grade always runs in FormColorGrade /
+     * Vertex bake for form color / Color Grade. Color Grade always runs in FormColorGrade /
      * ColorGradeOverlay after the texture sample — baking contrast onto white tint is invisible.
      */
     private Color resolveBakeFormColor(ModelInstance model, boolean ui)
@@ -1956,16 +1956,16 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
 
         if (!stored.hasColorAdjustments())
         {
-            return stored.copyWithBlendIntensity();
+            return stored.copyBakingColorGrade();
         }
 
         if (model != null && model.supportsBbsModelShaderEffects())
         {
-            return stored.copyWithBlendIntensityOnly();
+            return stored.copyDeferringColorGrade();
         }
 
         /* Non-VAO fallback: no FormColorGrade uniforms available. */
-        return stored.copyWithBlendIntensity();
+        return stored.copyBakingColorGrade();
     }
 
     /**
@@ -2326,7 +2326,7 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
             Supplier<ShaderProgram> mainShader = this.getModelShader(model);
             Supplier<ShaderProgram> shader = this.getShader(context, mainShader, BBSShaders::getPickerModelsProgram);
 
-            FormColorBlend.applyShadowPassColorFix(color, this.form.color.get(), this.form.paintSettings.get(), this.form.paintColor.get(), context.isShadowPass || BBSRendering.isIrisShadowPass(), this.hasAnyPaint(model));
+            FormColorEffects.applyShadowPassColorFix(color, this.form.color.get(), this.form.paintSettings.get(), this.form.paintColor.get(), context.isShadowPass || BBSRendering.isIrisShadowPass(), this.hasAnyPaint(model));
 
             /* Opacity 0: capture bones for body parts, skip albedo so shader path leaves no halo. */
             if (color.a <= 0.001F && !context.isShadowPass && !BBSRendering.isIrisShadowPass() && context.stencilMap == null)

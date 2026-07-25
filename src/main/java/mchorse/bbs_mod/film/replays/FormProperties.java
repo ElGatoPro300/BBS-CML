@@ -308,7 +308,7 @@ public class FormProperties extends ValueGroup
                 property.setRuntimeValue(coerceRuntimeValue(property, segment.createInterpolated()));
             }
 
-            /* Color track keyframes are often RGBA-only; keep morph Blend Color grading unless
+            /* Color track keyframes are often RGBA-only; keep morph Color Grade unless
              * the track itself keyframes brightness/contrast/hue/saturation. */
             if ("color".equals(id))
             {
@@ -1426,7 +1426,7 @@ public class FormProperties extends ValueGroup
         }
         catch (Throwable ignored) {}
 
-        /* Migration: Blend Opacity track + color.a intensity → traditional color.a opacity */
+        /* Migration: legacy Opacity track + color.a tint strength → traditional color.a opacity */
         try
         {
             KeyframeChannel<?> opacityAny = this.properties.get("opacity");
@@ -1498,7 +1498,7 @@ public class FormProperties extends ValueGroup
 
                     if (v instanceof Color color && color.a <= 0.001F)
                     {
-                        /* Blend-era intensity off → fully opaque white under traditional alpha. */
+                        /* Legacy tint-off (a≈0) → fully opaque white under traditional alpha. */
                         color.r = 1F;
                         color.g = 1F;
                         color.b = 1F;

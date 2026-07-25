@@ -15,7 +15,7 @@ import mchorse.bbs_mod.utils.keyframes.Keyframe;
 public class ColorKeyframeFactory implements IKeyframeFactory<Color>
 {
     /**
-     * Legacy Blend Color dual-write: tint strength lived here while ARGB alpha held opacity.
+     * Legacy dual-write field: tint strength lived here while ARGB alpha held opacity.
      * Still read once for migration into traditional {@code color.a}; no longer written.
      */
     public static final String BLEND_A = "blend_a";
