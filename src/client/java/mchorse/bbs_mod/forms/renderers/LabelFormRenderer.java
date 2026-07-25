@@ -403,10 +403,9 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
 
         shadowColor.a *= this.nametagAlpha;
         color.a *= this.nametagAlpha;
-        
-        float opacity = this.form.opacity.get();
-        color.a *= opacity;
-        shadowColor.a *= opacity;
+
+        float formOpacity = this.form.color.get().a;
+        shadowColor.a *= formOpacity;
 
         shadowColor.mul(context.color);
 
@@ -415,7 +414,7 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
         if (this.form.outline.get())
         {
             Color outlineColor = this.form.outlineColor.get().copy();
-            outlineColor.a *= opacity;
+            outlineColor.a *= formOpacity;
             int oc = outlineColor.getARGBColor();
             float ow = this.form.outlineWidth.get();
             
@@ -449,7 +448,7 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
             {
                 Color gradientColor = this.form.gradientEndColor.get().copy();
                 
-                gradientColor.a *= opacity;
+                gradientColor.a *= formOpacity;
                 gradientColor.mul(context.color);
                 c2 = gradientColor.getARGBColor();
             }
@@ -550,9 +549,8 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
             FormColorBlend.blendFormGlowBrighten(color, glowSettings, legacyGlow);
         }
         
-        float opacity = this.form.opacity.get();
-        color.a *= opacity;
-        shadowColor.a *= opacity;
+        float formOpacity = this.form.color.get().a;
+        shadowColor.a *= formOpacity;
 
         shadowColor.mul(context.color);
         shadowColor.a *= this.nametagAlpha;
@@ -584,7 +582,7 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
             if (this.form.outline.get())
             {
                 Color outlineColor = this.form.outlineColor.get().copy();
-                outlineColor.a *= opacity;
+                outlineColor.a *= formOpacity;
                 int oc = outlineColor.getARGBColor();
                 float ow = this.form.outlineWidth.get();
                 
@@ -617,7 +615,7 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
                 {
                     Color gradientColor = this.form.gradientEndColor.get().copy();
                     
-                    gradientColor.a *= opacity;
+                    gradientColor.a *= formOpacity;
                     gradientColor.mul(context.color);
                     c2 = gradientColor.getARGBColor();
                 }

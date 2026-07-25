@@ -1,21 +1,27 @@
 ---
-name: "Revert Blend Color + Opacity track (temporal)"
-overview: "Revertir commits SIRSYP inestables post-a75c46b y luego deshacer Blend Color + Opacity track, volviendo al color tradicional (RGB+alpha en un solo sitio), manteniendo Paint / Bright / Color Grade / Shape+transforms y el color picker nuevo con slider de transparencia."
+name: Revert Blend Color + Opacity track (temporal)
+overview: Revertir commits SIRSYP inestables post-a75c46b y luego deshacer Blend Color + Opacity track, volviendo al color tradicional (RGB+alpha en un solo sitio), manteniendo Paint / Bright / Color Grade / Shape+transforms y el color picker nuevo con slider de transparencia.
 todos:
   - id: phase-a-sirsyp
     content: "Fase A: revertir commits SIRSYP post-a75c46b (excepto limpieza 757b07335)"
+    status: completed
   - id: phase-b-blend
     content: "Fase B: rollback quirúrgico Blend Color + Opacity track → color tradicional"
+    status: completed
   - id: phase-c-ui
     content: "Fase C: UI Paint/Bright/Grade + color picker con alpha slider"
+    status: pending
   - id: phase-d-verify
     content: "Fase D: verificación in-game (forms, model blocks, sombras, Iris)"
+    status: pending
 isProject: true
 ---
 
 # Revert temporal: Blend Color + Opacity track
 
-> **Estado:** **Fase A en curso / ajustada** (working tree; sin commit aún): SIRSYP revertidos salvo excepciones reaplicadas (`56dbeafb7`, `757b07335`, `a22ab2dba`, `f5ba4cff0`). Fase B–D pendientes.  
+> **Estado:** **Fase A + Fase B aplicadas** (working tree / index; sin commit aún).  
+> Excepciones Fase A conservadas: `56dbeafb7`, `757b07335`, `a22ab2dba`, `f5ba4cff0`.  
+> Fase B: color tradicional (`color.a` = opacidad), sin track Opacity, sin UI blend-intensity residual. Fase C–D pendientes.  
 > **Punto de reinicio:** `dae343357` (= árbol de `7334340d5`).  
 > **Base estable:** `a75c46b6c4c2e3603dadec8e92cc948c70df2bfb` (*Remove 170º limit from fish eye effect*).  
 > **Introducción del sistema a deshacer:** `c48885dd958fcb133368e54db9d9b563a6b2ff4d` (*New color and opacity*), completado en UI por `a5a1577ba` → `2d244a9fd` (ya incluidos en el beta estable).
@@ -44,7 +50,8 @@ Los parches posteriores que solo existen para sostener Blend+Opacity **se pueden
 | Commits SIRSYP post-`a75c46b` | Revertir (introdujeron bugs) |
 | `757b07335` (limpieza dumps) | **Conservar** |
 | `58a86aee4` (Color Grade / compatible saves / UI color) | **Revertir** (ligado al color moderno; se rompería al quitar Blend) |
-| `56dbeafb7` (render-depth / billboards) | **Revertir** (mismo criterio; ligado al stack post-blend) |
+| `56dbeafb7` (render-depth / billboards) | **Conservar** (necesario para transparencia con body parts) |
+| `a22ab2dba` / `f5ba4cff0` | **Conservar** (i18n + world films browser) |
 | Features ajenas al color (equipamiento model blocks, cielo cromático, etc.) | **Conservar** si no vienen de los commits SIRSYP a revertir |
 | Paint / Bright / Color Grade / Shape+transforms | **Conservar** datos/render; reajustar UI |
 | Compatibilidad blend+opacity ↔ formatos antiguos | **Eliminar** |
@@ -114,7 +121,7 @@ No forman parte del “lote SIRSYP a revertir” (p. ej. ElGatoPro300, ElRedston
 - Los cambios de SIRSYP listados en “a revertir” ya no están en el working tree.
 - Los commits de “Conservar” siguen aplicados (incl. `56dbeafb7`, i18n, world browser, limpieza).
 - El proyecto compila (`./gradlew build` o al menos compilación client/main).
-- No se ha empezado aún el rollback de Blend Color (eso es Fase B).
+- ~~No se ha empezado aún el rollback de Blend Color (eso es Fase B).~~ **Hecho → Fase B.**
 
 ---
 

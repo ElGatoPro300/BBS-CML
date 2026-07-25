@@ -392,18 +392,10 @@ public class UIPoseKeyframeFactory extends UIKeyframeFactory<Pose>
         {
             apply(this.editor, this.keyframe, this.getGroup(transform), (poseT) ->
             {
-                float intensity = poseT.color.a;
+                Color rgba = Color.rgba(value);
 
-                poseT.color.set(value, false);
-                poseT.color.a = intensity;
+                poseT.color.set(rgba.r, rgba.g, rgba.b, rgba.a);
             });
-        }
-
-        @Override
-        protected void setBlendIntensity(PoseTransform transform, float value)
-        {
-            apply(this.editor, this.keyframe, this.getGroup(transform), (poseT) ->
-                poseT.color.a = MathUtils.clamp(value, 0F, 1F));
         }
 
         @Override

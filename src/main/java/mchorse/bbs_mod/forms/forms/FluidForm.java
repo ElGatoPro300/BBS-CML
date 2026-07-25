@@ -49,7 +49,6 @@ public class FluidForm extends Form
         this.add(this.flowSpeed);
         this.add(this.turbulence);
         this.add(this.color);
-        this.opacity.set(0.8F);
         this.add(this.texture);
         this.add(this.physicsSensitivity);
         this.add(this.subdivisions);

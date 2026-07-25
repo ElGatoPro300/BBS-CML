@@ -155,24 +155,17 @@ public class Color
     }
 
     /**
-     * Treats {@link #a} as blend tint strength (0 = no tint / white, 1 = full RGB).
-     * Writes lerped RGB in place and sets alpha to 1 so form opacity stays independent.
+     * Legacy no-op kept for call-site compatibility. {@link #a} is form opacity again
+     * (traditional color), not blend tint strength.
      */
     public Color applyBlendIntensity()
     {
-        float intensity = MathUtils.clamp(this.a, 0F, 1F);
-
-        this.r = Lerps.lerp(1F, this.r, intensity);
-        this.g = Lerps.lerp(1F, this.g, intensity);
-        this.b = Lerps.lerp(1F, this.b, intensity);
-        this.a = 1F;
-
         return this;
     }
 
     /**
-     * Copy with blend intensity only (no brightness/contrast/hue/saturation).
-     * Used when grading is applied in the BBS model shader via FormColorGrade.
+     * Copy for rendering when Color Grade is applied in-shader (FormColorGrade).
+     * Keeps {@link #a} as opacity; clears baked grade fields so the shader owns them.
      */
     public Color copyWithBlendIntensityOnly()
     {
@@ -182,18 +175,13 @@ public class Color
         copy.contrast = 0F;
         copy.hue = 0F;
         copy.saturation = 0F;
-        copy.applyBlendIntensity();
 
         return copy;
     }
 
     /**
-     * Copy with blend intensity and brightness/contrast/hue/saturation applied.
-     * Safe for rendering without mutating storage.
-     * <p>
-     * Grading runs on the source RGB first so hue/saturation affect the chosen color,
-     * then intensity mixes toward white. When intensity is 0, grading still applies to
-     * white so brightness/contrast remain visible without enabling Blend Color.
+     * Copy for rendering with brightness/contrast/hue/saturation baked into RGB.
+     * Keeps {@link #a} as traditional opacity (does not treat alpha as tint intensity).
      */
     public Color copyWithBlendIntensity()
     {
@@ -202,7 +190,6 @@ public class Color
         float contrast = copy.contrast;
         float hue = copy.hue;
         float saturation = copy.saturation;
-        float intensity = MathUtils.clamp(copy.a, 0F, 1F);
         boolean graded = ColorAdjustments.isActive(brightness, contrast, hue, saturation);
 
         copy.brightness = 0F;
@@ -211,17 +198,6 @@ public class Color
         copy.saturation = 0F;
 
         if (graded)
-        {
-            ColorAdjustments.apply(copy, brightness, contrast, hue, saturation);
-        }
-
-        copy.r = Lerps.lerp(1F, copy.r, intensity);
-        copy.g = Lerps.lerp(1F, copy.g, intensity);
-        copy.b = Lerps.lerp(1F, copy.b, intensity);
-        copy.a = 1F;
-
-        /* Intensity 0 normally yields white; re-apply grading so B/C alone still tint. */
-        if (graded && intensity <= 0.001F)
         {
             ColorAdjustments.apply(copy, brightness, contrast, hue, saturation);
         }

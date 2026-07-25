@@ -596,7 +596,6 @@ public class UIKeys
     public static final IKey FLUID_FLOW_SPEED = L10n.lang("bbs.fluid.flow_speed");
     public static final IKey FLUID_TURBULENCE = L10n.lang("bbs.fluid.turbulence");
     public static final IKey FLUID_PHYSICS_SENSITIVITY = L10n.lang("bbs.fluid.physics_sensitivity");
-    public static final IKey FLUID_OPACITY = L10n.lang("bbs.fluid.opacity");
     public static final IKey FLUID_SCALE_X = L10n.lang("bbs.fluid.scale_x");
     public static final IKey FLUID_SCALE_Y = L10n.lang("bbs.fluid.scale_y");
     public static final IKey FLUID_SCALE_Z = L10n.lang("bbs.fluid.scale_z");
@@ -668,8 +667,6 @@ public class UIKeys
     public static final IKey FORMS_EDITORS_GENERAL = L10n.lang("bbs.ui.forms.editors.general");
     public static final IKey FORMS_EDITOR_GIZMO_TOOLBAR_HINT = L10n.lang("bbs.ui.forms.editor.gizmo_toolbar.hint");
     public static final IKey FORMS_EDITORS_PAINT_COLOR = L10n.lang("bbs.ui.forms.editors.paint_color");
-    public static final IKey FORMS_EDITORS_BLEND_COLOR = L10n.lang("bbs.ui.forms.editors.blend_color");
-    public static final IKey FORMS_EDITORS_BLEND_INTENSITY = L10n.lang("bbs.ui.forms.editors.blend_intensity");
     public static final IKey FORMS_EDITORS_COLOR_GRADE = L10n.lang("bbs.ui.forms.editors.color_grade");
     public static final IKey FORMS_EDITORS_COLOR_GRADE_HIDE = L10n.lang("bbs.ui.forms.editors.color_grade_hide");
     public static final IKey FORMS_EDITORS_COLOR_BRIGHTNESS = L10n.lang("bbs.ui.forms.editors.color_brightness");
@@ -812,7 +809,6 @@ public class UIKeys
     public static final IKey FORMS_EDITORS_LABEL_TEXT_ALIGN_CENTER = L10n.lang("bbs.ui.forms.editors.label.text_align.center");
     public static final IKey FORMS_EDITORS_LABEL_TEXT_ALIGN_RIGHT = L10n.lang("bbs.ui.forms.editors.label.text_align.right");
     public static final IKey FORMS_EDITORS_LABEL_TEXT_ALIGN_JUSTIFY = L10n.lang("bbs.ui.forms.editors.label.text_align.justify");
-    public static final IKey FORMS_EDITORS_LABEL_OPACITY = L10n.lang("bbs.ui.forms.editors.label.opacity");
     public static final IKey FORMS_EDITORS_LABEL_UNDERLINE = L10n.lang("bbs.ui.forms.editors.label.underline");
     public static final IKey FORMS_EDITORS_LABEL_STRIKETHROUGH = L10n.lang("bbs.ui.forms.editors.label.strikethrough");
     public static final IKey FORMS_EDITORS_LABEL_EFFECTS = L10n.lang("bbs.ui.forms.editors.label.effects");
@@ -893,7 +889,6 @@ public class UIKeys
     public static final IKey FILM_REPLAY_TRACK_TRANSFORM = L10n.lang("bbs.ui.film.replay.track.transform");
     public static final IKey FILM_REPLAY_TRACK_ANCHOR = L10n.lang("bbs.ui.film.replay.track.anchor");
     public static final IKey FILM_REPLAY_TRACK_COLOR = L10n.lang("bbs.ui.film.replay.track.color");
-    public static final IKey FILM_REPLAY_TRACK_OPACITY = L10n.lang("bbs.ui.film.replay.track.opacity");
     public static final IKey FILM_REPLAY_OPACITY_NO_SHADING = L10n.lang("bbs.ui.film.replay.opacity.no_shading");
     public static final IKey FILM_REPLAY_TRACK_TEXTURE = L10n.lang("bbs.ui.film.replay.track.texture");
     public static final IKey FILM_REPLAY_TRACK_MODEL = L10n.lang("bbs.ui.film.replay.track.model");

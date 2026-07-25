@@ -4,17 +4,19 @@ import mchorse.bbs_mod.data.types.BaseType;
 import mchorse.bbs_mod.data.types.IntType;
 import mchorse.bbs_mod.data.types.MapType;
 import mchorse.bbs_mod.forms.forms.utils.EffectTransform;
+import mchorse.bbs_mod.utils.MathUtils;
 import mchorse.bbs_mod.utils.colors.Color;
 import mchorse.bbs_mod.utils.colors.ColorAdjustments;
 import mchorse.bbs_mod.utils.colors.Colors;
 import mchorse.bbs_mod.utils.interps.IInterp;
+import mchorse.bbs_mod.utils.interps.Lerps;
 import mchorse.bbs_mod.utils.keyframes.Keyframe;
 
 public class ColorKeyframeFactory implements IKeyframeFactory<Color>
 {
     /**
-     * When films dual-write Opacity into ARGB alpha for older builds, modern Blend Color
-     * intensity is stored here so reloads do not treat opacity as tint strength.
+     * Legacy Blend Color dual-write: tint strength lived here while ARGB alpha held opacity.
+     * Still read once for migration into traditional {@code color.a}; no longer written.
      */
     public static final String BLEND_A = "blend_a";
 
@@ -32,10 +34,17 @@ public class ColorKeyframeFactory implements IKeyframeFactory<Color>
         {
             Color color = Color.rgba(map.getInt("color"));
 
-            /* Prefer explicit blend intensity over dual-written opacity in ARGB alpha. */
+            /* Dual-write era: ARGB alpha = opacity, blend_a = tint intensity. Bake intensity
+             * into RGB and keep ARGB alpha as traditional opacity. */
             if (map.has(BLEND_A))
             {
-                color.a = map.getFloat(BLEND_A);
+                float intensity = MathUtils.clamp(map.getFloat(BLEND_A), 0F, 1F);
+                float opacityA = MathUtils.clamp(color.a, 0F, 1F);
+
+                color.r = Lerps.lerp(1F, color.r, intensity);
+                color.g = Lerps.lerp(1F, color.g, intensity);
+                color.b = Lerps.lerp(1F, color.b, intensity);
+                color.a = opacityA <= 0.001F ? 1F : opacityA;
             }
 
             if (map.has("transform"))
@@ -121,8 +130,8 @@ public class ColorKeyframeFactory implements IKeyframeFactory<Color>
     @Override
     public Color createEmpty()
     {
-        /* Form Color track stores blend intensity in alpha; default 0 = no tint. */
-        return new Color(1F, 1F, 1F, 0F);
+        /* Traditional form color: opaque white (alpha = opacity). */
+        return new Color(1F, 1F, 1F, 1F);
     }
 
     @Override

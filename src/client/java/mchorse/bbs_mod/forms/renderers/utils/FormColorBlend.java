@@ -16,7 +16,7 @@ public class FormColorBlend
      */
     public static void finishShadowOpacity(Color color, boolean shadowPass)
     {
-        /* no-op: Opacity track / applyFormOpacity already own caster alpha */
+        /* no-op: traditional color.a / applyFormOpacity already own caster alpha */
     }
 
     /**
@@ -129,12 +129,12 @@ public class FormColorBlend
     }
 
     /**
-     * True when Blend Color should use a spatial mask / FormColorTint path instead of baking
+     * True when Color should use a spatial mask / FormColorTint path instead of baking
      * into vertex color — same rules as ModelFormRenderer.canApplyColorTransformMask, without
      * requiring a ModelInstance.
      * <p>
-     * Pass the <b>stored</b> form color (before {@link Color#copyWithBlendIntensity()}).
-     * Color adjustments alone do not force this path; they bake or use FormColorGrade in-shader.
+     * Pass the stored form color. Color adjustments alone do not force this path; they bake
+     * or use FormColorGrade in-shader. Alpha is traditional opacity and is ignored here.
      */
     public static boolean wantsColorTransformMask(Color color)
     {
@@ -146,13 +146,6 @@ public class FormColorBlend
         if (color.hasActiveTransform())
         {
             return true;
-        }
-
-        float intensity = MathUtils.clamp(color.a, 0F, 1F);
-
-        if (intensity <= 0.001F)
-        {
-            return false;
         }
 
         return color.r < 0.999F || color.g < 0.999F || color.b < 0.999F;

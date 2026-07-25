@@ -1460,7 +1460,7 @@
     "bbs.ui.forms.editors.color_transform_hide": "Transform ▼",
     "bbs.ui.forms.editors.color_reset_this_value": "Reset this value",
     "bbs.ui.forms.editors.color_reset_all": "Reset all",
-    "bbs.ui.forms.editors.color_reset_blend": "Reset blend color",
+    "bbs.ui.forms.editors.color_reset_blend": "Reset color",
     "bbs.ui.forms.editors.color_reset_paint": "Reset paint color",
     "bbs.ui.forms.editors.color_reset_grade": "Reset color grade",
     "bbs.ui.forms.editors.paint_color": "Paint color",

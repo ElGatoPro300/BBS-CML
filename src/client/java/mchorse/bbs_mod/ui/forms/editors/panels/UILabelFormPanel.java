@@ -61,7 +61,6 @@ public class UILabelFormPanel extends UIFormPanel<LabelForm>
     public UITrackpad letterSpacing;
     public UITrackpad lineHeight;
     public UICirculate textAlign;
-    public UITrackpad opacity;
     
     public UIToggle underline;
     public UIToggle strikethrough;
@@ -89,7 +88,7 @@ public class UILabelFormPanel extends UIFormPanel<LabelForm>
         this.nametag = new UIToggle(UIKeys.FORMS_EDITORS_LABEL_NAMETAG, (b) -> this.form.nametag.set(b.getValue()));
         this.nametag.tooltip(UIKeys.FORMS_EDITORS_LABEL_NAMETAG_HINT);
         this.color = new UIColor((c) -> this.form.color.set(Color.rgba(c))).withAlpha();
-        this.color.tooltip(UIKeys.FORMS_EDITORS_BLEND_COLOR);
+        this.color.tooltip(UIKeys.FILM_REPLAY_TRACK_COLOR);
         this.glowingColor = new UIColor((c) ->
         {
             Color color = Color.rgba(c);
@@ -200,9 +199,6 @@ public class UILabelFormPanel extends UIFormPanel<LabelForm>
         this.lineHeight = new UITrackpad((v) -> this.form.lineHeight.set(v.floatValue()));
         this.lineHeight.limit(0F, 100F).values(0.1F);
         
-        this.opacity = new UITrackpad((v) -> this.form.opacity.set(v.floatValue()));
-        this.opacity.limit(0F, 1F).values(0.05F);
-
         this.underline = new UIToggle(UIKeys.FORMS_EDITORS_LABEL_UNDERLINE, (b) -> this.form.underline.set(b.getValue()));
         this.strikethrough = new UIToggle(UIKeys.FORMS_EDITORS_LABEL_STRIKETHROUGH, (b) -> this.form.strikethrough.set(b.getValue()));
         
@@ -251,7 +247,6 @@ public class UILabelFormPanel extends UIFormPanel<LabelForm>
             UI.row(this.fontSize, this.bold),
             UI.row(this.fontStyle, this.textAlign),
             UI.row(this.letterSpacing, this.lineHeight),
-            UI.label(UIKeys.FORMS_EDITORS_LABEL_OPACITY), this.opacity,
             UI.row(this.underline, this.strikethrough),
             UI.label(UIKeys.FORMS_EDITORS_LABEL_EFFECTS).marginTop(8),
             UI.label(UIKeys.FORMS_EDITORS_LABEL_SHADOW_BLUR), this.shadowBlur,
@@ -337,7 +332,6 @@ public class UILabelFormPanel extends UIFormPanel<LabelForm>
         this.textAlign.setValue(form.textAlign.get());
         this.letterSpacing.setValue(form.letterSpacing.get());
         this.lineHeight.setValue(form.lineHeight.get());
-        this.opacity.setValue(form.opacity.get());
         this.underline.setValue(form.underline.get());
         this.strikethrough.setValue(form.strikethrough.get());
         this.shadowBlur.setValue(form.shadowBlur.get());
