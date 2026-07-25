@@ -17,7 +17,6 @@ import mchorse.bbs_mod.ui.framework.elements.events.UITrackpadDragEndEvent;
 import mchorse.bbs_mod.ui.framework.elements.events.UITrackpadDragStartEvent;
 import mchorse.bbs_mod.ui.framework.elements.input.UIColor;
 import mchorse.bbs_mod.ui.framework.elements.input.UIEffectTransformCollapse;
-import mchorse.bbs_mod.ui.framework.elements.input.UIPoseSectionCollapse;
 import mchorse.bbs_mod.ui.framework.elements.input.UITrackpad;
 import mchorse.bbs_mod.ui.framework.elements.input.keyframes.UIKeyframeSheet;
 import mchorse.bbs_mod.ui.framework.elements.input.keyframes.UIKeyframes;
@@ -82,7 +81,6 @@ public class UIFormColorKeyframeFactory extends UIKeyframeFactory<Color>
         this.noShading.setValue(keyframe.isNoshadingOpacity());
 
         this.scroll.add(UI.label(UIKeys.FILM_REPLAY_TRACK_COLOR).marginTop(4));
-        this.scroll.add(this.blendColor);
 
         if (!this.simpleBlendColorOnly)
         {
@@ -143,19 +141,20 @@ public class UIFormColorKeyframeFactory extends UIKeyframeFactory<Color>
                 this.blendAdjustments.wireResetThisValue(this::wireResetThisValue);
             }
 
-            UIPoseSectionCollapse advanced = UIFormColorLayout.createAdvancedSection(
-                this.blendTransform,
-                UIFormColorLayout.paintColorRow(this.paintColor, this.paintIntensity),
-                this.paintTransform,
-                this.hideColorGrade ? null : this.blendAdjustments.marginTop(4)
-            );
+            this.scroll.add(UIFormColorLayout.colorWithTransform(this.blendColor, this.blendTransform));
+            this.scroll.add(UIFormColorLayout.paintColorRowWithTransform(this.paintColor, this.paintIntensity, this.paintTransform).marginTop(4));
 
-            this.scroll.add(advanced.marginTop(4));
+            if (!this.hideColorGrade)
+            {
+                this.scroll.add(this.blendAdjustments.marginTop(4));
+            }
+
             this.scroll.add(this.spectrum.marginTop(8));
             this.scroll.add(this.noShading.marginTop(4));
         }
         else
         {
+            this.scroll.add(this.blendColor);
             this.scroll.add(this.spectrum.marginTop(8));
             this.scroll.add(this.noShading.marginTop(4));
         }

@@ -146,9 +146,24 @@ public class UIPoseKeyframeFactory extends UIKeyframeFactory<Pose>
     private void rebuildPoseLayout(boolean wide)
     {
         /* Closing shells before wipe avoids orphan ACTIVE shells after removeAll. */
-        if (this.poseEditor.advancedSection != null)
+        if (this.poseEditor.colorAdjustments != null)
         {
-            this.poseEditor.advancedSection.setExpanded(false);
+            this.poseEditor.colorAdjustments.setExpanded(false);
+        }
+
+        if (this.poseEditor.colorTransform != null)
+        {
+            this.poseEditor.colorTransform.setExpanded(false);
+        }
+
+        if (this.poseEditor.paintTransform != null)
+        {
+            this.poseEditor.paintTransform.setExpanded(false);
+        }
+
+        if (this.poseEditor.glowTransform != null)
+        {
+            this.poseEditor.glowTransform.setExpanded(false);
         }
 
         this.poseEditor.removeAll();

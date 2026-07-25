@@ -856,6 +856,12 @@ public class FormProperties extends ValueGroup
             }
 
             Color color = new Color(settings.r, settings.g, settings.b, settings.intensity);
+
+            if (settings.transform != null)
+            {
+                color.transform = settings.transform.copy();
+            }
+
             int index = paintColor.insert(kf.getTick(), color);
             Keyframe<Color> out = paintColor.get(index);
 
@@ -905,6 +911,12 @@ public class FormProperties extends ValueGroup
             }
 
             Color color = new Color(settings.r, settings.g, settings.b, 1F);
+
+            if (settings.transform != null)
+            {
+                color.transform = settings.transform.copy();
+            }
+
             int colorIndex = glowingColor.insert(kf.getTick(), color);
             int intensityIndex = glowIntensity.insert(kf.getTick(), settings.intensity);
             Keyframe<Color> colorKf = glowingColor.get(colorIndex);
@@ -978,14 +990,23 @@ public class FormProperties extends ValueGroup
 
     private void flattenColorKeyframeValuesToInt(MapType data)
     {
-        MapType colorData = data.getMap("color");
+        this.flattenPlainColorChannelValues(data.getMap("color"));
+        this.flattenPlainColorChannelValues(data.getMap("paint_color"));
+        this.flattenPlainColorChannelValues(data.getMap("glowing_color"));
+    }
 
-        if (colorData.isEmpty() || !colorData.has("keyframes"))
+    /**
+     * Older loaders only accept Color keyframe values as ints. Keep map values when they
+     * carry transform / color-grade data so compatible saves do not wipe those fields.
+     */
+    private void flattenPlainColorChannelValues(MapType channelData)
+    {
+        if (channelData.isEmpty() || !channelData.has("keyframes"))
         {
             return;
         }
 
-        ListType keyframes = colorData.getList("keyframes");
+        ListType keyframes = channelData.getList("keyframes");
 
         for (int i = 0; i < keyframes.size(); i++)
         {
@@ -999,76 +1020,33 @@ public class FormProperties extends ValueGroup
             MapType keyframeMap = raw.asMap();
             BaseType value = keyframeMap.get("value");
 
-            if (value != null && value.isMap())
+            if (value == null || !value.isMap())
             {
-                MapType valueMap = value.asMap();
-
-                if (valueMap.has("color"))
-                {
-                    keyframeMap.put("value", new IntType(valueMap.getInt("color")));
-                }
+                continue;
             }
-        }
 
-        MapType paintColor = data.getMap("paint_color");
+            MapType valueMap = value.asMap();
 
-        if (!paintColor.isEmpty() && paintColor.has("keyframes"))
-        {
-            ListType paintKeyframes = paintColor.getList("keyframes");
-
-            for (int i = 0; i < paintKeyframes.size(); i++)
+            if (!valueMap.has("color") || this.colorValueMapHasExtras(valueMap))
             {
-                BaseType raw = paintKeyframes.get(i);
-
-                if (raw == null || !raw.isMap())
-                {
-                    continue;
-                }
-
-                MapType keyframeMap = raw.asMap();
-                BaseType value = keyframeMap.get("value");
-
-                if (value != null && value.isMap())
-                {
-                    MapType valueMap = value.asMap();
-
-                    if (valueMap.has("color"))
-                    {
-                        keyframeMap.put("value", new IntType(valueMap.getInt("color")));
-                    }
-                }
+                continue;
             }
+
+            keyframeMap.put("value", new IntType(valueMap.getInt("color")));
         }
+    }
 
-        MapType glowingColor = data.getMap("glowing_color");
-
-        if (!glowingColor.isEmpty() && glowingColor.has("keyframes"))
-        {
-            ListType glowKeyframes = glowingColor.getList("keyframes");
-
-            for (int i = 0; i < glowKeyframes.size(); i++)
-            {
-                BaseType raw = glowKeyframes.get(i);
-
-                if (raw == null || !raw.isMap())
-                {
-                    continue;
-                }
-
-                MapType keyframeMap = raw.asMap();
-                BaseType value = keyframeMap.get("value");
-
-                if (value != null && value.isMap())
-                {
-                    MapType valueMap = value.asMap();
-
-                    if (valueMap.has("color"))
-                    {
-                        keyframeMap.put("value", new IntType(valueMap.getInt("color")));
-                    }
-                }
-            }
-        }
+    private boolean colorValueMapHasExtras(MapType valueMap)
+    {
+        return valueMap.has("transform")
+            || valueMap.has("brightness")
+            || valueMap.has("contrast")
+            || valueMap.has("hue")
+            || valueMap.has("saturation")
+            || valueMap.has("brightnessTransform")
+            || valueMap.has("contrastTransform")
+            || valueMap.has("hueTransform")
+            || valueMap.has("saturationTransform");
     }
 
     private void stripUnsafeKeyframeTypes(MapType data)
@@ -1349,6 +1327,11 @@ public class FormProperties extends ValueGroup
                         settings.r = color.r;
                         settings.g = color.g;
                         settings.b = color.b;
+
+                        if (color.transform != null)
+                        {
+                            settings.transform = color.transform.copy();
+                        }
                     }
 
                     merged.insert(t, settings);
@@ -1428,6 +1411,11 @@ public class FormProperties extends ValueGroup
                         settings.g = color.g;
                         settings.b = color.b;
                         settings.intensity = color.a;
+
+                        if (color.transform != null)
+                        {
+                            settings.transform = color.transform.copy();
+                        }
                     }
 
                     merged.insert(t, settings);

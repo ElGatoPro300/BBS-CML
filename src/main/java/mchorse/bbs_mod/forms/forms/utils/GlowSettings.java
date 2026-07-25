@@ -26,6 +26,7 @@ public class GlowSettings
     public float centerZ;
     public float width;
     public float height;
+    public EffectTransform transform = new EffectTransform();
 
     public GlowSettings()
     {
@@ -52,6 +53,7 @@ public class GlowSettings
         copy.centerZ = this.centerZ;
         copy.width = this.width;
         copy.height = this.height;
+        copy.transform = this.transform == null ? new EffectTransform() : this.transform.copy();
 
         return copy;
     }
@@ -138,6 +140,16 @@ public class GlowSettings
             this.centerZ = map.getFloat("centerZ");
             this.width = map.getFloat("width");
             this.height = map.getFloat("height");
+
+            if (map.has("transform"))
+            {
+                if (this.transform == null)
+                {
+                    this.transform = new EffectTransform();
+                }
+
+                this.transform.fromData(map.get("transform"));
+            }
         }
     }
 
@@ -157,6 +169,11 @@ public class GlowSettings
         map.putFloat("centerZ", this.centerZ);
         map.putFloat("width", this.width);
         map.putFloat("height", this.height);
+
+        if (this.transform != null)
+        {
+            map.put("transform", this.transform.toData());
+        }
 
         return map;
     }
@@ -185,12 +202,13 @@ public class GlowSettings
             && Float.compare(this.centerY, that.centerY) == 0
             && Float.compare(this.centerZ, that.centerZ) == 0
             && Float.compare(this.width, that.width) == 0
-            && Float.compare(this.height, that.height) == 0;
+            && Float.compare(this.height, that.height) == 0
+            && Objects.equals(this.transform, that.transform);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(this.r, this.g, this.b, this.intensity, this.sync, this.paintOnly, this.radius, this.centerX, this.centerY, this.centerZ, this.width, this.height);
+        return Objects.hash(this.r, this.g, this.b, this.intensity, this.sync, this.paintOnly, this.radius, this.centerX, this.centerY, this.centerZ, this.width, this.height, this.transform);
     }
 }

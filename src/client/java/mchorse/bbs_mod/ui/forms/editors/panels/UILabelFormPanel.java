@@ -3,6 +3,7 @@ package mchorse.bbs_mod.ui.forms.editors.panels;
 import mchorse.bbs_mod.BBSMod;
 import mchorse.bbs_mod.BBSSettings;
 import mchorse.bbs_mod.forms.forms.LabelForm;
+import mchorse.bbs_mod.forms.forms.utils.EffectTransform;
 import mchorse.bbs_mod.forms.forms.utils.GlowSettings;
 import mchorse.bbs_mod.l10n.keys.IKey;
 import mchorse.bbs_mod.ui.UIKeys;
@@ -15,6 +16,7 @@ import mchorse.bbs_mod.ui.framework.elements.buttons.UICirculate;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIIcon;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIToggle;
 import mchorse.bbs_mod.ui.framework.elements.input.UIColor;
+import mchorse.bbs_mod.ui.framework.elements.input.UIEffectTransformCollapse;
 import mchorse.bbs_mod.ui.framework.elements.input.UIPoseSectionCollapse;
 import mchorse.bbs_mod.ui.framework.elements.input.UITrackpad;
 import mchorse.bbs_mod.ui.framework.elements.input.text.UITextbox;
@@ -39,6 +41,7 @@ public class UILabelFormPanel extends UIFormPanel<LabelForm>
     public UIColor color;
     public UIColor glowingColor;
     public UITrackpad glowIntensity;
+    public UIEffectTransformCollapse glowTransform;
     public UIElement glowSection;
     public UITrackpad max;
     public UITrackpad anchorX;
@@ -92,16 +95,20 @@ public class UILabelFormPanel extends UIFormPanel<LabelForm>
         this.color.tooltip(UIKeys.FILM_REPLAY_TRACK_COLOR);
         this.glowingColor = new UIColor((c) ->
         {
+            Color copy = this.form.glowingColor.get().copy();
             Color color = Color.rgba(c);
 
-            color.a = 1F;
-            this.form.glowingColor.set(color);
+            copy.r = color.r;
+            copy.g = color.g;
+            copy.b = color.b;
+            copy.a = 1F;
+            this.form.glowingColor.set(copy);
 
             GlowSettings settings = this.form.glowSettings.get().copy();
 
-            settings.r = color.r;
-            settings.g = color.g;
-            settings.b = color.b;
+            settings.r = copy.r;
+            settings.g = copy.g;
+            settings.b = copy.b;
             this.form.glowSettings.set(settings);
         });
         this.glowingColor.tooltip(UIKeys.FORMS_EDITORS_GLOW);
@@ -114,7 +121,19 @@ public class UILabelFormPanel extends UIFormPanel<LabelForm>
         });
         this.glowIntensity.increment(0.05D).values(0.1D, 0.05D, 0.2D);
         this.glowIntensity.tooltip(UIKeys.FORMS_EDITORS_GLOW_INTENSITY);
-        this.glowSection = UIFormColorLayout.createGlowSection(this.glowingColor, this.glowIntensity);
+        this.glowTransform = new UIEffectTransformCollapse((apply) ->
+        {
+            Color copy = this.form.glowingColor.get().copy();
+
+            if (copy.transform == null)
+            {
+                copy.transform = new EffectTransform();
+            }
+
+            apply.accept(copy.transform);
+            this.form.glowingColor.set(copy);
+        });
+        this.glowSection = UIFormColorLayout.createGlowSection(this.glowingColor, this.glowIntensity, this.glowTransform);
         this.max = new UITrackpad((value) -> this.form.max.set(value.intValue()));
         this.max.limit(-1, Integer.MAX_VALUE, true).increment(10);
         this.anchorX = new UITrackpad((value) -> this.form.anchorX.set(value.floatValue()));
@@ -310,6 +329,7 @@ public class UILabelFormPanel extends UIFormPanel<LabelForm>
         this.glowingColor.setColor(glowDisplay.getRGBColor());
 
         this.glowIntensity.setValue(glow.intensity);
+        this.glowTransform.setEffectTransform(form.glowingColor.get().transform == null ? new EffectTransform() : form.glowingColor.get().transform);
         this.max.setValue(form.max.get());
         this.anchorX.setValue(form.anchorX.get());
         this.anchorY.setValue(form.anchorY.get());

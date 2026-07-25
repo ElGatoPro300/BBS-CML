@@ -513,6 +513,12 @@ public abstract class Form extends ValueGroup
                     settings.g = legacy.g;
                     settings.b = legacy.b;
                     settings.intensity = PaintSettings.resolveLegacyPaintIntensity(legacy);
+
+                    if (legacy.transform != null && legacy.transform.isActive())
+                    {
+                        settings.transform = legacy.transform.copy();
+                    }
+
                     this.paintSettings.set(settings);
                 }
             }
@@ -525,6 +531,12 @@ public abstract class Form extends ValueGroup
                 settings.g = legacy.g;
                 settings.b = legacy.b;
                 settings.intensity = PaintSettings.resolveLegacyPaintIntensity(legacy);
+
+                if (legacy.transform != null && legacy.transform.isActive())
+                {
+                    settings.transform = legacy.transform.copy();
+                }
+
                 this.paintSettings.set(settings);
             }
 

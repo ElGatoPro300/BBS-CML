@@ -19,8 +19,7 @@ import java.util.function.Supplier;
 
 /**
  * Color grade disclosure: closed shows only the Color grade tab; open reveals
- * brightness / contrast / saturation / hue with animated height, each with its
- * own Transform collapse.
+ * brightness / contrast / saturation / hue, each with a trailing Transform icon.
  */
 public class UIFormColorAdjustments extends UIElement
 {
@@ -93,10 +92,10 @@ public class UIFormColorAdjustments extends UIElement
         this.hueTransform = this.createTransform((c) -> c.hueTransform, (c, t) -> c.hueTransform = t);
 
         this.shell = new UIAnimatedCollapseShell(UI.column(
-            UI.label(UIKeys.FORMS_EDITORS_COLOR_BRIGHTNESS), this.brightness, this.brightnessTransform,
-            UI.label(UIKeys.FORMS_EDITORS_COLOR_CONTRAST), this.contrast, this.contrastTransform,
-            UI.label(UIKeys.FORMS_EDITORS_COLOR_SATURATION), this.saturation, this.saturationTransform,
-            UI.label(UIKeys.FORMS_EDITORS_COLOR_HUE), this.hue, this.hueTransform
+            this.brightnessTransform.withLabeledField(UIKeys.FORMS_EDITORS_COLOR_BRIGHTNESS, this.brightness),
+            this.contrastTransform.withLabeledField(UIKeys.FORMS_EDITORS_COLOR_CONTRAST, this.contrast),
+            this.saturationTransform.withLabeledField(UIKeys.FORMS_EDITORS_COLOR_SATURATION, this.saturation),
+            this.hueTransform.withLabeledField(UIKeys.FORMS_EDITORS_COLOR_HUE, this.hue)
         ));
 
         this.add(this.toggle);

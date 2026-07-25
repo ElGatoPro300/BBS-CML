@@ -1424,6 +1424,9 @@ public class UIModelBlockPanel extends UIDashboardPanel implements IFlightSuppor
 
         this.undoManager.pushUndo(new ModelBlockPropertiesUndo(this.modelBlock.getPos(), before, after));
         this.toSave.add(this.modelBlock);
+        /* Sync immediately so paint/color transforms are not lost if the world unloads
+         * before the panel's close() flush. */
+        this.save(this.modelBlock);
     }
 
     private void applyPropertiesSnapshot(BlockPos pos, MapType data) {
@@ -1594,6 +1597,12 @@ public class UIModelBlockPanel extends UIDashboardPanel implements IFlightSuppor
         if (this.cameraController != null) {
             BBSModClient.getCameraController().remove(this.cameraController);
         }
+
+        for (ModelBlockEntity entity : this.toSave) {
+            this.save(entity);
+        }
+
+        this.toSave.clear();
     }
 
     /**

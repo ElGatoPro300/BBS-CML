@@ -9,12 +9,12 @@ import mchorse.bbs_mod.ui.forms.editors.forms.UIForm;
 import mchorse.bbs_mod.ui.framework.elements.UIElement;
 import mchorse.bbs_mod.ui.forms.editors.panels.widgets.UIFormColorAdjustments;
 import mchorse.bbs_mod.ui.forms.editors.panels.widgets.UIFormColorLayout;
+import mchorse.bbs_mod.ui.forms.editors.panels.widgets.UIFormColorTransform;
 import mchorse.bbs_mod.ui.forms.editors.panels.widgets.UIFormPaintTransform;
 import mchorse.bbs_mod.ui.forms.editors.utils.UICropOverlayPanel;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIButton;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIToggle;
 import mchorse.bbs_mod.ui.framework.elements.input.UIColor;
-import mchorse.bbs_mod.ui.framework.elements.input.UIPoseSectionCollapse;
 import mchorse.bbs_mod.ui.framework.elements.input.UITexturePicker;
 import mchorse.bbs_mod.ui.framework.elements.input.UITrackpad;
 import mchorse.bbs_mod.ui.framework.elements.overlay.UIOverlay;
@@ -38,8 +38,8 @@ public class UIBillboardFormPanel extends UIFormPanel<BillboardForm>
     public UIFormPaintTransform paintTransform;
     public UIColor glowingColor;
     public UITrackpad glowIntensity;
+    public UIFormColorTransform glowTransform;
     public UIElement glowSection;
-    public UIPoseSectionCollapse advancedSection;
 
     public UITrackpad offsetX;
     public UITrackpad offsetY;
@@ -112,16 +112,20 @@ public class UIBillboardFormPanel extends UIFormPanel<BillboardForm>
         this.paintTransform = new UIFormPaintTransform(() -> this.form.paintSettings.get(), (settings) -> this.form.paintSettings.set(settings));
         this.glowingColor = new UIColor((value) ->
         {
+            Color copy = this.form.glowingColor.get().copy();
             Color color = Color.rgba(value);
 
-            color.a = 1F;
-            this.form.glowingColor.set(color);
+            copy.r = color.r;
+            copy.g = color.g;
+            copy.b = color.b;
+            copy.a = 1F;
+            this.form.glowingColor.set(copy);
 
             GlowSettings settings = this.form.glowSettings.get().copy();
 
-            settings.r = color.r;
-            settings.g = color.g;
-            settings.b = color.b;
+            settings.r = copy.r;
+            settings.g = copy.g;
+            settings.b = copy.b;
             this.form.glowSettings.set(settings);
         }).direction(Direction.LEFT);
         this.glowingColor.tooltip(UIKeys.FORMS_EDITORS_GLOW);
@@ -134,12 +138,8 @@ public class UIBillboardFormPanel extends UIFormPanel<BillboardForm>
         });
         this.glowIntensity.increment(0.05D).values(0.1D, 0.05D, 0.2D);
         this.glowIntensity.tooltip(UIKeys.FORMS_EDITORS_GLOW_INTENSITY);
-        this.glowSection = UIFormColorLayout.createGlowSection(this.glowingColor, this.glowIntensity);
-        this.advancedSection = UIFormColorLayout.createAdvancedSection(
-            UIFormColorLayout.paintColorRow(this.paintColor, this.paintIntensity),
-            this.paintTransform,
-            this.colorAdjustments.marginTop(4)
-        );
+        this.glowTransform = new UIFormColorTransform(() -> this.form.glowingColor.get(), (color) -> this.form.glowingColor.set(color));
+        this.glowSection = UIFormColorLayout.createGlowSection(this.glowingColor, this.glowIntensity, this.glowTransform);
 
         this.offsetX = new UITrackpad((value) -> this.form.offsetX.set(value.floatValue()));
         this.offsetX.tooltip(UIKeys.FORMS_EDITORS_BILLBOARD_OFFSET_X);
@@ -159,7 +159,8 @@ public class UIBillboardFormPanel extends UIFormPanel<BillboardForm>
             UIFormColorLayout.sectionLabel(UIKeys.FORMS_EDITOR_FORM),
             this.color,
             this.glowSection,
-            this.advancedSection,
+            UIFormColorLayout.paintColorRowWithTransform(this.paintColor, this.paintIntensity, this.paintTransform),
+            this.colorAdjustments.marginTop(4),
             this.billboard,
             this.linear,
             this.mipmap
@@ -200,6 +201,7 @@ public class UIBillboardFormPanel extends UIFormPanel<BillboardForm>
         this.glowingColor.setColor(glowDisplay.getRGBColor());
 
         this.glowIntensity.setValue(glow.intensity);
+        this.glowTransform.syncFromForm();
 
         this.offsetX.setValue(form.offsetX.get());
         this.offsetY.setValue(form.offsetY.get());

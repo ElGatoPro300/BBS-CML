@@ -4,6 +4,7 @@ import mchorse.bbs_mod.film.replays.Replay;
 import mchorse.bbs_mod.forms.FormUtils;
 import mchorse.bbs_mod.forms.forms.Form;
 import mchorse.bbs_mod.forms.forms.ModelForm;
+import mchorse.bbs_mod.forms.forms.utils.EffectTransform;
 import mchorse.bbs_mod.forms.forms.utils.PaintSettings;
 import mchorse.bbs_mod.forms.renderers.ModelFormRenderer;
 import mchorse.bbs_mod.ui.UIKeys;
@@ -11,6 +12,7 @@ import mchorse.bbs_mod.ui.film.UIFilmPanel;
 import mchorse.bbs_mod.ui.forms.editors.panels.widgets.UIFormColorLayout;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIToggle;
 import mchorse.bbs_mod.ui.framework.elements.input.UIColor;
+import mchorse.bbs_mod.ui.framework.elements.input.UIEffectTransformCollapse;
 import mchorse.bbs_mod.ui.framework.elements.input.UIPropTransform;
 import mchorse.bbs_mod.ui.framework.elements.input.UITrackpad;
 import mchorse.bbs_mod.ui.framework.elements.input.keyframes.UIKeyframeSheet;
@@ -41,10 +43,13 @@ public class UITransformKeyframeFactory extends UIKeyframeFactory<Transform>
     public UIPropTransform transform;
     public UITrackpad fix;
     public UIColor color;
+    public UIEffectTransformCollapse colorTransform;
     public UIColor paintColor;
     public UITrackpad paintIntensity;
+    public UIEffectTransformCollapse paintTransform;
     public UIColor glowingColor;
     public UITrackpad glowIntensity;
+    public UIEffectTransformCollapse glowTransform;
     public UIToggle lighting;
 
     public UITransformKeyframeFactory(Keyframe<Transform> keyframe, UIKeyframes editor)
@@ -87,6 +92,20 @@ public class UITransformKeyframeFactory extends UIKeyframeFactory<Transform>
             this.color.withAlpha();
             this.color.tooltip(UIKeys.RAW_COLOR);
 
+            this.colorTransform = new UIEffectTransformCollapse((apply) ->
+            {
+                UIPoseTransforms.applyPoseTransform(this.editor, this.keyframe, (poseT) ->
+                {
+                    if (poseT.color.transform == null)
+                    {
+                        poseT.color.transform = new EffectTransform();
+                    }
+
+                    apply.accept(poseT.color.transform);
+                });
+            });
+            this.colorTransform.registerUndo(editor);
+
             this.paintColor = new UIColor((c) ->
             {
                 UIPoseTransforms.applyPoseTransform(this.editor, this.keyframe, (poseT) -> this.setPaintColor(poseT, c));
@@ -99,6 +118,20 @@ public class UITransformKeyframeFactory extends UIKeyframeFactory<Transform>
             });
             this.paintIntensity.increment(0.05D).values(0.1D, 0.05D, 0.2D).limit(PaintSettings.MIN_INTENSITY, PaintSettings.MAX_INTENSITY);
             this.paintIntensity.tooltip(UIKeys.FORMS_EDITORS_PAINT_INTENSITY);
+
+            this.paintTransform = new UIEffectTransformCollapse((apply) ->
+            {
+                UIPoseTransforms.applyPoseTransform(this.editor, this.keyframe, (poseT) ->
+                {
+                    if (poseT.paintColor.transform == null)
+                    {
+                        poseT.paintColor.transform = new EffectTransform();
+                    }
+
+                    apply.accept(poseT.paintColor.transform);
+                });
+            });
+            this.paintTransform.registerUndo(editor);
 
             this.glowingColor = new UIColor((c) ->
             {
@@ -113,6 +146,20 @@ public class UITransformKeyframeFactory extends UIKeyframeFactory<Transform>
             this.glowIntensity.increment(0.05D).values(0.1D, 0.05D, 0.2D);
             this.glowIntensity.tooltip(UIKeys.FORMS_EDITORS_GLOW_INTENSITY);
 
+            this.glowTransform = new UIEffectTransformCollapse((apply) ->
+            {
+                UIPoseTransforms.applyPoseTransform(this.editor, this.keyframe, (poseT) ->
+                {
+                    if (poseT.glowingColor.transform == null)
+                    {
+                        poseT.glowingColor.transform = new EffectTransform();
+                    }
+
+                    apply.accept(poseT.glowingColor.transform);
+                });
+            });
+            this.glowTransform.registerUndo(editor);
+
             this.lighting = new UIToggle(UIKeys.FORMS_EDITORS_GENERAL_LIGHTING, (b) ->
             {
                 UIPoseTransforms.applyPoseTransform(this.editor, this.keyframe, (poseT) -> poseT.lighting = b.getValue() ? 0F : 1F);
@@ -123,18 +170,21 @@ public class UITransformKeyframeFactory extends UIKeyframeFactory<Transform>
 
             this.fix.setValue(poseTransform.fix);
             this.color.setColor(poseTransform.color.getARGBColor());
+            this.colorTransform.setEffectTransform(poseTransform.color.transform == null ? new EffectTransform() : poseTransform.color.transform);
             this.paintColor.setColor(poseTransform.paintColor.getRGBColor());
             this.paintIntensity.setValue(poseTransform.paintColor.a);
+            this.paintTransform.setEffectTransform(poseTransform.paintColor.transform == null ? new EffectTransform() : poseTransform.paintColor.transform);
             this.glowingColor.setColor(poseTransform.glowingColor.getRGBColor());
             this.glowIntensity.setValue(poseTransform.glowIntensity);
+            this.glowTransform.setEffectTransform(poseTransform.glowingColor.transform == null ? new EffectTransform() : poseTransform.glowingColor.transform);
             this.lighting.setValue(poseTransform.lighting <= 0F);
 
             this.scroll.add(UI.label(UIKeys.POSE_CONTEXT_FIX));
             this.scroll.add(this.fix);
             this.scroll.add(this.transform);
-            this.scroll.add(UI.row(this.color, this.lighting));
-            this.scroll.add(UIFormColorLayout.paintColorRow(this.paintColor, this.paintIntensity));
-            this.scroll.add(UIFormColorLayout.createGlowSection(this.glowingColor, this.glowIntensity));
+            this.scroll.add(UIFormColorLayout.colorWithTransformAndExtras(this.color, this.colorTransform, this.lighting));
+            this.scroll.add(UIFormColorLayout.paintColorRowWithTransform(this.paintColor, this.paintIntensity, this.paintTransform));
+            this.scroll.add(UIFormColorLayout.createGlowSection(this.glowingColor, this.glowIntensity, this.glowTransform));
         }
         else
         {

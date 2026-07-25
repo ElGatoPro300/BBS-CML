@@ -9,11 +9,11 @@ import mchorse.bbs_mod.ui.forms.editors.forms.UIForm;
 import mchorse.bbs_mod.ui.framework.elements.UIElement;
 import mchorse.bbs_mod.ui.forms.editors.panels.widgets.UIFormColorAdjustments;
 import mchorse.bbs_mod.ui.forms.editors.panels.widgets.UIFormColorLayout;
+import mchorse.bbs_mod.ui.forms.editors.panels.widgets.UIFormColorTransform;
 import mchorse.bbs_mod.ui.forms.editors.panels.widgets.UIFormPaintTransform;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIButton;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIToggle;
 import mchorse.bbs_mod.ui.framework.elements.input.UIColor;
-import mchorse.bbs_mod.ui.framework.elements.input.UIPoseSectionCollapse;
 import mchorse.bbs_mod.ui.framework.elements.input.UITexturePicker;
 import mchorse.bbs_mod.ui.framework.elements.input.UITrackpad;
 import mchorse.bbs_mod.ui.utils.UI;
@@ -29,8 +29,8 @@ public class UIExtrudedFormPanel extends UIFormPanel<ExtrudedForm>
     public UIFormPaintTransform paintTransform;
     public UIColor glowingColor;
     public UITrackpad glowIntensity;
+    public UIFormColorTransform glowTransform;
     public UIElement glowSection;
-    public UIPoseSectionCollapse advancedSection;
     public UIToggle billboard;
     public UIToggle shading;
     public UITrackpad pbrNormalIntensity;
@@ -92,16 +92,20 @@ public class UIExtrudedFormPanel extends UIFormPanel<ExtrudedForm>
         this.paintTransform = new UIFormPaintTransform(() -> this.form.paintSettings.get(), (settings) -> this.form.paintSettings.set(settings));
         this.glowingColor = new UIColor((c) ->
         {
+            Color copy = this.form.glowingColor.get().copy();
             Color color = Color.rgba(c);
 
-            color.a = 1F;
-            this.form.glowingColor.set(color);
+            copy.r = color.r;
+            copy.g = color.g;
+            copy.b = color.b;
+            copy.a = 1F;
+            this.form.glowingColor.set(copy);
 
             GlowSettings settings = this.form.glowSettings.get().copy();
 
-            settings.r = color.r;
-            settings.g = color.g;
-            settings.b = color.b;
+            settings.r = copy.r;
+            settings.g = copy.g;
+            settings.b = copy.b;
             this.form.glowSettings.set(settings);
         });
         this.glowingColor.tooltip(UIKeys.FORMS_EDITORS_GLOW);
@@ -114,12 +118,8 @@ public class UIExtrudedFormPanel extends UIFormPanel<ExtrudedForm>
         });
         this.glowIntensity.increment(0.05D).values(0.1D, 0.05D, 0.2D);
         this.glowIntensity.tooltip(UIKeys.FORMS_EDITORS_GLOW_INTENSITY);
-        this.glowSection = UIFormColorLayout.createGlowSection(this.glowingColor, this.glowIntensity);
-        this.advancedSection = UIFormColorLayout.createAdvancedSection(
-            UIFormColorLayout.paintColorRow(this.paintColor, this.paintIntensity),
-            this.paintTransform,
-            this.colorAdjustments.marginTop(4)
-        );
+        this.glowTransform = new UIFormColorTransform(() -> this.form.glowingColor.get(), (color) -> this.form.glowingColor.set(color));
+        this.glowSection = UIFormColorLayout.createGlowSection(this.glowingColor, this.glowIntensity, this.glowTransform);
         this.billboard = new UIToggle(UIKeys.FORMS_EDITORS_BILLBOARD_TITLE, false, (b) -> this.form.billboard.set(b.getValue()));
         this.shading = new UIToggle(UIKeys.FORMS_EDITORS_BILLBOARD_SHADING, false, (b) -> this.form.shading.set(b.getValue()));
         this.pbrNormalIntensity = new UITrackpad((value) -> this.form.pbrNormalIntensity.set(value.floatValue()));
@@ -132,7 +132,8 @@ public class UIExtrudedFormPanel extends UIFormPanel<ExtrudedForm>
             UIFormColorLayout.sectionLabel(UIKeys.FORMS_EDITOR_FORM),
             this.color,
             this.glowSection,
-            this.advancedSection,
+            UIFormColorLayout.paintColorRowWithTransform(this.paintColor, this.paintIntensity, this.paintTransform),
+            this.colorAdjustments.marginTop(4),
             this.billboard,
             this.shading
         );
@@ -164,6 +165,7 @@ public class UIExtrudedFormPanel extends UIFormPanel<ExtrudedForm>
         this.glowingColor.setColor(glowDisplay.getRGBColor());
 
         this.glowIntensity.setValue(glow.intensity);
+        this.glowTransform.syncFromForm();
         this.billboard.setValue(form.billboard.get());
         this.shading.setValue(form.shading.get());
         this.pbrNormalIntensity.setValue(form.pbrNormalIntensity.get());

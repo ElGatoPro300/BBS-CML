@@ -24,7 +24,6 @@ import mchorse.bbs_mod.ui.framework.elements.buttons.UIIcon;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIToggle;
 import mchorse.bbs_mod.ui.framework.elements.input.UIColor;
 import mchorse.bbs_mod.ui.framework.elements.input.UIEffectTransformCollapse;
-import mchorse.bbs_mod.ui.framework.elements.input.UIPoseSectionCollapse;
 import mchorse.bbs_mod.ui.framework.elements.input.UIPropTransform;
 import mchorse.bbs_mod.ui.framework.elements.input.UITexturePicker;
 import mchorse.bbs_mod.ui.framework.elements.input.UITrackpad;
@@ -87,8 +86,9 @@ public class UIPoseEditor extends UIElement
     public UIFormColorAdjustments colorAdjustments;
     public UIColor glowingColor;
     public UITrackpad glowIntensity;
+    public UIEffectTransformCollapse glowTransform;
     public UIToggle lighting;
-    public UIPoseSectionCollapse advancedSection;
+    public UIElement paintSection;
     public UIElement glowSection;
     public UIPropTransform transform;
     public Runnable onChange;
@@ -583,13 +583,17 @@ public class UIPoseEditor extends UIElement
                 if (this.onChange != null) this.onChange.run();
             });
         });
-        this.glowSection = UIFormColorLayout.createGlowSection(this.glowingColor, this.glowIntensity);
-        this.advancedSection = UIFormColorLayout.createAdvancedSection(
-            this.colorTransform,
-            UIFormColorLayout.paintColorRow(this.paintColor, this.paintIntensity),
-            this.paintTransform,
-            this.colorAdjustments.marginTop(4)
-        );
+        this.glowTransform = new UIEffectTransformCollapse((apply) -> this.editPoseGlowColor((color) ->
+        {
+            if (color.transform == null)
+            {
+                color.transform = new EffectTransform();
+            }
+
+            apply.accept(color.transform);
+        }));
+        this.glowSection = UIFormColorLayout.createGlowSection(this.glowingColor, this.glowIntensity, this.glowTransform);
+        this.paintSection = UIFormColorLayout.paintColorRowWithTransform(this.paintColor, this.paintIntensity, this.paintTransform);
         this.lighting = new UIToggle(UIKeys.FORMS_EDITORS_GENERAL_LIGHTING, (b) ->
         {
             String selectedCategory = this.categories != null ? this.categories.getCurrentFirst() : null;
@@ -781,7 +785,8 @@ public class UIPoseEditor extends UIElement
         this.glowIntensity.setVisible(!groups.isEmpty());
         this.lighting.setVisible(!groups.isEmpty());
         this.pickTexture.setVisible(!groups.isEmpty());
-        this.advancedSection.setVisible(!groups.isEmpty());
+        this.paintSection.setVisible(!groups.isEmpty());
+        this.colorAdjustments.setVisible(!groups.isEmpty());
         this.glowSection.setVisible(!groups.isEmpty());
         this.transform.setVisible(!groups.isEmpty());
 
@@ -1082,7 +1087,8 @@ public class UIPoseEditor extends UIElement
         this.paintIntensity.setVisible(true);
         this.glowingColor.setVisible(true);
         this.glowIntensity.setVisible(true);
-        this.advancedSection.setVisible(true);
+        this.paintSection.setVisible(true);
+        this.colorAdjustments.setVisible(true);
         this.glowSection.setVisible(true);
         this.lighting.setVisible(true);
         this.pickTexture.setVisible(BBSSettings.pickLimbTexture != null && BBSSettings.pickLimbTexture.get());
@@ -1120,7 +1126,8 @@ public class UIPoseEditor extends UIElement
         this.paintIntensity.setVisible(true);
         this.glowingColor.setVisible(true);
         this.glowIntensity.setVisible(true);
-        this.advancedSection.setVisible(true);
+        this.paintSection.setVisible(true);
+        this.colorAdjustments.setVisible(true);
         this.glowSection.setVisible(true);
         this.lighting.setVisible(true);
         this.pickTexture.setVisible(BBSSettings.pickLimbTexture != null && BBSSettings.pickLimbTexture.get());
@@ -1147,6 +1154,7 @@ public class UIPoseEditor extends UIElement
             this.colorAdjustments.syncFromForm();
             this.glowingColor.setColor(poseTransform.glowingColor.getRGBColor());
             this.glowIntensity.setValue(poseTransform.glowIntensity);
+            this.glowTransform.setEffectTransform(poseTransform.glowingColor.transform);
             this.lighting.setValue(poseTransform.lighting == 0F);
             this.transform.setTransform(poseTransform);
         }
@@ -1161,6 +1169,7 @@ public class UIPoseEditor extends UIElement
             this.colorAdjustments.syncFromForm();
             this.glowingColor.setColor(0xFFFFFF);
             this.glowIntensity.setValue(0F);
+            this.glowTransform.setEffectTransform(new EffectTransform());
             this.lighting.setValue(false);
             this.transform.setTransform(null);
         }
@@ -1195,7 +1204,11 @@ public class UIPoseEditor extends UIElement
 
     protected void setGlowingColor(PoseTransform transform, int value)
     {
-        transform.glowingColor.set(value);
+        Color rgb = new Color().set(value);
+
+        transform.glowingColor.r = rgb.r;
+        transform.glowingColor.g = rgb.g;
+        transform.glowingColor.b = rgb.b;
         transform.glowingColor.a = 1F;
     }
 
@@ -1226,8 +1239,8 @@ public class UIPoseEditor extends UIElement
     }
 
     /**
-     * Bone appearance controls above the transform grid (classic order):
-     * section label, bone texture, color + lighting row, Glow, Advanced.
+     * Bone appearance controls above the transform grid:
+     * section label, bone texture, color + lighting, Glow, Paint, Color grade.
      */
     public UIElement createPoseFooter()
     {
@@ -1241,9 +1254,9 @@ public class UIPoseEditor extends UIElement
             footer.add(this.pickTexture);
         }
 
-        /* Compact tint swatch beside lighting — matches pre–Blend Color row. */
-        footer.add(UI.row(this.color, this.lighting));
-        footer.add(this.glowSection, this.advancedSection);
+        /* Color+icon cluster shares the row with Lighting; grid opens full-width below. */
+        footer.add(UIFormColorLayout.colorWithTransformAndExtras(this.color, this.colorTransform, this.lighting));
+        footer.add(this.glowSection, this.paintSection, this.colorAdjustments.marginTop(4));
 
         return footer;
     }
@@ -1292,6 +1305,27 @@ public class UIPoseEditor extends UIElement
         else if (this.transform.getTransform() instanceof PoseTransform poseTransform)
         {
             editor.accept(poseTransform.paintColor);
+        }
+
+        if (this.onChange != null)
+        {
+            this.onChange.run();
+        }
+    }
+
+    protected void editPoseGlowColor(Consumer<Color> editor)
+    {
+        String selectedCategory = this.categories != null ? this.categories.getCurrentFirst() : null;
+
+        if (selectedCategory != null && !selectedCategory.isEmpty())
+        {
+            this.applyCategory((p) -> editor.accept(p.glowingColor));
+        }
+        else if (this.applyLiveMirror((p) -> editor.accept(p.glowingColor)))
+        {}
+        else if (this.transform.getTransform() instanceof PoseTransform poseTransform)
+        {
+            editor.accept(poseTransform.glowingColor);
         }
 
         if (this.onChange != null)

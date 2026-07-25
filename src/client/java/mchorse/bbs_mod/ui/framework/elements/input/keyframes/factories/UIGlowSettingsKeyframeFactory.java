@@ -1,11 +1,13 @@
 package mchorse.bbs_mod.ui.framework.elements.input.keyframes.factories;
 
+import mchorse.bbs_mod.forms.forms.utils.EffectTransform;
 import mchorse.bbs_mod.forms.forms.utils.GlowSettings;
 import mchorse.bbs_mod.ui.UIKeys;
 import mchorse.bbs_mod.ui.film.replays.UIReplaysEditorUtils;
 import mchorse.bbs_mod.ui.forms.editors.panels.widgets.UIFormColorLayout;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIToggle;
 import mchorse.bbs_mod.ui.framework.elements.input.UIColor;
+import mchorse.bbs_mod.ui.framework.elements.input.UIEffectTransformCollapse;
 import mchorse.bbs_mod.ui.framework.elements.input.UITrackpad;
 import mchorse.bbs_mod.ui.framework.elements.input.keyframes.UIKeyframes;
 import mchorse.bbs_mod.utils.colors.Color;
@@ -15,6 +17,7 @@ import java.util.function.Consumer;
 
 public class UIGlowSettingsKeyframeFactory extends UIKeyframeFactory<GlowSettings>
 {
+    private UIEffectTransformCollapse glowTransform;
     private UIColor glowColor;
     private UITrackpad intensity;
     private UIToggle spectrum;
@@ -22,6 +25,17 @@ public class UIGlowSettingsKeyframeFactory extends UIKeyframeFactory<GlowSetting
     public UIGlowSettingsKeyframeFactory(Keyframe<GlowSettings> keyframe, UIKeyframes editor)
     {
         super(keyframe, editor);
+
+        this.glowTransform = new UIEffectTransformCollapse((apply) -> this.applyToSelected((settings) ->
+        {
+            if (settings.transform == null)
+            {
+                settings.transform = new EffectTransform();
+            }
+
+            apply.accept(settings.transform);
+        }));
+        this.glowTransform.registerUndo(editor);
 
         this.glowColor = new UIColor((c) -> this.setColor(c));
         this.glowColor.tooltip(UIKeys.FORMS_EDITORS_GLOWING_COLOR);
@@ -34,12 +48,7 @@ public class UIGlowSettingsKeyframeFactory extends UIKeyframeFactory<GlowSetting
         this.spectrum.tooltip(UIKeys.GENERIC_KEYFRAMES_COLOR_SPECTRUM_TOOLTIP);
         this.spectrum.setValue(keyframe.isSpectrum());
 
-        this.scroll.add(UIFormColorLayout.labeledColorValueRow(
-            UIKeys.FORMS_EDITORS_GLOWING_COLOR,
-            this.glowColor,
-            UIKeys.FORMS_EDITORS_GLOW_INTENSITY,
-            this.intensity
-        ));
+        this.scroll.add(UIFormColorLayout.createGlowSection(this.glowColor, this.intensity, this.glowTransform));
         this.scroll.add(this.spectrum);
 
         this.update();
@@ -51,7 +60,9 @@ public class UIGlowSettingsKeyframeFactory extends UIKeyframeFactory<GlowSetting
         super.update();
 
         GlowSettings value = this.getOrCreateSettings(this.keyframe.getValue());
+        EffectTransform effect = value.transform == null ? new EffectTransform() : value.transform;
 
+        this.glowTransform.setEffectTransform(effect);
         this.glowColor.setColor(new Color().set(value.r, value.g, value.b, 1F).getRGBColor());
         this.intensity.setValue(value.intensity);
         this.spectrum.setValue(this.keyframe.isSpectrum());
@@ -62,6 +73,11 @@ public class UIGlowSettingsKeyframeFactory extends UIKeyframeFactory<GlowSetting
         if (settings == null)
         {
             return new GlowSettings();
+        }
+
+        if (settings.transform == null)
+        {
+            settings.transform = new EffectTransform();
         }
 
         return settings;

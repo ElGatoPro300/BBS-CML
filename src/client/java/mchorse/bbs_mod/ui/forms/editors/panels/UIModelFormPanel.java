@@ -19,7 +19,6 @@ import mchorse.bbs_mod.ui.forms.editors.panels.widgets.UIModelPoseEditor;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIButton;
 import mchorse.bbs_mod.ui.framework.elements.input.UIColor;
 import mchorse.bbs_mod.ui.framework.elements.input.UIEffectTransformCollapse;
-import mchorse.bbs_mod.ui.framework.elements.input.UIPoseSectionCollapse;
 import mchorse.bbs_mod.ui.framework.elements.input.UITexturePicker;
 import mchorse.bbs_mod.ui.framework.elements.input.UITrackpad;
 import mchorse.bbs_mod.ui.framework.elements.overlay.UIListOverlayPanel;
@@ -42,9 +41,9 @@ public class UIModelFormPanel extends UIFormPanel<ModelForm>
     public UIEffectTransformCollapse paintTransform;
     public UIColor glowingColor;
     public UITrackpad glowIntensity;
+    public UIEffectTransformCollapse glowTransform;
 
     public UIElement glowSection;
-    public UIPoseSectionCollapse advancedSection;
 
     public UIModelPoseEditor poseEditor;
     public UIShapeKeys shapeKeys;
@@ -158,16 +157,20 @@ public class UIModelFormPanel extends UIFormPanel<ModelForm>
         });
         this.glowingColor = new UIColor((c) ->
         {
-            Color color = new Color().set(c);
+            Color copy = this.form.glowingColor.get().copy();
+            Color value = new Color().set(c);
 
-            color.a = 1F;
-            this.form.glowingColor.set(color);
+            copy.r = value.r;
+            copy.g = value.g;
+            copy.b = value.b;
+            copy.a = 1F;
+            this.form.glowingColor.set(copy);
 
             GlowSettings settings = this.form.glowSettings.get().copy();
 
-            settings.r = color.r;
-            settings.g = color.g;
-            settings.b = color.b;
+            settings.r = copy.r;
+            settings.g = copy.g;
+            settings.b = copy.b;
             this.form.glowSettings.set(settings);
         });
         this.glowingColor.direction(Direction.LEFT);
@@ -182,13 +185,19 @@ public class UIModelFormPanel extends UIFormPanel<ModelForm>
         });
         this.glowIntensity.increment(0.05D).values(0.1D, 0.05D, 0.2D);
         this.glowIntensity.tooltip(UIKeys.FORMS_EDITORS_GLOW_INTENSITY);
-        this.glowSection = UIFormColorLayout.createGlowSection(this.glowingColor, this.glowIntensity);
-        this.advancedSection = UIFormColorLayout.createAdvancedSection(
-            this.colorTransform,
-            UIFormColorLayout.paintColorRow(this.paintColor, this.paintIntensity),
-            this.paintTransform,
-            this.colorAdjustments.marginTop(4)
-        );
+        this.glowTransform = new UIEffectTransformCollapse((apply) ->
+        {
+            Color copy = this.form.glowingColor.get().copy();
+
+            if (copy.transform == null)
+            {
+                copy.transform = new EffectTransform();
+            }
+
+            apply.accept(copy.transform);
+            this.form.glowingColor.set(copy);
+        });
+        this.glowSection = UIFormColorLayout.createGlowSection(this.glowingColor, this.glowIntensity, this.glowTransform);
         this.poseEditor = new UIModelPoseEditor();
         this.poseEditor.setDefaultTextureSupplier(() ->
         {
@@ -237,9 +246,10 @@ public class UIModelFormPanel extends UIFormPanel<ModelForm>
 
         this.options.add(
             UIFormColorLayout.sectionLabel(UIKeys.FORMS_EDITOR_FORM),
-            this.color,
+            UIFormColorLayout.colorWithTransform(this.color, this.colorTransform),
             this.glowSection,
-            this.advancedSection,
+            UIFormColorLayout.paintColorRowWithTransform(this.paintColor, this.paintIntensity, this.paintTransform),
+            this.colorAdjustments.marginTop(4),
             this.poseEditor
         );
     }
@@ -292,6 +302,7 @@ public class UIModelFormPanel extends UIFormPanel<ModelForm>
         this.form.glowSettings.set(settings);
         this.glowingColor.setColor(legacy.getRGBColor());
         this.glowIntensity.setValue(settings.intensity);
+        this.glowTransform.setEffectTransform(new EffectTransform());
         this.editor.startEdit(this.form);
     }
 
@@ -336,6 +347,7 @@ public class UIModelFormPanel extends UIFormPanel<ModelForm>
         this.glowingColor.setColor(glowDisplay.getRGBColor());
 
         this.glowIntensity.setValue(glow.intensity);
+        this.glowTransform.setEffectTransform(form.glowingColor.get().transform == null ? new EffectTransform() : form.glowingColor.get().transform);
 
         this.shapeKeys.removeFromParent();
 
