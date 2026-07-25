@@ -379,7 +379,7 @@ public class FormProperties extends ValueGroup
     }
 
     /**
-     * Film Color tracks often store only blend RGB/intensity. Morph-level brightness /
+     * Film Color tracks often store only RGB + opacity. Morph-level brightness /
      * contrast / hue / saturation (and their transforms) must still apply unless the
      * Color track itself keyframes them.
      */
@@ -1115,6 +1115,40 @@ public class FormProperties extends ValueGroup
         return new Color(1F, 1F, 1F, 1F);
     }
 
+    /**
+     * True when serialized Color keyframes still carry dual-write {@code blend_a}.
+     * Those are already migrated by {@link mchorse.bbs_mod.utils.keyframes.factories.ColorKeyframeFactory}
+     * and must not treat {@code color.a} as tint intensity again.
+     */
+    private static boolean colorChannelDataHasBlendA(MapType channelData)
+    {
+        if (channelData == null || !channelData.has("keyframes"))
+        {
+            return false;
+        }
+
+        ListType keyframes = channelData.getList("keyframes");
+
+        for (int i = 0; i < keyframes.size(); i++)
+        {
+            MapType keyframeMap = keyframes.getMap(i);
+
+            if (keyframeMap == null || !keyframeMap.has("value"))
+            {
+                continue;
+            }
+
+            BaseType value = keyframeMap.get("value");
+
+            if (value instanceof MapType valueMap && valueMap.has(ColorKeyframeFactory.BLEND_A))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     @Override
     public void fromData(BaseType data)
     {
@@ -1128,6 +1162,7 @@ public class FormProperties extends ValueGroup
         }
 
         MapType map = data.asMap();
+        boolean colorHadBlendA = false;
 
         for (String key : map.keys())
         {
@@ -1140,6 +1175,11 @@ public class FormProperties extends ValueGroup
 
             try
             {
+                if ("color".equals(key))
+                {
+                    colorHadBlendA = colorChannelDataHasBlendA(mapType);
+                }
+
                 String type = mapType.getString("type");
 
                 /* Skip unknown factories early — older builds NPE here; stay resilient too. */
@@ -1466,11 +1506,18 @@ public class FormProperties extends ValueGroup
                     float tick = opacityKf.getTick();
                     float opacityA = MathUtils.clamp((Float) opacityValue, 0F, 1F);
                     Color color = this.sampleColorChannel(colorChannel, tick);
-                    float intensity = MathUtils.clamp(color.a, 0F, 1F);
 
-                    color.r = Lerps.lerp(1F, color.r, intensity);
-                    color.g = Lerps.lerp(1F, color.g, intensity);
-                    color.b = Lerps.lerp(1F, color.b, intensity);
+                    /* Early Blend Color: color.a was tint intensity. Dual-write era already
+                     * baked intensity via blend_a in ColorKeyframeFactory — only assign opacity. */
+                    if (!colorHadBlendA)
+                    {
+                        float intensity = MathUtils.clamp(color.a, 0F, 1F);
+
+                        color.r = Lerps.lerp(1F, color.r, intensity);
+                        color.g = Lerps.lerp(1F, color.g, intensity);
+                        color.b = Lerps.lerp(1F, color.b, intensity);
+                    }
+
                     color.a = opacityA;
 
                     int index = colorChannel.insert(tick, color);

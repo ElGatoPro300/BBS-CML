@@ -35,6 +35,7 @@ import mchorse.bbs_mod.utils.MathUtils;
 import mchorse.bbs_mod.utils.StringUtils;
 import mchorse.bbs_mod.utils.colors.Color;
 import mchorse.bbs_mod.utils.interps.Lerps;
+import mchorse.bbs_mod.utils.keyframes.factories.ColorKeyframeFactory;
 import mchorse.bbs_mod.utils.pose.Transform;
 
 import net.minecraft.entity.LivingEntity;
@@ -552,6 +553,7 @@ public abstract class Form extends ValueGroup
 
         Color color = valueColor.get().copy();
         boolean hadOpacityField = map.has("opacity");
+        boolean colorHadBlendA = colorDataHasBlendA(map.get("color"));
 
         if (hadOpacityField)
         {
@@ -563,15 +565,20 @@ public abstract class Form extends ValueGroup
                 opacityA = MathUtils.clamp(opacityType.asNumeric().floatValue(), 0F, 1F);
             }
 
-            float intensity = MathUtils.clamp(color.a, 0F, 1F);
+            /* Early Blend Color: color.a was tint intensity. Dual-write already baked via blend_a. */
+            if (!colorHadBlendA)
+            {
+                float intensity = MathUtils.clamp(color.a, 0F, 1F);
 
-            color.r = Lerps.lerp(1F, color.r, intensity);
-            color.g = Lerps.lerp(1F, color.g, intensity);
-            color.b = Lerps.lerp(1F, color.b, intensity);
+                color.r = Lerps.lerp(1F, color.r, intensity);
+                color.g = Lerps.lerp(1F, color.g, intensity);
+                color.b = Lerps.lerp(1F, color.b, intensity);
+            }
+
             color.a = opacityA;
             valueColor.set(color);
         }
-        else if (color.a <= 0.001F)
+        else if (!colorHadBlendA && color.a <= 0.001F)
         {
             /* Legacy tint-off default would be invisible under traditional alpha. */
             color.r = 1F;
@@ -580,6 +587,11 @@ public abstract class Form extends ValueGroup
             color.a = 1F;
             valueColor.set(color);
         }
+    }
+
+    private static boolean colorDataHasBlendA(BaseType colorData)
+    {
+        return colorData instanceof MapType colorMap && colorMap.has(ColorKeyframeFactory.BLEND_A);
     }
 
     /**
