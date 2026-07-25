@@ -74,7 +74,11 @@ public class UILabelFormPanel extends UIFormPanel<LabelForm>
     public UITrackpad gradientOffset;
     public UIButton resetGradient;
 
-    public UIPoseSectionCollapse advancedSection;
+    private UIElement advancedSection;
+    private UIElement advancedHeaderRow;
+    private UIIcon advancedToggle;
+    private UIButton advancedHeader;
+    private boolean advancedExpanded = false;
 
     public UILabelFormPanel(UIForm editor)
     {
@@ -235,25 +239,63 @@ public class UILabelFormPanel extends UIFormPanel<LabelForm>
         this.options.add(UI.label(UIKeys.FORMS_EDITORS_LABEL_BACKGROUND).marginTop(8), this.background, this.offset);
         this.options.add(UI.label(UIKeys.FORMS_EDITORS_LABEL_COLOR_FORMAT_GUIDE).marginTop(8), new UIMinecraftColorGuide());
 
-        /* Advanced text — same animated colored disclosure as Glow / Color. */
-        this.advancedSection = new UIPoseSectionCollapse(
-            UIKeys.FORMS_EDITORS_LABEL_ADVANCED_TEXT,
-            Colors.ACTIVE,
-            UI.column(
-                UI.label(UIKeys.FORMS_EDITORS_LABEL_FONT), this.font, this.openFontsFolder,
-                UI.row(this.fontSize, this.bold),
-                UI.row(this.fontStyle, this.textAlign),
-                UI.row(this.letterSpacing, this.lineHeight),
-                UI.label(UIKeys.FORMS_EDITORS_LABEL_OPACITY), this.opacity,
-                UI.row(this.underline, this.strikethrough),
-                UI.label(UIKeys.FORMS_EDITORS_LABEL_EFFECTS).marginTop(8),
-                UI.label(UIKeys.FORMS_EDITORS_LABEL_SHADOW_BLUR), this.shadowBlur,
-                this.outline, this.outlineColor, this.outlineWidth,
-                this.gradient, this.gradientEndColor, this.gradientOffset, this.resetGradient
-            )
+        /* Advanced Layout */
+        this.advancedToggle = new UIIcon(Icons.ARROW_DOWN, (b) -> this.toggleAdvancedSection());
+        this.advancedHeader = new UIButton(UIKeys.FORMS_EDITORS_LABEL_ADVANCED_TEXT, (b) -> this.toggleAdvancedSection())
+            .background(false);
+
+        this.advancedSection = new UIElement();
+        this.advancedSection.column(5).vertical().stretch().padding(6);
+        this.advancedSection.add(
+            UI.label(UIKeys.FORMS_EDITORS_LABEL_FONT), this.font, this.openFontsFolder,
+            UI.row(this.fontSize, this.bold),
+            UI.row(this.fontStyle, this.textAlign),
+            UI.row(this.letterSpacing, this.lineHeight),
+            UI.label(UIKeys.FORMS_EDITORS_LABEL_OPACITY), this.opacity,
+            UI.row(this.underline, this.strikethrough),
+            UI.label(UIKeys.FORMS_EDITORS_LABEL_EFFECTS).marginTop(8),
+            UI.label(UIKeys.FORMS_EDITORS_LABEL_SHADOW_BLUR), this.shadowBlur,
+            this.outline, this.outlineColor, this.outlineWidth,
+            this.gradient, this.gradientEndColor, this.gradientOffset, this.resetGradient
         );
-        this.advancedSection.marginTop(12);
-        this.options.add(this.advancedSection);
+
+        this.advancedHeaderRow = new UIElement()
+        {
+            @Override
+            public void render(UIContext context)
+            {
+                this.area.render(context.batcher, Colors.A100 + BBSSettings.primaryColor.get());
+                super.render(context);
+            }
+        };
+        this.advancedHeaderRow.row(5).padding(4).height(20);
+        this.advancedHeaderRow.add(this.advancedToggle, this.advancedHeader);
+        this.advancedHeaderRow.marginTop(12);
+        this.options.add(this.advancedHeaderRow);
+        this.setAdvancedExpanded(false);
+    }
+
+    private void toggleAdvancedSection()
+    {
+        this.setAdvancedExpanded(!this.advancedExpanded);
+    }
+
+    private void setAdvancedExpanded(boolean expanded)
+    {
+        this.advancedExpanded = expanded;
+        this.advancedToggle.both(expanded ? Icons.ARROW_DOWN : Icons.ARROW_RIGHT);
+        if (expanded)
+        {
+            if (!this.advancedSection.hasParent())
+            {
+                this.options.addAfter(this.advancedHeaderRow, this.advancedSection);
+            }
+        }
+        else
+        {
+            this.advancedSection.removeFromParent();
+        }
+        this.options.resize();
     }
 
     @Override

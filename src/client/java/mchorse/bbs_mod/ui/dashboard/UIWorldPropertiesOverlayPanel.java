@@ -21,15 +21,16 @@ import net.minecraft.client.world.ClientWorld;
 import net.minecraft.world.GameRules;
 
 /**
- * Legacy World Properties overlay. The main-menu World button now opens
- * {@link UIWorldDropdownMenu}; this panel remains for {@link #isOpen()} compatibility
- * if constructed elsewhere.
+ * World Properties overlay (World menu bar button). Animated Time, Weather, Mobs,
+ * and Gamma sections. Toggle states are read from the integrated server's gamerules
+ * when the panel opens. Time-slider updates use the same client-side sun override as
+ * the Sun Rotation curve for smooth dragging, with throttled server sync.
  */
 public class UIWorldPropertiesOverlayPanel extends UIOverlayPanel
 {
     private static final long THROTTLE_MS = 10L;
     private static final int TIME_COLOR = 0x3aa0ff;
-    private static final int WEATHER_COLOR = 0x2f8f72;
+    private static final int WEATHER_COLOR = 0x5ac8a8;
     private static final int MOBS_COLOR = 0xe07a3a;
     private static final int GAMMA_COLOR = 0xd4b23a;
 
@@ -69,7 +70,7 @@ public class UIWorldPropertiesOverlayPanel extends UIOverlayPanel
 
         openCount++;
 
-        this.resizable().minSize(240, 120);
+        this.resizable().minSize(240, 200);
 
         this.freezeTime = new UIToggle(UIKeys.WORLD_FREEZE_TIME, !WorldPropertiesHelper.readGamerule(GameRules.DO_DAYLIGHT_CYCLE, true), (b) ->
             WorldPropertiesHelper.setGamerule(GameRules.DO_DAYLIGHT_CYCLE, !b.getValue()));

@@ -471,11 +471,6 @@ public class ShaderOpacityPatch
         {
             flushingPostDeferred = false;
             RenderSystem.depthMask(true);
-            RenderSystem.colorMask(true, true, true, true);
-            RenderSystem.enableDepthTest();
-            RenderSystem.enableBlend();
-            RenderSystem.defaultBlendFunc();
-            RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
         }
     }
 

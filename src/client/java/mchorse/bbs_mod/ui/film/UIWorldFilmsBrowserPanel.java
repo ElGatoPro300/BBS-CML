@@ -23,14 +23,11 @@ import mchorse.bbs_mod.utils.colors.Colors;
 import mchorse.bbs_mod.utils.resources.Pixels;
 
 import net.minecraft.client.MinecraftClient;
-import net.minecraft.world.level.storage.LevelSummary;
 
 import org.lwjgl.opengl.GL11;
 
 import java.io.File;
 import java.io.FileInputStream;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -38,7 +35,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 
 public class UIWorldFilmsBrowserPanel extends UIDashboardPanel
@@ -48,19 +44,14 @@ public class UIWorldFilmsBrowserPanel extends UIDashboardPanel
     private final UIElement page;
     private final UIDataPathList filmsList;
     private final UIFilmMosaicGrid filmsMosaic;
-    private final UIWorldListGrid worldsList;
     private final UISearchList<DataPath> filmsSearch;
     private final UIButton joinWorld;
     private final Map<String, CrossWorldFilmEntry> crossWorldFilmEntries = new HashMap<>();
     private final Map<String, String> crossWorldWorldLabels = new HashMap<>();
-    private final Map<String, Texture> filmThumbnails = new HashMap<>();
-    private final Map<String, Texture> worldIcons = new HashMap<>();
-    private final Set<String> missingFilmThumbnailIds = new HashSet<>();
-    private final Set<String> missingWorldIconIds = new HashSet<>();
+    private final Map<String, Texture> thumbnails = new HashMap<>();
+    private final Set<String> missingThumbnailIds = new HashSet<>();
 
-    private List<LevelSummary> worldSummaries = Collections.emptyList();
     private CrossWorldFilmEntry pendingJoin;
-    private LevelSummary pendingWorld;
     private boolean scanning;
 
     public UIWorldFilmsBrowserPanel(UIDashboard dashboard)
@@ -72,17 +63,8 @@ public class UIWorldFilmsBrowserPanel extends UIDashboardPanel
             @Override
             protected boolean subMouseClicked(UIContext context)
             {
-                if (UIWorldFilmsBrowserPanel.this.isAtWorldRoot())
-                {
-                    UIWorldFilmsBrowserPanel.this.worldsList.selectedWorldFolder = null;
-                    UIWorldFilmsBrowserPanel.this.pendingWorld = null;
-                    UIWorldFilmsBrowserPanel.this.updateJoinButton();
-                }
-                else
-                {
-                    UIWorldFilmsBrowserPanel.this.filmsMosaic.selectedId = null;
-                    UIWorldFilmsBrowserPanel.this.handleFilmSelection(null);
-                }
+                UIWorldFilmsBrowserPanel.this.filmsMosaic.selectedId = null;
+                UIWorldFilmsBrowserPanel.this.handleSelection(null);
 
                 return super.subMouseClicked(context);
             }
@@ -92,7 +74,7 @@ public class UIWorldFilmsBrowserPanel extends UIDashboardPanel
         {
             if (!list.isEmpty())
             {
-                this.handleFilmSelection(list.get(0).toString());
+                this.handleSelection(list.get(0).toString());
             }
         });
         this.filmsList.setFileIcon(Icons.FILM);
@@ -101,17 +83,10 @@ public class UIWorldFilmsBrowserPanel extends UIDashboardPanel
 
         this.filmsMosaic = new UIFilmMosaicGrid(
             this.filmsList,
-            this::getFilmThumbnail,
-            this::getFilmCardLabel,
-            (id) -> this.handleFilmSelection(id),
+            this::getThumbnail,
+            this::getCardLabel,
+            (id) -> this.handleSelection(id),
             (id) -> this.openFilm(id)
-        );
-        this.filmsMosaic.setVisible(false);
-
-        this.worldsList = new UIWorldListGrid(
-            this::getWorldIcon,
-            this::handleWorldSelection,
-            this::enterWorldFilms
         );
 
         this.filmsSearch = new UISearchList<>(this.filmsList).label(UIKeys.GENERAL_SEARCH);
@@ -125,25 +100,17 @@ public class UIWorldFilmsBrowserPanel extends UIDashboardPanel
                 oldCallback.accept(str);
             }
 
-            if (this.isAtWorldRoot())
-            {
-                this.worldsList.filter(str);
-            }
-            else
-            {
-                this.filmsMosaic.filter(str);
-            }
+            this.filmsMosaic.filter(str);
         };
 
-        this.joinWorld = new UIButton(UIKeys.FILM_JOIN_WORLD, (b) -> this.joinSelected());
+        this.joinWorld = new UIButton(UIKeys.FILM_JOIN_WORLD, (b) -> this.joinSelectedWorld());
         this.joinWorld.relative(this).x(1F, -12).y(1F, -28).anchor(1F, 1F).w(120).h(20);
         this.joinWorld.setVisible(false);
 
         this.page.relative(this).x(0.5F, -250).y(0).w(500).h(1F);
         this.filmsSearch.relative(this.page).x(0).y(BANNER_HEIGHT + 20).w(1F).h(20);
-        this.worldsList.relative(this.page).x(0).y(BANNER_HEIGHT + 40).w(1F).h(1F, -(BANNER_HEIGHT + 40 + 10));
         this.filmsMosaic.relative(this.page).x(0).y(BANNER_HEIGHT + 40).w(1F).h(1F, -(BANNER_HEIGHT + 40 + 10));
-        this.page.add(new UIRenderable(this::renderBanner), this.filmsSearch, this.worldsList, this.filmsMosaic);
+        this.page.add(new UIRenderable(this::renderBanner), this.filmsSearch, this.filmsMosaic);
 
         this.add(this.page, this.joinWorld);
     }
@@ -164,7 +131,7 @@ public class UIWorldFilmsBrowserPanel extends UIDashboardPanel
     {
         super.appear();
 
-        this.refreshWorlds();
+        this.refreshFilms();
     }
 
     @Override
@@ -173,18 +140,10 @@ public class UIWorldFilmsBrowserPanel extends UIDashboardPanel
         super.disappear();
 
         this.pendingJoin = null;
-        this.pendingWorld = null;
         this.joinWorld.setVisible(false);
-        this.clearWorldIcons();
-        this.clearFilmThumbnails();
     }
 
-    private boolean isAtWorldRoot()
-    {
-        return this.filmsList.getPath().strings.isEmpty();
-    }
-
-    private void refreshWorlds()
+    private void refreshFilms()
     {
         if (this.scanning)
         {
@@ -193,173 +152,74 @@ public class UIWorldFilmsBrowserPanel extends UIDashboardPanel
 
         this.scanning = true;
 
-        CompletableFuture<List<LevelSummary>> worldsFuture = CrossWorldFilmScanner.scanWorldsAsync();
-        CompletableFuture<List<CrossWorldFilmEntry>> filmsFuture = CrossWorldFilmScanner.scanAsync();
-
-        worldsFuture.thenCombine(filmsFuture, (worlds, films) ->
-        {
-            MinecraftClient.getInstance().execute(() -> this.applyScanResults(worlds, films));
-
-            return null;
-        }).exceptionally((error) ->
+        CrossWorldFilmScanner.scanAsync().whenComplete((entries, error) ->
         {
             MinecraftClient.getInstance().execute(() ->
             {
                 this.scanning = false;
-                error.printStackTrace();
-                this.applyScanResults(Collections.emptyList(), Collections.emptyList());
-            });
+                this.crossWorldFilmEntries.clear();
+                this.crossWorldWorldLabels.clear();
+                this.thumbnails.clear();
+                this.missingThumbnailIds.clear();
 
-            return null;
+                if (error != null || entries == null)
+                {
+                    if (error != null)
+                    {
+                        error.printStackTrace();
+                    }
+
+                    this.fillNames(Collections.emptyList());
+
+                    return;
+                }
+
+                List<String> paths = new ArrayList<>();
+
+                for (CrossWorldFilmEntry entry : entries)
+                {
+                    String path = entry.worldFolder + "/" + entry.filmId;
+
+                    paths.add(path);
+                    this.crossWorldFilmEntries.put(path, entry);
+                    this.crossWorldWorldLabels.put(entry.worldFolder, entry.worldLabel);
+                }
+
+                this.fillNames(paths);
+            });
         });
     }
 
-    private void applyScanResults(List<LevelSummary> worlds, List<CrossWorldFilmEntry> films)
-    {
-        this.scanning = false;
-        this.crossWorldFilmEntries.clear();
-        this.crossWorldWorldLabels.clear();
-        this.clearFilmThumbnails();
-        this.clearWorldIcons();
-        this.missingFilmThumbnailIds.clear();
-        this.missingWorldIconIds.clear();
-
-        this.worldSummaries = worlds == null ? Collections.emptyList() : new ArrayList<>(worlds);
-
-        List<String> paths = new ArrayList<>();
-        Set<String> worldsWithFilms = new HashSet<>();
-
-        if (films != null)
-        {
-            for (CrossWorldFilmEntry entry : films)
-            {
-                String path = entry.worldFolder + "/" + entry.filmId;
-
-                paths.add(path);
-                worldsWithFilms.add(entry.worldFolder);
-                this.crossWorldFilmEntries.put(path, entry);
-                this.crossWorldWorldLabels.put(entry.worldFolder, entry.worldLabel);
-            }
-        }
-
-        for (LevelSummary summary : this.worldSummaries)
-        {
-            String folder = summary.getName();
-
-            this.crossWorldWorldLabels.put(folder, summary.getDisplayName());
-
-            if (!worldsWithFilms.contains(folder))
-            {
-                paths.add(folder + "/");
-            }
-        }
-
-        this.fillFilmPaths(paths);
-        this.worldsList.fill(this.worldSummaries, this.worldsList.selectedWorldFolder);
-        this.updateBrowseMode();
-    }
-
-    private void fillFilmPaths(List<String> paths)
+    private void fillNames(List<String> paths)
     {
         DataPath selected = this.filmsList.getCurrentFirst();
         String current = selected != null && !selected.folder ? selected.toString() : null;
-        DataPath currentPath = this.filmsList.getPath().copy();
 
         this.filmsList.fill(paths);
-
-        if (!currentPath.strings.isEmpty())
-        {
-            this.filmsList.goTo(currentPath);
-        }
-
         this.filmsMosaic.fill(paths, current);
     }
 
-    private void updateBrowseMode()
-    {
-        boolean atRoot = this.isAtWorldRoot();
-
-        this.worldsList.setVisible(atRoot);
-        this.filmsMosaic.setVisible(!atRoot);
-
-        if (atRoot)
-        {
-            this.worldsList.filter(this.filmsSearch.search.textbox.getText());
-            this.pendingJoin = null;
-        }
-        else
-        {
-            this.filmsMosaic.filter(this.filmsSearch.search.textbox.getText());
-            this.pendingWorld = null;
-        }
-
-        this.updateJoinButton();
-    }
-
-    private String getFilmCardLabel(DataPath path)
+    private String getCardLabel(DataPath path)
     {
         if (path.getLast().equals(".."))
         {
             return "../";
         }
 
+        if (path.folder && path.size() == 1)
+        {
+            String label = this.crossWorldWorldLabels.get(path.getLast());
+
+            if (label != null)
+            {
+                return label + "/";
+            }
+        }
+
         return path.getLast();
     }
 
-    private Texture getWorldIcon(LevelSummary summary)
-    {
-        if (summary == null)
-        {
-            return null;
-        }
-
-        String cacheKey = summary.getName();
-        Texture cached = this.worldIcons.get(cacheKey);
-
-        if (cached != null)
-        {
-            return cached;
-        }
-
-        if (this.missingWorldIconIds.contains(cacheKey))
-        {
-            return null;
-        }
-
-        Path iconPath = summary.getIconPath();
-
-        if (iconPath == null || !Files.isRegularFile(iconPath))
-        {
-            this.missingWorldIconIds.add(cacheKey);
-
-            return null;
-        }
-
-        try (FileInputStream stream = new FileInputStream(iconPath.toFile()))
-        {
-            Pixels pixels = Pixels.fromPNGStream(stream);
-
-            if (pixels != null)
-            {
-                Texture texture = Texture.textureFromPixels(pixels, GL11.GL_LINEAR);
-
-                this.worldIcons.put(cacheKey, texture);
-                this.missingWorldIconIds.remove(cacheKey);
-
-                return texture;
-            }
-        }
-        catch (Exception e)
-        {
-            e.printStackTrace();
-        }
-
-        this.missingWorldIconIds.add(cacheKey);
-
-        return null;
-    }
-
-    private File getFilmThumbnailFile(String listPath)
+    private File getThumbnailFile(String listPath)
     {
         CrossWorldFilmEntry entry = this.crossWorldFilmEntries.get(listPath);
         String filmId = entry != null ? entry.filmId : listPath;
@@ -388,7 +248,7 @@ public class UIWorldFilmsBrowserPanel extends UIDashboardPanel
         return new File(BBS.getGameFolder(), "config/bbs/thumbnails/films/" + filmId + ".png");
     }
 
-    private Texture getFilmThumbnail(String listPath)
+    private Texture getThumbnail(String listPath)
     {
         if (listPath == null || listPath.isEmpty() || listPath.endsWith("/"))
         {
@@ -397,23 +257,23 @@ public class UIWorldFilmsBrowserPanel extends UIDashboardPanel
 
         CrossWorldFilmEntry entry = this.crossWorldFilmEntries.get(listPath);
         String cacheKey = entry != null ? entry.encodeKey() : listPath;
-        Texture cached = this.filmThumbnails.get(cacheKey);
+        Texture cached = this.thumbnails.get(cacheKey);
 
         if (cached != null)
         {
             return cached;
         }
 
-        if (this.missingFilmThumbnailIds.contains(cacheKey))
+        if (this.missingThumbnailIds.contains(cacheKey))
         {
             return null;
         }
 
-        File file = this.getFilmThumbnailFile(listPath);
+        File file = this.getThumbnailFile(listPath);
 
         if (file == null || !file.exists())
         {
-            this.missingFilmThumbnailIds.add(cacheKey);
+            this.missingThumbnailIds.add(cacheKey);
 
             return null;
         }
@@ -426,8 +286,8 @@ public class UIWorldFilmsBrowserPanel extends UIDashboardPanel
             {
                 Texture texture = Texture.textureFromPixels(pixels, GL11.GL_LINEAR);
 
-                this.filmThumbnails.put(cacheKey, texture);
-                this.missingFilmThumbnailIds.remove(cacheKey);
+                this.thumbnails.put(cacheKey, texture);
+                this.missingThumbnailIds.remove(cacheKey);
 
                 return texture;
             }
@@ -437,24 +297,17 @@ public class UIWorldFilmsBrowserPanel extends UIDashboardPanel
             e.printStackTrace();
         }
 
-        this.missingFilmThumbnailIds.add(cacheKey);
+        this.missingThumbnailIds.add(cacheKey);
 
         return null;
     }
 
-    private void handleWorldSelection(LevelSummary summary)
-    {
-        this.pendingWorld = summary;
-        this.pendingJoin = null;
-        this.updateJoinButton();
-    }
-
-    private void handleFilmSelection(String selected)
+    private void handleSelection(String selected)
     {
         if (selected == null)
         {
             this.pendingJoin = null;
-            this.updateJoinButton();
+            this.joinWorld.setVisible(false);
 
             return;
         }
@@ -472,9 +325,9 @@ public class UIWorldFilmsBrowserPanel extends UIDashboardPanel
                 this.filmsList.goTo(path);
             }
 
-            this.filmsMosaic.filter(this.filmsSearch.search.textbox.getText());
+            this.filmsMosaic.filter("");
             this.pendingJoin = null;
-            this.updateBrowseMode();
+            this.updateJoinButton();
 
             return;
         }
@@ -484,7 +337,6 @@ public class UIWorldFilmsBrowserPanel extends UIDashboardPanel
         if (entry != null && !entry.filmId.endsWith("/"))
         {
             this.pendingJoin = entry;
-            this.pendingWorld = null;
         }
         else
         {
@@ -502,14 +354,14 @@ public class UIWorldFilmsBrowserPanel extends UIDashboardPanel
 
     private boolean canShowJoinWorld()
     {
-        MinecraftClient client = MinecraftClient.getInstance();
-
-        if (this.pendingWorld != null)
+        if (this.pendingJoin == null || this.pendingJoin.filmId.endsWith("/"))
         {
-            return !WorldLaunchHelper.isCurrentWorld(client, this.pendingWorld.getName());
+            return false;
         }
 
-        if (this.pendingJoin == null || this.pendingJoin.filmId.endsWith("/"))
+        MinecraftClient client = MinecraftClient.getInstance();
+
+        if (client.world != null && client.player != null)
         {
             return false;
         }
@@ -517,46 +369,14 @@ public class UIWorldFilmsBrowserPanel extends UIDashboardPanel
         return !WorldLaunchHelper.isCurrentWorld(client, this.pendingJoin.worldFolder);
     }
 
-    private void joinSelected()
+    private void joinSelectedWorld()
     {
-        if (this.pendingWorld != null)
-        {
-            this.joinWorldSummary(this.pendingWorld);
-
-            return;
-        }
-
         if (this.pendingJoin != null)
         {
             FilmLaunchHelper.launch(this.pendingJoin);
             this.pendingJoin = null;
             this.updateJoinButton();
         }
-    }
-
-    private void enterWorldFilms(LevelSummary summary)
-    {
-        if (summary == null)
-        {
-            return;
-        }
-
-        this.pendingWorld = summary;
-        this.filmsList.goTo(new DataPath(summary.getName() + "/"));
-        this.filmsSearch.search.setText("");
-        this.updateBrowseMode();
-    }
-
-    private void joinWorldSummary(LevelSummary summary)
-    {
-        if (summary == null || !summary.isSelectable())
-        {
-            return;
-        }
-
-        WorldLaunchHelper.loadWorld(summary.getName());
-        this.pendingWorld = null;
-        this.updateJoinButton();
     }
 
     private void openFilm(String selected)
@@ -569,32 +389,6 @@ public class UIWorldFilmsBrowserPanel extends UIDashboardPanel
         }
 
         FilmLaunchHelper.openCrossWorldFilm(entry);
-    }
-
-    private void clearWorldIcons()
-    {
-        for (Texture texture : this.worldIcons.values())
-        {
-            if (texture != null)
-            {
-                texture.delete();
-            }
-        }
-
-        this.worldIcons.clear();
-    }
-
-    private void clearFilmThumbnails()
-    {
-        for (Texture texture : this.filmThumbnails.values())
-        {
-            if (texture != null)
-            {
-                texture.delete();
-            }
-        }
-
-        this.filmThumbnails.clear();
     }
 
     private void renderBanner(UIContext context)

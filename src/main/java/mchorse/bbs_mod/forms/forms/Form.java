@@ -57,7 +57,7 @@ public abstract class Form extends ValueGroup
      * semi-transparent form with lower render depth occludes forms behind it that have a
      * higher render depth (they fail the depth test instead of blending through). */
     public final ValueFloat renderDepth = new ValueFloat("render_depth", 0F);
-    public final ValueBoolean renderDepthEnabled = new ValueBoolean("render_depth_enabled", false);
+    public final ValueBoolean renderDepthEnabled = new ValueBoolean("render_depth_enabled", true);
     public final ValueString name = new ValueString("name", "");
     public final ValueTransform transform = new ValueTransform("transform", new Transform());
     public final ValueTransform transformOverlay = new ValueTransform("transform_overlay", new Transform());

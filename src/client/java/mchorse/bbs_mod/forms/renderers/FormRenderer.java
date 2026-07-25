@@ -202,14 +202,7 @@ public abstract class FormRenderer <T extends Form>
 
         if (origin)
         {
-            /* Gizmo preview must sit at the rotation/scale center (translate + pivot),
-             * not only at translate — otherwise editing pivot XYZ leaves the gizmo behind. */
             stack.translate(transform.translate.x, transform.translate.y, transform.translate.z);
-
-            if (transform.pivot.x != 0F || transform.pivot.y != 0F || transform.pivot.z != 0F)
-            {
-                stack.translate(transform.pivot.x, transform.pivot.y, transform.pivot.z);
-            }
         }
         else
         {

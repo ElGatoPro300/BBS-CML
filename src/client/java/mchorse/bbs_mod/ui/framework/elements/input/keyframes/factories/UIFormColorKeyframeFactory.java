@@ -36,11 +36,6 @@ import java.util.function.Consumer;
  */
 public class UIFormColorKeyframeFactory extends UIKeyframeFactory<Color>
 {
-    private static final UIFormColorAdjustments.CollapseState REMEMBERED_GRADE = new UIFormColorAdjustments.CollapseState();
-    private static boolean rememberedBlendTransformOpen;
-    private static boolean rememberedPaintTransformOpen;
-    private static boolean hasRememberedCollapseState;
-
     private final boolean simpleBlendColorOnly;
     private final boolean hideColorGrade;
 
@@ -177,61 +172,6 @@ public class UIFormColorKeyframeFactory extends UIKeyframeFactory<Color>
         });
 
         this.update();
-    }
-
-    @Override
-    public void saveUiState()
-    {
-        this.saveCollapseState();
-    }
-
-    @Override
-    public void restoreUiState()
-    {
-        this.restoreCollapseState();
-    }
-
-    private void saveCollapseState()
-    {
-        hasRememberedCollapseState = true;
-
-        if (this.blendTransform != null)
-        {
-            rememberedBlendTransformOpen = this.blendTransform.isExpanded();
-        }
-
-        if (this.paintTransform != null)
-        {
-            rememberedPaintTransformOpen = this.paintTransform.isExpanded();
-        }
-
-        if (this.blendAdjustments != null)
-        {
-            this.blendAdjustments.saveCollapseState(REMEMBERED_GRADE);
-        }
-    }
-
-    private void restoreCollapseState()
-    {
-        if (!hasRememberedCollapseState)
-        {
-            return;
-        }
-
-        if (this.blendTransform != null)
-        {
-            this.blendTransform.setExpanded(rememberedBlendTransformOpen);
-        }
-
-        if (this.paintTransform != null)
-        {
-            this.paintTransform.setExpanded(rememberedPaintTransformOpen);
-        }
-
-        if (this.blendAdjustments != null)
-        {
-            this.blendAdjustments.restoreCollapseState(REMEMBERED_GRADE);
-        }
     }
 
     private Form getEditingForm()

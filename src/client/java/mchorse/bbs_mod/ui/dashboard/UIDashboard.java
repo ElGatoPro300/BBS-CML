@@ -226,7 +226,7 @@ public class UIDashboard extends UIBaseMenu
     @Override
     public boolean canPause()
     {
-        if (UIWorldDropdownMenu.isOpen() || UIWorldPropertiesOverlayPanel.isOpen())
+        if (UIWorldPropertiesOverlayPanel.isOpen())
         {
             return false;
         }
@@ -269,8 +269,6 @@ public class UIDashboard extends UIBaseMenu
 
         if (nextMenu != this)
         {
-            /* Any leave path (Escape, replaced screen, etc.) must restore gamemode. */
-            EditorSpectatorHelper.restore();
             this.panels.close();
         }
 
@@ -283,7 +281,6 @@ public class UIDashboard extends UIBaseMenu
     @Override
     protected void closeMenu()
     {
-        EditorSpectatorHelper.restore();
         super.closeMenu();
 
         if (!this.main.isVisible())

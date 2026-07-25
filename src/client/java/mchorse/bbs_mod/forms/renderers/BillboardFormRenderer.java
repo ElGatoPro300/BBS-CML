@@ -559,7 +559,7 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
             {
                 BufferBuilder builder = Tessellator.getInstance().begin(VertexFormat.DrawMode.TRIANGLES, format);
 
-        /* Front */
+                /* Front */
                 this.fill(format, builder, matrix, quad.p3.x, quad.p3.y, FACE_Z_BIAS, color, uvQuad.p3.x, uvQuad.p3.y, overlay, light, entry, 1F);
                 this.fill(format, builder, matrix, quad.p2.x, quad.p2.y, FACE_Z_BIAS, color, uvQuad.p2.x, uvQuad.p2.y, overlay, light, entry, 1F);
                 this.fill(format, builder, matrix, quad.p1.x, quad.p1.y, FACE_Z_BIAS, color, uvQuad.p1.x, uvQuad.p1.y, overlay, light, entry, 1F);
@@ -568,7 +568,7 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
                 this.fill(format, builder, matrix, quad.p4.x, quad.p4.y, FACE_Z_BIAS, color, uvQuad.p4.x, uvQuad.p4.y, overlay, light, entry, 1F);
                 this.fill(format, builder, matrix, quad.p2.x, quad.p2.y, FACE_Z_BIAS, color, uvQuad.p2.x, uvQuad.p2.y, overlay, light, entry, 1F);
 
-        /* Back */
+                /* Back */
                 this.fill(format, builder, matrix, quad.p1.x, quad.p1.y, -FACE_Z_BIAS, color, uvQuad.p1.x, uvQuad.p1.y, overlay, light, entry, -1F);
                 this.fill(format, builder, matrix, quad.p2.x, quad.p2.y, -FACE_Z_BIAS, color, uvQuad.p2.x, uvQuad.p2.y, overlay, light, entry, -1F);
                 this.fill(format, builder, matrix, quad.p3.x, quad.p3.y, -FACE_Z_BIAS, color, uvQuad.p3.x, uvQuad.p3.y, overlay, light, entry, -1F);
@@ -577,8 +577,8 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
                 this.fill(format, builder, matrix, quad.p4.x, quad.p4.y, -FACE_Z_BIAS, color, uvQuad.p4.x, uvQuad.p4.y, overlay, light, entry, -1F);
                 this.fill(format, builder, matrix, quad.p3.x, quad.p3.y, -FACE_Z_BIAS, color, uvQuad.p3.x, uvQuad.p3.y, overlay, light, entry, -1F);
 
-        RenderSystem.enableBlend();
-        RenderSystem.defaultBlendFunc();
+                RenderSystem.enableBlend();
+                RenderSystem.defaultBlendFunc();
 
                 if (useFormColorGrade)
                 {
@@ -589,7 +589,7 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
                     ModelVAORenderer.setupUniforms(gradeStack, gradeShader);
                 }
 
-        BufferRenderer.drawWithGlobalProgram(builder.end());
+                BufferRenderer.drawWithGlobalProgram(builder.end());
             }
             finally
             {

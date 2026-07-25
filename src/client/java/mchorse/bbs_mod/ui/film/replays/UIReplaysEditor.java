@@ -207,7 +207,7 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
         COLORS.put("paint", Colors.INACTIVE);
         COLORS.put("glow", Colors.YELLOW);
         COLORS.put("lighting", Colors.YELLOW);
-        COLORS.put("render_depth", 0x1a6a7a);
+        COLORS.put("render_depth", Colors.CYAN);
         COLORS.put("look_at", 0x007f70);
         COLORS.put("inverse_kinematics", 0x6b4c9a);
         COLORS.put("illusion", Colors.DEEP_PINK);
@@ -2580,6 +2580,12 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
             }).target(this.filmPanel.editArea);
             this.keyframeEditor.setUndoId("replay_keyframe_editor");
 
+            /* Reset */
+            if (lastEditor != null)
+            {
+                this.keyframeEditor.view.copyViewport(lastEditor);
+            }
+
             this.keyframeEditor.view.backgroundRenderer((context) ->
             {
                 UIKeyframes view = this.keyframeEditor.view;
@@ -2655,17 +2661,6 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
                 this.keyframeEditor.view.addSheet(sheet);
             }
 
-            /* Restore viewport after sheets exist so Y scroll is not clamped away. */
-            if (lastEditor != null)
-            {
-                this.keyframeEditor.view.copyViewport(lastEditor);
-            }
-
-            if (this.keyframeEditor.view.getGraph() instanceof UIKeyframeDopeSheet dopeSheet)
-            {
-                dopeSheet.onSheetsRebuilt();
-            }
-
             this.add(this.keyframeEditor);
             this.applyToolbarDockLayout();
 
@@ -2676,11 +2671,6 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
         }
 
         this.resize();
-
-        if (this.keyframeEditor != null && this.keyframeEditor.view.getGraph() instanceof UIKeyframeDopeSheet dopeSheet)
-        {
-            dopeSheet.reanchorFoldAfterLayout();
-        }
 
         if (this.keyframeEditor != null && lastEditor == null)
         {
