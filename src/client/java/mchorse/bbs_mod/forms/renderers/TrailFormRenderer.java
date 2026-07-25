@@ -242,7 +242,7 @@ public class TrailFormRenderer extends FormRenderer<TrailForm> implements ITicka
 
         if (glowIntensity > 0F)
         {
-            this.renderGlowOverlay(tessellator, identityMatrix, trails, loop, length, current, baseX, baseY, baseZ, glowSettings, legacyGlow, blended.a, glowIntensity);
+            this.renderGlowOverlay(tessellator, identityMatrix, trails, loop, length, current, baseX, baseY, baseZ, glowSettings, legacyGlow, blended.a, glowIntensity, this.resolveGlowEffectTransform(glowSettings, legacyGlow));
         }
 
         RenderSystem.enableDepthTest();
@@ -300,16 +300,49 @@ public class TrailFormRenderer extends FormRenderer<TrailForm> implements ITicka
         });
     }
 
-    private void renderGlowOverlay(Tessellator tessellator, Matrix4f matrix, ArrayDeque<Trail> trails, boolean loop, float length, float current, double baseX, double baseY, double baseZ, GlowSettings glowSettings, Color legacyGlow, float alpha, float glowIntensity)
+    private void renderGlowOverlay(Tessellator tessellator, Matrix4f matrix, ArrayDeque<Trail> trails, boolean loop, float length, float current, double baseX, double baseY, double baseZ, GlowSettings glowSettings, Color legacyGlow, float alpha, float glowIntensity, EffectTransform glowTransform)
     {
         FlatGlowOverlayPass.render(glowSettings, legacyGlow, alpha, glowIntensity, (glowColor) ->
         {
+            /* Outside the mask: fully transparent; inside: full glow. Same soft volume as Color/Paint. */
+            Color glowOutside = glowColor.copy();
+
+            glowOutside.a = 0F;
+
             BufferBuilder glowBuilder = tessellator.begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_TEXTURE_COLOR);
 
             RenderSystem.setShader(GameRenderer::getPositionTexColorProgram);
-            this.buildTrailQuads(glowBuilder, matrix, trails, loop, length, current, baseX, baseY, baseZ, glowColor, glowColor, null);
+            this.buildTrailQuads(glowBuilder, matrix, trails, loop, length, current, baseX, baseY, baseZ, glowOutside, glowColor, glowTransform);
             BufferRenderer.drawWithGlobalProgram(glowBuilder.end());
         });
+    }
+
+    /**
+     * Prefer {@link GlowSettings#transform}; fall back to legacy {@code glowingColor.transform}.
+     */
+    private EffectTransform resolveGlowEffectTransform(GlowSettings glow, Color legacyGlow)
+    {
+        if (glow != null && glow.transform != null && glow.transform.isActive())
+        {
+            return glow.transform;
+        }
+
+        if (legacyGlow != null && legacyGlow.hasActiveTransform())
+        {
+            return legacyGlow.transform;
+        }
+
+        if (glow != null && glow.transform != null)
+        {
+            return glow.transform;
+        }
+
+        if (legacyGlow != null && legacyGlow.transform != null)
+        {
+            return legacyGlow.transform;
+        }
+
+        return new EffectTransform();
     }
 
     private void buildTrailQuads(BufferBuilder builder, Matrix4f matrix, ArrayDeque<Trail> trails, boolean loop, float length, float current, double baseX, double baseY, double baseZ, Color unblended, Color blended, EffectTransform colorTransform)
