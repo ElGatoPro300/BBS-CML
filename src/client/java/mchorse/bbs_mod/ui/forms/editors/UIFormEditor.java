@@ -237,29 +237,11 @@ public class UIFormEditor extends UIElement implements IUIFormList, ICursor
         this.forms = new UIElement();
         this.forms.relative(this).x(20).w(treeWidth).minW(140).h(1F);
 
-        this.formsList = new UIForms((l) -> this.pickForm(l.get(0)))
-        {
-            @Override
-            public void render(UIContext context)
-            {
-                context.batcher.box(this.area.x, this.area.y, this.area.ex(), this.area.ey(), 0xFF141418);
-                super.render(context);
-                context.batcher.outline(this.area.x, this.area.y, this.area.ex(), this.area.ey(), 0xFF3C3C3C);
-            }
-        };
+        this.formsList = new UIForms((l) -> this.pickForm(l.get(0)));
         this.formsList.setReorderCallback(this::refillState);
         this.formsList.relative(this.forms).w(1F).h(0.5F);
         this.formsList.context(this::createFormContextMenu);
-        this.bodyPartEditor = new UIBodyPartEditor(this)
-        {
-            @Override
-            public void render(UIContext context)
-            {
-                context.batcher.box(this.area.x, this.area.y, this.area.ex(), this.area.ey(), 0xFF141418);
-                super.render(context);
-                context.batcher.outline(this.area.x, this.area.y, this.area.ex(), this.area.ey(), 0xFF3C3C3C);
-            }
-        };
+        this.bodyPartEditor = new UIBodyPartEditor(this);
         this.bodyPartEditor.relative(this.forms).w(1F).y(0.5F).h(0.5F);
 
         this.formEditor = new UIElement();
@@ -326,13 +308,7 @@ public class UIFormEditor extends UIElement implements IUIFormList, ICursor
         {
             if (this.forms.isVisible())
             {
-                int x = this.forms.area.x;
-                int y = this.forms.area.y;
-                int ex = this.forms.area.ex();
-                int ey = this.forms.area.ey();
-
-                context.batcher.box(x, y, ex, ey, 0xFF111115);
-                context.batcher.outline(x - 1, y - 1, ex + 1, ey + 1, 0xFF5A5A5A);
+                this.forms.area.render(context.batcher, Colors.A50);
             }
         });
 

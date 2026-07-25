@@ -41,6 +41,7 @@ import mchorse.bbs_mod.ui.utils.icons.Icon;
 import mchorse.bbs_mod.ui.utils.icons.Icons;
 import mchorse.bbs_mod.ui.utils.pose.UIPoseEditor;
 import mchorse.bbs_mod.utils.Direction;
+import mchorse.bbs_mod.utils.colors.Colors;
 
 import java.io.File;
 import java.util.ArrayList;
@@ -152,10 +153,8 @@ public class UIFormModelEditor extends UIElement implements IUIModelPanelHost
                 return;
             }
 
-            context.batcher.box(this.sectionsView.area.x, this.sectionsView.area.y, this.sectionsView.area.ex(), this.sectionsView.area.ey(), 0xFF111115);
-            context.batcher.outline(this.sectionsView.area.x - 1, this.sectionsView.area.y - 1, this.sectionsView.area.ex() + 1, this.sectionsView.area.ey() + 1, 0xFF5A5A5A);
-            context.batcher.box(this.rightView.area.x, this.rightView.area.y, this.rightView.area.ex(), this.rightView.area.ey(), 0xFF111115);
-            context.batcher.outline(this.rightView.area.x - 1, this.rightView.area.y - 1, this.rightView.area.ex() + 1, this.rightView.area.ey() + 1, 0xFF5A5A5A);
+            context.batcher.box(this.sectionsView.area.x, this.sectionsView.area.y, this.sectionsView.area.ex(), this.sectionsView.area.ey(), Colors.A50);
+            context.batcher.box(this.rightView.area.x, this.rightView.area.y, this.rightView.area.ex(), this.rightView.area.ey(), Colors.A50);
         });
 
         UIRenderable viewportBackground = new UIRenderable((context) ->
