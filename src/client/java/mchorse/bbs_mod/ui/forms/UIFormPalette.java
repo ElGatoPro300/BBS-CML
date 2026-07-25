@@ -7,6 +7,7 @@ import mchorse.bbs_mod.ui.forms.editors.UIFormEditor;
 import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.ui.framework.elements.UIElement;
 import mchorse.bbs_mod.ui.framework.elements.utils.EventPropagation;
+import mchorse.bbs_mod.ui.model_blocks.UIModelBlockPanel;
 import mchorse.bbs_mod.utils.colors.Colors;
 
 import org.lwjgl.glfw.GLFW;
@@ -246,7 +247,7 @@ public class UIFormPalette extends UIElement implements IUIFormList
         boolean showScrim = this.background && (
             !this.immersive
                 || this.list.isVisible()
-                || this.editor.isEditing()
+                || (this.editor.isEditing() && !UIModelBlockPanel.toggleRendering)
         );
 
         if (showScrim)

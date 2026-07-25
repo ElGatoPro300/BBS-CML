@@ -12,6 +12,7 @@ import mchorse.bbs_mod.ui.dashboard.UIDashboard;
 import mchorse.bbs_mod.ui.dashboard.panels.UIDashboardPanel;
 import mchorse.bbs_mod.ui.forms.UIFormPalette;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIIcon;
+import mchorse.bbs_mod.ui.model_blocks.UIModelBlockPanel;
 import mchorse.bbs_mod.ui.morphing.camera.ImmersiveMorphingCameraController;
 import mchorse.bbs_mod.ui.utils.icons.Icons;
 import mchorse.bbs_mod.utils.Direction;
@@ -96,14 +97,14 @@ public class UIMorphingPanel extends UIDashboardPanel
     public boolean needsBackground()
     {
         /* Nested form editor uses its own orbit view; otherwise keep the world
-         * behind a dark palette scrim (see UIFormPalette). */
-        return this.palette.editor.isEditing();
+         * behind a dark palette scrim (see UIFormPalette). Hide when F7 real world mode is active. */
+        return this.palette.editor.isEditing() && !UIModelBlockPanel.toggleRendering;
     }
 
     @Override
     public boolean needsWorldRender()
     {
-        return !this.palette.editor.isEditing();
+        return !this.palette.editor.isEditing() || UIModelBlockPanel.toggleRendering;
     }
 
     @Override
