@@ -142,11 +142,19 @@ public class UIFormColorKeyframeFactory extends UIKeyframeFactory<Color>
             }
 
             this.scroll.add(UIFormColorLayout.colorWithTransform(this.blendColor, this.blendTransform));
-            this.scroll.add(UIFormColorLayout.paintColorRowWithTransform(this.paintColor, this.paintIntensity, this.paintTransform).marginTop(4));
 
-            if (!this.hideColorGrade)
+            if (this.hideColorGrade)
             {
-                this.scroll.add(this.blendAdjustments.marginTop(4));
+                this.scroll.add(UIFormColorLayout.createExtraSection(
+                    UIFormColorLayout.paintColorRowWithTransform(this.paintColor, this.paintIntensity, this.paintTransform)
+                ).marginTop(4));
+            }
+            else
+            {
+                this.scroll.add(UIFormColorLayout.createExtraSection(
+                    UIFormColorLayout.paintColorRowWithTransform(this.paintColor, this.paintIntensity, this.paintTransform),
+                    this.blendAdjustments.marginTop(4)
+                ).marginTop(4));
             }
 
             this.scroll.add(this.spectrum.marginTop(8));

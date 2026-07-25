@@ -1256,7 +1256,11 @@ public class UIPoseEditor extends UIElement
 
         /* Color+icon cluster shares the row with Lighting; grid opens full-width below. */
         footer.add(UIFormColorLayout.colorWithTransformAndExtras(this.color, this.colorTransform, this.lighting));
-        footer.add(this.glowSection, this.paintSection, this.colorAdjustments.marginTop(4));
+        footer.add(UIFormColorLayout.createExtraSection(
+            this.glowSection,
+            this.paintSection,
+            this.colorAdjustments.marginTop(4)
+        ).marginTop(4));
 
         return footer;
     }

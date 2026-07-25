@@ -140,9 +140,11 @@ public class UIItemFormPanel extends UIFormPanel<ItemForm>
         this.options.add(
             UIFormColorLayout.sectionLabel(UIKeys.FORMS_EDITOR_FORM),
             this.color,
-            this.glowSection,
-            UIFormColorLayout.paintColorRowWithTransform(this.paintColor, this.paintIntensity, this.paintTransform),
-            this.colorAdjustments.marginTop(4),
+            UIFormColorLayout.createExtraSection(
+                this.glowSection,
+                UIFormColorLayout.paintColorRowWithTransform(this.paintColor, this.paintIntensity, this.paintTransform),
+                this.colorAdjustments.marginTop(4)
+            ).marginTop(4),
             UI.label(UIKeys.FORMS_EDITORS_ITEM_TRANSFORMS),
             this.modelTransform,
             this.sameAnimationWhenDropped,
@@ -163,6 +165,7 @@ public class UIItemFormPanel extends UIFormPanel<ItemForm>
         super.startEdit(form);
 
         this.color.setColor(form.color.get().getARGBColor());
+        this.colorAdjustments.prepareSession();
         this.colorAdjustments.syncFromForm();
         PaintSettings paint = form.paintSettings.get();
         Color paintDisplay = new Color();

@@ -136,9 +136,11 @@ public class UIBlockFormPanel extends UIFormPanel<BlockForm>
         this.options.add(
             UIFormColorLayout.sectionLabel(UIKeys.FORMS_EDITOR_FORM),
             this.color,
-            this.glowSection,
-            UIFormColorLayout.paintColorRowWithTransform(this.paintColor, this.paintIntensity, this.paintTransform),
-            this.colorAdjustments.marginTop(4),
+            UIFormColorLayout.createExtraSection(
+                this.glowSection,
+                UIFormColorLayout.paintColorRowWithTransform(this.paintColor, this.paintIntensity, this.paintTransform),
+                this.colorAdjustments.marginTop(4)
+            ).marginTop(4),
             this.stateEditor
         );
         this.options.add(UI.label(UIKeys.FORMS_EDITORS_BLOCK_REPEAT).marginTop(6), UI.row(this.repeatX, this.repeatY, this.repeatZ));
@@ -154,6 +156,7 @@ public class UIBlockFormPanel extends UIFormPanel<BlockForm>
         BlockState blockState = this.form.blockState.get();
 
         this.color.setColor(form.color.get().getARGBColor());
+        this.colorAdjustments.prepareSession();
         this.colorAdjustments.syncFromForm();
         PaintSettings paint = form.paintSettings.get();
         Color paintDisplay = new Color();

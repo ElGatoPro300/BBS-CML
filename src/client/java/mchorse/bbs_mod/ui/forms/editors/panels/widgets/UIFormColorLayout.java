@@ -5,6 +5,7 @@ import mchorse.bbs_mod.ui.UIKeys;
 import mchorse.bbs_mod.ui.framework.elements.UIElement;
 import mchorse.bbs_mod.ui.framework.elements.input.UIColor;
 import mchorse.bbs_mod.ui.framework.elements.input.UIEffectTransformCollapse;
+import mchorse.bbs_mod.ui.framework.elements.input.UIFormDisclosureCollapse;
 import mchorse.bbs_mod.ui.framework.elements.input.UITrackpad;
 import mchorse.bbs_mod.ui.utils.UI;
 
@@ -108,5 +109,33 @@ public final class UIFormColorLayout
             UIKeys.FORMS_EDITORS_GLOW_INTENSITY,
             glowIntensity
         ).marginTop(4);
+    }
+
+    /**
+     * Collapsible Extra block: paint / glow / color grade (and similar) rows.
+     * The first Extra open in a session snaps Color grade open (no nested
+     * animation) so Extra's height animation includes that content; later
+     * Extra toggles keep the user's Color grade collapsed/expanded choice.
+     */
+    public static UIFormDisclosureCollapse createExtraSection(UIElement... children)
+    {
+        UIFormDisclosureCollapse section = new UIFormDisclosureCollapse(
+            UIKeys.FORMS_EDITORS_COLOR_EXTRA,
+            UI.column(children),
+            UIFormDisclosureCollapse.EXTRA_COLOR
+        );
+
+        section.onExpand(() ->
+        {
+            for (UIElement child : children)
+            {
+                if (child instanceof UIFormColorAdjustments grade)
+                {
+                    grade.tryAutoExpandOnce();
+                }
+            }
+        });
+
+        return section;
     }
 }

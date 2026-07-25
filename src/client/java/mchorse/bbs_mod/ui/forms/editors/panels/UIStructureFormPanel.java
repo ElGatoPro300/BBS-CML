@@ -165,9 +165,11 @@ public class UIStructureFormPanel extends UIFormPanel<StructureForm>
         this.options.add(
             UIFormColorLayout.sectionLabel(UIKeys.FORMS_EDITOR_FORM),
             this.color,
-            this.glowSection,
-            UIFormColorLayout.paintColorRowWithTransform(this.paintColor, this.paintIntensity, this.paintTransform),
-            this.colorAdjustments.marginTop(4)
+            UIFormColorLayout.createExtraSection(
+                this.glowSection,
+                UIFormColorLayout.paintColorRowWithTransform(this.paintColor, this.paintIntensity, this.paintTransform),
+                this.colorAdjustments.marginTop(4)
+            ).marginTop(4)
         );
         this.options.add(this.pickStructure);
         this.options.add(this.pickBiome);
@@ -275,6 +277,7 @@ public class UIStructureFormPanel extends UIFormPanel<StructureForm>
 
         this.structureFile.setText(form.structureFile.get());
         this.color.setColor(form.color.get().getARGBColor());
+        this.colorAdjustments.prepareSession();
         this.colorAdjustments.syncFromForm();
         PaintSettings paint = form.paintSettings.get();
         Color paintDisplay = new Color();

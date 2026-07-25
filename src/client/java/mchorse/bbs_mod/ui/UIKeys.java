@@ -669,6 +669,7 @@ public class UIKeys
     public static final IKey FORMS_EDITORS_PAINT_COLOR = L10n.lang("bbs.ui.forms.editors.paint_color");
     public static final IKey FORMS_EDITORS_COLOR_GRADE = L10n.lang("bbs.ui.forms.editors.color_grade");
     public static final IKey FORMS_EDITORS_COLOR_GRADE_HIDE = L10n.lang("bbs.ui.forms.editors.color_grade_hide");
+    public static final IKey FORMS_EDITORS_COLOR_EXTRA = L10n.lang("bbs.ui.forms.editors.color_extra");
     public static final IKey FORMS_EDITORS_COLOR_BRIGHTNESS = L10n.lang("bbs.ui.forms.editors.color_brightness");
     public static final IKey FORMS_EDITORS_COLOR_CONTRAST = L10n.lang("bbs.ui.forms.editors.color_contrast");
     public static final IKey FORMS_EDITORS_COLOR_HUE = L10n.lang("bbs.ui.forms.editors.color_hue");

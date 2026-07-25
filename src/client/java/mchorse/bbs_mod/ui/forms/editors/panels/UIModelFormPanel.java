@@ -247,9 +247,11 @@ public class UIModelFormPanel extends UIFormPanel<ModelForm>
         this.options.add(
             UIFormColorLayout.sectionLabel(UIKeys.FORMS_EDITOR_FORM),
             UIFormColorLayout.colorWithTransform(this.color, this.colorTransform),
-            this.glowSection,
-            UIFormColorLayout.paintColorRowWithTransform(this.paintColor, this.paintIntensity, this.paintTransform),
-            this.colorAdjustments.marginTop(4),
+            UIFormColorLayout.createExtraSection(
+                this.glowSection,
+                UIFormColorLayout.paintColorRowWithTransform(this.paintColor, this.paintIntensity, this.paintTransform),
+                this.colorAdjustments.marginTop(4)
+            ).marginTop(4),
             this.poseEditor
         );
     }
@@ -326,9 +328,11 @@ public class UIModelFormPanel extends UIFormPanel<ModelForm>
         this.poseEditor.setValuePose(form.pose);
         this.poseEditor.setPose(form.pose.get(), poseGroup);
         this.poseEditor.fillGroups(model == null ? null : model.model, model == null ? null : model.flippedParts, true);
+        this.poseEditor.colorAdjustments.prepareSession();
         this.pbrNormalIntensity.setValue(form.pbrNormalIntensity.get());
         this.pbrSpecularIntensity.setValue(form.pbrSpecularIntensity.get());
         this.color.setColor(form.color.get().getARGBColor());
+        this.colorAdjustments.prepareSession();
         this.colorAdjustments.syncFromForm();
         Color formColor = form.color.get();
 

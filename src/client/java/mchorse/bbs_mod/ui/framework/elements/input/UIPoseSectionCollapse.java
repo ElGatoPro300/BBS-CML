@@ -2,20 +2,14 @@ package mchorse.bbs_mod.ui.framework.elements.input;
 
 import mchorse.bbs_mod.l10n.keys.IKey;
 import mchorse.bbs_mod.ui.framework.elements.UIElement;
-import mchorse.bbs_mod.ui.framework.elements.buttons.UIButton;
-import mchorse.bbs_mod.utils.colors.Colors;
-
-import java.util.Arrays;
 
 /**
- * Colored disclosure header (timeline Color / Glow track colors) with animated body.
+ * Colored disclosure header (timeline Color / Glow track colors) with animated body,
+ * using the same track-group accent bar + fade / body-rail style as Extra / Color grade.
  */
 public class UIPoseSectionCollapse extends UIElement
 {
-    private static final IKey EXPANDED_ARROW = IKey.constant(" ▼");
-
-    private final IKey baseLabel;
-    private final UIButton toggle;
+    private final UITrackStyleSectionHeader header;
     private final UIAnimatedCollapseShell shell;
     private final Runnable onExpand;
     private boolean expanded;
@@ -31,20 +25,22 @@ public class UIPoseSectionCollapse extends UIElement
 
         this.h(20);
 
-        this.baseLabel = label;
         this.onExpand = onExpand;
-        this.toggle = new UIButton(label, (b) -> this.setExpanded(!this.expanded));
-        this.toggle.color(trackColor & Colors.RGB).h(20);
-        this.toggle.full(this);
+        this.header = new UITrackStyleSectionHeader(label, trackColor, () -> this.expanded, (b) -> this.setExpanded(!this.expanded));
+        this.header.full(this);
 
-        this.shell = new UIAnimatedCollapseShell(content);
+        UITrackStyleSectionBody body = new UITrackStyleSectionBody(this.header::getColor);
 
-        this.add(this.toggle);
+        body.addContent(content);
+
+        this.shell = new UIAnimatedCollapseShell(body).flushToHost(true);
+
+        this.add(this.header);
     }
 
-    public UIButton getToggle()
+    public UITrackStyleSectionHeader getHeader()
     {
-        return this.toggle;
+        return this.header;
     }
 
     public UIAnimatedCollapseShell getShell()
@@ -65,9 +61,6 @@ public class UIPoseSectionCollapse extends UIElement
         }
 
         this.expanded = expanded;
-        this.toggle.label = expanded
-            ? IKey.comp(Arrays.asList(this.baseLabel, EXPANDED_ARROW))
-            : this.baseLabel;
 
         if (expanded && this.onExpand != null)
         {

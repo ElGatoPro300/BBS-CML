@@ -158,8 +158,10 @@ public class UITrailFormPanel extends UIFormPanel<TrailForm>
             this.pick,
             UIFormColorLayout.sectionLabel(UIKeys.FORMS_EDITOR_FORM),
             UIFormColorLayout.colorWithTransform(this.color, this.colorTransform),
-            this.glowSection,
-            UIFormColorLayout.paintColorRowWithTransform(this.paintColor, this.paintIntensity, this.paintTransform),
+            UIFormColorLayout.createExtraSection(
+                this.glowSection,
+                UIFormColorLayout.paintColorRowWithTransform(this.paintColor, this.paintIntensity, this.paintTransform)
+            ).marginTop(4),
             UI.label(UIKeys.FORMS_EDITORS_TRAIL_LENGTH),
             this.length,
             this.loop,

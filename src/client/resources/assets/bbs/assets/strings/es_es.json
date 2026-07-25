@@ -1288,6 +1288,7 @@
     "bbs.ui.forms.editors.glowing_color": "Color del resplandor",
     "bbs.ui.forms.editors.color_grade": "Corrección de color",
     "bbs.ui.forms.editors.color_grade_hide": "Corrección de color ▼",
+    "bbs.ui.forms.editors.color_extra": "Extra",
     "bbs.ui.forms.editors.color_brightness": "Brillo",
     "bbs.ui.forms.editors.color_contrast": "Contraste",
     "bbs.ui.forms.editors.color_hue": "Tono",

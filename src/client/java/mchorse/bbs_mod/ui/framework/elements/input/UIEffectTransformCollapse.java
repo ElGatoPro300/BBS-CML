@@ -10,6 +10,8 @@ import mchorse.bbs_mod.ui.framework.elements.UIElement;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIIcon;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIIcons;
 import mchorse.bbs_mod.ui.framework.elements.input.keyframes.UIKeyframes;
+import mchorse.bbs_mod.ui.framework.elements.utils.Batcher2D;
+import mchorse.bbs_mod.ui.framework.elements.utils.UILabel;
 import mchorse.bbs_mod.ui.utils.UI;
 import mchorse.bbs_mod.ui.utils.icons.Icons;
 import mchorse.bbs_mod.utils.Direction;
@@ -33,6 +35,8 @@ public class UIEffectTransformCollapse extends UIElement
     private final UIIcons shapeIcons;
     private final UIEffectKeyframeTransform transform;
     private boolean expanded;
+    private boolean manageOwnShell = true;
+    private Consumer<UIEffectTransformCollapse> toggleHandler;
     private UIElement leading;
     private UIElement[] headerExtras = new UIElement[0];
     private IKey fieldLabel;
@@ -43,8 +47,8 @@ public class UIEffectTransformCollapse extends UIElement
 
         this.column().vertical().stretch();
 
-        this.toggle = new UIIcon(Icons.ALL_DIRECTIONS, (b) -> this.setExpanded(!this.expanded));
-        this.toggle.tooltip(UIKeys.FORMS_EDITORS_COLOR_TRANSFORM);
+        this.toggle = new UIIcon(Icons.SCALE, (b) -> this.requestToggle());
+        this.toggle.tooltip(UIKeys.TIMELINE_TOOLBAR_TRANSFORM);
         this.toggle.wh(20, 20);
 
         this.shapeIcons = new UIIcons((b) -> apply.accept((effect) ->
@@ -55,8 +59,11 @@ public class UIEffectTransformCollapse extends UIElement
         this.shapeIcons.h(20);
 
         this.transform = new UIEffectKeyframeTransform(apply);
+        /* Extra bottom room so the last transform row is not scissored by nested
+           disclosure shells (Color grade / Extra, model block editor, etc.). */
+        this.transform.marginBottom(2);
         this.shell = new UIAnimatedCollapseShell(UI.column(
-            UI.label(UIKeys.FORMS_EDITORS_PAINT_SHAPE),
+            UI.label(UIKeys.FORMS_EDITORS_PAINT_SHAPE).marginTop(8),
             this.shapeIcons,
             this.transform
         ));
@@ -133,6 +140,33 @@ public class UIEffectTransformCollapse extends UIElement
         return this;
     }
 
+    /**
+     * When false, expanding only updates the icon highlight; the caller must
+     * open {@link #getShell()} against a shared host (e.g. Color Grade accordion).
+     */
+    public UIEffectTransformCollapse manageOwnShell(boolean manage)
+    {
+        this.manageOwnShell = manage;
+
+        return this;
+    }
+
+    /**
+     * Replaces the default toggle behavior. Used for exclusive groups where a
+     * parent closes siblings before opening this control.
+     */
+    public UIEffectTransformCollapse onToggle(Consumer<UIEffectTransformCollapse> handler)
+    {
+        this.toggleHandler = handler;
+
+        return this;
+    }
+
+    public UIAnimatedCollapseShell getShell()
+    {
+        return this.shell;
+    }
+
     public void registerUndo(UIKeyframes editor)
     {
         this.transform.registerUndo(editor);
@@ -153,14 +187,51 @@ public class UIEffectTransformCollapse extends UIElement
 
     public void setExpanded(boolean expanded)
     {
-        if (this.expanded == expanded && this.shell.isOpen() == expanded)
+        if (this.manageOwnShell)
+        {
+            if (this.expanded == expanded && this.shell.isOpen() == expanded)
+            {
+                return;
+            }
+        }
+        else if (this.expanded == expanded)
         {
             return;
         }
 
         this.expanded = expanded;
         this.toggle.active(expanded);
-        this.shell.setExpanded(expanded, this);
+
+        if (this.manageOwnShell)
+        {
+            this.shell.setExpanded(expanded, this);
+        }
+    }
+
+    /**
+     * Opens or closes this control's shell under {@code host} (sibling after host).
+     * Used when {@link #manageOwnShell(boolean)} is false.
+     */
+    public void setShellExpanded(boolean expanded, UIElement host)
+    {
+        this.setShellExpanded(expanded, host, true);
+    }
+
+    public void setShellExpanded(boolean expanded, UIElement host, boolean animate)
+    {
+        this.shell.setExpanded(expanded, host, animate);
+    }
+
+    private void requestToggle()
+    {
+        if (this.toggleHandler != null)
+        {
+            this.toggleHandler.accept(this);
+
+            return;
+        }
+
+        this.setExpanded(!this.expanded);
     }
 
     private void rebuildHeader()
@@ -172,8 +243,13 @@ public class UIEffectTransformCollapse extends UIElement
 
         if (this.fieldLabel != null)
         {
-            /* Must stretch: otherwise the cluster/field keep width 0 inside the column. */
-            header = this.stretchedColumn(UI.label(this.fieldLabel), cluster);
+            /* Must stretch: otherwise the cluster/field keep width 0 inside the column.
+               Taller label + slight text inset keeps Spanish accents inside the
+               disclosure shell scissor (Color grade brightness/contrast/etc.). */
+            int fontH = Batcher2D.getDefaultTextRenderer().getHeight();
+            UILabel label = UI.label(this.fieldLabel, fontH + 3).textOffsetY(2);
+
+            header = this.stretchedColumn(label, cluster);
         }
 
         if (this.headerExtras.length > 0)
