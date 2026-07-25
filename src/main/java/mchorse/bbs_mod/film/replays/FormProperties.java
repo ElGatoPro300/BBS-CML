@@ -287,9 +287,11 @@ public class FormProperties extends ValueGroup
                 this.applyIllusionTextureBlend(form, segment);
             }
 
-            if ("color".equals(id) && segment.getClosest().isNoshadingOpacity())
+            /* Always sync true/false from the Color keyframe — only setting true left the
+             * runtime stuck on after toggling Noshading off (BBS deferred / no body shadows). */
+            if ("color".equals(id))
             {
-                form.noshadingOpacity.setRuntimeValue(true);
+                form.noshadingOpacity.setRuntimeValue(segment.getClosest().isNoshadingOpacity());
             }
 
             if (blend < 1F)
