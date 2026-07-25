@@ -8,6 +8,7 @@ import mchorse.bbs_mod.forms.FormUtils;
 import mchorse.bbs_mod.forms.forms.StructureForm;
 import mchorse.bbs_mod.graphics.window.Window;
 import mchorse.bbs_mod.items.StructurePickerAxis;
+import mchorse.bbs_mod.items.StructurePickerBrushShape;
 import mchorse.bbs_mod.items.StructurePickerExporter;
 import mchorse.bbs_mod.items.StructurePickerMode;
 import mchorse.bbs_mod.items.StructurePickerPlane;
@@ -19,6 +20,9 @@ import mchorse.bbs_mod.ui.framework.elements.utils.Batcher2D;
 import mchorse.bbs_mod.ui.items.UIStructurePickerPanel;
 import mchorse.bbs_mod.utils.MathUtils;
 import mchorse.bbs_mod.utils.colors.Colors;
+
+import it.unimi.dsi.fastutil.longs.LongIterator;
+import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
 
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.item.ItemStack;
@@ -37,6 +41,7 @@ import net.minecraft.world.World;
 import org.lwjgl.glfw.GLFW;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Optional;
@@ -67,6 +72,18 @@ public class StructurePickerClient
 
     private static StructurePickerMode mode = StructurePickerMode.CUBE;
     private static final List<Region> regions = new ArrayList<>();
+    /** Live block set for paint modes — avoids expand+merge on every brush stamp. */
+    private static final LongOpenHashSet selectedBlocks = new LongOpenHashSet();
+    private static boolean selectedBlocksDirty = true;
+    private static boolean regionsNeedCompact;
+    /** True when selection was built by Block/Same/Brush paint (many AABB fragments). */
+    private static boolean selectionFromPaint;
+    private static int selectionVersion;
+    private static int lodCacheVersion = -1;
+    private static int lodCacheShift = -1;
+    private static List<StructurePickerRegionMerger.MergedRegion> lodCacheRegions = List.of();
+    private static BlockPos selectionBoundsMin;
+    private static BlockPos selectionBoundsMax;
     private static BlockPos firstCorner;
     private static BlockPos secondCorner;
     private static StructurePickerPlane selectionPlane;
@@ -85,6 +102,15 @@ public class StructurePickerClient
     private static StructurePickerAxis planeHorizontalAxis;
     private static boolean clickOnAir;
     private static int sameBlockLimit = 100;
+    private static int brushRadius = 2;
+    private static int brushDepth = 1;
+    private static StructurePickerBrushShape brushShape = StructurePickerBrushShape.SPHERE;
+    private static BlockPos brushPreviewHover;
+    private static Direction brushPreviewFace;
+    private static int brushPreviewRadius = Integer.MIN_VALUE;
+    private static int brushPreviewDepth = Integer.MIN_VALUE;
+    private static StructurePickerBrushShape brushPreviewShape;
+    private static List<StructurePickerRegionMerger.MergedRegion> brushPreviewRegions = List.of();
     private static BlockHitResult lastRaycastHit;
     private static BlockPos lastPaintedBlock;
     private static Direction triangleFacing;
@@ -528,8 +554,27 @@ public class StructurePickerClient
 
     public static void setMode(StructurePickerMode mode)
     {
+        StructurePickerMode previous = StructurePickerClient.mode;
+
         StructurePickerClient.mode = mode;
         StructurePickerClient.clearResizeGizmo();
+        StructurePickerClient.clearInProgress();
+        StructurePickerClient.lastPaintedBlock = null;
+
+        if (previous.isSingleClick() && !mode.isSingleClick())
+        {
+            StructurePickerClient.compactPaintSelection();
+        }
+
+        if (mode != StructurePickerMode.BRUSH)
+        {
+            StructurePickerClient.clearBrushPreviewCache();
+        }
+    }
+
+    public static boolean isSelectionFromPaint()
+    {
+        return StructurePickerClient.selectionFromPaint;
     }
 
     public static boolean isResizeGizmoActive()
@@ -655,20 +700,23 @@ public class StructurePickerClient
 
     public static boolean hasActiveCubeSelection()
     {
-        if (StructurePickerClient.mode != StructurePickerMode.CUBE)
+        if (StructurePickerClient.mode != StructurePickerMode.CUBE || StructurePickerClient.selectionFromPaint)
         {
             return false;
         }
+
+        int cubeRegions = 0;
 
         for (Region region : StructurePickerClient.regions)
         {
             if (region.mode() == StructurePickerMode.CUBE)
             {
-                return true;
+                cubeRegions++;
             }
         }
 
-        return false;
+        /* Brush paint stores many tiny CUBE AABBs — only a real cube-tool pick is scalable. */
+        return cubeRegions == 1 && StructurePickerClient.regions.size() == 1;
     }
 
     public static int getActiveSelectionSizeX()
@@ -955,6 +1003,171 @@ public class StructurePickerClient
         StructurePickerClient.sameBlockLimit = MathUtils.clamp(limit, 1, 500);
     }
 
+    public static int getBrushRadius()
+    {
+        return StructurePickerClient.brushRadius;
+    }
+
+    public static void setBrushRadius(int radius)
+    {
+        int clamped = MathUtils.clamp(radius, 0, 16);
+
+        if (StructurePickerClient.brushRadius != clamped)
+        {
+            StructurePickerClient.brushRadius = clamped;
+            StructurePickerClient.clearBrushPreviewCache();
+        }
+    }
+
+    public static int getBrushDepth()
+    {
+        return StructurePickerClient.brushDepth;
+    }
+
+    public static void setBrushDepth(int depth)
+    {
+        int clamped = MathUtils.clamp(depth, 1, 16);
+
+        if (StructurePickerClient.brushDepth != clamped)
+        {
+            StructurePickerClient.brushDepth = clamped;
+            StructurePickerClient.clearBrushPreviewCache();
+        }
+    }
+
+    public static StructurePickerBrushShape getBrushShape()
+    {
+        return StructurePickerClient.brushShape;
+    }
+
+    public static void setBrushShape(StructurePickerBrushShape shape)
+    {
+        StructurePickerBrushShape next = shape == null ? StructurePickerBrushShape.SPHERE : shape;
+
+        if (StructurePickerClient.brushShape != next)
+        {
+            StructurePickerClient.brushShape = next;
+            StructurePickerClient.clearBrushPreviewCache();
+        }
+    }
+
+    public static List<BlockPos> getBrushPreviewBlocks()
+    {
+        /* Prefer getBrushPreviewRegions() for rendering — this expands only if needed. */
+        List<StructurePickerRegionMerger.MergedRegion> regions = StructurePickerClient.getBrushPreviewRegions();
+
+        if (regions.isEmpty())
+        {
+            return List.of();
+        }
+
+        List<BlockPos> blocks = new ArrayList<>();
+
+        for (StructurePickerRegionMerger.MergedRegion region : regions)
+        {
+            BlockPos min = region.min();
+            BlockPos max = region.max();
+
+            for (int x = min.getX(); x <= max.getX(); x++)
+            {
+                for (int y = min.getY(); y <= max.getY(); y++)
+                {
+                    for (int z = min.getZ(); z <= max.getZ(); z++)
+                    {
+                        blocks.add(new BlockPos(x, y, z));
+                    }
+                }
+            }
+        }
+
+        return blocks;
+    }
+
+    /**
+     * Cached merged AABBs for brush hover preview — recomputed only when the
+     * hover target or brush settings change.
+     */
+    public static List<StructurePickerRegionMerger.MergedRegion> getBrushPreviewRegions()
+    {
+        if (StructurePickerClient.mode != StructurePickerMode.BRUSH)
+        {
+            StructurePickerClient.clearBrushPreviewCache();
+
+            return List.of();
+        }
+
+        MinecraftClient mc = MinecraftClient.getInstance();
+
+        if (mc.world == null)
+        {
+            StructurePickerClient.clearBrushPreviewCache();
+
+            return List.of();
+        }
+
+        BlockPos hovered = StructurePickerClient.resolveTargetBlock(mc);
+
+        if (hovered == null)
+        {
+            StructurePickerClient.clearBrushPreviewCache();
+
+            return List.of();
+        }
+
+        Direction face = StructurePickerClient.getBrushFace();
+        int radius = StructurePickerClient.getBrushRadius();
+        int depth = StructurePickerClient.getBrushDepth();
+        StructurePickerBrushShape shape = StructurePickerClient.getBrushShape();
+
+        if (hovered.equals(StructurePickerClient.brushPreviewHover)
+            && face == StructurePickerClient.brushPreviewFace
+            && radius == StructurePickerClient.brushPreviewRadius
+            && depth == StructurePickerClient.brushPreviewDepth
+            && shape == StructurePickerClient.brushPreviewShape)
+        {
+            return StructurePickerClient.brushPreviewRegions;
+        }
+
+        List<BlockPos> blocks = StructurePickerSelection.collectBrushSurface(
+            mc.world,
+            hovered,
+            shape,
+            radius,
+            depth,
+            face
+        );
+        List<StructurePickerRegionMerger.MergedRegion> merged = StructurePickerRegionMerger.merge(blocks);
+
+        StructurePickerClient.brushPreviewHover = hovered.toImmutable();
+        StructurePickerClient.brushPreviewFace = face;
+        StructurePickerClient.brushPreviewRadius = radius;
+        StructurePickerClient.brushPreviewDepth = depth;
+        StructurePickerClient.brushPreviewShape = shape;
+        StructurePickerClient.brushPreviewRegions = merged;
+
+        return merged;
+    }
+
+    private static void clearBrushPreviewCache()
+    {
+        StructurePickerClient.brushPreviewHover = null;
+        StructurePickerClient.brushPreviewFace = null;
+        StructurePickerClient.brushPreviewRadius = Integer.MIN_VALUE;
+        StructurePickerClient.brushPreviewDepth = Integer.MIN_VALUE;
+        StructurePickerClient.brushPreviewShape = null;
+        StructurePickerClient.brushPreviewRegions = List.of();
+    }
+
+    private static Direction getBrushFace()
+    {
+        if (StructurePickerClient.lastRaycastHit != null)
+        {
+            return StructurePickerClient.lastRaycastHit.getSide();
+        }
+
+        return Direction.UP;
+    }
+
     public static Direction getTriangleFacing()
     {
         return StructurePickerClient.triangleFacing;
@@ -992,23 +1205,319 @@ public class StructurePickerClient
 
     public static Set<BlockPos> getAllRegionBlocks()
     {
-        Set<BlockPos> blocks = new LinkedHashSet<>();
+        StructurePickerClient.ensureSelectedBlocks();
 
-        for (StructurePickerClient.Region region : StructurePickerClient.regions)
+        Set<BlockPos> blocks = new LinkedHashSet<>(Math.max(16, StructurePickerClient.selectedBlocks.size()));
+        LongIterator iterator = StructurePickerClient.selectedBlocks.iterator();
+
+        while (iterator.hasNext())
         {
-            blocks.addAll(StructurePickerSelection.preview(null, region.first(), region.second(), region.mode(), region.triangleFacing()));
+            blocks.add(BlockPos.fromLong(iterator.nextLong()));
         }
 
         return blocks;
     }
 
+    public static int getSelectedBlockCount()
+    {
+        StructurePickerClient.ensureSelectedBlocks();
+
+        return StructurePickerClient.selectedBlocks.size();
+    }
+
+    public static BlockPos getSelectionBoundsMin()
+    {
+        StructurePickerClient.ensureSelectedBlocks();
+
+        return StructurePickerClient.selectionBoundsMin;
+    }
+
+    public static BlockPos getSelectionBoundsMax()
+    {
+        StructurePickerClient.ensureSelectedBlocks();
+
+        return StructurePickerClient.selectionBoundsMax;
+    }
+
+    /**
+     * Coarse AABBs for large paint selections. {@code null} means use fine {@link #getRegions()}.
+     */
+    public static List<StructurePickerRegionMerger.MergedRegion> getSelectionLodRegions()
+    {
+        StructurePickerClient.ensureSelectedBlocks();
+
+        int count = StructurePickerClient.selectedBlocks.size();
+
+        if (count <= 4000 && StructurePickerClient.regions.size() <= 400)
+        {
+            return null;
+        }
+
+        int shift = count > 120000 ? 4 : count > 40000 ? 3 : 2;
+
+        if (StructurePickerClient.lodCacheVersion == StructurePickerClient.selectionVersion
+            && StructurePickerClient.lodCacheShift == shift)
+        {
+            return StructurePickerClient.lodCacheRegions;
+        }
+
+        /* While painting, keep the last LOD mesh — rebuilding 100k+ cells every stamp stutters hard. */
+        if (StructurePickerClient.lastPaintedBlock != null && !StructurePickerClient.lodCacheRegions.isEmpty())
+        {
+            return StructurePickerClient.lodCacheRegions;
+        }
+
+        LongOpenHashSet cells = new LongOpenHashSet(Math.max(16, count >> (shift + shift)));
+        LongIterator iterator = StructurePickerClient.selectedBlocks.iterator();
+
+        while (iterator.hasNext())
+        {
+            long key = iterator.nextLong();
+            int x = BlockPos.unpackLongX(key) >> shift;
+            int y = BlockPos.unpackLongY(key) >> shift;
+            int z = BlockPos.unpackLongZ(key) >> shift;
+
+            cells.add(BlockPos.asLong(x, y, z));
+        }
+
+        int size = 1 << shift;
+        List<StructurePickerRegionMerger.MergedRegion> lod = new ArrayList<>(cells.size());
+        LongIterator cellIterator = cells.iterator();
+
+        while (cellIterator.hasNext())
+        {
+            long cell = cellIterator.nextLong();
+            int cx = BlockPos.unpackLongX(cell) << shift;
+            int cy = BlockPos.unpackLongY(cell) << shift;
+            int cz = BlockPos.unpackLongZ(cell) << shift;
+
+            lod.add(new StructurePickerRegionMerger.MergedRegion(
+                new BlockPos(cx, cy, cz),
+                new BlockPos(cx + size - 1, cy + size - 1, cz + size - 1),
+                StructurePickerMode.CUBE
+            ));
+        }
+
+        StructurePickerClient.lodCacheVersion = StructurePickerClient.selectionVersion;
+        StructurePickerClient.lodCacheShift = shift;
+        StructurePickerClient.lodCacheRegions = lod;
+
+        return lod;
+    }
+
+    private static void ensureSelectedBlocks()
+    {
+        if (!StructurePickerClient.selectedBlocksDirty)
+        {
+            return;
+        }
+
+        StructurePickerClient.selectedBlocks.clear();
+        StructurePickerClient.selectionBoundsMin = null;
+        StructurePickerClient.selectionBoundsMax = null;
+
+        for (StructurePickerClient.Region region : StructurePickerClient.regions)
+        {
+            for (BlockPos pos : StructurePickerSelection.preview(null, region.first(), region.second(), region.mode(), region.triangleFacing()))
+            {
+                StructurePickerClient.addSelectedBlockKey(pos.asLong());
+            }
+        }
+
+        StructurePickerClient.selectedBlocksDirty = false;
+        StructurePickerClient.selectionVersion++;
+        StructurePickerClient.regionsNeedCompact = false;
+        StructurePickerClient.lodCacheVersion = -1;
+    }
+
+    private static void addSelectedBlockKey(long key)
+    {
+        if (!StructurePickerClient.selectedBlocks.add(key))
+        {
+            return;
+        }
+
+        int x = BlockPos.unpackLongX(key);
+        int y = BlockPos.unpackLongY(key);
+        int z = BlockPos.unpackLongZ(key);
+
+        if (StructurePickerClient.selectionBoundsMin == null)
+        {
+            StructurePickerClient.selectionBoundsMin = new BlockPos(x, y, z);
+            StructurePickerClient.selectionBoundsMax = new BlockPos(x, y, z);
+        }
+        else
+        {
+            StructurePickerClient.selectionBoundsMin = StructurePickerSelection.min(
+                StructurePickerClient.selectionBoundsMin,
+                new BlockPos(x, y, z)
+            );
+            StructurePickerClient.selectionBoundsMax = StructurePickerSelection.max(
+                StructurePickerClient.selectionBoundsMax,
+                new BlockPos(x, y, z)
+            );
+        }
+    }
+
+    private static void invalidateSelectedBlocks()
+    {
+        StructurePickerClient.selectedBlocksDirty = true;
+        StructurePickerClient.regionsNeedCompact = false;
+        StructurePickerClient.selectionVersion++;
+        StructurePickerClient.lodCacheVersion = -1;
+    }
+
+    private static void markSelectionChanged()
+    {
+        StructurePickerClient.selectionVersion++;
+
+        /* Invalidate LOD immediately only when not mid-stroke. */
+        if (StructurePickerClient.lastPaintedBlock == null)
+        {
+            StructurePickerClient.lodCacheVersion = -1;
+        }
+    }
+
+    private static void compactPaintSelection()
+    {
+        if (!StructurePickerClient.regionsNeedCompact)
+        {
+            return;
+        }
+
+        StructurePickerClient.setRegionsFromBlocks(StructurePickerClient.selectedBlocksToPosSet());
+        StructurePickerClient.lodCacheVersion = -1;
+    }
+
     private static void setRegionsFromBlocks(Set<BlockPos> blocks)
     {
         StructurePickerClient.regions.clear();
+        StructurePickerClient.selectedBlocks.clear();
+        StructurePickerClient.selectionBoundsMin = null;
+        StructurePickerClient.selectionBoundsMax = null;
 
-        for (StructurePickerRegionMerger.MergedRegion merged : StructurePickerRegionMerger.merge(blocks))
+        if (blocks != null)
+        {
+            for (BlockPos pos : blocks)
+            {
+                StructurePickerClient.addSelectedBlockKey(pos.asLong());
+            }
+        }
+
+        for (StructurePickerRegionMerger.MergedRegion merged : StructurePickerRegionMerger.merge(blocks == null ? Set.of() : blocks))
         {
             StructurePickerClient.regions.add(new Region(merged.min(), merged.max(), merged.mode()));
+        }
+
+        StructurePickerClient.selectedBlocksDirty = false;
+        StructurePickerClient.regionsNeedCompact = false;
+        StructurePickerClient.selectionFromPaint = true;
+        StructurePickerClient.markSelectionChanged();
+    }
+
+    private static Set<BlockPos> selectedBlocksToPosSet()
+    {
+        Set<BlockPos> blocks = new LinkedHashSet<>(Math.max(16, StructurePickerClient.selectedBlocks.size()));
+        LongIterator iterator = StructurePickerClient.selectedBlocks.iterator();
+
+        while (iterator.hasNext())
+        {
+            blocks.add(BlockPos.fromLong(iterator.nextLong()));
+        }
+
+        return blocks;
+    }
+
+    private static void appendPaintBlocks(Collection<BlockPos> stamped)
+    {
+        boolean addedAny = false;
+        List<BlockPos> fresh = new ArrayList<>();
+
+        for (BlockPos pos : stamped)
+        {
+            long key = pos.asLong();
+
+            if (StructurePickerClient.selectedBlocks.add(key))
+            {
+                StructurePickerClient.addSelectedBlockKeyBoundsOnly(key);
+                fresh.add(pos.toImmutable());
+                addedAny = true;
+            }
+        }
+
+        if (!addedAny)
+        {
+            return;
+        }
+
+        for (StructurePickerRegionMerger.MergedRegion merged : StructurePickerRegionMerger.merge(fresh))
+        {
+            StructurePickerClient.regions.add(new Region(merged.min(), merged.max(), merged.mode()));
+        }
+
+        StructurePickerClient.selectedBlocksDirty = false;
+        StructurePickerClient.regionsNeedCompact = true;
+        StructurePickerClient.selectionFromPaint = true;
+        StructurePickerClient.markSelectionChanged();
+    }
+
+    private static void addSelectedBlockKeyBoundsOnly(long key)
+    {
+        int x = BlockPos.unpackLongX(key);
+        int y = BlockPos.unpackLongY(key);
+        int z = BlockPos.unpackLongZ(key);
+
+        if (StructurePickerClient.selectionBoundsMin == null)
+        {
+            StructurePickerClient.selectionBoundsMin = new BlockPos(x, y, z);
+            StructurePickerClient.selectionBoundsMax = new BlockPos(x, y, z);
+        }
+        else
+        {
+            StructurePickerClient.selectionBoundsMin = new BlockPos(
+                Math.min(StructurePickerClient.selectionBoundsMin.getX(), x),
+                Math.min(StructurePickerClient.selectionBoundsMin.getY(), y),
+                Math.min(StructurePickerClient.selectionBoundsMin.getZ(), z)
+            );
+            StructurePickerClient.selectionBoundsMax = new BlockPos(
+                Math.max(StructurePickerClient.selectionBoundsMax.getX(), x),
+                Math.max(StructurePickerClient.selectionBoundsMax.getY(), y),
+                Math.max(StructurePickerClient.selectionBoundsMax.getZ(), z)
+            );
+        }
+    }
+
+    private static void removePaintBlocks(Collection<BlockPos> stamped)
+    {
+        StructurePickerClient.ensureSelectedBlocks();
+        boolean removedAny = false;
+
+        for (BlockPos pos : stamped)
+        {
+            if (StructurePickerClient.selectedBlocks.remove(pos.asLong()))
+            {
+                removedAny = true;
+            }
+        }
+
+        if (!removedAny)
+        {
+            return;
+        }
+
+        StructurePickerClient.rebuildBoundsFromSelected();
+        StructurePickerClient.setRegionsFromBlocks(StructurePickerClient.selectedBlocksToPosSet());
+    }
+
+    private static void rebuildBoundsFromSelected()
+    {
+        StructurePickerClient.selectionBoundsMin = null;
+        StructurePickerClient.selectionBoundsMax = null;
+        LongIterator iterator = StructurePickerClient.selectedBlocks.iterator();
+
+        while (iterator.hasNext())
+        {
+            StructurePickerClient.addSelectedBlockKeyBoundsOnly(iterator.nextLong());
         }
     }
 
@@ -1282,6 +1791,7 @@ public class StructurePickerClient
             else if (released)
             {
                 StructurePickerClient.lastPaintedBlock = null;
+                StructurePickerClient.compactPaintSelection();
             }
 
             return;
@@ -1344,6 +1854,7 @@ public class StructurePickerClient
             else if (released)
             {
                 StructurePickerClient.lastPaintedBlock = null;
+                StructurePickerClient.compactPaintSelection();
             }
 
             return;
@@ -2585,6 +3096,13 @@ public class StructurePickerClient
 
             for (BlockPos pos : StructurePickerClient.iterateBlockLine(StructurePickerClient.lastPaintedBlock, hovered))
             {
+                if (StructurePickerClient.mode == StructurePickerMode.BRUSH
+                    && mc.world != null
+                    && mc.world.getBlockState(pos).isAir())
+                {
+                    continue;
+                }
+
                 StructurePickerClient.applyBlockPaint(pos);
             }
 
@@ -2606,17 +3124,58 @@ public class StructurePickerClient
             return;
         }
 
+        if (StructurePickerClient.mode == StructurePickerMode.BRUSH)
+        {
+            StructurePickerClient.applyBrushPaint(pos);
+
+            return;
+        }
+
         if (StructurePickerClient.subtractMode)
         {
             StructurePickerClient.applySubtract(pos, pos, StructurePickerMode.BLOCK);
         }
-        else if (!StructurePickerClient.isBlockSelected(pos))
+        else
         {
-            Set<BlockPos> blocks = StructurePickerClient.getAllRegionBlocks();
-
-            blocks.add(pos);
-            StructurePickerClient.setRegionsFromBlocks(blocks);
+            StructurePickerClient.ensureSelectedBlocks();
+            StructurePickerClient.appendPaintBlocks(List.of(pos));
         }
+    }
+
+    private static void applyBrushPaint(BlockPos origin)
+    {
+        MinecraftClient mc = MinecraftClient.getInstance();
+        World world = mc.world;
+
+        if (world == null)
+        {
+            return;
+        }
+
+        List<BlockPos> stamped = StructurePickerSelection.collectBrushSurface(
+            world,
+            origin,
+            StructurePickerClient.getBrushShape(),
+            StructurePickerClient.getBrushRadius(),
+            StructurePickerClient.getBrushDepth(),
+            StructurePickerClient.getBrushFace()
+        );
+
+        if (stamped.isEmpty())
+        {
+            return;
+        }
+
+        StructurePickerClient.ensureSelectedBlocks();
+
+        if (StructurePickerClient.subtractMode)
+        {
+            StructurePickerClient.removePaintBlocks(stamped);
+
+            return;
+        }
+
+        StructurePickerClient.appendPaintBlocks(stamped);
     }
 
     private static void applySameBlockPaint(BlockPos origin)
@@ -2636,47 +3195,23 @@ public class StructurePickerClient
             return;
         }
 
+        StructurePickerClient.ensureSelectedBlocks();
+
         if (StructurePickerClient.subtractMode)
         {
-            Set<BlockPos> remaining = StructurePickerClient.getAllRegionBlocks();
-            boolean removedAny = false;
-
-            for (BlockPos pos : connected)
-            {
-                if (remaining.remove(pos))
-                {
-                    removedAny = true;
-                }
-            }
-
-            if (removedAny)
-            {
-                StructurePickerClient.setRegionsFromBlocks(remaining);
-            }
+            StructurePickerClient.removePaintBlocks(connected);
 
             return;
         }
 
-        Set<BlockPos> blocks = StructurePickerClient.getAllRegionBlocks();
-        boolean addedAny = false;
-
-        for (BlockPos pos : connected)
-        {
-            if (blocks.add(pos))
-            {
-                addedAny = true;
-            }
-        }
-
-        if (addedAny)
-        {
-            StructurePickerClient.setRegionsFromBlocks(blocks);
-        }
+        StructurePickerClient.appendPaintBlocks(connected);
     }
 
     private static boolean isBlockSelected(BlockPos pos)
     {
-        return StructurePickerClient.getAllRegionBlocks().contains(pos);
+        StructurePickerClient.ensureSelectedBlocks();
+
+        return StructurePickerClient.selectedBlocks.contains(pos.asLong());
     }
 
     private static List<BlockPos> iterateBlockLine(BlockPos from, BlockPos to)
@@ -2788,12 +3323,21 @@ public class StructurePickerClient
             }
             else
             {
+                boolean wasEmpty = StructurePickerClient.regions.isEmpty();
+
                 StructurePickerClient.regions.add(new Region(
                     StructurePickerClient.firstCorner,
                     StructurePickerClient.secondCorner,
                     StructurePickerClient.mode,
                     StructurePickerClient.triangleFacing
                 ));
+
+                if (wasEmpty)
+                {
+                    StructurePickerClient.selectionFromPaint = false;
+                }
+
+                StructurePickerClient.invalidateSelectedBlocks();
             }
         }
 
@@ -2864,6 +3408,13 @@ public class StructurePickerClient
     private static void clearSelection(boolean clearBoundPath)
     {
         StructurePickerClient.regions.clear();
+        StructurePickerClient.selectedBlocks.clear();
+        StructurePickerClient.selectionBoundsMin = null;
+        StructurePickerClient.selectionBoundsMax = null;
+        StructurePickerClient.selectedBlocksDirty = false;
+        StructurePickerClient.regionsNeedCompact = false;
+        StructurePickerClient.selectionFromPaint = false;
+        StructurePickerClient.markSelectionChanged();
         StructurePickerClient.lastPaintedBlock = null;
         StructurePickerClient.clearInProgress();
         StructurePickerClient.clearResizeGizmo();
@@ -2917,6 +3468,8 @@ public class StructurePickerClient
         }
 
         StructurePickerClient.regions.addAll(regions);
+        StructurePickerClient.selectionFromPaint = regions.size() > 8;
+        StructurePickerClient.invalidateSelectedBlocks();
     }
 
     private static void tickUndoRedoKeys()
@@ -3208,30 +3761,20 @@ public class StructurePickerClient
         {
             if (StructurePickerClient.mode.isSingleClick() && StructurePickerClient.hasBlockSelection())
             {
-                Set<BlockPos> blocks = StructurePickerClient.getAllRegionBlocks();
-                BlockPos blockMin = null;
-                BlockPos blockMax = null;
+                StructurePickerClient.ensureSelectedBlocks();
+                BlockPos blockMin = StructurePickerClient.getSelectionBoundsMin();
+                BlockPos blockMax = StructurePickerClient.getSelectionBoundsMax();
 
-                for (BlockPos pos : blocks)
+                if (blockMin != null && blockMax != null)
                 {
-                    if (blockMin == null)
-                    {
-                        blockMin = pos;
-                        blockMax = pos;
-                    }
-                    else
-                    {
-                        blockMin = StructurePickerSelection.min(blockMin, pos);
-                        blockMax = StructurePickerSelection.max(blockMax, pos);
-                    }
+                    int width = StructurePickerSelection.spanX(blockMin, blockMax);
+                    int depth = StructurePickerSelection.spanZ(blockMin, blockMax);
+                    int count = StructurePickerClient.getSelectedBlockCount();
+                    String modeLabel = UIKeys.STRUCTURE_PICKER_MODE_LABELS[StructurePickerClient.mode.index].get();
+                    String text = UIKeys.STRUCTURE_PICKER_INTERACTING.format(modeLabel, width, depth, count).get();
+
+                    StructurePickerClient.renderHudLine(batcher, screenW, screenH, lineIndex, text);
                 }
-
-                int width = StructurePickerSelection.spanX(blockMin, blockMax);
-                int depth = StructurePickerSelection.spanZ(blockMin, blockMax);
-                String modeLabel = UIKeys.STRUCTURE_PICKER_MODE_LABELS[StructurePickerClient.mode.index].get();
-                String text = UIKeys.STRUCTURE_PICKER_INTERACTING.format(modeLabel, width, depth, blocks.size()).get();
-
-                StructurePickerClient.renderHudLine(batcher, screenW, screenH, lineIndex, text);
             }
             else if (StructurePickerClient.mode == StructurePickerMode.CUBE && !StructurePickerClient.regions.isEmpty() && !StructurePickerClient.isResizeGizmoActive())
             {

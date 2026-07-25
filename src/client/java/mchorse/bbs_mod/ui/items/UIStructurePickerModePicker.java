@@ -29,11 +29,12 @@ public class UIStructurePickerModePicker extends UIElement
     private static final int COLOR_ROW_HOVER = 0x33000000;
     private static final int COLOR_ROW_SELECTED = 0x66000000;
 
-    /* Same sits under Block for flood-fill of connected identical blocks. */
+    /* Same / Brush sit under Block for paint-style selection. */
     private static final StructurePickerMode[] MODE_ORDER = new StructurePickerMode[]
     {
         StructurePickerMode.BLOCK,
         StructurePickerMode.SAME,
+        StructurePickerMode.BRUSH,
         StructurePickerMode.RECTANGLE,
         StructurePickerMode.CUBE,
         StructurePickerMode.CIRCLE,
@@ -47,6 +48,7 @@ public class UIStructurePickerModePicker extends UIElement
     {
         Icons.SP_BLOCK,
         Icons.BUCKET,
+        Icons.BRUSH,
         Icons.SP_RECTANGLE,
         Icons.SP_CUBE,
         Icons.SP_CIRCLE,
@@ -61,6 +63,7 @@ public class UIStructurePickerModePicker extends UIElement
     {
         0xFF14B8A6, /* teal - Block */
         0xFF6366F1, /* indigo - Same */
+        0xFFEC4899, /* pink - Brush */
         0xFFF97316, /* orange - Rectangle */
         0xFFA78BFA, /* light purple - Cube */
         0xFF84CC16, /* lime - Circle */

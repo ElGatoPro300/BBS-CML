@@ -37,6 +37,7 @@ public final class ModelBlockSolidCollisions
     public static final float CLIMB_STEP_HEIGHT = 1.0F;
 
     private static final Set<ModelBlockEntity> ACTIVE = Collections.newSetFromMap(new WeakHashMap<>());
+    private static final Object ACTIVE_LOCK = new Object();
 
     private ModelBlockSolidCollisions()
     {}
@@ -50,13 +51,16 @@ public final class ModelBlockSolidCollisions
             return;
         }
 
-        if (hasSolidFormHitbox(entity))
+        synchronized (ACTIVE_LOCK)
         {
-            ACTIVE.add(entity);
-        }
-        else
-        {
-            ACTIVE.remove(entity);
+            if (hasSolidFormHitbox(entity))
+            {
+                ACTIVE.add(entity);
+            }
+            else
+            {
+                ACTIVE.remove(entity);
+            }
         }
     }
 
@@ -64,7 +68,23 @@ public final class ModelBlockSolidCollisions
     {
         if (entity != null)
         {
-            ACTIVE.remove(entity);
+            synchronized (ACTIVE_LOCK)
+            {
+                ACTIVE.remove(entity);
+            }
+        }
+    }
+
+    private static List<ModelBlockEntity> snapshotActive()
+    {
+        synchronized (ACTIVE_LOCK)
+        {
+            if (ACTIVE.isEmpty())
+            {
+                return List.of();
+            }
+
+            return new ArrayList<>(ACTIVE);
         }
     }
 
@@ -99,14 +119,21 @@ public final class ModelBlockSolidCollisions
 
     public static void appendShapes(Entity entity, Box swept, World world, List<VoxelShape> collisions)
     {
-        if (entity == null || world == null || collisions == null || ACTIVE.isEmpty())
+        if (entity == null || world == null || collisions == null)
+        {
+            return;
+        }
+
+        List<ModelBlockEntity> active = snapshotActive();
+
+        if (active.isEmpty())
         {
             return;
         }
 
         Box query = swept.expand(0.25D);
 
-        for (ModelBlockEntity model : ACTIVE)
+        for (ModelBlockEntity model : active)
         {
             if (model.isRemoved() || model.getWorld() != world)
             {
@@ -333,7 +360,7 @@ public final class ModelBlockSolidCollisions
      */
     public static float boostStepHeight(Entity entity, float stepHeight)
     {
-        if (entity == null || entity.getWorld() == null || ACTIVE.isEmpty())
+        if (entity == null || entity.getWorld() == null)
         {
             return stepHeight;
         }
@@ -343,11 +370,18 @@ public final class ModelBlockSolidCollisions
             return stepHeight;
         }
 
+        List<ModelBlockEntity> active = snapshotActive();
+
+        if (active.isEmpty())
+        {
+            return stepHeight;
+        }
+
         Box feet = entity.getBoundingBox();
         Box probe = feet.expand(0.4D, 0D, 0.4D).stretch(0D, CLIMB_STEP_HEIGHT + 0.05D, 0D);
         World world = entity.getWorld();
 
-        for (ModelBlockEntity model : ACTIVE)
+        for (ModelBlockEntity model : active)
         {
             if (model.isRemoved() || model.getWorld() != world)
             {

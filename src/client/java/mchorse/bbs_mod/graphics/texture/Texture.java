@@ -189,10 +189,10 @@ public class Texture
 
     public void setSize(int width, int height)
     {
-        this.width = width;
-        this.height = height;
+        this.width = Math.max(1, width);
+        this.height = Math.max(1, height);
 
-        GL11.glTexImage2D(this.target, 0, this.format.internal, width, height, 0, this.format.format, this.format.type, 0);
+        GL11.glTexImage2D(this.target, 0, this.format.internal, this.width, this.height, 0, this.format.format, this.format.type, 0);
     }
 
     public void updateTexture(Pixels pixels)
@@ -237,6 +237,12 @@ public class Texture
         GL11.glPixelStorei(GL11.GL_UNPACK_SKIP_ROWS, 0);
 
         GL11.glTexImage2D(target, level, this.format.internal, w, h, 0, this.format.format, this.format.type, buffer);
+
+        /* Restore defaults so Minecraft atlas uploads are not corrupted. */
+        GL11.glPixelStorei(GL11.GL_UNPACK_ROW_LENGTH, 0);
+        GL11.glPixelStorei(GL11.GL_UNPACK_SKIP_PIXELS, 0);
+        GL11.glPixelStorei(GL11.GL_UNPACK_SKIP_ROWS, 0);
+        GL11.glPixelStorei(GL11.GL_UNPACK_ALIGNMENT, 4);
 
         if (level == 0)
         {

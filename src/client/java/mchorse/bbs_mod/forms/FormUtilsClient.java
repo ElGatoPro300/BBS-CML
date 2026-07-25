@@ -17,6 +17,7 @@ import mchorse.bbs_mod.forms.forms.ShapeForm;
 import mchorse.bbs_mod.forms.forms.StructureForm;
 import mchorse.bbs_mod.forms.forms.TrailForm;
 import mchorse.bbs_mod.forms.forms.VanillaParticleForm;
+import mchorse.bbs_mod.forms.forms.VideoForm;
 import mchorse.bbs_mod.forms.renderers.AnchorFormRenderer;
 import mchorse.bbs_mod.forms.renderers.BillboardFormRenderer;
 import mchorse.bbs_mod.forms.renderers.BlockFormRenderer;
@@ -35,6 +36,7 @@ import mchorse.bbs_mod.forms.renderers.ShapeFormRenderer;
 import mchorse.bbs_mod.forms.renderers.StructureFormRenderer;
 import mchorse.bbs_mod.forms.renderers.TrailFormRenderer;
 import mchorse.bbs_mod.forms.renderers.VanillaParticleFormRenderer;
+import mchorse.bbs_mod.forms.renderers.VideoFormRenderer;
 import mchorse.bbs_mod.ui.framework.UIContext;
 
 import net.minecraft.client.MinecraftClient;
@@ -64,6 +66,7 @@ public class FormUtilsClient
     static
     {
         register(BillboardForm.class, BillboardFormRenderer::new);
+        register(VideoForm.class, VideoFormRenderer::new);
         register(FluidForm.class, FluidFormRenderer::new);
         register(ExtrudedForm.class, ExtrudedFormRenderer::new);
         register(LabelForm.class, LabelFormRenderer::new);

@@ -1133,6 +1133,14 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
             root = migratedRoot;
         }
 
+        EditorLayoutNode generalOnTopRoot = this.migrateReplaysGeneralOnTop(root);
+
+        if (generalOnTopRoot != root)
+        {
+            layout.setFilmLayoutRoot(generalOnTopRoot);
+            root = generalOnTopRoot;
+        }
+
         layout.syncFilmSplittersFromRoot(root);
 
         this.resetDynamicLayoutElements(recreateTabs);
@@ -4346,12 +4354,74 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
 
     private EditorLayoutNode createAnchoredReplaysColumn()
     {
+        /* General (Pick/Edit) on top; replay list below. */
         return new EditorLayoutNode.SplitterNode(
             true,
-            0.65F,
-            new EditorLayoutNode.PanelNode(ANCHORED_REPLAYS_PANEL_ID),
-            new EditorLayoutNode.PanelNode(ANCHORED_REPLAYS_PROPERTIES_PANEL_ID)
+            0.35F,
+            new EditorLayoutNode.PanelNode(ANCHORED_REPLAYS_PROPERTIES_PANEL_ID),
+            new EditorLayoutNode.PanelNode(ANCHORED_REPLAYS_PANEL_ID)
         );
+    }
+
+    /**
+     * Older layouts stacked the list above General — flip that column once.
+     */
+    private EditorLayoutNode migrateReplaysGeneralOnTop(EditorLayoutNode root)
+    {
+        if (root == null)
+        {
+            return root;
+        }
+
+        return this.migrateReplaysGeneralOnTopNode(root);
+    }
+
+    private EditorLayoutNode migrateReplaysGeneralOnTopNode(EditorLayoutNode node)
+    {
+        if (node instanceof EditorLayoutNode.SplitterNode)
+        {
+            EditorLayoutNode.SplitterNode splitter = (EditorLayoutNode.SplitterNode) node;
+            EditorLayoutNode first = this.migrateReplaysGeneralOnTopNode(splitter.getFirst());
+            EditorLayoutNode second = this.migrateReplaysGeneralOnTopNode(splitter.getSecond());
+
+            if (splitter.isHorizontal()
+                && first instanceof EditorLayoutNode.PanelNode
+                && second instanceof EditorLayoutNode.PanelNode
+                && ANCHORED_REPLAYS_PANEL_ID.equals(((EditorLayoutNode.PanelNode) first).getPanelId())
+                && ANCHORED_REPLAYS_PROPERTIES_PANEL_ID.equals(((EditorLayoutNode.PanelNode) second).getPanelId()))
+            {
+                float ratio = splitter.getRatio();
+                float flipped = MathUtils.clamp(1F - ratio, 0.05F, 0.95F);
+
+                return new EditorLayoutNode.SplitterNode(true, flipped, second, first);
+            }
+
+            if (first != splitter.getFirst() || second != splitter.getSecond())
+            {
+                return new EditorLayoutNode.SplitterNode(splitter.isHorizontal(), splitter.getRatio(), first, second);
+            }
+        }
+        else if (node instanceof EditorLayoutNode.TabbedNode)
+        {
+            EditorLayoutNode.TabbedNode tabbed = (EditorLayoutNode.TabbedNode) node;
+            List<EditorLayoutNode> tabs = new ArrayList<>();
+            boolean changed = false;
+
+            for (EditorLayoutNode tab : tabbed.tabs)
+            {
+                EditorLayoutNode next = this.migrateReplaysGeneralOnTopNode(tab);
+
+                tabs.add(next);
+                changed |= next != tab;
+            }
+
+            if (changed)
+            {
+                return new EditorLayoutNode.TabbedNode(tabs, tabbed.activeTab);
+            }
+        }
+
+        return node;
     }
 
     private EditorLayoutNode createAnchoredReplaysPanelNode()
@@ -5737,14 +5807,22 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
             {
                 Pixels pixels = Pixels.fromPNGStream(stream);
 
-                if (pixels != null)
+                if (pixels != null && pixels.width > 0 && pixels.height > 0 && pixels.getBuffer() != null)
                 {
-                    Texture texture = Texture.textureFromPixels(pixels, GL11.GL_LINEAR);
+                    int bpp = Math.max(1, pixels.bits);
+                    long needed = (long) pixels.width * (long) pixels.height * (long) bpp;
 
-                    this.thumbnails.put(id, texture);
-                    this.missingThumbnailIds.remove(id);
+                    if (needed > 0L && needed <= Integer.MAX_VALUE && pixels.getBuffer().remaining() >= (int) needed)
+                    {
+                        Texture texture = Texture.textureFromPixels(pixels, GL11.GL_LINEAR);
 
-                    return texture;
+                        this.thumbnails.put(id, texture);
+                        this.missingThumbnailIds.remove(id);
+
+                        return texture;
+                    }
+
+                    pixels.delete();
                 }
             }
             catch (Exception e)

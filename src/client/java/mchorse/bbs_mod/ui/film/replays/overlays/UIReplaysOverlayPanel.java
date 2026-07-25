@@ -19,6 +19,7 @@ import mchorse.bbs_mod.ui.film.replays.UIReplayList;
 import mchorse.bbs_mod.ui.forms.UINestedEdit;
 import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.ui.framework.elements.UIElement;
+import mchorse.bbs_mod.ui.framework.elements.UIScrollView;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIButton;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIIcon;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIToggle;
@@ -61,7 +62,7 @@ public class UIReplaysOverlayPanel extends UIOverlayPanel
 
     public UIReplayList replays;
 
-    public UIElement replayProperties;
+    public UIScrollView replayProperties;
     public UIElement groupProperties;
     public UINestedEdit pickEdit;
     public UIToggle enabled;
@@ -110,6 +111,7 @@ public class UIReplaysOverlayPanel extends UIOverlayPanel
     public UIElement dropVelocityGroup;
     public UIElement itemDropsContent;
     public UIDraggable dockedResizer;
+    public UIPoseSectionCollapse generalSection;
 
     private UIElement propertiesHost;
     private boolean propertiesExternal;
@@ -336,7 +338,7 @@ public class UIReplaysOverlayPanel extends UIOverlayPanel
 
         this.replayProperties = UI.scrollView(6, 6);
 
-        this.addPropertySection(UIKeys.FILM_REPLAY_SECTION_GENERAL, UI.column(4,
+        this.generalSection = this.addPropertySection(UIKeys.FILM_REPLAY_SECTION_GENERAL, UI.column(4,
             this.pickEdit, this.enabled, this.label, this.nameTag
         ));
         UIElement shadowSection = UI.column(4,
@@ -376,10 +378,11 @@ public class UIReplaysOverlayPanel extends UIOverlayPanel
         this.groupProperties = UI.scrollView(5, 6, UI.column(4, this.groupEnabled, this.groupLabel));
         this.dockedResizer = new UIDraggable((context) ->
         {
-            int bottomHeight = this.content.area.ey() - context.mouseY;
+            /* Properties sit on top; drag resizes that top section. */
+            int topHeight = context.mouseY - this.content.area.y;
             int maxHeight = Math.min(DOCKED_REPLAYS_HEIGHT_MAX, Math.max(DOCKED_BOTTOM_SECTION_MIN, this.content.area.h - DOCKED_TOP_SECTION_MIN - DOCKED_RESIZER_HEIGHT));
 
-            this.dockedReplaysHeight = MathUtils.clamp(bottomHeight, DOCKED_BOTTOM_SECTION_MIN, maxHeight);
+            this.dockedReplaysHeight = MathUtils.clamp(topHeight, DOCKED_BOTTOM_SECTION_MIN, maxHeight);
             this.persistDockedReplaysHeight();
             this.updateDockedLayout();
             this.resize();
@@ -402,13 +405,31 @@ public class UIReplaysOverlayPanel extends UIOverlayPanel
         }
     }
 
-    private void addPropertySection(IKey title, UIElement content)
+    private UIPoseSectionCollapse addPropertySection(IKey title, UIElement content)
     {
         UIPoseSectionCollapse section = new UIPoseSectionCollapse(title, Colors.ACTIVE, content);
 
         /* Parent first — setExpanded attaches the body as the next sibling. */
         this.replayProperties.add(section);
         section.setExpanded(true);
+
+        return section;
+    }
+
+    /**
+     * Scroll properties to General and expand it so Pick/Edit are visible first.
+     */
+    public void focusGeneralSection()
+    {
+        if (this.generalSection != null)
+        {
+            this.generalSection.setExpanded(true);
+        }
+
+        if (this.replayProperties.scroll != null)
+        {
+            this.replayProperties.scroll.setScroll(0D);
+        }
     }
 
     public void attachPropertiesHost(UIElement host)
@@ -507,20 +528,19 @@ public class UIReplaysOverlayPanel extends UIOverlayPanel
             this.dockedReplaysHeight = MathUtils.clamp(this.dockedReplaysHeight, DOCKED_BOTTOM_SECTION_MIN, DOCKED_REPLAYS_HEIGHT_MAX);
 
             boolean clampToAvailableHeight = this.content.area.h >= DOCKED_TOP_SECTION_MIN + DOCKED_BOTTOM_SECTION_MIN + DOCKED_RESIZER_HEIGHT;
-            int dockedHeight = this.dockedReplaysHeight;
+            int propsHeight = this.dockedReplaysHeight;
 
             if (clampToAvailableHeight)
             {
-                dockedHeight = MathUtils.clamp(dockedHeight, DOCKED_BOTTOM_SECTION_MIN, maxHeight);
-                this.dockedReplaysHeight = dockedHeight;
+                propsHeight = MathUtils.clamp(propsHeight, DOCKED_BOTTOM_SECTION_MIN, maxHeight);
+                this.dockedReplaysHeight = propsHeight;
             }
 
-            int replaysHeight = -(dockedHeight + DOCKED_RESIZER_HEIGHT);
-
-            this.replays.relative(this.content).x(0).y(0).w(1F).h(1F, replaysHeight);
-            this.dockedResizer.relative(this.content).x(0).y(1F, -(dockedHeight + DOCKED_RESIZER_HEIGHT)).w(1F).h(0F, DOCKED_RESIZER_HEIGHT);
-            this.replayProperties.relative(this.content).x(0).y(1F, -dockedHeight).w(1F).h(0F, dockedHeight);
-            this.groupProperties.relative(this.content).x(0).y(1F, -dockedHeight).w(1F).h(0F, dockedHeight);
+            /* General / Pick / Edit on top; replay list fills the rest below. */
+            this.replayProperties.relative(this.content).x(0).y(0).w(1F).h(0F, propsHeight);
+            this.groupProperties.relative(this.content).x(0).y(0).w(1F).h(0F, propsHeight);
+            this.dockedResizer.relative(this.content).x(0).y(0F, propsHeight).w(1F).h(0F, DOCKED_RESIZER_HEIGHT);
+            this.replays.relative(this.content).x(0).y(0F, propsHeight + DOCKED_RESIZER_HEIGHT).w(1F).h(1F, -(propsHeight + DOCKED_RESIZER_HEIGHT));
             this.dockedResizer.setVisible(true);
         }
         else

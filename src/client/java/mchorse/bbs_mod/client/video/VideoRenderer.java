@@ -2,7 +2,6 @@ package mchorse.bbs_mod.client.video;
 
 import mchorse.bbs_mod.BBSMod;
 import mchorse.bbs_mod.camera.clips.misc.VideoClip;
-import mchorse.bbs_mod.resources.Link;
 import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.ui.framework.elements.utils.Batcher2D;
 import mchorse.bbs_mod.ui.utils.Area;
@@ -19,9 +18,12 @@ import com.mojang.blaze3d.systems.RenderSystem;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
+import org.watermedia.api.player.PlayerAPI;
 import org.watermedia.api.player.videolan.VideoPlayer;
 import org.watermedia.videolan4j.factory.MediaPlayerFactory;
 
@@ -37,6 +39,8 @@ public class VideoRenderer
         public Boolean lastLoops = null;
         public long lastVideoTime = -1;
         public long lastRenderTime = 0;
+        public int lastWidth;
+        public int lastHeight;
 
         public PlayerWrapper(VideoPlayer player)
         {
@@ -47,6 +51,65 @@ public class VideoRenderer
     private static final Map<String, PlayerWrapper> PLAYERS = new HashMap<>();
     private static MediaPlayerFactory FACTORY;
     private static boolean factoryFailed;
+    /* At most one VideoForm path fully decodes; extras show a still frame. */
+    private static final int MAX_LIVE_FORM_VIDEOS = 1;
+    private static long formPreferFrameMs;
+    private static String formPreferredPath;
+    private static float formPreferredDistSq = Float.MAX_VALUE;
+    private static final Set<String> formLivePaths = new HashSet<>();
+    private static final Set<String> formStillKick = new HashSet<>();
+
+    public static boolean isAvailable()
+    {
+        return !factoryFailed && resolveFactory() != null;
+    }
+
+    /**
+     * Prefer WaterMedia's shared factory (VLC already discovered/extracted).
+     * Never construct MediaPlayerFactory directly — that breaks when VLC isn't ready yet.
+     */
+    private static MediaPlayerFactory resolveFactory()
+    {
+        if (factoryFailed)
+        {
+            return null;
+        }
+
+        try
+        {
+            MediaPlayerFactory factory = PlayerAPI.getFactory();
+
+            if (factory != null)
+            {
+                return factory;
+            }
+
+            if (PlayerAPI.isReady())
+            {
+                factory = PlayerAPI.registerFactory("bbs:default", new String[] {"--avcodec-hw=none"});
+
+                if (factory != null)
+                {
+                    return factory;
+                }
+            }
+
+            /* VLC still extracting / not ready — retry on next frame. */
+            return null;
+        }
+        catch (Throwable t)
+        {
+            /* Missing WaterMedia / VLC: soft-fail forever, no spam. */
+            if (!(t instanceof ClassNotFoundException) && !(t instanceof NoClassDefFoundError) && !(t instanceof LinkageError))
+            {
+                t.printStackTrace();
+            }
+
+            factoryFailed = true;
+
+            return null;
+        }
+    }
 
     public static void renderClips(MatrixStack stack, Batcher2D batcher, List<Clip> clips, int tick, boolean isRunning, Area viewport, Area globalArea, UIContext context, int screenWidth, int screenHeight, boolean renderGlobal)
     {
@@ -140,44 +203,9 @@ public class VideoRenderer
 
     private static String resolveVideoPath(String path)
     {
-        if (path == null || path.isEmpty())
-        {
-            return null;
-        }
+        File file = VideoFormPlayback.resolveFile(path);
 
-        if (path.startsWith("external:"))
-        {
-            String raw = path.substring("external:".length()).trim();
-
-            if (raw.isEmpty())
-            {
-                return null;
-            }
-
-            File file = new File(raw);
-
-            if (!file.isAbsolute())
-            {
-                file = new File(BBSMod.getGameFolder(), raw);
-            }
-
-            return file.getAbsolutePath();
-        }
-
-        try
-        {
-            Link link = Link.create(path);
-            File file = BBSMod.getProvider().getFile(link);
-
-            if (file != null && file.exists())
-            {
-                return file.getAbsolutePath();
-            }
-        }
-        catch (Throwable ignored)
-        {}
-
-        return path;
+        return file == null ? null : file.getAbsolutePath();
     }
 
     public static File getResolvedVideoFile(String path)
@@ -196,11 +224,271 @@ public class VideoRenderer
 
     public static void render(MatrixStack stack, String path, long position, boolean playing, int volume, int x, int y, int w, int h, float opacity, int cropX, int cropY, int cropWidth, int cropHeight, boolean loops)
     {
+        FrameInfo frame = prepareFrame(path, position, playing, loops, volume);
+
+        if (frame == null || frame.textureId <= 0)
+        {
+            return;
+        }
+
+        int vw = frame.width;
+        int vh = frame.height;
+
+        if (w == 0 || h == 0)
+        {
+            if (vw > 0 && vh > 0)
+            {
+                /* Caller supplies container size; keep prior stretch behavior. */
+            }
+        }
+
+        /* Recorte por lados (izq/arr/der/abajo) y ajuste de tamaño para evitar estirar. */
+        float left = Math.max(0F, Math.min(1F, cropX / 100F));
+        float top = Math.max(0F, Math.min(1F, cropY / 100F));
+        float right = Math.max(0F, Math.min(1F, cropWidth / 100F));
+        float bottom = Math.max(0F, Math.min(1F, cropHeight / 100F));
+
+        float u0 = left;
+        float v0 = top;
+        float u1 = 1F - right;
+        float v1 = 1F - bottom;
+
+        float cropWidthPercent = u1 - u0;
+        float cropHeightPercent = v1 - v0;
+
+        if (cropWidthPercent <= 0F || cropHeightPercent <= 0F)
+        {
+            return;
+        }
+
+        int wSign = w < 0 ? -1 : 1;
+        int hSign = h < 0 ? -1 : 1;
+        int absW = Math.abs(w);
+        int absH = Math.abs(h);
+        int drawW = Math.round(absW * cropWidthPercent) * wSign;
+        int drawH = Math.round(absH * cropHeightPercent) * hSign;
+
+        if (drawW == 0 || drawH == 0)
+        {
+            return;
+        }
+
+        RenderSystem.setShader(GameRenderer::getPositionTexProgram);
+        RenderSystem.setShaderTexture(0, frame.textureId);
+        RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, opacity);
+        RenderSystem.enableBlend();
+        RenderSystem.defaultBlendFunc();
+        RenderSystem.disableDepthTest();
+        RenderSystem.depthMask(false);
+        RenderSystem.disableCull();
+
+        Tessellator tessellator = Tessellator.getInstance();
+        BufferBuilder buffer = tessellator.begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_TEXTURE);
+        Matrix4f matrix = stack.peek().getPositionMatrix();
+
+        /* Desplazar por recorte de izquierda/arriba para mantener el contenido en su lugar. */
+        int drawX = x + Math.round(absW * left) * wSign;
+        int drawY = y + Math.round(absH * top) * hSign;
+
+        buffer.vertex(matrix, drawX, drawY + drawH, 0).texture(u0, v1);
+        buffer.vertex(matrix, drawX + drawW, drawY + drawH, 0).texture(u1, v1);
+        buffer.vertex(matrix, drawX + drawW, drawY, 0).texture(u1, v0);
+        buffer.vertex(matrix, drawX, drawY, 0).texture(u0, v0);
+        BufferRenderer.drawWithGlobalProgram(buffer.end());
+
+        RenderSystem.enableCull();
+        RenderSystem.depthMask(true);
+        RenderSystem.enableDepthTest();
+        RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
+    }
+
+    /**
+     * Ensure a WaterMedia player is synced to the given film/entity tick and return its GL texture.
+     * Volume 0 mutes audio (used by VideoForm).
+     */
+    public static FrameInfo prepareFrame(String path, long tickPosition, boolean playing, boolean loops, int volume)
+    {
+        return prepareFrame(path, tickPosition, playing, loops, volume, false);
+    }
+
+    /**
+     * VideoForm path: muted VLC. Only the closest form stays live; others peek a still.
+     */
+    public static FrameInfo prepareFormFrame(String path, long tickPosition, boolean loops)
+    {
+        return prepareFormFrame(path, tickPosition, loops, 0F, 0);
+    }
+
+    public static FrameInfo prepareFormFrame(String path, long tickPosition, boolean loops, float distanceSq)
+    {
+        return prepareFormFrame(path, tickPosition, loops, distanceSq, 0);
+    }
+
+    public static FrameInfo prepareFormFrame(String path, long tickPosition, boolean loops, float distanceSq, int maxLongSide)
+    {
         String resolved = resolveVideoPath(path);
 
         if (resolved == null || resolved.isEmpty())
         {
-            return;
+            return null;
+        }
+
+        long frameMs = System.currentTimeMillis() / 50L;
+
+        if (frameMs != formPreferFrameMs)
+        {
+            formPreferFrameMs = frameMs;
+            formPreferredPath = null;
+            formPreferredDistSq = Float.MAX_VALUE;
+            formLivePaths.clear();
+        }
+
+        if (distanceSq < formPreferredDistSq)
+        {
+            /* Closer form wins — pause any previously preferred different path this frame. */
+            if (formPreferredPath != null && !formPreferredPath.equals(resolved))
+            {
+                pauseFormPlayer(formPreferredPath);
+                formLivePaths.remove(formPreferredPath);
+            }
+
+            formPreferredDistSq = distanceSq;
+            formPreferredPath = resolved;
+        }
+
+        boolean mayLive = resolved.equals(formPreferredPath)
+            && (formLivePaths.isEmpty()
+                || formLivePaths.contains(resolved)
+                || formLivePaths.size() < MAX_LIVE_FORM_VIDEOS);
+
+        if (!mayLive)
+        {
+            pauseFormPlayer(resolved);
+
+            FrameInfo peeked = peekFormFrame(path);
+
+            if (peeked != null)
+            {
+                return peeked;
+            }
+
+            /* Cold still: start paused once so we have a texture, then keep paused. */
+            return prepareFrame(path, tickPosition, false, loops, 0, true);
+        }
+
+        formLivePaths.add(resolved);
+
+        /* Skip GPU blit on the live path — per-frame 4K→720 blit often costs more than it saves.
+         * Resolution presets still scale ffmpeg decode; WaterMedia keeps native upload. */
+        return prepareFrame(path, tickPosition, true, loops, 0, true);
+    }
+
+    /**
+     * True when another VideoForm path is already decoding live (blocks ffmpeg doubling load).
+     */
+    public static boolean isOtherFormVideoLive(String path)
+    {
+        String resolved = resolveVideoPath(path);
+
+        if (formLivePaths.isEmpty())
+        {
+            return false;
+        }
+
+        if (resolved == null || resolved.isEmpty())
+        {
+            return true;
+        }
+
+        return !formLivePaths.contains(resolved);
+    }
+
+    private static void pauseFormPlayer(String resolved)
+    {
+        PlayerWrapper wrapper = PLAYERS.get(resolved);
+
+        if (wrapper != null && wrapper.player != null && Boolean.TRUE.equals(wrapper.wasPlaying))
+        {
+            wrapper.player.pause();
+            wrapper.wasPlaying = false;
+        }
+    }
+
+    /**
+     * Return the current GL texture if a player already exists — no start/seek/play.
+     * Used when a still was already decoded.
+     */
+    public static FrameInfo peekFormFrame(String path)
+    {
+        String resolved = resolveVideoPath(path);
+
+        if (resolved == null || resolved.isEmpty())
+        {
+            return null;
+        }
+
+        PlayerWrapper wrapper = PLAYERS.get(resolved);
+
+        if (wrapper == null || wrapper.player == null)
+        {
+            return null;
+        }
+
+        int texture = wrapper.player.texture();
+
+        if (texture <= 0)
+        {
+            return null;
+        }
+
+        int width = wrapper.lastWidth > 0 ? wrapper.lastWidth : wrapper.player.width();
+        int height = wrapper.lastHeight > 0 ? wrapper.lastHeight : wrapper.player.height();
+
+        if (width <= 0 || height <= 0)
+        {
+            width = 16;
+            height = 9;
+        }
+
+        return new FrameInfo(texture, width, height);
+    }
+
+    /**
+     * Editor / inventory / item icon: load first frame once, keep paused (no live decode).
+     */
+    public static FrameInfo ensureFormStillFrame(String path, long tickPosition, boolean loops)
+    {
+        FrameInfo peeked = peekFormFrame(path);
+
+        if (peeked != null)
+        {
+            return peeked;
+        }
+
+        String resolved = resolveVideoPath(path);
+
+        if (resolved == null || resolved.isEmpty())
+        {
+            return null;
+        }
+
+        /* One kick-play so VLC uploads a frame, then stay paused. */
+        if (!formStillKick.contains(resolved))
+        {
+            formStillKick.add(resolved);
+            prepareFrame(path, tickPosition, true, loops, 0, true);
+        }
+
+        return prepareFrame(path, tickPosition, false, loops, 0, true);
+    }
+
+    private static FrameInfo prepareFrame(String path, long tickPosition, boolean playing, boolean loops, int volume, boolean formMode)
+    {
+        String resolved = resolveVideoPath(path);
+
+        if (resolved == null || resolved.isEmpty())
+        {
+            return null;
         }
 
         PlayerWrapper wrapper = PLAYERS.get(resolved);
@@ -210,41 +498,50 @@ public class VideoRenderer
         {
             if (factoryFailed)
             {
-                return;
+                return null;
             }
 
             if (FACTORY == null)
             {
-                try
+                FACTORY = resolveFactory();
+
+                if (FACTORY == null)
                 {
-                    FACTORY = new MediaPlayerFactory(new String[] {"--avcodec-hw=none"});
-                }
-                catch (Throwable t)
-                {
-                    t.printStackTrace();
-                    factoryFailed = true;
-                    return;
+                    return null;
                 }
             }
 
             player = new VideoPlayer(FACTORY, MinecraftClient.getInstance());
+
             try
             {
                 player.start(new File(resolved).toURI());
                 player.setVolume(volume);
+                /* Force decode so the first form frame is not blank while dimensions are still 0. */
+                player.play();
+                player.setRepeatMode(loops);
                 wrapper = new PlayerWrapper(player);
                 wrapper.lastVolume = volume;
+                wrapper.lastLoops = loops;
+                wrapper.wasPlaying = true;
                 PLAYERS.put(resolved, wrapper);
             }
-            catch (Exception e)
+            catch (Throwable e)
             {
-                e.printStackTrace();
-                return;
+                if (!(e instanceof ClassNotFoundException) && !(e instanceof NoClassDefFoundError) && !(e instanceof LinkageError))
+                {
+                    e.printStackTrace();
+                }
+
+                factoryFailed = true;
+
+                return null;
             }
         }
         else
         {
             player = wrapper.player;
+
             if (wrapper.lastVolume != volume)
             {
                 player.setVolume(volume);
@@ -268,11 +565,12 @@ public class VideoRenderer
             {
                 player.pause();
             }
+
             wrapper.wasPlaying = playing;
         }
 
         long videoTime = player.getTime();
-        long bbsTime = position * 50;
+        long bbsTime = tickPosition * 50L;
         long systemTime = System.currentTimeMillis();
         wrapper.lastRenderTime = systemTime;
         long duration = player.getDuration();
@@ -286,20 +584,31 @@ public class VideoRenderer
                     player.pause();
                 }
             }
+
             wrapper.lastVideoTime = videoTime;
         }
 
         if (loops && duration > 0)
         {
             bbsTime = bbsTime % duration;
-            if (bbsTime < 0) bbsTime += duration;
+
+            if (bbsTime < 0)
+            {
+                bbsTime += duration;
+            }
         }
 
         boolean shouldSeek = false;
+        long seekThreshold = formMode ? 2500L : 1000L;
+        long seekCooldown = formMode ? 5000L : 3000L;
 
-        if (playing)
+        if (formMode && playing)
         {
-            // When playing, sync only if drift is large and we haven't sought recently
+            /* Free-run in world forms — seeking from multiple forms fights and tanks FPS. */
+            shouldSeek = false;
+        }
+        else if (playing)
+        {
             long diff = Math.abs(videoTime - bbsTime);
 
             if (loops && duration > 0)
@@ -308,19 +617,18 @@ public class VideoRenderer
                 diff = Math.min(diff, loopDiff);
             }
 
-            if (diff > 1000 && (systemTime - wrapper.lastSeekTime) > 3000)
+            if (diff > seekThreshold && (systemTime - wrapper.lastSeekTime) > seekCooldown)
             {
                 shouldSeek = true;
             }
         }
         else
         {
-            // When paused, seek only if the timeline cursor moved or if we are out of sync
             if (wrapper.lastBbsTime != bbsTime)
             {
                 shouldSeek = true;
             }
-            else if (Math.abs(videoTime - bbsTime) > 1000 && (systemTime - wrapper.lastSeekTime) > 3000)
+            else if (Math.abs(videoTime - bbsTime) > seekThreshold && (systemTime - wrapper.lastSeekTime) > seekCooldown)
             {
                 shouldSeek = true;
             }
@@ -334,119 +642,50 @@ public class VideoRenderer
         }
         else if (!playing)
         {
-            // Update tracking even if we didn't seek, to avoid seeking on same frame later if conditions change
             wrapper.lastBbsTime = bbsTime;
         }
 
         int texture = player.texture();
 
-        if (texture > 0)
+        if (texture <= 0)
         {
-            int vw = player.width();
-            int vh = player.height();
+            return null;
+        }
 
-            if (w == 0 || h == 0)
-            {
-                if (vw > 0 && vh > 0)
-                {
-                    // Fit video into target area (x, y, w, h are treated as container if w=0 or h=0 passed initially? No, wait)
-                    // The caller passes 'area.w' and 'area.h' if video.width/height are 0.
-                    // But here we want to RESPECT aspect ratio if the user didn't specify exact dimensions.
-                    
-                    // Actually, let's look at how UIFilmPreview calls this.
-                    // It passes video.width/height if set, OR area.w/area.h if 0.
-                    // So if user sets 0, we get area.w/area.h.
-                    // To support "fit to camera" with correct aspect ratio, we need to know if the caller WANTED original aspect ratio.
-                    // But here, we are low level.
-                    
-                    // However, we can improve this:
-                    // If the user specified explicit dimensions (w != area.w perhaps?), use them.
-                    // But since we can't easily know the "container" size here without more args,
-                    // let's assume if the input w/h match the viewport, we might want to fit.
-                    
-                    // BETTER APPROACH:
-                    // We'll calculate the draw rect here.
-                    // But wait, the previous code just drew a quad from x,y to x+w,y+h.
-                    
-                    // If we want to preserve aspect ratio, we need to adjust x, y, w, h.
-                    // But 'render' just draws a quad.
-                    // It's better to do the calculation in UIFilmPreview.
-                    // However, I can't easily access 'player.width()' from UIFilmPreview without exposing the player wrapper or adding a getter.
-                    
-                    // So, let's modify THIS method to handle aspect ratio if a flag is set?
-                    // Or better, let's return the player dimensions so UIFilmPreview can use them?
-                    // No, that's complex async state.
-                    
-                    // Let's do this:
-                    // If w and h are provided, we fill that rect.
-                    // BUT, if the user wants "auto" size (0, 0 in clip), UIFilmPreview passes area.w/area.h.
-                    // That stretches it.
-                    
-                    // We need a way to tell render() "Use these bounds but FIT the video inside".
-                    // Or, we can query dimensions.
-                    
-                    // Let's add a method to get dimensions for a path.
-                }
-            }
+        int width = player.width();
+        int height = player.height();
 
-            /* Recorte por lados (izq/arr/der/abajo) y ajuste de tamaño para evitar estirar. */
-            float left = Math.max(0F, Math.min(1F, cropX / 100F));
-            float top = Math.max(0F, Math.min(1F, cropY / 100F));
-            float right = Math.max(0F, Math.min(1F, cropWidth / 100F));
-            float bottom = Math.max(0F, Math.min(1F, cropHeight / 100F));
+        if (width > 0 && height > 0)
+        {
+            wrapper.lastWidth = width;
+            wrapper.lastHeight = height;
+        }
+        else if (wrapper.lastWidth > 0 && wrapper.lastHeight > 0)
+        {
+            width = wrapper.lastWidth;
+            height = wrapper.lastHeight;
+        }
+        else
+        {
+            /* WaterMedia often reports 0×0 until the first decoded frame — still draw. */
+            width = 16;
+            height = 9;
+        }
 
-            float u0 = left;
-            float v0 = top;
-            float u1 = 1F - right;
-            float v1 = 1F - bottom;
+        return new FrameInfo(texture, width, height);
+    }
 
-            float cropWidthPercent = u1 - u0;
-            float cropHeightPercent = v1 - v0;
+    public static final class FrameInfo
+    {
+        public final int textureId;
+        public final int width;
+        public final int height;
 
-            if (cropWidthPercent <= 0F || cropHeightPercent <= 0F)
-            {
-                return;
-            }
-
-            int wSign = w < 0 ? -1 : 1;
-            int hSign = h < 0 ? -1 : 1;
-            int absW = Math.abs(w);
-            int absH = Math.abs(h);
-            int drawW = Math.round(absW * cropWidthPercent) * wSign;
-            int drawH = Math.round(absH * cropHeightPercent) * hSign;
-
-            if (drawW == 0 || drawH == 0)
-            {
-                return;
-            }
-
-            RenderSystem.setShader(GameRenderer::getPositionTexProgram);
-            RenderSystem.setShaderTexture(0, texture);
-            RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, opacity);
-            RenderSystem.enableBlend();
-            RenderSystem.defaultBlendFunc();
-            RenderSystem.disableDepthTest();
-            RenderSystem.depthMask(false);
-            RenderSystem.disableCull();
-
-            Tessellator tessellator = Tessellator.getInstance();
-            BufferBuilder buffer = tessellator.begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_TEXTURE);
-            Matrix4f matrix = stack.peek().getPositionMatrix();
-
-            /* Desplazar por recorte de izquierda/arriba para mantener el contenido en su lugar. */
-            int drawX = x + Math.round(absW * left) * wSign;
-            int drawY = y + Math.round(absH * top) * hSign;
-
-            buffer.vertex(matrix, drawX, drawY + drawH, 0).texture(u0, v1);
-            buffer.vertex(matrix, drawX + drawW, drawY + drawH, 0).texture(u1, v1);
-            buffer.vertex(matrix, drawX + drawW, drawY, 0).texture(u1, v0);
-            buffer.vertex(matrix, drawX, drawY, 0).texture(u0, v0);
-            BufferRenderer.drawWithGlobalProgram(buffer.end());
-            
-            RenderSystem.enableCull();
-            RenderSystem.depthMask(true);
-            RenderSystem.enableDepthTest();
-            RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
+        public FrameInfo(int textureId, int width, int height)
+        {
+            this.textureId = textureId;
+            this.width = width;
+            this.height = height;
         }
     }
 
@@ -487,14 +726,10 @@ public class VideoRenderer
 
         if (FACTORY == null)
         {
-            try
+            FACTORY = resolveFactory();
+
+            if (FACTORY == null)
             {
-                FACTORY = new MediaPlayerFactory(new String[] {"--avcodec-hw=none"});
-            }
-            catch (Throwable t)
-            {
-                t.printStackTrace();
-                factoryFailed = true;
                 return 0L;
             }
         }
@@ -526,6 +761,7 @@ public class VideoRenderer
         if (resolved != null && PLAYERS.containsKey(resolved))
         {
             PlayerWrapper wrapper = PLAYERS.remove(resolved);
+            formStillKick.remove(resolved);
 
             if (wrapper != null && wrapper.player != null)
             {
@@ -563,6 +799,7 @@ public class VideoRenderer
         for (String key : toRemove)
         {
             PLAYERS.remove(key);
+            formStillKick.remove(key);
         }
     }
 
@@ -586,6 +823,7 @@ public class VideoRenderer
         }
         
         PLAYERS.clear();
+        formStillKick.clear();
 
         if (FACTORY != null)
         {

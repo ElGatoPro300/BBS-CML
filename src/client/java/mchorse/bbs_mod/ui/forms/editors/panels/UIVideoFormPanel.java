@@ -3,6 +3,7 @@ package mchorse.bbs_mod.ui.forms.editors.panels;
 import mchorse.bbs_mod.forms.forms.VideoForm;
 import mchorse.bbs_mod.forms.forms.utils.GlowSettings;
 import mchorse.bbs_mod.forms.forms.utils.PaintSettings;
+import mchorse.bbs_mod.forms.forms.utils.VideoResolution;
 import mchorse.bbs_mod.l10n.keys.IKey;
 import mchorse.bbs_mod.ui.UIKeys;
 import mchorse.bbs_mod.ui.film.replays.UIReplaysEditor;
@@ -10,6 +11,7 @@ import mchorse.bbs_mod.ui.forms.editors.forms.UIForm;
 import mchorse.bbs_mod.ui.forms.editors.panels.widgets.UIFormColorAdjustments;
 import mchorse.bbs_mod.ui.forms.editors.panels.widgets.UIFormPaintTransform;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIButton;
+import mchorse.bbs_mod.ui.framework.elements.buttons.UICirculate;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIToggle;
 import mchorse.bbs_mod.ui.framework.elements.input.UIColor;
 import mchorse.bbs_mod.ui.framework.elements.input.UIPoseSectionCollapse;
@@ -29,8 +31,10 @@ public class UIVideoFormPanel extends UIFormPanel<VideoForm>
     public UIToggle billboard;
     public UIToggle linear;
     public UIToggle loop;
+    public UIToggle paused;
+    public UICirculate resolution;
     public UITrackpad speed;
-    public UITrackpad offset;
+    public UITrackpad time;
 
     public UIColor color;
     public UIFormColorAdjustments colorAdjustments;
@@ -41,11 +45,6 @@ public class UIVideoFormPanel extends UIFormPanel<VideoForm>
     public UITrackpad glowIntensity;
     public UIPoseSectionCollapse colorSection;
     public UIPoseSectionCollapse glowSection;
-
-    public UITrackpad offsetX;
-    public UITrackpad offsetY;
-    public UITrackpad rotation;
-    public UIToggle shading;
 
     public UIVideoFormPanel(UIForm editor)
     {
@@ -71,12 +70,25 @@ public class UIVideoFormPanel extends UIFormPanel<VideoForm>
         this.billboard = new UIToggle(UIKeys.FORMS_EDITORS_VIDEO_BILLBOARD, false, (b) -> this.form.billboard.set(b.getValue()));
         this.linear = new UIToggle(UIKeys.TEXTURES_LINEAR, true, (b) -> this.form.linear.set(b.getValue()));
         this.loop = new UIToggle(UIKeys.FORMS_EDITORS_VIDEO_LOOP, true, (b) -> this.form.loop.set(b.getValue()));
+        this.paused = new UIToggle(UIKeys.FORMS_EDITORS_VIDEO_PAUSED, false, (b) -> this.form.paused.set(b.getValue()));
+        this.paused.tooltip(UIKeys.FORMS_EDITORS_VIDEO_PAUSED_TOOLTIP);
+        this.resolution = new UICirculate((b) ->
+        {
+            this.form.resolution.set(VideoResolution.fromIndex(this.resolution.getValue()));
+        });
+        this.resolution.addLabel(UIKeys.FORMS_EDITORS_VIDEO_RESOLUTION_NATIVE);
+        this.resolution.addLabel(UIKeys.FORMS_EDITORS_VIDEO_RESOLUTION_1080);
+        this.resolution.addLabel(UIKeys.FORMS_EDITORS_VIDEO_RESOLUTION_720);
+        this.resolution.addLabel(UIKeys.FORMS_EDITORS_VIDEO_RESOLUTION_480);
+        this.resolution.addLabel(UIKeys.FORMS_EDITORS_VIDEO_RESOLUTION_360);
+        this.resolution.addLabel(UIKeys.FORMS_EDITORS_VIDEO_RESOLUTION_240);
+        this.resolution.tooltip(UIKeys.FORMS_EDITORS_VIDEO_RESOLUTION_TOOLTIP);
         this.speed = new UITrackpad((value) -> this.form.speed.set(value.floatValue()));
         this.speed.limit(0.01D, 8D).values(0.25D, 0.05D, 1D);
-        this.speed.tooltip(UIKeys.FORMS_EDITORS_VIDEO_SPEED);
-        this.offset = new UITrackpad((value) -> this.form.offset.set(value.intValue()));
-        this.offset.integer();
-        this.offset.tooltip(UIKeys.FORMS_EDITORS_VIDEO_OFFSET);
+        this.speed.tooltip(UIKeys.FORMS_EDITORS_VIDEO_SPEED_TOOLTIP);
+        this.time = new UITrackpad((value) -> this.form.time.set(value.intValue()));
+        this.time.integer().limit(0D, Integer.MAX_VALUE);
+        this.time.tooltip(UIKeys.FORMS_EDITORS_VIDEO_TIME_TOOLTIP);
 
         this.color = new UIColor((value) ->
         {
@@ -172,18 +184,10 @@ public class UIVideoFormPanel extends UIFormPanel<VideoForm>
             )
         );
 
-        this.offsetX = new UITrackpad((value) -> this.form.offsetX.set(value.floatValue()));
-        this.offsetX.tooltip(UIKeys.FORMS_EDITORS_BILLBOARD_OFFSET_X);
-        this.offsetY = new UITrackpad((value) -> this.form.offsetY.set(value.floatValue()));
-        this.offsetY.tooltip(UIKeys.FORMS_EDITORS_BILLBOARD_OFFSET_Y);
-        this.rotation = new UITrackpad((value) -> this.form.rotation.set(value.floatValue()));
-        this.rotation.tooltip(UIKeys.FORMS_EDITORS_BILLBOARD_ROTATION);
-        this.shading = new UIToggle(UIKeys.FORMS_EDITORS_BILLBOARD_SHADING, false, (b) -> this.form.shading.set(b.getValue()));
-
-        this.options.add(this.pick, this.colorSection, this.glowSection, this.billboard, this.linear, this.loop);
+        this.options.add(this.pick, this.colorSection, this.glowSection, this.billboard, this.linear, this.loop, this.paused);
+        this.options.add(UI.label(UIKeys.FORMS_EDITORS_VIDEO_RESOLUTION).marginTop(8), this.resolution);
         this.options.add(UI.label(UIKeys.FORMS_EDITORS_VIDEO_SPEED).marginTop(8), this.speed);
-        this.options.add(UI.label(UIKeys.FORMS_EDITORS_VIDEO_OFFSET).marginTop(8), this.offset);
-        this.options.add(UI.label(UIKeys.FORMS_EDITORS_BILLBOARD_UV_SHIFT).marginTop(8), UI.row(this.offsetX, this.offsetY), this.rotation, this.shading);
+        this.options.add(UI.label(UIKeys.FORMS_EDITORS_VIDEO_TIME).marginTop(8), this.time);
     }
 
     @Override
@@ -194,8 +198,10 @@ public class UIVideoFormPanel extends UIFormPanel<VideoForm>
         this.billboard.setValue(form.billboard.get());
         this.linear.setValue(form.linear.get());
         this.loop.setValue(form.loop.get());
+        this.paused.setValue(form.paused.get());
+        this.resolution.setValue(VideoResolution.indexOf(form.resolution.get()));
         this.speed.setValue(form.speed.get());
-        this.offset.setValue(form.offset.get());
+        this.time.setValue(form.time.get());
 
         this.color.setColor(form.color.get().getARGBColor());
         this.colorAdjustments.syncFromForm();
@@ -212,11 +218,6 @@ public class UIVideoFormPanel extends UIFormPanel<VideoForm>
         glow.resolveColor(form.glowingColor.get(), glowDisplay);
         this.glowingColor.setColor(glowDisplay.getRGBColor());
         this.glowIntensity.setValue(glow.intensity);
-
-        this.offsetX.setValue(form.offsetX.get());
-        this.offsetY.setValue(form.offsetY.get());
-        this.rotation.setValue(form.rotation.get());
-        this.shading.setValue(form.shading.get());
         this.refreshPickLabel();
     }
 

@@ -1711,16 +1711,52 @@ public class UIReplayList extends UIList<Replay> {
         }
 
         Consumer<Form> callback = (f) -> {
-            for (Replay replay : this.getCurrent()) {
-                replay.form.set(FormUtils.copy(f));
+            Replay primary = this.getCurrentFirst();
+
+            if (primary == null && this.panel != null && this.panel.replayEditor != null)
+            {
+                primary = this.panel.replayEditor.getReplay();
+            }
+
+            List<Replay> selected = this.getCurrent();
+
+            if (!selected.isEmpty())
+            {
+                for (Replay replay : selected)
+                {
+                    replay.form.set(FormUtils.copy(f));
+                }
+            }
+            else if (primary != null)
+            {
+                primary.form.set(FormUtils.copy(f));
+            }
+
+            if (primary != null)
+            {
+                this.buildVisualList();
+                this.setCurrentDirect(primary);
+
+                if (this.overlay != null)
+                {
+                    this.overlay.syncReplaySelection(primary, true);
+                    this.overlay.pickEdit.setForm(primary.form.get());
+                    this.overlay.focusGeneralSection();
+                }
+
+                /* Keep editor + list selection in sync so Edit unlocks without a second click. */
+                this.panel.replayEditor.setReplay(primary, true, false);
+            }
+            else if (this.overlay != null)
+            {
+                this.overlay.pickEdit.setForm(f);
             }
 
             this.updateFilmEditor();
 
-            if (consumer != null) {
+            if (consumer != null)
+            {
                 consumer.accept(f);
-            } else {
-                this.overlay.pickEdit.setForm(f);
             }
         };
 
@@ -1836,6 +1872,13 @@ public class UIReplayList extends UIList<Replay> {
         this.setCurrentDirect(replay);
         this.panel.replayEditor.setReplay(replay);
         this.updateFilmEditor();
+
+        if (this.overlay != null)
+        {
+            this.overlay.syncReplaySelection(replay, true);
+            this.overlay.pickEdit.setForm(replay.form.get());
+            this.overlay.focusGeneralSection();
+        }
 
         this.openFormEditor(replay.form, false, null);
     }
@@ -1966,6 +2009,13 @@ public class UIReplayList extends UIList<Replay> {
         this.setCurrentDirect(replay);
         this.panel.replayEditor.setReplay(replay);
         this.updateFilmEditor();
+
+        if (this.overlay != null)
+        {
+            this.overlay.syncReplaySelection(replay, true);
+            this.overlay.pickEdit.setForm(replay.form.get());
+            this.overlay.focusGeneralSection();
+        }
 
         this.openFormEditor(replay.form, false, null);
     }

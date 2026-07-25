@@ -1726,6 +1726,26 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
             return UIKeys.FORMS_EDITORS_PAINT_COLOR;
         }
 
+        if (trackName.equals("time"))
+        {
+            return UIKeys.FORMS_EDITORS_VIDEO_TIME;
+        }
+
+        if (trackName.equals("speed"))
+        {
+            return UIKeys.FORMS_EDITORS_VIDEO_SPEED;
+        }
+
+        if (trackName.equals("paused"))
+        {
+            return UIKeys.FORMS_EDITORS_VIDEO_PAUSED;
+        }
+
+        if (trackName.equals("resolution"))
+        {
+            return UIKeys.FORMS_EDITORS_VIDEO_RESOLUTION;
+        }
+
         if (trackName.equals("glow") || trackName.equals("glow_settings"))
         {
             return UIKeys.FORMS_EDITORS_GLOW;
