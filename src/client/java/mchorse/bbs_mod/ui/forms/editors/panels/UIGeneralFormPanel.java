@@ -163,11 +163,7 @@ public class UIGeneralFormPanel extends UIFormPanel
         this.illusionGlowInvert.tooltip(UIKeys.FORMS_EDITORS_GENERAL_ILLUSION_GLOW_INVERT_TOOLTIP);
         this.illusionTransformEditor = new UIPropTransform().callbacks(
             () -> this.form.illusion.preNotify(),
-            () ->
-            {
-                this.form.illusion.postNotify();
-                this.editor.startEdit(this.form);
-            }
+            () -> this.form.illusion.postNotify()
         );
         this.illusionGradual = new UIToggle(UIKeys.FORMS_EDITORS_GENERAL_ILLUSION_GRADUAL, (b) -> this.editIllusion((illusion) -> illusion.gradual = b.getValue()));
         this.illusionGradual.tooltip(UIKeys.FORMS_EDITORS_GENERAL_ILLUSION_GRADUAL_TOOLTIP);
@@ -290,6 +286,8 @@ public class UIGeneralFormPanel extends UIFormPanel
 
         consumer.accept(illusion);
         this.form.illusion.set(illusion);
+        /* Keep the transform editor bound to the live Illusion instance after copy/set. */
+        this.illusionTransformEditor.setTransform(illusion.transform);
     }
 
     private void resetIllusion()
@@ -300,8 +298,8 @@ public class UIGeneralFormPanel extends UIFormPanel
         }
 
         this.form.illusion.set(new Illusion());
+        /* Refresh this panel only — editor.startEdit() would switch to the Pose default panel. */
         this.startEdit(this.form);
-        this.editor.startEdit(this.form);
     }
 
     private void toggleIllusionDirection(int bit, boolean enabled)
