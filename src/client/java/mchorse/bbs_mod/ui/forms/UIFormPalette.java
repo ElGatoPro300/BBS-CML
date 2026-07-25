@@ -7,7 +7,6 @@ import mchorse.bbs_mod.ui.forms.editors.UIFormEditor;
 import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.ui.framework.elements.UIElement;
 import mchorse.bbs_mod.ui.framework.elements.utils.EventPropagation;
-import mchorse.bbs_mod.ui.model_blocks.UIModelBlockPanel;
 
 import org.lwjgl.glfw.GLFW;
 
@@ -241,16 +240,10 @@ public class UIFormPalette extends UIElement implements IUIFormList
     @Override
     public void render(UIContext context)
     {
-        /* Immersive pick: scrim while the list is open. Immersive edit (Film Edit):
-         * keep the same dark halo behind the model editor so it is not a flat void.
-         * Hide when F7 real-world preview mode is active. */
-        boolean showScrim = this.background && (
-            !this.immersive
-                || this.list.isVisible()
-                || (this.editor.isEditing() && !UIModelBlockPanel.toggleRendering)
-        );
-
-        if (showScrim)
+        /* Immersive model-block / morph pick: darken only while the form list is open.
+         * While editing immersively, keep the live world visible behind the form preview
+         * (F7 toggles gizmos vs the world instance, not a scrim). */
+        if (this.background && (!this.immersive || this.list.isVisible()))
         {
             this.area.render(context.batcher, 0xEE111115);
         }
