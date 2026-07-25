@@ -104,6 +104,7 @@ public class CubicCpuGroupDrawRenderer extends CubicCubeRenderer
             this.resolveEffectiveGlowB(group),
             effectiveGlowStrength
         );
+        ModelVAORenderer.setGroupGlowEffectTransform(group.glowingColor.transform);
         ModelVAORenderer.setGroupFormColorGrade(group.color);
         ModelVAORenderer.setGroupColorEffectTransform(group.color.transform);
         ModelVAORenderer.setGroupFormColorTint(group.color);

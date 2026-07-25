@@ -59,6 +59,7 @@ public class PoseTransform extends Transform
         this.paintColor.set(1F, 1F, 1F, 0F);
         this.paintColor.transform = new EffectTransform();
         this.glowingColor.set(1F, 1F, 1F, 1F);
+        this.glowingColor.transform = new EffectTransform();
         this.glowIntensity = 0F;
         this.glowRadius = 0F;
         this.lighting = 0F;

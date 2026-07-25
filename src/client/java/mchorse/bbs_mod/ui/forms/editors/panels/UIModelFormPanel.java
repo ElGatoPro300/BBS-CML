@@ -187,15 +187,20 @@ public class UIModelFormPanel extends UIFormPanel<ModelForm>
         this.glowIntensity.tooltip(UIKeys.FORMS_EDITORS_GLOW_INTENSITY);
         this.glowTransform = new UIEffectTransformCollapse((apply) ->
         {
-            Color copy = this.form.glowingColor.get().copy();
+            GlowSettings settings = this.form.glowSettings.get().copy();
 
-            if (copy.transform == null)
+            if (settings.transform == null)
             {
-                copy.transform = new EffectTransform();
+                settings.transform = new EffectTransform();
             }
 
-            apply.accept(copy.transform);
-            this.form.glowingColor.set(copy);
+            apply.accept(settings.transform);
+            this.form.glowSettings.set(settings);
+
+            Color legacy = this.form.glowingColor.get().copy();
+
+            legacy.transform = settings.transform.copy();
+            this.form.glowingColor.set(legacy);
         });
         this.glowSection = UIFormColorLayout.createGlowSection(this.glowingColor, this.glowIntensity, this.glowTransform);
         this.poseEditor = new UIModelPoseEditor();
@@ -351,7 +356,11 @@ public class UIModelFormPanel extends UIFormPanel<ModelForm>
         this.glowingColor.setColor(glowDisplay.getRGBColor());
 
         this.glowIntensity.setValue(glow.intensity);
-        this.glowTransform.setEffectTransform(form.glowingColor.get().transform == null ? new EffectTransform() : form.glowingColor.get().transform);
+        EffectTransform glowTransform = glow.transform != null && glow.transform.isActive()
+            ? glow.transform
+            : (form.glowingColor.get().transform == null ? new EffectTransform() : form.glowingColor.get().transform);
+
+        this.glowTransform.setEffectTransform(glowTransform);
 
         this.shapeKeys.removeFromParent();
 

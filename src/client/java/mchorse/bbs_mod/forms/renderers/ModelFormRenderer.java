@@ -743,14 +743,19 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
         Matrix4f formRootInverse = new Matrix4f();
         Vector3f paintMaskHalf = new Vector3f();
         Vector3f colorMaskHalf = new Vector3f();
+        Vector3f glowMaskHalf = new Vector3f();
+        EffectTransform glowEffectTransform = this.resolveGlowEffectTransform(glow, legacyGlow);
 
         EffectTransformMath.resolveModelMaskHalfExtents(paint.transform, paintMaskHalf);
         EffectTransformMath.resolveModelMaskHalfExtents(formColor.transform, colorMaskHalf);
+        EffectTransformMath.resolveModelMaskHalfExtents(glowEffectTransform, glowMaskHalf);
 
         EffectTransform paintTransformSnapshot = paint.transform.copy();
         Vector3f paintMaskHalfSnapshot = new Vector3f(paintMaskHalf);
         EffectTransform colorTransformSnapshot = formColor.transform.copy();
         Vector3f colorMaskHalfSnapshot = new Vector3f(colorMaskHalf);
+        EffectTransform glowTransformSnapshot = glowEffectTransform.copy();
+        Vector3f glowMaskHalfSnapshot = new Vector3f(glowMaskHalf);
         Color formColorSnapshot = formColor.copy();
         /* Deferred BBS redraws only — Iris live uploads via setFormColorGrade above. */
         boolean gradeActiveSnapshot = uploadFormGradeToShader;
@@ -766,6 +771,15 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
         if (paintActive && (bbsModelShader || deferTranslucentModel))
         {
             ModelVAORenderer.setPaintEffectTransform(formRootInverse, paint.transform, paintMaskHalf);
+        }
+
+        if (hasGlow && (bbsModelShader || deferTranslucentModel))
+        {
+            ModelVAORenderer.setGlowEffectTransform(formRootInverse, glowEffectTransform, glowMaskHalf);
+        }
+        else
+        {
+            ModelVAORenderer.clearGlowEffectTransform();
         }
 
         /* Apply ColorEffect only on BBS model draws. Iris live uses a multiply overlay instead. */
@@ -876,6 +890,7 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
 
                             if (hasGlowSnapshot)
                             {
+                                ModelVAORenderer.setGlowEffectTransform(new Matrix4f().identity(), glowTransformSnapshot, glowMaskHalfSnapshot);
                                 ModelVAORenderer.setGlow(albedoGlow, glowColor.r, glowColor.g, glowColor.b, legacyGlow);
                             }
                             else
@@ -902,6 +917,7 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
                             ModelVAORenderer.clearFormColorTint();
                             ModelVAORenderer.clearFormColorGrade();
                             ModelVAORenderer.clearPaintEffectTransform();
+                            ModelVAORenderer.clearGlowEffectTransform();
                             ModelVAORenderer.clearPaint();
                             ModelVAORenderer.clearGlowing();
                         }
@@ -921,6 +937,8 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
                                     ModelVAORenderer.setFormColorTint(formColorSnapshot.r, formColorSnapshot.g, formColorSnapshot.b, formColorSnapshot.a);
                                 }
 
+                                ModelVAORenderer.setGlowEffectTransform(new Matrix4f().identity(), glowTransformSnapshot, glowMaskHalfSnapshot);
+
                                 MatrixStack overlayStack = new MatrixStack();
 
                                 overlayStack.peek().getPositionMatrix().set(positionMatrix);
@@ -932,6 +950,7 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
                             {
                                 ModelVAORenderer.clearColorEffectTransform();
                                 ModelVAORenderer.clearFormColorTint();
+                                ModelVAORenderer.clearGlowEffectTransform();
                                 ModelVAORenderer.clearPaint();
                                 ModelVAORenderer.clearGlowing();
                             }
@@ -1045,10 +1064,12 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
 
                             if (stripGlowSnapshot)
                             {
+                                ModelVAORenderer.setGlowEffectTransform(new Matrix4f().identity(), glowTransformSnapshot, glowMaskHalfSnapshot);
                                 ModelVAORenderer.setGlow(mainPassGlowSnapshot, glowColorSnapshot.r, glowColorSnapshot.g, glowColorSnapshot.b, legacyGlowSnapshot);
                             }
                             else if (hasGlowSnapshot)
                             {
+                                ModelVAORenderer.setGlowEffectTransform(new Matrix4f().identity(), glowTransformSnapshot, glowMaskHalfSnapshot);
                                 ModelVAORenderer.setGlow(glowSnapshot, glowColorSnapshot.r, glowColorSnapshot.g, glowColorSnapshot.b, legacyGlowSnapshot);
                             }
                             else
@@ -1069,6 +1090,7 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
                             ModelVAORenderer.clearFormColorTint();
                             ModelVAORenderer.clearFormColorGrade();
                             ModelVAORenderer.clearPaintEffectTransform();
+                            ModelVAORenderer.clearGlowEffectTransform();
                             ModelVAORenderer.clearPaint();
                             ModelVAORenderer.clearGlowing();
                         }
@@ -1084,6 +1106,7 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
                     }
 
                     ModelVAORenderer.clearPaintEffectTransform();
+                    ModelVAORenderer.clearGlowEffectTransform();
                     ModelVAORenderer.clearPaint();
                     ModelVAORenderer.clearGlowing();
                 }
@@ -1274,6 +1297,7 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
                         }
 
                         ModelVAORenderer.setPaintEffectTransform(new Matrix4f().identity(), paintTransformSnapshot, paintMaskHalfSnapshot);
+                        ModelVAORenderer.setGlowEffectTransform(new Matrix4f().identity(), glowTransformSnapshot, glowMaskHalfSnapshot);
 
                         MatrixStack overlayStack = new MatrixStack();
 
@@ -1301,6 +1325,7 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
                         ModelVAORenderer.clearColorEffectTransform();
                         ModelVAORenderer.clearFormColorTint();
                         ModelVAORenderer.clearPaintEffectTransform();
+                        ModelVAORenderer.clearGlowEffectTransform();
                         ModelVAORenderer.clearPaint();
                         ModelVAORenderer.clearGlowing();
                     }
@@ -1320,6 +1345,8 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
                                 ModelVAORenderer.setFormColorTint(formColorSnapshot.r, formColorSnapshot.g, formColorSnapshot.b, formColorSnapshot.a);
                             }
 
+                            ModelVAORenderer.setGlowEffectTransform(new Matrix4f().identity(), glowTransformSnapshot, glowMaskHalfSnapshot);
+
                             MatrixStack overlayStack = new MatrixStack();
 
                             overlayStack.peek().getPositionMatrix().set(positionMatrix);
@@ -1331,6 +1358,7 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
                         {
                             ModelVAORenderer.clearColorEffectTransform();
                             ModelVAORenderer.clearFormColorTint();
+                            ModelVAORenderer.clearGlowEffectTransform();
                             ModelVAORenderer.clearPaint();
                             ModelVAORenderer.clearGlowing();
                         }
@@ -1365,6 +1393,8 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
                             ModelVAORenderer.setFormColorTint(formColorSnapshot.r, formColorSnapshot.g, formColorSnapshot.b, formColorSnapshot.a);
                         }
 
+                        ModelVAORenderer.setGlowEffectTransform(new Matrix4f().identity(), glowTransformSnapshot, glowMaskHalfSnapshot);
+
                         MatrixStack overlayStack = new MatrixStack();
 
                         overlayStack.peek().getPositionMatrix().set(positionMatrix);
@@ -1376,6 +1406,7 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
                     {
                         ModelVAORenderer.clearColorEffectTransform();
                         ModelVAORenderer.clearFormColorTint();
+                        ModelVAORenderer.clearGlowEffectTransform();
                         ModelVAORenderer.clearPaint();
                         ModelVAORenderer.clearGlowing();
                     }
@@ -1390,6 +1421,7 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
             ModelVAORenderer.clearFormColorGrade();
             FormColorGradePatch.uploadToCurrentProgram();
             ModelVAORenderer.clearPaintEffectTransform();
+            ModelVAORenderer.clearGlowEffectTransform();
             ModelVAORenderer.clearPaint();
             ModelVAORenderer.clearGlowing();
         }
@@ -1990,6 +2022,35 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
         }
 
         return false;
+    }
+
+    /**
+     * Form glow spatial mask: prefer {@link GlowSettings#transform}, fall back to legacy
+     * {@code glowingColor.transform} (older UI / pose dual-write).
+     */
+    private EffectTransform resolveGlowEffectTransform(GlowSettings glow, Color legacyGlow)
+    {
+        if (glow != null && glow.transform != null && glow.transform.isActive())
+        {
+            return glow.transform;
+        }
+
+        if (legacyGlow != null && legacyGlow.hasActiveTransform())
+        {
+            return legacyGlow.transform;
+        }
+
+        if (glow != null && glow.transform != null)
+        {
+            return glow.transform;
+        }
+
+        if (legacyGlow != null && legacyGlow.transform != null)
+        {
+            return legacyGlow.transform;
+        }
+
+        return new EffectTransform();
     }
 
     /**

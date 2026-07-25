@@ -23,6 +23,11 @@ uniform float PaintEffectActive;
 uniform vec3 PaintMaskHalf;
 uniform float PaintMaskBottomAnchored;
 uniform float PaintMaskShape;
+uniform mat4 GlowEffectInverse;
+uniform float GlowEffectActive;
+uniform vec3 GlowMaskHalf;
+uniform float GlowMaskBottomAnchored;
+uniform float GlowMaskShape;
 uniform mat4 ColorEffectInverse;
 uniform float ColorEffectActive;
 uniform vec3 ColorMaskHalf;
@@ -380,6 +385,7 @@ void main()
                     glowStrength *= paintStrength;
                 }
 
+                glowStrength *= bbsPaintEffectMask(formRootPos, GlowEffectInverse, GlowEffectActive, GlowMaskHalf, GlowMaskBottomAnchored, GlowMaskShape);
                 outRgb = bbsApplyGlow(outRgb, glowStrength);
             }
         }
@@ -446,6 +452,8 @@ void main()
     {
         strength *= paintStrength;
     }
+
+    strength *= bbsPaintEffectMask(formRootPos, GlowEffectInverse, GlowEffectActive, GlowMaskHalf, GlowMaskBottomAnchored, GlowMaskShape);
 
     color.rgb = bbsApplyGlow(color.rgb, strength);
 

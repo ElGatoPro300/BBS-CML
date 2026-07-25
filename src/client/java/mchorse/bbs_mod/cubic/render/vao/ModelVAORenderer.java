@@ -112,6 +112,16 @@ public class ModelVAORenderer
     private static float baseColorMaskShape;
     private static boolean baseColorEffectActive;
     private static boolean baseColorMaskBottomAnchored = true;
+    private static final Matrix4f glowEffectInverse = new Matrix4f();
+    private static final Vector3f glowMaskHalf = new Vector3f(EffectTransformMath.MODEL_MASK_HALF_BASE);
+    private static float glowMaskShape;
+    private static boolean glowEffectActive;
+    private static boolean glowMaskBottomAnchored = true;
+    private static final Matrix4f baseGlowEffectInverse = new Matrix4f();
+    private static final Vector3f baseGlowMaskHalf = new Vector3f(EffectTransformMath.MODEL_MASK_HALF_BASE);
+    private static float baseGlowMaskShape;
+    private static boolean baseGlowEffectActive;
+    private static boolean baseGlowMaskBottomAnchored = true;
     private static final GradeMaskState gradeBrightnessMask = new GradeMaskState();
     private static final GradeMaskState gradeContrastMask = new GradeMaskState();
     private static final GradeMaskState gradeHueMask = new GradeMaskState();
@@ -1309,7 +1319,7 @@ public class ModelVAORenderer
 
     public static void clearPaintEffectTransform()
     {
-        if (!colorEffectActive)
+        if (!colorEffectActive && !glowEffectActive)
         {
             formRootInverse.identity();
         }
@@ -1376,6 +1386,82 @@ public class ModelVAORenderer
             colorEffectActive = baseColorEffectActive;
             colorMaskBottomAnchored = baseColorMaskBottomAnchored;
         }
+    }
+
+    public static void setGlowEffectTransform(Matrix4f formRootInverseMatrix, EffectTransform transform, Vector3f maskHalf)
+    {
+        setGlowEffectTransform(formRootInverseMatrix, transform, maskHalf, true);
+    }
+
+    public static void setGlowEffectTransform(Matrix4f formRootInverseMatrix, EffectTransform transform, Vector3f maskHalf, boolean bottomAnchoredY)
+    {
+        if (formRootInverseMatrix != null)
+        {
+            formRootInverse.set(formRootInverseMatrix);
+        }
+        else
+        {
+            formRootInverse.identity();
+        }
+
+        EffectTransformMath.buildInverseMatrix(transform, glowEffectInverse);
+        glowEffectActive = EffectTransformMath.isTransformActive(transform);
+        glowMaskShape = transform == null || transform.shape == null ? 0F : transform.shape.id;
+
+        if (maskHalf != null)
+        {
+            glowMaskHalf.set(maskHalf);
+        }
+        else
+        {
+            EffectTransformMath.resolveModelMaskHalfExtents(transform, glowMaskHalf);
+        }
+
+        glowMaskBottomAnchored = bottomAnchoredY;
+        snapshotGlowEffectBase();
+    }
+
+    /**
+     * Per-bone glow mask override. Active bone transform replaces the form glow mask for this
+     * draw; otherwise restore the form/base mask.
+     */
+    public static void setGroupGlowEffectTransform(EffectTransform transform)
+    {
+        if (EffectTransformMath.isTransformActive(transform))
+        {
+            EffectTransformMath.buildInverseMatrix(transform, glowEffectInverse);
+            glowEffectActive = true;
+            glowMaskShape = transform.shape == null ? 0F : transform.shape.id;
+            EffectTransformMath.resolveModelMaskHalfExtents(transform, glowMaskHalf);
+            glowMaskBottomAnchored = baseGlowMaskBottomAnchored;
+        }
+        else
+        {
+            glowEffectInverse.set(baseGlowEffectInverse);
+            glowMaskHalf.set(baseGlowMaskHalf);
+            glowMaskShape = baseGlowMaskShape;
+            glowEffectActive = baseGlowEffectActive;
+            glowMaskBottomAnchored = baseGlowMaskBottomAnchored;
+        }
+    }
+
+    public static void clearGlowEffectTransform()
+    {
+        if (!paintEffectActive && !colorEffectActive)
+        {
+            formRootInverse.identity();
+        }
+
+        glowEffectInverse.identity();
+        glowEffectActive = false;
+        glowMaskBottomAnchored = true;
+        glowMaskShape = 0F;
+        glowMaskHalf.set(EffectTransformMath.MODEL_MASK_HALF_BASE, EffectTransformMath.MODEL_MASK_HALF_BASE * EffectTransformMath.MODEL_MASK_Y_BIAS, EffectTransformMath.MODEL_MASK_HALF_BASE);
+        baseGlowEffectInverse.identity();
+        baseGlowEffectActive = false;
+        baseGlowMaskBottomAnchored = true;
+        baseGlowMaskShape = 0F;
+        baseGlowMaskHalf.set(EffectTransformMath.MODEL_MASK_HALF_BASE, EffectTransformMath.MODEL_MASK_HALF_BASE * EffectTransformMath.MODEL_MASK_Y_BIAS, EffectTransformMath.MODEL_MASK_HALF_BASE);
     }
 
     public static void setFormColorTint(float r, float g, float b, float a)
@@ -1549,7 +1635,7 @@ public class ModelVAORenderer
 
     public static void clearColorEffectTransform()
     {
-        if (!paintEffectActive)
+        if (!paintEffectActive && !glowEffectActive)
         {
             formRootInverse.identity();
         }
@@ -1582,6 +1668,15 @@ public class ModelVAORenderer
         baseColorMaskShape = colorMaskShape;
         baseColorEffectActive = colorEffectActive;
         baseColorMaskBottomAnchored = colorMaskBottomAnchored;
+    }
+
+    private static void snapshotGlowEffectBase()
+    {
+        baseGlowEffectInverse.set(glowEffectInverse);
+        baseGlowMaskHalf.set(glowMaskHalf);
+        baseGlowMaskShape = glowMaskShape;
+        baseGlowEffectActive = glowEffectActive;
+        baseGlowMaskBottomAnchored = glowMaskBottomAnchored;
     }
 
     private static Matrix4f overlayFormRootInverse()
@@ -1775,6 +1870,41 @@ public class ModelVAORenderer
         if (paintMaskShapeUniform != null)
         {
             paintMaskShapeUniform.set(paintMaskShape);
+        }
+
+        GlUniform glowEffectInverseUniform = shader.getUniform("GlowEffectInverse");
+
+        if (glowEffectInverseUniform != null)
+        {
+            glowEffectInverseUniform.set(glowEffectInverse);
+        }
+
+        GlUniform glowEffectActiveUniform = shader.getUniform("GlowEffectActive");
+
+        if (glowEffectActiveUniform != null)
+        {
+            glowEffectActiveUniform.set(glowEffectActive ? 1F : 0F);
+        }
+
+        GlUniform glowMaskHalfUniform = shader.getUniform("GlowMaskHalf");
+
+        if (glowMaskHalfUniform != null)
+        {
+            glowMaskHalfUniform.set(glowMaskHalf.x, glowMaskHalf.y, glowMaskHalf.z);
+        }
+
+        GlUniform glowMaskBottomAnchoredUniform = shader.getUniform("GlowMaskBottomAnchored");
+
+        if (glowMaskBottomAnchoredUniform != null)
+        {
+            glowMaskBottomAnchoredUniform.set(glowMaskBottomAnchored ? 1F : 0F);
+        }
+
+        GlUniform glowMaskShapeUniform = shader.getUniform("GlowMaskShape");
+
+        if (glowMaskShapeUniform != null)
+        {
+            glowMaskShapeUniform.set(glowMaskShape);
         }
 
         GlUniform colorEffectInverseUniform = shader.getUniform("ColorEffectInverse");
