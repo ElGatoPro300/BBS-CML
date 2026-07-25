@@ -13,3 +13,6 @@ accessible method net/minecraft/block/entity/BlockEntity readNbt (Lnet/minecraft
 
 accessible method net/minecraft/entity/LivingEntity setLivingFlag (IZ)V
 accessible method net/minecraft/entity/Entity setFlag (IZ)V
+
+accessible field net/minecraft/client/render/entity/model/ElytraEntityModel leftWing Lnet/minecraft/client/model/ModelPart;
+accessible field net/minecraft/client/render/entity/model/ElytraEntityModel rightWing Lnet/minecraft/client/model/ModelPart;

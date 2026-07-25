@@ -24,8 +24,17 @@ public class ModelVAO implements IModelVAO
 
     public void delete()
     {
-        GL30.glDeleteVertexArrays(this.vao);
-        GL30.glDeleteVertexArrays(this.vao2);
+        if (this.vao != 0)
+        {
+            GL30.glDeleteVertexArrays(this.vao);
+            this.vao = 0;
+        }
+
+        if (this.vao2 != 0)
+        {
+            GL30.glDeleteVertexArrays(this.vao2);
+            this.vao2 = 0;
+        }
     }
 
     public void upload(ModelVAOData data)
@@ -93,6 +102,11 @@ public class ModelVAO implements IModelVAO
     {
         boolean hasShaders = isShadersEnabled();
         int vao = hasShaders || format == VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL ? this.vao : this.vao2;
+
+        if (vao == 0 || !GL30.glIsVertexArray(vao))
+        {
+            return;
+        }
 
         GL30.glBindVertexArray(vao);
 
