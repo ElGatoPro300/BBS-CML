@@ -1509,6 +1509,27 @@ public class FormProperties extends ValueGroup
         }
         catch (Throwable ignored) {}
 
+        /* Drop orphan render_depth tracks (feature removed; ignore legacy keyframes). */
+        try
+        {
+            KeyframeChannel<?> renderDepth = this.properties.get("render_depth");
+
+            if (renderDepth != null)
+            {
+                this.properties.remove("render_depth");
+                this.remove(renderDepth);
+            }
+
+            KeyframeChannel<?> renderDepthEnabled = this.properties.get("render_depth_enabled");
+
+            if (renderDepthEnabled != null)
+            {
+                this.properties.remove("render_depth_enabled");
+                this.remove(renderDepthEnabled);
+            }
+        }
+        catch (Throwable ignored) {}
+
         /* Migration: copy legacy visible render-gating keyframes into render while keeping visible */
         try
         {

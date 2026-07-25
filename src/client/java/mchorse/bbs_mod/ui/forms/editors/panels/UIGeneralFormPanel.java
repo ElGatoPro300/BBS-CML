@@ -42,8 +42,6 @@ public class UIGeneralFormPanel extends UIFormPanel
     public UITextbox trackName;
     public UIToggle lighting;
     public UIToggle shaderShadow;
-    public UITrackpad renderDepth;
-    public UIToggle renderDepthEnabled;
     public UILookAtEditor lookAt;
     public UIInverseKinematicsEditor inverseKinematics;
     public UITrackpad illusionCount;
@@ -110,10 +108,6 @@ public class UIGeneralFormPanel extends UIFormPanel
         this.lighting = new UIToggle(UIKeys.FORMS_EDITORS_GENERAL_LIGHTING, (b) -> this.form.lighting.set(b.getValue() ? 1F : 0F));
         this.lighting.tooltip(UIKeys.FORMS_EDITORS_GENERAL_LIGHTING_TOOLTIP);
         this.shaderShadow = new UIToggle(UIKeys.FORMS_EDITORS_GENERAL_SHADER_SHADOW, (b) -> this.form.shaderShadow.set(b.getValue()));
-        this.renderDepth = new UITrackpad((v) -> this.form.renderDepth.set(v.floatValue()));
-        this.renderDepth.tooltip(UIKeys.FORMS_EDITORS_GENERAL_RENDER_DEPTH_TOOLTIP);
-        this.renderDepthEnabled = new UIToggle(UIKeys.FORMS_EDITORS_GENERAL_RENDER_DEPTH, (b) -> this.form.renderDepthEnabled.set(b.getValue()));
-        this.renderDepthEnabled.tooltip(UIKeys.FORMS_EDITORS_GENERAL_RENDER_DEPTH_TOOLTIP);
         this.lookAt = new UILookAtEditor();
         this.lookAt.callbacks(() -> this.form.lookAt.get(), this::editLookAt);
         this.inverseKinematics = new UIInverseKinematicsEditor();
@@ -253,7 +247,6 @@ public class UIGeneralFormPanel extends UIFormPanel
 
         this.options.add(UI.label(UIKeys.FORMS_EDITORS_GENERAL_DISPLAY), this.name);
         this.options.add(this.hotkey, this.visible, this.animatable, this.trackName, this.lighting, this.shaderShadow);
-        this.options.add(this.renderDepthEnabled, this.renderDepth);
         this.options.add(UI.label(UIKeys.FORMS_EDITORS_GENERAL_UI_SCALE), this.uiScale);
         this.options.add(this.transform.marginTop(8));
         this.options.add(this.lookAtSection);
@@ -344,8 +337,6 @@ public class UIGeneralFormPanel extends UIFormPanel
         this.trackName.setText(form.trackName.get());
         this.lighting.setValue(form.lighting.get() > 0F);
         this.shaderShadow.setValue(form.shaderShadow.get());
-        this.renderDepth.setValue(form.renderDepth.get());
-        this.renderDepthEnabled.setValue(form.renderDepthEnabled.get());
         this.lookAt.fillBones(FormUtilsClient.getRenderer(FormUtils.getRoot(form)).collectMatrices(this.editor.editor.renderer.getTargetEntity(), 0F).keySet());
         this.lookAt.refresh();
         this.inverseKinematics.fillBones(FormUtilsClient.getRenderer(FormUtils.getRoot(form)).collectMatrices(this.editor.editor.renderer.getTargetEntity(), 0F).keySet());

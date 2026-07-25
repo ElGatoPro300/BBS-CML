@@ -1269,8 +1269,6 @@
     "bbs.ui.forms.editors.general.look_at": "Mirar a",
     "bbs.ui.forms.editors.general.movement_speed": "Velocidad",
     "bbs.ui.forms.editors.general.movement_speed-tooltip": "Esta opción no cambia la velocidad de movimiento de un actor de reproducción. ¡Solo para el jugador transformado!",
-    "bbs.ui.forms.editors.general.render_depth": "Profundidad de renderizado",
-    "bbs.ui.forms.editors.general.render_depth-tooltip": "Determina el orden de dibujo y desvanecimiento de las formas. Las formas con una profundidad de renderizado más baja se dibujan primero, y las formas con una profundidad de renderizado más alta se desvanecen proporcionalmente a la profundidad de la forma más frontal (ocultas por completo cuando llega a cero o al valor reflejado).",
     "bbs.ui.forms.editors.general.shader_shadow": "Shader del sombreador",
     "bbs.ui.forms.editors.general.step_height": "Altura de escalón",
     "bbs.ui.forms.editors.general.track_name-tooltip": "Cuando se especifique, se mostrará un prefijo especial en las pistas de fotogramas clave y en el selector de adjuntos en lugar de una ruta como \"0/1/2\"",

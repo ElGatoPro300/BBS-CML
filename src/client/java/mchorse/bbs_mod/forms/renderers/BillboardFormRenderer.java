@@ -5,7 +5,6 @@ import mchorse.bbs_mod.camera.Camera;
 import mchorse.bbs_mod.client.BBSRendering;
 import mchorse.bbs_mod.client.BBSShaders;
 import mchorse.bbs_mod.cubic.render.vao.ModelVAORenderer;
-import mchorse.bbs_mod.film.FormRenderDepth;
 import mchorse.bbs_mod.forms.forms.BillboardForm;
 import mchorse.bbs_mod.forms.forms.utils.EffectTransform;
 import mchorse.bbs_mod.forms.forms.utils.EffectTransformMath;
@@ -24,6 +23,7 @@ import mchorse.bbs_mod.utils.MatrixStackUtils;
 import mchorse.bbs_mod.utils.Quad;
 import mchorse.bbs_mod.utils.colors.Color;
 import mchorse.bbs_mod.utils.colors.Colors;
+import mchorse.bbs_mod.utils.interps.Lerps;
 import mchorse.bbs_mod.utils.iris.ShaderOpacityPatch;
 import mchorse.bbs_mod.utils.joml.Vectors;
 
@@ -401,11 +401,8 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
             /* Noshading opacity: redraw after paint via BBS translucent queue, not Iris post-deferred. */
             boolean noshadingPaintPath = BBSRendering.needsIrisNoshadingOpacityDeferral(color.a, this.form.noshadingOpacity.get());
             boolean afterFluids = ShaderOpacityPatch.shouldFlushAfterFluids(color.a);
-            /* Never gate depth-write on renderDepthEnabled — translucent billboard quads would
-             * stamp opaque depth and punch holes through the parent mesh (eye flares, etc.).
-             * Soft-opacity depth write stays opacity-based; layering uses sortDepth + getFade. */
+            /* Soft-opacity depth write stays opacity-based. */
             boolean depthWrite = ShaderOpacityPatch.shouldWriteDepthForOpacity(color.a);
-            double sortDepth = FormRenderDepth.resolveSortDepth(this.form, deferContext == null ? null : deferContext.renderDepthFrame);
             double distanceSq = 0D;
             /* Iris deferred: apply FormColorGrade in model.fsh on the post-deferred BBS draw. */
             VertexFormat deferredFormat = VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL;
@@ -422,7 +419,14 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
 
             if (deferContext != null && deferContext.entity != null && deferContext.camera != null)
             {
-                distanceSq = FormRenderDepth.getEntityDistanceSq(deferContext.entity, deferContext.camera, transition);
+                double x = Lerps.lerp(deferContext.entity.getPrevX(), deferContext.entity.getX(), transition);
+                double y = Lerps.lerp(deferContext.entity.getPrevY(), deferContext.entity.getY(), transition);
+                double z = Lerps.lerp(deferContext.entity.getPrevZ(), deferContext.entity.getZ(), transition);
+                double dx = x - deferContext.camera.position.x;
+                double dy = y - deferContext.camera.position.y;
+                double dz = z - deferContext.camera.position.z;
+
+                distanceSq = dx * dx + dy * dy + dz * dz;
             }
 
             Runnable deferredDraw = () ->
@@ -528,7 +532,7 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
             if (opacityPatch && !noshadingPaintPath)
             {
                 /* Same sorted post-deferred queue as models — render depth low→high, before VL. */
-                ShaderOpacityPatch.submitPostDeferredBbsForm(sortDepth, distanceSq, depthWrite, afterFluids, deferredDraw);
+                ShaderOpacityPatch.submitPostDeferredBbsForm(0D, distanceSq, depthWrite, afterFluids, deferredDraw);
             }
             else
             {

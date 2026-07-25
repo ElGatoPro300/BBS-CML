@@ -6,7 +6,6 @@ import mchorse.bbs_mod.client.BBSRendering;
 import mchorse.bbs_mod.client.BBSShaders;
 import mchorse.bbs_mod.cubic.render.vao.ModelVAO;
 import mchorse.bbs_mod.cubic.render.vao.ModelVAORenderer;
-import mchorse.bbs_mod.film.FormRenderDepth;
 import mchorse.bbs_mod.forms.forms.ExtrudedForm;
 import mchorse.bbs_mod.forms.forms.utils.EffectTransform;
 import mchorse.bbs_mod.forms.forms.utils.EffectTransformMath;
@@ -421,7 +420,7 @@ public class ExtrudedFormRenderer extends FormRenderer<ExtrudedForm>
             TextureBlend textureBlendSnapshot = textureBlend == null ? null : new TextureBlend(textureBlend.from, textureBlend.to, textureBlend.blend);
             float opacityAlpha = color.a;
 
-            if (ShaderOpacityPatch.shouldDelayUntilPostDeferred(opacityAlpha, false))
+            if (ShaderOpacityPatch.shouldDelayUntilPostDeferred(opacityAlpha))
             {
                 boolean irisCamera = BBSRendering.isIrisWorldModelPass() && !bbsModelShader;
                 Matrix4f positionMatrix = irisCamera
@@ -446,7 +445,6 @@ public class ExtrudedFormRenderer extends FormRenderer<ExtrudedForm>
                 int overlayOverlay = overlay;
                 EffectTransform paintTransformQueued = paintTransformSnapshot;
                 Vector3f paintMaskHalfQueued = paintMaskHalfSnapshot;
-                double sortDepth = FormRenderDepth.resolveSortDepth(this.form, renderContext == null ? null : renderContext.renderDepthFrame);
                 boolean depthWrite = ShaderOpacityPatch.shouldWriteDepthForOpacity(opacityAlpha);
                 boolean afterFluids = ShaderOpacityPatch.shouldFlushAfterFluids(opacityAlpha);
                 boolean uploadGradeSnapshot = uploadGrade;
@@ -609,11 +607,11 @@ public class ExtrudedFormRenderer extends FormRenderer<ExtrudedForm>
 
                 if (irisCamera)
                 {
-                    ShaderOpacityPatch.submitPostDeferredForm(sortDepth, 0D, depthWrite, afterFluids, deferredDraw);
+                    ShaderOpacityPatch.submitPostDeferredForm(0D, 0D, depthWrite, afterFluids, deferredDraw);
                 }
                 else
                 {
-                    ShaderOpacityPatch.submitPostDeferredBbsForm(sortDepth, 0D, depthWrite, afterFluids, deferredDraw);
+                    ShaderOpacityPatch.submitPostDeferredBbsForm(0D, 0D, depthWrite, afterFluids, deferredDraw);
                 }
 
                 ModelVAORenderer.clearPaintEffectTransform();

@@ -1,7 +1,6 @@
 package mchorse.bbs_mod.forms.renderers;
 
 import mchorse.bbs_mod.camera.Camera;
-import mchorse.bbs_mod.film.FormRenderDepth;
 import mchorse.bbs_mod.forms.entities.IEntity;
 import mchorse.bbs_mod.forms.forms.utils.TextureBlend;
 import mchorse.bbs_mod.resources.Link;
@@ -34,8 +33,6 @@ public class FormRenderingContext
     public Matrix4f viewMatrix;
     public boolean renderEquipment;
 
-    public FormRenderDepth.Frame renderDepthFrame;
-
     /** Overrides the form texture for this render pass only (e.g. illusion copies). */
     public Link textureOverride;
 
@@ -61,7 +58,6 @@ public class FormRenderingContext
         this.isShadowPass = false;
         this.viewMatrix = null;
         this.renderEquipment = true;
-        this.renderDepthFrame = null;
         this.textureOverride = null;
         this.textureBlendOverride = null;
 
@@ -122,13 +118,6 @@ public class FormRenderingContext
     public FormRenderingContext modelRenderer()
     {
         this.modelRenderer = true;
-
-        return this;
-    }
-
-    public FormRenderingContext renderDepthFrame(FormRenderDepth.Frame frame)
-    {
-        this.renderDepthFrame = frame;
 
         return this;
     }

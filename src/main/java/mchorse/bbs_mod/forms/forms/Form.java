@@ -51,12 +51,6 @@ public abstract class Form extends ValueGroup
     public final ValueBoolean animatable = new ValueBoolean("animatable", true);
     public final ValueString trackName = new ValueString("track_name", "");
     public final ValueFloat lighting = new ValueFloat("lighting", 1F);
-
-    /* Mine-imator style render depth: forms with a lower value are drawn earlier, so a
-     * semi-transparent form with lower render depth occludes forms behind it that have a
-     * higher render depth (they fail the depth test instead of blending through). */
-    public final ValueFloat renderDepth = new ValueFloat("render_depth", 0F);
-    public final ValueBoolean renderDepthEnabled = new ValueBoolean("render_depth_enabled", true);
     public final ValueString name = new ValueString("name", "");
     public final ValueTransform transform = new ValueTransform("transform", new Transform());
     public final ValueTransform transformOverlay = new ValueTransform("transform_overlay", new Transform());
@@ -141,11 +135,6 @@ public abstract class Form extends ValueGroup
         this.add(this.animatable);
         this.add(this.trackName);
         this.add(this.lighting);
-        this.add(this.renderDepth);
-
-        /* The toggle isn't keyframable, so it shouldn't show up as a timeline track. */
-        this.renderDepthEnabled.invisible();
-        this.add(this.renderDepthEnabled);
         this.add(this.name);
         this.add(this.transform);
         this.add(this.transformOverlay);
@@ -475,9 +464,9 @@ public abstract class Form extends ValueGroup
                 map.remove("glow_settings");
             }
 
-            /* render_depth_enabled briefly defaulted to true and was written onto every morph.
-             * Drop that baked-on state when depth was never customized (still 0). */
-            this.stripLegacyDefaultRenderDepthEnabled(map);
+            /* Drop removed render-depth feature keys from older morphs/films. */
+            map.remove("render_depth");
+            map.remove("render_depth_enabled");
         }
 
         super.fromData(data);
@@ -633,25 +622,5 @@ public abstract class Form extends ValueGroup
         }
 
         return data;
-    }
-
-    /**
-     * Older builds defaulted {@code render_depth_enabled} to true and saved it on every morph.
-     * Remove that baked-on flag when depth was never customized so the feature stays off by default.
-     */
-    private void stripLegacyDefaultRenderDepthEnabled(MapType map)
-    {
-        if (!map.has("render_depth_enabled"))
-        {
-            return;
-        }
-
-        boolean enabled = map.getBool("render_depth_enabled");
-        float depth = map.has("render_depth") ? map.getFloat("render_depth") : 0F;
-
-        if (enabled && Math.abs(depth) < 0.0001F)
-        {
-            map.remove("render_depth_enabled");
-        }
     }
 }

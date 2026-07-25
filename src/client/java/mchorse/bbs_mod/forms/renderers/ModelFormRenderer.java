@@ -23,7 +23,6 @@ import mchorse.bbs_mod.cubic.model.bobj.BOBJModel;
 import mchorse.bbs_mod.cubic.physics.DynamicBoneOrchestrator;
 import mchorse.bbs_mod.cubic.render.ShapeKeyGlowPass;
 import mchorse.bbs_mod.cubic.render.vao.ModelVAORenderer;
-import mchorse.bbs_mod.film.FormRenderDepth;
 import mchorse.bbs_mod.forms.CustomVertexConsumerProvider;
 import mchorse.bbs_mod.forms.FormUtilsClient;
 import mchorse.bbs_mod.forms.ITickable;
@@ -85,7 +84,6 @@ import org.lwjgl.opengl.GL11;
 
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -644,27 +642,14 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
         /* Do not gate on supportsBbsModelShaderEffects — Iris entity_translucent discards
          * below alphaTestRef (~0.1); deferred BBS redraw is Iris-only (no-shader models keep
          * the normal BBS path so mesh depth / shading stay correct). */
-        /* Positive glow stays on the Iris entity pass for pack emission/bloom. Occlusion
-         * uses deferred queue only when another occluder (panel / other entity) is in front —
-         * not when this form alone is slightly translucent (that stole Iris lighting at #fa). */
-        boolean deferForRenderDepth = !ui && !shadowPass
-            && !hasEmissiveGlow
-            && renderContext != null
-            && renderContext.renderDepthFrame != null
-            && renderContext.entity != null
-            && BBSRendering.isIrisWorldModelPass()
-            && !ShaderOpacityPatch.isActive()
-            && FormRenderDepth.needsDeferredDepthOcclusion(
-                this.form,
-                FormRenderDepth.getEntityDistanceSq(renderContext.entity, renderContext.camera, transition),
-                renderContext.renderDepthFrame.occluders);
+        /* Positive glow stays on the Iris entity pass for pack emission/bloom. */
         float opacityAlpha = color.a;
         boolean lowAlphaDefer = !ui && !shadowPass && BBSRendering.needsIrisTranslucentModelDeferral(opacityAlpha);
         boolean noshadingOpacityDefer = !ui && !shadowPass
             && BBSRendering.needsIrisNoshadingOpacityDeferral(opacityAlpha, this.form.noshadingOpacity.get());
         boolean opacityDefer = lowAlphaDefer || noshadingOpacityDefer;
 
-        boolean deferTranslucentModel = deferForRenderDepth || opacityDefer;
+        boolean deferTranslucentModel = opacityDefer;
         /* Soft Opacity + Noshading off stays on Iris post-deferred (pack body shadows).
          * Frame-end Blend Color overlays use DST_COLOR and ignore form alpha (opaque mask).
          * Bake Blend into vertex RGB on that path instead; Noshading still uses the BBS queue. */
@@ -976,11 +961,8 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
             if (drawIrisLive)
             {
                 /* Complementary VL: soft opacity waits until after translucent terrain
-                 * (water/lava/portals). Near-opaque stays live with depth for pack shading.
-                 * Soft opacity only — opaque film actors already sort by render depth in
-                 * BaseFilmController. Forcing filmRenderDepth here put solid meshes on the
-                 * translucent deferred queue and made them see-through / holey. */
-                if (ShaderOpacityPatch.shouldDelayUntilPostDeferred(opacityAlpha, false))
+                 * (water/lava/portals). Near-opaque stays live with depth for pack shading. */
+                if (ShaderOpacityPatch.shouldDelayUntilPostDeferred(opacityAlpha))
                 {
                     /* Iris: entity-local matrices + restore camera ModelView.
                      * No-shader: camera-baked matrices + identity ModelView (BBS path). */
@@ -1014,12 +996,18 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
                         : BBSShaders::getModel;
                     EffectTransform paintTransformQueued = paintTransformSnapshot;
                     Vector3f paintMaskHalfQueued = paintMaskHalfSnapshot;
-                    double sortDepth = FormRenderDepth.resolveSortDepth(this.form, renderContext == null ? null : renderContext.renderDepthFrame);
                     double distanceSq = 0D;
 
                     if (renderContext != null && renderContext.entity != null)
                     {
-                        distanceSq = FormRenderDepth.getEntityDistanceSq(renderContext.entity, renderContext.camera, transition);
+                        double x = Lerps.lerp(renderContext.entity.getPrevX(), renderContext.entity.getX(), transition);
+                        double y = Lerps.lerp(renderContext.entity.getPrevY(), renderContext.entity.getY(), transition);
+                        double z = Lerps.lerp(renderContext.entity.getPrevZ(), renderContext.entity.getZ(), transition);
+                        double dx = x - renderContext.camera.position.x;
+                        double dy = y - renderContext.camera.position.y;
+                        double dz = z - renderContext.camera.position.z;
+
+                        distanceSq = dx * dx + dy * dy + dz * dz;
                     }
 
                     /* After fluids + depth write: water stays, limbs do not X-ray. */
@@ -1098,11 +1086,11 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
 
                     if (irisCamera)
                     {
-                        ShaderOpacityPatch.submitPostDeferredForm(sortDepth, distanceSq, depthWrite, afterFluids, deferredDraw);
+                        ShaderOpacityPatch.submitPostDeferredForm(0D, distanceSq, depthWrite, afterFluids, deferredDraw);
                     }
                     else
                     {
-                        ShaderOpacityPatch.submitPostDeferredBbsForm(sortDepth, distanceSq, depthWrite, afterFluids, deferredDraw);
+                        ShaderOpacityPatch.submitPostDeferredBbsForm(0D, distanceSq, depthWrite, afterFluids, deferredDraw);
                     }
 
                     ModelVAORenderer.clearPaintEffectTransform();
@@ -2337,16 +2325,6 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
 
             Supplier<ShaderProgram> mainShader = this.getModelShader(model);
             Supplier<ShaderProgram> shader = this.getShader(context, mainShader, BBSShaders::getPickerModelsProgram);
-            boolean deferParentMesh = FormRenderDepth.BODY_PART_RENDER_DEPTH
-                && context.renderDepthFrame != null
-                && !this.form.parts.getAllTyped().isEmpty();
-
-            if (deferParentMesh)
-            {
-                this.captureMatrices(model);
-
-                return;
-            }
 
             FormColorBlend.applyShadowPassColorFix(color, this.form.color.get(), this.form.paintSettings.get(), this.form.paintColor.get(), context.isShadowPass || BBSRendering.isIrisShadowPass(), this.hasAnyPaint(model));
 
@@ -2360,51 +2338,6 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
 
             this.renderModel(context.entity, shader, context.stack, model, context.light, context.overlay, color, false, context.stencilMap, context.getTransition(), context.renderEquipment, context.world, context);
         }
-    }
-
-    private void renderParentMesh(FormRenderingContext context)
-    {
-        ModelInstance model = this.getModel();
-
-        if (this.animator == null || model == null)
-        {
-            return;
-        }
-
-        Link link = this.form.texture.get();
-        Link texture = link == null ? model.texture : link;
-
-        if (context.textureOverride != null)
-        {
-            texture = context.textureOverride;
-        }
-
-        Color color = new Color().set(context.color, true);
-
-        if (this.shouldBakeFormColor(model))
-        {
-            color.mul(this.resolveBakeFormColor(model, false));
-        }
-
-        this.form.applyFormOpacity(color);
-        FormColorBlend.applyShadowPassColorFix(color, this.form.color.get(), this.form.paintSettings.get(), this.form.paintColor.get(), context.isShadowPass || BBSRendering.isIrisShadowPass(), this.hasAnyPaint(model));
-
-        if (color.a <= 0.001F && !context.isShadowPass && !BBSRendering.isIrisShadowPass() && context.stencilMap == null)
-        {
-            return;
-        }
-
-        if (texture != null)
-        {
-            this.applyPBRTextureIntensity();
-            BBSModClient.getTextures().bindTexture(texture);
-            this.clearPBRTextureIntensity();
-        }
-
-        Supplier<ShaderProgram> mainShader = this.getModelShader(model);
-        Supplier<ShaderProgram> shader = this.getShader(context, mainShader, BBSShaders::getPickerModelsProgram);
-
-        this.renderModel(context.entity, shader, context.stack, model, context.light, context.overlay, color, false, context.stencilMap, context.getTransition(), context.renderEquipment, context.world, context);
     }
 
     @Override
@@ -2444,25 +2377,7 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
 
         try
         {
-            if (FormRenderDepth.BODY_PART_RENDER_DEPTH && context.renderDepthFrame != null)
-            {
-                this.renderDepthSortedBodyParts(context, parts);
-            }
-            else
-            {
-                FormRenderDepth.Frame savedFrame = context.renderDepthFrame;
-
-                context.renderDepthFrame = null;
-
-                try
-                {
-                    this.renderBodyPartLayers(context, parts);
-                }
-                finally
-                {
-                    context.renderDepthFrame = savedFrame;
-                }
-            }
+            this.renderBodyPartLayers(context, parts);
         }
         finally
         {
@@ -2471,37 +2386,6 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
             if (context.world != null)
             {
                 context.world.pop();
-            }
-        }
-    }
-
-    private void renderDepthSortedBodyParts(FormRenderingContext context, List<BodyPart> parts)
-    {
-        Form sourceRoot = context.renderDepthFrame.sourceRootForm;
-        List<DepthLayer> layers = new ArrayList<>();
-        Double parentDepth = FormRenderDepth.getEnabledDepth(this.form, FormRenderDepth.getSourceForm(sourceRoot, this.form));
-
-        layers.add(new DepthLayer(parentDepth == null ? 0D : parentDepth, null));
-
-        for (BodyPart part : parts)
-        {
-            Form child = part.getForm();
-            Double depth = child == null ? 0D : FormRenderDepth.getEnabledDepth(child, FormRenderDepth.getSourceForm(sourceRoot, child));
-
-            layers.add(new DepthLayer(depth == null ? 0D : depth, part));
-        }
-
-        layers.sort(Comparator.comparingDouble(layer -> layer.depth));
-
-        for (DepthLayer layer : layers)
-        {
-            if (layer.part == null)
-            {
-                this.renderParentMesh(context);
-            }
-            else
-            {
-                this.renderBodyPartLayer(context, layer.part);
             }
         }
     }
@@ -2552,18 +2436,6 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
             {
                 context.world.pop();
             }
-        }
-    }
-
-    private static final class DepthLayer
-    {
-        private final double depth;
-        private final BodyPart part;
-
-        private DepthLayer(double depth, BodyPart part)
-        {
-            this.depth = depth;
-            this.part = part;
         }
     }
 

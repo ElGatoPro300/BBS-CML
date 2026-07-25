@@ -116,8 +116,6 @@ public abstract class BaseFilmController
     public boolean paused;
     public int exception = -1;
 
-    private List<FormRenderDepth.Occluder> currentRenderDepthOccluders = List.of();
-
     /* Rendering helpers */
 
     public static void renderEntity(FilmControllerContext context)
@@ -231,8 +229,7 @@ public abstract class BaseFilmController
             .set(FormRenderType.ENTITY, entity, stack, light, overlay, transition)
             .camera(camera)
             .stencilMap(context.map)
-            .color(context.color)
-            .renderDepthFrame(context.renderDepthFrame);
+            .color(context.color);
 
         formContext.relative = relative;
         formContext.isShadowPass = context.isShadowPass;
@@ -2086,34 +2083,17 @@ public abstract class BaseFilmController
     {
         RenderSystem.enableDepthTest();
 
-        /* Render depth layers: lower depth draws first; within the same depth, farther
-         * entities draw first so transparency composites correctly. Semi-transparent
-         * forms in front fade out entities behind them whose render depth is lower
-         * than the frontmost transparent occluder's depth; equal or higher depths stay
-         * fully visible through that layer. */
+        /* Farther entities first so translucency composites correctly. */
         List<Map.Entry<Integer, IEntity>> sorted = new ArrayList<>(this.entities.entrySet());
         Camera camera = context.camera();
         float transition = context.tickCounter().getTickDelta(false);
 
         sorted.sort(Comparator
-            .comparingDouble(this::getEntityRenderDepth)
-            .thenComparing((Map.Entry<Integer, IEntity> a, Map.Entry<Integer, IEntity> b) ->
-                Double.compare(
-                    this.getEntityCameraDistanceSq(b.getValue(), camera, transition),
-                    this.getEntityCameraDistanceSq(a.getValue(), camera, transition)
-                )
-            )
+            .comparing((Map.Entry<Integer, IEntity> entry) ->
+                this.getEntityCameraDistanceSq(entry.getValue(), camera, transition)
+            ).reversed()
             .thenComparing(Map.Entry::getKey)
         );
-
-        List<FormRenderDepth.Occluder> renderDepthOccluders = FormRenderDepth.collectOccluders(this.entities, camera, transition, (index) ->
-        {
-            Replay replay = CollectionUtils.getSafe(this.film.replays.getList(), index);
-
-            return replay == null ? null : replay.form.get();
-        });
-
-        this.currentRenderDepthOccluders = renderDepthOccluders;
 
         for (Map.Entry<Integer, IEntity> entry : sorted)
         {
@@ -2128,95 +2108,6 @@ public abstract class BaseFilmController
 
             this.renderEntity(context, replay, entity, i);
         }
-
-        this.currentRenderDepthOccluders = List.of();
-    }
-
-    /**
-     * Effective render depth used for draw-order sorting. The animated value comes from the
-     * entity's form (keyframes are applied to it in {@link #startRenderFrame(float)}), while
-     * the on/off toggle is read from the replay's source form so flipping it in the editor
-     * takes effect immediately without recreating entities.
-     */
-    private double getEntityRenderDepth(Map.Entry<Integer, IEntity> entry)
-    {
-        Double depth = this.getEnabledRenderDepth(entry.getKey(), entry.getValue());
-
-        return depth == null ? 0D : depth;
-    }
-
-    /** Render depth of an entity, or null when its form is missing or the feature is toggled off. */
-    private Double getEnabledRenderDepth(int index, IEntity entity)
-    {
-        Form form = entity.getForm();
-
-        if (form == null)
-        {
-            return null;
-        }
-
-        Replay replay = CollectionUtils.getSafe(this.film.replays.getList(), index);
-        Form sourceForm = replay == null ? null : replay.form.get();
-        boolean enabled = sourceForm != null ? sourceForm.renderDepthEnabled.get() : form.renderDepthEnabled.get();
-
-        return enabled ? (double) form.renderDepth.get() : null;
-    }
-
-    /**
-     * Fade factor (0..1) for render-depth layering. When a semi-transparent form with
-     * render depth D is in front of this entity, entities with depth &lt; D fade out
-     * completely; entities with depth &gt;= D stay fully visible through that layer.
-     */
-    protected float getRenderDepthFade(int index, IEntity entity, Camera camera, float transition)
-    {
-        Double depth = this.getEnabledRenderDepth(index, entity);
-
-        if (depth == null)
-        {
-            return 1F;
-        }
-
-        double entityDistanceSq = this.getEntityCameraDistanceSq(entity, camera, transition);
-        Double maxFrontTransparentDepth = null;
-
-        for (Map.Entry<Integer, IEntity> entry : this.entities.entrySet())
-        {
-            if (entry.getKey() == index)
-            {
-                continue;
-            }
-
-            IEntity other = entry.getValue();
-
-            if (other == null || other.getForm() == null || !this.isSemiTransparent(other.getForm()))
-            {
-                continue;
-            }
-
-            if (this.getEntityCameraDistanceSq(other, camera, transition) >= entityDistanceSq - 0.0001D)
-            {
-                continue;
-            }
-
-            Double otherDepth = this.getEnabledRenderDepth(entry.getKey(), other);
-
-            if (otherDepth == null)
-            {
-                continue;
-            }
-
-            if (maxFrontTransparentDepth == null || otherDepth > maxFrontTransparentDepth)
-            {
-                maxFrontTransparentDepth = otherDepth;
-            }
-        }
-
-        if (maxFrontTransparentDepth == null || depth >= maxFrontTransparentDepth)
-        {
-            return 1F;
-        }
-
-        return 0F;
     }
 
     private double getEntityCameraDistanceSq(IEntity entity, Camera camera, float transition)
@@ -2231,11 +2122,6 @@ public abstract class BaseFilmController
         return dx * dx + dy * dy + dz * dz;
     }
 
-    private boolean isSemiTransparent(Form form)
-    {
-        return FormRenderDepth.isSemiTransparent(form);
-    }
-
     protected void renderEntity(WorldRenderContext context, Replay replay, IEntity entity, int index)
     {
         if (!replay.actor.get())
@@ -2248,10 +2134,8 @@ public abstract class BaseFilmController
             }
 
             FilmControllerContext filmContext = getFilmControllerContext(context, replay, entity);
-            FormRenderDepth.Frame renderDepthFrame = new FormRenderDepth.Frame(this.currentRenderDepthOccluders, replay.form.get());
 
             filmContext.transition = getTransition(entity, context.tickCounter().getTickDelta(false));
-            filmContext.renderDepthFrame(renderDepthFrame);
 
             filmContext.stack.push();
 

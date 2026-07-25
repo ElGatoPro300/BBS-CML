@@ -1350,8 +1350,6 @@
     "bbs.ui.forms.editors.general.inverse_kinematics": "سینماتیک معکوس",
     "bbs.ui.forms.editors.general.movement_speed": "سرعت",
     "bbs.ui.forms.editors.general.movement_speed-tooltip": "این گزینه سرعت حرکت یک بازیگر عنصر را تغییر نمی‌دهد. فقط برای بازیکن مورف شده!",
-    "bbs.ui.forms.editors.general.render_depth": "عمق رندر",
-    "bbs.ui.forms.editors.general.render_depth-tooltip": "ترتیب رسم و محو شدن فرم‌ها را تعیین می‌کند. فرم‌هایی با عمق رندر کمتر زودتر رسم می‌شوند و فرم‌هایی با عمق رندر بیشتر، متناسب با عمق رندر فرم جلویی کمرنگ می‌شوند (وقتی به صفر یا مقدار قرینه برسد، کاملاً محو می‌شوند).",
     "bbs.ui.forms.editors.general.shader_shadow": "سایه شیدر",
     "bbs.ui.forms.editors.general.step_height": "ارتفاع پله",
     "bbs.ui.forms.editors.general.track_name-tooltip": "وقتی مشخص شود، یک پیشوند ویژه در لایه‌های کی‌فریم و انتخابگر پیوست به جای مسیری مانند \"0/1/2\" نمایش داده می‌شود",
