@@ -246,6 +246,9 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
     private static final int PANEL_HEADER_HEIGHT = 18;
     /* Height of the Blockbench-style workspace tab bar (Camera / Replay / Action / Screen). */
     private static final int WORKSPACE_TAB_BAR_HEIGHT = 18;
+    /* Extra hit area around a tab bar while dragging: stay in reorder mode inside this pad,
+     * and only tear the panel out once the cursor leaves (~1 cm at typical GUI scale). */
+    private static final int TAB_REORDER_DETACH_PADDING = 28;
     /* Minimum footprint of a floating window and the size of its bottom-right resize grip. */
     private static final int MIN_FLOATING_PANEL_WIDTH = 180;
     private static final int MIN_FLOATING_PANEL_HEIGHT = 100;
@@ -1859,7 +1862,17 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
 
     private boolean isInsideTabBarArea(UITabBar tabBar, int mouseX, int mouseY)
     {
-        return tabBar != null && tabBar.isVisible() && tabBar.area.isInside(mouseX, mouseY);
+        if (tabBar == null || !tabBar.isVisible())
+        {
+            return false;
+        }
+
+        int pad = TAB_REORDER_DETACH_PADDING;
+
+        return mouseX >= tabBar.area.x - pad
+            && mouseX < tabBar.area.ex() + pad
+            && mouseY >= tabBar.area.y - pad
+            && mouseY < tabBar.area.ey() + pad;
     }
 
     private UITabBar findTabBarForPanel(String panelId)

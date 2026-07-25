@@ -23,6 +23,7 @@ import mchorse.bbs_mod.ui.film.utils.FilmProjectHandler;
 import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.ui.framework.elements.UIElement;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIButton;
+import mchorse.bbs_mod.ui.framework.elements.events.UIRemovedEvent;
 import mchorse.bbs_mod.ui.framework.elements.overlay.UICreateAssetOverlayPanel;
 import mchorse.bbs_mod.ui.framework.elements.overlay.UIOverlay;
 import mchorse.bbs_mod.ui.framework.elements.overlay.UIPromptOverlayPanel;
@@ -47,8 +48,9 @@ public class UIMainMenuBar extends UIElement
 {
     private UIDashboard dashboard;
     UIMenuButton activeButton = null;
+    UIWorldMenuButton activeWorldButton = null;
     private UIMenuButton toolsMenu;
-    private UIMenuActionButton worldButton;
+    private UIWorldMenuButton worldButton;
 
     public UIMainMenuBar(UIDashboard dashboard)
     {
@@ -80,7 +82,7 @@ public class UIMainMenuBar extends UIElement
         this.add(new UIMenuButton(UIKeys.RAW_WINDOW, this, this::buildWindowMenu));
 
         this.add(new UIMenuButton(UIKeys.RAW_HELP, this, this::buildHelpMenu));
-        this.worldButton = new UIMenuActionButton(UIKeys.RAW_WORLD, this::openWorldProperties);
+        this.worldButton = new UIWorldMenuButton(UIKeys.RAW_WORLD, this);
         this.add(this.worldButton);
 
         this.row(2).preferred(999);
@@ -120,6 +122,7 @@ public class UIMainMenuBar extends UIElement
 
         context.closeContextMenu();
         this.activeButton = null;
+        this.activeWorldButton = null;
 
         /* Use wasActiveLastFrame (captured in render, before events fire) so that
            the context menu closing itself first doesn't confuse the toggle check. */
@@ -133,6 +136,7 @@ public class UIMainMenuBar extends UIElement
     {
         UIContext context = this.getContext();
 
+        this.activeWorldButton = null;
         context.replaceContextMenu((menu) ->
         {
             consumer.accept(menu);
@@ -148,6 +152,48 @@ public class UIMainMenuBar extends UIElement
         }
 
         this.activeButton = button;
+    }
+
+    void toggleWorldMenu(UIWorldMenuButton button)
+    {
+        UIContext context = this.getContext();
+
+        context.closeContextMenu();
+        this.activeButton = null;
+        this.activeWorldButton = null;
+
+        if (!button.wasActiveLastFrame)
+        {
+            this.openWorldDropdown(button);
+        }
+    }
+
+    void openWorldDropdown(UIWorldMenuButton button)
+    {
+        UIContext context = this.getContext();
+        UIWorldDropdownMenu menu = new UIWorldDropdownMenu();
+
+        menu.getEvents().register(UIRemovedEvent.class, (e) -> this.activeWorldButton = null);
+        this.activeButton = null;
+        context.replaceContextMenu(menu);
+
+        if (context.contextMenu != null)
+        {
+            int maxH = Math.max(114, context.menu.height - button.area.ey() - 10);
+
+            menu.setMaxHeight(maxH);
+            context.contextMenu.getFlex().x.set(0, button.area.x);
+            context.contextMenu.getFlex().y.set(0, button.area.ey());
+            context.contextMenu.bounds(context.menu.overlay, 5);
+            context.contextMenu.resize();
+        }
+
+        this.activeWorldButton = button;
+    }
+
+    boolean hasAnyMenuOpen()
+    {
+        return this.activeButton != null || this.activeWorldButton != null;
     }
 
     /* ------------------------------------------------------------------ */
@@ -204,15 +250,6 @@ public class UIMainMenuBar extends UIElement
     private void buildHelpMenu(ContextMenuManager menu)
     {
         menu.action(Icons.HELP, UIKeys.RAW_ABOUT, () -> UIOverlay.addOverlay(this.getContext(), new UIAboutOverlayPanel(UIKeys.RAW_ABOUT, this.dashboard), 560, 440));
-    }
-
-    private void openWorldProperties()
-    {
-        UIContext context = this.getContext();
-
-        context.closeContextMenu();
-        this.activeButton = null;
-        UIOverlay.addOverlay(context, new UIWorldPropertiesOverlayPanel(), 240, 200);
     }
 
     private void buildWindowMenu(ContextMenuManager menu)
@@ -383,12 +420,18 @@ public class UIMainMenuBar extends UIElement
     /* Menu button                                                           */
     /* ------------------------------------------------------------------ */
 
-    public static class UIMenuActionButton extends UIButton
+    public static class UIWorldMenuButton extends UIButton
     {
-        public UIMenuActionButton(IKey label, Runnable action)
-        {
-            super(label, (b) -> action.run());
+        final UIMainMenuBar bar;
+        private boolean prevHover = false;
+        boolean wasActiveLastFrame = false;
 
+        public UIWorldMenuButton(IKey label, UIMainMenuBar bar)
+        {
+            super(label, null);
+
+            this.bar = bar;
+            this.callback = (b) -> this.bar.toggleWorldMenu(this);
             this.setSizeFromLabel(label);
         }
 
@@ -415,11 +458,39 @@ public class UIMainMenuBar extends UIElement
         }
 
         @Override
+        public void render(UIContext context)
+        {
+            /* Freeze while pressed: context menu closes on mouse-down (outside click) before
+             * release fires the toggle — updating here would clear wasActive and reopen. */
+            if (!this.pressed)
+            {
+                this.wasActiveLastFrame = this.bar.activeWorldButton == this;
+            }
+
+            boolean nowHovered = this.area.isInside(context);
+
+            if (nowHovered && !this.prevHover && this.bar.hasAnyMenuOpen() && this.bar.activeWorldButton != this)
+            {
+                this.bar.openWorldDropdown(this);
+            }
+
+            this.prevHover = nowHovered;
+
+            super.render(context);
+        }
+
+        @Override
         protected void renderSkin(UIContext context)
         {
+            boolean active = this.bar.activeWorldButton == this;
             boolean hovered = this.area.isInside(context);
 
-            if (hovered)
+            if (active)
+            {
+                context.batcher.box(this.area.x, this.area.y, this.area.ex(), this.area.ey(),
+                    Colors.setA(BBSSettings.primaryColor.get(), 0.55F));
+            }
+            else if (hovered)
             {
                 context.batcher.box(this.area.x, this.area.y, this.area.ex(), this.area.ey(), Colors.A25);
             }
@@ -482,13 +553,17 @@ public class UIMainMenuBar extends UIElement
         @Override
         public void render(UIContext context)
         {
-            this.wasActiveLastFrame = this.bar.activeButton == this;
+            /* Freeze while pressed — same as World: menu closes on mouse-down before release. */
+            if (!this.pressed)
+            {
+                this.wasActiveLastFrame = this.bar.activeButton == this;
+            }
 
             boolean nowHovered = this.area.isInside(context);
 
             /* Switch menus on hover when another menu is already open */
             if (nowHovered && !this.prevHover
-                && this.bar.activeButton != null
+                && this.bar.hasAnyMenuOpen()
                 && this.bar.activeButton != this)
             {
                 this.bar.openMenuBelow(this, this.menuConsumer);

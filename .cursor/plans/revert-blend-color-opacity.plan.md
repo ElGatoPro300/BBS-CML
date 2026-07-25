@@ -15,7 +15,8 @@ isProject: true
 
 # Revert temporal: Blend Color + Opacity track
 
-> **Estado:** plan acordado — **aún no ejecutado**.  
+> **Estado:** **Fase A en curso / ajustada** (working tree; sin commit aún): SIRSYP revertidos salvo excepciones reaplicadas (`56dbeafb7`, `757b07335`, `a22ab2dba`, `f5ba4cff0`). Fase B–D pendientes.  
+> **Punto de reinicio:** `dae343357` (= árbol de `7334340d5`).  
 > **Base estable:** `a75c46b6c4c2e3603dadec8e92cc948c70df2bfb` (*Remove 170º limit from fish eye effect*).  
 > **Introducción del sistema a deshacer:** `c48885dd958fcb133368e54db9d9b563a6b2ff4d` (*New color and opacity*), completado en UI por `a5a1577ba` → `2d244a9fd` (ya incluidos en el beta estable).
 
@@ -73,9 +74,9 @@ Esos commits ya están **dentro** de `a75c46b`. Además, entre ellos y HEAD hay 
 
 ---
 
-## Fase A — Revertir SIRSYP post-`a75c46b` (excepto limpieza)
+## Fase A — Revertir SIRSYP post-`a75c46b` (con excepciones conservadas)
 
-**Meta:** dejar el árbol lo más cerca posible del comportamiento post-`a75c46b` respecto a los cambios inestables de SIRSYP, sin tocar `757b07335`.
+**Meta:** dejar el árbol lo más cerca posible del comportamiento post-`a75c46b` respecto a los cambios inestables de SIRSYP, **conservando** los commits listados en “Conservar” (limpieza, i18n, world browser, y el fix de render-depth necesario para transparencia).
 
 ### Commits a revertir (orden sugerido: del más reciente al más antiguo, omitiendo merges vacíos si el revert ya los cubre)
 
@@ -83,17 +84,13 @@ Revertir en orden inverso al de aplicación (más nuevo primero), resolviendo co
 
 | Hash | Mensaje | Notas |
 | --- | --- | --- |
-| `257364f1c` | Merge branch `feat/form-render-depth` | Merge; puede solaparse con `56dbeafb7` |
 | `58a86aee4` | fix(color): Color Grade / compatible saves / UI color | Ligado a color moderno → revertir |
-| `56dbeafb7` | fix(render-depth): nested billboards / legacy depth flags | Revertir |
 | `ad1b4abae` | Animated ui panels | Revertir |
 | `8471eb1c0` | Merge branch `master` … | Merge; valorar si hace falta revert explícito |
 | `fda424b80` | feat(morph): previews / form list UX | Revertir (bugs + UI) |
-| `a22ab2dba` | chore(i18n): EN/FA strings | Revertir si vino con el lote |
 | `7cdd40eb6` | feat(ui): polish form editor panels / overlays / keyframes | Revertir (incluye UI opaca / polish dudoso) |
 | `781cc1541` | feat(film): letterbox/color/vignette clip panels | Revertir |
-| `7a6ec494f` | fix(render): form/morph + shader opacity | Revertir (opacity stack) |
-| `f5ba4cff0` | feat(world): world films browser / dashboard world menu | Revertir |
+| `7a6ec494f` | fix(render): form/morph + shader opacity | Revertir (opacity stack); candidato a reaplicar si UI soft-opacity falla |
 | `efd90d471` | fix(pose): BOBJ pose pivot / gizmo → General | Revertir |
 | `0b63a91c8` | feat(ui): animate collapsible sections Color/Glow | Revertir |
 | `9b6696908` | feat(morph): speed up form picker | Revertir |
@@ -104,6 +101,9 @@ Revertir en orden inverso al de aplicación (más nuevo primero), resolviendo co
 | Hash | Mensaje | Motivo |
 | --- | --- | --- |
 | `757b07335` | chore: remove tracked local temp/debug frame dumps | Solo limpieza; no introduce bugs de runtime |
+| `a22ab2dba` | chore(i18n): update EN/FA strings and related settings labels | Traducciones / labels útiles para el proyecto |
+| `f5ba4cff0` | feat(world): improve world films browser and dashboard world menu | Mejora de UI world/films que conviene mantener |
+| `56dbeafb7` (+ merge `257364f1c`) | fix(render-depth): nested billboards / legacy depth flags | **Necesario:** revertirlo reintroduce actores invisibles con body parts / soft-opacity en film |
 
 ### Commits de otros autores después de `a75c46b`
 
@@ -111,7 +111,8 @@ No forman parte del “lote SIRSYP a revertir” (p. ej. ElGatoPro300, ElRedston
 
 ### Criterio de éxito Fase A
 
-- Los cambios de SIRSYP listados arriba ya no están en el working tree (salvo limpieza).
+- Los cambios de SIRSYP listados en “a revertir” ya no están en el working tree.
+- Los commits de “Conservar” siguen aplicados (incl. `56dbeafb7`, i18n, world browser, limpieza).
 - El proyecto compila (`./gradlew build` o al menos compilación client/main).
 - No se ha empezado aún el rollback de Blend Color (eso es Fase B).
 
@@ -230,9 +231,11 @@ No mezclar Fase B dentro de los reverts de Fase A. Tras cada fase, preferible co
 | `c48885dd958fcb133368e54db9d9b563a6b2ff4d` | Introduce Blend Color + Opacity |
 | `a5a1577ba` | Color upgrade P1 (paneles / `FormColorBlend` / adjustments) |
 | `2d244a9fd` | Color upgrade P2 (unificación UI forms) |
-| `757b073359e2239b789131d63098d1105e195576` | Limpieza — **no revertir** |
+| `757b073359e2239b789131d63098d1105e195576` | Limpieza — **conservar / no revertir** |
+| `a22ab2dbade5b0c3f5ddbca251ddc13c1b02e368` | i18n EN/FA — **conservar / no revertir** |
+| `f5ba4cff0084501d7d6b80a90f4ca0126510fb6a` | World films browser — **conservar / no revertir** |
+| `56dbeafb7c9843a3dcf45ad54d4f43a1d53f08cb` | Render-depth transparency fix — **conservar / no revertir** |
 | `58a86aee4d952197792953c8a57626714b395b82` | Color Grade compatible — **sí revertir** (Fase A) |
-| `56dbeafb7c9843a3dcf45ad54d4f43a1d53f08cb` | Render-depth — **sí revertir** (Fase A) |
 
 ---
 

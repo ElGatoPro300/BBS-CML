@@ -1,5 +1,6 @@
 package mchorse.bbs_mod.ui.dashboard;
 
+import mchorse.bbs_mod.BBSSettings;
 import mchorse.bbs_mod.graphics.window.Window;
 import mchorse.bbs_mod.ui.UIKeys;
 import mchorse.bbs_mod.ui.framework.UIContext;
@@ -7,35 +8,45 @@ import mchorse.bbs_mod.ui.framework.elements.UIElement;
 import mchorse.bbs_mod.ui.framework.elements.UIScrollView;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIButton;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIToggle;
+import mchorse.bbs_mod.ui.framework.elements.context.UIContextMenu;
 import mchorse.bbs_mod.ui.framework.elements.input.UIPoseSectionCollapse;
 import mchorse.bbs_mod.ui.framework.elements.input.UITrackpad;
 import mchorse.bbs_mod.ui.framework.elements.overlay.UIConfirmOverlayPanel;
 import mchorse.bbs_mod.ui.framework.elements.overlay.UIOverlay;
-import mchorse.bbs_mod.ui.framework.elements.overlay.UIOverlayPanel;
 import mchorse.bbs_mod.ui.framework.elements.utils.FontRenderer;
 import mchorse.bbs_mod.ui.utils.UI;
+import mchorse.bbs_mod.utils.MathUtils;
 import mchorse.bbs_mod.utils.colors.Colors;
+import mchorse.bbs_mod.utils.interps.Interpolations;
+import mchorse.bbs_mod.utils.interps.Lerps;
 
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.world.ClientWorld;
 import net.minecraft.world.GameRules;
 
 /**
- * Legacy World Properties overlay. The main-menu World button now opens
- * {@link UIWorldDropdownMenu}; this panel remains for {@link #isOpen()} compatibility
- * if constructed elsewhere.
+ * Animated World dropdown under the main-menu World button (Time / Weather / Mobs / Gamma).
  */
-public class UIWorldPropertiesOverlayPanel extends UIOverlayPanel
+public class UIWorldDropdownMenu extends UIContextMenu
 {
     private static final long THROTTLE_MS = 10L;
+    private static final long ANIM_DURATION_NS = 220_000_000L;
+    private static final int MENU_WIDTH = 270;
+    private static final int MIN_HEIGHT = 114;
     private static final int TIME_COLOR = 0x3aa0ff;
     private static final int WEATHER_COLOR = 0x2f8f72;
     private static final int MOBS_COLOR = 0xe07a3a;
     private static final int GAMMA_COLOR = 0xd4b23a;
+    private static final int KILL_MOBS_SUCCESS_GREEN = 0x1B6620;
 
     private static int openCount;
 
-    private UIScrollView scroll;
+    private final UIScrollView scroll;
+    private long animStartNs;
+    private float animFrom;
+    private float animTo = 1F;
+    private boolean closing;
+    private boolean forceDetach;
 
     private UIToggle freezeTime;
     private UITrackpad time;
@@ -46,30 +57,26 @@ public class UIWorldPropertiesOverlayPanel extends UIOverlayPanel
     private UITrackpad gamma;
     private UIToggle nightVision;
 
-    private UIPoseSectionCollapse timeSection;
-    private UIPoseSectionCollapse weatherSection;
-    private UIPoseSectionCollapse mobsSection;
-    private UIPoseSectionCollapse gammaSection;
-
     private int pendingTime = -1;
     private int lastSentTime = -1;
     private long lastSentAt;
-    private static final int KILL_MOBS_SUCCESS_GREEN = 0x1B6620;
-
     private int killMobsHighlightColor;
+    private int maxHeight = 400;
 
     public static boolean isOpen()
     {
         return openCount > 0;
     }
 
-    public UIWorldPropertiesOverlayPanel()
+    public UIWorldDropdownMenu()
     {
-        super(UIKeys.WORLD_PROPERTIES);
+        super();
 
         openCount++;
-
-        this.resizable().minSize(240, 200);
+        this.animStartNs = System.nanoTime();
+        this.animFrom = 0F;
+        this.animTo = 1F;
+        this.w(MENU_WIDTH).h(MIN_HEIGHT);
 
         this.freezeTime = new UIToggle(UIKeys.WORLD_FREEZE_TIME, !WorldPropertiesHelper.readGamerule(GameRules.DO_DAYLIGHT_CYCLE, true), (b) ->
             WorldPropertiesHelper.setGamerule(GameRules.DO_DAYLIGHT_CYCLE, !b.getValue()));
@@ -116,11 +123,11 @@ public class UIWorldPropertiesOverlayPanel extends UIOverlayPanel
             protected void renderSkin(UIContext context)
             {
                 boolean shiftHover = Window.isShiftPressed() && this.area.isInside(context);
-                boolean greenAfter = UIWorldPropertiesOverlayPanel.this.killMobsHighlightColor != 0;
+                boolean greenAfter = UIWorldDropdownMenu.this.killMobsHighlightColor != 0;
 
                 if (shiftHover || greenAfter)
                 {
-                    int bg = shiftHover ? (Colors.RED | Colors.A100) : (UIWorldPropertiesOverlayPanel.this.killMobsHighlightColor | Colors.A100);
+                    int bg = shiftHover ? (Colors.RED | Colors.A100) : (UIWorldDropdownMenu.this.killMobsHighlightColor | Colors.A100);
 
                     this.area.render(context.batcher, bg);
 
@@ -146,7 +153,7 @@ public class UIWorldPropertiesOverlayPanel extends UIOverlayPanel
         UIButton gammaSemi = new UIButton(UIKeys.WORLD_GAMMA_SEMI, (b) -> this.setGamma(750D));
         UIButton gammaFull = new UIButton(UIKeys.WORLD_GAMMA_FULL, (b) -> this.setGamma(1500D));
 
-        this.nightVision = new UIToggle(UIKeys.WORLD_GAMMA_NIGHT_VISION, this.hasNightVision(), (b) ->
+        this.nightVision = new UIToggle(UIKeys.WORLD_GAMMA_NIGHT_VISION, WorldPropertiesHelper.hasNightVision(), (b) ->
             WorldPropertiesHelper.setNightVision(b.getValue()));
 
         UIElement gammaContent = UI.column(5, 0,
@@ -156,18 +163,107 @@ public class UIWorldPropertiesOverlayPanel extends UIOverlayPanel
             this.nightVision
         );
 
-        this.timeSection = new UIPoseSectionCollapse(UIKeys.WORLD_SECTION_TIME, TIME_COLOR, timeContent);
-        this.weatherSection = new UIPoseSectionCollapse(UIKeys.WORLD_SECTION_WEATHER, WEATHER_COLOR, weatherContent);
-        this.mobsSection = new UIPoseSectionCollapse(UIKeys.WORLD_SECTION_MOBS, MOBS_COLOR, mobsContent);
-        this.gammaSection = new UIPoseSectionCollapse(UIKeys.WORLD_SECTION_GAMMA, GAMMA_COLOR, gammaContent);
+        UIPoseSectionCollapse timeSection = new UIPoseSectionCollapse(UIKeys.WORLD_SECTION_TIME, TIME_COLOR, timeContent);
+        UIPoseSectionCollapse weatherSection = new UIPoseSectionCollapse(UIKeys.WORLD_SECTION_WEATHER, WEATHER_COLOR, weatherContent);
+        UIPoseSectionCollapse mobsSection = new UIPoseSectionCollapse(UIKeys.WORLD_SECTION_MOBS, MOBS_COLOR, mobsContent);
+        UIPoseSectionCollapse gammaSection = new UIPoseSectionCollapse(UIKeys.WORLD_SECTION_GAMMA, GAMMA_COLOR, gammaContent);
 
         this.scroll = new UIScrollView();
-        this.scroll.relative(this.content).w(1F).h(1F);
-        this.scroll.column(6).vertical().stretch().scroll().padding(6);
-        this.scroll.add(this.timeSection, this.weatherSection, this.mobsSection, this.gammaSection);
+        this.scroll.full(this);
+        this.scroll.column(6).vertical().stretch().scroll().padding(8);
+        this.scroll.scroll.noScrollbar();
+        this.scroll.add(timeSection, weatherSection, mobsSection, gammaSection);
 
-        this.content.add(this.scroll);
+        this.add(this.scroll);
         this.syncFromWorld();
+    }
+
+    public void setMaxHeight(int maxHeight)
+    {
+        this.maxHeight = Math.max(MIN_HEIGHT, maxHeight);
+    }
+
+    @Override
+    public boolean isEmpty()
+    {
+        return false;
+    }
+
+    @Override
+    public void setMouse(UIContext context)
+    {
+        /* Position is applied by UIMainMenuBar under the World button. */
+        this.w(MENU_WIDTH).h(MIN_HEIGHT);
+    }
+
+    @Override
+    public void forceClose()
+    {
+        this.forceDetach = true;
+        this.closing = false;
+
+        if (this.hasParent())
+        {
+            super.removeFromParent();
+        }
+
+        this.clearContextMenuRef();
+    }
+
+    @Override
+    public void removeFromParent()
+    {
+        if (this.forceDetach)
+        {
+            super.removeFromParent();
+            this.clearContextMenuRef();
+
+            return;
+        }
+
+        if (!this.hasParent())
+        {
+            return;
+        }
+
+        this.beginClose();
+    }
+
+    private void beginClose()
+    {
+        if (this.closing || this.forceDetach)
+        {
+            return;
+        }
+
+        this.closing = true;
+        this.animFrom = this.getAnimProgress();
+        this.animTo = 0F;
+        this.animStartNs = System.nanoTime();
+        this.scroll.scroll.noScrollbar();
+    }
+
+    private void finishClose()
+    {
+        this.forceDetach = true;
+        this.closing = false;
+
+        if (this.hasParent())
+        {
+            super.removeFromParent();
+        }
+
+        this.clearContextMenuRef();
+    }
+
+    private void clearContextMenuRef()
+    {
+        UIContext context = this.getContext();
+
+        if (context != null && context.contextMenu == this)
+        {
+            context.contextMenu = null;
+        }
     }
 
     private void syncFromWorld()
@@ -197,11 +293,6 @@ public class UIWorldPropertiesOverlayPanel extends UIOverlayPanel
     {
         this.gamma.setValue(percent);
         WorldPropertiesHelper.setGammaPercent(percent);
-    }
-
-    private boolean hasNightVision()
-    {
-        return WorldPropertiesHelper.hasNightVision();
     }
 
     private void killAllMobsClicked(UIButton button)
@@ -279,21 +370,85 @@ public class UIWorldPropertiesOverlayPanel extends UIOverlayPanel
         WorldPropertiesHelper.setTimeOfDay(this.pendingTime);
     }
 
+    private float getAnimProgress()
+    {
+        float t = (System.nanoTime() - this.animStartNs) / (float) ANIM_DURATION_NS;
+
+        if (t >= 1F)
+        {
+            return this.animTo;
+        }
+
+        float eased = Interpolations.QUAD_OUT.interpolate(0F, 1F, MathUtils.clamp(t, 0F, 1F));
+
+        return Lerps.lerp(this.animFrom, this.animTo, eased);
+    }
+
+    private void syncAnimatedHeight()
+    {
+        float progress = this.getAnimProgress();
+        int natural = Math.max(MIN_HEIGHT, this.scroll.scroll.scrollSize);
+        int target = Math.min(natural, this.maxHeight);
+        int animated = Math.max(1, Math.round(target * progress));
+
+        /* Hide scrollbar while open/close tween — scrollSize is full height while the
+         * clip is still short, which would otherwise flash a useless bar. */
+        boolean animating = this.closing || progress < 0.999F;
+
+        if (animating)
+        {
+            this.scroll.scroll.scrollbar = false;
+        }
+        else
+        {
+            this.scroll.scroll.scrollbar = natural > this.maxHeight;
+        }
+
+        if (this.getFlex().h.offset != animated)
+        {
+            this.h(animated);
+            this.resize();
+        }
+    }
+
+    @Override
+    protected void renderBackground(UIContext context)
+    {
+        float progress = this.getAnimProgress();
+        int bg = Colors.setA(0x141418, 0.94F * progress);
+        int edge = Colors.setA(0x2A2A35, progress);
+        int accent = Colors.setA(BBSSettings.primaryColor.get(), 0.45F * progress);
+
+        context.batcher.dropShadow(this.area.x, this.area.y, this.area.ex(), this.area.ey(), 8, Colors.setA(accent, 0.25F * progress), accent);
+        context.batcher.box(this.area.x, this.area.y, this.area.ex(), this.area.ey(), bg);
+        context.batcher.box(this.area.x, this.area.y, this.area.ex(), this.area.y + 1, edge);
+        context.batcher.box(this.area.x, this.area.y, this.area.x + 2, this.area.ey(), Colors.setA(BBSSettings.primaryColor.get(), 0.8F * progress));
+    }
+
     @Override
     public void render(UIContext context)
     {
         this.flushTime(false);
+        this.syncAnimatedHeight();
 
+        if (this.closing && this.getAnimProgress() <= 0.001F)
+        {
+            this.finishClose();
+
+            return;
+        }
+
+        context.batcher.clip(this.area.x, this.area.y, this.area.w, this.area.h, context);
         super.render(context);
+        context.batcher.unclip(context);
     }
 
     @Override
-    public void onClose()
+    protected void onRemove(UIElement parent)
     {
         openCount = Math.max(0, openCount - 1);
-
         WorldPropertiesHelper.clearClientTimeOverride();
 
-        super.onClose();
+        super.onRemove(parent);
     }
 }
