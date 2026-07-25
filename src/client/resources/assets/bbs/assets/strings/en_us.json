@@ -1261,6 +1261,8 @@
     "bbs.ui.forms.crop.title": "Crop editor",
     "bbs.ui.forms.crop.top": "Top crop",
     "bbs.ui.forms.editor.bone": "Bone",
+    "bbs.ui.forms.editor.form": "Form",
+    "bbs.ui.forms.editors.color_advanced": "Advanced",
     "bbs.ui.forms.editor.context.add": "Add a body part",
     "bbs.ui.forms.editor.context.copy": "Copy this body part",
     "bbs.ui.forms.editor.context.copy_all": "Copy all selected body parts",

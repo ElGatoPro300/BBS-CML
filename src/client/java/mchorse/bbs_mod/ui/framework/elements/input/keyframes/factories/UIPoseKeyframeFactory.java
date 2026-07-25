@@ -146,14 +146,9 @@ public class UIPoseKeyframeFactory extends UIKeyframeFactory<Pose>
     private void rebuildPoseLayout(boolean wide)
     {
         /* Closing shells before wipe avoids orphan ACTIVE shells after removeAll. */
-        if (this.poseEditor.colorSection != null)
+        if (this.poseEditor.advancedSection != null)
         {
-            this.poseEditor.colorSection.setExpanded(false);
-        }
-
-        if (this.poseEditor.glowSection != null)
-        {
-            this.poseEditor.glowSection.setExpanded(false);
+            this.poseEditor.advancedSection.setExpanded(false);
         }
 
         this.poseEditor.removeAll();
@@ -202,10 +197,10 @@ public class UIPoseKeyframeFactory extends UIKeyframeFactory<Pose>
             this.poseEditor.add(
                 UI.label(UIKeys.FORMS_EDITOR_BONE),
                 groupsRow,
+                footer,
                 UI.label(UIKeys.POSE_CONTEXT_FIX),
                 this.poseEditor.fix,
-                this.poseEditor.transform,
-                footer
+                this.poseEditor.transform
             );
         }
 

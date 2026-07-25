@@ -3,11 +3,11 @@ package mchorse.bbs_mod.ui.framework.elements.input.keyframes.factories;
 import mchorse.bbs_mod.forms.forms.utils.GlowSettings;
 import mchorse.bbs_mod.ui.UIKeys;
 import mchorse.bbs_mod.ui.film.replays.UIReplaysEditorUtils;
+import mchorse.bbs_mod.ui.forms.editors.panels.widgets.UIFormColorLayout;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIToggle;
 import mchorse.bbs_mod.ui.framework.elements.input.UIColor;
 import mchorse.bbs_mod.ui.framework.elements.input.UITrackpad;
 import mchorse.bbs_mod.ui.framework.elements.input.keyframes.UIKeyframes;
-import mchorse.bbs_mod.ui.utils.UI;
 import mchorse.bbs_mod.utils.colors.Color;
 import mchorse.bbs_mod.utils.keyframes.Keyframe;
 
@@ -34,8 +34,12 @@ public class UIGlowSettingsKeyframeFactory extends UIKeyframeFactory<GlowSetting
         this.spectrum.tooltip(UIKeys.GENERIC_KEYFRAMES_COLOR_SPECTRUM_TOOLTIP);
         this.spectrum.setValue(keyframe.isSpectrum());
 
-        this.scroll.add(UI.row(UI.label(UIKeys.FORMS_EDITORS_GLOWING_COLOR), this.glowColor));
-        this.scroll.add(UI.label(UIKeys.FORMS_EDITORS_GLOW_INTENSITY), this.intensity);
+        this.scroll.add(UIFormColorLayout.labeledColorValueRow(
+            UIKeys.FORMS_EDITORS_GLOWING_COLOR,
+            this.glowColor,
+            UIKeys.FORMS_EDITORS_GLOW_INTENSITY,
+            this.intensity
+        ));
         this.scroll.add(this.spectrum);
 
         this.update();

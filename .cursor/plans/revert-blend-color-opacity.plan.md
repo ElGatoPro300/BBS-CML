@@ -9,8 +9,8 @@ todos:
     content: "Fase B: rollback quirúrgico Blend Color + Opacity track → color tradicional"
     status: completed
   - id: phase-c-ui
-    content: "Fase C: UI Paint/Bright/Grade + color picker con alpha slider"
-    status: pending
+    content: "Fase C: UI Paint/Bright/Grade reorganizada (swatch clásico + Advanced); labels Forma/Hueso; Glow ES"
+    status: completed
   - id: phase-d-verify
     content: "Fase D: verificación in-game (forms, model blocks, sombras, Iris)"
     status: pending
@@ -19,9 +19,8 @@ isProject: true
 
 # Revert temporal: Blend Color + Opacity track
 
-> **Estado:** **Fase A + Fase B aplicadas** (working tree / index; sin commit aún).  
-> Excepciones Fase A conservadas: `56dbeafb7`, `757b07335`, `a22ab2dba`, `f5ba4cff0`.  
-> Fase B: color tradicional (`color.a` = opacidad), sin track Opacity, sin UI blend-intensity residual. Fase C–D pendientes.  
+> **Estado:** Fases A–C aplicadas. Fase D (verificación in-game) pendiente.  
+> Fase C: layout clásico Color (swatch + Resplandor + Avanzado), orden pose textura/color encima del grid, labels Forma/Hueso, paneles más opacos, ES Glow→Resplandor.  
 > **Punto de reinicio:** `dae343357` (= árbol de `7334340d5`).  
 > **Base estable:** `a75c46b6c4c2e3603dadec8e92cc948c70df2bfb` (*Remove 170º limit from fish eye effect*).  
 > **Introducción del sistema a deshacer:** `c48885dd958fcb133368e54db9d9b563a6b2ff4d` (*New color and opacity*), completado en UI por `a5a1577ba` → `2d244a9fd` (ya incluidos en el beta estable).

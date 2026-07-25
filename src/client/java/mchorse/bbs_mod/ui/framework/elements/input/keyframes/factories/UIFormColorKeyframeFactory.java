@@ -11,11 +11,13 @@ import mchorse.bbs_mod.ui.UIKeys;
 import mchorse.bbs_mod.ui.film.replays.UIReplaysEditor;
 import mchorse.bbs_mod.ui.film.replays.UIReplaysEditorUtils;
 import mchorse.bbs_mod.ui.forms.editors.panels.widgets.UIFormColorAdjustments;
+import mchorse.bbs_mod.ui.forms.editors.panels.widgets.UIFormColorLayout;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIToggle;
 import mchorse.bbs_mod.ui.framework.elements.events.UITrackpadDragEndEvent;
 import mchorse.bbs_mod.ui.framework.elements.events.UITrackpadDragStartEvent;
 import mchorse.bbs_mod.ui.framework.elements.input.UIColor;
 import mchorse.bbs_mod.ui.framework.elements.input.UIEffectTransformCollapse;
+import mchorse.bbs_mod.ui.framework.elements.input.UIPoseSectionCollapse;
 import mchorse.bbs_mod.ui.framework.elements.input.UITrackpad;
 import mchorse.bbs_mod.ui.framework.elements.input.keyframes.UIKeyframeSheet;
 import mchorse.bbs_mod.ui.framework.elements.input.keyframes.UIKeyframes;
@@ -115,14 +117,6 @@ public class UIFormColorKeyframeFactory extends UIKeyframeFactory<Color>
             /* Paint lives on a hidden channel (not a timeline sheet); undo via color-sheet
              * cache/submit would not capture paint and was snapping the intensity bar back. */
 
-            this.scroll.add(this.blendTransform);
-            this.scroll.add(UI.label(UIKeys.FORMS_EDITORS_PAINT_COLOR).marginTop(4));
-            this.scroll.add(this.paintColor);
-            this.scroll.add(UI.label(UIKeys.FORMS_EDITORS_PAINT_INTENSITY), this.paintIntensity);
-            this.scroll.add(this.paintTransform);
-            this.scroll.add(this.spectrum.marginTop(8));
-            this.scroll.add(this.noShading.marginTop(4));
-
             this.wireResetThisValue(this.paintIntensity, () -> this.applyPaintEdit((settings) -> settings.intensity = 0F));
 
             if (!this.hideColorGrade)
@@ -147,8 +141,18 @@ public class UIFormColorKeyframeFactory extends UIKeyframeFactory<Color>
                 this.wireUndo(this.blendAdjustments.saturation);
                 this.blendAdjustments.registerUndo(editor);
                 this.blendAdjustments.wireResetThisValue(this::wireResetThisValue);
-                this.scroll.add(this.blendAdjustments.marginTop(4));
             }
+
+            UIPoseSectionCollapse advanced = UIFormColorLayout.createAdvancedSection(
+                this.blendTransform,
+                UIFormColorLayout.paintColorRow(this.paintColor, this.paintIntensity),
+                this.paintTransform,
+                this.hideColorGrade ? null : this.blendAdjustments.marginTop(4)
+            );
+
+            this.scroll.add(advanced.marginTop(4));
+            this.scroll.add(this.spectrum.marginTop(8));
+            this.scroll.add(this.noShading.marginTop(4));
         }
         else
         {

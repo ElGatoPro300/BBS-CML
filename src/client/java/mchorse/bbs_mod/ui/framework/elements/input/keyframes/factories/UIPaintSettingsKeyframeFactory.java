@@ -5,6 +5,7 @@ import mchorse.bbs_mod.forms.forms.utils.PaintMaskShape;
 import mchorse.bbs_mod.forms.forms.utils.PaintSettings;
 import mchorse.bbs_mod.ui.UIKeys;
 import mchorse.bbs_mod.ui.film.replays.UIReplaysEditorUtils;
+import mchorse.bbs_mod.ui.forms.editors.panels.widgets.UIFormColorLayout;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIIcons;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIToggle;
 import mchorse.bbs_mod.ui.framework.elements.events.UITrackpadDragEndEvent;
@@ -63,8 +64,7 @@ public class UIPaintSettingsKeyframeFactory extends UIKeyframeFactory<PaintSetti
 
         this.scroll.add(UI.label(UIKeys.FORMS_EDITORS_PAINT_SHAPE), this.shapeIcons);
         this.scroll.add(this.transform);
-        this.scroll.add(UI.row(UI.label(UIKeys.FORMS_EDITORS_PAINT_COLOR), this.paintColor).marginTop(8));
-        this.scroll.add(UI.label(UIKeys.FORMS_EDITORS_PAINT_INTENSITY), this.intensity);
+        this.scroll.add(UIFormColorLayout.paintColorRow(this.paintColor, this.intensity).marginTop(8));
         this.scroll.add(this.spectrum.marginTop(8));
 
         this.update();

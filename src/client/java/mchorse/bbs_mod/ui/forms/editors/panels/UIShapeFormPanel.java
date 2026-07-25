@@ -6,10 +6,11 @@ import mchorse.bbs_mod.forms.forms.utils.PaintSettings;
 import mchorse.bbs_mod.l10n.L10n;
 import mchorse.bbs_mod.l10n.keys.IKey;
 import mchorse.bbs_mod.ui.UIKeys;
-import mchorse.bbs_mod.ui.film.replays.UIReplaysEditor;
 import mchorse.bbs_mod.ui.forms.editors.forms.UIForm;
+import mchorse.bbs_mod.ui.framework.elements.UIElement;
 import mchorse.bbs_mod.ui.forms.editors.panels.shape.UIShapeNodeEditor;
 import mchorse.bbs_mod.ui.forms.editors.panels.widgets.UIFormColorAdjustments;
+import mchorse.bbs_mod.ui.forms.editors.panels.widgets.UIFormColorLayout;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIButton;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UICirculate;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIIcon;
@@ -22,7 +23,6 @@ import mchorse.bbs_mod.ui.utils.UI;
 import mchorse.bbs_mod.ui.utils.icons.Icons;
 import mchorse.bbs_mod.utils.Direction;
 import mchorse.bbs_mod.utils.colors.Color;
-import mchorse.bbs_mod.utils.colors.Colors;
 
 public class UIShapeFormPanel extends UIFormPanel<ShapeForm>
 {
@@ -42,8 +42,8 @@ public class UIShapeFormPanel extends UIFormPanel<ShapeForm>
     public UITrackpad paintIntensity;
     public UIColor glowingColor;
     public UITrackpad glowIntensity;
-    public UIPoseSectionCollapse colorSection;
-    public UIPoseSectionCollapse glowSection;
+    public UIElement glowSection;
+    public UIPoseSectionCollapse advancedSection;
     public UITrackpad textureScale;
     public UITrackpad textureScrollX;
     public UITrackpad textureScrollY;
@@ -168,30 +168,12 @@ public class UIShapeFormPanel extends UIFormPanel<ShapeForm>
         });
         this.glowIntensity.increment(0.05D).values(0.1D, 0.05D, 0.2D);
         this.glowIntensity.tooltip(UIKeys.FORMS_EDITORS_GLOW_INTENSITY);
-        this.colorSection = new UIPoseSectionCollapse(
-            UIKeys.FILM_REPLAY_TRACK_COLOR,
-            UIReplaysEditor.getColor("color"),
-            UI.column(
-                UI.label(UIKeys.FILM_REPLAY_TRACK_COLOR).marginTop(4),
-                this.color,
-                UI.label(UIKeys.FORMS_EDITORS_PAINT_COLOR).marginTop(4),
-                this.paintColor,
-                UI.label(UIKeys.FORMS_EDITORS_PAINT_INTENSITY),
-                this.paintIntensity,
-                this.colorAdjustments.marginTop(4)
-            )
+        this.glowSection = UIFormColorLayout.createGlowSection(this.glowingColor, this.glowIntensity);
+        this.advancedSection = UIFormColorLayout.createAdvancedSection(
+            UIFormColorLayout.paintColorRow(this.paintColor, this.paintIntensity),
+            this.colorAdjustments.marginTop(4)
         );
-        this.glowSection = new UIPoseSectionCollapse(
-            UIKeys.FORMS_EDITORS_GLOW,
-            Colors.ORANGE,
-            UI.column(
-                UI.label(UIKeys.FORMS_EDITORS_GLOWING_COLOR).marginTop(4),
-                this.glowingColor,
-                UI.label(UIKeys.FORMS_EDITORS_GLOW_INTENSITY),
-                this.glowIntensity
-            )
-        );
-        
+
         this.textureScale = new UITrackpad((value) -> this.form.textureScale.set(value.floatValue()));
         this.textureScale.tooltip(UIKeys.FORMS_EDITORS_SHAPE_TEXTURE_SCALE);
         
@@ -228,7 +210,17 @@ public class UIShapeFormPanel extends UIFormPanel<ShapeForm>
 
         /* Layout */
         this.options.add(UI.label(UIKeys.FORMS_EDITORS_SHAPE_GEOMETRY).marginTop(8), UI.row(this.type, this.toggleNodeEditor), UI.row(this.sizeX, this.sizeY, this.sizeZ), this.subdivisions);
-        this.options.add(UI.label(UIKeys.FORMS_EDITORS_SHAPE_APPEARANCE).marginTop(8), this.pickTexture, this.colorSection, this.glowSection, this.textureScale, UI.row(this.textureScrollX, this.textureScrollY), this.lighting);
+        this.options.add(
+            UI.label(UIKeys.FORMS_EDITORS_SHAPE_APPEARANCE).marginTop(8),
+            this.pickTexture,
+            UIFormColorLayout.sectionLabel(UIKeys.FORMS_EDITOR_FORM),
+            this.color,
+            this.glowSection,
+            this.advancedSection,
+            this.textureScale,
+            UI.row(this.textureScrollX, this.textureScrollY),
+            this.lighting
+        );
         this.options.add(UI.label(UIKeys.RAW_PARTICLES).marginTop(8), this.particles, this.particleType, this.particleScale, this.particleDensity, this.particleSize);
     }
 

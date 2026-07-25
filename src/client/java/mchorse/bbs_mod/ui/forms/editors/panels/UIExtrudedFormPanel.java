@@ -5,9 +5,10 @@ import mchorse.bbs_mod.forms.forms.ExtrudedForm;
 import mchorse.bbs_mod.forms.forms.utils.GlowSettings;
 import mchorse.bbs_mod.forms.forms.utils.PaintSettings;
 import mchorse.bbs_mod.ui.UIKeys;
-import mchorse.bbs_mod.ui.film.replays.UIReplaysEditor;
 import mchorse.bbs_mod.ui.forms.editors.forms.UIForm;
+import mchorse.bbs_mod.ui.framework.elements.UIElement;
 import mchorse.bbs_mod.ui.forms.editors.panels.widgets.UIFormColorAdjustments;
+import mchorse.bbs_mod.ui.forms.editors.panels.widgets.UIFormColorLayout;
 import mchorse.bbs_mod.ui.forms.editors.panels.widgets.UIFormPaintTransform;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIButton;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIToggle;
@@ -17,7 +18,6 @@ import mchorse.bbs_mod.ui.framework.elements.input.UITexturePicker;
 import mchorse.bbs_mod.ui.framework.elements.input.UITrackpad;
 import mchorse.bbs_mod.ui.utils.UI;
 import mchorse.bbs_mod.utils.colors.Color;
-import mchorse.bbs_mod.utils.colors.Colors;
 
 public class UIExtrudedFormPanel extends UIFormPanel<ExtrudedForm>
 {
@@ -29,8 +29,8 @@ public class UIExtrudedFormPanel extends UIFormPanel<ExtrudedForm>
     public UIFormPaintTransform paintTransform;
     public UIColor glowingColor;
     public UITrackpad glowIntensity;
-    public UIPoseSectionCollapse colorSection;
-    public UIPoseSectionCollapse glowSection;
+    public UIElement glowSection;
+    public UIPoseSectionCollapse advancedSection;
     public UIToggle billboard;
     public UIToggle shading;
     public UITrackpad pbrNormalIntensity;
@@ -114,29 +114,11 @@ public class UIExtrudedFormPanel extends UIFormPanel<ExtrudedForm>
         });
         this.glowIntensity.increment(0.05D).values(0.1D, 0.05D, 0.2D);
         this.glowIntensity.tooltip(UIKeys.FORMS_EDITORS_GLOW_INTENSITY);
-        this.colorSection = new UIPoseSectionCollapse(
-            UIKeys.FILM_REPLAY_TRACK_COLOR,
-            UIReplaysEditor.getColor("color"),
-            UI.column(
-                UI.label(UIKeys.FILM_REPLAY_TRACK_COLOR).marginTop(4),
-                this.color,
-                UI.label(UIKeys.FORMS_EDITORS_PAINT_COLOR).marginTop(4),
-                this.paintColor,
-                UI.label(UIKeys.FORMS_EDITORS_PAINT_INTENSITY),
-                this.paintIntensity,
-                this.paintTransform,
-                this.colorAdjustments.marginTop(4)
-            )
-        );
-        this.glowSection = new UIPoseSectionCollapse(
-            UIKeys.FORMS_EDITORS_GLOW,
-            Colors.ORANGE,
-            UI.column(
-                UI.label(UIKeys.FORMS_EDITORS_GLOWING_COLOR).marginTop(4),
-                this.glowingColor,
-                UI.label(UIKeys.FORMS_EDITORS_GLOW_INTENSITY),
-                this.glowIntensity
-            )
+        this.glowSection = UIFormColorLayout.createGlowSection(this.glowingColor, this.glowIntensity);
+        this.advancedSection = UIFormColorLayout.createAdvancedSection(
+            UIFormColorLayout.paintColorRow(this.paintColor, this.paintIntensity),
+            this.paintTransform,
+            this.colorAdjustments.marginTop(4)
         );
         this.billboard = new UIToggle(UIKeys.FORMS_EDITORS_BILLBOARD_TITLE, false, (b) -> this.form.billboard.set(b.getValue()));
         this.shading = new UIToggle(UIKeys.FORMS_EDITORS_BILLBOARD_SHADING, false, (b) -> this.form.shading.set(b.getValue()));
@@ -145,7 +127,15 @@ public class UIExtrudedFormPanel extends UIFormPanel<ExtrudedForm>
         this.pbrSpecularIntensity = new UITrackpad((value) -> this.form.pbrSpecularIntensity.set(value.floatValue()));
         this.pbrSpecularIntensity.tooltip(UIKeys.FORMS_EDITOR_MODEL_PBR_SPECULAR_INTENSITY);
 
-        this.options.add(this.pick, this.colorSection, this.glowSection, this.billboard, this.shading);
+        this.options.add(
+            this.pick,
+            UIFormColorLayout.sectionLabel(UIKeys.FORMS_EDITOR_FORM),
+            this.color,
+            this.glowSection,
+            this.advancedSection,
+            this.billboard,
+            this.shading
+        );
 
         if (BBSSettings.modelPbrPanelControls != null && BBSSettings.modelPbrPanelControls.get())
         {

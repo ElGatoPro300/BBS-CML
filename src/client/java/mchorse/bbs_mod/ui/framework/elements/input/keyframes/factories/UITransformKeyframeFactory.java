@@ -8,6 +8,7 @@ import mchorse.bbs_mod.forms.forms.utils.PaintSettings;
 import mchorse.bbs_mod.forms.renderers.ModelFormRenderer;
 import mchorse.bbs_mod.ui.UIKeys;
 import mchorse.bbs_mod.ui.film.UIFilmPanel;
+import mchorse.bbs_mod.ui.forms.editors.panels.widgets.UIFormColorLayout;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIToggle;
 import mchorse.bbs_mod.ui.framework.elements.input.UIColor;
 import mchorse.bbs_mod.ui.framework.elements.input.UIPropTransform;
@@ -131,10 +132,9 @@ public class UITransformKeyframeFactory extends UIKeyframeFactory<Transform>
             this.scroll.add(UI.label(UIKeys.POSE_CONTEXT_FIX));
             this.scroll.add(this.fix);
             this.scroll.add(this.transform);
-            this.scroll.add(UI.row(this.color, this.paintColor, this.glowingColor));
-            this.scroll.add(this.paintIntensity);
-            this.scroll.add(this.glowIntensity);
-            this.scroll.add(this.lighting);
+            this.scroll.add(UI.row(this.color, this.lighting));
+            this.scroll.add(UIFormColorLayout.paintColorRow(this.paintColor, this.paintIntensity));
+            this.scroll.add(UIFormColorLayout.createGlowSection(this.glowingColor, this.glowIntensity));
         }
         else
         {

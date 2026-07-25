@@ -15,8 +15,8 @@ import mchorse.bbs_mod.l10n.L10n;
 import mchorse.bbs_mod.l10n.keys.IKey;
 import mchorse.bbs_mod.resources.Link;
 import mchorse.bbs_mod.ui.UIKeys;
-import mchorse.bbs_mod.ui.film.replays.UIReplaysEditor;
 import mchorse.bbs_mod.ui.forms.editors.panels.widgets.UIFormColorAdjustments;
+import mchorse.bbs_mod.ui.forms.editors.panels.widgets.UIFormColorLayout;
 import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.ui.framework.elements.UIElement;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIButton;
@@ -88,8 +88,8 @@ public class UIPoseEditor extends UIElement
     public UIColor glowingColor;
     public UITrackpad glowIntensity;
     public UIToggle lighting;
-    public UIPoseSectionCollapse colorSection;
-    public UIPoseSectionCollapse glowSection;
+    public UIPoseSectionCollapse advancedSection;
+    public UIElement glowSection;
     public UIPropTransform transform;
     public Runnable onChange;
 
@@ -583,30 +583,12 @@ public class UIPoseEditor extends UIElement
                 if (this.onChange != null) this.onChange.run();
             });
         });
-        this.colorSection = new UIPoseSectionCollapse(
-            UIKeys.FILM_REPLAY_TRACK_COLOR,
-            UIReplaysEditor.getColor("color"),
-            UI.column(
-                UI.label(UIKeys.FILM_REPLAY_TRACK_COLOR).marginTop(4),
-                this.color,
-                this.colorTransform,
-                UI.label(UIKeys.FORMS_EDITORS_PAINT_COLOR).marginTop(4),
-                this.paintColor,
-                UI.label(UIKeys.FORMS_EDITORS_PAINT_INTENSITY),
-                this.paintIntensity,
-                this.paintTransform,
-                this.colorAdjustments.marginTop(4)
-            )
-        );
-        this.glowSection = new UIPoseSectionCollapse(
-            UIKeys.FORMS_EDITORS_GLOW,
-            Colors.ORANGE,
-            UI.column(
-                UI.label(UIKeys.FORMS_EDITORS_GLOWING_COLOR).marginTop(4),
-                this.glowingColor,
-                UI.label(UIKeys.FORMS_EDITORS_GLOW_INTENSITY),
-                this.glowIntensity
-            )
+        this.glowSection = UIFormColorLayout.createGlowSection(this.glowingColor, this.glowIntensity);
+        this.advancedSection = UIFormColorLayout.createAdvancedSection(
+            this.colorTransform,
+            UIFormColorLayout.paintColorRow(this.paintColor, this.paintIntensity),
+            this.paintTransform,
+            this.colorAdjustments.marginTop(4)
         );
         this.lighting = new UIToggle(UIKeys.FORMS_EDITORS_GENERAL_LIGHTING, (b) ->
         {
@@ -667,8 +649,9 @@ public class UIPoseEditor extends UIElement
         }
 
         this.add(this.extra);
-        this.add(UI.label(UIKeys.POSE_CONTEXT_FIX), this.fix, this.transform);
+        /* Classic order: bone texture / color / lighting above the transform grid. */
         this.add(this.createPoseFooter());
+        this.add(UI.label(UIKeys.POSE_CONTEXT_FIX), this.fix, this.transform);
     }
 
     /**
@@ -796,7 +779,9 @@ public class UIPoseEditor extends UIElement
         this.paintIntensity.setVisible(!groups.isEmpty());
         this.glowingColor.setVisible(!groups.isEmpty());
         this.glowIntensity.setVisible(!groups.isEmpty());
-        this.colorSection.setVisible(!groups.isEmpty());
+        this.lighting.setVisible(!groups.isEmpty());
+        this.pickTexture.setVisible(!groups.isEmpty());
+        this.advancedSection.setVisible(!groups.isEmpty());
         this.glowSection.setVisible(!groups.isEmpty());
         this.transform.setVisible(!groups.isEmpty());
 
@@ -1097,7 +1082,7 @@ public class UIPoseEditor extends UIElement
         this.paintIntensity.setVisible(true);
         this.glowingColor.setVisible(true);
         this.glowIntensity.setVisible(true);
-        this.colorSection.setVisible(true);
+        this.advancedSection.setVisible(true);
         this.glowSection.setVisible(true);
         this.lighting.setVisible(true);
         this.pickTexture.setVisible(BBSSettings.pickLimbTexture != null && BBSSettings.pickLimbTexture.get());
@@ -1135,7 +1120,7 @@ public class UIPoseEditor extends UIElement
         this.paintIntensity.setVisible(true);
         this.glowingColor.setVisible(true);
         this.glowIntensity.setVisible(true);
-        this.colorSection.setVisible(true);
+        this.advancedSection.setVisible(true);
         this.glowSection.setVisible(true);
         this.lighting.setVisible(true);
         this.pickTexture.setVisible(BBSSettings.pickLimbTexture != null && BBSSettings.pickLimbTexture.get());
@@ -1241,23 +1226,24 @@ public class UIPoseEditor extends UIElement
     }
 
     /**
-     * Bottom of pose Properties: Lighting | Pick bone texture, then Color, Glow.
+     * Bone appearance controls above the transform grid (classic order):
+     * section label, bone texture, color + lighting row, Glow, Advanced.
      */
     public UIElement createPoseFooter()
     {
         boolean pickLimbTexture = BBSSettings.pickLimbTexture != null && BBSSettings.pickLimbTexture.get();
         UIElement footer = UI.column();
 
+        footer.add(UIFormColorLayout.sectionLabel(UIKeys.FORMS_EDITOR_BONE));
+
         if (pickLimbTexture)
         {
-            footer.add(UI.row(this.lighting, this.pickTexture));
-        }
-        else
-        {
-            footer.add(this.lighting);
+            footer.add(this.pickTexture);
         }
 
-        footer.add(this.colorSection, this.glowSection);
+        /* Compact tint swatch beside lighting — matches pre–Blend Color row. */
+        footer.add(UI.row(this.color, this.lighting));
+        footer.add(this.glowSection, this.advancedSection);
 
         return footer;
     }

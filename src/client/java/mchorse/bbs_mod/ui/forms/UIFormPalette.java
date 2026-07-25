@@ -7,7 +7,6 @@ import mchorse.bbs_mod.ui.forms.editors.UIFormEditor;
 import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.ui.framework.elements.UIElement;
 import mchorse.bbs_mod.ui.framework.elements.utils.EventPropagation;
-import mchorse.bbs_mod.utils.colors.Colors;
 
 import org.lwjgl.glfw.GLFW;
 
@@ -243,7 +242,7 @@ public class UIFormPalette extends UIElement implements IUIFormList
     {
         if (this.background && (!this.immersive || this.list.isVisible()))
         {
-            this.area.render(context.batcher, Colors.A75);
+            this.area.render(context.batcher, 0xEE111115);
         }
 
         super.render(context);
