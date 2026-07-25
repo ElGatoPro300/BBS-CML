@@ -78,32 +78,58 @@ public class CubicVAORenderer extends CubicCubeRenderer
                 }
 
                 ModelVAORenderer.setGroupPaint(effectivePaintR, effectivePaintG, effectivePaintB, effectivePaintStrength);
+                ModelVAORenderer.setGroupPaintEffectTransform(group.paintColor.transform);
                 ModelVAORenderer.setGroupGlowing(
                     effectiveGlowR,
                     effectiveGlowG,
                     effectiveGlowB,
                     effectiveGlowStrength);
                 ModelVAORenderer.setGroupFormColorGrade(group.color);
+                ModelVAORenderer.setGroupColorEffectTransform(group.color.transform);
+                ModelVAORenderer.setGroupFormColorTint(group.color);
 
                 this.bindGroupTexture(group);
 
-                r = this.r * group.color.r;
-                g = this.g * group.color.g;
-                b = this.b * group.color.b;
-                a = this.a * group.color.a;
+                if (group.color.hasActiveTransform())
+                {
+                    r = this.r;
+                    g = this.g;
+                    b = this.b;
+                    a = this.a;
+                }
+                else
+                {
+                    r = this.r * group.color.r;
+                    g = this.g * group.color.g;
+                    b = this.b * group.color.b;
+                    a = this.a * group.color.a;
+                }
             }
             else
             {
                 this.bindGroupTexture(group);
 
-                r = this.r * group.color.r;
-                g = this.g * group.color.g;
-                b = this.b * group.color.b;
-                a = this.a * group.color.a;
-
                 ModelVAORenderer.setGroupPaint(effectivePaintR, effectivePaintG, effectivePaintB, effectivePaintStrength);
+                ModelVAORenderer.setGroupPaintEffectTransform(group.paintColor.transform);
                 ModelVAORenderer.setGroupGlowing(effectiveGlowR, effectiveGlowG, effectiveGlowB, effectiveGlowStrength);
                 ModelVAORenderer.setGroupFormColorGrade(group.color);
+                ModelVAORenderer.setGroupColorEffectTransform(group.color.transform);
+                ModelVAORenderer.setGroupFormColorTint(group.color);
+
+                if (group.color.hasActiveTransform())
+                {
+                    r = this.r;
+                    g = this.g;
+                    b = this.b;
+                    a = this.a;
+                }
+                else
+                {
+                    r = this.r * group.color.r;
+                    g = this.g * group.color.g;
+                    b = this.b * group.color.b;
+                    a = this.a * group.color.a;
+                }
             }
 
             if (!ModelVAORenderer.isGlowingUniformActive())

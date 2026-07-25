@@ -1891,6 +1891,11 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
             return false;
         }
 
+        if (this.hasAnyBoneColorTransform(model))
+        {
+            return true;
+        }
+
         Color color = this.form.color.get();
 
         if (color == null)
@@ -1958,6 +1963,27 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
         for (ModelGroup group : model.getModel().getAllGroups())
         {
             if (group.color != null && group.color.hasColorAdjustments())
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Whether any pose bone has an active color spatial mask (shape / offset / scale / rotate).
+     */
+    private boolean hasAnyBoneColorTransform(ModelInstance model)
+    {
+        if (model == null || model.getModel() == null)
+        {
+            return false;
+        }
+
+        for (ModelGroup group : model.getModel().getAllGroups())
+        {
+            if (group.color != null && group.color.hasActiveTransform())
             {
                 return true;
             }

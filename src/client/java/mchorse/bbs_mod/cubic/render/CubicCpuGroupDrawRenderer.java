@@ -97,6 +97,7 @@ public class CubicCpuGroupDrawRenderer extends CubicCubeRenderer
             this.resolveEffectivePaintB(group),
             effectivePaintStrength
         );
+        ModelVAORenderer.setGroupPaintEffectTransform(group.paintColor.transform);
         ModelVAORenderer.setGroupGlowing(
             this.resolveEffectiveGlowR(group),
             this.resolveEffectiveGlowG(group),
@@ -104,10 +105,20 @@ public class CubicCpuGroupDrawRenderer extends CubicCubeRenderer
             effectiveGlowStrength
         );
         ModelVAORenderer.setGroupFormColorGrade(group.color);
+        ModelVAORenderer.setGroupColorEffectTransform(group.color.transform);
+        ModelVAORenderer.setGroupFormColorTint(group.color);
 
         float cr = this.r;
         float cg = this.g;
         float cb = this.b;
+
+        if (!group.color.hasActiveTransform())
+        {
+            cr *= group.color.r;
+            cg *= group.color.g;
+            cb *= group.color.b;
+            alpha *= group.color.a;
+        }
 
         this.setColor(cr, cg, cb, alpha);
 

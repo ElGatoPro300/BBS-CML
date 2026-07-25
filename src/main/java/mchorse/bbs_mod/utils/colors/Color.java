@@ -126,6 +126,19 @@ public class Color
         this.contrast = Lerps.lerp(this.contrast, color.contrast, factor);
         this.hue = Lerps.lerp(this.hue, color.hue, factor);
         this.saturation = Lerps.lerp(this.saturation, color.saturation, factor);
+
+        if (factor > 0F && color.hasActiveTransform())
+        {
+            this.transform = copyTransform(color.transform);
+        }
+
+        if (factor > 0F && (color.hasColorAdjustments() || color.hasActiveGradeTransform()))
+        {
+            this.brightnessTransform = copyTransform(color.brightnessTransform);
+            this.contrastTransform = copyTransform(color.contrastTransform);
+            this.hueTransform = copyTransform(color.hueTransform);
+            this.saturationTransform = copyTransform(color.saturationTransform);
+        }
     }
 
     public Color copy()

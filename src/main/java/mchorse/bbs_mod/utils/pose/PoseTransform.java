@@ -2,6 +2,7 @@ package mchorse.bbs_mod.utils.pose;
 
 import mchorse.bbs_mod.data.types.BaseType;
 import mchorse.bbs_mod.data.types.MapType;
+import mchorse.bbs_mod.forms.forms.utils.EffectTransform;
 import mchorse.bbs_mod.forms.forms.utils.PaintSettings;
 import mchorse.bbs_mod.resources.Link;
 import mchorse.bbs_mod.utils.MathUtils;
@@ -50,7 +51,13 @@ public class PoseTransform extends Transform
 
         this.fix = 0F;
         this.color.set(Colors.WHITE);
+        this.color.transform = new EffectTransform();
+        this.color.brightnessTransform = new EffectTransform();
+        this.color.contrastTransform = new EffectTransform();
+        this.color.hueTransform = new EffectTransform();
+        this.color.saturationTransform = new EffectTransform();
         this.paintColor.set(1F, 1F, 1F, 0F);
+        this.paintColor.transform = new EffectTransform();
         this.glowingColor.set(1F, 1F, 1F, 1F);
         this.glowIntensity = 0F;
         this.glowRadius = 0F;

@@ -70,6 +70,7 @@ public class ModelGroup implements IMapSerializable
         this.color.hueTransform = new EffectTransform();
         this.color.saturationTransform = new EffectTransform();
         this.paintColor.set(1F, 1F, 1F, 0F);
+        this.paintColor.transform = new EffectTransform();
         this.glowingColor.set(1F, 1F, 1F, 1F);
         this.glowIntensity = 0F;
         this.glowRadius = 0F;
