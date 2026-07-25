@@ -5,6 +5,7 @@ import mchorse.bbs_mod.forms.entities.IEntity;
 import mchorse.bbs_mod.forms.renderers.utils.RecolorVertexConsumer;
 import mchorse.bbs_mod.utils.colors.Color;
 
+import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.model.ModelPart;
 import net.minecraft.client.render.OverlayTexture;
 import net.minecraft.client.render.RenderLayer;
@@ -29,6 +30,7 @@ import net.minecraft.item.Items;
 import net.minecraft.item.trim.ArmorTrim;
 import net.minecraft.registry.entry.RegistryEntry;
 import net.minecraft.util.Identifier;
+import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.RotationAxis;
 
 import com.google.common.collect.Maps;
@@ -74,18 +76,12 @@ public class ArmorRenderer
                 this.elytraModel.rightWing.pivotY = 0.0F;
                 this.elytraModel.rightWing.pivotZ = 0.0F;
 
-                if (entity != null && entity.isFallFlying())
-                {
-                    this.elytraModel.leftWing.pitch = 0.35F;
-                    this.elytraModel.leftWing.yaw = -0.1F;
-                    this.elytraModel.leftWing.roll = -1.55F;
-                }
-                else
-                {
-                    this.elytraModel.leftWing.pitch = 0.2617994F;
-                    this.elytraModel.leftWing.yaw = -0.015F;
-                    this.elytraModel.leftWing.roll = -0.29F;
-                }
+                float transition = MinecraftClient.getInstance().getRenderTickCounter().getTickDelta(true);
+                float flyProgress = entity != null ? entity.getFallFlyingProgress(transition) : 0F;
+
+                this.elytraModel.leftWing.pitch = MathHelper.lerp(flyProgress, 0.2617994F, 0.35F);
+                this.elytraModel.leftWing.yaw = MathHelper.lerp(flyProgress, -0.015F, -0.1F);
+                this.elytraModel.leftWing.roll = MathHelper.lerp(flyProgress, -0.29F, -1.55F);
                 this.elytraModel.rightWing.pitch = this.elytraModel.leftWing.pitch;
                 this.elytraModel.rightWing.yaw = -this.elytraModel.leftWing.yaw;
                 this.elytraModel.rightWing.roll = -this.elytraModel.leftWing.roll;
