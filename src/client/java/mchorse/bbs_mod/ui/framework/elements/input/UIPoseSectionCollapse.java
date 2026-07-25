@@ -9,6 +9,14 @@ import mchorse.bbs_mod.ui.framework.elements.UIElement;
  */
 public class UIPoseSectionCollapse extends UIElement
 {
+    /**
+     * Padding under the header so the first labels are not flush against the
+     * disclosure toggle (kept inside the body so the section gradient still covers it).
+     */
+    public static final int BODY_TOP_GAP = 6;
+    /** Padding under body content so the last row is not scissored when reopening. */
+    public static final int BODY_BOTTOM_GAP = 2;
+
     private final UITrackStyleSectionHeader header;
     private final UIAnimatedCollapseShell shell;
     private final Runnable onExpand;
@@ -31,7 +39,8 @@ public class UIPoseSectionCollapse extends UIElement
 
         UITrackStyleSectionBody body = new UITrackStyleSectionBody(this.header::getColor);
 
-        body.addContent(content);
+        body.addContent(content.marginTop(BODY_TOP_GAP));
+        body.addContent(new UIElement().h(BODY_BOTTOM_GAP));
 
         this.shell = new UIAnimatedCollapseShell(body).flushToHost(true);
 
