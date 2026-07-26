@@ -92,11 +92,14 @@ public class GlowSettings
     }
 
     /**
-     * Returns glow intensity, or a default when only a legacy glowing_color tint is set.
+     * Returns glow intensity. When glow settings already carry a custom color or a
+     * non-zero intensity, {@link #intensity} (including 0) is authoritative so editing
+     * glow color alone cannot force full-strength glow. Legacy {@code glowing_color}
+     * fallback applies only when glow RGB is still the default white and intensity is 0.
      */
     public float resolveIntensity(Color legacy)
     {
-        if (this.intensity != 0F)
+        if (this.intensity != 0F || this.r != 1F || this.g != 1F || this.b != 1F)
         {
             return this.intensity;
         }
