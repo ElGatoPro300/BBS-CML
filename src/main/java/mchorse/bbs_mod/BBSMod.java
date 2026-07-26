@@ -796,6 +796,7 @@ public class BBSMod implements ModInitializer
             }
 
             BBSSettings.migrateIrisOpacityFix();
+            BBSSettings.migrateOrbitSettingsAfterLoad(settings.file);
         }
 
         return settings;

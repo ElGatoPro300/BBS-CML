@@ -397,7 +397,7 @@ public class OrbitFilmCameraController implements ICameraController
 
         this.syncFromCamera(toCamera, transition);
 
-        if (BBSSettings.editorOrbitNoAnimation.get())
+        if (!BBSSettings.editorOrbitSmoothTransition.get())
         {
             this.animating = false;
             this.animProgress = 1F;
