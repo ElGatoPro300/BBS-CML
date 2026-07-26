@@ -28,6 +28,11 @@ public class PoseTransform extends Transform
     public float glowRadius;
     public float lighting;
     public float shaderShadow = PaintSettings.SHADER_SHADOW_DEFAULT;
+    /**
+     * Soft limb opacity tradeoff (same meaning as form Color noshading): when true and this
+     * bone (or the form) is soft, redraw via the BBS deferred queue after paint.
+     */
+    public boolean noshadingOpacity;
     public Link texture;
     public Link textureBlendTo;
     public float textureBlend = 1F;
@@ -64,6 +69,7 @@ public class PoseTransform extends Transform
         this.glowRadius = 0F;
         this.lighting = 0F;
         this.shaderShadow = PaintSettings.SHADER_SHADOW_DEFAULT;
+        this.noshadingOpacity = false;
         this.texture = null;
         this.textureBlendTo = null;
         this.textureBlend = 1F;
@@ -122,6 +128,7 @@ public class PoseTransform extends Transform
             this.glowRadius = (float) interp.interpolate(IInterp.context.set(preA1.glowRadius, a1.glowRadius, b1.glowRadius, postB1.glowRadius, x));
             this.lighting = (float) interp.interpolate(IInterp.context.set(preA1.lighting, a1.lighting, b1.lighting, postB1.lighting, x));
             this.shaderShadow = (float) interp.interpolate(IInterp.context.set(preA1.shaderShadow, a1.shaderShadow, b1.shaderShadow, postB1.shaderShadow, x));
+            this.noshadingOpacity = x >= 0.5F ? b1.noshadingOpacity : a1.noshadingOpacity;
             this.textureBlend = (float) interp.interpolate(IInterp.context.set(preA1.textureBlend, a1.textureBlend, b1.textureBlend, postB1.textureBlend, x));
         }
     }
@@ -161,6 +168,7 @@ public class PoseTransform extends Transform
             this.glowRadius = this.interpolate(preA1.glowRadius, a1.glowRadius, b1.glowRadius, postB1.glowRadius, x, interp, args, preA == a, postB == b, w0, w1, w2, w3);
             this.lighting = this.interpolate(preA1.lighting, a1.lighting, b1.lighting, postB1.lighting, x, interp, args, preA == a, postB == b, w0, w1, w2, w3);
             this.shaderShadow = this.interpolate(preA1.shaderShadow, a1.shaderShadow, b1.shaderShadow, postB1.shaderShadow, x, interp, args, preA == a, postB == b, w0, w1, w2, w3);
+            this.noshadingOpacity = x >= 0.5F ? b1.noshadingOpacity : a1.noshadingOpacity;
             this.textureBlend = this.interpolate(preA1.textureBlend, a1.textureBlend, b1.textureBlend, postB1.textureBlend, x, interp, args, preA == a, postB == b, w0, w1, w2, w3);
         }
     }
@@ -198,6 +206,7 @@ public class PoseTransform extends Transform
             result = result && this.glowRadius == poseTransform.glowRadius;
             result = result && this.lighting == poseTransform.lighting;
             result = result && this.shaderShadow == poseTransform.shaderShadow;
+            result = result && this.noshadingOpacity == poseTransform.noshadingOpacity;
             result = result && this.textureBlend == poseTransform.textureBlend;
             result = result && ((this.texture == null && poseTransform.texture == null) || (this.texture != null && this.texture.equals(poseTransform.texture)));
             result = result && ((this.textureBlendTo == null && poseTransform.textureBlendTo == null) || (this.textureBlendTo != null && this.textureBlendTo.equals(poseTransform.textureBlendTo)));
@@ -230,6 +239,7 @@ public class PoseTransform extends Transform
             this.glowRadius = poseTransform.glowRadius;
             this.lighting = poseTransform.lighting;
             this.shaderShadow = poseTransform.shaderShadow;
+            this.noshadingOpacity = poseTransform.noshadingOpacity;
             this.texture = LinkUtils.copy(poseTransform.texture);
             this.textureBlendTo = LinkUtils.copy(poseTransform.textureBlendTo);
             this.textureBlend = poseTransform.textureBlend;
@@ -253,6 +263,10 @@ public class PoseTransform extends Transform
         if (this.shaderShadow != PaintSettings.SHADER_SHADOW_DEFAULT)
         {
             data.putFloat("shader_shadow", this.shaderShadow);
+        }
+        if (this.noshadingOpacity)
+        {
+            data.putBool("noshading_opacity", true);
         }
         if (this.texture != null)
         {
@@ -303,6 +317,7 @@ public class PoseTransform extends Transform
         {
             this.shaderShadow = PaintSettings.SHADER_SHADOW_DEFAULT;
         }
+        this.noshadingOpacity = data.getBool("noshading_opacity", false);
         if (data.has("texture"))
         {
             this.texture = LinkUtils.create(data.get("texture"));

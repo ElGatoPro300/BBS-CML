@@ -233,6 +233,7 @@ public class FormProperties extends ValueGroup
                             poseTransform.glowIntensity = Lerps.lerp(poseTransform.glowIntensity, sourcePose.glowIntensity, blend);
                             poseTransform.glowRadius = Lerps.lerp(poseTransform.glowRadius, sourcePose.glowRadius, blend);
                             poseTransform.lighting = Lerps.lerp(poseTransform.lighting, sourcePose.lighting, blend);
+                            poseTransform.noshadingOpacity = poseTransform.noshadingOpacity || sourcePose.noshadingOpacity;
                             poseTransform.shaderShadow = PaintSettings.resolveAutoShaderShadowForPoseAlpha(poseTransform.paintColor.a);
                         }
                         else
@@ -245,6 +246,7 @@ public class FormProperties extends ValueGroup
                             poseTransform.glowIntensity = sourcePose.glowIntensity;
                             poseTransform.glowRadius = sourcePose.glowRadius;
                             poseTransform.lighting = sourcePose.lighting;
+                            poseTransform.noshadingOpacity = sourcePose.noshadingOpacity;
                             poseTransform.shaderShadow = PaintSettings.resolveAutoShaderShadowForPoseAlpha(poseTransform.paintColor.a);
                         }
 
