@@ -135,11 +135,9 @@ public interface IUIKeyframeGraph
 
         if (value == null)
         {
-            if ("shadow".equals(sheet.id) || "shadow_size".equals(sheet.id) || "shadow_size_z".equals(sheet.id))
+            if ("shadow_size".equals(sheet.id))
             {
-                value = "shadow".equals(sheet.id)
-                    ? sheet.channel.getFactory().createEmpty()
-                    : 0.5D;
+                value = sheet.channel.getFactory().createEmpty();
             }
             else if ("shadow_opacity".equals(sheet.id))
             {

@@ -191,7 +191,8 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
         COLORS.put("extra1_y", Colors.GREEN);
         COLORS.put("extra2_x", Colors.RED);
         COLORS.put("extra2_y", Colors.GREEN);
-        COLORS.put("shadow", Colors.ORANGE);
+        COLORS.put("shadow_size", Colors.MAGENTA);
+        COLORS.put("shadow_opacity", Colors.ORANGE);
         COLORS.put("riding", Colors.ORANGE);
         COLORS.put("ridden", Colors.BLUE);
 
@@ -288,7 +289,8 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
         ICONS.put("trigger_l", Icons.TRIGGER);
         ICONS.put("extra1_x", Icons.CURVES);
         ICONS.put("extra2_x", Icons.CURVES);
-        ICONS.put("shadow", Icons.VISIBLE);
+        ICONS.put("shadow_size", Icons.SCALE);
+        ICONS.put("shadow_opacity", Icons.VISIBLE);
         ICONS.put("item_main_hand", Icons.LIMB);
 
         ICONS.put("user1", Icons.PARTICLE);
@@ -1441,7 +1443,7 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
             && this.filmPanel.getController().getCurrentEntity() != null;
     }
 
-    private static final List<String> WORLD_CHANNELS = Arrays.asList("x", "y", "z", "vX", "vY", "vZ", "yaw", "pitch", "headYaw", "bodyYaw", "grounded", "damage", "death_time", "using_item", "item_use_time", "fire", "particles", "active_hand", "fall", "sneaking", "riding", "sprinting", "swimming", "flying", "fall_flying", "crawling", "climbing", "blocking", "sleeping", "riptide", "item_main_hand", "item_off_hand", "item_head", "item_chest", "item_legs", "item_feet", "selected_slot", "stick_lx", "stick_ly", "stick_rx", "stick_ry", "trigger_l", "trigger_r", "extra1_x", "extra1_y", "extra2_x", "extra2_y", "shadow");
+    private static final List<String> WORLD_CHANNELS = Arrays.asList("x", "y", "z", "vX", "vY", "vZ", "yaw", "pitch", "headYaw", "bodyYaw", "grounded", "damage", "death_time", "using_item", "item_use_time", "fire", "particles", "active_hand", "fall", "sneaking", "riding", "sprinting", "swimming", "flying", "fall_flying", "crawling", "climbing", "blocking", "sleeping", "riptide", "item_main_hand", "item_off_hand", "item_head", "item_chest", "item_legs", "item_feet", "selected_slot", "stick_lx", "stick_ly", "stick_rx", "stick_ry", "trigger_l", "trigger_r", "extra1_x", "extra1_y", "extra2_x", "extra2_y", "shadow_size", "shadow_opacity");
     private static final Set<String> VANILLA_POSE_CHANNELS = Set.of(
         "riding", "swimming", "flying", "fall_flying",
         "crawling", "climbing", "blocking", "sleeping", "riptide"
@@ -1702,9 +1704,14 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
             return UIKeys.FILM_REPLAY_TRACK_EXTRA2_Y;
         }
 
-        if (trackName.equals("shadow") || trackName.equals("shadow_size") || trackName.equals("shadow_size_z") || trackName.equals("shadow_opacity"))
+        if (trackName.equals("shadow_size"))
         {
-            return UIKeys.FILM_REPLAY_SHADOW;
+            return UIKeys.FILM_REPLAY_SHADOW_SIZE;
+        }
+
+        if (trackName.equals("shadow_opacity"))
+        {
+            return UIKeys.FILM_REPLAY_SHADOW_OPACITY;
         }
 
         return null;
@@ -2624,7 +2631,7 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
 
         for (UIKeyframeSheet sheet : sheets)
         {
-            if (sheet.property == null && "shadow".equals(sheet.id))
+            if (sheet.property == null && ("shadow_size".equals(sheet.id) || "shadow_opacity".equals(sheet.id)))
             {
                 sheet.separator = false;
             }

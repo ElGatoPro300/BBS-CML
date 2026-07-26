@@ -1993,14 +1993,23 @@ public abstract class BaseFilmController
         settings.offsetY = replay.shadowOffsetY.get();
         settings.offsetZ = replay.shadowOffsetZ.get();
 
-        if (!replay.keyframes.shadow.isEmpty())
+        if (!replay.keyframes.shadowSize.isEmpty())
         {
-            ShadowSettings interpolated = replay.keyframes.shadow.interpolate(tick);
+            ShadowSettings size = replay.keyframes.shadowSize.interpolate(tick);
 
-            if (interpolated != null)
+            if (size != null)
             {
-                settings = interpolated.copy();
+                settings.widthX = Math.max(0F, size.widthX);
+                settings.widthZ = Math.max(0F, size.widthZ);
+                settings.offsetX = size.offsetX;
+                settings.offsetY = size.offsetY;
+                settings.offsetZ = size.offsetZ;
             }
+        }
+
+        if (!replay.keyframes.shadowOpacity.isEmpty())
+        {
+            settings.opacity = MathUtils.clamp(replay.keyframes.shadowOpacity.interpolate(tick).floatValue(), 0F, 1F);
         }
 
         settings.widthX = Math.max(0F, settings.widthX);
