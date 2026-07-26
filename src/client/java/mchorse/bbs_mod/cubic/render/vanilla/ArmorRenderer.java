@@ -79,7 +79,7 @@ public class ArmorRenderer
                 this.elytraModel.rightWing.pivotY = 0.0F;
                 this.elytraModel.rightWing.pivotZ = 0.0F;
 
-                float transition = MinecraftClient.getInstance().getRenderTickCounter().getTickDelta(true);
+                float transition = MinecraftClient.getInstance().getTickDelta();
                 float flyProgress = entity != null ? entity.getFallFlyingProgress(transition) : 0F;
 
                 this.elytraModel.leftWing.pitch = MathHelper.lerp(flyProgress, 0.2617994F, 0.35F);
@@ -90,11 +90,11 @@ public class ArmorRenderer
                 this.elytraModel.rightWing.roll = -this.elytraModel.leftWing.roll;
 
                 VertexConsumer consumer = vertexConsumers.getBuffer(RenderLayer.getArmorCutoutNoCull(ELYTRA_TEXTURE));
-                this.elytraModel.render(matrices, consumer, light, OverlayTexture.DEFAULT_UV);
+                this.elytraModel.render(matrices, consumer, light, OverlayTexture.DEFAULT_UV, 1F, 1F, 1F, 1F);
 
                 if (itemStack.hasGlint())
                 {
-                    this.elytraModel.render(matrices, vertexConsumers.getBuffer(RenderLayer.getArmorEntityGlint()), light, OverlayTexture.DEFAULT_UV);
+                    this.elytraModel.render(matrices, vertexConsumers.getBuffer(RenderLayer.getArmorEntityGlint()), light, OverlayTexture.DEFAULT_UV, 1F, 1F, 1F, 1F);
                 }
 
                 matrices.pop();
