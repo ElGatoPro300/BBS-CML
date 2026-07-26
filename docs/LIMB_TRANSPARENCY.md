@@ -132,7 +132,7 @@ Only if Step 1 leaves gaps:
 
 | Issue | Notes |
 |-------|--------|
-| Soft limb behind soft limb (same actor) | Translucent bone sort — planned in [`SOFT_LIMB_BONE_SORT.md`](SOFT_LIMB_BONE_SORT.md) (not implemented yet) |
+| Soft limb behind soft limb (same actor) | **v1 done:** per-bone post-deferred submit + `distanceSq` — [`SOFT_LIMB_BONE_SORT.md`](SOFT_LIMB_BONE_SORT.md) |
 | Model-block preview invisible with soft limbs | **Fixed:** preview draws live |
 | Soft limb occludes actors/clouds/billboards behind | **Fixed:** opaque live + soft post-deferred |
 | Soft limb invisible under Iris (any alpha &lt; 255) | **Fixed:** Iris uses camera matrices + `submitPostDeferredForm` (baked BBS MVP was wrong) |
@@ -150,7 +150,7 @@ Safe and supported:
 
 Limitations to expect:
 
-- Soft-vs-soft sorting on the **same** actor can still look wrong (draw order / depth). See planned per-bone sort: [`SOFT_LIMB_BONE_SORT.md`](SOFT_LIMB_BONE_SORT.md).
+- Soft-vs-soft on the **same** actor: v1 per-bone sort (see [`SOFT_LIMB_BONE_SORT.md`](SOFT_LIMB_BONE_SORT.md)); interpenetrating meshes can still look wrong.
 - Paint/glow overlays on soft-only limbs may still follow form-level Iris overlay timing.
 - Fully transparent bones are skipped for deferral gates (anchors at alpha 0 no longer force a bogus soft path).
 
