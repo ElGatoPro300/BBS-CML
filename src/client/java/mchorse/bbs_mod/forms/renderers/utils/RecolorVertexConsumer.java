@@ -49,7 +49,7 @@ public class RecolorVertexConsumer implements VertexConsumer
 
         int[] rgb = { red, green, blue };
 
-        FormColorBlend.applyPaintBlendToBytes(rgb, this.paintColor);
+        FormColorEffects.applyPaintBlendToBytes(rgb, this.paintColor);
         red = rgb[0];
         green = rgb[1];
         blue = rgb[2];

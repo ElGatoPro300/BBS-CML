@@ -3,16 +3,19 @@ package mchorse.bbs_mod.ui.framework.elements.input;
 import mchorse.bbs_mod.forms.forms.utils.EffectTransform;
 import mchorse.bbs_mod.forms.forms.utils.EffectTransformMath;
 import mchorse.bbs_mod.forms.forms.utils.PaintMaskShape;
+import mchorse.bbs_mod.ui.framework.elements.UIElement;
 import mchorse.bbs_mod.ui.framework.elements.events.UITrackpadDragEndEvent;
 import mchorse.bbs_mod.ui.framework.elements.events.UITrackpadDragStartEvent;
 import mchorse.bbs_mod.ui.framework.elements.input.keyframes.UIKeyframes;
+import mchorse.bbs_mod.ui.utils.UIConstants;
 import mchorse.bbs_mod.utils.MathUtils;
 import mchorse.bbs_mod.utils.pose.Transform;
 
 import java.util.function.Consumer;
 
 /**
- * Standard {@link UIPropTransform} widget wired to {@link EffectTransform} for paint keyframes.
+ * {@link UIPropTransform} wired to {@link EffectTransform} for color / paint / glow masks.
+ * Hides rotate2 and pivot rows — those fields are not stored or applied by effect masks.
  */
 public class UIEffectKeyframeTransform extends UIPropTransform
 {
@@ -26,7 +29,31 @@ public class UIEffectKeyframeTransform extends UIPropTransform
         this.apply = apply;
         this.callbacks(null, this::commit);
         this.w(1F);
+        this.removeUnusedEffectRows();
         this.setEffectTransform(new EffectTransform());
+    }
+
+    /**
+     * Effect masks only use translate / scale / rotate. Drop rotate2 + pivot so they
+     * are not confused with pose-limb transforms that do use those fields.
+     */
+    private void removeUnusedEffectRows()
+    {
+        UIElement rotate2Row = this.iconR2.getParent();
+        UIElement pivotRow = this.iconP.getParent();
+
+        if (rotate2Row != null && rotate2Row != this)
+        {
+            rotate2Row.removeFromParent();
+        }
+
+        if (pivotRow != null && pivotRow != this)
+        {
+            pivotRow.removeFromParent();
+        }
+
+        /* UITransform defaults to 90px for five rows; keep three rows compact. */
+        this.h(UIConstants.CONTROL_HEIGHT * 3);
     }
 
     public void registerUndo(UIKeyframes editor)

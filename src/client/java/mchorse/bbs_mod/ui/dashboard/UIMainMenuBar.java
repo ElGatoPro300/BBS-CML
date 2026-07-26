@@ -179,7 +179,7 @@ public class UIMainMenuBar extends UIElement
 
         if (context.contextMenu != null)
         {
-            int maxH = Math.max(98, context.menu.height - button.area.ey() - 10);
+            int maxH = Math.max(114, context.menu.height - button.area.ey() - 10);
 
             menu.setMaxHeight(maxH);
             context.contextMenu.getFlex().x.set(0, button.area.x);

@@ -122,14 +122,18 @@ public class BOBJModelVAO
      */
     public void delete()
     {
-        GL30.glDeleteVertexArrays(this.vao);
+        if (this.vao != 0)
+        {
+            GL30.glDeleteVertexArrays(this.vao);
+            this.vao = 0;
+        }
 
-        GL15.glDeleteBuffers(this.vertexBuffer);
-        GL15.glDeleteBuffers(this.normalBuffer);
-        GL15.glDeleteBuffers(this.lightBuffer);
-        GL15.glDeleteBuffers(this.texCoordBuffer);
-        GL15.glDeleteBuffers(this.tangentBuffer);
-        GL15.glDeleteBuffers(this.midTextureBuffer);
+        if (this.vertexBuffer != 0) { GL15.glDeleteBuffers(this.vertexBuffer); this.vertexBuffer = 0; }
+        if (this.normalBuffer != 0) { GL15.glDeleteBuffers(this.normalBuffer); this.normalBuffer = 0; }
+        if (this.lightBuffer != 0) { GL15.glDeleteBuffers(this.lightBuffer); this.lightBuffer = 0; }
+        if (this.texCoordBuffer != 0) { GL15.glDeleteBuffers(this.texCoordBuffer); this.texCoordBuffer = 0; }
+        if (this.tangentBuffer != 0) { GL15.glDeleteBuffers(this.tangentBuffer); this.tangentBuffer = 0; }
+        if (this.midTextureBuffer != 0) { GL15.glDeleteBuffers(this.midTextureBuffer); this.midTextureBuffer = 0; }
     }
 
     /**
@@ -396,6 +400,11 @@ public class BOBJModelVAO
 
     public void render(ShaderProgram shader, MatrixStack stack, float r, float g, float b, float a, StencilMap stencilMap, int light, int overlay, Link defaultTexture)
     {
+        if (this.vao == 0 || !GL30.glIsVertexArray(this.vao))
+        {
+            return;
+        }
+
         boolean hasShaders = BBSRendering.isIrisShadersEnabled();
 
         int currentVAO = GL30.glGetInteger(GL30.GL_VERTEX_ARRAY_BINDING);

@@ -86,17 +86,11 @@ public abstract class UIKeyframeFactory <T> extends UIElement
         FACTORIES.put(clazz, factory);
     }
 
-    private static boolean isFormColorPropertyId(String id)
-    {
-        return "color".equals(id) || (id != null && id.endsWith("/color"));
-    }
-
     public static void saveScroll(UIKeyframeFactory editor)
     {
         if (editor != null)
         {
             SCROLLS.put(editor.keyframe.getFactory(), (int) editor.scroll.scroll.getScroll());
-            editor.saveUiState();
         }
     }
 
@@ -119,10 +113,7 @@ public abstract class UIKeyframeFactory <T> extends UIElement
         {
             UIKeyframeSheet sheet = editor.getGraph().getSheet(keyframe);
 
-            /* Eye blink only — Letterbox also has height+color and must stay unbounded. */
-            if (sheet != null && "height".equals(sheet.id)
-                && editor.getGraph().getSheet("color") != null
-                && editor.getGraph().getSheet("color_opacity") != null)
+            if (sheet != null && "height".equals(sheet.id) && editor.getGraph().getSheet("color") != null)
             {
                 @SuppressWarnings("unchecked")
                 Keyframe<Double> doubleKeyframe = (Keyframe<Double>) keyframe;
@@ -159,26 +150,12 @@ public abstract class UIKeyframeFactory <T> extends UIElement
                 return new UIBossBarColorKeyframeFactory(colorKeyframe, editor);
             }
 
-            /* Form Color track (property-bound). Camera clips like Letterbox/Eye use simple color+alpha. */
-            if (sheet != null && sheet.property != null && isFormColorPropertyId(sheet.id))
+            if (sheet != null && "color".equals(sheet.id))
             {
                 @SuppressWarnings("unchecked")
                 Keyframe<Color> colorKeyframe = (Keyframe<Color>) keyframe;
 
                 return new UIFormColorKeyframeFactory(colorKeyframe, editor);
-            }
-        }
-
-        if (keyframe.getFactory() == KeyframeFactories.FLOAT && editor != null)
-        {
-            UIKeyframeSheet sheet = editor.getGraph().getSheet(keyframe);
-
-            if (sheet != null && "opacity".equals(sheet.id))
-            {
-                @SuppressWarnings("unchecked")
-                Keyframe<Float> opacityKeyframe = (Keyframe<Float>) keyframe;
-
-                return new UIOpacityKeyframeFactory(opacityKeyframe, editor);
             }
         }
 
@@ -397,20 +374,6 @@ public abstract class UIKeyframeFactory <T> extends UIElement
         this.editor.getGraph().setValue(value, true);
         this.editor.triggerChange();
     }
-
-    /**
-     * Persist ephemeral UI (collapse open/closed, etc.) before the panel is rebuilt
-     * for another keyframe of the same factory type.
-     */
-    public void saveUiState()
-    {}
-
-    /**
-     * Re-apply {@link #saveUiState()} after the new panel is parented and resized
-     * (collapse shells need a parent to open).
-     */
-    public void restoreUiState()
-    {}
 
     public void update()
     {

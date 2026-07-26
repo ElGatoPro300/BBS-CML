@@ -26,6 +26,7 @@ public class UIIcons extends UIClickable<UIIcons>
 {
     protected List<Item> items = new ArrayList<>();
     protected int value;
+    private final Area tooltipCell = new Area();
 
     public UIIcons(Consumer<UIIcons> callback)
     {
@@ -97,10 +98,21 @@ public class UIIcons extends UIClickable<UIIcons>
         return Math.max(0, Math.min(index, count - 1));
     }
 
+    private void cellBounds(int index, Area out)
+    {
+        int count = this.items.size();
+        float cellW = this.area.w / (float) count;
+        int x1 = this.area.x + (int) (index * cellW);
+        int x2 = index == count - 1 ? this.area.ex() : this.area.x + (int) ((index + 1) * cellW);
+
+        out.set(x1, this.area.y, x2 - x1, this.area.h);
+    }
+
     @Override
     protected void renderSkin(UIContext context)
     {
         this.tooltip = null;
+        this.tooltipCell.set(0, 0, 0, 0);
 
         int count = this.items.size();
 
@@ -113,8 +125,6 @@ public class UIIcons extends UIClickable<UIIcons>
 
         float cellW = this.area.w / (float) count;
         int hovered = this.hover ? this.indexAt(context.mouseX) : -1;
-
-        this.area.render(context.batcher, BBSSettings.deepSurface());
 
         for (int i = 0; i < count; i++)
         {
@@ -140,10 +150,30 @@ public class UIIcons extends UIClickable<UIIcons>
 
         if (hovered >= 0)
         {
+            this.cellBounds(hovered, this.tooltipCell);
             this.tooltip = this.items.get(hovered).tooltip;
         }
 
         this.renderLockedArea(context);
+    }
+
+    @Override
+    public void renderTooltip(UIContext context, Area area)
+    {
+        if (this.tooltip == null || this.tooltipCell.w <= 0)
+        {
+            return;
+        }
+
+        /* Anchor to the hovered icon cell, not the full row (otherwise tooltips
+           sit under unrelated controls such as the Transform toggle above). */
+        context.tooltip.area.set(
+            context.globalX(this.tooltipCell.x),
+            context.globalY(this.tooltipCell.y),
+            this.tooltipCell.w,
+            this.tooltipCell.h
+        );
+        this.tooltip.renderTooltip(context);
     }
 
     private static class Item
@@ -154,7 +184,7 @@ public class UIIcons extends UIClickable<UIIcons>
         public Item(Icon icon, IKey tooltip)
         {
             this.icon = icon;
-            this.tooltip = new LabelTooltip(tooltip, Direction.TOP);
+            this.tooltip = new LabelTooltip(tooltip, Direction.BOTTOM);
         }
     }
 }

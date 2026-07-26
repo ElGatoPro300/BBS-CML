@@ -1,6 +1,10 @@
 package mchorse.bbs_mod.ui.framework.elements.overlay;
 
+import mchorse.bbs_mod.BBSMod;
 import mchorse.bbs_mod.BBSSettings;
+import mchorse.bbs_mod.data.DataToString;
+import mchorse.bbs_mod.data.types.BaseType;
+import mchorse.bbs_mod.data.types.MapType;
 import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.ui.framework.elements.UIElement;
 import mchorse.bbs_mod.ui.framework.elements.utils.EventPropagation;
@@ -12,6 +16,7 @@ import org.joml.Vector2i;
 
 import org.lwjgl.glfw.GLFW;
 
+import java.io.File;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -19,6 +24,7 @@ public class UIOverlay extends UIElement
 {
     private static final Map<String, Vector2i> offsets = new HashMap<>();
     private static final Map<String, Vector2i> sizes = new HashMap<>();
+    private static boolean loaded = false;
 
     private int background = Colors.A50;
     private float openTransition = 0.0F;
@@ -27,6 +33,121 @@ public class UIOverlay extends UIElement
     public float getOpenTransition()
     {
         return this.openTransition;
+    }
+
+    private static void ensureLoaded()
+    {
+        if (loaded)
+        {
+            return;
+        }
+
+        loaded = true;
+
+        try
+        {
+            File file = BBSMod.getSettingsPath("overlay_sizes.json");
+
+            if (!file.exists())
+            {
+                return;
+            }
+
+            BaseType type = DataToString.read(file);
+
+            if (type instanceof MapType)
+            {
+                MapType data = (MapType) type;
+                MapType sizesMap = data.getMap("sizes");
+                MapType offsetsMap = data.getMap("offsets");
+
+                if (sizesMap != null)
+                {
+                    for (String key : sizesMap.keys())
+                    {
+                        MapType vec = sizesMap.getMap(key);
+
+                        if (vec != null)
+                        {
+                            sizes.put(key, new Vector2i(vec.getInt("x"), vec.getInt("y")));
+                        }
+                    }
+                }
+
+                if (offsetsMap != null)
+                {
+                    for (String key : offsetsMap.keys())
+                    {
+                        MapType vec = offsetsMap.getMap(key);
+
+                        if (vec != null)
+                        {
+                            offsets.put(key, new Vector2i(vec.getInt("x"), vec.getInt("y")));
+                        }
+                    }
+                }
+            }
+        }
+        catch (Exception e)
+        {
+            e.printStackTrace();
+        }
+    }
+
+    public static void saveOverlayState(UIOverlayPanel panel)
+    {
+        if (panel == null)
+        {
+            return;
+        }
+
+        ensureLoaded();
+
+        Vector2i offset = new Vector2i(panel.getFlex().x.offset, panel.getFlex().y.offset);
+        Vector2i size = new Vector2i(panel.getFlex().w.offset, panel.getFlex().h.offset);
+        String key = panel.getKey();
+
+        offsets.put(key, offset);
+        sizes.put(key, size);
+
+        saveToFile();
+    }
+
+    private static void saveToFile()
+    {
+        try
+        {
+            MapType data = new MapType();
+            MapType sizesMap = new MapType();
+            MapType offsetsMap = new MapType();
+
+            for (Map.Entry<String, Vector2i> entry : sizes.entrySet())
+            {
+                MapType vec = new MapType();
+
+                vec.putInt("x", entry.getValue().x);
+                vec.putInt("y", entry.getValue().y);
+                sizesMap.put(entry.getKey(), vec);
+            }
+
+            for (Map.Entry<String, Vector2i> entry : offsets.entrySet())
+            {
+                MapType vec = new MapType();
+
+                vec.putInt("x", entry.getValue().x);
+                vec.putInt("y", entry.getValue().y);
+                offsetsMap.put(entry.getKey(), vec);
+            }
+
+            data.put("sizes", sizesMap);
+            data.put("offsets", offsetsMap);
+
+            DataToString.writeSilently(BBSMod.getSettingsPath("overlay_sizes.json"), data, true);
+        }
+        catch (Exception e)
+        {
+            e.printStackTrace();
+        }
     }
 
     public static UIOverlay addOverlay(UIContext context, UIOverlayPanel panel)
@@ -106,9 +227,11 @@ public class UIOverlay extends UIElement
             return;
         }
 
+        ensureLoaded();
+
         Flex flex = panel.getFlex();
-        String key = panel.getClass().getSimpleName();
-        Vector2i offset = offsets.get(panel.getClass().getSimpleName());
+        String key = panel.getKey();
+        Vector2i offset = offsets.get(key);
         Vector2i size = sizes.get(key);
 
         panel.setInitialOffset(flex.x.offset, flex.y.offset);
@@ -177,21 +300,15 @@ public class UIOverlay extends UIElement
 
     private void performClose()
     {
-        this.removeFromParent();
-
         for (UIOverlayPanel element : this.getChildren(UIOverlayPanel.class))
         {
+            saveOverlayState(element);
+
             element.removeFromParent();
             element.onClose();
-
-            /* Save offset */
-            Vector2i offset = new Vector2i(element.getFlex().x.offset, element.getFlex().y.offset);
-            Vector2i size = new Vector2i(element.getFlex().w.offset, element.getFlex().h.offset);
-            String key = element.getClass().getSimpleName();
-
-            offsets.put(key, offset);
-            sizes.put(key, size);
         }
+
+        this.removeFromParent();
     }
 
     /* Don't pass user input down the line... */

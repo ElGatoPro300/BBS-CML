@@ -125,12 +125,4 @@ public class UIFolderPickerOverlayPanel extends UIOverlayPanel
         File folder = BBSMod.getProvider().getFile(this.picker.path);
         this.openFolder.setEnabled(folder != null && folder.isDirectory());
     }
-    
-    @Override
-    public void resize()
-    {
-        super.resize();
-        
-        this.content.wh(500, 350);
-    }
 }

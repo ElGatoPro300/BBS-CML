@@ -4,7 +4,6 @@ import mchorse.bbs_mod.BBSModClient;
 import mchorse.bbs_mod.client.BBSRendering;
 import mchorse.bbs_mod.client.BBSShaders;
 import mchorse.bbs_mod.cubic.render.vao.ModelVAORenderer;
-import mchorse.bbs_mod.film.FormRenderDepth;
 import mchorse.bbs_mod.forms.forms.ShapeForm;
 import mchorse.bbs_mod.forms.forms.shape.ShapeGraphEvaluator;
 import mchorse.bbs_mod.forms.forms.shape.nodes.IrisAttributeNode;
@@ -16,13 +15,14 @@ import mchorse.bbs_mod.forms.forms.utils.GlowSettings;
 import mchorse.bbs_mod.forms.forms.utils.PaintSettings;
 import mchorse.bbs_mod.forms.renderers.utils.FlatColorTintOverlayPass;
 import mchorse.bbs_mod.forms.renderers.utils.FlatPaintOverlayPass;
-import mchorse.bbs_mod.forms.renderers.utils.FormColorBlend;
+import mchorse.bbs_mod.forms.renderers.utils.FormColorEffects;
 import mchorse.bbs_mod.particles.ParticleScheme;
 import mchorse.bbs_mod.resources.Link;
 import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.utils.MathUtils;
 import mchorse.bbs_mod.utils.MatrixStackUtils;
 import mchorse.bbs_mod.utils.colors.Color;
+import mchorse.bbs_mod.utils.interps.Lerps;
 import mchorse.bbs_mod.utils.iris.ShaderCurves;
 import mchorse.bbs_mod.utils.iris.ShaderOpacityPatch;
 import mchorse.bbs_mod.utils.math.Noise;
@@ -177,12 +177,12 @@ public class ShapeFormRenderer extends FormRenderer<ShapeForm>
         }
 
         Color rawFormColor = this.form.color.get();
-        Color formColor = rawFormColor.copyWithBlendIntensity();
-        boolean wantsColorTransformMask = FormColorBlend.wantsColorTintOverlay(rawFormColor);
+        Color formColor = rawFormColor.copyBakingColorGrade();
+        boolean wantsColorTransformMask = FormColorEffects.wantsColorTintOverlay(rawFormColor);
         PaintSettings paintSettings = this.form.paintSettings.get();
         Color legacyPaint = this.form.paintColor.get();
-        boolean positivePaint = FormColorBlend.hasPositivePaint(paintSettings, legacyPaint);
-        Color resolvedPaint = positivePaint ? FormColorBlend.resolvePaintColor(paintSettings, legacyPaint) : null;
+        boolean positivePaint = FormColorEffects.hasPositivePaint(paintSettings, legacyPaint);
+        Color resolvedPaint = positivePaint ? FormColorEffects.resolvePaintColor(paintSettings, legacyPaint) : null;
 
         Color finalColor = this.resolveAppearanceColor(rawFormColor);
 
@@ -226,7 +226,7 @@ public class ShapeFormRenderer extends FormRenderer<ShapeForm>
 
         // Apply Color
         Color c = finalColor;
-        FormColorBlend.applyShadowPassColorFix(c, this.form.color.get(), this.form.paintSettings.get(), this.form.paintColor.get(), BBSRendering.isIrisShadowPass());
+        FormColorEffects.applyShadowPassColorFix(c, this.form.color.get(), this.form.paintSettings.get(), this.form.paintColor.get(), BBSRendering.isIrisShadowPass());
         // RenderSystem.setShaderColor is not enough for VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL
         // We need to pass color per vertex
 
@@ -261,14 +261,20 @@ public class ShapeFormRenderer extends FormRenderer<ShapeForm>
             /* Noshading opacity: redraw after paint via BBS translucent queue, not Iris post-deferred. */
             boolean noshadingPaintPath = BBSRendering.needsIrisNoshadingOpacityDeferral(c.a, this.form.noshadingOpacity.get());
             boolean afterFluids = ShaderOpacityPatch.shouldFlushAfterFluids(c.a);
-            /* Same as billboards: renderDepthEnabled must not force depth writes on flats. */
+            /* Soft-opacity depth write stays opacity-based. */
             boolean depthWrite = ShaderOpacityPatch.shouldWriteDepthForOpacity(c.a);
-            double sortDepth = FormRenderDepth.resolveSortDepth(this.form, renderContext == null ? null : renderContext.renderDepthFrame);
             double distanceSq = 0D;
 
             if (renderContext != null && renderContext.entity != null && renderContext.camera != null)
             {
-                distanceSq = FormRenderDepth.getEntityDistanceSq(renderContext.entity, renderContext.camera, renderContext.getTransition());
+                double x = Lerps.lerp(renderContext.entity.getPrevX(), renderContext.entity.getX(), renderContext.getTransition());
+                double y = Lerps.lerp(renderContext.entity.getPrevY(), renderContext.entity.getY(), renderContext.getTransition());
+                double z = Lerps.lerp(renderContext.entity.getPrevZ(), renderContext.entity.getZ(), renderContext.getTransition());
+                double dx = x - renderContext.camera.position.x;
+                double dy = y - renderContext.camera.position.y;
+                double dz = z - renderContext.camera.position.z;
+
+                distanceSq = dx * dx + dy * dy + dz * dz;
             }
 
             Runnable deferredDraw = () ->
@@ -297,7 +303,7 @@ public class ShapeFormRenderer extends FormRenderer<ShapeForm>
 
             if (opacityPatch && !noshadingPaintPath)
             {
-                ShaderOpacityPatch.submitPostDeferredBbsForm(sortDepth, distanceSq, depthWrite, afterFluids, deferredDraw);
+                ShaderOpacityPatch.submitPostDeferredBbsForm(0D, distanceSq, depthWrite, afterFluids, deferredDraw);
             }
             else
             {
@@ -325,8 +331,8 @@ public class ShapeFormRenderer extends FormRenderer<ShapeForm>
 
             if (positiveGlow)
             {
-                Color glowColor = FormColorBlend.resolveGlowOverlayEmissionColor(glowSettings, legacyGlow, c.a, glowIntensity);
-                float shaderScale = FormColorBlend.resolveGlowOverlayShaderScale(glowIntensity);
+                Color glowColor = FormColorEffects.resolveGlowOverlayEmissionColor(glowSettings, legacyGlow, c.a, glowIntensity);
+                float shaderScale = FormColorEffects.resolveGlowOverlayShaderScale(glowIntensity);
                 Supplier<ShaderProgram> unshadedShader = GameRenderer::getPositionTexColorProgram;
 
                 RenderSystem.setShader(unshadedShader);
@@ -423,8 +429,8 @@ public class ShapeFormRenderer extends FormRenderer<ShapeForm>
 
         if (positiveGlow)
         {
-            Color glowColor = FormColorBlend.resolveGlowOverlayEmissionColor(glowSettings, legacyGlow, color.a, glowIntensity);
-            float shaderScale = FormColorBlend.resolveGlowOverlayShaderScale(glowIntensity);
+            Color glowColor = FormColorEffects.resolveGlowOverlayEmissionColor(glowSettings, legacyGlow, color.a, glowIntensity);
+            float shaderScale = FormColorEffects.resolveGlowOverlayShaderScale(glowIntensity);
 
             RenderSystem.setShader(GameRenderer::getPositionTexColorProgram);
             RenderSystem.blendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE);
@@ -1079,9 +1085,9 @@ public class ShapeFormRenderer extends FormRenderer<ShapeForm>
 
     private Color resolveAppearanceColor(Color rawFormColor)
     {
-        Color color = rawFormColor.copyWithBlendIntensity();
+        Color color = rawFormColor.copyBakingColorGrade();
 
-        if (!FormColorBlend.shouldBakeFormColor(rawFormColor))
+        if (!FormColorEffects.shouldBakeFormColor(rawFormColor))
         {
             color.r = 1F;
             color.g = 1F;
@@ -1094,7 +1100,7 @@ public class ShapeFormRenderer extends FormRenderer<ShapeForm>
 
         if (paintStrength < 0F)
         {
-            FormColorBlend.applyPaintBlend(color, paintSettings, legacyPaint);
+            FormColorEffects.applyPaintBlend(color, paintSettings, legacyPaint);
         }
 
         GlowSettings glow = this.form.glowSettings.get();
@@ -1102,7 +1108,7 @@ public class ShapeFormRenderer extends FormRenderer<ShapeForm>
 
         if (glow.resolveIntensity(legacyGlow) < 0F)
         {
-            FormColorBlend.blendFormGlowBrighten(color, glow, legacyGlow);
+            FormColorEffects.blendFormGlowBrighten(color, glow, legacyGlow);
         }
 
         return color;
@@ -1240,6 +1246,6 @@ public class ShapeFormRenderer extends FormRenderer<ShapeForm>
         Color glowResolved = new Color();
 
         glowSettings.resolveColor(legacyGlow, glowResolved);
-        FormColorBlend.blendEmission(paintOverlay, glowResolved, glowIntensity);
+        FormColorEffects.blendEmission(paintOverlay, glowResolved, glowIntensity);
     }
 }

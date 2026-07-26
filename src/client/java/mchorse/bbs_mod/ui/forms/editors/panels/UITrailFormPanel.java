@@ -5,19 +5,18 @@ import mchorse.bbs_mod.forms.forms.utils.EffectTransform;
 import mchorse.bbs_mod.forms.forms.utils.GlowSettings;
 import mchorse.bbs_mod.forms.forms.utils.PaintSettings;
 import mchorse.bbs_mod.ui.UIKeys;
-import mchorse.bbs_mod.ui.film.replays.UIReplaysEditor;
 import mchorse.bbs_mod.ui.forms.editors.forms.UIForm;
+import mchorse.bbs_mod.ui.framework.elements.UIElement;
+import mchorse.bbs_mod.ui.forms.editors.panels.widgets.UIFormColorLayout;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIButton;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIToggle;
 import mchorse.bbs_mod.ui.framework.elements.input.UIColor;
 import mchorse.bbs_mod.ui.framework.elements.input.UIEffectTransformCollapse;
-import mchorse.bbs_mod.ui.framework.elements.input.UIPoseSectionCollapse;
 import mchorse.bbs_mod.ui.framework.elements.input.UITexturePicker;
 import mchorse.bbs_mod.ui.framework.elements.input.UITrackpad;
 import mchorse.bbs_mod.ui.utils.UI;
 import mchorse.bbs_mod.utils.Direction;
 import mchorse.bbs_mod.utils.colors.Color;
-import mchorse.bbs_mod.utils.colors.Colors;
 
 /**
  * Trail form editor. Color / Glow match the film Color track (no Color grade).
@@ -32,8 +31,8 @@ public class UITrailFormPanel extends UIFormPanel<TrailForm>
     public UIEffectTransformCollapse paintTransform;
     public UIColor glowingColor;
     public UITrackpad glowIntensity;
-    public UIPoseSectionCollapse colorSection;
-    public UIPoseSectionCollapse glowSection;
+    public UIEffectTransformCollapse glowTransform;
+    public UIElement glowSection;
     public UITrackpad length;
     public UIToggle loop;
     public UIToggle paused;
@@ -54,7 +53,7 @@ public class UITrailFormPanel extends UIFormPanel<TrailForm>
             color.set(next.r, next.g, next.b, next.a);
             this.form.color.set(color);
         }).direction(Direction.LEFT).withAlpha();
-        this.color.tooltip(UIKeys.FORMS_EDITORS_BLEND_COLOR);
+        this.color.tooltip(UIKeys.FILM_REPLAY_TRACK_COLOR);
         this.colorTransform = new UIEffectTransformCollapse((apply) ->
         {
             Color copy = this.form.color.get().copy();
@@ -112,16 +111,20 @@ public class UITrailFormPanel extends UIFormPanel<TrailForm>
         });
         this.glowingColor = new UIColor((value) ->
         {
+            Color copy = this.form.glowingColor.get().copy();
             Color color = Color.rgba(value);
 
-            color.a = 1F;
-            this.form.glowingColor.set(color);
+            copy.r = color.r;
+            copy.g = color.g;
+            copy.b = color.b;
+            copy.a = 1F;
+            this.form.glowingColor.set(copy);
 
             GlowSettings settings = this.form.glowSettings.get().copy();
 
-            settings.r = color.r;
-            settings.g = color.g;
-            settings.b = color.b;
+            settings.r = copy.r;
+            settings.g = copy.g;
+            settings.b = copy.b;
             this.form.glowSettings.set(settings);
         }).direction(Direction.LEFT);
         this.glowingColor.tooltip(UIKeys.FORMS_EDITORS_GLOW);
@@ -134,38 +137,36 @@ public class UITrailFormPanel extends UIFormPanel<TrailForm>
         });
         this.glowIntensity.increment(0.05D).values(0.1D, 0.05D, 0.2D);
         this.glowIntensity.tooltip(UIKeys.FORMS_EDITORS_GLOW_INTENSITY);
-        this.colorSection = new UIPoseSectionCollapse(
-            UIKeys.FILM_REPLAY_TRACK_COLOR,
-            UIReplaysEditor.getColor("color"),
-            UI.column(
-                UI.label(UIKeys.FORMS_EDITORS_BLEND_COLOR).marginTop(4),
-                this.color,
-                this.colorTransform,
-                UI.label(UIKeys.FORMS_EDITORS_PAINT_COLOR).marginTop(4),
-                this.paintColor,
-                UI.label(UIKeys.FORMS_EDITORS_PAINT_INTENSITY),
-                this.paintIntensity,
-                this.paintTransform
-            )
-        );
-        this.glowSection = new UIPoseSectionCollapse(
-            UIKeys.FORMS_EDITORS_GLOW,
-            Colors.ORANGE,
-            UI.column(
-                UI.label(UIKeys.FORMS_EDITORS_GLOWING_COLOR).marginTop(4),
-                this.glowingColor,
-                UI.label(UIKeys.FORMS_EDITORS_GLOW_INTENSITY),
-                this.glowIntensity
-            )
-        );
+        this.glowTransform = new UIEffectTransformCollapse((apply) ->
+        {
+            GlowSettings settings = this.form.glowSettings.get().copy();
+
+            if (settings.transform == null)
+            {
+                settings.transform = new EffectTransform();
+            }
+
+            apply.accept(settings.transform);
+            this.form.glowSettings.set(settings);
+
+            Color legacy = this.form.glowingColor.get().copy();
+
+            legacy.transform = settings.transform.copy();
+            this.form.glowingColor.set(legacy);
+        });
+        this.glowSection = UIFormColorLayout.createGlowSection(this.glowingColor, this.glowIntensity, this.glowTransform);
         this.length = new UITrackpad((v) -> this.form.length.set(v.floatValue()));
         this.loop = new UIToggle(UIKeys.FORMS_EDITORS_TRAIL_LOOP, (b) -> this.form.loop.set(b.getValue()));
         this.paused = new UIToggle(UIKeys.FORMS_EDITORS_VANILLA_PARTICLE_PAUSED, (b) -> this.form.paused.set(b.getValue()));
 
         this.options.add(
             this.pick,
-            this.colorSection,
-            this.glowSection,
+            UIFormColorLayout.sectionLabel(UIKeys.FORMS_EDITOR_FORM),
+            UIFormColorLayout.colorWithTransform(this.color, this.colorTransform),
+            UIFormColorLayout.createExtraSection(
+                this.glowSection,
+                UIFormColorLayout.paintColorRowWithTransform(this.paintColor, this.paintIntensity, this.paintTransform)
+            ).marginTop(4),
             UI.label(UIKeys.FORMS_EDITORS_TRAIL_LENGTH),
             this.length,
             this.loop,
@@ -195,6 +196,11 @@ public class UITrailFormPanel extends UIFormPanel<TrailForm>
         glow.resolveColor(form.glowingColor.get(), glowDisplay);
         this.glowingColor.setColor(glowDisplay.getRGBColor());
         this.glowIntensity.setValue(glow.intensity);
+        EffectTransform glowTransform = glow.transform != null && glow.transform.isActive()
+            ? glow.transform
+            : (form.glowingColor.get().transform == null ? new EffectTransform() : form.glowingColor.get().transform);
+
+        this.glowTransform.setEffectTransform(glowTransform);
 
         this.length.setValue(form.length.get());
         this.loop.setValue(form.loop.get());

@@ -6,7 +6,7 @@ import mchorse.bbs_mod.cubic.data.model.Model;
 import mchorse.bbs_mod.cubic.data.model.ModelGroup;
 import mchorse.bbs_mod.cubic.render.vao.ModelVAO;
 import mchorse.bbs_mod.cubic.render.vao.ModelVAORenderer;
-import mchorse.bbs_mod.forms.renderers.utils.FormColorBlend;
+import mchorse.bbs_mod.forms.renderers.utils.FormColorEffects;
 import mchorse.bbs_mod.obj.shapes.ShapeKeys;
 import mchorse.bbs_mod.resources.Link;
 import mchorse.bbs_mod.ui.framework.elements.utils.StencilMap;
@@ -78,32 +78,60 @@ public class CubicVAORenderer extends CubicCubeRenderer
                 }
 
                 ModelVAORenderer.setGroupPaint(effectivePaintR, effectivePaintG, effectivePaintB, effectivePaintStrength);
+                ModelVAORenderer.setGroupPaintEffectTransform(group.paintColor.transform);
                 ModelVAORenderer.setGroupGlowing(
                     effectiveGlowR,
                     effectiveGlowG,
                     effectiveGlowB,
                     effectiveGlowStrength);
+                ModelVAORenderer.setGroupGlowEffectTransform(group.glowingColor.transform);
                 ModelVAORenderer.setGroupFormColorGrade(group.color);
+                ModelVAORenderer.setGroupColorEffectTransform(group.color.transform);
+                ModelVAORenderer.setGroupFormColorTint(group.color);
 
                 this.bindGroupTexture(group);
 
-                r = this.r * group.color.r;
-                g = this.g * group.color.g;
-                b = this.b * group.color.b;
-                a = this.a * group.color.a;
+                if (group.color.hasActiveTransform())
+                {
+                    r = this.r;
+                    g = this.g;
+                    b = this.b;
+                    a = this.a;
+                }
+                else
+                {
+                    r = this.r * group.color.r;
+                    g = this.g * group.color.g;
+                    b = this.b * group.color.b;
+                    a = this.a * group.color.a;
+                }
             }
             else
             {
                 this.bindGroupTexture(group);
 
-                r = this.r * group.color.r;
-                g = this.g * group.color.g;
-                b = this.b * group.color.b;
-                a = this.a * group.color.a;
-
                 ModelVAORenderer.setGroupPaint(effectivePaintR, effectivePaintG, effectivePaintB, effectivePaintStrength);
+                ModelVAORenderer.setGroupPaintEffectTransform(group.paintColor.transform);
                 ModelVAORenderer.setGroupGlowing(effectiveGlowR, effectiveGlowG, effectiveGlowB, effectiveGlowStrength);
+                ModelVAORenderer.setGroupGlowEffectTransform(group.glowingColor.transform);
                 ModelVAORenderer.setGroupFormColorGrade(group.color);
+                ModelVAORenderer.setGroupColorEffectTransform(group.color.transform);
+                ModelVAORenderer.setGroupFormColorTint(group.color);
+
+                if (group.color.hasActiveTransform())
+                {
+                    r = this.r;
+                    g = this.g;
+                    b = this.b;
+                    a = this.a;
+                }
+                else
+                {
+                    r = this.r * group.color.r;
+                    g = this.g * group.color.g;
+                    b = this.b * group.color.b;
+                    a = this.a * group.color.a;
+                }
             }
 
             if (!ModelVAORenderer.isGlowingUniformActive())
@@ -113,7 +141,7 @@ public class CubicVAORenderer extends CubicCubeRenderer
                     Color groupColor = new Color().set(r, g, b, a);
                     Color glowColor = new Color().set(effectiveGlowR, effectiveGlowG, effectiveGlowB, 1F);
 
-                    FormColorBlend.blendBrighten(groupColor, glowColor, effectiveGlowStrength);
+                    FormColorEffects.blendBrighten(groupColor, glowColor, effectiveGlowStrength);
 
                     r = groupColor.r;
                     g = groupColor.g;
