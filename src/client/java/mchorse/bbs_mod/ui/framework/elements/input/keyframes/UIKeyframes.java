@@ -2191,8 +2191,7 @@ public class UIKeyframes extends UIElement
 
         if (found != null)
         {
-            /* Prefer the row under the cursor so synthetic sheets that share a
-             * channel (e.g. color + color_grade) keep selection on the clicked track. */
+            /* Prefer the row under the cursor for nested Color / Color grade tracks. */
             UIKeyframeSheet sheet = this.currentGraph.getSheet(context.mouseY);
 
             if (sheet == null || sheet.groupHeader || sheet.channel != found.getParent())

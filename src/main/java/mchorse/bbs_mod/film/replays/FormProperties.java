@@ -75,6 +75,26 @@ public class FormProperties extends ValueGroup
             return channel;
         }
 
+        /* Color grade is a synthetic sibling of Color — no Form property, own channel. */
+        if (isColorGradeChannelKey(key))
+        {
+            String colorPath = colorPropertyPathForGrade(key);
+            BaseValue colorProperty = FormUtils.getProperty(form, colorPath);
+
+            if (colorProperty instanceof ValueColor)
+            {
+                KeyframeChannel channel = new KeyframeChannel(key, KeyframeFactories.COLOR);
+
+                channel.setModel(true);
+                this.properties.put(key, channel);
+                this.add(channel);
+
+                return channel;
+            }
+
+            return null;
+        }
+
         int colon = key.indexOf(':');
 
         if (colon != -1)
@@ -97,6 +117,46 @@ public class FormProperties extends ValueGroup
         BaseValue property = FormUtils.getProperty(form, key);
 
         return property != null ? this.create(property) : null;
+    }
+
+    public static boolean isColorGradeChannelKey(String key)
+    {
+        if (key == null || key.isEmpty())
+        {
+            return false;
+        }
+
+        int colon = key.indexOf(':');
+        String path = colon == -1 ? key : key.substring(0, colon);
+
+        return path.equals("color_grade") || path.endsWith("/color_grade");
+    }
+
+    public static String colorPropertyPathForGrade(String gradeKey)
+    {
+        int colon = gradeKey.indexOf(':');
+        String path = colon == -1 ? gradeKey : gradeKey.substring(0, colon);
+        String colorPath;
+
+        if (path.equals("color_grade"))
+        {
+            colorPath = "color";
+        }
+        else if (path.endsWith("/color_grade"))
+        {
+            colorPath = path.substring(0, path.length() - "color_grade".length()) + "color";
+        }
+        else
+        {
+            colorPath = "color";
+        }
+
+        if (colon == -1)
+        {
+            return colorPath;
+        }
+
+        return colorPath + gradeKey.substring(colon);
     }
 
     public KeyframeChannel create(BaseValue property)
@@ -133,12 +193,21 @@ public class FormProperties extends ValueGroup
             return;
         }
 
-        /* First pass: apply standard properties */
+        ArrayList<KeyframeChannel> deferredColorGrade = new ArrayList<>();
+
+        /* First pass: apply standard properties (defer color_grade until after color). */
         for (KeyframeChannel value : this.properties.values())
         {
             if (value.getId().indexOf(':') == -1)
             {
-                this.applyProperty(tick, form, value, blend);
+                if (isColorGradeChannelKey(value.getId()))
+                {
+                    deferredColorGrade.add(value);
+                }
+                else
+                {
+                    this.applyProperty(tick, form, value, blend);
+                }
             }
         }
 
@@ -149,6 +218,11 @@ public class FormProperties extends ValueGroup
             {
                 this.applyProperty(tick, form, value, blend);
             }
+        }
+
+        for (KeyframeChannel grade : deferredColorGrade)
+        {
+            this.applyColorGradeProperty(tick, form, grade, blend);
         }
     }
 
@@ -262,6 +336,11 @@ public class FormProperties extends ValueGroup
 
         if (property == null)
         {
+            if (isColorGradeChannelKey(id))
+            {
+                this.applyColorGradeProperty(tick, form, value, blend);
+            }
+
             return;
         }
 
@@ -291,7 +370,7 @@ public class FormProperties extends ValueGroup
 
             /* Always sync true/false from the Color keyframe — only setting true left the
              * runtime stuck on after toggling Noshading off (BBS deferred / no body shadows). */
-            if ("color".equals(id))
+            if ("color".equals(id) || id.endsWith("/color"))
             {
                 form.noshadingOpacity.setRuntimeValue(segment.getClosest().isNoshadingOpacity());
             }
@@ -312,9 +391,9 @@ public class FormProperties extends ValueGroup
 
             /* Color track keyframes are often RGBA-only; keep morph Color Grade unless
              * the track itself keyframes brightness/contrast/hue/saturation. */
-            if ("color".equals(id))
+            if ("color".equals(id) || id.endsWith("/color"))
             {
-                this.mergeColorAdjustmentsFromForm(property, value);
+                this.mergeColorAdjustmentsFromForm(property, value, id);
             }
         }
         else
@@ -329,12 +408,78 @@ public class FormProperties extends ValueGroup
                 form.illusionTextureBlend = null;
             }
 
-            if ("color".equals(id))
+            if ("color".equals(id) || id.endsWith("/color"))
             {
                 form.noshadingOpacity.setRuntimeValue(null);
             }
 
             property.setRuntimeValue(null);
+        }
+    }
+
+    /**
+     * Overlay brightness / contrast / hue / saturation from the independent color_grade
+     * channel onto the form Color runtime (after the Color track has been applied).
+     */
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    private void applyColorGradeProperty(float tick, Form form, KeyframeChannel gradeChannel, float blend)
+    {
+        if (gradeChannel == null || gradeChannel.getFactory() != KeyframeFactories.COLOR)
+        {
+            return;
+        }
+
+        String colorPath = colorPropertyPathForGrade(gradeChannel.getId());
+        BaseValueBasic property = FormUtils.getProperty(form, colorPath);
+
+        if (!(property instanceof ValueColor valueColor))
+        {
+            return;
+        }
+
+        KeyframeSegment segment = gradeChannel.find(tick);
+
+        if (segment == null)
+        {
+            return;
+        }
+
+        Object interpolated = segment.createInterpolated();
+
+        if (!(interpolated instanceof Color grade))
+        {
+            return;
+        }
+
+        Color runtime = valueColor.getRuntimeValue() instanceof Color runtimeColor
+            ? runtimeColor
+            : null;
+
+        if (runtime == null)
+        {
+            Color base = valueColor.getOriginalValue();
+
+            runtime = base == null ? new Color(1F, 1F, 1F, 1F) : base.copy();
+            valueColor.setRuntimeValue(runtime);
+        }
+
+        if (blend < 1F)
+        {
+            runtime.brightness = Lerps.lerp(runtime.brightness, grade.brightness, blend);
+            runtime.contrast = Lerps.lerp(runtime.contrast, grade.contrast, blend);
+            runtime.hue = Lerps.lerp(runtime.hue, grade.hue, blend);
+            runtime.saturation = Lerps.lerp(runtime.saturation, grade.saturation, blend);
+        }
+        else
+        {
+            runtime.brightness = grade.brightness;
+            runtime.contrast = grade.contrast;
+            runtime.hue = grade.hue;
+            runtime.saturation = grade.saturation;
+            runtime.brightnessTransform = grade.brightnessTransform == null ? new EffectTransform() : grade.brightnessTransform.copy();
+            runtime.contrastTransform = grade.contrastTransform == null ? new EffectTransform() : grade.contrastTransform.copy();
+            runtime.hueTransform = grade.hueTransform == null ? new EffectTransform() : grade.hueTransform.copy();
+            runtime.saturationTransform = grade.saturationTransform == null ? new EffectTransform() : grade.saturationTransform.copy();
         }
     }
 
@@ -386,7 +531,7 @@ public class FormProperties extends ValueGroup
      * Color track itself keyframes them.
      */
     @SuppressWarnings("rawtypes")
-    private void mergeColorAdjustmentsFromForm(BaseValueBasic property, KeyframeChannel channel)
+    private void mergeColorAdjustmentsFromForm(BaseValueBasic property, KeyframeChannel channel, String colorKey)
     {
         if (!(property instanceof ValueColor valueColor))
         {
@@ -407,12 +552,28 @@ public class FormProperties extends ValueGroup
             return;
         }
 
+        String gradeKey = colorKey.equals("color")
+            ? "color_grade"
+            : colorKey.substring(0, colorKey.length() - "color".length()) + "color_grade";
+        KeyframeChannel gradeChannel = this.properties.get(gradeKey);
+
+        /* Independent color_grade channel owns grade when it has keyframes. */
+        if (gradeChannel != null && !gradeChannel.isEmpty() && this.colorChannelHasAdjustments(gradeChannel))
+        {
+            return;
+        }
+
         if (!this.colorChannelHasAdjustments(channel) && base.hasColorAdjustments())
         {
             runtime.brightness = base.brightness;
             runtime.contrast = base.contrast;
             runtime.hue = base.hue;
             runtime.saturation = base.saturation;
+        }
+
+        if (gradeChannel != null && !gradeChannel.isEmpty() && this.colorChannelHasGradeTransforms(gradeChannel))
+        {
+            return;
         }
 
         if (!this.colorChannelHasGradeTransforms(channel) && base.hasActiveGradeTransform())
@@ -652,7 +813,8 @@ public class FormProperties extends ValueGroup
     /**
      * Paint is edited from the Color inspector but stored on a hidden {@code "paint"}
      * channel. When Color keyframes at {@code ticks} are removed, drop matching paint
-     * companions so leftover paint does not keep rendering.
+     * companions so leftover paint does not keep rendering. Color grade has its own
+     * channel and must not drive paint companions.
      */
     public void removeCompanionPaintAtTicks(Form form, Collection<Float> ticks)
     {
@@ -1650,6 +1812,131 @@ public class FormProperties extends ValueGroup
             }
         }
         catch (Throwable ignored) {}
+
+        /* Migration: move Color Grade fields off the shared Color channel into color_grade. */
+        try
+        {
+            this.migrateSharedColorGradeToChannel("color", "color_grade");
+
+            ArrayList<String> colorKeys = new ArrayList<>();
+
+            for (String key : this.properties.keySet())
+            {
+                if (key.endsWith("/color") && !key.endsWith("/color_grade"))
+                {
+                    colorKeys.add(key);
+                }
+            }
+
+            for (String colorKey : colorKeys)
+            {
+                String gradeKey = colorKey.substring(0, colorKey.length() - "color".length()) + "color_grade";
+
+                this.migrateSharedColorGradeToChannel(colorKey, gradeKey);
+            }
+        }
+        catch (Throwable ignored) {}
+    }
+
+    /**
+     * Older builds edited Color Grade on the same channel as Color. Split grade into
+     * {@code gradeKey} so nested tracks keep independent keyframes. Plain white Color
+     * keyframes that only stored grade are removed from the Color channel.
+     */
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    private void migrateSharedColorGradeToChannel(String colorKey, String gradeKey)
+    {
+        KeyframeChannel<?> colorAny = this.properties.get(colorKey);
+
+        if (colorAny == null || colorAny.getFactory() != KeyframeFactories.COLOR || colorAny.isEmpty())
+        {
+            return;
+        }
+
+        KeyframeChannel<?> existingGrade = this.properties.get(gradeKey);
+
+        if (existingGrade != null && !existingGrade.isEmpty())
+        {
+            return;
+        }
+
+        @SuppressWarnings("unchecked")
+        KeyframeChannel<Color> color = (KeyframeChannel<Color>) colorAny;
+        KeyframeChannel<Color> grade = existingGrade != null
+            ? (KeyframeChannel<Color>) existingGrade
+            : new KeyframeChannel<>(gradeKey, KeyframeFactories.COLOR);
+
+        if (existingGrade == null)
+        {
+            grade.setModel(true);
+        }
+
+        boolean migrated = false;
+        ArrayList<Integer> removeFromColor = new ArrayList<>();
+        List<Keyframe<Color>> colorKeyframes = color.getKeyframes();
+
+        for (int i = 0; i < colorKeyframes.size(); i++)
+        {
+            Keyframe<Color> kf = colorKeyframes.get(i);
+            Color value = kf.getValue();
+
+            if (value == null || (!value.hasColorAdjustments() && !value.hasActiveGradeTransform()))
+            {
+                continue;
+            }
+
+            Color gradeValue = new Color(1F, 1F, 1F, 1F);
+
+            gradeValue.brightness = value.brightness;
+            gradeValue.contrast = value.contrast;
+            gradeValue.hue = value.hue;
+            gradeValue.saturation = value.saturation;
+            gradeValue.brightnessTransform = value.brightnessTransform == null ? new EffectTransform() : value.brightnessTransform.copy();
+            gradeValue.contrastTransform = value.contrastTransform == null ? new EffectTransform() : value.contrastTransform.copy();
+            gradeValue.hueTransform = value.hueTransform == null ? new EffectTransform() : value.hueTransform.copy();
+            gradeValue.saturationTransform = value.saturationTransform == null ? new EffectTransform() : value.saturationTransform.copy();
+
+            int index = grade.insert(kf.getTick(), gradeValue);
+            Keyframe<Color> out = grade.get(index);
+
+            if (out != null)
+            {
+                out.getInterpolation().copy(kf.getInterpolation());
+            }
+
+            value.brightness = 0F;
+            value.contrast = 0F;
+            value.hue = 0F;
+            value.saturation = 0F;
+            value.brightnessTransform = new EffectTransform();
+            value.contrastTransform = new EffectTransform();
+            value.hueTransform = new EffectTransform();
+            value.saturationTransform = new EffectTransform();
+
+            boolean plainWhite = Float.compare(value.r, 1F) == 0
+                && Float.compare(value.g, 1F) == 0
+                && Float.compare(value.b, 1F) == 0
+                && Float.compare(value.a, 1F) == 0
+                && !value.hasActiveTransform();
+
+            if (plainWhite)
+            {
+                removeFromColor.add(i);
+            }
+
+            migrated = true;
+        }
+
+        for (int i = removeFromColor.size() - 1; i >= 0; i--)
+        {
+            color.remove(removeFromColor.get(i));
+        }
+
+        if (migrated && existingGrade == null)
+        {
+            this.properties.put(gradeKey, grade);
+            this.add(grade);
+        }
     }
 
     private PaintSettings getPaintSettingsAt(KeyframeChannel<PaintSettings> channel, float tick)

@@ -224,7 +224,7 @@ public class UIKeyframeDopeSheet implements IUIKeyframeGraph
             {
                 selected = match;
 
-                /* Prefer nested synthetic Color grade over the parent Color row. */
+                /* Prefer nested Color grade row when both could match selection. */
                 if (StringUtils.fileName(match.id).equals("color_grade"))
                 {
                     return match;

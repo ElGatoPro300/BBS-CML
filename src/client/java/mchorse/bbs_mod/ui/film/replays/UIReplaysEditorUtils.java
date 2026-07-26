@@ -87,7 +87,7 @@ public class UIReplaysEditorUtils
 
     /**
      * Collect ticks of selected Color keyframes (paint companions live on a hidden channel).
-     * Includes the synthetic Color grade sheet, which shares the Color channel.
+     * Color grade uses its own channel and does not drive paint companions.
      */
     public static List<Float> collectSelectedColorTicks(UIKeyframes editor)
     {
@@ -100,7 +100,7 @@ public class UIReplaysEditorUtils
 
         for (UIKeyframeSheet sheet : editor.getGraph().getSheets())
         {
-            if (!isColorOrColorGradeSheet(sheet))
+            if (!isColorSheet(sheet))
             {
                 continue;
             }
@@ -147,7 +147,7 @@ public class UIReplaysEditorUtils
 
         UIKeyframeSheet sheet = editor.getGraph().getSheet(keyframe);
 
-        if (sheet == null || !isColorOrColorGradeSheet(sheet))
+        if (sheet == null || !isColorSheet(sheet))
         {
             return;
         }
@@ -155,7 +155,7 @@ public class UIReplaysEditorUtils
         removeCompanionPaintForColorTicks(editor, Collections.singletonList(keyframe.getTick()));
     }
 
-    private static boolean isColorOrColorGradeSheet(UIKeyframeSheet sheet)
+    private static boolean isColorSheet(UIKeyframeSheet sheet)
     {
         if (sheet == null || sheet.id == null)
         {
@@ -164,7 +164,7 @@ public class UIReplaysEditorUtils
 
         String name = StringUtils.fileName(sheet.id);
 
-        return name.equals("color") || name.equals("color_grade");
+        return name.equals("color");
     }
 
     public static void moveCompanionPaintForSelectedColor(UIKeyframes editor, float diff)

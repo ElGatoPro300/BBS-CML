@@ -185,8 +185,7 @@ public abstract class UIKeyframeFactory <T> extends UIElement
     }
 
     /**
-     * Color and Color grade share one channel; prefer the sheet that currently
-     * holds the selection (or last remembered grade/color row).
+     * Prefer the sheet that currently holds the selection for Color / Color grade rows.
      */
     private static UIKeyframeSheet resolveColorSheet(UIKeyframes editor, Keyframe<?> keyframe)
     {

@@ -19,6 +19,7 @@ import mchorse.bbs_mod.cubic.data.model.ModelGroup;
 import mchorse.bbs_mod.data.DataStorageUtils;
 import mchorse.bbs_mod.data.types.MapType;
 import mchorse.bbs_mod.film.Film;
+import mchorse.bbs_mod.film.replays.FormProperties;
 import mchorse.bbs_mod.film.replays.Replay;
 import mchorse.bbs_mod.film.replays.ReplayKeyframes;
 import mchorse.bbs_mod.forms.FormUtils;
@@ -38,6 +39,7 @@ import mchorse.bbs_mod.resources.Link;
 import mchorse.bbs_mod.settings.values.IValueListener;
 import mchorse.bbs_mod.settings.values.base.BaseValue;
 import mchorse.bbs_mod.settings.values.base.BaseValueBasic;
+import mchorse.bbs_mod.settings.values.core.ValueColor;
 import mchorse.bbs_mod.ui.UIKeys;
 import mchorse.bbs_mod.ui.film.UIClipsPanel;
 import mchorse.bbs_mod.ui.film.UIFilmPanel;
@@ -1456,7 +1458,7 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
     private static final Set<String> VANILLA_ACTION_CHANNELS = Set.of(
         "death_time", "using_item", "item_use_time", "fire", "particles", "active_hand"
     );
-    private static final List<String> MODEL_PROPERTIES = Arrays.asList("visible", "render", "lighting", "transform", "transform_overlay", "pose", "pose_overlay", "anchor", "look_at", "inverse_kinematics", "illusion", "illusion_transform", "color", "paint", "paint_color", "glow", "texture", "pbr_normal_intensity", "pbr_specular_intensity", "model", "actions", "shape_keys", "block_state", "item_stack", "modelTransform", "same_animation_when_dropped", "settings", "paused", "frequency", "count", "structure_file", "biome_id", "emit_light", "light_intensity", "structure_light", "enabled", "level", "effect");
+    private static final List<String> MODEL_PROPERTIES = Arrays.asList("visible", "render", "lighting", "transform", "transform_overlay", "pose", "pose_overlay", "anchor", "look_at", "inverse_kinematics", "illusion", "illusion_transform", "color", "color_grade", "paint", "paint_color", "glow", "texture", "pbr_normal_intensity", "pbr_specular_intensity", "model", "actions", "shape_keys", "block_state", "item_stack", "modelTransform", "same_animation_when_dropped", "settings", "paused", "frequency", "count", "structure_file", "biome_id", "emit_light", "light_intensity", "structure_light", "enabled", "level", "effect");
     private static final Set<String> HIDDEN_MODEL_PROPERTIES = Set.of("glowing_color", "glow_settings", "glow_intensity", "paint_color");
 
     private static boolean isFormItemUseTimeTrack(UIKeyframeSheet sheet)
@@ -2054,6 +2056,12 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
                 if (property != null)
                 {
                     BaseValueBasic formProperty = FormUtils.getProperty(this.replay.form.get(), key);
+
+                    if (formProperty == null && FormProperties.isColorGradeChannelKey(key))
+                    {
+                        formProperty = FormUtils.getProperty(this.replay.form.get(), FormProperties.colorPropertyPathForGrade(key));
+                    }
+
                     String customTitle = this.replay.getCustomSheetTitle(key);
                     Integer customColor = this.replay.getSheetColor(key);
                     int baseColor = getColor(key);
@@ -2803,6 +2811,15 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
 
         int colon = key.indexOf(':');
         String path = colon == -1 ? key : key.substring(0, colon);
+
+        if (FormProperties.isColorGradeChannelKey(path))
+        {
+            String colorPath = FormProperties.colorPropertyPathForGrade(path);
+            BaseValueBasic colorProperty = FormUtils.getProperty(rootForm, colorPath);
+
+            return colorProperty instanceof ValueColor;
+        }
+
         BaseValueBasic property = FormUtils.getProperty(rootForm, path);
 
         if (property == null)
@@ -3153,12 +3170,22 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
             gradeId = colorSheet.id + "/color_grade";
         }
 
+        Form form = this.replay == null ? null : this.replay.form.get();
+        KeyframeChannel gradeChannel = this.replay == null
+            ? null
+            : this.replay.properties.getOrCreate(form != null ? form : DUMMY_FORM, gradeId);
+
+        if (gradeChannel == null)
+        {
+            gradeChannel = colorSheet.channel;
+        }
+
         UIKeyframeSheet grade = new UIKeyframeSheet(
             gradeId,
             UIKeys.FORMS_EDITORS_COLOR_GRADE,
             getColor("color_grade"),
             false,
-            colorSheet.channel,
+            gradeChannel,
             colorSheet.property
         );
 

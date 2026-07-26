@@ -92,29 +92,14 @@ public class GlowSettings
     }
 
     /**
-     * Returns glow intensity. When glow settings already carry a custom color or a
-     * non-zero intensity, {@link #intensity} (including 0) is authoritative so editing
-     * glow color alone cannot force full-strength glow. Legacy {@code glowing_color}
-     * fallback applies only when glow RGB is still the default white and intensity is 0.
+     * Returns glow intensity. {@link #intensity} is always authoritative (including {@code 0} =
+     * glow off). Legacy {@code glowing_color} is migrated into modern glow in
+     * {@code Form.fromData} / FormProperties — do not re-interpret it at render time, or
+     * dual-written white {@code glowing_color} with alpha 1 forces full-strength glow.
      */
     public float resolveIntensity(Color legacy)
     {
-        if (this.intensity != 0F || this.r != 1F || this.g != 1F || this.b != 1F)
-        {
-            return this.intensity;
-        }
-
-        if (legacy != null && (legacy.r != 1F || legacy.g != 1F || legacy.b != 1F))
-        {
-            if (legacy.a > 0F && legacy.a < 1F)
-            {
-                return legacy.a;
-            }
-
-            return 1F;
-        }
-
-        return 0F;
+        return this.intensity;
     }
 
     public boolean resolveSync()

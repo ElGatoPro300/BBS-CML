@@ -21,7 +21,7 @@ import java.util.function.Consumer;
 
 /**
  * Nested Color grade track: brightness / contrast / hue / saturation (+ transforms)
- * on the same {@link Color} channel as the parent Color track.
+ * on an independent {@code color_grade} channel (sibling of Color).
  */
 public class UIFormColorGradeKeyframeFactory extends UIKeyframeFactory<Color>
 {
