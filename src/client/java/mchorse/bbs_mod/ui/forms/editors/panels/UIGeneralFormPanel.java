@@ -21,6 +21,7 @@ import mchorse.bbs_mod.ui.framework.elements.input.UIPropTransform;
 import mchorse.bbs_mod.ui.framework.elements.input.UITrackpad;
 import mchorse.bbs_mod.ui.framework.elements.input.keyframes.factories.UIIllusionKeyframeFactory;
 import mchorse.bbs_mod.ui.framework.elements.input.text.UITextbox;
+import mchorse.bbs_mod.ui.model_blocks.UIModelBlockPanel;
 import mchorse.bbs_mod.ui.utils.UI;
 import mchorse.bbs_mod.ui.utils.icons.Icons;
 import mchorse.bbs_mod.ui.utils.keys.KeyCombo;
@@ -335,10 +336,21 @@ public class UIGeneralFormPanel extends UIFormPanel
         this.trackName.setText(form.trackName.get());
         this.lighting.setValue(form.lighting.get() > 0F);
         this.shaderShadow.setValue(form.shaderShadow.get());
-        this.lookAt.fillBones(FormUtilsClient.getRenderer(FormUtils.getRoot(form)).collectMatrices(this.editor.editor.renderer.getTargetEntity(), 0F).keySet());
-        this.lookAt.refresh();
-        this.inverseKinematics.fillBones(FormUtilsClient.getRenderer(FormUtils.getRoot(form)).collectMatrices(this.editor.editor.renderer.getTargetEntity(), 0F).keySet());
-        this.inverseKinematics.refresh();
+        /* Look At / IK need film replay actors as targets — hide in model-block form editing. */
+        this.updateFilmOnlySectionsVisibility();
+
+        if (this.lookAtSection.isVisible())
+        {
+            this.lookAt.fillBones(FormUtilsClient.getRenderer(FormUtils.getRoot(form)).collectMatrices(this.editor.editor.renderer.getTargetEntity(), 0F).keySet());
+            this.lookAt.refresh();
+        }
+
+        if (this.inverseKinematicsSection.isVisible())
+        {
+            this.inverseKinematics.fillBones(FormUtilsClient.getRenderer(FormUtils.getRoot(form)).collectMatrices(this.editor.editor.renderer.getTargetEntity(), 0F).keySet());
+            this.inverseKinematics.refresh();
+        }
+
         this.options.resize();
 
         Illusion illusion = form.illusion.get();
@@ -382,5 +394,25 @@ public class UIGeneralFormPanel extends UIFormPanel
         this.hp.setValue(form.hp.get());
         this.speed.setValue(form.speed.get());
         this.stepHeight.setValue(form.stepHeight.get());
+    }
+
+    /**
+     * Film-only constraint UIs (targets are replay actors). Keep them for morphing /
+     * film form editors; hide when this General panel is nested under a model block.
+     */
+    private void updateFilmOnlySectionsVisibility()
+    {
+        boolean show = this.getParent(UIModelBlockPanel.class) == null;
+
+        this.lookAtSection.setVisible(show);
+        this.lookAtSection.getShell().setVisible(show);
+        this.inverseKinematicsSection.setVisible(show);
+        this.inverseKinematicsSection.getShell().setVisible(show);
+
+        if (!show)
+        {
+            this.lookAtSection.setExpanded(false);
+            this.inverseKinematicsSection.setExpanded(false);
+        }
     }
 }
