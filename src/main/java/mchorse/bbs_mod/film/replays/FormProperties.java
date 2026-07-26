@@ -818,8 +818,9 @@ public class FormProperties extends ValueGroup
 
     /**
      * Older FormProperties loaders crash (NPE / ClassCast) on unknown keyframe {@code type}
-     * strings and on Color values stored as maps. Rewrite the saved payload to legacy shapes
-     * older builds already understand, while keeping modern channels only in memory.
+     * strings and on Color values stored as maps. Dual-write legacy companions for older
+     * builds, but always keep modern paint / glow / structure_light channels on disk so
+     * this edition can reload them without depending on migration.
      */
     private void rewriteForLegacyCompat(MapType data)
     {
@@ -836,9 +837,6 @@ public class FormProperties extends ValueGroup
 
         if (paintAny == null || paintAny.isEmpty() || paintAny.getFactory() != KeyframeFactories.PAINT_SETTINGS)
         {
-            data.remove("paint");
-            data.remove("paint_settings");
-
             return;
         }
 
@@ -873,9 +871,8 @@ public class FormProperties extends ValueGroup
             }
         }
 
+        /* Keep modern "paint" — legacy paint_color is only for older BBS builds. */
         data.put("paint_color", paintColor.toData());
-        data.remove("paint");
-        data.remove("paint_settings");
     }
 
     private void dualWriteGlowToLegacy(MapType data)
@@ -889,9 +886,6 @@ public class FormProperties extends ValueGroup
 
         if (glowAny == null || glowAny.isEmpty() || glowAny.getFactory() != KeyframeFactories.GLOW_SETTINGS)
         {
-            data.remove("glow");
-            data.remove("glow_settings");
-
             return;
         }
 
@@ -935,10 +929,9 @@ public class FormProperties extends ValueGroup
             }
         }
 
+        /* Keep modern "glow" — legacy channels are only for older BBS builds. */
         data.put("glowing_color", glowingColor.toData());
         data.put("glow_intensity", glowIntensity.toData());
-        data.remove("glow");
-        data.remove("glow_settings");
     }
 
     private void dualWriteStructureLightToLegacy(MapType data)
@@ -947,8 +940,6 @@ public class FormProperties extends ValueGroup
 
         if (lightAny == null || lightAny.isEmpty() || lightAny.getFactory() != KeyframeFactories.STRUCTURE_LIGHT_SETTINGS)
         {
-            data.remove("structure_light");
-
             return;
         }
 
@@ -987,7 +978,6 @@ public class FormProperties extends ValueGroup
 
         data.put("emit_light", emit.toData());
         data.put("light_intensity", intensity.toData());
-        data.remove("structure_light");
     }
 
     private void flattenColorKeyframeValuesToInt(MapType data)
@@ -1090,7 +1080,13 @@ public class FormProperties extends ValueGroup
             case "color", "transform", "pose", "boolean", "string",
                  "float", "double", "integer", "link", "vector4f",
                  "anchor", "block_state", "item_stack", "actions_config",
-                 "shape_keys" -> true;
+                 "shape_keys",
+                 /* Modern channels this edition must round-trip even with save_as_compatible */
+                 "paint", "paint_settings", "glow", "glow_settings",
+                 "structure_light_settings", "structure_light",
+                 "shadow", "shadow_settings", "chroma_sky_settings",
+                 "particle_settings", "look_at", "inverse_kinematics",
+                 "illusion", "mount_link" -> true;
             default -> false;
         };
     }
@@ -1249,10 +1245,27 @@ public class FormProperties extends ValueGroup
         {
             KeyframeChannel<?> emit = this.properties.get("emit_light");
             KeyframeChannel<?> intensity = this.properties.get("light_intensity");
+            KeyframeChannel<?> mergedAny = this.properties.get("structure_light");
+            boolean modernLight = mergedAny != null
+                && !mergedAny.isEmpty()
+                && mergedAny.getFactory() == KeyframeFactories.STRUCTURE_LIGHT_SETTINGS;
 
-            if (emit != null || intensity != null)
+            if (modernLight)
             {
-                KeyframeChannel<?> mergedAny = this.properties.get("structure_light");
+                if (emit != null)
+                {
+                    this.properties.remove("emit_light");
+                    this.remove(emit);
+                }
+
+                if (intensity != null)
+                {
+                    this.properties.remove("light_intensity");
+                    this.remove(intensity);
+                }
+            }
+            else if (emit != null || intensity != null)
+            {
                 @SuppressWarnings("unchecked")
                 KeyframeChannel<StructureLightSettings> merged = mergedAny != null
                     ? (KeyframeChannel<StructureLightSettings>) mergedAny
@@ -1345,41 +1358,52 @@ public class FormProperties extends ValueGroup
             if (glowingColorChannel != null)
             {
                 KeyframeChannel<?> mergedAny = this.properties.get("glow");
-                @SuppressWarnings("unchecked")
-                KeyframeChannel<GlowSettings> merged = mergedAny != null
-                    ? (KeyframeChannel<GlowSettings>) mergedAny
-                    : new KeyframeChannel<>("glow", KeyframeFactories.GLOW_SETTINGS);
+                boolean modernGlow = mergedAny != null
+                    && !mergedAny.isEmpty()
+                    && mergedAny.getFactory() == KeyframeFactories.GLOW_SETTINGS;
 
-                if (mergedAny == null)
+                if (modernGlow)
                 {
-                    merged.setModel(true);
-                    this.properties.put("glow", merged);
-                    this.add(merged);
+                    this.remove(glowingColorChannel);
                 }
-
-                for (Object kfObj : glowingColorChannel.getKeyframes())
+                else
                 {
-                    Keyframe<?> kf = (Keyframe<?>) kfObj;
-                    float t = kf.getTick();
-                    GlowSettings settings = this.getGlowSettingsAt(merged, t);
-                    Object v = kf.getValue();
+                    @SuppressWarnings("unchecked")
+                    KeyframeChannel<GlowSettings> merged = mergedAny != null
+                        ? (KeyframeChannel<GlowSettings>) mergedAny
+                        : new KeyframeChannel<>("glow", KeyframeFactories.GLOW_SETTINGS);
 
-                    if (v instanceof Color color)
+                    if (mergedAny == null)
                     {
-                        settings.r = color.r;
-                        settings.g = color.g;
-                        settings.b = color.b;
-
-                        if (color.transform != null)
-                        {
-                            settings.transform = color.transform.copy();
-                        }
+                        merged.setModel(true);
+                        this.properties.put("glow", merged);
+                        this.add(merged);
                     }
 
-                    merged.insert(t, settings);
-                }
+                    for (Object kfObj : glowingColorChannel.getKeyframes())
+                    {
+                        Keyframe<?> kf = (Keyframe<?>) kfObj;
+                        float t = kf.getTick();
+                        GlowSettings settings = this.getGlowSettingsAt(merged, t);
+                        Object v = kf.getValue();
 
-                this.remove(glowingColorChannel);
+                        if (v instanceof Color color)
+                        {
+                            settings.r = color.r;
+                            settings.g = color.g;
+                            settings.b = color.b;
+
+                            if (color.transform != null)
+                            {
+                                settings.transform = color.transform.copy();
+                            }
+                        }
+
+                        merged.insert(t, settings);
+                    }
+
+                    this.remove(glowingColorChannel);
+                }
             }
 
             KeyframeChannel<?> legacyGlow = this.properties.get("glow_intensity");
@@ -1387,40 +1411,52 @@ public class FormProperties extends ValueGroup
             if (legacyGlow != null)
             {
                 KeyframeChannel<?> mergedAny = this.properties.get("glow");
-                @SuppressWarnings("unchecked")
-                KeyframeChannel<GlowSettings> merged = mergedAny != null
-                    ? (KeyframeChannel<GlowSettings>) mergedAny
-                    : new KeyframeChannel<>("glow", KeyframeFactories.GLOW_SETTINGS);
+                boolean modernGlow = mergedAny != null
+                    && !mergedAny.isEmpty()
+                    && mergedAny.getFactory() == KeyframeFactories.GLOW_SETTINGS;
 
-                if (mergedAny == null)
+                if (modernGlow)
                 {
-                    merged.setModel(true);
-                    this.properties.put("glow", merged);
-                    this.add(merged);
+                    this.properties.remove("glow_intensity");
+                    this.remove(legacyGlow);
                 }
-
-                for (Object kfObj : legacyGlow.getKeyframes())
+                else
                 {
-                    Keyframe<?> kf = (Keyframe<?>) kfObj;
-                    float t = kf.getTick();
-                    float intensity = 0F;
-                    Object v = kf.getValue();
+                    @SuppressWarnings("unchecked")
+                    KeyframeChannel<GlowSettings> merged = mergedAny != null
+                        ? (KeyframeChannel<GlowSettings>) mergedAny
+                        : new KeyframeChannel<>("glow", KeyframeFactories.GLOW_SETTINGS);
 
-                    if (v instanceof Number n)
+                    if (mergedAny == null)
                     {
-                        intensity = n.floatValue();
+                        merged.setModel(true);
+                        this.properties.put("glow", merged);
+                        this.add(merged);
                     }
 
-                    GlowSettings settings = this.getGlowSettingsAt(merged, t);
+                    for (Object kfObj : legacyGlow.getKeyframes())
+                    {
+                        Keyframe<?> kf = (Keyframe<?>) kfObj;
+                        float t = kf.getTick();
+                        float intensity = 0F;
+                        Object v = kf.getValue();
 
-                    settings.intensity = intensity;
-                    merged.insert(t, settings);
+                        if (v instanceof Number n)
+                        {
+                            intensity = n.floatValue();
+                        }
+
+                        GlowSettings settings = this.getGlowSettingsAt(merged, t);
+
+                        settings.intensity = intensity;
+                        merged.insert(t, settings);
+                    }
                 }
             }
         }
         catch (Throwable ignored) {}
 
-        /* Migration: paint_color -> paint (PaintSettings) */
+        /* Migration: paint_color -> paint (PaintSettings). Prefer modern paint when present. */
         try
         {
             KeyframeChannel<?> paintColorChannel = this.properties.remove("paint_color");
@@ -1428,42 +1464,53 @@ public class FormProperties extends ValueGroup
             if (paintColorChannel != null)
             {
                 KeyframeChannel<?> mergedAny = this.properties.get("paint");
-                @SuppressWarnings("unchecked")
-                KeyframeChannel<PaintSettings> merged = mergedAny != null
-                    ? (KeyframeChannel<PaintSettings>) mergedAny
-                    : new KeyframeChannel<>("paint", KeyframeFactories.PAINT_SETTINGS);
+                boolean modernPaint = mergedAny != null
+                    && !mergedAny.isEmpty()
+                    && mergedAny.getFactory() == KeyframeFactories.PAINT_SETTINGS;
 
-                if (mergedAny == null)
+                if (modernPaint)
                 {
-                    merged.setModel(true);
-                    this.properties.put("paint", merged);
-                    this.add(merged);
+                    this.remove(paintColorChannel);
                 }
-
-                for (Object kfObj : paintColorChannel.getKeyframes())
+                else
                 {
-                    Keyframe<?> kf = (Keyframe<?>) kfObj;
-                    float t = kf.getTick();
-                    PaintSettings settings = this.getPaintSettingsAt(merged, t);
-                    Object v = kf.getValue();
+                    @SuppressWarnings("unchecked")
+                    KeyframeChannel<PaintSettings> merged = mergedAny != null
+                        ? (KeyframeChannel<PaintSettings>) mergedAny
+                        : new KeyframeChannel<>("paint", KeyframeFactories.PAINT_SETTINGS);
 
-                    if (v instanceof Color color)
+                    if (mergedAny == null)
                     {
-                        settings.r = color.r;
-                        settings.g = color.g;
-                        settings.b = color.b;
-                        settings.intensity = color.a;
-
-                        if (color.transform != null)
-                        {
-                            settings.transform = color.transform.copy();
-                        }
+                        merged.setModel(true);
+                        this.properties.put("paint", merged);
+                        this.add(merged);
                     }
 
-                    merged.insert(t, settings);
-                }
+                    for (Object kfObj : paintColorChannel.getKeyframes())
+                    {
+                        Keyframe<?> kf = (Keyframe<?>) kfObj;
+                        float t = kf.getTick();
+                        PaintSettings settings = this.getPaintSettingsAt(merged, t);
+                        Object v = kf.getValue();
 
-                this.remove(paintColorChannel);
+                        if (v instanceof Color color)
+                        {
+                            settings.r = color.r;
+                            settings.g = color.g;
+                            settings.b = color.b;
+                            settings.intensity = color.a;
+
+                            if (color.transform != null)
+                            {
+                                settings.transform = color.transform.copy();
+                            }
+                        }
+
+                        merged.insert(t, settings);
+                    }
+
+                    this.remove(paintColorChannel);
+                }
             }
         }
         catch (Throwable ignored) {}
