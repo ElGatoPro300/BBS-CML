@@ -1225,12 +1225,18 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
                         ? new Matrix4f(newStack.peek().getPositionMatrix())
                         : ModelVAORenderer.capturePaintOverlayRootMatrix(new Matrix4f(newStack.peek().getPositionMatrix()));
                     Matrix3f softNormalMatrix = new Matrix3f(newStack.peek().getNormalMatrix());
-                    /* Sort key must be camera-space lengthSq. Iris draw matrices are entity-
-                     * local (ModelView restored at flush); film relative actors also keep the
-                     * entity near the stack origin — baking ModelView×stack fixes both. */
+                    /* Sort root must match the entity draw stack (anchors, relative camera
+                     * rotation, look-at). Model blocks: lengthSq on that / draw root.
+                     * Film ENTITY: view-space -z on the same stack — lengthSq collapses when
+                     * relative mode parks the actor near the view origin; renderContext.world
+                     * omits film stack transforms so world-distance sort was wrong. */
+                    Matrix4f softSortRoot = new Matrix4f(newStack.peek().getPositionMatrix());
                     Matrix4f softSortMatrix = limbOnlySoftImmediate
-                        ? new Matrix4f(newStack.peek().getPositionMatrix())
-                        : ModelVAORenderer.capturePaintOverlayRootMatrix(new Matrix4f(newStack.peek().getPositionMatrix()));
+                        ? softSortRoot
+                        : softPositionMatrix;
+                    boolean filmEntitySoftSort = !limbOnlySoftImmediate
+                        && renderContext != null
+                        && renderContext.type == FormRenderType.ENTITY;
                     Matrix4f softBaseTransformSnapshot = baseTransform == null ? null : new Matrix4f(baseTransform);
                     Color softColorSnapshot = color.copy();
                     Color softPaintSnapshot = paintColor.copy();
@@ -1266,7 +1272,11 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
                     Vector3f softPaintMaskHalf = new Vector3f(paintMaskHalfSnapshot);
                     EffectTransform softGlowTransform = glowTransformSnapshot;
                     Vector3f softGlowMaskHalf = new Vector3f(glowMaskHalfSnapshot);
-                    boolean softDepthWrite = ShaderOpacityPatch.shouldWriteDepthForOpacity(softGateAlpha);
+                    /* Multi soft bones: depth-test against the scene, but do not depth-write
+                     * between soft limbs — adjacent/coplanar faces otherwise vanish by angle.
+                     * Single soft bone keeps depth write for self-occlusion. */
+                    boolean softDepthWrite = softBones.size() <= 1
+                        && ShaderOpacityPatch.shouldWriteDepthForOpacity(softGateAlpha);
                     boolean softAfterFluids = ShaderOpacityPatch.shouldFlushAfterFluids(softGateAlpha);
                     Supplier<ShaderProgram> softProgram = ((irisCamera || limbOnlySoftImmediate) && !softGradeActive)
                         ? program
@@ -1310,10 +1320,11 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
 
                     for (ModelGroup softBone : softBones)
                     {
-                        softSubmits.add(new SoftBoneSubmit(
-                            softBone,
-                            this.softBoneDistanceSq(softBone.id, softSortMatrix, entityDistanceSq)
-                        ));
+                        double softDistanceSq = filmEntitySoftSort
+                            ? this.softBoneViewDepthKey(softBone.id, softSortRoot, entityDistanceSq)
+                            : this.softBoneDistanceSq(softBone.id, softSortMatrix, entityDistanceSq);
+
+                        softSubmits.add(new SoftBoneSubmit(softBone, softDistanceSq));
                     }
 
                     /* Farther first: helps noshading queue (no distance sort); Iris flush re-sorts. */
@@ -2460,10 +2471,8 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
     }
 
     /**
-     * Camera-relative distance for soft-bone queue / immediate sorting (larger = farther).
-     * Prefers bone origin × {@code rootMatrix} length-squared. Callers should pass a
-     * camera-space root (typically {@code ModelView ×} entity stack) so film relative
-     * actors and Iris entity-local draws still order by depth from the camera.
+     * Camera-relative length-squared for model-block / preview soft-bone sorting
+     * (larger = farther). Uses bone origin × the draw root matrix.
      */
     private double softBoneDistanceSq(String boneId, Matrix4f rootMatrix, double fallbackDistanceSq)
     {
@@ -2492,6 +2501,41 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
         combined.getTranslation(translation);
 
         return translation.lengthSquared();
+    }
+
+    /**
+     * Film ENTITY soft-bone sort key (larger = farther). View-space {@code -z} of bone
+     * origin × the full entity draw stack (includes relative camera rotation / anchors).
+     * Prefer over lengthSq near the view origin and over {@code renderContext.world}
+     * (world omits those film stack transforms).
+     */
+    private double softBoneViewDepthKey(String boneId, Matrix4f rootMatrix, double fallbackDistanceSq)
+    {
+        if (boneId == null || rootMatrix == null)
+        {
+            return fallbackDistanceSq;
+        }
+
+        MatrixCacheEntry entry = this.bones.get(boneId);
+
+        if (entry == null)
+        {
+            return fallbackDistanceSq;
+        }
+
+        Matrix4f boneLocal = entry.origin() != null ? entry.origin() : entry.matrix();
+
+        if (boneLocal == null)
+        {
+            return fallbackDistanceSq;
+        }
+
+        Matrix4f combined = new Matrix4f(rootMatrix).mul(boneLocal);
+        Vector3f translation = new Vector3f();
+
+        combined.getTranslation(translation);
+
+        return -translation.z;
     }
 
     private static final class SoftBoneSubmit

@@ -254,12 +254,15 @@ Update `LIMB_TRANSPARENCY.md` checklist when done; mark this plan **implemented*
 
 ## Implementation notes (v1 shipped)
 
-- `ModelFormRenderer` `limbOnlySoft`: `collectSoftDrawableBones` → capture matrices → one draw per bone with `softBoneDistanceSq` (length-squared) → `applyOnlySoftBoneVisible`.
-- **World model blocks + film actors:** post-deferred queue. Soft must not draw during `AFTER_ENTITIES` or depth stamps erase clouds/fluids/other translucents (same rule as form-wide soft opacity).
-- **Sort key (deferred):** always `ModelView × stack` (`capturePaintOverlayRootMatrix`), even when Iris draws with entity-local matrices — film `relative` actors sit near stack origin, so stack-only lengthSq does not order by camera depth.
-- **UI / form / model-block edit preview (`localPreview`):** immediate sorted draws (post-deferred queues are not flushed there).
+- `ModelFormRenderer` `limbOnlySoft`: `collectSoftDrawableBones` → capture matrices → one draw per bone → `applyOnlySoftBoneVisible`.
+- **World model blocks (`MODEL_BLOCK`):** post-deferred + `softBoneDistanceSq` (lengthSq on draw root). Unchanged by film fixes.
+- **Film / world entities (`ENTITY`):** post-deferred + `softBoneViewDepthKey` (`-z` on the **full entity draw stack** / `newStack`). Do **not** use `renderContext.world` (missing relative camera rotation, anchors, look-at) or lengthSq near the view origin.
+- **Multi soft bones:** depth **test** on, depth **write** off between soft limbs (avoids adjacent/coplanar faces vanishing by angle). Single soft bone still depth-writes for self-occlusion.
+- **UI / form / model-block edit preview (`localPreview`):** immediate sorted draws with lengthSq on the live stack.
+- Soft must stay post-deferred in world/film (immediate soft in `AFTER_ENTITIES` erases clouds/translucents).
 - Opaque-only actors: no collect/sort extras.
 - Form-wide soft unchanged.
+- Residual: interpenetrating soft meshes / true triangle sort still out of scope.
 
 
 
@@ -271,7 +274,7 @@ Update `LIMB_TRANSPARENCY.md` checklist when done; mark this plan **implemented*
 | Sort granularity      | Per soft `ModelGroup`                | Matches draw API; affordable                          |
 | Scope v1              | `limbOnlySoft` only                  | Highest ROI; form-wide already one alpha              |
 | Addon / triangle sort | No                                   | Too heavy; Iris-hostile                               |
-| Sort key              | Camera `distanceSq` of bone          | Matches existing flush comparator                     |
-| Depth write           | Keep current soft depth-write policy | Self-occlusion; world already handled by queue timing |
+| Sort key              | lengthSq (model block) / view `-z` on draw stack (film ENTITY) | World matrix omitted film transforms; lengthSq fails relative |
+| Soft depth write      | Off when ≥2 soft bones               | Stops adjacent soft faces vanishing by angle                  |
 
 

@@ -150,7 +150,7 @@ Safe and supported:
 
 Limitations to expect:
 
-- Soft-vs-soft on the **same** actor: v1 per-bone sort (see [`SOFT_LIMB_BONE_SORT.md`](SOFT_LIMB_BONE_SORT.md)); interpenetrating meshes can still look wrong.
+- Soft-vs-soft on the **same** actor: v1 per-bone sort (see [`SOFT_LIMB_BONE_SORT.md`](SOFT_LIMB_BONE_SORT.md)); interpenetrating meshes can still look wrong. Multi soft bones disable depth-write between limbs to reduce adjacent-face vanishing.
 - Paint/glow overlays on soft-only limbs may still follow form-level Iris overlay timing.
 - Fully transparent bones are skipped for deferral gates (anchors at alpha 0 no longer force a bogus soft path).
 
