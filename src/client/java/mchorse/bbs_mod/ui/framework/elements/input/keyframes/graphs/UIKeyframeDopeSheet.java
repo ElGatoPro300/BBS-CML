@@ -282,7 +282,7 @@ public class UIKeyframeDopeSheet implements IUIKeyframeGraph
 
     private boolean isWorldOrModelGroup(UIKeyframeSheet sheet)
     {
-        return sheet.groupKey != null && (sheet.groupKey.endsWith("__world__") || sheet.groupKey.endsWith("__model__"));
+        return sheet.groupKey != null && (sheet.groupKey.endsWith("__world__") || sheet.groupKey.endsWith("__model__") || sheet.groupKey.endsWith("__vanilla_poses__") || sheet.groupKey.endsWith("__vanilla_actions__"));
     }
 
     private boolean isRootFormGroup(UIKeyframeSheet sheet)

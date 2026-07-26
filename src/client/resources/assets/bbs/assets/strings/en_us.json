@@ -1186,6 +1186,8 @@
     "bbs.ui.film.replay.track.extra2_x": "Extra 2 X",
     "bbs.ui.film.replay.track.extra2_y": "Extra 2 Y",
     "bbs.ui.film.replay.world": "World",
+    "bbs.ui.film.replay.vanilla_poses": "Vanilla poses",
+    "bbs.ui.film.replay.vanilla_actions": "Vanilla actions",
     "bbs.ui.film.replay.item_stats": "Item stats",
     "bbs.ui.film.replay_timeline": "Replay Timeline",
     "bbs.ui.film.reset_replays": "Reset replays upon recording",

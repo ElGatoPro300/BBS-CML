@@ -456,6 +456,8 @@ public class UIKeys
     public static final IKey FILM_REPLAY_VANILLA_MOB_PLAYBACK_TOOLTIP = L10n.lang("bbs.ui.film.replay.vanilla_mob_playback-tooltip");
     public static final IKey FILM_REPLAY_NAME_TAG = L10n.lang("bbs.ui.film.replay.name_tag");
     public static final IKey FILM_REPLAY_WORLD = L10n.lang("bbs.ui.film.replay.world");
+    public static final IKey FILM_REPLAY_VANILLA_POSES = L10n.lang("bbs.ui.film.replay.vanilla_poses");
+    public static final IKey FILM_REPLAY_VANILLA_ACTIONS = L10n.lang("bbs.ui.film.replay.vanilla_actions");
     public static final IKey FILM_REPLAY_ORBIT_CAMERA = L10n.lang("bbs.ui.film.replay.orbit.camera");
     public static final IKey FILM_REPLAY_ORBIT_FIRST_PERSON = L10n.lang("bbs.ui.film.replay.orbit.first_person");
     public static final IKey FILM_REPLAY_ORBIT_FREE = L10n.lang("bbs.ui.film.replay.orbit.free");

@@ -1299,6 +1299,8 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
         this.collapsedModelTracks.put(replayId + ":" + rootPath, false);
         this.collapsedModelTracks.put(replayId + ":__model__", false);
         this.collapsedModelTracks.put(replayId + ":__world__", true);
+        this.collapsedModelTracks.put(replayId + ":__vanilla_poses__", true);
+        this.collapsedModelTracks.put(replayId + ":__vanilla_actions__", true);
 
         List<String> childPaths = new ArrayList<>();
 
@@ -1440,6 +1442,13 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
     }
 
     private static final List<String> WORLD_CHANNELS = Arrays.asList("x", "y", "z", "vX", "vY", "vZ", "yaw", "pitch", "headYaw", "bodyYaw", "grounded", "damage", "death_time", "using_item", "item_use_time", "fire", "particles", "active_hand", "fall", "sneaking", "riding", "sprinting", "swimming", "flying", "fall_flying", "crawling", "climbing", "blocking", "sleeping", "riptide", "item_main_hand", "item_off_hand", "item_head", "item_chest", "item_legs", "item_feet", "selected_slot", "stick_lx", "stick_ly", "stick_rx", "stick_ry", "trigger_l", "trigger_r", "extra1_x", "extra1_y", "extra2_x", "extra2_y", "shadow");
+    private static final Set<String> VANILLA_POSE_CHANNELS = Set.of(
+        "riding", "swimming", "flying", "fall_flying",
+        "crawling", "climbing", "blocking", "sleeping", "riptide"
+    );
+    private static final Set<String> VANILLA_ACTION_CHANNELS = Set.of(
+        "death_time", "using_item", "item_use_time", "fire", "particles", "active_hand"
+    );
     private static final List<String> MODEL_PROPERTIES = Arrays.asList("visible", "render", "lighting", "transform", "transform_overlay", "pose", "pose_overlay", "anchor", "look_at", "inverse_kinematics", "illusion", "illusion_transform", "color", "paint", "paint_color", "glow", "texture", "pbr_normal_intensity", "pbr_specular_intensity", "model", "actions", "shape_keys", "block_state", "item_stack", "modelTransform", "same_animation_when_dropped", "settings", "paused", "frequency", "count", "structure_file", "biome_id", "emit_light", "light_intensity", "structure_light", "enabled", "level", "effect");
     private static final Set<String> HIDDEN_MODEL_PROPERTIES = Set.of("glowing_color", "glow_settings", "glow_intensity", "paint_color", "paint");
 
@@ -2359,6 +2368,40 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
 
                 worldHeader.level = 1;
 
+                String vanillaPosesKey = this.replay.uuid.get() + ":__vanilla_poses__";
+                boolean vanillaPosesExpanded = !this.collapsedModelTracks.getOrDefault(vanillaPosesKey, true);
+                UIKeyframeSheet vanillaPosesHeader = UIKeyframeSheet.groupHeader(
+                    "__group__" + vanillaPosesKey,
+                    UIKeys.FILM_REPLAY_VANILLA_POSES,
+                    Colors.LIGHTEST_GRAY & Colors.RGB,
+                    vanillaPosesKey,
+                    vanillaPosesExpanded,
+                    () ->
+                    {
+                        this.collapsedModelTracks.put(vanillaPosesKey, !this.collapsedModelTracks.getOrDefault(vanillaPosesKey, true));
+                        this.updateChannelsList();
+                    }
+                );
+
+                vanillaPosesHeader.level = 2;
+
+                String vanillaActionsKey = this.replay.uuid.get() + ":__vanilla_actions__";
+                boolean vanillaActionsExpanded = !this.collapsedModelTracks.getOrDefault(vanillaActionsKey, true);
+                UIKeyframeSheet vanillaActionsHeader = UIKeyframeSheet.groupHeader(
+                    "__group__" + vanillaActionsKey,
+                    UIKeys.FILM_REPLAY_VANILLA_ACTIONS,
+                    Colors.LIGHTEST_GRAY & Colors.RGB,
+                    vanillaActionsKey,
+                    vanillaActionsExpanded,
+                    () ->
+                    {
+                        this.collapsedModelTracks.put(vanillaActionsKey, !this.collapsedModelTracks.getOrDefault(vanillaActionsKey, true));
+                        this.updateChannelsList();
+                    }
+                );
+
+                vanillaActionsHeader.level = 2;
+
                 String modelPropsKey = this.replay.uuid.get() + ":__model__";
                 boolean modelPropsExpanded = !this.collapsedModelTracks.getOrDefault(modelPropsKey, false);
                 UIKeyframeSheet modelPropsHeader = UIKeyframeSheet.groupHeader(
@@ -2379,12 +2422,16 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
                 grouped.add(worldHeader);
 
                 List<UIKeyframeSheet> worldTracks = new ArrayList<>();
+                List<UIKeyframeSheet> vanillaPoseTracks = new ArrayList<>();
+                List<UIKeyframeSheet> vanillaActionTracks = new ArrayList<>();
                 List<UIKeyframeSheet> modelTracksBeforePose = new ArrayList<>();
                 List<UIKeyframeSheet> poseTrack = new ArrayList<>();
                 List<UIKeyframeSheet> poseLimbTracks = new ArrayList<>();
                 List<UIKeyframeSheet> overlayTracks = new ArrayList<>();
                 List<UIKeyframeSheet> overlayLimbTracks = new ArrayList<>();
                 List<UIKeyframeSheet> modelTracksAfterPose = new ArrayList<>();
+                boolean hasVanillaPoses = false;
+                boolean hasVanillaActions = false;
 
                 Map<String, FormTracks> subForms = new LinkedHashMap<>();
 
@@ -2394,8 +2441,31 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
                     {
                         if (!this.collapsedModelTracks.getOrDefault(worldKey, false))
                         {
-                            sheet.level = 2;
-                            worldTracks.add(sheet);
+                            if (VANILLA_POSE_CHANNELS.contains(sheet.id))
+                            {
+                                hasVanillaPoses = true;
+
+                                if (vanillaPosesExpanded)
+                                {
+                                    sheet.level = 3;
+                                    vanillaPoseTracks.add(sheet);
+                                }
+                            }
+                            else if (VANILLA_ACTION_CHANNELS.contains(sheet.id))
+                            {
+                                hasVanillaActions = true;
+
+                                if (vanillaActionsExpanded)
+                                {
+                                    sheet.level = 3;
+                                    vanillaActionTracks.add(sheet);
+                                }
+                            }
+                            else
+                            {
+                                sheet.level = 2;
+                                worldTracks.add(sheet);
+                            }
                         }
                     }
                     else if (MODEL_PROPERTIES.contains(sheet.id) || isFormItemUseTimeTrack(sheet) || sheet.id.startsWith("pose") || sheet.id.startsWith("transform_overlay") || sheet.id.startsWith("illusion_overlay"))
@@ -2461,7 +2531,23 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
                 this.orderLimbTracks(rootForm, poseLimbTracks);
                 List<UIKeyframeSheet> orderedOverlayTracks = this.orderOverlayTracks(rootForm, overlayTracks, overlayLimbTracks);
 
-                grouped.addAll(worldTracks);
+                if (!this.collapsedModelTracks.getOrDefault(worldKey, false))
+                {
+                    grouped.addAll(worldTracks);
+
+                    if (hasVanillaPoses)
+                    {
+                        grouped.add(vanillaPosesHeader);
+                        grouped.addAll(vanillaPoseTracks);
+                    }
+
+                    if (hasVanillaActions)
+                    {
+                        grouped.add(vanillaActionsHeader);
+                        grouped.addAll(vanillaActionTracks);
+                    }
+                }
+
                 grouped.add(modelPropsHeader);
                 grouped.addAll(modelTracksBeforePose);
                 grouped.addAll(poseTrack);

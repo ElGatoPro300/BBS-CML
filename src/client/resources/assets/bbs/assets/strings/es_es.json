@@ -1079,6 +1079,8 @@
     "bbs.ui.film.replay.vanilla_mob_playback": "Reproducción de mobs de Vanilla",
     "bbs.ui.film.replay.vanilla_mob_playback-tooltip": "Incorpora animaciones de criaturas del juego base en fotogramas clave de pose y estadísticas de objetos (apuntar con arco, caminar, daño, etc.) durante la reproducción y la grabación.",
     "bbs.ui.film.replay.world": "Mundo",
+    "bbs.ui.film.replay.vanilla_poses": "Poses vanilla",
+    "bbs.ui.film.replay.vanilla_actions": "Acciones vanilla",
     "bbs.ui.film.replay_timeline": "Línea de tiempo de replay",
     "bbs.ui.film.reset_replays": "Reiniciar reproducciones al grabar",
     "bbs.ui.film.save": "Guardar película",

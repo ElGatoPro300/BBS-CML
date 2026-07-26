@@ -1152,6 +1152,8 @@
     "bbs.ui.film.replay.vanilla_model_playback": "ضبط پوز اعضای استاندارد",
     "bbs.ui.film.replay.vanilla_model_playback-tooltip": "هنگام پخش و ضبط، انیمیشن‌های وانیلا بازیکن را روی اعضای استاندارد بدن مدل (سر، دست، پا و ...) به کی‌فریم Pose تبدیل می‌کند. کشیدن کمان، حرکت دست‌ها و واکنش‌های آسیب به‌صورت خودکار ثبت می‌شوند.",
     "bbs.ui.film.replay.world": "جهان",
+    "bbs.ui.film.replay.vanilla_poses": "پوزهای وانیلا",
+    "bbs.ui.film.replay.vanilla_actions": "اقدامات وانیلا",
     "bbs.ui.film.replay_timeline": "تایم‌لاین عنصر",
     "bbs.ui.film.reset_replays": "بازنشانی عناصر هنگام ضبط",
     "bbs.ui.film.save": "ذخیره فیلم",
