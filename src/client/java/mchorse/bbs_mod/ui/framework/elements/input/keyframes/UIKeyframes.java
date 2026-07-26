@@ -2191,7 +2191,14 @@ public class UIKeyframes extends UIElement
 
         if (found != null)
         {
-            UIKeyframeSheet sheet = this.currentGraph.getSheet(found);
+            /* Prefer the row under the cursor so synthetic sheets that share a
+             * channel (e.g. color + color_grade) keep selection on the clicked track. */
+            UIKeyframeSheet sheet = this.currentGraph.getSheet(context.mouseY);
+
+            if (sheet == null || sheet.groupHeader || sheet.channel != found.getParent())
+            {
+                sheet = this.currentGraph.getSheet(found);
+            }
 
             if (!shift && !sheet.selection.has(found))
             {
@@ -2199,6 +2206,11 @@ public class UIKeyframes extends UIElement
             }
 
             sheet.selection.add(found);
+
+            if (this.currentGraph instanceof UIKeyframeDopeSheet)
+            {
+                ((UIKeyframeDopeSheet) this.currentGraph).rememberSheet(sheet);
+            }
 
             found = this.currentGraph.getSelected();
 

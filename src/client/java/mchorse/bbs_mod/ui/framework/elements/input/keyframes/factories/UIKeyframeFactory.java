@@ -23,6 +23,7 @@ import mchorse.bbs_mod.ui.framework.elements.input.keyframes.shapes.KeyframeShap
 import mchorse.bbs_mod.ui.framework.tooltips.InterpolationTooltip;
 import mchorse.bbs_mod.ui.utils.UI;
 import mchorse.bbs_mod.ui.utils.icons.Icons;
+import mchorse.bbs_mod.utils.StringUtils;
 import mchorse.bbs_mod.utils.colors.Color;
 import mchorse.bbs_mod.utils.interps.Interpolation;
 import mchorse.bbs_mod.utils.keyframes.Keyframe;
@@ -140,7 +141,7 @@ public abstract class UIKeyframeFactory <T> extends UIElement
 
         if (keyframe.getFactory() == KeyframeFactories.COLOR && editor != null)
         {
-            UIKeyframeSheet sheet = editor.getGraph().getSheet(keyframe);
+            UIKeyframeSheet sheet = resolveColorSheet(editor, keyframe);
 
             if (sheet != null && "color".equals(sheet.id) && "bar".equals(sheet.groupKey))
             {
@@ -150,12 +151,25 @@ public abstract class UIKeyframeFactory <T> extends UIElement
                 return new UIBossBarColorKeyframeFactory(colorKeyframe, editor);
             }
 
-            if (sheet != null && "color".equals(sheet.id))
+            if (sheet != null)
             {
-                @SuppressWarnings("unchecked")
-                Keyframe<Color> colorKeyframe = (Keyframe<Color>) keyframe;
+                String name = StringUtils.fileName(sheet.id);
 
-                return new UIFormColorKeyframeFactory(colorKeyframe, editor);
+                if (name.equals("color_grade"))
+                {
+                    @SuppressWarnings("unchecked")
+                    Keyframe<Color> colorKeyframe = (Keyframe<Color>) keyframe;
+
+                    return new UIFormColorGradeKeyframeFactory(colorKeyframe, editor);
+                }
+
+                if (name.equals("color"))
+                {
+                    @SuppressWarnings("unchecked")
+                    Keyframe<Color> colorKeyframe = (Keyframe<Color>) keyframe;
+
+                    return new UIFormColorKeyframeFactory(colorKeyframe, editor);
+                }
             }
         }
 
@@ -168,6 +182,37 @@ public abstract class UIKeyframeFactory <T> extends UIElement
         }
 
         return uiEditor;
+    }
+
+    /**
+     * Color and Color grade share one channel; prefer the sheet that currently
+     * holds the selection (or last remembered grade/color row).
+     */
+    private static UIKeyframeSheet resolveColorSheet(UIKeyframes editor, Keyframe<?> keyframe)
+    {
+        if (editor == null || keyframe == null)
+        {
+            return null;
+        }
+
+        UIKeyframeSheet sheet = editor.getGraph().getSheet(keyframe);
+
+        if (sheet != null)
+        {
+            return sheet;
+        }
+
+        Object channel = keyframe.getParent();
+
+        for (UIKeyframeSheet candidate : editor.getGraph().getSheets())
+        {
+            if (candidate.channel == channel)
+            {
+                return candidate;
+            }
+        }
+
+        return null;
     }
 
     public UIKeyframeFactory(Keyframe<T> keyframe, UIKeyframes editor)
