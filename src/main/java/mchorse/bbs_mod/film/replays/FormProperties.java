@@ -999,6 +999,9 @@ public class FormProperties extends ValueGroup
 
         if (paintAny == null || paintAny.isEmpty() || paintAny.getFactory() != KeyframeFactories.PAINT_SETTINGS)
         {
+            /* Modern paint cleared — do not leave stale dual-write companions on disk. */
+            data.remove("paint_color");
+
             return;
         }
 
@@ -1048,6 +1051,10 @@ public class FormProperties extends ValueGroup
 
         if (glowAny == null || glowAny.isEmpty() || glowAny.getFactory() != KeyframeFactories.GLOW_SETTINGS)
         {
+            /* Modern glow cleared — drop stale dual-write companions or they resurrect on load. */
+            data.remove("glowing_color");
+            data.remove("glow_intensity");
+
             return;
         }
 
@@ -1102,6 +1109,9 @@ public class FormProperties extends ValueGroup
 
         if (lightAny == null || lightAny.isEmpty() || lightAny.getFactory() != KeyframeFactories.STRUCTURE_LIGHT_SETTINGS)
         {
+            data.remove("emit_light");
+            data.remove("light_intensity");
+
             return;
         }
 
@@ -1477,6 +1487,18 @@ public class FormProperties extends ValueGroup
 
                     merged.insert(t, payload);
                 }
+
+                if (emit != null)
+                {
+                    this.properties.remove("emit_light");
+                    this.remove(emit);
+                }
+
+                if (intensity != null)
+                {
+                    this.properties.remove("light_intensity");
+                    this.remove(intensity);
+                }
             }
         }
         catch (Throwable ignored) {}
@@ -1520,11 +1542,11 @@ public class FormProperties extends ValueGroup
             if (glowingColorChannel != null)
             {
                 KeyframeChannel<?> mergedAny = this.properties.get("glow");
-                boolean modernGlow = mergedAny != null
-                    && !mergedAny.isEmpty()
+                /* Present modern glow channel wins even when empty (user cleared keyframes). */
+                boolean preferModernGlow = mergedAny != null
                     && mergedAny.getFactory() == KeyframeFactories.GLOW_SETTINGS;
 
-                if (modernGlow)
+                if (preferModernGlow)
                 {
                     this.remove(glowingColorChannel);
                 }
@@ -1568,21 +1590,15 @@ public class FormProperties extends ValueGroup
                 }
             }
 
-            KeyframeChannel<?> legacyGlow = this.properties.get("glow_intensity");
+            KeyframeChannel<?> legacyGlow = this.properties.remove("glow_intensity");
 
             if (legacyGlow != null)
             {
                 KeyframeChannel<?> mergedAny = this.properties.get("glow");
-                boolean modernGlow = mergedAny != null
-                    && !mergedAny.isEmpty()
+                boolean preferModernGlow = mergedAny != null
                     && mergedAny.getFactory() == KeyframeFactories.GLOW_SETTINGS;
 
-                if (modernGlow)
-                {
-                    this.properties.remove("glow_intensity");
-                    this.remove(legacyGlow);
-                }
-                else
+                if (!preferModernGlow)
                 {
                     @SuppressWarnings("unchecked")
                     KeyframeChannel<GlowSettings> merged = mergedAny != null
@@ -1614,6 +1630,8 @@ public class FormProperties extends ValueGroup
                         merged.insert(t, settings);
                     }
                 }
+
+                this.remove(legacyGlow);
             }
         }
         catch (Throwable ignored) {}
@@ -1626,11 +1644,10 @@ public class FormProperties extends ValueGroup
             if (paintColorChannel != null)
             {
                 KeyframeChannel<?> mergedAny = this.properties.get("paint");
-                boolean modernPaint = mergedAny != null
-                    && !mergedAny.isEmpty()
+                boolean preferModernPaint = mergedAny != null
                     && mergedAny.getFactory() == KeyframeFactories.PAINT_SETTINGS;
 
-                if (modernPaint)
+                if (preferModernPaint)
                 {
                     this.remove(paintColorChannel);
                 }
