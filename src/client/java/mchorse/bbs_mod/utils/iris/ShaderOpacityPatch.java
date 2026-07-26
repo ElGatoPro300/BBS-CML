@@ -235,7 +235,8 @@ public class ShaderOpacityPatch
 
     /**
      * Fully opaque floor. Softer alpha joins the post-deferred queue (after VL clouds /
-     * translucent terrain) with depth write so limbs do not X-ray and fluids stay intact.
+     * translucent terrain; vanilla also waits until after vanilla clouds via LAST) with depth
+     * write so limbs do not X-ray and fluids stay intact.
      * Fully solid keeps the live path.
      */
     public static final float LIVE_DEPTH_WRITE_ALPHA = 0.999F;
@@ -365,13 +366,37 @@ public class ShaderOpacityPatch
     }
 
     /**
-     * After translucent terrain (water/lava/portals). Default soft forms (Opacity
-     * "No shading" off) flush here with depth so pack body shadows stay; end-of-frame
-     * paint stays clipped behind them. Noshading soft forms skip this queue and redraw
-     * after paint in {@link ModelVAORenderer}'s deferred queue.
+     * After translucent terrain (water/lava/portals).
+     * <p>
+     * Iris: flush soft forms here (pack clouds are already composited on that path).
+     * Vanilla: do <em>not</em> flush yet — Fabric draws vanilla clouds after this event;
+     * flushing with depth write here hides clouds behind soft actors. Hold until
+     * {@link #onAfterVanillaClouds()} ({@code WorldRenderEvents.LAST}).
      */
     public static void onAfterTranslucentTerrain()
     {
+        if (BBSRendering.isIrisShadersEnabled())
+        {
+            flushPostDeferredForms(null);
+
+            return;
+        }
+
+        postDeferredPhase = true;
+    }
+
+    /**
+     * After vanilla clouds / weather ({@code WorldRenderEvents.LAST}). Soft forms kept from
+     * {@link #onAfterTranslucentTerrain()} draw here so depth writes no longer erase clouds.
+     * Iris already flushed earlier — this is a no-op safety net when the queue is empty.
+     */
+    public static void onAfterVanillaClouds()
+    {
+        if (BBSRendering.isIrisShadersEnabled())
+        {
+            return;
+        }
+
         flushPostDeferredForms(null);
     }
 
