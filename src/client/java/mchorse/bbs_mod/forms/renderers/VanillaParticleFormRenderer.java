@@ -21,6 +21,7 @@ import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.Items;
 import net.minecraft.particle.BlockStateParticleEffect;
+import net.minecraft.particle.EntityEffectParticleEffect;
 import net.minecraft.particle.ItemStackParticleEffect;
 import net.minecraft.particle.ParticleEffect;
 import net.minecraft.particle.ParticleType;
@@ -137,7 +138,37 @@ public class VanillaParticleFormRenderer extends FormRenderer<VanillaParticleFor
                 {
                     RegistryWrapper.WrapperLookup registries = world.getRegistryManager();
 
-                    if (type instanceof SimpleParticleType simple)
+                    if (settings.particle != null && settings.particle.getPath().contains("effect"))
+                    {
+                        String args = settings.arguments.trim();
+                        boolean parsedEffect = false;
+
+                        if (!args.isEmpty())
+                        {
+                            try
+                            {
+                                String[] split = args.split("\\s+");
+
+                                if (split.length >= 3)
+                                {
+                                    float r = Float.parseFloat(split[0]);
+                                    float g = Float.parseFloat(split[1]);
+                                    float b = Float.parseFloat(split[2]);
+
+                                    effect = EntityEffectParticleEffect.create(ParticleTypes.ENTITY_EFFECT, r, g, b);
+                                    parsedEffect = true;
+                                }
+                            }
+                            catch (Exception e)
+                            {}
+                        }
+
+                        if (!parsedEffect && type instanceof SimpleParticleType simple)
+                        {
+                            effect = simple;
+                        }
+                    }
+                    else if (type instanceof SimpleParticleType simple)
                     {
                         effect = simple;
                     }
