@@ -2675,5 +2675,12 @@
     "studio.ui.utility.reload_terrain": "Terreno",
     "studio.ui.utility.reload_textures": "Texturas",
     "studio.ui.utility.resize": "Cambiar tamaño de ventana",
-    "studio.ui.utility.title": "Panel de utilidades"
+    "studio.ui.utility.title": "Panel de utilidades",
+    "bbs.ui.forms.editors.vanilla_particle.color": "Color",
+    "bbs.ui.forms.editors.vanilla_particle.color2": "Color Final",
+    "bbs.ui.forms.editors.vanilla_particle.color_mode": "Modo de Color",
+    "bbs.ui.forms.editors.vanilla_particle.color_mode.solid": "Sólido",
+    "bbs.ui.forms.editors.vanilla_particle.color_mode.lifetime": "Degradado por Vida",
+    "bbs.ui.forms.editors.vanilla_particle.color_mode.random": "Paleta Aleatoria",
+    "bbs.ui.forms.editors.vanilla_particle.none": "Nada"
 }

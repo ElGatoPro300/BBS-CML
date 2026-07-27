@@ -27,6 +27,9 @@ public class UIVanillaParticleFormPanel extends UIFormPanel<VanillaParticleForm>
 {
     public UIParticleSettings settings;
     public UIColor color;
+    public UIColor color2;
+    public UIElement color2Container;
+    public UIButton colorModeButton;
     public UIElement colorContainer;
     public UIToggle paused;
     public UIToggle local;
@@ -88,7 +91,32 @@ public class UIVanillaParticleFormPanel extends UIFormPanel<VanillaParticleForm>
             this.updateEffectLabelForColor(argString);
         }).withAlpha();
 
-        this.colorContainer = UI.column(UI.label(UIKeys.FORMS_EDITORS_VANILLA_PARTICLE_COLOR).marginTop(6), this.color);
+        this.color2 = new UIColor((c) ->
+        {
+            if (this.form != null)
+            {
+                this.form.color2.get().set(c);
+            }
+        }).withAlpha();
+
+        this.colorModeButton = new UIButton(UIKeys.FORMS_EDITORS_VANILLA_PARTICLE_COLOR_MODE_SOLID, (b) ->
+        {
+            if (this.form != null)
+            {
+                int mode = (this.form.colorMode.get() + 1) % 3;
+
+                this.form.colorMode.set(mode);
+                this.updateColorModeButton();
+            }
+        });
+
+        this.color2Container = UI.column(UI.label(UIKeys.FORMS_EDITORS_VANILLA_PARTICLE_COLOR2).marginTop(4), this.color2);
+
+        this.colorContainer = UI.column(
+            UI.label(UIKeys.FORMS_EDITORS_VANILLA_PARTICLE_COLOR_MODE).marginTop(6),
+            this.colorModeButton,
+            UI.row(UI.column(UI.label(UIKeys.FORMS_EDITORS_VANILLA_PARTICLE_COLOR).marginTop(4), this.color), this.color2Container)
+        );
 
         this.paused = new UIToggle(UIKeys.FORMS_EDITORS_VANILLA_PARTICLE_PAUSED, (b) -> this.form.paused.set(b.getValue()));
         this.local = new UIToggle(UIKeys.FORMS_EDITORS_VANILLA_PARTICLE_LOCAL, (b) -> this.form.local.set(b.getValue()));
@@ -152,6 +180,9 @@ public class UIVanillaParticleFormPanel extends UIFormPanel<VanillaParticleForm>
         super.startEdit(form);
 
         this.settings.setSettings(form.settings.get());
+        this.color.setColor(form.color.get().getARGBColor());
+        this.color2.setColor(form.color2.get().getARGBColor());
+        this.updateColorModeButton();
         this.paused.setValue(form.paused.get());
         this.local.setValue(form.local.get());
         this.velocity.setValue(form.velocity.get());
@@ -164,6 +195,32 @@ public class UIVanillaParticleFormPanel extends UIFormPanel<VanillaParticleForm>
         this.offsetZ.setValue(form.offsetZ.get());
 
         this.updateEffectVisibility();
+    }
+
+    private void updateColorModeButton()
+    {
+        if (this.form == null)
+        {
+            return;
+        }
+
+        int mode = this.form.colorMode.get();
+
+        if (mode == 1)
+        {
+            this.colorModeButton.label = UIKeys.FORMS_EDITORS_VANILLA_PARTICLE_COLOR_MODE_LIFETIME;
+            this.color2Container.setVisible(true);
+        }
+        else if (mode == 2)
+        {
+            this.colorModeButton.label = UIKeys.FORMS_EDITORS_VANILLA_PARTICLE_COLOR_MODE_RANDOM;
+            this.color2Container.setVisible(true);
+        }
+        else
+        {
+            this.colorModeButton.label = UIKeys.FORMS_EDITORS_VANILLA_PARTICLE_COLOR_MODE_SOLID;
+            this.color2Container.setVisible(false);
+        }
     }
 
     private void updateEffectVisibility()

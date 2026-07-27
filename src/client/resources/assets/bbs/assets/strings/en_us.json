@@ -2903,5 +2903,12 @@
     "bbs.ui.models.constraints_editor": "Constraints",
     "bbs.ui.property.reset_to_default": "Reset to default",
     "bbs.ui.screen_panels.screen_clip": "Screen clip",
-    "bbs.ui.timeline_toolbar.drag_locked": "Unlock the layout to reposition the toolbar"
+    "bbs.ui.timeline_toolbar.drag_locked": "Unlock the layout to reposition the toolbar",
+    "bbs.ui.forms.editors.vanilla_particle.color": "Color",
+    "bbs.ui.forms.editors.vanilla_particle.color2": "End Color",
+    "bbs.ui.forms.editors.vanilla_particle.color_mode": "Color Mode",
+    "bbs.ui.forms.editors.vanilla_particle.color_mode.solid": "Solid",
+    "bbs.ui.forms.editors.vanilla_particle.color_mode.lifetime": "Lifetime Gradient",
+    "bbs.ui.forms.editors.vanilla_particle.color_mode.random": "Random Palette",
+    "bbs.ui.forms.editors.vanilla_particle.none": "None"
 }

@@ -12,6 +12,8 @@ public class VanillaParticleForm extends Form
 {
     public final ValueParticleSettings settings = new ValueParticleSettings("settings", new ParticleSettings());
     public final ValueColor color = new ValueColor("color", new Color(1F, 1F, 1F, 1F));
+    public final ValueColor color2 = new ValueColor("color2", new Color(1F, 1F, 1F, 1F));
+    public final ValueInt colorMode = new ValueInt("color_mode", 0);
     public final ValueBoolean paused = new ValueBoolean("paused", false);
     public final ValueBoolean local = new ValueBoolean("local", false);
     public final ValueFloat velocity = new ValueFloat("velocity", 0.1F);
@@ -31,6 +33,8 @@ public class VanillaParticleForm extends Form
 
         this.add(this.settings);
         this.add(this.color);
+        this.add(this.color2);
+        this.add(this.colorMode);
         this.add(this.paused);
         this.add(this.local);
         this.add(this.velocity);

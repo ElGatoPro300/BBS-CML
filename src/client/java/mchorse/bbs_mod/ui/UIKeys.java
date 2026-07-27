@@ -823,6 +823,11 @@ public class UIKeys
     public static final IKey FORMS_EDITORS_TRAIL_LOOP = L10n.lang("bbs.ui.forms.editors.trail.loop");
     public static final IKey FORMS_EDITORS_TRAIL_TITLE = L10n.lang("bbs.ui.forms.editors.trail.title");
     public static final IKey FORMS_EDITORS_VANILLA_PARTICLE_COLOR = L10n.lang("bbs.ui.forms.editors.vanilla_particle.color");
+    public static final IKey FORMS_EDITORS_VANILLA_PARTICLE_COLOR2 = L10n.lang("bbs.ui.forms.editors.vanilla_particle.color2");
+    public static final IKey FORMS_EDITORS_VANILLA_PARTICLE_COLOR_MODE = L10n.lang("bbs.ui.forms.editors.vanilla_particle.color_mode");
+    public static final IKey FORMS_EDITORS_VANILLA_PARTICLE_COLOR_MODE_SOLID = L10n.lang("bbs.ui.forms.editors.vanilla_particle.color_mode.solid");
+    public static final IKey FORMS_EDITORS_VANILLA_PARTICLE_COLOR_MODE_LIFETIME = L10n.lang("bbs.ui.forms.editors.vanilla_particle.color_mode.lifetime");
+    public static final IKey FORMS_EDITORS_VANILLA_PARTICLE_COLOR_MODE_RANDOM = L10n.lang("bbs.ui.forms.editors.vanilla_particle.color_mode.random");
     public static final IKey FORMS_EDITORS_VANILLA_PARTICLE_COUNT = L10n.lang("bbs.ui.forms.editors.vanilla_particle.count");
     public static final IKey FORMS_EDITORS_VANILLA_PARTICLE_EDITOR_PICK = L10n.lang("bbs.ui.forms.editors.vanilla_particle.editor.pick");
     public static final IKey FORMS_EDITORS_VANILLA_PARTICLE_EDITOR_TITLE = L10n.lang("bbs.ui.forms.editors.vanilla_particle.editor.title");
