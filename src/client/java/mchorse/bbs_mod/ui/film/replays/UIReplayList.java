@@ -114,6 +114,7 @@ public class UIReplayList extends UIList<Replay> {
     static final Vector3f LIGHT_B = new Vector3f(-0.85F, 0.85F, 1F).normalize();
 
     private static String LAST_PROCESS = "v";
+    private static String LAST_PICK_FAVORITE_CATEGORY_ID = null;
     private static String LAST_OFFSET = "0";
     private static List<String> LAST_PROCESS_PROPERTIES = Arrays.asList("x");
     private static int LAST_PROCESS_SECTION = 0;
@@ -142,7 +143,6 @@ public class UIReplayList extends UIList<Replay> {
     public UIFilmPanel panel;
     public UIReplaysOverlayPanel overlay;
 
-    private UIFormPalette formPalette;
     private Map<String, Boolean> expandedGroups = new HashMap<>();
     private List<Replay> visualList = new ArrayList<>();
 
@@ -153,131 +153,129 @@ public class UIReplayList extends UIList<Replay> {
         this.panel = panel;
 
         this.multi().sorting();
-        this.context(this::fillContextMenu);
-    }
+        this.context((menu) -> {
+            menu.action(Icons.REFRESH, UIKeys.SCENE_REPLAYS_CONTEXT_RELOAD, this::reloadReplays);
+            this.addContextSeparator(menu);
 
-    public void fillContextMenu(ContextMenuManager menu) {
-        menu.action(Icons.REFRESH, UIKeys.SCENE_REPLAYS_CONTEXT_RELOAD, this::reloadReplays);
-        this.addContextSeparator(menu);
+            boolean selectedGroup = this.isSelected() && this.getCurrentFirst().isGroup.get();
 
-        boolean selectedGroup = this.isSelected() && this.getCurrentFirst().isGroup.get();
-
-        if (!selectedGroup) {
-            menu.action(Icons.ADD, UIKeys.SCENE_REPLAYS_CONTEXT_ADD, this::addReplay);
-        }
-
-        if (this.isSelected()) {
-            boolean isGroup = this.getCurrentFirst().isGroup.get();
-
-            if (isGroup) {
-                int duration = this.panel.getData().camera.calculateDuration();
+            if (!selectedGroup) {
                 menu.action(Icons.ADD, UIKeys.SCENE_REPLAYS_CONTEXT_ADD, this::addReplay);
+            }
 
-                if (duration > 0) {
-                    menu.action(Icons.PLAY, UIKeys.SCENE_REPLAYS_CONTEXT_FROM_CAMERA, () -> this.fromCamera(duration));
+            if (this.isSelected()) {
+                boolean isGroup = this.getCurrentFirst().isGroup.get();
+
+                if (isGroup) {
+                    int duration = this.panel.getData().camera.calculateDuration();
+                    menu.action(Icons.ADD, UIKeys.SCENE_REPLAYS_CONTEXT_ADD, this::addReplay);
+
+                    if (duration > 0) {
+                        menu.action(Icons.PLAY, UIKeys.SCENE_REPLAYS_CONTEXT_FROM_CAMERA, () -> this.fromCamera(duration));
+                    }
+
+                    menu.action(Icons.BLOCK, UIKeys.SCENE_REPLAYS_CONTEXT_FROM_MODEL_BLOCK, this::fromModelBlock);
+                    menu.action(Icons.COPY, UIKeys.SCENE_REPLAYS_CONTEXT_COPY_GROUP, this::copyGroup);
+
+                    MapType copyGroup = Window.getClipboardMap(GROUP_CLIPBOARD_KEY);
+
+                    if (copyGroup != null) {
+                        menu.action(Icons.PASTE, UIKeys.SCENE_REPLAYS_CONTEXT_PASTE_GROUP, () -> this.pasteGroup(copyGroup));
+                    }
+
+                    menu.action(Icons.DUPE, UIKeys.SCENE_REPLAYS_CONTEXT_DUPE_GROUP, this::duplicateGroup);
+                    menu.action(Icons.REMOVE, UIKeys.SCENE_REPLAYS_CONTEXT_DELETE_GROUP, this::deleteGroup);
+                    menu.action(Icons.FOLDER, UIKeys.SCENE_REPLAYS_CONTEXT_UNGROUP, this::ungroupReplay);
+                } else {
+                    int duration = this.panel.getData().camera.calculateDuration();
+                    MapType copyReplay = Window.getClipboardMap("_CopyReplay");
+                    boolean shift = Window.isShiftPressed();
+                    int compactedOptions = BBSSettings.replayContextOptions == null ? 0 : BBSSettings.replayContextOptions.get();
+                    boolean separatedMode = compactedOptions == 1;
+                    boolean compactedMode = compactedOptions == 2;
+
+                    if (duration > 0) {
+                        menu.action(Icons.PLAY, UIKeys.SCENE_REPLAYS_CONTEXT_FROM_CAMERA, () -> this.fromCamera(duration));
+                    }
+
+                    menu.action(Icons.BLOCK, UIKeys.SCENE_REPLAYS_CONTEXT_FROM_MODEL_BLOCK, this::fromModelBlock);
+                    menu.action(Icons.COPY, UIKeys.SCENE_REPLAYS_CONTEXT_COPY, this::copyReplay);
+
+                    if (copyReplay != null) {
+                        menu.action(Icons.PASTE, UIKeys.SCENE_REPLAYS_CONTEXT_PASTE, () -> this.pasteReplay(copyReplay));
+                    }
+
+                    menu.action(Icons.DUPE, UIKeys.SCENE_REPLAYS_CONTEXT_DUPE, () -> {
+                        if (Window.isShiftPressed() || shift) {
+                            this.dupeReplay();
+                        } else {
+                            UINumberOverlayPanel numberPanel = new UINumberOverlayPanel(
+                                    UIKeys.SCENE_REPLAYS_CONTEXT_DUPE, UIKeys.SCENE_REPLAYS_CONTEXT_DUPE_DESCRIPTION,
+                                    (n) -> {
+                                        for (int i = 0; i < n; i++) {
+                                            this.dupeReplay();
+                                        }
+                                    });
+
+                            numberPanel.value.limit(1).integer();
+                            numberPanel.value.setValue(1D);
+
+                            UIOverlay.addOverlay(this.getContext(), numberPanel);
+                        }
+                    });
+                    menu.action(Icons.REMOVE, UIKeys.SCENE_REPLAYS_CONTEXT_REMOVE, this::removeReplay);
+
+                    if (separatedMode) {
+                        this.addContextSeparator(menu);
+                    }
+
+                    if (!compactedMode) {
+                        menu.action(Icons.COPY, UIKeys.SCENE_REPLAYS_CONTEXT_COPY_KEYFRAMES, this::openCopyKeyframesMenu);
+                        menu.action(Icons.PASTE, UIKeys.SCENE_REPLAYS_CONTEXT_PASTE_KEYFRAMES,
+                                () -> this.pasteToReplays(Window.getClipboardMap("_CopyKeyframes")));
+
+                        if (separatedMode) {
+                            this.addContextSeparator(menu);
+                        }
+
+                        menu.action(Icons.BLOCK, UIKeys.SCENE_REPLAYS_CONTEXT_RANDOM_SKINS, this::applyRandomSkins);
+                        menu.action(Icons.ALL_DIRECTIONS, UIKeys.SCENE_REPLAYS_CONTEXT_PROCESS, this::processReplays);
+                        menu.action(Icons.TIME, UIKeys.SCENE_REPLAYS_CONTEXT_OFFSET_TIME, this::offsetTimeReplays);
+
+                        if (separatedMode) {
+                            this.addContextSeparator(menu);
+                        }
+                    }
+
+                    menu.action(Icons.FOLDER, UIKeys.SCENE_REPLAYS_CONTEXT_ADD_GROUP, this::addGroup);
+
+                    if (!this.getCurrentFirst().group.get().isEmpty()) {
+                        menu.action(Icons.FOLDER, UIKeys.SCENE_REPLAYS_CONTEXT_LEAVE_GROUP, this::leaveGroup);
+                    }
+
+                    if (compactedMode) {
+                        menu.action(Icons.MORE, UIKeys.SCENE_REPLAYS_CONTEXT_MORE_OPTIONS, this::openReplayMoreOptionsMenu);
+                    }
                 }
-
-                menu.action(Icons.BLOCK, UIKeys.SCENE_REPLAYS_CONTEXT_FROM_MODEL_BLOCK, this::fromModelBlock);
-                menu.action(Icons.COPY, UIKeys.SCENE_REPLAYS_CONTEXT_COPY_GROUP, this::copyGroup);
-
-                MapType copyGroup = Window.getClipboardMap(GROUP_CLIPBOARD_KEY);
-
-                if (copyGroup != null) {
-                    menu.action(Icons.PASTE, UIKeys.SCENE_REPLAYS_CONTEXT_PASTE_GROUP, () -> this.pasteGroup(copyGroup));
-                }
-
-                menu.action(Icons.DUPE, UIKeys.SCENE_REPLAYS_CONTEXT_DUPE_GROUP, this::duplicateGroup);
-                menu.action(Icons.REMOVE, UIKeys.SCENE_REPLAYS_CONTEXT_DELETE_GROUP, this::deleteGroup);
-                menu.action(Icons.FOLDER, UIKeys.SCENE_REPLAYS_CONTEXT_UNGROUP, this::ungroupReplay);
             } else {
-                int duration = this.panel.getData().camera.calculateDuration();
                 MapType copyReplay = Window.getClipboardMap("_CopyReplay");
-                boolean shift = Window.isShiftPressed();
-                int compactedOptions = BBSSettings.replayContextOptions == null ? 0 : BBSSettings.replayContextOptions.get();
-                boolean separatedMode = compactedOptions == 1;
-                boolean compactedMode = compactedOptions == 2;
-
-                if (duration > 0) {
-                    menu.action(Icons.PLAY, UIKeys.SCENE_REPLAYS_CONTEXT_FROM_CAMERA, () -> this.fromCamera(duration));
-                }
-
-                menu.action(Icons.BLOCK, UIKeys.SCENE_REPLAYS_CONTEXT_FROM_MODEL_BLOCK, this::fromModelBlock);
-                menu.action(Icons.COPY, UIKeys.SCENE_REPLAYS_CONTEXT_COPY, this::copyReplay);
+                int duration = this.panel.getData().camera.calculateDuration();
 
                 if (copyReplay != null) {
                     menu.action(Icons.PASTE, UIKeys.SCENE_REPLAYS_CONTEXT_PASTE, () -> this.pasteReplay(copyReplay));
                 }
 
-                menu.action(Icons.DUPE, UIKeys.SCENE_REPLAYS_CONTEXT_DUPE, () -> {
-                    if (Window.isShiftPressed() || shift) {
-                        this.dupeReplay();
-                    } else {
-                        UINumberOverlayPanel numberPanel = new UINumberOverlayPanel(
-                                UIKeys.SCENE_REPLAYS_CONTEXT_DUPE, UIKeys.SCENE_REPLAYS_CONTEXT_DUPE_DESCRIPTION,
-                                (n) -> {
-                                    for (int i = 0; i < n; i++) {
-                                        this.dupeReplay();
-                                    }
-                                });
-
-                        numberPanel.value.limit(1).integer();
-                        numberPanel.value.setValue(1D);
-
-                        UIOverlay.addOverlay(this.getContext(), numberPanel);
-                    }
-                });
-                menu.action(Icons.REMOVE, UIKeys.SCENE_REPLAYS_CONTEXT_REMOVE, this::removeReplay);
-
-                if (separatedMode) {
-                    this.addContextSeparator(menu);
+                if (duration > 0) {
+                    menu.action(Icons.PLAY, UIKeys.SCENE_REPLAYS_CONTEXT_FROM_CAMERA, () -> this.fromCamera(duration));
                 }
 
-                if (!compactedMode) {
-                    menu.action(Icons.COPY, UIKeys.SCENE_REPLAYS_CONTEXT_COPY_KEYFRAMES, this::openCopyKeyframesMenu);
-                    menu.action(Icons.PASTE, UIKeys.SCENE_REPLAYS_CONTEXT_PASTE_KEYFRAMES,
-                            () -> this.pasteToReplays(Window.getClipboardMap("_CopyKeyframes")));
-
-                    if (separatedMode) {
-                        this.addContextSeparator(menu);
-                    }
-
-                    menu.action(Icons.BLOCK, UIKeys.SCENE_REPLAYS_CONTEXT_RANDOM_SKINS, this::applyRandomSkins);
-                    menu.action(Icons.ALL_DIRECTIONS, UIKeys.SCENE_REPLAYS_CONTEXT_PROCESS, this::processReplays);
-                    menu.action(Icons.TIME, UIKeys.SCENE_REPLAYS_CONTEXT_OFFSET_TIME, this::offsetTimeReplays);
-
-                    if (separatedMode) {
-                        this.addContextSeparator(menu);
-                    }
-                }
-
-                menu.action(Icons.FOLDER, UIKeys.SCENE_REPLAYS_CONTEXT_ADD_GROUP, this::addGroup);
-
-                if (!this.getCurrentFirst().group.get().isEmpty()) {
-                    menu.action(Icons.FOLDER, UIKeys.SCENE_REPLAYS_CONTEXT_LEAVE_GROUP, this::leaveGroup);
-                }
-
-                if (compactedMode) {
-                    menu.action(Icons.MORE, UIKeys.SCENE_REPLAYS_CONTEXT_MORE_OPTIONS, this::openReplayMoreOptionsMenu);
-                }
-            }
-        } else {
-            MapType copyReplay = Window.getClipboardMap("_CopyReplay");
-            int duration = this.panel.getData().camera.calculateDuration();
-
-            if (copyReplay != null) {
-                menu.action(Icons.PASTE, UIKeys.SCENE_REPLAYS_CONTEXT_PASTE, () -> this.pasteReplay(copyReplay));
+                menu.action(Icons.BLOCK, UIKeys.SCENE_REPLAYS_CONTEXT_FROM_MODEL_BLOCK, this::fromModelBlock);
             }
 
-            if (duration > 0) {
-                menu.action(Icons.PLAY, UIKeys.SCENE_REPLAYS_CONTEXT_FROM_CAMERA, () -> this.fromCamera(duration));
+            for (BiConsumer<UIReplayList, ContextMenuManager> consumer : extensions) {
+                consumer.accept(this, menu);
             }
-
-            menu.action(Icons.BLOCK, UIKeys.SCENE_REPLAYS_CONTEXT_FROM_MODEL_BLOCK, this::fromModelBlock);
-        }
-
-        for (BiConsumer<UIReplayList, ContextMenuManager> consumer : extensions) {
-            consumer.accept(this, menu);
-        }
+        });
     }
 
     private boolean hasSelectedKeyframes() {
@@ -1712,83 +1710,31 @@ public class UIReplayList extends UIList<Replay> {
             target = this.getParentContainer();
         }
 
-        Consumer<Form> callback = (f) -> {
-            Replay primary = this.getCurrentFirst();
-
-            if (primary == null && this.panel != null && this.panel.replayEditor != null)
-            {
-                primary = this.panel.replayEditor.getReplay();
-            }
-
-            List<Replay> selected = this.getCurrent();
-
-            if (!selected.isEmpty())
-            {
-                for (Replay replay : selected)
-                {
-                    replay.form.set(FormUtils.copy(f));
-                }
-            }
-            else if (primary != null)
-            {
-                primary.form.set(FormUtils.copy(f));
-            }
-
-            if (primary != null)
-            {
-                this.buildVisualList();
-                this.setCurrentDirect(primary);
-
-                if (this.overlay != null)
-                {
-                    this.overlay.syncReplaySelection(primary, true);
-                    this.overlay.pickEdit.setForm(primary.form.get());
-                    this.overlay.focusGeneralSection();
-                }
-
-                /* Keep editor + list selection in sync so Edit unlocks without a second click. */
-                this.panel.replayEditor.setReplay(primary, true, false);
-            }
-            else if (this.overlay != null)
-            {
-                this.overlay.pickEdit.setForm(f);
+        UIFormPalette palette = UIFormPalette.open(target, editing, form.get(), (f) -> {
+            for (Replay replay : this.getCurrent()) {
+                replay.form.set(FormUtils.copy(f));
             }
 
             this.updateFilmEditor();
 
-            if (consumer != null)
-            {
+            if (consumer != null) {
                 consumer.accept(f);
+            } else {
+                this.overlay.pickEdit.setForm(f);
             }
-        };
+        });
 
-        /* Reuse the same palette as B morphing (warm thumbs, no rebuild). */
-        if (this.formPalette != null)
-        {
-            this.formPalette.callback = callback;
+        if (!editing) {
+            palette.favorites();
 
-            if (this.formPalette.getParent() == null)
+            if (!palette.list.hasFavoriteCategory(LAST_PICK_FAVORITE_CATEGORY_ID))
             {
-                this.formPalette.resetFlex().full(target);
-                target.add(this.formPalette);
+                LAST_PICK_FAVORITE_CATEGORY_ID = null;
             }
 
-            this.formPalette.setSelected(form.get());
-            this.formPalette.edit(editing);
-            this.formPalette.resize();
-
-            return;
+            palette.list.setFavoriteCategoryChangedListener((categoryId) -> LAST_PICK_FAVORITE_CATEGORY_ID = categoryId);
+            palette.list.setActiveFavoriteCategoryWithFallback(LAST_PICK_FAVORITE_CATEGORY_ID);
         }
-
-        UIFormPalette palette = UIFormPalette.open(target, editing, form.get(), callback);
-
-        if (palette == null)
-        {
-            return;
-        }
-
-        this.formPalette = palette;
-        palette.immersive();
         palette.updatable();
     }
 
@@ -1875,13 +1821,6 @@ public class UIReplayList extends UIList<Replay> {
         this.panel.replayEditor.setReplay(replay);
         this.updateFilmEditor();
 
-        if (this.overlay != null)
-        {
-            this.overlay.syncReplaySelection(replay, true);
-            this.overlay.pickEdit.setForm(replay.form.get());
-            this.overlay.focusGeneralSection();
-        }
-
         this.openFormEditor(replay.form, false, null);
     }
 
@@ -1889,8 +1828,6 @@ public class UIReplayList extends UIList<Replay> {
         ArrayList<ModelBlockEntity> modelBlocks = new ArrayList<>(BBSRendering.capturedModelBlocks);
         UISearchList<String> search = new UISearchList<>(new UIStringList(null));
         UIList<String> list = search.list;
-        MinecraftClient client = MinecraftClient.getInstance();
-        Vec3d playerPos = client.player != null ? client.player.getPos() : Vec3d.ZERO;
 
         list.multi();
 
@@ -1921,13 +1858,10 @@ public class UIReplayList extends UIList<Replay> {
 
         panel.resizable().minSize(300, 300);
 
-        modelBlocks.sort(Comparator.comparingDouble((ModelBlockEntity block) ->
-            playerPos.squaredDistanceTo(Vec3d.ofCenter(block.getPos()))));
+        modelBlocks.sort(Comparator.comparing(ModelBlockEntity::getName));
 
         for (ModelBlockEntity modelBlock : modelBlocks) {
-            int blocksAway = (int) Math.round(Math.sqrt(playerPos.squaredDistanceTo(Vec3d.ofCenter(modelBlock.getPos()))));
-
-            list.add(modelBlock.getName() + " — " + UIKeys.SCENE_REPLAYS_CONTEXT_FROM_MODEL_BLOCK_DISTANCE.format(blocksAway).get());
+            list.add(modelBlock.getName());
         }
 
         list.background();
@@ -2012,13 +1946,6 @@ public class UIReplayList extends UIList<Replay> {
         this.panel.replayEditor.setReplay(replay);
         this.updateFilmEditor();
 
-        if (this.overlay != null)
-        {
-            this.overlay.syncReplaySelection(replay, true);
-            this.overlay.pickEdit.setForm(replay.form.get());
-            this.overlay.focusGeneralSection();
-        }
-
         this.openFormEditor(replay.form, false, null);
     }
 
@@ -2058,17 +1985,6 @@ public class UIReplayList extends UIList<Replay> {
 
         this.setCurrentDirect(replay);
         this.panel.replayEditor.setReplay(replay);
-        this.updateFilmEditor();
-    }
-
-    public void refreshAfterExternalEdit()
-    {
-        this.buildVisualList();
-
-        int size = this.list.size();
-        int index = MathUtils.clamp(this.getIndex(), 0, Math.max(0, size - 1));
-
-        this.panel.replayEditor.setReplay(size == 0 ? null : CollectionUtils.getSafe(this.list, index));
         this.updateFilmEditor();
     }
 

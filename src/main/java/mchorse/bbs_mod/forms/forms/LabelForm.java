@@ -12,7 +12,7 @@ public class LabelForm extends Form
     public final ValueString text = new ValueString("text", "Hello, World!");
     public final ValueBoolean billboard = new ValueBoolean("billboard", false);
     public final ValueBoolean nametag = new ValueBoolean("nametag", false);
-    public final ValueColor color = new ValueColor("color", new Color(1F, 1F, 1F, 0F));
+    public final ValueColor color = new ValueColor("color", new Color(1F, 1F, 1F, 1F));
 
     public final ValueInt max = new ValueInt("max", -1);
     public final ValueFloat anchorX = new ValueFloat("anchorX", 0.5F);

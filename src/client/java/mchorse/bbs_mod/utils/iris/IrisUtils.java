@@ -1,6 +1,7 @@
 package mchorse.bbs_mod.utils.iris;
 
 import mchorse.bbs_mod.BBSModClient;
+import mchorse.bbs_mod.client.SunPathRotation;
 import mchorse.bbs_mod.graphics.texture.Texture;
 import mchorse.bbs_mod.graphics.texture.TextureManager;
 import mchorse.bbs_mod.resources.Link;
@@ -351,7 +352,7 @@ public class IrisUtils
             {
                 /* Negated vs sky matrix so Complementary light stays opposite the sun disc. */
                 list.add(new FloatCachedUniform(value.uniformName, UniformUpdateFrequency.PER_FRAME, () ->
-                    mchorse.bbs_mod.client.SunPathRotation.getLightYawDegrees()));
+                    SunPathRotation.getLightYawDegrees()));
 
                 continue;
             }

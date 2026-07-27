@@ -13,6 +13,7 @@ import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Direction;
 import net.minecraft.world.BlockRenderView;
 import net.minecraft.world.LightType;
+import net.minecraft.world.World;
 import net.minecraft.world.biome.Biome;
 import net.minecraft.world.biome.ColorResolver;
 import net.minecraft.world.chunk.light.LightingProvider;
@@ -214,7 +215,7 @@ public class VirtualBlockRenderView implements BlockRenderView
         }
     }
 
-    private int computeColumnTopSky(BlockPos topInColumn, net.minecraft.world.World world)
+    private int computeColumnTopSky(BlockPos topInColumn, World world)
     {
         BlockPos above = topInColumn.up();
 

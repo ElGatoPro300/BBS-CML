@@ -3,10 +3,12 @@ package mchorse.bbs_mod.ui.forms.editors.panels;
 import mchorse.bbs_mod.BBSMod;
 import mchorse.bbs_mod.BBSSettings;
 import mchorse.bbs_mod.forms.forms.LabelForm;
+import mchorse.bbs_mod.forms.forms.utils.EffectTransform;
 import mchorse.bbs_mod.forms.forms.utils.GlowSettings;
 import mchorse.bbs_mod.l10n.keys.IKey;
 import mchorse.bbs_mod.ui.UIKeys;
 import mchorse.bbs_mod.ui.forms.editors.forms.UIForm;
+import mchorse.bbs_mod.ui.forms.editors.panels.widgets.UIFormColorLayout;
 import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.ui.framework.elements.UIElement;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIButton;
@@ -14,6 +16,7 @@ import mchorse.bbs_mod.ui.framework.elements.buttons.UICirculate;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIIcon;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIToggle;
 import mchorse.bbs_mod.ui.framework.elements.input.UIColor;
+import mchorse.bbs_mod.ui.framework.elements.input.UIEffectTransformCollapse;
 import mchorse.bbs_mod.ui.framework.elements.input.UIPoseSectionCollapse;
 import mchorse.bbs_mod.ui.framework.elements.input.UITrackpad;
 import mchorse.bbs_mod.ui.framework.elements.input.text.UITextbox;
@@ -38,7 +41,8 @@ public class UILabelFormPanel extends UIFormPanel<LabelForm>
     public UIColor color;
     public UIColor glowingColor;
     public UITrackpad glowIntensity;
-    public UIPoseSectionCollapse glowSection;
+    public UIEffectTransformCollapse glowTransform;
+    public UIElement glowSection;
     public UITrackpad max;
     public UITrackpad anchorX;
     public UITrackpad anchorY;
@@ -61,7 +65,6 @@ public class UILabelFormPanel extends UIFormPanel<LabelForm>
     public UITrackpad letterSpacing;
     public UITrackpad lineHeight;
     public UICirculate textAlign;
-    public UITrackpad opacity;
     
     public UIToggle underline;
     public UIToggle strikethrough;
@@ -74,7 +77,11 @@ public class UILabelFormPanel extends UIFormPanel<LabelForm>
     public UITrackpad gradientOffset;
     public UIButton resetGradient;
 
-    public UIPoseSectionCollapse advancedSection;
+    private UIElement advancedSection;
+    private UIElement advancedHeaderRow;
+    private UIIcon advancedToggle;
+    private UIButton advancedHeader;
+    private boolean advancedExpanded = false;
 
     public UILabelFormPanel(UIForm editor)
     {
@@ -85,19 +92,23 @@ public class UILabelFormPanel extends UIFormPanel<LabelForm>
         this.nametag = new UIToggle(UIKeys.FORMS_EDITORS_LABEL_NAMETAG, (b) -> this.form.nametag.set(b.getValue()));
         this.nametag.tooltip(UIKeys.FORMS_EDITORS_LABEL_NAMETAG_HINT);
         this.color = new UIColor((c) -> this.form.color.set(Color.rgba(c))).withAlpha();
-        this.color.tooltip(UIKeys.FORMS_EDITORS_BLEND_COLOR);
+        this.color.tooltip(UIKeys.FILM_REPLAY_TRACK_COLOR);
         this.glowingColor = new UIColor((c) ->
         {
+            Color copy = this.form.glowingColor.get().copy();
             Color color = Color.rgba(c);
 
-            color.a = 1F;
-            this.form.glowingColor.set(color);
+            copy.r = color.r;
+            copy.g = color.g;
+            copy.b = color.b;
+            copy.a = 1F;
+            this.form.glowingColor.set(copy);
 
             GlowSettings settings = this.form.glowSettings.get().copy();
 
-            settings.r = color.r;
-            settings.g = color.g;
-            settings.b = color.b;
+            settings.r = copy.r;
+            settings.g = copy.g;
+            settings.b = copy.b;
             this.form.glowSettings.set(settings);
         });
         this.glowingColor.tooltip(UIKeys.FORMS_EDITORS_GLOW);
@@ -110,16 +121,19 @@ public class UILabelFormPanel extends UIFormPanel<LabelForm>
         });
         this.glowIntensity.increment(0.05D).values(0.1D, 0.05D, 0.2D);
         this.glowIntensity.tooltip(UIKeys.FORMS_EDITORS_GLOW_INTENSITY);
-        this.glowSection = new UIPoseSectionCollapse(
-            UIKeys.FORMS_EDITORS_GLOW,
-            Colors.ORANGE,
-            UI.column(
-                UI.label(UIKeys.FORMS_EDITORS_GLOWING_COLOR).marginTop(4),
-                this.glowingColor,
-                UI.label(UIKeys.FORMS_EDITORS_GLOW_INTENSITY),
-                this.glowIntensity
-            )
-        );
+        this.glowTransform = new UIEffectTransformCollapse((apply) ->
+        {
+            Color copy = this.form.glowingColor.get().copy();
+
+            if (copy.transform == null)
+            {
+                copy.transform = new EffectTransform();
+            }
+
+            apply.accept(copy.transform);
+            this.form.glowingColor.set(copy);
+        });
+        this.glowSection = UIFormColorLayout.createGlowSection(this.glowingColor, this.glowIntensity, this.glowTransform);
         this.max = new UITrackpad((value) -> this.form.max.set(value.intValue()));
         this.max.limit(-1, Integer.MAX_VALUE, true).increment(10);
         this.anchorX = new UITrackpad((value) -> this.form.anchorX.set(value.floatValue()));
@@ -196,9 +210,6 @@ public class UILabelFormPanel extends UIFormPanel<LabelForm>
         this.lineHeight = new UITrackpad((v) -> this.form.lineHeight.set(v.floatValue()));
         this.lineHeight.limit(0F, 100F).values(0.1F);
         
-        this.opacity = new UITrackpad((v) -> this.form.opacity.set(v.floatValue()));
-        this.opacity.limit(0F, 1F).values(0.05F);
-
         this.underline = new UIToggle(UIKeys.FORMS_EDITORS_LABEL_UNDERLINE, (b) -> this.form.underline.set(b.getValue()));
         this.strikethrough = new UIToggle(UIKeys.FORMS_EDITORS_LABEL_STRIKETHROUGH, (b) -> this.form.strikethrough.set(b.getValue()));
         
@@ -227,7 +238,16 @@ public class UILabelFormPanel extends UIFormPanel<LabelForm>
             this.gradientOffset.setValue(0.5F);
         });
 
-        this.options.add(UI.label(UIKeys.FORMS_EDITORS_LABEL_LABEL), this.text, this.billboard, this.nametag, this.color, this.glowSection, this.max);
+        this.options.add(
+            UI.label(UIKeys.FORMS_EDITORS_LABEL_LABEL),
+            this.text,
+            this.billboard,
+            this.nametag,
+            UIFormColorLayout.sectionLabel(UIKeys.FORMS_EDITOR_FORM),
+            this.color,
+            this.glowSection,
+            this.max
+        );
 
         this.options.add(UI.label(UIKeys.FORMS_EDITORS_LABEL_ANCHOR).marginTop(8), UI.row(this.anchorX, this.anchorY), this.anchorLines);
         this.options.add(UI.label(UIKeys.FORMS_EDITORS_LABEL_SHADOW_OFFSET).marginTop(8), this.shadowX, this.shadowY);
@@ -235,25 +255,62 @@ public class UILabelFormPanel extends UIFormPanel<LabelForm>
         this.options.add(UI.label(UIKeys.FORMS_EDITORS_LABEL_BACKGROUND).marginTop(8), this.background, this.offset);
         this.options.add(UI.label(UIKeys.FORMS_EDITORS_LABEL_COLOR_FORMAT_GUIDE).marginTop(8), new UIMinecraftColorGuide());
 
-        /* Advanced text — same animated colored disclosure as Glow / Color. */
-        this.advancedSection = new UIPoseSectionCollapse(
-            UIKeys.FORMS_EDITORS_LABEL_ADVANCED_TEXT,
-            Colors.ACTIVE,
-            UI.column(
-                UI.label(UIKeys.FORMS_EDITORS_LABEL_FONT), this.font, this.openFontsFolder,
-                UI.row(this.fontSize, this.bold),
-                UI.row(this.fontStyle, this.textAlign),
-                UI.row(this.letterSpacing, this.lineHeight),
-                UI.label(UIKeys.FORMS_EDITORS_LABEL_OPACITY), this.opacity,
-                UI.row(this.underline, this.strikethrough),
-                UI.label(UIKeys.FORMS_EDITORS_LABEL_EFFECTS).marginTop(8),
-                UI.label(UIKeys.FORMS_EDITORS_LABEL_SHADOW_BLUR), this.shadowBlur,
-                this.outline, this.outlineColor, this.outlineWidth,
-                this.gradient, this.gradientEndColor, this.gradientOffset, this.resetGradient
-            )
+        /* Advanced Layout */
+        this.advancedToggle = new UIIcon(Icons.ARROW_DOWN, (b) -> this.toggleAdvancedSection());
+        this.advancedHeader = new UIButton(UIKeys.FORMS_EDITORS_LABEL_ADVANCED_TEXT, (b) -> this.toggleAdvancedSection())
+            .background(false);
+
+        this.advancedSection = new UIElement();
+        this.advancedSection.column(5).vertical().stretch().padding(6);
+        this.advancedSection.add(
+            UI.label(UIKeys.FORMS_EDITORS_LABEL_FONT), this.font, this.openFontsFolder,
+            UI.row(this.fontSize, this.bold),
+            UI.row(this.fontStyle, this.textAlign),
+            UI.row(this.letterSpacing, this.lineHeight),
+            UI.row(this.underline, this.strikethrough),
+            UI.label(UIKeys.FORMS_EDITORS_LABEL_EFFECTS).marginTop(8),
+            UI.label(UIKeys.FORMS_EDITORS_LABEL_SHADOW_BLUR), this.shadowBlur,
+            this.outline, this.outlineColor, this.outlineWidth,
+            this.gradient, this.gradientEndColor, this.gradientOffset, this.resetGradient
         );
-        this.advancedSection.marginTop(12);
-        this.options.add(this.advancedSection);
+
+        this.advancedHeaderRow = new UIElement()
+        {
+            @Override
+            public void render(UIContext context)
+            {
+                this.area.render(context.batcher, Colors.A100 + BBSSettings.primaryColor.get());
+                super.render(context);
+            }
+        };
+        this.advancedHeaderRow.row(5).padding(4).height(20);
+        this.advancedHeaderRow.add(this.advancedToggle, this.advancedHeader);
+        this.advancedHeaderRow.marginTop(12);
+        this.options.add(this.advancedHeaderRow);
+        this.setAdvancedExpanded(false);
+    }
+
+    private void toggleAdvancedSection()
+    {
+        this.setAdvancedExpanded(!this.advancedExpanded);
+    }
+
+    private void setAdvancedExpanded(boolean expanded)
+    {
+        this.advancedExpanded = expanded;
+        this.advancedToggle.both(expanded ? Icons.ARROW_DOWN : Icons.ARROW_RIGHT);
+        if (expanded)
+        {
+            if (!this.advancedSection.hasParent())
+            {
+                this.options.addAfter(this.advancedHeaderRow, this.advancedSection);
+            }
+        }
+        else
+        {
+            this.advancedSection.removeFromParent();
+        }
+        this.options.resize();
     }
 
     @Override
@@ -272,6 +329,7 @@ public class UILabelFormPanel extends UIFormPanel<LabelForm>
         this.glowingColor.setColor(glowDisplay.getRGBColor());
 
         this.glowIntensity.setValue(glow.intensity);
+        this.glowTransform.setEffectTransform(form.glowingColor.get().transform == null ? new EffectTransform() : form.glowingColor.get().transform);
         this.max.setValue(form.max.get());
         this.anchorX.setValue(form.anchorX.get());
         this.anchorY.setValue(form.anchorY.get());
@@ -295,7 +353,6 @@ public class UILabelFormPanel extends UIFormPanel<LabelForm>
         this.textAlign.setValue(form.textAlign.get());
         this.letterSpacing.setValue(form.letterSpacing.get());
         this.lineHeight.setValue(form.lineHeight.get());
-        this.opacity.setValue(form.opacity.get());
         this.underline.setValue(form.underline.get());
         this.strikethrough.setValue(form.strikethrough.get());
         this.shadowBlur.setValue(form.shadowBlur.get());

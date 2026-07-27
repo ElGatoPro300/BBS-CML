@@ -5,6 +5,8 @@ import mchorse.bbs_mod.forms.FormUtils;
 import mchorse.bbs_mod.ui.Keys;
 import mchorse.bbs_mod.ui.UIKeys;
 import mchorse.bbs_mod.ui.film.clips.UIBossBarColorKeyframeFactory;
+import mchorse.bbs_mod.ui.film.replays.UIReplaysEditor;
+import mchorse.bbs_mod.ui.film.replays.UIReplaysEditorUtils;
 import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.ui.framework.elements.UIElement;
 import mchorse.bbs_mod.ui.framework.elements.UIScrollView;
@@ -21,6 +23,7 @@ import mchorse.bbs_mod.ui.framework.elements.input.keyframes.shapes.KeyframeShap
 import mchorse.bbs_mod.ui.framework.tooltips.InterpolationTooltip;
 import mchorse.bbs_mod.ui.utils.UI;
 import mchorse.bbs_mod.ui.utils.icons.Icons;
+import mchorse.bbs_mod.utils.StringUtils;
 import mchorse.bbs_mod.utils.colors.Color;
 import mchorse.bbs_mod.utils.interps.Interpolation;
 import mchorse.bbs_mod.utils.keyframes.Keyframe;
@@ -29,6 +32,7 @@ import mchorse.bbs_mod.utils.keyframes.KeyframeShape;
 import mchorse.bbs_mod.utils.keyframes.factories.IKeyframeFactory;
 import mchorse.bbs_mod.utils.keyframes.factories.KeyframeFactories;
 
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -83,31 +87,11 @@ public abstract class UIKeyframeFactory <T> extends UIElement
         FACTORIES.put(clazz, factory);
     }
 
-    private static boolean isFormColorPropertyId(String id)
-    {
-        if (id == null)
-        {
-            return false;
-        }
-
-        String name = id;
-        int slash = id.lastIndexOf('/');
-
-        if (slash >= 0 && slash + 1 < id.length())
-        {
-            name = id.substring(slash + 1);
-        }
-
-        return "color".equals(name) || "color_overlay".equals(name)
-            || (name.startsWith("color_overlay") && name.length() > "color_overlay".length());
-    }
-
     public static void saveScroll(UIKeyframeFactory editor)
     {
         if (editor != null)
         {
             SCROLLS.put(editor.keyframe.getFactory(), (int) editor.scroll.scroll.getScroll());
-            editor.saveUiState();
         }
     }
 
@@ -130,10 +114,7 @@ public abstract class UIKeyframeFactory <T> extends UIElement
         {
             UIKeyframeSheet sheet = editor.getGraph().getSheet(keyframe);
 
-            /* Eye blink only — Letterbox also has height+color and must stay unbounded. */
-            if (sheet != null && "height".equals(sheet.id)
-                && editor.getGraph().getSheet("color") != null
-                && editor.getGraph().getSheet("color_opacity") != null)
+            if (sheet != null && "height".equals(sheet.id) && editor.getGraph().getSheet("color") != null)
             {
                 @SuppressWarnings("unchecked")
                 Keyframe<Double> doubleKeyframe = (Keyframe<Double>) keyframe;
@@ -160,7 +141,7 @@ public abstract class UIKeyframeFactory <T> extends UIElement
 
         if (keyframe.getFactory() == KeyframeFactories.COLOR && editor != null)
         {
-            UIKeyframeSheet sheet = editor.getGraph().getSheet(keyframe);
+            UIKeyframeSheet sheet = resolveColorSheet(editor, keyframe);
 
             if (sheet != null && "color".equals(sheet.id) && "bar".equals(sheet.groupKey))
             {
@@ -170,26 +151,25 @@ public abstract class UIKeyframeFactory <T> extends UIElement
                 return new UIBossBarColorKeyframeFactory(colorKeyframe, editor);
             }
 
-            /* Form Color track (property-bound). Camera clips like Letterbox/Eye use simple color+alpha. */
-            if (sheet != null && sheet.property != null && isFormColorPropertyId(sheet.id))
+            if (sheet != null)
             {
-                @SuppressWarnings("unchecked")
-                Keyframe<Color> colorKeyframe = (Keyframe<Color>) keyframe;
+                String name = StringUtils.fileName(sheet.id);
 
-                return new UIFormColorKeyframeFactory(colorKeyframe, editor);
-            }
-        }
+                if (name.equals("color_grade"))
+                {
+                    @SuppressWarnings("unchecked")
+                    Keyframe<Color> colorKeyframe = (Keyframe<Color>) keyframe;
 
-        if (keyframe.getFactory() == KeyframeFactories.FLOAT && editor != null)
-        {
-            UIKeyframeSheet sheet = editor.getGraph().getSheet(keyframe);
+                    return new UIFormColorGradeKeyframeFactory(colorKeyframe, editor);
+                }
 
-            if (sheet != null && "opacity".equals(sheet.id))
-            {
-                @SuppressWarnings("unchecked")
-                Keyframe<Float> opacityKeyframe = (Keyframe<Float>) keyframe;
+                if (name.equals("color"))
+                {
+                    @SuppressWarnings("unchecked")
+                    Keyframe<Color> colorKeyframe = (Keyframe<Color>) keyframe;
 
-                return new UIOpacityKeyframeFactory(opacityKeyframe, editor);
+                    return new UIFormColorKeyframeFactory(colorKeyframe, editor);
+                }
             }
         }
 
@@ -202,6 +182,36 @@ public abstract class UIKeyframeFactory <T> extends UIElement
         }
 
         return uiEditor;
+    }
+
+    /**
+     * Prefer the sheet that currently holds the selection for Color / Color grade rows.
+     */
+    private static UIKeyframeSheet resolveColorSheet(UIKeyframes editor, Keyframe<?> keyframe)
+    {
+        if (editor == null || keyframe == null)
+        {
+            return null;
+        }
+
+        UIKeyframeSheet sheet = editor.getGraph().getSheet(keyframe);
+
+        if (sheet != null)
+        {
+            return sheet;
+        }
+
+        Object channel = keyframe.getParent();
+
+        for (UIKeyframeSheet candidate : editor.getGraph().getSheets())
+        {
+            if (candidate.channel == channel)
+            {
+                return candidate;
+            }
+        }
+
+        return null;
     }
 
     public UIKeyframeFactory(Keyframe<T> keyframe, UIKeyframes editor)
@@ -354,15 +364,15 @@ public abstract class UIKeyframeFactory <T> extends UIElement
             {
                 if (hostSheet.selection.hasAny())
                 {
-                    mchorse.bbs_mod.ui.film.replays.UIReplaysEditorUtils.moveCompanionPaintForSelectedColor(this.editor, diff);
+                    UIReplaysEditorUtils.moveCompanionPaintForSelectedColor(this.editor, diff);
                 }
                 else
                 {
-                    mchorse.bbs_mod.ui.film.replays.UIReplaysEditor replays = this.editor.getParent(mchorse.bbs_mod.ui.film.replays.UIReplaysEditor.class);
+                    UIReplaysEditor replays = this.editor.getParent(UIReplaysEditor.class);
 
                     if (replays != null && replays.getReplay() != null)
                     {
-                        replays.getReplay().properties.moveCompanionPaintBy(diff, java.util.Collections.singletonList(this.keyframe.getTick()));
+                        replays.getReplay().properties.moveCompanionPaintBy(diff, Collections.singletonList(this.keyframe.getTick()));
                     }
                 }
             }
@@ -408,20 +418,6 @@ public abstract class UIKeyframeFactory <T> extends UIElement
         this.editor.getGraph().setValue(value, true);
         this.editor.triggerChange();
     }
-
-    /**
-     * Persist ephemeral UI (collapse open/closed, etc.) before the panel is rebuilt
-     * for another keyframe of the same factory type.
-     */
-    public void saveUiState()
-    {}
-
-    /**
-     * Re-apply {@link #saveUiState()} after the new panel is parented and resized
-     * (collapse shells need a parent to open).
-     */
-    public void restoreUiState()
-    {}
 
     public void update()
     {

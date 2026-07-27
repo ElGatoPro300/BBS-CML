@@ -1,7 +1,6 @@
 package mchorse.bbs_mod.forms.renderers;
 
 import mchorse.bbs_mod.client.BBSRendering;
-import mchorse.bbs_mod.film.FormRenderDepth;
 import mchorse.bbs_mod.forms.FormUtilsClient;
 import mchorse.bbs_mod.forms.entities.IEntity;
 import mchorse.bbs_mod.forms.forms.BodyPart;
@@ -31,7 +30,6 @@ import org.lwjgl.opengl.GL11;
 
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.Comparator;
 import java.util.List;
 import java.util.function.Supplier;
 
@@ -133,27 +131,6 @@ public abstract class FormRenderer <T extends Form>
         int savedColor = context.color;
         boolean isPicking = context.stencilMap != null;
 
-        if (!isPicking && context.renderDepthFrame != null && context.type == FormRenderType.ENTITY && context.entity != null)
-        {
-            Form sourceForm = FormRenderDepth.getSourceForm(context.renderDepthFrame.sourceRootForm, this.form);
-            double distanceSq = FormRenderDepth.getEntityDistanceSq(context.entity, context.camera, context.getTransition());
-            float renderDepthFade = FormRenderDepth.getFade(this.form, sourceForm, distanceSq, context.renderDepthFrame.occluders);
-
-            if (renderDepthFade <= 0F)
-            {
-                this.form.unapplyStates();
-
-                return;
-            }
-
-            if (renderDepthFade < 1F)
-            {
-                int alpha = Math.round(((savedColor >>> 24) & 0xFF) * renderDepthFade);
-
-                context.color = (alpha << 24) | (savedColor & Colors.RGB);
-            }
-        }
-
         context.stack.push();
         if (context.world != null)
         {
@@ -205,14 +182,7 @@ public abstract class FormRenderer <T extends Form>
 
         if (origin)
         {
-            /* Gizmo preview must sit at the rotation/scale center (translate + pivot),
-             * not only at translate — otherwise editing pivot XYZ leaves the gizmo behind. */
             stack.translate(transform.translate.x, transform.translate.y, transform.translate.z);
-
-            if (transform.pivot.x != 0F || transform.pivot.y != 0F || transform.pivot.z != 0F)
-            {
-                stack.translate(transform.pivot.x, transform.pivot.y, transform.pivot.z);
-            }
         }
         else
         {
@@ -300,59 +270,22 @@ public abstract class FormRenderer <T extends Form>
             return;
         }
 
-        FormRenderDepth.Frame savedFrame = context.renderDepthFrame;
+        List<BodyPart> parts = this.getSortedBodyParts(context);
 
-        if (!FormRenderDepth.BODY_PART_RENDER_DEPTH)
+        if (ItemBodyPartBatch.renderBodyParts(this, parts, context))
         {
-            context.renderDepthFrame = null;
+            return;
         }
 
-        try
+        for (BodyPart part : parts)
         {
-            List<BodyPart> parts = this.getSortedBodyParts(context);
-
-            if (ItemBodyPartBatch.renderBodyParts(this, parts, context))
-            {
-                return;
-            }
-
-            for (BodyPart part : parts)
-            {
-                this.renderBodyPart(part, context);
-            }
-        }
-        finally
-        {
-            context.renderDepthFrame = savedFrame;
+            this.renderBodyPart(part, context);
         }
     }
 
     protected List<BodyPart> getSortedBodyParts(FormRenderingContext context)
     {
-        List<BodyPart> parts = new ArrayList<>(this.form.parts.getAllTyped());
-
-        if (!FormRenderDepth.BODY_PART_RENDER_DEPTH || context.renderDepthFrame == null)
-        {
-            return parts;
-        }
-
-        Form sourceRoot = context.renderDepthFrame.sourceRootForm;
-
-        parts.sort(Comparator.comparingDouble(part ->
-        {
-            Form child = part.getForm();
-
-            if (child == null)
-            {
-                return 0D;
-            }
-
-            Double depth = FormRenderDepth.getEnabledDepth(child, FormRenderDepth.getSourceForm(sourceRoot, child));
-
-            return depth == null ? 0D : depth;
-        }));
-
-        return parts;
+        return new ArrayList<>(this.form.parts.getAllTyped());
     }
 
     protected void renderBodyPart(BodyPart part, FormRenderingContext context)

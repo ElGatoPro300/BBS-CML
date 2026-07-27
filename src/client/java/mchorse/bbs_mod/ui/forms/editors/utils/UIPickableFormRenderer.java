@@ -1,7 +1,6 @@
 package mchorse.bbs_mod.ui.forms.editors.utils;
 
 import mchorse.bbs_mod.BBSSettings;
-import mchorse.bbs_mod.client.BBSRendering;
 import mchorse.bbs_mod.forms.FormUtilsClient;
 import mchorse.bbs_mod.forms.ITickable;
 import mchorse.bbs_mod.forms.entities.IEntity;
@@ -228,9 +227,6 @@ public class UIPickableFormRenderer extends UIFormRenderer implements GizmoSurfa
             Texture fboTexture = this.stencil.getFramebuffer().getMainTexture();
             int fboW = fboTexture.width;
             int fboH = fboTexture.height;
-            int[] prevViewport = new int[4];
-
-            GL11.glGetIntegerv(GL11.GL_VIEWPORT, prevViewport);
 
             GlStateManager._disableScissorTest();
 
@@ -280,12 +276,7 @@ public class UIPickableFormRenderer extends UIFormRenderer implements GizmoSurfa
 
             this.endStencilViewport();
 
-            /* beginWrite(true) clears the main FB → white wash + corrupted GUI text. */
-            BBSRendering.ensureMainFramebuffer();
-            MinecraftClient.getInstance().getFramebuffer().beginWrite(false);
-            GL11.glViewport(prevViewport[0], prevViewport[1], prevViewport[2], prevViewport[3]);
-            RenderSystem.enableBlend();
-            RenderSystem.defaultBlendFunc();
+            MinecraftClient.getInstance().getFramebuffer().beginWrite(true);
 
             GlStateManager._enableScissorTest();
         }
@@ -293,11 +284,6 @@ public class UIPickableFormRenderer extends UIFormRenderer implements GizmoSurfa
         this.setupViewport(context);
         this.prepareGizmoRenderState();
         this.renderAxes(context);
-
-        RenderSystem.enableBlend();
-        RenderSystem.defaultBlendFunc();
-        RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
-        BBSRendering.restoreGuiRenderState();
     }
 
     private void prepareGizmoRenderState()

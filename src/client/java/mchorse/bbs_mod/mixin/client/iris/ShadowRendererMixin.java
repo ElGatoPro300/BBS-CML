@@ -43,6 +43,7 @@ import org.joml.Matrix4f;
 
 import com.mojang.blaze3d.systems.RenderSystem;
 
+import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map.Entry;
@@ -303,7 +304,7 @@ public class ShadowRendererMixin
         }
 
         /* Model-block forms are block entities — shadowEntities alone does not include them. */
-        for (ModelBlockEntity modelBlock : new java.util.ArrayList<>(BBSRendering.capturedModelBlocks))
+        for (ModelBlockEntity modelBlock : new ArrayList<>(BBSRendering.capturedModelBlocks))
         {
             ModelBlockEntityRenderer.renderIntoShadowMap(modelBlock, shadowStack, consumers, tickDelta, camX, camY, camZ);
         }

@@ -3,10 +3,10 @@ package mchorse.bbs_mod.ui.framework;
 import mchorse.bbs_mod.ui.Keys;
 import mchorse.bbs_mod.ui.film.toolbar.TimelineToolbar;
 import mchorse.bbs_mod.ui.film.toolbar.TimelineToolbarPointerBlock;
+import mchorse.bbs_mod.ui.forms.UIFormList;
 import mchorse.bbs_mod.ui.framework.elements.IUIElement;
 import mchorse.bbs_mod.ui.framework.elements.IViewport;
 import mchorse.bbs_mod.ui.framework.elements.UIElement;
-import mchorse.bbs_mod.ui.forms.UIFormList;
 import mchorse.bbs_mod.ui.framework.elements.input.UIAnimatedCollapseShell;
 import mchorse.bbs_mod.ui.framework.elements.input.UITexturePicker;
 import mchorse.bbs_mod.ui.framework.elements.utils.IViewportStack;
@@ -96,31 +96,6 @@ public abstract class UIBaseMenu
     }
 
     public boolean canPause()
-    {
-        return true;
-    }
-
-    /**
-     * When true, {@link UIScreen} keeps Minecraft's current GUI scale (hotbar size unchanged).
-     */
-    public boolean preserveMinecraftGuiScale()
-    {
-        return false;
-    }
-
-    /**
-     * When {@link #preserveMinecraftGuiScale()} is false, a positive value forces that GUI scale
-     * instead of {@link mchorse.bbs_mod.BBSModClient#getGUIScale()}.
-     */
-    public int forcedGuiScale()
-    {
-        return 0;
-    }
-
-    /**
-     * When false, hide mouse/keystroke overlay (Printscreen hints, etc.).
-     */
-    public boolean showInputOverlay()
     {
         return true;
     }
@@ -289,7 +264,7 @@ public abstract class UIBaseMenu
 
     public boolean handleKey(int key, int scanCode, int action, int mods)
     {
-        if (action == GLFW.GLFW_PRESS && this.showInputOverlay())
+        if (action == GLFW.GLFW_PRESS)
         {
             inputRenderer.keyPressed(this.context, key);
         }
@@ -356,7 +331,6 @@ public abstract class UIBaseMenu
 
         this.preRenderMenu(context);
         UIAnimatedCollapseShell.tickAll();
-        UIFormList.tickCategoryCards();
 
         if (this.root.isVisible())
         {
@@ -371,7 +345,7 @@ public abstract class UIBaseMenu
             this.context.postRender();
         }
 
-        if (this.showInputOverlay() && this.main.isVisible())
+        if (this.main.isVisible())
         {
             inputRenderer.render(this, mouseX, mouseY);
         }

@@ -190,6 +190,7 @@ public class ProceduralAnimator implements IAnimator
         String torsoBone = this.roleBone(roleBones, GeckoLimbRole.TORSO, "torso");
 
         float leaningPitch = target.getLeaningPitch(transition);
+        float flyProgress = target.getFallFlyingProgress(transition);
         String headBone = armature.getHeadBone();
 
         float coefficient = 1F;
@@ -232,9 +233,9 @@ public class ProceduralAnimator implements IAnimator
                         group.current.rotate.x = -90.0F - pitch;
                         group.current.rotate2.y = age * -75.0F;
                     }
-                    else if (target.isFallFlying())
+                    else if (flyProgress > 0F || target.isFallFlying())
                     {
-                        group.current.rotate.x = -90.0F - pitch;
+                        group.current.rotate.x = MathHelper.lerp(flyProgress, 0F, -90.0F - pitch);
                         group.current.rotate.y = 0F;
                         group.current.rotate.z = 0F;
                     }
@@ -264,6 +265,10 @@ public class ProceduralAnimator implements IAnimator
                     if (isRolling)
                     {
                         group.current.rotate.x = 45;
+                    }
+                    else if (flyProgress > 0F || target.isFallFlying() || target.getEntityPose() == EntityPose.FALL_FLYING)
+                    {
+                        group.current.rotate.x = this.lerpAngle(flyProgress, -pitch, -pitch + 90F);
                     }
                     else if (leaningPitch > 0F)
                     {
@@ -462,9 +467,9 @@ public class ProceduralAnimator implements IAnimator
                         bone.transform.rotate.x = MathUtils.toRad(-90.0F - pitch);
                         bone.transform.rotate2.y = MathUtils.toRad(age * -75.0F);
                     }
-                    else if (target.isFallFlying())
+                    else if (flyProgress > 0F || target.isFallFlying())
                     {
-                        bone.transform.rotate.x = MathUtils.toRad(-90.0F - pitch);
+                        bone.transform.rotate.x = MathUtils.toRad(MathHelper.lerp(flyProgress, 0F, -90.0F - pitch));
                         bone.transform.rotate.y = 0F;
                         bone.transform.rotate.z = 0F;
                     }
@@ -494,6 +499,10 @@ public class ProceduralAnimator implements IAnimator
                     if (isRolling)
                     {
                         bone.transform.rotate.x = -MathUtils.toRad(45);
+                    }
+                    else if (flyProgress > 0F || target.isFallFlying() || target.getEntityPose() == EntityPose.FALL_FLYING)
+                    {
+                        bone.transform.rotate.x = -MathUtils.toRad(this.lerpAngle(flyProgress, -pitch, -pitch + 90F));
                     }
                     else if (leaningPitch > 0F)
                     {

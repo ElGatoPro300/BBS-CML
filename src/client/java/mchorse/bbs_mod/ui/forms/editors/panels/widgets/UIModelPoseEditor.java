@@ -1,13 +1,15 @@
 package mchorse.bbs_mod.ui.forms.editors.panels.widgets;
 
-import mchorse.bbs_mod.data.types.MapType;
-import mchorse.bbs_mod.settings.values.IValueListener;
 import mchorse.bbs_mod.cubic.IModel;
+import mchorse.bbs_mod.data.types.MapType;
 import mchorse.bbs_mod.forms.renderers.ModelFormRenderer;
+import mchorse.bbs_mod.settings.values.IValueListener;
 import mchorse.bbs_mod.settings.values.core.ValuePose;
 import mchorse.bbs_mod.ui.framework.elements.input.UIPropTransform;
 import mchorse.bbs_mod.ui.utils.pose.UIPoseEditor;
 import mchorse.bbs_mod.utils.pose.PoseTransform;
+
+import java.util.Map;
 
 public class UIModelPoseEditor extends UIPoseEditor
 {
@@ -55,7 +57,7 @@ public class UIModelPoseEditor extends UIPoseEditor
     }
 
     @Override
-    public void fillGroups(IModel model, java.util.Map<String, String> flippedParts, boolean reset)
+    public void fillGroups(IModel model, Map<String, String> flippedParts, boolean reset)
     {
         super.fillGroups(model, flippedParts, reset);
 
@@ -122,14 +124,6 @@ public class UIModelPoseEditor extends UIPoseEditor
     {
         this.valuePose.preNotify(IValueListener.FLAG_UNMERGEABLE);
         super.setLighting(transform, value);
-        this.valuePose.postNotify(IValueListener.FLAG_UNMERGEABLE);
-    }
-
-    @Override
-    protected void setOpacity(PoseTransform transform, float value)
-    {
-        this.valuePose.preNotify(IValueListener.FLAG_UNMERGEABLE);
-        super.setOpacity(transform, value);
         this.valuePose.postNotify(IValueListener.FLAG_UNMERGEABLE);
     }
 

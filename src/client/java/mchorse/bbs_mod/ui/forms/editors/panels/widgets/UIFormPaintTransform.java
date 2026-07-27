@@ -1,52 +1,24 @@
 package mchorse.bbs_mod.ui.forms.editors.panels.widgets;
 
 import mchorse.bbs_mod.forms.forms.utils.EffectTransform;
-import mchorse.bbs_mod.forms.forms.utils.PaintMaskShape;
 import mchorse.bbs_mod.forms.forms.utils.PaintSettings;
-import mchorse.bbs_mod.ui.UIKeys;
-import mchorse.bbs_mod.ui.framework.elements.UIElement;
-import mchorse.bbs_mod.ui.framework.elements.buttons.UIIcons;
-import mchorse.bbs_mod.ui.framework.elements.input.UIEffectKeyframeTransform;
-import mchorse.bbs_mod.ui.utils.UI;
-import mchorse.bbs_mod.ui.utils.icons.Icons;
+import mchorse.bbs_mod.ui.framework.elements.input.UIEffectTransformCollapse;
 
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 
 /**
- * Paint shape picker + {@link UIEffectKeyframeTransform} for a form's {@link PaintSettings#transform}.
+ * Paint {@link EffectTransform} editor as a trailing Transform icon toggle
+ * ({@link UIEffectTransformCollapse}). Pair with a paint color row via
+ * {@link #withLeading}.
  */
-public class UIFormPaintTransform extends UIElement
+public class UIFormPaintTransform extends UIEffectTransformCollapse
 {
     private final Supplier<PaintSettings> settings;
-    private final UIIcons shapeIcons;
-    private final UIEffectKeyframeTransform transform;
 
     public UIFormPaintTransform(Supplier<PaintSettings> settings, Consumer<PaintSettings> setter)
     {
-        super();
-
-        this.settings = settings;
-        this.column().vertical().stretch();
-
-        this.shapeIcons = new UIIcons((b) ->
-        {
-            PaintSettings copy = settings.get().copy();
-
-            if (copy.transform == null)
-            {
-                copy.transform = new EffectTransform();
-            }
-
-            copy.transform.shape = PaintMaskShape.fromId(b.getValue());
-            setter.accept(copy);
-        });
-        this.shapeIcons.add(Icons.SQUARE, UIKeys.FORMS_EDITORS_PAINT_SHAPE_BOX);
-        this.shapeIcons.add(Icons.CIRCLE, UIKeys.FORMS_EDITORS_PAINT_SHAPE_CIRCLE);
-        this.shapeIcons.add(Icons.TRIANGLE, UIKeys.FORMS_EDITORS_PAINT_SHAPE_TRIANGLE);
-        this.shapeIcons.h(20);
-
-        this.transform = new UIEffectKeyframeTransform((apply) ->
+        super((apply) ->
         {
             PaintSettings copy = settings.get().copy();
 
@@ -59,7 +31,7 @@ public class UIFormPaintTransform extends UIElement
             setter.accept(copy);
         });
 
-        this.add(UI.label(UIKeys.FORMS_EDITORS_PAINT_SHAPE), this.shapeIcons, this.transform);
+        this.settings = settings;
     }
 
     public void syncFromForm()
@@ -67,7 +39,6 @@ public class UIFormPaintTransform extends UIElement
         PaintSettings paint = this.settings.get();
         EffectTransform effect = paint == null || paint.transform == null ? new EffectTransform() : paint.transform;
 
-        this.shapeIcons.setValue(effect.shape == null ? 0 : effect.shape.id);
-        this.transform.setEffectTransform(effect);
+        this.setEffectTransform(effect);
     }
 }

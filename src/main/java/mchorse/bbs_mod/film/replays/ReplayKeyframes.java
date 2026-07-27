@@ -13,6 +13,7 @@ import mchorse.bbs_mod.utils.interps.Interpolations;
 import mchorse.bbs_mod.utils.keyframes.Keyframe;
 import mchorse.bbs_mod.utils.keyframes.KeyframeChannel;
 import mchorse.bbs_mod.utils.keyframes.KeyframeSegment;
+import mchorse.bbs_mod.utils.keyframes.factories.IKeyframeFactory;
 import mchorse.bbs_mod.utils.keyframes.factories.KeyframeFactories;
 
 import net.minecraft.entity.EquipmentSlot;
@@ -25,7 +26,6 @@ import org.joml.Vector2d;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.TreeSet;
 
 public class ReplayKeyframes extends ValueGroup
 {
@@ -37,7 +37,7 @@ public class ReplayKeyframes extends ValueGroup
     public static final String GROUP_EXTRA1 = "extra1";
     public static final String GROUP_EXTRA2 = "extra2";
 
-    public static final List<String> CURATED_CHANNELS = Arrays.asList("x", "y", "z", "pitch", "yaw", "headYaw", "bodyYaw", "sneaking", "riding", "sprinting", "swimming", "flying", "fall_flying", "crawling", "climbing", "blocking", "sleeping", "riptide", "item_main_hand", "item_off_hand", "item_head", "item_chest", "item_legs", "item_feet", "selected_slot", "stick_lx", "stick_ly", "stick_rx", "stick_ry", "trigger_l", "trigger_r", "extra1_x", "extra1_y", "extra2_x", "extra2_y", "grounded", "damage", "death_time", "using_item", "item_use_time", "fire", "particles", "active_hand", "vX", "vY", "vZ", "shadow");
+    public static final List<String> CURATED_CHANNELS = Arrays.asList("x", "y", "z", "pitch", "yaw", "headYaw", "bodyYaw", "sneaking", "riding", "sprinting", "swimming", "flying", "fall_flying", "crawling", "climbing", "blocking", "sleeping", "riptide", "item_main_hand", "item_off_hand", "item_head", "item_chest", "item_legs", "item_feet", "selected_slot", "stick_lx", "stick_ly", "stick_rx", "stick_ry", "trigger_l", "trigger_r", "extra1_x", "extra1_y", "extra2_x", "extra2_y", "grounded", "damage", "death_time", "using_item", "item_use_time", "fire", "particles", "active_hand", "vX", "vY", "vZ", "shadow_size", "shadow_opacity");
 
     public final KeyframeChannel<Double> x = new KeyframeChannel<>("x", KeyframeFactories.DOUBLE);
     public final KeyframeChannel<Double> y = new KeyframeChannel<>("y", KeyframeFactories.DOUBLE);
@@ -84,7 +84,8 @@ public class ReplayKeyframes extends ValueGroup
     public final KeyframeChannel<Double> extra1Y = new KeyframeChannel<>("extra1_y", KeyframeFactories.DOUBLE);
     public final KeyframeChannel<Double> extra2X = new KeyframeChannel<>("extra2_x", KeyframeFactories.DOUBLE);
     public final KeyframeChannel<Double> extra2Y = new KeyframeChannel<>("extra2_y", KeyframeFactories.DOUBLE);
-    public final KeyframeChannel<ShadowSettings> shadow = new KeyframeChannel<>("shadow", KeyframeFactories.SHADOW_SETTINGS);
+    public final KeyframeChannel<ShadowSettings> shadowSize = new KeyframeChannel<>("shadow_size", KeyframeFactories.SHADOW_SETTINGS);
+    public final KeyframeChannel<Double> shadowOpacity = new KeyframeChannel<>("shadow_opacity", KeyframeFactories.DOUBLE);
 
     public final KeyframeChannel<ItemStack> mainHand = new KeyframeChannel<>("item_main_hand", KeyframeFactories.ITEM_STACK);
     public final KeyframeChannel<ItemStack> offHand = new KeyframeChannel<>("item_off_hand", KeyframeFactories.ITEM_STACK);
@@ -139,7 +140,8 @@ public class ReplayKeyframes extends ValueGroup
         this.add(this.extra1Y);
         this.add(this.extra2X);
         this.add(this.extra2Y);
-        this.add(this.shadow);
+        this.add(this.shadowSize);
+        this.add(this.shadowOpacity);
 
         this.add(this.mainHand);
         this.add(this.offHand);
@@ -160,77 +162,121 @@ public class ReplayKeyframes extends ValueGroup
         this.migrateLegacyFireTicks(data);
         this.migrateParticlesChannel();
         migrateLegacyRidingChannel(this.riding);
-        this.migrateLegacyShadowChannels(data);
+        this.migrateLegacyDoubleShadowSize(data);
+        this.migrateCompoundShadowChannel(data);
     }
 
     /**
-     * Merges pre-compound {@code shadow_size} / {@code shadow_size_z} / {@code shadow_opacity}
-     * double channels into the unified {@code shadow} channel.
+     * Promotes pre-compound {@code shadow_size} double keyframes (and optional
+     * {@code shadow_size_z}) into {@link ShadowSettings} width/offset data.
      */
-    private void migrateLegacyShadowChannels(BaseType data)
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    private void migrateLegacyDoubleShadowSize(BaseType data)
     {
-        if (!(data instanceof MapType map) || !this.shadow.isEmpty())
+        IKeyframeFactory<?> factory = this.shadowSize.getFactory();
+
+        if (factory != KeyframeFactories.DOUBLE
+            && factory != KeyframeFactories.FLOAT
+            && factory != KeyframeFactories.INTEGER)
         {
             return;
         }
 
-        boolean hasLegacy = map.has("shadow_size") || map.has("shadow_size_z") || map.has("shadow_opacity");
-
-        if (!hasLegacy)
-        {
-            return;
-        }
-
-        KeyframeChannel<Double> sizeX = new KeyframeChannel<>("shadow_size", KeyframeFactories.DOUBLE);
+        KeyframeChannel legacySize = (KeyframeChannel) (Object) this.shadowSize;
         KeyframeChannel<Double> sizeZ = new KeyframeChannel<>("shadow_size_z", KeyframeFactories.DOUBLE);
-        KeyframeChannel<Double> opacity = new KeyframeChannel<>("shadow_opacity", KeyframeFactories.DOUBLE);
 
-        if (map.has("shadow_size"))
-        {
-            sizeX.fromData(map.get("shadow_size"));
-        }
-
-        if (map.has("shadow_size_z"))
+        if (data instanceof MapType map && map.has("shadow_size_z"))
         {
             sizeZ.fromData(map.get("shadow_size_z"));
         }
 
-        if (map.has("shadow_opacity"))
+        List<Float> ticks = new ArrayList<>();
+        List<ShadowSettings> values = new ArrayList<>();
+
+        for (Object object : legacySize.getKeyframes())
         {
-            opacity.fromData(map.get("shadow_opacity"));
+            Keyframe keyframe = (Keyframe) object;
+            Object raw = keyframe.getValue();
+            float size = raw instanceof Number ? ((Number) raw).floatValue() : 0.5F;
+            float tick = keyframe.getTick();
+            ShadowSettings settings = new ShadowSettings();
+
+            settings.widthX = Math.max(0F, size);
+            settings.widthZ = sizeZ.isEmpty()
+                ? settings.widthX
+                : Math.max(0F, sizeZ.interpolate(tick).floatValue());
+
+            ticks.add(tick);
+            values.add(settings);
         }
 
-        TreeSet<Float> ticks = new TreeSet<>();
+        this.shadowSize.removeAll();
+        this.shadowSize.setFactory(KeyframeFactories.SHADOW_SETTINGS);
 
-        for (Keyframe<Double> keyframe : sizeX.getKeyframes())
+        for (int i = 0; i < ticks.size(); i++)
         {
-            ticks.add(keyframe.getTick());
+            this.shadowSize.insert(ticks.get(i), values.get(i));
         }
+    }
 
-        for (Keyframe<Double> keyframe : sizeZ.getKeyframes())
-        {
-            ticks.add(keyframe.getTick());
-        }
-
-        for (Keyframe<Double> keyframe : opacity.getKeyframes())
-        {
-            ticks.add(keyframe.getTick());
-        }
-
-        if (ticks.isEmpty())
+    /**
+     * Splits the compound {@code shadow} ({@link ShadowSettings}) channel back into
+     * {@code shadow_size} (width + offset) and {@code shadow_opacity} when loading films
+     * saved after the unified shadow track was introduced.
+     */
+    private void migrateCompoundShadowChannel(BaseType data)
+    {
+        if (!(data instanceof MapType map) || !map.has("shadow"))
         {
             return;
         }
 
-        for (Float tick : ticks)
+        boolean sizeEmpty = this.shadowSize.isEmpty();
+        boolean opacityEmpty = this.shadowOpacity.isEmpty();
+
+        if (!sizeEmpty && !opacityEmpty)
         {
-            ShadowSettings settings = new ShadowSettings();
+            return;
+        }
 
-            settings.widthX = sizeX.isEmpty() ? 0.5F : Math.max(0F, sizeX.interpolate(tick).floatValue());
-            settings.widthZ = sizeZ.isEmpty() ? settings.widthX : Math.max(0F, sizeZ.interpolate(tick).floatValue());
-            settings.opacity = opacity.isEmpty() ? 1F : Math.max(0F, Math.min(1F, opacity.interpolate(tick).floatValue()));
+        KeyframeChannel<ShadowSettings> compound = new KeyframeChannel<>("shadow", KeyframeFactories.SHADOW_SETTINGS);
 
-            this.shadow.insert(tick, settings.copy());
+        compound.fromData(map.get("shadow"));
+
+        if (compound.isEmpty())
+        {
+            return;
+        }
+
+        for (Keyframe<ShadowSettings> keyframe : compound.getKeyframes())
+        {
+            ShadowSettings settings = keyframe.getValue();
+
+            if (settings == null)
+            {
+                settings = new ShadowSettings();
+            }
+
+            float tick = keyframe.getTick();
+
+            if (sizeEmpty)
+            {
+                ShadowSettings size = new ShadowSettings();
+
+                size.widthX = Math.max(0F, settings.widthX);
+                size.widthZ = Math.max(0F, settings.widthZ);
+                size.offsetX = settings.offsetX;
+                size.offsetY = settings.offsetY;
+                size.offsetZ = settings.offsetZ;
+                size.opacity = 1F;
+
+                this.shadowSize.insert(tick, size);
+            }
+
+            if (opacityEmpty)
+            {
+                this.shadowOpacity.insert(tick, (double) Math.max(0F, Math.min(1F, settings.opacity)));
+            }
         }
     }
 

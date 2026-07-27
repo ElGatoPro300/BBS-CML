@@ -15,12 +15,16 @@ import mchorse.bbs_mod.utils.joml.Vectors;
 import net.minecraft.block.Block;
 import net.minecraft.block.Blocks;
 import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.particle.Particle;
 import net.minecraft.client.render.Camera;
 import net.minecraft.command.argument.ParticleEffectArgumentType;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.Items;
 import net.minecraft.particle.BlockStateParticleEffect;
+import net.minecraft.particle.DustColorTransitionParticleEffect;
+import net.minecraft.particle.DustParticleEffect;
+import net.minecraft.particle.EntityEffectParticleEffect;
 import net.minecraft.particle.ItemStackParticleEffect;
 import net.minecraft.particle.ParticleEffect;
 import net.minecraft.particle.ParticleType;
@@ -136,94 +140,194 @@ public class VanillaParticleFormRenderer extends FormRenderer<VanillaParticleFor
                 if (type != null)
                 {
                     RegistryWrapper.WrapperLookup registries = world.getRegistryManager();
+                    String path = settings.particle != null ? settings.particle.getPath() : "";
+                    String args = settings.arguments.trim();
 
-                    if (type instanceof SimpleParticleType simple)
+                    float colorR = -1F;
+                    float colorG = -1F;
+                    float colorB = -1F;
+                    float colorA = 1F;
+
+                    if (!args.isEmpty())
                     {
-                        effect = simple;
-                    }
-                    else if (registries != null)
-                    {
-                        String full = settings.particle.toString();
-                        String args = settings.arguments.trim();
-
-                        if (!args.isEmpty())
-                        {
-                            full += " " + args;
-                        }
-
                         try
                         {
-                            effect = ParticleEffectArgumentType.readParameters(new StringReader(full), registries);
+                            String[] split = args.split("\\s+");
+
+                            if (split.length >= 3)
+                            {
+                                colorR = Float.parseFloat(split[0]);
+                                colorG = Float.parseFloat(split[1]);
+                                colorB = Float.parseFloat(split[2]);
+
+                                if (split.length >= 4)
+                                {
+                                    colorA = Float.parseFloat(split[3]);
+                                }
+                            }
                         }
                         catch (Exception e)
+                        {}
+                    }
+
+                    if (colorR < 0F && this.form != null)
+                    {
+                        mchorse.bbs_mod.utils.colors.Color formColor = this.form.color.get();
+
+                        if (formColor != null)
                         {
-                            /* Manual fallbacks for common complex particles using direct registry lookups */
+                            colorR = formColor.r;
+                            colorG = formColor.g;
+                            colorB = formColor.b;
+                            colorA = formColor.a;
+                        }
+                    }
+
+                    boolean parsedCustom = false;
+
+                    if (colorR >= 0F)
+                    {
+                        if (path.contains("effect"))
+                        {
+                            effect = EntityEffectParticleEffect.create(ParticleTypes.ENTITY_EFFECT, colorR, colorG, colorB);
+                            parsedCustom = true;
+                        }
+                        else if (path.equals("dust_color_transition"))
+                        {
+                            float scale = colorA > 0F ? colorA : 1F;
+
+                            effect = new DustColorTransitionParticleEffect(new Vector3f(colorR, colorG, colorB), new Vector3f(colorR, colorG, colorB), scale);
+                            parsedCustom = true;
+                        }
+                        else if (path.contains("dust"))
+                        {
+                            float scale = colorA > 0F ? colorA : 1F;
+
+                            effect = new DustParticleEffect(new Vector3f(colorR, colorG, colorB), scale);
+                            parsedCustom = true;
+                        }
+                    }
+
+                    if (!parsedCustom)
+                    {
+                        if (type instanceof SimpleParticleType simple)
+                        {
+                            effect = simple;
+                        }
+                        else if (registries != null)
+                        {
+                            String full = settings.particle.toString();
+
                             if (!args.isEmpty())
                             {
-                                try
+                                full += " " + args;
+                            }
+
+                            try
+                            {
+                                effect = ParticleEffectArgumentType.readParameters(new StringReader(full), registries);
+                            }
+                            catch (Exception e)
+                            {
+                                /* Manual fallbacks for common complex particles using direct registry lookups */
+                                if (!args.isEmpty())
                                 {
-                                    Identifier id = Identifier.tryParse(args);
-
-                                    if (id != null)
+                                    try
                                     {
-                                        /* Try to find as block first */
-                                        Block block = Registries.BLOCK.get(id);
+                                        Identifier id = Identifier.tryParse(args);
 
-                                        if (block != Blocks.AIR)
+                                        if (id != null)
                                         {
-                                            effect = new BlockStateParticleEffect(ParticleTypes.BLOCK, block.getDefaultState());
-                                        }
-                                        else
-                                        {
-                                            /* Try to find as item */
-                                            Item item = Registries.ITEM.get(id);
+                                            /* Try to find as block first */
+                                            Block block = Registries.BLOCK.get(id);
 
-                                            if (item != Items.AIR)
+                                            if (block != Blocks.AIR)
                                             {
-                                                effect = new ItemStackParticleEffect(ParticleTypes.ITEM, new ItemStack(item));
+                                                effect = new BlockStateParticleEffect(ParticleTypes.BLOCK, block.getDefaultState());
+                                            }
+                                            else
+                                            {
+                                                /* Try to find as item */
+                                                Item item = Registries.ITEM.get(id);
+
+                                                if (item != Items.AIR)
+                                                {
+                                                    effect = new ItemStackParticleEffect(ParticleTypes.ITEM, new ItemStack(item));
+                                                }
                                             }
                                         }
                                     }
+                                    catch (Exception e2)
+                                    {}
                                 }
-                                catch (Exception e2)
-                                {}
                             }
                         }
                     }
-                }
 
-                for (int i = 0; i < count; i++)
-                {
-                    float velocityX = this.vel.x * velocity;
-                    float velocityY = this.vel.y * velocity;
-                    float velocityZ = this.vel.z * velocity;
-                    float sh = MathUtils.toRad(this.form.scatteringYaw.get()) * (float) (Math.random() - 0.5D);
-                    float sv = MathUtils.toRad(this.form.scatteringPitch.get()) * (float) (Math.random() - 0.5D);
-
-                    m.identity()
-                        .rotateY(sh)
-                        .rotateX(sv)
-                        .transform(v.set(velocityX, velocityY, velocityZ));
-
-                    temp3f.set(
-                        (Math.random() * 2F - 1F) * this.form.offsetX.get(),
-                        (Math.random() * 2F - 1F) * this.form.offsetY.get(),
-                        (Math.random() * 2F - 1F) * this.form.offsetZ.get()
-                    );
-
-                    if (this.form.local.get())
+                    for (int i = 0; i < count; i++)
                     {
-                        this.rot.transform(temp3f);
+                        float velocityX = this.vel.x * velocity;
+                        float velocityY = this.vel.y * velocity;
+                        float velocityZ = this.vel.z * velocity;
+                        float sh = MathUtils.toRad(this.form.scatteringYaw.get()) * (float) (Math.random() - 0.5D);
+                        float sv = MathUtils.toRad(this.form.scatteringPitch.get()) * (float) (Math.random() - 0.5D);
+
+                        m.identity()
+                            .rotateY(sh)
+                            .rotateX(sv)
+                            .transform(v.set(velocityX, velocityY, velocityZ));
+
+                        if (colorR >= 0F)
+                        {
+                            if (path.equals("note"))
+                            {
+                                int ir = (int) Math.min(255F, Math.max(0F, colorR * 255F));
+                                int ig = (int) Math.min(255F, Math.max(0F, colorG * 255F));
+                                int ib = (int) Math.min(255F, Math.max(0F, colorB * 255F));
+                                float[] hsb = java.awt.Color.RGBtoHSB(ir, ig, ib, null);
+
+                                v.x = hsb[0];
+                                v.y = 0F;
+                                v.z = 0F;
+                            }
+                            else if (path.contains("effect") || path.equals("witch"))
+                            {
+                                v.x = colorR;
+                                v.y = colorG;
+                                v.z = colorB;
+                            }
+                        }
+
+                        temp3f.set(
+                            (Math.random() * 2F - 1F) * this.form.offsetX.get(),
+                            (Math.random() * 2F - 1F) * this.form.offsetY.get(),
+                            (Math.random() * 2F - 1F) * this.form.offsetZ.get()
+                        );
+
+                        if (this.form.local.get())
+                        {
+                            this.rot.transform(temp3f);
+                        }
+
+                        double x = this.pos.x + temp3f.x;
+                        double y = this.pos.y + temp3f.y;
+                        double z = this.pos.z + temp3f.z;
+
+                        Particle particleObj = MinecraftClient.getInstance().particleManager.addParticle(effect, x, y, z, v.x, v.y, v.z);
+
+                        if (particleObj != null && colorR >= 0F)
+                        {
+                            particleObj.setColor(colorR, colorG, colorB);
+                            particleObj.setAlpha(colorA);
+                        }
+                        else if (particleObj == null)
+                        {
+                            world.addParticle(effect, true, x, y, z, v.x, v.y, v.z);
+                        }
                     }
 
-                    double x = this.pos.x + temp3f.x;
-                    double y = this.pos.y + temp3f.y;
-                    double z = this.pos.z + temp3f.z;
-
-                    world.addParticle(effect, true, x, y, z, v.x, v.y, v.z);
+                    this.tick = frequency;
                 }
-
-                this.tick = frequency;
             }
 
             this.tick -= 1;

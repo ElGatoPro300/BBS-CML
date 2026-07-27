@@ -1,16 +1,18 @@
 package mchorse.bbs_mod.forms.renderers.utils;
 
 import mchorse.bbs_mod.client.BBSShaders;
-
-import com.mojang.blaze3d.systems.RenderSystem;
+import mchorse.bbs_mod.cubic.render.vao.ModelVAORenderer;
 
 import net.minecraft.client.gl.ShaderProgram;
+
+import com.mojang.blaze3d.platform.GlStateManager;
+import com.mojang.blaze3d.systems.RenderSystem;
 
 import org.lwjgl.opengl.GL11;
 
 /**
  * Multiply-blend color-mask overlay for flat textured forms (billboards, shapes).
- * Matches {@link mchorse.bbs_mod.cubic.render.vao.ModelVAORenderer#beginColorTintOverlayPass()}.
+ * Matches {@link ModelVAORenderer#beginColorTintOverlayPass()}.
  */
 public final class FlatColorTintOverlayPass
 {
@@ -29,10 +31,10 @@ public final class FlatColorTintOverlayPass
 
         RenderSystem.enableBlend();
         RenderSystem.blendFuncSeparate(
-            com.mojang.blaze3d.platform.GlStateManager.SrcFactor.DST_COLOR,
-            com.mojang.blaze3d.platform.GlStateManager.DstFactor.ZERO,
-            com.mojang.blaze3d.platform.GlStateManager.SrcFactor.DST_ALPHA,
-            com.mojang.blaze3d.platform.GlStateManager.DstFactor.ZERO
+            GlStateManager.SrcFactor.DST_COLOR,
+            GlStateManager.DstFactor.ZERO,
+            GlStateManager.SrcFactor.DST_ALPHA,
+            GlStateManager.DstFactor.ZERO
         );
         RenderSystem.enableDepthTest();
         RenderSystem.depthFunc(GL11.GL_LEQUAL);

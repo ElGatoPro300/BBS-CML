@@ -3,9 +3,9 @@ package mchorse.bbs_mod.forms.renderers.utils;
 import mchorse.bbs_mod.client.BBSShaders;
 import mchorse.bbs_mod.forms.forms.utils.EffectTransform;
 
-import com.mojang.blaze3d.systems.RenderSystem;
-
 import net.minecraft.client.gl.ShaderProgram;
+
+import com.mojang.blaze3d.systems.RenderSystem;
 
 import org.lwjgl.opengl.GL11;
 

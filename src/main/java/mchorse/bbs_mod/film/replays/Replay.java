@@ -526,27 +526,29 @@ public class Replay extends ValueGroup
             migratedShadowZ = true;
         }
 
-        this.ensureShadowKeyframes(migratedShadowZ);
+        this.ensureShadowKeyframes();
         this.applyVanillaPlaybackDefaults();
     }
 
     private void applyVanillaPlaybackDefaults()
     {}
 
-    private void ensureShadowKeyframes(boolean migratedShadowZ)
+    private void ensureShadowKeyframes()
     {
-        if (!this.keyframes.shadow.isEmpty())
+        if (this.keyframes.shadowSize.isEmpty())
         {
-            return;
+            ShadowSettings settings = new ShadowSettings(1F, this.shadowSize.get(), this.shadowSizeZ.get());
+
+            settings.offsetX = this.shadowOffsetX.get();
+            settings.offsetY = this.shadowOffsetY.get();
+            settings.offsetZ = this.shadowOffsetZ.get();
+
+            this.keyframes.shadowSize.insert(0, settings);
         }
 
-        float widthZ = migratedShadowZ ? this.shadowSize.get() : this.shadowSizeZ.get();
-        ShadowSettings settings = new ShadowSettings(this.shadowOpacity.get(), this.shadowSize.get(), widthZ);
-
-        settings.offsetX = this.shadowOffsetX.get();
-        settings.offsetY = this.shadowOffsetY.get();
-        settings.offsetZ = this.shadowOffsetZ.get();
-
-        this.keyframes.shadow.insert(0, settings);
+        if (this.keyframes.shadowOpacity.isEmpty())
+        {
+            this.keyframes.shadowOpacity.insert(0, (double) this.shadowOpacity.get());
+        }
     }
 }

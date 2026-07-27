@@ -2,6 +2,7 @@ package mchorse.bbs_mod.utils.keyframes.factories;
 
 import mchorse.bbs_mod.data.types.BaseType;
 import mchorse.bbs_mod.data.types.MapType;
+import mchorse.bbs_mod.forms.forms.utils.EffectTransform;
 import mchorse.bbs_mod.forms.forms.utils.GlowSettings;
 import mchorse.bbs_mod.utils.MathUtils;
 import mchorse.bbs_mod.utils.colors.Color;
@@ -75,6 +76,8 @@ public class GlowSettingsKeyframeFactory implements IKeyframeFactory<GlowSetting
         this.i.height = (float) interpolation.interpolate(IInterp.context.set(preAValue.height, aValue.height, bValue.height, postBValue.height, x));
         this.i.sync = x >= 0.5F ? bValue.sync : aValue.sync;
         this.i.paintOnly = x >= 0.5F ? bValue.paintOnly : aValue.paintOnly;
+        this.ensureTransform(this.i);
+        EffectTransformInterpolation.interpolate(this.i.transform, preAValue.transform, aValue.transform, bValue.transform, postBValue.transform, interpolation, x);
 
         return this.i;
     }
@@ -98,13 +101,27 @@ public class GlowSettingsKeyframeFactory implements IKeyframeFactory<GlowSetting
         this.i.height = (float) interpolation.interpolate(IInterp.context.set(preAValue.height, aValue.height, bValue.height, postBValue.height, x));
         this.i.sync = x >= 0.5F ? bValue.sync : aValue.sync;
         this.i.paintOnly = x >= 0.5F ? bValue.paintOnly : aValue.paintOnly;
+        this.ensureTransform(this.i);
+        EffectTransformInterpolation.interpolate(this.i.transform, preAValue.transform, aValue.transform, bValue.transform, postBValue.transform, interpolation, x);
 
         return this.i;
     }
 
     private GlowSettings valueOrDefault(GlowSettings value)
     {
-        return value == null ? new GlowSettings() : value;
+        GlowSettings settings = value == null ? new GlowSettings() : value;
+
+        this.ensureTransform(settings);
+
+        return settings;
+    }
+
+    private void ensureTransform(GlowSettings settings)
+    {
+        if (settings.transform == null)
+        {
+            settings.transform = new EffectTransform();
+        }
     }
 
     private void interpolateColorRGB(GlowSettings preA, GlowSettings a, GlowSettings b, GlowSettings postB, IInterp interpolation, float x)

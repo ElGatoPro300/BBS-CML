@@ -6,14 +6,13 @@ import mchorse.bbs_mod.client.BBSRendering;
 import mchorse.bbs_mod.client.BBSShaders;
 import mchorse.bbs_mod.cubic.render.vao.ModelVAO;
 import mchorse.bbs_mod.cubic.render.vao.ModelVAORenderer;
-import mchorse.bbs_mod.film.FormRenderDepth;
 import mchorse.bbs_mod.forms.forms.ExtrudedForm;
-import mchorse.bbs_mod.forms.forms.utils.GlowSettings;
-import mchorse.bbs_mod.forms.forms.utils.PaintSettings;
 import mchorse.bbs_mod.forms.forms.utils.EffectTransform;
 import mchorse.bbs_mod.forms.forms.utils.EffectTransformMath;
+import mchorse.bbs_mod.forms.forms.utils.GlowSettings;
+import mchorse.bbs_mod.forms.forms.utils.PaintSettings;
 import mchorse.bbs_mod.forms.forms.utils.TextureBlend;
-import mchorse.bbs_mod.forms.renderers.utils.FormColorBlend;
+import mchorse.bbs_mod.forms.renderers.utils.FormColorEffects;
 import mchorse.bbs_mod.forms.renderers.utils.FormTextureBlendRenderer;
 import mchorse.bbs_mod.resources.Link;
 import mchorse.bbs_mod.ui.framework.UIContext;
@@ -196,7 +195,7 @@ public class ExtrudedFormRenderer extends FormRenderer<ExtrudedForm>
             boolean ui = modelRenderer;
 
             this.form.applyFormOpacity(color);
-            FormColorBlend.applyShadowPassColorFix(color, storedFormColor, this.form.paintSettings.get(), this.form.paintColor.get(), shadowPass);
+            FormColorEffects.applyShadowPassColorFix(color, storedFormColor, this.form.paintSettings.get(), this.form.paintColor.get(), shadowPass);
 
             if (color.a <= 0.001F && !shadowPass)
             {
@@ -253,8 +252,8 @@ public class ExtrudedFormRenderer extends FormRenderer<ExtrudedForm>
                 && !livePackGrade;
             boolean uploadGrade = useFormColorGrade || livePackGrade;
             Color formColor = (uploadGrade || useColorGradeOverlay)
-                ? storedFormColor.copyWithBlendIntensityOnly()
-                : storedFormColor.copyWithBlendIntensity();
+                ? storedFormColor.copyDeferringColorGrade()
+                : storedFormColor.copyBakingColorGrade();
 
             color.mul(formColor);
 
@@ -270,7 +269,7 @@ public class ExtrudedFormRenderer extends FormRenderer<ExtrudedForm>
 
             if (!bbsModelShader && !shaderOverlay && !deferPaintToOverlay && !paintOnlyGlow && !deferTranslucentModel)
             {
-                FormColorBlend.blendFormGlowBrighten(color, glow, legacyGlow);
+                FormColorEffects.blendFormGlowBrighten(color, glow, legacyGlow);
             }
 
             Matrix4f formRootInverse = new Matrix4f();
@@ -421,7 +420,7 @@ public class ExtrudedFormRenderer extends FormRenderer<ExtrudedForm>
             TextureBlend textureBlendSnapshot = textureBlend == null ? null : new TextureBlend(textureBlend.from, textureBlend.to, textureBlend.blend);
             float opacityAlpha = color.a;
 
-            if (ShaderOpacityPatch.shouldDelayUntilPostDeferred(opacityAlpha, false))
+            if (ShaderOpacityPatch.shouldDelayUntilPostDeferred(opacityAlpha))
             {
                 boolean irisCamera = BBSRendering.isIrisWorldModelPass() && !bbsModelShader;
                 Matrix4f positionMatrix = irisCamera
@@ -446,7 +445,6 @@ public class ExtrudedFormRenderer extends FormRenderer<ExtrudedForm>
                 int overlayOverlay = overlay;
                 EffectTransform paintTransformQueued = paintTransformSnapshot;
                 Vector3f paintMaskHalfQueued = paintMaskHalfSnapshot;
-                double sortDepth = FormRenderDepth.resolveSortDepth(this.form, renderContext == null ? null : renderContext.renderDepthFrame);
                 boolean depthWrite = ShaderOpacityPatch.shouldWriteDepthForOpacity(opacityAlpha);
                 boolean afterFluids = ShaderOpacityPatch.shouldFlushAfterFluids(opacityAlpha);
                 boolean uploadGradeSnapshot = uploadGrade;
@@ -609,11 +607,11 @@ public class ExtrudedFormRenderer extends FormRenderer<ExtrudedForm>
 
                 if (irisCamera)
                 {
-                    ShaderOpacityPatch.submitPostDeferredForm(sortDepth, 0D, depthWrite, afterFluids, deferredDraw);
+                    ShaderOpacityPatch.submitPostDeferredForm(0D, 0D, depthWrite, afterFluids, deferredDraw);
                 }
                 else
                 {
-                    ShaderOpacityPatch.submitPostDeferredBbsForm(sortDepth, 0D, depthWrite, afterFluids, deferredDraw);
+                    ShaderOpacityPatch.submitPostDeferredBbsForm(0D, 0D, depthWrite, afterFluids, deferredDraw);
                 }
 
                 ModelVAORenderer.clearPaintEffectTransform();
@@ -629,7 +627,7 @@ public class ExtrudedFormRenderer extends FormRenderer<ExtrudedForm>
 
             if (forceDepth || suppressDepth)
             {
-                savedDepthMask = org.lwjgl.opengl.GL11.glGetBoolean(org.lwjgl.opengl.GL11.GL_DEPTH_WRITEMASK);
+                savedDepthMask = GL11.glGetBoolean(GL11.GL_DEPTH_WRITEMASK);
                 RenderSystem.enableDepthTest();
 
                 if (forceDepth)

@@ -21,7 +21,7 @@ public class BlockPaintVertexConsumer extends RecolorVertexConsumer
 
         if (this.paintColor != null)
         {
-            FormColorBlend.applyPaintBlend(vertex, this.paintColor, this.paintColor.a);
+            FormColorEffects.applyPaintBlend(vertex, this.paintColor, this.paintColor.a);
         }
 
         red = MathUtils.clamp((int) (vertex.r * 255F), 0, 255);
@@ -41,7 +41,7 @@ public class BlockPaintVertexConsumer extends RecolorVertexConsumer
 
         if (this.paintColor != null)
         {
-            FormColorBlend.applyPaintBlend(vertex, this.paintColor, this.paintColor.a);
+            FormColorEffects.applyPaintBlend(vertex, this.paintColor, this.paintColor.a);
         }
 
         return this.consumer.color(vertex.r, vertex.g, vertex.b, vertex.a);

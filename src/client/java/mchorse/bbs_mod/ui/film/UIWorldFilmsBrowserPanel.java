@@ -38,6 +38,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 
 public class UIWorldFilmsBrowserPanel extends UIDashboardPanel
@@ -192,8 +193,8 @@ public class UIWorldFilmsBrowserPanel extends UIDashboardPanel
 
         this.scanning = true;
 
-        java.util.concurrent.CompletableFuture<List<LevelSummary>> worldsFuture = CrossWorldFilmScanner.scanWorldsAsync();
-        java.util.concurrent.CompletableFuture<List<CrossWorldFilmEntry>> filmsFuture = CrossWorldFilmScanner.scanAsync();
+        CompletableFuture<List<LevelSummary>> worldsFuture = CrossWorldFilmScanner.scanWorldsAsync();
+        CompletableFuture<List<CrossWorldFilmEntry>> filmsFuture = CrossWorldFilmScanner.scanAsync();
 
         worldsFuture.thenCombine(filmsFuture, (worlds, films) ->
         {

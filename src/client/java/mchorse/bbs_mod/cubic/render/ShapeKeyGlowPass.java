@@ -5,6 +5,8 @@ import mchorse.bbs_mod.forms.forms.utils.GlowSettings;
 import mchorse.bbs_mod.forms.renderers.utils.FlatGlowOverlayPass;
 import mchorse.bbs_mod.utils.colors.Color;
 
+import java.util.function.Consumer;
+
 /**
  * Shape-key / OBJ CPU models use the block-item additive glow overlay (layered emissive
  * vertex colors) instead of the BBS model shader GlowingColor uniform.
@@ -24,7 +26,7 @@ public final class ShapeKeyGlowPass
         return model != null && model.hasShapeKeys() && hasPositiveGlow && !glowDeferredToOverlay;
     }
 
-    public static void renderOverlay(GlowSettings glowSettings, Color legacyGlow, float alpha, float glowIntensity, java.util.function.Consumer<Color> drawLayer)
+    public static void renderOverlay(GlowSettings glowSettings, Color legacyGlow, float alpha, float glowIntensity, Consumer<Color> drawLayer)
     {
         FlatGlowOverlayPass.render(glowSettings, legacyGlow, alpha, glowIntensity, drawLayer);
     }

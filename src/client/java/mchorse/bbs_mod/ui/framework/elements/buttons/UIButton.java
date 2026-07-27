@@ -7,9 +7,11 @@ import mchorse.bbs_mod.ui.framework.elements.IUIElement;
 import mchorse.bbs_mod.ui.framework.elements.UIElement;
 import mchorse.bbs_mod.ui.framework.elements.utils.FontRenderer;
 import mchorse.bbs_mod.ui.framework.elements.utils.ITextColoring;
+import mchorse.bbs_mod.ui.utils.icons.Icon;
 import mchorse.bbs_mod.utils.colors.Colors;
 
 import java.util.function.Consumer;
+import java.util.function.Supplier;
 
 public class UIButton extends UIClickable<UIButton> implements ITextColoring
 {
@@ -21,6 +23,8 @@ public class UIButton extends UIClickable<UIButton> implements ITextColoring
     public boolean custom;
     public int customColor;
     public boolean background = true;
+
+    private Supplier<Icon> leadingIcon;
 
     public UIButton(IKey label, Consumer<UIButton> callback)
     {
@@ -34,6 +38,23 @@ public class UIButton extends UIClickable<UIButton> implements ITextColoring
     {
         this.custom = true;
         this.customColor = color & Colors.RGB;
+
+        return this;
+    }
+
+    /**
+     * Draws an icon inset on the left edge of the button (e.g. disclosure arrows).
+     */
+    public UIButton leadingIcon(Supplier<Icon> icon)
+    {
+        this.leadingIcon = icon;
+
+        return this;
+    }
+
+    public UIButton leadingIcon(Icon icon)
+    {
+        this.leadingIcon = icon == null ? null : () -> icon;
 
         return this;
     }
@@ -70,8 +91,11 @@ public class UIButton extends UIClickable<UIButton> implements ITextColoring
     protected void renderSkin(UIContext context)
     {
         FontRenderer font = context.batcher.getFont();
-        String label = font.limitToWidth(this.label.get(), this.area.w - 6);
-        int tx = this.area.mx(font.getWidth(label));
+        Icon icon = this.leadingIcon == null ? null : this.leadingIcon.get();
+        int iconPad = icon == null ? 0 : icon.w + 4;
+        String label = font.limitToWidth(this.label.get(), Math.max(0, this.area.w - 6 - iconPad));
+        int contentLeft = this.area.x + iconPad;
+        int tx = contentLeft + Math.max(0, (this.area.ex() - contentLeft - font.getWidth(label)) / 2);
         int ty = this.area.my(font.getHeight());
 
         if (this.background)
@@ -125,6 +149,11 @@ public class UIButton extends UIClickable<UIButton> implements ITextColoring
             if (!nBottom) context.batcher.box(x1, y2 - 1, x2, y2, border);
             if (!nLeft)   context.batcher.box(x1, y1, x1 + 1, y2, border);
             if (!nRight)  context.batcher.box(x2 - 1, y1, x2, y2, border);
+        }
+
+        if (icon != null)
+        {
+            context.batcher.icon(icon, Colors.WHITE, this.area.x + 2 + icon.w / 2, this.area.my(), 0.5F, 0.5F);
         }
 
         context.batcher.text(label, tx, ty, this.textColor, this.textShadow);

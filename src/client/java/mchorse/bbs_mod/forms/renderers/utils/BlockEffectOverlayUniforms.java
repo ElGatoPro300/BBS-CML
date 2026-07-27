@@ -3,11 +3,9 @@ package mchorse.bbs_mod.forms.renderers.utils;
 import mchorse.bbs_mod.client.BBSShaders;
 import mchorse.bbs_mod.cubic.render.vao.ModelVAORenderer;
 import mchorse.bbs_mod.forms.forms.utils.EffectTransform;
-import mchorse.bbs_mod.forms.forms.utils.GlowSettings;
 import mchorse.bbs_mod.forms.forms.utils.EffectTransformMath;
+import mchorse.bbs_mod.forms.forms.utils.GlowSettings;
 import mchorse.bbs_mod.utils.colors.Color;
-
-import com.mojang.blaze3d.systems.RenderSystem;
 
 import net.minecraft.client.gl.GlUniform;
 import net.minecraft.client.gl.ShaderProgram;
@@ -15,6 +13,10 @@ import net.minecraft.screen.PlayerScreenHandler;
 
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
+
+import com.mojang.blaze3d.platform.GlStateManager;
+import com.mojang.blaze3d.systems.RenderSystem;
+
 import org.lwjgl.opengl.GL11;
 
 /**
@@ -145,10 +147,10 @@ public final class BlockEffectOverlayUniforms
         else
         {
             RenderSystem.blendFuncSeparate(
-                com.mojang.blaze3d.platform.GlStateManager.SrcFactor.DST_COLOR,
-                com.mojang.blaze3d.platform.GlStateManager.DstFactor.ZERO,
-                com.mojang.blaze3d.platform.GlStateManager.SrcFactor.DST_ALPHA,
-                com.mojang.blaze3d.platform.GlStateManager.DstFactor.ZERO
+                GlStateManager.SrcFactor.DST_COLOR,
+                GlStateManager.DstFactor.ZERO,
+                GlStateManager.SrcFactor.DST_ALPHA,
+                GlStateManager.DstFactor.ZERO
             );
         }
 

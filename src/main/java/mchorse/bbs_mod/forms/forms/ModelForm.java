@@ -36,7 +36,7 @@ public class ModelForm extends Form
     public final ValuePose pose = new ValuePose("pose", new Pose());
     public final ValuePose poseOverlay = new ValuePose("pose_overlay", new Pose());
     public final ValueActionsConfig actions = new ValueActionsConfig("actions", new ActionsConfig());
-    public final ValueColor color = new ValueColor("color", new Color(1F, 1F, 1F, 0F));
+    public final ValueColor color = new ValueColor("color", new Color(1F, 1F, 1F, 1F));
     public final ValueShapeKeys shapeKeys = new ValueShapeKeys("shape_keys", new ShapeKeys());
     public final ValueData ik = new ValueData("ik");
     public final ValueData springs = new ValueData("springs");

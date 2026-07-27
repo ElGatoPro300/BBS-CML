@@ -2,10 +2,10 @@ package mchorse.bbs_mod.mixin.client.iris;
 
 import mchorse.bbs_mod.client.SunPathRotation;
 
-import net.irisshaders.iris.shadows.ShadowMatrices;
-
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.util.math.RotationAxis;
+
+import net.irisshaders.iris.shadows.ShadowMatrices;
 
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;

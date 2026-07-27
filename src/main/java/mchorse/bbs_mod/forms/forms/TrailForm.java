@@ -10,16 +10,13 @@ import mchorse.bbs_mod.utils.colors.Color;
 public class TrailForm extends Form
 {
     public final ValueLink texture = new ValueLink("texture", Link.assets("textures/default_trail.png"));
-    public final ValueColor color = new ValueColor("color", new Color(1F, 1F, 1F, 0F));
+    public final ValueColor color = new ValueColor("color", new Color(1F, 1F, 1F, 1F));
     public final ValueFloat length = new ValueFloat("length", 10F);
     public final ValueBoolean loop = new ValueBoolean("loop", false);
     public final ValueBoolean paused = new ValueBoolean("paused", false);
 
     public TrailForm()
     {
-        /* Opacity track does nothing on trails — hide it so it is not keyframed. */
-        this.opacity.invisible();
-
         this.add(this.texture);
         this.add(this.color);
         this.registerColorOverlays();

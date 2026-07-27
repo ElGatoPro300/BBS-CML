@@ -21,9 +21,13 @@ import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.util.math.RotationAxis;
 
 import org.joml.Matrix4f;
-import org.lwjgl.opengl.GL11;
 
 import com.mojang.blaze3d.systems.RenderSystem;
+
+import org.lwjgl.opengl.GL11;
+
+import java.util.ArrayList;
+import java.util.List;
 
 public class Draw
 {
@@ -87,7 +91,7 @@ public class Draw
     }
 
 
-    private static final java.util.List<IrisBox> irisBoxQueue = new java.util.ArrayList<>();
+    private static final List<IrisBox> irisBoxQueue = new ArrayList<>();
 
     private static final class IrisBox
     {

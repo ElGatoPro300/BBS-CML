@@ -10,6 +10,7 @@ import mchorse.bbs_mod.utils.clips.Clip;
 import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
 
 import java.util.List;
+import java.util.Map;
 
 public class WorldFilmController extends BaseFilmController
 {
@@ -57,7 +58,7 @@ public class WorldFilmController extends BaseFilmController
     }
 
     @Override
-    public java.util.Map<String, Integer> getActors()
+    public Map<String, Integer> getActors()
     {
         return BBSModClient.getFilms().actors.get(this.film.getId());
     }

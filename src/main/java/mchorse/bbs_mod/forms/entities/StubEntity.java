@@ -40,6 +40,8 @@ public class StubEntity implements IEntity
     private int fireTicks;
     private boolean particlesEnabled = true;
     private Hand activeHand = Hand.MAIN_HAND;
+    private float fallFlyingTicks;
+    private float prevFallFlyingTicks;
 
     private double prevX;
     private double prevY;
@@ -542,6 +544,17 @@ public class StubEntity implements IEntity
         this.armSwing -= 1;
         this.age += 1;
 
+        this.prevFallFlyingTicks = this.fallFlyingTicks;
+
+        if (this.fallFlying)
+        {
+            this.fallFlyingTicks = Math.min(10F, this.fallFlyingTicks + 1F);
+        }
+        else
+        {
+            this.fallFlyingTicks = Math.max(0F, this.fallFlyingTicks - 1F);
+        }
+
         if (!this.externalPrevPosition)
         {
             this.prevX = this.x;
@@ -652,7 +665,7 @@ public class StubEntity implements IEntity
     @Override
     public int getRoll()
     {
-        return 0;
+        return (int) this.fallFlyingTicks;
     }
 
     @Override
@@ -689,6 +702,15 @@ public class StubEntity implements IEntity
     public void setFallFlying(boolean fallFlying)
     {
         this.fallFlying = fallFlying;
+    }
+
+    @Override
+    public float getFallFlyingProgress(float transition)
+    {
+        float ticks = MathHelper.lerp(transition, this.prevFallFlyingTicks, this.fallFlyingTicks);
+        float progress = MathHelper.clamp(ticks / 10F, 0F, 1F);
+
+        return progress * progress;
     }
 
     @Override

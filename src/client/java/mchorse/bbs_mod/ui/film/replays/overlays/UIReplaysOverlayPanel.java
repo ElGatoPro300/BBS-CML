@@ -19,11 +19,9 @@ import mchorse.bbs_mod.ui.film.replays.UIReplayList;
 import mchorse.bbs_mod.ui.forms.UINestedEdit;
 import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.ui.framework.elements.UIElement;
-import mchorse.bbs_mod.ui.framework.elements.UIScrollView;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIButton;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIIcon;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIToggle;
-import mchorse.bbs_mod.ui.framework.elements.input.UIPoseSectionCollapse;
 import mchorse.bbs_mod.ui.framework.elements.input.UITrackpad;
 import mchorse.bbs_mod.ui.framework.elements.input.keyframes.factories.UIAnchorKeyframeFactory;
 import mchorse.bbs_mod.ui.framework.elements.input.text.UITextbox;
@@ -39,9 +37,9 @@ import mchorse.bbs_mod.utils.keyframes.Keyframe;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.network.ClientPlayerEntity;
 
-import org.lwjgl.glfw.GLFW;
-
 import com.mojang.logging.LogUtils;
+
+import org.lwjgl.glfw.GLFW;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -62,7 +60,7 @@ public class UIReplaysOverlayPanel extends UIOverlayPanel
 
     public UIReplayList replays;
 
-    public UIScrollView replayProperties;
+    public UIElement replayProperties;
     public UIElement groupProperties;
     public UINestedEdit pickEdit;
     public UIToggle enabled;
@@ -111,7 +109,6 @@ public class UIReplaysOverlayPanel extends UIOverlayPanel
     public UIElement dropVelocityGroup;
     public UIElement itemDropsContent;
     public UIDraggable dockedResizer;
-    public UIPoseSectionCollapse generalSection;
 
     private UIElement propertiesHost;
     private boolean propertiesExternal;
@@ -338,7 +335,7 @@ public class UIReplaysOverlayPanel extends UIOverlayPanel
 
         this.replayProperties = UI.scrollView(6, 6);
 
-        this.generalSection = this.addPropertySection(UIKeys.FILM_REPLAY_SECTION_GENERAL, UI.column(4,
+        this.addPropertySection(UIKeys.FILM_REPLAY_SECTION_GENERAL, UI.column(4,
             this.pickEdit, this.enabled, this.label, this.nameTag
         ));
         UIElement shadowSection = UI.column(4,
@@ -378,21 +375,19 @@ public class UIReplaysOverlayPanel extends UIOverlayPanel
         this.groupProperties = UI.scrollView(5, 6, UI.column(4, this.groupEnabled, this.groupLabel));
         this.dockedResizer = new UIDraggable((context) ->
         {
-            /* Properties sit on top; drag resizes that top section. */
-            int topHeight = context.mouseY - this.content.area.y;
+            int bottomHeight = this.content.area.ey() - context.mouseY;
             int maxHeight = Math.min(DOCKED_REPLAYS_HEIGHT_MAX, Math.max(DOCKED_BOTTOM_SECTION_MIN, this.content.area.h - DOCKED_TOP_SECTION_MIN - DOCKED_RESIZER_HEIGHT));
 
-            this.dockedReplaysHeight = MathUtils.clamp(topHeight, DOCKED_BOTTOM_SECTION_MIN, maxHeight);
+            this.dockedReplaysHeight = MathUtils.clamp(bottomHeight, DOCKED_BOTTOM_SECTION_MIN, maxHeight);
             this.persistDockedReplaysHeight();
             this.updateDockedLayout();
             this.resize();
         }).rendering((context) ->
         {
-            int color = Colors.setA(BBSSettings.accentRgb(), this.dockedResizer.isDragging() || this.dockedResizer.area.isInside(context) ? 0.75F : 0.45F);
+            int color = Colors.setA(BBSSettings.primaryColor.get(), this.dockedResizer.isDragging() || this.dockedResizer.area.isInside(context) ? 0.75F : 0.45F);
 
             context.batcher.box(this.dockedResizer.area.x, this.dockedResizer.area.y + 2, this.dockedResizer.area.ex(), this.dockedResizer.area.ey() - 2, color);
-        }).dragEnd(this::flushDockedReplaysHeight)
-            .cursors(GLFW.GLFW_VRESIZE_CURSOR, GLFW.GLFW_VRESIZE_CURSOR);
+        }).dragEnd(this::flushDockedReplaysHeight);
 
         this.content.add(this.replays, this.replayProperties, this.groupProperties, this.dockedResizer);
         this.replayProperties.relative(this.content).x(0).y(0).w(1F).h(1F);
@@ -405,65 +400,54 @@ public class UIReplaysOverlayPanel extends UIOverlayPanel
         }
     }
 
-    private UIPoseSectionCollapse addPropertySection(IKey title, UIElement content)
+    private void addPropertySection(IKey title, UIElement content)
     {
-        UIPoseSectionCollapse section = new UIPoseSectionCollapse(title, Colors.ACTIVE, content);
+        UIElement section = new UIElement();
 
-        /* Parent first — setExpanded attaches the body as the next sibling. */
+        section.column(4).vertical().stretch();
+
+        UICollapseHeader header = new UICollapseHeader(title);
+
+        header.h(16);
+        header.onToggle(() ->
+        {
+            if (header.expanded)
+            {
+                section.add(content);
+            }
+            else
+            {
+                section.remove(content);
+            }
+
+            this.resize();
+        });
+
+        section.add(header, content);
+
         this.replayProperties.add(section);
-        section.setExpanded(true);
-
-        return section;
-    }
-
-    /**
-     * Scroll properties to General and expand it so Pick/Edit are visible first.
-     */
-    public void focusGeneralSection()
-    {
-        if (this.generalSection != null)
-        {
-            this.generalSection.setExpanded(true);
-        }
-
-        if (this.replayProperties.scroll != null)
-        {
-            this.replayProperties.scroll.setScroll(0D);
-        }
     }
 
     public void attachPropertiesHost(UIElement host)
     {
         this.propertiesHost = host;
-        /* Always remount onto the given host — the external flag alone is not enough
-           when the host instance changes or children were stolen by another panel. */
-        this.ensurePropertiesMounted(true);
+        this.setPropertiesExternal(true);
     }
 
     public void setPropertiesExternal(boolean external)
     {
-        this.ensurePropertiesMounted(external);
-    }
+        if (this.propertiesExternal == external)
+        {
+            return;
+        }
 
-    private void ensurePropertiesMounted(boolean external)
-    {
+        this.propertiesExternal = external;
         UIElement target = external ? this.propertiesHost : this.content;
 
         if (target == null)
         {
             return;
         }
-
-        boolean alreadyThere = this.propertiesExternal == external
-            && this.replayProperties.getParent() == target
-            && this.groupProperties.getParent() == target;
-
-        if (alreadyThere)
-        {
-            return;
-        }
-
-        this.propertiesExternal = external;
 
         /* The UI framework doesn't guarantee that adding an element to another parent
            automatically detaches it from its previous one. Ensure these property panels
@@ -540,19 +524,20 @@ public class UIReplaysOverlayPanel extends UIOverlayPanel
             this.dockedReplaysHeight = MathUtils.clamp(this.dockedReplaysHeight, DOCKED_BOTTOM_SECTION_MIN, DOCKED_REPLAYS_HEIGHT_MAX);
 
             boolean clampToAvailableHeight = this.content.area.h >= DOCKED_TOP_SECTION_MIN + DOCKED_BOTTOM_SECTION_MIN + DOCKED_RESIZER_HEIGHT;
-            int propsHeight = this.dockedReplaysHeight;
+            int dockedHeight = this.dockedReplaysHeight;
 
             if (clampToAvailableHeight)
             {
-                propsHeight = MathUtils.clamp(propsHeight, DOCKED_BOTTOM_SECTION_MIN, maxHeight);
-                this.dockedReplaysHeight = propsHeight;
+                dockedHeight = MathUtils.clamp(dockedHeight, DOCKED_BOTTOM_SECTION_MIN, maxHeight);
+                this.dockedReplaysHeight = dockedHeight;
             }
 
-            /* General / Pick / Edit on top; replay list fills the rest below. */
-            this.replayProperties.relative(this.content).x(0).y(0).w(1F).h(0F, propsHeight);
-            this.groupProperties.relative(this.content).x(0).y(0).w(1F).h(0F, propsHeight);
-            this.dockedResizer.relative(this.content).x(0).y(0F, propsHeight).w(1F).h(0F, DOCKED_RESIZER_HEIGHT);
-            this.replays.relative(this.content).x(0).y(0F, propsHeight + DOCKED_RESIZER_HEIGHT).w(1F).h(1F, -(propsHeight + DOCKED_RESIZER_HEIGHT));
+            int replaysHeight = -(dockedHeight + DOCKED_RESIZER_HEIGHT);
+
+            this.replays.relative(this.content).x(0).y(0).w(1F).h(1F, replaysHeight);
+            this.dockedResizer.relative(this.content).x(0).y(1F, -(dockedHeight + DOCKED_RESIZER_HEIGHT)).w(1F).h(0F, DOCKED_RESIZER_HEIGHT);
+            this.replayProperties.relative(this.content).x(0).y(1F, -dockedHeight).w(1F).h(0F, dockedHeight);
+            this.groupProperties.relative(this.content).x(0).y(1F, -dockedHeight).w(1F).h(0F, dockedHeight);
             this.dockedResizer.setVisible(true);
         }
         else
@@ -775,18 +760,41 @@ public class UIReplaysOverlayPanel extends UIOverlayPanel
         replay.shadowOffsetY.set(settings.offsetY);
         replay.shadowOffsetZ.set(settings.offsetZ);
 
-        if (replay.keyframes.shadow.isEmpty())
-        {
-            replay.keyframes.shadow.insert(0, settings.copy());
+        ShadowSettings size = new ShadowSettings();
 
-            return;
+        size.widthX = settings.widthX;
+        size.widthZ = settings.widthZ;
+        size.offsetX = settings.offsetX;
+        size.offsetY = settings.offsetY;
+        size.offsetZ = settings.offsetZ;
+        size.opacity = 1F;
+
+        if (replay.keyframes.shadowSize.isEmpty())
+        {
+            replay.keyframes.shadowSize.insert(0, size.copy());
+        }
+        else
+        {
+            Keyframe<ShadowSettings> firstSize = replay.keyframes.shadowSize.get(0);
+
+            if (firstSize != null && firstSize.getTick() == 0F)
+            {
+                firstSize.setValue(size.copy(), true);
+            }
         }
 
-        Keyframe<ShadowSettings> first = replay.keyframes.shadow.get(0);
-
-        if (first != null && first.getTick() == 0F)
+        if (replay.keyframes.shadowOpacity.isEmpty())
         {
-            first.setValue(settings.copy(), true);
+            replay.keyframes.shadowOpacity.insert(0, (double) settings.opacity);
+        }
+        else
+        {
+            Keyframe<Double> firstOpacity = replay.keyframes.shadowOpacity.get(0);
+
+            if (firstOpacity != null && firstOpacity.getTick() == 0F)
+            {
+                firstOpacity.setValue((double) settings.opacity, true);
+            }
         }
     }
 
@@ -920,6 +928,58 @@ public class UIReplaysOverlayPanel extends UIOverlayPanel
         if (this.replays.getList().isEmpty())
         {
             UIDataUtils.renderRightClickHere(context, this.replays.area, 0xFF141418);
+        }
+    }
+
+    public static class UICollapseHeader extends UIElement
+    {
+        public IKey title;
+        public boolean expanded = true;
+
+        private Runnable onToggle;
+
+        public UICollapseHeader(IKey title)
+        {
+            this.title = title;
+        }
+
+        public UICollapseHeader onToggle(Runnable onToggle)
+        {
+            this.onToggle = onToggle;
+
+            return this;
+        }
+
+        @Override
+        protected boolean subMouseClicked(UIContext context)
+        {
+            if (this.area.isInside(context) && context.mouseButton == 0)
+            {
+                this.expanded = !this.expanded;
+
+                if (this.onToggle != null)
+                {
+                    this.onToggle.run();
+                }
+
+                return true;
+            }
+
+            return super.subMouseClicked(context);
+        }
+
+        @Override
+        public void render(UIContext context)
+        {
+            boolean hover = this.area.isInside(context);
+            int background = Colors.setA(BBSSettings.primaryColor.get(), hover ? 0.5F : 0.3F);
+            int textHeight = context.batcher.getFont().getHeight();
+
+            context.batcher.box(this.area.x, this.area.y, this.area.ex(), this.area.ey(), background);
+            context.batcher.icon(this.expanded ? Icons.ARROW_DOWN : Icons.ARROW_RIGHT, Colors.WHITE, this.area.x + 4, this.area.my(), 0F, 0.5F);
+            context.batcher.textShadow(this.title.get(), this.area.x + 18, this.area.my() - textHeight / 2, Colors.WHITE);
+
+            super.render(context);
         }
     }
 }

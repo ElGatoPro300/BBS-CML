@@ -3,9 +3,8 @@ package mchorse.bbs_mod.ui.forms.editors.panels.widgets;
 import mchorse.bbs_mod.forms.forms.utils.EffectTransform;
 import mchorse.bbs_mod.ui.UIKeys;
 import mchorse.bbs_mod.ui.framework.elements.UIElement;
-import mchorse.bbs_mod.ui.framework.elements.input.UIAnimatedCollapseShell;
 import mchorse.bbs_mod.ui.framework.elements.input.UIEffectTransformCollapse;
-import mchorse.bbs_mod.ui.framework.elements.input.UIPoseSectionCollapse;
+import mchorse.bbs_mod.ui.framework.elements.input.UIFormDisclosureCollapse;
 import mchorse.bbs_mod.ui.framework.elements.input.UITrackpad;
 import mchorse.bbs_mod.ui.framework.elements.input.keyframes.UIKeyframes;
 import mchorse.bbs_mod.ui.utils.UI;
@@ -18,14 +17,19 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 
 /**
- * Color grade disclosure: closed shows only a slim Color grade bar with arrow;
- * open reveals brightness / contrast / saturation / hue with animated height,
- * each with its own Transform collapse.
+ * Color grade controls: brightness / contrast / saturation / hue in a responsive
+ * grid (4 / 2 / 1 columns from available width). Each channel keeps its Transform
+ * icon; only one transform grid is visible at a time under the channel strip.
+ * <p>
+ * Form editors wrap this in a Color grade disclosure; keyframe panels use
+ * {@linkplain #UIFormColorAdjustments(Supplier, Consumer, boolean) flat mode}
+ * so channels appear directly without the collapsible header.
  */
 public class UIFormColorAdjustments extends UIElement
 {
-    private static final int HEADER_H = 16;
-    private static final int COLOR_GRADE_COLOR = 0xfa0e49;
+    private static final int CHANNEL_GAP = 8;
+    /** Compact enough that four grade channels stay on one row in typical form panels. */
+    private static final int MIN_CHANNEL_WIDTH = 54;
 
     public final UITrackpad brightness;
     public final UITrackpad contrast;
@@ -38,22 +42,29 @@ public class UIFormColorAdjustments extends UIElement
 
     private final Supplier<Color> color;
     private final Consumer<Color> setter;
-    private final UIPoseSectionCollapse.SectionHeader toggle;
-    private final UIAnimatedCollapseShell shell;
-    private boolean expanded;
+    private final boolean collapsible;
+    private final UIFormDisclosureCollapse disclosure;
+    private final GradeChannelsGrid channelsGrid;
+    private final UIEffectTransformCollapse[] gradeTransforms;
+    private UIEffectTransformCollapse activeGradeTransform;
+    /** One automatic Color grade expand per editor session (first Extra open). */
+    private boolean autoExpandPending = true;
 
     public UIFormColorAdjustments(Supplier<Color> color, Consumer<Color> setter)
+    {
+        this(color, setter, true);
+    }
+
+    /**
+     * @param collapsible when false, mounts the channel grid directly (no Color grade header)
+     */
+    public UIFormColorAdjustments(Supplier<Color> color, Consumer<Color> setter, boolean collapsible)
     {
         super();
 
         this.color = color;
         this.setter = setter;
-        this.h(HEADER_H);
-
-        this.toggle = new UIPoseSectionCollapse.SectionHeader((b) -> this.setExpanded(!this.expanded));
-        this.toggle.full(this).h(HEADER_H);
-        this.toggle.setLabel(UIKeys.FORMS_EDITORS_COLOR_GRADE);
-        this.toggle.setTrackColor(COLOR_GRADE_COLOR);
+        this.collapsible = collapsible;
 
         this.brightness = this.createTrackpad(ColorAdjustments.MIN_BRIGHTNESS, ColorAdjustments.MAX_BRIGHTNESS, (value) ->
         {
@@ -96,14 +107,64 @@ public class UIFormColorAdjustments extends UIElement
         this.hue.tooltip(UIKeys.FORMS_EDITORS_COLOR_HUE);
         this.hueTransform = this.createTransform((c) -> c.hueTransform, (c, t) -> c.hueTransform = t);
 
-        this.shell = new UIAnimatedCollapseShell(UI.column(
-            UI.label(UIKeys.FORMS_EDITORS_COLOR_BRIGHTNESS), this.brightness, this.brightnessTransform,
-            UI.label(UIKeys.FORMS_EDITORS_COLOR_CONTRAST), this.contrast, this.contrastTransform,
-            UI.label(UIKeys.FORMS_EDITORS_COLOR_SATURATION), this.saturation, this.saturationTransform,
-            UI.label(UIKeys.FORMS_EDITORS_COLOR_HUE), this.hue, this.hueTransform
-        ));
+        this.gradeTransforms = new UIEffectTransformCollapse[] {
+            this.brightnessTransform, this.contrastTransform, this.saturationTransform, this.hueTransform
+        };
 
-        this.add(this.toggle);
+        for (UIEffectTransformCollapse transform : this.gradeTransforms)
+        {
+            transform.manageOwnShell(false).onToggle(this::toggleGradeTransform);
+        }
+
+        this.brightnessTransform.withLabeledField(UIKeys.FORMS_EDITORS_COLOR_BRIGHTNESS, this.brightness);
+        this.contrastTransform.withLabeledField(UIKeys.FORMS_EDITORS_COLOR_CONTRAST, this.contrast);
+        this.saturationTransform.withLabeledField(UIKeys.FORMS_EDITORS_COLOR_SATURATION, this.saturation);
+        this.hueTransform.withLabeledField(UIKeys.FORMS_EDITORS_COLOR_HUE, this.hue);
+
+        this.channelsGrid = new GradeChannelsGrid(
+            this::refreshOpenShells,
+            this.brightnessTransform,
+            this.contrastTransform,
+            this.saturationTransform,
+            this.hueTransform
+        );
+
+        if (this.collapsible)
+        {
+            this.h(20);
+
+            /* Column body so exclusive Transform shells (siblings after the channel
+               strip) contribute to the Color grade disclosure height / scissor.
+               Attaching directly under the animated shell left the grid clipped. */
+            UIElement gradeBody = new UIElement();
+
+            gradeBody.column(0).vertical().stretch();
+            gradeBody.add(this.channelsGrid);
+
+            this.disclosure = new UIFormDisclosureCollapse(UIKeys.FORMS_EDITORS_COLOR_GRADE, gradeBody)
+            {
+                @Override
+                public void setExpanded(boolean expanded, boolean animate)
+                {
+                    if (!expanded)
+                    {
+                        UIFormColorAdjustments.this.closeActiveGradeTransform();
+                    }
+
+                    super.setExpanded(expanded, animate);
+                }
+            };
+            this.disclosure.shellHost(this);
+            this.disclosure.full(this);
+            this.add(this.disclosure);
+        }
+        else
+        {
+            /* Flat: channel strip + exclusive transform shells as column siblings. */
+            this.disclosure = null;
+            this.column(0).vertical().stretch();
+            this.add(this.channelsGrid);
+        }
     }
 
     public void registerUndo(UIKeyframes editor)
@@ -150,58 +211,100 @@ public class UIFormColorAdjustments extends UIElement
 
     public void setExpanded(boolean expanded)
     {
-        if (this.expanded == expanded && this.shell.isOpen() == expanded)
+        if (this.disclosure != null)
+        {
+            this.disclosure.setExpanded(expanded);
+        }
+    }
+
+    public void setExpanded(boolean expanded, boolean animate)
+    {
+        if (this.disclosure != null)
+        {
+            this.disclosure.setExpanded(expanded, animate);
+        }
+    }
+
+    /**
+     * Expand Color grade once per editor session (typically the first time Extra opens).
+     * Opens instantly so Extra can measure the nested height before its own animation.
+     */
+    public void tryAutoExpandOnce()
+    {
+        if (!this.collapsible || !this.autoExpandPending)
         {
             return;
         }
 
-        this.shell.setExpanded(expanded, this);
-
-        this.expanded = this.shell.isOpen() || (expanded && this.shell.isAnimating());
-        this.toggle.setLabel(UIKeys.FORMS_EDITORS_COLOR_GRADE);
-        this.toggle.setExpanded(this.expanded);
+        this.autoExpandPending = false;
+        this.setExpanded(true, false);
     }
 
-    public boolean isExpanded()
+    /**
+     * Called when the owning editor reloads (e.g. startEdit / syncFromForm) so the
+     * next Extra open can auto-expand Color grade again.
+     */
+    public void prepareSession()
     {
-        return this.expanded || this.shell.isOpen();
+        this.autoExpandPending = true;
     }
 
-    public void saveCollapseState(CollapseState state)
+    private void toggleGradeTransform(UIEffectTransformCollapse source)
     {
-        if (state == null)
+        if (source.isExpanded())
+        {
+            source.setExpanded(false);
+            source.setShellExpanded(false, this.channelsGrid);
+
+            if (this.activeGradeTransform == source)
+            {
+                this.activeGradeTransform = null;
+            }
+
+            this.refreshOpenShells();
+
+            return;
+        }
+
+        /* Switching between transforms: snap both shells so two grids never
+           animate on screen at once. First open / last close keep animation. */
+        boolean switching = this.activeGradeTransform != null && this.activeGradeTransform != source;
+
+        if (switching)
+        {
+            this.activeGradeTransform.setExpanded(false);
+            this.activeGradeTransform.setShellExpanded(false, this.channelsGrid, false);
+        }
+
+        source.setExpanded(true);
+        source.setShellExpanded(true, this.channelsGrid, !switching);
+        this.activeGradeTransform = source;
+        this.refreshOpenShells();
+    }
+
+    private void closeActiveGradeTransform()
+    {
+        if (this.activeGradeTransform == null)
         {
             return;
         }
 
-        state.gradeOpen = this.isExpanded();
-        state.brightnessTransformOpen = this.brightnessTransform.isExpanded();
-        state.contrastTransformOpen = this.contrastTransform.isExpanded();
-        state.saturationTransformOpen = this.saturationTransform.isExpanded();
-        state.hueTransformOpen = this.hueTransform.isExpanded();
+        this.activeGradeTransform.setExpanded(false);
+        this.activeGradeTransform.setShellExpanded(false, this.channelsGrid, false);
+        this.activeGradeTransform = null;
     }
 
-    public void restoreCollapseState(CollapseState state)
+    private void refreshOpenShells()
     {
-        if (state == null)
+        if (this.activeGradeTransform != null && this.activeGradeTransform.isExpanded())
         {
-            return;
+            this.activeGradeTransform.getShell().queueRemeasure();
         }
 
-        this.setExpanded(state.gradeOpen);
-        this.brightnessTransform.setExpanded(state.brightnessTransformOpen);
-        this.contrastTransform.setExpanded(state.contrastTransformOpen);
-        this.saturationTransform.setExpanded(state.saturationTransformOpen);
-        this.hueTransform.setExpanded(state.hueTransformOpen);
-    }
-
-    public static final class CollapseState
-    {
-        public boolean gradeOpen;
-        public boolean brightnessTransformOpen;
-        public boolean contrastTransformOpen;
-        public boolean saturationTransformOpen;
-        public boolean hueTransformOpen;
+        if (this.disclosure != null && this.disclosure.isExpanded() && this.disclosure.getShell().isOpen())
+        {
+            this.disclosure.getShell().queueRemeasure();
+        }
     }
 
     private UIEffectTransformCollapse createTransform(Function<Color, EffectTransform> getter, BiConsumer<Color, EffectTransform> assign)
@@ -243,5 +346,112 @@ public class UIFormColorAdjustments extends UIElement
         this.contrastTransform.setEffectTransform(value.contrastTransform);
         this.saturationTransform.setEffectTransform(value.saturationTransform);
         this.hueTransform.setEffectTransform(value.hueTransform);
+    }
+
+    /**
+     * Lays out grade channel cells in 4 / 2 / 1 columns from available width.
+     */
+    private static class GradeChannelsGrid extends UIElement
+    {
+        private final UIElement[] cells;
+        private final Runnable onLayoutChanged;
+        private int columns = -1;
+        private int lastWidth = -1;
+
+        private GradeChannelsGrid(Runnable onLayoutChanged, UIElement... cells)
+        {
+            super();
+
+            this.onLayoutChanged = onLayoutChanged;
+            this.cells = cells;
+            this.column(5).vertical().stretch();
+            this.columns = 4;
+            this.rebuildRows();
+        }
+
+        @Override
+        public void resize()
+        {
+            int width = this.resolveWidth();
+            int nextColumns = this.resolveColumns(width);
+            boolean columnsChanged = nextColumns != this.columns;
+            boolean widthChanged = this.lastWidth >= 0 && Math.abs(width - this.lastWidth) > 1;
+
+            if (columnsChanged)
+            {
+                this.columns = nextColumns;
+                this.rebuildRows();
+            }
+
+            super.resize();
+
+            this.lastWidth = this.area.w > 0 ? this.area.w : width;
+
+            if ((columnsChanged || widthChanged) && this.onLayoutChanged != null)
+            {
+                this.onLayoutChanged.run();
+            }
+        }
+
+        private int resolveWidth()
+        {
+            if (this.area.w > 0)
+            {
+                return this.area.w;
+            }
+
+            UIElement parent = this.getParent();
+
+            while (parent != null)
+            {
+                if (parent.area.w > 0)
+                {
+                    return parent.area.w;
+                }
+
+                parent = parent.getParent();
+            }
+
+            return 0;
+        }
+
+        private int resolveColumns(int width)
+        {
+            if (width <= 0)
+            {
+                return 4;
+            }
+
+            int four = MIN_CHANNEL_WIDTH * 4 + CHANNEL_GAP * 3;
+            int two = MIN_CHANNEL_WIDTH * 2 + CHANNEL_GAP;
+
+            if (width >= four)
+            {
+                return 4;
+            }
+
+            if (width >= two)
+            {
+                return 2;
+            }
+
+            return 1;
+        }
+
+        private void rebuildRows()
+        {
+            this.removeAll();
+
+            for (int i = 0; i < this.cells.length; i += this.columns)
+            {
+                int count = Math.min(this.columns, this.cells.length - i);
+                UIElement[] row = new UIElement[count];
+
+                System.arraycopy(this.cells, i, row, 0, count);
+                this.add(UI.row(CHANNEL_GAP, row));
+            }
+
+            this.getFlex().h.reset();
+        }
     }
 }

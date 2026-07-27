@@ -79,7 +79,6 @@ import mchorse.bbs_mod.settings.ui.UIValueMap;
 import mchorse.bbs_mod.settings.values.IValueListener;
 import mchorse.bbs_mod.text.RtlFontManager;
 import mchorse.bbs_mod.ui.UIKeys;
-import mchorse.bbs_mod.utils.iris.IrisUtils;
 import mchorse.bbs_mod.ui.dashboard.UIDashboard;
 import mchorse.bbs_mod.ui.dashboard.WorldPropertiesHelper;
 import mchorse.bbs_mod.ui.dashboard.panels.UIDashboardPanel;
@@ -100,7 +99,6 @@ import mchorse.bbs_mod.ui.utils.Gizmo;
 import mchorse.bbs_mod.ui.utils.icons.Icons;
 import mchorse.bbs_mod.ui.utils.keys.KeyCombo;
 import mchorse.bbs_mod.ui.utils.keys.KeybindSettings;
-import mchorse.bbs_mod.utils.iris.ShaderOpacityPatch;
 import mchorse.bbs_mod.utils.MathUtils;
 import mchorse.bbs_mod.utils.RecentAssetsTracker;
 import mchorse.bbs_mod.utils.ScreenshotRecorder;
@@ -108,6 +106,8 @@ import mchorse.bbs_mod.utils.VideoRecorder;
 import mchorse.bbs_mod.utils.colors.Color;
 import mchorse.bbs_mod.utils.colors.Colors;
 import mchorse.bbs_mod.utils.interps.Interpolations;
+import mchorse.bbs_mod.utils.iris.IrisUtils;
+import mchorse.bbs_mod.utils.iris.ShaderOpacityPatch;
 import mchorse.bbs_mod.utils.resources.MinecraftSourcePack;
 
 import net.fabricmc.api.ClientModInitializer;
@@ -567,7 +567,7 @@ public class BBSModClient implements ClientModInitializer
         if (BBSSettings.shaderShadowOpacity != null)
         {
             BBSSettings.shaderShadowOpacity.postCallback((v, f) ->
-                mchorse.bbs_mod.utils.iris.ShaderOpacityPatch.syncShadowOpacityDefault());
+                ShaderOpacityPatch.syncShadowOpacityDefault());
         }
 
         if (BBSSettings.worldGammaPercent != null)
@@ -745,7 +745,8 @@ public class BBSModClient implements ClientModInitializer
         });
 
         /* Soft-opacity forms wait until water/lava/portals are drawn; flush here (not inside
-         * renderLayer) so WorldRenderer's pose stack stays balanced. */
+         * renderLayer) so WorldRenderer's pose stack stays balanced. Under Iris this also
+         * runs after pack cloud composite; vanilla holds until LAST (after vanilla clouds). */
         WorldRenderEvents.AFTER_TRANSLUCENT.register((context) ->
         {
             ShaderOpacityPatch.onAfterTranslucentTerrain();
@@ -753,7 +754,11 @@ public class BBSModClient implements ClientModInitializer
 
         WorldRenderEvents.LAST.register((context) ->
         {
-            mchorse.bbs_mod.graphics.Draw.flushIrisBoxes();
+            /* Vanilla only: soft forms deferred past AFTER_TRANSLUCENT so clouds are not
+             * depth-occluded. Iris already flushed; paint overlays still run at world end. */
+            ShaderOpacityPatch.onAfterVanillaClouds();
+
+            Draw.flushIrisBoxes();
 
             /* After clouds / translucents / model blocks so selection+gizmos stay on top. */
             mchorse.bbs_mod.client.StructurePickerRenderer.render(context);
@@ -868,10 +873,8 @@ public class BBSModClient implements ClientModInitializer
             {
                 UIDashboard dashboard = getDashboard();
 
-                /* Select Morphing before open so onOpen does not briefly apply
-                 * Spectator from a leftover Film / Model Block panel. */
-                dashboard.setPanel(dashboard.getPanel(UIMorphingPanel.class));
                 UIScreen.open(dashboard);
+                dashboard.setPanel(dashboard.getPanel(UIMorphingPanel.class));
             }
             while (keyDemorph.wasPressed()) ClientNetwork.sendPlayerForm(null);
             while (keyTeleport.wasPressed()) this.keyTeleport();

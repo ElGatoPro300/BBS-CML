@@ -2,6 +2,7 @@ package mchorse.bbs_mod.utils.pose;
 
 import mchorse.bbs_mod.data.types.BaseType;
 import mchorse.bbs_mod.data.types.MapType;
+import mchorse.bbs_mod.forms.forms.utils.EffectTransform;
 import mchorse.bbs_mod.forms.forms.utils.PaintSettings;
 import mchorse.bbs_mod.resources.Link;
 import mchorse.bbs_mod.utils.MathUtils;
@@ -25,10 +26,13 @@ public class PoseTransform extends Transform
     public final Color glowingColor = new Color().set(1F, 1F, 1F, 1F);
     public float glowIntensity;
     public float glowRadius;
-    /** Per-bone fade (0…1), same role as form {@code opacity}. Default fully opaque. */
-    public float opacity = 1F;
     public float lighting;
     public float shaderShadow = PaintSettings.SHADER_SHADOW_DEFAULT;
+    /**
+     * Soft limb opacity tradeoff (same meaning as form Color noshading): when true and this
+     * bone (or the form) is soft, redraw via the BBS deferred queue after paint.
+     */
+    public boolean noshadingOpacity;
     public Link texture;
     public Link textureBlendTo;
     public float textureBlend = 1F;
@@ -52,13 +56,20 @@ public class PoseTransform extends Transform
 
         this.fix = 0F;
         this.color.set(Colors.WHITE);
+        this.color.transform = new EffectTransform();
+        this.color.brightnessTransform = new EffectTransform();
+        this.color.contrastTransform = new EffectTransform();
+        this.color.hueTransform = new EffectTransform();
+        this.color.saturationTransform = new EffectTransform();
         this.paintColor.set(1F, 1F, 1F, 0F);
+        this.paintColor.transform = new EffectTransform();
         this.glowingColor.set(1F, 1F, 1F, 1F);
+        this.glowingColor.transform = new EffectTransform();
         this.glowIntensity = 0F;
         this.glowRadius = 0F;
-        this.opacity = 1F;
         this.lighting = 0F;
         this.shaderShadow = PaintSettings.SHADER_SHADOW_DEFAULT;
+        this.noshadingOpacity = false;
         this.texture = null;
         this.textureBlendTo = null;
         this.textureBlend = 1F;
@@ -81,7 +92,6 @@ public class PoseTransform extends Transform
 
             this.glowIntensity = Lerps.lerp(this.glowIntensity, pose.glowIntensity, a);
             this.glowRadius = Lerps.lerp(this.glowRadius, pose.glowRadius, a);
-            this.opacity = Lerps.lerp(this.opacity, pose.opacity, a);
             this.lighting = Lerps.lerp(this.lighting, pose.lighting, a);
             this.shaderShadow = Lerps.lerp(this.shaderShadow, pose.shaderShadow, a);
             this.textureBlend = Lerps.lerp(this.textureBlend, pose.textureBlend, a);
@@ -116,9 +126,9 @@ public class PoseTransform extends Transform
 
             this.glowIntensity = (float) interp.interpolate(IInterp.context.set(preA1.glowIntensity, a1.glowIntensity, b1.glowIntensity, postB1.glowIntensity, x));
             this.glowRadius = (float) interp.interpolate(IInterp.context.set(preA1.glowRadius, a1.glowRadius, b1.glowRadius, postB1.glowRadius, x));
-            this.opacity = (float) interp.interpolate(IInterp.context.set(preA1.opacity, a1.opacity, b1.opacity, postB1.opacity, x));
             this.lighting = (float) interp.interpolate(IInterp.context.set(preA1.lighting, a1.lighting, b1.lighting, postB1.lighting, x));
             this.shaderShadow = (float) interp.interpolate(IInterp.context.set(preA1.shaderShadow, a1.shaderShadow, b1.shaderShadow, postB1.shaderShadow, x));
+            this.noshadingOpacity = x >= 0.5F ? b1.noshadingOpacity : a1.noshadingOpacity;
             this.textureBlend = (float) interp.interpolate(IInterp.context.set(preA1.textureBlend, a1.textureBlend, b1.textureBlend, postB1.textureBlend, x));
         }
     }
@@ -156,9 +166,9 @@ public class PoseTransform extends Transform
 
             this.glowIntensity = this.interpolate(preA1.glowIntensity, a1.glowIntensity, b1.glowIntensity, postB1.glowIntensity, x, interp, args, preA == a, postB == b, w0, w1, w2, w3);
             this.glowRadius = this.interpolate(preA1.glowRadius, a1.glowRadius, b1.glowRadius, postB1.glowRadius, x, interp, args, preA == a, postB == b, w0, w1, w2, w3);
-            this.opacity = this.interpolate(preA1.opacity, a1.opacity, b1.opacity, postB1.opacity, x, interp, args, preA == a, postB == b, w0, w1, w2, w3);
             this.lighting = this.interpolate(preA1.lighting, a1.lighting, b1.lighting, postB1.lighting, x, interp, args, preA == a, postB == b, w0, w1, w2, w3);
             this.shaderShadow = this.interpolate(preA1.shaderShadow, a1.shaderShadow, b1.shaderShadow, postB1.shaderShadow, x, interp, args, preA == a, postB == b, w0, w1, w2, w3);
+            this.noshadingOpacity = x >= 0.5F ? b1.noshadingOpacity : a1.noshadingOpacity;
             this.textureBlend = this.interpolate(preA1.textureBlend, a1.textureBlend, b1.textureBlend, postB1.textureBlend, x, interp, args, preA == a, postB == b, w0, w1, w2, w3);
         }
     }
@@ -194,9 +204,9 @@ public class PoseTransform extends Transform
             result = result && this.glowingColor.equals(poseTransform.glowingColor);
             result = result && this.glowIntensity == poseTransform.glowIntensity;
             result = result && this.glowRadius == poseTransform.glowRadius;
-            result = result && this.opacity == poseTransform.opacity;
             result = result && this.lighting == poseTransform.lighting;
             result = result && this.shaderShadow == poseTransform.shaderShadow;
+            result = result && this.noshadingOpacity == poseTransform.noshadingOpacity;
             result = result && this.textureBlend == poseTransform.textureBlend;
             result = result && ((this.texture == null && poseTransform.texture == null) || (this.texture != null && this.texture.equals(poseTransform.texture)));
             result = result && ((this.textureBlendTo == null && poseTransform.textureBlendTo == null) || (this.textureBlendTo != null && this.textureBlendTo.equals(poseTransform.textureBlendTo)));
@@ -227,9 +237,9 @@ public class PoseTransform extends Transform
             this.glowingColor.a = 1F;
             this.glowIntensity = poseTransform.glowIntensity;
             this.glowRadius = poseTransform.glowRadius;
-            this.opacity = poseTransform.opacity;
             this.lighting = poseTransform.lighting;
             this.shaderShadow = poseTransform.shaderShadow;
+            this.noshadingOpacity = poseTransform.noshadingOpacity;
             this.texture = LinkUtils.copy(poseTransform.texture);
             this.textureBlendTo = LinkUtils.copy(poseTransform.textureBlendTo);
             this.textureBlend = poseTransform.textureBlend;
@@ -249,14 +259,14 @@ public class PoseTransform extends Transform
         data.putInt("glowing_color", this.glowingColor.getRGBColor());
         data.putFloat("glow_intensity", this.glowIntensity);
         data.putFloat("glow_radius", this.glowRadius);
-        if (this.opacity != 1F)
-        {
-            data.putFloat("opacity", this.opacity);
-        }
         data.putFloat("lighting", this.lighting);
         if (this.shaderShadow != PaintSettings.SHADER_SHADOW_DEFAULT)
         {
             data.putFloat("shader_shadow", this.shaderShadow);
+        }
+        if (this.noshadingOpacity)
+        {
+            data.putBool("noshading_opacity", true);
         }
         if (this.texture != null)
         {
@@ -297,7 +307,6 @@ public class PoseTransform extends Transform
         }
 
         this.glowRadius = data.getFloat("glow_radius");
-        this.opacity = data.has("opacity") ? MathUtils.clamp(data.getFloat("opacity"), 0F, 1F) : 1F;
 
         this.lighting = data.getFloat("lighting");
         if (data.has("shader_shadow"))
@@ -308,6 +317,7 @@ public class PoseTransform extends Transform
         {
             this.shaderShadow = PaintSettings.SHADER_SHADOW_DEFAULT;
         }
+        this.noshadingOpacity = data.getBool("noshading_opacity", false);
         if (data.has("texture"))
         {
             this.texture = LinkUtils.create(data.get("texture"));

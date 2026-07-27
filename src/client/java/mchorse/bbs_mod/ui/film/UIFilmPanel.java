@@ -1940,12 +1940,7 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
 
             handle.dragEnd(() -> this.setupEditorFlex(true, false, false));
             handle.rendering((context) -> this.renderSplitter(context, index));
-
-            EditorLayoutNode.SplitterHandleInfo info = this.splitterHandleInfos.get(index);
-            int resizeCursor = info.horizontal ? GLFW.GLFW_VRESIZE_CURSOR : GLFW.GLFW_HRESIZE_CURSOR;
-
-            handle.cursors(resizeCursor, resizeCursor);
-            this.applySplitterHandleBounds(handle, info);
+            this.applySplitterHandleBounds(handle, this.splitterHandleInfos.get(index));
             this.splitterHandles.add(handle);
 
             this.editor.add(handle);
@@ -2520,17 +2515,8 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
     {
         UITabBar tabBar = this.tabReorderTabBar != null ? this.tabReorderTabBar : this.findTabBarForPanel(panelId);
 
-        /* layoutTabs parks the dragged tab at (bar.x - 1000) so tab.area.x must not
-           drive dragOffsetX — that clamps the floating window to the left edge. */
-        int grabW = Math.max(this.tabReorderGapW, 40);
-
-        this.dragOffsetX = grabW / 2;
-        this.dragOffsetY = 10;
-
         if (tabBar != null)
         {
-            this.dragOffsetY = Math.max(0, mouseY - tabBar.area.y);
-
             for (IUIElement child : tabBar.getChildren())
             {
                 if (child instanceof UITab)
@@ -2539,9 +2525,7 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
 
                     if (tab.getPanelId().equals(panelId))
                     {
-                        grabW = Math.max(tab.area.w, 40);
-                        this.dragOffsetX = grabW / 2;
-                        /* tab.area.y is still valid while x is parked off-screen */
+                        this.dragOffsetX = mouseX - tab.area.x;
                         this.dragOffsetY = mouseY - tab.area.y;
                         break;
                     }
@@ -2695,27 +2679,6 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
         if (root == null || !this.hasAnyDockedVisiblePanel())
         {
             return new EditorLayoutNode.PanelNode(draggedId);
-        }
-
-        /* Outer left/right: wrap the whole tree so the panel becomes a full-height column
-           (same idea as Viewport on the right in vertical layouts). */
-        if (zone == EditorLayoutNode.EDGE_LEFT || zone == EditorLayoutNode.EDGE_RIGHT)
-        {
-            EditorLayoutNode body = EditorLayoutNode.copyWithRemovedLeaf(root, draggedId);
-
-            if (body == null)
-            {
-                body = root;
-            }
-
-            EditorLayoutNode column = new EditorLayoutNode.PanelNode(draggedId);
-
-            if (zone == EditorLayoutNode.EDGE_LEFT)
-            {
-                return new EditorLayoutNode.SplitterNode(false, 0.28F, column, body);
-            }
-
-            return new EditorLayoutNode.SplitterNode(false, 0.72F, body, column);
         }
 
         String target = this.getWorkspaceEdgeTargetPanelId(zone);
@@ -3281,16 +3244,8 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
     {
         String activeDragId = this.draggingPanelId != null ? this.draggingPanelId : this.activeDraggingFloatingPanelId;
 
-        /* Outer left/right strip wins first: full-height column dock (Viewport-style).
-           Narrow band so it does not fight inner panel dock cubes. */
-        DropIntent outerColumn = this.resolveOuterVerticalColumnIntent(mouseX, mouseY);
-
-        if (outerColumn != null)
-        {
-            return outerColumn;
-        }
-
-        /* Per-panel dock cubes: the window docks to the marker you're aiming at. */
+        /* Per-panel dock cubes take priority: the window docks to the marker you're aiming at,
+           not to a screen border just because the cursor drifted near one. */
         for (Map.Entry<String, UIElement> entry : this.panelById.entrySet())
         {
             if (!this.isDockDropTargetId(entry.getKey())) continue;
@@ -3890,29 +3845,6 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
         return null;
     }
 
-    private DropIntent resolveOuterVerticalColumnIntent(int mouseX, int mouseY)
-    {
-        if (!this.editor.area.isInside(mouseX, mouseY))
-        {
-            return null;
-        }
-
-        /* Narrow outer strip — only the far left/right of the workspace. */
-        int margin = Math.max(18, Math.min(28, this.editor.area.w / 40));
-
-        if (mouseX <= this.editor.area.x + margin)
-        {
-            return new DropIntent(DROP_TARGET_WORKSPACE, EditorLayoutNode.EDGE_LEFT);
-        }
-
-        if (mouseX >= this.editor.area.ex() - margin)
-        {
-            return new DropIntent(DROP_TARGET_WORKSPACE, EditorLayoutNode.EDGE_RIGHT);
-        }
-
-        return null;
-    }
-
     private DropIntent resolveWorkspaceDropIntent(int mouseX, int mouseY)
     {
         if (!this.editor.area.isInside(mouseX, mouseY))
@@ -3923,8 +3855,15 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
         int margin = Math.max(34, Math.min(72, Math.min(this.editor.area.w, this.editor.area.h) / 10));
         int zone = Integer.MIN_VALUE;
 
-        /* Left/right full-height docks are handled by resolveOuterVerticalColumnIntent. */
-        if (mouseY <= this.editor.area.y + margin)
+        if (mouseX <= this.editor.area.x + margin)
+        {
+            zone = EditorLayoutNode.EDGE_LEFT;
+        }
+        else if (mouseX >= this.editor.area.ex() - margin)
+        {
+            zone = EditorLayoutNode.EDGE_RIGHT;
+        }
+        else if (mouseY <= this.editor.area.y + margin)
         {
             zone = EditorLayoutNode.EDGE_TOP;
         }
@@ -4616,18 +4555,10 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
             return;
         }
 
-        /* Snapping to a whole-workspace edge: full-height column for left/right, cube for top/bottom. */
+        /* Snapping to a whole-workspace edge: show just that single edge guide. */
         if (DROP_TARGET_WORKSPACE.equals(this.dropTargetPanelId))
         {
-            if (this.dropTargetZone == EditorLayoutNode.EDGE_LEFT || this.dropTargetZone == EditorLayoutNode.EDGE_RIGHT)
-            {
-                this.renderWorkspaceFullHeightStrip(context, this.dropTargetZone, true);
-            }
-            else
-            {
-                this.renderDockGuideZone(context, this.editor.area, this.dropTargetZone, true);
-            }
-
+            this.renderDockGuideZone(context, this.editor.area, this.dropTargetZone, true);
             this.renderDropPreviewLayout(context);
 
             return;
@@ -4666,37 +4597,6 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
         }
 
         this.renderDropPreviewLayout(context);
-    }
-
-    private void renderWorkspaceFullHeightStrip(UIContext context, int zone, boolean active)
-    {
-        Area area = this.editor.area;
-        int stripW = Math.max(56, Math.min(140, area.w / 5));
-        int x1;
-        int x2;
-
-        if (zone == EditorLayoutNode.EDGE_LEFT)
-        {
-            x1 = area.x;
-            x2 = area.x + stripW;
-        }
-        else
-        {
-            x1 = area.ex() - stripW;
-            x2 = area.ex();
-        }
-
-        int baseColor = BBSSettings.primaryColor.get();
-        int fill = Colors.setA(baseColor, active ? 0.38F : 0.2F);
-        int border = active ? 0xFFFFFFFF : (0xFF000000 | baseColor);
-
-        context.batcher.box(x1, area.y, x2, area.ey(), fill);
-        context.batcher.outline(x1, area.y, x2, area.ey(), border);
-
-        if (active)
-        {
-            context.batcher.outline(x1 - 1, area.y - 1, x2 + 1, area.ey() + 1, 0x66FFFFFF);
-        }
     }
 
     private String resolveDockGuidePanelId(int mouseX, int mouseY, String activeDragId)
@@ -4947,11 +4847,6 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
             : (active ? (0xFF000000 | BBSSettings.primaryColor.get()) : 0xAA666666);
         int linePx = minecut ? 1 : 2;
         int half = linePx / 2;
-
-        if (active)
-        {
-            context.requestCursor(info.horizontal ? GLFW.GLFW_VRESIZE_CURSOR : GLFW.GLFW_HRESIZE_CURSOR);
-        }
 
         if (info.horizontal)
         {
