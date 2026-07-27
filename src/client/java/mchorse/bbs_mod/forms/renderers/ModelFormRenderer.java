@@ -1216,21 +1216,20 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
                 if (!softBones.isEmpty())
                 {
                     float softGateAlpha = formOpacityAlpha * boneOpacityAlpha;
-                    boolean softNoshading = this.form.noshadingOpacity.get() || this.hasAnyBoneNoshadingOpacity(model);
-                    boolean softNoshadingQueue = !limbOnlySoftImmediate && softNoshading
-                        && BBSRendering.needsIrisNoshadingOpacityDeferral(softGateAlpha, true);
-                    boolean irisCamera = !limbOnlySoftImmediate
-                        && BBSRendering.isIrisWorldModelPass() && !bbsModelShader && !softNoshadingQueue;
-                    Matrix4f softPositionMatrix = (irisCamera || limbOnlySoftImmediate)
-                        ? new Matrix4f(newStack.peek().getPositionMatrix())
+                    /* Capture both Iris (entity-local) and BBS (MV-baked) roots — mixed soft
+                     * limbs may split: noshading bones → BBS queue, others → Iris post-deferred. */
+                    Matrix4f softStackLocal = new Matrix4f(newStack.peek().getPositionMatrix());
+                    Matrix4f softStackBbs = limbOnlySoftImmediate
+                        ? softStackLocal
                         : ModelVAORenderer.capturePaintOverlayRootMatrix(new Matrix4f(newStack.peek().getPositionMatrix()));
                     Matrix3f softNormalMatrix = new Matrix3f(newStack.peek().getNormalMatrix());
-                    /* Model blocks / preview: lengthSq on the draw root (camera-relative stack).
-                     * Film ENTITY: Euclidean camera↔bone in renderContext.world (absolute). Do
-                     * not use view ±z — Y180 / relative rotation flips the painter sign. */
-                    Matrix4f softSortMatrix = limbOnlySoftImmediate
-                        ? new Matrix4f(newStack.peek().getPositionMatrix())
-                        : softPositionMatrix;
+                    boolean formNoshading = this.form.noshadingOpacity.get();
+                    boolean canIrisSoftPath = !limbOnlySoftImmediate
+                        && BBSRendering.isIrisWorldModelPass()
+                        && !bbsModelShader;
+                    /* Model blocks / preview: lengthSq on the entity draw stack.
+                     * Film ENTITY: look-axis depth in renderContext.world (absolute). */
+                    Matrix4f softSortMatrix = softStackLocal;
                     boolean filmWorldSoftSort = !limbOnlySoftImmediate
                         && renderContext != null
                         && renderContext.type == FormRenderType.ENTITY
@@ -1284,9 +1283,8 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
                     boolean softDepthWrite = softBones.size() <= 1
                         && ShaderOpacityPatch.shouldWriteDepthForOpacity(softGateAlpha);
                     boolean softAfterFluids = ShaderOpacityPatch.shouldFlushAfterFluids(softGateAlpha);
-                    Supplier<ShaderProgram> softProgram = ((irisCamera || limbOnlySoftImmediate) && !softGradeActive)
-                        ? program
-                        : BBSShaders::getModel;
+                    Supplier<ShaderProgram> softIrisProgram = (!softGradeActive) ? program : BBSShaders::getModel;
+                    Supplier<ShaderProgram> softBbsProgram = BBSShaders::getModel;
                     double entityDistanceSq = 0D;
 
                     softColorSnapshot.a = formOpacityAlpha;
@@ -1340,8 +1338,13 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
                         double softDistanceSq = filmWorldSortMatrix != null
                             ? this.softBoneWorldDepthKey(softBone.id, filmWorldSortMatrix, cameraX, cameraY, cameraZ, cameraLook, entityDistanceSq)
                             : this.softBoneDistanceSq(softBone.id, softSortMatrix, entityDistanceSq);
+                        boolean boneNoshading = formNoshading || softBone.noshadingOpacity;
+                        float boneGateAlpha = formOpacityAlpha * (softBone.color == null ? 1F : softBone.color.a);
+                        boolean boneNoshadingQueue = canIrisSoftPath
+                            && BBSRendering.needsIrisNoshadingOpacityDeferral(boneGateAlpha, boneNoshading);
+                        boolean boneIrisCamera = canIrisSoftPath && !boneNoshadingQueue;
 
-                        softSubmits.add(new SoftBoneSubmit(softBone, softDistanceSq));
+                        softSubmits.add(new SoftBoneSubmit(softBone, softDistanceSq, boneNoshadingQueue, boneIrisCamera));
                     }
 
                     /* Farther first: helps noshading queue (no distance sort); Iris flush re-sorts. */
@@ -1353,6 +1356,14 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
                     {
                         ModelGroup softBone = softSubmit.group;
                         double softDistanceSq = softSubmit.distanceSq;
+                        boolean boneNoshadingQueue = softSubmit.noshadingQueue;
+                        boolean boneIrisCamera = softSubmit.irisCamera;
+                        Matrix4f softPositionMatrix = (boneIrisCamera || limbOnlySoftImmediate)
+                            ? softStackLocal
+                            : softStackBbs;
+                        Supplier<ShaderProgram> softProgram = (boneIrisCamera || limbOnlySoftImmediate)
+                            ? softIrisProgram
+                            : softBbsProgram;
                         Runnable softDeferredDraw = () ->
                         {
                             this.applyOverlayPosePipeline(target, model, softTransitionSnapshot, softPoseSnapshot, softBaseTransformSnapshot);
@@ -1440,11 +1451,11 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
                                 RenderSystem.depthMask(softDepthMaskSaved);
                             }
                         }
-                        else if (softNoshadingQueue)
+                        else if (boneNoshadingQueue)
                         {
                             ModelVAORenderer.submitDeferredTranslucentModel(softDeferredDraw, softDepthWrite);
                         }
-                        else if (irisCamera)
+                        else if (boneIrisCamera)
                         {
                             ShaderOpacityPatch.submitPostDeferredForm(0D, softDistanceSq, softDepthWrite, softAfterFluids, softDeferredDraw);
                         }
@@ -2618,11 +2629,15 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
     {
         private final ModelGroup group;
         private final double distanceSq;
+        private final boolean noshadingQueue;
+        private final boolean irisCamera;
 
-        private SoftBoneSubmit(ModelGroup group, double distanceSq)
+        private SoftBoneSubmit(ModelGroup group, double distanceSq, boolean noshadingQueue, boolean irisCamera)
         {
             this.group = group;
             this.distanceSq = distanceSq;
+            this.noshadingQueue = noshadingQueue;
+            this.irisCamera = irisCamera;
         }
     }
 

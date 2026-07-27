@@ -137,7 +137,7 @@ Only if Step 1 leaves gaps:
 | Soft limb occludes actors/clouds/billboards behind | **Fixed:** opaque live + soft post-deferred |
 | Soft limb invisible under Iris (any alpha &lt; 255) | **Fixed:** Iris uses camera matrices + `submitPostDeferredForm` (baked BBS MVP was wrong) |
 | Fully transparent limb (alpha 0) still occludes | **Fixed:** drawable bones at alpha ≤ 0.001 are hidden (no depth stamp) |
-| Limb Noshading | Soft limbs with noshading → BBS deferred translucent queue (same tradeoff as form) |
+| Limb Noshading | **Per soft bone:** only that bone uses the BBS noshading queue; other soft limbs stay on Iris post-deferred |
 | Vanilla clouds hidden behind soft actors | **Fixed:** without Iris, soft form/limb flush moves to `WorldRenderEvents.LAST` (after clouds); Iris unchanged |
 
 ## Mixing form-wide + limb transparency
