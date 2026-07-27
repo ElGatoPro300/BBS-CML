@@ -118,7 +118,7 @@ public class UIDocumentTabsBar extends UIControlBar
         if (this.filmStatusIcons != null)
         {
             this.filmStatusIcons.setVisible(show);
-            reserve = show ? UIFilmStatusIcons.WIDTH : 0;
+            reserve = show ? this.filmStatusIcons.getBarWidth() : 0;
 
             int x = this.area.ex() - reserve - RIGHT_PADDING;
 
@@ -914,8 +914,8 @@ public class UIDocumentTabsBar extends UIControlBar
                 return;
             }
 
-            int halo = Colors.setA(BBSSettings.primaryColor.get(), 0.35F);
-            int border = Colors.setA(BBSSettings.primaryColor.get(), 0.65F);
+            int halo = Colors.setA(BBSSettings.accentRgb(), 0.35F);
+            int border = Colors.setA(BBSSettings.accentRgb(), 0.65F);
 
             context.batcher.gradientVBox(this.area.x, this.area.y, this.area.ex(), this.area.ey(), 0, halo);
             context.batcher.outline(this.area.x, this.area.y, this.area.ex(), this.area.ey(), border);

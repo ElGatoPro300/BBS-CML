@@ -132,6 +132,15 @@ public class FormProperties extends ValueGroup
             return;
         }
 
+        /* Expand overlay slots if the setting grew since the form was constructed,
+         * and ensure any overlay keyframe channels still have matching form fields. */
+        form.syncOverlaySlotsFromSettings();
+
+        for (KeyframeChannel value : this.properties.values())
+        {
+            ModelTrackIds.ensureFormProperty(form, value.getId());
+        }
+
         /* First pass: apply standard properties */
         for (KeyframeChannel value : this.properties.values())
         {

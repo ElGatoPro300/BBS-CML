@@ -140,7 +140,7 @@ public class UIWelcomePanel extends UIElement {
             this.buttonYes.y(0F, centerY + (int) buttonOffset);
             this.buttonNo.y(0F, centerY + (int) buttonOffset);
             this.buttonYes.custom = true;
-            this.buttonYes.customColor = Colors.setA(BBSSettings.primaryColor.get(), buttonAlpha);
+            this.buttonYes.customColor = Colors.setA(BBSSettings.accentRgb(), buttonAlpha);
             this.buttonNo.custom = true;
             this.buttonNo.customColor = Colors.setA(0xffd9534f, buttonAlpha);
             this.buttonYes.textColor = Colors.setA(Colors.WHITE, buttonAlpha);

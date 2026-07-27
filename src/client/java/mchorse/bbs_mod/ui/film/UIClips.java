@@ -209,7 +209,7 @@ public class UIClips extends UIElement
             @Override
             protected void renderSkin(UIContext context)
             {
-                int primary = BBSSettings.primaryColor.get();
+                int primary = BBSSettings.accentRgb();
                 /* Match Open Camera Editor highlight colors, but with vertical top->bottom gradient. */
                 context.batcher.box(this.area.x, this.area.y, this.area.ex(), this.area.y + 2, Colors.A100 | primary);
                 context.batcher.gradientVBox(this.area.x, this.area.y + 2, this.area.ex(), this.area.ey(), Colors.A75 | primary, primary);
@@ -992,6 +992,22 @@ public class UIClips extends UIElement
         return (bottom - mouseY) / LAYER_HEIGHT;
     }
 
+    /**
+     * Layer lanes for clip placement / hit-tests: full timeline width between
+     * the ruler and bottom margin (not only the vertical scrollbar strip).
+     */
+    public boolean isClipLayerAreaInside(UIContext context)
+    {
+        if (context == null)
+        {
+            return false;
+        }
+
+        return context.mouseX >= this.area.x && context.mouseX < this.area.ex()
+            && context.mouseY >= this.area.y + RULER_HEIGHT
+            && context.mouseY < this.area.ey() - MARGIN;
+    }
+
     public int toLayerY(int layer)
     {
         int h = LAYER_HEIGHT;
@@ -1296,6 +1312,35 @@ public class UIClips extends UIElement
     public boolean isClipPlacementActive()
     {
         return this.clipPlacement.isActive();
+    }
+
+    /**
+     * Confirm an active clip-placement at the current mouse position (e.g. after
+     * dragging a clip type from the Minecut Media bin onto the timeline).
+     */
+    public boolean confirmClipPlacementAt(UIContext context)
+    {
+        if (!this.clipPlacement.isActive() || context == null)
+        {
+            return false;
+        }
+
+        this.clipPlacement.updatePreview(this, context);
+
+        if (!this.isClipLayerAreaInside(context) || this.getPlacementPreview() == null)
+        {
+            this.cancelClipPlacement();
+
+            return false;
+        }
+
+        int prevButton = context.mouseButton;
+
+        context.mouseButton = 0;
+        boolean handled = this.clipPlacement.handleMouseClicked(this, context);
+        context.mouseButton = prevButton;
+
+        return handled && !this.clipPlacement.isActive();
     }
 
     public boolean isLoopMarkerInteractionActive()
@@ -2482,7 +2527,7 @@ public class UIClips extends UIElement
         protected void renderSkin(UIContext context)
         {
             boolean enabled = this.isEnabled();
-            int primary = BBSSettings.primaryColor.get();
+            int primary = BBSSettings.accentRgb();
             int color = this.active ? primary : 0;
             int iconColor = this.active ? Colors.WHITE : 0xddffffff;
 

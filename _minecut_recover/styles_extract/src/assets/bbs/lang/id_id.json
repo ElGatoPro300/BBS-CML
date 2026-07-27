@@ -1,0 +1,16 @@
+{
+    "block.bbs.model": "Model Blok",
+    "itemGroup.bbs.main": "Mod BBS",
+
+    "key.bbs.dashboard": "Dasbor",
+    "key.bbs.demorph": "Demorph",
+    "key.bbs.open_replays": "Buka rekaman saat ini",
+    "key.bbs.open_morphing": "Buka menu morphing",
+    "key.bbs.play_film": "Putar film",
+    "key.bbs.record_replay": "Rekam ulang rekaman saat ini",
+    "key.bbs.record_video": "Rekam video",
+    "category.bbs.main": "Mod BBS",
+    "command.getskin.success": "Skin diterapkan ke semua pemain",
+    "command.getskin.error": "Kesalahan: %s",
+    "command.getskin.downloading": "Mengunduh skin..."
+}

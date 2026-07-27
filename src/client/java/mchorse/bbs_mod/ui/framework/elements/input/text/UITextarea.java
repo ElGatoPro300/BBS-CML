@@ -1467,7 +1467,7 @@ public class UITextarea <T extends TextLine> extends UIElement implements IFocus
 
     protected void renderBackground(UIContext context)
     {
-        int borderColor = this.focused ? Colors.A100 | BBSSettings.primaryColor.get() : Colors.LIGHTER_GRAY;
+        int borderColor = this.focused ? Colors.A100 | BBSSettings.accentRgb() : Colors.LIGHTER_GRAY;
 
         this.area.render(context.batcher, borderColor);
         this.area.render(context.batcher, Colors.A100, 1);
@@ -1604,7 +1604,7 @@ public class UITextarea <T extends TextLine> extends UIElement implements IFocus
     private void renderSelectionArea(FontRenderer font, UIContext context, int x1, int y1, int x2, int y2)
     {
         final int selectionPad = 2;
-        int color = Colors.A50 | BBSSettings.primaryColor.get();
+        int color = Colors.A50 | BBSSettings.accentRgb();
 
         boolean middle = y2 > y1 + this.lineHeight;
         boolean bottom = y2 > y1;

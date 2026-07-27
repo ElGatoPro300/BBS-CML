@@ -517,6 +517,7 @@ public class BBSModClient implements ClientModInitializer
         BBSMod.events.post(new RegisterStencilMapEvent());
         BBSMod.events.post(new RegisterRayTracingEvent());
         BBSMod.events.post(new RegisterFilmPreviewEvent());
+        BBSMod.events.post(new mchorse.bbs_mod.events.register.RegisterFilmUiAddonEvent());
         BBSMod.events.post(new RegisterReplayListContextMenuEvent());
         BBSMod.events.post(new RegisterReplayPanelEvent());
         screenshotRecorder = new ScreenshotRecorder(new File(parentFile, "screenshots"));
@@ -609,6 +610,35 @@ public class BBSModClient implements ClientModInitializer
             UIKeys.ENGINE_TOOLTIP_STYLE_LIGHT,
             UIKeys.ENGINE_TOOLTIP_STYLE_DARK
         );
+        BBSSettings.uiStyle.modes(UIKeys.ENGINE_UI_STYLE_CLASSIC);
+
+        if (mchorse.bbs_mod.settings.UiStyleCapabilities.isMinecutStyleAvailable()
+            || mchorse.bbs_mod.ui.film.FilmUiCapabilities.hasAddon())
+        {
+            BBSSettings.uiStyle.modes(
+                UIKeys.ENGINE_UI_STYLE_CLASSIC,
+                UIKeys.ENGINE_UI_STYLE_MINECUT
+            );
+        }
+        else if (BBSSettings.uiStyle != null && BBSSettings.uiStyle.get() == 1)
+        {
+            BBSSettings.uiStyle.set(0);
+        }
+
+        BBSSettings.uiStyle.postCallback((v, f) ->
+        {
+            mchorse.bbs_mod.ui.framework.styles.UIStyle.invalidateMinecutCache();
+
+            if (dashboard != null)
+            {
+                UIFilmPanel panel = dashboard.getPanel(UIFilmPanel.class);
+
+                if (panel != null)
+                {
+                    panel.remountForUiStyle();
+                }
+            }
+        });
 
         BBSSettings.replayContextOptions.modes(
             UIKeys.CONFIG_GENERAL_COMPACTED_OPTIONS_DEFAULT,
@@ -920,37 +950,54 @@ public class BBSModClient implements ClientModInitializer
         /* Network */
         ClientNetwork.setup();
 
-        /* Register addons from FabricLoader */
-        FabricLoader.getInstance()
-            .getEntrypointContainers("bbs-addon", BBSAddonMod.class)
-            .forEach((container) ->
+        /* Register addons from FabricLoader (common + client-only entrypoints). */
+        java.util.Set<String> registeredAddonIds = new java.util.HashSet<>();
+
+        java.util.function.Consumer<net.fabricmc.loader.api.entrypoint.EntrypointContainer<BBSAddonMod>> registerCatalog =
+            (container) ->
             {
                 ModMetadata meta = container.getProvider().getMetadata();
                 String id = meta.getId();
+
+                if (!registeredAddonIds.add(id))
+                {
+                    return;
+                }
+
                 String name = meta.getName();
                 String version = meta.getVersion().getFriendlyString();
                 String description = meta.getDescription();
                 List<String> authors = meta.getAuthors().stream().map(Person::getName).toList();
-                
+
                 Link icon = null;
                 Optional<String> iconPath = meta.getIconPath(64);
+
                 if (iconPath.isPresent())
                 {
                     String path = iconPath.get();
+
                     if (path.startsWith("assets/"))
                     {
                         String relative = path.substring("assets/".length());
+
                         icon = new Link("mod_icons", relative);
                     }
                 }
-                
+
                 ContactInformation contact = meta.getContact();
                 String website = contact.get("homepage").orElse("");
                 String issues = contact.get("issues").orElse("");
                 String source = contact.get("sources").orElse("");
 
                 registerAddon(new AddonInfo(id, name, version, description, authors, icon, website, issues, source));
-            });
+            };
+
+        FabricLoader.getInstance()
+            .getEntrypointContainers("bbs-addon", BBSAddonMod.class)
+            .forEach(registerCatalog);
+        FabricLoader.getInstance()
+            .getEntrypointContainers("bbs-addon-client", BBSAddonMod.class)
+            .forEach(registerCatalog);
 
         /* Entity renderers */
         EntityRendererRegistry.register(BBSMod.ACTOR_ENTITY, ActorEntityRenderer::new);

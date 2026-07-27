@@ -622,6 +622,150 @@ public abstract class Form extends ValueGroup
     }
 
     /**
+     * Ensure {@code transform_overlay} ({@code numberedIndex < 0}) or {@code transform_overlayN}
+     * exists for Minecut drag-drop stacking beyond the global recording overlay count.
+     */
+    public ValueTransform ensureTransformOverlay(int numberedIndex)
+    {
+        if (numberedIndex < 0)
+        {
+            return this.transformOverlay;
+        }
+
+        while (this.additionalTransforms.size() <= numberedIndex)
+        {
+            int i = this.additionalTransforms.size();
+            ValueTransform valueTransform = new ValueTransform("transform_overlay" + i, new Transform());
+
+            this.additionalTransforms.add(valueTransform);
+            this.add(valueTransform);
+        }
+
+        return this.additionalTransforms.get(numberedIndex);
+    }
+
+    /**
+     * Ensure {@code color_overlay} / {@code color_overlayN}. Registers the color-overlay family
+     * on demand for forms that did not call {@link #registerColorOverlays()} at construction.
+     */
+    public ValueColor ensureColorOverlay(int numberedIndex)
+    {
+        if (!this.colorOverlaysRegistered)
+        {
+            this.colorOverlaysRegistered = true;
+            this.add(this.colorOverlay);
+        }
+
+        if (numberedIndex < 0)
+        {
+            return this.colorOverlay;
+        }
+
+        while (this.additionalColors.size() <= numberedIndex)
+        {
+            int i = this.additionalColors.size();
+            ValueColor overlay = new ValueColor("color_overlay" + i, new Color(1F, 1F, 1F, 0F));
+
+            this.additionalColors.add(overlay);
+            this.add(overlay);
+        }
+
+        return this.additionalColors.get(numberedIndex);
+    }
+
+    public ValueIllusion ensureIllusionOverlay(int numberedIndex)
+    {
+        if (numberedIndex < 0)
+        {
+            return this.illusionOverlay;
+        }
+
+        while (this.additionalIllusions.size() <= numberedIndex)
+        {
+            int i = this.additionalIllusions.size();
+            ValueIllusion valueIllusion = new ValueIllusion("illusion_overlay" + i, new Illusion());
+
+            this.additionalIllusions.add(valueIllusion);
+            this.add(valueIllusion);
+        }
+
+        return this.additionalIllusions.get(numberedIndex);
+    }
+
+    /**
+     * Ensure {@code illusion_transform_overlay} ({@code numberedIndex < 0}) or
+     * {@code illusion_transform_overlayN} exists when stacking beyond construction-time count.
+     */
+    public ValueTransform ensureIllusionTransformOverlay(int numberedIndex)
+    {
+        if (numberedIndex < 0)
+        {
+            return this.illusionTransformOverlay;
+        }
+
+        while (this.additionalIllusionTransforms.size() <= numberedIndex)
+        {
+            int i = this.additionalIllusionTransforms.size();
+            ValueTransform valueTransform = new ValueTransform("illusion_transform_overlay" + i, new Transform());
+
+            valueTransform.invisible();
+            this.additionalIllusionTransforms.add(valueTransform);
+            this.add(valueTransform);
+        }
+
+        return this.additionalIllusionTransforms.get(numberedIndex);
+    }
+
+    /**
+     * Grow numbered overlay slots to match {@link BBSSettings#recordingPoseTransformOverlays}
+     * (and Minecut default overlay counts when higher). Forms keep the count from construction
+     * time; raising the setting must expand the lists so overlay 8+ keyframes still apply
+     * without a world relog.
+     */
+    public void syncOverlaySlotsFromSettings()
+    {
+        int count = BBSSettings.recordingPoseTransformOverlays == null
+            ? 0
+            : BBSSettings.recordingPoseTransformOverlays.get();
+
+        if (BBSSettings.minecutDefaultTransformOverlays != null)
+        {
+            count = Math.max(count, BBSSettings.minecutDefaultTransformOverlays.get());
+        }
+
+        if (BBSSettings.minecutDefaultPoseOverlays != null)
+        {
+            count = Math.max(count, BBSSettings.minecutDefaultPoseOverlays.get());
+        }
+
+        if (BBSSettings.minecutDefaultColorOverlays != null)
+        {
+            count = Math.max(count, BBSSettings.minecutDefaultColorOverlays.get());
+        }
+
+        if (count <= 0)
+        {
+            return;
+        }
+
+        int last = count - 1;
+
+        this.ensureTransformOverlay(last);
+        this.ensureIllusionOverlay(last);
+        this.ensureIllusionTransformOverlay(last);
+
+        if (this.colorOverlaysRegistered)
+        {
+            this.ensureColorOverlay(last);
+        }
+
+        if (this instanceof ModelForm modelForm)
+        {
+            modelForm.ensurePoseOverlay(last);
+        }
+    }
+
+    /**
      * Base {@code color} plus stacked color overlays (same idea as transform overlays).
      */
     public Color getFormColor()

@@ -1,0 +1,19 @@
+{
+    "block.bbs.model": "โมเดลบล็อก",
+    "item.bbs.gun": "ปืน BBS",
+    "itemGroup.bbs.main": "BBS|บีบีเอส ม็อด",
+
+    "key.bbs.item_editor": "ตัวแก้ไขไอเทม",
+    "key.bbs.dashboard": "แดชบอร์ด",
+    "key.bbs.demorph": "การเปลี่ยนรูป",
+    "key.bbs.open_replays": "เปิดรีเพลย์ปัจจุบัน",
+    "key.bbs.open_morphing": "เปิดเมนูการเปลี่ยนรูปร่าง",
+    "key.bbs.play_film": "เล่นภาพยนตร์",
+    "key.bbs.record_replay": "บันทึกรีเพลย์ปัจจุบัน",
+    "key.bbs.record_video": "บันทึกวิดิโอ",
+    "key.bbs.teleport": "โทรพอร์ตไปยังรีเพลย์ปัจจุบัน",
+    "category.bbs.main": "BBS|บีบีเอส ม็อด",
+    "command.getskin.success": "สกินถูกนำไปใช้กับผู้เล่นทุกคนเรียบร้อยแล้ว",
+    "command.getskin.error": "ข้อผิดพลาด: %s",
+    "command.getskin.downloading": "กำลังดาวน์โหลดสกิน..."
+}

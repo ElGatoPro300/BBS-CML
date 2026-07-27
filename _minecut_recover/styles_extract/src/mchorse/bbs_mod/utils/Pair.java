@@ -1,0 +1,47 @@
+package mchorse.bbs_mod.utils;
+
+import java.util.Objects;
+
+public class Pair <A, B>
+{
+    public A a;
+    public B b;
+
+    public Pair()
+    {}
+
+    public Pair(A a, B b)
+    {
+        this.set(a, b);
+    }
+
+    public void set(A a, B b)
+    {
+        this.a = a;
+        this.b = b;
+    }
+
+    @Override
+    public boolean equals(Object obj)
+    {
+        if (super.equals(obj))
+        {
+            return true;
+        }
+
+        if (obj instanceof Pair)
+        {
+            Pair pair = (Pair) obj;
+
+            return Objects.equals(this.a, pair.a) && Objects.equals(this.b, pair.b);
+        }
+
+        return false;
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return Objects.hash(this.a, this.b);
+    }
+}

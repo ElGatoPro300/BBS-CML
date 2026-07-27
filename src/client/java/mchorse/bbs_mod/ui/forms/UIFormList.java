@@ -637,7 +637,7 @@ public class UIFormList extends UIElement
             return;
         }
 
-        this.allTab.color(this.activeFavoriteCategoryId == null ? BBSSettings.primaryColor.get() : 0x2d2d2d);
+        this.allTab.color(this.activeFavoriteCategoryId == null ? BBSSettings.accentRgb() : 0x2d2d2d);
         this.favoritesTab.color(FAVORITES_CATEGORY_ID.equals(this.activeFavoriteCategoryId) ? Colors.YELLOW : 0x2d2d2d);
 
         for (UIIconTabButton tab : this.customCategoryTabs)
@@ -1004,7 +1004,7 @@ public class UIFormList extends UIElement
                     continue;
                 }
 
-                FavoriteCategory category = new FavoriteCategory(id, name, item.getString("icon", "five_star"), item.getInt("color", BBSSettings.primaryColor.get()) & Colors.RGB);
+                FavoriteCategory category = new FavoriteCategory(id, name, item.getString("icon", "five_star"), item.getInt("color", BBSSettings.accentRgb()) & Colors.RGB);
                 this.customFavoriteCategories.put(category.id, category);
                 this.customCategoryForms.put(category.id, new HashSet<>());
             }
@@ -2138,7 +2138,7 @@ public class UIFormList extends UIElement
             {
                 this.area.render(context.batcher, Colors.A25);
                 context.batcher.outline(this.area.x - 1, this.area.y - 1, this.area.ex() + 1, this.area.ey() + 1, Colors.A100);
-                context.batcher.outline(this.area.x, this.area.y, this.area.ex(), this.area.ey(), 0xff000000 | BBSSettings.primaryColor.get());
+                context.batcher.outline(this.area.x, this.area.y, this.area.ex(), this.area.ey(), 0xff000000 | BBSSettings.accentRgb());
                 context.batcher.textCard(category.category.getProcessedTitle(), this.area.x + 6, this.area.y + 6);
                 super.render(context);
             }
@@ -2196,8 +2196,8 @@ public class UIFormList extends UIElement
 
                     UIElement target = entry.getKey();
                     boolean hovered = targetCategory == hoveredTarget;
-                    int fill = hovered ? (Colors.A50 | BBSSettings.primaryColor.get()) : Colors.A25;
-                    int outline = hovered ? (Colors.A100 | BBSSettings.primaryColor.get()) : Colors.A100;
+                    int fill = hovered ? (Colors.A50 | BBSSettings.accentRgb()) : Colors.A25;
+                    int outline = hovered ? (Colors.A100 | BBSSettings.accentRgb()) : Colors.A100;
 
                     context.batcher.box(target.area.x, target.area.y, target.area.ex(), target.area.ey(), fill);
                     context.batcher.outline(target.area.x, target.area.y, target.area.ex(), target.area.ey(), outline, hovered ? 2 : 1);
@@ -2237,7 +2237,7 @@ public class UIFormList extends UIElement
 
                 UIButton targetButton = new UIButton(IKey.constant(this.getCategoryTabTitle(targetCategory.category.getProcessedTitle())), (button) -> this.openCategoryPopup(targetCategory));
                 targetButton.h(POPUP_TARGETS_BAR_HEIGHT);
-                targetButton.color(targetCategory == category ? BBSSettings.primaryColor.get() : 0x2d2d2d);
+                targetButton.color(targetCategory == category ? BBSSettings.accentRgb() : 0x2d2d2d);
                 targetsBar.add(targetButton);
                 targetButtons.add(targetButton);
                 popupDropTargets.put(targetButton, targetCategory);
@@ -3229,7 +3229,7 @@ public class UIFormList extends UIElement
                 }
 
                 context.batcher.textShadow(divider.group.label.get(), this.area.x + CATEGORY_CARD_GAP, divider.y, Colors.LIGHTEST_GRAY);
-                context.batcher.box(this.area.x + CATEGORY_CARD_GAP, divider.y + 10, this.area.ex() - CATEGORY_CARD_GAP, divider.y + 11, Colors.A100 | BBSSettings.primaryColor.get());
+                context.batcher.box(this.area.x + CATEGORY_CARD_GAP, divider.y + 10, this.area.ex() - CATEGORY_CARD_GAP, divider.y + 11, Colors.A100 | BBSSettings.accentRgb());
             }
 
             int buffer = CATEGORY_VIRTUALIZATION_BUFFER_ROWS * (CATEGORY_CARD_HEIGHT + CATEGORY_CARD_GAP);
@@ -3263,16 +3263,16 @@ public class UIFormList extends UIElement
 
                 if (hovered != null && !hovered.isBackCard() && UIFormList.this.canDropCategoryOn(this.dragCategory, hovered.category))
                 {
-                    context.batcher.box(hovered.x, hovered.y, hovered.x + CATEGORY_CARD_WIDTH, hovered.y + CATEGORY_CARD_HEIGHT, Colors.A25 | BBSSettings.primaryColor.get());
-                    context.batcher.outline(hovered.x, hovered.y, hovered.x + CATEGORY_CARD_WIDTH, hovered.y + CATEGORY_CARD_HEIGHT, Colors.A100 | BBSSettings.primaryColor.get(), 2);
+                    context.batcher.box(hovered.x, hovered.y, hovered.x + CATEGORY_CARD_WIDTH, hovered.y + CATEGORY_CARD_HEIGHT, Colors.A25 | BBSSettings.accentRgb());
+                    context.batcher.outline(hovered.x, hovered.y, hovered.x + CATEGORY_CARD_WIDTH, hovered.y + CATEGORY_CARD_HEIGHT, Colors.A100 | BBSSettings.accentRgb(), 2);
                 }
 
                 int previewX = context.mouseX - CATEGORY_CARD_WIDTH / 2;
                 int previewY = context.mouseY - CATEGORY_CARD_HEIGHT / 2;
                 String title = context.batcher.getFont().limitToWidth(this.dragCategory.category.getProcessedTitle(), CATEGORY_CARD_WIDTH - 16);
 
-                context.batcher.box(previewX, previewY, previewX + CATEGORY_CARD_WIDTH, previewY + CATEGORY_CARD_HEIGHT, Colors.A50 | BBSSettings.primaryColor.get());
-                context.batcher.outline(previewX, previewY, previewX + CATEGORY_CARD_WIDTH, previewY + CATEGORY_CARD_HEIGHT, Colors.A100 | BBSSettings.primaryColor.get(), 2);
+                context.batcher.box(previewX, previewY, previewX + CATEGORY_CARD_WIDTH, previewY + CATEGORY_CARD_HEIGHT, Colors.A50 | BBSSettings.accentRgb());
+                context.batcher.outline(previewX, previewY, previewX + CATEGORY_CARD_WIDTH, previewY + CATEGORY_CARD_HEIGHT, Colors.A100 | BBSSettings.accentRgb(), 2);
                 context.batcher.textShadow(title, previewX + 6, previewY + 6, Colors.WHITE);
                 this.renderScaledIcon(context, Icons.ALL_DIRECTIONS, Colors.WHITE, previewX + CATEGORY_CARD_WIDTH / 2, previewY + CATEGORY_CARD_HEIGHT / 2, CATEGORY_DRAG_MOVE_ICON_SIZE);
             }
@@ -3289,7 +3289,7 @@ public class UIFormList extends UIElement
             context.batcher.clip(this.expandedPanelX, this.expandedPanelY, this.expandedPanelW, this.expandedPanelH, context);
 
             context.batcher.box(this.expandedPanelX, this.expandedPanelY, this.expandedPanelX + this.expandedPanelW, this.expandedPanelY + this.expandedPanelH, Colors.A50 | 0x111111);
-            context.batcher.outline(this.expandedPanelX, this.expandedPanelY, this.expandedPanelX + this.expandedPanelW, this.expandedPanelY + this.expandedPanelH, Colors.A50 | BBSSettings.primaryColor.get());
+            context.batcher.outline(this.expandedPanelX, this.expandedPanelY, this.expandedPanelX + this.expandedPanelW, this.expandedPanelY + this.expandedPanelH, Colors.A50 | BBSSettings.accentRgb());
 
             boolean hasBackArrow = false;
             String folderTitle;
@@ -3450,8 +3450,8 @@ public class UIFormList extends UIElement
                 {
                     float blink = 0.6F + 0.15F * (float) Math.sin(System.currentTimeMillis() * 0.005D);
                     int selAlpha = (int) (alpha * blink * 255) << 24;
-                    context.batcher.box(renderX, renderY, renderX + renderW, renderY + renderH, selAlpha | (BBSSettings.primaryColor.get() & Colors.RGB));
-                    context.batcher.outline(renderX, renderY, renderX + renderW, renderY + renderH, selAlpha | (BBSSettings.primaryColor.get() & Colors.RGB), 2);
+                    context.batcher.box(renderX, renderY, renderX + renderW, renderY + renderH, selAlpha | (BBSSettings.accentRgb() & Colors.RGB));
+                    context.batcher.outline(renderX, renderY, renderX + renderW, renderY + renderH, selAlpha | (BBSSettings.accentRgb() & Colors.RGB), 2);
                 }
                 else
                 {
@@ -3548,8 +3548,8 @@ public class UIFormList extends UIElement
             {
                 float blink = 0.6F + 0.15F * (float) Math.sin(System.currentTimeMillis() * 0.005D);
                 int selAlpha = (int) (alpha * blink * 255) << 24;
-                context.batcher.box(cx, cy, cx + EXPANDED_CELL_WIDTH, cy + EXPANDED_CELL_HEIGHT, selAlpha | (BBSSettings.primaryColor.get() & Colors.RGB));
-                context.batcher.outline(cx, cy, cx + EXPANDED_CELL_WIDTH, cy + EXPANDED_CELL_HEIGHT, selAlpha | (BBSSettings.primaryColor.get() & Colors.RGB), 2);
+                context.batcher.box(cx, cy, cx + EXPANDED_CELL_WIDTH, cy + EXPANDED_CELL_HEIGHT, selAlpha | (BBSSettings.accentRgb() & Colors.RGB));
+                context.batcher.outline(cx, cy, cx + EXPANDED_CELL_WIDTH, cy + EXPANDED_CELL_HEIGHT, selAlpha | (BBSSettings.accentRgb() & Colors.RGB), 2);
             }
             else if (hover)
             {
@@ -3628,16 +3628,16 @@ public class UIFormList extends UIElement
                     int px = this.expandedPanelX + CATEGORY_CARD_GAP + (hoverIdx % expandedPerRow) * (EXPANDED_CELL_WIDTH + CATEGORY_CARD_GAP);
                     int py = gridY + (hoverIdx / expandedPerRow) * (EXPANDED_CELL_HEIGHT + CATEGORY_CARD_GAP);
 
-                    context.batcher.box(px, py, px + EXPANDED_CELL_WIDTH, py + EXPANDED_CELL_HEIGHT, Colors.A25 | BBSSettings.primaryColor.get());
-                    context.batcher.outline(px, py, px + EXPANDED_CELL_WIDTH, py + EXPANDED_CELL_HEIGHT, Colors.A100 | BBSSettings.primaryColor.get(), 2);
+                    context.batcher.box(px, py, px + EXPANDED_CELL_WIDTH, py + EXPANDED_CELL_HEIGHT, Colors.A25 | BBSSettings.accentRgb());
+                    context.batcher.outline(px, py, px + EXPANDED_CELL_WIDTH, py + EXPANDED_CELL_HEIGHT, Colors.A100 | BBSSettings.accentRgb(), 2);
                 }
             }
 
             int cx = context.mouseX - EXPANDED_CELL_WIDTH / 2;
             int cy = context.mouseY - EXPANDED_CELL_HEIGHT / 2;
 
-            context.batcher.box(cx, cy, cx + EXPANDED_CELL_WIDTH, cy + EXPANDED_CELL_HEIGHT, Colors.A50 | BBSSettings.primaryColor.get());
-            context.batcher.outline(cx, cy, cx + EXPANDED_CELL_WIDTH, cy + EXPANDED_CELL_HEIGHT, Colors.A100 | BBSSettings.primaryColor.get(), 2);
+            context.batcher.box(cx, cy, cx + EXPANDED_CELL_WIDTH, cy + EXPANDED_CELL_HEIGHT, Colors.A50 | BBSSettings.accentRgb());
+            context.batcher.outline(cx, cy, cx + EXPANDED_CELL_WIDTH, cy + EXPANDED_CELL_HEIGHT, Colors.A100 | BBSSettings.accentRgb(), 2);
             UIFormList.this.renderFormThumbnail(context, dragItem.form, cx, cy, cx + EXPANDED_CELL_WIDTH, cy + EXPANDED_CELL_HEIGHT);
         }
 
@@ -3912,8 +3912,8 @@ public class UIFormList extends UIElement
         private void renderModelBackCard(UIContext context, int x, int y)
         {
             boolean hovered = context.mouseX >= x && context.mouseX < x + CATEGORY_CARD_WIDTH && context.mouseY >= y && context.mouseY < y + CATEGORY_CARD_HEIGHT;
-            int baseColor = hovered ? (Colors.A50 | BBSSettings.primaryColor.get()) : Colors.A25;
-            int outlineColor = hovered ? (Colors.A100 | BBSSettings.primaryColor.get()) : Colors.A100;
+            int baseColor = hovered ? (Colors.A50 | BBSSettings.accentRgb()) : Colors.A25;
+            int outlineColor = hovered ? (Colors.A100 | BBSSettings.accentRgb()) : Colors.A100;
             String title = context.batcher.getFont().limitToWidth(UIKeys.FORMS_LIST_MODEL_FOLDER_BACK.get(), CATEGORY_CARD_WIDTH - 28);
 
             context.batcher.box(x, y, x + CATEGORY_CARD_WIDTH, y + CATEGORY_CARD_HEIGHT, baseColor);
@@ -3938,7 +3938,7 @@ public class UIFormList extends UIElement
 
             if (isOpen || containsSelected)
             {
-                int primary = BBSSettings.primaryColor.get() & Colors.RGB;
+                int primary = BBSSettings.accentRgb() & Colors.RGB;
 
                 if (containsSelected)
                 {
@@ -4039,7 +4039,7 @@ public class UIFormList extends UIElement
 
             if (hoverMoveHandle)
             {
-                this.renderScaledIcon(context, Icons.ALL_DIRECTIONS, Colors.A100 | BBSSettings.primaryColor.get(), x + CATEGORY_CARD_WIDTH / 2, y + CATEGORY_CARD_HEIGHT / 2, CATEGORY_MOVE_HANDLE_ICON_SIZE);
+                this.renderScaledIcon(context, Icons.ALL_DIRECTIONS, Colors.A100 | BBSSettings.accentRgb(), x + CATEGORY_CARD_WIDTH / 2, y + CATEGORY_CARD_HEIGHT / 2, CATEGORY_MOVE_HANDLE_ICON_SIZE);
             }
         }
 
@@ -4260,8 +4260,8 @@ public class UIFormList extends UIElement
                 {
                     float blink = 0.6F + 0.15F * (float) Math.sin(System.currentTimeMillis() * 0.005D);
                     int selAlpha = (int) (blink * 255) << 24;
-                    context.batcher.box(cx, cy, cx + POPUP_CELL_WIDTH, cy + POPUP_CELL_HEIGHT, selAlpha | (BBSSettings.primaryColor.get() & Colors.RGB));
-                    context.batcher.outline(cx, cy, cx + POPUP_CELL_WIDTH, cy + POPUP_CELL_HEIGHT, selAlpha | (BBSSettings.primaryColor.get() & Colors.RGB), 2);
+                    context.batcher.box(cx, cy, cx + POPUP_CELL_WIDTH, cy + POPUP_CELL_HEIGHT, selAlpha | (BBSSettings.accentRgb() & Colors.RGB));
+                    context.batcher.outline(cx, cy, cx + POPUP_CELL_WIDTH, cy + POPUP_CELL_HEIGHT, selAlpha | (BBSSettings.accentRgb() & Colors.RGB), 2);
                 }
                 else
                 {
@@ -4308,15 +4308,15 @@ public class UIFormList extends UIElement
                     int previewX = this.area.x + (hoverDropIndex % perRow) * POPUP_CELL_WIDTH;
                     int previewY = this.area.y + (hoverDropIndex / perRow) * POPUP_CELL_HEIGHT;
 
-                    context.batcher.box(previewX, previewY, previewX + POPUP_CELL_WIDTH, previewY + POPUP_CELL_HEIGHT, Colors.A25 | BBSSettings.primaryColor.get());
-                    context.batcher.outline(previewX, previewY, previewX + POPUP_CELL_WIDTH, previewY + POPUP_CELL_HEIGHT, Colors.A100 | BBSSettings.primaryColor.get(), 2);
+                    context.batcher.box(previewX, previewY, previewX + POPUP_CELL_WIDTH, previewY + POPUP_CELL_HEIGHT, Colors.A25 | BBSSettings.accentRgb());
+                    context.batcher.outline(previewX, previewY, previewX + POPUP_CELL_WIDTH, previewY + POPUP_CELL_HEIGHT, Colors.A100 | BBSSettings.accentRgb(), 2);
                 }
 
                 int cx = context.mouseX - POPUP_CELL_WIDTH / 2;
                 int cy = context.mouseY - POPUP_CELL_HEIGHT / 2;
 
-                context.batcher.box(cx, cy, cx + POPUP_CELL_WIDTH, cy + POPUP_CELL_HEIGHT, Colors.A50 | BBSSettings.primaryColor.get());
-                context.batcher.outline(cx, cy, cx + POPUP_CELL_WIDTH, cy + POPUP_CELL_HEIGHT, Colors.A100 | BBSSettings.primaryColor.get(), 2);
+                context.batcher.box(cx, cy, cx + POPUP_CELL_WIDTH, cy + POPUP_CELL_HEIGHT, Colors.A50 | BBSSettings.accentRgb());
+                context.batcher.outline(cx, cy, cx + POPUP_CELL_WIDTH, cy + POPUP_CELL_HEIGHT, Colors.A100 | BBSSettings.accentRgb(), 2);
                 UIFormList.this.renderFormThumbnail(context, forms.get(this.dragIndex), cx, cy, cx + POPUP_CELL_WIDTH, cy + POPUP_CELL_HEIGHT);
             }
         }
@@ -4512,7 +4512,7 @@ public class UIFormList extends UIElement
         @Override
         public void renderListElement(UIContext context, FavoriteMarker marker, int i, int x, int y, boolean hover, boolean selected)
         {
-            int base = marker == null ? BBSSettings.primaryColor.get() : marker.color & Colors.RGB;
+            int base = marker == null ? BBSSettings.accentRgb() : marker.color & Colors.RGB;
             int stripeColor = Colors.A100 | base;
             int gradientTo = selected ? Colors.mulRGB(base, 0.9F) : base;
 

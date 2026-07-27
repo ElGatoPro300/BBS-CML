@@ -1,0 +1,26 @@
+{
+    "blend": {
+        "func": "add",
+        "srcrgb": "dstcolor",
+        "dstrgb": "zero",
+        "srcalpha": "dstalpha",
+        "dstalpha": "zero"
+    },
+    "vertex": "flat_color_tint_overlay",
+    "fragment": "flat_color_tint_overlay",
+    "attributes": [
+        "Position",
+        "Color",
+        "UV0",
+        "UV1",
+        "UV2",
+        "Normal"
+    ],
+    "samplers": [
+        { "name": "Sampler0" }
+    ],
+    "uniforms": [
+        { "name": "ModelViewMat", "type": "matrix4x4", "count": 16, "values": [ 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0 ] },
+        { "name": "ProjMat", "type": "matrix4x4", "count": 16, "values": [ 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0 ] }
+    ]
+}

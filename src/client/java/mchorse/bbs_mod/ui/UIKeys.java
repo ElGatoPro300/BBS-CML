@@ -305,6 +305,8 @@ public class UIKeys
     public static final IKey ENGINE_KEYSTROKES_POSITION_TOP_RIGHT = L10n.lang("bbs.keystrokes_position.top_right");
     public static final IKey ENGINE_TOOLTIP_STYLE_DARK = L10n.lang("bbs.tooltip_style.dark");
     public static final IKey ENGINE_TOOLTIP_STYLE_LIGHT = L10n.lang("bbs.tooltip_style.light");
+    public static final IKey ENGINE_UI_STYLE_CLASSIC = L10n.lang("bbs.ui_style.classic");
+    public static final IKey ENGINE_UI_STYLE_MINECUT = L10n.lang("bbs.ui_style.minecut");
     public static final IKey FILM_CONTROLLER_CONTROL_MODE_TOOLTIP = L10n.lang("bbs.ui.film.controller.control_mode-tooltip");
     public static final IKey FILM_CONTROLLER_INSERT_FRAME_DESCRIPTION = L10n.lang("bbs.ui.film.controller.insert_frame-description");
     public static final IKey FILM_CONTROLLER_INSERT_FRAME_TITLE = L10n.lang("bbs.ui.film.controller.insert_frame-title");
@@ -445,10 +447,12 @@ public class UIKeys
     public static final IKey FILM_REPLAY_CONTEXT_MOVE_HERE = L10n.lang("bbs.ui.film.replay.context.move_here");
     public static final IKey FILM_REPLAY_FILTER_SHEETS = L10n.lang("bbs.ui.film.replay.filter_sheets");
     public static final IKey FILM_REPLAY_FILTER_SHEETS_TITLE = L10n.lang("bbs.ui.film.replay.filter_sheets-title");
+    public static final IKey FILM_REPLAY_RESET_TRACKS = L10n.lang("bbs.ui.film.replay.reset_tracks");
     public static final IKey FILM_REPLAY_RENAME_SHEET = L10n.lang("bbs.ui.film.replay.rename_sheet");
     public static final IKey FILM_REPLAY_RENAME_SHEET_TITLE = L10n.lang("bbs.ui.film.replay.rename_sheet-title");
     public static final IKey FILM_REPLAY_RENAME_SHEET_MESSAGE = L10n.lang("bbs.ui.film.replay.rename_sheet-message");
     public static final IKey FILM_REPLAY_RENAME_SHEET_COLOR_TOOLTIP = L10n.lang("bbs.ui.film.replay.rename_sheet-color-tooltip");
+    public static final IKey FILM_REPLAY_REMOVE_TRACK = L10n.lang("bbs.ui.film.replay.remove_track");
     public static final IKey FILM_REPLAY_FP = L10n.lang("bbs.ui.film.replay.fp");
     public static final IKey FILM_REPLAY_LABEL = L10n.lang("bbs.ui.film.replay.label");
     public static final IKey FILM_REPLAY_LOOPING = L10n.lang("bbs.ui.film.replay.looping");

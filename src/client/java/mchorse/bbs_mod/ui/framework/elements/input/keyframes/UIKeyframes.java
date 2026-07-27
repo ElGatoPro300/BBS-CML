@@ -316,7 +316,7 @@ public class UIKeyframes extends UIElement
         }.rendering((context) ->
         {
             float alpha = (this.sidebarResizer.isDragging() || this.sidebarResizer.area.isInside(context)) ? 0.75F : 0.5F;
-            int color = Colors.setA(BBSSettings.primaryColor.get(), alpha);
+            int color = Colors.setA(BBSSettings.accentRgb(), alpha);
 
             context.batcher.box(this.sidebarResizer.area.x, this.sidebarResizer.area.y, this.sidebarResizer.area.ex(), this.sidebarResizer.area.ey(), color);
         }).dragEnd(this::persistSidebarWidth);

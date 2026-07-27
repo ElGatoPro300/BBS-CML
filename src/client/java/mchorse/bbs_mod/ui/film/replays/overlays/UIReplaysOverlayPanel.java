@@ -388,7 +388,7 @@ public class UIReplaysOverlayPanel extends UIOverlayPanel
             this.resize();
         }).rendering((context) ->
         {
-            int color = Colors.setA(BBSSettings.primaryColor.get(), this.dockedResizer.isDragging() || this.dockedResizer.area.isInside(context) ? 0.75F : 0.45F);
+            int color = Colors.setA(BBSSettings.accentRgb(), this.dockedResizer.isDragging() || this.dockedResizer.area.isInside(context) ? 0.75F : 0.45F);
 
             context.batcher.box(this.dockedResizer.area.x, this.dockedResizer.area.y + 2, this.dockedResizer.area.ex(), this.dockedResizer.area.ey() - 2, color);
         }).dragEnd(this::flushDockedReplaysHeight)
@@ -435,23 +435,35 @@ public class UIReplaysOverlayPanel extends UIOverlayPanel
     public void attachPropertiesHost(UIElement host)
     {
         this.propertiesHost = host;
-        this.setPropertiesExternal(true);
+        /* Always remount onto the given host — the external flag alone is not enough
+           when the host instance changes or children were stolen by another panel. */
+        this.ensurePropertiesMounted(true);
     }
 
     public void setPropertiesExternal(boolean external)
     {
-        if (this.propertiesExternal == external)
-        {
-            return;
-        }
+        this.ensurePropertiesMounted(external);
+    }
 
-        this.propertiesExternal = external;
+    private void ensurePropertiesMounted(boolean external)
+    {
         UIElement target = external ? this.propertiesHost : this.content;
 
         if (target == null)
         {
             return;
         }
+
+        boolean alreadyThere = this.propertiesExternal == external
+            && this.replayProperties.getParent() == target
+            && this.groupProperties.getParent() == target;
+
+        if (alreadyThere)
+        {
+            return;
+        }
+
+        this.propertiesExternal = external;
 
         /* The UI framework doesn't guarantee that adding an element to another parent
            automatically detaches it from its previous one. Ensure these property panels

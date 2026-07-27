@@ -61,6 +61,8 @@ public class BBSSettings
     public static ValueString uiFont;
     public static ValueFloat uiFontSize;
     public static ValueInt tooltipStyle;
+    /** 0 = Classic, 1 = Minecut (only when a style addon registered). */
+    public static ValueInt uiStyle;
     public static ValueFloat fov;
     public static ValueBoolean hsvColorPicker;
     public static ValueBoolean forceQwerty;
@@ -189,6 +191,19 @@ public class BBSSettings
     public static ValueBoolean recordingCameraPreview;
     public static ValueInt recordingCameraPreviewFutureCount;
 
+    /**
+     * Optional film-UI skin settings (filled by the Minecut addon via
+     * {@link mchorse.bbs_mod.events.register.RegisterBBSSettingsEvent}). Null without the addon.
+     */
+    public static ValueBoolean minecutDefaultTrackPose;
+    public static ValueBoolean minecutDefaultTrackTransform;
+    public static ValueBoolean minecutDefaultTrackVisible;
+    public static ValueBoolean minecutDefaultTrackColor;
+    public static ValueBoolean minecutDefaultTrackOpacity;
+    public static ValueInt minecutDefaultTransformOverlays;
+    public static ValueInt minecutDefaultPoseOverlays;
+    public static ValueInt minecutDefaultColorOverlays;
+
     public static ValueBoolean renderAllModelBlocks;
     public static ValueBoolean clickModelBlocks;
     public static ValueBoolean modelBlockCategoriesPanelEnabled;
@@ -280,7 +295,30 @@ public class BBSSettings
 
     public static int primaryColor(int alpha)
     {
-        return primaryColor.get() | alpha;
+        return accentRgb() | alpha;
+    }
+
+    /**
+     * Accent RGB used by widgets. Minecut style forces cyan when that skin is active.
+     */
+    public static int accentRgb()
+    {
+        if (isMinecutUiStyle())
+        {
+            return 0x00C2D4;
+        }
+
+        return primaryColor.get() & Colors.RGB;
+    }
+
+    /**
+     * True when the Minecut UI style addon is present and the user selected Minecut.
+     */
+    public static boolean isMinecutUiStyle()
+    {
+        return mchorse.bbs_mod.settings.UiStyleCapabilities.isMinecutStyleAvailable()
+            && uiStyle != null
+            && uiStyle.get() == mchorse.bbs_mod.settings.UiStyleCapabilities.MINECUT;
     }
 
     public static int modelEditorHoverColor(float alpha)
@@ -433,26 +471,51 @@ public class BBSSettings
 
     private static int getThemeChromeSurface()
     {
+        if (isMinecutUiStyle())
+        {
+            return applyBackgroundBrightness(0xFF101014);
+        }
+
         return applyBackgroundBrightness(isLightTheme() ? 0xffe6e9ef : 0xff111316);
     }
 
     private static int getThemeBaseSurface()
     {
+        if (isMinecutUiStyle())
+        {
+            return applyBackgroundBrightness(0xFF16161A);
+        }
+
         return applyBackgroundBrightness(isLightTheme() ? 0xfff1f4f8 : 0xff171a1f);
     }
 
     private static int getThemeRaisedSurface()
     {
+        if (isMinecutUiStyle())
+        {
+            return applyBackgroundBrightness(0xFF1E1E24);
+        }
+
         return applyBackgroundBrightness(isLightTheme() ? 0xfff8fafd : 0xff1d2127);
     }
 
     private static int getThemeDeepSurface()
     {
+        if (isMinecutUiStyle())
+        {
+            return applyBackgroundBrightness(0xFF0A0A0C);
+        }
+
         return applyBackgroundBrightness(isLightTheme() ? 0xffdee4ed : 0xff0f1217);
     }
 
     private static int getThemeDividerColor()
     {
+        if (isMinecutUiStyle())
+        {
+            return 0xFF00C2D4;
+        }
+
         return isLightTheme() ? 0xffc2cbd8 : 0xff30353d;
     }
 
@@ -575,6 +638,7 @@ public class BBSSettings
         uiFont = builder.getString("ui_font", "");
         uiFontSize = builder.getFloat("ui_font_size", 1F, 0.25F, 4F);
         tooltipStyle = builder.getInt("tooltip_style", 1);
+        uiStyle = builder.getInt("ui_style", 0);
         coloredBackground = builder.getBoolean("colored_background", true);
         backgroundBrightness = builder.getFloat("background_brightness", 1F, 0.5F, 1.5F);
         worldGammaPercent = builder.getDouble("world_gamma_percent", 100D, 0D, 1500D);

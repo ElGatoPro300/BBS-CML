@@ -114,6 +114,15 @@ public abstract class BBSClientAddon implements BBSAddonMod
     {}
 
     @Subscribe
+    public void onRegisterFilmUiAddon(mchorse.bbs_mod.events.register.RegisterFilmUiAddonEvent event)
+    {
+        this.registerFilmUiAddon(event);
+    }
+
+    protected void registerFilmUiAddon(mchorse.bbs_mod.events.register.RegisterFilmUiAddonEvent event)
+    {}
+
+    @Subscribe
     public void onRegisterFormsRenderers(RegisterFormsRenderersEvent event)
     {
         this.registerFormsRenderers(event);

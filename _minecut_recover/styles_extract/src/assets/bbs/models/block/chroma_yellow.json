@@ -1,0 +1,6 @@
+{
+    "parent": "bbs:block/chroma",
+    "textures": {
+        "all": "bbs:block/yellow"
+    }
+}

@@ -492,7 +492,7 @@ public class Scroll
         }
 
         int side = this.direction.getSide(this.area);
-        int shadow = Colors.mulRGB(Colors.A50 | BBSSettings.primaryColor.get(), 0.75F);
+        int shadow = Colors.mulRGB(Colors.A50 | BBSSettings.accentRgb(), 0.75F);
 
         if (this.scrollbar)
         {

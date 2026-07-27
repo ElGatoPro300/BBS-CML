@@ -85,6 +85,7 @@ public class UIFilmPreview extends UIElement
     private Runnable pendingThumbnailCallback;
     private UIFilmPanel panel;
     private boolean viewportButtonsHidden;
+    private boolean minecutExportIconsHidden;
     private final List<UIIcon> viewportButtons = new ArrayList<>();
     private final Map<String, UIIcon> viewportButtonMap = new HashMap<>();
     private final Map<String, UIIcon> gizmoButtonMap = new HashMap<>();
@@ -463,6 +464,13 @@ public class UIFilmPreview extends UIElement
                 continue;
             }
 
+            if (this.minecutExportIconsHidden
+                && (ValueViewportToolbar.RECORD_VIDEO.equals(id) || ValueViewportToolbar.RENDER_QUEUE.equals(id)))
+            {
+                button.setVisible(false);
+                continue;
+            }
+
             if (ValueViewportToolbar.TOGGLE_SHADERS.equals(id))
             {
                 button.setVisible(BBSRendering.isIrisLoaded());
@@ -513,12 +521,53 @@ public class UIFilmPreview extends UIElement
         this.gizmos.setVisible(!this.viewportButtonsHidden);
     }
 
+    /**
+     * Minecut: park the viewport icon row on an external strip (below Player / above Timeline).
+     * Export / render-queue icons stay on this strip like classic preview.
+     */
+    public void attachIconsTo(UIElement host)
+    {
+        if (host == null)
+        {
+            return;
+        }
+
+        this.icons.removeFromParent();
+        this.icons.resetFlex().relative(host).x(0.5F).y(0.5F).anchor(0.5F, 0.5F);
+        host.removeAll();
+        host.add(this.icons);
+        this.setMinecutExportIconsHidden(false);
+        this.setViewportButtonsHidden(false);
+        this.icons.row().resize();
+        host.resize();
+    }
+
+    public void restoreIconsHome()
+    {
+        this.setMinecutExportIconsHidden(false);
+        this.icons.removeFromParent();
+        this.icons.resetFlex().relative(this).x(0.5F).y(1F).anchor(0.5F, 1F);
+        this.add(this.icons);
+        this.icons.row().resize();
+    }
+
+    public void setMinecutExportIconsHidden(boolean hidden)
+    {
+        if (this.minecutExportIconsHidden == hidden)
+        {
+            return;
+        }
+
+        this.minecutExportIconsHidden = hidden;
+        this.rebuildViewportToolbar();
+    }
+
     private void toggleViewportButtonsHidden()
     {
         this.setViewportButtonsHidden(!this.viewportButtonsHidden);
     }
 
-    private void renderAudio()
+    public void renderAudio()
     {
         if (this.panel.getData() == null)
         {
@@ -605,6 +654,15 @@ public class UIFilmPreview extends UIElement
                 return true;
             }
 
+            /* Alt+LMB: pick morph under cursor in the Player viewport. Always consume so
+             * orbit/flight cannot steal the click. */
+            if (Window.isAltPressed() && context.mouseButton == 0)
+            {
+                this.panel.getController().tryPickHoveredReplay(context);
+
+                return true;
+            }
+
             /* In flight mode, viewport clicks drive the camera directly (left = look around,
              * right = roll, middle = FOV). This has to be started here rather than left to the
              * dashboard's orbit element, because this panel uses BLOCK_INSIDE mouse propagation
@@ -644,7 +702,15 @@ public class UIFilmPreview extends UIElement
                 return true;
             }
 
-            if (this.panel.getController().getPovMode() == UIFilmController.CAMERA_MODE_ORBIT
+            /* Limb / gizmo pick before orbit — otherwise orbit-without-flight steals every
+             * LMB and body parts can never be selected in the Player viewport (CML behavior). */
+            if (context.mouseButton == 0 && this.panel.replayEditor.clickViewport(context, area))
+            {
+                return true;
+            }
+
+            if (!Window.isAltPressed()
+                && this.panel.getController().getPovMode() == UIFilmController.CAMERA_MODE_ORBIT
                 && BBSSettings.editorOrbitWithoutFlight.get()
                 && !this.panel.getController().orbit.isAnimating()
                 && this.panel.getController().orbit.canStart(context) >= 0)
@@ -654,7 +720,7 @@ public class UIFilmPreview extends UIElement
                 return true;
             }
 
-            return this.panel.replayEditor.clickViewport(context, area);
+            return false;
         }
 
         return super.subMouseClicked(context);

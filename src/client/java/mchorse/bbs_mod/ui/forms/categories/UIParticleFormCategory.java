@@ -161,8 +161,8 @@ public class UIParticleFormCategory extends UIFormCategory
 
                 if (isSelected)
                 {
-                    context.batcher.box(cx, cy, cx + CELL_WIDTH, cy + CELL_HEIGHT, Colors.A50 | BBSSettings.primaryColor.get());
-                    context.batcher.outline(cx, cy, cx + CELL_WIDTH, cy + CELL_HEIGHT, Colors.A50 | BBSSettings.primaryColor.get(), 2);
+                    context.batcher.box(cx, cy, cx + CELL_WIDTH, cy + CELL_HEIGHT, Colors.A50 | BBSSettings.accentRgb());
+                    context.batcher.outline(cx, cy, cx + CELL_WIDTH, cy + CELL_HEIGHT, Colors.A50 | BBSSettings.accentRgb(), 2);
                 }
 
                 this.list.renderFormThumbnail(context, form, cx, cy, cx + CELL_WIDTH, cy + CELL_HEIGHT);

@@ -105,6 +105,36 @@ public class UIKeyframeDopeSheet implements IUIKeyframeGraph
     private long foldAnimStartNs;
     private Runnable foldComplete;
 
+    /** Opens empty space before this sheet row while dragging a track from the palette. */
+    private int trackInsertGapBefore = -1;
+    private int trackInsertGapHeight = 0;
+    private boolean ignoreTrackInsertGap;
+
+    /** Click = expand/select; drag past threshold = reorder Model tracks in the sidebar. */
+    private ISidebarTrackReorder sidebarTrackReorder;
+    private UIKeyframeSheet pendingSidebarSheet;
+    private boolean pendingSidebarHasToggle;
+    private String pendingSidebarReorderId;
+    private int pendingSidebarMouseX;
+    private int pendingSidebarMouseY;
+    private boolean sidebarTrackReorderActive;
+    private String sidebarReorderTrackId;
+    private String sidebarReorderInsertBeforeId;
+    private static final int SIDEBAR_TRACK_DRAG_THRESHOLD_SQ = 16;
+
+    public interface ISidebarTrackReorder
+    {
+        /** Track id if this sheet can be reordered in Model order; otherwise {@code null}. */
+        String resolveReorderId(UIKeyframeSheet sheet);
+
+        void moveBefore(String trackId, String beforeTrackId);
+    }
+
+    public void setSidebarTrackReorder(ISidebarTrackReorder sidebarTrackReorder)
+    {
+        this.sidebarTrackReorder = sidebarTrackReorder;
+    }
+
     public static IKeyframeShapeRenderer renderShape(Keyframe frame, UIContext context, BufferBuilder builder, Matrix4f matrix, int x, int y, int offset, int c)
     {
         KeyframeShape keyframeShape = frame.getShape();
@@ -365,14 +395,64 @@ public class UIKeyframeDopeSheet implements IUIKeyframeGraph
     public int getDopeSheetY(int sheet)
     {
         int y = this.getDopeSheetY();
-        int limit = Math.min(sheet, this.sheets.size());
+        int limit = Math.min(Math.max(sheet, 0), this.sheets.size());
 
         for (int i = 0; i < limit; i++)
         {
+            if (!this.ignoreTrackInsertGap && i == this.trackInsertGapBefore)
+            {
+                y += this.trackInsertGapHeight;
+            }
+
             y += this.getRowHeight(i);
         }
 
+        if (!this.ignoreTrackInsertGap && sheet == this.trackInsertGapBefore)
+        {
+            y += this.trackInsertGapHeight;
+        }
+
         return y;
+    }
+
+    /**
+     * Open a drop gap before sheet row {@code beforeIndex} ({@code sheets.size()} = after last row).
+     */
+    public void setTrackInsertGap(int beforeIndex, int height)
+    {
+        int nextBefore = beforeIndex < 0 ? -1 : beforeIndex;
+        int nextH = nextBefore < 0 ? 0 : Math.max(0, height);
+
+        if (this.trackInsertGapBefore == nextBefore && this.trackInsertGapHeight == nextH)
+        {
+            return;
+        }
+
+        this.trackInsertGapBefore = nextBefore;
+        this.trackInsertGapHeight = nextH;
+        this.refreshScrollSize();
+    }
+
+    public void clearTrackInsertGap()
+    {
+        if (this.trackInsertGapBefore < 0 && this.trackInsertGapHeight == 0)
+        {
+            return;
+        }
+
+        this.trackInsertGapBefore = -1;
+        this.trackInsertGapHeight = 0;
+        this.refreshScrollSize();
+    }
+
+    public boolean hasTrackInsertGap()
+    {
+        return this.trackInsertGapBefore >= 0 && this.trackInsertGapHeight > 0;
+    }
+
+    public void setIgnoreTrackInsertGap(boolean ignore)
+    {
+        this.ignoreTrackInsertGap = ignore;
     }
 
     public int getDopeSheetY(UIKeyframeSheet sheet)
@@ -441,7 +521,17 @@ public class UIKeyframeDopeSheet implements IUIKeyframeGraph
 
         for (int i = 0; i < this.sheets.size(); i++)
         {
+            if (!this.ignoreTrackInsertGap && i == this.trackInsertGapBefore)
+            {
+                size += this.trackInsertGapHeight;
+            }
+
             size += this.getRowHeight(i);
+        }
+
+        if (!this.ignoreTrackInsertGap && this.trackInsertGapBefore >= this.sheets.size())
+        {
+            size += this.trackInsertGapHeight;
         }
 
         return size;
@@ -945,6 +1035,11 @@ public class UIKeyframeDopeSheet implements IUIKeyframeGraph
 
         for (int index = 0; index < this.sheets.size(); )
         {
+            if (!this.ignoreTrackInsertGap && index == this.trackInsertGapBefore)
+            {
+                y += this.trackInsertGapHeight;
+            }
+
             if (this.isFoldingRow(index))
             {
                 int blockH = this.getRowHeight(index);
@@ -1200,6 +1295,12 @@ public class UIKeyframeDopeSheet implements IUIKeyframeGraph
             return true;
         }
 
+        if (this.tryArmSidebarTrackInteraction(context))
+        {
+            return true;
+        }
+
+        /* Group headers (World / Model / Form) still toggle immediately. */
         if (this.tryHandleSidebarToggleClick(context))
         {
             return true;
@@ -1211,9 +1312,194 @@ public class UIKeyframeDopeSheet implements IUIKeyframeGraph
     @Override
     public void mouseReleased(UIContext context)
     {
+        if (this.sidebarTrackReorderActive && this.sidebarReorderTrackId != null && this.sidebarTrackReorder != null)
+        {
+            this.sidebarTrackReorder.moveBefore(this.sidebarReorderTrackId, this.sidebarReorderInsertBeforeId);
+        }
+        else if (this.pendingSidebarSheet != null && this.pendingSidebarHasToggle)
+        {
+            this.performPendingSidebarToggle();
+        }
+
+        this.clearSidebarTrackInteraction();
         this.dopeSheet.mouseReleased(context);
         this.sidebarScrollbar.mouseReleased(context);
         this.sidebarDragging = false;
+    }
+
+    /**
+     * Arm a sidebar press: click (no drag) keeps expand/collapse; drag reorders Model tracks.
+     */
+    private boolean tryArmSidebarTrackInteraction(UIContext context)
+    {
+        if (context.mouseButton != 0 || this.sidebarTrackReorder == null || !this.keyframes.area.isInside(context))
+        {
+            return false;
+        }
+
+        if (context.mouseX >= this.keyframes.area.x + this.sidebarWidth)
+        {
+            return false;
+        }
+
+        UIKeyframeSheet sheet = this.getSheet(context.mouseY);
+
+        if (sheet == null || sheet.groupHeader)
+        {
+            return false;
+        }
+
+        String reorderId = this.sidebarTrackReorder.resolveReorderId(sheet);
+        boolean hasToggle = sheet.toggleExpanded != null || sheet.toggleGroup != null;
+
+        if (reorderId == null && !hasToggle)
+        {
+            return false;
+        }
+
+        /* Only arm toggle when the click is on the label/arrow hitbox (same as before). */
+        if (hasToggle && reorderId == null && !this.isSidebarLabelHit(context, sheet))
+        {
+            return false;
+        }
+
+        this.pendingSidebarSheet = sheet;
+        this.pendingSidebarHasToggle = hasToggle && this.isSidebarLabelHit(context, sheet);
+        this.pendingSidebarReorderId = reorderId;
+        this.pendingSidebarMouseX = context.mouseX;
+        this.pendingSidebarMouseY = context.mouseY;
+        this.sidebarTrackReorderActive = false;
+        this.sidebarReorderTrackId = null;
+        this.sidebarReorderInsertBeforeId = null;
+
+        return true;
+    }
+
+    private boolean isSidebarLabelHit(UIContext context, UIKeyframeSheet sheet)
+    {
+        FontRenderer font = context.batcher.getFont();
+        String title = this.getEffectiveSidebarTitle(sheet);
+        int availableWidth = Math.max(1, this.sidebarWidth - this.getSidebarIconWidth(sheet) - 6);
+        String displayTitle = this.getSidebarTitle(title, font, availableWidth);
+        Icon arrow = sheet.groupHeader
+            ? this.getGroupArrow(sheet)
+            : (sheet.toggleExpanded != null ? (sheet.expanded ? Icons.UNCOLLAPSED : Icons.COLLAPSED) : null);
+
+        int left = this.keyframes.area.x + sheet.level * LEVEL_INDENT - this.sidebarScroll;
+
+        if (sheet.groupHeader && !this.isWorldOrModelGroup(sheet) && !this.isFormGroup(sheet))
+        {
+            left += 4;
+        }
+
+        int iconWidth = 2 + (arrow != null ? arrow.w + 4 : 0);
+        int clickableWidth = Math.min(this.sidebarWidth - sheet.level * LEVEL_INDENT, iconWidth + font.getWidth(displayTitle) + 6);
+
+        clickableWidth = Math.max(0, clickableWidth);
+
+        return context.mouseX >= left && context.mouseX <= left + clickableWidth;
+    }
+
+    private void performPendingSidebarToggle()
+    {
+        UIKeyframeSheet sheet = this.pendingSidebarSheet;
+
+        if (sheet == null)
+        {
+            return;
+        }
+
+        String sheetId = sheet.id;
+
+        if (this.isFoldAnimating())
+        {
+            this.finishFoldAnimation();
+            sheet = this.getSheet(sheetId);
+
+            if (sheet == null)
+            {
+                return;
+            }
+        }
+
+        if (sheet.groupHeader && sheet.toggleGroup != null)
+        {
+            this.beginAnimatedToggle(sheet);
+        }
+        else if (!sheet.groupHeader && sheet.toggleExpanded != null)
+        {
+            this.beginAnimatedToggle(sheet);
+        }
+    }
+
+    private void clearSidebarTrackInteraction()
+    {
+        this.pendingSidebarSheet = null;
+        this.pendingSidebarHasToggle = false;
+        this.pendingSidebarReorderId = null;
+        this.sidebarTrackReorderActive = false;
+        this.sidebarReorderTrackId = null;
+        this.sidebarReorderInsertBeforeId = null;
+    }
+
+    private void updateSidebarTrackReorder(UIContext context)
+    {
+        if (this.pendingSidebarReorderId == null && !this.sidebarTrackReorderActive)
+        {
+            return;
+        }
+
+        if (!this.sidebarTrackReorderActive)
+        {
+            int dx = context.mouseX - this.pendingSidebarMouseX;
+            int dy = context.mouseY - this.pendingSidebarMouseY;
+
+            if (dx * dx + dy * dy < SIDEBAR_TRACK_DRAG_THRESHOLD_SQ)
+            {
+                return;
+            }
+
+            if (this.pendingSidebarReorderId == null)
+            {
+                return;
+            }
+
+            this.sidebarTrackReorderActive = true;
+            this.sidebarReorderTrackId = this.pendingSidebarReorderId;
+            this.pendingSidebarHasToggle = false;
+        }
+
+        this.sidebarReorderInsertBeforeId = this.findSidebarReorderInsertBefore(context.mouseY);
+    }
+
+    private String findSidebarReorderInsertBefore(int mouseY)
+    {
+        List<UIKeyframeSheet> sheets = this.getSheets();
+        UIKeyframeSheet under = this.getSheet(mouseY);
+
+        if (under == null || this.sidebarTrackReorder == null)
+        {
+            return null;
+        }
+
+        int start = sheets.indexOf(under);
+
+        if (start < 0)
+        {
+            return null;
+        }
+
+        for (int i = start; i < sheets.size(); i++)
+        {
+            String id = this.sidebarTrackReorder.resolveReorderId(sheets.get(i));
+
+            if (id != null && !id.equals(this.sidebarReorderTrackId))
+            {
+                return id;
+            }
+        }
+
+        return null;
     }
 
     @Override
@@ -1293,6 +1579,12 @@ public class UIKeyframeDopeSheet implements IUIKeyframeGraph
         }
 
         this.sidebarScroll = (int) Math.round(this.sidebarScrollbar.getScroll());
+        this.updateSidebarTrackReorder(context);
+
+        if (this.sidebarTrackReorderActive)
+        {
+            return;
+        }
 
         if (this.keyframes.isNavigating())
         {
@@ -1325,6 +1617,7 @@ public class UIKeyframeDopeSheet implements IUIKeyframeGraph
     @Override
     public void render(UIContext context)
     {
+        this.updateSidebarTrackReorder(context);
         this.renderGrid(context);
         context.batcher.clip(this.keyframes.area.x, this.keyframes.area.y + RULER_HEIGHT, this.keyframes.area.w, this.keyframes.area.h - RULER_HEIGHT, context);
         this.renderGraph(context);
@@ -1334,7 +1627,52 @@ public class UIKeyframeDopeSheet implements IUIKeyframeGraph
         this.keyframes.renderKeyframeSelectSamePreview(context);
         this.keyframes.renderInteractionTickPulse(context);
         this.renderPreviewKeyframes(context);
+        this.renderSidebarTrackReorderPreview(context);
         context.batcher.unclip(context);
+    }
+
+    private void renderSidebarTrackReorderPreview(UIContext context)
+    {
+        if (!this.sidebarTrackReorderActive || this.sidebarReorderTrackId == null)
+        {
+            return;
+        }
+
+        Area area = this.keyframes.area;
+        int lineY = -1;
+
+        if (this.sidebarReorderInsertBeforeId != null)
+        {
+            UIKeyframeSheet target = this.getSheet(this.sidebarReorderInsertBeforeId);
+
+            if (target != null)
+            {
+                lineY = this.getDopeSheetY(target);
+            }
+        }
+        else
+        {
+            lineY = area.ey() - 4;
+        }
+
+        if (lineY >= area.y + RULER_HEIGHT && lineY <= area.ey())
+        {
+            context.batcher.box(area.x, lineY - 1, area.x + this.sidebarWidth, lineY + 1, Colors.A100 | Colors.ACTIVE);
+        }
+
+        String label = this.sidebarReorderTrackId;
+        UIKeyframeSheet dragSheet = this.getSheet(this.sidebarReorderTrackId);
+
+        if (dragSheet != null)
+        {
+            label = this.getEffectiveSidebarTitle(dragSheet);
+        }
+
+        int gx = context.mouseX + 8;
+        int gy = context.mouseY - 8;
+
+        context.batcher.box(gx - 2, gy - 2, gx + context.batcher.getFont().getWidth(label) + 6, gy + 14, Colors.A75);
+        context.batcher.textShadow(label, gx, gy, Colors.WHITE);
     }
 
     /**
@@ -1886,7 +2224,7 @@ public class UIKeyframeDopeSheet implements IUIKeyframeGraph
 
                 if (this.isFormGroup(sheet))
                 {
-                    int primary = BBSSettings.primaryColor.get();
+                    int primary = BBSSettings.accentRgb();
                     int leftColor = Colors.setA(primary, 0.5F);
                     int rightColor = Colors.setA(primary, 0F);
 

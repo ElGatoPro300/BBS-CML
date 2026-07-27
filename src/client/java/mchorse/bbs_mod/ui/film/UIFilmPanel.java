@@ -61,6 +61,10 @@ import mchorse.bbs_mod.ui.film.audio.UIAudioRecorder;
 import mchorse.bbs_mod.ui.film.clips.UIClip;
 import mchorse.bbs_mod.ui.film.clips.UIKeyframeClip;
 import mchorse.bbs_mod.ui.film.controller.UIFilmController;
+import mchorse.bbs_mod.ui.film.FilmUiCapabilities;
+import mchorse.bbs_mod.ui.film.FilmUiPanelIds;
+import mchorse.bbs_mod.ui.film.IFilmUiWorkspace;
+import mchorse.bbs_mod.ui.film.IModelTrackPlacement;
 import mchorse.bbs_mod.ui.film.replays.UIReplaysEditor;
 import mchorse.bbs_mod.ui.film.replays.overlays.UIReplayPropertiesPanel;
 import mchorse.bbs_mod.ui.film.replays.overlays.UIReplaysOverlayPanel;
@@ -77,6 +81,7 @@ import mchorse.bbs_mod.ui.framework.elements.buttons.UIIcon;
 import mchorse.bbs_mod.ui.framework.elements.context.UISimpleContextMenu;
 import mchorse.bbs_mod.ui.framework.elements.input.list.UISearchList;
 import mchorse.bbs_mod.ui.framework.elements.overlay.UIConfirmOverlayPanel;
+import mchorse.bbs_mod.ui.framework.styles.UIStyle;
 import mchorse.bbs_mod.ui.framework.elements.overlay.UIMessageOverlayPanel;
 import mchorse.bbs_mod.ui.framework.elements.overlay.UINumberOverlayPanel;
 import mchorse.bbs_mod.ui.framework.elements.overlay.UIOverlay;
@@ -114,7 +119,6 @@ import mchorse.bbs_mod.utils.presets.PresetManager;
 import mchorse.bbs_mod.utils.resources.Pixels;
 
 import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
-
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.network.ClientPlayerEntity;
 import net.minecraft.client.render.BufferBuilder;
@@ -124,8 +128,6 @@ import net.minecraft.client.render.Tessellator;
 import net.minecraft.client.render.VertexFormat;
 import net.minecraft.client.render.VertexFormats;
 import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.util.math.Vec3d;
-
 import org.joml.Matrix4f;
 import org.joml.Vector2i;
 import org.joml.Vector3d;
@@ -182,6 +184,8 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
     public UIClipsPanel actionEditor;
     public UIReplaysOverlayPanel anchoredReplaysPanel;
     public UIReplayPropertiesPanel anchoredReplaysPropertiesPanel;
+    public IFilmUiWorkspace minecutWorkspace;
+    private IModelTrackPlacement modelTrackPlacement;
 
     /* Icon bar buttons */
     public UIIcon toggleHorizontal;
@@ -255,6 +259,10 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
     private static final int FLOATING_RESIZE_HANDLE = 8;
     private final Set<String> dockedHeaderPanels = new HashSet<>();
     private static final int SPLITTER_HANDLE_PX = 6;
+    /* Classic dock leaves a 3px card margin each side; Minecut uses a flush 1px gutter so the
+       cyan accent line reads like the previous fixed Minecut shell. */
+    private static final int DOCK_PANEL_INSET_CLASSIC = 3;
+    private static final int DOCK_PANEL_INSET_MINECUT = 1;
     private static final int DROP_ZONE_CENTER = -1;
     public static final int DROP_ZONE_TAB = 4;
     private static final String DROP_TARGET_WORKSPACE = "__workspace__";
@@ -262,6 +270,19 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
     private static final int EDITOR_MIN_SIZE_FOR_PX_HANDLES = 10;
     private static final String ANCHORED_REPLAYS_PANEL_ID = "replaysPanel";
     private static final String ANCHORED_REPLAYS_PROPERTIES_PANEL_ID = "replaysPropertiesPanel";
+    private static final String MINECUT_REPLAYS_PANEL_ID = FilmUiPanelIds.REPLAYS;
+    private static final String MINECUT_MEDIA_CAMERA_PANEL_ID = FilmUiPanelIds.MEDIA_CAMERA;
+    private static final String MINECUT_MEDIA_ACTIONS_PANEL_ID = FilmUiPanelIds.MEDIA_ACTIONS;
+    private static final String MINECUT_MEDIA_TRACKS_PANEL_ID = FilmUiPanelIds.MEDIA_TRACKS;
+    private static final String MINECUT_KEYFRAME_PANEL_ID = FilmUiPanelIds.KEYFRAME;
+    private static final String MINECUT_PROPS_CAMERA_PANEL_ID = FilmUiPanelIds.PROPS_CAMERA;
+    private static final String MINECUT_PROPS_ACTION_PANEL_ID = FilmUiPanelIds.PROPS_ACTION;
+    private static final String MINECUT_PLAYER_PANEL_ID = FilmUiPanelIds.PLAYER;
+    private static final String MINECUT_TIMELINE_REPLAY_PANEL_ID = FilmUiPanelIds.TIMELINE_REPLAY;
+    private static final String MINECUT_TIMELINE_CAMERA_PANEL_ID = FilmUiPanelIds.TIMELINE_CAMERA;
+    private static final String MINECUT_TIMELINE_ACTION_PANEL_ID = FilmUiPanelIds.TIMELINE_ACTION;
+    private static final String[] MINECUT_PANEL_IDS = FilmUiPanelIds.ALL;
+    private static final String[] MINECUT_LEGACY_PANEL_IDS = FilmUiPanelIds.LEGACY;
     private static final String PRESET_REPLAYS_PANEL_ENABLED = "replays_panel_enabled";
     private static final String PRESET_REPLAYS_PANEL_FLOATING = "replays_panel_floating";
     private static final String PRESET_REPLAYS_PANEL_X = "replays_panel_x";
@@ -842,6 +863,14 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
         this.homePage.add(new UIRenderable(this::renderHomeBanner), this.homeActionsPanel, this.homeFilmsSearch, this.homeFilmsMosaic, this.homeViewToggle, this.panelSwitcher);
 
         this.editor.add(this.cameraEditor, this.replayEditor, this.actionEditor, this.editArea, this.cameraEditArea, this.actionEditArea, this.unifiedEditArea, this.preview, this.anchoredReplaysPanel, this.anchoredReplaysPropertiesPanel, this.homePage, new UIRenderable(this::renderDockedPanelHeaders), new UIRenderable(this::renderIcons), new UIRenderable(this::renderDropZoneHighlight), new UIRenderable(this::renderFloatingPanelWindows));
+        this.minecutWorkspace = FilmUiCapabilities.createWorkspace(this);
+
+        if (this.minecutWorkspace != null)
+        {
+            this.modelTrackPlacement = this.minecutWorkspace.getModelTrackPlacement();
+            this.minecutWorkspace.registerDockPanels(this.panelById);
+            this.editor.add(this.minecutWorkspace.allPanels());
+        }
         for (String id : this.panelById.keySet())
         {
             UIDraggable handle = this.createPanelDragHandle(id);
@@ -1012,10 +1041,25 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
             @Override
             protected boolean subMouseScrolled(UIContext context)
             {
+                if (Window.isCtrlPressed()
+                    && UIFilmPanel.this.isMinecutFilmUi()
+                    && UIFilmPanel.this.minecutWorkspace != null
+                    && UIFilmPanel.this.minecutWorkspace.tryReplaysCardZoom(context))
+                {
+                    return true;
+                }
+
                 if (Window.isCtrlPressed() && !UIFilmPanel.this.isFlying())
                 {
+                    double wheel = context.mouseWheel != 0D ? context.mouseWheel : context.mouseWheelHorizontal;
+
+                    if (wheel == 0D)
+                    {
+                        return super.subMouseScrolled(context);
+                    }
+
                     int magnitude = Window.isShiftPressed() ? BBSSettings.editorJump.get() : 1;
-                    int newCursor = UIFilmPanel.this.getCursor() + (int) Math.copySign(magnitude, context.mouseWheel);
+                    int newCursor = UIFilmPanel.this.getCursor() + (int) Math.copySign(magnitude, wheel);
 
                     UIFilmPanel.this.setCursor(newCursor);
 
@@ -1112,8 +1156,450 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
         this.setupEditorFlex(resize, false, true);
     }
 
+    public boolean isMinecutFilmUi()
+    {
+        return UIStyle.isMinecut();
+    }
+
+    /**
+     * Remount classic vs Minecut dock chrome after the UI style setting changes.
+     */
+    public void remountForUiStyle()
+    {
+        this.setupEditorFlex(true, false, true);
+    }
+
+    public void applyMinecutTimelineTab(int tab)
+    {
+        if (!this.isMinecutFilmUi())
+        {
+            return;
+        }
+
+        String panelId = tab == 1 ? MINECUT_TIMELINE_CAMERA_PANEL_ID
+            : tab == 2 ? MINECUT_TIMELINE_ACTION_PANEL_ID
+            : MINECUT_TIMELINE_REPLAY_PANEL_ID;
+
+        this.focusMinecutDockTab(panelId);
+    }
+
+    /**
+     * Activate a Minecut leaf inside its TabbedNode (if docked as a tab),
+     * and bring its linked Media / Properties / Timeline siblings with it.
+     */
+    public void focusMinecutDockTab(String panelId)
+    {
+        if (!this.isMinecutFilmUi() || panelId == null)
+        {
+            return;
+        }
+
+        EditorLayoutNode root = this.getActiveDockLayoutRoot();
+        boolean changed = this.selectPanelInTabbedNode(root, panelId);
+
+        changed |= this.syncMinecutLinkedTabs(root, panelId);
+
+        if (changed)
+        {
+            this.setupEditorFlex(true, false, true);
+        }
+    }
+
+    /**
+     * Keep Media / Properties / Timeline tab strips on the same logical section
+     * (Replay↔Replays↔Keyframe, Camera↔Camera, Action↔Action).
+     * Tracks is its own media leaf — opening Replay timeline focuses Replays, not Tracks.
+     */
+    private boolean syncMinecutLinkedTabs(EditorLayoutNode root, String panelId)
+    {
+        String[] group = this.getMinecutSyncGroup(panelId);
+
+        if (group == null || root == null)
+        {
+            return false;
+        }
+
+        boolean changed = false;
+
+        for (String id : group)
+        {
+            if (id.equals(panelId))
+            {
+                continue;
+            }
+
+            if (this.selectPanelInTabbedNode(root, id))
+            {
+                changed = true;
+            }
+        }
+
+        return changed;
+    }
+
+    private String[] getMinecutSyncGroup(String panelId)
+    {
+        if (MINECUT_REPLAYS_PANEL_ID.equals(panelId)
+            || MINECUT_KEYFRAME_PANEL_ID.equals(panelId)
+            || MINECUT_TIMELINE_REPLAY_PANEL_ID.equals(panelId))
+        {
+            return new String[] {
+                MINECUT_REPLAYS_PANEL_ID,
+                MINECUT_KEYFRAME_PANEL_ID,
+                MINECUT_TIMELINE_REPLAY_PANEL_ID
+            };
+        }
+
+        if (MINECUT_MEDIA_TRACKS_PANEL_ID.equals(panelId))
+        {
+            return new String[] {
+                MINECUT_MEDIA_TRACKS_PANEL_ID,
+                MINECUT_KEYFRAME_PANEL_ID,
+                MINECUT_TIMELINE_REPLAY_PANEL_ID
+            };
+        }
+
+        if (MINECUT_MEDIA_CAMERA_PANEL_ID.equals(panelId)
+            || MINECUT_PROPS_CAMERA_PANEL_ID.equals(panelId)
+            || MINECUT_TIMELINE_CAMERA_PANEL_ID.equals(panelId))
+        {
+            return new String[] {
+                MINECUT_MEDIA_CAMERA_PANEL_ID,
+                MINECUT_PROPS_CAMERA_PANEL_ID,
+                MINECUT_TIMELINE_CAMERA_PANEL_ID
+            };
+        }
+
+        if (MINECUT_MEDIA_ACTIONS_PANEL_ID.equals(panelId)
+            || MINECUT_PROPS_ACTION_PANEL_ID.equals(panelId)
+            || MINECUT_TIMELINE_ACTION_PANEL_ID.equals(panelId))
+        {
+            return new String[] {
+                MINECUT_MEDIA_ACTIONS_PANEL_ID,
+                MINECUT_PROPS_ACTION_PANEL_ID,
+                MINECUT_TIMELINE_ACTION_PANEL_ID
+            };
+        }
+
+        return null;
+    }
+
+    private boolean isMinecutPanelId(String panelId)
+    {
+        return FilmUiPanelIds.isMinecutPanelId(panelId);
+    }
+
+    private EditorLayoutNode getActiveDockLayoutRoot()
+    {
+        ValueEditorLayout layout = BBSSettings.editorLayoutSettings;
+
+        return this.isMinecutFilmUi() ? layout.getMinecutLayoutRoot() : layout.getFilmLayoutRoot();
+    }
+
+    private void setActiveDockLayoutRoot(EditorLayoutNode root)
+    {
+        if (this.isMinecutFilmUi())
+        {
+            BBSSettings.editorLayoutSettings.setMinecutLayoutRoot(root);
+        }
+        else
+        {
+            BBSSettings.editorLayoutSettings.setFilmLayoutRoot(root);
+        }
+    }
+
+    private void syncActiveDockSplitters(EditorLayoutNode root)
+    {
+        ValueEditorLayout layout = BBSSettings.editorLayoutSettings;
+
+        if (this.isMinecutFilmUi())
+        {
+            layout.syncMinecutSplittersFromRoot(root);
+        }
+        else
+        {
+            layout.syncFilmSplittersFromRoot(root);
+        }
+    }
+
+    private List<EditorLayoutNode.SplitterNode> getActiveDockSplitters()
+    {
+        ValueEditorLayout layout = BBSSettings.editorLayoutSettings;
+
+        return this.isMinecutFilmUi() ? layout.getMinecutSplitters() : layout.getFilmSplitters();
+    }
+
+    private void setActiveDockSplitterRatio(int index, float ratio)
+    {
+        if (this.isMinecutFilmUi())
+        {
+            BBSSettings.editorLayoutSettings.setMinecutSplitterRatio(index, ratio);
+        }
+        else
+        {
+            BBSSettings.editorLayoutSettings.setFilmSplitterRatio(index, ratio);
+        }
+    }
+
+    private void migrateLegacyMinecutLayoutIfNeeded()
+    {
+        if (BBSSettings.uiLayoutPreferences == null || BBSSettings.editorLayoutSettings == null)
+        {
+            return;
+        }
+
+        MapType old = BBSSettings.uiLayoutPreferences.getMinecutLayout();
+
+        if (old != null && !BBSSettings.editorLayoutSettings.wasMinecutLayoutRootLoaded())
+        {
+            MinecutWorkspaceLayout legacy = new MinecutWorkspaceLayout();
+
+            legacy.fromData(old);
+            BBSSettings.editorLayoutSettings.setMinecutLayoutRoot(legacy.toEditorLayoutNode());
+        }
+
+        if (old != null)
+        {
+            BBSSettings.uiLayoutPreferences.setMinecutLayout(null);
+        }
+
+        this.migrateOldMinecutPanelIdsIfNeeded();
+        this.migrateMinecutTracksTabIfNeeded();
+    }
+
+    /**
+     * Pre-tab-split layouts used minecutMedia / minecutProperties / minecutTimeline.
+     * Replace those trees with the new Tabbed default once.
+     */
+    private void migrateOldMinecutPanelIdsIfNeeded()
+    {
+        EditorLayoutNode root = BBSSettings.editorLayoutSettings.getMinecutLayoutRoot();
+
+        if (root == null)
+        {
+            return;
+        }
+
+        for (String legacyId : MINECUT_LEGACY_PANEL_IDS)
+        {
+            if (this.hasPanelInLayout(root, legacyId))
+            {
+                BBSSettings.editorLayoutSettings.setMinecutLayoutRoot(EditorLayoutNode.defaultMinecutLayout());
+
+                return;
+            }
+        }
+    }
+
+    /**
+     * Insert Tracks into media TabbedNodes that still only have Replays/Camera/Actions.
+     */
+    private void migrateMinecutTracksTabIfNeeded()
+    {
+        EditorLayoutNode root = BBSSettings.editorLayoutSettings.getMinecutLayoutRoot();
+
+        if (root == null || this.hasPanelInLayout(root, MINECUT_MEDIA_TRACKS_PANEL_ID))
+        {
+            return;
+        }
+
+        EditorLayoutNode updated = this.insertMinecutTracksTab(root);
+
+        if (updated != root)
+        {
+            BBSSettings.editorLayoutSettings.setMinecutLayoutRoot(updated);
+        }
+    }
+
+    private EditorLayoutNode insertMinecutTracksTab(EditorLayoutNode node)
+    {
+        if (node instanceof EditorLayoutNode.TabbedNode)
+        {
+            EditorLayoutNode.TabbedNode tabbed = (EditorLayoutNode.TabbedNode) node;
+            boolean hasMedia = false;
+            boolean hasTracks = false;
+            List<EditorLayoutNode> newTabs = new ArrayList<>();
+
+            for (EditorLayoutNode tab : tabbed.tabs)
+            {
+                newTabs.add(tab);
+
+                if (tab instanceof EditorLayoutNode.PanelNode)
+                {
+                    String id = ((EditorLayoutNode.PanelNode) tab).getPanelId();
+
+                    if (MINECUT_REPLAYS_PANEL_ID.equals(id)
+                        || MINECUT_MEDIA_CAMERA_PANEL_ID.equals(id)
+                        || MINECUT_MEDIA_ACTIONS_PANEL_ID.equals(id))
+                    {
+                        hasMedia = true;
+                    }
+
+                    if (MINECUT_MEDIA_TRACKS_PANEL_ID.equals(id))
+                    {
+                        hasTracks = true;
+                    }
+                }
+            }
+
+            if (hasMedia && !hasTracks)
+            {
+                newTabs.add(new EditorLayoutNode.PanelNode(MINECUT_MEDIA_TRACKS_PANEL_ID));
+
+                return new EditorLayoutNode.TabbedNode(newTabs, tabbed.activeTab);
+            }
+
+            List<EditorLayoutNode> rewritten = new ArrayList<>();
+            boolean changed = false;
+
+            for (EditorLayoutNode tab : tabbed.tabs)
+            {
+                EditorLayoutNode next = this.insertMinecutTracksTab(tab);
+
+                rewritten.add(next);
+                changed |= next != tab;
+            }
+
+            return changed ? new EditorLayoutNode.TabbedNode(rewritten, tabbed.activeTab) : tabbed;
+        }
+
+        if (node instanceof EditorLayoutNode.SplitterNode)
+        {
+            EditorLayoutNode.SplitterNode split = (EditorLayoutNode.SplitterNode) node;
+            EditorLayoutNode first = this.insertMinecutTracksTab(split.getFirst());
+            EditorLayoutNode second = this.insertMinecutTracksTab(split.getSecond());
+
+            if (first != split.getFirst() || second != split.getSecond())
+            {
+                return new EditorLayoutNode.SplitterNode(split.isHorizontal(), split.getRatio(), first, second);
+            }
+        }
+
+        return node;
+    }
+
+    private void setupMinecutEditorFlex(boolean resize, boolean fast, boolean recreateTabs)
+    {
+        this.migrateLegacyMinecutLayoutIfNeeded();
+        this.updateTargets();
+
+        ValueEditorLayout layout = BBSSettings.editorLayoutSettings;
+        EditorLayoutNode root = layout.getMinecutLayoutRoot();
+
+        layout.syncMinecutSplittersFromRoot(root);
+        this.resetDynamicLayoutElements(recreateTabs);
+
+        List<EditorLayoutNode.SplitterNode> splitters = layout.getMinecutSplitters();
+
+        if (fast && !layout.isLayoutLocked() && resize && this.splitterHandles.size() == this.splitterHandleInfos.size() && !this.splitterHandleInfos.isEmpty())
+        {
+            this.updateEditorFlexBoundsOnly(layout, root);
+
+            if (this.minecutWorkspace != null)
+            {
+                this.minecutWorkspace.syncMountedBounds();
+                this.minecutWorkspace.restoreEmbeddedVisibility();
+            }
+
+            this.resize();
+            this.resize();
+
+            return;
+        }
+
+        EditorLayoutNode visibleRoot = this.createVisibleDockedLayoutRoot(root);
+        Map<String, float[]> bounds = this.computePanelBounds(visibleRoot);
+
+        List<EditorLayoutNode.TabbedNode> tabbedNodes = new ArrayList<>();
+        EditorLayoutNode.collectTabbedNodes(visibleRoot, tabbedNodes);
+        Set<String> multiTabPanels = new HashSet<>();
+
+        for (EditorLayoutNode.TabbedNode tabbed : tabbedNodes)
+        {
+            if (tabbed.tabs.size() > 1)
+            {
+                for (EditorLayoutNode tab : tabbed.tabs)
+                {
+                    if (tab instanceof EditorLayoutNode.PanelNode)
+                    {
+                        multiTabPanels.add(((EditorLayoutNode.PanelNode) tab).getPanelId());
+                    }
+                }
+            }
+        }
+
+        this.applyPanelBoundsFromMap(bounds, multiTabPanels);
+
+        if (layout.isLayoutLocked())
+        {
+            this.setPanelDragHandlesVisible(false);
+
+            for (UIDraggable handle : this.splitterHandles)
+            {
+                handle.removeFromParent();
+            }
+
+            this.splitterHandles.clear();
+        }
+        else
+        {
+            if (recreateTabs)
+            {
+                this.rebuildSplitterHandles(layout, root, splitters);
+            }
+
+            this.splitterHandleInfos.clear();
+            EditorLayoutNode.computeSplitterHandles(visibleRoot, 0F, 0F, 1F, 1F, this.splitterHandleInfos);
+            this.refreshSplitterHandleTargets(root, visibleRoot);
+            this.syncSplitterHandleBounds();
+            this.applyDragHandleBoundsFromMap(bounds);
+        }
+
+        this.setupTabBars(root, visibleRoot, bounds, recreateTabs);
+
+        boolean needsAttach = this.minecutWorkspace != null && (!this.minecutWorkspace.isAttached()
+            || this.preview == null
+            || this.preview.getParent() != this.minecutWorkspace.getPlayerViewportHost());
+
+        if (needsAttach)
+        {
+            this.minecutWorkspace.attachFilmWidgets();
+        }
+        else if (this.minecutWorkspace != null)
+        {
+            this.minecutWorkspace.restoreEmbeddedVisibility();
+        }
+
+        if (resize)
+        {
+            this.resize();
+            this.resize();
+        }
+
+        if (this.minecutWorkspace != null)
+        {
+            this.minecutWorkspace.syncMountedBounds();
+            this.minecutWorkspace.restoreEmbeddedVisibility();
+            this.minecutWorkspace.tickRecordingUi();
+        }
+
+        this.updateFilmDocumentView();
+    }
+
     private void setupEditorFlex(boolean resize, boolean fast, boolean recreateTabs)
     {
+        if (this.isMinecutFilmUi())
+        {
+            this.setupMinecutEditorFlex(resize, fast, recreateTabs);
+
+            return;
+        }
+
+        if (this.minecutWorkspace != null && this.minecutWorkspace.isAttached())
+        {
+            this.minecutWorkspace.detachFilmWidgets(this.editor);
+        }
+
         ValueEditorLayout layout = BBSSettings.editorLayoutSettings;
         EditorLayoutNode root = layout.getFilmLayoutRoot();
 
@@ -1332,11 +1818,29 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
             this.tabBars.clear();
             this.editor.getChildren().removeIf(child -> child instanceof UITabBar);
         }
-        for (UIElement panel : this.panelById.values())
+
+        for (Map.Entry<String, UIElement> entry : this.panelById.entrySet())
         {
+            String id = entry.getKey();
+            UIElement panel = entry.getValue();
+
+            /* Minecut embeds classic panels (preview / timelines / edit areas) inside shells.
+               Never resetFlex/hide those here — that blanks the Player and timelines. */
+            if (this.isMinecutFilmUi() && !this.isMinecutPanelId(id))
+            {
+                continue;
+            }
+
+            if (!this.isMinecutFilmUi() && this.isMinecutPanelId(id))
+            {
+                panel.setVisible(false);
+                continue;
+            }
+
             panel.resetFlex();
             panel.setVisible(false);
         }
+
         this.draggableMain.setVisible(false);
         this.draggableEditor.setVisible(false);
         for (UIDraggable handle : this.dragHandlesById.values())
@@ -1405,9 +1909,9 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
 
         EditorLayoutNode visibleRoot = this.createVisibleDockedLayoutRoot(root);
 
-        /* Keep filmSplitters aligned with the saved layout tree, not the temporary
+        /* Keep dock splitters aligned with the saved layout tree, not the temporary
            visible tree used for bounds/handle placement. */
-        layout.syncFilmSplittersFromRoot(root);
+        this.syncActiveDockSplitters(root);
 
         this.splitterHandleInfos.clear();
         EditorLayoutNode.computeSplitterHandles(visibleRoot, 0F, 0F, 1F, 1F, this.splitterHandleInfos);
@@ -1560,16 +2064,16 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
         }
 
         ValueEditorLayout layout = BBSSettings.editorLayoutSettings;
-        EditorLayoutNode root = layout.getFilmLayoutRoot();
+        EditorLayoutNode root = this.getActiveDockLayoutRoot();
 
-        layout.syncFilmSplittersFromRoot(root);
+        this.syncActiveDockSplitters(root);
 
-        List<EditorLayoutNode.SplitterNode> splitters = layout.getFilmSplitters();
+        List<EditorLayoutNode.SplitterNode> splitters = this.getActiveDockSplitters();
         int layoutIndex = splitters.indexOf(target);
 
         if (layoutIndex >= 0)
         {
-            layout.setFilmSplitterRatio(layoutIndex, ratio);
+            this.setActiveDockSplitterRatio(layoutIndex, ratio);
         }
         else
         {
@@ -1649,8 +2153,23 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
 
     private void applyPanelBoundsFromMap(Map<String, float[]> bounds, Set<String> multiTabPanels)
     {
-        for (UIElement el : this.panelById.values())
+        for (Map.Entry<String, UIElement> entry : this.panelById.entrySet())
         {
+            String id = entry.getKey();
+            UIElement el = entry.getValue();
+
+            if (this.isMinecutFilmUi() && !this.isMinecutPanelId(id))
+            {
+                /* Embedded classic content — visibility is owned by Minecut remount/tab sync. */
+                continue;
+            }
+
+            if (!this.isMinecutFilmUi() && this.isMinecutPanelId(id))
+            {
+                el.setVisible(false);
+                continue;
+            }
+
             el.setVisible(false);
         }
         this.homePage.setVisible(false);
@@ -1672,10 +2191,12 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
             if (el != null)
             {
                 float[] b = e.getValue();
+                int inset = this.dockPanelInset();
+                int inset2 = inset * 2;
                 /* Every docked window reserves a card title bar at the top (unless the layout is
                    locked). Tabbed panels use the tab bar (setupTabBars) as their header; the rest
                    get a card header drawn by renderDockedPanelHeaders. */
-                el.relative(this.editor).x(b[0], 3).y(b[1], headerInset + 3).w(b[2], -6).h(b[3], -headerInset - 6);
+                el.relative(this.editor).x(b[0], inset).y(b[1], headerInset + inset).w(b[2], -inset2).h(b[3], -headerInset - inset2);
                 el.setVisible(!this.collapsedDockedPanels.contains(id));
 
                 if (this.hiddenPanels.contains(id))
@@ -1740,8 +2261,10 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
             if (h != null && el != null)
             {
                 float[] b = e.getValue();
+                int inset = this.dockPanelInset();
+                int inset2 = inset * 2;
                 /* The drag handle covers the whole card title bar. */
-                h.relative(this.editor).x(b[0], 3).y(b[1], 3).w(b[2], -6).h(0F, PANEL_HEADER_HEIGHT);
+                h.relative(this.editor).x(b[0], inset).y(b[1], inset).w(b[2], -inset2).h(0F, PANEL_HEADER_HEIGHT);
                 h.setVisible(!BBSSettings.editorLayoutSettings.isLayoutLocked() && !this.usesPanelInternalDragHandle(id));
             }
         }
@@ -1983,12 +2506,12 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
             return;
         }
 
-        EditorLayoutNode root = BBSSettings.editorLayoutSettings.getFilmLayoutRoot();
+        EditorLayoutNode root = this.getActiveDockLayoutRoot();
         EditorLayoutNode newRoot = EditorLayoutNode.copyWithReorderedTabs(root, panelId, from, to);
 
         if (newRoot != root)
         {
-            BBSSettings.editorLayoutSettings.setFilmLayoutRoot(newRoot);
+            this.setActiveDockLayoutRoot(newRoot);
             this.setupEditorFlex(true, false, true);
         }
     }
@@ -2147,17 +2670,17 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
 
     private void applyPanelDropResult(String dragId, String targetId, int zone)
     {
-        ValueEditorLayout layout = BBSSettings.editorLayoutSettings;
-        EditorLayoutNode root = layout.getFilmLayoutRoot();
+        EditorLayoutNode root = this.getActiveDockLayoutRoot();
         EditorLayoutNode newRoot = DROP_TARGET_WORKSPACE.equals(targetId)
             ? this.buildWorkspaceDroppedLayout(root, dragId, zone)
             : this.buildDroppedLayout(root, dragId, targetId, zone);
 
-        if (newRoot != null)
+        if (newRoot != null && this.hasPanelInLayout(newRoot, dragId))
         {
             this.floatingPanels.remove(dragId);
             this.collapsedFloatingPanels.remove(dragId);
-            layout.setFilmLayoutRoot(newRoot);
+            this.hiddenPanels.remove(dragId);
+            this.setActiveDockLayoutRoot(newRoot);
             this.setupEditorFlex(true);
         }
     }
@@ -2511,12 +3034,49 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
 
     private boolean canApplyDropIntent(String draggedId, DropIntent intent)
     {
-        return draggedId != null && intent != null && intent.targetId != null && !draggedId.equals(intent.targetId);
+        if (draggedId == null || intent == null || intent.targetId == null || draggedId.equals(intent.targetId))
+        {
+            return false;
+        }
+
+        if (DROP_TARGET_WORKSPACE.equals(intent.targetId))
+        {
+            return intent.zone == EditorLayoutNode.EDGE_LEFT
+                || intent.zone == EditorLayoutNode.EDGE_RIGHT
+                || intent.zone == EditorLayoutNode.EDGE_TOP
+                || intent.zone == EditorLayoutNode.EDGE_BOTTOM;
+        }
+
+        return this.isDockDropTargetId(intent.targetId);
+    }
+
+    /**
+     * Only real dock chrome panels for the active UI mode are valid drop targets.
+     * Minecut embeds classic panels (preview / timelines / edit areas) inside shells;
+     * those must never be drop targets or a failed insert removes the dragged panel
+     * from both the tree and the floating set (window appears to "turn off").
+     */
+    private boolean isDockDropTargetId(String panelId)
+    {
+        if (panelId == null || panelId.isEmpty())
+        {
+            return false;
+        }
+
+        for (String id : this.getWindowPanelIds())
+        {
+            if (id.equals(panelId))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private String resolveSiblingTabId(String targetId)
     {
-        EditorLayoutNode root = BBSSettings.editorLayoutSettings.getFilmLayoutRoot();
+        EditorLayoutNode root = this.getActiveDockLayoutRoot();
         if (root == null) return null;
         
         EditorLayoutNode.TabbedNode tabbed = this.findTabbedNodeContaining(root, targetId);
@@ -2623,6 +3183,32 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
             return;
         }
 
+        if (this.isMinecutFilmUi() && this.minecutWorkspace != null)
+        {
+            if ("cameraTimeline".equals(panelId) || MINECUT_TIMELINE_CAMERA_PANEL_ID.equals(panelId)
+                || MINECUT_PROPS_CAMERA_PANEL_ID.equals(panelId) || MINECUT_MEDIA_CAMERA_PANEL_ID.equals(panelId))
+            {
+                this.focusMinecutDockTab(MINECUT_TIMELINE_CAMERA_PANEL_ID);
+            }
+            else if ("actionTimeline".equals(panelId) || MINECUT_TIMELINE_ACTION_PANEL_ID.equals(panelId)
+                || MINECUT_PROPS_ACTION_PANEL_ID.equals(panelId) || MINECUT_MEDIA_ACTIONS_PANEL_ID.equals(panelId))
+            {
+                this.focusMinecutDockTab(MINECUT_TIMELINE_ACTION_PANEL_ID);
+            }
+            else if ("replayTimeline".equals(panelId) || MINECUT_TIMELINE_REPLAY_PANEL_ID.equals(panelId)
+                || MINECUT_KEYFRAME_PANEL_ID.equals(panelId) || MINECUT_REPLAYS_PANEL_ID.equals(panelId))
+            {
+                /* Replay timeline / keyframe → Replays media tab (not Tracks). */
+                this.focusMinecutDockTab(MINECUT_REPLAYS_PANEL_ID);
+            }
+            else if (MINECUT_MEDIA_TRACKS_PANEL_ID.equals(panelId))
+            {
+                this.focusMinecutDockTab(MINECUT_MEDIA_TRACKS_PANEL_ID);
+            }
+
+            return;
+        }
+
         this.clearSelectionsExcept(panelId);
 
         String linkedPanelId = this.getLinkedPropertiesPanelId(panelId);
@@ -2707,6 +3293,7 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
         /* Per-panel dock cubes: the window docks to the marker you're aiming at. */
         for (Map.Entry<String, UIElement> entry : this.panelById.entrySet())
         {
+            if (!this.isDockDropTargetId(entry.getKey())) continue;
             if (!entry.getValue().isVisible()) continue;
             if (this.floatingPanels.contains(entry.getKey())) continue;
             if (this.hiddenPanels.contains(entry.getKey())) continue;
@@ -2750,6 +3337,7 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
 
         for (Map.Entry<String, UIElement> entry : this.panelById.entrySet())
         {
+            if (!this.isDockDropTargetId(entry.getKey())) continue;
             if (!entry.getValue().isVisible()) continue;
             if (this.floatingPanels.contains(entry.getKey())) continue;
             if (this.hiddenPanels.contains(entry.getKey())) continue;
@@ -2804,6 +3392,17 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
             case "cameraTimeline": return UIKeys.FILM_CAMERA_TIMELINE;
             case "replayTimeline": return UIKeys.FILM_REPLAY_TIMELINE;
             case "actionTimeline": return UIKeys.FILM_ACTION_TIMELINE;
+            case MINECUT_REPLAYS_PANEL_ID: return IKey.constant("Replays");
+            case MINECUT_MEDIA_CAMERA_PANEL_ID: return IKey.constant("Camera");
+            case MINECUT_MEDIA_ACTIONS_PANEL_ID: return IKey.constant("Actions");
+            case MINECUT_MEDIA_TRACKS_PANEL_ID: return IKey.constant("Tracks");
+            case MINECUT_KEYFRAME_PANEL_ID: return IKey.constant("Keyframe");
+            case MINECUT_PROPS_CAMERA_PANEL_ID: return IKey.constant("Camera");
+            case MINECUT_PROPS_ACTION_PANEL_ID: return IKey.constant("Action");
+            case MINECUT_PLAYER_PANEL_ID: return IKey.constant("Player");
+            case MINECUT_TIMELINE_REPLAY_PANEL_ID: return IKey.constant("Replay");
+            case MINECUT_TIMELINE_CAMERA_PANEL_ID: return IKey.constant("Camera");
+            case MINECUT_TIMELINE_ACTION_PANEL_ID: return IKey.constant("Action");
         }
 
         return IKey.raw(panelId);
@@ -2827,6 +3426,17 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
             case "cameraTimeline": return Icons.FRUSTUM;
             case "replayTimeline": return Icons.SCENE;
             case "actionTimeline": return Icons.ACTION;
+            case MINECUT_REPLAYS_PANEL_ID: return Icons.SCENE;
+            case MINECUT_MEDIA_CAMERA_PANEL_ID: return Icons.FRUSTUM;
+            case MINECUT_MEDIA_ACTIONS_PANEL_ID: return Icons.ACTION;
+            case MINECUT_MEDIA_TRACKS_PANEL_ID: return Icons.STOPWATCH;
+            case MINECUT_KEYFRAME_PANEL_ID: return Icons.EDIT;
+            case MINECUT_PROPS_CAMERA_PANEL_ID: return Icons.EDIT;
+            case MINECUT_PROPS_ACTION_PANEL_ID: return Icons.EDIT;
+            case MINECUT_PLAYER_PANEL_ID: return Icons.CAMERA;
+            case MINECUT_TIMELINE_REPLAY_PANEL_ID: return Icons.SCENE;
+            case MINECUT_TIMELINE_CAMERA_PANEL_ID: return Icons.FRUSTUM;
+            case MINECUT_TIMELINE_ACTION_PANEL_ID: return Icons.ACTION;
         }
 
         return Icons.FILM;
@@ -2834,6 +3444,11 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
 
     public String[] getWindowPanelIds()
     {
+        if (this.isMinecutFilmUi())
+        {
+            return MINECUT_PANEL_IDS.clone();
+        }
+
         return new String[] {"cameraTimeline", "replayTimeline", "actionTimeline", "preview", "editArea", "cameraEditArea", "actionEditArea", "unifiedEditArea", ANCHORED_REPLAYS_PANEL_ID, ANCHORED_REPLAYS_PROPERTIES_PANEL_ID};
     }
 
@@ -2906,6 +3521,13 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
             return;
         }
 
+        if (this.isMinecutFilmUi() && this.minecutWorkspace != null)
+        {
+            this.focusMinecutDockTab(MINECUT_KEYFRAME_PANEL_ID);
+
+            return;
+        }
+
         String panelId = this.shouldRedirectProperties() ? "unifiedEditArea" : "editArea";
 
         this.focusPanelTab(panelId);
@@ -2923,6 +3545,13 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
      */
     public void focusClipPropertiesTab(boolean cameraTimeline)
     {
+        if (this.isMinecutFilmUi() && this.minecutWorkspace != null)
+        {
+            this.focusMinecutDockTab(cameraTimeline ? MINECUT_PROPS_CAMERA_PANEL_ID : MINECUT_PROPS_ACTION_PANEL_ID);
+
+            return;
+        }
+
         String panelId = this.shouldRedirectProperties()
             ? "unifiedEditArea"
             : (cameraTimeline ? "cameraEditArea" : "actionEditArea");
@@ -2989,6 +3618,22 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
 
     public void updateTargets()
     {
+        if (this.isMinecutFilmUi())
+        {
+            /* Minecut Properties hosts are separate panes — never redirect to unifiedEditArea. */
+            this.cameraEditor.target(this.cameraEditArea);
+            this.actionEditor.target(this.actionEditArea);
+
+            if (this.replayEditor != null && this.replayEditor.keyframeEditor != null)
+            {
+                this.replayEditor.keyframeEditor.target(this.editArea);
+            }
+
+            this.applyEmbeddedKeyframeSidePanelSetting();
+
+            return;
+        }
+
         boolean unified = this.shouldRedirectProperties();
 
         this.cameraEditor.target(unified ? this.unifiedEditArea : this.cameraEditArea);
@@ -3016,7 +3661,7 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
             return false;
         }
 
-        return this.floatingPanels.contains(panelId) || this.hasPanelInLayout(BBSSettings.editorLayoutSettings.getFilmLayoutRoot(), panelId);
+        return this.floatingPanels.contains(panelId) || this.hasPanelInLayout(this.getActiveDockLayoutRoot(), panelId);
     }
 
     public void setWindowPanelVisible(String panelId, boolean visible)
@@ -3035,7 +3680,7 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
         {
             this.hiddenPanels.remove(panelId);
 
-            if (!this.floatingPanels.contains(panelId) && !this.hasPanelInLayout(BBSSettings.editorLayoutSettings.getFilmLayoutRoot(), panelId))
+            if (!this.floatingPanels.contains(panelId) && !this.hasPanelInLayout(this.getActiveDockLayoutRoot(), panelId))
             {
                 if (ANCHORED_REPLAYS_PROPERTIES_PANEL_ID.equals(panelId))
                 {
@@ -3055,8 +3700,7 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
         }
         else
         {
-            ValueEditorLayout layout = BBSSettings.editorLayoutSettings;
-            EditorLayoutNode root = layout.getFilmLayoutRoot();
+            EditorLayoutNode root = this.getActiveDockLayoutRoot();
             /* Don't remove the panel from the layout tree when hiding through Window menu.
                Removing leaves can collapse splitters/tab groups and unintentionally reshuffle
                unrelated panels. Keep the docked layout stable and only toggle visibility via
@@ -3076,7 +3720,7 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
                        bounds/tab rendering don't target a leaf that was removed from the visible
                        layout tree (which would leave an empty gap in the tab group). */
                     this.promoteActiveTabIfHidden(tabbed);
-                    layout.setFilmLayoutRoot(root);
+                    this.setActiveDockLayoutRoot(root);
                 }
             }
 
@@ -3136,21 +3780,36 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
         if (!this.floatingPanels.isEmpty())
         {
             ValueEditorLayout layout = BBSSettings.editorLayoutSettings;
-            EditorLayoutNode root = layout.getFilmLayoutRoot();
-            boolean changed = false;
+            EditorLayoutNode filmRoot = layout.getFilmLayoutRoot();
+            EditorLayoutNode minecutRoot = layout.getMinecutLayoutRoot();
+            boolean filmChanged = false;
+            boolean minecutChanged = false;
 
             for (String panelId : new ArrayList<>(this.floatingPanels))
             {
-                if (root != null && this.hasPanelInLayout(root, panelId))
+                if (this.isMinecutPanelId(panelId))
                 {
-                    root = EditorLayoutNode.copyWithRemovedLeaf(root, panelId);
-                    changed = true;
+                    if (minecutRoot != null && this.hasPanelInLayout(minecutRoot, panelId))
+                    {
+                        minecutRoot = EditorLayoutNode.copyWithRemovedLeaf(minecutRoot, panelId);
+                        minecutChanged = true;
+                    }
+                }
+                else if (filmRoot != null && this.hasPanelInLayout(filmRoot, panelId))
+                {
+                    filmRoot = EditorLayoutNode.copyWithRemovedLeaf(filmRoot, panelId);
+                    filmChanged = true;
                 }
             }
 
-            if (changed)
+            if (filmChanged)
             {
-                layout.setFilmLayoutRoot(root);
+                layout.setFilmLayoutRoot(filmRoot);
+            }
+
+            if (minecutChanged)
+            {
+                layout.setMinecutLayoutRoot(minecutRoot);
             }
         }
     }
@@ -3204,22 +3863,21 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
 
     private void dockPanelNearVisibleTarget(String panelId)
     {
-        ValueEditorLayout layout = BBSSettings.editorLayoutSettings;
-        EditorLayoutNode root = layout.getFilmLayoutRoot();
+        EditorLayoutNode root = this.getActiveDockLayoutRoot();
         String target = this.getFirstDockedVisiblePanelId();
 
         if (root == null || target == null)
         {
-            layout.setFilmLayoutRoot(new EditorLayoutNode.PanelNode(panelId));
+            this.setActiveDockLayoutRoot(new EditorLayoutNode.PanelNode(panelId));
             return;
         }
 
-        layout.setFilmLayoutRoot(EditorLayoutNode.copyWithInsertSplitAt(root, target, panelId, EditorLayoutNode.EDGE_RIGHT));
+        this.setActiveDockLayoutRoot(EditorLayoutNode.copyWithInsertSplitAt(root, target, panelId, EditorLayoutNode.EDGE_RIGHT));
     }
 
     private String getFirstDockedVisiblePanelId()
     {
-        EditorLayoutNode root = BBSSettings.editorLayoutSettings.getFilmLayoutRoot();
+        EditorLayoutNode root = this.getActiveDockLayoutRoot();
 
         for (String id : this.getWindowPanelIds())
         {
@@ -3280,7 +3938,7 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
 
     private int getDockedVisiblePanelCount()
     {
-        EditorLayoutNode root = BBSSettings.editorLayoutSettings.getFilmLayoutRoot();
+        EditorLayoutNode root = this.getActiveDockLayoutRoot();
         int count = 0;
 
         for (String id : this.getWindowPanelIds())
@@ -3301,7 +3959,7 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
 
     private String getWorkspaceEdgeTargetPanelId(int zone)
     {
-        EditorLayoutNode root = BBSSettings.editorLayoutSettings.getFilmLayoutRoot();
+        EditorLayoutNode root = this.getActiveDockLayoutRoot();
         Map<String, float[]> bounds = this.computePanelBounds(root);
         String best = null;
         float bestScore = zone == EditorLayoutNode.EDGE_RIGHT || zone == EditorLayoutNode.EDGE_BOTTOM ? -1F : Float.MAX_VALUE;
@@ -3486,6 +4144,26 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
         ValueEditorLayout layout = BBSSettings.editorLayoutSettings;
 
         this.clearPanelDragState();
+
+        if (this.isMinecutFilmUi())
+        {
+            for (String id : MINECUT_PANEL_IDS)
+            {
+                this.floatingPanels.remove(id);
+                this.collapsedFloatingPanels.remove(id);
+                this.collapsedDockedPanels.remove(id);
+                this.hiddenPanels.remove(id);
+                this.floatingPanelPositions.remove(id);
+                this.floatingPanelSizes.remove(id);
+            }
+
+            layout.setMinecutLayoutRoot(EditorLayoutNode.defaultMinecutLayout());
+            this.setupEditorFlex(true);
+            this.persistFilmUILayoutSession();
+
+            return;
+        }
+
         this.floatingPanels.clear();
         this.collapsedFloatingPanels.clear();
         this.collapsedDockedPanels.clear();
@@ -3493,6 +4171,7 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
         layout.setFilmLayoutRoot(this.addAnchoredReplaysPanelToRoot(EditorLayoutNode.defaultFilmLayout()));
         BBSSettings.timelineToolbarDocks.resetToDefaults();
         TimelineToolbarDockSync.refreshFilmPanel(this);
+
         this.setupEditorFlex(true);
         this.persistFilmUILayoutSession();
     }
@@ -3525,7 +4204,7 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
                 int ey = el.area.ey();
 
                 context.batcher.outline(x - 1, y - 1, ex + 1, ey + 1, borderColor);
-                context.batcher.box(x, y, ex, ey, 0xFF111115);
+                context.batcher.box(x, y, ex, ey, BBSSettings.deepSurface());
             }
         }
         else
@@ -3549,7 +4228,7 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
 
                 if (!collapsed)
                 {
-                    context.batcher.box(x, el.area.y, ex, ey, 0xFF111115);
+                    context.batcher.box(x, el.area.y, ex, ey, BBSSettings.deepSurface());
                 }
             }
 
@@ -3572,7 +4251,7 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
                 int ey = active.area.ey();
 
                 context.batcher.outline(x - 1, y - 1, ex + 1, ey + 1, borderColor);
-                context.batcher.box(x, active.area.y, ex, ey, 0xFF111115);
+                context.batcher.box(x, active.area.y, ex, ey, BBSSettings.deepSurface());
             }
         }
     }
@@ -3618,7 +4297,7 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
             {
                 /* Floating windows are fully opaque so neither the 3D viewport nor docked
                    panels behind them bleed through the panel contents. */
-                context.batcher.box(x, y + PANEL_HEADER_HEIGHT, x + w, y + h, 0xFF141418);
+                context.batcher.box(x, y + PANEL_HEADER_HEIGHT, x + w, y + h, BBSSettings.chromeSurface());
             }
         }
     }
@@ -3766,6 +4445,162 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
             this.targetId = targetId;
             this.zone = zone;
         }
+    }
+
+    /**
+     * Minecut Media clip-type chip must paint above every docked/floating window
+     * (it used to draw inside the Media panel and disappear under Properties/Player/Timeline).
+     */
+    private void renderMinecutPaletteDragGhost(UIContext context)
+    {
+        if (this.showingHomePage || !this.isMinecutFilmUi() || this.minecutWorkspace == null)
+        {
+            return;
+        }
+
+        if (this.modelTrackPlacement != null && this.modelTrackPlacement.isActive())
+        {
+            this.modelTrackPlacement.updatePreview(this, context);
+            this.modelTrackPlacement.renderPreview(context);
+        }
+
+        this.minecutWorkspace.renderPaletteDragGhost(context);
+    }
+
+    public void beginModelTrackPlacement(String paletteType)
+    {
+        if (this.modelTrackPlacement == null)
+        {
+            return;
+        }
+
+        this.modelTrackPlacement.begin(paletteType);
+    }
+
+    public void clickAddModelTrack(String paletteType)
+    {
+        if (this.replayEditor == null)
+        {
+            return;
+        }
+
+        Replay replay = this.replayEditor.getReplay();
+
+        if (replay == null || replay.isGroup.get())
+        {
+            return;
+        }
+
+        this.focusMinecutDockTab(MINECUT_MEDIA_TRACKS_PANEL_ID);
+
+        String inserted = replay.insertModelTrackFromPalette(paletteType, -1);
+
+        if (inserted != null)
+        {
+            this.replayEditor.expandModelTrackParent(inserted);
+            this.replayEditor.updateChannelsList();
+        }
+
+        if (this.minecutWorkspace != null)
+        {
+            this.minecutWorkspace.clearTracksPaletteDragUi();
+            this.minecutWorkspace.refreshTracksCards();
+        }
+    }
+
+    public void finishModelTrackPlacement()
+    {
+        if (this.modelTrackPlacement == null || !this.modelTrackPlacement.isActive())
+        {
+            return;
+        }
+
+        if (!this.modelTrackPlacement.isOverTimeline() || this.modelTrackPlacement.getPreviewIndex() < 0)
+        {
+            this.cancelModelTrackPlacement();
+
+            return;
+        }
+
+        this.focusMinecutDockTab(MINECUT_MEDIA_TRACKS_PANEL_ID);
+
+        String inserted = null;
+        Replay replay = this.replayEditor != null ? this.replayEditor.getReplay() : null;
+
+        if (replay != null && !replay.isGroup.get())
+        {
+            inserted = replay.insertModelTrackFromPalette(
+                this.modelTrackPlacement.getPaletteType(),
+                this.modelTrackPlacement.getPreviewIndex());
+        }
+
+        if (this.replayEditor != null)
+        {
+            this.replayEditor.clearModelTrackInsertGapPreview();
+        }
+
+        if (this.modelTrackPlacement != null)
+        {
+            this.modelTrackPlacement.cancel();
+        }
+
+        if (inserted != null && this.replayEditor != null)
+        {
+            this.replayEditor.expandModelTrackParent(inserted);
+            this.replayEditor.updateChannelsList();
+        }
+
+        if (this.minecutWorkspace != null)
+        {
+            this.minecutWorkspace.clearTracksPaletteDragUi();
+            this.minecutWorkspace.refreshTracksCards();
+        }
+    }
+
+    public void cancelModelTrackPlacement()
+    {
+        if (this.replayEditor != null)
+        {
+            this.replayEditor.clearModelTrackInsertGapPreview();
+        }
+
+        if (this.modelTrackPlacement != null)
+        {
+            this.modelTrackPlacement.cancel();
+        }
+
+        if (this.minecutWorkspace != null)
+        {
+            this.minecutWorkspace.clearTracksPaletteDragUi();
+        }
+    }
+
+    @Override
+    protected boolean subMouseReleased(UIContext context)
+    {
+        /* Tracks palette may remount mid-drag; confirm from the film panel so release always lands. */
+        if (this.modelTrackPlacement != null && this.modelTrackPlacement.isActive() && context.mouseButton == 0)
+        {
+            this.modelTrackPlacement.updatePreview(this, context);
+            this.finishModelTrackPlacement();
+
+            return true;
+        }
+
+        return super.subMouseReleased(context);
+    }
+
+    @Override
+    protected boolean subKeyPressed(UIContext context)
+    {
+        if (this.modelTrackPlacement != null && this.modelTrackPlacement.isActive() && context.isPressed(GLFW.GLFW_KEY_ESCAPE))
+        {
+            this.cancelModelTrackPlacement();
+
+            return true;
+        }
+
+        return super.subKeyPressed(context);
     }
 
     private void renderDropZoneHighlight(UIContext context)
@@ -4030,7 +4865,7 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
         }
 
         ValueEditorLayout layout = BBSSettings.editorLayoutSettings;
-        EditorLayoutNode root = layout.getFilmLayoutRoot();
+        EditorLayoutNode root = this.getActiveDockLayoutRoot();
         EditorLayoutNode preview = DROP_TARGET_WORKSPACE.equals(this.dropTargetPanelId)
             ? this.buildWorkspaceDroppedLayout(root, activeDragId, this.dropTargetZone)
             : this.buildDroppedLayout(root, activeDragId, this.dropTargetPanelId, this.dropTargetZone);
@@ -4090,6 +4925,11 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
         return Colors.setA(color, MathUtils.clamp(alpha, 0F, 1F));
     }
 
+    private int dockPanelInset()
+    {
+        return this.isMinecutFilmUi() ? DOCK_PANEL_INSET_MINECUT : DOCK_PANEL_INSET_CLASSIC;
+    }
+
     private void renderSplitter(UIContext context, int index)
     {
         if (index < 0 || index >= this.splitterHandles.size() || index >= this.splitterHandleInfos.size())
@@ -4100,7 +4940,13 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
         UIDraggable splitter = this.splitterHandles.get(index);
         EditorLayoutNode.SplitterHandleInfo info = this.splitterHandleInfos.get(index);
         boolean active = splitter.area.isInside(context) || splitter.isDragging();
-        int lineColor = active ? (0xFF000000 | BBSSettings.primaryColor.get()) : 0xAA666666;
+        boolean minecut = this.isMinecutFilmUi();
+        /* Minecut: always-visible 1px cyan divider (previous shell). Classic: grey idle, primary on hover. */
+        int lineColor = minecut
+            ? (active ? UIStyle.active().accent() : UIStyle.active().accentDim())
+            : (active ? (0xFF000000 | BBSSettings.primaryColor.get()) : 0xAA666666);
+        int linePx = minecut ? 1 : 2;
+        int half = linePx / 2;
 
         if (active)
         {
@@ -4110,12 +4956,14 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
         if (info.horizontal)
         {
             int cy = splitter.area.y + splitter.area.h / 2;
-            context.batcher.box(splitter.area.x, cy - 1, splitter.area.ex(), cy + 1, lineColor);
+
+            context.batcher.box(splitter.area.x, cy - half, splitter.area.ex(), cy - half + linePx, lineColor);
         }
         else
         {
             int cx = splitter.area.x + splitter.area.w / 2;
-            context.batcher.box(cx - 1, splitter.area.y, cx + 1, splitter.area.ey(), lineColor);
+
+            context.batcher.box(cx - half, splitter.area.y, cx - half + linePx, splitter.area.ey(), lineColor);
         }
     }
 
@@ -4166,6 +5014,11 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
     public UIFilmController getController()
     {
         return this.controller;
+    }
+
+    public UIFilmStatusIcons getStatusIcons()
+    {
+        return this.statusIcons;
     }
 
     public UIFilmUndoHandler getUndoHandler()
@@ -4471,6 +5324,13 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
     {
         if (this.anchoredReplaysPanel == null)
         {
+            return;
+        }
+
+        if (this.isMinecutFilmUi() && this.minecutWorkspace != null)
+        {
+            this.anchoredReplaysPanel.attachPropertiesHost(this.minecutWorkspace.getReplayPropertiesHost());
+
             return;
         }
 
@@ -5033,7 +5893,13 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
         }
         else if (this.editor.area.w >= EDITOR_MIN_SIZE_FOR_PX_HANDLES && this.editor.area.h >= EDITOR_MIN_SIZE_FOR_PX_HANDLES)
         {
-            this.updateEditorFlexBoundsOnly(BBSSettings.editorLayoutSettings, BBSSettings.editorLayoutSettings.getFilmLayoutRoot());
+            this.updateEditorFlexBoundsOnly(BBSSettings.editorLayoutSettings, this.getActiveDockLayoutRoot());
+
+            if (this.isMinecutFilmUi() && this.minecutWorkspace != null)
+            {
+                this.minecutWorkspace.syncMountedBounds();
+                this.minecutWorkspace.restoreEmbeddedVisibility();
+            }
 
             this.editor.resize();
         }
@@ -6072,7 +6938,7 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
             this.postUpdateActions.clear();
         }
 
-        this.area.render(context.batcher, 0xFF141418);
+        this.area.render(context.batcher, BBSSettings.chromeSurface());
 
         if (!this.showingHomePage && this.editor.isVisible())
         {
@@ -6087,6 +6953,7 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
         this.renderPanelWindowSurfaces(context);
         super.render(context);
         this.renderDropZoneHighlight(context);
+        this.renderMinecutPaletteDragGhost(context);
 
         if (this.shouldCaptureThumbnail && this.data != null && this.preview.isVisible())
         {
@@ -6506,6 +7373,11 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
         if (this.replayEditor.keyframeEditor != null && this.replayEditor.keyframeEditor.editor != null)
         {
             this.replayEditor.keyframeEditor.editor.update();
+        }
+
+        if (this.isMinecutFilmUi() && this.minecutWorkspace != null)
+        {
+            this.minecutWorkspace.refreshReplayCards();
         }
     }
 
@@ -7275,6 +8147,70 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
 
     private void setWorkspaceVisible(boolean visible)
     {
+        if (this.isMinecutFilmUi())
+        {
+            if (!visible)
+            {
+                for (String id : MINECUT_PANEL_IDS)
+                {
+                    UIElement panel = this.panelById.get(id);
+
+                    if (panel != null)
+                    {
+                        panel.setVisible(false);
+                    }
+
+                    UIDraggable handle = this.dragHandlesById.get(id);
+
+                    if (handle != null)
+                    {
+                        handle.setVisible(false);
+                    }
+                }
+
+                for (UIDraggable handle : this.splitterHandles)
+                {
+                    handle.setVisible(false);
+                }
+
+                for (UITabBar tabBar : this.tabBars)
+                {
+                    tabBar.setVisible(false);
+                }
+            }
+            else if (this.minecutWorkspace != null && !this.minecutWorkspace.isAttached())
+            {
+                this.minecutWorkspace.attachFilmWidgets();
+            }
+
+            this.draggableMain.setVisible(false);
+            this.draggableEditor.setVisible(false);
+
+            return;
+        }
+
+        if (this.minecutWorkspace != null && this.minecutWorkspace.isAttached())
+        {
+            this.minecutWorkspace.detachFilmWidgets(this.editor);
+        }
+
+        for (String id : MINECUT_PANEL_IDS)
+        {
+            UIElement panel = this.panelById.get(id);
+
+            if (panel != null)
+            {
+                panel.setVisible(false);
+            }
+
+            UIDraggable handle = this.dragHandlesById.get(id);
+
+            if (handle != null)
+            {
+                handle.setVisible(false);
+            }
+        }
+
         if (!visible)
         {
             this.cameraEditor.setVisible(false);
@@ -7379,7 +8315,7 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
         BufferBuilder builder = tessellator.begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_COLOR);
         
         RenderSystem.enableBlend();
-        RenderSystem.setShader(GameRenderer::getPositionColorProgram);
+        RenderSystem.setShader(GameRenderer::getPositionProgram);
         
         float[] yBot1 = new float[segments + 1];
         float[] yMid1 = new float[segments + 1];
@@ -7671,8 +8607,10 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
                     /* Tab strips stay visible when the layout is locked so docked panels can still
                        be switched. Locking only disables dragging/resizing, not tab selection. */
                     int headerInset = PANEL_HEADER_HEIGHT;
+                    int inset = this.dockPanelInset();
+                    int inset2 = inset * 2;
 
-                    tabBar.relative(this.editor).x(b[0], 3).y(b[1], 3).w(b[2], -6).h(0F, PANEL_HEADER_HEIGHT);
+                    tabBar.relative(this.editor).x(b[0], inset).y(b[1], inset).w(b[2], -inset2).h(0F, PANEL_HEADER_HEIGHT);
                     tabBar.setVisible(true);
 
                     for (EditorLayoutNode tab : tabbed.tabs)
@@ -7684,7 +8622,7 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
 
                             if (el != null)
                             {
-                                el.relative(this.editor).x(b[0], 3).y(b[1], headerInset + 3).w(b[2], -6).h(b[3], -headerInset - 6);
+                                el.relative(this.editor).x(b[0], inset).y(b[1], headerInset + inset).w(b[2], -inset2).h(b[3], -headerInset - inset2);
                                 boolean isActive = tab == activeNode && !this.hiddenPanels.contains(panelId);
                                 el.setVisible(isActive);
 
@@ -7711,7 +8649,7 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
 
                                     if (visibleHandle)
                                     {
-                                        handle.relative(this.editor).x(b[0], 3).y(b[1], 3).w(b[2], -6).h(0F, PANEL_HEADER_HEIGHT);
+                                        handle.relative(this.editor).x(b[0], inset).y(b[1], inset).w(b[2], -inset2).h(0F, PANEL_HEADER_HEIGHT);
                                     }
                                 }
                             }
@@ -7883,6 +8821,14 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
             }
 
             this.layoutTabs(context);
+
+            if (this.panel.isMinecutFilmUi())
+            {
+                /* Same elevated strip the old painted Minecut tabs used. */
+                context.batcher.box(this.area.x, this.area.y, this.area.ex(), this.area.ey(), UIStyle.active().elevated());
+                context.batcher.box(this.area.x, this.area.ey() - 1, this.area.ex(), this.area.ey(), UIStyle.active().borderSoft());
+            }
+
             context.batcher.clip(this.area, context);
             this.renderDropGap(context);
             super.render(context);
@@ -7935,16 +8881,27 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
             int h = this.area.h;
             int x = context.mouseX - w / 2;
             int y = this.area.y;
-
-            context.batcher.box(x, y, x + w, y + h, 0xCC2A2A30);
-            context.batcher.outline(x, y, x + w, y + h, 0xFF15151A);
-
-            Icon icon = dragged.resolveIcon();
             String label = dragged.resolveName().get();
-            int color = 0xFF000000 | BBSSettings.primaryColor.get();
 
-            context.batcher.icon(icon, color, x + 11, y + h / 2, 0.5F, 0.5F);
-            context.batcher.text(label, x + 22, y + (h - context.batcher.getFont().getHeight()) / 2, color);
+            if (this.panel.isMinecutFilmUi())
+            {
+                UIStyle style = UIStyle.active();
+
+                context.batcher.box(x, y, x + w, y + h, Colors.setA(style.elevated(), 0.92F));
+                context.batcher.box(x + 4, y + h - 2, x + w - 4, y + h, style.accent());
+                context.batcher.textShadow(label, x + 10, y + (h - context.batcher.getFont().getHeight()) / 2, style.text());
+            }
+            else
+            {
+                context.batcher.box(x, y, x + w, y + h, 0xCC2A2A30);
+                context.batcher.outline(x, y, x + w, y + h, 0xFF15151A);
+
+                Icon icon = dragged.resolveIcon();
+                int color = 0xFF000000 | BBSSettings.primaryColor.get();
+
+                context.batcher.icon(icon, color, x + 11, y + h / 2, 0.5F, 0.5F);
+                context.batcher.text(label, x + 22, y + (h - context.batcher.getFont().getHeight()) / 2, color);
+            }
         }
 
         private void layoutTabs(UIContext context)
@@ -7966,8 +8923,11 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
                     if (child instanceof UITab tab && this.panel.tabReorderPanelId.equals(tab.panelId))
                     {
                         IKey nameKey = tab.resolveName();
+                        int labelW = context.batcher.getFont().getWidth(nameKey.get());
 
-                        draggedWidth = 22 + context.batcher.getFont().getWidth(nameKey.get()) + 8;
+                        draggedWidth = this.panel.isMinecutFilmUi()
+                            ? 10 + labelW + 10
+                            : 22 + labelW + 8;
                         break;
                     }
                 }
@@ -8177,46 +9137,12 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
 
         private IKey resolveName()
         {
-            IKey name = IKey.raw(this.panelId);
-
-            if (this.panelId.equals("cameraTimeline")) name = UIKeys.FILM_CAMERA_TIMELINE;
-            else if (this.panelId.equals("replayTimeline")) name = UIKeys.FILM_REPLAY_TIMELINE;
-            else if (this.panelId.equals("actionTimeline")) name = UIKeys.FILM_ACTION_TIMELINE;
-            else if (this.panelId.equals("cameraEditor")) name = UIKeys.FILM_OPEN_CAMERA_EDITOR;
-            else if (this.panelId.equals("replayEditor")) name = UIKeys.FILM_OPEN_REPLAY_EDITOR;
-            else if (this.panelId.equals("actionEditor")) name = UIKeys.FILM_OPEN_ACTION_EDITOR;
-            else if (this.panelId.equals(ANCHORED_REPLAYS_PANEL_ID)) name = UIKeys.FILM_REPLAY_TITLE;
-            else if (this.panelId.equals(ANCHORED_REPLAYS_PROPERTIES_PANEL_ID)) name = UIKeys.FILM_REPLAY_SECTION_GENERAL;
-            else if (this.panelId.equals("editArea")) name = UIKeys.RAW_PROPERTIES;
-            else if (this.panelId.equals("cameraEditArea")) name = UIKeys.FILM_WORKSPACE_CAMERA_PROPERTIES;
-            else if (this.panelId.equals("actionEditArea")) name = UIKeys.FILM_WORKSPACE_ACTION_PROPERTIES;
-            else if (this.panelId.equals("unifiedEditArea")) name = UIKeys.FILM_WORKSPACE_UNIFIED_PROPERTIES;
-            else if (this.panelId.equals("preview")) name = UIKeys.RAW_VIEWPORT;
-            else if (this.panelId.equals("main")) name = UIKeys.RAW_TIMELINE;
-
-            return name;
+            return this.panel.getPanelTitle(this.panelId);
         }
 
         private Icon resolveIcon()
         {
-            Icon icon = Icons.FILM;
-
-            if (this.panelId.equals("cameraTimeline")) icon = Icons.FRUSTUM;
-            else if (this.panelId.equals("replayTimeline")) icon = Icons.SCENE;
-            else if (this.panelId.equals("actionTimeline")) icon = Icons.ACTION;
-            else if (this.panelId.equals("cameraEditor")) icon = Icons.FRUSTUM;
-            else if (this.panelId.equals("replayEditor")) icon = Icons.SCENE;
-            else if (this.panelId.equals("actionEditor")) icon = Icons.ACTION;
-            else if (this.panelId.equals(ANCHORED_REPLAYS_PANEL_ID)) icon = Icons.EDITOR;
-            else if (this.panelId.equals(ANCHORED_REPLAYS_PROPERTIES_PANEL_ID)) icon = Icons.EDIT;
-            else if (this.panelId.equals("editArea")) icon = Icons.EDIT;
-            else if (this.panelId.equals("cameraEditArea")) icon = Icons.EDIT;
-            else if (this.panelId.equals("actionEditArea")) icon = Icons.EDIT;
-            else if (this.panelId.equals("unifiedEditArea")) icon = Icons.EDIT;
-            else if (this.panelId.equals("preview")) icon = Icons.CAMERA;
-            else if (this.panelId.equals("main")) icon = Icons.STOPWATCH;
-
-            return icon;
+            return this.panel.getPanelIcon(this.panelId);
         }
 
         private UITabBar getTabBar()
@@ -8284,6 +9210,31 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
 
             boolean active = this.tabbedNode.activeTab == this.index;
             boolean hovered = this.getParent() != null && this.getParent().area.isInside(context) && this.area.isInside(context);
+            IKey name = this.resolveName();
+            String label = name.get();
+            int textW = context.batcher.getFont().getWidth(label);
+
+            if (this.panel.isMinecutFilmUi())
+            {
+                UIStyle style = UIStyle.active();
+                /* Text + accent underline — optional film-UI skin tab chrome. */
+                int color = active ? style.text() : (hovered ? style.textDim() : style.textMuted());
+                int textY = this.area.y + (this.area.h - context.batcher.getFont().getHeight()) / 2;
+                int pad = 10;
+
+                this.area.w = pad + textW + pad;
+                context.batcher.textShadow(label, this.area.x + pad, textY, color);
+
+                if (active)
+                {
+                    context.batcher.box(this.area.x + 4, this.area.ey() - 2, this.area.ex() - 4, this.area.ey(), style.accent());
+                }
+
+                super.render(context);
+
+                return;
+            }
+
             if (active)
             {
                 context.batcher.box(this.area.x, this.area.y, this.area.ex(), this.area.ey(), 0xFF1D1D1D);
@@ -8297,25 +9248,24 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
             }
 
             Icon icon = this.resolveIcon();
-            IKey name = this.resolveName();
 
             int color = hovered || active ? (0xFF000000 | BBSSettings.primaryColor.get()) : 0xFFFFFFFF;
             int textY = this.area.y + (this.area.h - context.batcher.getFont().getHeight()) / 2;
             int visibleRight = this.getParent() == null ? this.area.ex() : Math.min(this.area.ex(), this.getParent().area.ex());
             int textX = this.area.x + 22;
-            int textW = visibleRight - textX - 4;
+            int clipW = visibleRight - textX - 4;
 
             if (this.area.x + 18 <= visibleRight)
             {
                 context.batcher.icon(icon, color, this.area.x + 11, this.area.y + this.area.h / 2, 0.5F, 0.5F);
             }
 
-            if (textW > 4)
+            if (clipW > 4)
             {
-                context.batcher.text(context.batcher.getFont().limitToWidth(name.get(), textW), textX, textY, color);
+                context.batcher.text(context.batcher.getFont().limitToWidth(label, clipW), textX, textY, color);
             }
 
-            this.area.w = 22 + context.batcher.getFont().getWidth(name.get()) + 8;
+            this.area.w = 22 + textW + 8;
 
             super.render(context);
         }
@@ -8328,12 +9278,23 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
             if (this.area.isInside(context) && context.mouseButton == 0)
             {
                 this.tabbedNode.activeTab = this.index;
-                this.panel.syncLinkedPropertiesTab(this.panelId);
-                ValueEditorLayout layout = BBSSettings.editorLayoutSettings;
-                layout.setFilmLayoutRoot(layout.getFilmLayoutRoot());
+
+                if (this.panel.isMinecutFilmUi())
+                {
+                    EditorLayoutNode root = this.panel.getActiveDockLayoutRoot();
+
+                    this.panel.syncMinecutLinkedTabs(root, this.panelId);
+                    this.panel.setActiveDockLayoutRoot(root);
+                }
+                else
+                {
+                    this.panel.syncLinkedPropertiesTab(this.panelId);
+                    this.panel.setActiveDockLayoutRoot(this.panel.getActiveDockLayoutRoot());
+                }
+
                 this.panel.setupEditorFlex(true, false, true);
 
-                if (!layout.isLayoutLocked())
+                if (!BBSSettings.editorLayoutSettings.isLayoutLocked())
                 {
                     this.panel.mouseHeldPanelId = this.panelId;
                     this.panel.clickX = context.mouseX;
@@ -8436,6 +9397,11 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
                     return this;
                 }
 
+                if (Window.isAltPressed() && context.mouseButton == 0)
+                {
+                    return this;
+                }
+
                 if (this.replayEditor.clickViewport(context, this.preview.getViewport()))
                 {
                     return this;
@@ -8500,13 +9466,7 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
 
     public void applyFloatingPanelDockResult(String panelId, String targetId, int zone)
     {
-        this.floatingPanels.remove(panelId);
-        this.collapsedFloatingPanels.remove(panelId);
-        this.collapsedDockedPanels.remove(panelId);
-        this.hiddenPanels.remove(panelId);
-
-        ValueEditorLayout layout = BBSSettings.editorLayoutSettings;
-        EditorLayoutNode root = layout.getFilmLayoutRoot();
+        EditorLayoutNode root = this.getActiveDockLayoutRoot();
 
         /* Dropping onto a screen edge targets the whole workspace, not a single panel,
            so it must use the workspace builder (the panel builder can't resolve the
@@ -8515,11 +9475,18 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
             ? this.buildWorkspaceDroppedLayout(root, panelId, zone)
             : this.buildDroppedLayout(root, panelId, targetId, zone);
 
-        if (newRoot != null)
+        if (newRoot == null || !this.hasPanelInLayout(newRoot, panelId))
         {
-            layout.setFilmLayoutRoot(newRoot);
+            /* Keep the window floating — a failed insert used to remove it from both
+               the floating set and the layout tree, which looked like the panel turned off. */
+            return;
         }
 
+        this.floatingPanels.remove(panelId);
+        this.collapsedFloatingPanels.remove(panelId);
+        this.collapsedDockedPanels.remove(panelId);
+        this.hiddenPanels.remove(panelId);
+        this.setActiveDockLayoutRoot(newRoot);
         this.persistFilmUILayoutSession();
     }
 
@@ -8545,12 +9512,11 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
             return;
         }
 
-        ValueEditorLayout layout = BBSSettings.editorLayoutSettings;
-        EditorLayoutNode root = layout.getFilmLayoutRoot();
+        EditorLayoutNode root = this.getActiveDockLayoutRoot();
         if (root != null && this.getDockedVisiblePanelCount() > 1)
         {
             EditorLayoutNode newRoot = EditorLayoutNode.copyWithRemovedLeaf(root, panelId);
-            layout.setFilmLayoutRoot(newRoot);
+            this.setActiveDockLayoutRoot(newRoot);
         }
 
         this.floatingPanels.add(panelId);

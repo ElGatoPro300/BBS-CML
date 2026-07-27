@@ -1,0 +1,31 @@
+{
+    "block.bbs.model": "模型方块",
+    "block.bbs.chroma_red": "红色色度方块",
+    "block.bbs.chroma_green": "绿色色度方块",
+    "block.bbs.chroma_blue": "蓝色色度方块",
+    "block.bbs.chroma_cyan": "青色色度方块",
+    "block.bbs.chroma_magenta": "品红色色度方块",
+    "block.bbs.chroma_yellow": "黄色色度方块",
+    "block.bbs.chroma_black": "黑色色度方块",
+    "block.bbs.chroma_white": "白色色度方块",
+    "item.bbs.gun": "BBS 枪",
+    "itemGroup.bbs.main": "BBS mod",
+
+    "key.bbs.item_editor": "物品编辑器",
+    "key.bbs.dashboard": "仪表盘",
+    "key.bbs.demorph": "取消伪装",
+    "key.bbs.open_replays": "打开当前回放列表",
+    "key.bbs.open_morphing": "打开伪装菜单",
+    "key.bbs.play_film": "播放影片",
+    "key.bbs.pause_film": "暂停影片",
+    "key.bbs.record_replay": "录制当前回放",
+    "key.bbs.record_video": "录制视频",
+    "key.bbs.teleport": "传送至当前回放",
+    "key.bbs.zoom": "瞄准 (BBS 枪)",
+    "category.bbs.main": "BBS mod",
+
+    "gamerule.bbsEditing": "BBS mod 的编辑权限",
+    "command.getskin.success": "所有玩家的皮肤已应用",
+    "command.getskin.error": "错误: %s",
+    "command.getskin.downloading": "正在下载皮肤..."
+}

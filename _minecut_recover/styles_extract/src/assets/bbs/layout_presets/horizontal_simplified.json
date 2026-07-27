@@ -1,0 +1,120 @@
+{
+    "replays_panel_docked_layout": {
+        "type": "splitter",
+        "dir": "v",
+        "first": {
+            "type": "splitter",
+            "dir": "h",
+            "first": {
+                "id": "preview",
+                "type": "panel"
+            },
+            "ratio": 0.5213483,
+            "second": {
+                "active_tab": 0,
+                "tabs": [
+                    {
+                        "id": "cameraTimeline",
+                        "type": "panel"
+                    },
+                    {
+                        "id": "replayTimeline",
+                        "type": "panel"
+                    },
+                    {
+                        "id": "actionTimeline",
+                        "type": "panel"
+                    }
+                ],
+                "type": "tabbed"
+            }
+        },
+        "ratio": 0.7375,
+        "second": {
+            "type": "splitter",
+            "dir": "h",
+            "first": {
+                "active_tab": 0,
+                "tabs": [
+                    {
+                        "id": "cameraEditArea",
+                        "type": "panel"
+                    },
+                    {
+                        "id": "editArea",
+                        "type": "panel"
+                    }
+                ],
+                "type": "tabbed"
+            },
+            "ratio": 0.50337076,
+            "second": {
+                "id": "replaysPanel",
+                "type": "panel"
+            }
+        }
+    },
+    "replays_panel_floating": false,
+    "video_frame_width": 1920,
+    "video_frame_rate": 60,
+    "video_motion_blur": 0,
+    "video_frame_height": 1080,
+    "replays_panel_enabled": true,
+    "hidden_panels": [
+        "actionEditArea",
+        "unifiedEditArea",
+        "replaysPropertiesPanel"
+    ],
+    "film_layout": {
+        "type": "splitter",
+        "dir": "v",
+        "first": {
+            "type": "splitter",
+            "dir": "h",
+            "first": {
+                "id": "preview",
+                "type": "panel"
+            },
+            "ratio": 0.5213483,
+            "second": {
+                "active_tab": 0,
+                "tabs": [
+                    {
+                        "id": "cameraTimeline",
+                        "type": "panel"
+                    },
+                    {
+                        "id": "replayTimeline",
+                        "type": "panel"
+                    },
+                    {
+                        "id": "actionTimeline",
+                        "type": "panel"
+                    }
+                ],
+                "type": "tabbed"
+            }
+        },
+        "ratio": 0.7375,
+        "second": {
+            "active_tab": 0,
+            "tabs": [
+                {
+                    "id": "cameraEditArea",
+                    "type": "panel"
+                },
+                {
+                    "id": "editArea",
+                    "type": "panel"
+                }
+            ],
+            "type": "tabbed"
+        }
+    },
+    "timeline_toolbar_docks": {
+        "replayTimeline": "left",
+        "cameraTimeline": "left",
+        "actionTimeline": "left",
+        "screenNodeView": "left"
+    }
+}

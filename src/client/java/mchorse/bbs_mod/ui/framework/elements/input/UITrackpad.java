@@ -770,7 +770,7 @@ public class UITrackpad extends UIBaseTextbox
 
         boolean dragging = this.isDraggingTime();
         boolean hovered = this.area.isInside(context);
-        int accent = 0xFF000000 | BBSSettings.primaryColor.get();
+        int accent = 0xFF000000 | BBSSettings.accentRgb();
         FontRenderer font = context.batcher.getFont();
         boolean wantsArrows = BBSSettings.enableTrackpadIncrements.get() && hovered;
         boolean showArrows = wantsArrows && this.area.w >= this.minusOne.w + this.plusOne.w + 6;

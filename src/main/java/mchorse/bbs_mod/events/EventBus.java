@@ -11,12 +11,21 @@ public class EventBus
 
     /**
      * Registers the given subscriber to receive events.
+     * Walks the class hierarchy so {@code @Subscribe} handlers on base addon
+     * classes are found when only overrides live on the concrete class.
      */
     public void register(Object subscriber)
     {
-        for (Method method : subscriber.getClass().getDeclaredMethods())
+        Class<?> clazz = subscriber.getClass();
+
+        while (clazz != null && clazz != Object.class)
         {
-            this.subscribe(subscriber, method);
+            for (Method method : clazz.getDeclaredMethods())
+            {
+                this.subscribe(subscriber, method);
+            }
+
+            clazz = clazz.getSuperclass();
         }
     }
 
@@ -28,6 +37,8 @@ public class EventBus
             {
                 return;
             }
+
+            method.setAccessible(true);
 
             this.subscribers
                 .computeIfAbsent(method.getParameterTypes()[0], (clazz) -> new CopyOnWriteArrayList<>())
@@ -53,8 +64,12 @@ public class EventBus
             {
                 subscription.method.invoke(subscription.target, event);
             }
-            catch (Exception ignored)
-            {}
+            catch (Exception e)
+            {
+                System.err.println("[BBS] EventBus failed for " + event.getClass().getSimpleName()
+                    + " → " + subscription.target.getClass().getName() + "." + subscription.method.getName());
+                e.printStackTrace();
+            }
         }
     }
 }

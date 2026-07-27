@@ -488,7 +488,7 @@ public class UIMainMenuBar extends UIElement
             if (active)
             {
                 context.batcher.box(this.area.x, this.area.y, this.area.ex(), this.area.ey(),
-                    Colors.setA(BBSSettings.primaryColor.get(), 0.55F));
+                    Colors.setA(BBSSettings.accentRgb(), 0.55F));
             }
             else if (hovered)
             {
@@ -583,7 +583,7 @@ public class UIMainMenuBar extends UIElement
             if (active)
             {
                 context.batcher.box(this.area.x, this.area.y, this.area.ex(), this.area.ey(),
-                    Colors.setA(BBSSettings.primaryColor.get(), 0.55F));
+                    Colors.setA(BBSSettings.accentRgb(), 0.55F));
             }
             else if (hovered)
             {
