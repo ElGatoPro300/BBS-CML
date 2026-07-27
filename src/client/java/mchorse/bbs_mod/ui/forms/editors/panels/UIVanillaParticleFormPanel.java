@@ -8,6 +8,7 @@ import mchorse.bbs_mod.ui.forms.editors.utils.UIParticleSettings;
 import mchorse.bbs_mod.ui.framework.elements.UIElement;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIButton;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIToggle;
+import mchorse.bbs_mod.ui.framework.elements.input.UIColor;
 import mchorse.bbs_mod.ui.framework.elements.input.UITrackpad;
 import mchorse.bbs_mod.ui.framework.elements.overlay.UIListOverlayPanel;
 import mchorse.bbs_mod.ui.framework.elements.overlay.UIOverlay;
@@ -25,6 +26,8 @@ import java.util.Locale;
 public class UIVanillaParticleFormPanel extends UIFormPanel<VanillaParticleForm>
 {
     public UIParticleSettings settings;
+    public UIColor color;
+    public UIElement colorContainer;
     public UIToggle paused;
     public UIToggle local;
     public UITrackpad velocity;
@@ -50,12 +53,42 @@ public class UIVanillaParticleFormPanel extends UIFormPanel<VanillaParticleForm>
         return path.equals("effect") || path.equals("entity_effect") || path.equals("ambient_entity_effect") || path.equals("instant_effect") || path.contains("effect");
     }
 
+    public static boolean isColorableParticle(Identifier id)
+    {
+        return id != null;
+    }
+
     public UIVanillaParticleFormPanel(UIForm editor)
     {
         super(editor);
 
         this.settings = new UIParticleSettings();
         this.settings.callback((id) -> this.updateEffectVisibility());
+
+        this.color = new UIColor((c) ->
+        {
+            if (this.form != null)
+            {
+                this.form.color.get().set(c);
+            }
+
+            float r = ((c >> 16) & 0xFF) / 255F;
+            float g = ((c >> 8) & 0xFF) / 255F;
+            float b = (c & 0xFF) / 255F;
+            float a = ((c >> 24) & 0xFF) / 255F;
+
+            if (a <= 0F)
+            {
+                a = 1.0F;
+            }
+
+            String argString = String.format(Locale.ROOT, "%.2f %.2f %.2f %.1f", r, g, b, a);
+
+            this.settings.setArgumentsText(argString);
+            this.updateEffectLabelForColor(argString);
+        }).withAlpha();
+
+        this.colorContainer = UI.column(UI.label(UIKeys.FORMS_EDITORS_VANILLA_PARTICLE_COLOR).marginTop(6), this.color);
 
         this.paused = new UIToggle(UIKeys.FORMS_EDITORS_VANILLA_PARTICLE_PAUSED, (b) -> this.form.paused.set(b.getValue()));
         this.local = new UIToggle(UIKeys.FORMS_EDITORS_VANILLA_PARTICLE_LOCAL, (b) -> this.form.local.set(b.getValue()));
@@ -75,10 +108,23 @@ public class UIVanillaParticleFormPanel extends UIFormPanel<VanillaParticleForm>
         this.offsetZ = new UITrackpad((v) -> this.form.offsetZ.set(v.floatValue()));
         this.offsetZ.tooltip(UIKeys.GENERAL_Z);
 
-        this.effectButton = new UIButton(UIKeys.FORMS_EDITORS_VANILLA_PARTICLE_PICK_EFFECT, (b) ->
+        this.effectButton = new UIButton(UIKeys.FORMS_EDITORS_VANILLA_PARTICLE_NONE, (b) ->
         {
-            UIListOverlayPanel overlayPanel = new UIListOverlayPanel(UIKeys.FORMS_EDITORS_VANILLA_PARTICLE_EFFECT_TITLE, (l) -> this.setEffect(Identifier.of(l)));
+            UIListOverlayPanel overlayPanel = new UIListOverlayPanel(UIKeys.FORMS_EDITORS_VANILLA_PARTICLE_EFFECT_TITLE, (l) ->
+            {
+                if (l.equals("none"))
+                {
+                    this.setEffectNone();
+                }
+                else
+                {
+                    this.setEffect(Identifier.of(l));
+                }
+            });
+
             List<String> strings = new ArrayList<>();
+
+            strings.add("none");
 
             for (RegistryKey<StatusEffect> key : Registries.STATUS_EFFECT.getKeys())
             {
@@ -93,7 +139,7 @@ public class UIVanillaParticleFormPanel extends UIFormPanel<VanillaParticleForm>
 
         this.effectContainer = UI.column(UI.label(UIKeys.FORMS_EDITORS_VANILLA_PARTICLE_EFFECT).marginTop(6), this.effectButton);
 
-        this.options.add(this.settings, this.paused.marginTop(6), this.local, UI.label(UIKeys.FORMS_EDITORS_VANILLA_PARTICLE_VELOCITY).marginTop(6), this.velocity);
+        this.options.add(this.settings, this.colorContainer, this.paused.marginTop(6), this.local, UI.label(UIKeys.FORMS_EDITORS_VANILLA_PARTICLE_VELOCITY).marginTop(6), this.velocity);
         this.options.add(UI.label(UIKeys.FORMS_EDITORS_VANILLA_PARTICLE_EMISSION).marginTop(6), this.count, this.frequency);
         this.options.add(UI.label(UIKeys.FORMS_EDITORS_VANILLA_PARTICLE_SCATTER).marginTop(6), this.scatteringYaw, this.scatteringPitch);
         this.options.add(UI.label(UIKeys.FORMS_EDITORS_VANILLA_PARTICLE_OFFSET).marginTop(6), this.offsetX, this.offsetY, this.offsetZ);
@@ -128,49 +174,64 @@ public class UIVanillaParticleFormPanel extends UIFormPanel<VanillaParticleForm>
         }
 
         Identifier id = this.form.settings.get().particle;
+        boolean isColorable = isColorableParticle(id);
         boolean isEffect = isEffectParticle(id);
 
+        this.colorContainer.setVisible(isColorable);
         this.effectContainer.setVisible(isEffect);
 
-        if (isEffect)
+        String args = this.form.settings.get().arguments.trim();
+
+        if (isColorable)
         {
-            Identifier currentEffect = null;
-            String args = this.form.settings.get().arguments.trim();
+            int colorInt = 0xFFFFFFFF;
 
             if (!args.isEmpty())
             {
-                for (RegistryKey<StatusEffect> key : Registries.STATUS_EFFECT.getKeys())
+                try
                 {
-                    StatusEffect effect = Registries.STATUS_EFFECT.get(key);
+                    String[] split = args.split("\\s+");
 
-                    if (effect != null)
+                    if (split.length >= 3)
                     {
-                        int color = effect.getColor();
-                        float r = ((color >> 16) & 0xFF) / 255F;
-                        float g = ((color >> 8) & 0xFF) / 255F;
-                        float b = (color & 0xFF) / 255F;
-                        float a = 1.0F;
+                        float r = Float.parseFloat(split[0]);
+                        float g = Float.parseFloat(split[1]);
+                        float b = Float.parseFloat(split[2]);
+                        float a = split.length >= 4 ? Float.parseFloat(split[3]) : 1.0F;
 
-                        String expected = String.format(Locale.ROOT, "%.2f %.2f %.2f %.1f", r, g, b, a);
+                        int ir = (int) (r * 255F);
+                        int ig = (int) (g * 255F);
+                        int ib = (int) (b * 255F);
+                        int ia = (int) (a * 255F);
 
-                        if (args.equals(expected))
-                        {
-                            currentEffect = key.getValue();
-                            break;
-                        }
+                        colorInt = (ia << 24) | (ir << 16) | (ig << 8) | ib;
                     }
                 }
+                catch (Exception e)
+                {}
             }
 
-            if (currentEffect != null)
-            {
-                this.effectButton.label = IKey.raw(currentEffect.toString());
-            }
-            else
-            {
-                this.effectButton.label = UIKeys.FORMS_EDITORS_VANILLA_PARTICLE_PICK_EFFECT;
-            }
+            this.color.setColor(colorInt);
         }
+
+        if (isEffect)
+        {
+            this.updateEffectLabelForColor(args);
+        }
+    }
+
+    private void setEffectNone()
+    {
+        String argString = "1.00 1.00 1.00 1.0";
+
+        if (this.form != null)
+        {
+            this.form.color.get().set(1F, 1F, 1F, 1F);
+        }
+
+        this.settings.setArgumentsText(argString);
+        this.color.setColor(0xFFFFFFFF);
+        this.effectButton.label = UIKeys.FORMS_EDITORS_VANILLA_PARTICLE_NONE;
     }
 
     private void setEffect(Identifier effectId)
@@ -179,16 +240,62 @@ public class UIVanillaParticleFormPanel extends UIFormPanel<VanillaParticleForm>
 
         if (effect != null)
         {
-            int color = effect.getColor();
-            float r = ((color >> 16) & 0xFF) / 255F;
-            float g = ((color >> 8) & 0xFF) / 255F;
-            float b = (color & 0xFF) / 255F;
+            int colorInt = effect.getColor();
+            float r = ((colorInt >> 16) & 0xFF) / 255F;
+            float g = ((colorInt >> 8) & 0xFF) / 255F;
+            float b = (colorInt & 0xFF) / 255F;
             float a = 1.0F;
+
+            if (this.form != null)
+            {
+                this.form.color.get().set(r, g, b, a);
+            }
 
             String argString = String.format(Locale.ROOT, "%.2f %.2f %.2f %.1f", r, g, b, a);
 
             this.settings.setArgumentsText(argString);
+            this.color.setColor((0xFF << 24) | (colorInt & 0xFFFFFF));
             this.effectButton.label = IKey.raw(effectId.toString());
+        }
+    }
+
+    private void updateEffectLabelForColor(String args)
+    {
+        Identifier currentEffect = null;
+        String trimmed = args.trim();
+
+        if (!trimmed.isEmpty())
+        {
+            for (RegistryKey<StatusEffect> key : Registries.STATUS_EFFECT.getKeys())
+            {
+                StatusEffect effect = Registries.STATUS_EFFECT.get(key);
+
+                if (effect != null)
+                {
+                    int colorInt = effect.getColor();
+                    float r = ((colorInt >> 16) & 0xFF) / 255F;
+                    float g = ((colorInt >> 8) & 0xFF) / 255F;
+                    float b = (colorInt & 0xFF) / 255F;
+                    float a = 1.0F;
+
+                    String expected = String.format(Locale.ROOT, "%.2f %.2f %.2f %.1f", r, g, b, a);
+
+                    if (trimmed.equals(expected))
+                    {
+                        currentEffect = key.getValue();
+                        break;
+                    }
+                }
+            }
+        }
+
+        if (currentEffect != null)
+        {
+            this.effectButton.label = IKey.raw(currentEffect.toString());
+        }
+        else
+        {
+            this.effectButton.label = UIKeys.FORMS_EDITORS_VANILLA_PARTICLE_NONE;
         }
     }
 }

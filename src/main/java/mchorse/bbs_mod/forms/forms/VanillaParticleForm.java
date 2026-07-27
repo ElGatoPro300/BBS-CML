@@ -2,13 +2,16 @@ package mchorse.bbs_mod.forms.forms;
 
 import mchorse.bbs_mod.forms.forms.utils.ParticleSettings;
 import mchorse.bbs_mod.forms.values.ValueParticleSettings;
+import mchorse.bbs_mod.settings.values.core.ValueColor;
 import mchorse.bbs_mod.settings.values.numeric.ValueBoolean;
 import mchorse.bbs_mod.settings.values.numeric.ValueFloat;
 import mchorse.bbs_mod.settings.values.numeric.ValueInt;
+import mchorse.bbs_mod.utils.colors.Color;
 
 public class VanillaParticleForm extends Form
 {
     public final ValueParticleSettings settings = new ValueParticleSettings("settings", new ParticleSettings());
+    public final ValueColor color = new ValueColor("color", new Color(1F, 1F, 1F, 1F));
     public final ValueBoolean paused = new ValueBoolean("paused", false);
     public final ValueBoolean local = new ValueBoolean("local", false);
     public final ValueFloat velocity = new ValueFloat("velocity", 0.1F);
@@ -27,6 +30,7 @@ public class VanillaParticleForm extends Form
         this.local.invisible();
 
         this.add(this.settings);
+        this.add(this.color);
         this.add(this.paused);
         this.add(this.local);
         this.add(this.velocity);

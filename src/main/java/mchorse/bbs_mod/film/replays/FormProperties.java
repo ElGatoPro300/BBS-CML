@@ -1287,7 +1287,7 @@ public class FormProperties extends ValueGroup
 
     /**
      * True when serialized Color keyframes still carry dual-write {@code blend_a}.
-     * Those are already migrated by {@link mchorse.bbs_mod.utils.keyframes.factories.ColorKeyframeFactory}
+     * Those are already migrated by {@link ColorKeyframeFactory}
      * and must not treat {@code color.a} as tint intensity again.
      */
     private static boolean colorChannelDataHasBlendA(MapType channelData)
