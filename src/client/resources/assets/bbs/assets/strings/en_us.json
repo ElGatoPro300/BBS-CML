@@ -396,6 +396,8 @@
     "bbs.config.shader_curves.enabled-comment": "Whether shader curves are enabled",
     "bbs.config.shader_curves.iris_opacity_fix": "Iris opacity fix",
     "bbs.config.shader_curves.iris_opacity_fix-comment": "For any Iris shader pack: keep form lighting on the Iris path when nearly opaque, and redraw soft translucency after clouds/fog so the sky is not punched. Complementary/BSL get GLSL shadow helpers automatically when detected. Reloads shaders when toggled.",
+    "bbs.config.shader_curves.soft_transparency_backfaces": "Soft transparency backfaces",
+    "bbs.config.shader_curves.soft_transparency_backfaces-comment": "Iris shaders only. Applies to form-wide and per-limb soft transparency. ON (default): draw backfaces so translucent shells show their interior (may look darker under packs). OFF: cull backfaces for cleaner colors. Without shaders, the model's own Culling option is used instead.",
     "bbs.config.shader_curves.complementary_opacity_fix": "Complementary opacity fix",
     "bbs.config.shader_curves.complementary_opacity_fix-comment": "When Complementary is loaded: keep form opacity/lighting on the Iris path, but do not let translucent forms punch clouds/fog (no depth write + translucentMult/separateEntityDraws). Reloads shaders when toggled.",
     "bbs.config.shader_curves.bsl_opacity_fix": "BSL opacity fix",

@@ -943,7 +943,7 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
                             overlayStack.peek().getPositionMatrix().set(positionMatrix);
                             overlayStack.peek().getNormalMatrix().set(normalMatrix);
 
-                            this.renderModelGeometry(overlayStack, BBSShaders::getModel, model, overlayLight, overlayOverlay, null, colorSnapshot, defaultTextureSnapshot, textureBlendSnapshotFinal);
+                            this.renderSoftTransparencyGeometry(overlayStack, BBSShaders::getModel, model, overlayLight, overlayOverlay, colorSnapshot, defaultTextureSnapshot, textureBlendSnapshotFinal, albedoGlow, glowColor, legacyGlow, paintSnapshot, true, positionMatrix);
                         }
                         finally
                         {
@@ -1120,7 +1120,7 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
                                 BBSModClient.getTextures().bindTexture(defaultTextureSnapshot);
                             }
 
-                            this.renderModelGeometryWithEmission(overlayStack, programSnapshot, model, overlayLight, overlayOverlay, null, colorSnapshot, defaultTextureSnapshot, textureBlendSnapshotFinal, glowSnapshot, glowColorSnapshot, legacyGlowSnapshot, paintSnapshot, glowDeferredSnapshot);
+                            this.renderSoftTransparencyGeometry(overlayStack, programSnapshot, model, overlayLight, overlayOverlay, colorSnapshot, defaultTextureSnapshot, textureBlendSnapshotFinal, glowSnapshot, glowColorSnapshot, legacyGlowSnapshot, paintSnapshot, glowDeferredSnapshot, positionMatrix);
                         }
                         finally
                         {
@@ -2586,14 +2586,14 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
             softStack.peek().getNormalMatrix().set(draw.normalMatrix);
 
             RenderSystem.depthMask(colorWritesDepth);
-            this.drawSoftLimbBones(batch, draw, softStack, softProgram, irisStyle, softPositionMatrix);
+            this.drawSoftLimbBones(batch, draw, softStack, softProgram, softPositionMatrix);
 
             if (stampDepth)
             {
                 RenderSystem.colorMask(false, false, false, false);
                 RenderSystem.depthMask(true);
                 RenderSystem.disableBlend();
-                this.drawSoftLimbBones(batch, draw, softStack, softProgram, irisStyle, softPositionMatrix);
+                this.drawSoftLimbBones(batch, draw, softStack, softProgram, softPositionMatrix);
                 RenderSystem.enableBlend();
                 RenderSystem.defaultBlendFunc();
                 RenderSystem.colorMask(true, true, true, true);
@@ -2653,22 +2653,72 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
         }
     }
 
-    private void drawSoftLimbBones(List<SoftBoneSubmit> batch, SoftLimbDrawState draw, MatrixStack softStack, Supplier<ShaderProgram> softProgram, boolean irisStyle, Matrix4f softPositionMatrix)
+    private void drawSoftLimbBones(List<SoftBoneSubmit> batch, SoftLimbDrawState draw, MatrixStack softStack, Supplier<ShaderProgram> softProgram, Matrix4f softPositionMatrix)
     {
         for (SoftBoneSubmit softSubmit : batch)
         {
             this.applyOnlySoftBoneVisible(draw.model, softSubmit.group);
 
-            /* Iris pack lighting + two-pass double-blends soft limbs so RGB darkens as alpha
-             * falls (noshading off). Form-wide soft uses a single Iris pass — match that.
-             * BBS / noshading / UI preview keep two-pass so interiors do not look denser. */
-            if (irisStyle)
+            this.renderSoftTransparencyGeometry(softStack, softProgram, draw.model, draw.light, draw.overlay, draw.color, draw.defaultTexture, draw.textureBlend, draw.glow, draw.glowColor, draw.legacyGlow, draw.paint, draw.glowDeferred, softPositionMatrix);
+        }
+    }
+
+    /**
+     * Soft form / soft limb geometry only (call sites are soft-opacity paths).
+     * With Iris: {@link BBSSettings#softTransparencyBackfaces} (default ON = backfaces).
+     * Without shaders: {@code model.culling} (false = show backfaces).
+     */
+    private static boolean showSoftTransparencyBackfaces(ModelInstance model)
+    {
+        if (BBSRendering.isIrisShadersEnabled())
+        {
+            return BBSSettings.softTransparencyBackfaces == null || BBSSettings.softTransparencyBackfaces.get();
+        }
+
+        return model != null && !model.culling;
+    }
+
+    private void renderSoftTransparencyGeometry(MatrixStack stack, Supplier<ShaderProgram> program, ModelInstance model, int light, int overlay, Color color, Link defaultTexture, TextureBlend textureBlend, GlowSettings glow, Color glowColor, Color legacyGlow, Color paint, boolean glowDeferredToOverlay, Matrix4f positionMatrix)
+    {
+        if (showSoftTransparencyBackfaces(model))
+        {
+            this.renderSoftLimbGeometryTwoSided(stack, program, model, light, overlay, color, defaultTexture, textureBlend, glow, glowColor, legacyGlow, paint, glowDeferredToOverlay, positionMatrix);
+
+            return;
+        }
+
+        boolean cullWasEnabled = GL11.glIsEnabled(GL11.GL_CULL_FACE);
+        int savedCullFace = GL11.glGetInteger(GL11.GL_CULL_FACE_MODE);
+        int savedFrontFace = GL11.glGetInteger(GL11.GL_FRONT_FACE);
+        Matrix4f facingMatrix = new Matrix4f(RenderSystem.getModelViewMatrix());
+
+        if (positionMatrix != null)
+        {
+            facingMatrix.mul(positionMatrix);
+        }
+
+        boolean flipWinding = facingMatrix.determinant() < 0F;
+
+        RenderSystem.enableCull();
+        GL11.glFrontFace(flipWinding ? GL11.GL_CW : GL11.GL_CCW);
+        GL11.glCullFace(GL11.GL_BACK);
+
+        try
+        {
+            this.renderModelGeometryWithEmission(stack, program, model, light, overlay, null, color, defaultTexture, textureBlend, glow, glowColor, legacyGlow, paint, glowDeferredToOverlay);
+        }
+        finally
+        {
+            GL11.glCullFace(savedCullFace);
+            GL11.glFrontFace(savedFrontFace);
+
+            if (cullWasEnabled)
             {
-                this.renderModelGeometryWithEmission(softStack, softProgram, draw.model, draw.light, draw.overlay, null, draw.color, draw.defaultTexture, draw.textureBlend, draw.glow, draw.glowColor, draw.legacyGlow, draw.paint, draw.glowDeferred);
+                RenderSystem.enableCull();
             }
             else
             {
-                this.renderSoftLimbGeometryTwoSided(softStack, softProgram, draw.model, draw.light, draw.overlay, draw.color, draw.defaultTexture, draw.textureBlend, draw.glow, draw.glowColor, draw.legacyGlow, draw.paint, draw.glowDeferred, softPositionMatrix);
+                RenderSystem.disableCull();
             }
         }
     }

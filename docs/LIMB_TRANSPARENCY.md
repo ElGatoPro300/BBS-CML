@@ -138,7 +138,8 @@ Only if Step 1 leaves gaps:
 | Soft limb invisible under Iris (any alpha &lt; 255) | **Fixed:** Iris uses camera matrices + `submitPostDeferredForm` (baked BBS MVP was wrong) |
 | Fully transparent limb (alpha 0) still occludes | **Fixed:** drawable bones at alpha ≤ 0.001 are hidden (no depth stamp) |
 | Limb Noshading | **Per soft bone:** only that bone uses the BBS noshading queue; other soft limbs stay on Iris post-deferred |
-| Iris soft limbs darken as alpha falls (noshading off) | **Fixed:** Iris soft draws use a single pass (same as form-wide soft); two-pass stays on BBS/noshading/preview |
+| Iris soft limbs darken as alpha falls (noshading off) | Tradeoff via `soft_transparency_backfaces` setting (default ON = backfaces; OFF = cull / cleaner) |
+| Iris soft limbs hide backfaces | **Fixed:** default ON draws backfaces for form + limb soft; OFF culls both consistently |
 | Iris fog / paint from behind on soft limbs (noshading off) | **Fixed:** soft limbs depth-stamp; multi soft uses color then depth-only stamp |
 | Film soft-vs-soft erased after depth-write | **Fixed:** multi soft color pass without depth-write, then depth stamp |
 | Vanilla clouds hidden behind soft actors | **Fixed:** without Iris, soft form/limb flush moves to `WorldRenderEvents.LAST` (after clouds); Iris unchanged |
