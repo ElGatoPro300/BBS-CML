@@ -1225,18 +1225,23 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
                         ? new Matrix4f(newStack.peek().getPositionMatrix())
                         : ModelVAORenderer.capturePaintOverlayRootMatrix(new Matrix4f(newStack.peek().getPositionMatrix()));
                     Matrix3f softNormalMatrix = new Matrix3f(newStack.peek().getNormalMatrix());
-                    /* Sort root must match the entity draw stack (anchors, relative camera
-                     * rotation, look-at). Model blocks: lengthSq on that / draw root.
-                     * Film ENTITY: view-space -z on the same stack — lengthSq collapses when
-                     * relative mode parks the actor near the view origin; renderContext.world
-                     * omits film stack transforms so world-distance sort was wrong. */
-                    Matrix4f softSortRoot = new Matrix4f(newStack.peek().getPositionMatrix());
+                    /* Model blocks / preview: lengthSq on the draw root (camera-relative stack).
+                     * Film ENTITY: Euclidean camera↔bone in renderContext.world (absolute). Do
+                     * not use view ±z — Y180 / relative rotation flips the painter sign. */
                     Matrix4f softSortMatrix = limbOnlySoftImmediate
-                        ? softSortRoot
+                        ? new Matrix4f(newStack.peek().getPositionMatrix())
                         : softPositionMatrix;
-                    boolean filmEntitySoftSort = !limbOnlySoftImmediate
+                    boolean filmWorldSoftSort = !limbOnlySoftImmediate
                         && renderContext != null
-                        && renderContext.type == FormRenderType.ENTITY;
+                        && renderContext.type == FormRenderType.ENTITY
+                        && renderContext.world != null;
+                    Matrix4f filmWorldSortMatrix = filmWorldSoftSort
+                        ? new Matrix4f(renderContext.world.peek().getPositionMatrix())
+                        : null;
+                    double cameraX = 0D;
+                    double cameraY = 0D;
+                    double cameraZ = 0D;
+                    Vector3f cameraLook = null;
                     Matrix4f softBaseTransformSnapshot = baseTransform == null ? null : new Matrix4f(baseTransform);
                     Color softColorSnapshot = color.copy();
                     Color softPaintSnapshot = paintColor.copy();
@@ -1273,8 +1278,9 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
                     EffectTransform softGlowTransform = glowTransformSnapshot;
                     Vector3f softGlowMaskHalf = new Vector3f(glowMaskHalfSnapshot);
                     /* Multi soft bones: depth-test against the scene, but do not depth-write
-                     * between soft limbs — adjacent/coplanar faces otherwise vanish by angle.
-                     * Single soft bone keeps depth write for self-occlusion. */
+                     * between soft limbs. With a correct farther→nearer order, painter's
+                     * algorithm composites both; depth-write makes the near limb erase the far
+                     * one at overlapping pixels (bad angles / adjacent cubes). */
                     boolean softDepthWrite = softBones.size() <= 1
                         && ShaderOpacityPatch.shouldWriteDepthForOpacity(softGateAlpha);
                     boolean softAfterFluids = ShaderOpacityPatch.shouldFlushAfterFluids(softGateAlpha);
@@ -1285,16 +1291,27 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
 
                     softColorSnapshot.a = formOpacityAlpha;
 
-                    if (renderContext != null && renderContext.entity != null)
+                    if (renderContext != null)
                     {
-                        double x = Lerps.lerp(renderContext.entity.getPrevX(), renderContext.entity.getX(), transition);
-                        double y = Lerps.lerp(renderContext.entity.getPrevY(), renderContext.entity.getY(), transition);
-                        double z = Lerps.lerp(renderContext.entity.getPrevZ(), renderContext.entity.getZ(), transition);
-                        double dx = x - renderContext.camera.position.x;
-                        double dy = y - renderContext.camera.position.y;
-                        double dz = z - renderContext.camera.position.z;
+                        cameraX = renderContext.camera.position.x;
+                        cameraY = renderContext.camera.position.y;
+                        cameraZ = renderContext.camera.position.z;
+                        /* Match Minecraft view forward (0,0,-1) through the camera rotation
+                         * matrix — more reliable than getLookDirection() pitch/yaw conventions. */
+                        cameraLook = new Vector3f(0F, 0F, -1F);
+                        renderContext.camera.view.transformDirection(cameraLook);
 
-                        entityDistanceSq = dx * dx + dy * dy + dz * dz;
+                        if (renderContext.entity != null)
+                        {
+                            double x = Lerps.lerp(renderContext.entity.getPrevX(), renderContext.entity.getX(), transition);
+                            double y = Lerps.lerp(renderContext.entity.getPrevY(), renderContext.entity.getY(), transition);
+                            double z = Lerps.lerp(renderContext.entity.getPrevZ(), renderContext.entity.getZ(), transition);
+                            double dx = x - cameraX;
+                            double dy = y - cameraY;
+                            double dz = z - cameraZ;
+
+                            entityDistanceSq = dx * dx + dy * dy + dz * dz;
+                        }
                     }
 
                     /* Pose is already applied from the live opaque pass. Soft bones are hidden
@@ -1320,8 +1337,8 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
 
                     for (ModelGroup softBone : softBones)
                     {
-                        double softDistanceSq = filmEntitySoftSort
-                            ? this.softBoneViewDepthKey(softBone.id, softSortRoot, entityDistanceSq)
+                        double softDistanceSq = filmWorldSortMatrix != null
+                            ? this.softBoneWorldDepthKey(softBone.id, filmWorldSortMatrix, cameraX, cameraY, cameraZ, cameraLook, entityDistanceSq)
                             : this.softBoneDistanceSq(softBone.id, softSortMatrix, entityDistanceSq);
 
                         softSubmits.add(new SoftBoneSubmit(softBone, softDistanceSq));
@@ -1388,7 +1405,10 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
                                 softStack.peek().getPositionMatrix().set(softPositionMatrix);
                                 softStack.peek().getNormalMatrix().set(softNormalMatrix);
 
-                                this.renderModelGeometryWithEmission(softStack, softProgram, model, softLight, softOverlay, null, softColorSnapshot, softDefaultTexture, softTextureBlend, softGlow, softGlowColor, softLegacyGlow, softPaintSnapshot, softGlowDeferred);
+                                /* Two-pass translucency: backfaces then frontfaces. disableCull
+                                 * drew both in mesh order so interiors looked more opaque than
+                                 * the outer shell (especially noticeable in film). */
+                                this.renderSoftLimbGeometryTwoSided(softStack, softProgram, model, softLight, softOverlay, softColorSnapshot, softDefaultTexture, softTextureBlend, softGlow, softGlowColor, softLegacyGlow, softPaintSnapshot, softGlowDeferred, softPositionMatrix);
                             }
                             finally
                             {
@@ -1922,6 +1942,54 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
         finally
         {
             ModelVAORenderer.setSuppressShapeKeyMainPassGlow(false);
+        }
+    }
+
+    /**
+     * Soft-limb translucency: draw camera-away faces first, then camera-facing faces.
+     * A single {@code disableCull} pass uses mesh order, so interiors often composite on
+     * top of the outer shell and look more opaque than the front (especially in film).
+     */
+    private void renderSoftLimbGeometryTwoSided(MatrixStack stack, Supplier<ShaderProgram> program, ModelInstance model, int light, int overlay, Color color, Link defaultTexture, TextureBlend textureBlend, GlowSettings glow, Color glowColor, Color legacyGlow, Color paint, boolean glowDeferredToOverlay, Matrix4f positionMatrix)
+    {
+        boolean cullWasEnabled = GL11.glIsEnabled(GL11.GL_CULL_FACE);
+        int savedCullFace = GL11.glGetInteger(GL11.GL_CULL_FACE_MODE);
+        int savedFrontFace = GL11.glGetInteger(GL11.GL_FRONT_FACE);
+        /* Reflections / odd MV×entity stacks invert winding — keep GL_BACK = camera-facing.
+         * Use live ModelView (Iris restores it before this draw) × entity root. */
+        Matrix4f facingMatrix = new Matrix4f(RenderSystem.getModelViewMatrix());
+
+        if (positionMatrix != null)
+        {
+            facingMatrix.mul(positionMatrix);
+        }
+
+        boolean flipWinding = facingMatrix.determinant() < 0F;
+
+        RenderSystem.enableCull();
+        GL11.glFrontFace(flipWinding ? GL11.GL_CW : GL11.GL_CCW);
+
+        try
+        {
+            GL11.glCullFace(GL11.GL_FRONT);
+            this.renderModelGeometryWithEmission(stack, program, model, light, overlay, null, color, defaultTexture, textureBlend, glow, glowColor, legacyGlow, paint, glowDeferredToOverlay);
+
+            GL11.glCullFace(GL11.GL_BACK);
+            this.renderModelGeometryWithEmission(stack, program, model, light, overlay, null, color, defaultTexture, textureBlend, glow, glowColor, legacyGlow, paint, glowDeferredToOverlay);
+        }
+        finally
+        {
+            GL11.glCullFace(savedCullFace);
+            GL11.glFrontFace(savedFrontFace);
+
+            if (cullWasEnabled)
+            {
+                RenderSystem.enableCull();
+            }
+            else
+            {
+                RenderSystem.disableCull();
+            }
         }
     }
 
@@ -2472,62 +2540,70 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
 
     /**
      * Camera-relative length-squared for model-block / preview soft-bone sorting
-     * (larger = farther). Uses bone origin × the draw root matrix.
+     * (larger = farther). Uses bone mesh matrix × the draw root matrix.
      */
     private double softBoneDistanceSq(String boneId, Matrix4f rootMatrix, double fallbackDistanceSq)
     {
-        if (boneId == null || rootMatrix == null)
+        Vector3f translation = this.softBoneTranslation(boneId, rootMatrix);
+
+        if (translation == null)
         {
             return fallbackDistanceSq;
         }
-
-        MatrixCacheEntry entry = this.bones.get(boneId);
-
-        if (entry == null)
-        {
-            return fallbackDistanceSq;
-        }
-
-        Matrix4f boneLocal = entry.origin() != null ? entry.origin() : entry.matrix();
-
-        if (boneLocal == null)
-        {
-            return fallbackDistanceSq;
-        }
-
-        Matrix4f combined = new Matrix4f(rootMatrix).mul(boneLocal);
-        Vector3f translation = new Vector3f();
-
-        combined.getTranslation(translation);
 
         return translation.lengthSquared();
     }
 
     /**
-     * Film ENTITY soft-bone sort key (larger = farther). View-space {@code -z} of bone
-     * origin × the full entity draw stack (includes relative camera rotation / anchors).
-     * Prefer over lengthSq near the view origin and over {@code renderContext.world}
-     * (world omits those film stack transforms).
+     * Film ENTITY soft-bone sort key (larger = farther along the camera look axis).
+     * Bone sits in absolute {@code renderContext.world} space; depth is
+     * {@code (bone − camera) · look}. Falls back to Euclidean distance² if look is missing.
+     * Avoids view ±z sign flips from model Y180 / relative draw stacks.
      */
-    private double softBoneViewDepthKey(String boneId, Matrix4f rootMatrix, double fallbackDistanceSq)
+    private double softBoneWorldDepthKey(String boneId, Matrix4f worldRoot, double cameraX, double cameraY, double cameraZ, Vector3f cameraLook, double fallbackDistanceSq)
+    {
+        Vector3f translation = this.softBoneTranslation(boneId, worldRoot);
+
+        if (translation == null)
+        {
+            return fallbackDistanceSq;
+        }
+
+        double dx = translation.x - cameraX;
+        double dy = translation.y - cameraY;
+        double dz = translation.z - cameraZ;
+
+        if (cameraLook != null && cameraLook.lengthSquared() > 1.0E-8F)
+        {
+            return dx * cameraLook.x + dy * cameraLook.y + dz * cameraLook.z;
+        }
+
+        return dx * dx + dy * dy + dz * dz;
+    }
+
+    /**
+     * Bone position after {@code root ×} mesh matrix (preferred) or joint origin.
+     */
+    private Vector3f softBoneTranslation(String boneId, Matrix4f rootMatrix)
     {
         if (boneId == null || rootMatrix == null)
         {
-            return fallbackDistanceSq;
+            return null;
         }
 
         MatrixCacheEntry entry = this.bones.get(boneId);
 
         if (entry == null)
         {
-            return fallbackDistanceSq;
+            return null;
         }
 
-        Matrix4f boneLocal = entry.origin() != null ? entry.origin() : entry.matrix();
+        /* Mesh matrix tracks drawn limb centers better than joint origins for adjacent cubes. */
+        Matrix4f boneLocal = entry.matrix() != null ? entry.matrix() : entry.origin();
 
         if (boneLocal == null)
         {
-            return fallbackDistanceSq;
+            return null;
         }
 
         Matrix4f combined = new Matrix4f(rootMatrix).mul(boneLocal);
@@ -2535,7 +2611,7 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
 
         combined.getTranslation(translation);
 
-        return -translation.z;
+        return translation;
     }
 
     private static final class SoftBoneSubmit

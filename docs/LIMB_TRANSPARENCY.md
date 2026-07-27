@@ -150,7 +150,8 @@ Safe and supported:
 
 Limitations to expect:
 
-- Soft-vs-soft on the **same** actor: v1 per-bone sort (see [`SOFT_LIMB_BONE_SORT.md`](SOFT_LIMB_BONE_SORT.md)); interpenetrating meshes can still look wrong. Multi soft bones disable depth-write between limbs to reduce adjacent-face vanishing.
+- Soft-vs-soft on the **same** actor: v1 per-bone sort (see [`SOFT_LIMB_BONE_SORT.md`](SOFT_LIMB_BONE_SORT.md)). Bone centers approximate depth — interpenetrating meshes / nearly coplanar faces can still look wrong from odd angles. Multi soft bones use painter’s algorithm (no depth-write between them); depth-write would erase the far limb instead of compositing it.
+- No per-triangle / OIT sort — out of scope (Iris-hostile / too heavy).
 - Paint/glow overlays on soft-only limbs may still follow form-level Iris overlay timing.
 - Fully transparent bones are skipped for deferral gates (anchors at alpha 0 no longer force a bogus soft path).
 
