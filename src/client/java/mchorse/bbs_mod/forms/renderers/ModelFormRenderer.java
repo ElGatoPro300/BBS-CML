@@ -1276,12 +1276,10 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
                     Vector3f softPaintMaskHalf = new Vector3f(paintMaskHalfSnapshot);
                     EffectTransform softGlowTransform = glowTransformSnapshot;
                     Vector3f softGlowMaskHalf = new Vector3f(glowMaskHalfSnapshot);
-                    /* Multi soft bones: depth-test against the scene, but do not depth-write
-                     * between soft limbs. With a correct farther→nearer order, painter's
-                     * algorithm composites both; depth-write makes the near limb erase the far
-                     * one at overlapping pixels (bad angles / adjacent cubes). */
-                    boolean softDepthWrite = softBones.size() <= 1
-                        && ShaderOpacityPatch.shouldWriteDepthForOpacity(softGateAlpha);
+                    /* Soft limbs need a depth stamp for Iris fog/paint (noshading off). Multi
+                     * soft + depth-write in the color pass erases the far limb when film sort
+                     * is imperfect — batches color with depth-write off, then depth-only stamp. */
+                    boolean softDepthWrite = ShaderOpacityPatch.shouldWriteDepthForOpacity(softGateAlpha);
                     boolean softAfterFluids = ShaderOpacityPatch.shouldFlushAfterFluids(softGateAlpha);
                     Supplier<ShaderProgram> softIrisProgram = (!softGradeActive) ? program : BBSShaders::getModel;
                     Supplier<ShaderProgram> softBbsProgram = BBSShaders::getModel;
@@ -1347,123 +1345,85 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
                         softSubmits.add(new SoftBoneSubmit(softBone, softDistanceSq, boneNoshadingQueue, boneIrisCamera));
                     }
 
-                    /* Farther first: helps noshading queue (no distance sort); Iris flush re-sorts. */
+                    /* Farther first within each queue batch. */
                     softSubmits.sort((a, b) -> Double.compare(b.distanceSq, a.distanceSq));
 
+                    SoftLimbDrawState softDraw = new SoftLimbDrawState();
+                    softDraw.target = target;
+                    softDraw.model = model;
+                    softDraw.transition = softTransitionSnapshot;
+                    softDraw.pose = softPoseSnapshot;
+                    softDraw.baseTransform = softBaseTransformSnapshot;
+                    softDraw.stackLocal = softStackLocal;
+                    softDraw.stackBbs = softStackBbs;
+                    softDraw.normalMatrix = softNormalMatrix;
+                    softDraw.irisProgram = softIrisProgram;
+                    softDraw.bbsProgram = softBbsProgram;
+                    softDraw.color = softColorSnapshot;
+                    softDraw.defaultTexture = softDefaultTexture;
+                    softDraw.textureBlend = softTextureBlend;
+                    softDraw.glow = softGlow;
+                    softDraw.glowColor = softGlowColor;
+                    softDraw.legacyGlow = softLegacyGlow;
+                    softDraw.paint = softPaintSnapshot;
+                    softDraw.glowDeferred = softGlowDeferred;
+                    softDraw.light = softLight;
+                    softDraw.overlay = softOverlay;
+                    softDraw.colorTransformActive = softColorTransformActive;
+                    softDraw.colorEffectTransform = softColorEffectTransform;
+                    softDraw.colorMaskHalf = softColorMaskHalf;
+                    softDraw.formColor = softFormColor;
+                    softDraw.gradeActive = softGradeActive;
+                    softDraw.gradeBrightness = softGradeBrightness;
+                    softDraw.gradeContrast = softGradeContrast;
+                    softDraw.gradeHue = softGradeHue;
+                    softDraw.gradeSaturation = softGradeSaturation;
+                    softDraw.gradeBrightnessTransform = softGradeBrightnessTransform;
+                    softDraw.gradeContrastTransform = softGradeContrastTransform;
+                    softDraw.gradeHueTransform = softGradeHueTransform;
+                    softDraw.gradeSaturationTransform = softGradeSaturationTransform;
+                    softDraw.paintInMesh = softPaintInMesh;
+                    softDraw.paintTransform = softPaintTransform;
+                    softDraw.paintMaskHalf = softPaintMaskHalf;
+                    softDraw.paintStrength = softPaintStrengthSnapshot;
+                    softDraw.hasGlow = softHasGlow;
+                    softDraw.stripGlow = softStripGlow;
+                    softDraw.mainPassGlow = softMainPassGlow;
+                    softDraw.glowTransform = softGlowTransform;
+                    softDraw.glowMaskHalf = softGlowMaskHalf;
+                    softDraw.depthWrite = softDepthWrite;
+                    softDraw.afterFluids = softAfterFluids;
+
                     boolean softDepthMaskSaved = GL11.glGetBoolean(GL11.GL_DEPTH_WRITEMASK);
+                    List<SoftBoneSubmit> immediateBatch = new ArrayList<>();
+                    List<SoftBoneSubmit> noshadingBatch = new ArrayList<>();
+                    List<SoftBoneSubmit> irisBatch = new ArrayList<>();
+                    List<SoftBoneSubmit> bbsBatch = new ArrayList<>();
 
                     for (SoftBoneSubmit softSubmit : softSubmits)
                     {
-                        ModelGroup softBone = softSubmit.group;
-                        double softDistanceSq = softSubmit.distanceSq;
-                        boolean boneNoshadingQueue = softSubmit.noshadingQueue;
-                        boolean boneIrisCamera = softSubmit.irisCamera;
-                        Matrix4f softPositionMatrix = (boneIrisCamera || limbOnlySoftImmediate)
-                            ? softStackLocal
-                            : softStackBbs;
-                        Supplier<ShaderProgram> softProgram = (boneIrisCamera || limbOnlySoftImmediate)
-                            ? softIrisProgram
-                            : softBbsProgram;
-                        Runnable softDeferredDraw = () ->
-                        {
-                            this.applyOverlayPosePipeline(target, model, softTransitionSnapshot, softPoseSnapshot, softBaseTransformSnapshot);
-
-                            Map<ModelGroup, Boolean> softVisibility = this.saveGroupVisibility(model);
-
-                            try
-                            {
-                                this.applyOnlySoftBoneVisible(model, softBone);
-
-                                if (softColorTransformActive)
-                                {
-                                    ModelVAORenderer.setColorEffectTransform(new Matrix4f().identity(), softColorEffectTransform, softColorMaskHalf);
-                                    ModelVAORenderer.setFormColorTint(softFormColor.r, softFormColor.g, softFormColor.b, softFormColor.a);
-                                }
-
-                                if (softGradeActive)
-                                {
-                                    ModelVAORenderer.setFormColorGrade(softGradeBrightness, softGradeContrast, softGradeHue, softGradeSaturation);
-                                    ModelVAORenderer.setGradeEffectTransforms(softGradeBrightnessTransform, softGradeContrastTransform, softGradeHueTransform, softGradeSaturationTransform);
-                                }
-
-                                if (softPaintInMesh)
-                                {
-                                    ModelVAORenderer.setPaintEffectTransform(new Matrix4f().identity(), softPaintTransform, softPaintMaskHalf);
-                                    ModelVAORenderer.setPaint(softPaintSnapshot.r, softPaintSnapshot.g, softPaintSnapshot.b, softPaintStrengthSnapshot);
-                                }
-                                else
-                                {
-                                    ModelVAORenderer.setPaint(0F, 0F, 0F, 0F);
-                                }
-
-                                if (softHasGlow)
-                                {
-                                    ModelVAORenderer.setGlowEffectTransform(new Matrix4f().identity(), softGlowTransform, softGlowMaskHalf);
-                                    ModelVAORenderer.setGlow(softStripGlow ? softMainPassGlow : softGlow, softGlowColor.r, softGlowColor.g, softGlowColor.b, softLegacyGlow);
-                                }
-                                else
-                                {
-                                    ModelVAORenderer.clearGlowing();
-                                }
-
-                                if (softDefaultTexture != null)
-                                {
-                                    BBSModClient.getTextures().bindTexture(softDefaultTexture);
-                                }
-
-                                MatrixStack softStack = new MatrixStack();
-
-                                softStack.peek().getPositionMatrix().set(softPositionMatrix);
-                                softStack.peek().getNormalMatrix().set(softNormalMatrix);
-
-                                /* Two-pass translucency: backfaces then frontfaces. disableCull
-                                 * drew both in mesh order so interiors looked more opaque than
-                                 * the outer shell (especially noticeable in film). */
-                                this.renderSoftLimbGeometryTwoSided(softStack, softProgram, model, softLight, softOverlay, softColorSnapshot, softDefaultTexture, softTextureBlend, softGlow, softGlowColor, softLegacyGlow, softPaintSnapshot, softGlowDeferred, softPositionMatrix);
-                            }
-                            finally
-                            {
-                                this.restoreGroupVisibility(softVisibility);
-                                ModelVAORenderer.clearColorEffectTransform();
-                                ModelVAORenderer.clearFormColorTint();
-                                ModelVAORenderer.clearFormColorGrade();
-                                ModelVAORenderer.clearPaintEffectTransform();
-                                ModelVAORenderer.clearGlowEffectTransform();
-                                ModelVAORenderer.clearPaint();
-                                ModelVAORenderer.clearGlowing();
-                            }
-                        };
-
                         if (limbOnlySoftImmediate)
                         {
-                            RenderSystem.enableDepthTest();
-                            RenderSystem.depthFunc(GL11.GL_LEQUAL);
-                            RenderSystem.depthMask(softDepthWrite);
-                            RenderSystem.enableBlend();
-                            RenderSystem.defaultBlendFunc();
-
-                            try
-                            {
-                                softDeferredDraw.run();
-                            }
-                            finally
-                            {
-                                RenderSystem.depthMask(softDepthMaskSaved);
-                            }
+                            immediateBatch.add(softSubmit);
                         }
-                        else if (boneNoshadingQueue)
+                        else if (softSubmit.noshadingQueue)
                         {
-                            ModelVAORenderer.submitDeferredTranslucentModel(softDeferredDraw, softDepthWrite);
+                            noshadingBatch.add(softSubmit);
                         }
-                        else if (boneIrisCamera)
+                        else if (softSubmit.irisCamera)
                         {
-                            ShaderOpacityPatch.submitPostDeferredForm(0D, softDistanceSq, softDepthWrite, softAfterFluids, softDeferredDraw);
+                            irisBatch.add(softSubmit);
                         }
                         else
                         {
-                            ShaderOpacityPatch.submitPostDeferredBbsForm(0D, softDistanceSq, softDepthWrite, softAfterFluids, softDeferredDraw);
+                            bbsBatch.add(softSubmit);
                         }
                     }
+
+                    this.enqueueSoftLimbBatch(immediateBatch, SoftLimbQueue.IMMEDIATE, softDraw, softDepthMaskSaved);
+                    this.enqueueSoftLimbBatch(noshadingBatch, SoftLimbQueue.NOSHADING, softDraw, softDepthMaskSaved);
+                    this.enqueueSoftLimbBatch(irisBatch, SoftLimbQueue.IRIS, softDraw, softDepthMaskSaved);
+                    this.enqueueSoftLimbBatch(bbsBatch, SoftLimbQueue.BBS, softDraw, softDepthMaskSaved);
                 }
             }
 
@@ -2550,6 +2510,170 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
     }
 
     /**
+     * Soft-limb queue batch: one or more soft bones sharing Iris / BBS / noshading / preview.
+     * Multi-bone batches paint with depth-write off (soft-vs-soft), then stamp depth only so
+     * Iris fog/paint still occlude (noshading off).
+     */
+    private void enqueueSoftLimbBatch(List<SoftBoneSubmit> batch, SoftLimbQueue queue, SoftLimbDrawState draw, boolean savedDepthMask)
+    {
+        if (batch == null || batch.isEmpty() || draw == null)
+        {
+            return;
+        }
+
+        boolean irisStyle = queue == SoftLimbQueue.IRIS;
+        boolean useLocalStack = queue == SoftLimbQueue.IRIS || queue == SoftLimbQueue.IMMEDIATE;
+        Matrix4f softPositionMatrix = useLocalStack ? draw.stackLocal : draw.stackBbs;
+        Supplier<ShaderProgram> softProgram = useLocalStack ? draw.irisProgram : draw.bbsProgram;
+        boolean multiSoft = batch.size() > 1;
+        boolean stampDepth = multiSoft && draw.depthWrite;
+        /* Queue entry depthWrite true when we stamp (or single-bone color writes depth). */
+        boolean entryDepthWrite = draw.depthWrite;
+        double batchDistanceSq = batch.get(0).distanceSq;
+        List<SoftBoneSubmit> batchSnapshot = new ArrayList<>(batch);
+        Runnable softDeferredDraw = () -> this.runSoftLimbBatchDraw(batchSnapshot, draw, softPositionMatrix, softProgram, irisStyle, stampDepth, !multiSoft && draw.depthWrite);
+
+        if (queue == SoftLimbQueue.IMMEDIATE)
+        {
+            RenderSystem.enableDepthTest();
+            RenderSystem.depthFunc(GL11.GL_LEQUAL);
+            RenderSystem.enableBlend();
+            RenderSystem.defaultBlendFunc();
+
+            try
+            {
+                softDeferredDraw.run();
+            }
+            finally
+            {
+                RenderSystem.depthMask(savedDepthMask);
+                RenderSystem.colorMask(true, true, true, true);
+            }
+
+            return;
+        }
+
+        if (queue == SoftLimbQueue.NOSHADING)
+        {
+            ModelVAORenderer.submitDeferredTranslucentModel(softDeferredDraw, entryDepthWrite);
+
+            return;
+        }
+
+        if (queue == SoftLimbQueue.IRIS)
+        {
+            ShaderOpacityPatch.submitPostDeferredForm(0D, batchDistanceSq, entryDepthWrite, draw.afterFluids, softDeferredDraw);
+
+            return;
+        }
+
+        ShaderOpacityPatch.submitPostDeferredBbsForm(0D, batchDistanceSq, entryDepthWrite, draw.afterFluids, softDeferredDraw);
+    }
+
+    private void runSoftLimbBatchDraw(List<SoftBoneSubmit> batch, SoftLimbDrawState draw, Matrix4f softPositionMatrix, Supplier<ShaderProgram> softProgram, boolean irisStyle, boolean stampDepth, boolean colorWritesDepth)
+    {
+        this.applyOverlayPosePipeline(draw.target, draw.model, draw.transition, draw.pose, draw.baseTransform);
+
+        Map<ModelGroup, Boolean> softVisibility = this.saveGroupVisibility(draw.model);
+
+        try
+        {
+            this.bindSoftLimbDrawState(draw);
+
+            MatrixStack softStack = new MatrixStack();
+
+            softStack.peek().getPositionMatrix().set(softPositionMatrix);
+            softStack.peek().getNormalMatrix().set(draw.normalMatrix);
+
+            RenderSystem.depthMask(colorWritesDepth);
+            this.drawSoftLimbBones(batch, draw, softStack, softProgram, irisStyle, softPositionMatrix);
+
+            if (stampDepth)
+            {
+                RenderSystem.colorMask(false, false, false, false);
+                RenderSystem.depthMask(true);
+                RenderSystem.disableBlend();
+                this.drawSoftLimbBones(batch, draw, softStack, softProgram, irisStyle, softPositionMatrix);
+                RenderSystem.enableBlend();
+                RenderSystem.defaultBlendFunc();
+                RenderSystem.colorMask(true, true, true, true);
+            }
+        }
+        finally
+        {
+            this.restoreGroupVisibility(softVisibility);
+            ModelVAORenderer.clearColorEffectTransform();
+            ModelVAORenderer.clearFormColorTint();
+            ModelVAORenderer.clearFormColorGrade();
+            ModelVAORenderer.clearPaintEffectTransform();
+            ModelVAORenderer.clearGlowEffectTransform();
+            ModelVAORenderer.clearPaint();
+            ModelVAORenderer.clearGlowing();
+            RenderSystem.colorMask(true, true, true, true);
+        }
+    }
+
+    private void bindSoftLimbDrawState(SoftLimbDrawState draw)
+    {
+        if (draw.colorTransformActive)
+        {
+            ModelVAORenderer.setColorEffectTransform(new Matrix4f().identity(), draw.colorEffectTransform, draw.colorMaskHalf);
+            ModelVAORenderer.setFormColorTint(draw.formColor.r, draw.formColor.g, draw.formColor.b, draw.formColor.a);
+        }
+
+        if (draw.gradeActive)
+        {
+            ModelVAORenderer.setFormColorGrade(draw.gradeBrightness, draw.gradeContrast, draw.gradeHue, draw.gradeSaturation);
+            ModelVAORenderer.setGradeEffectTransforms(draw.gradeBrightnessTransform, draw.gradeContrastTransform, draw.gradeHueTransform, draw.gradeSaturationTransform);
+        }
+
+        if (draw.paintInMesh)
+        {
+            ModelVAORenderer.setPaintEffectTransform(new Matrix4f().identity(), draw.paintTransform, draw.paintMaskHalf);
+            ModelVAORenderer.setPaint(draw.paint.r, draw.paint.g, draw.paint.b, draw.paintStrength);
+        }
+        else
+        {
+            ModelVAORenderer.setPaint(0F, 0F, 0F, 0F);
+        }
+
+        if (draw.hasGlow)
+        {
+            ModelVAORenderer.setGlowEffectTransform(new Matrix4f().identity(), draw.glowTransform, draw.glowMaskHalf);
+            ModelVAORenderer.setGlow(draw.stripGlow ? draw.mainPassGlow : draw.glow, draw.glowColor.r, draw.glowColor.g, draw.glowColor.b, draw.legacyGlow);
+        }
+        else
+        {
+            ModelVAORenderer.clearGlowing();
+        }
+
+        if (draw.defaultTexture != null)
+        {
+            BBSModClient.getTextures().bindTexture(draw.defaultTexture);
+        }
+    }
+
+    private void drawSoftLimbBones(List<SoftBoneSubmit> batch, SoftLimbDrawState draw, MatrixStack softStack, Supplier<ShaderProgram> softProgram, boolean irisStyle, Matrix4f softPositionMatrix)
+    {
+        for (SoftBoneSubmit softSubmit : batch)
+        {
+            this.applyOnlySoftBoneVisible(draw.model, softSubmit.group);
+
+            /* Iris pack lighting + two-pass double-blends soft limbs so RGB darkens as alpha
+             * falls (noshading off). Form-wide soft uses a single Iris pass — match that.
+             * BBS / noshading / UI preview keep two-pass so interiors do not look denser. */
+            if (irisStyle)
+            {
+                this.renderModelGeometryWithEmission(softStack, softProgram, draw.model, draw.light, draw.overlay, null, draw.color, draw.defaultTexture, draw.textureBlend, draw.glow, draw.glowColor, draw.legacyGlow, draw.paint, draw.glowDeferred);
+            }
+            else
+            {
+                this.renderSoftLimbGeometryTwoSided(softStack, softProgram, draw.model, draw.light, draw.overlay, draw.color, draw.defaultTexture, draw.textureBlend, draw.glow, draw.glowColor, draw.legacyGlow, draw.paint, draw.glowDeferred, softPositionMatrix);
+            }
+        }
+    }
+
+    /**
      * Camera-relative length-squared for model-block / preview soft-bone sorting
      * (larger = farther). Uses bone mesh matrix × the draw root matrix.
      */
@@ -2639,6 +2763,62 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
             this.noshadingQueue = noshadingQueue;
             this.irisCamera = irisCamera;
         }
+    }
+
+    private enum SoftLimbQueue
+    {
+        IMMEDIATE,
+        NOSHADING,
+        IRIS,
+        BBS
+    }
+
+    private static final class SoftLimbDrawState
+    {
+        private IEntity target;
+        private ModelInstance model;
+        private float transition;
+        private Pose pose;
+        private Matrix4f baseTransform;
+        private Matrix4f stackLocal;
+        private Matrix4f stackBbs;
+        private Matrix3f normalMatrix;
+        private Supplier<ShaderProgram> irisProgram;
+        private Supplier<ShaderProgram> bbsProgram;
+        private Color color;
+        private Link defaultTexture;
+        private TextureBlend textureBlend;
+        private GlowSettings glow;
+        private Color glowColor;
+        private Color legacyGlow;
+        private Color paint;
+        private boolean glowDeferred;
+        private int light;
+        private int overlay;
+        private boolean colorTransformActive;
+        private EffectTransform colorEffectTransform;
+        private Vector3f colorMaskHalf;
+        private Color formColor;
+        private boolean gradeActive;
+        private float gradeBrightness;
+        private float gradeContrast;
+        private float gradeHue;
+        private float gradeSaturation;
+        private EffectTransform gradeBrightnessTransform;
+        private EffectTransform gradeContrastTransform;
+        private EffectTransform gradeHueTransform;
+        private EffectTransform gradeSaturationTransform;
+        private boolean paintInMesh;
+        private EffectTransform paintTransform;
+        private Vector3f paintMaskHalf;
+        private float paintStrength;
+        private boolean hasGlow;
+        private boolean stripGlow;
+        private GlowSettings mainPassGlow;
+        private EffectTransform glowTransform;
+        private Vector3f glowMaskHalf;
+        private boolean depthWrite;
+        private boolean afterFluids;
     }
 
     private boolean hasAnyBoneNoshadingOpacity(ModelInstance model)

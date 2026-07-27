@@ -138,6 +138,9 @@ Only if Step 1 leaves gaps:
 | Soft limb invisible under Iris (any alpha &lt; 255) | **Fixed:** Iris uses camera matrices + `submitPostDeferredForm` (baked BBS MVP was wrong) |
 | Fully transparent limb (alpha 0) still occludes | **Fixed:** drawable bones at alpha ≤ 0.001 are hidden (no depth stamp) |
 | Limb Noshading | **Per soft bone:** only that bone uses the BBS noshading queue; other soft limbs stay on Iris post-deferred |
+| Iris soft limbs darken as alpha falls (noshading off) | **Fixed:** Iris soft draws use a single pass (same as form-wide soft); two-pass stays on BBS/noshading/preview |
+| Iris fog / paint from behind on soft limbs (noshading off) | **Fixed:** soft limbs depth-stamp; multi soft uses color then depth-only stamp |
+| Film soft-vs-soft erased after depth-write | **Fixed:** multi soft color pass without depth-write, then depth stamp |
 | Vanilla clouds hidden behind soft actors | **Fixed:** without Iris, soft form/limb flush moves to `WorldRenderEvents.LAST` (after clouds); Iris unchanged |
 
 ## Mixing form-wide + limb transparency
@@ -150,7 +153,7 @@ Safe and supported:
 
 Limitations to expect:
 
-- Soft-vs-soft on the **same** actor: v1 per-bone sort (see [`SOFT_LIMB_BONE_SORT.md`](SOFT_LIMB_BONE_SORT.md)). Bone centers approximate depth — interpenetrating meshes / nearly coplanar faces can still look wrong from odd angles. Multi soft bones use painter’s algorithm (no depth-write between them); depth-write would erase the far limb instead of compositing it.
+- Soft-vs-soft on the **same** actor: v1 per-bone sort (see [`SOFT_LIMB_BONE_SORT.md`](SOFT_LIMB_BONE_SORT.md)). Bone centers approximate depth — interpenetrating meshes / nearly coplanar faces can still look wrong from odd angles. Multi soft: color without depth-write, then depth-only stamp (Iris fog/paint stay behind with noshading off).
 - No per-triangle / OIT sort — out of scope (Iris-hostile / too heavy).
 - Paint/glow overlays on soft-only limbs may still follow form-level Iris overlay timing.
 - Fully transparent bones are skipped for deferral gates (anchors at alpha 0 no longer force a bogus soft path).

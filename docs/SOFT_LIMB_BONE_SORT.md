@@ -13,8 +13,8 @@ Plan to improve soft-vs-soft limb transparency by submitting **one post-deferred
 - `ModelFormRenderer` `limbOnlySoft`: `collectSoftDrawableBones` → capture matrices → one draw per bone → `applyOnlySoftBoneVisible`.
 - **World model blocks (`MODEL_BLOCK`):** post-deferred + `softBoneDistanceSq` (lengthSq on draw root).
 - **Film / world entities (`ENTITY`):** post-deferred + `softBoneWorldDepthKey` = `(boneWorld − camera) · look` in `renderContext.world` space.
-- **Multi soft bones:** depth **test** on, depth **write** off (painter’s algorithm). Depth-write between soft limbs erases the far limb at overlaps; it does **not** “fix” imperfect bone sort — it discards far fragments.
-- **Soft draws:** two-pass translucency (backfaces → frontfaces) instead of `disableCull`, so interiors do not composite on top of the outer shell and look more opaque.
+- **Multi soft bones:** color pass with depth **write off** (painter farther→nearer), then a **depth-only stamp** (color mask off). Keeps Iris fog/paint occlusion without erasing the far soft limb when film sort is imperfect. Single soft bone still color-writes depth in one pass.
+- **Soft draws:** two-pass translucency (backfaces → frontfaces) for BBS / noshading / UI preview — avoids `disableCull` interiors looking denser than the shell. **Iris soft limbs (noshading off):** single-pass like form-wide soft — two-pass under pack lighting darkened RGB as alpha fell.
 - **UI / form / model-block edit preview (`localPreview`):** immediate sorted draws with lengthSq on the live stack.
 - Soft must stay post-deferred in world/film (immediate soft in `AFTER_ENTITIES` erases clouds/translucents).
 - Opaque-only actors: no collect/sort extras.
@@ -30,5 +30,5 @@ Plan to improve soft-vs-soft limb transparency by submitting **one post-deferred
 | Addon / triangle sort | No                                   | Too heavy; Iris-hostile                               |
 | Model-block sort key  | lengthSq on draw root                | Proven outdoors; stack is camera-relative             |
 | Film sort key         | look-axis depth in world space       | Relative stacks / ±z signs are unreliable             |
-| Soft depth write      | Off when ≥2 soft bones               | Depth-write erases far soft at overlaps                 |
-| Soft cull             | Two-pass back→front                  | disableCull made interiors look more opaque than shell  |
+| Soft depth write      | Color off + depth stamp when multi   | Film soft-vs-soft + Iris fog/paint need both            |
+| Soft cull             | Two-pass BBS; single-pass Iris soft  | Two-pass + Iris lighting darkened soft limbs; form soft is single-pass |
