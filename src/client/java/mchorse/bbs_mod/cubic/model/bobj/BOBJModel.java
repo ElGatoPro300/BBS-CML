@@ -9,6 +9,7 @@ import mchorse.bbs_mod.cubic.data.animation.Animation;
 import mchorse.bbs_mod.cubic.data.model.ModelGroup;
 import mchorse.bbs_mod.cubic.render.vao.BOBJModelSimpleVAO;
 import mchorse.bbs_mod.cubic.render.vao.BOBJModelVAO;
+import mchorse.bbs_mod.cubic.render.vao.BOBJGPUSkinVAO;
 import mchorse.bbs_mod.forms.entities.IEntity;
 import mchorse.bbs_mod.utils.pose.Pose;
 import mchorse.bbs_mod.utils.pose.PoseTransform;
@@ -95,7 +96,7 @@ public class BOBJModel implements IModel
     {
         this.vao = this.simple
             ? new BOBJModelSimpleVAO(this.meshData, this.armature)
-            : new BOBJModelVAO(this.meshData, this.armature);
+            : new BOBJGPUSkinVAO(this.meshData, this.armature);
 
         this.armature.setupMatrices();
     }

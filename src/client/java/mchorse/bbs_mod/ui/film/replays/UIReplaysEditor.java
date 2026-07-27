@@ -207,6 +207,8 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
         COLORS.put("transform", Colors.GREEN);
         COLORS.put("transform_overlay", 0xaaff00);
         COLORS.put("color", Colors.INACTIVE);
+        COLORS.put("color2", 0xff66ccff);
+        COLORS.put("color_mode", 0xffaa66ff);
         COLORS.put("paint_color", Colors.INACTIVE);
         COLORS.put("paint", Colors.INACTIVE);
         COLORS.put("glow", Colors.YELLOW);
@@ -276,6 +278,8 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
         ICONS.put("pose", Icons.POSE);
         ICONS.put("transform", Icons.ALL_DIRECTIONS);
         ICONS.put("color", Icons.BUCKET);
+        ICONS.put("color2", Icons.BUCKET);
+        ICONS.put("color_mode", Icons.PROPERTIES);
         ICONS.put("paint_color", Icons.BUCKET);
         ICONS.put("paint", Icons.BUCKET);
         ICONS.put("glow", Icons.LIGHT);
@@ -1458,7 +1462,7 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
     private static final Set<String> VANILLA_ACTION_CHANNELS = Set.of(
         "death_time", "using_item", "item_use_time", "fire", "particles", "active_hand"
     );
-    private static final List<String> MODEL_PROPERTIES = Arrays.asList("visible", "render", "lighting", "transform", "transform_overlay", "pose", "pose_overlay", "anchor", "look_at", "inverse_kinematics", "illusion", "illusion_transform", "color", "color_grade", "paint", "paint_color", "glow", "texture", "pbr_normal_intensity", "pbr_specular_intensity", "model", "actions", "shape_keys", "block_state", "item_stack", "modelTransform", "same_animation_when_dropped", "settings", "paused", "frequency", "count", "structure_file", "biome_id", "emit_light", "light_intensity", "structure_light", "enabled", "level", "effect");
+    private static final List<String> MODEL_PROPERTIES = Arrays.asList("visible", "render", "lighting", "transform", "transform_overlay", "pose", "pose_overlay", "anchor", "look_at", "inverse_kinematics", "illusion", "illusion_transform", "color", "color2", "color_mode", "color_grade", "paint", "paint_color", "glow", "texture", "pbr_normal_intensity", "pbr_specular_intensity", "model", "actions", "shape_keys", "block_state", "item_stack", "modelTransform", "same_animation_when_dropped", "settings", "paused", "frequency", "count", "structure_file", "biome_id", "emit_light", "light_intensity", "structure_light", "enabled", "level", "effect");
     private static final Set<String> HIDDEN_MODEL_PROPERTIES = Set.of("glowing_color", "glow_settings", "glow_intensity", "paint_color");
 
     private static boolean isFormItemUseTimeTrack(UIKeyframeSheet sheet)
@@ -1746,6 +1750,16 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
         if (trackName.equals("color_grade"))
         {
             return UIKeys.FORMS_EDITORS_COLOR_GRADE;
+        }
+
+        if (trackName.equals("color2"))
+        {
+            return UIKeys.FORMS_EDITORS_VANILLA_PARTICLE_COLOR2;
+        }
+
+        if (trackName.equals("color_mode"))
+        {
+            return UIKeys.FORMS_EDITORS_VANILLA_PARTICLE_COLOR_MODE;
         }
 
         if (trackName.equals("color"))
@@ -2922,7 +2936,8 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
         boolean isPbrTrack = trackName.equals("pbr_normal_intensity") || trackName.equals("pbr_specular_intensity");
         boolean isColorChildTrack = trackName.equals("paint") || trackName.equals("paint_color")
             || trackName.equals("glow") || trackName.equals("glow_settings")
-            || trackName.equals("color_grade");
+            || trackName.equals("color_grade")
+            || trackName.equals("color2") || trackName.equals("color_mode");
 
         if (isPbrTrack)
         {
@@ -2955,6 +2970,14 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
             if ((customTitle == null || customTitle.isEmpty()) && trackName.equals("color_grade"))
             {
                 sheet.title = UIKeys.FORMS_EDITORS_COLOR_GRADE;
+            }
+            else if ((customTitle == null || customTitle.isEmpty()) && trackName.equals("color2"))
+            {
+                sheet.title = UIKeys.FORMS_EDITORS_VANILLA_PARTICLE_COLOR2;
+            }
+            else if ((customTitle == null || customTitle.isEmpty()) && trackName.equals("color_mode"))
+            {
+                sheet.title = UIKeys.FORMS_EDITORS_VANILLA_PARTICLE_COLOR_MODE;
             }
         }
 
@@ -3135,7 +3158,7 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
                 else if (child.equals("color_grade"))
                 {
                     hasGrade = true;
-                    break;
+                    insertAt++;
                 }
                 else
                 {
@@ -3143,13 +3166,34 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
                 }
             }
 
-            if (hasGrade)
+            if (!hasGrade)
             {
-                continue;
+                tracks.add(insertAt, this.createColorGradeSheet(sheet));
+                insertAt++;
             }
 
-            tracks.add(insertAt, this.createColorGradeSheet(sheet));
-            i = insertAt;
+            String scopePrefix = sheet.id.equals("color") ? "" : sheet.id.substring(0, sheet.id.length() - "color".length());
+
+            for (int j = insertAt; j < tracks.size(); j++)
+            {
+                UIKeyframeSheet candidate = tracks.get(j);
+                String childName = StringUtils.fileName(candidate.id);
+
+                if (childName.equals("color2") || childName.equals("color_mode"))
+                {
+                    String candidatePrefix = candidate.id.equals(childName) ? "" : candidate.id.substring(0, candidate.id.length() - childName.length());
+
+                    if (scopePrefix.equals(candidatePrefix))
+                    {
+                        tracks.remove(j);
+                        tracks.add(insertAt, candidate);
+                        insertAt++;
+                        j--;
+                    }
+                }
+            }
+
+            i = insertAt - 1;
         }
     }
 

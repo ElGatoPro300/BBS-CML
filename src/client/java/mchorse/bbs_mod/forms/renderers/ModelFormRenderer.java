@@ -489,7 +489,7 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
 
             DiffuseLighting.disableGuiDepthLighting();
             RenderSystem.depthFunc(GL11.GL_ALWAYS);
-            mchorse.bbs_mod.client.BBSRendering.restoreGuiRenderState();
+            BBSRendering.restoreGuiRenderState();
         }
         else
         {

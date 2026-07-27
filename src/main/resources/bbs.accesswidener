@@ -15,4 +15,11 @@ accessible method net/minecraft/entity/LivingEntity setLivingFlag (IZ)V
 accessible method net/minecraft/entity/Entity setFlag (IZ)V
 
 accessible field net/minecraft/client/render/entity/model/ElytraEntityModel leftWing Lnet/minecraft/client/model/ModelPart;
-accessible field net/minecraft/client/render/entity/model/ElytraEntityModel rightWing Lnet/minecraft/client/model/ModelPart;
+accessible field net/minecraft/client/render/entity/model/ElytraEntityModel rightWing Lnet/minecraft/client/model/ModelPart;
+
+accessible method net/minecraft/client/particle/Particle setAlpha (F)V
+accessible field net/minecraft/client/particle/Particle alpha F
+accessible field net/minecraft/client/particle/Particle age I
+accessible field net/minecraft/client/particle/Particle maxAge I
+accessible field net/minecraft/client/particle/Particle dead Z
+accessible method net/minecraft/client/particle/Particle isAlive ()Z

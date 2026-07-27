@@ -1523,9 +1523,14 @@
     "bbs.ui.forms.editors.trail.length": "Length",
     "bbs.ui.forms.editors.trail.loop": "Loop",
     "bbs.ui.forms.editors.trail.title": "Trail",
+    "bbs.ui.forms.editors.vanilla_particle.color": "Color",
     "bbs.ui.forms.editors.vanilla_particle.count": "Count",
     "bbs.ui.forms.editors.vanilla_particle.editor.pick": "Pick particle...",
     "bbs.ui.forms.editors.vanilla_particle.editor.title": "Particles",
+    "bbs.ui.forms.editors.vanilla_particle.effect": "Effect",
+    "bbs.ui.forms.editors.vanilla_particle.effect_title": "Effects",
+    "bbs.ui.forms.editors.vanilla_particle.none": "None",
+    "bbs.ui.forms.editors.vanilla_particle.pick_effect": "Pick effect...",
     "bbs.ui.forms.editors.vanilla_particle.emission": "Emission",
     "bbs.ui.forms.editors.vanilla_particle.frequency": "Frequency",
     "bbs.ui.forms.editors.vanilla_particle.horizontal": "Horizontal",
@@ -2900,5 +2905,12 @@
     "bbs.ui.models.constraints_editor": "Constraints",
     "bbs.ui.property.reset_to_default": "Reset to default",
     "bbs.ui.screen_panels.screen_clip": "Screen clip",
-    "bbs.ui.timeline_toolbar.drag_locked": "Unlock the layout to reposition the toolbar"
+    "bbs.ui.timeline_toolbar.drag_locked": "Unlock the layout to reposition the toolbar",
+    "bbs.ui.forms.editors.vanilla_particle.color": "Color",
+    "bbs.ui.forms.editors.vanilla_particle.color2": "End Color",
+    "bbs.ui.forms.editors.vanilla_particle.color_mode": "Color Mode",
+    "bbs.ui.forms.editors.vanilla_particle.color_mode.solid": "Solid",
+    "bbs.ui.forms.editors.vanilla_particle.color_mode.lifetime": "Lifetime Gradient",
+    "bbs.ui.forms.editors.vanilla_particle.color_mode.random": "Random Palette",
+    "bbs.ui.forms.editors.vanilla_particle.none": "None"
 }

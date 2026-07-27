@@ -1377,9 +1377,14 @@
     "bbs.ui.forms.editors.trail.length": "Longitud",
     "bbs.ui.forms.editors.trail.loop": "Bucle",
     "bbs.ui.forms.editors.trail.title": "Rastro",
+    "bbs.ui.forms.editors.vanilla_particle.color": "Color",
     "bbs.ui.forms.editors.vanilla_particle.count": "Cantidad",
     "bbs.ui.forms.editors.vanilla_particle.editor.pick": "Selecciona una partícula...",
     "bbs.ui.forms.editors.vanilla_particle.editor.title": "Partículas",
+    "bbs.ui.forms.editors.vanilla_particle.effect": "Efecto",
+    "bbs.ui.forms.editors.vanilla_particle.effect_title": "Efectos",
+    "bbs.ui.forms.editors.vanilla_particle.none": "Nada",
+    "bbs.ui.forms.editors.vanilla_particle.pick_effect": "Elegir efecto...",
     "bbs.ui.forms.editors.vanilla_particle.emission": "Emisión",
     "bbs.ui.forms.editors.vanilla_particle.frequency": "Frecuencia",
     "bbs.ui.forms.editors.vanilla_particle.horizontal": "Horizontal",
@@ -2672,5 +2677,12 @@
     "studio.ui.utility.reload_terrain": "Terreno",
     "studio.ui.utility.reload_textures": "Texturas",
     "studio.ui.utility.resize": "Cambiar tamaño de ventana",
-    "studio.ui.utility.title": "Panel de utilidades"
+    "studio.ui.utility.title": "Panel de utilidades",
+    "bbs.ui.forms.editors.vanilla_particle.color": "Color",
+    "bbs.ui.forms.editors.vanilla_particle.color2": "Color Final",
+    "bbs.ui.forms.editors.vanilla_particle.color_mode": "Modo de Color",
+    "bbs.ui.forms.editors.vanilla_particle.color_mode.solid": "Sólido",
+    "bbs.ui.forms.editors.vanilla_particle.color_mode.lifetime": "Degradado por Vida",
+    "bbs.ui.forms.editors.vanilla_particle.color_mode.random": "Paleta Aleatoria",
+    "bbs.ui.forms.editors.vanilla_particle.none": "Nada"
 }
