@@ -1363,6 +1363,7 @@
     "bbs.ui.forms.editors.block.title": "Block",
     "bbs.ui.forms.editors.extruded.title": "Extruded",
     "bbs.ui.forms.editors.general": "General",
+    "bbs.ui.forms.editors.blend_color": "Blend color",
     "bbs.ui.forms.editor.gizmo_toolbar.hint": "Drag to reorder. Right-click to hide or show a gizmo button in the form editor.",
     "bbs.ui.forms.editors.general.animatable": "Animatable",
     "bbs.ui.forms.editors.general.animatable-tooltip": "Whether this form provides keyframe tracks for animation",

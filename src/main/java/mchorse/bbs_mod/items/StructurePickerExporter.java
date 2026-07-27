@@ -7,6 +7,7 @@ import mchorse.bbs_mod.blocks.entities.ModelProperties;
 import mchorse.bbs_mod.forms.forms.StructureForm;
 import mchorse.bbs_mod.mixin.StructureTemplateAccessor;
 import mchorse.bbs_mod.mixin.StructureTemplatePalettedListAccessor;
+import mchorse.bbs_mod.resources.Link;
 
 import net.minecraft.block.BlockState;
 import net.minecraft.block.Blocks;
@@ -14,6 +15,7 @@ import net.minecraft.block.entity.BlockEntity;
 import net.minecraft.fluid.Fluids;
 import net.minecraft.nbt.NbtCompound;
 import net.minecraft.nbt.NbtIo;
+import net.minecraft.nbt.NbtSizeTracker;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.state.property.Properties;
 import net.minecraft.structure.StructureTemplate;
@@ -167,6 +169,41 @@ public class StructurePickerExporter
             min.getY(),
             min.getZ() + (sizeZ - 1) / 2
         );
+    }
+
+    public static NbtCompound readStructureNbt(String pathString)
+    {
+        if (pathString == null || pathString.isEmpty())
+        {
+            return null;
+        }
+
+        Link link = Link.create(pathString);
+        File file = BBSMod.getProvider().getFile(link);
+
+        try
+        {
+            if (file != null && file.exists())
+            {
+                return NbtIo.readCompressed(file.toPath(), NbtSizeTracker.ofUnlimitedBytes());
+            }
+
+            try (java.io.InputStream stream = BBSMod.getProvider().getAsset(link))
+            {
+                if (stream == null)
+                {
+                    return null;
+                }
+
+                return NbtIo.readCompressed(stream, NbtSizeTracker.ofUnlimitedBytes());
+            }
+        }
+        catch (IOException e)
+        {
+            e.printStackTrace();
+
+            return null;
+        }
     }
 
     private static void filterTemplate(StructureTemplate template, BlockPos origin, Set<BlockPos> selected)

@@ -1935,6 +1935,19 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
         return title != null ? title : IKey.constant(trackName);
     }
 
+    /**
+     * After a Tracks palette drop of Pose / overlay, keep the parent collapsed by default.
+     */
+    public void expandModelTrackParent(String trackId)
+    {
+        /* Intentionally no-op: Pose / overlays start collapsed. */
+    }
+
+    public void clearModelTrackInsertGapPreview()
+    {
+        /* Gap preview API is optional; classic dope sheet may not implement it. */
+    }
+
     public void updateChannelsList()
     {
         UIKeyframes lastEditor = null;
@@ -1979,6 +1992,7 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
 
             properties.add("glow");
 
+            DUMMY_FORM.syncOverlaySlotsFromSettings();
             this.replay.properties.getOrCreate(DUMMY_FORM, "render");
 
             for (String key : properties)
@@ -2023,20 +2037,27 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
             }
 
             /* Form properties */
-            Set<String> propertyPaths = new LinkedHashSet<>(FormUtils.collectPropertyPaths(this.replay.form.get()));
+            Form form = this.replay.form.get();
+
+            if (form != null)
+            {
+                form.syncOverlaySlotsFromSettings();
+            }
+
+            Set<String> propertyPaths = new LinkedHashSet<>(FormUtils.collectPropertyPaths(form));
 
             /* render stays keyframable but is edited from the visible track properties */
             FormUtils.addPairedRenderPropertyPaths(propertyPaths, propertyPaths);
 
             for (String key : this.replay.properties.properties.keySet())
             {
-                if (this.isCompatiblePropertyPath(this.replay.form.get(), key))
+                if (this.isCompatiblePropertyPath(form, key))
                 {
                     propertyPaths.add(key);
                 }
             }
 
-            this.collectLimbTracks(this.replay.form.get(), propertyPaths);
+            this.collectLimbTracks(form, propertyPaths);
 
             for (String key : propertyPaths)
             {
@@ -2051,15 +2072,15 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
                     continue;
                 }
 
-                KeyframeChannel property = this.replay.properties.getOrCreate(this.replay.form.get(), key);
+                KeyframeChannel property = this.replay.properties.getOrCreate(form, key);
 
                 if (property != null)
                 {
-                    BaseValueBasic formProperty = FormUtils.getProperty(this.replay.form.get(), key);
+                    BaseValueBasic formProperty = FormUtils.getProperty(form, key);
 
                     if (formProperty == null && FormProperties.isColorGradeChannelKey(key))
                     {
-                        formProperty = FormUtils.getProperty(this.replay.form.get(), FormProperties.colorPropertyPathForGrade(key));
+                        formProperty = FormUtils.getProperty(form, FormProperties.colorPropertyPathForGrade(key));
                     }
 
                     String customTitle = this.replay.getCustomSheetTitle(key);

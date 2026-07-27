@@ -1,0 +1,589 @@
+﻿
+> Configure project :
+Fabric Loom: 1.17.17
+
+> Task :compileJava UP-TO-DATE
+> Task :processResources UP-TO-DATE
+> Task :classes UP-TO-DATE
+
+> Task :compileClientJava
+./gradlew : 
+C:\Users\OMEN\Documents\GitHub\BBS-CML-EDITION\src\client\java\mchorse\bbs_mod\ui\film\UIFilmPanel.java:4439: error: 
+cannot find symbol
+At C:\Users\OMEN\AppData\Local\Temp\ps-script-d3f75609-3657-4f9c-9b39-2332e76ec1d3.ps1:107 char:1
++ ./gradlew compileClientJava 2>&1 | Out-File -FilePath build_errors.tx ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (C:\Users\OMEN\D...not find symbol:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+            this.replayEditor.expandModelTrackParent(inserted);
+                             ^
+  symbol:   method expandModelTrackParent(String)
+  location: variable replayEditor of type UIReplaysEditor
+C:\Users\OMEN\Documents\GitHub\BBS-CML-EDITION\src\client\java\mchorse\bbs_mod\ui\film\UIFilmPanel.java:4478: error: 
+cannot find symbol
+            this.replayEditor.clearModelTrackInsertGapPreview();
+                             ^
+  symbol:   method clearModelTrackInsertGapPreview()
+  location: variable replayEditor of type UIReplaysEditor
+C:\Users\OMEN\Documents\GitHub\BBS-CML-EDITION\src\client\java\mchorse\bbs_mod\ui\film\UIFilmPanel.java:4488: error: 
+cannot find symbol
+            this.replayEditor.expandModelTrackParent(inserted);
+                             ^
+  symbol:   method expandModelTrackParent(String)
+  location: variable replayEditor of type UIReplaysEditor
+C:\Users\OMEN\Documents\GitHub\BBS-CML-EDITION\src\client\java\mchorse\bbs_mod\ui\film\UIFilmPanel.java:4503: error: 
+cannot find symbol
+            this.replayEditor.clearModelTrackInsertGapPreview();
+                             ^
+  symbol:   method clearModelTrackInsertGapPreview()
+  location: variable replayEditor of type UIReplaysEditor
+C:\Users\OMEN\Documents\GitHub\BBS-CML-EDITION\src\client\java\mchorse\bbs_mod\BBSModClient.java:613: error: cannot 
+find symbol
+        BBSSettings.uiStyle.modes(UIKeys.ENGINE_UI_STYLE_CLASSIC);
+                                        ^
+  symbol:   variable ENGINE_UI_STYLE_CLASSIC
+  location: class UIKeys
+C:\Users\OMEN\Documents\GitHub\BBS-CML-EDITION\src\client\java\mchorse\bbs_mod\BBSModClient.java:619: error: cannot 
+find symbol
+                UIKeys.ENGINE_UI_STYLE_CLASSIC,
+                      ^
+  symbol:   variable ENGINE_UI_STYLE_CLASSIC
+  location: class UIKeys
+C:\Users\OMEN\Documents\GitHub\BBS-CML-EDITION\src\client\java\mchorse\bbs_mod\BBSModClient.java:620: error: cannot 
+find symbol
+                UIKeys.ENGINE_UI_STYLE_MINECUT
+                      ^
+  symbol:   variable ENGINE_UI_STYLE_MINECUT
+  location: class UIKeys
+C:\Users\OMEN\Documents\GitHub\BBS-CML-EDITION\src\client\java\mchorse\bbs_mod\forms\renderers\VideoFormRenderer.java:3
+85: error: cannot find symbol
+        Color formColor = this.form.getFormColor().copyWithBlendIntensity();
+                                                  ^
+  symbol:   method copyWithBlendIntensity()
+  location: class Color
+C:\Users\OMEN\Documents\GitHub\BBS-CML-EDITION\src\client\java\mchorse\bbs_mod\ui\forms\editors\forms\UIVideoForm.java:
+19: error: cannot find symbol
+        this.registerPanel(this.defaultPanel, UIKeys.FORMS_EDITORS_VIDEO_TITLE, Icons.IMAGE);
+                                                    ^
+  symbol:   variable FORMS_EDITORS_VIDEO_TITLE
+  location: class UIKeys
+C:\Users\OMEN\Documents\GitHub\BBS-CML-EDITION\src\client\java\mchorse\bbs_mod\ui\forms\editors\panels\UIVideoFormPanel
+.java:53: error: cannot find symbol
+        this.pick = new UIButton(UIKeys.FORMS_EDITORS_VIDEO_PICK_VIDEO, (b) ->
+                                       ^
+  symbol:   variable FORMS_EDITORS_VIDEO_PICK_VIDEO
+  location: class UIKeys
+C:\Users\OMEN\Documents\GitHub\BBS-CML-EDITION\src\client\java\mchorse\bbs_mod\ui\forms\editors\panels\UIVideoFormPanel
+.java:70: error: cannot find symbol
+        this.billboard = new UIToggle(UIKeys.FORMS_EDITORS_VIDEO_BILLBOARD, false, (b) -> 
+this.form.billboard.set(b.getValue()));
+                                            ^
+  symbol:   variable FORMS_EDITORS_VIDEO_BILLBOARD
+  location: class UIKeys
+C:\Users\OMEN\Documents\GitHub\BBS-CML-EDITION\src\client\java\mchorse\bbs_mod\ui\forms\editors\panels\UIVideoFormPanel
+.java:72: error: cannot find symbol
+        this.loop = new UIToggle(UIKeys.FORMS_EDITORS_VIDEO_LOOP, true, (b) -> this.form.loop.set(b.getValue()));
+                                       ^
+  symbol:   variable FORMS_EDITORS_VIDEO_LOOP
+  location: class UIKeys
+C:\Users\OMEN\Documents\GitHub\BBS-CML-EDITION\src\client\java\mchorse\bbs_mod\ui\forms\editors\panels\UIVideoFormPanel
+.java:73: error: cannot find symbol
+        this.paused = new UIToggle(UIKeys.FORMS_EDITORS_VIDEO_PAUSED, false, (b) -> 
+this.form.paused.set(b.getValue()));
+                                         ^
+  symbol:   variable FORMS_EDITORS_VIDEO_PAUSED
+  location: class UIKeys
+C:\Users\OMEN\Documents\GitHub\BBS-CML-EDITION\src\client\java\mchorse\bbs_mod\ui\forms\editors\panels\UIVideoFormPanel
+.java:74: error: cannot find symbol
+        this.paused.tooltip(UIKeys.FORMS_EDITORS_VIDEO_PAUSED_TOOLTIP);
+                                  ^
+  symbol:   variable FORMS_EDITORS_VIDEO_PAUSED_TOOLTIP
+  location: class UIKeys
+C:\Users\OMEN\Documents\GitHub\BBS-CML-EDITION\src\client\java\mchorse\bbs_mod\ui\forms\editors\panels\UIVideoFormPanel
+.java:79: error: cannot find symbol
+        this.resolution.addLabel(UIKeys.FORMS_EDITORS_VIDEO_RESOLUTION_NATIVE);
+                                       ^
+  symbol:   variable FORMS_EDITORS_VIDEO_RESOLUTION_NATIVE
+  location: class UIKeys
+C:\Users\OMEN\Documents\GitHub\BBS-CML-EDITION\src\client\java\mchorse\bbs_mod\ui\forms\editors\panels\UIVideoFormPanel
+.java:80: error: cannot find symbol
+        this.resolution.addLabel(UIKeys.FORMS_EDITORS_VIDEO_RESOLUTION_1080);
+                                       ^
+  symbol:   variable FORMS_EDITORS_VIDEO_RESOLUTION_1080
+  location: class UIKeys
+C:\Users\OMEN\Documents\GitHub\BBS-CML-EDITION\src\client\java\mchorse\bbs_mod\ui\forms\editors\panels\UIVideoFormPanel
+.java:81: error: cannot find symbol
+        this.resolution.addLabel(UIKeys.FORMS_EDITORS_VIDEO_RESOLUTION_720);
+                                       ^
+  symbol:   variable FORMS_EDITORS_VIDEO_RESOLUTION_720
+  location: class UIKeys
+C:\Users\OMEN\Documents\GitHub\BBS-CML-EDITION\src\client\java\mchorse\bbs_mod\ui\forms\editors\panels\UIVideoFormPanel
+.java:82: error: cannot find symbol
+        this.resolution.addLabel(UIKeys.FORMS_EDITORS_VIDEO_RESOLUTION_480);
+                                       ^
+  symbol:   variable FORMS_EDITORS_VIDEO_RESOLUTION_480
+  location: class UIKeys
+C:\Users\OMEN\Documents\GitHub\BBS-CML-EDITION\src\client\java\mchorse\bbs_mod\ui\forms\editors\panels\UIVideoFormPanel
+.java:83: error: cannot find symbol
+        this.resolution.addLabel(UIKeys.FORMS_EDITORS_VIDEO_RESOLUTION_360);
+                                       ^
+  symbol:   variable FORMS_EDITORS_VIDEO_RESOLUTION_360
+  location: class UIKeys
+C:\Users\OMEN\Documents\GitHub\BBS-CML-EDITION\src\client\java\mchorse\bbs_mod\ui\forms\editors\panels\UIVideoFormPanel
+.java:84: error: cannot find symbol
+        this.resolution.addLabel(UIKeys.FORMS_EDITORS_VIDEO_RESOLUTION_240);
+                                       ^
+  symbol:   variable FORMS_EDITORS_VIDEO_RESOLUTION_240
+  location: class UIKeys
+C:\Users\OMEN\Documents\GitHub\BBS-CML-EDITION\src\client\java\mchorse\bbs_mod\ui\forms\editors\panels\UIVideoFormPanel
+.java:85: error: cannot find symbol
+        this.resolution.tooltip(UIKeys.FORMS_EDITORS_VIDEO_RESOLUTION_TOOLTIP);
+                                      ^
+  symbol:   variable FORMS_EDITORS_VIDEO_RESOLUTION_TOOLTIP
+  location: class UIKeys
+C:\Users\OMEN\Documents\GitHub\BBS-CML-EDITION\src\client\java\mchorse\bbs_mod\ui\forms\editors\panels\UIVideoFormPanel
+.java:88: error: cannot find symbol
+        this.speed.tooltip(UIKeys.FORMS_EDITORS_VIDEO_SPEED_TOOLTIP);
+                                 ^
+  symbol:   variable FORMS_EDITORS_VIDEO_SPEED_TOOLTIP
+  location: class UIKeys
+C:\Users\OMEN\Documents\GitHub\BBS-CML-EDITION\src\client\java\mchorse\bbs_mod\ui\forms\editors\panels\UIVideoFormPanel
+.java:91: error: cannot find symbol
+        this.time.tooltip(UIKeys.FORMS_EDITORS_VIDEO_TIME_TOOLTIP);
+                                ^
+  symbol:   variable FORMS_EDITORS_VIDEO_TIME_TOOLTIP
+  location: class UIKeys
+C:\Users\OMEN\Documents\GitHub\BBS-CML-EDITION\src\client\java\mchorse\bbs_mod\ui\forms\editors\panels\UIVideoFormPanel
+.java:166: error: cannot find symbol
+                UI.label(UIKeys.FORMS_EDITORS_BLEND_COLOR).marginTop(4),
+                               ^
+  symbol:   variable FORMS_EDITORS_BLEND_COLOR
+  location: class UIKeys
+C:\Users\OMEN\Documents\GitHub\BBS-CML-EDITION\src\client\java\mchorse\bbs_mod\ui\forms\editors\panels\UIVideoFormPanel
+.java:188: error: cannot find symbol
+        this.options.add(UI.label(UIKeys.FORMS_EDITORS_VIDEO_RESOLUTION).marginTop(8), this.resolution);
+                                        ^
+  symbol:   variable FORMS_EDITORS_VIDEO_RESOLUTION
+  location: class UIKeys
+C:\Users\OMEN\Documents\GitHub\BBS-CML-EDITION\src\client\java\mchorse\bbs_mod\ui\forms\editors\panels\UIVideoFormPanel
+.java:189: error: cannot find symbol
+        this.options.add(UI.label(UIKeys.FORMS_EDITORS_VIDEO_SPEED).marginTop(8), this.speed);
+                                        ^
+  symbol:   variable FORMS_EDITORS_VIDEO_SPEED
+  location: class UIKeys
+C:\Users\OMEN\Documents\GitHub\BBS-CML-EDITION\src\client\java\mchorse\bbs_mod\ui\forms\editors\panels\UIVideoFormPanel
+.java:190: error: cannot find symbol
+        this.options.add(UI.label(UIKeys.FORMS_EDITORS_VIDEO_TIME).marginTop(8), this.time);
+                                        ^
+  symbol:   variable FORMS_EDITORS_VIDEO_TIME
+  location: class UIKeys
+C:\Users\OMEN\Documents\GitHub\BBS-CML-EDITION\src\client\java\mchorse\bbs_mod\ui\forms\editors\panels\UIVideoFormPanel
+.java:230: error: cannot find symbol
+            this.pick.label = UIKeys.FORMS_EDITORS_VIDEO_PICK_VIDEO;
+                                    ^
+  symbol:   variable FORMS_EDITORS_VIDEO_PICK_VIDEO
+  location: class UIKeys
+C:\Users\OMEN\Documents\GitHub\BBS-CML-EDITION\src\client\java\mchorse\bbs_mod\ui\forms\editors\panels\UIStructureFormP
+anel.java:155: error: cannot find symbol
+        this.toggleSolidHitbox = new UIToggle(UIKeys.FORMS_EDITORS_STRUCTURE_HITBOX, false, (t) -> 
+this.form.solidHitbox.set(t.getValue()));
+                                                    ^
+  symbol:   variable FORMS_EDITORS_STRUCTURE_HITBOX
+  location: class UIKeys
+C:\Users\OMEN\Documents\GitHub\BBS-CML-EDITION\src\client\java\mchorse\bbs_mod\ui\forms\editors\panels\UIStructureFormP
+anel.java:156: error: cannot find symbol
+        this.toggleSolidHitbox.tooltip(UIKeys.FORMS_EDITORS_STRUCTURE_HITBOX_TOOLTIP);
+                                             ^
+  symbol:   variable FORMS_EDITORS_STRUCTURE_HITBOX_TOOLTIP
+  location: class UIKeys
+C:\Users\OMEN\Documents\GitHub\BBS-CML-EDITION\src\client\java\mchorse\bbs_mod\ui\framework\elements\input\keyframes\fa
+ctories\UIIntegerKeyframeFactory.java:68: error: cannot find symbol
+            this.resolution.addLabel(UIKeys.FORMS_EDITORS_VIDEO_RESOLUTION_NATIVE);
+                                           ^
+  symbol:   variable FORMS_EDITORS_VIDEO_RESOLUTION_NATIVE
+  location: class UIKeys
+C:\Users\OMEN\Documents\GitHub\BBS-CML-EDITION\src\client\java\mchorse\bbs_mod\ui\framework\elements\input\keyframes\fa
+ctories\UIIntegerKeyframeFactory.java:69: error: cannot find symbol
+            this.resolution.addLabel(UIKeys.FORMS_EDITORS_VIDEO_RESOLUTION_1080);
+                                           ^
+  symbol:   variable FORMS_EDITORS_VIDEO_RESOLUTION_1080
+  location: class UIKeys
+C:\Users\OMEN\Documents\GitHub\BBS-CML-EDITION\src\client\java\mchorse\bbs_mod\ui\framework\elements\input\keyframes\fa
+ctories\UIIntegerKeyframeFactory.java:70: error: cannot find symbol
+            this.resolution.addLabel(UIKeys.FORMS_EDITORS_VIDEO_RESOLUTION_720);
+                                           ^
+  symbol:   variable FORMS_EDITORS_VIDEO_RESOLUTION_720
+  location: class UIKeys
+C:\Users\OMEN\Documents\GitHub\BBS-CML-EDITION\src\client\java\mchorse\bbs_mod\ui\framework\elements\input\keyframes\fa
+ctories\UIIntegerKeyframeFactory.java:71: error: cannot find symbol
+            this.resolution.addLabel(UIKeys.FORMS_EDITORS_VIDEO_RESOLUTION_480);
+                                           ^
+  symbol:   variable FORMS_EDITORS_VIDEO_RESOLUTION_480
+  location: class UIKeys
+C:\Users\OMEN\Documents\GitHub\BBS-CML-EDITION\src\client\java\mchorse\bbs_mod\ui\framework\elements\input\keyframes\fa
+ctories\UIIntegerKeyframeFactory.java:72: error: cannot find symbol
+            this.resolution.addLabel(UIKeys.FORMS_EDITORS_VIDEO_RESOLUTION_360);
+                                           ^
+  symbol:   variable FORMS_EDITORS_VIDEO_RESOLUTION_360
+  location: class UIKeys
+C:\Users\OMEN\Documents\GitHub\BBS-CML-EDITION\src\client\java\mchorse\bbs_mod\ui\framework\elements\input\keyframes\fa
+ctories\UIIntegerKeyframeFactory.java:73: error: cannot find symbol
+            this.resolution.addLabel(UIKeys.FORMS_EDITORS_VIDEO_RESOLUTION_240);
+                                           ^
+  symbol:   variable FORMS_EDITORS_VIDEO_RESOLUTION_240
+  location: class UIKeys
+C:\Users\OMEN\Documents\GitHub\BBS-CML-EDITION\src\client\java\mchorse\bbs_mod\ui\framework\elements\input\keyframes\fa
+ctories\UIIntegerKeyframeFactory.java:74: error: cannot find symbol
+            this.resolution.tooltip(UIKeys.FORMS_EDITORS_VIDEO_RESOLUTION_TOOLTIP);
+                                          ^
+  symbol:   variable FORMS_EDITORS_VIDEO_RESOLUTION_TOOLTIP
+  location: class UIKeys
+C:\Users\OMEN\Documents\GitHub\BBS-CML-EDITION\src\client\java\mchorse\bbs_mod\ui\items\UIStructurePickerModePicker.jav
+a:49: error: cannot find symbol
+        Icons.SP_BLOCK,
+             ^
+  symbol:   variable SP_BLOCK
+  location: class Icons
+C:\Users\OMEN\Documents\GitHub\BBS-CML-EDITION\src\client\java\mchorse\bbs_mod\ui\items\UIStructurePickerModePicker.jav
+a:52: error: cannot find symbol
+        Icons.SP_RECTANGLE,
+             ^
+  symbol:   variable SP_RECTANGLE
+  location: class Icons
+C:\Users\OMEN\Documents\GitHub\BBS-CML-EDITION\src\client\java\mchorse\bbs_mod\ui\items\UIStructurePickerModePicker.jav
+a:53: error: cannot find symbol
+        Icons.SP_CUBE,
+             ^
+  symbol:   variable SP_CUBE
+  location: class Icons
+C:\Users\OMEN\Documents\GitHub\BBS-CML-EDITION\src\client\java\mchorse\bbs_mod\ui\items\UIStructurePickerModePicker.jav
+a:54: error: cannot find symbol
+        Icons.SP_CIRCLE,
+             ^
+  symbol:   variable SP_CIRCLE
+  location: class Icons
+C:\Users\OMEN\Documents\GitHub\BBS-CML-EDITION\src\client\java\mchorse\bbs_mod\ui\items\UIStructurePickerModePicker.jav
+a:55: error: cannot find symbol
+        Icons.SP_SPHERE,
+             ^
+  symbol:   variable SP_SPHERE
+  location: class Icons
+C:\Users\OMEN\Documents\GitHub\BBS-CML-EDITION\src\client\java\mchorse\bbs_mod\ui\items\UIStructurePickerModePicker.jav
+a:56: error: cannot find symbol
+        Icons.SP_TRIANGLE,
+             ^
+  symbol:   variable SP_TRIANGLE
+  location: class Icons
+C:\Users\OMEN\Documents\GitHub\BBS-CML-EDITION\src\client\java\mchorse\bbs_mod\ui\items\UIStructurePickerModePicker.jav
+a:57: error: cannot find symbol
+        Icons.SP_CONE,
+             ^
+  symbol:   variable SP_CONE
+  location: class Icons
+C:\Users\OMEN\Documents\GitHub\BBS-CML-EDITION\src\client\java\mchorse\bbs_mod\ui\items\UIStructurePickerModePicker.jav
+a:58: error: cannot find symbol
+        Icons.SP_CYLINDER
+             ^
+  symbol:   variable SP_CYLINDER
+  location: class Icons
+Note: Some input files use or override a deprecated API.
+Note: Recompile with -Xlint:deprecation for details.
+Note: Some input files use unchecked or unsafe operations.
+Note: Recompile with -Xlint:unchecked for details.
+45 errors
+
+> Task :compileClientJava FAILED
+
+[Incubating] Problems report is available at: file:///C:/Users/OMEN/Documents/GitHub/BBS-CML-EDITION/build/reports/problems/problems-report.html
+
+FAILURE: Build failed with an exception.
+
+* What went wrong:
+Execution failed for task ':compileClientJava' (registered by plugin class 'org.gradle.api.plugins.JavaBasePlugin').
+> Compilation failed; see the compiler output below.
+  Note: Recompile with -Xlint:deprecation for details.
+  C:\Users\OMEN\Documents\GitHub\BBS-CML-EDITION\src\client\java\mchorse\bbs_mod\BBSModClient.java:613: error: cannot 
+find symbol
+          BBSSettings.uiStyle.modes(UIKeys.ENGINE_UI_STYLE_CLASSIC);
+                                          ^
+    symbol:   variable ENGINE_UI_STYLE_CLASSIC
+    location: class UIKeys
+  C:\Users\OMEN\Documents\GitHub\BBS-CML-EDITION\src\client\java\mchorse\bbs_mod\BBSModClient.java:619: error: cannot 
+find symbol
+                  UIKeys.ENGINE_UI_STYLE_CLASSIC,
+                        ^
+    symbol:   variable ENGINE_UI_STYLE_CLASSIC
+    location: class UIKeys
+  C:\Users\OMEN\Documents\GitHub\BBS-CML-EDITION\src\client\java\mchorse\bbs_mod\BBSModClient.java:620: error: cannot 
+find symbol
+                  UIKeys.ENGINE_UI_STYLE_MINECUT
+                        ^
+    symbol:   variable ENGINE_UI_STYLE_MINECUT
+    location: class UIKeys
+  C:\Users\OMEN\Documents\GitHub\BBS-CML-EDITION\src\client\java\mchorse\bbs_mod\ui\forms\editors\forms\UIVideoForm.jav
+a:19: error: cannot find symbol
+          this.registerPanel(this.defaultPanel, UIKeys.FORMS_EDITORS_VIDEO_TITLE, Icons.IMAGE);
+                                                      ^
+    symbol:   variable FORMS_EDITORS_VIDEO_TITLE
+    location: class UIKeys
+  C:\Users\OMEN\Documents\GitHub\BBS-CML-EDITION\src\client\java\mchorse\bbs_mod\ui\forms\editors\panels\UIVideoFormPan
+el.java:53: error: cannot find symbol
+          this.pick = new UIButton(UIKeys.FORMS_EDITORS_VIDEO_PICK_VIDEO, (b) ->
+                                         ^
+    symbol:   variable FORMS_EDITORS_VIDEO_PICK_VIDEO
+    location: class UIKeys
+  C:\Users\OMEN\Documents\GitHub\BBS-CML-EDITION\src\client\java\mchorse\bbs_mod\ui\forms\editors\panels\UIVideoFormPan
+el.java:70: error: cannot find symbol
+          this.billboard = new UIToggle(UIKeys.FORMS_EDITORS_VIDEO_BILLBOARD, false, (b) -> 
+this.form.billboard.set(b.getValue()));
+                                              ^
+    symbol:   variable FORMS_EDITORS_VIDEO_BILLBOARD
+    location: class UIKeys
+  C:\Users\OMEN\Documents\GitHub\BBS-CML-EDITION\src\client\java\mchorse\bbs_mod\ui\forms\editors\panels\UIVideoFormPan
+el.java:72: error: cannot find symbol
+          this.loop = new UIToggle(UIKeys.FORMS_EDITORS_VIDEO_LOOP, true, (b) -> this.form.loop.set(b.getValue()));
+                                         ^
+    symbol:   variable FORMS_EDITORS_VIDEO_LOOP
+    location: class UIKeys
+  C:\Users\OMEN\Documents\GitHub\BBS-CML-EDITION\src\client\java\mchorse\bbs_mod\ui\forms\editors\panels\UIVideoFormPan
+el.java:73: error: cannot find symbol
+          this.paused = new UIToggle(UIKeys.FORMS_EDITORS_VIDEO_PAUSED, false, (b) -> 
+this.form.paused.set(b.getValue()));
+                                           ^
+    symbol:   variable FORMS_EDITORS_VIDEO_PAUSED
+    location: class UIKeys
+  C:\Users\OMEN\Documents\GitHub\BBS-CML-EDITION\src\client\java\mchorse\bbs_mod\ui\forms\editors\panels\UIVideoFormPan
+el.java:74: error: cannot find symbol
+          this.paused.tooltip(UIKeys.FORMS_EDITORS_VIDEO_PAUSED_TOOLTIP);
+                                    ^
+    symbol:   variable FORMS_EDITORS_VIDEO_PAUSED_TOOLTIP
+    location: class UIKeys
+  C:\Users\OMEN\Documents\GitHub\BBS-CML-EDITION\src\client\java\mchorse\bbs_mod\ui\forms\editors\panels\UIVideoFormPan
+el.java:79: error: cannot find symbol
+          this.resolution.addLabel(UIKeys.FORMS_EDITORS_VIDEO_RESOLUTION_NATIVE);
+                                         ^
+    symbol:   variable FORMS_EDITORS_VIDEO_RESOLUTION_NATIVE
+    location: class UIKeys
+  C:\Users\OMEN\Documents\GitHub\BBS-CML-EDITION\src\client\java\mchorse\bbs_mod\ui\forms\editors\panels\UIVideoFormPan
+el.java:80: error: cannot find symbol
+          this.resolution.addLabel(UIKeys.FORMS_EDITORS_VIDEO_RESOLUTION_1080);
+                                         ^
+    symbol:   variable FORMS_EDITORS_VIDEO_RESOLUTION_1080
+    location: class UIKeys
+  C:\Users\OMEN\Documents\GitHub\BBS-CML-EDITION\src\client\java\mchorse\bbs_mod\ui\forms\editors\panels\UIVideoFormPan
+el.java:81: error: cannot find symbol
+          this.resolution.addLabel(UIKeys.FORMS_EDITORS_VIDEO_RESOLUTION_720);
+                                         ^
+    symbol:   variable FORMS_EDITORS_VIDEO_RESOLUTION_720
+    location: class UIKeys
+  C:\Users\OMEN\Documents\GitHub\BBS-CML-EDITION\src\client\java\mchorse\bbs_mod\ui\forms\editors\panels\UIVideoFormPan
+el.java:82: error: cannot find symbol
+          this.resolution.addLabel(UIKeys.FORMS_EDITORS_VIDEO_RESOLUTION_480);
+                                         ^
+    symbol:   variable FORMS_EDITORS_VIDEO_RESOLUTION_480
+    location: class UIKeys
+  C:\Users\OMEN\Documents\GitHub\BBS-CML-EDITION\src\client\java\mchorse\bbs_mod\ui\forms\editors\panels\UIVideoFormPan
+el.java:83: error: cannot find symbol
+          this.resolution.addLabel(UIKeys.FORMS_EDITORS_VIDEO_RESOLUTION_360);
+                                         ^
+    symbol:   variable FORMS_EDITORS_VIDEO_RESOLUTION_360
+    location: class UIKeys
+  C:\Users\OMEN\Documents\GitHub\BBS-CML-EDITION\src\client\java\mchorse\bbs_mod\ui\forms\editors\panels\UIVideoFormPan
+el.java:84: error: cannot find symbol
+          this.resolution.addLabel(UIKeys.FORMS_EDITORS_VIDEO_RESOLUTION_240);
+                                         ^
+    symbol:   variable FORMS_EDITORS_VIDEO_RESOLUTION_240
+    location: class UIKeys
+  C:\Users\OMEN\Documents\GitHub\BBS-CML-EDITION\src\client\java\mchorse\bbs_mod\ui\forms\editors\panels\UIVideoFormPan
+el.java:85: error: cannot find symbol
+          this.resolution.tooltip(UIKeys.FORMS_EDITORS_VIDEO_RESOLUTION_TOOLTIP);
+                                        ^
+    symbol:   variable FORMS_EDITORS_VIDEO_RESOLUTION_TOOLTIP
+    location: class UIKeys
+  C:\Users\OMEN\Documents\GitHub\BBS-CML-EDITION\src\client\java\mchorse\bbs_mod\ui\forms\editors\panels\UIVideoFormPan
+el.java:88: error: cannot find symbol
+          this.speed.tooltip(UIKeys.FORMS_EDITORS_VIDEO_SPEED_TOOLTIP);
+                                   ^
+    symbol:   variable FORMS_EDITORS_VIDEO_SPEED_TOOLTIP
+    location: class UIKeys
+  C:\Users\OMEN\Documents\GitHub\BBS-CML-EDITION\src\client\java\mchorse\bbs_mod\ui\forms\editors\panels\UIVideoFormPan
+el.java:91: error: cannot find symbol
+          this.time.tooltip(UIKeys.FORMS_EDITORS_VIDEO_TIME_TOOLTIP);
+                                  ^
+    symbol:   variable FORMS_EDITORS_VIDEO_TIME_TOOLTIP
+    location: class UIKeys
+  C:\Users\OMEN\Documents\GitHub\BBS-CML-EDITION\src\client\java\mchorse\bbs_mod\ui\forms\editors\panels\UIVideoFormPan
+el.java:166: error: cannot find symbol
+                  UI.label(UIKeys.FORMS_EDITORS_BLEND_COLOR).marginTop(4),
+                                 ^
+    symbol:   variable FORMS_EDITORS_BLEND_COLOR
+    location: class UIKeys
+  C:\Users\OMEN\Documents\GitHub\BBS-CML-EDITION\src\client\java\mchorse\bbs_mod\ui\forms\editors\panels\UIVideoFormPan
+el.java:188: error: cannot find symbol
+          this.options.add(UI.label(UIKeys.FORMS_EDITORS_VIDEO_RESOLUTION).marginTop(8), this.resolution);
+                                          ^
+    symbol:   variable FORMS_EDITORS_VIDEO_RESOLUTION
+    location: class UIKeys
+  C:\Users\OMEN\Documents\GitHub\BBS-CML-EDITION\src\client\java\mchorse\bbs_mod\ui\forms\editors\panels\UIVideoFormPan
+el.java:189: error: cannot find symbol
+          this.options.add(UI.label(UIKeys.FORMS_EDITORS_VIDEO_SPEED).marginTop(8), this.speed);
+                                          ^
+    symbol:   variable FORMS_EDITORS_VIDEO_SPEED
+    location: class UIKeys
+  C:\Users\OMEN\Documents\GitHub\BBS-CML-EDITION\src\client\java\mchorse\bbs_mod\ui\forms\editors\panels\UIVideoFormPan
+el.java:190: error: cannot find symbol
+          this.options.add(UI.label(UIKeys.FORMS_EDITORS_VIDEO_TIME).marginTop(8), this.time);
+                                          ^
+    symbol:   variable FORMS_EDITORS_VIDEO_TIME
+    location: class UIKeys
+  C:\Users\OMEN\Documents\GitHub\BBS-CML-EDITION\src\client\java\mchorse\bbs_mod\ui\forms\editors\panels\UIVideoFormPan
+el.java:230: error: cannot find symbol
+              this.pick.label = UIKeys.FORMS_EDITORS_VIDEO_PICK_VIDEO;
+                                      ^
+    symbol:   variable FORMS_EDITORS_VIDEO_PICK_VIDEO
+    location: class UIKeys
+  C:\Users\OMEN\Documents\GitHub\BBS-CML-EDITION\src\client\java\mchorse\bbs_mod\ui\forms\editors\panels\UIStructureFor
+mPanel.java:155: error: cannot find symbol
+          this.toggleSolidHitbox = new UIToggle(UIKeys.FORMS_EDITORS_STRUCTURE_HITBOX, false, (t) -> 
+this.form.solidHitbox.set(t.getValue()));
+                                                      ^
+    symbol:   variable FORMS_EDITORS_STRUCTURE_HITBOX
+    location: class UIKeys
+  C:\Users\OMEN\Documents\GitHub\BBS-CML-EDITION\src\client\java\mchorse\bbs_mod\ui\forms\editors\panels\UIStructureFor
+mPanel.java:156: error: cannot find symbol
+          this.toggleSolidHitbox.tooltip(UIKeys.FORMS_EDITORS_STRUCTURE_HITBOX_TOOLTIP);
+                                               ^
+    symbol:   variable FORMS_EDITORS_STRUCTURE_HITBOX_TOOLTIP
+    location: class UIKeys
+  C:\Users\OMEN\Documents\GitHub\BBS-CML-EDITION\src\client\java\mchorse\bbs_mod\ui\framework\elements\input\keyframes\
+factories\UIIntegerKeyframeFactory.java:68: error: cannot find symbol
+              this.resolution.addLabel(UIKeys.FORMS_EDITORS_VIDEO_RESOLUTION_NATIVE);
+                                             ^
+    symbol:   variable FORMS_EDITORS_VIDEO_RESOLUTION_NATIVE
+    location: class UIKeys
+  C:\Users\OMEN\Documents\GitHub\BBS-CML-EDITION\src\client\java\mchorse\bbs_mod\ui\framework\elements\input\keyframes\
+factories\UIIntegerKeyframeFactory.java:69: error: cannot find symbol
+              this.resolution.addLabel(UIKeys.FORMS_EDITORS_VIDEO_RESOLUTION_1080);
+                                             ^
+    symbol:   variable FORMS_EDITORS_VIDEO_RESOLUTION_1080
+    location: class UIKeys
+  C:\Users\OMEN\Documents\GitHub\BBS-CML-EDITION\src\client\java\mchorse\bbs_mod\ui\framework\elements\input\keyframes\
+factories\UIIntegerKeyframeFactory.java:70: error: cannot find symbol
+              this.resolution.addLabel(UIKeys.FORMS_EDITORS_VIDEO_RESOLUTION_720);
+                                             ^
+    symbol:   variable FORMS_EDITORS_VIDEO_RESOLUTION_720
+    location: class UIKeys
+  C:\Users\OMEN\Documents\GitHub\BBS-CML-EDITION\src\client\java\mchorse\bbs_mod\ui\framework\elements\input\keyframes\
+factories\UIIntegerKeyframeFactory.java:71: error: cannot find symbol
+              this.resolution.addLabel(UIKeys.FORMS_EDITORS_VIDEO_RESOLUTION_480);
+                                             ^
+    symbol:   variable FORMS_EDITORS_VIDEO_RESOLUTION_480
+    location: class UIKeys
+  C:\Users\OMEN\Documents\GitHub\BBS-CML-EDITION\src\client\java\mchorse\bbs_mod\ui\framework\elements\input\keyframes\
+factories\UIIntegerKeyframeFactory.java:72: error: cannot find symbol
+              this.resolution.addLabel(UIKeys.FORMS_EDITORS_VIDEO_RESOLUTION_360);
+                                             ^
+    symbol:   variable FORMS_EDITORS_VIDEO_RESOLUTION_360
+    location: class UIKeys
+  C:\Users\OMEN\Documents\GitHub\BBS-CML-EDITION\src\client\java\mchorse\bbs_mod\ui\framework\elements\input\keyframes\
+factories\UIIntegerKeyframeFactory.java:73: error: cannot find symbol
+              this.resolution.addLabel(UIKeys.FORMS_EDITORS_VIDEO_RESOLUTION_240);
+                                             ^
+    symbol:   variable FORMS_EDITORS_VIDEO_RESOLUTION_240
+    location: class UIKeys
+  C:\Users\OMEN\Documents\GitHub\BBS-CML-EDITION\src\client\java\mchorse\bbs_mod\ui\framework\elements\input\keyframes\
+factories\UIIntegerKeyframeFactory.java:74: error: cannot find symbol
+              this.resolution.tooltip(UIKeys.FORMS_EDITORS_VIDEO_RESOLUTION_TOOLTIP);
+                                            ^
+    symbol:   variable FORMS_EDITORS_VIDEO_RESOLUTION_TOOLTIP
+    location: class UIKeys
+  C:\Users\OMEN\Documents\GitHub\BBS-CML-EDITION\src\client\java\mchorse\bbs_mod\ui\items\UIStructurePickerModePicker.j
+ava:49: error: cannot find symbol
+          Icons.SP_BLOCK,
+               ^
+    symbol:   variable SP_BLOCK
+    location: class Icons
+  C:\Users\OMEN\Documents\GitHub\BBS-CML-EDITION\src\client\java\mchorse\bbs_mod\ui\items\UIStructurePickerModePicker.j
+ava:52: error: cannot find symbol
+          Icons.SP_RECTANGLE,
+               ^
+    symbol:   variable SP_RECTANGLE
+    location: class Icons
+  C:\Users\OMEN\Documents\GitHub\BBS-CML-EDITION\src\client\java\mchorse\bbs_mod\ui\items\UIStructurePickerModePicker.j
+ava:53: error: cannot find symbol
+          Icons.SP_CUBE,
+               ^
+    symbol:   variable SP_CUBE
+    location: class Icons
+  C:\Users\OMEN\Documents\GitHub\BBS-CML-EDITION\src\client\java\mchorse\bbs_mod\ui\items\UIStructurePickerModePicker.j
+ava:54: error: cannot find symbol
+          Icons.SP_CIRCLE,
+               ^
+    symbol:   variable SP_CIRCLE
+    location: class Icons
+  C:\Users\OMEN\Documents\GitHub\BBS-CML-EDITION\src\client\java\mchorse\bbs_mod\ui\items\UIStructurePickerModePicker.j
+ava:55: error: cannot find symbol
+          Icons.SP_SPHERE,
+               ^
+    symbol:   variable SP_SPHERE
+    location: class Icons
+  C:\Users\OMEN\Documents\GitHub\BBS-CML-EDITION\src\client\java\mchorse\bbs_mod\ui\items\UIStructurePickerModePicker.j
+ava:56: error: cannot find symbol
+          Icons.SP_TRIANGLE,
+               ^
+    symbol:   variable SP_TRIANGLE
+    location: class Icons
+  C:\Users\OMEN\Documents\GitHub\BBS-CML-EDITION\src\client\java\mchorse\bbs_mod\ui\items\UIStructurePickerModePicker.j
+ava:57: error: cannot find symbol
+          Icons.SP_CONE,
+               ^
+    symbol:   variable SP_CONE
+    location: class Icons
+  C:\Users\OMEN\Documents\GitHub\BBS-CML-EDITION\src\client\java\mchorse\bbs_mod\ui\items\UIStructurePickerModePicker.j
+ava:58: error: cannot find symbol
+          Icons.SP_CYLINDER
+               ^
+    symbol:   variable SP_CYLINDER
+    location: class Icons
+  Note: Recompile with -Xlint:unchecked for details.
+  Note: Some input files use or override a deprecated API.
+  Note: Some input files use unchecked or unsafe operations.
+  C:\Users\OMEN\Documents\GitHub\BBS-CML-EDITION\src\client\java\mchorse\bbs_mod\ui\film\UIFilmPanel.java:4439: error: 
+cannot find symbol
+              this.replayEditor.expandModelTrackParent(inserted);
+                               ^
+    symbol:   method expandModelTrackParent(String)
+    location: variable replayEditor of type UIReplaysEditor
+  C:\Users\OMEN\Documents\GitHub\BBS-CML-EDITION\src\client\java\mchorse\bbs_mod\ui\film\UIFilmPanel.java:4478: error: 
+cannot find symbol
+3 actionable tasks: 1 executed, 2 up-to-date
+              this.replayEditor.clearModelTrackInsertGapPreview();
+                               ^
+    symbol:   method clearModelTrackInsertGapPreview()
+    location: variable replayEditor of type UIReplaysEditor
+  C:\Users\OMEN\Documents\GitHub\BBS-CML-EDITION\src\client\java\mchorse\bbs_mod\ui\film\UIFilmPanel.java:4488: error: 
+cannot find symbol
+              this.replayEditor.expandModelTrackParent(inserted);
+                               ^
+    symbol:   method expandModelTrackParent(String)
+    location: variable replayEditor of type UIReplaysEditor
+  C:\Users\OMEN\Documents\GitHub\BBS-CML-EDITION\src\client\java\mchorse\bbs_mod\ui\film\UIFilmPanel.java:4503: error: 
+cannot find symbol
+              this.replayEditor.clearModelTrackInsertGapPreview();
+                               ^
+    symbol:   method clearModelTrackInsertGapPreview()
+    location: variable replayEditor of type UIReplaysEditor
+  C:\Users\OMEN\Documents\GitHub\BBS-CML-EDITION\src\client\java\mchorse\bbs_mod\forms\renderers\VideoFormRenderer.java
+:385: error: cannot find symbol
+          Color formColor = this.form.getFormColor().copyWithBlendIntensity();
+                                                    ^
+    symbol:   method copyWithBlendIntensity()
+    location: class Color
+  45 errors
+
+* Try:
+> Check your code and dependencies to fix the compilation error(s)
+> Run with --scan to get full insights from a Build Scan (powered by Develocity).
+
+BUILD FAILED in 13s

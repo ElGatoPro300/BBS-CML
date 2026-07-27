@@ -193,6 +193,15 @@ public class FormProperties extends ValueGroup
             return;
         }
 
+        /* Expand overlay slots if the setting grew since the form was constructed,
+         * and ensure any overlay keyframe channels still have matching form fields. */
+        form.syncOverlaySlotsFromSettings();
+
+        for (KeyframeChannel value : this.properties.values())
+        {
+            ModelTrackIds.ensureFormProperty(form, value.getId());
+        }
+
         ArrayList<KeyframeChannel> deferredColorGrade = new ArrayList<>();
 
         /* First pass: apply standard properties (defer color_grade until after color). */

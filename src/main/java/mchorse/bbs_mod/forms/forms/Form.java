@@ -88,6 +88,13 @@ public abstract class Form extends ValueGroup
     public final List<ValueTransform> additionalTransforms = new ArrayList<>();
     public final List<ValueIllusion> additionalIllusions = new ArrayList<>();
     public final List<ValueTransform> additionalIllusionTransforms = new ArrayList<>();
+    /**
+     * Extra Color tracks (same count knob as pose/transform/illusion overlays).
+     * Registered only by forms that expose a {@code color} property via {@link #registerColorOverlays()}.
+     */
+    public final ValueColor colorOverlay = new ValueColor("color_overlay", new Color(1F, 1F, 1F, 0F));
+    public final List<ValueColor> additionalColors = new ArrayList<>();
+    private transient boolean colorOverlaysRegistered;
 
     /* Hitbox properties */
     public final ValueBoolean hitbox = new ValueBoolean("hitbox", false);
@@ -607,6 +614,250 @@ public abstract class Form extends ValueGroup
         }
 
         return 1F;
+    }
+
+    /**
+     * Registers {@code color_overlay} / {@code color_overlayN} tracks. Call from subclasses that
+     * expose a Color property so the count matches {@code pose_transform_overlays}.
+     */
+    protected void registerColorOverlays()
+    {
+        if (this.colorOverlaysRegistered)
+        {
+            return;
+        }
+
+        this.colorOverlaysRegistered = true;
+        this.add(this.colorOverlay);
+
+        for (int i = 0; i < BBSSettings.recordingPoseTransformOverlays.get(); i++)
+        {
+            ValueColor overlay = new ValueColor("color_overlay" + i, new Color(1F, 1F, 1F, 0F));
+
+            this.additionalColors.add(overlay);
+            this.add(overlay);
+        }
+    }
+
+    /**
+     * Ensure {@code transform_overlay} ({@code numberedIndex < 0}) or {@code transform_overlayN}
+     * exists for stacking beyond the construction-time overlay count.
+     */
+    public ValueTransform ensureTransformOverlay(int numberedIndex)
+    {
+        if (numberedIndex < 0)
+        {
+            return this.transformOverlay;
+        }
+
+        while (this.additionalTransforms.size() <= numberedIndex)
+        {
+            int i = this.additionalTransforms.size();
+            ValueTransform valueTransform = new ValueTransform("transform_overlay" + i, new Transform());
+
+            this.additionalTransforms.add(valueTransform);
+            this.add(valueTransform);
+        }
+
+        return this.additionalTransforms.get(numberedIndex);
+    }
+
+    /**
+     * Ensure {@code color_overlay} / {@code color_overlayN}. Registers the color-overlay family
+     * on demand for forms that did not call {@link #registerColorOverlays()} at construction.
+     */
+    public ValueColor ensureColorOverlay(int numberedIndex)
+    {
+        if (!this.colorOverlaysRegistered)
+        {
+            this.colorOverlaysRegistered = true;
+            this.add(this.colorOverlay);
+        }
+
+        if (numberedIndex < 0)
+        {
+            return this.colorOverlay;
+        }
+
+        while (this.additionalColors.size() <= numberedIndex)
+        {
+            int i = this.additionalColors.size();
+            ValueColor overlay = new ValueColor("color_overlay" + i, new Color(1F, 1F, 1F, 0F));
+
+            this.additionalColors.add(overlay);
+            this.add(overlay);
+        }
+
+        return this.additionalColors.get(numberedIndex);
+    }
+
+    public ValueIllusion ensureIllusionOverlay(int numberedIndex)
+    {
+        if (numberedIndex < 0)
+        {
+            return this.illusionOverlay;
+        }
+
+        while (this.additionalIllusions.size() <= numberedIndex)
+        {
+            int i = this.additionalIllusions.size();
+            ValueIllusion valueIllusion = new ValueIllusion("illusion_overlay" + i, new Illusion());
+
+            this.additionalIllusions.add(valueIllusion);
+            this.add(valueIllusion);
+        }
+
+        return this.additionalIllusions.get(numberedIndex);
+    }
+
+    /**
+     * Ensure {@code illusion_transform_overlay} ({@code numberedIndex < 0}) or
+     * {@code illusion_transform_overlayN}.
+     */
+    public ValueTransform ensureIllusionTransformOverlay(int numberedIndex)
+    {
+        if (numberedIndex < 0)
+        {
+            return this.illusionTransformOverlay;
+        }
+
+        while (this.additionalIllusionTransforms.size() <= numberedIndex)
+        {
+            int i = this.additionalIllusionTransforms.size();
+            ValueTransform valueTransform = new ValueTransform("illusion_transform_overlay" + i, new Transform());
+
+            valueTransform.invisible();
+            this.additionalIllusionTransforms.add(valueTransform);
+            this.add(valueTransform);
+        }
+
+        return this.additionalIllusionTransforms.get(numberedIndex);
+    }
+
+    /**
+     * Grow numbered overlay slots to match {@link BBSSettings#recordingPoseTransformOverlays}
+     * (and Minecut default overlay counts when higher). Forms keep the count from construction
+     * time; raising the setting expands the lists so overlay 8+ keyframes still apply.
+     */
+    public void syncOverlaySlotsFromSettings()
+    {
+        int count = BBSSettings.recordingPoseTransformOverlays == null
+            ? 0
+            : BBSSettings.recordingPoseTransformOverlays.get();
+
+        if (BBSSettings.minecutDefaultTransformOverlays != null)
+        {
+            count = Math.max(count, BBSSettings.minecutDefaultTransformOverlays.get());
+        }
+
+        if (BBSSettings.minecutDefaultPoseOverlays != null)
+        {
+            count = Math.max(count, BBSSettings.minecutDefaultPoseOverlays.get());
+        }
+
+        if (BBSSettings.minecutDefaultColorOverlays != null)
+        {
+            count = Math.max(count, BBSSettings.minecutDefaultColorOverlays.get());
+        }
+
+        if (count <= 0)
+        {
+            return;
+        }
+
+        int last = count - 1;
+
+        this.ensureTransformOverlay(last);
+        this.ensureIllusionOverlay(last);
+        this.ensureIllusionTransformOverlay(last);
+
+        if (this.colorOverlaysRegistered)
+        {
+            this.ensureColorOverlay(last);
+        }
+
+        if (this instanceof ModelForm modelForm)
+        {
+            modelForm.ensurePoseOverlay(last);
+        }
+    }
+
+    /**
+     * Base {@code color} plus stacked color overlays (same idea as transform overlays).
+     */
+    public Color getFormColor()
+    {
+        BaseValue property = this.get("color");
+        Color base = property instanceof ValueColor valueColor
+            ? valueColor.get()
+            : new Color(1F, 1F, 1F, 1F);
+
+        return this.composeColorOverlays(base);
+    }
+
+    /**
+     * Stacks registered color overlays onto {@code base}. Neutral overlays (intensity 0, no
+     * grade / mask) are skipped so empty overlay tracks do not change the result.
+     */
+    public Color composeColorOverlays(Color base)
+    {
+        Color out = base == null ? new Color(1F, 1F, 1F, 1F) : base.copy();
+
+        if (!this.colorOverlaysRegistered)
+        {
+            return out;
+        }
+
+        this.applyColorOverlay(out, this.colorOverlay.get());
+
+        for (ValueColor overlay : this.additionalColors)
+        {
+            this.applyColorOverlay(out, overlay.get());
+        }
+
+        return out;
+    }
+
+    private void applyColorOverlay(Color target, Color overlay)
+    {
+        if (overlay == null)
+        {
+            return;
+        }
+
+        float intensity = MathUtils.clamp(overlay.a, 0F, 1F);
+        boolean hasGrade = overlay.hasColorAdjustments() || overlay.hasActiveGradeTransform();
+        boolean hasMask = overlay.hasActiveTransform();
+
+        if (intensity <= 0.001F && !hasGrade && !hasMask)
+        {
+            return;
+        }
+
+        if (intensity > 0.001F)
+        {
+            target.r = Lerps.lerp(target.r, overlay.r, intensity);
+            target.g = Lerps.lerp(target.g, overlay.g, intensity);
+            target.b = Lerps.lerp(target.b, overlay.b, intensity);
+            target.a = MathUtils.clamp(target.a + intensity * (1F - target.a), 0F, 1F);
+        }
+
+        if (hasMask)
+        {
+            target.transform = overlay.transform.copy();
+        }
+
+        if (hasGrade)
+        {
+            target.brightness = overlay.brightness;
+            target.contrast = overlay.contrast;
+            target.hue = overlay.hue;
+            target.saturation = overlay.saturation;
+            target.brightnessTransform = overlay.brightnessTransform == null ? null : overlay.brightnessTransform.copy();
+            target.contrastTransform = overlay.contrastTransform == null ? null : overlay.contrastTransform.copy();
+            target.hueTransform = overlay.hueTransform == null ? null : overlay.hueTransform.copy();
+            target.saturationTransform = overlay.saturationTransform == null ? null : overlay.saturationTransform.copy();
+        }
     }
 
     /**

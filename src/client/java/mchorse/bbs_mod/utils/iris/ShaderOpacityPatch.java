@@ -546,6 +546,7 @@ public class ShaderOpacityPatch
         Matrix4f savedModelView = new Matrix4f(modelViewStack);
         boolean savedDepthMask = GL11.glGetBoolean(GL11.GL_DEPTH_WRITEMASK);
         boolean beganDeferredPass = false;
+        boolean touchedModelView = false;
 
         try
         {
@@ -554,16 +555,17 @@ public class ShaderOpacityPatch
             RenderSystem.depthMask(entry.depthWrite);
 
             /* Never push/pop ModelView during world render — unbalanced depth trips
-             * WorldRenderer's "Pose stack not empty" check with Iris/Sodium. */
+             * WorldRenderer's "Pose stack not empty" check with Iris/Sodium.
+             * BBS soft forms bake camera into the draw runnable — do not identity() the
+             * global stack (Sodium + water/Nether can leave a leaked 180° yaw). */
             if (entry.irisCamera)
             {
                 modelViewStack.set(entry.modelView);
                 RenderSystem.applyModelViewMatrix();
+                touchedModelView = true;
             }
             else
             {
-                modelViewStack.identity();
-                RenderSystem.applyModelViewMatrix();
                 ModelVAORenderer.beginDeferredTranslucentModelPass(entry.depthWrite, true);
                 beganDeferredPass = true;
             }
@@ -580,8 +582,12 @@ public class ShaderOpacityPatch
 
             RenderSystem.depthMask(savedDepthMask);
             RenderSystem.setProjectionMatrix(savedProjection, VertexSorter.BY_Z);
-            modelViewStack.set(savedModelView);
-            RenderSystem.applyModelViewMatrix();
+
+            if (touchedModelView)
+            {
+                modelViewStack.set(savedModelView);
+                RenderSystem.applyModelViewMatrix();
+            }
         }
     }
 
