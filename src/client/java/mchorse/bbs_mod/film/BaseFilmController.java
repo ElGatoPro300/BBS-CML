@@ -245,6 +245,12 @@ public abstract class BaseFilmController
 
             MatrixStackUtils.multiply(stack, target);
 
+            /* IRLights 1.21+ reads FormRenderingContext.world (absolute) for light poses.
+             * Rebuild that root from the same posed camera-relative target used to draw:
+             * world = T(camera) * target. Keeps anchors aligned and stops lights from
+             * inheriting a view-mixed frame when watching an in-world film off-camera. */
+            syncIrlAbsoluteWorldMatrix(formContext, target, camera);
+
             ModelFormRenderer lookAtRenderer = relative ? null : applyLookAtPose(context, form, position);
 
             if (context.isShadowPass)
@@ -941,6 +947,37 @@ public abstract class BaseFilmController
         }
 
         return defaultMatrix;
+    }
+
+    /**
+     * IRLights resolves point/spotlight poses from {@link FormRenderingContext#world}.
+     * Convert the posed camera-relative actor root into absolute world space so light
+     * registration cannot mix the film actor frame with the spectator/player view.
+     */
+    private static void syncIrlAbsoluteWorldMatrix(FormRenderingContext formContext, Matrix4f cameraRelativeRoot, Camera camera)
+    {
+        if (formContext == null || formContext.world == null || cameraRelativeRoot == null || camera == null)
+        {
+            return;
+        }
+
+        if (formContext.relative)
+        {
+            return;
+        }
+
+        Matrix4f worldRoot = new Matrix4f(cameraRelativeRoot);
+        Vector3f translation = worldRoot.getTranslation(new Vector3f());
+        Vec3d cam = camera.getPos();
+
+        worldRoot.setTranslation(
+            translation.x + (float) cam.x,
+            translation.y + (float) cam.y,
+            translation.z + (float) cam.z
+        );
+
+        formContext.world.peek().getPositionMatrix().set(worldRoot);
+        formContext.world.peek().getNormalMatrix().set(new Matrix3f(worldRoot));
     }
 
     public static Matrix4f getMatrixForRenderWithRotation(IEntity entity, double cameraX, double cameraY, double cameraZ, float tickDelta)
