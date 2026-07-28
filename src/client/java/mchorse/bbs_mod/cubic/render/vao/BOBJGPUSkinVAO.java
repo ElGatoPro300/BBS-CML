@@ -1,17 +1,19 @@
 package mchorse.bbs_mod.cubic.render.vao;
 
-import java.nio.FloatBuffer;
 import mchorse.bbs_mod.bobj.BOBJArmature;
 import mchorse.bbs_mod.bobj.BOBJBone;
 import mchorse.bbs_mod.bobj.BOBJLoader;
 import mchorse.bbs_mod.client.BBSRendering;
 import mchorse.bbs_mod.ui.framework.elements.utils.StencilMap;
+
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL15;
 import org.lwjgl.opengl.GL20;
 import org.lwjgl.opengl.GL30;
 import org.lwjgl.opengl.GL31;
 import org.lwjgl.system.MemoryUtil;
+
+import java.nio.FloatBuffer;
 
 public class BOBJGPUSkinVAO extends BOBJModelVAO
 {
