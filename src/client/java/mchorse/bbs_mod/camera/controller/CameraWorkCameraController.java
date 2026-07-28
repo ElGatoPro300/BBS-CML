@@ -86,8 +86,8 @@ public abstract class CameraWorkCameraController implements ICameraController
     }
 
     /**
-     * Widen FOV once from the total positive fisheye strength so the post-process
-     * warp can sample the real edges of the wider view instead of stretching texels.
+     * Match render FOV to fisheye strength: widen for positive k, narrow for negative k,
+     * so the post-process UV warp can map screen edges to rendered image edges.
      */
     private void applyFisheyeFovOverscan()
     {
@@ -102,13 +102,13 @@ public abstract class CameraWorkCameraController implements ICameraController
 
         for (ColorEffect effect : ColorClip.getEffects(this.context))
         {
-            if (effect.hasCinematic && effect.lensDistortion > 0F)
+            if (effect.hasCinematic)
             {
                 lens += effect.lensDistortion;
             }
         }
 
-        if (lens <= 0F)
+        if (Math.abs(lens) <= 1.0e-6F)
         {
             BBSRendering.setLensOverscanScale(1F);
 
@@ -116,7 +116,7 @@ public abstract class CameraWorkCameraController implements ICameraController
         }
 
         float fovBefore = this.position.angle.fov;
-        float fovAfter = LensDistortionOverscan.widenFovDegrees(fovBefore, lens);
+        float fovAfter = LensDistortionOverscan.adjustFovDegrees(fovBefore, lens);
         float scale = LensDistortionOverscan.scaleBetweenFovDegrees(fovBefore, fovAfter);
 
         this.position.angle.fov = fovAfter;
