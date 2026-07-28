@@ -1463,7 +1463,6 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
         "death_time", "using_item", "item_use_time", "fire", "particles", "active_hand"
     );
     private static final List<String> MODEL_PROPERTIES = Arrays.asList("visible", "render", "lighting", "transform", "transform_overlay", "pose", "pose_overlay", "anchor", "look_at", "inverse_kinematics", "illusion", "illusion_transform", "color", "color2", "color_mode", "color_grade", "paint", "paint_color", "glow", "texture", "pbr_normal_intensity", "pbr_specular_intensity", "model", "actions", "shape_keys", "block_state", "item_stack", "modelTransform", "same_animation_when_dropped", "settings", "paused", "frequency", "count", "structure_file", "biome_id", "emit_light", "light_intensity", "structure_light", "enabled", "level", "effect");
-    private static final Set<String> HIDDEN_MODEL_PROPERTIES = Set.of("glowing_color", "glow_settings", "glow_intensity", "paint_color");
 
     private static boolean isFormItemUseTimeTrack(UIKeyframeSheet sheet)
     {
@@ -1728,7 +1727,7 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
         return null;
     }
 
-    private static IKey resolvePropertyTrackTitle(String trackName)
+    public static IKey resolvePropertyTrackTitle(String trackName)
     {
         IKey worldTitle = resolveWorldChannelTrackTitle(trackName);
 
@@ -2795,25 +2794,7 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
 
     private static boolean isHiddenModelProperty(String key)
     {
-        if (key == null || key.isEmpty())
-        {
-            return false;
-        }
-
-        int colon = key.indexOf(':');
-        String path = colon == -1 ? key : key.substring(0, colon);
-        int slash = path.lastIndexOf('/');
-        String name = slash == -1 ? path : path.substring(slash + 1);
-
-        if ("using_item".equals(name) || "item_use_time".equals(name))
-        {
-            return false;
-        }
-
-        return path.endsWith("tint_block_entities")
-            || path.endsWith("_item")
-            || HIDDEN_MODEL_PROPERTIES.contains(name)
-            || name.startsWith("illusion_transform");
+        return mchorse.bbs_mod.ui.forms.editors.utils.UIFormPropertyTrackSheets.isHiddenModelProperty(key);
     }
 
     private boolean isCompatiblePropertyPath(Form rootForm, String key)
