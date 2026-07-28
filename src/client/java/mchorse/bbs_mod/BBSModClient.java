@@ -523,7 +523,7 @@ public class BBSModClient implements ClientModInitializer
         BBSMod.events.post(new RegisterFormRenderPhaseEvent());
         BBSMod.events.post(new RegisterFormBlendEvent());
         BBSMod.events.post(new RegisterClipInteractionEvent());
-        BBSMod.events.post(new RegisterDockLayoutEvent(getDashboard()));
+        BBSMod.events.post(new RegisterDockLayoutEvent(BBSModClient::getDashboard));
         BBSMod.events.post(new RegisterParticleSchemeUIEvent());
         BBSMod.events.post(new RegisterFilmControllerInteractionEvent());
         BBSMod.events.post(new RegisterSettingsUISectionEvent());
