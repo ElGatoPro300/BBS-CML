@@ -205,6 +205,20 @@ Registers camera clips.
 ### `registerActionClips(RegisterActionClipsEvent event)`
 Registers action clips (Timeline).
 
+### `registerActionConfigs(RegisterActionConfigsEvent event)`
+Registers custom action timeline configuration data structures.
+```java
+event.register(myActionConfig);
+```
+
+### `registerParticleSimulations(RegisterParticleSimulationsEvent event)`
+Registers custom particle simulation, update, and collision callbacks for particle emitters.
+```java
+event.register((emitter) -> {
+    // Custom particle physics/simulation logic
+});
+```
+
 ## Client-Side Registration (BBSClientAddon)
 
 Override these methods in your `BBSClientAddon` subclass.
@@ -238,6 +252,83 @@ Notes:
 - `registerLoader(...)` appends your `IModelLoader` to the model loader chain.
 - `registerRelodableSuffix(...)` enables hot-reload invalidation for matching files.
 - If your loader reads additional companion files, register all relevant suffixes.
+
+### `registerUITheme(RegisterUIThemeEvent event)`
+Registers a custom UI style/skin provider to customize widget colors, borders, font styles, and rendering without needing Mixins.
+```java
+event.register(new MyCustomUIStyleProvider());
+```
+
+### `registerFormEditorSection(RegisterFormEditorSectionEvent event)`
+Injects custom UI sections or controls into existing Form editor panels (`UIFormPanel`).
+```java
+event.registerSection(MyForm.class, (formPanel, parentElement) -> {
+    // Add custom widgets to the form editor UI
+});
+```
+
+### `registerFormRenderPhase(RegisterFormRenderPhaseEvent event)`
+Registers pre-render and post-render callbacks for Form drawing in the 3D world (e.g. motion blur, smears, silhouettes).
+```java
+event.registerPreRender((formRenderer) -> {
+    // Pre-rendering logic
+});
+event.registerPostRender((formRenderer) -> {
+    // Post-rendering logic
+});
+```
+
+### `registerFormBlend(RegisterFormBlendEvent event)`
+Registers form blending, deformation (smear), and shader pass handlers.
+```java
+event.registerBlendHandler((form, blendState) -> {
+    // Custom blend / shader pass logic
+});
+```
+
+### `registerClipInteraction(RegisterClipInteractionEvent event)`
+Registers interaction, double-click, and hotkey handlers for timeline clips.
+```java
+event.registerDoubleClick((clip) -> {
+    // Handle double-click on clip
+});
+```
+
+### `registerDockLayout(RegisterDockLayoutEvent event)`
+Registers sub-panel layout extensions, mini-windows, and docking layout modifications for the main Dashboard.
+```java
+event.registerCustomizer((dashboard) -> {
+    // Extend dashboard layout or dock mini-windows
+});
+```
+
+### `registerParticleSchemeUI(RegisterParticleSchemeUIEvent event)`
+Injects custom UI sections into the Particle Scheme editor panel (`UIParticleSchemePanel`).
+```java
+event.registerSection((appearanceView) -> {
+    // Add custom sections to particle scheme UI
+});
+```
+
+### `registerFilmControllerInteraction(RegisterFilmControllerInteractionEvent event)`
+Routes mouse clicks, 3D viewport gizmo handles, and drag updates for film editing.
+```java
+event.registerClickHandler((filmController, context) -> {
+    // Return true if click was consumed by custom viewport gizmo
+    return false;
+});
+event.registerUpdateHandler((filmController, context) -> {
+    // Update active gizmo drag state
+});
+```
+
+### `registerSettingsUISection(RegisterSettingsUISectionEvent event)`
+Appends custom UI sections or widgets to the Settings overlay panel (`UISettingsOverlayPanel`).
+```java
+event.registerSection((settingsOverlayPanel) -> {
+    // Append custom sections to settings panel
+});
+```
 
 ### `registerL10n(RegisterL10nEvent event)`
 Registers translation files.
@@ -343,6 +434,75 @@ crusher.receive(buf, (bytes, packetBuf) -> {
     // bytes contains the reconstructed full data
 });
 ```
+
+### UI Styling & Themes (IUIStyleProvider)
+
+Addons can completely replace or customize the visual appearance of BBS widgets (buttons, toggles, textboxes, tooltips, panels) without Mixins by implementing `IUIStyleProvider` and registering it in `registerUITheme`:
+
+```java
+import mchorse.bbs_mod.ui.framework.theme.IUIStyleProvider;
+import mchorse.bbs_mod.ui.framework.theme.UIThemeManager;
+
+public class MyCustomUITheme implements IUIStyleProvider
+{
+    @Override
+    public String getId()
+    {
+        return "my_theme";
+    }
+
+    @Override
+    public String getName()
+    {
+        return "My Theme";
+    }
+
+    @Override
+    public int getPrimaryColor()
+    {
+        return 0xFF3399FF;
+    }
+
+    @Override
+    public int getBackgroundColor()
+    {
+        return 0xFF1E1E1E;
+    }
+
+    @Override
+    public int getPanelBackgroundColor()
+    {
+        return 0xFF252526;
+    }
+
+    @Override
+    public int getTextColor()
+    {
+        return 0xFFFFFFFF;
+    }
+
+    @Override
+    public int getTooltipBackgroundColor()
+    {
+        return 0xFF000000;
+    }
+
+    @Override
+    public int getTooltipTextColor()
+    {
+        return 0xFFEEEEEE;
+    }
+
+    @Override
+    public boolean renderButtonSkin(UIContext context, UIButton button)
+    {
+        // Custom button rendering logic. Return true to consume drawing.
+        return false;
+    }
+}
+```
+
+To activate a theme at runtime, use `UIThemeManager.setActiveTheme("my_theme");`.
 
 ### Localization (L10n)
 

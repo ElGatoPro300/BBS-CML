@@ -7,6 +7,8 @@ import mchorse.bbs_mod.ui.framework.elements.IUIElement;
 import mchorse.bbs_mod.ui.framework.elements.UIElement;
 import mchorse.bbs_mod.ui.framework.elements.utils.FontRenderer;
 import mchorse.bbs_mod.ui.framework.elements.utils.ITextColoring;
+import mchorse.bbs_mod.ui.framework.theme.IUIStyleProvider;
+import mchorse.bbs_mod.ui.framework.theme.UIThemeManager;
 import mchorse.bbs_mod.ui.utils.icons.Icon;
 import mchorse.bbs_mod.utils.colors.Colors;
 
@@ -90,6 +92,13 @@ public class UIButton extends UIClickable<UIButton> implements ITextColoring
     @Override
     protected void renderSkin(UIContext context)
     {
+        IUIStyleProvider theme = UIThemeManager.getActiveTheme();
+
+        if (theme != null && theme.renderButtonSkin(context, this))
+        {
+            return;
+        }
+
         FontRenderer font = context.batcher.getFont();
         Icon icon = this.leadingIcon == null ? null : this.leadingIcon.get();
         int iconPad = icon == null ? 0 : icon.w + 4;
