@@ -83,9 +83,8 @@ public class UIPropTransform extends UITransform
      * Used by model-editor General where arc3D winds opposite every ring's plane sweep.
      */
     private boolean invertRotationArcSweep;
-    /* Model-editor General: Y-ring process bar winds opposite the value delta. */
+    /* Legacy no-ops: axis-ring process-bar sign is derived in updateRotationArcProgress. */
     private boolean invertRotationArcY;
-    /* Film Anchor: Z-ring process bar winds opposite the value delta. */
     private boolean invertRotationArcZ;
     /* Film Transform: white view-ring process bar only (value stays mouse-correct). */
     private boolean invertRotationArcViewRing;
@@ -463,11 +462,13 @@ public class UIPropTransform extends UITransform
         this.invertRotationArcSweep = invertRotationArcSweep;
     }
 
+    /** @deprecated Ignored; axis-ring arc sign comes from plane-sweep vs {@code ringAngle}. */
     public void setInvertRotationArcY(boolean invertRotationArcY)
     {
         this.invertRotationArcY = invertRotationArcY;
     }
 
+    /** @deprecated Ignored; axis-ring arc sign comes from plane-sweep vs {@code ringAngle}. */
     public void setInvertRotationArcZ(boolean invertRotationArcZ)
     {
         this.invertRotationArcZ = invertRotationArcZ;
@@ -2701,36 +2702,28 @@ public class UIPropTransform extends UITransform
         {
             sweep = -sweep;
         }
-        else if (this.invertRotationArcViewRing && this.viewRing)
+        else if (this.viewRing)
         {
-            /* Film Transform: white ring value follows the mouse; only the process bar is flipped. */
-            sweep = -sweep;
-        }
-        else if (this.invertRotationArcY && !this.viewRing && this.axis == Axis.Y)
-        {
-            /* Model-editor General: Y process bar winds opposite the plane-sweep value delta. */
-            sweep = -sweep;
-        }
-        else if (this.filmArcballTrackball && !this.viewRing && this.shouldInvertRotationRing(this.axis))
-        {
-            /* Pose cubic X/Z: value delta is flipped for mouse sense; undo that for arc3D so
-             * the process bar follows the cursor. When invertRotationArcZ is also set (form /
-             * model-block pose), Z's arc already winds with that flipped delta — only undo X. */
-            if (this.axis != Axis.Z || !this.invertRotationArcZ)
+            /* View-ring plane sweep vs billboarded ringAngle can disagree; contexts that need
+             * it set invertRotationArcViewRing (value still follows the mouse). */
+            if (this.invertRotationArcViewRing)
             {
                 sweep = -sweep;
             }
         }
-        else if (this.invertRotationArcZ && !this.viewRing && this.axis == Axis.Z)
+        else if (this.axis != null)
         {
-            /* Film Anchor / form General: Z process bar winds opposite the plane-sweep value. */
-            sweep = -sweep;
-        }
-        else if (!this.useFrozenRotationArc() && !this.viewRing && this.axis == Axis.Z
-            && !this.filmArcballTrackball)
-        {
-            /* Film Transform Global Z-ring only. */
-            sweep = -sweep;
+            /* Plane-sweep P (value before ring invert) vs Draw.arc3D / Gizmo.ringAngle R:
+             * R ≡ P on X, R ≡ −P on Y/Z. Value V is −P when shouldInvertRotationRing, else P.
+             * Convert V → R so the process bar tracks the cursor on every axis / pose path
+             * without per-editor Y/Z flag mazes (those flags are no longer read here). */
+            boolean ringOppositePlane = this.axis == Axis.Y || this.axis == Axis.Z;
+            boolean valueInverted = this.shouldInvertRotationRing(this.axis);
+
+            if (ringOppositePlane != valueInverted)
+            {
+                sweep = -sweep;
+            }
         }
 
         Gizmo.INSTANCE.addRotationSweep(sweep);
