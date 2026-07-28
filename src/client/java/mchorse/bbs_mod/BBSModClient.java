@@ -28,6 +28,7 @@ import mchorse.bbs_mod.events.register.RegisterDashboardPanelsEvent;
 import mchorse.bbs_mod.events.register.RegisterDockLayoutEvent;
 import mchorse.bbs_mod.events.register.RegisterFilmControllerInteractionEvent;
 import mchorse.bbs_mod.events.register.RegisterFilmPreviewEvent;
+import mchorse.bbs_mod.events.register.RegisterFilmSyncEvent;
 import mchorse.bbs_mod.events.register.RegisterFormBlendEvent;
 import mchorse.bbs_mod.events.register.RegisterFormCategoriesEvent;
 import mchorse.bbs_mod.events.register.RegisterFormEditorSectionEvent;
@@ -527,6 +528,7 @@ public class BBSModClient implements ClientModInitializer
         BBSMod.events.post(new RegisterParticleSchemeUIEvent());
         BBSMod.events.post(new RegisterFilmControllerInteractionEvent());
         BBSMod.events.post(new RegisterSettingsUISectionEvent());
+        BBSMod.events.post(new RegisterFilmSyncEvent());
         screenshotRecorder = new ScreenshotRecorder(new File(parentFile, "screenshots"));
         videoRecorder = new VideoRecorder();
         selectors = new EntitySelectors();

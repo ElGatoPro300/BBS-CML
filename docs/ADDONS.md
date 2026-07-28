@@ -287,10 +287,13 @@ event.registerBlendHandler((form, blendState) -> {
 ```
 
 ### `registerClipInteraction(RegisterClipInteractionEvent event)`
-Registers interaction, double-click, and hotkey handlers for timeline clips.
+Registers interaction, double-click, curve picker rerouting, and hotkey handlers for timeline clips.
 ```java
 event.registerDoubleClick((clip) -> {
     // Handle double-click on clip
+});
+event.registerCurvePickerHandler((clipContext) -> {
+    // Reroute or handle custom curve picker selection (e.g. Iris shader curve pickers)
 });
 ```
 
@@ -327,6 +330,17 @@ Appends custom UI sections or widgets to the Settings overlay panel (`UISettings
 ```java
 event.registerSection((settingsOverlayPanel) -> {
     // Append custom sections to settings panel
+});
+```
+
+### `registerFilmSync(RegisterFilmSyncEvent event)`
+Registers handlers for film session lifecycle events (e.g. film open, save, and real-time multiplayer film collaboration syncing).
+```java
+event.registerOpenFilm((film) -> {
+    // Handle film opened event for multiplayer sync
+});
+event.registerSaveFilm((film) -> {
+    // Handle film saved event
 });
 ```
 
