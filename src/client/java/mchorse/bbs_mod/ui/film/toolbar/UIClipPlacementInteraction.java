@@ -43,7 +43,7 @@ public class UIClipPlacementInteraction
             return;
         }
 
-        if (!clips.getVerticalArea().isInside(context))
+        if (!clips.isClipLayerAreaInside(context))
         {
             clips.clearPlacementPreview();
 
@@ -64,7 +64,37 @@ public class UIClipPlacementInteraction
             return;
         }
 
-        clips.setPlacementPreview(clips.computePlacementSize(tick, layer, this.state.duration));
+        Vector3i size = clips.computePlacementSize(tick, layer, this.state.duration);
+        int topUsed = clips.getHighestOccupiedLayer();
+
+        /* Hovering empty air above existing lanes would otherwise invent a new row.
+           Pack onto the lowest layer that can fit (same behaviour users expect for
+           Keyframe/Dolly drops) whenever the hover lane is above occupied content
+           or the hovered lane cannot fit the clip. */
+        boolean packFromBottom = this.state.lockedLayer < 0
+            && (size == null || (topUsed >= 0 && layer > topUsed));
+
+        if (packFromBottom)
+        {
+            Vector3i packed = null;
+
+            for (int tryLayer = 0; tryLayer < 32; tryLayer++)
+            {
+                packed = clips.computePlacementSize(tick, tryLayer, this.state.duration);
+
+                if (packed != null)
+                {
+                    break;
+                }
+            }
+
+            if (packed != null)
+            {
+                size = packed;
+            }
+        }
+
+        clips.setPlacementPreview(size);
     }
 
     /**
@@ -89,7 +119,7 @@ public class UIClipPlacementInteraction
             return false;
         }
 
-        if (!clips.getVerticalArea().isInside(context))
+        if (!clips.isClipLayerAreaInside(context))
         {
             return true;
         }

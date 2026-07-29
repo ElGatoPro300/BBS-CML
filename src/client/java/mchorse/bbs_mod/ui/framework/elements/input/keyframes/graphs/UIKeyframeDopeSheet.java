@@ -51,6 +51,7 @@ import org.lwjgl.glfw.GLFW;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Consumer;
 
 public class UIKeyframeDopeSheet implements IUIKeyframeGraph
 {
@@ -77,6 +78,17 @@ public class UIKeyframeDopeSheet implements IUIKeyframeGraph
     private float sidebarDragRatio;
     private int sidebarWidth = SIDEBAR_WIDTH;
 
+    private String selectedFormGroupKey;
+    private Consumer<UIKeyframeSheet> formGroupSelectCallback;
+    private Consumer<UIKeyframeSheet> formGroupDeselectCallback;
+    private String lastFormGroupClickKey;
+    private long lastFormGroupClickTime;
+
+    /** Opens empty space before this sheet row while dragging a track from the Minecut palette. */
+    private int trackInsertGapBefore = -1;
+    private int trackInsertGapHeight = 0;
+    private boolean ignoreTrackInsertGap;
+
     public static IKeyframeShapeRenderer renderShape(Keyframe frame, UIContext context, BufferBuilder builder, Matrix4f matrix, int x, int y, int offset, int c)
     {
         KeyframeShape keyframeShape = frame.getShape();
@@ -94,6 +106,26 @@ public class UIKeyframeDopeSheet implements IUIKeyframeGraph
         this.sidebarScrollbar = new Scroll(new Area(), 1, ScrollDirection.HORIZONTAL);
 
         this.setTrackHeight(16);
+    }
+
+    public void setFormGroupSelectCallback(Consumer<UIKeyframeSheet> callback)
+    {
+        this.formGroupSelectCallback = callback;
+    }
+
+    public void setFormGroupDeselectCallback(Consumer<UIKeyframeSheet> callback)
+    {
+        this.formGroupDeselectCallback = callback;
+    }
+
+    public void setSelectedFormGroupKey(String groupKey)
+    {
+        this.selectedFormGroupKey = groupKey;
+    }
+
+    public String getSelectedFormGroupKey()
+    {
+        return this.selectedFormGroupKey;
     }
 
     @Override
@@ -122,16 +154,61 @@ public class UIKeyframeDopeSheet implements IUIKeyframeGraph
     {
         this.trackHeight = MathUtils.clamp(height, 8D, 100D);
         this.dopeSheet.scrollSpeed = (int) this.trackHeight * 2;
-        this.dopeSheet.scrollSize = (int) this.trackHeight * this.sheets.size() + this.topMargin + TRACKS_BOTTOM_MARGIN;
-
+        this.refreshScrollSize();
         this.dopeSheet.clamp();
     }
 
     public void setTopMargin(int topMargin)
     {
         this.topMargin = Math.max(RULER_HEIGHT, topMargin);
-        this.dopeSheet.scrollSize = (int) this.trackHeight * this.sheets.size() + this.topMargin + TRACKS_BOTTOM_MARGIN;
+        this.refreshScrollSize();
         this.dopeSheet.clamp();
+    }
+
+    private void refreshScrollSize()
+    {
+        int size = this.topMargin + TRACKS_BOTTOM_MARGIN + this.sheets.size() * (int) this.trackHeight;
+
+        if (!this.ignoreTrackInsertGap && this.trackInsertGapBefore >= 0 && this.trackInsertGapHeight > 0)
+        {
+            size += this.trackInsertGapHeight;
+        }
+
+        this.dopeSheet.scrollSize = size;
+    }
+
+    public void setTrackInsertGap(int beforeIndex, int height)
+    {
+        int nextBefore = beforeIndex < 0 ? -1 : beforeIndex;
+        int nextH = nextBefore < 0 ? 0 : Math.max(0, height);
+
+        if (this.trackInsertGapBefore == nextBefore && this.trackInsertGapHeight == nextH)
+        {
+            return;
+        }
+
+        this.trackInsertGapBefore = nextBefore;
+        this.trackInsertGapHeight = nextH;
+        this.refreshScrollSize();
+        this.dopeSheet.clamp();
+    }
+
+    public void clearTrackInsertGap()
+    {
+        if (this.trackInsertGapBefore < 0 && this.trackInsertGapHeight == 0)
+        {
+            return;
+        }
+
+        this.trackInsertGapBefore = -1;
+        this.trackInsertGapHeight = 0;
+        this.refreshScrollSize();
+        this.dopeSheet.clamp();
+    }
+
+    public void setIgnoreTrackInsertGap(boolean ignore)
+    {
+        this.ignoreTrackInsertGap = ignore;
     }
 
     private int getRowIndex(UIKeyframeSheet sheet)
@@ -381,7 +458,15 @@ public class UIKeyframeDopeSheet implements IUIKeyframeGraph
 
     public int getDopeSheetY(int sheet)
     {
-        return this.getDopeSheetY() + sheet * (int) this.trackHeight;
+        int y = this.getDopeSheetY() + sheet * (int) this.trackHeight;
+
+        if (!this.ignoreTrackInsertGap && this.trackInsertGapBefore >= 0 && this.trackInsertGapHeight > 0
+            && sheet >= this.trackInsertGapBefore)
+        {
+            y += this.trackInsertGapHeight;
+        }
+
+        return y;
     }
 
     public int getDopeSheetY(UIKeyframeSheet sheet)
@@ -574,21 +659,37 @@ public class UIKeyframeDopeSheet implements IUIKeyframeGraph
             return null;
         }
 
-        int dopeSheetY = this.getDopeSheetY();
-        int index = (mouseY - dopeSheetY) / (int) this.trackHeight;
-        UIKeyframeSheet primary = CollectionUtils.getSafe(this.sheets, index);
+        int full = (int) this.trackHeight;
+        int y = this.getDopeSheetY();
 
-        if (primary != null && primary.companion != null)
+        for (int index = 0; index < this.sheets.size(); index++)
         {
-            int rowTop = this.getDopeSheetY(index);
-
-            if (mouseY >= rowTop + (int) (this.trackHeight * COMPANION_SPLIT_RATIO))
+            if (!this.ignoreTrackInsertGap && index == this.trackInsertGapBefore)
             {
-                return primary.companion;
+                y += this.trackInsertGapHeight;
             }
+
+            if (mouseY >= y && mouseY < y + full)
+            {
+                UIKeyframeSheet primary = this.sheets.get(index);
+
+                if (primary != null && primary.companion != null)
+                {
+                    int splitY = y + (int) (full * COMPANION_SPLIT_RATIO);
+
+                    if (mouseY >= splitY)
+                    {
+                        return primary.companion;
+                    }
+                }
+
+                return primary;
+            }
+
+            y += full;
         }
 
-        return primary;
+        return null;
     }
 
     @Override
@@ -734,7 +835,8 @@ public class UIKeyframeDopeSheet implements IUIKeyframeGraph
         }
 
         int iconWidth = 2 + (arrow != null ? arrow.w + 4 : 0);
-        int clickableWidth = Math.min(this.sidebarWidth - sheet.level * LEVEL_INDENT, iconWidth + font.getWidth(displayTitle) + 6);
+        int titleWidth = font.getWidth(displayTitle);
+        int clickableWidth = Math.min(this.sidebarWidth - sheet.level * LEVEL_INDENT, iconWidth + titleWidth + 6);
 
         clickableWidth = Math.max(0, clickableWidth);
 
@@ -745,6 +847,38 @@ public class UIKeyframeDopeSheet implements IUIKeyframeGraph
 
         if (sheet.groupHeader && sheet.toggleGroup != null)
         {
+            boolean onArrow = arrow != null && context.mouseX <= left + iconWidth;
+
+            /* Title click on a form / body-part group selects it as the Tracks palette target.
+             * Double-click the root model name clears selection so adds go to the main model. */
+            if (!onArrow && this.isFormGroup(sheet) && this.formGroupSelectCallback != null)
+            {
+                String clickKey = sheet.groupKey != null ? sheet.groupKey : sheet.id;
+                long now = System.currentTimeMillis();
+                boolean doubleClick = clickKey != null
+                    && clickKey.equals(this.lastFormGroupClickKey)
+                    && now - this.lastFormGroupClickTime <= 300L;
+
+                this.lastFormGroupClickKey = clickKey;
+                this.lastFormGroupClickTime = now;
+
+                if (doubleClick && this.isRootFormGroup(sheet) && this.formGroupDeselectCallback != null)
+                {
+                    this.formGroupDeselectCallback.accept(sheet);
+                }
+                else
+                {
+                    this.formGroupSelectCallback.accept(sheet);
+
+                    if (!sheet.groupExpanded && sheet.toggleGroup != null)
+                    {
+                        sheet.toggleGroup.run();
+                    }
+                }
+
+                return true;
+            }
+
             sheet.toggleGroup.run();
 
             return true;
@@ -1327,6 +1461,11 @@ public class UIKeyframeDopeSheet implements IUIKeyframeGraph
 
         this.dopeSheet.scrollSize = (int) this.trackHeight * this.sheets.size() + this.topMargin + TRACKS_BOTTOM_MARGIN;
 
+        if (!this.ignoreTrackInsertGap && this.trackInsertGapBefore >= 0 && this.trackInsertGapHeight > 0)
+        {
+            this.dopeSheet.scrollSize += this.trackInsertGapHeight;
+        }
+
         Area area = this.keyframes.area;
         this.updateSidebarScrollLimits(context);
         Matrix4f matrix = context.batcher.getContext().getMatrices().peek().getPositionMatrix();
@@ -1390,9 +1529,13 @@ public class UIKeyframeDopeSheet implements IUIKeyframeGraph
 
                 if (this.isFormGroup(sheet))
                 {
+                    boolean selected = this.selectedFormGroupKey != null
+                        && this.selectedFormGroupKey.equals(sheet.groupKey);
                     int primary = BBSSettings.primaryColor.get();
-                    int leftColor = Colors.setA(primary, 0.5F);
-                    int rightColor = Colors.setA(primary, 0F);
+                    float leftA = selected ? 0.85F : 0.5F;
+                    float rightA = selected ? 0.28F : 0F;
+                    int leftColor = Colors.setA(primary, leftA);
+                    int rightColor = Colors.setA(primary, rightA);
 
                     context.batcher.box(area.x, y, area.x + 2, (float) (y + this.trackHeight), Colors.A100 | primary);
                     context.batcher.gradientHBox(area.x, y, area.x + this.sidebarWidth, (float) (y + this.trackHeight), leftColor, rightColor);
@@ -1604,7 +1747,15 @@ public class UIKeyframeDopeSheet implements IUIKeyframeGraph
 
             if (icon != null)
             {
-                context.batcher.icon(icon, currentX, labelMy - icon.h / 2);
+                /* Pose glyph sits low in its atlas cell — nudge up to match Transform. */
+                int iconY = labelMy - icon.h / 2;
+
+                if (icon == Icons.POSE)
+                {
+                    iconY -= 2;
+                }
+
+                context.batcher.icon(icon, currentX, iconY);
                 currentX += icon.w + 4;
             }
 

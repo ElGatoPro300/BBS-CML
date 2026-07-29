@@ -72,6 +72,8 @@ public class BBSSettings
     public static ValueBoolean hsvColorPicker;
     public static ValueBoolean forceQwerty;
     public static ValueBoolean freezeModels;
+    /** Cached form-picker thumbnails (morph menu). Off by default — opt in for lighter UI. */
+    public static ValueBoolean optimizedMorphMenu;
     public static ValueGizmoToolbar editorGizmoToolbar;
     public static ValueFloat axesScale;
     public static ValueFloat axesThickness;
@@ -655,6 +657,7 @@ public class BBSSettings
         hsvColorPicker = builder.getBoolean("hsv_color_picker", true);
         forceQwerty = builder.getBoolean("force_qwerty", false);
         freezeModels = builder.getBoolean("freeze_models", false);
+        optimizedMorphMenu = builder.getBoolean("optimized_morph_menu", false);
         uniformScale = builder.getBoolean("uniform_scale", false);
         clickSound = builder.getBoolean("click_sound", false);
         pickLimbTexture = builder.getBoolean("pick_limb_texture", true);

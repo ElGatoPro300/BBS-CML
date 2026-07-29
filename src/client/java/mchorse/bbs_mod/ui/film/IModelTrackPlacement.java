@@ -19,6 +19,9 @@ public interface IModelTrackPlacement
 
     int getPreviewIndex();
 
+    /** Body-part form path for the drop ({@code "0"}), or empty for the root form. */
+    String getPreviewFormPath();
+
     String getPaletteType();
 
     void cancel();

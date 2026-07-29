@@ -1035,6 +1035,24 @@ public class UIClips extends UIElement
         }
     }
 
+    /** Highest layer that currently has a clip, or {@code -1} when the timeline is empty. */
+    public int getHighestOccupiedLayer()
+    {
+        if (this.clips == null)
+        {
+            return -1;
+        }
+
+        int max = -1;
+
+        for (Clip clip : this.clips.get())
+        {
+            max = Math.max(max, clip.layer.get());
+        }
+
+        return max;
+    }
+
     public int fromGraphX(int mouseX)
     {
         return (int) Math.round(this.scale.from(mouseX));
@@ -1327,10 +1345,16 @@ public class UIClips extends UIElement
 
         this.clipPlacement.updatePreview(this, context);
 
-        if (!this.isClipLayerAreaInside(context) || this.getPlacementPreview() == null)
+        if (!this.isClipLayerAreaInside(context))
         {
             this.cancelClipPlacement();
 
+            return false;
+        }
+
+        if (this.getPlacementPreview() == null)
+        {
+            /* Still over the timeline but no free slot — keep placement armed for another try. */
             return false;
         }
 

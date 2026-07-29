@@ -1207,8 +1207,8 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
 
     /**
      * Keep Media / Properties / Timeline tab strips on the same logical section
-     * (Replay↔Replays↔Keyframe, Camera↔Camera, Action↔Action).
-     * Tracks is its own media leaf — opening Replay timeline focuses Replays, not Tracks.
+     * when useful — but top Media tabs (Replays / Camera / Actions / Tracks) must
+     * not switch the bottom Timeline strip; that strip only changes when clicked.
      */
     private boolean syncMinecutLinkedTabs(EditorLayoutNode root, String panelId)
     {
@@ -1219,11 +1219,18 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
             return false;
         }
 
+        boolean fromMedia = this.isMinecutMediaStripPanelId(panelId);
         boolean changed = false;
 
         for (String id : group)
         {
             if (id.equals(panelId))
+            {
+                continue;
+            }
+
+            /* Top Media strip → never drive bottom Timeline tabs. */
+            if (fromMedia && this.isMinecutTimelineStripPanelId(id))
             {
                 continue;
             }
@@ -1235,6 +1242,21 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
         }
 
         return changed;
+    }
+
+    private boolean isMinecutMediaStripPanelId(String panelId)
+    {
+        return MINECUT_REPLAYS_PANEL_ID.equals(panelId)
+            || MINECUT_MEDIA_CAMERA_PANEL_ID.equals(panelId)
+            || MINECUT_MEDIA_ACTIONS_PANEL_ID.equals(panelId)
+            || MINECUT_MEDIA_TRACKS_PANEL_ID.equals(panelId);
+    }
+
+    private boolean isMinecutTimelineStripPanelId(String panelId)
+    {
+        return MINECUT_TIMELINE_REPLAY_PANEL_ID.equals(panelId)
+            || MINECUT_TIMELINE_CAMERA_PANEL_ID.equals(panelId)
+            || MINECUT_TIMELINE_ACTION_PANEL_ID.equals(panelId);
     }
 
     private String[] getMinecutSyncGroup(String panelId)
@@ -4432,7 +4454,8 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
 
         this.focusMinecutDockTab(MINECUT_MEDIA_TRACKS_PANEL_ID);
 
-        String inserted = replay.insertModelTrackFromPalette(paletteType, -1);
+        String formPath = this.replayEditor.getSelectedModelFormPath();
+        String inserted = replay.insertModelTrackFromPalette(paletteType, -1, formPath);
 
         if (inserted != null)
         {
@@ -4470,7 +4493,8 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
         {
             inserted = replay.insertModelTrackFromPalette(
                 this.modelTrackPlacement.getPaletteType(),
-                this.modelTrackPlacement.getPreviewIndex());
+                this.modelTrackPlacement.getPreviewIndex(),
+                this.modelTrackPlacement.getPreviewFormPath());
         }
 
         if (this.replayEditor != null)

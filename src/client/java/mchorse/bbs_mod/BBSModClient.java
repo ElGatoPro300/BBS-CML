@@ -52,6 +52,7 @@ import mchorse.bbs_mod.film.Films;
 import mchorse.bbs_mod.film.Recorder;
 import mchorse.bbs_mod.film.replays.Replay;
 import mchorse.bbs_mod.forms.FormCategories;
+import mchorse.bbs_mod.forms.FormUIPreviewCache;
 import mchorse.bbs_mod.forms.FormUtilsClient;
 import mchorse.bbs_mod.forms.categories.UserFormCategory;
 import mchorse.bbs_mod.forms.forms.Form;
@@ -558,6 +559,15 @@ public class BBSModClient implements ClientModInitializer
 
         BBSSettings.discordPresence.postCallback((v, f) -> DiscordPresenceManager.INSTANCE.onSettingsChanged());
         BBSSettings.discordApplicationId.postCallback((v, f) -> DiscordPresenceManager.INSTANCE.onSettingsChanged());
+        BBSSettings.optimizedMorphMenu.postCallback((v, f) ->
+        {
+            FormUIPreviewCache.clear();
+
+            if (BBSSettings.optimizedMorphMenu.get())
+            {
+                getModels().preloadAll();
+            }
+        });
 
         if (BBSSettings.irisOpacityFix != null)
         {

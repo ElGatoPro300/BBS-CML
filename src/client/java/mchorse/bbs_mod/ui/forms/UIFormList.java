@@ -2326,6 +2326,64 @@ public class UIFormList extends UIElement
         return category == null ? null : category.selected;
     }
 
+    /**
+     * Morph/form-list thumbnails. When Optimized morph menu is off: live draw (current default).
+     * When on: selected animates live; hovered orbits live; others use a fixed-angle cache
+     * so mouse move does not thrash fills.
+     */
+    public void renderFormThumbnail(UIContext context, Form form, int x1, int y1, int x2, int y2)
+    {
+        this.renderFormThumbnail(context, form, x1, y1, x2, y2, false);
+    }
+
+    public void renderFormThumbnail(UIContext context, Form form, int x1, int y1, int x2, int y2, boolean hovered)
+    {
+        if (form == null)
+        {
+            return;
+        }
+
+        if (!BBSSettings.optimizedMorphMenu.get())
+        {
+            FormUtilsClient.renderUI(form, context, x1, y1, x2, y2);
+
+            return;
+        }
+
+        if (form == this.getSelected())
+        {
+            FormUtilsClient.renderUI(form, context, x1, y1, x2, y2, true);
+        }
+        else if (hovered)
+        {
+            FormUtilsClient.renderUI(form, context, x1, y1, x2, y2, false);
+        }
+        else
+        {
+            FormUtilsClient.renderUICachedStatic(form, context, x1, y1, x2, y2);
+        }
+    }
+
+    /**
+     * Tiny category-card previews — always fixed-angle cache when Optimized morph menu is on.
+     */
+    public void renderFormThumbnailStatic(UIContext context, Form form, int x1, int y1, int x2, int y2)
+    {
+        if (form == null)
+        {
+            return;
+        }
+
+        if (BBSSettings.optimizedMorphMenu.get())
+        {
+            FormUtilsClient.renderUICachedStatic(form, context, x1, y1, x2, y2);
+        }
+        else
+        {
+            FormUtilsClient.renderUI(form, context, x1, y1, x2, y2);
+        }
+    }
+
     public void setSelected(Form form)
     {
         boolean found = false;
@@ -3231,7 +3289,7 @@ public class UIFormList extends UIElement
                 }
 
                 context.batcher.clip(renderX, renderY, renderW, renderH, context);
-                FormUtilsClient.renderUI(form, context, renderX, renderY, renderX + renderW, renderY + renderH);
+                UIFormList.this.renderFormThumbnail(context, form, renderX, renderY, renderX + renderW, renderY + renderH);
                 context.batcher.unclip(context);
 
                 FavoriteMarker marker = UIFormList.this.getFavoriteMarker(form);
@@ -3346,7 +3404,7 @@ public class UIFormList extends UIElement
             else if (item.form != null)
             {
                 context.batcher.clip(cx, cy, EXPANDED_CELL_WIDTH, EXPANDED_CELL_HEIGHT, context);
-                FormUtilsClient.renderUI(item.form, context, cx, cy, cx + EXPANDED_CELL_WIDTH, cy + EXPANDED_CELL_HEIGHT);
+                UIFormList.this.renderFormThumbnail(context, item.form, cx, cy, cx + EXPANDED_CELL_WIDTH, cy + EXPANDED_CELL_HEIGHT, hover);
                 context.batcher.unclip(context);
 
                 FavoriteMarker marker = UIFormList.this.getFavoriteMarker(item.form);
@@ -3408,7 +3466,7 @@ public class UIFormList extends UIElement
 
             context.batcher.box(cx, cy, cx + EXPANDED_CELL_WIDTH, cy + EXPANDED_CELL_HEIGHT, Colors.A50 | BBSSettings.primaryColor.get());
             context.batcher.outline(cx, cy, cx + EXPANDED_CELL_WIDTH, cy + EXPANDED_CELL_HEIGHT, Colors.A100 | BBSSettings.primaryColor.get(), 2);
-            FormUtilsClient.renderUI(dragItem.form, context, cx, cy, cx + EXPANDED_CELL_WIDTH, cy + EXPANDED_CELL_HEIGHT);
+            UIFormList.this.renderFormThumbnail(context, dragItem.form, cx, cy, cx + EXPANDED_CELL_WIDTH, cy + EXPANDED_CELL_HEIGHT);
         }
 
 
@@ -3749,7 +3807,7 @@ public class UIFormList extends UIElement
 
                         context.batcher.box(px, py, px + cellW, py + cellH, Colors.A25);
                         context.batcher.clip(px, py, cellW, cellH, context);
-                        FormUtilsClient.renderUI(forms.get(i), context, px, py, px + cellW, py + cellH);
+                        UIFormList.this.renderFormThumbnailStatic(context, forms.get(i), px, py, px + cellW, py + cellH);
                         context.batcher.unclip(context);
 
                         if (marker != null)
@@ -4026,7 +4084,7 @@ public class UIFormList extends UIElement
                 }
 
                 context.batcher.clip(cx, cy, POPUP_CELL_WIDTH, POPUP_CELL_HEIGHT, context);
-                FormUtilsClient.renderUI(form, context, cx, cy, cx + POPUP_CELL_WIDTH, cy + POPUP_CELL_HEIGHT);
+                UIFormList.this.renderFormThumbnail(context, form, cx, cy, cx + POPUP_CELL_WIDTH, cy + POPUP_CELL_HEIGHT);
                 context.batcher.unclip(context);
                 FavoriteMarker marker = UIFormList.this.getFavoriteMarker(form);
 
@@ -4074,7 +4132,7 @@ public class UIFormList extends UIElement
 
                 context.batcher.box(cx, cy, cx + POPUP_CELL_WIDTH, cy + POPUP_CELL_HEIGHT, Colors.A50 | BBSSettings.primaryColor.get());
                 context.batcher.outline(cx, cy, cx + POPUP_CELL_WIDTH, cy + POPUP_CELL_HEIGHT, Colors.A100 | BBSSettings.primaryColor.get(), 2);
-                FormUtilsClient.renderUI(forms.get(this.dragIndex), context, cx, cy, cx + POPUP_CELL_WIDTH, cy + POPUP_CELL_HEIGHT);
+                UIFormList.this.renderFormThumbnail(context, forms.get(this.dragIndex), cx, cy, cx + POPUP_CELL_WIDTH, cy + POPUP_CELL_HEIGHT);
             }
         }
 

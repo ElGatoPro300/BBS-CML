@@ -70,6 +70,7 @@ public class UIKeys
     public static final IKey CAMERA_EDITOR_KEYS_EDITOR_NEXT_CLIP = L10n.lang("bbs.ui.camera.editor.keys.editor.next_clip");
     public static final IKey CAMERA_EDITOR_KEYS_EDITOR_PLAUSE = L10n.lang("bbs.ui.camera.editor.keys.editor.plause");
     public static final IKey CAMERA_EDITOR_KEYS_EDITOR_PLAY_FILM = L10n.lang("bbs.ui.camera.editor.keys.editor.play_film");
+    public static final IKey CAMERA_EDITOR_KEYS_EDITOR_PLAY_FULLSCREEN = L10n.lang("bbs.ui.camera.editor.keys.editor.play_fullscreen");
     public static final IKey CAMERA_EDITOR_KEYS_EDITOR_PREV = L10n.lang("bbs.ui.camera.editor.keys.editor.prev");
     public static final IKey CAMERA_EDITOR_KEYS_EDITOR_PREV_CLIP = L10n.lang("bbs.ui.camera.editor.keys.editor.prev_clip");
     public static final IKey CAMERA_EDITOR_KEYS_EDITOR_REDO = L10n.lang("bbs.ui.camera.editor.keys.editor.redo");
@@ -450,6 +451,8 @@ public class UIKeys
     public static final IKey FILM_REPLAY_RENAME_SHEET_TITLE = L10n.lang("bbs.ui.film.replay.rename_sheet-title");
     public static final IKey FILM_REPLAY_RENAME_SHEET_MESSAGE = L10n.lang("bbs.ui.film.replay.rename_sheet-message");
     public static final IKey FILM_REPLAY_RENAME_SHEET_COLOR_TOOLTIP = L10n.lang("bbs.ui.film.replay.rename_sheet-color-tooltip");
+    public static final IKey FILM_REPLAY_RESET_TRACKS = L10n.lang("bbs.ui.film.replay.reset_tracks");
+    public static final IKey FILM_REPLAY_REMOVE_TRACK = L10n.lang("bbs.ui.film.replay.remove_track");
     public static final IKey FILM_REPLAY_FP = L10n.lang("bbs.ui.film.replay.fp");
     public static final IKey FILM_REPLAY_LABEL = L10n.lang("bbs.ui.film.replay.label");
     public static final IKey FILM_REPLAY_LOOPING = L10n.lang("bbs.ui.film.replay.looping");
@@ -1066,9 +1069,19 @@ public class UIKeys
     public static final IKey STRUCTURE_PICKER_MODE_TRIANGLE = L10n.lang("bbs.ui.items.structure_picker.mode.triangle");
     public static final IKey STRUCTURE_PICKER_MODE_CONE = L10n.lang("bbs.ui.items.structure_picker.mode.cone");
     public static final IKey STRUCTURE_PICKER_MODE_CYLINDER = L10n.lang("bbs.ui.items.structure_picker.mode.cylinder");
+    public static final IKey STRUCTURE_PICKER_MODE_SAME = L10n.lang("bbs.ui.items.structure_picker.mode.same");
+    public static final IKey STRUCTURE_PICKER_MODE_BRUSH = L10n.lang("bbs.ui.items.structure_picker.mode.brush");
+    public static final IKey STRUCTURE_PICKER_SAME_LIMIT = L10n.lang("bbs.ui.items.structure_picker.same_limit");
+    public static final IKey STRUCTURE_PICKER_BRUSH_RADIUS = L10n.lang("bbs.ui.items.structure_picker.brush_radius");
+    public static final IKey STRUCTURE_PICKER_BRUSH_DEPTH = L10n.lang("bbs.ui.items.structure_picker.brush_depth");
+    public static final IKey STRUCTURE_PICKER_BRUSH_SPHERE = L10n.lang("bbs.ui.items.structure_picker.brush_sphere");
+    public static final IKey STRUCTURE_PICKER_BRUSH_CUBE = L10n.lang("bbs.ui.items.structure_picker.brush_cube");
     public static final IKey STRUCTURE_PICKER_CONFIRM_TITLE = L10n.lang("bbs.ui.items.structure_picker.confirm.title");
+    public static final IKey STRUCTURE_PICKER_NAME = L10n.lang("bbs.ui.items.structure_picker.name");
+    public static final IKey STRUCTURE_PICKER_NAME_PLACEHOLDER = L10n.lang("bbs.ui.items.structure_picker.name_placeholder");
     public static final IKey STRUCTURE_PICKER_MAKE_MODEL_BLOCK = L10n.lang("bbs.ui.items.structure_picker.confirm.model_block");
     public static final IKey STRUCTURE_PICKER_IMPORT_FILM = L10n.lang("bbs.ui.items.structure_picker.confirm.import_film");
+    public static final IKey STRUCTURE_PICKER_IMPORT_FILM_DISABLED = L10n.lang("bbs.ui.items.structure_picker.confirm.import_film_disabled");
     public static final IKey STRUCTURE_PICKER_APPLY = L10n.lang("bbs.ui.items.structure_picker.confirm.apply");
     public static final IKey STRUCTURE_PICKER_REMOVE_SELECTION = L10n.lang("bbs.ui.items.structure_picker.remove_selection");
     public static final IKey STRUCTURE_PICKER_SUBTRACT_SELECTION = L10n.lang("bbs.ui.items.structure_picker.subtract_selection");
@@ -1077,6 +1090,16 @@ public class UIKeys
     public static final IKey STRUCTURE_PICKER_REMOVE_CONFIRM = L10n.lang("bbs.ui.items.structure_picker.remove_confirm");
     public static final IKey STRUCTURE_PICKER_BREAK_CONFIRM = L10n.lang("bbs.ui.items.structure_picker.break_confirm");
     public static final IKey STRUCTURE_PICKER_CLICK_ON_AIR = L10n.lang("bbs.ui.items.structure_picker.click_on_air");
+    public static final IKey STRUCTURE_PICKER_CUBE_RESIZE = L10n.lang("bbs.ui.items.structure_picker.cube_resize");
+    public static final IKey STRUCTURE_PICKER_CUBE_RESIZE_HINT = L10n.lang("bbs.ui.items.structure_picker.cube_resize_hint");
+    public static final IKey STRUCTURE_PICKER_PLACE_STRUCTURE = L10n.lang("bbs.ui.items.structure_picker.place_structure");
+    public static final IKey STRUCTURE_PICKER_SAVE_STRUCTURE = L10n.lang("bbs.ui.items.structure_picker.save_structure");
+    public static final IKey STRUCTURE_PICKER_SAVE_STRUCTURE_HINT = L10n.lang("bbs.ui.items.structure_picker.save_structure_hint");
+    public static final IKey STRUCTURE_PICKER_PLACE_AND_SELECT = L10n.lang("bbs.ui.items.structure_picker.place_and_select");
+    public static final IKey STRUCTURE_PICKER_PLACE_CANCEL = L10n.lang("bbs.ui.items.structure_picker.place_cancel");
+    public static final IKey STRUCTURE_PICKER_PLACE_HINT = L10n.lang("bbs.ui.items.structure_picker.place_hint");
+    public static final IKey STRUCTURE_PICKER_BROWSE_TITLE = L10n.lang("bbs.ui.items.structure_picker.browse_title");
+    /** Indexed by {@link mchorse.bbs_mod.items.StructurePickerMode#index}. */
     public static final IKey[] STRUCTURE_PICKER_MODE_LABELS = new IKey[]
     {
         STRUCTURE_PICKER_MODE_BLOCK,
@@ -1086,7 +1109,9 @@ public class UIKeys
         STRUCTURE_PICKER_MODE_SPHERE,
         STRUCTURE_PICKER_MODE_TRIANGLE,
         STRUCTURE_PICKER_MODE_CONE,
-        STRUCTURE_PICKER_MODE_CYLINDER
+        STRUCTURE_PICKER_MODE_CYLINDER,
+        STRUCTURE_PICKER_MODE_SAME,
+        STRUCTURE_PICKER_MODE_BRUSH
     };
     public static final IKey GENERAL_EXPORT = L10n.lang("bbs.ui.export");
     public static final IKey GENERAL_FFMPEG_ERROR_DESCRIPTION = L10n.lang("bbs.ui.ffmpeg.error-description");

@@ -283,6 +283,15 @@ public class Replay extends ValueGroup
      */
     public String insertModelTrackFromPalette(String paletteType, int index)
     {
+        return this.insertModelTrackFromPalette(paletteType, index, "");
+    }
+
+    /**
+     * Like {@link #insertModelTrackFromPalette(String, int)} but targets a body-part form path
+     * ({@code "0"}, {@code "0/1"}, …). Empty/null path = root form.
+     */
+    public String insertModelTrackFromPalette(String paletteType, int index, String formPath)
+    {
         if (paletteType == null)
         {
             return null;
@@ -290,25 +299,27 @@ public class Replay extends ValueGroup
 
         this.ensureModelTrackOrder();
 
-        String trackId = ModelTrackIds.resolveFromPalette(this.modelTrackOrder, paletteType);
+        String path = formPath == null ? "" : formPath;
+        String trackId = ModelTrackIds.resolveFromPalette(this.modelTrackOrder, paletteType, path);
 
         if (trackId == null)
         {
             return null;
         }
 
-        Form form = this.form.get();
+        Form root = this.form.get();
 
-        if (form != null)
+        if (root != null)
         {
-            ModelTrackIds.ensureChannel(this, form, trackId);
+            ModelTrackIds.ensureChannel(this, root, trackId);
         }
 
         int at = index;
 
-        if (at < 0)
+        if (at < 0 || !path.isEmpty())
         {
-            at = ModelTrackIds.defaultInsertIndex(this.modelTrackOrder, trackId);
+            /* Body-part drops use family ordering within that form path. */
+            at = ModelTrackIds.defaultInsertIndex(this.modelTrackOrder, trackId, path);
         }
 
         if (at > this.modelTrackOrder.size())
