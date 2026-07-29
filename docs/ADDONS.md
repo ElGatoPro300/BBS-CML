@@ -1,6 +1,6 @@
-# Creating Addons for BBS CML EDITION
+# Creating Addons for BBS CML
 
-This comprehensive guide explains how to create addons for the BBS CML EDITION. The addon system allows you to extend the mod's functionality by adding new forms, clips, dashboard panels, custom Molang functions, model loaders, and more, without needing to modify the core mod code or use complex Mixins.
+This comprehensive guide explains how to create addons for BBS CML. The addon system allows you to extend the mod's functionality by adding new forms, clips, dashboard panels, custom Molang functions, model loaders, and more, without needing to modify the core mod code or use complex Mixins.
 
 ## Table of Contents
 

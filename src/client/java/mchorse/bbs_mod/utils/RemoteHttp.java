@@ -40,7 +40,7 @@ public final class RemoteHttp
             HttpRequest request = HttpRequest.newBuilder(URI.create(url))
                 .GET()
                 .timeout(Duration.ofSeconds(15))
-                .header("User-Agent", "BBS-CML-Edition/2.0")
+                .header("User-Agent", "BBS-CML/2.0")
                 .header("Accept", "*/*")
                 .build();
 
