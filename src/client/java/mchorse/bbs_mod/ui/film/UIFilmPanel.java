@@ -259,14 +259,21 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
     private static final int FLOATING_RESIZE_HANDLE = 8;
     private final Set<String> dockedHeaderPanels = new HashSet<>();
     private static final int SPLITTER_HANDLE_PX = 6;
-    /* Classic dock leaves a 3px card margin each side; Minecut uses a flush 1px gutter so the
-       cyan accent line reads like the previous fixed Minecut shell. */
+    private static final int SPLITTER_HANDLE_PX_MINECUT = 10;
+    private static final int SPLITTER_LINE_PX = 2;
+    private static final int SPLITTER_LINE_PX_MINECUT = 3;
+    /* Classic dock leaves a 3px card margin each side; Minecut uses a flush 1px gutter. */
     private static final int DOCK_PANEL_INSET_CLASSIC = 3;
-    private static final int DOCK_PANEL_INSET_MINECUT = 1;
+    /* Keep Minecut cards clear of the thicker splitter stroke (3px centered on the seam). */
+    private static final int DOCK_PANEL_INSET_MINECUT = 3;
     private static final int DROP_ZONE_CENTER = -1;
     public static final int DROP_ZONE_TAB = 4;
     private static final String DROP_TARGET_WORKSPACE = "__workspace__";
     private static final float DROP_EDGE_MARGIN = 0.2F;
+    /* Outer L/R column dock arms only after the cursor leaves the edge once, so tearing a
+       left/right docked panel out does not instantly re-dock to that edge. */
+    private boolean outerColumnDockArmed;
+    private boolean pendingFullHeightFloatMigration = true;
     private static final int EDITOR_MIN_SIZE_FOR_PX_HANDLES = 10;
     private static final String ANCHORED_REPLAYS_PANEL_ID = "replaysPanel";
     private static final String ANCHORED_REPLAYS_PROPERTIES_PANEL_ID = "replaysPropertiesPanel";
@@ -1163,10 +1170,73 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
 
     /**
      * Remount classic vs Minecut dock chrome after the UI style setting changes.
+     * Converts leftover full-height edge floats (old float-snap) into normal docked columns,
+     * and hides floating windows that belong to the other style.
      */
     public void remountForUiStyle()
     {
+        this.clearPanelDragState();
+        this.pendingFullHeightFloatMigration = true;
+        this.migrateFullHeightEdgeFloatsToDockedColumns();
         this.setupEditorFlex(true, false, true);
+        this.persistFilmUILayoutSession();
+    }
+
+    /**
+     * Old float-snap left full-height edge windows that looked/behaved unlike docked panels.
+     * Re-dock them as outer columns so they use the same chrome and splitter resize.
+     *
+     * @return true if any panel was re-docked
+     */
+    private boolean migrateFullHeightEdgeFloatsToDockedColumns()
+    {
+        if (this.editor.area.w <= 0 || this.editor.area.h <= 0)
+        {
+            return false;
+        }
+
+        boolean changed = false;
+
+        for (String panelId : new ArrayList<>(this.floatingPanels))
+        {
+            if (!this.isFloatingPanelActiveForUiStyle(panelId) || this.hiddenPanels.contains(panelId))
+            {
+                continue;
+            }
+
+            Vector2i pos = this.floatingPanelPositions.get(panelId);
+            Vector2i size = this.floatingPanelSizes.get(panelId);
+
+            if (pos == null || size == null)
+            {
+                continue;
+            }
+
+            if (pos.y > 2 || size.y < this.editor.area.h - 2)
+            {
+                continue;
+            }
+
+            int zone;
+
+            if (pos.x <= 2)
+            {
+                zone = EditorLayoutNode.EDGE_LEFT;
+            }
+            else if (pos.x + size.x >= this.editor.area.w - 2)
+            {
+                zone = EditorLayoutNode.EDGE_RIGHT;
+            }
+            else
+            {
+                continue;
+            }
+
+            this.applyFloatingPanelDockResult(panelId, DROP_TARGET_WORKSPACE, zone);
+            changed = true;
+        }
+
+        return changed;
     }
 
     public void applyMinecutTimelineTab(int tab)
@@ -1565,7 +1635,7 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
         }
         else
         {
-            if (recreateTabs)
+            if (recreateTabs || this.splitterHandles.isEmpty())
             {
                 this.rebuildSplitterHandles(layout, root, splitters);
             }
@@ -1575,9 +1645,15 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
             this.refreshSplitterHandleTargets(root, visibleRoot);
             this.syncSplitterHandleBounds();
             this.applyDragHandleBoundsFromMap(bounds);
+
+            for (UIDraggable handle : this.splitterHandles)
+            {
+                handle.setVisible(true);
+            }
         }
 
         this.setupTabBars(root, visibleRoot, bounds, recreateTabs);
+        this.liftSplitterHandlesToFront();
 
         boolean needsAttach = this.minecutWorkspace != null && (!this.minecutWorkspace.isAttached()
             || this.preview == null
@@ -1698,7 +1774,7 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
         }
         else
         {
-            if (recreateTabs)
+            if (recreateTabs || this.splitterHandles.isEmpty())
             {
                 this.rebuildSplitterHandles(layout, root, splitters);
             }
@@ -1708,10 +1784,16 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
             this.refreshSplitterHandleTargets(root, visibleRoot);
             this.syncSplitterHandleBounds();
             this.applyDragHandleBoundsFromMap(bounds);
+
+            for (UIDraggable handle : this.splitterHandles)
+            {
+                handle.setVisible(true);
+            }
         }
         
         this.setupTabBars(root, visibleRoot, bounds, recreateTabs);
         this.syncReplaysPropertiesLayoutMode();
+        this.liftSplitterHandlesToFront();
 
         if (resize)
         {
@@ -2098,6 +2180,11 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
         }
     }
 
+    private int splitterHandlePx()
+    {
+        return this.isMinecutFilmUi() ? SPLITTER_HANDLE_PX_MINECUT : SPLITTER_HANDLE_PX;
+    }
+
     private void applySplitterHandleBounds(UIDraggable handle, EditorLayoutNode.SplitterHandleInfo info)
     {
         int ew = this.editor.area.w;
@@ -2108,17 +2195,19 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
             return;
         }
 
+        int handlePx = this.splitterHandlePx();
+
         if (info.horizontal)
         {
             float centerY = info.hy + info.hh * 0.5F;
-            float hyNew = centerY - (SPLITTER_HANDLE_PX / (2F * eh));
-            handle.relative(this.editor).x(info.hx).y(hyNew).w(info.hw).h(SPLITTER_HANDLE_PX);
+            float hyNew = centerY - (handlePx / (2F * eh));
+            handle.relative(this.editor).x(info.hx).y(hyNew).w(info.hw).h(handlePx);
         }
         else
         {
             float centerX = info.hx + info.hw * 0.5F;
-            float hxNew = centerX - (SPLITTER_HANDLE_PX / (2F * ew));
-            handle.relative(this.editor).x(hxNew).y(info.hy).w(SPLITTER_HANDLE_PX).h(info.hh);
+            float hxNew = centerX - (handlePx / (2F * ew));
+            handle.relative(this.editor).x(hxNew).y(info.hy).w(handlePx).h(info.hh);
         }
     }
 
@@ -2234,13 +2323,14 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
             {
                 boolean collapsed = this.collapsedFloatingPanels.contains(panelId);
                 boolean hidden = this.hiddenPanels.contains(panelId);
+                boolean wrongStyle = !this.isFloatingPanelActiveForUiStyle(panelId);
                 Vector2i pos = this.floatingPanelPositions.get(panelId);
                 Vector2i size = this.floatingPanelSizes.get(panelId);
                 if (pos != null && size != null)
                 {
                     this.reflowFloatingPanelWithinEditor(panelId);
 
-                    if (collapsed || hidden)
+                    if (collapsed || hidden || wrongStyle)
                     {
                         el.setVisible(false);
                     }
@@ -2332,8 +2422,30 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
              -> floating backdrops -> floating content -> floating chrome -> drop guides */
         this.editor.getChildren().removeIf(c -> c instanceof UIRenderable);
         this.editor.add(new UIRenderable(this::renderDockedPanelHeaders), new UIRenderable(this::renderIcons), new UIRenderable(this::renderFloatingPanelBackgrounds));
+        /* Seams above docked headers; floating windows stay above the seams. */
+        this.liftSplitterHandlesToFront();
         this.liftFloatingPanelsToFront();
         this.editor.add(new UIRenderable(this::renderFloatingPanelWindows), new UIRenderable(this::renderDropZoneHighlight));
+    }
+
+    /**
+     * Keep resize seams painted above docked card headers and tab bars.
+     */
+    private void liftSplitterHandlesToFront()
+    {
+        if (this.splitterHandles.isEmpty())
+        {
+            return;
+        }
+
+        List<UIDraggable> handles = new ArrayList<>(this.splitterHandles);
+
+        this.editor.getChildren().removeAll(handles);
+
+        for (UIDraggable handle : handles)
+        {
+            this.editor.add(handle);
+        }
     }
 
     /**
@@ -2398,6 +2510,7 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
         this.activeDraggingFloatingPanelId = null;
         this.activeResizingFloatingPanelId = null;
         this.mouseHeldPanelId = null;
+        this.outerColumnDockArmed = false;
         this.clearTabReorderState();
     }
 
@@ -2703,6 +2816,27 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
             return new EditorLayoutNode.PanelNode(draggedId);
         }
 
+        /* Outer left/right: wrap the whole tree so the panel becomes a full-height docked
+           column (same chrome + splitter as Viewport on the right in vertical layouts). */
+        if (zone == EditorLayoutNode.EDGE_LEFT || zone == EditorLayoutNode.EDGE_RIGHT)
+        {
+            EditorLayoutNode body = EditorLayoutNode.copyWithRemovedLeaf(root, draggedId);
+
+            if (body == null)
+            {
+                body = root;
+            }
+
+            EditorLayoutNode column = new EditorLayoutNode.PanelNode(draggedId);
+
+            if (zone == EditorLayoutNode.EDGE_LEFT)
+            {
+                return new EditorLayoutNode.SplitterNode(false, 0.28F, column, body);
+            }
+
+            return new EditorLayoutNode.SplitterNode(false, 0.72F, body, column);
+        }
+
         String target = this.getWorkspaceEdgeTargetPanelId(zone);
 
         return target == null ? new EditorLayoutNode.PanelNode(draggedId) : EditorLayoutNode.copyWithInsertSplitAt(root, target, draggedId, zone);
@@ -2828,6 +2962,18 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
 
         this.floatPanel(panelId, mouseX - this.dragOffsetX, mouseY - this.dragOffsetY);
         this.activeDraggingFloatingPanelId = panelId;
+        this.outerColumnDockArmed = false;
+
+        /* Docked header/tab grab offsets are relative to the old docked chrome. After undock the
+           floating origin changes (especially for left-edge panels), so rebase to the new window
+           or X stays locked at 0 while only Y follows the cursor. */
+        Vector2i pos = this.floatingPanelPositions.get(panelId);
+
+        if (pos != null)
+        {
+            this.dragOffsetX = mouseX - (this.editor.area.x + pos.x);
+            this.dragOffsetY = mouseY - (this.editor.area.y + pos.y);
+        }
     }
 
     private void updateFloatingPanelDragPosition(String panelId, int mouseX, int mouseY)
@@ -2942,6 +3088,17 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
         );
 
         this.setupEditorFlex(true);
+    }
+
+    /** Whether this floating panel id belongs to the active classic/Minecut UI mode. */
+    private boolean isFloatingPanelActiveForUiStyle(String panelId)
+    {
+        if (panelId == null || panelId.isEmpty())
+        {
+            return false;
+        }
+
+        return this.isMinecutFilmUi() == this.isMinecutPanelId(panelId);
     }
 
     public void beginEmbeddedPanelDragHold(String panelId, int mouseX, int mouseY)
@@ -3265,6 +3422,15 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
     private DropIntent resolveDropIntent(int mouseX, int mouseY)
     {
         String activeDragId = this.draggingPanelId != null ? this.draggingPanelId : this.activeDraggingFloatingPanelId;
+
+        /* Outer left/right strip wins first: full-height docked column (Viewport-style).
+           Narrow band so it does not fight inner panel dock cubes. */
+        DropIntent outerColumn = this.resolveOuterVerticalColumnIntent(mouseX, mouseY);
+
+        if (outerColumn != null)
+        {
+            return outerColumn;
+        }
 
         /* Per-panel dock cubes take priority: the window docks to the marker you're aiming at,
            not to a screen border just because the cursor drifted near one. */
@@ -3877,15 +4043,8 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
         int margin = Math.max(34, Math.min(72, Math.min(this.editor.area.w, this.editor.area.h) / 10));
         int zone = Integer.MIN_VALUE;
 
-        if (mouseX <= this.editor.area.x + margin)
-        {
-            zone = EditorLayoutNode.EDGE_LEFT;
-        }
-        else if (mouseX >= this.editor.area.ex() - margin)
-        {
-            zone = EditorLayoutNode.EDGE_RIGHT;
-        }
-        else if (mouseY <= this.editor.area.y + margin)
+        /* Left/right full-height docks are handled by resolveOuterVerticalColumnIntent. */
+        if (mouseY <= this.editor.area.y + margin)
         {
             zone = EditorLayoutNode.EDGE_TOP;
         }
@@ -3895,6 +4054,43 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
         }
 
         return zone == Integer.MIN_VALUE ? null : new DropIntent(DROP_TARGET_WORKSPACE, zone);
+    }
+
+    /**
+     * Narrow outer left/right strip: dock as a full-height column with the normal splitter
+     * chrome (same as Viewport on the right in vertical layouts). Armed only after the cursor
+     * leaves the edge once during this drag, so undocking from that edge does not re-stick.
+     */
+    private DropIntent resolveOuterVerticalColumnIntent(int mouseX, int mouseY)
+    {
+        if (!this.editor.area.isInside(mouseX, mouseY))
+        {
+            return null;
+        }
+
+        int margin = Math.max(18, Math.min(28, this.editor.area.w / 40));
+        boolean onLeft = mouseX <= this.editor.area.x + margin;
+        boolean onRight = mouseX >= this.editor.area.ex() - margin;
+        boolean onEdge = onLeft || onRight;
+
+        if (!onEdge)
+        {
+            this.outerColumnDockArmed = true;
+
+            return null;
+        }
+
+        if (!this.outerColumnDockArmed)
+        {
+            return null;
+        }
+
+        if (onLeft)
+        {
+            return new DropIntent(DROP_TARGET_WORKSPACE, EditorLayoutNode.EDGE_LEFT);
+        }
+
+        return new DropIntent(DROP_TARGET_WORKSPACE, EditorLayoutNode.EDGE_RIGHT);
     }
 
     private int getDockedVisiblePanelCount()
@@ -4294,6 +4490,41 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
     {
         int h = ey - y;
 
+        if (this.isMinecutFilmUi())
+        {
+            /* Match grouped UITabBar chrome: elevated strip, text-only label, accent underline. */
+            UIStyle style = UIStyle.active();
+
+            context.batcher.box(x, y, ex, ey, style.elevated());
+            context.batcher.box(x, ey - 1, ex, ey, style.borderSoft());
+
+            boolean hovered = context.mouseX >= x && context.mouseX < ex && context.mouseY >= y && context.mouseY < ey;
+            int color = hovered ? style.text() : style.text();
+            int textY = y + (h - context.batcher.getFont().getHeight()) / 2;
+            int pad = 10;
+            int titleX = x + pad;
+            int chevronReserve = 22;
+            int titleW = ex - titleX - chevronReserve;
+
+            if (titleW > 4)
+            {
+                String title = context.batcher.getFont().limitToWidth(this.getPanelTitle(panelId).get(), titleW);
+                int labelW = context.batcher.getFont().getWidth(title);
+
+                context.batcher.textShadow(title, titleX, textY, color);
+                context.batcher.box(titleX - 6, ey - 2, titleX + labelW + 6, ey, style.accent());
+            }
+
+            Icon chevronIcon = collapsed ? Icons.COLLAPSED : Icons.UNCOLLAPSED;
+
+            if (ex - x >= 28)
+            {
+                context.batcher.icon(chevronIcon, color, ex - 11, y + h / 2, 0.5F, 0.5F);
+            }
+
+            return;
+        }
+
         context.batcher.box(x, y, ex, ey, 0xFF1D1D1D);
         context.batcher.box(x, ey - 1, ex, ey, 0xFF3C3C3C);
 
@@ -4579,10 +4810,18 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
             return;
         }
 
-        /* Snapping to a whole-workspace edge: show just that single edge guide. */
+        /* Snapping to a whole-workspace edge: full-height column for left/right, cube for top/bottom. */
         if (DROP_TARGET_WORKSPACE.equals(this.dropTargetPanelId))
         {
-            this.renderDockGuideZone(context, this.editor.area, this.dropTargetZone, true);
+            if (this.dropTargetZone == EditorLayoutNode.EDGE_LEFT || this.dropTargetZone == EditorLayoutNode.EDGE_RIGHT)
+            {
+                this.renderWorkspaceFullHeightStrip(context, this.dropTargetZone, true);
+            }
+            else
+            {
+                this.renderDockGuideZone(context, this.editor.area, this.dropTargetZone, true);
+            }
+
             this.renderDropPreviewLayout(context);
 
             return;
@@ -4865,23 +5104,66 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
         EditorLayoutNode.SplitterHandleInfo info = this.splitterHandleInfos.get(index);
         boolean active = splitter.area.isInside(context) || splitter.isDragging();
         boolean minecut = this.isMinecutFilmUi();
-        /* Minecut: always-visible 1px cyan divider (previous shell). Classic: grey idle, primary on hover. */
+        /* Idle: neutral seam. Hover/drag: accent (Minecut) or primary (classic). */
+        UIStyle style = UIStyle.active();
         int lineColor = minecut
-            ? (active ? UIStyle.active().accent() : UIStyle.active().accentDim())
+            ? (active ? style.accent() : style.border())
             : (active ? (0xFF000000 | BBSSettings.primaryColor.get()) : 0xAA666666);
-        int linePx = minecut ? 1 : 2;
+        int linePx = minecut ? SPLITTER_LINE_PX_MINECUT : SPLITTER_LINE_PX;
         int half = linePx / 2;
 
         if (info.horizontal)
         {
             int cy = splitter.area.y + splitter.area.h / 2;
+            int x1 = splitter.area.x;
+            int x2 = splitter.area.ex();
 
-            context.batcher.box(splitter.area.x, cy - half, splitter.area.ex(), cy - half + linePx, lineColor);
+            /* Stop horizontals short of a full-height outer vertical column so the vertical
+               seam stays continuous end-to-end (T-junction, not a chopped half-bar). */
+            for (int i = 0; i < this.splitterHandles.size() && i < this.splitterHandleInfos.size(); i++)
+            {
+                if (i == index || this.splitterHandleInfos.get(i).horizontal)
+                {
+                    continue;
+                }
+
+                UIDraggable other = this.splitterHandles.get(i);
+
+                if (other.area.h < this.editor.area.h - 4)
+                {
+                    continue;
+                }
+
+                int vx = other.area.x + other.area.w / 2;
+
+                if (vx < x1 || vx > x2)
+                {
+                    continue;
+                }
+
+                int mid = (x1 + x2) / 2;
+
+                if (vx >= mid)
+                {
+                    x2 = Math.min(x2, vx - half);
+                }
+                else
+                {
+                    x1 = Math.max(x1, vx + half + linePx);
+                }
+            }
+
+            if (x2 > x1)
+            {
+                context.batcher.box(x1, cy - half, x2, cy - half + linePx, lineColor);
+            }
         }
         else
         {
             int cx = splitter.area.x + splitter.area.w / 2;
 
+            /* Full-height vertical seams (outer columns) always draw continuous — never clip
+               against body horizontals that only meet them as a T-junction. */
             context.batcher.box(cx - half, splitter.area.y, cx - half + linePx, splitter.area.ey(), lineColor);
         }
     }
@@ -5812,6 +6094,19 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
         }
         else if (this.editor.area.w >= EDITOR_MIN_SIZE_FOR_PX_HANDLES && this.editor.area.h >= EDITOR_MIN_SIZE_FOR_PX_HANDLES)
         {
+            if (this.pendingFullHeightFloatMigration)
+            {
+                this.pendingFullHeightFloatMigration = false;
+
+                if (this.migrateFullHeightEdgeFloatsToDockedColumns())
+                {
+                    this.setupEditorFlex(true, false, true);
+                    this.persistFilmUILayoutSession();
+
+                    return;
+                }
+            }
+
             this.updateEditorFlexBoundsOnly(BBSSettings.editorLayoutSettings, this.getActiveDockLayoutRoot());
 
             if (this.isMinecutFilmUi() && this.minecutWorkspace != null)
@@ -8097,9 +8392,26 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
                     tabBar.setVisible(false);
                 }
             }
-            else if (this.minecutWorkspace != null && !this.minecutWorkspace.isAttached())
+            else
             {
-                this.minecutWorkspace.attachFilmWidgets();
+                /* Home→film used to leave splitters hidden forever until lock/unlock
+                   rebuilt them — restore interactive resize handles with the workspace. */
+                boolean unlocked = !BBSSettings.editorLayoutSettings.isLayoutLocked();
+
+                for (UIDraggable handle : this.splitterHandles)
+                {
+                    handle.setVisible(unlocked);
+                }
+
+                for (UITabBar tabBar : this.tabBars)
+                {
+                    tabBar.setVisible(true);
+                }
+
+                if (this.minecutWorkspace != null && !this.minecutWorkspace.isAttached())
+                {
+                    this.minecutWorkspace.attachFilmWidgets();
+                }
             }
 
             this.draggableMain.setVisible(false);
@@ -9383,6 +9695,37 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
         this.persistFilmUILayoutSession();
     }
 
+    private void renderWorkspaceFullHeightStrip(UIContext context, int zone, boolean active)
+    {
+        Area area = this.editor.area;
+        int stripW = Math.max(56, Math.min(140, area.w / 5));
+        int x1;
+        int x2;
+
+        if (zone == EditorLayoutNode.EDGE_LEFT)
+        {
+            x1 = area.x;
+            x2 = area.x + stripW;
+        }
+        else
+        {
+            x1 = area.ex() - stripW;
+            x2 = area.ex();
+        }
+
+        int baseColor = BBSSettings.primaryColor.get();
+        int fill = Colors.setA(baseColor, active ? 0.38F : 0.2F);
+        int border = active ? 0xFFFFFFFF : (0xFF000000 | baseColor);
+
+        context.batcher.box(x1, area.y, x2, area.ey(), fill);
+        context.batcher.outline(x1, area.y, x2, area.ey(), border);
+
+        if (active)
+        {
+            context.batcher.outline(x1 - 1, area.y - 1, x2 + 1, area.ey() + 1, 0x66FFFFFF);
+        }
+    }
+
     public void applyFloatingPanelDockResult(String panelId, String targetId, int zone)
     {
         EditorLayoutNode root = this.getActiveDockLayoutRoot();
@@ -9533,7 +9876,7 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
 
             if (panelId != null && this.floatingPanels.contains(panelId))
             {
-                if (this.hiddenPanels.contains(panelId))
+                if (this.hiddenPanels.contains(panelId) || !this.isFloatingPanelActiveForUiStyle(panelId))
                 {
                     continue;
                 }
@@ -9569,6 +9912,7 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
                                 this.dragOffsetX = context.mouseX - x;
                                 this.dragOffsetY = context.mouseY - y;
                                 this.draggingPanelId = panelId;
+                                this.outerColumnDockArmed = false;
                             }
                         }
                         return FloatingClickResult.CONSUMED;
@@ -9633,7 +9977,7 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
 
         for (String panelId : this.floatingPanels)
         {
-            if (this.hiddenPanels.contains(panelId))
+            if (this.hiddenPanels.contains(panelId) || !this.isFloatingPanelActiveForUiStyle(panelId))
             {
                 continue;
             }

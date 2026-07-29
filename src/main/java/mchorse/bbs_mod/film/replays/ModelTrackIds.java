@@ -91,7 +91,7 @@ public final class ModelTrackIds
      * Overlay rows are omitted — Pose / Transform / Color / Illusion auto-stack.
      */
     public static final List<String> PALETTE_CORE = Collections.unmodifiableList(Arrays.asList(
-        VISIBLE, RENDER, LIGHTING, RENDER_DEPTH, TRANSFORM, POSE, COLOR, OPACITY, PAINT, GLOW, TEXTURE
+        VISIBLE, LIGHTING, RENDER_DEPTH, TRANSFORM, POSE, COLOR, OPACITY, PAINT, GLOW, TEXTURE
     ));
 
     public static final List<String> PALETTE_MOTION = Collections.unmodifiableList(Arrays.asList(

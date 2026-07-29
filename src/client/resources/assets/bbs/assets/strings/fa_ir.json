@@ -315,7 +315,7 @@
     "bbs.config.recording.auto_capture_projectiles": "ضبط خودکار پرتابه‌ها",
     "bbs.config.recording.auto_capture_projectiles-comment": "هنگام ضبط، پرتابه‌های ماب‌های ضبط‌شده (تیر، گلوله آتش و ...) به فیلم اضافه و حرکتشان ضبط می‌شود",
     "bbs.config.recording.mob_capture_on_alt": "پنل ماب‌های اطراف با Alt",
-    "bbs.config.recording.mob_capture_on_alt-comment": "وقتی فعال باشد، با زدن کلید ضبط ری‌پلی (Alt راست) قبل از ضبط پنل ماب‌های اطراف باز می‌شود. وقتی غیرفعال باشد ضبط مستقیم شروع می‌شود؛ برای باز کردن آن پنل از Record outside در ادیتور فیلم استفاده کن",
+    "bbs.config.recording.mob_capture_on_alt-comment": "وقتی فعال باشد، با زدن کلید ضبط ری‌پلی (Alt راست) قبل از ضبط پنل ماب‌های اطراف باز می‌شود. وقتی غیرفعال باشد ضبط مستقیم شروع می‌شود؛ برای باز کردن آن پنل در صفحه Record گزینه ماب به مورف را فعال کن",
     "bbs.config.recording.camera_preview": "پیش‌نمایش دوربین",
     "bbs.config.recording.camera_preview-comment": "امکان تغییر رندر مرزهای دوربین در ویرایشگر فیلم را فراهم می‌کند (زمانی که حالت دوربین \"دوربین\" نیست)",
     "bbs.config.recording.camera_preview_future_count": "پیش‌نمایش‌های دوربین آینده",

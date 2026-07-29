@@ -711,6 +711,17 @@ public class UIStructurePickerPanel extends UIOverlayPanel
     }
 
     @Override
+    protected void beginOpenTransition(UIContext context, float transition)
+    {
+        /* Per-panel slides are applied in tools/modes render — no center scale. */
+    }
+
+    @Override
+    protected void endOpenTransition(UIContext context, float transition)
+    {
+    }
+
+    @Override
     protected void renderBackground(UIContext context)
     {
         /* Transparent shell — side panels paint their own fill. */
