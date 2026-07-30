@@ -62,6 +62,7 @@ import mchorse.bbs_mod.ui.film.toolbar.UIViewportInteraction;
 import mchorse.bbs_mod.ui.film.toolbar.ViewportInteractionState;
 import mchorse.bbs_mod.ui.film.utils.keyframes.UIFilmKeyframes;
 import mchorse.bbs_mod.ui.forms.editors.utils.UIBlockRepeatKeyframeUtils;
+import mchorse.bbs_mod.ui.forms.editors.utils.UIFormPropertyTrackSheets;
 import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.ui.framework.elements.UIElement;
 import mchorse.bbs_mod.ui.framework.elements.input.UIPropTransform;
@@ -2794,7 +2795,7 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
 
     private static boolean isHiddenModelProperty(String key)
     {
-        return mchorse.bbs_mod.ui.forms.editors.utils.UIFormPropertyTrackSheets.isHiddenModelProperty(key);
+        return UIFormPropertyTrackSheets.isHiddenModelProperty(key);
     }
 
     private boolean isCompatiblePropertyPath(Form rootForm, String key)
