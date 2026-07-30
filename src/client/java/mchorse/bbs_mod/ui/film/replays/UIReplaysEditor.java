@@ -20,6 +20,7 @@ import mchorse.bbs_mod.data.DataStorageUtils;
 import mchorse.bbs_mod.data.types.MapType;
 import mchorse.bbs_mod.film.Film;
 import mchorse.bbs_mod.film.replays.FormProperties;
+import mchorse.bbs_mod.film.replays.PerLimbService;
 import mchorse.bbs_mod.film.replays.Replay;
 import mchorse.bbs_mod.film.replays.ReplayKeyframes;
 import mchorse.bbs_mod.forms.FormUtils;
@@ -2098,6 +2099,14 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
                     sheets.add(withTrackIcon(sheet, key));
                 }
             }
+
+            if (this.replay.form.get() instanceof ModelForm modelForm)
+            {
+                List<UIKeyframeSheet> materialSheets = new ArrayList<>();
+
+                UIReplaysEditorUtils.addMaterialTextureSheets(modelForm, this.replay.properties, materialSheets);
+                sheets.addAll(materialSheets);
+            }
         }
 
         /* Sort sheets by form path and priority */
@@ -2920,6 +2929,28 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
             || trackName.equals("glow") || trackName.equals("glow_settings")
             || trackName.equals("color_grade")
             || trackName.equals("color2") || trackName.equals("color_mode");
+
+        boolean isMaterialTextureTrack = PerLimbService.isMaterialTextureChannel(sheet.id);
+
+        if (isMaterialTextureTrack)
+        {
+            if (this.collapsedModelTracks.getOrDefault(textureParentKey, true))
+            {
+                return;
+            }
+
+            sheet.level += 1;
+
+            if (customTitle == null || customTitle.isEmpty())
+            {
+                PerLimbService.MaterialTexturePath matPath = PerLimbService.parseMaterialTexturePath(sheet.id);
+
+                if (matPath != null)
+                {
+                    sheet.title = IKey.constant(matPath.material());
+                }
+            }
+        }
 
         if (isPbrTrack)
         {

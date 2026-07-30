@@ -7,6 +7,7 @@ import mchorse.bbs_mod.data.types.ListType;
 import mchorse.bbs_mod.data.types.MapType;
 import mchorse.bbs_mod.forms.FormUtils;
 import mchorse.bbs_mod.forms.forms.Form;
+import mchorse.bbs_mod.forms.forms.ModelForm;
 import mchorse.bbs_mod.forms.forms.utils.EffectTransform;
 import mchorse.bbs_mod.forms.forms.utils.GlowSettings;
 import mchorse.bbs_mod.forms.forms.utils.Illusion;
@@ -93,6 +94,17 @@ public class FormProperties extends ValueGroup
             }
 
             return null;
+        }
+
+        if (PerLimbService.isMaterialTextureChannel(key))
+        {
+            KeyframeChannel channel = new KeyframeChannel(key, KeyframeFactories.LINK);
+
+            channel.setModel(true);
+            this.properties.put(key, channel);
+            this.add(channel);
+
+            return channel;
         }
 
         int colon = key.indexOf(':');
@@ -228,6 +240,29 @@ public class FormProperties extends ValueGroup
 
     private void applyProperty(float tick, Form form, KeyframeChannel value, float blend)
     {
+        PerLimbService.MaterialTexturePath materialPath = PerLimbService.parseMaterialTexturePath(value.getId());
+
+        if (materialPath != null)
+        {
+            Form targetForm = FormUtils.getForm(form, materialPath.formPath());
+
+            if (targetForm instanceof ModelForm modelForm)
+            {
+                KeyframeSegment segment = value.find(tick);
+
+                if (segment != null)
+                {
+                    modelForm.materialTextureOverrides.put(materialPath.material(), (Link) segment.createInterpolated());
+                }
+                else if (blend >= 1F)
+                {
+                    modelForm.materialTextureOverrides.remove(materialPath.material());
+                }
+            }
+
+            return;
+        }
+
         String id = value.getId();
         int colon = id.indexOf(':');
 
@@ -766,6 +801,11 @@ public class FormProperties extends ValueGroup
 
         form.textureBlend = null;
         form.illusionTextureBlend = null;
+
+        if (form instanceof ModelForm modelForm)
+        {
+            modelForm.materialTextureOverrides.clear();
+        }
 
         for (KeyframeChannel value : this.properties.values())
         {

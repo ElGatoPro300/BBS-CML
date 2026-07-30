@@ -59,6 +59,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Function;
 import java.util.function.Supplier;
 
 public class ModelInstance implements IModelInstance
@@ -106,7 +107,19 @@ public class ModelInstance implements IModelInstance
     /** World/model base transform from the last non-UI render pass (used by physics). */
     public transient Matrix4f lastBaseTransform;
 
-    private Map<ModelGroup, ModelVAO> vaos = new HashMap<>();
+    /**
+     * Per-material default textures, loaded from the model's {@code textures/<material>/}
+     * folders (or synthesized as a 1x1 swatch for flat-color materials). Keyed by material
+     * name; the empty key is the model's default texture. Used as the static fallback for a
+     * material when no animation track overrides it - see {@link #getMaterialTexture}.
+     */
+    public Map<String, Link> materialTextures = new HashMap<>();
+
+    /** Ordered, distinct list of material names present on the model (for the editor and resolution). */
+    public List<String> materials = new ArrayList<>();
+
+    /** Per group, the geometry split into one VAO per material name (empty key = default texture). */
+    private Map<ModelGroup, Map<String, ModelVAO>> vaos = new HashMap<>();
     private boolean ownsVaos = true;
 
     public ModelInstance(String id, IModel model, Animations animations, Link texture)
@@ -155,9 +168,22 @@ public class ModelInstance implements IModelInstance
         return this.physBones;
     }
 
-    public Map<ModelGroup, ModelVAO> getVaos()
+    public Map<ModelGroup, Map<String, ModelVAO>> getVaos()
     {
         return this.vaos;
+    }
+
+    /**
+     * Resolve a material's static default texture: the per-material texture loaded
+     * from {@code textures/<material>/} if present, otherwise the supplied fallback
+     * (the form/model default texture). Animation tracks layer on top of this at
+     * render time (handled by the caller), so this only covers the non-animated default.
+     */
+    public Link getMaterialTexture(String material, Link fallback)
+    {
+        Link link = this.materialTextures.get(material);
+
+        return link != null ? link : fallback;
     }
 
     public String getAnchor()
@@ -604,9 +630,12 @@ public class ModelInstance implements IModelInstance
     {
         if (this.ownsVaos)
         {
-            for (ModelVAO value : this.vaos.values())
+            for (Map<String, ModelVAO> groupVaos : this.vaos.values())
             {
-                value.delete();
+                for (ModelVAO value : groupVaos.values())
+                {
+                    value.delete();
+                }
             }
         }
 
@@ -628,9 +657,12 @@ public class ModelInstance implements IModelInstance
 
         if (this.ownsVaos)
         {
-            for (ModelVAO value : this.vaos.values())
+            for (Map<String, ModelVAO> groupVaos : this.vaos.values())
             {
-                value.delete();
+                for (ModelVAO value : groupVaos.values())
+                {
+                    value.delete();
+                }
             }
 
             this.vaos.clear();
@@ -646,7 +678,7 @@ public class ModelInstance implements IModelInstance
 
         if (this.model instanceof Model localModel && source.model instanceof Model sourceModel)
         {
-            Map<ModelGroup, ModelVAO> remapped = new HashMap<>();
+            Map<ModelGroup, Map<String, ModelVAO>> remapped = new HashMap<>();
 
             for (ModelGroup localGroup : localModel.getAllGroups())
             {
@@ -657,11 +689,11 @@ public class ModelInstance implements IModelInstance
                     continue;
                 }
 
-                ModelVAO vao = source.vaos.get(sourceGroup);
+                Map<String, ModelVAO> vaos = source.vaos.get(sourceGroup);
 
-                if (vao != null)
+                if (vaos != null)
                 {
-                    remapped.put(localGroup, vao);
+                    remapped.put(localGroup, vaos);
                 }
             }
 
@@ -748,7 +780,7 @@ public class ModelInstance implements IModelInstance
         }
     }
 
-    public void render(MatrixStack stack, Supplier<ShaderProgram> program, Color color, int light, int overlay, StencilMap stencilMap, ShapeKeys keys, Link defaultTexture)
+    public void render(MatrixStack stack, Supplier<ShaderProgram> program, Color color, int light, int overlay, StencilMap stencilMap, ShapeKeys keys, Function<String, Link> textureResolver)
     {
         if (this.model instanceof Model model)
         {
@@ -761,7 +793,7 @@ public class ModelInstance implements IModelInstance
 
             if (isVao)
             {
-                CubicCubeRenderer renderProcessor = new CubicVAORenderer(program.get(), this, light, overlay, stencilMap, keys, defaultTexture);
+                CubicCubeRenderer renderProcessor = new CubicVAORenderer(program.get(), this, light, overlay, stencilMap, keys, textureResolver);
 
                 renderProcessor.setColor(cr, cg, cb, ca);
                 CubicRenderer.processRenderModel(renderProcessor, null, stack, model);
@@ -774,7 +806,11 @@ public class ModelInstance implements IModelInstance
             else
             {
                 ShaderProgram shader = program.get();
-                Link texture = defaultTexture != null ? defaultTexture : this.texture;
+                Link texture = textureResolver.apply("");
+                if (texture == null)
+                {
+                    texture = this.texture;
+                }
                 boolean disableCull = this.hasShapeKeys()
                     && !ModelVAORenderer.isDeferredTranslucentPass()
                     && !ModelVAORenderer.isPaintOverlayPass();
@@ -816,17 +852,27 @@ public class ModelInstance implements IModelInstance
         }
         else if (this.model instanceof BOBJModel model)
         {
-            BOBJModelVAO vao = model.getVao();
+            List<BOBJModelVAO> vaos = model.getVaos();
 
-            if (vao != null)
+            if (!vaos.isEmpty())
             {
                 stack.push();
                 stack.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(180F));
 
-                vao.armature.setupMatrices();
-                vao.updateMesh(stencilMap);
-                Link texture = defaultTexture != null ? defaultTexture : this.texture;
-                vao.render(program.get(), stack, color.r, color.g, color.b, color.a, stencilMap, light, overlay, texture);
+                model.getArmature().setupMatrices();
+
+                /* One draw per mesh; bind that mesh's resolved texture (mesh name = material). */
+                for (BOBJModelVAO vao : vaos)
+                {
+                    Link texture = textureResolver != null ? textureResolver.apply(vao.data.mesh.name) : null;
+                    if (texture == null)
+                    {
+                        texture = this.texture;
+                    }
+
+                    vao.updateMesh(stencilMap);
+                    vao.render(program.get(), stack, color.r, color.g, color.b, color.a, stencilMap, light, overlay, texture);
+                }
 
                 stack.pop();
             }

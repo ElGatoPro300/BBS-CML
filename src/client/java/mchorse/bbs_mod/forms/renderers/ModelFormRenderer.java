@@ -88,6 +88,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.function.Function;
 import java.util.function.Supplier;
 
 public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITickable
@@ -2098,7 +2099,7 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
         if (textureBlend == null)
         {
             ModelVAORenderer.clearTextureBlend();
-            model.render(stack, program, color, light, overlay, stencilMap, shapeKeys, defaultTexture);
+            model.render(stack, program, color, light, overlay, stencilMap, shapeKeys, this.getTextureResolver(model, defaultTexture));
 
             return;
         }
@@ -2110,12 +2111,12 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
         if (blend <= 0F)
         {
             ModelVAORenderer.clearTextureBlend();
-            model.render(stack, program, color, light, overlay, stencilMap, shapeKeys, fromTexture);
+            model.render(stack, program, color, light, overlay, stencilMap, shapeKeys, this.getTextureResolver(model, fromTexture));
         }
         else if (blend >= 1F)
         {
             ModelVAORenderer.clearTextureBlend();
-            model.render(stack, program, color, light, overlay, stencilMap, shapeKeys, toTexture);
+            model.render(stack, program, color, light, overlay, stencilMap, shapeKeys, this.getTextureResolver(model, toTexture));
         }
         else if (model.supportsBbsModelShaderEffects() && (program.get() == BBSShaders.getModel() || ModelVAORenderer.isPaintOverlayPass()))
         {
@@ -2128,7 +2129,7 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
             try
             {
                 RenderSystem.setShader(blendProgram);
-                model.render(stack, blendProgram, color, light, overlay, stencilMap, shapeKeys, fromTexture);
+                model.render(stack, blendProgram, color, light, overlay, stencilMap, shapeKeys, this.getTextureResolver(model, fromTexture));
             }
             finally
             {
@@ -2143,13 +2144,37 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
             Color colorFrom = color.copy();
 
             colorFrom.a *= 1F - blend;
-            model.render(stack, program, colorFrom, light, overlay, stencilMap, shapeKeys, fromTexture);
+            model.render(stack, program, colorFrom, light, overlay, stencilMap, shapeKeys, this.getTextureResolver(model, fromTexture));
 
             Color colorTo = color.copy();
 
             colorTo.a *= blend;
-            model.render(stack, program, colorTo, light, overlay, stencilMap, shapeKeys, toTexture);
+            model.render(stack, program, colorTo, light, overlay, stencilMap, shapeKeys, this.getTextureResolver(model, toTexture));
         }
+    }
+
+    private Function<String, Link> getTextureResolver(ModelInstance model, Link defaultTexture)
+    {
+        final Link materialFallback = model.materials.isEmpty() ? defaultTexture : model.texture;
+
+        return (material) ->
+        {
+            Link override = this.form.materialTextureOverrides.get(material);
+
+            if (override != null)
+            {
+                return override;
+            }
+
+            Link picked = this.form.materialTextures.getLink(material);
+
+            if (picked != null)
+            {
+                return picked;
+            }
+
+            return model.getMaterialTexture(material, materialFallback);
+        };
     }
 
     private Supplier<ShaderProgram> getModelShader(ModelInstance model)

@@ -9,6 +9,7 @@ import mchorse.bbs_mod.forms.forms.utils.GlowSettings;
 import mchorse.bbs_mod.forms.forms.utils.PaintSettings;
 import mchorse.bbs_mod.forms.renderers.ModelFormRenderer;
 import mchorse.bbs_mod.graphics.window.Window;
+import mchorse.bbs_mod.l10n.keys.IKey;
 import mchorse.bbs_mod.resources.Link;
 import mchorse.bbs_mod.ui.UIKeys;
 import mchorse.bbs_mod.ui.forms.editors.forms.UIForm;
@@ -29,7 +30,10 @@ import mchorse.bbs_mod.ui.utils.shapes.UIShapeKeys;
 import mchorse.bbs_mod.utils.Direction;
 import mchorse.bbs_mod.utils.colors.Color;
 
+import java.util.Collections;
+import java.util.List;
 import java.util.Set;
+import java.util.function.Consumer;
 
 public class UIModelFormPanel extends UIFormPanel<ModelForm>
 {
@@ -219,19 +223,29 @@ public class UIModelFormPanel extends UIFormPanel<ModelForm>
         this.shapeKeys = new UIShapeKeys();
         this.pick = new UIButton(UIKeys.FORMS_EDITOR_MODEL_PICK_TEXTURE, (b) ->
         {
-            Link link = this.form.texture.get();
             ModelInstance model = ModelFormRenderer.getModel(this.form);
+            List<String> materials = model == null ? Collections.emptyList() : model.materials;
 
-            if (model != null && link == null)
+            /* No materials (single global texture, e.g. cubic): pick the form's default texture.
+             * Exactly one material: pick it directly. Multiple: choose which material to pick. When
+             * materials exist the form's "Default" texture is irrelevant, so it isn't offered. */
+            if (materials.isEmpty())
             {
-                link = model.texture;
+                this.openTexturePicker(null);
             }
-
-            UITexturePicker picker = UITexturePicker.open(this.getContext(), link, (l) -> this.form.texture.set(l));
-
-            if (picker != null)
+            else if (materials.size() == 1)
             {
-                picker.withFormPreview(() -> this.form);
+                this.openTexturePicker(materials.get(0));
+            }
+            else
+            {
+                this.getContext().replaceContextMenu((menu) ->
+                {
+                    for (String material : materials)
+                    {
+                        menu.action(Icons.MATERIAL, IKey.constant(material), () -> this.openTexturePicker(material));
+                    }
+                });
             }
         });
         this.pbrNormalIntensity = new UITrackpad((value) -> this.form.pbrNormalIntensity.set(value.floatValue()));
@@ -384,5 +398,49 @@ public class UIModelFormPanel extends UIFormPanel<ModelForm>
         super.pickBone(bone);
 
         this.pickGroup(bone);
+    }
+
+    /**
+     * Open the texture picker for either the form's default texture ({@code material == null}) or a
+     * specific material's static texture. The picker starts at the texture currently in effect, so it
+     * opens beside it rather than at the root.
+     */
+    private void openTexturePicker(String material)
+    {
+        ModelInstance model = ModelFormRenderer.getModel(this.form);
+        Link link;
+        Consumer<Link> callback;
+
+        if (material == null)
+        {
+            link = this.form.texture.get();
+
+            if (model != null && link == null)
+            {
+                link = model.texture;
+            }
+
+            callback = (l) -> this.form.texture.set(l);
+        }
+        else
+        {
+            link = this.form.materialTextures.getLink(material);
+
+            if (link == null && model != null)
+            {
+                Link fallback = this.form.texture.get() != null ? this.form.texture.get() : model.texture;
+
+                link = model.getMaterialTexture(material, fallback);
+            }
+
+            callback = (l) -> this.form.materialTextures.setLink(material, l);
+        }
+
+        UITexturePicker picker = UITexturePicker.open(this.getContext(), link, callback);
+
+        if (picker != null)
+        {
+            picker.withFormPreview(() -> this.form);
+        }
     }
 }
