@@ -786,8 +786,9 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
         boolean renderedOnce = false;
         Area area = new Area();
         area.copy(keyframes.area);
-        area.x += IUIKeyframeGraph.SIDEBAR_WIDTH;
-        area.w -= IUIKeyframeGraph.SIDEBAR_WIDTH;
+        int sidebarWidth = keyframes.getSidebarWidth();
+        area.x += sidebarWidth;
+        area.w -= sidebarWidth;
 
         context.batcher.clip(area, context);
 
