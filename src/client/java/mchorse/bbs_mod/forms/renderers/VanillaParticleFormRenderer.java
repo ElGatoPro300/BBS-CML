@@ -139,11 +139,17 @@ public class VanillaParticleFormRenderer extends FormRenderer<VanillaParticleFor
     @Override
     public void tick(IEntity entity)
     {
-        World world = entity.getWorld();
+        World world = entity == null ? null : entity.getWorld();
+
+        if (world == null)
+        {
+            world = MinecraftClient.getInstance().world;
+        }
+
         boolean paused = this.form.paused.get();
         Vector3f temp3f = new Vector3f();
 
-        if (world != null && !paused)
+        if (world != null && MinecraftClient.getInstance().world != null && !paused)
         {
             if (!this.trackedParticles.isEmpty())
             {
@@ -377,7 +383,8 @@ public class VanillaParticleFormRenderer extends FormRenderer<VanillaParticleFor
                         double y = this.pos.y + temp3f.y;
                         double z = this.pos.z + temp3f.z;
 
-                        Particle particleObj = MinecraftClient.getInstance().particleManager.addParticle(effect, x, y, z, v.x, v.y, v.z);
+                        MinecraftClient mc = MinecraftClient.getInstance();
+                        Particle particleObj = (mc.world != null && mc.particleManager != null) ? mc.particleManager.addParticle(effect, x, y, z, v.x, v.y, v.z) : null;
 
                         if (particleObj != null && pR >= 0F)
                         {
@@ -389,7 +396,7 @@ public class VanillaParticleFormRenderer extends FormRenderer<VanillaParticleFor
                                 this.trackedParticles.add(new TrackedParticle(particleObj, color1, color2));
                             }
                         }
-                        else if (particleObj == null)
+                        else if (particleObj == null && world != null)
                         {
                             world.addParticle(effect, true, x, y, z, v.x, v.y, v.z);
                         }
