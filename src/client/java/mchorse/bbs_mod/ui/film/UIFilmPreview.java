@@ -154,16 +154,6 @@ public class UIFilmPreview extends UIElement
         BBSSettings.editorGizmoToolbar.postCallback((v, f) -> this.rebuildGizmoToolbar());
         this.add(this.gizmos);
 
-        this.keys().register(Keys.TRANSFORMATIONS_COMBINED, () ->
-        {
-            Gizmo.INSTANCE.setMode(Gizmo.Mode.COMBINED);
-            UIUtils.playClick();
-        });
-        this.keys().register(Keys.TRANSFORMATIONS_TOP, () ->
-        {
-            Gizmo.INSTANCE.setMode(Gizmo.Mode.TOP);
-            UIUtils.playClick();
-        });
 
         /* Preview buttons */
         this.onionSkin = new UIIcon(Icons.ONION_SKIN, (b) -> this.openOnionSkin());
