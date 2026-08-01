@@ -1311,7 +1311,7 @@ public abstract class BaseFilmController
 
                             Vec3d pos = player.getPos();
 
-                            if (BBSSettings.editorReplayStepSound == null || BBSSettings.editorReplayStepSound.get())
+                            if (!this.paused && (BBSSettings.editorReplayStepSound == null || BBSSettings.editorReplayStepSound.get()))
                             {
                                 player.setOnGround(grounded);
                                 player.move(MovementType.SELF, new Vec3d(x - pos.x, y - pos.y, z - pos.z));
