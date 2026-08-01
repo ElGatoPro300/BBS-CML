@@ -3943,6 +3943,29 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
                 return;
             }
         }
+
+        if (bone != null && !bone.isEmpty() && this.keyframeEditor != null)
+        {
+            if (this.keyframeEditor.editor instanceof UIPoseKeyframeFactory poseFactory)
+            {
+                if (Window.isCtrlPressed())
+                {
+                    poseFactory.poseEditor.addBoneToSelection(bone);
+                }
+                else
+                {
+                    poseFactory.poseEditor.selectBone(bone);
+                }
+            }
+            else if (this.keyframeEditor.editor instanceof UILookAtKeyframeFactory lookAtFactory)
+            {
+                lookAtFactory.lookAtEditor.selectBone(bone);
+            }
+            else if (this.keyframeEditor.editor instanceof UIInverseKinematicsKeyframeFactory ikFactory)
+            {
+                ikFactory.ikEditor.selectBone(bone);
+            }
+        }
     }
 
     private void pickProperty(String bone, UIKeyframeSheet sheet, boolean insert)
@@ -4005,6 +4028,17 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
             }
 
             this.filmPanel.setCursor((int) closest.getTick());
+        }
+        else if (this.keyframeEditor.editor instanceof UIPoseKeyframeFactory poseFactory)
+        {
+            if (Window.isCtrlPressed())
+            {
+                poseFactory.poseEditor.addBoneToSelection(bone);
+            }
+            else
+            {
+                poseFactory.poseEditor.selectBone(bone);
+            }
         }
         else if (this.keyframeEditor.editor instanceof UILookAtKeyframeFactory lookAtFactory)
         {

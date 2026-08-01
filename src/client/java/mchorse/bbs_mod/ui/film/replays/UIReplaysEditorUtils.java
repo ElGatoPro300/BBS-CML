@@ -333,6 +333,28 @@ public class UIReplaysEditorUtils
         {
             pickProperty(keyframeEditor, cursor, bone, sheet, insert);
         }
+        else if (bone != null && !bone.isEmpty() && keyframeEditor != null)
+        {
+            if (keyframeEditor.editor instanceof UIPoseKeyframeFactory poseFactory)
+            {
+                if (Window.isCtrlPressed())
+                {
+                    poseFactory.poseEditor.addBoneToSelection(bone);
+                }
+                else
+                {
+                    poseFactory.poseEditor.selectBone(bone);
+                }
+            }
+            else if (keyframeEditor.editor instanceof UILookAtKeyframeFactory lookAtFactory)
+            {
+                lookAtFactory.lookAtEditor.selectBone(bone);
+            }
+            else if (keyframeEditor.editor instanceof UIInverseKinematicsKeyframeFactory ikFactory)
+            {
+                ikFactory.ikEditor.selectBone(bone);
+            }
+        }
     }
 
     private static void pickProperty(UIKeyframeEditor keyframeEditor, ICursor filmPanel, String bone, UIKeyframeSheet sheet, boolean insert)
@@ -402,6 +424,17 @@ public class UIReplaysEditorUtils
             }
 
             filmPanel.setCursor((int) closest.getTick());
+        }
+        else if (keyframeEditor.editor instanceof UIPoseKeyframeFactory poseFactory)
+        {
+            if (Window.isCtrlPressed())
+            {
+                poseFactory.poseEditor.addBoneToSelection(bone);
+            }
+            else
+            {
+                poseFactory.poseEditor.selectBone(bone);
+            }
         }
         else if (keyframeEditor.editor instanceof UILookAtKeyframeFactory lookAtFactory)
         {
