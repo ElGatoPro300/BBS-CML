@@ -136,21 +136,8 @@ public abstract class BaseFilmController
         double cz = camera.getPos().z;
 
         boolean relative = context.replay != null && context.relative;
-        boolean isWorldPass = context.map == null && !context.isShadowPass && context.viewMatrix == null;
 
-        if (!relative)
-        {
-            if (isWorldPass)
-            {
-                /* In-world render pass: context.stack (WorldRenderContext) already contains
-                 * Translation(-camera.getPos()). Setting cx=cy=cz=0 prevents subtracting camera
-                 * position twice, keeping mesh and IRLights light poses locked to true world coords. */
-                cx = 0D;
-                cy = 0D;
-                cz = 0D;
-            }
-        }
-        else
+        if (relative)
         {
             if (context.map != null)
             {
