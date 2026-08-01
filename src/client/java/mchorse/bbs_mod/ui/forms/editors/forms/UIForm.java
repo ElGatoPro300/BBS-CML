@@ -58,8 +58,6 @@ public abstract class UIForm <T extends Form> extends UIPanelBase<UIFormPanel<T>
 
     public UIPropTransform getEditableTransform()
     {
-        this.setPanel(this.generalPanel);
-
         return this.general;
     }
 

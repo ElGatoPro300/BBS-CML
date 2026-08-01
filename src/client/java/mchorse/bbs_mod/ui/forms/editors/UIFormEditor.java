@@ -594,21 +594,7 @@ public class UIFormEditor extends UIElement implements IUIFormList, ICursor
         this.gizmoTargetsTransform = true;
         this.gizmoTargetsBodyPart = false;
 
-        if (this.editor != null)
-        {
-            if (this.editor.view == this.editor.generalPanel)
-            {
-                this.enableFormTransformGizmoFromGeneralPanel();
-            }
-            else
-            {
-                this.editor.setPanel(this.editor.generalPanel);
-            }
-        }
-        else if (this.modelSettingsEditor != null && this.modelSettingsEditor.isVisible())
-        {
-            this.modelSettingsEditor.enterFormTransformGizmoMode();
-        }
+        this.enableFormTransformGizmoFromGeneralPanel();
     }
 
     /** Called when the General sidebar tab is selected — avoids re-entering {@link UIForm#setPanel}. */
@@ -779,10 +765,20 @@ public class UIFormEditor extends UIElement implements IUIFormList, ICursor
 
     private void pickFormBone(Form form, String bone)
     {
-        this.formsList.setCurrentForm(form);
-        this.pickForm(this.formsList.getCurrentFirst());
+        if (form == null)
+        {
+            return;
+        }
 
-        if (!bone.isEmpty())
+        Form currentForm = this.formsList.getCurrentFirst() != null ? this.formsList.getCurrentFirst().getForm() : null;
+
+        if (form != currentForm)
+        {
+            this.formsList.setCurrentForm(form);
+            this.pickForm(this.formsList.getCurrentFirst());
+        }
+
+        if (!bone.isEmpty() && this.editor != null)
         {
             this.editor.pickBone(bone);
         }
