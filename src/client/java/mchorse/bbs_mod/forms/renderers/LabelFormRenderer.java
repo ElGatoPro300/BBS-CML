@@ -5,6 +5,8 @@ import mchorse.bbs_mod.client.BBSShaders;
 import mchorse.bbs_mod.forms.CustomVertexConsumerProvider;
 import mchorse.bbs_mod.forms.FormUtilsClient;
 import mchorse.bbs_mod.forms.forms.LabelForm;
+import mchorse.bbs_mod.forms.forms.utils.EffectTransform;
+import mchorse.bbs_mod.forms.forms.utils.EffectTransformMath;
 import mchorse.bbs_mod.forms.forms.utils.GlowSettings;
 import mchorse.bbs_mod.forms.forms.utils.PaintSettings;
 import mchorse.bbs_mod.forms.renderers.utils.FormColorEffects;
@@ -444,36 +446,10 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
             context.stack.pop();
         }
 
-        if (customFont != null)
-        {
-            int c1 = color.getARGBColor();
-            int c2 = c1;
+        float fontSize = this.form.fontSize.get();
+        float scale = (1F / 16F) * (fontSize <= 0 ? 1F : fontSize);
 
-            if (this.form.gradient.get())
-            {
-                Color gradientColor = this.form.gradientEndColor.get().copy();
-                
-                gradientColor.a *= formOpacity;
-                gradientColor.mul(context.color);
-                c2 = gradientColor.getARGBColor();
-            }
-
-            customFont.draw(content, x, y, c1, c2, letterSpacing, 0F, context.stack.peek().getPositionMatrix(), consumers, light, this.form.gradientOffset.get());
-        }
-        else
-        {
-            renderer.draw(
-                content,
-                x,
-                y,
-                color.getARGBColor(), false,
-                context.stack.peek().getPositionMatrix(),
-                consumers,
-                TextRenderer.TextLayerType.NORMAL,
-                0,
-                light
-            );
-        }
+        this.drawMaskedText(context, consumers, renderer, customFont, content, x, y, letterSpacing, light, color, this.form.color.get().transform, formOpacity, scale);
 
         RenderSystem.enableDepthTest();
 
@@ -482,6 +458,88 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
         this.renderTextGlowOverlay(context, consumers, renderer, customFont, content, x, y, letterSpacing, glowSettings, legacyGlow, color.a, glowIntensity, color.getARGBColor());
 
         this.renderShadow(context, x, y, w, h);
+    }
+
+    private void drawMaskedText(FormRenderingContext context, CustomVertexConsumerProvider consumers, TextRenderer renderer, TextureFont customFont, String content, float x, float y, float letterSpacing, int light, Color baseColor, EffectTransform transform, float formOpacity, float scale)
+    {
+        boolean transformActive = EffectTransformMath.isTransformActive(transform);
+
+        if (!transformActive || content.isEmpty())
+        {
+            if (customFont != null)
+            {
+                int c1 = baseColor.getARGBColor();
+                int c2 = c1;
+
+                if (this.form.gradient.get())
+                {
+                    Color gradientColor = this.form.gradientEndColor.get().copy();
+
+                    gradientColor.a *= formOpacity;
+                    gradientColor.mul(context.color);
+                    c2 = gradientColor.getARGBColor();
+                }
+
+                customFont.draw(content, x, y, c1, c2, letterSpacing, 0F, context.stack.peek().getPositionMatrix(), consumers, light, this.form.gradientOffset.get());
+            }
+            else
+            {
+                renderer.draw(
+                    content,
+                    x,
+                    y,
+                    baseColor.getARGBColor(), false,
+                    context.stack.peek().getPositionMatrix(),
+                    consumers,
+                    TextRenderer.TextLayerType.NORMAL,
+                    0,
+                    light
+                );
+            }
+
+            return;
+        }
+
+        float curX = x;
+        Color charColor = baseColor.copy();
+
+        for (int i = 0; i < content.length(); i++)
+        {
+            char ch = content.charAt(i);
+            String chStr = String.valueOf(ch);
+            float charWidth = customFont != null ? customFont.getWidth(chStr, letterSpacing) : renderer.getWidth(chStr);
+
+            float localX = (curX + charWidth / 2F) * scale;
+            float localY = -(y + 4F) * scale;
+            float mask = EffectTransformMath.maskBillboard(localX, localY, 0F, transform);
+
+            if (mask < 0.001F)
+            {
+                mask = 0F;
+            }
+
+            charColor.set(baseColor.r, baseColor.g, baseColor.b, baseColor.a);
+            charColor.r = 1F + (baseColor.r - 1F) * mask;
+            charColor.g = 1F + (baseColor.g - 1F) * mask;
+            charColor.b = 1F + (baseColor.b - 1F) * mask;
+            charColor.a = baseColor.a * mask;
+
+            int argb = charColor.getARGBColor();
+
+            if (charColor.a > 0.001F)
+            {
+                if (customFont != null)
+                {
+                    customFont.draw(chStr, curX, y, argb, argb, letterSpacing, 0F, context.stack.peek().getPositionMatrix(), consumers, light);
+                }
+                else
+                {
+                    renderer.draw(chStr, curX, y, argb, false, context.stack.peek().getPositionMatrix(), consumers, TextRenderer.TextLayerType.NORMAL, 0, light);
+                }
+            }
+
+            curX += charWidth;
+        }
     }
 
     private void renderLimitedString(FormRenderingContext context, CustomVertexConsumerProvider consumers, TextRenderer renderer, int light)
@@ -503,6 +561,8 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
             customFont = FontUtils.getFont(fontName, style);
         }
 
+        float fontSize = this.form.fontSize.get();
+        float scale = (1F / 16F) * (fontSize <= 0 ? 1F : fontSize);
         float letterSpacing = this.form.letterSpacing.get();
         List<String> lines;
         
@@ -611,36 +671,7 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
                 context.stack.pop();
             }
 
-            if (customFont != null)
-            {
-                int c1 = color.getARGBColor();
-                int c2 = c1;
-
-                if (this.form.gradient.get())
-                {
-                    Color gradientColor = this.form.gradientEndColor.get().copy();
-                    
-                    gradientColor.a *= formOpacity;
-                    gradientColor.mul(context.color);
-                    c2 = gradientColor.getARGBColor();
-                }
-
-                customFont.draw(line, lx, y, c1, c2, letterSpacing, 0F, context.stack.peek().getPositionMatrix(), consumers, light);
-            }
-            else
-            {
-                renderer.draw(
-                    line,
-                    lx,
-                    y,
-                    color.getARGBColor(), false,
-                    context.stack.peek().getPositionMatrix(),
-                    consumers,
-                    TextRenderer.TextLayerType.NORMAL,
-                    0,
-                    light
-                );
-            }
+            this.drawMaskedText(context, consumers, renderer, customFont, line, lx, y, letterSpacing, light, color, this.form.color.get().transform, formOpacity, scale);
 
             y += lineHeight;
         }
