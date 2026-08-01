@@ -3683,6 +3683,12 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
             return;
         }
 
+        if (this.filmPanel != null)
+        {
+            this.filmPanel.focusLinkedPropertiesTab("replayTimeline");
+            this.filmPanel.showPanel(this);
+        }
+
         if (!this.ensureReplayForForm(form) || this.keyframeEditor == null)
         {
             return;
@@ -4223,8 +4229,9 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
 
                 if (allowPick)
                 {
-                    if (!this.isVisible())
+                    if (this.filmPanel != null)
                     {
+                        this.filmPanel.focusLinkedPropertiesTab("replayTimeline");
                         this.filmPanel.showPanel(this);
                     }
 
