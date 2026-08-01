@@ -75,7 +75,7 @@ public class UIRecordOverlayPanel extends UIMessageOverlayPanel
             this.mobToMorph = new UIToggle(UIKeys.FILM_RECORD_MOB_TO_MORPH, false, (b) -> {});
 
             this.mobToMorph.tooltip(UIKeys.FILM_RECORD_MOB_TO_MORPH_TOOLTIP);
-            this.mobToMorph.relative(this.content).x(12).y(1F, -34).w(1F, -24);
+            this.mobToMorph.relative(this.content).x(0.5F).y(1F, -34).w(140).anchor(0.5F, 1F);
             this.content.add(this.mobToMorph);
         }
 
@@ -90,6 +90,24 @@ public class UIRecordOverlayPanel extends UIMessageOverlayPanel
         this.keys().register(Keys.RECORDING_GROUP_ONLY_POSITION, this.position::clickItself);
         this.keys().register(Keys.RECORDING_GROUP_ONLY_ROTATION, this.rotation::clickItself);
         this.keys().register(Keys.RECORDING_GROUP_POS_ROT, this.posRot::clickItself);
+    }
+
+    @Override
+    public void render(UIContext context)
+    {
+        if (this.mobToMorphOption && this.mobToMorph != null)
+        {
+            int labelW = context.batcher.getFont().getWidth(this.mobToMorph.label.get());
+            int targetW = labelW + 30;
+
+            if (this.mobToMorph.area.w != targetW)
+            {
+                this.mobToMorph.w(targetW);
+                this.mobToMorph.resize();
+            }
+        }
+
+        super.render(context);
     }
 
     public void submit(List<String> groups)
