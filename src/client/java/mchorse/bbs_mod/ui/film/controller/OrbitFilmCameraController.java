@@ -161,9 +161,9 @@ public class OrbitFilmCameraController implements ICameraController
             return false;
         }
 
-        if (this.controller.panel.isFlying() || area.isInside(context) || (!this.velocityPosition.equals(0, 0, 0) && context.getKeyAction() == KeyAction.RELEASED) || (!this.velocityAngle.equals(0, 0, 0, 0) && context.getKeyAction() == KeyAction.RELEASED))
+        if (this.canInteract() || area.isInside(context) || (!this.velocityPosition.equals(0, 0, 0) && context.getKeyAction() == KeyAction.RELEASED) || (!this.velocityAngle.equals(0, 0, 0, 0) && context.getKeyAction() == KeyAction.RELEASED))
         {
-            if (!this.controller.panel.isFlying() && context.getKeyAction() != KeyAction.RELEASED)
+            if (!this.canInteract() && context.getKeyAction() != KeyAction.RELEASED)
             {
                 return false;
             }
@@ -274,7 +274,7 @@ public class OrbitFilmCameraController implements ICameraController
             changed = true;
         }
 
-        if (this.controller.panel.isFlying())
+        if (this.canInteract())
         {
             if (this.velocityPosition.lengthSquared() > 0 && !this.center)
             {
@@ -421,8 +421,7 @@ public class OrbitFilmCameraController implements ICameraController
             return true;
         }
 
-        return BBSSettings.editorOrbitWithoutFlight.get()
-            && this.controller.getPovMode() == UIFilmController.CAMERA_MODE_ORBIT;
+        return this.controller.getPovMode() == UIFilmController.CAMERA_MODE_ORBIT;
     }
 
     private float getOrbitDistance()

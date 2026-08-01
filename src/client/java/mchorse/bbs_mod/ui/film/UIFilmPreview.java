@@ -617,7 +617,6 @@ public class UIFilmPreview extends UIElement
             }
 
             if (this.panel.getController().getPovMode() == UIFilmController.CAMERA_MODE_ORBIT
-                && BBSSettings.editorOrbitWithoutFlight.get()
                 && !this.panel.getController().orbit.isAnimating()
                 && this.panel.getController().orbit.canStart(context) >= 0)
             {
