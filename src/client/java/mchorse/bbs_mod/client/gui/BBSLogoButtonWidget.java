@@ -7,7 +7,7 @@ import net.minecraft.util.Identifier;
 
 public class BBSLogoButtonWidget extends ButtonWidget
 {
-    private static final Identifier LOGO = Identifier.of("bbs", "textures/gui/bbs_logo.png");
+    private static final Identifier LOGO = Identifier.of("bbs", "textures/gui/cml_icon.png");
 
     public BBSLogoButtonWidget(int x, int y, int width, int height, PressAction onPress)
     {
