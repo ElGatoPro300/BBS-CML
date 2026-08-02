@@ -29,6 +29,7 @@ import mchorse.bbs_mod.ui.utils.icons.Icons;
 import mchorse.bbs_mod.utils.CollectionUtils;
 import mchorse.bbs_mod.utils.MathUtils;
 import mchorse.bbs_mod.utils.Pair;
+import mchorse.bbs_mod.utils.StringUtils;
 import mchorse.bbs_mod.utils.colors.Colors;
 import mchorse.bbs_mod.utils.keyframes.Keyframe;
 import mchorse.bbs_mod.utils.keyframes.KeyframeShape;
@@ -192,21 +193,63 @@ public class UIKeyframeDopeSheet implements IUIKeyframeGraph
         }
 
         Object channel = keyframe.getParent();
+        UIKeyframeSheet first = null;
+        UIKeyframeSheet selected = null;
 
         for (UIKeyframeSheet sheet : this.sheets)
         {
+            UIKeyframeSheet match = null;
+
             if (sheet.channel == channel)
             {
-                return sheet;
+                match = sheet;
+            }
+            else if (sheet.companion != null && sheet.companion.channel == channel)
+            {
+                match = sheet.companion;
             }
 
-            if (sheet.companion != null && sheet.companion.channel == channel)
+            if (match == null)
             {
-                return sheet.companion;
+                continue;
+            }
+
+            if (first == null)
+            {
+                first = match;
+            }
+
+            if (match.selection.has(keyframe))
+            {
+                selected = match;
+
+                /* Prefer nested Color grade row when both could match selection. */
+                if (StringUtils.fileName(match.id).equals("color_grade"))
+                {
+                    return match;
+                }
             }
         }
 
-        return null;
+        if (selected != null)
+        {
+            return selected;
+        }
+
+        if (this.lastSheet != null && this.lastSheet.channel == channel)
+        {
+            return this.lastSheet;
+        }
+
+        return first;
+    }
+
+    public void rememberSheet(UIKeyframeSheet sheet)
+    {
+        if (sheet != null)
+        {
+            this.lastSheet = sheet;
+        }
     }
 
     @Override
@@ -281,7 +324,7 @@ public class UIKeyframeDopeSheet implements IUIKeyframeGraph
 
     private boolean isWorldOrModelGroup(UIKeyframeSheet sheet)
     {
-        return sheet.groupKey != null && (sheet.groupKey.endsWith("__world__") || sheet.groupKey.endsWith("__model__"));
+        return sheet.groupKey != null && (sheet.groupKey.endsWith("__world__") || sheet.groupKey.endsWith("__model__") || sheet.groupKey.endsWith("__vanilla_poses__") || sheet.groupKey.endsWith("__vanilla_actions__"));
     }
 
     private boolean isRootFormGroup(UIKeyframeSheet sheet)

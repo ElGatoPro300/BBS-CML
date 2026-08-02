@@ -112,7 +112,7 @@ public class UIFilmKeyframes extends UIKeyframes
         {
             int cx = this.toGraphX(this.getOffset());
 
-            if (cx < this.area.x + IUIKeyframeGraph.SIDEBAR_WIDTH)
+            if (cx < this.area.x + this.getSidebarWidth())
             {
                 return;
             }

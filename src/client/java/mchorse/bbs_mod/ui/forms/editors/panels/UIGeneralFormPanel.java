@@ -397,12 +397,25 @@ public class UIGeneralFormPanel extends UIFormPanel
     }
 
     /**
+     * Re-evaluate Look At / IK visibility (e.g. when the General tab becomes active).
+     */
+    public void refreshFilmOnlySectionsVisibility()
+    {
+        this.updateFilmOnlySectionsVisibility();
+        this.options.resize();
+    }
+
+    /**
      * Film-only constraint UIs (targets are replay actors). Keep them for morphing /
      * film form editors; hide when this General panel is nested under a model block.
+     * <p>
+     * Walk from {@link UIForm#editor} rather than {@code this}: at
+     * {@link #startEdit} time the General tab is usually not mounted (Pose is the
+     * default panel), so {@code this.getParent(...)} is null even inside a model block.
      */
     private void updateFilmOnlySectionsVisibility()
     {
-        boolean show = this.getParent(UIModelBlockPanel.class) == null;
+        boolean show = !this.isModelBlockFormContext();
 
         this.lookAtSection.setVisible(show);
         this.lookAtSection.getShell().setVisible(show);
@@ -414,5 +427,17 @@ public class UIGeneralFormPanel extends UIFormPanel
             this.lookAtSection.setExpanded(false);
             this.inverseKinematicsSection.setExpanded(false);
         }
+    }
+
+    private boolean isModelBlockFormContext()
+    {
+        UIElement anchor = this;
+
+        if (this.editor != null && this.editor.editor != null)
+        {
+            anchor = this.editor.editor;
+        }
+
+        return anchor.getParent(UIModelBlockPanel.class) != null;
     }
 }

@@ -92,26 +92,14 @@ public class GlowSettings
     }
 
     /**
-     * Returns glow intensity, or a default when only a legacy glowing_color tint is set.
+     * Returns glow intensity. {@link #intensity} is always authoritative (including {@code 0} =
+     * glow off). Legacy {@code glowing_color} is migrated into modern glow in
+     * {@code Form.fromData} / FormProperties — do not re-interpret it at render time, or
+     * dual-written white {@code glowing_color} with alpha 1 forces full-strength glow.
      */
     public float resolveIntensity(Color legacy)
     {
-        if (this.intensity != 0F)
-        {
-            return this.intensity;
-        }
-
-        if (legacy != null && (legacy.r != 1F || legacy.g != 1F || legacy.b != 1F))
-        {
-            if (legacy.a > 0F && legacy.a < 1F)
-            {
-                return legacy.a;
-            }
-
-            return 1F;
-        }
-
-        return 0F;
+        return this.intensity;
     }
 
     public boolean resolveSync()

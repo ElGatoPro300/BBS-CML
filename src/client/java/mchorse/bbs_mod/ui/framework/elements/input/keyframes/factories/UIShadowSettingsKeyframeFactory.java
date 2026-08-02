@@ -14,12 +14,11 @@ import mchorse.bbs_mod.utils.keyframes.Keyframe;
 import java.util.function.Consumer;
 
 /**
- * Keyframe properties for the compound replay {@code shadow} channel:
- * opacity, width X/Y (world X/Z) with link, and offset XYZ.
+ * Keyframe properties for the replay {@code shadow_size} channel:
+ * width X/Y (world X/Z) with optional link, and offset XYZ.
  */
 public class UIShadowSettingsKeyframeFactory extends UIKeyframeFactory<ShadowSettings>
 {
-    private UITrackpad opacity;
     private UITrackpad widthX;
     private UITrackpad widthY;
     private UIIcon widthLink;
@@ -31,9 +30,6 @@ public class UIShadowSettingsKeyframeFactory extends UIKeyframeFactory<ShadowSet
     public UIShadowSettingsKeyframeFactory(Keyframe<ShadowSettings> keyframe, UIKeyframes editor)
     {
         super(keyframe, editor);
-
-        this.opacity = new UITrackpad((v) -> this.apply((s) -> s.opacity = v.floatValue()));
-        this.opacity.limit(0D, 1D).tooltip(UIKeys.FILM_REPLAY_SHADOW_OPACITY);
 
         this.widthX = new UITrackpad((v) -> this.setWidthX(v.floatValue()));
         this.widthX.limit(0D).tooltip(UIKeys.FILM_REPLAY_SHADOW_SIZE_X);
@@ -60,9 +56,7 @@ public class UIShadowSettingsKeyframeFactory extends UIKeyframeFactory<ShadowSet
         this.offsetZ.tooltip(UIKeys.FILM_REPLAY_SHADOW_OFFSET_Z);
         this.offsetZ.textbox.setColor(Colors.BLUE);
 
-        this.scroll.add(UI.label(UIKeys.FILM_REPLAY_SHADOW_OPACITY));
-        this.scroll.add(this.opacity);
-        this.scroll.add(UI.label(UIKeys.FILM_REPLAY_SHADOW_WIDTH).marginTop(4));
+        this.scroll.add(UI.label(UIKeys.FILM_REPLAY_SHADOW_WIDTH));
         this.scroll.add(UI.row(this.widthX, this.widthLink, this.widthY));
         this.scroll.add(UI.label(UIKeys.FILM_REPLAY_SHADOW_OFFSET).marginTop(4));
         this.scroll.add(UI.row(this.offsetX, this.offsetY, this.offsetZ));
@@ -70,7 +64,6 @@ public class UIShadowSettingsKeyframeFactory extends UIKeyframeFactory<ShadowSet
         this.context((menu) ->
         {
             menu.action(Icons.CLOSE, UIKeys.FILM_REPLAY_SHADOW_RESET_ALL, this::resetAll);
-            menu.action(Icons.VISIBLE, UIKeys.FILM_REPLAY_SHADOW_RESET_OPACITY, this::resetOpacity);
             menu.action(Icons.SCALE, UIKeys.FILM_REPLAY_SHADOW_RESET_WIDTH, this::resetWidth);
             menu.action(Icons.ALL_DIRECTIONS, UIKeys.FILM_REPLAY_SHADOW_RESET_OFFSET, this::resetOffset);
         });
@@ -85,7 +78,6 @@ public class UIShadowSettingsKeyframeFactory extends UIKeyframeFactory<ShadowSet
 
         ShadowSettings value = this.getOrCreate(this.keyframe.getValue());
 
-        this.opacity.setValue(value.opacity);
         this.widthX.setValue(value.widthX);
         this.widthY.setValue(value.widthZ);
         this.offsetX.setValue(value.offsetX);
@@ -175,18 +167,13 @@ public class UIShadowSettingsKeyframeFactory extends UIKeyframeFactory<ShadowSet
         {
             ShadowSettings defaults = new ShadowSettings();
 
-            settings.opacity = defaults.opacity;
             settings.widthX = defaults.widthX;
             settings.widthZ = defaults.widthZ;
             settings.offsetX = defaults.offsetX;
             settings.offsetY = defaults.offsetY;
             settings.offsetZ = defaults.offsetZ;
+            settings.opacity = 1F;
         });
-    }
-
-    private void resetOpacity()
-    {
-        this.applyAndRefresh((settings) -> settings.opacity = 1F);
     }
 
     private void resetWidth()

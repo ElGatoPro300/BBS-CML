@@ -65,6 +65,12 @@ public class ShadowSettingsKeyframeFactory implements IKeyframeFactory<ShadowSet
         return this.i;
     }
 
+    @Override
+    public double getY(ShadowSettings value)
+    {
+        return value == null ? 0.5D : value.widthX;
+    }
+
     private ShadowSettings valueOrDefault(ShadowSettings value)
     {
         return value == null ? new ShadowSettings() : value;

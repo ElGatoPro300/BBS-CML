@@ -150,6 +150,7 @@ public class Model implements IMapSerializable, IModel
             }
 
             group.lighting = transform.lighting;
+            group.noshadingOpacity = transform.noshadingOpacity;
             group.color.copy(transform.color);
             group.paintColor.copy(transform.paintColor);
             group.glowingColor.copy(transform.glowingColor);

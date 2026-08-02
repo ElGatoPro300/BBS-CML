@@ -19,14 +19,18 @@ import mchorse.bbs_mod.cubic.data.model.ModelGroup;
 import mchorse.bbs_mod.data.DataStorageUtils;
 import mchorse.bbs_mod.data.types.MapType;
 import mchorse.bbs_mod.film.Film;
+import mchorse.bbs_mod.film.replays.FormProperties;
+import mchorse.bbs_mod.film.replays.PerLimbService;
 import mchorse.bbs_mod.film.replays.Replay;
 import mchorse.bbs_mod.film.replays.ReplayKeyframes;
 import mchorse.bbs_mod.forms.FormUtils;
 import mchorse.bbs_mod.forms.entities.IEntity;
 import mchorse.bbs_mod.forms.forms.BodyPart;
 import mchorse.bbs_mod.forms.forms.Form;
+import mchorse.bbs_mod.forms.forms.LabelForm;
 import mchorse.bbs_mod.forms.forms.ModelForm;
 import mchorse.bbs_mod.forms.forms.StructureForm;
+import mchorse.bbs_mod.forms.forms.TrailForm;
 import mchorse.bbs_mod.forms.renderers.ModelFormRenderer;
 import mchorse.bbs_mod.graphics.window.Window;
 import mchorse.bbs_mod.l10n.L10n;
@@ -36,6 +40,7 @@ import mchorse.bbs_mod.resources.Link;
 import mchorse.bbs_mod.settings.values.IValueListener;
 import mchorse.bbs_mod.settings.values.base.BaseValue;
 import mchorse.bbs_mod.settings.values.base.BaseValueBasic;
+import mchorse.bbs_mod.settings.values.core.ValueColor;
 import mchorse.bbs_mod.ui.UIKeys;
 import mchorse.bbs_mod.ui.film.UIClipsPanel;
 import mchorse.bbs_mod.ui.film.UIFilmPanel;
@@ -58,6 +63,7 @@ import mchorse.bbs_mod.ui.film.toolbar.UIViewportInteraction;
 import mchorse.bbs_mod.ui.film.toolbar.ViewportInteractionState;
 import mchorse.bbs_mod.ui.film.utils.keyframes.UIFilmKeyframes;
 import mchorse.bbs_mod.ui.forms.editors.utils.UIBlockRepeatKeyframeUtils;
+import mchorse.bbs_mod.ui.forms.editors.utils.UIFormPropertyTrackSheets;
 import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.ui.framework.elements.UIElement;
 import mchorse.bbs_mod.ui.framework.elements.input.UIPropTransform;
@@ -191,7 +197,8 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
         COLORS.put("extra1_y", Colors.GREEN);
         COLORS.put("extra2_x", Colors.RED);
         COLORS.put("extra2_y", Colors.GREEN);
-        COLORS.put("shadow", Colors.ORANGE);
+        COLORS.put("shadow_size", Colors.MAGENTA);
+        COLORS.put("shadow_opacity", Colors.ORANGE);
         COLORS.put("riding", Colors.ORANGE);
         COLORS.put("ridden", Colors.BLUE);
 
@@ -201,10 +208,13 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
         COLORS.put("pose_overlay", Colors.ORANGE);
         COLORS.put("transform", Colors.GREEN);
         COLORS.put("transform_overlay", 0xaaff00);
-        COLORS.put("color", Colors.RED);
+        COLORS.put("color", Colors.INACTIVE);
+        COLORS.put("color2", 0xff66ccff);
+        COLORS.put("color_mode", 0xffaa66ff);
         COLORS.put("paint_color", Colors.INACTIVE);
         COLORS.put("paint", Colors.INACTIVE);
         COLORS.put("glow", Colors.YELLOW);
+        COLORS.put("color_grade", Colors.PINK);
         COLORS.put("lighting", Colors.YELLOW);
         COLORS.put("look_at", 0x007f70);
         COLORS.put("inverse_kinematics", 0x6b4c9a);
@@ -270,9 +280,12 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
         ICONS.put("pose", Icons.POSE);
         ICONS.put("transform", Icons.ALL_DIRECTIONS);
         ICONS.put("color", Icons.BUCKET);
+        ICONS.put("color2", Icons.BUCKET);
+        ICONS.put("color_mode", Icons.PROPERTIES);
         ICONS.put("paint_color", Icons.BUCKET);
         ICONS.put("paint", Icons.BUCKET);
         ICONS.put("glow", Icons.LIGHT);
+        ICONS.put("color_grade", Icons.FAVORITE);
         ICONS.put("lighting", Icons.LIGHT);
         ICONS.put("look_at", Icons.VISIBLE);
         ICONS.put("inverse_kinematics", Icons.IK);
@@ -288,7 +301,8 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
         ICONS.put("trigger_l", Icons.TRIGGER);
         ICONS.put("extra1_x", Icons.CURVES);
         ICONS.put("extra2_x", Icons.CURVES);
-        ICONS.put("shadow", Icons.VISIBLE);
+        ICONS.put("shadow_size", Icons.SCALE);
+        ICONS.put("shadow_opacity", Icons.VISIBLE);
         ICONS.put("item_main_hand", Icons.LIMB);
 
         ICONS.put("user1", Icons.PARTICLE);
@@ -772,8 +786,9 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
         boolean renderedOnce = false;
         Area area = new Area();
         area.copy(keyframes.area);
-        area.x += IUIKeyframeGraph.SIDEBAR_WIDTH;
-        area.w -= IUIKeyframeGraph.SIDEBAR_WIDTH;
+        int sidebarWidth = keyframes.getSidebarWidth();
+        area.x += sidebarWidth;
+        area.w -= sidebarWidth;
 
         context.batcher.clip(area, context);
 
@@ -1299,6 +1314,9 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
         this.collapsedModelTracks.put(replayId + ":" + rootPath, false);
         this.collapsedModelTracks.put(replayId + ":__model__", false);
         this.collapsedModelTracks.put(replayId + ":__world__", true);
+        this.collapsedModelTracks.put(replayId + ":__vanilla_poses__", true);
+        this.collapsedModelTracks.put(replayId + ":__vanilla_actions__", true);
+        this.collapsedModelTracks.put(replayId + ":__model__:color", true);
 
         List<String> childPaths = new ArrayList<>();
 
@@ -1439,9 +1457,15 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
             && this.filmPanel.getController().getCurrentEntity() != null;
     }
 
-    private static final List<String> WORLD_CHANNELS = Arrays.asList("x", "y", "z", "vX", "vY", "vZ", "yaw", "pitch", "headYaw", "bodyYaw", "grounded", "damage", "death_time", "using_item", "item_use_time", "fire", "particles", "active_hand", "fall", "sneaking", "riding", "sprinting", "swimming", "flying", "fall_flying", "crawling", "climbing", "blocking", "sleeping", "riptide", "item_main_hand", "item_off_hand", "item_head", "item_chest", "item_legs", "item_feet", "selected_slot", "stick_lx", "stick_ly", "stick_rx", "stick_ry", "trigger_l", "trigger_r", "extra1_x", "extra1_y", "extra2_x", "extra2_y", "shadow");
-    private static final List<String> MODEL_PROPERTIES = Arrays.asList("visible", "render", "lighting", "transform", "transform_overlay", "pose", "pose_overlay", "anchor", "look_at", "inverse_kinematics", "illusion", "illusion_transform", "color", "paint", "paint_color", "glow", "texture", "pbr_normal_intensity", "pbr_specular_intensity", "model", "actions", "shape_keys", "block_state", "item_stack", "modelTransform", "same_animation_when_dropped", "settings", "paused", "frequency", "count", "structure_file", "biome_id", "emit_light", "light_intensity", "structure_light", "enabled", "level", "effect");
-    private static final Set<String> HIDDEN_MODEL_PROPERTIES = Set.of("glowing_color", "glow_settings", "glow_intensity", "paint_color", "paint");
+    private static final List<String> WORLD_CHANNELS = Arrays.asList("x", "y", "z", "vX", "vY", "vZ", "yaw", "pitch", "headYaw", "bodyYaw", "grounded", "damage", "death_time", "using_item", "item_use_time", "fire", "particles", "active_hand", "fall", "sneaking", "riding", "sprinting", "swimming", "flying", "fall_flying", "crawling", "climbing", "blocking", "sleeping", "riptide", "item_main_hand", "item_off_hand", "item_head", "item_chest", "item_legs", "item_feet", "selected_slot", "stick_lx", "stick_ly", "stick_rx", "stick_ry", "trigger_l", "trigger_r", "extra1_x", "extra1_y", "extra2_x", "extra2_y", "shadow_size", "shadow_opacity");
+    private static final Set<String> VANILLA_POSE_CHANNELS = Set.of(
+        "riding", "swimming", "flying", "fall_flying",
+        "crawling", "climbing", "blocking", "sleeping", "riptide"
+    );
+    private static final Set<String> VANILLA_ACTION_CHANNELS = Set.of(
+        "death_time", "using_item", "item_use_time", "fire", "particles", "active_hand"
+    );
+    private static final List<String> MODEL_PROPERTIES = Arrays.asList("visible", "render", "lighting", "transform", "transform_overlay", "pose", "pose_overlay", "anchor", "look_at", "inverse_kinematics", "illusion", "illusion_transform", "color", "color2", "color_mode", "color_grade", "paint", "paint_color", "glow", "texture", "pbr_normal_intensity", "pbr_specular_intensity", "model", "actions", "shape_keys", "block_state", "item_stack", "modelTransform", "same_animation_when_dropped", "settings", "paused", "frequency", "count", "structure_file", "biome_id", "emit_light", "light_intensity", "structure_light", "enabled", "level", "effect");
 
     private static boolean isFormItemUseTimeTrack(UIKeyframeSheet sheet)
     {
@@ -1693,15 +1717,20 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
             return UIKeys.FILM_REPLAY_TRACK_EXTRA2_Y;
         }
 
-        if (trackName.equals("shadow") || trackName.equals("shadow_size") || trackName.equals("shadow_size_z") || trackName.equals("shadow_opacity"))
+        if (trackName.equals("shadow_size"))
         {
-            return UIKeys.FILM_REPLAY_SHADOW;
+            return UIKeys.FILM_REPLAY_SHADOW_SIZE;
+        }
+
+        if (trackName.equals("shadow_opacity"))
+        {
+            return UIKeys.FILM_REPLAY_SHADOW_OPACITY;
         }
 
         return null;
     }
 
-    private static IKey resolvePropertyTrackTitle(String trackName)
+    public static IKey resolvePropertyTrackTitle(String trackName)
     {
         IKey worldTitle = resolveWorldChannelTrackTitle(trackName);
 
@@ -1718,6 +1747,21 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
         if (trackName.equals("glow") || trackName.equals("glow_settings"))
         {
             return UIKeys.FORMS_EDITORS_GLOW;
+        }
+
+        if (trackName.equals("color_grade"))
+        {
+            return UIKeys.FORMS_EDITORS_COLOR_GRADE;
+        }
+
+        if (trackName.equals("color2"))
+        {
+            return UIKeys.FORMS_EDITORS_VANILLA_PARTICLE_COLOR2;
+        }
+
+        if (trackName.equals("color_mode"))
+        {
+            return UIKeys.FORMS_EDITORS_VANILLA_PARTICLE_COLOR_MODE;
         }
 
         if (trackName.equals("color"))
@@ -2028,6 +2072,12 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
                 if (property != null)
                 {
                     BaseValueBasic formProperty = FormUtils.getProperty(this.replay.form.get(), key);
+
+                    if (formProperty == null && FormProperties.isColorGradeChannelKey(key))
+                    {
+                        formProperty = FormUtils.getProperty(this.replay.form.get(), FormProperties.colorPropertyPathForGrade(key));
+                    }
+
                     String customTitle = this.replay.getCustomSheetTitle(key);
                     Integer customColor = this.replay.getSheetColor(key);
                     int baseColor = getColor(key);
@@ -2049,6 +2099,14 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
 
                     sheets.add(withTrackIcon(sheet, key));
                 }
+            }
+
+            if (this.replay.form.get() instanceof ModelForm modelForm)
+            {
+                List<UIKeyframeSheet> materialSheets = new ArrayList<>();
+
+                UIReplaysEditorUtils.addMaterialTextureSheets(modelForm, this.replay.properties, materialSheets);
+                sheets.addAll(materialSheets);
             }
         }
 
@@ -2118,6 +2176,7 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
                 if (name.equals("biome_id")) return 62;
                 if (name.equals("structure_light")) return 63;
                 if (name.equals("color")) return 64;
+                if (name.equals("color_grade")) return 65;
                 if (name.equals("paint_color") || name.equals("paint")) return 66;
                 if (name.equals("glow") || name.equals("glow_settings")) return 67;
                 if (name.equals("texture")) return 68;
@@ -2359,6 +2418,40 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
 
                 worldHeader.level = 1;
 
+                String vanillaPosesKey = this.replay.uuid.get() + ":__vanilla_poses__";
+                boolean vanillaPosesExpanded = !this.collapsedModelTracks.getOrDefault(vanillaPosesKey, true);
+                UIKeyframeSheet vanillaPosesHeader = UIKeyframeSheet.groupHeader(
+                    "__group__" + vanillaPosesKey,
+                    UIKeys.FILM_REPLAY_VANILLA_POSES,
+                    Colors.LIGHTEST_GRAY & Colors.RGB,
+                    vanillaPosesKey,
+                    vanillaPosesExpanded,
+                    () ->
+                    {
+                        this.collapsedModelTracks.put(vanillaPosesKey, !this.collapsedModelTracks.getOrDefault(vanillaPosesKey, true));
+                        this.updateChannelsList();
+                    }
+                );
+
+                vanillaPosesHeader.level = 2;
+
+                String vanillaActionsKey = this.replay.uuid.get() + ":__vanilla_actions__";
+                boolean vanillaActionsExpanded = !this.collapsedModelTracks.getOrDefault(vanillaActionsKey, true);
+                UIKeyframeSheet vanillaActionsHeader = UIKeyframeSheet.groupHeader(
+                    "__group__" + vanillaActionsKey,
+                    UIKeys.FILM_REPLAY_VANILLA_ACTIONS,
+                    Colors.LIGHTEST_GRAY & Colors.RGB,
+                    vanillaActionsKey,
+                    vanillaActionsExpanded,
+                    () ->
+                    {
+                        this.collapsedModelTracks.put(vanillaActionsKey, !this.collapsedModelTracks.getOrDefault(vanillaActionsKey, true));
+                        this.updateChannelsList();
+                    }
+                );
+
+                vanillaActionsHeader.level = 2;
+
                 String modelPropsKey = this.replay.uuid.get() + ":__model__";
                 boolean modelPropsExpanded = !this.collapsedModelTracks.getOrDefault(modelPropsKey, false);
                 UIKeyframeSheet modelPropsHeader = UIKeyframeSheet.groupHeader(
@@ -2379,12 +2472,16 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
                 grouped.add(worldHeader);
 
                 List<UIKeyframeSheet> worldTracks = new ArrayList<>();
+                List<UIKeyframeSheet> vanillaPoseTracks = new ArrayList<>();
+                List<UIKeyframeSheet> vanillaActionTracks = new ArrayList<>();
                 List<UIKeyframeSheet> modelTracksBeforePose = new ArrayList<>();
                 List<UIKeyframeSheet> poseTrack = new ArrayList<>();
                 List<UIKeyframeSheet> poseLimbTracks = new ArrayList<>();
                 List<UIKeyframeSheet> overlayTracks = new ArrayList<>();
                 List<UIKeyframeSheet> overlayLimbTracks = new ArrayList<>();
                 List<UIKeyframeSheet> modelTracksAfterPose = new ArrayList<>();
+                boolean hasVanillaPoses = false;
+                boolean hasVanillaActions = false;
 
                 Map<String, FormTracks> subForms = new LinkedHashMap<>();
 
@@ -2394,8 +2491,31 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
                     {
                         if (!this.collapsedModelTracks.getOrDefault(worldKey, false))
                         {
-                            sheet.level = 2;
-                            worldTracks.add(sheet);
+                            if (VANILLA_POSE_CHANNELS.contains(sheet.id))
+                            {
+                                hasVanillaPoses = true;
+
+                                if (vanillaPosesExpanded)
+                                {
+                                    sheet.level = 3;
+                                    vanillaPoseTracks.add(sheet);
+                                }
+                            }
+                            else if (VANILLA_ACTION_CHANNELS.contains(sheet.id))
+                            {
+                                hasVanillaActions = true;
+
+                                if (vanillaActionsExpanded)
+                                {
+                                    sheet.level = 3;
+                                    vanillaActionTracks.add(sheet);
+                                }
+                            }
+                            else
+                            {
+                                sheet.level = 2;
+                                worldTracks.add(sheet);
+                            }
                         }
                     }
                     else if (MODEL_PROPERTIES.contains(sheet.id) || isFormItemUseTimeTrack(sheet) || sheet.id.startsWith("pose") || sheet.id.startsWith("transform_overlay") || sheet.id.startsWith("illusion_overlay"))
@@ -2461,7 +2581,26 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
                 this.orderLimbTracks(rootForm, poseLimbTracks);
                 List<UIKeyframeSheet> orderedOverlayTracks = this.orderOverlayTracks(rootForm, overlayTracks, overlayLimbTracks);
 
-                grouped.addAll(worldTracks);
+                this.injectColorGradeSheets(modelTracksBeforePose);
+                this.injectColorGradeSheets(modelTracksAfterPose);
+
+                if (!this.collapsedModelTracks.getOrDefault(worldKey, false))
+                {
+                    grouped.addAll(worldTracks);
+
+                    if (hasVanillaPoses)
+                    {
+                        grouped.add(vanillaPosesHeader);
+                        grouped.addAll(vanillaPoseTracks);
+                    }
+
+                    if (hasVanillaActions)
+                    {
+                        grouped.add(vanillaActionsHeader);
+                        grouped.addAll(vanillaActionTracks);
+                    }
+                }
+
                 grouped.add(modelPropsHeader);
                 grouped.addAll(modelTracksBeforePose);
                 grouped.addAll(poseTrack);
@@ -2503,6 +2642,9 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
                         this.orderLimbTracks(subForm.form, subForm.limbs);
                         List<UIKeyframeSheet> orderedSubOverlays = this.orderOverlayTracks(subForm.form, subForm.overlayRoots, subForm.overlayLimbs);
 
+                        this.injectColorGradeSheets(subForm.before);
+                        this.injectColorGradeSheets(subForm.after);
+
                         grouped.addAll(subForm.before);
                         grouped.addAll(subForm.pose);
                         grouped.addAll(subForm.limbs);
@@ -2538,7 +2680,7 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
 
         for (UIKeyframeSheet sheet : sheets)
         {
-            if (sheet.property == null && "shadow".equals(sheet.id))
+            if (sheet.property == null && ("shadow_size".equals(sheet.id) || "shadow_opacity".equals(sheet.id)))
             {
                 sheet.separator = false;
             }
@@ -2663,25 +2805,7 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
 
     private static boolean isHiddenModelProperty(String key)
     {
-        if (key == null || key.isEmpty())
-        {
-            return false;
-        }
-
-        int colon = key.indexOf(':');
-        String path = colon == -1 ? key : key.substring(0, colon);
-        int slash = path.lastIndexOf('/');
-        String name = slash == -1 ? path : path.substring(slash + 1);
-
-        if ("using_item".equals(name) || "item_use_time".equals(name))
-        {
-            return false;
-        }
-
-        return path.endsWith("tint_block_entities")
-            || path.endsWith("_item")
-            || HIDDEN_MODEL_PROPERTIES.contains(name)
-            || name.startsWith("illusion_transform");
+        return UIFormPropertyTrackSheets.isHiddenModelProperty(key);
     }
 
     private boolean isCompatiblePropertyPath(Form rootForm, String key)
@@ -2693,6 +2817,15 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
 
         int colon = key.indexOf(':');
         String path = colon == -1 ? key : key.substring(0, colon);
+
+        if (FormProperties.isColorGradeChannelKey(path))
+        {
+            String colorPath = FormProperties.colorPropertyPathForGrade(path);
+            BaseValueBasic colorProperty = FormUtils.getProperty(rootForm, colorPath);
+
+            return colorProperty instanceof ValueColor;
+        }
+
         BaseValueBasic property = FormUtils.getProperty(rootForm, path);
 
         if (property == null)
@@ -2791,7 +2924,34 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
         String textureParentKey = scopeKey + ":texture";
         String itemStackParentKey = scopeKey + ":item_stack";
         String illusionParentKey = scopeKey + ":illusion";
+        String colorParentKey = scopeKey + ":color";
         boolean isPbrTrack = trackName.equals("pbr_normal_intensity") || trackName.equals("pbr_specular_intensity");
+        boolean isColorChildTrack = trackName.equals("paint") || trackName.equals("paint_color")
+            || trackName.equals("glow") || trackName.equals("glow_settings")
+            || trackName.equals("color_grade")
+            || trackName.equals("color2") || trackName.equals("color_mode");
+
+        boolean isMaterialTextureTrack = PerLimbService.isMaterialTextureChannel(sheet.id);
+
+        if (isMaterialTextureTrack)
+        {
+            if (this.collapsedModelTracks.getOrDefault(textureParentKey, true))
+            {
+                return;
+            }
+
+            sheet.level += 1;
+
+            if (customTitle == null || customTitle.isEmpty())
+            {
+                PerLimbService.MaterialTexturePath matPath = PerLimbService.parseMaterialTexturePath(sheet.id);
+
+                if (matPath != null)
+                {
+                    sheet.title = IKey.constant(matPath.material());
+                }
+            }
+        }
 
         if (isPbrTrack)
         {
@@ -2809,6 +2969,29 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
             else if ((customTitle == null || customTitle.isEmpty()) && trackName.equals("pbr_specular_intensity"))
             {
                 sheet.title = UIKeys.FILM_REPLAY_TRACK_PBR_SPECULAR_INTENSITY;
+            }
+        }
+
+        if (isColorChildTrack)
+        {
+            if (this.collapsedModelTracks.getOrDefault(colorParentKey, true))
+            {
+                return;
+            }
+
+            sheet.level += 1;
+
+            if ((customTitle == null || customTitle.isEmpty()) && trackName.equals("color_grade"))
+            {
+                sheet.title = UIKeys.FORMS_EDITORS_COLOR_GRADE;
+            }
+            else if ((customTitle == null || customTitle.isEmpty()) && trackName.equals("color2"))
+            {
+                sheet.title = UIKeys.FORMS_EDITORS_VANILLA_PARTICLE_COLOR2;
+            }
+            else if ((customTitle == null || customTitle.isEmpty()) && trackName.equals("color_mode"))
+            {
+                sheet.title = UIKeys.FORMS_EDITORS_VANILLA_PARTICLE_COLOR_MODE;
             }
         }
 
@@ -2871,6 +3054,19 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
             sheet.toggleExpanded = () ->
             {
                 this.collapsedModelTracks.put(textureParentKey, !this.collapsedModelTracks.getOrDefault(textureParentKey, true));
+                this.updateChannelsList();
+            };
+
+            this.addTrackByPriority(trackName, before, after, sheet);
+        }
+        else if (trackName.equals("color"))
+        {
+            boolean expanded = !this.collapsedModelTracks.getOrDefault(colorParentKey, true);
+
+            sheet.expanded = expanded;
+            sheet.toggleExpanded = () ->
+            {
+                this.collapsedModelTracks.put(colorParentKey, !this.collapsedModelTracks.getOrDefault(colorParentKey, true));
                 this.updateChannelsList();
             };
 
@@ -2941,6 +3137,120 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
         {
             sheet.title = IKey.constant(customTitle);
         }
+    }
+
+    private void injectColorGradeSheets(List<UIKeyframeSheet> tracks)
+    {
+        for (int i = 0; i < tracks.size(); i++)
+        {
+            UIKeyframeSheet sheet = tracks.get(i);
+            String name = StringUtils.fileName(sheet.id);
+
+            if (!name.equals("color") || sheet.groupHeader || !sheet.expanded)
+            {
+                continue;
+            }
+
+            Form form = sheet.property == null ? null : FormUtils.getForm(sheet.property);
+
+            if (form instanceof LabelForm || form instanceof TrailForm)
+            {
+                continue;
+            }
+
+            int insertAt = i + 1;
+            boolean hasGrade = false;
+
+            while (insertAt < tracks.size())
+            {
+                String child = StringUtils.fileName(tracks.get(insertAt).id);
+
+                if (child.equals("paint") || child.equals("paint_color") || child.equals("glow") || child.equals("glow_settings"))
+                {
+                    insertAt++;
+                }
+                else if (child.equals("color_grade"))
+                {
+                    hasGrade = true;
+                    insertAt++;
+                }
+                else
+                {
+                    break;
+                }
+            }
+
+            if (!hasGrade)
+            {
+                tracks.add(insertAt, this.createColorGradeSheet(sheet));
+                insertAt++;
+            }
+
+            String scopePrefix = sheet.id.equals("color") ? "" : sheet.id.substring(0, sheet.id.length() - "color".length());
+
+            for (int j = insertAt; j < tracks.size(); j++)
+            {
+                UIKeyframeSheet candidate = tracks.get(j);
+                String childName = StringUtils.fileName(candidate.id);
+
+                if (childName.equals("color2") || childName.equals("color_mode"))
+                {
+                    String candidatePrefix = candidate.id.equals(childName) ? "" : candidate.id.substring(0, candidate.id.length() - childName.length());
+
+                    if (scopePrefix.equals(candidatePrefix))
+                    {
+                        tracks.remove(j);
+                        tracks.add(insertAt, candidate);
+                        insertAt++;
+                        j--;
+                    }
+                }
+            }
+
+            i = insertAt - 1;
+        }
+    }
+
+    private UIKeyframeSheet createColorGradeSheet(UIKeyframeSheet colorSheet)
+    {
+        String gradeId;
+
+        if (colorSheet.id.equals("color"))
+        {
+            gradeId = "color_grade";
+        }
+        else if (colorSheet.id.endsWith("/color"))
+        {
+            gradeId = colorSheet.id.substring(0, colorSheet.id.length() - "color".length()) + "color_grade";
+        }
+        else
+        {
+            gradeId = colorSheet.id + "/color_grade";
+        }
+
+        Form form = this.replay == null ? null : this.replay.form.get();
+        KeyframeChannel gradeChannel = this.replay == null
+            ? null
+            : this.replay.properties.getOrCreate(form != null ? form : DUMMY_FORM, gradeId);
+
+        if (gradeChannel == null)
+        {
+            gradeChannel = colorSheet.channel;
+        }
+
+        UIKeyframeSheet grade = new UIKeyframeSheet(
+            gradeId,
+            UIKeys.FORMS_EDITORS_COLOR_GRADE,
+            getColor("color_grade"),
+            false,
+            gradeChannel,
+            colorSheet.property
+        );
+
+        grade.level = colorSheet.level + 1;
+        grade.icon(Icons.FAVORITE);
+
+        return grade;
     }
 
     private boolean isIllusionOverlayTrack(String trackName)
@@ -3373,6 +3683,12 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
             return;
         }
 
+        if (this.filmPanel != null)
+        {
+            this.filmPanel.focusLinkedPropertiesTab("replayTimeline");
+            this.filmPanel.showPanel(this);
+        }
+
         if (!this.ensureReplayForForm(form) || this.keyframeEditor == null)
         {
             return;
@@ -3633,6 +3949,29 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
                 return;
             }
         }
+
+        if (bone != null && !bone.isEmpty() && this.keyframeEditor != null)
+        {
+            if (this.keyframeEditor.editor instanceof UIPoseKeyframeFactory poseFactory)
+            {
+                if (Window.isCtrlPressed())
+                {
+                    poseFactory.poseEditor.addBoneToSelection(bone);
+                }
+                else
+                {
+                    poseFactory.poseEditor.selectBone(bone);
+                }
+            }
+            else if (this.keyframeEditor.editor instanceof UILookAtKeyframeFactory lookAtFactory)
+            {
+                lookAtFactory.lookAtEditor.selectBone(bone);
+            }
+            else if (this.keyframeEditor.editor instanceof UIInverseKinematicsKeyframeFactory ikFactory)
+            {
+                ikFactory.ikEditor.selectBone(bone);
+            }
+        }
     }
 
     private void pickProperty(String bone, UIKeyframeSheet sheet, boolean insert)
@@ -3695,6 +4034,17 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
             }
 
             this.filmPanel.setCursor((int) closest.getTick());
+        }
+        else if (this.keyframeEditor.editor instanceof UIPoseKeyframeFactory poseFactory)
+        {
+            if (Window.isCtrlPressed())
+            {
+                poseFactory.poseEditor.addBoneToSelection(bone);
+            }
+            else
+            {
+                poseFactory.poseEditor.selectBone(bone);
+            }
         }
         else if (this.keyframeEditor.editor instanceof UILookAtKeyframeFactory lookAtFactory)
         {
@@ -3879,8 +4229,9 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
 
                 if (allowPick)
                 {
-                    if (!this.isVisible())
+                    if (this.filmPanel != null)
                     {
+                        this.filmPanel.focusLinkedPropertiesTab("replayTimeline");
                         this.filmPanel.showPanel(this);
                     }
 

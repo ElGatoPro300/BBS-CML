@@ -760,18 +760,41 @@ public class UIReplaysOverlayPanel extends UIOverlayPanel
         replay.shadowOffsetY.set(settings.offsetY);
         replay.shadowOffsetZ.set(settings.offsetZ);
 
-        if (replay.keyframes.shadow.isEmpty())
-        {
-            replay.keyframes.shadow.insert(0, settings.copy());
+        ShadowSettings size = new ShadowSettings();
 
-            return;
+        size.widthX = settings.widthX;
+        size.widthZ = settings.widthZ;
+        size.offsetX = settings.offsetX;
+        size.offsetY = settings.offsetY;
+        size.offsetZ = settings.offsetZ;
+        size.opacity = 1F;
+
+        if (replay.keyframes.shadowSize.isEmpty())
+        {
+            replay.keyframes.shadowSize.insert(0, size.copy());
+        }
+        else
+        {
+            Keyframe<ShadowSettings> firstSize = replay.keyframes.shadowSize.get(0);
+
+            if (firstSize != null && firstSize.getTick() == 0F)
+            {
+                firstSize.setValue(size.copy(), true);
+            }
         }
 
-        Keyframe<ShadowSettings> first = replay.keyframes.shadow.get(0);
-
-        if (first != null && first.getTick() == 0F)
+        if (replay.keyframes.shadowOpacity.isEmpty())
         {
-            first.setValue(settings.copy(), true);
+            replay.keyframes.shadowOpacity.insert(0, (double) settings.opacity);
+        }
+        else
+        {
+            Keyframe<Double> firstOpacity = replay.keyframes.shadowOpacity.get(0);
+
+            if (firstOpacity != null && firstOpacity.getTick() == 0F)
+            {
+                firstOpacity.setValue((double) settings.opacity, true);
+            }
         }
     }
 

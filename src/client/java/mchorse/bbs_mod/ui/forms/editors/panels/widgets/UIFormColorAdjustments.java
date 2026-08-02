@@ -17,10 +17,13 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 
 /**
- * Color grade disclosure: closed shows only the Color grade tab; open reveals
- * brightness / contrast / saturation / hue in a responsive row (4 / 2 / 1
- * columns). Each channel keeps its Transform icon; only one transform grid is
- * visible at a time under the channel strip.
+ * Color grade controls: brightness / contrast / saturation / hue in a responsive
+ * grid (4 / 2 / 1 columns from available width). Each channel keeps its Transform
+ * icon; only one transform grid is visible at a time under the channel strip.
+ * <p>
+ * Form editors wrap this in a Color grade disclosure; keyframe panels use
+ * {@linkplain #UIFormColorAdjustments(Supplier, Consumer, boolean) flat mode}
+ * so channels appear directly without the collapsible header.
  */
 public class UIFormColorAdjustments extends UIElement
 {
@@ -39,6 +42,7 @@ public class UIFormColorAdjustments extends UIElement
 
     private final Supplier<Color> color;
     private final Consumer<Color> setter;
+    private final boolean collapsible;
     private final UIFormDisclosureCollapse disclosure;
     private final GradeChannelsGrid channelsGrid;
     private final UIEffectTransformCollapse[] gradeTransforms;
@@ -48,11 +52,19 @@ public class UIFormColorAdjustments extends UIElement
 
     public UIFormColorAdjustments(Supplier<Color> color, Consumer<Color> setter)
     {
+        this(color, setter, true);
+    }
+
+    /**
+     * @param collapsible when false, mounts the channel grid directly (no Color grade header)
+     */
+    public UIFormColorAdjustments(Supplier<Color> color, Consumer<Color> setter, boolean collapsible)
+    {
         super();
 
         this.color = color;
         this.setter = setter;
-        this.h(20);
+        this.collapsible = collapsible;
 
         this.brightness = this.createTrackpad(ColorAdjustments.MIN_BRIGHTNESS, ColorAdjustments.MAX_BRIGHTNESS, (value) ->
         {
@@ -117,30 +129,42 @@ public class UIFormColorAdjustments extends UIElement
             this.hueTransform
         );
 
-        /* Column body so exclusive Transform shells (siblings after the channel
-           strip) contribute to the Color grade disclosure height / scissor.
-           Attaching directly under the animated shell left the grid clipped. */
-        UIElement gradeBody = new UIElement();
-
-        gradeBody.column(0).vertical().stretch();
-        gradeBody.add(this.channelsGrid);
-
-        this.disclosure = new UIFormDisclosureCollapse(UIKeys.FORMS_EDITORS_COLOR_GRADE, gradeBody)
+        if (this.collapsible)
         {
-            @Override
-            public void setExpanded(boolean expanded, boolean animate)
-            {
-                if (!expanded)
-                {
-                    UIFormColorAdjustments.this.closeActiveGradeTransform();
-                }
+            this.h(20);
 
-                super.setExpanded(expanded, animate);
-            }
-        };
-        this.disclosure.shellHost(this);
-        this.disclosure.full(this);
-        this.add(this.disclosure);
+            /* Column body so exclusive Transform shells (siblings after the channel
+               strip) contribute to the Color grade disclosure height / scissor.
+               Attaching directly under the animated shell left the grid clipped. */
+            UIElement gradeBody = new UIElement();
+
+            gradeBody.column(0).vertical().stretch();
+            gradeBody.add(this.channelsGrid);
+
+            this.disclosure = new UIFormDisclosureCollapse(UIKeys.FORMS_EDITORS_COLOR_GRADE, gradeBody)
+            {
+                @Override
+                public void setExpanded(boolean expanded, boolean animate)
+                {
+                    if (!expanded)
+                    {
+                        UIFormColorAdjustments.this.closeActiveGradeTransform();
+                    }
+
+                    super.setExpanded(expanded, animate);
+                }
+            };
+            this.disclosure.shellHost(this);
+            this.disclosure.full(this);
+            this.add(this.disclosure);
+        }
+        else
+        {
+            /* Flat: channel strip + exclusive transform shells as column siblings. */
+            this.disclosure = null;
+            this.column(0).vertical().stretch();
+            this.add(this.channelsGrid);
+        }
     }
 
     public void registerUndo(UIKeyframes editor)
@@ -187,12 +211,18 @@ public class UIFormColorAdjustments extends UIElement
 
     public void setExpanded(boolean expanded)
     {
-        this.disclosure.setExpanded(expanded);
+        if (this.disclosure != null)
+        {
+            this.disclosure.setExpanded(expanded);
+        }
     }
 
     public void setExpanded(boolean expanded, boolean animate)
     {
-        this.disclosure.setExpanded(expanded, animate);
+        if (this.disclosure != null)
+        {
+            this.disclosure.setExpanded(expanded, animate);
+        }
     }
 
     /**
@@ -201,7 +231,7 @@ public class UIFormColorAdjustments extends UIElement
      */
     public void tryAutoExpandOnce()
     {
-        if (!this.autoExpandPending)
+        if (!this.collapsible || !this.autoExpandPending)
         {
             return;
         }
@@ -271,7 +301,7 @@ public class UIFormColorAdjustments extends UIElement
             this.activeGradeTransform.getShell().queueRemeasure();
         }
 
-        if (this.disclosure.isExpanded() && this.disclosure.getShell().isOpen())
+        if (this.disclosure != null && this.disclosure.isExpanded() && this.disclosure.getShell().isOpen())
         {
             this.disclosure.getShell().queueRemeasure();
         }

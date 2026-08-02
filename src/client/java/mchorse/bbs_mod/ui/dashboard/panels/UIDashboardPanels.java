@@ -13,7 +13,12 @@ import mchorse.bbs_mod.ui.framework.elements.buttons.UIIcon;
 import mchorse.bbs_mod.ui.framework.elements.events.UIEvent;
 import mchorse.bbs_mod.ui.framework.elements.utils.Batcher2D;
 import mchorse.bbs_mod.ui.framework.elements.utils.UIRenderable;
+import mchorse.bbs_mod.ui.dashboard.UIDebugPanel;
+import mchorse.bbs_mod.ui.dashboard.textures.UITextureManagerPanel;
+import mchorse.bbs_mod.ui.home.UIHomePanel;
 import mchorse.bbs_mod.ui.model_blocks.UIModelBlockPanel;
+import mchorse.bbs_mod.ui.morphing.UIMorphingPanel;
+import mchorse.bbs_mod.ui.news.UINewsPanel;
 import mchorse.bbs_mod.ui.triggers.UITriggerBlockPanel;
 import mchorse.bbs_mod.ui.utils.Area;
 import mchorse.bbs_mod.ui.utils.ScrollDirection;
@@ -145,8 +150,23 @@ public class UIDashboardPanels extends UIElement
     public void updateTaskBarForPanel(UIDashboardPanel panel)
     {
         boolean stripped = UIWorldFilmsBrowserPanel.isBrowserPanel(panel);
+        UIIcon homeButton = this.panelButtonsMap.get(this.getPanel(UIHomePanel.class));
+        UIIcon morphButton = this.panelButtonsMap.get(this.getPanel(UIMorphingPanel.class));
         UIIcon modelBlockButton = this.panelButtonsMap.get(this.getPanel(UIModelBlockPanel.class));
         UIIcon triggerBlockButton = this.panelButtonsMap.get(this.getPanel(UITriggerBlockPanel.class));
+        UIIcon texturesButton = this.panelButtonsMap.get(this.getPanel(UITextureManagerPanel.class));
+        UIIcon newsButton = this.panelButtonsMap.get(this.getPanel(UINewsPanel.class));
+        UIIcon sandboxButton = this.panelButtonsMap.get(this.getPanel(UIDebugPanel.class));
+
+        if (homeButton != null)
+        {
+            homeButton.setVisible(!stripped);
+        }
+
+        if (morphButton != null)
+        {
+            morphButton.setVisible(!stripped);
+        }
 
         if (modelBlockButton != null)
         {
@@ -157,6 +177,49 @@ public class UIDashboardPanels extends UIElement
         {
             triggerBlockButton.setVisible(!stripped);
         }
+
+        if (texturesButton != null)
+        {
+            texturesButton.setVisible(!stripped);
+        }
+
+        if (newsButton != null)
+        {
+            newsButton.setVisible(true);
+            newsButton.marginLeft(stripped ? 0 : 10);
+        }
+
+        if (sandboxButton != null)
+        {
+            sandboxButton.setVisible(true);
+            sandboxButton.marginLeft(0);
+        }
+
+        /* When stripped, hide the pinned container and force its area width to 0
+           so that panelButtons (which starts at pinned.area right-edge + 5) snaps
+           to the left. We do NOT change panelButtons's wTo: it still stretches to
+           taskBar right minus 28 (globe button), which is exactly what we want. */
+        if (stripped)
+        {
+            this.pinned.area.w = 0;
+            /* Remove x offset so panelButtons starts at pinned.area.x + 0 + 5 = 5 */
+            this.panelButtons.getFlex().relative = this.pinned.area;
+            this.panelButtons.getFlex().x.set(1F, 0);
+        }
+        else
+        {
+            this.panelButtons.getFlex().relative = this.pinned.area;
+            this.panelButtons.getFlex().x.set(1F, 5);
+        }
+
+        /* Restore wTo target in case it was cleared */
+        this.panelButtons.getFlex().w.target = this.taskBar.area;
+        this.panelButtons.getFlex().w.targetAnchor = 1F;
+        this.panelButtons.getFlex().w.offset = -28;
+
+        this.pinned.resize();
+        this.panelButtons.resize();
+        this.taskBar.resize();
     }
 
     public void setPanel(UIDashboardPanel panel)

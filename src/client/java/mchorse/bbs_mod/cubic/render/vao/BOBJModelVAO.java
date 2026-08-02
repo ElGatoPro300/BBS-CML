@@ -34,8 +34,8 @@ public class BOBJModelVAO
     public BOBJLoader.CompiledData data;
     public BOBJArmature armature;
 
-    private int vao;
-    private int count;
+    protected int vao;
+    protected int count;
 
     /* GL buffers */
     public int vertexBuffer;
@@ -45,11 +45,11 @@ public class BOBJModelVAO
     public int tangentBuffer;
     public int midTextureBuffer;
 
-    private float[] tmpVertices;
-    private float[] tmpNormals;
-    private int[] tmpLight;
-    private float[] tmpTangents;
-    private int[] dominantBonePerTriangle;
+    protected float[] tmpVertices;
+    protected float[] tmpNormals;
+    protected int[] tmpLight;
+    protected float[] tmpTangents;
+    protected int[] dominantBonePerTriangle;
 
     private final Map<Integer, Link> fullOverrides = new HashMap<>();
     private final Map<Integer, Float> partialOverrides = new HashMap<>();
@@ -68,7 +68,7 @@ public class BOBJModelVAO
      * buffers for the data to be passed to VBOs and also generating the 
      * VBOs themselves. 
      */
-    private void initBuffers()
+    protected void initBuffers()
     {
         this.vao = GL30.glGenVertexArrays();
 
@@ -118,22 +118,18 @@ public class BOBJModelVAO
     }
 
     /**
-     * Clean up resources which were used by this  
+     * Clean up resources which were used by this
      */
     public void delete()
     {
-        if (this.vao != 0)
-        {
-            GL30.glDeleteVertexArrays(this.vao);
-            this.vao = 0;
-        }
+        GL30.glDeleteVertexArrays(this.vao);
 
-        if (this.vertexBuffer != 0) { GL15.glDeleteBuffers(this.vertexBuffer); this.vertexBuffer = 0; }
-        if (this.normalBuffer != 0) { GL15.glDeleteBuffers(this.normalBuffer); this.normalBuffer = 0; }
-        if (this.lightBuffer != 0) { GL15.glDeleteBuffers(this.lightBuffer); this.lightBuffer = 0; }
-        if (this.texCoordBuffer != 0) { GL15.glDeleteBuffers(this.texCoordBuffer); this.texCoordBuffer = 0; }
-        if (this.tangentBuffer != 0) { GL15.glDeleteBuffers(this.tangentBuffer); this.tangentBuffer = 0; }
-        if (this.midTextureBuffer != 0) { GL15.glDeleteBuffers(this.midTextureBuffer); this.midTextureBuffer = 0; }
+        GL15.glDeleteBuffers(this.vertexBuffer);
+        GL15.glDeleteBuffers(this.normalBuffer);
+        GL15.glDeleteBuffers(this.lightBuffer);
+        GL15.glDeleteBuffers(this.texCoordBuffer);
+        GL15.glDeleteBuffers(this.tangentBuffer);
+        GL15.glDeleteBuffers(this.midTextureBuffer);
     }
 
     /**
@@ -250,7 +246,7 @@ public class BOBJModelVAO
     protected void processData(float[] newVertices, float[] newNormals)
     {}
 
-    private void buildDominantBones()
+    protected void buildDominantBones()
     {
         for (int triangle = 0, triCount = this.dominantBonePerTriangle.length; triangle < triCount; triangle++)
         {
@@ -274,7 +270,7 @@ public class BOBJModelVAO
         }
     }
 
-    private int getDominantBoneForVertex(int vertex)
+    protected int getDominantBoneForVertex(int vertex)
     {
         int base = vertex * 4;
         float max = -1F;
@@ -295,7 +291,7 @@ public class BOBJModelVAO
         return bone;
     }
 
-    private BOBJBone getBoneByIndex(int index)
+    protected BOBJBone getBoneByIndex(int index)
     {
         for (BOBJBone bone : this.armature.orderedBones)
         {
@@ -308,7 +304,7 @@ public class BOBJModelVAO
         return null;
     }
 
-    private BOBJBone getBoneByName(String name)
+    protected BOBJBone getBoneByName(String name)
     {
         for (BOBJBone bone : this.armature.orderedBones)
         {
@@ -321,7 +317,7 @@ public class BOBJModelVAO
         return null;
     }
 
-    private void renderStencilPickPriority(StencilMap stencilMap)
+    protected void renderStencilPickPriority(StencilMap stencilMap)
     {
         if (stencilMap == null || !stencilMap.increment)
         {
@@ -344,7 +340,7 @@ public class BOBJModelVAO
         }
     }
 
-    private void drawTriangles(IntPredicate predicate)
+    protected void drawTriangles(IntPredicate predicate)
     {
         int start = -1;
 
@@ -374,7 +370,7 @@ public class BOBJModelVAO
      * {@link ModelVAORenderer#setupUniforms}. Skin must be bound before that — binding after
      * leaves Sampler0 on whatever Iris left (featureless tinted silhouette, no skin).
      */
-    private void bindDrawTexture(Link texture)
+    protected void bindDrawTexture(Link texture)
     {
         if (texture != null)
         {
@@ -382,7 +378,7 @@ public class BOBJModelVAO
         }
     }
 
-    private void rebindShaderSamplers(ShaderProgram shader, MatrixStack stack, float r, float g, float b, float a, int light, int overlay)
+    protected void rebindShaderSamplers(ShaderProgram shader, MatrixStack stack, float r, float g, float b, float a, int light, int overlay)
     {
         ModelVAORenderer.setupUniforms(stack, shader);
         RenderSystem.setShader(() -> shader);
@@ -400,11 +396,6 @@ public class BOBJModelVAO
 
     public void render(ShaderProgram shader, MatrixStack stack, float r, float g, float b, float a, StencilMap stencilMap, int light, int overlay, Link defaultTexture)
     {
-        if (this.vao == 0 || !GL30.glIsVertexArray(this.vao))
-        {
-            return;
-        }
-
         boolean hasShaders = BBSRendering.isIrisShadersEnabled();
 
         int currentVAO = GL30.glGetInteger(GL30.GL_VERTEX_ARRAY_BINDING);

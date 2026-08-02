@@ -337,8 +337,9 @@ public class ModelVAORenderer
     private static void enqueuePaintOverlay(Matrix4f projection, Matrix4f modelView, boolean synced, boolean fullModel, boolean colorTint, boolean colorGrade, boolean vanillaComposite, boolean depthWrite, boolean depthTest, Runnable draw)
     {
 
-        /* Shadow-pass matrices are light-space; flushing them on the color buffer draws tiny
-         * paint blobs at the screen center (one per model block / form that queued paint). */
+        /* Shadow-pass matrices are light-space (Iris and IRLights bake). Flushing them on the
+         * color buffer draws tint/paint ghosts at wrong NDC (screen-edge masks when a light
+         * touches a colored actor, or tiny blobs at center for Iris shadows). */
         if (BBSRendering.isIrisShadowPass())
         {
             return;

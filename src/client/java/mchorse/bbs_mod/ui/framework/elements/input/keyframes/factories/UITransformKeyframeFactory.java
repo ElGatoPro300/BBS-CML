@@ -51,6 +51,7 @@ public class UITransformKeyframeFactory extends UIKeyframeFactory<Transform>
     public UITrackpad glowIntensity;
     public UIEffectTransformCollapse glowTransform;
     public UIToggle lighting;
+    public UIToggle noShading;
 
     public UITransformKeyframeFactory(Keyframe<Transform> keyframe, UIKeyframes editor)
     {
@@ -166,6 +167,12 @@ public class UITransformKeyframeFactory extends UIKeyframeFactory<Transform>
             });
             this.lighting.tooltip(UIKeys.FORMS_EDITORS_GENERAL_LIGHTING_TOOLTIP);
 
+            this.noShading = new UIToggle(UIKeys.FILM_REPLAY_OPACITY_NO_SHADING, (b) ->
+            {
+                UIPoseTransforms.applyPoseTransform(this.editor, this.keyframe, (poseT) -> poseT.noshadingOpacity = b.getValue());
+            });
+            this.noShading.tooltip(UIKeys.FORMS_EDITORS_COLOR_NOSHADING_OPACITY_TOOLTIP);
+
             PoseTransform poseTransform = this.getPoseTransform(keyframe);
 
             this.fix.setValue(poseTransform.fix);
@@ -178,11 +185,13 @@ public class UITransformKeyframeFactory extends UIKeyframeFactory<Transform>
             this.glowIntensity.setValue(poseTransform.glowIntensity);
             this.glowTransform.setEffectTransform(poseTransform.glowingColor.transform == null ? new EffectTransform() : poseTransform.glowingColor.transform);
             this.lighting.setValue(poseTransform.lighting <= 0F);
+            this.noShading.setValue(poseTransform.noshadingOpacity);
 
             this.scroll.add(UI.label(UIKeys.POSE_CONTEXT_FIX));
             this.scroll.add(this.fix);
             this.scroll.add(this.transform);
             this.scroll.add(UIFormColorLayout.colorWithTransformAndExtras(this.color, this.colorTransform, this.lighting));
+            this.scroll.add(this.noShading.marginTop(4));
             this.scroll.add(UIFormColorLayout.paintColorRowWithTransform(this.paintColor, this.paintIntensity, this.paintTransform));
             this.scroll.add(UIFormColorLayout.createGlowSection(this.glowingColor, this.glowIntensity, this.glowTransform));
         }

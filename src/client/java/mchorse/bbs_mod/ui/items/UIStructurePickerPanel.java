@@ -1,47 +1,25 @@
 package mchorse.bbs_mod.ui.items;
 
-
-
 import mchorse.bbs_mod.BBSModClient;
-
 import mchorse.bbs_mod.client.StructurePickerClient;
-
 import mchorse.bbs_mod.graphics.window.Window;
-
 import mchorse.bbs_mod.items.StructurePickerMode;
-
 import mchorse.bbs_mod.ui.UIKeys;
-
 import mchorse.bbs_mod.ui.film.UIFilmPanel;
-
 import mchorse.bbs_mod.ui.framework.UIBaseMenu;
-
 import mchorse.bbs_mod.ui.framework.UIScreen;
-
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIButton;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIToggle;
-
 import mchorse.bbs_mod.ui.framework.elements.overlay.UIConfirmOverlayPanel;
-
 import mchorse.bbs_mod.ui.framework.elements.overlay.UIOverlay;
-
 import mchorse.bbs_mod.ui.framework.elements.overlay.UIOverlayPanel;
-
 import mchorse.bbs_mod.utils.colors.Colors;
 
-
-
 import net.minecraft.client.MinecraftClient;
-
 import net.minecraft.client.gui.screen.Screen;
 
-
-
 import java.util.ArrayList;
-
 import java.util.List;
-
-
 
 public class UIStructurePickerPanel extends UIOverlayPanel
 

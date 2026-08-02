@@ -496,6 +496,12 @@ public class UIPoseKeyframeFactory extends UIKeyframeFactory<Pose>
         }
 
         @Override
+        protected void setNoshadingOpacity(PoseTransform poseTransform, boolean value)
+        {
+            apply(this.editor, this.keyframe, this.getGroup(poseTransform), (poseT) -> poseT.noshadingOpacity = value);
+        }
+
+        @Override
         protected void setTextureBlend(PoseTransform transform, float value)
         {
             apply(this.editor, this.keyframe, this.getGroup(transform), (poseT) -> poseT.textureBlend = 1F);

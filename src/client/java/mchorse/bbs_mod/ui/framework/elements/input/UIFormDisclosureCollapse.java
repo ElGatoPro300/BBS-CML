@@ -2,6 +2,7 @@ package mchorse.bbs_mod.ui.framework.elements.input;
 
 import mchorse.bbs_mod.l10n.keys.IKey;
 import mchorse.bbs_mod.ui.framework.elements.UIElement;
+import mchorse.bbs_mod.utils.colors.Colors;
 
 /**
  * Shared disclosure used by Color grade / Extra and similar form sections:
@@ -11,8 +12,8 @@ import mchorse.bbs_mod.ui.framework.elements.UIElement;
 public class UIFormDisclosureCollapse extends UIElement
 {
     public static final int TITLE_COLOR = 0xfffa0e49;
-    /** Teal — distinct from Color grade magenta so Extra reads as its own block. */
-    public static final int EXTRA_COLOR = 0xff2a9d8f;
+    /** Amber — matches the Color timeline track ({@link Colors#INACTIVE}). */
+    public static final int EXTRA_COLOR = Colors.INACTIVE;
     /**
      * Padding under the header so label accents (e.g. Spanish tildes) are not
      * clipped by {@link UIAnimatedCollapseShell}'s content scissor.
