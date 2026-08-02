@@ -25,6 +25,7 @@ import net.minecraft.entity.EquipmentSlot;
 import net.minecraft.item.ArmorItem;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
+import net.minecraft.item.Items;
 import net.minecraft.item.equipment.ArmorMaterial;
 import net.minecraft.item.equipment.EquipmentAsset;
 import net.minecraft.item.equipment.trim.ArmorTrim;
@@ -61,7 +62,7 @@ public class ArmorRenderer
         ItemStack itemStack = entity.getEquipmentStack(armorSlot);
         Item item = itemStack.getItem();
 
-        if (item instanceof ElytraItem || itemStack.isOf(Items.ELYTRA))
+        if (itemStack.isOf(Items.ELYTRA))
         {
             if (type == ArmorType.CHEST && this.elytraModel != null)
             {

@@ -2135,7 +2135,7 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
 
             try
             {
-                RenderSystem.setShader(blendProgram);
+                RenderSystem.setShader(blendProgram.get());
                 model.render(stack, blendProgram, color, light, overlay, stencilMap, shapeKeys, this.getTextureResolver(model, fromTexture));
             }
             finally
