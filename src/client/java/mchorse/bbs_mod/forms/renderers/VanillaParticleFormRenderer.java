@@ -23,9 +23,7 @@ import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.Items;
 import net.minecraft.particle.BlockStateParticleEffect;
-import net.minecraft.particle.DustColorTransitionParticleEffect;
 import net.minecraft.particle.DustParticleEffect;
-import net.minecraft.particle.EntityEffectParticleEffect;
 import net.minecraft.particle.ItemStackParticleEffect;
 import net.minecraft.particle.ParticleEffect;
 import net.minecraft.particle.ParticleType;
@@ -245,14 +243,14 @@ public class VanillaParticleFormRenderer extends FormRenderer<VanillaParticleFor
                     {
                         if (path.contains("effect"))
                         {
-                            effect = EntityEffectParticleEffect.create(ParticleTypes.ENTITY_EFFECT, colorR, colorG, colorB);
+                            effect = new DustParticleEffect(new Vector3f(colorR, colorG, colorB), 1F);
                             parsedCustom = true;
                         }
                         else if (path.equals("dust_color_transition"))
                         {
                             float scale = colorA > 0F ? colorA : 1F;
 
-                            effect = new DustColorTransitionParticleEffect(new Vector3f(colorR, colorG, colorB), new Vector3f(colorR, colorG, colorB), scale);
+                            effect = new DustParticleEffect(new Vector3f(colorR, colorG, colorB), scale);
                             parsedCustom = true;
                         }
                         else if (path.contains("dust"))
@@ -266,7 +264,7 @@ public class VanillaParticleFormRenderer extends FormRenderer<VanillaParticleFor
 
                     if (!parsedCustom)
                     {
-                        if (type instanceof SimpleParticleType simple)
+                        if (type instanceof DefaultParticleType simple)
                         {
                             effect = simple;
                         }
@@ -281,7 +279,7 @@ public class VanillaParticleFormRenderer extends FormRenderer<VanillaParticleFor
 
                             try
                             {
-                                effect = ParticleEffectArgumentType.readParameters(new StringReader(full), registries);
+                                effect = ParticleEffectArgumentType.readParameters(new StringReader(full), Registries.PARTICLE_TYPE.getReadOnlyWrapper());
                             }
                             catch (Exception e)
                             {
