@@ -18,6 +18,13 @@ public class BBSLogoButtonWidget extends ButtonWidget
 
     public void setSize(int size)
     {
+        this.setWidth(size);
+        this.height = size;
+    }
+
+    @Override
+    public void renderButton(DrawContext context, int mouseX, int mouseY, float delta)
+    {
         int x1 = this.getX();
         int y1 = this.getY();
         int x2 = x1 + this.width;
