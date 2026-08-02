@@ -347,10 +347,7 @@ public class UIDashboard extends UIBaseMenu
         this.panels.registerHiddenPanel(new UIAudioEditorPanel(this));
         this.panels.registerHiddenPanel(new UIGraphPanel(this));
 
-        if (FabricLoader.getInstance().isDevelopmentEnvironment())
-        {
-            this.panels.registerPanel(new UIDebugPanel(this), UIKeys.RAW_SANDBOX, Icons.CODE);
-        }
+        this.panels.registerPanel(new UIDebugPanel(this), UIKeys.RAW_SANDBOX, Icons.CODE);
 
         this.setPanel(this.getPanel(UIHomePanel.class));
     }
