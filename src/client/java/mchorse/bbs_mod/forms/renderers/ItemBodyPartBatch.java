@@ -9,7 +9,7 @@ import mchorse.bbs_mod.forms.forms.Form;
 import mchorse.bbs_mod.forms.forms.ItemForm;
 import mchorse.bbs_mod.forms.forms.utils.GlowSettings;
 import mchorse.bbs_mod.forms.forms.utils.PaintSettings;
-import mchorse.bbs_mod.forms.renderers.utils.FormColorBlend;
+import mchorse.bbs_mod.forms.renderers.utils.FormColorEffects;
 import mchorse.bbs_mod.settings.values.core.ValueTransform;
 import mchorse.bbs_mod.utils.MathUtils;
 import mchorse.bbs_mod.utils.MatrixStackUtils;
@@ -63,7 +63,7 @@ public final class ItemBodyPartBatch
     {
         ItemForm template = findHomogeneousTemplate(parts);
 
-        if (template == null || hasOverlayBodyParts(parts))
+        if (template == null || hasOverlayBodyParts(parts) || context.stencilMap != null || context.isPicking())
         {
             return false;
         }
@@ -102,7 +102,7 @@ public final class ItemBodyPartBatch
         boolean leftHand = mode == ModelTransformationMode.THIRD_PERSON_LEFT_HAND;
 
         PaintSettings paintSettings = template.paintSettings.get();
-        Color resolvedPaint = FormColorBlend.resolvePaintColor(paintSettings, template.paintColor.get());
+        Color resolvedPaint = FormColorEffects.resolvePaintColor(paintSettings, template.paintColor.get());
 
         active = true;
         deferFlush = flushOnce;
@@ -267,7 +267,7 @@ public final class ItemBodyPartBatch
                 return true;
             }
 
-            if (FormColorBlend.hasPositivePaint(item.paintSettings.get(), item.paintColor.get()))
+            if (FormColorEffects.hasPositivePaint(item.paintSettings.get(), item.paintColor.get()))
             {
                 return true;
             }
@@ -342,8 +342,8 @@ public final class ItemBodyPartBatch
             return false;
         }
 
-        Color resolvedPaintA = FormColorBlend.resolvePaintColor(a.paintSettings.get(), a.paintColor.get());
-        Color resolvedPaintB = FormColorBlend.resolvePaintColor(b.paintSettings.get(), b.paintColor.get());
+        Color resolvedPaintA = FormColorEffects.resolvePaintColor(a.paintSettings.get(), a.paintColor.get());
+        Color resolvedPaintB = FormColorEffects.resolvePaintColor(b.paintSettings.get(), b.paintColor.get());
 
         if (resolvedPaintA.a < 0F || resolvedPaintB.a < 0F)
         {

@@ -66,11 +66,13 @@ import mchorse.bbs_mod.entity.GunProjectileEntity;
 import mchorse.bbs_mod.events.BBSAddonMod;
 import mchorse.bbs_mod.events.EventBus;
 import mchorse.bbs_mod.events.register.RegisterActionClipsEvent;
+import mchorse.bbs_mod.events.register.RegisterActionConfigsEvent;
 import mchorse.bbs_mod.events.register.RegisterCameraClipsEvent;
 import mchorse.bbs_mod.events.register.RegisterEntityCaptureHandlersEvent;
 import mchorse.bbs_mod.events.register.RegisterFormsEvent;
 import mchorse.bbs_mod.events.register.RegisterKeyframeFactoriesEvent;
 import mchorse.bbs_mod.events.register.RegisterMolangFunctionsEvent;
+import mchorse.bbs_mod.events.register.RegisterParticleSimulationsEvent;
 import mchorse.bbs_mod.events.register.RegisterSettingsEvent;
 import mchorse.bbs_mod.events.register.RegisterSourcePacksEvent;
 import mchorse.bbs_mod.film.FilmManager;
@@ -169,6 +171,7 @@ public class BBSMod implements ModInitializer
 {
     public static final String MOD_ID = "bbs";
     public static final String VERSION = "2.1-beta-1";
+    public static final boolean IS_CML = true;
 
     public static final EventBus events = new EventBus();
 
@@ -479,7 +482,6 @@ public class BBSMod implements ModInitializer
 
         assetsFolder.mkdirs();
         new File(assetsFolder, "video").mkdirs();
-        new File(assetsFolder, "structures").mkdirs();
 
         FabricLoader.getInstance()
             .getEntrypointContainers("bbs-addon", BBSAddonMod.class)
@@ -522,6 +524,8 @@ public class BBSMod implements ModInitializer
             .register(Link.bbs("light"), LightForm.class, null);
 
         events.post(new RegisterFormsEvent(forms));
+        events.post(new RegisterActionConfigsEvent());
+        events.post(new RegisterParticleSimulationsEvent());
 
         films = new FilmManager(() -> new File(worldFolder, "bbs/films"));
 
@@ -794,6 +798,7 @@ public class BBSMod implements ModInitializer
             }
 
             BBSSettings.migrateIrisOpacityFix();
+            BBSSettings.migrateOrbitSettingsAfterLoad(settings.file);
         }
 
         return settings;

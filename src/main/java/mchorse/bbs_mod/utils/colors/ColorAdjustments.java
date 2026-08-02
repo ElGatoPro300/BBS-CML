@@ -4,7 +4,7 @@ import mchorse.bbs_mod.utils.MathUtils;
 import mchorse.bbs_mod.utils.interps.Lerps;
 
 /**
- * Brightness / contrast / hue / saturation adjustments for form Blend Color.
+ * Brightness / contrast / hue / saturation adjustments for form Color Grade.
  * Neutral values are all {@code 0}. Formulas match screen color grading
  * ({@code ColorGradeRenderer}).
  */

@@ -5,34 +5,35 @@ import mchorse.bbs_mod.forms.forms.utils.GlowSettings;
 import mchorse.bbs_mod.forms.forms.utils.PaintSettings;
 import mchorse.bbs_mod.l10n.keys.IKey;
 import mchorse.bbs_mod.ui.UIKeys;
-import mchorse.bbs_mod.ui.film.replays.UIReplaysEditor;
 import mchorse.bbs_mod.ui.forms.editors.forms.UIForm;
 import mchorse.bbs_mod.ui.forms.editors.panels.widgets.UIFormColorAdjustments;
+import mchorse.bbs_mod.ui.forms.editors.panels.widgets.UIFormColorLayout;
+import mchorse.bbs_mod.ui.forms.editors.panels.widgets.UIFormColorTransform;
 import mchorse.bbs_mod.ui.forms.editors.panels.widgets.UIFormPaintTransform;
 import mchorse.bbs_mod.ui.forms.editors.panels.widgets.UIItemStack;
+import mchorse.bbs_mod.ui.framework.elements.UIElement;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIButton;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIToggle;
 import mchorse.bbs_mod.ui.framework.elements.input.UIColor;
-import mchorse.bbs_mod.ui.framework.elements.input.UIPoseSectionCollapse;
 import mchorse.bbs_mod.ui.framework.elements.input.UITrackpad;
 import mchorse.bbs_mod.ui.utils.UI;
 import mchorse.bbs_mod.ui.utils.icons.Icons;
 import mchorse.bbs_mod.utils.colors.Color;
-import mchorse.bbs_mod.utils.colors.Colors;
 
 import net.minecraft.client.render.model.json.ModelTransformationMode;
 
 public class UIItemFormPanel extends UIFormPanel<ItemForm>
 {
     public UIColor color;
+    public UIFormColorTransform colorTransform;
     public UIFormColorAdjustments colorAdjustments;
     public UIColor paintColor;
     public UITrackpad paintIntensity;
     public UIFormPaintTransform paintTransform;
     public UIColor glowingColor;
     public UITrackpad glowIntensity;
-    public UIPoseSectionCollapse colorSection;
-    public UIPoseSectionCollapse glowSection;
+    public UIFormColorTransform glowTransform;
+    public UIElement glowSection;
     public UIButton modelTransform;
     public UIToggle sameAnimationWhenDropped;
     public UIItemStack itemStackEditor;
@@ -49,6 +50,7 @@ public class UIItemFormPanel extends UIFormPanel<ItemForm>
             color.set(value.r, value.g, value.b, value.a);
             this.form.color.set(color);
         }).withAlpha();
+        this.colorTransform = new UIFormColorTransform(() -> this.form.color.get(), (color) -> this.form.color.set(color));
         this.colorAdjustments = new UIFormColorAdjustments(() -> this.form.color.get(), (color) ->
         {
             this.form.color.setRuntimeValue(null);
@@ -88,16 +90,20 @@ public class UIItemFormPanel extends UIFormPanel<ItemForm>
         this.paintTransform = new UIFormPaintTransform(() -> this.form.paintSettings.get(), (settings) -> this.form.paintSettings.set(settings));
         this.glowingColor = new UIColor((c) ->
         {
+            Color copy = this.form.glowingColor.get().copy();
             Color color = Color.rgba(c);
 
-            color.a = 1F;
-            this.form.glowingColor.set(color);
+            copy.r = color.r;
+            copy.g = color.g;
+            copy.b = color.b;
+            copy.a = 1F;
+            this.form.glowingColor.set(copy);
 
             GlowSettings settings = this.form.glowSettings.get().copy();
 
-            settings.r = color.r;
-            settings.g = color.g;
-            settings.b = color.b;
+            settings.r = copy.r;
+            settings.g = copy.g;
+            settings.b = copy.b;
             this.form.glowSettings.set(settings);
         });
         this.glowingColor.tooltip(UIKeys.FORMS_EDITORS_GLOW);
@@ -110,30 +116,8 @@ public class UIItemFormPanel extends UIFormPanel<ItemForm>
         });
         this.glowIntensity.increment(0.05D).values(0.1D, 0.05D, 0.2D);
         this.glowIntensity.tooltip(UIKeys.FORMS_EDITORS_GLOW_INTENSITY);
-        this.colorSection = new UIPoseSectionCollapse(
-            UIKeys.FILM_REPLAY_TRACK_COLOR,
-            UIReplaysEditor.getColor("color"),
-            UI.column(
-                UI.label(UIKeys.FORMS_EDITORS_BLEND_COLOR).marginTop(4),
-                this.color,
-                UI.label(UIKeys.FORMS_EDITORS_PAINT_COLOR).marginTop(4),
-                this.paintColor,
-                UI.label(UIKeys.FORMS_EDITORS_PAINT_INTENSITY),
-                this.paintIntensity,
-                this.paintTransform,
-                this.colorAdjustments.marginTop(4)
-            )
-        );
-        this.glowSection = new UIPoseSectionCollapse(
-            UIKeys.FORMS_EDITORS_GLOW,
-            Colors.ORANGE,
-            UI.column(
-                UI.label(UIKeys.FORMS_EDITORS_GLOWING_COLOR).marginTop(4),
-                this.glowingColor,
-                UI.label(UIKeys.FORMS_EDITORS_GLOW_INTENSITY),
-                this.glowIntensity
-            )
-        );
+        this.glowTransform = new UIFormColorTransform(() -> this.form.glowingColor.get(), (color) -> this.form.glowingColor.set(color));
+        this.glowSection = UIFormColorLayout.createGlowSection(this.glowingColor, this.glowIntensity, this.glowTransform);
         this.modelTransform = new UIButton(IKey.EMPTY, (b) ->
         {
             this.getContext().replaceContextMenu((menu) ->
@@ -156,7 +140,19 @@ public class UIItemFormPanel extends UIFormPanel<ItemForm>
         this.sameAnimationWhenDropped.tooltip(UIKeys.FORMS_EDITORS_ITEM_SAME_ANIMATION_WHEN_DROPPED_TOOLTIP);
         this.itemStackEditor = new UIItemStack((itemStack) -> this.form.stack.set(itemStack.copy()));
 
-        this.options.add(this.colorSection, this.glowSection, UI.label(UIKeys.FORMS_EDITORS_ITEM_TRANSFORMS), this.modelTransform, this.sameAnimationWhenDropped, this.itemStackEditor);
+        this.options.add(
+            UIFormColorLayout.sectionLabel(UIKeys.FORMS_EDITOR_FORM),
+            UIFormColorLayout.colorWithTransform(this.color, this.colorTransform),
+            UIFormColorLayout.createExtraSection(
+                this.glowSection,
+                UIFormColorLayout.paintColorRowWithTransform(this.paintColor, this.paintIntensity, this.paintTransform),
+                this.colorAdjustments.marginTop(4)
+            ).marginTop(4),
+            UI.label(UIKeys.FORMS_EDITORS_ITEM_TRANSFORMS),
+            this.modelTransform,
+            this.sameAnimationWhenDropped,
+            this.itemStackEditor
+        );
     }
 
     private void setModelTransform(ModelTransformationMode value)
@@ -172,6 +168,8 @@ public class UIItemFormPanel extends UIFormPanel<ItemForm>
         super.startEdit(form);
 
         this.color.setColor(form.color.get().getARGBColor());
+        this.colorTransform.syncFromForm();
+        this.colorAdjustments.prepareSession();
         this.colorAdjustments.syncFromForm();
         PaintSettings paint = form.paintSettings.get();
         Color paintDisplay = new Color();
@@ -187,6 +185,7 @@ public class UIItemFormPanel extends UIFormPanel<ItemForm>
         this.glowingColor.setColor(glowDisplay.getRGBColor());
 
         this.glowIntensity.setValue(glow.intensity);
+        this.glowTransform.syncFromForm();
         this.modelTransform.label = IKey.constant(form.modelTransform.get().asString());
         this.sameAnimationWhenDropped.setValue(form.sameAnimationWhenDropped.get());
         this.itemStackEditor.setStack(form.stack.get());

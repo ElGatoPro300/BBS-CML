@@ -128,14 +128,6 @@ public class UIModelPoseEditor extends UIPoseEditor
     }
 
     @Override
-    protected void setOpacity(PoseTransform transform, float value)
-    {
-        this.valuePose.preNotify(IValueListener.FLAG_UNMERGEABLE);
-        super.setOpacity(transform, value);
-        this.valuePose.postNotify(IValueListener.FLAG_UNMERGEABLE);
-    }
-
-    @Override
     protected void setTextureBlend(PoseTransform transform, float value)
     {
         this.valuePose.preNotify(IValueListener.FLAG_UNMERGEABLE);

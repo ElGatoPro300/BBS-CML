@@ -233,6 +233,8 @@ public interface IEntity
 
     public void setFallFlying(boolean fallFlying);
 
+    public float getFallFlyingProgress(float transition);
+
     public Vec3d getRotationVec(float transition);
 
     public Vec3d lerpVelocity(float transition);

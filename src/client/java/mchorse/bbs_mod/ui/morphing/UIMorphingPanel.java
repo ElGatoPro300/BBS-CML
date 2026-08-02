@@ -7,11 +7,11 @@ import mchorse.bbs_mod.morphing.IMorphProvider;
 import mchorse.bbs_mod.morphing.Morph;
 import mchorse.bbs_mod.network.ClientNetwork;
 import mchorse.bbs_mod.ui.UIKeys;
-import mchorse.bbs_mod.ui.dashboard.EditorSpectatorHelper;
 import mchorse.bbs_mod.ui.dashboard.UIDashboard;
 import mchorse.bbs_mod.ui.dashboard.panels.UIDashboardPanel;
 import mchorse.bbs_mod.ui.forms.UIFormPalette;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIIcon;
+import mchorse.bbs_mod.ui.model_blocks.UIModelBlockPanel;
 import mchorse.bbs_mod.ui.morphing.camera.ImmersiveMorphingCameraController;
 import mchorse.bbs_mod.ui.utils.icons.Icons;
 import mchorse.bbs_mod.utils.Direction;
@@ -43,6 +43,7 @@ public class UIMorphingPanel extends UIDashboardPanel
         this.palette.immersive();
         this.palette.full(this);
         this.palette.editor.renderer.full(dashboard.getRoot());
+        this.palette.noBackground();
         this.palette.canModify();
 
         this.morph = new UIIcon(Icons.USER, (b) ->
@@ -85,10 +86,9 @@ public class UIMorphingPanel extends UIDashboardPanel
     {
         ClientNetwork.sendPlayerForm(form);
 
-        /* Keep the clicked form selected in the list (do not jump/clear highlight). */
         if (form != null)
         {
-            this.palette.setSelected(form);
+            this.palette.list.deselect();
         }
     }
 
@@ -96,31 +96,20 @@ public class UIMorphingPanel extends UIDashboardPanel
     public boolean needsBackground()
     {
         /* Nested form editor uses its own orbit view; otherwise keep the world
-         * behind a dark palette scrim (see UIFormPalette). */
-        return this.palette.editor.isEditing();
+         * behind a dark palette scrim (see UIFormPalette). Hide when F7 real world mode is active. */
+        return this.palette.editor.isEditing() && !UIModelBlockPanel.toggleRendering;
     }
 
     @Override
     public boolean needsWorldRender()
     {
-        return !this.palette.editor.isEditing();
-    }
-
-    @Override
-    public boolean canPause()
-    {
-        /* Same as Film / Model Block morph pickers: keep the world ticking so
-         * selected form thumbnails can advance idle (UI anim uses world time). */
-        return false;
+        return !this.palette.editor.isEditing() || UIModelBlockPanel.toggleRendering;
     }
 
     @Override
     public void appear()
     {
         super.appear();
-
-        /* Morphing must never force Spectator — restore if Film/Model Block left it on. */
-        EditorSpectatorHelper.restore();
 
         if (MinecraftClient.getInstance().player == null)
         {
@@ -131,13 +120,7 @@ public class UIMorphingPanel extends UIDashboardPanel
 
         this.palette.list.setupForms(BBSModClient.getFormCategories());
         this.palette.setSelected(morph.getForm());
-
-        boolean autoMorph = BBSSettings.morphingAutoMorph.get();
-
-        this.morph.setVisible(!autoMorph);
-        this.demorph.setVisible(true);
-        this.fromMob.setVisible(true);
-        this.palette.list.refreshActionBar();
+        this.morph.setVisible(!BBSSettings.morphingAutoMorph.get());
 
         BBSModClient.getCameraController().add(this.controller);
         MinecraftClient.getInstance().options.setPerspective(Perspective.THIRD_PERSON_BACK);

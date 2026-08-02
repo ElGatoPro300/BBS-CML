@@ -1,5 +1,8 @@
 package mchorse.bbs_mod;
 
+import mchorse.bbs_mod.data.DataToString;
+import mchorse.bbs_mod.data.types.BaseType;
+import mchorse.bbs_mod.data.types.MapType;
 import mchorse.bbs_mod.events.register.RegisterBBSSettingsEvent;
 import mchorse.bbs_mod.settings.SettingsBuilder;
 import mchorse.bbs_mod.settings.values.core.ValueLink;
@@ -24,6 +27,8 @@ import mchorse.bbs_mod.utils.colors.Color;
 import mchorse.bbs_mod.utils.colors.Colors;
 import mchorse.bbs_mod.utils.keyframes.KeyframeShape;
 
+import java.io.File;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -140,8 +145,10 @@ public class BBSSettings
     public static ValueBoolean editorHorizontalFlight;
     public static ValueBoolean editorFlightFreeLook;
     public static ValueBoolean editorOrbitWithoutFlight;
-    public static ValueBoolean editorOrbitNoAnimation;
+    public static ValueBoolean editorOrbitSmoothTransition;
+    public static ValueBoolean editorOrbitRestrictToViewport;
     public static ValueFloat editorOrbitTransitionDuration;
+    private static ValueBoolean orbitSmoothDefaultMigrated;
     public static ValueEditorLayout editorLayoutSettings;
     public static ValueUILayoutPreferences uiLayoutPreferences;
     public static ValueTimelineToolbarDocks timelineToolbarDocks;
@@ -212,6 +219,11 @@ public class BBSSettings
 
     public static ValueBoolean shaderCurvesEnabled;
     public static ValueBoolean irisOpacityFix;
+    /**
+     * Soft form/limb transparency under Iris only: ON draws backfaces (two-pass; may darken),
+     * OFF culls backfaces (cleaner colors). Default ON. Without shaders, {@code model.culling} applies.
+     */
+    public static ValueBoolean softTransparencyBackfaces;
     /** Kept invisible for migrating saved Complementary/BSL toggles. */
     @Deprecated
     public static ValueBoolean complementaryOpacityFix;
@@ -708,9 +720,12 @@ public class BBSSettings
         editorSafeMarginsColor = builder.getInt("safe_margins_color", 0xcccc0000).colorAlpha();
         editorSafeMargins = builder.getBoolean("safe_margins", false);
         editorFlightFreeLook = builder.getBoolean("flight_free_look", false);
-        editorOrbitWithoutFlight = builder.getBoolean("orbit_without_flight", false);
-        editorOrbitNoAnimation = builder.getBoolean("orbit_no_animation", false);
+        editorOrbitWithoutFlight = builder.getBoolean("orbit_without_flight", true);
+        editorOrbitSmoothTransition = builder.getBoolean("orbit_smooth_transition", false);
+        editorOrbitRestrictToViewport = builder.getBoolean("orbit_restrict_to_viewport", false);
         editorOrbitTransitionDuration = builder.getFloat("orbit_transition_duration", 1.25F, 0.1F, 10F);
+        orbitSmoothDefaultMigrated = builder.getBoolean("orbit_smooth_default_migrated", false);
+        orbitSmoothDefaultMigrated.invisible();
         editorClipTypeLabels = builder.getBoolean("clip_type_labels", false);
         editorCameraPreviewPlayerSync = builder.getBoolean("camera_preview_player_sync", false);
         editorMuteRenderAudioClips = builder.getBoolean("mute_render_audio_clips", false);
@@ -781,6 +796,7 @@ public class BBSSettings
         builder.category("shader_curves");
         shaderCurvesEnabled = builder.getBoolean("enabled", true);
         irisOpacityFix = builder.getBoolean("iris_opacity_fix", true);
+        softTransparencyBackfaces = builder.getBoolean("soft_transparency_backfaces", true);
         complementaryOpacityFix = builder.getBoolean("complementary_opacity_fix", true);
         complementaryOpacityFix.invisible();
         bslOpacityFix = builder.getBoolean("bsl_opacity_fix", true);
@@ -809,6 +825,49 @@ public class BBSSettings
 
         BBSMod.events.post(new RegisterBBSSettingsEvent(builder));
         syncAppliedAppearance();
+    }
+
+    /**
+     * Orbit smooth transitions shipped default-on via {@code orbit_no_animation} (default false).
+     * New default is instant switching; preserve smooth only when that legacy key was saved as false.
+     */
+    public static void migrateOrbitSettingsAfterLoad(File settingsFile)
+    {
+        if (orbitSmoothDefaultMigrated == null || orbitSmoothDefaultMigrated.get())
+        {
+            return;
+        }
+
+        boolean legacySmooth = false;
+
+        if (settingsFile != null && settingsFile.isFile())
+        {
+            try
+            {
+                BaseType data = DataToString.read(settingsFile);
+
+                if (data != null && data.isMap())
+                {
+                    MapType editor = data.asMap().getMap("editor");
+
+                    if (editor != null && editor.has("orbit_no_animation"))
+                    {
+                        legacySmooth = !editor.getBool("orbit_no_animation");
+                    }
+                }
+            }
+            catch (IOException e)
+            {
+                e.printStackTrace();
+            }
+        }
+
+        if (editorOrbitSmoothTransition != null)
+        {
+            editorOrbitSmoothTransition.set(legacySmooth);
+        }
+
+        orbitSmoothDefaultMigrated.set(true);
     }
 
     /**

@@ -98,4 +98,25 @@ public class WorldRendererMixin
 
         BBSRendering.resizeExtraFramebuffers();
     }
+
+    @Inject(method = "checkEmpty", at = @At("HEAD"), cancellable = true, require = 0)
+    private void onCheckEmpty(MatrixStack matrices, CallbackInfo info)
+    {
+        if (!matrices.isEmpty())
+        {
+            while (!matrices.isEmpty())
+            {
+                try
+                {
+                    matrices.pop();
+                }
+                catch (Throwable t)
+                {
+                    break;
+                }
+            }
+
+            info.cancel();
+        }
+    }
 }

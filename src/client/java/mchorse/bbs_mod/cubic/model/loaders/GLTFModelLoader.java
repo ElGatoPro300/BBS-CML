@@ -37,6 +37,7 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.Base64;
 import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 
 public class GLTFModelLoader implements IModelLoader
@@ -163,7 +164,7 @@ public class GLTFModelLoader implements IModelLoader
                 
                 data.initiateArmatures();
                 
-                BOBJModel bobjModel = new BOBJModel(mesh.armature, compiled, false);
+                BOBJModel bobjModel = new BOBJModel(mesh.armature, List.of(compiled), false);
                 
                 Animations animations = this.convertAnimations(data, new Animations(models.parser));
                 

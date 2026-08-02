@@ -942,8 +942,12 @@ public class Gizmo
     private float resolveThickness(boolean stencil)
     {
         float thickness = BBSSettings.axesThickness == null ? 1F : BBSSettings.axesThickness.get();
+        boolean constantSize = BBSSettings.gizmoConstantSize == null || BBSSettings.gizmoConstantSize.get();
 
-        thickness *= this.distanceThicknessBoost(this.lastScaleDist);
+        if (!constantSize)
+        {
+            thickness *= this.distanceThicknessBoost(this.lastScaleDist);
+        }
 
         if (stencil)
         {

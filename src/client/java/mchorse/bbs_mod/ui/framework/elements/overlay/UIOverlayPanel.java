@@ -63,6 +63,7 @@ public class UIOverlayPanel extends UIElement
         this.add(this.title, this.icons, this.content);
 
         this.mouseEventPropagataion(EventPropagation.BLOCK_INSIDE);
+        this.resizable = true;
     }
 
     public void setInitialOffset(int x, int y)
@@ -111,6 +112,23 @@ public class UIOverlayPanel extends UIElement
         return this;
     }
 
+    public String getKey()
+    {
+        String className = this.getClass().getSimpleName();
+
+        if (className.isEmpty())
+        {
+            className = this.getClass().getSuperclass().getSimpleName();
+        }
+
+        if (this.title != null && this.title.label != null && this.title.label.get() != null && !this.title.label.get().isEmpty())
+        {
+            return className + "_" + this.title.label.get();
+        }
+
+        return className;
+    }
+
     public void onClose(Consumer<UIOverlayCloseEvent> callback)
     {
         this.events.register(UIOverlayCloseEvent.class, callback);
@@ -144,6 +162,8 @@ public class UIOverlayPanel extends UIElement
                     this.getParent().resize();
                 }
 
+                UIOverlay.saveOverlayState(this);
+
                 return true;
             }
 
@@ -168,6 +188,8 @@ public class UIOverlayPanel extends UIElement
                     this.getParent().resize();
                 }
 
+                UIOverlay.saveOverlayState(this);
+
                 return true;
             }
 
@@ -184,6 +206,11 @@ public class UIOverlayPanel extends UIElement
     @Override
     public boolean subMouseReleased(UIContext context)
     {
+        if (this.resizing || this.moving)
+        {
+            UIOverlay.saveOverlayState(this);
+        }
+
         this.resizing = false;
         this.moving = super.subMouseReleased(context);
 
@@ -292,17 +319,6 @@ public class UIOverlayPanel extends UIElement
             transition = ((UIOverlay) parent).getOpenTransition();
         }
 
-        this.beginOpenTransition(context, transition);
-        this.renderBackground(context);
-        super.render(context);
-        this.endOpenTransition(context, transition);
-    }
-
-    /**
-     * Default open animation: scale from center. Subclasses may override for slide/etc.
-     */
-    protected void beginOpenTransition(UIContext context, float transition)
-    {
         if (transition < 1.0F)
         {
             float scale = Math.max(0.01F, transition);
@@ -314,10 +330,11 @@ public class UIOverlayPanel extends UIElement
             context.render.batcher.getContext().getMatrices().scale(scale, scale, 1.0F);
             context.render.batcher.getContext().getMatrices().translate(-cx, -cy, 0.0F);
         }
-    }
 
-    protected void endOpenTransition(UIContext context, float transition)
-    {
+        this.renderBackground(context);
+
+        super.render(context);
+
         if (transition < 1.0F)
         {
             context.render.batcher.getContext().getMatrices().pop();

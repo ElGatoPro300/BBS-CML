@@ -3,6 +3,8 @@ package mchorse.bbs_mod.ui.film.replays;
 import mchorse.bbs_mod.cubic.ModelInstance;
 import mchorse.bbs_mod.cubic.data.animation.Animation;
 import mchorse.bbs_mod.cubic.data.animation.AnimationPart;
+import mchorse.bbs_mod.film.replays.FormProperties;
+import mchorse.bbs_mod.film.replays.PerLimbService;
 import mchorse.bbs_mod.forms.FormUtils;
 import mchorse.bbs_mod.forms.entities.IEntity;
 import mchorse.bbs_mod.forms.forms.Form;
@@ -11,7 +13,9 @@ import mchorse.bbs_mod.forms.renderers.ModelFormRenderer;
 import mchorse.bbs_mod.graphics.window.Window;
 import mchorse.bbs_mod.l10n.keys.IKey;
 import mchorse.bbs_mod.math.molang.expressions.MolangExpression;
+import mchorse.bbs_mod.resources.Link;
 import mchorse.bbs_mod.settings.values.base.BaseValueBasic;
+import mchorse.bbs_mod.settings.values.core.ValueLink;
 import mchorse.bbs_mod.ui.film.ICursor;
 import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.ui.framework.elements.input.UIPropTransform;
@@ -27,9 +31,11 @@ import mchorse.bbs_mod.ui.framework.elements.input.keyframes.graphs.IUIKeyframeG
 import mchorse.bbs_mod.ui.utils.context.ContextMenuManager;
 import mchorse.bbs_mod.ui.utils.icons.Icons;
 import mchorse.bbs_mod.utils.StringUtils;
+import mchorse.bbs_mod.utils.colors.Colors;
 import mchorse.bbs_mod.utils.keyframes.Keyframe;
 import mchorse.bbs_mod.utils.keyframes.KeyframeChannel;
 import mchorse.bbs_mod.utils.keyframes.KeyframeSegment;
+import mchorse.bbs_mod.utils.keyframes.factories.KeyframeFactories;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -87,6 +93,7 @@ public class UIReplaysEditorUtils
 
     /**
      * Collect ticks of selected Color keyframes (paint companions live on a hidden channel).
+     * Color grade uses its own channel and does not drive paint companions.
      */
     public static List<Float> collectSelectedColorTicks(UIKeyframes editor)
     {
@@ -99,7 +106,7 @@ public class UIReplaysEditorUtils
 
         for (UIKeyframeSheet sheet : editor.getGraph().getSheets())
         {
-            if (!"color".equals(sheet.id))
+            if (!isColorSheet(sheet))
             {
                 continue;
             }
@@ -146,12 +153,24 @@ public class UIReplaysEditorUtils
 
         UIKeyframeSheet sheet = editor.getGraph().getSheet(keyframe);
 
-        if (sheet == null || !"color".equals(sheet.id))
+        if (sheet == null || !isColorSheet(sheet))
         {
             return;
         }
 
         removeCompanionPaintForColorTicks(editor, Collections.singletonList(keyframe.getTick()));
+    }
+
+    private static boolean isColorSheet(UIKeyframeSheet sheet)
+    {
+        if (sheet == null || sheet.id == null)
+        {
+            return false;
+        }
+
+        String name = StringUtils.fileName(sheet.id);
+
+        return name.equals("color");
     }
 
     public static void moveCompanionPaintForSelectedColor(UIKeyframes editor, float diff)
@@ -314,6 +333,28 @@ public class UIReplaysEditorUtils
         {
             pickProperty(keyframeEditor, cursor, bone, sheet, insert);
         }
+        else if (bone != null && !bone.isEmpty() && keyframeEditor != null)
+        {
+            if (keyframeEditor.editor instanceof UIPoseKeyframeFactory poseFactory)
+            {
+                if (Window.isCtrlPressed())
+                {
+                    poseFactory.poseEditor.addBoneToSelection(bone);
+                }
+                else
+                {
+                    poseFactory.poseEditor.selectBone(bone);
+                }
+            }
+            else if (keyframeEditor.editor instanceof UILookAtKeyframeFactory lookAtFactory)
+            {
+                lookAtFactory.lookAtEditor.selectBone(bone);
+            }
+            else if (keyframeEditor.editor instanceof UIInverseKinematicsKeyframeFactory ikFactory)
+            {
+                ikFactory.ikEditor.selectBone(bone);
+            }
+        }
     }
 
     private static void pickProperty(UIKeyframeEditor keyframeEditor, ICursor filmPanel, String bone, UIKeyframeSheet sheet, boolean insert)
@@ -384,6 +425,17 @@ public class UIReplaysEditorUtils
 
             filmPanel.setCursor((int) closest.getTick());
         }
+        else if (keyframeEditor.editor instanceof UIPoseKeyframeFactory poseFactory)
+        {
+            if (Window.isCtrlPressed())
+            {
+                poseFactory.poseEditor.addBoneToSelection(bone);
+            }
+            else
+            {
+                poseFactory.poseEditor.selectBone(bone);
+            }
+        }
         else if (keyframeEditor.editor instanceof UILookAtKeyframeFactory lookAtFactory)
         {
             lookAtFactory.lookAtEditor.selectBone(bone);
@@ -391,6 +443,49 @@ public class UIReplaysEditorUtils
         else if (keyframeEditor.editor instanceof UIInverseKinematicsKeyframeFactory ikFactory)
         {
             ikFactory.ikEditor.selectBone(bone);
+        }
+    }
+
+    /**
+     * One texture track per model material (OBJ material name / BOBJ mesh name), enumerated from
+     * the loaded model. Each is a LINK channel layered over the material's static default at
+     * playback - mirrors the bone tracks. Lives in the Model category beside the main texture track.
+     */
+    public static void addMaterialTextureSheets(ModelForm modelForm, FormProperties properties, List<UIKeyframeSheet> out)
+    {
+        ModelInstance model = ModelFormRenderer.getModel(modelForm);
+
+        if (model == null)
+        {
+            return;
+        }
+
+        String path = FormUtils.getPath(modelForm);
+
+        for (String material : model.materials)
+        {
+            if (material == null || material.isEmpty())
+            {
+                continue;
+            }
+
+            String id = PerLimbService.toMaterialTextureKey(path, material);
+            String title = path.isEmpty() ? "Texture/" + material : path + "/Texture/" + material;
+            KeyframeChannel channel = properties.getOrCreate(modelForm, id);
+
+            /* Seed the sheet's value with the material's current default texture (editor pick, else
+             * folder/Kd, else the form/model default) so a new keyframe starts there instead of null -
+             * the texture picker then opens at that texture rather than the root. */
+            Link materialDefault = modelForm.materialTextures.getLink(material);
+
+            if (materialDefault == null)
+            {
+                materialDefault = model.getMaterialTexture(material, model.texture);
+            }
+
+            ValueLink property = new ValueLink(id, materialDefault);
+
+            out.add(new UIKeyframeSheet(id, IKey.constant(title), Colors.BLUE, false, channel, property).icon(Icons.MATERIAL));
         }
     }
 

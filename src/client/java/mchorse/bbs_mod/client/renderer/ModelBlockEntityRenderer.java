@@ -135,7 +135,14 @@ public class ModelBlockEntityRenderer implements BlockEntityRenderer<ModelBlockE
         matrices.push();
         matrices.translate(0.5F, 0F, 0.5F);
 
-        if (properties.getForm() != null && canRenderStatic(entity))
+        Form form = UIModelBlockPanel.getLiveEditedForm(entity);
+
+        if (form == null)
+        {
+            form = properties.getForm();
+        }
+
+        if (form != null && canRenderStatic(entity))
         {
             matrices.push();
 
@@ -169,7 +176,7 @@ public class ModelBlockEntityRenderer implements BlockEntityRenderer<ModelBlockE
 
             formContext.isShadowPass = BBSRendering.isIrisShadowPass();
 
-            FormUtilsClient.render(properties.getForm(), formContext);
+            FormUtilsClient.render(form, formContext);
 
             if (!formContext.isShadowPass)
             {
@@ -343,7 +350,12 @@ public class ModelBlockEntityRenderer implements BlockEntityRenderer<ModelBlockE
         }
 
         ModelProperties properties = entity.getProperties();
-        Form form = properties.getForm();
+        Form form = UIModelBlockPanel.getLiveEditedForm(entity);
+
+        if (form == null)
+        {
+            form = properties.getForm();
+        }
 
         if (form == null || !form.shaderShadow.get())
         {

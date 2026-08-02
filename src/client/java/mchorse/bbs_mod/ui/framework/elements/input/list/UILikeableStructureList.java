@@ -35,7 +35,6 @@ public class UILikeableStructureList extends UIStringList
         this.likeButton = new UIIcon(Icons.LIKE, null);
         this.editButton = new UIIcon(Icons.EDIT, null);
         this.removeButton = new UIIcon(Icons.REMOVE, null);
-        this.removeButton.dangerAccent(false);
         this.saveButton = new UIIcon(Icons.DOWNLOAD, null);
     }
     

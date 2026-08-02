@@ -2,7 +2,7 @@
     "schemaVersion": 1,
     "id": "bbs",
     "version": "${version}",
-    "name": "BBS CML Edition",
+    "name": "BBS CML",
     "description": "A new generation of video production mod",
     "authors": [
         "McHorse",
