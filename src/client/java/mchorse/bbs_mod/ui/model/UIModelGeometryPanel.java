@@ -39,6 +39,13 @@ import mchorse.bbs_mod.utils.colors.Colors;
 import mchorse.bbs_mod.utils.pose.Transform;
 import mchorse.bbs_mod.utils.undo.IUndo;
 import mchorse.bbs_mod.utils.undo.UndoManager;
+import mchorse.bbs_mod.BBSSettings;
+import mchorse.bbs_mod.ui.film.controller.UIGizmoSizeContextMenu;
+import mchorse.bbs_mod.ui.film.controller.UIGizmoTranslateSpeedContextMenu;
+import mchorse.bbs_mod.ui.framework.elements.UIScrollView;
+import mchorse.bbs_mod.ui.framework.elements.utils.UIDraggable;
+import mchorse.bbs_mod.ui.framework.elements.utils.UIRenderable;
+import mchorse.bbs_mod.ui.utils.Gizmo;
 
 import org.joml.Vector2f;
 import org.joml.Vector3f;
@@ -81,6 +88,15 @@ public class UIModelGeometryPanel extends UIElement
     private final UIIcon addCubeIcon;
     private final UIIcon addFolderIcon;
     private final UIIcon addIKLocatorIcon;
+    private final UIElement leftPanel;
+    private final UIElement rightPanel;
+    private final UIIcon gizmoMove;
+    private final UIIcon gizmoScale;
+    private final UIIcon gizmoRotate;
+    private final UIIcon gizmoCombined;
+    private final UIIcon gizmoTop;
+    private final UIIcon gizmoVisualSize;
+    private final UIIcon gizmoTranslateSpeed;
     private final Set<String> collapsedGroupIds = new HashSet<>();
     private ModelGroup copiedGroup;
     private ModelCube copiedCube;
@@ -100,12 +116,32 @@ public class UIModelGeometryPanel extends UIElement
         this.parent = parent;
         this.relative(parent.getMainView()).w(1F).h(1F);
 
-        int sideMargin = 10;
-        int leftWidth = 260;
-        int rightWidth = 280;
+        int leftWidth = 200;
+        int rightWidth = 200;
+        if (BBSSettings.uiLayoutPreferences != null)
+        {
+            leftWidth = (int) BBSSettings.uiLayoutPreferences.getFormPanelWidth("UIModelPanel_left", 200F);
+            rightWidth = (int) BBSSettings.uiLayoutPreferences.getFormPanelWidth("UIModelPanel_right", 200F);
+        }
+
+        this.leftPanel = new UIElement();
+        this.leftPanel.relative(this).x(0).y(0).w(leftWidth).h(1F);
+
+        this.rightPanel = new UIElement();
+        this.rightPanel.relative(this).x(1F, -rightWidth).y(0).w(rightWidth).h(1F);
 
         UILabel hierarchyTitle = UI.label(UIKeys.MODELS_GEOMETRY_BONE_HIERARCHY).background();
-        hierarchyTitle.relative(this).x(sideMargin).y(10).w(leftWidth).h(12);
+        hierarchyTitle.relative(this.leftPanel).x(10).y(10).w(1F, -20).h(12);
+
+        this.addCubeIcon = new UIIcon(Icons.BLOCK, (b) -> this.addCube());
+        this.addFolderIcon = new UIIcon(Icons.FOLDER, (b) -> this.addFolder());
+        this.addIKLocatorIcon = new UIIcon(Icons.POSE, (b) -> this.addIKLocator());
+        this.addCubeIcon.tooltip(UIKeys.MODELS_GEOMETRY_ADD_CUBE);
+        this.addFolderIcon.tooltip(UIKeys.MODELS_GEOMETRY_ADD_FOLDER);
+        this.addIKLocatorIcon.tooltip(UIKeys.MODELS_IK_CREATE_LOCATOR_TOOLTIP);
+
+        UIElement actionButtonsRow = UI.row(this.addCubeIcon, this.addFolderIcon, this.addIKLocatorIcon);
+        actionButtonsRow.relative(hierarchyTitle).y(1F, 4).w(1F).h(20);
 
         this.hierarchyList = new UIList<>((l) -> this.selectCurrentHierarchyEntry())
         {
@@ -192,10 +228,12 @@ public class UIModelGeometryPanel extends UIElement
         this.hierarchyList.scroll.scrollItemSize = 18;
         this.hierarchySearch = new UISearchList<>(this.hierarchyList);
         this.hierarchySearch.label(UIKeys.GENERAL_SEARCH);
-        this.hierarchySearch.relative(this).x(sideMargin).y(52).w(leftWidth).h(1F, -94);
+        this.hierarchySearch.relative(actionButtonsRow).y(1F, 6).w(1F).h(1F, -52);
+
+        this.leftPanel.add(hierarchyTitle, actionButtonsRow, this.hierarchySearch);
 
         UILabel editorTitle = UI.label(UIKeys.MODELS_GEOMETRY_EDITOR).background();
-        editorTitle.relative(this).x(1F, -rightWidth - sideMargin).y(10).w(rightWidth).h(12);
+        editorTitle.relative(this.rightPanel).x(10).y(10).w(1F, -20).h(12);
 
         this.selectedBoneLabel = UI.label(IKey.raw("-"));
         this.selectedBoneLabel.relative(editorTitle).y(1F, 4).w(1F).h(12);
@@ -316,24 +354,135 @@ public class UIModelGeometryPanel extends UIElement
         UIElement cubeUvRow = UI.row(4, cubeUvLabel, this.cubeUvX, this.cubeUvY, this.cubeMirror);
         cubeUvRow.relative(cubeInflateRow).y(1F, 6).w(1F).h(20);
 
-        UIElement editor = new UIElement();
-        editor.relative(this).x(1F, -rightWidth - sideMargin).y(26).w(rightWidth).h(1F, -36);
-        editor.add(editorTitle, this.selectedBoneLabel, this.unifiedTransform, buttons, cubeInflateRow, cubeUvRow, this.gizmoTransform);
+        this.rightPanel.add(editorTitle, this.selectedBoneLabel, this.unifiedTransform, buttons, cubeInflateRow, cubeUvRow);
 
-        this.addCubeIcon = new UIIcon(Icons.BLOCK, (b) -> this.addCube());
-        this.addFolderIcon = new UIIcon(Icons.FOLDER, (b) -> this.addFolder());
-        this.addIKLocatorIcon = new UIIcon(Icons.POSE, (b) -> this.addIKLocator());
-        this.addCubeIcon.tooltip(UIKeys.MODELS_GEOMETRY_ADD_CUBE);
-        this.addFolderIcon.tooltip(UIKeys.MODELS_GEOMETRY_ADD_FOLDER);
-        this.addIKLocatorIcon.tooltip(UIKeys.MODELS_IK_CREATE_LOCATOR_TOOLTIP);
-        this.addCubeIcon.relative(this).x(sideMargin).y(26).w(20).h(20);
-        this.addFolderIcon.relative(this.addCubeIcon).x(1F, 2).y(0).w(20).h(20);
-        this.addIKLocatorIcon.relative(this.addFolderIcon).x(1F, 2).y(0).w(20).h(20);
+        UIDraggable leftDraggable = new UIDraggable((context) ->
+        {
+            int diff = context.mouseX - this.leftPanel.area.x;
+            int maxW = Math.max(140, this.area.w / 2 - 20);
+            int w = MathUtils.clamp(diff, 140, maxW);
+            this.leftPanel.w(w);
+            this.resize();
+        }).dragEnd(() ->
+        {
+            if (BBSSettings.uiLayoutPreferences != null)
+            {
+                BBSSettings.uiLayoutPreferences.setFormPanelWidth("UIModelPanel_left", this.leftPanel.area.w);
+            }
+        });
+        leftDraggable.relative(this.leftPanel).x(1F).y(0).w(6).h(1F).anchorX(0.5F);
+        leftDraggable.hoverOnly().rendering((context) ->
+        {
+            int color = leftDraggable.isDragging() ? BBSSettings.primaryColor.get() | Colors.A100 : (leftDraggable.area.isInside(context) ? Colors.A75 : Colors.A25);
+            context.batcher.box(leftDraggable.area.x + 2, leftDraggable.area.y, leftDraggable.area.x + 4, leftDraggable.area.ey(), color);
+        });
 
-        this.add(hierarchyTitle, this.addCubeIcon, this.addFolderIcon, this.addIKLocatorIcon, this.hierarchySearch, editor);
+        UIDraggable rightDraggable = new UIDraggable((context) ->
+        {
+            int diff = this.area.ex() - context.mouseX;
+            int maxW = Math.max(140, this.area.w / 2 - 20);
+            int w = MathUtils.clamp(diff, 140, maxW);
+            this.rightPanel.x(1F, -w).w(w);
+            this.resize();
+        }).dragEnd(() ->
+        {
+            if (BBSSettings.uiLayoutPreferences != null)
+            {
+                BBSSettings.uiLayoutPreferences.setFormPanelWidth("UIModelPanel_right", this.rightPanel.area.w);
+            }
+        });
+        rightDraggable.relative(this.rightPanel).x(0F).y(0).w(6).h(1F).anchorX(0.5F);
+        rightDraggable.hoverOnly().rendering((context) ->
+        {
+            int color = rightDraggable.isDragging() ? BBSSettings.primaryColor.get() | Colors.A100 : (rightDraggable.area.isInside(context) ? Colors.A75 : Colors.A25);
+            context.batcher.box(rightDraggable.area.x + 2, rightDraggable.area.y, rightDraggable.area.x + 4, rightDraggable.area.ey(), color);
+        });
+
+        UIRenderable backgroundRenderable = new UIRenderable((context) ->
+        {
+            if (!this.isVisible())
+            {
+                return;
+            }
+
+            int leftX1 = this.leftPanel.area.x;
+            int leftY1 = this.leftPanel.area.y;
+            int leftX2 = this.leftPanel.area.ex();
+            int leftY2 = this.leftPanel.area.ey();
+
+            int rightX1 = this.rightPanel.area.x;
+            int rightY1 = this.rightPanel.area.y;
+            int rightX2 = this.rightPanel.area.ex();
+            int rightY2 = this.rightPanel.area.ey();
+
+            context.batcher.box(leftX1, leftY1, leftX2, leftY2, 0xFF111115);
+            context.batcher.outline(leftX1 - 1, leftY1 - 1, leftX2 + 1, leftY2 + 1, 0xFF5A5A5A);
+
+            context.batcher.box(rightX1, rightY1, rightX2, rightY2, 0xFF111115);
+            context.batcher.outline(rightX1 - 1, rightY1 - 1, rightX2 + 1, rightY2 + 1, 0xFF5A5A5A);
+        });
+
+        /* Gizmo Toolbar */
+        this.gizmoMove = this.createGizmoModeButton(Icons.ALL_DIRECTIONS, Gizmo.Mode.TRANSLATE, UIKeys.FILM_GIZMO_MOVE);
+        this.gizmoScale = this.createGizmoModeButton(Icons.SCALE, Gizmo.Mode.SCALE, UIKeys.FILM_GIZMO_SCALE);
+        this.gizmoRotate = this.createGizmoModeButton(Icons.ARC, Gizmo.Mode.ROTATE, UIKeys.FILM_GIZMO_ROTATE);
+        this.gizmoCombined = this.createGizmoModeButton(Icons.SHAPES, Gizmo.Mode.COMBINED, UIKeys.FILM_GIZMO_COMBINED);
+        this.gizmoTop = this.createGizmoModeButton(Icons.SPHERE, Gizmo.Mode.TOP, UIKeys.FILM_GIZMO_TOP);
+        this.gizmoVisualSize = new UIIcon(Icons.MAXIMIZE, (b) ->
+        {
+            if (this.getContext() != null)
+            {
+                this.getContext().replaceContextMenu(new UIGizmoSizeContextMenu());
+            }
+        });
+        this.gizmoVisualSize.tooltip(UIKeys.FILM_GIZMO_SIZE);
+
+        this.gizmoTranslateSpeed = new UIIcon(Icons.FORWARD, (b) ->
+        {
+            if (this.getContext() != null)
+            {
+                this.getContext().replaceContextMenu(new UIGizmoTranslateSpeedContextMenu());
+            }
+        });
+        this.gizmoTranslateSpeed.tooltip(UIKeys.FILM_GIZMO_TRANSLATE_SPEED);
+
+        UIElement gizmoToolbar = new UIElement();
+        gizmoToolbar.row(0);
+        gizmoToolbar.relative(this).x(0.5F).y(4).wh(140, 20).anchorX(0.5F);
+
+        UIRenderable toolbarBackground = new UIRenderable((context) ->
+        {
+            gizmoToolbar.area.render(context.batcher, Colors.A75);
+
+            Gizmo.Mode gizmoMode = Gizmo.INSTANCE.getMode();
+
+            this.gizmoMove.active(gizmoMode == Gizmo.Mode.TRANSLATE);
+            this.gizmoScale.active(gizmoMode == Gizmo.Mode.SCALE);
+            this.gizmoRotate.active(gizmoMode == Gizmo.Mode.ROTATE);
+            this.gizmoCombined.active(gizmoMode == Gizmo.Mode.COMBINED);
+            this.gizmoTop.active(gizmoMode == Gizmo.Mode.TOP);
+        });
+
+        gizmoToolbar.add(this.gizmoMove, this.gizmoScale, this.gizmoRotate, this.gizmoCombined, this.gizmoTop, this.gizmoVisualSize, this.gizmoTranslateSpeed);
+
+        this.add(backgroundRenderable, this.leftPanel, this.rightPanel, leftDraggable, rightDraggable, this.gizmoTransform, toolbarBackground, gizmoToolbar);
 
         this.fillControls();
         this.fillCubeControls();
+    }
+
+    private UIIcon createGizmoModeButton(Icon icon, Gizmo.Mode mode, IKey tooltip)
+    {
+        UIIcon button = new UIIcon(icon, (b) ->
+        {
+            Gizmo.INSTANCE.setMode(mode);
+            UIUtils.playClick();
+        });
+
+        button.tooltip(tooltip);
+        button.activeBackground(Colors.A50 | Colors.BLUE);
+
+        return button;
     }
 
     private void fillCubeControls()
