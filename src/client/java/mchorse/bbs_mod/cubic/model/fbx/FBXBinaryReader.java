@@ -5,7 +5,6 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.zip.Inflater;
 
-
 public class FBXBinaryReader
 {
     private final byte[] data;

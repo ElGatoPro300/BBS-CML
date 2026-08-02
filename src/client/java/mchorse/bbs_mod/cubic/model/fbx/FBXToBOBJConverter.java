@@ -8,6 +8,11 @@ import mchorse.bbs_mod.bobj.BOBJGroup;
 import mchorse.bbs_mod.bobj.BOBJKeyframe;
 import mchorse.bbs_mod.bobj.BOBJLoader;
 
+import org.joml.Matrix4f;
+import org.joml.Quaternionf;
+import org.joml.Vector2d;
+import org.joml.Vector3f;
+
 import java.io.File;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -16,11 +21,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
-
-import org.joml.Matrix4f;
-import org.joml.Quaternionf;
-import org.joml.Vector2d;
-import org.joml.Vector3f;
 
 public class FBXToBOBJConverter
 {

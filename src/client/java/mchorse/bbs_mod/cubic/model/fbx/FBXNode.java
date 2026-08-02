@@ -27,9 +27,9 @@ public class FBXNode
         return null;
     }
 
-    public java.util.List<FBXNode> childrenNamed(String name)
+    public List<FBXNode> childrenNamed(String name)
     {
-        List<FBXNode> list = new java.util.ArrayList<FBXNode>();
+        List<FBXNode> list = new ArrayList<FBXNode>();
 
         for (FBXNode child : this.children)
         {
