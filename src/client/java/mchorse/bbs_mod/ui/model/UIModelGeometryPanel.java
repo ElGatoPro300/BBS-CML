@@ -228,7 +228,7 @@ public class UIModelGeometryPanel extends UIElement
         this.hierarchyList.scroll.scrollItemSize = 18;
         this.hierarchySearch = new UISearchList<>(this.hierarchyList);
         this.hierarchySearch.label(UIKeys.GENERAL_SEARCH);
-        this.hierarchySearch.relative(actionButtonsRow).y(1F, 6).w(1F).h(1F, -52);
+        this.hierarchySearch.relative(this.leftPanel).x(10).y(52).w(1F, -20).h(1F, -62);
 
         this.leftPanel.add(hierarchyTitle, actionButtonsRow, this.hierarchySearch);
 
