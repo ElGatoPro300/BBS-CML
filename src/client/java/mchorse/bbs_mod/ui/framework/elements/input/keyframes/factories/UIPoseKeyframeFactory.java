@@ -146,14 +146,24 @@ public class UIPoseKeyframeFactory extends UIKeyframeFactory<Pose>
     private void rebuildPoseLayout(boolean wide)
     {
         /* Closing shells before wipe avoids orphan ACTIVE shells after removeAll. */
-        if (this.poseEditor.colorSection != null)
+        if (this.poseEditor.colorAdjustments != null)
         {
-            this.poseEditor.colorSection.setExpanded(false);
+            this.poseEditor.colorAdjustments.setExpanded(false);
         }
 
-        if (this.poseEditor.glowSection != null)
+        if (this.poseEditor.colorTransform != null)
         {
-            this.poseEditor.glowSection.setExpanded(false);
+            this.poseEditor.colorTransform.setExpanded(false);
+        }
+
+        if (this.poseEditor.paintTransform != null)
+        {
+            this.poseEditor.paintTransform.setExpanded(false);
+        }
+
+        if (this.poseEditor.glowTransform != null)
+        {
+            this.poseEditor.glowTransform.setExpanded(false);
         }
 
         this.poseEditor.removeAll();
@@ -169,8 +179,7 @@ public class UIPoseKeyframeFactory extends UIKeyframeFactory<Pose>
         }
 
         boolean categoriesEnabled = BBSSettings.modelBlockCategoriesPanelEnabled != null && BBSSettings.modelBlockCategoriesPanelEnabled.get();
-        /* Wide Film Properties: Pick beside Opacity. Narrow + Model Editor stay stacked. */
-        UIElement footer = this.poseEditor.createPoseFooter(wide);
+        UIElement footer = this.poseEditor.createPoseFooter();
 
         if (wide)
         {
@@ -203,10 +212,10 @@ public class UIPoseKeyframeFactory extends UIKeyframeFactory<Pose>
             this.poseEditor.add(
                 UI.label(UIKeys.FORMS_EDITOR_BONE),
                 groupsRow,
+                footer,
                 UI.label(UIKeys.POSE_CONTEXT_FIX),
                 this.poseEditor.fix,
-                this.poseEditor.transform,
-                footer
+                this.poseEditor.transform
             );
         }
 
@@ -393,18 +402,10 @@ public class UIPoseKeyframeFactory extends UIKeyframeFactory<Pose>
         {
             apply(this.editor, this.keyframe, this.getGroup(transform), (poseT) ->
             {
-                float intensity = poseT.color.a;
+                Color rgba = Color.rgba(value);
 
-                poseT.color.set(value, false);
-                poseT.color.a = intensity;
+                poseT.color.set(rgba.r, rgba.g, rgba.b, rgba.a);
             });
-        }
-
-        @Override
-        protected void setBlendIntensity(PoseTransform transform, float value)
-        {
-            apply(this.editor, this.keyframe, this.getGroup(transform), (poseT) ->
-                poseT.color.a = MathUtils.clamp(value, 0F, 1F));
         }
 
         @Override
@@ -492,6 +493,12 @@ public class UIPoseKeyframeFactory extends UIKeyframeFactory<Pose>
         protected void setLighting(PoseTransform poseTransform, boolean value)
         {
             apply(this.editor, this.keyframe, this.getGroup(poseTransform), (poseT) -> poseT.lighting = value ? 0F : 1F);
+        }
+
+        @Override
+        protected void setNoshadingOpacity(PoseTransform poseTransform, boolean value)
+        {
+            apply(this.editor, this.keyframe, this.getGroup(poseTransform), (poseT) -> poseT.noshadingOpacity = value);
         }
 
         @Override

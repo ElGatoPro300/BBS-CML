@@ -5,6 +5,7 @@ import mchorse.bbs_mod.forms.entities.IEntity;
 import mchorse.bbs_mod.forms.renderers.utils.RecolorVertexConsumer;
 import mchorse.bbs_mod.utils.colors.Color;
 
+import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.model.ModelPart;
 import net.minecraft.client.render.OverlayTexture;
 import net.minecraft.client.render.RenderLayer;
@@ -12,6 +13,7 @@ import net.minecraft.client.render.TexturedRenderLayers;
 import net.minecraft.client.render.VertexConsumer;
 import net.minecraft.client.render.VertexConsumerProvider;
 import net.minecraft.client.render.entity.model.BipedEntityModel;
+import net.minecraft.client.render.entity.model.ElytraEntityModel;
 import net.minecraft.client.render.model.BakedModelManager;
 import net.minecraft.client.texture.Sprite;
 import net.minecraft.client.texture.SpriteAtlasTexture;
@@ -30,6 +32,8 @@ import net.minecraft.item.equipment.trim.ArmorTrimMaterial;
 import net.minecraft.registry.RegistryKey;
 import net.minecraft.registry.entry.RegistryEntry;
 import net.minecraft.util.Identifier;
+import net.minecraft.util.math.MathHelper;
+import net.minecraft.util.math.RotationAxis;
 
 import com.google.common.collect.Maps;
 
@@ -38,14 +42,17 @@ import java.util.Map;
 public class ArmorRenderer
 {
     private static final Map<String, Identifier> ARMOR_TEXTURE_CACHE = Maps.newHashMap();
+    private static final Identifier ELYTRA_TEXTURE = Identifier.of("minecraft", "textures/entity/elytra.png");
     private final BipedEntityModel innerModel;
     private final BipedEntityModel outerModel;
+    private final ElytraEntityModel elytraModel;
     private final SpriteAtlasTexture armorTrimsAtlas;
 
-    public ArmorRenderer(BipedEntityModel innerModel, BipedEntityModel outerModel, BakedModelManager bakery)
+    public ArmorRenderer(BipedEntityModel innerModel, BipedEntityModel outerModel, ElytraEntityModel elytraModel, BakedModelManager bakery)
     {
         this.innerModel = innerModel;
         this.outerModel = outerModel;
+        this.elytraModel = elytraModel;
         this.armorTrimsAtlas = bakery.getAtlas(TexturedRenderLayers.ARMOR_TRIMS_ATLAS_TEXTURE);
     }
 
@@ -53,6 +60,46 @@ public class ArmorRenderer
     {
         ItemStack itemStack = entity.getEquipmentStack(armorSlot);
         Item item = itemStack.getItem();
+
+        if (item instanceof ElytraItem || itemStack.isOf(Items.ELYTRA))
+        {
+            if (type == ArmorType.CHEST && this.elytraModel != null)
+            {
+                matrices.push();
+                /* Position Elytra at shoulder height and scale to fit back properly like Minecraft Vanilla */
+                matrices.translate(0F, -1.5F, 0.125F);
+                matrices.scale(2F, 2F, 2F);
+
+                this.elytraModel.leftWing.pivotX = 5.0F;
+                this.elytraModel.leftWing.pivotY = 0.0F;
+                this.elytraModel.leftWing.pivotZ = 0.0F;
+
+                this.elytraModel.rightWing.pivotX = -5.0F;
+                this.elytraModel.rightWing.pivotY = 0.0F;
+                this.elytraModel.rightWing.pivotZ = 0.0F;
+
+                float transition = MinecraftClient.getInstance().getRenderTickCounter().getTickDelta(true);
+                float flyProgress = entity != null ? entity.getFallFlyingProgress(transition) : 0F;
+
+                this.elytraModel.leftWing.pitch = MathHelper.lerp(flyProgress, 0.2617994F, 0.35F);
+                this.elytraModel.leftWing.yaw = MathHelper.lerp(flyProgress, -0.015F, -0.1F);
+                this.elytraModel.leftWing.roll = MathHelper.lerp(flyProgress, -0.29F, -1.55F);
+                this.elytraModel.rightWing.pitch = this.elytraModel.leftWing.pitch;
+                this.elytraModel.rightWing.yaw = -this.elytraModel.leftWing.yaw;
+                this.elytraModel.rightWing.roll = -this.elytraModel.leftWing.roll;
+
+                VertexConsumer consumer = vertexConsumers.getBuffer(RenderLayer.getArmorCutoutNoCull(ELYTRA_TEXTURE));
+                this.elytraModel.render(matrices, consumer, light, OverlayTexture.DEFAULT_UV);
+
+                if (itemStack.hasGlint())
+                {
+                    this.elytraModel.render(matrices, vertexConsumers.getBuffer(RenderLayer.getArmorEntityGlint()), light, OverlayTexture.DEFAULT_UV);
+                }
+
+                matrices.pop();
+            }
+            return;
+        }
 
         if (item instanceof ArmorItem armorItem)
         {

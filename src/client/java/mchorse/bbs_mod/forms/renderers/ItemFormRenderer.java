@@ -12,7 +12,7 @@ import mchorse.bbs_mod.forms.forms.utils.EffectTransform;
 import mchorse.bbs_mod.forms.forms.utils.GlowSettings;
 import mchorse.bbs_mod.forms.forms.utils.PaintSettings;
 import mchorse.bbs_mod.forms.renderers.utils.BlockEffectOverlayUniforms;
-import mchorse.bbs_mod.forms.renderers.utils.FormColorBlend;
+import mchorse.bbs_mod.forms.renderers.utils.FormColorEffects;
 import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.utils.MatrixStackUtils;
 import mchorse.bbs_mod.utils.colors.Color;
@@ -71,13 +71,13 @@ public class ItemFormRenderer extends FormRenderer<ItemForm>
         MatrixStackUtils.invertUiNormalY(matrices);
 
         Color storedFormColor = this.form.color.get();
-        Color rawFormColor = storedFormColor.copyWithBlendIntensity();
+        Color rawFormColor = storedFormColor.copyBakingColorGrade();
         Color formColor = rawFormColor.copy();
-        boolean colorTransformWanted = FormColorBlend.wantsColorTintOverlay(storedFormColor);
+        boolean colorTransformWanted = FormColorEffects.wantsColorTintOverlay(storedFormColor);
         boolean colorGradeWanted = storedFormColor.hasColorAdjustments();
         Color set = Color.white();
 
-        if (FormColorBlend.shouldBakeFormColor(storedFormColor))
+        if (FormColorEffects.shouldBakeFormColor(storedFormColor))
         {
             set.mul(rawFormColor);
         }
@@ -91,11 +91,11 @@ public class ItemFormRenderer extends FormRenderer<ItemForm>
 
         if (glowIntensity < 0F)
         {
-            FormColorBlend.blendFormGlowBrighten(set, glowSettings, legacyGlow);
+            FormColorEffects.blendFormGlowBrighten(set, glowSettings, legacyGlow);
         }
 
-        Color resolvedPaint = FormColorBlend.resolvePaintColor(this.form.paintSettings.get(), this.form.paintColor.get());
-        boolean positivePaint = FormColorBlend.hasPositivePaint(this.form.paintSettings.get(), this.form.paintColor.get());
+        Color resolvedPaint = FormColorEffects.resolvePaintColor(this.form.paintSettings.get(), this.form.paintColor.get());
+        boolean positivePaint = FormColorEffects.hasPositivePaint(this.form.paintSettings.get(), this.form.paintColor.get());
 
         Vector3f light0 = new Vector3f(0.85F, 0.85F, -1F).normalize();
         Vector3f light1 = new Vector3f(-0.85F, 0.85F, 1F).normalize();
@@ -115,7 +115,7 @@ public class ItemFormRenderer extends FormRenderer<ItemForm>
 
         if (colorTransformWanted)
         {
-            Color overlayTint = colorGradeWanted ? storedFormColor.copyWithBlendIntensityOnly() : formColor;
+            Color overlayTint = colorGradeWanted ? storedFormColor.copyDeferringColorGrade() : formColor;
 
             this.form.applyFormOpacity(overlayTint);
             this.renderItemColorTintOverlay(null, matrices, overlayTint, set.a, OverlayTexture.DEFAULT_UV, mode, false, null, true, storedFormColor);
@@ -181,14 +181,14 @@ public class ItemFormRenderer extends FormRenderer<ItemForm>
             }
 
             Color storedFormColor = this.form.color.get();
-            Color rawFormColor = storedFormColor.copyWithBlendIntensity();
+            Color rawFormColor = storedFormColor.copyBakingColorGrade();
             Color formColor = rawFormColor.copy();
-            boolean colorTransformWanted = FormColorBlend.wantsColorTintOverlay(storedFormColor);
+            boolean colorTransformWanted = FormColorEffects.wantsColorTintOverlay(storedFormColor);
             boolean colorGradeWanted = storedFormColor.hasColorAdjustments();
 
             BlockFormRenderer.color.set(context.color);
 
-            if (FormColorBlend.shouldBakeFormColor(storedFormColor))
+            if (FormColorEffects.shouldBakeFormColor(storedFormColor))
             {
                 BlockFormRenderer.color.mul(rawFormColor);
             }
@@ -198,7 +198,7 @@ public class ItemFormRenderer extends FormRenderer<ItemForm>
 
             boolean shadowPass = context.isShadowPass || BBSRendering.isIrisShadowPass();
 
-            FormColorBlend.applyShadowPassColorFix(BlockFormRenderer.color, storedFormColor, this.form.paintSettings.get(), this.form.paintColor.get(), shadowPass);
+            FormColorEffects.applyShadowPassColorFix(BlockFormRenderer.color, storedFormColor, this.form.paintSettings.get(), this.form.paintColor.get(), shadowPass);
 
             if (BlockFormRenderer.color.a <= 0.001F && !shadowPass && !context.isPicking())
             {
@@ -212,13 +212,13 @@ public class ItemFormRenderer extends FormRenderer<ItemForm>
 
             if (glowIntensity < 0F)
             {
-                FormColorBlend.blendFormGlowBrighten(BlockFormRenderer.color, glowSettings, legacyGlow);
+                FormColorEffects.blendFormGlowBrighten(BlockFormRenderer.color, glowSettings, legacyGlow);
             }
 
             PaintSettings paintSettings = this.form.paintSettings.get();
             Color legacyPaint = this.form.paintColor.get();
-            Color resolvedPaint = FormColorBlend.resolvePaintColor(paintSettings, legacyPaint);
-            boolean positivePaint = !context.isPicking() && !shadowPass && FormColorBlend.hasPositivePaint(paintSettings, legacyPaint);
+            Color resolvedPaint = FormColorEffects.resolvePaintColor(paintSettings, legacyPaint);
+            boolean positivePaint = !context.isPicking() && !shadowPass && FormColorEffects.hasPositivePaint(paintSettings, legacyPaint);
 
             consumers.setSubstitute(this.getMainConsumer(BlockFormRenderer.color, resolvedPaint));
 
@@ -255,7 +255,7 @@ public class ItemFormRenderer extends FormRenderer<ItemForm>
 
             if (colorTransformWanted && !shadowPass && !context.isPicking())
             {
-                Color overlayTint = colorGradeWanted ? storedFormColor.copyWithBlendIntensityOnly() : formColor;
+                Color overlayTint = colorGradeWanted ? storedFormColor.copyDeferringColorGrade() : formColor;
 
                 this.form.applyFormOpacity(overlayTint);
 
@@ -372,7 +372,7 @@ public class ItemFormRenderer extends FormRenderer<ItemForm>
 
     private void renderItemColorTintOverlayPass(FormRenderingContext context, MatrixStack stack, CustomVertexConsumerProvider consumers, Color formColor, float alpha, int overlay, boolean ui, ModelTransformationMode mode, boolean leftHand, LivingEntity itemEntity, Color gradeSource)
     {
-        Matrix4f formRootInverse = new Matrix4f(stack.peek().getPositionMatrix()).invert();
+        Matrix4f formRootInverse = new Matrix4f();
 
         CustomVertexConsumerProvider.clearRunnables();
         CustomVertexConsumerProvider.hijackVertexFormat((l) -> BlockEffectOverlayUniforms.configureColorTintOverlayRenderState(formRootInverse, formColor.transform, false, formColor, 0.5F, gradeSource));
@@ -440,7 +440,7 @@ public class ItemFormRenderer extends FormRenderer<ItemForm>
 
     private void renderPaintOverlayPass(FormRenderingContext context, MatrixStack stack, CustomVertexConsumerProvider consumers, Color paintOverlay, int overlay, boolean ui, ModelTransformationMode mode, boolean leftHand, LivingEntity itemEntity, EffectTransform transform, GlowSettings glowSettings, Color legacyGlow, float glowIntensity, float alpha)
     {
-        Matrix4f formRootInverse = new Matrix4f(stack.peek().getPositionMatrix()).invert();
+        Matrix4f formRootInverse = new Matrix4f();
 
         CustomVertexConsumerProvider.clearRunnables();
         CustomVertexConsumerProvider.hijackVertexFormat((l) -> BlockEffectOverlayUniforms.configurePaintOverlayRenderState(formRootInverse, transform, false, glowSettings, legacyGlow, glowIntensity, alpha));
@@ -492,8 +492,8 @@ public class ItemFormRenderer extends FormRenderer<ItemForm>
 
     private void renderGlowOverlay(FormRenderingContext context, MatrixStack stack, CustomVertexConsumerProvider consumers, GlowSettings glowSettings, Color legacyGlow, float glowIntensity, float alpha, int overlay, boolean ui, ModelTransformationMode mode, LivingEntity itemEntity, boolean leftHand)
     {
-        Color glowColor = FormColorBlend.resolveGlowOverlayEmissionColor(glowSettings, legacyGlow, alpha, glowIntensity);
-        float shaderScale = FormColorBlend.resolveGlowOverlayShaderScale(glowIntensity);
+        Color glowColor = FormColorEffects.resolveGlowOverlayEmissionColor(glowSettings, legacyGlow, alpha, glowIntensity);
+        float shaderScale = FormColorEffects.resolveGlowOverlayShaderScale(glowIntensity);
 
         RenderSystem.enableBlend();
         RenderSystem.blendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE);

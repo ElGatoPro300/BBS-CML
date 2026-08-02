@@ -69,7 +69,7 @@ public class UIWorldPropertiesOverlayPanel extends UIOverlayPanel
 
         openCount++;
 
-        this.resizable().minSize(240, 120);
+        this.resizable().minSize(240, 200);
 
         this.freezeTime = new UIToggle(UIKeys.WORLD_FREEZE_TIME, !WorldPropertiesHelper.readGamerule(GameRules.DO_DAYLIGHT_CYCLE, true), (b) ->
             WorldPropertiesHelper.setGamerule(GameRules.DO_DAYLIGHT_CYCLE, !b.getValue()));

@@ -17,24 +17,20 @@ import mchorse.bbs_mod.forms.forms.MobForm;
 import mchorse.bbs_mod.forms.forms.ModelForm;
 import mchorse.bbs_mod.forms.forms.utils.Anchor;
 import mchorse.bbs_mod.forms.forms.utils.GlowSettings;
-import mchorse.bbs_mod.forms.forms.utils.Illusion;
 import mchorse.bbs_mod.forms.forms.utils.LookAt;
 import mchorse.bbs_mod.forms.forms.utils.LookAtBone;
 import mchorse.bbs_mod.forms.forms.utils.PaintSettings;
 import mchorse.bbs_mod.forms.forms.utils.ShadowSettings;
-import mchorse.bbs_mod.forms.forms.utils.TextureBlend;
+import mchorse.bbs_mod.forms.renderers.FormIllusionRenderer;
 import mchorse.bbs_mod.forms.renderers.FormRenderType;
 import mchorse.bbs_mod.forms.renderers.FormRenderingContext;
 import mchorse.bbs_mod.forms.renderers.ModelFormRenderer;
 import mchorse.bbs_mod.forms.renderers.utils.MatrixCache;
 import mchorse.bbs_mod.forms.renderers.utils.MatrixCacheEntry;
-import mchorse.bbs_mod.forms.values.ValueIllusion;
 import mchorse.bbs_mod.graphics.Draw;
 import mchorse.bbs_mod.mixin.client.ClientPlayerEntityAccessor;
 import mchorse.bbs_mod.morphing.Morph;
-import mchorse.bbs_mod.resources.Link;
 import mchorse.bbs_mod.settings.values.base.BaseValue;
-import mchorse.bbs_mod.settings.values.core.ValueTransform;
 import mchorse.bbs_mod.ui.framework.UIBaseMenu;
 import mchorse.bbs_mod.ui.framework.elements.utils.StencilMap;
 import mchorse.bbs_mod.ui.utils.Gizmo;
@@ -77,9 +73,7 @@ import net.minecraft.particle.ParticleTypes;
 import net.minecraft.sound.SoundCategory;
 import net.minecraft.text.Text;
 import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Direction;
 import net.minecraft.util.math.Vec3d;
-import net.minecraft.util.shape.VoxelShape;
 import net.minecraft.world.LightType;
 import net.minecraft.world.World;
 
@@ -98,16 +92,12 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Random;
 
 import io.netty.util.collection.IntObjectHashMap;
 import io.netty.util.collection.IntObjectMap;
 
 public abstract class BaseFilmController
 {
-    /* Temporal smoothing state for "real" illusions' ground following (entity identity + illusion index -> lift) */
-    private static final Map<Long, IllusionLift> ILLUSION_LIFTS = new HashMap<>();
-
     public final Film film;
 
     protected IntObjectMap<IEntity> entities = new IntObjectHashMap<>();
@@ -115,8 +105,6 @@ public abstract class BaseFilmController
 
     public boolean paused;
     public int exception = -1;
-
-    private List<FormRenderDepth.Occluder> currentRenderDepthOccluders = List.of();
 
     /* Rendering helpers */
 
@@ -231,8 +219,7 @@ public abstract class BaseFilmController
             .set(FormRenderType.ENTITY, entity, stack, light, overlay, transition)
             .camera(camera)
             .stencilMap(context.map)
-            .color(context.color)
-            .renderDepthFrame(context.renderDepthFrame);
+            .color(context.color);
 
         formContext.relative = relative;
         formContext.isShadowPass = context.isShadowPass;
@@ -257,6 +244,11 @@ public abstract class BaseFilmController
             }
 
             MatrixStackUtils.multiply(stack, target);
+
+            /* IRLights 1.21+ reads FormRenderingContext.world (absolute) for light poses.
+             * Rebuild that root in true world space (independent of any render camera or viewport)
+             * so light registration cannot mix the film actor frame with the spectator/player view. */
+            syncIrlAbsoluteWorldMatrix(formContext, context, entity, relative, transition);
 
             ModelFormRenderer lookAtRenderer = relative ? null : applyLookAtPose(context, form, position);
 
@@ -300,16 +292,30 @@ public abstract class BaseFilmController
                 }
             }
 
-            FormUtilsClient.render(form, formContext);
+            FormIllusionRenderer.Extras illusionExtras = null;
+
+            if (context.replay != null && !Float.isNaN(context.propertyTick))
+            {
+                illusionExtras = new FormIllusionRenderer.Extras();
+                illusionExtras.propertyTick = context.propertyTick;
+                illusionExtras.applyFormAtTick = (tick) ->
+                {
+                    context.replay.properties.resetProperties(form);
+                    context.replay.properties.applyProperties(form, tick);
+                };
+                illusionExtras.restoreFormTick = () ->
+                {
+                    context.replay.properties.resetProperties(form);
+                    context.replay.properties.applyProperties(form, context.propertyTick);
+                };
+            }
+
+            /* Illusions are drawn inside FormUtilsClient for model blocks / morphs / preview too. */
+            FormUtilsClient.render(form, formContext, context.map == null ? illusionExtras : null);
 
             if (!context.isShadowPass && context.map == null && entity.getFireTicks() > 0)
             {
                 MorphFireRenderer.render(stack, context.consumers, entity, form, transition, camera, relative);
-            }
-
-            if (context.map == null)
-            {
-                renderIllusions(context, form, formContext, stack);
             }
 
             if (lookAtRenderer != null)
@@ -396,493 +402,6 @@ public abstract class BaseFilmController
         RenderSystem.enableDepthTest();
     }
 
-    /**
-     * Renders purely visual duplicates of the form that spread away from it in the
-     * picked directions. They reuse the same form renderer (no extra entities), the
-     * gaps between them shrink with each rank, and their opacity fades with distance
-     * (optionally inverted).
-     */
-    private static void renderIllusions(FilmControllerContext context, Form form, FormRenderingContext formContext, MatrixStack stack)
-    {
-        if (context.isShadowPass)
-        {
-            return;
-        }
-
-        List<Illusion> layers = collectIllusionLayers(form);
-        boolean hasIllusions = false;
-
-        for (Illusion layer : layers)
-        {
-            if (layer != null && layer.count > 0)
-            {
-                hasIllusions = true;
-
-                break;
-            }
-        }
-
-        if (!hasIllusions)
-        {
-            return;
-        }
-
-        int baseColor = formContext.color;
-        int baseLight = formContext.light;
-        AABB hitbox = context.entity.getPickingHitbox();
-        float height = (float) hitbox.h;
-
-        for (int layer = 0; layer < layers.size(); layer++)
-        {
-            Illusion layerIllusion = layers.get(layer);
-
-            if (layerIllusion == null || layerIllusion.count <= 0)
-            {
-                continue;
-            }
-
-            Transform layerTransform = createIllusionTransform(form, layerIllusion);
-
-            renderIllusionLayer(context, form, formContext, stack, layerIllusion, layerTransform, hitbox, height, layer, baseColor, baseLight);
-        }
-
-        formContext.textureOverride = null;
-        formContext.textureBlendOverride = null;
-        formContext.color(baseColor);
-        formContext.light = baseLight;
-        form.glowSettings.setRuntimeValue(null);
-    }
-
-    private static List<Illusion> collectIllusionLayers(Form form)
-    {
-        List<Illusion> layers = new ArrayList<>();
-
-        layers.add(form.illusion.get());
-        layers.add(form.illusionOverlay.get());
-
-        for (ValueIllusion overlay : form.additionalIllusions)
-        {
-            layers.add(overlay.get());
-        }
-
-        return layers;
-    }
-
-    private static Transform createIllusionTransform(Form form, Illusion illusion)
-    {
-        Transform transform = new Transform();
-
-        transform.copy(illusion.transform);
-
-        /* Legacy form-level illusion transform tracks (deprecated, kept for old projects) */
-        applyIllusionTransformOverlay(transform, form.illusionTransform.get());
-        applyIllusionTransformOverlay(transform, form.illusionTransformOverlay.get());
-
-        for (ValueTransform overlay : form.additionalIllusionTransforms)
-        {
-            applyIllusionTransformOverlay(transform, overlay.get());
-        }
-
-        return transform;
-    }
-
-    private static void applyIllusionTransformOverlay(Transform transform, Transform overlay)
-    {
-        transform.translate.add(overlay.translate);
-        transform.scale.add(overlay.scale).sub(1F, 1F, 1F);
-        transform.rotate.add(overlay.rotate);
-        transform.rotate2.add(overlay.rotate2);
-        transform.pivot.add(overlay.pivot);
-    }
-
-    private static void renderIllusionLayer(FilmControllerContext context, Form form, FormRenderingContext formContext, MatrixStack stack, Illusion illusion, Transform illusionTransform, AABB hitbox, float height, int layerIndex, int baseColor, int baseLight)
-    {
-        List<Vector3f> directions = getIllusionDirections(illusion.directions);
-        float strength = Math.max(illusion.opacity, 0F);
-        int count = illusion.count;
-        int dirCount = directions.size();
-        int maxRank = (count + dirCount - 1) / dirCount;
-        int textureCount = illusion.textures.size();
-        boolean delayed = illusion.delay > 0F && context.replay != null && !Float.isNaN(context.propertyTick);
-        int liftKeyBase = layerIndex * 10000;
-
-        for (int i = 0; i < count; i++)
-        {
-            Vector3f dir = directions.get(i % dirCount);
-            int rank = i / dirCount + 1;
-            float distance = getIllusionDistance(illusion, hitbox, dir, rank, maxRank);
-            float fadeT = maxRank <= 0 ? 1F : (rank - 0.5F) / maxRank;
-            float alpha;
-
-            fadeT = MathUtils.clamp(fadeT, 0F, 1F);
-
-            if (illusion.opacityUniform)
-            {
-                alpha = 1F - strength;
-            }
-            else
-            {
-                alpha = illusion.invert ? 1F - strength * (1F - fadeT) : 1F - strength * fadeT;
-            }
-
-            alpha = MathUtils.clamp(alpha, 0F, 1F);
-
-            if (alpha <= 0F)
-            {
-                continue;
-            }
-
-            if (delayed)
-            {
-                float delayedTick = Math.max(context.propertyTick - illusion.delay * (i + 1), 0F);
-
-                context.replay.properties.resetProperties(form);
-                context.replay.properties.applyProperties(form, delayedTick);
-            }
-
-            float lift = 0F;
-
-            if (illusion.real && !formContext.relative)
-            {
-                lift = getIllusionLift(context.entity, dir, distance, liftKeyBase + i, formContext.transition);
-            }
-
-            Link savedTextureOverride = formContext.textureOverride;
-            TextureBlend savedTextureBlendOverride = formContext.textureBlendOverride;
-
-            if (form.illusionTextureBlend != null)
-            {
-                formContext.textureBlendOverride = form.illusionTextureBlend;
-                formContext.textureOverride = null;
-            }
-            else if (textureCount > 0)
-            {
-                int index = illusion.randomTextures
-                    ? (int) Math.floorMod((i + 1L) * 2654435761L + layerIndex, textureCount)
-                    : i % textureCount;
-
-                formContext.textureOverride = illusion.textures.get(index);
-                formContext.textureBlendOverride = null;
-            }
-
-            Transform partial = null;
-
-            if (!illusionTransform.isDefault())
-            {
-                float factor = getIllusionTransformFactor(i, count, illusion.gradual, illusion.gradualInvert);
-
-                if (factor > 0F)
-                {
-                    partial = new Transform();
-                    partial.lerp(illusionTransform, factor);
-                }
-            }
-
-            applyIllusionGlow(form, illusion, i, count);
-            float distortFactor = getIllusionDistortFactor(illusion, i, count);
-            float x = dir.x * distance;
-            float y = dir.y * distance + lift;
-            float z = dir.z * distance;
-            float mainAlpha = alpha * (1F - distortFactor);
-
-            if (mainAlpha > 0F)
-            {
-                int a = Math.round(((baseColor >>> 24) & 0xFF) * mainAlpha);
-
-                stack.push();
-
-                try
-                {
-                    stack.translate(x, y, z);
-
-                    if (partial != null)
-                    {
-                        MatrixStackUtils.multiply(stack, partial.createMatrix());
-                    }
-
-                    formContext.color((a << 24) | (baseColor & Colors.RGB));
-                    FormUtilsClient.render(form, formContext);
-                }
-                finally
-                {
-                    stack.pop();
-                }
-            }
-
-            if (distortFactor > 0F)
-            {
-                float streakAlpha = alpha * (1F - distortFactor);
-                int a = Math.round(((baseColor >>> 24) & 0xFF) * Math.min(streakAlpha + 0.2F * (1F - distortFactor), 1F));
-
-                renderIllusionStreaks(form, formContext, stack, x, y, z, partial, (a << 24) | (baseColor & Colors.RGB), distortFactor, liftKeyBase + i, height);
-            }
-
-            formContext.textureOverride = savedTextureOverride;
-            formContext.textureBlendOverride = savedTextureBlendOverride;
-            formContext.light = baseLight;
-            form.glowSettings.setRuntimeValue(null);
-        }
-
-        if (delayed)
-        {
-            context.replay.properties.resetProperties(form);
-            context.replay.properties.applyProperties(form, context.propertyTick);
-        }
-    }
-
-    private static float getIllusionDistance(Illusion illusion, AABB hitbox, Vector3f dir, int rank, int maxRank)
-    {
-        if (illusion.uniform)
-        {
-            /* Equal gaps between the illusions */
-            return illusion.spacing * rank + illusion.offset;
-        }
-
-        /* Gaps shrink linearly with rank: the first gap equals spread, the last one spread / maxRank */
-        return illusion.spread * (rank * maxRank - rank * (rank - 1) / 2F) / maxRank + illusion.offset;
-    }
-
-    /**
-     * Transform gradient across illusion copies. The main model stays at 0; the first
-     * illusion gets 1 / count of the transform and the last one gets the full value.
-     */
-    private static float getIllusionTransformFactor(int index, int count, boolean gradual, boolean invert)
-    {
-        if (!gradual || count <= 1)
-        {
-            return 1F;
-        }
-
-        float factor = (index + 1F) / count;
-
-        if (invert)
-        {
-            factor = (count - index) / (float) count;
-        }
-
-        return factor;
-    }
-
-    private static float getIllusionGradientWeight(int index, int count, boolean uniform, boolean invert)
-    {
-        if (uniform || count <= 1)
-        {
-            return 1F;
-        }
-
-        /* Keep both ends in range so the first and last copies always receive some effect. */
-        float weight = (count - index) / (float) count;
-
-        if (invert)
-        {
-            weight = (index + 1F) / count;
-        }
-
-        return weight;
-    }
-
-    /**
-     * Glow gradient across illusion copies. The main model stays at 0; the first
-     * illusion starts low (~1 / (count + 1)) and the last one reaches full strength.
-     */
-    private static float getIllusionGlowWeight(int index, int count, boolean uniform, boolean invert)
-    {
-        if (uniform || count <= 1)
-        {
-            return 1F;
-        }
-
-        float minWeight = 1F / count;
-        float weight = (index + 1F) / count;
-
-        if (invert)
-        {
-            weight = (count - index) / (float) count;
-        }
-
-        return minWeight + (1F - minWeight) * weight;
-    }
-
-    private static float getIllusionDistortFactor(Illusion illusion, int index, int count)
-    {
-        if (illusion.distort <= 0F)
-        {
-            return 0F;
-        }
-
-        float weight = getIllusionGradientWeight(index, count, illusion.distortUniform, illusion.distortInvert);
-
-        return MathUtils.clamp(illusion.distort * weight, 0F, 1F);
-    }
-
-    /**
-     * Applies the illusion glow through the standard glow shader path (same as the
-     * main model). Intensity ramps from the first illusion to the last by default.
-     */
-    private static void applyIllusionGlow(Form form, Illusion illusion, int index, int count)
-    {
-        if (illusion.glow == 0F)
-        {
-            return;
-        }
-
-        GlowSettings base = form.glowSettings.get();
-        GlowSettings override = base.copy();
-        float weight = getIllusionGlowWeight(index, count, illusion.glowUniform, illusion.glowInvert);
-
-        override.intensity = illusion.glow * weight;
-        form.glowSettings.setRuntimeValue(override);
-    }
-
-    /**
-     * Renders the disintegration streaks of an illusion: squashed, stretched and
-     * jittered copies of the model that look like the horizontal slices it falls
-     * apart into. The randomness is stable per illusion and re-rolls a few times a
-     * second for a glitchy feel.
-     */
-    private static void renderIllusionStreaks(Form form, FormRenderingContext formContext, MatrixStack stack, float x, float y, float z, Transform partial, int argb, float distortFactor, int index, float height)
-    {
-        if (((argb >>> 24) & 0xFF) <= 0)
-        {
-            return;
-        }
-
-        Random random = new Random(index * 49297L);
-        int streaks = 2 + Math.round(distortFactor * 5F);
-
-        formContext.color(argb);
-
-        for (int s = 0; s < streaks; s++)
-        {
-            float yPos = (0.1F + 0.8F * random.nextFloat()) * Math.max(height, 0.5F);
-            float jx = (random.nextFloat() - 0.5F) * (0.3F + distortFactor);
-            float jz = (random.nextFloat() - 0.5F) * (0.3F + distortFactor);
-            float squash = 0.03F + random.nextFloat() * 0.09F;
-            float stretch = 1F + random.nextFloat() * (0.5F + distortFactor);
-
-            stack.push();
-
-            try
-            {
-                stack.translate(x + jx, y + yPos * (1F - squash), z + jz);
-
-                if (partial != null)
-                {
-                    MatrixStackUtils.multiply(stack, partial.createMatrix());
-                }
-
-                stack.scale(stretch, squash, stretch);
-                FormUtilsClient.render(form, formContext);
-            }
-            finally
-            {
-                stack.pop();
-            }
-        }
-    }
-
-    private static List<Vector3f> getIllusionDirections(int mask)
-    {
-        List<Vector3f> directions = new ArrayList<>();
-
-        if (mask == 0)
-        {
-            mask = Illusion.FRONT | Illusion.LEFT | Illusion.RIGHT | Illusion.BACK;
-        }
-
-        if ((mask & Illusion.FRONT) != 0) directions.add(new Vector3f(0F, 0F, 1F));
-        if ((mask & Illusion.LEFT) != 0) directions.add(new Vector3f(1F, 0F, 0F));
-        if ((mask & Illusion.RIGHT) != 0) directions.add(new Vector3f(-1F, 0F, 0F));
-        if ((mask & Illusion.BACK) != 0) directions.add(new Vector3f(0F, 0F, -1F));
-        if ((mask & Illusion.UP) != 0) directions.add(new Vector3f(0F, 1F, 0F));
-        if ((mask & Illusion.DOWN) != 0) directions.add(new Vector3f(0F, -1F, 0F));
-
-        return directions;
-    }
-
-    /**
-     * How much a "real" illusion has to be moved vertically so it stands on top of
-     * the terrain at its spot (the illusion's local offset is rotated by the
-     * entity's body yaw to find its world position first). It can both climb onto
-     * blocks in its way (up to 3 blocks) and drop down when the ground is lower,
-     * and the movement is smoothed over time so it looks like a natural little hop
-     * instead of an instant snap.
-     */
-    private static float getIllusionLift(IEntity entity, Vector3f dir, float distance, int index, float transition)
-    {
-        World world = entity.getWorld();
-
-        if (world == null)
-        {
-            return 0F;
-        }
-
-        double yaw = MathUtils.toRad(Lerps.lerp(entity.getPrevBodyYaw(), entity.getBodyYaw(), transition));
-        double lx = dir.x * distance;
-        double lz = dir.z * distance;
-        double x = Lerps.lerp(entity.getPrevX(), entity.getX(), transition) + lx * Math.cos(yaw) - lz * Math.sin(yaw);
-        double y = Lerps.lerp(entity.getPrevY(), entity.getY(), transition) + dir.y * distance;
-        double z = Lerps.lerp(entity.getPrevZ(), entity.getZ(), transition) + lx * Math.sin(yaw) + lz * Math.cos(yaw);
-        float target = getIllusionGroundDelta(world, x, y, z);
-
-        long key = ((long) System.identityHashCode(entity) << 20) | (index & 0xFFFFF);
-        long now = System.currentTimeMillis();
-        IllusionLift lift = ILLUSION_LIFTS.get(key);
-
-        if (lift == null)
-        {
-            if (ILLUSION_LIFTS.size() > 16384)
-            {
-                ILLUSION_LIFTS.clear();
-            }
-
-            lift = new IllusionLift();
-            lift.value = target;
-            lift.time = now;
-            ILLUSION_LIFTS.put(key, lift);
-
-            return target;
-        }
-
-        float dt = MathUtils.clamp((now - lift.time) / 1000F, 0F, 0.25F);
-
-        lift.value = Lerps.lerp(lift.value, target, 1F - (float) Math.exp(-12F * dt));
-        lift.time = now;
-
-        return lift.value;
-    }
-
-    /**
-     * The vertical offset between the given world position and the terrain surface
-     * at that spot: positive when there are blocks in the way (climb on top of
-     * them), negative when the ground is lower (drop down onto it), 0 when there's
-     * no ground within range.
-     */
-    private static float getIllusionGroundDelta(World world, double x, double y, double z)
-    {
-        for (int i = 0; i <= 6; i++)
-        {
-            BlockPos blockPos = BlockPos.ofFloored(x, y + 3D - i, z);
-            VoxelShape shape = world.getBlockState(blockPos).getCollisionShape(world, blockPos);
-
-            if (shape.isEmpty())
-            {
-                continue;
-            }
-
-            double top = blockPos.getY() + shape.getMax(Direction.Axis.Y);
-
-            return MathUtils.clamp((float) (top - y), -3F, 3F);
-        }
-
-        return 0F;
-    }
-
-    /**
-     * Applies the translation part of the "Look at" constraint: when the translate
-     * option is enabled, the form follows the displacement of the strongest locked
-     * bone's target, scaled by that bone's lock strength.
-     */
     /**
      * World-space point of a replay's attachment, used by look-at and inverse kinematics.
      */
@@ -1429,6 +948,68 @@ public abstract class BaseFilmController
         return defaultMatrix;
     }
 
+    /**
+     * IRLights resolves point/spotlight poses from {@link FormRenderingContext#world}.
+     * Rebuild the actor's absolute world matrix stack in true world coordinates
+     * (independent of any render camera or viewport) so lights remain fixed in place.
+     */
+    private static void syncIrlAbsoluteWorldMatrix(FormRenderingContext formContext, FilmControllerContext context, IEntity entity, boolean relative, float transition)
+    {
+        if (formContext == null || formContext.world == null || entity == null || context == null)
+        {
+            return;
+        }
+
+        if (relative)
+        {
+            return;
+        }
+
+        Vector3d position = Vectors.TEMP_3D.set(
+            Lerps.lerp(entity.getPrevX(), entity.getX(), transition),
+            Lerps.lerp(entity.getPrevY(), entity.getY(), transition),
+            Lerps.lerp(entity.getPrevZ(), entity.getZ(), transition)
+        );
+
+        Form form = entity.getForm();
+        Matrix4f defaultMatrix = getMatrixForRenderWithRotation(entity, 0D, 0D, 0D, transition);
+        Matrix4f worldTarget = null;
+
+        if (context.entities != null && form != null && form.anchor.get() != null)
+        {
+            Pair<Matrix4f, Float> pair = getTotalMatrix(context.entities, form.anchor.get(), defaultMatrix, 0D, 0D, 0D, transition, 0);
+
+            worldTarget = pair.a;
+        }
+
+        if (worldTarget != null)
+        {
+            Vector3f v = worldTarget.getTranslation(new Vector3f());
+            Vector3f v2 = defaultMatrix.getTranslation(new Vector3f());
+
+            position.x += v.x - v2.x;
+            position.y += v.y - v2.y;
+            position.z += v.z - v2.z;
+        }
+        else
+        {
+            worldTarget = defaultMatrix;
+        }
+
+        if (form != null)
+        {
+            applyLookAt(context, form, position, worldTarget);
+        }
+
+        if (context.localGroupTransform != null)
+        {
+            worldTarget.mul(context.localGroupTransform);
+        }
+
+        formContext.world.peek().getPositionMatrix().set(worldTarget);
+        formContext.world.peek().getNormalMatrix().set(new Matrix3f(worldTarget));
+    }
+
     public static Matrix4f getMatrixForRenderWithRotation(IEntity entity, double cameraX, double cameraY, double cameraZ, float tickDelta)
     {
         double x = Lerps.lerp(entity.getPrevX(), entity.getX(), tickDelta) - cameraX;
@@ -1717,7 +1298,7 @@ public abstract class BaseFilmController
 
                             Vec3d pos = player.getPos();
 
-                            if (BBSSettings.editorReplayStepSound == null || BBSSettings.editorReplayStepSound.get())
+                            if (!this.paused && (BBSSettings.editorReplayStepSound == null || BBSSettings.editorReplayStepSound.get()))
                             {
                                 player.setOnGround(grounded);
                                 player.move(MovementType.SELF, new Vec3d(x - pos.x, y - pos.y, z - pos.z));
@@ -2086,34 +1667,17 @@ public abstract class BaseFilmController
     {
         RenderSystem.enableDepthTest();
 
-        /* Render depth layers: lower depth draws first; within the same depth, farther
-         * entities draw first so transparency composites correctly. Semi-transparent
-         * forms in front fade out entities behind them whose render depth is lower
-         * than the frontmost transparent occluder's depth; equal or higher depths stay
-         * fully visible through that layer. */
+        /* Farther entities first so translucency composites correctly. */
         List<Map.Entry<Integer, IEntity>> sorted = new ArrayList<>(this.entities.entrySet());
         Camera camera = context.camera();
         float transition = context.tickCounter().getTickDelta(false);
 
         sorted.sort(Comparator
-            .comparingDouble(this::getEntityRenderDepth)
-            .thenComparing((Map.Entry<Integer, IEntity> a, Map.Entry<Integer, IEntity> b) ->
-                Double.compare(
-                    this.getEntityCameraDistanceSq(b.getValue(), camera, transition),
-                    this.getEntityCameraDistanceSq(a.getValue(), camera, transition)
-                )
-            )
+            .comparing((Map.Entry<Integer, IEntity> entry) ->
+                this.getEntityCameraDistanceSq(entry.getValue(), camera, transition)
+            ).reversed()
             .thenComparing(Map.Entry::getKey)
         );
-
-        List<FormRenderDepth.Occluder> renderDepthOccluders = FormRenderDepth.collectOccluders(this.entities, camera, transition, (index) ->
-        {
-            Replay replay = CollectionUtils.getSafe(this.film.replays.getList(), index);
-
-            return replay == null ? null : replay.form.get();
-        });
-
-        this.currentRenderDepthOccluders = renderDepthOccluders;
 
         for (Map.Entry<Integer, IEntity> entry : sorted)
         {
@@ -2128,95 +1692,6 @@ public abstract class BaseFilmController
 
             this.renderEntity(context, replay, entity, i);
         }
-
-        this.currentRenderDepthOccluders = List.of();
-    }
-
-    /**
-     * Effective render depth used for draw-order sorting. The animated value comes from the
-     * entity's form (keyframes are applied to it in {@link #startRenderFrame(float)}), while
-     * the on/off toggle is read from the replay's source form so flipping it in the editor
-     * takes effect immediately without recreating entities.
-     */
-    private double getEntityRenderDepth(Map.Entry<Integer, IEntity> entry)
-    {
-        Double depth = this.getEnabledRenderDepth(entry.getKey(), entry.getValue());
-
-        return depth == null ? 0D : depth;
-    }
-
-    /** Render depth of an entity, or null when its form is missing or the feature is toggled off. */
-    private Double getEnabledRenderDepth(int index, IEntity entity)
-    {
-        Form form = entity.getForm();
-
-        if (form == null)
-        {
-            return null;
-        }
-
-        Replay replay = CollectionUtils.getSafe(this.film.replays.getList(), index);
-        Form sourceForm = replay == null ? null : replay.form.get();
-        boolean enabled = sourceForm != null ? sourceForm.renderDepthEnabled.get() : form.renderDepthEnabled.get();
-
-        return enabled ? (double) form.renderDepth.get() : null;
-    }
-
-    /**
-     * Fade factor (0..1) for render-depth layering. When a semi-transparent form with
-     * render depth D is in front of this entity, entities with depth &lt; D fade out
-     * completely; entities with depth &gt;= D stay fully visible through that layer.
-     */
-    protected float getRenderDepthFade(int index, IEntity entity, Camera camera, float transition)
-    {
-        Double depth = this.getEnabledRenderDepth(index, entity);
-
-        if (depth == null)
-        {
-            return 1F;
-        }
-
-        double entityDistanceSq = this.getEntityCameraDistanceSq(entity, camera, transition);
-        Double maxFrontTransparentDepth = null;
-
-        for (Map.Entry<Integer, IEntity> entry : this.entities.entrySet())
-        {
-            if (entry.getKey() == index)
-            {
-                continue;
-            }
-
-            IEntity other = entry.getValue();
-
-            if (other == null || other.getForm() == null || !this.isSemiTransparent(other.getForm()))
-            {
-                continue;
-            }
-
-            if (this.getEntityCameraDistanceSq(other, camera, transition) >= entityDistanceSq - 0.0001D)
-            {
-                continue;
-            }
-
-            Double otherDepth = this.getEnabledRenderDepth(entry.getKey(), other);
-
-            if (otherDepth == null)
-            {
-                continue;
-            }
-
-            if (maxFrontTransparentDepth == null || otherDepth > maxFrontTransparentDepth)
-            {
-                maxFrontTransparentDepth = otherDepth;
-            }
-        }
-
-        if (maxFrontTransparentDepth == null || depth >= maxFrontTransparentDepth)
-        {
-            return 1F;
-        }
-
-        return 0F;
     }
 
     private double getEntityCameraDistanceSq(IEntity entity, Camera camera, float transition)
@@ -2231,11 +1706,6 @@ public abstract class BaseFilmController
         return dx * dx + dy * dy + dz * dz;
     }
 
-    private boolean isSemiTransparent(Form form)
-    {
-        return FormRenderDepth.isSemiTransparent(form);
-    }
-
     protected void renderEntity(WorldRenderContext context, Replay replay, IEntity entity, int index)
     {
         if (!replay.actor.get())
@@ -2248,10 +1718,8 @@ public abstract class BaseFilmController
             }
 
             FilmControllerContext filmContext = getFilmControllerContext(context, replay, entity);
-            FormRenderDepth.Frame renderDepthFrame = new FormRenderDepth.Frame(this.currentRenderDepthOccluders, replay.form.get());
 
             filmContext.transition = getTransition(entity, context.tickCounter().getTickDelta(false));
-            filmContext.renderDepthFrame(renderDepthFrame);
 
             filmContext.stack.push();
 
@@ -2592,14 +2060,23 @@ public abstract class BaseFilmController
         settings.offsetY = replay.shadowOffsetY.get();
         settings.offsetZ = replay.shadowOffsetZ.get();
 
-        if (!replay.keyframes.shadow.isEmpty())
+        if (!replay.keyframes.shadowSize.isEmpty())
         {
-            ShadowSettings interpolated = replay.keyframes.shadow.interpolate(tick);
+            ShadowSettings size = replay.keyframes.shadowSize.interpolate(tick);
 
-            if (interpolated != null)
+            if (size != null)
             {
-                settings = interpolated.copy();
+                settings.widthX = Math.max(0F, size.widthX);
+                settings.widthZ = Math.max(0F, size.widthZ);
+                settings.offsetX = size.offsetX;
+                settings.offsetY = size.offsetY;
+                settings.offsetZ = size.offsetZ;
             }
+        }
+
+        if (!replay.keyframes.shadowOpacity.isEmpty())
+        {
+            settings.opacity = MathUtils.clamp(replay.keyframes.shadowOpacity.interpolate(tick).floatValue(), 0F, 1F);
         }
 
         settings.widthX = Math.max(0F, settings.widthX);
@@ -2630,11 +2107,5 @@ public abstract class BaseFilmController
     public static enum UpdateMode
     {
         UPDATE, RENDER, PROPERTIES;
-    }
-
-    private static class IllusionLift
-    {
-        public float value;
-        public long time;
     }
 }

@@ -23,10 +23,17 @@ import mchorse.bbs_mod.cubic.model.ModelManager;
 import mchorse.bbs_mod.discord.DiscordPresenceManager;
 import mchorse.bbs_mod.events.BBSAddonMod;
 import mchorse.bbs_mod.events.register.RegisterClientSettingsEvent;
+import mchorse.bbs_mod.events.register.RegisterClipInteractionEvent;
 import mchorse.bbs_mod.events.register.RegisterDashboardPanelsEvent;
+import mchorse.bbs_mod.events.register.RegisterDockLayoutEvent;
+import mchorse.bbs_mod.events.register.RegisterFilmControllerInteractionEvent;
 import mchorse.bbs_mod.events.register.RegisterFilmPreviewEvent;
+import mchorse.bbs_mod.events.register.RegisterFilmSyncEvent;
+import mchorse.bbs_mod.events.register.RegisterFormBlendEvent;
 import mchorse.bbs_mod.events.register.RegisterFormCategoriesEvent;
+import mchorse.bbs_mod.events.register.RegisterFormEditorSectionEvent;
 import mchorse.bbs_mod.events.register.RegisterFormEditorsEvent;
+import mchorse.bbs_mod.events.register.RegisterFormRenderPhaseEvent;
 import mchorse.bbs_mod.events.register.RegisterFormsRenderersEvent;
 import mchorse.bbs_mod.events.register.RegisterIconsEvent;
 import mchorse.bbs_mod.events.register.RegisterImportersEvent;
@@ -35,14 +42,17 @@ import mchorse.bbs_mod.events.register.RegisterKeyframeShapesEvent;
 import mchorse.bbs_mod.events.register.RegisterL10nEvent;
 import mchorse.bbs_mod.events.register.RegisterModelLoadersEvent;
 import mchorse.bbs_mod.events.register.RegisterParticleComponentsEvent;
+import mchorse.bbs_mod.events.register.RegisterParticleSchemeUIEvent;
 import mchorse.bbs_mod.events.register.RegisterPropTransformEvent;
 import mchorse.bbs_mod.events.register.RegisterRayTracingEvent;
 import mchorse.bbs_mod.events.register.RegisterReplayListContextMenuEvent;
 import mchorse.bbs_mod.events.register.RegisterReplayPanelEvent;
+import mchorse.bbs_mod.events.register.RegisterSettingsUISectionEvent;
 import mchorse.bbs_mod.events.register.RegisterShadersEvent;
 import mchorse.bbs_mod.events.register.RegisterSourcePacksEvent;
 import mchorse.bbs_mod.events.register.RegisterStencilMapEvent;
 import mchorse.bbs_mod.events.register.RegisterUIKeyframeFactoriesEvent;
+import mchorse.bbs_mod.events.register.RegisterUIThemeEvent;
 import mchorse.bbs_mod.events.register.RegisterUIValueFactoriesEvent;
 import mchorse.bbs_mod.film.BaseFilmController;
 import mchorse.bbs_mod.film.Film;
@@ -531,6 +541,16 @@ public class BBSModClient implements ClientModInitializer
         BBSMod.events.post(new RegisterFilmPreviewEvent());
         BBSMod.events.post(new RegisterReplayListContextMenuEvent());
         BBSMod.events.post(new RegisterReplayPanelEvent());
+        BBSMod.events.post(new RegisterUIThemeEvent());
+        BBSMod.events.post(new RegisterFormEditorSectionEvent());
+        BBSMod.events.post(new RegisterFormRenderPhaseEvent());
+        BBSMod.events.post(new RegisterFormBlendEvent());
+        BBSMod.events.post(new RegisterClipInteractionEvent());
+        BBSMod.events.post(new RegisterDockLayoutEvent(BBSModClient::getDashboard));
+        BBSMod.events.post(new RegisterParticleSchemeUIEvent());
+        BBSMod.events.post(new RegisterFilmControllerInteractionEvent());
+        BBSMod.events.post(new RegisterSettingsUISectionEvent());
+        BBSMod.events.post(new RegisterFilmSyncEvent());
         screenshotRecorder = new ScreenshotRecorder(new File(parentFile, "screenshots"));
         videoRecorder = new VideoRecorder();
         selectors = new EntitySelectors();
@@ -727,7 +747,8 @@ public class BBSModClient implements ClientModInitializer
         });
 
         /* Soft-opacity forms wait until water/lava/portals are drawn; flush here (not inside
-         * renderLayer) so WorldRenderer's pose stack stays balanced. */
+         * renderLayer) so WorldRenderer's pose stack stays balanced. Under Iris this also
+         * runs after pack cloud composite; vanilla holds until LAST (after vanilla clouds). */
         WorldRenderEvents.AFTER_TRANSLUCENT.register((context) ->
         {
             ShaderOpacityPatch.onAfterTranslucentTerrain();
@@ -735,6 +756,10 @@ public class BBSModClient implements ClientModInitializer
 
         WorldRenderEvents.LAST.register((context) ->
         {
+            /* Vanilla only: soft forms deferred past AFTER_TRANSLUCENT so clouds are not
+             * depth-occluded. Iris already flushed; paint overlays still run at world end. */
+            ShaderOpacityPatch.onAfterVanillaClouds();
+
             Draw.flushIrisBoxes();
 
             if (Gizmo.INSTANCE.hasDeferred())
@@ -845,10 +870,8 @@ public class BBSModClient implements ClientModInitializer
             {
                 UIDashboard dashboard = getDashboard();
 
-                /* Select Morphing before open so onOpen does not briefly apply
-                 * Spectator from a leftover Film / Model Block panel. */
-                dashboard.setPanel(dashboard.getPanel(UIMorphingPanel.class));
                 UIScreen.open(dashboard);
+                dashboard.setPanel(dashboard.getPanel(UIMorphingPanel.class));
             }
             while (keyDemorph.wasPressed()) ClientNetwork.sendPlayerForm(null);
             while (keyTeleport.wasPressed()) this.keyTeleport();

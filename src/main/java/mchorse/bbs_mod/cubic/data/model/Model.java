@@ -150,8 +150,8 @@ public class Model implements IMapSerializable, IModel
             }
 
             group.lighting = transform.lighting;
+            group.noshadingOpacity = transform.noshadingOpacity;
             group.color.copy(transform.color);
-            group.color.a *= MathUtils.clamp(transform.opacity, 0F, 1F);
             group.paintColor.copy(transform.paintColor);
             group.glowingColor.copy(transform.glowingColor);
             group.glowIntensity = transform.glowIntensity;

@@ -9,6 +9,7 @@ import mchorse.bbs_mod.ui.framework.elements.utils.UIDraggable;
 import mchorse.bbs_mod.ui.framework.elements.utils.UIRenderable;
 import mchorse.bbs_mod.ui.utils.UI;
 import mchorse.bbs_mod.utils.MathUtils;
+import mchorse.bbs_mod.utils.colors.Colors;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -50,13 +51,7 @@ public abstract class UIFormPanel <T extends Form> extends UIElement
 
         UIRenderable background = new UIRenderable((context) ->
         {
-            int x = this.options.area.x;
-            int y = this.options.area.y;
-            int ex = this.options.area.ex();
-            int ey = this.options.area.ey();
-
-            context.batcher.box(x, y, ex, ey, 0xFF111115);
-            context.batcher.outline(x - 1, y - 1, ex + 1, ey + 1, 0xFF5A5A5A);
+            this.options.area.render(context.batcher, Colors.A50);
         });
 
         this.prepend(background);

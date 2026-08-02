@@ -15,8 +15,8 @@ import mchorse.bbs_mod.l10n.L10n;
 import mchorse.bbs_mod.l10n.keys.IKey;
 import mchorse.bbs_mod.resources.Link;
 import mchorse.bbs_mod.ui.UIKeys;
-import mchorse.bbs_mod.ui.film.replays.UIReplaysEditor;
 import mchorse.bbs_mod.ui.forms.editors.panels.widgets.UIFormColorAdjustments;
+import mchorse.bbs_mod.ui.forms.editors.panels.widgets.UIFormColorLayout;
 import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.ui.framework.elements.UIElement;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIButton;
@@ -24,7 +24,6 @@ import mchorse.bbs_mod.ui.framework.elements.buttons.UIIcon;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIToggle;
 import mchorse.bbs_mod.ui.framework.elements.input.UIColor;
 import mchorse.bbs_mod.ui.framework.elements.input.UIEffectTransformCollapse;
-import mchorse.bbs_mod.ui.framework.elements.input.UIPoseSectionCollapse;
 import mchorse.bbs_mod.ui.framework.elements.input.UIPropTransform;
 import mchorse.bbs_mod.ui.framework.elements.input.UITexturePicker;
 import mchorse.bbs_mod.ui.framework.elements.input.UITrackpad;
@@ -80,7 +79,6 @@ public class UIPoseEditor extends UIElement
     public UITrackpad fix;
     public UIButton pickTexture;
     public UIColor color;
-    public UITrackpad blendIntensity;
     public UIEffectTransformCollapse colorTransform;
     public UIColor paintColor;
     public UITrackpad paintIntensity;
@@ -88,10 +86,11 @@ public class UIPoseEditor extends UIElement
     public UIFormColorAdjustments colorAdjustments;
     public UIColor glowingColor;
     public UITrackpad glowIntensity;
-    public UITrackpad opacity;
+    public UIEffectTransformCollapse glowTransform;
     public UIToggle lighting;
-    public UIPoseSectionCollapse colorSection;
-    public UIPoseSectionCollapse glowSection;
+    public UIToggle noShading;
+    public UIElement paintSection;
+    public UIElement glowSection;
     public UIPropTransform transform;
     public Runnable onChange;
 
@@ -416,49 +415,18 @@ public class UIPoseEditor extends UIElement
             }
 
             if (this.onChange != null) this.onChange.run();
-        });
-        this.color.tooltip(UIKeys.FORMS_EDITORS_BLEND_COLOR);
+        }).withAlpha();
+        this.color.tooltip(UIKeys.FILM_REPLAY_TRACK_COLOR);
         this.color.context((menu) ->
         {
             menu.action(Icons.DOWNLOAD, UIKeys.POSE_CONTEXT_APPLY, () ->
             {
-                this.applyChildren((p) -> this.setColor(p, this.color.picker.color.getRGBColor()));
+                this.applyChildren((p) -> this.setColor(p, this.color.picker.color.getARGBColor()));
                 if (this.onChange != null) this.onChange.run();
             });
             menu.action(Icons.DOWNLOAD, UIKeys.POSE_CATEGORIES_CONTEXT_APPLY_CATEGORY, () ->
             {
-                this.applyCategory((p) -> this.setColor(p, this.color.picker.color.getRGBColor()));
-                if (this.onChange != null) this.onChange.run();
-            });
-        });
-        this.blendIntensity = new UITrackpad((value) ->
-        {
-            String selectedCategory = this.categories != null ? this.categories.getCurrentFirst() : null;
-            if (selectedCategory != null && !selectedCategory.isEmpty())
-            {
-                this.applyCategory((p) -> this.setBlendIntensity(p, value.floatValue()));
-            }
-            else if (this.applyLiveMirror((p) -> this.setBlendIntensity(p, value.floatValue())))
-            {}
-            else if (this.transform.getTransform() instanceof PoseTransform poseTransform)
-            {
-                this.setBlendIntensity(poseTransform, value.floatValue());
-            }
-
-            if (this.onChange != null) this.onChange.run();
-        });
-        this.blendIntensity.limit(0F, 1F).values(0.1D, 0.05D, 0.2D);
-        this.blendIntensity.tooltip(UIKeys.FORMS_EDITORS_BLEND_INTENSITY);
-        this.blendIntensity.context((menu) ->
-        {
-            menu.action(Icons.DOWNLOAD, UIKeys.POSE_CONTEXT_APPLY, () ->
-            {
-                this.applyChildren((p) -> this.setBlendIntensity(p, (float) this.blendIntensity.getValue()));
-                if (this.onChange != null) this.onChange.run();
-            });
-            menu.action(Icons.DOWNLOAD, UIKeys.POSE_CATEGORIES_CONTEXT_APPLY_CATEGORY, () ->
-            {
-                this.applyCategory((p) -> this.setBlendIntensity(p, (float) this.blendIntensity.getValue()));
+                this.applyCategory((p) -> this.setColor(p, this.color.picker.color.getARGBColor()));
                 if (this.onChange != null) this.onChange.run();
             });
         });
@@ -616,40 +584,17 @@ public class UIPoseEditor extends UIElement
                 if (this.onChange != null) this.onChange.run();
             });
         });
-        this.opacity = new UITrackpad((value) ->
+        this.glowTransform = new UIEffectTransformCollapse((apply) -> this.editPoseGlowColor((color) ->
         {
-            float opacity = MathUtils.clamp(value.intValue(), 0, 255) / 255F;
-            String selectedCategory = this.categories != null ? this.categories.getCurrentFirst() : null;
-
-            if (selectedCategory != null && !selectedCategory.isEmpty())
+            if (color.transform == null)
             {
-                this.applyCategory((p) -> this.setOpacity(p, opacity));
-            }
-            else if (this.applyLiveMirror((p) -> this.setOpacity(p, opacity)))
-            {}
-            else if (this.transform.getTransform() instanceof PoseTransform poseTransform)
-            {
-                this.setOpacity(poseTransform, opacity);
+                color.transform = new EffectTransform();
             }
 
-            if (this.onChange != null) this.onChange.run();
-        });
-        this.opacity.integer().limit(0, 255).plainFormat().values(1D, 1D, 16D);
-        this.opacity.tooltip(UIKeys.FILM_REPLAY_TRACK_OPACITY);
-        this.opacity.h(20);
-        this.opacity.context((menu) ->
-        {
-            menu.action(Icons.DOWNLOAD, UIKeys.POSE_CONTEXT_APPLY, () ->
-            {
-                this.applyChildren((p) -> this.setOpacity(p, (float) this.opacity.getValue() / 255F));
-                if (this.onChange != null) this.onChange.run();
-            });
-            menu.action(Icons.DOWNLOAD, UIKeys.POSE_CATEGORIES_CONTEXT_APPLY_CATEGORY, () ->
-            {
-                this.applyCategory((p) -> this.setOpacity(p, (float) this.opacity.getValue() / 255F));
-                if (this.onChange != null) this.onChange.run();
-            });
-        });
+            apply.accept(color.transform);
+        }));
+        this.glowSection = UIFormColorLayout.createGlowSection(this.glowingColor, this.glowIntensity, this.glowTransform);
+        this.paintSection = UIFormColorLayout.paintColorRowWithTransform(this.paintColor, this.paintIntensity, this.paintTransform);
         this.lighting = new UIToggle(UIKeys.FORMS_EDITORS_GENERAL_LIGHTING, (b) ->
         {
             String selectedCategory = this.categories != null ? this.categories.getCurrentFirst() : null;
@@ -680,34 +625,38 @@ public class UIPoseEditor extends UIElement
                 if (this.onChange != null) this.onChange.run();
             });
         });
-        this.colorSection = new UIPoseSectionCollapse(
-            UIKeys.FILM_REPLAY_TRACK_COLOR,
-            UIReplaysEditor.getColor("color"),
-            UI.column(
-                UI.label(UIKeys.FORMS_EDITORS_BLEND_COLOR).marginTop(4),
-                this.color,
-                UI.label(UIKeys.FORMS_EDITORS_BLEND_INTENSITY),
-                this.blendIntensity,
-                this.colorTransform,
-                UI.label(UIKeys.FORMS_EDITORS_PAINT_COLOR).marginTop(4),
-                this.paintColor,
-                UI.label(UIKeys.FORMS_EDITORS_PAINT_INTENSITY),
-                this.paintIntensity,
-                this.paintTransform,
-                this.colorAdjustments.marginTop(4)
-            )
-        );
-        this.glowSection = new UIPoseSectionCollapse(
-            UIKeys.FORMS_EDITORS_GLOW,
-            Colors.ORANGE,
-            UI.column(
-                this.lighting,
-                UI.label(UIKeys.FORMS_EDITORS_GLOWING_COLOR).marginTop(4),
-                this.glowingColor,
-                UI.label(UIKeys.FORMS_EDITORS_GLOW_INTENSITY),
-                this.glowIntensity
-            )
-        );
+        this.noShading = new UIToggle(UIKeys.FILM_REPLAY_OPACITY_NO_SHADING, (b) ->
+        {
+            String selectedCategory = this.categories != null ? this.categories.getCurrentFirst() : null;
+
+            if (selectedCategory != null && !selectedCategory.isEmpty())
+            {
+                this.applyCategory((p) -> this.setNoshadingOpacity(p, b.getValue()));
+            }
+            else if (this.applyLiveMirror((p) -> this.setNoshadingOpacity(p, b.getValue())))
+            {}
+            else if (this.transform.getTransform() instanceof PoseTransform poseTransform)
+            {
+                this.setNoshadingOpacity(poseTransform, b.getValue());
+            }
+
+            if (this.onChange != null) this.onChange.run();
+        });
+        this.noShading.tooltip(UIKeys.FORMS_EDITORS_COLOR_NOSHADING_OPACITY_TOOLTIP);
+        this.noShading.h(20);
+        this.noShading.context((menu) ->
+        {
+            menu.action(Icons.DOWNLOAD, UIKeys.POSE_CONTEXT_APPLY, () ->
+            {
+                this.applyChildren((p) -> this.setNoshadingOpacity(p, this.noShading.getValue()));
+                if (this.onChange != null) this.onChange.run();
+            });
+            menu.action(Icons.DOWNLOAD, UIKeys.POSE_CATEGORIES_CONTEXT_APPLY_CATEGORY, () ->
+            {
+                this.applyCategory((p) -> this.setNoshadingOpacity(p, this.noShading.getValue()));
+                if (this.onChange != null) this.onChange.run();
+            });
+        });
         this.transform = this.createTransformEditor();
 
         if (this.useModelGizmoDrag())
@@ -737,8 +686,9 @@ public class UIPoseEditor extends UIElement
         }
 
         this.add(this.extra);
-        this.add(UI.label(UIKeys.POSE_CONTEXT_FIX), this.fix, this.transform);
+        /* Classic order: bone texture / color / lighting above the transform grid. */
         this.add(this.createPoseFooter());
+        this.add(UI.label(UIKeys.POSE_CONTEXT_FIX), this.fix, this.transform);
     }
 
     /**
@@ -862,13 +812,18 @@ public class UIPoseEditor extends UIElement
         }
         this.fix.setVisible(!groups.isEmpty());
         this.color.setVisible(!groups.isEmpty());
-        this.blendIntensity.setVisible(!groups.isEmpty());
         this.paintColor.setVisible(!groups.isEmpty());
         this.paintIntensity.setVisible(!groups.isEmpty());
         this.glowingColor.setVisible(!groups.isEmpty());
         this.glowIntensity.setVisible(!groups.isEmpty());
-        this.opacity.setVisible(!groups.isEmpty());
-        this.colorSection.setVisible(!groups.isEmpty());
+        this.lighting.setVisible(!groups.isEmpty());
+        if (this.noShading != null)
+        {
+            this.noShading.setVisible(!groups.isEmpty());
+        }
+        this.pickTexture.setVisible(!groups.isEmpty());
+        this.paintSection.setVisible(!groups.isEmpty());
+        this.colorAdjustments.setVisible(!groups.isEmpty());
         this.glowSection.setVisible(!groups.isEmpty());
         this.transform.setVisible(!groups.isEmpty());
 
@@ -1165,26 +1120,31 @@ public class UIPoseEditor extends UIElement
 
         this.fix.setVisible(true);
         this.color.setVisible(true);
-        this.blendIntensity.setVisible(true);
         this.paintColor.setVisible(true);
         this.paintIntensity.setVisible(true);
         this.glowingColor.setVisible(true);
         this.glowIntensity.setVisible(true);
-        this.opacity.setVisible(true);
-        this.colorSection.setVisible(true);
+        this.paintSection.setVisible(true);
+        this.colorAdjustments.setVisible(true);
         this.glowSection.setVisible(true);
         this.lighting.setVisible(true);
+        if (this.noShading != null)
+        {
+            this.noShading.setVisible(true);
+        }
         this.pickTexture.setVisible(BBSSettings.pickLimbTexture != null && BBSSettings.pickLimbTexture.get());
 
         this.fix.setEnabled(isPoseTransform);
         this.color.setEnabled(isPoseTransform);
-        this.blendIntensity.setEnabled(isPoseTransform);
         this.paintColor.setEnabled(isPoseTransform);
         this.paintIntensity.setEnabled(isPoseTransform);
         this.glowingColor.setEnabled(isPoseTransform);
         this.glowIntensity.setEnabled(isPoseTransform);
-        this.opacity.setEnabled(isPoseTransform);
         this.lighting.setEnabled(isPoseTransform);
+        if (this.noShading != null)
+        {
+            this.noShading.setEnabled(isPoseTransform);
+        }
         this.pickTexture.setEnabled(isPoseTransform);
 
         if (!isPoseTransform || this.pose == null || CollectionUtils.getKey(this.pose.transforms, (PoseTransform) transform) == null)
@@ -1207,26 +1167,31 @@ public class UIPoseEditor extends UIElement
 
         this.fix.setVisible(true);
         this.color.setVisible(true);
-        this.blendIntensity.setVisible(true);
         this.paintColor.setVisible(true);
         this.paintIntensity.setVisible(true);
         this.glowingColor.setVisible(true);
         this.glowIntensity.setVisible(true);
-        this.opacity.setVisible(true);
-        this.colorSection.setVisible(true);
+        this.paintSection.setVisible(true);
+        this.colorAdjustments.setVisible(true);
         this.glowSection.setVisible(true);
         this.lighting.setVisible(true);
+        if (this.noShading != null)
+        {
+            this.noShading.setVisible(true);
+        }
         this.pickTexture.setVisible(BBSSettings.pickLimbTexture != null && BBSSettings.pickLimbTexture.get());
 
         this.fix.setEnabled(true);
         this.color.setEnabled(true);
-        this.blendIntensity.setEnabled(true);
         this.paintColor.setEnabled(true);
         this.paintIntensity.setEnabled(true);
         this.glowingColor.setEnabled(true);
         this.glowIntensity.setEnabled(true);
-        this.opacity.setEnabled(true);
         this.lighting.setEnabled(true);
+        if (this.noShading != null)
+        {
+            this.noShading.setEnabled(true);
+        }
         this.pickTexture.setEnabled(true);
 
         PoseTransform poseTransform = this.pose != null ? this.pose.get(bone) : null;
@@ -1234,8 +1199,7 @@ public class UIPoseEditor extends UIElement
         if (poseTransform != null)
         {
             this.fix.setValue(poseTransform.fix);
-            this.color.setColor(poseTransform.color.getRGBColor());
-            this.blendIntensity.setValue(MathUtils.clamp(poseTransform.color.a, 0F, 1F));
+            this.color.setColor(poseTransform.color.getARGBColor());
             this.colorTransform.setEffectTransform(poseTransform.color.transform);
             this.paintColor.setColor(poseTransform.paintColor.getRGBColor());
             this.paintIntensity.setValue(poseTransform.paintColor.a);
@@ -1243,15 +1207,18 @@ public class UIPoseEditor extends UIElement
             this.colorAdjustments.syncFromForm();
             this.glowingColor.setColor(poseTransform.glowingColor.getRGBColor());
             this.glowIntensity.setValue(poseTransform.glowIntensity);
-            this.opacity.setValue(Math.round(MathUtils.clamp(poseTransform.opacity, 0F, 1F) * 255F));
+            this.glowTransform.setEffectTransform(poseTransform.glowingColor.transform);
             this.lighting.setValue(poseTransform.lighting == 0F);
+            if (this.noShading != null)
+            {
+                this.noShading.setValue(poseTransform.noshadingOpacity);
+            }
             this.transform.setTransform(poseTransform);
         }
         else
         {
             this.fix.setValue(0F);
             this.color.setColor(Colors.WHITE);
-            this.blendIntensity.setValue(1F);
             this.colorTransform.setEffectTransform(new EffectTransform());
             this.paintColor.setColor(0xFFFFFF);
             this.paintIntensity.setValue(0F);
@@ -1259,8 +1226,12 @@ public class UIPoseEditor extends UIElement
             this.colorAdjustments.syncFromForm();
             this.glowingColor.setColor(0xFFFFFF);
             this.glowIntensity.setValue(0F);
-            this.opacity.setValue(255);
+            this.glowTransform.setEffectTransform(new EffectTransform());
             this.lighting.setValue(false);
+            if (this.noShading != null)
+            {
+                this.noShading.setValue(false);
+            }
             this.transform.setTransform(null);
         }
     }
@@ -1272,15 +1243,9 @@ public class UIPoseEditor extends UIElement
 
     protected void setColor(PoseTransform transform, int value)
     {
-        float intensity = transform.color.a;
+        Color rgba = Color.rgba(value);
 
-        transform.color.set(value, false);
-        transform.color.a = intensity;
-    }
-
-    protected void setBlendIntensity(PoseTransform transform, float value)
-    {
-        transform.color.a = MathUtils.clamp(value, 0F, 1F);
+        transform.color.set(rgba.r, rgba.g, rgba.b, rgba.a);
     }
 
     protected void setPaintColor(PoseTransform transform, int value)
@@ -1300,18 +1265,17 @@ public class UIPoseEditor extends UIElement
 
     protected void setGlowingColor(PoseTransform transform, int value)
     {
-        transform.glowingColor.set(value);
+        Color rgb = new Color().set(value);
+
+        transform.glowingColor.r = rgb.r;
+        transform.glowingColor.g = rgb.g;
+        transform.glowingColor.b = rgb.b;
         transform.glowingColor.a = 1F;
     }
 
     protected void setGlowIntensity(PoseTransform transform, float value)
     {
         transform.glowIntensity = value;
-    }
-
-    protected void setOpacity(PoseTransform transform, float value)
-    {
-        transform.opacity = MathUtils.clamp(value, 0F, 1F);
     }
 
     protected void setGlowRadius(PoseTransform transform, float value)
@@ -1322,6 +1286,11 @@ public class UIPoseEditor extends UIElement
     protected void setLighting(PoseTransform poseTransform, boolean value)
     {
         poseTransform.lighting = value ? 0F : 1F;
+    }
+
+    protected void setNoshadingOpacity(PoseTransform poseTransform, boolean value)
+    {
+        poseTransform.noshadingOpacity = value;
     }
 
     protected void setTexture(PoseTransform transform, Link value)
@@ -1336,63 +1305,29 @@ public class UIPoseEditor extends UIElement
     }
 
     /**
-     * Bottom of pose Properties (stacked): Opacity, Pick bone texture, Color, Glow.
-     * Model Editor and narrow Properties keep this stack.
+     * Bone appearance controls above the transform grid:
+     * section label, bone texture, color + lighting, Glow, Paint, Color grade.
      */
     public UIElement createPoseFooter()
     {
-        return this.createPoseFooter(false);
-    }
-
-    /**
-     * @param placePickBesideOpacity when true (wide Film Properties), Pick bone texture
-     *        sits beside Opacity under the bone/transform row; Model Editor must pass false.
-     */
-    public UIElement createPoseFooter(boolean placePickBesideOpacity)
-    {
         boolean pickLimbTexture = BBSSettings.pickLimbTexture != null && BBSSettings.pickLimbTexture.get();
         UIElement footer = UI.column();
-        UILabel opacityLabel = UI.label(UIKeys.FILM_REPLAY_TRACK_OPACITY, 20).labelAnchor(0F, 0.5F);
-        /* Same column geometry as UITransform rows (icon 20 + margin 5 + X/Y/Z):
-         * label sits in icon+X, trackpad spans Y+Z so its left edge matches the Y boxes. */
-        UIElement opacityRow = new UIElement()
+
+        footer.add(UIFormColorLayout.sectionLabel(UIKeys.FORMS_EDITOR_BONE));
+
+        if (pickLimbTexture)
         {
-            @Override
-            protected void afterResizeApplied()
-            {
-                int margin = 5;
-                int iconW = 20;
-                int inner = Math.max(0, this.area.w - iconW - margin * 3);
-                int col = inner / 3;
-                int leftW = iconW + margin + col;
-                int rightX = leftW + margin;
-                int rightW = Math.max(0, this.area.w - rightX);
-
-                opacityLabel.relative(this).x(0).y(0).w(leftW).h(20);
-                UIPoseEditor.this.opacity.relative(this).x(rightX).y(0).w(rightW).h(20);
-            }
-        };
-
-        opacityRow.h(20);
-        opacityRow.add(opacityLabel, this.opacity);
-
-        if (pickLimbTexture && placePickBesideOpacity)
-        {
-            this.pickTexture.h(20);
-            footer.add(UI.row(5, opacityRow, this.pickTexture));
-        }
-        else
-        {
-            footer.add(opacityRow);
-
-            if (pickLimbTexture)
-            {
-                this.pickTexture.h(20);
-                footer.add(this.pickTexture);
-            }
+            footer.add(this.pickTexture);
         }
 
-        footer.add(this.colorSection, this.glowSection);
+        /* Color+icon cluster shares the row with Lighting; grid opens full-width below. */
+        footer.add(UIFormColorLayout.colorWithTransformAndExtras(this.color, this.colorTransform, this.lighting));
+        footer.add(this.noShading);
+        footer.add(UIFormColorLayout.createExtraSection(
+            this.glowSection,
+            this.paintSection,
+            this.colorAdjustments.marginTop(4)
+        ).marginTop(4));
 
         return footer;
     }
@@ -1441,6 +1376,27 @@ public class UIPoseEditor extends UIElement
         else if (this.transform.getTransform() instanceof PoseTransform poseTransform)
         {
             editor.accept(poseTransform.paintColor);
+        }
+
+        if (this.onChange != null)
+        {
+            this.onChange.run();
+        }
+    }
+
+    protected void editPoseGlowColor(Consumer<Color> editor)
+    {
+        String selectedCategory = this.categories != null ? this.categories.getCurrentFirst() : null;
+
+        if (selectedCategory != null && !selectedCategory.isEmpty())
+        {
+            this.applyCategory((p) -> editor.accept(p.glowingColor));
+        }
+        else if (this.applyLiveMirror((p) -> editor.accept(p.glowingColor)))
+        {}
+        else if (this.transform.getTransform() instanceof PoseTransform poseTransform)
+        {
+            editor.accept(poseTransform.glowingColor);
         }
 
         if (this.onChange != null)

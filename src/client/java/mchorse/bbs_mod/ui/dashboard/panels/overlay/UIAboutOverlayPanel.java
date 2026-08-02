@@ -59,7 +59,7 @@ public class UIAboutOverlayPanel extends UIOverlayPanel
                 context.batcher.getContext().getMatrices().push();
                 context.batcher.getContext().getMatrices().translate(this.area.mx(), scale2y, 0);
                 context.batcher.getContext().getMatrices().scale(2.5F, 2.5F, 1F);
-                context.batcher.textShadow("BBS CML Edition", -context.batcher.getFont().getWidth("BBS CML Edition") / 2, 0, Colors.WHITE);
+                context.batcher.textShadow("BBS CML", -context.batcher.getFont().getWidth("BBS CML") / 2, 0, Colors.WHITE);
                 context.batcher.getContext().getMatrices().pop();
 
                 /* Version */

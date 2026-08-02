@@ -3,11 +3,18 @@ package mchorse.bbs_mod.addons;
 import mchorse.bbs_mod.events.BBSAddonMod;
 import mchorse.bbs_mod.events.Subscribe;
 import mchorse.bbs_mod.events.register.RegisterClientSettingsEvent;
+import mchorse.bbs_mod.events.register.RegisterClipInteractionEvent;
 import mchorse.bbs_mod.events.register.RegisterDashboardPanelsEvent;
+import mchorse.bbs_mod.events.register.RegisterDockLayoutEvent;
+import mchorse.bbs_mod.events.register.RegisterFilmControllerInteractionEvent;
 import mchorse.bbs_mod.events.register.RegisterFilmEditorFactoriesEvent;
 import mchorse.bbs_mod.events.register.RegisterFilmPreviewEvent;
+import mchorse.bbs_mod.events.register.RegisterFilmSyncEvent;
+import mchorse.bbs_mod.events.register.RegisterFormBlendEvent;
 import mchorse.bbs_mod.events.register.RegisterFormCategoriesEvent;
+import mchorse.bbs_mod.events.register.RegisterFormEditorSectionEvent;
 import mchorse.bbs_mod.events.register.RegisterFormEditorsEvent;
+import mchorse.bbs_mod.events.register.RegisterFormRenderPhaseEvent;
 import mchorse.bbs_mod.events.register.RegisterFormsRenderersEvent;
 import mchorse.bbs_mod.events.register.RegisterGizmoEvent;
 import mchorse.bbs_mod.events.register.RegisterIconsEvent;
@@ -17,14 +24,17 @@ import mchorse.bbs_mod.events.register.RegisterKeyframeShapesEvent;
 import mchorse.bbs_mod.events.register.RegisterL10nEvent;
 import mchorse.bbs_mod.events.register.RegisterModelLoadersEvent;
 import mchorse.bbs_mod.events.register.RegisterParticleComponentsEvent;
+import mchorse.bbs_mod.events.register.RegisterParticleSchemeUIEvent;
 import mchorse.bbs_mod.events.register.RegisterPropTransformEvent;
 import mchorse.bbs_mod.events.register.RegisterRayTracingEvent;
 import mchorse.bbs_mod.events.register.RegisterReplayListContextMenuEvent;
 import mchorse.bbs_mod.events.register.RegisterReplayPanelEvent;
+import mchorse.bbs_mod.events.register.RegisterSettingsUISectionEvent;
 import mchorse.bbs_mod.events.register.RegisterShadersEvent;
 import mchorse.bbs_mod.events.register.RegisterSourcePacksEvent;
 import mchorse.bbs_mod.events.register.RegisterStencilMapEvent;
 import mchorse.bbs_mod.events.register.RegisterUIKeyframeFactoriesEvent;
+import mchorse.bbs_mod.events.register.RegisterUIThemeEvent;
 import mchorse.bbs_mod.events.register.RegisterUIValueFactoriesEvent;
 
 /**
@@ -231,5 +241,95 @@ public abstract class BBSClientAddon implements BBSAddonMod
     }
 
     protected void registerReplayPanel(RegisterReplayPanelEvent event)
+    {}
+
+    @Subscribe
+    public void onRegisterUITheme(RegisterUIThemeEvent event)
+    {
+        this.registerUITheme(event);
+    }
+
+    protected void registerUITheme(RegisterUIThemeEvent event)
+    {}
+
+    @Subscribe
+    public void onRegisterFormEditorSection(RegisterFormEditorSectionEvent event)
+    {
+        this.registerFormEditorSection(event);
+    }
+
+    protected void registerFormEditorSection(RegisterFormEditorSectionEvent event)
+    {}
+
+    @Subscribe
+    public void onRegisterFormRenderPhase(RegisterFormRenderPhaseEvent event)
+    {
+        this.registerFormRenderPhase(event);
+    }
+
+    protected void registerFormRenderPhase(RegisterFormRenderPhaseEvent event)
+    {}
+
+    @Subscribe
+    public void onRegisterFormBlend(RegisterFormBlendEvent event)
+    {
+        this.registerFormBlend(event);
+    }
+
+    protected void registerFormBlend(RegisterFormBlendEvent event)
+    {}
+
+    @Subscribe
+    public void onRegisterClipInteraction(RegisterClipInteractionEvent event)
+    {
+        this.registerClipInteraction(event);
+    }
+
+    protected void registerClipInteraction(RegisterClipInteractionEvent event)
+    {}
+
+    @Subscribe
+    public void onRegisterDockLayout(RegisterDockLayoutEvent event)
+    {
+        this.registerDockLayout(event);
+    }
+
+    protected void registerDockLayout(RegisterDockLayoutEvent event)
+    {}
+
+    @Subscribe
+    public void onRegisterParticleSchemeUI(RegisterParticleSchemeUIEvent event)
+    {
+        this.registerParticleSchemeUI(event);
+    }
+
+    protected void registerParticleSchemeUI(RegisterParticleSchemeUIEvent event)
+    {}
+
+    @Subscribe
+    public void onRegisterFilmControllerInteraction(RegisterFilmControllerInteractionEvent event)
+    {
+        this.registerFilmControllerInteraction(event);
+    }
+
+    protected void registerFilmControllerInteraction(RegisterFilmControllerInteractionEvent event)
+    {}
+
+    @Subscribe
+    public void onRegisterSettingsUISection(RegisterSettingsUISectionEvent event)
+    {
+        this.registerSettingsUISection(event);
+    }
+
+    protected void registerSettingsUISection(RegisterSettingsUISectionEvent event)
+    {}
+
+    @Subscribe
+    public void onRegisterFilmSync(RegisterFilmSyncEvent event)
+    {
+        this.registerFilmSync(event);
+    }
+
+    protected void registerFilmSync(RegisterFilmSyncEvent event)
     {}
 }

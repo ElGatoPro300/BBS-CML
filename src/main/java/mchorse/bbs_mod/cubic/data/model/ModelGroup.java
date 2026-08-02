@@ -32,6 +32,7 @@ public class ModelGroup implements IMapSerializable
     public int index = -1;
 
     public float lighting = 0F;
+    public boolean noshadingOpacity;
     public Color color = new Color().set(1F, 1F, 1F);
     public Color paintColor = new Color().set(1F, 1F, 1F, 0F);
     public Color glowingColor = new Color().set(1F, 1F, 1F, 1F);
@@ -59,6 +60,7 @@ public class ModelGroup implements IMapSerializable
     public void reset()
     {
         this.lighting = 0F;
+        this.noshadingOpacity = false;
         this.color.set(1F, 1F, 1F);
         this.color.brightness = 0F;
         this.color.contrast = 0F;
@@ -70,7 +72,9 @@ public class ModelGroup implements IMapSerializable
         this.color.hueTransform = new EffectTransform();
         this.color.saturationTransform = new EffectTransform();
         this.paintColor.set(1F, 1F, 1F, 0F);
+        this.paintColor.transform = new EffectTransform();
         this.glowingColor.set(1F, 1F, 1F, 1F);
+        this.glowingColor.transform = new EffectTransform();
         this.glowIntensity = 0F;
         this.glowRadius = 0F;
         this.shaderShadow = PaintSettings.SHADER_SHADOW_DEFAULT;
@@ -114,6 +118,7 @@ public class ModelGroup implements IMapSerializable
         group.index = this.index;
         
         group.lighting = this.lighting;
+        group.noshadingOpacity = this.noshadingOpacity;
         group.color.copy(this.color);
         group.paintColor.copy(this.paintColor);
         group.glowingColor.copy(this.glowingColor);

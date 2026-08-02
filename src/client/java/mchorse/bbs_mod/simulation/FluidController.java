@@ -291,51 +291,58 @@ public class FluidController
         else if (model instanceof BOBJModel)
         {
             BOBJModel bobjModel = (BOBJModel) model;
-            BOBJLoader.CompiledData data = bobjModel.getMeshData();
             BOBJArmature armature = bobjModel.getArmature();
 
-            if (data == null || armature == null)
+            if (armature == null)
             {
                 return;
             }
 
-            int stride = 5; 
-            int vertexCount = data.posData.length / 3;
-
-            for (int i = 0; i < vertexCount; i += stride)
+            for (BOBJLoader.CompiledData data : bobjModel.getMeshes())
             {
-                float x = data.posData[i * 3];
-                float y = data.posData[i * 3 + 1];
-                float z = data.posData[i * 3 + 2];
-                Vector3f finalPos = new Vector3f();
-
-                /* Skinning */
-                for (int w = 0; w < 4; w++)
+                if (data == null)
                 {
-                    float weight = data.weightData[i * 4 + w];
+                    continue;
+                }
 
-                    if (weight > 0)
+                int stride = 5; 
+                int vertexCount = data.posData.length / 3;
+
+                for (int i = 0; i < vertexCount; i += stride)
+                {
+                    float x = data.posData[i * 3];
+                    float y = data.posData[i * 3 + 1];
+                    float z = data.posData[i * 3 + 2];
+                    Vector3f finalPos = new Vector3f();
+
+                    /* Skinning */
+                    for (int w = 0; w < 4; w++)
                     {
-                        int boneIndex = data.boneIndexData[i * 4 + w];
-                        
-                        if (boneIndex >= 0 && boneIndex < armature.orderedBones.size())
-                        {
-                            BOBJBone bone = armature.orderedBones.get(boneIndex);
-                            MatrixCacheEntry entry = map.get(bone.name);
+                        float weight = data.weightData[i * 4 + w];
 
-                            if (entry != null && entry.matrix() != null)
+                        if (weight > 0F)
+                        {
+                            int boneIndex = data.boneIndexData[i * 4 + w];
+                            
+                            if (boneIndex >= 0 && boneIndex < armature.orderedBones.size())
                             {
-                                Matrix4f boneMatrix = new Matrix4f(entityMatrix).mul(entry.matrix());
-                                Vector3f weightedPos = new Vector3f(x, y, z).mulPosition(boneMatrix).mul(weight);
-                                finalPos.add(weightedPos);
+                                BOBJBone bone = armature.orderedBones.get(boneIndex);
+                                MatrixCacheEntry entry = map.get(bone.name);
+
+                                if (entry != null && entry.matrix() != null)
+                                {
+                                    Matrix4f boneMatrix = new Matrix4f(entityMatrix).mul(entry.matrix());
+                                    Vector3f weightedPos = new Vector3f(x, y, z).mulPosition(boneMatrix).mul(weight);
+                                    finalPos.add(weightedPos);
+                                }
                             }
                         }
                     }
-                }
-                
-                if (finalPos.lengthSquared() > 0)
-                {
-                    samples.add(new FluidSample(new Vec3d(finalPos.x, finalPos.y, finalPos.z), 0.1));
+                    
+                    if (finalPos.lengthSquared() > 0F)
+                    {
+                        samples.add(new FluidSample(new Vec3d(finalPos.x, finalPos.y, finalPos.z), 0.1D));
+                    }
                 }
             }
         }

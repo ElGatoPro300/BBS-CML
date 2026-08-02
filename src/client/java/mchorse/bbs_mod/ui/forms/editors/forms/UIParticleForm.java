@@ -8,6 +8,7 @@ import mchorse.bbs_mod.particles.emitter.ParticleEmitter;
 import mchorse.bbs_mod.resources.Link;
 import mchorse.bbs_mod.ui.Keys;
 import mchorse.bbs_mod.ui.UIKeys;
+import mchorse.bbs_mod.ui.forms.editors.panels.widgets.UIFormColorLayout;
 import mchorse.bbs_mod.ui.framework.elements.UIElement;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIButton;
 import mchorse.bbs_mod.ui.framework.elements.input.UIColor;
@@ -66,8 +67,7 @@ public class UIParticleForm extends UIForm<ParticleForm>
         this.registerDefaultPanels();
 
         this.defaultPanel = this.panels.get(this.panels.size() - 1);
-        this.defaultPanel.options.prepend(this.glowIntensity);
-        this.defaultPanel.options.prepend(this.glowingColor);
+        this.defaultPanel.options.prepend(UIFormColorLayout.createGlowSection(this.glowingColor, this.glowIntensity));
         this.defaultPanel.options.prepend(button);
 
         this.defaultPanel.keys().register(Keys.FORMS_PICK_TEXTURE, button::clickItself);

@@ -18,7 +18,7 @@ import mchorse.bbs_mod.forms.forms.utils.GlowSettings;
 import mchorse.bbs_mod.forms.forms.utils.PaintSettings;
 import mchorse.bbs_mod.forms.forms.utils.StructureLightSettings;
 import mchorse.bbs_mod.forms.renderers.utils.BlockEffectOverlayUniforms;
-import mchorse.bbs_mod.forms.renderers.utils.FormColorBlend;
+import mchorse.bbs_mod.forms.renderers.utils.FormColorEffects;
 import mchorse.bbs_mod.forms.renderers.utils.RecolorVertexConsumer;
 import mchorse.bbs_mod.forms.renderers.utils.StructureVirtualBlockRenderView;
 import mchorse.bbs_mod.forms.renderers.utils.VirtualBlockRenderView;
@@ -261,12 +261,12 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
         }
 
         Color storedFormColor = this.form.color.get();
-        Color rawFormColor = storedFormColor.copyWithBlendIntensity();
+        Color rawFormColor = storedFormColor.copyBakingColorGrade();
         Color formColor = rawFormColor.copy();
-        boolean colorTransformWanted = FormColorBlend.wantsColorTintOverlay(storedFormColor);
+        boolean colorTransformWanted = FormColorEffects.wantsColorTintOverlay(storedFormColor);
         Color tint = Color.white();
 
-        if (FormColorBlend.shouldBakeFormColor(storedFormColor))
+        if (FormColorEffects.shouldBakeFormColor(storedFormColor))
         {
             tint.mul(rawFormColor);
         }
@@ -280,13 +280,13 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
 
         if (glowIntensity < 0F)
         {
-            FormColorBlend.blendFormGlowBrighten(tint, glowSettings, legacyGlow);
+            FormColorEffects.blendFormGlowBrighten(tint, glowSettings, legacyGlow);
         }
 
         boolean irisWorldPaintDeferral = BBSRendering.isIrisWorldPaintDeferral();
         boolean deferColorTintToOverlay = colorTransformWanted && irisWorldPaintDeferral;
-        Color resolvedPaint = FormColorBlend.resolvePaintColor(this.form.paintSettings.get(), this.form.paintColor.get());
-        boolean positivePaint = FormColorBlend.hasPositivePaint(this.form.paintSettings.get(), this.form.paintColor.get());
+        Color resolvedPaint = FormColorEffects.resolvePaintColor(this.form.paintSettings.get(), this.form.paintColor.get());
+        boolean positivePaint = FormColorEffects.hasPositivePaint(this.form.paintSettings.get(), this.form.paintColor.get());
         boolean positiveGlow = glowIntensity > 0F;
         Function<VertexConsumer, VertexConsumer> mainRecolor = this.getMainConsumer(tint, resolvedPaint);
 
@@ -533,12 +533,12 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
             }
 
             Color storedFormColor3D = this.form.color.get();
-            Color rawFormColor3D = storedFormColor3D.copyWithBlendIntensity();
+            Color rawFormColor3D = storedFormColor3D.copyBakingColorGrade();
             Color formColor3D = rawFormColor3D.copy();
-            boolean colorTransformWanted = FormColorBlend.wantsColorTintOverlay(storedFormColor3D);
+            boolean colorTransformWanted = FormColorEffects.wantsColorTintOverlay(storedFormColor3D);
             Color mainTint3D = new Color().set(context.color);
 
-            if (FormColorBlend.shouldBakeFormColor(storedFormColor3D))
+            if (FormColorEffects.shouldBakeFormColor(storedFormColor3D))
             {
                 mainTint3D.mul(rawFormColor3D);
             }
@@ -548,7 +548,7 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
 
             boolean shadowPass = context.isShadowPass || BBSRendering.isIrisShadowPass();
 
-            FormColorBlend.applyShadowPassColorFix(mainTint3D, storedFormColor3D, this.form.paintSettings.get(), this.form.paintColor.get(), shadowPass);
+            FormColorEffects.applyShadowPassColorFix(mainTint3D, storedFormColor3D, this.form.paintSettings.get(), this.form.paintColor.get(), shadowPass);
             this.applyBlockEntityOnlyShaderShadow(mainTint3D, shadowPass);
 
             if (mainTint3D.a <= 0.001F && !shadowPass && !picking)
@@ -562,15 +562,15 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
 
         if (glowIntensity < 0F)
         {
-            FormColorBlend.blendFormGlowBrighten(mainTint3D, glowSettings, legacyGlow);
+            FormColorEffects.blendFormGlowBrighten(mainTint3D, glowSettings, legacyGlow);
         }
 
         boolean irisWorldPaintDeferral = BBSRendering.isIrisWorldPaintDeferral();
         boolean deferColorTintToOverlay = colorTransformWanted && irisWorldPaintDeferral && !shadowPass;
         PaintSettings paintSettings = this.form.paintSettings.get();
         Color legacyPaint = this.form.paintColor.get();
-        Color resolvedPaint = FormColorBlend.resolvePaintColor(paintSettings, legacyPaint);
-        boolean positivePaint = !picking && !shadowPass && FormColorBlend.hasPositivePaint(paintSettings, legacyPaint);
+        Color resolvedPaint = FormColorEffects.resolvePaintColor(paintSettings, legacyPaint);
+        boolean positivePaint = !picking && !shadowPass && FormColorEffects.hasPositivePaint(paintSettings, legacyPaint);
         boolean positiveGlow = !picking && !shadowPass && glowIntensity > 0F;
         /* Color tint overlay must not write into the shadow map (same solid-main-pass behavior as Block). */
         boolean applyColorTint = colorTransformWanted && !picking && !shadowPass;
@@ -1438,10 +1438,10 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
     private Color resolveStructureBlendColor()
     {
         Color storedFormColor = this.form.color.get();
-        Color rawFormColor = storedFormColor.copyWithBlendIntensity();
+        Color rawFormColor = storedFormColor.copyBakingColorGrade();
         Color tint = Color.white();
 
-        if (FormColorBlend.shouldBakeFormColor(storedFormColor))
+        if (FormColorEffects.shouldBakeFormColor(storedFormColor))
         {
             tint.mul(rawFormColor);
         }
@@ -1536,7 +1536,7 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
      */
     private Color resolveStructureBlockEntityColor()
     {
-        Color tint = FormColorBlend.resolveBlockEntityTint(this.form.color.get(), this.form.paintSettings.get(), this.form.paintColor.get());
+        Color tint = FormColorEffects.resolveBlockEntityTint(this.form.color.get(), this.form.paintSettings.get(), this.form.paintColor.get());
 
         this.form.applyFormOpacity(tint);
 
@@ -1713,7 +1713,7 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
 
     private void renderStructureGlowOverlayPass(FormRenderingContext context, MatrixStack stack, GlowSettings glowSettings, Color legacyGlow, float glowIntensity, float alpha, int overlay, boolean optimize, boolean useEntityLayers)
     {
-        int layers = FormColorBlend.resolveGlowOverlayLayers(glowIntensity);
+        int layers = FormColorEffects.resolveGlowOverlayLayers(glowIntensity);
 
         if (optimize)
         {
@@ -1777,8 +1777,8 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
         int savedDepthFunc = GL11.glGetInteger(GL11.GL_DEPTH_FUNC);
         boolean savedDepthMask = GL11.glGetBoolean(GL11.GL_DEPTH_WRITEMASK);
         boolean savedPolygonOffsetFill = GL11.glGetBoolean(GL11.GL_POLYGON_OFFSET_FILL);
-        Color glowColor = FormColorBlend.resolveGlowOverlayEmissionColor(glowSettings, legacyGlow, alpha, glowIntensity);
-        float shaderScale = FormColorBlend.resolveGlowOverlayShaderScale(glowIntensity);
+        Color glowColor = FormColorEffects.resolveGlowOverlayEmissionColor(glowSettings, legacyGlow, alpha, glowIntensity);
+        float shaderScale = FormColorEffects.resolveGlowOverlayShaderScale(glowIntensity);
 
         RenderSystem.enableBlend();
         RenderSystem.blendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE);
@@ -1853,7 +1853,7 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
 
             if (vao != null)
             {
-                /* White tint — paint strength must not depend on Blend Color (same as Block/Item). */
+                /* White tint — paint strength must not depend on form color tint (same as Block/Item). */
                 this.renderStructureVaoPaintOverlay(vao, stack, Color.white(), paintOverlay, light, overlay, transform);
             }
 
@@ -1952,7 +1952,7 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
     private void runStructureBlocksPaintOverlay(Color paintOverlay, MatrixStack stack, EffectTransform transform, GlowSettings glowSettings, Color legacyGlow, float glowIntensity, float alpha, Runnable draw)
     {
         CustomVertexConsumerProvider consumers = FormUtilsClient.getProvider();
-        Matrix4f formRootInverse = new Matrix4f(stack.peek().getPositionMatrix()).invert();
+        Matrix4f formRootInverse = new Matrix4f();
         int savedDepthFunc = GL11.glGetInteger(GL11.GL_DEPTH_FUNC);
         boolean savedDepthMask = GL11.glGetBoolean(GL11.GL_DEPTH_WRITEMASK);
         boolean savedPolygonOffsetFill = GL11.glGetBoolean(GL11.GL_POLYGON_OFFSET_FILL);
@@ -2096,7 +2096,7 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
 
         if (stored != null && stored.hasColorAdjustments())
         {
-            Color tint = stored.copyWithBlendIntensityOnly();
+            Color tint = stored.copyDeferringColorGrade();
 
             if (formColor != null && formColor.transform != null)
             {
@@ -2193,7 +2193,10 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
     private void runStructureBlocksColorTintOverlay(Color formColor, MatrixStack stack, Color gradeSource, Runnable draw)
     {
         CustomVertexConsumerProvider consumers = FormUtilsClient.getProvider();
-        Matrix4f formRootInverse = new Matrix4f(stack.peek().getPositionMatrix()).invert();
+        Matrix4f formRootInverse = new Matrix4f();
+        int savedDepthFunc = GL11.glGetInteger(GL11.GL_DEPTH_FUNC);
+        boolean savedDepthMask = GL11.glGetBoolean(GL11.GL_DEPTH_WRITEMASK);
+        boolean savedPolygonOffsetFill = GL11.glGetBoolean(GL11.GL_POLYGON_OFFSET_FILL);
 
         CustomVertexConsumerProvider.clearRunnables();
 
@@ -2203,7 +2206,11 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
         CustomVertexConsumerProvider.hijackVertexFormat((l) -> BlockEffectOverlayUniforms.configureColorTintOverlayRenderStateStructure(formRootInverse, formColor.transform, true, formColor, gradeSource, structureSize.x, structureSize.y, structureSize.z));
 
         RenderSystem.enableBlend();
+        RenderSystem.enableDepthTest();
+        RenderSystem.depthFunc(GL11.GL_LEQUAL);
         RenderSystem.depthMask(false);
+        GL11.glEnable(GL11.GL_POLYGON_OFFSET_FILL);
+        GL11.glPolygonOffset(-1F, -2F);
 
         consumers.setSubstitute(BBSRendering.getBlockColorTintOverlayConsumer());
 
@@ -2215,7 +2222,19 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
         finally
         {
             consumers.setSubstitute(null);
-            RenderSystem.depthMask(true);
+            RenderSystem.depthMask(savedDepthMask);
+            RenderSystem.depthFunc(savedDepthFunc);
+            GL11.glPolygonOffset(0F, 0F);
+
+            if (savedPolygonOffsetFill)
+            {
+                GL11.glEnable(GL11.GL_POLYGON_OFFSET_FILL);
+            }
+            else
+            {
+                GL11.glDisable(GL11.GL_POLYGON_OFFSET_FILL);
+            }
+
             RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
             RenderSystem.defaultBlendFunc();
             CustomVertexConsumerProvider.clearRunnables();
@@ -2312,9 +2331,9 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
     }
 
     /**
-     * @param applyBlendTint when false, keep the caller's vertex substitute (paint / color-tint overlays).
+     * @param applyColorTint when false, keep the caller's vertex substitute (paint / color-tint overlays).
      */
-    private void renderBlockEntitiesOnly(FormRenderingContext context, MatrixStack stack, VertexConsumerProvider consumers, int light, int overlay, boolean applyBlendTint)
+    private void renderBlockEntitiesOnly(FormRenderingContext context, MatrixStack stack, VertexConsumerProvider consumers, int light, int overlay, boolean applyColorTint)
     {
         RenderInfo info = this.calculateRenderInfo(context, false);
         BlockEntityRenderDispatcher beDispatcher = MinecraftClient.getInstance().getBlockEntityRenderDispatcher();
@@ -2369,7 +2388,7 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
                     Color beTint = null;
                     boolean shadowPass = context.isShadowPass || BBSRendering.isIrisShadowPass();
 
-                    if (applyBlendTint)
+                    if (applyColorTint)
                     {
                         beTint = this.resolveStructureBlockEntityColor();
                         this.applyBlockEntityOnlyShaderShadow(beTint, shadowPass);
@@ -2400,7 +2419,7 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
 
                         beProvider.draw();
 
-                        if (applyBlendTint)
+                        if (applyColorTint)
                         {
                             beProvider.setSubstitute(null);
                             CustomVertexConsumerProvider.clearRunnables();

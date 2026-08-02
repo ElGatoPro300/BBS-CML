@@ -49,7 +49,11 @@ public class UIMainMenuBar extends UIElement
     private UIDashboard dashboard;
     UIMenuButton activeButton = null;
     UIWorldMenuButton activeWorldButton = null;
+    private UIMenuButton fileMenu;
+    private UIMenuButton editMenu;
     private UIMenuButton toolsMenu;
+    private UIMenuButton windowMenu;
+    private UIMenuButton helpMenu;
     private UIWorldMenuButton worldButton;
 
     public UIMainMenuBar(UIDashboard dashboard)
@@ -73,17 +77,14 @@ public class UIMainMenuBar extends UIElement
         brand.w(25).marginLeft(6);
 
         this.add(brand);
-        this.add(new UIMenuButton(UIKeys.RAW_FILE, this, this::buildFileMenu));
-        this.add(new UIMenuButton(UIKeys.RAW_EDIT, this, this::buildEditMenu));
+        this.fileMenu = new UIMenuButton(UIKeys.RAW_FILE, this, this::buildFileMenu);
+        this.editMenu = new UIMenuButton(UIKeys.RAW_EDIT, this, this::buildEditMenu);
         this.toolsMenu = new UIMenuButton(UIKeys.RAW_TOOLS, this, this::buildToolsMenu);
-        this.add(this.toolsMenu);
-        /* Window menu is always visible; its content adapts to the active panel
-           (currently only the Model Editor populates it). */
-        this.add(new UIMenuButton(UIKeys.RAW_WINDOW, this, this::buildWindowMenu));
-
-        this.add(new UIMenuButton(UIKeys.RAW_HELP, this, this::buildHelpMenu));
+        this.windowMenu = new UIMenuButton(UIKeys.RAW_WINDOW, this, this::buildWindowMenu);
+        this.helpMenu = new UIMenuButton(UIKeys.RAW_HELP, this, this::buildHelpMenu);
         this.worldButton = new UIWorldMenuButton(UIKeys.RAW_WORLD, this);
-        this.add(this.worldButton);
+
+        this.add(this.fileMenu, this.editMenu, this.toolsMenu, this.windowMenu, this.helpMenu, this.worldButton);
 
         this.row(2).preferred(999);
     }
@@ -92,15 +93,27 @@ public class UIMainMenuBar extends UIElement
     {
         boolean stripped = UIWorldFilmsBrowserPanel.isBrowserPanel(panel);
 
+        if (this.editMenu != null)
+        {
+            this.editMenu.setVisible(!stripped);
+        }
+
         if (this.toolsMenu != null)
         {
             this.toolsMenu.setVisible(!stripped);
+        }
+
+        if (this.windowMenu != null)
+        {
+            this.windowMenu.setVisible(!stripped);
         }
 
         if (this.worldButton != null)
         {
             this.worldButton.setVisible(!stripped);
         }
+
+        this.resize();
     }
 
     @Override
@@ -179,7 +192,7 @@ public class UIMainMenuBar extends UIElement
 
         if (context.contextMenu != null)
         {
-            int maxH = Math.max(98, context.menu.height - button.area.ey() - 10);
+            int maxH = Math.max(114, context.menu.height - button.area.ey() - 10);
 
             menu.setMaxHeight(maxH);
             context.contextMenu.getFlex().x.set(0, button.area.x);
@@ -202,13 +215,18 @@ public class UIMainMenuBar extends UIElement
 
     private void buildFileMenu(ContextMenuManager menu)
     {
-        menu.action(Icons.ADD, UIKeys.RAW_NEW, () -> this.openNewSubmenu());
-        menu.action(Icons.FOLDER, UIKeys.RAW_OPEN, () -> this.openOpenPopup());
-        menu.action(Icons.TIME, UIKeys.RAW_RECENT, () -> this.openRecentSubmenu());
+        boolean stripped = UIWorldFilmsBrowserPanel.isBrowserPanel(this.dashboard.panels.panel);
 
-        if (this.dashboard.panels.panel instanceof UIFilmPanel filmPanel && filmPanel.getData() != null)
+        if (!stripped)
         {
-            menu.action(Icons.UPLOAD, UIKeys.FILM_EXPORT_PROJECT, () -> FilmProjectHandler.exportProject(filmPanel));
+            menu.action(Icons.ADD, UIKeys.RAW_NEW, () -> this.openNewSubmenu());
+            menu.action(Icons.FOLDER, UIKeys.RAW_OPEN, () -> this.openOpenPopup());
+            menu.action(Icons.TIME, UIKeys.RAW_RECENT, () -> this.openRecentSubmenu());
+
+            if (this.dashboard.panels.panel instanceof UIFilmPanel filmPanel && filmPanel.getData() != null)
+            {
+                menu.action(Icons.UPLOAD, UIKeys.FILM_EXPORT_PROJECT, () -> FilmProjectHandler.exportProject(filmPanel));
+            }
         }
 
         menu.action(Icons.SETTINGS, UIKeys.CONFIG_TITLE, () -> UIOverlay.addOverlay(this.getContext(), this.dashboard.settingsPanel, 580, 340));

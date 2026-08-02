@@ -25,6 +25,8 @@ import mchorse.bbs_mod.utils.pose.ShapeKeysManager;
 import mchorse.bbs_mod.utils.watchdog.IWatchDogListener;
 import mchorse.bbs_mod.utils.watchdog.WatchDogEvent;
 
+import net.minecraft.client.MinecraftClient;
+
 import java.io.File;
 import java.io.InputStream;
 import java.nio.file.Path;
@@ -415,19 +417,34 @@ public class ModelManager implements IWatchDogListener
         {
             this.availableKeysCache = null;
             String key = StringUtils.parentPath(link.path.substring(MODELS_PREFIX.length()));
+
+            if (link.path.endsWith("/" + CONFIG_FILE) || link.path.endsWith("/" + DYNAMIC_CONFIG_FILE))
+            {
+                this.failedModels.remove(key);
+                return;
+            }
+
             ModelInstance model = this.models.remove(key);
 
             this.failedModels.remove(key);
 
             if (model != null)
             {
-                model.delete();
+                /* VAO deletion must happen on the render/GL thread — the watchdog runs
+                 * on a file-system watcher thread that has no OpenGL context. */
+                final ModelInstance toDelete = model;
 
-                if (model.model instanceof BOBJModel bobjModel)
+                MinecraftClient.getInstance().execute(() ->
                 {
-                    bobjModel.delete();
-                }
+                    toDelete.delete();
+
+                    if (toDelete.model instanceof BOBJModel bobjModel)
+                    {
+                        bobjModel.delete();
+                    }
+                });
             }
         }
     }
 }
+

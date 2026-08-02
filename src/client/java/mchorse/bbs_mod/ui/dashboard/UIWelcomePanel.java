@@ -153,7 +153,7 @@ public class UIWelcomePanel extends UIElement {
 
         if (this.state == PopupState.WELCOME) {
             float floatOffset = (float) Math.sin(elapsed * 2.5F) * 5.0F;
-            Texture logo = BBSModClient.getTextures().getTexture(Link.assets("textures/bbs_cml_edition.png"));
+            Texture logo = BBSModClient.getTextures().getTexture(Link.assets("textures/bbs_cml.png"));
             if (logo != null) {
                 float logoW = logo.width * 4.5F;
                 float logoH = logo.height * 4.5F;

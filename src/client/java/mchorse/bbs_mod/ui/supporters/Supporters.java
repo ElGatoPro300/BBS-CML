@@ -13,7 +13,7 @@ public class Supporters
 
     public void setup()
     {
-        /* Developers of BBS CML EDITION */
+        /* Developers of BBS CML */
         this.add("Discord", "https://discord.gg/MAHVQBSce6", "textures/banners/CML.png").withDate(12, 1);
         this.add("ElGatoPro300", "https://www.youtube.com/@ElGatoPro300", "textures/banners/ElGatoPro300.png").withDate(12, 1);
         this.add("seb024xd", "https://www.youtube.com/@seb024yt", "textures/banners/seb024xd.png").withDate(12, 1);
@@ -21,7 +21,7 @@ public class Supporters
         this.add("Fanyel", "http://youtube.com/@imLOSTStudios", "textures/banners/Fanyel.png").withDate(12, 1);
         this.add("Mattux", "https://www.youtube.com/@Mattux", "textures/banners/Mattux.png").withDate(12, 1);
 
-        /* Founders of BBS CML EDITION */
+        /* Founders of BBS CML */
         this.add("SEKZA_MC", "https://www.youtube.com/@secxavier49_official", "textures/banners/SEKZA_MC.png").withDate(12, 1);
         this.add("MrJack", "https://x.com/MrJackDnZ", "textures/banners/MrJack.png").withDate(12, 1);
         this.add("AymaWolf Omega", "https://www.youtube.com/@AymaWolfOmega", "textures/banners/AymaWolfOmega.png").withDate(12, 1);

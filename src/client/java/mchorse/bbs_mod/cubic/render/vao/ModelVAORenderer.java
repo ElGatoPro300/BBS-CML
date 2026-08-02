@@ -102,6 +102,27 @@ public class ModelVAORenderer
     private static boolean colorEffectActive;
     private static boolean paintMaskBottomAnchored = true;
     private static boolean colorMaskBottomAnchored = true;
+    /* Form-level paint/color masks snapshotted by set*EffectTransform; setGroup* restores these. */
+    private static final Matrix4f basePaintEffectInverse = new Matrix4f();
+    private static final Vector3f basePaintMaskHalf = new Vector3f(EffectTransformMath.MODEL_MASK_HALF_BASE);
+    private static float basePaintMaskShape;
+    private static boolean basePaintEffectActive;
+    private static boolean basePaintMaskBottomAnchored = true;
+    private static final Matrix4f baseColorEffectInverse = new Matrix4f();
+    private static final Vector3f baseColorMaskHalf = new Vector3f(EffectTransformMath.MODEL_MASK_HALF_BASE);
+    private static float baseColorMaskShape;
+    private static boolean baseColorEffectActive;
+    private static boolean baseColorMaskBottomAnchored = true;
+    private static final Matrix4f glowEffectInverse = new Matrix4f();
+    private static final Vector3f glowMaskHalf = new Vector3f(EffectTransformMath.MODEL_MASK_HALF_BASE);
+    private static float glowMaskShape;
+    private static boolean glowEffectActive;
+    private static boolean glowMaskBottomAnchored = true;
+    private static final Matrix4f baseGlowEffectInverse = new Matrix4f();
+    private static final Vector3f baseGlowMaskHalf = new Vector3f(EffectTransformMath.MODEL_MASK_HALF_BASE);
+    private static float baseGlowMaskShape;
+    private static boolean baseGlowEffectActive;
+    private static boolean baseGlowMaskBottomAnchored = true;
     private static final GradeMaskState gradeBrightnessMask = new GradeMaskState();
     private static final GradeMaskState gradeContrastMask = new GradeMaskState();
     private static final GradeMaskState gradeHueMask = new GradeMaskState();
@@ -111,6 +132,11 @@ public class ModelVAORenderer
     private static float formColorB = 1F;
     private static float formColorA = 1F;
     private static boolean colorTintMasked;
+    private static float baseFormColorR = 1F;
+    private static float baseFormColorG = 1F;
+    private static float baseFormColorB = 1F;
+    private static float baseFormColorA = 1F;
+    private static boolean baseColorTintMasked;
     private static float formColorGradeBrightness;
     private static float formColorGradeContrast;
     private static float formColorGradeHue;
@@ -147,27 +173,10 @@ public class ModelVAORenderer
 
         private void set(EffectTransform transform)
         {
-            this.setModel(transform);
-        }
-
-        private void setModel(EffectTransform transform)
-        {
             EffectTransformMath.buildInverseMatrix(transform, this.inverse);
             this.active = EffectTransformMath.isTransformActive(transform);
             this.shape = transform == null || transform.shape == null ? 0F : transform.shape.id;
             EffectTransformMath.resolveModelMaskHalfExtents(transform, this.half);
-            this.bottomAnchored = true;
-        }
-
-        /**
-         * Structure Color Grade: UI scale 1 covers the full AABB (same as paint / Blend Color).
-         */
-        private void setStructure(EffectTransform transform, float sizeX, float sizeY, float sizeZ)
-        {
-            EffectTransformMath.buildInverseMatrix(transform, this.inverse);
-            this.active = EffectTransformMath.isTransformActive(transform);
-            this.shape = transform == null || transform.shape == null ? 0F : transform.shape.id;
-            EffectTransformMath.resolveStructureMaskHalfExtents(transform, this.half, sizeX, sizeY, sizeZ);
             this.bottomAnchored = true;
         }
 
@@ -330,8 +339,9 @@ public class ModelVAORenderer
     private static void enqueuePaintOverlay(Matrix4f projection, Matrix4f modelView, boolean synced, boolean fullModel, boolean colorTint, boolean colorGrade, boolean vanillaComposite, boolean depthWrite, boolean depthTest, Runnable draw)
     {
 
-        /* Shadow-pass matrices are light-space; flushing them on the color buffer draws tiny
-         * paint blobs at the screen center (one per model block / form that queued paint). */
+        /* Shadow-pass matrices are light-space (Iris and IRLights bake). Flushing them on the
+         * color buffer draws tint/paint ghosts at wrong NDC (screen-edge masks when a light
+         * touches a colored actor, or tiny blobs at center for Iris shadows). */
         if (BBSRendering.isIrisShadowPass())
         {
             return;
@@ -1298,11 +1308,36 @@ public class ModelVAORenderer
         }
 
         paintMaskBottomAnchored = bottomAnchoredY;
+        snapshotPaintEffectBase();
+    }
+
+    /**
+     * Per-bone paint mask override (same idea as {@link #setGroupPaint}). When the group has an
+     * active transform/shape, it replaces the form paint mask for this draw; otherwise restore base.
+     */
+    public static void setGroupPaintEffectTransform(EffectTransform transform)
+    {
+        if (EffectTransformMath.isTransformActive(transform))
+        {
+            EffectTransformMath.buildInverseMatrix(transform, paintEffectInverse);
+            paintEffectActive = true;
+            paintMaskShape = transform.shape == null ? 0F : transform.shape.id;
+            EffectTransformMath.resolveModelMaskHalfExtents(transform, paintMaskHalf);
+            paintMaskBottomAnchored = basePaintMaskBottomAnchored;
+        }
+        else
+        {
+            paintEffectInverse.set(basePaintEffectInverse);
+            paintMaskHalf.set(basePaintMaskHalf);
+            paintMaskShape = basePaintMaskShape;
+            paintEffectActive = basePaintEffectActive;
+            paintMaskBottomAnchored = basePaintMaskBottomAnchored;
+        }
     }
 
     public static void clearPaintEffectTransform()
     {
-        if (!colorEffectActive)
+        if (!colorEffectActive && !glowEffectActive)
         {
             formRootInverse.identity();
         }
@@ -1312,6 +1347,11 @@ public class ModelVAORenderer
         paintMaskBottomAnchored = true;
         paintMaskShape = 0F;
         paintMaskHalf.set(EffectTransformMath.MODEL_MASK_HALF_BASE, EffectTransformMath.MODEL_MASK_HALF_BASE * EffectTransformMath.MODEL_MASK_Y_BIAS, EffectTransformMath.MODEL_MASK_HALF_BASE);
+        basePaintEffectInverse.identity();
+        basePaintEffectActive = false;
+        basePaintMaskBottomAnchored = true;
+        basePaintMaskShape = 0F;
+        basePaintMaskHalf.set(EffectTransformMath.MODEL_MASK_HALF_BASE, EffectTransformMath.MODEL_MASK_HALF_BASE * EffectTransformMath.MODEL_MASK_Y_BIAS, EffectTransformMath.MODEL_MASK_HALF_BASE);
     }
 
     public static void setColorEffectTransform(Matrix4f formRootInverseMatrix, EffectTransform transform, Vector3f maskHalf)
@@ -1339,6 +1379,107 @@ public class ModelVAORenderer
         }
 
         colorMaskBottomAnchored = true;
+        snapshotColorEffectBase();
+    }
+
+    /**
+     * Per-bone color (tint) mask override. Active bone transform replaces the form color mask
+     * for this draw; otherwise restore the form/base mask.
+     */
+    public static void setGroupColorEffectTransform(EffectTransform transform)
+    {
+        if (EffectTransformMath.isTransformActive(transform))
+        {
+            EffectTransformMath.buildInverseMatrix(transform, colorEffectInverse);
+            colorEffectActive = true;
+            colorMaskShape = transform.shape == null ? 0F : transform.shape.id;
+            EffectTransformMath.resolveModelMaskHalfExtents(transform, colorMaskHalf);
+            colorMaskBottomAnchored = baseColorMaskBottomAnchored;
+        }
+        else
+        {
+            colorEffectInverse.set(baseColorEffectInverse);
+            colorMaskHalf.set(baseColorMaskHalf);
+            colorMaskShape = baseColorMaskShape;
+            colorEffectActive = baseColorEffectActive;
+            colorMaskBottomAnchored = baseColorMaskBottomAnchored;
+        }
+    }
+
+    public static void setGlowEffectTransform(Matrix4f formRootInverseMatrix, EffectTransform transform, Vector3f maskHalf)
+    {
+        setGlowEffectTransform(formRootInverseMatrix, transform, maskHalf, true);
+    }
+
+    public static void setGlowEffectTransform(Matrix4f formRootInverseMatrix, EffectTransform transform, Vector3f maskHalf, boolean bottomAnchoredY)
+    {
+        if (formRootInverseMatrix != null)
+        {
+            formRootInverse.set(formRootInverseMatrix);
+        }
+        else
+        {
+            formRootInverse.identity();
+        }
+
+        EffectTransformMath.buildInverseMatrix(transform, glowEffectInverse);
+        glowEffectActive = EffectTransformMath.isTransformActive(transform);
+        glowMaskShape = transform == null || transform.shape == null ? 0F : transform.shape.id;
+
+        if (maskHalf != null)
+        {
+            glowMaskHalf.set(maskHalf);
+        }
+        else
+        {
+            EffectTransformMath.resolveModelMaskHalfExtents(transform, glowMaskHalf);
+        }
+
+        glowMaskBottomAnchored = bottomAnchoredY;
+        snapshotGlowEffectBase();
+    }
+
+    /**
+     * Per-bone glow mask override. Active bone transform replaces the form glow mask for this
+     * draw; otherwise restore the form/base mask.
+     */
+    public static void setGroupGlowEffectTransform(EffectTransform transform)
+    {
+        if (EffectTransformMath.isTransformActive(transform))
+        {
+            EffectTransformMath.buildInverseMatrix(transform, glowEffectInverse);
+            glowEffectActive = true;
+            glowMaskShape = transform.shape == null ? 0F : transform.shape.id;
+            EffectTransformMath.resolveModelMaskHalfExtents(transform, glowMaskHalf);
+            glowMaskBottomAnchored = baseGlowMaskBottomAnchored;
+        }
+        else
+        {
+            glowEffectInverse.set(baseGlowEffectInverse);
+            glowMaskHalf.set(baseGlowMaskHalf);
+            glowMaskShape = baseGlowMaskShape;
+            glowEffectActive = baseGlowEffectActive;
+            glowMaskBottomAnchored = baseGlowMaskBottomAnchored;
+        }
+    }
+
+    public static void clearGlowEffectTransform()
+    {
+        if (!paintEffectActive && !colorEffectActive)
+        {
+            formRootInverse.identity();
+        }
+
+        glowEffectInverse.identity();
+        glowEffectActive = false;
+        glowMaskBottomAnchored = true;
+        glowMaskShape = 0F;
+        glowMaskHalf.set(EffectTransformMath.MODEL_MASK_HALF_BASE, EffectTransformMath.MODEL_MASK_HALF_BASE * EffectTransformMath.MODEL_MASK_Y_BIAS, EffectTransformMath.MODEL_MASK_HALF_BASE);
+        baseGlowEffectInverse.identity();
+        baseGlowEffectActive = false;
+        baseGlowMaskBottomAnchored = true;
+        baseGlowMaskShape = 0F;
+        baseGlowMaskHalf.set(EffectTransformMath.MODEL_MASK_HALF_BASE, EffectTransformMath.MODEL_MASK_HALF_BASE * EffectTransformMath.MODEL_MASK_Y_BIAS, EffectTransformMath.MODEL_MASK_HALF_BASE);
     }
 
     public static void setFormColorTint(float r, float g, float b, float a)
@@ -1348,6 +1489,11 @@ public class ModelVAORenderer
         formColorB = b;
         formColorA = a;
         colorTintMasked = true;
+        baseFormColorR = r;
+        baseFormColorG = g;
+        baseFormColorB = b;
+        baseFormColorA = a;
+        baseColorTintMasked = true;
     }
 
     public static void clearFormColorTint()
@@ -1357,6 +1503,35 @@ public class ModelVAORenderer
         formColorB = 1F;
         formColorA = 1F;
         colorTintMasked = false;
+        baseFormColorR = 1F;
+        baseFormColorG = 1F;
+        baseFormColorB = 1F;
+        baseFormColorA = 1F;
+        baseColorTintMasked = false;
+    }
+
+    /**
+     * Per-bone FormColorTint override when the bone owns a spatial color mask. Otherwise restore
+     * the form/base tint so vertex-multiplied bone colors keep working without a transform.
+     */
+    public static void setGroupFormColorTint(Color color)
+    {
+        if (color != null && color.hasActiveTransform())
+        {
+            formColorR = color.r;
+            formColorG = color.g;
+            formColorB = color.b;
+            formColorA = color.a;
+            colorTintMasked = true;
+        }
+        else
+        {
+            formColorR = baseFormColorR;
+            formColorG = baseFormColorG;
+            formColorB = baseFormColorB;
+            formColorA = baseFormColorA;
+            colorTintMasked = baseColorTintMasked;
+        }
     }
 
     public static void setFormColorGrade(float brightness, float contrast, float hue, float saturation)
@@ -1385,27 +1560,6 @@ public class ModelVAORenderer
         applyGradeEffectTransforms(color.brightnessTransform, color.contrastTransform, color.hueTransform, color.saturationTransform);
     }
 
-    /**
-     * Structure Color Grade channel masks: scale 1 = 100% of the structure AABB
-     * (same convention as paint / Blend Color on structures).
-     */
-    public static void setGradeEffectTransformsForStructure(Color color, float sizeX, float sizeY, float sizeZ)
-    {
-        if (color == null)
-        {
-            clearGradeEffectTransforms();
-            clearBaseGradeEffectTransforms();
-
-            return;
-        }
-
-        copyEffectTransform(baseGradeBrightnessTransform, color.brightnessTransform);
-        copyEffectTransform(baseGradeContrastTransform, color.contrastTransform);
-        copyEffectTransform(baseGradeHueTransform, color.hueTransform);
-        copyEffectTransform(baseGradeSaturationTransform, color.saturationTransform);
-        applyGradeEffectTransformsStructure(color.brightnessTransform, color.contrastTransform, color.hueTransform, color.saturationTransform, sizeX, sizeY, sizeZ);
-    }
-
     public static void setGradeEffectTransforms(EffectTransform brightness, EffectTransform contrast, EffectTransform hue, EffectTransform saturation)
     {
         copyEffectTransform(baseGradeBrightnessTransform, brightness);
@@ -1421,7 +1575,7 @@ public class ModelVAORenderer
      */
     public static void setGroupFormColorGrade(Color color)
     {
-        if (color != null && color.hasColorAdjustments())
+        if (color != null && (color.hasColorAdjustments() || color.hasActiveGradeTransform()))
         {
             applyFormColorGrade(color.brightness, color.contrast, color.hue, color.saturation);
             applyGradeEffectTransforms(color.brightnessTransform, color.contrastTransform, color.hueTransform, color.saturationTransform);
@@ -1444,18 +1598,10 @@ public class ModelVAORenderer
 
     private static void applyGradeEffectTransforms(EffectTransform brightness, EffectTransform contrast, EffectTransform hue, EffectTransform saturation)
     {
-        gradeBrightnessMask.setModel(brightness);
-        gradeContrastMask.setModel(contrast);
-        gradeHueMask.setModel(hue);
-        gradeSaturationMask.setModel(saturation);
-    }
-
-    private static void applyGradeEffectTransformsStructure(EffectTransform brightness, EffectTransform contrast, EffectTransform hue, EffectTransform saturation, float sizeX, float sizeY, float sizeZ)
-    {
-        gradeBrightnessMask.setStructure(brightness, sizeX, sizeY, sizeZ);
-        gradeContrastMask.setStructure(contrast, sizeX, sizeY, sizeZ);
-        gradeHueMask.setStructure(hue, sizeX, sizeY, sizeZ);
-        gradeSaturationMask.setStructure(saturation, sizeX, sizeY, sizeZ);
+        gradeBrightnessMask.set(brightness);
+        gradeContrastMask.set(contrast);
+        gradeHueMask.set(hue);
+        gradeSaturationMask.set(saturation);
     }
 
     private static void copyEffectTransform(EffectTransform target, EffectTransform source)
@@ -1507,7 +1653,7 @@ public class ModelVAORenderer
 
     public static void clearColorEffectTransform()
     {
-        if (!paintEffectActive)
+        if (!paintEffectActive && !glowEffectActive)
         {
             formRootInverse.identity();
         }
@@ -1517,6 +1663,38 @@ public class ModelVAORenderer
         colorMaskBottomAnchored = true;
         colorMaskShape = 0F;
         colorMaskHalf.set(EffectTransformMath.MODEL_MASK_HALF_BASE, EffectTransformMath.MODEL_MASK_HALF_BASE * EffectTransformMath.MODEL_MASK_Y_BIAS, EffectTransformMath.MODEL_MASK_HALF_BASE);
+        baseColorEffectInverse.identity();
+        baseColorEffectActive = false;
+        baseColorMaskBottomAnchored = true;
+        baseColorMaskShape = 0F;
+        baseColorMaskHalf.set(EffectTransformMath.MODEL_MASK_HALF_BASE, EffectTransformMath.MODEL_MASK_HALF_BASE * EffectTransformMath.MODEL_MASK_Y_BIAS, EffectTransformMath.MODEL_MASK_HALF_BASE);
+    }
+
+    private static void snapshotPaintEffectBase()
+    {
+        basePaintEffectInverse.set(paintEffectInverse);
+        basePaintMaskHalf.set(paintMaskHalf);
+        basePaintMaskShape = paintMaskShape;
+        basePaintEffectActive = paintEffectActive;
+        basePaintMaskBottomAnchored = paintMaskBottomAnchored;
+    }
+
+    private static void snapshotColorEffectBase()
+    {
+        baseColorEffectInverse.set(colorEffectInverse);
+        baseColorMaskHalf.set(colorMaskHalf);
+        baseColorMaskShape = colorMaskShape;
+        baseColorEffectActive = colorEffectActive;
+        baseColorMaskBottomAnchored = colorMaskBottomAnchored;
+    }
+
+    private static void snapshotGlowEffectBase()
+    {
+        baseGlowEffectInverse.set(glowEffectInverse);
+        baseGlowMaskHalf.set(glowMaskHalf);
+        baseGlowMaskShape = glowMaskShape;
+        baseGlowEffectActive = glowEffectActive;
+        baseGlowMaskBottomAnchored = glowMaskBottomAnchored;
     }
 
     private static Matrix4f overlayFormRootInverse()
@@ -1693,6 +1871,41 @@ public class ModelVAORenderer
         if (paintMaskShapeUniform != null)
         {
             paintMaskShapeUniform.set(paintMaskShape);
+        }
+
+        GlUniform glowEffectInverseUniform = shader.getUniform("GlowEffectInverse");
+
+        if (glowEffectInverseUniform != null)
+        {
+            glowEffectInverseUniform.set(glowEffectInverse);
+        }
+
+        GlUniform glowEffectActiveUniform = shader.getUniform("GlowEffectActive");
+
+        if (glowEffectActiveUniform != null)
+        {
+            glowEffectActiveUniform.set(glowEffectActive ? 1F : 0F);
+        }
+
+        GlUniform glowMaskHalfUniform = shader.getUniform("GlowMaskHalf");
+
+        if (glowMaskHalfUniform != null)
+        {
+            glowMaskHalfUniform.set(glowMaskHalf.x, glowMaskHalf.y, glowMaskHalf.z);
+        }
+
+        GlUniform glowMaskBottomAnchoredUniform = shader.getUniform("GlowMaskBottomAnchored");
+
+        if (glowMaskBottomAnchoredUniform != null)
+        {
+            glowMaskBottomAnchoredUniform.set(glowMaskBottomAnchored ? 1F : 0F);
+        }
+
+        GlUniform glowMaskShapeUniform = shader.getUniform("GlowMaskShape");
+
+        if (glowMaskShapeUniform != null)
+        {
+            glowMaskShapeUniform.set(glowMaskShape);
         }
 
         GlUniform colorEffectInverseUniform = shader.getUniform("ColorEffectInverse");

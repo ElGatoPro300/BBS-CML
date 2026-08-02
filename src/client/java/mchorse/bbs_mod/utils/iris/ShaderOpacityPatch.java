@@ -34,10 +34,10 @@ import java.util.regex.Pattern;
 import it.unimi.dsi.fastutil.objects.Object2ObjectMap;
 
 /**
- * Runtime opacity / film render-depth queue (Complementary / BSL patch optional).
- * Soft opacity and film {@code renderDepth} draw after translucent terrain with depth
- * writes — fluids stay, limbs do not X-ray — whether or not the pack patch is active.
- * Near-opaque without render depth stays on the live path for pack lighting.
+ * Runtime soft-opacity queue (Complementary / BSL patch optional).
+ * Soft opacity draws after translucent terrain with depth writes — fluids stay, limbs do
+ * not X-ray — whether or not the pack patch is active. Near-opaque stays on the live path
+ * for pack lighting.
  */
 public class ShaderOpacityPatch
 {
@@ -235,23 +235,19 @@ public class ShaderOpacityPatch
 
     /**
      * Fully opaque floor. Softer alpha joins the post-deferred queue (after VL clouds /
-     * translucent terrain) with depth write so limbs do not X-ray and fluids stay intact.
-     * Fully solid keeps the live path unless film {@code renderDepth} needs the sorted queue.
+     * translucent terrain; vanilla also waits until after vanilla clouds via LAST) with depth
+     * write so limbs do not X-ray and fluids stay intact.
+     * Fully solid keeps the live path.
      */
     public static final float LIVE_DEPTH_WRITE_ALPHA = 0.999F;
 
     /**
-     * Queue soft-opacity and film {@code renderDepth} forms until after translucent terrain.
+     * Queue soft-opacity forms until after translucent terrain.
      * Works with or without Iris and with or without the Complementary/BSL opacity patch —
      * patched packs get the best lighting; unpatched / no-shader still get correct depth
      * occlusion and no self X-ray. Never delay the shadow pass.
      */
     public static boolean shouldDelayUntilPostDeferred(float alpha)
-    {
-        return shouldDelayUntilPostDeferred(alpha, false);
-    }
-
-    public static boolean shouldDelayUntilPostDeferred(float alpha, boolean filmRenderDepth)
     {
         if (postDeferredPhase || flushingPostDeferred || alpha <= 0.001F)
         {
@@ -272,18 +268,7 @@ public class ShaderOpacityPatch
         }
 
         /* Soft opacity: after fluids + depth write (water stays, no self X-ray). */
-        if (alpha < LIVE_DEPTH_WRITE_ALPHA)
-        {
-            return true;
-        }
-
-        /* Opaque film actors share the sorted post-deferred depth queue (shaders or not). */
-        return filmRenderDepth;
-    }
-
-    public static boolean shouldJoinPostDeferredQueue(float alpha)
-    {
-        return shouldDelayUntilPostDeferred(alpha, true);
+        return alpha < LIVE_DEPTH_WRITE_ALPHA;
     }
 
     /**
@@ -296,8 +281,7 @@ public class ShaderOpacityPatch
     }
 
     /**
-     * Soft opacity waits until after water/lava/portals. Near-opaque film depth stays early
-     * (beginTranslucents) so it can occlude with depth before translucent terrain.
+     * Soft opacity waits until after water/lava/portals.
      */
     public static boolean shouldFlushAfterFluids(float alpha)
     {
@@ -382,13 +366,37 @@ public class ShaderOpacityPatch
     }
 
     /**
-     * After translucent terrain (water/lava/portals). Default soft forms (Opacity
-     * "No shading" off) flush here with depth so pack body shadows stay; end-of-frame
-     * paint stays clipped behind them. Noshading soft forms skip this queue and redraw
-     * after paint in {@link ModelVAORenderer}'s deferred queue.
+     * After translucent terrain (water/lava/portals).
+     * <p>
+     * Iris: flush soft forms here (pack clouds are already composited on that path).
+     * Vanilla: do <em>not</em> flush yet — Fabric draws vanilla clouds after this event;
+     * flushing with depth write here hides clouds behind soft actors. Hold until
+     * {@link #onAfterVanillaClouds()} ({@code WorldRenderEvents.LAST}).
      */
     public static void onAfterTranslucentTerrain()
     {
+        if (BBSRendering.isIrisShadersEnabled())
+        {
+            flushPostDeferredForms(null);
+
+            return;
+        }
+
+        postDeferredPhase = true;
+    }
+
+    /**
+     * After vanilla clouds / weather ({@code WorldRenderEvents.LAST}). Soft forms kept from
+     * {@link #onAfterTranslucentTerrain()} draw here so depth writes no longer erase clouds.
+     * Iris already flushed earlier — this is a no-op safety net when the queue is empty.
+     */
+    public static void onAfterVanillaClouds()
+    {
+        if (BBSRendering.isIrisShadersEnabled())
+        {
+            return;
+        }
+
         flushPostDeferredForms(null);
     }
 
@@ -471,11 +479,6 @@ public class ShaderOpacityPatch
         {
             flushingPostDeferred = false;
             RenderSystem.depthMask(true);
-            RenderSystem.colorMask(true, true, true, true);
-            RenderSystem.enableDepthTest();
-            RenderSystem.enableBlend();
-            RenderSystem.defaultBlendFunc();
-            RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
         }
     }
 

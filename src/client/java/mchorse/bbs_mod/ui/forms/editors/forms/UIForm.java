@@ -52,13 +52,12 @@ public abstract class UIForm <T extends Form> extends UIPanelBase<UIFormPanel<T>
         if (panel == this.generalPanel && this.editor != null)
         {
             this.editor.enableFormTransformGizmoFromGeneralPanel();
+            this.generalPanel.refreshFilmOnlySectionsVisibility();
         }
     }
 
     public UIPropTransform getEditableTransform()
     {
-        this.setPanel(this.generalPanel);
-
         return this.general;
     }
 

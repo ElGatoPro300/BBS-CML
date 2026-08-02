@@ -14,7 +14,7 @@ import mchorse.bbs_mod.forms.forms.utils.GlowSettings;
 import mchorse.bbs_mod.forms.forms.utils.PaintSettings;
 import mchorse.bbs_mod.forms.renderers.utils.FlatGlowOverlayPass;
 import mchorse.bbs_mod.forms.renderers.utils.FlatPaintOverlayPass;
-import mchorse.bbs_mod.forms.renderers.utils.FormColorBlend;
+import mchorse.bbs_mod.forms.renderers.utils.FormColorEffects;
 import mchorse.bbs_mod.forms.renderers.utils.FormTextureBlendRenderer;
 import mchorse.bbs_mod.graphics.Draw;
 import mchorse.bbs_mod.graphics.texture.Texture;
@@ -166,10 +166,10 @@ public class TrailFormRenderer extends FormRenderer<TrailForm> implements ITicka
         Color blendedTint = new Color().set(context.color, true);
         Color unblendedTint = new Color().set(context.color, true);
 
-        /* When Blend Color Transform is active, mask blend in form-local space per vertex. */
-        blendedTint.mul(storedFormColor.copyWithBlendIntensity());
-        FormColorBlend.applyShadowPassColorFix(blendedTint, storedFormColor, this.form.paintSettings.get(), this.form.paintColor.get(), context.isShadowPass || BBSRendering.isIrisShadowPass());
-        FormColorBlend.applyShadowPassColorFix(unblendedTint, storedFormColor, this.form.paintSettings.get(), this.form.paintColor.get(), context.isShadowPass || BBSRendering.isIrisShadowPass());
+        /* When color Transform is active, mask tint in form-local space per vertex. */
+        blendedTint.mul(storedFormColor.copyBakingColorGrade());
+        FormColorEffects.applyShadowPassColorFix(blendedTint, storedFormColor, this.form.paintSettings.get(), this.form.paintColor.get(), context.isShadowPass || BBSRendering.isIrisShadowPass());
+        FormColorEffects.applyShadowPassColorFix(unblendedTint, storedFormColor, this.form.paintSettings.get(), this.form.paintColor.get(), context.isShadowPass || BBSRendering.isIrisShadowPass());
 
         if (blendedTint.a <= 0.001F && !context.isShadowPass && !BBSRendering.isIrisShadowPass())
         {
@@ -197,8 +197,8 @@ public class TrailFormRenderer extends FormRenderer<TrailForm> implements ITicka
         PaintSettings paintSettings = this.form.paintSettings.get();
         Color legacyPaint = this.form.paintColor.get();
         float paintStrength = paintSettings.resolveIntensity(legacyPaint);
-        boolean positivePaint = FormColorBlend.hasPositivePaint(paintSettings, legacyPaint);
-        Color resolvedPaint = positivePaint ? FormColorBlend.resolvePaintColor(paintSettings, legacyPaint) : null;
+        boolean positivePaint = FormColorEffects.hasPositivePaint(paintSettings, legacyPaint);
+        Color resolvedPaint = positivePaint ? FormColorEffects.resolvePaintColor(paintSettings, legacyPaint) : null;
         EffectTransform colorTransform = this.form.color.get().transform;
         EffectTransform paintTransform = paintSettings.transform;
 
@@ -214,14 +214,14 @@ public class TrailFormRenderer extends FormRenderer<TrailForm> implements ITicka
 
         if (paintStrength < 0F)
         {
-            FormColorBlend.applyPaintBlend(unblended, paintSettings, legacyPaint);
-            FormColorBlend.applyPaintBlend(blended, paintSettings, legacyPaint);
+            FormColorEffects.applyPaintBlend(unblended, paintSettings, legacyPaint);
+            FormColorEffects.applyPaintBlend(blended, paintSettings, legacyPaint);
         }
 
         if (glowIntensity < 0F)
         {
-            FormColorBlend.blendFormGlowBrighten(unblended, glowSettings, legacyGlow);
-            FormColorBlend.blendFormGlowBrighten(blended, glowSettings, legacyGlow);
+            FormColorEffects.blendFormGlowBrighten(unblended, glowSettings, legacyGlow);
+            FormColorEffects.blendFormGlowBrighten(blended, glowSettings, legacyGlow);
         }
 
         Tessellator tessellator = Tessellator.getInstance();
@@ -242,7 +242,7 @@ public class TrailFormRenderer extends FormRenderer<TrailForm> implements ITicka
 
         if (glowIntensity > 0F)
         {
-            this.renderGlowOverlay(tessellator, identityMatrix, trails, loop, length, current, baseX, baseY, baseZ, glowSettings, legacyGlow, blended.a, glowIntensity);
+            this.renderGlowOverlay(tessellator, identityMatrix, trails, loop, length, current, baseX, baseY, baseZ, glowSettings, legacyGlow, blended.a, glowIntensity, this.resolveGlowEffectTransform(glowSettings, legacyGlow));
         }
 
         RenderSystem.enableDepthTest();
@@ -300,16 +300,49 @@ public class TrailFormRenderer extends FormRenderer<TrailForm> implements ITicka
         });
     }
 
-    private void renderGlowOverlay(Tessellator tessellator, Matrix4f matrix, ArrayDeque<Trail> trails, boolean loop, float length, float current, double baseX, double baseY, double baseZ, GlowSettings glowSettings, Color legacyGlow, float alpha, float glowIntensity)
+    private void renderGlowOverlay(Tessellator tessellator, Matrix4f matrix, ArrayDeque<Trail> trails, boolean loop, float length, float current, double baseX, double baseY, double baseZ, GlowSettings glowSettings, Color legacyGlow, float alpha, float glowIntensity, EffectTransform glowTransform)
     {
         FlatGlowOverlayPass.render(glowSettings, legacyGlow, alpha, glowIntensity, (glowColor) ->
         {
+            /* Outside the mask: fully transparent; inside: full glow. Same soft volume as Color/Paint. */
+            Color glowOutside = glowColor.copy();
+
+            glowOutside.a = 0F;
+
             BufferBuilder glowBuilder = tessellator.begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_TEXTURE_COLOR);
 
             RenderSystem.setShader(ShaderProgramKeys.POSITION_TEX_COLOR);
-            this.buildTrailQuads(glowBuilder, matrix, trails, loop, length, current, baseX, baseY, baseZ, glowColor, glowColor, null);
+            this.buildTrailQuads(glowBuilder, matrix, trails, loop, length, current, baseX, baseY, baseZ, glowColor, glowColor, glowTransform);
             BufferRenderer.drawWithGlobalProgram(glowBuilder.end());
         });
+    }
+
+    /**
+     * Prefer {@link GlowSettings#transform}; fall back to legacy {@code glowingColor.transform}.
+     */
+    private EffectTransform resolveGlowEffectTransform(GlowSettings glow, Color legacyGlow)
+    {
+        if (glow != null && glow.transform != null && glow.transform.isActive())
+        {
+            return glow.transform;
+        }
+
+        if (legacyGlow != null && legacyGlow.hasActiveTransform())
+        {
+            return legacyGlow.transform;
+        }
+
+        if (glow != null && glow.transform != null)
+        {
+            return glow.transform;
+        }
+
+        if (legacyGlow != null && legacyGlow.transform != null)
+        {
+            return legacyGlow.transform;
+        }
+
+        return new EffectTransform();
     }
 
     private void buildTrailQuads(BufferBuilder builder, Matrix4f matrix, ArrayDeque<Trail> trails, boolean loop, float length, float current, double baseX, double baseY, double baseZ, Color unblended, Color blended, EffectTransform colorTransform)
