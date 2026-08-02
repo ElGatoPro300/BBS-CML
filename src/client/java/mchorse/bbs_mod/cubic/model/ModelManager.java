@@ -6,6 +6,7 @@ import mchorse.bbs_mod.cubic.MolangHelper;
 import mchorse.bbs_mod.cubic.animation.ProceduralDefaults;
 import mchorse.bbs_mod.cubic.model.bobj.BOBJModel;
 import mchorse.bbs_mod.cubic.model.loaders.BOBJModelLoader;
+import mchorse.bbs_mod.cubic.model.loaders.FBXModelLoader;
 import mchorse.bbs_mod.cubic.model.loaders.CubicModelLoader;
 import mchorse.bbs_mod.cubic.model.loaders.GLTFModelLoader;
 import mchorse.bbs_mod.cubic.model.loaders.GeoCubicModelLoader;
@@ -71,6 +72,7 @@ public class ModelManager implements IWatchDogListener
         this.loaders.clear();
         this.relodableSuffixes.clear();
         this.loaders.add(new BOBJModelLoader());
+        this.loaders.add(new FBXModelLoader());
         this.loaders.add(new CubicModelLoader());
         this.loaders.add(new GeoCubicModelLoader());
         this.loaders.add(new VoxModelLoader());
@@ -80,6 +82,7 @@ public class ModelManager implements IWatchDogListener
         this.registerRelodableSuffix(".bbs.json");
         this.registerRelodableSuffix(".geo.json");
         this.registerRelodableSuffix(".bobj");
+        this.registerRelodableSuffix(".fbx");
         this.registerRelodableSuffix(".obj");
         this.registerRelodableSuffix(".gltf");
         this.registerRelodableSuffix(".glb");
