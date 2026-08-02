@@ -1834,6 +1834,12 @@ public class UIModelPanel extends UIDataDashboardPanel<ModelConfig> implements I
     }
 
     @Override
+    protected boolean canSave(UIContext context)
+    {
+        return false;
+    }
+
+    @Override
     public void close()
     {}
 
