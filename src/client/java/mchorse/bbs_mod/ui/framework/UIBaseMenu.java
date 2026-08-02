@@ -115,22 +115,6 @@ public abstract class UIBaseMenu
         return true;
     }
 
-    /**
-     * When true, {@link UIScreen} keeps Minecraft's current GUI scale (hotbar size unchanged).
-     */
-    public boolean preserveMinecraftGuiScale()
-    {
-        return false;
-    }
-
-    /**
-     * When false, hide mouse/keystroke overlay (Printscreen hints, etc.).
-     */
-    public boolean showInputOverlay()
-    {
-        return true;
-    }
-
     public boolean canRefresh()
     {
         return true;
@@ -295,7 +279,7 @@ public abstract class UIBaseMenu
 
     public boolean handleKey(int key, int scanCode, int action, int mods)
     {
-        if (action == GLFW.GLFW_PRESS && this.showInputOverlay())
+        if (action == GLFW.GLFW_PRESS)
         {
             inputRenderer.keyPressed(this.context, key);
         }
@@ -360,7 +344,6 @@ public abstract class UIBaseMenu
 
         this.preRenderMenu(context);
         UIAnimatedCollapseShell.tickAll();
-        UIFormList.tickCategoryCards();
 
         if (this.root.isVisible())
         {
@@ -375,7 +358,7 @@ public abstract class UIBaseMenu
             this.context.postRender();
         }
 
-        if (this.showInputOverlay() && this.main.isVisible())
+        if (this.main.isVisible())
         {
             inputRenderer.render(this, mouseX, mouseY);
         }

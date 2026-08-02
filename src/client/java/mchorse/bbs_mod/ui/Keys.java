@@ -105,7 +105,6 @@ public class Keys
     public static final KeyCombo TRANSFORMATIONS_SCALE = new KeyCombo("scale", UIKeys.TRANSFORMS_SCALE, GLFW.GLFW_KEY_S).categoryKey("transformations");
     public static final KeyCombo TRANSFORMATIONS_ROTATE = new KeyCombo("rotate", UIKeys.TRANSFORMS_ROTATE, GLFW.GLFW_KEY_R).categoryKey("transformations");
     public static final KeyCombo TRANSFORMATIONS_COMBINED = new KeyCombo("combined", UIKeys.FILM_GIZMO_COMBINED, GLFW.GLFW_KEY_C).categoryKey("transformations");
-    public static final KeyCombo TRANSFORMATIONS_TOP = new KeyCombo("gizmo_top", UIKeys.FILM_GIZMO_TOP, GLFW.GLFW_KEY_B).categoryKey("transformations");
     public static final KeyCombo TRANSFORMATIONS_X = new KeyCombo("x", UIKeys.GENERAL_X, GLFW.GLFW_KEY_X).categoryKey("transformations");
     public static final KeyCombo TRANSFORMATIONS_Y = new KeyCombo("y", UIKeys.GENERAL_Y, GLFW.GLFW_KEY_Y).categoryKey("transformations");
     public static final KeyCombo TRANSFORMATIONS_Z = new KeyCombo("z", UIKeys.GENERAL_Z, GLFW.GLFW_KEY_Z).categoryKey("transformations");

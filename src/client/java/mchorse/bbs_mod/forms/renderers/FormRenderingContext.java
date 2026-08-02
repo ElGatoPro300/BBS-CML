@@ -1,7 +1,8 @@
 package mchorse.bbs_mod.forms.renderers;
 
+import mchorse.bbs_mod.BBSModClient;
 import mchorse.bbs_mod.camera.Camera;
-import mchorse.bbs_mod.film.FormRenderDepth;
+import mchorse.bbs_mod.camera.controller.CameraController;
 import mchorse.bbs_mod.forms.entities.IEntity;
 import mchorse.bbs_mod.forms.forms.utils.TextureBlend;
 import mchorse.bbs_mod.resources.Link;
@@ -34,8 +35,6 @@ public class FormRenderingContext
     public Matrix4f viewMatrix;
     public boolean renderEquipment;
 
-    public FormRenderDepth.Frame renderDepthFrame;
-
     /** Overrides the form texture for this render pass only (e.g. illusion copies). */
     public Link textureOverride;
 
@@ -61,7 +60,6 @@ public class FormRenderingContext
         this.isShadowPass = false;
         this.viewMatrix = null;
         this.renderEquipment = true;
-        this.renderDepthFrame = null;
         this.textureOverride = null;
         this.textureBlendOverride = null;
 
@@ -90,7 +88,27 @@ public class FormRenderingContext
 
     public FormRenderingContext camera(net.minecraft.client.render.Camera camera)
     {
-        /* 1.21.11: getPos()/getPosition() API changed; body disabled for now */
+        this.camera.position.set(camera.getPos().x, camera.getPos().y, camera.getPos().z);
+
+        float rollDeg = 0F;
+        CameraController controller = BBSModClient.getCameraController();
+
+        if (controller.getCurrent() != null)
+        {
+            rollDeg = controller.getRoll();
+        }
+
+        this.camera.rotation.set(MathUtils.toRad(-camera.getPitch()), MathUtils.toRad(camera.getYaw()), MathUtils.toRad(rollDeg));
+        this.camera.view.identity().rotate(camera.getRotation());
+
+        if (Math.abs(rollDeg) > 1.0E-4F)
+        {
+            /* Match GameRendererMixin.tiltViewWhenHurt: roll is applied as Z after yaw/pitch. */
+            this.camera.view.rotateZ(MathUtils.toRad(rollDeg));
+        }
+
+        this.camera.fov = MathUtils.toRad(MinecraftClient.getInstance().options.getFov().getValue());
+
         return this;
     }
 
@@ -118,13 +136,6 @@ public class FormRenderingContext
     public FormRenderingContext modelRenderer()
     {
         this.modelRenderer = true;
-
-        return this;
-    }
-
-    public FormRenderingContext renderDepthFrame(FormRenderDepth.Frame frame)
-    {
-        this.renderDepthFrame = frame;
 
         return this;
     }

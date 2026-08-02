@@ -1928,6 +1928,11 @@ public class UIKeyframes extends UIElement
         return this.xAxis;
     }
 
+    public int getSidebarWidth()
+    {
+        return this.currentGraph instanceof UIKeyframeDopeSheet ? this.currentGraph.getSidebarWidth() : 0;
+    }
+
     public int getDuration()
     {
         return this.duration == null ? 0 : this.duration.get();
@@ -2191,7 +2196,13 @@ public class UIKeyframes extends UIElement
 
         if (found != null)
         {
-            UIKeyframeSheet sheet = this.currentGraph.getSheet(found);
+            /* Prefer the row under the cursor for nested Color / Color grade tracks. */
+            UIKeyframeSheet sheet = this.currentGraph.getSheet(context.mouseY);
+
+            if (sheet == null || sheet.groupHeader || sheet.channel != found.getParent())
+            {
+                sheet = this.currentGraph.getSheet(found);
+            }
 
             if (!shift && !sheet.selection.has(found))
             {
@@ -2199,6 +2210,11 @@ public class UIKeyframes extends UIElement
             }
 
             sheet.selection.add(found);
+
+            if (this.currentGraph instanceof UIKeyframeDopeSheet)
+            {
+                ((UIKeyframeDopeSheet) this.currentGraph).rememberSheet(sheet);
+            }
 
             found = this.currentGraph.getSelected();
 

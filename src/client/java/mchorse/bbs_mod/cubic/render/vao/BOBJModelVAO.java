@@ -43,17 +43,52 @@ public class BOBJModelVAO
     public BOBJLoader.CompiledData data;
     public BOBJArmature armature;
 
-    private final int count;
+    protected int vao;
+    protected int count;
 
-    private final float[] tmpVertices;
-    private final float[] tmpNormals;
-    private final int[] tmpLight;
-    private final int[] dominantBonePerTriangle;
+    /* GL buffers */
+    public int vertexBuffer;
+    public int normalBuffer;
+    public int lightBuffer;
+    public int texCoordBuffer;
+    public int tangentBuffer;
+    public int midTextureBuffer;
+
+    protected float[] tmpVertices;
+    protected float[] tmpNormals;
+    protected int[] tmpLight;
+    protected float[] tmpTangents;
+    protected int[] dominantBonePerTriangle;
+
+    private final Map<Integer, Link> fullOverrides = new HashMap<>();
+    private final Map<Integer, Float> partialOverrides = new HashMap<>();
+    private final Set<Integer> overridden = new HashSet<>();
 
     public BOBJModelVAO(BOBJLoader.CompiledData data, BOBJArmature armature)
     {
         this.data = data;
         this.armature = armature;
+
+        this.initBuffers();
+    }
+
+    /**
+     * Initiate buffers. This method is responsible for allocating 
+     * buffers for the data to be passed to VBOs and also generating the 
+     * VBOs themselves. 
+     */
+    protected void initBuffers()
+    {
+        this.vao = GL30.glGenVertexArrays();
+
+        GL30.glBindVertexArray(this.vao);
+
+        this.vertexBuffer = GL30.glGenBuffers();
+        this.normalBuffer = GL30.glGenBuffers();
+        this.lightBuffer = GL30.glGenBuffers();
+        this.texCoordBuffer = GL30.glGenBuffers();
+        this.tangentBuffer = GL30.glGenBuffers();
+        this.midTextureBuffer = GL30.glGenBuffers();
 
         this.count = this.data.normData.length / 3;
         this.tmpVertices = new float[this.data.posData.length];
@@ -65,8 +100,7 @@ public class BOBJModelVAO
     }
 
     /**
-     * Previously freed the raw-GL VAO/VBOs. The skinned mesh now draws through the immediate
-     * BufferBuilder path (see {@link #render}), so there is nothing GPU-side to free here anymore.
+     * Clean up resources which were used by this
      */
     public void delete()
     {}
@@ -164,7 +198,7 @@ public class BOBJModelVAO
     protected void processData(float[] newVertices, float[] newNormals)
     {}
 
-    private void buildDominantBones()
+    protected void buildDominantBones()
     {
         for (int triangle = 0, triCount = this.dominantBonePerTriangle.length; triangle < triCount; triangle++)
         {
@@ -188,7 +222,7 @@ public class BOBJModelVAO
         }
     }
 
-    private int getDominantBoneForVertex(int vertex)
+    protected int getDominantBoneForVertex(int vertex)
     {
         int base = vertex * 4;
         float max = -1F;
@@ -209,7 +243,7 @@ public class BOBJModelVAO
         return bone;
     }
 
-    private BOBJBone getBoneByIndex(int index)
+    protected BOBJBone getBoneByIndex(int index)
     {
         for (BOBJBone bone : this.armature.orderedBones)
         {
@@ -222,7 +256,7 @@ public class BOBJModelVAO
         return null;
     }
 
-    public void render(MatrixStack stack, float r, float g, float b, float a, StencilMap stencilMap, int light, int overlay, Link defaultTexture)
+    protected BOBJBone getBoneByName(String name)
     {
         if (stencilMap != null)
         {
@@ -233,6 +267,13 @@ public class BOBJModelVAO
                 BBSPickerRenderer.draw(BBSShaders.getPickerModelsProgram(), built, RenderSystem.getModelViewMatrix());
             }
 
+        return null;
+    }
+
+    protected void renderStencilPickPriority(StencilMap stencilMap)
+    {
+        if (stencilMap == null || !stencilMap.increment)
+        {
             return;
         }
 
@@ -242,7 +283,27 @@ public class BOBJModelVAO
         {
             if (bone.texture != null)
             {
-                overrides.put(bone.index, bone.texture);
+                this.drawTriangles((boneIndex) -> boneIndex == bone.index);
+            }
+        }
+    }
+
+    protected void drawTriangles(IntPredicate predicate)
+    {
+        int start = -1;
+
+        for (int i = 0; i < this.dominantBonePerTriangle.length; i++)
+        {
+            boolean draw = predicate.test(this.dominantBonePerTriangle[i]);
+
+            if (draw && start == -1)
+            {
+                start = i;
+            }
+            else if (!draw && start != -1)
+            {
+                GL30.glDrawArrays(GL30.GL_TRIANGLES, start * 3, (i - start) * 3);
+                start = -1;
             }
         }
 
@@ -257,6 +318,43 @@ public class BOBJModelVAO
 
             return;
         }
+    }
+
+    /**
+     * BBS {@link ShaderProgram#bind()} snapshots Sampler* from {@link RenderSystem} at
+     * {@link ModelVAORenderer#setupUniforms}. Skin must be bound before that — binding after
+     * leaves Sampler0 on whatever Iris left (featureless tinted silhouette, no skin).
+     */
+    protected void bindDrawTexture(Link texture)
+    {
+        if (texture != null)
+        {
+            BBSModClient.getTextures().bindTexture(texture);
+        }
+    }
+
+    protected void rebindShaderSamplers(ShaderProgram shader, MatrixStack stack, float r, float g, float b, float a, int light, int overlay)
+    {
+        ModelVAORenderer.setupUniforms(stack, shader);
+        RenderSystem.setShader(() -> shader);
+        shader.bind();
+        GL30.glBindVertexArray(this.vao);
+
+        GL30.glDisableVertexAttribArray(Attributes.COLOR);
+        GL30.glDisableVertexAttribArray(Attributes.OVERLAY_UV);
+        GL30.glDisableVertexAttribArray(Attributes.LIGHTMAP_UV);
+
+        GL30.glVertexAttrib4f(Attributes.COLOR, r, g, b, a);
+        GL30.glVertexAttribI2i(Attributes.OVERLAY_UV, overlay & '\uffff', overlay >> 16 & '\uffff');
+        GL30.glVertexAttribI2i(Attributes.LIGHTMAP_UV, light & '\uffff', light >> 16 & '\uffff');
+    }
+
+    public void render(ShaderProgram shader, MatrixStack stack, float r, float g, float b, float a, StencilMap stencilMap, int light, int overlay, Link defaultTexture)
+    {
+        boolean hasShaders = BBSRendering.isIrisShadersEnabled();
+
+        int currentVAO = GL30.glGetInteger(GL30.GL_VERTEX_ARRAY_BINDING);
+        int currentElementArrayBuffer = GL30.glGetInteger(GL30.GL_ELEMENT_ARRAY_BUFFER_BINDING);
 
         if (defaultTexture != null)
         {

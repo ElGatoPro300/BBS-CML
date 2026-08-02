@@ -1,7 +1,7 @@
 package mchorse.bbs_mod.mixin.client.sodium;
 
 import mchorse.bbs_mod.forms.renderers.utils.BlockPaintOverlayVertexConsumer;
-import mchorse.bbs_mod.forms.renderers.utils.FormColorBlend;
+import mchorse.bbs_mod.forms.renderers.utils.FormColorEffects;
 import mchorse.bbs_mod.forms.renderers.utils.GlowEmissionVertexConsumer;
 import mchorse.bbs_mod.forms.renderers.utils.RecolorVertexConsumer;
 import mchorse.bbs_mod.utils.colors.Colors;
@@ -49,7 +49,7 @@ public class ColorAttributeMixin
 
             if (RecolorVertexConsumer.newPaintColor != null && RecolorVertexConsumer.newPaintColor.a != 0F)
             {
-                FormColorBlend.applyPaintBlend(Colors.COLOR, RecolorVertexConsumer.newPaintColor, RecolorVertexConsumer.newPaintColor.a);
+                FormColorEffects.applyPaintBlend(Colors.COLOR, RecolorVertexConsumer.newPaintColor, RecolorVertexConsumer.newPaintColor.a);
             }
 
             return Colors.toAbgr(Colors.COLOR.getARGBColor());

@@ -17,7 +17,7 @@ import mchorse.bbs_mod.cubic.model.ArmorSlot;
 import mchorse.bbs_mod.cubic.model.ArmorType;
 import mchorse.bbs_mod.cubic.model.bobj.BOBJModel;
 import mchorse.bbs_mod.cubic.render.vao.ModelVAORenderer;
-import mchorse.bbs_mod.film.FormRenderDepth;
+import mchorse.bbs_mod.forms.CustomVertexConsumerProvider;
 import mchorse.bbs_mod.forms.FormUtilsClient;
 import mchorse.bbs_mod.forms.ITickable;
 import mchorse.bbs_mod.forms.entities.IEntity;
@@ -28,7 +28,7 @@ import mchorse.bbs_mod.forms.forms.ModelForm;
 import mchorse.bbs_mod.forms.forms.utils.GlowSettings;
 import mchorse.bbs_mod.forms.forms.utils.PaintSettings;
 import mchorse.bbs_mod.forms.forms.utils.TextureBlend;
-import mchorse.bbs_mod.forms.renderers.utils.FormColorBlend;
+import mchorse.bbs_mod.forms.renderers.utils.FormColorEffects;
 import mchorse.bbs_mod.forms.renderers.utils.MatrixCache;
 import mchorse.bbs_mod.forms.renderers.utils.MatrixCacheEntry;
 import mchorse.bbs_mod.obj.shapes.ShapeKeys;
@@ -68,38 +68,16 @@ import org.lwjgl.opengl.GL11;
 
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.function.Function;
 import java.util.function.Supplier;
 
 public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITickable
 {
     private static Matrix4f uiMatrix = new Matrix4f();
-    private static Float uiAngleOverride;
-
-    public static void setUIAngleOverride(Float angle)
-    {
-        uiAngleOverride = angle;
-    }
-
-    public static boolean isBobjModel(IModel model)
-    {
-        return model instanceof BOBJModel;
-    }
-
-    public static boolean isBobjModel(ModelForm form)
-    {
-        if (form == null)
-        {
-            return false;
-        }
-
-        ModelInstance instance = BBSModClient.getModels().getModel(form.model.get());
-
-        return instance != null && instance.model instanceof BOBJModel;
-    }
 
     private MatrixCache bones = new MatrixCache();
 
@@ -256,6 +234,7 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
                 poseTransform.glowIntensity = Lerps.lerp(poseTransform.glowIntensity, value.glowIntensity, value.fix);
                 poseTransform.glowRadius = Lerps.lerp(poseTransform.glowRadius, value.glowRadius, value.fix);
                 poseTransform.lighting = Lerps.lerp(poseTransform.lighting, value.lighting, value.fix);
+                poseTransform.noshadingOpacity = value.fix >= 0.5F ? value.noshadingOpacity : poseTransform.noshadingOpacity;
             }
             else
             {
@@ -265,6 +244,7 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
                 poseTransform.glowIntensity = Lerps.lerp(poseTransform.glowIntensity, value.glowIntensity, Math.abs(value.glowIntensity));
                 poseTransform.glowRadius = Lerps.lerp(poseTransform.glowRadius, value.glowRadius, Math.abs(value.glowRadius) > 0F ? Math.abs(value.glowRadius) : 1F);
                 poseTransform.lighting += value.lighting;
+                poseTransform.noshadingOpacity = poseTransform.noshadingOpacity || value.noshadingOpacity;
             }
 
             if (value.texture != null)
@@ -466,6 +446,9 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
 
         if (stencilMap != null)
         {
+            Color stencilFormColor = this.form.color.get().copyBakingColorGrade();
+            boolean stencilColorTransformActive = this.canApplyColorTransformMask(model);
+
             try
             {
                 ModelVAORenderer.clearPaint();
@@ -509,26 +492,190 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
 
         ModelVAORenderer.setGlow(glow, glowColor.r, glowColor.g, glowColor.b, legacyGlow);
 
+        boolean shadowPass = (renderContext != null && renderContext.isShadowPass) || BBSRendering.isIrisShadowPass();
+        /* Orbit UI, form/model-block pickable preview: draw live. World post-deferred /
+         * Iris queues are never flushed for those passes — soft limbs would vanish. */
+        boolean localPreview = ui
+            || (renderContext != null && (renderContext.ui || renderContext.modelRenderer
+                || renderContext.type == FormRenderType.PREVIEW));
         boolean irisWorldPaintDeferral = BBSRendering.isIrisWorldPaintDeferral();
         boolean paintActive = this.hasAnyPaint(model);
         boolean bbsModelShader = this.usesBbsModelShader(model);
         boolean hasGlow = this.hasAnyGlow(model);
         boolean syncedGlow = hasGlow && glow.resolveSync();
-        boolean deferPaintToOverlay = model.isVAORendered() && irisWorldPaintDeferral && paintActive;
-        boolean shaderOverlay = model.isVAORendered() && irisWorldPaintDeferral && syncedGlow && !paintActive;
-        boolean deferGlowWithPaint = deferPaintToOverlay && syncedGlow;
-        boolean deferGlowToOverlay = shaderOverlay;
+        boolean paintOnlyGlow = glow.resolvePaintOnly();
+        boolean hasEmissiveGlow = hasGlow && !paintOnlyGlow && FormColorEffects.hasPositiveGlow(glow, legacyGlow);
+        /* Do not gate on supportsBbsModelShaderEffects — Iris entity_translucent discards
+         * below alphaTestRef (~0.1); deferred BBS redraw is Iris-only (no-shader models keep
+         * the normal BBS path so mesh depth / shading stay correct). */
+        /* Positive glow stays on the Iris entity pass for pack emission/bloom.
+         * Gates use form × softest-bone alpha so limb-only fades enter the same
+         * deferred / post-deferred paths as form-wide opacity. Draw tint keeps
+         * form alpha only — CubicVAORenderer still multiplies group.color.a once. */
+        float formOpacityAlpha = color.a;
+        float boneOpacityAlpha = this.getMinBoneOpacityAlpha(model);
+        boolean hasInvisibleBones = this.hasFullyTransparentDrawableBones(model);
+        /* Limb-only soft: keep opaque bones on the live path; soft bones are drawn sorted.
+         * World + film (ENTITY): post-deferred queue so soft depth stamps land after
+         * translucent terrain/clouds (immediate soft in AFTER_ENTITIES erased them).
+         * UI / form / model-block edit preview: immediate sorted draws (queues never flush). */
+        boolean limbOnlySoftCapable = !shadowPass
+            && formOpacityAlpha >= ShaderOpacityPatch.LIVE_DEPTH_WRITE_ALPHA
+            && boneOpacityAlpha < ShaderOpacityPatch.LIVE_DEPTH_WRITE_ALPHA;
+        boolean limbOnlySoftImmediate = limbOnlySoftCapable && localPreview;
+        boolean limbOnlySoftDeferred = limbOnlySoftCapable && !localPreview;
+        boolean limbOnlySoft = limbOnlySoftImmediate || limbOnlySoftDeferred;
+        float opacityAlpha = limbOnlySoft ? formOpacityAlpha : formOpacityAlpha * boneOpacityAlpha;
+        Map<ModelGroup, Boolean> limbVisibilitySave = null;
 
-        if (!bbsModelShader && !shaderOverlay && !deferPaintToOverlay)
+        /* Hide fully transparent bones always (alpha 0 must not depth-stamp). Soft bones are
+         * hidden on the live pass and redrawn post-deferred below. */
+        if (!shadowPass && (limbOnlySoft || hasInvisibleBones))
         {
-            FormColorBlend.blendFormGlowBrighten(color, glow, legacyGlow);
+            limbVisibilitySave = this.saveGroupVisibility(model);
+
+            if (limbOnlySoft)
+            {
+                this.applyLimbSoftVisibility(model, false, true);
+            }
+            else
+            {
+                this.hideFullyTransparentBones(model);
+            }
         }
 
-        if (paintActive)
+        boolean lowAlphaDefer = !localPreview && !shadowPass && BBSRendering.needsIrisTranslucentModelDeferral(opacityAlpha);
+        boolean noshadingOpacityDefer = !localPreview && !shadowPass
+            && BBSRendering.needsIrisNoshadingOpacityDeferral(opacityAlpha,
+                this.form.noshadingOpacity.get() || (!limbOnlySoft && this.hasAnyBoneNoshadingOpacity(model)));
+        boolean opacityDefer = lowAlphaDefer || noshadingOpacityDefer;
+
+        boolean deferTranslucentModel = opacityDefer;
+        /* Soft Opacity + Noshading off stays on Iris post-deferred (pack body shadows).
+         * Frame-end color-tint overlays use DST_COLOR and ignore form alpha (opaque mask).
+         * Bake Blend into vertex RGB on that path instead; Noshading still uses the BBS queue. */
+        boolean softOpacityIrisPath = !localPreview && !shadowPass
+            && irisWorldPaintDeferral
+            && opacityAlpha > 0.001F
+            && opacityAlpha < ShaderOpacityPatch.LIVE_DEPTH_WRITE_ALPHA
+            && !deferTranslucentModel;
+        /* Iris live: ColorGradeOverlay keeps pack lighting. No-shader / UI / deferred BBS:
+         * FormColorGrade in model.fsh after texture sample (same as Billboard). Never bake
+         * form grade into vertex tint — contrast/hue on white (#fff, intensity 0) is a no-op. */
+        boolean formHasGrade = storedFormColor != null && storedFormColor.hasColorAdjustments();
+        boolean useColorGradeOverlay = hasColorAdjustments
+            && !shadowPass
+            && !deferTranslucentModel
+            && irisWorldPaintDeferral
+            && model.supportsBbsModelShaderEffects();
+        /* useColorGradeOverlay already covers Iris live; any other VAO draw uses model.fsh. */
+        boolean uploadFormGradeToShader = formHasGrade
+            && !useColorGradeOverlay
+            && !shadowPass
+            && model.supportsBbsModelShaderEffects();
+        boolean uploadGrade = (uploadFormGradeToShader || hasBoneColorGrade)
+            && !useColorGradeOverlay
+            && !shadowPass
+            && model.supportsBbsModelShaderEffects();
+        Color formColor = (uploadFormGradeToShader || useColorGradeOverlay)
+            ? storedFormColor.copyDeferringColorGrade()
+            : storedFormColor.copyBakingColorGrade();
+        boolean bakeSoftIrisBlend = softOpacityIrisPath && colorTransformWanted;
+
+        if (bakeSoftIrisBlend)
+        {
+            /* Uniform mesh tint only — spatial Color transforms need the overlay path / Noshading. */
+            color.r *= formColor.r;
+            color.g *= formColor.g;
+            color.b *= formColor.b;
+        }
+
+        /* Multiply tint for color spatial mask only — Color Grade uses FormColorGrade / overlay. */
+        boolean deferColorTintToOverlay = colorTransformWanted && irisWorldPaintDeferral && !deferTranslucentModel && !bakeSoftIrisBlend;
+        boolean colorTransformActive = colorTransformWanted && (bbsModelShader || deferTranslucentModel || deferColorTintToOverlay);
+        /* Paint stays on the Iris frame-end overlay (keeps pack body shadows with Noshading off).
+         * Do not redraw soft+paint with model.fsh on the Iris post-deferred path — wrong MVP
+         * made actors fully invisible. Overlay outAlpha already multiplies form vertex alpha. */
+        boolean deferPaintToOverlay = model.supportsBbsModelShaderEffects() && paintActive && irisWorldPaintDeferral && !deferTranslucentModel;
+        boolean shaderOverlay = model.supportsBbsModelShaderEffects() && irisWorldPaintDeferral && syncedGlow && !paintActive && !deferTranslucentModel;
+
+        /* Low-alpha Iris redraw: albedo deferred; additive overlay if somehow deferred with glow. */
+        boolean emitGlowAfterDeferred = deferTranslucentModel && model.supportsBbsModelShaderEffects() && hasEmissiveGlow;
+        boolean deferGlowToOverlay = shaderOverlay;
+
+        if (!deferTranslucentModel && !localPreview && !shadowPass)
+        {
+            color.a = BBSRendering.easeIrisModelAlpha(formOpacityAlpha);
+        }
+
+        if (irisWorldPaintDeferral && hasEmissiveGlow && !deferTranslucentModel)
+        {
+            /* Must hit the Iris entity/gbuffer pass — post-composite BBS additive never blooms. */
+            FormColorEffects.blendFormGlowBrighten(color, glow, legacyGlow);
+        }
+        else if (!bbsModelShader && !shaderOverlay && !deferPaintToOverlay && !paintOnlyGlow && !shapeKeyPositiveOverlay && !deferTranslucentModel)
+        {
+            FormColorEffects.blendFormGlowBrighten(color, glow, legacyGlow);
+        }
+
+        /* Position attributes are already in form/model space; camera/UI matrices must not
+         * be baked into FormRootInverse or paint masks break in the orbit editor. */
+        Matrix4f formRootInverse = new Matrix4f();
+        Vector3f paintMaskHalf = new Vector3f();
+        Vector3f colorMaskHalf = new Vector3f();
+        Vector3f glowMaskHalf = new Vector3f();
+        EffectTransform glowEffectTransform = this.resolveGlowEffectTransform(glow, legacyGlow);
+
+        EffectTransformMath.resolveModelMaskHalfExtents(paint.transform, paintMaskHalf);
+        EffectTransformMath.resolveModelMaskHalfExtents(formColor.transform, colorMaskHalf);
+        EffectTransformMath.resolveModelMaskHalfExtents(glowEffectTransform, glowMaskHalf);
+
+        EffectTransform paintTransformSnapshot = paint.transform.copy();
+        Vector3f paintMaskHalfSnapshot = new Vector3f(paintMaskHalf);
+        EffectTransform colorTransformSnapshot = formColor.transform.copy();
+        Vector3f colorMaskHalfSnapshot = new Vector3f(colorMaskHalf);
+        EffectTransform glowTransformSnapshot = glowEffectTransform.copy();
+        Vector3f glowMaskHalfSnapshot = new Vector3f(glowMaskHalf);
+        Color formColorSnapshot = formColor.copy();
+        /* Deferred BBS redraws only — Iris live uploads via setFormColorGrade above. */
+        boolean gradeActiveSnapshot = uploadFormGradeToShader;
+        float gradeBrightnessSnapshot = storedFormColor.brightness;
+        float gradeContrastSnapshot = storedFormColor.contrast;
+        float gradeHueSnapshot = storedFormColor.hue;
+        float gradeSaturationSnapshot = storedFormColor.saturation;
+        EffectTransform gradeBrightnessTransformSnapshot = storedFormColor.brightnessTransform == null ? new EffectTransform() : storedFormColor.brightnessTransform.copy();
+        EffectTransform gradeContrastTransformSnapshot = storedFormColor.contrastTransform == null ? new EffectTransform() : storedFormColor.contrastTransform.copy();
+        EffectTransform gradeHueTransformSnapshot = storedFormColor.hueTransform == null ? new EffectTransform() : storedFormColor.hueTransform.copy();
+        EffectTransform gradeSaturationTransformSnapshot = storedFormColor.saturationTransform == null ? new EffectTransform() : storedFormColor.saturationTransform.copy();
+
+        if (paintActive && (bbsModelShader || deferTranslucentModel))
         {
             float effectiveShaderShadow = paint.effectiveShaderShadow(legacyPaint);
 
-            if (model != null && model.getModel() != null)
+        if (hasGlow && (bbsModelShader || deferTranslucentModel))
+        {
+            ModelVAORenderer.setGlowEffectTransform(formRootInverse, glowEffectTransform, glowMaskHalf);
+        }
+        else
+        {
+            ModelVAORenderer.clearGlowEffectTransform();
+        }
+
+        /* Apply ColorEffect only on BBS model draws. Iris live uses a multiply overlay instead. */
+        if (colorTransformWanted && (bbsModelShader || deferTranslucentModel))
+        {
+            ModelVAORenderer.setColorEffectTransform(formRootInverse, formColor.transform, colorMaskHalf);
+            ModelVAORenderer.setFormColorTint(formColor.r, formColor.g, formColor.b, formColor.a);
+        }
+        else
+        {
+            ModelVAORenderer.clearColorEffectTransform();
+            ModelVAORenderer.clearFormColorTint();
+        }
+
+        if (uploadGrade)
+        {
+            if (uploadFormGradeToShader)
             {
                 for (ModelGroup group : model.getModel().getAllGroups())
                 {
@@ -544,11 +691,844 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
 
         try
         {
-            model.render(newStack, color, light, overlay, stencilMap, this.form.shapeKeys.get(), defaultTexture);
+            TextureBlend textureBlendSnapshot = textureBlend == null ? null : new TextureBlend(textureBlend.from, textureBlend.to, textureBlend.blend);
+
+            if (deferTranslucentModel)
+            {
+                /* Soft opacity: no depth stamp so water/lava/portals stay visible.
+                 * Self X-ray on soft fades is preferable to punching fluids. */
+                Matrix4f positionMatrix = ModelVAORenderer.capturePaintOverlayRootMatrix(new Matrix4f(newStack.peek().getPositionMatrix()));
+                Matrix3f normalMatrix = new Matrix3f(newStack.peek().getNormalMatrix());
+                Matrix4f baseTransformSnapshot = baseTransform == null ? null : new Matrix4f(baseTransform);
+                Color colorSnapshot = color.copy();
+
+                /* Keep form alpha for the redraw — bone alpha is applied per group.
+                 * Only ease / black-handoff when the *form* itself is below Iris discard. */
+                if (lowAlphaDefer && formOpacityAlpha < BBSRendering.TRANSLUCENT_ALPHA_DISCARD_REF)
+                {
+                    colorSnapshot.a = BBSRendering.easeDeferredModelAlpha(formOpacityAlpha);
+                }
+                else
+                {
+                    colorSnapshot.a = formOpacityAlpha;
+                }
+
+                /* Noshading opacity keeps user RGB (white). Auto low-alpha handoff may still
+                 * remap when the toggle is off (form-driven ultra-low alpha only). */
+                if (lowAlphaDefer && !noshadingOpacityDefer && formOpacityAlpha < BBSRendering.TRANSLUCENT_ALPHA_DISCARD_REF)
+                {
+                    BBSRendering.applyDeferredModelHandoffRgb(colorSnapshot);
+                }
+
+                Color paintSnapshot = paintColor.copy();
+                Pose poseSnapshot = this.getPose().copy();
+                float transitionSnapshot = transition;
+                int overlayLight = light;
+                int overlayOverlay = overlay;
+                Link defaultTextureSnapshot = defaultTexture;
+                TextureBlend textureBlendSnapshotFinal = textureBlendSnapshot;
+                boolean paintActiveSnapshot = paintActive;
+                boolean hasGlowSnapshot = hasGlow;
+                boolean emitGlowSnapshot = emitGlowAfterDeferred;
+                GlowSettings albedoGlow = emitGlowAfterDeferred ? mainPassGlow : glow;
+                /* Soft opacity redraw (frame-end / noshading): write depth so limbs do not X-ray.
+                 * Noshading soft forms share this queue with paint; flushPaintOverlayQueue sorts
+                 * paint overlays before fullModel so depth write does not clip paint behind. */
+                boolean deferredDepthWrite = ShaderOpacityPatch.shouldWriteDepthForOpacity(opacityAlpha);
+
+                if (colorSnapshot.a > 0.001F)
+                {
+                    ModelVAORenderer.submitDeferredTranslucentModel(() ->
+                    {
+                        this.applyOverlayPosePipeline(target, model, transitionSnapshot, poseSnapshot, baseTransformSnapshot);
+
+                        try
+                        {
+                            if (colorTransformActive)
+                            {
+                                ModelVAORenderer.setColorEffectTransform(new Matrix4f().identity(), colorTransformSnapshot, colorMaskHalfSnapshot);
+                                ModelVAORenderer.setFormColorTint(formColorSnapshot.r, formColorSnapshot.g, formColorSnapshot.b, formColorSnapshot.a);
+                            }
+
+                            if (gradeActiveSnapshot)
+                            {
+                                ModelVAORenderer.setFormColorGrade(gradeBrightnessSnapshot, gradeContrastSnapshot, gradeHueSnapshot, gradeSaturationSnapshot);
+                                ModelVAORenderer.setGradeEffectTransforms(gradeBrightnessTransformSnapshot, gradeContrastTransformSnapshot, gradeHueTransformSnapshot, gradeSaturationTransformSnapshot);
+                            }
+
+                            if (paintActiveSnapshot)
+                            {
+                                ModelVAORenderer.setPaintEffectTransform(new Matrix4f().identity(), paintTransformSnapshot, paintMaskHalfSnapshot);
+                                ModelVAORenderer.setPaint(paintSnapshot.r, paintSnapshot.g, paintSnapshot.b, paintSnapshot.a);
+                            }
+                            else
+                            {
+                                ModelVAORenderer.setPaint(0F, 0F, 0F, 0F);
+                            }
+
+                            if (hasGlowSnapshot)
+                            {
+                                ModelVAORenderer.setGlowEffectTransform(new Matrix4f().identity(), glowTransformSnapshot, glowMaskHalfSnapshot);
+                                ModelVAORenderer.setGlow(albedoGlow, glowColor.r, glowColor.g, glowColor.b, legacyGlow);
+                            }
+                            else
+                            {
+                                ModelVAORenderer.clearGlowing();
+                            }
+
+                            /* Iris may leave a non-skin Sampler0 bound after composite; rebind before geometry. */
+                            if (defaultTextureSnapshot != null)
+                            {
+                                BBSModClient.getTextures().bindTexture(defaultTextureSnapshot);
+                            }
+
+                            MatrixStack overlayStack = new MatrixStack();
+
+                            overlayStack.peek().getPositionMatrix().set(positionMatrix);
+                            overlayStack.peek().getNormalMatrix().set(normalMatrix);
+
+                            this.renderSoftTransparencyGeometry(overlayStack, BBSShaders::getModel, model, overlayLight, overlayOverlay, colorSnapshot, defaultTextureSnapshot, textureBlendSnapshotFinal, albedoGlow, glowColor, legacyGlow, paintSnapshot, true, positionMatrix);
+                        }
+                        finally
+                        {
+                            ModelVAORenderer.clearColorEffectTransform();
+                            ModelVAORenderer.clearFormColorTint();
+                            ModelVAORenderer.clearFormColorGrade();
+                            ModelVAORenderer.clearPaintEffectTransform();
+                            ModelVAORenderer.clearGlowEffectTransform();
+                            ModelVAORenderer.clearPaint();
+                            ModelVAORenderer.clearGlowing();
+                        }
+                    }, deferredDepthWrite);
+
+                    if (emitGlowSnapshot)
+                    {
+                        ModelVAORenderer.submitPaintOverlay(false, () ->
+                        {
+                            this.applyOverlayPosePipeline(target, model, transitionSnapshot, poseSnapshot, baseTransformSnapshot);
+
+                            try
+                            {
+                                if (colorTransformActive)
+                                {
+                                    ModelVAORenderer.setColorEffectTransform(new Matrix4f().identity(), colorTransformSnapshot, colorMaskHalfSnapshot);
+                                    ModelVAORenderer.setFormColorTint(formColorSnapshot.r, formColorSnapshot.g, formColorSnapshot.b, formColorSnapshot.a);
+                                }
+
+                                ModelVAORenderer.setGlowEffectTransform(new Matrix4f().identity(), glowTransformSnapshot, glowMaskHalfSnapshot);
+
+                                MatrixStack overlayStack = new MatrixStack();
+
+                                overlayStack.peek().getPositionMatrix().set(positionMatrix);
+                                overlayStack.peek().getNormalMatrix().set(normalMatrix);
+
+                                this.renderDeferredGlowEmission(overlayStack, model, overlayLight, overlayOverlay, null, colorSnapshot, defaultTextureSnapshot, textureBlendSnapshotFinal, glow, glowColor, legacyGlow);
+                            }
+                            finally
+                            {
+                                ModelVAORenderer.clearColorEffectTransform();
+                                ModelVAORenderer.clearFormColorTint();
+                                ModelVAORenderer.clearGlowEffectTransform();
+                                ModelVAORenderer.clearPaint();
+                                ModelVAORenderer.clearGlowing();
+                            }
+                        });
+                    }
+                }
+            }
+            else if (deferPaintToOverlay)
+            {
+                /* Iris base pass uses the vanilla entity shader; paint is applied only in the
+                 * deferred BBS model overlay so the base pass cannot leak a root-origin pixel. */
+                ModelVAORenderer.setPaint(0F, 0F, 0F, 0F);
+            }
+            else if (paintActive)
+            {
+                ModelVAORenderer.setPaint(paintColor.r, paintColor.g, paintColor.b, paintStrength);
+            }
+            else
+            {
+                ModelVAORenderer.setPaint(0F, 0F, 0F, 0F);
+            }
+
+            if (drawIrisLive)
+            {
+                /* Complementary VL: soft opacity waits until after translucent terrain
+                 * (water/lava/portals). Near-opaque stays live with depth for pack shading.
+                 * Skip in local preview — post-deferred flush is world-only. */
+                if (!localPreview && ShaderOpacityPatch.shouldDelayUntilPostDeferred(opacityAlpha))
+                {
+                    /* Iris: entity-local matrices + restore camera ModelView.
+                     * No-shader: camera-baked matrices + identity ModelView (BBS path). */
+                    boolean irisCamera = BBSRendering.isIrisWorldModelPass() && !bbsModelShader;
+                    Matrix4f positionMatrix = irisCamera
+                        ? new Matrix4f(newStack.peek().getPositionMatrix())
+                        : ModelVAORenderer.capturePaintOverlayRootMatrix(new Matrix4f(newStack.peek().getPositionMatrix()));
+                    Matrix3f normalMatrix = new Matrix3f(newStack.peek().getNormalMatrix());
+                    Matrix4f baseTransformSnapshot = baseTransform == null ? null : new Matrix4f(baseTransform);
+                    Color colorSnapshot = color.copy();
+                    Color paintSnapshot = paintColor.copy();
+                    Pose poseSnapshot = this.getPose().copy();
+                    float transitionSnapshot = transition;
+                    float paintStrengthSnapshot = paintStrength;
+                    /* Iris soft mesh ignores PaintColor; only apply in-mesh when this draw is
+                     * BBS (e.g. grade) and paint is not already a frame-end overlay. */
+                    boolean paintInDeferredMeshSnapshot = paintActive && !deferPaintToOverlay;
+                    boolean stripGlowSnapshot = stripMainPassGlow || shapeKeyPositiveOverlay;
+                    boolean hasGlowSnapshot = hasGlow;
+                    boolean glowDeferredSnapshot = glowDeferredToOverlay;
+                    GlowSettings mainPassGlowSnapshot = mainPassGlow.copy();
+                    GlowSettings glowSnapshot = glow.copy();
+                    Color glowColorSnapshot = glowColor.copy();
+                    Color legacyGlowSnapshot = legacyGlow.copy();
+                    Link defaultTextureSnapshot = defaultTexture;
+                    TextureBlend textureBlendSnapshotFinal = textureBlendSnapshot;
+                    int overlayLight = light;
+                    int overlayOverlay = overlay;
+                    Supplier<ShaderProgram> programSnapshot = (irisCamera && !gradeActiveSnapshot)
+                        ? program
+                        : BBSShaders::getModel;
+                    EffectTransform paintTransformQueued = paintTransformSnapshot;
+                    Vector3f paintMaskHalfQueued = paintMaskHalfSnapshot;
+                    double distanceSq = 0D;
+
+                    if (renderContext != null && renderContext.entity != null)
+                    {
+                        double x = Lerps.lerp(renderContext.entity.getPrevX(), renderContext.entity.getX(), transition);
+                        double y = Lerps.lerp(renderContext.entity.getPrevY(), renderContext.entity.getY(), transition);
+                        double z = Lerps.lerp(renderContext.entity.getPrevZ(), renderContext.entity.getZ(), transition);
+                        double dx = x - renderContext.camera.position.x;
+                        double dy = y - renderContext.camera.position.y;
+                        double dz = z - renderContext.camera.position.z;
+
+                        distanceSq = dx * dx + dy * dy + dz * dz;
+                    }
+
+                    /* After fluids + depth write: water stays, limbs do not X-ray. */
+                    boolean depthWrite = ShaderOpacityPatch.shouldWriteDepthForOpacity(opacityAlpha);
+                    boolean afterFluids = ShaderOpacityPatch.shouldFlushAfterFluids(opacityAlpha);
+                    Runnable deferredDraw = () ->
+                    {
+                        /* Shared ModelInstance bones are overwritten by later draws — re-apply
+                         * the captured pose like other deferred Iris paths. */
+                        this.applyOverlayPosePipeline(target, model, transitionSnapshot, poseSnapshot, baseTransformSnapshot);
+
+                        MatrixStack overlayStack = new MatrixStack();
+
+                        overlayStack.peek().getPositionMatrix().set(positionMatrix);
+                        overlayStack.peek().getNormalMatrix().set(normalMatrix);
+
+                        try
+                        {
+                            if (colorTransformActive)
+                            {
+                                ModelVAORenderer.setColorEffectTransform(new Matrix4f().identity(), colorTransformSnapshot, colorMaskHalfSnapshot);
+                                ModelVAORenderer.setFormColorTint(formColorSnapshot.r, formColorSnapshot.g, formColorSnapshot.b, formColorSnapshot.a);
+                            }
+
+                            /* Outer finally clears FormColorGrade before this post-deferred
+                             * redraw — re-upload so no-shader / BBS film actors stay graded. */
+                            if (gradeActiveSnapshot)
+                            {
+                                ModelVAORenderer.setFormColorGrade(gradeBrightnessSnapshot, gradeContrastSnapshot, gradeHueSnapshot, gradeSaturationSnapshot);
+                                ModelVAORenderer.setGradeEffectTransforms(gradeBrightnessTransformSnapshot, gradeContrastTransformSnapshot, gradeHueTransformSnapshot, gradeSaturationTransformSnapshot);
+                            }
+
+                            if (paintInDeferredMeshSnapshot)
+                            {
+                                ModelVAORenderer.setPaintEffectTransform(new Matrix4f().identity(), paintTransformQueued, paintMaskHalfQueued);
+                                ModelVAORenderer.setPaint(paintSnapshot.r, paintSnapshot.g, paintSnapshot.b, paintStrengthSnapshot);
+                            }
+                            else
+                            {
+                                ModelVAORenderer.setPaint(0F, 0F, 0F, 0F);
+                            }
+
+                            if (stripGlowSnapshot)
+                            {
+                                ModelVAORenderer.setGlowEffectTransform(new Matrix4f().identity(), glowTransformSnapshot, glowMaskHalfSnapshot);
+                                ModelVAORenderer.setGlow(mainPassGlowSnapshot, glowColorSnapshot.r, glowColorSnapshot.g, glowColorSnapshot.b, legacyGlowSnapshot);
+                            }
+                            else if (hasGlowSnapshot)
+                            {
+                                ModelVAORenderer.setGlowEffectTransform(new Matrix4f().identity(), glowTransformSnapshot, glowMaskHalfSnapshot);
+                                ModelVAORenderer.setGlow(glowSnapshot, glowColorSnapshot.r, glowColorSnapshot.g, glowColorSnapshot.b, legacyGlowSnapshot);
+                            }
+                            else
+                            {
+                                ModelVAORenderer.clearGlowing();
+                            }
+
+                            if (defaultTextureSnapshot != null)
+                            {
+                                BBSModClient.getTextures().bindTexture(defaultTextureSnapshot);
+                            }
+
+                            this.renderSoftTransparencyGeometry(overlayStack, programSnapshot, model, overlayLight, overlayOverlay, colorSnapshot, defaultTextureSnapshot, textureBlendSnapshotFinal, glowSnapshot, glowColorSnapshot, legacyGlowSnapshot, paintSnapshot, glowDeferredSnapshot, positionMatrix);
+                        }
+                        finally
+                        {
+                            ModelVAORenderer.clearColorEffectTransform();
+                            ModelVAORenderer.clearFormColorTint();
+                            ModelVAORenderer.clearFormColorGrade();
+                            ModelVAORenderer.clearPaintEffectTransform();
+                            ModelVAORenderer.clearGlowEffectTransform();
+                            ModelVAORenderer.clearPaint();
+                            ModelVAORenderer.clearGlowing();
+                        }
+                    };
+
+                    if (irisCamera)
+                    {
+                        ShaderOpacityPatch.submitPostDeferredForm(0D, distanceSq, depthWrite, afterFluids, deferredDraw);
+                    }
+                    else
+                    {
+                        ShaderOpacityPatch.submitPostDeferredBbsForm(0D, distanceSq, depthWrite, afterFluids, deferredDraw);
+                    }
+
+                    ModelVAORenderer.clearPaintEffectTransform();
+                    ModelVAORenderer.clearGlowEffectTransform();
+                    ModelVAORenderer.clearPaint();
+                    ModelVAORenderer.clearGlowing();
+                }
+                else
+                {
+                    if (stripMainPassGlow || shapeKeyPositiveOverlay)
+                    {
+                        ModelVAORenderer.setGlow(mainPassGlow, glowColor.r, glowColor.g, glowColor.b, legacyGlow);
+                    }
+                    else if (hasGlow)
+                    {
+                        ModelVAORenderer.setGlow(glow, glowColor.r, glowColor.g, glowColor.b, legacyGlow);
+                    }
+
+                    /* Live near-opaque only. Translucents were queued post-deferred above. */
+                    boolean forceDepth = ShaderOpacityPatch.shouldForceLiveDepthWrite(opacityAlpha);
+                    boolean suppressDepth = ShaderOpacityPatch.shouldSuppressDepthWrite(opacityAlpha);
+                    boolean savedDepthMask = false;
+
+                    if (forceDepth || suppressDepth)
+                    {
+                        savedDepthMask = GL11.glGetBoolean(GL11.GL_DEPTH_WRITEMASK);
+                        RenderSystem.enableDepthTest();
+
+                        if (forceDepth)
+                        {
+                            ShaderOpacityPatch.setForceLiveDepthWrite(true);
+                            RenderSystem.depthMask(true);
+                        }
+                        else
+                        {
+                            ShaderOpacityPatch.setSuppressLiveDepthWrite(true);
+                            RenderSystem.depthMask(false);
+                        }
+                    }
+
+                    try
+                    {
+                        /* Color Grade is applied in model.fsh — never draw graded models with
+                         * vanilla entity_translucent (no FormColorGrade uniforms). */
+                        Supplier<ShaderProgram> geometryProgram = uploadFormGradeToShader
+                            ? BBSShaders::getModel
+                            : program;
+
+                        this.renderModelGeometryWithEmission(newStack, geometryProgram, model, light, overlay, stencilMap, color, defaultTexture, textureBlend, glow, glowColor, legacyGlow, paintColor, glowDeferredToOverlay);
+                    }
+                    finally
+                    {
+                        if (forceDepth)
+                        {
+                            ShaderOpacityPatch.setForceLiveDepthWrite(false);
+                            RenderSystem.depthMask(savedDepthMask);
+                        }
+                        else if (suppressDepth)
+                        {
+                            ShaderOpacityPatch.setSuppressLiveDepthWrite(false);
+                            RenderSystem.depthMask(savedDepthMask);
+                        }
+                    }
+                }
+            }
+
+            if (limbOnlySoft)
+            {
+                /* Soft bones only — one draw per soft bone, farther first. World: post-deferred
+                 * queue. UI/preview: run immediately (those passes never flush soft queues). */
+                List<ModelGroup> softBones = this.collectSoftDrawableBones(model);
+
+                if (!softBones.isEmpty())
+                {
+                    float softGateAlpha = formOpacityAlpha * boneOpacityAlpha;
+                    /* Capture both Iris (entity-local) and BBS (MV-baked) roots — mixed soft
+                     * limbs may split: noshading bones → BBS queue, others → Iris post-deferred. */
+                    Matrix4f softStackLocal = new Matrix4f(newStack.peek().getPositionMatrix());
+                    Matrix4f softStackBbs = limbOnlySoftImmediate
+                        ? softStackLocal
+                        : ModelVAORenderer.capturePaintOverlayRootMatrix(new Matrix4f(newStack.peek().getPositionMatrix()));
+                    Matrix3f softNormalMatrix = new Matrix3f(newStack.peek().getNormalMatrix());
+                    boolean formNoshading = this.form.noshadingOpacity.get();
+                    boolean canIrisSoftPath = !limbOnlySoftImmediate
+                        && BBSRendering.isIrisWorldModelPass()
+                        && !bbsModelShader;
+                    /* Model blocks / preview: lengthSq on the entity draw stack.
+                     * Film ENTITY: look-axis depth in renderContext.world (absolute). */
+                    Matrix4f softSortMatrix = softStackLocal;
+                    boolean filmWorldSoftSort = !limbOnlySoftImmediate
+                        && renderContext != null
+                        && renderContext.type == FormRenderType.ENTITY
+                        && renderContext.world != null;
+                    Matrix4f filmWorldSortMatrix = filmWorldSoftSort
+                        ? new Matrix4f(renderContext.world.peek().getPositionMatrix())
+                        : null;
+                    double cameraX = 0D;
+                    double cameraY = 0D;
+                    double cameraZ = 0D;
+                    Vector3f cameraLook = null;
+                    Matrix4f softBaseTransformSnapshot = baseTransform == null ? null : new Matrix4f(baseTransform);
+                    Color softColorSnapshot = color.copy();
+                    Color softPaintSnapshot = paintColor.copy();
+                    Pose softPoseSnapshot = this.getPose().copy();
+                    float softTransitionSnapshot = transition;
+                    float softPaintStrengthSnapshot = paintStrength;
+                    boolean softPaintInMesh = paintActive && !deferPaintToOverlay;
+                    boolean softStripGlow = stripMainPassGlow || shapeKeyPositiveOverlay;
+                    boolean softHasGlow = hasGlow;
+                    boolean softGlowDeferred = glowDeferredToOverlay;
+                    GlowSettings softMainPassGlow = mainPassGlow.copy();
+                    GlowSettings softGlow = glow.copy();
+                    Color softGlowColor = glowColor.copy();
+                    Color softLegacyGlow = legacyGlow.copy();
+                    Link softDefaultTexture = defaultTexture;
+                    TextureBlend softTextureBlend = textureBlendSnapshot;
+                    int softLight = light;
+                    int softOverlay = overlay;
+                    boolean softColorTransformActive = colorTransformActive;
+                    EffectTransform softColorEffectTransform = colorTransformSnapshot;
+                    Vector3f softColorMaskHalf = new Vector3f(colorMaskHalfSnapshot);
+                    Color softFormColor = formColorSnapshot.copy();
+                    boolean softGradeActive = gradeActiveSnapshot;
+                    float softGradeBrightness = gradeBrightnessSnapshot;
+                    float softGradeContrast = gradeContrastSnapshot;
+                    float softGradeHue = gradeHueSnapshot;
+                    float softGradeSaturation = gradeSaturationSnapshot;
+                    EffectTransform softGradeBrightnessTransform = gradeBrightnessTransformSnapshot;
+                    EffectTransform softGradeContrastTransform = gradeContrastTransformSnapshot;
+                    EffectTransform softGradeHueTransform = gradeHueTransformSnapshot;
+                    EffectTransform softGradeSaturationTransform = gradeSaturationTransformSnapshot;
+                    EffectTransform softPaintTransform = paintTransformSnapshot;
+                    Vector3f softPaintMaskHalf = new Vector3f(paintMaskHalfSnapshot);
+                    EffectTransform softGlowTransform = glowTransformSnapshot;
+                    Vector3f softGlowMaskHalf = new Vector3f(glowMaskHalfSnapshot);
+                    /* Soft limbs need a depth stamp for Iris fog/paint (noshading off). Multi
+                     * soft + depth-write in the color pass erases the far limb when film sort
+                     * is imperfect — batches color with depth-write off, then depth-only stamp. */
+                    boolean softDepthWrite = ShaderOpacityPatch.shouldWriteDepthForOpacity(softGateAlpha);
+                    boolean softAfterFluids = ShaderOpacityPatch.shouldFlushAfterFluids(softGateAlpha);
+                    Supplier<ShaderProgram> softIrisProgram = (!softGradeActive) ? program : BBSShaders::getModel;
+                    Supplier<ShaderProgram> softBbsProgram = BBSShaders::getModel;
+                    double entityDistanceSq = 0D;
+
+                    softColorSnapshot.a = formOpacityAlpha;
+
+                    if (renderContext != null)
+                    {
+                        cameraX = renderContext.camera.position.x;
+                        cameraY = renderContext.camera.position.y;
+                        cameraZ = renderContext.camera.position.z;
+                        /* Match Minecraft view forward (0,0,-1) through the camera rotation
+                         * matrix — more reliable than getLookDirection() pitch/yaw conventions. */
+                        cameraLook = new Vector3f(0F, 0F, -1F);
+                        renderContext.camera.view.transformDirection(cameraLook);
+
+                        if (renderContext.entity != null)
+                        {
+                            double x = Lerps.lerp(renderContext.entity.getPrevX(), renderContext.entity.getX(), transition);
+                            double y = Lerps.lerp(renderContext.entity.getPrevY(), renderContext.entity.getY(), transition);
+                            double z = Lerps.lerp(renderContext.entity.getPrevZ(), renderContext.entity.getZ(), transition);
+                            double dx = x - cameraX;
+                            double dy = y - cameraY;
+                            double dz = z - cameraZ;
+
+                            entityDistanceSq = dx * dx + dy * dy + dz * dz;
+                        }
+                    }
+
+                    /* Pose is already applied from the live opaque pass. Soft bones are hidden
+                     * for the live draw, so briefly show them for matrix capture (CubicRenderer
+                     * skips matrix write when visible=false); origins alone can still work. */
+                    Map<ModelGroup, Boolean> softMatrixVisibility = this.saveGroupVisibility(model);
+
+                    try
+                    {
+                        for (ModelGroup softBone : softBones)
+                        {
+                            softBone.visible = true;
+                        }
+
+                        this.captureMatrices(model);
+                    }
+                    finally
+                    {
+                        this.restoreGroupVisibility(softMatrixVisibility);
+                    }
+
+                    List<SoftBoneSubmit> softSubmits = new ArrayList<>(softBones.size());
+
+                    for (ModelGroup softBone : softBones)
+                    {
+                        double softDistanceSq = filmWorldSortMatrix != null
+                            ? this.softBoneWorldDepthKey(softBone.id, filmWorldSortMatrix, cameraX, cameraY, cameraZ, cameraLook, entityDistanceSq)
+                            : this.softBoneDistanceSq(softBone.id, softSortMatrix, entityDistanceSq);
+                        boolean boneNoshading = formNoshading || softBone.noshadingOpacity;
+                        float boneGateAlpha = formOpacityAlpha * (softBone.color == null ? 1F : softBone.color.a);
+                        boolean boneNoshadingQueue = canIrisSoftPath
+                            && BBSRendering.needsIrisNoshadingOpacityDeferral(boneGateAlpha, boneNoshading);
+                        boolean boneIrisCamera = canIrisSoftPath && !boneNoshadingQueue;
+
+                        softSubmits.add(new SoftBoneSubmit(softBone, softDistanceSq, boneNoshadingQueue, boneIrisCamera));
+                    }
+
+                    /* Farther first within each queue batch. */
+                    softSubmits.sort((a, b) -> Double.compare(b.distanceSq, a.distanceSq));
+
+                    SoftLimbDrawState softDraw = new SoftLimbDrawState();
+                    softDraw.target = target;
+                    softDraw.model = model;
+                    softDraw.transition = softTransitionSnapshot;
+                    softDraw.pose = softPoseSnapshot;
+                    softDraw.baseTransform = softBaseTransformSnapshot;
+                    softDraw.stackLocal = softStackLocal;
+                    softDraw.stackBbs = softStackBbs;
+                    softDraw.normalMatrix = softNormalMatrix;
+                    softDraw.irisProgram = softIrisProgram;
+                    softDraw.bbsProgram = softBbsProgram;
+                    softDraw.color = softColorSnapshot;
+                    softDraw.defaultTexture = softDefaultTexture;
+                    softDraw.textureBlend = softTextureBlend;
+                    softDraw.glow = softGlow;
+                    softDraw.glowColor = softGlowColor;
+                    softDraw.legacyGlow = softLegacyGlow;
+                    softDraw.paint = softPaintSnapshot;
+                    softDraw.glowDeferred = softGlowDeferred;
+                    softDraw.light = softLight;
+                    softDraw.overlay = softOverlay;
+                    softDraw.colorTransformActive = softColorTransformActive;
+                    softDraw.colorEffectTransform = softColorEffectTransform;
+                    softDraw.colorMaskHalf = softColorMaskHalf;
+                    softDraw.formColor = softFormColor;
+                    softDraw.gradeActive = softGradeActive;
+                    softDraw.gradeBrightness = softGradeBrightness;
+                    softDraw.gradeContrast = softGradeContrast;
+                    softDraw.gradeHue = softGradeHue;
+                    softDraw.gradeSaturation = softGradeSaturation;
+                    softDraw.gradeBrightnessTransform = softGradeBrightnessTransform;
+                    softDraw.gradeContrastTransform = softGradeContrastTransform;
+                    softDraw.gradeHueTransform = softGradeHueTransform;
+                    softDraw.gradeSaturationTransform = softGradeSaturationTransform;
+                    softDraw.paintInMesh = softPaintInMesh;
+                    softDraw.paintTransform = softPaintTransform;
+                    softDraw.paintMaskHalf = softPaintMaskHalf;
+                    softDraw.paintStrength = softPaintStrengthSnapshot;
+                    softDraw.hasGlow = softHasGlow;
+                    softDraw.stripGlow = softStripGlow;
+                    softDraw.mainPassGlow = softMainPassGlow;
+                    softDraw.glowTransform = softGlowTransform;
+                    softDraw.glowMaskHalf = softGlowMaskHalf;
+                    softDraw.depthWrite = softDepthWrite;
+                    softDraw.afterFluids = softAfterFluids;
+
+                    boolean softDepthMaskSaved = GL11.glGetBoolean(GL11.GL_DEPTH_WRITEMASK);
+                    List<SoftBoneSubmit> immediateBatch = new ArrayList<>();
+                    List<SoftBoneSubmit> noshadingBatch = new ArrayList<>();
+                    List<SoftBoneSubmit> irisBatch = new ArrayList<>();
+                    List<SoftBoneSubmit> bbsBatch = new ArrayList<>();
+
+                    for (SoftBoneSubmit softSubmit : softSubmits)
+                    {
+                        if (limbOnlySoftImmediate)
+                        {
+                            immediateBatch.add(softSubmit);
+                        }
+                        else if (softSubmit.noshadingQueue)
+                        {
+                            noshadingBatch.add(softSubmit);
+                        }
+                        else if (softSubmit.irisCamera)
+                        {
+                            irisBatch.add(softSubmit);
+                        }
+                        else
+                        {
+                            bbsBatch.add(softSubmit);
+                        }
+                    }
+
+                    this.enqueueSoftLimbBatch(immediateBatch, SoftLimbQueue.IMMEDIATE, softDraw, softDepthMaskSaved);
+                    this.enqueueSoftLimbBatch(noshadingBatch, SoftLimbQueue.NOSHADING, softDraw, softDepthMaskSaved);
+                    this.enqueueSoftLimbBatch(irisBatch, SoftLimbQueue.IRIS, softDraw, softDepthMaskSaved);
+                    this.enqueueSoftLimbBatch(bbsBatch, SoftLimbQueue.BBS, softDraw, softDepthMaskSaved);
+                }
+            }
+
+            if (useColorGradeOverlay)
+            {
+                /* Regrade already-drawn albedo from a scene copy (Block-style). Works without
+                 * shaders immediately, and under Iris after composite via the paint queue. */
+                Matrix4f positionMatrix = ModelVAORenderer.capturePaintOverlayRootMatrix(new Matrix4f(newStack.peek().getPositionMatrix()));
+                Matrix3f normalMatrix = new Matrix3f(newStack.peek().getNormalMatrix());
+                Matrix4f baseTransformSnapshot = baseTransform == null ? null : new Matrix4f(baseTransform);
+                Color colorSnapshot = color.copy();
+                Pose poseSnapshot = this.getPose().copy();
+                float transitionSnapshot = transition;
+                int overlayLight = light;
+                int overlayOverlay = overlay;
+                Link defaultTextureSnapshot = defaultTexture;
+
+                ModelVAORenderer.submitColorGradeOverlay(() ->
+                {
+                    this.applyOverlayPosePipeline(target, model, transitionSnapshot, poseSnapshot, baseTransformSnapshot);
+
+                    try
+                    {
+                        ModelVAORenderer.setColorEffectTransform(new Matrix4f().identity(), colorTransformSnapshot, colorMaskHalfSnapshot);
+                        ModelVAORenderer.setFormColorGrade(gradeBrightnessSnapshot, gradeContrastSnapshot, gradeHueSnapshot, gradeSaturationSnapshot);
+                        ModelVAORenderer.setGradeEffectTransforms(gradeBrightnessTransformSnapshot, gradeContrastTransformSnapshot, gradeHueTransformSnapshot, gradeSaturationTransformSnapshot);
+                        ModelVAORenderer.clearPaint();
+                        ModelVAORenderer.clearGlowing();
+
+                        if (defaultTextureSnapshot != null)
+                        {
+                            BBSModClient.getTextures().bindTexture(defaultTextureSnapshot);
+                        }
+
+                        MatrixStack overlayStack = new MatrixStack();
+
+                        overlayStack.peek().getPositionMatrix().set(positionMatrix);
+                        overlayStack.peek().getNormalMatrix().set(normalMatrix);
+
+                        this.renderModelGeometry(overlayStack, BBSShaders::getModel, model, overlayLight, overlayOverlay, null, colorSnapshot, defaultTextureSnapshot, null);
+                    }
+                    finally
+                    {
+                        ModelVAORenderer.clearColorEffectTransform();
+                        ModelVAORenderer.clearFormColorGrade();
+                        ModelVAORenderer.clearPaint();
+                        ModelVAORenderer.clearGlowing();
+                    }
+                });
+            }
+
+            if (deferColorTintToOverlay)
+            {
+                /* Iris already drew pack-lit albedo; multiply FormColorTint inside the mask so
+                 * changing Color transform numbers never leaves the Iris lighting path. */
+                Matrix4f positionMatrix = ModelVAORenderer.capturePaintOverlayRootMatrix(new Matrix4f(newStack.peek().getPositionMatrix()));
+                Matrix3f normalMatrix = new Matrix3f(newStack.peek().getNormalMatrix());
+                Matrix4f baseTransformSnapshot = baseTransform == null ? null : new Matrix4f(baseTransform);
+                Color colorSnapshot = color.copy();
+                Pose poseSnapshot = this.getPose().copy();
+                float transitionSnapshot = transition;
+                int overlayLight = light;
+                int overlayOverlay = overlay;
+                Link defaultTextureSnapshot = defaultTexture;
+                TextureBlend textureBlendSnapshotFinal = textureBlendSnapshot;
+
+                ModelVAORenderer.submitColorTintOverlay(() ->
+                {
+                    this.applyOverlayPosePipeline(target, model, transitionSnapshot, poseSnapshot, baseTransformSnapshot);
+
+                    try
+                    {
+                        ModelVAORenderer.setColorEffectTransform(new Matrix4f().identity(), colorTransformSnapshot, colorMaskHalfSnapshot);
+                        ModelVAORenderer.setFormColorTint(formColorSnapshot.r, formColorSnapshot.g, formColorSnapshot.b, formColorSnapshot.a);
+
+                        if (gradeActiveSnapshot)
+                        {
+                            ModelVAORenderer.setFormColorGrade(gradeBrightnessSnapshot, gradeContrastSnapshot, gradeHueSnapshot, gradeSaturationSnapshot);
+                            ModelVAORenderer.setGradeEffectTransforms(gradeBrightnessTransformSnapshot, gradeContrastTransformSnapshot, gradeHueTransformSnapshot, gradeSaturationTransformSnapshot);
+                        }
+
+                        ModelVAORenderer.clearPaint();
+                        ModelVAORenderer.clearGlowing();
+
+                        MatrixStack overlayStack = new MatrixStack();
+
+                        overlayStack.peek().getPositionMatrix().set(positionMatrix);
+                        overlayStack.peek().getNormalMatrix().set(normalMatrix);
+
+                        this.renderModelGeometry(overlayStack, BBSShaders::getModel, model, overlayLight, overlayOverlay, null, colorSnapshot, defaultTextureSnapshot, textureBlendSnapshotFinal);
+                    }
+                    finally
+                    {
+                        ModelVAORenderer.clearColorEffectTransform();
+                        ModelVAORenderer.clearFormColorTint();
+                        ModelVAORenderer.clearFormColorGrade();
+                        ModelVAORenderer.clearPaint();
+                        ModelVAORenderer.clearGlowing();
+                    }
+                });
+            }
+
+            if (deferPaintToOverlay)
+            {
+                Matrix4f positionMatrix = ModelVAORenderer.capturePaintOverlayRootMatrix(new Matrix4f(newStack.peek().getPositionMatrix()));
+                Matrix3f normalMatrix = new Matrix3f(newStack.peek().getNormalMatrix());
+                Matrix4f baseTransformSnapshot = baseTransform == null ? null : new Matrix4f(baseTransform);
+                Color colorSnapshot = color.copy();
+                Color paintSnapshot = paintColor.copy();
+                Pose poseSnapshot = this.getPose().copy();
+                float transitionSnapshot = transition;
+                int overlayLight = light;
+                int overlayOverlay = overlay;
+                Link defaultTextureSnapshot = defaultTexture;
+                TextureBlend textureBlendSnapshotFinal = textureBlendSnapshot;
+                boolean hasGlowSnapshot = hasGlow;
+                boolean paintOnlyGlowSnapshot = paintOnlyGlow;
+
+                ModelVAORenderer.submitPaintOverlay(false, () ->
+                {
+                    this.applyOverlayPosePipeline(target, model, transitionSnapshot, poseSnapshot, baseTransformSnapshot);
+
+                    try
+                    {
+                        if (colorTransformActive && !deferColorTintToOverlay)
+                        {
+                            ModelVAORenderer.setColorEffectTransform(new Matrix4f().identity(), colorTransformSnapshot, colorMaskHalfSnapshot);
+                            ModelVAORenderer.setFormColorTint(formColorSnapshot.r, formColorSnapshot.g, formColorSnapshot.b, formColorSnapshot.a);
+                        }
+
+                        ModelVAORenderer.setPaintEffectTransform(new Matrix4f().identity(), paintTransformSnapshot, paintMaskHalfSnapshot);
+                        ModelVAORenderer.setGlowEffectTransform(new Matrix4f().identity(), glowTransformSnapshot, glowMaskHalfSnapshot);
+
+                        MatrixStack overlayStack = new MatrixStack();
+
+                        overlayStack.peek().getPositionMatrix().set(positionMatrix);
+                        overlayStack.peek().getNormalMatrix().set(normalMatrix);
+
+                        ModelVAORenderer.setPaint(paintSnapshot.r, paintSnapshot.g, paintSnapshot.b, paintSnapshot.a);
+
+                        if (hasGlowSnapshot)
+                        {
+                            ModelVAORenderer.setGlow(glow, glowColor.r, glowColor.g, glowColor.b, legacyGlow);
+                        }
+                        else
+                        {
+                            GlowSettings glowOff = glow.copy();
+
+                            glowOff.intensity = 0F;
+                            ModelVAORenderer.setGlow(glowOff, glowColor.r, glowColor.g, glowColor.b, legacyGlow);
+                        }
+
+                        this.renderModelGeometry(overlayStack, BBSShaders::getModel, model, overlayLight, overlayOverlay, stencilMap, colorSnapshot, defaultTextureSnapshot, textureBlendSnapshotFinal);
+                    }
+                    finally
+                    {
+                        ModelVAORenderer.clearColorEffectTransform();
+                        ModelVAORenderer.clearFormColorTint();
+                        ModelVAORenderer.clearPaintEffectTransform();
+                        ModelVAORenderer.clearGlowEffectTransform();
+                        ModelVAORenderer.clearPaint();
+                        ModelVAORenderer.clearGlowing();
+                    }
+                });
+
+                if (hasGlowSnapshot && !paintOnlyGlowSnapshot)
+                {
+                    ModelVAORenderer.submitPaintOverlay(false, () ->
+                    {
+                        this.applyOverlayPosePipeline(target, model, transitionSnapshot, poseSnapshot, baseTransformSnapshot);
+
+                        try
+                        {
+                            if (colorTransformActive && !deferColorTintToOverlay)
+                            {
+                                ModelVAORenderer.setColorEffectTransform(new Matrix4f().identity(), colorTransformSnapshot, colorMaskHalfSnapshot);
+                                ModelVAORenderer.setFormColorTint(formColorSnapshot.r, formColorSnapshot.g, formColorSnapshot.b, formColorSnapshot.a);
+                            }
+
+                            ModelVAORenderer.setGlowEffectTransform(new Matrix4f().identity(), glowTransformSnapshot, glowMaskHalfSnapshot);
+
+                            MatrixStack overlayStack = new MatrixStack();
+
+                            overlayStack.peek().getPositionMatrix().set(positionMatrix);
+                            overlayStack.peek().getNormalMatrix().set(normalMatrix);
+
+                            this.renderDeferredGlowEmission(overlayStack, model, overlayLight, overlayOverlay, stencilMap, colorSnapshot, defaultTextureSnapshot, textureBlendSnapshotFinal, glow, glowColor, legacyGlow);
+                        }
+                        finally
+                        {
+                            ModelVAORenderer.clearColorEffectTransform();
+                            ModelVAORenderer.clearFormColorTint();
+                            ModelVAORenderer.clearGlowEffectTransform();
+                            ModelVAORenderer.clearPaint();
+                            ModelVAORenderer.clearGlowing();
+                        }
+                    });
+                }
+            }
+            else if (shaderOverlay)
+            {
+                Matrix4f positionMatrix = ModelVAORenderer.capturePaintOverlayRootMatrix(new Matrix4f(newStack.peek().getPositionMatrix()));
+                Matrix3f normalMatrix = new Matrix3f(newStack.peek().getNormalMatrix());
+                Matrix4f baseTransformSnapshot = baseTransform == null ? null : new Matrix4f(baseTransform);
+                Color colorSnapshot = color.copy();
+                Pose poseSnapshot = this.getPose().copy();
+                float transitionSnapshot = transition;
+                int overlayLight = light;
+                int overlayOverlay = overlay;
+                boolean applyPoseSnapshot = syncedGlow;
+                Link defaultTextureSnapshot = defaultTexture;
+
+                ModelVAORenderer.submitPaintOverlay(false, () ->
+                {
+                    if (applyPoseSnapshot)
+                    {
+                        this.applyOverlayPosePipeline(target, model, transitionSnapshot, poseSnapshot, baseTransformSnapshot);
+                    }
+
+                    try
+                    {
+                        if (colorTransformActive)
+                        {
+                            ModelVAORenderer.setColorEffectTransform(new Matrix4f().identity(), colorTransformSnapshot, colorMaskHalfSnapshot);
+                            ModelVAORenderer.setFormColorTint(formColorSnapshot.r, formColorSnapshot.g, formColorSnapshot.b, formColorSnapshot.a);
+                        }
+
+                        ModelVAORenderer.setGlowEffectTransform(new Matrix4f().identity(), glowTransformSnapshot, glowMaskHalfSnapshot);
+
+                        MatrixStack overlayStack = new MatrixStack();
+
+                        overlayStack.peek().getPositionMatrix().set(positionMatrix);
+                        overlayStack.peek().getNormalMatrix().set(normalMatrix);
+
+                        this.renderDeferredGlowEmission(overlayStack, model, overlayLight, overlayOverlay, stencilMap, colorSnapshot, defaultTextureSnapshot, textureBlendSnapshot, glow, glowColor, legacyGlow);
+                    }
+                    finally
+                    {
+                        ModelVAORenderer.clearColorEffectTransform();
+                        ModelVAORenderer.clearFormColorTint();
+                        ModelVAORenderer.clearGlowEffectTransform();
+                        ModelVAORenderer.clearPaint();
+                        ModelVAORenderer.clearGlowing();
+                    }
+                });
+            }
         }
         finally
         {
+            if (limbVisibilitySave != null)
+            {
+                this.restoreGroupVisibility(limbVisibilitySave);
+            }
+
             this.clearPBRTextureIntensity();
+            ModelVAORenderer.clearColorEffectTransform();
+            ModelVAORenderer.clearFormColorTint();
+            ModelVAORenderer.clearFormColorGrade();
+            FormColorGradePatch.uploadToCurrentProgram();
+            ModelVAORenderer.clearPaintEffectTransform();
+            ModelVAORenderer.clearGlowEffectTransform();
             ModelVAORenderer.clearPaint();
             ModelVAORenderer.clearGlowing();
         }
@@ -598,14 +1578,251 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
         this.renderModelGeometry(stack, model, light, overlay, stencilMap, color, defaultTexture, textureBlend);
     }
 
-    private void renderModelGeometry(MatrixStack stack, ModelInstance model, int light, int overlay, StencilMap stencilMap, Color color, Link defaultTexture, TextureBlend textureBlend)
+    private void renderDeferredGlowEmission(MatrixStack stack, ModelInstance model, int light, int overlay, StencilMap stencilMap, Color color, Link defaultTexture, TextureBlend textureBlend, GlowSettings glow, Color glowColor, Color legacyGlow)
+    {
+        if (model.hasShapeKeys() && this.hasAnyPositiveGlow(model, glow, legacyGlow))
+        {
+            this.renderShapeKeyGlowOverlay(stack, model, overlay, stencilMap, color, defaultTexture, textureBlend, glow, legacyGlow);
+
+            return;
+        }
+
+        ModelVAORenderer.runWithPaintOverlayPass(false, () ->
+        {
+            ModelVAORenderer.setPaint(0F, 0F, 0F, 0F);
+            ModelVAORenderer.setGlow(glow, glowColor.r, glowColor.g, glowColor.b, legacyGlow);
+
+            Color emission = color.copy();
+
+            emission.r = 0F;
+            emission.g = 0F;
+            emission.b = 0F;
+
+            boolean savedDepthMask = GL11.glGetBoolean(GL11.GL_DEPTH_WRITEMASK);
+
+            RenderSystem.enableBlend();
+            RenderSystem.depthMask(false);
+            RenderSystem.blendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE);
+
+            try
+            {
+                this.renderModelGeometry(stack, BBSShaders::getModel, model, LightmapTextureManager.MAX_LIGHT_COORDINATE, overlay, stencilMap, emission, defaultTexture, textureBlend);
+            }
+            finally
+            {
+                RenderSystem.depthMask(savedDepthMask);
+                RenderSystem.defaultBlendFunc();
+            }
+        });
+    }
+
+    private void renderModelGeometryWithEmission(MatrixStack stack, Supplier<ShaderProgram> program, ModelInstance model, int light, int overlay, StencilMap stencilMap, Color color, Link defaultTexture, TextureBlend textureBlend, GlowSettings glow, Color glowColor, Color legacyGlow, Color paint, boolean glowDeferredToOverlay)
+    {
+        boolean shapeKeyGlowOverlay = ShapeKeyGlowPass.shouldUseGlowOverlay(model, this.hasAnyPositiveGlow(model, glow, legacyGlow), glowDeferredToOverlay);
+
+        try
+        {
+            ModelVAORenderer.setSuppressShapeKeyMainPassGlow(shapeKeyGlowOverlay);
+
+            if (shapeKeyGlowOverlay)
+            {
+                this.renderModelGeometry(stack, program, model, light, overlay, stencilMap, color, defaultTexture, textureBlend);
+                this.renderShapeKeyGlowOverlay(stack, model, overlay, stencilMap, color, defaultTexture, textureBlend, glow, legacyGlow);
+
+                return;
+            }
+
+            this.renderModelGeometry(stack, program, model, light, overlay, stencilMap, color, defaultTexture, textureBlend);
+        }
+        finally
+        {
+            ModelVAORenderer.setSuppressShapeKeyMainPassGlow(false);
+        }
+    }
+
+    /**
+     * Soft-limb translucency: draw camera-away faces first, then camera-facing faces.
+     * A single {@code disableCull} pass uses mesh order, so interiors often composite on
+     * top of the outer shell and look more opaque than the front (especially in film).
+     */
+    private void renderSoftLimbGeometryTwoSided(MatrixStack stack, Supplier<ShaderProgram> program, ModelInstance model, int light, int overlay, Color color, Link defaultTexture, TextureBlend textureBlend, GlowSettings glow, Color glowColor, Color legacyGlow, Color paint, boolean glowDeferredToOverlay, Matrix4f positionMatrix)
+    {
+        boolean cullWasEnabled = GL11.glIsEnabled(GL11.GL_CULL_FACE);
+        int savedCullFace = GL11.glGetInteger(GL11.GL_CULL_FACE_MODE);
+        int savedFrontFace = GL11.glGetInteger(GL11.GL_FRONT_FACE);
+        /* Reflections / odd MV×entity stacks invert winding — keep GL_BACK = camera-facing.
+         * Use live ModelView (Iris restores it before this draw) × entity root. */
+        Matrix4f facingMatrix = new Matrix4f(RenderSystem.getModelViewMatrix());
+
+        if (positionMatrix != null)
+        {
+            facingMatrix.mul(positionMatrix);
+        }
+
+        boolean flipWinding = facingMatrix.determinant() < 0F;
+
+        RenderSystem.enableCull();
+        GL11.glFrontFace(flipWinding ? GL11.GL_CW : GL11.GL_CCW);
+
+        try
+        {
+            GL11.glCullFace(GL11.GL_FRONT);
+            this.renderModelGeometryWithEmission(stack, program, model, light, overlay, null, color, defaultTexture, textureBlend, glow, glowColor, legacyGlow, paint, glowDeferredToOverlay);
+
+            GL11.glCullFace(GL11.GL_BACK);
+            this.renderModelGeometryWithEmission(stack, program, model, light, overlay, null, color, defaultTexture, textureBlend, glow, glowColor, legacyGlow, paint, glowDeferredToOverlay);
+        }
+        finally
+        {
+            GL11.glCullFace(savedCullFace);
+            GL11.glFrontFace(savedFrontFace);
+
+            if (cullWasEnabled)
+            {
+                RenderSystem.enableCull();
+            }
+            else
+            {
+                RenderSystem.disableCull();
+            }
+        }
+    }
+
+    private void renderShapeKeyGlowOverlay(MatrixStack stack, ModelInstance model, int overlay, StencilMap stencilMap, Color color, Link defaultTexture, TextureBlend textureBlend, GlowSettings glow, Color legacyGlow)
+    {
+        boolean formPositive = FormColorEffects.hasPositiveGlow(glow, legacyGlow);
+        boolean bonePositive = this.hasBonePositiveGlow(model);
+
+        if (!formPositive && !bonePositive)
+        {
+            return;
+        }
+
+        ShapeKeys shapeKeys = this.form.shapeKeys.get();
+
+        if (formPositive)
+        {
+            float formIntensity = glow.resolveIntensity(legacyGlow);
+
+            ShapeKeyGlowPass.renderOverlay(glow, legacyGlow, color.a, formIntensity, (glowLayerColor) ->
+            {
+                this.drawShapeKeyGlowOverlayLayer(stack, model, overlay, stencilMap, shapeKeys, defaultTexture, textureBlend, glowLayerColor, false, formIntensity, null, bonePositive);
+            });
+        }
+
+        if (bonePositive && model.getModel() != null)
+        {
+            for (ModelGroup group : model.getModel().getAllGroups())
+            {
+                if (group.glowIntensity <= 0F)
+                {
+                    continue;
+                }
+
+                float boneIntensity = group.glowIntensity;
+
+                ShapeKeyGlowPass.renderOverlay(glow, legacyGlow, color.a, boneIntensity, (glowLayerColor) ->
+                {
+                    this.drawShapeKeyGlowOverlayLayer(stack, model, overlay, stencilMap, shapeKeys, defaultTexture, textureBlend, glowLayerColor, true, boneIntensity, group.id, false);
+                });
+            }
+        }
+    }
+
+    private void drawShapeKeyGlowOverlayLayer(MatrixStack stack, ModelInstance model, int overlay, StencilMap stencilMap, ShapeKeys shapeKeys, Link defaultTexture, TextureBlend textureBlend, Color glowLayerColor, boolean boneGlowOnly, float overlayIntensity, String targetGroupId, boolean skipBoneGlowGroups)
+    {
+        Link drawTexture = defaultTexture;
+
+        if (textureBlend != null)
+        {
+            float blend = textureBlend.blend;
+            Link fromTexture = textureBlend.from == null ? defaultTexture : textureBlend.from;
+            Link toTexture = textureBlend.to == null ? defaultTexture : textureBlend.to;
+
+            if (blend <= 0F)
+            {
+                drawTexture = fromTexture;
+            }
+            else if (blend >= 1F)
+            {
+                drawTexture = toTexture;
+            }
+            else
+            {
+                drawTexture = fromTexture;
+            }
+        }
+
+        model.renderShapeKeyGlowOverlay(stack, glowLayerColor, overlay, stencilMap, shapeKeys, drawTexture, boneGlowOnly, overlayIntensity, targetGroupId, skipBoneGlowGroups);
+    }
+
+    private boolean hasBonePositiveGlow(ModelInstance model)
+    {
+        if (model == null || model.getModel() == null)
+        {
+            return false;
+        }
+
+        for (ModelGroup group : model.getModel().getAllGroups())
+        {
+            if (group.glowIntensity > 0F)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private GlowSettings resolveMainPassGlow(GlowSettings glow, Color legacyGlow, boolean stripDeferredGlow, boolean shapeKeyPositiveOverlay)
+    {
+        GlowSettings result = glow.copy();
+        float intensity = result.resolveIntensity(legacyGlow);
+
+        if (stripDeferredGlow)
+        {
+            result.intensity = 0F;
+
+            return result;
+        }
+
+        if (shapeKeyPositiveOverlay && intensity > 0F)
+        {
+            result.intensity = 0F;
+        }
+
+        return result;
+    }
+
+    private boolean hasAnyPositiveGlow(ModelInstance model, GlowSettings glow, Color legacyGlow)
+    {
+        if (FormColorEffects.hasPositiveGlow(glow, legacyGlow))
+        {
+            return true;
+        }
+
+        if (model != null && model.getModel() != null)
+        {
+            for (ModelGroup group : model.getModel().getAllGroups())
+            {
+                if (group.glowIntensity > 0F)
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    private void renderModelGeometry(MatrixStack stack, Supplier<ShaderProgram> program, ModelInstance model, int light, int overlay, StencilMap stencilMap, Color color, Link defaultTexture, TextureBlend textureBlend)
     {
         ShapeKeys shapeKeys = this.form.shapeKeys.get();
 
         if (textureBlend == null)
         {
             ModelVAORenderer.clearTextureBlend();
-            model.render(stack, color, light, overlay, stencilMap, shapeKeys, defaultTexture);
+            model.render(stack, program, color, light, overlay, stencilMap, shapeKeys, this.getTextureResolver(model, defaultTexture));
 
             return;
         }
@@ -617,12 +1834,30 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
         if (blend <= 0F)
         {
             ModelVAORenderer.clearTextureBlend();
-            model.render(stack, color, light, overlay, stencilMap, shapeKeys, fromTexture);
+            model.render(stack, program, color, light, overlay, stencilMap, shapeKeys, this.getTextureResolver(model, fromTexture));
         }
         else if (blend >= 1F)
         {
             ModelVAORenderer.clearTextureBlend();
-            model.render(stack, color, light, overlay, stencilMap, shapeKeys, toTexture);
+            model.render(stack, program, color, light, overlay, stencilMap, shapeKeys, this.getTextureResolver(model, toTexture));
+        }
+        else if (model.supportsBbsModelShaderEffects() && (program.get() == BBSShaders.getModel() || ModelVAORenderer.isPaintOverlayPass()))
+        {
+            /* Single-pass shader blend: per-pixel alpha crossfade avoids two-pass holes when both skins are opaque.
+             * Iris world pass uses vanilla two-pass below; BBS blend is allowed during paint overlay redraws. */
+            Supplier<ShaderProgram> blendProgram = BBSShaders::getModel;
+
+            ModelVAORenderer.setTextureBlend(toTexture, blend);
+
+            try
+            {
+                RenderSystem.setShader(blendProgram);
+                model.render(stack, blendProgram, color, light, overlay, stencilMap, shapeKeys, this.getTextureResolver(model, fromTexture));
+            }
+            finally
+            {
+                ModelVAORenderer.clearTextureBlend();
+            }
         }
         else
         {
@@ -631,16 +1866,40 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
             Color colorFrom = color.copy();
 
             colorFrom.a *= 1F - blend;
-            model.render(stack, colorFrom, light, overlay, stencilMap, shapeKeys, fromTexture);
+            model.render(stack, program, colorFrom, light, overlay, stencilMap, shapeKeys, this.getTextureResolver(model, fromTexture));
 
             Color colorTo = color.copy();
 
             colorTo.a *= blend;
-            model.render(stack, colorTo, light, overlay, stencilMap, shapeKeys, toTexture);
+            model.render(stack, program, colorTo, light, overlay, stencilMap, shapeKeys, this.getTextureResolver(model, toTexture));
         }
     }
 
-    private Supplier<RenderPipeline> getModelShader(ModelInstance model)
+    private Function<String, Link> getTextureResolver(ModelInstance model, Link defaultTexture)
+    {
+        final Link materialFallback = model.materials.isEmpty() ? defaultTexture : model.texture;
+
+        return (material) ->
+        {
+            Link override = this.form.materialTextureOverrides.get(material);
+
+            if (override != null)
+            {
+                return override;
+            }
+
+            Link picked = this.form.materialTextures.getLink(material);
+
+            if (picked != null)
+            {
+                return picked;
+            }
+
+            return model.getMaterialTexture(material, materialFallback);
+        };
+    }
+
+    private Supplier<ShaderProgram> getModelShader(ModelInstance model)
     {
         if (this.hasAnyBoneTextureBlend(model))
         {
@@ -703,6 +1962,745 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
         }
 
         return !BBSRendering.isIrisWorldModelPass();
+    }
+
+    /**
+     * Form color tint uses the BBS tint / Iris multiply-overlay path whenever RGB is tinted or a
+     * spatial transform is active — same lighting-safe path as moving Transform numbers.
+     */
+    private boolean canApplyColorTransformMask(ModelInstance model)
+    {
+        if (model == null || !model.supportsBbsModelShaderEffects())
+        {
+            return false;
+        }
+
+        if (this.hasAnyBoneColorTransform(model))
+        {
+            return true;
+        }
+
+        Color color = this.form.color.get();
+
+        if (color == null)
+        {
+            return false;
+        }
+
+        if (color.hasActiveTransform())
+        {
+            return true;
+        }
+
+        float intensity = MathUtils.clamp(color.a, 0F, 1F);
+
+        if (intensity <= 0.001F)
+        {
+            return false;
+        }
+
+        return color.r < 0.999F || color.g < 0.999F || color.b < 0.999F;
+    }
+
+    /**
+     * Bake form color into vertex tint only when no spatial mask will be applied in-shader.
+     */
+    private boolean shouldBakeFormColor(ModelInstance model)
+    {
+        return !this.canApplyColorTransformMask(model);
+    }
+
+    /**
+     * Vertex bake for form color / Color Grade. Color Grade always runs in FormColorGrade /
+     * ColorGradeOverlay after the texture sample — baking contrast onto white tint is invisible.
+     */
+    private Color resolveBakeFormColor(ModelInstance model, boolean ui)
+    {
+        Color stored = this.form.color.get();
+
+        if (!stored.hasColorAdjustments())
+        {
+            return stored.copyBakingColorGrade();
+        }
+
+        if (model != null && model.supportsBbsModelShaderEffects())
+        {
+            return stored.copyDeferringColorGrade();
+        }
+
+        /* Non-VAO fallback: no FormColorGrade uniforms available. */
+        return stored.copyBakingColorGrade();
+    }
+
+    private boolean hasFullyTransparentDrawableBones(ModelInstance model)
+    {
+        if (model == null || model.getModel() == null)
+        {
+            return false;
+        }
+
+        for (ModelGroup group : model.getModel().getAllGroups())
+        {
+            if (!this.groupHasDrawableGeometry(model, group) || group.color == null)
+            {
+                continue;
+            }
+
+            if (group.color.a <= 0.001F)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private void hideFullyTransparentBones(ModelInstance model)
+    {
+        if (model == null || model.getModel() == null)
+        {
+            return;
+        }
+
+        for (ModelGroup group : model.getModel().getAllGroups())
+        {
+            if (!this.groupHasDrawableGeometry(model, group))
+            {
+                continue;
+            }
+
+            if (group.color != null && group.color.a <= 0.001F)
+            {
+                group.visible = false;
+            }
+        }
+    }
+
+    /**
+     * Softest <em>visible</em> pose-bone alpha (1 if none). Fully transparent bones are
+     * ignored so empty anchors do not force opacityAlpha to 0 and skip post-deferred.
+     */
+    private float getMinBoneOpacityAlpha(ModelInstance model)
+    {
+        if (model == null || model.getModel() == null)
+        {
+            return 1F;
+        }
+
+        float min = 1F;
+        boolean found = false;
+
+        for (ModelGroup group : model.getModel().getAllGroups())
+        {
+            if (!this.groupHasDrawableGeometry(model, group) || group.color == null)
+            {
+                continue;
+            }
+
+            float boneAlpha = group.color.a;
+
+            if (boneAlpha <= 0.001F)
+            {
+                continue;
+            }
+
+            found = true;
+            min = Math.min(min, boneAlpha);
+        }
+
+        return found ? min : 1F;
+    }
+
+    private boolean groupHasDrawableGeometry(ModelInstance model, ModelGroup group)
+    {
+        if (group == null)
+        {
+            return false;
+        }
+
+        if (!group.cubes.isEmpty() || !group.meshes.isEmpty())
+        {
+            return true;
+        }
+
+        return model != null && model.getVaos() != null && model.getVaos().get(group) != null;
+    }
+
+    private Map<ModelGroup, Boolean> saveGroupVisibility(ModelInstance model)
+    {
+        Map<ModelGroup, Boolean> saved = new HashMap<>();
+
+        if (model == null || model.getModel() == null)
+        {
+            return saved;
+        }
+
+        for (ModelGroup group : model.getModel().getAllGroups())
+        {
+            saved.put(group, group.visible);
+        }
+
+        return saved;
+    }
+
+    private void restoreGroupVisibility(Map<ModelGroup, Boolean> saved)
+    {
+        if (saved == null)
+        {
+            return;
+        }
+
+        for (Map.Entry<ModelGroup, Boolean> entry : saved.entrySet())
+        {
+            entry.getKey().visible = entry.getValue();
+        }
+    }
+
+    /**
+     * Toggle drawable groups for limb-only soft split. Fully transparent bones stay hidden.
+     */
+    private void applyLimbSoftVisibility(ModelInstance model, boolean showSoft, boolean showOpaque)
+    {
+        if (model == null || model.getModel() == null)
+        {
+            return;
+        }
+
+        for (ModelGroup group : model.getModel().getAllGroups())
+        {
+            if (!this.groupHasDrawableGeometry(model, group))
+            {
+                continue;
+            }
+
+            float boneAlpha = group.color == null ? 1F : group.color.a;
+
+            if (boneAlpha <= 0.001F)
+            {
+                group.visible = false;
+            }
+            else if (boneAlpha < ShaderOpacityPatch.LIVE_DEPTH_WRITE_ALPHA)
+            {
+                group.visible = showSoft;
+            }
+            else
+            {
+                group.visible = showOpaque;
+            }
+        }
+    }
+
+    /**
+     * Soft drawable bones for per-bone post-deferred sort (limb-only soft path).
+     */
+    private List<ModelGroup> collectSoftDrawableBones(ModelInstance model)
+    {
+        List<ModelGroup> soft = new ArrayList<>();
+
+        if (model == null || model.getModel() == null)
+        {
+            return soft;
+        }
+
+        for (ModelGroup group : model.getModel().getAllGroups())
+        {
+            if (!this.groupHasDrawableGeometry(model, group) || group.color == null)
+            {
+                continue;
+            }
+
+            float boneAlpha = group.color.a;
+
+            if (boneAlpha > 0.001F && boneAlpha < ShaderOpacityPatch.LIVE_DEPTH_WRITE_ALPHA)
+            {
+                soft.add(group);
+            }
+        }
+
+        return soft;
+    }
+
+    /**
+     * Deferred soft draw: only {@code only} is visible among drawable groups.
+     */
+    private void applyOnlySoftBoneVisible(ModelInstance model, ModelGroup only)
+    {
+        if (model == null || model.getModel() == null)
+        {
+            return;
+        }
+
+        for (ModelGroup group : model.getModel().getAllGroups())
+        {
+            if (!this.groupHasDrawableGeometry(model, group))
+            {
+                continue;
+            }
+
+            float boneAlpha = group.color == null ? 1F : group.color.a;
+
+            if (boneAlpha <= 0.001F)
+            {
+                group.visible = false;
+            }
+            else
+            {
+                group.visible = group == only;
+            }
+        }
+    }
+
+    /**
+     * Soft-limb queue batch: one or more soft bones sharing Iris / BBS / noshading / preview.
+     * Multi-bone batches paint with depth-write off (soft-vs-soft), then stamp depth only so
+     * Iris fog/paint still occlude (noshading off).
+     */
+    private void enqueueSoftLimbBatch(List<SoftBoneSubmit> batch, SoftLimbQueue queue, SoftLimbDrawState draw, boolean savedDepthMask)
+    {
+        if (batch == null || batch.isEmpty() || draw == null)
+        {
+            return;
+        }
+
+        boolean irisStyle = queue == SoftLimbQueue.IRIS;
+        boolean useLocalStack = queue == SoftLimbQueue.IRIS || queue == SoftLimbQueue.IMMEDIATE;
+        Matrix4f softPositionMatrix = useLocalStack ? draw.stackLocal : draw.stackBbs;
+        Supplier<ShaderProgram> softProgram = useLocalStack ? draw.irisProgram : draw.bbsProgram;
+        boolean multiSoft = batch.size() > 1;
+        boolean stampDepth = multiSoft && draw.depthWrite;
+        /* Queue entry depthWrite true when we stamp (or single-bone color writes depth). */
+        boolean entryDepthWrite = draw.depthWrite;
+        double batchDistanceSq = batch.get(0).distanceSq;
+        List<SoftBoneSubmit> batchSnapshot = new ArrayList<>(batch);
+        Runnable softDeferredDraw = () -> this.runSoftLimbBatchDraw(batchSnapshot, draw, softPositionMatrix, softProgram, irisStyle, stampDepth, !multiSoft && draw.depthWrite);
+
+        if (queue == SoftLimbQueue.IMMEDIATE)
+        {
+            RenderSystem.enableDepthTest();
+            RenderSystem.depthFunc(GL11.GL_LEQUAL);
+            RenderSystem.enableBlend();
+            RenderSystem.defaultBlendFunc();
+
+            try
+            {
+                softDeferredDraw.run();
+            }
+            finally
+            {
+                RenderSystem.depthMask(savedDepthMask);
+                RenderSystem.colorMask(true, true, true, true);
+            }
+
+            return;
+        }
+
+        if (queue == SoftLimbQueue.NOSHADING)
+        {
+            ModelVAORenderer.submitDeferredTranslucentModel(softDeferredDraw, entryDepthWrite);
+
+            return;
+        }
+
+        if (queue == SoftLimbQueue.IRIS)
+        {
+            ShaderOpacityPatch.submitPostDeferredForm(0D, batchDistanceSq, entryDepthWrite, draw.afterFluids, softDeferredDraw);
+
+            return;
+        }
+
+        ShaderOpacityPatch.submitPostDeferredBbsForm(0D, batchDistanceSq, entryDepthWrite, draw.afterFluids, softDeferredDraw);
+    }
+
+    private void runSoftLimbBatchDraw(List<SoftBoneSubmit> batch, SoftLimbDrawState draw, Matrix4f softPositionMatrix, Supplier<ShaderProgram> softProgram, boolean irisStyle, boolean stampDepth, boolean colorWritesDepth)
+    {
+        this.applyOverlayPosePipeline(draw.target, draw.model, draw.transition, draw.pose, draw.baseTransform);
+
+        Map<ModelGroup, Boolean> softVisibility = this.saveGroupVisibility(draw.model);
+
+        try
+        {
+            this.bindSoftLimbDrawState(draw);
+
+            MatrixStack softStack = new MatrixStack();
+
+            softStack.peek().getPositionMatrix().set(softPositionMatrix);
+            softStack.peek().getNormalMatrix().set(draw.normalMatrix);
+
+            RenderSystem.depthMask(colorWritesDepth);
+            this.drawSoftLimbBones(batch, draw, softStack, softProgram, softPositionMatrix);
+
+            if (stampDepth)
+            {
+                RenderSystem.colorMask(false, false, false, false);
+                RenderSystem.depthMask(true);
+                RenderSystem.disableBlend();
+                this.drawSoftLimbBones(batch, draw, softStack, softProgram, softPositionMatrix);
+                RenderSystem.enableBlend();
+                RenderSystem.defaultBlendFunc();
+                RenderSystem.colorMask(true, true, true, true);
+            }
+        }
+        finally
+        {
+            this.restoreGroupVisibility(softVisibility);
+            ModelVAORenderer.clearColorEffectTransform();
+            ModelVAORenderer.clearFormColorTint();
+            ModelVAORenderer.clearFormColorGrade();
+            ModelVAORenderer.clearPaintEffectTransform();
+            ModelVAORenderer.clearGlowEffectTransform();
+            ModelVAORenderer.clearPaint();
+            ModelVAORenderer.clearGlowing();
+            RenderSystem.colorMask(true, true, true, true);
+        }
+    }
+
+    private void bindSoftLimbDrawState(SoftLimbDrawState draw)
+    {
+        if (draw.colorTransformActive)
+        {
+            ModelVAORenderer.setColorEffectTransform(new Matrix4f().identity(), draw.colorEffectTransform, draw.colorMaskHalf);
+            ModelVAORenderer.setFormColorTint(draw.formColor.r, draw.formColor.g, draw.formColor.b, draw.formColor.a);
+        }
+
+        if (draw.gradeActive)
+        {
+            ModelVAORenderer.setFormColorGrade(draw.gradeBrightness, draw.gradeContrast, draw.gradeHue, draw.gradeSaturation);
+            ModelVAORenderer.setGradeEffectTransforms(draw.gradeBrightnessTransform, draw.gradeContrastTransform, draw.gradeHueTransform, draw.gradeSaturationTransform);
+        }
+
+        if (draw.paintInMesh)
+        {
+            ModelVAORenderer.setPaintEffectTransform(new Matrix4f().identity(), draw.paintTransform, draw.paintMaskHalf);
+            ModelVAORenderer.setPaint(draw.paint.r, draw.paint.g, draw.paint.b, draw.paintStrength);
+        }
+        else
+        {
+            ModelVAORenderer.setPaint(0F, 0F, 0F, 0F);
+        }
+
+        if (draw.hasGlow)
+        {
+            ModelVAORenderer.setGlowEffectTransform(new Matrix4f().identity(), draw.glowTransform, draw.glowMaskHalf);
+            ModelVAORenderer.setGlow(draw.stripGlow ? draw.mainPassGlow : draw.glow, draw.glowColor.r, draw.glowColor.g, draw.glowColor.b, draw.legacyGlow);
+        }
+        else
+        {
+            ModelVAORenderer.clearGlowing();
+        }
+
+        if (draw.defaultTexture != null)
+        {
+            BBSModClient.getTextures().bindTexture(draw.defaultTexture);
+        }
+    }
+
+    private void drawSoftLimbBones(List<SoftBoneSubmit> batch, SoftLimbDrawState draw, MatrixStack softStack, Supplier<ShaderProgram> softProgram, Matrix4f softPositionMatrix)
+    {
+        for (SoftBoneSubmit softSubmit : batch)
+        {
+            this.applyOnlySoftBoneVisible(draw.model, softSubmit.group);
+
+            this.renderSoftTransparencyGeometry(softStack, softProgram, draw.model, draw.light, draw.overlay, draw.color, draw.defaultTexture, draw.textureBlend, draw.glow, draw.glowColor, draw.legacyGlow, draw.paint, draw.glowDeferred, softPositionMatrix);
+        }
+    }
+
+    /**
+     * Soft form / soft limb geometry only (call sites are soft-opacity paths).
+     * With Iris: {@link BBSSettings#softTransparencyBackfaces} (default ON = backfaces).
+     * Without shaders: {@code model.culling} (false = show backfaces).
+     */
+    private static boolean showSoftTransparencyBackfaces(ModelInstance model)
+    {
+        if (BBSRendering.isIrisShadersEnabled())
+        {
+            return BBSSettings.softTransparencyBackfaces == null || BBSSettings.softTransparencyBackfaces.get();
+        }
+
+        return model != null && !model.culling;
+    }
+
+    private void renderSoftTransparencyGeometry(MatrixStack stack, Supplier<ShaderProgram> program, ModelInstance model, int light, int overlay, Color color, Link defaultTexture, TextureBlend textureBlend, GlowSettings glow, Color glowColor, Color legacyGlow, Color paint, boolean glowDeferredToOverlay, Matrix4f positionMatrix)
+    {
+        if (showSoftTransparencyBackfaces(model))
+        {
+            this.renderSoftLimbGeometryTwoSided(stack, program, model, light, overlay, color, defaultTexture, textureBlend, glow, glowColor, legacyGlow, paint, glowDeferredToOverlay, positionMatrix);
+
+            return;
+        }
+
+        boolean cullWasEnabled = GL11.glIsEnabled(GL11.GL_CULL_FACE);
+        int savedCullFace = GL11.glGetInteger(GL11.GL_CULL_FACE_MODE);
+        int savedFrontFace = GL11.glGetInteger(GL11.GL_FRONT_FACE);
+        Matrix4f facingMatrix = new Matrix4f(RenderSystem.getModelViewMatrix());
+
+        if (positionMatrix != null)
+        {
+            facingMatrix.mul(positionMatrix);
+        }
+
+        boolean flipWinding = facingMatrix.determinant() < 0F;
+
+        RenderSystem.enableCull();
+        GL11.glFrontFace(flipWinding ? GL11.GL_CW : GL11.GL_CCW);
+        GL11.glCullFace(GL11.GL_BACK);
+
+        try
+        {
+            this.renderModelGeometryWithEmission(stack, program, model, light, overlay, null, color, defaultTexture, textureBlend, glow, glowColor, legacyGlow, paint, glowDeferredToOverlay);
+        }
+        finally
+        {
+            GL11.glCullFace(savedCullFace);
+            GL11.glFrontFace(savedFrontFace);
+
+            if (cullWasEnabled)
+            {
+                RenderSystem.enableCull();
+            }
+            else
+            {
+                RenderSystem.disableCull();
+            }
+        }
+    }
+
+    /**
+     * Camera-relative length-squared for model-block / preview soft-bone sorting
+     * (larger = farther). Uses bone mesh matrix × the draw root matrix.
+     */
+    private double softBoneDistanceSq(String boneId, Matrix4f rootMatrix, double fallbackDistanceSq)
+    {
+        Vector3f translation = this.softBoneTranslation(boneId, rootMatrix);
+
+        if (translation == null)
+        {
+            return fallbackDistanceSq;
+        }
+
+        return translation.lengthSquared();
+    }
+
+    /**
+     * Film ENTITY soft-bone sort key (larger = farther along the camera look axis).
+     * Bone sits in absolute {@code renderContext.world} space; depth is
+     * {@code (bone − camera) · look}. Falls back to Euclidean distance² if look is missing.
+     * Avoids view ±z sign flips from model Y180 / relative draw stacks.
+     */
+    private double softBoneWorldDepthKey(String boneId, Matrix4f worldRoot, double cameraX, double cameraY, double cameraZ, Vector3f cameraLook, double fallbackDistanceSq)
+    {
+        Vector3f translation = this.softBoneTranslation(boneId, worldRoot);
+
+        if (translation == null)
+        {
+            return fallbackDistanceSq;
+        }
+
+        double dx = translation.x - cameraX;
+        double dy = translation.y - cameraY;
+        double dz = translation.z - cameraZ;
+
+        if (cameraLook != null && cameraLook.lengthSquared() > 1.0E-8F)
+        {
+            return dx * cameraLook.x + dy * cameraLook.y + dz * cameraLook.z;
+        }
+
+        return dx * dx + dy * dy + dz * dz;
+    }
+
+    /**
+     * Bone position after {@code root ×} mesh matrix (preferred) or joint origin.
+     */
+    private Vector3f softBoneTranslation(String boneId, Matrix4f rootMatrix)
+    {
+        if (boneId == null || rootMatrix == null)
+        {
+            return null;
+        }
+
+        MatrixCacheEntry entry = this.bones.get(boneId);
+
+        if (entry == null)
+        {
+            return null;
+        }
+
+        /* Mesh matrix tracks drawn limb centers better than joint origins for adjacent cubes. */
+        Matrix4f boneLocal = entry.matrix() != null ? entry.matrix() : entry.origin();
+
+        if (boneLocal == null)
+        {
+            return null;
+        }
+
+        Matrix4f combined = new Matrix4f(rootMatrix).mul(boneLocal);
+        Vector3f translation = new Vector3f();
+
+        combined.getTranslation(translation);
+
+        return translation;
+    }
+
+    private static final class SoftBoneSubmit
+    {
+        private final ModelGroup group;
+        private final double distanceSq;
+        private final boolean noshadingQueue;
+        private final boolean irisCamera;
+
+        private SoftBoneSubmit(ModelGroup group, double distanceSq, boolean noshadingQueue, boolean irisCamera)
+        {
+            this.group = group;
+            this.distanceSq = distanceSq;
+            this.noshadingQueue = noshadingQueue;
+            this.irisCamera = irisCamera;
+        }
+    }
+
+    private enum SoftLimbQueue
+    {
+        IMMEDIATE,
+        NOSHADING,
+        IRIS,
+        BBS
+    }
+
+    private static final class SoftLimbDrawState
+    {
+        private IEntity target;
+        private ModelInstance model;
+        private float transition;
+        private Pose pose;
+        private Matrix4f baseTransform;
+        private Matrix4f stackLocal;
+        private Matrix4f stackBbs;
+        private Matrix3f normalMatrix;
+        private Supplier<ShaderProgram> irisProgram;
+        private Supplier<ShaderProgram> bbsProgram;
+        private Color color;
+        private Link defaultTexture;
+        private TextureBlend textureBlend;
+        private GlowSettings glow;
+        private Color glowColor;
+        private Color legacyGlow;
+        private Color paint;
+        private boolean glowDeferred;
+        private int light;
+        private int overlay;
+        private boolean colorTransformActive;
+        private EffectTransform colorEffectTransform;
+        private Vector3f colorMaskHalf;
+        private Color formColor;
+        private boolean gradeActive;
+        private float gradeBrightness;
+        private float gradeContrast;
+        private float gradeHue;
+        private float gradeSaturation;
+        private EffectTransform gradeBrightnessTransform;
+        private EffectTransform gradeContrastTransform;
+        private EffectTransform gradeHueTransform;
+        private EffectTransform gradeSaturationTransform;
+        private boolean paintInMesh;
+        private EffectTransform paintTransform;
+        private Vector3f paintMaskHalf;
+        private float paintStrength;
+        private boolean hasGlow;
+        private boolean stripGlow;
+        private GlowSettings mainPassGlow;
+        private EffectTransform glowTransform;
+        private Vector3f glowMaskHalf;
+        private boolean depthWrite;
+        private boolean afterFluids;
+    }
+
+    private boolean hasAnyBoneNoshadingOpacity(ModelInstance model)
+    {
+        if (model == null || model.getModel() == null)
+        {
+            return false;
+        }
+
+        for (ModelGroup group : model.getModel().getAllGroups())
+        {
+            if (group.noshadingOpacity)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Whether any pose bone currently has Color Grade adjustments (brightness / contrast /
+     * hue / saturation), so the FormColorGrade shader path can run even when the form-level
+     * Color Grade is neutral.
+     */
+    private boolean hasAnyBoneColorGrade(ModelInstance model)
+    {
+        if (model == null || model.getModel() == null)
+        {
+            return false;
+        }
+
+        for (ModelGroup group : model.getModel().getAllGroups())
+        {
+            if (group.color != null && group.color.hasColorAdjustments())
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Whether any pose bone has an active color spatial mask (shape / offset / scale / rotate).
+     */
+    private boolean hasAnyBoneColorTransform(ModelInstance model)
+    {
+        if (model == null || model.getModel() == null)
+        {
+            return false;
+        }
+
+        for (ModelGroup group : model.getModel().getAllGroups())
+        {
+            if (group.color != null && group.color.hasActiveTransform())
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Form glow spatial mask: prefer {@link GlowSettings#transform}, fall back to legacy
+     * {@code glowingColor.transform} (older UI / pose dual-write).
+     */
+    private EffectTransform resolveGlowEffectTransform(GlowSettings glow, Color legacyGlow)
+    {
+        if (glow != null && glow.transform != null && glow.transform.isActive())
+        {
+            return glow.transform;
+        }
+
+        if (legacyGlow != null && legacyGlow.hasActiveTransform())
+        {
+            return legacyGlow.transform;
+        }
+
+        if (glow != null && glow.transform != null)
+        {
+            return glow.transform;
+        }
+
+        if (legacyGlow != null && legacyGlow.transform != null)
+        {
+            return legacyGlow.transform;
+        }
+
+        return new EffectTransform();
     }
 
     /**
@@ -902,48 +2900,22 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
                 this.clearPBRTextureIntensity();
             }
 
-            /* The old Supplier<ShaderProgram> mainShader/getShader(...) plumbing only ever mattered for its
-             * setupTarget(...) side effect while picking (recording the picking index for BBSPickerRenderer);
-             * ModelInstance#render/BOBJModelVAO#render now pick their own RenderLayer/RenderPipeline internally
-             * based on whether a StencilMap is present, so there is no "shader" left to select here. */
-            if (context.isPicking())
+            Supplier<ShaderProgram> mainShader = this.getModelShader(model);
+            Supplier<ShaderProgram> shader = this.getShader(context, mainShader, BBSShaders::getPickerModelsProgram);
+
+            FormColorEffects.applyShadowPassColorFix(color, this.form.color.get(), this.form.paintSettings.get(), this.form.paintColor.get(), context.isShadowPass || BBSRendering.isIrisShadowPass(), this.hasAnyPaint(model));
+
+            /* Opacity 0: capture bones for body parts, skip albedo so shader path leaves no halo.
+             * Form alpha only — a single transparent limb must not skip the whole model. */
+            if (color.a <= 0.001F && !context.isShadowPass && !BBSRendering.isIrisShadowPass() && context.stencilMap == null)
             {
-                this.setupTarget(context, null);
+                this.captureMatrices(model);
+
+                return;
             }
 
-            this.renderModel(context.entity, context.stack, model, context.light, context.overlay, color, false, context.stencilMap, context.getTransition(), context.renderEquipment);
+            this.renderModel(context.entity, shader, context.stack, model, context.light, context.overlay, color, false, context.stencilMap, context.getTransition(), context.renderEquipment, context.world, context);
         }
-    }
-
-    private void renderParentMesh(FormRenderingContext context)
-    {
-        ModelInstance model = this.getModel();
-
-        if (this.animator == null || model == null)
-        {
-            return;
-        }
-
-        Link link = this.form.texture.get();
-        Link texture = link == null ? model.texture : link;
-
-        if (context.textureOverride != null)
-        {
-            texture = context.textureOverride;
-        }
-
-        Color color = new Color().set(context.color, true);
-
-        color.mul(this.form.color.get());
-
-        if (texture != null)
-        {
-            this.applyPBRTextureIntensity();
-            BBSModClient.getTextures().bindTexture(texture);
-            this.clearPBRTextureIntensity();
-        }
-
-        this.renderModel(context.entity, context.stack, model, context.light, context.overlay, color, false, context.stencilMap, context.getTransition(), context.renderEquipment);
     }
 
     @Override
@@ -983,7 +2955,7 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
 
         if (context.renderDepthFrame != null)
         {
-            this.renderDepthSortedBodyParts(context, parts);
+            this.renderBodyPartLayers(context, parts);
         }
         else
         {
@@ -995,37 +2967,6 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
         if (context.world != null)
         {
             context.world.pop();
-        }
-    }
-
-    private void renderDepthSortedBodyParts(FormRenderingContext context, List<BodyPart> parts)
-    {
-        Form sourceRoot = context.renderDepthFrame.sourceRootForm;
-        List<DepthLayer> layers = new ArrayList<>();
-        Double parentDepth = FormRenderDepth.getEnabledDepth(this.form, FormRenderDepth.getSourceForm(sourceRoot, this.form));
-
-        layers.add(new DepthLayer(parentDepth == null ? 0D : parentDepth, null));
-
-        for (BodyPart part : parts)
-        {
-            Form child = part.getForm();
-            Double depth = child == null ? 0D : FormRenderDepth.getEnabledDepth(child, FormRenderDepth.getSourceForm(sourceRoot, child));
-
-            layers.add(new DepthLayer(depth == null ? 0D : depth, part));
-        }
-
-        layers.sort(Comparator.comparingDouble(layer -> layer.depth));
-
-        for (DepthLayer layer : layers)
-        {
-            if (layer.part == null)
-            {
-                this.renderParentMesh(context);
-            }
-            else
-            {
-                this.renderBodyPartLayer(context, layer.part);
-            }
         }
     }
 
@@ -1070,18 +3011,6 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
         if (context.world != null)
         {
             context.world.pop();
-        }
-    }
-
-    private static final class DepthLayer
-    {
-        private final double depth;
-        private final BodyPart part;
-
-        private DepthLayer(double depth, BodyPart part)
-        {
-            this.depth = depth;
-            this.part = part;
         }
     }
 

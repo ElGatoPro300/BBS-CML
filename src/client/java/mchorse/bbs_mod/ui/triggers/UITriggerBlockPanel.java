@@ -614,22 +614,12 @@ public class UITriggerBlockPanel extends UIDashboardPanel implements IFlightSupp
                 int midY = resizer.area.y + resizer.area.h / 2;
                 int color = active ? activeColor : idleColor;
                 c.batcher.box(resizer.area.x, midY - 1, resizer.area.ex(), midY + 1, color);
-
-                if (active)
-                {
-                    c.requestCursor(GLFW.GLFW_VRESIZE_CURSOR);
-                }
             }
             else
             {
                 int midX = resizer.area.x + resizer.area.w / 2;
                 int color = active ? activeColor : idleColor;
                 c.batcher.box(midX - 1, resizer.area.y, midX + 1, resizer.area.ey(), color);
-
-                if (active)
-                {
-                    c.requestCursor(GLFW.GLFW_HRESIZE_CURSOR);
-                }
             }
         }
         else
@@ -640,11 +630,6 @@ public class UITriggerBlockPanel extends UIDashboardPanel implements IFlightSupp
             c.batcher.box(rx + 2, ry + 5, rx + 6, ry + 6, color);
             c.batcher.box(rx + 4, ry + 3, rx + 6, ry + 4, color);
             c.batcher.box(rx + 5, ry + 1, rx + 6, ry + 2, color);
-
-            if (active)
-            {
-                c.requestCursor(GLFW.GLFW_HRESIZE_CURSOR);
-            }
         }
     }
 

@@ -223,7 +223,9 @@ public class UIPickableFormRenderer extends UIFormRenderer implements GizmoSurfa
             this.stencil.unbind(this.stencilMap);
             this.gizmoController.updateHover();
 
-            MinecraftClient.getInstance().getFramebuffer();
+            this.endStencilViewport();
+
+            MinecraftClient.getInstance().getFramebuffer().beginWrite(true);
 
             GlStateManager._enableScissorTest();
         }

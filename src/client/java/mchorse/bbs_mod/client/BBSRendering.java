@@ -83,6 +83,7 @@ import org.lwjgl.opengl.GL13;
 import org.lwjgl.opengl.GL30;
 
 import java.io.File;
+import java.lang.reflect.Method;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
@@ -102,6 +103,11 @@ public class BBSRendering
     public static boolean renderingWorld;
     private static boolean irisChunkLayerPass;
     public static int lastAction;
+
+    /* Optional IRLights / IRL-editor shadow baker (no hard dependency). */
+    private static final String IRL_SHADOW_BAKE_STATE = "org.qualet.irl.light.shadow.ShadowBakeState";
+    private static Boolean irlShadowBakePresent;
+    private static Method irlShadowBakeIsBaking;
 
     public static final Matrix4f camera = new Matrix4f();
 
@@ -853,14 +859,69 @@ public class BBSRendering
         IrisUtils.toggleShaders();
     }
 
+    public static void openShaderPackScreen()
+    {
+        if (!iris)
+        {
+            return;
+        }
+
+        IrisUtils.openShaderPackScreen();
+    }
+
+    /**
+     * True while any depth/shadow bake is drawing casters with light-space matrices.
+     * Includes Iris's shadow pass and optional IRLights ({@code ShadowBakeState}) so
+     * color/paint/grade overlays are not queued with light projections and flushed onto
+     * the film color buffer (side-of-screen tint masks when a light touches an actor).
+     */
     public static boolean isIrisShadowPass()
     {
+        if (isIrlShadowBakePass())
+        {
+            return true;
+        }
+
         if (!iris)
         {
             return false;
         }
 
         return IrisUtils.isShadowPass();
+    }
+
+    /**
+     * IRLights / IRL-editor bake forms into per-light depth maps outside Iris's
+     * {@code isRenderingShadowPass()}. Detected via reflection so BBS stays optional.
+     */
+    public static boolean isIrlShadowBakePass()
+    {
+        if (irlShadowBakePresent == Boolean.FALSE)
+        {
+            return false;
+        }
+
+        try
+        {
+            if (irlShadowBakePresent == null)
+            {
+                Class<?> bakeState = Class.forName(IRL_SHADOW_BAKE_STATE);
+
+                irlShadowBakeIsBaking = bakeState.getMethod("isBaking");
+                irlShadowBakePresent = Boolean.TRUE;
+            }
+
+            Object baking = irlShadowBakeIsBaking.invoke(null);
+
+            return baking instanceof Boolean && (Boolean) baking;
+        }
+        catch (Throwable t)
+        {
+            irlShadowBakePresent = Boolean.FALSE;
+            irlShadowBakeIsBaking = null;
+
+            return false;
+        }
     }
 
     public static void trackTexture(Texture texture)

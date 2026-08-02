@@ -3,7 +3,7 @@ package mchorse.bbs_mod.particles.components.appearance;
 import mchorse.bbs_mod.data.types.BaseType;
 import mchorse.bbs_mod.data.types.ListType;
 import mchorse.bbs_mod.data.types.MapType;
-import mchorse.bbs_mod.forms.renderers.utils.FormColorBlend;
+import mchorse.bbs_mod.forms.renderers.utils.FormColorEffects;
 import mchorse.bbs_mod.math.molang.MolangException;
 import mchorse.bbs_mod.math.molang.MolangParser;
 import mchorse.bbs_mod.math.molang.expressions.MolangExpression;
@@ -598,7 +598,16 @@ public class ParticleComponentAppearanceBillboard extends ParticleComponentBase 
     {
         Color color = new Color(particle.r, particle.g, particle.b, particle.a);
 
-        /* TODO 1.21.11: ParticleEmitter glowSettings/legacyGlow fields removed - glow disabled */
+        if (emitter != null && emitter.glowSettings != null)
+        {
+            Color legacyGlow = emitter.legacyGlow == null ? new Color(1F, 1F, 1F, 1F) : emitter.legacyGlow;
+            float glowIntensity = emitter.glowSettings.resolveIntensity(legacyGlow);
+
+            if (glowIntensity < 0F)
+            {
+                FormColorEffects.blendFormGlowBrighten(color, emitter.glowSettings, legacyGlow);
+            }
+        }
 
         return color;
     }

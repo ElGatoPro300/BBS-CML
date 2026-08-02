@@ -1518,6 +1518,11 @@ public class UIModelPanel extends UIDataDashboardPanel<ModelConfig> implements I
             }
         }
 
+        if (this.renderer != null)
+        {
+            this.renderer.invalidatePreviewModel();
+        }
+
         LOGGER.debug("Model Editor forceSave completed: model={}", this.data.getId());
         this.setSaveDirty(false);
     }

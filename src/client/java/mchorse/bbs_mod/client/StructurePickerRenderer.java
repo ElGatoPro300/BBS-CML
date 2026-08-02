@@ -23,8 +23,6 @@ public class StructurePickerRenderer
 {
     public static void render(WorldRenderContext context)
     {
-        StructurePickerRenderer.renderModelBlockFlash(context);
-
         if (!StructurePickerClient.isActive() && !UIStructurePickerPanel.isOpened())
         {
             return;
@@ -85,43 +83,6 @@ public class StructurePickerRenderer
             }
         }
 
-        stack.pop();
-
-        GlStateManager._depthMask(true);
-        GlStateManager._enableDepthTest();
-        GlStateManager._disableBlend();
-    }
-
-    private static void renderModelBlockFlash(WorldRenderContext context)
-    {
-        BlockPos pos = StructurePickerClient.getModelBlockFlashPos();
-
-        if (pos == null || context.matrices() == null)
-        {
-            return;
-        }
-
-        float alpha = StructurePickerClient.getModelBlockFlashAlpha();
-
-        if (alpha <= 0.01F)
-        {
-            return;
-        }
-
-        MinecraftClient mc = MinecraftClient.getInstance();
-        Vec3d camera = mc.gameRenderer.getCamera().getCameraPos();
-
-        GlStateManager._enableBlend();
-        GlStateManager._blendFuncSeparate(770, 771, 1, 0);
-        GlStateManager._disableDepthTest();
-        GlStateManager._depthMask(false);
-
-        MatrixStack stack = context.matrices();
-
-        stack.push();
-        stack.translate(-camera.x, -camera.y, -camera.z);
-        /* Same cyan as F3 model-block outline (see ModelBlockEntityRenderer) */
-        Draw.renderBox(stack, pos.getX(), pos.getY(), pos.getZ(), 1D, 1D, 1D, 0F, 0.5F, 1F, alpha);
         stack.pop();
 
         GlStateManager._depthMask(true);

@@ -33,8 +33,7 @@ public class UIWorldDropdownMenu extends UIContextMenu
     private static final long THROTTLE_MS = 10L;
     private static final long ANIM_DURATION_NS = 220_000_000L;
     private static final int MENU_WIDTH = 270;
-    /* 4 slim headers (16) + 3 gaps (6) + padding (8*2) — no leftover empty band. */
-    private static final int MIN_HEIGHT = 98;
+    private static final int MIN_HEIGHT = 114;
     private static final int TIME_COLOR = 0x3aa0ff;
     private static final int WEATHER_COLOR = 0x2f8f72;
     private static final int MOBS_COLOR = 0xe07a3a;
@@ -389,8 +388,8 @@ public class UIWorldDropdownMenu extends UIContextMenu
     private void syncAnimatedHeight()
     {
         float progress = this.getAnimProgress();
-        int natural = this.scroll.scroll.scrollSize > 0 ? this.scroll.scroll.scrollSize : MIN_HEIGHT;
-        int target = Math.min(Math.max(1, natural), this.maxHeight);
+        int natural = Math.max(MIN_HEIGHT, this.scroll.scroll.scrollSize);
+        int target = Math.min(natural, this.maxHeight);
         int animated = Math.max(1, Math.round(target * progress));
 
         /* Hide scrollbar while open/close tween — scrollSize is full height while the

@@ -7,6 +7,7 @@ import java.util.Objects;
 public class Link
 {
     public static final String ASSETS = "assets";
+    public static final String COLOR = "color";
     public static final String SOURCE_SEPARATOR = ":";
 
     public final String source;

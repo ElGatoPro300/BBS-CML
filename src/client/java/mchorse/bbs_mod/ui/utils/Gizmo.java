@@ -740,7 +740,53 @@ public class Gizmo
             this.lastCamDir.set((float) (camPos.x / dist), (float) (camPos.y / dist), (float) (camPos.z / dist));
         }
 
-        return (float) (1.4F * Math.max(0.5D, dist * 0.12D) * axesScale * this.viewportZoomScale);
+        boolean constantSize = BBSSettings.gizmoConstantSize == null || BBSSettings.gizmoConstantSize.get();
+
+        if (!constantSize)
+        {
+            /* Fixed world size: appears smaller on screen when the camera moves away. */
+            return 1.4F * 0.5F * axesScale;
+        }
+
+        float minFloor = BBSSettings.gizmoConstantSizeMin == null ? 0.5F : BBSSettings.gizmoConstantSizeMin.get();
+        double distanceFactor = dist * 0.12D;
+
+        if (minFloor <= 0F)
+        {
+            return (float) (1.4F * distanceFactor * axesScale);
+        }
+
+        return (float) (1.4F * Math.max(minFloor, distanceFactor) * axesScale);
+    }
+
+    /**
+     * Extra line/hitbox fattening that grows smoothly with camera distance so thin rings
+     * stay easy to see and click when zoomed out (visual and stencil use the same boost).
+     */
+    private float distanceThicknessBoost(float dist)
+    {
+        float t = MathUtils.clamp((dist - 3F) / 28F, 0F, 1F);
+
+        /* Close: 1× — far: up to ~2.4× thickness on both preview and hitbox. */
+        return 1F + t * 1.4F;
+    }
+
+    private float resolveThickness(boolean stencil)
+    {
+        float thickness = BBSSettings.axesThickness == null ? 1F : BBSSettings.axesThickness.get();
+        boolean constantSize = BBSSettings.gizmoConstantSize == null || BBSSettings.gizmoConstantSize.get();
+
+        if (!constantSize)
+        {
+            thickness *= this.distanceThicknessBoost(this.lastScaleDist);
+        }
+
+        if (stencil)
+        {
+            thickness *= BBSSettings.gizmoHitbox == null ? 1F : BBSSettings.gizmoHitbox.get();
+        }
+
+        return thickness;
     }
 
     private void updateFlipSigns(float camX, float camY, float camZ)

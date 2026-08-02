@@ -8,6 +8,13 @@ import mchorse.bbs_mod.client.BBSRendering;
 import mchorse.bbs_mod.forms.ITickable;
 import mchorse.bbs_mod.forms.entities.IEntity;
 import mchorse.bbs_mod.forms.forms.TrailForm;
+import mchorse.bbs_mod.forms.forms.utils.EffectTransform;
+import mchorse.bbs_mod.forms.forms.utils.EffectTransformMath;
+import mchorse.bbs_mod.forms.forms.utils.GlowSettings;
+import mchorse.bbs_mod.forms.forms.utils.PaintSettings;
+import mchorse.bbs_mod.forms.renderers.utils.FlatGlowOverlayPass;
+import mchorse.bbs_mod.forms.renderers.utils.FlatPaintOverlayPass;
+import mchorse.bbs_mod.forms.renderers.utils.FormColorEffects;
 import mchorse.bbs_mod.forms.renderers.utils.FormTextureBlendRenderer;
 import mchorse.bbs_mod.graphics.Draw;
 import mchorse.bbs_mod.graphics.texture.Texture;
@@ -242,11 +249,187 @@ public class TrailFormRenderer extends FormRenderer<TrailForm> implements ITicka
 
         Link defaultTexture = this.form.texture.get();
 
-        try
+        /* When color Transform is active, mask tint in form-local space per vertex. */
+        blendedTint.mul(storedFormColor.copyBakingColorGrade());
+        FormColorEffects.applyShadowPassColorFix(blendedTint, storedFormColor, this.form.paintSettings.get(), this.form.paintColor.get(), context.isShadowPass || BBSRendering.isIrisShadowPass());
+        FormColorEffects.applyShadowPassColorFix(unblendedTint, storedFormColor, this.form.paintSettings.get(), this.form.paintColor.get(), context.isShadowPass || BBSRendering.isIrisShadowPass());
+
+        if (blendedTint.a <= 0.001F && !context.isShadowPass && !BBSRendering.isIrisShadowPass())
         {
-            Tessellator tessellator = Tessellator.getInstance();
+            return;
+        }
+
+        this.formRootInverse.set(stack.peek().getPositionMatrix()).invert();
+
+        FormTextureBlendRenderer.draw(this.form.textureBlend, defaultTexture, (link, alphaFactor) ->
+        {
+            this.renderTrailPass(stack, trails, loop, length, current, baseX, baseY, baseZ, link, unblendedTint, blendedTint, alphaFactor);
+        });
+    }
+
+    private void renderTrailPass(MatrixStack stack, ArrayDeque<Trail> trails, boolean loop, float length, float current, double baseX, double baseY, double baseZ, Link textureLink, Color unblendedTint, Color blendedTint, float alphaFactor)
+    {
+        if (textureLink == null)
+        {
+            return;
+        }
+
+        BBSModClient.getTextures().bindTexture(textureLink);
+        stack.push();
+
+        PaintSettings paintSettings = this.form.paintSettings.get();
+        Color legacyPaint = this.form.paintColor.get();
+        float paintStrength = paintSettings.resolveIntensity(legacyPaint);
+        boolean positivePaint = FormColorEffects.hasPositivePaint(paintSettings, legacyPaint);
+        Color resolvedPaint = positivePaint ? FormColorEffects.resolvePaintColor(paintSettings, legacyPaint) : null;
+        EffectTransform colorTransform = this.form.color.get().transform;
+        EffectTransform paintTransform = paintSettings.transform;
+
+        GlowSettings glowSettings = this.form.glowSettings.get();
+        Color legacyGlow = this.form.glowingColor.get();
+        float glowIntensity = glowSettings.resolveIntensity(legacyGlow);
+
+        Color unblended = unblendedTint.copy();
+        Color blended = blendedTint.copy();
+
+        unblended.a *= alphaFactor;
+        blended.a *= alphaFactor;
+
+        if (paintStrength < 0F)
+        {
+            FormColorEffects.applyPaintBlend(unblended, paintSettings, legacyPaint);
+            FormColorEffects.applyPaintBlend(blended, paintSettings, legacyPaint);
+        }
+
+        if (glowIntensity < 0F)
+        {
+            FormColorEffects.blendFormGlowBrighten(unblended, glowSettings, legacyGlow);
+            FormColorEffects.blendFormGlowBrighten(blended, glowSettings, legacyGlow);
+        }
+
+        Tessellator tessellator = Tessellator.getInstance();
         BufferBuilder builder = tessellator.begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_TEXTURE_COLOR);
         Matrix4f identityMatrix = new Matrix4f();
+
+        this.buildTrailQuads(builder, identityMatrix, trails, loop, length, current, baseX, baseY, baseZ, unblended, blended, colorTransform);
+
+        RenderSystem.setShader(GameRenderer::getPositionTexColorProgram);
+        RenderSystem.enableBlend();
+        RenderSystem.defaultBlendFunc();
+        BufferRenderer.drawWithGlobalProgram(builder.end());
+
+        if (positivePaint)
+        {
+            this.submitDeferredTrailPaintOverlay(trails, loop, length, current, baseX, baseY, baseZ, textureLink, resolvedPaint, blended.a, paintTransform);
+        }
+
+        if (glowIntensity > 0F)
+        {
+            this.renderGlowOverlay(tessellator, identityMatrix, trails, loop, length, current, baseX, baseY, baseZ, glowSettings, legacyGlow, blended.a, glowIntensity, this.resolveGlowEffectTransform(glowSettings, legacyGlow));
+        }
+
+        RenderSystem.enableDepthTest();
+        stack.pop();
+    }
+
+    private void submitDeferredTrailPaintOverlay(ArrayDeque<Trail> trails, boolean loop, float length, float current, double baseX, double baseY, double baseZ, Link textureLink, Color resolvedPaint, float alpha, EffectTransform paintTransform)
+    {
+        ArrayDeque<Trail> trailSnapshot = this.copyTrails(trails);
+        Color paintOverlay = new Color(resolvedPaint.r, resolvedPaint.g, resolvedPaint.b, resolvedPaint.a);
+        Matrix4f paintMatrix = new Matrix4f(RenderSystem.getModelViewMatrix());
+        EffectTransform paintTransformSnapshot = paintTransform == null ? null : paintTransform.copy();
+        Matrix4f formRootInverseSnapshot = new Matrix4f(this.formRootInverse);
+
+        paintOverlay.a *= alpha;
+
+        ModelVAORenderer.submitPaintOverlay(false, () ->
+        {
+            this.formRootInverse.set(formRootInverseSnapshot);
+            BBSModClient.getTextures().bindTexture(textureLink);
+            this.renderPaintOverlayPass(trailSnapshot, loop, length, current, baseX, baseY, baseZ, paintOverlay, paintMatrix, paintTransformSnapshot);
+        });
+    }
+
+    private ArrayDeque<Trail> copyTrails(ArrayDeque<Trail> trails)
+    {
+        ArrayDeque<Trail> copy = new ArrayDeque<>();
+
+        for (Trail trail : trails)
+        {
+            Trail snapshot = new Trail();
+
+            snapshot.tick = trail.tick;
+            snapshot.stop = trail.stop;
+            snapshot.top = new Vector3d(trail.top);
+            snapshot.bottom = new Vector3d(trail.bottom);
+            copy.addLast(snapshot);
+        }
+
+        return copy;
+    }
+
+    private void renderPaintOverlayPass(ArrayDeque<Trail> trails, boolean loop, float length, float current, double baseX, double baseY, double baseZ, Color paintOverlay, Matrix4f vertexMatrix, EffectTransform paintTransform)
+    {
+        Tessellator tessellator = Tessellator.getInstance();
+
+        FlatPaintOverlayPass.render(() ->
+        {
+            BufferBuilder paintBuilder = tessellator.begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL);
+            int paintLight = LightmapTextureManager.MAX_LIGHT_COORDINATE;
+            int overlay = OverlayTexture.DEFAULT_UV;
+
+            this.buildTrailPaintQuads(paintBuilder, vertexMatrix, trails, loop, length, current, baseX, baseY, baseZ, paintOverlay, overlay, paintLight, paintTransform);
+            BufferRenderer.drawWithGlobalProgram(paintBuilder.end());
+        });
+    }
+
+    private void renderGlowOverlay(Tessellator tessellator, Matrix4f matrix, ArrayDeque<Trail> trails, boolean loop, float length, float current, double baseX, double baseY, double baseZ, GlowSettings glowSettings, Color legacyGlow, float alpha, float glowIntensity, EffectTransform glowTransform)
+    {
+        FlatGlowOverlayPass.render(glowSettings, legacyGlow, alpha, glowIntensity, (glowColor) ->
+        {
+            /* Outside the mask: fully transparent; inside: full glow. Same soft volume as Color/Paint. */
+            Color glowOutside = glowColor.copy();
+
+            glowOutside.a = 0F;
+
+            BufferBuilder glowBuilder = tessellator.begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_TEXTURE_COLOR);
+
+            RenderSystem.setShader(GameRenderer::getPositionTexColorProgram);
+            this.buildTrailQuads(glowBuilder, matrix, trails, loop, length, current, baseX, baseY, baseZ, glowOutside, glowColor, glowTransform);
+            BufferRenderer.drawWithGlobalProgram(glowBuilder.end());
+        });
+    }
+
+    /**
+     * Prefer {@link GlowSettings#transform}; fall back to legacy {@code glowingColor.transform}.
+     */
+    private EffectTransform resolveGlowEffectTransform(GlowSettings glow, Color legacyGlow)
+    {
+        if (glow != null && glow.transform != null && glow.transform.isActive())
+        {
+            return glow.transform;
+        }
+
+        if (legacyGlow != null && legacyGlow.hasActiveTransform())
+        {
+            return legacyGlow.transform;
+        }
+
+        if (glow != null && glow.transform != null)
+        {
+            return glow.transform;
+        }
+
+        if (legacyGlow != null && legacyGlow.transform != null)
+        {
+            return legacyGlow.transform;
+        }
+
+        return new EffectTransform();
+    }
+
+    private void buildTrailQuads(BufferBuilder builder, Matrix4f matrix, ArrayDeque<Trail> trails, boolean loop, float length, float current, double baseX, double baseY, double baseZ, Color unblended, Color blended, EffectTransform colorTransform)
+    {
         Trail lastTrail = null;
 
         for (Iterator<Trail> trailIt = trails.iterator(); trailIt.hasNext(); )

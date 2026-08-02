@@ -102,7 +102,15 @@ public class UIDashboard extends UIBaseMenu
             if (this.panels.panel instanceof IFlightSupported panel)
             {
                 this.orbit.setFovRoll(panel.supportsRollFOVControl());
-                this.orbitUI.setViewportArea(panel::getFlightViewportArea);
+
+                if (BBSSettings.editorOrbitRestrictToViewport.get())
+                {
+                    this.orbitUI.setViewportArea(panel::getFlightViewportArea);
+                }
+                else
+                {
+                    this.orbitUI.setViewportArea(null);
+                }
             }
             else
             {
@@ -339,10 +347,7 @@ public class UIDashboard extends UIBaseMenu
         this.panels.registerHiddenPanel(new UIAudioEditorPanel(this));
         this.panels.registerHiddenPanel(new UIGraphPanel(this));
 
-        if (FabricLoader.getInstance().isDevelopmentEnvironment())
-        {
-            this.panels.registerPanel(new UIDebugPanel(this), UIKeys.RAW_SANDBOX, Icons.CODE);
-        }
+        this.panels.registerPanel(new UIDebugPanel(this), UIKeys.RAW_SANDBOX, Icons.CODE);
 
         this.setPanel(this.getPanel(UIHomePanel.class));
     }

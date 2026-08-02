@@ -347,13 +347,12 @@ public class ClientNetwork
                 UIBaseMenu menu = UIScreen.getCurrentMenu();
                 UIDashboard dashboard = BBSModClient.getDashboard();
 
-                dashboard.setPanel(dashboard.getPanel(UIMorphingPanel.class));
-
                 if (menu == null)
                 {
                     UIScreen.open(dashboard);
                 }
 
+                dashboard.setPanel(dashboard.getPanel(UIMorphingPanel.class));
                 BBSModClient.getFormCategories().getRecentForms().getCategories().get(0).addForm(finalForm);
                 dashboard.context.notifyInfo(UIKeys.FORMS_SHARED_NOTIFICATION.format(finalForm.getDisplayName()));
             });

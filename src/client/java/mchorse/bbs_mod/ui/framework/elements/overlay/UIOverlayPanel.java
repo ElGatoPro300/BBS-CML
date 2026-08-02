@@ -319,17 +319,6 @@ public class UIOverlayPanel extends UIElement
             transition = ((UIOverlay) parent).getOpenTransition();
         }
 
-        this.beginOpenTransition(context, transition);
-        this.renderBackground(context);
-        super.render(context);
-        this.endOpenTransition(context, transition);
-    }
-
-    /**
-     * Default open animation: scale from center. Subclasses may override for slide/etc.
-     */
-    protected void beginOpenTransition(UIContext context, float transition)
-    {
         if (transition < 1.0F)
         {
             float scale = Math.max(0.01F, transition);
@@ -341,10 +330,11 @@ public class UIOverlayPanel extends UIElement
             context.render.batcher.getContext().getMatrices().scale(scale, scale);
             context.render.batcher.getContext().getMatrices().translate(-cx, -cy);
         }
-    }
 
-    protected void endOpenTransition(UIContext context, float transition)
-    {
+        this.renderBackground(context);
+
+        super.render(context);
+
         if (transition < 1.0F)
         {
             context.render.batcher.getContext().getMatrices().popMatrix();

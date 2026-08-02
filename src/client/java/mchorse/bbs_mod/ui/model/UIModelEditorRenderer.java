@@ -552,8 +552,9 @@ public class UIModelEditorRenderer extends UIModelRenderer implements GizmoSurfa
             this.stencil.unbind(this.stencilMap);
             this.gizmoController.updateHover();
 
-            /* TODO 1.21.11: Framebuffer.beginWrite removed */
-            /* MinecraftClient.getInstance().getFramebuffer().beginWrite(); */
+            this.endStencilViewport();
+
+            MinecraftClient.getInstance().getFramebuffer().beginWrite(true);
 
             GlStateManager._enableScissorTest();
         }

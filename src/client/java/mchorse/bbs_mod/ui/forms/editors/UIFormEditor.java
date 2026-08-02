@@ -237,29 +237,11 @@ public class UIFormEditor extends UIElement implements IUIFormList, ICursor
         this.forms = new UIElement();
         this.forms.relative(this).x(20).w(treeWidth).minW(140).h(1F);
 
-        this.formsList = new UIForms((l) -> this.pickForm(l.get(0)))
-        {
-            @Override
-            public void render(UIContext context)
-            {
-                context.batcher.box(this.area.x, this.area.y, this.area.ex(), this.area.ey(), 0xFF141418);
-                super.render(context);
-                context.batcher.outline(this.area.x, this.area.y, this.area.ex(), this.area.ey(), 0xFF3C3C3C);
-            }
-        };
+        this.formsList = new UIForms((l) -> this.pickForm(l.get(0)));
         this.formsList.setReorderCallback(this::refillState);
         this.formsList.relative(this.forms).w(1F).h(0.5F);
         this.formsList.context(this::createFormContextMenu);
-        this.bodyPartEditor = new UIBodyPartEditor(this)
-        {
-            @Override
-            public void render(UIContext context)
-            {
-                context.batcher.box(this.area.x, this.area.y, this.area.ex(), this.area.ey(), 0xFF141418);
-                super.render(context);
-                context.batcher.outline(this.area.x, this.area.y, this.area.ex(), this.area.ey(), 0xFF3C3C3C);
-            }
-        };
+        this.bodyPartEditor = new UIBodyPartEditor(this);
         this.bodyPartEditor.relative(this.forms).w(1F).y(0.5F).h(0.5F);
 
         this.formEditor = new UIElement();
@@ -326,13 +308,7 @@ public class UIFormEditor extends UIElement implements IUIFormList, ICursor
         {
             if (this.forms.isVisible())
             {
-                int x = this.forms.area.x;
-                int y = this.forms.area.y;
-                int ex = this.forms.area.ex();
-                int ey = this.forms.area.ey();
-
-                context.batcher.box(x, y, ex, ey, 0xFF111115);
-                context.batcher.outline(x - 1, y - 1, ex + 1, ey + 1, 0xFF5A5A5A);
+                this.forms.area.render(context.batcher, Colors.A50);
             }
         });
 
@@ -444,7 +420,22 @@ public class UIFormEditor extends UIElement implements IUIFormList, ICursor
             this.gizmoTop.active(gizmoMode == Gizmo.Mode.ROTATE);
         });
 
-        this.gizmoToolbar = new UIElement();
+        this.gizmoToolbar = new UIElement()
+        {
+            @Override
+            protected boolean subMouseClicked(UIContext context)
+            {
+                if (context.mouseButton == 1 && this.area.isInside(context))
+                {
+                    UIFormEditor.this.openGizmoToolbarCustomizer();
+                    UIUtils.playClick();
+
+                    return true;
+                }
+
+                return super.subMouseClicked(context);
+            }
+        };
         this.gizmoToolbar.row(0);
         this.gizmoToolbar.relative(this).x(0.5F).y(4).wh(160, 20).anchorX(0.5F);
         this.rebuildGizmoToolbar();
@@ -496,11 +487,6 @@ public class UIFormEditor extends UIElement implements IUIFormList, ICursor
 
         if (context.mouseButton == 0 && this.renderer.getGizmoController().tryStartHandleDrag(context, editableTransform))
         {
-            /* Only jump to General when the transform gizmo itself is grabbed —
-             * not on orbit / empty viewport clicks (non-pose forms keep transform
-             * gizmo mode on by default, so every click used to force General). */
-            this.openGeneralPanelForTransformGizmoDrag(editableTransform);
-
             return true;
         }
 
@@ -545,12 +531,9 @@ public class UIFormEditor extends UIElement implements IUIFormList, ICursor
             return this.bodyPartEditor.transform;
         }
 
-        if (this.gizmoTargetsTransform && this.editor != null && this.editor.generalPanel != null)
+        if (this.gizmoTargetsTransform && this.editor != null)
         {
-            /* Do not call getEditableTransform() here — that switches the sidebar to
-             * General on every viewport click. Panel switch happens only when a gizmo
-             * handle is actually grabbed (see openGeneralPanelForTransformGizmoDrag). */
-            return this.editor.generalPanel.transform;
+            return this.editor.getEditableTransform();
         }
 
         if (this.modelSettingsEditor != null && this.modelSettingsEditor.isVisible())
@@ -574,24 +557,6 @@ public class UIFormEditor extends UIElement implements IUIFormList, ICursor
         }
 
         return this.editor.generalPanel.transform;
-    }
-
-    private void openGeneralPanelForTransformGizmoDrag(UIPropTransform editableTransform)
-    {
-        if (!this.gizmoTargetsTransform || this.editor == null || this.editor.generalPanel == null)
-        {
-            return;
-        }
-
-        if (editableTransform != this.editor.generalPanel.transform)
-        {
-            return;
-        }
-
-        if (this.editor.view != this.editor.generalPanel)
-        {
-            this.editor.setPanel(this.editor.generalPanel);
-        }
     }
 
     /** Pose bone handles (Model Block Edit / form palette Pose), not General or body-part. */
@@ -627,21 +592,7 @@ public class UIFormEditor extends UIElement implements IUIFormList, ICursor
         this.gizmoTargetsTransform = true;
         this.gizmoTargetsBodyPart = false;
 
-        if (this.editor != null)
-        {
-            if (this.editor.view == this.editor.generalPanel)
-            {
-                this.enableFormTransformGizmoFromGeneralPanel();
-            }
-            else
-            {
-                this.editor.setPanel(this.editor.generalPanel);
-            }
-        }
-        else if (this.modelSettingsEditor != null && this.modelSettingsEditor.isVisible())
-        {
-            this.modelSettingsEditor.enterFormTransformGizmoMode();
-        }
+        this.enableFormTransformGizmoFromGeneralPanel();
     }
 
     /** Called when the General sidebar tab is selected — avoids re-entering {@link UIForm#setPanel}. */
@@ -689,46 +640,16 @@ public class UIFormEditor extends UIElement implements IUIFormList, ICursor
             return null;
         }
 
-        String boneName = part.bone.get();
-        String basePath;
+        int index = owner.parts.getAllTyped().indexOf(part);
 
-        if (boneName != null && !boneName.isEmpty())
+        if (index < 0)
         {
-            basePath = StringUtils.combinePaths(FormUtils.getPath(owner), boneName);
-        }
-        else
-        {
-            basePath = FormUtils.getPath(owner) + "#origin";
+            return null;
         }
 
-        Matrix4f base = this.editor.getOrigin(transition, basePath, this.bodyPartEditor.transform.getOrientation());
+        String path = StringUtils.combinePaths(FormUtils.getPath(owner), String.valueOf(index));
 
-        if (base == null || base == Matrices.EMPTY_4F)
-        {
-            int index = owner.parts.getAllTyped().indexOf(part);
-
-            if (index < 0)
-            {
-                return null;
-            }
-
-            String path = StringUtils.combinePaths(FormUtils.getPath(owner), String.valueOf(index));
-
-            return normalizeOriginBasis(this.editor.getOrigin(transition, path, this.bodyPartEditor.transform.getOrientation()));
-        }
-
-        /* Place the gizmo at translate + pivot (rotation center), not only translate. */
-        Matrix4f result = new Matrix4f(base);
-        Transform transform = part.transform.get();
-
-        result.translate(transform.translate.x, transform.translate.y, transform.translate.z);
-
-        if (transform.pivot.x != 0F || transform.pivot.y != 0F || transform.pivot.z != 0F)
-        {
-            result.translate(transform.pivot.x, transform.pivot.y, transform.pivot.z);
-        }
-
-        return normalizeOriginBasis(result);
+        return normalizeOriginBasis(this.editor.getOrigin(transition, path, this.bodyPartEditor.transform.getOrientation()));
     }
 
     /** Strips scale/skew/mirroring out of a gizmo origin matrix, leaving only position and a
@@ -799,6 +720,16 @@ public class UIFormEditor extends UIElement implements IUIFormList, ICursor
         this.gizmoToolbar.resize();
     }
 
+    private void openGizmoToolbarCustomizer()
+    {
+        if (this.getContext() == null)
+        {
+            return;
+        }
+
+        UIOverlay.addOverlay(this.getContext(), new UIFormEditorGizmoToolbarOverlayPanel(this::rebuildGizmoToolbar), 320, 180);
+    }
+
     private UIIcon createGizmoModeButton(Icon icon, Gizmo.Mode mode, IKey tooltip)
     {
         UIIcon button = new UIIcon(icon, (b) ->
@@ -832,10 +763,20 @@ public class UIFormEditor extends UIElement implements IUIFormList, ICursor
 
     private void pickFormBone(Form form, String bone)
     {
-        this.formsList.setCurrentForm(form);
-        this.pickForm(this.formsList.getCurrentFirst());
+        if (form == null)
+        {
+            return;
+        }
 
-        if (!bone.isEmpty())
+        Form currentForm = this.formsList.getCurrentFirst() != null ? this.formsList.getCurrentFirst().getForm() : null;
+
+        if (form != currentForm)
+        {
+            this.formsList.setCurrentForm(form);
+            this.pickForm(this.formsList.getCurrentFirst());
+        }
+
+        if (!bone.isEmpty() && this.editor != null)
         {
             this.editor.pickBone(bone);
         }

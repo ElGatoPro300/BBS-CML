@@ -68,7 +68,6 @@ public class FilmControllerContext
     public Matrix4f viewMatrix;
     public PaintSettings groupPaint;
     public GlowSettings groupGlow;
-    public FormRenderDepth.Frame renderDepthFrame;
 
     private FilmControllerContext()
     {}
@@ -100,7 +99,6 @@ public class FilmControllerContext
         this.viewMatrix = null;
         this.groupPaint = null;
         this.groupGlow = null;
-        this.renderDepthFrame = null;
     }
 
     public FilmControllerContext setup(IntObjectMap<IEntity> entities, IEntity entity, Replay replay, WorldRenderContext context)
@@ -281,13 +279,6 @@ public class FilmControllerContext
     public FilmControllerContext relative(boolean relative)
     {
         this.relative = relative;
-
-        return this;
-    }
-
-    public FilmControllerContext renderDepthFrame(FormRenderDepth.Frame renderDepthFrame)
-    {
-        this.renderDepthFrame = renderDepthFrame;
 
         return this;
     }

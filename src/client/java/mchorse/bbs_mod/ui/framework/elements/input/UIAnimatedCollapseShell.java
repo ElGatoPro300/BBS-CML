@@ -6,6 +6,7 @@ import mchorse.bbs_mod.ui.framework.elements.UIElement;
 import mchorse.bbs_mod.ui.framework.elements.UIScrollView;
 import mchorse.bbs_mod.ui.utils.Area;
 import mchorse.bbs_mod.ui.utils.Scroll;
+import mchorse.bbs_mod.ui.utils.resizers.AutomaticResizer;
 import mchorse.bbs_mod.utils.MathUtils;
 import mchorse.bbs_mod.utils.interps.Interpolations;
 import mchorse.bbs_mod.utils.interps.Lerps;
@@ -39,7 +40,9 @@ public class UIAnimatedCollapseShell extends UIElement
     private long animStartNs;
     private int lastAppliedHeight = -1;
     private int naturalHeight;
-    private UIElement scrollAnchor;
+    private boolean remeasureQueued;
+    /** Pull flush under the previous sibling so section accent bars stay continuous. */
+    private boolean flushToHost;
 
     public UIAnimatedCollapseShell(UIElement content)
     {
@@ -50,6 +53,44 @@ public class UIAnimatedCollapseShell extends UIElement
         this.add(this.content);
         this.h(0);
         this.culled = false;
+    }
+
+    /**
+     * When true, cancels the parent column gap under {@code host} so this shell
+     * sits flush against the previous sibling (needed for continuous section rails).
+     */
+    public UIAnimatedCollapseShell flushToHost(boolean flush)
+    {
+        this.flushToHost = flush;
+
+        return this;
+    }
+
+    /**
+     * Re-measure open content on the next animation tick (after parent layout changes).
+     */
+    public void queueRemeasure()
+    {
+        if (!this.open && !this.animating)
+        {
+            return;
+        }
+
+        this.remeasureQueued = true;
+        this.registerActive();
+    }
+
+    @Override
+    public void resize()
+    {
+        int previousWidth = this.area.w;
+
+        super.resize();
+
+        if (this.open && this.area.w > 0 && this.area.w != previousWidth)
+        {
+            this.queueRemeasure();
+        }
     }
 
     /**
@@ -112,34 +153,60 @@ public class UIAnimatedCollapseShell extends UIElement
      */
     public void setExpanded(boolean expanded, UIElement host)
     {
-        this.scrollAnchor = host;
+        this.setExpanded(expanded, host, true);
+    }
 
-        if (expanded)
-        {
-            this.attachAfter(host);
-
-            /* Host not parented yet — do not claim open (avoids ▼ with empty body). */
-            if (!this.hasParent())
-            {
-                return;
-            }
-        }
-
+    /**
+     * @param animate when false, snaps open/closed so a parent disclosure can
+     *                measure the final nested height before starting its own animation
+     */
+    public void setExpanded(boolean expanded, UIElement host, boolean animate)
+    {
         if (this.open == expanded && !this.animating && this.hasParent() == expanded)
         {
             return;
         }
 
         this.open = expanded;
+        this.registerAncestorShells();
+
+        if (!animate)
+        {
+            this.from = expanded ? 1F : 0F;
+            this.to = this.from;
+            this.progress = this.to;
+            this.animating = false;
+
+            if (expanded)
+            {
+                this.attachAfter(host);
+                this.naturalHeight = this.measureNaturalHeightQuiet();
+                this.applyHeight(true);
+                this.unregisterActive();
+            }
+            else
+            {
+                if (this.naturalHeight <= 0)
+                {
+                    this.naturalHeight = Math.max(1, Math.max(this.area.h, this.getFlex().h.offset));
+                }
+
+                this.applyHeight(true);
+                this.detachIfClosed();
+            }
+
+            return;
+        }
+
         this.from = this.progress;
         this.to = expanded ? 1F : 0F;
         this.animStartNs = System.nanoTime();
         this.animating = true;
         this.registerActive();
-        this.registerAncestorShells();
 
         if (expanded)
         {
+            this.attachAfter(host);
             this.naturalHeight = this.measureNaturalHeightQuiet();
             this.applyHeight(true);
         }
@@ -196,7 +263,25 @@ public class UIAnimatedCollapseShell extends UIElement
             parent.addAfter(host, this);
         }
 
+        this.applyFlushToHost(host, parent);
         this.resizeWithScrollCompensation(0);
+    }
+
+    private void applyFlushToHost(UIElement host, UIElement parent)
+    {
+        if (!this.flushToHost || host == null || parent == null)
+        {
+            return;
+        }
+
+        int pull = host.margin.bottom;
+
+        if (parent.getFlex().post instanceof AutomaticResizer auto)
+        {
+            pull += auto.margin;
+        }
+
+        this.margin.top(-pull);
     }
 
     private void detachIfClosed()
@@ -210,7 +295,6 @@ public class UIAnimatedCollapseShell extends UIElement
         this.animating = false;
         this.h(0);
         this.lastAppliedHeight = 0;
-        this.scrollAnchor = null;
         this.unregisterActive();
 
         if (this.hasParent())
@@ -256,10 +340,22 @@ public class UIAnimatedCollapseShell extends UIElement
         /* Outer shells follow nested Transform height both up and down. */
         if (this.open && !this.animating)
         {
-            this.followLiveContentHeight();
+            if (this.remeasureQueued)
+            {
+                this.remeasureQueued = false;
+                this.naturalHeight = this.measureNaturalHeightQuiet();
+                this.applyHeight(true);
+            }
+            else
+            {
+                this.followLiveContentHeight();
+                this.applyHeight(false);
+            }
         }
-
-        this.applyHeight(false);
+        else
+        {
+            this.applyHeight(false);
+        }
 
         if (!this.open && !this.animating)
         {
@@ -408,8 +504,7 @@ public class UIAnimatedCollapseShell extends UIElement
     }
 
     /**
-     * Keep the disclosure header visually fixed while the body grows/shrinks.
-     * Previous shrink-scroll compensation pulled the whole panel upward on close.
+     * @param shrinkPx positive when the shell got shorter (closing)
      */
     private void resizeWithScrollCompensation(int shrinkPx)
     {
@@ -423,8 +518,6 @@ public class UIAnimatedCollapseShell extends UIElement
         UIScrollView scrollView = this.findScrollView();
         Scroll scroll = scrollView == null ? null : scrollView.scroll;
         double scrollBefore = scroll == null ? 0D : scroll.getScroll();
-        UIElement anchor = this.resolveScrollAnchor();
-        int anchorYBefore = anchor == null ? Integer.MIN_VALUE : anchor.area.y;
 
         /* Resize the column that owns this shell (or scroll content), never an
          * ancestor shell alone — isolated shell.resize() corrupts ColumnResizer. */
@@ -432,49 +525,20 @@ public class UIAnimatedCollapseShell extends UIElement
         this.syncAncestorShellsToContent();
         this.resizeLayoutRoot(parent);
 
-        if (scroll == null)
+        if (scroll != null)
         {
-            return;
+            if (shrinkPx > 0)
+            {
+                /* Keep lower widgets from snapping when max-scroll shrinks. */
+                scroll.setScroll(scrollBefore - shrinkPx);
+            }
+            else
+            {
+                scroll.setScroll(scrollBefore);
+            }
+
+            scroll.clamp();
         }
-
-        if (anchor != null && anchorYBefore != Integer.MIN_VALUE)
-        {
-            /* visualY ~= layoutY - scroll — keep the header's visualY stable. */
-            int dy = anchor.area.y - anchorYBefore;
-
-            scroll.setScroll(scrollBefore + dy);
-        }
-        else
-        {
-            scroll.setScroll(scrollBefore);
-        }
-
-        scroll.clamp();
-    }
-
-    private UIElement resolveScrollAnchor()
-    {
-        if (this.scrollAnchor != null && this.scrollAnchor.hasParent())
-        {
-            return this.scrollAnchor;
-        }
-
-        UIElement parent = this.getParent();
-
-        if (parent == null)
-        {
-            return null;
-        }
-
-        List<IUIElement> children = parent.getChildren();
-        int index = children.indexOf(this);
-
-        if (index > 0 && children.get(index - 1) instanceof UIElement previous)
-        {
-            return previous;
-        }
-
-        return null;
     }
 
     /**

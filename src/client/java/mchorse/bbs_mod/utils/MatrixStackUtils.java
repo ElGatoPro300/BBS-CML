@@ -1,6 +1,7 @@
 package mchorse.bbs_mod.utils;
 
-import mchorse.bbs_mod.graphics.InverseView;
+import mchorse.bbs_mod.BBSModClient;
+import mchorse.bbs_mod.camera.controller.CameraController;
 import mchorse.bbs_mod.utils.joml.Vectors;
 import mchorse.bbs_mod.utils.pose.Transform;
 
@@ -30,12 +31,27 @@ public class MatrixStackUtils
     /**
      * 1.20.4 exposed this on {@link RenderSystem}; 1.21.1 removed it. Rebuild the
      * camera's inverse view-rotation matrix from the active game camera quaternion.
+     * When a BBS camera controller is active, also undo film/orbit roll (applied in
+     * {@code GameRendererMixin.tiltViewWhenHurt} but missing from {@code Camera}).
      */
     public static Matrix4f getInverseViewRotationMatrix()
     {
         Camera camera = MinecraftClient.getInstance().gameRenderer.getCamera();
+        Matrix4f inverse = new Matrix4f().rotation(camera.getRotation().conjugate(MatrixStackUtils.tempQuaternion));
+        CameraController controller = BBSModClient.getCameraController();
 
-        return new Matrix4f().rotation(camera.getRotation().conjugate(MatrixStackUtils.tempQuaternion));
+        if (controller.getCurrent() != null)
+        {
+            float rollDeg = controller.getRoll();
+
+            if (Math.abs(rollDeg) > 1.0E-4F)
+            {
+                /* View = Rz(roll) * ViewRot → Inv = ViewRot^-1 * Rz(-roll). */
+                inverse.rotateZ(-MathUtils.toRad(rollDeg));
+            }
+        }
+
+        return inverse;
     }
 
     /**

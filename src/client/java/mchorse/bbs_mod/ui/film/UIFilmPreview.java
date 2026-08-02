@@ -132,11 +132,6 @@ public class UIFilmPreview extends UIElement
         this.gizmos.relative(this).x(4).y(4).w(20).h(120);
         this.add(this.gizmos);
 
-        this.keys().register(Keys.TRANSFORMATIONS_COMBINED, () ->
-        {
-            Gizmo.INSTANCE.setMode(Gizmo.Mode.COMBINED);
-            UIUtils.playClick();
-        });
 
         /* Preview buttons */
         this.onionSkin = new UIIcon(Icons.ONION_SKIN, (b) -> this.openOnionSkin());
@@ -439,8 +434,13 @@ public class UIFilmPreview extends UIElement
 
                 return false;
             }
-            else if (this.panel.getController().getPovMode() == UIFilmController.CAMERA_MODE_ORBIT
-                && BBSSettings.editorOrbitWithoutFlight.get()
+
+            if (context.mouseButton == 1 && this.panel.replayEditor.clickViewport(context, area))
+            {
+                return true;
+            }
+
+            if (this.panel.getController().getPovMode() == UIFilmController.CAMERA_MODE_ORBIT
                 && !this.panel.getController().orbit.isAnimating()
                 && this.panel.getController().orbit.canStart(context) >= 0)
             {

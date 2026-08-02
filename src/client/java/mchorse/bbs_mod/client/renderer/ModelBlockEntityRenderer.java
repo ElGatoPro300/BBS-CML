@@ -171,7 +171,14 @@ public class ModelBlockEntityRenderer implements BlockEntityRenderer<ModelBlockE
         matrices.push();
         matrices.translate(0.5F, 0F, 0.5F);
 
-        if (properties.getForm() != null && this.canRender(entity))
+        Form form = UIModelBlockPanel.getLiveEditedForm(entity);
+
+        if (form == null)
+        {
+            form = properties.getForm();
+        }
+
+        if (form != null && canRenderStatic(entity))
         {
             matrices.push();
 
@@ -201,7 +208,16 @@ public class ModelBlockEntityRenderer implements BlockEntityRenderer<ModelBlockE
                 .set(FormRenderType.MODEL_BLOCK, entity.getEntity(), matrices, lightAbove, overlay, tickDelta)
                 .camera(camera));
 
-            if (this.canRenderAxes(entity) && UIBaseMenu.renderAxes)
+            formContext.isShadowPass = BBSRendering.isIrisShadowPass();
+
+            FormUtilsClient.render(form, formContext);
+
+            if (!formContext.isShadowPass)
+            {
+                RenderSystem.disableDepthTest();
+            }
+
+            if (!formContext.isShadowPass && this.canRenderAxes(entity) && UIBaseMenu.renderAxes)
             {
                 matrices.push();
                 MatrixStackUtils.scaleBack(matrices);
@@ -340,7 +356,65 @@ public class ModelBlockEntityRenderer implements BlockEntityRenderer<ModelBlockE
         return false;
     }
 
-    private boolean canRender(ModelBlockEntity entity)
+    /**
+     * Draw a model-block form into Iris' shadow map. Block entities are not covered by
+     * {@code shadowEntities}; packs that only enable entity shadows still need this path.
+     * Safe to call even when Iris also draws block entities — opaque depth writes are idempotent.
+     */
+    public static void renderIntoShadowMap(ModelBlockEntity entity, MatrixStack shadowStack, VertexConsumerProvider consumers, float tickDelta, double camX, double camY, double camZ)
+    {
+        if (entity == null || entity.isRemoved() || entity.getWorld() == null)
+        {
+            return;
+        }
+
+        if (!canRenderStatic(entity))
+        {
+            return;
+        }
+
+        ModelProperties properties = entity.getProperties();
+        Form form = UIModelBlockPanel.getLiveEditedForm(entity);
+
+        if (form == null)
+        {
+            form = properties.getForm();
+        }
+
+        if (form == null || !form.shaderShadow.get())
+        {
+            return;
+        }
+
+        MinecraftClient mc = MinecraftClient.getInstance();
+        Transform transform = properties.getTransform();
+        BlockPos pos = entity.getPos();
+        Transform applied = transform;
+
+        shadowStack.push();
+        shadowStack.translate(pos.getX() - camX, pos.getY() - camY, pos.getZ() - camZ);
+        shadowStack.translate(0.5F, 0F, 0.5F);
+
+        if (properties.isLookAt())
+        {
+            applied = applyLookingAnimation(mc, entity, properties, tickDelta);
+        }
+
+        MatrixStackUtils.applyTransform(shadowStack, applied);
+
+        int lightAbove = WorldRenderer.getLightmapCoordinates(entity.getWorld(), pos.add((int) transform.translate.x, (int) transform.translate.y, (int) transform.translate.z));
+        FormRenderingContext formContext = new FormRenderingContext()
+            .set(FormRenderType.MODEL_BLOCK, entity.getEntity(), shadowStack, lightAbove, OverlayTexture.DEFAULT_UV, tickDelta)
+            .camera(mc.gameRenderer.getCamera());
+
+        formContext.isShadowPass = true;
+
+        RenderSystem.enableDepthTest();
+        FormUtilsClient.render(form, formContext);
+        shadowStack.pop();
+    }
+
+    private static boolean canRenderStatic(ModelBlockEntity entity)
     {
         if (!entity.getProperties().isEnabled())
         {

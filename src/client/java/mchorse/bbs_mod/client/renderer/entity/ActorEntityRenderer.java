@@ -15,6 +15,9 @@ import net.minecraft.client.render.entity.LivingEntityRenderer;
 import net.minecraft.client.render.entity.state.EntityRenderState;
 import net.minecraft.client.render.entity.state.LivingEntityRenderState;
 import net.minecraft.client.render.state.CameraRenderState;
+import net.minecraft.client.render.entity.model.ArmorEntityModel;
+import net.minecraft.client.render.entity.model.ElytraEntityModel;
+import net.minecraft.client.render.entity.model.EntityModelLayers;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.entity.EntityPose;
 import net.minecraft.util.Identifier;
@@ -44,6 +47,7 @@ public class ActorEntityRenderer extends EntityRenderer<ActorEntity, ActorEntity
         armorRenderer = new ArmorRenderer(
             new ArmorEntityModel(ctx.getPart(EntityModelLayers.PLAYER_INNER_ARMOR)),
             new ArmorEntityModel(ctx.getPart(EntityModelLayers.PLAYER_OUTER_ARMOR)),
+            new ElytraEntityModel(ctx.getPart(EntityModelLayers.ELYTRA)),
             ctx.getModelManager()
         );
 

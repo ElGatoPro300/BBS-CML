@@ -13,6 +13,7 @@ import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.item.ItemStack;
 import net.minecraft.util.Hand;
+import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.Vec3d;
 import net.minecraft.world.World;
 
@@ -29,6 +30,8 @@ public class MCEntity implements IEntity
     private IEntity mountTarget;
     private IEntity riderTarget;
     private boolean sitting;
+    private float fallFlyingTicks;
+    private float prevFallFlyingTicks;
 
     public MCEntity(Entity mcEntity)
     {
@@ -538,6 +541,17 @@ public class MCEntity implements IEntity
         {
             this.prevExtraVariables[i] = this.extraVariables[i];
         }
+
+        this.prevFallFlyingTicks = this.fallFlyingTicks;
+
+        if (this.isFallFlying())
+        {
+            this.fallFlyingTicks = Math.min(10F, this.fallFlyingTicks + 1F);
+        }
+        else
+        {
+            this.fallFlyingTicks = Math.max(0F, this.fallFlyingTicks - 1F);
+        }
     }
 
     @Override
@@ -640,7 +654,7 @@ public class MCEntity implements IEntity
     @Override
     public int getRoll()
     {
-        return 0;
+        return (int) this.fallFlyingTicks;
     }
 
     @Override
@@ -691,6 +705,15 @@ public class MCEntity implements IEntity
     {
         /* Flag 7 is fall flying (elytra) in Minecraft */
         ((EntityAccessor) this.mcEntity).invokeSetFlag(7, fallFlying);
+    }
+
+    @Override
+    public float getFallFlyingProgress(float transition)
+    {
+        float ticks = MathHelper.lerp(transition, this.prevFallFlyingTicks, this.fallFlyingTicks);
+        float progress = MathHelper.clamp(ticks / 10F, 0F, 1F);
+
+        return progress * progress;
     }
 
     @Override
