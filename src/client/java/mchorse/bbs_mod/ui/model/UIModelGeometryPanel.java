@@ -9,7 +9,6 @@ import mchorse.bbs_mod.cubic.data.model.ModelCube;
 import mchorse.bbs_mod.cubic.data.model.ModelGroup;
 import mchorse.bbs_mod.cubic.model.ModelConfig;
 import mchorse.bbs_mod.data.DataToString;
-import mchorse.bbs_mod.data.IMapSerializable;
 import mchorse.bbs_mod.data.types.MapType;
 import mchorse.bbs_mod.graphics.window.Window;
 import mchorse.bbs_mod.l10n.keys.IKey;
@@ -81,6 +80,7 @@ public class UIModelGeometryPanel extends UIElement
     private final UITrackpad scaleX;
     private final UITrackpad scaleY;
     private final UITrackpad scaleZ;
+    private final UIButton saveButton;
     private final UITrackpad cubeInflate;
     private final UITrackpad cubeUvX;
     private final UITrackpad cubeUvY;
@@ -331,12 +331,17 @@ public class UIModelGeometryPanel extends UIElement
         this.scaleY = this.unifiedTransform.sy;
         this.scaleZ = this.unifiedTransform.sz;
 
+        this.saveButton = new UIButton(UIKeys.GENERAL_SAVE, (b) -> this.saveModelFile());
+        this.saveButton.w(1F).h(20);
+        UIElement buttons = UI.row(this.saveButton);
+        buttons.relative(this.unifiedTransform).y(1F, 10).w(1F).h(20);
+
         UILabel cubeInflateLabel = UI.label(UIKeys.MODELS_GEOMETRY_CUBE_INFLATE);
         cubeInflateLabel.w(0.4F, -4).h(20);
         this.cubeInflate = this.trackpad((v) -> this.updateCubeInflate(v.floatValue()));
         this.cubeInflate.w(0.6F, -2);
         UIElement cubeInflateRow = UI.row(6, cubeInflateLabel, this.cubeInflate);
-        cubeInflateRow.relative(this.unifiedTransform).y(1F, 10).w(1F).h(20);
+        cubeInflateRow.relative(buttons).y(1F, 8).w(1F).h(20);
 
         UILabel cubeUvLabel = UI.label(UIKeys.MODELS_GEOMETRY_CUBE_UV);
         cubeUvLabel.w(0.25F, -4).h(20);
@@ -349,7 +354,7 @@ public class UIModelGeometryPanel extends UIElement
         UIElement cubeUvRow = UI.row(4, cubeUvLabel, this.cubeUvX, this.cubeUvY, this.cubeMirror);
         cubeUvRow.relative(cubeInflateRow).y(1F, 6).w(1F).h(20);
 
-        this.rightPanel.add(editorTitle, this.selectedBoneLabel, this.unifiedTransform, cubeInflateRow, cubeUvRow);
+        this.rightPanel.add(editorTitle, this.selectedBoneLabel, this.unifiedTransform, buttons, cubeInflateRow, cubeUvRow);
 
         UIDraggable leftDraggable = new UIDraggable((context) ->
         {
@@ -1706,7 +1711,7 @@ public class UIModelGeometryPanel extends UIElement
         return uv;
     }
 
-    public void saveModelFile()
+    private void saveModelFile()
     {
         if (this.config == null || this.instance == null)
         {
@@ -1720,34 +1725,7 @@ public class UIModelGeometryPanel extends UIElement
             return;
         }
 
-        MapType map = null;
-
-        try
-        {
-            if (file.exists())
-            {
-                String content = IOUtils.readText(file);
-
-                if (content != null && !content.trim().isEmpty())
-                {
-                    map = DataToString.mapFromString(content);
-                }
-            }
-        }
-        catch (Exception e)
-        {
-            e.printStackTrace();
-        }
-
-        if (map == null)
-        {
-            map = new MapType();
-        }
-
-        if (this.instance.getModel() instanceof IMapSerializable serializable)
-        {
-            map.put("model", serializable.toData());
-        }
+        MapType map = CubicLoader.toData(this.instance);
 
         try
         {

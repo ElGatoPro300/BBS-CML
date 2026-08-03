@@ -1551,11 +1551,6 @@ public class UIModelPanel extends UIDataDashboardPanel<ModelConfig> implements I
         if (this.geometryPanel != null)
         {
             this.geometryPanel.setConfig(this.data);
-
-            if (this.mainView.getChildren().contains(this.geometryPanel))
-            {
-                this.geometryPanel.saveModelFile();
-            }
         }
 
         this.sectionsView.resize();
