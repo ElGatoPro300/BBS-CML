@@ -4,6 +4,7 @@ import mchorse.bbs_mod.BBSSettings;
 import mchorse.bbs_mod.camera.utils.TimeUtils;
 import mchorse.bbs_mod.data.types.MapType;
 import mchorse.bbs_mod.events.register.RegisterClipInteractionEvent;
+import mchorse.bbs_mod.events.register.RegisterFilmSyncEvent;
 import mchorse.bbs_mod.forms.FormUtils;
 import mchorse.bbs_mod.graphics.window.Window;
 import mchorse.bbs_mod.ui.UIKeys;
@@ -1808,6 +1809,8 @@ public class UIKeyframeDopeSheet implements IUIKeyframeGraph
         RenderSystem.enableBlend();
         RenderSystem.setShader(GameRenderer::getPositionColorProgram);
         BufferRenderer.drawWithGlobalProgram(builder.end());
+
+        RegisterFilmSyncEvent.postRenderDopeSheet(context, this.keyframes.area);
     }
 
     private boolean handleSidebarScrollbarClick(UIContext context)
