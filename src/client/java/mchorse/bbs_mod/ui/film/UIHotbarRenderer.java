@@ -293,7 +293,7 @@ public class UIHotbarRenderer
 
             if (hasOffhandItem)
             {
-                int offhandX = hotbar.rightOffhand ? 182 + 3 : -26;
+                int offhandX = hotbar.rightOffhand ? 192 : -26;
                 int offhandY = 3;
 
                 batcher.getContext().drawItem(hotbar.offhandItem, offhandX, offhandY);

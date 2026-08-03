@@ -275,6 +275,12 @@ public class UIKeys
     public static final IKey FILM_REMAINING_MINUTES = L10n.lang("bbs.ui.film.remaining_minutes");
     public static final IKey FILM_REMAINING_SECONDS = L10n.lang("bbs.ui.film.remaining_seconds");
     public static final IKey FILM_FRAME_PROGRESS = L10n.lang("bbs.ui.film.frame_progress");
+    public static final IKey CAMERA_CLIPS_GROUP_LAYOUT = L10n.lang("bbs.ui.camera.clips.group.layout");
+    public static final IKey CAMERA_CLIPS_GROUP_INVENTORY = L10n.lang("bbs.ui.camera.clips.group.inventory");
+    public static final IKey CAMERA_CLIPS_GROUP_HEALTH = L10n.lang("bbs.ui.camera.clips.group.health");
+    public static final IKey CAMERA_CLIPS_GROUP_HUNGER = L10n.lang("bbs.ui.camera.clips.group.hunger");
+    public static final IKey CAMERA_CLIPS_GROUP_EXPERIENCE = L10n.lang("bbs.ui.camera.clips.group.experience");
+    public static final IKey CAMERA_CLIPS_GROUP_VISIBILITY = L10n.lang("bbs.ui.camera.clips.group.visibility");
     public static final IKey CDN_DOWNLOADING_TITLE = L10n.lang("bbs.ui.cdn.downloading-title");
     public static final IKey CDN_STATUS_DELETED = L10n.lang("bbs.ui.cdn.status.deleted");
     public static final IKey CDN_STATUS_DOWNLOADED = L10n.lang("bbs.ui.cdn.status.downloaded");

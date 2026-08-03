@@ -11,12 +11,70 @@ import mchorse.bbs_mod.ui.framework.elements.buttons.UIButton;
 import mchorse.bbs_mod.ui.framework.elements.input.keyframes.UIKeyframeEditor;
 import mchorse.bbs_mod.ui.framework.elements.input.keyframes.UIKeyframeSheet;
 import mchorse.bbs_mod.ui.utils.UI;
+import mchorse.bbs_mod.utils.colors.Colors;
 import mchorse.bbs_mod.utils.keyframes.factories.KeyframeFactories;
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 public class UIHotbarClip extends UIClip<HotbarClip>
 {
     public UIButton edit;
     public UIKeyframeEditor keyframes;
+
+    private static final Map<String, String> CHANNEL_TO_GROUP = new HashMap<>();
+    static {
+        CHANNEL_TO_GROUP.put("layout", "layout");
+        CHANNEL_TO_GROUP.put("right_offhand", "layout");
+
+        CHANNEL_TO_GROUP.put("selected_slot", "inventory");
+        CHANNEL_TO_GROUP.put("offhand_slot", "inventory");
+        CHANNEL_TO_GROUP.put("slot_0", "inventory");
+        CHANNEL_TO_GROUP.put("slot_1", "inventory");
+        CHANNEL_TO_GROUP.put("slot_2", "inventory");
+        CHANNEL_TO_GROUP.put("slot_3", "inventory");
+        CHANNEL_TO_GROUP.put("slot_4", "inventory");
+        CHANNEL_TO_GROUP.put("slot_5", "inventory");
+        CHANNEL_TO_GROUP.put("slot_6", "inventory");
+        CHANNEL_TO_GROUP.put("slot_7", "inventory");
+        CHANNEL_TO_GROUP.put("slot_8", "inventory");
+
+        CHANNEL_TO_GROUP.put("health", "health");
+        CHANNEL_TO_GROUP.put("health_container", "health");
+        CHANNEL_TO_GROUP.put("absorption", "health");
+        CHANNEL_TO_GROUP.put("absorption_container", "health");
+        CHANNEL_TO_GROUP.put("heart_type", "health");
+        CHANNEL_TO_GROUP.put("hardcore", "health");
+        CHANNEL_TO_GROUP.put("heart_regeneration", "health");
+        CHANNEL_TO_GROUP.put("armor", "health");
+
+        CHANNEL_TO_GROUP.put("hunger", "hunger");
+        CHANNEL_TO_GROUP.put("hunger_effect", "hunger");
+        CHANNEL_TO_GROUP.put("air", "hunger");
+
+        CHANNEL_TO_GROUP.put("experience", "experience");
+        CHANNEL_TO_GROUP.put("experience_level", "experience");
+        CHANNEL_TO_GROUP.put("attack_cooldown", "experience");
+        CHANNEL_TO_GROUP.put("show_attack_cooldown", "experience");
+        CHANNEL_TO_GROUP.put("mount_health", "experience");
+        CHANNEL_TO_GROUP.put("mount_health_container", "experience");
+        CHANNEL_TO_GROUP.put("horse_jump", "experience");
+        CHANNEL_TO_GROUP.put("show_horse_jump", "experience");
+
+        CHANNEL_TO_GROUP.put("show_hotbar", "visibility");
+        CHANNEL_TO_GROUP.put("show_health", "visibility");
+        CHANNEL_TO_GROUP.put("show_armor", "visibility");
+        CHANNEL_TO_GROUP.put("show_hunger", "visibility");
+        CHANNEL_TO_GROUP.put("show_air", "visibility");
+        CHANNEL_TO_GROUP.put("show_experience", "visibility");
+    }
+
+    private final Set<String> collapsedGroups = new HashSet<>();
 
     public UIHotbarClip(HotbarClip clip, IUIClipsDelegate editor)
     {
@@ -54,13 +112,95 @@ public class UIHotbarClip extends UIClip<HotbarClip>
     {
         super.fillData();
         this.ensureHardcoreIsBoolean();
+        this.updateKeyframeSheets();
+    }
 
+    public void updateKeyframeSheets()
+    {
         this.keyframes.setChannels(this.clip.channels);
 
-        for (UIKeyframeSheet sheet : this.keyframes.view.getGraph().getSheets())
+        List<UIKeyframeSheet> rawSheets = new ArrayList<>(this.keyframes.view.getGraph().getSheets());
+        List<UIKeyframeSheet> groupedSheets = new ArrayList<>();
+
+        Map<String, List<UIKeyframeSheet>> groupMap = new LinkedHashMap<>();
+        groupMap.put("layout", new ArrayList<>());
+        groupMap.put("inventory", new ArrayList<>());
+        groupMap.put("health", new ArrayList<>());
+        groupMap.put("hunger", new ArrayList<>());
+        groupMap.put("experience", new ArrayList<>());
+        groupMap.put("visibility", new ArrayList<>());
+
+        for (UIKeyframeSheet sheet : rawSheets)
         {
             sheet.title = this.getTrackTitle(sheet.id);
+            String group = CHANNEL_TO_GROUP.getOrDefault(sheet.id, "layout");
+            groupMap.computeIfAbsent(group, k -> new ArrayList<>()).add(sheet);
         }
+
+        for (Map.Entry<String, List<UIKeyframeSheet>> entry : groupMap.entrySet())
+        {
+            String groupKey = entry.getKey();
+            List<UIKeyframeSheet> children = entry.getValue();
+
+            if (children.isEmpty())
+            {
+                continue;
+            }
+
+            boolean isExpanded = !this.collapsedGroups.contains(groupKey);
+            IKey groupTitle = this.getGroupTitle(groupKey);
+
+            UIKeyframeSheet header = UIKeyframeSheet.groupHeader(
+                "__group_hotbar_" + groupKey,
+                groupTitle,
+                Colors.LIGHTEST_GRAY & Colors.RGB,
+                groupKey,
+                isExpanded,
+                () ->
+                {
+                    if (this.collapsedGroups.contains(groupKey))
+                    {
+                        this.collapsedGroups.remove(groupKey);
+                    }
+                    else
+                    {
+                        this.collapsedGroups.add(groupKey);
+                    }
+                    this.updateKeyframeSheets();
+                }
+            );
+            header.level = 0;
+
+            groupedSheets.add(header);
+
+            if (isExpanded)
+            {
+                for (UIKeyframeSheet child : children)
+                {
+                    child.level = 1;
+                    groupedSheets.add(child);
+                }
+            }
+        }
+
+        List<UIKeyframeSheet> graphSheets = this.keyframes.view.getGraph().getSheets();
+
+        graphSheets.clear();
+        graphSheets.addAll(groupedSheets);
+    }
+
+    private IKey getGroupTitle(String groupKey)
+    {
+        return switch (groupKey)
+        {
+            case "layout" -> UIKeys.CAMERA_CLIPS_GROUP_LAYOUT;
+            case "inventory" -> UIKeys.CAMERA_CLIPS_GROUP_INVENTORY;
+            case "health" -> UIKeys.CAMERA_CLIPS_GROUP_HEALTH;
+            case "hunger" -> UIKeys.CAMERA_CLIPS_GROUP_HUNGER;
+            case "experience" -> UIKeys.CAMERA_CLIPS_GROUP_EXPERIENCE;
+            case "visibility" -> UIKeys.CAMERA_CLIPS_GROUP_VISIBILITY;
+            default -> IKey.constant(groupKey);
+        };
     }
 
     @Override
