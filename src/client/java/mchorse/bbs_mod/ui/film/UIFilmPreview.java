@@ -18,7 +18,7 @@ import mchorse.bbs_mod.film.Films;
 import mchorse.bbs_mod.graphics.texture.Texture;
 import mchorse.bbs_mod.graphics.window.Window;
 import mchorse.bbs_mod.l10n.keys.IKey;
-import mchorse.bbs_mod.settings.ui.UIVideoSettingsOverlayPanel;
+import mchorse.bbs_mod.settings.ui.UISettingsOverlayPanel;
 import mchorse.bbs_mod.settings.values.ui.ValueGizmoToolbar;
 import mchorse.bbs_mod.settings.values.ui.ValueViewportToolbar;
 import mchorse.bbs_mod.ui.Keys;
