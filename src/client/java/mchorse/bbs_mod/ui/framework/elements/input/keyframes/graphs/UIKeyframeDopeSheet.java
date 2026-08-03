@@ -3,6 +3,7 @@ package mchorse.bbs_mod.ui.framework.elements.input.keyframes.graphs;
 import mchorse.bbs_mod.BBSSettings;
 import mchorse.bbs_mod.camera.utils.TimeUtils;
 import mchorse.bbs_mod.data.types.MapType;
+import mchorse.bbs_mod.events.register.RegisterClipInteractionEvent;
 import mchorse.bbs_mod.forms.FormUtils;
 import mchorse.bbs_mod.graphics.window.Window;
 import mchorse.bbs_mod.ui.UIKeys;
@@ -1630,6 +1631,8 @@ public class UIKeyframeDopeSheet implements IUIKeyframeGraph
 
             context.batcher.unclip(context);
         }
+
+        RegisterClipInteractionEvent.postDopeSheetRender(context, area);
     }
 
     @Override
