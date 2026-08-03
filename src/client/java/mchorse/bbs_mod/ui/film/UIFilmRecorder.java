@@ -16,6 +16,7 @@ import mchorse.bbs_mod.ui.framework.elements.buttons.UIButton;
 import mchorse.bbs_mod.ui.framework.elements.overlay.UIMessageOverlayPanel;
 import mchorse.bbs_mod.ui.framework.elements.overlay.UIOverlay;
 import mchorse.bbs_mod.ui.framework.elements.utils.Batcher2D;
+import mchorse.bbs_mod.ui.framework.elements.utils.EventPropagation;
 import mchorse.bbs_mod.ui.utils.UIUtils;
 import mchorse.bbs_mod.utils.StringUtils;
 import mchorse.bbs_mod.utils.VideoRecorder;
@@ -54,6 +55,8 @@ public class UIFilmRecorder extends UIElement
         this.cancel = new UIButton(UIKeys.FILM_CANCEL_RECORDING, (b) -> this.stop());
         this.add(this.cancel);
 
+        this.markContainer();
+        this.eventPropagataion(EventPropagation.BLOCK);
         this.noCulling();
     }
 
@@ -117,6 +120,7 @@ public class UIFilmRecorder extends UIElement
         }
 
         context.menu.main.setEnabled(false);
+        context.menu.main.setVisible(false);
         context.menu.overlay.add(this);
         context.menu.getRoot().add(this.exit);
     }
@@ -153,6 +157,7 @@ public class UIFilmRecorder extends UIElement
 
         /* Add to overlay so render() is called and can count down the warmup */
         context.menu.main.setEnabled(false);
+        context.menu.main.setVisible(false);
         context.menu.overlay.add(this);
         context.menu.getRoot().add(this.exit);
     }
@@ -191,6 +196,7 @@ public class UIFilmRecorder extends UIElement
             UIOverlay.addOverlay(context, new UIMessageOverlayPanel(UIKeys.GENERAL_ERROR, IKey.constant(e.getMessage())));
 
             context.menu.main.setEnabled(true);
+            context.menu.main.setVisible(true);
             context.render.postRunnable(this::removeFromParent);
             context.render.postRunnable(this.exit::removeFromParent);
 
@@ -225,6 +231,7 @@ public class UIFilmRecorder extends UIElement
             }
 
             context.menu.main.setEnabled(true);
+            context.menu.main.setVisible(true);
             context.render.postRunnable(this::removeFromParent);
 
             if (this.onStop != null)
@@ -239,6 +246,7 @@ public class UIFilmRecorder extends UIElement
         {
             /* Stopped during warmup — just clean up the overlay */
             context.menu.main.setEnabled(true);
+            context.menu.main.setVisible(true);
             context.render.postRunnable(this::removeFromParent);
         }
     }
@@ -276,6 +284,9 @@ public class UIFilmRecorder extends UIElement
         int sw = context.menu.width;
         int sh = context.menu.height;
         Batcher2D batcher = context.batcher;
+
+        this.area.set(0, 0, sw, sh);
+        context.resetTooltip();
 
         /* 1. Mine-imator style solid opaque dark background (no transparency) */
         batcher.box(0, 0, sw, sh, Colors.A100 | 0x121214);
