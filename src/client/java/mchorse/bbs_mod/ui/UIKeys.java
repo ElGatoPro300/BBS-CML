@@ -269,6 +269,12 @@ public class UIKeys
     public static final IKey CAMERA_TOOLTIPS_OPEN_SCREENSHOTS = L10n.lang("bbs.ui.camera.tooltips.open_screenshots");
     public static final IKey CAMERA_TOOLTIPS_OPEN_VIDEO_SETTINGS = L10n.lang("bbs.ui.camera.tooltips.open_video_settings");
     public static final IKey CAMERA_TOOLTIPS_RECORD = L10n.lang("bbs.ui.camera.tooltips.record");
+    public static final IKey FILM_RENDERING_VIDEO = L10n.lang("bbs.ui.film.rendering_video");
+    public static final IKey FILM_CANCEL_RECORDING = L10n.lang("bbs.ui.film.cancel_recording");
+    public static final IKey FILM_EXPORTING_SUBTITLE = L10n.lang("bbs.ui.film.exporting_subtitle");
+    public static final IKey FILM_REMAINING_MINUTES = L10n.lang("bbs.ui.film.remaining_minutes");
+    public static final IKey FILM_REMAINING_SECONDS = L10n.lang("bbs.ui.film.remaining_seconds");
+    public static final IKey FILM_FRAME_PROGRESS = L10n.lang("bbs.ui.film.frame_progress");
     public static final IKey CDN_DOWNLOADING_TITLE = L10n.lang("bbs.ui.cdn.downloading-title");
     public static final IKey CDN_STATUS_DELETED = L10n.lang("bbs.ui.cdn.status.deleted");
     public static final IKey CDN_STATUS_DOWNLOADED = L10n.lang("bbs.ui.cdn.status.downloaded");
