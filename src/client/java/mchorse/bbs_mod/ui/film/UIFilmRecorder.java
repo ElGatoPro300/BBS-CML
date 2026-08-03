@@ -87,6 +87,15 @@ public class UIFilmRecorder extends UIElement
 
     public void startRecording(int duration, Texture texture)
     {
+        float delay = BBSSettings.videoSettings.warmupDelay.get();
+
+        if (delay > 0F)
+        {
+            this.startRecordingAfterLoad(duration, texture, (int) (delay * 20F));
+
+            return;
+        }
+
         this.startRecording(duration, texture.id, texture.width, texture.height);
     }
 
@@ -97,6 +106,20 @@ public class UIFilmRecorder extends UIElement
 
         if (this.isRunning() || recorder.isRecording() || duration <= 0)
         {
+            return;
+        }
+
+        float delay = BBSSettings.videoSettings.warmupDelay.get();
+
+        if (delay > 0F && this.warmupTicks <= 0)
+        {
+            Texture texture = BBSRendering.getTexture();
+            int texId = texture != null ? texture.id : id;
+            int texW = texture != null ? texture.width : w;
+            int texH = texture != null ? texture.height : h;
+
+            this.startRecordingAfterLoad(duration, texId, texW, texH, (int) (delay * 20F));
+
             return;
         }
 
@@ -131,6 +154,15 @@ public class UIFilmRecorder extends UIElement
      */
     public void startRecordingAfterLoad(int duration, Texture texture, int warmup)
     {
+        int id = texture != null ? texture.id : 0;
+        int w = texture != null ? texture.width : 0;
+        int h = texture != null ? texture.height : 0;
+
+        this.startRecordingAfterLoad(duration, id, w, h, warmup);
+    }
+
+    public void startRecordingAfterLoad(int duration, int id, int w, int h, int warmup)
+    {
         if (this.isRunning() || this.getRecorder().isRecording() || duration <= 0 || this.warmupTicks > 0)
         {
             return;
@@ -143,9 +175,9 @@ public class UIFilmRecorder extends UIElement
 
         this.end = looping && min != max ? Math.max(min, max) : duration;
         this.warmupTicks = warmup;
-        this.pendingId = texture.id;
-        this.pendingW = texture.width;
-        this.pendingH = texture.height;
+        this.pendingId = id;
+        this.pendingW = w;
+        this.pendingH = h;
 
         this.editor.setCursor(looping ? Math.min(min, max) : 0);
         this.editor.notifyServer(ActionState.RESTART);
@@ -254,9 +286,76 @@ public class UIFilmRecorder extends UIElement
     @Override
     public void render(UIContext context)
     {
+        int sw = context.menu.width;
+        int sh = context.menu.height;
+        Batcher2D batcher = context.batcher;
+
+        this.area.set(0, 0, sw, sh);
+        context.resetTooltip();
+
         if (this.warmupTicks > 0)
         {
             this.warmupTicks--;
+
+            /* 1. Mine-imator style solid opaque dark background (no transparency) */
+            batcher.box(0, 0, sw, sh, Colors.A100 | 0x121214);
+
+            /* 2. Calculate centered preview box matching recorded video aspect ratio */
+            Texture texture = BBSRendering.getTexture();
+            int tw = texture != null && texture.width > 0 ? texture.width : (this.pendingW > 0 ? this.pendingW : 16);
+            int th = texture != null && texture.height > 0 ? texture.height : (this.pendingH > 0 ? this.pendingH : 9);
+            float aspect = (float) tw / (float) th;
+
+            int maxW = (int) (sw * 0.55F);
+            int maxH = (int) (sh * 0.48F);
+
+            int pw = maxW;
+            int ph = (int) (pw / aspect);
+
+            if (ph > maxH)
+            {
+                ph = maxH;
+                pw = (int) (ph * aspect);
+            }
+
+            int px = (sw - pw) / 2;
+            int py = (sh - ph) / 2 - 10;
+
+            /* 3. Header title & subtitle above preview box */
+            String title = UIKeys.FILM_RENDERING_VIDEO.get();
+            int titleW = batcher.getFont().getWidth(title);
+            batcher.textShadow(title, (sw - titleW) / 2, py - 42, Colors.A100 | BBSSettings.primaryColor.get());
+
+            String subtitle = UIKeys.FILM_WARMUP_SUBTITLE.format(this.warmupTicks / 20F).get();
+            int subW = batcher.getFont().getWidth(subtitle);
+            batcher.textShadow(subtitle, (sw - subW) / 2, py - 24, Colors.LIGHTER_GRAY);
+
+            /* 4. Preview box border and vertically-flipped live framebuffer texture */
+            batcher.box(px - 3, py - 3, px + pw + 3, py + ph + 3, Colors.A100 | 0x26262a);
+
+            if (texture != null && texture.id > 0)
+            {
+                batcher.texturedBox(texture, Colors.WHITE, px, py, pw, ph, 0, texture.height, texture.width, 0, texture.width, texture.height);
+            }
+            else
+            {
+                batcher.box(px, py, px + pw, py + ph, Colors.A100);
+            }
+
+            /* 5. Progress bar empty during warmup */
+            int barW = (int) (sw * 0.45F);
+            int barX = (sw - barW) / 2;
+            int barY = py + ph + 42;
+
+            batcher.box(barX, barY, barX + barW, barY + 6, Colors.A100 | 0x26262a);
+
+            /* 6. Centered Cancel Button */
+            int btnW = 160;
+            int btnH = 20;
+            int btnX = (sw - btnW) / 2;
+            int btnY = barY + 14;
+
+            this.cancel.area.set(btnX, btnY, btnW, btnH);
 
             if (this.warmupTicks == 0)
             {
@@ -280,13 +379,6 @@ public class UIFilmRecorder extends UIElement
 
             return;
         }
-
-        int sw = context.menu.width;
-        int sh = context.menu.height;
-        Batcher2D batcher = context.batcher;
-
-        this.area.set(0, 0, sw, sh);
-        context.resetTooltip();
 
         /* 1. Mine-imator style solid opaque dark background (no transparency) */
         batcher.box(0, 0, sw, sh, Colors.A100 | 0x121214);

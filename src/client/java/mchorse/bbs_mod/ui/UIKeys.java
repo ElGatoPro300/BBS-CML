@@ -2002,6 +2002,9 @@ public class UIKeys
     public static final IKey VIDEO_SETTINGS_RESOLUTION = L10n.lang("bbs.ui.video_settings.resolution");
     public static final IKey VIDEO_SETTINGS_SWAP_RESOLUTION = L10n.lang("bbs.ui.video_settings.swap_resolution");
     public static final IKey VIDEO_SETTINGS_TITLE = L10n.lang("bbs.ui.video_settings.title");
+    public static final IKey VIDEO_SETTINGS_WARMUP_DELAY = L10n.lang("bbs.ui.video_settings.warmup_delay");
+    public static final IKey VIDEO_SETTINGS_WARMUP_DELAY_TOOLTIP = L10n.lang("bbs.ui.video_settings.warmup_delay_tooltip");
+    public static final IKey FILM_WARMUP_SUBTITLE = L10n.lang("bbs.ui.film.warmup_subtitle");
     public static final IKey VIDEO_SETTINGS_WIDTH = L10n.lang("bbs.ui.video_settings.width");
     public static final IKey WORLD_KEYS_CYCLE_PANELS = L10n.lang("bbs.ui.world.keys.cycle_panels");
     public static final IKey CAMERA_TIMELINE_CLIPS_TABS_CAMERA = L10n.lang("bbs.ui.camera.clips.tabs.camera");
