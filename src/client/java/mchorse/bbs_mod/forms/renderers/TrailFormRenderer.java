@@ -20,6 +20,7 @@ import mchorse.bbs_mod.graphics.Draw;
 import mchorse.bbs_mod.graphics.texture.Texture;
 import mchorse.bbs_mod.resources.Link;
 import mchorse.bbs_mod.ui.framework.UIContext;
+import mchorse.bbs_mod.utils.colors.Color;
 
 import net.minecraft.client.gl.RenderPipelines;
 import net.minecraft.client.gl.UniformType;
@@ -248,6 +249,9 @@ public class TrailFormRenderer extends FormRenderer<TrailForm> implements ITicka
 
 
         Link defaultTexture = this.form.texture.get();
+        Color storedFormColor = this.form.color.get();
+        Color blendedTint = new Color().set(context.color, true);
+        Color unblendedTint = new Color().set(context.color, true);
 
         /* When color Transform is active, mask tint in form-local space per vertex. */
         blendedTint.mul(storedFormColor.copyBakingColorGrade());
@@ -478,11 +482,6 @@ public class TrailFormRenderer extends FormRenderer<TrailForm> implements ITicka
         if (built != null)
         {
             TrailFormRenderer.getTrailLayer().draw(built);
-        }
-        }
-        finally
-        {
-            stack.pop();
         }
     }
 

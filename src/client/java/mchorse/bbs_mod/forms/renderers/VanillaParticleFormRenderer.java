@@ -26,7 +26,6 @@ import net.minecraft.item.Items;
 import net.minecraft.particle.BlockStateParticleEffect;
 import net.minecraft.particle.DustColorTransitionParticleEffect;
 import net.minecraft.particle.DustParticleEffect;
-import net.minecraft.particle.EntityEffectParticleEffect;
 import net.minecraft.particle.ItemStackParticleEffect;
 import net.minecraft.particle.ParticleEffect;
 import net.minecraft.particle.ParticleType;

@@ -131,7 +131,7 @@ public final class FormUIPreviewCache
 
         if (client != null && client.getFramebuffer() != null)
         {
-            client.getFramebuffer().beginWrite(true);
+            /* 1.21.11: Framebuffer.beginWrite(boolean) was removed */
         }
 
         GL11.glViewport(viewport[0], viewport[1], viewport[2], viewport[3]);

@@ -3,12 +3,13 @@ package mchorse.bbs_mod.client.gui;
 import net.minecraft.client.gl.RenderPipelines;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.narration.NarrationMessageBuilder;
-import net.minecraft.client.gui.widget.PressableWidget;
+import net.minecraft.client.gui.widget.ButtonWidget;
 import net.minecraft.client.input.AbstractInput;
 import net.minecraft.text.Text;
 import net.minecraft.util.Identifier;
 
-import com.mojang.blaze3d.systems.RenderSystem;
+import com.mojang.blaze3d.opengl.GlStateManager;
+import com.mojang.blaze3d.pipeline.RenderPipeline;
 
 public class BBSLogoButtonWidget extends ButtonWidget
 {
@@ -18,13 +19,19 @@ public class BBSLogoButtonWidget extends ButtonWidget
 
     public BBSLogoButtonWidget(int x, int y, int width, int height, Runnable action)
     {
-        super(x, y, width, height, Text.literal(" "));
+        super(x, y, width, height, Text.of(" "), (button) -> action.run(), DEFAULT_NARRATION_SUPPLIER);
 
         this.action = action;
     }
 
     @Override
     public void onPress(AbstractInput input)
+    {
+        this.action.run();
+    }
+
+    @Override
+    protected void drawIcon(DrawContext context, int x, int y, float delta)
     {
         int x1 = this.getX();
         int y1 = this.getY();
@@ -40,21 +47,20 @@ public class BBSLogoButtonWidget extends ButtonWidget
             borderColor = 0xFF18181F;
         }
 
-        /* Border and background fill */
         context.fill(x1, y1, x2, y2, borderColor);
         context.fill(x1 + 1, y1 + 1, x2 - 1, y2 - 1, bgColor);
 
-        /* Icon rendering with blend enabled */
         int logoSize = Math.min(this.width, this.height) - 6;
         int logoX = x1 + (this.width - logoSize) / 2;
         int logoY = y1 + (this.height - logoSize) / 2;
 
-        RenderSystem.enableBlend();
-        RenderSystem.defaultBlendFunc();
-        RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
+        GlStateManager._enableBlend();
+        GlStateManager._blendFuncSeparate(770, 771, 1, 0);
 
-        context.drawTexture(LOGO, logoX, logoY, 0, 0, logoSize, logoSize, logoSize, logoSize);
-
-        RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
+        context.drawTexture(RenderPipelines.GUI_TEXTURED, LOGO, logoX, logoY, 0F, 0F, logoSize, logoSize, logoSize, logoSize, logoSize, logoSize, -1);
     }
+
+    @Override
+    public void appendClickableNarrations(NarrationMessageBuilder builder)
+    {}
 }

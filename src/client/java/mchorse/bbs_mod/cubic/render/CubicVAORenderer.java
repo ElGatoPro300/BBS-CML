@@ -14,6 +14,7 @@ import mchorse.bbs_mod.utils.MathUtils;
 import mchorse.bbs_mod.utils.colors.Color;
 import mchorse.bbs_mod.utils.interps.Lerps;
 
+import net.minecraft.client.gl.ShaderProgram;
 import net.minecraft.client.render.BufferBuilder;
 import net.minecraft.client.render.LightmapTextureManager;
 import net.minecraft.client.render.VertexFormats;
@@ -26,6 +27,7 @@ public class CubicVAORenderer extends CubicCubeRenderer
 {
     private ModelInstance model;
     private Function<String, Link> textureResolver;
+    private ShaderProgram program;
 
     public CubicVAORenderer(ShaderProgram program, ModelInstance model, int light, int overlay, StencilMap stencilMap, ShapeKeys shapeKeys, Function<String, Link> textureResolver)
     {
@@ -33,6 +35,7 @@ public class CubicVAORenderer extends CubicCubeRenderer
 
         this.model = model;
         this.textureResolver = textureResolver;
+        this.program = program;
     }
 
     @Override

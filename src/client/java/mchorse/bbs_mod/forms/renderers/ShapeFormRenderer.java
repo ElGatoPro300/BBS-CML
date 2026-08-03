@@ -26,6 +26,7 @@ import mchorse.bbs_mod.utils.iris.ShaderCurves;
 import mchorse.bbs_mod.utils.math.Noise;
 
 import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.gl.ShaderProgram;
 import net.minecraft.client.render.BufferBuilder;
 import net.minecraft.client.render.BuiltBuffer;
 import net.minecraft.client.render.DiffuseLighting;
@@ -41,6 +42,8 @@ import org.joml.Matrix4f;
 import org.joml.Vector3f;
 
 import com.mojang.blaze3d.vertex.VertexFormat;
+
+import java.util.function.Supplier;
 
 public class ShapeFormRenderer extends FormRenderer<ShapeForm>
 {

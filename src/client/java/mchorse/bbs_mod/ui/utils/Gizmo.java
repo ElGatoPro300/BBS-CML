@@ -11,6 +11,7 @@ import mchorse.bbs_mod.ui.framework.elements.utils.UIModelRenderer;
 import mchorse.bbs_mod.ui.utils.Area;
 import mchorse.bbs_mod.ui.utils.gizmo.GizmoController;
 import mchorse.bbs_mod.utils.Axis;
+import mchorse.bbs_mod.utils.MathUtils;
 import mchorse.bbs_mod.utils.MatrixStackUtils;
 
 import net.minecraft.client.MinecraftClient;
@@ -155,6 +156,7 @@ public class Gizmo
     private float lastSx = 1F;
     private float lastSy = 1F;
     private float lastSz = 1F;
+    private float lastScaleDist = 0F;
 
     /** Orbit-camera zoom multiplier from {@link UIModelRenderer}; 1 outside model viewports. */
     private float viewportZoomScale = 1F;
@@ -733,6 +735,7 @@ public class Gizmo
         double dist = Math.sqrt(camPos.x * camPos.x + camPos.y * camPos.y + camPos.z * camPos.z);
         float axesScale = BBSSettings.axesScale == null ? 1F : BBSSettings.axesScale.get();
 
+        this.lastScaleDist = (float) dist;
         this.updateFlipSigns(camPos.x, camPos.y, camPos.z);
 
         if (dist > 1.0E-6D)

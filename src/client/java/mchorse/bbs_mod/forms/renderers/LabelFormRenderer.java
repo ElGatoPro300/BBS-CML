@@ -291,46 +291,6 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
             RenderSystem.disableCull();
             RenderSystem.enableBlend();
             RenderSystem.blendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE);
-        });
-
-        Color glowColor = FormColorEffects.resolveGlowOverlayEmissionColor(glowSettings, legacyGlow, alpha, glowIntensity);
-        float shaderScale = FormColorEffects.resolveGlowOverlayShaderScale(glowIntensity);
-        int maxLight = LightmapTextureManager.MAX_LIGHT_COORDINATE;
-        boolean savedDepthMask = GL11.glGetBoolean(GL11.GL_DEPTH_WRITEMASK);
-        boolean savedPolygonOffsetFill = GL11.glGetBoolean(GL11.GL_POLYGON_OFFSET_FILL);
-
-        RenderSystem.enableBlend();
-        RenderSystem.blendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE);
-        RenderSystem.depthMask(false);
-        GL11.glEnable(GL11.GL_POLYGON_OFFSET_FILL);
-        GL11.glPolygonOffset(-1F, -1F);
-        RenderSystem.setShaderColor(shaderScale, shaderScale, shaderScale, 1F);
-
-        try
-        {
-            consumers.setSubstitute(BBSRendering.getTextGlowOverlayConsumer(glowColor));
-
-            if (customFont != null)
-            {
-                customFont.draw(content, x, y, textColor, textColor, letterSpacing, 0F, context.stack.peek().getPositionMatrix(), consumers, maxLight);
-            }
-            else
-            {
-                renderer.draw(
-                    content,
-                    x,
-                    y,
-                    textColor,
-                    false,
-                    context.stack.peek().getPositionMatrix(),
-                    consumers,
-                    TextRenderer.TextLayerType.NORMAL,
-                    0,
-                    maxLight
-                );
-            }
-
-            this.flushLabelConsumers(consumers);
         }
     }
 

@@ -663,24 +663,25 @@ public class BBSModClient implements ClientModInitializer
         /* Soft-opacity forms wait until water/lava/portals are drawn; flush here (not inside
          * renderLayer) so WorldRenderer's pose stack stays balanced. Under Iris this also
          * runs after pack cloud composite; vanilla holds until LAST (after vanilla clouds). */
-        WorldRenderEvents.AFTER_TRANSLUCENT.register((context) ->
+        /* TODO: AFTER_TRANSLUCENT and LAST not available in 1.21.11 WorldRenderEvents */
+        /* WorldRenderEvents.AFTER_TRANSLUCENT.register((context) ->
         {
             ShaderOpacityPatch.onAfterTranslucentTerrain();
         });
 
         WorldRenderEvents.LAST.register((context) ->
-        {
+        { */
             /* Vanilla only: soft forms deferred past AFTER_TRANSLUCENT so clouds are not
              * depth-occluded. Iris already flushed; paint overlays still run at world end. */
-            ShaderOpacityPatch.onAfterVanillaClouds();
+            /* ShaderOpacityPatch.onAfterVanillaClouds();
 
-            Draw.flushIrisBoxes();
+            Draw.flushIrisBoxes(); */
 
             if (Gizmo.INSTANCE.hasDeferred())
             {
                 GlStateManager._enableDepthTest();
                 GlStateManager._depthMask(false);
-                Gizmo.INSTANCE.renderDeferred(context.matrices());
+                Gizmo.INSTANCE.renderDeferred(new MatrixStack());
                 GlStateManager._depthMask(true);
             }
 
@@ -688,7 +689,7 @@ public class BBSModClient implements ClientModInitializer
             {
                 videoRecorder.recordFrame();
             }
-        });
+        /* }); */
 
         ClientPlayConnectionEvents.JOIN.register((handler, sender, client) ->
         {

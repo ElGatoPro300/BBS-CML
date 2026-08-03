@@ -73,7 +73,7 @@ public class UIKeyframeDopeSheet implements IUIKeyframeGraph
     private float sidebarDragRatio;
     private int sidebarWidth = SIDEBAR_WIDTH;
 
-    public static IKeyframeShapeRenderer renderShape(Keyframe frame, UIContext context, BufferBuilder builder, Matrix4f matrix, int x, int y, int offset, int c)
+    public static IKeyframeShapeRenderer renderShape(Keyframe frame, UIContext context, BufferBuilder builder, Matrix3x2fc matrix, int x, int y, int offset, int c)
     {
         KeyframeShape keyframeShape = frame.getShape();
         IKeyframeShapeRenderer shape = KeyframeShapeRenderers.SHAPES.get(keyframeShape);
@@ -520,10 +520,11 @@ public class UIKeyframeDopeSheet implements IUIKeyframeGraph
     {
         Keyframe keyframe = IUIKeyframeGraph.super.addKeyframe(sheet, tick, value);
 
-        if (keyframe != null && FormUtils.isVisiblePropertyPath(sheet.id))
+        /* TODO: FormUtils.isVisiblePropertyPath and UIVisibleRenderKeyframeUtils not available in 1.21.11 */
+        /* if (keyframe != null && FormUtils.isVisiblePropertyPath(sheet.id))
         {
             UIVisibleRenderKeyframeUtils.syncRenderOnVisibleInsert(sheet.channel, tick);
-        }
+        } */
 
         return keyframe;
     }

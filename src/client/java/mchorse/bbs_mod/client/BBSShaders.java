@@ -210,6 +210,7 @@ public class BBSShaders
     public static ShaderProgram getBlockPaintOverlayProgram() { return null; }
     public static ShaderProgram getBlockColorTintOverlayProgram() { return null; }
     public static ShaderProgram getFlatColorTintOverlayProgram() { return null; }
+    public static ShaderProgram getModelProgram() { return null; }
 
     private static RenderPipeline registerModel()
     {

@@ -264,6 +264,7 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
     private static final String PRESET_REPLAYS_PANEL_WIDTH = "replays_panel_width";
     private static final String PRESET_REPLAYS_PANEL_HEIGHT = "replays_panel_height";
     private static final String PRESET_REPLAYS_PANEL_DOCKED_LAYOUT = "replays_panel_docked_layout";
+    private static final String PRESET_HIDDEN_PANELS = "hidden_panels";
     private static final String[] LEGACY_LAYOUT_PRESETS = {
         "Horizontal (Bottom)",
         "Horizontal (Top)",
@@ -3735,6 +3736,11 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
         }
 
         return EditorLayoutNode.copyWithReplacedLeaf(root, ANCHORED_REPLAYS_PANEL_ID, this.createAnchoredReplaysColumn());
+    }
+
+    private boolean isSeparateReplayPropertiesPanelEnabled()
+    {
+        return false;
     }
 
     private boolean isReplaysPropertiesPanelActive()

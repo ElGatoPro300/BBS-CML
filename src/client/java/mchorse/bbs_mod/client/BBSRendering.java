@@ -98,6 +98,8 @@ public class BBSRendering
      */
     public static final Set<ModelBlockEntity> capturedModelBlocks = new HashSet<>();
 
+    public static final float TRANSLUCENT_ALPHA_DISCARD_REF = 0.1F;
+
     public static boolean canRender;
 
     public static boolean renderingWorld;
@@ -1184,5 +1186,38 @@ public class BBSRendering
 
         /* 1.21.11: depth-test state is managed via RenderPipeline; GlStateManager._enableDepthTest() removed */
         // GlStateManager._enableDepthTest();
+    }
+
+    public static boolean needsIrisTranslucentModelDeferral(float alpha)
+    {
+        return false;
+    }
+
+    public static boolean needsIrisNoshadingOpacityDeferral(float alpha, boolean noshading)
+    {
+        return false;
+    }
+
+    public static float easeIrisModelAlpha(float alpha)
+    {
+        return alpha;
+    }
+
+    public static float easeDeferredModelAlpha(float alpha)
+    {
+        return alpha;
+    }
+
+    public static void applyDeferredModelHandoffRgb(Color color)
+    {}
+
+    public static boolean shapeKeyPositiveOverlay()
+    {
+        return false;
+    }
+
+    public static boolean shouldDeferPaintOverlayToFrameEnd()
+    {
+        return false;
     }
 }

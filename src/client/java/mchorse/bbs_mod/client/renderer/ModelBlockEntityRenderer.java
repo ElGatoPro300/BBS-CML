@@ -4,6 +4,7 @@ import mchorse.bbs_mod.BBSMod;
 import mchorse.bbs_mod.BBSSettings;
 import mchorse.bbs_mod.blocks.entities.ModelBlockEntity;
 import mchorse.bbs_mod.blocks.entities.ModelProperties;
+import mchorse.bbs_mod.client.BBSRendering;
 import mchorse.bbs_mod.cubic.ModelInstance;
 import mchorse.bbs_mod.entity.ActorEntity;
 import mchorse.bbs_mod.forms.FormUtilsClient;
@@ -46,6 +47,7 @@ import net.minecraft.util.math.Vec3d;
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
 
+import com.mojang.blaze3d.opengl.GlStateManager;
 import com.mojang.blaze3d.systems.RenderSystem;
 
 public class ModelBlockEntityRenderer implements BlockEntityRenderer<ModelBlockEntity, ModelBlockEntityRenderer.ModelBlockRenderState>
@@ -204,9 +206,9 @@ public class ModelBlockEntityRenderer implements BlockEntityRenderer<ModelBlockE
             int lightAbove = WorldRenderer.getLightmapCoordinates(entity.getWorld(), pos.add((int) transform.translate.x, (int) transform.translate.y, (int) transform.translate.z));
             Camera camera = mc.gameRenderer.getCamera();
 
-            FormUtilsClient.render(properties.getForm(), new FormRenderingContext()
+            FormRenderingContext formContext = new FormRenderingContext()
                 .set(FormRenderType.MODEL_BLOCK, entity.getEntity(), matrices, lightAbove, overlay, tickDelta)
-                .camera(camera));
+                .camera(camera);
 
             formContext.isShadowPass = BBSRendering.isIrisShadowPass();
 
@@ -214,7 +216,7 @@ public class ModelBlockEntityRenderer implements BlockEntityRenderer<ModelBlockE
 
             if (!formContext.isShadowPass)
             {
-                RenderSystem.disableDepthTest();
+                GlStateManager._disableDepthTest();
             }
 
             if (!formContext.isShadowPass && this.canRenderAxes(entity) && UIBaseMenu.renderAxes)
@@ -397,7 +399,7 @@ public class ModelBlockEntityRenderer implements BlockEntityRenderer<ModelBlockE
 
         if (properties.isLookAt())
         {
-            applied = applyLookingAnimation(mc, entity, properties, tickDelta);
+            applied = new ModelBlockEntityRenderer(null).applyLookingAnimation(mc, entity, properties, tickDelta);
         }
 
         MatrixStackUtils.applyTransform(shadowStack, applied);
@@ -409,7 +411,7 @@ public class ModelBlockEntityRenderer implements BlockEntityRenderer<ModelBlockE
 
         formContext.isShadowPass = true;
 
-        RenderSystem.enableDepthTest();
+        GlStateManager._enableDepthTest();
         FormUtilsClient.render(form, formContext);
         shadowStack.pop();
     }

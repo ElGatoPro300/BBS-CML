@@ -611,59 +611,6 @@ public abstract class BaseFilmController
         return matrix;
     }
 
-    /**
-     * World position of the look at target. When an attachment bone is picked, the
-     * bone's matrix is used (which reacts to the target's pose animation), otherwise
-     * the target form's full visual transform is taken into account.
-     */
-    public static Vector3d resolveReplayAttachmentPoint(FilmControllerContext context, int targetReplay, String attachment)
-    {
-        if (context == null || context.entities == null)
-        {
-            return null;
-        }
-
-        IEntity targetEntity = context.entities.get(targetReplay);
-
-        if (targetEntity == null)
-        {
-            return null;
-        }
-
-        return getLookAtTargetPoint(targetEntity, attachment, context.transition);
-    }
-
-    public static Quaternionf resolveReplayAttachmentRotation(FilmControllerContext context, int targetReplay, String attachment)
-    {
-        if (context == null || context.entities == null)
-        {
-            return null;
-        }
-
-        IEntity targetEntity = context.entities.get(targetReplay);
-
-        if (targetEntity == null)
-        {
-            return null;
-        }
-
-        Matrix4f matrix = getMatrixForRenderWithRotation(targetEntity, 0D, 0D, 0D, context.transition);
-        Form targetForm = targetEntity.getForm();
-
-        if (targetForm != null)
-        {
-            MatrixCache map = FormUtilsClient.getRenderer(targetForm).collectMatrices(targetEntity, context.transition);
-            Matrix4f visualMatrix = getLookAtVisualMatrix(map, targetForm, attachment);
-
-            if (visualMatrix != null)
-            {
-                matrix.mul(visualMatrix);
-            }
-        }
-
-        return matrix.getNormalizedRotation(new Quaternionf());
-    }
-
     private static Vector3d getLookAtTargetPoint(IEntity targetEntity, String attachment, float transition)
     {
         Matrix4f matrix = getMatrixForRenderWithRotation(targetEntity, 0D, 0D, 0D, transition);
@@ -683,6 +630,11 @@ public abstract class BaseFilmController
         Vector3f translation = matrix.getTranslation(new Vector3f());
 
         return new Vector3d(translation);
+    }
+
+    private static Quaternionf getLookAtTargetRotation(IEntity targetEntity, String attachment, float transition)
+    {
+        return null;
     }
 
     /**
@@ -1711,7 +1663,7 @@ public abstract class BaseFilmController
 
             FilmControllerContext filmContext = getFilmControllerContext(context, replay, entity);
 
-            filmContext.transition = getTransition(entity, context.tickCounter().getTickDelta(false));
+            filmContext.transition = getTransition(entity, MinecraftClient.getInstance().getRenderTickCounter().getTickProgress(false));
 
             filmContext.stack.push();
 

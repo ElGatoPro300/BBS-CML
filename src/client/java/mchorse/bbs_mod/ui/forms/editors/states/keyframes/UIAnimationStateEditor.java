@@ -2,6 +2,7 @@ package mchorse.bbs_mod.ui.forms.editors.states.keyframes;
 
 import mchorse.bbs_mod.BBSSettings;
 import mchorse.bbs_mod.cubic.ModelInstance;
+import mchorse.bbs_mod.cubic.model.bobj.BOBJModel;
 import mchorse.bbs_mod.forms.FormUtils;
 import mchorse.bbs_mod.forms.FormUtilsClient;
 import mchorse.bbs_mod.forms.entities.IEntity;

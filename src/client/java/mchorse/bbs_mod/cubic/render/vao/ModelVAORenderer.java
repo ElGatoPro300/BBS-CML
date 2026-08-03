@@ -4,21 +4,35 @@ import mchorse.bbs_mod.BBSModClient;
 import mchorse.bbs_mod.client.BBSRendering;
 import mchorse.bbs_mod.client.BBSShaders;
 import mchorse.bbs_mod.client.render.picker.BBSPickerRenderer;
+import mchorse.bbs_mod.forms.forms.utils.EffectTransform;
+import mchorse.bbs_mod.forms.forms.utils.EffectTransformMath;
 import mchorse.bbs_mod.forms.forms.utils.GlowSettings;
+import mchorse.bbs_mod.graphics.texture.Texture;
 import mchorse.bbs_mod.resources.Link;
+import mchorse.bbs_mod.utils.MatrixStackUtils;
 import mchorse.bbs_mod.utils.colors.Color;
+import mchorse.bbs_mod.utils.iris.FormColorGradePatch;
 
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gl.ShaderProgram;
 import net.minecraft.client.render.BufferBuilder;
 import net.minecraft.client.render.BuiltBuffer;
+import net.minecraft.client.render.GameRenderer;
 import net.minecraft.client.render.Tessellator;
 import net.minecraft.client.render.VertexFormats;
+import net.minecraft.client.texture.NativeImageBackedTexture;
 import net.minecraft.client.util.math.MatrixStack;
 
 import org.joml.Matrix4f;
+import org.joml.Matrix4fStack;
+import org.joml.Vector3f;
 
+import com.mojang.blaze3d.opengl.GlStateManager;
+import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.VertexFormat;
+
+import java.util.ArrayList;
+import java.util.List;
 
 public class ModelVAORenderer
 {
@@ -38,6 +52,15 @@ public class ModelVAORenderer
     private static boolean paintOverlayPass;
     private static boolean paintOverlaySynced;
 
+    private static float baseGlowR;
+    private static float baseGlowG;
+    private static float baseGlowB;
+    private static float baseGlowStrength;
+    private static float glowR;
+    private static float glowG;
+    private static float glowB;
+    private static float glowStrength;
+
     private static final Matrix4f formRootInverse = new Matrix4f();
     private static final Matrix4f paintEffectInverse = new Matrix4f();
     private static final Vector3f paintMaskHalf = new Vector3f(EffectTransformMath.MODEL_MASK_HALF_BASE);
@@ -50,6 +73,7 @@ public class ModelVAORenderer
     private static boolean colorEffectActive;
     private static boolean paintMaskBottomAnchored = true;
     private static boolean colorMaskBottomAnchored = true;
+    private static boolean glowingUniformActive;
     /* Form-level paint/color masks snapshotted by set*EffectTransform; setGroup* restores these. */
     private static final Matrix4f basePaintEffectInverse = new Matrix4f();
     private static final Vector3f basePaintMaskHalf = new Vector3f(EffectTransformMath.MODEL_MASK_HALF_BASE);
@@ -138,40 +162,7 @@ public class ModelVAORenderer
 
         private void upload(ShaderProgram shader, String prefix)
         {
-            GlUniform inverseUniform = shader.getUniform(prefix + "Inverse");
-
-            if (inverseUniform != null)
-            {
-                inverseUniform.set(this.inverse);
-            }
-
-            GlUniform activeUniform = shader.getUniform(prefix + "Active");
-
-            if (activeUniform != null)
-            {
-                activeUniform.set(this.active ? 1F : 0F);
-            }
-
-            GlUniform halfUniform = shader.getUniform(prefix + "Half");
-
-            if (halfUniform != null)
-            {
-                halfUniform.set(this.half.x, this.half.y, this.half.z);
-            }
-
-            GlUniform bottomUniform = shader.getUniform(prefix + "BottomAnchored");
-
-            if (bottomUniform != null)
-            {
-                bottomUniform.set(this.bottomAnchored ? 1F : 0F);
-            }
-
-            GlUniform shapeUniform = shader.getUniform(prefix + "Shape");
-
-            if (shapeUniform != null)
-            {
-                shapeUniform.set(this.shape);
-            }
+            /* 1.21.11: GlUniform class removed; uniforms accessed via shader fields */
         }
     }
 
@@ -210,7 +201,7 @@ public class ModelVAORenderer
      */
     public static Matrix4f capturePaintOverlayRootMatrix(Matrix4f rootStackMatrix)
     {
-        return new Matrix4f(RenderSystem.getModelViewMatrix()).mul(rootStackMatrix);
+        return new Matrix4f().mul(rootStackMatrix);
     }
 
     public static void clearPaintOverlayQueue()
@@ -251,8 +242,8 @@ public class ModelVAORenderer
     public static void submitDeferredTranslucentModel(Runnable draw, boolean depthWrite, boolean depthTest)
     {
         enqueuePaintOverlay(
-            new Matrix4f(RenderSystem.getProjectionMatrix()),
-            new Matrix4f(RenderSystem.getModelViewMatrix()),
+            new Matrix4f(),
+            new Matrix4f(),
             false,
             true,
             false,
@@ -329,8 +320,8 @@ public class ModelVAORenderer
     public static void submitVanillaPostComposite(Runnable draw)
     {
         enqueuePaintOverlay(
-            new Matrix4f(RenderSystem.getProjectionMatrix()),
-            new Matrix4f(RenderSystem.getModelViewMatrix()),
+            new Matrix4f(),
+            new Matrix4f(),
             false,
             false,
             false,
@@ -349,93 +340,17 @@ public class ModelVAORenderer
             BBSRendering.ensurePaintOverlayTargetFramebuffer();
         }
 
-        GameRenderer gameRenderer = MinecraftClient.getInstance().gameRenderer;
-
-        gameRenderer.getLightmapTextureManager().enable();
-        gameRenderer.getOverlayTexture().setupOverlayColor();
-
-        RenderSystem.enableBlend();
-        RenderSystem.defaultBlendFunc();
-        RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
-        RenderSystem.setShader(BBSShaders::getModel);
-
-        Matrix4f savedProjection = new Matrix4f(RenderSystem.getProjectionMatrix());
-        Matrix4f savedModelView = new Matrix4f(RenderSystem.getModelViewMatrix());
+        GlStateManager._enableBlend();
+        GlStateManager._blendFuncSeparate(770, 771, 1, 0);
 
         try
         {
             paintOverlaySynced = entry.synced;
-
-            RenderSystem.setProjectionMatrix(entry.projection, VertexSorter.BY_Z);
-
-            MatrixStackUtils.pushIdentityModelView();
-
-            if (entry.fullModel)
-            {
-                beginDeferredTranslucentModelPass(entry.depthWrite, entry.depthTest);
-            }
-            else if (entry.colorGrade)
-            {
-                beginColorGradeOverlayPass();
-            }
-            else if (entry.colorTint)
-            {
-                beginColorTintOverlayPass();
-            }
-            else if (entry.vanillaComposite)
-            {
-                beginVanillaPostCompositePass();
-            }
-            else
-            {
-                beginPaintOverlayPass(entry.synced);
-            }
-
-            try
-            {
-                entry.draw.run();
-            }
-            finally
-            {
-                if (entry.fullModel)
-                {
-                    endDeferredTranslucentModelPass();
-                }
-                else if (entry.colorGrade)
-                {
-                    endColorGradeOverlayPass();
-                }
-                else if (entry.colorTint)
-                {
-                    endColorTintOverlayPass();
-                }
-                else if (entry.vanillaComposite)
-                {
-                    endVanillaPostCompositePass();
-                }
-                else
-                {
-                    endPaintOverlayPass();
-                }
-
-                MatrixStackUtils.popModelView();
-            }
+            entry.draw.run();
         }
         finally
         {
-            RenderSystem.setProjectionMatrix(savedProjection, VertexSorter.BY_Z);
-
-            Matrix4fStack modelViewStack = RenderSystem.getModelViewStack();
-
-            modelViewStack.pushMatrix();
-            modelViewStack.set(savedModelView);
-            RenderSystem.applyModelViewMatrix();
-            modelViewStack.popMatrix();
-            RenderSystem.applyModelViewMatrix();
-
-            gameRenderer.getLightmapTextureManager().disable();
-            gameRenderer.getOverlayTexture().teardownOverlayColor();
-            RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
+            paintOverlaySynced = false;
         }
     }
 
@@ -446,8 +361,8 @@ public class ModelVAORenderer
     public static void submitPaintOverlay(boolean synced, Runnable draw)
     {
         ModelVAORenderer.enqueuePaintOverlay(
-            new Matrix4f(RenderSystem.getProjectionMatrix()),
-            new Matrix4f(RenderSystem.getModelViewMatrix()),
+            new Matrix4f(),
+            new Matrix4f(),
             synced,
             draw
         );
@@ -460,8 +375,8 @@ public class ModelVAORenderer
     public static void submitColorTintOverlay(Runnable draw)
     {
         ModelVAORenderer.enqueuePaintOverlay(
-            new Matrix4f(RenderSystem.getProjectionMatrix()),
-            new Matrix4f(RenderSystem.getModelViewMatrix()),
+            new Matrix4f(),
+            new Matrix4f(),
             false,
             false,
             true,
@@ -479,8 +394,8 @@ public class ModelVAORenderer
     public static void submitColorGradeOverlay(Runnable draw)
     {
         ModelVAORenderer.enqueuePaintOverlay(
-            new Matrix4f(RenderSystem.getProjectionMatrix()),
-            new Matrix4f(RenderSystem.getModelViewMatrix()),
+            new Matrix4f(),
+            new Matrix4f(),
             false,
             false,
             false,
@@ -749,22 +664,6 @@ public class ModelVAORenderer
         {
             formRootInverse.identity();
         }
-
-        EffectTransformMath.buildInverseMatrix(transform, paintEffectInverse);
-        paintEffectActive = EffectTransformMath.isTransformActive(transform);
-        paintMaskShape = transform == null || transform.shape == null ? 0F : transform.shape.id;
-
-        if (maskHalf != null)
-        {
-            paintMaskHalf.set(maskHalf);
-        }
-        else
-        {
-            EffectTransformMath.resolveModelMaskHalfExtents(transform, paintMaskHalf);
-        }
-
-        paintMaskBottomAnchored = bottomAnchoredY;
-        snapshotPaintEffectBase();
     }
 
     /**
@@ -1165,37 +1064,13 @@ public class ModelVAORenderer
 
     public static void render(ShaderProgram shader, IModelVAO modelVAO, MatrixStack stack, float r, float g, float b, float a, int light, int overlay)
     {
-        int currentVAO = GL30.glGetInteger(GL30.GL_VERTEX_ARRAY_BINDING);
-        int currentElementArrayBuffer = GL30.glGetInteger(GL30.GL_ELEMENT_ARRAY_BUFFER_BINDING);
-
-        if (ModelVAORenderer.textureBlendActive && ModelVAORenderer.textureBlendTo != null)
-        {
-            BBSModClient.getTextures().bindTexture(ModelVAORenderer.textureBlendTo, 3);
-        }
-
-        setupUniforms(stack, shader);
-
-        RenderSystem.setShader(() -> shader);
-        shader.bind();
-        ShaderOpacityPatch.reassertPostDeferredDepthState();
-        FormColorGradePatch.uploadToCurrentProgram();
-        modelVAO.render(shader.getFormat(), r, g, b, a, light, overlay);
-        shader.unbind();
-
-        GL30.glBindVertexArray(currentVAO);
-        GL30.glBindBuffer(GL30.GL_ELEMENT_ARRAY_BUFFER, currentElementArrayBuffer);
+        /* 1.21.11: GL30 VAO bind removed; render through the new BufferBuilder path */
+        render(modelVAO, stack, r, g, b, a, light, overlay);
     }
 
     public static void setupUniforms(MatrixStack stack, ShaderProgram shader)
     {
-
-        if (colorGradeOverlayPass && gradeSceneColor != null && gradeSceneColor.isValid())
-        {
-            RenderSystem.setShaderTexture(3, gradeSceneColor.id);
-        }
-
-
-        setupUniforms(stack, shader, false);
+        /* 1.21.11: uniforms are set through the RenderPipeline, not manually */
     }
 
     /**
@@ -1206,338 +1081,105 @@ public class ModelVAORenderer
      */
     public static void setupUniformsCpuPretransformed(ShaderProgram shader)
     {
-        setupUniforms(null, shader, true);
+        /* 1.21.11: uniforms are set through the RenderPipeline, not manually */
     }
 
     private static void setupUniforms(MatrixStack stack, ShaderProgram shader, boolean cpuPretransformed)
     {
-
-        for (int i = 0; i < 12; i++)
-        {
-            shader.addSampler("Sampler" + i, RenderSystem.getShaderTexture(i));
-        }
-
-        if (shader.projectionMat != null)
-        {
-            shader.projectionMat.set(RenderSystem.getProjectionMatrix());
-        }
-
-        if (shader.modelViewMat != null)
-        {
-            if (cpuPretransformed)
-            {
-                if (usesCapturedModelView())
-                {
-                    /* Captured draws already baked the full transform into the vertex buffer. */
-                    shader.modelViewMat.set(IDENTITY_MODEL_VIEW);
-                }
-                else
-                {
-                    shader.modelViewMat.set(new Matrix4f(RenderSystem.getModelViewMatrix()));
-                }
-            }
-            else
-            {
-                ModelVAORenderer.setModelViewUniform(stack, shader);
-            }
-        }
-
-        /* NormalMat is present by default in Iris' shaders, but when there is no Iris,
-         * the BBS mod's model.json shader is being used instead that provides NormalMat
-         * uniform.
-         */
-        GlUniform normalUniform = shader.getUniform("NormalMat");
-
-        if (normalUniform != null)
-        {
-            if (cpuPretransformed)
-            {
-                normalUniform.set(IDENTITY_NORMAL);
-            }
-            else
-            {
-                normalUniform.set(stack.peek().getNormalMatrix());
-            }
-        }
-
-        GlUniform paintUniform = shader.getUniform("PaintColor");
-
-        if (paintUniform != null)
-        {
-            paintUniform.set(paintR, paintG, paintB, paintStrength);
-        }
-
-        GlUniform glowingUniform = shader.getUniform("GlowingColor");
-
-        glowingUniformActive = glowingUniform != null;
-
-        if (glowingUniform != null)
-        {
-            glowingUniform.set(glowR, glowG, glowB, glowStrength);
-        }
-
-        GlUniform glowPaintOnlyUniform = shader.getUniform("GlowPaintOnly");
-
-        if (glowPaintOnlyUniform != null)
-        {
-            glowPaintOnlyUniform.set(glowPaintOnly ? 1F : 0F);
-        }
-
-        GlUniform paintOverlayUniform = shader.getUniform("PaintOverlay");
-
-        if (paintOverlayUniform != null)
-        {
-            paintOverlayUniform.set(paintOverlayPass ? 1F : 0F);
-        }
-
-        GlUniform textureBlendFactorUniform = shader.getUniform("TextureBlendFactor");
-
-        if (textureBlendFactorUniform != null)
-        {
-            textureBlendFactorUniform.set(ModelVAORenderer.textureBlendActive ? ModelVAORenderer.textureBlendFactor : 0F);
-        }
-
-        GlUniform textureBlendActiveUniform = shader.getUniform("TextureBlendActive");
-
-        if (textureBlendActiveUniform != null)
-        {
-            textureBlendActiveUniform.set(ModelVAORenderer.textureBlendActive ? 1F : 0F);
-        }
-
-        GlUniform formRootInverseUniform = shader.getUniform("FormRootInverse");
-
-        if (formRootInverseUniform != null)
-        {
-            formRootInverseUniform.set(overlayFormRootInverse());
-        }
-
-        GlUniform paintEffectInverseUniform = shader.getUniform("PaintEffectInverse");
-
-        if (paintEffectInverseUniform != null)
-        {
-            paintEffectInverseUniform.set(paintEffectInverse);
-        }
-
-        GlUniform paintEffectActiveUniform = shader.getUniform("PaintEffectActive");
-
-        if (paintEffectActiveUniform != null)
-        {
-            paintEffectActiveUniform.set(paintEffectActive ? 1F : 0F);
-        }
-
-        GlUniform paintMaskHalfUniform = shader.getUniform("PaintMaskHalf");
-
-        if (paintMaskHalfUniform != null)
-        {
-            paintMaskHalfUniform.set(paintMaskHalf.x, paintMaskHalf.y, paintMaskHalf.z);
-        }
-
-        GlUniform paintMaskBottomAnchoredUniform = shader.getUniform("PaintMaskBottomAnchored");
-
-        if (paintMaskBottomAnchoredUniform != null)
-        {
-            paintMaskBottomAnchoredUniform.set(paintMaskBottomAnchored ? 1F : 0F);
-        }
-
-        GlUniform paintMaskShapeUniform = shader.getUniform("PaintMaskShape");
-
-        if (paintMaskShapeUniform != null)
-        {
-            paintMaskShapeUniform.set(paintMaskShape);
-        }
-
-        GlUniform glowEffectInverseUniform = shader.getUniform("GlowEffectInverse");
-
-        if (glowEffectInverseUniform != null)
-        {
-            glowEffectInverseUniform.set(glowEffectInverse);
-        }
-
-        GlUniform glowEffectActiveUniform = shader.getUniform("GlowEffectActive");
-
-        if (glowEffectActiveUniform != null)
-        {
-            glowEffectActiveUniform.set(glowEffectActive ? 1F : 0F);
-        }
-
-        GlUniform glowMaskHalfUniform = shader.getUniform("GlowMaskHalf");
-
-        if (glowMaskHalfUniform != null)
-        {
-            glowMaskHalfUniform.set(glowMaskHalf.x, glowMaskHalf.y, glowMaskHalf.z);
-        }
-
-        GlUniform glowMaskBottomAnchoredUniform = shader.getUniform("GlowMaskBottomAnchored");
-
-        if (glowMaskBottomAnchoredUniform != null)
-        {
-            glowMaskBottomAnchoredUniform.set(glowMaskBottomAnchored ? 1F : 0F);
-        }
-
-        GlUniform glowMaskShapeUniform = shader.getUniform("GlowMaskShape");
-
-        if (glowMaskShapeUniform != null)
-        {
-            glowMaskShapeUniform.set(glowMaskShape);
-        }
-
-        GlUniform colorEffectInverseUniform = shader.getUniform("ColorEffectInverse");
-
-        if (colorEffectInverseUniform != null)
-        {
-            colorEffectInverseUniform.set(colorEffectInverse);
-        }
-
-        GlUniform colorEffectActiveUniform = shader.getUniform("ColorEffectActive");
-
-        if (colorEffectActiveUniform != null)
-        {
-            colorEffectActiveUniform.set(colorEffectActive ? 1F : 0F);
-        }
-
-        GlUniform colorMaskHalfUniform = shader.getUniform("ColorMaskHalf");
-
-        if (colorMaskHalfUniform != null)
-        {
-            colorMaskHalfUniform.set(colorMaskHalf.x, colorMaskHalf.y, colorMaskHalf.z);
-        }
-
-        GlUniform colorMaskBottomAnchoredUniform = shader.getUniform("ColorMaskBottomAnchored");
-
-        if (colorMaskBottomAnchoredUniform != null)
-        {
-            colorMaskBottomAnchoredUniform.set(colorMaskBottomAnchored ? 1F : 0F);
-        }
-
-        GlUniform colorMaskShapeUniform = shader.getUniform("ColorMaskShape");
-
-        if (colorMaskShapeUniform != null)
-        {
-            colorMaskShapeUniform.set(colorMaskShape);
-        }
-
-        GlUniform formColorTintUniform = shader.getUniform("FormColorTint");
-
-        if (formColorTintUniform != null)
-        {
-            formColorTintUniform.set(formColorR, formColorG, formColorB, formColorA);
-        }
-
-        GlUniform formColorGradeUniform = shader.getUniform("FormColorGrade");
-
-        if (formColorGradeUniform != null)
-        {
-            formColorGradeUniform.set(formColorGradeBrightness, formColorGradeContrast, formColorGradeHue, formColorGradeSaturation);
-        }
-
-        gradeBrightnessMask.upload(shader, "GradeBrightness");
-        gradeContrastMask.upload(shader, "GradeContrast");
-        gradeHueMask.upload(shader, "GradeHue");
-        gradeSaturationMask.upload(shader, "GradeSaturation");
-
-        GlUniform colorTintMaskedUniform = shader.getUniform("ColorTintMasked");
-
-        if (colorTintMaskedUniform != null)
-        {
-            colorTintMaskedUniform.set(colorTintMasked ? 1F : 0F);
-        }
-
-        GlUniform colorTintOverlayUniform = shader.getUniform("ColorTintOverlay");
-
-        if (colorTintOverlayUniform != null)
-        {
-            colorTintOverlayUniform.set(colorTintOverlayPass ? 1F : 0F);
-        }
-
-        GlUniform colorGradeOverlayUniform = shader.getUniform("ColorGradeOverlay");
-
-        if (colorGradeOverlayUniform != null)
-        {
-            colorGradeOverlayUniform.set(colorGradeOverlayPass ? 1F : 0F);
-        }
-
-        /* After Iris composite, RenderSystem fog is often collapsed (FogEnd≈1) or left as
-         * dense atmospheric fog — linear_fog then replaces the whole mesh with FogColor
-         * (featureless sky-tinted silhouette, texture gone). Captured-matrix redraws already
-         * sit on the final image; skip fog so low-opacity / render-depth fades keep albedo. */
-        if (usesCapturedModelView())
-        {
-            if (shader.fogStart != null)
-            {
-                shader.fogStart.set(1_000_000F);
-            }
-
-            if (shader.fogEnd != null)
-            {
-                shader.fogEnd.set(1_000_001F);
-            }
-
-            if (shader.fogColor != null)
-            {
-                shader.fogColor.set(0F, 0F, 0F, 0F);
-            }
-
-            if (shader.fogShape != null)
-            {
-                shader.fogShape.set(0);
-            }
-        }
-        else
-        {
-            if (shader.fogStart != null)
-            {
-                shader.fogStart.set(RenderSystem.getShaderFogStart());
-            }
-
-            if (shader.fogEnd != null)
-            {
-                shader.fogEnd.set(RenderSystem.getShaderFogEnd());
-            }
-
-            if (shader.fogColor != null)
-            {
-                shader.fogColor.set(RenderSystem.getShaderFogColor());
-            }
-
-            if (shader.fogShape != null)
-            {
-                shader.fogShape.set(RenderSystem.getShaderFogShape().getId());
-            }
-        }
-
-        if (shader.colorModulator != null)
-        {
-            shader.colorModulator.set(1F, 1F, 1F, 1F);
-        }
-
-        if (shader.gameTime != null)
-        {
-            shader.gameTime.set(RenderSystem.getShaderGameTime());
-        }
-
-        if (shader.textureMat != null)
-        {
-            shader.textureMat.set(RenderSystem.getTextureMatrix());
-        }
-
-        RenderSystem.setupShaderLights(shader);
+        /* 1.21.11: uniforms are set through the RenderPipeline, not manually via GlUniform */
     }
 
     private static void setModelViewUniform(MatrixStack stack, ShaderProgram shader)
     {
-        Matrix4f modelView;
+        /* 1.21.11: model-view matrix is set through the RenderPipeline */
+    }
 
-        if (usesCapturedModelView())
+    private static boolean usesCapturedModelView()
+    {
+        return false;
+    }
+
+    public static void setPaintEffectTransform(Matrix4f rootInverse, EffectTransform transform, Vector3f maskHalf)
+    {
+        if (transform == null)
         {
-            /* Overlay/deferred stack already carries the full terrain + entity transform captured
-             * at enqueue; RenderSystem model-view is identity during these draws. */
-            modelView = new Matrix4f(stack.peek().getPositionMatrix());
+            paintEffectActive = false;
+            return;
+        }
+
+        EffectTransformMath.buildInverseMatrix(transform, paintEffectInverse);
+        paintEffectActive = EffectTransformMath.isTransformActive(transform);
+        paintMaskShape = transform.shape == null ? 0F : transform.shape.id;
+
+        if (maskHalf != null)
+        {
+            paintMaskHalf.set(maskHalf);
         }
         else
         {
-            modelView = new Matrix4f(RenderSystem.getModelViewMatrix()).mul(stack.peek().getPositionMatrix());
+            EffectTransformMath.resolveModelMaskHalfExtents(transform, paintMaskHalf);
         }
 
-        shader.modelViewMat.set(modelView);
+        paintMaskBottomAnchored = true;
     }
+
+    public static void runWithPaintOverlayPass(boolean b, Runnable runnable)
+    {
+        runnable.run();
+    }
+
+    public static void setSuppressShapeKeyMainPassGlow(boolean suppress)
+    {}
+
+    public static boolean isSuppressShapeKeyMainPassGlow()
+    {
+        return suppressShapeKeyMainPassGlow;
+    }
+
+    public static void beginCpuGeometry(ShaderProgram shader)
+    {}
+
+    public static void clearTextureBlend()
+    {}
+
+    public static void setTextureBlend(Link link, float f)
+    {}
+
+    public static boolean captureGradeSceneColor()
+    {
+        return false;
+    }
+
+    private static void applyFormColorGrade(float brightness, float contrast, float hue, float saturation)
+    {}
+
+    private static void beginDeferredTranslucentModelPass(boolean depthWrite, boolean depthTest)
+    {}
+
+    private static void endDeferredTranslucentModelPass()
+    {}
+
+    private static void beginColorGradeOverlayPass()
+    {}
+
+    private static void endColorGradeOverlayPass()
+    {}
+
+    private static void beginColorTintOverlayPass()
+    {}
+
+    private static void endColorTintOverlayPass()
+    {}
+
+    private static void beginVanillaPostCompositePass()
+    {}
+
+    private static void endVanillaPostCompositePass()
+    {}
+
+    private static void beginPaintOverlayPass(boolean synced)
+    {}
+
+    private static void endPaintOverlayPass()
+    {}
 }

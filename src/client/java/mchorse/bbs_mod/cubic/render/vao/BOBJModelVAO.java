@@ -10,6 +10,7 @@ import mchorse.bbs_mod.resources.Link;
 import mchorse.bbs_mod.ui.framework.elements.utils.StencilMap;
 import mchorse.bbs_mod.utils.joml.Matrices;
 
+import net.minecraft.client.gl.ShaderProgram;
 import net.minecraft.client.render.BufferBuilder;
 import net.minecraft.client.render.BuiltBuffer;
 import net.minecraft.client.render.Tessellator;
@@ -23,6 +24,8 @@ import org.joml.Vector4f;
 
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.VertexFormat;
+
+import org.lwjgl.opengl.GL30;
 
 import java.util.HashMap;
 import java.util.HashSet;
@@ -258,14 +261,13 @@ public class BOBJModelVAO
 
     protected BOBJBone getBoneByName(String name)
     {
-        if (stencilMap != null)
+        for (BOBJBone bone : this.armature.orderedBones)
         {
-            BuiltBuffer built = this.writeBuffer(stack, r, g, b, a, stencilMap, light, overlay, null);
-
-            if (built != null)
+            if (bone.name.equals(name))
             {
-                BBSPickerRenderer.draw(BBSShaders.getPickerModelsProgram(), built, RenderSystem.getModelViewMatrix());
+                return bone;
             }
+        }
 
         return null;
     }
@@ -307,16 +309,9 @@ public class BOBJModelVAO
             }
         }
 
-        if (overrides.isEmpty())
+        if (start != -1)
         {
-            if (defaultTexture != null)
-            {
-                BBSModClient.getTextures().bindTexture(defaultTexture);
-            }
-
-            this.drawGroup(stack, r, g, b, a, light, overlay, null);
-
-            return;
+            GL30.glDrawArrays(GL30.GL_TRIANGLES, start * 3, (this.dominantBonePerTriangle.length - start) * 3);
         }
     }
 
@@ -336,34 +331,18 @@ public class BOBJModelVAO
     protected void rebindShaderSamplers(ShaderProgram shader, MatrixStack stack, float r, float g, float b, float a, int light, int overlay)
     {
         ModelVAORenderer.setupUniforms(stack, shader);
-        RenderSystem.setShader(() -> shader);
-        shader.bind();
-        GL30.glBindVertexArray(this.vao);
-
-        GL30.glDisableVertexAttribArray(Attributes.COLOR);
-        GL30.glDisableVertexAttribArray(Attributes.OVERLAY_UV);
-        GL30.glDisableVertexAttribArray(Attributes.LIGHTMAP_UV);
-
-        GL30.glVertexAttrib4f(Attributes.COLOR, r, g, b, a);
-        GL30.glVertexAttribI2i(Attributes.OVERLAY_UV, overlay & '\uffff', overlay >> 16 & '\uffff');
-        GL30.glVertexAttribI2i(Attributes.LIGHTMAP_UV, light & '\uffff', light >> 16 & '\uffff');
     }
 
     public void render(ShaderProgram shader, MatrixStack stack, float r, float g, float b, float a, StencilMap stencilMap, int light, int overlay, Link defaultTexture)
     {
-        boolean hasShaders = BBSRendering.isIrisShadersEnabled();
-
-        int currentVAO = GL30.glGetInteger(GL30.GL_VERTEX_ARRAY_BINDING);
-        int currentElementArrayBuffer = GL30.glGetInteger(GL30.GL_ELEMENT_ARRAY_BUFFER_BINDING);
-
         if (defaultTexture != null)
         {
             BBSModClient.getTextures().bindTexture(defaultTexture);
         }
 
-        this.drawGroup(stack, r, g, b, a, light, overlay, (bone) -> bone < 0 || !overrides.containsKey(bone));
+        this.drawGroup(stack, r, g, b, a, light, overlay, (bone) -> bone < 0 || !this.fullOverrides.containsKey(bone));
 
-        for (Map.Entry<Integer, Link> entry : overrides.entrySet())
+        for (Map.Entry<Integer, Link> entry : this.fullOverrides.entrySet())
         {
             BBSModClient.getTextures().bindTexture(entry.getValue());
             this.drawGroup(stack, r, g, b, a, light, overlay, (bone) -> bone == entry.getKey());

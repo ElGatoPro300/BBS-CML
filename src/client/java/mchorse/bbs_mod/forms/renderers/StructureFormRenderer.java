@@ -2,8 +2,11 @@ package mchorse.bbs_mod.forms.renderers;
 
 import mchorse.bbs_mod.BBSMod;
 import mchorse.bbs_mod.client.BBSRendering;
+import mchorse.bbs_mod.cubic.render.vao.IModelVAO;
 import mchorse.bbs_mod.forms.CustomVertexConsumerProvider;
 import mchorse.bbs_mod.forms.forms.StructureForm;
+import mchorse.bbs_mod.forms.forms.utils.EffectTransform;
+import mchorse.bbs_mod.forms.forms.utils.GlowSettings;
 import mchorse.bbs_mod.forms.forms.utils.StructureLightSettings;
 import mchorse.bbs_mod.forms.renderers.utils.BlockEffectOverlayUniforms;
 import mchorse.bbs_mod.forms.renderers.utils.FormColorEffects;
@@ -48,6 +51,7 @@ import net.minecraft.util.math.random.Random;
 
 import org.joml.Matrix3f;
 import org.joml.Matrix4f;
+import org.joml.Vector3f;
 
 import com.mojang.blaze3d.opengl.GlStateManager;
 
@@ -154,8 +158,6 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
          * RenderLayers used below), not toggled through a global enable/disable call before drawing. */
         VertexConsumerProvider consumers = MinecraftClient.getInstance().getBufferBuilders().getEntityVertexConsumers();
 
-        try
-        {
             FormRenderingContext uiContext = new FormRenderingContext()
                 .set(FormRenderType.PREVIEW, null, matrices, LightmapTextureManager.MAX_BLOCK_LIGHT_COORDINATE, OverlayTexture.DEFAULT_UV, 0F);
 
@@ -199,9 +201,9 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
             {
                 immediate.draw();
             }
+            catch (Throwable ignored)
+            {}
         }
-        catch (Throwable ignored)
-        {}
 
         MinecraftClient.getInstance().gameRenderer.getDiffuseLighting().setShaderLights(DiffuseLighting.Type.LEVEL);
 
@@ -423,6 +425,7 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
             GlStateManager._depthFunc(GL11.GL_LEQUAL);
 
             CustomVertexConsumerProvider.clearRunnables();
+        }
         }
         finally
         {
@@ -669,6 +672,18 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
         BlockStateModel model = MinecraftClient.getInstance().getBlockRenderManager().getModel(state);
         List<BlockModelPart> parts = model.getParts(random);
 
+        MinecraftClient.getInstance().getBlockRenderManager().renderBlock(state, pos, view, stack, vc, true, random);
+    }
+
+    private void renderAnimatedBlocks(FormRenderingContext context, MatrixStack stack, VertexConsumerProvider consumers, int light, int overlay, Function<VertexConsumer, VertexConsumer> recolor) {
+            RenderInfo info = this.calculateRenderInfo(context, false);
+            boolean shadersEnabled;
+            RenderLayer layer;
+            float globalAlphaAnim;
+            VertexConsumer vc;
+
+            for (BlockEntry entry : this.animatedBlocks)
+            {
             if (!this.isAnimatedTexture(entry.state))
             {
                 continue;
@@ -2231,5 +2246,10 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
             this.parent.normal(tx, ty, tz);
             return this;
         }
+    }
+
+    private enum StructurePaintLayer
+    {
+        BIOME, ANIMATED, TRANSLUCENT
     }
 }

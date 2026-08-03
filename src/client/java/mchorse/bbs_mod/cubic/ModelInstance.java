@@ -2,7 +2,6 @@ package mchorse.bbs_mod.cubic;
 
 import mchorse.bbs_mod.bobj.BOBJBone;
 import mchorse.bbs_mod.client.BBSShaders;
-import mchorse.bbs_mod.client.render.picker.BBSPickerRenderer;
 import mchorse.bbs_mod.cubic.animation.ActionsConfig;
 import mchorse.bbs_mod.cubic.animation.ProceduralDefaults;
 import mchorse.bbs_mod.cubic.data.animation.Animations;
@@ -37,19 +36,13 @@ import mchorse.bbs_mod.utils.pose.Pose;
 import mchorse.bbs_mod.utils.resources.LinkUtils;
 
 import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.render.BufferBuilder;
-import net.minecraft.client.render.BuiltBuffer;
-import net.minecraft.client.render.Tessellator;
-import net.minecraft.client.render.VertexFormats;
-import net.minecraft.client.util.BufferAllocator;
+import net.minecraft.client.gl.ShaderProgram;
+import net.minecraft.client.render.LightmapTextureManager;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.util.math.RotationAxis;
 
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
-
-import com.mojang.blaze3d.systems.RenderSystem;
-import com.mojang.blaze3d.vertex.VertexFormat;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -599,14 +592,11 @@ public class ModelInstance implements IModelInstance
 
     public void delete()
     {
-        for (ModelVAO value : this.vaos.values())
+        for (Map<String, ModelVAO> groupVaos : this.vaos.values())
         {
-            for (Map<String, ModelVAO> groupVaos : this.vaos.values())
+            for (ModelVAO vao : groupVaos.values())
             {
-                for (ModelVAO value : groupVaos.values())
-                {
-                    value.delete();
-                }
+                vao.delete();
             }
         }
 
@@ -757,7 +747,7 @@ public class ModelInstance implements IModelInstance
         {
             boolean isVao = this.isVAORendered();
             CubicCubeRenderer renderProcessor = isVao
-                ? new CubicVAORenderer(this, light, overlay, stencilMap, keys, defaultTexture)
+                ? new CubicVAORenderer(program.get(), this, light, overlay, stencilMap, keys, textureResolver)
                 : new CubicCubeRenderer(light, overlay, stencilMap, keys);
 
             Color c = new Color().set(this.color);
@@ -766,9 +756,6 @@ public class ModelInstance implements IModelInstance
 
             if (isVao)
             {
-                CubicCubeRenderer renderProcessor = new CubicVAORenderer(program.get(), this, light, overlay, stencilMap, keys, textureResolver);
-
-                renderProcessor.setColor(cr, cg, cb, ca);
                 CubicRenderer.processRenderModel(renderProcessor, null, stack, model);
 
                 if (stencilMap != null)
@@ -778,31 +765,7 @@ public class ModelInstance implements IModelInstance
             }
             else
             {
-                ShaderProgram shader = program.get();
-                Link texture = textureResolver.apply("");
-                if (texture == null)
-                {
-                    texture = this.texture;
-                }
-                boolean disableCull = this.hasShapeKeys()
-                    && !ModelVAORenderer.isDeferredTranslucentPass()
-                    && !ModelVAORenderer.isPaintOverlayPass();
-
-                CubicRenderer.processRenderModel(renderProcessor, builder, stack, model);
-
-                BuiltBuffer built = builder.endNullable();
-
-                if (built != null)
-                {
-                    if (stencilMap != null)
-                    {
-                        BBSPickerRenderer.draw(BBSShaders.getPickerModelsProgram(), built, RenderSystem.getModelViewMatrix());
-                    }
-                    else
-                    {
-                        BBSShaders.getModelLayer().draw(built);
-                    }
-                }
+                CubicRenderer.processRenderModel(renderProcessor, null, stack, model);
             }
         }
         else if (this.model instanceof BOBJModel model)
@@ -831,6 +794,36 @@ public class ModelInstance implements IModelInstance
 
                 stack.pop();
             }
+        }
+    }
+
+    public boolean supportsBbsModelShaderEffects()
+    {
+        return false;
+    }
+
+    public boolean hasBoneColorGrade()
+    {
+        return false;
+    }
+
+    public boolean hasShapeKeys()
+    {
+        return this.model != null && !this.model.getShapeKeys().isEmpty();
+    }
+
+    public void renderShapeKeyGlowOverlay(MatrixStack stack, Color glowLayerColor, int overlay, StencilMap stencilMap, ShapeKeys shapeKeys, Link drawTexture, boolean boneGlowOnly, float overlayIntensity, String targetGroupId, boolean skipBoneGlowGroups)
+    {
+        if (this.model instanceof Model model)
+        {
+            Color tint = new Color().set(this.color);
+
+            tint.mul(glowLayerColor);
+
+            CubicCubeRenderer renderer = new CubicCubeRenderer(LightmapTextureManager.MAX_LIGHT_COORDINATE, overlay, stencilMap, shapeKeys);
+
+            renderer.setColor(tint.r, tint.g, tint.b, tint.a);
+            CubicRenderer.processRenderModel(renderer, null, stack, model);
         }
     }
 }

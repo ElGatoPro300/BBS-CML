@@ -554,7 +554,7 @@ public class UIModelEditorRenderer extends UIModelRenderer implements GizmoSurfa
 
             this.endStencilViewport();
 
-            MinecraftClient.getInstance().getFramebuffer().beginWrite(true);
+            /* 1.21.11: Framebuffer.beginWrite() was removed */
 
             GlStateManager._enableScissorTest();
         }

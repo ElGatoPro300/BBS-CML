@@ -9,6 +9,7 @@ import net.minecraft.util.Identifier;
 import net.minecraft.util.math.MathHelper;
 
 import com.mojang.blaze3d.opengl.GlStateManager;
+
 import org.lwjgl.opengl.GL11;
 
 import java.util.List;

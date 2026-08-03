@@ -2,6 +2,7 @@ package mchorse.bbs_mod.forms.renderers;
 
 import mchorse.bbs_mod.BBSModClient;
 import mchorse.bbs_mod.client.BBSRendering;
+import mchorse.bbs_mod.client.render.picker.BBSPickerRenderer;
 import mchorse.bbs_mod.forms.FormUtilsClient;
 import mchorse.bbs_mod.forms.entities.IEntity;
 import mchorse.bbs_mod.forms.forms.BodyPart;
