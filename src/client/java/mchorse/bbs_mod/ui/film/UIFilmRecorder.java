@@ -65,6 +65,16 @@ public class UIFilmRecorder extends UIElement
         return getRecorder().isRecording();
     }
 
+    public boolean isWarmingUp()
+    {
+        return this.warmupTicks > 0;
+    }
+
+    public boolean isRecordingOrWarmingUp()
+    {
+        return this.isRecording() || this.isWarmingUp();
+    }
+
     private UIContext getUIContext()
     {
         return this.editor.getContext();
