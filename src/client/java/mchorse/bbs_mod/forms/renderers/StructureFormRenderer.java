@@ -26,7 +26,6 @@ import mchorse.bbs_mod.resources.Link;
 import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.utils.MatrixStackUtils;
 import mchorse.bbs_mod.utils.colors.Color;
-import mchorse.bbs_mod.utils.iris.ShaderOpacityPatch;
 import mchorse.bbs_mod.utils.joml.Vectors;
 
 import net.minecraft.block.AttachedStemBlock;
@@ -110,6 +109,8 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
         public IModelVAO picking;
     }
 
+    /* Bump when VAO capture contents change (e.g. translucent back in VAO). */
+    private static final int VAO_CACHE_VERSION = 3;
     private static final Map<String, VaoHolder> VAO_CACHE = new HashMap<>();
     /* Bump when structure leaf Fancy capture/draw rules change. */
     private static final int LIGHTING_REVISION = 5;
@@ -437,24 +438,7 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
                     {}
                 }
 
-                if (this.hasTranslucentLayer)
-                {
-                    try
-                    {
-                        VertexConsumerProvider consumersGlass = MinecraftClient.getInstance().getBufferBuilders().getEntityVertexConsumers();
-                        FormRenderingContext glassContext = new FormRenderingContext()
-                            .set(FormRenderType.PREVIEW, null, matrices, LightmapTextureManager.MAX_BLOCK_LIGHT_COORDINATE, OverlayTexture.DEFAULT_UV, 0F);
-
-                        this.renderTranslucentBlocksVanilla(glassContext, matrices, consumersGlass, LightmapTextureManager.MAX_BLOCK_LIGHT_COORDINATE, OverlayTexture.DEFAULT_UV, mainRecolor);
-
-                        if (consumersGlass instanceof VertexConsumerProvider.Immediate immediate)
-                        {
-                            immediate.draw();
-                        }
-                    }
-                    catch (Throwable ignored)
-                    {}
-                }
+                /* Translucent blocks are in the structure VAO (same as solids). */
 
                 gameRenderer.getLightmapTextureManager().disable();
                 gameRenderer.getOverlayTexture().teardownOverlayColor();
@@ -753,15 +737,6 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
                     {}
                 }
 
-                /* Iris live entity buffers make structure leaves look Fast with the opacity
-                 * patch — defer Fancy after composite only then. Otherwise draw live so
-                 * Iris gbuffer / shadows receive the foliage. */
-                if (this.hasLeavesLayer && irisWorldPaintDeferral && !shadowPass && !picking
-                    && ShaderOpacityPatch.isActive())
-                {
-                    this.submitDeferredStructureLeavesFancy(context, light, context.overlay);
-                }
-
                 if (this.hasAnimatedLayer)
                 {
                     try
@@ -775,18 +750,8 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
                     {}
                 }
 
-                if (this.hasTranslucentLayer)
-                {
-                    try
-                    {
-                        VertexConsumerProvider.Immediate glassConsumers = MinecraftClient.getInstance().getBufferBuilders().getEntityVertexConsumers();
-
-                        this.renderTranslucentBlocksVanilla(context, context.stack, glassConsumers, light, context.overlay, mainRecolor);
-                        glassConsumers.draw();
-                    }
-                    catch (Throwable ignored)
-                    {}
-                }
+                /* Translucent (glass/ice) is baked into the Lightmap VAO like 9d14a9369 —
+                 * separate live pass would double-draw and lose Iris gbuffer lighting. */
 
                 if (positivePaint)
                 {
@@ -997,9 +962,10 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
     }
 
     /**
-     * Structure morphs always draw leaves as Fancy cutout (see-through) so they match
-     * world trees. Terrain {@link RenderLayers#getBlockLayer} returns Solid when the
-     * Fancy flag is false / desynced — that is the opaque “Fast graphics” look.
+     * Structure morphs always draw leaves as see-through cutout when possible.
+     * Under Iris, use {@link RenderLayers#getEntityBlockLayer} like 9d14a9369 so foliage
+     * hits {@code gbuffers_entities} with pack lighting (terrain cutout via entity buffers
+     * does not get the same shading).
      */
     private RenderLayer resolveStructureBlockLayer(BlockState state, boolean useEntityLayers)
     {
@@ -1012,8 +978,11 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
             catch (Throwable ignored)
             {}
 
-            /* Always terrain cutout_mipped — Iris maps this to gbuffers_terrain_cutout
-             * (alpha discard). entity_cutout / gbuffers_entities often looks Fast under packs. */
+            if (useEntityLayers)
+            {
+                return RenderLayers.getEntityBlockLayer(state, false);
+            }
+
             return RenderLayer.getCutoutMipped();
         }
 
@@ -1023,11 +992,15 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
     }
 
     /**
-     * Fancy leaves: same layer as world trees ({@code cutout_mipped}). Do not use
-     * {@code renderBlockAsEntity} under Iris — that picks entity_cutout and packs treat it opaque.
+     * Leaves: Iris world path uses entity block layers (pack lighting). Vanilla / UI use
+     * Fancy {@code cutout_mipped} so trees stay see-through like world Fancy graphics.
      */
     private void renderStructureLeaves(BlockState state, BlockPos pos, BlockRenderView view, MatrixStack stack, VertexConsumerProvider consumers, Function<VertexConsumer, VertexConsumer> recolor)
     {
+        boolean irisWorld = BBSRendering.isIrisShadersEnabled() && BBSRendering.isRenderingWorld();
+        RenderLayer layer;
+        VertexConsumer vc;
+
         try
         {
             RenderLayers.setFancyGraphicsOrBetter(true);
@@ -1035,8 +1008,10 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
         catch (Throwable ignored)
         {}
 
-        RenderLayer layer = RenderLayer.getCutoutMipped();
-        VertexConsumer vc = consumers.getBuffer(layer);
+        layer = irisWorld
+            ? RenderLayers.getEntityBlockLayer(state, false)
+            : RenderLayer.getCutoutMipped();
+        vc = consumers.getBuffer(layer);
 
         if (recolor != null)
         {
@@ -1067,10 +1042,10 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
             stack.push();
             stack.translate(entry.pos.getX() - info.pivotX, entry.pos.getY() - info.pivotY, entry.pos.getZ() - info.pivotZ);
 
-            /* During normal VAO capture, skip animated / biome-tinted / glass to avoid double
-             * drawing. Leaves are drawn as Fancy cutout in a dedicated pass (see biome tint /
-             * deferred Iris leaf pass) — never baked into the Iris entity VAO. */
-            if (this.capturingVAO && !this.capturingIncludeSpecialBlocks && (this.isAnimatedTexture(entry.state) || this.isBiomeTinted(entry.state) || this.isTranslucentBlock(entry.state)))
+            /* During normal VAO capture, skip animated + biome-tinted (drawn live for tint).
+             * Translucent glass/ice stay in the VAO so Iris entity-translucent shades them
+             * (same as 9d14a9369). */ 
+            if (this.capturingVAO && !this.capturingIncludeSpecialBlocks && (this.isAnimatedTexture(entry.state) || this.isBiomeTinted(entry.state)))
             {
                 stack.pop();
                 continue;
@@ -1363,8 +1338,8 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
     }
 
     /**
-     * @param forceDrawLeaves when true, draw leaves even under Iris live (used by paint / color-tint
-     *                        overlays so spatial masks hit foliage that was skipped or deferred).
+     * @param forceDrawLeaves kept for paint / color-tint overlay callers; leaves always
+     *                        draw live in the main pass so Iris gbuffers shade them.
      */
     private void renderBiomeTintedBlocksVanilla(FormRenderingContext context, MatrixStack stack, VertexConsumerProvider consumers, int light, int overlay, Function<VertexConsumer, VertexConsumer> recolor, boolean forceDrawLeaves)
     {
@@ -1398,22 +1373,10 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
             stack.push();
             stack.translate(entry.pos.getX() - info.pivotX, entry.pos.getY() - info.pivotY, entry.pos.getZ() - info.pivotZ);
 
-            /* Leaves: Fancy cutout_mipped. Under Iris + opacity patch, live entity buffers look
-             * Fast — skip for the main pass (deferred Fancy draws them). Overlay passes must
-             * still draw leaves so paint / color-transform masks apply. */
+            /* Leaves: draw live into Iris entity/terrain buffers (do not defer post-composite —
+             * that path uses the BBS model shader and loses pack lighting). */
             if (entry.state.getBlock() instanceof LeavesBlock)
             {
-                boolean irisLive = BBSRendering.isIrisShadersEnabled()
-                    && BBSRendering.isRenderingWorld()
-                    && !context.isShadowPass
-                    && !BBSRendering.isIrisShadowPass();
-
-                if (irisLive && ShaderOpacityPatch.isActive() && !forceDrawLeaves)
-                {
-                    stack.pop();
-                    continue;
-                }
-
                 this.renderStructureLeaves(entry.state, entry.pos, info.view, stack, consumers, recolor);
                 stack.pop();
                 continue;
@@ -1465,9 +1428,8 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
     }
 
     /**
-     * After Iris composite, redraw structure leaves as Fancy {@code cutout_mipped} with
-     * vanilla biome foliage tint (same green as world trees). A BBS leaf VAO drops
-     * per-vertex colors and looked gray under packs.
+     * Legacy post-composite Fancy leaf redraw. Kept unused: leaves must draw live during
+     * Iris gbuffers (see renderBiomeTintedBlocksVanilla) or pack lighting is lost.
      */
     private void submitDeferredStructureLeavesFancy(FormRenderingContext context, int light, int overlay)
     {
@@ -2581,7 +2543,7 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
 
         /* Avoid rendering BlockEntities during capture to avoid mixing atlases. */
         this.capturingVAO = true;
-        this.capturingIncludeSpecialBlocks = false; /* for normal VAO, skip animated/biome. */
+        this.capturingIncludeSpecialBlocks = false; /* skip animated/biome only; translucent stays in VAO. */
 
         try
         {
@@ -2602,7 +2564,7 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
 
         if (this.lastFile != null)
         {
-            VaoHolder holder = VAO_CACHE.computeIfAbsent(this.lastFile, k -> new VaoHolder());
+            VaoHolder holder = VAO_CACHE.computeIfAbsent(this.vaoCacheKey(), k -> new VaoHolder());
 
             if (holder.vao instanceof ModelVAO)
             {
@@ -2683,7 +2645,7 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
 
         if (this.lastFile != null)
         {
-            VaoHolder holder = VAO_CACHE.computeIfAbsent(this.lastFile, k -> new VaoHolder());
+            VaoHolder holder = VAO_CACHE.computeIfAbsent(this.vaoCacheKey(), k -> new VaoHolder());
 
             if (holder.picking instanceof ModelVAO)
             {
@@ -2745,7 +2707,7 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
             return null;
         }
 
-        VaoHolder holder = VAO_CACHE.get(this.lastFile);
+        VaoHolder holder = VAO_CACHE.get(this.vaoCacheKey());
 
         return holder != null ? holder.vao : null;
     }
@@ -2757,9 +2719,14 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
             return null;
         }
 
-        VaoHolder holder = VAO_CACHE.get(this.lastFile);
+        VaoHolder holder = VAO_CACHE.get(this.vaoCacheKey());
 
         return holder != null ? holder.picking : null;
+    }
+
+    private String vaoCacheKey()
+    {
+        return VAO_CACHE_VERSION + ":" + this.lastFile;
     }
 
     private void clearCachedVao()
@@ -2769,7 +2736,7 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
             return;
         }
 
-        VaoHolder holder = VAO_CACHE.remove(this.lastFile);
+        VaoHolder holder = VAO_CACHE.remove(this.vaoCacheKey());
 
         if (holder != null)
         {
