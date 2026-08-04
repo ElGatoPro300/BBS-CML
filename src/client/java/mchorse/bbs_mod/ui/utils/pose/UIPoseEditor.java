@@ -1155,8 +1155,45 @@ public class UIPoseEditor extends UIElement
 
     public Consumer<String> pickCallback;
 
+    /**
+     * Clear focus on numeric/color fields under this editor when the selected
+     * bone changes. Focused {@link UITrackpad}s skip textbox refresh in
+     * {@link UITrackpad#setValue(double)}, which left stale transform values
+     * after switching limbs.
+     */
+    private void unfocusPoseInputs()
+    {
+        UIContext context = this.getContext();
+
+        if (context == null || !(context.activeElement instanceof UIElement focused))
+        {
+            return;
+        }
+
+        UIElement element = focused;
+
+        while (element != null)
+        {
+            if (element == this)
+            {
+                context.unfocus();
+
+                return;
+            }
+
+            element = element.getParent();
+        }
+    }
+
     protected void pickBone(String bone)
     {
+        boolean boneChanged = this.currentBone == null ? bone != null : !this.currentBone.equals(bone);
+
+        if (boneChanged)
+        {
+            this.unfocusPoseInputs();
+        }
+
         this.currentBone = bone;
         if (this.pickCallback != null)
         {
