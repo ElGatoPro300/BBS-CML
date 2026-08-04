@@ -106,6 +106,13 @@ public abstract class BaseFilmController
     public boolean paused;
     public int exception = -1;
 
+    /**
+     * Last film tick at which each replay already evaluated a step sound.
+     * Film editor keeps calling {@link #update()} while the playhead is parked, so
+     * without this edge the same step tick would spam audio every client tick.
+     */
+    private final Map<String, Integer> lastStepSoundTicks = new HashMap<>();
+
     /* Rendering helpers */
 
     public static void renderEntity(FilmControllerContext context)
@@ -1065,6 +1072,7 @@ public abstract class BaseFilmController
     {
         this.entities.clear();
         this.replayMap.clear();
+        this.lastStepSoundTicks.clear();
 
         if (this.film == null)
         {
@@ -1270,11 +1278,26 @@ public abstract class BaseFilmController
                             boolean grounded = replay.keyframes.grounded.interpolate(replayTick) > 0;
 
                             Vec3d pos = player.getPos();
+                            double dx = x - pos.x;
+                            double dy = y - pos.y;
+                            double dz = z - pos.z;
+                            boolean shouldStep = !this.paused
+                                && (BBSSettings.editorReplayStepSound == null || BBSSettings.editorReplayStepSound.get())
+                                && (dx * dx + dy * dy + dz * dz) > 1.0E-8D;
 
-                            if (!this.paused && (BBSSettings.editorReplayStepSound == null || BBSSettings.editorReplayStepSound.get()))
+                            if (shouldStep)
                             {
-                                player.setOnGround(grounded);
-                                player.move(MovementType.SELF, new Vec3d(x - pos.x, y - pos.y, z - pos.z));
+                                String replayId = replay.getId();
+                                Integer lastTick = this.lastStepSoundTicks.get(replayId);
+
+                                /* Same edge as spawnReplayStepSound: parked playhead must not
+                                 * call move() every client tick (vanilla step spam). */
+                                if (lastTick == null || lastTick.intValue() != replayTick)
+                                {
+                                    this.lastStepSoundTicks.put(replayId, replayTick);
+                                    player.setOnGround(grounded);
+                                    player.move(MovementType.SELF, new Vec3d(dx, dy, dz));
+                                }
                             }
 
                             player.setPosition(x, y, z);
@@ -1407,6 +1430,17 @@ public abstract class BaseFilmController
             return;
         }
 
+        String replayId = replay.getId();
+        Integer lastTick = this.lastStepSoundTicks.get(replayId);
+
+        /* One evaluation per film tick (scrub once, play once; parked playhead = silence). */
+        if (lastTick != null && lastTick.intValue() == ticks)
+        {
+            return;
+        }
+
+        this.lastStepSoundTicks.put(replayId, ticks);
+
         if (!this.isReplayVisible(replay, ticks))
         {
             return;
@@ -1417,7 +1451,7 @@ public abstract class BaseFilmController
             return;
         }
 
-        /* Reduce spam and approximate vanilla stepping cadence. */
+        /* Approximate vanilla stepping cadence while the timeline is advancing. */
         if ((ticks & 7) != 0)
         {
             return;
