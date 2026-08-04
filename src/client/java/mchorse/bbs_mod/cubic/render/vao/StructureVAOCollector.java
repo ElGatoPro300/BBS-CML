@@ -5,10 +5,12 @@ import net.minecraft.client.render.VertexConsumer;
 import org.joml.Matrix4f;
 import org.joml.Vector4f;
 
+import java.util.ArrayList;
+import java.util.List;
+
 /**
  * Collects block model vertices emitted via VertexConsumer and converts quads to triangles,
- * producing arrays suitable for {@link ModelVAO} / {@link LightmapModelVAO} upload.
- * Stores per-vertex RGBA so biome foliage tints and translucent alpha survive VAO baking.
+ * producing arrays suitable for {@link ModelVAO} upload.
  */
 public class StructureVAOCollector implements VertexConsumer
 {
@@ -16,7 +18,6 @@ public class StructureVAOCollector implements VertexConsumer
     private final FloatBuf normals = new FloatBuf(8192);
     private final FloatBuf texCoords = new FloatBuf(8192);
     private final FloatBuf tangents = new FloatBuf(8192);
-    private final FloatBuf colors = new FloatBuf(8192);
 
     private final Vtx[] quad = new Vtx[4];
     private int quadIndex = 0;
@@ -25,10 +26,6 @@ public class StructureVAOCollector implements VertexConsumer
     private float vx, vy, vz;
     private float vnx, vny, vnz;
     private float vu, vv;
-    private float vcr = 1F;
-    private float vcg = 1F;
-    private float vcb = 1F;
-    private float vca = 1F;
     private boolean computeTangents = true;
     private final float[] tangentTmp = new float[3];
 
@@ -68,28 +65,7 @@ public class StructureVAOCollector implements VertexConsumer
     @Override
     public VertexConsumer color(int red, int green, int blue, int alpha)
     {
-        /* Vanilla block meshing bakes AO + face shade into RGB. The old structure VAO
-         * discarded vertex color (full-bright albedo + form tint only). Keep chromatic
-         * biome / redstone tints, but strip the uniform shade so solids are not darker. */
-        float r = red / 255F;
-        float g = green / 255F;
-        float b = blue / 255F;
-        float max = Math.max(r, Math.max(g, b));
-
-        if (max > 1e-5F)
-        {
-            this.vcr = r / max;
-            this.vcg = g / max;
-            this.vcb = b / max;
-        }
-        else
-        {
-            this.vcr = 1F;
-            this.vcg = 1F;
-            this.vcb = 1F;
-        }
-
-        this.vca = alpha / 255F;
+        /* Per-vertex color is not used; global color is provided via shader attribute. */
         return this;
     }
 
@@ -111,7 +87,7 @@ public class StructureVAOCollector implements VertexConsumer
     @Override
     public VertexConsumer light(int u, int v)
     {
-        /* Lightmap provided via shader attribute / dedicated buffer; ignore here. */
+        /* Lightmap provided via shader attribute; ignore per-vertex light. */
         return this;
     }
 
@@ -131,7 +107,6 @@ public class StructureVAOCollector implements VertexConsumer
         v.x = this.vx; v.y = this.vy; v.z = this.vz;
         v.nx = this.vnx; v.ny = this.vny; v.nz = this.vnz;
         v.u = this.vu; v.v = this.vv;
-        v.r = this.vcr; v.g = this.vcg; v.b = this.vcb; v.a = this.vca;
 
         this.quadIndex++;
 
@@ -157,10 +132,6 @@ public class StructureVAOCollector implements VertexConsumer
         this.texCoords.add2(a.u, a.v);
         this.texCoords.add2(b.u, b.v);
         this.texCoords.add2(c.u, c.v);
-
-        this.colors.add4(a.r, a.g, a.b, a.a);
-        this.colors.add4(b.r, b.g, b.b, b.a);
-        this.colors.add4(c.r, c.g, c.b, c.a);
 
         if (this.computeTangents)
         {
@@ -236,8 +207,17 @@ public class StructureVAOCollector implements VertexConsumer
         float[] n = this.normals.toArray();
         float[] t = this.tangents.toArray();
         float[] uv = this.texCoords.toArray();
-        float[] c = this.colors.toArray();
-        return new ModelVAOData(v, n, t, uv, c);
+        return new ModelVAOData(v, n, t, uv);
+    }
+
+    private static float[] toArray(List<Float> list)
+    {
+        float[] arr = new float[list.size()];
+        for (int i = 0; i < arr.length; i++)
+        {
+            arr[i] = list.get(i);
+        }
+        return arr;
     }
 
     private static final class FloatBuf
@@ -261,6 +241,12 @@ public class StructureVAOCollector implements VertexConsumer
                 System.arraycopy(this.data, 0, n, 0, this.size);
                 this.data = n;
             }
+        }
+
+        void add(float v)
+        {
+            this.ensure(1);
+            this.data[this.size++] = v;
         }
 
         void add3(float a, float b, float c)
@@ -300,6 +286,5 @@ public class StructureVAOCollector implements VertexConsumer
         float x, y, z;
         float nx, ny, nz;
         float u, v;
-        float r, g, b, a;
     }
 }
