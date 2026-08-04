@@ -397,31 +397,12 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
                     {}
                 }
 
-                if (this.hasBiomeTintedLayer)
-                {
-                    try
-                    {
-                        boolean shadersEnabled = BBSRendering.isIrisShadersEnabled() && BBSRendering.isRenderingWorld();
-                        VertexConsumerProvider consumersTint = MinecraftClient.getInstance().getBufferBuilders().getEntityVertexConsumers();
-                        FormRenderingContext tintContext = new FormRenderingContext()
-                            .set(FormRenderType.PREVIEW, null, matrices, LightmapTextureManager.MAX_BLOCK_LIGHT_COORDINATE, OverlayTexture.DEFAULT_UV, 0F);
-
-                        this.renderBiomeTintedBlocksVanilla(tintContext, matrices, consumersTint, LightmapTextureManager.MAX_BLOCK_LIGHT_COORDINATE, OverlayTexture.DEFAULT_UV, mainRecolor);
-
-                        if (consumersTint instanceof VertexConsumerProvider.Immediate immediate)
-                        {
-                            immediate.draw();
-                        }
-                    }
-                    catch (Throwable ignored)
-                    {}
-                }
-
+                /* Biome-tinted + translucent are baked into the Lightmap VAO (with vertex colors).
+                 * Only animated textures still need a live vanilla pass. */
                 if (this.hasAnimatedLayer)
                 {
                     try
                     {
-                        boolean shadersEnabled = BBSRendering.isIrisShadersEnabled() && BBSRendering.isRenderingWorld();
                         VertexConsumerProvider consumersAnim = MinecraftClient.getInstance().getBufferBuilders().getEntityVertexConsumers();
                         FormRenderingContext animContext = new FormRenderingContext()
                             .set(FormRenderType.PREVIEW, null, matrices, LightmapTextureManager.MAX_BLOCK_LIGHT_COORDINATE, OverlayTexture.DEFAULT_UV, 0F);
@@ -429,25 +410,6 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
                         this.renderAnimatedBlocksVanilla(animContext, matrices, consumersAnim, LightmapTextureManager.MAX_BLOCK_LIGHT_COORDINATE, OverlayTexture.DEFAULT_UV, mainRecolor);
 
                         if (consumersAnim instanceof VertexConsumerProvider.Immediate immediate)
-                        {
-                            immediate.draw();
-                        }
-                    }
-                    catch (Throwable ignored)
-                    {}
-                }
-
-                if (this.hasTranslucentLayer)
-                {
-                    try
-                    {
-                        VertexConsumerProvider consumersGlass = MinecraftClient.getInstance().getBufferBuilders().getEntityVertexConsumers();
-                        FormRenderingContext glassContext = new FormRenderingContext()
-                            .set(FormRenderType.PREVIEW, null, matrices, LightmapTextureManager.MAX_BLOCK_LIGHT_COORDINATE, OverlayTexture.DEFAULT_UV, 0F);
-
-                        this.renderTranslucentBlocksVanilla(glassContext, matrices, consumersGlass, LightmapTextureManager.MAX_BLOCK_LIGHT_COORDINATE, OverlayTexture.DEFAULT_UV, mainRecolor);
-
-                        if (consumersGlass instanceof VertexConsumerProvider.Immediate immediate)
                         {
                             immediate.draw();
                         }
@@ -740,28 +702,8 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
                     {}
                 }
 
-                if (this.hasBiomeTintedLayer)
-                {
-                    try
-                    {
-                        VertexConsumerProvider.Immediate tintConsumers = MinecraftClient.getInstance().getBufferBuilders().getEntityVertexConsumers();
-
-                        this.renderBiomeTintedBlocksVanilla(context, context.stack, tintConsumers, light, context.overlay, mainRecolor);
-                        tintConsumers.draw();
-                    }
-                    catch (Throwable ignored)
-                    {}
-                }
-
-                /* Iris live entity buffers make structure leaves look Fast with the opacity
-                 * patch — defer Fancy after composite only then. Otherwise draw live so
-                 * Iris gbuffer / shadows receive the foliage. */
-                if (this.hasLeavesLayer && irisWorldPaintDeferral && !shadowPass && !picking
-                    && ShaderOpacityPatch.isActive())
-                {
-                    this.submitDeferredStructureLeavesFancy(context, light, context.overlay);
-                }
-
+                /* Biome-tinted + translucent live in the Lightmap VAO (vertex colors + lightmap)
+                 * so Iris gbuffer / shadows shade them like solids. Animated stay live. */
                 if (this.hasAnimatedLayer)
                 {
                     try
@@ -770,19 +712,6 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
 
                         this.renderAnimatedBlocksVanilla(context, context.stack, animConsumers, light, context.overlay, mainRecolor);
                         animConsumers.draw();
-                    }
-                    catch (Throwable ignored)
-                    {}
-                }
-
-                if (this.hasTranslucentLayer)
-                {
-                    try
-                    {
-                        VertexConsumerProvider.Immediate glassConsumers = MinecraftClient.getInstance().getBufferBuilders().getEntityVertexConsumers();
-
-                        this.renderTranslucentBlocksVanilla(context, context.stack, glassConsumers, light, context.overlay, mainRecolor);
-                        glassConsumers.draw();
                     }
                     catch (Throwable ignored)
                     {}
@@ -1067,10 +996,9 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
             stack.push();
             stack.translate(entry.pos.getX() - info.pivotX, entry.pos.getY() - info.pivotY, entry.pos.getZ() - info.pivotZ);
 
-            /* During normal VAO capture, skip animated / biome-tinted / glass to avoid double
-             * drawing. Leaves are drawn as Fancy cutout in a dedicated pass (see biome tint /
-             * deferred Iris leaf pass) — never baked into the Iris entity VAO. */
-            if (this.capturingVAO && !this.capturingIncludeSpecialBlocks && (this.isAnimatedTexture(entry.state) || this.isBiomeTinted(entry.state) || this.isTranslucentBlock(entry.state)))
+            /* During normal VAO capture, skip only animated textures (need live atlas frames).
+             * Biome-tinted + translucent are baked with per-vertex colors into the Lightmap VAO. */
+            if (this.capturingVAO && !this.capturingIncludeSpecialBlocks && this.isAnimatedTexture(entry.state))
             {
                 stack.pop();
                 continue;
@@ -1465,9 +1393,8 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
     }
 
     /**
-     * After Iris composite, redraw structure leaves as Fancy {@code cutout_mipped} with
-     * vanilla biome foliage tint (same green as world trees). A BBS leaf VAO drops
-     * per-vertex colors and looked gray under packs.
+     * Legacy post-composite Fancy leaf redraw. Main Iris pass now bakes leaves into the
+     * Lightmap VAO with per-vertex foliage colors; kept for overlay / fallback callers.
      */
     private void submitDeferredStructureLeavesFancy(FormRenderingContext context, int light, int overlay)
     {
@@ -2579,15 +2506,22 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
         catch (Throwable ignored)
         {}
 
-        /* Avoid rendering BlockEntities during capture to avoid mixing atlases. */
+        /* Avoid rendering BlockEntities during capture to avoid mixing atlases.
+         * Include biome/glass (with raw vertex colors); skip animated only.
+         * Form tint is applied at draw time by LightmapModelVAO (COLOR × form tint). */
         this.capturingVAO = true;
-        this.capturingIncludeSpecialBlocks = false; /* for normal VAO, skip animated/biome. */
+        this.capturingIncludeSpecialBlocks = false;
 
         try
         {
-            Function<VertexConsumer, VertexConsumer> captureRecolor = BBSRendering.getColorConsumer(this.resolveStructureBlendColor());
+            try
+            {
+                RenderLayers.setFancyGraphicsOrBetter(true);
+            }
+            catch (Throwable ignored)
+            {}
 
-            this.renderStructureCulledWorld(captureContext, captureStack, provider, LightmapTextureManager.MAX_BLOCK_LIGHT_COORDINATE, OverlayTexture.DEFAULT_UV, useEntityLayers, captureRecolor, false, false);
+            this.renderStructureCulledWorld(captureContext, captureStack, provider, LightmapTextureManager.MAX_BLOCK_LIGHT_COORDINATE, OverlayTexture.DEFAULT_UV, useEntityLayers, null, false, false);
         }
         finally
         {
