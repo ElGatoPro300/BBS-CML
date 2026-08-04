@@ -133,26 +133,26 @@ public class UIHotbarRenderer
 
         if (hotbar.showHotbar)
         {
-            batcher.getContext().drawGuiTexture(HOTBAR, 0, 0, 182, 22);
+            batcher.getContext().drawGuiTexture(RenderLayer::getGuiTextured, HOTBAR, 0, 0, 182, 22);
 
             if (hasOffhandItem)
             {
                 Identifier offhandTex = hotbar.rightOffhand ? HOTBAR_OFFHAND_RIGHT : HOTBAR_OFFHAND_LEFT;
                 int offhandBgX = hotbar.rightOffhand ? 182 : -29;
-                batcher.getContext().drawGuiTexture(offhandTex, offhandBgX, -1, 29, 24);
+                batcher.getContext().drawGuiTexture(RenderLayer::getGuiTextured, offhandTex, offhandBgX, -1, 29, 24);
             }
 
             int selectedSlot = MathHelper.clamp(hotbar.selectedSlot, 0, 8);
-            batcher.getContext().drawGuiTexture(HOTBAR_SELECTION, selectedSlot * 20 - 1, -1, 24, 23);
+            batcher.getContext().drawGuiTexture(RenderLayer::getGuiTextured, HOTBAR_SELECTION, selectedSlot * 20 - 1, -1, 24, 23);
 
             if (hotbar.showAttackCooldown && hotbar.attackCooldown > 0F)
             {
                 int selectedX = selectedSlot * 20 + 3;
                 int cooldownH = MathHelper.ceil(hotbar.attackCooldown * 18F);
-                batcher.getContext().drawGuiTexture(HOTBAR_ATTACK_INDICATOR_BACKGROUND, selectedX, -19, 18, 18);
+                batcher.getContext().drawGuiTexture(RenderLayer::getGuiTextured, HOTBAR_ATTACK_INDICATOR_BACKGROUND, selectedX, -19, 18, 18);
                 if (cooldownH > 0)
                 {
-                    batcher.getContext().drawGuiTexture(HOTBAR_ATTACK_INDICATOR_PROGRESS, selectedX, -19 + (18 - cooldownH), 18, cooldownH);
+                    batcher.getContext().drawGuiTexture(RenderLayer::getGuiTextured, HOTBAR_ATTACK_INDICATOR_PROGRESS, selectedX, -19 + (18 - cooldownH), 18, cooldownH);
                 }
             }
         }
@@ -233,20 +233,20 @@ public class UIHotbarRenderer
         {
             float jumpProgress = MathHelper.clamp(hotbar.horseJump, 0F, 1F);
             int jumpPixels = MathHelper.ceil(jumpProgress * 182F);
-            batcher.getContext().drawTexture(JUMP_BAR_BACKGROUND_TEXTURE, 0, EXPERIENCE_BAR_Y, 0F, 0F, 182, 5, 182, 5);
+            batcher.getContext().drawTexture(RenderLayer::getGuiTextured, JUMP_BAR_BACKGROUND_TEXTURE, 0, EXPERIENCE_BAR_Y, 0F, 0F, 182, 5, 182, 5);
             if (jumpPixels > 0)
             {
-                batcher.getContext().drawTexture(JUMP_BAR_PROGRESS_TEXTURE, 0, EXPERIENCE_BAR_Y, 0F, 0F, jumpPixels, 5, 182, 5);
+                batcher.getContext().drawTexture(RenderLayer::getGuiTextured, JUMP_BAR_PROGRESS_TEXTURE, 0, EXPERIENCE_BAR_Y, 0F, 0F, jumpPixels, 5, 182, 5);
             }
         }
         else if (hotbar.showExperience)
         {
             float experience = MathHelper.clamp(hotbar.experience, 0F, 1F);
             int xpPixels = MathHelper.ceil(experience * 182F);
-            batcher.getContext().drawTexture(EXPERIENCE_BAR_BACKGROUND_TEXTURE, 0, EXPERIENCE_BAR_Y, 0F, 0F, 182, 5, 182, 5);
+            batcher.getContext().drawTexture(RenderLayer::getGuiTextured, EXPERIENCE_BAR_BACKGROUND_TEXTURE, 0, EXPERIENCE_BAR_Y, 0F, 0F, 182, 5, 182, 5);
             if (xpPixels > 0)
             {
-                batcher.getContext().drawTexture(EXPERIENCE_BAR_PROGRESS_TEXTURE, 0, EXPERIENCE_BAR_Y, 0F, 0F, xpPixels, 5, 182, 5);
+                batcher.getContext().drawTexture(RenderLayer::getGuiTextured, EXPERIENCE_BAR_PROGRESS_TEXTURE, 0, EXPERIENCE_BAR_Y, 0F, 0F, xpPixels, 5, 182, 5);
             }
 
             if (hotbar.experienceLevel > 0)
@@ -288,7 +288,7 @@ public class UIHotbarRenderer
                 int itemY = 3;
 
                 batcher.getContext().drawItem(stackItem, itemX, itemY);
-                batcher.getContext().drawItemInSlot(batcher.getFont().getRenderer(), stackItem, itemX, itemY);
+                batcher.getContext().drawStackOverlay(batcher.getFont().getRenderer(), stackItem, itemX, itemY);
             }
 
             if (hasOffhandItem)
@@ -297,7 +297,7 @@ public class UIHotbarRenderer
                 int offhandY = 3;
 
                 batcher.getContext().drawItem(hotbar.offhandItem, offhandX, offhandY);
-                batcher.getContext().drawItemInSlot(batcher.getFont().getRenderer(), hotbar.offhandItem, offhandX, offhandY);
+                batcher.getContext().drawStackOverlay(batcher.getFont().getRenderer(), hotbar.offhandItem, offhandX, offhandY);
             }
         }
 
