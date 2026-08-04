@@ -21,6 +21,11 @@ public final class FlatColorTintOverlayPass
 
     public static void render(Runnable draw)
     {
+        render(FlatPaintOverlayPass.DEFAULT_FACTOR, FlatPaintOverlayPass.DEFAULT_UNITS, draw);
+    }
+
+    public static void render(float factor, float units, Runnable draw)
+    {
         if (draw == null)
         {
             return;
@@ -43,6 +48,7 @@ public final class FlatColorTintOverlayPass
         GL11.glEnable(GL11.GL_POLYGON_OFFSET_FILL);
         /* Same far-distance units bias as FlatPaintOverlayPass (camera-facing quads). */
         GL11.glPolygonOffset(FlatPaintOverlayPass.POLYGON_OFFSET_FACTOR, FlatPaintOverlayPass.POLYGON_OFFSET_UNITS);
+        GL11.glPolygonOffset(factor, units);
 
         ShaderProgram program = BBSShaders.getFlatColorTintOverlayProgram();
 
