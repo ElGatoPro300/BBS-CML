@@ -1,12 +1,15 @@
 package mchorse.bbs_mod.camera.clips.screen;
 
+import mchorse.bbs_mod.BBSSettings;
 import mchorse.bbs_mod.utils.MathUtils;
 
 /**
  * Fisheye UV warp uses {@code uv' = uv * (1 + k * r²)}.
  * <ul>
  *   <li>Positive {@code k}: zoom-out — widen render FOV by {@code s = 1 + CORNER_R2·k}, then
- *       divide warped UVs by {@code s} so screen corners map to the wide image corners.</li>
+ *       divide warped UVs by {@code s} so screen corners map to the wide image corners.
+ *       Optionally supersample the wide pass (up to a configurable cap) so the center keeps
+ *       roughly native pixel density after the remap.</li>
  *   <li>Negative {@code k}: zoom-in — narrow render FOV by {@code s = 1 + EDGE_R2·k}.
  *       Corner-matched {@code s} would push mid-edge UVs outside {@code [0,1]} (texture
  *       REPEAT → tiled grid). Edge-matched {@code s} keeps the whole screen inside the
@@ -24,6 +27,8 @@ public final class LensDistortionOverscan
      * {@code 1 + CORNER_R2 * kFit} stays positive when {@code kFit = (s-1)/EDGE_R2}.
      */
     public static final float MIN_UNDERSCAN_SCALE = 0.55F;
+    /** Hard cap on supersampled framebuffer side length. */
+    public static final int MAX_FRAMEBUFFER_SIDE = 8192;
 
     private LensDistortionOverscan()
     {}
@@ -133,5 +138,57 @@ public final class LensDistortionOverscan
         }
 
         return 0F;
+    }
+
+    public static int getSupersampleCap()
+    {
+        if (BBSSettings.editorFisheyeSupersampleCap == null)
+        {
+            return 3;
+        }
+
+        return MathUtils.clamp(BBSSettings.editorFisheyeSupersampleCap.get(), 1, 6);
+    }
+
+    /**
+     * Clamp positive overscan for supersampling. Cap {@code <= 1} disables supersample
+     * (FOV-widen only). Result is never below 1.
+     */
+    public static float clampSupersampleScale(float scale)
+    {
+        if (!Float.isFinite(scale) || scale <= 1.0001F)
+        {
+            return 1F;
+        }
+
+        int cap = getSupersampleCap();
+
+        if (cap <= 1)
+        {
+            return 1F;
+        }
+
+        return Math.min(scale, (float) cap);
+    }
+
+    /**
+     * Integer render size for a base framebuffer dimension and supersample scale,
+     * capped by {@link #MAX_FRAMEBUFFER_SIDE}.
+     */
+    public static int supersampleDimension(int base, float scale)
+    {
+        if (base < 2 || scale <= 1.0001F)
+        {
+            return Math.max(2, base);
+        }
+
+        long scaled = (long) Math.ceil(base * (double) scale);
+
+        if (scaled > MAX_FRAMEBUFFER_SIDE)
+        {
+            scaled = MAX_FRAMEBUFFER_SIDE;
+        }
+
+        return (int) Math.max(2L, scaled);
     }
 }

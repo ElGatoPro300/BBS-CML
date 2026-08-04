@@ -14,7 +14,9 @@ import mchorse.bbs_mod.camera.clips.misc.ImageClip;
 import mchorse.bbs_mod.camera.clips.misc.ImageOverlay;
 import mchorse.bbs_mod.camera.clips.misc.Subtitle;
 import mchorse.bbs_mod.camera.clips.misc.SubtitleClip;
+import mchorse.bbs_mod.camera.clips.screen.LensDistortionOverscan;
 import mchorse.bbs_mod.camera.controller.CameraWorkCameraController;
+import mchorse.bbs_mod.camera.controller.ICameraController;
 import mchorse.bbs_mod.camera.controller.PlayCameraController;
 import mchorse.bbs_mod.camera.data.Position;
 import mchorse.bbs_mod.client.renderer.ModelBlockEntityRenderer;
@@ -76,6 +78,7 @@ import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.block.entity.BlockEntity;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gl.Framebuffer;
+import net.minecraft.client.gl.SimpleFramebuffer;
 import net.minecraft.client.gl.WindowFramebuffer;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.option.CloudRenderMode;
@@ -154,6 +157,18 @@ public class BBSRendering
      * {@code <1} narrow). Color grade reads this so the UV warp matches the projection.
      */
     private static float lensOverscanScale = 1F;
+    /**
+     * Dedicated supersample path for positive fisheye: world + color-grade warp run at
+     * higher resolution, then blit back to {@link #fisheyeDestination}. Activated after
+     * {@code Camera.update} once the current-frame overscan scale is known.
+     */
+    private static boolean fisheyeSupersample;
+    private static Framebuffer fisheyeFramebuffer;
+    private static Framebuffer fisheyeDestination;
+    private static int fisheyeOutputWidth;
+    private static int fisheyeOutputHeight;
+    private static int fisheyeRenderWidth;
+    private static int fisheyeRenderHeight;
 
     private static final UIBaseMenu replayHudMenu = new UIBaseMenu() {};
 
@@ -244,7 +259,50 @@ public class BBSRendering
 
     public static boolean canReplaceFramebuffer()
     {
+        if (fisheyeSupersample && renderingWorld)
+        {
+            return true;
+        }
+
         return customSize && renderingWorld;
+    }
+
+    public static boolean isFisheyeSupersampleActive()
+    {
+        return fisheyeSupersample;
+    }
+
+    public static int getFisheyeRenderWidth()
+    {
+        return fisheyeRenderWidth;
+    }
+
+    public static int getFisheyeRenderHeight()
+    {
+        return fisheyeRenderHeight;
+    }
+
+    /**
+     * Logical window / scaled sizes while supersampling (same aspect as the output FB).
+     */
+    public static int getFisheyeOverrideWidth()
+    {
+        if (customSize && width > 0)
+        {
+            return Math.max(2, Math.round(width * (fisheyeRenderWidth / (float) Math.max(1, fisheyeOutputWidth))));
+        }
+
+        return fisheyeRenderWidth;
+    }
+
+    public static int getFisheyeOverrideHeight()
+    {
+        if (customSize && height > 0)
+        {
+            return Math.max(2, Math.round(height * (fisheyeRenderHeight / (float) Math.max(1, fisheyeOutputHeight))));
+        }
+
+        return fisheyeRenderHeight;
     }
 
     /**
@@ -322,12 +380,152 @@ public class BBSRendering
      */
     public static void ensureMainFramebuffer()
     {
+        finishFisheyeSupersample();
+
         if (!toggleFramebuffer)
         {
             return;
         }
 
         toggleFramebuffer(false);
+    }
+
+    /**
+     * After {@code Camera.update} has applied this frame's fisheye FOV overscan, bind a
+     * dedicated higher-resolution FBO for the world + color-grade warp, then
+     * {@link #finishFisheyeSupersample()} blits back to the previous target.
+     */
+    public static void beginFisheyeSupersampleIfNeeded()
+    {
+        if (fisheyeSupersample || !renderingWorld || isIrisShadowPass())
+        {
+            return;
+        }
+
+        if (BBSSettings.editorFisheyeWidenFov == null || !BBSSettings.editorFisheyeWidenFov.get())
+        {
+            return;
+        }
+
+        float desiredScale = lensOverscanScale;
+        float scale = LensDistortionOverscan.clampSupersampleScale(desiredScale);
+
+        if (scale <= 1.0001F || !willRunFisheyeScreenEffects())
+        {
+            return;
+        }
+
+        MinecraftClient mc = MinecraftClient.getInstance();
+        Framebuffer destination = mc.getFramebuffer();
+
+        if (destination == null)
+        {
+            return;
+        }
+
+        int baseW = Math.max(2, destination.textureWidth);
+        int baseH = Math.max(2, destination.textureHeight);
+        int renderW = LensDistortionOverscan.supersampleDimension(baseW, scale);
+        int renderH = LensDistortionOverscan.supersampleDimension(baseH, scale);
+
+        /* Keep aspect if one side hit the hard pixel cap. */
+        float sx = renderW / (float) baseW;
+        float sy = renderH / (float) baseH;
+        float pixelScale = Math.min(sx, sy);
+
+        if (pixelScale <= 1.0001F)
+        {
+            return;
+        }
+
+        renderW = Math.max(2, Math.round(baseW * pixelScale));
+        renderH = Math.max(2, Math.round(baseH * pixelScale));
+
+        if (renderW <= baseW && renderH <= baseH)
+        {
+            return;
+        }
+
+        ensureFisheyeFramebuffer(renderW, renderH);
+
+        fisheyeDestination = destination;
+        fisheyeOutputWidth = baseW;
+        fisheyeOutputHeight = baseH;
+        fisheyeRenderWidth = renderW;
+        fisheyeRenderHeight = renderH;
+        fisheyeSupersample = true;
+
+        /* Keep FOV-matched overscan for the UV warp; pixelScale only sizes the FBO. */
+        reassignFramebuffer(fisheyeFramebuffer);
+        fisheyeFramebuffer.beginWrite(true);
+        resizeExtraFramebuffers();
+    }
+
+    public static void finishFisheyeSupersample()
+    {
+        if (!fisheyeSupersample)
+        {
+            return;
+        }
+
+        Framebuffer source = fisheyeFramebuffer;
+        Framebuffer destination = fisheyeDestination != null
+            ? fisheyeDestination
+            : MinecraftClient.getInstance().getFramebuffer();
+        int outW = Math.max(2, fisheyeOutputWidth);
+        int outH = Math.max(2, fisheyeOutputHeight);
+
+        /* Clear override before any window-size queries used by UI / later passes. */
+        fisheyeSupersample = false;
+        fisheyeDestination = null;
+        fisheyeOutputWidth = 0;
+        fisheyeOutputHeight = 0;
+        fisheyeRenderWidth = 0;
+        fisheyeRenderHeight = 0;
+
+        if (source == null || destination == null)
+        {
+            return;
+        }
+
+        reassignFramebuffer(destination);
+        destination.beginWrite(false);
+        /* Blit supersampled (already warped) color down to the logical output size. */
+        source.draw(outW, outH, false);
+        resizeExtraFramebuffers();
+    }
+
+    private static void ensureFisheyeFramebuffer(int width, int height)
+    {
+        if (fisheyeFramebuffer == null)
+        {
+            fisheyeFramebuffer = new SimpleFramebuffer(width, height, true, MinecraftClient.IS_SYSTEM_MAC);
+        }
+        else if (fisheyeFramebuffer.textureWidth != width || fisheyeFramebuffer.textureHeight != height)
+        {
+            fisheyeFramebuffer.resize(width, height, MinecraftClient.IS_SYSTEM_MAC);
+        }
+    }
+
+    private static boolean willRunFisheyeScreenEffects()
+    {
+        ICameraController current = BBSModClient.getCameraController().getCurrent();
+
+        if (current instanceof PlayCameraController)
+        {
+            return true;
+        }
+
+        if (!customSize)
+        {
+            return false;
+        }
+
+        UIBaseMenu menu = UIScreen.getCurrentMenu();
+
+        return menu instanceof UIDashboard dashboard
+            && dashboard.getPanels().panel instanceof UIFilmPanel panel
+            && panel.needsViewportRender();
     }
 
     /**
@@ -555,71 +753,75 @@ public class BBSRendering
             return;
         }
 
-        /* Paint overlays first (and noshading soft forms in the same queue, after paint via
-         * sort). Iris soft forms (noshading off) already flushed at beginTranslucents. */
-        ModelVAORenderer.flushPaintOverlayQueue();
-        ShaderOpacityPatch.onWorldRenderEnd();
-
-        MinecraftClient mc = MinecraftClient.getInstance();
-        UIBaseMenu currentMenu = UIScreen.getCurrentMenu();
-
-        if (BBSModClient.getCameraController().getCurrent() instanceof PlayCameraController controller)
+        try
         {
-            DrawContext drawContext = new DrawContext(mc, mc.getBufferBuilders().getEntityVertexConsumers());
-            Batcher2D batcher = new Batcher2D(drawContext);
-            Window window = mc.getWindow();
-            Area area = new Area(0, 0, window.getScaledWidth(), window.getScaledHeight());
-            Matrix4f cache = new Matrix4f(RenderSystem.getProjectionMatrix());
-            Matrix4f ortho = new Matrix4f().ortho(0, area.w, area.h, 0, -1000, 3000);
+            /* Paint overlays first (and noshading soft forms in the same queue, after paint via
+             * sort). Iris soft forms (noshading off) already flushed at beginTranslucents. */
+            ModelVAORenderer.flushPaintOverlayQueue();
+            ShaderOpacityPatch.onWorldRenderEnd();
 
-            RenderSystem.setProjectionMatrix(ortho, VertexSorter.BY_Z);
-            VideoRenderer.renderClips(batcher.getContext().getMatrices(), batcher, controller.getContext().clips.getClips(controller.getContext().relativeTick), controller.getContext().relativeTick, true, area, area, null, area.w, area.h, false);
+            MinecraftClient mc = MinecraftClient.getInstance();
+            UIBaseMenu currentMenu = UIScreen.getCurrentMenu();
 
-            ScreenEffectRenderer.render(batcher, controller.getContext(), area.w, area.h);
-            renderHudOverlays(batcher, controller.getContext(), area.w, area.h);
-
-            RenderSystem.setProjectionMatrix(cache, VertexSorter.BY_Z);
-        }
-
-        if (BBSModClient.getVideoRecorder().isRecording() && BBSModClient.getCameraController().getCurrent() instanceof CameraWorkCameraController controller)
-        {
-            DrawContext drawContext = new DrawContext(mc, mc.getBufferBuilders().getEntityVertexConsumers());
-            Batcher2D batcher = new Batcher2D(drawContext);
-            Window window = mc.getWindow();
-
-            renderHudOverlays(batcher, controller.getContext(), window.getScaledWidth(), window.getScaledHeight());
-        }
-
-        if (!customSize)
-        {
-            renderingWorld = false;
-
-            return;
-        }
-
-        if (currentMenu instanceof UIDashboard dashboard)
-        {
-            if (dashboard.getPanels().panel instanceof UIFilmPanel panel && panel.needsViewportRender())
+            if (BBSModClient.getCameraController().getCurrent() instanceof PlayCameraController controller)
             {
                 DrawContext drawContext = new DrawContext(mc, mc.getBufferBuilders().getEntityVertexConsumers());
-                Batcher2D offscreenBatcher = new Batcher2D(drawContext);
-
+                Batcher2D batcher = new Batcher2D(drawContext);
                 Window window = mc.getWindow();
+                Area area = new Area(0, 0, window.getScaledWidth(), window.getScaledHeight());
                 Matrix4f cache = new Matrix4f(RenderSystem.getProjectionMatrix());
-                Matrix4f ortho = new Matrix4f().ortho(0, window.getScaledWidth(), window.getScaledHeight(), 0, -1000, 3000);
+                Matrix4f ortho = new Matrix4f().ortho(0, area.w, area.h, 0, -1000, 3000);
 
                 RenderSystem.setProjectionMatrix(ortho, VertexSorter.BY_Z);
-                Area fullScreen = new Area(0, 0, window.getScaledWidth(), window.getScaledHeight());
-                VideoRenderer.renderClips(new MatrixStack(), offscreenBatcher, panel.getData().camera.getClips(panel.getCursor()), panel.getCursor(), panel.getRunner().isRunning(), fullScreen, fullScreen, null, window.getScaledWidth(), window.getScaledHeight(), false);
+                VideoRenderer.renderClips(batcher.getContext().getMatrices(), batcher, controller.getContext().clips.getClips(controller.getContext().relativeTick), controller.getContext().relativeTick, true, area, area, null, area.w, area.h, false);
 
-                ScreenEffectRenderer.render(offscreenBatcher, panel.getRunner().getContext(), window.getScaledWidth(), window.getScaledHeight());
-                renderHudOverlays(offscreenBatcher, panel.getRunner().getContext(), fullScreen.w, fullScreen.h);
+                ScreenEffectRenderer.render(batcher, controller.getContext(), area.w, area.h);
+                renderHudOverlays(batcher, controller.getContext(), area.w, area.h);
 
                 RenderSystem.setProjectionMatrix(cache, VertexSorter.BY_Z);
             }
-        }
 
-        renderingWorld = false;
+            if (BBSModClient.getVideoRecorder().isRecording() && BBSModClient.getCameraController().getCurrent() instanceof CameraWorkCameraController controller)
+            {
+                DrawContext drawContext = new DrawContext(mc, mc.getBufferBuilders().getEntityVertexConsumers());
+                Batcher2D batcher = new Batcher2D(drawContext);
+                Window window = mc.getWindow();
+
+                renderHudOverlays(batcher, controller.getContext(), window.getScaledWidth(), window.getScaledHeight());
+            }
+
+            if (!customSize)
+            {
+                return;
+            }
+
+            if (currentMenu instanceof UIDashboard dashboard)
+            {
+                if (dashboard.getPanels().panel instanceof UIFilmPanel panel && panel.needsViewportRender())
+                {
+                    DrawContext drawContext = new DrawContext(mc, mc.getBufferBuilders().getEntityVertexConsumers());
+                    Batcher2D offscreenBatcher = new Batcher2D(drawContext);
+
+                    Window window = mc.getWindow();
+                    Matrix4f cache = new Matrix4f(RenderSystem.getProjectionMatrix());
+                    Matrix4f ortho = new Matrix4f().ortho(0, window.getScaledWidth(), window.getScaledHeight(), 0, -1000, 3000);
+
+                    RenderSystem.setProjectionMatrix(ortho, VertexSorter.BY_Z);
+                    Area fullScreen = new Area(0, 0, window.getScaledWidth(), window.getScaledHeight());
+                    VideoRenderer.renderClips(new MatrixStack(), offscreenBatcher, panel.getData().camera.getClips(panel.getCursor()), panel.getCursor(), panel.getRunner().isRunning(), fullScreen, fullScreen, null, window.getScaledWidth(), window.getScaledHeight(), false);
+
+                    ScreenEffectRenderer.render(offscreenBatcher, panel.getRunner().getContext(), window.getScaledWidth(), window.getScaledHeight());
+                    renderHudOverlays(offscreenBatcher, panel.getRunner().getContext(), fullScreen.w, fullScreen.h);
+
+                    RenderSystem.setProjectionMatrix(cache, VertexSorter.BY_Z);
+                }
+            }
+        }
+        finally
+        {
+            renderingWorld = false;
+            finishFisheyeSupersample();
+        }
     }
 
     private static void updateCloudRenderMode(MinecraftClient mc)
