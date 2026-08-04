@@ -176,7 +176,8 @@ public class ColorGradeRenderer
                         float kFit = 2.0 * (s - 1.0);
                         float kUse = min(k, kFit);
                         vec2 warped = uvOffset * (1.0 + kUse * r2);
-                        distortedUV = warped / s + vec2(0.5);
+                        /* Clamp so float error / aux-buffer mismatch never REPEAT-tiles. */
+                        distortedUV = clamp(warped / s + vec2(0.5), 0.0, 1.0);
                     }
                     else if (k < 0.0 && u_lensOverscan > 0.001 && u_lensOverscan < 1.0)
                     {
@@ -435,7 +436,7 @@ public class ColorGradeRenderer
             }
             """;
 
-    private static final int SHADER_VERSION = 11;
+    private static final int SHADER_VERSION = 12;
     private static int loadedShaderVersion;
     private static boolean initialized;
     private static boolean failed;
