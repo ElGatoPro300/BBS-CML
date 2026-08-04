@@ -150,8 +150,8 @@ public class BBSRendering
     private static int width;
     private static int height;
     /**
-     * Scale used for this frame's fisheye FOV widen (1 = off). Color grade reads this
-     * so the UV warp matches the projection even if effect lists were rebuilt.
+     * Scale used for this frame's fisheye FOV match (1 = off, {@code >1} widen,
+     * {@code <1} narrow). Color grade reads this so the UV warp matches the projection.
      */
     private static float lensOverscanScale = 1F;
 
@@ -210,7 +210,14 @@ public class BBSRendering
 
     public static void setLensOverscanScale(float scale)
     {
-        lensOverscanScale = scale > 1.0001F ? scale : 1F;
+        if (!Float.isFinite(scale) || scale <= 1.0e-3F)
+        {
+            lensOverscanScale = 1F;
+
+            return;
+        }
+
+        lensOverscanScale = Math.abs(scale - 1F) > 1.0e-4F ? scale : 1F;
     }
 
     public static int getVideoFrameRate()

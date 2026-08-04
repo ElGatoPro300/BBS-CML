@@ -16,6 +16,7 @@ import net.minecraft.util.Identifier;
 import com.mojang.blaze3d.systems.RenderSystem;
 
 import org.lwjgl.opengl.GL11;
+import org.lwjgl.opengl.GL12;
 import org.lwjgl.opengl.GL13;
 import org.lwjgl.opengl.GL15;
 import org.lwjgl.opengl.GL20;
@@ -158,8 +159,9 @@ public class ColorGradeRenderer
 
             void main()
             {
-                /* Fisheye on clean UVs so the screen edges map to the wide-FOV image
-                 * edges. Distort / VHS are applied after. */
+                /* Fisheye on clean UVs so screen edges map to FOV-matched image edges.
+                 * Positive: corner-matched widen. Negative: edge-matched narrow (corner-
+                 * matched s pushes mid-edge UVs outside [0,1] → REPEAT tiling). */
                 vec2 distortedUV = v_uv;
                 if (abs(u_lensDistortion) > 0.001)
                 {
@@ -170,11 +172,21 @@ public class ColorGradeRenderer
                     if (k > 0.0 && u_lensOverscan > 1.0)
                     {
                         float s = u_lensOverscan;
-                        /* Strongest k that still lands on the FOV-matched edge (no stretch). */
+                        /* Strongest k that still lands on the FOV-matched corner. */
                         float kFit = 2.0 * (s - 1.0);
                         float kUse = min(k, kFit);
                         vec2 warped = uvOffset * (1.0 + kUse * r2);
                         distortedUV = warped / s + vec2(0.5);
+                    }
+                    else if (k < 0.0 && u_lensOverscan > 0.001 && u_lensOverscan < 1.0)
+                    {
+                        float s = u_lensOverscan;
+                        /* Edge-matched: kFit = (s-1)/0.25. Clamp UVs so wrap never tiles. */
+                        float kFit = 4.0 * (s - 1.0);
+                        float kUse = max(k, kFit);
+                        kUse = max(kUse, -1.95);
+                        vec2 warped = uvOffset * (1.0 + kUse * r2);
+                        distortedUV = clamp(warped / s + vec2(0.5), 0.0, 1.0);
                     }
                     else
                     {
@@ -423,7 +435,7 @@ public class ColorGradeRenderer
             }
             """;
 
-    private static final int SHADER_VERSION = 9;
+    private static final int SHADER_VERSION = 11;
     private static int loadedShaderVersion;
     private static boolean initialized;
     private static boolean failed;
@@ -516,6 +528,8 @@ public class ColorGradeRenderer
             tempTex = new Texture();
             tempTex.setFormat(TextureFormat.RGB_U8);
             tempTex.setFilter(GL11.GL_LINEAR);
+            /* Prevent fisheye UVs that slightly leave [0,1] from tiling the scene. */
+            tempTex.setWrap(GL12.GL_CLAMP_TO_EDGE);
         }
 
         fb.beginRead();
@@ -620,7 +634,11 @@ public class ColorGradeRenderer
                 aberration = Math.max(aberration, e.aberration);
                 vhs = Math.max(vhs, e.vhs);
                 lensDistortion += e.lensDistortion;
-                lensOverscan = Math.max(lensOverscan, e.lensOverscan);
+
+                if (LensDistortionOverscan.isActiveScale(e.lensOverscan))
+                {
+                    lensOverscan = e.lensOverscan;
+                }
                 vintage = Math.max(vintage, e.vintage);
                 radialBlur = Math.max(radialBlur, e.radialBlur);
                 rain = Math.max(rain, e.rain);
@@ -663,18 +681,18 @@ public class ColorGradeRenderer
         GL20.glUniform2f(uDistort, distortX, distortY);
         GL20.glUniform1f(uAberration, aberration);
         GL20.glUniform1f(uVHS, vhs);
-        /* Use the scale actually applied to this frame's camera FOV. */
-        if (lensDistortion > 0F && BBSSettings.editorFisheyeWidenFov != null && BBSSettings.editorFisheyeWidenFov.get())
+        /* Use the scale actually applied to this frame's camera FOV (+ widen / - narrow). */
+        if (Math.abs(lensDistortion) > 1.0e-6F && BBSSettings.editorFisheyeWidenFov != null && BBSSettings.editorFisheyeWidenFov.get())
         {
             float rendered = BBSRendering.getLensOverscanScale();
 
-            if (rendered > 1.0001F)
+            if (LensDistortionOverscan.isActiveScale(rendered))
             {
                 lensOverscan = rendered;
             }
-            else
+            else if (!LensDistortionOverscan.isActiveScale(lensOverscan))
             {
-                lensOverscan = Math.max(lensOverscan, LensDistortionOverscan.overscanScale(lensDistortion));
+                lensOverscan = LensDistortionOverscan.overscanScale(lensDistortion);
             }
         }
         else

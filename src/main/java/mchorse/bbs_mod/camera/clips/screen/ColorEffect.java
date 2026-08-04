@@ -27,7 +27,7 @@ public class ColorEffect
     public float aberration;
     public float vhs;
     public float lensDistortion;
-    /** >1 when positive fisheye widened the render FOV to match the UV warp. */
+    /** FOV match scale: {@code >1} widen (positive fisheye), {@code <1} narrow (negative). */
     public float lensOverscan;
     public float vintage;
     public float radialBlur;
