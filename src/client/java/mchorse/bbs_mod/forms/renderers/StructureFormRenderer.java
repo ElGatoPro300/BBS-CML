@@ -962,14 +962,26 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
     }
 
     /**
-     * Structure morphs always draw leaves as see-through cutout when possible.
-     * Under Iris, use {@link RenderLayers#getEntityBlockLayer} like 9d14a9369 so foliage
-     * hits {@code gbuffers_entities} with pack lighting (terrain cutout via entity buffers
-     * does not get the same shading).
+     * Leaves: when client Graphics is Fancy/Fabulous ("Detailed"), use terrain
+     * {@code cutout_mipped} so Iris maps them to {@code gbuffers_terrain_cutout}
+     * (alpha holes). {@link RenderLayers#getEntityBlockLayer} under packs looks like
+     * Fast (opaque). When Graphics is Fast, keep the solid / entity path.
      */
     private RenderLayer resolveStructureBlockLayer(BlockState state, boolean useEntityLayers)
     {
         if (state.getBlock() instanceof LeavesBlock)
+        {
+            return this.resolveStructureLeavesLayer(state, useEntityLayers);
+        }
+
+        return useEntityLayers
+            ? RenderLayers.getEntityBlockLayer(state, false)
+            : RenderLayers.getBlockLayer(state);
+    }
+
+    private RenderLayer resolveStructureLeavesLayer(BlockState state, boolean useEntityLayers)
+    {
+        if (this.isFancyGraphicsEnabled())
         {
             try
             {
@@ -978,39 +990,50 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
             catch (Throwable ignored)
             {}
 
-            if (useEntityLayers)
-            {
-                return RenderLayers.getEntityBlockLayer(state, false);
-            }
-
             return RenderLayer.getCutoutMipped();
         }
 
+        this.syncFancyGraphicsFromOptions();
+
         return useEntityLayers
             ? RenderLayers.getEntityBlockLayer(state, false)
-            : RenderLayers.getBlockLayer(state);
+            : RenderLayer.getSolid();
     }
 
     /**
-     * Leaves: Iris world path uses entity block layers (pack lighting). Vanilla / UI use
-     * Fancy {@code cutout_mipped} so trees stay see-through like world Fancy graphics.
+     * Leaves: Fancy/Detailed → live {@code cutout_mipped} (see-through holes + Iris cutout
+     * gbuffer). Fast → opaque entity/solid path. Always draw live (never post-composite).
      */
     private void renderStructureLeaves(BlockState state, BlockPos pos, BlockRenderView view, MatrixStack stack, VertexConsumerProvider consumers, Function<VertexConsumer, VertexConsumer> recolor)
     {
+        boolean fancy = this.isFancyGraphicsEnabled();
         boolean irisWorld = BBSRendering.isIrisShadersEnabled() && BBSRendering.isRenderingWorld();
         RenderLayer layer;
         VertexConsumer vc;
+        boolean cull;
 
-        try
+        if (fancy)
         {
-            RenderLayers.setFancyGraphicsOrBetter(true);
-        }
-        catch (Throwable ignored)
-        {}
+            try
+            {
+                RenderLayers.setFancyGraphicsOrBetter(true);
+            }
+            catch (Throwable ignored)
+            {}
 
-        layer = irisWorld
-            ? RenderLayers.getEntityBlockLayer(state, false)
-            : RenderLayer.getCutoutMipped();
+            layer = RenderLayer.getCutoutMipped();
+            /* Leaf-vs-leaf faces stay visible like Fancy chunk meshing. */
+            cull = false;
+        }
+        else
+        {
+            this.syncFancyGraphicsFromOptions();
+            layer = irisWorld
+                ? RenderLayers.getEntityBlockLayer(state, false)
+                : RenderLayer.getSolid();
+            cull = true;
+        }
+
         vc = consumers.getBuffer(layer);
 
         if (recolor != null)
@@ -1018,8 +1041,7 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
             vc = recolor.apply(vc);
         }
 
-        /* cull=false: leaf-vs-leaf faces stay visible like Fancy chunk meshing. */
-        MinecraftClient.getInstance().getBlockRenderManager().renderBlock(state, pos, view, stack, vc, false, Random.create());
+        MinecraftClient.getInstance().getBlockRenderManager().renderBlock(state, pos, view, stack, vc, cull, Random.create());
     }
 
     /**
@@ -1348,13 +1370,8 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
         RenderSystem.defaultBlendFunc();
         /* Ensure block atlas is active */
         RenderSystem.setShaderTexture(0, PlayerScreenHandler.BLOCK_ATLAS_TEXTURE);
-        /* Structure foliage always Fancy — never sync down to Fast for this pass. */
-        try
-        {
-            RenderLayers.setFancyGraphicsOrBetter(true);
-        }
-        catch (Throwable ignored)
-        {}
+        /* Match client Graphics for foliage (Fancy → cutout holes; Fast → opaque). */
+        this.syncFancyGraphicsFromOptions();
 
         RenderInfo info = this.calculateRenderInfo(context, false);
 
