@@ -68,9 +68,27 @@ public class StructureVAOCollector implements VertexConsumer
     @Override
     public VertexConsumer color(int red, int green, int blue, int alpha)
     {
-        this.vcr = red / 255F;
-        this.vcg = green / 255F;
-        this.vcb = blue / 255F;
+        /* Vanilla block meshing bakes AO + face shade into RGB. The old structure VAO
+         * discarded vertex color (full-bright albedo + form tint only). Keep chromatic
+         * biome / redstone tints, but strip the uniform shade so solids are not darker. */
+        float r = red / 255F;
+        float g = green / 255F;
+        float b = blue / 255F;
+        float max = Math.max(r, Math.max(g, b));
+
+        if (max > 1e-5F)
+        {
+            this.vcr = r / max;
+            this.vcg = g / max;
+            this.vcb = b / max;
+        }
+        else
+        {
+            this.vcr = 1F;
+            this.vcg = 1F;
+            this.vcb = 1F;
+        }
+
         this.vca = alpha / 255F;
         return this;
     }

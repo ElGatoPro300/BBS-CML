@@ -110,6 +110,8 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
         public IModelVAO picking;
     }
 
+    /* Bump when Lightmap VAO vertex layout / color semantics change (invalidates cache). */
+    private static final int VAO_CACHE_VERSION = 2;
     private static final Map<String, VaoHolder> VAO_CACHE = new HashMap<>();
     /* Bump when structure leaf Fancy capture/draw rules change. */
     private static final int LIGHTING_REVISION = 5;
@@ -2536,7 +2538,7 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
 
         if (this.lastFile != null)
         {
-            VaoHolder holder = VAO_CACHE.computeIfAbsent(this.lastFile, k -> new VaoHolder());
+            VaoHolder holder = VAO_CACHE.computeIfAbsent(this.vaoCacheKey(), k -> new VaoHolder());
 
             if (holder.vao instanceof ModelVAO)
             {
@@ -2617,7 +2619,7 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
 
         if (this.lastFile != null)
         {
-            VaoHolder holder = VAO_CACHE.computeIfAbsent(this.lastFile, k -> new VaoHolder());
+            VaoHolder holder = VAO_CACHE.computeIfAbsent(this.vaoCacheKey(), k -> new VaoHolder());
 
             if (holder.picking instanceof ModelVAO)
             {
@@ -2679,7 +2681,7 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
             return null;
         }
 
-        VaoHolder holder = VAO_CACHE.get(this.lastFile);
+        VaoHolder holder = VAO_CACHE.get(this.vaoCacheKey());
 
         return holder != null ? holder.vao : null;
     }
@@ -2691,9 +2693,14 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
             return null;
         }
 
-        VaoHolder holder = VAO_CACHE.get(this.lastFile);
+        VaoHolder holder = VAO_CACHE.get(this.vaoCacheKey());
 
         return holder != null ? holder.picking : null;
+    }
+
+    private String vaoCacheKey()
+    {
+        return VAO_CACHE_VERSION + ":" + this.lastFile;
     }
 
     private void clearCachedVao()
@@ -2703,7 +2710,7 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
             return;
         }
 
-        VaoHolder holder = VAO_CACHE.remove(this.lastFile);
+        VaoHolder holder = VAO_CACHE.remove(this.vaoCacheKey());
 
         if (holder != null)
         {
