@@ -512,6 +512,7 @@
     "bbs.ui.camera.clips.bbs:crop_y": "Recorte arriba",
     "bbs.ui.camera.clips.bbs:curve": "Curva",
     "bbs.ui.camera.clips.bbs:damage": "Daño",
+    "bbs.ui.camera.clips.bbs:mob_death": "Muerte de mob",
     "bbs.ui.camera.clips.bbs:dolly": "Plataforma rodante",
     "bbs.ui.camera.clips.bbs:dolly_zoom": "Zoom de plataforma rodante",
     "bbs.ui.camera.clips.bbs:drag": "Arrastre",

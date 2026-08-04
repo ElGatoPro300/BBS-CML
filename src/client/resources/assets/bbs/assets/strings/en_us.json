@@ -548,6 +548,7 @@
     "bbs.ui.camera.clips.bbs:crop_y": "Crop top",
     "bbs.ui.camera.clips.bbs:curve": "Curve",
     "bbs.ui.camera.clips.bbs:damage": "Damage",
+    "bbs.ui.camera.clips.bbs:mob_death": "Mob death",
     "bbs.ui.camera.clips.bbs:dolly": "Dolly",
     "bbs.ui.camera.clips.bbs:dolly_zoom": "Dolly zoom",
     "bbs.ui.camera.clips.bbs:drag": "Drag",
