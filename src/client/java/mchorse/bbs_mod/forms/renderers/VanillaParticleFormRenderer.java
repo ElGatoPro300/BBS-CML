@@ -9,6 +9,7 @@ import mchorse.bbs_mod.graphics.texture.Texture;
 import mchorse.bbs_mod.resources.Link;
 import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.utils.MathUtils;
+import mchorse.bbs_mod.utils.interps.Lerps;
 import mchorse.bbs_mod.utils.joml.Matrices;
 import mchorse.bbs_mod.utils.joml.Vectors;
 
@@ -43,6 +44,10 @@ import org.joml.Vector3f;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.brigadier.StringReader;
 
+import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.List;
+
 public class VanillaParticleFormRenderer extends FormRenderer<VanillaParticleForm> implements ITickable
 {
     public static final Link PARTICLE_PREVIEW = new Link("minecraft", "textures/particle/flame.png");
@@ -51,6 +56,21 @@ public class VanillaParticleFormRenderer extends FormRenderer<VanillaParticleFor
     private Vector3f vel = new Vector3f();
     private Matrix3f rot = new Matrix3f();
     private int tick;
+    private List<TrackedParticle> trackedParticles = new ArrayList<>();
+
+    private static class TrackedParticle
+    {
+        public Particle particle;
+        public mchorse.bbs_mod.utils.colors.Color startColor;
+        public mchorse.bbs_mod.utils.colors.Color endColor;
+
+        public TrackedParticle(Particle particle, mchorse.bbs_mod.utils.colors.Color startColor, mchorse.bbs_mod.utils.colors.Color endColor)
+        {
+            this.particle = particle;
+            this.startColor = startColor.copy();
+            this.endColor = endColor.copy();
+        }
+    }
 
     public VanillaParticleFormRenderer(VanillaParticleForm form)
     {
@@ -119,12 +139,48 @@ public class VanillaParticleFormRenderer extends FormRenderer<VanillaParticleFor
     @Override
     public void tick(IEntity entity)
     {
-        World world = entity.getWorld();
+        World world = entity == null ? null : entity.getWorld();
+
+        if (world == null)
+        {
+            world = MinecraftClient.getInstance().world;
+        }
+
         boolean paused = this.form.paused.get();
         Vector3f temp3f = new Vector3f();
 
-        if (world != null && !paused)
+        if (world != null && MinecraftClient.getInstance().world != null && !paused)
         {
+            if (!this.trackedParticles.isEmpty())
+            {
+                Iterator<TrackedParticle> iterator = this.trackedParticles.iterator();
+
+                while (iterator.hasNext())
+                {
+                    TrackedParticle tracked = iterator.next();
+
+                    if (!tracked.particle.isAlive())
+                    {
+                        iterator.remove();
+                        continue;
+                    }
+
+                    int maxAge = tracked.particle.maxAge;
+                    int age = tracked.particle.age;
+
+                    float progress = maxAge > 0 ? (float) age / (float) maxAge : 1F;
+                    progress = MathUtils.clamp(progress, 0F, 1F);
+
+                    float r = Lerps.lerp(tracked.startColor.r, tracked.endColor.r, progress);
+                    float g = Lerps.lerp(tracked.startColor.g, tracked.endColor.g, progress);
+                    float b = Lerps.lerp(tracked.startColor.b, tracked.endColor.b, progress);
+                    float a = Lerps.lerp(tracked.startColor.a, tracked.endColor.a, progress);
+
+                    tracked.particle.setColor(r, g, b);
+                    tracked.particle.setAlpha(a);
+                }
+            }
+
             float velocity = this.form.velocity.get();
             int count = this.form.count.get();
             int frequency = this.form.frequency.get();
@@ -170,17 +226,16 @@ public class VanillaParticleFormRenderer extends FormRenderer<VanillaParticleFor
                         {}
                     }
 
-                    if (colorR < 0F && this.form != null)
-                    {
-                        mchorse.bbs_mod.utils.colors.Color formColor = this.form.color.get();
+                    mchorse.bbs_mod.utils.colors.Color color1 = this.form.color.get();
+                    mchorse.bbs_mod.utils.colors.Color color2 = this.form.color2.get();
+                    int colorMode = this.form.colorMode.get();
 
-                        if (formColor != null)
-                        {
-                            colorR = formColor.r;
-                            colorG = formColor.g;
-                            colorB = formColor.b;
-                            colorA = formColor.a;
-                        }
+                    if (colorR < 0F && color1 != null)
+                    {
+                        colorR = color1.r;
+                        colorG = color1.g;
+                        colorB = color1.b;
+                        colorA = color1.a;
                     }
 
                     boolean parsedCustom = false;
@@ -277,13 +332,28 @@ public class VanillaParticleFormRenderer extends FormRenderer<VanillaParticleFor
                             .rotateX(sv)
                             .transform(v.set(velocityX, velocityY, velocityZ));
 
-                        if (colorR >= 0F)
+                        float pR = colorR;
+                        float pG = colorG;
+                        float pB = colorB;
+                        float pA = colorA;
+
+                        if (colorMode == 2 && color1 != null && color2 != null)
+                        {
+                            float factor = (float) Math.random();
+
+                            pR = Lerps.lerp(color1.r, color2.r, factor);
+                            pG = Lerps.lerp(color1.g, color2.g, factor);
+                            pB = Lerps.lerp(color1.b, color2.b, factor);
+                            pA = Lerps.lerp(color1.a, color2.a, factor);
+                        }
+
+                        if (pR >= 0F)
                         {
                             if (path.equals("note"))
                             {
-                                int ir = (int) Math.min(255F, Math.max(0F, colorR * 255F));
-                                int ig = (int) Math.min(255F, Math.max(0F, colorG * 255F));
-                                int ib = (int) Math.min(255F, Math.max(0F, colorB * 255F));
+                                int ir = (int) Math.min(255F, Math.max(0F, pR * 255F));
+                                int ig = (int) Math.min(255F, Math.max(0F, pG * 255F));
+                                int ib = (int) Math.min(255F, Math.max(0F, pB * 255F));
                                 float[] hsb = java.awt.Color.RGBtoHSB(ir, ig, ib, null);
 
                                 v.x = hsb[0];
@@ -292,9 +362,9 @@ public class VanillaParticleFormRenderer extends FormRenderer<VanillaParticleFor
                             }
                             else if (path.contains("effect") || path.equals("witch"))
                             {
-                                v.x = colorR;
-                                v.y = colorG;
-                                v.z = colorB;
+                                v.x = pR;
+                                v.y = pG;
+                                v.z = pB;
                             }
                         }
 
@@ -313,14 +383,20 @@ public class VanillaParticleFormRenderer extends FormRenderer<VanillaParticleFor
                         double y = this.pos.y + temp3f.y;
                         double z = this.pos.z + temp3f.z;
 
-                        Particle particleObj = MinecraftClient.getInstance().particleManager.addParticle(effect, x, y, z, v.x, v.y, v.z);
+                        MinecraftClient mc = MinecraftClient.getInstance();
+                        Particle particleObj = (mc.world != null && mc.particleManager != null) ? mc.particleManager.addParticle(effect, x, y, z, v.x, v.y, v.z) : null;
 
-                        if (particleObj != null && colorR >= 0F)
+                        if (particleObj != null && pR >= 0F)
                         {
-                            particleObj.setColor(colorR, colorG, colorB);
-                            particleObj.setAlpha(colorA);
+                            particleObj.setColor(pR, pG, pB);
+                            particleObj.setAlpha(pA);
+
+                            if (colorMode == 1 && color1 != null && color2 != null)
+                            {
+                                this.trackedParticles.add(new TrackedParticle(particleObj, color1, color2));
+                            }
                         }
-                        else if (particleObj == null)
+                        else if (particleObj == null && world != null)
                         {
                             world.addParticle(effect, true, x, y, z, v.x, v.y, v.z);
                         }

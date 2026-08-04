@@ -11,6 +11,7 @@ import mchorse.bbs_mod.ui.UIKeys;
 import mchorse.bbs_mod.ui.film.replays.UIReplaysEditor;
 import mchorse.bbs_mod.ui.forms.editors.forms.UIForm;
 import mchorse.bbs_mod.ui.forms.editors.panels.widgets.UIFormColorAdjustments;
+import mchorse.bbs_mod.ui.forms.editors.panels.widgets.UIFormColorTransform;
 import mchorse.bbs_mod.ui.forms.editors.panels.widgets.UIFormPaintTransform;
 import mchorse.bbs_mod.ui.forms.editors.utils.UIStructureOverlayPanel;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIButton;
@@ -47,6 +48,7 @@ public class UIStructureFormPanel extends UIFormPanel<StructureForm>
     public UIButton pickBiome;
     public UITextbox structureFile;
     public UIColor color;
+    public UIFormColorTransform colorTransform;
     public UIFormColorAdjustments colorAdjustments;
     public UIColor paintColor;
     public UITrackpad paintIntensity;
@@ -78,6 +80,7 @@ public class UIStructureFormPanel extends UIFormPanel<StructureForm>
             color.set(value.r, value.g, value.b, value.a);
             this.form.color.set(color);
         }).withAlpha();
+        this.colorTransform = new UIFormColorTransform(() -> this.form.color.get(), (color) -> this.form.color.set(color));
         this.colorAdjustments = new UIFormColorAdjustments(() -> this.form.color.get(), (color) ->
         {
             this.form.color.setRuntimeValue(null);
@@ -253,23 +256,41 @@ public class UIStructureFormPanel extends UIFormPanel<StructureForm>
 
     private void toggleLight(UIToggle t)
     {
-        StructureLightSettings s = this.form.structureLight.get();
-        if (s == null) s = new StructureLightSettings(false, 15);
-        s.enabled = t.getValue();
-        this.form.structureLight.set(s);
-        // Mantener sincronizados los valores legados usados como fallback cuando
-        // no hay pista activa: emit_light y light_intensity
-        this.form.emitLight.set(s.enabled);
+        StructureLightSettings settings = this.form.structureLight.get();
+        boolean enabled = t.getValue();
+
+        if (settings == null)
+        {
+            settings = new StructureLightSettings();
+        }
+        else
+        {
+            settings = settings.copy();
+        }
+
+        settings.enabled = enabled;
+
+        this.form.structureLight.set(settings);
+        this.form.emitLight.set(enabled);
     }
 
-    private void setLightIntensity(int v)
+    private void setLightIntensity(int intensity)
     {
-        StructureLightSettings s = this.form.structureLight.get();
-        if (s == null) s = new StructureLightSettings(false, 15);
-        s.intensity = Math.max(1, Math.min(15, v));
-        this.form.structureLight.set(s);
-        // Mantener sincronizado el valor legado de intensidad
-        this.form.lightIntensity.set(s.intensity);
+        StructureLightSettings settings = this.form.structureLight.get();
+
+        if (settings == null)
+        {
+            settings = new StructureLightSettings();
+        }
+        else
+        {
+            settings = settings.copy();
+        }
+
+        settings.intensity = intensity;
+
+        this.form.structureLight.set(settings);
+        this.form.lightIntensity.set(intensity);
     }
 
 
@@ -291,6 +312,8 @@ public class UIStructureFormPanel extends UIFormPanel<StructureForm>
 
         this.structureFile.setText(form.structureFile.get());
         this.color.setColor(form.color.get().getARGBColor());
+        this.colorTransform.syncFromForm();
+        this.colorAdjustments.prepareSession();
         this.colorAdjustments.syncFromForm();
         PaintSettings paint = form.paintSettings.get();
         Color paintDisplay = new Color();

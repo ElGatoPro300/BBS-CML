@@ -25,13 +25,10 @@ public class UITrailFormPanel extends UIFormPanel<TrailForm>
 {
     public UIButton pick;
     public UIColor color;
-    public UIEffectTransformCollapse colorTransform;
     public UIColor paintColor;
     public UITrackpad paintIntensity;
-    public UIEffectTransformCollapse paintTransform;
     public UIColor glowingColor;
     public UITrackpad glowIntensity;
-    public UIEffectTransformCollapse glowTransform;
     public UIElement glowSection;
     public UITrackpad length;
     public UIToggle loop;
@@ -54,18 +51,6 @@ public class UITrailFormPanel extends UIFormPanel<TrailForm>
             this.form.color.set(color);
         }).direction(Direction.LEFT).withAlpha();
         this.color.tooltip(UIKeys.FILM_REPLAY_TRACK_COLOR);
-        this.colorTransform = new UIEffectTransformCollapse((apply) ->
-        {
-            Color copy = this.form.color.get().copy();
-
-            if (copy.transform == null)
-            {
-                copy.transform = new EffectTransform();
-            }
-
-            apply.accept(copy.transform);
-            this.form.color.set(copy);
-        });
         this.paintColor = new UIColor((value) ->
         {
             Color color = Color.rgba(value);
@@ -97,18 +82,6 @@ public class UITrailFormPanel extends UIFormPanel<TrailForm>
         });
         this.paintIntensity.increment(0.05D).values(0.1D, 0.05D, 0.2D).limit(PaintSettings.MIN_INTENSITY, PaintSettings.MAX_INTENSITY);
         this.paintIntensity.tooltip(UIKeys.FORMS_EDITORS_PAINT_INTENSITY);
-        this.paintTransform = new UIEffectTransformCollapse((apply) ->
-        {
-            PaintSettings settings = this.form.paintSettings.get().copy();
-
-            if (settings.transform == null)
-            {
-                settings.transform = new EffectTransform();
-            }
-
-            apply.accept(settings.transform);
-            this.form.paintSettings.set(settings);
-        });
         this.glowingColor = new UIColor((value) ->
         {
             Color copy = this.form.glowingColor.get().copy();
@@ -137,24 +110,7 @@ public class UITrailFormPanel extends UIFormPanel<TrailForm>
         });
         this.glowIntensity.increment(0.05D).values(0.1D, 0.05D, 0.2D);
         this.glowIntensity.tooltip(UIKeys.FORMS_EDITORS_GLOW_INTENSITY);
-        this.glowTransform = new UIEffectTransformCollapse((apply) ->
-        {
-            GlowSettings settings = this.form.glowSettings.get().copy();
-
-            if (settings.transform == null)
-            {
-                settings.transform = new EffectTransform();
-            }
-
-            apply.accept(settings.transform);
-            this.form.glowSettings.set(settings);
-
-            Color legacy = this.form.glowingColor.get().copy();
-
-            legacy.transform = settings.transform.copy();
-            this.form.glowingColor.set(legacy);
-        });
-        this.glowSection = UIFormColorLayout.createGlowSection(this.glowingColor, this.glowIntensity, this.glowTransform);
+        this.glowSection = UIFormColorLayout.createGlowSection(this.glowingColor, this.glowIntensity);
         this.length = new UITrackpad((v) -> this.form.length.set(v.floatValue()));
         this.loop = new UIToggle(UIKeys.FORMS_EDITORS_TRAIL_LOOP, (b) -> this.form.loop.set(b.getValue()));
         this.paused = new UIToggle(UIKeys.FORMS_EDITORS_VANILLA_PARTICLE_PAUSED, (b) -> this.form.paused.set(b.getValue()));
@@ -162,10 +118,10 @@ public class UITrailFormPanel extends UIFormPanel<TrailForm>
         this.options.add(
             this.pick,
             UIFormColorLayout.sectionLabel(UIKeys.FORMS_EDITOR_FORM),
-            UIFormColorLayout.colorWithTransform(this.color, this.colorTransform),
+            this.color,
             UIFormColorLayout.createExtraSection(
                 this.glowSection,
-                UIFormColorLayout.paintColorRowWithTransform(this.paintColor, this.paintIntensity, this.paintTransform)
+                UIFormColorLayout.paintColorRow(this.paintColor, this.paintIntensity)
             ).marginTop(4),
             UI.label(UIKeys.FORMS_EDITORS_TRAIL_LENGTH),
             this.length,
@@ -180,7 +136,6 @@ public class UITrailFormPanel extends UIFormPanel<TrailForm>
         super.startEdit(form);
 
         this.color.setColor(form.color.get().getARGBColor());
-        this.colorTransform.setEffectTransform(form.color.get().transform == null ? new EffectTransform() : form.color.get().transform);
 
         PaintSettings paint = form.paintSettings.get();
         Color paintDisplay = new Color();
@@ -188,7 +143,6 @@ public class UITrailFormPanel extends UIFormPanel<TrailForm>
         paint.resolveColor(form.paintColor.get(), paintDisplay);
         this.paintColor.setColor(paintDisplay.getRGBColor());
         this.paintIntensity.setValue(paint.intensity);
-        this.paintTransform.setEffectTransform(paint.transform == null ? new EffectTransform() : paint.transform);
 
         GlowSettings glow = form.glowSettings.get();
         Color glowDisplay = new Color();
@@ -196,11 +150,6 @@ public class UITrailFormPanel extends UIFormPanel<TrailForm>
         glow.resolveColor(form.glowingColor.get(), glowDisplay);
         this.glowingColor.setColor(glowDisplay.getRGBColor());
         this.glowIntensity.setValue(glow.intensity);
-        EffectTransform glowTransform = glow.transform != null && glow.transform.isActive()
-            ? glow.transform
-            : (form.glowingColor.get().transform == null ? new EffectTransform() : form.glowingColor.get().transform);
-
-        this.glowTransform.setEffectTransform(glowTransform);
 
         this.length.setValue(form.length.get());
         this.loop.setValue(form.loop.get());

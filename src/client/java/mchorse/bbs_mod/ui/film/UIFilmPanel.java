@@ -24,6 +24,7 @@ import mchorse.bbs_mod.data.types.ListType;
 import mchorse.bbs_mod.data.types.MapType;
 import mchorse.bbs_mod.data.types.StringType;
 import mchorse.bbs_mod.events.register.RegisterFilmEditorFactoriesEvent;
+import mchorse.bbs_mod.events.register.RegisterFilmSyncEvent;
 import mchorse.bbs_mod.film.CrossWorldFilmEntry;
 import mchorse.bbs_mod.film.Film;
 import mchorse.bbs_mod.film.FilmContributor;
@@ -5493,7 +5494,8 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
         if (root == null
             || !this.hasPanelInLayout(root, ANCHORED_REPLAYS_PANEL_ID)
             || this.hasPanelInLayout(root, ANCHORED_REPLAYS_PROPERTIES_PANEL_ID)
-            || this.floatingPanels.contains(ANCHORED_REPLAYS_PROPERTIES_PANEL_ID))
+            || this.floatingPanels.contains(ANCHORED_REPLAYS_PROPERTIES_PANEL_ID)
+            || this.hiddenPanels.contains(ANCHORED_REPLAYS_PROPERTIES_PANEL_ID))
         {
             return root;
         }
@@ -5911,6 +5913,14 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
             this.collapsedFloatingPanels.clear();
             this.hiddenPanels.clear();
 
+            /* Legacy presets created before ANCHORED_REPLAYS_PROPERTIES_PANEL_ID existed
+               do not specify the General panel. Default General to hidden so properties render
+               embedded inside the Replays window (classic backwards-compatible behavior). */
+            if (!this.hasPanelInPresetData(data, ANCHORED_REPLAYS_PROPERTIES_PANEL_ID))
+            {
+                this.hiddenPanels.add(ANCHORED_REPLAYS_PROPERTIES_PANEL_ID);
+            }
+
             BBSSettings.editorLayoutSettings.setFilmLayoutRoot(this.removeAnchoredReplaysPanelFromRoot(root));
 
             if (this.hasAnchoredReplaysPanelPresetState(data))
@@ -5959,6 +5969,52 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
             || data.has(PRESET_REPLAYS_PANEL_WIDTH)
             || data.has(PRESET_REPLAYS_PANEL_HEIGHT)
             || data.has(PRESET_REPLAYS_PANEL_DOCKED_LAYOUT);
+    }
+
+    private boolean hasPanelInPresetData(MapType data, String panelId)
+    {
+        if (data == null)
+        {
+            return false;
+        }
+
+        if (data.has("film_layout"))
+        {
+            EditorLayoutNode node = EditorLayoutNode.fromData(data.get("film_layout"));
+
+            if (node != null && this.hasPanelInLayout(node, panelId))
+            {
+                return true;
+            }
+        }
+
+        if (data.has(PRESET_REPLAYS_PANEL_DOCKED_LAYOUT))
+        {
+            EditorLayoutNode node = EditorLayoutNode.fromData(data.get(PRESET_REPLAYS_PANEL_DOCKED_LAYOUT));
+
+            if (node != null && this.hasPanelInLayout(node, panelId))
+            {
+                return true;
+            }
+        }
+
+        if (data.has(PRESET_HIDDEN_PANELS))
+        {
+            BaseType hiddenData = data.get(PRESET_HIDDEN_PANELS);
+
+            if (hiddenData != null && hiddenData.isList())
+            {
+                for (BaseType item : hiddenData.asList())
+                {
+                    if (item != null && item.isString() && panelId.equals(item.asString()))
+                    {
+                        return true;
+                    }
+                }
+            }
+        }
+
+        return false;
     }
 
     private void applyAnchoredReplaysPanelPresetState(MapType data, EditorLayoutNode baseRoot)
@@ -6554,6 +6610,7 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
         }
 
         this.syncActiveDocumentTabWithData(data);
+        RegisterFilmSyncEvent.postOpenFilm(data);
     }
 
     @Override

@@ -70,7 +70,8 @@ public class UIFilmFullscreenPlaybackBar extends UIElement
     {
         return this.panel.getData() != null
             && this.panel.canToggleVisibility()
-            && !this.panel.dashboard.main.isVisible();
+            && !this.panel.dashboard.main.isVisible()
+            && !this.panel.recorder.isRecordingOrWarmingUp();
     }
 
     private void applyLayout(UIContext context)

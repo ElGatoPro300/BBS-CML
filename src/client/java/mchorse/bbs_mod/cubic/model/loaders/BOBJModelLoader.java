@@ -97,13 +97,49 @@ public class BOBJModelLoader implements IModelLoader
         try
         {
             BOBJArmature armature = meshData.armatures.values().iterator().next();
-            BOBJLoader.BOBJMesh finalMesh = this.findSkinnedMesh(meshData);
-            BOBJLoader.CompiledData compiledData = BOBJLoader.compileMesh(meshData, finalMesh);
-            BOBJModel bobjModel = new BOBJModel(armature, compiledData, id.startsWith("emoticons") && id.endsWith("_simple"));
+            List<BOBJLoader.CompiledData> compiledMeshes = new ArrayList<>();
+
+            for (BOBJLoader.BOBJMesh mesh : meshData.meshes)
+            {
+                if (mesh.armature == armature)
+                {
+                    compiledMeshes.add(BOBJLoader.compileMesh(meshData, mesh));
+                }
+            }
+
+            if (compiledMeshes.isEmpty())
+            {
+                System.err.println("Model \"" + model + "\" doesn't have a mesh connected to one of the armatures!");
+
+                return null;
+            }
+
+            BOBJModel bobjModel = new BOBJModel(armature, compiledMeshes, id.startsWith("emoticons") && id.endsWith("_simple"));
 
             meshData.initiateArmatures();
 
             ModelInstance instance = new ModelInstance(id, bobjModel, mergedAnimations, modelTexture);
+
+            /* Each BOBJ mesh is its own material (keyed by mesh name): load its default texture
+             * from a folder named after the mesh; without one it falls back to the model texture. */
+            for (BOBJLoader.CompiledData mesh : compiledMeshes)
+            {
+                String material = mesh.mesh.name;
+
+                instance.materials.add(material);
+
+                Link texture = IModelLoader.findMaterialTexture(links, model, material);
+
+                if (texture != null)
+                {
+                    instance.materialTextures.put(material, texture);
+                }
+                else
+                {
+                    /* No texture yet: surface an empty folder for this mesh to drop one into. */
+                    IModelLoader.ensureMaterialFolder(models.provider, model, material);
+                }
+            }
 
             if (id.startsWith("emoticons/"))
             {

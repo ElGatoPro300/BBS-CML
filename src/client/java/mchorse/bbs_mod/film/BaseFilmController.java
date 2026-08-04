@@ -245,6 +245,11 @@ public abstract class BaseFilmController
 
             MatrixStackUtils.multiply(stack, target);
 
+            /* IRLights 1.21+ reads FormRenderingContext.world (absolute) for light poses.
+             * Rebuild that root in true world space (independent of any render camera or viewport)
+             * so light registration cannot mix the film actor frame with the spectator/player view. */
+            syncIrlAbsoluteWorldMatrix(formContext, context, entity, relative, transition);
+
             ModelFormRenderer lookAtRenderer = relative ? null : applyLookAtPose(context, form, position);
 
             if (context.isShadowPass)
@@ -943,6 +948,68 @@ public abstract class BaseFilmController
         return defaultMatrix;
     }
 
+    /**
+     * IRLights resolves point/spotlight poses from {@link FormRenderingContext#world}.
+     * Rebuild the actor's absolute world matrix stack in true world coordinates
+     * (independent of any render camera or viewport) so lights remain fixed in place.
+     */
+    private static void syncIrlAbsoluteWorldMatrix(FormRenderingContext formContext, FilmControllerContext context, IEntity entity, boolean relative, float transition)
+    {
+        if (formContext == null || formContext.world == null || entity == null || context == null)
+        {
+            return;
+        }
+
+        if (relative)
+        {
+            return;
+        }
+
+        Vector3d position = Vectors.TEMP_3D.set(
+            Lerps.lerp(entity.getPrevX(), entity.getX(), transition),
+            Lerps.lerp(entity.getPrevY(), entity.getY(), transition),
+            Lerps.lerp(entity.getPrevZ(), entity.getZ(), transition)
+        );
+
+        Form form = entity.getForm();
+        Matrix4f defaultMatrix = getMatrixForRenderWithRotation(entity, 0D, 0D, 0D, transition);
+        Matrix4f worldTarget = null;
+
+        if (context.entities != null && form != null && form.anchor.get() != null)
+        {
+            Pair<Matrix4f, Float> pair = getTotalMatrix(context.entities, form.anchor.get(), defaultMatrix, 0D, 0D, 0D, transition, 0);
+
+            worldTarget = pair.a;
+        }
+
+        if (worldTarget != null)
+        {
+            Vector3f v = worldTarget.getTranslation(new Vector3f());
+            Vector3f v2 = defaultMatrix.getTranslation(new Vector3f());
+
+            position.x += v.x - v2.x;
+            position.y += v.y - v2.y;
+            position.z += v.z - v2.z;
+        }
+        else
+        {
+            worldTarget = defaultMatrix;
+        }
+
+        if (form != null)
+        {
+            applyLookAt(context, form, position, worldTarget);
+        }
+
+        if (context.localGroupTransform != null)
+        {
+            worldTarget.mul(context.localGroupTransform);
+        }
+
+        formContext.world.peek().getPositionMatrix().set(worldTarget);
+        formContext.world.peek().getNormalMatrix().set(new Matrix3f(worldTarget));
+    }
+
     public static Matrix4f getMatrixForRenderWithRotation(IEntity entity, double cameraX, double cameraY, double cameraZ, float tickDelta)
     {
         double x = Lerps.lerp(entity.getPrevX(), entity.getX(), tickDelta) - cameraX;
@@ -1231,7 +1298,7 @@ public abstract class BaseFilmController
 
                             Vec3d pos = player.getPos();
 
-                            if (BBSSettings.editorReplayStepSound == null || BBSSettings.editorReplayStepSound.get())
+                            if (!this.paused && (BBSSettings.editorReplayStepSound == null || BBSSettings.editorReplayStepSound.get()))
                             {
                                 player.setOnGround(grounded);
                                 player.move(MovementType.SELF, new Vec3d(x - pos.x, y - pos.y, z - pos.z));

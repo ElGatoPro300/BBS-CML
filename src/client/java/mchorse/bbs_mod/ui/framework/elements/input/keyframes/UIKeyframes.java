@@ -1928,6 +1928,11 @@ public class UIKeyframes extends UIElement
         return this.xAxis;
     }
 
+    public int getSidebarWidth()
+    {
+        return this.currentGraph instanceof UIKeyframeDopeSheet ? this.currentGraph.getSidebarWidth() : 0;
+    }
+
     public int getDuration()
     {
         return this.duration == null ? 0 : this.duration.get();

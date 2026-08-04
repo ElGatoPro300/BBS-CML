@@ -132,12 +132,16 @@ Only if Step 1 leaves gaps:
 
 | Issue | Notes |
 |-------|--------|
-| Soft limb behind soft limb (same actor) | Translucent bone sort — planned in [`SOFT_LIMB_BONE_SORT.md`](SOFT_LIMB_BONE_SORT.md) (not implemented yet) |
+| Soft limb behind soft limb (same actor) | **v1 done:** per-bone post-deferred submit + `distanceSq` — [`SOFT_LIMB_BONE_SORT.md`](SOFT_LIMB_BONE_SORT.md) |
 | Model-block preview invisible with soft limbs | **Fixed:** preview draws live |
 | Soft limb occludes actors/clouds/billboards behind | **Fixed:** opaque live + soft post-deferred |
 | Soft limb invisible under Iris (any alpha &lt; 255) | **Fixed:** Iris uses camera matrices + `submitPostDeferredForm` (baked BBS MVP was wrong) |
 | Fully transparent limb (alpha 0) still occludes | **Fixed:** drawable bones at alpha ≤ 0.001 are hidden (no depth stamp) |
-| Limb Noshading | Soft limbs with noshading → BBS deferred translucent queue (same tradeoff as form) |
+| Limb Noshading | **Per soft bone:** only that bone uses the BBS noshading queue; other soft limbs stay on Iris post-deferred |
+| Iris soft limbs darken as alpha falls (noshading off) | Tradeoff via `soft_transparency_backfaces` setting (default ON = backfaces; OFF = cull / cleaner) |
+| Iris soft limbs hide backfaces | **Fixed:** default ON draws backfaces for form + limb soft; OFF culls both consistently |
+| Iris fog / paint from behind on soft limbs (noshading off) | **Fixed:** soft limbs depth-stamp; multi soft uses color then depth-only stamp |
+| Film soft-vs-soft erased after depth-write | **Fixed:** multi soft color pass without depth-write, then depth stamp |
 | Vanilla clouds hidden behind soft actors | **Fixed:** without Iris, soft form/limb flush moves to `WorldRenderEvents.LAST` (after clouds); Iris unchanged |
 
 ## Mixing form-wide + limb transparency
@@ -150,7 +154,8 @@ Safe and supported:
 
 Limitations to expect:
 
-- Soft-vs-soft sorting on the **same** actor can still look wrong (draw order / depth). See planned per-bone sort: [`SOFT_LIMB_BONE_SORT.md`](SOFT_LIMB_BONE_SORT.md).
+- Soft-vs-soft on the **same** actor: v1 per-bone sort (see [`SOFT_LIMB_BONE_SORT.md`](SOFT_LIMB_BONE_SORT.md)). Bone centers approximate depth — interpenetrating meshes / nearly coplanar faces can still look wrong from odd angles. Multi soft: color without depth-write, then depth-only stamp (Iris fog/paint stay behind with noshading off).
+- No per-triangle / OIT sort — out of scope (Iris-hostile / too heavy).
 - Paint/glow overlays on soft-only limbs may still follow form-level Iris overlay timing.
 - Fully transparent bones are skipped for deferral gates (anchors at alpha 0 no longer force a bogus soft path).
 

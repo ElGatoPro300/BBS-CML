@@ -40,6 +40,7 @@ import mchorse.bbs_mod.ui.framework.elements.input.list.UISearchList;
 import mchorse.bbs_mod.ui.framework.elements.overlay.UIConfirmOverlayPanel;
 import mchorse.bbs_mod.ui.framework.elements.overlay.UIOverlay;
 import mchorse.bbs_mod.ui.framework.elements.overlay.UIPromptOverlayPanel;
+import mchorse.bbs_mod.ui.framework.elements.utils.UIDraggable;
 import mchorse.bbs_mod.ui.framework.elements.utils.UILabel;
 import mchorse.bbs_mod.ui.framework.elements.utils.UIRenderable;
 import mchorse.bbs_mod.ui.home.UIHomePanel;
@@ -53,6 +54,7 @@ import mchorse.bbs_mod.ui.utils.icons.Icons;
 import mchorse.bbs_mod.ui.utils.pose.UIPoseEditor;
 import mchorse.bbs_mod.utils.DataPath;
 import mchorse.bbs_mod.utils.Direction;
+import mchorse.bbs_mod.utils.MathUtils;
 import mchorse.bbs_mod.utils.RecentAssetsTracker;
 import mchorse.bbs_mod.utils.colors.Colors;
 import mchorse.bbs_mod.utils.interps.Interpolations;
@@ -90,6 +92,9 @@ public class UIModelPanel extends UIDataDashboardPanel<ModelConfig> implements I
 {
     private static final Logger LOGGER = LogUtils.getLogger();
     private static final GeckoAnimationValidator GECKO_VALIDATOR = new GeckoAnimationValidator();
+
+    private static int leftPanelWidth = 200;
+    private static int rightPanelWidth = 200;
 
     public UIModelEditorRenderer renderer;
     public UIIcon reloadIcon;
@@ -421,18 +426,68 @@ public class UIModelPanel extends UIDataDashboardPanel<ModelConfig> implements I
         this.iconBar.prepend(new UIRenderable(this::renderIcons));
 
         /* Model Settings Panel */
+        if (BBSSettings.uiLayoutPreferences != null)
+        {
+            leftPanelWidth = (int) BBSSettings.uiLayoutPreferences.getFormPanelWidth("UIModelPanel_left", 200F);
+            rightPanelWidth = (int) BBSSettings.uiLayoutPreferences.getFormPanelWidth("UIModelPanel_right", 200F);
+        }
+
         this.modelSettingsPanel = new UIElement();
         this.modelSettingsPanel.relative(this.mainView).w(1F).h(1F);
         
         this.sectionsView = UI.scrollView(20, 10);
         this.sectionsView.scroll.cancelScrolling().opposite().scrollSpeed *= 3;
-        this.sectionsView.relative(this.modelSettingsPanel).y(0).w(200).h(1F);
+        this.sectionsView.relative(this.modelSettingsPanel).y(0).w(leftPanelWidth).h(1F);
         
         this.rightView = UI.scrollView(20, 10);
         this.rightView.scroll.cancelScrolling().scrollSpeed *= 3;
-        this.rightView.relative(this.modelSettingsPanel).x(1F, -200).y(0).w(200).h(1F);
+        this.rightView.relative(this.modelSettingsPanel).x(1F, -rightPanelWidth).y(0).w(rightPanelWidth).h(1F);
+
+        UIDraggable leftDraggable = new UIDraggable((context) ->
+        {
+            int diff = context.mouseX - this.sectionsView.area.x;
+            int maxW = Math.max(140, this.modelSettingsPanel.area.w / 2 - 20);
+            leftPanelWidth = MathUtils.clamp(diff, 140, maxW);
+
+            this.sectionsView.w(leftPanelWidth);
+            this.modelSettingsPanel.resize();
+        }).dragEnd(() ->
+        {
+            if (BBSSettings.uiLayoutPreferences != null)
+            {
+                BBSSettings.uiLayoutPreferences.setFormPanelWidth("UIModelPanel_left", leftPanelWidth);
+            }
+        });
+        leftDraggable.relative(this.sectionsView).x(1F).y(0).w(6).h(1F).anchorX(0.5F);
+        leftDraggable.hoverOnly().rendering((context) ->
+        {
+            int color = leftDraggable.isDragging() ? BBSSettings.primaryColor.get() | Colors.A100 : (leftDraggable.area.isInside(context) ? Colors.A75 : Colors.A25);
+            context.batcher.box(leftDraggable.area.x + 2, leftDraggable.area.y, leftDraggable.area.x + 4, leftDraggable.area.ey(), color);
+        });
+
+        UIDraggable rightDraggable = new UIDraggable((context) ->
+        {
+            int diff = this.modelSettingsPanel.area.ex() - context.mouseX;
+            int maxW = Math.max(140, this.modelSettingsPanel.area.w / 2 - 20);
+            rightPanelWidth = MathUtils.clamp(diff, 140, maxW);
+
+            this.rightView.x(1F, -rightPanelWidth).w(rightPanelWidth);
+            this.modelSettingsPanel.resize();
+        }).dragEnd(() ->
+        {
+            if (BBSSettings.uiLayoutPreferences != null)
+            {
+                BBSSettings.uiLayoutPreferences.setFormPanelWidth("UIModelPanel_right", rightPanelWidth);
+            }
+        });
+        rightDraggable.relative(this.rightView).x(0F).y(0).w(6).h(1F).anchorX(0.5F);
+        rightDraggable.hoverOnly().rendering((context) ->
+        {
+            int color = rightDraggable.isDragging() ? BBSSettings.primaryColor.get() | Colors.A100 : (rightDraggable.area.isInside(context) ? Colors.A75 : Colors.A25);
+            context.batcher.box(rightDraggable.area.x + 2, rightDraggable.area.y, rightDraggable.area.x + 4, rightDraggable.area.ey(), color);
+        });
         
-        this.modelSettingsPanel.add(this.sectionsView, this.rightView);
+        this.modelSettingsPanel.add(this.sectionsView, this.rightView, leftDraggable, rightDraggable);
 
         this.editor.prepend(new UIRenderable((context) ->
         {
@@ -1776,6 +1831,12 @@ public class UIModelPanel extends UIDataDashboardPanel<ModelConfig> implements I
     {
         super.resize();
         this.renderer.resize();
+    }
+
+    @Override
+    protected boolean canSave(UIContext context)
+    {
+        return false;
     }
 
     @Override

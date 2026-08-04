@@ -41,7 +41,7 @@ public class EventBus
             method.setAccessible(true);
 
             this.subscribers
-                .computeIfAbsent(method.getParameterTypes()[0], (clazz) -> new CopyOnWriteArrayList<>())
+                .computeIfAbsent(method.getParameterTypes()[0], (c) -> new CopyOnWriteArrayList<>())
                 .add(new Subscription(subscriber, method));
         }
     }

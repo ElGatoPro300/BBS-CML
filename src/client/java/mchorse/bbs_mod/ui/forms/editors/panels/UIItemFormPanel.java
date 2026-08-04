@@ -25,6 +25,7 @@ import net.minecraft.client.render.model.json.ModelTransformationMode;
 public class UIItemFormPanel extends UIFormPanel<ItemForm>
 {
     public UIColor color;
+    public UIFormColorTransform colorTransform;
     public UIFormColorAdjustments colorAdjustments;
     public UIColor paintColor;
     public UITrackpad paintIntensity;
@@ -49,6 +50,7 @@ public class UIItemFormPanel extends UIFormPanel<ItemForm>
             color.set(value.r, value.g, value.b, value.a);
             this.form.color.set(color);
         }).withAlpha();
+        this.colorTransform = new UIFormColorTransform(() -> this.form.color.get(), (color) -> this.form.color.set(color));
         this.colorAdjustments = new UIFormColorAdjustments(() -> this.form.color.get(), (color) ->
         {
             this.form.color.setRuntimeValue(null);
@@ -140,7 +142,7 @@ public class UIItemFormPanel extends UIFormPanel<ItemForm>
 
         this.options.add(
             UIFormColorLayout.sectionLabel(UIKeys.FORMS_EDITOR_FORM),
-            this.color,
+            UIFormColorLayout.colorWithTransform(this.color, this.colorTransform),
             UIFormColorLayout.createExtraSection(
                 this.glowSection,
                 UIFormColorLayout.paintColorRowWithTransform(this.paintColor, this.paintIntensity, this.paintTransform),
@@ -166,6 +168,7 @@ public class UIItemFormPanel extends UIFormPanel<ItemForm>
         super.startEdit(form);
 
         this.color.setColor(form.color.get().getARGBColor());
+        this.colorTransform.syncFromForm();
         this.colorAdjustments.prepareSession();
         this.colorAdjustments.syncFromForm();
         PaintSettings paint = form.paintSettings.get();

@@ -29,8 +29,10 @@ import mchorse.bbs_mod.forms.states.AnimationState;
 import mchorse.bbs_mod.graphics.window.Window;
 import mchorse.bbs_mod.l10n.keys.IKey;
 import mchorse.bbs_mod.settings.values.ui.ValueFormEditorGizmoToolbar;
+import mchorse.bbs_mod.ui.ContentType;
 import mchorse.bbs_mod.ui.Keys;
 import mchorse.bbs_mod.ui.UIKeys;
+import mchorse.bbs_mod.ui.dashboard.UIDashboard;
 import mchorse.bbs_mod.ui.film.ICursor;
 import mchorse.bbs_mod.ui.film.controller.UIGizmoSizeContextMenu;
 import mchorse.bbs_mod.ui.film.controller.UIGizmoTranslateSpeedContextMenu;
@@ -60,6 +62,7 @@ import mchorse.bbs_mod.ui.forms.editors.states.UIAnimationStatesOverlayPanel;
 import mchorse.bbs_mod.ui.forms.editors.states.keyframes.UIAnimationStateEditor;
 import mchorse.bbs_mod.ui.forms.editors.utils.UIPickableFormRenderer;
 import mchorse.bbs_mod.ui.framework.UIContext;
+import mchorse.bbs_mod.ui.framework.UIScreen;
 import mchorse.bbs_mod.ui.framework.elements.UIElement;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIIcon;
 import mchorse.bbs_mod.ui.framework.elements.input.UIPropTransform;
@@ -597,21 +600,7 @@ public class UIFormEditor extends UIElement implements IUIFormList, ICursor
         this.gizmoTargetsTransform = true;
         this.gizmoTargetsBodyPart = false;
 
-        if (this.editor != null)
-        {
-            if (this.editor.view == this.editor.generalPanel)
-            {
-                this.enableFormTransformGizmoFromGeneralPanel();
-            }
-            else
-            {
-                this.editor.setPanel(this.editor.generalPanel);
-            }
-        }
-        else if (this.modelSettingsEditor != null && this.modelSettingsEditor.isVisible())
-        {
-            this.modelSettingsEditor.enterFormTransformGizmoMode();
-        }
+        this.enableFormTransformGizmoFromGeneralPanel();
     }
 
     /** Called when the General sidebar tab is selected — avoids re-entering {@link UIForm#setPanel}. */
@@ -782,10 +771,20 @@ public class UIFormEditor extends UIElement implements IUIFormList, ICursor
 
     private void pickFormBone(Form form, String bone)
     {
-        this.formsList.setCurrentForm(form);
-        this.pickForm(this.formsList.getCurrentFirst());
+        if (form == null)
+        {
+            return;
+        }
 
-        if (!bone.isEmpty())
+        Form currentForm = this.formsList.getCurrentFirst() != null ? this.formsList.getCurrentFirst().getForm() : null;
+
+        if (form != currentForm)
+        {
+            this.formsList.setCurrentForm(form);
+            this.pickForm(this.formsList.getCurrentFirst());
+        }
+
+        if (!bone.isEmpty() && this.editor != null)
         {
             this.editor.pickBone(bone);
         }
@@ -826,24 +825,20 @@ public class UIFormEditor extends UIElement implements IUIFormList, ICursor
             return;
         }
 
-        if (this.statesEditor.isVisible())
+        String modelId = modelForm.model.get();
+
+        if (modelId == null || modelId.isEmpty())
         {
-            this.toggleStateEditor();
+            return;
         }
 
-        boolean opening = !this.modelSettingsEditor.isVisible();
-
-        if (opening)
+        if (UIScreen.getCurrentMenu() instanceof UIDashboard dashboard)
         {
-            this.modelSettingsEditor.open(modelForm);
+            if (dashboard.documentTabsBar != null)
+            {
+                dashboard.documentTabsBar.addOrActivate(ContentType.MODELS, modelId);
+            }
         }
-        else
-        {
-            this.modelSettingsEditor.close();
-        }
-
-        this.formEditor.toggleVisible();
-        this.modelSettingsEditor.toggleVisible();
     }
 
     private ModelForm getEditedModelForm()
@@ -867,11 +862,6 @@ public class UIFormEditor extends UIElement implements IUIFormList, ICursor
         boolean hasModel = modelForm != null && modelForm.model.get() != null && !modelForm.model.get().isEmpty();
 
         this.openModelEditor.setEnabled(hasModel);
-
-        if (!hasModel && this.modelSettingsEditor.isVisible())
-        {
-            this.toggleModelEditor();
-        }
     }
 
     private void toggleSidebar()

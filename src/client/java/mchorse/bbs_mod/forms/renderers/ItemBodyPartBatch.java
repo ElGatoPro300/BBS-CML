@@ -63,7 +63,7 @@ public final class ItemBodyPartBatch
     {
         ItemForm template = findHomogeneousTemplate(parts);
 
-        if (template == null || hasOverlayBodyParts(parts))
+        if (template == null || hasOverlayBodyParts(parts) || context.stencilMap != null || context.isPicking())
         {
             return false;
         }

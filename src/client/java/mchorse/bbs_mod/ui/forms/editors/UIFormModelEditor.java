@@ -406,7 +406,7 @@ public class UIFormModelEditor extends UIElement implements IUIModelPanelHost
     {
         /* UIModelPartsSection.selectBone() -> UIPoseEditor.selectBone() -> pickCallback ->
            setSelectedBone() would otherwise re-enter this path with the same bone. */
-        if (this.pickingBone)
+        if (this.pickingBone || bone == null || bone.isEmpty())
         {
             return;
         }

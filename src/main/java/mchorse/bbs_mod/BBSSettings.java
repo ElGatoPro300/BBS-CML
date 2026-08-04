@@ -236,6 +236,11 @@ public class BBSSettings
 
     public static ValueBoolean shaderCurvesEnabled;
     public static ValueBoolean irisOpacityFix;
+    /**
+     * Soft form/limb transparency under Iris only: ON draws backfaces (two-pass; may darken),
+     * OFF culls backfaces (cleaner colors). Default ON. Without shaders, {@code model.culling} applies.
+     */
+    public static ValueBoolean softTransparencyBackfaces;
     /** Kept invisible for migrating saved Complementary/BSL toggles. */
     @Deprecated
     public static ValueBoolean complementaryOpacityFix;
@@ -782,7 +787,7 @@ public class BBSSettings
         editorSafeMarginsColor = builder.getInt("safe_margins_color", 0xcccc0000).colorAlpha();
         editorSafeMargins = builder.getBoolean("safe_margins", false);
         editorFlightFreeLook = builder.getBoolean("flight_free_look", false);
-        editorOrbitWithoutFlight = builder.getBoolean("orbit_without_flight", false);
+        editorOrbitWithoutFlight = builder.getBoolean("orbit_without_flight", true);
         editorOrbitSmoothTransition = builder.getBoolean("orbit_smooth_transition", false);
         editorOrbitRestrictToViewport = builder.getBoolean("orbit_restrict_to_viewport", false);
         editorOrbitTransitionDuration = builder.getFloat("orbit_transition_duration", 1.25F, 0.1F, 10F);
@@ -858,6 +863,7 @@ public class BBSSettings
         builder.category("shader_curves");
         shaderCurvesEnabled = builder.getBoolean("enabled", true);
         irisOpacityFix = builder.getBoolean("iris_opacity_fix", true);
+        softTransparencyBackfaces = builder.getBoolean("soft_transparency_backfaces", true);
         complementaryOpacityFix = builder.getBoolean("complementary_opacity_fix", true);
         complementaryOpacityFix.invisible();
         bslOpacityFix = builder.getBoolean("bsl_opacity_fix", true);

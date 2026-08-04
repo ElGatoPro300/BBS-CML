@@ -9,6 +9,7 @@ import mchorse.bbs_mod.camera.controller.OrbitCameraController;
 import mchorse.bbs_mod.client.BBSRendering;
 import mchorse.bbs_mod.discord.DiscordPresenceManager;
 import mchorse.bbs_mod.events.register.RegisterDashboardPanelsEvent;
+import mchorse.bbs_mod.events.register.RegisterDockLayoutEvent;
 import mchorse.bbs_mod.graphics.window.Window;
 import mchorse.bbs_mod.l10n.L10n;
 import mchorse.bbs_mod.l10n.keys.IKey;
@@ -268,11 +269,13 @@ public class UIDashboard extends UIBaseMenu
         this.showAnnoyingPopups();
         UIHomePanel.onDashboardOpened(this);
         UINewsPanel.onDashboardOpened(this);
+        RegisterDockLayoutEvent.postDashboardOpen(this);
     }
 
     @Override
     public void onClose(UIBaseMenu nextMenu)
     {
+        RegisterDockLayoutEvent.postDashboardClose(this);
         super.onClose(nextMenu);
 
         if (nextMenu != this)
@@ -347,10 +350,7 @@ public class UIDashboard extends UIBaseMenu
         this.panels.registerHiddenPanel(new UIAudioEditorPanel(this));
         this.panels.registerHiddenPanel(new UIGraphPanel(this));
 
-        if (FabricLoader.getInstance().isDevelopmentEnvironment())
-        {
-            this.panels.registerPanel(new UIDebugPanel(this), UIKeys.RAW_SANDBOX, Icons.CODE);
-        }
+        this.panels.registerPanel(new UIDebugPanel(this), UIKeys.RAW_SANDBOX, Icons.CODE);
 
         this.setPanel(this.getPanel(UIHomePanel.class));
     }

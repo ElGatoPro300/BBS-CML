@@ -32,6 +32,7 @@ public class UIBillboardFormPanel extends UIFormPanel<BillboardForm>
     public UIButton openCrop;
     public UIToggle resizeCrop;
     public UIColor color;
+    public UIFormColorTransform colorTransform;
     public UIFormColorAdjustments colorAdjustments;
     public UIColor paintColor;
     public UITrackpad paintIntensity;
@@ -73,6 +74,7 @@ public class UIBillboardFormPanel extends UIFormPanel<BillboardForm>
             color.set(next.r, next.g, next.b, next.a);
             this.form.color.set(color);
         }).direction(Direction.LEFT).withAlpha();
+        this.colorTransform = new UIFormColorTransform(() -> this.form.color.get(), (color) -> this.form.color.set(color));
         this.colorAdjustments = new UIFormColorAdjustments(() -> this.form.color.get(), (color) ->
         {
             this.form.color.setRuntimeValue(null);
@@ -157,7 +159,7 @@ public class UIBillboardFormPanel extends UIFormPanel<BillboardForm>
         this.options.add(
             this.pick,
             UIFormColorLayout.sectionLabel(UIKeys.FORMS_EDITOR_FORM),
-            this.color,
+            UIFormColorLayout.colorWithTransform(this.color, this.colorTransform),
             UIFormColorLayout.createExtraSection(
                 this.glowSection,
                 UIFormColorLayout.paintColorRowWithTransform(this.paintColor, this.paintIntensity, this.paintTransform),
@@ -188,6 +190,7 @@ public class UIBillboardFormPanel extends UIFormPanel<BillboardForm>
 
         this.resizeCrop.setValue(form.resizeCrop.get());
         this.color.setColor(form.color.get().getARGBColor());
+        this.colorTransform.syncFromForm();
         this.colorAdjustments.prepareSession();
         this.colorAdjustments.syncFromForm();
         PaintSettings paint = form.paintSettings.get();
