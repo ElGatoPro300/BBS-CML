@@ -51,14 +51,30 @@ public class HotbarClip extends CameraClip
     public final KeyframeChannel<Integer> experienceLevel = new KeyframeChannel<>("experience_level", KeyframeFactories.INTEGER);
     public final KeyframeChannel<Vector4f> layout = new KeyframeChannel<>("layout", KeyframeFactories.VECTOR4F);
 
+    public final KeyframeChannel<Boolean> rightOffhand = new KeyframeChannel<>("right_offhand", KeyframeFactories.BOOLEAN);
+    public final KeyframeChannel<Boolean> showHotbar = new KeyframeChannel<>("show_hotbar", KeyframeFactories.BOOLEAN);
+    public final KeyframeChannel<Boolean> showHealth = new KeyframeChannel<>("show_health", KeyframeFactories.BOOLEAN);
+    public final KeyframeChannel<Boolean> showArmor = new KeyframeChannel<>("show_armor", KeyframeFactories.BOOLEAN);
+    public final KeyframeChannel<Boolean> showHunger = new KeyframeChannel<>("show_hunger", KeyframeFactories.BOOLEAN);
+    public final KeyframeChannel<Boolean> showAir = new KeyframeChannel<>("show_air", KeyframeFactories.BOOLEAN);
+    public final KeyframeChannel<Boolean> showExperience = new KeyframeChannel<>("show_experience", KeyframeFactories.BOOLEAN);
+    public final KeyframeChannel<Double> mountHealth = new KeyframeChannel<>("mount_health", KeyframeFactories.DOUBLE);
+    public final KeyframeChannel<Double> mountHealthContainer = new KeyframeChannel<>("mount_health_container", KeyframeFactories.DOUBLE);
+    public final KeyframeChannel<Double> horseJump = new KeyframeChannel<>("horse_jump", KeyframeFactories.DOUBLE);
+    public final KeyframeChannel<Boolean> showHorseJump = new KeyframeChannel<>("show_horse_jump", KeyframeFactories.BOOLEAN);
+    public final KeyframeChannel<Double> attackCooldown = new KeyframeChannel<>("attack_cooldown", KeyframeFactories.DOUBLE);
+    public final KeyframeChannel<Boolean> showAttackCooldown = new KeyframeChannel<>("show_attack_cooldown", KeyframeFactories.BOOLEAN);
+
     public final KeyframeChannel[] channels;
     public HotbarClip()
     {
         this.channels = new KeyframeChannel[] {
             this.layout,
             this.selectedSlot,
-            this.slot0, this.slot1, this.slot2, this.slot3, this.slot4, this.slot5, this.slot6, this.slot7, this.slot8, this.offhandSlot,
+            this.slot0, this.slot1, this.slot2, this.slot3, this.slot4, this.slot5, this.slot6, this.slot7, this.slot8, this.offhandSlot, this.rightOffhand,
             this.health, this.healthContainer, this.absorption, this.absorptionContainer, this.heartType, this.hardcore, this.heartRegeneration, this.armor, this.hunger, this.hungerEffect, this.air, this.experience, this.experienceLevel,
+            this.mountHealth, this.mountHealthContainer, this.horseJump, this.showHorseJump, this.attackCooldown, this.showAttackCooldown,
+            this.showHotbar, this.showHealth, this.showArmor, this.showHunger, this.showAir, this.showExperience
         };
 
         for (KeyframeChannel channel : this.channels)
@@ -80,6 +96,19 @@ public class HotbarClip extends CameraClip
         this.air.insert(0, 300D);
         this.experience.insert(0, 0D);
         this.experienceLevel.insert(0, 0);
+        this.rightOffhand.insert(0, false);
+        this.showHotbar.insert(0, true);
+        this.showHealth.insert(0, true);
+        this.showArmor.insert(0, true);
+        this.showHunger.insert(0, true);
+        this.showAir.insert(0, true);
+        this.showExperience.insert(0, true);
+        this.mountHealth.insert(0, 0D);
+        this.mountHealthContainer.insert(0, 0D);
+        this.horseJump.insert(0, 0D);
+        this.showHorseJump.insert(0, false);
+        this.attackCooldown.insert(0, 0D);
+        this.showAttackCooldown.insert(0, false);
         this.layout.insert(0, new Vector4f(0F, 0F, 1F, 0F));
     }
 
@@ -112,6 +141,19 @@ public class HotbarClip extends CameraClip
         state.items[7] = this.copyItem(this.slot7.interpolate(t));
         state.items[8] = this.copyItem(this.slot8.interpolate(t));
         state.offhandItem = this.copyItem(this.offhandSlot.interpolate(t));
+        state.rightOffhand = this.rightOffhand.interpolate(t, false);
+        state.showHotbar = this.showHotbar.interpolate(t, true);
+        state.showHealth = this.showHealth.interpolate(t, true);
+        state.showArmor = this.showArmor.interpolate(t, true);
+        state.showHunger = this.showHunger.interpolate(t, true);
+        state.showAir = this.showAir.interpolate(t, true);
+        state.showExperience = this.showExperience.interpolate(t, true);
+        state.mountHealthContainer = this.clampHealthContainer(this.mountHealthContainer.interpolate(t));
+        state.mountHealth = this.clampHealth(this.mountHealth.interpolate(t), state.mountHealthContainer);
+        state.horseJump = Math.max(0F, Math.min(1F, this.horseJump.interpolate(t).floatValue()));
+        state.showHorseJump = this.showHorseJump.interpolate(t, false);
+        state.attackCooldown = Math.max(0F, Math.min(1F, this.attackCooldown.interpolate(t).floatValue()));
+        state.showAttackCooldown = this.showAttackCooldown.interpolate(t, false);
         state.healthContainer = this.clampHealthContainer(this.healthContainer.interpolate(t));
         state.health = this.clampHealth(this.health.interpolate(t), state.healthContainer);
         state.absorptionContainer = this.clampHealthContainer(this.absorptionContainer.interpolate(t));

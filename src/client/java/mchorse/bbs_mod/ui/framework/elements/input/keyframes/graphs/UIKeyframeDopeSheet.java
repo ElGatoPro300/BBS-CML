@@ -3,7 +3,9 @@ package mchorse.bbs_mod.ui.framework.elements.input.keyframes.graphs;
 import mchorse.bbs_mod.BBSSettings;
 import mchorse.bbs_mod.camera.utils.TimeUtils;
 import mchorse.bbs_mod.data.types.MapType;
-import mchorse.bbs_mod.graphics.Draw;
+import mchorse.bbs_mod.events.register.RegisterClipInteractionEvent;
+import mchorse.bbs_mod.events.register.RegisterFilmSyncEvent;
+import mchorse.bbs_mod.forms.FormUtils;
 import mchorse.bbs_mod.graphics.window.Window;
 import mchorse.bbs_mod.ui.UIKeys;
 import mchorse.bbs_mod.ui.film.toolbar.TimelineToolbarPointerBlock;
@@ -1552,6 +1554,8 @@ public class UIKeyframeDopeSheet implements IUIKeyframeGraph
 
             context.batcher.unclip(context);
         }
+
+        RegisterClipInteractionEvent.postDopeSheetRender(context, area);
     }
 
     @Override
@@ -1653,6 +1657,82 @@ public class UIKeyframeDopeSheet implements IUIKeyframeGraph
     {
         this.setTrackHeight(extra.getDouble("track_height"));
         this.dopeSheet.setScroll(extra.getDouble("scroll"));
+    }
+
+    private void renderCompanionChannel(UIContext context, Matrix4f matrix, Area area, int startX, int endX, int lineY, UIKeyframeSheet sheet, boolean rowHover)
+    {
+        List keyframes = sheet.channel.getKeyframes();
+        int cc = Colors.setA(sheet.color, rowHover ? 0.65F : 0.28F);
+        BufferBuilder builder = Tessellator.getInstance().begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_COLOR);
+
+        context.batcher.fillRect(builder, matrix, startX, lineY - TRACK_LINE_HALF_HEIGHT, endX - startX, TRACK_LINE_HALF_HEIGHT * 2, cc, cc, cc, cc);
+
+        for (int j = 1; j < keyframes.size(); j++)
+        {
+            Keyframe previous = (Keyframe) keyframes.get(j - 1);
+            Keyframe frame = (Keyframe) keyframes.get(j);
+            int c = Colors.YELLOW | Colors.A25;
+            int xx = Math.max(this.keyframes.toGraphX(previous.getTick()), area.x + this.sidebarWidth);
+            int xxx = Math.max(this.keyframes.toGraphX(frame.getTick()), area.x + this.sidebarWidth);
+
+            if (previous.getFactory().compare(previous.getValue(), frame.getValue()) && xxx > xx)
+            {
+                context.batcher.fillRect(builder, matrix, xx, lineY - TRACK_LINE_HALF_HEIGHT, xxx - xx, TRACK_LINE_HALF_HEIGHT * 2, c, c, c, c);
+            }
+        }
+
+        for (int j = 0; j < keyframes.size(); j++)
+        {
+            Keyframe frame = (Keyframe) keyframes.get(j);
+            int x1 = this.keyframes.toGraphX(frame.getTick());
+
+            if (x1 < area.x + this.sidebarWidth)
+            {
+                continue;
+            }
+
+            boolean isPointHover = this.isNear(
+                x1,
+                lineY,
+                context.mouseX,
+                context.mouseY,
+                Window.isAltPressed() && Window.isShiftPressed(),
+                Window.isCtrlPressed() ? REMOVE_HIT_RADIUS_SQ : DEFAULT_HIT_RADIUS_SQ
+            );
+            boolean provisional = frame.getColor() != null && frame.getColor().a < 0.99F;
+            float blinkAlpha = provisional ? this.getProvisionalBlinkAlpha(frame.getColor().a) : 1F;
+            int kc = frame.getColor() != null
+                ? (provisional ? Colors.setA(frame.getColor().getRGBColor(), blinkAlpha) : frame.getColor().getARGBColor())
+                : (sheet.color | Colors.A100);
+            int c = sheet.selection.has(j) || isPointHover
+                ? (provisional ? Colors.setA(Colors.WHITE, blinkAlpha) : Colors.WHITE)
+                : kc;
+
+            renderShape(frame, context, builder, matrix, x1, lineY, Window.isCtrlPressed() && isPointHover ? 4 : 3, c);
+        }
+
+        for (int j = 0; j < keyframes.size(); j++)
+        {
+            Keyframe frame = (Keyframe) keyframes.get(j);
+            int mx = this.keyframes.toGraphX(frame.getTick());
+
+            if (mx < area.x + this.sidebarWidth)
+            {
+                continue;
+            }
+
+            int c = sheet.selection.has(j) ? Colors.ACTIVE : 0;
+            int mc = c | Colors.A100;
+            IKeyframeShapeRenderer shapeResult = renderShape(frame, context, builder, matrix, mx, lineY, 2, mc);
+
+            shapeResult.renderKeyframeBackground(context, builder, matrix, mx, lineY, 2, mc);
+        }
+
+        RenderSystem.enableBlend();
+        RenderSystem.setShader(ShaderProgramKeys.POSITION_COLOR);
+        BufferRenderer.drawWithGlobalProgram(builder.end());
+
+        RegisterFilmSyncEvent.postRenderDopeSheet(context, this.keyframes.area);
     }
 
     private boolean handleSidebarScrollbarClick(UIContext context)
