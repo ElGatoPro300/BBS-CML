@@ -22,7 +22,6 @@ import net.minecraft.component.DataComponentTypes;
 import net.minecraft.component.type.DyedColorComponent;
 import net.minecraft.component.type.EquippableComponent;
 import net.minecraft.entity.EquipmentSlot;
-import net.minecraft.item.ArmorItem;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.Items;
@@ -102,7 +101,7 @@ public class ArmorRenderer
             return;
         }
 
-        if (item instanceof ArmorItem armorItem)
+        if (itemStack.get(DataComponentTypes.EQUIPPABLE) != null)
         {
             EquippableComponent equippable = itemStack.get(DataComponentTypes.EQUIPPABLE);
 

@@ -54,19 +54,19 @@ import net.minecraft.client.render.GameRenderer;
 import net.minecraft.client.render.LightmapTextureManager;
 import net.minecraft.client.render.OverlayTexture;
 import net.minecraft.client.render.Tessellator;
-import net.minecraft.client.render.VertexFormat;
 import net.minecraft.client.render.VertexFormats;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.entity.EquipmentSlot;
+import net.minecraft.item.ItemDisplayContext;
 import net.minecraft.item.ItemStack;
-import net.minecraft.item.ModelTransformationMode;
 import net.minecraft.util.math.RotationAxis;
 
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
 
-import com.mojang.blaze3d.platform.GlStateManager;
+import com.mojang.blaze3d.opengl.GlStateManager;
 import com.mojang.blaze3d.systems.RenderSystem;
+import com.mojang.blaze3d.vertex.VertexFormat;
 import com.mojang.logging.LogUtils;
 
 import org.lwjgl.opengl.GL11;
@@ -339,9 +339,9 @@ public class UIModelEditorRenderer extends UIModelRenderer implements GizmoSurfa
             return;
         }
 
-        ModelTransformationMode mode = this.fpHandPreviewMainHand
-            ? ModelTransformationMode.FIRST_PERSON_RIGHT_HAND
-            : ModelTransformationMode.FIRST_PERSON_LEFT_HAND;
+        ItemDisplayContext mode = this.fpHandPreviewMainHand
+            ? ItemDisplayContext.FIRST_PERSON_RIGHT_HAND
+            : ItemDisplayContext.FIRST_PERSON_LEFT_HAND;
         int light = LightmapTextureManager.pack(15, 15);
         CustomVertexConsumerProvider consumers = FormUtilsClient.getProvider();
 
@@ -356,7 +356,7 @@ public class UIModelEditorRenderer extends UIModelRenderer implements GizmoSurfa
             null,
             itemStack,
             mode,
-            mode == ModelTransformationMode.FIRST_PERSON_LEFT_HAND,
+            mode == ItemDisplayContext.FIRST_PERSON_LEFT_HAND,
             stack,
             consumers,
             this.entity.getWorld(),

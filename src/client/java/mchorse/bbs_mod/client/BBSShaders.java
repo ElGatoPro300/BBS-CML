@@ -3,7 +3,6 @@ package mchorse.bbs_mod.client;
 import mchorse.bbs_mod.BBSMod;
 
 import net.minecraft.client.gl.RenderPipelines;
-import net.minecraft.client.gl.ShaderProgram;
 import net.minecraft.client.gl.UniformType;
 import net.minecraft.client.render.RenderLayer;
 import net.minecraft.client.render.RenderSetup;
@@ -206,11 +205,25 @@ public class BBSShaders
         return particlesLayer;
     }
 
-    /* Block overlay shader stubs (retired in 1.21.11; paint/color-tint uses inline vertex consumers) */
-    public static ShaderProgram getBlockPaintOverlayProgram() { return null; }
-    public static ShaderProgram getBlockColorTintOverlayProgram() { return null; }
-    public static ShaderProgram getFlatColorTintOverlayProgram() { return null; }
-    public static ShaderProgram getModelProgram() { return null; }
+    public static RenderPipeline getBlockPaintOverlayProgram()
+    {
+        return MODEL;
+    }
+
+    public static RenderPipeline getBlockColorTintOverlayProgram()
+    {
+        return MODEL;
+    }
+
+    public static RenderPipeline getFlatColorTintOverlayProgram()
+    {
+        return MODEL;
+    }
+
+    public static RenderPipeline getModelProgram()
+    {
+        return MODEL;
+    }
 
     private static RenderPipeline registerModel()
     {

@@ -16,6 +16,7 @@ import mchorse.bbs_mod.ui.forms.editors.utils.UIStructureOverlayPanel;
 import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.ui.framework.elements.input.keyframes.UIKeyframeSheet;
 import mchorse.bbs_mod.ui.framework.elements.input.keyframes.UIKeyframes;
+import mchorse.bbs_mod.ui.framework.elements.input.keyframes.factories.UIVisibleRenderKeyframeUtils;
 import mchorse.bbs_mod.ui.framework.elements.input.keyframes.shapes.IKeyframeShapeRenderer;
 import mchorse.bbs_mod.ui.framework.elements.input.keyframes.shapes.KeyframeShapeRenderers;
 import mchorse.bbs_mod.ui.framework.elements.overlay.UIOverlay;
@@ -1561,9 +1562,12 @@ public class UIKeyframeDopeSheet implements IUIKeyframeGraph
                 shapeResult.renderKeyframeBackground(context, builder, matrix, mx, my, 2, mc);
             }
 
-            RenderSystem.enableBlend();
-            RenderSystem.setShader(ShaderProgramKeys.POSITION_COLOR);
-            BufferRenderer.drawWithGlobalProgram(builder.end());
+            BuiltBuffer built = builder.endNullable();
+
+            if (built != null)
+            {
+                RenderLayers.debugFilledBox().draw(built);
+            }
 
             if (sheet.companion != null)
             {
@@ -1737,7 +1741,7 @@ public class UIKeyframeDopeSheet implements IUIKeyframeGraph
         this.dopeSheet.setScroll(extra.getDouble("scroll"));
     }
 
-    private void renderCompanionChannel(UIContext context, Matrix4f matrix, Area area, int startX, int endX, int lineY, UIKeyframeSheet sheet, boolean rowHover)
+    private void renderCompanionChannel(UIContext context, Matrix3x2fc matrix, Area area, int startX, int endX, int lineY, UIKeyframeSheet sheet, boolean rowHover)
     {
         List keyframes = sheet.channel.getKeyframes();
         int cc = Colors.setA(sheet.color, rowHover ? 0.65F : 0.28F);
@@ -1806,9 +1810,12 @@ public class UIKeyframeDopeSheet implements IUIKeyframeGraph
             shapeResult.renderKeyframeBackground(context, builder, matrix, mx, lineY, 2, mc);
         }
 
-        RenderSystem.enableBlend();
-        RenderSystem.setShader(ShaderProgramKeys.POSITION_COLOR);
-        BufferRenderer.drawWithGlobalProgram(builder.end());
+        BuiltBuffer built = builder.endNullable();
+
+        if (built != null)
+        {
+            RenderLayers.debugFilledBox().draw(built);
+        }
 
         RegisterFilmSyncEvent.postRenderDopeSheet(context, this.keyframes.area);
     }

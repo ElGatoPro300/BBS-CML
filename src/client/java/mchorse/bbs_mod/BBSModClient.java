@@ -127,7 +127,7 @@ import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
 import net.fabricmc.fabric.api.client.rendering.v1.BlockEntityRendererRegistry;
 import net.fabricmc.fabric.api.client.rendering.v1.EntityRendererRegistry;
 import net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback;
-import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents;
+import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderEvents;
 import net.fabricmc.fabric.api.event.player.AttackBlockCallback;
 import net.fabricmc.fabric.api.event.player.UseBlockCallback;
 import net.fabricmc.fabric.api.resource.ResourceManagerHelper;
@@ -146,7 +146,6 @@ import net.minecraft.client.render.BufferBuilder;
 import net.minecraft.client.render.BufferRenderer;
 import net.minecraft.client.render.GameRenderer;
 import net.minecraft.client.render.Tessellator;
-import net.minecraft.client.render.VertexFormat;
 import net.minecraft.client.render.VertexFormats;
 import net.minecraft.client.render.block.entity.BlockEntityRendererFactories;
 import net.minecraft.client.render.item.model.special.SpecialModelTypes;
@@ -167,6 +166,7 @@ import org.joml.Matrix4f;
 import org.joml.Matrix4fStack;
 
 import com.mojang.blaze3d.systems.RenderSystem;
+import com.mojang.blaze3d.vertex.VertexFormat;
 import com.mojang.serialization.MapCodec;
 
 import org.lwjgl.glfw.GLFW;
@@ -474,7 +474,7 @@ public class BBSModClient implements ClientModInitializer
 
             if (player.getStackInHand(hand).getItem() == BBSMod.STRUCTURE_PICKER_ITEM)
             {
-                if (world.isClient)
+                if (world.isClient())
                 {
                     return StructurePickerClient.onAttackBlock();
                 }
@@ -487,7 +487,7 @@ public class BBSModClient implements ClientModInitializer
 
         UseBlockCallback.EVENT.register((player, world, hand, hitResult) ->
         {
-            if (!world.isClient)
+            if (!world.isClient())
             {
                 if (player.getStackInHand(hand).getItem() == BBSMod.STRUCTURE_PICKER_ITEM)
                 {
@@ -702,7 +702,7 @@ public class BBSModClient implements ClientModInitializer
 
                 if (d > 0)
                 {
-                    MatrixStack stack = context.matrixStack();
+                     MatrixStack stack = context.matrices();
                     Color color = Colors.COLOR.set(BBSRendering.getChromaSkyColor());
 
                     stack.push();
@@ -766,7 +766,7 @@ public class BBSModClient implements ClientModInitializer
             {
                 RenderSystem.enableDepthTest();
                 RenderSystem.depthMask(false);
-                Gizmo.INSTANCE.renderDeferred(context.matrixStack());
+                Gizmo.INSTANCE.renderDeferred(context.matrices());
                 RenderSystem.depthMask(true);
             }
 

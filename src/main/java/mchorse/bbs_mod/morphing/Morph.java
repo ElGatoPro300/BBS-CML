@@ -68,7 +68,9 @@ public class Morph
         if (key.isPresent())
         {
             MobForm form = new MobForm();
-            NbtCompound compound = target.writeNbt(new NbtCompound());
+            NbtWriteView view = NbtWriteView.create(ErrorReporter.EMPTY, target.getEntityWorld().getRegistryManager());
+            target.writeData(view);
+            NbtCompound compound = view.getNbt();
 
             for (String s : Arrays.asList("Pos", "Motion", "Rotation", "FallDistance", "Fire", "Air", "OnGround", "Invulnerable", "PortalCooldown", "UUID"))
             {

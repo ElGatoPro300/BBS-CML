@@ -26,6 +26,9 @@ import com.mojang.blaze3d.platform.DepthTestFunction;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.VertexFormat;
 
+import java.util.ArrayList;
+import java.util.List;
+
 public class Draw
 {
     private static final BlendFunction BLEND = BlendFunction.TRANSLUCENT;
@@ -46,6 +49,7 @@ public class Draw
             .withVertexFormat(VertexFormats.POSITION_COLOR, VertexFormat.DrawMode.TRIANGLES)
             .withBlend(BLEND)
             .withDepthTestFunction(DepthTestFunction.NO_DEPTH_TEST)
+            .withDepthWrite(false)
             .withCull(false)
             .build()
     );
@@ -440,11 +444,6 @@ public class Draw
         flush(builder, getPositionColorNoDepthLayer());
     }
 
-    public static void arc3D(BufferBuilder builder, MatrixStack stack, Axis axis, float radius, float thickness, float r, float g, float b)
-    {
-        arc3D(builder, stack, axis, radius, thickness, r, g, b, 0F, 360F);
-    }
-
     /**
      * Draws a solid cone (with a capped base) between two points, used for the tapered
      * arrow tips on gizmo translate handles. The base circle is perpendicular to the
@@ -612,7 +611,7 @@ public class Draw
      * Torus-segment ring. Segment counts scale with sweep so half-rings and short process
      * arcs stay cheap; {@code lowDetail} is for invisible stencil/pick passes.
      */
-    public static void arc3D(BufferBuilder builder, MatrixStack stack, Axis axis, float radius, float thickness, float r, float g, float b, float startDeg, float sweepDeg)
+    public static void arc3D(BufferBuilder builder, MatrixStack stack, Axis axis, float radius, float thickness, float r, float g, float b, float startDeg, float sweepDeg, boolean lowDetail)
     {
         float absSweep = Math.abs(sweepDeg);
 

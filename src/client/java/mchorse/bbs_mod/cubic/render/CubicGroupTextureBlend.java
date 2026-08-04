@@ -10,6 +10,7 @@ import net.minecraft.client.gl.GlUniform;
 import net.minecraft.client.gl.ShaderProgram;
 
 import com.mojang.blaze3d.opengl.GlStateManager;
+import com.mojang.blaze3d.pipeline.RenderPipeline;
 import com.mojang.blaze3d.systems.RenderSystem;
 
 import org.lwjgl.opengl.GL11;
@@ -122,6 +123,32 @@ public final class CubicGroupTextureBlend
         else
         {
             ModelVAORenderer.clearTextureBlend();
+            BBSModClient.getTextures().bindTexture(state.from);
+        }
+    }
+
+    /**
+     * Binds a CPU group's texture for a RenderLayer draw. Partial blends are rendered by the
+     * caller as two alpha passes because RenderLayer does not expose mutable shader uniforms.
+     */
+    public static void bindForDraw(RenderPipeline pipeline, CubicGroupTextureBlend state, Link defaultTexture)
+    {
+        if (state == null)
+        {
+            ModelVAORenderer.clearTextureBlend();
+            BBSModClient.getTextures().bindTexture(defaultTexture);
+
+            return;
+        }
+
+        ModelVAORenderer.clearTextureBlend();
+
+        if (state.blend >= 1F)
+        {
+            BBSModClient.getTextures().bindTexture(state.to);
+        }
+        else
+        {
             BBSModClient.getTextures().bindTexture(state.from);
         }
     }

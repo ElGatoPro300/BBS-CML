@@ -55,7 +55,7 @@ import net.minecraft.client.render.Tessellator;
 import net.minecraft.client.render.TexturedRenderLayers;
 import net.minecraft.client.render.VertexConsumer;
 import net.minecraft.client.render.VertexConsumerProvider;
-import net.minecraft.client.render.block.entity.BlockEntityRenderDispatcher;
+import net.minecraft.client.render.block.entity.BlockEntityRenderManager;
 import net.minecraft.client.render.block.entity.BlockEntityRenderer;
 import net.minecraft.client.texture.SpriteAtlasTexture;
 import net.minecraft.client.util.BufferAllocator;
@@ -1162,7 +1162,7 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
                     }
 
                     /* Diagnostic: check if renderer exists for this BE */
-                    BlockEntityRenderDispatcher beDispatcher = MinecraftClient.getInstance().getBlockEntityRenderDispatcher();
+                    BlockEntityRenderManager beDispatcher = MinecraftClient.getInstance().getBlockEntityRenderDispatcher();
                     BlockEntityRenderer<?> renderer = beDispatcher.get(be);
 
                     /* Render BE directly with the renderer to avoid internal translations */
@@ -2317,7 +2317,7 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
     private void renderBlockEntitiesOnly(FormRenderingContext context, MatrixStack stack, VertexConsumerProvider consumers, int light, int overlay, boolean applyColorTint)
     {
         RenderInfo info = this.calculateRenderInfo(context, false);
-        BlockEntityRenderDispatcher beDispatcher = MinecraftClient.getInstance().getBlockEntityRenderDispatcher();
+        BlockEntityRenderManager beDispatcher = MinecraftClient.getInstance().getBlockEntityRenderDispatcher();
 
         for (BlockEntry entry : this.blockEntitiesList)
         {

@@ -22,8 +22,8 @@ import net.minecraft.client.render.item.model.special.SpecialModelRenderer;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.component.DataComponentTypes;
 import net.minecraft.component.type.NbtComponent;
+import net.minecraft.item.ItemDisplayContext;
 import net.minecraft.item.ItemStack;
-import net.minecraft.item.ModelTransformationMode;
 import net.minecraft.nbt.NbtCompound;
 import net.minecraft.util.math.BlockPos;
 
@@ -66,7 +66,7 @@ public class ModelBlockItemRenderer implements SpecialModelRenderer<ItemStack>
     }
 
     @Override
-    public void render(ItemStack stack, ModelTransformationMode mode, MatrixStack matrices, VertexConsumerProvider vertexConsumers, int light, int overlay, boolean hasGlint)
+    public void render(ItemStack stack, ItemDisplayContext mode, MatrixStack matrices, VertexConsumerProvider vertexConsumers, int light, int overlay, boolean hasGlint)
     {
         Item item = this.get(stack);
 
@@ -87,7 +87,7 @@ public class ModelBlockItemRenderer implements SpecialModelRenderer<ItemStack>
 
                 RenderSystem.enableDepthTest();
 
-                if (mode == ModelTransformationMode.GUI)
+                if (mode == ItemDisplayContext.GUI)
                 {
                     Vector3f a = new Vector3f(0.85F, 0.85F, -1.0F).normalize();
                     Vector3f b = new Vector3f(-0.85F, 0.85F, 1.0F).normalize();
@@ -98,7 +98,7 @@ public class ModelBlockItemRenderer implements SpecialModelRenderer<ItemStack>
                     .set(FormRenderType.fromModelMode(mode), item.formEntity, matrices, light, overlay, MinecraftClient.getInstance().getRenderTickCounter().getTickDelta(false))
                     .camera(MinecraftClient.getInstance().gameRenderer.getCamera()));
 
-                if (mode == ModelTransformationMode.GUI)
+                if (mode == ItemDisplayContext.GUI)
                 {
                     DiffuseLighting.disableGuiDepthLighting();
                 }

@@ -19,10 +19,9 @@ import mchorse.bbs_mod.utils.pose.Transform;
 
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.render.LightmapTextureManager;
-import net.minecraft.client.render.model.BakedModel;
 import net.minecraft.client.world.ClientWorld;
+import net.minecraft.item.ItemDisplayContext;
 import net.minecraft.item.ItemStack;
-import net.minecraft.item.ModelTransformationMode;
 import net.minecraft.world.World;
 
 import com.mojang.blaze3d.systems.RenderSystem;
@@ -38,7 +37,7 @@ public final class ItemBodyPartBatch
 {
     private static boolean active;
     private static boolean deferFlush;
-    private static BakedModel cachedModel;
+    private static Object cachedModel;
     private static final Transform SCRATCH_TRANSFORM = new Transform();
 
     private ItemBodyPartBatch()
@@ -54,7 +53,7 @@ public final class ItemBodyPartBatch
         return deferFlush;
     }
 
-    public static BakedModel getCachedModel()
+    public static Object getCachedModel()
     {
         return cachedModel;
     }
@@ -84,8 +83,8 @@ public final class ItemBodyPartBatch
         boolean flushOnce = context.stencilMap == null;
         boolean isDropped = context.type == FormRenderType.ITEM;
         boolean useDroppedMode = itemRenderer.shouldUseDroppedMode(isDropped);
-        ModelTransformationMode mode = itemRenderer.getRenderMode(useDroppedMode);
-        boolean leftHand = mode == ModelTransformationMode.THIRD_PERSON_LEFT_HAND;
+        ItemDisplayContext mode = itemRenderer.getRenderMode(useDroppedMode);
+        boolean leftHand = mode == ItemDisplayContext.THIRD_PERSON_LEFT_HAND;
 
         PaintSettings paintSettings = template.paintSettings.get();
         Color resolvedPaint = FormColorEffects.resolvePaintColor(paintSettings, template.paintColor.get());

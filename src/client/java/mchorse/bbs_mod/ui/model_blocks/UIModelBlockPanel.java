@@ -2149,7 +2149,7 @@ public class UIModelBlockPanel extends UIDashboardPanel implements IFlightSuppor
     public void renderInWorld(WorldRenderContext context) {
         super.renderInWorld(context);
 
-        MatrixStack matrices = context.matrixStack();
+        MatrixStack matrices = context.matrices();
         boolean shaderPath = BBSRendering.isIrisShadersEnabled();
 
         if (shaderPath)
@@ -2165,8 +2165,8 @@ public class UIModelBlockPanel extends UIDashboardPanel implements IFlightSuppor
             matrices = new MatrixStack();
         }
 
-        Camera camera = context.camera();
-        Vec3d pos = camera.getPos();
+        Camera camera = MinecraftClient.getInstance().gameRenderer.getCamera();
+        Vec3d pos = camera.getCameraPos();
 
         MinecraftClient mc = MinecraftClient.getInstance();
         double x = mc.mouse.getX();

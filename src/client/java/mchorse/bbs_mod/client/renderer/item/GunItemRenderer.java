@@ -21,8 +21,8 @@ import net.minecraft.client.render.VertexConsumerProvider;
 import net.minecraft.client.render.entity.model.LoadedEntityModels;
 import net.minecraft.client.render.item.model.special.SpecialModelRenderer;
 import net.minecraft.client.util.math.MatrixStack;
+import net.minecraft.item.ItemDisplayContext;
 import net.minecraft.item.ItemStack;
-import net.minecraft.item.ModelTransformationMode;
 
 import org.joml.Vector3f;
 
@@ -63,7 +63,7 @@ public class GunItemRenderer implements SpecialModelRenderer<ItemStack>
     }
 
     @Override
-    public void render(ItemStack data, ModelTransformationMode mode, MatrixStack matrices, VertexConsumerProvider vertexConsumers, int light, int overlay, boolean hasGlint)
+    public void render(ItemStack data, ItemDisplayContext mode, MatrixStack matrices, VertexConsumerProvider vertexConsumers, int light, int overlay, boolean hasGlint)
     {
         Item item = this.get(data);
 
@@ -97,7 +97,7 @@ public class GunItemRenderer implements SpecialModelRenderer<ItemStack>
 
                 RenderSystem.enableDepthTest();
 
-                if (mode == ModelTransformationMode.GUI)
+                if (mode == ItemDisplayContext.GUI)
                 {
                     Vector3f a = new Vector3f(0.85F, 0.85F, -1.0F).normalize();
                     Vector3f b = new Vector3f(-0.85F, 0.85F, 1.0F).normalize();
@@ -109,7 +109,7 @@ public class GunItemRenderer implements SpecialModelRenderer<ItemStack>
                     .set(FormRenderType.fromModelMode(mode), item.formEntity, matrices, maxLight, overlay, MinecraftClient.getInstance().getRenderTickCounter().getTickDelta(false))
                     .camera(MinecraftClient.getInstance().gameRenderer.getCamera()));
 
-                if (mode == ModelTransformationMode.GUI)
+                if (mode == ItemDisplayContext.GUI)
                 {
                     DiffuseLighting.disableGuiDepthLighting();
                 }
