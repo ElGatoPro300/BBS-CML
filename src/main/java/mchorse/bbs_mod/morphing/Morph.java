@@ -15,6 +15,8 @@ import net.minecraft.nbt.NbtCompound;
 import net.minecraft.nbt.NbtElement;
 import net.minecraft.registry.Registries;
 import net.minecraft.registry.RegistryKey;
+import net.minecraft.storage.NbtWriteView;
+import net.minecraft.util.ErrorReporter;
 import net.minecraft.util.hit.EntityHitResult;
 import net.minecraft.util.hit.HitResult;
 
@@ -32,7 +34,7 @@ public class Morph
 
     public static Form getMobForm(PlayerEntity player)
     {
-        HitResult hitResult = RayTracing.rayTraceEntity(player, player.getWorld(), player.getEyePos(), player.getRotationVector(), 64);
+        HitResult hitResult = RayTracing.rayTraceEntity(player, player.getEntityWorld(), player.getEyePos(), player.getRotationVector(), 64);
 
         if (hitResult.getType() == HitResult.Type.ENTITY)
         {
@@ -146,7 +148,7 @@ public class Morph
     {
         if (compound.contains("Form"))
         {
-            MapType map = (MapType) DataStorageUtils.fromNbt(compound.getCompound("Form"));
+            MapType map = (MapType) DataStorageUtils.fromNbt(compound.getCompoundOrEmpty("Form"));
 
             this.form = FormUtils.fromData(map);
         }

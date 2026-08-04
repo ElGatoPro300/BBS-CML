@@ -5,8 +5,7 @@ import mchorse.bbs_mod.cubic.render.vao.ModelVAORenderer;
 
 import net.minecraft.client.gl.ShaderProgram;
 
-import com.mojang.blaze3d.platform.GlStateManager;
-import com.mojang.blaze3d.systems.RenderSystem;
+import com.mojang.blaze3d.opengl.GlStateManager;
 
 import org.lwjgl.opengl.GL11;
 
@@ -66,9 +65,8 @@ public final class FlatColorTintOverlayPass
                 GL11.glDisable(GL11.GL_POLYGON_OFFSET_FILL);
             }
 
-            RenderSystem.depthMask(savedDepthMask);
-            RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
-            RenderSystem.defaultBlendFunc();
+            GlStateManager._depthMask(savedDepthMask);
+            GlStateManager._blendFuncSeparate(770, 771, 1, 0);
         }
     }
 }

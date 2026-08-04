@@ -84,7 +84,7 @@ public final class MobCaptureAreaScanner
 
         for (TypeBucket bucket : buckets.values())
         {
-            bucket.entities.sort(Comparator.comparingDouble((entity) -> player.squaredDistanceTo(entity.getPos())));
+            bucket.entities.sort(Comparator.comparingDouble((entity) -> player.squaredDistanceTo(entity.getEntityPos())));
         }
 
         List<Map.Entry<String, TypeBucket>> sortedEntries = new ArrayList<>(buckets.entrySet());
@@ -98,7 +98,7 @@ public final class MobCaptureAreaScanner
                 return Double.MAX_VALUE;
             }
 
-            return player.squaredDistanceTo(entities.get(0).getPos());
+            return player.squaredDistanceTo(entities.get(0).getEntityPos());
         }));
 
         Map<String, TypeBucket> sortedBuckets = new LinkedHashMap<>();
@@ -123,7 +123,7 @@ public final class MobCaptureAreaScanner
             return 0;
         }
 
-        return (int) Math.round(player.getPos().distanceTo(entity.getPos()));
+        return (int) Math.round(player.getEntityPos().distanceTo(entity.getEntityPos()));
     }
 
     public static String getEntityLabel(Entity entity, int index, ClientPlayerEntity player)

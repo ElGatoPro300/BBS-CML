@@ -9,6 +9,7 @@ import mchorse.bbs_mod.resources.Link;
 import net.minecraft.client.gl.GlUniform;
 import net.minecraft.client.gl.ShaderProgram;
 
+import com.mojang.blaze3d.opengl.GlStateManager;
 import com.mojang.blaze3d.systems.RenderSystem;
 
 import org.lwjgl.opengl.GL11;
@@ -130,14 +131,14 @@ public final class CubicGroupTextureBlend
      */
     public static void drawTwoPass(Runnable fromPass, Runnable toPass, float blend)
     {
-        RenderSystem.enableBlend();
-        RenderSystem.defaultBlendFunc();
+        GlStateManager._enableBlend();
+        GlStateManager._blendFuncSeparate(770, 771, 1, 0);
 
         boolean depthMask = GL11.glGetBoolean(GL11.GL_DEPTH_WRITEMASK);
 
         fromPass.run();
 
-        RenderSystem.depthMask(false);
+        GlStateManager._depthMask(false);
 
         try
         {
@@ -145,7 +146,7 @@ public final class CubicGroupTextureBlend
         }
         finally
         {
-            RenderSystem.depthMask(depthMask);
+            GlStateManager._depthMask(depthMask);
         }
     }
 }

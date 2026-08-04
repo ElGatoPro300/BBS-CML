@@ -1,5 +1,6 @@
 package mchorse.bbs_mod.forms.renderers;
 
+import mchorse.bbs_mod.client.BBSRendering;
 import mchorse.bbs_mod.forms.ITickable;
 import mchorse.bbs_mod.forms.entities.IEntity;
 import mchorse.bbs_mod.forms.forms.VanillaParticleForm;
@@ -113,9 +114,9 @@ public class VanillaParticleFormRenderer extends FormRenderer<VanillaParticleFor
             Vector3f translation = positionMatrix.getTranslation(new Vector3f());
 
             this.pos.set(
-                translation.x + (float) realCamera.getPos().x,
-                translation.y + (float) realCamera.getPos().y,
-                translation.z + (float) realCamera.getPos().z
+                translation.x + (float) realCamera.getCameraPos().x,
+                translation.y + (float) realCamera.getCameraPos().y,
+                translation.z + (float) realCamera.getCameraPos().z
             );
         }
         else

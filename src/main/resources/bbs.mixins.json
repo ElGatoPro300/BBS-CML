@@ -17,6 +17,7 @@
         "LevelPropertiesAccessor",
         "StructureTemplateAccessor",
         "StructureTemplatePalettedListAccessor",
+        "EntityAccessor",
         "EntityMixin"
     ],
     "injectors": {

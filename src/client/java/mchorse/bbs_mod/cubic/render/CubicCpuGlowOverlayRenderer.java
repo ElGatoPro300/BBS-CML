@@ -12,14 +12,16 @@ import mchorse.bbs_mod.utils.colors.Color;
 
 import net.minecraft.client.gl.ShaderProgram;
 import net.minecraft.client.render.BufferBuilder;
-import net.minecraft.client.render.BufferRenderer;
+import net.minecraft.client.render.BuiltBuffer;
 import net.minecraft.client.render.LightmapTextureManager;
+import net.minecraft.client.render.RenderLayers;
 import net.minecraft.client.render.Tessellator;
-import net.minecraft.client.render.VertexFormat;
 import net.minecraft.client.render.VertexFormats;
 import net.minecraft.client.util.math.MatrixStack;
 
 import org.joml.Vector3f;
+
+import com.mojang.blaze3d.vertex.VertexFormat;
 
 /**
  * Additive glow overlay for shape-key CPU meshes. Uses the same block/item overlay formula:
@@ -121,15 +123,11 @@ public class CubicCpuGlowOverlayRenderer extends CubicCubeRenderer
 
         super.renderGroup(groupBuilder, stack, group, model);
 
-        try
+        BuiltBuffer built = groupBuilder.endNullable();
+
+        if (built != null)
         {
-            this.shader.bind();
-            BufferRenderer.drawWithGlobalProgram(groupBuilder.end());
-            this.shader.unbind();
-        }
-        catch (IllegalStateException e)
-        {
-            /* Empty or invalid buffer */
+            RenderLayers.debugFilledBox().draw(built);
         }
     }
 

@@ -10,11 +10,13 @@ import mchorse.bbs_mod.ui.framework.elements.utils.StencilMap;
 
 import net.minecraft.client.gl.ShaderProgram;
 import net.minecraft.client.render.BufferBuilder;
-import net.minecraft.client.render.BufferRenderer;
+import net.minecraft.client.render.BuiltBuffer;
+import net.minecraft.client.render.RenderLayers;
 import net.minecraft.client.render.Tessellator;
-import net.minecraft.client.render.VertexFormat;
 import net.minecraft.client.render.VertexFormats;
 import net.minecraft.client.util.math.MatrixStack;
+
+import com.mojang.blaze3d.vertex.VertexFormat;
 
 /**
  * Shape-key CPU geometry must draw one model group per call so PaintColor, GlowingColor, and
@@ -128,16 +130,12 @@ public class CubicCpuGroupDrawRenderer extends CubicCubeRenderer
         ModelVAORenderer.beginCpuGeometry(this.shader);
         super.renderGroup(groupBuilder, stack, group, model);
 
-        try
+        BuiltBuffer built = groupBuilder.endNullable();
+
+        if (built != null)
         {
-            this.shader.bind();
             ModelVAORenderer.setupUniforms(stack, this.shader);
-            BufferRenderer.drawWithGlobalProgram(groupBuilder.end());
-            this.shader.unbind();
-        }
-        catch (IllegalStateException e)
-        {
-            /* Empty or invalid buffer */
+            RenderLayers.debugFilledBox().draw(built);
         }
     }
 }
