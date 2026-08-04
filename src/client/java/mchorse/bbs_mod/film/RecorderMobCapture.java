@@ -844,7 +844,21 @@ public final class RecorderMobCapture
 
     private void syncMobFormNbt(Replay replay, Entity entity)
     {
-        /* NBT system removed in 1.21.11 */
+        Form form = replay.form.get();
+
+        if (!(form instanceof MobForm mobForm))
+        {
+            return;
+        }
+
+        NbtCompound compound = entity.writeNbt(new NbtCompound());
+
+        for (String key : MOB_NBT_STRIP_KEYS)
+        {
+            compound.remove(key);
+        }
+
+        mobForm.mobNBT.set(compound.toString());
     }
 
     private void recordDeathEntity(Replay replay, Session session, int tick, int deathTime)
@@ -954,7 +968,7 @@ public final class RecorderMobCapture
                 continue;
             }
 
-            this.addItemDropClip(replay, tick, item.getEntityPos(), item.getVelocity(), item.getStack());
+            this.addItemDropClip(replay, tick, item.getPos(), item.getVelocity(), item.getStack());
             found = true;
         }
 

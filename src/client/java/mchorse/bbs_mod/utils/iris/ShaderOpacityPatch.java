@@ -6,7 +6,6 @@ import mchorse.bbs_mod.cubic.render.vao.ModelVAORenderer;
 import mchorse.bbs_mod.mixin.client.iris.IrisRenderingPipelineAccessor;
 
 import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.render.RawProjectionMatrix;
 
 import net.irisshaders.iris.gl.blending.AlphaTest;
 import net.irisshaders.iris.gl.blending.AlphaTestFunction;
@@ -20,14 +19,11 @@ import net.irisshaders.iris.targets.RenderTargets;
 import org.joml.Matrix4f;
 import org.joml.Matrix4fStack;
 
-import com.mojang.blaze3d.opengl.GlStateManager;
 import com.mojang.blaze3d.systems.ProjectionType;
 import com.mojang.blaze3d.systems.RenderSystem;
 
-import org.lwjgl.BufferUtils;
 import org.lwjgl.opengl.GL11;
 
-import java.nio.FloatBuffer;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -64,43 +60,6 @@ public class ShaderOpacityPatch
         "gbuffers_textured",
         "gbuffers_textured_lit"
     };
-
-    private static final FloatBuffer MATRIX_BUF = BufferUtils.createFloatBuffer(16);
-
-    private static Matrix4f readProjectionMatrix()
-    {
-        Matrix4f mat = new Matrix4f();
-
-        try
-        {
-            MATRIX_BUF.rewind();
-            GL11.glGetFloatv(GL11.GL_PROJECTION_MATRIX, MATRIX_BUF);
-            MATRIX_BUF.rewind();
-            mat.set(MATRIX_BUF);
-        }
-        catch (Exception e)
-        {
-            mat.identity();
-        }
-
-        return mat;
-    }
-
-    /** 
-     * Snapshot of the current view stack top (model-view matrix).
-     * In 1.21.11, RenderSystem.getModelViewMatrix() was removed; we read from the stack.
-     */
-    private static Matrix4f readModelViewMatrix()
-    {
-        Matrix4fStack stack = RenderSystem.getModelViewStack();
-
-        if (stack != null)
-        {
-            return new Matrix4f(stack);
-        }
-
-        return new Matrix4f();
-    }
 
     private static final List<PostDeferredEntry> postDeferredForms = new ArrayList<>();
     private static boolean postDeferredPhase;
@@ -242,15 +201,15 @@ public class ShaderOpacityPatch
 
         if (forceLiveDepthWrite)
         {
-            GL11.glEnable(GL11.GL_DEPTH_TEST);
-            GL11.glDepthFunc(GL11.GL_LEQUAL);
-            GL11.glDepthMask(true);
+            RenderSystem.enableDepthTest();
+            RenderSystem.depthFunc(GL11.GL_LEQUAL);
+            RenderSystem.depthMask(true);
         }
         else if (suppressLiveDepthWrite)
         {
-            GL11.glEnable(GL11.GL_DEPTH_TEST);
-            GL11.glDepthFunc(GL11.GL_LEQUAL);
-            GL11.glDepthMask(false);
+            RenderSystem.enableDepthTest();
+            RenderSystem.depthFunc(GL11.GL_LEQUAL);
+            RenderSystem.depthMask(false);
         }
     }
 
@@ -261,9 +220,9 @@ public class ShaderOpacityPatch
             return;
         }
 
-        GL11.glEnable(GL11.GL_DEPTH_TEST);
-        GL11.glDepthFunc(GL11.GL_LEQUAL);
-        GL11.glDepthMask(depthWrite);
+        RenderSystem.enableDepthTest();
+        RenderSystem.depthFunc(GL11.GL_LEQUAL);
+        RenderSystem.depthMask(depthWrite);
     }
 
     /**
@@ -389,8 +348,8 @@ public class ShaderOpacityPatch
             depthWrite,
             afterFluids,
             irisCamera,
-            readProjectionMatrix(),
-            readModelViewMatrix(),
+            new Matrix4f(RenderSystem.getProjectionMatrix()),
+            new Matrix4f(RenderSystem.getModelViewMatrix()),
             draw
         ));
     }
@@ -498,14 +457,18 @@ public class ShaderOpacityPatch
                 .thenComparing((PostDeferredEntry a, PostDeferredEntry b) -> Double.compare(b.distanceSq, a.distanceSq))
             );
 
-            GL11.glEnable(GL11.GL_DEPTH_TEST);
-            GL11.glDepthFunc(GL11.GL_LEQUAL);
-            GL11.glEnable(GL11.GL_BLEND);
-            GlStateManager._blendFuncSeparate(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA, GL11.GL_ONE, GL11.GL_ZERO);
+            RenderSystem.enableDepthTest();
+            RenderSystem.depthFunc(GL11.GL_LEQUAL);
+            RenderSystem.enableBlend();
+            RenderSystem.defaultBlendFunc();
 
             MinecraftClient mc = MinecraftClient.getInstance();
 
-            /* TODO 1.21.11: LightmapTextureManager.enable() and OverlayTexture.setupOverlayColor() removed */
+            if (mc != null && mc.gameRenderer != null)
+            {
+                mc.gameRenderer.getLightmapTextureManager().enable();
+                mc.gameRenderer.getOverlayTexture().setupOverlayColor();
+            }
 
             for (PostDeferredEntry entry : batch)
             {
@@ -532,7 +495,43 @@ public class ShaderOpacityPatch
         try
         {
             BBSRendering.ensurePaintOverlayTargetFramebuffer();
-            /* TODO 1.21.11: Iris RenderTargets API changed — depth copy temporarily disabled */;
+
+            WorldRenderingPipeline pipeline =
+                net.irisshaders.iris.Iris.getPipelineManager().getPipelineNullable();
+
+            if (!(pipeline instanceof IrisRenderingPipeline irisPipeline))
+            {
+                return;
+            }
+
+            IrisRenderingPipelineAccessor access = (IrisRenderingPipelineAccessor) irisPipeline;
+            RenderTargets targets = access.bbs$renderTargets();
+
+            if (targets == null)
+            {
+                return;
+            }
+
+            int width = targets.getCurrentWidth();
+            int height = targets.getCurrentHeight();
+            int opaqueDepth = targets.getDepthTextureNoTranslucents().getTextureId();
+            int liveDepth = targets.getDepthTexture();
+
+            if (width > 0 && height > 0 && opaqueDepth > 0 && liveDepth > 0)
+            {
+                DepthCopyStrategy.fastest(false)
+                    .copy(null, opaqueDepth, null, liveDepth, width, height);
+            }
+
+            if (bindIrisDefault)
+            {
+                access.bbs$bindDefault();
+            }
+            else
+            {
+                /* Depth copy may have switched FBOs — return to the visible target. */
+                BBSRendering.ensurePaintOverlayTargetFramebuffer();
+            }
         }
         catch (Throwable ignored)
         {
@@ -542,17 +541,17 @@ public class ShaderOpacityPatch
 
     private static void runEntry(PostDeferredEntry entry)
     {
-        Matrix4f savedProjection = readProjectionMatrix();
+        Matrix4f savedProjection = new Matrix4f(RenderSystem.getProjectionMatrix());
         Matrix4fStack modelViewStack = RenderSystem.getModelViewStack();
-        Matrix4f savedModelView = readModelViewMatrix();
+        Matrix4f savedModelView = new Matrix4f(modelViewStack);
         boolean savedDepthMask = GL11.glGetBoolean(GL11.GL_DEPTH_WRITEMASK);
         boolean beganDeferredPass = false;
 
         try
         {
-            RenderSystem.setProjectionMatrix(new RawProjectionMatrix("shader_opacity_deferred").set(entry.projection), ProjectionType.ORTHOGRAPHIC);
+            RenderSystem.setProjectionMatrix(entry.projection, ProjectionType.ORTHOGRAPHIC);
             flushingDepthWrite = entry.depthWrite;
-            GL11.glDepthMask(entry.depthWrite);
+            RenderSystem.depthMask(entry.depthWrite);
 
             /* Never push/pop ModelView during world render — unbalanced depth trips
              * WorldRenderer's "Pose stack not empty" check with Iris/Sodium. */
@@ -563,7 +562,7 @@ public class ShaderOpacityPatch
             else
             {
                 modelViewStack.identity();
-                /* TODO 1.21.11: ModelVAORenderer.beginDeferredTranslucentModelPass removed */
+                ModelVAORenderer.beginDeferredTranslucentModelPass(entry.depthWrite, true);
                 beganDeferredPass = true;
             }
 
@@ -572,13 +571,13 @@ public class ShaderOpacityPatch
         }
         finally
         {
-            /* TODO 1.21.11: ModelVAORenderer.endDeferredTranslucentModelPass removed */
             if (beganDeferredPass)
             {
+                ModelVAORenderer.endDeferredTranslucentModelPass();
             }
 
-            GL11.glDepthMask(savedDepthMask);
-            RenderSystem.setProjectionMatrix(new RawProjectionMatrix("shader_opacity_restore").set(savedProjection), ProjectionType.ORTHOGRAPHIC);
+            RenderSystem.depthMask(savedDepthMask);
+            RenderSystem.setProjectionMatrix(savedProjection, ProjectionType.ORTHOGRAPHIC);
             modelViewStack.set(savedModelView);
         }
     }

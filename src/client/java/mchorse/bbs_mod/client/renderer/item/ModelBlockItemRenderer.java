@@ -3,28 +3,38 @@ package mchorse.bbs_mod.client.renderer.item;
 import mchorse.bbs_mod.BBSMod;
 import mchorse.bbs_mod.BBSModClient;
 import mchorse.bbs_mod.blocks.entities.ModelBlockEntity;
+import mchorse.bbs_mod.blocks.entities.ModelProperties;
+import mchorse.bbs_mod.forms.FormUtilsClient;
 import mchorse.bbs_mod.forms.entities.IEntity;
 import mchorse.bbs_mod.forms.entities.StubEntity;
+import mchorse.bbs_mod.forms.forms.Form;
+import mchorse.bbs_mod.forms.renderers.FormRenderType;
+import mchorse.bbs_mod.forms.renderers.FormRenderingContext;
+import mchorse.bbs_mod.utils.MatrixStackUtils;
+import mchorse.bbs_mod.utils.pose.Transform;
 
 import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.render.command.OrderedRenderCommandQueue;
+import net.minecraft.client.render.DiffuseLighting;
+import net.minecraft.client.render.LightmapTextureManager;
+import net.minecraft.client.render.VertexConsumerProvider;
+import net.minecraft.client.render.entity.model.LoadedEntityModels;
 import net.minecraft.client.render.item.model.special.SpecialModelRenderer;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.component.DataComponentTypes;
-import net.minecraft.entity.TypedEntityData;
-import net.minecraft.item.ItemDisplayContext;
+import net.minecraft.component.type.NbtComponent;
 import net.minecraft.item.ItemStack;
+import net.minecraft.item.ModelTransformationMode;
 import net.minecraft.nbt.NbtCompound;
 import net.minecraft.util.math.BlockPos;
 
-import org.joml.Vector3fc;
+import org.joml.Vector3f;
 
+import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.serialization.MapCodec;
 
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
-import java.util.function.Consumer;
 
 public class ModelBlockItemRenderer implements SpecialModelRenderer<ItemStack>
 {
@@ -56,18 +66,48 @@ public class ModelBlockItemRenderer implements SpecialModelRenderer<ItemStack>
     }
 
     @Override
-    public void collectVertices(Consumer<Vector3fc> collector)
+    public void render(ItemStack stack, ModelTransformationMode mode, MatrixStack matrices, VertexConsumerProvider vertexConsumers, int light, int overlay, boolean hasGlint)
     {
-    }
+        Item item = this.get(stack);
 
-    @Override
-    public void render(ItemStack stack, ItemDisplayContext mode, MatrixStack matrices, OrderedRenderCommandQueue vertexConsumers, int light, int overlay, boolean hasGlint, int color)
-    {
-        // TODO(1.21.11 render): Re-implement custom item rendering via the new rendering pipeline.
-        // Previously this rendered the block's Form for the given ItemDisplayContext through
-        // FormUtilsClient.render(...). The old APIs (RenderSystem, DiffuseLighting,
-        // getTickDelta(boolean), etc.) have been removed.
-        this.get(stack);
+        if (item != null)
+        {
+            ModelProperties properties = item.entity.getProperties();
+            Form form = properties.getForm(mode);
+
+            if (form != null)
+            {
+                item.expiration = 20;
+
+                Transform transform = properties.getTransform(mode);
+
+                matrices.push();
+                matrices.translate(0.5F, 0F, 0.5F);
+                MatrixStackUtils.applyTransform(matrices, transform);
+
+                RenderSystem.enableDepthTest();
+
+                if (mode == ModelTransformationMode.GUI)
+                {
+                    Vector3f a = new Vector3f(0.85F, 0.85F, -1.0F).normalize();
+                    Vector3f b = new Vector3f(-0.85F, 0.85F, 1.0F).normalize();
+                    RenderSystem.setupGui3DDiffuseLighting(a, b);
+                }
+
+                FormUtilsClient.render(form, new FormRenderingContext()
+                    .set(FormRenderType.fromModelMode(mode), item.formEntity, matrices, light, overlay, MinecraftClient.getInstance().getRenderTickCounter().getTickDelta(false))
+                    .camera(MinecraftClient.getInstance().gameRenderer.getCamera()));
+
+                if (mode == ModelTransformationMode.GUI)
+                {
+                    DiffuseLighting.disableGuiDepthLighting();
+                }
+
+                RenderSystem.disableDepthTest();
+
+                matrices.pop();
+            }
+        }
     }
 
     public Item get(ItemStack stack)
@@ -87,17 +127,19 @@ public class ModelBlockItemRenderer implements SpecialModelRenderer<ItemStack>
 
         this.map.put(stack, item);
 
-        TypedEntityData<?> beComponent = stack.get(DataComponentTypes.BLOCK_ENTITY_DATA);
-        if (beComponent == null)
+        NbtComponent nbtComponent = stack.get(DataComponentTypes.BLOCK_ENTITY_DATA);
+        if (nbtComponent == null)
         {
             return item;
         }
 
-        NbtCompound nbt = beComponent.copyNbtWithoutId();
+        NbtCompound nbt = nbtComponent.getNbt();
+        var world = MinecraftClient.getInstance().world;
+        if (world != null)
+        {
+            entity.readNbt(nbt, world.getRegistryManager());
+        }
 
-        // TODO(1.21.11 render): populate the ModelBlockEntity from `nbt`. The old
-        // entity.readNbt(nbt, registryManager) was removed by the 1.21.6 persistence rewrite.
-        // ModelBlockEntity.readData(ReadView) is protected and not callable from here.
         return item;
     }
 
@@ -112,7 +154,7 @@ public class ModelBlockItemRenderer implements SpecialModelRenderer<ItemStack>
         }
 
         @Override
-        public SpecialModelRenderer<?> bake(SpecialModelRenderer.BakeContext context)
+        public SpecialModelRenderer<?> bake(LoadedEntityModels config)
         {
             return BBSModClient.getModelBlockItemRenderer();
         }

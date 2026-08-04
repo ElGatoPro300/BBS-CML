@@ -34,12 +34,10 @@ import net.fabricmc.fabric.api.networking.v1.PlayerLookup;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 
 import net.minecraft.block.entity.BlockEntity;
-import net.minecraft.block.entity.BlockEntityType;
 import net.minecraft.component.DataComponentTypes;
 import net.minecraft.component.type.NbtComponent;
 import net.minecraft.entity.EquipmentSlot;
 import net.minecraft.entity.LivingEntity;
-import net.minecraft.entity.TypedEntityData;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NbtCompound;
@@ -244,7 +242,7 @@ public class ServerNetwork
 
                 server.execute(() ->
                 {
-                    World world = player.getEntityWorld();
+                    World world = player.getWorld();
                     BlockEntity be = world.getBlockEntity(pos);
 
                     if (be instanceof ModelBlockEntity modelBlock)
@@ -275,7 +273,7 @@ public class ServerNetwork
 
                 server.execute(() ->
                 {
-                    World world = player.getEntityWorld();
+                    World world = player.getWorld();
                     BlockEntity be = world.getBlockEntity(pos);
 
                     if (be instanceof TriggerBlockEntity trigger)
@@ -311,7 +309,7 @@ public class ServerNetwork
 
         server.execute(() ->
         {
-            World world = player.getEntityWorld();
+            World world = player.getWorld();
             BlockEntity be = world.getBlockEntity(pos);
 
             if (be instanceof TriggerBlockEntity trigger)
@@ -333,7 +331,7 @@ public class ServerNetwork
             return;
         }
 
-        GameMode mode = GameMode.byId(Integer.toString(modeId));
+        GameMode mode = GameMode.byId(modeId);
 
         if (mode == null)
         {
@@ -368,16 +366,16 @@ public class ServerNetwork
 
                     if (stack.getItem() == BBSMod.MODEL_BLOCK_ITEM)
                     {
-                        TypedEntityData<BlockEntityType<?>> beComponent = stack.get(DataComponentTypes.BLOCK_ENTITY_DATA);
-                        NbtCompound beNbt = beComponent != null ? beComponent.copyNbtWithoutId() : new NbtCompound();
+                        NbtComponent beComponent = stack.get(DataComponentTypes.BLOCK_ENTITY_DATA);
+                        NbtCompound beNbt = beComponent != null ? beComponent.getNbt() : new NbtCompound();
 
                         beNbt.put("Properties", DataStorageUtils.toNbt(data));
-                        stack.set(DataComponentTypes.BLOCK_ENTITY_DATA, TypedEntityData.create(BBSMod.MODEL_BLOCK_ENTITY, beNbt));
+                        stack.set(DataComponentTypes.BLOCK_ENTITY_DATA, NbtComponent.of(beNbt));
                     }
                     else if (stack.getItem() == BBSMod.GUN_ITEM)
                     {
                         NbtComponent customComponent = stack.get(DataComponentTypes.CUSTOM_DATA);
-                        NbtCompound customNbt = customComponent != null ? customComponent.copyNbt() : new NbtCompound();
+                        NbtCompound customNbt = customComponent != null ? customComponent.getNbt() : new NbtCompound();
 
                         customNbt.put("GunData", DataStorageUtils.toNbt(data));
                         stack.set(DataComponentTypes.CUSTOM_DATA, NbtComponent.of(customNbt));
@@ -541,7 +539,7 @@ public class ServerNetwork
             }
             else
             {
-                sendPlayFilm(player, player.getEntityWorld(), filmId, withCamera);
+                sendPlayFilm(player, player.getServerWorld(), filmId, withCamera);
             }
         });
     }
@@ -600,14 +598,14 @@ public class ServerNetwork
 
                     if (film != null)
                     {
-                        actionPlayer = actions.play(player, player.getEntityWorld(), film, tick, PlayerType.FILM_EDITOR);
+                        actionPlayer = actions.play(player, player.getServerWorld(), film, tick, PlayerType.FILM_EDITOR);
                     }
                 }
                 else
                 {
                     actions.stop(filmId);
 
-                    actionPlayer = actions.play(player, player.getEntityWorld(), actionPlayer.film, tick, PlayerType.FILM_EDITOR);
+                    actionPlayer = actions.play(player, player.getServerWorld(), actionPlayer.film, tick, PlayerType.FILM_EDITOR);
                 }
 
                 if (actionPlayer != null)
@@ -626,7 +624,7 @@ public class ServerNetwork
             else if (state == ActionState.RESTORE)
             {
                 ActionPlayer actionPlayer = actions.getPlayer(filmId);
-                ServerWorld world = actionPlayer != null ? actionPlayer.getWorld() : (ServerWorld) player.getEntityWorld();
+                ServerWorld world = actionPlayer != null ? actionPlayer.getWorld() : player.getServerWorld();
 
                 actions.restoreDamage(world);
             }
@@ -742,7 +740,7 @@ public class ServerNetwork
 
             if (!command.isEmpty())
             {
-                server.getCommandManager().parseAndExecute(player.getCommandSource(), command);
+                server.getCommandManager().executeWithPrefix(player.getCommandSource(), command);
             }
         }
     }
@@ -835,7 +833,7 @@ public class ServerNetwork
 
             if (film != null)
             {
-                BBSMod.getActions().play(player, player.getEntityWorld(), film, 0);
+                BBSMod.getActions().play(player, player.getServerWorld(), film, 0);
 
                 crusher.send(player, CLIENT_PLAY_FILM_PACKET, film.toData(), (packetByteBuf) ->
                 {
@@ -965,7 +963,7 @@ public class ServerNetwork
 
     public static void sendSelectedSlot(ServerPlayerEntity player, int slot)
     {
-        player.getInventory().setSelectedSlot(slot);
+        player.getInventory().selectedSlot = slot;
 
         PacketByteBuf buf = PacketByteBufs.create();
 

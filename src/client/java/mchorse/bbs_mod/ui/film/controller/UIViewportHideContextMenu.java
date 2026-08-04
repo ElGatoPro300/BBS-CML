@@ -15,9 +15,9 @@ public class UIViewportHideContextMenu extends UIContextMenu
 
     public UIViewportHideContextMenu(UIFilmPreview preview)
     {
-        /* TODO 1.21.11: UIFilmPreview.isViewportButtonsHidden/setViewportButtonsHidden removed */
-        UIToggle hideAll = new UIToggle(UIKeys.FILM_HIDE_ALL, false, (b) ->
+        UIToggle hideAll = new UIToggle(UIKeys.FILM_HIDE_ALL, preview.isViewportButtonsHidden(), (b) ->
         {
+            preview.setViewportButtonsHidden(b.getValue());
         });
         hideAll.w(1F);
 

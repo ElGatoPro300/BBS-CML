@@ -63,7 +63,7 @@ import mchorse.bbs_mod.utils.pose.Transform;
 import mchorse.bbs_mod.utils.undo.IUndo;
 import mchorse.bbs_mod.utils.undo.UndoManager;
 
-import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderContext;
+import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
 
 import net.minecraft.block.Block;
 import net.minecraft.block.BlockState;
@@ -83,7 +83,7 @@ import org.joml.Vector3d;
 import org.joml.Vector3f;
 import org.joml.Vector4f;
 
-import com.mojang.blaze3d.opengl.GlStateManager;
+import com.mojang.blaze3d.platform.GlStateManager;
 import com.mojang.blaze3d.systems.RenderSystem;
 
 import org.lwjgl.glfw.GLFW;
@@ -191,6 +191,7 @@ public class UIModelBlockPanel extends UIDashboardPanel implements IFlightSuppor
     public UIToggle hitbox;
     public UIToggle global;
     public UIToggle lookAt;
+    public UIToggle chromaSky;
     public UITrackpad lightLevel;
     public UITrackpad hardness;
     public UIPropTransform transform;
@@ -236,7 +237,7 @@ public class UIModelBlockPanel extends UIDashboardPanel implements IFlightSuppor
         this.keyDude.keys().register(Keys.MODEL_BLOCKS_MOVE_TO, () -> {
             MinecraftClient mc = MinecraftClient.getInstance();
             Camera camera = mc.gameRenderer.getCamera();
-            BlockHitResult blockHitResult = RayTracing.rayTrace(mc.world, camera.getCameraPos(),
+            BlockHitResult blockHitResult = RayTracing.rayTrace(mc.world, camera.getPos(),
                     RayTracing.fromVector3f(this.mouseDirection), 512F);
 
             if (blockHitResult.getType() != HitResult.Type.MISS) {
@@ -370,6 +371,14 @@ public class UIModelBlockPanel extends UIDashboardPanel implements IFlightSuppor
             this.modelBlock.getProperties().setLookAt(b.getValue());
             this.endUndoCapture();
         });
+        this.chromaSky = new UIToggle(UIKeys.MODEL_BLOCKS_CHROMA_SKY, (b) -> {
+            if (this.modelBlock == null)
+                return;
+            this.beginUndoCapture();
+            this.modelBlock.getProperties().setChromaSky(b.getValue());
+            this.endUndoCapture();
+        });
+        this.chromaSky.tooltip(UIKeys.MODEL_BLOCKS_CHROMA_SKY_TOOLTIP);
 
         this.lightLevel = new UITrackpad((v) -> {
             if (this.modelBlock == null)
@@ -509,7 +518,7 @@ public class UIModelBlockPanel extends UIDashboardPanel implements IFlightSuppor
                 this.sectionHeader(UIKeys.MODEL_BLOCKS_DISPLAY),
                 UI.row(4, this.enabled, this.shadow),
                 UI.row(4, this.global, this.lookAt),
-                this.hitbox,
+                UI.row(4, this.hitbox, this.chromaSky),
                 this.sectionHeader(UIKeys.MODEL_BLOCKS_BLOCK),
                 UI.row(4, lightGroup, hardnessGroup),
                 this.sectionHeader(UIKeys.MODEL_BLOCKS_EQUIPMENT),
@@ -1909,6 +1918,7 @@ public class UIModelBlockPanel extends UIDashboardPanel implements IFlightSuppor
         this.hitbox.setValue(properties.isHitbox());
         this.global.setValue(properties.isGlobal());
         this.lookAt.setValue(properties.isLookAt());
+        this.chromaSky.setValue(properties.isChromaSky());
         this.lightLevel.setValue(properties.getLightLevel());
         this.hardness.setValue(properties.getHardness());
 
@@ -1958,6 +1968,7 @@ public class UIModelBlockPanel extends UIDashboardPanel implements IFlightSuppor
 
     @Override
     public boolean subMouseReleased(UIContext context) {
+        this.gizmoController.consumePendingTrackballClick();
         this.gizmoController.stop();
 
         return super.subMouseReleased(context);
@@ -2138,63 +2149,80 @@ public class UIModelBlockPanel extends UIDashboardPanel implements IFlightSuppor
     public void renderInWorld(WorldRenderContext context) {
         super.renderInWorld(context);
 
-        MinecraftClient mc = MinecraftClient.getInstance();
-        Camera camera = mc.gameRenderer.getCamera();
-        Vec3d pos = camera.getCameraPos();
+        MatrixStack matrices = context.matrixStack();
+        boolean shaderPath = BBSRendering.isIrisShadersEnabled();
 
+        if (shaderPath)
+        {
+            if (matrices == null)
+            {
+                return;
+            }
+        }
+        else
+        {
+            /* AFTER_ENTITIES has no reliable stack; draw block overlays in absolute world space. */
+            matrices = new MatrixStack();
+        }
+
+        Camera camera = context.camera();
+        Vec3d pos = camera.getPos();
+
+        MinecraftClient mc = MinecraftClient.getInstance();
         double x = mc.mouse.getX();
         double y = mc.mouse.getY();
 
-        float fov = mc.options.getFov().getValue();
-        float tanHalfFov = (float) Math.tan(Math.toRadians(fov) / 2.0);
-        float aspect = (float) mc.getWindow().getWidth() / (float) mc.getWindow().getHeight();
+        /* The view matrix is rebuilt from the camera's own rotation instead of using the world
+         * render matrix stack top: that stack isn't guaranteed to hold the camera rotation
+         * (and doesn't in 1.21.1), which used to skew this ray - the gizmo dragged with an
+         * inverted/stuttering rotation and a way-too-fast Z axis while stencil-based hover
+         * (which doesn't use this ray) kept working fine. */
+        Matrix4f view = new Matrix4f().rotation(camera.getRotation().conjugate(new Quaternionf()));
 
-        float ndcX = ((float) x / mc.getWindow().getWidth()) * 2.0f - 1.0f;
-        float ndcY = -(((float) y / mc.getWindow().getHeight()) * 2.0f - 1.0f);
-
-        float f = MathUtils.toRad(camera.getPitch());
-        float g = MathUtils.toRad(-camera.getYaw());
-        float h = (float) Math.cos(g);
-        float i = (float) Math.sin(g);
-        float j = (float) Math.cos(f);
-        float k = (float) Math.sin(f);
-        Vector3f forward = new Vector3f(i * j, -k, h * j);
-        Vector3f upWorld = new Vector3f(0F, 1F, 0F);
-        Vector3f right = new Vector3f(forward).cross(upWorld).normalize();
-        Vector3f upCam = new Vector3f(right).cross(forward).normalize();
-
-        Vector3f direction = new Vector3f(forward)
-            .add(new Vector3f(right).mul(ndcX * tanHalfFov * aspect))
-            .add(new Vector3f(upCam).mul(ndcY * tanHalfFov))
-            .normalize();
-
-        this.mouseDirection.set(direction);
+        this.mouseDirection.set(CameraUtils.getMouseDirection(
+                RenderSystem.getProjectionMatrix(),
+                view,
+                (int) x, (int) y, 0, 0, mc.getWindow().getWidth(), mc.getWindow().getHeight()));
         this.hovered = this.getClosestObject(new Vector3d(pos.x, pos.y, pos.z), this.mouseDirection);
 
-        /* TODO 1.21.11: RenderSystem.enableDepthTest removed */
-        GlStateManager._enableDepthTest();
+        RenderSystem.enableDepthTest();
 
         for (ModelBlockEntity entity : this.modelBlocks.getList()) {
             BlockPos blockPos = entity.getPos();
 
             if (!this.isEditing(entity)) {
-                MatrixStack ms = new MatrixStack();
-                ms.push();
-                ms.translate(blockPos.getX() - pos.x, blockPos.getY() - pos.y,
-                        blockPos.getZ() - pos.z);
+                matrices.push();
 
-                if (this.hovered == entity || entity == this.modelBlock) {
-                    Draw.renderBox(ms, 0D, 0D, 0D, 1D, 1D, 1D, 0, 0.5F, 1F);
-                } else {
-                    Draw.renderBox(ms, 0D, 0D, 0D, 1D, 1D, 1D);
+                if (shaderPath)
+                {
+                    matrices.translate(blockPos.getX() - pos.x, blockPos.getY() - pos.y,
+                            blockPos.getZ() - pos.z);
+
+                    if (this.hovered == entity || entity == this.modelBlock) {
+                        Draw.renderBox(matrices, 0D, 0D, 0D, 1D, 1D, 1D, 0, 0.5F, 1F);
+                    } else {
+                        Draw.renderBox(matrices, 0D, 0D, 0D, 1D, 1D, 1D);
+                    }
+                }
+                else
+                {
+                    matrices.translate(-pos.x, -pos.y, -pos.z);
+
+                    if (this.hovered == entity || entity == this.modelBlock) {
+                        Draw.renderBox(matrices, blockPos.getX(), blockPos.getY(), blockPos.getZ(), 1D, 1D, 1D, 0, 0.5F, 1F);
+                    } else {
+                        Draw.renderBox(matrices, blockPos.getX(), blockPos.getY(), blockPos.getZ(), 1D, 1D, 1D);
+                    }
                 }
 
-                ms.pop();
+                matrices.pop();
             }
         }
 
-        /* TODO 1.21.11: RenderSystem.disableDepthTest removed */
-        GlStateManager._disableDepthTest();
+        this.renderSelectedHitbox(matrices, pos, shaderPath);
+        this.renderGizmo(context, pos, matrices);
+
+        RenderSystem.enableDepthTest();
     }
 
     /** Draws the selected block's form hitbox wireframe in world space. */
@@ -2257,7 +2285,7 @@ public class UIModelBlockPanel extends UIDashboardPanel implements IFlightSuppor
         /* Don't draw/pick this panel's own gizmo while the block's nested form/model editor is
          * open on top - that editor has its own gizmo (rendered in its own viewport), and
          * showing both at once would double up and fight over the same drag. */
-        if (this.modelBlock == null || this.isEditing(this.modelBlock))
+        if (this.modelBlock == null || this.isEditing(this.modelBlock) || !UIBaseMenu.renderAxes)
         {
             this.gizmoStencil.clearPicking();
             this.gizmoController.updateHover();
@@ -2282,8 +2310,7 @@ public class UIModelBlockPanel extends UIDashboardPanel implements IFlightSuppor
 
         this.gizmoCameraPosition.set(cameraPos.x, cameraPos.y, cameraPos.z);
         this.hasGizmo = true;
-        /* 1.21.11: RenderSystem.getProjectionMatrix() removed, use identity fallback */
-        this.gizmoProjection.identity();
+        this.gizmoProjection.set(RenderSystem.getProjectionMatrix());
 
         MatrixStack gizmoStack;
 
@@ -2312,7 +2339,7 @@ public class UIModelBlockPanel extends UIDashboardPanel implements IFlightSuppor
         this.hasGizmoInterfaceMatrix = true;
         Gizmo.INSTANCE.captureVisual(gizmoStack);
 
-        GlStateManager._enableDepthTest();
+        RenderSystem.enableDepthTest();
         gizmoStack.pop();
     }
 
@@ -2330,18 +2357,10 @@ public class UIModelBlockPanel extends UIDashboardPanel implements IFlightSuppor
 
     private void applyGizmoCaptureToSingleton()
     {
-        if (BBSRendering.isIrisShadersEnabled())
-        {
-            Gizmo.INSTANCE.lastGizmoMatrix.set(this.gizmoInterfaceMatrix);
-        }
-        else
-        {
-            /* Without shaders the world pass does not bake BBSRendering.camera into the
-             * captured matrix; premultiply it here so the UI draw matches the shader path. */
-            Gizmo.INSTANCE.lastGizmoMatrix.set(BBSRendering.camera);
-            Gizmo.INSTANCE.lastGizmoMatrix.mul(this.gizmoInterfaceMatrix);
-        }
-
+        /* Whether the captured matrix already bakes BBSRendering.camera depends on the
+         * render path (Iris pack vs. vanilla). composeVisualMatrix detects double-camera
+         * by view-space origin distance and keeps the gizmo on the block. */
+        Gizmo.composeVisualMatrix(this.gizmoInterfaceMatrix, BBSRendering.camera, this.gizmoProjection, Gizmo.INSTANCE.lastGizmoMatrix);
         Gizmo.INSTANCE.hasGizmoMatrix = true;
     }
 
@@ -2392,6 +2411,12 @@ public class UIModelBlockPanel extends UIDashboardPanel implements IFlightSuppor
         if (transform == null) {
             return;
         }
+
+        /* Y/Z ring and white view-ring values follow the mouse; only those process bars
+         * wind the wrong way (especially in Local). */
+        transform.setInvertRotationArcY(true);
+        transform.setInvertRotationArcZ(true);
+        transform.setInvertRotationArcViewRing(true);
 
         transform.setGizmoRayProvider(new UIPropTransform.IGizmoRayProvider() {
             @Override

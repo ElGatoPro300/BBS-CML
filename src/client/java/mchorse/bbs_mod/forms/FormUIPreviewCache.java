@@ -11,6 +11,13 @@ import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.utils.MathUtils;
 
 import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.util.math.MatrixStack;
+
+import org.joml.Matrix4f;
+
+import com.mojang.blaze3d.platform.GlStateManager;
+import com.mojang.blaze3d.systems.ProjectionType;
+import com.mojang.blaze3d.systems.RenderSystem;
 
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL13;
@@ -131,7 +138,7 @@ public final class FormUIPreviewCache
 
         if (client != null && client.getFramebuffer() != null)
         {
-            /* 1.21.11: Framebuffer.beginWrite(boolean) was removed */
+            client.getFramebuffer().beginWrite(true);
         }
 
         GL11.glViewport(viewport[0], viewport[1], viewport[2], viewport[3]);

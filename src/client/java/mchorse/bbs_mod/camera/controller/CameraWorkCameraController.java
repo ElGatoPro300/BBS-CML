@@ -8,6 +8,7 @@ import mchorse.bbs_mod.camera.clips.screen.ColorClip;
 import mchorse.bbs_mod.camera.clips.screen.ColorEffect;
 import mchorse.bbs_mod.camera.clips.screen.LensDistortionOverscan;
 import mchorse.bbs_mod.camera.data.Position;
+import mchorse.bbs_mod.client.BBSRendering;
 import mchorse.bbs_mod.utils.MathUtils;
 import mchorse.bbs_mod.utils.clips.Clip;
 import mchorse.bbs_mod.utils.clips.Clips;
@@ -50,6 +51,8 @@ public abstract class CameraWorkCameraController implements ICameraController
      */
     protected void apply(Camera camera, int ticks, float transition, boolean applyTransform)
     {
+        BBSRendering.setLensOverscanScale(1F);
+
         if (camera != null)
         {
             this.position.set(camera);
@@ -90,6 +93,8 @@ public abstract class CameraWorkCameraController implements ICameraController
     {
         if (BBSSettings.editorFisheyeWidenFov == null || !BBSSettings.editorFisheyeWidenFov.get())
         {
+            BBSRendering.setLensOverscanScale(1F);
+
             return;
         }
 
@@ -105,6 +110,8 @@ public abstract class CameraWorkCameraController implements ICameraController
 
         if (lens <= 0F)
         {
+            BBSRendering.setLensOverscanScale(1F);
+
             return;
         }
 
@@ -113,6 +120,7 @@ public abstract class CameraWorkCameraController implements ICameraController
         float scale = LensDistortionOverscan.scaleBetweenFovDegrees(fovBefore, fovAfter);
 
         this.position.angle.fov = fovAfter;
+        BBSRendering.setLensOverscanScale(scale);
 
         for (ColorEffect effect : ColorClip.getEffects(this.context))
         {

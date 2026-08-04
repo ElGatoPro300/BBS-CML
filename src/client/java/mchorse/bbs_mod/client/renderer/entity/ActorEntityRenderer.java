@@ -8,16 +8,15 @@ import mchorse.bbs_mod.forms.renderers.FormRenderType;
 import mchorse.bbs_mod.forms.renderers.FormRenderingContext;
 
 import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.render.command.OrderedRenderCommandQueue;
+import net.minecraft.client.render.VertexConsumerProvider;
 import net.minecraft.client.render.entity.EntityRenderer;
 import net.minecraft.client.render.entity.EntityRendererFactory;
 import net.minecraft.client.render.entity.LivingEntityRenderer;
-import net.minecraft.client.render.entity.model.BipedEntityModel;
+import net.minecraft.client.render.entity.model.ArmorEntityModel;
 import net.minecraft.client.render.entity.model.ElytraEntityModel;
 import net.minecraft.client.render.entity.model.EntityModelLayers;
 import net.minecraft.client.render.entity.state.EntityRenderState;
 import net.minecraft.client.render.entity.state.LivingEntityRenderState;
-import net.minecraft.client.render.state.CameraRenderState;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.entity.EntityPose;
 import net.minecraft.util.Identifier;
@@ -37,7 +36,6 @@ public class ActorEntityRenderer extends EntityRenderer<ActorEntity, ActorEntity
         public boolean isSleeping;
     }
 
-    /* ArmorEntityModel removed in 1.21.11
     public static ArmorRenderer armorRenderer;
 
     public ActorEntityRenderer(EntityRendererFactory.Context ctx)
@@ -53,12 +51,6 @@ public class ActorEntityRenderer extends EntityRenderer<ActorEntity, ActorEntity
 
         // this.shadowRadius = 0.5F;
     }
-    */
-
-    public ActorEntityRenderer(EntityRendererFactory.Context ctx)
-    {
-        super(ctx);
-    }
 
     @Override
     public ActorEntityState createRenderState() {
@@ -71,7 +63,7 @@ public class ActorEntityRenderer extends EntityRenderer<ActorEntity, ActorEntity
         state.entity = entity;
         state.tickDelta = tickDelta;
         state.bodyYaw = entity.bodyYaw;
-        //state.prevBodyYaw = entity.prevBodyYaw;
+        state.prevBodyYaw = entity.prevBodyYaw;
         state.deathTime = (float)entity.deathTime;
         state.isSleeping = entity.isInPose(EntityPose.SLEEPING);
     }
@@ -82,7 +74,7 @@ public class ActorEntityRenderer extends EntityRenderer<ActorEntity, ActorEntity
     }
 
     @Override
-    public void render(ActorEntityState state, MatrixStack matrices, OrderedRenderCommandQueue queue, CameraRenderState cameraState)
+    public void render(ActorEntityState state, MatrixStack matrices, VertexConsumerProvider vertexConsumers, int light)
     {
         ActorEntity livingEntity = state.entity;
         if (livingEntity == null) return;
@@ -96,17 +88,31 @@ public class ActorEntityRenderer extends EntityRenderer<ActorEntity, ActorEntity
 
         this.setupTransforms(livingEntity, matrices, bodyYaw, tickDelta);
 
-        //GlStateManager._enableBlend();
-        //GlStateManager._enableDepthTest();
-        //FormUtilsClient.render(livingEntity.getForm(), new FormRenderingContext()
-        //    .set(FormRenderType.ENTITY, livingEntity.getEntity(), matrices, state.light, overlay, tickDelta)
-        //    .camera(MinecraftClient.getInstance().gameRenderer.getCamera()));
-        //GlStateManager._disableDepthTest();
-        //GlStateManager._disableBlend();
+        RenderSystem.enableBlend();
+        RenderSystem.enableDepthTest();
+        FormUtilsClient.render(livingEntity.getForm(), new FormRenderingContext()
+            .set(FormRenderType.ENTITY, livingEntity.getEntity(), matrices, light, overlay, tickDelta)
+            .camera(MinecraftClient.getInstance().gameRenderer.getCamera()));
+
+        if (livingEntity.getEntity().getFireTicks() > 0)
+        {
+            MorphFireRenderer.render(
+                matrices,
+                vertexConsumers,
+                livingEntity.getEntity(),
+                livingEntity.getForm(),
+                tickDelta,
+                MinecraftClient.getInstance().gameRenderer.getCamera(),
+                false
+            );
+        }
+
+        RenderSystem.disableDepthTest();
+        RenderSystem.disableBlend();
 
         matrices.pop();
 
-        super.render(state, matrices, queue, cameraState);
+        super.render(state, matrices, vertexConsumers, light);
     }
 
     protected boolean isVisible(ActorEntity entity)

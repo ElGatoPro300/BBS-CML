@@ -12,6 +12,7 @@ import mchorse.bbs_mod.camera.controller.CameraController;
 import mchorse.bbs_mod.client.BBSRendering;
 import mchorse.bbs_mod.client.BBSShaders;
 import mchorse.bbs_mod.client.PendingFilmLaunch;
+import mchorse.bbs_mod.client.StructurePickerClient;
 import mchorse.bbs_mod.client.renderer.ModelBlockEntityRenderer;
 import mchorse.bbs_mod.client.renderer.TriggerBlockEntityRenderer;
 import mchorse.bbs_mod.client.renderer.entity.ActorEntityRenderer;
@@ -19,7 +20,6 @@ import mchorse.bbs_mod.client.renderer.entity.GunProjectileEntityRenderer;
 import mchorse.bbs_mod.client.renderer.item.GunItemRenderer;
 import mchorse.bbs_mod.client.renderer.item.ModelBlockItemRenderer;
 import mchorse.bbs_mod.cubic.model.ModelManager;
-import mchorse.bbs_mod.cubic.render.vao.ModelVAORenderer;
 import mchorse.bbs_mod.discord.DiscordPresenceManager;
 import mchorse.bbs_mod.events.BBSAddonMod;
 import mchorse.bbs_mod.events.register.RegisterClientSettingsEvent;
@@ -88,6 +88,7 @@ import mchorse.bbs_mod.settings.values.IValueListener;
 import mchorse.bbs_mod.text.RtlFontManager;
 import mchorse.bbs_mod.ui.UIKeys;
 import mchorse.bbs_mod.ui.dashboard.UIDashboard;
+import mchorse.bbs_mod.ui.dashboard.WorldPropertiesHelper;
 import mchorse.bbs_mod.ui.dashboard.panels.UIDashboardPanel;
 import mchorse.bbs_mod.ui.film.UIFilmPanel;
 import mchorse.bbs_mod.ui.film.replays.UIMobCaptureRecordOverlayPanel;
@@ -107,12 +108,15 @@ import mchorse.bbs_mod.ui.utils.icons.Icons;
 import mchorse.bbs_mod.ui.utils.keys.KeyCombo;
 import mchorse.bbs_mod.ui.utils.keys.KeybindSettings;
 import mchorse.bbs_mod.utils.MathUtils;
+import mchorse.bbs_mod.utils.MatrixStackUtils;
 import mchorse.bbs_mod.utils.RecentAssetsTracker;
 import mchorse.bbs_mod.utils.ScreenshotRecorder;
 import mchorse.bbs_mod.utils.VideoRecorder;
 import mchorse.bbs_mod.utils.colors.Color;
 import mchorse.bbs_mod.utils.colors.Colors;
 import mchorse.bbs_mod.utils.interps.Interpolations;
+import mchorse.bbs_mod.utils.iris.IrisUtils;
+import mchorse.bbs_mod.utils.iris.ShaderOpacityPatch;
 import mchorse.bbs_mod.utils.resources.MinecraftSourcePack;
 
 import net.fabricmc.api.ClientModInitializer;
@@ -123,8 +127,9 @@ import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
 import net.fabricmc.fabric.api.client.rendering.v1.BlockEntityRendererRegistry;
 import net.fabricmc.fabric.api.client.rendering.v1.EntityRendererRegistry;
 import net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback;
-import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderEvents;
+import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents;
 import net.fabricmc.fabric.api.event.player.AttackBlockCallback;
+import net.fabricmc.fabric.api.event.player.UseBlockCallback;
 import net.fabricmc.fabric.api.resource.ResourceManagerHelper;
 import net.fabricmc.fabric.api.resource.SimpleSynchronousResourceReloadListener;
 import net.fabricmc.fabric.impl.client.rendering.BlockEntityRendererRegistryImpl;
@@ -134,10 +139,14 @@ import net.fabricmc.loader.api.metadata.ModMetadata;
 import net.fabricmc.loader.api.metadata.Person;
 
 import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.gl.ShaderProgramKeys;
 import net.minecraft.client.network.ClientPlayerEntity;
 import net.minecraft.client.option.KeyBinding;
 import net.minecraft.client.render.BufferBuilder;
+import net.minecraft.client.render.BufferRenderer;
+import net.minecraft.client.render.GameRenderer;
 import net.minecraft.client.render.Tessellator;
+import net.minecraft.client.render.VertexFormat;
 import net.minecraft.client.render.VertexFormats;
 import net.minecraft.client.render.block.entity.BlockEntityRendererFactories;
 import net.minecraft.client.render.item.model.special.SpecialModelTypes;
@@ -154,8 +163,10 @@ import net.minecraft.util.ActionResult;
 import net.minecraft.util.Hand;
 import net.minecraft.util.Identifier;
 
-import com.mojang.blaze3d.opengl.GlStateManager;
-import com.mojang.blaze3d.vertex.VertexFormat;
+import org.joml.Matrix4f;
+import org.joml.Matrix4fStack;
+
+import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.serialization.MapCodec;
 
 import org.lwjgl.glfw.GLFW;
@@ -203,8 +214,6 @@ public class BBSModClient implements ClientModInitializer
     private static KeyBinding keyTeleport;
     private static KeyBinding keyZoom;
     private static KeyBinding keyToggleReplayHud;
-
-    private static final KeyBinding.Category KEY_CATEGORY = KeyBinding.Category.create(Identifier.of(BBSMod.MOD_ID, "main"));
 
     private static UIDashboard dashboard;
 
@@ -326,6 +335,11 @@ public class BBSModClient implements ClientModInitializer
             dashboard = new UIDashboard();
         }
 
+        return dashboard;
+    }
+
+    public static UIDashboard peekDashboard()
+    {
         return dashboard;
     }
 
@@ -458,7 +472,32 @@ public class BBSModClient implements ClientModInitializer
                 return ActionResult.SUCCESS;
             }
 
+            if (player.getStackInHand(hand).getItem() == BBSMod.STRUCTURE_PICKER_ITEM)
+            {
+                if (world.isClient)
+                {
+                    return StructurePickerClient.onAttackBlock();
+                }
+
+                return ActionResult.SUCCESS;
+            }
+
             return ActionResult.PASS;
+        });
+
+        UseBlockCallback.EVENT.register((player, world, hand, hitResult) ->
+        {
+            if (!world.isClient)
+            {
+                if (player.getStackInHand(hand).getItem() == BBSMod.STRUCTURE_PICKER_ITEM)
+                {
+                    return ActionResult.SUCCESS;
+                }
+
+                return ActionResult.PASS;
+            }
+
+            return StructurePickerClient.onUseBlock(hitResult, player.isSneaking());
         });
 
         FabricLoader.getInstance()
@@ -550,6 +589,23 @@ public class BBSModClient implements ClientModInitializer
 
         BBSSettings.discordPresence.postCallback((v, f) -> DiscordPresenceManager.INSTANCE.onSettingsChanged());
         BBSSettings.discordApplicationId.postCallback((v, f) -> DiscordPresenceManager.INSTANCE.onSettingsChanged());
+
+        if (BBSSettings.irisOpacityFix != null)
+        {
+            BBSSettings.irisOpacityFix.postCallback((v, f) -> IrisUtils.reloadShaders());
+        }
+
+        if (BBSSettings.shaderShadowOpacity != null)
+        {
+            BBSSettings.shaderShadowOpacity.postCallback((v, f) ->
+                ShaderOpacityPatch.syncShadowOpacityDefault());
+        }
+
+        if (BBSSettings.worldGammaPercent != null)
+        {
+            WorldPropertiesHelper.setGammaPercent(BBSSettings.worldGammaPercent.get());
+        }
+
         IValueListener refreshModelHover = (v, f) ->
         {
             if (!UISettingsOverlayPanel.isDeferringLiveSettings())
@@ -567,6 +623,20 @@ public class BBSModClient implements ClientModInitializer
 
         BBSSettings.editorTimelineToolbar.postCallback((v, f) -> TimelineToolbarDockSync.applySettingsChange());
 
+        BBSSettings.editorSeparateReplayPropertiesPanel.postCallback((v, f) ->
+        {
+            if (dashboard != null && dashboard.getPanels().panel instanceof UIFilmPanel panel)
+            {
+                panel.applySeparateReplayPropertiesPanelSetting();
+            }
+        });
+        BBSSettings.editorEmbeddedKeyframeSidePanel.postCallback((v, f) ->
+        {
+            if (dashboard != null && dashboard.getPanels().panel instanceof UIFilmPanel panel)
+            {
+                panel.applyEmbeddedKeyframeSidePanelSetting();
+            }
+        });
         BBSSettings.tooltipStyle.modes(
             UIKeys.ENGINE_TOOLTIP_STYLE_LIGHT,
             UIKeys.ENGINE_TOOLTIP_STYLE_DARK
@@ -576,6 +646,12 @@ public class BBSModClient implements ClientModInitializer
             UIKeys.CONFIG_GENERAL_COMPACTED_OPTIONS_DEFAULT,
             UIKeys.CONFIG_GENERAL_COMPACTED_OPTIONS_SEPARATED,
             UIKeys.CONFIG_GENERAL_COMPACTED_OPTIONS_COMPACTED
+        );
+
+        BBSSettings.gizmoStyle.modes(
+            UIKeys.CONFIG_AXES_GIZMO_STYLE_1,
+            UIKeys.CONFIG_AXES_GIZMO_STYLE_2,
+            UIKeys.CONFIG_AXES_GIZMO_STYLE_3
         );
 
         BBSSettings.editorTimeMode.modes(
@@ -618,10 +694,7 @@ public class BBSModClient implements ClientModInitializer
 
         WorldRenderEvents.AFTER_ENTITIES.register((context) ->
         {
-            if (!BBSRendering.isIrisShadersEnabled())
-            {
-                BBSRendering.renderCoolStuff(context);
-            }
+            BBSRendering.renderCoolStuff(context);
 
             if (BBSRendering.isChromaSkyEnabled())
             {
@@ -629,7 +702,7 @@ public class BBSModClient implements ClientModInitializer
 
                 if (d > 0)
                 {
-                    MatrixStack stack = context.matrices();
+                    MatrixStack stack = context.matrixStack();
                     Color color = Colors.COLOR.set(BBSRendering.getChromaSkyColor());
 
                     stack.push();
@@ -640,6 +713,7 @@ public class BBSModClient implements ClientModInitializer
                     peek.getNormalMatrix().identity();
                     stack.translate(0F, 0F, -d);
 
+                    RenderSystem.enableDepthTest();
                     BufferBuilder builder = Tessellator.getInstance().begin(VertexFormat.DrawMode.TRIANGLES, VertexFormats.POSITION_COLOR);
 
                     float fov = MinecraftClient.getInstance().options.getFov().getValue();
@@ -653,7 +727,19 @@ public class BBSModClient implements ClientModInitializer
                         color.r, color.g, color.b, 1F
                     );
 
-                    Draw.flush(builder, Draw.getPositionColorLayer());
+                    RenderSystem.setShader(ShaderProgramKeys.POSITION_COLOR);
+
+                    Matrix4fStack mvStack = RenderSystem.getModelViewStack();
+                    mvStack.pushMatrix();
+                    mvStack.identity();
+                    MatrixStackUtils.applyModelViewMatrix();
+
+                    BufferRenderer.drawWithGlobalProgram(builder.end());
+
+                    mvStack.popMatrix();
+                    MatrixStackUtils.applyModelViewMatrix();
+
+                    RenderSystem.disableDepthTest();
 
                     stack.pop();
                 }
@@ -663,33 +749,32 @@ public class BBSModClient implements ClientModInitializer
         /* Soft-opacity forms wait until water/lava/portals are drawn; flush here (not inside
          * renderLayer) so WorldRenderer's pose stack stays balanced. Under Iris this also
          * runs after pack cloud composite; vanilla holds until LAST (after vanilla clouds). */
-        /* TODO: AFTER_TRANSLUCENT and LAST not available in 1.21.11 WorldRenderEvents */
-        /* WorldRenderEvents.AFTER_TRANSLUCENT.register((context) ->
+        WorldRenderEvents.AFTER_TRANSLUCENT.register((context) ->
         {
             ShaderOpacityPatch.onAfterTranslucentTerrain();
         });
 
         WorldRenderEvents.LAST.register((context) ->
-        { */
+        {
             /* Vanilla only: soft forms deferred past AFTER_TRANSLUCENT so clouds are not
              * depth-occluded. Iris already flushed; paint overlays still run at world end. */
-            /* ShaderOpacityPatch.onAfterVanillaClouds();
+            ShaderOpacityPatch.onAfterVanillaClouds();
 
-            Draw.flushIrisBoxes(); */
+            Draw.flushIrisBoxes();
 
             if (Gizmo.INSTANCE.hasDeferred())
             {
-                GlStateManager._enableDepthTest();
-                GlStateManager._depthMask(false);
-                Gizmo.INSTANCE.renderDeferred(new MatrixStack());
-                GlStateManager._depthMask(true);
+                RenderSystem.enableDepthTest();
+                RenderSystem.depthMask(false);
+                Gizmo.INSTANCE.renderDeferred(context.matrixStack());
+                RenderSystem.depthMask(true);
             }
 
             if (videoRecorder.isRecording() && BBSRendering.canRender)
             {
                 videoRecorder.recordFrame();
             }
-        /* }); */
+        });
 
         ClientPlayConnectionEvents.JOIN.register((handler, sender, client) ->
         {
@@ -712,7 +797,11 @@ public class BBSModClient implements ClientModInitializer
         ClientTickEvents.START_CLIENT_TICK.register((client) ->
         {
             BBSRendering.startTick();
-            TriggerBlockEntityRenderer.capturedTriggerBlocks.clear();
+
+            if (!client.isPaused())
+            {
+                TriggerBlockEntityRenderer.capturedTriggerBlocks.clear();
+            }
         });
 
         ClientTickEvents.END_WORLD_TICK.register((client) ->
@@ -750,6 +839,8 @@ public class BBSModClient implements ClientModInitializer
                 textures.update();
             }
 
+            StructurePickerClient.tick(mc);
+
             while (keyDashboard.wasPressed()) UIScreen.open(getDashboard());
             while (keyItemEditor.wasPressed()) this.keyOpenModelBlockEditor(mc);
             while (keyPlayFilm.wasPressed()) this.keyPlayFilm();
@@ -757,21 +848,12 @@ public class BBSModClient implements ClientModInitializer
             while (keyRecordReplay.wasPressed()) this.keyRecordReplay();
             while (keyRecordVideo.wasPressed())
             {
-                int width = BBSRendering.getVideoWidth();
-                int height = BBSRendering.getVideoHeight();
+                Window window = mc.getWindow();
+                int width = Math.max(window.getWidth(), 2);
+                int height = Math.max(window.getHeight(), 2);
 
-                if (width % 2 == 1)
-                {
-                    width -= 1;
-                }
-
-                if (height % 2 == 1)
-                {
-                    height -= 1;
-                }
-
-                width = Math.max(width, 2);
-                height = Math.max(height, 2);
+                if (width % 2 == 1) width -= width % 2;
+                if (height % 2 == 1) height -= height % 2;
 
                 videoRecorder.toggleRecording(BBSRendering.getTexture().id, width, height);
                 BBSRendering.setCustomSize(videoRecorder.isRecording(), width, height);
@@ -810,13 +892,13 @@ public class BBSModClient implements ClientModInitializer
             }
         });
 
-        HudRenderCallback.EVENT.register((drawContext, tickDelta) ->
+        HudRenderCallback.EVENT.register((drawContext, tickCounter) ->
         {
-            BBSRendering.renderHud(drawContext, tickDelta.getTickProgress(false));
+            BBSRendering.renderHud(drawContext, tickCounter.getTickDelta(false));
 
             if (gunZoom != null)
             {
-                gunZoom.update(keyZoom.isPressed(), MinecraftClient.getInstance().getRenderTickCounter().getDynamicDeltaTicks());
+                gunZoom.update(keyZoom.isPressed(), tickCounter.getLastFrameDuration());
 
                 if (gunZoom.canBeRemoved())
                 {
@@ -904,7 +986,6 @@ public class BBSModClient implements ClientModInitializer
         EntityRendererRegistry.register(BBSMod.ACTOR_ENTITY, (ctx) -> new ActorEntityRenderer(ctx));
         EntityRendererRegistry.register(BBSMod.GUN_PROJECTILE_ENTITY, (ctx) -> new GunProjectileEntityRenderer(ctx));
 
-        /* Block entity renderers */
         BlockEntityRendererFactories.register(BBSMod.MODEL_BLOCK_ENTITY, ModelBlockEntityRenderer::new);
         BlockEntityRendererFactories.register(BBSMod.TRIGGER_BLOCK_ENTITY, TriggerBlockEntityRenderer::new);
 
@@ -932,7 +1013,7 @@ public class BBSModClient implements ClientModInitializer
             "key." + BBSMod.MOD_ID + "." + id,
             InputUtil.Type.KEYSYM,
             key,
-            KEY_CATEGORY
+            "category." + BBSMod.MOD_ID + ".main"
         ));
     }
 
@@ -942,7 +1023,7 @@ public class BBSModClient implements ClientModInitializer
             "key." + BBSMod.MOD_ID + "." + id,
             InputUtil.Type.MOUSE,
             button,
-            KEY_CATEGORY
+            "category." + BBSMod.MOD_ID + ".main"
         ));
     }
 
@@ -1012,15 +1093,39 @@ public class BBSModClient implements ClientModInitializer
                     return;
                 }
 
-                UIMobCaptureRecordOverlayPanel.openInGame((setup) ->
+                UIFilmPanel filmPanel = dashboard.getPanel(UIFilmPanel.class);
+
+                if (filmPanel == null || filmPanel.getData() == null)
                 {
-                    UIFilmPanel filmPanel = dashboard.getPanel(UIFilmPanel.class);
+                    return;
+                }
 
-                    if (filmPanel == null || filmPanel.getData() == null)
+                if (BBSSettings.recordingMobCaptureOnAlt.get())
+                {
+                    UIMobCaptureRecordOverlayPanel.openInGame((setup) ->
                     {
-                        return;
-                    }
+                        if (filmPanel.getData() == null)
+                        {
+                            return;
+                        }
 
+                        Replay replay = filmPanel.replayEditor.getReplay();
+
+                        if (replay == null)
+                        {
+                            replay = getSelectedReplay();
+                        }
+
+                        int index = filmPanel.getData().replays.getList().indexOf(replay);
+
+                        if (index >= 0)
+                        {
+                            getFilms().startRecording(filmPanel.getData(), index, 0);
+                        }
+                    });
+                }
+                else
+                {
                     Replay replay = filmPanel.replayEditor.getReplay();
 
                     if (replay == null)
@@ -1034,7 +1139,7 @@ public class BBSModClient implements ClientModInitializer
                     {
                         getFilms().startRecording(filmPanel.getData(), index, 0);
                     }
-                });
+                }
             }
         }
     }
@@ -1218,14 +1323,12 @@ public class BBSModClient implements ClientModInitializer
         {
             MinecraftClient client = MinecraftClient.getInstance();
 
-            if (client != null && client.options != null && client.options.language != null && !client.options.language.isEmpty())
+            if (client == null || client.options == null)
             {
-                key = client.options.language;
+                return "";
             }
-            else
-            {
-                key = L10n.DEFAULT_LANGUAGE;
-            }
+
+            key = client.options.language;
         }
 
         return key;

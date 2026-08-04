@@ -32,7 +32,7 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 
-import sun.misc.Unsafe; // NOSONAR - required for FFmpeg pipe access;
+import sun.misc.Unsafe;
 
 public class VideoRecorder
 {

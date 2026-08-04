@@ -19,20 +19,26 @@ import mchorse.bbs_mod.forms.renderers.utils.FormColorEffects;
 import mchorse.bbs_mod.particles.ParticleScheme;
 import mchorse.bbs_mod.resources.Link;
 import mchorse.bbs_mod.ui.framework.UIContext;
+import mchorse.bbs_mod.utils.MathUtils;
 import mchorse.bbs_mod.utils.MatrixStackUtils;
 import mchorse.bbs_mod.utils.colors.Color;
 import mchorse.bbs_mod.utils.interps.Lerps;
 import mchorse.bbs_mod.utils.iris.ShaderCurves;
+import mchorse.bbs_mod.utils.iris.ShaderOpacityPatch;
 import mchorse.bbs_mod.utils.math.Noise;
 
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gl.ShaderProgram;
+import net.minecraft.client.gl.ShaderProgramKey;
+import net.minecraft.client.gl.ShaderProgramKeys;
 import net.minecraft.client.render.BufferBuilder;
-import net.minecraft.client.render.BuiltBuffer;
+import net.minecraft.client.render.BufferRenderer;
 import net.minecraft.client.render.DiffuseLighting;
+import net.minecraft.client.render.GameRenderer;
 import net.minecraft.client.render.LightmapTextureManager;
 import net.minecraft.client.render.OverlayTexture;
 import net.minecraft.client.render.Tessellator;
+import net.minecraft.client.render.VertexFormat;
 import net.minecraft.client.render.VertexFormats;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.util.math.RotationAxis;
@@ -41,15 +47,28 @@ import org.joml.Matrix3f;
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
 
-import com.mojang.blaze3d.vertex.VertexFormat;
+import com.mojang.blaze3d.systems.RenderSystem;
 
+import org.lwjgl.opengl.GL11;
+
+import java.util.Random;
 import java.util.function.Supplier;
 
 public class ShapeFormRenderer extends FormRenderer<ShapeForm>
 {
+    private enum OverlayVertexMode
+    {
+        NONE,
+        PAINT,
+        COLOR_TINT
+    }
+
     private ShapeGraphEvaluator evaluator;
     private float time;
     private Noise randomNoise = new Noise(0);
+    private boolean unshadedVertices;
+    private OverlayVertexMode overlayVertexMode = OverlayVertexMode.NONE;
+    private EffectTransform overlayTransform;
 
     public ShapeFormRenderer(ShapeForm form)
     {
@@ -59,7 +78,7 @@ public class ShapeFormRenderer extends FormRenderer<ShapeForm>
     @Override
     protected void renderInUI(UIContext context, int x1, int y1, int x2, int y2)
     {
-        MatrixStack stack = new MatrixStack();
+        MatrixStack stack = context.batcher.getContext().getMatrices();
         int scale = (y2 - y1) / 2;
 
         stack.push();
@@ -71,15 +90,15 @@ public class ShapeFormRenderer extends FormRenderer<ShapeForm>
         stack.multiply(RotationAxis.POSITIVE_X.rotationDegrees(20));
 
         /* Shading fix for UI */
-        Vector3f normalScale = new Vector3f();
-        stack.peek().getNormalMatrix().getScale(normalScale);
-        stack.peek().getNormalMatrix().scale(1F / normalScale.x, -1F / normalScale.y, 1F / normalScale.z);
+        MatrixStackUtils.invertUiNormalY(stack);
 
-        MinecraftClient.getInstance().gameRenderer.getDiffuseLighting().setShaderLights(DiffuseLighting.Type.ENTITY_IN_UI);
+        Vector3f light0 = new Vector3f(0.85F, 0.85F, -1F).normalize();
+        Vector3f light1 = new Vector3f(-0.85F, 0.85F, 1F).normalize();
+        RenderSystem.setupLevelDiffuseLighting(light0, light1);
 
-        this.renderShape(stack, OverlayTexture.DEFAULT_UV, LightmapTextureManager.MAX_LIGHT_COORDINATE);
+        this.renderShape(stack, ShaderProgramKeys.RENDERTYPE_ENTITY_TRANSLUCENT, OverlayTexture.DEFAULT_UV, LightmapTextureManager.MAX_LIGHT_COORDINATE);
 
-        MinecraftClient.getInstance().gameRenderer.getDiffuseLighting().setShaderLights(DiffuseLighting.Type.LEVEL);
+        DiffuseLighting.disableGuiDepthLighting();
 
         stack.pop();
     }
@@ -87,10 +106,17 @@ public class ShapeFormRenderer extends FormRenderer<ShapeForm>
     @Override
     protected void render3D(FormRenderingContext context)
     {
-        this.renderShape(context.stack, context.overlay, context.light);
+        ShaderProgramKey shader = ShaderProgramKeys.RENDERTYPE_ENTITY_TRANSLUCENT;
+
+        this.renderShape(context.stack, shader, context.overlay, context.light, context);
     }
 
-    private void renderShape(MatrixStack stack, int overlay, int light)
+    private void renderShape(MatrixStack stack, ShaderProgramKey shader, int overlay, int light)
+    {
+        this.renderShape(stack, shader, overlay, light, null);
+    }
+
+    private void renderShape(MatrixStack stack, ShaderProgramKey shader, int overlay, int light, FormRenderingContext renderContext)
     {
         this.evaluator = new ShapeGraphEvaluator(this.form.graph.get());
         
@@ -110,6 +136,31 @@ public class ShapeFormRenderer extends FormRenderer<ShapeForm>
                 }
             }
         }
+
+        RenderSystem.setShader(shader);
+        RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
+        RenderSystem.enableBlend();
+
+        GlowSettings glowSettings = this.form.glowSettings.get();
+        Color legacyGlow = this.form.glowingColor.get();
+        float glowIntensity = glowSettings.resolveIntensity(legacyGlow);
+        boolean positiveGlow = glowIntensity > 0F;
+
+        if (this.form.lighting.get())
+        {
+            RenderSystem.blendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE);
+        }
+        else
+        {
+            RenderSystem.defaultBlendFunc();
+        }
+        
+        RenderSystem.disableCull();
+        RenderSystem.enableDepthTest();
+
+        GameRenderer gameRenderer = MinecraftClient.getInstance().gameRenderer;
+        gameRenderer.getLightmapTextureManager().enable();
+        gameRenderer.getOverlayTexture().setupOverlayColor();
 
         // Bind texture — material node overrides the form's static texture
         Link texture = this.form.texture.get();
@@ -269,7 +320,7 @@ public class ShapeFormRenderer extends FormRenderer<ShapeForm>
             /* No-shader / opaque Iris path: depthMask true like vanilla. */
             if (BBSRendering.needsBbsModelForLowOpacity(c.a))
             {
-                RenderSystem.setShader(BBSShaders::getModel);
+                RenderSystem.setShader(BBSShaders.getModel());
             }
 
             RenderSystem.enableDepthTest();
@@ -286,9 +337,9 @@ public class ShapeFormRenderer extends FormRenderer<ShapeForm>
             {
                 Color glowColor = FormColorEffects.resolveGlowOverlayEmissionColor(glowSettings, legacyGlow, c.a, glowIntensity);
                 float shaderScale = FormColorEffects.resolveGlowOverlayShaderScale(glowIntensity);
-                Supplier<ShaderProgram> unshadedShader = GameRenderer::getPositionTexColorProgram;
+                Supplier<ShaderProgram> unshadedShader = () -> { RenderSystem.setShader(ShaderProgramKeys.POSITION_TEX_COLOR); return RenderSystem.getShader(); };
 
-                RenderSystem.setShader(unshadedShader);
+                RenderSystem.setShader(unshadedShader.get());
                 RenderSystem.blendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE);
                 RenderSystem.depthMask(false);
                 RenderSystem.setShaderColor(shaderScale, shaderScale, shaderScale, 1F);
@@ -354,7 +405,7 @@ public class ShapeFormRenderer extends FormRenderer<ShapeForm>
             BBSModClient.getTextures().bindTexture(ParticleScheme.DEFAULT_TEXTURE);
         }
 
-        RenderSystem.setShader(shader);
+        RenderSystem.setShader(shader.get());
         RenderSystem.enableBlend();
 
         if (lighting)
@@ -383,7 +434,7 @@ public class ShapeFormRenderer extends FormRenderer<ShapeForm>
             Color glowColor = FormColorEffects.resolveGlowOverlayEmissionColor(glowSettings, legacyGlow, color.a, glowIntensity);
             float shaderScale = FormColorEffects.resolveGlowOverlayShaderScale(glowIntensity);
 
-            RenderSystem.setShader(GameRenderer::getPositionTexColorProgram);
+            RenderSystem.setShader(ShaderProgramKeys.POSITION_TEX_COLOR);
             RenderSystem.blendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE);
             RenderSystem.depthMask(false);
             RenderSystem.setShaderColor(shaderScale, shaderScale, shaderScale, 1F);
@@ -425,15 +476,6 @@ public class ShapeFormRenderer extends FormRenderer<ShapeForm>
         {
             this.renderCylinder(builder, stack, true, c, overlay, light);
         }
-        
-        BuiltBuffer built = builder.endNullable();
-
-        if (built != null)
-        {
-            BBSShaders.getModelLayer().draw(built);
-        }
-        
-        stack.pop();
     }
 
     private void renderVolumeParticles(BufferBuilder builder, MatrixStack stack, ShapeForm.ShapeType type, Color c, int overlay, int light)
@@ -967,7 +1009,7 @@ public class ShapeFormRenderer extends FormRenderer<ShapeForm>
     
     private void vertex(BufferBuilder builder, Matrix4f matrix, Matrix3f normalMatrix, float x, float y, float z, float u, float v, float nx, float ny, float nz, Color c, int overlay, int light)
     {
-        if (this.evaluator != null)
+        if (this.evaluator != null && this.overlayVertexMode == OverlayVertexMode.NONE)
         {
             float disp = (float) this.evaluator.compute(x, y, z, this.time);
             int color = this.evaluator.computeColor(x, y, z, this.time);
@@ -977,6 +1019,14 @@ public class ShapeFormRenderer extends FormRenderer<ShapeForm>
                 c = new Color().set(color);
             }
             
+            x += nx * disp;
+            y += ny * disp;
+            z += nz * disp;
+        }
+        else if (this.evaluator != null)
+        {
+            float disp = (float) this.evaluator.compute(x, y, z, this.time);
+
             x += nx * disp;
             y += ny * disp;
             z += nz * disp;

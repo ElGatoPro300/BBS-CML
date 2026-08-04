@@ -14,7 +14,8 @@ import mchorse.bbs_mod.utils.MathUtils;
 import mchorse.bbs_mod.utils.clips.ClipContext;
 import mchorse.bbs_mod.utils.colors.Colors;
 
-import org.joml.Matrix3x2fStack;
+import net.minecraft.client.util.math.MatrixStack;
+import net.minecraft.util.math.RotationAxis;
 
 import java.util.List;
 
@@ -105,6 +106,9 @@ public class ScreenEffectRenderer
 
         /* Vignette, color grade and film grain via shader pass */
         ColorGradeRenderer.apply(effects, grainEffects);
+        /* Must run even when letterbox follows — letterbox is PositionColor only and
+         * does not repair the texture-unit desync that breaks Subtitle text baking. */
+        ColorGradeRenderer.resyncMinecraftState(batcher);
 
         /* Letterbox bars */
         for (LetterboxEffect effect : letterboxEffects)
@@ -132,16 +136,16 @@ public class ScreenEffectRenderer
 
         if (transformed)
         {
-            Matrix3x2fStack stack = batcher.getContext().getMatrices();
+            MatrixStack stack = batcher.getContext().getMatrices();
 
-            stack.pushMatrix();
-            stack.translate(effect.offsetX * screenW, effect.offsetY * screenH);
-            stack.translate(screenW / 2F, screenH / 2F);
-            stack.rotate(MathUtils.toRad(effect.rotation));
-            stack.scale(zoom, zoom);
-            stack.translate(-screenW / 2F, -screenH / 2F);
+            stack.push();
+            stack.translate(effect.offsetX * screenW, effect.offsetY * screenH, 0F);
+            stack.translate(screenW / 2F, screenH / 2F, 0F);
+            stack.multiply(RotationAxis.POSITIVE_Z.rotation(MathUtils.toRad(effect.rotation)));
+            stack.scale(zoom, zoom, 1F);
+            stack.translate(-screenW / 2F, -screenH / 2F, 0F);
             renderLetterboxBars(batcher, effect, screenW, screenH, barH);
-            stack.popMatrix();
+            stack.pop();
         }
         else
         {
@@ -192,16 +196,16 @@ public class ScreenEffectRenderer
 
         if (transformed)
         {
-            Matrix3x2fStack stack = batcher.getContext().getMatrices();
+            MatrixStack stack = batcher.getContext().getMatrices();
 
-            stack.pushMatrix();
-            stack.translate(effect.offsetX * screenW, effect.offsetY * screenH);
-            stack.translate(screenW / 2F, screenH / 2F);
-            stack.rotate(MathUtils.toRad(effect.rotation));
-            stack.scale(zoom, zoom);
-            stack.translate(-screenW / 2F, -screenH / 2F);
+            stack.push();
+            stack.translate(effect.offsetX * screenW, effect.offsetY * screenH, 0F);
+            stack.translate(screenW / 2F, screenH / 2F, 0F);
+            stack.multiply(RotationAxis.POSITIVE_Z.rotation(MathUtils.toRad(effect.rotation)));
+            stack.scale(zoom, zoom, 1F);
+            stack.translate(-screenW / 2F, -screenH / 2F, 0F);
             renderEyeMask(batcher, effect, screenW, screenH, blink);
-            stack.popMatrix();
+            stack.pop();
         }
         else
         {

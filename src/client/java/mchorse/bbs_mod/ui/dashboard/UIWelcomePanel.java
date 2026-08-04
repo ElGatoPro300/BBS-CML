@@ -18,6 +18,7 @@ import mchorse.bbs_mod.utils.colors.Colors;
 
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawContext;
+import net.minecraft.client.render.RenderLayer;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.util.Identifier;
 
@@ -120,7 +121,8 @@ public class UIWelcomePanel extends UIElement {
 
     private void drawPlayerHead(DrawContext drawContext, Identifier skinTexture, int x, int y, int size)
     {
-        /* TODO 1.21.11: RenderLayer::getGuiTextured removed */
+        drawContext.drawTexture(RenderLayer::getGuiTextured, skinTexture, x, y, 8F, 8F, size, size, 8, 8, 64, 64);
+        drawContext.drawTexture(RenderLayer::getGuiTextured, skinTexture, x, y, 40F, 8F, size, size, 8, 8, 64, 64);
     }
 
     @Override
@@ -162,12 +164,11 @@ public class UIWelcomePanel extends UIElement {
             }
 
             MinecraftClient mc = MinecraftClient.getInstance();
-            String username = mc.player != null ? mc.player.getGameProfile().name() : mc.getSession().getUsername();
+            String username = mc.player != null ? mc.player.getGameProfile().getName() : mc.getSession().getUsername();
             Identifier skinTexture = null;
             if (mc.player != null) {
                 try {
-                    /* TODO 1.21.11: skin provider API changed */
-                    // skinTexture = mc.getSkinProvider().getSkinTextures(mc.player.getGameProfile()).texture();
+                    skinTexture = mc.getSkinProvider().getSkinTextures(mc.player.getGameProfile()).texture();
                 } catch (Exception e) {
                 }
             }
@@ -189,7 +190,7 @@ public class UIWelcomePanel extends UIElement {
             float drawX = (realX / scale) - (totalW / 2.0F);
             float drawY = greetRealY / scale;
 
-            MatrixStack matrices = new MatrixStack();
+            MatrixStack matrices = context.batcher.getContext().getMatrices();
             matrices.push();
             matrices.scale(scale, scale, 1.0F);
 

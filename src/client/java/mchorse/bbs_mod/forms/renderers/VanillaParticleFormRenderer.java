@@ -1,6 +1,5 @@
 package mchorse.bbs_mod.forms.renderers;
 
-import mchorse.bbs_mod.client.BBSRendering;
 import mchorse.bbs_mod.forms.ITickable;
 import mchorse.bbs_mod.forms.entities.IEntity;
 import mchorse.bbs_mod.forms.forms.VanillaParticleForm;
@@ -26,6 +25,7 @@ import net.minecraft.item.Items;
 import net.minecraft.particle.BlockStateParticleEffect;
 import net.minecraft.particle.DustColorTransitionParticleEffect;
 import net.minecraft.particle.DustParticleEffect;
+import net.minecraft.particle.EntityEffectParticleEffect;
 import net.minecraft.particle.ItemStackParticleEffect;
 import net.minecraft.particle.ParticleEffect;
 import net.minecraft.particle.ParticleType;
@@ -113,40 +113,22 @@ public class VanillaParticleFormRenderer extends FormRenderer<VanillaParticleFor
             Vector3f translation = positionMatrix.getTranslation(new Vector3f());
 
             this.pos.set(
-                translation.x + (float) realCamera.getCameraPos().x,
-                translation.y + (float) realCamera.getCameraPos().y,
-                translation.z + (float) realCamera.getCameraPos().z
+                translation.x + (float) realCamera.getPos().x,
+                translation.y + (float) realCamera.getPos().y,
+                translation.z + (float) realCamera.getPos().z
             );
         }
         else
         {
             positionMatrix = new Matrix4f(context.stack.peek().getPositionMatrix());
 
-            if (BBSRendering.isIrisShadersEnabled() && BBSRendering.isRenderingWorld())
-            {
-                positionMatrix = BBSRendering.stripTerrainPositionMatrix(positionMatrix);
-            }
-
             Vector3f translation = positionMatrix.getTranslation(new Vector3f());
 
-            if (BBSRendering.isIrisShadersEnabled() && BBSRendering.isRenderingWorld())
-            {
-                net.minecraft.client.render.Camera gameCamera = MinecraftClient.getInstance().gameRenderer.getCamera();
-
-                this.pos.set(
-                    translation.x + gameCamera.getCameraPos().x,
-                    translation.y + gameCamera.getCameraPos().y,
-                    translation.z + gameCamera.getCameraPos().z
-                );
-            }
-            else
-            {
-                this.pos.set(
-                    translation.x + context.camera.position.x,
-                    translation.y + context.camera.position.y,
-                    translation.z + context.camera.position.z
-                );
-            }
+            this.pos.set(
+                translation.x + context.camera.position.x,
+                translation.y + context.camera.position.y,
+                translation.z + context.camera.position.z
+            );
         }
 
         positionMatrix.get3x3(this.rot);

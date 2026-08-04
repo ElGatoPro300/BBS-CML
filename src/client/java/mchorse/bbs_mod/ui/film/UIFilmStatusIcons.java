@@ -3,7 +3,6 @@ package mchorse.bbs_mod.ui.film;
 import mchorse.bbs_mod.BBSSettings;
 import mchorse.bbs_mod.camera.Camera;
 import mchorse.bbs_mod.ui.UIKeys;
-import mchorse.bbs_mod.ui.dashboard.panels.UIDataDashboardPanel;
 import mchorse.bbs_mod.ui.film.toolbar.TimelineInteractionHints;
 import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.ui.framework.elements.UIElement;
@@ -141,10 +140,7 @@ public class UIFilmStatusIcons extends UIElement
 
 
 
-        if (this.panel instanceof UIDataDashboardPanel dataPanel)
-        {
-            dataPanel.save();
-        }
+        this.panel.manualSave();
 
     }
 
@@ -174,7 +170,7 @@ public class UIFilmStatusIcons extends UIElement
 
     {
 
-        if (this.panel.getData() == null)
+        if (this.panel.getData() == null || this.panel.isShowingHomePage())
 
         {
 
@@ -200,7 +196,7 @@ public class UIFilmStatusIcons extends UIElement
 
 
 
-        Vec3d pos = new Vec3d(player.getX(), player.getY(), player.getZ());
+        Vec3d pos = player.getPos();
 
         Vector3d cameraPos = camera.position;
 

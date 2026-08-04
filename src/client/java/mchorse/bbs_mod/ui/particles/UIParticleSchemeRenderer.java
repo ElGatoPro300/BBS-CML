@@ -1,61 +1,37 @@
 package mchorse.bbs_mod.ui.particles;
 
-import mchorse.bbs_mod.client.BBSShaders;
 import mchorse.bbs_mod.graphics.Draw;
-import mchorse.bbs_mod.graphics.InverseView;
 import mchorse.bbs_mod.particles.ParticleScheme;
 import mchorse.bbs_mod.particles.components.expiration.ParticleComponentKillPlane;
 import mchorse.bbs_mod.particles.emitter.ParticleEmitter;
 import mchorse.bbs_mod.ui.framework.UIBaseMenu;
 import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.ui.framework.elements.utils.UIModelRenderer;
+import mchorse.bbs_mod.utils.joml.Vectors;
 
+import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.gl.ShaderProgramKeys;
 import net.minecraft.client.render.BufferBuilder;
+import net.minecraft.client.render.BufferRenderer;
+import net.minecraft.client.render.GameRenderer;
 import net.minecraft.client.render.OverlayTexture;
 import net.minecraft.client.render.Tessellator;
+import net.minecraft.client.render.VertexFormat;
 import net.minecraft.client.render.VertexFormats;
-import net.minecraft.client.texture.NativeImage;
-import net.minecraft.client.texture.NativeImageBackedTexture;
+import net.minecraft.client.util.BufferAllocator;
 import net.minecraft.client.util.math.MatrixStack;
 
 import org.joml.Matrix4f;
+import org.joml.Vector3d;
 import org.joml.Vector3f;
 
-import com.mojang.blaze3d.vertex.VertexFormat;
+import com.mojang.blaze3d.systems.RenderSystem;
 
 public class UIParticleSchemeRenderer extends UIModelRenderer
 {
     public ParticleEmitter emitter;
 
-    /**
-     * A 16x16 fully white texture bound to the particle shader's light map slot
-     * (Sampler2) when previewing particles in the editor. See {@link #renderUserModel}.
-     */
-    private static NativeImageBackedTexture whiteLightmapTexture;
-
     private Vector3f vector = new Vector3f(0, 0, 0);
-
-    private static NativeImageBackedTexture getWhiteLightmapTexture()
-    {
-        if (whiteLightmapTexture == null)
-        {
-            whiteLightmapTexture = new NativeImageBackedTexture("bbs_particle_white_lightmap", 16, 16, false);
-
-            NativeImage image = whiteLightmapTexture.getImage();
-
-            for (int y = 0; y < 16; y++)
-            {
-                for (int x = 0; x < 16; x++)
-                {
-                    image.setColor(x, y, -1);
-                }
-            }
-
-            whiteLightmapTexture.upload();
-        }
-
-        return whiteLightmapTexture;
-    }
 
     public UIParticleSchemeRenderer()
     {
@@ -104,19 +80,40 @@ public class UIParticleSchemeRenderer extends UIModelRenderer
             return;
         }
 
-        this.emitter.setupCameraProperties(this.camera);
-        this.emitter.rotation.identity();
+        /* Temporarily reset camera rotation and position to 0 so CPU billboarding calculations
+         * are relative to the view matrix translation on the stack */
+        float originalPitch = this.camera.rotation.x;
+        float originalYaw = this.camera.rotation.y;
+        double originalX = this.camera.position.x;
+        double originalY = this.camera.position.y;
+        double originalZ = this.camera.position.z;
 
-        /* Seed a fresh 3D MatrixStack with the inverse view. */
-        MatrixStack stack = new MatrixStack();
+        this.camera.rotation.set(0F, 0F, 0F);
+        this.camera.position.set(0D, 0D, 0D);
+
+        this.emitter.setupCameraProperties(this.camera);
+
+        this.camera.rotation.x = originalPitch;
+        this.camera.rotation.y = originalYaw;
+        this.camera.position.set(originalX, originalY, originalZ);
+
+        MinecraftClient.getInstance().gameRenderer.getLightmapTextureManager().enable();
+
+        MatrixStack stack = context.batcher.getContext().getMatrices();
+        Matrix4f modelMatrix = new Matrix4f(stack.peek().getPositionMatrix());
+
+        this.emitter.lastGlobal.set(new Vector3d(modelMatrix.getTranslation(Vectors.TEMP_3F)));
+        this.emitter.rotation.set(modelMatrix);
+        this.emitter.modelRenderer = true;
 
         stack.push();
         stack.loadIdentity();
-        stack.multiplyPositionMatrix(new Matrix4f(InverseView.get()).invert());
 
-        getWhiteLightmapTexture();
-
-        this.emitter.render(VertexFormats.POSITION_TEXTURE_COLOR_LIGHT, BBSShaders.getParticlesLayer(), stack, OverlayTexture.DEFAULT_UV, context.getTransition());
+        RenderSystem.enableBlend();
+        RenderSystem.enableDepthTest();
+        this.emitter.render(VertexFormats.POSITION_TEXTURE_COLOR, () -> RenderSystem.setShader(ShaderProgramKeys.POSITION_TEX_COLOR), stack, OverlayTexture.DEFAULT_UV, context.getTransition());
+        RenderSystem.disableDepthTest();
+        RenderSystem.disableBlend();
 
         stack.pop();
 
@@ -130,10 +127,10 @@ public class UIParticleSchemeRenderer extends UIModelRenderer
 
     private void renderPlane(UIContext context, float a, float b, float c, float d)
     {
-        Matrix4f matrix = new Matrix4f(InverseView.get()).invert();
-        final float alpha = 0.5F;
+        Matrix4f matrix = context.batcher.getContext().getMatrices().peek().getPositionMatrix();
 
         BufferBuilder builder = Tessellator.getInstance().begin(VertexFormat.DrawMode.TRIANGLES, VertexFormats.POSITION_COLOR);
+        final float alpha = 0.5F;
 
         this.calculate(0, 0, a, b, c, d);
         builder.vertex(matrix, this.vector.x, this.vector.y, this.vector.z).color(0, 1, 0, alpha);
@@ -149,7 +146,10 @@ public class UIParticleSchemeRenderer extends UIModelRenderer
         this.calculate(1, 1, a, b, c, d);
         builder.vertex(matrix, this.vector.x, this.vector.y, this.vector.z).color(0, 1, 0, alpha);
 
-        Draw.flush(builder, Draw.getPositionColorNoDepthLayer());
+        RenderSystem.setShader(ShaderProgramKeys.POSITION_COLOR);
+        RenderSystem.disableCull();
+        BufferRenderer.drawWithGlobalProgram(builder.end());
+        RenderSystem.enableCull();
     }
 
     private void calculate(float i, float j, float a, float b, float c, float d)
@@ -181,12 +181,11 @@ public class UIParticleSchemeRenderer extends UIModelRenderer
     {
         super.renderGrid(context);
 
-        if (UIBaseMenu.shouldRenderAxes())
+        if (UIBaseMenu.renderAxes)
         {
-            MatrixStack stack = new MatrixStack();
-
-            stack.multiplyPositionMatrix(new Matrix4f(InverseView.get()).invert());
-            Draw.coolerAxes(stack, 1F, 0.005F);
+            Draw.coolerAxes(context.batcher.getContext().getMatrices(), 1F, 0.01F, 1.01F, 0.02F);
         }
     }
+
+
 }

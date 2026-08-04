@@ -96,7 +96,7 @@ public final class RecorderWorldEffectCapture
         Identifier typeId = Registries.ENTITY_TYPE.getId(entity.getType());
         NbtCompound nbt = new NbtCompound();
 
-        /* TODO(1.21.11): Entity.writeNbt(NbtCompound) removed; entity data now goes through data components */
+        entity.writeNbt(nbt);
 
         for (String key : SUMMON_NBT_STRIP_KEYS)
         {

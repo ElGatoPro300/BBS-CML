@@ -1,28 +1,26 @@
 package mchorse.bbs_mod.forms.renderers;
 
 import mchorse.bbs_mod.BBSModClient;
-import mchorse.bbs_mod.camera.Camera;
 import mchorse.bbs_mod.client.BBSRendering;
 import mchorse.bbs_mod.client.BBSShaders;
 import mchorse.bbs_mod.forms.ITickable;
 import mchorse.bbs_mod.forms.entities.IEntity;
 import mchorse.bbs_mod.forms.forms.ParticleForm;
-import mchorse.bbs_mod.graphics.texture.AdoptedTexture;
-import mchorse.bbs_mod.graphics.texture.Texture;
 import mchorse.bbs_mod.particles.ParticleScheme;
 import mchorse.bbs_mod.particles.emitter.ParticleEmitter;
-import mchorse.bbs_mod.resources.Link;
 import mchorse.bbs_mod.ui.framework.UIContext;
-import mchorse.bbs_mod.utils.MathUtils;
 import mchorse.bbs_mod.utils.MatrixStackUtils;
+import mchorse.bbs_mod.utils.colors.Color;
+import mchorse.bbs_mod.utils.colors.Colors;
 import mchorse.bbs_mod.utils.joml.Vectors;
 
 import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.render.RenderLayer;
-import net.minecraft.client.render.RenderLayers;
+import net.minecraft.client.gl.ShaderProgram;
+import net.minecraft.client.gl.ShaderProgramKeys;
+import net.minecraft.client.render.GameRenderer;
+import net.minecraft.client.render.VertexFormat;
 import net.minecraft.client.render.VertexFormats;
 import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.util.Identifier;
 import net.minecraft.world.World;
 
 import org.joml.Matrix4f;
@@ -30,7 +28,6 @@ import org.joml.Vector3d;
 import org.joml.Vector3f;
 
 import com.mojang.blaze3d.systems.RenderSystem;
-import com.mojang.blaze3d.vertex.VertexFormat;
 
 import java.util.function.Supplier;
 
@@ -97,7 +94,7 @@ public class ParticleFormRenderer extends FormRenderer<ParticleForm> implements 
 
         if (emitter != null)
         {
-            MatrixStack stack = new MatrixStack();
+            MatrixStack stack = context.batcher.getContext().getMatrices();
             int scale = (y2 - y1) / 2;
 
             stack.push();
@@ -107,7 +104,10 @@ public class ParticleFormRenderer extends FormRenderer<ParticleForm> implements 
             this.updateTexture(context.getTransition());
             emitter.lastGlobal.set(new Vector3f(0, 0, 0));
             emitter.rotation.identity();
+
+            emitter.setGlow(this.form.glowSettings.get(), this.form.glowingColor.get(), 1F);
             emitter.renderUI(stack, context.getTransition());
+            emitter.clearGlow();
 
             stack.pop();
         }
@@ -133,76 +133,100 @@ public class ParticleFormRenderer extends FormRenderer<ParticleForm> implements 
 
             this.updateTexture(context.getTransition());
 
-            boolean irisWorld = BBSRendering.isIrisShadersEnabled() && BBSRendering.isRenderingWorld();
-            Matrix4f stackMatrix = new Matrix4f(context.stack.peek().getPositionMatrix());
-
-            if (irisWorld && !context.relative && !context.modelRenderer)
+            boolean useGameCamera = !context.modelRenderer && context.type != FormRenderType.PREVIEW;
+            
+            if (useGameCamera)
             {
-                /* Iris bakes the terrain matrix into the stack; strip it before
-                 * rebuilding the camera-relative transform (same as MorphFireRenderer). */
-                stackMatrix = BBSRendering.stripTerrainPositionMatrix(stackMatrix);
+                /* For game rendering, use the main camera for emitter properties to ensure
+                 * correct yaw/pitch for billboards (avoiding 180 degree flip in Camera wrapper) */
+                emitter.setupCameraProperties(MinecraftClient.getInstance().gameRenderer.getCamera());
             }
-
-            Matrix4f matrix = new Matrix4f(MatrixStackUtils.getInverseViewRotationMatrix());
-
-            matrix.mul(stackMatrix);
-
-            Vector3d translation = new Vector3d(matrix.getTranslation(Vectors.TEMP_3F));
-
-            if (!context.modelRenderer)
+            else
             {
-                if (irisWorld)
+                if (context.modelRenderer)
                 {
-                    /* Keep emitter origin and billboard camera subtraction on the same
-                     * game camera Iris uses for the terrain position matrix. */
-                    net.minecraft.client.render.Camera gameCamera = MinecraftClient.getInstance().gameRenderer.getCamera();
+                    float originalPitch = context.camera.rotation.x;
+                    float originalYaw = context.camera.rotation.y;
+                    double originalX = context.camera.position.x;
+                    double originalY = context.camera.position.y;
+                    double originalZ = context.camera.position.z;
 
-                    translation.add(gameCamera.getCameraPos().x, gameCamera.getCameraPos().y, gameCamera.getCameraPos().z);
+                    context.camera.rotation.set(0, 0, 0);
+                    context.camera.position.set(0, 0, 0);
+
+                    emitter.setupCameraProperties(context.camera);
+
+                    context.camera.rotation.x = originalPitch;
+                    context.camera.rotation.y = originalYaw;
+                    context.camera.position.set(originalX, originalY, originalZ);
                 }
                 else
                 {
-                    translation.add(context.camera.position.x, context.camera.position.y, context.camera.position.z);
+                    emitter.setupCameraProperties(context.camera);
                 }
             }
+
+            Matrix4f modelMatrix = new Matrix4f(context.stack.peek().getPositionMatrix());
+
+            Vector3d translation = new Vector3d(modelMatrix.getTranslation(Vectors.TEMP_3F));
+            
+            if (!context.modelRenderer)
+            {
+                translation.add(context.camera.position.x, context.camera.position.y, context.camera.position.z);
+            }
+
+            GameRenderer gameRenderer = MinecraftClient.getInstance().gameRenderer;
+
+            gameRenderer.getLightmapTextureManager().enable();
+            gameRenderer.getOverlayTexture().setupOverlayColor();
 
             context.stack.push();
             context.stack.loadIdentity();
-            context.stack.multiplyPositionMatrix(MatrixStackUtils.getViewRotationMatrix());
 
             emitter.lastGlobal.set(translation);
-            emitter.rotation.set(matrix);
+            emitter.rotation.set(modelMatrix);
             emitter.modelRenderer = context.modelRenderer;
-            emitter.worldVertices = false;
 
+            Color glowTint = Colors.COLOR.set(context.color, true);
+
+            emitter.setGlow(this.form.glowSettings.get(), this.form.glowingColor.get(), glowTint.a);
+            
             if (!BBSRendering.isIrisShadowPass())
             {
-                boolean billboard = BBSRendering.isIrisShadersEnabled();
-                VertexFormat format = billboard ? VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL : VertexFormats.POSITION_TEXTURE_COLOR_LIGHT;
-                RenderLayer layer = billboard ? RenderLayers.entityTranslucent(this.getParticleTextureId()) : BBSShaders.getParticlesLayer();
+                boolean shadersEnabled = BBSRendering.isIrisShadersEnabled();
+                boolean billboard = shadersEnabled;
 
-                if (context.isPicking())
-                {
-                    /* 1.21.11 render: ParticleEmitter#render only exposes a RenderLayer sink (see
-                     * .port_1.21.11_notes.md #5/#6) with no way to intercept its BuiltBuffer and hand it to
-                     * BBSPickerRenderer, so per-particle picking loses pixel accuracy the same way block/label
-                     * picking does elsewhere in this pass — setupTarget still records the index for whatever
-                     * else consults it, but the particles still draw through their normal RenderLayer. */
-                    this.setupTarget(context, null);
-                }
+                VertexFormat format = true ? VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL : VertexFormats.POSITION_TEXTURE_COLOR_LIGHT;
+                Supplier<ShaderProgram> shader = true
+                    ? this.getShader(
+                        context,
+                        () ->
+                        {
+                            RenderSystem.setShader(ShaderProgramKeys.RENDERTYPE_ENTITY_TRANSLUCENT);
+                            return RenderSystem.getShader();
+                        },
+                        BBSShaders::getPickerBillboardProgram
+                    )
+                    : this.getShader(
+                        context,
+                        () ->
+                        {
+                            RenderSystem.setShader(ShaderProgramKeys.PARTICLE);
+                            return RenderSystem.getShader();
+                        },
+                        BBSShaders::getPickerParticlesProgram
+                    );
 
-                emitter.render(format, layer, context.stack, context.overlay, context.getTransition());
+                emitter.render(format, shader, context.stack, context.overlay, context.getTransition());
             }
 
+            emitter.clearGlow();
+
             context.stack.pop();
+
+            gameRenderer.getLightmapTextureManager().disable();
+            gameRenderer.getOverlayTexture().teardownOverlayColor();
         }
-    }
-
-    private Identifier getParticleTextureId()
-    {
-        Link textureLink = this.emitter.texture != null ? this.emitter.texture : this.emitter.scheme.texture;
-        Texture texture = BBSModClient.getTextures().getTexture(textureLink);
-
-        return AdoptedTexture.identifier(texture);
     }
 
     private void updateTexture(float transition)

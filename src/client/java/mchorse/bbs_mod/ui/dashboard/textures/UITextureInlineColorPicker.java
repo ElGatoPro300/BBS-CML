@@ -19,7 +19,7 @@ public class UITextureInlineColorPicker extends UIColorPicker
 
         this.favorite.setVisible(false);
         this.recent.setVisible(false);
-        /* TODO 1.21.11: UIColorPicker.setupSize() is private — call parent resize or remove */
+        this.setupSize();
     }
 
     @Override

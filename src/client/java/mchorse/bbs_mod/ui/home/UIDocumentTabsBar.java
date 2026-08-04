@@ -110,7 +110,7 @@ public class UIDocumentTabsBar extends UIControlBar
 
         if (this.filmStatusIcons != null && this.dashboard.panels.panel instanceof UIFilmPanel film)
         {
-            show = film.getData() != null;
+            show = film.getData() != null && !film.isShowingHomePage();
         }
 
         int reserve = 0;

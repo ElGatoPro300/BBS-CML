@@ -3,8 +3,6 @@ package mchorse.bbs_mod.client.renderer;
 import mchorse.bbs_mod.forms.entities.IEntity;
 import mchorse.bbs_mod.forms.entities.MCEntity;
 
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.world.ClientWorld;
 import net.minecraft.entity.AnimationState;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityStatuses;
@@ -59,9 +57,9 @@ public final class MorphMobParticles
             return;
         }
 
-        ClientWorld world = MinecraftClient.getInstance().world;
+        World world = morph.getWorld();
 
-        if (world == null)
+        if (world == null || !world.isClient)
         {
             return;
         }
@@ -95,7 +93,7 @@ public final class MorphMobParticles
             double dy = living.getRandom().nextGaussian() * 0.02D;
             double dz = living.getRandom().nextGaussian() * 0.02D;
 
-            world.addParticleClient(ParticleTypes.POOF, x, y, z, dx, dy, dz);
+            world.addParticle(ParticleTypes.POOF, x, y, z, dx, dy, dz);
         }
     }
 
@@ -164,7 +162,7 @@ public final class MorphMobParticles
             }
         }
 
-        World world = MinecraftClient.getInstance().world;
+        World world = morph.getWorld();
 
         if (world == null)
         {
@@ -206,9 +204,9 @@ public final class MorphMobParticles
 
     private static void spawnSonicBoomParticle(Entity entity)
     {
-        ClientWorld world = MinecraftClient.getInstance().world;
+        World world = entity.getWorld();
 
-        if (world == null)
+        if (world == null || !world.isClient)
         {
             return;
         }
@@ -217,7 +215,7 @@ public final class MorphMobParticles
         double y = entity.getY() + entity.getHeight() * 0.5D;
         double z = entity.getZ();
 
-        world.addParticleClient(ParticleTypes.SONIC_BOOM, x, y, z, 0D, 0D, 0D);
+        world.addImportantParticle(ParticleTypes.SONIC_BOOM, x, y, z, 0D, 0D, 0D);
     }
 
     private static boolean isAnimationRunning(AnimationState animationState)

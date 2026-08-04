@@ -34,6 +34,8 @@ import mchorse.bbs_mod.settings.values.base.BaseValue;
 import mchorse.bbs_mod.ui.framework.UIBaseMenu;
 import mchorse.bbs_mod.ui.framework.elements.utils.StencilMap;
 import mchorse.bbs_mod.ui.utils.Gizmo;
+import mchorse.bbs_mod.ui.utils.gizmo.GizmoMatrixUtils;
+import mchorse.bbs_mod.ui.utils.gizmo.TransformOrientation;
 import mchorse.bbs_mod.utils.AABB;
 import mchorse.bbs_mod.utils.CollectionUtils;
 import mchorse.bbs_mod.utils.MathUtils;
@@ -43,6 +45,7 @@ import mchorse.bbs_mod.utils.StringUtils;
 import mchorse.bbs_mod.utils.colors.Color;
 import mchorse.bbs_mod.utils.colors.Colors;
 import mchorse.bbs_mod.utils.interps.Lerps;
+import mchorse.bbs_mod.utils.iris.IrisUtils;
 import mchorse.bbs_mod.utils.joml.Matrices;
 import mchorse.bbs_mod.utils.joml.Vectors;
 import mchorse.bbs_mod.utils.keyframes.Keyframe;
@@ -51,7 +54,7 @@ import mchorse.bbs_mod.utils.pose.Pose;
 import mchorse.bbs_mod.utils.pose.PoseTransform;
 import mchorse.bbs_mod.utils.pose.Transform;
 
-import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderContext;
+import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
 
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.font.TextRenderer;
@@ -62,6 +65,7 @@ import net.minecraft.client.render.OverlayTexture;
 import net.minecraft.client.render.VertexConsumerProvider;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.entity.Entity;
+import net.minecraft.entity.EntityPose;
 import net.minecraft.entity.MovementType;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.particle.BlockStateParticleEffect;
@@ -127,9 +131,9 @@ public abstract class BaseFilmController
             Lerps.lerp(entity.getPrevZ(), entity.getZ(), transition)
         );
 
-        double cx = camera.getCameraPos().x;
-        double cy = camera.getCameraPos().y;
-        double cz = camera.getCameraPos().z;
+        double cx = camera.getPos().x;
+        double cy = camera.getPos().y;
+        double cz = camera.getPos().z;
 
         boolean relative = context.replay != null && context.relative;
 
@@ -150,9 +154,9 @@ public abstract class BaseFilmController
 
             if (context.isShadowPass)
             {
-                cx += camera.getCameraPos().x;
-                cy += camera.getCameraPos().y;
-                cz += camera.getCameraPos().z;
+                cx += camera.getPos().x;
+                cy += camera.getPos().y;
+                cz += camera.getPos().z;
             }
         }
 
@@ -185,6 +189,7 @@ public abstract class BaseFilmController
         if (!relative)
         {
             applyLookAt(context, form, position, target);
+            InverseKinematicsApplier.apply(context, form);
         }
 
         if (context.localGroupTransform != null)
@@ -320,7 +325,7 @@ public abstract class BaseFilmController
 
             if (UIBaseMenu.renderAxes)
             {
-                if (context.bone != null && !context.local)
+                if (context.bone != null && context.orientation == TransformOrientation.PARENT)
                 {
                     Form root = FormUtils.getRoot(form);
                     MatrixCache map = FormUtilsClient.getRenderer(root).collectMatrices(entity, transition);
@@ -336,28 +341,23 @@ public abstract class BaseFilmController
                     if (matrix != null)
                     {
                         stack.push();
+                        MatrixStackUtils.multiply(stack, matrix);
 
-                        try
+                        if (context.map == null)
                         {
-                            MatrixStackUtils.multiply(stack, matrix);
+                            BaseFilmController.renderGizmo(stack, null);
+                        }
+                        else
+                        {
+                            BaseFilmController.renderGizmo(stack, context.map);
+                        }
 
-                            if (context.map == null)
-                            {
-                                Gizmo.INSTANCE.render(stack);
-                            }
-                            else
-                            {
-                                Gizmo.INSTANCE.renderStencil(stack, context.map);
-                            }
-                        }
-                        finally
-                        {
-                            stack.pop();
-                        }
+                        RenderSystem.enableDepthTest();
+                        stack.pop();
                     }
                 }
-                if (context.bone != null) renderAxes(context.bone, context.local, context.map, form, entity, transition, stack);
-                if (context.bone2 != null && context.map == null) renderAxes(context.bone2, context.local2, context.map, form, entity, transition, stack);
+                if (context.bone != null) renderAxes(context.bone, context.orientation, context.map, form, entity, transition, stack);
+                if (context.bone2 != null && context.map == null) renderAxes(context.bone2, context.orientation2, context.map, form, entity, transition, stack);
             }
         }
         finally
@@ -365,16 +365,25 @@ public abstract class BaseFilmController
             stack.pop();
         }
 
-        if (!relative && context.map == null && opacity > 0F && context.shadowRadius > 0F && form.render.get())
+        /* Vanilla blob shadows only without Iris shaders — Comp/BSL use the shadow map.
+         * Blob opacity is the Shadow track only; form Opacity must not fade the ground circle.
+         * Size X/Z are independent (matrix scale); vanilla API only has one radius. */
+        if (!relative && context.map == null && opacity > 0F
+            && (context.shadowRadiusX > 0F || context.shadowRadiusZ > 0F) && form.render.get()
+            && !context.isShadowPass && !IrisUtils.isShaderPackEnabled())
         {
             float shadowOpacity = MathUtils.clamp(opacity * context.shadowOpacity, 0F, 1F);
 
             if (shadowOpacity > 0F)
             {
-                stack.push();
-                stack.translate(position.x - cx, position.y - cy, position.z - cz);
+                double sx = position.x + context.shadowOffsetX;
+                double sy = position.y + context.shadowOffsetY;
+                double sz = position.z + context.shadowOffsetZ;
 
-                ModelBlockEntityRenderer.renderShadow(context.consumers, stack, transition, position.x, position.y, position.z, 0F, 0F, 0F, context.shadowRadius, shadowOpacity);
+                stack.push();
+                stack.translate(sx - cx, sy - cy, sz - cz);
+
+                ModelBlockEntityRenderer.renderShadow(context.consumers, stack, transition, sx, sy, sz, 0F, 0F, 0F, context.shadowRadiusX, context.shadowRadiusZ, shadowOpacity);
 
                 stack.pop();
             }
@@ -390,6 +399,7 @@ public abstract class BaseFilmController
             stack.pop();
         }
 
+        RenderSystem.enableDepthTest();
     }
 
     /**
@@ -611,6 +621,11 @@ public abstract class BaseFilmController
         return matrix;
     }
 
+    /**
+     * World position of the look at target. When an attachment bone is picked, the
+     * bone's matrix is used (which reacts to the target's pose animation), otherwise
+     * the target form's full visual transform is taken into account.
+     */
     private static Vector3d getLookAtTargetPoint(IEntity targetEntity, String attachment, float transition)
     {
         Matrix4f matrix = getMatrixForRenderWithRotation(targetEntity, 0D, 0D, 0D, transition);
@@ -634,7 +649,21 @@ public abstract class BaseFilmController
 
     private static Quaternionf getLookAtTargetRotation(IEntity targetEntity, String attachment, float transition)
     {
-        return null;
+        Matrix4f matrix = getMatrixForRenderWithRotation(targetEntity, 0D, 0D, 0D, transition);
+        Form targetForm = targetEntity.getForm();
+
+        if (targetForm != null)
+        {
+            MatrixCache map = FormUtilsClient.getRenderer(targetForm).collectMatrices(targetEntity, transition);
+            Matrix4f visualMatrix = getLookAtVisualMatrix(map, targetForm, attachment);
+
+            if (visualMatrix != null)
+            {
+                matrix.mul(visualMatrix);
+            }
+        }
+
+        return matrix.getNormalizedRotation(new Quaternionf());
     }
 
     /**
@@ -747,7 +776,7 @@ public abstract class BaseFilmController
         }
     }
 
-    private static void renderAxes(String bone, boolean local, StencilMap stencilMap, Form form, IEntity entity, float transition, MatrixStack stack)
+    private static void renderAxes(String bone, TransformOrientation space, StencilMap stencilMap, Form form, IEntity entity, float transition, MatrixStack stack)
     {
         Form root = FormUtils.getRoot(form);
         MatrixCache map = FormUtilsClient.getRenderer(root).collectMatrices(entity, transition);
@@ -759,29 +788,14 @@ public abstract class BaseFilmController
         }
 
         Matrix4f matrix;
+        Form rootForm = FormUtils.getRoot(form);
+        boolean bobj = rootForm instanceof ModelForm modelForm && ModelFormRenderer.isBobjModel(modelForm);
 
-        if (local)
-        {
-            Matrix4f localMatrix = entry.matrix();
-            Matrix4f originMatrix = entry.origin();
-
-            if (localMatrix != null && originMatrix != null)
-            {
-                matrix = new Matrix4f(localMatrix);
-                matrix.setTranslation(originMatrix.getTranslation(new Vector3f()));
-            }
-            else
-            {
-                matrix = localMatrix != null ? localMatrix : originMatrix;
-            }
-        }
-        else
-        {
-            matrix = entry.origin() != null ? entry.origin() : entry.matrix();
-        }
+        matrix = GizmoMatrixUtils.resolveFilmPoseBoneMatrix(entry, space, bobj);
 
         if (matrix != null)
         {
+            Gizmo.INSTANCE.setActiveOrientation(space);
             stack.push();
             MatrixStackUtils.multiply(stack, matrix);
 
@@ -794,6 +808,7 @@ public abstract class BaseFilmController
                 BaseFilmController.renderGizmo(stack, stencilMap);
             }
 
+            RenderSystem.enableDepthTest();
             stack.pop();
         }
     }
@@ -1014,29 +1029,44 @@ public abstract class BaseFilmController
     private static void renderNameTag(IEntity entity, Text text, MatrixStack matrices, VertexConsumerProvider vertexConsumers, int light)
     {
         boolean sneaking = !entity.isSneaking();
-        float hitboxH = (float) entity.getPickingHitbox().h + 0.5F;
+        float hitboxH = (float) entity.getPickingHitbox().h + (entity.isSneaking() ? 0.25F : 0.5F);
+
 
         matrices.push();
         matrices.translate(0F, hitboxH, 0F);
-        matrices.multiply(MinecraftClient.getInstance().gameRenderer.getCamera().getRotation());
+        matrices.multiply(MinecraftClient.getInstance().getEntityRenderDispatcher().getRotation());
         matrices.scale(0.025F, -0.025F, 0.025F);
 
         Matrix4f matrix4f = matrices.peek().getPositionMatrix();
         TextRenderer textRenderer = MinecraftClient.getInstance().textRenderer;
-        CustomVertexConsumerProvider consumers = FormUtilsClient.getProvider();
 
         float opacity = MinecraftClient.getInstance().options.getTextBackgroundOpacity(0.25F);
         int background = (int) (opacity * 255F) << 24;
         float h = (float) (-textRenderer.getWidth(text) / 2);
 
-        textRenderer.draw(text, h, 0, 0x20ffffff, false, matrix4f, consumers, sneaking ? TextRenderer.TextLayerType.SEE_THROUGH : TextRenderer.TextLayerType.NORMAL, background, light);
+        int maxLight = LightmapTextureManager.MAX_LIGHT_COORDINATE;
 
-        if (sneaking)
-        {
-            textRenderer.draw(text, h, 0, -1, false, matrix4f, consumers, TextRenderer.TextLayerType.NORMAL, 0, light);
-        }
+            RenderSystem.enableBlend();
+            RenderSystem.disableCull();
 
-        consumers.draw();
+            CustomVertexConsumerProvider consumers = FormUtilsClient.getProvider();
+
+            CustomVertexConsumerProvider.hijackVertexFormat((layer) ->
+            {
+                RenderSystem.disableDepthTest();
+            });
+
+            textRenderer.draw(text, h, 0, 0x00FFFFFF, false, matrix4f, consumers, TextRenderer.TextLayerType.NORMAL, background, maxLight);
+            consumers.draw();
+
+            textRenderer.draw(text, h, 0, -1, false, matrix4f, consumers, TextRenderer.TextLayerType.NORMAL, 0, maxLight);
+            consumers.draw();
+
+            CustomVertexConsumerProvider.clearRunnables();
+            RenderSystem.enableDepthTest();
+
+            RenderSystem.enableCull();
+            RenderSystem.disableBlend();
 
         matrices.pop();
     }
@@ -1256,9 +1286,17 @@ public abstract class BaseFilmController
                             double z = replay.keyframes.z.interpolate(replayTick);
                             boolean sneaking = replay.keyframes.sneaking.interpolate(replayTick) > 0;
                             boolean sprinting = replay.keyframes.sprinting.interpolate(replayTick) > 0;
+                            boolean swimming = replay.keyframes.swimming.interpolate(replayTick) > 0;
+                            boolean flying = replay.keyframes.flying.interpolate(replayTick) > 0;
+                            boolean fallFlying = replay.keyframes.fallFlying.interpolate(replayTick) > 0;
+                            boolean crawling = replay.keyframes.crawling.interpolate(replayTick) > 0;
+                            boolean climbing = replay.keyframes.climbing.interpolate(replayTick) > 0;
+                            boolean blocking = replay.keyframes.blocking.interpolate(replayTick) > 0;
+                            boolean sleeping = replay.keyframes.sleeping.interpolate(replayTick) > 0;
+                            boolean riptide = replay.keyframes.riptide.interpolate(replayTick) > 0;
                             boolean grounded = replay.keyframes.grounded.interpolate(replayTick) > 0;
 
-                            Vec3d pos = player.getEntityPos();
+                            Vec3d pos = player.getPos();
 
                             if (!this.paused && (BBSSettings.editorReplayStepSound == null || BBSSettings.editorReplayStepSound.get()))
                             {
@@ -1270,6 +1308,25 @@ public abstract class BaseFilmController
 
                             player.setSneaking(sneaking);
                             player.setSprinting(sprinting);
+                            player.setSwimming(swimming);
+                            player.getAbilities().flying = flying;
+                            player.setFlag(7, fallFlying);
+                            player.setFlag(4, riptide);
+
+                            if (crawling)
+                            {
+                                player.setPose(EntityPose.SWIMMING);
+                            }
+                            else if (sleeping)
+                            {
+                                player.setPose(EntityPose.SLEEPING);
+                            }
+
+                            if (blocking)
+                            {
+                                player.setLivingFlag(1, true);
+                            }
+
                             player.setOnGround(grounded);
 
                             if (player instanceof ClientPlayerEntityAccessor accessor)
@@ -1314,7 +1371,7 @@ public abstract class BaseFilmController
             return;
         }
 
-        this.spawnSprintParticles(replay, ticks, entity.getEntityWorld(), entity.getWidth());
+        this.spawnSprintParticles(replay, ticks, entity.getWorld(), entity.getWidth());
     }
 
     private void spawnSprintParticles(Replay replay, int ticks, World world, double width)
@@ -1362,7 +1419,7 @@ public abstract class BaseFilmController
         double y = yPos + 0.1D;
         double z = zPos + (world.random.nextDouble() - 0.5D) * width;
 
-        world.addParticleClient(new BlockStateParticleEffect(ParticleTypes.BLOCK, world.getBlockState(pos)), false, false, x, y, z, 0D, 0.1D, 0D);
+        world.addParticle(new BlockStateParticleEffect(ParticleTypes.BLOCK, world.getBlockState(pos)), x, y, z, 0D, 0.1D, 0D);
     }
 
     private void spawnReplayStepSound(Replay replay, int ticks, World world)
@@ -1414,14 +1471,14 @@ public abstract class BaseFilmController
         var soundGroup = world.getBlockState(pos).getSoundGroup();
 
         world.playSound(
-            null,
             xPos,
             yPos,
             zPos,
             soundGroup.getStepSound(),
             SoundCategory.PLAYERS,
             soundGroup.getVolume() * 0.15F,
-            soundGroup.getPitch()
+            soundGroup.getPitch(),
+            false
         );
     }
 
@@ -1581,10 +1638,10 @@ public abstract class BaseFilmController
                         player.setHeadYaw(yawHead);
                         player.setPitch(pitch);
                         player.setBodyYaw(yawBody);
-                        player.lastYaw = yawHead;
-                        player.lastHeadYaw = yawHead;
-                        player.lastPitch = pitch;
-                        player.lastBodyYaw = yawBody;
+                        player.prevYaw = yawHead;
+                        player.prevHeadYaw = yawHead;
+                        player.prevPitch = pitch;
+                        player.prevBodyYaw = yawBody;
                     }
                 }
             }
@@ -1608,12 +1665,12 @@ public abstract class BaseFilmController
 
     public void render(WorldRenderContext context)
     {
+        RenderSystem.enableDepthTest();
 
         /* Farther entities first so translucency composites correctly. */
         List<Map.Entry<Integer, IEntity>> sorted = new ArrayList<>(this.entities.entrySet());
-        MinecraftClient mc = MinecraftClient.getInstance();
-        net.minecraft.client.render.Camera camera = mc.gameRenderer.getCamera();
-        float transition = mc.getRenderTickCounter().getTickProgress(false);
+        Camera camera = context.camera();
+        float transition = context.tickCounter().getTickDelta(false);
 
         sorted.sort(Comparator
             .comparing((Map.Entry<Integer, IEntity> entry) ->
@@ -1642,10 +1699,9 @@ public abstract class BaseFilmController
         double x = Lerps.lerp(entity.getPrevX(), entity.getX(), transition);
         double y = Lerps.lerp(entity.getPrevY(), entity.getY(), transition);
         double z = Lerps.lerp(entity.getPrevZ(), entity.getZ(), transition);
-        Vec3d cameraPos = camera.getCameraPos();
-        double dx = x - cameraPos.x;
-        double dy = y - cameraPos.y;
-        double dz = z - cameraPos.z;
+        double dx = x - camera.getPos().x;
+        double dy = y - camera.getPos().y;
+        double dz = z - camera.getPos().z;
 
         return dx * dx + dy * dy + dz * dz;
     }
@@ -1663,7 +1719,7 @@ public abstract class BaseFilmController
 
             FilmControllerContext filmContext = getFilmControllerContext(context, replay, entity);
 
-            filmContext.transition = getTransition(entity, MinecraftClient.getInstance().getRenderTickCounter().getTickProgress(false));
+            filmContext.transition = getTransition(entity, context.tickCounter().getTickDelta(false));
 
             filmContext.stack.push();
 
@@ -1679,8 +1735,6 @@ public abstract class BaseFilmController
             finally
             {
                 filmContext.stack.pop();
-
-                return;
             }
         }
     }
@@ -1917,6 +1971,7 @@ public abstract class BaseFilmController
         merged.b *= overlay.b;
         merged.intensity += overlay.intensity;
         merged.sync = merged.sync || overlay.sync;
+        merged.paintOnly = merged.paintOnly || overlay.paintOnly;
         merged.radius = Math.max(merged.radius, overlay.radius);
         merged.width = Math.max(merged.width, overlay.width);
         merged.height = Math.max(merged.height, overlay.height);
@@ -1937,7 +1992,8 @@ public abstract class BaseFilmController
             current.sync = current.sync || groupPaint.sync;
             current.shaderShadow = PaintSettings.resolveAutoShaderShadow(current.intensity);
             form.paintSettings.setRuntimeValue(current);
-            form.shaderShadow.setRuntimeValue(current.intensity != 0F);
+            /* Keep casting; paint.shaderShadow float is the Complementary flag only. */
+            form.shaderShadow.setRuntimeValue(null);
         }
 
         if (groupGlow != null)
@@ -1949,6 +2005,7 @@ public abstract class BaseFilmController
             current.b *= groupGlow.b;
             current.intensity += groupGlow.intensity;
             current.sync = current.sync || groupGlow.sync;
+            current.paintOnly = current.paintOnly || groupGlow.paintOnly;
             current.radius = Math.max(current.radius, groupGlow.radius);
             current.width = Math.max(current.width, groupGlow.width);
             current.height = Math.max(current.height, groupGlow.height);
@@ -1978,30 +2035,27 @@ public abstract class BaseFilmController
 
     protected FilmControllerContext getFilmControllerContext(WorldRenderContext context, Replay replay, IEntity entity)
     {
-        float tick = replay.getTick(this.getTick()) + this.getTransition(entity, MinecraftClient.getInstance().getRenderTickCounter().getTickProgress(false));
-
-        float shadowSize = Math.max(0F, replay.shadowSize.get());
-        float shadowOpacity = MathUtils.clamp(replay.shadowOpacity.get(), 0F, 1F);
+        float tick = replay.getTick(this.getTick()) + this.getTransition(entity, context.tickCounter().getTickDelta(false));
+        ShadowSettings shadow = resolveShadowSettings(replay, tick);
 
         return FilmControllerContext.instance
             .setup(this.entities, entity, replay, context)
             .film(this.film)
             .propertyTick(tick)
             .filmTick(this.getTick())
-            .shadow(replay.shadow.get(), shadowSize, shadowOpacity)
+            .shadow(replay.shadow.get(), shadow)
             .nameTag(replay.nameTag.get())
             .relative(replay.relative.get());
     }
 
-    public void shutdown()
-    {}
-
+    /**
+     * Interpolated replay shadow settings at {@code tick} (includes keyframes).
+     * Always returns a fresh copy — factory interpolation reuses a shared instance.
+     */
     public static ShadowSettings resolveShadowSettings(Replay replay, float tick)
     {
-        ShadowSettings settings = new ShadowSettings();
-        settings.opacity = MathUtils.clamp(replay.shadowOpacity.get(), 0F, 1F);
-        settings.widthX = Math.max(0F, replay.shadowSize.get());
-        settings.widthZ = Math.max(0F, replay.shadowSizeZ.get());
+        ShadowSettings settings = new ShadowSettings(replay.shadowOpacity.get(), replay.shadowSize.get(), replay.shadowSizeZ.get());
+
         settings.offsetX = replay.shadowOffsetX.get();
         settings.offsetY = replay.shadowOffsetY.get();
         settings.offsetZ = replay.shadowOffsetZ.get();
@@ -2031,6 +2085,24 @@ public abstract class BaseFilmController
 
         return settings;
     }
+
+    public static float resolveShadowSize(Replay replay, float tick)
+    {
+        return resolveShadowSettings(replay, tick).widthX;
+    }
+
+    public static float resolveShadowSizeZ(Replay replay, float tick)
+    {
+        return resolveShadowSettings(replay, tick).widthZ;
+    }
+
+    public static float resolveShadowOpacity(Replay replay, float tick)
+    {
+        return resolveShadowSettings(replay, tick).opacity;
+    }
+
+    public void shutdown()
+    {}
 
     public static enum UpdateMode
     {

@@ -27,7 +27,7 @@ import mchorse.bbs_mod.utils.PlayerUtils;
 import mchorse.bbs_mod.utils.RayTracing;
 import mchorse.bbs_mod.utils.colors.Colors;
 
-import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderContext;
+import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
 
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.render.Camera;
@@ -1022,22 +1022,6 @@ public class UITriggerBlockPanel extends UIDashboardPanel implements IFlightSupp
     @Override public boolean supportsRollFOVControl() { return false; }
 
     @Override
-    public void appear()
-    {
-        super.appear();
-
-        this.dashboard.orbitKeysUI.setEnabled(() -> true);
-    }
-
-    @Override
-    public void disappear()
-    {
-        super.disappear();
-
-        this.dashboard.orbitKeysUI.setEnabled(null);
-    }
-
-    @Override
     public void open()
     {
         super.open();
@@ -1069,76 +1053,54 @@ public class UITriggerBlockPanel extends UIDashboardPanel implements IFlightSupp
 
         this.hovered = null;
 
-        /* TODO 1.21.11: WorldRenderContext.matrixStack() renamed to matrices() */
-        /* if (context.matrices() == null) */
-        if (false)
+        if (context.matrixStack() == null)
         {
             return;
         }
 
         MinecraftClient mc = MinecraftClient.getInstance();
         Camera camera = mc.gameRenderer.getCamera();
-        Vec3d pos = camera.getCameraPos();
+        Vec3d pos = camera.getPos();
 
-        double x = mc.mouse.getX();
-        double y = mc.mouse.getY();
-
-        float fov = mc.options.getFov().getValue();
-        float tanHalfFov = (float) Math.tan(Math.toRadians(fov) / 2.0D);
-        float aspect = (float) mc.getWindow().getWidth() / (float) mc.getWindow().getHeight();
-
-        float ndcX = ((float) x / mc.getWindow().getWidth()) * 2.0F - 1.0F;
-        float ndcY = -(((float) y / mc.getWindow().getHeight()) * 2.0F - 1.0F);
-
-        float f = (float) Math.toRadians(camera.getPitch());
-        float g = (float) Math.toRadians(-camera.getYaw());
-        float h = (float) Math.cos(g);
-        float i = (float) Math.sin(g);
-        float j = (float) Math.cos(f);
-        float k = (float) Math.sin(f);
-        Vector3f forward = new Vector3f(i * j, -k, h * j);
-        Vector3f upWorld = new Vector3f(0F, 1F, 0F);
-        Vector3f right = new Vector3f(forward).cross(upWorld).normalize();
-        Vector3f upCam = new Vector3f(right).cross(forward).normalize();
-
-        Vector3f mouseDirection = new Vector3f(forward)
-            .add(new Vector3f(right).mul(ndcX * tanHalfFov * aspect))
-            .add(new Vector3f(upCam).mul(ndcY * tanHalfFov))
-            .normalize();
+        Vector3f mouseDirection = CameraUtils.getMouseDirection(
+            RenderSystem.getProjectionMatrix(),
+            context.matrixStack().peek().getPositionMatrix(),
+            (int) mc.mouse.getX(), (int) mc.mouse.getY(), 0, 0, mc.getWindow().getWidth(), mc.getWindow().getHeight()
+        );
 
         this.hovered = this.getClosestObject(new Vector3d(pos.x, pos.y, pos.z), mouseDirection);
 
-        context.matrices().push();
-        context.matrices().translate(-pos.x, -pos.y, -pos.z);
+        RenderSystem.enableDepthTest();
+        RenderSystem.enableBlend();
+        RenderSystem.defaultBlendFunc();
+
+        context.matrixStack().push();
+        context.matrixStack().translate(-pos.x, -pos.y, -pos.z);
 
         if (this.entity != null)
         {
-            this.renderBox(context.matrices(), this.entity, 0F, 1F, 0F);
+            this.renderBox(context.matrixStack(), this.entity, 0F, 1F, 0F);
 
             if (this.entity.region.get())
             {
-                this.renderRegionBoxNoDepth(context.matrices(), this.entity, 1F, 1F, 1F);
+                RenderSystem.disableDepthTest();
+                this.renderRegionBox(context.matrixStack(), this.entity, 1F, 1F, 1F);
+                RenderSystem.enableDepthTest();
             }
         }
 
         for (TriggerBlockEntity entity : TriggerBlockEntityRenderer.capturedTriggerBlocks)
         {
-            if (this.entity == entity)
-            {
-                continue;
-            }
+            if (this.entity == entity) continue;
 
-            if (this.hovered == entity)
-            {
-                this.renderBox(context.matrices(), entity, 0F, 1F, 0F);
-            }
-            else
-            {
-                this.renderBox(context.matrices(), entity, -1F, -1F, -1F);
-            }
+            if (this.hovered == entity) this.renderBox(context.matrixStack(), entity, 0F, 1F, 0F);
+            else this.renderBox(context.matrixStack(), entity, -1F, -1F, -1F);
         }
 
-        context.matrices().pop();
+        context.matrixStack().pop();
+
+        RenderSystem.enableDepthTest();
+        RenderSystem.disableBlend();
     }
 
     private void renderBox(MatrixStack stack, TriggerBlockEntity entity, float r, float g, float b)
@@ -1161,26 +1123,14 @@ public class UITriggerBlockPanel extends UIDashboardPanel implements IFlightSupp
         double h = maxY - minY;
         double d = maxZ - minZ;
 
-        if (r == -1)
-        {
-            Draw.renderBox(stack, x, y, z, w, h, d);
-        }
-        else
-        {
-            Draw.renderBox(stack, x, y, z, w, h, d, r, g, b);
-        }
+        if (r == -1) Draw.renderBox(stack, x, y, z, w, h, d);
+        else Draw.renderBox(stack, x, y, z, w, h, d, r, g, b);
     }
 
     private void renderRegionBox(MatrixStack stack, TriggerBlockEntity entity, float r, float g, float b)
     {
         Box box = entity.getRegionBox();
         Draw.renderBox(stack, box.minX, box.minY, box.minZ, box.maxX - box.minX, box.maxY - box.minY, box.maxZ - box.minZ, r, g, b);
-    }
-
-    private void renderRegionBoxNoDepth(MatrixStack stack, TriggerBlockEntity entity, float r, float g, float b)
-    {
-        Box box = entity.getRegionBox();
-        Draw.renderBoxNoDepth(stack, box.minX, box.minY, box.minZ, box.maxX - box.minX, box.maxY - box.minY, box.maxZ - box.minZ, r, g, b, 1F);
     }
 
     protected double getDistance(TriggerBlockEntity object, Vector3d pos, Vector3f dir)
@@ -1225,15 +1175,6 @@ public class UITriggerBlockPanel extends UIDashboardPanel implements IFlightSupp
         if (this.hovered != null && context.mouseButton == 0)
         {
             this.fill(this.hovered, true);
-            return true;
-        }
-
-        int button = this.dashboard.orbitUI.orbit.canStart(context);
-
-        if (button >= 0)
-        {
-            this.dashboard.orbitUI.orbit.start(button, context.mouseX, context.mouseY);
-
             return true;
         }
 

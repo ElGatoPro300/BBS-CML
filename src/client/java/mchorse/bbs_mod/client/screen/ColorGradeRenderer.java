@@ -1,11 +1,19 @@
 package mchorse.bbs_mod.client.screen;
 
+import mchorse.bbs_mod.BBSSettings;
 import mchorse.bbs_mod.camera.clips.screen.ColorEffect;
 import mchorse.bbs_mod.camera.clips.screen.GrainEffect;
+import mchorse.bbs_mod.camera.clips.screen.LensDistortionOverscan;
+import mchorse.bbs_mod.client.BBSRendering;
 import mchorse.bbs_mod.graphics.texture.Texture;
 import mchorse.bbs_mod.graphics.texture.TextureFormat;
+import mchorse.bbs_mod.ui.framework.elements.utils.Batcher2D;
 
 import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.texture.AbstractTexture;
+import net.minecraft.util.Identifier;
+
+import com.mojang.blaze3d.systems.RenderSystem;
 
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL13;
@@ -67,11 +75,15 @@ public class ColorGradeRenderer
             uniform float u_aberration;
             uniform float u_vhs;
             uniform float u_lensDistortion;
+            uniform float u_lensOverscan;
             uniform float u_vintage;
             uniform float u_radialBlur;
             uniform float u_rain;
             uniform float u_dust;
             uniform float u_lightLeak;
+            uniform float u_heatStrength;
+            uniform float u_heatSpeed;
+            uniform float u_heatScale;
             uniform float u_time;
 
             /* --- HSL helpers --- */
@@ -114,9 +126,64 @@ public class ColorGradeRenderer
                 return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453);
             }
 
+            float heatNoise(vec2 p)
+            {
+                vec2 i = floor(p);
+                vec2 f = fract(p);
+                f = f * f * (3.0 - 2.0 * f);
+
+                float a = hash(i);
+                float b = hash(i + vec2(1.0, 0.0));
+                float c = hash(i + vec2(0.0, 1.0));
+                float d = hash(i + vec2(1.0, 1.0));
+
+                return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
+            }
+
+            float heatFbm(vec2 p)
+            {
+                float value = 0.0;
+                float amplitude = 0.5;
+                float frequency = 1.0;
+
+                for (int i = 0; i < 4; i++)
+                {
+                    value += amplitude * heatNoise(p * frequency);
+                    frequency *= 2.0;
+                    amplitude *= 0.5;
+                }
+
+                return value;
+            }
+
             void main()
             {
-                vec2 sampleUV = v_uv + u_distort;
+                /* Fisheye on clean UVs so the screen edges map to the wide-FOV image
+                 * edges. Distort / VHS are applied after. */
+                vec2 distortedUV = v_uv;
+                if (abs(u_lensDistortion) > 0.001)
+                {
+                    vec2 uvOffset = v_uv - vec2(0.5);
+                    float r2 = dot(uvOffset, uvOffset);
+                    float k = u_lensDistortion;
+
+                    if (k > 0.0 && u_lensOverscan > 1.0)
+                    {
+                        float s = u_lensOverscan;
+                        /* Strongest k that still lands on the FOV-matched edge (no stretch). */
+                        float kFit = 2.0 * (s - 1.0);
+                        float kUse = min(k, kFit);
+                        vec2 warped = uvOffset * (1.0 + kUse * r2);
+                        distortedUV = warped / s + vec2(0.5);
+                    }
+                    else
+                    {
+                        vec2 warped = uvOffset * (1.0 + k * r2);
+                        distortedUV = clamp(warped + vec2(0.5), 0.0, 1.0);
+                    }
+                }
+
+                vec2 sampleUV = distortedUV + u_distort;
 
                 /* VHS Horizontal Glitch displacement before sampling */
                 if (u_vhs > 0.001)
@@ -128,15 +195,7 @@ public class ColorGradeRenderer
                     }
                 }
 
-                /* Lens Distortion (Fisheye) warping */
-                vec2 distortedUV = sampleUV;
-                if (abs(u_lensDistortion) > 0.001)
-                {
-                    vec2 uvOffset = sampleUV - vec2(0.5);
-                    float r2 = dot(uvOffset, uvOffset);
-                    distortedUV = uvOffset * (1.0 + u_lensDistortion * r2) + vec2(0.5);
-                    distortedUV = clamp(distortedUV, 0.0, 1.0);
-                }
+                distortedUV = sampleUV;
 
                 /* Lens Dirt & Rain Overlay (Procedural raindrops and static spots refraction) */
                 if (u_rain > 0.001)
@@ -172,6 +231,17 @@ public class ColorGradeRenderer
                             distortedUV += dirtCell * (size - d) * 0.4 * u_rain;
                         }
                     }
+                }
+
+                /* Heat distortion waves (Mine-imator style) */
+                if (u_heatStrength > 0.001)
+                {
+                    float heatTime = u_time * u_heatSpeed;
+                    vec2 distortCoord = distortedUV * u_heatScale + vec2(0.0, heatTime * 0.1);
+                    float noiseX = heatFbm(distortCoord + vec2(heatTime * 0.3, 0.0));
+                    float noiseY = heatFbm(distortCoord + vec2(0.0, heatTime * 0.2));
+                    vec2 heatOffset = (vec2(noiseX, noiseY) * 2.0 - 1.0) * u_heatStrength;
+                    distortedUV = clamp(distortedUV + heatOffset, 0.0, 1.0);
                 }
 
                 /* Chromatic Aberration splitting */
@@ -353,6 +423,8 @@ public class ColorGradeRenderer
             }
             """;
 
+    private static final int SHADER_VERSION = 9;
+    private static int loadedShaderVersion;
     private static boolean initialized;
     private static boolean failed;
     private static int program;
@@ -378,11 +450,15 @@ public class ColorGradeRenderer
     private static int uAberration;
     private static int uVHS;
     private static int uLensDistortion;
+    private static int uLensOverscan;
     private static int uVintage;
     private static int uRadialBlur;
     private static int uRain;
     private static int uDust;
     private static int uLightLeak;
+    private static int uHeatStrength;
+    private static int uHeatSpeed;
+    private static int uHeatScale;
     private static int uTime;
 
     public static void apply(List<ColorEffect> effects, List<GrainEffect> grainEffects)
@@ -411,9 +487,17 @@ public class ColorGradeRenderer
             return;
         }
 
-        if (!initialized)
+        if (!initialized || loadedShaderVersion != SHADER_VERSION)
         {
+            if (program != 0)
+            {
+                GL20.glDeleteProgram(program);
+                program = 0;
+            }
+
+            failed = false;
             init();
+            loadedShaderVersion = SHADER_VERSION;
         }
 
         if (failed)
@@ -434,8 +518,7 @@ public class ColorGradeRenderer
             tempTex.setFilter(GL11.GL_LINEAR);
         }
 
-        /* 1.21.11: Framebuffer.beginWrite(boolean) was removed */
-        // fb.beginWrite(false);
+        fb.beginRead();
         tempTex.bind();
 
         if (tempTex.width != fbW || tempTex.height != fbH)
@@ -445,6 +528,7 @@ public class ColorGradeRenderer
 
         GL11.glCopyTexSubImage2D(GL11.GL_TEXTURE_2D, 0, 0, 0, 0, 0, fbW, fbH);
         tempTex.unbind();
+        fb.beginWrite(false);
 
         /* Accumulate color effects */
         float vigStr = 0F;
@@ -518,11 +602,15 @@ public class ColorGradeRenderer
         float aberration = 0F;
         float vhs = 0F;
         float lensDistortion = 0F;
+        float lensOverscan = 1F;
         float vintage = 0F;
         float radialBlur = 0F;
         float rain = 0F;
         float dust = 0F;
         float lightLeak = 0F;
+        float heatStrength = 0F;
+        float heatSpeed = 0F;
+        float heatScale = 0F;
         float time = 0F;
 
         for (ColorEffect e : effects)
@@ -532,11 +620,15 @@ public class ColorGradeRenderer
                 aberration = Math.max(aberration, e.aberration);
                 vhs = Math.max(vhs, e.vhs);
                 lensDistortion += e.lensDistortion;
+                lensOverscan = Math.max(lensOverscan, e.lensOverscan);
                 vintage = Math.max(vintage, e.vintage);
                 radialBlur = Math.max(radialBlur, e.radialBlur);
                 rain = Math.max(rain, e.rain);
                 dust = Math.max(dust, e.dust);
                 lightLeak = Math.max(lightLeak, e.lightLeak);
+                heatStrength = Math.max(heatStrength, e.heatStrength);
+                heatSpeed = Math.max(heatSpeed, e.heatSpeed);
+                heatScale = Math.max(heatScale, e.heatScale);
                 time = e.time;
             }
         }
@@ -571,12 +663,35 @@ public class ColorGradeRenderer
         GL20.glUniform2f(uDistort, distortX, distortY);
         GL20.glUniform1f(uAberration, aberration);
         GL20.glUniform1f(uVHS, vhs);
+        /* Use the scale actually applied to this frame's camera FOV. */
+        if (lensDistortion > 0F && BBSSettings.editorFisheyeWidenFov != null && BBSSettings.editorFisheyeWidenFov.get())
+        {
+            float rendered = BBSRendering.getLensOverscanScale();
+
+            if (rendered > 1.0001F)
+            {
+                lensOverscan = rendered;
+            }
+            else
+            {
+                lensOverscan = Math.max(lensOverscan, LensDistortionOverscan.overscanScale(lensDistortion));
+            }
+        }
+        else
+        {
+            lensOverscan = 1F;
+        }
+
         GL20.glUniform1f(uLensDistortion, lensDistortion);
+        GL20.glUniform1f(uLensOverscan, lensOverscan);
         GL20.glUniform1f(uVintage, vintage);
         GL20.glUniform1f(uRadialBlur, radialBlur);
         GL20.glUniform1f(uRain, rain);
         GL20.glUniform1f(uDust, dust);
         GL20.glUniform1f(uLightLeak, lightLeak);
+        GL20.glUniform1f(uHeatStrength, heatStrength * 0.006F);
+        GL20.glUniform1f(uHeatSpeed, 0.5F + heatSpeed * 2.0F);
+        GL20.glUniform1f(uHeatScale, 2.0F + heatScale * 35.0F);
         GL20.glUniform1f(uTime, time);
 
         GL30.glBindVertexArray(vao);
@@ -587,6 +702,46 @@ public class ColorGradeRenderer
         tempTex.unbind();
         GL11.glEnable(GL11.GL_BLEND);
         GL11.glViewport(prevViewport[0], prevViewport[1], prevViewport[2], prevViewport[3]);
+        fb.beginWrite(false);
+    }
+
+    /**
+     * ColorGrade binds shaders/textures via raw GL, which desyncs {@link RenderSystem}'s
+     * tracker (GL may have texture 0 while RenderSystem still thinks a previous id is bound).
+     * Subtitle text then skips rebinding the font atlas and bakes a black atlas.
+     * <p>
+     * Image / Hotbar / a second Subtitle only appear to "fix" this because they issue a
+     * {@code PositionTexColor} draw first. Emulate that with an invisible textured pixel.
+     */
+    public static void resyncMinecraftState(Batcher2D batcher)
+    {
+        if (batcher == null)
+        {
+            return;
+        }
+
+        MinecraftClient mc = MinecraftClient.getInstance();
+
+        mc.getFramebuffer().beginWrite(false);
+
+        RenderSystem.enableBlend();
+        RenderSystem.defaultBlendFunc();
+        RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
+
+        /*
+         * Invalidate unit 0 so the following textured draw must call glBindTexture.
+         * A PositionColor-only box is not enough — text needs a live Sampler0 bind path.
+         */
+        RenderSystem.setShaderTexture(0, 0);
+
+        AbstractTexture atlas = mc.getTextureManager().getTexture(Identifier.of("minecraft", "textures/atlas/blocks.png"));
+        int textureId = atlas == null ? 0 : atlas.getGlId();
+
+        if (textureId != 0)
+        {
+            /* Fully transparent 1x1 — no visible flash, forces drawWithGlobalProgram. */
+            batcher.texturedBox(textureId, 0x00000000, 0, 0, 1, 1, 0, 0, 1, 1, 1, 1);
+        }
     }
 
     private static void init()
@@ -656,11 +811,15 @@ public class ColorGradeRenderer
         uAberration = GL20.glGetUniformLocation(program, "u_aberration");
         uVHS = GL20.glGetUniformLocation(program, "u_vhs");
         uLensDistortion = GL20.glGetUniformLocation(program, "u_lensDistortion");
+        uLensOverscan = GL20.glGetUniformLocation(program, "u_lensOverscan");
         uVintage = GL20.glGetUniformLocation(program, "u_vintage");
         uRadialBlur = GL20.glGetUniformLocation(program, "u_radialBlur");
         uRain = GL20.glGetUniformLocation(program, "u_rain");
         uDust = GL20.glGetUniformLocation(program, "u_dust");
         uLightLeak = GL20.glGetUniformLocation(program, "u_lightLeak");
+        uHeatStrength = GL20.glGetUniformLocation(program, "u_heatStrength");
+        uHeatSpeed = GL20.glGetUniformLocation(program, "u_heatSpeed");
+        uHeatScale = GL20.glGetUniformLocation(program, "u_heatScale");
         uTime = GL20.glGetUniformLocation(program, "u_time");
 
         /* Fullscreen quad VAO/VBO (NDC coords + UV) */

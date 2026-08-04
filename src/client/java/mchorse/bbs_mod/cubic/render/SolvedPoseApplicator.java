@@ -50,84 +50,6 @@ public final class SolvedPoseApplicator
         applyWeightedRotations((IModel) model, rootParentRotation, ids, positions, weight);
     }
 
-    /**
-     * Inline replacement for CubicRenderer.applyRotations: orients each cubic bone so its rest
-     * direction (child position - bone position) aligns with the solved IK positions.
-     */
-    public static void applyRotations(Model model, Quaternionf rootParentRotation, List<String> ids, Vector3f[] positions)
-    {
-        if (model == null || rootParentRotation == null || ids == null || positions == null || ids.isEmpty() || positions.length < 2)
-        {
-            return;
-        }
-
-        Quaternionf parentWorld = new Quaternionf(rootParentRotation);
-        int boneCount = ids.size();
-        int rotCount = getRotationCount(ids, positions);
-
-        for (int i = 0; i < rotCount; i++)
-        {
-            ModelGroup bone = model.getGroup(ids.get(i));
-            ModelGroup child = i + 1 < boneCount ? model.getGroup(ids.get(i + 1)) : null;
-
-            if (bone == null)
-            {
-                return;
-            }
-
-            Vector3f restDirLocal = new Vector3f(0F, -1F, 0F);
-
-            if (child != null)
-            {
-                restDirLocal.set(
-                    (child.initial.translate.x - bone.initial.translate.x) / 16F,
-                    (child.initial.translate.y - bone.initial.translate.y) / 16F,
-                    (child.initial.translate.z - bone.initial.translate.z) / 16F
-                );
-            }
-
-            Vector3f desiredDirWorld = new Vector3f(positions[i + 1]).sub(positions[i]);
-
-            if (restDirLocal.lengthSquared() < 1.0e-6f * 1.0e-6f || desiredDirWorld.lengthSquared() < 1.0e-6f * 1.0e-6f)
-            {
-                parentWorld.mul(toLocalRotation(bone.current.rotate, bone.current.rotate2));
-                continue;
-            }
-
-            restDirLocal.normalize();
-            desiredDirWorld.normalize();
-
-            Quaternionf invParent = new Quaternionf(parentWorld).invert();
-            Vector3f desiredDirLocal = new Vector3f(desiredDirWorld);
-
-            invParent.transform(desiredDirLocal);
-
-            if (desiredDirLocal.lengthSquared() < 1.0e-6f * 1.0e-6f)
-            {
-                parentWorld.mul(toLocalRotation(bone.current.rotate, bone.current.rotate2));
-                continue;
-            }
-
-            desiredDirLocal.normalize();
-
-            Quaternionf localRot = QuaternionMath.rotationFromTo(restDirLocal, desiredDirLocal);
-
-            localRot.mul(QuaternionMath.extractTwistComponent(toLocalRotation(bone.current.rotate, bone.current.rotate2), restDirLocal));
-
-            Vector3f eulerDeg = QuaternionMath.decomposeEulerZYX(localRot);
-
-            eulerDeg.x = wrapDegreesNear(eulerDeg.x, bone.current.rotate.x);
-            eulerDeg.y = wrapDegreesNear(eulerDeg.y, bone.current.rotate.y);
-            eulerDeg.z = wrapDegreesNear(eulerDeg.z, bone.current.rotate.z);
-
-            bone.current.rotate.set(eulerDeg);
-            bone.current.rotate2.set(0F, 0F, 0F);
-            bone.orient = null;
-
-            parentWorld.mul(toLocalRotation(bone.current.rotate, bone.current.rotate2));
-        }
-    }
-
     private static void applyWeightedRotationsCubic(Model model, Quaternionf rootParentRotation, List<String> ids, Vector3f[] positions, float factor)
     {
         if (model == null || rootParentRotation == null || ids == null || positions == null || ids.isEmpty() || positions.length < 2)
@@ -137,7 +59,7 @@ public final class SolvedPoseApplicator
 
         if (factor >= 1F - EPS)
         {
-            applyRotations(model, rootParentRotation, ids, positions);
+            CubicRenderer.applyRotations(model, rootParentRotation, ids, positions);
             return;
         }
 
@@ -170,7 +92,7 @@ public final class SolvedPoseApplicator
             baseLocal[i] = toLocalRotation(bone.current.rotate, bone.current.rotate2);
         }
 
-        applyRotations(model, rootParentRotation, ids, positions);
+        CubicRenderer.applyRotations(model, rootParentRotation, ids, positions);
 
         for (int i = 0; i < rotCount; i++)
         {

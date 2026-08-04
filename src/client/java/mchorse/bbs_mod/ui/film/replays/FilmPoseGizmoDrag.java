@@ -245,11 +245,8 @@ public final class FilmPoseGizmoDrag
         }
 
         /* Same depth-based composition as the visual pass, so drags grab the
-         * handle exactly where it is drawn regardless of the shader path.
-         * composeVisualMatrix removed in 1.21.11 — inline: output = projection * camera * gizmo */
-        matrix.set(panel.lastProjection);
-        matrix.mul(BBSRendering.camera);
-        matrix.mul(panel.lastGizmoMatrix);
+         * handle exactly where it is drawn regardless of the shader path. */
+        Gizmo.composeVisualMatrix(panel.lastGizmoMatrix, BBSRendering.camera, panel.lastProjection, matrix);
 
         return true;
     }
@@ -262,11 +259,8 @@ public final class FilmPoseGizmoDrag
         }
 
         /* Same depth-based composition as the visual pass, snapshotted once at drag
-         * start so orbit / transform feedback cannot spin the ray frame.
-         * composeVisualMatrix removed in 1.21.11 — inline: output = projection * camera * gizmo */
-        FilmPoseGizmoDrag.FROZEN_DRAG_GIZMO.set(panel.lastProjection);
-        FilmPoseGizmoDrag.FROZEN_DRAG_GIZMO.mul(BBSRendering.camera);
-        FilmPoseGizmoDrag.FROZEN_DRAG_GIZMO.mul(panel.lastGizmoMatrix);
+         * start so orbit / transform feedback cannot spin the ray frame. */
+        Gizmo.composeVisualMatrix(panel.lastGizmoMatrix, BBSRendering.camera, panel.lastProjection, FilmPoseGizmoDrag.FROZEN_DRAG_GIZMO);
         FilmPoseGizmoDrag.FROZEN_DRAG_VIEW.set(panel.lastView);
         FilmPoseGizmoDrag.hasFrozenDragFrame = true;
     }

@@ -16,6 +16,7 @@ import mchorse.bbs_mod.ui.forms.editors.utils.UIStructureOverlayPanel;
 import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.ui.framework.elements.input.keyframes.UIKeyframeSheet;
 import mchorse.bbs_mod.ui.framework.elements.input.keyframes.UIKeyframes;
+import mchorse.bbs_mod.ui.framework.elements.input.keyframes.factories.UIVisibleRenderKeyframeUtils;
 import mchorse.bbs_mod.ui.framework.elements.input.keyframes.shapes.IKeyframeShapeRenderer;
 import mchorse.bbs_mod.ui.framework.elements.input.keyframes.shapes.KeyframeShapeRenderers;
 import mchorse.bbs_mod.ui.framework.elements.overlay.UIOverlay;
@@ -35,16 +36,20 @@ import mchorse.bbs_mod.utils.colors.Colors;
 import mchorse.bbs_mod.utils.keyframes.Keyframe;
 import mchorse.bbs_mod.utils.keyframes.KeyframeShape;
 
+import net.minecraft.client.gl.ShaderProgramKeys;
 import net.minecraft.client.render.BufferBuilder;
-import net.minecraft.client.render.BuiltBuffer;
-import net.minecraft.client.render.RenderLayers;
+import net.minecraft.client.render.BufferRenderer;
+import net.minecraft.client.render.GameRenderer;
 import net.minecraft.client.render.Tessellator;
+import net.minecraft.client.render.VertexFormat;
 import net.minecraft.client.render.VertexFormats;
-import net.minecraft.client.util.math.MatrixStack;
+import net.minecraft.client.util.BufferAllocator;
 
-import org.joml.Matrix3x2fc;
+import org.joml.Matrix4f;
 
-import com.mojang.blaze3d.vertex.VertexFormat;
+import com.mojang.blaze3d.systems.RenderSystem;
+
+import org.lwjgl.glfw.GLFW;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -75,7 +80,7 @@ public class UIKeyframeDopeSheet implements IUIKeyframeGraph
     private float sidebarDragRatio;
     private int sidebarWidth = SIDEBAR_WIDTH;
 
-    public static IKeyframeShapeRenderer renderShape(Keyframe frame, UIContext context, BufferBuilder builder, Matrix3x2fc matrix, int x, int y, int offset, int c)
+    public static IKeyframeShapeRenderer renderShape(Keyframe frame, UIContext context, BufferBuilder builder, Matrix4f matrix, int x, int y, int offset, int c)
     {
         KeyframeShape keyframeShape = frame.getShape();
         IKeyframeShapeRenderer shape = KeyframeShapeRenderers.SHAPES.get(keyframeShape);
@@ -92,6 +97,12 @@ public class UIKeyframeDopeSheet implements IUIKeyframeGraph
         this.sidebarScrollbar = new Scroll(new Area(), 1, ScrollDirection.HORIZONTAL);
 
         this.setTrackHeight(16);
+    }
+
+    @Override
+    public UIKeyframes getHostKeyframes()
+    {
+        return this.keyframes;
     }
 
     public double getTrackHeight()
@@ -437,6 +448,38 @@ public class UIKeyframeDopeSheet implements IUIKeyframeGraph
     /* Selection */
 
     @Override
+    public void clearSelection()
+    {
+        for (UIKeyframeSheet sheet : this.sheets)
+        {
+            sheet.selection.clear();
+
+            if (sheet.companion != null)
+            {
+                sheet.companion.selection.clear();
+            }
+        }
+
+        this.pickKeyframe(null);
+    }
+
+    @Override
+    public void selectAll()
+    {
+        for (UIKeyframeSheet sheet : this.sheets)
+        {
+            sheet.selection.all();
+
+            if (sheet.companion != null)
+            {
+                sheet.companion.selection.all();
+            }
+        }
+
+        this.pickSelected();
+    }
+
+    @Override
     public void selectByX(int mouseX)
     {
         for (int i = 0; i < sheets.size(); i++)
@@ -454,11 +497,28 @@ public class UIKeyframeDopeSheet implements IUIKeyframeGraph
             {
                 Keyframe keyframe = (Keyframe) keyframes.get(j);
                 int x = this.keyframes.toGraphX(keyframe.getTick());
-                int y = this.getDopeSheetY(i) + (int) this.trackHeight / 2;
+                int y = this.getTrackLineY(sheet, i);
 
                 if (this.isNear(x, y, mouseX, 0, true))
                 {
                     sheet.selection.add(j);
+                }
+            }
+
+            if (sheet.companion != null)
+            {
+                List companionFrames = sheet.companion.channel.getKeyframes();
+
+                for (int j = 0; j < companionFrames.size(); j++)
+                {
+                    Keyframe keyframe = (Keyframe) companionFrames.get(j);
+                    int x = this.keyframes.toGraphX(keyframe.getTick());
+                    int y = this.getTrackLineY(sheet.companion, i);
+
+                    if (this.isNear(x, y, mouseX, 0, true))
+                    {
+                        sheet.companion.selection.add(j);
+                    }
                 }
             }
         }
@@ -480,11 +540,28 @@ public class UIKeyframeDopeSheet implements IUIKeyframeGraph
             {
                 Keyframe keyframe = (Keyframe) keyframes.get(j);
                 int x = this.keyframes.toGraphX(keyframe.getTick());
-                int y = this.getDopeSheetY(i) + (int) this.trackHeight / 2;
+                int y = this.getTrackLineY(sheet, i);
 
                 if (area.isInside(x, y))
                 {
                     sheet.selection.add(j);
+                }
+            }
+
+            if (sheet.companion != null)
+            {
+                List companionFrames = sheet.companion.channel.getKeyframes();
+
+                for (int j = 0; j < companionFrames.size(); j++)
+                {
+                    Keyframe keyframe = (Keyframe) companionFrames.get(j);
+                    int x = this.keyframes.toGraphX(keyframe.getTick());
+                    int y = this.getTrackLineY(sheet.companion, i);
+
+                    if (area.isInside(x, y))
+                    {
+                        sheet.companion.selection.add(j);
+                    }
                 }
             }
         }
@@ -522,11 +599,10 @@ public class UIKeyframeDopeSheet implements IUIKeyframeGraph
     {
         Keyframe keyframe = IUIKeyframeGraph.super.addKeyframe(sheet, tick, value);
 
-        /* TODO: FormUtils.isVisiblePropertyPath and UIVisibleRenderKeyframeUtils not available in 1.21.11 */
-        /* if (keyframe != null && FormUtils.isVisiblePropertyPath(sheet.id))
+        if (keyframe != null && FormUtils.isVisiblePropertyPath(sheet.id))
         {
             UIVisibleRenderKeyframeUtils.syncRenderOnVisibleInsert(sheet.channel, tick);
-        } */
+        }
 
         return keyframe;
     }
@@ -561,14 +637,14 @@ public class UIKeyframeDopeSheet implements IUIKeyframeGraph
         }
 
         List keyframes = sheet.channel.getKeyframes();
-        int i = this.sheets.indexOf(sheet);
+        int i = this.getRowIndex(sheet);
         double radiusSq = Window.isCtrlPressed() ? REMOVE_HIT_RADIUS_SQ : DEFAULT_HIT_RADIUS_SQ;
 
         for (int j = 0; j < keyframes.size(); j++)
         {
             Keyframe keyframe = (Keyframe) keyframes.get(j);
             int x = this.keyframes.toGraphX(keyframe.getTick());
-            int y = this.getDopeSheetY(i) + (int) this.trackHeight / 2;
+            int y = this.getTrackLineY(sheet, i);
 
             if (this.isNear(x, y, mouseX, mouseY, false, radiusSq))
             {
@@ -971,7 +1047,7 @@ public class UIKeyframeDopeSheet implements IUIKeyframeGraph
             return;
         }
 
-        int anchor = Math.round(anchorTick);
+        float anchor = anchorTick;
 
         if (sheets.size() == 1)
         {
@@ -1070,7 +1146,7 @@ public class UIKeyframeDopeSheet implements IUIKeyframeGraph
             return;
         }
 
-        int anchor = Math.round(anchorTick);
+        float anchor = anchorTick;
 
         if (keyframes.size() == 1)
         {
@@ -1190,7 +1266,7 @@ public class UIKeyframeDopeSheet implements IUIKeyframeGraph
     private void renderPreviewKeyframe(UIContext context, UIKeyframeSheet sheet, double tick, int color)
     {
         int x = this.keyframes.toGraphX(tick);
-        int y = this.getDopeSheetY(sheet) + (int) this.trackHeight / 2;
+        int y = this.getTrackLineY(sheet, this.getRowIndex(sheet));
         Area area = this.keyframes.area;
         int minX = area.x + this.sidebarWidth;
 
@@ -1232,17 +1308,13 @@ public class UIKeyframeDopeSheet implements IUIKeyframeGraph
 
         preview.setShape(shape);
 
-        Matrix3x2fc matrix = context.batcher.getContext().getMatrices();
+        Matrix4f matrix = context.batcher.getContext().getMatrices().peek().getPositionMatrix();
         BufferBuilder builder = Tessellator.getInstance().begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_COLOR);
 
+        RenderSystem.enableBlend();
+        RenderSystem.setShader(ShaderProgramKeys.POSITION_COLOR);
         renderShape(preview, context, builder, matrix, x, y, 3, c);
-
-        BuiltBuffer built = builder.endNullable();
-
-        if (built != null)
-        {
-            RenderLayers.debugFilledBox().draw(built);
-        }
+        BufferRenderer.drawWithGlobalProgram(builder.end());
     }
 
     /**
@@ -1260,7 +1332,7 @@ public class UIKeyframeDopeSheet implements IUIKeyframeGraph
 
         Area area = this.keyframes.area;
         this.updateSidebarScrollLimits(context);
-        Matrix3x2fc matrix = context.batcher.getContext().getMatrices();
+        Matrix4f matrix = context.batcher.getContext().getMatrices().peek().getPositionMatrix();
 
         int sidebarX = area.x - this.sidebarScroll;
 
@@ -1422,7 +1494,7 @@ public class UIKeyframeDopeSheet implements IUIKeyframeGraph
 
                     if (rx2 > rx1)
                     {
-                        int y1 = my - 8 + (forcedIndex % 2 == 1 ? -4 : 0);
+                        int y1 = my - 8 + (sheet.companion != null ? 0 : (forcedIndex % 2 == 1 ? -4 : 0));
                         int color = sheet.selection.has(j) ? Colors.WHITE :  Colors.setA(Colors.mulRGB(sheet.color, 0.9F), 0.75F);
 
                         if (rx1 == x1) context.batcher.fillRect(builder, matrix, rx1, y1 - 2, 1, 5, color, color, color, color);
@@ -1490,9 +1562,16 @@ public class UIKeyframeDopeSheet implements IUIKeyframeGraph
                 shapeResult.renderKeyframeBackground(context, builder, matrix, mx, my, 2, mc);
             }
 
-            // GlStateManager._enableBlend();
-            // RenderSystem.setShader(ShaderProgramKeys.POSITION_COLOR);
-            // BufferRenderer.drawWithGlobalProgram(builder.end());
+            RenderSystem.enableBlend();
+            RenderSystem.setShader(ShaderProgramKeys.POSITION_COLOR);
+            BufferRenderer.drawWithGlobalProgram(builder.end());
+
+            if (sheet.companion != null)
+            {
+                int companionLineY = y + (int) (this.trackHeight * COMPANION_LINE_RATIO);
+
+                this.renderCompanionChannel(context, matrix, area, startX, endX, companionLineY, sheet.companion, hover);
+            }
 
             FontRenderer font = context.batcher.getFont();
             String title = this.getEffectiveSidebarTitle(sheet);
@@ -1521,24 +1600,24 @@ public class UIKeyframeDopeSheet implements IUIKeyframeGraph
 
             if (arrow != null)
             {
-                context.batcher.icon(arrow, sidebarX + 4 + sheet.level * LEVEL_INDENT, my - arrow.h / 2);
+                context.batcher.icon(arrow, sidebarX + 4 + sheet.level * LEVEL_INDENT, labelMy - arrow.h / 2);
             }
 
             int currentX = sidebarX + 4 + sheet.level * LEVEL_INDENT + (arrow != null ? arrow.w + 4 : 0);
 
             if (icon != null)
             {
-                context.batcher.icon(icon, currentX, my - icon.h / 2);
+                context.batcher.icon(icon, currentX, labelMy - icon.h / 2);
                 currentX += icon.w + 4;
             }
 
             if (hover)
             {
-                context.batcher.textShadow(displayTitle, currentX, my - font.getHeight() / 2);
+                context.batcher.textShadow(displayTitle, currentX, labelMy - font.getHeight() / 2);
             }
             else
             {
-                context.batcher.textShadow(displayTitle, currentX, my - font.getHeight() / 2, Colors.WHITE & 0xeeffffff);
+                context.batcher.textShadow(displayTitle, currentX, labelMy - font.getHeight() / 2, Colors.WHITE & 0xeeffffff);
             }
 
             if (sheet.companion != null)

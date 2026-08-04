@@ -123,11 +123,11 @@ public class UIHotbarRenderer
         stack.translate(-SCALE_PIVOT_X, -SCALE_PIVOT_Y, 0F);
 
         /* HUD layers must ignore world depth to avoid bottom clipping against terrain. */
-        /* TODO 1.21.11: GlStateManager._disableDepthTest(); */
-        /* TODO 1.21.11: GlStateManager._depthMask(false); */
-        /* TODO 1.21.11: GlStateManager._enableBlend(); */
-        /* TODO 1.21.11: GlStateManager._blendFuncSeparate(770, 771, 1, 0); */
-        /* TODO 1.21.11: RenderSystem.setShaderColor(1F, 1F, 1F, alpha); */
+        RenderSystem.disableDepthTest();
+        RenderSystem.depthMask(false);
+        RenderSystem.enableBlend();
+        RenderSystem.defaultBlendFunc();
+        RenderSystem.setShaderColor(1F, 1F, 1F, alpha);
 
         boolean hasOffhandItem = hotbar.offhandItem != null && !hotbar.offhandItem.isEmpty();
 
@@ -301,15 +301,15 @@ public class UIHotbarRenderer
             }
         }
 
-        /* TODO 1.21.11: batcher.getContext().draw(); */
+        batcher.getContext().draw();
 
-        /* TODO 1.21.11: DiffuseLighting.disableGuiDepthLighting(); */
+        DiffuseLighting.disableGuiDepthLighting();
 
-        /* TODO 1.21.11: GlStateManager._disableDepthTest(); */
-        /* TODO 1.21.11: GlStateManager._depthMask(false); */
-        /* TODO 1.21.11: GlStateManager._disableBlend(); */
+        RenderSystem.disableDepthTest();
+        RenderSystem.depthMask(false);
+        RenderSystem.disableBlend();
 
-        /* TODO 1.21.11: RenderSystem.setShaderColor(1F, 1F, 1F, 1F); */
+        RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
 
         stack.pop();
         batcher.flush();
@@ -351,17 +351,17 @@ public class UIHotbarRenderer
                 iconY -= 2;
             }
 
-            /* TODO 1.21.11: batcher.getContext().drawGuiTexture(RenderLayer::getGuiTextured, empty, iconX, iconY, 9, 9); */
+            batcher.getContext().drawGuiTexture(RenderLayer::getGuiTextured, empty, iconX, iconY, 9, 9);
 
             float current = normalized - i;
 
             if (current >= 1F)
             {
-                /* TODO 1.21.11: batcher.getContext().drawGuiTexture(RenderLayer::getGuiTextured, full, iconX, iconY, 9, 9); */
+                batcher.getContext().drawGuiTexture(RenderLayer::getGuiTextured, full, iconX, iconY, 9, 9);
             }
             else if (current >= 0.5F)
             {
-                /* TODO 1.21.11: batcher.getContext().drawGuiTexture(RenderLayer::getGuiTextured, half, iconX, iconY, 9, 9); */
+                batcher.getContext().drawGuiTexture(RenderLayer::getGuiTextured, half, iconX, iconY, 9, 9);
             }
         }
     }
@@ -399,17 +399,17 @@ public class UIHotbarRenderer
                 iconY += lowHungerShakeRandom.nextInt(2);
             }
 
-            /* TODO 1.21.11: batcher.getContext().drawGuiTexture(RenderLayer::getGuiTextured, empty, iconX, iconY, 9, 9); */
+            batcher.getContext().drawGuiTexture(RenderLayer::getGuiTextured, empty, iconX, iconY, 9, 9);
 
             float current = normalized - i;
 
             if (current >= 1F)
             {
-                /* TODO 1.21.11: batcher.getContext().drawGuiTexture(RenderLayer::getGuiTextured, full, iconX, iconY, 9, 9); */
+                batcher.getContext().drawGuiTexture(RenderLayer::getGuiTextured, full, iconX, iconY, 9, 9);
             }
             else if (current >= 0.5F)
             {
-                /* TODO 1.21.11: batcher.getContext().drawGuiTexture(RenderLayer::getGuiTextured, half, iconX, iconY, 9, 9); */
+                batcher.getContext().drawGuiTexture(RenderLayer::getGuiTextured, half, iconX, iconY, 9, 9);
             }
         }
     }
@@ -439,7 +439,7 @@ public class UIHotbarRenderer
             int iconX = x - i * 8;
             Identifier icon = i < full ? AIR : AIR_BURSTING;
 
-            /* TODO 1.21.11: batcher.getContext().drawGuiTexture(RenderLayer::getGuiTextured, icon, iconX, y, 9, 9); */
+            batcher.getContext().drawGuiTexture(RenderLayer::getGuiTextured, icon, iconX, y, 9, 9);
         }
     }
 }

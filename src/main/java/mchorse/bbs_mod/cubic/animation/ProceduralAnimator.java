@@ -17,7 +17,6 @@ import mchorse.bbs_mod.cubic.data.animation.Animation;
 import mchorse.bbs_mod.cubic.data.animation.Animations;
 import mchorse.bbs_mod.cubic.data.model.Model;
 import mchorse.bbs_mod.cubic.data.model.ModelGroup;
-import mchorse.bbs_mod.cubic.model.IKChainConfig;
 import mchorse.bbs_mod.forms.entities.IEntity;
 import mchorse.bbs_mod.forms.entities.StubEntity;
 import mchorse.bbs_mod.utils.MathUtils;
@@ -61,11 +60,7 @@ public class ProceduralAnimator implements IAnimator
         return Arrays.asList("base_pre", "base_post");
     }
 
-    public void setIKChains(List<IKChainConfig> chains)
-    {
-        /* IK chain configs are consumed by the FABRIK solver during each animation frame. */
-    }
-
+    @Override
     public void setup(IModelInstance model, ActionsConfig actions, boolean fade)
     {
         this.model = model;
@@ -283,7 +278,7 @@ public class ProceduralAnimator implements IAnimator
                     {
                         group.current.rotate.x = 45;
                     }
-                    else if (flyProgress > 0F || target.isFallFlying())
+                    else if (flyProgress > 0F || target.isFallFlying() || target.getEntityPose() == EntityPose.GLIDING)
                     {
                         group.current.rotate.x = this.lerpAngle(flyProgress, -pitch, -pitch + 90F);
                     }
@@ -517,7 +512,7 @@ public class ProceduralAnimator implements IAnimator
                     {
                         bone.transform.rotate.x = -MathUtils.toRad(45);
                     }
-                    else if (flyProgress > 0F || target.isFallFlying())
+                    else if (flyProgress > 0F || target.isFallFlying() || target.getEntityPose() == EntityPose.GLIDING)
                     {
                         bone.transform.rotate.x = -MathUtils.toRad(this.lerpAngle(flyProgress, -pitch, -pitch + 90F));
                     }

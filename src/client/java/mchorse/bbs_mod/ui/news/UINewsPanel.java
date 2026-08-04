@@ -24,6 +24,7 @@ import mchorse.bbs_mod.ui.utils.UI;
 import mchorse.bbs_mod.ui.utils.icons.Icon;
 import mchorse.bbs_mod.ui.utils.icons.Icons;
 import mchorse.bbs_mod.utils.NaturalOrderComparator;
+import mchorse.bbs_mod.utils.RemoteHttp;
 import mchorse.bbs_mod.utils.Timer;
 import mchorse.bbs_mod.utils.colors.Colors;
 import mchorse.bbs_mod.utils.resources.Pixels;
@@ -31,6 +32,7 @@ import mchorse.bbs_mod.utils.resources.Pixels;
 import net.minecraft.client.MinecraftClient;
 
 import com.mojang.blaze3d.systems.RenderSystem;
+import com.mojang.logging.LogUtils;
 
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
@@ -39,10 +41,6 @@ import org.lwjgl.opengl.GL11;
 
 import java.io.InputStream;
 import java.lang.reflect.Type;
-import java.net.URI;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -54,8 +52,12 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 
+import org.slf4j.Logger;
+
 public class UINewsPanel extends UISidebarDashboardPanel
 {
+    private static final Logger LOGGER = LogUtils.getLogger();
+
     private static final String NEWS_URL_BASE = "https://raw.githubusercontent.com/BBSCommunity/CML-NEWS/refs/heads/main/News_Panel/news";
     private static final String PRIORITY_ANNOUNCEMENT_URL_BASE = "https://raw.githubusercontent.com/BBSCommunity/CML-NEWS/refs/heads/main/Priority_Panel/priority_announcement";
 
@@ -251,7 +253,7 @@ public class UINewsPanel extends UISidebarDashboardPanel
             }
             catch (Exception e)
             {
-                e.printStackTrace();
+                LOGGER.debug("Failed to reload news entries", e);
                 MinecraftClient.getInstance().execute(this::populate);
             }
         });
@@ -274,7 +276,7 @@ public class UINewsPanel extends UISidebarDashboardPanel
             }
             catch (Exception e)
             {
-                e.printStackTrace();
+                LOGGER.debug("Failed to fetch priority announcement", e);
             }
 
             PriorityAnnouncement finalAnnouncement = announcement;
@@ -464,23 +466,7 @@ public class UINewsPanel extends UISidebarDashboardPanel
 
     private static String fetchJson(String url)
     {
-        try
-        {
-            HttpClient client = HttpClient.newBuilder().build();
-            HttpRequest req = HttpRequest.newBuilder(URI.create(url))
-                .GET()
-                .build();
-            HttpResponse<String> resp = client.send(req, HttpResponse.BodyHandlers.ofString());
-
-            if (resp.statusCode() == 200)
-            {
-                return resp.body();
-            }
-        }
-        catch (Exception ignored)
-        {}
-
-        return null;
+        return RemoteHttp.fetchString(url);
     }
 
     private static void prefetchImages(List<NewsEntry> entries)
@@ -547,22 +533,24 @@ public class UINewsPanel extends UISidebarDashboardPanel
                         return;
                     }
 
-                    /* TODO 1.21.11: RenderSystem.recordRenderCall removed */
-                    try
+                    RenderSystem.recordRenderCall(() ->
                     {
-                        Texture texture = Texture.textureFromPixels(pixels, GL11.GL_NEAREST);
+                        try
+                        {
+                            Texture texture = Texture.textureFromPixels(pixels, GL11.GL_NEAREST);
 
-                        BBSModClient.getTextures().textures.put(link, texture);
-                    }
-                    catch (Exception exception)
-                    {
-                        exception.printStackTrace();
-                    }
+                            BBSModClient.getTextures().textures.put(link, texture);
+                        }
+                        catch (Exception exception)
+                        {
+                            LOGGER.debug("Failed to upload prefetched news image to GPU", exception);
+                        }
+                    });
                 }
             }
             catch (Exception exception)
             {
-                exception.printStackTrace();
+                LOGGER.debug("Failed to prefetch news image for {}", link, exception);
             }
             finally
             {

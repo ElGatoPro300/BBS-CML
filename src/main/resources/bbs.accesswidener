@@ -22,4 +22,4 @@ accessible field net/minecraft/client/particle/Particle alpha F
 accessible field net/minecraft/client/particle/Particle age I
 accessible field net/minecraft/client/particle/Particle maxAge I
 accessible field net/minecraft/client/particle/Particle dead Z
-accessible method net/minecraft/client/particle/Particle isAlive ()Z
+accessible method net/minecraft/client/particle/Particle isAlive ()Z

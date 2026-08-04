@@ -2,7 +2,6 @@ package mchorse.bbs_mod.forms.renderers;
 
 import mchorse.bbs_mod.BBSModClient;
 import mchorse.bbs_mod.client.BBSRendering;
-import mchorse.bbs_mod.client.render.picker.BBSPickerRenderer;
 import mchorse.bbs_mod.forms.FormUtilsClient;
 import mchorse.bbs_mod.forms.entities.IEntity;
 import mchorse.bbs_mod.forms.forms.BodyPart;
@@ -21,6 +20,7 @@ import mchorse.bbs_mod.utils.interps.Lerps;
 import mchorse.bbs_mod.utils.pose.Transform;
 
 import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.gl.GlUniform;
 import net.minecraft.client.gl.ShaderProgram;
 import net.minecraft.client.network.AbstractClientPlayerEntity;
 import net.minecraft.client.render.LightmapTextureManager;
@@ -29,6 +29,7 @@ import net.minecraft.util.Hand;
 
 import org.joml.Matrix4f;
 
+import com.mojang.blaze3d.platform.GlStateManager;
 import com.mojang.blaze3d.systems.RenderSystem;
 
 import org.lwjgl.opengl.GL11;
@@ -101,13 +102,15 @@ public abstract class FormRenderer <T extends Form>
                 int vw = (int) (iw * rx);
                 int vh = (int) (ih * ry);
 
-                RenderSystem.enableScissorForRenderTypeDraws((int) (vx * size), (int) (vy * size), (int) (vw * size), (int) (vh * size));
+                GlStateManager._enableScissorTest();
+                GlStateManager._scissorBox((int) (vx * size), (int) (vy * size), (int) (vw * size), (int) (vh * size));
                 scissored = true;
             }
             else
             {
                 /* Completely out of bounds, set a 0-size scissor box */
-                RenderSystem.enableScissorForRenderTypeDraws(0, 0, 0, 0);
+                GlStateManager._enableScissorTest();
+                GlStateManager._scissorBox(0, 0, 0, 0);
                 scissored = true;
             }
         }
@@ -119,7 +122,7 @@ public abstract class FormRenderer <T extends Form>
 
         if (scissored)
         {
-            RenderSystem.disableScissorForRenderTypeDraws();
+            GlStateManager._disableScissorTest();
         }
 
         FontRenderer font = context.batcher.getFont();
@@ -156,6 +159,8 @@ public abstract class FormRenderer <T extends Form>
 
     public final void render(FormRenderingContext context)
     {
+        /* Transparent forms skip casting via opacity / vertex alpha in the shadow path.
+         * Color-track paint/blend/grade must not disable Form.shaderShadow. */
         if (!this.form.shaderShadow.get() && BBSRendering.isIrisShadowPass())
         {
             return;
@@ -168,6 +173,13 @@ public abstract class FormRenderer <T extends Form>
 
         this.form.applyStates(context.transition);
 
+        if (!this.form.visible.get())
+        {
+            this.form.unapplyStates();
+
+            return;
+        }
+
         int light = context.light;
         int savedColor = context.color;
         boolean isPicking = context.stencilMap != null;
@@ -175,15 +187,16 @@ public abstract class FormRenderer <T extends Form>
         context.stack.push();
         if (context.world != null)
         {
-            context.color = Colors.setA(context.color, 0F);
+            context.world.push();
         }
-
-        context.stack.push();
-
 
         try
         {
             this.applyTransforms(context.stack, false, context.getTransition());
+            if (context.world != null)
+            {
+                this.applyTransforms(context.world, false, context.getTransition());
+            }
 
             float lf = 1F - MathUtils.clamp(this.form.lighting.get(), 0F, 1F);
             int u = context.light & '\uffff';
@@ -204,13 +217,16 @@ public abstract class FormRenderer <T extends Form>
         finally
         {
             context.stack.pop();
+            if (context.world != null)
+            {
+                context.world.pop();
+            }
+
+            context.light = light;
+            context.color = savedColor;
+
+            this.form.unapplyStates();
         }
-
-
-        context.light = light;
-        context.color = savedColor;
-
-        this.form.unapplyStates();
     }
 
     protected void applyTransforms(MatrixStack stack, boolean origin, float transition)
@@ -277,11 +293,19 @@ public abstract class FormRenderer <T extends Form>
 
     protected void setupTarget(FormRenderingContext context, ShaderProgram program)
     {
-        /* 1.21.11 render: the loose `uniform int Target` the picker shaders used is now the BBSPicker
-         * std140 UBO, uploaded per picker draw by BBSPickerRenderer. Record the active picking index
-         * here — the faithful equivalent of the removed program.getUniform("Target").set(pickingIndex).
-         * The ShaderProgram param is now vestigial (picker programs are RenderPipelines). */
-        BBSPickerRenderer.setTarget(context.getPickingIndex());
+        if (program == null)
+        {
+            return;
+        }
+
+        GlUniform target = program.getUniform("Target");
+
+        if (target != null)
+        {
+            int pickingIndex = context.getPickingIndex();
+
+            target.set(pickingIndex);
+        }
     }
 
     protected void updateStencilMap(FormRenderingContext context)
@@ -294,7 +318,7 @@ public abstract class FormRenderer <T extends Form>
 
     public void renderBodyParts(FormRenderingContext context)
     {
-        for (BodyPart part : this.getSortedBodyParts(context))
+        if (this.form.parts.getAllTyped().isEmpty())
         {
             return;
         }
@@ -327,16 +351,30 @@ public abstract class FormRenderer <T extends Form>
         {
             context.stack.push();
 
+            if (context.world != null)
+            {
+                context.world.push();
+            }
 
             try
             {
                 MatrixStackUtils.applyTransform(context.stack, part.transform.get());
+
+                if (context.world != null)
+                {
+                    MatrixStackUtils.applyTransform(context.world, part.transform.get());
+                }
 
                 FormUtilsClient.render(part.getForm(), context);
             }
             finally
             {
                 context.stack.pop();
+
+                if (context.world != null)
+                {
+                    context.world.pop();
+                }
             }
         }
 

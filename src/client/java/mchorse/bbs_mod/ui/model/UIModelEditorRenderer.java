@@ -2,24 +2,20 @@ package mchorse.bbs_mod.ui.model;
 
 import mchorse.bbs_mod.BBSModClient;
 import mchorse.bbs_mod.BBSSettings;
-import mchorse.bbs_mod.bobj.BOBJBone;
 import mchorse.bbs_mod.client.BBSRendering;
-import mchorse.bbs_mod.client.BBSShaders;
-import mchorse.bbs_mod.client.render.picker.BBSPickerRenderer;
 import mchorse.bbs_mod.cubic.ModelInstance;
 import mchorse.bbs_mod.cubic.animation.ActionsConfig;
-import mchorse.bbs_mod.cubic.animation.IAnimator;
-import mchorse.bbs_mod.cubic.animation.ProceduralAnimator;
 import mchorse.bbs_mod.cubic.data.model.Model;
 import mchorse.bbs_mod.cubic.data.model.ModelCube;
 import mchorse.bbs_mod.cubic.data.model.ModelGroup;
 import mchorse.bbs_mod.cubic.data.model.ModelQuad;
 import mchorse.bbs_mod.cubic.data.model.ModelVertex;
 import mchorse.bbs_mod.cubic.model.ArmorSlot;
-import mchorse.bbs_mod.cubic.model.IKChainConfig;
 import mchorse.bbs_mod.cubic.model.ModelConfig;
+import mchorse.bbs_mod.cubic.model.bobj.BOBJModel;
 import mchorse.bbs_mod.cubic.render.CubicCubeRenderer;
 import mchorse.bbs_mod.cubic.render.ICubicRenderer;
+import mchorse.bbs_mod.data.types.BaseType;
 import mchorse.bbs_mod.data.types.MapType;
 import mchorse.bbs_mod.forms.CustomVertexConsumerProvider;
 import mchorse.bbs_mod.forms.FormUtilsClient;
@@ -30,7 +26,6 @@ import mchorse.bbs_mod.forms.renderers.FormRenderingContext;
 import mchorse.bbs_mod.forms.renderers.ModelFormRenderer;
 import mchorse.bbs_mod.forms.renderers.utils.MatrixCache;
 import mchorse.bbs_mod.forms.renderers.utils.MatrixCacheEntry;
-import mchorse.bbs_mod.graphics.Draw;
 import mchorse.bbs_mod.graphics.texture.Texture;
 import mchorse.bbs_mod.resources.Link;
 import mchorse.bbs_mod.ui.framework.UIBaseMenu;
@@ -51,30 +46,27 @@ import mchorse.bbs_mod.utils.colors.Color;
 import mchorse.bbs_mod.utils.colors.Colors;
 
 import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.item.ItemModelManager;
+import net.minecraft.client.gl.ShaderProgramKeys;
 import net.minecraft.client.network.ClientPlayerEntity;
 import net.minecraft.client.render.BufferBuilder;
+import net.minecraft.client.render.BufferRenderer;
 import net.minecraft.client.render.GameRenderer;
 import net.minecraft.client.render.LightmapTextureManager;
 import net.minecraft.client.render.OverlayTexture;
 import net.minecraft.client.render.Tessellator;
+import net.minecraft.client.render.VertexFormat;
 import net.minecraft.client.render.VertexFormats;
-import net.minecraft.client.render.command.BatchingRenderCommandQueue;
-import net.minecraft.client.render.command.OrderedRenderCommandQueueImpl;
-import net.minecraft.client.render.item.ItemRenderState;
-import net.minecraft.client.render.item.ItemRenderer;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.entity.EquipmentSlot;
-import net.minecraft.item.ItemDisplayContext;
 import net.minecraft.item.ItemStack;
+import net.minecraft.item.ModelTransformationMode;
 import net.minecraft.util.math.RotationAxis;
 
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
 
-import com.mojang.blaze3d.opengl.GlStateManager;
+import com.mojang.blaze3d.platform.GlStateManager;
 import com.mojang.blaze3d.systems.RenderSystem;
-import com.mojang.blaze3d.vertex.VertexFormat;
 import com.mojang.logging.LogUtils;
 
 import org.lwjgl.opengl.GL11;
@@ -107,10 +99,6 @@ public class UIModelEditorRenderer extends UIModelRenderer implements GizmoSurfa
     private boolean dirty = true;
 
     private Function<Float, Matrix4f> formTransformGizmoOrigin;
-
-    /* ---- IK gizmo state ---- */
-    /** The currently active IK chain config — set by UIModelIKPanel. null = no IK gizmo. */
-    private IKChainConfig activeIKChain;
 
     private StencilFormFramebuffer stencil = new StencilFormFramebuffer();
     private StencilMap stencilMap = new StencilMap();
@@ -147,20 +135,38 @@ public class UIModelEditorRenderer extends UIModelRenderer implements GizmoSurfa
         this.form.model.set(modelId);
     }
 
-    /**
-     * Sets the IK chain whose target gizmo should be drawn in the 3D viewport.
-     * Pass null to hide the IK gizmo.
-     */
-    public void setActiveIKChain(IKChainConfig chain)
-    {
-        this.activeIKChain = chain;
-    }
-    
-
-
     public void setConfig(ModelConfig config)
     {
         this.config = config;
+        this.syncSolverConfig(config);
+    }
+
+    /**
+     * Pushes limb IK / spring / joint-limit blobs from {@link ModelConfig}
+     * onto the live preview {@link ModelForm} so solvers stay in sync while editing.
+     */
+    public void syncSolverConfig(ModelConfig config)
+    {
+        if (config == null)
+        {
+            return;
+        }
+
+        BaseType ik = config.ik.get();
+        this.form.ik.set(ik == null ? null : ik.copy());
+
+        BaseType springs = config.springs.get();
+        this.form.springs.set(springs == null ? null : springs.copy());
+
+        BaseType constraints = config.constraints.get();
+        this.form.constraints.set(constraints == null ? null : constraints.copy());
+
+        /* Use previewModel directly to avoid getModel() re-entry while the preview is being built. */
+        if (this.previewModel != null)
+        {
+            this.previewModel.applyConfig((MapType) config.toData());
+            this.previewModel.form = this.form;
+        }
     }
 
     public void setCallback(Consumer<String> callback)
@@ -333,9 +339,9 @@ public class UIModelEditorRenderer extends UIModelRenderer implements GizmoSurfa
             return;
         }
 
-        ItemDisplayContext mode = this.fpHandPreviewMainHand
-            ? ItemDisplayContext.FIRST_PERSON_RIGHT_HAND
-            : ItemDisplayContext.FIRST_PERSON_LEFT_HAND;
+        ModelTransformationMode mode = this.fpHandPreviewMainHand
+            ? ModelTransformationMode.FIRST_PERSON_RIGHT_HAND
+            : ModelTransformationMode.FIRST_PERSON_LEFT_HAND;
         int light = LightmapTextureManager.pack(15, 15);
         CustomVertexConsumerProvider consumers = FormUtilsClient.getProvider();
 
@@ -346,43 +352,24 @@ public class UIModelEditorRenderer extends UIModelRenderer implements GizmoSurfa
         MatrixStackUtils.applyTransform(stack, this.fpHandPreviewSlot.transform);
 
         consumers.setSubstitute(BBSRendering.getColorConsumer(new Color().set(Colors.WHITE)));
-
-        ItemModelManager modelManager = MinecraftClient.getInstance().getItemModelManager();
-        ItemRenderState renderState = new ItemRenderState();
-
-        modelManager.clearAndUpdate(renderState, itemStack, mode, this.entity.getWorld(), null, 0);
-
-        OrderedRenderCommandQueueImpl queue = new OrderedRenderCommandQueueImpl();
-
-        renderState.render(stack, queue, light, OverlayTexture.DEFAULT_UV, 0);
-
-        for (BatchingRenderCommandQueue batch : queue.getBatchingQueues().values())
-        {
-            for (OrderedRenderCommandQueueImpl.ItemCommand command : batch.getItemCommands())
-            {
-                stack.push();
-                stack.peek().copy(command.positionMatrix());
-                ItemRenderer.renderItem(
-                    command.displayContext(),
-                    stack,
-                    consumers,
-                    command.lightCoords(),
-                    command.overlayCoords(),
-                    command.tintLayers(),
-                    command.quads(),
-                    command.renderLayer(),
-                    command.glintType()
-                );
-                stack.pop();
-            }
-        }
-
+        MinecraftClient.getInstance().getItemRenderer().renderItem(
+            null,
+            itemStack,
+            mode,
+            mode == ModelTransformationMode.FIRST_PERSON_LEFT_HAND,
+            stack,
+            consumers,
+            this.entity.getWorld(),
+            light,
+            OverlayTexture.DEFAULT_UV,
+            0
+        );
         consumers.draw();
         consumers.setSubstitute(null);
         CustomVertexConsumerProvider.clearRunnables();
         stack.pop();
 
-        GlStateManager._enableDepthTest();
+        RenderSystem.enableDepthTest();
     }
 
     private void ensureFramebuffer()
@@ -429,6 +416,13 @@ public class UIModelEditorRenderer extends UIModelRenderer implements GizmoSurfa
     @Override
     public boolean subMouseReleased(UIContext context)
     {
+        Pair<Form, String> pendingPick = this.gizmoController.consumePendingTrackballClick();
+
+        if (pendingPick != null && pendingPick.a != null && this.callback != null)
+        {
+            this.callback.accept(pendingPick.b);
+        }
+
         this.gizmoController.stop();
 
         return super.subMouseReleased(context);
@@ -468,7 +462,7 @@ public class UIModelEditorRenderer extends UIModelRenderer implements GizmoSurfa
         ModelInstance model = this.getModel();
         boolean fpHandPreview = this.fpHandPreviewSlot != null && model != null;
         String fpGroupId = fpHandPreview ? this.fpHandPreviewSlot.group.get() : null;
-        MatrixStack stack = new MatrixStack();
+        MatrixStack stack = context.batcher.getContext().getMatrices();
 
         if (fpHandPreview && fpGroupId != null && !fpGroupId.isEmpty())
         {
@@ -479,7 +473,7 @@ public class UIModelEditorRenderer extends UIModelRenderer implements GizmoSurfa
         }
 
         FormRenderingContext formContext = new FormRenderingContext()
-            .set(FormRenderType.PREVIEW, this.entity, new MatrixStack(), LightmapTextureManager.pack(15, 15), OverlayTexture.DEFAULT_UV, context.getTransition())
+            .set(FormRenderType.PREVIEW, this.entity, stack, LightmapTextureManager.pack(15, 15), OverlayTexture.DEFAULT_UV, context.getTransition())
             .camera(this.camera)
             .modelRenderer();
 
@@ -492,19 +486,19 @@ public class UIModelEditorRenderer extends UIModelRenderer implements GizmoSurfa
             this.renderFpHandItem(context, matrixCache, stack);
         }
 
-        this.renderIKGizmo(context, matrixCache);
-
         Matrix4f gizmoMatrix = this.resolveGizmoMatrix(context, matrixCache);
         this.hasGizmoMatrix = gizmoMatrix != null;
 
         if (gizmoMatrix != null)
         {
-            this.lastGizmoMatrix.set(gizmoMatrix);
-
             stack.push();
             MatrixStackUtils.multiply(stack, gizmoMatrix);
+            /* Full drawn MV (editor camera × bone/origin) — same space as film drag rays. */
+            this.lastGizmoMatrix.set(stack.peek().getPositionMatrix());
 
+            RenderSystem.disableDepthTest();
             Gizmo.INSTANCE.render(stack);
+            RenderSystem.enableDepthTest();
 
             stack.pop();
         }
@@ -532,20 +526,24 @@ public class UIModelEditorRenderer extends UIModelRenderer implements GizmoSurfa
             this.beginStencilViewport(fboW, fboH);
             this.setupViewport(context);
 
+            /* Restore depth writes: the visual pass (glow/paint/gizmos) may have left
+             * depthMask false, which makes stencil picking prefer later-drawn bones. */
+            RenderSystem.enableDepthTest();
+            RenderSystem.depthFunc(GL11.GL_LEQUAL);
+            RenderSystem.depthMask(true);
+
             this.renderer.render(formContext.stencilMap(this.stencilMap));
 
-            if (gizmoMatrix != null)
+            if (gizmoMatrix != null && Gizmo.isInteractive())
             {
-                MatrixStack gizmoStack = new MatrixStack();
+                stack.push();
+                MatrixStackUtils.multiply(stack, gizmoMatrix);
 
-                gizmoStack.push();
-                MatrixStackUtils.multiply(gizmoStack, gizmoMatrix);
+                RenderSystem.disableDepthTest();
+                Gizmo.INSTANCE.renderStencil(stack, this.stencilMap);
+                RenderSystem.enableDepthTest();
 
-                /* TODO 1.21.11: RenderSystem.disableDepthTest removed */
-                Gizmo.INSTANCE.renderStencil(gizmoStack, this.stencilMap);
-                /* TODO 1.21.11: RenderSystem.enableDepthTest removed */
-
-                gizmoStack.pop();
+                stack.pop();
             }
 
             this.stencil.pickGUI(context, this.area);
@@ -554,7 +552,7 @@ public class UIModelEditorRenderer extends UIModelRenderer implements GizmoSurfa
 
             this.endStencilViewport();
 
-            /* 1.21.11: Framebuffer.beginWrite() was removed */
+            MinecraftClient.getInstance().getFramebuffer().beginWrite(true);
 
             GlStateManager._enableScissorTest();
         }
@@ -577,7 +575,7 @@ public class UIModelEditorRenderer extends UIModelRenderer implements GizmoSurfa
     {
         Matrix4f gizmoMatrix = null;
 
-        if (this.formTransformGizmoOrigin != null)
+        if (UIBaseMenu.renderAxes && this.formTransformGizmoOrigin != null)
         {
             gizmoMatrix = this.formTransformGizmoOrigin.apply(context.getTransition());
         }
@@ -593,9 +591,8 @@ public class UIModelEditorRenderer extends UIModelRenderer implements GizmoSurfa
 
                 if (entry != null)
                 {
-                    boolean local = this.transform != null && this.transform.isLocal();
-
-                    gizmoMatrix = GizmoMatrixUtils.resolveFilmPoseBoneMatrix(entry, local);
+                    gizmoMatrix = GizmoMatrixUtils.resolveFilmPoseBoneMatrix(entry, this.transform == null ? null : this.transform.getOrientation(),
+                        ModelFormRenderer.isBobjModel(this.form));
                 }
             }
         }
@@ -623,18 +620,20 @@ public class UIModelEditorRenderer extends UIModelRenderer implements GizmoSurfa
 
         if (this.formTransformGizmoDrag)
         {
-            /* General transform: same trackball / view-ring tuning as model-editor pose. */
+            /* View-ring / Y / Z process bars need a flip with editor full-MV capture; X does not
+             * (global invertRotationArcSweep was reversing the red ring only-wrong). */
             transform.setInvertGizmoViewRing(false);
             transform.setInvertGizmoTrackball(false);
+            transform.setInvertFilmPoseGizmoAxes(false);
+            transform.setFilmArcballTrackball(false);
             transform.clearTrackballEulerInverts();
-            transform.invertModelPoseTrackballXZ();
-        }
-        else
-        {
-            /* Pose trackball: same ray path as General transform; no X/Z euler sign flips. */
-            transform.setInvertGizmoViewRing(false);
-            transform.setInvertGizmoTrackball(false);
-            transform.clearTrackballEulerInverts();
+            transform.setInvertTrackballDragY(true);
+            transform.setInvertFilmArcballDragY(false);
+            transform.setInvertRotationArcSweep(false);
+            transform.setInvertRotationArcViewRing(true);
+            transform.setInvertRotationArcY(true);
+            transform.setInvertRotationArcZ(true);
+            transform.configurePoseRingTuning(true);
             transform.setFilmMatchPoseTrackball(true);
             transform.setGizmoRayProvider(GizmoRayFrame.fromFilmStyle(
                 this.camera,
@@ -645,7 +644,35 @@ public class UIModelEditorRenderer extends UIModelRenderer implements GizmoSurfa
             return;
         }
 
-        transform.setFilmMatchPoseTrackball(true);
+        /* Nested model editor Pose (also opened from Model Block → Edit → Models button).
+         * Match FilmPoseGizmoDrag pose signs so .bbs.json X/Z rings, Z translate, white ring
+         * and arcball match BOBJ mouse sense. */
+        boolean bobjModel = ModelFormRenderer.isBobjModel(this.form);
+
+        transform.setModel(false);
+        transform.configurePoseRingTuning(bobjModel);
+        transform.setInvertGizmoViewRing(true);
+        transform.setInvertGizmoTrackball(false);
+        transform.setInvertFilmPoseGizmoAxes(false);
+        transform.clearTrackballEulerInverts();
+
+        if (bobjModel)
+        {
+            transform.invertModelPoseTrackballXZ();
+        }
+
+        transform.setInvertTrackballDragY(false);
+        transform.setInvertFilmArcballDragY(false);
+        transform.setInvertRotationArcSweep(false);
+        transform.setInvertRotationArcY(false);
+        transform.setInvertRotationArcViewRing(false);
+        /* Skip filmArcball X/Z process-bar undo for Z only (same as form-editor pose). */
+        transform.setInvertRotationArcZ(true);
+        transform.setFilmArcballTrackball(true);
+        transform.setFilmMatchPoseTrackball(false);
+        transform.setForceFrozenRotationArc(false);
+        transform.translationScale(bobjModel ? 1F : 16F);
+        transform.setAxisProjectedTranslation(bobjModel);
         transform.setGizmoRayProvider(GizmoRayFrame.fromFilmStyle(
             this.camera,
             this.area,
@@ -661,7 +688,7 @@ public class UIModelEditorRenderer extends UIModelRenderer implements GizmoSurfa
         }
 
         Matrix4f cubeMatrix = this.getCubePivotMatrix(cache);
-        Matrix4f uiMatrix = new Matrix4f();
+        Matrix4f uiMatrix = context.batcher.getContext().getMatrices().peek().getPositionMatrix();
 
         if (cubeMatrix == null)
         {
@@ -682,6 +709,8 @@ public class UIModelEditorRenderer extends UIModelRenderer implements GizmoSurfa
         }
 
         Tessellator tessellator = Tessellator.getInstance();
+        RenderSystem.setShader(ShaderProgramKeys.POSITION_COLOR);
+        RenderSystem.enableBlend();
         BufferBuilder builder = tessellator.begin(VertexFormat.DrawMode.DEBUG_LINES, VertexFormats.POSITION_COLOR);
 
         for (ModelQuad quad : this.selectedCube.quads)
@@ -705,7 +734,7 @@ public class UIModelEditorRenderer extends UIModelRenderer implements GizmoSurfa
             }
         }
 
-        Draw.flush(builder, Draw.getPositionColorLinesLayer());
+        BufferRenderer.drawWithGlobalProgram(builder.end());
     }
 
     private Matrix4f getCubePivotMatrix(MatrixCache cache)
@@ -761,166 +790,11 @@ public class UIModelEditorRenderer extends UIModelRenderer implements GizmoSurfa
         return new Matrix4f(cubeStack.peek().getPositionMatrix());
     }
 
-    private Vector3f getBonePoint(MatrixCache cache, String bone)
-    {
-        MatrixCacheEntry entry = cache.get(bone);
-
-        if (entry == null)
-        {
-            return null;
-        }
-
-        Matrix4f matrix = entry.origin() == null ? entry.matrix() : entry.origin();
-
-        if (matrix == null)
-        {
-            return null;
-        }
-
-        return this.translation(matrix);
-    }
-
-    private Vector3f translation(Matrix4f matrix)
-    {
-        Vector3f vector = new Vector3f();
-
-        matrix.getTranslation(vector);
-
-        return vector;
-    }
-
     private void line(BufferBuilder builder, Matrix4f matrix, Vector3f a, Vector3f b, float r, float g, float bl, float alpha)
     {
         builder.vertex(matrix, a.x, a.y, a.z).color(r, g, bl, alpha);
         builder.vertex(matrix, b.x, b.y, b.z).color(r, g, bl, alpha);
     }
-
-    private void cross(BufferBuilder builder, Matrix4f matrix, Vector3f p, float size, float r, float g, float b, float a)
-    {
-        this.line(builder, matrix, new Vector3f(p).add(-size, 0, 0), new Vector3f(p).add(size, 0, 0), r, g, b, a);
-        this.line(builder, matrix, new Vector3f(p).add(0, -size, 0), new Vector3f(p).add(0, size, 0), r, g, b, a);
-        this.line(builder, matrix, new Vector3f(p).add(0, 0, -size), new Vector3f(p).add(0, 0, size), r, g, b, a);
-    }
-
-    /**
-     * Renders the IK gizmo:
-     *  - A magenta 3D crosshair at the IK target position.
-     *  - Cyan lines connecting the bones of the active chain (tip→root).
-     *
-     * Positions are in model-local space (1 unit = 1/16 block for Cubic models).
-     * The renderer uses the same MatrixCache used for the bone gizmo / cube outline.
-     */
-    private void renderIKGizmo(UIContext context, MatrixCache matrixCache)
-    {
-        if (this.activeIKChain == null || !this.activeIKChain.enabled.get())
-        {
-            return;
-        }
-
-        Matrix4f uiMatrix = new Matrix4f();
-
-        /* ---- target crosshair ---- */
-        Vector3f targetWorld = new Vector3f(this.activeIKChain.target.get());
-
-        /* Convert from IK metres to render units:
-           In Cubic models, pivots are in 1/16 blocks; FABRIK works in metres
-           (we divided by 16 in IKChain). For the gizmo we use the same metres.
-           Multiply by 16 to match the model-local render coordinate system. */
-        targetWorld.mul(16F);
-
-        /* Apply model root matrix (same transform the bones live under) */
-        MatrixCacheEntry rootEntry = matrixCache.get("");
-        Matrix4f rootMat = rootEntry != null ? rootEntry.matrix() : null;
-        Matrix4f gizmoMat = new Matrix4f(uiMatrix);
-
-        if (rootMat != null)
-        {
-            /* Combine: UI projection × root bone matrix */
-            gizmoMat.mul(rootMat);
-        }
-
-        /* Flip Z to match the renderer's Y-rotation PI applied in getCubePivotMatrix */
-        gizmoMat.rotateY(MathUtils.PI);
-
-        BufferBuilder builder = Tessellator.getInstance().begin(VertexFormat.DrawMode.DEBUG_LINES, VertexFormats.POSITION_COLOR);
-
-        /* --- magenta crosshair at target --- */
-        float cs = 0.12F * 16F;   /* crosshair arm length in render units */
-        float tr = 1.0F, tg = 0.2F, tb = 1.0F, ta = 0.9F;
-
-        this.cross(builder, gizmoMat, targetWorld, cs, tr, tg, tb, ta);
-
-        /* --- diamond outline around target (XZ plane) --- */
-        float ds = cs * 0.7F;
-        Vector3f px = new Vector3f(targetWorld).add(ds, 0, 0);
-        Vector3f nx = new Vector3f(targetWorld).add(-ds, 0, 0);
-        Vector3f pz = new Vector3f(targetWorld).add(0, 0, ds);
-        Vector3f nz = new Vector3f(targetWorld).add(0, 0, -ds);
-        Vector3f py = new Vector3f(targetWorld).add(0, ds, 0);
-        Vector3f ny = new Vector3f(targetWorld).add(0, -ds, 0);
-
-        /* XZ diamond */
-        this.line(builder, gizmoMat, px, pz, tr, tg, tb, ta);
-        this.line(builder, gizmoMat, pz, nx, tr, tg, tb, ta);
-        this.line(builder, gizmoMat, nx, nz, tr, tg, tb, ta);
-        this.line(builder, gizmoMat, nz, px, tr, tg, tb, ta);
-
-        /* Vertical diamond */
-        this.line(builder, gizmoMat, px, py, tr, tg, tb, ta);
-        this.line(builder, gizmoMat, py, nx, tr, tg, tb, ta);
-        this.line(builder, gizmoMat, nx, ny, tr, tg, tb, ta);
-        this.line(builder, gizmoMat, ny, px, tr, tg, tb, ta);
-
-        /* --- cyan lines connecting IK chain bones (tip → root) --- */
-        String tipName  = this.activeIKChain.tipBone.get();
-        String rootName = this.activeIKChain.rootBone.get();
-
-        if (!tipName.isEmpty() && !rootName.isEmpty())
-        {
-            ModelInstance inst = this.getPreviewModelInstance();
-
-            if (inst != null && inst.model instanceof Model model)
-            {
-                /* Walk from tip to root collecting bone points */
-                List<Vector3f> bonePoints = new ArrayList<>();
-                ModelGroup cursor = model.getGroup(tipName);
-
-                while (cursor != null)
-                {
-                    Vector3f pt = this.getBonePoint(matrixCache, cursor.id);
-
-                    if (pt != null)
-                    {
-                        bonePoints.add(pt);
-                    }
-
-                    if (cursor.id.equals(rootName))
-                    {
-                        break;
-                    }
-
-                    cursor = cursor.parent;
-                }
-
-                /* Draw lines between consecutive bone points */
-                for (int i = 0; i < bonePoints.size() - 1; i++)
-                {
-                    this.line(builder, uiMatrix,
-                              bonePoints.get(i), bonePoints.get(i + 1),
-                              0.2F, 0.9F, 1.0F, 0.85F);
-                }
-
-                /* Small crosshair at each joint */
-                for (Vector3f pt : bonePoints)
-                {
-                    this.cross(builder, uiMatrix, pt, 0.025F, 0.2F, 0.9F, 1.0F, 0.8F);
-                }
-            }
-        }
-
-        Draw.flush(builder, Draw.getPositionColorNoDepthLayer());
-    }
-
 
     private int getBoneStencilId(String bone)
     {
@@ -939,23 +813,25 @@ public class UIModelEditorRenderer extends UIModelRenderer implements GizmoSurfa
     {
         super.render(context);
 
-        if (!this.pickingEnabled || !this.stencil.hasPicked())
+        if (!this.pickingEnabled || this.stencil.getFramebuffer() == null)
         {
             return;
         }
 
         Texture texture = this.stencil.getFramebuffer().getMainTexture();
-        int index = this.stencil.getIndex();
         int w = texture.width;
         int h = texture.height;
 
-        /* The picker_preview pipeline reads its picking index from the BBSPicker std140 UBO,
-         * uploaded per draw by BBSPickerRenderer. This replaces the removed
-         * previewProgram.getUniform("Target").set(index) call. */
-        BBSPickerRenderer.setTarget(index);
+        RenderSystem.enableBlend();
 
-        GlStateManager._enableBlend();
-        context.batcher.texturedBox(BBSShaders::getPickerPreviewProgram, texture.id, Colors.WHITE, this.area.x, this.area.y, this.area.w, this.area.h, 0, h, w, 0, w, h);
+        if (!this.stencil.hasPicked())
+        {
+            return;
+        }
+
+        int index = this.stencil.getIndex();
+
+        context.batcher.drawPickerPreview(texture.id, index, BBSSettings.modelEditorHoverHighlight(), this.area.x, this.area.y, this.area.w, this.area.h, w, h);
 
         Pair<Form, String> pair = this.stencil.getPicked();
 
@@ -976,6 +852,7 @@ public class UIModelEditorRenderer extends UIModelRenderer implements GizmoSurfa
 
         this.syncAnimations();
         this.form.color.get().set(this.config.color.get());
+        this.syncSolverConfig(this.config);
 
         if (!this.dirty)
         {
@@ -995,14 +872,12 @@ public class UIModelEditorRenderer extends UIModelRenderer implements GizmoSurfa
                 model.applyConfig((MapType) this.config.toData());
                 model.texture = this.config.texture.get();
                 model.color = this.config.color.get();
+                this.syncSolverConfig(this.config);
 
                 if (wasProcedural != model.procedural)
                 {
                     this.renderer.resetAnimator();
                 }
-
-                /* Live IK preview: push chain configs into the preview animator */
-                this.applyIKChainsToPreview(model);
             }
         }
         catch (Exception e)
@@ -1029,8 +904,20 @@ public class UIModelEditorRenderer extends UIModelRenderer implements GizmoSurfa
             {
                 this.deletePreview();
 
-                this.previewModel = new ModelInstance(globalModel.id, globalModel.model, globalModel.animations, globalModel.texture);
-                this.previewModel.setup();
+                this.previewModel = globalModel.copy();
+
+                if (globalModel.model instanceof BOBJModel)
+                {
+                    /* BOBJModel.copy() already builds its own armature VAO. */
+                }
+                else if (globalModel.isVAORendered())
+                {
+                    this.previewModel.borrowVaosFrom(globalModel);
+                }
+                else
+                {
+                    this.previewModel.setup();
+                }
 
                 if (this.config != null)
                 {
@@ -1040,6 +927,7 @@ public class UIModelEditorRenderer extends UIModelRenderer implements GizmoSurfa
                         this.previewModel.applyConfig((MapType) this.config.toData());
                         this.previewModel.texture = this.config.texture.get();
                         this.previewModel.color = this.config.color.get();
+                        this.syncSolverConfig(this.config);
                     }
                     catch (Exception e)
                     {
@@ -1081,26 +969,6 @@ public class UIModelEditorRenderer extends UIModelRenderer implements GizmoSurfa
                 target.geckoAnimations.enabled,
                 target.geckoAnimations.limbs.size()
             );
-        }
-    }
-
-    /**
-     * Pushes the IK chain configurations from the active ModelConfig into the
-     * preview model's ProceduralAnimator so the FABRIK solver runs every frame
-     * in the editor preview viewport.
-     */
-    private void applyIKChainsToPreview(ModelInstance model)
-    {
-        if (model == null || model.ikChains.isEmpty())
-        {
-            return;
-        }
-
-        IAnimator animator = this.renderer.getAnimator();
-
-        if (animator instanceof ProceduralAnimator pa)
-        {
-            pa.setIKChains(new ArrayList<>(model.ikChains));
         }
     }
 

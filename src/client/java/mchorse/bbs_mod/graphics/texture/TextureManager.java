@@ -103,7 +103,7 @@ public class TextureManager implements IWatchDogListener
     {
         BBSRendering.trackTexture(texture);
 
-        texture.bind(unit);
+        RenderSystem.setShaderTexture(unit, texture.id);
     }
 
     public void bind(Link texture)

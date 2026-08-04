@@ -18,19 +18,13 @@ import mchorse.bbs_mod.utils.interps.Lerps;
 import mchorse.bbs_mod.utils.pose.Transform;
 
 import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.item.ItemModelManager;
 import net.minecraft.client.render.LightmapTextureManager;
-import net.minecraft.client.render.command.BatchingRenderCommandQueue;
-import net.minecraft.client.render.command.OrderedRenderCommandQueueImpl;
-import net.minecraft.client.render.item.ItemRenderState;
-import net.minecraft.client.render.item.ItemRenderer;
-import net.minecraft.client.util.math.MatrixStack;
+import net.minecraft.client.render.model.BakedModel;
 import net.minecraft.client.world.ClientWorld;
-import net.minecraft.item.ItemDisplayContext;
 import net.minecraft.item.ItemStack;
+import net.minecraft.item.ModelTransformationMode;
 import net.minecraft.world.World;
 
-import com.mojang.blaze3d.opengl.GlStateManager;
 import com.mojang.blaze3d.systems.RenderSystem;
 
 import java.util.List;
@@ -44,7 +38,7 @@ public final class ItemBodyPartBatch
 {
     private static boolean active;
     private static boolean deferFlush;
-    private static Object cachedModel;
+    private static BakedModel cachedModel;
     private static final Transform SCRATCH_TRANSFORM = new Transform();
 
     private ItemBodyPartBatch()
@@ -60,7 +54,7 @@ public final class ItemBodyPartBatch
         return deferFlush;
     }
 
-    public static Object getCachedModel()
+    public static BakedModel getCachedModel()
     {
         return cachedModel;
     }
@@ -90,8 +84,8 @@ public final class ItemBodyPartBatch
         boolean flushOnce = context.stencilMap == null;
         boolean isDropped = context.type == FormRenderType.ITEM;
         boolean useDroppedMode = itemRenderer.shouldUseDroppedMode(isDropped);
-        ItemDisplayContext mode = itemRenderer.getRenderMode(useDroppedMode);
-        boolean leftHand = mode == ItemDisplayContext.THIRD_PERSON_LEFT_HAND;
+        ModelTransformationMode mode = itemRenderer.getRenderMode(useDroppedMode);
+        boolean leftHand = mode == ModelTransformationMode.THIRD_PERSON_LEFT_HAND;
 
         PaintSettings paintSettings = template.paintSettings.get();
         Color resolvedPaint = FormColorEffects.resolvePaintColor(paintSettings, template.paintColor.get());
@@ -104,8 +98,8 @@ public final class ItemBodyPartBatch
         {
             CustomVertexConsumerProvider.hijackVertexFormat((layer) ->
             {
-                GlStateManager._enableBlend();
-                GlStateManager._blendFuncSeparate(770, 771, 1, 0);
+                RenderSystem.enableBlend();
+                RenderSystem.defaultBlendFunc();
             });
         }
 
@@ -161,8 +155,8 @@ public final class ItemBodyPartBatch
                     BlockFormRenderer.color.mul(context.color);
                     BlockFormRenderer.color.mul(item.color.get());
 
-                    consumers.setSubstitute(BBSRendering.getColorConsumer(BlockFormRenderer.color, resolvedPaint));
-                    renderBatchedItem(itemStack, mode, context.stack, consumers, client.world, context.light, context.overlay);
+                    consumers.setSubstitute(itemRenderer.getMainConsumer(BlockFormRenderer.color, resolvedPaint));
+                    client.getItemRenderer().renderItem(null, itemStack, mode, false, context.stack, consumers, client.world, context.light, context.overlay, 0);
 
                     if (context.isPicking())
                     {
@@ -193,7 +187,7 @@ public final class ItemBodyPartBatch
             {
                 consumers.draw();
                 CustomVertexConsumerProvider.clearRunnables();
-                GlStateManager._blendFuncSeparate(770, 771, 1, 0);
+                RenderSystem.defaultBlendFunc();
             }
 
             active = false;
@@ -201,7 +195,7 @@ public final class ItemBodyPartBatch
             cachedModel = null;
         }
 
-        GlStateManager._enableDepthTest();
+        RenderSystem.enableDepthTest();
 
         return true;
     }
@@ -241,44 +235,6 @@ public final class ItemBodyPartBatch
 
         u = (int) Lerps.lerp(u, LightmapTextureManager.MAX_BLOCK_LIGHT_COORDINATE, lf);
         context.light = u | v << 16;
-    }
-
-    private static void renderBatchedItem(ItemStack stack, ItemDisplayContext displayContext, MatrixStack matrices, CustomVertexConsumerProvider consumers, World world, int light, int overlay)
-    {
-        if (stack == null || stack.isEmpty())
-        {
-            return;
-        }
-
-        ItemModelManager modelManager = MinecraftClient.getInstance().getItemModelManager();
-        ItemRenderState renderState = new ItemRenderState();
-
-        modelManager.clearAndUpdate(renderState, stack, displayContext, world, null, 0);
-
-        OrderedRenderCommandQueueImpl queue = new OrderedRenderCommandQueueImpl();
-
-        renderState.render(matrices, queue, light, overlay, 0);
-
-        for (BatchingRenderCommandQueue batch : queue.getBatchingQueues().values())
-        {
-            for (OrderedRenderCommandQueueImpl.ItemCommand command : batch.getItemCommands())
-            {
-                matrices.push();
-                matrices.peek().copy(command.positionMatrix());
-                ItemRenderer.renderItem(
-                    command.displayContext(),
-                    matrices,
-                    consumers,
-                    command.lightCoords(),
-                    command.overlayCoords(),
-                    command.tintLayers(),
-                    command.quads(),
-                    command.renderLayer(),
-                    command.glintType()
-                );
-                matrices.pop();
-            }
-        }
     }
 
     private static boolean hasOverlayBodyParts(List<BodyPart> parts)

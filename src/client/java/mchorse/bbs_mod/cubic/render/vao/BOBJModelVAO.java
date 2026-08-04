@@ -4,27 +4,24 @@ import mchorse.bbs_mod.BBSModClient;
 import mchorse.bbs_mod.bobj.BOBJArmature;
 import mchorse.bbs_mod.bobj.BOBJBone;
 import mchorse.bbs_mod.bobj.BOBJLoader;
-import mchorse.bbs_mod.client.BBSShaders;
-import mchorse.bbs_mod.client.render.picker.BBSPickerRenderer;
+import mchorse.bbs_mod.client.BBSRendering;
+import mchorse.bbs_mod.cubic.render.CubicRenderer;
 import mchorse.bbs_mod.resources.Link;
 import mchorse.bbs_mod.ui.framework.elements.utils.StencilMap;
+import mchorse.bbs_mod.utils.iris.FormColorGradePatch;
 import mchorse.bbs_mod.utils.joml.Matrices;
 
 import net.minecraft.client.gl.ShaderProgram;
-import net.minecraft.client.render.BufferBuilder;
-import net.minecraft.client.render.BuiltBuffer;
-import net.minecraft.client.render.Tessellator;
-import net.minecraft.client.render.VertexFormats;
 import net.minecraft.client.util.math.MatrixStack;
 
-import org.joml.Matrix3f;
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
 import org.joml.Vector4f;
 
+import com.mojang.blaze3d.platform.GlStateManager;
 import com.mojang.blaze3d.systems.RenderSystem;
-import com.mojang.blaze3d.vertex.VertexFormat;
 
+import org.lwjgl.opengl.GL15;
 import org.lwjgl.opengl.GL30;
 
 import java.util.HashMap;
@@ -33,14 +30,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.function.IntPredicate;
 
-/**
- * Skinned BOBJ mesh. Bone skinning stays on the CPU (unchanged by the render migration); the 1.21.11
- * GPU pipeline rewrite removed the raw-GL VAO/VBO + ShaderProgram bind this class previously drew
- * with, so the skinned result (tmpVertices/tmpNormals/tmpLight) is instead emitted into one or more
- * BufferBuilders per draw and submitted through {@link BBSShaders#getModelLayer()} (per-bone texture
- * overrides still split into separate draws/buffers, one per bound texture, matching the previous
- * {@code glDrawArrays} range-splitting behaviour).
- */
 public class BOBJModelVAO
 {
     public BOBJLoader.CompiledData data;
@@ -96,23 +85,60 @@ public class BOBJModelVAO
         this.count = this.data.normData.length / 3;
         this.tmpVertices = new float[this.data.posData.length];
         this.tmpNormals = new float[this.data.normData.length];
-        this.tmpLight = new int[this.count * 2];
+        this.tmpLight = new int[this.data.posData.length];
+        this.tmpTangents = new float[this.count * 4];
         this.dominantBonePerTriangle = new int[this.count / 3];
-
         this.buildDominantBones();
+
+        GL30.glBindBuffer(GL30.GL_ARRAY_BUFFER, this.vertexBuffer);
+        GL30.glBufferData(GL30.GL_ARRAY_BUFFER, this.data.posData, GL30.GL_DYNAMIC_DRAW);
+        GL30.glVertexAttribPointer(Attributes.POSITION, 3, GL30.GL_FLOAT, false, 0, 0);
+
+        GL30.glBindBuffer(GL30.GL_ARRAY_BUFFER, this.normalBuffer);
+        GL30.glBufferData(GL30.GL_ARRAY_BUFFER, this.data.normData, GL30.GL_DYNAMIC_DRAW);
+        GL30.glVertexAttribPointer(Attributes.NORMAL, 3, GL30.GL_FLOAT, false, 0, 0);
+
+        GL30.glBindBuffer(GL30.GL_ARRAY_BUFFER, this.lightBuffer);
+        GL30.glBufferData(GL30.GL_ARRAY_BUFFER, this.tmpLight, GL30.GL_DYNAMIC_DRAW);
+        GL30.glVertexAttribIPointer(Attributes.LIGHTMAP_UV, 2, GL30.GL_INT, 0, 0);
+
+        GL30.glBindBuffer(GL30.GL_ARRAY_BUFFER, this.texCoordBuffer);
+        GL30.glBufferData(GL30.GL_ARRAY_BUFFER, this.data.texData, GL30.GL_STATIC_DRAW);
+        GL30.glVertexAttribPointer(Attributes.TEXTURE_UV, 2, GL30.GL_FLOAT, false, 0, 0);
+
+        GL30.glBindBuffer(GL30.GL_ARRAY_BUFFER, this.tangentBuffer);
+        GL30.glBufferData(GL30.GL_ARRAY_BUFFER, this.tmpTangents, GL30.GL_STATIC_DRAW);
+        GL30.glVertexAttribPointer(Attributes.TANGENTS, 4, GL30.GL_FLOAT, false, 0, 0);
+
+        float[] midTexCoords = ModelVAOData.calculateMidTexCoords(this.data.texData);
+
+        GL30.glBindBuffer(GL30.GL_ARRAY_BUFFER, this.midTextureBuffer);
+        GL30.glBufferData(GL30.GL_ARRAY_BUFFER, midTexCoords, GL30.GL_STATIC_DRAW);
+        GL30.glVertexAttribPointer(Attributes.MID_TEXTURE_UV, 2, GL30.GL_FLOAT, false, 0, 0);
+
+        GL30.glBindBuffer(GL30.GL_ARRAY_BUFFER, 0);
+        GL30.glBindVertexArray(0);
     }
 
     /**
      * Clean up resources which were used by this
      */
     public void delete()
-    {}
+    {
+        GL30.glDeleteVertexArrays(this.vao);
+
+        GL15.glDeleteBuffers(this.vertexBuffer);
+        GL15.glDeleteBuffers(this.normalBuffer);
+        GL15.glDeleteBuffers(this.lightBuffer);
+        GL15.glDeleteBuffers(this.texCoordBuffer);
+        GL15.glDeleteBuffers(this.tangentBuffer);
+        GL15.glDeleteBuffers(this.midTextureBuffer);
+    }
 
     /**
-     * Update this mesh. This method is responsible for applying
-     * matrix transformations to vertices and normals according to its
-     * bone owners and these bone influences. The skinned result is kept on the CPU
-     * (tmpVertices/tmpNormals/tmpLight) and emitted into a BufferBuilder in {@link #render}.
+     * Update this mesh. This method is responsible for applying 
+     * matrix transformations to vertices and normals according to its 
+     * bone owners and these bone influences.
      */
     public void updateMesh(StencilMap stencilMap)
     {
@@ -196,6 +222,28 @@ public class BOBJModelVAO
         }
 
         this.processData(newVertices, newNormals);
+
+        GL15.glBindBuffer(GL15.GL_ARRAY_BUFFER, this.vertexBuffer);
+        GL15.glBufferSubData(GL15.GL_ARRAY_BUFFER, 0, newVertices);
+
+        GL15.glBindBuffer(GL15.GL_ARRAY_BUFFER, this.normalBuffer);
+        GL15.glBufferSubData(GL15.GL_ARRAY_BUFFER, 0, newNormals);
+
+        if (BBSRendering.isIrisShadersEnabled())
+        {
+            BBSRendering.calculateTangents(this.tmpTangents, newVertices, newNormals, this.data.texData);
+
+            GL15.glBindBuffer(GL15.GL_ARRAY_BUFFER, this.tangentBuffer);
+            GL15.glBufferSubData(GL15.GL_ARRAY_BUFFER, 0, this.tmpTangents);
+        }
+
+        if (stencilMap != null)
+        {
+            GL15.glBindBuffer(GL15.GL_ARRAY_BUFFER, this.lightBuffer);
+            GL15.glBufferSubData(GL15.GL_ARRAY_BUFFER, 0, this.tmpLight);
+        }
+
+        GL15.glBindBuffer(GL15.GL_ARRAY_BUFFER, 0);
     }
 
     protected void processData(float[] newVertices, float[] newNormals)
@@ -279,11 +327,16 @@ public class BOBJModelVAO
             return;
         }
 
-        Map<Integer, Link> overrides = new HashMap<>();
+        /* Keep depth on so nearer limbs (head in front of torso) stay pickable. Priority
+         * bones only win z-ties / coplanar overlaps against parents drawn earlier. */
+        RenderSystem.enableDepthTest();
+        RenderSystem.depthMask(true);
 
-        for (BOBJBone bone : this.armature.orderedBones)
+        for (String boneId : CubicRenderer.STENCIL_PICK_PRIORITY_BONES)
         {
-            if (bone.texture != null)
+            BOBJBone bone = this.getBoneByName(boneId);
+
+            if (bone != null)
             {
                 this.drawTriangles((boneIndex) -> boneIndex == bone.index);
             }
@@ -331,86 +384,145 @@ public class BOBJModelVAO
     protected void rebindShaderSamplers(ShaderProgram shader, MatrixStack stack, float r, float g, float b, float a, int light, int overlay)
     {
         ModelVAORenderer.setupUniforms(stack, shader);
+        RenderSystem.setShader(shader);
+        shader.bind();
+        GL30.glBindVertexArray(this.vao);
+
+        GL30.glDisableVertexAttribArray(Attributes.COLOR);
+        GL30.glDisableVertexAttribArray(Attributes.OVERLAY_UV);
+        GL30.glDisableVertexAttribArray(Attributes.LIGHTMAP_UV);
+
+        GL30.glVertexAttrib4f(Attributes.COLOR, r, g, b, a);
+        GL30.glVertexAttribI2i(Attributes.OVERLAY_UV, overlay & '\uffff', overlay >> 16 & '\uffff');
+        GL30.glVertexAttribI2i(Attributes.LIGHTMAP_UV, light & '\uffff', light >> 16 & '\uffff');
     }
 
     public void render(ShaderProgram shader, MatrixStack stack, float r, float g, float b, float a, StencilMap stencilMap, int light, int overlay, Link defaultTexture)
     {
+        boolean hasShaders = BBSRendering.isIrisShadersEnabled();
+
+        int currentVAO = GL30.glGetInteger(GL30.GL_VERTEX_ARRAY_BINDING);
+        int currentElementArrayBuffer = GL30.glGetInteger(GL30.GL_ELEMENT_ARRAY_BUFFER_BINDING);
+
         if (defaultTexture != null)
         {
-            BBSModClient.getTextures().bindTexture(defaultTexture);
+            this.bindDrawTexture(defaultTexture);
         }
 
-        this.drawGroup(stack, r, g, b, a, light, overlay, (bone) -> bone < 0 || !this.fullOverrides.containsKey(bone));
+        ModelVAORenderer.setupUniforms(stack, shader);
 
-        for (Map.Entry<Integer, Link> entry : this.fullOverrides.entrySet())
+        RenderSystem.setShader(shader);
+        shader.bind();
+        FormColorGradePatch.uploadToCurrentProgram();
+
+        int textureID = RenderSystem.getShaderTexture(0);
+        GlStateManager._activeTexture(GL30.GL_TEXTURE0);
+        GlStateManager._bindTexture(textureID);
+
+        GL30.glBindVertexArray(this.vao);
+
+        /* Constant color/light/overlay must be set after VAO bind (same as ModelVAO). Setting
+         * them before bind loses form alpha under Iris deferred redraws — opaque silhouette. */
+        GL30.glDisableVertexAttribArray(Attributes.COLOR);
+        GL30.glDisableVertexAttribArray(Attributes.OVERLAY_UV);
+        GL30.glDisableVertexAttribArray(Attributes.LIGHTMAP_UV);
+
+        GL30.glVertexAttrib4f(Attributes.COLOR, r, g, b, a);
+        GL30.glVertexAttribI2i(Attributes.OVERLAY_UV, overlay & '\uffff', overlay >> 16 & '\uffff');
+        GL30.glVertexAttribI2i(Attributes.LIGHTMAP_UV, light & '\uffff', light >> 16 & '\uffff');
+
+        GL30.glEnableVertexAttribArray(Attributes.POSITION);
+        GL30.glEnableVertexAttribArray(Attributes.TEXTURE_UV);
+        GL30.glEnableVertexAttribArray(Attributes.NORMAL);
+
+        if (stencilMap != null) GL30.glEnableVertexAttribArray(Attributes.LIGHTMAP_UV);
+        if (hasShaders) GL30.glEnableVertexAttribArray(Attributes.TANGENTS);
+        if (hasShaders) GL30.glEnableVertexAttribArray(Attributes.MID_TEXTURE_UV);
+
+        if (stencilMap == null)
         {
-            BBSModClient.getTextures().bindTexture(entry.getValue());
-            this.drawGroup(stack, r, g, b, a, light, overlay, (bone) -> bone == entry.getKey());
-        }
-    }
+            this.fullOverrides.clear();
+            this.partialOverrides.clear();
 
-    private void drawGroup(MatrixStack stack, float r, float g, float b, float a, int light, int overlay, IntPredicate predicate)
-    {
-        BuiltBuffer built = this.writeBuffer(stack, r, g, b, a, null, light, overlay, predicate);
-
-        if (built != null)
-        {
-            BBSShaders.getModelLayer().draw(built);
-        }
-    }
-
-    private BuiltBuffer writeBuffer(MatrixStack stack, float r, float g, float b, float a, StencilMap stencilMap, int light, int overlay, IntPredicate predicate)
-    {
-        BufferBuilder builder = Tessellator.getInstance().begin(VertexFormat.DrawMode.TRIANGLES, VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL);
-
-        Matrix4f position = stack.peek().getPositionMatrix();
-        Matrix3f normalMatrix = stack.peek().getNormalMatrix();
-
-        float[] vertices = this.tmpVertices;
-        float[] normals = this.tmpNormals;
-        float[] texData = this.data.texData;
-
-        Vector4f vertex = new Vector4f();
-        Vector3f normal = new Vector3f();
-
-        int lu = light & 0xffff;
-        int lv = light >> 16 & 0xffff;
-
-        for (int triangle = 0, triCount = this.dominantBonePerTriangle.length; triangle < triCount; triangle++)
-        {
-            if (predicate != null && !predicate.test(this.dominantBonePerTriangle[triangle]))
+            for (BOBJBone bone : this.armature.orderedBones)
             {
-                continue;
+                if (bone.texture != null)
+                {
+                    float blend = bone.textureBlend;
+
+                    if (blend >= 1F)
+                    {
+                        this.fullOverrides.put(bone.index, bone.texture);
+                    }
+                    else if (blend > 0F)
+                    {
+                        this.partialOverrides.put(bone.index, blend);
+                    }
+                }
             }
 
-            for (int k = 0; k < 3; k++)
+            if (this.fullOverrides.isEmpty() && this.partialOverrides.isEmpty())
             {
-                int i = triangle * 3 + k;
+                GL30.glDrawArrays(GL30.GL_TRIANGLES, 0, this.count);
+            }
+            else
+            {
+                this.overridden.clear();
+                this.overridden.addAll(this.fullOverrides.keySet());
+                this.overridden.addAll(this.partialOverrides.keySet());
 
-                vertex.set(vertices[i * 3], vertices[i * 3 + 1], vertices[i * 3 + 2], 1F);
-                position.transform(vertex);
+                this.drawTriangles((bone) -> bone < 0 || !this.overridden.contains(bone));
 
-                normal.set(normals[i * 3], normals[i * 3 + 1], normals[i * 3 + 2]);
-                normalMatrix.transform(normal);
-
-                int u = lu;
-                int v = lv;
-
-                if (stencilMap != null)
+                for (BOBJBone bone : this.armature.orderedBones)
                 {
-                    u = this.tmpLight[i * 2];
-                    v = this.tmpLight[i * 2 + 1];
+                    Float blend = this.partialOverrides.get(bone.index);
+
+                    if (blend != null)
+                    {
+                        if (defaultTexture != null)
+                        {
+                            this.bindDrawTexture(defaultTexture);
+                        }
+
+                        ModelVAORenderer.setTextureBlend(bone.texture, blend);
+
+                        try
+                        {
+                            this.rebindShaderSamplers(shader, stack, r, g, b, a, light, overlay);
+                            this.drawTriangles((boneIndex) -> boneIndex == bone.index);
+                        }
+                        finally
+                        {
+                            ModelVAORenderer.clearTextureBlend();
+                        }
+                    }
                 }
 
-                builder.vertex(vertex.x, vertex.y, vertex.z)
-                    .color(r, g, b, a)
-                    .texture(texData[i * 2], texData[i * 2 + 1])
-                    .overlay(overlay)
-                    .light(u, v)
-                    .normal(normal.x, normal.y, normal.z);
+                for (Map.Entry<Integer, Link> entry : this.fullOverrides.entrySet())
+                {
+                    this.bindDrawTexture(entry.getValue());
+                    this.rebindShaderSamplers(shader, stack, r, g, b, a, light, overlay);
+                    this.drawTriangles((bone) -> bone == entry.getKey());
+                }
             }
         }
+        else
+        {
+            GL30.glDrawArrays(GL30.GL_TRIANGLES, 0, this.count);
+            this.renderStencilPickPriority(stencilMap);
+        }
 
-        return builder.endNullable();
+        GL30.glDisableVertexAttribArray(Attributes.POSITION);
+        GL30.glDisableVertexAttribArray(Attributes.TEXTURE_UV);
+        GL30.glDisableVertexAttribArray(Attributes.NORMAL);
+
+        if (stencilMap != null) GL30.glDisableVertexAttribArray(Attributes.LIGHTMAP_UV);
+        if (hasShaders) GL30.glDisableVertexAttribArray(Attributes.TANGENTS);
+        if (hasShaders) GL30.glDisableVertexAttribArray(Attributes.MID_TEXTURE_UV);
+
+        shader.unbind();
+
+        GL30.glBindVertexArray(currentVAO);
+        GL30.glBindBuffer(GL30.GL_ELEMENT_ARRAY_BUFFER, currentElementArrayBuffer);
     }
 }

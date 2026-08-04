@@ -16,17 +16,43 @@ import org.joml.Matrix3f;
 import org.joml.Matrix4f;
 import org.joml.Matrix4fStack;
 import org.joml.Quaternionf;
-import org.joml.Vector3f;
 
+import com.mojang.blaze3d.systems.ProjectionType;
 import com.mojang.blaze3d.systems.RenderSystem;
+import com.mojang.blaze3d.systems.VertexSorter;
 
 public class MatrixStackUtils
 {
     private static Matrix3f normal = new Matrix3f();
-    private static Matrix3f billboardView = new Matrix3f();
 
+    private static Matrix4f oldProjection = new Matrix4f();
+    private static Matrix4f oldMV = new Matrix4f();
     private static Matrix3f oldInverse = new Matrix3f();
     private static final Quaternionf tempQuaternion = new Quaternionf();
+    /* Near-zero axis scale collapses ModelView; Iris then rebuilds normals from a singular
+     * inverse-transpose and lit meshes go solid black. Keep a tiny thickness for lighting. */
+    private static final float MIN_SCALE = 1.0E-4F;
+
+    /**
+     * Reciprocal safe for normal-matrix correction when an axis scale is 0 (flat bones/billboards).
+     */
+    public static float safeNormalScaleReciprocal(float scale)
+    {
+        return Math.abs(scale) < MIN_SCALE ? 1F : 1F / scale;
+    }
+
+    /**
+     * Non-zero scale for position matrices so Iris/vanilla inverse-transpose normals stay valid.
+     */
+    public static float safePositionScale(float scale)
+    {
+        if (Math.abs(scale) >= MIN_SCALE)
+        {
+            return scale;
+        }
+
+        return scale < 0F ? -MIN_SCALE : MIN_SCALE;
+    }
 
     /**
      * 1.20.4 exposed this on {@link RenderSystem}; 1.21.1 removed it. Rebuild the
@@ -66,56 +92,58 @@ public class MatrixStackUtils
 
     public static void scaleStack(MatrixStack stack, float x, float y, float z)
     {
-        stack.peek().getPositionMatrix().scale(x, y, z);
+        stack.peek().getPositionMatrix().scale(safePositionScale(x), safePositionScale(y), safePositionScale(z));
         stack.peek().getNormalMatrix().scale(x < 0F ? -1F : 1F, y < 0F ? -1F : 1F, z < 0F ? -1F : 1F);
     }
 
     /**
-     * Orient the matrix stack's top so that geometry drawn on the local XY plane always faces the
-     * camera (billboarding). The form's own scale and translation are preserved; its rotation is
-     * intentionally discarded — that's the point of a billboard.
+     * UI previews flip Y lighting; divide out current normal scale without Inf on flat axes.
      */
-    public static void billboard(MatrixStack stack)
+    public static void invertUiNormalY(MatrixStack stack)
     {
-        Matrix4f position = stack.peek().getPositionMatrix();
-        Vector3f scale = Vectors.TEMP_3F;
-
-        position.getScale(scale);
-
-        RenderSystem.getModelViewMatrix().get3x3(billboardView);
-        billboardView.invert();
-
-        position.m00(billboardView.m00()).m01(billboardView.m01()).m02(billboardView.m02());
-        position.m10(billboardView.m10()).m11(billboardView.m11()).m12(billboardView.m12());
-        position.m20(billboardView.m20()).m21(billboardView.m21()).m22(billboardView.m22());
-
-        position.scale(scale);
-
-        stack.peek().getNormalMatrix().identity();
+        stack.peek().getNormalMatrix().getScale(Vectors.EMPTY_3F);
+        stack.peek().getNormalMatrix().scale(
+            safeNormalScaleReciprocal(Vectors.EMPTY_3F.x),
+            -safeNormalScaleReciprocal(Vectors.EMPTY_3F.y),
+            safeNormalScaleReciprocal(Vectors.EMPTY_3F.z)
+        );
     }
 
     public static void cacheMatrices()
     {
         /* Cache the global stuff */
-        oldInverse.set(InverseView.get());
+        oldProjection.set(RenderSystem.getProjectionMatrix());
+        oldMV.set(RenderSystem.getModelViewMatrix());
+        oldInverse.set(new Matrix3f(RenderSystem.getModelViewMatrix()));
 
-        RenderSystem.backupProjectionMatrix();
-
-        Matrix4fStack renderStack = RenderSystem.getModelViewStack();
-
-        renderStack.pushMatrix();
-        renderStack.identity();
+        Matrix4fStack mvStack = RenderSystem.getModelViewStack();
+        mvStack.identity();
+        applyModelViewMatrix();
     }
 
     public static void restoreMatrices()
     {
         /* Return back to orthographic projection */
-        RenderSystem.restoreProjectionMatrix();
-        InverseView.set(oldInverse);
+        RenderSystem.setProjectionMatrix(oldProjection, ProjectionType.ORTHOGRAPHIC);
 
-        Matrix4fStack renderStack = RenderSystem.getModelViewStack();
+        Matrix4fStack mvStack = RenderSystem.getModelViewStack();
+        mvStack.set(oldMV);
+        applyModelViewMatrix();
+    }
 
-        renderStack.popMatrix();
+    public static void applyModelViewMatrix()
+    {
+        ShaderProgram program = RenderSystem.getShader();
+
+        if (program != null)
+        {
+            GlUniform uniform = program.getUniform("ModelViewMat");
+
+            if (uniform != null)
+            {
+                uniform.set(RenderSystem.getModelViewStack());
+            }
+        }
     }
 
     public static void pushIdentityModelView()
@@ -161,23 +189,14 @@ public class MatrixStackUtils
         normal.set(matrix);
         normal.getScale(Vectors.TEMP_3F);
 
-        Vectors.TEMP_3F.x = Vectors.TEMP_3F.x == 0F ? 0F : 1F / Vectors.TEMP_3F.x;
-        Vectors.TEMP_3F.y = Vectors.TEMP_3F.y == 0F ? 0F : 1F / Vectors.TEMP_3F.y;
-        Vectors.TEMP_3F.z = Vectors.TEMP_3F.z == 0F ? 0F : 1F / Vectors.TEMP_3F.z;
+        Vectors.TEMP_3F.x = safeNormalScaleReciprocal(Vectors.TEMP_3F.x);
+        Vectors.TEMP_3F.y = safeNormalScaleReciprocal(Vectors.TEMP_3F.y);
+        Vectors.TEMP_3F.z = safeNormalScaleReciprocal(Vectors.TEMP_3F.z);
 
         normal.scale(Vectors.TEMP_3F);
 
         stack.peek().getPositionMatrix().mul(matrix);
         stack.peek().getNormalMatrix().mul(normal);
-    }
-
-    /**
-     * Inverts the Y component of the normal matrix so UI rendering has correct lighting
-     * (vanilla GUI coordinate system has Y pointing down).
-     */
-    public static void invertUiNormalY(MatrixStack stack)
-    {
-        stack.peek().getNormalMatrix().mul(new Matrix3f().scale(1F, -1F, 1F));
     }
 
     public static void scaleBack(MatrixStack matrices)

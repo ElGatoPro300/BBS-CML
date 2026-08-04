@@ -3,7 +3,6 @@ package mchorse.bbs_mod.cubic.render;
 import mchorse.bbs_mod.bobj.BOBJBone;
 import mchorse.bbs_mod.cubic.IModel;
 import mchorse.bbs_mod.cubic.data.model.Model;
-import mchorse.bbs_mod.cubic.data.model.ModelGroup;
 import mchorse.bbs_mod.cubic.model.bobj.BOBJModel;
 
 import org.joml.Matrix4f;
@@ -46,51 +45,13 @@ public final class BoneFrameCollector
 
         if (model instanceof Model cubic)
         {
-            collectCubicPivotFrames(cubic, wanted, out, baseTransform, applyStretch);
+            CubicRenderer.collectPivotFrames(cubic, wanted, out, baseTransform, applyStretch);
             return;
         }
 
         if (model instanceof BOBJModel bobj)
         {
             collectBobjPivotFrames(bobj, wanted, out, baseTransform);
-        }
-    }
-
-    /**
-     * Collects pivot frames for cubic models (inline replacement for CubicRenderer.collectPivotFrames
-     * which is not available in 1.21.11).
-     */
-    private static void collectCubicPivotFrames(Model model, Set<String> wanted, Map<String, CubicRenderer.PivotFrame> out, Matrix4f baseTransform, boolean applyStretch)
-    {
-        Vector3f baseTranslation = null;
-        Quaternionf baseRotation = null;
-
-        if (baseTransform != null)
-        {
-            baseTranslation = baseTransform.getTranslation(new Vector3f());
-            baseRotation = baseTransform.getNormalizedRotation(new Quaternionf());
-        }
-
-        for (ModelGroup group : model.getAllGroups())
-        {
-            if (group == null || !wanted.contains(group.id))
-            {
-                continue;
-            }
-
-            Vector3f position = new Vector3f(group.current.translate.x / 16F, group.current.translate.y / 16F, group.current.translate.z / 16F);
-            Quaternionf parentRotation = new Quaternionf();
-            Quaternionf worldRotation = new Quaternionf();
-
-            if (baseRotation != null && baseTranslation != null)
-            {
-                baseRotation.transform(position);
-                position.add(baseTranslation);
-                parentRotation = new Quaternionf(baseRotation);
-                worldRotation = new Quaternionf(baseRotation);
-            }
-
-            out.put(group.id, new CubicRenderer.PivotFrame(position, parentRotation, worldRotation));
         }
     }
 

@@ -1,7 +1,6 @@
 package mchorse.bbs_mod.forms.entities;
 
 import mchorse.bbs_mod.forms.forms.Form;
-import mchorse.bbs_mod.mixin.EntityAccessor;
 import mchorse.bbs_mod.morphing.Morph;
 import mchorse.bbs_mod.utils.AABB;
 
@@ -50,7 +49,7 @@ public class MCEntity implements IEntity
     @Override
     public World getWorld()
     {
-        return this.mcEntity.getEntityWorld();
+        return this.mcEntity.getWorld();
     }
 
     @Override
@@ -97,7 +96,7 @@ public class MCEntity implements IEntity
     {
         if (this.mcEntity instanceof PlayerEntity player)
         {
-            return player.getInventory().getSelectedSlot();
+            return player.getInventory().selectedSlot;
         }
 
         return 0;
@@ -174,7 +173,7 @@ public class MCEntity implements IEntity
     @Override
     public float getFallDistance()
     {
-        return (float) this.mcEntity.fallDistance;
+        return this.mcEntity.fallDistance;
     }
 
     @Override
@@ -304,13 +303,13 @@ public class MCEntity implements IEntity
     @Override
     public double getPrevX()
     {
-        return this.mcEntity.lastX;
+        return this.mcEntity.prevX;
     }
 
     @Override
     public void setPrevX(double x)
     {
-        this.mcEntity.lastX = x;
+        this.mcEntity.prevX = x;
     }
 
     @Override
@@ -322,13 +321,13 @@ public class MCEntity implements IEntity
     @Override
     public double getPrevY()
     {
-        return this.mcEntity.lastY;
+        return this.mcEntity.prevY;
     }
 
     @Override
     public void setPrevY(double y)
     {
-        this.mcEntity.lastY = y;
+        this.mcEntity.prevY = y;
     }
 
     @Override
@@ -340,13 +339,13 @@ public class MCEntity implements IEntity
     @Override
     public double getPrevZ()
     {
-        return this.mcEntity.lastZ;
+        return this.mcEntity.prevZ;
     }
 
     @Override
     public void setPrevZ(double z)
     {
-        this.mcEntity.lastZ = z;
+        this.mcEntity.prevZ = z;
     }
 
     @Override
@@ -382,7 +381,7 @@ public class MCEntity implements IEntity
     @Override
     public float getPrevYaw()
     {
-        return this.mcEntity.lastYaw;
+        return this.mcEntity.prevYaw;
     }
 
     @Override
@@ -394,7 +393,7 @@ public class MCEntity implements IEntity
     @Override
     public void setPrevYaw(float prevYaw)
     {
-        this.mcEntity.lastYaw = prevYaw;
+        this.mcEntity.prevYaw = prevYaw;
     }
 
     @Override
@@ -413,10 +412,10 @@ public class MCEntity implements IEntity
     {
         if (this.mcEntity instanceof LivingEntity living)
         {
-            return living.lastHeadYaw;
+            return living.prevHeadYaw;
         }
 
-        return this.mcEntity.lastYaw;
+        return this.mcEntity.prevYaw;
     }
 
     @Override
@@ -430,7 +429,7 @@ public class MCEntity implements IEntity
     {
         if (this.mcEntity instanceof LivingEntity living)
         {
-            living.lastHeadYaw = prevHeadYaw;
+            living.prevHeadYaw = prevHeadYaw;
         }
     }
 
@@ -443,7 +442,7 @@ public class MCEntity implements IEntity
     @Override
     public float getPrevPitch()
     {
-        return this.mcEntity.lastPitch;
+        return this.mcEntity.prevPitch;
     }
 
     @Override
@@ -455,7 +454,7 @@ public class MCEntity implements IEntity
     @Override
     public void setPrevPitch(float prevPitch)
     {
-        this.mcEntity.lastPitch = prevPitch;
+        this.mcEntity.prevPitch = prevPitch;
     }
 
     @Override
@@ -474,7 +473,7 @@ public class MCEntity implements IEntity
     {
         if (this.mcEntity instanceof LivingEntity living)
         {
-            return living.lastBodyYaw;
+            return living.prevBodyYaw;
         }
 
         return this.getPrevHeadYaw();
@@ -497,7 +496,7 @@ public class MCEntity implements IEntity
     {
         if (this.mcEntity instanceof LivingEntity living)
         {
-            living.lastBodyYaw = prevBodyYaw;
+            living.prevBodyYaw = prevBodyYaw;
         }
     }
 
@@ -570,7 +569,7 @@ public class MCEntity implements IEntity
     {
         if (this.mcEntity instanceof LivingEntity living)
         {
-            return living.limbAnimator.getAnimationProgress(tickDelta);
+            return living.limbAnimator.getPos(tickDelta);
         }
 
         return 0F;
@@ -581,7 +580,7 @@ public class MCEntity implements IEntity
     {
         if (this.mcEntity instanceof LivingEntity living)
         {
-            return living.limbAnimator.getAmplitude(tickDelta);
+            return living.limbAnimator.getSpeed(tickDelta);
         }
 
         return 0F;
@@ -704,7 +703,7 @@ public class MCEntity implements IEntity
     public void setFallFlying(boolean fallFlying)
     {
         /* Flag 7 is fall flying (elytra) in Minecraft */
-        ((EntityAccessor) this.mcEntity).invokeSetFlag(7, fallFlying);
+        this.mcEntity.setFlag(7, fallFlying);
     }
 
     @Override
@@ -745,7 +744,7 @@ public class MCEntity implements IEntity
         if (this.mcEntity instanceof LivingEntity living)
         {
             /* Flag 4 is Riptide spin attack in LivingEntity */
-            ((EntityAccessor.LivingEntityAccessor) living).invokeSetLivingFlag(4, riptide);
+            living.setLivingFlag(4, riptide);
         }
     }
 
@@ -796,7 +795,7 @@ public class MCEntity implements IEntity
         if (this.mcEntity instanceof LivingEntity living)
         {
             /* LivingFlag 1 is using item (e.g. blocking with shield) */
-            ((EntityAccessor.LivingEntityAccessor) living).invokeSetLivingFlag(1, blocking);
+            living.setLivingFlag(1, blocking);
         }
     }
 
