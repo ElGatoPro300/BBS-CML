@@ -39,7 +39,7 @@ public class FBXToBOBJConverter
     public String resolvedTexturePath;
 
 
-    private FBXNode armatureSpaceMeshModel;
+    private Matrix4f axisCorrection = new Matrix4f().identity();
 
     public FBXToBOBJConverter(FBXNode root, File fbxFile)
     {
@@ -51,6 +51,7 @@ public class FBXToBOBJConverter
     {
         this.indexObjects();
         this.indexConnections();
+        this.axisCorrection = this.readAxisCorrection();
 
         List<BOBJLoader.Vertex> vertices = new ArrayList<BOBJLoader.Vertex>();
         List<Vector2d> textures = new ArrayList<Vector2d>();
@@ -73,8 +74,6 @@ public class FBXToBOBJConverter
             armatures.put(armature.name, armature);
         }
 
-        Matrix4f armatureSpaceInverse = armature != null ? new Matrix4f(this.computeMeshGlobal(this.armatureSpaceMeshModel)).invert() : new Matrix4f();
-
         for (FBXNode meshModel : meshModels)
         {
             long meshModelId = meshModel.getLong(0);
@@ -87,8 +86,9 @@ public class FBXToBOBJConverter
 
             FBXNode skin = this.findConnectedDeformer(geometry.getLong(0), "Skin");
             Matrix4f vertexTransform = armature != null
-                    ? armatureSpaceInverse.mul(this.computeMeshGlobal(meshModel), new Matrix4f())
-                    : new Matrix4f();
+                    ? this.axisCorrection.mul(this.computeMeshGlobal(meshModel), new Matrix4f())
+                    : new Matrix4f(this.axisCorrection);
+
             MeshBuild build = this.extractMesh(geometry, meshModel, skin, armature, vertexTransform);
 
             BOBJLoader.BOBJMesh mesh = new BOBJLoader.BOBJMesh(this.nameOf(meshModel, "Model"));
@@ -511,33 +511,137 @@ public class FBXToBOBJConverter
         int coordAxis = this.readIntProperty70(settings, "CoordAxis", 0);
         int coordSign = this.readIntProperty70(settings, "CoordAxisSign", 1);
 
+        Matrix4f correction;
+
         if (upAxis == 1 && upSign == 1 && frontAxis == 2 && frontSign == 1 && coordAxis == 0 && coordSign == 1)
         {
-            return new Matrix4f().identity();
+            correction = new Matrix4f().identity();
         }
-
-        float[] m = new float[16];
-
-        for (int rawAxis = 0; rawAxis < 3; rawAxis++)
+        else
         {
-            int col = rawAxis * 4;
+            float[] m = new float[16];
 
-            m[col] = coordAxis == rawAxis ? coordSign : 0; /* target X (right) */
-            m[col + 1] = upAxis == rawAxis ? upSign : 0; /* target Y (up) */
-            m[col + 2] = frontAxis == rawAxis ? frontSign : 0; /* target Z (front) */
-            m[col + 3] = 0;
+            for (int rawAxis = 0; rawAxis < 3; rawAxis++)
+            {
+                int col = rawAxis * 4;
+
+                m[col] = coordAxis == rawAxis ? coordSign : 0;
+                m[col + 1] = upAxis == rawAxis ? upSign : 0;
+                m[col + 2] = frontAxis == rawAxis ? frontSign : 0;
+                m[col + 3] = 0;
+            }
+
+            m[12] = 0;
+            m[13] = 0;
+            m[14] = 0;
+            m[15] = 1;
+
+            correction = new Matrix4f();
+            correction.set(m);
         }
 
-        m[12] = 0;
-        m[13] = 0;
-        m[14] = 0;
-        m[15] = 1;
 
-        Matrix4f correction = new Matrix4f();
+        float bakedRootScale = this.detectBakedRootScale();
 
-        correction.set(m);
+        if (bakedRootScale != 1F)
+        {
+            correction.scale(1F / bakedRootScale);
+        }
 
         return correction;
+    }
+
+
+    private float detectBakedRootScale()
+    {
+        List<Float> found = new ArrayList<Float>();
+
+        for (FBXNode node : this.objectsById.values())
+        {
+            if (!"Model".equals(node.name))
+            {
+                continue;
+            }
+
+            long id = node.getLong(0);
+            List<Long> parents = this.parentsOf.get(id);
+            boolean isRoot = parents == null || parents.isEmpty() || parents.contains(0L);
+
+            if (!isRoot)
+            {
+                continue;
+            }
+
+            Vector3f scale = this.readVecProperty70(node, "Lcl Scaling", new Vector3f(1, 1, 1));
+
+            float sx = Math.abs(scale.x);
+            float sy = Math.abs(scale.y);
+            float sz = Math.abs(scale.z);
+
+            if (sx <= 0F || sy <= 0F || sz <= 0F)
+            {
+                continue;
+            }
+
+            float maxC = Math.max(sx, Math.max(sy, sz));
+            float minC = Math.min(sx, Math.min(sy, sz));
+
+            boolean uniform = (maxC / minC) < 1.01F;
+            boolean farFromOne = sx > 5F || sx < 0.2F;
+
+            if (uniform && farFromOne)
+            {
+                found.add(sx);
+            }
+        }
+
+        if (found.isEmpty())
+        {
+            return 1F;
+        }
+
+
+        float best = 1F;
+
+        for (float f : found)
+        {
+            if (Math.abs(Math.log(f)) > Math.abs(Math.log(best)))
+            {
+                best = f;
+            }
+        }
+
+        return best;
+    }
+
+    private double readDoubleProperty70(FBXNode node, String propName, double fallback)
+    {
+        FBXNode props = node.child("Properties70");
+
+        if (props == null)
+        {
+            return fallback;
+        }
+
+        for (FBXNode p : props.childrenNamed("P"))
+        {
+            if (p.properties.size() > 0 && propName.equals(p.getString(0)))
+            {
+                int n = p.properties.size();
+
+                if (n >= 1)
+                {
+                    Object last = p.properties.get(n - 1);
+
+                    if (last instanceof Number)
+                    {
+                        return ((Number) last).doubleValue();
+                    }
+                }
+            }
+        }
+
+        return fallback;
     }
 
     private float[] readCurveTimesSeconds(FBXNode curve)
@@ -838,7 +942,6 @@ public class FBXToBOBJConverter
                 return raw.substring(sep + 2);
             }
 
-
             int nul = raw.indexOf('\u0000');
 
             if (nul >= 0)
@@ -936,11 +1039,6 @@ public class FBXToBOBJConverter
         }
 
 
-        Matrix4f meshGlobal = this.computeMeshGlobal(meshModel);
-        Matrix4f meshGlobalInverse = new Matrix4f(meshGlobal).invert();
-
-        this.armatureSpaceMeshModel = meshModel;
-
         for (String name : allLimbNames)
         {
             FBXNode limb = allLimbs.get(name);
@@ -953,7 +1051,7 @@ public class FBXToBOBJConverter
                 boneMat = this.computeGlobalTransform(limb);
             }
 
-            boneMat = meshGlobalInverse.mul(boneMat, new Matrix4f());
+            boneMat = this.axisCorrection.mul(boneMat, new Matrix4f());
 
             BOBJBone bone = new BOBJBone(nameToIndex.get(name), name, parentName == null ? "" : parentName, boneMat);
             armature.addBone(bone);
