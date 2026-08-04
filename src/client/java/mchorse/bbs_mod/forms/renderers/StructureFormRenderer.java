@@ -26,6 +26,7 @@ import mchorse.bbs_mod.resources.Link;
 import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.utils.MatrixStackUtils;
 import mchorse.bbs_mod.utils.colors.Color;
+import mchorse.bbs_mod.utils.iris.ShaderOpacityPatch;
 import mchorse.bbs_mod.utils.joml.Vectors;
 
 import net.minecraft.block.AttachedStemBlock;
@@ -752,9 +753,11 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
                     {}
                 }
 
-                /* Iris live entity buffers make structure leaves look Fast with the opacity patch.
-                 * After composite, redraw leaves with Fancy cutout (same as no-shader). */
-                if (this.hasLeavesLayer && irisWorldPaintDeferral && !shadowPass && !picking)
+                /* Iris live entity buffers make structure leaves look Fast with the opacity
+                 * patch — defer Fancy after composite only then. Otherwise draw live so
+                 * Iris gbuffer / shadows receive the foliage. */
+                if (this.hasLeavesLayer && irisWorldPaintDeferral && !shadowPass && !picking
+                    && ShaderOpacityPatch.isActive())
                 {
                     this.submitDeferredStructureLeavesFancy(context, light, context.overlay);
                 }
@@ -1356,6 +1359,15 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
     /** Renders blocks that require biome tint (leaves, grass, vines, lily pad) using vanilla layers. */
     private void renderBiomeTintedBlocksVanilla(FormRenderingContext context, MatrixStack stack, VertexConsumerProvider consumers, int light, int overlay, Function<VertexConsumer, VertexConsumer> recolor)
     {
+        this.renderBiomeTintedBlocksVanilla(context, stack, consumers, light, overlay, recolor, false);
+    }
+
+    /**
+     * @param forceDrawLeaves when true, draw leaves even under Iris live (used by paint / color-tint
+     *                        overlays so spatial masks hit foliage that was skipped or deferred).
+     */
+    private void renderBiomeTintedBlocksVanilla(FormRenderingContext context, MatrixStack stack, VertexConsumerProvider consumers, int light, int overlay, Function<VertexConsumer, VertexConsumer> recolor, boolean forceDrawLeaves)
+    {
         /* Ensure correct blending state for translucent layers */
         RenderSystem.enableBlend();
         RenderSystem.defaultBlendFunc();
@@ -1386,8 +1398,9 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
             stack.push();
             stack.translate(entry.pos.getX() - info.pivotX, entry.pos.getY() - info.pivotY, entry.pos.getZ() - info.pivotZ);
 
-            /* Leaves: Fancy cutout_mipped. Under Iris live entity buffers they look Fast with the
-             * opacity patch — skip here (except shadow); deferred post-composite draws Fancy. */
+            /* Leaves: Fancy cutout_mipped. Under Iris + opacity patch, live entity buffers look
+             * Fast — skip for the main pass (deferred Fancy draws them). Overlay passes must
+             * still draw leaves so paint / color-transform masks apply. */
             if (entry.state.getBlock() instanceof LeavesBlock)
             {
                 boolean irisLive = BBSRendering.isIrisShadersEnabled()
@@ -1395,7 +1408,7 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
                     && !context.isShadowPass
                     && !BBSRendering.isIrisShadowPass();
 
-                if (irisLive)
+                if (irisLive && ShaderOpacityPatch.isActive() && !forceDrawLeaves)
                 {
                     stack.pop();
                     continue;
@@ -1758,7 +1771,7 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
 
             if (layer == StructurePaintLayer.BIOME)
             {
-                this.renderBiomeTintedBlocksVanilla(context, stack, consumers, LightmapTextureManager.MAX_LIGHT_COORDINATE, overlay, null);
+                this.renderBiomeTintedBlocksVanilla(context, stack, consumers, LightmapTextureManager.MAX_LIGHT_COORDINATE, overlay, null, true);
             }
             else if (layer == StructurePaintLayer.ANIMATED)
             {
@@ -1926,7 +1939,7 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
 
             if (layer == StructurePaintLayer.BIOME)
             {
-                this.renderBiomeTintedBlocksVanilla(context, stack, consumers, LightmapTextureManager.MAX_LIGHT_COORDINATE, overlay, null);
+                this.renderBiomeTintedBlocksVanilla(context, stack, consumers, LightmapTextureManager.MAX_LIGHT_COORDINATE, overlay, null, true);
             }
             else if (layer == StructurePaintLayer.ANIMATED)
             {
@@ -2012,7 +2025,7 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
         Matrix3f normalMatrix = new Matrix3f(context.stack.peek().getNormalMatrix());
         Color formColorSnapshot = formColor.copy();
 
-        ModelVAORenderer.submitPaintOverlay(false, () ->
+        ModelVAORenderer.submitColorTintOverlay(() ->
         {
             MatrixStack overlayStack = new MatrixStack();
 
@@ -2162,7 +2175,7 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
 
             if (layer == StructurePaintLayer.BIOME)
             {
-                this.renderBiomeTintedBlocksVanilla(context, stack, consumers, LightmapTextureManager.MAX_LIGHT_COORDINATE, overlay, null);
+                this.renderBiomeTintedBlocksVanilla(context, stack, consumers, LightmapTextureManager.MAX_LIGHT_COORDINATE, overlay, null, true);
             }
             else if (layer == StructurePaintLayer.ANIMATED)
             {
