@@ -102,8 +102,7 @@ public class CinematicClip extends CameraClip
             this.effect.aberration = ab * factor;
             this.effect.vhs = vh * factor;
             this.effect.lensDistortion = lens;
-            /* Allow 0 so the effect collapses fully; no artificial floor. */
-            this.effect.lensRadius = Math.max(0F, lr);
+            this.effect.lensRadius = Math.max(0.05F, lr);
             this.effect.lensHardness = Math.max(0F, Math.min(1F, lh));
             this.effect.lensSharpen = Math.max(0F, ls) * factor;
             this.effect.vintage = vt * factor;

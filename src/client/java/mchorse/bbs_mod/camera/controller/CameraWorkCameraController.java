@@ -100,38 +100,18 @@ public abstract class CameraWorkCameraController implements ICameraController
         }
 
         float lens = 0F;
-        float minRadius = Float.POSITIVE_INFINITY;
 
         for (ColorEffect effect : ColorClip.getEffects(this.context))
         {
-            if (effect.hasCinematic && Math.abs(effect.lensDistortion) > 1.0e-6F)
+            if (effect.hasCinematic)
             {
                 lens += effect.lensDistortion;
-                minRadius = Math.min(minRadius, effect.lensRadius);
             }
         }
 
-        if (Math.abs(lens) <= 1.0e-6F || minRadius == Float.POSITIVE_INFINITY)
+        if (Math.abs(lens) <= 1.0e-6F)
         {
             BBSRendering.setLensOverscanScale(1F);
-
-            return;
-        }
-
-        /* FOV overscan re-renders the whole frame softer (same resolution, wider FOV).
-         * Only safe when the mask covers the screen (radius >= 1) — there is no
-         * visible "outside". Partial radius must keep native FOV so exterior stays sharp. */
-        if (minRadius < 1F - 1.0e-4F)
-        {
-            BBSRendering.setLensOverscanScale(1F);
-
-            for (ColorEffect effect : ColorClip.getEffects(this.context))
-            {
-                if (effect.hasCinematic)
-                {
-                    effect.lensOverscan = 1F;
-                }
-            }
 
             return;
         }

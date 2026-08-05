@@ -47,24 +47,6 @@ public final class LensDistortionOverscan
         return Math.max(MIN_UNDERSCAN_SCALE, 1F + EDGE_R2 * lensDistortion);
     }
 
-    /**
-     * Blend full-frame overscan toward identity by lens radius cover.
-     * {@code radiusCover} of 1 = full FOV match; 0 = no overscan. Avoids a hard
-     * zoom jump when radius crosses 1 → 0.99.
-     */
-    public static float overscanScaleForRadius(float lensDistortion, float radiusCover)
-    {
-        float full = overscanScale(lensDistortion);
-        float cover = MathUtils.clamp(radiusCover, 0F, 1F);
-
-        if (cover <= 1.0e-4F || Math.abs(full - 1F) <= 1.0e-6F)
-        {
-            return 1F;
-        }
-
-        return 1F + (full - 1F) * cover;
-    }
-
     public static float adjustFovDegrees(float fovDegrees, float lensDistortion)
     {
         return adjustFovDegreesByScale(fovDegrees, overscanScale(lensDistortion));
