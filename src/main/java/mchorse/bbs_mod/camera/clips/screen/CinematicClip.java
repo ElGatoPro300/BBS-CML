@@ -17,7 +17,7 @@ public class CinematicClip extends CameraClip
     public static final double DEFAULT_LENS_RADIUS = 1D;
     public static final double DEFAULT_LENS_HARDNESS = 1D;
     public static final double DEFAULT_LENS_SHARPEN = 1D;
-    public static final double DEFAULT_LENS_DISTANCE_FACTOR = 1D;
+    public static final double DEFAULT_LENS_DISTANCE_FACTOR = 0D;
 
     /* Cinematic effects */
     public final KeyframeChannel<Double> aberration = new KeyframeChannel<>("aberration", KeyframeFactories.DOUBLE);
