@@ -181,25 +181,6 @@ public class GameRendererMixin
         IrlWorldFilmLightBridge.collectBeforeFlush(tickDelta);
     }
 
-    /**
-     * Start positive-fisheye supersample after this frame's overscan scale is known
-     * (Camera.update → controller.setup), and before FOV / projection matrices are built.
-     */
-    @Inject(
-        method = "renderWorld",
-        at = @At(
-            value = "INVOKE",
-            target = "Lnet/minecraft/client/render/Camera;update(Lnet/minecraft/world/BlockView;Lnet/minecraft/entity/Entity;ZZF)V",
-            shift = At.Shift.AFTER,
-            ordinal = 0
-        ),
-        order = 950
-    )
-    private void bbs$beginFisheyeSupersample(RenderTickCounter tickCounter, CallbackInfo ci)
-    {
-        BBSRendering.beginFisheyeSupersampleIfNeeded();
-    }
-
     @Inject(at = @At("RETURN"), method = "renderWorld")
     private void onWorldRenderEnd(CallbackInfo callbackInfo)
     {

@@ -60,13 +60,6 @@ public class WindowMixin
     @Inject(method = "getWidth", at = @At("HEAD"), cancellable = true)
     public void onGetWidth(CallbackInfoReturnable<Integer> info)
     {
-        if (BBSRendering.isFisheyeSupersampleActive())
-        {
-            info.setReturnValue(BBSRendering.getFisheyeOverrideWidth());
-
-            return;
-        }
-
         if (BBSRendering.canReplaceFramebuffer())
         {
             info.setReturnValue(BBSRendering.getVideoWidth());
@@ -76,13 +69,6 @@ public class WindowMixin
     @Inject(method = "getHeight", at = @At("HEAD"), cancellable = true)
     public void onGetHeight(CallbackInfoReturnable<Integer> info)
     {
-        if (BBSRendering.isFisheyeSupersampleActive())
-        {
-            info.setReturnValue(BBSRendering.getFisheyeOverrideHeight());
-
-            return;
-        }
-
         if (BBSRendering.canReplaceFramebuffer())
         {
             info.setReturnValue(BBSRendering.getVideoHeight());
@@ -92,13 +78,6 @@ public class WindowMixin
     @Inject(method = "getFramebufferWidth", at = @At("HEAD"), cancellable = true)
     public void onGetFramebufferWidth(CallbackInfoReturnable<Integer> info)
     {
-        if (BBSRendering.isFisheyeSupersampleActive())
-        {
-            info.setReturnValue(BBSRendering.getFisheyeRenderWidth());
-
-            return;
-        }
-
         if (BBSRendering.canReplaceFramebuffer())
         {
             info.setReturnValue((int) (BBSRendering.getVideoWidth() * BBSModClient.getOriginalFramebufferScale()));
@@ -108,13 +87,6 @@ public class WindowMixin
     @Inject(method = "getFramebufferHeight", at = @At("HEAD"), cancellable = true)
     public void onGetFramebufferHeight(CallbackInfoReturnable<Integer> info)
     {
-        if (BBSRendering.isFisheyeSupersampleActive())
-        {
-            info.setReturnValue(BBSRendering.getFisheyeRenderHeight());
-
-            return;
-        }
-
         if (BBSRendering.canReplaceFramebuffer())
         {
             info.setReturnValue((int) (BBSRendering.getVideoHeight() * BBSModClient.getOriginalFramebufferScale()));
@@ -124,13 +96,6 @@ public class WindowMixin
     @Inject(method = "getScaledWidth", at = @At("HEAD"), cancellable = true)
     public void onGetScaledWidth(CallbackInfoReturnable<Integer> info)
     {
-        if (BBSRendering.isFisheyeSupersampleActive())
-        {
-            info.setReturnValue((int) (BBSRendering.getFisheyeRenderWidth() / this.scaleFactor));
-
-            return;
-        }
-
         if (BBSRendering.canReplaceFramebuffer())
         {
             info.setReturnValue((int) (BBSRendering.getVideoWidth() / this.scaleFactor * BBSModClient.getOriginalFramebufferScale()));
@@ -140,13 +105,6 @@ public class WindowMixin
     @Inject(method = "getScaledHeight", at = @At("HEAD"), cancellable = true)
     public void onGetScaledHeight(CallbackInfoReturnable<Integer> info)
     {
-        if (BBSRendering.isFisheyeSupersampleActive())
-        {
-            info.setReturnValue((int) (BBSRendering.getFisheyeRenderHeight() / this.scaleFactor));
-
-            return;
-        }
-
         if (BBSRendering.canReplaceFramebuffer())
         {
             info.setReturnValue((int) (BBSRendering.getVideoHeight() / this.scaleFactor * BBSModClient.getOriginalFramebufferScale()));
