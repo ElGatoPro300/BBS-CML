@@ -198,9 +198,12 @@ public class ColorGradeRenderer
                     }
                     else
                     {
-                        float kUse = max(k, -1.95);
+                        /* Do not clamp k itself (that froze UI intensity around -7.8 via
+                         * the clip's *0.25 scale). Keep the radial scale positive so UVs
+                         * never invert; stronger negatives still pull inner radii harder. */
+                        float scale = max(1.0 + k * localR2, 0.001);
 
-                        warpedUV = clamp(uvOffset * (1.0 + kUse * localR2) + vec2(0.5), 0.0, 1.0);
+                        warpedUV = clamp(uvOffset * scale + vec2(0.5), 0.0, 1.0);
                     }
 
                     distortedUV = mix(passthroughUV, warpedUV, clamp(lensMask, 0.0, 1.0));
@@ -461,7 +464,7 @@ public class ColorGradeRenderer
             }
             """;
 
-    private static final int SHADER_VERSION = 15;
+    private static final int SHADER_VERSION = 16;
     private static int loadedShaderVersion;
     private static boolean initialized;
     private static boolean failed;
