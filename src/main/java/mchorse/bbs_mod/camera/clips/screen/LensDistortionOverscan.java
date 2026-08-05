@@ -24,9 +24,54 @@ public final class LensDistortionOverscan
      * {@code 1 + CORNER_R2 * kFit} stays positive when {@code kFit = (s-1)/EDGE_R2}.
      */
     public static final float MIN_UNDERSCAN_SCALE = 0.55F;
+    /**
+     * Reference subject distance (blocks) used to convert the positive-fisheye UV
+     * fit-zoom into a look-axis dolly, matching the “same place” framing feel.
+     */
+    public static final float FRAMING_FOCUS_BLOCKS = 4F;
+    /** UV half-diagonal of the unit square ({@code √0.5}). */
+    public static final float CORNER_RADIUS = 0.70710678F;
 
     private LensDistortionOverscan()
     {}
+
+    /**
+     * Same UV fit scale used by the color-grade fisheye shader for positive {@code k}.
+     * {@code > 1} means the warp zooms into the native frame to stay in bounds.
+     */
+    public static float positiveFitScale(float lensDistortion, float lensRadius, float lensHardness)
+    {
+        if (lensDistortion <= 1.0e-6F)
+        {
+            return 1F;
+        }
+
+        float radius = Math.max(lensRadius * CORNER_RADIUS, 1.0e-6F);
+        float hardness = MathUtils.clamp(lensHardness, 0F, 1F);
+        float feather = (1F - hardness) * radius * 0.75F;
+        float rFit = Math.min(CORNER_RADIUS, radius + feather);
+        float fitR2 = Math.min(CORNER_R2, CORNER_R2 * rFit * rFit / (radius * radius));
+        float edgeComponent = Math.min(rFit, 0.5F);
+
+        return Math.max(1F, edgeComponent * (1F + lensDistortion * fitR2) / 0.5F);
+    }
+
+    /**
+     * Look-axis distance offset that counters the positive-fisheye UV zoom so a subject
+     * around {@link #FRAMING_FOCUS_BLOCKS} keeps similar screen size. Negative = dolly back.
+     * Multiplied by the animatable distance-factor track by the caller.
+     */
+    public static float framingDistanceOffset(float lensDistortion, float lensRadius, float lensHardness)
+    {
+        float fitScale = positiveFitScale(lensDistortion, lensRadius, lensHardness);
+
+        if (fitScale <= 1.0e-4F)
+        {
+            return 0F;
+        }
+
+        return FRAMING_FOCUS_BLOCKS * (1F - fitScale);
+    }
 
     /**
      * Tan-space scale matching the UV remapping for {@code k}.

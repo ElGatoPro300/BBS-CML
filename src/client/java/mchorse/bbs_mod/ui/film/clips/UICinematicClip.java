@@ -225,6 +225,19 @@ public class UICinematicClip extends UIClip<CinematicClip>
             shIntensity.groupKey = fisheyeKey;
             view.addSheet(shIntensity);
 
+            UIKeyframeSheet shDistanceFactor = new UIKeyframeSheet(
+                "lens_distance_factor",
+                UIKeys.CAMERA_CLIPS_CHANNEL_FISHEYE_DISTANCE_FACTOR,
+                0xff5599ff,
+                false,
+                this.clip.lensDistanceFactor,
+                null
+            );
+            shDistanceFactor.level = 2;
+            shDistanceFactor.groupKey = fisheyeKey;
+            shDistanceFactor.defaultInsertValue = CinematicClip.DEFAULT_LENS_DISTANCE_FACTOR;
+            view.addSheet(shDistanceFactor);
+
             UIKeyframeSheet shRadius = new UIKeyframeSheet(
                 "lens_radius",
                 UIKeys.CAMERA_CLIPS_CHANNEL_FISHEYE_RADIUS,

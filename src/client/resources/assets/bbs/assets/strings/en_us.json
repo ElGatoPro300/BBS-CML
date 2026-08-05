@@ -632,6 +632,7 @@
     "bbs.ui.camera.clips.channel.lens_distortion": "Intensity",
     "bbs.ui.camera.clips.channel.fisheye_effect": "Fish Eye Effect",
     "bbs.ui.camera.clips.channel.fisheye_intensity": "Intensity",
+    "bbs.ui.camera.clips.channel.fisheye_distance_factor": "Distance Factor",
     "bbs.ui.camera.clips.channel.fisheye_radius": "Radius",
     "bbs.ui.camera.clips.channel.fisheye_hardness": "Hardness",
     "bbs.ui.camera.clips.channel.fisheye_sharpen": "Sharpening",
