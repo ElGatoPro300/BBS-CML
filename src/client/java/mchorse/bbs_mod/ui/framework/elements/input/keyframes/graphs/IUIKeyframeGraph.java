@@ -194,6 +194,7 @@ public interface IUIKeyframeGraph
         UIVisibleRenderKeyframeUtils.removeRenderForVisibleKeyframe(this.getHostKeyframes(), keyframe);
 
         sheet.remove(keyframe);
+        UIVisibleRenderKeyframeUtils.pruneRenderAfterVisibleEdit(this.getHostKeyframes());
         this.clearSelection();
         this.pickKeyframe(null);
     }
@@ -208,6 +209,7 @@ public interface IUIKeyframeGraph
             sheet.selection.removeSelected();
         }
 
+        UIVisibleRenderKeyframeUtils.pruneRenderAfterVisibleEdit(this.getHostKeyframes());
         this.pickKeyframe(null);
     }
 
