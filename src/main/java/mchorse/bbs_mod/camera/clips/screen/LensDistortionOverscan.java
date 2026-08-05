@@ -46,14 +46,15 @@ public final class LensDistortionOverscan
             return 1F;
         }
 
-        float radius = Math.max(Math.max(lensRadiusX, lensRadiusY) * CORNER_RADIUS, 1.0e-6F);
+        float radiusX = Math.max(lensRadiusX * CORNER_RADIUS, 1.0e-6F);
+        float radiusY = Math.max(lensRadiusY * CORNER_RADIUS, 1.0e-6F);
         float hardness = MathUtils.clamp(lensHardness, 0F, 1F);
-        float feather = (1F - hardness) * radius * 0.75F;
-        float rFit = Math.min(CORNER_RADIUS, radius + feather);
-        float fitR2 = Math.min(CORNER_R2, CORNER_R2 * rFit * rFit / (radius * radius));
-        float edgeComponent = Math.min(rFit, 0.5F);
+        float feather = (1F - hardness) * 0.75F;
+        /* Match the shader: isotropic extent capped at the UV half-edge so
+         * radius > 1 (unlocked X/Y) does not under-fit and clamp-smear. */
+        float extent = Math.min(0.5F, Math.max(radiusX, radiusY) * (1F + feather));
 
-        return Math.max(1F, edgeComponent * (1F + lensDistortion * fitR2) / 0.5F);
+        return Math.max(1F, extent * (1F + lensDistortion * CORNER_R2) / 0.5F);
     }
 
     /**

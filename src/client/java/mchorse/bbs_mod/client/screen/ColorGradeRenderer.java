@@ -192,14 +192,23 @@ public class ColorGradeRenderer
 
                     if (k > 0.0)
                     {
-                        float radius = max(radiusX, radiusY);
-                        float featherAbs = feather * radius;
-                        float rFit = min(cornerRadius, radius + featherAbs);
-                        float fitR2 = min(0.5, 0.5 * rFit * rFit / (radius * radius));
-                        float edgeComponent = min(rFit, 0.5);
-                        float fitScale = max(1.0, edgeComponent * (1.0 + k * fitR2) / 0.5);
+                        /* Isotropic fit (one scale for X and Y) so the warp keeps its
+                         * radial direction — per-axis squash breaks the radius look.
+                         * extent caps at the screen half-edge so radius>1 (common when
+                         * unlocking X/Y) still keeps samples inside [0,1]. */
+                        float extent = min(0.5, max(radiusX, radiusY) * (1.0 + feather));
+                        float fitScale = max(1.0, extent * (1.0 + k * 0.5) / 0.5);
+                        vec2 raw = uvOffset * (1.0 + k * localR2) / fitScale;
+                        /* Safety: shrink isotropically if anything still exceeds the
+                         * UV square (feather / extreme ellipses). Preserves angle. */
+                        float box = max(abs(raw.x), abs(raw.y));
 
-                        warpedUV = clamp(uvOffset * (1.0 + k * localR2) / fitScale + vec2(0.5), 0.0, 1.0);
+                        if (box > 0.5)
+                        {
+                            raw *= 0.5 / box;
+                        }
+
+                        warpedUV = raw + vec2(0.5);
                     }
                     else
                     {
@@ -208,8 +217,15 @@ public class ColorGradeRenderer
                          * then looks inverted at the rim; the reciprocal keeps zooming
                          * in smoothly for arbitrarily strong negatives. */
                         float scale = 1.0 / max(1.0 - k * localR2, 0.001);
+                        vec2 raw = uvOffset * scale;
+                        float box = max(abs(raw.x), abs(raw.y));
 
-                        warpedUV = clamp(uvOffset * scale + vec2(0.5), 0.0, 1.0);
+                        if (box > 0.5)
+                        {
+                            raw *= 0.5 / box;
+                        }
+
+                        warpedUV = raw + vec2(0.5);
                     }
 
                     distortedUV = mix(passthroughUV, warpedUV, clamp(lensMask, 0.0, 1.0));
@@ -470,7 +486,7 @@ public class ColorGradeRenderer
             }
             """;
 
-    private static final int SHADER_VERSION = 18;
+    private static final int SHADER_VERSION = 20;
     private static int loadedShaderVersion;
     private static boolean initialized;
     private static boolean failed;
