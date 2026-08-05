@@ -125,7 +125,7 @@ public abstract class BaseFilmController
 
         Form form = entity.getForm();
 
-        if (form == null || !form.render.get())
+        if (form == null || !form.render.get() || !form.visible.get())
         {
             return;
         }
@@ -378,7 +378,8 @@ public abstract class BaseFilmController
          * Blob opacity is the Shadow track only; form Opacity must not fade the ground circle.
          * Size X/Z are independent (matrix scale); vanilla API only has one radius. */
         if (!relative && context.map == null && opacity > 0F
-            && (context.shadowRadiusX > 0F || context.shadowRadiusZ > 0F) && form.render.get()
+            && (context.shadowRadiusX > 0F || context.shadowRadiusZ > 0F)
+            && form.render.get() && form.visible.get()
             && !context.isShadowPass && !IrisUtils.isShaderPackEnabled())
         {
             float shadowOpacity = MathUtils.clamp(opacity * context.shadowOpacity, 0F, 1F);
