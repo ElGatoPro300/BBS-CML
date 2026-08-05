@@ -26,6 +26,7 @@ import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderContext;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.network.ClientPlayerEntity;
 
+import com.mojang.blaze3d.opengl.GlStateManager;
 import com.mojang.blaze3d.systems.RenderSystem;
 
 import java.util.ArrayList;
@@ -359,7 +360,7 @@ public class Films
     {
         Gizmo.INSTANCE.clearVisual();
 
-        RenderSystem.enableDepthTest();
+        GlStateManager._enableDepthTest();
 
         for (BaseFilmController controller : this.controllers)
         {

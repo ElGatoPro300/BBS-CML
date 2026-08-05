@@ -96,6 +96,7 @@ import org.joml.Vector3d;
 import org.joml.Vector3f;
 
 import com.mojang.blaze3d.systems.ProjectionType;
+import com.mojang.blaze3d.opengl.GlStateManager;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.systems.VertexSorter;
 import com.mojang.blaze3d.vertex.VertexFormat;
@@ -1665,7 +1666,7 @@ public class UIFilmController extends UIElement
          * preview every mouse move over the viewport (deferred translucents looked like flicker).
          * beginWrite(false) alone may not restore glViewport, which made the whole UI look zoomed. */
         BBSRendering.ensureMainFramebuffer();
-        MinecraftClient.getInstance().getFramebuffer().beginWrite(false);
+        GlStateManager._glBindFramebuffer(36160, 0);
         GL11.glViewport(prevViewport[0], prevViewport[1], prevViewport[2], prevViewport[3]);
     }
 

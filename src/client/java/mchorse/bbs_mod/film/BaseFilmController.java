@@ -84,6 +84,7 @@ import org.joml.Vector2f;
 import org.joml.Vector3d;
 import org.joml.Vector3f;
 
+import com.mojang.blaze3d.opengl.GlStateManager;
 import com.mojang.blaze3d.systems.RenderSystem;
 
 import java.util.ArrayList;
@@ -352,7 +353,7 @@ public abstract class BaseFilmController
                             BaseFilmController.renderGizmo(stack, context.map);
                         }
 
-                        RenderSystem.enableDepthTest();
+                        GlStateManager._enableDepthTest();
                         stack.pop();
                     }
                 }
@@ -399,7 +400,7 @@ public abstract class BaseFilmController
             stack.pop();
         }
 
-        RenderSystem.enableDepthTest();
+        GlStateManager._enableDepthTest();
     }
 
     /**
@@ -808,7 +809,7 @@ public abstract class BaseFilmController
                 BaseFilmController.renderGizmo(stack, stencilMap);
             }
 
-            RenderSystem.enableDepthTest();
+            GlStateManager._enableDepthTest();
             stack.pop();
         }
     }
@@ -1046,14 +1047,14 @@ public abstract class BaseFilmController
 
         int maxLight = LightmapTextureManager.MAX_LIGHT_COORDINATE;
 
-            RenderSystem.enableBlend();
-            RenderSystem.disableCull();
+            GlStateManager._enableBlend();
+            GlStateManager._disableCull();
 
             CustomVertexConsumerProvider consumers = FormUtilsClient.getProvider();
 
             CustomVertexConsumerProvider.hijackVertexFormat((layer) ->
             {
-                RenderSystem.disableDepthTest();
+                GlStateManager._disableDepthTest();
             });
 
             textRenderer.draw(text, h, 0, 0x00FFFFFF, false, matrix4f, consumers, TextRenderer.TextLayerType.NORMAL, background, maxLight);
@@ -1063,10 +1064,10 @@ public abstract class BaseFilmController
             consumers.draw();
 
             CustomVertexConsumerProvider.clearRunnables();
-            RenderSystem.enableDepthTest();
+            GlStateManager._enableDepthTest();
 
-            RenderSystem.enableCull();
-            RenderSystem.disableBlend();
+            GlStateManager._enableCull();
+            GlStateManager._disableBlend();
 
         matrices.pop();
     }
@@ -1661,7 +1662,7 @@ public abstract class BaseFilmController
 
     public void render(WorldRenderContext context)
     {
-        RenderSystem.enableDepthTest();
+        GlStateManager._enableDepthTest();
 
         /* Farther entities first so translucency composites correctly. */
         List<Map.Entry<Integer, IEntity>> sorted = new ArrayList<>(this.entities.entrySet());

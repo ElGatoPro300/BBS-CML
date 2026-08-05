@@ -676,6 +676,10 @@ public class Batcher2D
         this.context.drawText(font.getRenderer(), label, (int) x, (int) y, color, shadow);
     }
 
+    public void drawPickerPreview(int textureId, int index, int highlightColor, int x, int y, int w, int h, int texW, int texH)
+    {
+    }
+
     public void flush()
     {
     }
