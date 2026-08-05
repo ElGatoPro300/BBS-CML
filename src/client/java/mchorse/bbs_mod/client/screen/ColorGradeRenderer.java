@@ -162,25 +162,33 @@ public class ColorGradeRenderer
 
             void main()
             {
-                /* Fisheye on clean UVs so screen edges map to FOV-matched image edges.
-                 * Positive: corner-matched widen. Negative: edge-matched narrow.
-                 * Radius sets where the effect ends; hardness is the falloff width of that
-                 * rim. Critical: mix full-warp UVs with passthrough UVs (do not scale k by
-                 * the mask — that creates a hard circular seam when radius < 1). */
+                /* Fisheye: mix full-warp with passthrough by radial mask (hardness =
+                 * rim feather). Partial radius keeps native FOV (sharp outside); UV sFit
+                 * avoids clamp-smear without widening the whole frame. */
                 vec2 distortedUV = v_uv;
                 float lensMask = 0.0;
-                if (abs(u_lensDistortion) > 0.001)
+                if (abs(u_lensDistortion) > 0.001 && u_lensRadius > 0.001)
                 {
                     vec2 uvOffset = v_uv - vec2(0.5);
                     float r2 = dot(uvOffset, uvOffset);
                     float k = u_lensDistortion;
-                    float rMax = max(u_lensRadius * 0.70710678, 0.0001);
+                    float rMax = max(u_lensRadius * 0.70710678, 1.0e-6);
                     float rNorm = length(uvOffset) / rMax;
                     float hardness = clamp(u_lensHardness, 0.0, 1.0);
-                    /* 0 = wide soft rim, 1 = narrow hard rim (still a short blend, not a cut). */
-                    float feather = mix(0.85, 0.04, hardness);
-                    lensMask = 1.0 - smoothstep(1.0 - feather, 1.0 + feather, rNorm);
+                    /* Hardness 1 = razor cut. Lower = wider soft falloff around the rim. */
+                    float feather = mix(0.85, 0.0, hardness);
 
+                    if (feather < 0.0001)
+                    {
+                        lensMask = step(rNorm, 1.0);
+                    }
+                    else
+                    {
+                        lensMask = 1.0 - smoothstep(1.0 - feather, 1.0 + feather, rNorm);
+                    }
+
+                    /* Outside the mask: always true screen UVs of the native-FOV buffer
+                     * when overscan is off. Overscan path uses the FOV crop instead. */
                     vec2 passthroughUV = v_uv;
                     vec2 warpedUV = v_uv;
 
@@ -189,7 +197,6 @@ public class ColorGradeRenderer
                         float s = u_lensOverscan;
                         float kFit = 2.0 * (s - 1.0);
                         float kUse = min(k, kFit);
-                        /* Crop of the wide FOV (= framing without barrel). */
                         passthroughUV = clamp(uvOffset / s + vec2(0.5), 0.0, 1.0);
                         warpedUV = clamp(uvOffset * (1.0 + kUse * r2) / s + vec2(0.5), 0.0, 1.0);
                     }
@@ -201,6 +208,14 @@ public class ColorGradeRenderer
                         kUse = max(kUse, -1.95);
                         passthroughUV = clamp(uvOffset / s + vec2(0.5), 0.0, 1.0);
                         warpedUV = clamp(uvOffset * (1.0 + kUse * r2) / s + vec2(0.5), 0.0, 1.0);
+                    }
+                    else if (k > 0.0)
+                    {
+                        /* Fit including soft feather so hardness rim does not clamp-smear. */
+                        float rFit = rMax * (1.0 + max(feather, 0.0));
+                        float peak = rFit * (1.0 + k * rFit * rFit);
+                        float sFit = max(1.0, peak / 0.5);
+                        warpedUV = clamp(uvOffset * (1.0 + k * r2) / sFit + vec2(0.5), 0.0, 1.0);
                     }
                     else
                     {
@@ -465,7 +480,7 @@ public class ColorGradeRenderer
             }
             """;
 
-    private static final int SHADER_VERSION = 14;
+    private static final int SHADER_VERSION = 19;
     private static int loadedShaderVersion;
     private static boolean initialized;
     private static boolean failed;
@@ -724,8 +739,10 @@ public class ColorGradeRenderer
         GL20.glUniform2f(uDistort, distortX, distortY);
         GL20.glUniform1f(uAberration, aberration);
         GL20.glUniform1f(uVHS, vhs);
-        /* Use the scale actually applied to this frame's camera FOV (+ widen / - narrow). */
-        if (Math.abs(lensDistortion) > 1.0e-6F && BBSSettings.editorFisheyeWidenFov != null && BBSSettings.editorFisheyeWidenFov.get())
+        /* FOV overscan only when radius covers the frame (no visible exterior). */
+        boolean fullFrameLens = lensRadius >= 1F - 1.0e-4F;
+
+        if (Math.abs(lensDistortion) > 1.0e-6F && fullFrameLens && BBSSettings.editorFisheyeWidenFov != null && BBSSettings.editorFisheyeWidenFov.get())
         {
             float rendered = BBSRendering.getLensOverscanScale();
 
@@ -745,7 +762,7 @@ public class ColorGradeRenderer
 
         GL20.glUniform1f(uLensDistortion, lensDistortion);
         GL20.glUniform1f(uLensOverscan, lensOverscan);
-        GL20.glUniform1f(uLensRadius, Math.max(0.05F, lensRadius));
+        GL20.glUniform1f(uLensRadius, Math.max(0F, lensRadius));
         GL20.glUniform1f(uLensHardness, Math.max(0F, Math.min(1F, lensHardness)));
         GL20.glUniform1f(uLensSharpen, Math.max(0F, lensSharpen));
         GL20.glUniform1f(uVintage, vintage);
