@@ -4,6 +4,7 @@ import mchorse.bbs_mod.film.replays.FormProperties;
 import mchorse.bbs_mod.forms.FormUtils;
 import mchorse.bbs_mod.forms.forms.Form;
 import mchorse.bbs_mod.settings.values.base.BaseValue;
+import mchorse.bbs_mod.ui.framework.elements.input.keyframes.UIKeyframeSheet;
 import mchorse.bbs_mod.ui.framework.elements.input.keyframes.UIKeyframes;
 import mchorse.bbs_mod.utils.keyframes.Keyframe;
 import mchorse.bbs_mod.utils.keyframes.KeyframeChannel;
@@ -165,5 +166,59 @@ public class UIVisibleRenderKeyframeUtils
         editor.cacheKeyframes();
         keyframe.setTick(newTick);
         editor.submitKeyframes();
+    }
+
+    public static void removeRenderAtTick(KeyframeChannel<?> visible, float tick)
+    {
+        if (visible == null || !FormUtils.isVisiblePropertyPath(visible.getId()))
+        {
+            return;
+        }
+
+        KeyframeChannel<Boolean> render = getRenderChannel(visible);
+        Keyframe<Boolean> keyframe = findExact(render, tick);
+
+        if (keyframe == null)
+        {
+            return;
+        }
+
+        render.removeSilently(keyframe);
+    }
+
+    public static void removeRenderForVisibleKeyframe(UIKeyframes editor, Keyframe<?> keyframe)
+    {
+        if (editor == null || keyframe == null || !(keyframe.getParent() instanceof KeyframeChannel<?> channel))
+        {
+            return;
+        }
+
+        if (!FormUtils.isVisiblePropertyPath(channel.getId()))
+        {
+            return;
+        }
+
+        removeRenderAtTick(channel, keyframe.getTick());
+    }
+
+    public static void removeRenderForSelectedVisible(UIKeyframes editor)
+    {
+        if (editor == null)
+        {
+            return;
+        }
+
+        for (UIKeyframeSheet sheet : editor.getGraph().getSheets())
+        {
+            if (!FormUtils.isVisiblePropertyPath(sheet.id))
+            {
+                continue;
+            }
+
+            for (Keyframe keyframe : sheet.selection.getSelected())
+            {
+                removeRenderAtTick(sheet.channel, keyframe.getTick());
+            }
+        }
     }
 }

@@ -5,6 +5,7 @@ import mchorse.bbs_mod.ui.UIKeys;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIToggle;
 import mchorse.bbs_mod.ui.framework.elements.input.keyframes.UIKeyframeSheet;
 import mchorse.bbs_mod.ui.framework.elements.input.keyframes.UIKeyframes;
+import mchorse.bbs_mod.utils.interps.Interpolations;
 import mchorse.bbs_mod.utils.keyframes.Keyframe;
 import mchorse.bbs_mod.utils.keyframes.KeyframeChannel;
 
@@ -24,6 +25,11 @@ public class UIVisibleKeyframeFactory extends UIKeyframeFactory<Boolean>
         this.renderChannel = sheet == null
             ? null
             : UIVisibleRenderKeyframeUtils.getRenderChannel(sheet.channel, FormUtils.getForm(sheet.property));
+
+        /* Visible/render are step tracks — duration/interp only shift getClosest() mid-segment. */
+        this.interp.setVisible(false);
+        this.duration.setVisible(false);
+        this.sanitizeDiscreteKeyframe(keyframe);
 
         this.visibleToggle = new UIToggle(UIKeys.FILM_REPLAY_TRACK_VISIBLE_ENABLED, (b) -> this.setValue(b.getValue()));
         this.visibleToggle.tooltip(UIKeys.FILM_REPLAY_TRACK_VISIBLE_ENABLED_TOOLTIP);
@@ -51,6 +57,8 @@ public class UIVisibleKeyframeFactory extends UIKeyframeFactory<Boolean>
     {
         super.update();
 
+        this.sanitizeDiscreteKeyframe(this.keyframe);
+
         Boolean value = this.keyframe.getValue();
 
         this.visibleToggle.setValue(value == null || value);
@@ -66,6 +74,24 @@ public class UIVisibleKeyframeFactory extends UIKeyframeFactory<Boolean>
 
             this.renderToggle.setValue(UIVisibleRenderKeyframeUtils.getRenderValue(this.renderChannel, tick));
             this.lastSyncedTick = tick;
+        }
+    }
+
+    private void sanitizeDiscreteKeyframe(Keyframe<Boolean> keyframe)
+    {
+        if (keyframe == null)
+        {
+            return;
+        }
+
+        if (keyframe.getDuration() != 0F)
+        {
+            keyframe.setDuration(0F);
+        }
+
+        if (keyframe.getInterpolation().getInterp() != Interpolations.CONST)
+        {
+            keyframe.getInterpolation().setInterp(Interpolations.CONST);
         }
     }
 }

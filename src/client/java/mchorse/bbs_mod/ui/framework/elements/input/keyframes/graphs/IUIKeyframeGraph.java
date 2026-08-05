@@ -6,6 +6,7 @@ import mchorse.bbs_mod.ui.film.replays.UIReplaysEditorUtils;
 import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.ui.framework.elements.input.keyframes.UIKeyframeSheet;
 import mchorse.bbs_mod.ui.framework.elements.input.keyframes.UIKeyframes;
+import mchorse.bbs_mod.ui.framework.elements.input.keyframes.factories.UIVisibleRenderKeyframeUtils;
 import mchorse.bbs_mod.ui.utils.Area;
 import mchorse.bbs_mod.utils.Pair;
 import mchorse.bbs_mod.utils.interps.Interpolation;
@@ -190,6 +191,7 @@ public interface IUIKeyframeGraph
         UIKeyframeSheet sheet = this.getSheet(keyframe);
 
         UIReplaysEditorUtils.removeCompanionPaintForColorKeyframe(this.getHostKeyframes(), keyframe);
+        UIVisibleRenderKeyframeUtils.removeRenderForVisibleKeyframe(this.getHostKeyframes(), keyframe);
 
         sheet.remove(keyframe);
         this.clearSelection();
@@ -199,6 +201,7 @@ public interface IUIKeyframeGraph
     public default void removeSelected()
     {
         UIReplaysEditorUtils.removeCompanionPaintForSelectedColor(this.getHostKeyframes());
+        UIVisibleRenderKeyframeUtils.removeRenderForSelectedVisible(this.getHostKeyframes());
 
         for (UIKeyframeSheet sheet : this.getSheets())
         {
