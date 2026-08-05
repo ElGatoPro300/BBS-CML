@@ -71,6 +71,14 @@ public class ColorGradeRenderer
 
             /* Cinematic effects */
             uniform float u_aberration;
+            uniform float u_aberrationAngle;
+            uniform float u_aberrationDirectional;
+            uniform float u_aberrationRadius;
+            uniform float u_aberrationHardness;
+            uniform float u_aberrationBalance;
+            uniform vec2 u_aberrationCenter;
+            uniform float u_aberrationGreen;
+            uniform float u_aberrationSpectrum;
             uniform float u_vhs;
             uniform float u_lensDistortion;
             uniform float u_lensRadiusX;
@@ -294,20 +302,61 @@ public class ColorGradeRenderer
 
                 /* Chromatic Aberration splitting */
                 vec2 uvRed = distortedUV;
+                vec2 uvGreen = distortedUV;
                 vec2 uvBlue = distortedUV;
                 if (u_aberration > 0.001)
                 {
-                    vec2 dir = distortedUV - vec2(0.5);
-                    float dist = length(dir);
-                    vec2 offset = dir * dist * u_aberration;
-                    uvRed += offset;
-                    uvBlue -= offset;
+                    vec2 delta = distortedUV - u_aberrationCenter;
+                    float dist = length(delta);
+                    vec2 radialDir = dist > 1.0e-6 ? delta / dist : vec2(1.0, 0.0);
+                    float angle = radians(u_aberrationAngle);
+                    vec2 linearDir = vec2(cos(angle), sin(angle));
+                    vec2 splitDir = mix(radialDir, linearDir, clamp(u_aberrationDirectional, 0.0, 1.0));
+                    float splitLen = length(splitDir);
+
+                    splitDir = splitLen > 1.0e-6 ? splitDir / splitLen : radialDir;
+
+                    float cornerRadius = 0.70710678;
+                    float radius = max(u_aberrationRadius * cornerRadius, 1.0e-6);
+                    float rNorm = dist / radius;
+                    float hardness = clamp(u_aberrationHardness, 0.0, 1.0);
+                    float feather = (1.0 - hardness) * 0.75;
+                    float mask = 1.0;
+
+                    if (u_aberrationRadius < 0.999 || feather > 0.0001)
+                    {
+                        if (feather < 0.0001)
+                        {
+                            mask = step(rNorm, 1.0);
+                        }
+                        else
+                        {
+                            mask = 1.0 - smoothstep(max(0.0, 1.0 - feather), 1.0 + feather, rNorm);
+                        }
+                    }
+
+                    float amount = dist * dist * u_aberration * clamp(mask, 0.0, 1.0);
+                    float balance = clamp(u_aberrationBalance, -1.0, 1.0);
+                    float redScale = max(0.0, 1.0 + balance);
+                    float blueScale = max(0.0, 1.0 - balance);
+                    float spectrum = clamp(u_aberrationSpectrum, 0.0, 1.0);
+                    float green = max(0.0, u_aberrationGreen);
+                    float greenAmount = max(green, spectrum * 0.5);
+                    vec2 perp = vec2(-splitDir.y, splitDir.x);
+                    vec2 redDir = normalize(mix(splitDir, splitDir + perp * 0.5, spectrum));
+                    vec2 blueDir = normalize(mix(-splitDir, -splitDir + perp * 0.5, spectrum));
+                    vec2 greenDir = greenAmount > 1.0e-6 ? perp : vec2(0.0);
+
+                    uvRed += redDir * amount * redScale;
+                    uvBlue += blueDir * amount * blueScale;
+                    uvGreen += greenDir * amount * greenAmount;
                     uvRed = clamp(uvRed, 0.0, 1.0);
+                    uvGreen = clamp(uvGreen, 0.0, 1.0);
                     uvBlue = clamp(uvBlue, 0.0, 1.0);
                 }
 
                 float r = texture(u_sampler, uvRed).r;
-                float g = texture(u_sampler, distortedUV).g;
+                float g = texture(u_sampler, uvGreen).g;
                 float b = texture(u_sampler, uvBlue).b;
                 vec3 rgb = vec3(r, g, b);
 
@@ -486,7 +535,7 @@ public class ColorGradeRenderer
             }
             """;
 
-    private static final int SHADER_VERSION = 20;
+    private static final int SHADER_VERSION = 21;
     private static int loadedShaderVersion;
     private static boolean initialized;
     private static boolean failed;
@@ -511,6 +560,14 @@ public class ColorGradeRenderer
     private static int uGrainSeed;
     private static int uDistort;
     private static int uAberration;
+    private static int uAberrationAngle;
+    private static int uAberrationDirectional;
+    private static int uAberrationRadius;
+    private static int uAberrationHardness;
+    private static int uAberrationBalance;
+    private static int uAberrationCenter;
+    private static int uAberrationGreen;
+    private static int uAberrationSpectrum;
     private static int uVHS;
     private static int uLensDistortion;
     private static int uLensRadiusX;
@@ -668,6 +725,15 @@ public class ColorGradeRenderer
 
         /* Accumulate cinematic effects */
         float aberration = 0F;
+        float aberrationAngle = 0F;
+        float aberrationDirectional = 0F;
+        float aberrationRadius = 1F;
+        float aberrationHardness = 1F;
+        float aberrationBalance = 0F;
+        float aberrationCenterX = 0.5F;
+        float aberrationCenterY = 0.5F;
+        float aberrationGreen = 0F;
+        float aberrationSpectrum = 0F;
         float vhs = 0F;
         float lensDistortion = 0F;
         float lensRadiusX = 1F;
@@ -688,7 +754,20 @@ public class ColorGradeRenderer
         {
             if (e.hasCinematic)
             {
-                aberration = Math.max(aberration, e.aberration);
+                if (e.aberration > aberration)
+                {
+                    aberration = e.aberration;
+                    aberrationAngle = e.aberrationAngle;
+                    aberrationDirectional = e.aberrationDirectional;
+                    aberrationRadius = e.aberrationRadius;
+                    aberrationHardness = e.aberrationHardness;
+                    aberrationBalance = e.aberrationBalance;
+                    aberrationCenterX = e.aberrationCenterX;
+                    aberrationCenterY = e.aberrationCenterY;
+                    aberrationGreen = e.aberrationGreen;
+                    aberrationSpectrum = e.aberrationSpectrum;
+                }
+
                 vhs = Math.max(vhs, e.vhs);
                 lensDistortion += e.lensDistortion;
 
@@ -740,6 +819,30 @@ public class ColorGradeRenderer
         GL20.glUniform1f(uGrainSeed, grainSeed);
         GL20.glUniform2f(uDistort, distortX, distortY);
         GL20.glUniform1f(uAberration, aberration);
+        GL20.glUniform1f(uAberrationAngle, aberrationAngle);
+        GL20.glUniform1f(
+            uAberrationDirectional,
+            Math.max(0F, Math.min(1F, aberrationDirectional))
+        );
+        GL20.glUniform1f(uAberrationRadius, Math.max(0F, aberrationRadius));
+        GL20.glUniform1f(
+            uAberrationHardness,
+            Math.max(0F, Math.min(1F, aberrationHardness))
+        );
+        GL20.glUniform1f(
+            uAberrationBalance,
+            Math.max(-1F, Math.min(1F, aberrationBalance))
+        );
+        GL20.glUniform2f(
+            uAberrationCenter,
+            Math.max(0F, Math.min(1F, aberrationCenterX)),
+            Math.max(0F, Math.min(1F, aberrationCenterY))
+        );
+        GL20.glUniform1f(uAberrationGreen, Math.max(0F, aberrationGreen));
+        GL20.glUniform1f(
+            uAberrationSpectrum,
+            Math.max(0F, Math.min(1F, aberrationSpectrum))
+        );
         GL20.glUniform1f(uVHS, vhs);
         GL20.glUniform1f(uLensDistortion, lensDistortion);
         GL20.glUniform1f(uLensRadiusX, Math.max(0F, lensRadiusX));
@@ -871,6 +974,14 @@ public class ColorGradeRenderer
         uGrainSeed = GL20.glGetUniformLocation(program, "u_grainSeed");
         uDistort = GL20.glGetUniformLocation(program, "u_distort");
         uAberration = GL20.glGetUniformLocation(program, "u_aberration");
+        uAberrationAngle = GL20.glGetUniformLocation(program, "u_aberrationAngle");
+        uAberrationDirectional = GL20.glGetUniformLocation(program, "u_aberrationDirectional");
+        uAberrationRadius = GL20.glGetUniformLocation(program, "u_aberrationRadius");
+        uAberrationHardness = GL20.glGetUniformLocation(program, "u_aberrationHardness");
+        uAberrationBalance = GL20.glGetUniformLocation(program, "u_aberrationBalance");
+        uAberrationCenter = GL20.glGetUniformLocation(program, "u_aberrationCenter");
+        uAberrationGreen = GL20.glGetUniformLocation(program, "u_aberrationGreen");
+        uAberrationSpectrum = GL20.glGetUniformLocation(program, "u_aberrationSpectrum");
         uVHS = GL20.glGetUniformLocation(program, "u_vhs");
         uLensDistortion = GL20.glGetUniformLocation(program, "u_lensDistortion");
         uLensRadiusX = GL20.glGetUniformLocation(program, "u_lensRadiusX");

@@ -2044,6 +2044,16 @@ public class UIKeys
     public static final IKey AUDIO_HOME_LIST = L10n.lang("bbs.ui.audio.home.list");
     public static final IKey CAMERA_CLIPS_BBS_CINEMATIC = L10n.lang("bbs.ui.camera.clips.bbs:cinematic");
     public static final IKey CAMERA_CLIPS_CHANNEL_ABERRATION = L10n.lang("bbs.ui.camera.clips.channel.aberration");
+    public static final IKey CAMERA_CLIPS_CHANNEL_ABERRATION_INTENSITY = L10n.lang("bbs.ui.camera.clips.channel.aberration_intensity");
+    public static final IKey CAMERA_CLIPS_CHANNEL_ABERRATION_ANGLE = L10n.lang("bbs.ui.camera.clips.channel.aberration_angle");
+    public static final IKey CAMERA_CLIPS_CHANNEL_ABERRATION_DIRECTIONAL = L10n.lang("bbs.ui.camera.clips.channel.aberration_directional");
+    public static final IKey CAMERA_CLIPS_CHANNEL_ABERRATION_RADIUS = L10n.lang("bbs.ui.camera.clips.channel.aberration_radius");
+    public static final IKey CAMERA_CLIPS_CHANNEL_ABERRATION_HARDNESS = L10n.lang("bbs.ui.camera.clips.channel.aberration_hardness");
+    public static final IKey CAMERA_CLIPS_CHANNEL_ABERRATION_BALANCE = L10n.lang("bbs.ui.camera.clips.channel.aberration_balance");
+    public static final IKey CAMERA_CLIPS_CHANNEL_ABERRATION_CENTER_X = L10n.lang("bbs.ui.camera.clips.channel.aberration_center_x");
+    public static final IKey CAMERA_CLIPS_CHANNEL_ABERRATION_CENTER_Y = L10n.lang("bbs.ui.camera.clips.channel.aberration_center_y");
+    public static final IKey CAMERA_CLIPS_CHANNEL_ABERRATION_GREEN = L10n.lang("bbs.ui.camera.clips.channel.aberration_green");
+    public static final IKey CAMERA_CLIPS_CHANNEL_ABERRATION_SPECTRUM = L10n.lang("bbs.ui.camera.clips.channel.aberration_spectrum");
     public static final IKey CAMERA_CLIPS_CHANNEL_DUST = L10n.lang("bbs.ui.camera.clips.channel.dust");
     public static final IKey CAMERA_CLIPS_CHANNEL_LENS_DISTORTION = L10n.lang("bbs.ui.camera.clips.channel.lens_distortion");
     public static final IKey CAMERA_CLIPS_CHANNEL_FISHEYE_EFFECT = L10n.lang("bbs.ui.camera.clips.channel.fisheye_effect");

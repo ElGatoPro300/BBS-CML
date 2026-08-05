@@ -98,18 +98,6 @@ public class UICinematicClip extends UIClip<CinematicClip>
 
         if (expanded)
         {
-            UIKeyframeSheet shAberration = new UIKeyframeSheet(
-                "aberration",
-                UIKeys.CAMERA_CLIPS_CHANNEL_ABERRATION,
-                Colors.RED,
-                false,
-                this.clip.aberration,
-                null
-            );
-            shAberration.level = 1;
-            shAberration.groupKey = key;
-            view.addSheet(shAberration);
-
             UIKeyframeSheet shVHS = new UIKeyframeSheet(
                 "vhs",
                 UIKeys.CAMERA_CLIPS_CHANNEL_VHS,
@@ -182,11 +170,167 @@ public class UICinematicClip extends UIClip<CinematicClip>
             shLightLeak.groupKey = key;
             view.addSheet(shLightLeak);
 
+            this.addAberrationGroup(view, key);
             this.addFisheyeGroup(view, key);
             this.addHeatGroup(view, key);
         }
 
         this.keyframes.view.getGraph().clearSelection();
+    }
+
+    private void addAberrationGroup(UIKeyframes view, String parentKey)
+    {
+        String aberrationKey = "aberration_group";
+        boolean expanded = !this.collapsed.getOrDefault(aberrationKey, false);
+
+        UIKeyframeSheet header = UIKeyframeSheet.groupHeader(
+            "__cinematic__" + aberrationKey,
+            UIKeys.CAMERA_CLIPS_CHANNEL_ABERRATION,
+            Colors.RED,
+            aberrationKey,
+            expanded,
+            () ->
+            {
+                this.collapsed.put(aberrationKey, !this.collapsed.getOrDefault(aberrationKey, false));
+                this.rebuildChannels();
+            }
+        );
+
+        header.level = 1;
+        header.groupKey = parentKey;
+        view.addSheet(header);
+
+        if (expanded)
+        {
+            UIKeyframeSheet shIntensity = new UIKeyframeSheet(
+                "aberration",
+                UIKeys.CAMERA_CLIPS_CHANNEL_ABERRATION_INTENSITY,
+                0xffff4444,
+                false,
+                this.clip.aberration,
+                null
+            );
+            shIntensity.level = 2;
+            shIntensity.groupKey = aberrationKey;
+            view.addSheet(shIntensity);
+
+            UIKeyframeSheet shAngle = new UIKeyframeSheet(
+                "aberration_angle",
+                UIKeys.CAMERA_CLIPS_CHANNEL_ABERRATION_ANGLE,
+                0xffff6644,
+                false,
+                this.clip.aberrationAngle,
+                null
+            );
+            shAngle.level = 2;
+            shAngle.groupKey = aberrationKey;
+            shAngle.defaultInsertValue = CinematicClip.DEFAULT_ABERRATION_ANGLE;
+            view.addSheet(shAngle);
+
+            UIKeyframeSheet shDirectional = new UIKeyframeSheet(
+                "aberration_directional",
+                UIKeys.CAMERA_CLIPS_CHANNEL_ABERRATION_DIRECTIONAL,
+                0xffff8844,
+                false,
+                this.clip.aberrationDirectional,
+                null
+            );
+            shDirectional.level = 2;
+            shDirectional.groupKey = aberrationKey;
+            shDirectional.defaultInsertValue = CinematicClip.DEFAULT_ABERRATION_DIRECTIONAL;
+            view.addSheet(shDirectional);
+
+            UIKeyframeSheet shRadius = new UIKeyframeSheet(
+                "aberration_radius",
+                UIKeys.CAMERA_CLIPS_CHANNEL_ABERRATION_RADIUS,
+                0xffffaa44,
+                false,
+                this.clip.aberrationRadius,
+                null
+            );
+            shRadius.level = 2;
+            shRadius.groupKey = aberrationKey;
+            shRadius.defaultInsertValue = CinematicClip.DEFAULT_ABERRATION_RADIUS;
+            view.addSheet(shRadius);
+
+            UIKeyframeSheet shHardness = new UIKeyframeSheet(
+                "aberration_hardness",
+                UIKeys.CAMERA_CLIPS_CHANNEL_ABERRATION_HARDNESS,
+                0xffffcc44,
+                false,
+                this.clip.aberrationHardness,
+                null
+            );
+            shHardness.level = 2;
+            shHardness.groupKey = aberrationKey;
+            shHardness.defaultInsertValue = CinematicClip.DEFAULT_ABERRATION_HARDNESS;
+            view.addSheet(shHardness);
+
+            UIKeyframeSheet shBalance = new UIKeyframeSheet(
+                "aberration_balance",
+                UIKeys.CAMERA_CLIPS_CHANNEL_ABERRATION_BALANCE,
+                0xffff44aa,
+                false,
+                this.clip.aberrationBalance,
+                null
+            );
+            shBalance.level = 2;
+            shBalance.groupKey = aberrationKey;
+            shBalance.defaultInsertValue = CinematicClip.DEFAULT_ABERRATION_BALANCE;
+            view.addSheet(shBalance);
+
+            UIKeyframeSheet shCenterX = new UIKeyframeSheet(
+                "aberration_center_x",
+                UIKeys.CAMERA_CLIPS_CHANNEL_ABERRATION_CENTER_X,
+                0xffff6666,
+                false,
+                this.clip.aberrationCenterX,
+                null
+            );
+            shCenterX.level = 2;
+            shCenterX.groupKey = aberrationKey;
+            shCenterX.defaultInsertValue = CinematicClip.DEFAULT_ABERRATION_CENTER_X;
+            view.addSheet(shCenterX);
+
+            UIKeyframeSheet shCenterY = new UIKeyframeSheet(
+                "aberration_center_y",
+                UIKeys.CAMERA_CLIPS_CHANNEL_ABERRATION_CENTER_Y,
+                0xffff8888,
+                false,
+                this.clip.aberrationCenterY,
+                null
+            );
+            shCenterY.level = 2;
+            shCenterY.groupKey = aberrationKey;
+            shCenterY.defaultInsertValue = CinematicClip.DEFAULT_ABERRATION_CENTER_Y;
+            view.addSheet(shCenterY);
+
+            UIKeyframeSheet shGreen = new UIKeyframeSheet(
+                "aberration_green",
+                UIKeys.CAMERA_CLIPS_CHANNEL_ABERRATION_GREEN,
+                0xff44ff88,
+                false,
+                this.clip.aberrationGreen,
+                null
+            );
+            shGreen.level = 2;
+            shGreen.groupKey = aberrationKey;
+            shGreen.defaultInsertValue = CinematicClip.DEFAULT_ABERRATION_GREEN;
+            view.addSheet(shGreen);
+
+            UIKeyframeSheet shSpectrum = new UIKeyframeSheet(
+                "aberration_spectrum",
+                UIKeys.CAMERA_CLIPS_CHANNEL_ABERRATION_SPECTRUM,
+                0xffaa66ff,
+                false,
+                this.clip.aberrationSpectrum,
+                null
+            );
+            shSpectrum.level = 2;
+            shSpectrum.groupKey = aberrationKey;
+            shSpectrum.defaultInsertValue = CinematicClip.DEFAULT_ABERRATION_SPECTRUM;
+            view.addSheet(shSpectrum);
+        }
     }
 
     private void addFisheyeGroup(UIKeyframes view, String parentKey)

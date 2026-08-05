@@ -25,6 +25,15 @@ public class ColorEffect
 
     public boolean hasCinematic;
     public float aberration;
+    public float aberrationAngle;
+    public float aberrationDirectional;
+    public float aberrationRadius;
+    public float aberrationHardness;
+    public float aberrationBalance;
+    public float aberrationCenterX;
+    public float aberrationCenterY;
+    public float aberrationGreen;
+    public float aberrationSpectrum;
     public float vhs;
     public float lensDistortion;
     /** FOV match scale: {@code >1} widen (positive fisheye), {@code <1} narrow (negative). */
@@ -56,6 +65,15 @@ public class ColorEffect
         this.hasCinematic = false;
 
         this.aberration = 0F;
+        this.aberrationAngle = 0F;
+        this.aberrationDirectional = 0F;
+        this.aberrationRadius = 1F;
+        this.aberrationHardness = 1F;
+        this.aberrationBalance = 0F;
+        this.aberrationCenterX = 0.5F;
+        this.aberrationCenterY = 0.5F;
+        this.aberrationGreen = 0F;
+        this.aberrationSpectrum = 0F;
         this.vhs = 0F;
         this.lensDistortion = 0F;
         this.lensOverscan = 1F;

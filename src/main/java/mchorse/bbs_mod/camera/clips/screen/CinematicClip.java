@@ -19,6 +19,17 @@ import java.util.List;
 
 public class CinematicClip extends CameraClip
 {
+    /* Defaults for optional chromatic aberration shaping tracks (empty channel = these values). */
+    public static final double DEFAULT_ABERRATION_ANGLE = 0D;
+    public static final double DEFAULT_ABERRATION_DIRECTIONAL = 0D;
+    public static final double DEFAULT_ABERRATION_RADIUS = 1D;
+    public static final double DEFAULT_ABERRATION_HARDNESS = 1D;
+    public static final double DEFAULT_ABERRATION_BALANCE = 0D;
+    public static final double DEFAULT_ABERRATION_CENTER_X = 0.5D;
+    public static final double DEFAULT_ABERRATION_CENTER_Y = 0.5D;
+    public static final double DEFAULT_ABERRATION_GREEN = 0D;
+    public static final double DEFAULT_ABERRATION_SPECTRUM = 0D;
+
     /* Defaults for optional fisheye shaping tracks (empty channel = these values). */
     public static final float DEFAULT_LENS_RADIUS = 1F;
     public static final LensRadiusSettings DEFAULT_LENS_RADIUS_SETTINGS = new LensRadiusSettings(DEFAULT_LENS_RADIUS, DEFAULT_LENS_RADIUS);
@@ -28,6 +39,15 @@ public class CinematicClip extends CameraClip
 
     /* Cinematic effects */
     public final KeyframeChannel<Double> aberration = new KeyframeChannel<>("aberration", KeyframeFactories.DOUBLE);
+    public final KeyframeChannel<Double> aberrationAngle = new KeyframeChannel<>("aberration_angle", KeyframeFactories.DOUBLE);
+    public final KeyframeChannel<Double> aberrationDirectional = new KeyframeChannel<>("aberration_directional", KeyframeFactories.DOUBLE);
+    public final KeyframeChannel<Double> aberrationRadius = new KeyframeChannel<>("aberration_radius", KeyframeFactories.DOUBLE);
+    public final KeyframeChannel<Double> aberrationHardness = new KeyframeChannel<>("aberration_hardness", KeyframeFactories.DOUBLE);
+    public final KeyframeChannel<Double> aberrationBalance = new KeyframeChannel<>("aberration_balance", KeyframeFactories.DOUBLE);
+    public final KeyframeChannel<Double> aberrationCenterX = new KeyframeChannel<>("aberration_center_x", KeyframeFactories.DOUBLE);
+    public final KeyframeChannel<Double> aberrationCenterY = new KeyframeChannel<>("aberration_center_y", KeyframeFactories.DOUBLE);
+    public final KeyframeChannel<Double> aberrationGreen = new KeyframeChannel<>("aberration_green", KeyframeFactories.DOUBLE);
+    public final KeyframeChannel<Double> aberrationSpectrum = new KeyframeChannel<>("aberration_spectrum", KeyframeFactories.DOUBLE);
     public final KeyframeChannel<Double> vhs = new KeyframeChannel<>("vhs", KeyframeFactories.DOUBLE);
     /** Intensity — channel id kept as {@code lensDistortion} for save compatibility. */
     public final KeyframeChannel<Double> lensDistortion = new KeyframeChannel<>("lensDistortion", KeyframeFactories.DOUBLE);
@@ -52,6 +72,15 @@ public class CinematicClip extends CameraClip
     {
         this.channels = new KeyframeChannel[] {
             this.aberration,
+            this.aberrationAngle,
+            this.aberrationDirectional,
+            this.aberrationRadius,
+            this.aberrationHardness,
+            this.aberrationBalance,
+            this.aberrationCenterX,
+            this.aberrationCenterY,
+            this.aberrationGreen,
+            this.aberrationSpectrum,
             this.vhs,
             this.lensDistortion,
             this.lensDistanceFactor,
@@ -69,6 +98,15 @@ public class CinematicClip extends CameraClip
         };
 
         this.add(this.aberration);
+        this.add(this.aberrationAngle);
+        this.add(this.aberrationDirectional);
+        this.add(this.aberrationRadius);
+        this.add(this.aberrationHardness);
+        this.add(this.aberrationBalance);
+        this.add(this.aberrationCenterX);
+        this.add(this.aberrationCenterY);
+        this.add(this.aberrationGreen);
+        this.add(this.aberrationSpectrum);
         this.add(this.vhs);
         this.add(this.lensDistortion);
         this.add(this.lensDistanceFactor);
@@ -131,6 +169,11 @@ public class CinematicClip extends CameraClip
         }
     }
 
+    private static float interpolateOrDefault(KeyframeChannel<Double> channel, float tick, double fallback)
+    {
+        return channel.isEmpty() ? (float) fallback : (float) (double) channel.interpolate(tick);
+    }
+
     @Override
     protected void applyClip(ClipContext context, Position position)
     {
@@ -141,6 +184,15 @@ public class CinematicClip extends CameraClip
 
         /* Cinematic effects */
         float ab = (this.aberration.isEmpty() ? 0F : (float) (double) this.aberration.interpolate(t)) * 0.25F;
+        float abAngle = interpolateOrDefault(this.aberrationAngle, t, DEFAULT_ABERRATION_ANGLE);
+        float abDirectional = interpolateOrDefault(this.aberrationDirectional, t, DEFAULT_ABERRATION_DIRECTIONAL);
+        float abRadius = interpolateOrDefault(this.aberrationRadius, t, DEFAULT_ABERRATION_RADIUS);
+        float abHardness = interpolateOrDefault(this.aberrationHardness, t, DEFAULT_ABERRATION_HARDNESS);
+        float abBalance = interpolateOrDefault(this.aberrationBalance, t, DEFAULT_ABERRATION_BALANCE);
+        float abCenterX = interpolateOrDefault(this.aberrationCenterX, t, DEFAULT_ABERRATION_CENTER_X);
+        float abCenterY = interpolateOrDefault(this.aberrationCenterY, t, DEFAULT_ABERRATION_CENTER_Y);
+        float abGreen = interpolateOrDefault(this.aberrationGreen, t, DEFAULT_ABERRATION_GREEN);
+        float abSpectrum = interpolateOrDefault(this.aberrationSpectrum, t, DEFAULT_ABERRATION_SPECTRUM);
         float vh = (this.vhs.isEmpty() ? 0F : (float) (double) this.vhs.interpolate(t)) * 0.25F;
         float ld = (this.lensDistortion.isEmpty() ? 0F : (float) (double) this.lensDistortion.interpolate(t)) * 0.25F;
         float ldf = this.lensDistanceFactor.isEmpty() ? (float) DEFAULT_LENS_DISTANCE_FACTOR : (float) (double) this.lensDistanceFactor.interpolate(t);
@@ -185,6 +237,15 @@ public class CinematicClip extends CameraClip
         {
             this.effect.hasCinematic = true;
             this.effect.aberration = ab * factor;
+            this.effect.aberrationAngle = abAngle;
+            this.effect.aberrationDirectional = MathUtils.clamp(abDirectional, 0F, 1F);
+            this.effect.aberrationRadius = Math.max(0F, abRadius);
+            this.effect.aberrationHardness = MathUtils.clamp(abHardness, 0F, 1F);
+            this.effect.aberrationBalance = MathUtils.clamp(abBalance, -1F, 1F);
+            this.effect.aberrationCenterX = MathUtils.clamp(abCenterX, 0F, 1F);
+            this.effect.aberrationCenterY = MathUtils.clamp(abCenterY, 0F, 1F);
+            this.effect.aberrationGreen = Math.max(0F, abGreen);
+            this.effect.aberrationSpectrum = MathUtils.clamp(abSpectrum, 0F, 1F);
             this.effect.vhs = vh * factor;
             this.effect.lensDistortion = lens;
             this.effect.lensRadiusX = radiusX;
