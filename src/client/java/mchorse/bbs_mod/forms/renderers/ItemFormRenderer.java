@@ -37,6 +37,7 @@ import org.joml.Matrix3f;
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
 
+import com.mojang.blaze3d.opengl.GlStateManager;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.logging.LogUtils;
 
@@ -61,7 +62,7 @@ public class ItemFormRenderer extends FormRenderer<ItemForm>
         context.batcher.getContext().draw();
 
         CustomVertexConsumerProvider consumers = FormUtilsClient.getProvider();
-        MatrixStack matrices = context.batcher.getContext().getMatrices();
+        MatrixStack matrices = new MatrixStack();
 
         Matrix4f uiMatrix = ModelFormRenderer.getUIMatrix(context, x1, y1, x2, y2);
 
@@ -90,17 +91,9 @@ public class ItemFormRenderer extends FormRenderer<ItemForm>
         Color legacyGlow = this.form.glowingColor.get();
         float glowIntensity = glowSettings.resolveIntensity(legacyGlow);
 
-        if (glowIntensity < 0F)
-        {
-            FormColorEffects.blendFormGlowBrighten(set, glowSettings, legacyGlow);
-        }
-
-        Color resolvedPaint = FormColorEffects.resolvePaintColor(this.form.paintSettings.get(), this.form.paintColor.get());
-        boolean positivePaint = FormColorEffects.hasPositivePaint(this.form.paintSettings.get(), this.form.paintColor.get());
-
         Vector3f light0 = new Vector3f(0.85F, 0.85F, -1F).normalize();
         Vector3f light1 = new Vector3f(-0.85F, 0.85F, 1F).normalize();
-        RenderSystem.setupLevelDiffuseLighting(light0, light1);
+        // RenderSystem.setupLevelDiffuseLighting(light0, light1);
 
         ItemDisplayContext mode = this.form.modelTransform.get();
 
@@ -130,7 +123,7 @@ public class ItemFormRenderer extends FormRenderer<ItemForm>
         consumers.setUI(false);
         consumers.setSubstitute(null);
 
-        DiffuseLighting.disableGuiDepthLighting();
+        // DiffuseLighting.disableGuiDepthLighting();
 
         matrices.pop();
     }
@@ -156,8 +149,8 @@ public class ItemFormRenderer extends FormRenderer<ItemForm>
             {
                 if (context.isPicking())
                 {
-                    this.setupTarget(context, BBSShaders.getPickerModelsProgram());
-                    RenderSystem.setShader(BBSShaders.getPickerModelsProgram());
+                    // this.setupTarget(context, BBSShaders.getPickerModelsProgram());
+                    // RenderSystem.setShader(BBSShaders.getPickerModelsProgram());
 
                     light = 0;
                 }
@@ -165,8 +158,8 @@ public class ItemFormRenderer extends FormRenderer<ItemForm>
                 {
                     CustomVertexConsumerProvider.hijackVertexFormat((l) ->
                     {
-                        RenderSystem.enableBlend();
-                        RenderSystem.defaultBlendFunc();
+                        GlStateManager._enableBlend();
+                        GlStateManager._blendFuncSeparate(770, 771, 1, 0);
                     });
                 }
             }
@@ -174,8 +167,8 @@ public class ItemFormRenderer extends FormRenderer<ItemForm>
             {
                 CustomVertexConsumerProvider.hijackVertexFormat((layer) ->
                 {
-                    this.setupTarget(context, BBSShaders.getPickerModelsProgram());
-                    RenderSystem.setShader(BBSShaders.getPickerModelsProgram());
+                    // this.setupTarget(context, BBSShaders.getPickerModelsProgram());
+                    // RenderSystem.setShader(BBSShaders.getPickerModelsProgram());
                 });
 
                 light = 0;
@@ -378,8 +371,8 @@ public class ItemFormRenderer extends FormRenderer<ItemForm>
         CustomVertexConsumerProvider.clearRunnables();
         CustomVertexConsumerProvider.hijackVertexFormat((l) -> BlockEffectOverlayUniforms.configureColorTintOverlayRenderState(formRootInverse, formColor.transform, false, formColor, 0.5F, gradeSource));
 
-        RenderSystem.enableBlend();
-        RenderSystem.depthMask(false);
+        GlStateManager._enableBlend();
+        GlStateManager._depthMask(false);
 
         consumers.setSubstitute(BBSRendering.getBlockColorTintOverlayConsumer());
         consumers.setUI(ui);
@@ -393,9 +386,9 @@ public class ItemFormRenderer extends FormRenderer<ItemForm>
         {
             consumers.setUI(false);
             consumers.setSubstitute(null);
-            RenderSystem.depthMask(true);
-            RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
-            RenderSystem.defaultBlendFunc();
+            GlStateManager._depthMask(true);
+            // RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
+            GlStateManager._blendFuncSeparate(770, 771, 1, 0);
             CustomVertexConsumerProvider.clearRunnables();
         }
     }
@@ -446,9 +439,9 @@ public class ItemFormRenderer extends FormRenderer<ItemForm>
         CustomVertexConsumerProvider.clearRunnables();
         CustomVertexConsumerProvider.hijackVertexFormat((l) -> BlockEffectOverlayUniforms.configurePaintOverlayRenderState(formRootInverse, transform, false, glowSettings, legacyGlow, glowIntensity, alpha));
 
-        RenderSystem.enableBlend();
-        RenderSystem.blendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
-        RenderSystem.depthMask(false);
+        GlStateManager._enableBlend();
+        GlStateManager._blendFuncSeparate(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA, 1, 0);
+        GlStateManager._depthMask(false);
 
         consumers.setSubstitute(BBSRendering.getBlockPaintOverlayConsumer(paintOverlay));
         consumers.setUI(ui);
@@ -462,8 +455,8 @@ public class ItemFormRenderer extends FormRenderer<ItemForm>
         {
             consumers.setUI(false);
             consumers.setSubstitute(null);
-            RenderSystem.depthMask(true);
-            RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
+            GlStateManager._depthMask(true);
+            // RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
             CustomVertexConsumerProvider.clearRunnables();
         }
     }
@@ -482,10 +475,10 @@ public class ItemFormRenderer extends FormRenderer<ItemForm>
         Color glowColor = FormColorEffects.resolveGlowOverlayEmissionColor(glowSettings, legacyGlow, alpha, glowIntensity);
         float shaderScale = FormColorEffects.resolveGlowOverlayShaderScale(glowIntensity);
 
-        RenderSystem.enableBlend();
-        RenderSystem.blendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE);
-        RenderSystem.depthMask(false);
-        RenderSystem.setShaderColor(shaderScale, shaderScale, shaderScale, 1F);
+        GlStateManager._enableBlend();
+        GlStateManager._blendFuncSeparate(GL11.GL_SRC_ALPHA, GL11.GL_ONE, 1, 0);
+        GlStateManager._depthMask(false);
+        // RenderSystem.setShaderColor(shaderScale, shaderScale, shaderScale, 1F);
 
         consumers.setSubstitute(BBSRendering.getGlowOverlayConsumer(glowColor));
 
@@ -497,9 +490,9 @@ public class ItemFormRenderer extends FormRenderer<ItemForm>
         finally
         {
             consumers.setSubstitute(null);
-            RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
-            RenderSystem.depthMask(true);
-            RenderSystem.defaultBlendFunc();
+            // RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
+            GlStateManager._depthMask(true);
+            GlStateManager._blendFuncSeparate(770, 771, 1, 0);
         }
     }
 }

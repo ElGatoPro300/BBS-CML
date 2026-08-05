@@ -25,6 +25,7 @@ import net.minecraft.item.ItemDisplayContext;
 import net.minecraft.item.ItemStack;
 import net.minecraft.world.World;
 
+import com.mojang.blaze3d.opengl.GlStateManager;
 import com.mojang.blaze3d.systems.RenderSystem;
 
 import java.util.List;
@@ -98,8 +99,8 @@ public final class ItemBodyPartBatch
         {
             CustomVertexConsumerProvider.hijackVertexFormat((layer) ->
             {
-                RenderSystem.enableBlend();
-                RenderSystem.defaultBlendFunc();
+                GlStateManager._enableBlend();
+                GlStateManager._blendFuncSeparate(770, 771, 1, 0);
             });
         }
 
@@ -187,7 +188,7 @@ public final class ItemBodyPartBatch
             {
                 consumers.draw();
                 CustomVertexConsumerProvider.clearRunnables();
-                RenderSystem.defaultBlendFunc();
+                GlStateManager._blendFuncSeparate(770, 771, 1, 0);
             }
 
             active = false;
@@ -195,7 +196,7 @@ public final class ItemBodyPartBatch
             cachedModel = null;
         }
 
-        RenderSystem.enableDepthTest();
+        GlStateManager._enableDepthTest();
 
         return true;
     }

@@ -127,13 +127,13 @@ public class ModelBlockItemRenderer implements SpecialModelRenderer<ItemStack>
 
         this.map.put(stack, item);
 
-        NbtComponent nbtComponent = stack.get(DataComponentTypes.BLOCK_ENTITY_DATA);
+        var nbtComponent = stack.get(DataComponentTypes.BLOCK_ENTITY_DATA);
         if (nbtComponent == null)
         {
             return item;
         }
 
-        NbtCompound nbt = nbtComponent.copyNbt();
+        NbtCompound nbt = nbtComponent.copyNbtWithoutId();
         var world = MinecraftClient.getInstance().world;
         if (world != null)
         {

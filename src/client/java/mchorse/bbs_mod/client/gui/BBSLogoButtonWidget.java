@@ -10,9 +10,9 @@ public class BBSLogoButtonWidget extends ButtonWidget
 {
     private static final Identifier LOGO = Identifier.of("bbs", "textures/gui/cml_icon.png");
 
-    public BBSLogoButtonWidget(int x, int y, int width, int height, PressAction onPress)
+    public BBSLogoButtonWidget(int x, int y, int width, int height, ButtonWidget.PressAction onPress)
     {
-        super(x, y, width, height, Text.of(""), onPress, DEFAULT_NARRATION_SUPPLIER);
+        super(x, y, width, height, Text.empty(), onPress, ButtonWidget.DEFAULT_NARRATION_SUPPLIER);
     }
 
     @Override

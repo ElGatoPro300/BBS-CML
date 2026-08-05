@@ -29,9 +29,7 @@ import mchorse.bbs_mod.utils.joml.Vectors;
 
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gl.ShaderProgram;
-import net.minecraft.client.gl.ShaderProgramKeys;
 import net.minecraft.client.render.BufferBuilder;
-import net.minecraft.client.render.BufferRenderer;
 import net.minecraft.client.render.DiffuseLighting;
 import net.minecraft.client.render.GameRenderer;
 import net.minecraft.client.render.LightmapTextureManager;
@@ -47,6 +45,7 @@ import org.joml.Matrix4f;
 import org.joml.Vector3f;
 import org.joml.Vector4f;
 
+import com.mojang.blaze3d.opengl.GlStateManager;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.VertexFormat;
 
@@ -109,7 +108,7 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
     @Override
     public void renderInUI(UIContext context, int x1, int y1, int x2, int y2)
     {
-        MatrixStack stack = context.batcher.getContext().getMatrices();
+        MatrixStack stack = new MatrixStack();
 
         stack.push();
 
@@ -123,15 +122,11 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
 
         Vector3f light0 = new Vector3f(0.85F, 0.85F, -1F).normalize();
         Vector3f light1 = new Vector3f(-0.85F, 0.85F, 1F).normalize();
-        RenderSystem.setupLevelDiffuseLighting(light0, light1);
+        // RenderSystem.setupLevelDiffuseLighting(light0, light1);
 
         VertexFormat format = VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL;
 
-        this.renderModel(format, () ->
-            {
-                RenderSystem.setShader(ShaderProgramKeys.RENDERTYPE_ENTITY_TRANSLUCENT);
-                return RenderSystem.getShader();
-            },
+        this.renderModel(format, () -> null,
             stack,
             OverlayTexture.DEFAULT_UV, LightmapTextureManager.MAX_LIGHT_COORDINATE, Colors.WHITE,
             context.getTransition(),
@@ -141,7 +136,7 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
             null
         );
 
-        DiffuseLighting.disableGuiDepthLighting();
+        // DiffuseLighting.disableGuiDepthLighting();
 
         stack.pop();
     }
@@ -156,18 +151,8 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
         VertexFormat format = shading ? VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL : VertexFormats.POSITION_TEXTURE_COLOR;
         Supplier<ShaderProgram> shader = this.getShader(
             context,
-            shading
-                ? () ->
-                {
-                    RenderSystem.setShader(ShaderProgramKeys.RENDERTYPE_ENTITY_TRANSLUCENT);
-                    return RenderSystem.getShader();
-                }
-                : () ->
-                {
-                    RenderSystem.setShader(ShaderProgramKeys.POSITION_TEX_COLOR);
-                    return RenderSystem.getShader();
-                },
-            shading ? BBSShaders::getPickerBillboardProgram : BBSShaders::getPickerBillboardNoShadingProgram
+            () -> null,
+            () -> null
         );
 
         this.renderModel(format, shader, context.stack, context.overlay, context.light, context.color, context.getTransition(), context.camera, false, context.modelRenderer || context.isPicking(), context);
@@ -363,23 +348,15 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
             );
         }
 
-        GameRenderer gameRenderer = MinecraftClient.getInstance().gameRenderer;
-        if (format == VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL)
-        {
-            gameRenderer.getLightmapTextureManager().enable();
-            gameRenderer.getOverlayTexture().setupOverlayColor();
-        }
+        // gameRenderer.getLightmapTextureManager().enable();
+        // gameRenderer.getOverlayTexture().setupOverlayColor();
         BBSModClient.getTextures().bindTexture(texture);
         ShaderProgram program = shader.get();
-        if (program != null)
-        {
-            RenderSystem.setShader(program);
-        }
 
         texture.bind();
         texture.setFilterMipmap(this.form.linear.get(), this.form.mipmap.get());
 
-        RenderSystem.disableCull();
+        GlStateManager._disableCull();
 
         /* Under Iris, billboards must defer to a BBS redraw — live entity_translucent often
          * washes or discards them. needsIrisTranslucentFlatDeferral skips fully opaque (#ff);
@@ -426,9 +403,7 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
             /* Iris deferred: apply FormColorGrade in model.fsh on the post-deferred BBS draw. */
             VertexFormat deferredFormat = VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL;
             boolean gradeOnDeferredDraw = useFormColorGrade || irisDeferredColorGrade;
-            Supplier<ShaderProgram> deferredShader = gradeOnDeferredDraw
-                ? () -> BBSShaders.getModel()
-                : () -> { RenderSystem.setShader(ShaderProgramKeys.RENDERTYPE_ENTITY_TRANSLUCENT); return RenderSystem.getShader(); };
+            Supplier<ShaderProgram> deferredShader = () -> null;
             float gradeBrightnessSnapshot = storedFormColor.brightness;
             float gradeContrastSnapshot = storedFormColor.contrast;
             float gradeHueSnapshot = storedFormColor.hue;
@@ -472,8 +447,8 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
                 overlayStack.peek().getPositionMatrix().set(positionMatrix);
                 overlayStack.peek().getNormalMatrix().identity();
 
-                gameRenderer.getLightmapTextureManager().enable();
-                gameRenderer.getOverlayTexture().setupOverlayColor();
+                // gameRenderer.getLightmapTextureManager().enable();
+                // gameRenderer.getOverlayTexture().setupOverlayColor();
 
                 boolean savedPolygonOffsetFill = GL11.glGetBoolean(GL11.GL_POLYGON_OFFSET_FILL);
 
@@ -484,18 +459,18 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
                 {
                     /* beginDeferredTranslucentModelPass enables cull; camera-facing quads then
                      * vanish. Match the no-shader live path: no cull, both faces, FormColorGrade. */
-                    RenderSystem.disableCull();
+                    GlStateManager._disableCull();
 
                     if (gradeActiveSnapshot)
                     {
                         ModelVAORenderer.setFormColorGrade(gradeBrightnessSnapshot, gradeContrastSnapshot, gradeHueSnapshot, gradeSaturationSnapshot);
                         ModelVAORenderer.setGradeEffectTransforms(gradeSourceSnapshot);
 
-                        ShaderProgram gradeShader = BBSShaders.getModel();
+                        // ShaderProgram gradeShader = BBSShaders.getModel();
                         MatrixStack gradeStack = new MatrixStack();
 
-                        RenderSystem.setShader(gradeShader);
-                        ModelVAORenderer.setupUniforms(gradeStack, gradeShader);
+                        // RenderSystem.setShader(gradeShader);
+                        // ModelVAORenderer.setupUniforms(gradeStack, gradeShader);
                     }
 
 
@@ -521,7 +496,7 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
                     {
                         this.renderGlowOverlay(
                             deferredTexture,
-                            () -> { RenderSystem.setShader(ShaderProgramKeys.POSITION_TEX_COLOR); return RenderSystem.getShader(); },
+                            () -> null,
                             overlayStack,
                             glowSettingsSnapshot,
                             legacyGlowSnapshot,
@@ -563,13 +538,8 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
             /* Live path — opaque / no-shader / Iris without deferral. */
             if (format == VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL)
             {
-                if (useFormColorGrade || BBSRendering.needsBbsModelForLowOpacity(color.a))
-                {
-                    RenderSystem.setShader(BBSShaders.getModel());
-                }
-
-                RenderSystem.enableDepthTest();
-                RenderSystem.depthMask(true);
+                GlStateManager._enableDepthTest();
+                GlStateManager._depthMask(true);
             }
 
             if (useFormColorGrade)
@@ -600,19 +570,19 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
                 this.fill(format, builder, matrix, quad.p4.x, quad.p4.y, -FACE_Z_BIAS, color, uvQuad.p4.x, uvQuad.p4.y, overlay, light, entry, -1F);
                 this.fill(format, builder, matrix, quad.p3.x, quad.p3.y, -FACE_Z_BIAS, color, uvQuad.p3.x, uvQuad.p3.y, overlay, light, entry, -1F);
 
-                RenderSystem.enableBlend();
-                RenderSystem.defaultBlendFunc();
+                GlStateManager._enableBlend();
+                GlStateManager._blendFuncSeparate(770, 771, 1, 0);
 
                 if (useFormColorGrade)
                 {
-                    ShaderProgram gradeShader = BBSShaders.getModel();
+                    // ShaderProgram gradeShader = BBSShaders.getModel();
                     MatrixStack gradeStack = new MatrixStack();
 
                     /* Vertices already include the model matrix; keep ModelView identity. */
-                    ModelVAORenderer.setupUniforms(gradeStack, gradeShader);
+                    // ModelVAORenderer.setupUniforms(gradeStack, gradeShader);
                 }
 
-                BufferRenderer.drawWithGlobalProgram(builder.end());
+                builder.end().close();
             }
             finally
             {
@@ -684,23 +654,22 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
         boolean dualSided = !singleSided && !ModelVAORenderer.isPaintOverlayPass();
 
         this.bindFormTexture(texture);
-        RenderSystem.setShader(shader.get());
         texture.bind();
         texture.setFilterMipmap(linear, mipmap);
         /* Never enable cull here — deferred translucent begins with cull on, and a
          * camera-facing billboard with only the front winding then disappears. */
-        RenderSystem.disableCull();
+        GlStateManager._disableCull();
 
         if (dualSided)
         {
-            RenderSystem.disableCull();
+            GlStateManager._disableCull();
         }
         else
         {
-            RenderSystem.enableCull();
+            GlStateManager._enableCull();
         }
-        RenderSystem.enableBlend();
-        RenderSystem.defaultBlendFunc();
+        GlStateManager._enableBlend();
+        GlStateManager._blendFuncSeparate(770, 771, 1, 0);
 
         this.fill(format, builder, matrix, drawQuad.p3.x, drawQuad.p3.y, FACE_Z_BIAS, color, drawUvQuad.p3.x, drawUvQuad.p3.y, overlay, light, entry, 1F);
         this.fill(format, builder, matrix, drawQuad.p2.x, drawQuad.p2.y, FACE_Z_BIAS, color, drawUvQuad.p2.x, drawUvQuad.p2.y, overlay, light, entry, 1F);
@@ -730,7 +699,7 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
             ModelVAORenderer.setupUniforms(new MatrixStack(), bound);
         }
 
-        BufferRenderer.drawWithGlobalProgram(builder.end());
+        builder.end().close();
         texture.setFilterMipmap(false, false);
     }
 
@@ -838,7 +807,7 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
             float paintNz = paintZ >= 0F ? 1F : -1F;
 
             /* One camera-facing plane, both sides via disableCull. */
-            RenderSystem.disableCull();
+            GlStateManager._disableCull();
 
             this.fillPaint(paintBuilder, paintMatrix, drawQuad.p3.x, drawQuad.p3.y, overlayBias, paintOverlay, drawUvQuad.p3.x, drawUvQuad.p3.y, overlay, paintLight, entry, 1F, transform);
             this.fillPaint(paintBuilder, paintMatrix, drawQuad.p2.x, drawQuad.p2.y, overlayBias, paintOverlay, drawUvQuad.p2.x, drawUvQuad.p2.y, overlay, paintLight, entry, 1F, transform);
@@ -864,13 +833,13 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
             this.fillPaint(paintBuilder, paintMatrix, drawQuad.p4.x, drawQuad.p4.y, paintZ, paintOverlay, drawUvQuad.p4.x, drawUvQuad.p4.y, overlay, paintLight, entry, paintNz, transform);
             this.fillPaint(paintBuilder, paintMatrix, drawQuad.p2.x, drawQuad.p2.y, paintZ, paintOverlay, drawUvQuad.p2.x, drawUvQuad.p2.y, overlay, paintLight, entry, paintNz, transform);
 
-            BufferRenderer.drawWithGlobalProgram(paintBuilder.end());
+            paintBuilder.end().close();
 
-            RenderSystem.enableCull();
+            GlStateManager._enableCull();
         });
 
         texture.setFilterMipmap(false, false);
-        RenderSystem.setShader(shader.get());
+        // RenderSystem.setShader(shader.get());
         matrices.pop();
     }
 
@@ -989,13 +958,13 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
                 ShaderProgram gradeShader = BBSShaders.getModel();
                 MatrixStack uniformStack = new MatrixStack();
 
-                RenderSystem.setShader(gradeShader);
+                // RenderSystem.setShader(gradeShader);
                 ModelVAORenderer.setupUniforms(uniformStack, gradeShader);
 
                 this.drawBillboardFaces(
                     VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL,
                     deferredTexture,
-                    BBSShaders::getModel,
+                    () -> BBSShaders.getModel(),
                     overlayStack,
                     colorSnapshot,
                     localQuad,
@@ -1038,7 +1007,7 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
             BufferBuilder tintBuilder = Tessellator.getInstance().begin(VertexFormat.DrawMode.TRIANGLES, VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL);
             int tintLight = LightmapTextureManager.MAX_LIGHT_COORDINATE;
 
-            RenderSystem.disableCull();
+            GlStateManager._disableCull();
 
             this.fillColorTint(tintBuilder, tintMatrix, drawQuad.p3.x, drawQuad.p3.y, overlayBias, formTintColor, drawUvQuad.p3.x, drawUvQuad.p3.y, overlay, tintLight, entry, 1F, transform);
             this.fillColorTint(tintBuilder, tintMatrix, drawQuad.p2.x, drawQuad.p2.y, overlayBias, formTintColor, drawUvQuad.p2.x, drawUvQuad.p2.y, overlay, tintLight, entry, 1F, transform);
@@ -1056,13 +1025,13 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
             this.fillColorTint(tintBuilder, tintMatrix, drawQuad.p4.x, drawQuad.p4.y, -overlayBias, formTintColor, drawUvQuad.p4.x, drawUvQuad.p4.y, overlay, tintLight, entry, -1F, transform);
             this.fillColorTint(tintBuilder, tintMatrix, drawQuad.p3.x, drawQuad.p3.y, -overlayBias, formTintColor, drawUvQuad.p3.x, drawUvQuad.p3.y, overlay, tintLight, entry, -1F, transform);
 
-            BufferRenderer.drawWithGlobalProgram(tintBuilder.end());
+            tintBuilder.end().close();
 
-            RenderSystem.enableCull();
+            GlStateManager._enableCull();
         });
 
         texture.setFilterMipmap(false, false);
-        RenderSystem.setShader(shader.get());
+        // RenderSystem.setShader(shader.get());
         matrices.pop();
     }
 
@@ -1118,11 +1087,11 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
         {
             BufferBuilder glowBuilder = Tessellator.getInstance().begin(VertexFormat.DrawMode.TRIANGLES, VertexFormats.POSITION_TEXTURE_COLOR);
 
-            RenderSystem.setShader(ShaderProgramKeys.POSITION_TEX_COLOR);
+            // RenderSystem.setShader(ShaderProgramKeys.POSITION_TEX_COLOR);
             float glowZ = this.resolveOverlayFaceZ(glowMatrix);
 
             /* One camera-facing plane, both sides via disableCull — same as paint. */
-            RenderSystem.disableCull();
+            GlStateManager._disableCull();
 
             this.fillGlow(glowBuilder, glowMatrix, drawQuad.p3.x, drawQuad.p3.y, glowZ, glowColor, drawUvQuad.p3.x, drawUvQuad.p3.y);
             this.fillGlow(glowBuilder, glowMatrix, drawQuad.p2.x, drawQuad.p2.y, glowZ, glowColor, drawUvQuad.p2.x, drawUvQuad.p2.y);
@@ -1132,13 +1101,13 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
             this.fillGlow(glowBuilder, glowMatrix, drawQuad.p4.x, drawQuad.p4.y, glowZ, glowColor, drawUvQuad.p4.x, drawUvQuad.p4.y);
             this.fillGlow(glowBuilder, glowMatrix, drawQuad.p2.x, drawQuad.p2.y, glowZ, glowColor, drawUvQuad.p2.x, drawUvQuad.p2.y);
 
-            BufferRenderer.drawWithGlobalProgram(glowBuilder.end());
+            glowBuilder.end().close();
 
-            RenderSystem.enableCull();
+            GlStateManager._enableCull();
         });
 
         texture.setFilterMipmap(false, false);
-        RenderSystem.setShader(shader.get());
+        // RenderSystem.setShader(shader.get());
         matrices.pop();
     }
 

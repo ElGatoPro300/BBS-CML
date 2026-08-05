@@ -297,7 +297,7 @@ public class UIPickableFormRenderer extends UIFormRenderer implements GizmoSurfa
         GlStateManager._depthFunc(GL11.GL_LEQUAL);
         GlStateManager._disableBlend();
         GlStateManager._disableCull();
-        RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
+        // RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
     }
 
     private void renderAxes(UIContext context)

@@ -16,7 +16,7 @@ import net.minecraft.util.math.Vec3d;
 
 import org.joml.Vector3f;
 
-import com.mojang.blaze3d.systems.RenderSystem;
+import com.mojang.blaze3d.opengl.GlStateManager;
 
 import java.util.HashSet;
 import java.util.Set;
@@ -67,9 +67,9 @@ public class TriggerBlockEntityRenderer implements BlockEntityRenderer<TriggerBl
                 Box box = entity.getRegionBoxRelative();
 
                 /* Render white debug box for region triggers */
-                RenderSystem.disableDepthTest();
+                GlStateManager._disableDepthTest();
                 Draw.renderBox(matrices, box.minX, box.minY, box.minZ, box.maxX - box.minX, box.maxY - box.minY, box.maxZ - box.minZ, 1F, 1F, 1F, 0.5F);
-                RenderSystem.enableDepthTest();
+                GlStateManager._enableDepthTest();
             }
         }
     }
