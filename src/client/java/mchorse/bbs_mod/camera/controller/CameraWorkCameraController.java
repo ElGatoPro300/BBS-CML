@@ -1,12 +1,10 @@
 package mchorse.bbs_mod.camera.controller;
 
-import mchorse.bbs_mod.BBSSettings;
 import mchorse.bbs_mod.camera.Camera;
 import mchorse.bbs_mod.camera.clips.CameraClipContext;
 import mchorse.bbs_mod.camera.clips.misc.AudioClientClip;
 import mchorse.bbs_mod.camera.clips.screen.ColorClip;
 import mchorse.bbs_mod.camera.clips.screen.ColorEffect;
-import mchorse.bbs_mod.camera.clips.screen.LensDistortionOverscan;
 import mchorse.bbs_mod.camera.data.Position;
 import mchorse.bbs_mod.client.BBSRendering;
 import mchorse.bbs_mod.utils.MathUtils;
@@ -66,7 +64,7 @@ public abstract class CameraWorkCameraController implements ICameraController
             this.context.apply(clip, this.position);
         }
 
-        this.applyFisheyeFovOverscan();
+        this.resetFisheyeFovOverscan();
 
         AudioClientClip.manageSounds(this.context);
 
@@ -86,48 +84,18 @@ public abstract class CameraWorkCameraController implements ICameraController
     }
 
     /**
-     * Match render FOV to fisheye strength: widen for positive {@code k}, narrow for
-     * negative {@code k}, so the post-process UV warp can fill the frame without
-     * stretched edge lines (or, for a bad negative scale, texture tiling).
+     * Keep fisheye as a single-render post-process. The shader works from a copy of
+     * the native-FOV framebuffer so pixels outside a partial radius remain sharp.
      */
-    private void applyFisheyeFovOverscan()
+    private void resetFisheyeFovOverscan()
     {
-        if (BBSSettings.editorFisheyeWidenFov == null || !BBSSettings.editorFisheyeWidenFov.get())
-        {
-            BBSRendering.setLensOverscanScale(1F);
-
-            return;
-        }
-
-        float lens = 0F;
+        BBSRendering.setLensOverscanScale(1F);
 
         for (ColorEffect effect : ColorClip.getEffects(this.context))
         {
             if (effect.hasCinematic)
             {
-                lens += effect.lensDistortion;
-            }
-        }
-
-        if (Math.abs(lens) <= 1.0e-6F)
-        {
-            BBSRendering.setLensOverscanScale(1F);
-
-            return;
-        }
-
-        float fovBefore = this.position.angle.fov;
-        float fovAfter = LensDistortionOverscan.adjustFovDegrees(fovBefore, lens);
-        float scale = LensDistortionOverscan.scaleBetweenFovDegrees(fovBefore, fovAfter);
-
-        this.position.angle.fov = fovAfter;
-        BBSRendering.setLensOverscanScale(scale);
-
-        for (ColorEffect effect : ColorClip.getEffects(this.context))
-        {
-            if (effect.hasCinematic)
-            {
-                effect.lensOverscan = scale;
+                effect.lensOverscan = 1F;
             }
         }
     }

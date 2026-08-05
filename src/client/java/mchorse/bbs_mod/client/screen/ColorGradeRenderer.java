@@ -1,10 +1,7 @@
 package mchorse.bbs_mod.client.screen;
 
-import mchorse.bbs_mod.BBSSettings;
 import mchorse.bbs_mod.camera.clips.screen.ColorEffect;
 import mchorse.bbs_mod.camera.clips.screen.GrainEffect;
-import mchorse.bbs_mod.camera.clips.screen.LensDistortionOverscan;
-import mchorse.bbs_mod.client.BBSRendering;
 import mchorse.bbs_mod.graphics.texture.Texture;
 import mchorse.bbs_mod.graphics.texture.TextureFormat;
 import mchorse.bbs_mod.ui.framework.elements.utils.Batcher2D;
@@ -76,7 +73,6 @@ public class ColorGradeRenderer
             uniform float u_aberration;
             uniform float u_vhs;
             uniform float u_lensDistortion;
-            uniform float u_lensOverscan;
             uniform float u_lensRadius;
             uniform float u_lensHardness;
             uniform float u_lensSharpen;
@@ -162,49 +158,49 @@ public class ColorGradeRenderer
 
             void main()
             {
-                /* Fisheye on clean UVs so screen edges map to FOV-matched image edges.
-                 * Positive: corner-matched widen. Negative: edge-matched narrow.
-                 * Radius sets where the effect ends; hardness is the falloff width of that
-                 * rim. Critical: mix full-warp UVs with passthrough UVs (do not scale k by
-                 * the mask — that creates a hard circular seam when radius < 1). */
+                /* Fisheye on the copied native-FOV frame. Radius/hardness define a
+                 * local lens mask; the warp is fit in UV space so it never stretches
+                 * framebuffer edges into the rim. */
                 vec2 distortedUV = v_uv;
                 float lensMask = 0.0;
-                if (abs(u_lensDistortion) > 0.001)
+                if (abs(u_lensDistortion) > 0.001 && u_lensRadius > 0.001)
                 {
                     vec2 uvOffset = v_uv - vec2(0.5);
                     float r2 = dot(uvOffset, uvOffset);
                     float k = u_lensDistortion;
-                    float rMax = max(u_lensRadius * 0.70710678, 0.0001);
-                    float rNorm = length(uvOffset) / rMax;
+                    float cornerRadius = 0.70710678;
+                    float radius = max(u_lensRadius * cornerRadius, 1.0e-6);
+                    float dist = length(uvOffset);
+                    float localR2 = min(0.5, 0.5 * r2 / (radius * radius));
                     float hardness = clamp(u_lensHardness, 0.0, 1.0);
-                    /* 0 = wide soft rim, 1 = narrow hard rim (still a short blend, not a cut). */
-                    float feather = mix(0.85, 0.04, hardness);
-                    lensMask = 1.0 - smoothstep(1.0 - feather, 1.0 + feather, rNorm);
+                    float feather = (1.0 - hardness) * radius * 0.75;
+
+                    if (feather < 0.0001)
+                    {
+                        lensMask = step(dist, radius);
+                    }
+                    else
+                    {
+                        lensMask = 1.0 - smoothstep(max(0.0, radius - feather), radius + feather, dist);
+                    }
 
                     vec2 passthroughUV = v_uv;
                     vec2 warpedUV = v_uv;
 
-                    if (k > 0.0 && u_lensOverscan > 1.0)
+                    if (k > 0.0)
                     {
-                        float s = u_lensOverscan;
-                        float kFit = 2.0 * (s - 1.0);
-                        float kUse = min(k, kFit);
-                        /* Crop of the wide FOV (= framing without barrel). */
-                        passthroughUV = clamp(uvOffset / s + vec2(0.5), 0.0, 1.0);
-                        warpedUV = clamp(uvOffset * (1.0 + kUse * r2) / s + vec2(0.5), 0.0, 1.0);
-                    }
-                    else if (k < 0.0 && u_lensOverscan > 0.001 && u_lensOverscan < 1.0)
-                    {
-                        float s = u_lensOverscan;
-                        float kFit = 4.0 * (s - 1.0);
-                        float kUse = max(k, kFit);
-                        kUse = max(kUse, -1.95);
-                        passthroughUV = clamp(uvOffset / s + vec2(0.5), 0.0, 1.0);
-                        warpedUV = clamp(uvOffset * (1.0 + kUse * r2) / s + vec2(0.5), 0.0, 1.0);
+                        float rFit = min(cornerRadius, radius + feather);
+                        float fitR2 = min(0.5, 0.5 * rFit * rFit / (radius * radius));
+                        float edgeComponent = min(rFit, 0.5);
+                        float fitScale = max(1.0, edgeComponent * (1.0 + k * fitR2) / 0.5);
+
+                        warpedUV = clamp(uvOffset * (1.0 + k * localR2) / fitScale + vec2(0.5), 0.0, 1.0);
                     }
                     else
                     {
-                        warpedUV = clamp(uvOffset * (1.0 + k * r2) + vec2(0.5), 0.0, 1.0);
+                        float kUse = max(k, -1.95);
+
+                        warpedUV = clamp(uvOffset * (1.0 + kUse * localR2) + vec2(0.5), 0.0, 1.0);
                     }
 
                     distortedUV = mix(passthroughUV, warpedUV, clamp(lensMask, 0.0, 1.0));
@@ -465,7 +461,7 @@ public class ColorGradeRenderer
             }
             """;
 
-    private static final int SHADER_VERSION = 14;
+    private static final int SHADER_VERSION = 15;
     private static int loadedShaderVersion;
     private static boolean initialized;
     private static boolean failed;
@@ -492,7 +488,6 @@ public class ColorGradeRenderer
     private static int uAberration;
     private static int uVHS;
     private static int uLensDistortion;
-    private static int uLensOverscan;
     private static int uLensRadius;
     private static int uLensHardness;
     private static int uLensSharpen;
@@ -649,7 +644,6 @@ public class ColorGradeRenderer
         float aberration = 0F;
         float vhs = 0F;
         float lensDistortion = 0F;
-        float lensOverscan = 1F;
         float lensRadius = 1F;
         float lensHardness = 1F;
         float lensSharpen = 0F;
@@ -670,11 +664,6 @@ public class ColorGradeRenderer
                 aberration = Math.max(aberration, e.aberration);
                 vhs = Math.max(vhs, e.vhs);
                 lensDistortion += e.lensDistortion;
-
-                if (LensDistortionOverscan.isActiveScale(e.lensOverscan))
-                {
-                    lensOverscan = e.lensOverscan;
-                }
 
                 if (Math.abs(e.lensDistortion) > 1.0e-6F)
                 {
@@ -724,28 +713,8 @@ public class ColorGradeRenderer
         GL20.glUniform2f(uDistort, distortX, distortY);
         GL20.glUniform1f(uAberration, aberration);
         GL20.glUniform1f(uVHS, vhs);
-        /* Use the scale actually applied to this frame's camera FOV (+ widen / - narrow). */
-        if (Math.abs(lensDistortion) > 1.0e-6F && BBSSettings.editorFisheyeWidenFov != null && BBSSettings.editorFisheyeWidenFov.get())
-        {
-            float rendered = BBSRendering.getLensOverscanScale();
-
-            if (LensDistortionOverscan.isActiveScale(rendered))
-            {
-                lensOverscan = rendered;
-            }
-            else if (!LensDistortionOverscan.isActiveScale(lensOverscan))
-            {
-                lensOverscan = LensDistortionOverscan.overscanScale(lensDistortion);
-            }
-        }
-        else
-        {
-            lensOverscan = 1F;
-        }
-
         GL20.glUniform1f(uLensDistortion, lensDistortion);
-        GL20.glUniform1f(uLensOverscan, lensOverscan);
-        GL20.glUniform1f(uLensRadius, Math.max(0.05F, lensRadius));
+        GL20.glUniform1f(uLensRadius, Math.max(0F, lensRadius));
         GL20.glUniform1f(uLensHardness, Math.max(0F, Math.min(1F, lensHardness)));
         GL20.glUniform1f(uLensSharpen, Math.max(0F, lensSharpen));
         GL20.glUniform1f(uVintage, vintage);
@@ -875,7 +844,6 @@ public class ColorGradeRenderer
         uAberration = GL20.glGetUniformLocation(program, "u_aberration");
         uVHS = GL20.glGetUniformLocation(program, "u_vhs");
         uLensDistortion = GL20.glGetUniformLocation(program, "u_lensDistortion");
-        uLensOverscan = GL20.glGetUniformLocation(program, "u_lensOverscan");
         uLensRadius = GL20.glGetUniformLocation(program, "u_lensRadius");
         uLensHardness = GL20.glGetUniformLocation(program, "u_lensHardness");
         uLensSharpen = GL20.glGetUniformLocation(program, "u_lensSharpen");
