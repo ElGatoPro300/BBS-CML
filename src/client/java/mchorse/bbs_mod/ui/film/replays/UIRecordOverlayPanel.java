@@ -33,6 +33,7 @@ public class UIRecordOverlayPanel extends UIMessageOverlayPanel
     private final Consumer<List<String>> callback;
     private final boolean mobToMorphOption;
     private UIToggle mobToMorph;
+    private Runnable onMobCaptureCancel;
 
     public UIRecordOverlayPanel(IKey title, IKey message, Consumer<List<String>> callback)
     {
@@ -93,6 +94,23 @@ public class UIRecordOverlayPanel extends UIMessageOverlayPanel
         this.keys().register(Keys.RECORDING_GROUP_POS_ROT, this.posRot::clickItself);
     }
 
+    public UIRecordOverlayPanel onMobCaptureCancel(Runnable callback)
+    {
+        this.onMobCaptureCancel = callback;
+
+        return this;
+    }
+
+    public UIRecordOverlayPanel setMobToMorph(boolean value)
+    {
+        if (this.mobToMorph != null)
+        {
+            this.mobToMorph.setValue(value);
+        }
+
+        return this;
+    }
+
     @Override
     public void render(UIContext context)
     {
@@ -118,6 +136,7 @@ public class UIRecordOverlayPanel extends UIMessageOverlayPanel
         {
             UIContext context = this.getContext();
             Consumer<List<String>> callback = this.callback;
+            Runnable onCancel = this.onMobCaptureCancel;
 
             this.close();
 
@@ -127,7 +146,7 @@ public class UIRecordOverlayPanel extends UIMessageOverlayPanel
                 {
                     callback.accept(groups);
                 }
-            });
+            }, onCancel);
 
             return;
         }

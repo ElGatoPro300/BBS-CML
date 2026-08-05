@@ -166,8 +166,15 @@ public class UIToggle extends UIClickable<UIToggle> implements ITextColoring
 
         if (!this.isEnabled())
         {
-            batcher.box(this.area.x, this.area.y, this.area.ex(), this.area.ey(), 0xAA000000);
-            batcher.outlinedIcon(Icons.LOCKED, this.area.mx(), this.area.my(), 0.5F, 0.5F);
+            boolean labeled = this.label != null && !this.label.get().isEmpty();
+
+            /* Compact / unlabeled toggles only dim; labeled ones keep the lock cue. */
+            batcher.box(this.area.x, this.area.y, this.area.ex(), this.area.ey(), labeled ? 0xAA000000 : 0x99000000);
+
+            if (labeled)
+            {
+                batcher.outlinedIcon(Icons.LOCKED, this.area.mx(), this.area.my(), 0.5F, 0.5F);
+            }
         }
     }
 }
