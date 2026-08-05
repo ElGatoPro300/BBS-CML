@@ -198,10 +198,11 @@ public class ColorGradeRenderer
                     }
                     else
                     {
-                        /* Do not clamp k itself (that froze UI intensity around -7.8 via
-                         * the clip's *0.25 scale). Keep the radial scale positive so UVs
-                         * never invert; stronger negatives still pull inner radii harder. */
-                        float scale = max(1.0 + k * localR2, 0.001);
+                        /* Negative intensity: use 1/(1+|k|·r²) instead of 1+k·r².
+                         * The linear form hits a singularity near k≈-2 (UI ≈-7.8) and
+                         * then looks inverted at the rim; the reciprocal keeps zooming
+                         * in smoothly for arbitrarily strong negatives. */
+                        float scale = 1.0 / max(1.0 - k * localR2, 0.001);
 
                         warpedUV = clamp(uvOffset * scale + vec2(0.5), 0.0, 1.0);
                     }
@@ -464,7 +465,7 @@ public class ColorGradeRenderer
             }
             """;
 
-    private static final int SHADER_VERSION = 16;
+    private static final int SHADER_VERSION = 17;
     private static int loadedShaderVersion;
     private static boolean initialized;
     private static boolean failed;
