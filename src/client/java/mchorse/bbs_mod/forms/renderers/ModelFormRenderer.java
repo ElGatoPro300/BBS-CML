@@ -6,6 +6,7 @@ import mchorse.bbs_mod.bobj.BOBJBone;
 import mchorse.bbs_mod.client.BBSRendering;
 import mchorse.bbs_mod.client.BBSShaders;
 import mchorse.bbs_mod.client.ItemUseRenderState;
+import mchorse.bbs_mod.client.render.ItemRenderHelper;
 import mchorse.bbs_mod.client.renderer.entity.ActorEntityRenderer;
 import mchorse.bbs_mod.cubic.IModel;
 import mchorse.bbs_mod.cubic.ModelInstance;
@@ -3031,12 +3032,12 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
                 {
                     stack.push();
                     stack.scale(0F, 0F, 0F);
-                    MinecraftClient.getInstance().getItemRenderer().renderItem(null, new ItemStack(Items.OAK_BUTTON), mode, mode == ItemDisplayContext.THIRD_PERSON_LEFT_HAND, stack, consumers, target.getWorld(), light, overlay, 0);
+                    ItemRenderHelper.renderItem(new ItemStack(Items.OAK_BUTTON), mode, stack, light, overlay, target.getWorld(), null, true);
                     consumers.draw();
                     stack.pop();
                 }
 
-                MinecraftClient.getInstance().getItemRenderer().renderItem(itemEntity, itemStack, mode, mode == ItemDisplayContext.THIRD_PERSON_LEFT_HAND, stack, consumers, target.getWorld(), light, overlay, 0);
+                ItemRenderHelper.renderItem(itemStack, mode, stack, light, overlay, target.getWorld(), itemEntity, true);
                 consumers.draw();
                 consumers.setSubstitute(null);
 

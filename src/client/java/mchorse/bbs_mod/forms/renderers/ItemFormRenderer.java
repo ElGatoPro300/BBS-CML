@@ -3,6 +3,7 @@ package mchorse.bbs_mod.forms.renderers;
 import mchorse.bbs_mod.client.BBSRendering;
 import mchorse.bbs_mod.client.BBSShaders;
 import mchorse.bbs_mod.client.ItemUseRenderState;
+import mchorse.bbs_mod.client.render.ItemRenderHelper;
 import mchorse.bbs_mod.cubic.render.vao.ModelVAORenderer;
 import mchorse.bbs_mod.forms.CustomVertexConsumerProvider;
 import mchorse.bbs_mod.forms.FormUtilsClient;
@@ -30,6 +31,7 @@ import net.minecraft.item.ItemDisplayContext;
 import net.minecraft.item.ItemStack;
 import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.RotationAxis;
+import net.minecraft.world.World;
 
 import org.joml.Matrix3f;
 import org.joml.Matrix4f;
@@ -470,23 +472,9 @@ public class ItemFormRenderer extends FormRenderer<ItemForm>
     {
         ItemStack itemStack = this.form.stack.get();
         MinecraftClient client = MinecraftClient.getInstance();
-        Object cachedModel = ItemBodyPartBatch.getCachedModel();
+        World world = context != null && context.entity != null ? context.entity.getWorld() : client.world;
 
-        if (cachedModel != null)
-        {
-            client.getItemRenderer().renderItem(null, itemStack, mode, false, stack, consumers, client.world, light, overlay, 0);
-
-            return;
-        }
-
-        if (context == null || context.entity == null)
-        {
-            client.getItemRenderer().renderItem(null, itemStack, mode, false, stack, consumers, client.world, light, overlay, 0);
-        }
-        else
-        {
-            client.getItemRenderer().renderItem(itemEntity, itemStack, mode, leftHand, stack, consumers, context.entity.getWorld(), light, overlay, 0);
-        }
+        ItemRenderHelper.renderItem(itemStack, mode, stack, light, overlay, world, itemEntity, true);
     }
 
     private void renderGlowOverlay(FormRenderingContext context, MatrixStack stack, CustomVertexConsumerProvider consumers, GlowSettings glowSettings, Color legacyGlow, float glowIntensity, float alpha, int overlay, boolean ui, ItemDisplayContext mode, LivingEntity itemEntity, boolean leftHand)

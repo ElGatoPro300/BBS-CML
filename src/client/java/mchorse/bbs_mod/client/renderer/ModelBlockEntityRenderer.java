@@ -47,7 +47,7 @@ import net.minecraft.util.math.Vec3d;
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
 
-import com.mojang.blaze3d.systems.RenderSystem;
+import org.lwjgl.opengl.GL11;
 
 public class ModelBlockEntityRenderer implements BlockEntityRenderer<ModelBlockEntity, ModelBlockEntityRenderState>
 {
@@ -71,7 +71,7 @@ public class ModelBlockEntityRenderer implements BlockEntityRenderer<ModelBlockE
     {
         ClientWorld world = MinecraftClient.getInstance().world;
 
-        if (entity == null || entity.getWorld() != world)
+        if (entity == null || entity.getEntityWorld() != world)
         {
             entity = new ActorEntity(BBSMod.ACTOR_ENTITY, world);
         }
@@ -80,11 +80,15 @@ public class ModelBlockEntityRenderer implements BlockEntityRenderer<ModelBlockE
         entity.lastRenderX = x;
         entity.lastRenderY = y;
         entity.lastRenderZ = z;
-        entity.prevX = x;
-        entity.prevY = y;
-        entity.prevZ = z;
+        entity.lastX = x;
+        entity.lastY = y;
+        entity.lastZ = z;
 
-        double distance = MinecraftClient.getInstance().getEntityRenderDispatcher().getSquaredDistanceToCamera(x, y, z);
+        Camera camera = MinecraftClient.getInstance().gameRenderer.getCamera();
+        double dx = x - camera.getCameraPos().x;
+        double dy = y - camera.getCameraPos().y;
+        double dz = z - camera.getCameraPos().z;
+        double distance = dx * dx + dy * dy + dz * dz;
 
         opacity = (float) ((1D - distance / 256D) * opacity);
 
@@ -197,7 +201,7 @@ public class ModelBlockEntityRenderer implements BlockEntityRenderer<ModelBlockE
             int lightAbove = WorldRenderer.getLightmapCoordinates(entity.getWorld(), pos.add((int) transform.translate.x, (int) transform.translate.y, (int) transform.translate.z));
             Camera camera = mc.gameRenderer.getCamera();
 
-            RenderSystem.enableDepthTest();
+            GL11.glEnable(GL11.GL_DEPTH_TEST);
 
             FormRenderingContext formContext = new FormRenderingContext()
                 .set(FormRenderType.MODEL_BLOCK, entity.getEntity(), matrices, lightAbove, overlay, tickDelta)
@@ -209,7 +213,7 @@ public class ModelBlockEntityRenderer implements BlockEntityRenderer<ModelBlockE
 
             if (!formContext.isShadowPass)
             {
-                RenderSystem.disableDepthTest();
+                GL11.glDisable(GL11.GL_DEPTH_TEST);
             }
 
             if (!formContext.isShadowPass && this.canRenderAxes(entity) && UIBaseMenu.renderAxes)
@@ -225,7 +229,7 @@ public class ModelBlockEntityRenderer implements BlockEntityRenderer<ModelBlockE
 
         if (!BBSRendering.isIrisShadowPass())
         {
-            RenderSystem.disableDepthTest();
+            GL11.glDisable(GL11.GL_DEPTH_TEST);
         }
 
         if (mc.getDebugHud().shouldShowDebugHud())
@@ -414,7 +418,7 @@ public class ModelBlockEntityRenderer implements BlockEntityRenderer<ModelBlockE
 
         formContext.isShadowPass = true;
 
-        RenderSystem.enableDepthTest();
+        GL11.glEnable(GL11.GL_DEPTH_TEST);
         FormUtilsClient.render(form, formContext);
         shadowStack.pop();
     }

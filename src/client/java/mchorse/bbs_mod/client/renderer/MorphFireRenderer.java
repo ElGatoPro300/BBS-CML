@@ -57,7 +57,7 @@ public final class MorphFireRenderer
             return;
         }
 
-        if (MorphFireRenderer.proxy == null || MorphFireRenderer.proxy.getWorld() != world)
+        if (MorphFireRenderer.proxy == null || MorphFireRenderer.proxy.getEntityWorld() != world)
         {
             MorphFireRenderer.proxy = new ActorEntity(BBSMod.ACTOR_ENTITY, world);
         }
@@ -76,9 +76,9 @@ public final class MorphFireRenderer
         entity.lastRenderX = 0D;
         entity.lastRenderY = 0D;
         entity.lastRenderZ = 0D;
-        entity.prevX = 0D;
-        entity.prevY = 0D;
-        entity.prevZ = 0D;
+        entity.lastX = 0D;
+        entity.lastY = 0D;
+        entity.lastZ = 0D;
         entity.setInvisible(false);
 
         float bodyYaw = Lerps.lerp(morph.getPrevBodyYaw(), morph.getBodyYaw(), tickDelta);

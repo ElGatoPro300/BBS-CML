@@ -1,6 +1,7 @@
 package mchorse.bbs_mod.forms.renderers;
 
 import mchorse.bbs_mod.client.BBSRendering;
+import mchorse.bbs_mod.client.render.ItemRenderHelper;
 import mchorse.bbs_mod.forms.CustomVertexConsumerProvider;
 import mchorse.bbs_mod.forms.FormUtilsClient;
 import mchorse.bbs_mod.forms.entities.IEntity;
@@ -155,7 +156,7 @@ public final class ItemBodyPartBatch
                     BlockFormRenderer.color.mul(item.color.get());
 
                     consumers.setSubstitute(itemRenderer.getMainConsumer(BlockFormRenderer.color, resolvedPaint));
-                    client.getItemRenderer().renderItem(null, itemStack, mode, false, context.stack, consumers, client.world, context.light, context.overlay, 0);
+                    ItemRenderHelper.renderItem(itemStack, mode, context.stack, context.light, context.overlay, client.world, null, !flushOnce);
 
                     if (context.isPicking())
                     {

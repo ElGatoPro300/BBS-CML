@@ -272,7 +272,42 @@ public class BBSRendering
         else
         {
             /* World / non-film path: Iris may leave a different FBO bound at frame end. */
-            MinecraftClient.getInstance().getFramebuffer().beginWrite(false);
+            bindMainFramebuffer(false);
+        }
+    }
+
+    /**
+     * 1.21.11 replacement for {@code Framebuffer.beginWrite(boolean)}.
+     */
+    public static void bindMainFramebuffer(boolean clear)
+    {
+        Framebuffer fb = MinecraftClient.getInstance().getFramebuffer();
+
+        RenderSystem.outputColorTextureOverride = null;
+        RenderSystem.outputDepthTextureOverride = null;
+
+        if (clear && fb != null && fb.getColorAttachment() != null && fb.getDepthAttachment() != null)
+        {
+            RenderSystem.getDevice().createCommandEncoder()
+                .clearColorAndDepthTextures(fb.getColorAttachment(), 0, fb.getDepthAttachment(), 1.0D);
+        }
+    }
+
+    public static void bindFramebuffer(Framebuffer fb, boolean clear)
+    {
+        if (fb == null)
+        {
+            bindMainFramebuffer(clear);
+            return;
+        }
+
+        RenderSystem.outputColorTextureOverride = fb.getColorAttachmentView();
+        RenderSystem.outputDepthTextureOverride = fb.getDepthAttachmentView();
+
+        if (clear && fb.getColorAttachment() != null && fb.getDepthAttachment() != null)
+        {
+            RenderSystem.getDevice().createCommandEncoder()
+                .clearColorAndDepthTextures(fb.getColorAttachment(), 0, fb.getDepthAttachment(), 1.0D);
         }
     }
 
@@ -340,13 +375,12 @@ public class BBSRendering
     public static void restoreGuiRenderState()
     {
         ModelVAORenderer.clearFormColorGrade();
-        RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
-        RenderSystem.colorMask(true, true, true, true);
-        RenderSystem.depthMask(true);
-        RenderSystem.enableBlend();
-        RenderSystem.defaultBlendFunc();
-        RenderSystem.disableCull();
-        RenderSystem.depthFunc(GL11.GL_ALWAYS);
+        GL11.glColorMask(true, true, true, true);
+        GL11.glDepthMask(true);
+        GL11.glEnable(GL11.GL_BLEND);
+        GL11.glBlendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
+        GL11.glDisable(GL11.GL_CULL_FACE);
+        GL11.glDepthFunc(GL11.GL_ALWAYS);
         GL11.glPolygonOffset(0F, 0F);
         GL11.glDisable(GL11.GL_POLYGON_OFFSET_FILL);
     }
@@ -567,29 +601,19 @@ public class BBSRendering
         MinecraftClient mc = MinecraftClient.getInstance();
         UIBaseMenu currentMenu = UIScreen.getCurrentMenu();
 
-        Matrix4f cache = new Matrix4f(RenderSystem.getProjectionMatrix());
-        ProjectionType cacheType = RenderSystem.getProjectionType();
-
         if (BBSModClient.getCameraController().getCurrent() instanceof PlayCameraController controller)
         {
-            /* 1.21.11: DrawContext constructor changed */
+            /* 1.21.11: DrawContext constructor changed; draw() removed (two-phase GUI) */
             DrawContext drawContext = new DrawContext(mc, new GuiRenderState(), mc.getWindow().getScaledWidth(), mc.getWindow().getScaledHeight());
             Batcher2D batcher = new Batcher2D(drawContext);
             Window window = mc.getWindow();
             Area area = new Area(0, 0, window.getScaledWidth(), window.getScaledHeight());
-            Matrix4f ortho = new Matrix4f().ortho(0, area.w, area.h, 0, -1000, 3000);
 
-            /* 1.21.11: RenderSystem.setProjectionMatrix removed */
             renderHudOverlays(batcher, controller.getContext(), area.w, area.h);
-            /* 1.21.11: batcher.getContext().getMatrices() returns Matrix3x2fStack; use new MatrixStack() */
             VideoRenderer.renderClips(new MatrixStack(), batcher, controller.getContext().clips.getClips(controller.getContext().relativeTick), controller.getContext().relativeTick, true, area, area, null, area.w, area.h, false);
 
             ScreenEffectRenderer.render(batcher, controller.getContext(), area.w, area.h);
             renderHudOverlays(batcher, controller.getContext(), area.w, area.h);
-
-            drawContext.draw();
-
-            RenderSystem.setProjectionMatrix(cache, cacheType);
         }
 
         if (BBSModClient.getVideoRecorder().isRecording() && BBSModClient.getCameraController().getCurrent() instanceof CameraWorkCameraController controller)
@@ -599,8 +623,6 @@ public class BBSRendering
             Window window = mc.getWindow();
 
             renderHudOverlays(batcher, controller.getContext(), window.getScaledWidth(), window.getScaledHeight());
-
-            /* 1.21.11: DrawContext.draw() removed (two-phase GUI) */
         }
 
         if (!customSize)
@@ -619,18 +641,12 @@ public class BBSRendering
 
                 Window window = mc.getWindow();
                 Area fullScreen = new Area(0, 0, window.getScaledWidth(), window.getScaledHeight());
-                Matrix4f ortho = new Matrix4f().ortho(0, window.getScaledWidth(), window.getScaledHeight(), 0, -1000, 3000);
 
-                RenderSystem.setProjectionMatrix(ortho, ProjectionType.ORTHOGRAPHIC);
                 renderHudOverlays(offscreenBatcher, panel.getRunner().getContext(), fullScreen.w, fullScreen.h);
                 VideoRenderer.renderClips(new MatrixStack(), offscreenBatcher, panel.getData().camera.getClips(panel.getCursor()), panel.getCursor(), panel.getRunner().isRunning(), fullScreen, fullScreen, null, window.getScaledWidth(), window.getScaledHeight(), false);
 
                 ScreenEffectRenderer.render(offscreenBatcher, panel.getRunner().getContext(), window.getScaledWidth(), window.getScaledHeight());
                 renderHudOverlays(offscreenBatcher, panel.getRunner().getContext(), fullScreen.w, fullScreen.h);
-
-                drawContext.draw();
-
-                RenderSystem.setProjectionMatrix(cache, cacheType);
             }
         }
 
@@ -715,58 +731,17 @@ public class BBSRendering
 
     public static void onRenderChunkLayer(MatrixStack stack)
     {
-        WorldRenderContextImpl worldRenderContext = new WorldRenderContextImpl();
-        MinecraftClient mc = MinecraftClient.getInstance();
-
-        worldRenderContext.prepare(
-            mc.worldRenderer, mc.getRenderTickCounter(), false,
-            mc.gameRenderer.getCamera(), mc.gameRenderer,
-            RenderSystem.getProjectionMatrix(), RenderSystem.getModelViewMatrix(), mc.getBufferBuilders().getEntityVertexConsumers(), false, mc.world
-        );
-
-        if (!isIrisShadersEnabled())
-        {
-            renderCoolStuff(worldRenderContext);
-        }
+        /* Fabric WorldRenderEvents.AFTER_ENTITIES already drives renderCoolStuff.
+         * Legacy chunk-layer injection path is inert under 1.21.11 FrameGraph terrain. */
     }
 
     public static void onRenderChunkLayer(Matrix4f positionMatrix, Matrix4f projectionMatrix)
     {
-        WorldRenderContextImpl worldRenderContext = new WorldRenderContextImpl();
-        MinecraftClient mc = MinecraftClient.getInstance();
-
-        worldRenderContext.prepare(
-            mc.worldRenderer, mc.getRenderTickCounter(), false,
-            mc.gameRenderer.getCamera(), mc.gameRenderer,
-            positionMatrix, projectionMatrix, mc.getBufferBuilders().getEntityVertexConsumers(), false, mc.world
-        );
-
-        if (isIrisShadersEnabled())
+        /* Legacy chunk-layer injection is inert under 1.21.11 FrameGraph terrain.
+         * Fabric WorldRenderEvents.AFTER_ENTITIES already drives renderCoolStuff. */
+        if (isIrisShadersEnabled() && isIrisShadowPass())
         {
-            /* renderLayer is also invoked during the Iris shadow pass, where UI gizmos
-             * must not render (and would crash below on the missing matrix stack). */
-            if (isIrisShadowPass())
-            {
-                return;
-            }
-
-            /* WorldRenderContextImpl.prepare() leaves the matrix stack null; supply one
-             * built from the terrain position matrix so renderInWorld can use it. */
-            MatrixStack matrices = new MatrixStack();
-
-            MatrixStackUtils.multiply(matrices, positionMatrix);
-            worldRenderContext.setMatrixStack(matrices);
-
-            irisChunkLayerPass = true;
-
-            try
-            {
-                renderCoolStuff(worldRenderContext);
-            }
-            finally
-            {
-                irisChunkLayerPass = false;
-            }
+            return;
         }
     }
 
@@ -1570,7 +1545,7 @@ public class BBSRendering
         int[] prevViewport = new int[4];
 
         GL11.glGetIntegerv(GL11.GL_VIEWPORT, prevViewport);
-        RenderSystem.disableDepthTest();
+        GL11.glDisable(GL11.GL_DEPTH_TEST);
 
         /* 1.21.11: batcher.getContext().getMatrices() returns Matrix3x2fStack; use new MatrixStack() */
         MatrixStack matrices = new MatrixStack();
@@ -1612,6 +1587,6 @@ public class BBSRendering
 
         bossBars.clear();
         GL11.glViewport(prevViewport[0], prevViewport[1], prevViewport[2], prevViewport[3]);
-        RenderSystem.enableDepthTest();
+        GL11.glEnable(GL11.GL_DEPTH_TEST);
     }
 }
