@@ -75,7 +75,8 @@ public class UIRecordOverlayPanel extends UIMessageOverlayPanel
             this.mobToMorph = new UIToggle(UIKeys.FILM_RECORD_MOB_TO_MORPH, false, (b) -> {});
 
             this.mobToMorph.tooltip(UIKeys.FILM_RECORD_MOB_TO_MORPH_TOOLTIP);
-            this.mobToMorph.relative(this.content).x(0.5F).y(1F, -34).w(140).anchor(0.5F, 1F);
+            /* Leave room above the icon bar so the toggle does not overlap hits. */
+            this.mobToMorph.relative(this.content).x(0.5F).y(1F, -42).w(180).anchor(0.5F, 1F);
             this.content.add(this.mobToMorph);
         }
 
@@ -97,8 +98,9 @@ public class UIRecordOverlayPanel extends UIMessageOverlayPanel
     {
         if (this.mobToMorphOption && this.mobToMorph != null)
         {
+            /* Toggle track (22) + paddings; +1 avoids limitToWidth treating exact fit as overflow. */
             int labelW = context.batcher.getFont().getWidth(this.mobToMorph.label.get());
-            int targetW = labelW + 30;
+            int targetW = Math.max(180, labelW + 31);
 
             if (this.mobToMorph.area.w != targetW)
             {

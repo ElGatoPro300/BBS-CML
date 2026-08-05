@@ -911,6 +911,8 @@
     "bbs.ui.film.controller.onion_skin.title": "Piel de cebolla",
     "bbs.ui.film.controller.record-description": "Elije un grupo de fotogramas clave que desees grabar:",
     "bbs.ui.film.controller.record-title": "Grabar",
+    "bbs.ui.film.record.mob_to_morph": "Añadir criaturas",
+    "bbs.ui.film.record.mob_to_morph-tooltip": "Si está activado, al elegir un grupo de keyframes se abre primero el panel de criaturas cercanas y luego empieza la grabación con ese grupo",
     "bbs.ui.film.controller.server_warning": "¡El control del jugador está deshabilitado en un servidor que no tiene instalado el mod BBS! Utiliza la función de grabación externa para la grabación del jugador",
     "bbs.ui.film.controller.speed": "Velocidad: %.2f",
     "bbs.ui.film.controller.ticks": "%s ticks",
