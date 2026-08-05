@@ -9,10 +9,19 @@ import mchorse.bbs_mod.utils.keyframes.factories.KeyframeFactories;
 
 public class CinematicClip extends CameraClip
 {
+    /* Defaults for optional fisheye shaping tracks (empty channel = these values). */
+    public static final double DEFAULT_LENS_RADIUS = 1D;
+    public static final double DEFAULT_LENS_HARDNESS = 1D;
+    public static final double DEFAULT_LENS_SHARPEN = 1D;
+
     /* Cinematic effects */
     public final KeyframeChannel<Double> aberration = new KeyframeChannel<>("aberration", KeyframeFactories.DOUBLE);
     public final KeyframeChannel<Double> vhs = new KeyframeChannel<>("vhs", KeyframeFactories.DOUBLE);
+    /** Intensity — channel id kept as {@code lensDistortion} for save compatibility. */
     public final KeyframeChannel<Double> lensDistortion = new KeyframeChannel<>("lensDistortion", KeyframeFactories.DOUBLE);
+    public final KeyframeChannel<Double> lensRadius = new KeyframeChannel<>("lens_radius", KeyframeFactories.DOUBLE);
+    public final KeyframeChannel<Double> lensHardness = new KeyframeChannel<>("lens_hardness", KeyframeFactories.DOUBLE);
+    public final KeyframeChannel<Double> lensSharpen = new KeyframeChannel<>("lens_sharpen", KeyframeFactories.DOUBLE);
     public final KeyframeChannel<Double> vintage = new KeyframeChannel<>("vintage", KeyframeFactories.DOUBLE);
     public final KeyframeChannel<Double> radialBlur = new KeyframeChannel<>("radialBlur", KeyframeFactories.DOUBLE);
     public final KeyframeChannel<Double> rain = new KeyframeChannel<>("rain", KeyframeFactories.DOUBLE);
@@ -32,6 +41,9 @@ public class CinematicClip extends CameraClip
             this.aberration,
             this.vhs,
             this.lensDistortion,
+            this.lensRadius,
+            this.lensHardness,
+            this.lensSharpen,
             this.vintage,
             this.radialBlur,
             this.rain,
@@ -45,6 +57,9 @@ public class CinematicClip extends CameraClip
         this.add(this.aberration);
         this.add(this.vhs);
         this.add(this.lensDistortion);
+        this.add(this.lensRadius);
+        this.add(this.lensHardness);
+        this.add(this.lensSharpen);
         this.add(this.vintage);
         this.add(this.radialBlur);
         this.add(this.rain);
@@ -67,6 +82,9 @@ public class CinematicClip extends CameraClip
         float ab = (this.aberration.isEmpty() ? 0F : (float) (double) this.aberration.interpolate(t)) * 0.25F;
         float vh = (this.vhs.isEmpty() ? 0F : (float) (double) this.vhs.interpolate(t)) * 0.25F;
         float ld = (this.lensDistortion.isEmpty() ? 0F : (float) (double) this.lensDistortion.interpolate(t)) * 0.25F;
+        float lr = this.lensRadius.isEmpty() ? (float) DEFAULT_LENS_RADIUS : (float) (double) this.lensRadius.interpolate(t);
+        float lh = this.lensHardness.isEmpty() ? (float) DEFAULT_LENS_HARDNESS : (float) (double) this.lensHardness.interpolate(t);
+        float ls = this.lensSharpen.isEmpty() ? (float) DEFAULT_LENS_SHARPEN : (float) (double) this.lensSharpen.interpolate(t);
         float vt = (this.vintage.isEmpty() ? 0F : (float) (double) this.vintage.interpolate(t)) * 0.25F;
         float rb = (this.radialBlur.isEmpty() ? 0F : (float) (double) this.radialBlur.interpolate(t)) * 0.25F;
         float rn = (this.rain.isEmpty() ? 0F : (float) (double) this.rain.interpolate(t)) * 0.25F;
@@ -84,6 +102,9 @@ public class CinematicClip extends CameraClip
             this.effect.aberration = ab * factor;
             this.effect.vhs = vh * factor;
             this.effect.lensDistortion = lens;
+            this.effect.lensRadius = Math.max(0.05F, lr);
+            this.effect.lensHardness = Math.max(0F, Math.min(1F, lh));
+            this.effect.lensSharpen = Math.max(0F, ls) * factor;
             this.effect.vintage = vt * factor;
             this.effect.radialBlur = rb * factor;
             this.effect.rain = rn * factor;

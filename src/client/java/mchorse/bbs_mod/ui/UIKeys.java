@@ -2046,6 +2046,11 @@ public class UIKeys
     public static final IKey CAMERA_CLIPS_CHANNEL_ABERRATION = L10n.lang("bbs.ui.camera.clips.channel.aberration");
     public static final IKey CAMERA_CLIPS_CHANNEL_DUST = L10n.lang("bbs.ui.camera.clips.channel.dust");
     public static final IKey CAMERA_CLIPS_CHANNEL_LENS_DISTORTION = L10n.lang("bbs.ui.camera.clips.channel.lens_distortion");
+    public static final IKey CAMERA_CLIPS_CHANNEL_FISHEYE_EFFECT = L10n.lang("bbs.ui.camera.clips.channel.fisheye_effect");
+    public static final IKey CAMERA_CLIPS_CHANNEL_FISHEYE_INTENSITY = L10n.lang("bbs.ui.camera.clips.channel.fisheye_intensity");
+    public static final IKey CAMERA_CLIPS_CHANNEL_FISHEYE_RADIUS = L10n.lang("bbs.ui.camera.clips.channel.fisheye_radius");
+    public static final IKey CAMERA_CLIPS_CHANNEL_FISHEYE_HARDNESS = L10n.lang("bbs.ui.camera.clips.channel.fisheye_hardness");
+    public static final IKey CAMERA_CLIPS_CHANNEL_FISHEYE_SHARPEN = L10n.lang("bbs.ui.camera.clips.channel.fisheye_sharpen");
     public static final IKey CAMERA_CLIPS_CHANNEL_LIGHT_LEAK = L10n.lang("bbs.ui.camera.clips.channel.light_leak");
     public static final IKey CAMERA_CLIPS_CHANNEL_RADIAL_BLUR = L10n.lang("bbs.ui.camera.clips.channel.radial_blur");
     public static final IKey CAMERA_CLIPS_CHANNEL_RAIN = L10n.lang("bbs.ui.camera.clips.channel.rain");

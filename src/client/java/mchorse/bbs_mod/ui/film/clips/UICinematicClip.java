@@ -122,18 +122,6 @@ public class UICinematicClip extends UIClip<CinematicClip>
             shVHS.groupKey = key;
             view.addSheet(shVHS);
 
-            UIKeyframeSheet shLensDistortion = new UIKeyframeSheet(
-                "lensDistortion",
-                UIKeys.CAMERA_CLIPS_CHANNEL_LENS_DISTORTION,
-                Colors.BLUE,
-                false,
-                this.clip.lensDistortion,
-                null
-            );
-            shLensDistortion.level = 1;
-            shLensDistortion.groupKey = key;
-            view.addSheet(shLensDistortion);
-
             UIKeyframeSheet shVintage = new UIKeyframeSheet(
                 "vintage",
                 UIKeys.CAMERA_CLIPS_CHANNEL_VINTAGE,
@@ -194,10 +182,88 @@ public class UICinematicClip extends UIClip<CinematicClip>
             shLightLeak.groupKey = key;
             view.addSheet(shLightLeak);
 
+            this.addFisheyeGroup(view, key);
             this.addHeatGroup(view, key);
         }
 
         this.keyframes.view.getGraph().clearSelection();
+    }
+
+    private void addFisheyeGroup(UIKeyframes view, String parentKey)
+    {
+        String fisheyeKey = "fisheye";
+        boolean expanded = !this.collapsed.getOrDefault(fisheyeKey, false);
+
+        UIKeyframeSheet header = UIKeyframeSheet.groupHeader(
+            "__cinematic__" + fisheyeKey,
+            UIKeys.CAMERA_CLIPS_CHANNEL_FISHEYE_EFFECT,
+            Colors.BLUE,
+            fisheyeKey,
+            expanded,
+            () ->
+            {
+                this.collapsed.put(fisheyeKey, !this.collapsed.getOrDefault(fisheyeKey, false));
+                this.rebuildChannels();
+            }
+        );
+
+        header.level = 1;
+        header.groupKey = parentKey;
+        view.addSheet(header);
+
+        if (expanded)
+        {
+            UIKeyframeSheet shIntensity = new UIKeyframeSheet(
+                "lensDistortion",
+                UIKeys.CAMERA_CLIPS_CHANNEL_FISHEYE_INTENSITY,
+                0xff4488ff,
+                false,
+                this.clip.lensDistortion,
+                null
+            );
+            shIntensity.level = 2;
+            shIntensity.groupKey = fisheyeKey;
+            view.addSheet(shIntensity);
+
+            UIKeyframeSheet shRadius = new UIKeyframeSheet(
+                "lens_radius",
+                UIKeys.CAMERA_CLIPS_CHANNEL_FISHEYE_RADIUS,
+                0xff66aaff,
+                false,
+                this.clip.lensRadius,
+                null
+            );
+            shRadius.level = 2;
+            shRadius.groupKey = fisheyeKey;
+            shRadius.defaultInsertValue = CinematicClip.DEFAULT_LENS_RADIUS;
+            view.addSheet(shRadius);
+
+            UIKeyframeSheet shHardness = new UIKeyframeSheet(
+                "lens_hardness",
+                UIKeys.CAMERA_CLIPS_CHANNEL_FISHEYE_HARDNESS,
+                0xff88ccff,
+                false,
+                this.clip.lensHardness,
+                null
+            );
+            shHardness.level = 2;
+            shHardness.groupKey = fisheyeKey;
+            shHardness.defaultInsertValue = CinematicClip.DEFAULT_LENS_HARDNESS;
+            view.addSheet(shHardness);
+
+            UIKeyframeSheet shSharpen = new UIKeyframeSheet(
+                "lens_sharpen",
+                UIKeys.CAMERA_CLIPS_CHANNEL_FISHEYE_SHARPEN,
+                0xffaaddff,
+                false,
+                this.clip.lensSharpen,
+                null
+            );
+            shSharpen.level = 2;
+            shSharpen.groupKey = fisheyeKey;
+            shSharpen.defaultInsertValue = CinematicClip.DEFAULT_LENS_SHARPEN;
+            view.addSheet(shSharpen);
+        }
     }
 
     private void addHeatGroup(UIKeyframes view, String parentKey)
