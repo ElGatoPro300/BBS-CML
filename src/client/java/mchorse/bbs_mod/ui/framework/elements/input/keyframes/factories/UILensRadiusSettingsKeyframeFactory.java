@@ -19,14 +19,22 @@ import java.util.function.Consumer;
  */
 public class UILensRadiusSettingsKeyframeFactory extends UIKeyframeFactory<LensRadiusSettings>
 {
+    /**
+     * Survives keyframe panel recreation (deselect/reselect). The factory instance
+     * is rebuilt each time, so instance fields alone would always reset to linked.
+     */
+    private static boolean linkRadiusPreference = true;
+
     private UITrackpad radiusX;
     private UITrackpad radiusY;
     private UIIcon radiusLink;
-    private boolean linkRadius = true;
+    private boolean linkRadius;
 
     public UILensRadiusSettingsKeyframeFactory(Keyframe<LensRadiusSettings> keyframe, UIKeyframes editor)
     {
         super(keyframe, editor);
+
+        this.linkRadius = linkRadiusPreference;
 
         this.radiusX = new UITrackpad((v) -> this.setRadiusX(v.floatValue()));
         this.radiusX.limit(0D).tooltip(UIKeys.CAMERA_CLIPS_CHANNEL_FISHEYE_RADIUS_X);
@@ -123,6 +131,7 @@ public class UILensRadiusSettingsKeyframeFactory extends UIKeyframeFactory<LensR
     private void toggleRadiusLink()
     {
         this.linkRadius = !this.linkRadius;
+        linkRadiusPreference = this.linkRadius;
         this.radiusLink.active(this.linkRadius);
 
         if (this.linkRadius)
