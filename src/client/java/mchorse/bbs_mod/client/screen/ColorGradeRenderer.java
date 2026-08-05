@@ -73,7 +73,8 @@ public class ColorGradeRenderer
             uniform float u_aberration;
             uniform float u_vhs;
             uniform float u_lensDistortion;
-            uniform float u_lensRadius;
+            uniform float u_lensRadiusX;
+            uniform float u_lensRadiusY;
             uniform float u_lensHardness;
             uniform float u_lensSharpen;
             uniform float u_vintage;
@@ -163,25 +164,27 @@ public class ColorGradeRenderer
                  * framebuffer edges into the rim. */
                 vec2 distortedUV = v_uv;
                 float lensMask = 0.0;
-                if (abs(u_lensDistortion) > 0.001 && u_lensRadius > 0.001)
+                if (abs(u_lensDistortion) > 0.001 && (u_lensRadiusX > 0.001 || u_lensRadiusY > 0.001))
                 {
                     vec2 uvOffset = v_uv - vec2(0.5);
-                    float r2 = dot(uvOffset, uvOffset);
                     float k = u_lensDistortion;
                     float cornerRadius = 0.70710678;
-                    float radius = max(u_lensRadius * cornerRadius, 1.0e-6);
-                    float dist = length(uvOffset);
-                    float localR2 = min(0.5, 0.5 * r2 / (radius * radius));
+                    float radiusX = max(u_lensRadiusX * cornerRadius, 1.0e-6);
+                    float radiusY = max(u_lensRadiusY * cornerRadius, 1.0e-6);
+                    vec2 scaled = uvOffset / vec2(radiusX, radiusY);
+                    float rNorm = length(scaled);
+                    float localR2 = min(0.5, 0.5 * dot(scaled, scaled));
                     float hardness = clamp(u_lensHardness, 0.0, 1.0);
-                    float feather = (1.0 - hardness) * radius * 0.75;
+                    /* Relative feather so circular X=Y matches the previous radius behavior. */
+                    float feather = (1.0 - hardness) * 0.75;
 
                     if (feather < 0.0001)
                     {
-                        lensMask = step(dist, radius);
+                        lensMask = step(rNorm, 1.0);
                     }
                     else
                     {
-                        lensMask = 1.0 - smoothstep(max(0.0, radius - feather), radius + feather, dist);
+                        lensMask = 1.0 - smoothstep(max(0.0, 1.0 - feather), 1.0 + feather, rNorm);
                     }
 
                     vec2 passthroughUV = v_uv;
@@ -189,7 +192,9 @@ public class ColorGradeRenderer
 
                     if (k > 0.0)
                     {
-                        float rFit = min(cornerRadius, radius + feather);
+                        float radius = max(radiusX, radiusY);
+                        float featherAbs = feather * radius;
+                        float rFit = min(cornerRadius, radius + featherAbs);
                         float fitR2 = min(0.5, 0.5 * rFit * rFit / (radius * radius));
                         float edgeComponent = min(rFit, 0.5);
                         float fitScale = max(1.0, edgeComponent * (1.0 + k * fitR2) / 0.5);
@@ -465,7 +470,7 @@ public class ColorGradeRenderer
             }
             """;
 
-    private static final int SHADER_VERSION = 17;
+    private static final int SHADER_VERSION = 18;
     private static int loadedShaderVersion;
     private static boolean initialized;
     private static boolean failed;
@@ -492,7 +497,8 @@ public class ColorGradeRenderer
     private static int uAberration;
     private static int uVHS;
     private static int uLensDistortion;
-    private static int uLensRadius;
+    private static int uLensRadiusX;
+    private static int uLensRadiusY;
     private static int uLensHardness;
     private static int uLensSharpen;
     private static int uVintage;
@@ -648,7 +654,8 @@ public class ColorGradeRenderer
         float aberration = 0F;
         float vhs = 0F;
         float lensDistortion = 0F;
-        float lensRadius = 1F;
+        float lensRadiusX = 1F;
+        float lensRadiusY = 1F;
         float lensHardness = 1F;
         float lensSharpen = 0F;
         float vintage = 0F;
@@ -671,7 +678,8 @@ public class ColorGradeRenderer
 
                 if (Math.abs(e.lensDistortion) > 1.0e-6F)
                 {
-                    lensRadius = e.lensRadius;
+                    lensRadiusX = e.lensRadiusX;
+                    lensRadiusY = e.lensRadiusY;
                     lensHardness = e.lensHardness;
                     lensSharpen = Math.max(lensSharpen, e.lensSharpen);
                 }
@@ -718,7 +726,8 @@ public class ColorGradeRenderer
         GL20.glUniform1f(uAberration, aberration);
         GL20.glUniform1f(uVHS, vhs);
         GL20.glUniform1f(uLensDistortion, lensDistortion);
-        GL20.glUniform1f(uLensRadius, Math.max(0F, lensRadius));
+        GL20.glUniform1f(uLensRadiusX, Math.max(0F, lensRadiusX));
+        GL20.glUniform1f(uLensRadiusY, Math.max(0F, lensRadiusY));
         GL20.glUniform1f(uLensHardness, Math.max(0F, Math.min(1F, lensHardness)));
         GL20.glUniform1f(uLensSharpen, Math.max(0F, lensSharpen));
         GL20.glUniform1f(uVintage, vintage);
@@ -848,7 +857,8 @@ public class ColorGradeRenderer
         uAberration = GL20.glGetUniformLocation(program, "u_aberration");
         uVHS = GL20.glGetUniformLocation(program, "u_vhs");
         uLensDistortion = GL20.glGetUniformLocation(program, "u_lensDistortion");
-        uLensRadius = GL20.glGetUniformLocation(program, "u_lensRadius");
+        uLensRadiusX = GL20.glGetUniformLocation(program, "u_lensRadiusX");
+        uLensRadiusY = GL20.glGetUniformLocation(program, "u_lensRadiusY");
         uLensHardness = GL20.glGetUniformLocation(program, "u_lensHardness");
         uLensSharpen = GL20.glGetUniformLocation(program, "u_lensSharpen");
         uVintage = GL20.glGetUniformLocation(program, "u_vintage");

@@ -29,8 +29,10 @@ public class ColorEffect
     public float lensDistortion;
     /** FOV match scale: {@code >1} widen (positive fisheye), {@code <1} narrow (negative). */
     public float lensOverscan;
-    /** Fisheye effect radius (1 = legacy full-frame coverage to the corners). */
-    public float lensRadius;
+    /** Fisheye effect radius on UV X ({@code 1} = legacy coverage to the corners). */
+    public float lensRadiusX;
+    /** Fisheye effect radius on UV Y ({@code 1} = legacy coverage to the corners). */
+    public float lensRadiusY;
     /** Fisheye mask hardness (1 = hard/legacy, 0 = soft extended falloff). */
     public float lensHardness;
     /** Center unsharp amount for positive fisheye (1 = default full sharpen). */
@@ -57,7 +59,8 @@ public class ColorEffect
         this.vhs = 0F;
         this.lensDistortion = 0F;
         this.lensOverscan = 1F;
-        this.lensRadius = 1F;
+        this.lensRadiusX = 1F;
+        this.lensRadiusY = 1F;
         this.lensHardness = 1F;
         this.lensSharpen = 0F;
         this.vintage = 0F;

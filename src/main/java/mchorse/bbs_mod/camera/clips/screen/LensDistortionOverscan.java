@@ -39,14 +39,14 @@ public final class LensDistortionOverscan
      * Same UV fit scale used by the color-grade fisheye shader for positive {@code k}.
      * {@code > 1} means the warp zooms into the native frame to stay in bounds.
      */
-    public static float positiveFitScale(float lensDistortion, float lensRadius, float lensHardness)
+    public static float positiveFitScale(float lensDistortion, float lensRadiusX, float lensRadiusY, float lensHardness)
     {
         if (lensDistortion <= 1.0e-6F)
         {
             return 1F;
         }
 
-        float radius = Math.max(lensRadius * CORNER_RADIUS, 1.0e-6F);
+        float radius = Math.max(Math.max(lensRadiusX, lensRadiusY) * CORNER_RADIUS, 1.0e-6F);
         float hardness = MathUtils.clamp(lensHardness, 0F, 1F);
         float feather = (1F - hardness) * radius * 0.75F;
         float rFit = Math.min(CORNER_RADIUS, radius + feather);
@@ -61,9 +61,9 @@ public final class LensDistortionOverscan
      * around {@link #FRAMING_FOCUS_BLOCKS} keeps similar screen size. Negative = dolly back.
      * Multiplied by the animatable distance-factor track by the caller.
      */
-    public static float framingDistanceOffset(float lensDistortion, float lensRadius, float lensHardness)
+    public static float framingDistanceOffset(float lensDistortion, float lensRadiusX, float lensRadiusY, float lensHardness)
     {
-        float fitScale = positiveFitScale(lensDistortion, lensRadius, lensHardness);
+        float fitScale = positiveFitScale(lensDistortion, lensRadiusX, lensRadiusY, lensHardness);
 
         if (fitScale <= 1.0e-4F)
         {

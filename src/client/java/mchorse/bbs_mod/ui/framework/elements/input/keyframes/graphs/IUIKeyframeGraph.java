@@ -139,6 +139,12 @@ public interface IUIKeyframeGraph
             {
                 value = sheet.channel.getFactory().createEmpty();
             }
+            else if ("lens_radius".equals(sheet.id))
+            {
+                value = sheet.defaultInsertValue != null
+                    ? sheet.channel.getFactory().copy(sheet.defaultInsertValue)
+                    : sheet.channel.getFactory().createEmpty();
+            }
             else if ("shadow_opacity".equals(sheet.id))
             {
                 value = 1D;

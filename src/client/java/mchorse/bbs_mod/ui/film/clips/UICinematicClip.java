@@ -248,7 +248,7 @@ public class UICinematicClip extends UIClip<CinematicClip>
             );
             shRadius.level = 2;
             shRadius.groupKey = fisheyeKey;
-            shRadius.defaultInsertValue = CinematicClip.DEFAULT_LENS_RADIUS;
+            shRadius.defaultInsertValue = CinematicClip.DEFAULT_LENS_RADIUS_SETTINGS;
             view.addSheet(shRadius);
 
             UIKeyframeSheet shHardness = new UIKeyframeSheet(

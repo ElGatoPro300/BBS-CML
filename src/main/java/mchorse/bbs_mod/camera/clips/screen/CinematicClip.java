@@ -2,19 +2,26 @@ package mchorse.bbs_mod.camera.clips.screen;
 
 import mchorse.bbs_mod.camera.clips.CameraClip;
 import mchorse.bbs_mod.camera.data.Position;
+import mchorse.bbs_mod.data.types.BaseType;
 import mchorse.bbs_mod.utils.MathUtils;
 import mchorse.bbs_mod.utils.clips.Clip;
 import mchorse.bbs_mod.utils.clips.ClipContext;
 import mchorse.bbs_mod.utils.joml.Matrices;
+import mchorse.bbs_mod.utils.keyframes.Keyframe;
 import mchorse.bbs_mod.utils.keyframes.KeyframeChannel;
+import mchorse.bbs_mod.utils.keyframes.factories.IKeyframeFactory;
 import mchorse.bbs_mod.utils.keyframes.factories.KeyframeFactories;
 
 import org.joml.Vector3f;
 
+import java.util.ArrayList;
+import java.util.List;
+
 public class CinematicClip extends CameraClip
 {
     /* Defaults for optional fisheye shaping tracks (empty channel = these values). */
-    public static final double DEFAULT_LENS_RADIUS = 1D;
+    public static final float DEFAULT_LENS_RADIUS = 1F;
+    public static final LensRadiusSettings DEFAULT_LENS_RADIUS_SETTINGS = new LensRadiusSettings(DEFAULT_LENS_RADIUS, DEFAULT_LENS_RADIUS);
     public static final double DEFAULT_LENS_HARDNESS = 1D;
     public static final double DEFAULT_LENS_SHARPEN = 1D;
     public static final double DEFAULT_LENS_DISTANCE_FACTOR = 0D;
@@ -25,7 +32,7 @@ public class CinematicClip extends CameraClip
     /** Intensity — channel id kept as {@code lensDistortion} for save compatibility. */
     public final KeyframeChannel<Double> lensDistortion = new KeyframeChannel<>("lensDistortion", KeyframeFactories.DOUBLE);
     public final KeyframeChannel<Double> lensDistanceFactor = new KeyframeChannel<>("lens_distance_factor", KeyframeFactories.DOUBLE);
-    public final KeyframeChannel<Double> lensRadius = new KeyframeChannel<>("lens_radius", KeyframeFactories.DOUBLE);
+    public final KeyframeChannel<LensRadiusSettings> lensRadius = new KeyframeChannel<>("lens_radius", KeyframeFactories.LENS_RADIUS_SETTINGS);
     public final KeyframeChannel<Double> lensHardness = new KeyframeChannel<>("lens_hardness", KeyframeFactories.DOUBLE);
     public final KeyframeChannel<Double> lensSharpen = new KeyframeChannel<>("lens_sharpen", KeyframeFactories.DOUBLE);
     public final KeyframeChannel<Double> vintage = new KeyframeChannel<>("vintage", KeyframeFactories.DOUBLE);
@@ -37,7 +44,7 @@ public class CinematicClip extends CameraClip
     public final KeyframeChannel<Double> heatSpeed = new KeyframeChannel<>("heat_speed", KeyframeFactories.DOUBLE);
     public final KeyframeChannel<Double> heatScale = new KeyframeChannel<>("heat_scale", KeyframeFactories.DOUBLE);
 
-    public final KeyframeChannel<Double>[] channels;
+    public final KeyframeChannel[] channels;
 
     private ColorEffect effect = new ColorEffect();
 
@@ -79,6 +86,52 @@ public class CinematicClip extends CameraClip
     }
 
     @Override
+    public void fromData(BaseType data)
+    {
+        super.fromData(data);
+        this.migrateLegacyDoubleLensRadius();
+    }
+
+    /**
+     * Promotes pre-compound {@code lens_radius} double keyframes into
+     * {@link LensRadiusSettings} (X/Y mirrored from the scalar).
+     */
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    private void migrateLegacyDoubleLensRadius()
+    {
+        IKeyframeFactory<?> factory = this.lensRadius.getFactory();
+
+        if (factory != KeyframeFactories.DOUBLE
+            && factory != KeyframeFactories.FLOAT
+            && factory != KeyframeFactories.INTEGER)
+        {
+            return;
+        }
+
+        KeyframeChannel legacy = (KeyframeChannel) (Object) this.lensRadius;
+        List<Float> ticks = new ArrayList<>();
+        List<LensRadiusSettings> values = new ArrayList<>();
+
+        for (Object object : legacy.getKeyframes())
+        {
+            Keyframe keyframe = (Keyframe) object;
+            Object raw = keyframe.getValue();
+            float radius = raw instanceof Number ? Math.max(0F, ((Number) raw).floatValue()) : DEFAULT_LENS_RADIUS;
+
+            ticks.add(keyframe.getTick());
+            values.add(LensRadiusSettings.ofUniform(radius));
+        }
+
+        this.lensRadius.removeAll();
+        this.lensRadius.setFactory(KeyframeFactories.LENS_RADIUS_SETTINGS);
+
+        for (int i = 0; i < ticks.size(); i++)
+        {
+            this.lensRadius.insert(ticks.get(i), values.get(i));
+        }
+    }
+
+    @Override
     protected void applyClip(ClipContext context, Position position)
     {
         float t = context.relativeTick + context.transition;
@@ -91,7 +144,9 @@ public class CinematicClip extends CameraClip
         float vh = (this.vhs.isEmpty() ? 0F : (float) (double) this.vhs.interpolate(t)) * 0.25F;
         float ld = (this.lensDistortion.isEmpty() ? 0F : (float) (double) this.lensDistortion.interpolate(t)) * 0.25F;
         float ldf = this.lensDistanceFactor.isEmpty() ? (float) DEFAULT_LENS_DISTANCE_FACTOR : (float) (double) this.lensDistanceFactor.interpolate(t);
-        float lr = this.lensRadius.isEmpty() ? (float) DEFAULT_LENS_RADIUS : (float) (double) this.lensRadius.interpolate(t);
+        LensRadiusSettings radiusSettings = this.lensRadius.isEmpty()
+            ? DEFAULT_LENS_RADIUS_SETTINGS
+            : this.lensRadius.interpolate(t);
         float lh = this.lensHardness.isEmpty() ? (float) DEFAULT_LENS_HARDNESS : (float) (double) this.lensHardness.interpolate(t);
         float ls = this.lensSharpen.isEmpty() ? (float) DEFAULT_LENS_SHARPEN : (float) (double) this.lensSharpen.interpolate(t);
         float vt = (this.vintage.isEmpty() ? 0F : (float) (double) this.vintage.interpolate(t)) * 0.25F;
@@ -104,13 +159,14 @@ public class CinematicClip extends CameraClip
         float hsc = (this.heatScale.isEmpty() ? 1F : (float) (double) this.heatScale.interpolate(t)) * 0.25F;
 
         float lens = ld * factor;
-        float radius = Math.max(0F, lr);
+        float radiusX = Math.max(0F, radiusSettings == null ? DEFAULT_LENS_RADIUS : radiusSettings.x);
+        float radiusY = Math.max(0F, radiusSettings == null ? DEFAULT_LENS_RADIUS : radiusSettings.y);
         float hardness = Math.max(0F, Math.min(1F, lh));
 
         /* Dolly along look to counter positive UV fit-zoom (“same place” framing). */
         if (lens > 1.0e-6F && Math.abs(ldf) > 1.0e-6F)
         {
-            float distance = LensDistortionOverscan.framingDistanceOffset(lens, radius, hardness) * ldf;
+            float distance = LensDistortionOverscan.framingDistanceOffset(lens, radiusX, radiusY, hardness) * ldf;
 
             if (Math.abs(distance) > 1.0e-6F)
             {
@@ -131,7 +187,8 @@ public class CinematicClip extends CameraClip
             this.effect.aberration = ab * factor;
             this.effect.vhs = vh * factor;
             this.effect.lensDistortion = lens;
-            this.effect.lensRadius = radius;
+            this.effect.lensRadiusX = radiusX;
+            this.effect.lensRadiusY = radiusY;
             this.effect.lensHardness = hardness;
             this.effect.lensSharpen = Math.max(0F, ls) * factor;
             this.effect.vintage = vt * factor;
