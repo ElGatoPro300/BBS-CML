@@ -2905,7 +2905,7 @@
     "bbs.config.editor.fisheye_widen_fov": "Fisheye: match FOV",
     "bbs.config.editor.fisheye_widen_fov-comment": "When enabled, fisheye adjusts camera FOV to match the warp: positive (zoom out) widens FOV; negative (zoom in) narrows FOV so edges stay filled without stretch lines. When disabled, edges stretch (classic look). Positive fisheye can supersample the wide pass (see supersample cap) to keep the center sharp.",
     "bbs.config.editor.fisheye_supersample_cap": "Fisheye: supersample cap",
-    "bbs.config.editor.fisheye_supersample_cap-comment": "Max resolution multiplier for positive fisheye when Match FOV is on (1 = no supersample / softer center, 3 = default, up to 6). Higher values cost more GPU/VRAM. Supersample is skipped while Iris shaders are enabled (Iris owns the framebuffer pipeline).",
+    "bbs.config.editor.fisheye_supersample_cap-comment": "Max resolution multiplier for positive fisheye when Match FOV is on (1 = no supersample / softer center, 3 = default, up to 6). Higher values cost more GPU/VRAM.",
     "bbs.config.replays.block_picker_default_mode": "Default block picker mode",
     "bbs.config.replays.block_picker_default_mode-comment": "Default mode when using the block picker item: model block (0) or import into the open film (1).",
     "bbs.ui.action.clips.tabs.blocks": "Blocks & world",

@@ -391,20 +391,13 @@ public class BBSRendering
     }
 
     /**
-     * After the session framebuffer is ready (main or export), bind a dedicated higher-res
-     * FBO for positive fisheye when safe. Uses the previous frame's overscan scale so sizing
-     * happens before projection — never mid-frame after {@code Camera.update}.
-     * Disabled while Iris shaders are on (Iris owns the FB pipeline; swapping breaks it).
+     * After {@code Camera.update} has applied this frame's fisheye FOV overscan, bind a
+     * dedicated higher-resolution FBO for the world + color-grade warp, then
+     * {@link #finishFisheyeSupersample()} blits back to the previous target.
      */
     public static void beginFisheyeSupersampleIfNeeded()
     {
         if (fisheyeSupersample || !renderingWorld || isIrisShadowPass())
-        {
-            return;
-        }
-
-        /* Hard limitation: Iris composite/G-buffer ownership cannot survive mc.framebuffer swaps. */
-        if (isIrisShadersEnabled())
         {
             return;
         }
@@ -425,7 +418,7 @@ public class BBSRendering
         MinecraftClient mc = MinecraftClient.getInstance();
         Framebuffer destination = mc.getFramebuffer();
 
-        if (destination == null || destination == fisheyeFramebuffer)
+        if (destination == null)
         {
             return;
         }
@@ -435,6 +428,7 @@ public class BBSRendering
         int renderW = LensDistortionOverscan.supersampleDimension(baseW, scale);
         int renderH = LensDistortionOverscan.supersampleDimension(baseH, scale);
 
+        /* Keep aspect if one side hit the hard pixel cap. */
         float sx = renderW / (float) baseW;
         float sy = renderH / (float) baseH;
         float pixelScale = Math.min(sx, sy);
@@ -461,6 +455,7 @@ public class BBSRendering
         fisheyeRenderHeight = renderH;
         fisheyeSupersample = true;
 
+        /* Keep FOV-matched overscan for the UV warp; pixelScale only sizes the FBO. */
         reassignFramebuffer(fisheyeFramebuffer);
         fisheyeFramebuffer.beginWrite(true);
         resizeExtraFramebuffers();
@@ -505,12 +500,10 @@ public class BBSRendering
         if (fisheyeFramebuffer == null)
         {
             fisheyeFramebuffer = new SimpleFramebuffer(width, height, true, MinecraftClient.IS_SYSTEM_MAC);
-            fisheyeFramebuffer.setTexFilter(GL11.GL_LINEAR);
         }
         else if (fisheyeFramebuffer.textureWidth != width || fisheyeFramebuffer.textureHeight != height)
         {
             fisheyeFramebuffer.resize(width, height, MinecraftClient.IS_SYSTEM_MAC);
-            fisheyeFramebuffer.setTexFilter(GL11.GL_LINEAR);
         }
     }
 
@@ -746,16 +739,11 @@ public class BBSRendering
         if (!customSize)
         {
             ensureMainFramebuffer();
-        }
-        else
-        {
-            toggleFramebuffer(true);
+
+            return;
         }
 
-        /* Bind SS target for the whole world pass (not mid-frame after Camera.update):
-         * mid-frame swaps left aux buffers / viewports inconsistent → horizon wrap strips,
-         * and swapping under Iris breaks the shader pipeline (white flash). */
-        beginFisheyeSupersampleIfNeeded();
+        toggleFramebuffer(true);
     }
 
     public static void onWorldRenderEnd()
