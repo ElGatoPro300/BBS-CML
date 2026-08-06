@@ -28,7 +28,7 @@ public class GunProjectileEntityRenderer extends EntityRenderer<GunProjectileEnt
     @Override
     public Identifier getTexture(GunProjectileEntity entity)
     {
-        return Identifier.of("minecraft", "textures/entity/player/wide/steve.png");
+        return new Identifier("minecraft:textures/entity/player/wide/steve.png");
     }
 
     @Override

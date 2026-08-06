@@ -88,7 +88,7 @@ public class EntitySelector implements IMapSerializable
 
         if (data.has("enabled")) this.enabled = data.getBool("enabled");
         if (data.has("form")) this.form = FormUtils.fromData(data.getMap("form"));
-        if (data.has("entity")) this.entity = Identifier.of(data.getString("entity"));
+        if (data.has("entity")) this.entity = new Identifier(data.getString("entity"));
         if (data.has("name")) this.name = data.getString("name");
         if (data.has("nbt"))
         {

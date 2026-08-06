@@ -8,7 +8,6 @@ import mchorse.bbs_mod.client.BBSRendering;
 import mchorse.bbs_mod.items.GunZoom;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.render.GameRenderer;
-import net.minecraft.client.render.RenderTickCounter;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.util.math.RotationAxis;
 import org.objectweb.asm.Opcodes;
@@ -96,7 +95,7 @@ public class GameRendererMixin
     }
 
     @Inject(method = "render", at = @At(value = "FIELD", target = "Lnet/minecraft/client/option/GameOptions;hudHidden:Z", opcode = Opcodes.GETFIELD, ordinal = 0))
-    private void onBeforeHudRendering(RenderTickCounter tickCounter, boolean tick, CallbackInfo info)
+    private void onBeforeHudRendering(float tickDelta, long startTime, boolean tick, CallbackInfo info)
     {
         ICameraController current = BBSModClient.getCameraController().getCurrent();
 

@@ -17,6 +17,6 @@ public class Attributes
      * 6 - Padding (Not used)
      * 7 - Entity ID (Not used)
      */
-    public static final int MID_TEXTURE_UV = 7;
-    public static final int TANGENTS = 8;
+    public static final int MID_TEXTURE_UV = 8;
+    public static final int TANGENTS = 9;
 }

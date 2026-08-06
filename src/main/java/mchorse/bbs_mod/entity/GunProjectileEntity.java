@@ -11,13 +11,13 @@ import mchorse.bbs_mod.utils.MathUtils;
 import net.fabricmc.fabric.api.networking.v1.PlayerLookup;
 import net.minecraft.block.BlockState;
 import net.minecraft.block.Blocks;
+import net.minecraft.enchantment.EnchantmentHelper;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityType;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.MovementType;
 import net.minecraft.entity.attribute.EntityAttributes;
 import net.minecraft.entity.damage.DamageSource;
-import net.minecraft.entity.data.DataTracker;
 import net.minecraft.entity.projectile.ProjectileEntity;
 import net.minecraft.entity.projectile.ProjectileUtil;
 import net.minecraft.nbt.NbtCompound;
@@ -91,7 +91,7 @@ public class GunProjectileEntity extends ProjectileEntity implements IEntityForm
     }
 
     @Override
-    protected void initDataTracker(DataTracker.Builder builder)
+    protected void initDataTracker()
     {}
 
     public GunProperties getProperties()
@@ -325,7 +325,7 @@ public class GunProjectileEntity extends ProjectileEntity implements IEntityForm
         DamageSource source = this.getDamageSources().magic();
 
         int fireTicks = entity.getFireTicks();
-        boolean deflectsArrows = entity.getType().isIn(EntityTypeTags.DEFLECTS_PROJECTILES);
+        boolean deflectsArrows = entity.getType().isIn(EntityTypeTags.DEFLECTS_ARROWS);
 
         if (this.isOnFire() && !deflectsArrows)
         {
@@ -345,6 +345,12 @@ public class GunProjectileEntity extends ProjectileEntity implements IEntityForm
                     {
                         livingEntity.addVelocity(punchVector.x, 0.1D, punchVector.z);
                     }
+                }
+
+                if (owner instanceof LivingEntity)
+                {
+                    EnchantmentHelper.onUserDamaged(livingEntity, owner);
+                    EnchantmentHelper.onTargetDamaged((LivingEntity)owner, livingEntity);
                 }
 
                 this.onHit(livingEntity);

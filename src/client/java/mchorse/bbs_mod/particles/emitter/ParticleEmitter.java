@@ -23,7 +23,6 @@ import net.minecraft.client.render.Tessellator;
 import net.minecraft.client.render.VertexFormat;
 import net.minecraft.client.render.VertexFormats;
 import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.client.util.BufferAllocator;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.world.World;
 import org.joml.Matrix3f;
@@ -449,21 +448,19 @@ public class ParticleEmitter
             this.setParticleVariables(this.uiParticle, transition);
 
             Matrix4f matrix = stack.peek().getPositionMatrix();
+            BufferBuilder builder = Tessellator.getInstance().getBuffer();
 
-            try (BufferAllocator allocator = new BufferAllocator(1536))
+            builder.begin(VertexFormat.DrawMode.TRIANGLES, VertexFormats.POSITION_TEXTURE_COLOR);
+
+            for (IComponentParticleRender render : list)
             {
-                BufferBuilder builder = new BufferBuilder(allocator, VertexFormat.DrawMode.TRIANGLES, VertexFormats.POSITION_TEXTURE_COLOR);
-
-                for (IComponentParticleRender render : list)
-                {
-                    render.renderUI(this.uiParticle, builder, matrix, transition);
-                }
-
-                RenderSystem.setShader(GameRenderer::getPositionTexColorProgram);
-                RenderSystem.disableCull();
-                BufferRenderer.drawWithGlobalProgram(builder.end());
-                RenderSystem.enableCull();
+                render.renderUI(this.uiParticle, builder, matrix, transition);
             }
+
+            RenderSystem.setShader(GameRenderer::getPositionTexColorProgram);
+            RenderSystem.disableCull();
+            BufferRenderer.drawWithGlobalProgram(builder.end());
+            RenderSystem.enableCull();
         }
     }
 
@@ -487,32 +484,27 @@ public class ParticleEmitter
         if (!this.particles.isEmpty())
         {
             Matrix4f matrix = stack.peek().getPositionMatrix();
+            BufferBuilder builder = Tessellator.getInstance().getBuffer();
 
-            try (BufferAllocator allocator = new BufferAllocator(1536))
+            this.bindTexture();
+            builder.begin(VertexFormat.DrawMode.TRIANGLES, format);
+
+            for (Particle particle : this.particles)
             {
-                BufferBuilder builder = new BufferBuilder(allocator, VertexFormat.DrawMode.TRIANGLES, format);
+                this.setEmitterVariables(transition);
+                this.setParticleVariables(particle, transition);
 
-                this.bindTexture();
-
-                for (Particle particle : this.particles)
+                for (IComponentParticleRender component : renders)
                 {
-                    this.setEmitterVariables(transition);
-                    this.setParticleVariables(particle, transition);
-
-                    for (IComponentParticleRender component : renders)
-                    {
-                        component.render(this, format, particle, builder, matrix, overlay, transition);
-                    }
+                    component.render(this, format, particle, builder, matrix, overlay, transition);
                 }
-
-                RenderSystem.setShader(program);
-                RenderSystem.enableBlend();
-                RenderSystem.defaultBlendFunc();
-                RenderSystem.disableCull();
-                BufferRenderer.drawWithGlobalProgram(builder.end());
-                RenderSystem.enableCull();
-                RenderSystem.disableBlend();
             }
+
+            RenderSystem.setShader(program);
+            RenderSystem.disableBlend();
+            RenderSystem.disableCull();
+            BufferRenderer.drawWithGlobalProgram(builder.end());
+            RenderSystem.enableCull();
         }
 
         for (IComponentParticleRender component : renders)
@@ -535,14 +527,5 @@ public class ParticleEmitter
         this.cX = camera.position.x;
         this.cY = camera.position.y;
         this.cZ = camera.position.z;
-    }
-
-    public void setupCameraProperties(net.minecraft.client.render.Camera camera)
-    {
-        this.cYaw = 180 - camera.getYaw();
-        this.cPitch = -camera.getPitch();
-        this.cX = camera.getPos().x;
-        this.cY = camera.getPos().y;
-        this.cZ = camera.getPos().z;
     }
 }

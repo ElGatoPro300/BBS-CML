@@ -38,7 +38,6 @@ import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.render.VertexConsumer;
 import net.minecraft.client.util.Window;
 import net.minecraft.client.util.math.MatrixStack;
-import org.joml.Matrix4f;
 import org.lwjgl.opengl.GL11;
 
 import java.io.File;
@@ -60,8 +59,6 @@ public class BBSRendering
 
     public static boolean renderingWorld;
     public static int lastAction;
-
-    public static final Matrix4f camera = new Matrix4f();
 
     private static boolean customSize;
     private static boolean iris;
@@ -308,13 +305,13 @@ public class BBSRendering
     public static void onWorldRenderBegin()
     {
         MinecraftClient mc = MinecraftClient.getInstance();
-        BBSModClient.getFilms().startRenderFrame(mc.getRenderTickCounter().getTickDelta(false));
+        BBSModClient.getFilms().startRenderFrame(mc.getTickDelta());
 
         UIBaseMenu menu = UIScreen.getCurrentMenu();
 
         if (menu != null)
         {
-            menu.startRenderFrame(mc.getRenderTickCounter().getTickDelta(false));
+            menu.startRenderFrame(mc.getTickDelta());
         }
 
         renderingWorld = true;
@@ -377,26 +374,9 @@ public class BBSRendering
         MinecraftClient mc = MinecraftClient.getInstance();
 
         worldRenderContext.prepare(
-            mc.worldRenderer, mc.getRenderTickCounter(), false,
+            mc.worldRenderer, stack, mc.getTickDelta(), mc.getRenderTime(), false,
             mc.gameRenderer.getCamera(), mc.gameRenderer, mc.gameRenderer.getLightmapTextureManager(),
-            RenderSystem.getProjectionMatrix(), RenderSystem.getModelViewMatrix(), mc.getBufferBuilders().getEntityVertexConsumers(), mc.getProfiler(), false, mc.world
-        );
-
-        if (!isIrisShadersEnabled())
-        {
-            renderCoolStuff(worldRenderContext);
-        }
-    }
-
-    public static void onRenderChunkLayer(Matrix4f positionMatrix, Matrix4f projectionMatrix)
-    {
-        WorldRenderContextImpl worldRenderContext = new WorldRenderContextImpl();
-        MinecraftClient mc = MinecraftClient.getInstance();
-
-        worldRenderContext.prepare(
-            mc.worldRenderer, mc.getRenderTickCounter(), false,
-            mc.gameRenderer.getCamera(), mc.gameRenderer, mc.gameRenderer.getLightmapTextureManager(),
-            positionMatrix, projectionMatrix, mc.getBufferBuilders().getEntityVertexConsumers(), mc.getProfiler(), false, mc.world
+            RenderSystem.getProjectionMatrix(), mc.getBufferBuilders().getEntityVertexConsumers(), null, false, mc.world
         );
 
         if (isIrisShadersEnabled())
