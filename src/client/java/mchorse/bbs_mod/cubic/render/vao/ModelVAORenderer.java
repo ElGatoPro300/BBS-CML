@@ -548,6 +548,11 @@ public class ModelVAORenderer
         enqueuePaintOverlay(projection, modelView, synced, draw);
     }
 
+    public static void submitPaintOverlay(Runnable draw)
+    {
+        submitPaintOverlay(false, draw);
+    }
+
     public static void submitPaintOverlay(GpuBufferSlice projection, Matrix4f modelView, Runnable draw)
     {
         enqueuePaintOverlay(projection, modelView, draw);
@@ -587,9 +592,9 @@ public class ModelVAORenderer
         GlStateManager._blendFuncSeparate(770, 771, 1, 0);
         // RenderSystem.setShader(BBSShaders.getModel());
 
-        Matrix4f savedProjection = new Matrix4f(RenderSystem.getProjectionMatrix());
-        ProjectionType savedProjType = RenderSystem.getProjectionType();
-        Matrix4f savedModelView = new Matrix4f(RenderSystem.getModelViewMatrix());
+        // Matrix4f savedProjection = new Matrix4f(RenderSystem.getProjectionMatrix());
+        // ProjectionType savedProjType = RenderSystem.getProjectionType();
+        // Matrix4f savedModelView = new Matrix4f(RenderSystem.getModelViewMatrix());
 
         try
         {
@@ -855,7 +860,7 @@ public class ModelVAORenderer
 
         try
         {
-            source.beginRead();
+            // source.beginRead();
             gradeSceneColor.bind();
 
             if (gradeSceneColor.width != width || gradeSceneColor.height != height)
@@ -1115,7 +1120,7 @@ public class ModelVAORenderer
             }
         }
 
-        return whiteTexture.getGlId();
+        return whiteTexture.getGlTexture() != null ? 1 : 0;
     }
 
     public static void setPaint(float r, float g, float b, float strength)
@@ -1707,6 +1712,11 @@ public class ModelVAORenderer
         return formRootInverse;
     }
 
+    public static void render(IModelVAO modelVAO, MatrixStack stack, float r, float g, float b, float a, int light, int overlay)
+    {
+        render(null, modelVAO, stack, r, g, b, a, light, overlay);
+    }
+
     public static void render(ShaderProgram shader, IModelVAO modelVAO, MatrixStack stack, float r, float g, float b, float a, int light, int overlay)
     {
         int currentVAO = GL30.glGetInteger(GL30.GL_VERTEX_ARRAY_BINDING);
@@ -1719,8 +1729,7 @@ public class ModelVAORenderer
 
         setupUniforms(stack, shader);
 
-        // RenderSystem.setShader(shader);
-        shader.bind();
+        // shader.bind();
         ShaderOpacityPatch.reassertPostDeferredDepthState();
         FormColorGradePatch.uploadToCurrentProgram();
         modelVAO.render(VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL, r, g, b, a, light, overlay);
@@ -1736,30 +1745,35 @@ public class ModelVAORenderer
 
     private static void setUniform1f(ShaderProgram shader, String name, float val)
     {
+        if (shader == null) return;
         int loc = GL30.glGetUniformLocation(shader.getGlRef(), name);
         if (loc != -1) GL30.glUniform1f(loc, val);
     }
 
     private static void setUniform1i(ShaderProgram shader, String name, int val)
     {
+        if (shader == null) return;
         int loc = GL30.glGetUniformLocation(shader.getGlRef(), name);
         if (loc != -1) GL30.glUniform1i(loc, val);
     }
 
     private static void setUniform3f(ShaderProgram shader, String name, float x, float y, float z)
     {
+        if (shader == null) return;
         int loc = GL30.glGetUniformLocation(shader.getGlRef(), name);
         if (loc != -1) GL30.glUniform3f(loc, x, y, z);
     }
 
     private static void setUniform4f(ShaderProgram shader, String name, float x, float y, float z, float w)
     {
+        if (shader == null) return;
         int loc = GL30.glGetUniformLocation(shader.getGlRef(), name);
         if (loc != -1) GL30.glUniform4f(loc, x, y, z, w);
     }
 
     private static void setUniformMatrix4f(ShaderProgram shader, String name, Matrix4f mat)
     {
+        if (shader == null) return;
         int loc = GL30.glGetUniformLocation(shader.getGlRef(), name);
         if (loc != -1)
         {
@@ -1771,6 +1785,7 @@ public class ModelVAORenderer
 
     private static void setUniformMatrix3f(ShaderProgram shader, String name, Matrix3f mat)
     {
+        if (shader == null) return;
         int loc = GL30.glGetUniformLocation(shader.getGlRef(), name);
         if (loc != -1)
         {
@@ -1782,6 +1797,7 @@ public class ModelVAORenderer
 
     public static void setupUniforms(MatrixStack stack, ShaderProgram shader)
     {
+        if (shader == null) return;
         Matrix4f modelView = new Matrix4f(RenderSystem.getModelViewMatrix()).mul(stack.peek().getPositionMatrix());
 
         if (cpuPretransformed)

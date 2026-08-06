@@ -12,7 +12,7 @@ public class BBSLogoButtonWidget extends ButtonWidget
 
     public BBSLogoButtonWidget(int x, int y, int width, int height, ButtonWidget.PressAction onPress)
     {
-        super(x, y, width, height, Text.empty(), onPress, ButtonWidget.DEFAULT_NARRATION_SUPPLIER);
+        super(x, y, width, height, Text.empty(), onPress, DEFAULT_NARRATION_SUPPLIER);
     }
 
     @Override

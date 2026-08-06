@@ -34,6 +34,7 @@ import org.joml.Vector3f;
 
 import com.mojang.blaze3d.opengl.GlStateManager;
 import com.mojang.blaze3d.systems.RenderSystem;
+import com.mojang.blaze3d.vertex.VertexFormat;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -109,7 +110,7 @@ public class FluidFormRenderer extends FormRenderer<FluidForm> implements ITicka
         // RenderSystem.setShader(ShaderProgramKeys.POSITION_COLOR);
         // RenderSystem.lineWidth(2.0F);
         
-        BufferBuilder builder = Tessellator.getInstance().begin(VertexFormat.DrawMode.LINES, VertexFormats.LINES);
+        BufferBuilder builder = Tessellator.getInstance().begin(VertexFormat.DrawMode.LINES, VertexFormats.POSITION_COLOR_LINE_WIDTH);
         
         MatrixStack stack = context.stack;
         
@@ -200,7 +201,7 @@ public class FluidFormRenderer extends FormRenderer<FluidForm> implements ITicka
         // gameRenderer.getOverlayTexture().setupOverlayColor();
 
         Tessellator tessellator = Tessellator.getInstance();
-        BufferBuilder builder = tessellator.begin(VertexFormat.DrawMode.TRIANGLES, format);
+        BufferBuilder builder = Tessellator.getInstance().begin(VertexFormat.DrawMode.TRIANGLES, format);
 
         Color color = this.form.color.get();
         Color finalColor = color.copy();
@@ -253,7 +254,7 @@ public class FluidFormRenderer extends FormRenderer<FluidForm> implements ITicka
         
         if (MinecraftClient.getInstance().player != null)
         {
-            time = (MinecraftClient.getInstance().player.age + MinecraftClient.getInstance().getRenderTickCounter().getTickDelta(true)) * speed * 0.1f;
+            time = (MinecraftClient.getInstance().player.age + MinecraftClient.getInstance().getRenderTickCounter().getTickProgress(true)) * speed * 0.1f;
         }
         else
         {

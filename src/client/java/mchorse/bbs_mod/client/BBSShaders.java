@@ -220,6 +220,11 @@ public class BBSShaders
         return MODEL;
     }
 
+    public static RenderPipeline getFlatPaintOverlayProgram()
+    {
+        return MODEL;
+    }
+
     public static RenderPipeline getModelProgram()
     {
         return MODEL;

@@ -102,7 +102,7 @@ public class ExtrudedFormRenderer extends FormRenderer<ExtrudedForm>
         // RenderSystem.setupLevelDiffuseLighting(light0, light1);
 
         GlStateManager._depthFunc(GL11.GL_LEQUAL);
-        this.renderModel(() -> BBSShaders.getModel(),
+        this.renderModel(() -> null,
             stack,
             OverlayTexture.DEFAULT_UV, LightmapTextureManager.MAX_LIGHT_COORDINATE, Colors.WHITE,
             context.getTransition(),
@@ -436,7 +436,7 @@ public class ExtrudedFormRenderer extends FormRenderer<ExtrudedForm>
                 Color resolvedGlowSnapshot = resolvedGlow.copy();
                 Color legacyGlowSnapshot = legacyGlow.copy();
                 Link textureSnapshot = texture;
-                Supplier<ShaderProgram> shaderSnapshot = irisCamera ? renderShader : BBSShaders::getModel;
+                Supplier<ShaderProgram> shaderSnapshot = () -> null;
                 int overlayLight = light;
                 int overlayOverlay = overlay;
                 EffectTransform paintTransformQueued = paintTransformSnapshot;
@@ -624,17 +624,17 @@ public class ExtrudedFormRenderer extends FormRenderer<ExtrudedForm>
             if (forceDepth || suppressDepth)
             {
                 savedDepthMask = GL11.glGetBoolean(GL11.GL_DEPTH_WRITEMASK);
-                RenderSystem.enableDepthTest();
+                GlStateManager._enableDepthTest();
 
                 if (forceDepth)
                 {
                     ShaderOpacityPatch.setForceLiveDepthWrite(true);
-                    RenderSystem.depthMask(true);
+                    GlStateManager._depthMask(true);
                 }
                 else
                 {
                     ShaderOpacityPatch.setSuppressLiveDepthWrite(true);
-                    RenderSystem.depthMask(false);
+                    GlStateManager._depthMask(false);
                 }
             }
 
@@ -745,9 +745,9 @@ public class ExtrudedFormRenderer extends FormRenderer<ExtrudedForm>
                                     ModelVAORenderer.setPaint(0F, 0F, 0F, 0F);
                                     ModelVAORenderer.setGlow(glow, resolvedGlow.r, resolvedGlow.g, resolvedGlow.b, legacyGlow);
 
-                                    RenderSystem.enableBlend();
-                                    RenderSystem.depthMask(false);
-                                    RenderSystem.blendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE);
+                                    GlStateManager._enableBlend();
+                                    GlStateManager._depthMask(false);
+                                    GlStateManager._blendFuncSeparate(GL11.GL_SRC_ALPHA, GL11.GL_ONE, 1, 0);
 
                                     try
                                     {
@@ -755,8 +755,8 @@ public class ExtrudedFormRenderer extends FormRenderer<ExtrudedForm>
                                     }
                                     finally
                                     {
-                                        RenderSystem.depthMask(true);
-                                        RenderSystem.defaultBlendFunc();
+                                        GlStateManager._depthMask(true);
+                                        GlStateManager._blendFuncSeparate(770, 771, 1, 0);
                                     }
                                 });
                             }
@@ -794,8 +794,8 @@ public class ExtrudedFormRenderer extends FormRenderer<ExtrudedForm>
                                 ModelVAORenderer.setPaint(0F, 0F, 0F, 0F);
                                 ModelVAORenderer.setGlow(glow, resolvedGlow.r, resolvedGlow.g, resolvedGlow.b, legacyGlow);
 
-                                RenderSystem.enableBlend();
-                                RenderSystem.blendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE);
+                                GlStateManager._enableBlend();
+                                GlStateManager._blendFuncSeparate(GL11.GL_SRC_ALPHA, GL11.GL_ONE, 1, 0);
 
                                 try
                                 {
@@ -803,7 +803,7 @@ public class ExtrudedFormRenderer extends FormRenderer<ExtrudedForm>
                                 }
                                 finally
                                 {
-                                    RenderSystem.defaultBlendFunc();
+                                    GlStateManager._blendFuncSeparate(770, 771, 1, 0);
                                 }
                             });
                         }
@@ -864,22 +864,19 @@ public class ExtrudedFormRenderer extends FormRenderer<ExtrudedForm>
                 if (forceDepth)
                 {
                     ShaderOpacityPatch.setForceLiveDepthWrite(false);
-                    RenderSystem.depthMask(savedDepthMask);
+                    GlStateManager._depthMask(savedDepthMask);
                 }
                 else if (suppressDepth)
                 {
                     ShaderOpacityPatch.setSuppressLiveDepthWrite(false);
-                    RenderSystem.depthMask(savedDepthMask);
+                    GlStateManager._depthMask(savedDepthMask);
                 }
             }
             }
             }
 
-            RenderSystem.defaultBlendFunc();
-            RenderSystem.disableBlend();
-
-            gameRenderer.getLightmapTextureManager().disable();
-            gameRenderer.getOverlayTexture().teardownOverlayColor();
+            GlStateManager._blendFuncSeparate(770, 771, 1, 0);
+            GlStateManager._disableBlend();
         }
     }
 
@@ -911,7 +908,7 @@ public class ExtrudedFormRenderer extends FormRenderer<ExtrudedForm>
                     try
                     {
                         this.bindFormTexture(fromTexture);
-                        ModelVAORenderer.render(BBSShaders.getModel(), fromData, overlayStack, cr, cg, cb, ca, overlayLight, overlayOverlay);
+                        ModelVAORenderer.render(null, fromData, overlayStack, cr, cg, cb, ca, overlayLight, overlayOverlay);
                     }
                     finally
                     {
@@ -931,7 +928,7 @@ public class ExtrudedFormRenderer extends FormRenderer<ExtrudedForm>
                     }
 
                     this.bindFormTexture(link);
-                    ModelVAORenderer.render(BBSShaders.getModel(), passData, overlayStack, cr, cg, cb, ca * alphaFactor, overlayLight, overlayOverlay);
+                    ModelVAORenderer.render(null, passData, overlayStack, cr, cg, cb, ca * alphaFactor, overlayLight, overlayOverlay);
                 });
             }
         }

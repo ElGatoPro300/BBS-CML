@@ -27,6 +27,7 @@ import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.render.DiffuseLighting;
 import net.minecraft.client.render.LightmapTextureManager;
 import net.minecraft.client.render.OverlayTexture;
+import net.minecraft.client.render.OverlayVertexConsumer;
 import net.minecraft.client.render.RenderLayer;
 import net.minecraft.client.render.RenderLayers;
 import net.minecraft.client.render.VertexConsumer;
@@ -553,7 +554,7 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
     {
         GlStateManager._disableCull();
 
-        VertexConsumer buffer = consumers.getBuffer(RenderLayer.getEntitySolid(SpriteAtlasTexture.BLOCK_ATLAS_TEXTURE));
+        VertexConsumer buffer = consumers.getBuffer(RenderLayers.entitySolid(SpriteAtlasTexture.BLOCK_ATLAS_TEXTURE));
         MatrixStack.Entry entry = stack.peek();
         Matrix4f matrix = entry.getPositionMatrix();
         float[] uv = this.getOpaquePickUv();
@@ -563,8 +564,8 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
 
     private float[] getOpaquePickUv()
     {
-        Sprite sprite = MinecraftClient.getInstance().getBakedModelManager()
-            .getAtlas(SpriteAtlasTexture.BLOCK_ATLAS_TEXTURE)
+        Sprite sprite = MinecraftClient.getInstance().getAtlasManager()
+            .getAtlasTexture(SpriteAtlasTexture.BLOCK_ATLAS_TEXTURE)
             .getSprite(Identifier.of("minecraft", "block/white_concrete"));
         float u = (sprite.getMinU() + sprite.getMaxU()) * 0.5F;
         float v = (sprite.getMinV() + sprite.getMaxV()) * 0.5F;
@@ -775,8 +776,8 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
         CustomVertexConsumerProvider.clearRunnables();
         CustomVertexConsumerProvider.hijackVertexFormat((l) -> BlockEffectOverlayUniforms.configureColorTintOverlayRenderState(formRootInverse, formColor.transform, true, formColor, 0.5F, gradeSource));
 
-        RenderSystem.enableBlend();
-        RenderSystem.depthMask(false);
+        GlStateManager._enableBlend();
+        GlStateManager._depthMask(false);
 
         /* Neutral vertices — lighting lives in the scene copy when grading. */
         consumers.setSubstitute(BBSRendering.getBlockColorTintOverlayConsumer());
@@ -789,9 +790,9 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
         finally
         {
             consumers.setSubstitute(null);
-            RenderSystem.depthMask(true);
-            RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
-            RenderSystem.defaultBlendFunc();
+            GlStateManager._depthMask(true);
+            // RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
+            GlStateManager._blendFuncSeparate(770, 771, 1, 0);
             CustomVertexConsumerProvider.clearRunnables();
         }
     }
@@ -842,9 +843,9 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
         CustomVertexConsumerProvider.clearRunnables();
         CustomVertexConsumerProvider.hijackVertexFormat((l) -> BlockEffectOverlayUniforms.configurePaintOverlayRenderState(formRootInverse, transform, true, glowSettings, legacyGlow, glowIntensity, alpha));
 
-        RenderSystem.enableBlend();
-        RenderSystem.blendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
-        RenderSystem.depthMask(false);
+        GlStateManager._enableBlend();
+        GlStateManager._blendFuncSeparate(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA, 1, 0);
+        GlStateManager._depthMask(false);
 
         consumers.setSubstitute(BBSRendering.getBlockPaintOverlayConsumer(paintOverlay));
 
@@ -856,8 +857,8 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
         finally
         {
             consumers.setSubstitute(null);
-            RenderSystem.depthMask(true);
-            RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
+            GlStateManager._depthMask(true);
+            // RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
             CustomVertexConsumerProvider.clearRunnables();
         }
     }
@@ -867,10 +868,10 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
         Color glowColor = FormColorEffects.resolveGlowOverlayEmissionColor(glowSettings, legacyGlow, alpha, glowIntensity);
         float shaderScale = FormColorEffects.resolveGlowOverlayShaderScale(glowIntensity);
 
-        RenderSystem.enableBlend();
-        RenderSystem.blendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE);
-        RenderSystem.depthMask(false);
-        RenderSystem.setShaderColor(shaderScale, shaderScale, shaderScale, 1F);
+        GlStateManager._enableBlend();
+        GlStateManager._blendFuncSeparate(GL11.GL_SRC_ALPHA, GL11.GL_ONE, 1, 0);
+        GlStateManager._depthMask(false);
+        // RenderSystem.setShaderColor(shaderScale, shaderScale, shaderScale, 1F);
 
         consumers.setSubstitute(BBSRendering.getGlowOverlayConsumer(glowColor));
 
@@ -882,9 +883,9 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
         finally
         {
             consumers.setSubstitute(null);
-            RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
-            RenderSystem.depthMask(true);
-            RenderSystem.defaultBlendFunc();
+            // RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
+            GlStateManager._depthMask(true);
+            GlStateManager._blendFuncSeparate(770, 771, 1, 0);
         }
     }
 }

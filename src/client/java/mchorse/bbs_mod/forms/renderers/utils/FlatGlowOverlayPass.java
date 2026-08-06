@@ -36,7 +36,7 @@ public class FlatGlowOverlayPass
         GlStateManager._depthMask(false);
         GL11.glEnable(GL11.GL_POLYGON_OFFSET_FILL);
         GL11.glPolygonOffset(-1F, -1F);
-        RenderSystem.setShaderColor(shaderScale, shaderScale, shaderScale, 1F);
+        // RenderSystem.setShaderColor(shaderScale, shaderScale, shaderScale, 1F);
 
         try
         {
@@ -44,7 +44,7 @@ public class FlatGlowOverlayPass
         }
         finally
         {
-            RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
+            // RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
             GL11.glPolygonOffset(0F, 0F);
 
             if (!savedPolygonOffsetFill)

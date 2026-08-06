@@ -6,6 +6,7 @@ import mchorse.bbs_mod.forms.forms.utils.EffectTransform;
 import net.minecraft.client.gl.ShaderProgram;
 
 import com.mojang.blaze3d.opengl.GlStateManager;
+import com.mojang.blaze3d.pipeline.RenderPipeline;
 
 import org.lwjgl.opengl.GL11;
 
@@ -68,14 +69,14 @@ public class FlatPaintOverlayPass
         GL11.glPolygonOffset(POLYGON_OFFSET_FACTOR, POLYGON_OFFSET_UNITS);
         GL11.glPolygonOffset(factor, units);
 
-        ShaderProgram program = BBSShaders.getFlatPaintOverlayProgram();
+        RenderPipeline program = BBSShaders.getFlatPaintOverlayProgram();
 
         if (program != null)
         {
-            RenderSystem.setShader(program);
+            // RenderSystem.setShader(program);
         }
 
-        RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
+        // RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
 
         try
         {

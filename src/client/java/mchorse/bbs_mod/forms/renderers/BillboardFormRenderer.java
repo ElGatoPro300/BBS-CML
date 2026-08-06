@@ -631,14 +631,14 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
             this.renderGlowOverlay(texture, shader, matrices, glowSettings, legacyGlow, color.a, glowIntensity);
         }
 
-        RenderSystem.enableCull();
+        GlStateManager._enableCull();
 
         texture.setFilterMipmap(false, false);
-        if (format == VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL)
-        {
-            gameRenderer.getLightmapTextureManager().disable();
-            gameRenderer.getOverlayTexture().teardownOverlayColor();
-        }
+        // if (format == VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL)
+        // {
+        //     gameRenderer.getLightmapTextureManager().disable();
+        //     gameRenderer.getOverlayTexture().teardownOverlayColor();
+        // }
     }
 
     private void drawBillboardFaces(VertexFormat format, Texture texture, Supplier<ShaderProgram> shader, MatrixStack matrices, Color color, Quad drawQuad, Quad drawUvQuad, int overlay, int light, boolean linear, boolean mipmap, boolean singleSided)
@@ -690,14 +690,9 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
             this.fill(format, builder, matrix, drawQuad.p3.x, drawQuad.p3.y, -FACE_Z_BIAS, color, drawUvQuad.p3.x, drawUvQuad.p3.y, overlay, light, entry, -1F);
         }
 
-        ShaderProgram bound = shader.get();
-
         /* Vertices already include the model matrix; keep ModelView identity for BBS uniforms
          * (FormColorGrade / ColorGradeOverlay) right before draw. */
-        if (bound == BBSShaders.getModel())
-        {
-            ModelVAORenderer.setupUniforms(new MatrixStack(), bound);
-        }
+        // ModelVAORenderer.setupUniforms(new MatrixStack(), null);
 
         builder.end().close();
         texture.setFilterMipmap(false, false);
@@ -955,16 +950,14 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
                 overlayStack.peek().getPositionMatrix().set(positionMatrix);
                 overlayStack.peek().getNormalMatrix().set(normalMatrix);
 
-                ShaderProgram gradeShader = BBSShaders.getModel();
                 MatrixStack uniformStack = new MatrixStack();
 
-                // RenderSystem.setShader(gradeShader);
-                ModelVAORenderer.setupUniforms(uniformStack, gradeShader);
+                // ModelVAORenderer.setupUniforms(uniformStack, gradeShader);
 
                 this.drawBillboardFaces(
                     VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL,
                     deferredTexture,
-                    () -> BBSShaders.getModel(),
+                    () -> null,
                     overlayStack,
                     colorSnapshot,
                     localQuad,

@@ -59,7 +59,7 @@ public class ItemFormRenderer extends FormRenderer<ItemForm>
     @Override
     public void renderInUI(UIContext context, int x1, int y1, int x2, int y2)
     {
-        context.batcher.getContext().draw();
+        // context.batcher.getContext().draw();
 
         CustomVertexConsumerProvider consumers = FormUtilsClient.getProvider();
         MatrixStack matrices = new MatrixStack();
@@ -94,6 +94,9 @@ public class ItemFormRenderer extends FormRenderer<ItemForm>
         Vector3f light0 = new Vector3f(0.85F, 0.85F, -1F).normalize();
         Vector3f light1 = new Vector3f(-0.85F, 0.85F, 1F).normalize();
         // RenderSystem.setupLevelDiffuseLighting(light0, light1);
+
+        Color resolvedPaint = FormColorEffects.resolvePaintColor(this.form.paintSettings.get(), storedFormColor);
+        boolean positivePaint = resolvedPaint.a > 0F;
 
         ItemDisplayContext mode = this.form.modelTransform.get();
 
@@ -272,14 +275,14 @@ public class ItemFormRenderer extends FormRenderer<ItemForm>
                 CustomVertexConsumerProvider.clearRunnables();
             }
 
-            RenderSystem.defaultBlendFunc();
+            GlStateManager._blendFuncSeparate(770, 771, 1, 0);
         }
         finally
         {
             context.stack.pop();
         }
 
-        RenderSystem.enableDepthTest();
+        GlStateManager._enableDepthTest();
     }
 
     boolean shouldUseDroppedMode(boolean isDropped)
