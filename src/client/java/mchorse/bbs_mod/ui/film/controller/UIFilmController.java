@@ -367,14 +367,7 @@ public class UIFilmController extends UIElement
     public void createEntities()
     {
         this.stopRecording();
-        this.refreshEntities();
-    }
 
-    /**
-     * Rebuild stub actors from current film replays without stopping an active recording.
-     */
-    public void refreshEntities()
-    {
         if (this.controlled != null)
         {
             this.toggleControl();
@@ -663,11 +656,6 @@ public class UIFilmController extends UIElement
 
         if (this.recordingCountdown > 0)
         {
-            BBSModClient.getFilms().getEditorMobCapture().clear();
-            BBSModClient.getFilms().getEditorProjectileCapture().clear();
-            this.setMouseMode(ClientNetwork.isIsBBSModOnServer() ? 0 : 1);
-            MinecraftClient.getInstance().execute(this::refreshEntities);
-
             return;
         }
 
@@ -700,10 +688,6 @@ public class UIFilmController extends UIElement
         BBSModClient.getFilms().getEditorProjectileCapture().clear();
 
         this.setMouseMode(ClientNetwork.isIsBBSModOnServer() ? 0 : 1);
-
-        /* Defer rebuild so stop-playback / cursor seek finish before actors are recreated.
-         * Immediate refresh left MobForms without a warmed renderer until VA was toggled. */
-        MinecraftClient.getInstance().execute(this::refreshEntities);
     }
 
     /* Input handling */

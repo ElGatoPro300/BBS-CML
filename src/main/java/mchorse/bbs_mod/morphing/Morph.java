@@ -73,7 +73,7 @@ public class Morph
                 "Invulnerable", "PortalCooldown", "UUID",
                 "HurtTime", "HurtByTimestamp", "DeathTime", "AbsorptionAmount",
                 "FallFlying", "Brain", "Attributes", "ActiveEffects", "Passengers",
-                "SleepingX", "SleepingY", "SleepingZ", "Invisible"
+                "SleepingX", "SleepingY", "SleepingZ"
             ))
             {
                 compound.remove(s);

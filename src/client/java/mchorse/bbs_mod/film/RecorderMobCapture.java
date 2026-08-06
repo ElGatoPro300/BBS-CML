@@ -402,7 +402,7 @@ public final class RecorderMobCapture
         {
             panel.replayEditor.replays.replays.buildVisualList();
             panel.replayEditor.updateChannelsList();
-            panel.getController().refreshEntities();
+            panel.getController().createEntities();
         }
     }
 
@@ -824,7 +824,7 @@ public final class RecorderMobCapture
         "Invulnerable", "PortalCooldown", "UUID",
         "HurtTime", "HurtByTimestamp", "DeathTime", "AbsorptionAmount",
         "FallFlying", "Brain", "Attributes", "ActiveEffects", "Passengers",
-        "SleepingX", "SleepingY", "SleepingZ", "Invisible"
+        "SleepingX", "SleepingY", "SleepingZ"
     );
 
     private void recordEntity(Replay replay, Entity entity, int tick)
@@ -1064,7 +1064,7 @@ public final class RecorderMobCapture
 
             panel.replayEditor.replays.replays.buildVisualList();
             panel.replayEditor.updateChannelsList();
-            panel.getController().refreshEntities();
+            panel.getController().createEntities();
         });
     }
 }

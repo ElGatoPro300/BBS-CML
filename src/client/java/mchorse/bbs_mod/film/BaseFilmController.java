@@ -1104,15 +1104,6 @@ public abstract class BaseFilmController
                 entity.setPrevPitch(entity.getPitch());
                 entity.setPrevBodyYaw(entity.getBodyYaw());
 
-                /* Warm up MobForm's hidden vanilla entity immediately so actors are visible
-                 * even before the first playhead advance / VA pose sample. */
-                Form form = entity.getForm();
-
-                if (form instanceof MobForm)
-                {
-                    form.update(entity);
-                }
-
                 this.entities.put(i, entity);
             }
 
@@ -1618,14 +1609,6 @@ public abstract class BaseFilmController
             if (MobCemPoseCapture.isActive(replay))
             {
                 MobCemPoseCapture.applyPlaybackPose(replay, form1, entity, tick + delta);
-            }
-            else if (form1 instanceof MobForm)
-            {
-                /* Without VA, clear any leftover pose runtime and ensure the morph proxy
-                 * exists — otherwise newly captured mobs can stay invisible until VA toggles. */
-                ((MobForm) form1).pose.setRuntimeValue(null);
-                ((MobForm) form1).poseOverlay.setRuntimeValue(null);
-                form1.update(entity);
             }
 
             Map<String, Integer> actors = this.getActors();

@@ -580,19 +580,6 @@ public class MobFormRenderer extends FormRenderer<MobForm> implements ITickable
             currentPose = this.form.pose.get();
             currentPoseOverlay = this.form.poseOverlay.get();
 
-            /* Empty poses must not enter the LivingEntityRenderer mixin — a null overlay
-             * or unused pose path has caused newly captured mobs to stay invisible until
-             * Vanilla Animations forced a renderer warm-up. */
-            if (currentPose != null && currentPose.isEmpty())
-            {
-                currentPose = null;
-            }
-
-            if (currentPoseOverlay != null && currentPoseOverlay.isEmpty())
-            {
-                currentPoseOverlay = null;
-            }
-
             int savedFireTicks = 0;
 
             if (this.entity instanceof LivingEntity livingMorphForFire)
