@@ -138,7 +138,7 @@ public class ParticleFormRenderer extends FormRenderer<ParticleForm> implements 
             {
                 /* For game rendering, use the main camera for emitter properties to ensure
                  * correct yaw/pitch for billboards (avoiding 180 degree flip in Camera wrapper) */
-                emitter.setupCameraProperties(MinecraftClient.getInstance().gameRenderer.getCamera());
+                emitter.setupCameraProperties(context.camera);
             }
             else
             {
@@ -165,9 +165,9 @@ public class ParticleFormRenderer extends FormRenderer<ParticleForm> implements 
                 }
             }
 
-            Matrix4f modelMatrix = new Matrix4f(context.stack.peek().getPositionMatrix());
+            Matrix4f matrix = new Matrix4f(RenderSystem.getInverseViewRotationMatrix());
 
-            Vector3d translation = new Vector3d(modelMatrix.getTranslation(Vectors.TEMP_3F));
+            Vector3d translation = new Vector3d(matrix.getTranslation(Vectors.TEMP_3F));
             
             if (!context.modelRenderer)
             {
@@ -183,7 +183,7 @@ public class ParticleFormRenderer extends FormRenderer<ParticleForm> implements 
             context.stack.loadIdentity();
 
             emitter.lastGlobal.set(translation);
-            emitter.rotation.set(modelMatrix);
+            emitter.rotation.set(matrix);
             emitter.modelRenderer = context.modelRenderer;
 
             Color glowTint = Colors.COLOR.set(context.color, true);

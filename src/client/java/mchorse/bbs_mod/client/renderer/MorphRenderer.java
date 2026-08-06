@@ -25,8 +25,6 @@ import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.util.math.RotationAxis;
 
-import org.joml.Vector3f;
-
 import com.mojang.blaze3d.systems.RenderSystem;
 
 import org.lwjgl.opengl.GL11;
@@ -69,10 +67,6 @@ public class MorphRenderer
             if (canRender(playerForm))
             {
                 RenderSystem.enableDepthTest();
-
-                Vector3f a = new Vector3f(0.85F, 0.85F, -1F).normalize();
-                Vector3f b = new Vector3f(-0.85F, 0.85F, 1F).normalize();
-                RenderSystem.setupGui3DDiffuseLighting(a, b);
 
                 float bodyYaw = Lerps.lerp(player.prevBodyYaw, player.bodyYaw, g);
                 int overlay = LivingEntityRenderer.getOverlay(player, 0F);

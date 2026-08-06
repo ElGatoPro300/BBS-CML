@@ -178,11 +178,9 @@ public class FramebufferFormRenderer extends FormRenderer<FramebufferForm>
         color.mul(overlayColor);
 
         GameRenderer gameRenderer = MinecraftClient.getInstance().gameRenderer;
-        if (format == VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL)
-        {
-            gameRenderer.getLightmapTextureManager().enable();
-            gameRenderer.getOverlayTexture().setupOverlayColor();
-        }
+
+        gameRenderer.getLightmapTextureManager().enable();
+        gameRenderer.getOverlayTexture().setupOverlayColor();
 
         BBSModClient.getTextures().bindTexture(texture);
         RenderSystem.setShader(shader);

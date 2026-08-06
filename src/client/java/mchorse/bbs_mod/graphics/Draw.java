@@ -239,8 +239,8 @@ public class Draw
 
     private static void wireLine(BufferBuilder builder, Matrix4f matrix, float x0, float y0, float z0, float x1, float y1, float z1, float r, float g, float b, float a)
     {
-        builder.vertex(matrix, x0, y0, z0).color(r, g, b, a);
-        builder.vertex(matrix, x1, y1, z1).color(r, g, b, a);
+        builder.vertex(matrix, x0, y0, z0).color(r, g, b, a).next();
+        builder.vertex(matrix, x1, y1, z1).color(r, g, b, a).next();
     }
     /**
      * Fill a quad for {@link VertexFormats#POSITION_TEXTURE_COLOR_NORMAL}. Points should
@@ -284,12 +284,6 @@ public class Draw
 
     public static void fillBoxTo(BufferBuilder builder, MatrixStack stack, float x1, float y1, float z1, float x2, float y2, float z2, float thickness, float r, float g, float b, float a)
     {
-        if (stack == null)
-        {
-            stack = new MatrixStack();
-            MatrixStackUtils.multiply(stack, RenderSystem.getModelViewMatrix());
-        }
-
         float dx = x2 - x1;
         float dy = y2 - y1;
         float dz = z2 - z1;
@@ -430,13 +424,13 @@ public class Draw
             float y2 = baseY + (ry * c2 + uy * s2) * radius;
             float z2 = baseZ + (rz * c2 + uz * s2) * radius;
 
-            builder.vertex(mat, apexX, apexY, apexZ).color(r, g, b, a);
-            builder.vertex(mat, x1, y1, z1).color(r, g, b, a);
-            builder.vertex(mat, x2, y2, z2).color(r, g, b, a);
+            builder.vertex(mat, apexX, apexY, apexZ).color(r, g, b, a).next();
+            builder.vertex(mat, x1, y1, z1).color(r, g, b, a).next();
+            builder.vertex(mat, x2, y2, z2).color(r, g, b, a).next();
 
-            builder.vertex(mat, x1, y1, z1).color(r, g, b, a);
-            builder.vertex(mat, baseX, baseY, baseZ).color(r, g, b, a);
-            builder.vertex(mat, x2, y2, z2).color(r, g, b, a);
+            builder.vertex(mat, x1, y1, z1).color(r, g, b, a).next();
+            builder.vertex(mat, baseX, baseY, baseZ).color(r, g, b, a).next();
+            builder.vertex(mat, x2, y2, z2).color(r, g, b, a).next();
         }
     }
 
@@ -498,13 +492,13 @@ public class Draw
                 float y22 = y12;
                 float z22 = sv2 * su2 * radius;
 
-                builder.vertex(mat, x11, y11, z11).color(r, g, b, a);
-                builder.vertex(mat, x12, y12, z12).color(r, g, b, a);
-                builder.vertex(mat, x22, y22, z22).color(r, g, b, a);
+                builder.vertex(mat, x11, y11, z11).color(r, g, b, a).next();
+                builder.vertex(mat, x12, y12, z12).color(r, g, b, a).next();
+                builder.vertex(mat, x22, y22, z22).color(r, g, b, a).next();
 
-                builder.vertex(mat, x11, y11, z11).color(r, g, b, a);
-                builder.vertex(mat, x22, y22, z22).color(r, g, b, a);
-                builder.vertex(mat, x21, y21, z21).color(r, g, b, a);
+                builder.vertex(mat, x11, y11, z11).color(r, g, b, a).next();
+                builder.vertex(mat, x22, y22, z22).color(r, g, b, a).next();
+                builder.vertex(mat, x21, y21, z21).color(r, g, b, a).next();
             }
         }
     }
@@ -594,13 +588,13 @@ public class Draw
                 float x22 = ring2 * cu2;
                 float z22 = ring2 * su2;
 
-                builder.vertex(mat, x11, y1, z11).color(r, g, b, 1F);
-                builder.vertex(mat, x12, y2, z12).color(r, g, b, 1F);
-                builder.vertex(mat, x22, y2, z22).color(r, g, b, 1F);
+                builder.vertex(mat, x11, y1, z11).color(r, g, b, 1F).next();
+                builder.vertex(mat, x12, y2, z12).color(r, g, b, 1F).next();
+                builder.vertex(mat, x22, y2, z22).color(r, g, b, 1F).next();
 
-                builder.vertex(mat, x11, y1, z11).color(r, g, b, 1F);
-                builder.vertex(mat, x22, y2, z22).color(r, g, b, 1F);
-                builder.vertex(mat, x21, y1, z21).color(r, g, b, 1F);
+                builder.vertex(mat, x11, y1, z11).color(r, g, b, 1F).next();
+                builder.vertex(mat, x22, y2, z22).color(r, g, b, 1F).next();
+                builder.vertex(mat, x21, y1, z21).color(r, g, b, 1F).next();
             }
         }
 

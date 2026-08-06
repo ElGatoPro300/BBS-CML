@@ -1259,27 +1259,12 @@ public class UIFilmController extends UIElement
 
         /* Render the stencil */
         MatrixStack worldStack = this.worldRenderContext.matrixStack();
-        if (worldStack != null)
-        {
-            worldStack.push();
-            worldStack.loadIdentity();
-            MatrixStackUtils.multiply(worldStack, BBSRendering.camera);
-            this.renderStencil(this.worldRenderContext, context, altPressed);
-            worldStack.pop();
-        }
-        else
-        {
-            MatrixStack mvStack = RenderSystem.getModelViewStack();
-            mvStack.push();
-            mvStack.loadIdentity();
-            MatrixStackUtils.multiply(mvStack, BBSRendering.camera);
-            RenderSystem.applyModelViewMatrix();
 
-            this.renderStencil(this.worldRenderContext, context, altPressed);
-
-            mvStack.pop();
-            RenderSystem.applyModelViewMatrix();
-        }
+        worldStack.push();
+        worldStack.loadIdentity();
+        MatrixStackUtils.multiply(worldStack, this.panel.lastView);
+        this.renderStencil(this.worldRenderContext, this.getContext(), altPressed);
+        worldStack.pop();
 
         /* Return back to orthographic projection */
         MatrixStackUtils.restoreMatrices();
