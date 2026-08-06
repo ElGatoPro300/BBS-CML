@@ -679,9 +679,9 @@ public class BBSRendering
         MinecraftClient mc = MinecraftClient.getInstance();
 
         worldRenderContext.prepare(
-            mc.worldRenderer, stack, mc.getTickDelta(), 0L, false,
+            mc.worldRenderer, stack, mc.getTickDelta(), mc.getRenderTime(), false,
             mc.gameRenderer.getCamera(), mc.gameRenderer, mc.gameRenderer.getLightmapTextureManager(),
-            RenderSystem.getProjectionMatrix(), mc.getBufferBuilders().getEntityVertexConsumers(), mc.getProfiler(), false, mc.world
+            RenderSystem.getProjectionMatrix(), mc.getBufferBuilders().getEntityVertexConsumers(), null, false, mc.world
         );
 
         if (!isIrisShadersEnabled())

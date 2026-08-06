@@ -2172,16 +2172,9 @@ public class UIModelBlockPanel extends UIDashboardPanel implements IFlightSuppor
         double x = mc.mouse.getX();
         double y = mc.mouse.getY();
 
-        /* The view matrix is rebuilt from the camera's own rotation instead of using the world
-         * render matrix stack top: that stack isn't guaranteed to hold the camera rotation
-         * (and doesn't in 1.21.1), which used to skew this ray - the gizmo dragged with an
-         * inverted/stuttering rotation and a way-too-fast Z axis while stencil-based hover
-         * (which doesn't use this ray) kept working fine. */
-        Matrix4f view = new Matrix4f().rotation(camera.getRotation().conjugate(new Quaternionf()));
-
         this.mouseDirection.set(CameraUtils.getMouseDirection(
                 RenderSystem.getProjectionMatrix(),
-                view,
+                context.matrixStack().peek().getPositionMatrix(),
                 (int) x, (int) y, 0, 0, mc.getWindow().getWidth(), mc.getWindow().getHeight()));
         this.hovered = this.getClosestObject(new Vector3d(pos.x, pos.y, pos.z), this.mouseDirection);
 
