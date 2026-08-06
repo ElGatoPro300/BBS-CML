@@ -6,6 +6,7 @@ import mchorse.bbs_mod.ui.film.replays.UIReplaysEditorUtils;
 import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.ui.framework.elements.input.keyframes.UIKeyframeSheet;
 import mchorse.bbs_mod.ui.framework.elements.input.keyframes.UIKeyframes;
+import mchorse.bbs_mod.ui.framework.elements.input.keyframes.factories.UIVisibleRenderKeyframeUtils;
 import mchorse.bbs_mod.ui.utils.Area;
 import mchorse.bbs_mod.utils.Pair;
 import mchorse.bbs_mod.utils.interps.Interpolation;
@@ -139,6 +140,12 @@ public interface IUIKeyframeGraph
             {
                 value = sheet.channel.getFactory().createEmpty();
             }
+            else if ("lens_radius".equals(sheet.id))
+            {
+                value = sheet.defaultInsertValue != null
+                    ? sheet.channel.getFactory().copy(sheet.defaultInsertValue)
+                    : sheet.channel.getFactory().createEmpty();
+            }
             else if ("shadow_opacity".equals(sheet.id))
             {
                 value = 1D;
@@ -184,8 +191,10 @@ public interface IUIKeyframeGraph
         UIKeyframeSheet sheet = this.getSheet(keyframe);
 
         UIReplaysEditorUtils.removeCompanionPaintForColorKeyframe(this.getHostKeyframes(), keyframe);
+        UIVisibleRenderKeyframeUtils.removeRenderForVisibleKeyframe(this.getHostKeyframes(), keyframe);
 
         sheet.remove(keyframe);
+        UIVisibleRenderKeyframeUtils.pruneRenderAfterVisibleEdit(this.getHostKeyframes());
         this.clearSelection();
         this.pickKeyframe(null);
     }
@@ -193,12 +202,14 @@ public interface IUIKeyframeGraph
     public default void removeSelected()
     {
         UIReplaysEditorUtils.removeCompanionPaintForSelectedColor(this.getHostKeyframes());
+        UIVisibleRenderKeyframeUtils.removeRenderForSelectedVisible(this.getHostKeyframes());
 
         for (UIKeyframeSheet sheet : this.getSheets())
         {
             sheet.selection.removeSelected();
         }
 
+        UIVisibleRenderKeyframeUtils.pruneRenderAfterVisibleEdit(this.getHostKeyframes());
         this.pickKeyframe(null);
     }
 

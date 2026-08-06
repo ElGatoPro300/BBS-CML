@@ -161,9 +161,13 @@ public class OrbitFilmCameraController implements ICameraController
             return false;
         }
 
-        if (this.canInteract() || area.isInside(context) || (!this.velocityPosition.equals(0, 0, 0) && context.getKeyAction() == KeyAction.RELEASED) || (!this.velocityAngle.equals(0, 0, 0, 0) && context.getKeyAction() == KeyAction.RELEASED))
+        /* WASD/Space/arrows are flight keys — only while flying. Otherwise Space
+         * (shared with play/pause) is swallowed whenever orbit POV is selected. */
+        boolean flying = this.controller.panel.isFlying();
+
+        if (flying || area.isInside(context) || (!this.velocityPosition.equals(0, 0, 0) && context.getKeyAction() == KeyAction.RELEASED) || (!this.velocityAngle.equals(0, 0, 0, 0) && context.getKeyAction() == KeyAction.RELEASED))
         {
-            if (!this.canInteract() && context.getKeyAction() != KeyAction.RELEASED)
+            if (!flying && context.getKeyAction() != KeyAction.RELEASED)
             {
                 return false;
             }
@@ -274,7 +278,7 @@ public class OrbitFilmCameraController implements ICameraController
             changed = true;
         }
 
-        if (this.canInteract())
+        if (this.controller.panel.isFlying())
         {
             if (this.velocityPosition.lengthSquared() > 0 && !this.center)
             {
@@ -297,6 +301,11 @@ public class OrbitFilmCameraController implements ICameraController
 
                 changed = true;
             }
+        }
+        else
+        {
+            this.velocityPosition.set(0, 0, 0);
+            this.velocityAngle.set(0, 0, 0, 0);
         }
 
         return changed;
@@ -414,6 +423,10 @@ public class OrbitFilmCameraController implements ICameraController
         this.center = false;
     }
 
+    /**
+     * Mouse drag / scroll / start. Keyboard flight keys are gated separately in
+     * {@link #keyPressed} so Space can still toggle play when not flying.
+     */
     private boolean canInteract()
     {
         if (this.controller.panel.isFlying())
@@ -421,7 +434,8 @@ public class OrbitFilmCameraController implements ICameraController
             return true;
         }
 
-        return this.controller.getPovMode() == UIFilmController.CAMERA_MODE_ORBIT;
+        return BBSSettings.editorOrbitWithoutFlight.get()
+            && this.controller.getPovMode() == UIFilmController.CAMERA_MODE_ORBIT;
     }
 
     private float getOrbitDistance()

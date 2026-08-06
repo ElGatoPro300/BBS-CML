@@ -24,6 +24,7 @@ import mchorse.bbs_mod.data.types.ListType;
 import mchorse.bbs_mod.data.types.MapType;
 import mchorse.bbs_mod.data.types.StringType;
 import mchorse.bbs_mod.events.register.RegisterFilmEditorFactoriesEvent;
+import mchorse.bbs_mod.events.register.RegisterFilmSyncEvent;
 import mchorse.bbs_mod.film.CrossWorldFilmEntry;
 import mchorse.bbs_mod.film.Film;
 import mchorse.bbs_mod.film.FilmContributor;
@@ -2601,20 +2602,93 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
     {
         if ("cameraTimeline".equals(panelId))
         {
-            return "cameraEditArea";
+            return this.resolveCameraPropertiesPanelId();
         }
 
         if ("replayTimeline".equals(panelId))
         {
-            return "editArea";
+            return this.resolveReplayPropertiesPanelId();
         }
 
         if ("actionTimeline".equals(panelId))
         {
-            return "actionEditArea";
+            return this.resolveActionPropertiesPanelId();
         }
 
         return null;
+    }
+
+    /**
+     * Prefer unified → dedicated camera host → general Properties when the
+     * dedicated panel is hidden via the Window menu.
+     */
+    private String resolveCameraPropertiesPanelId()
+    {
+        if (this.shouldRedirectProperties())
+        {
+            return "unifiedEditArea";
+        }
+
+        if (this.isWindowPanelVisible("cameraEditArea"))
+        {
+            return "cameraEditArea";
+        }
+
+        if (this.isWindowPanelVisible("editArea"))
+        {
+            return "editArea";
+        }
+
+        return "cameraEditArea";
+    }
+
+    /**
+     * Prefer unified → dedicated action host → general Properties (pre-
+     * {@code actionEditArea} behaviour) → camera properties as last visible host.
+     */
+    private String resolveActionPropertiesPanelId()
+    {
+        if (this.shouldRedirectProperties())
+        {
+            return "unifiedEditArea";
+        }
+
+        if (this.isWindowPanelVisible("actionEditArea"))
+        {
+            return "actionEditArea";
+        }
+
+        if (this.isWindowPanelVisible("editArea"))
+        {
+            return "editArea";
+        }
+
+        if (this.isWindowPanelVisible("cameraEditArea"))
+        {
+            return "cameraEditArea";
+        }
+
+        return "actionEditArea";
+    }
+
+    private String resolveReplayPropertiesPanelId()
+    {
+        if (this.shouldRedirectProperties())
+        {
+            return "unifiedEditArea";
+        }
+
+        return "editArea";
+    }
+
+    private UIElement getPropertiesHostElement(String panelId)
+    {
+        if (panelId == null)
+        {
+            return null;
+        }
+
+        return this.panelById.get(panelId);
     }
 
     private boolean selectPanelInTabbedNode(EditorLayoutNode root, String panelId)
@@ -2870,9 +2944,9 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
      */
     public void focusClipPropertiesTab(boolean cameraTimeline)
     {
-        String panelId = this.shouldRedirectProperties()
-            ? "unifiedEditArea"
-            : (cameraTimeline ? "cameraEditArea" : "actionEditArea");
+        String panelId = cameraTimeline
+            ? this.resolveCameraPropertiesPanelId()
+            : this.resolveActionPropertiesPanelId();
 
         EditorLayoutNode root = BBSSettings.editorLayoutSettings.getFilmLayoutRoot();
         boolean changed = root != null && this.selectPanelInTabbedNode(root, panelId);
@@ -2936,14 +3010,45 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
 
     public void updateTargets()
     {
-        boolean unified = this.shouldRedirectProperties();
+        UIElement cameraHost = this.getPropertiesHostElement(this.resolveCameraPropertiesPanelId());
+        UIElement actionHost = this.getPropertiesHostElement(this.resolveActionPropertiesPanelId());
+        UIElement replayHost = this.getPropertiesHostElement(this.resolveReplayPropertiesPanelId());
 
-        this.cameraEditor.target(unified ? this.unifiedEditArea : this.cameraEditArea);
-        this.actionEditor.target(unified ? this.unifiedEditArea : this.actionEditArea);
+        if (cameraHost == null)
+        {
+            cameraHost = this.cameraEditArea;
+        }
+
+        if (actionHost == null)
+        {
+            actionHost = this.actionEditArea;
+        }
+
+        if (replayHost == null)
+        {
+            replayHost = this.editArea;
+        }
+
+        boolean cameraChanged = this.cameraEditor != null && this.cameraEditor.getTarget() != cameraHost;
+        boolean actionChanged = this.actionEditor != null && this.actionEditor.getTarget() != actionHost;
+
+        this.cameraEditor.target(cameraHost);
+        this.actionEditor.target(actionHost);
 
         if (this.replayEditor != null && this.replayEditor.keyframeEditor != null)
         {
-            this.replayEditor.keyframeEditor.target(unified ? this.unifiedEditArea : this.editArea);
+            this.replayEditor.keyframeEditor.target(replayHost);
+        }
+
+        /* Moving an open clip form onto the fallback host (hidden dedicated panel). */
+        if (cameraChanged)
+        {
+            this.cameraEditor.remountClipPanel();
+        }
+
+        if (actionChanged)
+        {
+            this.actionEditor.remountClipPanel();
         }
 
         this.applyEmbeddedKeyframeSidePanelSetting();
@@ -3032,6 +3137,16 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
         if (ANCHORED_REPLAYS_PROPERTIES_PANEL_ID.equals(panelId))
         {
             this.syncReplaysPropertiesLayoutMode();
+        }
+
+        /* Retarget clip forms when Camera/Action/Properties/Unified visibility changes
+         * so a selected action clip still appears in Properties if Action is hidden. */
+        if ("cameraEditArea".equals(panelId)
+            || "actionEditArea".equals(panelId)
+            || "editArea".equals(panelId)
+            || "unifiedEditArea".equals(panelId))
+        {
+            this.updateTargets();
         }
 
         this.setupEditorFlex(true);
@@ -5354,6 +5469,7 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
         }
 
         this.syncActiveDocumentTabWithData(data);
+        RegisterFilmSyncEvent.postOpenFilm(data);
     }
 
     @Override

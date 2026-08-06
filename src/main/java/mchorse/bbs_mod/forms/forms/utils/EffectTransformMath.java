@@ -50,7 +50,30 @@ public class EffectTransformMath
 
     public static void resolveBillboardMaskHalfExtents(EffectTransform transform, Vector3f dest)
     {
-        resolveMaskHalfExtents(transform, dest, BILLBOARD_MASK_HALF, 1F);
+        resolveBillboardMaskHalfExtents(transform, dest, BILLBOARD_MASK_HALF, BILLBOARD_MASK_HALF);
+    }
+
+    /**
+     * Billboard / flat-quad masks sized to the actual half extents of the drawn quad
+     * (aspect-scaled billboards are often narrower or shorter than the unit 0.5 box).
+     */
+    public static void resolveBillboardMaskHalfExtents(EffectTransform transform, Vector3f dest, float quadHalfX, float quadHalfY)
+    {
+        float baseX = Math.max(Math.abs(quadHalfX), EPSILON);
+        float baseY = Math.max(Math.abs(quadHalfY), EPSILON);
+
+        if (transform == null)
+        {
+            dest.set(baseX, baseY, BILLBOARD_MASK_HALF);
+
+            return;
+        }
+
+        float scaleX = transform.scaleX == 0F ? 0.001F : transform.scaleX;
+        float scaleY = transform.scaleY == 0F ? 0.001F : transform.scaleY;
+        float scaleZ = transform.scaleZ == 0F ? 0.001F : transform.scaleZ;
+
+        dest.set(baseX * scaleX, baseY * scaleY, BILLBOARD_MASK_HALF * scaleZ);
     }
 
     public static void resolveBlockMaskHalfExtents(EffectTransform transform, Vector3f dest)
@@ -198,6 +221,15 @@ public class EffectTransformMath
      */
     public static float maskBillboard(float x, float y, float z, EffectTransform transform)
     {
+        return maskBillboard(x, y, z, transform, BILLBOARD_MASK_HALF, BILLBOARD_MASK_HALF);
+    }
+
+    /**
+     * Billboard mask sized to the drawn quad's half extents (see
+     * {@link #resolveBillboardMaskHalfExtents(EffectTransform, Vector3f, float, float)}).
+     */
+    public static float maskBillboard(float x, float y, float z, EffectTransform transform, float quadHalfX, float quadHalfY)
+    {
         if (!isTransformActive(transform))
         {
             return 1F;
@@ -205,9 +237,22 @@ public class EffectTransformMath
 
         Vector3f half = new Vector3f();
 
-        resolveBillboardMaskHalfExtents(transform, half);
+        resolveBillboardMaskHalfExtents(transform, half, quadHalfX, quadHalfY);
 
         return evaluateSoftMask(x, y, z, transform, half, false);
+    }
+
+    /**
+     * Billboard mask using precomputed half extents (avoids per-vertex allocation).
+     */
+    public static float maskBillboard(float x, float y, float z, EffectTransform transform, Vector3f halfExtents)
+    {
+        if (!isTransformActive(transform))
+        {
+            return 1F;
+        }
+
+        return evaluateSoftMask(x, y, z, transform, halfExtents, false);
     }
 
     private static float evaluateSoftMask(float x, float y, float z, EffectTransform transform, Vector3f halfExtents, boolean bottomAnchoredY)
