@@ -5,8 +5,6 @@ import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.ui.framework.elements.IUIElement;
 import mchorse.bbs_mod.ui.utils.Area;
 
-import java.util.function.Supplier;
-
 public class UIOrbitCamera implements IUIElement
 {
     public OrbitCamera orbit = new OrbitCamera();

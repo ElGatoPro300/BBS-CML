@@ -3,6 +3,7 @@ package mchorse.bbs_mod.utils;
 import mchorse.bbs_mod.BBSMod;
 import mchorse.bbs_mod.camera.Camera;
 import mchorse.bbs_mod.entity.ActorEntity;
+import net.minecraft.block.ShapeContext;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.projectile.ProjectileUtil;
 import net.minecraft.util.hit.BlockHitResult;
@@ -34,16 +35,12 @@ public class RayTracing
 
     public static BlockHitResult rayTrace(World world, Vec3d pos, Vec3d direction, double d)
     {
-        ActorEntity entity = new ActorEntity(BBSMod.ACTOR_ENTITY, world);
-
-        entity.setPos(pos.x, pos.y, pos.z);
-
         return world.raycast(new RaycastContext(
             pos,
             pos.add(direction.normalize().multiply(d)),
             RaycastContext.ShapeType.COLLIDER,
             RaycastContext.FluidHandling.NONE,
-            entity
+            ShapeContext.absent()
         ));
     }
 
