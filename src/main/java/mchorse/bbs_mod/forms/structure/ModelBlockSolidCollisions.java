@@ -2,6 +2,7 @@ package mchorse.bbs_mod.forms.structure;
 
 import mchorse.bbs_mod.blocks.entities.ModelBlockEntity;
 import mchorse.bbs_mod.blocks.entities.ModelProperties;
+import mchorse.bbs_mod.forms.FormShake;
 import mchorse.bbs_mod.forms.forms.Form;
 import mchorse.bbs_mod.forms.forms.ModelForm;
 import mchorse.bbs_mod.forms.forms.StructureForm;
@@ -266,7 +267,7 @@ public final class ModelBlockSolidCollisions
         BlockPos pos = entity.getPos();
         ModelProperties properties = entity.getProperties();
         Transform modelTransform = properties.getTransform().copy();
-        Transform formTransform = composeFormTransform(form);
+        Transform formTransform = composeFormTransform(form, entity.getEntity().getAge());
         Matrix4f matrix = new Matrix4f()
             .translation(pos.getX() + 0.5F, pos.getY(), pos.getZ() + 0.5F);
         Matrix4f modelMat = new Matrix4f();
@@ -280,7 +281,7 @@ public final class ModelBlockSolidCollisions
         return matrix;
     }
 
-    private static Transform composeFormTransform(Form form)
+    private static Transform composeFormTransform(Form form, float animTime)
     {
         Transform transform = new Transform();
 
@@ -291,6 +292,8 @@ public final class ModelBlockSolidCollisions
         {
             applyOverlay(transform, overlay.get());
         }
+
+        FormShake.apply(transform, form, animTime);
 
         return transform;
     }

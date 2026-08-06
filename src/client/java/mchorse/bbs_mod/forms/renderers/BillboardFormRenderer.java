@@ -44,6 +44,7 @@ import net.minecraft.client.util.math.MatrixStack;
 
 import org.joml.Matrix3f;
 import org.joml.Matrix4f;
+import org.joml.Matrix4fStack;
 import org.joml.Vector3f;
 import org.joml.Vector4f;
 
@@ -313,7 +314,10 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
 
         /* World/entity billboard: face the camera and ignore authored rotation.
          * Form/model editor preview (modelRenderer) must keep the real transform so
-         * gizmo handles and General translate/rotate/scale fields match what you see. */
+         * gizmo handles and General translate/rotate/scale fields match what you see.
+         * Match ExtrudedFormRenderer — always apply camera.view. Detecting "view already
+         * baked" via Gizmo's collapse rule false-positives on world-space translations
+         * far from origin and skips the facing multiply, which parks the quad on the lens. */
         if (this.form.billboard.get() && (deferContext == null || !deferContext.modelRenderer))
         {
             Matrix4f modelMatrix = matrices.peek().getPositionMatrix();
@@ -381,7 +385,18 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
 
         if (deferTranslucent)
         {
-            Matrix4f positionMatrix = ModelVAORenderer.capturePaintOverlayRootMatrix(new Matrix4f(matrix));
+            /* Noshading opacity: redraw after paint via BBS translucent queue, not Iris post-deferred. */
+            boolean noshadingPaintPath = BBSRendering.needsIrisNoshadingOpacityDeferral(color.a, this.form.noshadingOpacity.get());
+            boolean afterFluids = ShaderOpacityPatch.shouldFlushAfterFluids(color.a);
+            /* Soft-opacity depth write stays opacity-based. */
+            boolean depthWrite = ShaderOpacityPatch.shouldWriteDepthForOpacity(color.a);
+            boolean gradeOnDeferredDraw = useFormColorGrade || irisDeferredColorGrade;
+            /* Same split as Extruded/ModelForm: Iris restores camera ModelView + entity stack;
+             * BBS path bakes ModelView×stack and draws with identity ModelView. */
+            boolean irisCamera = opacityPatch && BBSRendering.isIrisWorldModelPass() && !noshadingPaintPath && !gradeOnDeferredDraw;
+            Matrix4f positionMatrix = irisCamera
+                ? new Matrix4f(matrix)
+                : ModelVAORenderer.capturePaintOverlayRootMatrix(new Matrix4f(matrix));
             Color colorSnapshot = color.copy();
             Quad localQuad = new Quad();
             Quad localUvQuad = new Quad();
@@ -398,24 +413,18 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
             GlowSettings glowSettingsSnapshot = glowSettings;
             Color legacyGlowSnapshot = legacyGlow;
             boolean emitGlowSnapshot = glowIntensity > 0F && !glowSettings.resolvePaintOnly();
-            /* Noshading opacity: redraw after paint via BBS translucent queue, not Iris post-deferred. */
-            boolean noshadingPaintPath = BBSRendering.needsIrisNoshadingOpacityDeferral(color.a, this.form.noshadingOpacity.get());
-            boolean afterFluids = ShaderOpacityPatch.shouldFlushAfterFluids(color.a);
-            /* Soft-opacity depth write stays opacity-based. */
-            boolean depthWrite = ShaderOpacityPatch.shouldWriteDepthForOpacity(color.a);
             double distanceSq = 0D;
-            /* Iris deferred: apply FormColorGrade in model.fsh on the post-deferred BBS draw. */
             VertexFormat deferredFormat = VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL;
-            boolean gradeOnDeferredDraw = useFormColorGrade || irisDeferredColorGrade;
-            Supplier<ShaderProgram> deferredShader = gradeOnDeferredDraw
-                ? BBSShaders::getModel
-                : GameRenderer::getRenderTypeEntityTranslucentProgram;
+            Supplier<ShaderProgram> deferredShader = irisCamera
+                ? GameRenderer::getRenderTypeEntityTranslucentProgram
+                : BBSShaders::getModel;
             float gradeBrightnessSnapshot = storedFormColor.brightness;
             float gradeContrastSnapshot = storedFormColor.contrast;
             float gradeHueSnapshot = storedFormColor.hue;
             float gradeSaturationSnapshot = storedFormColor.saturation;
             boolean gradeActiveSnapshot = gradeOnDeferredDraw;
             Color gradeSourceSnapshot = storedFormColor;
+            boolean irisCameraSnapshot = irisCamera;
 
             if (deferContext != null && deferContext.entity != null && deferContext.camera != null)
             {
@@ -457,31 +466,37 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
                 gameRenderer.getOverlayTexture().setupOverlayColor();
 
                 boolean savedPolygonOffsetFill = GL11.glGetBoolean(GL11.GL_POLYGON_OFFSET_FILL);
+                Matrix4fStack modelViewStack = null;
+                Matrix4f savedModelView = null;
 
-                GL11.glEnable(GL11.GL_POLYGON_OFFSET_FILL);
-                GL11.glPolygonOffset(FlatPaintOverlayPass.POLYGON_OFFSET_FACTOR, FlatPaintOverlayPass.POLYGON_OFFSET_UNITS);
+                /* BBS path: verts carry ModelView×stack; force identity ModelView so
+                 * drawWithGlobalProgram cannot apply the camera twice. */
+                if (!irisCameraSnapshot)
+                {
+                    modelViewStack = RenderSystem.getModelViewStack();
+                    savedModelView = new Matrix4f(modelViewStack);
+                    modelViewStack.identity();
+                    RenderSystem.applyModelViewMatrix();
+                }
+
+                /* Depth on like Video/Extruded — hand and terrain must occlude. Do not use
+                 * paint-overlay polygon offset (-32); that pulls the whole panel through
+                 * the world and in front of the first-person arm. FACE_Z_BIAS is enough. */
+                RenderSystem.enableDepthTest();
+                RenderSystem.depthFunc(GL11.GL_LEQUAL);
+                RenderSystem.disableCull();
+
+                /* Ensure paint-overlay offset from a prior draw cannot leak onto this panel. */
+                GL11.glPolygonOffset(0F, 0F);
+                GL11.glDisable(GL11.GL_POLYGON_OFFSET_FILL);
 
                 try
                 {
-                    /* beginDeferredTranslucentModelPass enables cull; camera-facing quads then
-                     * vanish. Match the no-shader live path: no cull, both faces, FormColorGrade. */
-                    RenderSystem.disableCull();
-
                     if (gradeActiveSnapshot)
                     {
                         ModelVAORenderer.setFormColorGrade(gradeBrightnessSnapshot, gradeContrastSnapshot, gradeHueSnapshot, gradeSaturationSnapshot);
                         ModelVAORenderer.setGradeEffectTransforms(gradeSourceSnapshot);
-
-                        ShaderProgram gradeShader = BBSShaders.getModel();
-                        MatrixStack gradeStack = new MatrixStack();
-
-                        RenderSystem.setShader(() -> gradeShader);
-                        ModelVAORenderer.setupUniforms(gradeStack, gradeShader);
                     }
-
-
-                    /* Dual-sided: FACE_Z_BIAS separates front/back; single-sided + cull left
-                     * the reverse face permanently invisible under Iris deferred redraw. */
 
                     this.drawBillboardFaces(
                         deferredFormat,
@@ -520,23 +535,32 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
                         ModelVAORenderer.clearFormColorGrade();
                     }
 
-                    GL11.glPolygonOffset(0F, 0F);
-
-                    if (!savedPolygonOffsetFill)
+                    if (savedPolygonOffsetFill)
                     {
-                        GL11.glDisable(GL11.GL_POLYGON_OFFSET_FILL);
+                        GL11.glEnable(GL11.GL_POLYGON_OFFSET_FILL);
+                    }
+
+                    if (savedModelView != null && modelViewStack != null)
+                    {
+                        modelViewStack.set(savedModelView);
+                        RenderSystem.applyModelViewMatrix();
                     }
                 }
             };
 
-            if (opacityPatch && !noshadingPaintPath)
+            if (irisCamera)
+            {
+                ShaderOpacityPatch.submitPostDeferredForm(0D, distanceSq, depthWrite, afterFluids, deferredDraw);
+            }
+            else if (opacityPatch && !noshadingPaintPath)
             {
                 /* Same sorted post-deferred queue as models — render depth low→high, before VL. */
                 ShaderOpacityPatch.submitPostDeferredBbsForm(0D, distanceSq, depthWrite, afterFluids, deferredDraw);
             }
             else
             {
-                ModelVAORenderer.submitDeferredTranslucentModel(deferredDraw, depthWrite, false);
+                /* depthTest true now that matrices match the world (false was for broken near-camera draws). */
+                ModelVAORenderer.submitDeferredTranslucentModel(deferredDraw, depthWrite, true);
             }
         }
         else
@@ -704,14 +728,29 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
 
         ShaderProgram bound = shader.get();
 
-        /* Vertices already include the model matrix; keep ModelView identity for BBS uniforms
-         * (FormColorGrade / ColorGradeOverlay) right before draw. */
+        /* Vertices already include the model/captured matrix. For BBS model under deferred
+         * passes, force identity ModelViewMat (cpu-pretransformed) then bind — do not let
+         * drawWithGlobalProgram re-read a leftover camera ModelView. */
         if (bound == BBSShaders.getModel())
         {
-            ModelVAORenderer.setupUniforms(new MatrixStack(), bound);
+            if (ModelVAORenderer.isDeferredTranslucentPass() || ModelVAORenderer.isPaintOverlayPass())
+            {
+                ModelVAORenderer.setupUniformsCpuPretransformed(bound);
+            }
+            else
+            {
+                ModelVAORenderer.setupUniforms(new MatrixStack(), bound);
+            }
+
+            bound.bind();
+            BufferRenderer.draw(builder.end());
+            bound.unbind();
+        }
+        else
+        {
+            BufferRenderer.drawWithGlobalProgram(builder.end());
         }
 
-        BufferRenderer.drawWithGlobalProgram(builder.end());
         texture.setFilterMipmap(false, false);
     }
 

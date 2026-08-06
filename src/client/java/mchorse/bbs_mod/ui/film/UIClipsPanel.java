@@ -451,7 +451,24 @@ public class UIClipsPanel extends UIElement implements IUIClipsDelegate
     @Override
     public <T extends BaseValue> void editMultiple(T property, Consumer<T> consumer)
     {
-        DataPath path = property.getRelativePath(this.getClip());
+        if (property == null || consumer == null)
+        {
+            return;
+        }
+
+        BaseValue ancestor = this.getClip();
+
+        if (ancestor == null)
+        {
+            return;
+        }
+
+        DataPath path = property.getRelativePath(ancestor);
+
+        if (path == null)
+        {
+            return;
+        }
 
         for (Clip clip : this.clips.getClipsFromSelection())
         {

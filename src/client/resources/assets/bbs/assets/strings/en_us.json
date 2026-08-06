@@ -1155,6 +1155,7 @@
     "bbs.ui.film.replay.track.render.enabled-tooltip": "When disabled, the replay model is not rendered during playback, matching the Enable toggle in the Replays panel. Before the first keyframe, the first keyframe's value applies. After a lone keyframe, rendering returns to enabled.",
     "bbs.ui.film.replay.track.lighting": "Lighting",
     "bbs.ui.film.replay.track.transform": "Transform",
+    "bbs.ui.film.replay.track.shake": "Shake",
     "bbs.ui.film.replay.track.anchor": "Anchor",
     "bbs.ui.film.replay.track.color": "Color",
     "bbs.ui.film.replay.track.color_overlay": "Color overlay",

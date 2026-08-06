@@ -67,30 +67,33 @@ public class UIClipPlacementInteraction
         Vector3i size = clips.computePlacementSize(tick, layer, this.state.duration);
         int topUsed = clips.getHighestOccupiedLayer();
 
-        /* Hovering empty air above existing lanes would otherwise invent a new row.
-           Pack onto the lowest layer that can fit (same behaviour users expect for
-           Keyframe/Dolly drops) whenever the hover lane is above occupied content
-           or the hovered lane cannot fit the clip. */
-        boolean packFromBottom = this.state.lockedLayer < 0
-            && (size == null || (topUsed >= 0 && layer > topUsed));
-
-        if (packFromBottom)
+        if (this.state.lockedLayer < 0)
         {
-            Vector3i packed = null;
-
-            for (int tryLayer = 0; tryLayer < 32; tryLayer++)
+            if (topUsed >= 0 && layer > topUsed)
             {
-                packed = clips.computePlacementSize(tick, tryLayer, this.state.duration);
+                /* Hovering in empty air above the stack — snap onto the next lane
+                   on top (visually above), not pack under from layer 0. */
+                size = clips.computePlacementSize(tick, topUsed + 1, this.state.duration);
+            }
+            else if (size == null)
+            {
+                /* Hovered lane is blocked — search nearest free lane, preferring above. */
+                Vector3i packed = null;
+
+                for (int delta = 1; delta < 32 && packed == null; delta++)
+                {
+                    packed = clips.computePlacementSize(tick, layer + delta, this.state.duration);
+
+                    if (packed == null && layer - delta >= 0)
+                    {
+                        packed = clips.computePlacementSize(tick, layer - delta, this.state.duration);
+                    }
+                }
 
                 if (packed != null)
                 {
-                    break;
+                    size = packed;
                 }
-            }
-
-            if (packed != null)
-            {
-                size = packed;
             }
         }
 

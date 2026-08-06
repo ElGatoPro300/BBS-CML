@@ -6,6 +6,7 @@ import mchorse.bbs_mod.forms.FormUtilsClient;
 import mchorse.bbs_mod.forms.entities.IEntity;
 import mchorse.bbs_mod.forms.forms.BodyPart;
 import mchorse.bbs_mod.forms.forms.Form;
+import mchorse.bbs_mod.forms.FormShake;
 import mchorse.bbs_mod.forms.forms.ItemForm;
 import mchorse.bbs_mod.forms.forms.utils.GlowSettings;
 import mchorse.bbs_mod.forms.forms.utils.PaintSettings;
@@ -223,6 +224,10 @@ public final class ItemBodyPartBatch
         {
             applyOverlay(SCRATCH_TRANSFORM, extra.get());
         }
+
+        float animTime = context.entity != null ? context.entity.getAge() + context.getTransition() : context.getTransition();
+
+        FormShake.apply(SCRATCH_TRANSFORM, item, animTime);
 
         MatrixStackUtils.applyTransform(context.stack, SCRATCH_TRANSFORM);
 

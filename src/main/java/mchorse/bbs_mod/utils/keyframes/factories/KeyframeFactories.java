@@ -32,6 +32,7 @@ public class KeyframeFactories
     public static final PaintSettingsKeyframeFactory PAINT_SETTINGS = new PaintSettingsKeyframeFactory();
     public static final ShadowSettingsKeyframeFactory SHADOW_SETTINGS = new ShadowSettingsKeyframeFactory();
     public static final ChromaSkyCurveSettingsKeyframeFactory CHROMA_SKY_SETTINGS = new ChromaSkyCurveSettingsKeyframeFactory();
+    public static final ShakeSettingsKeyframeFactory SHAKE_SETTINGS = new ShakeSettingsKeyframeFactory();
 
     public static boolean isNumeric(IKeyframeFactory factory)
     {
@@ -70,5 +71,7 @@ public class KeyframeFactories
         FACTORIES.put("shadow_settings", SHADOW_SETTINGS);
         FACTORIES.put("shadow", SHADOW_SETTINGS);
         FACTORIES.put("chroma_sky_settings", CHROMA_SKY_SETTINGS);
+        FACTORIES.put("shake_settings", SHAKE_SETTINGS);
+        FACTORIES.put("shake", SHAKE_SETTINGS);
     }
 }

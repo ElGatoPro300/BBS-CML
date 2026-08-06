@@ -688,6 +688,8 @@ public class UIKeys
     public static final IKey FORMS_EDITORS_BLEND_COLOR = L10n.lang("bbs.ui.forms.editors.blend_color");
     public static final IKey FORMS_EDITORS_STRUCTURE_HITBOX = L10n.lang("bbs.ui.forms.editors.structure.hitbox");
     public static final IKey FORMS_EDITORS_STRUCTURE_HITBOX_TOOLTIP = L10n.lang("bbs.ui.forms.editors.structure.hitbox-tooltip");
+    public static final IKey FORMS_EDITORS_MODEL_HITBOX = L10n.lang("bbs.ui.forms.editors.model.hitbox");
+    public static final IKey FORMS_EDITORS_MODEL_HITBOX_TOOLTIP = L10n.lang("bbs.ui.forms.editors.model.hitbox-tooltip");
     public static final IKey FORMS_EDITORS_VIDEO_TITLE = L10n.lang("bbs.ui.forms.editors.video.title");
     public static final IKey FORMS_EDITORS_VIDEO_PICK_VIDEO = L10n.lang("bbs.ui.forms.editors.video.pick_video");
     public static final IKey FORMS_EDITORS_VIDEO_BILLBOARD = L10n.lang("bbs.ui.forms.editors.video.billboard");
@@ -938,6 +940,8 @@ public class UIKeys
     public static final IKey FILM_REPLAY_TRACK_RENDER_ENABLED_TOOLTIP = L10n.lang("bbs.ui.film.replay.track.render.enabled-tooltip");
     public static final IKey FILM_REPLAY_TRACK_LIGHTING = L10n.lang("bbs.ui.film.replay.track.lighting");
     public static final IKey FILM_REPLAY_TRACK_TRANSFORM = L10n.lang("bbs.ui.film.replay.track.transform");
+    public static final IKey FILM_REPLAY_TRACK_SHAKE = L10n.lang("bbs.ui.film.replay.track.shake");
+    public static final IKey FILM_REPLAY_TRACK_SHAKE_AMOUNT = L10n.lang("bbs.ui.film.replay.track.shake_amount");
     public static final IKey FILM_REPLAY_TRACK_ANCHOR = L10n.lang("bbs.ui.film.replay.track.anchor");
     public static final IKey FILM_REPLAY_TRACK_COLOR = L10n.lang("bbs.ui.film.replay.track.color");
     public static final IKey FILM_REPLAY_OPACITY_NO_SHADING = L10n.lang("bbs.ui.film.replay.opacity.no_shading");
@@ -1616,6 +1620,7 @@ public class UIKeys
     public static final IKey SCENE_REPLAYS_CONTEXT_FROM_CAMERA = L10n.lang("bbs.ui.scene.replays.context.from_camera");
     public static final IKey SCENE_REPLAYS_CONTEXT_FROM_MODEL_BLOCK = L10n.lang("bbs.ui.scene.replays.context.from_model_block");
     public static final IKey SCENE_REPLAYS_CONTEXT_FROM_MODEL_BLOCK_DESCRIPTION = L10n.lang("bbs.ui.scene.replays.context.from_model_block-description");
+    public static final IKey SCENE_REPLAYS_CONTEXT_FROM_MODEL_BLOCK_DISTANCE = L10n.lang("bbs.ui.scene.replays.context.from_model_block-distance");
     public static final IKey SCENE_REPLAYS_CONTEXT_FROM_MODEL_BLOCK_TITLE = L10n.lang("bbs.ui.scene.replays.context.from_model_block-title");
     public static final IKey SCENE_REPLAYS_CONTEXT_OFFSET_TIME = L10n.lang("bbs.ui.scene.replays.context.offset_time");
     public static final IKey SCENE_REPLAYS_CONTEXT_OFFSET_TIME_DESCRIPTION = L10n.lang("bbs.ui.scene.replays.context.offset_time-description");

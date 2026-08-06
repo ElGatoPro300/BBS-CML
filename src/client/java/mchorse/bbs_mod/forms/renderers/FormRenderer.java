@@ -1,6 +1,7 @@
 package mchorse.bbs_mod.forms.renderers;
 
 import mchorse.bbs_mod.client.BBSRendering;
+import mchorse.bbs_mod.forms.FormShake;
 import mchorse.bbs_mod.forms.FormUtilsClient;
 import mchorse.bbs_mod.forms.entities.IEntity;
 import mchorse.bbs_mod.forms.forms.BodyPart;
@@ -43,6 +44,7 @@ public abstract class FormRenderer <T extends Form>
     }
 
     protected T form;
+    private float animTime = 0F;
 
     public FormRenderer(T form)
     {
@@ -119,6 +121,7 @@ public abstract class FormRenderer <T extends Form>
         }
 
         this.form.applyStates(context.transition);
+        this.animTime = context.entity != null ? context.entity.getAge() + context.transition : context.transition;
 
         if (!this.form.visible.get())
         {
@@ -206,6 +209,8 @@ public abstract class FormRenderer <T extends Form>
         {
             this.applyTransform(transform, t.get());
         }
+
+        FormShake.apply(transform, this.form, this.animTime);
 
         return transform;
     }

@@ -1,6 +1,7 @@
 package mchorse.bbs_mod.forms.structure;
 
 import mchorse.bbs_mod.bobj.BOBJArmature;
+import mchorse.bbs_mod.bobj.BOBJLoader;
 import mchorse.bbs_mod.cubic.ModelInstance;
 import mchorse.bbs_mod.cubic.animation.IAnimator;
 import mchorse.bbs_mod.cubic.data.model.Model;
@@ -14,6 +15,8 @@ import mchorse.bbs_mod.utils.pose.Pose;
 import net.minecraft.client.MinecraftClient;
 
 import org.joml.Vector3f;
+
+import java.util.List;
 
 /**
  * Client-side collision bake using the same posed model pipeline as rendering
@@ -88,8 +91,9 @@ public final class ModelCollisionLiveBake
             if (instance.model instanceof BOBJModel bobj)
             {
                 BOBJArmature armature = bobj.getArmature();
+                List<BOBJLoader.CompiledData> meshes = bobj.getMeshes();
 
-                if (armature == null || bobj.getMeshData() == null)
+                if (armature == null || meshes == null || meshes.isEmpty())
                 {
                     return null;
                 }
@@ -106,7 +110,7 @@ public final class ModelCollisionLiveBake
                     bobj.applyPose(pose);
                     armature.setupMatrices();
 
-                    return ModelCollisionData.bakeFromSkinnedBobj(bobj.getMeshData(), armature, scale);
+                    return ModelCollisionData.bakeFromSkinnedBobj(meshes.get(0), armature, scale);
                 }
             }
         }

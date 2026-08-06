@@ -78,9 +78,9 @@ public abstract class EditorLayoutNode
         List<EditorLayoutNode> mediaTabs = new ArrayList<>();
 
         mediaTabs.add(new PanelNode("minecutReplays"));
+        mediaTabs.add(new PanelNode("minecutMediaTracks"));
         mediaTabs.add(new PanelNode("minecutMediaCamera"));
         mediaTabs.add(new PanelNode("minecutMediaActions"));
-        mediaTabs.add(new PanelNode("minecutMediaTracks"));
 
         List<EditorLayoutNode> propsTabs = new ArrayList<>();
 

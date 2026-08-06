@@ -213,6 +213,7 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
         COLORS.put("pose_overlay", Colors.ORANGE);
         COLORS.put("transform", Colors.GREEN);
         COLORS.put("transform_overlay", 0xaaff00);
+        COLORS.put("shake", 0x159e64);
         COLORS.put("color", Colors.INACTIVE);
         COLORS.put("color2", 0xff66ccff);
         COLORS.put("color_mode", 0xffaa66ff);
@@ -284,6 +285,7 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
         ICONS.put("texture", Icons.MATERIAL);
         ICONS.put("pose", Icons.POSE);
         ICONS.put("transform", Icons.ALL_DIRECTIONS);
+        ICONS.put("shake", Icons.EXCHANGE);
         ICONS.put("color", Icons.BUCKET);
         ICONS.put("color2", Icons.BUCKET);
         ICONS.put("color_mode", Icons.PROPERTIES);
@@ -1472,7 +1474,8 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
     private static final Set<String> VANILLA_ACTION_CHANNELS = Set.of(
         "death_time", "using_item", "item_use_time", "fire", "particles", "active_hand"
     );
-    private static final List<String> MODEL_PROPERTIES = Arrays.asList("visible", "render", "lighting", "transform", "transform_overlay", "pose", "pose_overlay", "anchor", "look_at", "inverse_kinematics", "illusion", "illusion_transform", "color", "color2", "color_mode", "color_grade", "paint", "paint_color", "glow", "texture", "pbr_normal_intensity", "pbr_specular_intensity", "model", "actions", "shape_keys", "block_state", "item_stack", "modelTransform", "same_animation_when_dropped", "settings", "paused", "frequency", "count", "structure_file", "biome_id", "emit_light", "light_intensity", "structure_light", "enabled", "level", "effect");
+    private static final List<String> MODEL_PROPERTIES = Arrays.asList("visible", "render", "lighting", "transform", "transform_overlay", "shake", "pose", "pose_overlay", "anchor", "look_at", "inverse_kinematics", "illusion", "illusion_transform", "color", "color2", "color_mode", "color_grade", "paint", "paint_color", "glow", "texture", "pbr_normal_intensity", "pbr_specular_intensity", "model", "actions", "shape_keys", "block_state", "item_stack", "modelTransform", "same_animation_when_dropped", "settings", "paused", "frequency", "count", "structure_file", "biome_id", "emit_light", "light_intensity", "structure_light", "enabled", "level", "effect");
+    private static final Set<String> HIDDEN_MODEL_PROPERTIES = Set.of("glowing_color", "glow_settings", "glow_intensity", "paint_color");
 
     private static boolean isFormItemUseTimeTrack(UIKeyframeSheet sheet)
     {
@@ -1913,6 +1916,11 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
             return UIKeys.FILM_REPLAY_TRACK_TRANSFORM;
         }
 
+        if (trackName.equals("shake"))
+        {
+            return UIKeys.FILM_REPLAY_TRACK_SHAKE;
+        }
+
         if (trackName.equals("anchor"))
         {
             return UIKeys.FILM_REPLAY_TRACK_ANCHOR;
@@ -1965,13 +1973,10 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
             return false;
         }
 
-        if (this.filmPanel != null && this.filmPanel.isMinecutFilmUi()
-            && FilmUiCapabilities.prefersSparseModelTracks())
-        {
-            return true;
-        }
-
-        return this.replay.hasExplicitModelTrackOrder();
+        /* Only when the addon explicitly opts in. Do not keep filtering by a saved
+         * model-track order — that hid form channels (e.g. particle offset_x/y/z). */
+        return this.filmPanel != null && this.filmPanel.isMinecutFilmUi()
+            && FilmUiCapabilities.prefersSparseModelTracks();
     }
 
     private void applySparseModelTrackFilter(Set<String> propertyPaths)
@@ -3269,7 +3274,10 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
                 {
                     this.cleanupUntouchedAutomaticKeyframe(this.lastPickedKeyframe, keyframe);
                     this.lastPickedKeyframe = keyframe;
-                    this.filmPanel.focusLinkedPropertiesTab("replayTimeline");
+                    if (!this.filmPanel.isMinecutFilmUi())
+                    {
+                        this.filmPanel.focusLinkedPropertiesTab("replayTimeline");
+                    }
                     consumer.accept(keyframe);
                 }).absolute();
 

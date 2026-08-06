@@ -174,6 +174,18 @@ public class UIReplayList extends UIList<Replay> {
     }
 
     /**
+     * Minecut Media cards: drag-reorder while this classic list may be hidden.
+     * Uses the same group-aware swap path as the default list UI.
+     */
+    public void reorderReplay(int from, int to)
+    {
+        if (from != to && this.exists(from) && this.exists(to))
+        {
+            this.handleSwap(from, to);
+        }
+    }
+
+    /**
      * Shared context menu for the classic list and Minecut Media cards / Add button.
      */
     public void fillContextMenu(ContextMenuManager menu) {
@@ -1881,6 +1893,8 @@ public class UIReplayList extends UIList<Replay> {
         ArrayList<ModelBlockEntity> modelBlocks = new ArrayList<>(BBSRendering.capturedModelBlocks);
         UISearchList<String> search = new UISearchList<>(new UIStringList(null));
         UIList<String> list = search.list;
+        MinecraftClient client = MinecraftClient.getInstance();
+        Vec3d playerPos = client.player != null ? client.player.getPos() : Vec3d.ZERO;
 
         list.multi();
 
@@ -1911,10 +1925,14 @@ public class UIReplayList extends UIList<Replay> {
 
         panel.resizable().minSize(300, 300);
 
-        modelBlocks.sort(Comparator.comparing(ModelBlockEntity::getName));
+        modelBlocks.sort(Comparator.comparingDouble((ModelBlockEntity block) ->
+            playerPos.squaredDistanceTo(Vec3d.ofCenter(block.getPos()))));
 
         for (ModelBlockEntity modelBlock : modelBlocks) {
-            list.add(modelBlock.getName());
+            double distance = Math.sqrt(playerPos.squaredDistanceTo(Vec3d.ofCenter(modelBlock.getPos())));
+            String distanceLabel = UIKeys.SCENE_REPLAYS_CONTEXT_FROM_MODEL_BLOCK_DISTANCE.format(String.format("%.1f", distance)).get();
+
+            list.add(modelBlock.getName() + " (" + distanceLabel + ")");
         }
 
         list.background();

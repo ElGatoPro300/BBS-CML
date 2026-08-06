@@ -27,6 +27,7 @@ public final class ModelTrackIds
     public static final String RENDER_DEPTH = "render_depth";
     public static final String TRANSFORM = "transform";
     public static final String TRANSFORM_OVERLAY = "transform_overlay";
+    public static final String SHAKE = "shake";
     public static final String POSE = "pose";
     public static final String POSE_OVERLAY = "pose_overlay";
     public static final String ANCHOR = "anchor";
@@ -79,7 +80,7 @@ public final class ModelTrackIds
 
     /** Singleton palette rows — only one line per replay. */
     public static final List<String> SINGLETON_PALETTE_TYPES = Collections.unmodifiableList(Arrays.asList(
-        VISIBLE, RENDER, TRANSFORM, POSE, LIGHTING, RENDER_DEPTH, ANCHOR, LOOK_AT, INVERSE_KINEMATICS,
+        VISIBLE, RENDER, TRANSFORM, POSE, LIGHTING, RENDER_DEPTH, SHAKE, ANCHOR, LOOK_AT, INVERSE_KINEMATICS,
         ILLUSION, COLOR, COLOR_GRADE, OPACITY, GLOW, TEXTURE, PAINT, ACTIONS,
         SHAPE_KEYS, MODEL, MODEL_TRANSFORM, SAME_ANIMATION_WHEN_DROPPED, BLOCK_STATE, ITEM_STACK,
         SETTINGS, PAUSED, FREQUENCY, COUNT, STRUCTURE_FILE, BIOME_ID, EMIT_LIGHT, LIGHT_INTENSITY,
@@ -95,7 +96,7 @@ public final class ModelTrackIds
     ));
 
     public static final List<String> PALETTE_MOTION = Collections.unmodifiableList(Arrays.asList(
-        ANCHOR, LOOK_AT, INVERSE_KINEMATICS, ILLUSION
+        SHAKE, ANCHOR, LOOK_AT, INVERSE_KINEMATICS, ILLUSION
     ));
 
     public static final List<String> PALETTE_ANIMATION = Collections.unmodifiableList(Arrays.asList(
@@ -104,7 +105,8 @@ public final class ModelTrackIds
 
     public static final List<String> PALETTE_FORM = Collections.unmodifiableList(Arrays.asList(
         COLOR_GRADE, BLOCK_STATE, ITEM_STACK, FREQUENCY, COUNT, STRUCTURE_FILE, BIOME_ID,
-        EMIT_LIGHT, LIGHT_INTENSITY, STRUCTURE_LIGHT, ENABLED, LEVEL, EFFECT
+        EMIT_LIGHT, LIGHT_INTENSITY, STRUCTURE_LIGHT, ENABLED, LEVEL, EFFECT,
+        "offset_x", "offset_y", "offset_z", "velocity", "scattering_yaw", "scattering_pitch", "local"
     ));
 
     private ModelTrackIds()
@@ -413,7 +415,7 @@ public final class ModelTrackIds
 
         /* Prefer MODEL_PROPERTIES-like order: visible → transform → pose → rest */
         List<String> preferred = Arrays.asList(
-            VISIBLE, RENDER, LIGHTING, RENDER_DEPTH, TRANSFORM, POSE, COLOR, COLOR_GRADE, OPACITY,
+            VISIBLE, RENDER, LIGHTING, RENDER_DEPTH, TRANSFORM, POSE, SHAKE, COLOR, COLOR_GRADE, OPACITY,
             PAINT, GLOW, TEXTURE, ANCHOR, LOOK_AT, INVERSE_KINEMATICS, ILLUSION, ILLUSION_TRANSFORM,
             ACTIONS, SHAPE_KEYS, MODEL, MODEL_TRANSFORM, SAME_ANIMATION_WHEN_DROPPED, PAUSED, SETTINGS,
             BLOCK_STATE, ITEM_STACK, FREQUENCY, COUNT, STRUCTURE_FILE, BIOME_ID, EMIT_LIGHT,
@@ -650,6 +652,7 @@ public final class ModelTrackIds
 
         return lower.equals(VISIBLE) || lower.equals(RENDER) || lower.equals(LIGHTING)
             || lower.equals(RENDER_DEPTH) || lower.equals(TRANSFORM) || lower.startsWith(TRANSFORM_OVERLAY)
+            || lower.equals(SHAKE)
             || lower.equals(POSE) || lower.startsWith(POSE_OVERLAY)
             || lower.equals(ANCHOR) || lower.equals(LOOK_AT) || lower.equals(INVERSE_KINEMATICS)
             || lower.equals(ILLUSION) || lower.startsWith(ILLUSION_OVERLAY)
@@ -663,7 +666,10 @@ public final class ModelTrackIds
             || lower.equals(FREQUENCY) || lower.equals(COUNT) || lower.equals(STRUCTURE_FILE)
             || lower.equals(BIOME_ID) || lower.equals(EMIT_LIGHT) || lower.equals(LIGHT_INTENSITY)
             || lower.equals(STRUCTURE_LIGHT) || lower.equals(ENABLED) || lower.equals(LEVEL)
-            || lower.equals(EFFECT) || lower.startsWith("illusion_transform");
+            || lower.equals(EFFECT) || lower.startsWith("illusion_transform")
+            || lower.equals("offset_x") || lower.equals("offset_y") || lower.equals("offset_z")
+            || lower.equals("velocity") || lower.equals("scattering_yaw") || lower.equals("scattering_pitch")
+            || lower.equals("local");
     }
 
     public static boolean isLimbChildOfOrdered(String path, List<String> order)

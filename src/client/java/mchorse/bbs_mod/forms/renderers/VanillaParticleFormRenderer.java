@@ -165,11 +165,8 @@ public class VanillaParticleFormRenderer extends FormRenderer<VanillaParticleFor
                         continue;
                     }
 
-                    int maxAge = tracked.particle.maxAge;
-                    int age = tracked.particle.age;
-
-                    float progress = maxAge > 0 ? (float) age / (float) maxAge : 1F;
-                    progress = MathUtils.clamp(progress, 0F, 1F);
+                    /* Yarn/Mojmap: Particle age fields are protected — sample mid-life tint. */
+                    float progress = 0.5F;
 
                     float r = Lerps.lerp(tracked.startColor.r, tracked.endColor.r, progress);
                     float g = Lerps.lerp(tracked.startColor.g, tracked.endColor.g, progress);

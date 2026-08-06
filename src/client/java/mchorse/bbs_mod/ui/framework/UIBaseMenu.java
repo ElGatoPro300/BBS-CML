@@ -4,6 +4,7 @@ import mchorse.bbs_mod.ui.Keys;
 import mchorse.bbs_mod.ui.film.toolbar.TimelineToolbar;
 import mchorse.bbs_mod.ui.film.toolbar.TimelineToolbarPointerBlock;
 import mchorse.bbs_mod.ui.forms.UIFormList;
+import mchorse.bbs_mod.ui.framework.elements.IFocusedUIElement;
 import mchorse.bbs_mod.ui.framework.elements.IUIElement;
 import mchorse.bbs_mod.ui.framework.elements.IViewport;
 import mchorse.bbs_mod.ui.framework.elements.UIElement;
@@ -158,7 +159,17 @@ public abstract class UIBaseMenu
             this.context.pushViewport(this.viewport);
             TimelineToolbarPointerBlock.prepare(this.context);
 
+            IFocusedUIElement previouslyFocused = this.context.activeElement;
             IUIElement element = this.root.mouseClicked(this.context);
+
+            /* Clicking anywhere outside the focused text field leaves typing mode. */
+            if (previouslyFocused != null
+                && this.context.activeElement == previouslyFocused
+                && previouslyFocused instanceof UIElement
+                && !((UIElement) previouslyFocused).area.isInside(mouseX, mouseY))
+            {
+                this.context.unfocus();
+            }
 
             this.context.popViewport();
 

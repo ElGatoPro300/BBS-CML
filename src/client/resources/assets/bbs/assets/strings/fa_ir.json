@@ -1144,6 +1144,7 @@
     "bbs.ui.film.replay.track.stick_ry": "دسته راست Y",
     "bbs.ui.film.replay.track.texture": "پوسته",
     "bbs.ui.film.replay.track.transform": "جا‌به‌جایی",
+    "bbs.ui.film.replay.track.shake": "لرزش",
     "bbs.ui.film.replay.track.transform_overlay": "لایه جا‌به‌جایی",
     "bbs.ui.film.replay.track.transform_overlay_n": "لایه جا‌به‌جایی %s",
     "bbs.ui.film.replay.track.trigger_l": "ماشه چپ",

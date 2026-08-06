@@ -29,7 +29,8 @@ public final class FilmUiCapabilities
     }
 
     /**
-     * When true, sparse Model-track timeline UX is preferred while the Minecut skin is active.
+     * When true, sparse Model-track timeline UX is preferred while the Minecut skin is active
+     * (default Pose/Transform, keep tracks with keyframes, Remove track in the context menu).
      */
     public static void setSparseTracksPreferred(boolean preferred)
     {

@@ -464,8 +464,8 @@ public class UIFilmPreview extends UIElement
 
         if (this.areIconsExternallyHosted())
         {
-            this.setIconButtonSize(16);
-            this.icons.row().resize();
+            this.setIconButtonSize(20);
+            this.icons.row(0).resize();
         }
 
         if (this.viewportButtonsHidden)
@@ -511,13 +511,15 @@ public class UIFilmPreview extends UIElement
         }
 
         this.icons.removeFromParent();
-        this.icons.resetFlex().relative(host).x(0.5F).y(0.5F).anchor(0.5F, 0.5F);
-        this.setIconButtonSize(16);
+        /* Fill the transport strip height so active halos match the eye / strip (not a short
+           16px cell floating lower in the bar). */
+        this.icons.resetFlex().relative(host).x(0.5F).y(0).h(1F).anchorX(0.5F);
+        this.setIconButtonSize(20);
         host.removeAll();
         host.add(this.icons);
         this.setMinecutExportIconsHidden(false);
         this.setViewportButtonsHidden(false);
-        this.icons.row().resize();
+        this.icons.row(0).resize();
         host.resize();
     }
 
@@ -573,6 +575,7 @@ public class UIFilmPreview extends UIElement
 
         if (!this.viewportButtonsHidden)
         {
+            /* Soft strip halo (same as classic eye / flight) — full button height. */
             if (this.panel.isFlying()) UIDashboardPanels.renderHighlight(context.batcher, this.flight.area, Direction.BOTTOM);
             if (this.panel.getController().isControlling()) UIDashboardPanels.renderHighlight(context.batcher, this.control.area, Direction.BOTTOM);
             if (this.panel.getController().isRecording()) UIDashboardPanels.renderHighlight(context.batcher, this.recordReplay.area, Direction.BOTTOM);
