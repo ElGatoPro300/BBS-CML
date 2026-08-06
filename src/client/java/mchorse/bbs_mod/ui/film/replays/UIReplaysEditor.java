@@ -780,6 +780,24 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
 
     public static final Form DUMMY_FORM = new StructureForm();
 
+    /**
+     * Tracks exposed on replay folder/group timelines. Folders can contain any form type,
+     * so this list is limited to properties that {@link mchorse.bbs_mod.film.BaseFilmController}
+     * can apply to every form (visibility, color multiply, transform, paint, glow).
+     * {@code render} is created for the visible/Enabled pairing but stays timeline-hidden.
+     */
+    private static final List<String> GROUP_FORM_PROPERTIES = Arrays.asList(
+        "visible",
+        "render",
+        "transform",
+        "transform_overlay",
+        "illusion",
+        "color",
+        "color_grade",
+        "paint",
+        "glow"
+    );
+
     public static boolean renderBackground(UIContext context, UIKeyframes keyframes, Clips camera, int clipOffset, Clip selectedClip)
     {
         Scale scale = keyframes.getXAxis();
@@ -2080,20 +2098,12 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
 
         if (this.replay.isGroup.get())
         {
-            List<String> properties = new ArrayList<>();
-
-            properties.add("visible");
-            properties.add("render");
-            properties.add("color");
-            properties.add("transform");
-            properties.add("transform_overlay");
+            List<String> properties = new ArrayList<>(GROUP_FORM_PROPERTIES);
 
             for (int i = 0; i < BBSSettings.recordingPoseTransformOverlays.get(); i++)
             {
                 properties.add("transform_overlay" + i);
             }
-
-            properties.add("glow");
 
             this.replay.properties.getOrCreate(DUMMY_FORM, "render");
 
@@ -2109,7 +2119,22 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
                 if (property != null)
                 {
                     BaseValueBasic formProperty = FormUtils.getProperty(DUMMY_FORM, key);
-                    UIKeyframeSheet sheet = new UIKeyframeSheet(getColor(key), false, property, formProperty);
+
+                    if (formProperty == null && FormProperties.isColorGradeChannelKey(key))
+                    {
+                        formProperty = FormUtils.getProperty(DUMMY_FORM, FormProperties.colorPropertyPathForGrade(key));
+                    }
+
+                    String customTitle = this.replay.getCustomSheetTitle(key);
+                    Integer customColor = this.replay.getSheetColor(key);
+                    int sheetColor = customColor != null ? customColor : getColor(key);
+                    IKey resolvedTitle = resolvePropertyTrackTitle(key);
+
+                    UIKeyframeSheet sheet = customTitle != null && !customTitle.isEmpty()
+                        ? new UIKeyframeSheet(key, IKey.constant(customTitle), sheetColor, false, property, formProperty)
+                        : resolvedTitle != null
+                            ? new UIKeyframeSheet(key, resolvedTitle, sheetColor, false, property, formProperty)
+                            : new UIKeyframeSheet(sheetColor, false, property, formProperty);
 
                     sheets.add(withTrackIcon(sheet, key));
                 }
@@ -2755,6 +2780,32 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
             }
 
             sheets = grouped;
+        }
+        else if (this.replay.isGroup.get())
+        {
+            /* Nest paint / glow / color_grade under color (same as replay form timeline). */
+            List<UIKeyframeSheet> before = new ArrayList<>();
+            List<UIKeyframeSheet> pose = new ArrayList<>();
+            List<UIKeyframeSheet> limbs = new ArrayList<>();
+            List<UIKeyframeSheet> overlayRoots = new ArrayList<>();
+            List<UIKeyframeSheet> overlayLimbs = new ArrayList<>();
+            List<UIKeyframeSheet> after = new ArrayList<>();
+
+            for (UIKeyframeSheet sheet : sheets)
+            {
+                this.processTrack(sheet, "", 0, before, pose, limbs, overlayRoots, overlayLimbs, after);
+            }
+
+            this.injectColorGradeSheets(before);
+            this.injectColorGradeSheets(after);
+
+            sheets = new ArrayList<>();
+            sheets.addAll(before);
+            sheets.addAll(pose);
+            sheets.addAll(limbs);
+            sheets.addAll(overlayRoots);
+            sheets.addAll(overlayLimbs);
+            sheets.addAll(after);
         }
 
         Object lastForm = null;

@@ -3,11 +3,13 @@ package mchorse.bbs_mod.film;
 import mchorse.bbs_mod.film.replays.Replay;
 import mchorse.bbs_mod.forms.entities.IEntity;
 import mchorse.bbs_mod.forms.forms.utils.GlowSettings;
+import mchorse.bbs_mod.forms.forms.utils.Illusion;
 import mchorse.bbs_mod.forms.forms.utils.PaintSettings;
 import mchorse.bbs_mod.forms.forms.utils.ShadowSettings;
 import mchorse.bbs_mod.ui.framework.elements.utils.StencilMap;
 import mchorse.bbs_mod.ui.utils.gizmo.TransformOrientation;
 import mchorse.bbs_mod.utils.MatrixStackUtils;
+import mchorse.bbs_mod.utils.colors.Color;
 import mchorse.bbs_mod.utils.colors.Colors;
 
 import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
@@ -67,6 +69,8 @@ public class FilmControllerContext
     public Matrix4f viewMatrix;
     public PaintSettings groupPaint;
     public GlowSettings groupGlow;
+    public Color groupColorGrade;
+    public Illusion groupIllusion;
 
     private FilmControllerContext()
     {}
@@ -98,6 +102,8 @@ public class FilmControllerContext
         this.viewMatrix = null;
         this.groupPaint = null;
         this.groupGlow = null;
+        this.groupColorGrade = null;
+        this.groupIllusion = null;
     }
 
     public FilmControllerContext setup(IntObjectMap<IEntity> entities, IEntity entity, Replay replay, WorldRenderContext context)

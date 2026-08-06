@@ -16,7 +16,9 @@ import mchorse.bbs_mod.forms.forms.Form;
 import mchorse.bbs_mod.forms.forms.MobForm;
 import mchorse.bbs_mod.forms.forms.ModelForm;
 import mchorse.bbs_mod.forms.forms.utils.Anchor;
+import mchorse.bbs_mod.forms.forms.utils.EffectTransform;
 import mchorse.bbs_mod.forms.forms.utils.GlowSettings;
+import mchorse.bbs_mod.forms.forms.utils.Illusion;
 import mchorse.bbs_mod.forms.forms.utils.LookAt;
 import mchorse.bbs_mod.forms.forms.utils.LookAtBone;
 import mchorse.bbs_mod.forms.forms.utils.PaintSettings;
@@ -31,6 +33,7 @@ import mchorse.bbs_mod.graphics.Draw;
 import mchorse.bbs_mod.mixin.client.ClientPlayerEntityAccessor;
 import mchorse.bbs_mod.morphing.Morph;
 import mchorse.bbs_mod.settings.values.base.BaseValue;
+import mchorse.bbs_mod.settings.values.core.ValueColor;
 import mchorse.bbs_mod.ui.framework.UIBaseMenu;
 import mchorse.bbs_mod.ui.framework.elements.utils.StencilMap;
 import mchorse.bbs_mod.ui.utils.Gizmo;
@@ -131,6 +134,8 @@ public abstract class BaseFilmController
         }
 
         applyGroupPaintGlow(form, context.groupPaint, context.groupGlow);
+        applyGroupColorGrade(form, context.groupColorGrade);
+        applyGroupIllusion(form, context.groupIllusion);
 
         Vector3d position = Vectors.TEMP_3D.set(
             Lerps.lerp(entity.getPrevX(), entity.getX(), transition),
@@ -1564,21 +1569,42 @@ public abstract class BaseFilmController
             @SuppressWarnings("unchecked")
             KeyframeChannel<Boolean> render = (KeyframeChannel<Boolean>) renderValue;
 
-            if (render.isEmpty())
+            if (!render.isEmpty())
             {
-                return true;
+                Keyframe<Boolean> first = render.get(0);
+
+                if (first != null && tick < first.getTick())
+                {
+                    return true;
+                }
+
+                Boolean value = render.interpolate(tick, true);
+
+                return value == null || value;
             }
+        }
 
-            Keyframe<Boolean> first = render.get(0);
+        /* Older group films keyed only "visible" before the visible/render pairing. */
+        BaseValue visibleValue = replay.properties.get("visible");
 
-            if (first != null && tick < first.getTick())
+        if (visibleValue instanceof KeyframeChannel)
+        {
+            @SuppressWarnings("unchecked")
+            KeyframeChannel<Boolean> visible = (KeyframeChannel<Boolean>) visibleValue;
+
+            if (!visible.isEmpty())
             {
-                return true;
+                Keyframe<Boolean> first = visible.get(0);
+
+                if (first != null && tick < first.getTick())
+                {
+                    return true;
+                }
+
+                Boolean value = visible.interpolate(tick, true);
+
+                return value == null || value;
             }
-
-            Boolean value = render.interpolate(tick, true);
-
-            return value == null || value;
         }
 
         return true;
@@ -1773,6 +1799,8 @@ public abstract class BaseFilmController
         Matrix4f localTransform = new Matrix4f().identity();
         PaintSettings groupPaint = null;
         GlowSettings groupGlow = null;
+        Color groupColorGrade = null;
+        Illusion groupIllusion = null;
 
         for (String uuid : groups)
         {
@@ -1847,6 +1875,20 @@ public abstract class BaseFilmController
                 {
                     groupGlow = groupGlow == null ? glow : this.mergeGlowSettings(groupGlow, glow);
                 }
+
+                Color grade = this.getGroupColorGrade(groupReplay, (float) tick);
+
+                if (grade != null)
+                {
+                    groupColorGrade = groupColorGrade == null ? grade : this.mergeColorGrade(groupColorGrade, grade);
+                }
+
+                Illusion illusion = this.getGroupIllusion(groupReplay, (float) tick);
+
+                if (illusion != null)
+                {
+                    groupIllusion = illusion;
+                }
             }
         }
 
@@ -1867,6 +1909,8 @@ public abstract class BaseFilmController
 
         context.groupPaint = groupPaint;
         context.groupGlow = groupGlow;
+        context.groupColorGrade = groupColorGrade;
+        context.groupIllusion = groupIllusion;
 
         return true;
     }
@@ -1956,6 +2000,60 @@ public abstract class BaseFilmController
         return null;
     }
 
+    private Color getGroupColorGrade(Replay groupReplay, float tick)
+    {
+        BaseValue gradeValue = groupReplay.properties.get("color_grade");
+
+        if (gradeValue instanceof KeyframeChannel)
+        {
+            KeyframeChannel<Color> channel = (KeyframeChannel<Color>) gradeValue;
+
+            if (!channel.isEmpty())
+            {
+                Color grade = channel.interpolate(tick);
+
+                return grade == null ? null : grade.copy();
+            }
+        }
+
+        return null;
+    }
+
+    private Illusion getGroupIllusion(Replay groupReplay, float tick)
+    {
+        BaseValue illusionValue = groupReplay.properties.get("illusion");
+
+        if (illusionValue instanceof KeyframeChannel)
+        {
+            KeyframeChannel<Illusion> channel = (KeyframeChannel<Illusion>) illusionValue;
+
+            if (!channel.isEmpty())
+            {
+                Illusion illusion = channel.interpolate(tick);
+
+                return illusion == null ? null : illusion.copy();
+            }
+        }
+
+        return null;
+    }
+
+    private Color mergeColorGrade(Color base, Color overlay)
+    {
+        Color merged = base.copy();
+
+        merged.brightness += overlay.brightness;
+        merged.contrast += overlay.contrast;
+        merged.hue += overlay.hue;
+        merged.saturation += overlay.saturation;
+        merged.brightnessTransform = overlay.brightnessTransform == null ? new EffectTransform() : overlay.brightnessTransform.copy();
+        merged.contrastTransform = overlay.contrastTransform == null ? new EffectTransform() : overlay.contrastTransform.copy();
+        merged.hueTransform = overlay.hueTransform == null ? new EffectTransform() : overlay.hueTransform.copy();
+        merged.saturationTransform = overlay.saturationTransform == null ? new EffectTransform() : overlay.saturationTransform.copy();
+
+        return merged;
+    }
+
     private PaintSettings mergePaintSettings(PaintSettings base, PaintSettings overlay)
     {
         PaintSettings merged = base.copy();
@@ -2018,6 +2116,61 @@ public abstract class BaseFilmController
             current.width = Math.max(current.width, groupGlow.width);
             current.height = Math.max(current.height, groupGlow.height);
             form.glowSettings.setRuntimeValue(current);
+        }
+    }
+
+    private static void applyGroupColorGrade(Form form, Color groupGrade)
+    {
+        if (groupGrade == null)
+        {
+            return;
+        }
+
+        BaseValue colorValue = form.get("color");
+
+        if (!(colorValue instanceof ValueColor valueColor))
+        {
+            return;
+        }
+
+        Color runtime = valueColor.getRuntimeValue() instanceof Color runtimeColor
+            ? runtimeColor
+            : null;
+
+        if (runtime == null)
+        {
+            Color base = valueColor.getOriginalValue();
+
+            runtime = base == null ? new Color(1F, 1F, 1F, 1F) : base.copy();
+            valueColor.setRuntimeValue(runtime);
+        }
+
+        runtime.brightness = groupGrade.brightness;
+        runtime.contrast = groupGrade.contrast;
+        runtime.hue = groupGrade.hue;
+        runtime.saturation = groupGrade.saturation;
+        runtime.brightnessTransform = groupGrade.brightnessTransform == null ? new EffectTransform() : groupGrade.brightnessTransform.copy();
+        runtime.contrastTransform = groupGrade.contrastTransform == null ? new EffectTransform() : groupGrade.contrastTransform.copy();
+        runtime.hueTransform = groupGrade.hueTransform == null ? new EffectTransform() : groupGrade.hueTransform.copy();
+        runtime.saturationTransform = groupGrade.saturationTransform == null ? new EffectTransform() : groupGrade.saturationTransform.copy();
+    }
+
+    private static void applyGroupIllusion(Form form, Illusion groupIllusion)
+    {
+        if (groupIllusion == null)
+        {
+            return;
+        }
+
+        Illusion current = form.illusion.get();
+
+        if (current == null || current.count <= 0)
+        {
+            form.illusion.setRuntimeValue(groupIllusion.copy());
+        }
+        else
+        {
+            form.illusionOverlay.setRuntimeValue(groupIllusion.copy());
         }
     }
 
