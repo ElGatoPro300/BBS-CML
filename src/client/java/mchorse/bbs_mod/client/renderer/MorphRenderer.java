@@ -1,5 +1,6 @@
 package mchorse.bbs_mod.client.renderer;
 
+import mchorse.bbs_mod.client.BBSRendering;
 import mchorse.bbs_mod.data.types.MapType;
 import mchorse.bbs_mod.forms.FormUtils;
 import mchorse.bbs_mod.forms.FormUtilsClient;
@@ -19,6 +20,7 @@ import mchorse.bbs_mod.utils.interps.Lerps;
 
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.network.AbstractClientPlayerEntity;
+import net.minecraft.client.render.DiffuseLighting;
 import net.minecraft.client.render.VertexConsumerProvider;
 import net.minecraft.client.render.entity.LivingEntityRenderer;
 import net.minecraft.client.util.math.MatrixStack;
@@ -70,9 +72,21 @@ public class MorphRenderer
             {
                 RenderSystem.enableDepthTest();
 
-                Vector3f a = new Vector3f(0.85F, 0.85F, -1F).normalize();
-                Vector3f b = new Vector3f(-0.85F, 0.85F, 1F).normalize();
-                RenderSystem.setupLevelDiffuseLighting(a, b);
+                /* World morphs keep MorphRenderer's level lights. InventoryScreen.drawEntity
+                 * (and creative inventory) already set GUI diffuse lighting for the vanilla
+                 * player — override only there so forms match that preview without changing
+                 * world / film / first-person lighting. */
+                if (BBSRendering.isRenderingWorld())
+                {
+                    Vector3f a = new Vector3f(0.85F, 0.85F, -1F).normalize();
+                    Vector3f b = new Vector3f(-0.85F, 0.85F, 1F).normalize();
+
+                    RenderSystem.setupLevelDiffuseLighting(a, b);
+                }
+                else
+                {
+                    DiffuseLighting.enableGuiDepthLighting();
+                }
 
                 float bodyYaw = Lerps.lerp(player.prevBodyYaw, player.bodyYaw, g);
                 int overlay = LivingEntityRenderer.getOverlay(player, 0F);
