@@ -281,6 +281,7 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
         this.form.applyFormOpacity(color);
         this.form.applyFormOpacity(formColor);
         color.a *= alphaFactor;
+        formColor.a *= alphaFactor;
 
         boolean shadowPass = shadowPassEarly;
 

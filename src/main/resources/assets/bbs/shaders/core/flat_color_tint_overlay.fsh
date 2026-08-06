@@ -120,8 +120,13 @@ void main()
         discard;
     }
 
-    vec3 tintRgb = mix(vec3(1.0), FormColorTint.rgb, cmask);
-    float tintA = mix(1.0, FormColorTint.a, cmask);
+    /* FormColorTint.a is traditional form opacity. Scale spatial tint strength with it so
+     * translucent labels/billboards fade the mask with the base (RGB multiply ignored .a
+     * before, leaving a fully saturated / “opaque” mask on a soft base). Keep src alpha at
+     * 1 so DST_ALPHA multiply does not rewrite the base pass opacity. */
+    float opacity = clamp(FormColorTint.a, 0.0, 1.0);
+    float strength = cmask * opacity;
+    vec3 tintRgb = mix(vec3(1.0), FormColorTint.rgb, strength);
 
-    fragColor = vec4(tintRgb, tintA);
+    fragColor = vec4(tintRgb, 1.0);
 }

@@ -425,7 +425,8 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
         Color shadowColor = this.form.shadowColor.get().copy();
         Color storedFormColor = this.form.color.get();
         boolean colorTransformWanted = FormColorEffects.wantsColorTransformMask(storedFormColor) && !context.isPicking();
-        Color color = new Color().set(context.color, true);
+        Color contextColor = new Color().set(context.color, true);
+        Color color = contextColor.copy();
         Color formTintColor = null;
         EffectTransform colorTransform = null;
 
@@ -436,9 +437,11 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
             color.g = 1F;
             color.b = 1F;
             this.form.applyFormOpacity(color);
+            /* Keep base + FlatColorTint opacity in sync (context alpha used to hit only the tint). */
+            color.a *= contextColor.a;
             formTintColor = storedFormColor.copyDeferringColorGrade().copy();
             this.form.applyFormOpacity(formTintColor);
-            formTintColor.mul(new Color().set(context.color, true));
+            formTintColor.mul(contextColor);
             colorTransform = storedFormColor.transform == null ? null : storedFormColor.transform.copy();
         }
         else
@@ -592,7 +595,8 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
         Color shadowColor = this.form.shadowColor.get().copy();
         Color storedFormColor = this.form.color.get();
         boolean colorTransformWanted = FormColorEffects.wantsColorTransformMask(storedFormColor) && !context.isPicking();
-        Color color = new Color().set(context.color, true);
+        Color contextColor = new Color().set(context.color, true);
+        Color color = contextColor.copy();
         Color formTintColor = null;
         EffectTransform colorTransform = null;
 
@@ -602,9 +606,10 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
             color.g = 1F;
             color.b = 1F;
             this.form.applyFormOpacity(color);
+            color.a *= contextColor.a;
             formTintColor = storedFormColor.copyDeferringColorGrade().copy();
             this.form.applyFormOpacity(formTintColor);
-            formTintColor.mul(new Color().set(context.color, true));
+            formTintColor.mul(contextColor);
             colorTransform = storedFormColor.transform == null ? null : storedFormColor.transform.copy();
         }
         else
