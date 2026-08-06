@@ -866,8 +866,8 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
         this.keys().register(Keys.PREV_CLIP, () -> this.setCursor(this.data.camera.findPreviousTick(this.getCursor()))).active(active).category(editor);
         this.keys().register(Keys.NEXT, () -> this.setCursor(this.getCursor() + 1)).active(active).category(editor);
         this.keys().register(Keys.PREV, () -> this.setCursor(this.getCursor() - 1)).active(active).category(editor);
-        this.keys().register(Keys.UNDO, this::undo).active(() -> this.data != null).category(editor);
-        this.keys().register(Keys.REDO, this::redo).active(() -> this.data != null).category(editor);
+        this.keys().register(Keys.UNDO, this::undo).active(() -> this.data != null && !this.undoHandler.isFilmRecording()).category(editor);
+        this.keys().register(Keys.REDO, this::redo).active(() -> this.data != null && !this.undoHandler.isFilmRecording()).category(editor);
         this.keys().register(Keys.FLIGHT, this::toggleFlight).active(() -> this.data != null).category(modes);
         this.keys().register(Keys.LOOPING, () ->
         {
@@ -5543,7 +5543,7 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
 
     public void undo()
     {
-        if (this.data != null)
+        if (this.data != null && !this.undoHandler.isFilmRecording())
         {
             this.undoHandler.submitUndo();
 
@@ -5557,7 +5557,7 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
 
     public void redo()
     {
-        if (this.data != null)
+        if (this.data != null && !this.undoHandler.isFilmRecording())
         {
             this.undoHandler.submitUndo();
 

@@ -21,7 +21,6 @@ import net.minecraft.util.Hand;
 
 import java.util.Iterator;
 import java.util.Map;
-import java.util.WeakHashMap;
 
 public class MobCemPoseCapture
 {
@@ -29,13 +28,6 @@ public class MobCemPoseCapture
     private static final float FIX_PIVOT_THRESHOLD = 0.05F;
     private static final float FIX_SCALE_THRESHOLD = 0.01F;
     private static final float POSE_EQUAL_EPSILON = 0.001F;
-
-    /**
-     * Cache CEM samples per form for the current integer tick so playback at
-     * display refresh rate does not re-run reflection + setAngles every frame.
-     */
-    private static final Map<Form, Integer> playbackSampleTick = new WeakHashMap<>();
-    private static final Map<Form, Pose> playbackSamplePose = new WeakHashMap<>();
 
     private MobCemPoseCapture()
     {}
@@ -62,24 +54,10 @@ public class MobCemPoseCapture
         }
 
         Form resolved = MobCemPoseCapture.resolveForm(form, entity);
-        int tickFloor = (int) Math.floor(tick);
-        Integer cachedTick = MobCemPoseCapture.playbackSampleTick.get(resolved);
-        Pose sampled;
+        float transition = tick - (float) Math.floor(tick);
+        Pose sampled = MobCemPoseCapture.samplePose(resolved, entity, transition);
 
-        if (cachedTick != null && cachedTick == tickFloor)
-        {
-            sampled = MobCemPoseCapture.playbackSamplePose.get(resolved);
-        }
-        else
-        {
-            float transition = tick - tickFloor;
-
-            sampled = MobCemPoseCapture.samplePose(resolved, entity, transition);
-            MobCemPoseCapture.playbackSampleTick.put(resolved, tickFloor);
-            MobCemPoseCapture.playbackSamplePose.put(resolved, sampled);
-        }
-
-        if (sampled == null || sampled.isEmpty())
+        if (sampled.isEmpty())
         {
             return;
         }

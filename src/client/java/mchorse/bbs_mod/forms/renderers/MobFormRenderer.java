@@ -106,13 +106,6 @@ public class MobFormRenderer extends FormRenderer<MobForm> implements ITickable
             return Collections.emptyMap();
         }
 
-        Map<String, ModelPart> cached = parts.get(entityClass);
-
-        if (cached != null && !cached.isEmpty())
-        {
-            return cached;
-        }
-
         Map<String, ModelPart> resolved = new HashMap<>();
 
         MobFormRenderer.collectPartsFromModel(model, resolved);
