@@ -1303,6 +1303,15 @@ public class UIFormList extends UIElement
 
         int searchX = SELECTED_INFO_WIDTH + 6;
         this.search.relative(this.bar).x(searchX).y(0).w(1F, -(searchX + rightOffset)).h(ACTIONS_BAR_HEIGHT);
+
+        /* Apply flex immediately so icons added after construction (e.g. morph actions)
+         * are visible on the first open, not only after a later resize/reopen. */
+        this.bar.resize();
+    }
+
+    public void refreshActionBar()
+    {
+        this.layoutActionBar();
     }
 
     public void setFavoriteCategoryChangedListener(Consumer<String> callback)

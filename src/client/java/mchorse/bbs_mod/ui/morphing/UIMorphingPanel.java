@@ -76,6 +76,7 @@ public class UIMorphingPanel extends UIDashboardPanel
         this.fromMob.tooltip(UIKeys.MORPHING_FROM_MOB, Direction.TOP);
 
         this.palette.list.bar.add(this.fromMob, this.morph, this.demorph);
+        this.palette.list.refreshActionBar();
 
         this.add(this.palette);
 
@@ -121,6 +122,7 @@ public class UIMorphingPanel extends UIDashboardPanel
         this.palette.list.setupForms(BBSModClient.getFormCategories());
         this.palette.setSelected(morph.getForm());
         this.morph.setVisible(!BBSSettings.morphingAutoMorph.get());
+        this.palette.list.refreshActionBar();
 
         BBSModClient.getCameraController().add(this.controller);
         MinecraftClient.getInstance().options.setPerspective(Perspective.THIRD_PERSON_BACK);
