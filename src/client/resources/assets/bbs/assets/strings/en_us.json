@@ -215,7 +215,7 @@
     "bbs.config.editor.flight_free_look": "Flight free look",
     "bbs.config.editor.flight_free_look-comment": "When enabled, you can look around in flight mode without holding mouse buttons",
     "bbs.config.editor.orbit_without_flight": "Orbit without flight",
-    "bbs.config.editor.orbit_without_flight-comment": "When enabled, you can rotate the orbit camera with the mouse without entering flight mode (F)",
+    "bbs.config.editor.orbit_without_flight-comment": "When enabled, you can move and rotate the orbit camera (WASD/mouse) without entering flight mode (F). When disabled (default), flight mode is required — so Space can still play/pause while orbit POV is selected.",
     "bbs.config.editor.orbit_smooth_transition": "Smooth orbit transitions",
     "bbs.config.editor.orbit_smooth_transition-comment": "When enabled, switching between replays in orbit mode animates the camera instead of snapping instantly",
     "bbs.config.editor.orbit_restrict_to_viewport": "Restrict orbit to viewport",
