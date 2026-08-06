@@ -1,9 +1,7 @@
 package mchorse.bbs_mod.graphics.line;
 
 import mchorse.bbs_mod.utils.colors.Color;
-
 import net.minecraft.client.render.BufferBuilder;
-
 import org.joml.Matrix4f;
 
 public class SolidColorLineRenderer implements ILineRenderer

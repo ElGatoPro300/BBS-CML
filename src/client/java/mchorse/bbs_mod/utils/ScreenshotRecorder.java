@@ -1,11 +1,9 @@
 package mchorse.bbs_mod.utils;
 
+import com.mojang.blaze3d.platform.GlStateManager;
 import mchorse.bbs_mod.graphics.texture.Texture;
 import mchorse.bbs_mod.ui.utils.UIUtils;
 import mchorse.bbs_mod.utils.resources.Pixels;
-
-import com.mojang.blaze3d.platform.GlStateManager;
-
 import org.lwjgl.BufferUtils;
 import org.lwjgl.opengl.GL11;
 
@@ -122,7 +120,6 @@ public class ScreenshotRecorder
 
         public int[] data;
         public File destination;
-        public boolean playSound = true;
 
         public ScreenshotRunner(int width, int height, int[] data, File destination)
         {
@@ -158,10 +155,7 @@ public class ScreenshotRecorder
                     pixels.delete();
                 }
 
-                if (this.playSound)
-                {
-                    UIUtils.playClick();
-                }
+                UIUtils.playClick();
             }
             catch (IOException e)
             {

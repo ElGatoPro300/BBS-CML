@@ -13,7 +13,6 @@ import mchorse.bbs_mod.audio.SoundPlayer;
 import mchorse.bbs_mod.audio.Wave;
 import mchorse.bbs_mod.audio.ogg.VorbisReader;
 import mchorse.bbs_mod.audio.wav.WaveReader;
-import mchorse.bbs_mod.l10n.keys.IKey;
 import mchorse.bbs_mod.resources.Link;
 import mchorse.bbs_mod.ui.UIKeys;
 import mchorse.bbs_mod.ui.film.screenplay.UIAudioPlayer;
@@ -27,7 +26,6 @@ import mchorse.bbs_mod.ui.utils.icons.Icons;
 import mchorse.bbs_mod.utils.colors.Colors;
 
 import java.io.File;
-import java.io.FileInputStream;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -41,9 +39,6 @@ import java.util.function.Consumer;
 public class UISoundOverlayPanel extends UIStringOverlayPanel
 {
     private static final int PLAYER_HEIGHT = 24;
-    private static final String AUDIO_PREFIX = "assets:audio/";
-    private static final String PARENT_FOLDER_ENTRY = "<parent_folder>";
-    private static final long DOUBLE_CLICK_INTERVAL = 300L;
 
     public UIAudioPlayer player;
 
@@ -61,10 +56,6 @@ public class UISoundOverlayPanel extends UIStringOverlayPanel
     private final UIContext context;
     private final Consumer<Link> originalCallback;
     private String selectedSound;
-    private String currentFolder = "";
-    private String lastClickedFolder = "";
-    private long lastFolderClickTime;
-    private final String baseTitle;
 
     public UISoundOverlayPanel(Consumer<Link> callback)
     {
@@ -80,7 +71,6 @@ public class UISoundOverlayPanel extends UIStringOverlayPanel
         this.context = context;
         this.originalCallback = callback;
         this.likeManager = new SoundLikeManager();
-        this.baseTitle = UIKeys.OVERLAYS_SOUNDS_MAIN.get();
 
         /* Replace the default list with the like-aware list */
         this.content.remove(this.strings);
@@ -269,11 +259,7 @@ public class UISoundOverlayPanel extends UIStringOverlayPanel
         list.setShowOnlyLiked(false);
         list.setShowEditRemoveButtons(true);
 
-        this.currentFolder = "";
-        this.lastClickedFolder = "";
-        this.lastFolderClickTime = 0;
         this.refreshSoundList();
-        this.updatePanelTitle();
         list.update();
     }
 
@@ -290,7 +276,6 @@ public class UISoundOverlayPanel extends UIStringOverlayPanel
         this.vanillaSounds.resize();
         this.content.resize();
 
-        this.updatePanelTitle();
         this.refreshVanillaSoundList();
     }
 
@@ -309,7 +294,6 @@ public class UISoundOverlayPanel extends UIStringOverlayPanel
         list.setShowOnlyLiked(true);
         list.setShowEditRemoveButtons(false);
 
-        this.updatePanelTitle();
         this.refreshLikedList();
         list.update();
     }
@@ -359,53 +343,28 @@ public class UISoundOverlayPanel extends UIStringOverlayPanel
 
     public void refreshSoundList()
     {
+        Set<String> soundEvents = getSoundEvents();
+
         UILikeableStringList list = (UILikeableStringList) this.strings.list;
-        List<String> target = list.getList();
+        list.getList().clear();
 
-        target.clear();
-        target.add(UIKeys.GENERAL_NONE.get());
+        List<String> sorted = new ArrayList<>(soundEvents);
 
-        if (this.isMediaFoldersEnhancementsEnabled())
-        {
-            target.addAll(this.getCurrentFolderEntries());
-        }
-        else
-        {
-            List<String> audios = new ArrayList<>(getSoundEvents());
-
-            audios.sort(null);
-            target.addAll(audios);
-        }
-
+        sorted.sort(null);
+        list.getList().addAll(sorted);
+        list.getList().add(0, UIKeys.GENERAL_NONE.get());
         list.update();
+        list.sort();
 
         String filter = this.strings.search.getText();
 
         this.strings.filter(filter, true);
         this.strings.resize();
-        this.updatePanelTitle();
         this.refreshLikedList();
-    }
-
-    private void updatePanelTitle()
-    {
-        String title = this.baseTitle;
-
-        if (this.isMediaFoldersEnhancementsEnabled() && this.currentMode == ViewMode.FOLDER && !this.currentFolder.isEmpty())
-        {
-            title = this.baseTitle + " > " + this.currentFolder.replace("/", " > ");
-        }
-
-        this.title.label = IKey.constant(title);
     }
 
     private void pickAudio(String audio)
     {
-        if (this.isMediaFoldersEnhancementsEnabled() && this.currentMode == ViewMode.FOLDER && this.handleFolderClick(audio))
-        {
-            return;
-        }
-
         this.selectedSound = audio;
 
         if (audio == null || audio.isEmpty() || audio.equals(UIKeys.GENERAL_NONE.get()))
@@ -437,7 +396,7 @@ public class UISoundOverlayPanel extends UIStringOverlayPanel
 
                 if (tempFile != null && tempFile.exists())
                 {
-                    try (FileInputStream fis = new FileInputStream(tempFile))
+                    try (java.io.FileInputStream fis = new java.io.FileInputStream(tempFile))
                     {
                         String pathLower = tempFile.getName().toLowerCase();
                         
@@ -509,182 +468,6 @@ public class UISoundOverlayPanel extends UIStringOverlayPanel
                 }
             }
         }
-    }
-
-    private boolean isMediaFoldersEnhancementsEnabled()
-    {
-        return true;
-    }
-
-    private List<String> getCurrentFolderEntries()
-    {
-        List<String> entries = new ArrayList<>();
-        File folder = this.getCurrentAudioFolder();
-
-        if (!folder.exists() || !folder.isDirectory())
-        {
-            return entries;
-        }
-
-        if (!this.currentFolder.isEmpty())
-        {
-            entries.add(PARENT_FOLDER_ENTRY);
-        }
-
-        File[] files = folder.listFiles();
-
-        if (files == null)
-        {
-            return entries;
-        }
-
-        List<String> folders = new ArrayList<>();
-        List<String> audios = new ArrayList<>();
-
-        for (File file : files)
-        {
-            if (file.isDirectory())
-            {
-                String relative = this.getRelativeAudioPath(file);
-
-                if (!relative.isEmpty())
-                {
-                    folders.add(AUDIO_PREFIX + relative + "/");
-                }
-
-                continue;
-            }
-
-            if (!file.isFile())
-            {
-                continue;
-            }
-
-            String name = file.getName().toLowerCase();
-
-            if (!name.endsWith(".wav") && !name.endsWith(".ogg"))
-            {
-                continue;
-            }
-
-            String relative = this.getRelativeAudioPath(file);
-
-            if (!relative.isEmpty())
-            {
-                audios.add(AUDIO_PREFIX + relative);
-            }
-        }
-
-        folders.sort(null);
-        audios.sort(null);
-        entries.addAll(folders);
-        entries.addAll(audios);
-
-        return entries;
-    }
-
-    private File getAudioRootFolder()
-    {
-        return new File(BBSMod.getAssetsFolder(), "audio");
-    }
-
-    private File getCurrentAudioFolder()
-    {
-        File root = this.getAudioRootFolder();
-
-        if (this.currentFolder.isEmpty())
-        {
-            return root;
-        }
-
-        return new File(root, this.currentFolder.replace("/", File.separator));
-    }
-
-    private String getRelativeAudioPath(File file)
-    {
-        File root = this.getAudioRootFolder();
-        String rootPath = root.getAbsolutePath();
-        String filePath = file.getAbsolutePath();
-
-        if (!filePath.startsWith(rootPath))
-        {
-            return "";
-        }
-
-        String relative = filePath.substring(rootPath.length()).replace('\\', '/');
-
-        if (relative.startsWith("/"))
-        {
-            relative = relative.substring(1);
-        }
-
-        return relative;
-    }
-
-    private boolean handleFolderClick(String entry)
-    {
-        if (entry == null)
-        {
-            return false;
-        }
-
-        if (entry.equals(PARENT_FOLDER_ENTRY))
-        {
-            this.navigateToParentFolder();
-
-            return true;
-        }
-
-        if (!this.isFolderEntry(entry))
-        {
-            return false;
-        }
-
-        this.selectedSound = entry;
-        this.updateListSelections();
-
-        long now = System.currentTimeMillis();
-        boolean isDoubleClick = entry.equals(this.lastClickedFolder) && now - this.lastFolderClickTime <= DOUBLE_CLICK_INTERVAL;
-
-        this.lastClickedFolder = entry;
-        this.lastFolderClickTime = now;
-
-        if (isDoubleClick)
-        {
-            this.openFolderEntry(entry);
-        }
-
-        return true;
-    }
-
-    private void navigateToParentFolder()
-    {
-        if (this.currentFolder.isEmpty())
-        {
-            return;
-        }
-
-        int index = this.currentFolder.lastIndexOf('/');
-        this.currentFolder = index >= 0 ? this.currentFolder.substring(0, index) : "";
-        this.selectedSound = null;
-        this.lastClickedFolder = "";
-        this.lastFolderClickTime = 0;
-        this.refreshSoundList();
-    }
-
-    private void openFolderEntry(String entry)
-    {
-        String relative = entry.substring(AUDIO_PREFIX.length(), entry.length() - 1);
-        this.currentFolder = relative;
-        this.selectedSound = null;
-        this.lastClickedFolder = "";
-        this.lastFolderClickTime = 0;
-        this.refreshSoundList();
-    }
-
-    private boolean isFolderEntry(String entry)
-    {
-        return entry.startsWith(AUDIO_PREFIX) && entry.endsWith("/");
     }
 
     private void updateListSelections()

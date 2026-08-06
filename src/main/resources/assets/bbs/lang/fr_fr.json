@@ -24,8 +24,5 @@
     "key.bbs.zoom": "Zoom (BBS gun)",
     "category.bbs.main": "BBS mod",
 
-    "gamerule.bbsEditing": "Permission d'édition de BBS Mod",
-    "command.getskin.success": "✅ Skin appliqué à tous les joueurs",
-    "command.getskin.error": "❌ Erreur: %s",
-    "command.getskin.downloading": "🔄 Téléchargement du skin..."
+    "gamerule.bbsEditing": "Permission d'édition de BBS Mod"
 }

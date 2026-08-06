@@ -4,8 +4,8 @@ import mchorse.bbs_mod.camera.Camera;
 import mchorse.bbs_mod.data.IMapSerializable;
 import mchorse.bbs_mod.data.types.BaseType;
 import mchorse.bbs_mod.data.types.MapType;
-import mchorse.bbs_mod.utils.MathUtils;
 import mchorse.bbs_mod.utils.interps.Lerps;
+import mchorse.bbs_mod.utils.MathUtils;
 
 public class Position implements IMapSerializable
 {

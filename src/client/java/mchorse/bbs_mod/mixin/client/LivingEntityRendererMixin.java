@@ -1,32 +1,24 @@
 package mchorse.bbs_mod.mixin.client;
 
 import mchorse.bbs_mod.forms.renderers.MobFormRenderer;
-import mchorse.bbs_mod.utils.interps.Lerps;
 import mchorse.bbs_mod.utils.pose.Pose;
 import mchorse.bbs_mod.utils.pose.PoseTransform;
 import mchorse.bbs_mod.utils.pose.Transform;
-
 import net.minecraft.client.model.ModelPart;
 import net.minecraft.client.render.VertexConsumerProvider;
 import net.minecraft.client.render.entity.LivingEntityRenderer;
-import net.minecraft.client.render.entity.model.EntityModel;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.entity.LivingEntity;
-
-import java.util.Map;
-
 import org.spongepowered.asm.mixin.Mixin;
-import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
+import java.util.Map;
+
 @Mixin(LivingEntityRenderer.class)
 public abstract class LivingEntityRendererMixin
 {
-    @Shadow
-    protected EntityModel<?> model;
-
     @Inject(method = "render", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/render/entity/model/EntityModel;setAngles(Lnet/minecraft/entity/Entity;FFFFF)V", ordinal = 0, shift = At.Shift.AFTER))
     public void onSetAngles(LivingEntity livingEntity, float f, float g, MatrixStack matrixStack, VertexConsumerProvider vertexConsumerProvider, int i, CallbackInfo info)
     {
@@ -58,7 +50,7 @@ public abstract class LivingEntityRendererMixin
                 }
             }
 
-            Map<String, ModelPart> parts = MobFormRenderer.resolveModelParts(this.model, livingEntity.getClass());
+            Map<String, ModelPart> parts = MobFormRenderer.getParts().get(livingEntity.getClass());
 
             if (parts != null)
             {
@@ -68,10 +60,9 @@ public abstract class LivingEntityRendererMixin
                     ModelPart value = entry.getValue();
                     PoseTransform poseTransform = pose.transforms.get(key);
 
-                    if (poseTransform != null && poseTransform.fix > 0F)
+                    if (poseTransform != null)
                     {
                         Transform transform = new Transform();
-                        float fix = poseTransform.fix;
 
                         transform.translate.x = value.pivotX;
                         transform.translate.y = value.pivotY;
@@ -83,15 +74,15 @@ public abstract class LivingEntityRendererMixin
                         transform.scale.y = value.yScale;
                         transform.scale.z = value.zScale;
 
-                        value.pivotX = Lerps.lerp(value.pivotX, poseTransform.pivot.x, fix);
-                        value.pivotY = Lerps.lerp(value.pivotY, poseTransform.pivot.y, fix);
-                        value.pivotZ = Lerps.lerp(value.pivotZ, poseTransform.pivot.z, fix);
-                        value.pitch = Lerps.lerp(value.pitch, poseTransform.rotate.x, fix);
-                        value.yaw = Lerps.lerp(value.yaw, poseTransform.rotate.y, fix);
-                        value.roll = Lerps.lerp(value.roll, poseTransform.rotate.z, fix);
-                        value.xScale = Lerps.lerp(value.xScale, poseTransform.scale.x, fix);
-                        value.yScale = Lerps.lerp(value.yScale, poseTransform.scale.y, fix);
-                        value.zScale = Lerps.lerp(value.zScale, poseTransform.scale.z, fix);
+                        value.pivotX += poseTransform.translate.x;
+                        value.pivotY += poseTransform.translate.y;
+                        value.pivotZ += poseTransform.translate.z;
+                        value.pitch += poseTransform.rotate.x;
+                        value.yaw += poseTransform.rotate.y;
+                        value.roll += poseTransform.rotate.z;
+                        value.xScale += poseTransform.scale.x - 1F;
+                        value.yScale += poseTransform.scale.y - 1F;
+                        value.zScale += poseTransform.scale.z - 1F;
 
                         MobFormRenderer.getCache().put(value, transform);
                     }

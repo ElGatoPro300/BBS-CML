@@ -1,61 +1,35 @@
 package mchorse.bbs_mod.film;
 
-import mchorse.bbs_mod.BBSSettings;
-import mchorse.bbs_mod.client.BBSRendering;
+import com.mojang.blaze3d.systems.RenderSystem;
+import io.netty.util.collection.IntObjectHashMap;
+import io.netty.util.collection.IntObjectMap;
 import mchorse.bbs_mod.client.renderer.ModelBlockEntityRenderer;
-import mchorse.bbs_mod.client.renderer.MorphFireRenderer;
 import mchorse.bbs_mod.entity.ActorEntity;
 import mchorse.bbs_mod.film.replays.Replay;
-import mchorse.bbs_mod.forms.CustomVertexConsumerProvider;
 import mchorse.bbs_mod.forms.FormUtils;
 import mchorse.bbs_mod.forms.FormUtilsClient;
 import mchorse.bbs_mod.forms.entities.IEntity;
 import mchorse.bbs_mod.forms.entities.MCEntity;
 import mchorse.bbs_mod.forms.entities.StubEntity;
 import mchorse.bbs_mod.forms.forms.Form;
-import mchorse.bbs_mod.forms.forms.MobForm;
-import mchorse.bbs_mod.forms.forms.ModelForm;
 import mchorse.bbs_mod.forms.forms.utils.Anchor;
-import mchorse.bbs_mod.forms.forms.utils.GlowSettings;
-import mchorse.bbs_mod.forms.forms.utils.LookAt;
-import mchorse.bbs_mod.forms.forms.utils.LookAtBone;
-import mchorse.bbs_mod.forms.forms.utils.PaintSettings;
-import mchorse.bbs_mod.forms.forms.utils.ShadowSettings;
-import mchorse.bbs_mod.forms.renderers.FormIllusionRenderer;
 import mchorse.bbs_mod.forms.renderers.FormRenderType;
 import mchorse.bbs_mod.forms.renderers.FormRenderingContext;
-import mchorse.bbs_mod.forms.renderers.ModelFormRenderer;
 import mchorse.bbs_mod.forms.renderers.utils.MatrixCache;
-import mchorse.bbs_mod.forms.renderers.utils.MatrixCacheEntry;
-import mchorse.bbs_mod.graphics.Draw;
 import mchorse.bbs_mod.mixin.client.ClientPlayerEntityAccessor;
 import mchorse.bbs_mod.morphing.Morph;
-import mchorse.bbs_mod.settings.values.base.BaseValue;
 import mchorse.bbs_mod.ui.framework.UIBaseMenu;
 import mchorse.bbs_mod.ui.framework.elements.utils.StencilMap;
 import mchorse.bbs_mod.ui.utils.Gizmo;
-import mchorse.bbs_mod.ui.utils.gizmo.GizmoMatrixUtils;
-import mchorse.bbs_mod.ui.utils.gizmo.TransformOrientation;
-import mchorse.bbs_mod.utils.AABB;
 import mchorse.bbs_mod.utils.CollectionUtils;
 import mchorse.bbs_mod.utils.MathUtils;
 import mchorse.bbs_mod.utils.MatrixStackUtils;
 import mchorse.bbs_mod.utils.Pair;
 import mchorse.bbs_mod.utils.StringUtils;
-import mchorse.bbs_mod.utils.colors.Color;
-import mchorse.bbs_mod.utils.colors.Colors;
 import mchorse.bbs_mod.utils.interps.Lerps;
-import mchorse.bbs_mod.utils.iris.IrisUtils;
 import mchorse.bbs_mod.utils.joml.Matrices;
 import mchorse.bbs_mod.utils.joml.Vectors;
-import mchorse.bbs_mod.utils.keyframes.Keyframe;
-import mchorse.bbs_mod.utils.keyframes.KeyframeChannel;
-import mchorse.bbs_mod.utils.pose.Pose;
-import mchorse.bbs_mod.utils.pose.PoseTransform;
-import mchorse.bbs_mod.utils.pose.Transform;
-
 import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
-
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.font.TextRenderer;
 import net.minecraft.client.network.ClientPlayerEntity;
@@ -65,53 +39,30 @@ import net.minecraft.client.render.OverlayTexture;
 import net.minecraft.client.render.VertexConsumerProvider;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.entity.Entity;
-import net.minecraft.entity.EntityPose;
 import net.minecraft.entity.MovementType;
 import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.particle.BlockStateParticleEffect;
-import net.minecraft.particle.ParticleTypes;
-import net.minecraft.sound.SoundCategory;
 import net.minecraft.text.Text;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Vec3d;
 import net.minecraft.world.LightType;
 import net.minecraft.world.World;
-
 import org.joml.Matrix3f;
 import org.joml.Matrix4f;
-import org.joml.Quaternionf;
-import org.joml.Vector2f;
 import org.joml.Vector3d;
 import org.joml.Vector3f;
 
-import com.mojang.blaze3d.systems.RenderSystem;
-
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-
-import io.netty.util.collection.IntObjectHashMap;
-import io.netty.util.collection.IntObjectMap;
 
 public abstract class BaseFilmController
 {
     public final Film film;
 
     protected IntObjectMap<IEntity> entities = new IntObjectHashMap<>();
-    protected Map<String, Replay> replayMap = new HashMap<>();
 
     public boolean paused;
     public int exception = -1;
-
-    /**
-     * Last film tick at which each replay already evaluated a step sound.
-     * Film editor keeps calling {@link #update()} while the playhead is parked, so
-     * without this edge the same step tick would spam audio every client tick.
-     */
-    private final Map<String, Integer> lastStepSoundTicks = new HashMap<>();
 
     /* Rendering helpers */
 
@@ -125,12 +76,10 @@ public abstract class BaseFilmController
 
         Form form = entity.getForm();
 
-        if (form == null || !form.render.get() || !form.visible.get())
+        if (form == null)
         {
             return;
         }
-
-        applyGroupPaintGlow(form, context.groupPaint, context.groupGlow);
 
         Vector3d position = Vectors.TEMP_3D.set(
             Lerps.lerp(entity.getPrevX(), entity.getX(), transition),
@@ -146,25 +95,9 @@ public abstract class BaseFilmController
 
         if (relative)
         {
-            if (context.map != null)
-            {
-                cx = context.replay.keyframes.x.interpolate(0F) + context.replay.relativeOffset.get().x;
-                cy = context.replay.keyframes.y.interpolate(0F) + context.replay.relativeOffset.get().y;
-                cz = context.replay.keyframes.z.interpolate(0F) + context.replay.relativeOffset.get().z;
-            }
-            else
-            {
-                cx = position.x + context.replay.relativeOffset.get().x;
-                cy = position.y + context.replay.relativeOffset.get().y;
-                cz = position.z + context.replay.relativeOffset.get().z;
-            }
-
-            if (context.isShadowPass)
-            {
-                cx += camera.getPos().x;
-                cy += camera.getPos().y;
-                cz += camera.getPos().z;
-            }
+            cx = context.replay.keyframes.x.interpolate(0F) + context.replay.relativeOffset.get().x;
+            cy = context.replay.keyframes.y.interpolate(0F) + context.replay.relativeOffset.get().y;
+            cz = context.replay.keyframes.z.interpolate(0F) + context.replay.relativeOffset.get().z;
         }
 
         Matrix4f target = null;
@@ -193,32 +126,9 @@ public abstract class BaseFilmController
             target = defaultMatrix;
         }
 
-        if (!relative)
-        {
-            applyLookAt(context, form, position, target);
-            InverseKinematicsApplier.apply(context, form);
-        }
-
-        if (context.localGroupTransform != null)
-        {
-            target.mul(context.localGroupTransform);
-        }
-
         BlockPos pos = BlockPos.ofFloored(position.x, position.y + 0.5D, position.z);
-        World world = entity.getWorld();
-
-        if (world == null)
-        {
-            world = MinecraftClient.getInstance().world;
-        }
-
-        if (world == null)
-        {
-            return;
-        }
-
-        int sky = world.getLightLevel(LightType.SKY, pos);
-        int torch = world.getLightLevel(LightType.BLOCK, pos);
+        int sky = entity.getWorld().getLightLevel(LightType.SKY, pos);
+        int torch = entity.getWorld().getLightLevel(LightType.BLOCK, pos);
         int light = LightmapTextureManager.pack(torch, sky);
         int overlay = OverlayTexture.packUv(OverlayTexture.getU(0F), OverlayTexture.getV(entity.getHurtTimer() > 0));
 
@@ -228,183 +138,41 @@ public abstract class BaseFilmController
             .stencilMap(context.map)
             .color(context.color);
 
-        formContext.relative = relative;
-        formContext.isShadowPass = context.isShadowPass;
-        formContext.viewMatrix = context.viewMatrix;
-
         stack.push();
 
-        try
+        if (relative)
         {
-            if (relative)
-            {
-                if (!context.isShadowPass)
-                {
-                    stack.peek().getPositionMatrix().identity();
-                    stack.peek().getNormalMatrix().identity();
-                }
-
-                if (context.map == null)
-                {
-                    stack.multiply(camera.getRotation());
-                }
-            }
-
-            MatrixStackUtils.multiply(stack, target);
-
-            /* IRLights 1.21+ reads FormRenderingContext.world (absolute) for light poses.
-             * Convert the posed camera-relative actor root into absolute world space:
-             * world = T(camera) * target. Keeps anchors/look-at aligned with the mesh and
-             * avoids mixing the spectator view into light registration. Mesh keeps using
-             * camera-relative target (do not zero cx/cy/cz — that made forms invisible). */
-            syncIrlAbsoluteWorldMatrix(formContext, target, camera);
-
-            ModelFormRenderer lookAtRenderer = relative ? null : applyLookAtPose(context, form, position);
-
-            if (context.isShadowPass)
-            {
-                if (context.shadowOpacity <= 0.001F || (context.shadowRadiusX <= 0F && context.shadowRadiusZ <= 0F))
-                {
-                    return;
-                }
-
-                /* Form Opacity is applied once in the form renderer (applyFormOpacity). Do not
-                 * multiply it here or caster alpha becomes opacity² and ground shadows fade too fast. */
-                if (form.getFormOpacity() <= 0.001F)
-                {
-                    return;
-                }
-
-                float shadowAlpha = Colors.getA(formContext.color) * context.shadowOpacity;
-
-                if (shadowAlpha <= 0.001F)
-                {
-                    return;
-                }
-
-                /* Replay shadowOpacity only — Color-track effects must not crush caster alpha
-                 * (Iris would drop the ground shadow). Opacity 0 already returned above. */
-                formContext.color(Colors.setA(formContext.color, MathUtils.clamp(shadowAlpha, 0F, 1F)));
-
-                if (context.shadowOffsetX != 0F || context.shadowOffsetY != 0F || context.shadowOffsetZ != 0F)
-                {
-                    stack.translate(context.shadowOffsetX, context.shadowOffsetY, context.shadowOffsetZ);
-                }
-
-                /* Independent X/Z scale from default radius 0.5 — stretch wide or long under Iris. */
-                float scaleX = Math.max(0.001F, context.shadowRadiusX / 0.5F);
-                float scaleZ = Math.max(0.001F, context.shadowRadiusZ / 0.5F);
-
-                if (Math.abs(scaleX - 1F) > 0.001F || Math.abs(scaleZ - 1F) > 0.001F)
-                {
-                    stack.scale(scaleX, 1F, scaleZ);
-                }
-            }
-
-            FormIllusionRenderer.Extras illusionExtras = null;
-
-            if (context.replay != null && !Float.isNaN(context.propertyTick))
-            {
-                illusionExtras = new FormIllusionRenderer.Extras();
-                illusionExtras.propertyTick = context.propertyTick;
-                illusionExtras.applyFormAtTick = (tick) ->
-                {
-                    context.replay.properties.resetProperties(form);
-                    context.replay.properties.applyProperties(form, tick);
-                };
-                illusionExtras.restoreFormTick = () ->
-                {
-                    context.replay.properties.resetProperties(form);
-                    context.replay.properties.applyProperties(form, context.propertyTick);
-                };
-            }
-
-            /* Illusions are drawn inside FormUtilsClient for model blocks / morphs / preview too. */
-            FormUtilsClient.render(form, formContext, context.map == null ? illusionExtras : null);
-
-            if (!context.isShadowPass && context.map == null && entity.getFireTicks() > 0)
-            {
-                MorphFireRenderer.render(stack, context.consumers, entity, form, transition, camera, relative);
-            }
-
-            if (lookAtRenderer != null)
-            {
-                lookAtRenderer.setLookAtPose(null);
-            }
-
-            if (UIBaseMenu.renderAxes)
-            {
-                if (context.bone != null && context.orientation == TransformOrientation.PARENT)
-                {
-                    Form root = FormUtils.getRoot(form);
-                    MatrixCache map = FormUtilsClient.getRenderer(root).collectMatrices(entity, transition);
-                    MatrixCacheEntry entry = map.get(context.bone);
-
-                    Matrix4f matrix = entry.origin();
-
-                    if (matrix == null)
-                    {
-                        matrix = entry.matrix();
-                    }
-
-                    if (matrix != null)
-                    {
-                        stack.push();
-                        MatrixStackUtils.multiply(stack, matrix);
-
-                        if (context.map == null)
-                        {
-                            BaseFilmController.renderGizmo(stack, null);
-                        }
-                        else
-                        {
-                            BaseFilmController.renderGizmo(stack, context.map);
-                        }
-
-                        RenderSystem.enableDepthTest();
-                        stack.pop();
-                    }
-                }
-                if (context.bone != null) renderAxes(context.bone, context.orientation, context.map, form, entity, transition, stack);
-                if (context.bone2 != null && context.map == null) renderAxes(context.bone2, context.orientation2, context.map, form, entity, transition, stack);
-            }
-        }
-        finally
-        {
-            stack.pop();
+            stack.peek().getPositionMatrix().identity();
+            stack.peek().getNormalMatrix().identity();
         }
 
-        /* Vanilla blob shadows only without Iris shaders — Comp/BSL use the shadow map.
-         * Blob opacity is the Shadow track only; form Opacity must not fade the ground circle.
-         * Size X/Z are independent (matrix scale); vanilla API only has one radius. */
-        if (!relative && context.map == null && opacity > 0F
-            && (context.shadowRadiusX > 0F || context.shadowRadiusZ > 0F)
-            && form.render.get() && form.visible.get()
-            && !context.isShadowPass && !IrisUtils.isShaderPackEnabled())
+        MatrixStackUtils.multiply(stack, target);
+        FormUtilsClient.render(form, formContext);
+
+        if (UIBaseMenu.renderAxes)
         {
-            float shadowOpacity = MathUtils.clamp(opacity * context.shadowOpacity, 0F, 1F);
-
-            if (shadowOpacity > 0F)
-            {
-                double sx = position.x + context.shadowOffsetX;
-                double sy = position.y + context.shadowOffsetY;
-                double sz = position.z + context.shadowOffsetZ;
-
-                stack.push();
-                stack.translate(sx - cx, sy - cy, sz - cz);
-
-                ModelBlockEntityRenderer.renderShadow(context.consumers, stack, transition, sx, sy, sz, 0F, 0F, 0F, context.shadowRadiusX, context.shadowRadiusZ, shadowOpacity);
-
-                stack.pop();
-            }
+            if (context.bone != null) renderAxes(context.bone, context.local, context.map, form, entity, transition, stack);
+            if (context.bone2 != null && context.map == null) renderAxes(context.bone2, context.local2, context.map, form, entity, transition, stack);
         }
 
-        if (!relative && !context.nameTag.isEmpty())
+        stack.pop();
+
+        if (!relative && context.map == null && opacity > 0F && context.shadowRadius > 0F)
         {
             stack.push();
             stack.translate(position.x - cx, position.y - cy, position.z - cz);
 
-            renderNameTag(entity, Text.literal(StringUtils.processColoredText(context.nameTag)), stack, context.consumers, LightmapTextureManager.MAX_LIGHT_COORDINATE);
+            ModelBlockEntityRenderer.renderShadow(context.consumers, stack, transition, position.x, position.y, position.z, 0F, 0F, 0F, context.shadowRadius, opacity);
+
+            stack.pop();
+        }
+
+        if (!relative && !context.nameTag.isEmpty() && context.map == null)
+        {
+            stack.push();
+            stack.translate(position.x - cx, position.y - cy, position.z - cz);
+
+            renderNameTag(entity, Text.literal(StringUtils.processColoredText(context.nameTag)), stack, context.consumers, light);
 
             stack.pop();
         }
@@ -412,410 +180,24 @@ public abstract class BaseFilmController
         RenderSystem.enableDepthTest();
     }
 
-    /**
-     * World-space point of a replay's attachment, used by look-at and inverse kinematics.
-     */
-    public static Vector3d resolveReplayAttachmentPoint(FilmControllerContext context, int replayIndex, String attachment)
-    {
-        if (context == null || replayIndex < 0)
-        {
-            return null;
-        }
-
-        IEntity targetEntity = context.entities.get(replayIndex);
-
-        if (targetEntity == null)
-        {
-            return null;
-        }
-
-        return getLookAtTargetPoint(targetEntity, attachment, context.transition);
-    }
-
-    /**
-     * World-space orientation of a replay's attachment, used by inverse kinematics
-     * angle targets.
-     */
-    public static Quaternionf resolveReplayAttachmentRotation(FilmControllerContext context, int replayIndex, String attachment)
-    {
-        if (context == null || replayIndex < 0)
-        {
-            return null;
-        }
-
-        IEntity targetEntity = context.entities.get(replayIndex);
-
-        if (targetEntity == null)
-        {
-            return null;
-        }
-
-        return getLookAtTargetRotation(targetEntity, attachment, context.transition);
-    }
-
-    private static void applyLookAt(FilmControllerContext context, Form form, Vector3d position, Matrix4f target)
-    {
-        LookAt lookAt = form.lookAt.get();
-
-        if (lookAt == null || !lookAt.translate || context.film == null)
-        {
-            return;
-        }
-
-        LookAtBone strongest = null;
-
-        for (LookAtBone bone : lookAt.bones.values())
-        {
-            if (bone.isActive() && (strongest == null || bone.blend > strongest.blend))
-            {
-                strongest = bone;
-            }
-        }
-
-        if (strongest == null)
-        {
-            return;
-        }
-
-        IEntity targetEntity = context.entities.get(strongest.replay);
-
-        if (targetEntity == null || targetEntity == context.entity)
-        {
-            return;
-        }
-
-        Replay targetReplay = CollectionUtils.getSafe(context.film.replays.getList(), strongest.replay);
-
-        if (targetReplay == null)
-        {
-            return;
-        }
-
-        float transition = context.transition;
-        float blend = MathUtils.clamp(strongest.blend, 0F, 1F);
-        float restorePropertyTick = getLookAtRestorePropertyTick(context, targetReplay, transition);
-
-        Vector3d pointNow = getLookAtTargetPoint(targetEntity, strongest.attachment, transition);
-        Vector3d pointBase = getLookAtTargetPointAtPropertyTick(targetReplay, targetEntity, strongest.attachment, 0F, transition, restorePropertyTick);
-        double dx = (pointNow.x - pointBase.x) * blend;
-        double dy = (pointNow.y - pointBase.y) * blend;
-        double dz = (pointNow.z - pointBase.z) * blend;
-
-        position.add(dx, dy, dz);
-
-        Vector3f translation = target.getTranslation(new Vector3f());
-
-        target.setTranslation(translation.x + (float) dx, translation.y + (float) dy, translation.z + (float) dz);
-    }
-
-    /**
-     * Computes the extra yaw/pitch (in the model's local space) that would make the
-     * entity fully face the look at target, or null when the direction is degenerate.
-     */
-    private static Vector2f getLookAtRotation(IEntity entity, IEntity targetEntity, String attachment, Vector3d position, float transition)
-    {
-        Vector3d targetPoint = getLookAtTargetPoint(targetEntity, attachment, transition);
-        double dirX = targetPoint.x - position.x;
-        double dirY = targetPoint.y - position.y;
-        double dirZ = targetPoint.z - position.z;
-        double horizontal = Math.sqrt(dirX * dirX + dirZ * dirZ);
-
-        if (horizontal * horizontal + dirY * dirY < 0.0001D)
-        {
-            return null;
-        }
-
-        /* Entities face (-sin(yaw), 0, cos(yaw)), and the matrix contains rotateY(-bodyYaw),
-         * so the desired matrix rotation that faces the target is atan2(dirX, dirZ) */
-        float desiredYaw = (float) Math.atan2(dirX, dirZ);
-        float currentYaw = MathUtils.toRad(-Lerps.lerp(entity.getPrevBodyYaw(), entity.getBodyYaw(), transition));
-        float deltaYaw = desiredYaw - currentYaw;
-
-        /* Wrap into -PI..PI so the blended rotation takes the shortest path */
-        deltaYaw = (float) Math.atan2(Math.sin(deltaYaw), Math.cos(deltaYaw));
-
-        float pitch = (float) Math.atan2(dirY, horizontal);
-
-        return new Vector2f(deltaYaw, pitch);
-    }
-
-    /**
-     * Property tick at which the target replay's form properties should be restored
-     * after temporarily sampling another tick for look at translate follow.
-     */
-    private static float getLookAtRestorePropertyTick(FilmControllerContext context, Replay targetReplay, float transition)
-    {
-        if (context.filmTick >= 0)
-        {
-            return targetReplay.getTick(context.filmTick) + transition;
-        }
-
-        if (targetReplay == context.replay && !Float.isNaN(context.propertyTick))
-        {
-            return context.propertyTick;
-        }
-
-        return Float.NaN;
-    }
-
-    /**
-     * Visual offset matrix for a look at target: a picked attachment bone, the form
-     * root (including transform overlays), or the anchor attachment as fallback.
-     */
-    private static Matrix4f getLookAtVisualMatrix(MatrixCache map, Form targetForm, String attachment)
-    {
-        Matrix4f visualMatrix = null;
-
-        if (attachment != null && !attachment.isEmpty())
-        {
-            MatrixCacheEntry entry = map.get(attachment.replace("#origin", ""));
-
-            if (entry != null)
-            {
-                visualMatrix = entry.origin() != null ? entry.origin() : entry.matrix();
-            }
-        }
-        else
-        {
-            MatrixCacheEntry entry = map.get("");
-
-            if (entry != null)
-            {
-                visualMatrix = entry.origin() != null ? entry.origin() : entry.matrix();
-            }
-
-            if (visualMatrix == null)
-            {
-                Anchor anchor = targetForm.anchor.get();
-
-                if (anchor != null && !anchor.attachment.isEmpty())
-                {
-                    entry = map.get(anchor.attachment.replace("#origin", ""));
-
-                    if (entry != null)
-                    {
-                        visualMatrix = entry.origin() != null ? entry.origin() : entry.matrix();
-                    }
-                }
-            }
-        }
-
-        return visualMatrix;
-    }
-
-    /**
-     * Entity matrix from replay position keyframes at the given property tick, without
-     * using the entity's live coordinates.
-     */
-    private static Matrix4f getMatrixForReplayKeyframes(Replay replay, float propertyTick, float transition)
-    {
-        double x = replay.keyframes.x.interpolate(propertyTick);
-        double y = replay.keyframes.y.interpolate(propertyTick);
-        double z = replay.keyframes.z.interpolate(propertyTick);
-        double prevX = replay.keyframes.x.interpolate(propertyTick - 1F);
-        double prevY = replay.keyframes.y.interpolate(propertyTick - 1F);
-        double prevZ = replay.keyframes.z.interpolate(propertyTick - 1F);
-        float bodyYaw = replay.keyframes.bodyYaw.interpolate(propertyTick).floatValue();
-        float prevBodyYaw = replay.keyframes.bodyYaw.interpolate(propertyTick - 1F).floatValue();
-        Matrix4f matrix = new Matrix4f();
-
-        matrix.translate(
-            (float) Lerps.lerp(prevX, x, transition),
-            (float) Lerps.lerp(prevY, y, transition),
-            (float) Lerps.lerp(prevZ, z, transition)
-        );
-        float yaw = (float) Lerps.lerpYaw(prevBodyYaw, bodyYaw, transition);
-
-        matrix.rotateY(MathUtils.toRad(-yaw));
-
-        return matrix;
-    }
-
-    /**
-     * World position of the look at target. When an attachment bone is picked, the
-     * bone's matrix is used (which reacts to the target's pose animation), otherwise
-     * the target form's full visual transform is taken into account.
-     */
-    private static Vector3d getLookAtTargetPoint(IEntity targetEntity, String attachment, float transition)
-    {
-        Matrix4f matrix = getMatrixForRenderWithRotation(targetEntity, 0D, 0D, 0D, transition);
-        Form targetForm = targetEntity.getForm();
-
-        if (targetForm != null)
-        {
-            MatrixCache map = FormUtilsClient.getRenderer(targetForm).collectMatrices(targetEntity, transition);
-            Matrix4f visualMatrix = getLookAtVisualMatrix(map, targetForm, attachment);
-
-            if (visualMatrix != null)
-            {
-                matrix.mul(visualMatrix);
-            }
-        }
-
-        Vector3f translation = matrix.getTranslation(new Vector3f());
-
-        return new Vector3d(translation);
-    }
-
-    private static Quaternionf getLookAtTargetRotation(IEntity targetEntity, String attachment, float transition)
-    {
-        Matrix4f matrix = getMatrixForRenderWithRotation(targetEntity, 0D, 0D, 0D, transition);
-        Form targetForm = targetEntity.getForm();
-
-        if (targetForm != null)
-        {
-            MatrixCache map = FormUtilsClient.getRenderer(targetForm).collectMatrices(targetEntity, transition);
-            Matrix4f visualMatrix = getLookAtVisualMatrix(map, targetForm, attachment);
-
-            if (visualMatrix != null)
-            {
-                matrix.mul(visualMatrix);
-            }
-        }
-
-        return matrix.getNormalizedRotation(new Quaternionf());
-    }
-
-    /**
-     * Same as {@link #getLookAtTargetPoint} but samples the target replay at a specific
-     * property tick (for example tick 0 as the translate follow baseline). Restores the
-     * target form's properties afterward when {@code restorePropertyTick} is not NaN.
-     */
-    private static Vector3d getLookAtTargetPointAtPropertyTick(Replay replay, IEntity targetEntity, String attachment, float propertyTick, float transition, float restorePropertyTick)
-    {
-        Form form = targetEntity.getForm();
-        Matrix4f matrix = getMatrixForReplayKeyframes(replay, propertyTick, transition);
-
-        if (form != null)
-        {
-            replay.properties.resetProperties(form);
-            replay.properties.applyProperties(form, propertyTick);
-
-            MatrixCache map = FormUtilsClient.getRenderer(form).collectMatrices(targetEntity, transition);
-            Matrix4f visualMatrix = getLookAtVisualMatrix(map, form, attachment);
-
-            if (visualMatrix != null)
-            {
-                matrix.mul(visualMatrix);
-            }
-
-            if (!Float.isNaN(restorePropertyTick))
-            {
-                replay.properties.resetProperties(form);
-                replay.properties.applyProperties(form, restorePropertyTick);
-            }
-        }
-
-        Vector3f translation = matrix.getTranslation(new Vector3f());
-
-        return new Vector3d(translation);
-    }
-
-    /**
-     * Sets a temporary look at pose on the form's renderer. Every locked bone gets
-     * rotated toward its own target (replay and optionally attachment), scaled by
-     * its own lock strength. The returned renderer must be cleared with
-     * setLookAtPose(null) after rendering.
-     */
-    private static ModelFormRenderer applyLookAtPose(FilmControllerContext context, Form form, Vector3d position)
-    {
-        LookAt lookAt = form.lookAt.get();
-
-        if (lookAt == null || !lookAt.isActive())
-        {
-            return null;
-        }
-
-        if (!(FormUtilsClient.getRenderer(form) instanceof ModelFormRenderer renderer))
-        {
-            return null;
-        }
-
-        Pose pose = new Pose();
-
-        for (Map.Entry<String, LookAtBone> entry : lookAt.bones.entrySet())
-        {
-            LookAtBone bone = entry.getValue();
-
-            if (!bone.isActive())
-            {
-                continue;
-            }
-
-            IEntity targetEntity = context.entities.get(bone.replay);
-
-            if (targetEntity == null || targetEntity == context.entity)
-            {
-                continue;
-            }
-
-            Vector2f rotation = getLookAtRotation(context.entity, targetEntity, bone.attachment, position, context.transition);
-
-            if (rotation == null)
-            {
-                continue;
-            }
-
-            float blend = MathUtils.clamp(bone.blend, 0F, 1F);
-            PoseTransform poseTransform = pose.get(entry.getKey());
-
-            poseTransform.rotate.y = rotation.x * blend;
-            poseTransform.rotate.x = rotation.y * blend;
-        }
-
-        if (pose.isEmpty())
-        {
-            return null;
-        }
-
-        renderer.setLookAtPose(pose);
-
-        return renderer;
-    }
-
-    private static void renderGizmo(MatrixStack stack, StencilMap stencilMap)
-    {
-        if (stencilMap == null)
-        {
-            /* Visual is drawn later in the panel UI pass (Gizmo#renderInterface). */
-            Gizmo.INSTANCE.captureVisual(stack);
-        }
-        else
-        {
-            Gizmo.INSTANCE.renderStencil(stack, stencilMap);
-        }
-    }
-
-    private static void renderAxes(String bone, TransformOrientation space, StencilMap stencilMap, Form form, IEntity entity, float transition, MatrixStack stack)
+    private static void renderAxes(String bone, boolean local, StencilMap stencilMap, Form form, IEntity entity, float transition, MatrixStack stack)
     {
         Form root = FormUtils.getRoot(form);
         MatrixCache map = FormUtilsClient.getRenderer(root).collectMatrices(entity, transition);
-        MatrixCacheEntry entry = map.get(bone);
-
-        if (entry == null)
-        {
-            return;
-        }
-
-        Matrix4f matrix;
-        Form rootForm = FormUtils.getRoot(form);
-        boolean bobj = rootForm instanceof ModelForm modelForm && ModelFormRenderer.isBobjModel(modelForm);
-
-        matrix = GizmoMatrixUtils.resolveFilmPoseBoneMatrix(entry, space, bobj);
+        Matrix4f matrix = local ? map.get(bone).matrix() : map.get(bone).origin();
 
         if (matrix != null)
         {
-            Gizmo.INSTANCE.setActiveOrientation(space);
             stack.push();
             MatrixStackUtils.multiply(stack, matrix);
 
             if (stencilMap == null)
             {
-                BaseFilmController.renderGizmo(stack, null);
+                Gizmo.INSTANCE.render(stack);
             }
             else
             {
-                BaseFilmController.renderGizmo(stack, stencilMap);
+                Gizmo.INSTANCE.renderStencil(stack, stencilMap);
             }
 
             RenderSystem.enableDepthTest();
@@ -839,8 +221,6 @@ public abstract class BaseFilmController
         {
             Matrix4f matrix = getEntityMatrix(entities, cx, cy, cz, same ? value : value.previous, defaultMatrix, transition, i);
 
-            matrix = applyAnchorTransform(matrix, same ? value : value.previous);
-
             if (matrix != defaultMatrix)
             {
                 result.a = matrix;
@@ -852,9 +232,6 @@ public abstract class BaseFilmController
             Matrix4f matrix = getEntityMatrix(entities, cx, cy, cz, value, defaultMatrix, transition, i);
             Matrix4f lastMatrix = getEntityMatrix(entities, cx, cy, cz, value.previous, defaultMatrix, transition, i);
 
-            matrix = applyAnchorTransform(matrix, value);
-            lastMatrix = applyAnchorTransform(lastMatrix, value.previous);
-
             result.a = value.x >= 1F ? matrix : Matrices.lerp(lastMatrix, matrix, value.x);
 
             if (value.isFadeOut()) result.b = value.x;
@@ -863,16 +240,6 @@ public abstract class BaseFilmController
         }
 
         return result;
-    }
-
-    private static Matrix4f applyAnchorTransform(Matrix4f matrix, Anchor anchor)
-    {
-        if (matrix == null || anchor == null || anchor.transform.isDefault())
-        {
-            return matrix;
-        }
-
-        return matrix.mul(anchor.transform.createMatrix());
     }
 
     public static Matrix4f getEntityMatrix(IntObjectMap<IEntity> entities, double cameraX, double cameraY, double cameraZ, Anchor anchor, Matrix4f defaultMatrix, float transition, int i)
@@ -895,35 +262,7 @@ public abstract class BaseFilmController
                 }
 
                 MatrixCache map = FormUtilsClient.getRenderer(form).collectMatrices(entity, transition);
-                boolean forceOrigin = anchor.attachment != null && anchor.attachment.endsWith("#origin");
-                String core = anchor.attachment == null ? null : anchor.attachment.replace("#origin", "");
-                
-                MatrixCacheEntry entry = map.get(core);
-                Matrix4f matrix = null;
-
-                if (entry != null)
-                {
-                    if (forceOrigin)
-                    {
-                        matrix = entry.origin();
-                    }
-                    else if (anchor.translate)
-                    {
-                        matrix = entry.origin();
-                        if (matrix == null)
-                        {
-                            matrix = entry.matrix();
-                        }
-                    }
-                    else
-                    {
-                        matrix = entry.matrix();
-                        if (matrix == null)
-                        {
-                            matrix = entry.origin();
-                        }
-                    }
-                }
+                Matrix4f matrix = map.get(anchor.attachment).matrix();
 
                 if (matrix != null)
                 {
@@ -958,39 +297,6 @@ public abstract class BaseFilmController
         return defaultMatrix;
     }
 
-    /**
-     * IRLights resolves point/spotlight poses from {@link FormRenderingContext#world}.
-     * Convert the posed camera-relative actor root into absolute world space so light
-     * registration cannot mix the film actor frame with the spectator/player view.
-     * In-world film playback also re-registers lights via {@code IrlWorldFilmLightBridge}
-     * before the SSBO flush (scanner-style absolute coords).
-     */
-    private static void syncIrlAbsoluteWorldMatrix(FormRenderingContext formContext, Matrix4f cameraRelativeRoot, Camera camera)
-    {
-        if (formContext == null || formContext.world == null || cameraRelativeRoot == null || camera == null)
-        {
-            return;
-        }
-
-        if (formContext.relative)
-        {
-            return;
-        }
-
-        Matrix4f worldRoot = new Matrix4f(cameraRelativeRoot);
-        Vector3f translation = worldRoot.getTranslation(new Vector3f());
-        Vec3d cam = camera.getPos();
-
-        worldRoot.setTranslation(
-            translation.x + (float) cam.x,
-            translation.y + (float) cam.y,
-            translation.z + (float) cam.z
-        );
-
-        formContext.world.peek().getPositionMatrix().set(worldRoot);
-        formContext.world.peek().getNormalMatrix().set(new Matrix3f(worldRoot));
-    }
-
     public static Matrix4f getMatrixForRenderWithRotation(IEntity entity, double cameraX, double cameraY, double cameraZ, float tickDelta)
     {
         double x = Lerps.lerp(entity.getPrevX(), entity.getX(), tickDelta) - cameraX;
@@ -999,7 +305,7 @@ public abstract class BaseFilmController
 
         Matrix4f matrix = new Matrix4f();
 
-        float bodyYaw = (float) Lerps.lerpYaw(entity.getPrevBodyYaw(), entity.getBodyYaw(), tickDelta);
+        float bodyYaw = Lerps.lerp(entity.getPrevBodyYaw(), entity.getBodyYaw(), tickDelta);
 
         matrix.translate((float) x, (float) y, (float) z);
         matrix.rotateY(MathUtils.toRad(-bodyYaw));
@@ -1010,13 +316,12 @@ public abstract class BaseFilmController
     private static void renderNameTag(IEntity entity, Text text, MatrixStack matrices, VertexConsumerProvider vertexConsumers, int light)
     {
         boolean sneaking = !entity.isSneaking();
-        float hitboxH = (float) entity.getPickingHitbox().h + (entity.isSneaking() ? 0.25F : 0.5F);
-
+        float hitboxH = (float) entity.getPickingHitbox().h + 0.5F;
 
         matrices.push();
         matrices.translate(0F, hitboxH, 0F);
         matrices.multiply(MinecraftClient.getInstance().getEntityRenderDispatcher().getRotation());
-        matrices.scale(0.025F, -0.025F, 0.025F);
+        matrices.scale(-0.025F, -0.025F, 0.025F);
 
         Matrix4f matrix4f = matrices.peek().getPositionMatrix();
         TextRenderer textRenderer = MinecraftClient.getInstance().textRenderer;
@@ -1025,29 +330,12 @@ public abstract class BaseFilmController
         int background = (int) (opacity * 255F) << 24;
         float h = (float) (-textRenderer.getWidth(text) / 2);
 
-        int maxLight = LightmapTextureManager.MAX_LIGHT_COORDINATE;
+        textRenderer.draw(text, h, 0, 0x20ffffff, false, matrix4f, vertexConsumers, sneaking ? TextRenderer.TextLayerType.SEE_THROUGH : TextRenderer.TextLayerType.NORMAL, background, light);
 
-            RenderSystem.enableBlend();
-            RenderSystem.disableCull();
-
-            CustomVertexConsumerProvider consumers = FormUtilsClient.getProvider();
-
-            CustomVertexConsumerProvider.hijackVertexFormat((layer) ->
-            {
-                RenderSystem.disableDepthTest();
-            });
-
-            textRenderer.draw(text, h, 0, 0x00FFFFFF, false, matrix4f, consumers, TextRenderer.TextLayerType.NORMAL, background, maxLight);
-            consumers.draw();
-
-            textRenderer.draw(text, h, 0, -1, false, matrix4f, consumers, TextRenderer.TextLayerType.NORMAL, 0, maxLight);
-            consumers.draw();
-
-            CustomVertexConsumerProvider.clearRunnables();
-            RenderSystem.enableDepthTest();
-
-            RenderSystem.enableCull();
-            RenderSystem.disableBlend();
+        if (sneaking)
+        {
+            textRenderer.draw(text, h, 0, -1, false, matrix4f, vertexConsumers, TextRenderer.TextLayerType.NORMAL, 0, light);
+        }
 
         matrices.pop();
     }
@@ -1072,8 +360,6 @@ public abstract class BaseFilmController
     public void createEntities()
     {
         this.entities.clear();
-        this.replayMap.clear();
-        this.lastStepSoundTicks.clear();
 
         if (this.film == null)
         {
@@ -1084,11 +370,7 @@ public abstract class BaseFilmController
 
         for (Replay replay : this.film.replays.getList())
         {
-            MobCemPoseCapture.syncReplay(replay);
-            this.replayMap.put(replay.uuid.get(), replay);
-            this.replayMap.put(replay.getId(), replay);
-
-            if (this.isReplayEnabled(replay))
+            if (replay.enabled.get())
             {
                 World world = MinecraftClient.getInstance().world;
                 IEntity entity = new StubEntity(world);
@@ -1127,14 +409,11 @@ public abstract class BaseFilmController
 
     protected void updateEntities(int ticks)
     {
-        List<Replay> replays = this.film.replays.getList();
-
-        MorphMountSync.assignMountTargets(this.entities, replays, ticks);
-
         for (Map.Entry<Integer, IEntity> entry : this.entities.entrySet())
         {
             int i = entry.getKey();
             IEntity entity = entry.getValue();
+            List<Replay> replays = this.film.replays.getList();
             Replay replay = CollectionUtils.getSafe(replays, i);
 
             if (!this.canUpdate(i, replay, entity, UpdateMode.UPDATE))
@@ -1144,33 +423,10 @@ public abstract class BaseFilmController
 
             if (replay != null)
             {
-                int replayTick = replay.getTick(ticks);
+                ticks = replay.getTick(ticks);
 
-                this.applyReplay(replay, replayTick, entity);
-            }
-        }
-
-        MorphMountSync.syncMountedState(this.entities, replays, ticks);
-
-        for (Map.Entry<Integer, IEntity> entry : this.entities.entrySet())
-        {
-            int i = entry.getKey();
-            IEntity entity = entry.getValue();
-            Replay replay = CollectionUtils.getSafe(replays, i);
-
-            if (!this.canUpdate(i, replay, entity, UpdateMode.UPDATE))
-            {
-                continue;
-            }
-
-            if (replay != null)
-            {
-                int replayTick = replay.getTick(ticks);
-
-                this.updateEntityAndForm(entity, replayTick);
-
-                boolean spawned = false;
-                boolean mounted = entity.getMountTarget() != null;
+                this.updateEntityAndForm(entity, ticks);
+                this.applyReplay(replay, ticks, entity);
 
                 Map<String, Integer> actors = this.getActors();
 
@@ -1184,48 +440,25 @@ public abstract class BaseFilmController
 
                         if (anEntity instanceof ActorEntity actor)
                         {
-                            /* IEntity already has mount rotation applied by MorphMountSync */
-                            actor.setYaw(entity.getYaw());
-                            actor.setHeadYaw(entity.getHeadYaw());
-                            actor.setBodyYaw(entity.getBodyYaw());
-                            actor.setPitch(entity.getPitch());
-                            replay.applyClientActions(replayTick, new MCEntity(anEntity), this.film);
-
-                            spawned = true;
+                            /* Force synchronize entity angles */
+                            actor.setYaw(replay.keyframes.yaw.interpolate(ticks).floatValue());
+                            actor.setHeadYaw(replay.keyframes.headYaw.interpolate(ticks).floatValue());
+                            actor.setBodyYaw(replay.keyframes.bodyYaw.interpolate(ticks).floatValue());
+                            actor.setPitch(replay.keyframes.pitch.interpolate(ticks).floatValue());
+                            replay.applyClientActions(ticks, new MCEntity(anEntity), this.film);
                         }
                         else if (anEntity instanceof PlayerEntity player)
                         {
-                            if (!mounted)
-                            {
-                                double x = replay.keyframes.x.interpolate(replayTick);
-                                double y = replay.keyframes.y.interpolate(replayTick);
-                                double z = replay.keyframes.z.interpolate(replayTick);
-                                double prevX = replay.keyframes.x.interpolate(replayTick - 1);
-                                double prevY = replay.keyframes.y.interpolate(replayTick - 1);
-                                double prevZ = replay.keyframes.z.interpolate(replayTick - 1);
+                            double x = replay.keyframes.x.interpolate(ticks);
+                            double y = replay.keyframes.y.interpolate(ticks);
+                            double z = replay.keyframes.z.interpolate(ticks);
+                            double prevX = replay.keyframes.x.interpolate(ticks - 1);
+                            double prevY = replay.keyframes.y.interpolate(ticks - 1);
+                            double prevZ = replay.keyframes.z.interpolate(ticks - 1);
 
-                                player.setVelocity(x - prevX, y - prevY, z - prevZ);
-
-                                this.spawnSprintParticles(replay, replayTick, player);
-                            }
-                            else
-                            {
-                                player.setVelocity(0D, 0D, 0D);
-                            }
-
-                            spawned = true;
+                            player.setVelocity(x - prevX, y - prevY, z - prevZ);
                         }
                     }
-                }
-
-                if (!spawned && !mounted)
-                {
-                    World world = MinecraftClient.getInstance().world;
-                    Form form = replay.form.get();
-                    double width = form != null ? form.hitboxWidth.get() : 0.6D;
-
-                    this.spawnReplayStepSound(replay, replayTick, world);
-                    this.spawnSprintParticles(replay, replayTick, world, width);
                 }
             }
         }
@@ -1249,7 +482,7 @@ public abstract class BaseFilmController
 
             if (replay != null)
             {
-                int replayTick = replay.getTick(ticks);
+                ticks = replay.getTick(ticks);
 
                 Map<String, Integer> actors = this.getActors();
 
@@ -1263,68 +496,18 @@ public abstract class BaseFilmController
 
                         if (anEntity instanceof PlayerEntity player)
                         {
-                            double x = replay.keyframes.x.interpolate(replayTick);
-                            double y = replay.keyframes.y.interpolate(replayTick);
-                            double z = replay.keyframes.z.interpolate(replayTick);
-                            boolean sneaking = replay.keyframes.sneaking.interpolate(replayTick) > 0;
-                            boolean sprinting = replay.keyframes.sprinting.interpolate(replayTick) > 0;
-                            boolean swimming = replay.keyframes.swimming.interpolate(replayTick) > 0;
-                            boolean flying = replay.keyframes.flying.interpolate(replayTick) > 0;
-                            boolean fallFlying = replay.keyframes.fallFlying.interpolate(replayTick) > 0;
-                            boolean crawling = replay.keyframes.crawling.interpolate(replayTick) > 0;
-                            boolean climbing = replay.keyframes.climbing.interpolate(replayTick) > 0;
-                            boolean blocking = replay.keyframes.blocking.interpolate(replayTick) > 0;
-                            boolean sleeping = replay.keyframes.sleeping.interpolate(replayTick) > 0;
-                            boolean riptide = replay.keyframes.riptide.interpolate(replayTick) > 0;
-                            boolean grounded = replay.keyframes.grounded.interpolate(replayTick) > 0;
+                            double x = replay.keyframes.x.interpolate(ticks);
+                            double y = replay.keyframes.y.interpolate(ticks);
+                            double z = replay.keyframes.z.interpolate(ticks);
+                            boolean sneaking = replay.keyframes.sneaking.interpolate(ticks) > 0;
 
                             Vec3d pos = player.getPos();
-                            double dx = x - pos.x;
-                            double dy = y - pos.y;
-                            double dz = z - pos.z;
-                            boolean shouldStep = !this.paused
-                                && (BBSSettings.editorReplayStepSound == null || BBSSettings.editorReplayStepSound.get())
-                                && (dx * dx + dy * dy + dz * dz) > 1.0E-8D;
 
-                            if (shouldStep)
-                            {
-                                String replayId = replay.getId();
-                                Integer lastTick = this.lastStepSoundTicks.get(replayId);
-
-                                /* Same edge as spawnReplayStepSound: parked playhead must not
-                                 * call move() every client tick (vanilla step spam). */
-                                if (lastTick == null || lastTick.intValue() != replayTick)
-                                {
-                                    this.lastStepSoundTicks.put(replayId, replayTick);
-                                    player.setOnGround(grounded);
-                                    player.move(MovementType.SELF, new Vec3d(dx, dy, dz));
-                                }
-                            }
-
+                            player.move(MovementType.SELF, new Vec3d(x - pos.x, y - pos.y, z - pos.z));
                             player.setPosition(x, y, z);
 
                             player.setSneaking(sneaking);
-                            player.setSprinting(sprinting);
-                            player.setSwimming(swimming);
-                            player.getAbilities().flying = flying;
-                            player.setFlag(7, fallFlying);
-                            player.setFlag(4, riptide);
-
-                            if (crawling)
-                            {
-                                player.setPose(EntityPose.SWIMMING);
-                            }
-                            else if (sleeping)
-                            {
-                                player.setPose(EntityPose.SLEEPING);
-                            }
-
-                            if (blocking)
-                            {
-                                player.setLivingFlag(1, true);
-                            }
-
-                            player.setOnGround(grounded);
+                            player.setOnGround(replay.keyframes.grounded.interpolate(ticks) > 0);
 
                             if (player instanceof ClientPlayerEntityAccessor accessor)
                             {
@@ -1336,7 +519,7 @@ public abstract class BaseFilmController
                                 playerEntity.input.sneaking = sneaking;
                             }
 
-                            player.fallDistance = replay.keyframes.fall.interpolate(replayTick).floatValue();
+                            player.fallDistance = replay.keyframes.fall.interpolate(ticks).floatValue();
                         }
                     }
                 }
@@ -1346,7 +529,6 @@ public abstract class BaseFilmController
 
     protected void updateEntityAndForm(IEntity entity, int tick)
     {
-        entity.setAge(tick);
         entity.update();
 
         if (entity.getForm() != null)
@@ -1360,230 +542,6 @@ public abstract class BaseFilmController
         replay.keyframes.apply(ticks, entity);
         replay.applyClientActions(ticks, entity, this.film);
     }
-
-      private void spawnSprintParticles(Replay replay, int ticks, Entity entity)
-    {
-        if (entity == null)
-        {
-            return;
-        }
-
-        this.spawnSprintParticles(replay, ticks, entity.getWorld(), entity.getWidth());
-    }
-
-    private void spawnSprintParticles(Replay replay, int ticks, World world, double width)
-    {
-        if (!BBSSettings.editorReplaySprintParticles.get() || replay == null || world == null)
-        {
-            return;
-        }
-
-        if (!this.isReplayVisible(replay, ticks))
-        {
-            return;
-        }
-
-        if (replay.keyframes.sprinting.interpolate(ticks) <= 0D)
-        {
-            return;
-        }
-
-        if (replay.keyframes.grounded.interpolate(ticks) <= 0D)
-        {
-            return;
-        }
-
-        double vX = replay.keyframes.vX.interpolate(ticks);
-        double vZ = replay.keyframes.vZ.interpolate(ticks);
-
-        if ((vX * vX + vZ * vZ) < 0.001D)
-        {
-            return;
-        }
-
-        double xPos = replay.keyframes.x.interpolate(ticks);
-        double yPos = replay.keyframes.y.interpolate(ticks);
-        double zPos = replay.keyframes.z.interpolate(ticks);
-
-        BlockPos pos = BlockPos.ofFloored(xPos, yPos - 0.2D, zPos);
-
-        if (world.isAir(pos))
-        {
-            return;
-        }
-
-        double x = xPos + (world.random.nextDouble() - 0.5D) * width;
-        double y = yPos + 0.1D;
-        double z = zPos + (world.random.nextDouble() - 0.5D) * width;
-
-        world.addParticle(new BlockStateParticleEffect(ParticleTypes.BLOCK, world.getBlockState(pos)), x, y, z, 0D, 0.1D, 0D);
-    }
-
-    private void spawnReplayStepSound(Replay replay, int ticks, World world)
-    {
-        if (BBSSettings.editorReplayStepSound == null || !BBSSettings.editorReplayStepSound.get() || replay == null || world == null)
-        {
-            return;
-        }
-
-        if (this.paused)
-        {
-            return;
-        }
-
-        String replayId = replay.getId();
-        Integer lastTick = this.lastStepSoundTicks.get(replayId);
-
-        /* One evaluation per film tick (scrub once, play once; parked playhead = silence). */
-        if (lastTick != null && lastTick.intValue() == ticks)
-        {
-            return;
-        }
-
-        this.lastStepSoundTicks.put(replayId, ticks);
-
-        if (!this.isReplayVisible(replay, ticks))
-        {
-            return;
-        }
-
-        if (replay.keyframes.grounded.interpolate(ticks) <= 0D)
-        {
-            return;
-        }
-
-        /* Approximate vanilla stepping cadence while the timeline is advancing. */
-        if ((ticks & 7) != 0)
-        {
-            return;
-        }
-
-        double vX = replay.keyframes.vX.interpolate(ticks);
-        double vZ = replay.keyframes.vZ.interpolate(ticks);
-
-        if ((vX * vX + vZ * vZ) < 0.01D)
-        {
-            return;
-        }
-
-        double xPos = replay.keyframes.x.interpolate(ticks);
-        double yPos = replay.keyframes.y.interpolate(ticks);
-        double zPos = replay.keyframes.z.interpolate(ticks);
-        BlockPos pos = BlockPos.ofFloored(xPos, yPos - 0.2D, zPos);
-
-        if (world.isAir(pos))
-        {
-            return;
-        }
-
-        var soundGroup = world.getBlockState(pos).getSoundGroup();
-
-        world.playSound(
-            xPos,
-            yPos,
-            zPos,
-            soundGroup.getStepSound(),
-            SoundCategory.PLAYERS,
-            soundGroup.getVolume() * 0.15F,
-            soundGroup.getPitch(),
-            false
-        );
-    }
-
-    public boolean isReplayVisible(Replay replay, int ticks)
-    {
-        if (!this.isReplayEnabled(replay))
-        {
-            return false;
-        }
-
-        if (!this.isReplayVisibleAt(replay, ticks))
-        {
-            return false;
-        }
-
-        if (!replay.group.get().isEmpty())
-        {
-            String[] groups = replay.group.get().split("/");
-
-            for (String uuid : groups)
-            {
-                Replay groupReplay = this.replayMap.get(uuid);
-
-                if (groupReplay != null)
-                {
-                    if (!this.isReplayEnabled(groupReplay))
-                    {
-                        return false;
-                    }
-
-                    int groupTick = groupReplay.getTick(this.getTick());
-
-                    if (!this.isReplayVisibleAt(groupReplay, groupTick))
-                    {
-                        return false;
-                    }
-                }
-            }
-        }
-
-        return true;
-    }
-
-    private boolean isReplayEnabled(Replay replay)
-    {
-        if (replay == null || !replay.enabled.get())
-        {
-            return false;
-        }
-
-        if (!replay.group.get().isEmpty())
-        {
-            String[] groups = replay.group.get().split("/");
-
-            for (String uuid : groups)
-            {
-                Replay groupReplay = this.replayMap.get(uuid);
-
-                if (groupReplay != null && !groupReplay.enabled.get())
-                {
-                    return false;
-                }
-            }
-        }
-
-        return true;
-    }
-
-    protected boolean isReplayVisibleAt(Replay replay, float tick)
-    {
-        BaseValue renderValue = replay.properties.get("render");
-
-        if (renderValue instanceof KeyframeChannel)
-        {
-            @SuppressWarnings("unchecked")
-            KeyframeChannel<Boolean> render = (KeyframeChannel<Boolean>) renderValue;
-
-            if (render.isEmpty())
-            {
-                return true;
-            }
-
-            Keyframe<Boolean> first = render.get(0);
-
-            if (first != null && tick < first.getTick())
-            {
-                return true;
-            }
-
-            Boolean value = render.interpolate(tick, true);
-
-            return value == null || value;
-        }
-
-        return true;
-    }
-
 
     public void startRenderFrame(float transition)
     {
@@ -1603,13 +561,7 @@ public abstract class BaseFilmController
 
             /* Apply property */
             Form form1 = entity.getForm();
-            replay.properties.resetProperties(form1);
             replay.properties.applyProperties(form1, tick + delta);
-
-            if (MobCemPoseCapture.isActive(replay))
-            {
-                MobCemPoseCapture.applyPlaybackPose(replay, form1, entity, tick + delta);
-            }
 
             Map<String, Integer> actors = this.getActors();
 
@@ -1624,7 +576,6 @@ public abstract class BaseFilmController
                     if (anEntity instanceof ActorEntity actor)
                     {
                         Form form = actor.getForm();
-                        replay.properties.resetProperties(form);
                         replay.properties.applyProperties(form, tick + delta);
                     }
                     else if (anEntity instanceof PlayerEntity player)
@@ -1634,7 +585,6 @@ public abstract class BaseFilmController
                         if (morph != null)
                         {
                             Form form = morph.getForm();
-                            replay.properties.resetProperties(form);
                             replay.properties.applyProperties(form, tick + delta);
                         }
 
@@ -1675,19 +625,7 @@ public abstract class BaseFilmController
     {
         RenderSystem.enableDepthTest();
 
-        /* Farther entities first so translucency composites correctly. */
-        List<Map.Entry<Integer, IEntity>> sorted = new ArrayList<>(this.entities.entrySet());
-        Camera camera = context.camera();
-        float transition = context.tickDelta();
-
-        sorted.sort(Comparator
-            .comparing((Map.Entry<Integer, IEntity> entry) ->
-                this.getEntityCameraDistanceSq(entry.getValue(), camera, transition)
-            ).reversed()
-            .thenComparing(Map.Entry::getKey)
-        );
-
-        for (Map.Entry<Integer, IEntity> entry : sorted)
+        for (Map.Entry<Integer, IEntity> entry : this.entities.entrySet())
         {
             int i = entry.getKey();
             IEntity entity = entry.getValue();
@@ -1698,415 +636,29 @@ public abstract class BaseFilmController
                 continue;
             }
 
-            this.renderEntity(context, replay, entity, i);
+            this.renderEntity(context, replay, entity);
         }
     }
 
-    private double getEntityCameraDistanceSq(IEntity entity, Camera camera, float transition)
-    {
-        double x = Lerps.lerp(entity.getPrevX(), entity.getX(), transition);
-        double y = Lerps.lerp(entity.getPrevY(), entity.getY(), transition);
-        double z = Lerps.lerp(entity.getPrevZ(), entity.getZ(), transition);
-        double dx = x - camera.getPos().x;
-        double dy = y - camera.getPos().y;
-        double dz = z - camera.getPos().z;
-
-        return dx * dx + dy * dy + dz * dz;
-    }
-
-    protected void renderEntity(WorldRenderContext context, Replay replay, IEntity entity, int index)
+    protected void renderEntity(WorldRenderContext context, Replay replay, IEntity entity)
     {
         if (!replay.actor.get())
         {
-            int replayTick = replay.getTick(this.getTick());
-
-            if (!this.isReplayVisible(replay, replayTick))
-            {
-                return;
-            }
-
             FilmControllerContext filmContext = getFilmControllerContext(context, replay, entity);
 
             filmContext.transition = getTransition(entity, context.tickDelta());
 
-            filmContext.stack.push();
-
-            try
-            {
-                if (!this.applyGroupProperties(replay, filmContext))
-                {
-                    return;
-                }
-
-                renderEntity(filmContext);
-            }
-            finally
-            {
-                filmContext.stack.pop();
-            }
+            renderEntity(filmContext);
         }
-    }
-
-    protected Replay getGroupPivot(String groupUuid)
-    {
-        for (Replay replay : this.film.replays.getList())
-        {
-            if (replay.group.get().contains(groupUuid))
-            {
-                return replay;
-            }
-        }
-
-        return null;
-    }
-
-    protected boolean applyGroupProperties(Replay replay, FilmControllerContext context)
-    {
-        if (replay.group.get().isEmpty())
-        {
-            return true;
-        }
-
-        String[] groups = replay.group.get().split("/");
-        int finalColor = Colors.WHITE;
-        Matrix4f globalTranslate = new Matrix4f().identity();
-        Matrix4f localTransform = new Matrix4f().identity();
-        PaintSettings groupPaint = null;
-        GlowSettings groupGlow = null;
-
-        for (String uuid : groups)
-        {
-            Replay groupReplay = this.replayMap.get(uuid);
-
-            if (groupReplay != null)
-            {
-                if (!groupReplay.enabled.get())
-                {
-                    return false;
-                }
-
-                double tick = groupReplay.getTick(this.getTick()) + context.transition;
-
-                if (!this.isReplayVisibleAt(groupReplay, (float) tick))
-                {
-                    return false;
-                }
-
-                BaseValue colorValue = groupReplay.properties.get("color");
-
-                if (colorValue instanceof KeyframeChannel)
-                {
-                    KeyframeChannel<Color> color = (KeyframeChannel<Color>) colorValue;
-
-                    if (!color.isEmpty())
-                    {
-                        int groupColor = color.interpolate((float) tick).getARGBColor();
-                        finalColor = this.mulColors(finalColor, groupColor);
-                    }
-                }
-
-                Transform groupTransform = this.getGroupTransform(groupReplay, (float) tick);
-
-                if (!groupTransform.isDefault())
-                {
-                    globalTranslate.translate(groupTransform.translate.x, groupTransform.translate.y, groupTransform.translate.z);
-
-                    Matrix4f local = new Matrix4f();
-
-                    if (groupTransform.pivot.x != 0F || groupTransform.pivot.y != 0F || groupTransform.pivot.z != 0F)
-                    {
-                        local.translate(groupTransform.pivot);
-                    }
-
-                    local.rotateZ(groupTransform.rotate.z);
-                    local.rotateY(groupTransform.rotate.y);
-                    local.rotateX(groupTransform.rotate.x);
-                    local.rotateZ(groupTransform.rotate2.z);
-                    local.rotateY(groupTransform.rotate2.y);
-                    local.rotateX(groupTransform.rotate2.x);
-                    local.scale(groupTransform.scale);
-
-                    if (groupTransform.pivot.x != 0F || groupTransform.pivot.y != 0F || groupTransform.pivot.z != 0F)
-                    {
-                        local.translate(-groupTransform.pivot.x, -groupTransform.pivot.y, -groupTransform.pivot.z);
-                    }
-
-                    localTransform.mul(local);
-                }
-
-                PaintSettings paint = this.getGroupPaintSettings(groupReplay, (float) tick);
-
-                if (paint != null)
-                {
-                    groupPaint = groupPaint == null ? paint : this.mergePaintSettings(groupPaint, paint);
-                }
-
-                GlowSettings glow = this.getGroupGlowSettings(groupReplay, (float) tick);
-
-                if (glow != null)
-                {
-                    groupGlow = groupGlow == null ? glow : this.mergeGlowSettings(groupGlow, glow);
-                }
-            }
-        }
-
-        if (finalColor != Colors.WHITE)
-        {
-            context.color(this.mulColors(context.color, finalColor));
-        }
-
-        if (!globalTranslate.equals(new Matrix4f().identity()))
-        {
-            context.stack.peek().getPositionMatrix().mul(globalTranslate);
-        }
-
-        if (!localTransform.equals(new Matrix4f().identity()))
-        {
-            context.localGroupTransform = localTransform;
-        }
-
-        context.groupPaint = groupPaint;
-        context.groupGlow = groupGlow;
-
-        return true;
-    }
-
-    private Transform getGroupTransform(Replay groupReplay, float tick)
-    {
-        Transform transform = new Transform();
-
-        BaseValue transformValue = groupReplay.properties.get("transform");
-
-        if (transformValue instanceof KeyframeChannel)
-        {
-            KeyframeChannel<Transform> channel = (KeyframeChannel<Transform>) transformValue;
-
-            if (!channel.isEmpty())
-            {
-                transform.copy(channel.interpolate(tick));
-            }
-        }
-
-        this.applyGroupTransformOverlay(transform, groupReplay, "transform_overlay", tick);
-
-        for (int i = 0; i < BBSSettings.recordingPoseTransformOverlays.get(); i++)
-        {
-            this.applyGroupTransformOverlay(transform, groupReplay, "transform_overlay" + i, tick);
-        }
-
-        return transform;
-    }
-
-    private void applyGroupTransformOverlay(Transform transform, Replay groupReplay, String key, float tick)
-    {
-        BaseValue overlayValue = groupReplay.properties.get(key);
-
-        if (overlayValue instanceof KeyframeChannel)
-        {
-            KeyframeChannel<Transform> channel = (KeyframeChannel<Transform>) overlayValue;
-
-            if (!channel.isEmpty())
-            {
-                Transform overlay = channel.interpolate(tick);
-
-                transform.translate.add(overlay.translate);
-                transform.scale.add(overlay.scale).sub(1F, 1F, 1F);
-                transform.rotate.add(overlay.rotate);
-                transform.rotate2.add(overlay.rotate2);
-                transform.pivot.add(overlay.pivot);
-            }
-        }
-    }
-
-    private PaintSettings getGroupPaintSettings(Replay groupReplay, float tick)
-    {
-        BaseValue paintValue = groupReplay.properties.get("paint");
-
-        if (paintValue instanceof KeyframeChannel)
-        {
-            KeyframeChannel<PaintSettings> channel = (KeyframeChannel<PaintSettings>) paintValue;
-
-            if (!channel.isEmpty())
-            {
-                PaintSettings settings = channel.interpolate(tick);
-
-                return settings == null ? null : settings.copy();
-            }
-        }
-
-        return null;
-    }
-
-    private GlowSettings getGroupGlowSettings(Replay groupReplay, float tick)
-    {
-        BaseValue glowValue = groupReplay.properties.get("glow");
-
-        if (glowValue instanceof KeyframeChannel)
-        {
-            KeyframeChannel<GlowSettings> channel = (KeyframeChannel<GlowSettings>) glowValue;
-
-            if (!channel.isEmpty())
-            {
-                GlowSettings settings = channel.interpolate(tick);
-
-                return settings == null ? null : settings.copy();
-            }
-        }
-
-        return null;
-    }
-
-    private PaintSettings mergePaintSettings(PaintSettings base, PaintSettings overlay)
-    {
-        PaintSettings merged = base.copy();
-
-        merged.r *= overlay.r;
-        merged.g *= overlay.g;
-        merged.b *= overlay.b;
-        merged.intensity += overlay.intensity;
-        merged.sync = merged.sync || overlay.sync;
-        merged.shaderShadow = PaintSettings.resolveAutoShaderShadow(merged.intensity);
-
-        return merged;
-    }
-
-    private GlowSettings mergeGlowSettings(GlowSettings base, GlowSettings overlay)
-    {
-        GlowSettings merged = base.copy();
-
-        merged.r *= overlay.r;
-        merged.g *= overlay.g;
-        merged.b *= overlay.b;
-        merged.intensity += overlay.intensity;
-        merged.sync = merged.sync || overlay.sync;
-        merged.paintOnly = merged.paintOnly || overlay.paintOnly;
-        merged.radius = Math.max(merged.radius, overlay.radius);
-        merged.width = Math.max(merged.width, overlay.width);
-        merged.height = Math.max(merged.height, overlay.height);
-
-        return merged;
-    }
-
-    private static void applyGroupPaintGlow(Form form, PaintSettings groupPaint, GlowSettings groupGlow)
-    {
-        if (groupPaint != null)
-        {
-            PaintSettings current = form.paintSettings.get().copy();
-
-            current.r *= groupPaint.r;
-            current.g *= groupPaint.g;
-            current.b *= groupPaint.b;
-            current.intensity += groupPaint.intensity;
-            current.sync = current.sync || groupPaint.sync;
-            current.shaderShadow = PaintSettings.resolveAutoShaderShadow(current.intensity);
-            form.paintSettings.setRuntimeValue(current);
-            /* Keep casting; paint.shaderShadow float is the Complementary flag only. */
-            form.shaderShadow.setRuntimeValue(null);
-        }
-
-        if (groupGlow != null)
-        {
-            GlowSettings current = form.glowSettings.get().copy();
-
-            current.r *= groupGlow.r;
-            current.g *= groupGlow.g;
-            current.b *= groupGlow.b;
-            current.intensity += groupGlow.intensity;
-            current.sync = current.sync || groupGlow.sync;
-            current.paintOnly = current.paintOnly || groupGlow.paintOnly;
-            current.radius = Math.max(current.radius, groupGlow.radius);
-            current.width = Math.max(current.width, groupGlow.width);
-            current.height = Math.max(current.height, groupGlow.height);
-            form.glowSettings.setRuntimeValue(current);
-        }
-    }
-
-    private int mulColors(int c1, int c2)
-    {
-        int a1 = (c1 >> 24) & 0xFF;
-        int r1 = (c1 >> 16) & 0xFF;
-        int g1 = (c1 >> 8) & 0xFF;
-        int b1 = (c1) & 0xFF;
-
-        int a2 = (c2 >> 24) & 0xFF;
-        int r2 = (c2 >> 16) & 0xFF;
-        int g2 = (c2 >> 8) & 0xFF;
-        int b2 = (c2) & 0xFF;
-
-        int a = (a1 * a2) / 255;
-        int r = (r1 * r2) / 255;
-        int g = (g1 * g2) / 255;
-        int b = (b1 * b2) / 255;
-
-        return (a << 24) | (r << 16) | (g << 8) | b;
     }
 
     protected FilmControllerContext getFilmControllerContext(WorldRenderContext context, Replay replay, IEntity entity)
     {
-        float tick = replay.getTick(this.getTick()) + this.getTransition(entity, context.tickDelta());
-        ShadowSettings shadow = resolveShadowSettings(replay, tick);
-
         return FilmControllerContext.instance
             .setup(this.entities, entity, replay, context)
-            .film(this.film)
-            .propertyTick(tick)
-            .filmTick(this.getTick())
-            .shadow(replay.shadow.get(), shadow)
+            .shadow(replay.shadow.get(), replay.shadowSize.get())
             .nameTag(replay.nameTag.get())
             .relative(replay.relative.get());
-    }
-
-    /**
-     * Interpolated replay shadow settings at {@code tick} (includes keyframes).
-     * Always returns a fresh copy — factory interpolation reuses a shared instance.
-     */
-    public static ShadowSettings resolveShadowSettings(Replay replay, float tick)
-    {
-        ShadowSettings settings = new ShadowSettings(replay.shadowOpacity.get(), replay.shadowSize.get(), replay.shadowSizeZ.get());
-
-        settings.offsetX = replay.shadowOffsetX.get();
-        settings.offsetY = replay.shadowOffsetY.get();
-        settings.offsetZ = replay.shadowOffsetZ.get();
-
-        if (!replay.keyframes.shadowSize.isEmpty())
-        {
-            ShadowSettings size = replay.keyframes.shadowSize.interpolate(tick);
-
-            if (size != null)
-            {
-                settings.widthX = Math.max(0F, size.widthX);
-                settings.widthZ = Math.max(0F, size.widthZ);
-                settings.offsetX = size.offsetX;
-                settings.offsetY = size.offsetY;
-                settings.offsetZ = size.offsetZ;
-            }
-        }
-
-        if (!replay.keyframes.shadowOpacity.isEmpty())
-        {
-            settings.opacity = MathUtils.clamp(replay.keyframes.shadowOpacity.interpolate(tick).floatValue(), 0F, 1F);
-        }
-
-        settings.widthX = Math.max(0F, settings.widthX);
-        settings.widthZ = Math.max(0F, settings.widthZ);
-        settings.opacity = MathUtils.clamp(settings.opacity, 0F, 1F);
-
-        return settings;
-    }
-
-    public static float resolveShadowSize(Replay replay, float tick)
-    {
-        return resolveShadowSettings(replay, tick).widthX;
-    }
-
-    public static float resolveShadowSizeZ(Replay replay, float tick)
-    {
-        return resolveShadowSettings(replay, tick).widthZ;
-    }
-
-    public static float resolveShadowOpacity(Replay replay, float tick)
-    {
-        return resolveShadowSettings(replay, tick).opacity;
     }
 
     public void shutdown()

@@ -9,8 +9,6 @@ import mchorse.bbs_mod.ui.utils.icons.Icon;
 import mchorse.bbs_mod.ui.utils.icons.Icons;
 import mchorse.bbs_mod.ui.utils.keys.KeyCombo;
 import mchorse.bbs_mod.ui.utils.keys.Keybind;
-import mchorse.bbs_mod.utils.colors.Colors;
-
 import org.lwjgl.glfw.GLFW;
 
 import java.util.ArrayList;
@@ -65,12 +63,6 @@ public class ContextMenuManager
         if (icon == null || label == null)
         {
             throw new IllegalStateException("Icon (" + icon + ") and/or label (" + label + ") is null!");
-        }
-
-        /* Use the same red gradient style as "Remove all forms" for remove/trash actions globally. */
-        if (icon == Icons.REMOVE || icon == Icons.TRASH)
-        {
-            return this.action(new ColorfulContextAction(icon, label, runnable, Colors.RED));
         }
 
         return this.action(new ContextAction(icon, label, runnable));
@@ -133,7 +125,7 @@ public class ContextMenuManager
                     register.category(action.keyCategory);
                 }
             }
-            else if (this.autoKeys && i < 30 && action.runnable != null && !(action instanceof ContextSeparatorAction))
+            else if (this.autoKeys && i < 30)
             {
                 IKey label = UIKeys.CONTEXT_MENU_KEY.format(action.label);
                 int mod = i % 10;

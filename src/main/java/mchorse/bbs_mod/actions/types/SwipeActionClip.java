@@ -5,7 +5,6 @@ import mchorse.bbs_mod.film.Film;
 import mchorse.bbs_mod.film.replays.Replay;
 import mchorse.bbs_mod.forms.entities.IEntity;
 import mchorse.bbs_mod.utils.clips.Clip;
-
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.util.Hand;
 

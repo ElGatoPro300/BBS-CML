@@ -30,7 +30,6 @@ import mchorse.bbs_mod.ui.utils.UIUtils;
 import mchorse.bbs_mod.ui.utils.icons.Icons;
 import mchorse.bbs_mod.utils.IOUtils;
 import mchorse.bbs_mod.utils.colors.Colors;
-
 import org.lwjgl.glfw.GLFW;
 import org.lwjgl.system.MemoryUtil;
 

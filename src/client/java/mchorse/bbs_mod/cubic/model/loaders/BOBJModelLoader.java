@@ -36,14 +36,6 @@ public class BOBJModelLoader implements IModelLoader
     public ModelInstance load(String id, ModelManager models, Link model, Collection<Link> links, MapType config)
     {
         Link modelBOBJ = IModelLoader.getLink(model.combine("model.bobj"), links, ".bobj");
-
-        /* No BOBJ file in this model's folder — it's not a BOBJ model, let the
-         * next loader handle it instead of noisily failing to open a missing file. */
-        if (!links.contains(modelBOBJ))
-        {
-            return null;
-        }
-
         Link modelTexture = IModelLoader.getLink(model.combine("model.png"), links, ".png");
 
         try (InputStream stream = models.provider.getAsset(modelBOBJ))
@@ -58,44 +50,26 @@ public class BOBJModelLoader implements IModelLoader
             }
 
             BOBJArmature armature = bobjData.armatures.values().iterator().next();
-            List<BOBJLoader.CompiledData> compiledMeshes = new ArrayList<>();
+            BOBJLoader.BOBJMesh finalMesh = null;
 
             for (BOBJLoader.BOBJMesh mesh : bobjData.meshes)
             {
                 if (mesh.armature == armature)
                 {
-                    compiledMeshes.add(BOBJLoader.compileMesh(bobjData, mesh));
+                    finalMesh = mesh;
+
+                    break;
                 }
             }
 
-            if (!compiledMeshes.isEmpty())
+            if (finalMesh != null)
             {
-                BOBJModel bobjModel = new BOBJModel(armature, compiledMeshes, id.startsWith("emoticons") && id.endsWith("_simple"));
+                BOBJLoader.CompiledData compiledData = BOBJLoader.compileMesh(bobjData, finalMesh);
+                BOBJModel bobjModel = new BOBJModel(armature, compiledData, id.startsWith("emoticons") && id.endsWith("_simple"));
 
                 bobjData.initiateArmatures();
 
                 ModelInstance instance = new ModelInstance(id, bobjModel, this.convertAnimations(bobjData, new Animations(models.parser)), modelTexture);
-
-                /* Each BOBJ mesh is its own material (keyed by mesh name): load its default texture
-                 * from a folder named after the mesh; without one it falls back to the model texture. */
-                for (BOBJLoader.CompiledData mesh : compiledMeshes)
-                {
-                    String material = mesh.mesh.name;
-
-                    instance.materials.add(material);
-
-                    Link texture = IModelLoader.findMaterialTexture(links, model, material);
-
-                    if (texture != null)
-                    {
-                        instance.materialTextures.put(material, texture);
-                    }
-                    else
-                    {
-                        /* No texture yet: surface an empty folder for this mesh to drop one into. */
-                        IModelLoader.ensureMaterialFolder(models.provider, model, material);
-                    }
-                }
 
                 if (id.startsWith("emoticons/"))
                 {

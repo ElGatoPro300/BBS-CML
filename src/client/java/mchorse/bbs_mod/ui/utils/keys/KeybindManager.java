@@ -65,7 +65,7 @@ public class KeybindManager
 
     public boolean checkMouse(UIContext context, boolean inside)
     {
-        if (context.getKeyAction() == KeyAction.RELEASED || (this.focus && context.isFocused()))
+        if (this.focus && context.isFocused())
         {
             return false;
         }

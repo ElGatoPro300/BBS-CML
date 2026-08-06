@@ -1,6 +1,5 @@
 {
     "block.bbs.model": "Model block",
-    "block.bbs.trigger": "Trigger block",
     "block.bbs.chroma_red": "Red chroma",
     "block.bbs.chroma_green": "Green chroma",
     "block.bbs.chroma_blue": "Blue chroma",
@@ -10,16 +9,12 @@
     "block.bbs.chroma_black": "Black chroma",
     "block.bbs.chroma_white": "White chroma",
     "item.bbs.gun": "BBS gun",
-    "item.bbs.mob_killer": "Mob Killer",
-    "item.bbs.block_picker": "Block Picker",
-    "item.bbs.structure_picker": "Structure Picker",
     "itemGroup.bbs.main": "BBS mod",
 
     "key.bbs.item_editor": "Item editor",
     "key.bbs.dashboard": "Dashboard",
     "key.bbs.demorph": "Demorph",
     "key.bbs.open_replays": "Open current replays",
-    "key.bbs.open_quick_replays": "Open quick replays",
     "key.bbs.open_morphing": "Open morphing menu",
     "key.bbs.play_film": "Play film",
     "key.bbs.pause_film": "Pause film",
@@ -27,11 +22,7 @@
     "key.bbs.record_video": "Record video",
     "key.bbs.teleport": "Teleport to current replay",
     "key.bbs.zoom": "Zoom (BBS gun)",
-    "key.bbs.toggle_replay_hud": "Toggle replay HUD",
     "category.bbs.main": "BBS mod",
 
-    "gamerule.bbsEditing": "BBS mod's editing permission",
-    "command.getskin.success": "Skin applied to all players",
-    "command.getskin.error": "Error: %s",
-    "command.getskin.downloading": "Downloading skin..."
+    "gamerule.bbsEditing": "BBS mod's editing permission"
 }

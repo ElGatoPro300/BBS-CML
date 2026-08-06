@@ -1,7 +1,6 @@
 package mchorse.bbs_mod.ui.dashboard.panels;
 
 import mchorse.bbs_mod.BBSSettings;
-import mchorse.bbs_mod.events.register.RegisterFilmSyncEvent;
 import mchorse.bbs_mod.settings.values.core.ValueGroup;
 import mchorse.bbs_mod.ui.ContentType;
 import mchorse.bbs_mod.ui.Keys;
@@ -12,10 +11,8 @@ import mchorse.bbs_mod.ui.dashboard.panels.overlay.UIDataOverlayPanel;
 import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.ui.framework.elements.UIElement;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIIcon;
-import mchorse.bbs_mod.ui.framework.elements.overlay.UIOverlay;
 import mchorse.bbs_mod.ui.utils.UIDataUtils;
 import mchorse.bbs_mod.ui.utils.icons.Icons;
-import mchorse.bbs_mod.utils.RecentAssetsTracker;
 import mchorse.bbs_mod.utils.Timer;
 import mchorse.bbs_mod.utils.interps.Interpolations;
 
@@ -43,16 +40,8 @@ public abstract class UIDataDashboardPanel <T extends ValueGroup> extends UICRUD
          * the keybinds are processed afterwards. */
         UIElement savePlease = new UIElement().noCulling();
 
-        /* Call save() directly rather than simulating a click on the save icon — the icon may be
-           removed from the toolbar (e.g. the film editor moves Save into the menu bar), and
-           clickItself() would then NPE on a detached element. */
-        savePlease.keys().register(Keys.SAVE, this::manualSave).active(() -> this.data != null);
+        savePlease.keys().register(Keys.SAVE, this.saveIcon::clickItself).active(() -> this.data != null);
         this.add(savePlease);
-    }
-
-    protected void manualSave()
-    {
-        this.save();
     }
 
     public T getData()
@@ -76,14 +65,6 @@ public abstract class UIDataDashboardPanel <T extends ValueGroup> extends UICRUD
     {
         this.save();
         this.requestData(id);
-
-        RecentAssetsTracker.add(this.getType(), id);
-    }
-
-    @Override
-    public void showHomeView()
-    {
-        this.fill(null);
     }
 
     public void requestData(String id)
@@ -106,14 +87,6 @@ public abstract class UIDataDashboardPanel <T extends ValueGroup> extends UICRUD
         this.fillData(data);
 
         this.savingTimer.mark(BBSSettings.editorPeriodicSave.get() * 1000L);
-
-        if (data != null && this.dashboard != null && this.dashboard.documentTabsBar != null)
-        {
-            if (!this.dashboard.documentTabsBar.matchesActiveAsset(this.getType(), data.getId()))
-            {
-                this.dashboard.documentTabsBar.addOrActivate(this.getType(), data.getId());
-            }
-        }
     }
 
     protected abstract void fillData(T data);
@@ -134,7 +107,7 @@ public abstract class UIDataDashboardPanel <T extends ValueGroup> extends UICRUD
     {
         super.resize();
 
-        if (!this.openedBefore && this.shouldOpenOverlayOnFirstResize())
+        if (!this.openedBefore)
         {
             this.openOverlay.clickItself();
 
@@ -159,7 +132,6 @@ public abstract class UIDataDashboardPanel <T extends ValueGroup> extends UICRUD
     public void forceSave()
     {
         this.getType().getRepository().save(this.data.getId(), this.data.toData().asMap());
-        RegisterFilmSyncEvent.postSaveFilm(this.data);
     }
 
     @Override
@@ -186,7 +158,7 @@ public abstract class UIDataDashboardPanel <T extends ValueGroup> extends UICRUD
     @Override
     public void render(UIContext context)
     {
-        if (this.data == null && this.shouldRenderOpenOverlayHint())
+        if (this.data == null)
         {
             double ticks = context.getTickTransition() % 15D;
             double factor = Math.abs(ticks / 15D * 2 - 1F);
@@ -223,27 +195,12 @@ public abstract class UIDataDashboardPanel <T extends ValueGroup> extends UICRUD
                 this.savingTimer.mark(seconds * 1000L);
 
                 this.save();
-                this.onAutoSaved(context);
+                context.notifySuccess(UIKeys.PANELS_SAVED_NOTIFICATION.format(this.data.getId()));
             }
         }
     }
 
-    protected void onAutoSaved(UIContext context)
-    {
-        context.notifySuccess(UIKeys.PANELS_SAVED_NOTIFICATION.format(this.data.getId()));
-    }
-
     protected boolean canSave(UIContext context)
-    {
-        return true;
-    }
-
-    protected boolean shouldOpenOverlayOnFirstResize()
-    {
-        return true;
-    }
-
-    protected boolean shouldRenderOpenOverlayHint()
     {
         return true;
     }

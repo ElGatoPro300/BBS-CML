@@ -23,11 +23,7 @@ public class UIRecentFormCategory extends UIFormCategory
                 MapType data = Window.getClipboardMap();
                 Form form = FormUtils.fromData(data);
 
-                menu.action(Icons.PASTE, UIKeys.FORMS_CATEGORIES_CONTEXT_PASTE_FORM, () ->
-                {
-                    this.category.addForm(form);
-                    this.list.refreshCategoryCards();
-                });
+                menu.action(Icons.PASTE, UIKeys.FORMS_CATEGORIES_CONTEXT_PASTE_FORM, () -> this.category.addForm(form));
             }
             catch (Exception e)
             {}
@@ -38,14 +34,12 @@ public class UIRecentFormCategory extends UIFormCategory
                 {
                     this.category.getDirectForms().clear();
                     this.select(null, false);
-                    this.list.refreshCategoryCards();
                 });
 
                 menu.action(Icons.REMOVE, UIKeys.FORMS_CATEGORIES_CONTEXT_REMOVE_FORM, Colors.RED, () ->
                 {
                     this.category.removeForm(this.selected);
                     this.select(null, false);
-                    this.list.refreshCategoryCards();
                 });
             }
         });

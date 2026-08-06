@@ -4,7 +4,6 @@ import mchorse.bbs_mod.actions.types.ActionClip;
 import mchorse.bbs_mod.data.types.BaseType;
 import mchorse.bbs_mod.film.Film;
 import mchorse.bbs_mod.utils.DataPath;
-
 import net.minecraft.block.BlockState;
 import net.minecraft.block.entity.BlockEntity;
 import net.minecraft.entity.Entity;
@@ -202,20 +201,6 @@ public class ActionManager
         if (dc != null)
         {
             dc.restore();
-        }
-    }
-
-    /**
-     * Puts captured blocks/entities back while keeping damage control armed
-     * for further film playback.
-     */
-    public void restoreDamage(ServerWorld world)
-    {
-        DamageControl damageControl = this.dc.get(world);
-
-        if (damageControl != null)
-        {
-            damageControl.restore();
         }
     }
 

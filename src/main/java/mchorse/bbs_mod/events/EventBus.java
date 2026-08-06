@@ -10,20 +10,13 @@ public class EventBus
     private final Map<Class<?>, CopyOnWriteArrayList<Subscription>> subscribers = new HashMap<>();
 
     /**
-     * Registers the given subscriber to receive events, including inherited @Subscribe methods.
+     * Registers the given subscriber to receive events.
      */
     public void register(Object subscriber)
     {
-        Class<?> clazz = subscriber.getClass();
-
-        while (clazz != null && clazz != Object.class)
+        for (Method method : subscriber.getClass().getDeclaredMethods())
         {
-            for (Method method : clazz.getDeclaredMethods())
-            {
-                this.subscribe(subscriber, method);
-            }
-
-            clazz = clazz.getSuperclass();
+            this.subscribe(subscriber, method);
         }
     }
 
@@ -37,7 +30,7 @@ public class EventBus
             }
 
             this.subscribers
-                .computeIfAbsent(method.getParameterTypes()[0], (c) -> new CopyOnWriteArrayList<>())
+                .computeIfAbsent(method.getParameterTypes()[0], (clazz) -> new CopyOnWriteArrayList<>())
                 .add(new Subscription(subscriber, method));
         }
     }

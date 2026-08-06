@@ -3,6 +3,7 @@ package mchorse.bbs_mod.utils;
 import mchorse.bbs_mod.BBSMod;
 import mchorse.bbs_mod.camera.Camera;
 import mchorse.bbs_mod.entity.ActorEntity;
+import net.minecraft.block.ShapeContext;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.projectile.ProjectileUtil;
 import net.minecraft.util.hit.BlockHitResult;
@@ -12,18 +13,11 @@ import net.minecraft.util.math.Box;
 import net.minecraft.util.math.Vec3d;
 import net.minecraft.world.RaycastContext;
 import net.minecraft.world.World;
-
-import org.joml.Vector2d;
 import org.joml.Vector3d;
 import org.joml.Vector3f;
 
-import java.util.ArrayList;
-import java.util.List;
-
 public class RayTracing
 {
-    public static final List<IRayTracingHandler> handlers = new ArrayList<>();
-
     public static Vec3d fromVector3d(Vector3d vector)
     {
         return new Vec3d(vector.x, vector.y, vector.z);
@@ -41,26 +35,12 @@ public class RayTracing
 
     public static BlockHitResult rayTrace(World world, Vec3d pos, Vec3d direction, double d)
     {
-        ActorEntity entity = new ActorEntity(BBSMod.ACTOR_ENTITY, world);
-
-        entity.setPos(pos.x, pos.y, pos.z);
-        
-        for (IRayTracingHandler handler : handlers)
-        {
-            BlockHitResult result = handler.rayTrace(world, pos, direction, d);
-
-            if (result != null)
-            {
-                return result;
-            }
-        }
-
         return world.raycast(new RaycastContext(
             pos,
             pos.add(direction.normalize().multiply(d)),
             RaycastContext.ShapeType.COLLIDER,
             RaycastContext.FluidHandling.NONE,
-            entity
+            ShapeContext.absent()
         ));
     }
 
@@ -84,16 +64,6 @@ public class RayTracing
 
     public static HitResult rayTraceEntity(Entity entity, World world, Vec3d pos, Vec3d direction, double d)
     {
-        for (IRayTracingHandler handler : handlers)
-        {
-            HitResult result = handler.rayTraceEntity(entity, world, pos, direction, d);
-
-            if (result != null)
-            {
-                return result;
-            }
-        }
-
         BlockHitResult blockHit = rayTrace(world, pos, direction, d);
 
         double dist1 = blockHit != null ? blockHit.getPos().squaredDistanceTo(pos) : d * d;
@@ -106,17 +76,5 @@ public class RayTracing
         EntityHitResult entityHit = ProjectileUtil.raycast(entity, pos, posDir, box, e -> !e.isSpectator() && e.canHit(), dist1);
 
         return entityHit == null || entityHit.getType() == HitResult.Type.MISS ? blockHit : entityHit;
-    }
-
-    public static double intersect(Vector3d pos, Vector3f dir, AABB aabb)
-    {
-        Vector2d result = new Vector2d();
-
-        if (aabb.intersectsRay(pos, dir, result))
-        {
-            return result.x;
-        }
-
-        return Double.POSITIVE_INFINITY;
     }
 }

@@ -12,7 +12,6 @@ import mchorse.bbs_mod.utils.keyframes.BezierUtils;
 import mchorse.bbs_mod.utils.keyframes.KeyframeChannel;
 import mchorse.bbs_mod.utils.keyframes.KeyframeSegment;
 import mchorse.bbs_mod.utils.pose.Transform;
-
 import org.joml.Vector3d;
 
 public class CubicModelAnimator

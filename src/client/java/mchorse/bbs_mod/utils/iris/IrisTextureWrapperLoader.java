@@ -4,13 +4,11 @@ import mchorse.bbs_mod.resources.Link;
 import mchorse.bbs_mod.utils.StringUtils;
 import mchorse.bbs_mod.utils.resources.FilteredLink;
 import mchorse.bbs_mod.utils.resources.MultiLink;
-
-import net.minecraft.client.texture.AbstractTexture;
-import net.minecraft.resource.ResourceManager;
-
 import net.irisshaders.iris.targets.backed.NativeImageBackedSingleColorTexture;
 import net.irisshaders.iris.texture.pbr.PBRType;
 import net.irisshaders.iris.texture.pbr.loader.PBRTextureLoader;
+import net.minecraft.client.texture.AbstractTexture;
+import net.minecraft.resource.ResourceManager;
 
 public class IrisTextureWrapperLoader implements PBRTextureLoader
 {
@@ -32,8 +30,8 @@ public class IrisTextureWrapperLoader implements PBRTextureLoader
             Link normalKey = this.createPrefixedCopy(key, "_n.png");
             Link specularKey = this.createPrefixedCopy(key, "_s.png");
 
-            pbrTextureConsumer.acceptNormalTexture(new IrisTextureWrapper(normalKey, this.defaultNormalTexture, wrapper.index, wrapper.normalIntensity, wrapper.specularIntensity, IrisTextureWrapper.PBRMapType.NORMAL));
-            pbrTextureConsumer.acceptSpecularTexture(new IrisTextureWrapper(specularKey, this.defaultSpecularTexture, wrapper.index, wrapper.normalIntensity, wrapper.specularIntensity, IrisTextureWrapper.PBRMapType.SPECULAR));
+            pbrTextureConsumer.acceptNormalTexture(new IrisTextureWrapper(normalKey, this.defaultNormalTexture, wrapper.index));
+            pbrTextureConsumer.acceptSpecularTexture(new IrisTextureWrapper(specularKey, this.defaultSpecularTexture, wrapper.index));
         }
     }
 
@@ -56,15 +54,6 @@ public class IrisTextureWrapperLoader implements PBRTextureLoader
             return newMultiLink;
         }
 
-        String basePath = StringUtils.removeExtension(link.path);
-
-        /* If users pick an already suffixed texture (e.g. *_s.png), normalize it to
-         * the albedo base name first so generated companions become *_n.png and *_s.png. */
-        if (basePath.endsWith("_n") || basePath.endsWith("_s"))
-        {
-            basePath = basePath.substring(0, basePath.length() - 2);
-        }
-
-        return new Link(link.source, basePath + suffix);
+        return new Link(link.source, StringUtils.removeExtension(link.path) + suffix);
     }
 }

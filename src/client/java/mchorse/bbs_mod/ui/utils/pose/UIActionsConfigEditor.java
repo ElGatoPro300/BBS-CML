@@ -9,7 +9,6 @@ import mchorse.bbs_mod.forms.FormUtilsClient;
 import mchorse.bbs_mod.forms.forms.ModelForm;
 import mchorse.bbs_mod.forms.renderers.ModelFormRenderer;
 import mchorse.bbs_mod.ui.UIKeys;
-import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.ui.framework.elements.UIElement;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIToggle;
 import mchorse.bbs_mod.ui.framework.elements.input.UITrackpad;
@@ -22,7 +21,6 @@ import java.util.Collection;
 public class UIActionsConfigEditor extends UIElement
 {
     public UIStringList actions;
-    public UISearchList<String> actionsSearch;
     public UISearchList<String> animations;
     public UIToggle loop;
     public UITrackpad speed;
@@ -39,38 +37,19 @@ public class UIActionsConfigEditor extends UIElement
         this.preCallback = preCallback;
         this.postCallback = postCallback;
 
-        this.actions = new UIStringList((l) -> this.pickAction(l.get(0), false))
-        {
-            @Override
-            public void render(UIContext context)
-            {
-                super.render(context);
-                context.batcher.outline(this.area.x, this.area.y, this.area.ex(), this.area.ey(), 0xFF3C3C3C);
-            }
-        };
+        this.actions = new UIStringList((l) -> this.pickAction(l.get(0), false));
         this.actions.scroll.cancelScrolling();
-        this.actions.background(0xFF141418);
-        this.actionsSearch = new UISearchList<>(this.actions);
-        this.actionsSearch.label(UIKeys.GENERAL_SEARCH);
-        this.actionsSearch.h(112 + 20);
+        this.actions.background().h(112);
 
         this.animations = new UISearchList<>(new UIStringList((l) ->
         {
             this.callback(this.preCallback);
             this.config.name = this.animations.list.getIndex() == 0 ? "" : l.get(0);
             this.callback(this.postCallback);
-        })
-        {
-            @Override
-            public void render(UIContext context)
-            {
-                super.render(context);
-                context.batcher.outline(this.area.x, this.area.y, this.area.ex(), this.area.ey(), 0xFF3C3C3C);
-            }
-        });
+        }));
         this.animations.list.cancelScrollEdge();
-        this.animations.label(UIKeys.GENERAL_SEARCH).list.background(0xFF141418);
-        this.animations.h(112 + 20);
+        this.animations.label(UIKeys.GENERAL_SEARCH).list.background();
+        this.animations.h(112);
         this.loop = new UIToggle(UIKeys.FORMS_EDITORS_ACTIONS_LOOPS, (b) ->
         {
             this.callback(this.preCallback);
@@ -99,7 +78,7 @@ public class UIActionsConfigEditor extends UIElement
         this.tick.limit(0).integer();
 
         this.column().vertical().stretch();
-        this.add(UI.label(UIKeys.FORMS_EDITORS_MODEL_ACTIONS), this.actionsSearch);
+        this.add(UI.label(UIKeys.FORMS_EDITORS_MODEL_ACTIONS), this.actions);
         this.add(UI.label(UIKeys.FORMS_EDITORS_ACTIONS_ANIMATIONS).marginTop(6), this.animations, this.loop);
         this.add(UI.label(UIKeys.FORMS_EDITORS_ACTIONS_SPEED).marginTop(6), this.speed);
         this.add(UI.label(UIKeys.FORMS_EDITORS_ACTIONS_FADE).marginTop(6), this.fade);

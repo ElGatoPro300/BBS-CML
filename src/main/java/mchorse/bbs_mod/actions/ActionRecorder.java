@@ -7,7 +7,6 @@ import mchorse.bbs_mod.actions.types.AttackActionClip;
 import mchorse.bbs_mod.actions.types.SwipeActionClip;
 import mchorse.bbs_mod.film.Film;
 import mchorse.bbs_mod.utils.clips.Clips;
-
 import net.minecraft.server.network.ServerPlayerEntity;
 
 public class ActionRecorder

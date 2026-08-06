@@ -1,8 +1,14 @@
 package mchorse.bbs_mod.ui.framework.elements.input.keyframes.factories;
 
+import mchorse.bbs_mod.camera.utils.TimeUtils;
+import mchorse.bbs_mod.settings.values.base.BaseValue;
+import mchorse.bbs_mod.ui.UIKeys;
+import mchorse.bbs_mod.ui.framework.elements.buttons.UIIcon;
 import mchorse.bbs_mod.ui.framework.elements.input.UITrackpad;
 import mchorse.bbs_mod.ui.framework.elements.input.keyframes.UIKeyframes;
 import mchorse.bbs_mod.ui.framework.elements.input.keyframes.factories.utils.UIBezierHandles;
+import mchorse.bbs_mod.ui.utils.UI;
+import mchorse.bbs_mod.ui.utils.icons.Icons;
 import mchorse.bbs_mod.utils.keyframes.Keyframe;
 
 public class UIFloatKeyframeFactory extends UIKeyframeFactory<Float>
@@ -17,7 +23,6 @@ public class UIFloatKeyframeFactory extends UIKeyframeFactory<Float>
         this.value = new UITrackpad(this::setValue);
         this.value.setValue(keyframe.getValue());
         this.handles = new UIBezierHandles(keyframe);
-        this.registerValueTrackpad(this.value);
 
         this.scroll.add(this.value, this.handles.createColumn());
     }
@@ -27,12 +32,7 @@ public class UIFloatKeyframeFactory extends UIKeyframeFactory<Float>
     {
         super.update();
 
-        if (!this.value.isActivelyEditing() && !this.value.isDragging())
-        {
-            this.value.setValue(this.keyframe.getValue());
-        }
-
-        this.handles.setKeyframe(this.keyframe);
+        this.value.setValue(this.keyframe.getValue());
         this.handles.update();
     }
 }

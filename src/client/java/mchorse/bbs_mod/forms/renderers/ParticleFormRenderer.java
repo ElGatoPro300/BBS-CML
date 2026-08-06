@@ -1,5 +1,6 @@
 package mchorse.bbs_mod.forms.renderers;
 
+import com.mojang.blaze3d.systems.RenderSystem;
 import mchorse.bbs_mod.BBSModClient;
 import mchorse.bbs_mod.client.BBSRendering;
 import mchorse.bbs_mod.client.BBSShaders;
@@ -10,10 +11,7 @@ import mchorse.bbs_mod.particles.ParticleScheme;
 import mchorse.bbs_mod.particles.emitter.ParticleEmitter;
 import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.utils.MatrixStackUtils;
-import mchorse.bbs_mod.utils.colors.Color;
-import mchorse.bbs_mod.utils.colors.Colors;
 import mchorse.bbs_mod.utils.joml.Vectors;
-
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gl.ShaderProgram;
 import net.minecraft.client.render.GameRenderer;
@@ -21,12 +19,9 @@ import net.minecraft.client.render.VertexFormat;
 import net.minecraft.client.render.VertexFormats;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.world.World;
-
 import org.joml.Matrix4f;
 import org.joml.Vector3d;
 import org.joml.Vector3f;
-
-import com.mojang.blaze3d.systems.RenderSystem;
 
 import java.util.function.Supplier;
 
@@ -103,10 +98,7 @@ public class ParticleFormRenderer extends FormRenderer<ParticleForm> implements 
             this.updateTexture(context.getTransition());
             emitter.lastGlobal.set(new Vector3f(0, 0, 0));
             emitter.rotation.identity();
-
-            emitter.setGlow(this.form.glowSettings.get(), this.form.glowingColor.get(), 1F);
             emitter.renderUI(stack, context.getTransition());
-            emitter.clearGlow();
 
             stack.pop();
         }
@@ -132,47 +124,12 @@ public class ParticleFormRenderer extends FormRenderer<ParticleForm> implements 
 
             this.updateTexture(context.getTransition());
 
-            boolean useGameCamera = !context.modelRenderer && context.type != FormRenderType.PREVIEW;
-            
-            if (useGameCamera)
-            {
-                /* For game rendering, use the main camera for emitter properties to ensure
-                 * correct yaw/pitch for billboards (avoiding 180 degree flip in Camera wrapper) */
-                emitter.setupCameraProperties(MinecraftClient.getInstance().gameRenderer.getCamera());
-            }
-            else
-            {
-                if (context.modelRenderer)
-                {
-                    float originalPitch = context.camera.rotation.x;
-                    float originalYaw = context.camera.rotation.y;
-                    double originalX = context.camera.position.x;
-                    double originalY = context.camera.position.y;
-                    double originalZ = context.camera.position.z;
+            Matrix4f matrix = new Matrix4f(RenderSystem.getInverseViewRotationMatrix());
 
-                    context.camera.rotation.set(0, 0, 0);
-                    context.camera.position.set(0, 0, 0);
+            matrix.mul(context.stack.peek().getPositionMatrix());
 
-                    emitter.setupCameraProperties(context.camera);
-
-                    context.camera.rotation.x = originalPitch;
-                    context.camera.rotation.y = originalYaw;
-                    context.camera.position.set(originalX, originalY, originalZ);
-                }
-                else
-                {
-                    emitter.setupCameraProperties(context.camera);
-                }
-            }
-
-            Matrix4f modelMatrix = new Matrix4f(context.stack.peek().getPositionMatrix());
-
-            Vector3d translation = new Vector3d(modelMatrix.getTranslation(Vectors.TEMP_3F));
-            
-            if (!context.modelRenderer)
-            {
-                translation.add(context.camera.position.x, context.camera.position.y, context.camera.position.z);
-            }
+            Vector3d translation = new Vector3d(matrix.getTranslation(Vectors.TEMP_3F));
+            translation.add(context.camera.position.x, context.camera.position.y, context.camera.position.z);
 
             GameRenderer gameRenderer = MinecraftClient.getInstance().gameRenderer;
 
@@ -181,29 +138,23 @@ public class ParticleFormRenderer extends FormRenderer<ParticleForm> implements 
 
             context.stack.push();
             context.stack.loadIdentity();
+            context.stack.multiplyPositionMatrix(new Matrix4f(RenderSystem.getInverseViewRotationMatrix()).invert());
 
             emitter.lastGlobal.set(translation);
-            emitter.rotation.set(modelMatrix);
-            emitter.modelRenderer = context.modelRenderer;
+            emitter.rotation.set(matrix);
 
-            Color glowTint = Colors.COLOR.set(context.color, true);
-
-            emitter.setGlow(this.form.glowSettings.get(), this.form.glowingColor.get(), glowTint.a);
-            
             if (!BBSRendering.isIrisShadowPass())
             {
                 boolean shadersEnabled = BBSRendering.isIrisShadersEnabled();
-                boolean billboard = shadersEnabled;
 
-                VertexFormat format = billboard ? VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL : VertexFormats.POSITION_TEXTURE_COLOR_LIGHT;
-                Supplier<ShaderProgram> shader = billboard
+                VertexFormat format = shadersEnabled ? VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL : VertexFormats.POSITION_TEXTURE_COLOR_LIGHT;
+                Supplier<ShaderProgram> shader = shadersEnabled
                     ? this.getShader(context, GameRenderer::getRenderTypeEntityTranslucentProgram, BBSShaders::getPickerBillboardProgram)
                     : this.getShader(context, GameRenderer::getParticleProgram, BBSShaders::getPickerParticlesProgram);
 
+                emitter.setupCameraProperties(context.camera);
                 emitter.render(format, shader, context.stack, context.overlay, context.getTransition());
             }
-
-            emitter.clearGlow();
 
             context.stack.pop();
 

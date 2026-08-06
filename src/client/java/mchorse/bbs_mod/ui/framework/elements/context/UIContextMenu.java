@@ -5,7 +5,6 @@ import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.ui.framework.elements.UIElement;
 import mchorse.bbs_mod.ui.framework.elements.utils.EventPropagation;
 import mchorse.bbs_mod.utils.colors.Colors;
-
 import org.lwjgl.glfw.GLFW;
 
 public abstract class UIContextMenu extends UIElement
@@ -25,14 +24,6 @@ public abstract class UIContextMenu extends UIElement
      * In this method for subclasses, you should setup the resizer
      */
     public abstract void setMouse(UIContext context);
-
-    /**
-     * Instantly detach (skips close animation). Used when replacing with another menu.
-     */
-    public void forceClose()
-    {
-        this.removeFromParent();
-    }
 
     @Override
     public boolean subMouseClicked(UIContext context)

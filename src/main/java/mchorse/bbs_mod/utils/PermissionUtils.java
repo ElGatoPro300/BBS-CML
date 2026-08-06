@@ -1,7 +1,6 @@
 package mchorse.bbs_mod.utils;
 
 import mchorse.bbs_mod.BBSMod;
-
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.world.GameRules;

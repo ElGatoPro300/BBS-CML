@@ -15,7 +15,6 @@ public class UILabel extends UIElement implements ITextColoring
     public float anchorX;
     public float anchorY;
     public int background;
-    public int textOffsetY;
     public Supplier<Integer> backgroundColor;
 
     public UILabel(IKey label)
@@ -77,23 +76,13 @@ public class UILabel extends UIElement implements ITextColoring
         return this;
     }
 
-    /**
-     * Extra pixels added to the text draw Y (e.g. keep accents inside a taller label box).
-     */
-    public UILabel textOffsetY(int offset)
-    {
-        this.textOffsetY = offset;
-
-        return this;
-    }
-
     @Override
     public void render(UIContext context)
     {
         FontRenderer font = context.batcher.getFont();
         String label = font.limitToWidth(this.label.get(), this.area.w - 4);
         int x = this.area.x(this.anchorX, font.getWidth(label));
-        int y = this.area.y(this.anchorY, font.getHeight()) + this.textOffsetY;
+        int y = this.area.y(this.anchorY, font.getHeight());
         int background = this.backgroundColor == null ? this.background : this.backgroundColor.get();
 
         context.batcher.textCard(label, x, y, this.color, background, 3, this.textShadow);

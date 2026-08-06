@@ -1,29 +1,21 @@
 package mchorse.bbs_mod.ui.film.controller;
 
-import mchorse.bbs_mod.BBSModClient;
 import mchorse.bbs_mod.film.BaseFilmController;
 import mchorse.bbs_mod.film.Film;
 import mchorse.bbs_mod.film.FilmControllerContext;
-import mchorse.bbs_mod.film.MobCemPoseCapture;
-import mchorse.bbs_mod.film.RecorderMobCapture;
 import mchorse.bbs_mod.film.replays.Replay;
-import mchorse.bbs_mod.forms.FormUtilsClient;
-import mchorse.bbs_mod.forms.ITickable;
 import mchorse.bbs_mod.forms.entities.IEntity;
 import mchorse.bbs_mod.forms.entities.MCEntity;
 import mchorse.bbs_mod.forms.entities.StubEntity;
 import mchorse.bbs_mod.forms.forms.Form;
-import mchorse.bbs_mod.forms.renderers.FormRenderer;
 import mchorse.bbs_mod.settings.values.base.BaseValue;
 import mchorse.bbs_mod.settings.values.ui.ValueOnionSkin;
-import mchorse.bbs_mod.ui.utils.gizmo.TransformOrientation;
 import mchorse.bbs_mod.utils.CollectionUtils;
 import mchorse.bbs_mod.utils.Pair;
 import mchorse.bbs_mod.utils.colors.Colors;
 import mchorse.bbs_mod.utils.keyframes.Keyframe;
 import mchorse.bbs_mod.utils.keyframes.KeyframeChannel;
 import mchorse.bbs_mod.utils.keyframes.KeyframeSegment;
-
 import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
 
 import java.util.List;
@@ -91,23 +83,7 @@ public class FilmEditorController extends BaseFilmController
 
         if (entity == this.controller.getControlled() && this.controller.isRecording() && this.controller.panel.getRunner().isRunning())
         {
-            List<Replay> replays = this.film.replays.getList();
-            int index = replays.indexOf(replay);
-            int cursor = this.controller.panel.getCursor();
-
-            MobCemPoseCapture.syncReplay(replay);
-            replay.keyframes.record(cursor, entity, groups);
-            RecorderMobCapture.recordMountKeyframes(replays, index, replay.keyframes, entity, cursor);
-
-            if (MobCemPoseCapture.isActive(replay))
-            {
-                MobCemPoseCapture.recordPoseKeyframe(replay, replay.form.get(), entity, cursor, 0F);
-            }
-
-            if (this.controller.getRecordingCountdown() <= 0 && index >= 0)
-            {
-                BBSModClient.getFilms().getEditorProjectileCapture().recordEditorTick(this.film, index, cursor, BBSModClient.getFilms().getEditorMobCapture(), this.controller.getActors());
-            }
+            replay.keyframes.record(this.controller.panel.getCursor(), entity, groups);
         }
 
         ticks = this.getTick() + (this.controller.panel.getRunner().isRunning() ? 1 : 0);
@@ -158,13 +134,13 @@ public class FilmEditorController extends BaseFilmController
     }
 
     @Override
-    protected void renderEntity(WorldRenderContext context, Replay replay, IEntity entity, int index)
+    protected void renderEntity(WorldRenderContext context, Replay replay, IEntity entity)
     {
         boolean current = this.isCurrent(entity);
 
         if (!(this.controller.getPovMode() == UIFilmController.CAMERA_MODE_FIRST_PERSON && current))
         {
-            super.renderEntity(context, replay, entity, index);
+            super.renderEntity(context, replay, entity);
         }
 
         boolean isPlaying = this.controller.isPlaying();
@@ -233,14 +209,10 @@ public class FilmEditorController extends BaseFilmController
             replay.keyframes.apply(tick1, entity);
             float tick = (int) keyframe.getTick();
             Form form = entity.getForm();
-            replay.properties.resetProperties(form);
             replay.properties.applyProperties(form, tick);
 
             BaseFilmController.renderEntity(FilmControllerContext.instance
                 .setup(this.getEntities(), entity, replay, context)
-                .film(this.film)
-                .propertyTick(tick)
-                .filmTick(this.getTick())
                 .color(Colors.setA(color, alpha))
                 .transition(0F));
 
@@ -252,30 +224,30 @@ public class FilmEditorController extends BaseFilmController
     @Override
     protected FilmControllerContext getFilmControllerContext(WorldRenderContext context, Replay replay, IEntity entity)
     {
-        Pair<String, TransformOrientation> bone = this.isCurrent(entity) && !this.controller.panel.recorder.isRecording() ? this.controller.getBone() : null;
+        Pair<String, Boolean> bone = this.isCurrent(entity) && !this.controller.panel.recorder.isRecording() ? this.controller.getBone() : null;
         String aBone = bone == null ? null : bone.a;
-        TransformOrientation orientation = bone == null ? TransformOrientation.PARENT : bone.b;
+        boolean local = bone != null && bone.b;
         String aBone2 = null;
-        TransformOrientation orientation2 = TransformOrientation.PARENT;
+        boolean local2 = false;
 
         if (replay.axesPreview.get())
         {
             aBone2 = replay.axesPreviewBone.get();
-            orientation2 = TransformOrientation.LOCAL;
+            local2 = true;
         }
 
         if (this.controller.panel.recorder.isRecording())
         {
             aBone = null;
-            orientation = TransformOrientation.PARENT;
+            local = false;
             aBone2 = null;
-            orientation2 = TransformOrientation.PARENT;
+            local2 = false;
         }
 
         return super.getFilmControllerContext(context, replay, entity)
             .transition(this.getTransition(entity, context.tickDelta()))
-            .bone(aBone, orientation)
-            .bone2(aBone2, orientation2);
+            .bone(aBone, local)
+            .bone2(aBone2, local2);
     }
 
     private boolean isCurrent(IEntity entity)

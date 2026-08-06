@@ -1,8 +1,6 @@
 package mchorse.bbs_mod.utils.colors;
 
-import mchorse.bbs_mod.utils.MathUtils;
 import mchorse.bbs_mod.utils.StringUtils;
-import mchorse.bbs_mod.utils.interps.IInterp;
 import mchorse.bbs_mod.utils.interps.Lerps;
 
 public class Colors
@@ -76,30 +74,6 @@ public class Colors
         COLOR.a *= factor;
 
         return COLOR.getARGBColor();
-    }
-
-    /**
-     * Sodium {@code ColorAttribute} stores vertex colors as ABGR (R in the low byte).
-     * BBS {@link Color} and UI pickers use ARGB.
-     */
-    public static int fromAbgr(int abgr)
-    {
-        int a = (abgr >> 24) & 0xFF;
-        int b = (abgr >> 16) & 0xFF;
-        int g = (abgr >> 8) & 0xFF;
-        int r = abgr & 0xFF;
-
-        return (a << 24) | (r << 16) | (g << 8) | b;
-    }
-
-    public static int toAbgr(int argb)
-    {
-        int a = (argb >> 24) & 0xFF;
-        int r = (argb >> 16) & 0xFF;
-        int g = (argb >> 8) & 0xFF;
-        int b = argb & 0xFF;
-
-        return (a << 24) | (b << 16) | (g << 8) | r;
     }
 
     public static int a(float alpha)
@@ -260,116 +234,5 @@ public class Colors
         color.b = max;
 
         return color;
-    }
-
-    private static final Color HSV_SCRATCH_A = new Color();
-    private static final Color HSV_SCRATCH_B = new Color();
-    private static final Color HSV_SCRATCH_C = new Color();
-    private static final Color HSV_SCRATCH_D = new Color();
-    private static final Color HSV_RGB_OUT = new Color();
-
-    /**
-     * Returns the hue endpoint for long-path interpolation around the spectrum
-     * (red → orange → yellow → green → cyan → blue → magenta → red).
-     */
-    public static float longPathHueTarget(float hueFrom, float hueTo)
-    {
-        float delta = hueTo - hueFrom;
-
-        if (delta > 0.5F)
-        {
-            delta -= 1F;
-        }
-        else if (delta < -0.5F)
-        {
-            delta += 1F;
-        }
-
-        float longDelta;
-
-        if (delta > 0F)
-        {
-            longDelta = delta - 1F;
-        }
-        else if (delta < 0F)
-        {
-            longDelta = delta + 1F;
-        }
-        else
-        {
-            longDelta = 1F;
-        }
-
-        return hueFrom + longDelta;
-    }
-
-    private static float wrapHue(float hue)
-    {
-        hue %= 1F;
-
-        if (hue < 0F)
-        {
-            hue += 1F;
-        }
-
-        return hue;
-    }
-
-    /**
-     * Smoother easing for spectrum hue travel (smootherstep).
-     */
-    public static float smootherstep(float x)
-    {
-        x = MathUtils.clamp(x, 0F, 1F);
-
-        return x * x * x * (x * (x * 6F - 15F) + 10F);
-    }
-
-    /**
-     * Default RGB interpolation between color keyframes.
-     */
-    public static Color interpolateKeyframeColorRGB(Color out, Color preA, Color a, Color b, Color postB, IInterp interpolation, float x)
-    {
-        out.r = MathUtils.clamp((float) interpolation.interpolate(IInterp.context.set(preA.r, a.r, b.r, postB.r, x)), 0F, 1F);
-        out.g = MathUtils.clamp((float) interpolation.interpolate(IInterp.context.set(preA.g, a.g, b.g, postB.g, x)), 0F, 1F);
-        out.b = MathUtils.clamp((float) interpolation.interpolate(IInterp.context.set(preA.b, a.b, b.b, postB.b, x)), 0F, 1F);
-        out.a = MathUtils.clamp((float) interpolation.interpolate(IInterp.context.set(preA.a, a.a, b.a, postB.a, x)), 0F, 1F);
-
-        return out;
-    }
-
-    /**
-     * Interpolate between color keyframes through the long hue path on the spectrum bar.
-     */
-    public static Color interpolateKeyframeColorHSV(Color out, Color preA, Color a, Color b, Color postB, IInterp interpolation, float x)
-    {
-        Colors.RGBtoHSV(Colors.HSV_SCRATCH_A, preA.r, preA.g, preA.b);
-        Colors.RGBtoHSV(Colors.HSV_SCRATCH_B, a.r, a.g, a.b);
-        Colors.RGBtoHSV(Colors.HSV_SCRATCH_C, b.r, b.g, b.b);
-        Colors.RGBtoHSV(Colors.HSV_SCRATCH_D, postB.r, postB.g, postB.b);
-
-        float hueB = Colors.longPathHueTarget(Colors.HSV_SCRATCH_B.r, Colors.HSV_SCRATCH_C.r);
-        float huePostB = Colors.longPathHueTarget(Colors.HSV_SCRATCH_C.r, Colors.HSV_SCRATCH_D.r);
-        float hueX = Colors.smootherstep(x);
-        float satX = Colors.smootherstep(x);
-        float valX = Colors.smootherstep(x);
-
-        float hue = Colors.wrapHue((float) interpolation.interpolate(IInterp.context.set(
-            Colors.HSV_SCRATCH_A.r, Colors.HSV_SCRATCH_B.r, hueB, huePostB, hueX)));
-
-        float sat = (float) interpolation.interpolate(IInterp.context.set(
-            Colors.HSV_SCRATCH_A.g, Colors.HSV_SCRATCH_B.g, Colors.HSV_SCRATCH_C.g, Colors.HSV_SCRATCH_D.g, satX));
-
-        float val = (float) interpolation.interpolate(IInterp.context.set(
-            Colors.HSV_SCRATCH_A.b, Colors.HSV_SCRATCH_B.b, Colors.HSV_SCRATCH_C.b, Colors.HSV_SCRATCH_D.b, valX));
-
-        Colors.HSVtoRGB(Colors.HSV_RGB_OUT, hue, sat, val);
-
-        out.r = Colors.HSV_RGB_OUT.r;
-        out.g = Colors.HSV_RGB_OUT.g;
-        out.b = Colors.HSV_RGB_OUT.b;
-        out.a = MathUtils.clamp((float) interpolation.interpolate(IInterp.context.set(preA.a, a.a, b.a, postB.a, x)), 0F, 1F);
-
-        return out;
     }
 }

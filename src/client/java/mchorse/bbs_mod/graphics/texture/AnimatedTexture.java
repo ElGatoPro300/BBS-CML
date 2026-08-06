@@ -10,7 +10,6 @@ import mchorse.bbs_mod.utils.keyframes.KeyframeChannel;
 import mchorse.bbs_mod.utils.keyframes.KeyframeSegment;
 import mchorse.bbs_mod.utils.keyframes.factories.KeyframeFactories;
 import mchorse.bbs_mod.utils.resources.Pixels;
-
 import org.lwjgl.opengl.GL11;
 
 import java.io.InputStream;

@@ -3,7 +3,6 @@ package mchorse.bbs_mod.particles.components.shape.directions;
 import mchorse.bbs_mod.data.types.BaseType;
 import mchorse.bbs_mod.data.types.StringType;
 import mchorse.bbs_mod.particles.emitter.Particle;
-
 import org.joml.Vector3d;
 
 public class ShapeDirectionInwards extends ShapeDirection

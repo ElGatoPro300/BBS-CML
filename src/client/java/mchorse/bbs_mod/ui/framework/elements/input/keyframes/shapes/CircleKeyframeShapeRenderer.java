@@ -5,9 +5,7 @@ import mchorse.bbs_mod.ui.UIKeys;
 import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.ui.utils.icons.Icon;
 import mchorse.bbs_mod.ui.utils.icons.Icons;
-
 import net.minecraft.client.render.BufferBuilder;
-
 import org.joml.Matrix4f;
 
 public class CircleKeyframeShapeRenderer implements IKeyframeShapeRenderer

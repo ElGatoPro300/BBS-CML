@@ -29,12 +29,4 @@ public abstract class TooltipStyle
     public abstract int getTextColor();
 
     public abstract int getForegroundColor();
-
-    /**
-     * Color used for optional keyboard shortcut hints appended to tooltip labels.
-     */
-    public int getShortcutTextColor()
-    {
-        return 0xff9aa0a6;
-    }
 }

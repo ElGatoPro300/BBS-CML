@@ -130,44 +130,6 @@ public class IOUtils
         return buffer.toByteArray();
     }
 
-    public static void copyFolder(File source, File destination) throws IOException
-    {
-        if (source.isDirectory())
-        {
-            if (!destination.exists())
-            {
-                destination.mkdirs();
-            }
-
-            String[] files = source.list();
-
-            if (files != null)
-            {
-                for (String file : files)
-                {
-                    File sourceFile = new File(source, file);
-                    File destinationFile = new File(destination, file);
-
-                    copyFolder(sourceFile, destinationFile);
-                }
-            }
-        }
-        else
-        {
-            try (FileInputStream in = new FileInputStream(source);
-                 FileOutputStream out = new FileOutputStream(destination))
-            {
-                byte[] buffer = new byte[1024];
-                int length;
-
-                while ((length = in.read(buffer)) > 0)
-                {
-                    out.write(buffer, 0, length);
-                }
-            }
-        }
-    }
-
     public static void deleteFolder(File folder)
     {
         if (!folder.isDirectory())

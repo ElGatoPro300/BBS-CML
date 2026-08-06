@@ -2,7 +2,6 @@ package mchorse.bbs_mod.ui.framework;
 
 import mchorse.bbs_mod.BBSModClient;
 import mchorse.bbs_mod.client.BBSRendering;
-import mchorse.bbs_mod.discord.DiscordPresenceManager;
 import mchorse.bbs_mod.importers.IImportPathProvider;
 import mchorse.bbs_mod.importers.ImporterContext;
 import mchorse.bbs_mod.importers.Importers;
@@ -11,14 +10,11 @@ import mchorse.bbs_mod.ui.UIKeys;
 import mchorse.bbs_mod.ui.utils.IFileDropListener;
 import mchorse.bbs_mod.ui.utils.UIUtils;
 import mchorse.bbs_mod.utils.FFMpegUtils;
-
 import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
-
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.text.Text;
-
 import org.lwjgl.glfw.GLFW;
 
 import java.io.File;
@@ -55,8 +51,6 @@ public class UIScreen extends Screen implements IFileDropListener
         super(title);
 
         MinecraftClient mc = MinecraftClient.getInstance();
-
-        this.client = mc;
 
         this.menu = menu;
         this.context = new UIRenderingContext(new DrawContext(mc, mc.getBufferBuilders().getEntityVertexConsumers()));
@@ -106,9 +100,11 @@ public class UIScreen extends Screen implements IFileDropListener
         super.removed();
 
         this.menu.onClose(null);
-        DiscordPresenceManager.INSTANCE.onBbsUiClosed();
 
-        MinecraftClient.getInstance().options.hudHidden = false;
+        if (this.menu.canHideHUD())
+        {
+            MinecraftClient.getInstance().options.hudHidden = false;
+        }
     }
 
     @Override
@@ -122,9 +118,11 @@ public class UIScreen extends Screen implements IFileDropListener
         super.onDisplayed();
 
         this.menu.onOpen(null);
-        DiscordPresenceManager.INSTANCE.onBbsUiOpened(this.menu);
 
-        MinecraftClient.getInstance().options.hudHidden = this.menu.canHideHUD();
+        if (this.menu.canHideHUD())
+        {
+            MinecraftClient.getInstance().options.hudHidden = true;
+        }
     }
 
     @Override
@@ -155,15 +153,10 @@ public class UIScreen extends Screen implements IFileDropListener
         return this.menu.mouseClicked((int) mouseX, (int) mouseY, button);
     }
 
-    public void setHorizontal(double horizontal)
-    {
-        this.menu.context.mouseWheelHorizontal = horizontal;
-    }
-
     @Override
-    public boolean mouseScrolled(double mouseX, double mouseY, double verticalAmount)
+    public boolean mouseScrolled(double mouseX, double mouseY, double horizontalAmount, double verticalAmount)
     {
-        return this.menu.mouseScrolled((int) mouseX, (int) mouseY, 0.0, verticalAmount);
+        return this.menu.mouseScrolled((int) mouseX, (int) mouseY, horizontalAmount, verticalAmount);
     }
 
     @Override
@@ -193,7 +186,7 @@ public class UIScreen extends Screen implements IFileDropListener
     }
 
     @Override
-    public void renderBackground(DrawContext context)
+    public void renderBackground(DrawContext context, int mouseX, int mouseY, float delta)
     {}
 
     @Override
@@ -204,7 +197,6 @@ public class UIScreen extends Screen implements IFileDropListener
         this.menu.context.setTransition(this.client.getTickDelta());
         this.menu.renderMenu(this.context, mouseX, mouseY);
         this.menu.context.render.executeRunnables();
-        this.client.options.hudHidden = this.menu.canHideHUD();
     }
 
     @Override

@@ -10,11 +10,9 @@ import mchorse.bbs_mod.particles.components.IComponentParticleUpdate;
 import mchorse.bbs_mod.particles.components.ParticleComponentBase;
 import mchorse.bbs_mod.particles.emitter.Particle;
 import mchorse.bbs_mod.particles.emitter.ParticleEmitter;
-
 import net.minecraft.entity.Entity;
 import net.minecraft.util.math.Box;
 import net.minecraft.util.math.Vec3d;
-
 import org.joml.Vector3d;
 
 import java.util.Collections;
@@ -77,7 +75,7 @@ public class ParticleComponentMotionCollision extends ParticleComponentBase impl
             return;
         }
 
-        if (!particle.manualPosition && Operation.equals(this.enabled.get(), 1))
+        if (!particle.manual && Operation.equals(this.enabled.get(), 1))
         {
             float r = this.radius;
 

@@ -1,5 +1,6 @@
 package mchorse.bbs_mod.ui.particles;
 
+import com.mojang.blaze3d.systems.RenderSystem;
 import mchorse.bbs_mod.graphics.Draw;
 import mchorse.bbs_mod.particles.ParticleScheme;
 import mchorse.bbs_mod.particles.components.expiration.ParticleComponentKillPlane;
@@ -7,7 +8,6 @@ import mchorse.bbs_mod.particles.emitter.ParticleEmitter;
 import mchorse.bbs_mod.ui.framework.UIBaseMenu;
 import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.ui.framework.elements.utils.UIModelRenderer;
-
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.render.BufferBuilder;
 import net.minecraft.client.render.BufferRenderer;
@@ -17,11 +17,8 @@ import net.minecraft.client.render.Tessellator;
 import net.minecraft.client.render.VertexFormat;
 import net.minecraft.client.render.VertexFormats;
 import net.minecraft.client.util.math.MatrixStack;
-
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
-
-import com.mojang.blaze3d.systems.RenderSystem;
 
 public class UIParticleSchemeRenderer extends UIModelRenderer
 {
@@ -40,20 +37,6 @@ public class UIParticleSchemeRenderer extends UIModelRenderer
     {
         this.emitter = new ParticleEmitter();
         this.emitter.setScheme(scheme);
-    }
-
-    @Override
-    public void render(UIContext context)
-    {
-        super.render(context);
-
-        /* Debug readout (particle count and emitter age) in the preview's bottom-right corner. */
-        if (this.emitter != null && this.emitter.scheme != null)
-        {
-            String label = this.emitter.particles.size() + "P - " + this.emitter.age + "A";
-
-            context.batcher.textShadow(label, this.area.ex() - 4 - context.batcher.getFont().getWidth(label), this.area.ey() - 12);
-        }
     }
 
     @Override
@@ -84,7 +67,8 @@ public class UIParticleSchemeRenderer extends UIModelRenderer
         MatrixStack stack = context.batcher.getContext().getMatrices();
 
         stack.push();
-
+        stack.loadIdentity();
+        stack.multiplyPositionMatrix(new Matrix4f(RenderSystem.getInverseViewRotationMatrix()).invert());
 
         RenderSystem.enableBlend();
         RenderSystem.enableDepthTest();
@@ -164,6 +148,4 @@ public class UIParticleSchemeRenderer extends UIModelRenderer
             Draw.coolerAxes(context.batcher.getContext().getMatrices(), 1F, 0.01F, 1.01F, 0.02F);
         }
     }
-
-
 }

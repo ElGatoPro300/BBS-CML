@@ -4,9 +4,7 @@ import mchorse.bbs_mod.BBSModClient;
 import mchorse.bbs_mod.BBSSettings;
 import mchorse.bbs_mod.client.BBSRendering;
 import mchorse.bbs_mod.utils.VideoRecorder;
-
 import net.irisshaders.iris.uniforms.SystemTimeUniforms;
-
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
@@ -24,7 +22,7 @@ public class SystemTimeUniformsTimerMixin
 
     private int heldFrames;
 
-    @Inject(method = "beginFrame", at = @At("HEAD"), cancellable = true, remap = false, require = 0)
+    @Inject(method = "beginFrame", at = @At("HEAD"), cancellable = true, remap = false)
     public void onBeginFrame(CallbackInfo info)
     {
         VideoRecorder videoRecorder = BBSModClient.getVideoRecorder();

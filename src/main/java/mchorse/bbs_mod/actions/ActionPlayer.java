@@ -4,18 +4,15 @@ import mchorse.bbs_mod.BBSMod;
 import mchorse.bbs_mod.data.types.BaseType;
 import mchorse.bbs_mod.entity.ActorEntity;
 import mchorse.bbs_mod.film.Film;
-import mchorse.bbs_mod.film.replays.FormProperties;
 import mchorse.bbs_mod.film.replays.Replay;
 import mchorse.bbs_mod.forms.FormUtils;
 import mchorse.bbs_mod.forms.forms.Form;
 import mchorse.bbs_mod.morphing.Morph;
 import mchorse.bbs_mod.network.ServerNetwork;
 import mchorse.bbs_mod.settings.values.base.BaseValue;
-import mchorse.bbs_mod.settings.values.base.BaseValueGroup;
 import mchorse.bbs_mod.utils.CollectionUtils;
 import mchorse.bbs_mod.utils.DataPath;
 import mchorse.bbs_mod.utils.MathUtils;
-
 import net.minecraft.entity.EquipmentSlot;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.MovementType;
@@ -76,7 +73,7 @@ public class ActionPlayer
             for (int i = 0; i < this.serverPlayer.getInventory().size(); i++)
             {
                 this.cachedInventory.add(serverPlayer.getInventory().getStack(i).copy());
-                this.serverPlayer.getInventory().setStack(i, CollectionUtils.getSafe(fpReplay.inventory.getStacks(), i, ItemStack.EMPTY));
+                this.serverPlayer.getInventory().setStack(i, CollectionUtils.getSafe(this.film.inventory.getStacks(), i, ItemStack.EMPTY));
             }
 
             Morph morph = Morph.getMorph(this.serverPlayer);
@@ -136,7 +133,6 @@ public class ActionPlayer
                 ActorEntity actor = new ActorEntity(BBSMod.ACTOR_ENTITY, this.world);
 
                 actor.setForm(FormUtils.copy(replay.form.get()));
-                actor.setReplayData(this.film, replay, this.tick);
 
                 this.apply(actor, replay, this.tick, false);
                 this.actors.put(replay.getId(), actor);
@@ -163,13 +159,11 @@ public class ActionPlayer
         float yawHead = replay.keyframes.headYaw.interpolate(tick).floatValue();
         float yawBody = replay.keyframes.bodyYaw.interpolate(tick).floatValue();
         float pitch = replay.keyframes.pitch.interpolate(tick).floatValue();
-        boolean grounded = replay.keyframes.grounded.interpolate(tick) > 0;
 
         Vec3d pos = actor.getPos();
 
         if (ticking)
         {
-            actor.setOnGround(grounded);
             actor.move(MovementType.SELF, new Vec3d(x - pos.x, y - pos.y, z - pos.z));
         }
 
@@ -179,7 +173,7 @@ public class ActionPlayer
         actor.setPitch(pitch);
         actor.setBodyYaw(yawBody);
         actor.setSneaking(replay.keyframes.sneaking.interpolate(tick) > 0);
-        actor.setOnGround(grounded);
+        actor.setOnGround(replay.keyframes.grounded.interpolate(tick) > 0);
         actor.equipStack(EquipmentSlot.OFFHAND, replay.keyframes.offHand.interpolate(tick, ItemStack.EMPTY));
         actor.equipStack(EquipmentSlot.HEAD, replay.keyframes.armorHead.interpolate(tick, ItemStack.EMPTY));
         actor.equipStack(EquipmentSlot.CHEST, replay.keyframes.armorChest.interpolate(tick, ItemStack.EMPTY));
@@ -232,16 +226,7 @@ public class ActionPlayer
 
             if (replay != null)
             {
-                LivingEntity actor = entry.getValue();
-                
-                // Update tick in ActorEntity for accurate item drops on death
-                if (actor instanceof ActorEntity actorEntity)
-                {
-                    actorEntity.updateTick(this.tick);
-                }
-                
-                this.apply(actor, replay, this.tick, true);
-
+                this.apply(entry.getValue(), replay, this.tick, true);
             }
         }
 
@@ -287,7 +272,7 @@ public class ActionPlayer
 
     public void syncData(DataPath key, BaseType data)
     {
-        BaseValue baseValue = this.resolveValue(key);
+        BaseValue baseValue = this.film.getRecursively(key);
 
         if (baseValue != null)
         {
@@ -298,57 +283,6 @@ public class ActionPlayer
                 this.updateReplayEntities();
             }
         }
-    }
-
-    private BaseValue resolveValue(DataPath path)
-    {
-        BaseValue current = this.film;
-
-        int start = 0;
-
-        if (this.film != null && path.size() > 0)
-        {
-            String filmId = this.film.getId();
-
-            if (filmId != null && !filmId.isEmpty() && filmId.equals(path.strings.get(0)))
-            {
-                start = 1;
-            }
-        }
-
-        for (int i = start; i < path.size(); i++)
-        {
-            String part = path.strings.get(i);
-
-            if (current instanceof BaseValueGroup group)
-            {
-                BaseValue next = group.get(part);
-
-                if (next == null)
-                {
-                    if (group instanceof FormProperties formProps)
-                    {
-                        if (formProps.getParent() instanceof Replay replay)
-                        {
-                            next = formProps.getOrCreate(replay.form.get(), part);
-                        }
-                    }
-                }
-
-                if (next == null)
-                {
-                    return null;
-                }
-
-                current = next;
-            }
-            else
-            {
-                return null;
-            }
-        }
-
-        return current;
     }
 
     public void goTo(int tick)
@@ -383,15 +317,6 @@ public class ActionPlayer
 
     public void stop()
     {
-        SuperFakePlayer fakePlayer = SuperFakePlayer.get(this.world);
-
-        for (Replay replay : this.film.replays.getList())
-        {
-            fakePlayer.closeReplayChest(replay.getId());
-        }
-
-        fakePlayer.closeHandledScreen();
-
         for (LivingEntity value : this.actors.values())
         {
             if (!value.isPlayer())

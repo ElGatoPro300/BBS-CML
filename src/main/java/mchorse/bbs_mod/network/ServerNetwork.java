@@ -7,7 +7,6 @@ import mchorse.bbs_mod.actions.ActionRecorder;
 import mchorse.bbs_mod.actions.ActionState;
 import mchorse.bbs_mod.actions.PlayerType;
 import mchorse.bbs_mod.blocks.entities.ModelBlockEntity;
-import mchorse.bbs_mod.blocks.entities.TriggerBlockEntity;
 import mchorse.bbs_mod.data.DataStorageUtils;
 import mchorse.bbs_mod.data.types.BaseType;
 import mchorse.bbs_mod.data.types.ByteType;
@@ -26,12 +25,10 @@ import mchorse.bbs_mod.utils.EnumUtils;
 import mchorse.bbs_mod.utils.PermissionUtils;
 import mchorse.bbs_mod.utils.clips.Clips;
 import mchorse.bbs_mod.utils.repos.RepositoryOperation;
-
 import net.fabricmc.fabric.api.networking.v1.PacketByteBufs;
 import net.fabricmc.fabric.api.networking.v1.PacketSender;
 import net.fabricmc.fabric.api.networking.v1.PlayerLookup;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
-
 import net.minecraft.block.entity.BlockEntity;
 import net.minecraft.entity.EquipmentSlot;
 import net.minecraft.entity.LivingEntity;
@@ -43,7 +40,6 @@ import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.util.Identifier;
 import net.minecraft.util.math.BlockPos;
-import net.minecraft.world.GameMode;
 import net.minecraft.world.World;
 
 import java.util.ArrayList;
@@ -74,8 +70,6 @@ public class ServerNetwork
     public static final Identifier CLIENT_SELECTED_SLOT = new Identifier(BBSMod.MOD_ID, "c15");
     public static final Identifier CLIENT_ANIMATION_STATE_MODEL_BLOCK_TRIGGER = new Identifier(BBSMod.MOD_ID, "c16");
     public static final Identifier CLIENT_REFRESH_MODEL_BLOCKS = new Identifier(BBSMod.MOD_ID, "c17");
-    public static final Identifier CLIENT_CLICKED_TRIGGER_BLOCK_PACKET = new Identifier(BBSMod.MOD_ID, "c18");
-    public static final Identifier CLIENT_BAY4LLY_SKIN = new Identifier(BBSMod.MOD_ID, "c19");
 
     public static final Identifier SERVER_MODEL_BLOCK_FORM_PACKET = new Identifier(BBSMod.MOD_ID, "s1");
     public static final Identifier SERVER_MODEL_BLOCK_TRANSFORMS_PACKET = new Identifier(BBSMod.MOD_ID, "s2");
@@ -90,9 +84,6 @@ public class ServerNetwork
     public static final Identifier SERVER_SHARED_FORM = new Identifier(BBSMod.MOD_ID, "s11");
     public static final Identifier SERVER_ZOOM = new Identifier(BBSMod.MOD_ID, "s12");
     public static final Identifier SERVER_PAUSE_FILM = new Identifier(BBSMod.MOD_ID, "s13");
-    public static final Identifier SERVER_TRIGGER_BLOCK_UPDATE = new Identifier(BBSMod.MOD_ID, "s14");
-    public static final Identifier SERVER_TRIGGER_BLOCK_CLICK = new Identifier(BBSMod.MOD_ID, "s15");
-    public static final Identifier SERVER_SET_GAME_MODE = new Identifier(BBSMod.MOD_ID, "s16");
 
     private static ServerPacketCrusher crusher = new ServerPacketCrusher();
 
@@ -116,9 +107,6 @@ public class ServerNetwork
         ServerPlayNetworking.registerGlobalReceiver(SERVER_SHARED_FORM, (server, player, handler, buf, responder) -> handleSharedFormPacket(server, player, buf));
         ServerPlayNetworking.registerGlobalReceiver(SERVER_ZOOM, (server, player, handler, buf, responder) -> handleZoomPacket(server, player, buf));
         ServerPlayNetworking.registerGlobalReceiver(SERVER_PAUSE_FILM, (server, player, handler, buf, responder) -> handlePauseFilmPacket(server, player, buf));
-        ServerPlayNetworking.registerGlobalReceiver(SERVER_TRIGGER_BLOCK_UPDATE, (server, player, handler, buf, responder) -> handleTriggerBlockUpdatePacket(server, player, buf));
-        ServerPlayNetworking.registerGlobalReceiver(SERVER_TRIGGER_BLOCK_CLICK, (server, player, handler, buf, responder) -> handleTriggerBlockClickPacket(server, player, buf));
-        ServerPlayNetworking.registerGlobalReceiver(SERVER_SET_GAME_MODE, (server, player, handler, buf, responder) -> handleSetGameModePacket(server, player, buf));
     }
 
     /* Handlers */
@@ -132,7 +120,7 @@ public class ServerNetwork
 
         crusher.receive(buf, (bytes, packetByteBuf) ->
         {
-            BlockPos pos = packetByteBuf.readBlockPos();
+            BlockPos pos = buf.readBlockPos();
 
             try
             {
@@ -151,97 +139,6 @@ public class ServerNetwork
             }
             catch (Exception e)
             {}
-        });
-    }
-
-    private static void handleTriggerBlockUpdatePacket(MinecraftServer server, ServerPlayerEntity player, PacketByteBuf buf)
-    {
-        if (!PermissionUtils.arePanelsAllowed(server, player))
-        {
-            return;
-        }
-
-        crusher.receive(buf, (bytes, packetByteBuf) ->
-        {
-            BlockPos pos = packetByteBuf.readBlockPos();
-
-            try
-            {
-                MapType data = (MapType) DataStorageUtils.readFromBytes(bytes);
-
-                server.execute(() ->
-                {
-                    World world = player.getWorld();
-                    BlockEntity be = world.getBlockEntity(pos);
-
-                    if (be instanceof TriggerBlockEntity trigger)
-                    {
-                        if (data.has("left")) trigger.left.fromData(data.getList("left"));
-                        if (data.has("right")) trigger.right.fromData(data.getList("right"));
-                        if (data.has("enter")) trigger.enter.fromData(data.getList("enter"));
-                        if (data.has("exit")) trigger.exit.fromData(data.getList("exit"));
-                        if (data.has("whileIn")) trigger.whileIn.fromData(data.getList("whileIn"));
-                        if (data.has("regionDelay")) trigger.regionDelay.set(data.getInt("regionDelay"));
-                        if (data.has("pos1")) trigger.pos1.fromData(data.getList("pos1"));
-                        if (data.has("pos2")) trigger.pos2.fromData(data.getList("pos2"));
-                        if (data.has("regionOffset")) trigger.regionOffset.fromData(data.getList("regionOffset"));
-                        if (data.has("regionSize")) trigger.regionSize.fromData(data.getList("regionSize"));
-                        if (data.has("collidable")) trigger.collidable.set(data.getBool("collidable"));
-                        if (data.has("region")) trigger.region.set(data.getBool("region"));
-
-                        trigger.markDirty();
-                        world.updateListeners(pos, world.getBlockState(pos), world.getBlockState(pos), 3);
-                    }
-                });
-            }
-            catch (Exception e)
-            {
-                e.printStackTrace();
-            }
-        });
-    }
-
-    private static void handleTriggerBlockClickPacket(MinecraftServer server, ServerPlayerEntity player, PacketByteBuf buf)
-    {
-        BlockPos pos = buf.readBlockPos();
-
-        server.execute(() ->
-        {
-            World world = player.getWorld();
-            BlockEntity be = world.getBlockEntity(pos);
-
-            if (be instanceof TriggerBlockEntity trigger)
-            {
-                trigger.trigger(player, false);
-            }
-        });
-    }
-
-    /**
-     * Silent gamemode change for Film / Model Block editors (no chat feedback).
-     */
-    private static void handleSetGameModePacket(MinecraftServer server, ServerPlayerEntity player, PacketByteBuf buf)
-    {
-        int modeId = buf.readVarInt();
-
-        if (!PermissionUtils.arePanelsAllowed(server, player))
-        {
-            return;
-        }
-
-        GameMode mode = GameMode.byId(modeId);
-
-        if (mode == null)
-        {
-            return;
-        }
-
-        server.execute(() ->
-        {
-            if (player.interactionManager.getGameMode() != mode)
-            {
-                player.changeGameMode(mode);
-            }
         });
     }
 
@@ -324,11 +221,7 @@ public class ServerNetwork
                 String id = data.getString("id");
                 Film film = films.load(id);
 
-                 if (film != null)
-                {
-                    sendManagerData(player, callbackId, op, film.toData());
-                }
-
+                sendManagerData(player, callbackId, op, film.toData());
             }
             else if (op == RepositoryOperation.SAVE)
             {
@@ -477,8 +370,7 @@ public class ServerNetwork
 
                 if (actionPlayer == null)
                 {
-                    FilmManager films = BBSMod.getFilms();
-                    Film film = (filmId != null && !filmId.isBlank() && films.exists(filmId)) ? films.load(filmId) : null;
+                    Film film = BBSMod.getFilms().load(filmId);
 
                     if (film != null)
                     {
@@ -504,13 +396,6 @@ public class ServerNetwork
                 }
 
                 sendStopFilm(player, filmId);
-            }
-            else if (state == ActionState.RESTORE)
-            {
-                ActionPlayer actionPlayer = actions.getPlayer(filmId);
-                ServerWorld world = actionPlayer != null ? actionPlayer.getWorld() : player.getServerWorld();
-
-                actions.restoreDamage(world);
             }
             else if (state == ActionState.STOP)
             {
@@ -671,15 +556,6 @@ public class ServerNetwork
         buf.writeBlockPos(pos);
 
         ServerPlayNetworking.send(player, CLIENT_CLICKED_MODEL_BLOCK_PACKET, buf);
-    }
-
-    public static void sendClickedTriggerBlock(ServerPlayerEntity player, BlockPos pos)
-    {
-        PacketByteBuf buf = PacketByteBufs.create();
-
-        buf.writeBlockPos(pos);
-
-        ServerPlayNetworking.send(player, CLIENT_CLICKED_TRIGGER_BLOCK_PACKET, buf);
     }
 
     public static void sendPlayFilm(ServerPlayerEntity player, ServerWorld world, String filmId, boolean withCamera)
@@ -852,19 +728,6 @@ public class ServerNetwork
         buf.writeInt(slot);
 
         ServerPlayNetworking.send(player, CLIENT_SELECTED_SLOT, buf);
-    }
-    
-    public static void sendBay4llySkinToAll(MinecraftServer server, byte[] bytes, String playerName)
-    {
-        List<PlayerEntity> list = new ArrayList<>();
-        for (ServerPlayerEntity p : PlayerLookup.all(server))
-        {
-            list.add(p);
-        }
-        crusher.send(list, CLIENT_BAY4LLY_SKIN, bytes, (packetByteBuf) ->
-        {
-            packetByteBuf.writeString(playerName);
-        });
     }
 
     public static void sendModelBlockState(ServerPlayerEntity player, BlockPos pos, String trigger)

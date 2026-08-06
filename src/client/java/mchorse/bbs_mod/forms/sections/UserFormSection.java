@@ -156,19 +156,4 @@ public class UserFormSection extends FormSection
 
         this.writeUserCategories();
     }
-
-    public boolean moveUserCategory(int from, int to)
-    {
-        if (from < 0 || to < 0 || from >= this.categories.size() || to >= this.categories.size() || from == to)
-        {
-            return false;
-        }
-
-        UserFormCategory category = this.categories.remove(from);
-        this.categories.add(to, category);
-        this.parent.markDirty();
-        this.writeUserCategories();
-
-        return true;
-    }
 }

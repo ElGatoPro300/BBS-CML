@@ -2,10 +2,7 @@ package mchorse.bbs_mod.forms.forms.utils;
 
 import mchorse.bbs_mod.data.IMapSerializable;
 import mchorse.bbs_mod.data.types.MapType;
-
 import net.minecraft.util.Identifier;
-
-import java.util.Objects;
 
 public class ParticleSettings implements IMapSerializable
 {
@@ -22,7 +19,7 @@ public class ParticleSettings implements IMapSerializable
     @Override
     public void fromData(MapType data)
     {
-        this.particle = Identifier.tryParse(data.getString("particle"));
+        this.particle = new Identifier(data.getString("particle"));
         this.arguments = data.getString("args");
     }
 }
