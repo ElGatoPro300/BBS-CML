@@ -326,7 +326,7 @@ public class GunProjectileEntity extends ProjectileEntity implements IEntityForm
         DamageSource source = this.getDamageSources().magic();
 
         int fireTicks = entity.getFireTicks();
-        boolean deflectsArrows = entity.getType().isIn(EntityTypeTags.DEFLECTS_ARROWS);
+        boolean deflectsArrows = false;
 
         if (this.isOnFire() && !deflectsArrows)
         {
