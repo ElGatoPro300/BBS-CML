@@ -20,6 +20,14 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 @Mixin(GameRenderer.class)
 public class GameRendererMixin
 {
+    @Inject(method = "renderWorld", at = @At("HEAD"))
+    public void onRenderWorld(float tickDelta, long limitTime, MatrixStack matrices, CallbackInfo info)
+    {
+        CameraController controller = BBSModClient.getCameraController();
+
+        controller.setup(controller.camera, tickDelta);
+    }
+
     /**
      * This injection cancels bobbing when camera controller takes over
      */
