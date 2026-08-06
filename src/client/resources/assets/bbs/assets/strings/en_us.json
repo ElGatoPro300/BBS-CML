@@ -1183,6 +1183,7 @@
     "bbs.ui.film.replay.track.actions": "Actions",
     "bbs.ui.film.replay.track.shape_keys": "Shape keys",
     "bbs.ui.film.replay.track.item_stack": "Item stack",
+    "bbs.ui.film.replay.track.same_animation_when_dropped": "Item animation",
     "bbs.ui.film.replay.track.pose": "Pose",
     "bbs.ui.film.replay.track.pose_overlay": "Pose overlay",
     "bbs.ui.film.replay.track.pose_overlay_n": "Pose overlay %s",

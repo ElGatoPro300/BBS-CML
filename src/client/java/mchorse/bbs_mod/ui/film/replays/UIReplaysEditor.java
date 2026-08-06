@@ -2031,6 +2031,11 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
             return UIKeys.FILM_REPLAY_TRACK_ITEM_STACK;
         }
 
+        if (trackName.equals("same_animation_when_dropped"))
+        {
+            return UIKeys.FILM_REPLAY_TRACK_SAME_ANIMATION_WHEN_DROPPED;
+        }
+
         if (trackName.equals("pose"))
         {
             return UIKeys.FILM_REPLAY_TRACK_POSE;
@@ -2891,6 +2896,11 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
         }
 
         this.resize();
+
+        if (this.keyframeEditor != null)
+        {
+            this.keyframeEditor.view.getDopeSheet().setTrackHeight(this.keyframeEditor.view.getDopeSheet().getTrackHeight());
+        }
 
         if (this.keyframeEditor != null && lastEditor == null)
         {

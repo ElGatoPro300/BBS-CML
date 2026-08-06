@@ -1104,6 +1104,7 @@
     "bbs.ui.film.replay.track.item_main_hand": "Item de la mano principal",
     "bbs.ui.film.replay.track.item_off_hand": "Item de la mano secundaria",
     "bbs.ui.film.replay.track.item_stack": "Stack de item",
+    "bbs.ui.film.replay.track.same_animation_when_dropped": "Animación de item",
     "bbs.ui.film.replay.track.item_use_time": "Tiempo de uso del item (ticks transcurridos)",
     "bbs.ui.film.replay.track.item_use_time_label": "Tiempo de uso del ite",
     "bbs.ui.film.replay.track.lighting": "Iluminación",
