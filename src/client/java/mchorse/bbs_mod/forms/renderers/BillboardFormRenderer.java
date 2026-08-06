@@ -398,12 +398,20 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
             GlowSettings glowSettingsSnapshot = glowSettings;
             Color legacyGlowSnapshot = legacyGlow;
             boolean emitGlowSnapshot = glowIntensity > 0F && !glowSettings.resolvePaintOnly();
-            /* Noshading opacity: redraw after paint via BBS translucent queue, not Iris post-deferred. */
             boolean noshadingPaintPath = BBSRendering.needsIrisNoshadingOpacityDeferral(color.a, this.form.noshadingOpacity.get());
             boolean afterFluids = ShaderOpacityPatch.shouldFlushAfterFluids(color.a);
-            /* Soft-opacity depth write stays opacity-based. */
+            boolean softFlat = color.a < ShaderOpacityPatch.LIVE_DEPTH_WRITE_ALPHA;
             boolean depthWrite = ShaderOpacityPatch.shouldWriteDepthForOpacity(color.a);
-            double distanceSq = 0D;
+            /* Soft flats after soft meshes in the same flush (not the frame-end paint queue). */
+            double renderDepth = softFlat
+                ? ShaderOpacityPatch.SOFT_FLAT_POST_DEFERRED_DEPTH
+                : ShaderOpacityPatch.SOFT_MESH_POST_DEFERRED_DEPTH;
+            /* View-space look depth (meters), same scale as soft-limb film sort keys — not entity distance². */
+            Vector3f sortOrigin = new Vector3f();
+
+            positionMatrix.getTranslation(sortOrigin);
+
+            double distanceSq = Math.max(0D, -sortOrigin.z);
             /* Iris deferred: apply FormColorGrade in model.fsh on the post-deferred BBS draw. */
             VertexFormat deferredFormat = VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL;
             boolean gradeOnDeferredDraw = useFormColorGrade || irisDeferredColorGrade;
@@ -417,7 +425,7 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
             boolean gradeActiveSnapshot = gradeOnDeferredDraw;
             Color gradeSourceSnapshot = storedFormColor;
 
-            if (deferContext != null && deferContext.entity != null && deferContext.camera != null)
+            if (distanceSq < 1.0E-6D && deferContext != null && deferContext.entity != null && deferContext.camera != null)
             {
                 double x = Lerps.lerp(deferContext.entity.getPrevX(), deferContext.entity.getX(), transition);
                 double y = Lerps.lerp(deferContext.entity.getPrevY(), deferContext.entity.getY(), transition);
@@ -426,7 +434,7 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
                 double dy = y - deferContext.camera.position.y;
                 double dz = z - deferContext.camera.position.z;
 
-                distanceSq = dx * dx + dy * dy + dz * dz;
+                distanceSq = Math.sqrt(dx * dx + dy * dy + dz * dz);
             }
 
             Runnable deferredDraw = () ->
@@ -529,10 +537,10 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
                 }
             };
 
-            if (opacityPatch && !noshadingPaintPath)
+            if (!noshadingPaintPath)
             {
-                /* Same sorted post-deferred queue as models — render depth low→high, before VL. */
-                ShaderOpacityPatch.submitPostDeferredBbsForm(0D, distanceSq, depthWrite, afterFluids, deferredDraw);
+                /* Same flush as soft actors/limbs — soft flats at SOFT_FLAT_POST_DEFERRED_DEPTH. */
+                ShaderOpacityPatch.submitPostDeferredBbsForm(renderDepth, distanceSq, depthWrite, afterFluids, deferredDraw);
             }
             else
             {

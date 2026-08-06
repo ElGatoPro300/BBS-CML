@@ -888,14 +888,32 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
                 boolean hasGlowSnapshot = hasGlow;
                 boolean emitGlowSnapshot = emitGlowAfterDeferred;
                 GlowSettings albedoGlow = emitGlowAfterDeferred ? mainPassGlow : glow;
-                /* Soft opacity redraw (frame-end / noshading): write depth so limbs do not X-ray.
-                 * Noshading soft forms share this queue with paint; flushPaintOverlayQueue sorts
-                 * paint overlays before fullModel so depth write does not clip paint behind. */
+                /* Soft opacity: same ShaderOpacityPatch flush as soft billboards (not frame-end
+                 * paint overlay — that always overdrew AFTER_TRANSLUCENT flats). */
                 boolean deferredDepthWrite = ShaderOpacityPatch.shouldWriteDepthForOpacity(opacityAlpha);
+                boolean deferredAfterFluids = ShaderOpacityPatch.shouldFlushAfterFluids(opacityAlpha);
+                double deferredDistanceSq = 0D;
+
+                if (renderContext != null && renderContext.entity != null && renderContext.camera != null)
+                {
+                    double x = Lerps.lerp(renderContext.entity.getPrevX(), renderContext.entity.getX(), transition);
+                    double y = Lerps.lerp(renderContext.entity.getPrevY(), renderContext.entity.getY(), transition);
+                    double z = Lerps.lerp(renderContext.entity.getPrevZ(), renderContext.entity.getZ(), transition);
+                    double dx = x - renderContext.camera.position.x;
+                    double dy = y - renderContext.camera.position.y;
+                    double dz = z - renderContext.camera.position.z;
+
+                    deferredDistanceSq = Math.sqrt(dx * dx + dy * dy + dz * dz);
+                }
 
                 if (colorSnapshot.a > 0.001F)
                 {
-                    ModelVAORenderer.submitDeferredTranslucentModel(() ->
+                    ShaderOpacityPatch.submitPostDeferredBbsForm(
+                        ShaderOpacityPatch.SOFT_MESH_POST_DEFERRED_DEPTH,
+                        deferredDistanceSq,
+                        deferredDepthWrite,
+                        deferredAfterFluids,
+                        () ->
                     {
                         this.applyOverlayPosePipeline(target, model, transitionSnapshot, poseSnapshot, baseTransformSnapshot);
 
@@ -956,7 +974,7 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
                             ModelVAORenderer.clearPaint();
                             ModelVAORenderer.clearGlowing();
                         }
-                    }, deferredDepthWrite);
+                    });
 
                     if (emitGlowSnapshot)
                     {
@@ -1058,7 +1076,7 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
                         double dy = y - renderContext.camera.position.y;
                         double dz = z - renderContext.camera.position.z;
 
-                        distanceSq = dx * dx + dy * dy + dz * dz;
+                        distanceSq = Math.sqrt(dx * dx + dy * dy + dz * dz);
                     }
 
                     /* After fluids + depth write: water stays, limbs do not X-ray. */
@@ -1137,11 +1155,23 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
 
                     if (irisCamera)
                     {
-                        ShaderOpacityPatch.submitPostDeferredForm(0D, distanceSq, depthWrite, afterFluids, deferredDraw);
+                        ShaderOpacityPatch.submitPostDeferredForm(
+                            ShaderOpacityPatch.SOFT_MESH_POST_DEFERRED_DEPTH,
+                            distanceSq,
+                            depthWrite,
+                            afterFluids,
+                            deferredDraw
+                        );
                     }
                     else
                     {
-                        ShaderOpacityPatch.submitPostDeferredBbsForm(0D, distanceSq, depthWrite, afterFluids, deferredDraw);
+                        ShaderOpacityPatch.submitPostDeferredBbsForm(
+                            ShaderOpacityPatch.SOFT_MESH_POST_DEFERRED_DEPTH,
+                            distanceSq,
+                            depthWrite,
+                            afterFluids,
+                            deferredDraw
+                        );
                     }
 
                     ModelVAORenderer.clearPaintEffectTransform();
@@ -2564,19 +2594,39 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
 
         if (queue == SoftLimbQueue.NOSHADING)
         {
-            ModelVAORenderer.submitDeferredTranslucentModel(softDeferredDraw, entryDepthWrite);
+            /* Must share ShaderOpacityPatch with soft billboards — frame-end paint overlay
+             * always redraws after AFTER_TRANSLUCENT flats and paints soft actors on top. */
+            ShaderOpacityPatch.submitPostDeferredBbsForm(
+                ShaderOpacityPatch.SOFT_MESH_POST_DEFERRED_DEPTH,
+                batchDistanceSq,
+                entryDepthWrite,
+                draw.afterFluids,
+                softDeferredDraw
+            );
 
             return;
         }
 
         if (queue == SoftLimbQueue.IRIS)
         {
-            ShaderOpacityPatch.submitPostDeferredForm(0D, batchDistanceSq, entryDepthWrite, draw.afterFluids, softDeferredDraw);
+            ShaderOpacityPatch.submitPostDeferredForm(
+                ShaderOpacityPatch.SOFT_MESH_POST_DEFERRED_DEPTH,
+                batchDistanceSq,
+                entryDepthWrite,
+                draw.afterFluids,
+                softDeferredDraw
+            );
 
             return;
         }
 
-        ShaderOpacityPatch.submitPostDeferredBbsForm(0D, batchDistanceSq, entryDepthWrite, draw.afterFluids, softDeferredDraw);
+        ShaderOpacityPatch.submitPostDeferredBbsForm(
+            ShaderOpacityPatch.SOFT_MESH_POST_DEFERRED_DEPTH,
+            batchDistanceSq,
+            entryDepthWrite,
+            draw.afterFluids,
+            softDeferredDraw
+        );
     }
 
     private void runSoftLimbBatchDraw(List<SoftBoneSubmit> batch, SoftLimbDrawState draw, Matrix4f softPositionMatrix, Supplier<ShaderProgram> softProgram, boolean irisStyle, boolean stampDepth, boolean colorWritesDepth)

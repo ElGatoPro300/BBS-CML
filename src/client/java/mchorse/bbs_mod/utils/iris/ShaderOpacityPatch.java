@@ -242,6 +242,18 @@ public class ShaderOpacityPatch
     public static final float LIVE_DEPTH_WRITE_ALPHA = 0.999F;
 
     /**
+     * Soft character meshes / limbs in {@link #postDeferredForms}. Soft flat forms
+     * ({@link #SOFT_FLAT_POST_DEFERRED_DEPTH}) sort after these so a translucent billboard
+     * composites over soft actors behind it instead of being overdrawn at frame-end.
+     */
+    public static final double SOFT_MESH_POST_DEFERRED_DEPTH = 0D;
+
+    /**
+     * Soft billboards / thin flats — after soft meshes in the same post-deferred flush.
+     */
+    public static final double SOFT_FLAT_POST_DEFERRED_DEPTH = 1D;
+
+    /**
      * Queue soft-opacity forms until after translucent terrain.
      * Works with or without Iris and with or without the Complementary/BSL opacity patch —
      * patched packs get the best lighting; unpatched / no-shader still get correct depth
