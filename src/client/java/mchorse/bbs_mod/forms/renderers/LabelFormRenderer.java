@@ -60,6 +60,8 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
     private static final int MIN_TEXT_ALPHA_BYTE = 4;
 
     private float nametagAlpha = 1F;
+    /** Soft labels must not write depth or world bloom behind them is occluded. */
+    private boolean labelWriteDepth = true;
     private int lastBoundTextTexture;
     private final Vector3f maskHalfExtents = new Vector3f();
     private final LabelTextTintQuadCapture tintCapture = new LabelTextTintQuadCapture();
@@ -193,6 +195,65 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
 
         MatrixStackUtils.scaleStack(context.stack, scale, -scale, scale);
 
+        float opacity = this.form.color.get().a * this.nametagAlpha;
+
+        opacity *= ((context.color >>> 24) & 0xFF) / 255F;
+
+        boolean translucent = opacity < 0.999F && !context.isPicking();
+        /* Soft labels must not stamp depth or they fully occlude pack bloom. */
+        this.labelWriteDepth = !translucent;
+
+        /*
+         * Iris bloom is a separate post pass. depthMask(false) during the live gbuffer pass
+         * lets bloom through at full strength (binary), ignoring label alpha. Redraw soft
+         * labels after composite so standard alpha blend multiplies the already-bloomed
+         * scene: bloom visibility tracks (1 - alpha). No custom text shader — keep vanilla
+         * TextRenderer so lighting/appearance stay consistent.
+         */
+        boolean deferForBloom = translucent
+            && !context.modelRenderer
+            && !context.isShadowPass
+            && BBSRendering.needsIrisTranslucentFlatDeferral(opacity);
+
+        if (deferForBloom)
+        {
+            Matrix4f positionMatrix = ModelVAORenderer.capturePaintOverlayRootMatrix(new Matrix4f(context.stack.peek().getPositionMatrix()));
+            int lightSnapshot = light;
+
+            ModelVAORenderer.submitDeferredTranslucentModel(() ->
+            {
+                MatrixStack deferredStack = new MatrixStack();
+
+                deferredStack.peek().getPositionMatrix().set(positionMatrix);
+
+                MatrixStack previousStack = context.stack;
+
+                context.stack = deferredStack;
+
+                try
+                {
+                    this.drawLabelWorldContent(context, FormUtilsClient.getProvider(), renderer, lightSnapshot, false);
+                }
+                finally
+                {
+                    context.stack = previousStack;
+                }
+            }, false, false);
+
+            context.stack.pop();
+
+            return;
+        }
+
+        this.drawLabelWorldContent(context, consumers, renderer, light, this.labelWriteDepth);
+
+        context.stack.pop();
+    }
+
+    private void drawLabelWorldContent(FormRenderingContext context, CustomVertexConsumerProvider consumers, TextRenderer renderer, int light, boolean writeDepth)
+    {
+        this.labelWriteDepth = writeDepth;
+
         RenderSystem.disableCull();
 
         if (context.isPicking())
@@ -214,6 +275,8 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
                 RenderSystem.disableCull();
                 RenderSystem.enableBlend();
                 RenderSystem.defaultBlendFunc();
+                /* Override text layer ALL_MASK after startDrawing. */
+                RenderSystem.depthMask(this.labelWriteDepth);
             });
         }
 
@@ -228,16 +291,19 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
 
         /* Glow overlay clears the hijack; re-apply disableCull for any leftover shared-buffer
          * flush so the last label keeps both faces when WorldRenderer draws later. */
-        CustomVertexConsumerProvider.hijackVertexFormat((layer) -> RenderSystem.disableCull());
+        CustomVertexConsumerProvider.hijackVertexFormat((layer) ->
+        {
+            RenderSystem.disableCull();
+            RenderSystem.depthMask(this.labelWriteDepth);
+        });
         this.flushLabelConsumers(consumers);
 
         CustomVertexConsumerProvider.clearRunnables();
         RenderSystem.defaultBlendFunc();
+        RenderSystem.depthMask(true);
 
         RenderSystem.enableDepthTest();
         RenderSystem.enableCull();
-
-        context.stack.pop();
     }
 
     /**
@@ -248,6 +314,7 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
     private void flushLabelConsumers(CustomVertexConsumerProvider consumers)
     {
         RenderSystem.disableCull();
+        RenderSystem.depthMask(this.labelWriteDepth);
         consumers.draw();
     }
 
@@ -967,8 +1034,10 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
 
         RenderSystem.enableBlend();
         RenderSystem.enableDepthTest();
+        RenderSystem.depthMask(this.labelWriteDepth);
         RenderSystem.setShader(GameRenderer::getPositionColorProgram);
         BufferRenderer.drawWithGlobalProgram(builder.end());
+        RenderSystem.depthMask(true);
         context.stack.pop();
     }
 
