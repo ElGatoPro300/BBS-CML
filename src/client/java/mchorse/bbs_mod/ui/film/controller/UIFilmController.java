@@ -1567,6 +1567,13 @@ public class UIFilmController extends UIElement
 
     public Pair<String, TransformOrientation> getBone()
     {
+        /* Pose gizmos belong to the replay timeline; hide them while another
+         * tab (e.g. camera clips) is active in the same tab group. */
+        if (this.panel.replayEditor == null || !this.panel.replayEditor.isVisible())
+        {
+            return null;
+        }
+
         UIKeyframeEditor keyframeEditor = this.panel.replayEditor.keyframeEditor;
 
         return keyframeEditor != null ? keyframeEditor.getBone() : null;

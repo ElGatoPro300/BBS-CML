@@ -1350,6 +1350,101 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
         }
     }
 
+    /**
+     * Switch to the replay timeline tab (and its linked properties) so viewport
+     * bone picks can drive pose gizmos instead of staying on the camera timeline.
+     */
+    private void focusReplayTimelineForPick()
+    {
+        if (this.filmPanel == null)
+        {
+            return;
+        }
+
+        this.filmPanel.focusPanelTab("replayTimeline");
+        this.filmPanel.focusLinkedPropertiesTab("replayTimeline");
+        this.filmPanel.showPanel(this);
+    }
+
+    /**
+     * Expand collapsed form / pose / limb track groups so nested-form bone picks
+     * have their sheets in the keyframe graph (avoids a runaway gizmo).
+     */
+    private void ensureTracksVisibleForFormBone(Form form, String bone)
+    {
+        if (this.replay == null || form == null)
+        {
+            return;
+        }
+
+        String replayId = this.replay.uuid.get();
+
+        replayId = replayId == null ? "" : replayId;
+
+        boolean changed = false;
+        String formPath = FormUtils.getPath(form);
+        Form rootForm = FormUtils.getRoot(form);
+        String rootPath = FormUtils.getPath(rootForm);
+
+        changed |= this.expandTrackGroup(replayId + ":" + rootPath, false);
+
+        if (!formPath.isEmpty())
+        {
+            String[] segments = formPath.split("/");
+            StringBuilder built = new StringBuilder();
+
+            for (int i = 0; i < segments.length; i++)
+            {
+                if (i > 0)
+                {
+                    built.append('/');
+                }
+
+                built.append(segments[i]);
+                changed |= this.expandTrackGroup(replayId + ":" + built, false);
+            }
+        }
+
+        /* Limb sheets are omitted while their parent pose track is collapsed (default). */
+        String poseId = StringUtils.combinePaths(formPath, "pose");
+
+        changed |= this.expandTrackGroup(replayId + ":" + poseId, true);
+
+        if (bone != null && !bone.isEmpty() && form instanceof ModelForm modelForm)
+        {
+            ModelInstance model = ModelFormRenderer.getModel(modelForm);
+
+            if (model != null && model.model != null)
+            {
+                Map<String, String> parentByBone = this.collectBoneParents(model.model);
+                String parent = parentByBone.get(bone);
+
+                while (parent != null)
+                {
+                    changed |= this.expandTrackGroup(replayId + ":" + poseId + ":" + parent, false);
+                    parent = parentByBone.get(parent);
+                }
+            }
+        }
+
+        if (changed)
+        {
+            this.updateChannelsList();
+        }
+    }
+
+    private boolean expandTrackGroup(String key, boolean collapsedByDefault)
+    {
+        if (this.collapsedModelTracks.getOrDefault(key, collapsedByDefault))
+        {
+            this.collapsedModelTracks.put(key, false);
+
+            return true;
+        }
+
+        return false;
+    }
+
     public void moveReplay(double x, double y, double z)
     {
         if (this.replay != null)
@@ -3683,13 +3778,16 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
             return;
         }
 
-        if (this.filmPanel != null)
+        this.focusReplayTimelineForPick();
+
+        if (!this.ensureReplayForForm(form))
         {
-            this.filmPanel.focusLinkedPropertiesTab("replayTimeline");
-            this.filmPanel.showPanel(this);
+            return;
         }
 
-        if (!this.ensureReplayForForm(form) || this.keyframeEditor == null)
+        this.ensureTracksVisibleForFormBone(form, bone);
+
+        if (this.keyframeEditor == null)
         {
             return;
         }
@@ -3872,10 +3970,14 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
             return;
         }
 
+        this.focusReplayTimelineForPick();
+
         if (!this.ensureReplayForForm(form))
         {
             return;
         }
+
+        this.ensureTracksVisibleForFormBone(form, bone);
 
         String path = FormUtils.getPath(form);
         boolean shift = Window.isShiftPressed();
@@ -4229,12 +4331,6 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
 
                 if (allowPick)
                 {
-                    if (this.filmPanel != null)
-                    {
-                        this.filmPanel.focusLinkedPropertiesTab("replayTimeline");
-                        this.filmPanel.showPanel(this);
-                    }
-
                     if (pair.a == null)
                     {
                         return false;
