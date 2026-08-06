@@ -4260,14 +4260,7 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
         {
             Vector3d vec = this.rayTraceViewportBlock(context, area);
 
-            BlockHitResult blockHitResult = RayTracing.rayTrace(
-                world,
-                RayTracing.fromVector3d(camera.position),
-                RayTracing.fromVector3f(CameraUtils.getMouseDirection(camera.projection, camera.view, context.mouseX, context.mouseY, area.x, area.y, area.w, area.h)),
-                256F
-            );
-
-            if (blockHitResult.getType() != HitResult.Type.MISS)
+            if (vec != null)
             {
                 this.openViewportReplayContextMenu(context, vec);
 

@@ -180,14 +180,7 @@ public class UIFilmController extends UIElement
             UIContext context = this.getContext();
             Vector3d hit = this.panel.replayEditor.rayTraceViewportFromContext(context, area);
 
-            HitResult result = RayTracing.rayTrace(
-                world,
-                RayTracing.fromVector3d(camera.position),
-                RayTracing.fromVector3f(camera.getMouseDirection(context.mouseX, context.mouseY, area.x, area.y, area.w, area.h)),
-                512F
-            );
-
-            if (result.getType() == HitResult.Type.BLOCK)
+            if (hit != null)
             {
                 this.panel.replayEditor.moveReplay(hit.x, hit.y, hit.z);
             }
@@ -1664,7 +1657,7 @@ public class UIFilmController extends UIElement
                         .filmTick(cursorTick)
                         .transition(isPlaying ? renderContext.tickDelta() : 0)
                         .stencil(this.stencilMap)
-                        .relative(replay.relative.get())
+                        .relative(currentReplay.relative.get())
                         .bone(bone != null ? bone.a : null, bone != null ? bone.b : TransformOrientation.PARENT));
                 }
             }
