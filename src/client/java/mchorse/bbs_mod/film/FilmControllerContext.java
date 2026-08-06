@@ -18,9 +18,9 @@ import net.minecraft.client.util.math.MatrixStack;
 
 import org.joml.Matrix4f;
 
-import com.mojang.blaze3d.systems.RenderSystem;
-
 import io.netty.util.collection.IntObjectMap;
+
+import com.mojang.blaze3d.systems.RenderSystem;
 
 public class FilmControllerContext
 {
@@ -115,7 +115,7 @@ public class FilmControllerContext
             MatrixStackUtils.multiply(this.stack, RenderSystem.getModelViewMatrix());
         }
         this.consumers = context.consumers();
-        this.transition = context.tickCounter().getTickDelta(false);
+        this.transition = context.tickDelta();
 
         return this;
     }

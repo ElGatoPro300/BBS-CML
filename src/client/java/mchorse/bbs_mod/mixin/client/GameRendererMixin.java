@@ -12,7 +12,6 @@ import mchorse.bbs_mod.items.GunZoom;
 
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.render.GameRenderer;
-import net.minecraft.client.render.RenderTickCounter;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.RotationAxis;
@@ -174,10 +173,8 @@ public class GameRendererMixin
         ),
         order = 900
     )
-    private void bbs$registerWorldFilmIrlLights(RenderTickCounter tickCounter, CallbackInfo ci)
+    private void bbs$registerWorldFilmIrlLights(float tickDelta, long limitTime, MatrixStack matrixStack, CallbackInfo ci)
     {
-        float tickDelta = tickCounter.getTickDelta(true);
-
         IrlWorldFilmLightBridge.collectBeforeFlush(tickDelta);
     }
 
@@ -188,7 +185,7 @@ public class GameRendererMixin
     }
 
     @Inject(method = "render", at = @At(value = "FIELD", target = "Lnet/minecraft/client/option/GameOptions;hudHidden:Z", opcode = Opcodes.GETFIELD, ordinal = 0))
-    private void onBeforeHudRendering(RenderTickCounter tickCounter, boolean tick, CallbackInfo info)
+    private void onBeforeHudRendering(float tickDelta, long startTime, boolean tick, CallbackInfo info)
     {
         ICameraController current = BBSModClient.getCameraController().getCurrent();
 

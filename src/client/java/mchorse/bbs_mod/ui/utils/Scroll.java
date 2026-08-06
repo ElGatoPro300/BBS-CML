@@ -459,7 +459,7 @@ public class Scroll
 
         if (BBSSettings.scrollingSmoothness.get())
         {
-            float delta = MinecraftClient.getInstance().getRenderTickCounter().getLastFrameDuration();
+            float delta = MinecraftClient.getInstance().getLastFrameDuration();
 
             /* The higher the FPS, the smaller the lerp factor is,
              * the lower the FPS, the bigger the factor is */

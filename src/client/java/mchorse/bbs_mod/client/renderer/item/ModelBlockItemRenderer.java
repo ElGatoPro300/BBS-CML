@@ -20,8 +20,6 @@ import net.minecraft.client.render.LightmapTextureManager;
 import net.minecraft.client.render.VertexConsumerProvider;
 import net.minecraft.client.render.model.json.ModelTransformationMode;
 import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.component.DataComponentTypes;
-import net.minecraft.component.type.NbtComponent;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NbtCompound;
 import net.minecraft.util.math.BlockPos;
@@ -87,7 +85,7 @@ public class ModelBlockItemRenderer implements BuiltinItemRendererRegistry.Dynam
                 }
 
                 FormUtilsClient.render(form, new FormRenderingContext()
-                    .set(FormRenderType.fromModelMode(mode), item.formEntity, matrices, light, overlay, MinecraftClient.getInstance().getRenderTickCounter().getTickDelta(false))
+                    .set(FormRenderType.fromModelMode(mode), item.formEntity, matrices, light, overlay, MinecraftClient.getInstance().getTickDelta())
                     .camera(MinecraftClient.getInstance().gameRenderer.getCamera()));
 
                 if (mode == ModelTransformationMode.GUI)
@@ -119,18 +117,13 @@ public class ModelBlockItemRenderer implements BuiltinItemRendererRegistry.Dynam
 
         this.map.put(stack, item);
 
-        NbtComponent nbtComponent = stack.get(DataComponentTypes.BLOCK_ENTITY_DATA);
-        if (nbtComponent == null)
+        NbtCompound nbt = stack.getSubNbt("BlockEntityTag");
+        if (nbt == null)
         {
             return item;
         }
 
-        NbtCompound nbt = nbtComponent.getNbt();
-        var world = MinecraftClient.getInstance().world;
-        if (world != null)
-        {
-            entity.readNbt(nbt, world.getRegistryManager());
-        }
+        entity.readNbt(nbt);
 
         return item;
     }

@@ -893,8 +893,8 @@ public class StructurePickerClient
             return;
         }
 
-        BlockPos min = blocks.getFirst();
-        BlockPos max = blocks.getFirst();
+        BlockPos min = blocks.get(0);
+        BlockPos max = blocks.get(0);
 
         for (BlockPos pos : blocks)
         {
@@ -1056,15 +1056,15 @@ public class StructurePickerClient
     {
         if (StructurePickerClient.clickOnAir)
         {
-            return mc.player.getBlockInteractionRange();
+            return mc.interactionManager.getReachDistance();
         }
 
-        return Math.max(mc.player.getBlockInteractionRange() * REACH_MULTIPLIER, MIN_PICKER_REACH);
+        return Math.max(mc.interactionManager.getReachDistance() * REACH_MULTIPLIER, MIN_PICKER_REACH);
     }
 
     private static double getAirClickReach(MinecraftClient mc)
     {
-        return mc.player.getBlockInteractionRange();
+        return mc.interactionManager.getReachDistance();
     }
 
     private static BlockPos resolveTargetBlock(MinecraftClient mc)

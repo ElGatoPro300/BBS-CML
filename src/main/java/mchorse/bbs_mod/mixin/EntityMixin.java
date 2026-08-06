@@ -6,6 +6,7 @@ import mchorse.bbs_mod.morphing.IMorphProvider;
 import mchorse.bbs_mod.morphing.Morph;
 
 import net.minecraft.entity.Entity;
+import net.minecraft.entity.EntityDimensions;
 import net.minecraft.entity.EntityPose;
 import net.minecraft.entity.player.PlayerEntity;
 
@@ -18,7 +19,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 public class EntityMixin
 {
     @Inject(method = "getEyeHeight", at = @At("HEAD"), cancellable = true)
-    public void getEyeHeight(EntityPose pose, CallbackInfoReturnable<Float> info)
+    public void getEyeHeight(EntityPose pose, EntityDimensions dimensions, CallbackInfoReturnable<Float> info)
     {
         if (this instanceof IMorphProvider provider)
         {

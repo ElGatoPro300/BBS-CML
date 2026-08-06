@@ -21,7 +21,7 @@ public class LivingEntityMixin
     {
         Entity attacker = source.getAttacker();
 
-        if (source.isDirect() && attacker != null && attacker.getClass() == ServerPlayerEntity.class)
+        if (!source.isIndirect() && attacker != null && attacker.getClass() == ServerPlayerEntity.class)
         {
             BBSMod.getActions().addAction((ServerPlayerEntity) attacker, () ->
             {

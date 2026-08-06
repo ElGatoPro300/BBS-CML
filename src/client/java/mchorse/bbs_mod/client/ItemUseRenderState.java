@@ -94,7 +94,7 @@ public final class ItemUseRenderState
             return 0;
         }
 
-        int maxUseTime = stack.getMaxUseTime(living);
+        int maxUseTime = stack.getItem().getMaxUseTime(stack);
         int remaining = source.getItemUseTimeLeft();
 
         if (maxUseTime <= 0)
@@ -132,7 +132,7 @@ public final class ItemUseRenderState
             return;
         }
 
-        int maxUseTime = stack.getMaxUseTime(living);
+        int maxUseTime = stack.getItem().getMaxUseTime(stack);
         int itemUseTimeLeft = Math.max(0, maxUseTime - itemUseElapsed);
 
         living.setCurrentHand(hand);

@@ -42,8 +42,6 @@ import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.render.BufferBuilder;
 import net.minecraft.client.render.RenderLayer;
 import net.minecraft.client.render.TexturedRenderLayers;
-import net.minecraft.client.render.model.ModelLoader;
-import net.minecraft.client.util.BufferAllocator;
 import net.minecraft.util.Util;
 
 import java.util.Collections;

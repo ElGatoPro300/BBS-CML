@@ -318,7 +318,7 @@ public class VirtualBlockRenderView implements BlockRenderView
 
         try
         {
-            this.biomeOverrideId = Identifier.of(biomeId);
+            this.biomeOverrideId = new Identifier(biomeId);
             /* Resolve preferably from the client world */
             if (MinecraftClient.getInstance().world != null)
             {

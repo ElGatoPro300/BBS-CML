@@ -77,7 +77,7 @@ public class ItemStackKeyframeFactory implements IKeyframeFactory<ItemStack>
             return x < 1F ? a : b;
         }
 
-        if (!ItemStack.areItemsAndComponentsEqual(a, b))
+        if (!ItemStack.canCombine(a, b))
         {
             return x < 1F ? a : b;
         }
