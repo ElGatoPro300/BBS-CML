@@ -18,10 +18,12 @@ import mchorse.bbs_mod.forms.renderers.utils.LabelTextTintQuadCapture;
 import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.ui.framework.elements.utils.FontRenderer;
 import mchorse.bbs_mod.utils.FontUtils;
+import mchorse.bbs_mod.utils.MathUtils;
 import mchorse.bbs_mod.utils.MatrixStackUtils;
 import mchorse.bbs_mod.utils.StringUtils;
 import mchorse.bbs_mod.utils.TextureFont;
 import mchorse.bbs_mod.utils.colors.Color;
+import mchorse.bbs_mod.utils.iris.ShaderOpacityPatch;
 
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.font.TextRenderer;
@@ -56,10 +58,14 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
     /**
      * Minecraft's {@link TextRenderer} treats {@code (color & 0xFC000000) == 0} as fully
      * opaque, so alpha bytes 0–3 become 255. Keep a minimum of 4 when opacity is intended.
+     * Soft alphas below ~26/255 need {@link BBSShaders#getLabelTextProgram()} (vanilla text
+     * shaders discard {@code color.a < 0.1}).
      */
     private static final int MIN_TEXT_ALPHA_BYTE = 4;
 
     private float nametagAlpha = 1F;
+    private boolean labelWriteDepth = true;
+    private boolean labelForceSoftTextShader = false;
     private int lastBoundTextTexture;
     private final Vector3f maskHalfExtents = new Vector3f();
     private final LabelTextTintQuadCapture tintCapture = new LabelTextTintQuadCapture();
@@ -193,6 +199,75 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
 
         MatrixStackUtils.scaleStack(context.stack, scale, -scale, scale);
 
+        float opacity = this.resolveLabelDrawOpacity(context);
+        boolean translucent = opacity < 0.999F && !context.isPicking();
+        /* Soft labels must not stamp depth or world bloom behind them is occluded. */
+        boolean writeDepth = !translucent;
+        boolean deferTranslucent = translucent
+            && !context.modelRenderer
+            && !context.isShadowPass
+            && BBSRendering.needsIrisTranslucentFlatDeferral(opacity);
+
+        if (deferTranslucent)
+        {
+            Matrix4f positionMatrix = ModelVAORenderer.capturePaintOverlayRootMatrix(new Matrix4f(context.stack.peek().getPositionMatrix()));
+            int lightSnapshot = light;
+
+            Runnable deferredDraw = () ->
+            {
+                MatrixStack deferredStack = new MatrixStack();
+
+                deferredStack.peek().getPositionMatrix().set(positionMatrix);
+
+                MatrixStack previousStack = context.stack;
+                boolean previousSoft = this.labelForceSoftTextShader;
+
+                context.stack = deferredStack;
+                this.labelForceSoftTextShader = true;
+
+                try
+                {
+                    RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
+                    this.drawLabelWorldContent(context, FormUtilsClient.getProvider(), renderer, lightSnapshot, false);
+                }
+                finally
+                {
+                    this.labelForceSoftTextShader = previousSoft;
+                    context.stack = previousStack;
+                }
+            };
+
+            /* depthTest false: thin text plane vs post-Iris depth (same as billboards).
+             * Prefer the BBS translucent queue over the opacity-patch Iris camera queue —
+             * TextRenderer layers do not survive that path reliably. */
+            ModelVAORenderer.submitDeferredTranslucentModel(deferredDraw, false, false);
+
+            context.stack.pop();
+
+            return;
+        }
+
+        this.drawLabelWorldContent(context, consumers, renderer, light, writeDepth);
+
+        context.stack.pop();
+    }
+
+    /**
+     * Approximate label opacity for Iris translucency / depth decisions (before paint/glow).
+     */
+    private float resolveLabelDrawOpacity(FormRenderingContext context)
+    {
+        float alpha = this.form.color.get().a * this.nametagAlpha;
+
+        alpha *= ((context.color >>> 24) & 0xFF) / 255F;
+
+        return MathUtils.clamp(alpha, 0F, 1F);
+    }
+
+    private void drawLabelWorldContent(FormRenderingContext context, CustomVertexConsumerProvider consumers, TextRenderer renderer, int light, boolean writeDepth)
+    {
+        this.labelWriteDepth = writeDepth;
+
         RenderSystem.disableCull();
 
         if (context.isPicking())
@@ -214,6 +289,9 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
                 RenderSystem.disableCull();
                 RenderSystem.enableBlend();
                 RenderSystem.defaultBlendFunc();
+                /* Override text RenderLayer ALL_MASK so soft labels do not occlude bloom. */
+                RenderSystem.depthMask(this.labelWriteDepth);
+                this.applySoftLabelTextShaderIfSafe();
             });
         }
 
@@ -228,16 +306,45 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
 
         /* Glow overlay clears the hijack; re-apply disableCull for any leftover shared-buffer
          * flush so the last label keeps both faces when WorldRenderer draws later. */
-        CustomVertexConsumerProvider.hijackVertexFormat((layer) -> RenderSystem.disableCull());
+        CustomVertexConsumerProvider.hijackVertexFormat((layer) ->
+        {
+            RenderSystem.disableCull();
+            RenderSystem.depthMask(this.labelWriteDepth);
+            this.applySoftLabelTextShaderIfSafe();
+        });
         this.flushLabelConsumers(consumers);
 
         CustomVertexConsumerProvider.clearRunnables();
         RenderSystem.defaultBlendFunc();
+        RenderSystem.depthMask(true);
 
         RenderSystem.enableDepthTest();
         RenderSystem.enableCull();
+    }
 
-        context.stack.pop();
+    /**
+     * Soft label text avoids vanilla's {@code color.a < 0.1} discard. Never swap Iris's live
+     * gbuffer/text program or labels vanish under shader packs; only use it on vanilla and on
+     * BBS deferred / post-deferred redraws.
+     */
+    private void applySoftLabelTextShaderIfSafe()
+    {
+        if (!this.labelForceSoftTextShader
+            && BBSRendering.isIrisWorldModelPass()
+            && !ShaderOpacityPatch.isFlushingPostDeferred()
+            && !ModelVAORenderer.isDeferredTranslucentPass())
+        {
+            return;
+        }
+
+        RenderSystem.setShader(BBSShaders::getLabelTextProgram);
+    }
+
+    private TextRenderer.TextLayerType labelTextLayer()
+    {
+        /* Keep NORMAL depth-test so soft labels still hide behind walls; depth *writes*
+         * are disabled via hijack / depthMask when translucent (bloom-safe). */
+        return TextRenderer.TextLayerType.NORMAL;
     }
 
     /**
@@ -248,6 +355,7 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
     private void flushLabelConsumers(CustomVertexConsumerProvider consumers)
     {
         RenderSystem.disableCull();
+        RenderSystem.depthMask(this.labelWriteDepth);
         consumers.draw();
     }
 
@@ -299,6 +407,13 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
 
     private void drawSimpleText(FormRenderingContext context, CustomVertexConsumerProvider consumers, TextRenderer renderer, TextureFont customFont, String content, float x, float y, float letterSpacing, int light, int color)
     {
+        if (this.labelForceSoftTextShader)
+        {
+            this.bakeAndDrawSoftText(context, renderer, customFont, content, x, y, letterSpacing, light, new Color().set(color, true));
+
+            return;
+        }
+
         if (customFont != null)
         {
             customFont.draw(content, x, y, color, color, letterSpacing, 0F, context.stack.peek().getPositionMatrix(), consumers, light);
@@ -312,7 +427,7 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
                 color, false,
                 context.stack.peek().getPositionMatrix(),
                 consumers,
-                TextRenderer.TextLayerType.NORMAL,
+                this.labelTextLayer(),
                 0,
                 light
             );
@@ -335,6 +450,8 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
             RenderSystem.disableCull();
             RenderSystem.enableBlend();
             RenderSystem.blendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE);
+            RenderSystem.depthMask(false);
+            this.applySoftLabelTextShaderIfSafe();
         });
 
         Color glowColor = FormColorEffects.resolveGlowOverlayEmissionColor(glowSettings, legacyGlow, alpha, glowIntensity);
@@ -484,7 +601,14 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
             context.stack.push();
             context.stack.translate(0, 0, -0.025F);
 
-            if (customFont != null)
+            if (this.labelForceSoftTextShader)
+            {
+                this.bakeAndDrawSoftText(context, renderer, customFont, content, x - ow, y, letterSpacing, light, outlineColor);
+                this.bakeAndDrawSoftText(context, renderer, customFont, content, x + ow, y, letterSpacing, light, outlineColor);
+                this.bakeAndDrawSoftText(context, renderer, customFont, content, x, y - ow, letterSpacing, light, outlineColor);
+                this.bakeAndDrawSoftText(context, renderer, customFont, content, x, y + ow, letterSpacing, light, outlineColor);
+            }
+            else if (customFont != null)
             {
                 customFont.draw(content, x - ow, y, oc, oc, letterSpacing, 0F, context.stack.peek().getPositionMatrix(), consumers, light);
                 customFont.draw(content, x + ow, y, oc, oc, letterSpacing, 0F, context.stack.peek().getPositionMatrix(), consumers, light);
@@ -493,10 +617,12 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
             }
             else
             {
-                renderer.draw(content, x - ow, y, oc, false, context.stack.peek().getPositionMatrix(), consumers, TextRenderer.TextLayerType.NORMAL, 0, light);
-                renderer.draw(content, x + ow, y, oc, false, context.stack.peek().getPositionMatrix(), consumers, TextRenderer.TextLayerType.NORMAL, 0, light);
-                renderer.draw(content, x, y - ow, oc, false, context.stack.peek().getPositionMatrix(), consumers, TextRenderer.TextLayerType.NORMAL, 0, light);
-                renderer.draw(content, x, y + ow, oc, false, context.stack.peek().getPositionMatrix(), consumers, TextRenderer.TextLayerType.NORMAL, 0, light);
+                TextRenderer.TextLayerType layer = this.labelTextLayer();
+
+                renderer.draw(content, x - ow, y, oc, false, context.stack.peek().getPositionMatrix(), consumers, layer, 0, light);
+                renderer.draw(content, x + ow, y, oc, false, context.stack.peek().getPositionMatrix(), consumers, layer, 0, light);
+                renderer.draw(content, x, y - ow, oc, false, context.stack.peek().getPositionMatrix(), consumers, layer, 0, light);
+                renderer.draw(content, x, y + ow, oc, false, context.stack.peek().getPositionMatrix(), consumers, layer, 0, light);
             }
 
             context.stack.pop();
@@ -681,7 +807,14 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
                 context.stack.push();
                 context.stack.translate(0, 0, -0.025F);
 
-                if (customFont != null)
+                if (this.labelForceSoftTextShader)
+                {
+                    this.bakeAndDrawSoftText(context, renderer, customFont, line, lx - ow, y, letterSpacing, light, outlineColor);
+                    this.bakeAndDrawSoftText(context, renderer, customFont, line, lx + ow, y, letterSpacing, light, outlineColor);
+                    this.bakeAndDrawSoftText(context, renderer, customFont, line, lx, y - ow, letterSpacing, light, outlineColor);
+                    this.bakeAndDrawSoftText(context, renderer, customFont, line, lx, y + ow, letterSpacing, light, outlineColor);
+                }
+                else if (customFont != null)
                 {
                     customFont.draw(line, lx - ow, y, oc, oc, letterSpacing, 0F, context.stack.peek().getPositionMatrix(), consumers, light);
                     customFont.draw(line, lx + ow, y, oc, oc, letterSpacing, 0F, context.stack.peek().getPositionMatrix(), consumers, light);
@@ -690,10 +823,12 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
                 }
                 else
                 {
-                    renderer.draw(line, lx - ow, y, oc, false, context.stack.peek().getPositionMatrix(), consumers, TextRenderer.TextLayerType.NORMAL, 0, light);
-                    renderer.draw(line, lx + ow, y, oc, false, context.stack.peek().getPositionMatrix(), consumers, TextRenderer.TextLayerType.NORMAL, 0, light);
-                    renderer.draw(line, lx, y - ow, oc, false, context.stack.peek().getPositionMatrix(), consumers, TextRenderer.TextLayerType.NORMAL, 0, light);
-                    renderer.draw(line, lx, y + ow, oc, false, context.stack.peek().getPositionMatrix(), consumers, TextRenderer.TextLayerType.NORMAL, 0, light);
+                    TextRenderer.TextLayerType layer = this.labelTextLayer();
+
+                    renderer.draw(line, lx - ow, y, oc, false, context.stack.peek().getPositionMatrix(), consumers, layer, 0, light);
+                    renderer.draw(line, lx + ow, y, oc, false, context.stack.peek().getPositionMatrix(), consumers, layer, 0, light);
+                    renderer.draw(line, lx, y - ow, oc, false, context.stack.peek().getPositionMatrix(), consumers, layer, 0, light);
+                    renderer.draw(line, lx, y + ow, oc, false, context.stack.peek().getPositionMatrix(), consumers, layer, 0, light);
                 }
                 context.stack.pop();
             }
@@ -752,6 +887,15 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
     private int drawLabelContent(FormRenderingContext context, CustomVertexConsumerProvider consumers, TextRenderer renderer, TextureFont customFont, String content, float drawX, float drawY, float letterSpacing, int light, Color color, Color gradientEnd)
     {
         int c1 = toSafeTextArgb(color);
+
+        if (this.labelForceSoftTextShader)
+        {
+            /* Gradient is approximated with the top color on the Iris deferred bake path. */
+            this.bakeAndDrawSoftText(context, renderer, customFont, content, drawX, drawY, letterSpacing, light, color);
+
+            return c1;
+        }
+
         int c2 = c1;
 
         if (gradientEnd != null)
@@ -772,13 +916,99 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
                 c1, false,
                 context.stack.peek().getPositionMatrix(),
                 consumers,
-                TextRenderer.TextLayerType.NORMAL,
+                this.labelTextLayer(),
                 0,
                 light
             );
         }
 
         return c1;
+    }
+
+    /**
+     * Iris deferred path: bake glyph UVs then redraw with the BBS model shader so soft alpha
+     * and lightmap survive after composite (TextRenderer layers stay fullbright/opaque there).
+     */
+    private void bakeAndDrawSoftText(FormRenderingContext context, TextRenderer renderer, TextureFont customFont, String content, float x, float y, float letterSpacing, int light, Color color)
+    {
+        if (isFullyTransparent(color))
+        {
+            return;
+        }
+
+        this.tintCapture.clear();
+        this.captureLabelGlyphs(this.tintCapture, renderer, customFont, content, x, y, letterSpacing, light);
+        this.drawSoftGlyphQuads(context.stack.peek(), this.tintCapture.snapshot(), color, light);
+    }
+
+    private void drawSoftGlyphQuads(MatrixStack.Entry entry, List<LabelTextTintQuadCapture.GlyphQuad> quads, Color color, int light)
+    {
+        if (quads == null || quads.isEmpty())
+        {
+            return;
+        }
+
+        Matrix4f matrix = entry.getPositionMatrix();
+        int overlay = OverlayTexture.DEFAULT_UV;
+        GameRenderer gameRenderer = MinecraftClient.getInstance().gameRenderer;
+
+        gameRenderer.getLightmapTextureManager().enable();
+        gameRenderer.getOverlayTexture().setupOverlayColor();
+
+        RenderSystem.enableBlend();
+        RenderSystem.blendFuncSeparate(
+            GlStateManager.SrcFactor.SRC_ALPHA,
+            GlStateManager.DstFactor.ONE_MINUS_SRC_ALPHA,
+            GlStateManager.SrcFactor.ONE,
+            GlStateManager.DstFactor.ONE_MINUS_SRC_ALPHA
+        );
+        RenderSystem.depthMask(this.labelWriteDepth);
+        RenderSystem.disableCull();
+        RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
+
+        Map<RenderLayer, List<LabelTextTintQuadCapture.GlyphQuad>> byLayer = new LinkedHashMap<>();
+
+        for (LabelTextTintQuadCapture.GlyphQuad quad : quads)
+        {
+            byLayer.computeIfAbsent(quad.layer, (layer) -> new ArrayList<>()).add(quad);
+        }
+
+        MatrixStack uniformStack = new MatrixStack();
+
+        for (Map.Entry<RenderLayer, List<LabelTextTintQuadCapture.GlyphQuad>> layerEntry : byLayer.entrySet())
+        {
+            this.bindTextLayerTexture(layerEntry.getKey());
+            RenderSystem.setShader(BBSShaders::getModel);
+            ModelVAORenderer.setupUniforms(uniformStack, BBSShaders.getModel());
+            GlStateManager._bindTexture(this.lastBoundTextTexture);
+
+            BufferBuilder builder = Tessellator.getInstance().begin(VertexFormat.DrawMode.TRIANGLES, VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL);
+
+            for (LabelTextTintQuadCapture.GlyphQuad quad : layerEntry.getValue())
+            {
+                this.fillSoftGlyph(builder, matrix, entry, quad.x0, quad.y0, quad.u0, quad.v0, color, overlay, light);
+                this.fillSoftGlyph(builder, matrix, entry, quad.x1, quad.y1, quad.u1, quad.v1, color, overlay, light);
+                this.fillSoftGlyph(builder, matrix, entry, quad.x2, quad.y2, quad.u2, quad.v2, color, overlay, light);
+
+                this.fillSoftGlyph(builder, matrix, entry, quad.x0, quad.y0, quad.u0, quad.v0, color, overlay, light);
+                this.fillSoftGlyph(builder, matrix, entry, quad.x2, quad.y2, quad.u2, quad.v2, color, overlay, light);
+                this.fillSoftGlyph(builder, matrix, entry, quad.x3, quad.y3, quad.u3, quad.v3, color, overlay, light);
+            }
+
+            BufferRenderer.drawWithGlobalProgram(builder.end());
+        }
+
+        RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
+    }
+
+    private void fillSoftGlyph(BufferBuilder builder, Matrix4f matrix, MatrixStack.Entry entry, float x, float y, float u, float v, Color color, int overlay, int light)
+    {
+        builder.vertex(matrix, x, y, 0F)
+            .color(color.r, color.g, color.b, color.a)
+            .texture(u, v)
+            .overlay(overlay)
+            .light(light)
+            .normal(entry, 0F, 0F, 1F);
     }
 
     private void captureLabelGlyphs(LabelTextTintQuadCapture capture, TextRenderer renderer, TextureFont customFont, String content, float x, float y, float letterSpacing, int light)
@@ -967,13 +1197,17 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
 
         RenderSystem.enableBlend();
         RenderSystem.enableDepthTest();
+        RenderSystem.depthMask(this.labelWriteDepth);
         RenderSystem.setShader(GameRenderer::getPositionColorProgram);
         BufferRenderer.drawWithGlobalProgram(builder.end());
+        RenderSystem.depthMask(true);
         context.stack.pop();
     }
 
     /**
      * Skip only when opacity is truly zero. Minecraft forces alpha bytes 0–3 to opaque.
+     * Soft alphas below ~26/255 are handled by {@link BBSShaders#getLabelTextProgram()} —
+     * vanilla {@code rendertype_text} would discard them.
      */
     private static boolean isFullyTransparent(Color color)
     {

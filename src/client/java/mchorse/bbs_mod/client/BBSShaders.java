@@ -22,6 +22,7 @@ public class BBSShaders
     private static ShaderProgram model;
     private static ShaderProgram multiLink;
     private static ShaderProgram subtitles;
+    private static ShaderProgram labelText;
 
     private static ShaderProgram pickerPreview;
     private static ShaderProgram pickerBillboard;
@@ -41,8 +42,9 @@ public class BBSShaders
     public static void setup()
     {
         if (model != null) model.close();
+        if (multiLink != null) multiLink.close();
         if (subtitles != null) subtitles.close();
-        if (subtitles != null) subtitles.close();
+        if (labelText != null) labelText.close();
 
         if (pickerPreview != null) pickerPreview.close();
         if (pickerBillboard != null) pickerBillboard.close();
@@ -61,6 +63,7 @@ public class BBSShaders
             model = new ShaderProgram(factory, "model", VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL);
             multiLink = new ShaderProgram(factory, "multilink", VertexFormats.POSITION_TEXTURE_COLOR);
             subtitles = new ShaderProgram(factory, "subtitles", VertexFormats.POSITION_TEXTURE_COLOR);
+            labelText = new ShaderProgram(factory, "label_text", VertexFormats.POSITION_COLOR_TEXTURE_LIGHT);
 
             pickerPreview = new ShaderProgram(factory, "picker_preview", VertexFormats.POSITION_TEXTURE_COLOR);
             pickerBillboard = new ShaderProgram(factory, "picker_billboard", VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL);
@@ -96,6 +99,11 @@ public class BBSShaders
     public static ShaderProgram getSubtitlesProgram()
     {
         return subtitles;
+    }
+
+    public static ShaderProgram getLabelTextProgram()
+    {
+        return labelText;
     }
 
     public static ShaderProgram getPickerPreviewProgram()
