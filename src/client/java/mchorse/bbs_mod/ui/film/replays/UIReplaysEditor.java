@@ -538,7 +538,7 @@ public class UIReplaysEditor extends UIElement
             BlockHitResult blockHitResult = RayTracing.rayTrace(
                 world,
                 RayTracing.fromVector3d(camera.position),
-                RayTracing.fromVector3f(camera.getMouseDirectionFov(context.mouseX, context.mouseY, area.x, area.y, area.w, area.h)),
+                RayTracing.fromVector3f(CameraUtils.getMouseDirection(camera.projection, camera.view, context.mouseX, context.mouseY, area.x, area.y, area.w, area.h)),
                 256F
             );
 

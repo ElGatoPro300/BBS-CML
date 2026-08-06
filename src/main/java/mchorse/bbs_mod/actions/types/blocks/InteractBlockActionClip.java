@@ -39,7 +39,7 @@ public class InteractBlockActionClip extends ActionClip
 
         BlockHitResult result = this.hit.getHitResult();
 
-        player.getWorld().getBlockState(result.getBlockPos()).onUse(player.getWorld(), player, result);
+        player.getWorld().getBlockState(result.getBlockPos()).onUse(player.getWorld(), player, this.hand.get() ? Hand.MAIN_HAND : Hand.OFF_HAND, result);
     }
 
     @Override

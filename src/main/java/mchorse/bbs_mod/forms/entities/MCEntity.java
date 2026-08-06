@@ -501,6 +501,11 @@ public class MCEntity implements IEntity
     @Override
     public int getRoll()
     {
+        if (this.mcEntity instanceof LivingEntity living)
+        {
+            return living.getRoll();
+        }
+
         return 0;
     }
 

@@ -74,10 +74,7 @@ public class ShaderCurves
         /* Remove irrelevant variables */
         List<String> filter = BBSRendering.getShadersSliderOptions();
 
-        if (!filter.isEmpty())
-        {
-            variables.values().removeIf((v) -> !filter.contains(v.name));
-        }
+        variables.values().removeIf((v) -> !filter.contains(v.name));
 
         for (String prohibitedVariable : prohibitedVariables)
         {
@@ -138,12 +135,7 @@ public class ShaderCurves
     private static Map<String, ShaderVariable> parseVariables(String source)
     {
         Map<String, ShaderVariable> variables = new HashMap<>();
-        // Accept integers, decimals with optional leading zero (e.g., .5), and scientific notation (e.g., 1e-3)
-        Pattern definePattern = Pattern.compile(
-            "^\\s*(?!//)\\s*#define\\s+([A-Za-z_][A-Za-z0-9_]*)\\s+(" +
-            "(?:[-+]?\\d*\\.\\d+(?:[eE][-+]?\\d+)?|[-+]?\\d+(?:[eE][-+]?\\d+)?)" +
-            ")\\b.*$"
-        );
+        Pattern definePattern = Pattern.compile("^\\s*(?!//)\\s*#define +([\\w_]+) +([\\d.]+) *// *(\\[|OptionAnnotatedSource)");
         int index = 0;
 
         while ((index = source.indexOf("#define", index)) != -1)

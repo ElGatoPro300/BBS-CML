@@ -119,11 +119,6 @@ public class Films
 
     /* Instance API */
 
-    public List<BaseFilmController> getControllers()
-    {
-        return this.controllers;
-    }
-
     public BaseFilmController getController(String filmId)
     {
         for (BaseFilmController controller : this.controllers)

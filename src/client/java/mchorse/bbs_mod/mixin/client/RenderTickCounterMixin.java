@@ -11,7 +11,7 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
-@Mixin(RenderTickCounter.Dynamic.class)
+@Mixin(RenderTickCounter.class)
 public class RenderTickCounterMixin
 {
     @Shadow
@@ -26,7 +26,7 @@ public class RenderTickCounterMixin
     private int heldFrames;
 
     @Inject(method = "beginRenderTick", at = @At("HEAD"), cancellable = true)
-    public void onBeginRenderTick(long timeMillis, boolean tick, CallbackInfoReturnable<Integer> info)
+    public void onBeginRenderTick(long timeMillis, CallbackInfoReturnable<Integer> info)
     {
         VideoRecorder videoRecorder = BBSModClient.getVideoRecorder();
 

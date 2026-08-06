@@ -49,10 +49,10 @@ public class CircleKeyframeShapeRenderer implements IKeyframeShapeRenderer
             float outerX2 = x;
             float outerY2 = y;
 
-            builder.vertex(matrix, innerX1, innerY1, 0F).color(c);
-            builder.vertex(matrix, outerX1, outerY1, 0F).color(c);
-            builder.vertex(matrix, outerX2, outerY2, 0F).color(c);
-            builder.vertex(matrix, innerX2, innerY2, 0F).color(c);
+            builder.vertex(matrix, innerX1, innerY1, 0F).color(c).next();
+            builder.vertex(matrix, outerX1, outerY1, 0F).color(c).next();
+            builder.vertex(matrix, outerX2, outerY2, 0F).color(c).next();
+            builder.vertex(matrix, innerX2, innerY2, 0F).color(c).next();
         }
     }
 
@@ -62,9 +62,9 @@ public class CircleKeyframeShapeRenderer implements IKeyframeShapeRenderer
         float centerSize = offset * 0.2f;
         float half = centerSize * 2;
 
-        builder.vertex(matrix, x - half, y - half, 0F).color(c);
-        builder.vertex(matrix, x - half, y + half, 0F).color(c);
-        builder.vertex(matrix, x + half, y + half, 0F).color(c);
-        builder.vertex(matrix, x + half, y - half, 0F).color(c);
+        builder.vertex(matrix, x - half, y - half, 0F).color(c).next();
+        builder.vertex(matrix, x - half, y + half, 0F).color(c).next();
+        builder.vertex(matrix, x + half, y + half, 0F).color(c).next();
+        builder.vertex(matrix, x + half, y - half, 0F).color(c).next();
     }
 }

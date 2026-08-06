@@ -7,7 +7,6 @@ import net.minecraft.util.math.Vec3d;
 import org.joml.Matrix4f;
 import org.joml.Vector3d;
 import org.joml.Vector3f;
-import org.joml.Vector4f;
 
 public class Camera
 {
@@ -46,33 +45,6 @@ public class Camera
     public Vector3f getMouseDirection(int mx, int my, int vx, int vy, int w, int h)
     {
         return CameraUtils.getMouseDirection(this.projection, this.view, mx, my, vx, vy, w, h);
-    }
-
-    public Vector3f getMouseDirectionFov(int mx, int my, int vx, int vy, int w, int h)
-    {
-        float nx = ((mx - vx) - w / 2F) / (w / 2F);
-        float ny = (-(my - vy) + h / 2F) / (h / 2F);
-
-        float aspect = w / (float) h;
-        float tanHalfFov = (float) Math.tan(this.fov / 2F);
-
-        Vector3f forward = Matrices.rotation(this.rotation.x, MathUtils.PI - this.rotation.y).normalize();
-        Vector3f upWorld = new Vector3f(0F, 1F, 0F);
-
-        Vector3f right = new Vector3f(forward).cross(upWorld).normalize();
-        if (right.lengthSquared() < 1e-6f)
-        {
-            right.set(1F, 0F, 0F);
-        }
-
-        Vector3f upCam = new Vector3f(right).cross(forward).normalize();
-
-        Vector3f dir = new Vector3f(forward)
-            .add(new Vector3f(right).mul(nx * tanHalfFov * aspect))
-            .add(new Vector3f(upCam).mul(ny * tanHalfFov))
-            .normalize();
-
-        return dir;
     }
 
     public Vector3f getMouseDirectionNormalized(float mx, float my)
