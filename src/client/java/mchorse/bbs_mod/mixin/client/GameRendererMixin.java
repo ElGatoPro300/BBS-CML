@@ -12,6 +12,7 @@ import mchorse.bbs_mod.items.GunZoom;
 
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.render.GameRenderer;
+import net.minecraft.client.render.RenderTickCounter;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.RotationAxis;
@@ -175,7 +176,7 @@ public class GameRendererMixin
     )
     private void bbs$registerWorldFilmIrlLights(RenderTickCounter tickCounter, CallbackInfo ci)
     {
-        float tickDelta = tickCounter.getTickDelta(true);
+        float tickDelta = tickCounter.tickDelta;
 
         IrlWorldFilmLightBridge.collectBeforeFlush(tickDelta);
     }
