@@ -74,6 +74,7 @@ import net.minecraft.world.LightType;
 
 import org.joml.Matrix3f;
 import org.joml.Matrix4f;
+import org.joml.Vector3f;
 
 import com.mojang.blaze3d.systems.RenderSystem;
 
@@ -2793,12 +2794,6 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
         }
 
         @Override
-        public void next()
-        {
-            this.delegate.next();
-        }
-
-        @Override
         public VertexConsumer color(int red, int green, int blue, int alpha)
         {
             this.delegate.color(red, green, blue, alpha);
@@ -3118,12 +3113,6 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
 
             this.parent.vertex(tx, ty, tz);
             return this;
-        }
-
-        @Override
-        public void next()
-        {
-            this.parent.next();
         }
 
         @Override
