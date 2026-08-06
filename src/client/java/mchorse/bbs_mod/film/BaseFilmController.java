@@ -17,27 +17,25 @@ import mchorse.bbs_mod.forms.forms.MobForm;
 import mchorse.bbs_mod.forms.forms.ModelForm;
 import mchorse.bbs_mod.forms.forms.utils.Anchor;
 import mchorse.bbs_mod.forms.forms.utils.GlowSettings;
-import mchorse.bbs_mod.forms.forms.utils.Illusion;
 import mchorse.bbs_mod.forms.forms.utils.LookAt;
 import mchorse.bbs_mod.forms.forms.utils.LookAtBone;
 import mchorse.bbs_mod.forms.forms.utils.PaintSettings;
-import mchorse.bbs_mod.forms.forms.utils.TextureBlend;
+import mchorse.bbs_mod.forms.forms.utils.ShadowSettings;
+import mchorse.bbs_mod.forms.renderers.FormIllusionRenderer;
 import mchorse.bbs_mod.forms.renderers.FormRenderType;
 import mchorse.bbs_mod.forms.renderers.FormRenderingContext;
 import mchorse.bbs_mod.forms.renderers.ModelFormRenderer;
 import mchorse.bbs_mod.forms.renderers.utils.MatrixCache;
 import mchorse.bbs_mod.forms.renderers.utils.MatrixCacheEntry;
-import mchorse.bbs_mod.forms.values.ValueIllusion;
 import mchorse.bbs_mod.graphics.Draw;
 import mchorse.bbs_mod.mixin.client.ClientPlayerEntityAccessor;
 import mchorse.bbs_mod.morphing.Morph;
-import mchorse.bbs_mod.resources.Link;
 import mchorse.bbs_mod.settings.values.base.BaseValue;
-import mchorse.bbs_mod.settings.values.core.ValueColor;
-import mchorse.bbs_mod.settings.values.core.ValueTransform;
 import mchorse.bbs_mod.ui.framework.UIBaseMenu;
 import mchorse.bbs_mod.ui.framework.elements.utils.StencilMap;
 import mchorse.bbs_mod.ui.utils.Gizmo;
+import mchorse.bbs_mod.ui.utils.gizmo.GizmoMatrixUtils;
+import mchorse.bbs_mod.ui.utils.gizmo.TransformOrientation;
 import mchorse.bbs_mod.utils.AABB;
 import mchorse.bbs_mod.utils.CollectionUtils;
 import mchorse.bbs_mod.utils.MathUtils;
@@ -47,6 +45,7 @@ import mchorse.bbs_mod.utils.StringUtils;
 import mchorse.bbs_mod.utils.colors.Color;
 import mchorse.bbs_mod.utils.colors.Colors;
 import mchorse.bbs_mod.utils.interps.Lerps;
+import mchorse.bbs_mod.utils.iris.IrisUtils;
 import mchorse.bbs_mod.utils.joml.Matrices;
 import mchorse.bbs_mod.utils.joml.Vectors;
 import mchorse.bbs_mod.utils.keyframes.Keyframe;
@@ -66,6 +65,7 @@ import net.minecraft.client.render.OverlayTexture;
 import net.minecraft.client.render.VertexConsumerProvider;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.entity.Entity;
+import net.minecraft.entity.EntityPose;
 import net.minecraft.entity.MovementType;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.particle.BlockStateParticleEffect;
@@ -73,14 +73,13 @@ import net.minecraft.particle.ParticleTypes;
 import net.minecraft.sound.SoundCategory;
 import net.minecraft.text.Text;
 import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Direction;
 import net.minecraft.util.math.Vec3d;
-import net.minecraft.util.shape.VoxelShape;
 import net.minecraft.world.LightType;
 import net.minecraft.world.World;
 
 import org.joml.Matrix3f;
 import org.joml.Matrix4f;
+import org.joml.Quaternionf;
 import org.joml.Vector2f;
 import org.joml.Vector3d;
 import org.joml.Vector3f;
@@ -93,16 +92,12 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Random;
 
 import io.netty.util.collection.IntObjectHashMap;
 import io.netty.util.collection.IntObjectMap;
 
 public abstract class BaseFilmController
 {
-    /* Temporal smoothing state for "real" illusions' ground following (entity identity + illusion index -> lift) */
-    private static final Map<Long, IllusionLift> ILLUSION_LIFTS = new HashMap<>();
-
     public final Film film;
 
     protected IntObjectMap<IEntity> entities = new IntObjectHashMap<>();
@@ -111,7 +106,12 @@ public abstract class BaseFilmController
     public boolean paused;
     public int exception = -1;
 
-    private List<FormRenderDepth.Occluder> currentRenderDepthOccluders = List.of();
+    /**
+     * Last film tick at which each replay already evaluated a step sound.
+     * Film editor keeps calling {@link #update()} while the playhead is parked, so
+     * without this edge the same step tick would spam audio every client tick.
+     */
+    private final Map<String, Integer> lastStepSoundTicks = new HashMap<>();
 
     /* Rendering helpers */
 
@@ -125,7 +125,7 @@ public abstract class BaseFilmController
 
         Form form = entity.getForm();
 
-        if (form == null || !form.render.get())
+        if (form == null || !form.render.get() || !form.visible.get())
         {
             return;
         }
@@ -196,6 +196,7 @@ public abstract class BaseFilmController
         if (!relative)
         {
             applyLookAt(context, form, position, target);
+            InverseKinematicsApplier.apply(context, form);
         }
 
         if (context.localGroupTransform != null)
@@ -225,8 +226,7 @@ public abstract class BaseFilmController
             .set(FormRenderType.ENTITY, entity, stack, light, overlay, transition)
             .camera(camera)
             .stencilMap(context.map)
-            .color(context.color)
-            .renderDepthFrame(context.renderDepthFrame);
+            .color(context.color);
 
         formContext.relative = relative;
         formContext.isShadowPass = context.isShadowPass;
@@ -234,103 +234,166 @@ public abstract class BaseFilmController
 
         stack.push();
 
-        if (relative)
+        try
         {
-            if (!context.isShadowPass)
+            if (relative)
             {
-                stack.peek().getPositionMatrix().identity();
-                stack.peek().getNormalMatrix().identity();
-            }
-
-            if (context.map == null)
-            {
-                stack.multiply(camera.getRotation());
-            }
-        }
-
-        MatrixStackUtils.multiply(stack, target);
-
-        ModelFormRenderer lookAtRenderer = relative ? null : applyLookAtPose(context, form, position);
-
-        if (context.isShadowPass)
-        {
-            PaintSettings paint = form.paintSettings.get();
-            Color legacyPaint = form.paintColor.get();
-
-            if (paint.resolveIntensity(legacyPaint) != 0F)
-            {
-                float shadowAlpha = Colors.getA(formContext.color) * paint.effectiveShaderShadow(legacyPaint);
-
-                formContext.color(Colors.setA(formContext.color, shadowAlpha));
-            }
-        }
-
-        FormUtilsClient.render(form, formContext);
-
-        if (!context.isShadowPass && context.map == null && entity.getFireTicks() > 0)
-        {
-            MorphFireRenderer.render(stack, context.consumers, entity, form, transition, camera, relative);
-        }
-
-        if (context.map == null)
-        {
-            renderIllusions(context, form, formContext, stack);
-        }
-
-        if (lookAtRenderer != null)
-        {
-            lookAtRenderer.setLookAtPose(null);
-        }
-
-        if (UIBaseMenu.renderAxes)
-        {
-            if (context.bone != null && !context.local)
-            {
-                Form root = FormUtils.getRoot(form);
-                MatrixCache map = FormUtilsClient.getRenderer(root).collectMatrices(entity, transition);
-                MatrixCacheEntry entry = map.get(context.bone);
-
-                Matrix4f matrix = entry.origin();
-
-                if (matrix == null)
+                if (!context.isShadowPass)
                 {
-                    matrix = entry.matrix();
+                    stack.peek().getPositionMatrix().identity();
+                    stack.peek().getNormalMatrix().identity();
                 }
 
-                if (matrix != null)
+                if (context.map == null)
                 {
-                    stack.push();
-                    MatrixStackUtils.multiply(stack, matrix);
-
-                    if (context.map == null)
-                    {
-                        BaseFilmController.renderGizmo(stack, null);
-                    }
-                    else
-                    {
-                        BaseFilmController.renderGizmo(stack, context.map);
-                    }
-
-                    RenderSystem.enableDepthTest();
-                    stack.pop();
+                    stack.multiply(camera.getRotation());
                 }
             }
-            if (context.bone != null) renderAxes(context.bone, context.local, context.map, form, entity, transition, stack);
-            if (context.bone2 != null && context.map == null) renderAxes(context.bone2, context.local2, context.map, form, entity, transition, stack);
+
+            MatrixStackUtils.multiply(stack, target);
+
+            /* IRLights 1.21+ reads FormRenderingContext.world (absolute) for light poses.
+             * Convert the posed camera-relative actor root into absolute world space:
+             * world = T(camera) * target. Keeps anchors/look-at aligned with the mesh and
+             * avoids mixing the spectator view into light registration. Mesh keeps using
+             * camera-relative target (do not zero cx/cy/cz — that made forms invisible). */
+            syncIrlAbsoluteWorldMatrix(formContext, target, camera);
+
+            ModelFormRenderer lookAtRenderer = relative ? null : applyLookAtPose(context, form, position);
+
+            if (context.isShadowPass)
+            {
+                if (context.shadowOpacity <= 0.001F || (context.shadowRadiusX <= 0F && context.shadowRadiusZ <= 0F))
+                {
+                    return;
+                }
+
+                /* Form Opacity is applied once in the form renderer (applyFormOpacity). Do not
+                 * multiply it here or caster alpha becomes opacity² and ground shadows fade too fast. */
+                if (form.getFormOpacity() <= 0.001F)
+                {
+                    return;
+                }
+
+                float shadowAlpha = Colors.getA(formContext.color) * context.shadowOpacity;
+
+                if (shadowAlpha <= 0.001F)
+                {
+                    return;
+                }
+
+                /* Replay shadowOpacity only — Color-track effects must not crush caster alpha
+                 * (Iris would drop the ground shadow). Opacity 0 already returned above. */
+                formContext.color(Colors.setA(formContext.color, MathUtils.clamp(shadowAlpha, 0F, 1F)));
+
+                if (context.shadowOffsetX != 0F || context.shadowOffsetY != 0F || context.shadowOffsetZ != 0F)
+                {
+                    stack.translate(context.shadowOffsetX, context.shadowOffsetY, context.shadowOffsetZ);
+                }
+
+                /* Independent X/Z scale from default radius 0.5 — stretch wide or long under Iris. */
+                float scaleX = Math.max(0.001F, context.shadowRadiusX / 0.5F);
+                float scaleZ = Math.max(0.001F, context.shadowRadiusZ / 0.5F);
+
+                if (Math.abs(scaleX - 1F) > 0.001F || Math.abs(scaleZ - 1F) > 0.001F)
+                {
+                    stack.scale(scaleX, 1F, scaleZ);
+                }
+            }
+
+            FormIllusionRenderer.Extras illusionExtras = null;
+
+            if (context.replay != null && !Float.isNaN(context.propertyTick))
+            {
+                illusionExtras = new FormIllusionRenderer.Extras();
+                illusionExtras.propertyTick = context.propertyTick;
+                illusionExtras.applyFormAtTick = (tick) ->
+                {
+                    context.replay.properties.resetProperties(form);
+                    context.replay.properties.applyProperties(form, tick);
+                };
+                illusionExtras.restoreFormTick = () ->
+                {
+                    context.replay.properties.resetProperties(form);
+                    context.replay.properties.applyProperties(form, context.propertyTick);
+                };
+            }
+
+            /* Illusions are drawn inside FormUtilsClient for model blocks / morphs / preview too. */
+            FormUtilsClient.render(form, formContext, context.map == null ? illusionExtras : null);
+
+            if (!context.isShadowPass && context.map == null && entity.getFireTicks() > 0)
+            {
+                MorphFireRenderer.render(stack, context.consumers, entity, form, transition, camera, relative);
+            }
+
+            if (lookAtRenderer != null)
+            {
+                lookAtRenderer.setLookAtPose(null);
+            }
+
+            if (UIBaseMenu.renderAxes)
+            {
+                if (context.bone != null && context.orientation == TransformOrientation.PARENT)
+                {
+                    Form root = FormUtils.getRoot(form);
+                    MatrixCache map = FormUtilsClient.getRenderer(root).collectMatrices(entity, transition);
+                    MatrixCacheEntry entry = map.get(context.bone);
+
+                    Matrix4f matrix = entry.origin();
+
+                    if (matrix == null)
+                    {
+                        matrix = entry.matrix();
+                    }
+
+                    if (matrix != null)
+                    {
+                        stack.push();
+                        MatrixStackUtils.multiply(stack, matrix);
+
+                        if (context.map == null)
+                        {
+                            BaseFilmController.renderGizmo(stack, null);
+                        }
+                        else
+                        {
+                            BaseFilmController.renderGizmo(stack, context.map);
+                        }
+
+                        RenderSystem.enableDepthTest();
+                        stack.pop();
+                    }
+                }
+                if (context.bone != null) renderAxes(context.bone, context.orientation, context.map, form, entity, transition, stack);
+                if (context.bone2 != null && context.map == null) renderAxes(context.bone2, context.orientation2, context.map, form, entity, transition, stack);
+            }
+        }
+        finally
+        {
+            stack.pop();
         }
 
-        stack.pop();
-
-        if (!relative && context.map == null && opacity > 0F && context.shadowRadius > 0F && form.render.get())
+        /* Vanilla blob shadows only without Iris shaders — Comp/BSL use the shadow map.
+         * Blob opacity is the Shadow track only; form Opacity must not fade the ground circle.
+         * Size X/Z are independent (matrix scale); vanilla API only has one radius. */
+        if (!relative && context.map == null && opacity > 0F
+            && (context.shadowRadiusX > 0F || context.shadowRadiusZ > 0F)
+            && form.render.get() && form.visible.get()
+            && !context.isShadowPass && !IrisUtils.isShaderPackEnabled())
         {
             float shadowOpacity = MathUtils.clamp(opacity * context.shadowOpacity, 0F, 1F);
 
             if (shadowOpacity > 0F)
             {
-                stack.push();
-                stack.translate(position.x - cx, position.y - cy, position.z - cz);
+                double sx = position.x + context.shadowOffsetX;
+                double sy = position.y + context.shadowOffsetY;
+                double sz = position.z + context.shadowOffsetZ;
 
-                ModelBlockEntityRenderer.renderShadow(context.consumers, stack, transition, position.x, position.y, position.z, 0F, 0F, 0F, context.shadowRadius, shadowOpacity);
+                stack.push();
+                stack.translate(sx - cx, sy - cy, sz - cz);
+
+                ModelBlockEntityRenderer.renderShadow(context.consumers, stack, transition, sx, sy, sz, 0F, 0F, 0F, context.shadowRadiusX, context.shadowRadiusZ, shadowOpacity);
 
                 stack.pop();
             }
@@ -350,478 +413,46 @@ public abstract class BaseFilmController
     }
 
     /**
-     * Renders purely visual duplicates of the form that spread away from it in the
-     * picked directions. They reuse the same form renderer (no extra entities), the
-     * gaps between them shrink with each rank, and their opacity fades with distance
-     * (optionally inverted).
+     * World-space point of a replay's attachment, used by look-at and inverse kinematics.
      */
-    private static void renderIllusions(FilmControllerContext context, Form form, FormRenderingContext formContext, MatrixStack stack)
+    public static Vector3d resolveReplayAttachmentPoint(FilmControllerContext context, int replayIndex, String attachment)
     {
-        if (context.isShadowPass)
+        if (context == null || replayIndex < 0)
         {
-            return;
+            return null;
         }
 
-        List<Illusion> layers = collectIllusionLayers(form);
-        boolean hasIllusions = false;
+        IEntity targetEntity = context.entities.get(replayIndex);
 
-        for (Illusion layer : layers)
+        if (targetEntity == null)
         {
-            if (layer != null && layer.count > 0)
-            {
-                hasIllusions = true;
-
-                break;
-            }
+            return null;
         }
 
-        if (!hasIllusions)
-        {
-            return;
-        }
-
-        int baseColor = formContext.color;
-        int baseLight = formContext.light;
-        AABB hitbox = context.entity.getPickingHitbox();
-        float height = (float) hitbox.h;
-
-        for (int layer = 0; layer < layers.size(); layer++)
-        {
-            Illusion layerIllusion = layers.get(layer);
-
-            if (layerIllusion == null || layerIllusion.count <= 0)
-            {
-                continue;
-            }
-
-            Transform layerTransform = createIllusionTransform(form, layerIllusion);
-
-            renderIllusionLayer(context, form, formContext, stack, layerIllusion, layerTransform, hitbox, height, layer, baseColor, baseLight);
-        }
-
-        formContext.textureOverride = null;
-        formContext.textureBlendOverride = null;
-        formContext.color(baseColor);
-        formContext.light = baseLight;
-        form.glowSettings.setRuntimeValue(null);
-    }
-
-    private static List<Illusion> collectIllusionLayers(Form form)
-    {
-        List<Illusion> layers = new ArrayList<>();
-
-        layers.add(form.illusion.get());
-        layers.add(form.illusionOverlay.get());
-
-        for (ValueIllusion overlay : form.additionalIllusions)
-        {
-            layers.add(overlay.get());
-        }
-
-        return layers;
-    }
-
-    private static Transform createIllusionTransform(Form form, Illusion illusion)
-    {
-        Transform transform = new Transform();
-
-        transform.copy(illusion.transform);
-
-        /* Legacy form-level illusion transform tracks (deprecated, kept for old projects) */
-        applyIllusionTransformOverlay(transform, form.illusionTransform.get());
-        applyIllusionTransformOverlay(transform, form.illusionTransformOverlay.get());
-
-        for (ValueTransform overlay : form.additionalIllusionTransforms)
-        {
-            applyIllusionTransformOverlay(transform, overlay.get());
-        }
-
-        return transform;
-    }
-
-    private static void applyIllusionTransformOverlay(Transform transform, Transform overlay)
-    {
-        transform.translate.add(overlay.translate);
-        transform.scale.add(overlay.scale).sub(1F, 1F, 1F);
-        transform.rotate.add(overlay.rotate);
-        transform.rotate2.add(overlay.rotate2);
-        transform.pivot.add(overlay.pivot);
-    }
-
-    private static void renderIllusionLayer(FilmControllerContext context, Form form, FormRenderingContext formContext, MatrixStack stack, Illusion illusion, Transform illusionTransform, AABB hitbox, float height, int layerIndex, int baseColor, int baseLight)
-    {
-        List<Vector3f> directions = getIllusionDirections(illusion.directions);
-        float strength = Math.max(illusion.opacity, 0F);
-        int count = illusion.count;
-        int dirCount = directions.size();
-        int maxRank = (count + dirCount - 1) / dirCount;
-        int textureCount = illusion.textures.size();
-        boolean delayed = illusion.delay > 0F && context.replay != null && !Float.isNaN(context.propertyTick);
-        int liftKeyBase = layerIndex * 10000;
-
-        for (int i = 0; i < count; i++)
-        {
-            Vector3f dir = directions.get(i % dirCount);
-            int rank = i / dirCount + 1;
-            float distance = getIllusionDistance(illusion, hitbox, dir, rank, maxRank);
-            float fadeT = maxRank <= 0 ? 1F : (rank - 0.5F) / maxRank;
-            float alpha;
-
-            fadeT = MathUtils.clamp(fadeT, 0F, 1F);
-
-            if (illusion.opacityUniform)
-            {
-                alpha = 1F - strength;
-            }
-            else
-            {
-                alpha = illusion.invert ? 1F - strength * (1F - fadeT) : 1F - strength * fadeT;
-            }
-
-            alpha = MathUtils.clamp(alpha, 0F, 1F);
-
-            if (alpha <= 0F)
-            {
-                continue;
-            }
-
-            if (delayed)
-            {
-                float delayedTick = Math.max(context.propertyTick - illusion.delay * (i + 1), 0F);
-
-                context.replay.properties.resetProperties(form);
-                context.replay.properties.applyProperties(form, delayedTick);
-            }
-
-            float lift = 0F;
-
-            if (illusion.real && !formContext.relative)
-            {
-                lift = getIllusionLift(context.entity, dir, distance, liftKeyBase + i, formContext.transition);
-            }
-
-            Link savedTextureOverride = formContext.textureOverride;
-            TextureBlend savedTextureBlendOverride = formContext.textureBlendOverride;
-
-            if (form.illusionTextureBlend != null)
-            {
-                formContext.textureBlendOverride = form.illusionTextureBlend;
-                formContext.textureOverride = null;
-            }
-            else if (textureCount > 0)
-            {
-                int index = illusion.randomTextures
-                    ? (int) Math.floorMod((i + 1L) * 2654435761L + layerIndex, textureCount)
-                    : i % textureCount;
-
-                formContext.textureOverride = illusion.textures.get(index);
-                formContext.textureBlendOverride = null;
-            }
-
-            Transform partial = null;
-
-            if (!illusionTransform.isDefault())
-            {
-                float factor = getIllusionTransformFactor(i, count, illusion.gradual, illusion.gradualInvert);
-
-                if (factor > 0F)
-                {
-                    partial = new Transform();
-                    partial.lerp(illusionTransform, factor);
-                }
-            }
-
-            applyIllusionGlow(form, illusion, i, count);
-            float distortFactor = getIllusionDistortFactor(illusion, i, count);
-            float x = dir.x * distance;
-            float y = dir.y * distance + lift;
-            float z = dir.z * distance;
-            float mainAlpha = alpha * (1F - distortFactor);
-
-            if (mainAlpha > 0F)
-            {
-                int a = Math.round(((baseColor >>> 24) & 0xFF) * mainAlpha);
-
-                stack.push();
-                stack.translate(x, y, z);
-
-                if (partial != null)
-                {
-                    MatrixStackUtils.multiply(stack, partial.createMatrix());
-                }
-
-                formContext.color((a << 24) | (baseColor & Colors.RGB));
-                FormUtilsClient.render(form, formContext);
-                stack.pop();
-            }
-
-            if (distortFactor > 0F)
-            {
-                float streakAlpha = alpha * (1F - distortFactor);
-                int a = Math.round(((baseColor >>> 24) & 0xFF) * Math.min(streakAlpha + 0.2F * (1F - distortFactor), 1F));
-
-                renderIllusionStreaks(form, formContext, stack, x, y, z, partial, (a << 24) | (baseColor & Colors.RGB), distortFactor, liftKeyBase + i, height);
-            }
-
-            formContext.textureOverride = savedTextureOverride;
-            formContext.textureBlendOverride = savedTextureBlendOverride;
-            formContext.light = baseLight;
-            form.glowSettings.setRuntimeValue(null);
-        }
-
-        if (delayed)
-        {
-            context.replay.properties.resetProperties(form);
-            context.replay.properties.applyProperties(form, context.propertyTick);
-        }
-    }
-
-    private static float getIllusionDistance(Illusion illusion, AABB hitbox, Vector3f dir, int rank, int maxRank)
-    {
-        if (illusion.uniform)
-        {
-            /* Equal gaps between the illusions */
-            return illusion.spacing * rank + illusion.offset;
-        }
-
-        /* Gaps shrink linearly with rank: the first gap equals spread, the last one spread / maxRank */
-        return illusion.spread * (rank * maxRank - rank * (rank - 1) / 2F) / maxRank + illusion.offset;
+        return getLookAtTargetPoint(targetEntity, attachment, context.transition);
     }
 
     /**
-     * Transform gradient across illusion copies. The main model stays at 0; the first
-     * illusion gets 1 / count of the transform and the last one gets the full value.
+     * World-space orientation of a replay's attachment, used by inverse kinematics
+     * angle targets.
      */
-    private static float getIllusionTransformFactor(int index, int count, boolean gradual, boolean invert)
+    public static Quaternionf resolveReplayAttachmentRotation(FilmControllerContext context, int replayIndex, String attachment)
     {
-        if (!gradual || count <= 1)
+        if (context == null || replayIndex < 0)
         {
-            return 1F;
+            return null;
         }
 
-        float factor = (index + 1F) / count;
+        IEntity targetEntity = context.entities.get(replayIndex);
 
-        if (invert)
+        if (targetEntity == null)
         {
-            factor = (count - index) / (float) count;
+            return null;
         }
 
-        return factor;
+        return getLookAtTargetRotation(targetEntity, attachment, context.transition);
     }
 
-    private static float getIllusionGradientWeight(int index, int count, boolean uniform, boolean invert)
-    {
-        if (uniform || count <= 1)
-        {
-            return 1F;
-        }
-
-        /* Keep both ends in range so the first and last copies always receive some effect. */
-        float weight = (count - index) / (float) count;
-
-        if (invert)
-        {
-            weight = (index + 1F) / count;
-        }
-
-        return weight;
-    }
-
-    /**
-     * Glow gradient across illusion copies. The main model stays at 0; the first
-     * illusion starts low (~1 / (count + 1)) and the last one reaches full strength.
-     */
-    private static float getIllusionGlowWeight(int index, int count, boolean uniform, boolean invert)
-    {
-        if (uniform || count <= 1)
-        {
-            return 1F;
-        }
-
-        float minWeight = 1F / count;
-        float weight = (index + 1F) / count;
-
-        if (invert)
-        {
-            weight = (count - index) / (float) count;
-        }
-
-        return minWeight + (1F - minWeight) * weight;
-    }
-
-    private static float getIllusionDistortFactor(Illusion illusion, int index, int count)
-    {
-        if (illusion.distort <= 0F)
-        {
-            return 0F;
-        }
-
-        float weight = getIllusionGradientWeight(index, count, illusion.distortUniform, illusion.distortInvert);
-
-        return MathUtils.clamp(illusion.distort * weight, 0F, 1F);
-    }
-
-    /**
-     * Applies the illusion glow through the standard glow shader path (same as the
-     * main model). Intensity ramps from the first illusion to the last by default.
-     */
-    private static void applyIllusionGlow(Form form, Illusion illusion, int index, int count)
-    {
-        if (illusion.glow == 0F)
-        {
-            return;
-        }
-
-        GlowSettings base = form.glowSettings.get();
-        GlowSettings override = base.copy();
-        float weight = getIllusionGlowWeight(index, count, illusion.glowUniform, illusion.glowInvert);
-
-        override.intensity = illusion.glow * weight;
-        form.glowSettings.setRuntimeValue(override);
-    }
-
-    /**
-     * Renders the disintegration streaks of an illusion: squashed, stretched and
-     * jittered copies of the model that look like the horizontal slices it falls
-     * apart into. The randomness is stable per illusion and re-rolls a few times a
-     * second for a glitchy feel.
-     */
-    private static void renderIllusionStreaks(Form form, FormRenderingContext formContext, MatrixStack stack, float x, float y, float z, Transform partial, int argb, float distortFactor, int index, float height)
-    {
-        if (((argb >>> 24) & 0xFF) <= 0)
-        {
-            return;
-        }
-
-        Random random = new Random(index * 49297L);
-        int streaks = 2 + Math.round(distortFactor * 5F);
-
-        formContext.color(argb);
-
-        for (int s = 0; s < streaks; s++)
-        {
-            float yPos = (0.1F + 0.8F * random.nextFloat()) * Math.max(height, 0.5F);
-            float jx = (random.nextFloat() - 0.5F) * (0.3F + distortFactor);
-            float jz = (random.nextFloat() - 0.5F) * (0.3F + distortFactor);
-            float squash = 0.03F + random.nextFloat() * 0.09F;
-            float stretch = 1F + random.nextFloat() * (0.5F + distortFactor);
-
-            stack.push();
-            stack.translate(x + jx, y + yPos * (1F - squash), z + jz);
-
-            if (partial != null)
-            {
-                MatrixStackUtils.multiply(stack, partial.createMatrix());
-            }
-
-            stack.scale(stretch, squash, stretch);
-            FormUtilsClient.render(form, formContext);
-            stack.pop();
-        }
-    }
-
-    private static List<Vector3f> getIllusionDirections(int mask)
-    {
-        List<Vector3f> directions = new ArrayList<>();
-
-        if (mask == 0)
-        {
-            mask = Illusion.FRONT | Illusion.LEFT | Illusion.RIGHT | Illusion.BACK;
-        }
-
-        if ((mask & Illusion.FRONT) != 0) directions.add(new Vector3f(0F, 0F, 1F));
-        if ((mask & Illusion.LEFT) != 0) directions.add(new Vector3f(1F, 0F, 0F));
-        if ((mask & Illusion.RIGHT) != 0) directions.add(new Vector3f(-1F, 0F, 0F));
-        if ((mask & Illusion.BACK) != 0) directions.add(new Vector3f(0F, 0F, -1F));
-        if ((mask & Illusion.UP) != 0) directions.add(new Vector3f(0F, 1F, 0F));
-        if ((mask & Illusion.DOWN) != 0) directions.add(new Vector3f(0F, -1F, 0F));
-
-        return directions;
-    }
-
-    /**
-     * How much a "real" illusion has to be moved vertically so it stands on top of
-     * the terrain at its spot (the illusion's local offset is rotated by the
-     * entity's body yaw to find its world position first). It can both climb onto
-     * blocks in its way (up to 3 blocks) and drop down when the ground is lower,
-     * and the movement is smoothed over time so it looks like a natural little hop
-     * instead of an instant snap.
-     */
-    private static float getIllusionLift(IEntity entity, Vector3f dir, float distance, int index, float transition)
-    {
-        World world = entity.getWorld();
-
-        if (world == null)
-        {
-            return 0F;
-        }
-
-        double yaw = MathUtils.toRad(Lerps.lerp(entity.getPrevBodyYaw(), entity.getBodyYaw(), transition));
-        double lx = dir.x * distance;
-        double lz = dir.z * distance;
-        double x = Lerps.lerp(entity.getPrevX(), entity.getX(), transition) + lx * Math.cos(yaw) - lz * Math.sin(yaw);
-        double y = Lerps.lerp(entity.getPrevY(), entity.getY(), transition) + dir.y * distance;
-        double z = Lerps.lerp(entity.getPrevZ(), entity.getZ(), transition) + lx * Math.sin(yaw) + lz * Math.cos(yaw);
-        float target = getIllusionGroundDelta(world, x, y, z);
-
-        long key = ((long) System.identityHashCode(entity) << 20) | (index & 0xFFFFF);
-        long now = System.currentTimeMillis();
-        IllusionLift lift = ILLUSION_LIFTS.get(key);
-
-        if (lift == null)
-        {
-            if (ILLUSION_LIFTS.size() > 16384)
-            {
-                ILLUSION_LIFTS.clear();
-            }
-
-            lift = new IllusionLift();
-            lift.value = target;
-            lift.time = now;
-            ILLUSION_LIFTS.put(key, lift);
-
-            return target;
-        }
-
-        float dt = MathUtils.clamp((now - lift.time) / 1000F, 0F, 0.25F);
-
-        lift.value = Lerps.lerp(lift.value, target, 1F - (float) Math.exp(-12F * dt));
-        lift.time = now;
-
-        return lift.value;
-    }
-
-    /**
-     * The vertical offset between the given world position and the terrain surface
-     * at that spot: positive when there are blocks in the way (climb on top of
-     * them), negative when the ground is lower (drop down onto it), 0 when there's
-     * no ground within range.
-     */
-    private static float getIllusionGroundDelta(World world, double x, double y, double z)
-    {
-        for (int i = 0; i <= 6; i++)
-        {
-            BlockPos blockPos = BlockPos.ofFloored(x, y + 3D - i, z);
-            VoxelShape shape = world.getBlockState(blockPos).getCollisionShape(world, blockPos);
-
-            if (shape.isEmpty())
-            {
-                continue;
-            }
-
-            double top = blockPos.getY() + shape.getMax(Direction.Axis.Y);
-
-            return MathUtils.clamp((float) (top - y), -3F, 3F);
-        }
-
-        return 0F;
-    }
-
-    /**
-     * Applies the translation part of the "Look at" constraint: when the translate
-     * option is enabled, the form follows the displacement of the strongest locked
-     * bone's target, scaled by that bone's lock strength.
-     */
     private static void applyLookAt(FilmControllerContext context, Form form, Vector3d position, Matrix4f target)
     {
         LookAt lookAt = form.lookAt.get();
@@ -1026,6 +657,25 @@ public abstract class BaseFilmController
         return new Vector3d(translation);
     }
 
+    private static Quaternionf getLookAtTargetRotation(IEntity targetEntity, String attachment, float transition)
+    {
+        Matrix4f matrix = getMatrixForRenderWithRotation(targetEntity, 0D, 0D, 0D, transition);
+        Form targetForm = targetEntity.getForm();
+
+        if (targetForm != null)
+        {
+            MatrixCache map = FormUtilsClient.getRenderer(targetForm).collectMatrices(targetEntity, transition);
+            Matrix4f visualMatrix = getLookAtVisualMatrix(map, targetForm, attachment);
+
+            if (visualMatrix != null)
+            {
+                matrix.mul(visualMatrix);
+            }
+        }
+
+        return matrix.getNormalizedRotation(new Quaternionf());
+    }
+
     /**
      * Same as {@link #getLookAtTargetPoint} but samples the target replay at a specific
      * property tick (for example tick 0 as the translate follow baseline). Restores the
@@ -1136,7 +786,7 @@ public abstract class BaseFilmController
         }
     }
 
-    private static void renderAxes(String bone, boolean local, StencilMap stencilMap, Form form, IEntity entity, float transition, MatrixStack stack)
+    private static void renderAxes(String bone, TransformOrientation space, StencilMap stencilMap, Form form, IEntity entity, float transition, MatrixStack stack)
     {
         Form root = FormUtils.getRoot(form);
         MatrixCache map = FormUtilsClient.getRenderer(root).collectMatrices(entity, transition);
@@ -1148,29 +798,14 @@ public abstract class BaseFilmController
         }
 
         Matrix4f matrix;
+        Form rootForm = FormUtils.getRoot(form);
+        boolean bobj = rootForm instanceof ModelForm modelForm && ModelFormRenderer.isBobjModel(modelForm);
 
-        if (local)
-        {
-            Matrix4f localMatrix = entry.matrix();
-            Matrix4f originMatrix = entry.origin();
-
-            if (localMatrix != null && originMatrix != null)
-            {
-                matrix = new Matrix4f(localMatrix);
-                matrix.setTranslation(originMatrix.getTranslation(new Vector3f()));
-            }
-            else
-            {
-                matrix = localMatrix != null ? localMatrix : originMatrix;
-            }
-        }
-        else
-        {
-            matrix = entry.origin() != null ? entry.origin() : entry.matrix();
-        }
+        matrix = GizmoMatrixUtils.resolveFilmPoseBoneMatrix(entry, space, bobj);
 
         if (matrix != null)
         {
+            Gizmo.INSTANCE.setActiveOrientation(space);
             stack.push();
             MatrixStackUtils.multiply(stack, matrix);
 
@@ -1323,6 +958,39 @@ public abstract class BaseFilmController
         return defaultMatrix;
     }
 
+    /**
+     * IRLights resolves point/spotlight poses from {@link FormRenderingContext#world}.
+     * Convert the posed camera-relative actor root into absolute world space so light
+     * registration cannot mix the film actor frame with the spectator/player view.
+     * In-world film playback also re-registers lights via {@code IrlWorldFilmLightBridge}
+     * before the SSBO flush (scanner-style absolute coords).
+     */
+    private static void syncIrlAbsoluteWorldMatrix(FormRenderingContext formContext, Matrix4f cameraRelativeRoot, Camera camera)
+    {
+        if (formContext == null || formContext.world == null || cameraRelativeRoot == null || camera == null)
+        {
+            return;
+        }
+
+        if (formContext.relative)
+        {
+            return;
+        }
+
+        Matrix4f worldRoot = new Matrix4f(cameraRelativeRoot);
+        Vector3f translation = worldRoot.getTranslation(new Vector3f());
+        Vec3d cam = camera.getPos();
+
+        worldRoot.setTranslation(
+            translation.x + (float) cam.x,
+            translation.y + (float) cam.y,
+            translation.z + (float) cam.z
+        );
+
+        formContext.world.peek().getPositionMatrix().set(worldRoot);
+        formContext.world.peek().getNormalMatrix().set(new Matrix3f(worldRoot));
+    }
+
     public static Matrix4f getMatrixForRenderWithRotation(IEntity entity, double cameraX, double cameraY, double cameraZ, float tickDelta)
     {
         double x = Lerps.lerp(entity.getPrevX(), entity.getX(), tickDelta) - cameraX;
@@ -1405,6 +1073,7 @@ public abstract class BaseFilmController
     {
         this.entities.clear();
         this.replayMap.clear();
+        this.lastStepSoundTicks.clear();
 
         if (this.film == null)
         {
@@ -1599,20 +1268,62 @@ public abstract class BaseFilmController
                             double z = replay.keyframes.z.interpolate(replayTick);
                             boolean sneaking = replay.keyframes.sneaking.interpolate(replayTick) > 0;
                             boolean sprinting = replay.keyframes.sprinting.interpolate(replayTick) > 0;
+                            boolean swimming = replay.keyframes.swimming.interpolate(replayTick) > 0;
+                            boolean flying = replay.keyframes.flying.interpolate(replayTick) > 0;
+                            boolean fallFlying = replay.keyframes.fallFlying.interpolate(replayTick) > 0;
+                            boolean crawling = replay.keyframes.crawling.interpolate(replayTick) > 0;
+                            boolean climbing = replay.keyframes.climbing.interpolate(replayTick) > 0;
+                            boolean blocking = replay.keyframes.blocking.interpolate(replayTick) > 0;
+                            boolean sleeping = replay.keyframes.sleeping.interpolate(replayTick) > 0;
+                            boolean riptide = replay.keyframes.riptide.interpolate(replayTick) > 0;
                             boolean grounded = replay.keyframes.grounded.interpolate(replayTick) > 0;
 
                             Vec3d pos = player.getPos();
+                            double dx = x - pos.x;
+                            double dy = y - pos.y;
+                            double dz = z - pos.z;
+                            boolean shouldStep = !this.paused
+                                && (BBSSettings.editorReplayStepSound == null || BBSSettings.editorReplayStepSound.get())
+                                && (dx * dx + dy * dy + dz * dz) > 1.0E-8D;
 
-                            if (BBSSettings.editorReplayStepSound == null || BBSSettings.editorReplayStepSound.get())
+                            if (shouldStep)
                             {
-                                player.setOnGround(grounded);
-                                player.move(MovementType.SELF, new Vec3d(x - pos.x, y - pos.y, z - pos.z));
+                                String replayId = replay.getId();
+                                Integer lastTick = this.lastStepSoundTicks.get(replayId);
+
+                                /* Same edge as spawnReplayStepSound: parked playhead must not
+                                 * call move() every client tick (vanilla step spam). */
+                                if (lastTick == null || lastTick.intValue() != replayTick)
+                                {
+                                    this.lastStepSoundTicks.put(replayId, replayTick);
+                                    player.setOnGround(grounded);
+                                    player.move(MovementType.SELF, new Vec3d(dx, dy, dz));
+                                }
                             }
 
                             player.setPosition(x, y, z);
 
                             player.setSneaking(sneaking);
                             player.setSprinting(sprinting);
+                            player.setSwimming(swimming);
+                            player.getAbilities().flying = flying;
+                            player.setFlag(7, fallFlying);
+                            player.setFlag(4, riptide);
+
+                            if (crawling)
+                            {
+                                player.setPose(EntityPose.SWIMMING);
+                            }
+                            else if (sleeping)
+                            {
+                                player.setPose(EntityPose.SLEEPING);
+                            }
+
+                            if (blocking)
+                            {
+                                player.setLivingFlag(1, true);
+                            }
+
                             player.setOnGround(grounded);
 
                             if (player instanceof ClientPlayerEntityAccessor accessor)
@@ -1720,6 +1431,17 @@ public abstract class BaseFilmController
             return;
         }
 
+        String replayId = replay.getId();
+        Integer lastTick = this.lastStepSoundTicks.get(replayId);
+
+        /* One evaluation per film tick (scrub once, play once; parked playhead = silence). */
+        if (lastTick != null && lastTick.intValue() == ticks)
+        {
+            return;
+        }
+
+        this.lastStepSoundTicks.put(replayId, ticks);
+
         if (!this.isReplayVisible(replay, ticks))
         {
             return;
@@ -1730,7 +1452,7 @@ public abstract class BaseFilmController
             return;
         }
 
-        /* Reduce spam and approximate vanilla stepping cadence. */
+        /* Approximate vanilla stepping cadence while the timeline is advancing. */
         if ((ticks & 7) != 0)
         {
             return;
@@ -1953,34 +1675,17 @@ public abstract class BaseFilmController
     {
         RenderSystem.enableDepthTest();
 
-        /* Render depth layers: lower depth draws first; within the same depth, farther
-         * entities draw first so transparency composites correctly. Semi-transparent
-         * forms in front fade out entities behind them whose render depth is lower
-         * than the frontmost transparent occluder's depth; equal or higher depths stay
-         * fully visible through that layer. */
+        /* Farther entities first so translucency composites correctly. */
         List<Map.Entry<Integer, IEntity>> sorted = new ArrayList<>(this.entities.entrySet());
         Camera camera = context.camera();
         float transition = context.tickCounter().getTickDelta(false);
 
         sorted.sort(Comparator
-            .comparingDouble(this::getEntityRenderDepth)
-            .thenComparing((Map.Entry<Integer, IEntity> a, Map.Entry<Integer, IEntity> b) ->
-                Double.compare(
-                    this.getEntityCameraDistanceSq(b.getValue(), camera, transition),
-                    this.getEntityCameraDistanceSq(a.getValue(), camera, transition)
-                )
-            )
+            .comparing((Map.Entry<Integer, IEntity> entry) ->
+                this.getEntityCameraDistanceSq(entry.getValue(), camera, transition)
+            ).reversed()
             .thenComparing(Map.Entry::getKey)
         );
-
-        List<FormRenderDepth.Occluder> renderDepthOccluders = FormRenderDepth.collectOccluders(this.entities, camera, transition, (index) ->
-        {
-            Replay replay = CollectionUtils.getSafe(this.film.replays.getList(), index);
-
-            return replay == null ? null : replay.form.get();
-        });
-
-        this.currentRenderDepthOccluders = renderDepthOccluders;
 
         for (Map.Entry<Integer, IEntity> entry : sorted)
         {
@@ -1995,95 +1700,6 @@ public abstract class BaseFilmController
 
             this.renderEntity(context, replay, entity, i);
         }
-
-        this.currentRenderDepthOccluders = List.of();
-    }
-
-    /**
-     * Effective render depth used for draw-order sorting. The animated value comes from the
-     * entity's form (keyframes are applied to it in {@link #startRenderFrame(float)}), while
-     * the on/off toggle is read from the replay's source form so flipping it in the editor
-     * takes effect immediately without recreating entities.
-     */
-    private double getEntityRenderDepth(Map.Entry<Integer, IEntity> entry)
-    {
-        Double depth = this.getEnabledRenderDepth(entry.getKey(), entry.getValue());
-
-        return depth == null ? 0D : depth;
-    }
-
-    /** Render depth of an entity, or null when its form is missing or the feature is toggled off. */
-    private Double getEnabledRenderDepth(int index, IEntity entity)
-    {
-        Form form = entity.getForm();
-
-        if (form == null)
-        {
-            return null;
-        }
-
-        Replay replay = CollectionUtils.getSafe(this.film.replays.getList(), index);
-        Form sourceForm = replay == null ? null : replay.form.get();
-        boolean enabled = sourceForm != null ? sourceForm.renderDepthEnabled.get() : form.renderDepthEnabled.get();
-
-        return enabled ? (double) form.renderDepth.get() : null;
-    }
-
-    /**
-     * Fade factor (0..1) for render-depth layering. When a semi-transparent form with
-     * render depth D is in front of this entity, entities with depth &lt; D fade out
-     * completely; entities with depth &gt;= D stay fully visible through that layer.
-     */
-    protected float getRenderDepthFade(int index, IEntity entity, Camera camera, float transition)
-    {
-        Double depth = this.getEnabledRenderDepth(index, entity);
-
-        if (depth == null)
-        {
-            return 1F;
-        }
-
-        double entityDistanceSq = this.getEntityCameraDistanceSq(entity, camera, transition);
-        Double maxFrontTransparentDepth = null;
-
-        for (Map.Entry<Integer, IEntity> entry : this.entities.entrySet())
-        {
-            if (entry.getKey() == index)
-            {
-                continue;
-            }
-
-            IEntity other = entry.getValue();
-
-            if (other == null || other.getForm() == null || !this.isSemiTransparent(other.getForm()))
-            {
-                continue;
-            }
-
-            if (this.getEntityCameraDistanceSq(other, camera, transition) >= entityDistanceSq - 0.0001D)
-            {
-                continue;
-            }
-
-            Double otherDepth = this.getEnabledRenderDepth(entry.getKey(), other);
-
-            if (otherDepth == null)
-            {
-                continue;
-            }
-
-            if (maxFrontTransparentDepth == null || otherDepth > maxFrontTransparentDepth)
-            {
-                maxFrontTransparentDepth = otherDepth;
-            }
-        }
-
-        if (maxFrontTransparentDepth == null || depth >= maxFrontTransparentDepth)
-        {
-            return 1F;
-        }
-
-        return 0F;
     }
 
     private double getEntityCameraDistanceSq(IEntity entity, Camera camera, float transition)
@@ -2098,23 +1714,6 @@ public abstract class BaseFilmController
         return dx * dx + dy * dy + dz * dz;
     }
 
-    private boolean isSemiTransparent(Form form)
-    {
-        if (form == null)
-        {
-            return false;
-        }
-
-        BaseValue colorValue = form.get("color");
-
-        if (colorValue instanceof ValueColor valueColor)
-        {
-            return valueColor.get().a < 0.999F;
-        }
-
-        return false;
-    }
-
     protected void renderEntity(WorldRenderContext context, Replay replay, IEntity entity, int index)
     {
         if (!replay.actor.get())
@@ -2127,23 +1726,24 @@ public abstract class BaseFilmController
             }
 
             FilmControllerContext filmContext = getFilmControllerContext(context, replay, entity);
-            FormRenderDepth.Frame renderDepthFrame = new FormRenderDepth.Frame(this.currentRenderDepthOccluders, replay.form.get());
 
             filmContext.transition = getTransition(entity, context.tickCounter().getTickDelta(false));
-            filmContext.renderDepthFrame(renderDepthFrame);
 
             filmContext.stack.push();
 
-            if (!this.applyGroupProperties(replay, filmContext))
+            try
+            {
+                if (!this.applyGroupProperties(replay, filmContext))
+                {
+                    return;
+                }
+
+                renderEntity(filmContext);
+            }
+            finally
             {
                 filmContext.stack.pop();
-
-                return;
             }
-
-            renderEntity(filmContext);
-
-            filmContext.stack.pop();
         }
     }
 
@@ -2379,6 +1979,7 @@ public abstract class BaseFilmController
         merged.b *= overlay.b;
         merged.intensity += overlay.intensity;
         merged.sync = merged.sync || overlay.sync;
+        merged.paintOnly = merged.paintOnly || overlay.paintOnly;
         merged.radius = Math.max(merged.radius, overlay.radius);
         merged.width = Math.max(merged.width, overlay.width);
         merged.height = Math.max(merged.height, overlay.height);
@@ -2399,7 +2000,8 @@ public abstract class BaseFilmController
             current.sync = current.sync || groupPaint.sync;
             current.shaderShadow = PaintSettings.resolveAutoShaderShadow(current.intensity);
             form.paintSettings.setRuntimeValue(current);
-            form.shaderShadow.setRuntimeValue(current.intensity != 0F);
+            /* Keep casting; paint.shaderShadow float is the Complementary flag only. */
+            form.shaderShadow.setRuntimeValue(null);
         }
 
         if (groupGlow != null)
@@ -2411,6 +2013,7 @@ public abstract class BaseFilmController
             current.b *= groupGlow.b;
             current.intensity += groupGlow.intensity;
             current.sync = current.sync || groupGlow.sync;
+            current.paintOnly = current.paintOnly || groupGlow.paintOnly;
             current.radius = Math.max(current.radius, groupGlow.radius);
             current.width = Math.max(current.width, groupGlow.width);
             current.height = Math.max(current.height, groupGlow.height);
@@ -2441,31 +2044,69 @@ public abstract class BaseFilmController
     protected FilmControllerContext getFilmControllerContext(WorldRenderContext context, Replay replay, IEntity entity)
     {
         float tick = replay.getTick(this.getTick()) + this.getTransition(entity, context.tickCounter().getTickDelta(false));
-
-        float shadowSize = replay.shadowSize.get();
-        float shadowOpacity = replay.shadowOpacity.get();
-
-        if (!replay.keyframes.shadowSize.isEmpty())
-        {
-            shadowSize = replay.keyframes.shadowSize.interpolate(tick).floatValue();
-        }
-
-        if (!replay.keyframes.shadowOpacity.isEmpty())
-        {
-            shadowOpacity = replay.keyframes.shadowOpacity.interpolate(tick).floatValue();
-        }
-
-        shadowSize = Math.max(0F, shadowSize);
-        shadowOpacity = MathUtils.clamp(shadowOpacity, 0F, 1F);
+        ShadowSettings shadow = resolveShadowSettings(replay, tick);
 
         return FilmControllerContext.instance
             .setup(this.entities, entity, replay, context)
             .film(this.film)
             .propertyTick(tick)
             .filmTick(this.getTick())
-            .shadow(replay.shadow.get(), shadowSize, shadowOpacity)
+            .shadow(replay.shadow.get(), shadow)
             .nameTag(replay.nameTag.get())
             .relative(replay.relative.get());
+    }
+
+    /**
+     * Interpolated replay shadow settings at {@code tick} (includes keyframes).
+     * Always returns a fresh copy — factory interpolation reuses a shared instance.
+     */
+    public static ShadowSettings resolveShadowSettings(Replay replay, float tick)
+    {
+        ShadowSettings settings = new ShadowSettings(replay.shadowOpacity.get(), replay.shadowSize.get(), replay.shadowSizeZ.get());
+
+        settings.offsetX = replay.shadowOffsetX.get();
+        settings.offsetY = replay.shadowOffsetY.get();
+        settings.offsetZ = replay.shadowOffsetZ.get();
+
+        if (!replay.keyframes.shadowSize.isEmpty())
+        {
+            ShadowSettings size = replay.keyframes.shadowSize.interpolate(tick);
+
+            if (size != null)
+            {
+                settings.widthX = Math.max(0F, size.widthX);
+                settings.widthZ = Math.max(0F, size.widthZ);
+                settings.offsetX = size.offsetX;
+                settings.offsetY = size.offsetY;
+                settings.offsetZ = size.offsetZ;
+            }
+        }
+
+        if (!replay.keyframes.shadowOpacity.isEmpty())
+        {
+            settings.opacity = MathUtils.clamp(replay.keyframes.shadowOpacity.interpolate(tick).floatValue(), 0F, 1F);
+        }
+
+        settings.widthX = Math.max(0F, settings.widthX);
+        settings.widthZ = Math.max(0F, settings.widthZ);
+        settings.opacity = MathUtils.clamp(settings.opacity, 0F, 1F);
+
+        return settings;
+    }
+
+    public static float resolveShadowSize(Replay replay, float tick)
+    {
+        return resolveShadowSettings(replay, tick).widthX;
+    }
+
+    public static float resolveShadowSizeZ(Replay replay, float tick)
+    {
+        return resolveShadowSettings(replay, tick).widthZ;
+    }
+
+    public static float resolveShadowOpacity(Replay replay, float tick)
+    {
+        return resolveShadowSettings(replay, tick).opacity;
     }
 
     public void shutdown()
@@ -2474,11 +2115,5 @@ public abstract class BaseFilmController
     public static enum UpdateMode
     {
         UPDATE, RENDER, PROPERTIES;
-    }
-
-    private static class IllusionLift
-    {
-        public float value;
-        public long time;
     }
 }

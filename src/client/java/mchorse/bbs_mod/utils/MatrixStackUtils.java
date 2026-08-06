@@ -1,5 +1,7 @@
 package mchorse.bbs_mod.utils;
 
+import mchorse.bbs_mod.BBSModClient;
+import mchorse.bbs_mod.camera.controller.CameraController;
 import mchorse.bbs_mod.utils.joml.Vectors;
 import mchorse.bbs_mod.utils.pose.Transform;
 
@@ -24,16 +26,55 @@ public class MatrixStackUtils
     private static Matrix4f oldMV = new Matrix4f();
     private static Matrix3f oldInverse = new Matrix3f();
     private static final Quaternionf tempQuaternion = new Quaternionf();
+    /* Near-zero axis scale collapses ModelView; Iris then rebuilds normals from a singular
+     * inverse-transpose and lit meshes go solid black. Keep a tiny thickness for lighting. */
+    private static final float MIN_SCALE = 1.0E-4F;
+
+    /**
+     * Reciprocal safe for normal-matrix correction when an axis scale is 0 (flat bones/billboards).
+     */
+    public static float safeNormalScaleReciprocal(float scale)
+    {
+        return Math.abs(scale) < MIN_SCALE ? 1F : 1F / scale;
+    }
+
+    /**
+     * Non-zero scale for position matrices so Iris/vanilla inverse-transpose normals stay valid.
+     */
+    public static float safePositionScale(float scale)
+    {
+        if (Math.abs(scale) >= MIN_SCALE)
+        {
+            return scale;
+        }
+
+        return scale < 0F ? -MIN_SCALE : MIN_SCALE;
+    }
 
     /**
      * 1.20.4 exposed this on {@link RenderSystem}; 1.21.1 removed it. Rebuild the
      * camera's inverse view-rotation matrix from the active game camera quaternion.
+     * When a BBS camera controller is active, also undo film/orbit roll (applied in
+     * {@code GameRendererMixin.tiltViewWhenHurt} but missing from {@code Camera}).
      */
     public static Matrix4f getInverseViewRotationMatrix()
     {
         Camera camera = MinecraftClient.getInstance().gameRenderer.getCamera();
+        Matrix4f inverse = new Matrix4f().rotation(camera.getRotation().conjugate(MatrixStackUtils.tempQuaternion));
+        CameraController controller = BBSModClient.getCameraController();
 
-        return new Matrix4f().rotation(camera.getRotation().conjugate(MatrixStackUtils.tempQuaternion));
+        if (controller.getCurrent() != null)
+        {
+            float rollDeg = controller.getRoll();
+
+            if (Math.abs(rollDeg) > 1.0E-4F)
+            {
+                /* View = Rz(roll) * ViewRot → Inv = ViewRot^-1 * Rz(-roll). */
+                inverse.rotateZ(-MathUtils.toRad(rollDeg));
+            }
+        }
+
+        return inverse;
     }
 
     /**
@@ -48,8 +89,21 @@ public class MatrixStackUtils
 
     public static void scaleStack(MatrixStack stack, float x, float y, float z)
     {
-        stack.peek().getPositionMatrix().scale(x, y, z);
+        stack.peek().getPositionMatrix().scale(safePositionScale(x), safePositionScale(y), safePositionScale(z));
         stack.peek().getNormalMatrix().scale(x < 0F ? -1F : 1F, y < 0F ? -1F : 1F, z < 0F ? -1F : 1F);
+    }
+
+    /**
+     * UI previews flip Y lighting; divide out current normal scale without Inf on flat axes.
+     */
+    public static void invertUiNormalY(MatrixStack stack)
+    {
+        stack.peek().getNormalMatrix().getScale(Vectors.EMPTY_3F);
+        stack.peek().getNormalMatrix().scale(
+            safeNormalScaleReciprocal(Vectors.EMPTY_3F.x),
+            -safeNormalScaleReciprocal(Vectors.EMPTY_3F.y),
+            safeNormalScaleReciprocal(Vectors.EMPTY_3F.z)
+        );
     }
 
     public static void cacheMatrices()
@@ -119,9 +173,9 @@ public class MatrixStackUtils
         normal.set(matrix);
         normal.getScale(Vectors.TEMP_3F);
 
-        Vectors.TEMP_3F.x = Vectors.TEMP_3F.x == 0F ? 0F : 1F / Vectors.TEMP_3F.x;
-        Vectors.TEMP_3F.y = Vectors.TEMP_3F.y == 0F ? 0F : 1F / Vectors.TEMP_3F.y;
-        Vectors.TEMP_3F.z = Vectors.TEMP_3F.z == 0F ? 0F : 1F / Vectors.TEMP_3F.z;
+        Vectors.TEMP_3F.x = safeNormalScaleReciprocal(Vectors.TEMP_3F.x);
+        Vectors.TEMP_3F.y = safeNormalScaleReciprocal(Vectors.TEMP_3F.y);
+        Vectors.TEMP_3F.z = safeNormalScaleReciprocal(Vectors.TEMP_3F.z);
 
         normal.scale(Vectors.TEMP_3F);
 

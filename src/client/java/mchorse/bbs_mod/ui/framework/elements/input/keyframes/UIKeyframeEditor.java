@@ -13,11 +13,14 @@ import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.ui.framework.elements.IUIElement;
 import mchorse.bbs_mod.ui.framework.elements.UIElement;
 import mchorse.bbs_mod.ui.framework.elements.input.keyframes.factories.UIAnchorKeyframeFactory;
+import mchorse.bbs_mod.ui.framework.elements.input.keyframes.factories.UIInverseKinematicsKeyframeFactory;
 import mchorse.bbs_mod.ui.framework.elements.input.keyframes.factories.UIKeyframeFactory;
+import mchorse.bbs_mod.ui.framework.elements.input.keyframes.factories.UILookAtKeyframeFactory;
 import mchorse.bbs_mod.ui.framework.elements.input.keyframes.factories.UIPoseKeyframeFactory;
 import mchorse.bbs_mod.ui.framework.elements.input.keyframes.factories.UITransformKeyframeFactory;
 import mchorse.bbs_mod.ui.framework.elements.utils.UIDraggable;
 import mchorse.bbs_mod.ui.framework.elements.utils.UIRenderable;
+import mchorse.bbs_mod.ui.utils.gizmo.TransformOrientation;
 import mchorse.bbs_mod.ui.utils.icons.Icons;
 import mchorse.bbs_mod.utils.Pair;
 import mchorse.bbs_mod.utils.StringUtils;
@@ -47,6 +50,7 @@ public class UIKeyframeEditor extends UIElement
     private UIElement target;
     private boolean stackedLayout;
     private boolean overlayPanel;
+    private Runnable pickListener;
     private int sidePanelWidth = SIDE_PANEL_WIDTH;
     private int bottomPanelHeight = BOTTOM_PANEL_HEIGHT;
     private UIDraggable sidePanelResizer;
@@ -121,15 +125,49 @@ public class UIKeyframeEditor extends UIElement
 
     public UIKeyframeEditor target(UIElement target)
     {
-        this.target = target;
+        if (this.target == target)
+        {
+            this.view.resetFlex().full(this).w(1F);
 
+            return this;
+        }
+
+        if (this.editor != null)
+        {
+            this.editor.removeFromParent();
+        }
+
+        this.target = target;
         this.view.resetFlex().full(this).w(1F);
+
+        if (this.editor != null)
+        {
+            if (this.target != null)
+            {
+                this.target.add(this.editor);
+            }
+            else
+            {
+                this.add(this.editor);
+            }
+        }
+
+        this.applyLayout();
+        this.resize();
+
+        return this;
+    }
+
+    public UIKeyframeEditor pickListener(Runnable pickListener)
+    {
+        this.pickListener = pickListener;
 
         return this;
     }
 
     public UIKeyframeEditor overlayPanel(boolean overlayPanel)
     {
+        this.unfocusEditorInputs();
         this.overlayPanel = overlayPanel;
         this.applyLayout();
         this.resize();
@@ -186,6 +224,46 @@ public class UIKeyframeEditor extends UIElement
 
         this.applyLayout();
         this.resize();
+
+        /* Only when a keyframe is picked — clearing selection (setChannels / deselect)
+         * must not force the Properties tab away from Camera/Action Properties. */
+        if (keyframe != null && this.pickListener != null)
+        {
+            this.pickListener.run();
+        }
+    }
+
+    /**
+     * True when a focused text/trackpad input belongs to the open keyframe
+     * property panel. Used to avoid mid-typing refreshes that reset fields.
+     */
+    public boolean isEditorInputFocused()
+    {
+        if (this.editor == null)
+        {
+            return false;
+        }
+
+        UIContext context = this.getContext();
+
+        if (context == null || !(context.activeElement instanceof UIElement focused))
+        {
+            return false;
+        }
+
+        UIElement current = focused;
+
+        while (current != null)
+        {
+            if (current == this.editor)
+            {
+                return true;
+            }
+
+            current = current.getParent();
+        }
+
+        return false;
     }
 
     private void applyLayout()
@@ -332,9 +410,25 @@ public class UIKeyframeEditor extends UIElement
 
     public void setStackedLayout(boolean stackedLayout)
     {
+        this.unfocusEditorInputs();
         this.stackedLayout = stackedLayout;
         this.applyLayout();
         this.resize();
+    }
+
+    /**
+     * Layout / embed toggles can leave a trackpad textbox marked focused while
+     * {@link UIContext#activeElement} is cleared or the widget tree moves.
+     * Clearing focus avoids frozen numeric fields until the keyframe is re-picked.
+     */
+    private void unfocusEditorInputs()
+    {
+        UIContext context = this.getContext();
+
+        if (context != null)
+        {
+            context.unfocus();
+        }
     }
 
     public void setChannel(KeyframeChannel channel, int color)
@@ -380,11 +474,11 @@ public class UIKeyframeEditor extends UIElement
         return null;
     }
 
-    public Pair<String, Boolean> getBone()
+    public Pair<String, TransformOrientation> getBone()
     {
         UIKeyframeFactory editor = this.editor;
         String bone = null;
-        boolean local = false;
+        TransformOrientation orientation = TransformOrientation.PARENT;
 
         if (editor instanceof UIPoseKeyframeFactory || editor instanceof UITransformKeyframeFactory || editor instanceof UIAnchorKeyframeFactory)
         {
@@ -432,11 +526,11 @@ public class UIKeyframeEditor extends UIElement
 
                     if (editor instanceof UIPoseKeyframeFactory pose)
                     {
-                        local = pose.poseEditor.transform.isLocal();
+                        orientation = pose.poseEditor.transform.getOrientation();
                     }
                     else if (editor instanceof UITransformKeyframeFactory transform)
                     {
-                        local = transform.transform.isLocal();
+                        orientation = transform.transform.getOrientation();
                     }
                 }
                 else if (propertyId.equals("transform") || propertyId.startsWith("transform_overlay"))
@@ -447,7 +541,7 @@ public class UIKeyframeEditor extends UIElement
 
                     if (editor instanceof UITransformKeyframeFactory transform)
                     {
-                        local = transform.transform.isLocal();
+                        orientation = transform.transform.getOrientation();
                     }
                 }
                 else if (propertyId.equals("illusion_transform") || propertyId.startsWith("illusion_transform_overlay"))
@@ -458,7 +552,7 @@ public class UIKeyframeEditor extends UIElement
 
                     if (editor instanceof UITransformKeyframeFactory transform)
                     {
-                        local = transform.transform.isLocal();
+                        orientation = transform.transform.getOrientation();
                     }
                 }
                 else if (propertyId.equals("anchor") && editor instanceof UIAnchorKeyframeFactory anchorFactory)
@@ -467,14 +561,22 @@ public class UIKeyframeEditor extends UIElement
 
                     bone = lastSlash >= 0 ? sheet.id.substring(0, lastSlash) : "";
 
-                    local = anchorFactory.transform.isLocal();
+                    orientation = anchorFactory.transform.getOrientation();
                 }
             }
+        }
+        else if (editor instanceof UILookAtKeyframeFactory lookAtFactory)
+        {
+            bone = lookAtFactory.lookAtEditor.getCurrentBone();
+        }
+        else if (editor instanceof UIInverseKinematicsKeyframeFactory ikFactory)
+        {
+            bone = ikFactory.ikEditor.getCurrentBone();
         }
 
         if (bone != null)
         {
-            return new Pair<>(bone, local);
+            return new Pair<>(bone, orientation);
         }
 
         return null;

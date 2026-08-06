@@ -146,7 +146,7 @@ public class UIAnchorKeyframeFactory extends UIKeyframeFactory<Anchor>
         this.transform.enableHotkeys();
         this.transform.setTransform(keyframe.getValue().transform);
         this.transform.setLocalMode(true);
-        this.transform.translationScale(1F / 3F);
+        this.transform.translationScale(1F);
         this.transform.anchorGizmoTuning();
 
         this.scroll.add(this.actor, this.attachment, this.translate, this.scale, this.transform);

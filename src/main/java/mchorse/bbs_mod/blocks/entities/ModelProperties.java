@@ -37,6 +37,8 @@ public class ModelProperties implements IMapSerializable
     private boolean shadow;
     private boolean hitbox;
     private boolean lookAt;
+    /* When chroma sky hides terrain, this block still renders if true (or if the global setting is on). */
+    private boolean chromaSky;
     private int lightLevel = 0;
     private float hardness;
 
@@ -230,6 +232,16 @@ public class ModelProperties implements IMapSerializable
         this.lookAt = lookAt;
     }
 
+    public boolean isChromaSky()
+    {
+        return this.chromaSky;
+    }
+
+    public void setChromaSky(boolean chromaSky)
+    {
+        this.chromaSky = chromaSky;
+    }
+
     public int getLightLevel()
     {
         return this.lightLevel;
@@ -324,6 +336,7 @@ public class ModelProperties implements IMapSerializable
         this.global = data.getBool("global");
         this.lookAt = data.getBool("look_at");
         if (data.has("hitbox")) this.hitbox = data.getBool("hitbox");
+        if (data.has("chroma_sky")) this.chromaSky = data.getBool("chroma_sky");
         if (data.has("light_level")) this.lightLevel = data.getInt("light_level");
         this.setHardness(data.getFloat("hardness", 0F));
     }
@@ -353,6 +366,7 @@ public class ModelProperties implements IMapSerializable
         data.putBool("global", this.global);
         data.putBool("hitbox", this.hitbox);
         data.putBool("look_at", this.lookAt);
+        data.putBool("chroma_sky", this.chromaSky);
         data.putInt("light_level", this.lightLevel);
         data.putFloat("hardness", this.hardness);
     }

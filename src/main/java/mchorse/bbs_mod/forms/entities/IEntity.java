@@ -159,6 +159,14 @@ public interface IEntity
 
         this.setSneaking(entity.isSneaking());
         this.setSprinting(entity.isSprinting());
+        this.setSwimming(entity.isSwimming());
+        this.setFlying(entity.isFlying());
+        this.setFallFlying(entity.isFallFlying());
+        this.setCrawling(entity.isCrawling());
+        this.setClimbing(entity.isClimbing());
+        this.setBlocking(entity.isBlocking());
+        this.setSleeping(entity.isSleeping());
+        this.setRiptide(entity.isUsingRiptide());
         this.setOnGround(entity.isOnGround());
         this.setFallDistance(entity.getFallDistance());
         this.setHurtTimer(entity.getHurtTimer());
@@ -203,7 +211,15 @@ public interface IEntity
 
     public float getLimbSpeed(float tickDelta);
 
-    /* Swimming */
+    /* Swimming & Flight */
+
+    public boolean isSwimming();
+
+    public void setSwimming(boolean swimming);
+
+    public boolean isFlying();
+
+    public void setFlying(boolean flying);
 
     public float getLeaningPitch(float tickDelta);
 
@@ -215,11 +231,33 @@ public interface IEntity
 
     public boolean isFallFlying();
 
+    public void setFallFlying(boolean fallFlying);
+
+    public float getFallFlyingProgress(float transition);
+
     public Vec3d getRotationVec(float transition);
 
     public Vec3d lerpVelocity(float transition);
 
     public boolean isUsingRiptide();
+
+    public void setRiptide(boolean riptide);
+
+    public boolean isCrawling();
+
+    public void setCrawling(boolean crawling);
+
+    public boolean isClimbing();
+
+    public void setClimbing(boolean climbing);
+
+    public boolean isBlocking();
+
+    public void setBlocking(boolean blocking);
+
+    public boolean isSleeping();
+
+    public void setSleeping(boolean sleeping);
     
     public IEntity getMountTarget();
 

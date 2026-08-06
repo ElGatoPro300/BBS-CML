@@ -19,6 +19,7 @@ public class UIParticlesKeyframeFactory extends UIKeyframeFactory<Double>
         this.value.limit(0F, 1F).tooltip(UIKeys.FILM_REPLAY_TRACK_PARTICLES);
         this.value.setValue(keyframe.getValue() == null ? 1D : keyframe.getValue());
         this.handles = new UIBezierHandles(keyframe);
+        this.registerValueTrackpad(this.value);
 
         this.scroll.add(this.value, this.handles.createColumn());
     }
@@ -28,9 +29,14 @@ public class UIParticlesKeyframeFactory extends UIKeyframeFactory<Double>
     {
         super.update();
 
-        Double keyframeValue = this.keyframe.getValue();
+        if (!this.value.isActivelyEditing() && !this.value.isDragging())
+        {
+            Double keyframeValue = this.keyframe.getValue();
 
-        this.value.setValue(keyframeValue == null ? 1D : keyframeValue);
+            this.value.setValue(keyframeValue == null ? 1D : keyframeValue);
+        }
+
+        this.handles.setKeyframe(this.keyframe);
         this.handles.update();
     }
 }

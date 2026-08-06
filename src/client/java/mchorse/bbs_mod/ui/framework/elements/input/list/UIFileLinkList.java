@@ -13,7 +13,9 @@ import mchorse.bbs_mod.utils.NaturalOrderComparator;
 import mchorse.bbs_mod.utils.StringUtils;
 import mchorse.bbs_mod.utils.colors.Colors;
 
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.List;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
 
@@ -32,6 +34,13 @@ public class UIFileLinkList extends UIList<UIFileLinkList.FileLink>
     private static final int GRID_TITLE_HEIGHT = 12;
 
     private int itemSize = MIN_ITEM_SIZE;
+
+    private final List<Link> backHistory = new ArrayList<>();
+    private final List<Link> forwardHistory = new ArrayList<>();
+    private boolean recordHistory = true;
+    private boolean navigatingHistory;
+    private boolean skipNextHistory;
+    private int setPathDepth;
 
     public Consumer<Link> fileCallback;
     public Link path = new Link("", "");
@@ -311,6 +320,85 @@ public class UIFileLinkList extends UIList<UIFileLinkList.FileLink>
         this.renderElementPart(context, element, i, x, y, hover, selected);
     }
 
+    public void clearNavigationHistory()
+    {
+        this.backHistory.clear();
+        this.forwardHistory.clear();
+        this.skipNextHistory = true;
+    }
+
+    public boolean navigateBack()
+    {
+        Link target;
+
+        if (!this.backHistory.isEmpty())
+        {
+            target = this.backHistory.remove(this.backHistory.size() - 1);
+        }
+        else
+        {
+            target = this.getParentFolder();
+        }
+
+        if (target == null)
+        {
+            return false;
+        }
+
+        this.forwardHistory.add(this.path);
+        this.navigatingHistory = true;
+
+        try
+        {
+            this.setPath(target, false);
+        }
+        finally
+        {
+            this.navigatingHistory = false;
+        }
+
+        return true;
+    }
+
+    public boolean navigateForward()
+    {
+        if (this.forwardHistory.isEmpty())
+        {
+            return false;
+        }
+
+        Link target = this.forwardHistory.remove(this.forwardHistory.size() - 1);
+
+        this.backHistory.add(this.path);
+        this.navigatingHistory = true;
+
+        try
+        {
+            this.setPath(target, false);
+        }
+        finally
+        {
+            this.navigatingHistory = false;
+        }
+
+        return true;
+    }
+
+    private Link getParentFolder()
+    {
+        if (this.path.source.isEmpty() && this.path.path.isEmpty())
+        {
+            return null;
+        }
+
+        if (this.path.path.isEmpty())
+        {
+            return new Link("", "");
+        }
+
+        return new Link(this.path.source, StringUtils.parentPath(this.path.path));
+    }
+
     public void setPath(Link link)
     {
         this.setPath(link, true);
@@ -320,6 +408,34 @@ public class UIFileLinkList extends UIList<UIFileLinkList.FileLink>
      * Set current link
      */
     public void setPath(Link link, boolean fastForward)
+    {
+        boolean record = this.recordHistory && !this.navigatingHistory && !this.skipNextHistory && this.setPathDepth == 0;
+        Link previous = record ? this.path : null;
+
+        this.setPathDepth++;
+
+        try
+        {
+            this.setPathInternal(link, fastForward);
+        }
+        finally
+        {
+            this.setPathDepth--;
+
+            if (record && previous != null && !previous.equals(this.path))
+            {
+                this.backHistory.add(previous);
+                this.forwardHistory.clear();
+            }
+
+            if (this.skipNextHistory && this.setPathDepth == 0)
+            {
+                this.skipNextHistory = false;
+            }
+        }
+    }
+
+    private void setPathInternal(Link link, boolean fastForward)
     {
         if (link == null || link.source.isEmpty())
         {

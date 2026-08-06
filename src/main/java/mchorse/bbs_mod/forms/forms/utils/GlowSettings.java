@@ -18,12 +18,15 @@ public class GlowSettings
     public float b = 1F;
     public float intensity;
     public boolean sync = false;
+    /** When true, glow emission is applied only where paint is active. */
+    public boolean paintOnly = false;
     public float radius;
     public float centerX;
     public float centerY;
     public float centerZ;
     public float width;
     public float height;
+    public EffectTransform transform = new EffectTransform();
 
     public GlowSettings()
     {
@@ -44,11 +47,13 @@ public class GlowSettings
         copy.g = this.g;
         copy.b = this.b;
         copy.sync = this.sync;
+        copy.paintOnly = this.paintOnly;
         copy.centerX = this.centerX;
         copy.centerY = this.centerY;
         copy.centerZ = this.centerZ;
         copy.width = this.width;
         copy.height = this.height;
+        copy.transform = this.transform == null ? new EffectTransform() : this.transform.copy();
 
         return copy;
     }
@@ -87,31 +92,24 @@ public class GlowSettings
     }
 
     /**
-     * Returns glow intensity, or a default when only a legacy glowing_color tint is set.
+     * Returns glow intensity. {@link #intensity} is always authoritative (including {@code 0} =
+     * glow off). Legacy {@code glowing_color} is migrated into modern glow in
+     * {@code Form.fromData} / FormProperties — do not re-interpret it at render time, or
+     * dual-written white {@code glowing_color} with alpha 1 forces full-strength glow.
      */
     public float resolveIntensity(Color legacy)
     {
-        if (this.intensity != 0F)
-        {
-            return this.intensity;
-        }
-
-        if (legacy != null && (legacy.r != 1F || legacy.g != 1F || legacy.b != 1F))
-        {
-            if (legacy.a > 0F && legacy.a < 1F)
-            {
-                return legacy.a;
-            }
-
-            return 1F;
-        }
-
-        return 0F;
+        return this.intensity;
     }
 
     public boolean resolveSync()
     {
         return this.sync;
+    }
+
+    public boolean resolvePaintOnly()
+    {
+        return this.paintOnly;
     }
 
     public void fromData(BaseType data)
@@ -123,12 +121,23 @@ public class GlowSettings
             this.b = map.has("b") ? map.getFloat("b") : 1F;
             this.intensity = map.getFloat("intensity");
             this.sync = map.getBool("sync", false);
+            this.paintOnly = map.getBool("paintOnly", false);
             this.radius = map.getFloat("radius");
             this.centerX = map.getFloat("centerX");
             this.centerY = map.getFloat("centerY");
             this.centerZ = map.getFloat("centerZ");
             this.width = map.getFloat("width");
             this.height = map.getFloat("height");
+
+            if (map.has("transform"))
+            {
+                if (this.transform == null)
+                {
+                    this.transform = new EffectTransform();
+                }
+
+                this.transform.fromData(map.get("transform"));
+            }
         }
     }
 
@@ -141,12 +150,18 @@ public class GlowSettings
         map.putFloat("b", this.b);
         map.putFloat("intensity", this.intensity);
         map.putBool("sync", this.sync);
+        map.putBool("paintOnly", this.paintOnly);
         map.putFloat("radius", this.radius);
         map.putFloat("centerX", this.centerX);
         map.putFloat("centerY", this.centerY);
         map.putFloat("centerZ", this.centerZ);
         map.putFloat("width", this.width);
         map.putFloat("height", this.height);
+
+        if (this.transform != null)
+        {
+            map.put("transform", this.transform.toData());
+        }
 
         return map;
     }
@@ -169,17 +184,19 @@ public class GlowSettings
             && Float.compare(this.b, that.b) == 0
             && Float.compare(this.intensity, that.intensity) == 0
             && this.sync == that.sync
+            && this.paintOnly == that.paintOnly
             && Float.compare(this.radius, that.radius) == 0
             && Float.compare(this.centerX, that.centerX) == 0
             && Float.compare(this.centerY, that.centerY) == 0
             && Float.compare(this.centerZ, that.centerZ) == 0
             && Float.compare(this.width, that.width) == 0
-            && Float.compare(this.height, that.height) == 0;
+            && Float.compare(this.height, that.height) == 0
+            && Objects.equals(this.transform, that.transform);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(this.r, this.g, this.b, this.intensity, this.sync, this.radius, this.centerX, this.centerY, this.centerZ, this.width, this.height);
+        return Objects.hash(this.r, this.g, this.b, this.intensity, this.sync, this.paintOnly, this.radius, this.centerX, this.centerY, this.centerZ, this.width, this.height, this.transform);
     }
 }

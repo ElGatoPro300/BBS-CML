@@ -190,6 +190,12 @@ public class TimelineToolbar extends UIElement
         this.hoverDock = null;
     }
 
+    public boolean isDockDragEnabled()
+    {
+        return BBSSettings.editorLayoutSettings == null
+            || !BBSSettings.editorLayoutSettings.isLayoutLocked();
+    }
+
     /**
      * Cancels an in-progress dock drag when Escape is pressed. Used from
      * {@link UIBaseMenu} so the editor is not
@@ -215,6 +221,26 @@ public class TimelineToolbar extends UIElement
         }
 
         return false;
+    }
+
+    /**
+     * Cancels every in-progress toolbar dock drag under {@code root}
+     * (e.g. when the film layout becomes locked).
+     */
+    public static void cancelAllDockDrags(UIElement root)
+    {
+        if (root == null)
+        {
+            return;
+        }
+
+        for (TimelineToolbar toolbar : root.getChildren(TimelineToolbar.class, new ArrayList<>(), true))
+        {
+            if (toolbar.isDockDragging())
+            {
+                toolbar.cancelDockDrag();
+            }
+        }
     }
 
     private void cancelSectionsPointer()
@@ -663,6 +689,11 @@ public class TimelineToolbar extends UIElement
 
     private void startDockDrag(UIContext context)
     {
+        if (!this.isDockDragEnabled())
+        {
+            return;
+        }
+
         this.cancelSectionsPointer();
         this.closeOpenMenu();
         this.ensureDockOverlayOnTop();
@@ -679,6 +710,13 @@ public class TimelineToolbar extends UIElement
             return;
         }
 
+        if (!this.isDockDragEnabled())
+        {
+            this.cancelDockDrag();
+
+            return;
+        }
+
         this.hoverDock = this.computeNearestDropDock(context.mouseX, context.mouseY);
         context.requestCursor(GLFW.GLFW_HAND_CURSOR);
     }
@@ -687,6 +725,13 @@ public class TimelineToolbar extends UIElement
     {
         if (!this.dockDragging)
         {
+            return;
+        }
+
+        if (!this.isDockDragEnabled())
+        {
+            this.cancelDockDrag();
+
             return;
         }
 
@@ -923,7 +968,11 @@ public class TimelineToolbar extends UIElement
         }
         else if (this.dragHandleArea.isInside(context.mouseX, context.mouseY) && !this.dockDragging)
         {
-            TimelineToolbarTooltips.drawForeground(context, UIKeys.TIMELINE_TOOLBAR_DRAG.get(),
+            String tip = this.isDockDragEnabled()
+                ? UIKeys.TIMELINE_TOOLBAR_DRAG.get()
+                : UIKeys.TIMELINE_TOOLBAR_DRAG_LOCKED.get();
+
+            TimelineToolbarTooltips.drawForeground(context, tip,
                 context.mouseX, context.mouseY, Colors.WHITE, Colors.A75, this.dock, this.isMenuOpen());
         }
     }
@@ -974,14 +1023,15 @@ public class TimelineToolbar extends UIElement
         }
 
         Area a = this.dragHandleArea;
-        boolean hover = a.isInside(context.mouseX, context.mouseY) || this.dockDragging;
+        boolean enabled = this.isDockDragEnabled();
+        boolean hover = enabled && (a.isInside(context.mouseX, context.mouseY) || this.dockDragging);
 
         if (hover)
         {
             context.batcher.box(a.x, a.y, a.ex(), a.ey(), TimelineToolbarSettings.SECTION_HOVER_COLOR);
         }
 
-        context.batcher.icon(Icons.ALL_DIRECTIONS, Colors.WHITE, a.mx(), a.my(), 0.5F, 0.5F);
+        context.batcher.icon(Icons.ALL_DIRECTIONS, enabled ? Colors.WHITE : Colors.GRAY, a.mx(), a.my(), 0.5F, 0.5F);
     }
 
     private void renderSections(UIContext context, FontRenderer font, int hovered, boolean suppressHover)
@@ -1159,7 +1209,15 @@ public class TimelineToolbar extends UIElement
 
         if (this.dragHandleArea.isInside(context.mouseX, context.mouseY) && context.mouseButton == 0)
         {
-            this.startDockDrag(context);
+            if (this.isDockDragEnabled())
+            {
+                this.startDockDrag(context);
+                context.setTimelineToolbarConsumePointer(true);
+
+                return true;
+            }
+
+            /* Consume the click so locked handles don't fall through to the timeline. */
             context.setTimelineToolbarConsumePointer(true);
 
             return true;

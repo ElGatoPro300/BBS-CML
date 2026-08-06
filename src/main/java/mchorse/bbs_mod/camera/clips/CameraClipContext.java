@@ -61,6 +61,11 @@ public class CameraClipContext extends ClipContext<CameraClip, Position>
 
             ((CameraClip) clip).apply(this, position);
 
+            if (this.applyDepth == 0)
+            {
+                this.applied += 1;
+            }
+
             if (((CameraClip) clip).isPositionClip())
             {
                 if (this.captureSnapshots)

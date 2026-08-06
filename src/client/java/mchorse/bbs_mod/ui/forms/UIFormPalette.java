@@ -7,7 +7,6 @@ import mchorse.bbs_mod.ui.forms.editors.UIFormEditor;
 import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.ui.framework.elements.UIElement;
 import mchorse.bbs_mod.ui.framework.elements.utils.EventPropagation;
-import mchorse.bbs_mod.utils.colors.Colors;
 
 import org.lwjgl.glfw.GLFW;
 
@@ -241,9 +240,12 @@ public class UIFormPalette extends UIElement implements IUIFormList
     @Override
     public void render(UIContext context)
     {
+        /* Immersive model-block / morph pick: darken only while the form list is open.
+         * While editing immersively, keep the live world visible behind the form preview
+         * (F7 toggles gizmos vs the world instance, not a scrim). */
         if (this.background && (!this.immersive || this.list.isVisible()))
         {
-            this.area.render(context.batcher, Colors.A75);
+            this.area.render(context.batcher, 0xEE111115);
         }
 
         super.render(context);

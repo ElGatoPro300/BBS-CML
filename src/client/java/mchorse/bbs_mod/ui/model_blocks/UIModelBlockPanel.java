@@ -27,6 +27,7 @@ import mchorse.bbs_mod.ui.forms.editors.UIFormEditor;
 import mchorse.bbs_mod.ui.forms.editors.panels.widgets.UIItemStack;
 import mchorse.bbs_mod.ui.framework.UIBaseMenu;
 import mchorse.bbs_mod.ui.framework.UIContext;
+import mchorse.bbs_mod.ui.framework.UIScreen;
 import mchorse.bbs_mod.ui.framework.elements.IUIElement;
 import mchorse.bbs_mod.ui.framework.elements.UIElement;
 import mchorse.bbs_mod.ui.framework.elements.UIScrollView;
@@ -190,6 +191,7 @@ public class UIModelBlockPanel extends UIDashboardPanel implements IFlightSuppor
     public UIToggle hitbox;
     public UIToggle global;
     public UIToggle lookAt;
+    public UIToggle chromaSky;
     public UITrackpad lightLevel;
     public UITrackpad hardness;
     public UIPropTransform transform;
@@ -271,6 +273,15 @@ public class UIModelBlockPanel extends UIDashboardPanel implements IFlightSuppor
                         this.beginUndoCapture();
                         this.pickEdit.setForm(f);
                         this.modelBlock.getProperties().setForm(f);
+                        /* While the nested form editor is open, keep the shared live form and
+                         * defer network sync. Saving now round-trips fromData() and replaces
+                         * the form instance the editor is mutating, so F7 shows stale transforms. */
+                        if (this.isEditing(this.modelBlock))
+                        {
+                            this.toSave.add(this.modelBlock);
+                            return;
+                        }
+
                         this.endUndoCapture();
                     });
 
@@ -279,7 +290,11 @@ public class UIModelBlockPanel extends UIDashboardPanel implements IFlightSuppor
                     () -> toggleRendering = !toggleRendering);
             palette.editor.renderer.full(dashboard.getRoot());
             palette.editor.renderer.setTarget(this.modelBlock.getEntity());
-            palette.editor.renderer.setRenderForm(() -> !toggleRendering);
+            /* Interaction (gizmos / bone pick) can stay on with F7 when the setting allows it;
+             * the mesh itself is still suppressed so the world copy is not doubled. */
+            palette.editor.renderer.setRenderForm(() ->
+                !toggleRendering || BBSSettings.gizmosWorldRendering.get());
+            palette.editor.renderer.setRenderFormMesh(() -> !toggleRendering);
             palette.getEvents().register(UIToggleEditorEvent.class, (e) ->
             {
                 if (e.editing)
@@ -356,6 +371,14 @@ public class UIModelBlockPanel extends UIDashboardPanel implements IFlightSuppor
             this.modelBlock.getProperties().setLookAt(b.getValue());
             this.endUndoCapture();
         });
+        this.chromaSky = new UIToggle(UIKeys.MODEL_BLOCKS_CHROMA_SKY, (b) -> {
+            if (this.modelBlock == null)
+                return;
+            this.beginUndoCapture();
+            this.modelBlock.getProperties().setChromaSky(b.getValue());
+            this.endUndoCapture();
+        });
+        this.chromaSky.tooltip(UIKeys.MODEL_BLOCKS_CHROMA_SKY_TOOLTIP);
 
         this.lightLevel = new UITrackpad((v) -> {
             if (this.modelBlock == null)
@@ -495,7 +518,7 @@ public class UIModelBlockPanel extends UIDashboardPanel implements IFlightSuppor
                 this.sectionHeader(UIKeys.MODEL_BLOCKS_DISPLAY),
                 UI.row(4, this.enabled, this.shadow),
                 UI.row(4, this.global, this.lookAt),
-                this.hitbox,
+                UI.row(4, this.hitbox, this.chromaSky),
                 this.sectionHeader(UIKeys.MODEL_BLOCKS_BLOCK),
                 UI.row(4, lightGroup, hardnessGroup),
                 this.sectionHeader(UIKeys.MODEL_BLOCKS_EQUIPMENT),
@@ -1411,6 +1434,9 @@ public class UIModelBlockPanel extends UIDashboardPanel implements IFlightSuppor
 
         this.undoManager.pushUndo(new ModelBlockPropertiesUndo(this.modelBlock.getPos(), before, after));
         this.toSave.add(this.modelBlock);
+        /* Sync immediately so paint/color transforms are not lost if the world unloads
+         * before the panel's close() flush. */
+        this.save(this.modelBlock);
     }
 
     private void applyPropertiesSnapshot(BlockPos pos, MapType data) {
@@ -1581,6 +1607,12 @@ public class UIModelBlockPanel extends UIDashboardPanel implements IFlightSuppor
         if (this.cameraController != null) {
             BBSModClient.getCameraController().remove(this.cameraController);
         }
+
+        for (ModelBlockEntity entity : this.toSave) {
+            this.save(entity);
+        }
+
+        this.toSave.clear();
     }
 
     /**
@@ -1886,6 +1918,7 @@ public class UIModelBlockPanel extends UIDashboardPanel implements IFlightSuppor
         this.hitbox.setValue(properties.isHitbox());
         this.global.setValue(properties.isGlobal());
         this.lookAt.setValue(properties.isLookAt());
+        this.chromaSky.setValue(properties.isChromaSky());
         this.lightLevel.setValue(properties.getLightLevel());
         this.hardness.setValue(properties.getHardness());
 
@@ -1935,6 +1968,7 @@ public class UIModelBlockPanel extends UIDashboardPanel implements IFlightSuppor
 
     @Override
     public boolean subMouseReleased(UIContext context) {
+        this.gizmoController.consumePendingTrackballClick();
         this.gizmoController.stop();
 
         return super.subMouseReleased(context);
@@ -2251,7 +2285,7 @@ public class UIModelBlockPanel extends UIDashboardPanel implements IFlightSuppor
         /* Don't draw/pick this panel's own gizmo while the block's nested form/model editor is
          * open on top - that editor has its own gizmo (rendered in its own viewport), and
          * showing both at once would double up and fight over the same drag. */
-        if (this.modelBlock == null || this.isEditing(this.modelBlock))
+        if (this.modelBlock == null || this.isEditing(this.modelBlock) || !UIBaseMenu.renderAxes)
         {
             this.gizmoStencil.clearPicking();
             this.gizmoController.updateHover();
@@ -2323,18 +2357,10 @@ public class UIModelBlockPanel extends UIDashboardPanel implements IFlightSuppor
 
     private void applyGizmoCaptureToSingleton()
     {
-        if (BBSRendering.isIrisShadersEnabled())
-        {
-            Gizmo.INSTANCE.lastGizmoMatrix.set(this.gizmoInterfaceMatrix);
-        }
-        else
-        {
-            /* Without shaders the world pass does not bake BBSRendering.camera into the
-             * captured matrix; premultiply it here so the UI draw matches the shader path. */
-            Gizmo.INSTANCE.lastGizmoMatrix.set(BBSRendering.camera);
-            Gizmo.INSTANCE.lastGizmoMatrix.mul(this.gizmoInterfaceMatrix);
-        }
-
+        /* Whether the captured matrix already bakes BBSRendering.camera depends on the
+         * render path (Iris pack vs. vanilla). composeVisualMatrix detects double-camera
+         * by view-space origin distance and keeps the gizmo on the block. */
+        Gizmo.composeVisualMatrix(this.gizmoInterfaceMatrix, BBSRendering.camera, this.gizmoProjection, Gizmo.INSTANCE.lastGizmoMatrix);
         Gizmo.INSTANCE.hasGizmoMatrix = true;
     }
 
@@ -2385,6 +2411,12 @@ public class UIModelBlockPanel extends UIDashboardPanel implements IFlightSuppor
         if (transform == null) {
             return;
         }
+
+        /* Y/Z ring and white view-ring values follow the mouse; only those process bars
+         * wind the wrong way (especially in Local). */
+        transform.setInvertRotationArcY(true);
+        transform.setInvertRotationArcZ(true);
+        transform.setInvertRotationArcViewRing(true);
 
         transform.setGizmoRayProvider(new UIPropTransform.IGizmoRayProvider() {
             @Override
@@ -2491,6 +2523,33 @@ public class UIModelBlockPanel extends UIDashboardPanel implements IFlightSuppor
             }
         }
         return false;
+    }
+
+    /**
+     * Live form currently being mutated in the nested form editor for this block, if any.
+     * Used by world/F7 rendering so the preview matches in-editor transforms even if a
+     * block-entity sync replaced {@link ModelProperties#getForm()}.
+     */
+    public static Form getLiveEditedForm(ModelBlockEntity entity)
+    {
+        if (entity == null || !(UIScreen.getCurrentMenu() instanceof UIDashboard dashboard))
+        {
+            return null;
+        }
+
+        if (!(dashboard.getPanels().panel instanceof UIModelBlockPanel panel) || !panel.isEditing(entity))
+        {
+            return null;
+        }
+
+        List<UIFormPalette> children = panel.getChildren(UIFormPalette.class);
+
+        if (children.isEmpty())
+        {
+            return null;
+        }
+
+        return children.get(0).editor.form;
     }
 
     /** Unlike {@link #isEditing(ModelBlockEntity)} (which also requires the nested form

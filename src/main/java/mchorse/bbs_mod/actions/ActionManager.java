@@ -205,6 +205,20 @@ public class ActionManager
         }
     }
 
+    /**
+     * Puts captured blocks/entities back while keeping damage control armed
+     * for further film playback.
+     */
+    public void restoreDamage(ServerWorld world)
+    {
+        DamageControl damageControl = this.dc.get(world);
+
+        if (damageControl != null)
+        {
+            damageControl.restore();
+        }
+    }
+
     public void changedBlock(BlockPos pos, BlockState state, BlockEntity blockEntity)
     {
         for (DamageControl control : this.dc.values())

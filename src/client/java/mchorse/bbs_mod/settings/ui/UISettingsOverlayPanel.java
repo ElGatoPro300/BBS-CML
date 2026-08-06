@@ -25,7 +25,6 @@ import mchorse.bbs_mod.ui.framework.elements.buttons.UIIcon;
 import mchorse.bbs_mod.ui.framework.elements.input.text.UITextbox;
 import mchorse.bbs_mod.ui.framework.elements.overlay.UIOverlayPanel;
 import mchorse.bbs_mod.ui.framework.elements.utils.UILabel;
-import mchorse.bbs_mod.ui.framework.elements.utils.UIText;
 import mchorse.bbs_mod.ui.utils.ScrollDirection;
 import mchorse.bbs_mod.ui.utils.UI;
 import mchorse.bbs_mod.ui.utils.UIUtils;
@@ -68,6 +67,7 @@ public class UISettingsOverlayPanel extends UIOverlayPanel
     };
     private UIButton applyButton;
     private UIButton cancelButton;
+    private UIIcon reload;
     private boolean trackingSession;
     private boolean applyingSession;
     private boolean hasPendingChanges;
@@ -115,6 +115,13 @@ public class UISettingsOverlayPanel extends UIOverlayPanel
         this.applyButton.relative(this).x(1F, -12).y(1F, -36).w(84).h(20).anchor(1F, 1F);
         this.cancelButton.relative(this.applyButton).x(0F, -6).w(84).h(20).anchor(0F, 1F);
         this.add(this.applyButton, this.cancelButton);
+
+        this.reload = new UIIcon(Icons.REFRESH, (b) -> this.applySettings());
+        this.reload.tooltip(UIKeys.CONFIG_RELOAD, Direction.LEFT);
+        this.icons.removeAll();
+        this.icons.relative(this).x(1F, -40).y(0).w(40).h(20);
+        this.icons.row(0);
+        this.icons.add(this.reload, this.close);
 
         this.rebuildTabs();
         this.markContainer();
@@ -322,7 +329,6 @@ public class UISettingsOverlayPanel extends UIOverlayPanel
             case "multiskin": return Icons.PLAYER;
             case "video": return Icons.VIDEO_CAMERA;
             case "editor": return Icons.CAMERA;
-            case "timeline_toolbar": return Icons.LAYOUT;
             case "replays": return Icons.POSE;
             case "recording": return Icons.PROPERTIES;
             case "model_blocks": return Icons.BLOCK;
@@ -330,6 +336,7 @@ public class UISettingsOverlayPanel extends UIOverlayPanel
             case "dc": return Icons.SKULL;
             case "shader_curves": return Icons.CURVES;
             case "fluid_simulation": return Icons.FILTER;
+            case "compatibility": return Icons.SAVE;
             case "audio": return Icons.SOUND;
             case "cdn": return Icons.USER;
             default: return Icons.SETTINGS;
@@ -484,15 +491,6 @@ public class UISettingsOverlayPanel extends UIOverlayPanel
 
             List<UIElement> options = new ArrayList<>();
 
-            if (category.getId().equals("timeline_toolbar"))
-            {
-                UIText warning = new UIText(L10n.lang("bbs.config.timeline_toolbar.warning"))
-                    .color(0xFFAA8844, true);
-                warning.w(1F);
-
-                options.add(warning.marginBottom(6));
-            }
-
             for (BaseValue value : category.getAll())
             {
                 if (!value.isVisible())
@@ -623,6 +621,10 @@ public class UISettingsOverlayPanel extends UIOverlayPanel
         if (this.close.area.isInside(context))
         {
             this.close.area.render(context.batcher, Colors.RED | Colors.A100);
+        }
+        else if (this.reload.area.isInside(context))
+        {
+            this.reload.area.render(context.batcher, Colors.setA(BBSSettings.primaryColor.get(), 0.75F));
         }
 
         // Resize handles

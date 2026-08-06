@@ -24,7 +24,9 @@ public class ShaderCurves
 
     public static final String BRIGHTNESS = "brightness";
     public static final String SUN_ROTATION = "sun_rotation";
+    public static final String SUN_PATH_ROTATION = "sun_path_rotation";
     public static final String WEATHER = "weather";
+    public static final String SHADER_SHADOW_OPACITY = "shader_shadow_opacity";
 
     public static final String UNIFORM_IDENTIFIER = "bbs_";
 
@@ -53,13 +55,16 @@ public class ShaderCurves
     }
 
     public static void finishLoading()
-    {}
+    {
+        ShaderOpacityPatch.ensureShadowOpacityVariable();
+        ensureSunPathRotationVariable();
+    }
 
     public static String processSource(String source)
     {
         if (!BBSSettings.shaderCurvesEnabled.get())
         {
-            return source;
+            return processSunPathRotation(source);
         }
 
         String stripped = stripComments(source);
@@ -80,7 +85,134 @@ public class ShaderCurves
             }
         }
 
-        return source;
+        return processSunPathRotation(source);
+    }
+
+    public static void ensureSunPathRotationVariable()
+    {
+        ShaderVariable variable = variableMap.get(SUN_PATH_ROTATION);
+
+        if (variable == null)
+        {
+            variable = new ShaderVariable(SUN_PATH_ROTATION, "0.0", false);
+            variableMap.put(SUN_PATH_ROTATION, variable);
+        }
+    }
+
+    /**
+     * Complementary/BSL: yaw sun direction with BBS light yaw.
+     * Shadow-map alignment is handled in Iris {@code ShadowMatrices} (cascades need it).
+     */
+    public static String processSunPathRotation(String source)
+    {
+        if (source == null || source.isEmpty())
+        {
+            return source;
+        }
+
+        /* Shared sun-direction expression (Complementary GetSunVector body + BSL inlined sunVec). */
+        String sunDirExpr = "vec3(-sin(ang), cos(ang) * sunRotationData) * 2000.0";
+        String sunDirExprYaw = "bbsApplySunPathYaw(vec3(-sin(ang), cos(ang) * sunRotationData)) * 2000.0";
+        boolean hasSunDirExpr = source.contains(sunDirExpr) && !source.contains(sunDirExprYaw);
+        boolean hasSunVectorFn = source.contains("GetSunVector");
+        boolean hasSunPathHelpers = source.contains("bbsApplySunPathYaw");
+        boolean needsPatch = hasSunDirExpr || hasSunVectorFn || hasSunPathHelpers;
+
+        if (!needsPatch)
+        {
+            return source;
+        }
+
+        ensureSunPathRotationVariable();
+
+        String uniform = UNIFORM_IDENTIFIER + SUN_PATH_ROTATION;
+        /* Uniform MUST come before helpers in one insert — separate inserts put helpers first. */
+        String patched = ensureSunPathPreamble(source, uniform);
+
+        if (hasSunVectorFn)
+        {
+            String overworldReturn =
+                "return normalize((gbufferModelView * vec4(vec3(-sin(ang), cos(ang) * sunRotationData) * 2000.0, 1.0)).xyz);";
+            String endReturn =
+                "return normalize((gbufferModelView * vec4(vec3(0.0, sunRotationData * 2000.0), 1.0)).xyz);";
+            String overworldPatched =
+                "vec3 bbsSunDir = bbsApplySunPathYaw(vec3(-sin(ang), cos(ang) * sunRotationData));\n"
+                    + "            return normalize((gbufferModelView * vec4(bbsSunDir * 2000.0, 1.0)).xyz);";
+            String endPatched =
+                "return normalize((gbufferModelView * vec4(bbsApplySunPathYaw(vec3(0.0, sunRotationData)) * 2000.0, 1.0)).xyz);";
+
+            patched = patched.replace(overworldReturn, overworldPatched);
+            patched = patched.replace(endReturn, endPatched);
+
+            String skyRaw =
+                "vec3 rawSunVec2 = (gbufferModelView * vec4(vec3(-sin(ang), cos(ang) * sunRotationData2) * 2000.0, 1.0)).xyz;";
+            String skyRawPatched =
+                "vec3 rawSunVec2 = (gbufferModelView * vec4(bbsApplySunPathYaw(vec3(-sin(ang), cos(ang) * sunRotationData2)) * 2000.0, 1.0)).xyz;";
+
+            patched = patched.replace(skyRaw, skyRawPatched);
+        }
+
+        /* BSL inlines sunVec / nextSunVec (and vxModelView variants) with this shared expression. */
+        if (patched.contains(sunDirExpr) && !patched.contains(sunDirExprYaw))
+        {
+            patched = patched.replace(sunDirExpr, sunDirExprYaw);
+        }
+
+        return patched;
+    }
+
+    /**
+     * Inserts uniform then yaw helper in one block after {@code #version}.
+     */
+    private static String ensureSunPathPreamble(String source, String uniform)
+    {
+        boolean hasUniform = source.contains("uniform float " + uniform)
+            || source.contains("uniform int " + uniform);
+        boolean hasYaw = source.contains("bbsApplySunPathYaw");
+
+        if (hasUniform && hasYaw)
+        {
+            return source;
+        }
+
+        StringBuilder preamble = new StringBuilder();
+
+        if (!hasUniform)
+        {
+            preamble.append("uniform float ").append(uniform).append(";\n");
+        }
+
+        if (!hasYaw)
+        {
+            preamble.append("#ifndef BBS_SUN_PATH_YAW_HELPER\n");
+            preamble.append("#define BBS_SUN_PATH_YAW_HELPER\n");
+            preamble.append("vec3 bbsApplySunPathYaw(vec3 dir){\n");
+            preamble.append("    float bbsYaw = ").append(uniform).append(" * 0.01745329251994;\n");
+            preamble.append("    float bbsC = cos(bbsYaw);\n");
+            preamble.append("    float bbsS = sin(bbsYaw);\n");
+            preamble.append("    return vec3(dir.x * bbsC - dir.z * bbsS, dir.y, dir.x * bbsS + dir.z * bbsC);\n");
+            preamble.append("}\n");
+            preamble.append("#endif\n");
+        }
+
+        if (preamble.length() == 0)
+        {
+            return source;
+        }
+
+        int version = source.indexOf("#version");
+
+        if (version >= 0)
+        {
+            int nextNewLine = source.indexOf('\n', version);
+
+            if (nextNewLine >= 0)
+            {
+                return source.substring(0, nextNewLine + 1) + preamble + source.substring(nextNewLine + 1);
+            }
+        }
+
+        return preamble + source;
     }
 
     /**

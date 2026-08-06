@@ -3,6 +3,7 @@ package mchorse.bbs_mod.ui.film;
 import mchorse.bbs_mod.BBSModClient;
 import mchorse.bbs_mod.camera.clips.misc.Subtitle;
 import mchorse.bbs_mod.client.BBSShaders;
+import mchorse.bbs_mod.client.screen.ColorGradeRenderer;
 import mchorse.bbs_mod.graphics.Framebuffer;
 import mchorse.bbs_mod.graphics.texture.Texture;
 import mchorse.bbs_mod.resources.Link;
@@ -66,6 +67,13 @@ public class UISubtitleRenderer
         int width = fb.textureWidth;
         int height = fb.textureHeight;
 
+        /* Text-atlas FBO applyClear() shrinks glViewport; beginWrite(false) alone may not
+         * restore it (same class of bug as UIFilmController stencil picking). Save so
+         * Hotbar/Bossbar/Image drawn after a Subtitle keep full-frame placement. */
+        int[] prevViewport = new int[4];
+
+        GL11.glGetIntegerv(GL11.GL_VIEWPORT, prevViewport);
+
         Matrix4f cache = new Matrix4f(RenderSystem.getProjectionMatrix());
 
         width /= 2;
@@ -77,8 +85,21 @@ public class UISubtitleRenderer
         FontRenderer font = Batcher2D.getVanillaTextRenderer();
         TextRenderer vanilla = MinecraftClient.getInstance().textRenderer;
 
+        /*
+         * After ColorGrade raw-GL, the first textured Minecraft draw repairs Sampler0
+         * tracking. If Subtitle is the only HUD clip it would otherwise bake text with
+         * texture 0 bound → black atlas. Image/Hotbar/another Subtitle hide the bug by
+         * drawing a textured quad first; do that here explicitly.
+         */
+        fb.beginWrite(false);
+        GL11.glViewport(prevViewport[0], prevViewport[1], prevViewport[2], prevViewport[3]);
+        ColorGradeRenderer.resyncMinecraftState(batcher);
+
         RenderSystem.depthFunc(GL11.GL_ALWAYS);
         RenderSystem.disableCull();
+        RenderSystem.enableBlend();
+        RenderSystem.blendFuncSeparate(GlStateManager.SrcFactor.SRC_ALPHA, GlStateManager.DstFactor.ONE_MINUS_SRC_ALPHA, GlStateManager.SrcFactor.ONE, GlStateManager.DstFactor.ONE_MINUS_SRC_ALPHA);
+        RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
 
         for (Subtitle subtitle : subtitles)
         {
@@ -90,14 +111,15 @@ public class UISubtitleRenderer
             }
 
             String label = StringUtils.processColoredText(subtitle.label);
-            int w = 0;
-            int h = 0;
+            float w = 0;
+            float h = 0;
             int x = (int) (width * subtitle.windowX + subtitle.x);
             int y = (int) (height * subtitle.windowY + subtitle.y);
             float scale = subtitle.size;
             int subColor = subtitle.color;
+            int wrapWidth = Math.max(0, Math.round(subtitle.maxWidth));
 
-            List<String> strings = subtitle.maxWidth <= 10 ? Arrays.asList(label) : FontRenderer.wrap(vanilla, label, subtitle.maxWidth);
+            List<String> strings = subtitle.maxWidth <= 10F ? Arrays.asList(label) : FontRenderer.wrap(vanilla, label, wrapWidth);
 
             for (String string : strings)
             {
@@ -109,18 +131,27 @@ public class UISubtitleRenderer
             int fw = (int) ((w + 10) * scale);
             int fh = (int) ((h + 10) * scale);
 
+            if (fw <= 0 || fh <= 0)
+            {
+                continue;
+            }
+
             RenderSystem.setProjectionMatrix(new Matrix4f().ortho(0, w + 10, 0, h + 10, -100, 100), VertexSorter.BY_Z);
 
             framebuffer.resize(fw, fh);
+            /* Transparent clear — opaque world clear-color would show as a black plate
+             * if text baking still failed. */
+            GL11.glClearColor(0F, 0F, 0F, 0F);
             framebuffer.applyClear();
+            RenderSystem.setShaderTexture(0, 0);
 
-            int yy = 5;
+            float yy = 5F;
 
             for (String string : strings)
             {
                 string = string.trim();
 
-                int xx = 5 + (w - vanilla.getWidth(string)) / 2;
+                int xx = 5 + (int) ((w - vanilla.getWidth(string)) / 2);
 
                 if (Colors.getA(subtitle.backgroundColor) > 0)
                 {
@@ -129,18 +160,22 @@ public class UISubtitleRenderer
                     int th = vanilla.fontHeight - 2;
 
                     batcher.box(xx - offset, yy - offset, xx + tw + offset - 1, yy + th + offset, Colors.mulA(subtitle.backgroundColor, alpha));
-                    batcher.text(font, string, xx, yy, Colors.setA(subColor, 1F), subtitle.textShadow);
+                    batcher.text(font, string, xx, (int) yy, Colors.setA(subColor, 1F), subtitle.textShadow);
                 }
                 else
                 {
-                    batcher.text(font, string, xx, yy, Colors.setA(subColor, 1F), subtitle.textShadow);
+                    batcher.text(font, string, xx, (int) yy, Colors.setA(subColor, 1F), subtitle.textShadow);
                 }
 
                 yy += subtitle.lineHeight;
             }
 
-            /* Render the texture */
-            fb.beginWrite(true);
+            batcher.flush();
+
+            /* Do not clear the main target — that would wipe Hotbar/Bossbar/Image already
+             * drawn earlier in renderHudOverlays. Also restore viewport explicitly. */
+            fb.beginWrite(false);
+            GL11.glViewport(prevViewport[0], prevViewport[1], prevViewport[2], prevViewport[3]);
 
             RenderSystem.setProjectionMatrix(ortho, VertexSorter.BY_Z);
 
@@ -165,7 +200,16 @@ public class UISubtitleRenderer
             stack.pop();
         }
 
+        /* Clear Blur so later HUD draws that reuse this program stay unaffected. */
+        if (blur != null)
+        {
+            blur.set(0F, 0F);
+        }
+
+        batcher.flush();
         RenderSystem.setProjectionMatrix(cache, VertexSorter.BY_Z);
+        GL11.glViewport(prevViewport[0], prevViewport[1], prevViewport[2], prevViewport[3]);
+        RenderSystem.depthFunc(GL11.GL_LEQUAL);
         RenderSystem.enableCull();
     }
 

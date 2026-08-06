@@ -22,7 +22,7 @@ public class StructureForm extends Form
     /** Ruta relativa dentro de assets al archivo de estructura (.nbt), por ejemplo: "structures/casa.nbt" */
     public final ValueString structureFile = new ValueString("structure_file", "");
     /** Color de tinte aplicado al renderizado (multiplicado) */
-    public final ValueColor color = new ValueColor("color", Color.white());
+    public final ValueColor color = new ValueColor("color", new Color(1F, 1F, 1F, 1F));
     /** Bioma seleccionado para coloreo (override). Vacío para usar el del mundo */
     public final ValueString biomeId = new ValueString("biome_id", "");
     /** Alterna si los bloques de iluminación de la estructura emiten luz */

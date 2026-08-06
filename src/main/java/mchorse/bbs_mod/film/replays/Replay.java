@@ -13,6 +13,7 @@ import mchorse.bbs_mod.film.Film;
 import mchorse.bbs_mod.forms.entities.IEntity;
 import mchorse.bbs_mod.forms.forms.Form;
 import mchorse.bbs_mod.forms.forms.MobForm;
+import mchorse.bbs_mod.forms.forms.utils.ShadowSettings;
 import mchorse.bbs_mod.settings.values.base.BaseValueGroup;
 import mchorse.bbs_mod.settings.values.core.ValueForm;
 import mchorse.bbs_mod.settings.values.core.ValueGroup;
@@ -44,7 +45,11 @@ public class Replay extends ValueGroup
     public final ValueString group = new ValueString("group", "");
     public final ValueBoolean shadow = new ValueBoolean("shadow", true);
     public final ValueFloat shadowSize = new ValueFloat("shadow_size", 0.5F);
+    public final ValueFloat shadowSizeZ = new ValueFloat("shadow_size_z", 0.5F);
     public final ValueFloat shadowOpacity = new ValueFloat("shadow_opacity", 1F, 0F, 1F);
+    public final ValueFloat shadowOffsetX = new ValueFloat("shadow_offset_x", 0F);
+    public final ValueFloat shadowOffsetY = new ValueFloat("shadow_offset_y", 0F);
+    public final ValueFloat shadowOffsetZ = new ValueFloat("shadow_offset_z", 0F);
     public final ValueInt looping = new ValueInt("looping", 0);
 
     public final ValueBoolean actor = new ValueBoolean("actor", false);
@@ -87,7 +92,11 @@ public class Replay extends ValueGroup
         this.add(this.group);
         this.add(this.shadow);
         this.add(this.shadowSize);
+        this.add(this.shadowSizeZ);
         this.add(this.shadowOpacity);
+        this.add(this.shadowOffsetX);
+        this.add(this.shadowOffsetY);
+        this.add(this.shadowOffsetZ);
         this.add(this.looping);
 
         this.add(this.actor);
@@ -293,6 +302,15 @@ public class Replay extends ValueGroup
             }
         }
 
+        /* Pre-XZ-shadow films only had shadow_size — mirror into Z so shape stays circular. */
+        boolean migratedShadowZ = false;
+
+        if (data instanceof MapType map && !map.has("shadow_size_z") && map.has("shadow_size"))
+        {
+            this.shadowSizeZ.set(this.shadowSize.get());
+            migratedShadowZ = true;
+        }
+
         this.ensureShadowKeyframes();
         this.applyVanillaPlaybackDefaults();
     }
@@ -304,12 +322,18 @@ public class Replay extends ValueGroup
     {
         if (this.keyframes.shadowSize.isEmpty())
         {
-            this.keyframes.shadowSize.insert(0, 0.5D);
+            ShadowSettings settings = new ShadowSettings(1F, this.shadowSize.get(), this.shadowSizeZ.get());
+
+            settings.offsetX = this.shadowOffsetX.get();
+            settings.offsetY = this.shadowOffsetY.get();
+            settings.offsetZ = this.shadowOffsetZ.get();
+
+            this.keyframes.shadowSize.insert(0, settings);
         }
 
         if (this.keyframes.shadowOpacity.isEmpty())
         {
-            this.keyframes.shadowOpacity.insert(0, 1D);
+            this.keyframes.shadowOpacity.insert(0, (double) this.shadowOpacity.get());
         }
     }
 }

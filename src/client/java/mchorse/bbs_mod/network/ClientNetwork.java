@@ -46,6 +46,7 @@ import net.minecraft.network.codec.PacketCodec;
 import net.minecraft.network.packet.CustomPayload;
 import net.minecraft.util.Hand;
 import net.minecraft.util.math.BlockPos;
+import net.minecraft.world.GameMode;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -553,6 +554,22 @@ public class ClientNetwork
 
         crusher.send(MinecraftClient.getInstance().player, ServerNetwork.SERVER_PLAYER_FORM_PACKET, mapType == null ? new MapType() : mapType, (packetByteBuf) ->
         {});
+    }
+
+    /**
+     * Ask the server to change this client's gamemode without chat feedback.
+     */
+    public static void sendSetGameMode(GameMode mode)
+    {
+        if (mode == null || MinecraftClient.getInstance().player == null)
+        {
+            return;
+        }
+
+        PacketByteBuf buf = PacketByteBufs.create();
+
+        buf.writeVarInt(mode.getId());
+        ClientPlayNetworking.send(ServerNetwork.BufPayload.from(buf, ServerNetwork.idFor(ServerNetwork.SERVER_SET_GAME_MODE)));
     }
 
     public static void sendModelBlockTransforms(MapType data)

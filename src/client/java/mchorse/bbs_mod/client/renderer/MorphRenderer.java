@@ -29,6 +29,8 @@ import org.joml.Vector3f;
 
 import com.mojang.blaze3d.systems.RenderSystem;
 
+import org.lwjgl.opengl.GL11;
+
 public class MorphRenderer
 {
     public static boolean hidePlayer = false;

@@ -1,5 +1,6 @@
 package mchorse.bbs_mod.ui.home;
 
+import mchorse.bbs_mod.BBSSettings;
 import mchorse.bbs_mod.film.CrossWorldFilmEntry;
 import mchorse.bbs_mod.graphics.window.Window;
 import mchorse.bbs_mod.l10n.L10n;
@@ -10,15 +11,19 @@ import mchorse.bbs_mod.ui.dashboard.UIDashboard;
 import mchorse.bbs_mod.ui.dashboard.panels.UIDashboardPanel;
 import mchorse.bbs_mod.ui.dashboard.utils.UIGraphPanel;
 import mchorse.bbs_mod.ui.film.UIFilmPanel;
+import mchorse.bbs_mod.ui.film.UIFilmStatusIcons;
 import mchorse.bbs_mod.ui.film.UIWorldFilmsBrowserPanel;
 import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.ui.framework.elements.IUIElement;
 import mchorse.bbs_mod.ui.framework.elements.UIElement;
+import mchorse.bbs_mod.ui.framework.elements.UIScrollView;
 import mchorse.bbs_mod.ui.framework.elements.navigation.UIControlBar;
 import mchorse.bbs_mod.ui.framework.elements.navigation.UIIconTabButton;
 import mchorse.bbs_mod.ui.model.UIModelPanel;
 import mchorse.bbs_mod.ui.particles.UIParticleSchemePanel;
 import mchorse.bbs_mod.ui.utility.audio.UIAudioEditorPanel;
+import mchorse.bbs_mod.ui.utils.ScrollDirection;
+import mchorse.bbs_mod.ui.utils.UIUtils;
 import mchorse.bbs_mod.ui.utils.icons.Icon;
 import mchorse.bbs_mod.ui.utils.icons.Icons;
 import mchorse.bbs_mod.utils.DataPath;
@@ -42,10 +47,14 @@ public class UIDocumentTabsBar extends UIControlBar
     public static final int HEIGHT = 20;
 
     private static final int HOME_TAB_WIDTH = 88;
-    private static final int DOC_TAB_WIDTH = 122;
+    private static final int DOC_TAB_WIDTH = 136;
     private static final int ADD_TAB_WIDTH = 24;
+    private static final int RIGHT_PADDING = 4;
+    private static final int TABS_RIGHT_MARGIN = 8;
 
     private final UIDashboard dashboard;
+    private UIFilmStatusIcons filmStatusIcons;
+    private final UIScrollView tabsScroll;
     private final UIElement tabs;
     private final List<DocumentTab> documentTabs = new ArrayList<>();
     private int activeTab = 0;
@@ -55,6 +64,8 @@ public class UIDocumentTabsBar extends UIControlBar
     private int pendingDragIndex = -1;
     private int pendingDragX;
     private int pendingDragY;
+    private int dropPreviewIndex = -1;
+    private final DropPlaceholder dropPlaceholder = new DropPlaceholder();
 
     private static final long DRAG_DELAY_MS = 150L;
     private static final int DRAG_MOVE_THRESHOLD = 5;
@@ -62,17 +73,109 @@ public class UIDocumentTabsBar extends UIControlBar
     public UIDocumentTabsBar(UIDashboard dashboard)
     {
         this.dashboard = dashboard;
+        this.tabsScroll = new UIScrollView(ScrollDirection.HORIZONTAL);
+        this.tabsScroll.relative(this).x(8).y(0).w(1F, -16).h(HEIGHT);
+        this.tabsScroll.scroll.cancelScrolling();
+        this.tabsScroll.scroll.scrollSpeed = 15;
         this.tabs = new UIElement();
-        this.tabs.relative(this).x(8).y(0).w(1F, -16).h(HEIGHT).row(0).resize();
-        this.add(this.tabs);
+        this.tabs.relative(this.tabsScroll).x(0).y(0).h(HEIGHT).row(0);
+        this.tabsScroll.add(this.tabs);
+        this.add(this.tabsScroll);
 
         this.documentTabs.add(DocumentTab.home());
         this.rebuild();
     }
 
+    public void attachFilmStatusIcons(UIFilmStatusIcons icons)
+    {
+        if (this.filmStatusIcons != null && this.filmStatusIcons != icons)
+        {
+            this.filmStatusIcons.removeFromParent();
+        }
+
+        this.filmStatusIcons = icons;
+
+        if (icons != null && icons.getParent() != this)
+        {
+            icons.removeFromParent();
+            this.add(icons);
+        }
+
+        this.layoutFilmStatusIcons();
+    }
+
+    public void layoutFilmStatusIcons()
+    {
+        boolean show = false;
+
+        if (this.filmStatusIcons != null && this.dashboard.panels.panel instanceof UIFilmPanel film)
+        {
+            show = film.getData() != null && !film.isShowingHomePage();
+        }
+
+        int reserve = 0;
+
+        if (this.filmStatusIcons != null)
+        {
+            this.filmStatusIcons.setVisible(show);
+            reserve = show ? UIFilmStatusIcons.WIDTH : 0;
+
+            int x = this.area.ex() - reserve - RIGHT_PADDING;
+
+            this.filmStatusIcons.layoutInTabBar(x, this.area.y, this.area.h);
+        }
+
+        this.tabsScroll.getFlex().w.offset = -(reserve + TABS_RIGHT_MARGIN);
+
+        if (this.hasParent())
+        {
+            this.tabsScroll.resize();
+        }
+    }
+
+    @Override
+    public void resize()
+    {
+        super.resize();
+
+        this.layoutFilmStatusIcons();
+    }
+
+    @Override
+    protected IUIElement childrenMouseClicked(UIContext context)
+    {
+        if (context.mouseButton == GLFW.GLFW_MOUSE_BUTTON_MIDDLE)
+        {
+            int index = this.findTabIndexAt(context);
+
+            if (index >= 0)
+            {
+                DocumentTab tab = this.documentTabs.get(index);
+
+                if (!tab.isHome || this.documentTabs.size() > 1)
+                {
+                    UIUtils.playClick();
+                    this.remove(index);
+
+                    return this;
+                }
+            }
+        }
+
+        return super.childrenMouseClicked(context);
+    }
+
     @Override
     public void render(UIContext context)
     {
+        this.layoutFilmStatusIcons();
+
+        if (this.filmStatusIcons != null && this.filmStatusIcons.getParent() == this)
+        {
+            this.remove(this.filmStatusIcons);
+            this.add(this.filmStatusIcons);
+        }
+
         this.updateTabDragPoll(context);
 
         context.batcher.box(this.area.x, this.area.y, this.area.ex(), this.area.ey(), 0xFF141418);
@@ -368,6 +471,31 @@ public class UIDocumentTabsBar extends UIControlBar
     /* Internals                                                             */
     /* ------------------------------------------------------------------ */
 
+    private int findTabIndexAt(UIContext context)
+    {
+        if (!this.isMouseOverTabBar(context.mouseX, context.mouseY))
+        {
+            return -1;
+        }
+
+        int mx = context.mouseX + (int) this.tabsScroll.scroll.getScroll();
+        int my = context.mouseY;
+        List<IUIElement> children = this.tabs.getChildren();
+        int count = this.documentTabs.size();
+
+        for (int i = 0; i < count && i < children.size(); i++)
+        {
+            IUIElement child = children.get(i);
+
+            if (child instanceof UIElement element && element.isVisible() && element.area.isInside(mx, my))
+            {
+                return i;
+            }
+        }
+
+        return -1;
+    }
+
     private int find(ContentType type, String id)
     {
         for (int i = 0; i < this.documentTabs.size(); i++)
@@ -385,6 +513,8 @@ public class UIDocumentTabsBar extends UIControlBar
     private void rebuild()
     {
         this.tabs.removeAll();
+        this.dropPreviewIndex = -1;
+        this.dropPlaceholder.setPlaceholderVisible(false);
 
         for (int i = 0; i < this.documentTabs.size(); i++)
         {
@@ -393,11 +523,11 @@ public class UIDocumentTabsBar extends UIControlBar
             DocumentTabButton button = new DocumentTabButton(index, this.titleOf(tab), this.iconOf(tab));
 
             button.active(this.activeTab == index);
-            button.w(tab.isHome ? HOME_TAB_WIDTH : DOC_TAB_WIDTH).h(HEIGHT);
+            button.w(this.tabWidth(tab)).h(HEIGHT);
 
             if (!tab.isHome || this.documentTabs.size() > 1)
             {
-                button.removable((b) -> this.remove(index));
+                button.removable((b) -> this.remove(((DocumentTabButton) b).tabIndex));
             }
 
             this.tabs.add(button);
@@ -408,29 +538,144 @@ public class UIDocumentTabsBar extends UIControlBar
         add.background(false);
         add.w(ADD_TAB_WIDTH).h(HEIGHT);
         this.tabs.add(add);
+
+        this.applyTabsWidth(false);
         this.tabs.resize();
+        this.tabsScroll.resize();
+        this.tabsScroll.scroll.scrollSize = this.tabs.getFlex().w.offset;
+        this.tabsScroll.scroll.clamp();
+        this.scrollActiveTabIntoView();
+    }
+
+    private int tabWidth(DocumentTab tab)
+    {
+        return tab.isHome ? HOME_TAB_WIDTH : DOC_TAB_WIDTH;
+    }
+
+    private void applyTabsWidth(boolean dragging)
+    {
+        int totalWidth = ADD_TAB_WIDTH;
+
+        for (int i = 0; i < this.documentTabs.size(); i++)
+        {
+            if (dragging && i == this.dragIndex)
+            {
+                continue;
+            }
+
+            totalWidth += this.tabWidth(this.documentTabs.get(i));
+        }
+
+        if (dragging && this.dragIndex >= 0 && this.dragIndex < this.documentTabs.size())
+        {
+            totalWidth += this.tabWidth(this.documentTabs.get(this.dragIndex));
+        }
+
+        this.tabs.w(totalWidth);
+    }
+
+    private void updateDragLayout(int previewIndex)
+    {
+        if (this.dragIndex < 0 || this.dragIndex >= this.documentTabs.size())
+        {
+            return;
+        }
+
+        DocumentTab dragged = this.documentTabs.get(this.dragIndex);
+        int gapWidth = this.tabWidth(dragged);
+
+        this.tabs.removeAll();
+        this.dropPlaceholder.w(gapWidth).h(HEIGHT);
+
+        int remainingIndex = 0;
+
+        for (int i = 0; i < this.documentTabs.size(); i++)
+        {
+            if (i == this.dragIndex)
+            {
+                continue;
+            }
+
+            if (remainingIndex == previewIndex)
+            {
+                this.dropPlaceholder.setPlaceholderVisible(true);
+                this.tabs.add(this.dropPlaceholder);
+            }
+
+            DocumentTab tab = this.documentTabs.get(i);
+            DocumentTabButton button = new DocumentTabButton(i, this.titleOf(tab), this.iconOf(tab));
+
+            button.active(this.activeTab == i);
+            button.w(this.tabWidth(tab)).h(HEIGHT);
+
+            if (!tab.isHome || this.documentTabs.size() > 1)
+            {
+                button.removable((b) -> this.remove(((DocumentTabButton) b).tabIndex));
+            }
+
+            this.tabs.add(button);
+            remainingIndex += 1;
+        }
+
+        if (remainingIndex == previewIndex)
+        {
+            this.dropPlaceholder.setPlaceholderVisible(true);
+            this.tabs.add(this.dropPlaceholder);
+        }
+        else if (previewIndex < 0)
+        {
+            this.dropPlaceholder.setPlaceholderVisible(false);
+        }
+
+        UIIconTabButton add = new UIIconTabButton(IKey.raw(""), Icons.ADD, (b) -> this.addHomeTab());
+
+        add.background(false);
+        add.w(ADD_TAB_WIDTH).h(HEIGHT);
+        this.tabs.add(add);
+
+        this.applyTabsWidth(true);
+        this.tabs.resize();
+        this.tabsScroll.resize();
+        this.tabsScroll.scroll.scrollSize = this.tabs.getFlex().w.offset;
+        this.tabsScroll.scroll.clamp();
+    }
+
+    private void scrollActiveTabIntoView()
+    {
+        if (this.activeTab < 0 || this.activeTab >= this.tabs.getChildren().size())
+        {
+            return;
+        }
+
+        IUIElement child = this.tabs.getChildren().get(this.activeTab);
+
+        if (child instanceof UIElement element)
+        {
+            this.tabsScroll.scroll.scrollIntoView(element.area.x, element.area.ex());
+        }
     }
 
     private void moveTab(int from, int to)
     {
-        if (from < 0 || to < 0 || from >= this.documentTabs.size() || to >= this.documentTabs.size() || from == to)
+        if (from < 0 || to < 0 || from >= this.documentTabs.size() || from == to)
         {
             return;
         }
 
         DocumentTab tab = this.documentTabs.remove(from);
+        int insertAt = Math.min(to, this.documentTabs.size());
 
-        this.documentTabs.add(to, tab);
+        this.documentTabs.add(insertAt, tab);
 
         if (this.activeTab == from)
         {
-            this.activeTab = to;
+            this.activeTab = insertAt;
         }
-        else if (from < this.activeTab && to >= this.activeTab)
+        else if (from < this.activeTab && insertAt >= this.activeTab)
         {
             this.activeTab -= 1;
         }
-        else if (from > this.activeTab && to <= this.activeTab)
+        else if (from > this.activeTab && insertAt <= this.activeTab)
         {
             this.activeTab += 1;
         }
@@ -450,6 +695,7 @@ public class UIDocumentTabsBar extends UIControlBar
         this.pendingDragY = mouseY;
         this.dragIndex = -1;
         this.dragTime = 0L;
+        this.dropPreviewIndex = -1;
     }
 
     private boolean isMouseOverTabBar(int mouseX, int mouseY)
@@ -498,6 +744,18 @@ public class UIDocumentTabsBar extends UIControlBar
                 this.dragIndex = this.pendingDragIndex;
                 this.dragTime = System.currentTimeMillis() - DRAG_DELAY_MS - 1L;
                 this.pendingDragIndex = -1;
+                this.dropPreviewIndex = -1;
+            }
+        }
+
+        if (this.isDragging())
+        {
+            int previewIndex = this.getDropPreviewIndex(context.mouseX);
+
+            if (previewIndex != this.dropPreviewIndex)
+            {
+                this.dropPreviewIndex = previewIndex;
+                this.updateDragLayout(previewIndex);
             }
         }
     }
@@ -516,73 +774,114 @@ public class UIDocumentTabsBar extends UIControlBar
             return;
         }
 
-        int target = this.getDropIndex(context.mouseX);
+        int from = this.dragIndex;
+        int target = this.dropPreviewIndex >= 0 ? this.dropPreviewIndex : this.getDropPreviewIndex(context.mouseX);
 
-        if (target >= 0 && target != this.dragIndex)
+        this.dragIndex = -1;
+        this.dragTime = 0L;
+        this.pendingDragIndex = -1;
+        this.dropPreviewIndex = -1;
+        this.dropPlaceholder.setPlaceholderVisible(false);
+
+        if (target >= 0)
         {
-            this.moveTab(this.dragIndex, target);
+            this.moveTab(from, target);
         }
-
-        this.clearDrag();
+        else
+        {
+            this.rebuild();
+        }
     }
 
     private void clearDrag()
     {
+        boolean wasDragging = this.dragIndex >= 0;
+
         this.dragIndex = -1;
         this.dragTime = 0L;
         this.pendingDragIndex = -1;
+        this.dropPreviewIndex = -1;
+        this.dropPlaceholder.setPlaceholderVisible(false);
+
+        if (wasDragging)
+        {
+            this.rebuild();
+        }
     }
 
-    private int getDropIndex(int mouseX)
+    /**
+     * Insert index among remaining tabs (dragged tab omitted), 0..size-1 inclusive for append.
+     */
+    private int getDropPreviewIndex(int mouseX)
     {
-        List<IUIElement> children = this.tabs.getChildren();
-        int count = this.documentTabs.size();
-
-        for (int i = 0; i < count; i++)
+        if (this.dragIndex < 0 || this.dragIndex >= this.documentTabs.size())
         {
-            if (i >= children.size())
-            {
-                break;
-            }
+            return -1;
+        }
 
-            IUIElement child = children.get(i);
+        /* Prefer live button midpoints when the gap layout is already applied. */
+        int remaining = 0;
 
-            if (child instanceof UIElement element && mouseX < element.area.mx())
+        for (IUIElement child : this.tabs.getChildren())
+        {
+            if (child instanceof DocumentTabButton button)
             {
-                return i;
+                if (mouseX < button.area.mx())
+                {
+                    return remaining;
+                }
+
+                remaining += 1;
             }
         }
 
-        return Math.max(0, count - 1);
+        if (remaining > 0)
+        {
+            return remaining;
+        }
+
+        int x = this.tabs.area.x;
+
+        remaining = 0;
+
+        for (int i = 0; i < this.documentTabs.size(); i++)
+        {
+            if (i == this.dragIndex)
+            {
+                continue;
+            }
+
+            int w = this.tabWidth(this.documentTabs.get(i));
+
+            if (mouseX < x + w / 2)
+            {
+                return remaining;
+            }
+
+            x += w;
+            remaining += 1;
+        }
+
+        return remaining;
     }
 
     private void renderDraggedTab(UIContext context)
     {
-        List<IUIElement> children = this.tabs.getChildren();
-
-        if (this.dragIndex < 0 || this.dragIndex >= children.size())
+        if (this.dragIndex < 0 || this.dragIndex >= this.documentTabs.size())
         {
             return;
         }
 
-        IUIElement child = children.get(this.dragIndex);
-
-        if (!(child instanceof UIIconTabButton button))
-        {
-            return;
-        }
-
-        int w = button.area.w;
-        int h = button.area.h;
+        DocumentTab tab = this.documentTabs.get(this.dragIndex);
+        int w = this.tabWidth(tab);
+        int h = HEIGHT;
         int x = context.mouseX - w / 2;
         int y = this.area.y;
+        Icon icon = this.iconOf(tab);
+        String label = this.titleOf(tab).get();
 
         context.batcher.box(x, y, x + w, y + h, 0xCC2A2A30);
         context.batcher.outline(x, y, x + w, y + h, 0xFF15151A);
-
-        DocumentTab tab = this.documentTabs.get(this.dragIndex);
-        Icon icon = this.iconOf(tab);
-        String label = this.titleOf(tab).get();
 
         if (icon != null)
         {
@@ -595,6 +894,33 @@ public class UIDocumentTabsBar extends UIControlBar
             int textY = y + (h - context.batcher.getFont().getHeight()) / 2;
 
             context.batcher.text(label, textX, textY, Colors.WHITE);
+        }
+    }
+
+    private class DropPlaceholder extends UIElement
+    {
+        private boolean placeholderVisible;
+
+        private void setPlaceholderVisible(boolean visible)
+        {
+            this.placeholderVisible = visible;
+        }
+
+        @Override
+        public void render(UIContext context)
+        {
+            if (!this.placeholderVisible)
+            {
+                return;
+            }
+
+            int halo = Colors.setA(BBSSettings.primaryColor.get(), 0.35F);
+            int border = Colors.setA(BBSSettings.primaryColor.get(), 0.65F);
+
+            context.batcher.gradientVBox(this.area.x, this.area.y, this.area.ex(), this.area.ey(), 0, halo);
+            context.batcher.outline(this.area.x, this.area.y, this.area.ex(), this.area.ey(), border);
+
+            super.render(context);
         }
     }
 
@@ -643,19 +969,6 @@ public class UIDocumentTabsBar extends UIControlBar
         @Override
         protected void renderSkin(UIContext context)
         {
-            if (UIDocumentTabsBar.this.isDragging() && UIDocumentTabsBar.this.dragIndex == this.tabIndex)
-            {
-                int x1 = this.area.x;
-                int y1 = this.area.y;
-                int x2 = this.area.ex();
-                int y2 = this.area.ey();
-
-                context.batcher.box(x1, y1, x2, y2, 0x6626262C);
-                this.renderLockedArea(context);
-
-                return;
-            }
-
             super.renderSkin(context);
         }
 

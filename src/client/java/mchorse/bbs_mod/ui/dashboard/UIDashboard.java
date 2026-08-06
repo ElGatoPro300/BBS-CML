@@ -9,6 +9,7 @@ import mchorse.bbs_mod.camera.controller.OrbitCameraController;
 import mchorse.bbs_mod.client.BBSRendering;
 import mchorse.bbs_mod.discord.DiscordPresenceManager;
 import mchorse.bbs_mod.events.register.RegisterDashboardPanelsEvent;
+import mchorse.bbs_mod.events.register.RegisterDockLayoutEvent;
 import mchorse.bbs_mod.graphics.window.Window;
 import mchorse.bbs_mod.l10n.L10n;
 import mchorse.bbs_mod.l10n.keys.IKey;
@@ -102,7 +103,15 @@ public class UIDashboard extends UIBaseMenu
             if (this.panels.panel instanceof IFlightSupported panel)
             {
                 this.orbit.setFovRoll(panel.supportsRollFOVControl());
-                this.orbitUI.setViewportArea(panel::getFlightViewportArea);
+
+                if (BBSSettings.editorOrbitRestrictToViewport.get())
+                {
+                    this.orbitUI.setViewportArea(panel::getFlightViewportArea);
+                }
+                else
+                {
+                    this.orbitUI.setViewportArea(null);
+                }
             }
             else
             {
@@ -113,6 +122,7 @@ public class UIDashboard extends UIBaseMenu
             this.updateTabsBarVisibility(e.panel);
             this.menuBar.updateForPanel(e.panel);
             this.panels.updateTaskBarForPanel(e.panel);
+            this.documentTabsBar.layoutFilmStatusIcons();
             DiscordPresenceManager.INSTANCE.updateFromMenu(this);
         });
         this.panels.relative(this.main).y(20 + UIDocumentTabsBar.HEIGHT).w(1F).h(1F, -(20 + UIDocumentTabsBar.HEIGHT));
@@ -225,7 +235,7 @@ public class UIDashboard extends UIBaseMenu
     @Override
     public boolean canPause()
     {
-        if (UIWorldPropertiesOverlayPanel.isOpen())
+        if (UIWorldDropdownMenu.isOpen() || UIWorldPropertiesOverlayPanel.isOpen())
         {
             return false;
         }
@@ -259,15 +269,19 @@ public class UIDashboard extends UIBaseMenu
         this.showAnnoyingPopups();
         UIHomePanel.onDashboardOpened(this);
         UINewsPanel.onDashboardOpened(this);
+        RegisterDockLayoutEvent.postDashboardOpen(this);
     }
 
     @Override
     public void onClose(UIBaseMenu nextMenu)
     {
+        RegisterDockLayoutEvent.postDashboardClose(this);
         super.onClose(nextMenu);
 
         if (nextMenu != this)
         {
+            /* Any leave path (Escape, replaced screen, etc.) must restore gamemode. */
+            EditorSpectatorHelper.restore();
             this.panels.close();
         }
 
@@ -280,6 +294,7 @@ public class UIDashboard extends UIBaseMenu
     @Override
     protected void closeMenu()
     {
+        EditorSpectatorHelper.restore();
         super.closeMenu();
 
         if (!this.main.isVisible())
@@ -335,10 +350,7 @@ public class UIDashboard extends UIBaseMenu
         this.panels.registerHiddenPanel(new UIAudioEditorPanel(this));
         this.panels.registerHiddenPanel(new UIGraphPanel(this));
 
-        if (FabricLoader.getInstance().isDevelopmentEnvironment())
-        {
-            this.panels.registerPanel(new UIDebugPanel(this), UIKeys.RAW_SANDBOX, Icons.CODE);
-        }
+        this.panels.registerPanel(new UIDebugPanel(this), UIKeys.RAW_SANDBOX, Icons.CODE);
 
         this.setPanel(this.getPanel(UIHomePanel.class));
     }
@@ -347,6 +359,12 @@ public class UIDashboard extends UIBaseMenu
     public boolean canHideHUD()
     {
         return this.panels.panel == null || this.panels.panel.canHideHUD();
+    }
+
+    @Override
+    public boolean needsWorldRender()
+    {
+        return this.panels.panel != null && this.panels.panel.needsWorldRender();
     }
 
     public <T> T getPanel(Class<T> clazz)
@@ -397,7 +415,7 @@ public class UIDashboard extends UIBaseMenu
             return;
         }
 
-        if (this.panels.panel != null && this.panels.panel.needsBackground())
+        if (this.panels.panel != null && (this.panels.panel.needsBackground() || !this.panels.panel.needsWorldRender()))
         {
             this.background(context);
         }

@@ -51,7 +51,9 @@ public class UICurveClip extends UIClip<CurveClip>
 
         for (ShaderCurves.ShaderVariable value : ShaderCurves.variableMap.values())
         {
-            if (existing.contains(value.name))
+            if (existing.contains(value.name)
+                || existing.contains(CurveClip.SHADER_CURVES_PREFIX + value.name)
+                || ShaderCurves.SHADER_SHADOW_OPACITY.equals(value.name))
             {
                 continue;
             }
@@ -68,8 +70,14 @@ public class UICurveClip extends UIClip<CurveClip>
         }
 
         if (!existing.contains(ShaderCurves.BRIGHTNESS)) list.add(new Label<>(UIKeys.CAMERA_PANELS_CURVES_BRIGHTNESS, ShaderCurves.BRIGHTNESS));
-        if (!existing.contains(ShaderCurves.SUN_ROTATION)) list.add(new Label<>(UIKeys.CAMERA_PANELS_CURVES_SUN_ROTATION, ShaderCurves.SUN_ROTATION));
+        if (!existing.contains(ShaderCurves.SUN_ROTATION)) list.add(new Label<>(UIKeys.CAMERA_PANELS_CURVES_TIME_OF_DAY, ShaderCurves.SUN_ROTATION));
+        if (!existing.contains(ShaderCurves.SUN_PATH_ROTATION)) list.add(new Label<>(UIKeys.CAMERA_PANELS_CURVES_SUN_PATH_ROTATION, ShaderCurves.SUN_PATH_ROTATION));
         if (!existing.contains(ShaderCurves.WEATHER)) list.add(new Label<>(UIKeys.CAMERA_PANELS_CURVES_WEATHER, ShaderCurves.WEATHER));
+        if (!existing.contains(ShaderCurves.SHADER_SHADOW_OPACITY)
+            && !existing.contains(CurveClip.SHADER_CURVES_PREFIX + ShaderCurves.SHADER_SHADOW_OPACITY))
+        {
+            list.add(new Label<>(UIKeys.CAMERA_PANELS_CURVES_SHADER_SHADOW_OPACITY, ShaderCurves.SHADER_SHADOW_OPACITY));
+        }
         if (!existing.contains(CHROMA_SKY_ADD_ID)) list.add(new Label<>(CHROMA_SKY_TITLE, CHROMA_SKY_ADD_ID));
 
         UILabelListOverlayPanel panel = new UILabelListOverlayPanel(UIKeys.CAMERA_PANELS_PICK_KEY, list, callback);
@@ -177,8 +185,39 @@ public class UICurveClip extends UIClip<CurveClip>
 
         for (KeyframeChannel<Double> channel : this.clip.channels.getChannels())
         {
-            this.addChannel(channel, IKey.constant(channel.getId()));
+            this.addChannel(channel, getChannelTitle(channel.getId()));
         }
+    }
+
+    private static IKey getChannelTitle(String id)
+    {
+        if (ShaderCurves.BRIGHTNESS.equals(id))
+        {
+            return UIKeys.CAMERA_PANELS_CURVES_BRIGHTNESS;
+        }
+
+        if (ShaderCurves.SUN_ROTATION.equals(id))
+        {
+            return UIKeys.CAMERA_PANELS_CURVES_TIME_OF_DAY;
+        }
+
+        if (ShaderCurves.SUN_PATH_ROTATION.equals(id))
+        {
+            return UIKeys.CAMERA_PANELS_CURVES_SUN_PATH_ROTATION;
+        }
+
+        if (ShaderCurves.WEATHER.equals(id))
+        {
+            return UIKeys.CAMERA_PANELS_CURVES_WEATHER;
+        }
+
+        if (ShaderCurves.SHADER_SHADOW_OPACITY.equals(id)
+            || id.equals(CurveClip.SHADER_CURVES_PREFIX + ShaderCurves.SHADER_SHADOW_OPACITY))
+        {
+            return UIKeys.CAMERA_PANELS_CURVES_SHADER_SHADOW_OPACITY;
+        }
+
+        return IKey.constant(id);
     }
 
     @Override

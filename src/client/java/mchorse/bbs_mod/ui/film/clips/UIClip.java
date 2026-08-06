@@ -3,6 +3,7 @@ package mchorse.bbs_mod.ui.film.clips;
 import mchorse.bbs_mod.BBSSettings;
 import mchorse.bbs_mod.actions.types.AttackActionClip;
 import mchorse.bbs_mod.actions.types.DamageActionClip;
+import mchorse.bbs_mod.actions.types.MobDeathActionClip;
 import mchorse.bbs_mod.actions.types.SwipeActionClip;
 import mchorse.bbs_mod.actions.types.blocks.BreakBlockActionClip;
 import mchorse.bbs_mod.actions.types.blocks.InteractBlockActionClip;
@@ -13,6 +14,7 @@ import mchorse.bbs_mod.actions.types.item.ItemDropActionClip;
 import mchorse.bbs_mod.actions.types.item.UseBlockItemActionClip;
 import mchorse.bbs_mod.actions.types.item.UseItemActionClip;
 import mchorse.bbs_mod.camera.clips.misc.AudioClientClip;
+import mchorse.bbs_mod.camera.clips.misc.BossBarClip;
 import mchorse.bbs_mod.camera.clips.misc.CurveClientClip;
 import mchorse.bbs_mod.camera.clips.misc.HotbarClip;
 import mchorse.bbs_mod.camera.clips.misc.ImageClip;
@@ -34,6 +36,7 @@ import mchorse.bbs_mod.camera.clips.overwrite.KeyframeClip;
 import mchorse.bbs_mod.camera.clips.overwrite.PathClip;
 import mchorse.bbs_mod.camera.clips.screen.CinematicClip;
 import mchorse.bbs_mod.camera.clips.screen.ColorClip;
+import mchorse.bbs_mod.camera.clips.screen.EyeClip;
 import mchorse.bbs_mod.camera.clips.screen.GrainClip;
 import mchorse.bbs_mod.camera.clips.screen.LetterboxClip;
 import mchorse.bbs_mod.camera.clips.screen.ScreenNodeClip;
@@ -45,7 +48,6 @@ import mchorse.bbs_mod.l10n.keys.IKey;
 import mchorse.bbs_mod.settings.values.core.ValueGroup;
 import mchorse.bbs_mod.ui.UIKeys;
 import mchorse.bbs_mod.ui.film.IUIClipsDelegate;
-import mchorse.bbs_mod.ui.film.UIClipsPanel;
 import mchorse.bbs_mod.ui.film.clips.actions.UIAttackActionClip;
 import mchorse.bbs_mod.ui.film.clips.actions.UIBreakBlockActionClip;
 import mchorse.bbs_mod.ui.film.clips.actions.UIChatActionClip;
@@ -53,6 +55,7 @@ import mchorse.bbs_mod.ui.film.clips.actions.UICommandActionClip;
 import mchorse.bbs_mod.ui.film.clips.actions.UIDamageActionClip;
 import mchorse.bbs_mod.ui.film.clips.actions.UIInteractBlockActionClip;
 import mchorse.bbs_mod.ui.film.clips.actions.UIItemDropActionClip;
+import mchorse.bbs_mod.ui.film.clips.actions.UIMobDeathActionClip;
 import mchorse.bbs_mod.ui.film.clips.actions.UIPlaceBlockActionClip;
 import mchorse.bbs_mod.ui.film.clips.actions.UISwipeActionClip;
 import mchorse.bbs_mod.ui.film.clips.actions.UIUseBlockItemActionClip;
@@ -63,7 +66,6 @@ import mchorse.bbs_mod.ui.framework.elements.UIElement;
 import mchorse.bbs_mod.ui.framework.elements.UIScrollView;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIToggle;
 import mchorse.bbs_mod.ui.framework.elements.input.UITrackpad;
-import mchorse.bbs_mod.ui.framework.elements.input.keyframes.UIKeyframeEditor;
 import mchorse.bbs_mod.ui.framework.elements.input.text.UITextbox;
 import mchorse.bbs_mod.ui.framework.elements.utils.UILabel;
 import mchorse.bbs_mod.ui.utils.ScrollDirection;
@@ -122,6 +124,8 @@ public abstract class UIClip <T extends Clip> extends UIElement
         register(LetterboxClip.class, UILetterboxClip::new);
         register(GrainClip.class, UIGrainClip::new);
         register(ScreenNodeClip.class, UIScreenNodeClip::new);
+        register(BossBarClip.class, UIBossBarClip::new);
+        register(EyeClip.class, UIEyeClip::new);
 
         register(ChatActionClip.class, UIChatActionClip::new);
         register(CommandActionClip.class, UICommandActionClip::new);
@@ -132,6 +136,7 @@ public abstract class UIClip <T extends Clip> extends UIElement
         register(UseBlockItemActionClip.class, UIUseBlockItemActionClip::new);
         register(AttackActionClip.class, UIAttackActionClip::new);
         register(DamageActionClip.class, UIDamageActionClip::new);
+        register(MobDeathActionClip.class, UIMobDeathActionClip::new);
         register(ItemDropActionClip.class, UIItemDropActionClip::new);
         register(SwipeActionClip.class, UISwipeActionClip::new);
     }
@@ -247,7 +252,13 @@ public abstract class UIClip <T extends Clip> extends UIElement
         TimeUtilsClient.configure(this.duration, 1);
 
         this.enabled.setValue(this.clip.enabled.get());
-        this.title.setText(this.clip.title.get());
+
+        /* setText() moves the caret to the start — skip while the user is typing. */
+        if (!this.title.isFocused())
+        {
+            this.title.setText(this.clip.title.get());
+        }
+
         this.layer.setValue(this.clip.layer.get());
         this.tick.setValue(TimeUtils.toTime(this.clip.tick.get()));
         this.duration.setValue(TimeUtils.toTime(this.clip.duration.get()));
@@ -263,21 +274,36 @@ public abstract class UIClip <T extends Clip> extends UIElement
         super.render(context);
     }
 
-    /**
-     * Resolves an embeddable view owned by this clip panel (keyframe editor, node graph, etc.).
-     * Used by {@link UIClipsPanel} for symmetric undo/redo.
-     */
-    public UIElement resolveEmbeddableView(String undoId)
+    @Override
+    public void applyUndoData(MapType data)
     {
-        if (this.envelope != null && undoId.equals(this.envelope.channel.getUndoId()))
-        {
-            return this.envelope.channel;
-        }
+        super.applyUndoData(data);
 
-        return this.resolveClipEmbeddableView(undoId);
+        if (data.getString("embed").equals("envelope"))
+        {
+            this.editor.embedView(this.envelope.channel);
+            this.envelope.channel.view.editSheet(this.envelope.channel.view.getGraph().getSheets().get(0));
+            this.envelope.channel.view.resetView();
+        }
     }
 
-    protected UIElement resolveClipEmbeddableView(String undoId)
+    @Override
+    public void collectUndoData(MapType data)
+    {
+        super.collectUndoData(data);
+
+        if (this.envelope.channel.hasParent())
+        {
+            data.putString("embed", "envelope");
+        }
+    }
+
+    public UIElement resolveEmbeddableView(String embeddedId)
+    {
+        return this.resolveClipEmbeddableView(embeddedId);
+    }
+
+    protected UIElement resolveClipEmbeddableView(String embeddedId)
     {
         return null;
     }

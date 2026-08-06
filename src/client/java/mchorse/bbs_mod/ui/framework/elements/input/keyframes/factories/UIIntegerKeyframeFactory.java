@@ -2,15 +2,20 @@ package mchorse.bbs_mod.ui.framework.elements.input.keyframes.factories;
 
 import mchorse.bbs_mod.camera.utils.TimeUtils;
 import mchorse.bbs_mod.film.Film;
+import mchorse.bbs_mod.film.replays.FormProperties;
 import mchorse.bbs_mod.film.replays.Replay;
 import mchorse.bbs_mod.film.replays.ReplayKeyframes;
 import mchorse.bbs_mod.forms.CustomVertexConsumerProvider;
+import mchorse.bbs_mod.forms.FormUtils;
 import mchorse.bbs_mod.forms.FormUtilsClient;
+import mchorse.bbs_mod.forms.forms.Form;
 import mchorse.bbs_mod.settings.values.base.BaseValue;
+import mchorse.bbs_mod.settings.values.numeric.ValueBoolean;
 import mchorse.bbs_mod.ui.UIKeys;
 import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.ui.framework.elements.UIElement;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIIcon;
+import mchorse.bbs_mod.ui.framework.elements.buttons.UIToggle;
 import mchorse.bbs_mod.ui.framework.elements.input.UITrackpad;
 import mchorse.bbs_mod.ui.framework.elements.input.keyframes.UIKeyframeSheet;
 import mchorse.bbs_mod.ui.framework.elements.input.keyframes.UIKeyframes;
@@ -20,6 +25,7 @@ import mchorse.bbs_mod.ui.utils.icons.Icons;
 import mchorse.bbs_mod.utils.MathUtils;
 import mchorse.bbs_mod.utils.colors.Colors;
 import mchorse.bbs_mod.utils.keyframes.Keyframe;
+import mchorse.bbs_mod.utils.keyframes.KeyframeChannel;
 
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.render.DiffuseLighting;
@@ -37,6 +43,8 @@ public class UIIntegerKeyframeFactory extends UIKeyframeFactory<Integer>
     private UITrackpad value;
     private UIBezierHandles handles;
     private UIElement hotbarPreview;
+    private UIToggle centered;
+    private KeyframeChannel<Boolean> centerChannel;
     private Replay replay;
     private Film film;
 
@@ -46,10 +54,18 @@ public class UIIntegerKeyframeFactory extends UIKeyframeFactory<Integer>
 
         UIKeyframeSheet sheet = editor.getGraph().getSheet(keyframe);
         boolean isSelectedSlot = sheet != null && ("selected_slot".equals(sheet.id) || sheet.id.endsWith("/selected_slot"));
+        String repeatAxis = getRepeatAxis(sheet);
 
         this.value = new UITrackpad(this::setValue);
         this.value.setValue(keyframe.getValue());
         this.handles = new UIBezierHandles(keyframe);
+        this.registerValueTrackpad(this.value);
+
+        if (repeatAxis != null)
+        {
+            this.value.limit(1D, 64D).integer();
+            this.setupCenteredToggle(keyframe, sheet, repeatAxis);
+        }
 
         if (isSelectedSlot)
         {
@@ -148,10 +164,113 @@ public class UIIntegerKeyframeFactory extends UIKeyframeFactory<Integer>
         {
             this.scroll.add(this.value, this.handles.createColumn(), this.hotbarPreview);
         }
+        else if (this.centered != null)
+        {
+            this.scroll.add(this.value, this.centered, this.handles.createColumn());
+        }
         else
         {
             this.scroll.add(this.value, this.handles.createColumn());
         }
+    }
+
+    private static String getRepeatAxis(UIKeyframeSheet sheet)
+    {
+        if (sheet == null)
+        {
+            return null;
+        }
+
+        String name = sheet.id.contains("/") ? sheet.id.substring(sheet.id.lastIndexOf('/') + 1) : sheet.id;
+
+        if ("repeat_x".equals(name) || "repeat_y".equals(name) || "repeat_z".equals(name))
+        {
+            return name;
+        }
+
+        return null;
+    }
+
+    private void setupCenteredToggle(Keyframe<Integer> keyframe, UIKeyframeSheet sheet, String repeatAxis)
+    {
+        FormProperties properties = this.findFormProperties(keyframe.getParent());
+        Form form = sheet.property != null ? FormUtils.getForm(sheet.property) : null;
+
+        if (form == null)
+        {
+            Replay owner = this.findReplayOwner(keyframe.getParent());
+
+            form = owner != null ? owner.form.get() : null;
+        }
+
+        if (properties == null || form == null)
+        {
+            return;
+        }
+
+        String centerKey = sheet.id.substring(0, sheet.id.length() - repeatAxis.length()) + repeatAxis.replace("repeat_", "repeat_center_");
+        KeyframeChannel channel = properties.getOrCreate(form, centerKey);
+
+        if (channel == null)
+        {
+            return;
+        }
+
+        this.centerChannel = (KeyframeChannel<Boolean>) channel;
+
+        boolean current;
+
+        if (this.centerChannel.getKeyframes().isEmpty())
+        {
+            BaseValue property = FormUtils.getProperty(form, centerKey);
+
+            current = property instanceof ValueBoolean booleanValue && booleanValue.get();
+        }
+        else
+        {
+            Boolean interpolated = this.centerChannel.interpolate(keyframe.getTick(), Boolean.FALSE);
+
+            current = interpolated != null && interpolated;
+        }
+
+        this.centered = new UIToggle(UIKeys.FORMS_EDITORS_BLOCK_REPEAT_CENTER, current, (b) ->
+        {
+            this.centerChannel.insert(this.keyframe.getTick(), b.getValue());
+        });
+    }
+
+    private Replay findReplayOwner(BaseValue value)
+    {
+        BaseValue current = value;
+
+        while (current != null)
+        {
+            if (current instanceof Replay r)
+            {
+                return r;
+            }
+
+            current = current.getParent();
+        }
+
+        return null;
+    }
+
+    private FormProperties findFormProperties(BaseValue value)
+    {
+        BaseValue current = value;
+
+        while (current != null)
+        {
+            if (current instanceof FormProperties formProperties)
+            {
+                return formProperties;
+            }
+
+            current = current.getParent();
+        }
+
+        return null;
     }
 
     @Override
@@ -159,7 +278,12 @@ public class UIIntegerKeyframeFactory extends UIKeyframeFactory<Integer>
     {
         super.update();
 
-        this.value.setValue(this.keyframe.getValue());
+        if (!this.value.isActivelyEditing() && !this.value.isDragging())
+        {
+            this.value.setValue(this.keyframe.getValue());
+        }
+
+        this.handles.setKeyframe(this.keyframe);
         this.handles.update();
     }
 

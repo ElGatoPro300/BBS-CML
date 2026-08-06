@@ -13,8 +13,8 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Clip-type groupings used by toolbar add submenus (camera tabs and action
- * categories).
+ * Clip-type groupings shared by the timeline toolbar add submenus and the
+ * context-menu add tabs (camera / action).
  */
 public final class TimelineClipTypeGroups
 {
@@ -40,59 +40,23 @@ public final class TimelineClipTypeGroups
             List.of(Link.bbs("curve"), Link.bbs("audio"), Link.bbs("video"), Link.bbs("shake"),
                 Link.bbs("translate"), Link.bbs("angle")));
         buckets.put(UIKeys.CAMERA_TIMELINE_CLIPS_TABS_SCREEN,
-            List.of(Link.bbs("subtitle"), Link.bbs("hotbar"), Link.bbs("color"), Link.bbs("cinematic"),
-                Link.bbs("vignette"), Link.bbs("letterbox"), Link.bbs("grain"), Link.bbs("screen_node")));
+            List.of(
+                Link.bbs("subtitle"),
+                Link.bbs("hotbar"),
+                Link.bbs("image"),
+                Link.bbs("color"),
+                Link.bbs("cinematic"),
+                Link.bbs("vignette"),
+                Link.bbs("letterbox"),
+                Link.bbs("grain"),
+                Link.bbs("screen_node"),
+                Link.bbs("boss_bar"),
+                Link.bbs("eye")
+            ));
         buckets.put(UIKeys.CAMERA_TIMELINE_CLIPS_TABS_ANCHOR,
             List.of(Link.bbs("look"), Link.bbs("orbit"), Link.bbs("tracker")));
 
-        List<ClipGroup> groups = new ArrayList<>();
-
-        for (Map.Entry<IKey, List<Link>> entry : buckets.entrySet())
-        {
-            List<Link> present = new ArrayList<>();
-
-            for (Link type : entry.getValue())
-            {
-                if (factory.getKeys().contains(type))
-                {
-                    present.add(type);
-                }
-            }
-
-            if (!present.isEmpty())
-            {
-                groups.add(new ClipGroup(entry.getKey(), present));
-            }
-        }
-
-        List<Link> extras = new ArrayList<>();
-
-        for (Link type : factory.getKeys())
-        {
-            boolean grouped = false;
-
-            for (ClipGroup group : groups)
-            {
-                if (group.types.contains(type))
-                {
-                    grouped = true;
-
-                    break;
-                }
-            }
-
-            if (!grouped)
-            {
-                extras.add(type);
-            }
-        }
-
-        if (!extras.isEmpty())
-        {
-            groups.add(new ClipGroup(UIKeys.CAMERA_TIMELINE_CLIPS_TABS_EXTRAS, extras));
-        }
-
-        return groups;
+        return buildGroups(factory, buckets, UIKeys.CAMERA_TIMELINE_CLIPS_TABS_EXTRAS);
     }
 
     public static List<ClipGroup> forAction(IFactory<Clip, ClipFactoryData> factory)
@@ -105,10 +69,16 @@ public final class TimelineClipTypeGroups
         buckets.put(UIKeys.ACTION_TIMELINE_CLIPS_TABS_ITEMS,
             List.of(Link.bbs("use_item"), Link.bbs("use_block_item"), Link.bbs("drop_item")));
         buckets.put(UIKeys.ACTION_TIMELINE_CLIPS_TABS_COMBAT,
-            List.of(Link.bbs("attack"), Link.bbs("damage"), Link.bbs("swipe")));
+            List.of(Link.bbs("attack"), Link.bbs("damage"), Link.bbs("mob_death"), Link.bbs("swipe")));
         buckets.put(UIKeys.ACTION_TIMELINE_CLIPS_TABS_OTHER,
             List.of(Link.bbs("chat"), Link.bbs("command")));
 
+        return buildGroups(factory, buckets, UIKeys.ACTION_TIMELINE_CLIPS_TABS_OTHER);
+    }
+
+    private static List<ClipGroup> buildGroups(IFactory<Clip, ClipFactoryData> factory,
+        Map<IKey, List<Link>> buckets, IKey extrasLabel)
+    {
         List<ClipGroup> groups = new ArrayList<>();
 
         for (Map.Entry<IKey, List<Link>> entry : buckets.entrySet())
@@ -153,7 +123,37 @@ public final class TimelineClipTypeGroups
 
         if (!extras.isEmpty())
         {
-            groups.add(new ClipGroup(UIKeys.ACTION_TIMELINE_CLIPS_TABS_OTHER, extras));
+            /* Prefer merging into an existing extras/other bucket when the label matches. */
+            ClipGroup existingExtras = null;
+
+            for (ClipGroup group : groups)
+            {
+                if (group.label == extrasLabel)
+                {
+                    existingExtras = group;
+
+                    break;
+                }
+            }
+
+            if (existingExtras != null)
+            {
+                List<Link> merged = new ArrayList<>(existingExtras.types);
+
+                for (Link type : extras)
+                {
+                    if (!merged.contains(type))
+                    {
+                        merged.add(type);
+                    }
+                }
+
+                groups.set(groups.indexOf(existingExtras), new ClipGroup(extrasLabel, merged));
+            }
+            else
+            {
+                groups.add(new ClipGroup(extrasLabel, extras));
+            }
         }
 
         return groups;

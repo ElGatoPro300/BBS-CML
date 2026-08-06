@@ -59,8 +59,7 @@ public class AnchorFormRenderer extends FormRenderer<AnchorForm>
             MatrixStackUtils.multiply(stack, uiMatrix);
             /* Why? I don't know, because fuck you */
             stack.multiply(RotationAxis.NEGATIVE_Y.rotationDegrees(180F));
-            stack.peek().getNormalMatrix().getScale(Vectors.EMPTY_3F);
-            stack.peek().getNormalMatrix().scale(1F / Vectors.EMPTY_3F.x, -1F / Vectors.EMPTY_3F.y, 1F / Vectors.EMPTY_3F.z);
+            MatrixStackUtils.invertUiNormalY(stack);
 
             Vector3f light0 = new Vector3f(0.85F, 0.85F, -1F).normalize();
             Vector3f light1 = new Vector3f(-0.85F, 0.85F, 1F).normalize();

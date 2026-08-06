@@ -2,11 +2,13 @@ package mchorse.bbs_mod.ui.film.replays.overlays;
 
 import mchorse.bbs_mod.BBSMod;
 import mchorse.bbs_mod.BBSSettings;
+import mchorse.bbs_mod.film.BaseFilmController;
 import mchorse.bbs_mod.film.Film;
 import mchorse.bbs_mod.film.MobCemPoseCapture;
 import mchorse.bbs_mod.film.replays.Replay;
 import mchorse.bbs_mod.forms.forms.Form;
 import mchorse.bbs_mod.forms.forms.MobForm;
+import mchorse.bbs_mod.forms.forms.utils.ShadowSettings;
 import mchorse.bbs_mod.l10n.keys.IKey;
 import mchorse.bbs_mod.settings.Settings;
 import mchorse.bbs_mod.settings.values.base.BaseValue;
@@ -30,11 +32,14 @@ import mchorse.bbs_mod.ui.utils.UIDataUtils;
 import mchorse.bbs_mod.ui.utils.icons.Icons;
 import mchorse.bbs_mod.utils.MathUtils;
 import mchorse.bbs_mod.utils.colors.Colors;
+import mchorse.bbs_mod.utils.keyframes.Keyframe;
 
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.network.ClientPlayerEntity;
 
 import com.mojang.logging.LogUtils;
+
+import org.lwjgl.glfw.GLFW;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -65,7 +70,13 @@ public class UIReplaysOverlayPanel extends UIOverlayPanel
     public UITextbox nameTag;
     public UIToggle shadow;
     public UITrackpad shadowSize;
+    public UITrackpad shadowSizeZ;
+    public UIIcon shadowSizeLink;
     public UITrackpad shadowOpacity;
+    public UITrackpad shadowOffsetX;
+    public UITrackpad shadowOffsetY;
+    public UITrackpad shadowOffsetZ;
+    private boolean linkShadowSize = true;
     public UITrackpad looping;
     public UIToggle actor;
     public UIToggle fp;
@@ -196,10 +207,27 @@ public class UIReplaysOverlayPanel extends UIOverlayPanel
         this.nameTag = new UITextbox(1000, (s) -> this.edit((replay) -> replay.nameTag.set(s)));
         this.nameTag.textbox.setPlaceholder(UIKeys.FILM_REPLAY_NAME_TAG);
         this.shadow = new UIToggle(UIKeys.FILM_REPLAY_SHADOW, (b) -> this.edit((replay) -> replay.shadow.set(b.getValue())));
-        this.shadowSize = new UITrackpad((v) -> this.edit((replay) -> replay.shadowSize.set(v.floatValue())));
-        this.shadowSize.tooltip(UIKeys.FILM_REPLAY_SHADOW_SIZE);
-        this.shadowOpacity = new UITrackpad((v) -> this.edit((replay) -> replay.shadowOpacity.set(v.floatValue())));
+        this.shadowOpacity = new UITrackpad((v) -> this.editShadow((settings) -> settings.opacity = v.floatValue()));
         this.shadowOpacity.limit(0F, 1F).tooltip(UIKeys.FILM_REPLAY_SHADOW_OPACITY);
+        this.shadowSize = new UITrackpad((v) -> this.setShadowSizeX(v.floatValue()));
+        this.shadowSize.limit(0D).tooltip(UIKeys.FILM_REPLAY_SHADOW_SIZE_X);
+        this.shadowSize.textbox.setColor(Colors.RED);
+        this.shadowSizeZ = new UITrackpad((v) -> this.setShadowSizeZ(v.floatValue()));
+        this.shadowSizeZ.limit(0D).tooltip(UIKeys.FILM_REPLAY_SHADOW_SIZE_Y);
+        this.shadowSizeZ.textbox.setColor(Colors.GREEN);
+        this.shadowSizeLink = new UIIcon(Icons.LINK, (b) -> this.toggleShadowSizeLink());
+        this.shadowSizeLink.tooltip(UIKeys.FILM_REPLAY_SHADOW_SIZE_LINK);
+        this.shadowSizeLink.iconColor(Colors.GRAY).activeColor(Colors.A100 + Colors.ACTIVE);
+        this.updateShadowSizeLinkIcon();
+        this.shadowOffsetX = new UITrackpad((v) -> this.editShadow((settings) -> settings.offsetX = v.floatValue()));
+        this.shadowOffsetX.tooltip(UIKeys.FILM_REPLAY_SHADOW_OFFSET_X);
+        this.shadowOffsetX.textbox.setColor(Colors.RED);
+        this.shadowOffsetY = new UITrackpad((v) -> this.editShadow((settings) -> settings.offsetY = v.floatValue()));
+        this.shadowOffsetY.tooltip(UIKeys.FILM_REPLAY_SHADOW_OFFSET_Y);
+        this.shadowOffsetY.textbox.setColor(Colors.GREEN);
+        this.shadowOffsetZ = new UITrackpad((v) -> this.editShadow((settings) -> settings.offsetZ = v.floatValue()));
+        this.shadowOffsetZ.tooltip(UIKeys.FILM_REPLAY_SHADOW_OFFSET_Z);
+        this.shadowOffsetZ.textbox.setColor(Colors.BLUE);
         this.looping = new UITrackpad((v) -> this.edit((replay) -> replay.looping.set(v.intValue())));
         this.looping.limit(0).integer().tooltip(UIKeys.FILM_REPLAY_LOOPING_TOOLTIP);
         this.actor = new UIToggle(UIKeys.FILM_REPLAY_ACTOR, (b) -> this.edit((replay) -> replay.actor.set(b.getValue())));
@@ -310,9 +338,25 @@ public class UIReplaysOverlayPanel extends UIOverlayPanel
         this.addPropertySection(UIKeys.FILM_REPLAY_SECTION_GENERAL, UI.column(4,
             this.pickEdit, this.enabled, this.label, this.nameTag
         ));
-        this.addPropertySection(UIKeys.FILM_REPLAY_SHADOW, UI.column(4,
-            this.shadow, this.shadowSize, this.shadowOpacity
-        ));
+        UIElement shadowSection = UI.column(4,
+            this.shadow,
+            UI.label(UIKeys.FILM_REPLAY_SHADOW_OPACITY),
+            this.shadowOpacity,
+            UI.label(UIKeys.FILM_REPLAY_SHADOW_WIDTH),
+            UI.row(this.shadowSize, this.shadowSizeLink, this.shadowSizeZ),
+            UI.label(UIKeys.FILM_REPLAY_SHADOW_OFFSET),
+            UI.row(this.shadowOffsetX, this.shadowOffsetY, this.shadowOffsetZ)
+        );
+
+        shadowSection.context((menu) ->
+        {
+            menu.action(Icons.CLOSE, UIKeys.FILM_REPLAY_SHADOW_RESET_ALL, this::resetShadowAll);
+            menu.action(Icons.VISIBLE, UIKeys.FILM_REPLAY_SHADOW_RESET_OPACITY, this::resetShadowOpacity);
+            menu.action(Icons.SCALE, UIKeys.FILM_REPLAY_SHADOW_RESET_WIDTH, this::resetShadowWidth);
+            menu.action(Icons.ALL_DIRECTIONS, UIKeys.FILM_REPLAY_SHADOW_RESET_OFFSET, this::resetShadowOffset);
+        });
+
+        this.addPropertySection(UIKeys.FILM_REPLAY_SHADOW, shadowSection);
         this.addPropertySection(UIKeys.FILM_REPLAY_SECTION_PLAYBACK, UI.column(4,
             this.looping, this.actor, this.fp, this.vanillaMobPlayback
         ));
@@ -641,8 +685,15 @@ public class UIReplaysOverlayPanel extends UIOverlayPanel
                 this.enabled.setValue(replay.enabled.get());
                 this.nameTag.setText(replay.nameTag.get());
                 this.shadow.setValue(replay.shadow.get());
-                this.shadowSize.setValue(replay.shadowSize.get());
-                this.shadowOpacity.setValue(replay.shadowOpacity.get());
+
+                ShadowSettings shadow = BaseFilmController.resolveShadowSettings(replay, 0F);
+
+                this.shadowSize.setValue(shadow.widthX);
+                this.shadowSizeZ.setValue(shadow.widthZ);
+                this.shadowOpacity.setValue(shadow.opacity);
+                this.shadowOffsetX.setValue(shadow.offsetX);
+                this.shadowOffsetY.setValue(shadow.offsetY);
+                this.shadowOffsetZ.setValue(shadow.offsetZ);
                 this.looping.setValue(replay.looping.get());
                 this.actor.setValue(replay.actor.get());
                 this.fp.setValue(replay.fp.get());
@@ -687,6 +738,176 @@ public class UIReplaysOverlayPanel extends UIOverlayPanel
             this.itemDropsContent.remove(this.dropVelocityGroup);
             this.resize();
         }
+    }
+
+    private void editShadow(Consumer<ShadowSettings> editor)
+    {
+        this.edit((replay) ->
+        {
+            ShadowSettings settings = BaseFilmController.resolveShadowSettings(replay, 0F).copy();
+
+            editor.accept(settings);
+            this.writeShadowSettings(replay, settings);
+        });
+    }
+
+    private void writeShadowSettings(Replay replay, ShadowSettings settings)
+    {
+        replay.shadowOpacity.set(settings.opacity);
+        replay.shadowSize.set(settings.widthX);
+        replay.shadowSizeZ.set(settings.widthZ);
+        replay.shadowOffsetX.set(settings.offsetX);
+        replay.shadowOffsetY.set(settings.offsetY);
+        replay.shadowOffsetZ.set(settings.offsetZ);
+
+        ShadowSettings size = new ShadowSettings();
+
+        size.widthX = settings.widthX;
+        size.widthZ = settings.widthZ;
+        size.offsetX = settings.offsetX;
+        size.offsetY = settings.offsetY;
+        size.offsetZ = settings.offsetZ;
+        size.opacity = 1F;
+
+        if (replay.keyframes.shadowSize.isEmpty())
+        {
+            replay.keyframes.shadowSize.insert(0, size.copy());
+        }
+        else
+        {
+            Keyframe<ShadowSettings> firstSize = replay.keyframes.shadowSize.get(0);
+
+            if (firstSize != null && firstSize.getTick() == 0F)
+            {
+                firstSize.setValue(size.copy(), true);
+            }
+        }
+
+        if (replay.keyframes.shadowOpacity.isEmpty())
+        {
+            replay.keyframes.shadowOpacity.insert(0, (double) settings.opacity);
+        }
+        else
+        {
+            Keyframe<Double> firstOpacity = replay.keyframes.shadowOpacity.get(0);
+
+            if (firstOpacity != null && firstOpacity.getTick() == 0F)
+            {
+                firstOpacity.setValue((double) settings.opacity, true);
+            }
+        }
+    }
+
+    private void resetShadowAll()
+    {
+        this.editShadow((settings) ->
+        {
+            ShadowSettings defaults = new ShadowSettings();
+
+            settings.opacity = defaults.opacity;
+            settings.widthX = defaults.widthX;
+            settings.widthZ = defaults.widthZ;
+            settings.offsetX = defaults.offsetX;
+            settings.offsetY = defaults.offsetY;
+            settings.offsetZ = defaults.offsetZ;
+        });
+        this.refreshShadowFields();
+    }
+
+    private void resetShadowOpacity()
+    {
+        this.editShadow((settings) -> settings.opacity = 1F);
+        this.refreshShadowFields();
+    }
+
+    private void resetShadowWidth()
+    {
+        this.editShadow((settings) ->
+        {
+            settings.widthX = 0.5F;
+            settings.widthZ = 0.5F;
+        });
+        this.refreshShadowFields();
+    }
+
+    private void resetShadowOffset()
+    {
+        this.editShadow((settings) ->
+        {
+            settings.offsetX = 0F;
+            settings.offsetY = 0F;
+            settings.offsetZ = 0F;
+        });
+        this.refreshShadowFields();
+    }
+
+    private void refreshShadowFields()
+    {
+        Replay replay = this.replays.getCurrentFirst();
+
+        if (replay == null)
+        {
+            return;
+        }
+
+        ShadowSettings shadow = BaseFilmController.resolveShadowSettings(replay, 0F);
+
+        this.shadowSize.setValue(shadow.widthX);
+        this.shadowSizeZ.setValue(shadow.widthZ);
+        this.shadowOpacity.setValue(shadow.opacity);
+        this.shadowOffsetX.setValue(shadow.offsetX);
+        this.shadowOffsetY.setValue(shadow.offsetY);
+        this.shadowOffsetZ.setValue(shadow.offsetZ);
+    }
+
+    private void setShadowSizeX(float value)
+    {
+        this.editShadow((settings) ->
+        {
+            settings.widthX = value;
+
+            if (this.linkShadowSize)
+            {
+                settings.widthZ = value;
+                this.shadowSizeZ.setValue(value);
+            }
+        });
+    }
+
+    private void setShadowSizeZ(float value)
+    {
+        this.editShadow((settings) ->
+        {
+            settings.widthZ = value;
+
+            if (this.linkShadowSize)
+            {
+                settings.widthX = value;
+                this.shadowSize.setValue(value);
+            }
+        });
+    }
+
+    private void toggleShadowSizeLink()
+    {
+        this.linkShadowSize = !this.linkShadowSize;
+        this.updateShadowSizeLinkIcon();
+
+        if (this.linkShadowSize)
+        {
+            float x = (float) this.shadowSize.getValue();
+
+            this.editShadow((settings) ->
+            {
+                settings.widthZ = x;
+                this.shadowSizeZ.setValue(x);
+            });
+        }
+    }
+
+    private void updateShadowSizeLinkIcon()
+    {
+        this.shadowSizeLink.active(this.linkShadowSize);
     }
 
     @Override

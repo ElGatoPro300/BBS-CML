@@ -79,12 +79,18 @@ public final class LimbResolver
             cosA = Math.max(-1F, Math.min(1F, cosA));
 
             float sinA = (float) Math.sqrt(Math.max(0F, 1F - cosA * cosA));
+            Vector3f upper = new Vector3f(joints.get(1)).sub(root);
             Vector3f bend = perpendicular(root, joints.get(1), goal);
 
             if (bend == null)
             {
-                bend = new Vector3f();
-                anyPerpendicular(dir, bend);
+                bend = bendFromReach(dir, upper);
+
+                if (bend == null)
+                {
+                    bend = new Vector3f();
+                    anyPerpendicular(dir, bend);
+                }
             }
 
             joints.get(1).set(root).fma(l1 * cosA, dir).fma(l1 * sinA, bend);
@@ -181,6 +187,11 @@ public final class LimbResolver
 
     public static List<Vector3f> resolve(List<Vector3f> positions, Vector3f target, boolean applyPole, Vector3f polePoint, float bendOffsetRad, float flexibility, int maxIterations, float tolerance, Limit[] limits, Quaternionf rootParentRotation, Vector3f restHinge, Vector3f outBendNormal)
     {
+        return resolve(positions, target, applyPole, polePoint, bendOffsetRad, flexibility, maxIterations, tolerance, limits, rootParentRotation, restHinge, outBendNormal, false);
+    }
+
+    public static List<Vector3f> resolve(List<Vector3f> positions, Vector3f target, boolean applyPole, Vector3f polePoint, float bendOffsetRad, float flexibility, int maxIterations, float tolerance, Limit[] limits, Quaternionf rootParentRotation, Vector3f restHinge, Vector3f outBendNormal, boolean invertBendPlane)
+    {
         int n = positions.size();
 
         if (n < 2)
@@ -231,6 +242,8 @@ public final class LimbResolver
 
                 ctx.hinge = normalize(limb) ? sideAxis(limb) : null;
             }
+
+            ctx.hinge = refineTwoBoneHinge(ctx.hinge, ctx.root, goal, positions);
         }
         else
         {
@@ -254,6 +267,11 @@ public final class LimbResolver
         }
 
         strategy.resolve(positions, goal, ctx);
+
+        if (invertBendPlane && ctx.hinge != null)
+        {
+            ctx.hinge.negate();
+        }
 
         Vector3f bendNormal = aimBendPlane(positions, ctx.hinge, polePoint, bendOffsetRad);
 
@@ -584,6 +602,55 @@ public final class LimbResolver
         }
 
         return value > max ? value - max : 0F;
+    }
+
+    private static Vector3f refineTwoBoneHinge(Vector3f hinge, Vector3f root, Vector3f goal, List<Vector3f> positions)
+    {
+        Vector3f axis = new Vector3f(goal).sub(root);
+        Vector3f upper = new Vector3f(positions.get(1)).sub(positions.get(0));
+
+        if (!normalize(axis) || !normalize(upper))
+        {
+            return hinge;
+        }
+
+        boolean parallel = hinge == null || Math.abs(hinge.dot(axis)) > 0.9F;
+
+        if (!parallel)
+        {
+            return hinge;
+        }
+
+        Vector3f refined = new Vector3f(upper).cross(axis);
+
+        if (!normalize(refined))
+        {
+            refined = new Vector3f(axis).cross(upper);
+
+            if (!normalize(refined))
+            {
+                return hinge;
+            }
+        }
+
+        return refined;
+    }
+
+    /**
+     * Bend direction in the reach plane when the posed elbow lies on the root-to-goal
+     * line (straight BOBJ limbs). {@code cross(cross(dir, upper), dir)} is the
+     * component of {@code upper} perpendicular to {@code dir}.
+     */
+    private static Vector3f bendFromReach(Vector3f dir, Vector3f upper)
+    {
+        if (!normalize(upper))
+        {
+            return null;
+        }
+
+        Vector3f bend = new Vector3f(dir).cross(upper).cross(dir);
+
+        return normalize(bend) ? bend : null;
     }
 
     private static Vector3f aimBendPlane(List<Vector3f> p, Vector3f hinge, Vector3f polePoint, float bendOffsetRad)

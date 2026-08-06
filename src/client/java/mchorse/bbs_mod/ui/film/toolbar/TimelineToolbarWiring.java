@@ -18,6 +18,7 @@ import mchorse.bbs_mod.ui.film.clips.UIScreenNodeEditor;
 import mchorse.bbs_mod.ui.film.replays.UIReplaysEditor;
 import mchorse.bbs_mod.ui.film.utils.keyframes.UIFilmKeyframes;
 import mchorse.bbs_mod.ui.framework.elements.input.keyframes.UIKeyframes;
+import mchorse.bbs_mod.ui.utils.UIUtils;
 import mchorse.bbs_mod.ui.utils.icons.Icons;
 import mchorse.bbs_mod.ui.utils.keys.KeyCombo;
 import mchorse.bbs_mod.utils.clips.Clip;
@@ -116,7 +117,7 @@ public final class TimelineToolbarWiring
         bindShortcut(toolbar, Keys.LOOPING, () ->
         {
             BBSSettings.editorLoop.set(!BBSSettings.editorLoop.get());
-            filmPanel.getContext().notifyInfo(UIKeys.CAMERA_EDITOR_KEYS_LOOPING_TOGGLE_NOTIFICATION);
+            UIUtils.playClick();
         }, editorActive);
         bindShortcut(toolbar, Keys.LOOPING_SET_MIN, () -> filmPanel.cameraEditor.clips.toolbarEnterLoopMin(), editorActive);
         bindShortcut(toolbar, Keys.LOOPING_SET_MAX, () -> filmPanel.cameraEditor.clips.toolbarEnterLoopMax(), editorActive);

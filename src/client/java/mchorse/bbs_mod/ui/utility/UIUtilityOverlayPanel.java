@@ -5,6 +5,7 @@ import mchorse.bbs_mod.BBSModClient;
 import mchorse.bbs_mod.BBSResources;
 import mchorse.bbs_mod.BBSSettings;
 import mchorse.bbs_mod.client.BBSShaders;
+import mchorse.bbs_mod.forms.FormUIPreviewCache;
 import mchorse.bbs_mod.l10n.L10n;
 import mchorse.bbs_mod.l10n.L10nUtils;
 import mchorse.bbs_mod.l10n.keys.IKey;
@@ -213,6 +214,8 @@ public class UIUtilityOverlayPanel extends UIOverlayPanel
 
     private void clearThumbnailCache()
     {
+        FormUIPreviewCache.clear();
+
         for (UIDashboardPanels child : this.getContext().menu.getRoot().getChildren(UIDashboardPanels.class))
         {
             UIFilmPanel filmPanel = child.getPanel(UIFilmPanel.class);

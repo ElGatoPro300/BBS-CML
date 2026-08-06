@@ -9,12 +9,12 @@ public final class KeyframeDuplicateInteractionState
 {
     public final IKey hint;
     /**
-     * When {@code >= 0}, the anchor tick is fixed (playhead). When {@code -1},
+     * When {@code >= 0}, the anchor tick is fixed (playhead). When {@code < 0},
      * the anchor tick follows the cursor horizontally.
      */
-    public final int lockedTick;
+    public final float lockedTick;
 
-    public KeyframeDuplicateInteractionState(IKey hint, int lockedTick)
+    public KeyframeDuplicateInteractionState(IKey hint, float lockedTick)
     {
         this.hint = hint;
         this.lockedTick = lockedTick;
@@ -22,10 +22,10 @@ public final class KeyframeDuplicateInteractionState
 
     public static KeyframeDuplicateInteractionState atCursor(IKey hint)
     {
-        return new KeyframeDuplicateInteractionState(hint, -1);
+        return new KeyframeDuplicateInteractionState(hint, -1F);
     }
 
-    public static KeyframeDuplicateInteractionState atPlayhead(IKey hint, int tick)
+    public static KeyframeDuplicateInteractionState atPlayhead(IKey hint, float tick)
     {
         return new KeyframeDuplicateInteractionState(hint, tick);
     }

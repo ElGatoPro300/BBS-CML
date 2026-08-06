@@ -4,6 +4,7 @@ import mchorse.bbs_mod.camera.data.Position;
 import mchorse.bbs_mod.utils.clips.Clip;
 import mchorse.bbs_mod.utils.clips.ClipContext;
 import mchorse.bbs_mod.utils.iris.ShaderCurves;
+import mchorse.bbs_mod.utils.iris.ShaderOpacityPatch;
 import mchorse.bbs_mod.utils.keyframes.KeyframeChannel;
 import mchorse.bbs_mod.utils.keyframes.KeyframeSegment;
 
@@ -66,6 +67,32 @@ public class CurveClientClip extends CurveClip
             }
 
             String id = channel.getId();
+
+            if (ShaderCurves.SHADER_SHADOW_OPACITY.equals(id)
+                || id.equals(SHADER_CURVES_PREFIX + ShaderCurves.SHADER_SHADOW_OPACITY))
+            {
+                ShaderOpacityPatch.ensureShadowOpacityVariable();
+
+                ShaderCurves.ShaderVariable shadowOpacity = ShaderCurves.variableMap.get(ShaderCurves.SHADER_SHADOW_OPACITY);
+
+                if (shadowOpacity != null)
+                {
+                    float value = channel.interpolate(context.relativeTick + context.transition).floatValue();
+
+                    shadowOpacity.value = Math.max(0F, Math.min(1F, value));
+                }
+
+                continue;
+            }
+
+            if (ShaderCurves.SUN_PATH_ROTATION.equals(id)
+                || id.equals(SHADER_CURVES_PREFIX + ShaderCurves.SUN_PATH_ROTATION))
+            {
+                /* Uniform is read live from clip data; keep variable registered for Iris. */
+                ShaderCurves.ensureSunPathRotationVariable();
+
+                continue;
+            }
 
             if (id.startsWith(SHADER_CURVES_PREFIX))
             {

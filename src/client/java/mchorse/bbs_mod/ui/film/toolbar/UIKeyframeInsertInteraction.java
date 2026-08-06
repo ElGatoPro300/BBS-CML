@@ -158,7 +158,7 @@ public class UIKeyframeInsertInteraction
         {
             if (!this.columnPreviews.isEmpty())
             {
-                this.state.columnConfirm.insertAt(this.columnPreviews.get(0).b.intValue());
+                this.state.columnConfirm.insertAt(this.columnPreviews.get(0).b);
             }
 
             this.cancel();

@@ -45,6 +45,7 @@ import mchorse.bbs_mod.ui.framework.elements.overlay.UIOverlayPanel;
 import mchorse.bbs_mod.ui.framework.elements.overlay.UIPromptOverlayPanel;
 import mchorse.bbs_mod.ui.framework.elements.utils.EventPropagation;
 import mchorse.bbs_mod.ui.framework.elements.utils.FontRenderer;
+import mchorse.bbs_mod.ui.utils.Scroll;
 import mchorse.bbs_mod.ui.utils.UI;
 import mchorse.bbs_mod.ui.utils.icons.Icon;
 import mchorse.bbs_mod.ui.utils.icons.Icons;
@@ -390,6 +391,7 @@ public class UIFormList extends UIElement
         if (categoryForms.add(key))
         {
             this.persistFavoriteData();
+            this.refreshCategoryCards();
 
             return true;
         }
@@ -448,6 +450,7 @@ public class UIFormList extends UIElement
         if (changed)
         {
             this.persistFavoriteData();
+            this.refreshCategoryCards();
         }
 
         return changed;
@@ -475,6 +478,7 @@ public class UIFormList extends UIElement
         if (currentCategoryForms != null && (currentCategoryForms.remove(key) || (legacyKey != null && currentCategoryForms.remove(legacyKey))))
         {
             this.persistFavoriteData();
+            this.refreshCategoryCards();
 
             return true;
         }
@@ -488,6 +492,7 @@ public class UIFormList extends UIElement
             if (customForms != null && (customForms.remove(key) || (legacyKey != null && customForms.remove(legacyKey))))
             {
                 this.persistFavoriteData();
+                this.refreshCategoryCards();
 
                 return true;
             }
@@ -496,6 +501,7 @@ public class UIFormList extends UIElement
         if (this.favoriteModelForms.remove(key) || (legacyKey != null && this.favoriteModelForms.remove(legacyKey)))
         {
             this.persistFavoriteData();
+            this.refreshCategoryCards();
 
             return true;
         }
@@ -1369,6 +1375,16 @@ public class UIFormList extends UIElement
         this.categoryCards.invalidateCache();
         this.categoryCardsView.resize();
         this.categoryCardsView.scroll.setScroll(scroll);
+    }
+
+    /**
+     * Rebuild category cards / expanded form grids after forms are added, removed,
+     * or filtered (favorites). Without this, expanded panels keep a stale snapshot
+     * until the category is collapsed and opened again.
+     */
+    public void refreshCategoryCards()
+    {
+        this.invalidateCategoryCards();
     }
 
     private String getCategoryPreviewKey(UIFormCategory category)
@@ -2351,6 +2367,7 @@ public class UIFormList extends UIElement
             this.recent.select(copy, false);
             this.expandedCategory = this.recent;
             this.activeExpandedFolder = null;
+            this.refreshCategoryCards();
         }
     }
 
@@ -2382,7 +2399,8 @@ public class UIFormList extends UIElement
                     
                     ((UserFormCategory) category.category).addForm(index, form);
                     source.category.removeForm(form);
-                    
+                    this.refreshCategoryCards();
+
                     return true;
                 }
             }
@@ -2582,6 +2600,47 @@ public class UIFormList extends UIElement
                 UIFormList.this.expandedCategory = null;
                 UIFormList.this.activeExpandedFolder = null;
                 this.invalidateCache();
+            }
+        }
+
+        /**
+         * Keep the user's scroll when the drawer opens or closes. Shrinking used to
+         * subtract the lost height from scroll every animation frame, which yanked the
+         * view upward on close. Opening still grows the panel under the category row.
+         */
+        private void applyContentHeight()
+        {
+            this.rebuildIfNeeded();
+
+            int contentHeight = this.contentHeight;
+
+            if (this.lastHeight == contentHeight)
+            {
+                return;
+            }
+
+            this.lastHeight = contentHeight;
+            this.h(contentHeight);
+
+            UIElement parent = this.getParent();
+
+            if (parent == null)
+            {
+                return;
+            }
+
+            UIScrollView scrollView = parent instanceof UIScrollView view ? view : null;
+            Scroll scroll = scrollView == null ? null : scrollView.scroll;
+            double scrollBefore = scroll == null ? 0D : scroll.getScroll();
+
+            parent.resize();
+
+            if (scroll != null)
+            {
+                /* Ensure the scroll range matches drawer height (column resizer can lag). */
+                scroll.scrollSize = Math.max(scroll.scrollSize, contentHeight);
+                scroll.setScroll(scrollBefore);
+                scroll.clamp();
             }
         }
 
@@ -2943,19 +3002,7 @@ public class UIFormList extends UIElement
         public void render(UIContext context)
         {
             this.updateAnimations(context);
-            this.rebuildIfNeeded();
-            int contentHeight = this.contentHeight;
-
-            if (this.lastHeight != contentHeight)
-            {
-                this.lastHeight = contentHeight;
-                this.h(contentHeight);
-
-                if (this.getParent() != null)
-                {
-                    this.getParent().resize();
-                }
-            }
+            this.applyContentHeight();
 
             if (this.cardCells.isEmpty() && UIFormList.this.appliedSearchQuery.isEmpty())
             {

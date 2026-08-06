@@ -1,6 +1,7 @@
 package mchorse.bbs_mod.film.replays;
 
 import mchorse.bbs_mod.data.types.BaseType;
+import mchorse.bbs_mod.forms.forms.utils.ShadowSettings;
 import mchorse.bbs_mod.settings.values.core.ValueList;
 import mchorse.bbs_mod.utils.CollectionUtils;
 
@@ -154,7 +155,7 @@ public class Replays extends ValueList<Replay>
     {
         Replay replay = new Replay(String.valueOf(this.list.size()));
 
-        replay.keyframes.shadowSize.insert(0, 0.5D);
+        replay.keyframes.shadowSize.insert(0, new ShadowSettings());
         replay.keyframes.shadowOpacity.insert(0, 1D);
 
         this.preNotify();

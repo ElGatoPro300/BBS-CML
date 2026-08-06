@@ -11,6 +11,8 @@
     "block.bbs.chroma_white": "White chroma",
     "item.bbs.gun": "BBS gun",
     "item.bbs.mob_killer": "Mob Killer",
+    "item.bbs.block_picker": "Block Picker",
+    "item.bbs.structure_picker": "Structure Picker",
     "itemGroup.bbs.main": "BBS mod",
 
     "key.bbs.item_editor": "Item editor",

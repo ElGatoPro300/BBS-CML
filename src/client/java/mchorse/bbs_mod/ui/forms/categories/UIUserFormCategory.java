@@ -23,7 +23,11 @@ public class UIUserFormCategory extends UIFormCategory
                 MapType data = Window.getClipboardMap();
                 Form form = FormUtils.fromData(data);
 
-                menu.action(Icons.PASTE, UIKeys.FORMS_CATEGORIES_CONTEXT_PASTE_FORM, () -> this.category.addForm(form));
+                menu.action(Icons.PASTE, UIKeys.FORMS_CATEGORIES_CONTEXT_PASTE_FORM, () ->
+                {
+                    this.category.addForm(form);
+                    this.list.refreshCategoryCards();
+                });
             }
             catch (Exception e)
             {}
@@ -34,6 +38,7 @@ public class UIUserFormCategory extends UIFormCategory
                 {
                     this.category.removeForm(this.selected);
                     this.select(null, false);
+                    this.list.refreshCategoryCards();
                 });
             }
         });

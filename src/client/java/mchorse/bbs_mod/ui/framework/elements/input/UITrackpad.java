@@ -67,6 +67,7 @@ public class UITrackpad extends UIBaseTextbox
 
     public boolean relative;
     public boolean allowCanceling = true;
+    public boolean fitFormat = true;
     public IKey forcedLabel;
 
     /* Value dragging fields */
@@ -236,6 +237,16 @@ public class UITrackpad extends UIBaseTextbox
         return this;
     }
 
+    /**
+     * Show the full formatted value; skip scientific / compact shortening when the field is narrow.
+     */
+    public UITrackpad plainFormat()
+    {
+        this.fitFormat = false;
+
+        return this;
+    }
+
     public UITrackpad disableCanceling()
     {
         this.allowCanceling = false;
@@ -279,16 +290,45 @@ public class UITrackpad extends UIBaseTextbox
     }
 
     /**
-     * Set the value of the field. The input value would be rounded up to 3
-     * decimal places.
+     * Set the value of the field. Always updates the numeric value. While this
+     * trackpad is the active text editor, keep the textbox contents intact so
+     * mid-typing refreshes cannot clobber input.
      */
     public void setValue(double value)
     {
         this.setValueInternal(value);
 
-        if (!this.textbox.isFocused())
+        if (!this.isActivelyEditing())
         {
             this.updateTextField();
+        }
+    }
+
+    /**
+     * True when this trackpad both shows a focused textbox and is the context's
+     * active element (real keyboard target).
+     */
+    public boolean isActivelyEditing()
+    {
+        if (!this.textbox.isFocused())
+        {
+            return false;
+        }
+
+        UIContext context = this.getContext();
+
+        return context != null && context.activeElement == this;
+    }
+
+    /**
+     * If the textbox focus flag drifted from the UI context (e.g. after an
+     * embedded layout toggle), clear it so clicks/drags work again.
+     */
+    private void syncStaleTextFocus(UIContext context)
+    {
+        if (this.textbox.isFocused() && (context == null || context.activeElement != this))
+        {
+            this.textbox.setFocused(false);
         }
     }
 
@@ -324,8 +364,15 @@ public class UITrackpad extends UIBaseTextbox
     {
         double oldValue = this.value;
 
-        this.setValue(value);
-        this.accept(value, oldValue);
+        this.setValueInternal(value);
+        this.updateTextField();
+
+        if (this.isActivelyEditing())
+        {
+            this.textbox.moveCursorToEnd();
+        }
+
+        this.accept(this.value, oldValue);
     }
 
     private void accept(double value, double oldValue)
@@ -431,6 +478,8 @@ public class UITrackpad extends UIBaseTextbox
 
         if (context.mouseButton == 0)
         {
+            this.syncStaleTextFocus(context);
+
             if (this.textbox.isFocused())
             {
                 this.textbox.mouseClicked(context.mouseX, context.mouseY, context.mouseButton);
@@ -454,10 +503,12 @@ public class UITrackpad extends UIBaseTextbox
                 this.dragging = true;
                 this.initialX = context.mouseX;
                 this.initialY = context.mouseY;
-                this.lastValue = this.value;
                 this.time = System.currentTimeMillis();
 
+                /* Emit before caching lastValue so listeners can re-sync the
+                 * numeric value from the model (e.g. keyframe tick). */
                 this.getEvents().emit(new UITrackpadDragStartEvent(this));
+                this.lastValue = this.value;
             }
         }
 
@@ -482,8 +533,9 @@ public class UITrackpad extends UIBaseTextbox
         }
 
         this.textbox.mouseReleased(context.mouseX, context.mouseY, context.mouseButton);
+        this.syncStaleTextFocus(context);
 
-        if (context.mouseButton == 0 && !this.isDraggingTime() && !this.textbox.isFocused())
+        if (context.mouseButton == 0 && !this.isDraggingTime() && !this.isActivelyEditing())
         {
             if (this.wasInside)
             {
@@ -555,7 +607,9 @@ public class UITrackpad extends UIBaseTextbox
     @Override
     public boolean subKeyPressed(UIContext context)
     {
-        if (this.isFocused())
+        this.syncStaleTextFocus(context);
+
+        if (this.isActivelyEditing())
         {
             if (context.isHeld(GLFW.GLFW_KEY_UP))
             {
@@ -583,7 +637,9 @@ public class UITrackpad extends UIBaseTextbox
             }
             else if (context.isPressed(GLFW.GLFW_KEY_ENTER))
             {
-                context.focus(null);
+                context.unfocus();
+
+                return true;
             }
         }
         else if (this.area.isInside(context))
@@ -704,6 +760,8 @@ public class UITrackpad extends UIBaseTextbox
     @Override
     public void render(UIContext context)
     {
+        this.syncStaleTextFocus(context);
+
         int x = this.area.x;
         int y = this.area.y;
         int w = this.area.w;
@@ -711,17 +769,17 @@ public class UITrackpad extends UIBaseTextbox
         int padding = 0;
 
         boolean dragging = this.isDraggingTime();
-        boolean hovered = this.area.isInside(context);
+        boolean hovered = this.isEnabled() && this.area.isInside(context);
         int accent = 0xFF000000 | BBSSettings.primaryColor.get();
         FontRenderer font = context.batcher.getFont();
-        boolean wantsArrows = BBSSettings.enableTrackpadIncrements.get() && hovered;
+        boolean wantsArrows = this.isEnabled() && BBSSettings.enableTrackpadIncrements.get() && hovered;
         boolean showArrows = wantsArrows && this.area.w >= this.minusOne.w + this.plusOne.w + 6;
         boolean showMinusArrow = showArrows;
         boolean showPlusArrow = showArrows;
         boolean plus = !dragging && showPlusArrow && this.plusOne.isInside(context);
         boolean minus = !dragging && showMinusArrow && this.minusOne.isInside(context);
 
-        if (this.textbox.isFocused())
+        if (this.isActivelyEditing())
         {
             this.textbox.render(context);
 
@@ -746,7 +804,9 @@ public class UITrackpad extends UIBaseTextbox
             int textLeft = this.area.x + (showMinusArrow ? this.minusOne.w + 4 : 2);
             int textRight = this.area.ex() - (showPlusArrow ? this.plusOne.w + 4 : 2);
             int availableTextWidth = Math.max(1, textRight - textLeft);
-            String raw = this.forcedLabel != null ? this.forcedLabel.get() : this.formatToFit(font, this.value, availableTextWidth);
+            String raw = this.forcedLabel != null
+                ? this.forcedLabel.get()
+                : (this.fitFormat ? this.formatToFit(font, this.value, availableTextWidth) : format(this.value));
             String label = this.truncateToWidth(font, raw, availableTextWidth);
 
             int lx = textLeft + Math.max(0, (availableTextWidth - font.getWidth(label)) / 2);
@@ -848,7 +908,11 @@ public class UITrackpad extends UIBaseTextbox
             context.batcher.outlineCenter(this.initialX, this.initialY, 4, Colors.WHITE);
         }
 
-        this.renderLockedArea(context);
+        if (!this.isEnabled())
+        {
+            /* Soft dim without lock icon — number fields read better greyed-out. */
+            context.batcher.box(x, y, x + w, y + h, 0x99000000);
+        }
 
         super.render(context);
     }

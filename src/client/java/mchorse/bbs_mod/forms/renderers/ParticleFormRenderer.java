@@ -10,6 +10,8 @@ import mchorse.bbs_mod.particles.ParticleScheme;
 import mchorse.bbs_mod.particles.emitter.ParticleEmitter;
 import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.utils.MatrixStackUtils;
+import mchorse.bbs_mod.utils.colors.Color;
+import mchorse.bbs_mod.utils.colors.Colors;
 import mchorse.bbs_mod.utils.joml.Vectors;
 
 import net.minecraft.client.MinecraftClient;
@@ -101,7 +103,10 @@ public class ParticleFormRenderer extends FormRenderer<ParticleForm> implements 
             this.updateTexture(context.getTransition());
             emitter.lastGlobal.set(new Vector3f(0, 0, 0));
             emitter.rotation.identity();
+
+            emitter.setGlow(this.form.glowSettings.get(), this.form.glowingColor.get(), 1F);
             emitter.renderUI(stack, context.getTransition());
+            emitter.clearGlow();
 
             stack.pop();
         }
@@ -180,6 +185,10 @@ public class ParticleFormRenderer extends FormRenderer<ParticleForm> implements 
             emitter.lastGlobal.set(translation);
             emitter.rotation.set(modelMatrix);
             emitter.modelRenderer = context.modelRenderer;
+
+            Color glowTint = Colors.COLOR.set(context.color, true);
+
+            emitter.setGlow(this.form.glowSettings.get(), this.form.glowingColor.get(), glowTint.a);
             
             if (!BBSRendering.isIrisShadowPass())
             {
@@ -193,6 +202,8 @@ public class ParticleFormRenderer extends FormRenderer<ParticleForm> implements 
 
                 emitter.render(format, shader, context.stack, context.overlay, context.getTransition());
             }
+
+            emitter.clearGlow();
 
             context.stack.pop();
 

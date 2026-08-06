@@ -4,8 +4,10 @@ import mchorse.bbs_mod.BBSMod;
 import mchorse.bbs_mod.cubic.ModelInstance;
 import mchorse.bbs_mod.cubic.MolangHelper;
 import mchorse.bbs_mod.cubic.animation.ProceduralDefaults;
+import mchorse.bbs_mod.cubic.model.bobj.BOBJModel;
 import mchorse.bbs_mod.cubic.model.loaders.BOBJModelLoader;
 import mchorse.bbs_mod.cubic.model.loaders.CubicModelLoader;
+import mchorse.bbs_mod.cubic.model.loaders.FBXModelLoader;
 import mchorse.bbs_mod.cubic.model.loaders.GLTFModelLoader;
 import mchorse.bbs_mod.cubic.model.loaders.GeoCubicModelLoader;
 import mchorse.bbs_mod.cubic.model.loaders.IModelLoader;
@@ -24,16 +26,18 @@ import mchorse.bbs_mod.utils.pose.ShapeKeysManager;
 import mchorse.bbs_mod.utils.watchdog.IWatchDogListener;
 import mchorse.bbs_mod.utils.watchdog.WatchDogEvent;
 
+import net.minecraft.client.MinecraftClient;
+
 import java.io.File;
 import java.io.InputStream;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class ModelManager implements IWatchDogListener
 {
@@ -42,13 +46,16 @@ public class ModelManager implements IWatchDogListener
     public static final String DYNAMIC_CONFIG_FILE = "dynamic_config.json";
     public static final String DYNAMIC_PHYS_BONES_KEY = "phys_bones";
 
-    public final Map<String, ModelInstance> models = new HashMap<>();
+    public final Map<String, ModelInstance> models = new ConcurrentHashMap<>();
     public final List<IModelLoader> loaders = new ArrayList<>();
     public final AssetProvider provider;
     public final MolangParser parser;
     private final Set<String> relodableSuffixes = new HashSet<>();
+    /* ConcurrentHashMap forbids null values — track failed loads separately. */
+    private final Set<String> failedModels = ConcurrentHashMap.newKeySet();
 
     private ModelLoader loader = new ModelLoader(this);
+    private List<String> availableKeysCache;
 
     public ModelManager(AssetProvider provider)
     {
@@ -65,6 +72,7 @@ public class ModelManager implements IWatchDogListener
         this.loaders.clear();
         this.relodableSuffixes.clear();
         this.loaders.add(new BOBJModelLoader());
+        this.loaders.add(new FBXModelLoader());
         this.loaders.add(new CubicModelLoader());
         this.loaders.add(new GeoCubicModelLoader());
         this.loaders.add(new VoxModelLoader());
@@ -74,6 +82,7 @@ public class ModelManager implements IWatchDogListener
         this.registerRelodableSuffix(".bbs.json");
         this.registerRelodableSuffix(".geo.json");
         this.registerRelodableSuffix(".bobj");
+        this.registerRelodableSuffix(".fbx");
         this.registerRelodableSuffix(".obj");
         this.registerRelodableSuffix(".gltf");
         this.registerRelodableSuffix(".glb");
@@ -109,6 +118,11 @@ public class ModelManager implements IWatchDogListener
      */
     public List<String> getAvailableKeys()
     {
+        if (this.availableKeysCache != null)
+        {
+            return new ArrayList<>(this.availableKeysCache);
+        }
+
         List<Link> models = new ArrayList<>(BBSMod.getProvider().getLinksFromPath(Link.assets("models"), true));
         Set<String> keys = new HashSet<>();
 
@@ -132,18 +146,49 @@ public class ModelManager implements IWatchDogListener
             }
         }
 
-        return new ArrayList<>(keys);
+        this.availableKeysCache = new ArrayList<>(keys);
+
+        return new ArrayList<>(this.availableKeysCache);
     }
 
     public ModelInstance getModel(String id)
     {
-        if (this.models.containsKey(id))
+        return this.getModel(id, false);
+    }
+
+    /**
+     * @param priority queue this id first when not yet loaded (visible morph thumbnails).
+     */
+    public ModelInstance getModel(String id, boolean priority)
+    {
+        if (id == null || id.isEmpty())
         {
-            return this.models.get(id);
+            return null;
         }
 
-        this.models.put(id, null);
-        this.loader.add(id);
+        ModelInstance loaded = this.models.get(id);
+
+        if (loaded != null)
+        {
+            return loaded;
+        }
+
+        if (this.failedModels.contains(id))
+        {
+            return null;
+        }
+
+        if (this.loader.isLoading(id))
+        {
+            if (priority)
+            {
+                this.loader.add(id, true);
+            }
+
+            return null;
+        }
+
+        this.loader.add(id, priority);
 
         return null;
     }
@@ -151,6 +196,23 @@ public class ModelManager implements IWatchDogListener
     public boolean isLoading(String id)
     {
         return this.loader.isLoading(id);
+    }
+
+    /**
+     * Queue every known model for background load so morph thumbnails are warm
+     * by the time the player opens the form list.
+     */
+    public void preloadAll()
+    {
+        for (String key : this.getAvailableKeys())
+        {
+            if (key == null || key.isEmpty() || this.models.containsKey(key) || this.failedModels.contains(key))
+            {
+                continue;
+            }
+
+            this.loader.add(key, false);
+        }
     }
 
     public ModelInstance loadModel(String id)
@@ -173,6 +235,8 @@ public class ModelManager implements IWatchDogListener
         if (model == null)
         {
             System.err.println("Model \"" + id + "\" wasn't loaded properly, or was loaded with no top level groups!");
+            this.failedModels.add(id);
+            this.models.remove(id);
         }
         else
         {
@@ -180,9 +244,22 @@ public class ModelManager implements IWatchDogListener
 
             ProceduralDefaults.ensureForModelInstance(model, this.provider, this.parser);
             model.setup();
-        }
 
-        this.models.put(id, model);
+            ModelInstance existing = this.models.get(id);
+
+            if (existing != null)
+            {
+                existing.delete();
+
+                if (existing.model instanceof BOBJModel bobjModel)
+                {
+                    bobjModel.delete();
+                }
+            }
+
+            this.failedModels.remove(id);
+            this.models.put(id, model);
+        }
 
         return model;
     }
@@ -230,6 +307,8 @@ public class ModelManager implements IWatchDogListener
 
     public void reload()
     {
+        this.availableKeysCache = null;
+
         for (ModelInstance model : this.models.values())
         {
             if (model != null)
@@ -239,6 +318,7 @@ public class ModelManager implements IWatchDogListener
         }
 
         this.models.clear();
+        this.failedModels.clear();
         PoseManager.INSTANCE.clear();
         ShapeKeysManager.INSTANCE.clear();
         this.setupLoaders();
@@ -338,13 +418,36 @@ public class ModelManager implements IWatchDogListener
 
         if (this.isRelodable(link))
         {
+            this.availableKeysCache = null;
             String key = StringUtils.parentPath(link.path.substring(MODELS_PREFIX.length()));
+
+            if (link.path.endsWith("/" + CONFIG_FILE) || link.path.endsWith("/" + DYNAMIC_CONFIG_FILE))
+            {
+                this.failedModels.remove(key);
+                return;
+            }
+
             ModelInstance model = this.models.remove(key);
+
+            this.failedModels.remove(key);
 
             if (model != null)
             {
-                model.delete();
+                /* VAO deletion must happen on the render/GL thread — the watchdog runs
+                 * on a file-system watcher thread that has no OpenGL context. */
+                final ModelInstance toDelete = model;
+
+                MinecraftClient.getInstance().execute(() ->
+                {
+                    toDelete.delete();
+
+                    if (toDelete.model instanceof BOBJModel bobjModel)
+                    {
+                        bobjModel.delete();
+                    }
+                });
             }
         }
     }
 }
+

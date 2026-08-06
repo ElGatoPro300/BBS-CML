@@ -2,6 +2,7 @@ package mchorse.bbs_mod.ui.model;
 
 import mchorse.bbs_mod.BBSModClient;
 import mchorse.bbs_mod.cubic.ModelInstance;
+import mchorse.bbs_mod.cubic.model.bobj.BOBJModel;
 import mchorse.bbs_mod.forms.forms.ModelForm;
 import mchorse.bbs_mod.forms.renderers.FormRenderType;
 import mchorse.bbs_mod.forms.renderers.FormRenderingContext;
@@ -74,8 +75,26 @@ public class UIModelPreviewRenderer extends UIModelRenderer
 
             if (globalModel != null)
             {
-                this.previewModel = new ModelInstance(globalModel.id, globalModel.model, globalModel.animations, globalModel.texture);
-                this.previewModel.setup();
+                if (this.previewModel != null)
+                {
+                    this.previewModel.delete();
+                }
+
+                this.previewModel = globalModel.copy();
+
+                if (globalModel.model instanceof BOBJModel)
+                {
+                    /* BOBJModel.copy() already builds its own armature VAO. */
+                }
+                else if (globalModel.isVAORendered())
+                {
+                    this.previewModel.borrowVaosFrom(globalModel);
+                }
+                else
+                {
+                    this.previewModel.setup();
+                }
+
                 this.lastModelId = modelId;
             }
             else

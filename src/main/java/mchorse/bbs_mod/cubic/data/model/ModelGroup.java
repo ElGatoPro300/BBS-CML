@@ -5,6 +5,7 @@ import mchorse.bbs_mod.data.IMapSerializable;
 import mchorse.bbs_mod.data.types.BaseType;
 import mchorse.bbs_mod.data.types.ListType;
 import mchorse.bbs_mod.data.types.MapType;
+import mchorse.bbs_mod.forms.forms.utils.EffectTransform;
 import mchorse.bbs_mod.forms.forms.utils.PaintSettings;
 import mchorse.bbs_mod.resources.Link;
 import mchorse.bbs_mod.utils.colors.Color;
@@ -31,6 +32,7 @@ public class ModelGroup implements IMapSerializable
     public int index = -1;
 
     public float lighting = 0F;
+    public boolean noshadingOpacity;
     public Color color = new Color().set(1F, 1F, 1F);
     public Color paintColor = new Color().set(1F, 1F, 1F, 0F);
     public Color glowingColor = new Color().set(1F, 1F, 1F, 1F);
@@ -38,6 +40,7 @@ public class ModelGroup implements IMapSerializable
     public float glowRadius;
     public float shaderShadow = PaintSettings.SHADER_SHADOW_DEFAULT;
     public Link textureOverride;
+    public Link textureBlendTo;
     public float textureBlend = 1F;
     public Transform initial = new Transform();
     public Transform current = new Transform();
@@ -57,13 +60,26 @@ public class ModelGroup implements IMapSerializable
     public void reset()
     {
         this.lighting = 0F;
+        this.noshadingOpacity = false;
         this.color.set(1F, 1F, 1F);
+        this.color.brightness = 0F;
+        this.color.contrast = 0F;
+        this.color.hue = 0F;
+        this.color.saturation = 0F;
+        this.color.transform = new EffectTransform();
+        this.color.brightnessTransform = new EffectTransform();
+        this.color.contrastTransform = new EffectTransform();
+        this.color.hueTransform = new EffectTransform();
+        this.color.saturationTransform = new EffectTransform();
         this.paintColor.set(1F, 1F, 1F, 0F);
+        this.paintColor.transform = new EffectTransform();
         this.glowingColor.set(1F, 1F, 1F, 1F);
+        this.glowingColor.transform = new EffectTransform();
         this.glowIntensity = 0F;
         this.glowRadius = 0F;
         this.shaderShadow = PaintSettings.SHADER_SHADOW_DEFAULT;
         this.textureOverride = null;
+        this.textureBlendTo = null;
         this.textureBlend = 1F;
         this.current.copy(this.initial);
         this.orient = null;
@@ -102,6 +118,7 @@ public class ModelGroup implements IMapSerializable
         group.index = this.index;
         
         group.lighting = this.lighting;
+        group.noshadingOpacity = this.noshadingOpacity;
         group.color.copy(this.color);
         group.paintColor.copy(this.paintColor);
         group.glowingColor.copy(this.glowingColor);
@@ -109,6 +126,7 @@ public class ModelGroup implements IMapSerializable
         group.glowRadius = this.glowRadius;
         group.shaderShadow = this.shaderShadow;
         if (this.textureOverride != null) group.textureOverride = LinkUtils.copy(this.textureOverride);
+        if (this.textureBlendTo != null) group.textureBlendTo = LinkUtils.copy(this.textureBlendTo);
         group.textureBlend = this.textureBlend;
         
         group.initial.copy(this.initial);

@@ -2,6 +2,7 @@ package mchorse.bbs_mod.utils.keyframes;
 
 import mchorse.bbs_mod.BBSSettings;
 import mchorse.bbs_mod.data.types.BaseType;
+import mchorse.bbs_mod.data.types.ListType;
 import mchorse.bbs_mod.data.types.MapType;
 import mchorse.bbs_mod.settings.values.base.BaseValue;
 import mchorse.bbs_mod.settings.values.core.ValueList;
@@ -76,6 +77,13 @@ public class KeyframeChannel <T> extends ValueList<Keyframe<T>>
 
     private void applyDefaultInterpolation(Keyframe<T> kf)
     {
+        if (this.factory == KeyframeFactories.BOOLEAN)
+        {
+            kf.getInterpolation().setInterp(Interpolations.CONST);
+
+            return;
+        }
+
         if ((this.model ? BBSSettings.defaultModelInterpolation : BBSSettings.defaultInterpolation) == null)
         {
             return;
@@ -489,13 +497,65 @@ public class KeyframeChannel <T> extends ValueList<Keyframe<T>>
         }
 
         MapType map = data.asMap();
-        IKeyframeFactory<T> factory = KeyframeFactories.FACTORIES.get(map.getString("type"));
+        IKeyframeFactory<T> constructed = this.factory;
+        IKeyframeFactory fromFile = KeyframeFactories.FACTORIES.get(map.getString("type"));
 
-        this.factory = factory;
+        /* Keep the constructor factory if the saved type is missing/unknown. */
+        if (fromFile != null)
+        {
+            this.factory = fromFile;
+        }
 
         super.fromData(map.getList("keyframes"));
 
+        /* Channels constructed as DOUBLE must stay DOUBLE. Older films may have
+         * saved the same id as integer/float; keeping that factory causes
+         * ClassCastException when UI reads interpolated values as Double. */
+        if (constructed == KeyframeFactories.DOUBLE && this.factory != KeyframeFactories.DOUBLE
+            && (this.factory == KeyframeFactories.INTEGER || this.factory == KeyframeFactories.FLOAT))
+        {
+            this.promoteNumericKeyframesToDouble();
+        }
+
         this.sort();
+    }
+
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    private void promoteNumericKeyframesToDouble()
+    {
+        ListType keyframesData = new ListType();
+
+        for (Object object : this.list)
+        {
+            Keyframe keyframe = (Keyframe) object;
+            BaseType raw = keyframe.toData();
+
+            if (raw == null || !raw.isMap())
+            {
+                continue;
+            }
+
+            MapType data = raw.asMap();
+            Object value = keyframe.getValue();
+            double number = value instanceof Number ? ((Number) value).doubleValue() : 0D;
+
+            data.putDouble("value", number);
+            keyframesData.add(data);
+        }
+
+        this.factory = (IKeyframeFactory<T>) KeyframeFactories.DOUBLE;
+        this.list.clear();
+
+        for (int i = 0; i < keyframesData.size(); i++)
+        {
+            Keyframe<T> keyframe = this.create(String.valueOf(i));
+
+            this.list.add(keyframe);
+            keyframe.setParent(this);
+            keyframe.fromData(keyframesData.get(i));
+        }
+
+        this.sync();
     }
 
     public void copyKeyframes(KeyframeChannel<T> channel)

@@ -17,6 +17,35 @@ public class CrossWorldFilmScanner
 {
     private static final String FILMS_EXTENSION = ".dat";
 
+    /**
+     * All saved worlds for the Worlds browser, excluding the currently loaded world.
+     */
+    public static CompletableFuture<List<LevelSummary>> scanWorldsAsync()
+    {
+        MinecraftClient client = MinecraftClient.getInstance();
+        LevelStorage storage = client.getLevelStorage();
+        LevelStorage.LevelList levelList = storage.getLevelList();
+
+        return storage.loadSummaries(levelList).thenApply((summaries) ->
+        {
+            List<LevelSummary> worlds = new ArrayList<>();
+
+            for (LevelSummary summary : summaries)
+            {
+                if (WorldLaunchHelper.isCurrentWorld(client, summary.getName()))
+                {
+                    continue;
+                }
+
+                worlds.add(summary);
+            }
+
+            worlds.sort(null);
+
+            return worlds;
+        });
+    }
+
     public static CompletableFuture<List<CrossWorldFilmEntry>> scanAsync()
     {
         MinecraftClient client = MinecraftClient.getInstance();
@@ -37,6 +66,12 @@ public class CrossWorldFilmScanner
             for (LevelStorage.LevelSave save : levelList.levels())
             {
                 String worldFolder = save.getRootPath();
+
+                if (WorldLaunchHelper.isCurrentWorld(client, worldFolder))
+                {
+                    continue;
+                }
+
                 String worldLabel = labels.getOrDefault(worldFolder, worldFolder);
                 File filmsFolder = save.path().resolve("bbs/films").toFile();
 

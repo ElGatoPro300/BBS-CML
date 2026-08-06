@@ -7,6 +7,7 @@ import mchorse.bbs_mod.cubic.IModel;
 import mchorse.bbs_mod.cubic.MolangHelper;
 import mchorse.bbs_mod.cubic.data.animation.Animation;
 import mchorse.bbs_mod.cubic.data.model.ModelGroup;
+import mchorse.bbs_mod.cubic.render.vao.BOBJGPUSkinVAO;
 import mchorse.bbs_mod.cubic.render.vao.BOBJModelSimpleVAO;
 import mchorse.bbs_mod.cubic.render.vao.BOBJModelVAO;
 import mchorse.bbs_mod.forms.entities.IEntity;
@@ -25,16 +26,17 @@ import java.util.Set;
 public class BOBJModel implements IModel
 {
     private BOBJArmature armature;
-    private BOBJLoader.CompiledData meshData;
+    private List<BOBJLoader.CompiledData> meshes;
 
-    private BOBJModelVAO vao;
+    /* One VAO per mesh; each mesh's name is its material for per-mesh texture selection. */
+    private List<BOBJModelVAO> vaos = new ArrayList<>();
     private boolean simple;
     private Set<Integer> deformingBones;
 
-    public BOBJModel(BOBJArmature armature, BOBJLoader.CompiledData meshData, boolean simple)
+    public BOBJModel(BOBJArmature armature, List<BOBJLoader.CompiledData> meshes, boolean simple)
     {
         this.armature = armature;
-        this.meshData = meshData;
+        this.meshes = meshes;
         this.simple = simple;
     }
 
@@ -48,16 +50,19 @@ public class BOBJModel implements IModel
         {
             this.deformingBones = new HashSet<>();
 
-            if (this.meshData != null && this.meshData.boneIndexData != null && this.meshData.weightData != null)
+            for (BOBJLoader.CompiledData mesh : this.meshes)
             {
-                int[] indices = this.meshData.boneIndexData;
-                float[] weights = this.meshData.weightData;
-
-                for (int i = 0; i < indices.length; i++)
+                if (mesh != null && mesh.boneIndexData != null && mesh.weightData != null)
                 {
-                    if (indices[i] >= 0 && weights[i] > 0F)
+                    int[] indices = mesh.boneIndexData;
+                    float[] weights = mesh.weightData;
+
+                    for (int i = 0; i < indices.length; i++)
                     {
-                        this.deformingBones.add(indices[i]);
+                        if (indices[i] >= 0 && weights[i] > 0F)
+                        {
+                            this.deformingBones.add(indices[i]);
+                        }
                     }
                 }
             }
@@ -71,31 +76,36 @@ public class BOBJModel implements IModel
         return this.armature;
     }
 
-    public BOBJLoader.CompiledData getMeshData()
+    public List<BOBJModelVAO> getVaos()
     {
-        return this.meshData;
+        return this.vaos;
     }
 
-    public BOBJModelVAO getVao()
+    public List<BOBJLoader.CompiledData> getMeshes()
     {
-        return this.vao;
+        return this.meshes;
     }
 
     public void delete()
     {
-        if (this.vao != null)
+        for (BOBJModelVAO vao : this.vaos)
         {
-            this.vao.delete();
-
-            this.vao = null;
+            vao.delete();
         }
+
+        this.vaos.clear();
     }
 
     public void setup()
     {
-        this.vao = this.simple
-            ? new BOBJModelSimpleVAO(this.meshData, this.armature)
-            : new BOBJModelVAO(this.meshData, this.armature);
+        this.delete();
+
+        for (BOBJLoader.CompiledData mesh : this.meshes)
+        {
+            this.vaos.add(this.simple
+                ? new BOBJModelSimpleVAO(mesh, this.armature)
+                : new BOBJGPUSkinVAO(mesh, this.armature));
+        }
 
         this.armature.setupMatrices();
     }
@@ -162,7 +172,7 @@ public class BOBJModel implements IModel
     @Override
     public IModel copy()
     {
-        BOBJModel model = new BOBJModel(this.armature.copy(), this.meshData, this.simple);
+        BOBJModel model = new BOBJModel(this.armature.copy(), this.meshes, this.simple);
         
         model.setup();
         

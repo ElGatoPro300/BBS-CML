@@ -11,10 +11,16 @@ import mchorse.bbs_mod.settings.values.numeric.ValueBoolean;
 import mchorse.bbs_mod.settings.values.numeric.ValueDouble;
 import mchorse.bbs_mod.settings.values.numeric.ValueFloat;
 import mchorse.bbs_mod.settings.values.numeric.ValueInt;
+import mchorse.bbs_mod.settings.values.ui.ValueFormEditorGizmoToolbar;
+import mchorse.bbs_mod.settings.values.ui.ValueGizmoToolbar;
 import mchorse.bbs_mod.settings.values.ui.ValueLanguage;
 import mchorse.bbs_mod.settings.values.ui.ValueVideoSettings;
+import mchorse.bbs_mod.settings.values.ui.ValueViewportToolbar;
 import mchorse.bbs_mod.text.RtlFontManager;
 import mchorse.bbs_mod.ui.UIKeys;
+import mchorse.bbs_mod.ui.film.GizmoToolbarButtons;
+import mchorse.bbs_mod.ui.film.ViewportToolbarButtons;
+import mchorse.bbs_mod.ui.forms.editors.FormEditorGizmoToolbarButtons;
 import mchorse.bbs_mod.ui.framework.elements.UIElement;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIButton;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UICirculate;
@@ -214,11 +220,17 @@ public class UIValueMap
                     value.set(3);
                     UIUtils.playClick();
                 });
+                UIIcon top = new UIIcon(Icons.SPHERE, (b) ->
+                {
+                    value.set(4);
+                    UIUtils.playClick();
+                });
 
                 translate.tooltip(UIKeys.FILM_GIZMO_MOVE);
                 scale.tooltip(UIKeys.FILM_GIZMO_SCALE);
                 rotate.tooltip(UIKeys.FILM_GIZMO_ROTATE);
                 combined.tooltip(UIKeys.FILM_GIZMO_COMBINED);
+                top.tooltip(UIKeys.FILM_GIZMO_TOP);
 
                 int activeBg = Colors.A50 | Colors.BLUE;
 
@@ -226,21 +238,23 @@ public class UIValueMap
                 scale.activeBackground(activeBg);
                 rotate.activeBackground(activeBg);
                 combined.activeBackground(activeBg);
+                top.activeBackground(activeBg);
 
                 Runnable syncActive = () ->
                 {
-                    int mode = MathUtils.clamp(value.get(), 0, 3);
+                    int mode = MathUtils.clamp(value.get(), 0, 4);
 
                     translate.active(mode == 0);
                     scale.active(mode == 1);
                     rotate.active(mode == 2);
                     combined.active(mode == 3);
+                    top.active(mode == 4);
                 };
 
                 value.postCallback((changed, flag) -> syncActive.run());
                 syncActive.run();
 
-                UIElement row = UI.row(2, translate, scale, rotate, combined);
+                UIElement row = UI.row(2, translate, scale, rotate, combined, top);
 
                 row.w(90);
 
@@ -497,6 +511,14 @@ public class UIValueMap
             audioEnvironment.w(1F).h(20);
             list.add(audioEnvironment);
 
+            UIToggle audioSeparateFile = new UIToggle(UIKeys.VIDEO_SETTINGS_AUDIO_SEPARATE_FILE, value.audioSeparateFile.get(), (b) ->
+            {
+                value.audioSeparateFile.set(b.getValue());
+            });
+            audioSeparateFile.tooltip(UIKeys.VIDEO_SETTINGS_AUDIO_SEPARATE_FILE_TOOLTIP);
+            audioSeparateFile.w(1F).h(20);
+            list.add(audioSeparateFile);
+
             UITrackpad width = UIValueFactory.intUI(value.width, null);
             value.width.postCallback((changed, flag) -> width.setValue(value.width.get()));
             width.w(90);
@@ -523,6 +545,10 @@ public class UIValueMap
             frameRate.w(90);
             list.add(customColumn(frameRate, UIKeys.VIDEO_SETTINGS_FRAME_RATE, IKey.raw("")));
 
+            UITrackpad warmupDelay = UIValueFactory.floatUI(value.warmupDelay, null);
+            warmupDelay.w(90);
+            list.add(customColumn(warmupDelay, UIKeys.VIDEO_SETTINGS_WARMUP_DELAY, UIKeys.VIDEO_SETTINGS_WARMUP_DELAY_TOOLTIP));
+
             UITrackpad motionBlur = UIValueFactory.intUI(value.motionBlur, null);
             motionBlur.w(90);
             list.add(customColumn(motionBlur, UIKeys.VIDEO_SETTINGS_MOTION_BLUR, UIKeys.VIDEO_SETTINGS_MOTION_BLUR_TOOLTIP));
@@ -536,6 +562,42 @@ public class UIValueMap
             list.add(customColumn(path, UIKeys.VIDEO_SETTINGS_PATH, IKey.raw("")));
 
             return list;
+        });
+
+        register(ValueViewportToolbar.class, (value, ui) ->
+        {
+            UIIconToolbarOrderEditor editor = new UIIconToolbarOrderEditor(value, ViewportToolbarButtons::getIcon, ViewportToolbarButtons::getTooltip, null);
+
+            editor.w(1F);
+
+            UILabel hint = UI.label(UIKeys.FILM_PREVIEW_VIEWPORT_TOOLBAR_HINT, 0).color(0x888888);
+            hint.relative(editor).w(1F);
+
+            return Arrays.asList(hint.marginBottom(4), UIValueFactory.column(editor, value));
+        });
+
+        register(ValueGizmoToolbar.class, (value, ui) ->
+        {
+            UIIconToolbarOrderEditor editor = new UIIconToolbarOrderEditor(value, GizmoToolbarButtons::getIcon, GizmoToolbarButtons::getTooltip, null);
+
+            editor.w(1F);
+
+            UILabel hint = UI.label(UIKeys.FILM_PREVIEW_GIZMO_TOOLBAR_HINT, 0).color(0x888888);
+            hint.relative(editor).w(1F);
+
+            return Arrays.asList(hint.marginBottom(4), UIValueFactory.column(editor, value));
+        });
+
+        register(ValueFormEditorGizmoToolbar.class, (value, ui) ->
+        {
+            UIIconToolbarOrderEditor editor = new UIIconToolbarOrderEditor(value, FormEditorGizmoToolbarButtons::getIcon, FormEditorGizmoToolbarButtons::getTooltip, null);
+
+            editor.w(1F);
+
+            UILabel hint = UI.label(UIKeys.FORMS_EDITOR_GIZMO_TOOLBAR_HINT, 0).color(0x888888);
+            hint.relative(editor).w(1F);
+
+            return Arrays.asList(hint.marginBottom(4), UIValueFactory.column(editor, value));
         });
     }
 

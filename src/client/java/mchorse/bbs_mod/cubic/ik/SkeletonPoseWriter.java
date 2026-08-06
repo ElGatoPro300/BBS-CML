@@ -38,6 +38,11 @@ public final class SkeletonPoseWriter
 
     public static void apply(IModel model, List<LimbConstraintCompiler.CompiledLimb> limbs, Map<String, Vector3f> controllerTargets, Map<String, Vector3f> poleTargets, Map<String, Float> targetWeights, Map<String, Float> poleWeights, Map<String, LimbDynamicParams> controlOverrides, Map<String, JointLimit> boneLimits)
     {
+        apply(model, limbs, controllerTargets, poleTargets, targetWeights, poleWeights, controlOverrides, boneLimits, null, null);
+    }
+
+    public static void apply(IModel model, List<LimbConstraintCompiler.CompiledLimb> limbs, Map<String, Vector3f> controllerTargets, Map<String, Vector3f> poleTargets, Map<String, Float> targetWeights, Map<String, Float> poleWeights, Map<String, LimbDynamicParams> controlOverrides, Map<String, JointLimit> boneLimits, Map<String, Quaternionf> tipRotations, Map<String, Float> tipRotationWeights)
+    {
         if (model == null || limbs == null || limbs.isEmpty())
         {
             return;
@@ -54,6 +59,18 @@ public final class SkeletonPoseWriter
             wanted.add(limb.controllerBone());
             wanted.addAll(limb.chainRootToEffector());
 
+            String chainRoot = limb.chainRootToEffector().isEmpty() ? null : limb.chainRootToEffector().get(0);
+
+            if (chainRoot != null)
+            {
+                String anchorParent = model.getParentGroupKey(chainRoot);
+
+                if (anchorParent != null && !anchorParent.isEmpty())
+                {
+                    wanted.add(anchorParent);
+                }
+            }
+
             if (limb.poleBone() != null && !limb.poleBone().isEmpty())
             {
                 wanted.add(limb.poleBone());
@@ -62,7 +79,7 @@ public final class SkeletonPoseWriter
             Map<String, PivotFrame> frames = new HashMap<>(wanted.size() * 2);
 
             BoneFrameCollector.collect(model, wanted, frames, null, true);
-            applyChain(model, limb, frames, controllerTargets, poleTargets, targetWeights, poleWeights, controlOverrides, boneLimits);
+            applyChain(model, limb, frames, controllerTargets, poleTargets, targetWeights, poleWeights, controlOverrides, boneLimits, tipRotations, tipRotationWeights);
         }
     }
 
@@ -88,7 +105,7 @@ public final class SkeletonPoseWriter
         return depth;
     }
 
-    private static void applyChain(IModel model, LimbConstraintCompiler.CompiledLimb limb, Map<String, PivotFrame> frames, Map<String, Vector3f> controllerTargets, Map<String, Vector3f> poleTargets, Map<String, Float> targetWeights, Map<String, Float> poleWeights, Map<String, LimbDynamicParams> controlOverrides, Map<String, JointLimit> boneLimits)
+    private static void applyChain(IModel model, LimbConstraintCompiler.CompiledLimb limb, Map<String, PivotFrame> frames, Map<String, Vector3f> controllerTargets, Map<String, Vector3f> poleTargets, Map<String, Float> targetWeights, Map<String, Float> poleWeights, Map<String, LimbDynamicParams> controlOverrides, Map<String, JointLimit> boneLimits, Map<String, Quaternionf> tipRotations, Map<String, Float> tipRotationWeights)
     {
         LimbDynamicParams control = controlOverrides == null ? null : controlOverrides.get(limb.tipBone());
 
@@ -119,8 +136,23 @@ public final class SkeletonPoseWriter
         boolean tipRotation = limb.orientTip();
         String tailId = tipRotation ? autoTailId(model, chainIds) : null;
         List<String> workIds = tailId == null ? chainIds : chainIds.subList(0, chainIds.size() - 1);
-        List<Vector3f> currentPositions = new ArrayList<>(workIds.size());
+        List<Vector3f> currentPositions = new ArrayList<>(workIds.size() + 1);
         Quaternionf rootParentRotation = null;
+        String chainRootId = workIds.isEmpty() ? null : workIds.get(0);
+        String anchorParentId = chainRootId == null ? null : model.getParentGroupKey(chainRootId);
+
+        if (workIds.size() == 1 && anchorParentId != null && !anchorParentId.isEmpty())
+        {
+            PivotFrame anchorFrame = frames.get(anchorParentId);
+
+            if (anchorFrame == null)
+            {
+                return;
+            }
+
+            currentPositions.add(new Vector3f(anchorFrame.position()));
+            rootParentRotation = new Quaternionf(anchorFrame.parentRotation());
+        }
 
         for (String id : workIds)
         {
@@ -152,7 +184,7 @@ public final class SkeletonPoseWriter
             target.lerp(override, weightOf(targetWeights, limb.controllerBone()));
         }
 
-        Quaternionf tipTarget = tipRotation && targetFrame.worldRotation() != null ? new Quaternionf(targetFrame.worldRotation()) : null;
+        Quaternionf tipTarget = resolveTipTarget(limb, tipRotations, tipRotation, targetFrame);
 
         if (tailId != null && tipTarget != null)
         {
@@ -163,7 +195,9 @@ public final class SkeletonPoseWriter
         LimbResolver.Limit[] limits = buildLimits(model, workIds, boneLimits);
         Vector3f restHinge = restBendNormal(model, workIds, rootParentRotation);
         Vector3f bendNormal = new Vector3f();
-        List<Vector3f> solved = LimbResolver.resolve(currentPositions, target, usePole, polePoint, bendOffsetRad, flexibility, MAX_ITERATIONS, TOLERANCE, limits, limits == null ? null : rootParentRotation, restHinge, bendNormal);
+        boolean invertBend = model instanceof BOBJModel;
+        List<Vector3f> solved = LimbResolver.resolve(currentPositions, target, usePole, polePoint, bendOffsetRad, flexibility, MAX_ITERATIONS, TOLERANCE, limits, limits == null ? null : rootParentRotation, restHinge, bendNormal, invertBend);
+
         Vector3f bendSeed = bendNormal.lengthSquared() < EPS * EPS ? null : bendNormal;
         Vector3f stretchGap = null;
 
@@ -269,6 +303,23 @@ public final class SkeletonPoseWriter
 
             tip.orient = influence >= 1F - EPS ? tipLocal : fkLocal(tip).slerp(tipLocal, influence);
         }
+    }
+
+    private static Quaternionf resolveTipTarget(LimbConstraintCompiler.CompiledLimb limb, Map<String, Quaternionf> tipRotations, boolean orientTip, PivotFrame targetFrame)
+    {
+        Quaternionf override = tipRotations == null ? null : tipRotations.get(limb.tipBone());
+
+        if (override != null)
+        {
+            return new Quaternionf(override);
+        }
+
+        if (orientTip && targetFrame.worldRotation() != null)
+        {
+            return new Quaternionf(targetFrame.worldRotation());
+        }
+
+        return null;
     }
 
     private static String autoTailId(IModel model, List<String> chainIds)
@@ -430,7 +481,7 @@ public final class SkeletonPoseWriter
             Vector3f segLocal = invOrigin.transform(new Vector3f(segWorld[i]));
             Vector3f normalLocal = invOrigin.transform(new Vector3f(solvedNormalWorld[i]));
             Vector3f restNormalLocal = new Quaternionf(restFrame[i]).conjugate().transform(new Vector3f(restNormalWorld[i]));
-            Quaternionf localRot = QuaternionMath.buildOrientedFrame(restDir[i], restNormalLocal, segLocal, normalLocal);
+            Quaternionf localRot = QuaternionMath.buildOrientedFrameDirect(restDir[i], restNormalLocal, segLocal, normalLocal);
             Quaternionf oriented = influence >= 1F - EPS ? new Quaternionf(localRot) : bobjFkLocal(chainBones[i]).slerp(localRot, influence);
 
             chainBones[i].orient = oriented;
@@ -459,6 +510,60 @@ public final class SkeletonPoseWriter
         {
             stretchBobj(model, bonesMap, chainIds, solved, stretchGap);
         }
+    }
+
+    /**
+     * Tip-follows-target for the euler BOBJ path ({@code workIds.size() < 4}), matching
+     * the tail of {@link #writeOrientationsBobj}.
+     */
+    private static void applyBobjTipOrient(BOBJModel model, List<String> chainIds, Quaternionf rootParentRotation, float influence, Quaternionf tipTarget)
+    {
+        int bones = chainIds.size() - 1;
+
+        if (bones < 1)
+        {
+            return;
+        }
+
+        Map<String, BOBJBone> bonesMap = model.getArmature().bones;
+        BOBJBone[] chainBones = new BOBJBone[bones];
+        Quaternionf[] relRot = new Quaternionf[bones];
+
+        for (int i = 0; i < bones; i++)
+        {
+            BOBJBone bone = bonesMap.get(chainIds.get(i));
+
+            if (bone == null)
+            {
+                return;
+            }
+
+            chainBones[i] = bone;
+            relRot[i] = bone.relBoneMat.getNormalizedRotation(new Quaternionf());
+        }
+
+        Quaternionf originRot = new Quaternionf(rootParentRotation);
+
+        for (int i = 0; i < bones - 1; i++)
+        {
+            Quaternionf oriented = chainBones[i].orient != null ? new Quaternionf(chainBones[i].orient) : bobjFkLocal(chainBones[i]);
+
+            originRot.mul(oriented).mul(relRot[i + 1]);
+        }
+
+        BOBJBone tip = bonesMap.get(chainIds.get(chainIds.size() - 1));
+
+        if (tip == null)
+        {
+            return;
+        }
+
+        Quaternionf tipRelRot = tip.relBoneMat.getNormalizedRotation(new Quaternionf());
+        Quaternionf lastOrient = chainBones[bones - 1].orient != null ? new Quaternionf(chainBones[bones - 1].orient) : bobjFkLocal(chainBones[bones - 1]);
+        Quaternionf tipParent = new Quaternionf(originRot).mul(lastOrient).mul(tipRelRot);
+        Quaternionf tipLocal = tipParent.conjugate().mul(tipTarget);
+
+        tip.orient = influence >= 1F - EPS ? new Quaternionf(tipLocal) : bobjFkLocal(tip).slerp(tipLocal, influence);
     }
 
     private static void stretchBobj(BOBJModel model, Map<String, BOBJBone> bonesMap, List<String> chainIds, List<Vector3f> solved, Vector3f gap)
@@ -652,6 +757,34 @@ public final class SkeletonPoseWriter
         if (a == null || b == null)
         {
             return null;
+        }
+
+        /* BOBJ rest directions are bone-local (relBoneMat translate); cubic ones are already
+         * in model space. Match writeOrientationsBobj: lift BOBJ dirs into the root-parent
+         * frame before the cross so the hinge is not mirrored. */
+        if (model instanceof BOBJModel bobj)
+        {
+            Map<String, BOBJBone> bones = bobj.getArmature().bones;
+            BOBJBone bone0 = bones.get(chainIds.get(0));
+            BOBJBone bone1 = bones.get(chainIds.get(1));
+
+            if (bone0 == null || bone1 == null)
+            {
+                return null;
+            }
+
+            Quaternionf frame0 = new Quaternionf(rootParentRotation);
+            Quaternionf frame1 = new Quaternionf(frame0).mul(bone1.relBoneMat.getNormalizedRotation(new Quaternionf()));
+            Vector3f aWorld = frame0.transform(new Vector3f(a));
+            Vector3f bWorld = frame1.transform(new Vector3f(b));
+            Vector3f normal = new Vector3f(aWorld).cross(bWorld);
+
+            if (normal.lengthSquared() < EPS * EPS)
+            {
+                return null;
+            }
+
+            return normal.normalize();
         }
 
         Vector3f normal = new Vector3f(a).cross(b);

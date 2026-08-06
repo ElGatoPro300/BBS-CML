@@ -12,6 +12,7 @@ import mchorse.bbs_mod.cubic.data.model.ModelQuad;
 import mchorse.bbs_mod.cubic.data.model.ModelVertex;
 import mchorse.bbs_mod.cubic.model.ArmorSlot;
 import mchorse.bbs_mod.cubic.model.ModelConfig;
+import mchorse.bbs_mod.cubic.model.bobj.BOBJModel;
 import mchorse.bbs_mod.cubic.render.CubicCubeRenderer;
 import mchorse.bbs_mod.cubic.render.ICubicRenderer;
 import mchorse.bbs_mod.data.types.BaseType;
@@ -66,6 +67,8 @@ import org.joml.Vector3f;
 import com.mojang.blaze3d.platform.GlStateManager;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.logging.LogUtils;
+
+import org.lwjgl.opengl.GL11;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -412,6 +415,13 @@ public class UIModelEditorRenderer extends UIModelRenderer implements GizmoSurfa
     @Override
     public boolean subMouseReleased(UIContext context)
     {
+        Pair<Form, String> pendingPick = this.gizmoController.consumePendingTrackballClick();
+
+        if (pendingPick != null && pendingPick.a != null && this.callback != null)
+        {
+            this.callback.accept(pendingPick.b);
+        }
+
         this.gizmoController.stop();
 
         return super.subMouseReleased(context);
@@ -480,10 +490,10 @@ public class UIModelEditorRenderer extends UIModelRenderer implements GizmoSurfa
 
         if (gizmoMatrix != null)
         {
-            this.lastGizmoMatrix.set(gizmoMatrix);
-
             stack.push();
             MatrixStackUtils.multiply(stack, gizmoMatrix);
+            /* Full drawn MV (editor camera × bone/origin) — same space as film drag rays. */
+            this.lastGizmoMatrix.set(stack.peek().getPositionMatrix());
 
             RenderSystem.disableDepthTest();
             Gizmo.INSTANCE.render(stack);
@@ -515,9 +525,15 @@ public class UIModelEditorRenderer extends UIModelRenderer implements GizmoSurfa
             this.beginStencilViewport(fboW, fboH);
             this.setupViewport(context);
 
+            /* Restore depth writes: the visual pass (glow/paint/gizmos) may have left
+             * depthMask false, which makes stencil picking prefer later-drawn bones. */
+            RenderSystem.enableDepthTest();
+            RenderSystem.depthFunc(GL11.GL_LEQUAL);
+            RenderSystem.depthMask(true);
+
             this.renderer.render(formContext.stencilMap(this.stencilMap));
 
-            if (gizmoMatrix != null)
+            if (gizmoMatrix != null && Gizmo.isInteractive())
             {
                 stack.push();
                 MatrixStackUtils.multiply(stack, gizmoMatrix);
@@ -558,7 +574,7 @@ public class UIModelEditorRenderer extends UIModelRenderer implements GizmoSurfa
     {
         Matrix4f gizmoMatrix = null;
 
-        if (this.formTransformGizmoOrigin != null)
+        if (UIBaseMenu.renderAxes && this.formTransformGizmoOrigin != null)
         {
             gizmoMatrix = this.formTransformGizmoOrigin.apply(context.getTransition());
         }
@@ -574,9 +590,8 @@ public class UIModelEditorRenderer extends UIModelRenderer implements GizmoSurfa
 
                 if (entry != null)
                 {
-                    boolean local = this.transform != null && this.transform.isLocal();
-
-                    gizmoMatrix = GizmoMatrixUtils.resolveFilmPoseBoneMatrix(entry, local);
+                    gizmoMatrix = GizmoMatrixUtils.resolveFilmPoseBoneMatrix(entry, this.transform == null ? null : this.transform.getOrientation(),
+                        ModelFormRenderer.isBobjModel(this.form));
                 }
             }
         }
@@ -604,18 +619,20 @@ public class UIModelEditorRenderer extends UIModelRenderer implements GizmoSurfa
 
         if (this.formTransformGizmoDrag)
         {
-            /* General transform: same trackball / view-ring tuning as model-editor pose. */
+            /* View-ring / Y / Z process bars need a flip with editor full-MV capture; X does not
+             * (global invertRotationArcSweep was reversing the red ring only-wrong). */
             transform.setInvertGizmoViewRing(false);
             transform.setInvertGizmoTrackball(false);
+            transform.setInvertFilmPoseGizmoAxes(false);
+            transform.setFilmArcballTrackball(false);
             transform.clearTrackballEulerInverts();
-            transform.invertModelPoseTrackballXZ();
-        }
-        else
-        {
-            /* Pose trackball: same ray path as General transform; no X/Z euler sign flips. */
-            transform.setInvertGizmoViewRing(false);
-            transform.setInvertGizmoTrackball(false);
-            transform.clearTrackballEulerInverts();
+            transform.setInvertTrackballDragY(true);
+            transform.setInvertFilmArcballDragY(false);
+            transform.setInvertRotationArcSweep(false);
+            transform.setInvertRotationArcViewRing(true);
+            transform.setInvertRotationArcY(true);
+            transform.setInvertRotationArcZ(true);
+            transform.configurePoseRingTuning(true);
             transform.setFilmMatchPoseTrackball(true);
             transform.setGizmoRayProvider(GizmoRayFrame.fromFilmStyle(
                 this.camera,
@@ -626,7 +643,35 @@ public class UIModelEditorRenderer extends UIModelRenderer implements GizmoSurfa
             return;
         }
 
-        transform.setFilmMatchPoseTrackball(true);
+        /* Nested model editor Pose (also opened from Model Block → Edit → Models button).
+         * Match FilmPoseGizmoDrag pose signs so .bbs.json X/Z rings, Z translate, white ring
+         * and arcball match BOBJ mouse sense. */
+        boolean bobjModel = ModelFormRenderer.isBobjModel(this.form);
+
+        transform.setModel(false);
+        transform.configurePoseRingTuning(bobjModel);
+        transform.setInvertGizmoViewRing(true);
+        transform.setInvertGizmoTrackball(false);
+        transform.setInvertFilmPoseGizmoAxes(false);
+        transform.clearTrackballEulerInverts();
+
+        if (bobjModel)
+        {
+            transform.invertModelPoseTrackballXZ();
+        }
+
+        transform.setInvertTrackballDragY(false);
+        transform.setInvertFilmArcballDragY(false);
+        transform.setInvertRotationArcSweep(false);
+        transform.setInvertRotationArcY(false);
+        transform.setInvertRotationArcViewRing(false);
+        /* Skip filmArcball X/Z process-bar undo for Z only (same as form-editor pose). */
+        transform.setInvertRotationArcZ(true);
+        transform.setFilmArcballTrackball(true);
+        transform.setFilmMatchPoseTrackball(false);
+        transform.setForceFrozenRotationArc(false);
+        transform.translationScale(bobjModel ? 1F : 16F);
+        transform.setAxisProjectedTranslation(bobjModel);
         transform.setGizmoRayProvider(GizmoRayFrame.fromFilmStyle(
             this.camera,
             this.area,
@@ -767,17 +812,24 @@ public class UIModelEditorRenderer extends UIModelRenderer implements GizmoSurfa
     {
         super.render(context);
 
-        if (!this.pickingEnabled || !this.stencil.hasPicked())
+        if (!this.pickingEnabled || this.stencil.getFramebuffer() == null)
         {
             return;
         }
 
         Texture texture = this.stencil.getFramebuffer().getMainTexture();
-        int index = this.stencil.getIndex();
         int w = texture.width;
         int h = texture.height;
 
         RenderSystem.enableBlend();
+
+        if (!this.stencil.hasPicked())
+        {
+            return;
+        }
+
+        int index = this.stencil.getIndex();
+
         context.batcher.drawPickerPreview(texture.id, index, BBSSettings.modelEditorHoverHighlight(), this.area.x, this.area.y, this.area.w, this.area.h, w, h);
 
         Pair<Form, String> pair = this.stencil.getPicked();
@@ -851,8 +903,20 @@ public class UIModelEditorRenderer extends UIModelRenderer implements GizmoSurfa
             {
                 this.deletePreview();
 
-                this.previewModel = new ModelInstance(globalModel.id, globalModel.model, globalModel.animations, globalModel.texture);
-                this.previewModel.setup();
+                this.previewModel = globalModel.copy();
+
+                if (globalModel.model instanceof BOBJModel)
+                {
+                    /* BOBJModel.copy() already builds its own armature VAO. */
+                }
+                else if (globalModel.isVAORendered())
+                {
+                    this.previewModel.borrowVaosFrom(globalModel);
+                }
+                else
+                {
+                    this.previewModel.setup();
+                }
 
                 if (this.config != null)
                 {

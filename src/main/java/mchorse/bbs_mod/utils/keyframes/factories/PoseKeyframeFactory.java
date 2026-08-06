@@ -1,6 +1,7 @@
 package mchorse.bbs_mod.utils.keyframes.factories;
 
 import mchorse.bbs_mod.data.types.BaseType;
+import mchorse.bbs_mod.resources.Link;
 import mchorse.bbs_mod.utils.interps.IInterp;
 import mchorse.bbs_mod.utils.interps.Interpolations;
 import mchorse.bbs_mod.utils.interps.easings.EasingArgs;
@@ -8,6 +9,7 @@ import mchorse.bbs_mod.utils.keyframes.Keyframe;
 import mchorse.bbs_mod.utils.pose.Pose;
 import mchorse.bbs_mod.utils.pose.PoseTransform;
 import mchorse.bbs_mod.utils.pose.Transform;
+import mchorse.bbs_mod.utils.resources.LinkUtils;
 
 import java.util.HashSet;
 import java.util.Set;
@@ -90,6 +92,11 @@ public class PoseKeyframeFactory implements IKeyframeFactory<Pose>
             Transform postBTransform = pB.get(key);
 
             transform.lerp(preATransform, aTransform, bTransform, postBTransform, interpolation, x, w0, w1, w2, w3);
+
+            if (transform instanceof PoseTransform result)
+            {
+                this.interpolateBoneTexture(result, a, aTransform, bTransform, x);
+            }
         }
 
         return this.i;
@@ -126,8 +133,38 @@ public class PoseKeyframeFactory implements IKeyframeFactory<Pose>
             Transform postBTransform = postB.get(key);
 
             transform.lerp(preATransform, aTransform, bTransform, postBTransform, interpolation, x);
+
+            if (transform instanceof PoseTransform poseTransform
+                && aTransform instanceof PoseTransform aPose
+                && bTransform instanceof PoseTransform bPose)
+            {
+                poseTransform.applyStepTexture(aPose, bPose, x);
+            }
         }
 
         return this.i;
+    }
+
+    private void interpolateBoneTexture(PoseTransform result, Keyframe<Pose> a, Transform aTransform, Transform bTransform, float x)
+    {
+        PoseTransform aPose = aTransform instanceof PoseTransform ? (PoseTransform) aTransform : new PoseTransform();
+        PoseTransform bPose = bTransform instanceof PoseTransform ? (PoseTransform) bTransform : new PoseTransform();
+        Link aTexture = aPose.texture;
+        Link bTexture = bPose.texture;
+
+        if (a.isBend() && aTexture != null && bTexture != null && !aTexture.equals(bTexture))
+        {
+            result.texture = LinkUtils.copy(aTexture);
+            result.textureBlendTo = LinkUtils.copy(bTexture);
+            result.textureBlend = (float) a.getInterpolation().interpolate(0D, 1D, x);
+        }
+        else
+        {
+            result.textureBlendTo = null;
+            PoseTransform pick = x >= 1F ? bPose : aPose;
+
+            result.texture = pick.texture != null ? LinkUtils.copy(pick.texture) : null;
+            result.textureBlend = 1F;
+        }
     }
 }

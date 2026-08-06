@@ -9,6 +9,7 @@ public class TransformKeyframeFactory implements IKeyframeFactory<Transform>
 {
     private final Transform i = new Transform();
     private final PoseTransform ip = new PoseTransform();
+    private static final PoseTransform DEFAULT_POSE = new PoseTransform();
 
     @Override
     public Transform fromData(BaseType data)
@@ -54,6 +55,11 @@ public class TransformKeyframeFactory implements IKeyframeFactory<Transform>
         if (preA instanceof PoseTransform || a instanceof PoseTransform || b instanceof PoseTransform || postB instanceof PoseTransform)
         {
             this.ip.lerp(preA, a, b, postB, interpolation, x);
+
+            PoseTransform aPose = a instanceof PoseTransform ? (PoseTransform) a : DEFAULT_POSE;
+            PoseTransform bPose = b instanceof PoseTransform ? (PoseTransform) b : DEFAULT_POSE;
+
+            this.ip.applyStepTexture(aPose, bPose, x);
 
             return this.ip;
         }

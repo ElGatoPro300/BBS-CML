@@ -31,6 +31,7 @@ import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.ui.framework.elements.UIElement;
 import mchorse.bbs_mod.ui.framework.elements.context.UIContextMenu;
 import mchorse.bbs_mod.ui.framework.elements.input.keyframes.UIKeyframeEditor;
+import mchorse.bbs_mod.ui.framework.elements.input.keyframes.factories.UITransformKeyframeFactory;
 import mchorse.bbs_mod.ui.framework.elements.input.keyframes.graphs.IUIKeyframeGraph;
 import mchorse.bbs_mod.ui.framework.elements.input.keyframes.graphs.KeyframeType;
 import mchorse.bbs_mod.ui.framework.elements.input.keyframes.graphs.UIKeyframeDopeSheet;
@@ -283,6 +284,11 @@ public class UIKeyframes extends UIElement
         this.keys().register(Keys.KEYFRAMES_SPREAD, this::spreadKeyframes).category(category);
         this.keys().register(Keys.KEYFRAMES_ADJUST_VALUES, this::adjustValues).category(category);
 
+        Supplier<Boolean> poseLimbActive = this::hasOpenPoseLimbTracks;
+
+        this.keys().register(Keys.POSE_LIMB_KEYFRAME, () -> UITransformKeyframeFactory.keyframeOpenPoseLimbs(this, this.getPlayheadTick(), false)).inside().category(UIKeys.POSE_LIMB_KEYS_CATEGORY).active(poseLimbActive);
+        this.keys().register(Keys.POSE_LIMB_KEYFRAME_DEFAULT, () -> UITransformKeyframeFactory.keyframeOpenPoseLimbs(this, this.getPlayheadTick(), true)).inside().category(UIKeys.POSE_LIMB_KEYS_CATEGORY).active(poseLimbActive);
+
         this.sidebarResizer = new UIDraggable((context) ->
         {
             int width = context.mouseX - this.area.x;
@@ -406,7 +412,7 @@ public class UIKeyframes extends UIElement
 
             for (Keyframe keyframe : selected)
             {
-                keyframe.setValue(factory.yToValue(factory.getY(keyframe.getValue()) + difference));
+                keyframe.setValue(sheet.clampValue(factory.yToValue(factory.getY(keyframe.getValue()) + difference)));
             }
 
             sheet.channel.postNotify();
@@ -415,7 +421,20 @@ public class UIKeyframes extends UIElement
 
     public UIKeyframes changed(Runnable runnable)
     {
-        this.changeCallback = runnable;
+        if (this.changeCallback == null)
+        {
+            this.changeCallback = runnable;
+        }
+        else
+        {
+            Runnable previous = this.changeCallback;
+
+            this.changeCallback = () ->
+            {
+                previous.run();
+                runnable.run();
+            };
+        }
 
         return this;
     }
@@ -432,6 +451,24 @@ public class UIKeyframes extends UIElement
     public UIKeyframeDopeSheet getDopeSheet()
     {
         return this.dopeSheet;
+    }
+
+    protected float getPlayheadTick()
+    {
+        return 0F;
+    }
+
+    protected boolean hasOpenPoseLimbTracks()
+    {
+        for (UIKeyframeSheet sheet : this.currentGraph.getSheets())
+        {
+            if (!sheet.groupHeader && UITransformKeyframeFactory.isPoseLimbTrack(sheet))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     protected void selectNextKeyframe(int direction)
@@ -702,6 +739,11 @@ public class UIKeyframes extends UIElement
     public boolean isModifyingKeyframes()
     {
         return !this.scaling;
+    }
+
+    public boolean isDraggingKeyframes()
+    {
+        return this.dragging > 0;
     }
 
     public boolean hasSelectedKeyframes()
@@ -1098,7 +1140,17 @@ public class UIKeyframes extends UIElement
             return;
         }
 
-        int index = sheet.channel.insertInterpolated(tick);
+        int index;
+
+        if (sheet.channel.isEmpty() && sheet.defaultInsertValue != null)
+        {
+            index = sheet.channel.insert(tick, sheet.channel.getFactory().copy(sheet.defaultInsertValue));
+        }
+        else
+        {
+            index = sheet.channel.insertInterpolated(tick);
+        }
+
         Keyframe keyframe = sheet.channel.get(index);
 
         if (keyframe != null)
@@ -1575,6 +1627,11 @@ public class UIKeyframes extends UIElement
 
     public void submitKeyframes()
     {
+        if (this.cache == null)
+        {
+            return;
+        }
+
         /* Cache selection indices */
         Map<UIKeyframeSheet, Pair<List<Integer>, List<Integer>>> selection = new HashMap<>();
 
@@ -1881,6 +1938,11 @@ public class UIKeyframes extends UIElement
         return this.xAxis;
     }
 
+    public int getSidebarWidth()
+    {
+        return this.currentGraph instanceof UIKeyframeDopeSheet ? this.currentGraph.getSidebarWidth() : 0;
+    }
+
     public int getDuration()
     {
         return this.duration == null ? 0 : this.duration.get();
@@ -2144,7 +2206,13 @@ public class UIKeyframes extends UIElement
 
         if (found != null)
         {
-            UIKeyframeSheet sheet = this.currentGraph.getSheet(found);
+            /* Prefer the row under the cursor for nested Color / Color grade tracks. */
+            UIKeyframeSheet sheet = this.currentGraph.getSheet(context.mouseY);
+
+            if (sheet == null || sheet.groupHeader || sheet.channel != found.getParent())
+            {
+                sheet = this.currentGraph.getSheet(found);
+            }
 
             if (!shift && !sheet.selection.has(found))
             {
@@ -2152,6 +2220,11 @@ public class UIKeyframes extends UIElement
             }
 
             sheet.selection.add(found);
+
+            if (this.currentGraph instanceof UIKeyframeDopeSheet)
+            {
+                ((UIKeyframeDopeSheet) this.currentGraph).rememberSheet(sheet);
+            }
 
             found = this.currentGraph.getSelected();
 

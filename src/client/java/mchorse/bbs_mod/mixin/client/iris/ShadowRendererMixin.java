@@ -1,6 +1,9 @@
 package mchorse.bbs_mod.mixin.client.iris;
 
 import mchorse.bbs_mod.BBSModClient;
+import mchorse.bbs_mod.blocks.entities.ModelBlockEntity;
+import mchorse.bbs_mod.client.BBSRendering;
+import mchorse.bbs_mod.client.renderer.ModelBlockEntityRenderer;
 import mchorse.bbs_mod.film.BaseFilmController;
 import mchorse.bbs_mod.film.FilmControllerContext;
 import mchorse.bbs_mod.film.Films;
@@ -9,6 +12,7 @@ import mchorse.bbs_mod.film.replays.Replay;
 import mchorse.bbs_mod.forms.entities.IEntity;
 import mchorse.bbs_mod.forms.entities.StubEntity;
 import mchorse.bbs_mod.forms.forms.Form;
+import mchorse.bbs_mod.forms.forms.utils.ShadowSettings;
 import mchorse.bbs_mod.settings.values.base.BaseValue;
 import mchorse.bbs_mod.settings.values.ui.ValueOnionSkin;
 import mchorse.bbs_mod.ui.dashboard.UIDashboard;
@@ -39,6 +43,7 @@ import org.joml.Matrix4f;
 
 import com.mojang.blaze3d.systems.RenderSystem;
 
+import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map.Entry;
@@ -111,7 +116,7 @@ public class ShadowRendererMixin
                                 continue;
                             }
 
-                            if (entity.getForm() != null && !((Boolean) entity.getForm().shaderShadow.get()))
+                            if (entity.getForm() != null && !entity.getForm().shaderShadow.get())
                             {
                                 continue;
                             }
@@ -123,10 +128,18 @@ public class ShadowRendererMixin
                                 continue;
                             }
 
+                            float propertyTick = replayTick + transition;
+                            ShadowSettings shadow = BaseFilmController.resolveShadowSettings(replay, propertyTick);
+
+                            if (!(Boolean) replay.shadow.get() || shadow.opacity <= 0.001F)
+                            {
+                                continue;
+                            }
+
                             FilmControllerContext context = FilmControllerContext.instance
                                 .setup(editorController.getEntities(), entity, replay, gameCamera, shadowStack, consumers, transition)
                                 .film(editorController.film)
-                                .shadow((Boolean) replay.shadow.get(), (Float) replay.shadowSize.get())
+                                .shadow(true, shadow)
                                 .relative((Boolean) replay.relative.get())
                                 .isShadowPass(true)
                                 .viewMatrix(new Matrix4f(shadowStack.peek().getPositionMatrix()));
@@ -200,7 +213,7 @@ public class ShadowRendererMixin
                         continue;
                     }
 
-                    if (entity.getForm() != null && !((Boolean) entity.getForm().shaderShadow.get()))
+                    if (entity.getForm() != null && !entity.getForm().shaderShadow.get())
                     {
                         continue;
                     }
@@ -212,12 +225,21 @@ public class ShadowRendererMixin
                         continue;
                     }
 
+                    float propertyTick = replayTick + transition;
+                    ShadowSettings shadow = BaseFilmController.resolveShadowSettings(replay, propertyTick);
+
+                    if (!(Boolean) replay.shadow.get() || shadow.opacity <= 0.001F)
+                    {
+                        continue;
+                    }
+
                     FilmControllerContext context = FilmControllerContext.instance
                         .setup(controller.getEntities(), entity, replay, gameCamera, shadowStack, consumers, transition)
                         .film(controller.film)
-                        .shadow((Boolean) replay.shadow.get(), (Float) replay.shadowSize.get())
+                        .shadow(true, shadow)
                         .relative((Boolean) replay.relative.get())
-                        .isShadowPass(true);
+                        .isShadowPass(true)
+                        .viewMatrix(new Matrix4f(shadowStack.peek().getPositionMatrix()));
 
                     BaseFilmController.renderEntity(context);
                 }
@@ -248,7 +270,7 @@ public class ShadowRendererMixin
                         continue;
                     }
 
-                    if (entity.getForm() != null && !((Boolean) entity.getForm().shaderShadow.get()))
+                    if (entity.getForm() != null && !entity.getForm().shaderShadow.get())
                     {
                         continue;
                     }
@@ -260,16 +282,31 @@ public class ShadowRendererMixin
                         continue;
                     }
 
+                    float propertyTick = replayTick + transition;
+                    ShadowSettings shadow = BaseFilmController.resolveShadowSettings(replay, propertyTick);
+
+                    if (!(Boolean) replay.shadow.get() || shadow.opacity <= 0.001F)
+                    {
+                        continue;
+                    }
+
                     FilmControllerContext context = FilmControllerContext.instance
                         .setup(recorder.getEntities(), entity, replay, gameCamera, shadowStack, consumers, transition)
                         .film(recorder.film)
-                        .shadow((Boolean) replay.shadow.get(), (Float) replay.shadowSize.get())
+                        .shadow(true, shadow)
                         .relative((Boolean) replay.relative.get())
+                        .isShadowPass(true)
                         .viewMatrix(new Matrix4f(shadowStack.peek().getPositionMatrix()));
 
                     BaseFilmController.renderEntity(context);
                 }
             }
+        }
+
+        /* Model-block forms are block entities — shadowEntities alone does not include them. */
+        for (ModelBlockEntity modelBlock : new ArrayList<>(BBSRendering.capturedModelBlocks))
+        {
+            ModelBlockEntityRenderer.renderIntoShadowMap(modelBlock, shadowStack, consumers, tickDelta, camX, camY, camZ);
         }
 
         consumers.draw();
@@ -322,11 +359,22 @@ public class ShadowRendererMixin
             Form form = entity.getForm();
             replay.properties.applyProperties(form, tick);
 
+            ShadowSettings shadow = BaseFilmController.resolveShadowSettings(replay, tick);
+
+            if (!(Boolean) replay.shadow.get() || shadow.opacity <= 0.001F)
+            {
+                frames -= 1;
+                index += direction;
+
+                continue;
+            }
+
             FilmControllerContext ctx = FilmControllerContext.instance
                 .setup(editorController.getEntities(), entity, replay, camera, shadowStack, consumers, 0F)
                 .film(editorController.film)
-                .shadow((Boolean) replay.shadow.get(), (Float) replay.shadowSize.get())
+                .shadow(true, shadow)
                 .relative((Boolean) replay.relative.get())
+                .isShadowPass(true)
                 .viewMatrix(new Matrix4f(shadowStack.peek().getPositionMatrix()));
 
             BaseFilmController.renderEntity(ctx);

@@ -1,25 +1,34 @@
 package mchorse.bbs_mod;
 
+import mchorse.bbs_mod.data.DataToString;
+import mchorse.bbs_mod.data.types.BaseType;
+import mchorse.bbs_mod.data.types.MapType;
 import mchorse.bbs_mod.events.register.RegisterBBSSettingsEvent;
 import mchorse.bbs_mod.settings.SettingsBuilder;
 import mchorse.bbs_mod.settings.values.core.ValueLink;
 import mchorse.bbs_mod.settings.values.core.ValueString;
 import mchorse.bbs_mod.settings.values.numeric.ValueBoolean;
+import mchorse.bbs_mod.settings.values.numeric.ValueDouble;
 import mchorse.bbs_mod.settings.values.numeric.ValueFloat;
 import mchorse.bbs_mod.settings.values.numeric.ValueInt;
 import mchorse.bbs_mod.settings.values.ui.ValueColors;
 import mchorse.bbs_mod.settings.values.ui.ValueEditorLayout;
-import mchorse.bbs_mod.settings.values.ui.ValueUILayoutPreferences;
+import mchorse.bbs_mod.settings.values.ui.ValueFormEditorGizmoToolbar;
+import mchorse.bbs_mod.settings.values.ui.ValueGizmoToolbar;
 import mchorse.bbs_mod.settings.values.ui.ValueLanguage;
 import mchorse.bbs_mod.settings.values.ui.ValueOnionSkin;
 import mchorse.bbs_mod.settings.values.ui.ValueStringKeys;
 import mchorse.bbs_mod.settings.values.ui.ValueTimelineToolbarDocks;
+import mchorse.bbs_mod.settings.values.ui.ValueUILayoutPreferences;
 import mchorse.bbs_mod.settings.values.ui.ValueVideoSettings;
+import mchorse.bbs_mod.settings.values.ui.ValueViewportToolbar;
 import mchorse.bbs_mod.utils.MathUtils;
 import mchorse.bbs_mod.utils.colors.Color;
 import mchorse.bbs_mod.utils.colors.Colors;
 import mchorse.bbs_mod.utils.keyframes.KeyframeShape;
 
+import java.io.File;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -61,10 +70,16 @@ public class BBSSettings
     public static ValueBoolean hsvColorPicker;
     public static ValueBoolean forceQwerty;
     public static ValueBoolean freezeModels;
+    public static ValueGizmoToolbar editorGizmoToolbar;
     public static ValueFloat axesScale;
     public static ValueFloat axesThickness;
     public static ValueFloat gizmoHitbox;
+    public static ValueBoolean gizmoConstantSize;
+    public static ValueFloat gizmoConstantSizeMin;
     public static ValueInt gizmoDefaultMode;
+    /* 0 = Style 1, 1 = Style 2 (cubes outside view ring), 2 = Style 3 (cubes on ring, no cones). */
+    public static ValueInt gizmoStyle;
+    public static ValueBoolean gizmoFullRotationRings;
     public static ValueFloat gizmoGuideLength;
     public static ValueFloat gizmoGuideThickness;
     public static ValueFloat gizmoGuideOpacity;
@@ -73,6 +88,7 @@ public class BBSSettings
     public static ValueBoolean clickSound;
     public static ValueBoolean disablePivotTransform;
     public static ValueBoolean gizmos;
+    public static ValueBoolean gizmosWorldRendering;
     public static ValueBoolean gizmoYAxisHorizontal;
     public static ValueBoolean gizmoTrackball;
     public static ValueInt gizmoTrackballScale;
@@ -97,6 +113,7 @@ public class BBSSettings
     public static ValueInt chromaSkyColor;
     public static ValueBoolean chromaSkyTerrain;
     public static ValueBoolean chromaSkyClouds;
+    public static ValueBoolean chromaSkyModelBlocks;
     public static ValueFloat chromaSkyBillboard;
 
     public static ValueInt scrollbarShadow;
@@ -123,15 +140,20 @@ public class BBSSettings
     public static ValueBoolean editorCenterLines;
     public static ValueBoolean editorCrosshair;
     public static ValueBoolean editorFilmOverlayVisible;
+    public static ValueBoolean editorFisheyeWidenFov;
     public static ValueInt editorPeriodicSave;
     public static ValueBoolean editorHorizontalFlight;
     public static ValueBoolean editorFlightFreeLook;
     public static ValueBoolean editorOrbitWithoutFlight;
-    public static ValueBoolean editorOrbitNoAnimation;
+    public static ValueBoolean editorOrbitSmoothTransition;
+    public static ValueBoolean editorOrbitRestrictToViewport;
     public static ValueFloat editorOrbitTransitionDuration;
+    private static ValueBoolean orbitSmoothDefaultMigrated;
     public static ValueEditorLayout editorLayoutSettings;
     public static ValueUILayoutPreferences uiLayoutPreferences;
     public static ValueTimelineToolbarDocks timelineToolbarDocks;
+    public static ValueViewportToolbar editorViewportToolbar;
+    public static ValueFormEditorGizmoToolbar editorFormGizmoToolbar;
     public static ValueOnionSkin editorOnionSkin;
     public static ValueBoolean editorSnapToMarkers;
     public static ValueBoolean editorClipPreview;
@@ -147,6 +169,8 @@ public class BBSSettings
     public static ValueInt editorImportMode;
     public static ValueInt editorReplayEditorTitleLimit;
     public static ValueBoolean editorAnchoredReplaysPanel;
+    public static ValueBoolean editorSeparateReplayPropertiesPanel;
+    public static ValueInt blockPickerDefaultMode;
     public static ValueInt editorAnchoredReplaysPanelHeight;
     public static ValueBoolean editorReplayHud;
     public static ValueInt editorReplayHudPosition;
@@ -157,6 +181,7 @@ public class BBSSettings
     public static ValueInt replayContextOptions;
     public static ValueBoolean editorRewind;
     public static ValueBoolean editorHorizontalClipEditor;
+    public static ValueBoolean editorEmbeddedKeyframeSidePanel;
     public static ValueBoolean editorMinutesBackup;
     public static ValueBoolean editorTimelineToolbar;
     public static ValueBoolean modelPbrPanelControls;
@@ -165,6 +190,7 @@ public class BBSSettings
     public static ValueBoolean recordingSwipeDamage;
     public static ValueBoolean recordingAutoCaptureMobs;
     public static ValueBoolean recordingAutoCaptureProjectiles;
+    public static ValueBoolean recordingMobCaptureOnAlt;
     public static ValueBoolean recordingOverlays;
     public static ValueInt recordingPoseTransformOverlays;
     public static ValueBoolean recordingCameraPreview;
@@ -183,6 +209,8 @@ public class BBSSettings
     public static ValueBoolean lastViewMosaic;
     public static ValueBoolean coloredBackground;
     public static ValueFloat backgroundBrightness;
+    public static ValueDouble worldGammaPercent;
+    public static ValueFloat worldSunPathRotation;
     public static ValueBoolean interfaceShadows;
 
     public static ValueString entitySelectorsPropertyWhitelist;
@@ -190,6 +218,20 @@ public class BBSSettings
     public static ValueBoolean damageControl;
 
     public static ValueBoolean shaderCurvesEnabled;
+    public static ValueBoolean irisOpacityFix;
+    /**
+     * Soft form/limb transparency under Iris only: ON draws backfaces (two-pass; may darken),
+     * OFF culls backfaces (cleaner colors). Default ON. Without shaders, {@code model.culling} applies.
+     */
+    public static ValueBoolean softTransparencyBackfaces;
+    /** Kept invisible for migrating saved Complementary/BSL toggles. */
+    @Deprecated
+    public static ValueBoolean complementaryOpacityFix;
+    /** Kept invisible for migrating saved Complementary/BSL toggles. */
+    @Deprecated
+    public static ValueBoolean bslOpacityFix;
+    public static ValueBoolean shaderOpacityPatchesDefaultOnMigrated;
+    public static ValueFloat shaderShadowOpacity;
 
     public static ValueBoolean audioWaveformVisible;
     public static ValueInt audioWaveformDensity;
@@ -209,16 +251,39 @@ public class BBSSettings
     public static ValueBoolean pickLimbTexture;
     public static ValueBoolean fluidRealisticModelInteraction;
 
+    public static ValueBoolean saveAsCompatible;
+
     public static ValueLink textureDefaultPath;
     public static ValueInt texturePickerItemSize;
 
     public static ValueString cdnUrl;
     public static ValueString cdnToken;
     public static ValueBoolean morphingAutoMorph;
+    public static ValueBoolean autoSpectatorInEditors;
 
     public static ValueBoolean usingInMemoryClipboard;
     public static ValueBoolean discordPresence;
     public static ValueString discordApplicationId;
+
+    /**
+     * When enabled (default), films dual-write legacy-friendly data for fields
+     * that newer builds store differently (subtitle lineHeight/maxWidth, and
+     * Opacity mirrored into Color alpha for older builds).
+     */
+    public static boolean isSaveAsCompatible()
+    {
+        return saveAsCompatible == null || saveAsCompatible.get();
+    }
+
+    /**
+     * When enabled (default), embedded clip keyframe editors show properties
+     * in an overlay side/bottom panel. When disabled, properties go to the
+     * general Properties layout tab (same host as replay keyframes).
+     */
+    public static boolean isEmbeddedKeyframeSidePanelEnabled()
+    {
+        return editorEmbeddedKeyframeSidePanel == null || editorEmbeddedKeyframeSidePanel.get();
+    }
 
     public static int primaryColor()
     {
@@ -239,6 +304,30 @@ public class BBSSettings
 
     public static void syncAppliedAppearance()
     {}
+
+    /**
+     * Opacity shader patches originally shipped default-off; defaults are now on.
+     * Existing bbs.json still has false — flip them on once after load.
+     */
+    public static void migrateShaderOpacityPatchesAfterLoad()
+    {
+        if (shaderOpacityPatchesDefaultOnMigrated == null || shaderOpacityPatchesDefaultOnMigrated.get())
+        {
+            return;
+        }
+
+        if (complementaryOpacityFix != null)
+        {
+            complementaryOpacityFix.set(true);
+        }
+
+        if (bslOpacityFix != null)
+        {
+            bslOpacityFix.set(true);
+        }
+
+        shaderOpacityPatchesDefaultOnMigrated.set(true);
+    }
 
     public static int modelEditorHoverHighlight()
     {
@@ -500,6 +589,8 @@ public class BBSSettings
         tooltipStyle = builder.getInt("tooltip_style", 1);
         coloredBackground = builder.getBoolean("colored_background", true);
         backgroundBrightness = builder.getFloat("background_brightness", 1F, 0.5F, 1.5F);
+        worldGammaPercent = builder.getDouble("world_gamma_percent", 100D, 0D, 1500D);
+        worldSunPathRotation = builder.getFloat("world_sun_path_rotation", 0F, -180F, 180F);
         interfaceShadows = builder.getBoolean("interface_shadows", true);
         fov = builder.getFloat("fov", 40, 0, 180);
         hsvColorPicker = builder.getBoolean("hsv_color_picker", true);
@@ -509,6 +600,7 @@ public class BBSSettings
         clickSound = builder.getBoolean("click_sound", false);
         pickLimbTexture = builder.getBoolean("pick_limb_texture", true);
         morphingAutoMorph = builder.getBoolean("auto_morph", false);
+        autoSpectatorInEditors = builder.getBoolean("auto_spectator_in_editors", true);
         editorSimplifyAnimations = builder.getBoolean("simplify_animations", false);
         favoriteColors = new ValueColors("favorite_colors");
         favoriteModelForms = new ValueStringKeys("favorite_model_forms");
@@ -526,23 +618,35 @@ public class BBSSettings
 
         builder.category("axes");
         gizmos = builder.getBoolean("gizmos", true);
+        /* Keep form-editor gizmos / bone picking while model-block F7 world rendering is on. */
+        gizmosWorldRendering = builder.getBoolean("gizmos_world_rendering", true);
         axesScale = builder.getFloat("axes_scale", 1.5F, 0F, 100F);
         axesThickness = builder.getFloat("axes_thickness", 0.7F, 0.25F, 3F);
         /* Multiplier applied only to the invisible picking pass, so the clickable area can be
          * fatter than the visible handles (or thinner) independently of axes_thickness. */
         gizmoHitbox = builder.getFloat("gizmo_hitbox", 1.5F, 0.25F, 5F);
+        /* When enabled, gizmo size scales with camera distance to stay roughly constant on screen. */
+        gizmoConstantSize = builder.getBoolean("gizmo_constant_size", true);
+        /* Floor in Math.max(floor, dist * 0.12). 0 disables the floor so it can keep shrinking when close. */
+        gizmoConstantSizeMin = builder.getFloat("gizmo_constant_size_min", 0.5F, 0F, 10F);
         disablePivotTransform = builder.getBoolean("disable_pivot_transform", false);
         gizmoYAxisHorizontal = builder.getBoolean("gizmo_y_axis_horizontal", true);
         gizmoTrackball = builder.getBoolean("gizmo_trackball", true);
         gizmoTrackballScale = builder.getInt("gizmo_trackball_scale", 1, 1, 5);
-        /* 0 = Translate, 1 = Scale, 2 = Rotate, 3 = Combined; see Gizmo.Mode (ordinal order matches). */
-        gizmoDefaultMode = builder.getInt("gizmo_default_mode", 0, 0, 3);
+        /* 0 = Translate, 1 = Scale, 2 = Rotate, 3 = Combined, 4 = Trackball only; see Gizmo.Mode (ordinal order matches). */
+        gizmoDefaultMode = builder.getInt("gizmo_default_mode", 0, 0, 4);
+        /* Combined / rotate visual style: 0 = Style 1, 1 = Style 2, 2 = Style 3 (cubes on ring, no cones). */
+        gizmoStyle = builder.getInt("gizmo_style", 0, 0, 2);
+        /* When true, XYZ rotation rings are full circles; when false, camera-facing half-rings. */
+        gizmoFullRotationRings = builder.getBoolean("gizmo_full_rotation_rings", false);
         /* Faint guide line(s) shown along the dragged axis/plane: length (multiplier),
          * thickness (multiplier) and opacity (0..1). */
         gizmoGuideLength = builder.getFloat("gizmo_guide_length", 2F, 0.1F, 10F);
-        gizmoGuideThickness = builder.getFloat("gizmo_guide_thickness", 1F, 0.1F, 10F);
+        gizmoGuideThickness = builder.getFloat("gizmo_guide_thickness", 2F, 0.1F, 10F);
         gizmoGuideOpacity = builder.getFloat("gizmo_guide_opacity", 0.35F, 0.05F, 1F);
         gizmoTranslateSpeed = builder.getInt("gizmo_translate_speed", 5, 1, 20);
+        builder.register(editorGizmoToolbar = new ValueGizmoToolbar("gizmo_toolbar"));
+        builder.register(editorFormGizmoToolbar = new ValueFormEditorGizmoToolbar("form_gizmo_toolbar"));
 
         builder.category("tutorials");
         enableCursorRendering = builder.getBoolean("cursor", false);
@@ -560,6 +664,7 @@ public class BBSSettings
         chromaSkyColor = builder.getInt("color", Colors.A75).color();
         chromaSkyTerrain = builder.getBoolean("terrain", true);
         chromaSkyClouds = builder.getBoolean("clouds", true);
+        chromaSkyModelBlocks = builder.getBoolean("model_blocks", false);
         chromaSkyBillboard = builder.getFloat("billboard", 0F, 0F, 256F);
 
         builder.category("scrollbars");
@@ -589,7 +694,7 @@ public class BBSSettings
         editorCenterLines = builder.getBoolean("center_lines", false);
         editorCrosshair = builder.getBoolean("crosshair", false);
         editorFilmOverlayVisible = builder.getBoolean("film_overlay_visible", true);
-
+        editorFisheyeWidenFov = builder.getBoolean("fisheye_widen_fov", true);
         editorPeriodicSave = builder.getInt("periodic_save", 60, 0, 3600);
         editorHorizontalFlight = builder.getBoolean("horizontal_flight", false);
         builder.register(editorLayoutSettings = new ValueEditorLayout("layout"));
@@ -601,6 +706,7 @@ public class BBSSettings
         editorClipPreview = builder.getBoolean("clip_preview", true);
         editorRewind = builder.getBoolean("rewind", true);
         editorHorizontalClipEditor = builder.getBoolean("horizontal_clip_editor", true);
+        editorEmbeddedKeyframeSidePanel = builder.getBoolean("embedded_keyframe_side_panel", true);
         editorMinutesBackup = builder.getBoolean("minutes_backup", true);
         editorDockGuideColor = builder.getInt("dock_guide_color", 0x57CCFF).color();
         editorDockGuideOpacity = builder.getFloat("dock_guide_opacity", 0.5F, 0F, 1F);
@@ -615,8 +721,11 @@ public class BBSSettings
         editorSafeMargins = builder.getBoolean("safe_margins", false);
         editorFlightFreeLook = builder.getBoolean("flight_free_look", false);
         editorOrbitWithoutFlight = builder.getBoolean("orbit_without_flight", false);
-        editorOrbitNoAnimation = builder.getBoolean("orbit_no_animation", false);
+        editorOrbitSmoothTransition = builder.getBoolean("orbit_smooth_transition", false);
+        editorOrbitRestrictToViewport = builder.getBoolean("orbit_restrict_to_viewport", false);
         editorOrbitTransitionDuration = builder.getFloat("orbit_transition_duration", 1.25F, 0.1F, 10F);
+        orbitSmoothDefaultMigrated = builder.getBoolean("orbit_smooth_default_migrated", false);
+        orbitSmoothDefaultMigrated.invisible();
         editorClipTypeLabels = builder.getBoolean("clip_type_labels", false);
         editorCameraPreviewPlayerSync = builder.getBoolean("camera_preview_player_sync", false);
         editorMuteRenderAudioClips = builder.getBoolean("mute_render_audio_clips", false);
@@ -625,6 +734,7 @@ public class BBSSettings
         realtimeKeyframes = builder.getBoolean("realtime_keyframes", false);
         autoKeyframes = builder.getBoolean("auto_keyframes", true);
         usingInMemoryClipboard = builder.getBoolean("using_in_memory_clipboard", false);
+        builder.register(editorViewportToolbar = new ValueViewportToolbar("viewport_toolbar"));
 
         builder.category("timeline_toolbar");
         editorTimelineToolbar = builder.getBoolean("enabled", true);
@@ -638,6 +748,8 @@ public class BBSSettings
         replayFpBobbingIntensity = builder.getFloat("replay_fp_bobbing_intensity", 0.25F, 0F, 2F);
         replayFpBobbingFrequency = builder.getFloat("replay_fp_bobbing_frequency", 0.25F, 0F, 3F);
         editorAnchoredReplaysPanel = builder.getBoolean("anchored_replays_panel", true);
+        editorSeparateReplayPropertiesPanel = builder.getBoolean("separate_replay_properties_panel", true);
+        blockPickerDefaultMode = builder.getInt("block_picker_default_mode", 0, 0, 2);
         editorAnchoredReplaysPanelHeight = builder.getInt("anchored_replays_panel_height", 170, 70, 2000);
         editorAnchoredReplaysPanelHeight.invisible();
         editorReplayHud = builder.getBoolean("replay_hud", false);
@@ -656,6 +768,7 @@ public class BBSSettings
         recordingSwipeDamage = builder.getBoolean("swipe_damage", false);
         recordingAutoCaptureMobs = builder.getBoolean("auto_capture_mobs", true);
         recordingAutoCaptureProjectiles = builder.getBoolean("auto_capture_projectiles", true);
+        recordingMobCaptureOnAlt = builder.getBoolean("mob_capture_on_alt", false);
         recordingOverlays = builder.getBoolean("overlays", true);
         recordingPoseTransformOverlays = builder.getInt("pose_transform_overlays", 0, 0, 42);
         recordingCameraPreview = builder.getBoolean("camera_preview", true);
@@ -682,9 +795,21 @@ public class BBSSettings
 
         builder.category("shader_curves");
         shaderCurvesEnabled = builder.getBoolean("enabled", true);
+        irisOpacityFix = builder.getBoolean("iris_opacity_fix", true);
+        softTransparencyBackfaces = builder.getBoolean("soft_transparency_backfaces", true);
+        complementaryOpacityFix = builder.getBoolean("complementary_opacity_fix", true);
+        complementaryOpacityFix.invisible();
+        bslOpacityFix = builder.getBoolean("bsl_opacity_fix", true);
+        bslOpacityFix.invisible();
+        shaderOpacityPatchesDefaultOnMigrated = builder.getBoolean("opacity_patches_default_on_migrated", false);
+        shaderOpacityPatchesDefaultOnMigrated.invisible();
+        shaderShadowOpacity = builder.getFloat("shader_shadow_opacity", 1F, 0F, 1F);
 
         builder.category("fluid_simulation");
         fluidRealisticModelInteraction = builder.getBoolean("realistic_model_interaction", false);
+
+        builder.category("compatibility");
+        saveAsCompatible = builder.getBoolean("save_as_compatible", true);
 
         builder.category("audio");
         audioWaveformVisible = builder.getBoolean("waveform_visible", true);
@@ -700,5 +825,78 @@ public class BBSSettings
 
         BBSMod.events.post(new RegisterBBSSettingsEvent(builder));
         syncAppliedAppearance();
+    }
+
+    /**
+     * Orbit smooth transitions shipped default-on via {@code orbit_no_animation} (default false).
+     * New default is instant switching; preserve smooth only when that legacy key was saved as false.
+     */
+    public static void migrateOrbitSettingsAfterLoad(File settingsFile)
+    {
+        if (orbitSmoothDefaultMigrated == null || orbitSmoothDefaultMigrated.get())
+        {
+            return;
+        }
+
+        boolean legacySmooth = false;
+
+        if (settingsFile != null && settingsFile.isFile())
+        {
+            try
+            {
+                BaseType data = DataToString.read(settingsFile);
+
+                if (data != null && data.isMap())
+                {
+                    MapType editor = data.asMap().getMap("editor");
+
+                    if (editor != null && editor.has("orbit_no_animation"))
+                    {
+                        legacySmooth = !editor.getBool("orbit_no_animation");
+                    }
+                }
+            }
+            catch (IOException e)
+            {
+                e.printStackTrace();
+            }
+        }
+
+        if (editorOrbitSmoothTransition != null)
+        {
+            editorOrbitSmoothTransition.set(legacySmooth);
+        }
+
+        orbitSmoothDefaultMigrated.set(true);
+    }
+
+    /**
+     * Fold legacy Complementary/BSL opacity toggles into {@link #irisOpacityFix}.
+     * Call after settings are loaded from disk.
+     */
+    public static void migrateIrisOpacityFix()
+    {
+        if (irisOpacityFix == null)
+        {
+            return;
+        }
+
+        boolean legacyOn = (complementaryOpacityFix != null && complementaryOpacityFix.get())
+            || (bslOpacityFix != null && bslOpacityFix.get());
+
+        if (legacyOn && !irisOpacityFix.get())
+        {
+            irisOpacityFix.set(true);
+        }
+
+        if (complementaryOpacityFix != null && complementaryOpacityFix.get())
+        {
+            complementaryOpacityFix.set(false);
+        }
+
+        if (bslOpacityFix != null && bslOpacityFix.get())
+        {
+            bslOpacityFix.set(false);
+        }
     }
 }

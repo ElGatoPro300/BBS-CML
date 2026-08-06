@@ -81,8 +81,9 @@ public final class LimbConstraintCompiler
             }
 
             List<String> chainIds = buildChainIds(model, limb.tipBone(), limb.depth());
+            int minChainSize = limb.depth() < 0 ? 1 : 2;
 
-            if (chainIds.size() < 2)
+            if (chainIds.size() < minChainSize)
             {
                 continue;
             }
@@ -102,6 +103,11 @@ public final class LimbConstraintCompiler
 
     private static List<String> buildChainIds(IModel model, String tip, int depth)
     {
+        if (depth < 0)
+        {
+            return buildDescendantChainIds(model, tip, -depth);
+        }
+
         List<String> list = new ArrayList<>();
         String group = tip;
 
@@ -127,5 +133,134 @@ public final class LimbConstraintCompiler
         Collections.reverse(list);
 
         return list;
+    }
+
+    /**
+     * Builds a root-to-tip chain by walking down deform bones from {@code root},
+     * without including ancestors of {@code root} (so torso bones stay fixed).
+     * When the limb runs out of deform bones, a helper bone (item hold point or
+     * locator at the end of the limb) is appended as the effector joint so the
+     * limb's end, not its pivot, reaches the target.
+     */
+    private static List<String> buildDescendantChainIds(IModel model, String root, int maxBones)
+    {
+        List<String> chain = new ArrayList<>();
+
+        if (root == null || root.isEmpty() || maxBones <= 0)
+        {
+            return chain;
+        }
+
+        String current = root;
+
+        while (current != null && !current.isEmpty() && chain.size() < maxBones)
+        {
+            chain.add(current);
+
+            String child = pickIkChild(model, current);
+
+            if (child == null)
+            {
+                break;
+            }
+
+            current = child;
+        }
+
+        if (chain.size() < maxBones)
+        {
+            String tail = pickTailHelper(model, chain.get(chain.size() - 1));
+
+            if (tail != null)
+            {
+                chain.add(tail);
+            }
+        }
+
+        return chain;
+    }
+
+    private static String pickTailHelper(IModel model, String bone)
+    {
+        String locator = null;
+
+        for (String child : model.getDirectChildrenKeys(bone))
+        {
+            if (child == null || child.isEmpty())
+            {
+                continue;
+            }
+
+            if (child.endsWith("_item"))
+            {
+                return child;
+            }
+
+            if (locator == null && child.contains("_locator"))
+            {
+                locator = child;
+            }
+        }
+
+        return locator;
+    }
+
+    private static String pickIkChild(IModel model, String parent)
+    {
+        String best = null;
+        int bestLength = -1;
+
+        for (String child : model.getDirectChildrenKeys(parent))
+        {
+            if (isIkHelperBone(child))
+            {
+                continue;
+            }
+
+            int length = descendantChainLength(model, child);
+
+            if (length > bestLength)
+            {
+                best = child;
+                bestLength = length;
+            }
+        }
+
+        return best;
+    }
+
+    private static int descendantChainLength(IModel model, String bone)
+    {
+        int length = 1;
+        String current = bone;
+
+        while (true)
+        {
+            String child = pickIkChild(model, current);
+
+            if (child == null)
+            {
+                break;
+            }
+
+            length++;
+            current = child;
+        }
+
+        return length;
+    }
+
+    private static boolean isIkHelperBone(String bone)
+    {
+        if (bone == null || bone.isEmpty())
+        {
+            return true;
+        }
+
+        return bone.endsWith("_item")
+            || bone.contains("armor_")
+            || bone.contains("_locator")
+            || bone.contains("_ik_")
+            || bone.startsWith("ik_");
     }
 }

@@ -20,6 +20,7 @@ public class KeyframeFactories
     public static final AnchorKeyframeFactory ANCHOR = new AnchorKeyframeFactory();
     public static final MountLinkKeyframeFactory MOUNT_LINK = new MountLinkKeyframeFactory();
     public static final LookAtKeyframeFactory LOOK_AT = new LookAtKeyframeFactory();
+    public static final InverseKinematicsKeyframeFactory INVERSE_KINEMATICS = new InverseKinematicsKeyframeFactory();
     public static final IllusionKeyframeFactory ILLUSION = new IllusionKeyframeFactory();
     public static final BlockStateKeyframeFactory BLOCK_STATE = new BlockStateKeyframeFactory();
     public static final ItemStackKeyframeFactory ITEM_STACK = new ItemStackKeyframeFactory();
@@ -29,6 +30,8 @@ public class KeyframeFactories
     public static final StructureLightSettingsKeyframeFactory STRUCTURE_LIGHT_SETTINGS = new StructureLightSettingsKeyframeFactory();
     public static final GlowSettingsKeyframeFactory GLOW_SETTINGS = new GlowSettingsKeyframeFactory();
     public static final PaintSettingsKeyframeFactory PAINT_SETTINGS = new PaintSettingsKeyframeFactory();
+    public static final ShadowSettingsKeyframeFactory SHADOW_SETTINGS = new ShadowSettingsKeyframeFactory();
+    public static final LensRadiusSettingsKeyframeFactory LENS_RADIUS_SETTINGS = new LensRadiusSettingsKeyframeFactory();
     public static final ChromaSkyCurveSettingsKeyframeFactory CHROMA_SKY_SETTINGS = new ChromaSkyCurveSettingsKeyframeFactory();
 
     public static boolean isNumeric(IKeyframeFactory factory)
@@ -53,6 +56,7 @@ public class KeyframeFactories
         FACTORIES.put("anchor", ANCHOR);
         FACTORIES.put("mount_link", MOUNT_LINK);
         FACTORIES.put("look_at", LOOK_AT);
+        FACTORIES.put("inverse_kinematics", INVERSE_KINEMATICS);
         FACTORIES.put("illusion", ILLUSION);
         FACTORIES.put("block_state", BLOCK_STATE);
         FACTORIES.put("item_stack", ITEM_STACK);
@@ -64,6 +68,9 @@ public class KeyframeFactories
         FACTORIES.put("glow", GLOW_SETTINGS);
         FACTORIES.put("paint_settings", PAINT_SETTINGS);
         FACTORIES.put("paint", PAINT_SETTINGS);
+        FACTORIES.put("shadow_settings", SHADOW_SETTINGS);
+        FACTORIES.put("shadow", SHADOW_SETTINGS);
+        FACTORIES.put("lens_radius_settings", LENS_RADIUS_SETTINGS);
         FACTORIES.put("chroma_sky_settings", CHROMA_SKY_SETTINGS);
     }
 }

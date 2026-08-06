@@ -11,14 +11,14 @@ public final class KeyframeInsertInteractionState
     public final IKey hint;
     public final boolean column;
     /**
-     * When {@code >= 0}, the preview tick is fixed (playhead). When {@code -1},
+     * When {@code >= 0}, the preview tick is fixed (playhead). When {@code < 0},
      * the tick follows the cursor horizontally.
      */
-    public final int lockedTick;
+    public final float lockedTick;
     public final IColumnConfirm columnConfirm;
     public final IIndividualConfirm individualConfirm;
 
-    public KeyframeInsertInteractionState(IKey hint, boolean column, int lockedTick,
+    public KeyframeInsertInteractionState(IKey hint, boolean column, float lockedTick,
         IColumnConfirm columnConfirm, IIndividualConfirm individualConfirm)
     {
         this.hint = hint;
@@ -30,15 +30,15 @@ public final class KeyframeInsertInteractionState
 
     public static KeyframeInsertInteractionState columnAtCursor(IKey hint, IColumnConfirm confirm)
     {
-        return new KeyframeInsertInteractionState(hint, true, -1, confirm, null);
+        return new KeyframeInsertInteractionState(hint, true, -1F, confirm, null);
     }
 
-    public static KeyframeInsertInteractionState columnAtTick(IKey hint, int tick, IColumnConfirm confirm)
+    public static KeyframeInsertInteractionState columnAtTick(IKey hint, float tick, IColumnConfirm confirm)
     {
         return new KeyframeInsertInteractionState(hint, true, tick, confirm, null);
     }
 
-    public static KeyframeInsertInteractionState individualAtPlayhead(IKey hint, int tick,
+    public static KeyframeInsertInteractionState individualAtPlayhead(IKey hint, float tick,
         IIndividualConfirm confirm)
     {
         return new KeyframeInsertInteractionState(hint, false, tick, null, confirm);
@@ -46,13 +46,13 @@ public final class KeyframeInsertInteractionState
 
     public static KeyframeInsertInteractionState individualAtCursor(IKey hint, IIndividualConfirm confirm)
     {
-        return new KeyframeInsertInteractionState(hint, false, -1, null, confirm);
+        return new KeyframeInsertInteractionState(hint, false, -1F, null, confirm);
     }
 
     @FunctionalInterface
     public interface IColumnConfirm
     {
-        void insertAt(int tick);
+        void insertAt(float tick);
     }
 
     @FunctionalInterface

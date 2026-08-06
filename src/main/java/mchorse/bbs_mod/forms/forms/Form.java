@@ -10,6 +10,7 @@ import mchorse.bbs_mod.forms.entities.IEntity;
 import mchorse.bbs_mod.forms.forms.utils.Anchor;
 import mchorse.bbs_mod.forms.forms.utils.GlowSettings;
 import mchorse.bbs_mod.forms.forms.utils.Illusion;
+import mchorse.bbs_mod.forms.forms.utils.InverseKinematics;
 import mchorse.bbs_mod.forms.forms.utils.LookAt;
 import mchorse.bbs_mod.forms.forms.utils.PaintSettings;
 import mchorse.bbs_mod.forms.forms.utils.TextureBlend;
@@ -18,6 +19,7 @@ import mchorse.bbs_mod.forms.states.AnimationStates;
 import mchorse.bbs_mod.forms.states.StatePlayer;
 import mchorse.bbs_mod.forms.values.ValueAnchor;
 import mchorse.bbs_mod.forms.values.ValueIllusion;
+import mchorse.bbs_mod.forms.values.ValueInverseKinematics;
 import mchorse.bbs_mod.forms.values.ValueLookAt;
 import mchorse.bbs_mod.settings.values.base.BaseValue;
 import mchorse.bbs_mod.settings.values.core.ValueColor;
@@ -29,8 +31,11 @@ import mchorse.bbs_mod.settings.values.misc.ValuePaintSettings;
 import mchorse.bbs_mod.settings.values.numeric.ValueBoolean;
 import mchorse.bbs_mod.settings.values.numeric.ValueFloat;
 import mchorse.bbs_mod.settings.values.numeric.ValueInt;
+import mchorse.bbs_mod.utils.MathUtils;
 import mchorse.bbs_mod.utils.StringUtils;
 import mchorse.bbs_mod.utils.colors.Color;
+import mchorse.bbs_mod.utils.interps.Lerps;
+import mchorse.bbs_mod.utils.keyframes.factories.ColorKeyframeFactory;
 import mchorse.bbs_mod.utils.pose.Transform;
 
 import net.minecraft.entity.LivingEntity;
@@ -47,19 +52,20 @@ public abstract class Form extends ValueGroup
     public final ValueBoolean animatable = new ValueBoolean("animatable", true);
     public final ValueString trackName = new ValueString("track_name", "");
     public final ValueFloat lighting = new ValueFloat("lighting", 1F);
-
-    /* Mine-imator style render depth: forms with a lower value are drawn earlier, so a
-     * semi-transparent form with lower render depth occludes forms behind it that have a
-     * higher render depth (they fail the depth test instead of blending through). */
-    public final ValueFloat renderDepth = new ValueFloat("render_depth", 0F);
-    public final ValueBoolean renderDepthEnabled = new ValueBoolean("render_depth_enabled", true);
     public final ValueString name = new ValueString("name", "");
     public final ValueTransform transform = new ValueTransform("transform", new Transform());
     public final ValueTransform transformOverlay = new ValueTransform("transform_overlay", new Transform());
     public final ValueFloat uiScale = new ValueFloat("uiScale", 1F);
     public final ValueAnchor anchor = new ValueAnchor("anchor", new Anchor());
     public final ValueLookAt lookAt = new ValueLookAt("look_at", new LookAt());
+    public final ValueInverseKinematics inverseKinematics = new ValueInverseKinematics("inverse_kinematics", new InverseKinematics());
     public final ValueBoolean shaderShadow = new ValueBoolean("shaderShadow", true);
+    /**
+     * When true under Iris, this form uses the clean deferred opacity path for its
+     * {@code color} alpha (same compositing as post-{@code #1b}) without affecting
+     * paint redraw. Legacy films may still store this flag on Color keyframes.
+     */
+    public final ValueBoolean noshadingOpacity = new ValueBoolean("noshading_opacity", false);
 
     /* FS-style paint overlay: paintSettings controls color and intensity; paintColor is kept for backward compatibility */
     public final ValueColor paintColor = new ValueColor("paint_color", new Color().set(1F, 1F, 1F, 0F));
@@ -103,6 +109,9 @@ public abstract class Form extends ValueGroup
     protected Object renderer;
     protected String cachedID;
 
+    /** Bumped when any nested value changes; used for incremental entity sync and UI preview cache. */
+    private transient int editRevision = 0;
+
     /** Runtime texture crossfade state driven by the film texture track bend keyframes. */
     public transient TextureBlend textureBlend;
 
@@ -120,17 +129,13 @@ public abstract class Form extends ValueGroup
         this.name.invisible();
         this.uiScale.invisible();
         this.shaderShadow.invisible();
+        this.noshadingOpacity.invisible();
         this.render.invisible();
         this.add(this.visible);
         this.add(this.render);
         this.add(this.animatable);
         this.add(this.trackName);
         this.add(this.lighting);
-        this.add(this.renderDepth);
-
-        /* The toggle isn't keyframable, so it shouldn't show up as a timeline track. */
-        this.renderDepthEnabled.invisible();
-        this.add(this.renderDepthEnabled);
         this.add(this.name);
         this.add(this.transform);
         this.add(this.transformOverlay);
@@ -146,7 +151,9 @@ public abstract class Form extends ValueGroup
         this.add(this.uiScale);
         this.add(this.anchor);
         this.add(this.lookAt);
+        this.add(this.inverseKinematics);
         this.add(this.shaderShadow);
+        this.add(this.noshadingOpacity);
         this.add(this.paintColor);
         this.add(this.paintSettings);
         this.add(this.glowingColor);
@@ -420,6 +427,19 @@ public abstract class Form extends ValueGroup
         }
     }
 
+    public int getEditRevision()
+    {
+        return this.editRevision;
+    }
+
+    @Override
+    public void postNotify(BaseValue value, int flag)
+    {
+        this.editRevision += 1;
+
+        super.postNotify(value, flag);
+    }
+
     /* Data comparison and (de)serialization */
 
     @Override
@@ -444,6 +464,10 @@ public abstract class Form extends ValueGroup
                 map.put("glow", map.get("glow_settings"));
                 map.remove("glow_settings");
             }
+
+            /* Drop removed render-depth feature keys from older morphs/films. */
+            map.remove("render_depth");
+            map.remove("render_depth_enabled");
         }
 
         super.fromData(data);
@@ -478,7 +502,13 @@ public abstract class Form extends ValueGroup
                     settings.r = legacy.r;
                     settings.g = legacy.g;
                     settings.b = legacy.b;
-                    settings.intensity = legacy.a;
+                    settings.intensity = PaintSettings.resolveLegacyPaintIntensity(legacy);
+
+                    if (legacy.transform != null && legacy.transform.isActive())
+                    {
+                        settings.transform = legacy.transform.copy();
+                    }
+
                     this.paintSettings.set(settings);
                 }
             }
@@ -490,13 +520,106 @@ public abstract class Form extends ValueGroup
                 settings.r = legacy.r;
                 settings.g = legacy.g;
                 settings.b = legacy.b;
-                settings.intensity = legacy.a;
+                settings.intensity = PaintSettings.resolveLegacyPaintIntensity(legacy);
+
+                if (legacy.transform != null && legacy.transform.isActive())
+                {
+                    settings.transform = legacy.transform.copy();
+                }
+
                 this.paintSettings.set(settings);
             }
 
             /* Compatibility with state triggers */
             FormUtils.readOldStateTriggers(this, map);
+
+            /* One-shot merge: legacy era stored fade in "opacity" and tint strength in
+             * color.a. Traditional color uses color.a as opacity; bake intensity into RGB. */
+            this.mergeLegacyOpacityIntoColor(map);
         }
+    }
+
+    /**
+     * Converts legacy Opacity-track form data into traditional {@code color.a} opacity.
+     */
+    private void mergeLegacyOpacityIntoColor(MapType map)
+    {
+        BaseValue colorValue = this.get("color");
+
+        if (!(colorValue instanceof ValueColor valueColor))
+        {
+            return;
+        }
+
+        Color color = valueColor.get().copy();
+        boolean hadOpacityField = map.has("opacity");
+        boolean colorHadBlendA = colorDataHasBlendA(map.get("color"));
+
+        if (hadOpacityField)
+        {
+            float opacityA = 1F;
+            BaseType opacityType = map.get("opacity");
+
+            if (opacityType != null && opacityType.isNumeric())
+            {
+                opacityA = MathUtils.clamp(opacityType.asNumeric().floatValue(), 0F, 1F);
+            }
+
+            /* Early Blend Color: color.a was tint intensity. Dual-write already baked via blend_a. */
+            if (!colorHadBlendA)
+            {
+                float intensity = MathUtils.clamp(color.a, 0F, 1F);
+
+                color.r = Lerps.lerp(1F, color.r, intensity);
+                color.g = Lerps.lerp(1F, color.g, intensity);
+                color.b = Lerps.lerp(1F, color.b, intensity);
+            }
+
+            color.a = opacityA;
+            valueColor.set(color);
+        }
+        else if (!colorHadBlendA && color.a <= 0.001F)
+        {
+            /* Legacy tint-off default would be invisible under traditional alpha. */
+            color.r = 1F;
+            color.g = 1F;
+            color.b = 1F;
+            color.a = 1F;
+            valueColor.set(color);
+        }
+    }
+
+    private static boolean colorDataHasBlendA(BaseType colorData)
+    {
+        return colorData instanceof MapType colorMap && colorMap.has(ColorKeyframeFactory.BLEND_A);
+    }
+
+    /**
+     * Soft-fade alpha for shadows / depth sorting. Reads traditional {@code color.a} when present.
+     */
+    public float getFormOpacity()
+    {
+        BaseValue colorValue = this.get("color");
+
+        if (colorValue instanceof ValueColor valueColor)
+        {
+            return MathUtils.clamp(valueColor.get().a, 0F, 1F);
+        }
+
+        return 1F;
+    }
+
+    /**
+     * Writes traditional form opacity ({@code color.a}) onto the render tint.
+     */
+    public void applyFormOpacity(Color color)
+    {
+        if (color == null)
+        {
+            return;
+        }
+
+        color.a = MathUtils.clamp(this.getFormOpacity(), 0F, 1F);
     }
 
     @Override
@@ -507,6 +630,7 @@ public abstract class Form extends ValueGroup
         if (data instanceof MapType map)
         {
             BBSMod.getForms().appendId(this, map);
+            map.remove("opacity");
         }
 
         return data;

@@ -3,6 +3,7 @@ package mchorse.bbs_mod.ui.forms.editors.forms;
 import mchorse.bbs_mod.forms.FormUtils;
 import mchorse.bbs_mod.forms.FormUtilsClient;
 import mchorse.bbs_mod.forms.forms.ModelForm;
+import mchorse.bbs_mod.forms.renderers.ModelFormRenderer;
 import mchorse.bbs_mod.forms.renderers.utils.MatrixCache;
 import mchorse.bbs_mod.forms.renderers.utils.MatrixCacheEntry;
 import mchorse.bbs_mod.ui.Keys;
@@ -11,15 +12,14 @@ import mchorse.bbs_mod.ui.forms.editors.panels.UIActionsFormPanel;
 import mchorse.bbs_mod.ui.forms.editors.panels.UIFormPanel;
 import mchorse.bbs_mod.ui.forms.editors.panels.UIModelFormPanel;
 import mchorse.bbs_mod.ui.framework.elements.input.UIPropTransform;
-import mchorse.bbs_mod.ui.model_blocks.UIModelBlockPanel;
+import mchorse.bbs_mod.ui.utils.gizmo.GizmoMatrixUtils;
+import mchorse.bbs_mod.ui.utils.gizmo.TransformOrientation;
 import mchorse.bbs_mod.ui.utils.icons.Icons;
 import mchorse.bbs_mod.ui.utils.pose.UIPoseEditor;
 import mchorse.bbs_mod.utils.StringUtils;
 import mchorse.bbs_mod.utils.joml.Matrices;
-import mchorse.bbs_mod.utils.pose.Transform;
 
 import org.joml.Matrix4f;
-import org.joml.Vector3f;
 
 public class UIModelForm extends UIForm<ModelForm>
 {
@@ -78,15 +78,22 @@ public class UIModelForm extends UIForm<ModelForm>
         String path = FormUtils.getPath(this.form);
         UIPoseEditor poseEditor = this.modelPanel.poseEditor;
 
-        return this.getOrigin(transition, StringUtils.combinePaths(path, poseEditor.groups.list.getCurrentFirst()), poseEditor.transform.isLocal());
+        return this.getOrigin(transition, StringUtils.combinePaths(path, poseEditor.groups.list.getCurrentFirst()), poseEditor.transform.getOrientation());
     }
 
     /**
-     * Pose gizmo basis matches {@link UIModelBlockPanel}:
-     * bone pivot in world space, plus the edited pose rotation in local mode only.
+     * Pose gizmo basis must match how {@code PoseTransform.translate} moves the bone.
+     * BOBJ (and cubic) store translate in the bone bind / group frame — never in raw world
+     * axes — so stripping {@link MatrixCacheEntry#origin()} down to a translation-only matrix
+     * made BOBJ limbs slide on the wrong axis when dragging a handle.
      */
     @Override
     public Matrix4f getOrigin(float transition, String path, boolean local)
+    {
+        return this.getOrigin(transition, path, local ? TransformOrientation.LOCAL : TransformOrientation.PARENT);
+    }
+
+    public Matrix4f getOrigin(float transition, String path, TransformOrientation orientation)
     {
         if (path == null)
         {
@@ -108,24 +115,17 @@ public class UIModelForm extends UIForm<ModelForm>
             return Matrices.EMPTY_4F;
         }
 
-        Matrix4f originMatrix = entry.origin();
-
-        if (originMatrix == null)
+        if (forceOrigin)
         {
-            return Matrices.EMPTY_4F;
+            Matrix4f originMatrix = entry.origin();
+
+            return originMatrix == null ? Matrices.EMPTY_4F : new Matrix4f(originMatrix);
         }
 
-        Vector3f pivot = originMatrix.getTranslation(new Vector3f());
-        Matrix4f matrix = new Matrix4f().translation(pivot);
+        boolean bobj = ModelFormRenderer.isBobjModel(this.form);
+        Matrix4f matrix = GizmoMatrixUtils.resolveFilmPoseBoneMatrix(entry, orientation, bobj);
 
-        if (!forceOrigin && local)
-        {
-            Transform poseTransform = this.modelPanel.poseEditor.transform.getTransform();
-
-            matrix.mul(new Matrix4f(poseTransform.createRotationMatrix()));
-        }
-
-        return matrix;
+        return matrix == null ? Matrices.EMPTY_4F : matrix;
     }
 
     public Matrix4f getOriginForPoseEditor(float transition, UIPoseEditor poseEditor)
@@ -137,6 +137,6 @@ public class UIModelForm extends UIForm<ModelForm>
 
         String path = FormUtils.getPath(this.form);
 
-        return this.getOrigin(transition, StringUtils.combinePaths(path, poseEditor.groups.list.getCurrentFirst()), poseEditor.transform.isLocal());
+        return this.getOrigin(transition, StringUtils.combinePaths(path, poseEditor.groups.list.getCurrentFirst()), poseEditor.transform.getOrientation());
     }
 }

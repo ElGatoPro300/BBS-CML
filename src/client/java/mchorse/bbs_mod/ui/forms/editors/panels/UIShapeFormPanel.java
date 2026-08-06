@@ -1,11 +1,18 @@
 package mchorse.bbs_mod.ui.forms.editors.panels;
 
 import mchorse.bbs_mod.forms.forms.ShapeForm;
+import mchorse.bbs_mod.forms.forms.utils.GlowSettings;
+import mchorse.bbs_mod.forms.forms.utils.PaintSettings;
 import mchorse.bbs_mod.l10n.L10n;
 import mchorse.bbs_mod.l10n.keys.IKey;
 import mchorse.bbs_mod.ui.UIKeys;
 import mchorse.bbs_mod.ui.forms.editors.forms.UIForm;
 import mchorse.bbs_mod.ui.forms.editors.panels.shape.UIShapeNodeEditor;
+import mchorse.bbs_mod.ui.forms.editors.panels.widgets.UIFormColorAdjustments;
+import mchorse.bbs_mod.ui.forms.editors.panels.widgets.UIFormColorLayout;
+import mchorse.bbs_mod.ui.forms.editors.panels.widgets.UIFormColorTransform;
+import mchorse.bbs_mod.ui.forms.editors.panels.widgets.UIFormPaintTransform;
+import mchorse.bbs_mod.ui.framework.elements.UIElement;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIButton;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UICirculate;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIIcon;
@@ -31,6 +38,14 @@ public class UIShapeFormPanel extends UIFormPanel<ShapeForm>
     
     public UIButton pickTexture;
     public UIColor color;
+    public UIFormColorAdjustments colorAdjustments;
+    public UIColor paintColor;
+    public UITrackpad paintIntensity;
+    public UIFormPaintTransform paintTransform;
+    public UIColor glowingColor;
+    public UITrackpad glowIntensity;
+    public UIFormColorTransform glowTransform;
+    public UIElement glowSection;
     public UITrackpad textureScale;
     public UITrackpad textureScrollX;
     public UITrackpad textureScrollY;
@@ -86,8 +101,83 @@ public class UIShapeFormPanel extends UIFormPanel<ShapeForm>
             UITexturePicker.open(this.getContext(), this.form.texture.get(), (l) -> this.form.texture.set(l));
         });
         
-        this.color = new UIColor((value) -> this.form.color.set(Color.rgba(value))).direction(Direction.LEFT).withAlpha();
-        
+        this.color = new UIColor((value) ->
+        {
+            Color color = this.form.color.get().copy();
+            Color next = Color.rgba(value);
+
+            color.set(next.r, next.g, next.b, next.a);
+            this.form.color.set(color);
+        }).direction(Direction.LEFT).withAlpha();
+        this.colorAdjustments = new UIFormColorAdjustments(() -> this.form.color.get(), (color) ->
+        {
+            this.form.color.setRuntimeValue(null);
+            this.form.color.set(color);
+        });
+
+        this.paintColor = new UIColor((c) ->
+        {
+            Color color = Color.rgba(c);
+            PaintSettings settings = this.form.paintSettings.get().copy();
+
+            color.a = settings.intensity;
+            this.form.paintColor.set(color);
+
+            settings.r = color.r;
+            settings.g = color.g;
+            settings.b = color.b;
+            settings.applyAutoShaderShadow();
+            this.form.paintSettings.set(settings);
+        });
+        this.paintColor.tooltip(UIKeys.FORMS_EDITORS_PAINT_COLOR);
+        this.paintIntensity = new UITrackpad((value) ->
+        {
+            PaintSettings settings = this.form.paintSettings.get().copy();
+            float intensity = PaintSettings.clampIntensity(value.floatValue());
+
+            settings.intensity = intensity;
+            settings.applyAutoShaderShadow();
+            this.form.paintSettings.set(settings);
+
+            Color legacy = this.form.paintColor.get().copy();
+
+            legacy.a = intensity;
+            this.form.paintColor.set(legacy);
+        });
+        this.paintIntensity.increment(0.05D).values(0.1D, 0.05D, 0.2D).limit(PaintSettings.MIN_INTENSITY, PaintSettings.MAX_INTENSITY);
+        this.paintIntensity.tooltip(UIKeys.FORMS_EDITORS_PAINT_INTENSITY);
+        this.paintTransform = new UIFormPaintTransform(() -> this.form.paintSettings.get(), (settings) -> this.form.paintSettings.set(settings));
+        this.glowingColor = new UIColor((c) ->
+        {
+            Color copy = this.form.glowingColor.get().copy();
+            Color color = Color.rgba(c);
+
+            copy.r = color.r;
+            copy.g = color.g;
+            copy.b = color.b;
+            copy.a = 1F;
+            this.form.glowingColor.set(copy);
+
+            GlowSettings settings = this.form.glowSettings.get().copy();
+
+            settings.r = copy.r;
+            settings.g = copy.g;
+            settings.b = copy.b;
+            this.form.glowSettings.set(settings);
+        });
+        this.glowingColor.tooltip(UIKeys.FORMS_EDITORS_GLOW);
+        this.glowIntensity = new UITrackpad((value) ->
+        {
+            GlowSettings settings = this.form.glowSettings.get().copy();
+
+            settings.intensity = value.floatValue();
+            this.form.glowSettings.set(settings);
+        });
+        this.glowIntensity.increment(0.05D).values(0.1D, 0.05D, 0.2D);
+        this.glowIntensity.tooltip(UIKeys.FORMS_EDITORS_GLOW_INTENSITY);
+        this.glowTransform = new UIFormColorTransform(() -> this.form.glowingColor.get(), (color) -> this.form.glowingColor.set(color));
+        this.glowSection = UIFormColorLayout.createGlowSection(this.glowingColor, this.glowIntensity, this.glowTransform);
+
         this.textureScale = new UITrackpad((value) -> this.form.textureScale.set(value.floatValue()));
         this.textureScale.tooltip(UIKeys.FORMS_EDITORS_SHAPE_TEXTURE_SCALE);
         
@@ -124,7 +214,20 @@ public class UIShapeFormPanel extends UIFormPanel<ShapeForm>
 
         /* Layout */
         this.options.add(UI.label(UIKeys.FORMS_EDITORS_SHAPE_GEOMETRY).marginTop(8), UI.row(this.type, this.toggleNodeEditor), UI.row(this.sizeX, this.sizeY, this.sizeZ), this.subdivisions);
-        this.options.add(UI.label(UIKeys.FORMS_EDITORS_SHAPE_APPEARANCE).marginTop(8), this.pickTexture, this.color, this.textureScale, UI.row(this.textureScrollX, this.textureScrollY), this.lighting);
+        this.options.add(
+            UI.label(UIKeys.FORMS_EDITORS_SHAPE_APPEARANCE).marginTop(8),
+            this.pickTexture,
+            UIFormColorLayout.sectionLabel(UIKeys.FORMS_EDITOR_FORM),
+            this.color,
+            UIFormColorLayout.createExtraSection(
+                this.glowSection,
+                UIFormColorLayout.paintColorRowWithTransform(this.paintColor, this.paintIntensity, this.paintTransform),
+                this.colorAdjustments.marginTop(4)
+            ).marginTop(4),
+            this.textureScale,
+            UI.row(this.textureScrollX, this.textureScrollY),
+            this.lighting
+        );
         this.options.add(UI.label(UIKeys.RAW_PARTICLES).marginTop(8), this.particles, this.particleType, this.particleScale, this.particleDensity, this.particleSize);
     }
 
@@ -166,6 +269,22 @@ public class UIShapeFormPanel extends UIFormPanel<ShapeForm>
         this.subdivisions.setValue(form.subdivisions.get());
 
         this.color.setColor(form.color.get().getARGBColor());
+        this.colorAdjustments.prepareSession();
+        this.colorAdjustments.syncFromForm();
+        PaintSettings paint = form.paintSettings.get();
+        Color paintDisplay = new Color();
+
+        paint.resolveColor(form.paintColor.get(), paintDisplay);
+        this.paintColor.setColor(paintDisplay.getRGBColor());
+        this.paintIntensity.setValue(paint.intensity);
+        this.paintTransform.syncFromForm();
+        GlowSettings glow = form.glowSettings.get();
+        Color glowDisplay = new Color();
+
+        glow.resolveColor(form.glowingColor.get(), glowDisplay);
+        this.glowingColor.setColor(glowDisplay.getRGBColor());
+        this.glowIntensity.setValue(glow.intensity);
+        this.glowTransform.syncFromForm();
         this.textureScale.setValue(form.textureScale.get());
         this.textureScrollX.setValue(form.textureScrollX.get());
         this.textureScrollY.setValue(form.textureScrollY.get());

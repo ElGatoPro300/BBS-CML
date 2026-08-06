@@ -90,4 +90,24 @@ public class StencilMap
     {
         return this.allowedBones == null || this.allowedBones.contains(bone);
     }
+
+    public int findIndex(Form form, String bone)
+    {
+        if (form == null)
+        {
+            return 0;
+        }
+
+        String key = bone == null ? "" : bone;
+
+        for (Map.Entry<Integer, Pair<Form, String>> entry : this.indexMap.entrySet())
+        {
+            if (entry.getValue() != null && entry.getValue().a == form && key.equals(entry.getValue().b))
+            {
+                return entry.getKey();
+            }
+        }
+
+        return 0;
+    }
 }

@@ -76,6 +76,11 @@ vec4 gizmoPreviewColor(int index)
     return vec4(1.0, 1.0, 1.0, 0.5);
 }
 
+int decodePickId(vec4 color)
+{
+    return int(color.r * 255.0) | (int(color.g * 255.0) << 8) | (int(color.b * 255.0) << 16);
+}
+
 void main()
 {
     vec4 color = texture(Sampler0, texCoord0) * vertexColor;
@@ -85,7 +90,7 @@ void main()
         discard;
     }
 
-    int totalIndex = int(color.r * 255.0) | (int(color.g * 255.0) << 8) | (int(color.b * 255.0) << 16);
+    int totalIndex = decodePickId(color);
 
     if (totalIndex == Target)
     {

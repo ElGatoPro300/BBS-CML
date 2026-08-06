@@ -42,6 +42,8 @@ import org.joml.Vector3f;
 
 import com.mojang.blaze3d.systems.RenderSystem;
 
+import org.lwjgl.glfw.GLFW;
+
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;

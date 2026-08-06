@@ -13,9 +13,15 @@ public class RecolorVertexSodiumConsumer extends RecolorVertexConsumer implement
 {
     public RecolorVertexSodiumConsumer(VertexConsumer consumer, Color color)
     {
-        super(consumer, color);
+        this(consumer, color, null);
+    }
+
+    public RecolorVertexSodiumConsumer(VertexConsumer consumer, Color color, Color paintColor)
+    {
+        super(consumer, color, paintColor);
 
         newColor = color;
+        newPaintColor = paintColor != null && paintColor.a != 0F ? paintColor : null;
     }
 
     @Override

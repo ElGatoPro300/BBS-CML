@@ -14,6 +14,7 @@ import mchorse.bbs_mod.utils.StringUtils;
 import mchorse.bbs_mod.utils.keyframes.KeyframeChannel;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
@@ -119,6 +120,11 @@ public class FormUtils
 
     public static String getPath(Form form)
     {
+        if (form == null)
+        {
+            return "";
+        }
+
         if (form.getParent() == null)
         {
             return "";
@@ -187,6 +193,60 @@ public class FormUtils
         Collections.reverse(path);
 
         return String.join(PATH_SEPARATOR, path);
+    }
+
+    public static String propertyName(String path)
+    {
+        if (path == null || path.isEmpty())
+        {
+            return "";
+        }
+
+        int slash = path.lastIndexOf(PATH_SEPARATOR);
+
+        return slash == -1 ? path : path.substring(slash + 1);
+    }
+
+    public static boolean isVisiblePropertyPath(String path)
+    {
+        return "visible".equals(propertyName(path));
+    }
+
+    public static boolean isRenderPropertyPath(String path)
+    {
+        return "render".equals(propertyName(path));
+    }
+
+    public static String getRenderPropertyPath(String visiblePath)
+    {
+        if (visiblePath == null || visiblePath.isEmpty())
+        {
+            return "render";
+        }
+
+        int slash = visiblePath.lastIndexOf(PATH_SEPARATOR);
+
+        if (slash == -1)
+        {
+            return "render";
+        }
+
+        return visiblePath.substring(0, slash + 1) + "render";
+    }
+
+    public static void addPairedRenderPropertyPaths(Iterable<String> propertyPaths, Collection<String> target)
+    {
+        List<String> paired = new ArrayList<>();
+
+        for (String key : propertyPaths)
+        {
+            if (isVisiblePropertyPath(key))
+            {
+                paired.add(getRenderPropertyPath(key));
+            }
+        }
+
+        target.addAll(paired);
     }
 
     public static List<String> collectPropertyPaths(Form form)

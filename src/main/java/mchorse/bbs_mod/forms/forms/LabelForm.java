@@ -12,7 +12,7 @@ public class LabelForm extends Form
     public final ValueString text = new ValueString("text", "Hello, World!");
     public final ValueBoolean billboard = new ValueBoolean("billboard", false);
     public final ValueBoolean nametag = new ValueBoolean("nametag", false);
-    public final ValueColor color = new ValueColor("color", Color.white());
+    public final ValueColor color = new ValueColor("color", new Color(1F, 1F, 1F, 1F));
 
     public final ValueInt max = new ValueInt("max", -1);
     public final ValueFloat anchorX = new ValueFloat("anchorX", 0.5F);
@@ -36,7 +36,6 @@ public class LabelForm extends Form
     public final ValueFloat letterSpacing = new ValueFloat("letterSpacing", 0F);
     public final ValueFloat lineHeight = new ValueFloat("lineHeight", 0F);
     public final ValueInt textAlign = new ValueInt("textAlign", 0); /* 0: Left, 1: Center, 2: Right, 3: Justify */
-    public final ValueFloat opacity = new ValueFloat("opacity", 1.0F);
 
     /* Decorations */
     public final ValueBoolean underline = new ValueBoolean("underline", false);
@@ -78,7 +77,6 @@ public class LabelForm extends Form
         this.add(this.letterSpacing);
         this.add(this.lineHeight);
         this.add(this.textAlign);
-        this.add(this.opacity);
         this.add(this.underline);
         this.add(this.strikethrough);
         this.add(this.shadowBlur);

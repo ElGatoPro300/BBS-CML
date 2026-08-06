@@ -2,6 +2,11 @@ package mchorse.bbs_mod.ui.film.replays;
 
 import mchorse.bbs_mod.camera.Camera;
 import mchorse.bbs_mod.client.BBSRendering;
+import mchorse.bbs_mod.film.replays.Replay;
+import mchorse.bbs_mod.forms.FormUtils;
+import mchorse.bbs_mod.forms.forms.Form;
+import mchorse.bbs_mod.forms.forms.ModelForm;
+import mchorse.bbs_mod.forms.renderers.ModelFormRenderer;
 import mchorse.bbs_mod.ui.film.UIFilmPanel;
 import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.ui.framework.elements.input.UIPropTransform;
@@ -11,6 +16,7 @@ import mchorse.bbs_mod.ui.framework.elements.input.keyframes.factories.UIAnchorK
 import mchorse.bbs_mod.ui.framework.elements.input.keyframes.factories.UIPoseKeyframeFactory;
 import mchorse.bbs_mod.ui.framework.elements.input.keyframes.factories.UITransformKeyframeFactory;
 import mchorse.bbs_mod.ui.utils.Area;
+import mchorse.bbs_mod.ui.utils.Gizmo;
 
 import org.joml.Matrix4f;
 import org.joml.Vector3d;
@@ -23,6 +29,12 @@ import org.joml.Vector4f;
  */
 public final class FilmPoseGizmoDrag
 {
+    /* Orbit (and any live camera that follows the edited transform) must not update the
+     * drag frame mid-stroke — otherwise rotate → camera/gizmo move → huge ray deltas. */
+    private static final Matrix4f FROZEN_DRAG_GIZMO = new Matrix4f();
+    private static final Matrix4f FROZEN_DRAG_VIEW = new Matrix4f();
+    private static boolean hasFrozenDragFrame;
+
     private FilmPoseGizmoDrag()
     {}
 
@@ -31,6 +43,11 @@ public final class FilmPoseGizmoDrag
         if (panel == null || area == null || transform == null)
         {
             return;
+        }
+
+        if (!Gizmo.INSTANCE.isDragging())
+        {
+            FilmPoseGizmoDrag.hasFrozenDragFrame = false;
         }
 
         final Camera camera = panel.getCamera();
@@ -59,30 +76,79 @@ public final class FilmPoseGizmoDrag
         }
 
         boolean filmTransformGizmo = replayTransformGizmo || anchorTrackGizmo;
+        boolean bobjModel = FilmPoseGizmoDrag.isBobjReplay(panel);
 
         if (poseGizmo)
         {
-            /* Pose bodies mirror X/Z relative to euler storage (see shouldInvertRotationRing).
-             * View-space rays fix translate / Y ring feel; X/Z rings still need poseModelGizmoTuning
-             * on the transform editor (same as UIModelPoseEditor). Trackball arcball clears euler
-             * flips each drag via clearTrackballEulerInverts(). */
+            transform.configurePoseRingTuning(bobjModel);
+
+            /* White ring + sphere: always use .bbs.json (cubic) sense. BOBJ lacks the
+             * bone-local Ry(180°) mirror, so it also gets the cubic X/Z trackball euler flip. */
             transform.setInvertGizmoViewRing(true);
             transform.setInvertGizmoTrackball(false);
             transform.setInvertFilmPoseGizmoAxes(false);
             transform.clearTrackballEulerInverts();
-            transform.invertFilmArcballDragY();
+
+            if (bobjModel)
+            {
+                transform.invertModelPoseTrackballXZ();
+            }
+
+            transform.setInvertTrackballDragY(false);
+            transform.setInvertFilmArcballDragY(false);
             transform.setFilmArcballTrackball(true);
             transform.setFilmMatchPoseTrackball(false);
+            transform.setInvertRotationArcViewRing(false);
+            transform.setInvertRotationArcZ(false);
+            transform.setForceFrozenRotationArc(false);
+
+            /* Pose editor may be built before the model is known (scale defaults to 16). */
+            transform.translationScale(bobjModel ? 1F : 16F);
+            transform.setAxisProjectedTranslation(bobjModel);
         }
         else if (poseLimbGizmo)
         {
+            transform.configurePoseLimbRingTuning(bobjModel);
+
             transform.setInvertGizmoViewRing(false);
             transform.setInvertGizmoTrackball(false);
             transform.setInvertFilmPoseGizmoAxes(false);
             transform.setFilmArcballTrackball(false);
             transform.clearTrackballEulerInverts();
-            transform.invertModelPoseTrackballXZ();
-            transform.invertModelPoseTrackballDragY();
+            transform.setInvertTrackballDragY(false);
+            transform.setInvertRotationArcViewRing(false);
+            transform.setInvertRotationArcZ(false);
+            transform.setForceFrozenRotationArc(false);
+
+            if (!bobjModel)
+            {
+                transform.invertModelPoseTrackballXZ();
+            }
+
+            /* Limb sheets have null formProperty, so the factory often kept cubic's /16 scale
+             * on BOBJ — force block units + axis-projected rays so drag tracks the cursor. */
+            transform.translationScale(bobjModel ? 1F : 16F);
+            transform.setAxisProjectedTranslation(bobjModel);
+        }
+        else if (anchorTrackGizmo)
+        {
+            transform.anchorGizmoTuning();
+            transform.setInvertGizmoViewRing(false);
+            transform.setInvertGizmoTrackball(false);
+            transform.setInvertFilmPoseGizmoAxes(false);
+            transform.setFilmArcballTrackball(false);
+            transform.clearTrackballEulerInverts();
+            transform.setInvertTrackballDragY(true);
+            transform.setInvertFilmArcballDragY(false);
+            transform.setInvertRotationArcSweep(false);
+            /* White ring value is correct; only its process bar winds the wrong way. */
+            transform.setInvertRotationArcViewRing(true);
+            /* Y value follows the mouse; only the process bar winds the wrong way without this. */
+            transform.setInvertRotationArcY(true);
+            /* Z value follows the mouse; only the process bar winds the wrong way without this. */
+            transform.setInvertRotationArcZ(true);
+            /* Global Anchor still spins the live gizmo matrix — freeze the process bar like Local. */
+            transform.setForceFrozenRotationArc(true);
         }
         else if (replayTransformGizmo)
         {
@@ -91,13 +157,25 @@ public final class FilmPoseGizmoDrag
             transform.setInvertFilmPoseGizmoAxes(false);
             transform.setFilmArcballTrackball(false);
             transform.clearTrackballEulerInverts();
-            transform.invertModelPoseTrackballXYZ();
+            /* Film view-space screen basis: without this, vertical trackball opposes the mouse. */
+            transform.setInvertTrackballDragY(true);
+            transform.setInvertFilmArcballDragY(false);
+            transform.setInvertRotationArcSweep(false);
+            /* White ring value is correct; only its process bar winds the wrong way. */
+            transform.setInvertRotationArcViewRing(true);
+            /* Y ring value follows the mouse; only the green process bar winds the wrong way. */
+            transform.setInvertRotationArcY(true);
+            transform.setInvertRotationArcZ(false);
+            transform.setForceFrozenRotationArc(false);
+            transform.configurePoseRingTuning(true);
         }
         else
         {
             transform.setInvertFilmPoseGizmoAxes(false);
             transform.setFilmArcballTrackball(false);
             transform.clearTrackballEulerInverts();
+            transform.setInvertTrackballDragY(filmTransformGizmo);
+            transform.setInvertFilmArcballDragY(false);
         }
 
         transform.setFilmMatchPoseTrackball(filmTransformGizmo);
@@ -158,17 +236,33 @@ public final class FilmPoseGizmoDrag
             return false;
         }
 
-        if (BBSRendering.isIrisShadersEnabled())
+        if (Gizmo.INSTANCE.isDragging())
         {
-            matrix.set(panel.lastGizmoMatrix);
-        }
-        else
-        {
-            matrix.set(BBSRendering.camera);
-            matrix.mul(panel.lastGizmoMatrix);
+            FilmPoseGizmoDrag.ensureFrozenDragFrame(panel);
+            matrix.set(FilmPoseGizmoDrag.FROZEN_DRAG_GIZMO);
+
+            return FilmPoseGizmoDrag.hasFrozenDragFrame;
         }
 
+        /* Same depth-based composition as the visual pass, so drags grab the
+         * handle exactly where it is drawn regardless of the shader path. */
+        Gizmo.composeVisualMatrix(panel.lastGizmoMatrix, BBSRendering.camera, panel.lastProjection, matrix);
+
         return true;
+    }
+
+    private static void ensureFrozenDragFrame(UIFilmPanel panel)
+    {
+        if (FilmPoseGizmoDrag.hasFrozenDragFrame || panel == null || !panel.hasLastGizmoMatrix)
+        {
+            return;
+        }
+
+        /* Same depth-based composition as the visual pass, snapshotted once at drag
+         * start so orbit / transform feedback cannot spin the ray frame. */
+        Gizmo.composeVisualMatrix(panel.lastGizmoMatrix, BBSRendering.camera, panel.lastProjection, FilmPoseGizmoDrag.FROZEN_DRAG_GIZMO);
+        FilmPoseGizmoDrag.FROZEN_DRAG_VIEW.set(panel.lastView);
+        FilmPoseGizmoDrag.hasFrozenDragFrame = true;
     }
 
     private static Vector3f getViewSpaceMouseDirection(Matrix4f projection, int mx, int my, int vx, int vy, int vw, int vh)
@@ -200,10 +294,43 @@ public final class FilmPoseGizmoDrag
         return direction;
     }
 
-    static void syncDragCamera(UIFilmPanel panel, Camera camera)
+    public static void syncDragCamera(UIFilmPanel panel, Camera camera)
     {
         camera.copy(panel.getWorldCamera());
-        camera.view.set(panel.lastView);
+
+        if (Gizmo.INSTANCE.isDragging())
+        {
+            FilmPoseGizmoDrag.ensureFrozenDragFrame(panel);
+        }
+
+        if (FilmPoseGizmoDrag.hasFrozenDragFrame && Gizmo.INSTANCE.isDragging())
+        {
+            camera.view.set(FilmPoseGizmoDrag.FROZEN_DRAG_VIEW);
+        }
+        else
+        {
+            camera.view.set(panel.lastView);
+        }
+
         camera.projection.set(panel.lastProjection);
+    }
+
+    private static boolean isBobjReplay(UIFilmPanel panel)
+    {
+        if (panel == null || panel.replayEditor == null)
+        {
+            return false;
+        }
+
+        Replay replay = panel.replayEditor.getReplay();
+
+        if (replay == null)
+        {
+            return false;
+        }
+
+        Form form = FormUtils.getRoot(replay.form.get());
+
+        return form instanceof ModelForm modelForm && ModelFormRenderer.isBobjModel(modelForm);
     }
 }

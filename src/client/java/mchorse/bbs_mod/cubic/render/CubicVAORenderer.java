@@ -6,7 +6,7 @@ import mchorse.bbs_mod.cubic.data.model.Model;
 import mchorse.bbs_mod.cubic.data.model.ModelGroup;
 import mchorse.bbs_mod.cubic.render.vao.ModelVAO;
 import mchorse.bbs_mod.cubic.render.vao.ModelVAORenderer;
-import mchorse.bbs_mod.forms.renderers.utils.FormColorBlend;
+import mchorse.bbs_mod.forms.renderers.utils.FormColorEffects;
 import mchorse.bbs_mod.obj.shapes.ShapeKeys;
 import mchorse.bbs_mod.resources.Link;
 import mchorse.bbs_mod.ui.framework.elements.utils.StencilMap;
@@ -20,19 +20,22 @@ import net.minecraft.client.render.LightmapTextureManager;
 import net.minecraft.client.render.VertexFormats;
 import net.minecraft.client.util.math.MatrixStack;
 
+import java.util.Map;
+import java.util.function.Function;
+
 public class CubicVAORenderer extends CubicCubeRenderer
 {
     private ShaderProgram program;
     private ModelInstance model;
-    private Link defaultTexture;
+    private Function<String, Link> textureResolver;
 
-    public CubicVAORenderer(ShaderProgram program, ModelInstance model, int light, int overlay, StencilMap stencilMap, ShapeKeys shapeKeys, Link defaultTexture)
+    public CubicVAORenderer(ShaderProgram program, ModelInstance model, int light, int overlay, StencilMap stencilMap, ShapeKeys shapeKeys, Function<String, Link> textureResolver)
     {
         super(light, overlay, stencilMap, shapeKeys);
 
         this.program = program;
         this.model = model;
-        this.defaultTexture = defaultTexture;
+        this.textureResolver = textureResolver;
     }
 
     @Override
@@ -43,14 +46,10 @@ public class CubicVAORenderer extends CubicCubeRenderer
             return false;
         }
 
-        ModelVAO modelVAO = this.model.getVaos().get(group);
+        Map<String, ModelVAO> groupVaos = this.model.getVaos().get(group);
 
-        if (modelVAO != null && group.visible)
+        if (groupVaos != null && group.visible)
         {
-            float r;
-            float g;
-            float b;
-            float a;
             float effectiveGlowStrength = this.resolveEffectiveGlowStrength(group);
             float effectiveGlowR = this.resolveEffectiveGlowR(group);
             float effectiveGlowG = this.resolveEffectiveGlowG(group);
@@ -60,48 +59,25 @@ public class CubicVAORenderer extends CubicCubeRenderer
             float effectivePaintG = this.resolveEffectivePaintG(group);
             float effectivePaintB = this.resolveEffectivePaintB(group);
 
-            if (effectivePaintStrength > 0F && !this.groupHasPaintableTexture(group))
+            /* Set up lighting and colors */
+            float r;
+            float g;
+            float b;
+            float a;
+
+            if (group.color.hasActiveTransform())
             {
-                if (ModelVAORenderer.isPaintPass() && effectiveGlowStrength == 0F)
-                {
-                    return false;
-                }
-
-                effectivePaintStrength = 0F;
-            }
-
-            if (ModelVAORenderer.isPaintPass())
-            {
-                if (effectivePaintStrength <= 0F && effectiveGlowStrength == 0F)
-                {
-                    return false;
-                }
-
-                ModelVAORenderer.setGroupPaint(effectivePaintR, effectivePaintG, effectivePaintB, effectivePaintStrength);
-                ModelVAORenderer.setGroupGlowing(
-                    effectiveGlowR,
-                    effectiveGlowG,
-                    effectiveGlowB,
-                    effectiveGlowStrength);
-
-                this.bindGroupTexture(group);
-
-                r = this.r * group.color.r;
-                g = this.g * group.color.g;
-                b = this.b * group.color.b;
-                a = this.a * group.color.a;
+                r = this.r;
+                g = this.g;
+                b = this.b;
+                a = this.a;
             }
             else
             {
-                this.bindGroupTexture(group);
-
                 r = this.r * group.color.r;
                 g = this.g * group.color.g;
                 b = this.b * group.color.b;
                 a = this.a * group.color.a;
-
-                ModelVAORenderer.setGroupPaint(effectivePaintR, effectivePaintG, effectivePaintB, effectivePaintStrength);
-                ModelVAORenderer.setGroupGlowing(effectiveGlowR, effectiveGlowG, effectiveGlowB, effectiveGlowStrength);
             }
 
             if (!ModelVAORenderer.isGlowingUniformActive())
@@ -111,7 +87,7 @@ public class CubicVAORenderer extends CubicCubeRenderer
                     Color groupColor = new Color().set(r, g, b, a);
                     Color glowColor = new Color().set(effectiveGlowR, effectiveGlowG, effectiveGlowB, 1F);
 
-                    FormColorBlend.blendBrighten(groupColor, glowColor, effectiveGlowStrength);
+                    FormColorEffects.blendBrighten(groupColor, glowColor, effectiveGlowStrength);
 
                     r = groupColor.r;
                     g = groupColor.g;
@@ -144,16 +120,58 @@ public class CubicVAORenderer extends CubicCubeRenderer
                 groupLight = u | v << 16;
             }
 
-            ModelVAORenderer.render(this.program, modelVAO, stack, r, g, b, a, groupLight, this.overlay);
+            for (Map.Entry<String, ModelVAO> entry : groupVaos.entrySet())
+            {
+                String material = entry.getKey();
+                ModelVAO modelVAO = entry.getValue();
+
+                float currentPaintStrength = effectivePaintStrength;
+
+                if (currentPaintStrength > 0F && !this.groupHasPaintableTexture(group, material))
+                {
+                    if (ModelVAORenderer.isPaintPass() && effectiveGlowStrength == 0F)
+                    {
+                        continue;
+                    }
+
+                    currentPaintStrength = 0F;
+                }
+
+                if (ModelVAORenderer.isPaintPass())
+                {
+                    if (currentPaintStrength == 0F && effectiveGlowStrength == 0F)
+                    {
+                        continue;
+                    }
+                }
+
+                this.bindGroupTexture(group, material);
+
+                ModelVAORenderer.setGroupPaint(effectivePaintR, effectivePaintG, effectivePaintB, currentPaintStrength);
+                ModelVAORenderer.setGroupPaintEffectTransform(group.paintColor.transform);
+                ModelVAORenderer.setGroupGlowing(effectiveGlowR, effectiveGlowG, effectiveGlowB, effectiveGlowStrength);
+                ModelVAORenderer.setGroupGlowEffectTransform(group.glowingColor.transform);
+                ModelVAORenderer.setGroupFormColorGrade(group.color);
+                ModelVAORenderer.setGroupColorEffectTransform(group.color.transform);
+                ModelVAORenderer.setGroupFormColorTint(group.color);
+
+                ModelVAORenderer.render(this.program, modelVAO, stack, r, g, b, a, groupLight, this.overlay);
+            }
+
             ModelVAORenderer.clearTextureBlend();
         }
 
         return false;
     }
 
-    private void bindGroupTexture(ModelGroup group)
+    private void bindGroupTexture(ModelGroup group, String material)
     {
-        Link defaultLink = this.defaultTexture != null ? this.defaultTexture : this.model.texture;
+        Link defaultLink = this.textureResolver.apply(material);
+
+        if (defaultLink == null)
+        {
+            defaultLink = this.model.texture;
+        }
 
         if (group.textureOverride == null)
         {
@@ -182,91 +200,11 @@ public class CubicVAORenderer extends CubicCubeRenderer
         }
     }
 
-    private float resolveEffectiveGlowStrength(ModelGroup group)
-    {
-        if (group.glowIntensity != 0F)
-        {
-            return group.glowIntensity;
-        }
-
-        return ModelVAORenderer.getBaseGlowingStrength();
-    }
-
-    private float resolveEffectiveGlowR(ModelGroup group)
-    {
-        if (group.glowIntensity != 0F)
-        {
-            return group.glowingColor.r;
-        }
-
-        return ModelVAORenderer.getBaseGlowingR();
-    }
-
-    private float resolveEffectiveGlowG(ModelGroup group)
-    {
-        if (group.glowIntensity != 0F)
-        {
-            return group.glowingColor.g;
-        }
-
-        return ModelVAORenderer.getBaseGlowingG();
-    }
-
-    private float resolveEffectiveGlowB(ModelGroup group)
-    {
-        if (group.glowIntensity != 0F)
-        {
-            return group.glowingColor.b;
-        }
-
-        return ModelVAORenderer.getBaseGlowingB();
-    }
-
-    private float resolveEffectivePaintStrength(ModelGroup group)
-    {
-        if (group.paintColor.a != 0F)
-        {
-            return group.paintColor.a;
-        }
-
-        return ModelVAORenderer.getBasePaintStrength();
-    }
-
-    private float resolveEffectivePaintR(ModelGroup group)
-    {
-        if (group.paintColor.a != 0F)
-        {
-            return group.paintColor.r;
-        }
-
-        return ModelVAORenderer.getBasePaintR();
-    }
-
-    private float resolveEffectivePaintG(ModelGroup group)
-    {
-        if (group.paintColor.a != 0F)
-        {
-            return group.paintColor.g;
-        }
-
-        return ModelVAORenderer.getBasePaintG();
-    }
-
-    private float resolveEffectivePaintB(ModelGroup group)
-    {
-        if (group.paintColor.a != 0F)
-        {
-            return group.paintColor.b;
-        }
-
-        return ModelVAORenderer.getBasePaintB();
-    }
-
     /**
      * Paint overlay should only touch groups that can sample a real texture.
      * Armor shell groups without a picked bone texture must not receive paint.
      */
-    private boolean groupHasPaintableTexture(ModelGroup group)
+    private boolean groupHasPaintableTexture(ModelGroup group, String material)
     {
         if (group.textureOverride != null)
         {
@@ -278,7 +216,12 @@ public class CubicVAORenderer extends CubicCubeRenderer
             return false;
         }
 
-        Link defaultLink = this.defaultTexture != null ? this.defaultTexture : this.model.texture;
+        Link defaultLink = this.textureResolver.apply(material);
+
+        if (defaultLink == null)
+        {
+            defaultLink = this.model.texture;
+        }
 
         return defaultLink != null;
     }

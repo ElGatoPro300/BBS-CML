@@ -35,7 +35,9 @@ public abstract class CameraClip extends Clip
 
         float factor = this.envelope.factorEnabled(this.duration.get(), context.relativeTick + context.transition);
 
-        if (factor == 1)
+        /* Non-position clips (screen FX, etc.) apply envelope inside applyClip — do not
+         * lerp FOV/position here or fisheye FOV overscan gets double-attenuated. */
+        if (factor == 1 || !this.isPositionClip())
         {
             this.applyClip(context, position);
         }

@@ -9,6 +9,7 @@ import org.joml.Matrix4f;
 public class RecolorVertexConsumer implements VertexConsumer
 {
     public static Color newColor;
+    public static Color newPaintColor;
 
     protected VertexConsumer consumer;
     protected Color color;
@@ -46,32 +47,12 @@ public class RecolorVertexConsumer implements VertexConsumer
         blue = (int) (this.color.b * blue);
         alpha = (int) (this.color.a * alpha);
 
-        /* Paint overlay stage: blend the recolored vertex color toward the paint color by its strength */
-        if (this.paintColor != null && Math.abs(this.paintColor.a) > 0F)
-        {
-            float pa = this.paintColor.a;
+        int[] rgb = { red, green, blue };
 
-            if (pa >= 1F)
-            {
-                red = (int) (this.paintColor.r * 255F);
-                green = (int) (this.paintColor.g * 255F);
-                blue = (int) (this.paintColor.b * 255F);
-            }
-            else if (pa > 0F)
-            {
-                red = (int) (red + (this.paintColor.r * 255F - red) * pa);
-                green = (int) (green + (this.paintColor.g * 255F - green) * pa);
-                blue = (int) (blue + (this.paintColor.b * 255F - blue) * pa);
-            }
-            else
-            {
-                float factor = Math.max(0F, 1F + pa);
-
-                red = (int) (red * factor);
-                green = (int) (green * factor);
-                blue = (int) (blue * factor);
-            }
-        }
+        FormColorEffects.applyPaintBlendToBytes(rgb, this.paintColor);
+        red = rgb[0];
+        green = rgb[1];
+        blue = rgb[2];
 
         return this.consumer.color(red, green, blue, alpha);
     }

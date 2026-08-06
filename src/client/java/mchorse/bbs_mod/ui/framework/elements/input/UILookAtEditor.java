@@ -166,6 +166,11 @@ public class UILookAtEditor extends UIElement
         this.pickBone(bone);
     }
 
+    public String getCurrentBone()
+    {
+        return this.currentBone;
+    }
+
     /**
      * Re-reads the current bone's values (for example after an undo/redo or
      * keyframe selection change).

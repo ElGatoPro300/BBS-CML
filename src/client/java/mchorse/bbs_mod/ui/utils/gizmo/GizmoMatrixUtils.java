@@ -19,50 +19,115 @@ public final class GizmoMatrixUtils
 
     /**
      * Bone gizmo basis for film pose keyframes ({@link BaseFilmController#renderAxes}).
-     * Non-local mode uses the bone pivot matrix; local mode keeps the posed rotation with pivot translation.
+     * Non-local mode uses the bone pivot matrix; local mode keeps the posed rotation with pivot translation
+     * for cubic models. BOBJ translates before rotating in the bone frame, so local mode must use the
+     * origin (pre-pose-rotation) basis — otherwise the visible arrows diverge from the direction
+     * {@code PoseTransform.translate} actually moves the bone.
      */
     public static Matrix4f resolveFilmPoseBoneMatrix(MatrixCacheEntry entry, boolean local)
+    {
+        return resolveFilmPoseBoneMatrix(entry, local ? TransformOrientation.LOCAL : TransformOrientation.PARENT, false);
+    }
+
+    public static Matrix4f resolveFilmPoseBoneMatrix(MatrixCacheEntry entry, boolean local, boolean bobj)
+    {
+        return resolveFilmPoseBoneMatrix(entry, local ? TransformOrientation.LOCAL : TransformOrientation.PARENT, bobj);
+    }
+
+    public static Matrix4f resolveFilmPoseBoneMatrix(MatrixCacheEntry entry, TransformOrientation orientation, boolean bobj)
     {
         if (entry == null)
         {
             return null;
         }
 
-        if (local)
+        if (orientation == null)
         {
-            Matrix4f localMatrix = entry.matrix();
-            Matrix4f originMatrix = entry.origin();
+            orientation = TransformOrientation.PARENT;
+        }
 
-            if (localMatrix != null && originMatrix != null)
+        Matrix4f matrix;
+        boolean local = orientation.usesLocalBoneBasis();
+
+        if (!local)
+        {
+            matrix = entry.origin();
+
+            if (matrix == null)
             {
-                Matrix4f matrix = new Matrix4f(localMatrix);
-
-                matrix.setTranslation(originMatrix.getTranslation(new Vector3f()));
-
-                return matrix;
+                matrix = entry.matrix();
             }
 
-            if (localMatrix != null)
-            {
-                return new Matrix4f(localMatrix);
-            }
+            return applyOrientationSpace(matrix == null ? null : new Matrix4f(matrix), orientation);
+        }
 
+        Matrix4f localMatrix = entry.matrix();
+        Matrix4f originMatrix = entry.origin();
+
+        /* BOBJ: translate is applied before rotate in BOBJBone.applyTransformations, so the
+         * local gizmo basis must match originMat (parent × relBone × T), not orderedBone.mat
+         * which already includes pose R/S. */
+        if (bobj)
+        {
             if (originMatrix != null)
             {
-                return new Matrix4f(originMatrix);
+                return applyOrientationSpace(new Matrix4f(originMatrix), orientation);
             }
 
+            return applyOrientationSpace(localMatrix == null ? null : new Matrix4f(localMatrix), orientation);
+        }
+
+        if (localMatrix != null && originMatrix != null)
+        {
+            matrix = new Matrix4f(localMatrix);
+
+            matrix.setTranslation(originMatrix.getTranslation(new Vector3f()));
+
+            return applyOrientationSpace(matrix, orientation);
+        }
+
+        if (localMatrix != null)
+        {
+            return applyOrientationSpace(new Matrix4f(localMatrix), orientation);
+        }
+
+        if (originMatrix != null)
+        {
+            return applyOrientationSpace(new Matrix4f(originMatrix), orientation);
+        }
+
+        return null;
+    }
+
+    public static Matrix4f applyOrientationSpace(Matrix4f matrix, TransformOrientation orientation)
+    {
+        if (matrix == null)
+        {
             return null;
         }
 
-        Matrix4f matrix = entry.origin();
-
-        if (matrix == null)
+        if (orientation == TransformOrientation.GLOBAL || orientation == TransformOrientation.VIEW)
         {
-            matrix = entry.matrix();
+            Vector3f translation = matrix.getTranslation(new Vector3f());
+
+            matrix.identity();
+            matrix.translate(translation);
         }
 
-        return matrix == null ? null : new Matrix4f(matrix);
+        return matrix;
+    }
+
+    public static Matrix4f applyViewCaptureAlignment(Matrix4f captureMatrix, TransformOrientation orientation)
+    {
+        if (captureMatrix != null && orientation == TransformOrientation.VIEW)
+        {
+            Vector3f translation = captureMatrix.getTranslation(new Vector3f());
+
+            captureMatrix.identity();
+            captureMatrix.translate(translation);
+        }
+
+        return captureMatrix;
     }
 
     /**
@@ -71,7 +136,12 @@ public final class GizmoMatrixUtils
      */
     public static Matrix4f withLocalRotation(Matrix4f matrix, Transform transform, boolean local)
     {
-        if (matrix == null || !local || transform == null)
+        return withLocalRotation(matrix, transform, local ? TransformOrientation.LOCAL : TransformOrientation.PARENT);
+    }
+
+    public static Matrix4f withLocalRotation(Matrix4f matrix, Transform transform, TransformOrientation orientation)
+    {
+        if (matrix == null || orientation == null || !orientation.isLocal() || transform == null)
         {
             return matrix;
         }

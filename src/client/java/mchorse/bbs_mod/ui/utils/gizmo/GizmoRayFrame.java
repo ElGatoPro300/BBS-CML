@@ -5,7 +5,6 @@ import mchorse.bbs_mod.ui.film.replays.FilmPoseGizmoDrag;
 import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.ui.framework.elements.input.UIPropTransform;
 import mchorse.bbs_mod.ui.utils.Area;
-import mchorse.bbs_mod.ui.utils.Gizmo;
 import mchorse.bbs_mod.utils.MathUtils;
 
 import org.joml.Matrix4f;
@@ -122,9 +121,9 @@ public final class GizmoRayFrame
     }
 
     /**
-     * Matches the film replay gizmo ray split: the free-rotate trackball sphere uses a
-     * world-space camera ray, while axis rings, the view ring, translate and scale handles
-     * use a view-space ray through the origin (see {@link FilmPoseGizmoDrag}).
+     * Matches film replay gizmo drag ({@link FilmPoseGizmoDrag}): view-space rays through the
+     * origin for every handle, including the trackball. The supplied matrix must already be in
+     * the same view space as the drawn gizmo (full editor/world MV), not bone-local alone.
      */
     public static UIPropTransform.IGizmoRayProvider fromFilmStyle(Camera camera, Area area, Supplier<Matrix4f> gizmoMatrix)
     {
@@ -140,21 +139,6 @@ public final class GizmoRayFrame
 
                 int vx = context.globalX(area.x);
                 int vy = context.globalY(area.y);
-
-                if (Gizmo.INSTANCE.isDragging() && Gizmo.INSTANCE.getActiveHandle() == Gizmo.STENCIL_TRACKBALL)
-                {
-                    Vector3f direction = camera.getMouseDirection(mouseX, mouseY, vx, vy, area.w, area.h);
-
-                    if (direction.lengthSquared() <= 1.0E-12F)
-                    {
-                        return false;
-                    }
-
-                    rayDirection.set(direction).normalize();
-                    rayOrigin.set(camera.position.x, camera.position.y, camera.position.z);
-
-                    return true;
-                }
 
                 return GizmoRayFrame.fillViewSpaceMouseRay(camera.projection, mouseX, mouseY, vx, vy, area.w, area.h, rayOrigin, rayDirection);
             }

@@ -1,5 +1,6 @@
 package mchorse.bbs_mod.cubic;
 
+import mchorse.bbs_mod.BBSModClient;
 import mchorse.bbs_mod.bobj.BOBJBone;
 import mchorse.bbs_mod.cubic.animation.ActionsConfig;
 import mchorse.bbs_mod.cubic.animation.ProceduralDefaults;
@@ -10,6 +11,9 @@ import mchorse.bbs_mod.cubic.model.ArmorSlot;
 import mchorse.bbs_mod.cubic.model.ArmorType;
 import mchorse.bbs_mod.cubic.model.View;
 import mchorse.bbs_mod.cubic.model.bobj.BOBJModel;
+import mchorse.bbs_mod.cubic.physics.PhysBoneDefinition;
+import mchorse.bbs_mod.cubic.render.CubicCpuGlowOverlayRenderer;
+import mchorse.bbs_mod.cubic.render.CubicCpuGroupDrawRenderer;
 import mchorse.bbs_mod.cubic.render.CubicCubeRenderer;
 import mchorse.bbs_mod.cubic.render.CubicMatrixRenderer;
 import mchorse.bbs_mod.cubic.render.CubicRenderer;
@@ -17,6 +21,7 @@ import mchorse.bbs_mod.cubic.render.CubicVAOBuilderRenderer;
 import mchorse.bbs_mod.cubic.render.CubicVAORenderer;
 import mchorse.bbs_mod.cubic.render.vao.BOBJModelVAO;
 import mchorse.bbs_mod.cubic.render.vao.ModelVAO;
+import mchorse.bbs_mod.cubic.render.vao.ModelVAORenderer;
 import mchorse.bbs_mod.data.DataStorageUtils;
 import mchorse.bbs_mod.data.types.BaseType;
 import mchorse.bbs_mod.data.types.ListType;
@@ -35,8 +40,9 @@ import mchorse.bbs_mod.utils.resources.LinkUtils;
 
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gl.ShaderProgram;
-import net.minecraft.client.render.BufferBuilder;
 import net.minecraft.client.render.BufferRenderer;
+import net.minecraft.client.render.GameRenderer;
+import net.minecraft.client.render.LightmapTextureManager;
 import net.minecraft.client.render.Tessellator;
 import net.minecraft.client.render.VertexFormat;
 import net.minecraft.client.render.VertexFormats;
@@ -53,6 +59,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Function;
 import java.util.function.Supplier;
 
 public class ModelInstance implements IModelInstance
@@ -77,6 +84,7 @@ public class ModelInstance implements IModelInstance
     public Pose sneakingPose = new Pose();
     public Pose ridingPose = new Pose();
     public Pose parts = new Pose();
+    public List<PhysBoneDefinition> physBones = new ArrayList<>();
 
     public List<ArmorSlot> itemsMain = new ArrayList<>();
     public List<ArmorSlot> itemsOff = new ArrayList<>();
@@ -99,7 +107,20 @@ public class ModelInstance implements IModelInstance
     /** World/model base transform from the last non-UI render pass (used by physics). */
     public transient Matrix4f lastBaseTransform;
 
-    private Map<ModelGroup, ModelVAO> vaos = new HashMap<>();
+    /**
+     * Per-material default textures, loaded from the model's {@code textures/<material>/}
+     * folders (or synthesized as a 1x1 swatch for flat-color materials). Keyed by material
+     * name; the empty key is the model's default texture. Used as the static fallback for a
+     * material when no animation track overrides it - see {@link #getMaterialTexture}.
+     */
+    public Map<String, Link> materialTextures = new HashMap<>();
+
+    /** Ordered, distinct list of material names present on the model (for the editor and resolution). */
+    public List<String> materials = new ArrayList<>();
+
+    /** Per group, the geometry split into one VAO per material name (empty key = default texture). */
+    private Map<ModelGroup, Map<String, ModelVAO>> vaos = new HashMap<>();
+    private boolean ownsVaos = true;
 
     public ModelInstance(String id, IModel model, Animations animations, Link texture)
     {
@@ -141,9 +162,28 @@ public class ModelInstance implements IModelInstance
         return this.view == null ? "head" : this.view.headBone;
     }
 
-    public Map<ModelGroup, ModelVAO> getVaos()
+    @Override
+    public List<PhysBoneDefinition> getPhysBones()
+    {
+        return this.physBones;
+    }
+
+    public Map<ModelGroup, Map<String, ModelVAO>> getVaos()
     {
         return this.vaos;
+    }
+
+    /**
+     * Resolve a material's static default texture: the per-material texture loaded
+     * from {@code textures/<material>/} if present, otherwise the supplied fallback
+     * (the form/model default texture). Animation tracks layer on top of this at
+     * render time (handled by the caller), so this only covers the non-animated default.
+     */
+    public Link getMaterialTexture(String material, Link fallback)
+    {
+        Link link = this.materialTextures.get(material);
+
+        return link != null ? link : fallback;
     }
 
     public String getAnchor()
@@ -191,6 +231,25 @@ public class ModelInstance implements IModelInstance
 
                 slot.fromData(type);
                 this.itemsMain.add(slot);
+            }
+        }
+        if (config.has("phys_bones", BaseType.TYPE_LIST))
+        {
+            this.physBones.clear();
+
+            ListType list = config.get("phys_bones").asList();
+
+            for (BaseType type : list)
+            {
+                if (!type.isMap())
+                {
+                    continue;
+                }
+
+                PhysBoneDefinition definition = new PhysBoneDefinition();
+
+                definition.fromData(type.asMap());
+                this.physBones.add(definition);
             }
         }
         if (config.has("items_off"))
@@ -441,6 +500,21 @@ public class ModelInstance implements IModelInstance
             config.put("look_at", lookAt);
         }
 
+        if (!this.physBones.isEmpty())
+        {
+            ListType list = new ListType();
+
+            for (PhysBoneDefinition definition : this.physBones)
+            {
+                MapType map = new MapType();
+
+                definition.toData(map);
+                list.add(map);
+            }
+
+            config.put("phys_bones", list);
+        }
+
         if (this.actions != null && !this.actions.geckoAnimations.isDefault())
         {
             config.put("animations", this.actions.toData());
@@ -490,6 +564,7 @@ public class ModelInstance implements IModelInstance
 
         for (ArmorSlot slot : this.itemsMain) copy.itemsMain.add(slot.copy());
         for (ArmorSlot slot : this.itemsOff) copy.itemsOff.add(slot.copy());
+        for (PhysBoneDefinition definition : this.physBones) copy.physBones.add(definition.copy());
         if (this.limbConstraints != null) copy.limbConstraints = (MapType) this.limbConstraints.copy();
         if (this.springChains != null) copy.springChains = (MapType) this.springChains.copy();
         if (this.jointLimits != null) copy.jointLimits = (MapType) this.jointLimits.copy();
@@ -537,14 +612,97 @@ public class ModelInstance implements IModelInstance
         return !this.vaos.isEmpty() || this.model instanceof BOBJModel;
     }
 
+    public boolean hasShapeKeys()
+    {
+        return this.model != null && !this.model.getShapeKeys().isEmpty();
+    }
+
+    /**
+     * VAO-backed cubic models and shape-key OBJ models use the BBS model shader for paint,
+     * glow, and per-bone texture blend. Shape keys skip VAO baking but still draw on the CPU path.
+     */
+    public boolean supportsBbsModelShaderEffects()
+    {
+        return this.isVAORendered() || this.hasShapeKeys();
+    }
+
     public void delete()
     {
-        for (ModelVAO value : this.vaos.values())
+        if (this.ownsVaos)
         {
-            value.delete();
+            for (Map<String, ModelVAO> groupVaos : this.vaos.values())
+            {
+                for (ModelVAO value : groupVaos.values())
+                {
+                    value.delete();
+                }
+            }
         }
 
         this.vaos.clear();
+        this.ownsVaos = true;
+    }
+
+    /**
+     * Reuse GPU buffers already baked on another instance. Prefer the same {@link IModel}
+     * graph; after {@link #copy()} (independent ModelGroups) remaps VAOs by bone id so
+     * pose/anim state stays private while GPU meshes stay shared.
+     */
+    public void borrowVaosFrom(ModelInstance source)
+    {
+        if (source == null || source.vaos.isEmpty())
+        {
+            return;
+        }
+
+        if (this.ownsVaos)
+        {
+            for (Map<String, ModelVAO> groupVaos : this.vaos.values())
+            {
+                for (ModelVAO value : groupVaos.values())
+                {
+                    value.delete();
+                }
+            }
+
+            this.vaos.clear();
+        }
+
+        if (source.model == this.model)
+        {
+            this.vaos = source.vaos;
+            this.ownsVaos = false;
+
+            return;
+        }
+
+        if (this.model instanceof Model localModel && source.model instanceof Model sourceModel)
+        {
+            Map<ModelGroup, Map<String, ModelVAO>> remapped = new HashMap<>();
+
+            for (ModelGroup localGroup : localModel.getAllGroups())
+            {
+                ModelGroup sourceGroup = sourceModel.getGroup(localGroup.id);
+
+                if (sourceGroup == null)
+                {
+                    continue;
+                }
+
+                Map<String, ModelVAO> vaos = source.vaos.get(sourceGroup);
+
+                if (vaos != null)
+                {
+                    remapped.put(localGroup, vaos);
+                }
+            }
+
+            if (!remapped.isEmpty())
+            {
+                this.vaos = remapped;
+                this.ownsVaos = false;
+            }
+        }
     }
 
     /* Rendering */
@@ -622,21 +780,22 @@ public class ModelInstance implements IModelInstance
         }
     }
 
-    public void render(MatrixStack stack, Supplier<ShaderProgram> program, Color color, int light, int overlay, StencilMap stencilMap, ShapeKeys keys, Link defaultTexture)
+    public void render(MatrixStack stack, Supplier<ShaderProgram> program, Color color, int light, int overlay, StencilMap stencilMap, ShapeKeys keys, Function<String, Link> textureResolver)
     {
         if (this.model instanceof Model model)
         {
             boolean isVao = this.isVAORendered();
-            CubicCubeRenderer renderProcessor = isVao
-                ? new CubicVAORenderer(program.get(), this, light, overlay, stencilMap, keys, defaultTexture)
-                : new CubicCubeRenderer(light, overlay, stencilMap, keys);
-
             Color c = new Color().set(this.color);
-
-            renderProcessor.setColor(color.r * c.r, color.g * c.g, color.b * c.b, color.a * c.a);
+            float cr = color.r * c.r;
+            float cg = color.g * c.g;
+            float cb = color.b * c.b;
+            float ca = color.a * c.a;
 
             if (isVao)
             {
+                CubicCubeRenderer renderProcessor = new CubicVAORenderer(program.get(), this, light, overlay, stencilMap, keys, textureResolver);
+
+                renderProcessor.setColor(cr, cg, cb, ca);
                 CubicRenderer.processRenderModel(renderProcessor, null, stack, model);
 
                 if (stencilMap != null)
@@ -646,41 +805,148 @@ public class ModelInstance implements IModelInstance
             }
             else
             {
+                ShaderProgram shader = program.get();
+                Link texture = textureResolver.apply("");
+                if (texture == null)
+                {
+                    texture = this.texture;
+                }
+                boolean disableCull = this.hasShapeKeys()
+                    && !ModelVAORenderer.isDeferredTranslucentPass()
+                    && !ModelVAORenderer.isPaintOverlayPass();
+
                 RenderSystem.setShader(program);
 
-                BufferBuilder builder = Tessellator.getInstance().begin(VertexFormat.DrawMode.TRIANGLES, VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL);
-
-                CubicRenderer.processRenderModel(renderProcessor, builder, stack, model);
-
-                if (stencilMap != null)
+                if (texture != null)
                 {
-                    CubicRenderer.renderStencilPickPriority(renderProcessor, builder, stack, model, CubicRenderer.STENCIL_PICK_PRIORITY_BONES);
+                    BBSModClient.getTextures().bindTexture(texture);
                 }
+
+                if (disableCull)
+                {
+                    RenderSystem.disableCull();
+                }
+
+                CubicCpuGroupDrawRenderer renderProcessor = new CubicCpuGroupDrawRenderer(light, overlay, stencilMap, keys, shader, texture);
+
+                renderProcessor.setColor(cr, cg, cb, ca);
+                ModelVAORenderer.beginCpuGeometry(shader);
 
                 try
                 {
-                    BufferRenderer.drawWithGlobalProgram(builder.end());
+                    CubicRenderer.processRenderModel(renderProcessor, null, stack, model);
+
+                    if (stencilMap != null)
+                    {
+                        CubicRenderer.renderStencilPickPriority(renderProcessor, null, stack, model, CubicRenderer.STENCIL_PICK_PRIORITY_BONES);
+                    }
                 }
-                catch (IllegalStateException e)
+                finally
                 {
-                    
+                    if (disableCull && this.culling)
+                    {
+                        RenderSystem.enableCull();
+                    }
                 }
             }
         }
         else if (this.model instanceof BOBJModel model)
         {
-            BOBJModelVAO vao = model.getVao();
+            List<BOBJModelVAO> vaos = model.getVaos();
 
-            if (vao != null)
+            if (!vaos.isEmpty())
             {
                 stack.push();
                 stack.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(180F));
 
-                vao.armature.setupMatrices();
-                vao.updateMesh(stencilMap);
-                vao.render(program.get(), stack, color.r, color.g, color.b, color.a, stencilMap, light, overlay, this.texture);
+                model.getArmature().setupMatrices();
+
+                /* One draw per mesh; bind that mesh's resolved texture (mesh name = material). */
+                for (BOBJModelVAO vao : vaos)
+                {
+                    Link texture = textureResolver != null ? textureResolver.apply(vao.data.mesh.name) : null;
+                    if (texture == null)
+                    {
+                        texture = this.texture;
+                    }
+
+                    vao.updateMesh(stencilMap);
+                    vao.render(program.get(), stack, color.r, color.g, color.b, color.a, stencilMap, light, overlay, texture);
+                }
 
                 stack.pop();
+            }
+        }
+    }
+
+    public void renderShapeKeyGlowOverlay(MatrixStack stack, Color glowLayerColor, int overlay, StencilMap stencilMap, ShapeKeys keys, Link defaultTexture, boolean boneGlowOnly, float overlayIntensity, String targetGroupId, boolean skipBoneGlowGroups)
+    {
+        if (!(this.model instanceof Model model) || !this.hasShapeKeys())
+        {
+            return;
+        }
+
+        if (!boneGlowOnly && (glowLayerColor == null || glowLayerColor.a <= 0F))
+        {
+            return;
+        }
+
+        if (boneGlowOnly && glowLayerColor == null)
+        {
+            return;
+        }
+
+        ShaderProgram shader = GameRenderer.getRenderTypeEntityTranslucentCullProgram();
+        Link texture = defaultTexture != null ? defaultTexture : this.texture;
+        boolean disableCull = true;
+
+        RenderSystem.setShader(() -> shader);
+
+        if (texture != null)
+        {
+            BBSModClient.getTextures().bindTexture(texture);
+        }
+
+        if (disableCull)
+        {
+            RenderSystem.disableCull();
+        }
+
+        CubicCpuGlowOverlayRenderer renderProcessor = new CubicCpuGlowOverlayRenderer(
+            LightmapTextureManager.MAX_LIGHT_COORDINATE,
+            overlay,
+            stencilMap,
+            keys,
+            shader,
+            texture,
+            glowLayerColor,
+            boneGlowOnly,
+            overlayIntensity,
+            targetGroupId,
+            skipBoneGlowGroups
+        );
+
+        try
+        {
+            if (targetGroupId != null)
+            {
+                ModelGroup target = model.getGroup(targetGroupId);
+
+                if (target != null)
+                {
+                    CubicRenderer.renderGroupBranch(renderProcessor, null, stack, model, target);
+                }
+            }
+            else
+            {
+                CubicRenderer.processRenderModel(renderProcessor, null, stack, model);
+            }
+        }
+        finally
+        {
+            if (disableCull && this.culling)
+            {
+                RenderSystem.enableCull();
             }
         }
     }

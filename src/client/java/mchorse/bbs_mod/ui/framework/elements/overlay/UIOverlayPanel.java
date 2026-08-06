@@ -63,6 +63,7 @@ public class UIOverlayPanel extends UIElement
         this.add(this.title, this.icons, this.content);
 
         this.mouseEventPropagataion(EventPropagation.BLOCK_INSIDE);
+        this.resizable = true;
     }
 
     public void setInitialOffset(int x, int y)
@@ -111,6 +112,23 @@ public class UIOverlayPanel extends UIElement
         return this;
     }
 
+    public String getKey()
+    {
+        String className = this.getClass().getSimpleName();
+
+        if (className.isEmpty())
+        {
+            className = this.getClass().getSuperclass().getSimpleName();
+        }
+
+        if (this.title != null && this.title.label != null && this.title.label.get() != null && !this.title.label.get().isEmpty())
+        {
+            return className + "_" + this.title.label.get();
+        }
+
+        return className;
+    }
+
     public void onClose(Consumer<UIOverlayCloseEvent> callback)
     {
         this.events.register(UIOverlayCloseEvent.class, callback);
@@ -144,6 +162,8 @@ public class UIOverlayPanel extends UIElement
                     this.getParent().resize();
                 }
 
+                UIOverlay.saveOverlayState(this);
+
                 return true;
             }
 
@@ -168,6 +188,8 @@ public class UIOverlayPanel extends UIElement
                     this.getParent().resize();
                 }
 
+                UIOverlay.saveOverlayState(this);
+
                 return true;
             }
 
@@ -184,6 +206,11 @@ public class UIOverlayPanel extends UIElement
     @Override
     public boolean subMouseReleased(UIContext context)
     {
+        if (this.resizing || this.moving)
+        {
+            UIOverlay.saveOverlayState(this);
+        }
+
         this.resizing = false;
         this.moving = super.subMouseReleased(context);
 

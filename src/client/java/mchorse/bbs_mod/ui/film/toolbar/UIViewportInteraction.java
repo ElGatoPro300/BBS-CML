@@ -62,11 +62,8 @@ public class UIViewportInteraction
             return false;
         }
 
-        if (!viewport.isInside(context))
-        {
-            return true;
-        }
-
+        /* Ray trace uses absolute viewport bounds; do not gate on the (possibly local)
+           area passed by the caller so floating / nested previews still confirm. */
         Vector3d hit = rayTrace.get();
 
         if (hit != null)

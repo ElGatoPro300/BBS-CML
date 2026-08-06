@@ -100,6 +100,7 @@ public class UIFormCategory extends UIElement
                             m.action(Icons.ADD, UIKeys.FORMS_CATEGORIES_CONTEXT_COPY_TO.format(formCategory.getProcessedTitle()), () ->
                             {
                                 formCategory.addForm(FormUtils.copy(this.selected));
+                                this.list.refreshCategoryCards();
                             });
                         }
                     });

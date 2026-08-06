@@ -16,6 +16,7 @@ import mchorse.bbs_mod.forms.forms.Form;
 import mchorse.bbs_mod.forms.renderers.FormRenderer;
 import mchorse.bbs_mod.settings.values.base.BaseValue;
 import mchorse.bbs_mod.settings.values.ui.ValueOnionSkin;
+import mchorse.bbs_mod.ui.utils.gizmo.TransformOrientation;
 import mchorse.bbs_mod.utils.CollectionUtils;
 import mchorse.bbs_mod.utils.Pair;
 import mchorse.bbs_mod.utils.colors.Colors;
@@ -251,30 +252,30 @@ public class FilmEditorController extends BaseFilmController
     @Override
     protected FilmControllerContext getFilmControllerContext(WorldRenderContext context, Replay replay, IEntity entity)
     {
-        Pair<String, Boolean> bone = this.isCurrent(entity) && !this.controller.panel.recorder.isRecording() ? this.controller.getBone() : null;
+        Pair<String, TransformOrientation> bone = this.isCurrent(entity) && !this.controller.panel.recorder.isRecording() ? this.controller.getBone() : null;
         String aBone = bone == null ? null : bone.a;
-        boolean local = bone != null && bone.b;
+        TransformOrientation orientation = bone == null ? TransformOrientation.PARENT : bone.b;
         String aBone2 = null;
-        boolean local2 = false;
+        TransformOrientation orientation2 = TransformOrientation.PARENT;
 
         if (replay.axesPreview.get())
         {
             aBone2 = replay.axesPreviewBone.get();
-            local2 = true;
+            orientation2 = TransformOrientation.LOCAL;
         }
 
         if (this.controller.panel.recorder.isRecording())
         {
             aBone = null;
-            local = false;
+            orientation = TransformOrientation.PARENT;
             aBone2 = null;
-            local2 = false;
+            orientation2 = TransformOrientation.PARENT;
         }
 
         return super.getFilmControllerContext(context, replay, entity)
             .transition(this.getTransition(entity, context.tickCounter().getTickDelta(false)))
-            .bone(aBone, local)
-            .bone2(aBone2, local2);
+            .bone(aBone, orientation)
+            .bone2(aBone2, orientation2);
     }
 
     private boolean isCurrent(IEntity entity)

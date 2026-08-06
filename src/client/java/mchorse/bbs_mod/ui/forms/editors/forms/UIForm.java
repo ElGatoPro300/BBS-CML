@@ -16,6 +16,8 @@ import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.ui.framework.elements.UIPanelBase;
 import mchorse.bbs_mod.ui.framework.elements.input.UIPropTransform;
 import mchorse.bbs_mod.ui.utils.UIUtils;
+import mchorse.bbs_mod.ui.utils.gizmo.GizmoMatrixUtils;
+import mchorse.bbs_mod.ui.utils.gizmo.TransformOrientation;
 import mchorse.bbs_mod.ui.utils.icons.Icons;
 import mchorse.bbs_mod.utils.Direction;
 import mchorse.bbs_mod.utils.MathUtils;
@@ -50,13 +52,12 @@ public abstract class UIForm <T extends Form> extends UIPanelBase<UIFormPanel<T>
         if (panel == this.generalPanel && this.editor != null)
         {
             this.editor.enableFormTransformGizmoFromGeneralPanel();
+            this.generalPanel.refreshFilmOnlySectionsVisibility();
         }
     }
 
     public UIPropTransform getEditableTransform()
     {
-        this.setPanel(this.generalPanel);
-
         return this.general;
     }
 
@@ -71,10 +72,17 @@ public abstract class UIForm <T extends Form> extends UIPanelBase<UIFormPanel<T>
 
     public Matrix4f getOrigin(float transition)
     {
-        return this.getOrigin(transition, FormUtils.getPath(this.form), this.generalPanel != null && this.generalPanel.transform.isLocal());
+        TransformOrientation orientation = this.generalPanel != null ? this.generalPanel.transform.getOrientation() : TransformOrientation.PARENT;
+
+        return this.getOrigin(transition, FormUtils.getPath(this.form), orientation);
     }
 
     public Matrix4f getOrigin(float transition, String path, boolean local)
+    {
+        return this.getOrigin(transition, path, local ? TransformOrientation.LOCAL : TransformOrientation.PARENT);
+    }
+
+    public Matrix4f getOrigin(float transition, String path, TransformOrientation orientation)
     {
         if (path == null)
         {
@@ -96,6 +104,7 @@ public abstract class UIForm <T extends Form> extends UIPanelBase<UIFormPanel<T>
         }
 
         Matrix4f matrix;
+        boolean local = orientation != null && orientation.usesLocalBoneBasis();
 
         if (forceOrigin)
         {
@@ -120,6 +129,9 @@ public abstract class UIForm <T extends Form> extends UIPanelBase<UIFormPanel<T>
         {
             matrix = entry.origin();
         }
+
+        matrix = matrix == null ? null : new Matrix4f(matrix);
+        matrix = GizmoMatrixUtils.applyOrientationSpace(matrix, orientation);
 
         return matrix == null ? Matrices.EMPTY_4F : matrix;
     }

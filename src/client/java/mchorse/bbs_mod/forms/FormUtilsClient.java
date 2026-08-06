@@ -22,6 +22,7 @@ import mchorse.bbs_mod.forms.renderers.BillboardFormRenderer;
 import mchorse.bbs_mod.forms.renderers.BlockFormRenderer;
 import mchorse.bbs_mod.forms.renderers.ExtrudedFormRenderer;
 import mchorse.bbs_mod.forms.renderers.FluidFormRenderer;
+import mchorse.bbs_mod.forms.renderers.FormIllusionRenderer;
 import mchorse.bbs_mod.forms.renderers.FormRenderer;
 import mchorse.bbs_mod.forms.renderers.FormRenderingContext;
 import mchorse.bbs_mod.forms.renderers.FramebufferFormRenderer;
@@ -59,6 +60,8 @@ public class FormUtilsClient
     private static Map<Class, IFormRendererFactory> map = new HashMap<>();
     private static CustomVertexConsumerProvider customVertexConsumerProvider;
     private static Stack<Form> currentForm = new Stack<>();
+    /** Guards against recursive illusion copies spawning more illusions. */
+    private static int illusionDepth;
 
     static
     {
@@ -136,7 +139,24 @@ public class FormUtilsClient
         }
     }
 
+    /**
+     * Cached variant of {@link #renderUI} for list thumbnails and HUD overlays.
+     */
+    public static void renderUICached(Form form, UIContext context, int x1, int y1, int x2, int y2)
+    {
+        FormUIPreviewCache.render(form, context, x1, y1, x2, y2);
+    }
+
     public static void render(Form form, FormRenderingContext context)
+    {
+        render(form, context, null);
+    }
+
+    /**
+     * Renders a form and, at the outermost call, any configured illusions.
+     * {@code extras} carries film-only delay hooks (replay property ticks).
+     */
+    public static void render(Form form, FormRenderingContext context, FormIllusionRenderer.Extras extras)
     {
         FormRenderer renderer = getRenderer(form);
 
@@ -152,6 +172,20 @@ public class FormUtilsClient
             {}
 
             currentForm.pop();
+
+            if (illusionDepth == 0)
+            {
+                illusionDepth++;
+
+                try
+                {
+                    FormIllusionRenderer.render(form, context, extras);
+                }
+                finally
+                {
+                    illusionDepth--;
+                }
+            }
         }
     }
 

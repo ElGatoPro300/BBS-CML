@@ -60,7 +60,9 @@ public final class TimelineToolbarRegistry
         sections.add(editSectionKeyframes());
         sections.add(selectSectionKeyframes());
         sections.add(keyframesSection());
-        sections.add(tracksSection());
+        /* Rename / filter / pose tools need the standalone replay timeline.
+         * Embedded clip keyframe editors use showActor=false. */
+        sections.add(tracksSection(showActor));
 
         if (showActor)
         {
@@ -408,20 +410,24 @@ public final class TimelineToolbarRegistry
         return s;
     }
 
-    private static ToolbarSection tracksSection()
+    private static ToolbarSection tracksSection(boolean standaloneReplay)
     {
         ToolbarSection s = new ToolbarSection(UIKeys.TIMELINE_TOOLBAR_TRACKS, Icons.LAYOUT);
 
-        s.add(ToolbarItem.action(UIKeys.FILM_REPLAY_RENAME_SHEET)
-            .icon(Icons.FONT));
-        s.add(ToolbarItem.action(UIKeys.FILM_REPLAY_FILTER_SHEETS)
-            .icon(Icons.FILTER));
-        s.add(ToolbarItem.separator());
-        s.add(ToolbarItem.action(UIKeys.FILM_REPLAY_CONTEXT_ANIMATION_TO_KEYFRAMES)
-            .icon(Icons.POSE));
-        s.add(ToolbarItem.action(UIKeys.FILM_REPLAY_CONTEXT_POSE_TO_LIMBS)
-            .icon(Icons.CONVERT));
-        s.add(ToolbarItem.separator());
+        if (standaloneReplay)
+        {
+            s.add(ToolbarItem.action(UIKeys.FILM_REPLAY_RENAME_SHEET)
+                .icon(Icons.FONT));
+            s.add(ToolbarItem.action(UIKeys.FILM_REPLAY_FILTER_SHEETS)
+                .icon(Icons.FILTER));
+            s.add(ToolbarItem.separator());
+            s.add(ToolbarItem.action(UIKeys.FILM_REPLAY_CONTEXT_ANIMATION_TO_KEYFRAMES)
+                .icon(Icons.POSE));
+            s.add(ToolbarItem.action(UIKeys.FILM_REPLAY_CONTEXT_POSE_TO_LIMBS)
+                .icon(Icons.CONVERT));
+            s.add(ToolbarItem.separator());
+        }
+
         s.add(ToolbarItem.action(UIKeys.TIMELINE_TOOLBAR_EDIT_TRACK)
             .icon(Icons.EDIT));
         s.add(ToolbarItem.action(UIKeys.KEYFRAMES_CONTEXT_EXIT_TRACK)

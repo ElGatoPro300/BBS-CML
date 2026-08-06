@@ -216,7 +216,7 @@ public final class SolvedPoseApplicator
 
             desiredDirLocal.normalize();
 
-            Quaternionf localRot = QuaternionMath.fromToWithMirror(restDirLocal, desiredDirLocal);
+            Quaternionf localRot = QuaternionMath.rotationFromTo(restDirLocal, desiredDirLocal);
             localRot.mul(QuaternionMath.extractTwistComponent(toLocalRotationRadians(bone.transform.rotate, bone.transform.rotate2), restDirLocal));
             Vector3f eulerRad = new Quaternionf(localRot).normalize().getEulerAnglesZYX(new Vector3f());
 

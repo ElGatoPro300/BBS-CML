@@ -29,7 +29,7 @@ public class UIColor extends UIElement
         super();
 
         this.picker = new UIColorPicker(callback);
-        this.picker.wh(200, 85);
+        this.picker.wh(160, 290);
 
         this.direction(Direction.BOTTOM).h(20);
         this.tooltip(UIKeys.RAW_COLOR);

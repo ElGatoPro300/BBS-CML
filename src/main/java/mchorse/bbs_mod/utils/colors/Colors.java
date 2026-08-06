@@ -78,6 +78,30 @@ public class Colors
         return COLOR.getARGBColor();
     }
 
+    /**
+     * Sodium {@code ColorAttribute} stores vertex colors as ABGR (R in the low byte).
+     * BBS {@link Color} and UI pickers use ARGB.
+     */
+    public static int fromAbgr(int abgr)
+    {
+        int a = (abgr >> 24) & 0xFF;
+        int b = (abgr >> 16) & 0xFF;
+        int g = (abgr >> 8) & 0xFF;
+        int r = abgr & 0xFF;
+
+        return (a << 24) | (r << 16) | (g << 8) | b;
+    }
+
+    public static int toAbgr(int argb)
+    {
+        int a = (argb >> 24) & 0xFF;
+        int r = (argb >> 16) & 0xFF;
+        int g = (argb >> 8) & 0xFF;
+        int b = argb & 0xFF;
+
+        return (a << 24) | (b << 16) | (g << 8) | r;
+    }
+
     public static int a(float alpha)
     {
         return setA(0, alpha);

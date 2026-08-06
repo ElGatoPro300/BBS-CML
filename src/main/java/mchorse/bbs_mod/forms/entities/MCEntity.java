@@ -12,6 +12,7 @@ import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.item.ItemStack;
 import net.minecraft.util.Hand;
+import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.Vec3d;
 import net.minecraft.world.World;
 
@@ -28,6 +29,8 @@ public class MCEntity implements IEntity
     private IEntity mountTarget;
     private IEntity riderTarget;
     private boolean sitting;
+    private float fallFlyingTicks;
+    private float prevFallFlyingTicks;
 
     public MCEntity(Entity mcEntity)
     {
@@ -537,6 +540,17 @@ public class MCEntity implements IEntity
         {
             this.prevExtraVariables[i] = this.extraVariables[i];
         }
+
+        this.prevFallFlyingTicks = this.fallFlyingTicks;
+
+        if (this.isFallFlying())
+        {
+            this.fallFlyingTicks = Math.min(10F, this.fallFlyingTicks + 1F);
+        }
+        else
+        {
+            this.fallFlyingTicks = Math.max(0F, this.fallFlyingTicks - 1F);
+        }
     }
 
     @Override
@@ -639,7 +653,39 @@ public class MCEntity implements IEntity
     @Override
     public int getRoll()
     {
-        return 0;
+        return (int) this.fallFlyingTicks;
+    }
+
+    @Override
+    public boolean isSwimming()
+    {
+        return this.mcEntity.isSwimming();
+    }
+
+    @Override
+    public void setSwimming(boolean swimming)
+    {
+        this.mcEntity.setSwimming(swimming);
+    }
+
+    @Override
+    public boolean isFlying()
+    {
+        if (this.mcEntity instanceof PlayerEntity player)
+        {
+            return player.getAbilities().flying;
+        }
+
+        return false;
+    }
+
+    @Override
+    public void setFlying(boolean flying)
+    {
+        if (this.mcEntity instanceof PlayerEntity player)
+        {
+            player.getAbilities().flying = flying;
+        }
     }
 
     @Override
@@ -651,6 +697,22 @@ public class MCEntity implements IEntity
         }
 
         return false;
+    }
+
+    @Override
+    public void setFallFlying(boolean fallFlying)
+    {
+        /* Flag 7 is fall flying (elytra) in Minecraft */
+        this.mcEntity.setFlag(7, fallFlying);
+    }
+
+    @Override
+    public float getFallFlyingProgress(float transition)
+    {
+        float ticks = MathHelper.lerp(transition, this.prevFallFlyingTicks, this.fallFlyingTicks);
+        float progress = MathHelper.clamp(ticks / 10F, 0F, 1F);
+
+        return progress * progress;
     }
 
     @Override
@@ -674,5 +736,86 @@ public class MCEntity implements IEntity
         }
 
         return false;
+    }
+
+    @Override
+    public void setRiptide(boolean riptide)
+    {
+        if (this.mcEntity instanceof LivingEntity living)
+        {
+            /* Flag 4 is Riptide spin attack in LivingEntity */
+            living.setLivingFlag(4, riptide);
+        }
+    }
+
+    @Override
+    public boolean isCrawling()
+    {
+        return this.mcEntity.getPose() == EntityPose.SWIMMING && !this.mcEntity.isTouchingWater();
+    }
+
+    @Override
+    public void setCrawling(boolean crawling)
+    {
+        if (crawling)
+        {
+            this.mcEntity.setPose(EntityPose.SWIMMING);
+        }
+    }
+
+    @Override
+    public boolean isClimbing()
+    {
+        if (this.mcEntity instanceof LivingEntity living)
+        {
+            return living.isClimbing();
+        }
+
+        return false;
+    }
+
+    @Override
+    public void setClimbing(boolean climbing)
+    {}
+
+    @Override
+    public boolean isBlocking()
+    {
+        if (this.mcEntity instanceof LivingEntity living)
+        {
+            return living.isBlocking();
+        }
+
+        return false;
+    }
+
+    @Override
+    public void setBlocking(boolean blocking)
+    {
+        if (this.mcEntity instanceof LivingEntity living)
+        {
+            /* LivingFlag 1 is using item (e.g. blocking with shield) */
+            living.setLivingFlag(1, blocking);
+        }
+    }
+
+    @Override
+    public boolean isSleeping()
+    {
+        if (this.mcEntity instanceof LivingEntity living)
+        {
+            return living.isSleeping();
+        }
+
+        return false;
+    }
+
+    @Override
+    public void setSleeping(boolean sleeping)
+    {
+        if (sleeping)
+        {
+            this.mcEntity.setPose(EntityPose.SLEEPING);
+        }
     }
 }

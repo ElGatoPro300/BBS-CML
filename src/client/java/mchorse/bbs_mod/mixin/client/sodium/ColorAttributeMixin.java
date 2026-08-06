@@ -1,5 +1,8 @@
 package mchorse.bbs_mod.mixin.client.sodium;
 
+import mchorse.bbs_mod.forms.renderers.utils.BlockPaintOverlayVertexConsumer;
+import mchorse.bbs_mod.forms.renderers.utils.FormColorEffects;
+import mchorse.bbs_mod.forms.renderers.utils.GlowEmissionVertexConsumer;
 import mchorse.bbs_mod.forms.renderers.utils.RecolorVertexConsumer;
 import mchorse.bbs_mod.utils.colors.Colors;
 
@@ -17,12 +20,39 @@ public class ColorAttributeMixin
     @ModifyVariable(method = "set", at = @At("HEAD"), ordinal = 0, remap = false)
     private static int onSet(int color)
     {
+        if (GlowEmissionVertexConsumer.emissionColor != null)
+        {
+            Colors.COLOR.set(Colors.fromAbgr(color));
+            float vertexAlpha = Colors.COLOR.a;
+
+            Colors.COLOR.copy(GlowEmissionVertexConsumer.emissionColor);
+            Colors.COLOR.a *= vertexAlpha;
+
+            return Colors.toAbgr(Colors.COLOR.getARGBColor());
+        }
+
+        if (BlockPaintOverlayVertexConsumer.paintOverlayColor != null)
+        {
+            Colors.COLOR.set(Colors.fromAbgr(color));
+            float vertexAlpha = Colors.COLOR.a;
+
+            Colors.COLOR.copy(BlockPaintOverlayVertexConsumer.paintOverlayColor);
+            Colors.COLOR.a *= vertexAlpha;
+
+            return Colors.toAbgr(Colors.COLOR.getARGBColor());
+        }
+
         if (RecolorVertexConsumer.newColor != null)
         {
-            Colors.COLOR.set(color);
+            Colors.COLOR.set(Colors.fromAbgr(color));
             Colors.COLOR.mul(RecolorVertexConsumer.newColor);
 
-            return Colors.COLOR.getARGBColor();
+            if (RecolorVertexConsumer.newPaintColor != null && RecolorVertexConsumer.newPaintColor.a != 0F)
+            {
+                FormColorEffects.applyPaintBlend(Colors.COLOR, RecolorVertexConsumer.newPaintColor, RecolorVertexConsumer.newPaintColor.a);
+            }
+
+            return Colors.toAbgr(Colors.COLOR.getARGBColor());
         }
 
         return color;

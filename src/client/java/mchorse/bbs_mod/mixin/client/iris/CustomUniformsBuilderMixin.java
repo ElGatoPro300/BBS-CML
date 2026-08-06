@@ -1,5 +1,6 @@
 package mchorse.bbs_mod.mixin.client.iris;
 
+import mchorse.bbs_mod.utils.iris.FormColorGradePatch;
 import mchorse.bbs_mod.utils.iris.ShaderCurves;
 
 import net.irisshaders.iris.uniforms.custom.CustomUniformFixedInputUniformsHolder;
@@ -19,6 +20,7 @@ public class CustomUniformsBuilderMixin
         if (info.getReturnValue() instanceof CustomUniformsAccessor accessor)
         {
             ShaderCurves.addUniforms(accessor.bbs$uniformOrder());
+            FormColorGradePatch.addUniforms(accessor.bbs$uniformOrder());
         }
     }
 }

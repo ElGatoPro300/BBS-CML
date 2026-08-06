@@ -3,6 +3,7 @@ package mchorse.bbs_mod.particles.components.appearance;
 import mchorse.bbs_mod.data.types.BaseType;
 import mchorse.bbs_mod.data.types.ListType;
 import mchorse.bbs_mod.data.types.MapType;
+import mchorse.bbs_mod.forms.renderers.utils.FormColorEffects;
 import mchorse.bbs_mod.math.molang.MolangException;
 import mchorse.bbs_mod.math.molang.MolangParser;
 import mchorse.bbs_mod.math.molang.expressions.MolangExpression;
@@ -11,6 +12,7 @@ import mchorse.bbs_mod.particles.components.ParticleComponentBase;
 import mchorse.bbs_mod.particles.emitter.Particle;
 import mchorse.bbs_mod.particles.emitter.ParticleEmitter;
 import mchorse.bbs_mod.utils.MathUtils;
+import mchorse.bbs_mod.utils.colors.Color;
 import mchorse.bbs_mod.utils.interps.Lerps;
 import mchorse.bbs_mod.utils.joml.Matrices;
 import mchorse.bbs_mod.utils.joml.Vectors;
@@ -336,6 +338,37 @@ public class ParticleComponentAppearanceBillboard extends ParticleComponentBase 
     @Override
     public void render(ParticleEmitter emitter, VertexFormat format, Particle particle, BufferBuilder builder, Matrix4f matrix, int overlay, float transition)
     {
+        this.renderWorld(emitter, format, particle, builder, matrix, overlay, transition, null);
+    }
+
+    public void renderGlowOverlay(ParticleEmitter emitter, Particle particle, BufferBuilder builder, Matrix4f matrix, int overlay, float transition, Color glowColor)
+    {
+        this.renderWorld(emitter, VertexFormats.POSITION_TEXTURE_COLOR, particle, builder, matrix, overlay, transition, glowColor);
+    }
+
+    public void renderUIGlowOverlay(Particle particle, BufferBuilder builder, Matrix4f matrix, float transition, Color glowColor)
+    {
+        this.calculateUVs(particle, null, transition);
+
+        this.w = this.h = 0.5F;
+        float angle = Lerps.lerp(particle.prevRotation, particle.rotation, transition);
+
+        this.vertices[0].set(-this.w / 2, -this.h / 2, 0, 1);
+        this.vertices[1].set(this.w / 2, -this.h / 2, 0, 1);
+        this.vertices[2].set(this.w / 2, this.h / 2, 0, 1);
+        this.vertices[3].set(-this.w / 2, this.h / 2, 0, 1);
+        this.transform.identity();
+        this.transform.scale(2.5F);
+
+        this.rotation.identity();
+        this.rotation.rotateZ(angle / 180 * (float) Math.PI);
+        this.transform.mul(this.rotation);
+
+        this.buildGlow(builder, matrix, particle, glowColor);
+    }
+
+    private void renderWorld(ParticleEmitter emitter, VertexFormat format, Particle particle, BufferBuilder builder, Matrix4f matrix, int overlay, float transition, Color glowColor)
+    {
         this.calculateUVs(particle, emitter, transition);
 
         /* Render the particle */
@@ -464,7 +497,14 @@ public class ParticleComponentAppearanceBillboard extends ParticleComponentBase 
         this.transform.scale(scale);
         this.transform.setTranslation(new Vector3f((float) px, (float) py, (float) pz));
 
-        this.build(builder, format, matrix, particle, overlay);
+        if (glowColor != null)
+        {
+            this.buildGlow(builder, matrix, particle, glowColor);
+        }
+        else
+        {
+            this.build(builder, format, matrix, emitter, particle, overlay);
+        }
     }
 
     /**
@@ -504,7 +544,7 @@ public class ParticleComponentAppearanceBillboard extends ParticleComponentBase 
         }
     }
 
-    private void build(BufferBuilder builder, VertexFormat format, Matrix4f matrix, Particle particle, int overlay)
+    private void build(BufferBuilder builder, VertexFormat format, Matrix4f matrix, ParticleEmitter emitter, Particle particle, int overlay)
     {
         float u1 = this.u1 / (float) this.textureWidth;
         float u2 = this.u2 / (float) this.textureWidth;
@@ -516,22 +556,71 @@ public class ParticleComponentAppearanceBillboard extends ParticleComponentBase 
             this.transform.transform(vertex);
         }
 
-        this.writeVertex(builder, format, matrix, this.vertices[0], u2, v2, overlay, particle);
-        this.writeVertex(builder, format, matrix, this.vertices[1], u1, v2, overlay, particle);
-        this.writeVertex(builder, format, matrix, this.vertices[2], u1, v1, overlay, particle);
-        this.writeVertex(builder, format, matrix, this.vertices[2], u1, v1, overlay, particle);
-        this.writeVertex(builder, format, matrix, this.vertices[3], u2, v1, overlay, particle);
-        this.writeVertex(builder, format, matrix, this.vertices[0], u2, v2, overlay, particle);
+        this.writeVertex(builder, format, matrix, this.vertices[0], u2, v2, overlay, emitter, particle);
+        this.writeVertex(builder, format, matrix, this.vertices[1], u1, v2, overlay, emitter, particle);
+        this.writeVertex(builder, format, matrix, this.vertices[2], u1, v1, overlay, emitter, particle);
+        this.writeVertex(builder, format, matrix, this.vertices[2], u1, v1, overlay, emitter, particle);
+        this.writeVertex(builder, format, matrix, this.vertices[3], u2, v1, overlay, emitter, particle);
+        this.writeVertex(builder, format, matrix, this.vertices[0], u2, v2, overlay, emitter, particle);
     }
 
-    private void writeVertex(BufferBuilder builder, VertexFormat format, Matrix4f matrix, Vector4f vertex, float u, float v, int overlay, Particle particle)
+    private void buildGlow(BufferBuilder builder, Matrix4f matrix, Particle particle, Color glowColor)
     {
+        float u1 = this.u1 / (float) this.textureWidth;
+        float u2 = this.u2 / (float) this.textureWidth;
+        float v1 = this.v1 / (float) this.textureHeight;
+        float v2 = this.v2 / (float) this.textureHeight;
+
+        for (Vector4f vertex : this.vertices)
+        {
+            this.transform.transform(vertex);
+        }
+
+        Color color = new Color(glowColor.r, glowColor.g, glowColor.b, glowColor.a * particle.a);
+
+        this.writeGlowVertex(builder, matrix, this.vertices[0], u2, v2, color);
+        this.writeGlowVertex(builder, matrix, this.vertices[1], u1, v2, color);
+        this.writeGlowVertex(builder, matrix, this.vertices[2], u1, v1, color);
+        this.writeGlowVertex(builder, matrix, this.vertices[2], u1, v1, color);
+        this.writeGlowVertex(builder, matrix, this.vertices[3], u2, v1, color);
+        this.writeGlowVertex(builder, matrix, this.vertices[0], u2, v2, color);
+    }
+
+    private void writeGlowVertex(BufferBuilder builder, Matrix4f matrix, Vector4f vertex, float u, float v, Color color)
+    {
+        builder.vertex(matrix, vertex.x, vertex.y, vertex.z)
+            .texture(u, v)
+            .color(color.r, color.g, color.b, color.a);
+    }
+
+    private Color resolveDisplayColor(ParticleEmitter emitter, Particle particle)
+    {
+        Color color = new Color(particle.r, particle.g, particle.b, particle.a);
+
+        if (emitter != null && emitter.glowSettings != null)
+        {
+            Color legacyGlow = emitter.legacyGlow == null ? new Color(1F, 1F, 1F, 1F) : emitter.legacyGlow;
+            float glowIntensity = emitter.glowSettings.resolveIntensity(legacyGlow);
+
+            if (glowIntensity < 0F)
+            {
+                FormColorEffects.blendFormGlowBrighten(color, emitter.glowSettings, legacyGlow);
+            }
+        }
+
+        return color;
+    }
+
+    private void writeVertex(BufferBuilder builder, VertexFormat format, Matrix4f matrix, Vector4f vertex, float u, float v, int overlay, ParticleEmitter emitter, Particle particle)
+    {
+        Color color = this.resolveDisplayColor(emitter, particle);
+
         if (format == VertexFormats.POSITION_TEXTURE_COLOR_LIGHT)
         {
             /* VertexFormats.POSITION_TEXTURE_COLOR_LIGHT */
             builder.vertex(matrix, vertex.x, vertex.y, vertex.z)
                 .texture(u, v)
-                .color(particle.r, particle.g, particle.b, particle.a)
+                .color(color.r, color.g, color.b, color.a)
                 .light(this.light);
         }
         else if (format == VertexFormats.POSITION_TEXTURE_COLOR)
@@ -539,13 +628,13 @@ public class ParticleComponentAppearanceBillboard extends ParticleComponentBase 
             /* VertexFormats.POSITION_TEXTURE_COLOR */
             builder.vertex(matrix, vertex.x, vertex.y, vertex.z)
                 .texture(u, v)
-                .color(particle.r, particle.g, particle.b, particle.a);
+                .color(color.r, color.g, color.b, color.a);
         }
         else
         {
             /* VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL */
             builder.vertex(matrix, vertex.x, vertex.y, vertex.z)
-                .color(particle.r, particle.g, particle.b, particle.a)
+                .color(color.r, color.g, color.b, color.a)
                 .texture(u, v)
                 .overlay(overlay)
                 .light(this.light)

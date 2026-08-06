@@ -41,6 +41,42 @@ public class RecentAssetsTracker
         save();
     }
 
+    public static boolean existsInCurrentWorld(ContentType type, String id)
+    {
+        if (type != ContentType.FILMS || id == null || id.isEmpty())
+        {
+            return true;
+        }
+
+        if (CrossWorldFilmEntry.decodeKey(id) != null)
+        {
+            return false;
+        }
+
+        MinecraftClient client = MinecraftClient.getInstance();
+
+        if (client == null || client.world == null)
+        {
+            return true;
+        }
+
+        File worldFolder = BBSMod.getWorldFolder();
+
+        if (worldFolder == null)
+        {
+            return true;
+        }
+
+        File filmsRoot = new File(worldFolder, "bbs/films");
+
+        if (id.endsWith("/"))
+        {
+            return new File(filmsRoot, id).isDirectory();
+        }
+
+        return new File(filmsRoot, id + ".dat").exists();
+    }
+
     public static boolean shouldExcludeFromRecent(ContentType type, String id)
     {
         if (type != ContentType.FILMS || id == null || id.isEmpty())

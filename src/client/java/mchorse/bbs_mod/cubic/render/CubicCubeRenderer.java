@@ -7,6 +7,7 @@ import mchorse.bbs_mod.cubic.data.model.ModelGroup;
 import mchorse.bbs_mod.cubic.data.model.ModelMesh;
 import mchorse.bbs_mod.cubic.data.model.ModelQuad;
 import mchorse.bbs_mod.cubic.data.model.ModelVertex;
+import mchorse.bbs_mod.cubic.render.vao.ModelVAORenderer;
 import mchorse.bbs_mod.obj.shapes.ShapeKeys;
 import mchorse.bbs_mod.ui.framework.elements.utils.StencilMap;
 import mchorse.bbs_mod.utils.MathUtils;
@@ -260,5 +261,85 @@ public class CubicCubeRenderer implements ICubicRenderer
         }
 
         builder.normal(normal.x, normal.y, normal.z);
+    }
+
+    protected float resolveEffectiveGlowStrength(ModelGroup group)
+    {
+        if (group.glowIntensity != 0F)
+        {
+            return group.glowIntensity;
+        }
+
+        return ModelVAORenderer.getBaseGlowingStrength();
+    }
+
+    protected float resolveEffectiveGlowR(ModelGroup group)
+    {
+        if (group.glowIntensity != 0F)
+        {
+            return group.glowingColor.r;
+        }
+
+        return ModelVAORenderer.getBaseGlowingR();
+    }
+
+    protected float resolveEffectiveGlowG(ModelGroup group)
+    {
+        if (group.glowIntensity != 0F)
+        {
+            return group.glowingColor.g;
+        }
+
+        return ModelVAORenderer.getBaseGlowingG();
+    }
+
+    protected float resolveEffectiveGlowB(ModelGroup group)
+    {
+        if (group.glowIntensity != 0F)
+        {
+            return group.glowingColor.b;
+        }
+
+        return ModelVAORenderer.getBaseGlowingB();
+    }
+
+    protected float resolveEffectivePaintStrength(ModelGroup group)
+    {
+        if (group.paintColor.a != 0F)
+        {
+            return group.paintColor.a;
+        }
+
+        return ModelVAORenderer.getBasePaintStrength();
+    }
+
+    protected float resolveEffectivePaintR(ModelGroup group)
+    {
+        if (group.paintColor.a != 0F)
+        {
+            return group.paintColor.r;
+        }
+
+        return ModelVAORenderer.getBasePaintR();
+    }
+
+    protected float resolveEffectivePaintG(ModelGroup group)
+    {
+        if (group.paintColor.a != 0F)
+        {
+            return group.paintColor.g;
+        }
+
+        return ModelVAORenderer.getBasePaintG();
+    }
+
+    protected float resolveEffectivePaintB(ModelGroup group)
+    {
+        if (group.paintColor.a != 0F)
+        {
+            return group.paintColor.b;
+        }
+
+        return ModelVAORenderer.getBasePaintB();
     }
 }

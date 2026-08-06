@@ -9,12 +9,12 @@ public final class KeyframePasteInteractionState
 {
     public final IKey hint;
     /**
-     * When {@code >= 0}, the anchor tick is fixed (playhead). When {@code -1},
+     * When {@code >= 0}, the anchor tick is fixed (playhead). When {@code < 0},
      * the anchor tick follows the cursor horizontally.
      */
-    public final int lockedTick;
+    public final float lockedTick;
 
-    public KeyframePasteInteractionState(IKey hint, int lockedTick)
+    public KeyframePasteInteractionState(IKey hint, float lockedTick)
     {
         this.hint = hint;
         this.lockedTick = lockedTick;
@@ -22,10 +22,10 @@ public final class KeyframePasteInteractionState
 
     public static KeyframePasteInteractionState atCursor(IKey hint)
     {
-        return new KeyframePasteInteractionState(hint, -1);
+        return new KeyframePasteInteractionState(hint, -1F);
     }
 
-    public static KeyframePasteInteractionState atPlayhead(IKey hint, int tick)
+    public static KeyframePasteInteractionState atPlayhead(IKey hint, float tick)
     {
         return new KeyframePasteInteractionState(hint, tick);
     }

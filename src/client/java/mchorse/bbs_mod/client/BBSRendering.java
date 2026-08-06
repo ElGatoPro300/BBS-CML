@@ -4,6 +4,8 @@ import mchorse.bbs_mod.BBSMod;
 import mchorse.bbs_mod.BBSModClient;
 import mchorse.bbs_mod.BBSSettings;
 import mchorse.bbs_mod.blocks.entities.ModelBlockEntity;
+import mchorse.bbs_mod.camera.clips.misc.BossBarClip;
+import mchorse.bbs_mod.camera.clips.misc.BossBarState;
 import mchorse.bbs_mod.camera.clips.misc.ChromaSkyCurveSettings;
 import mchorse.bbs_mod.camera.clips.misc.CurveClip;
 import mchorse.bbs_mod.camera.clips.misc.HotbarClip;
@@ -22,16 +24,28 @@ import mchorse.bbs_mod.client.video.VideoRenderer;
 import mchorse.bbs_mod.cubic.render.vao.ModelVAORenderer;
 import mchorse.bbs_mod.events.ModelBlockEntityUpdateCallback;
 import mchorse.bbs_mod.events.TriggerBlockEntityUpdateCallback;
+import mchorse.bbs_mod.film.BaseFilmController;
+import mchorse.bbs_mod.film.WorldFilmController;
 import mchorse.bbs_mod.film.replays.Replay;
 import mchorse.bbs_mod.forms.FormUtilsClient;
 import mchorse.bbs_mod.forms.forms.Form;
 import mchorse.bbs_mod.forms.renderers.FormRenderer;
+import mchorse.bbs_mod.forms.renderers.utils.BlockPaintOverlayVertexConsumer;
+import mchorse.bbs_mod.forms.renderers.utils.BlockPaintOverlayVertexSodiumConsumer;
+import mchorse.bbs_mod.forms.renderers.utils.BlockPaintVertexConsumer;
+import mchorse.bbs_mod.forms.renderers.utils.BlockPaintVertexSodiumConsumer;
+import mchorse.bbs_mod.forms.renderers.utils.GlowEmissionVertexConsumer;
+import mchorse.bbs_mod.forms.renderers.utils.GlowEmissionVertexSodiumConsumer;
 import mchorse.bbs_mod.forms.renderers.utils.RecolorVertexConsumer;
+import mchorse.bbs_mod.forms.renderers.utils.TextGlowEmissionVertexConsumer;
+import mchorse.bbs_mod.forms.renderers.utils.TextGlowEmissionVertexSodiumConsumer;
 import mchorse.bbs_mod.graphics.texture.Texture;
 import mchorse.bbs_mod.graphics.texture.TextureFormat;
 import mchorse.bbs_mod.ui.UIKeys;
 import mchorse.bbs_mod.ui.dashboard.UIDashboard;
+import mchorse.bbs_mod.ui.dashboard.WorldPropertiesHelper;
 import mchorse.bbs_mod.ui.dashboard.panels.UIDashboardPanel;
+import mchorse.bbs_mod.ui.film.UIBossBarRenderer;
 import mchorse.bbs_mod.ui.film.UIFilmPanel;
 import mchorse.bbs_mod.ui.film.UIHotbarRenderer;
 import mchorse.bbs_mod.ui.film.UIImageRenderer;
@@ -52,12 +66,14 @@ import mchorse.bbs_mod.utils.colors.Color;
 import mchorse.bbs_mod.utils.colors.Colors;
 import mchorse.bbs_mod.utils.iris.IrisUtils;
 import mchorse.bbs_mod.utils.iris.ShaderCurves;
+import mchorse.bbs_mod.utils.iris.ShaderOpacityPatch;
 import mchorse.bbs_mod.utils.sodium.SodiumUtils;
 
 import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
 import net.fabricmc.fabric.impl.client.rendering.WorldRenderContextImpl;
 import net.fabricmc.loader.api.FabricLoader;
 
+import net.minecraft.block.entity.BlockEntity;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gl.Framebuffer;
 import net.minecraft.client.gl.WindowFramebuffer;
@@ -78,6 +94,7 @@ import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL30;
 
 import java.io.File;
+import java.lang.reflect.Method;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
@@ -97,6 +114,11 @@ public class BBSRendering
     public static boolean renderingWorld;
     private static boolean irisChunkLayerPass;
     public static int lastAction;
+
+    /* Optional IRLights / IRL-editor shadow baker (no hard dependency). */
+    private static final String IRL_SHADOW_BAKE_STATE = "org.qualet.irl.light.shadow.ShadowBakeState";
+    private static Boolean irlShadowBakePresent;
+    private static Method irlShadowBakeIsBaking;
 
     public static final Matrix4f camera = new Matrix4f();
 
@@ -127,6 +149,11 @@ public class BBSRendering
 
     private static int width;
     private static int height;
+    /**
+     * Scale used for this frame's fisheye FOV match (1 = off, {@code >1} widen,
+     * {@code <1} narrow). Color grade reads this so the UV warp matches the projection.
+     */
+    private static float lensOverscanScale = 1F;
 
     private static final UIBaseMenu replayHudMenu = new UIBaseMenu() {};
 
@@ -176,6 +203,23 @@ public class BBSRendering
         return height == 0 ? BBSSettings.videoSettings.height.get() : height;
     }
 
+    public static float getLensOverscanScale()
+    {
+        return lensOverscanScale;
+    }
+
+    public static void setLensOverscanScale(float scale)
+    {
+        if (!Float.isFinite(scale) || scale <= 1.0e-3F)
+        {
+            lensOverscanScale = 1F;
+
+            return;
+        }
+
+        lensOverscanScale = Math.abs(scale - 1F) > 1.0e-4F ? scale : 1F;
+    }
+
     public static int getVideoFrameRate()
     {
         int frameRate = BBSSettings.videoSettings.frameRate.get();
@@ -204,15 +248,47 @@ public class BBSRendering
     }
 
     /**
+     * Skip the vanilla world pass when the open BBS menu does not need it (opaque editors, film
+     * home page, model editor, etc.). Panels that show the live world override
+     * {@link UIBaseMenu#needsWorldRender()}.
+     */
+    public static boolean shouldSkipWorldRender()
+    {
+        UIBaseMenu menu = UIScreen.getCurrentMenu();
+
+        return menu != null && !menu.needsWorldRender();
+    }
+
+    /**
      * Ensures paint overlays draw into the same framebuffer as the film viewport world pass.
      */
     public static void ensurePaintOverlayTargetFramebuffer()
     {
         if (toggleFramebuffer && framebuffer != null)
         {
-            framebuffer.beginWrite(true);
+            /* Keep the already-composited world; only re-bind. Clearing here wiped film
+             * frames and made deferred translucent redraws (low Iris opacity) disappear. */
+            framebuffer.beginWrite(false);
             reassignFramebuffer(framebuffer);
         }
+        else
+        {
+            /* World / non-film path: Iris may leave a different FBO bound at frame end. */
+            MinecraftClient.getInstance().getFramebuffer().beginWrite(false);
+        }
+    }
+
+    /**
+     * Framebuffer whose color is sampled by ColorGradeOverlay (Iris-lit scene before regrade).
+     */
+    public static Framebuffer getPaintOverlaySourceFramebuffer()
+    {
+        if (toggleFramebuffer && framebuffer != null)
+        {
+            return framebuffer;
+        }
+
+        return MinecraftClient.getInstance().getFramebuffer();
     }
 
     public static boolean isCustomSize()
@@ -254,6 +330,24 @@ public class BBSRendering
         toggleFramebuffer(false);
     }
 
+    /**
+     * Reset GL state after mid-UI 3D form/model draws so later Batcher2D text is not
+     * left with additive blend / depthMask false / grade uniforms (white doubled glyphs).
+     */
+    public static void restoreGuiRenderState()
+    {
+        ModelVAORenderer.clearFormColorGrade();
+        RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
+        RenderSystem.colorMask(true, true, true, true);
+        RenderSystem.depthMask(true);
+        RenderSystem.enableBlend();
+        RenderSystem.defaultBlendFunc();
+        RenderSystem.disableCull();
+        RenderSystem.depthFunc(GL11.GL_ALWAYS);
+        GL11.glPolygonOffset(0F, 0F);
+        GL11.glDisable(GL11.GL_POLYGON_OFFSET_FILL);
+    }
+
     public static Texture getTexture()
     {
         if (texture == null)
@@ -268,6 +362,16 @@ public class BBSRendering
 
     public static void startTick()
     {
+        MinecraftClient mc = MinecraftClient.getInstance();
+
+        /* Client ticks still run while the pause menu is open, but world/block-entity ticks do
+         * not — clearing here would empty the set with nothing to refill it, killing model-block
+         * Iris shadows (and UI lists that reuse this cache) until unpause. */
+        if (mc != null && mc.isPaused())
+        {
+            return;
+        }
+
         capturedModelBlocks.clear();
         TriggerBlockEntityRenderer.capturedTriggerBlocks.clear();
     }
@@ -342,8 +446,8 @@ public class BBSRendering
         }
 
         MinecraftClient mc = MinecraftClient.getInstance();
-        int w = mc.getWindow().getFramebufferWidth();
-        int h = mc.getWindow().getFramebufferHeight();
+        int w = Math.max(2, mc.getWindow().getFramebufferWidth());
+        int h = Math.max(2, mc.getWindow().getFramebufferHeight());
 
         if (framebuffer.textureWidth == w && framebuffer.textureHeight == h)
         {
@@ -367,8 +471,8 @@ public class BBSRendering
 
         if (toggleFramebuffer)
         {
-            int w = mc.getWindow().getFramebufferWidth();
-            int h = mc.getWindow().getFramebufferHeight();
+            int w = Math.max(2, mc.getWindow().getFramebufferWidth());
+            int h = Math.max(2, mc.getWindow().getFramebufferHeight());
 
             resizeExtraFramebuffers();
 
@@ -409,6 +513,11 @@ public class BBSRendering
 
     public static void onWorldRenderBegin()
     {
+        if (BBSRendering.shouldSkipWorldRender())
+        {
+            return;
+        }
+
         MinecraftClient mc = MinecraftClient.getInstance();
         BBSModClient.getFilms().startRenderFrame(mc.getRenderTickCounter().getTickDelta(false));
 
@@ -425,6 +534,7 @@ public class BBSRendering
         GL11.glDisable(GL11.GL_POLYGON_OFFSET_FILL);
 
         renderingWorld = true;
+        ShaderOpacityPatch.onWorldRenderBegin();
         updateCloudRenderMode(mc);
         ModelVAORenderer.clearPaintOverlayQueue();
 
@@ -440,7 +550,15 @@ public class BBSRendering
 
     public static void onWorldRenderEnd()
     {
+        if (BBSRendering.shouldSkipWorldRender())
+        {
+            return;
+        }
+
+        /* Paint overlays first (and noshading soft forms in the same queue, after paint via
+         * sort). Iris soft forms (noshading off) already flushed at beginTranslucents. */
         ModelVAORenderer.flushPaintOverlayQueue();
+        ShaderOpacityPatch.onWorldRenderEnd();
 
         MinecraftClient mc = MinecraftClient.getInstance();
         UIBaseMenu currentMenu = UIScreen.getCurrentMenu();
@@ -455,10 +573,10 @@ public class BBSRendering
             Matrix4f ortho = new Matrix4f().ortho(0, area.w, area.h, 0, -1000, 3000);
 
             RenderSystem.setProjectionMatrix(ortho, VertexSorter.BY_Z);
-            renderHudOverlays(batcher, controller.getContext(), area.w, area.h);
             VideoRenderer.renderClips(batcher.getContext().getMatrices(), batcher, controller.getContext().clips.getClips(controller.getContext().relativeTick), controller.getContext().relativeTick, true, area, area, null, area.w, area.h, false);
 
             ScreenEffectRenderer.render(batcher, controller.getContext(), area.w, area.h);
+            renderHudOverlays(batcher, controller.getContext(), area.w, area.h);
 
             RenderSystem.setProjectionMatrix(cache, VertexSorter.BY_Z);
         }
@@ -481,7 +599,7 @@ public class BBSRendering
 
         if (currentMenu instanceof UIDashboard dashboard)
         {
-            if (dashboard.getPanels().panel instanceof UIFilmPanel panel && panel.getData() != null)
+            if (dashboard.getPanels().panel instanceof UIFilmPanel panel && panel.needsViewportRender())
             {
                 DrawContext drawContext = new DrawContext(mc, mc.getBufferBuilders().getEntityVertexConsumers());
                 Batcher2D offscreenBatcher = new Batcher2D(drawContext);
@@ -492,10 +610,10 @@ public class BBSRendering
 
                 RenderSystem.setProjectionMatrix(ortho, VertexSorter.BY_Z);
                 Area fullScreen = new Area(0, 0, window.getScaledWidth(), window.getScaledHeight());
-                renderHudOverlays(offscreenBatcher, panel.getRunner().getContext(), fullScreen.w, fullScreen.h);
                 VideoRenderer.renderClips(new MatrixStack(), offscreenBatcher, panel.getData().camera.getClips(panel.getCursor()), panel.getCursor(), panel.getRunner().isRunning(), fullScreen, fullScreen, null, window.getScaledWidth(), window.getScaledHeight(), false);
 
                 ScreenEffectRenderer.render(offscreenBatcher, panel.getRunner().getContext(), window.getScaledWidth(), window.getScaledHeight());
+                renderHudOverlays(offscreenBatcher, panel.getRunner().getContext(), fullScreen.w, fullScreen.h);
 
                 RenderSystem.setProjectionMatrix(cache, VertexSorter.BY_Z);
             }
@@ -573,42 +691,6 @@ public class BBSRendering
 
     public static void onRenderChunkLayer(Matrix4f positionMatrix, Matrix4f projectionMatrix)
     {
-        WorldRenderContextImpl worldRenderContext = new WorldRenderContextImpl();
-        MinecraftClient mc = MinecraftClient.getInstance();
-
-        worldRenderContext.prepare(
-            mc.worldRenderer, mc.getRenderTickCounter(), false,
-            mc.gameRenderer.getCamera(), mc.gameRenderer, mc.gameRenderer.getLightmapTextureManager(),
-            positionMatrix, projectionMatrix, mc.getBufferBuilders().getEntityVertexConsumers(), mc.getProfiler(), false, mc.world
-        );
-
-        if (isIrisShadersEnabled())
-        {
-            /* renderLayer is also invoked during the Iris shadow pass, where UI gizmos
-             * must not render (and would crash below on the missing matrix stack). */
-            if (isIrisShadowPass())
-            {
-                return;
-            }
-
-            /* WorldRenderContextImpl.prepare() leaves the matrix stack null; supply one
-             * built from the terrain position matrix so renderInWorld can use it. */
-            MatrixStack matrices = new MatrixStack();
-
-            MatrixStackUtils.multiply(matrices, positionMatrix);
-            worldRenderContext.setMatrixStack(matrices);
-
-            irisChunkLayerPass = true;
-
-            try
-            {
-                renderCoolStuff(worldRenderContext);
-            }
-            finally
-            {
-                irisChunkLayerPass = false;
-            }
-        }
     }
 
     public static void renderHud(DrawContext drawContext, float tickDelta)
@@ -617,6 +699,7 @@ public class BBSRendering
         VideoRecorder videoRecorder = BBSModClient.getVideoRecorder();
 
         BBSModClient.getFilms().renderHud(batcher2D, tickDelta);
+        StructurePickerClient.renderHud(batcher2D);
 
         boolean showRecordingOverlay = videoRecorder.isRecording() && BBSSettings.recordingOverlays.get() && UIScreen.getCurrentMenu() == null;
 
@@ -766,6 +849,7 @@ public class BBSRendering
         }
 
         BBSModClient.getFilms().render(worldRenderContext);
+        StructurePickerRenderer.render(worldRenderContext);
     }
 
     public static boolean isOptifinePresent()
@@ -787,10 +871,127 @@ public class BBSRendering
      * Any Iris world draw (chunk-layer film/editor pass or entity/gbuffer pass). VAO models
      * must use the vanilla translucent program for the base pass so Iris can composite them;
      * the custom BBS model shader is only used for deferred paint/glow overlays.
+     * Exception: form color alpha &lt; 1 must be deferred too — shader packs and vanilla
+     * entity_translucent discard low vertex alpha; the BBS model shader only cuts out texture holes.
      */
     public static boolean isIrisWorldModelPass()
     {
         return isIrisShadersEnabled() && isRenderingWorld();
+    }
+
+    /**
+     * With the Iris opacity fix, translucent opacities are redrawn after
+     * VL clouds (post-deferred) so soft fades never punch the sky or get clouds composited
+     * over the mesh. Near-opaque keeps the live Iris path with depth writes.
+     */
+    public static final float TRANSLUCENT_ALPHA_DISCARD_REF = 28F / 255F;
+
+    /**
+     * True when Iris would discard/mis-composite very low form opacity; queue a BBS redraw
+     * after compositing. Slight opacity (e.g. {@code #e7}/{@code #fc}) stays on Iris.
+     * When the Complementary/BSL opacity patch is active, never take this BBS handoff —
+     * translucency stays on Iris and is flushed post-deferred after VL clouds (smooth
+     * fade through {@code #1c}/28 with lighting and render depth intact).
+     */
+    public static boolean needsIrisTranslucentModelDeferral(float alpha)
+    {
+        if (!isIrisWorldModelPass() || isIrisShadowPass())
+        {
+            return false;
+        }
+
+        if (ShaderOpacityPatch.isActive())
+        {
+            return false;
+        }
+
+        return alpha < TRANSLUCENT_ALPHA_DISCARD_REF;
+    }
+
+    /**
+     * Opt-in Opacity-track "No shading": redraw this soft form on the BBS deferred queue
+     * after paint overlays (paint visible through soft; pack body sun shadows lost).
+     * When off, soft forms stay on Iris post-deferred (body shadows kept; paint clipped).
+     * Still applies when the Complementary/BSL opacity patch is active.
+     */
+    public static boolean needsIrisNoshadingOpacityDeferral(float alpha, boolean noshadingOpacity)
+    {
+        if (!noshadingOpacity || !isIrisWorldModelPass() || isIrisShadowPass())
+        {
+            return false;
+        }
+
+        return alpha > 0.001F && alpha < 0.999F;
+    }
+
+    /**
+     * Iris live path keeps the user's alpha. Do not pull toward a sub-{@code alphaTestRef}
+     * handoff — that made models vanish around {@code #2e}/{@code #2c} before the
+     * {@code #1c}→{@code #1b} deferral switch.
+     */
+    public static float easeIrisModelAlpha(float alpha)
+    {
+        return alpha;
+    }
+
+    /**
+     * Lift deferred alpha toward {@link #TRANSLUCENT_ALPHA_DISCARD_REF} so the first deferred
+     * step ({@code #1b}) matches the last Iris step ({@code #1d}) — continuous handoff with
+     * near-zero jump; deeper alphas stay near the user value.
+     */
+    public static float easeDeferredModelAlpha(float alpha)
+    {
+        if (!isIrisWorldModelPass() || isIrisShadowPass())
+        {
+            return alpha;
+        }
+
+        if (alpha <= 0F || alpha >= TRANSLUCENT_ALPHA_DISCARD_REF)
+        {
+            return alpha;
+        }
+
+        float t = alpha / TRANSLUCENT_ALPHA_DISCARD_REF;
+
+        t = t * t * (3F - 2F * t);
+
+        /* t→1 at #1b/#1c edge → ≈ REF (match Iris #1d); t→0 → stay near zero. */
+        return alpha + (TRANSLUCENT_ALPHA_DISCARD_REF - alpha) * t;
+    }
+
+    /**
+     * Deferred Iris low-alpha redraw ({@code #1b} and below): keep alpha, force RGB black
+     * ({@code #aa000000}). White RGB on the BBS deferred path brightens vs Iris; black matches
+     * the Iris handoff. Above the threshold the live Iris path keeps the user RGB ({@code ffffff}).
+     */
+    public static void applyDeferredModelHandoffRgb(Color color)
+    {
+        if (color == null)
+        {
+            return;
+        }
+
+        color.r = 0F;
+        color.g = 0F;
+        color.b = 0F;
+    }
+
+    /**
+     * Flat forms (shape/billboard) through Iris translucent at any alpha &lt; 1 wash fog/sky.
+     * Always defer them under Iris; they do not need pack mesh shading.
+     */
+    public static boolean needsIrisTranslucentFlatDeferral(float alpha)
+    {
+        return isIrisWorldModelPass() && !isIrisShadowPass() && alpha < 0.999F;
+    }
+
+    /**
+     * Vanilla entity_translucent discards below {@link #TRANSLUCENT_ALPHA_DISCARD_REF}. Use for
+     * Shape/Billboard without Iris: switch to the BBS model shader in-place with normal depth.
+     */
+    public static boolean needsBbsModelForLowOpacity(float alpha)
+    {
+        return !isIrisShadowPass() && alpha < TRANSLUCENT_ALPHA_DISCARD_REF;
     }
 
     /**
@@ -803,9 +1004,18 @@ public class BBSRendering
     }
 
     /**
+     * When true, paint overlays must be queued for {@link ModelVAORenderer#flushPaintOverlayQueue()}
+     * at the end of the world frame (Iris shader-pack path). Without Iris they run immediately
+     * after each form so depth ordering against other entities stays correct.
+     */
+    public static boolean shouldDeferPaintOverlayToFrameEnd()
+    {
+        return isIrisWorldModelPass();
+    }
+
+    /**
      * When true, VAO model paint must not be applied in the base pass; use the BBS model
-     * shader overlay ({@link ModelVAORenderer#submitPaintOverlay})
-     * so paint matches the no-shader path under an active Iris shader pack.
+     * shader overlay ({@link ModelVAORenderer#submitPaintOverlay}) so paint matches under Iris.
      */
     public static boolean isIrisWorldPaintDeferral()
     {
@@ -837,14 +1047,69 @@ public class BBSRendering
         IrisUtils.toggleShaders();
     }
 
+    public static void openShaderPackScreen()
+    {
+        if (!iris)
+        {
+            return;
+        }
+
+        IrisUtils.openShaderPackScreen();
+    }
+
+    /**
+     * True while any depth/shadow bake is drawing casters with light-space matrices.
+     * Includes Iris's shadow pass and optional IRLights ({@code ShadowBakeState}) so
+     * color/paint/grade overlays are not queued with light projections and flushed onto
+     * the film color buffer (side-of-screen tint masks when a light touches an actor).
+     */
     public static boolean isIrisShadowPass()
     {
+        if (isIrlShadowBakePass())
+        {
+            return true;
+        }
+
         if (!iris)
         {
             return false;
         }
 
         return IrisUtils.isShadowPass();
+    }
+
+    /**
+     * IRLights / IRL-editor bake forms into per-light depth maps outside Iris's
+     * {@code isRenderingShadowPass()}. Detected via reflection so BBS stays optional.
+     */
+    public static boolean isIrlShadowBakePass()
+    {
+        if (irlShadowBakePresent == Boolean.FALSE)
+        {
+            return false;
+        }
+
+        try
+        {
+            if (irlShadowBakePresent == null)
+            {
+                Class<?> bakeState = Class.forName(IRL_SHADOW_BAKE_STATE);
+
+                irlShadowBakeIsBaking = bakeState.getMethod("isBaking");
+                irlShadowBakePresent = Boolean.TRUE;
+            }
+
+            Object baking = irlShadowBakeIsBaking.invoke(null);
+
+            return baking instanceof Boolean && (Boolean) baking;
+        }
+        catch (Throwable t)
+        {
+            irlShadowBakePresent = Boolean.FALSE;
+            irlShadowBakeIsBaking = null;
+
+            return false;
+        }
     }
 
     public static void trackTexture(Texture texture)
@@ -940,7 +1205,39 @@ public class BBSRendering
         {
             Map<String, Double> values = CurveClip.getValues(controller.getContext());
 
-            return values != null ? values.get(key) : null;
+            if (values != null && values.containsKey(key))
+            {
+                return values.get(key);
+            }
+        }
+
+        return getWorldFilmCurveValue(key);
+    }
+
+    /**
+     * Curve values from an in-world film playback ({@link WorldFilmController}),
+     * used when playing a film outside the BBS editor (no camera controller).
+     */
+    private static Double getWorldFilmCurveValue(String key)
+    {
+        for (BaseFilmController controller : BBSModClient.getFilms().getControllers())
+        {
+            if (!(controller instanceof WorldFilmController worldFilm))
+            {
+                continue;
+            }
+
+            if (worldFilm.hasFinished())
+            {
+                continue;
+            }
+
+            Map<String, Double> values = CurveClip.getValues(worldFilm.getCameraContext());
+
+            if (values != null && values.containsKey(key))
+            {
+                return values.get(key);
+            }
         }
 
         return null;
@@ -961,8 +1258,9 @@ public class BBSRendering
     }
 
     /**
-     * Chroma sky can hide terrain for film export, but model/trigger block editors must
-     * always show the live world behind their UI cards.
+     * Chroma sky can hide terrain for film export and film editor preview, but
+     * model/trigger block (and other world-editing) panels must always show the
+     * live world behind their UI cards.
      */
     public static boolean shouldHideChromaTerrain()
     {
@@ -971,7 +1269,53 @@ public class BBSRendering
             return false;
         }
 
-        return !isImmersiveWorldPanel();
+        /* Film preview must match export: hide terrain when the toggle says so.
+         * Other immersive panels (model/trigger editors, etc.) keep the world visible. */
+        return !isImmersiveWorldPanel() || isFilmPanelOpen();
+    }
+
+    /**
+     * Whether a specific block entity must be skipped while chroma sky is hiding terrain.
+     * Model blocks can opt in (global setting overrides per-block).
+     */
+    public static boolean shouldHideChromaBlockEntity(BlockEntity blockEntity)
+    {
+        if (!shouldHideChromaTerrain())
+        {
+            return false;
+        }
+
+        if (blockEntity instanceof ModelBlockEntity modelBlock)
+        {
+            return !shouldRenderModelBlockOnChroma(modelBlock);
+        }
+
+        return true;
+    }
+
+    /**
+     * Global chroma-sky model-block setting takes precedence over the per-block toggle.
+     */
+    public static boolean shouldRenderModelBlockOnChroma(ModelBlockEntity modelBlock)
+    {
+        if (BBSSettings.chromaSkyModelBlocks.get())
+        {
+            return true;
+        }
+
+        return modelBlock.getProperties().isChromaSky();
+    }
+
+    private static boolean isFilmPanelOpen()
+    {
+        UIBaseMenu menu = UIScreen.getCurrentMenu();
+
+        if (!(menu instanceof UIDashboard dashboard))
+        {
+            return false;
+        }
+
+        return dashboard.getPanels().panel instanceof UIFilmPanel;
     }
 
     public static boolean isChromaSkyEnabled()
@@ -1031,6 +1375,22 @@ public class BBSRendering
         return v == null ? null : (long) (v * 1000L);
     }
 
+    /**
+     * Sun-path yaw in degrees. Film curve (editor or in-world playback) overrides
+     * World Properties when present.
+     */
+    public static float getSunPathRotationDegrees()
+    {
+        Double v = getCurveValue(ShaderCurves.SUN_PATH_ROTATION);
+
+        if (v != null)
+        {
+            return v.floatValue();
+        }
+
+        return WorldPropertiesHelper.getSunPathRotation();
+    }
+
     public static Double getBrightness()
     {
         return getCurveValue(ShaderCurves.BRIGHTNESS);
@@ -1060,11 +1420,63 @@ public class BBSRendering
 
         if (sodium)
         {
-            /* The Sodium consumer path only multiplies the vertex color; paint blending is applied on the vanilla consumer */
-            return (b) -> SodiumUtils.createVertexBuffer(b, color);
+            return (b) -> SodiumUtils.createVertexBuffer(b, color, paintColor);
         }
 
         return (b) -> new RecolorVertexConsumer(b, color, paintColor);
+    }
+
+    public static Function<VertexConsumer, VertexConsumer> getBlockPaintConsumer(Color color, Color paintColor)
+    {
+        if (paintColor == null || paintColor.a == 0F)
+        {
+            return getColorConsumer(color);
+        }
+
+        if (sodium)
+        {
+            return (b) -> new BlockPaintVertexSodiumConsumer(b, color, paintColor);
+        }
+
+        return (b) -> new BlockPaintVertexConsumer(b, color, paintColor);
+    }
+
+    public static Function<VertexConsumer, VertexConsumer> getGlowOverlayConsumer(Color glowColor)
+    {
+        if (sodium)
+        {
+            return (b) -> new GlowEmissionVertexSodiumConsumer(b, glowColor);
+        }
+
+        return (b) -> new GlowEmissionVertexConsumer(b, glowColor);
+    }
+
+    public static Function<VertexConsumer, VertexConsumer> getTextGlowOverlayConsumer(Color glowColor)
+    {
+        if (sodium)
+        {
+            return (b) -> new TextGlowEmissionVertexSodiumConsumer(b, glowColor);
+        }
+
+        return (b) -> new TextGlowEmissionVertexConsumer(b, glowColor);
+    }
+
+    public static Function<VertexConsumer, VertexConsumer> getBlockPaintOverlayConsumer(Color paintColor)
+    {
+        if (sodium)
+        {
+            return (b) -> new BlockPaintOverlayVertexSodiumConsumer(b, paintColor);
+        }
+
+        return (b) -> new BlockPaintOverlayVertexConsumer(b, paintColor);
+    }
+
+    /**
+     * Neutral white vertex colors for block color-tint multiply overlays (tint lives in uniforms).
+     */
+    public static Function<VertexConsumer, VertexConsumer> getBlockColorTintOverlayConsumer()
+    {
+        return getColorConsumer(Color.white());
     }
 
     private static void renderHudOverlays(Batcher2D batcher, ClipContext context, int width, int height)
@@ -1072,42 +1484,58 @@ public class BBSRendering
         List<Subtitle> subtitles = SubtitleClip.getSubtitles(context);
         List<HotbarState> hotbars = HotbarClip.getHotbars(context);
         List<ImageOverlay> images = ImageClip.getImages(context);
+        List<BossBarState> bossBars = BossBarClip.getBossBars(context);
 
-        if (subtitles.isEmpty() && hotbars.isEmpty() && images.isEmpty())
+        if (subtitles.isEmpty() && hotbars.isEmpty() && images.isEmpty() && bossBars.isEmpty())
         {
             return;
         }
 
+        /* Safety net: Subtitle's text FBO can shrink glViewport; restore after the pass. */
+        int[] prevViewport = new int[4];
+
+        GL11.glGetIntegerv(GL11.GL_VIEWPORT, prevViewport);
         RenderSystem.disableDepthTest();
 
         MatrixStack matrices = batcher.getContext().getMatrices();
         int subtitleIndex = 0;
         int hotbarIndex = 0;
         int imageIndex = 0;
+        int bossBarIndex = 0;
 
-        while (subtitleIndex < subtitles.size() || hotbarIndex < hotbars.size() || imageIndex < images.size())
+        while (subtitleIndex < subtitles.size() || hotbarIndex < hotbars.size() || imageIndex < images.size() || bossBarIndex < bossBars.size())
         {
             int subtitleOrder = subtitleIndex < subtitles.size() ? subtitles.get(subtitleIndex).renderOrder : Integer.MAX_VALUE;
             int hotbarOrder = hotbarIndex < hotbars.size() ? hotbars.get(hotbarIndex).renderOrder : Integer.MAX_VALUE;
             int imageOrder = imageIndex < images.size() ? images.get(imageIndex).renderOrder : Integer.MAX_VALUE;
+            int bossBarOrder = bossBarIndex < bossBars.size() ? bossBars.get(bossBarIndex).renderOrder : Integer.MAX_VALUE;
+            int nextOrder = Math.min(Math.min(subtitleOrder, hotbarOrder), Math.min(imageOrder, bossBarOrder));
 
-            if (subtitleOrder <= hotbarOrder && subtitleOrder <= imageOrder)
+            /* Draw lowest renderOrder first so higher timeline layers end up on top. */
+            if (subtitleOrder == nextOrder)
             {
                 UISubtitleRenderer.renderSubtitle(matrices, batcher, subtitles.get(subtitleIndex));
                 subtitleIndex += 1;
             }
-            else if (hotbarOrder <= imageOrder)
+            else if (hotbarOrder == nextOrder)
             {
                 UIHotbarRenderer.renderHotbar(matrices, batcher, hotbars.get(hotbarIndex), 0, 0, width, height);
                 hotbarIndex += 1;
             }
-            else
+            else if (imageOrder == nextOrder)
             {
                 UIImageRenderer.renderImage(matrices, batcher, images.get(imageIndex));
                 imageIndex += 1;
             }
+            else
+            {
+                UIBossBarRenderer.renderBossBar(matrices, batcher, bossBars.get(bossBarIndex), 0, 0, width, height);
+                bossBarIndex += 1;
+            }
         }
 
+        bossBars.clear();
+        GL11.glViewport(prevViewport[0], prevViewport[1], prevViewport[2], prevViewport[3]);
         RenderSystem.enableDepthTest();
     }
 }

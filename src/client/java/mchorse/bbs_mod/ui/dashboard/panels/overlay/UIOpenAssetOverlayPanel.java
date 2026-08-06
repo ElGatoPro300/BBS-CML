@@ -26,6 +26,7 @@ import mchorse.bbs_mod.ui.home.UIHomePanel;
 import mchorse.bbs_mod.ui.model.UIModelPreviewRenderer;
 import mchorse.bbs_mod.ui.utility.audio.UIAudioEditorPanel;
 import mchorse.bbs_mod.ui.utils.UIDataUtils;
+import mchorse.bbs_mod.ui.utils.context.ContextMenuManager;
 import mchorse.bbs_mod.ui.utils.icons.Icon;
 import mchorse.bbs_mod.ui.utils.icons.Icons;
 import mchorse.bbs_mod.utils.Direction;
@@ -63,6 +64,7 @@ public class UIOpenAssetOverlayPanel extends UIOverlayPanel
     private final UIElement breadcrumb;
     private final UITextbox searchBox;
     private final UIIcon backButton;
+    private final UIIcon addButton;
     private final UIIcon dragModeToggle;
     private final UIIcon viewToggle;
 
@@ -131,7 +133,11 @@ public class UIOpenAssetOverlayPanel extends UIOverlayPanel
             this.refreshContent();
         });
         this.searchBox.placeholder(UIKeys.GENERAL_SEARCH);
-        this.searchBox.relative(this.toolbar).x(158).y(4).w(1F, -158 - 4 - 44).h(20);
+        this.searchBox.relative(this.toolbar).x(158).y(4).w(1F, -158 - 4 - 68).h(20);
+
+        this.addButton = new UIIcon(Icons.ADD, (b) -> this.openCreateMenu());
+        this.addButton.tooltip(UIKeys.GENERAL_ADD, Direction.LEFT);
+        this.addButton.relative(this.toolbar).x(1F, -68).y(4).w(20).h(20);
 
         this.dragModeToggle = new UIIcon(Icons.MOVE_TO, (b) -> this.toggleDragMode());
         this.dragModeToggle.tooltip(UIKeys.PANELS_OPEN_DRAG_MODE, Direction.LEFT);
@@ -142,7 +148,7 @@ public class UIOpenAssetOverlayPanel extends UIOverlayPanel
         this.viewToggle.tooltip(UIKeys.RAW_TOGGLE_VIEW, Direction.LEFT);
         this.viewToggle.relative(this.toolbar).x(1F, -20).y(4).w(20).h(20);
 
-        this.toolbar.add(this.backButton, this.breadcrumb, this.searchBox, this.dragModeToggle, this.viewToggle);
+        this.toolbar.add(this.backButton, this.breadcrumb, this.searchBox, this.addButton, this.dragModeToggle, this.viewToggle);
 
         /* ---- Content area ---- */
         this.contentArea = new UIElement();
@@ -205,6 +211,7 @@ public class UIOpenAssetOverlayPanel extends UIOverlayPanel
         this.currentFolder = "";
         this.searchQuery = "";
         this.searchBox.setText("");
+        this.addButton.setVisible(type != null);
         this.loadNames(type);
     }
 
@@ -521,6 +528,27 @@ public class UIOpenAssetOverlayPanel extends UIOverlayPanel
     /* ------------------------------------------------------------------ */
     /* Folder context menu actions                                           */
     /* ------------------------------------------------------------------ */
+
+    private void openCreateMenu()
+    {
+        if (this.currentType == null || this.getContext() == null)
+        {
+            return;
+        }
+
+        this.getContext().replaceContextMenu(this::fillCreateMenu);
+    }
+
+    void fillCreateMenu(ContextMenuManager menu)
+    {
+        if (this.currentType == null)
+        {
+            return;
+        }
+
+        menu.action(Icons.ADD, UIKeys.GENERAL_ADD, this::addAssetPrompt);
+        menu.action(Icons.FOLDER, UIKeys.PANELS_MODALS_ADD_FOLDER_TITLE, this::addFolderPrompt);
+    }
 
     @SuppressWarnings("unchecked")
     void addAssetPrompt()
@@ -1001,16 +1029,7 @@ public class UIOpenAssetOverlayPanel extends UIOverlayPanel
             this.scroll.scrollSpeed = 20;
 
             /* Right-click on blank grid space → add folder */
-            this.context((menu) ->
-            {
-                if (this.owner.currentType != null)
-                {
-                    menu.action(Icons.ADD, UIKeys.GENERAL_ADD,
-                        () -> this.owner.addAssetPrompt());
-                    menu.action(Icons.FOLDER, UIKeys.PANELS_MODALS_ADD_FOLDER_TITLE,
-                        () -> this.owner.addFolderPrompt());
-                }
-            });
+            this.context((menu) -> this.owner.fillCreateMenu(menu));
         }
 
         public void fill(List<String> folders, List<String> files, ContentType type)
@@ -1466,16 +1485,7 @@ public class UIOpenAssetOverlayPanel extends UIOverlayPanel
             this.owner = owner;
             this.scroll.scrollSpeed = 20;
 
-            this.context((menu) ->
-            {
-                if (this.owner.currentType != null)
-                {
-                    menu.action(Icons.ADD, UIKeys.GENERAL_ADD,
-                        () -> this.owner.addAssetPrompt());
-                    menu.action(Icons.FOLDER, UIKeys.PANELS_MODALS_ADD_FOLDER_TITLE,
-                        () -> this.owner.addFolderPrompt());
-                }
-            });
+            this.context((menu) -> this.owner.fillCreateMenu(menu));
         }
 
         public void fill(List<String> folders, List<String> files, ContentType type)

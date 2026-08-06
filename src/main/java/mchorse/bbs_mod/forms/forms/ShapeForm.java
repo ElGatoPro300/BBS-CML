@@ -31,7 +31,7 @@ public class ShapeForm extends Form
     public final ValueInt subdivisions = new ValueInt("subdivisions", 16, 4, 64);
 
     /* Appearance */
-    public final ValueColor color = new ValueColor("color", Color.white());
+    public final ValueColor color = new ValueColor("color", new Color(1F, 1F, 1F, 1F));
     public final ValueLink texture = new ValueLink("texture", null);
     public final ValueFloat textureScale = new ValueFloat("textureScale", 1F);
     public final ValueFloat textureScrollX = new ValueFloat("textureScrollX", 0F);

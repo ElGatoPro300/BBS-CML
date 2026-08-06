@@ -12,6 +12,7 @@ import mchorse.bbs_mod.camera.controller.CameraController;
 import mchorse.bbs_mod.client.BBSRendering;
 import mchorse.bbs_mod.client.BBSShaders;
 import mchorse.bbs_mod.client.PendingFilmLaunch;
+import mchorse.bbs_mod.client.StructurePickerClient;
 import mchorse.bbs_mod.client.renderer.ModelBlockEntityRenderer;
 import mchorse.bbs_mod.client.renderer.TriggerBlockEntityRenderer;
 import mchorse.bbs_mod.client.renderer.entity.ActorEntityRenderer;
@@ -19,14 +20,20 @@ import mchorse.bbs_mod.client.renderer.entity.GunProjectileEntityRenderer;
 import mchorse.bbs_mod.client.renderer.item.GunItemRenderer;
 import mchorse.bbs_mod.client.renderer.item.ModelBlockItemRenderer;
 import mchorse.bbs_mod.cubic.model.ModelManager;
-import mchorse.bbs_mod.cubic.render.vao.ModelVAORenderer;
 import mchorse.bbs_mod.discord.DiscordPresenceManager;
 import mchorse.bbs_mod.events.BBSAddonMod;
 import mchorse.bbs_mod.events.register.RegisterClientSettingsEvent;
+import mchorse.bbs_mod.events.register.RegisterClipInteractionEvent;
 import mchorse.bbs_mod.events.register.RegisterDashboardPanelsEvent;
+import mchorse.bbs_mod.events.register.RegisterDockLayoutEvent;
+import mchorse.bbs_mod.events.register.RegisterFilmControllerInteractionEvent;
 import mchorse.bbs_mod.events.register.RegisterFilmPreviewEvent;
+import mchorse.bbs_mod.events.register.RegisterFilmSyncEvent;
+import mchorse.bbs_mod.events.register.RegisterFormBlendEvent;
 import mchorse.bbs_mod.events.register.RegisterFormCategoriesEvent;
+import mchorse.bbs_mod.events.register.RegisterFormEditorSectionEvent;
 import mchorse.bbs_mod.events.register.RegisterFormEditorsEvent;
+import mchorse.bbs_mod.events.register.RegisterFormRenderPhaseEvent;
 import mchorse.bbs_mod.events.register.RegisterFormsRenderersEvent;
 import mchorse.bbs_mod.events.register.RegisterIconsEvent;
 import mchorse.bbs_mod.events.register.RegisterImportersEvent;
@@ -35,14 +42,17 @@ import mchorse.bbs_mod.events.register.RegisterKeyframeShapesEvent;
 import mchorse.bbs_mod.events.register.RegisterL10nEvent;
 import mchorse.bbs_mod.events.register.RegisterModelLoadersEvent;
 import mchorse.bbs_mod.events.register.RegisterParticleComponentsEvent;
+import mchorse.bbs_mod.events.register.RegisterParticleSchemeUIEvent;
 import mchorse.bbs_mod.events.register.RegisterPropTransformEvent;
 import mchorse.bbs_mod.events.register.RegisterRayTracingEvent;
 import mchorse.bbs_mod.events.register.RegisterReplayListContextMenuEvent;
 import mchorse.bbs_mod.events.register.RegisterReplayPanelEvent;
+import mchorse.bbs_mod.events.register.RegisterSettingsUISectionEvent;
 import mchorse.bbs_mod.events.register.RegisterShadersEvent;
 import mchorse.bbs_mod.events.register.RegisterSourcePacksEvent;
 import mchorse.bbs_mod.events.register.RegisterStencilMapEvent;
 import mchorse.bbs_mod.events.register.RegisterUIKeyframeFactoriesEvent;
+import mchorse.bbs_mod.events.register.RegisterUIThemeEvent;
 import mchorse.bbs_mod.events.register.RegisterUIValueFactoriesEvent;
 import mchorse.bbs_mod.film.BaseFilmController;
 import mchorse.bbs_mod.film.Film;
@@ -78,6 +88,7 @@ import mchorse.bbs_mod.settings.values.IValueListener;
 import mchorse.bbs_mod.text.RtlFontManager;
 import mchorse.bbs_mod.ui.UIKeys;
 import mchorse.bbs_mod.ui.dashboard.UIDashboard;
+import mchorse.bbs_mod.ui.dashboard.WorldPropertiesHelper;
 import mchorse.bbs_mod.ui.dashboard.panels.UIDashboardPanel;
 import mchorse.bbs_mod.ui.film.UIFilmPanel;
 import mchorse.bbs_mod.ui.film.replays.UIMobCaptureRecordOverlayPanel;
@@ -103,6 +114,8 @@ import mchorse.bbs_mod.utils.VideoRecorder;
 import mchorse.bbs_mod.utils.colors.Color;
 import mchorse.bbs_mod.utils.colors.Colors;
 import mchorse.bbs_mod.utils.interps.Interpolations;
+import mchorse.bbs_mod.utils.iris.IrisUtils;
+import mchorse.bbs_mod.utils.iris.ShaderOpacityPatch;
 import mchorse.bbs_mod.utils.resources.MinecraftSourcePack;
 
 import net.fabricmc.api.ClientModInitializer;
@@ -116,6 +129,7 @@ import net.fabricmc.fabric.api.client.rendering.v1.EntityRendererRegistry;
 import net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback;
 import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents;
 import net.fabricmc.fabric.api.event.player.AttackBlockCallback;
+import net.fabricmc.fabric.api.event.player.UseBlockCallback;
 import net.fabricmc.fabric.impl.client.rendering.BlockEntityRendererRegistryImpl;
 import net.fabricmc.loader.api.FabricLoader;
 import net.fabricmc.loader.api.metadata.ContactInformation;
@@ -436,7 +450,32 @@ public class BBSModClient implements ClientModInitializer
                 return ActionResult.SUCCESS;
             }
 
+            if (player.getStackInHand(hand).getItem() == BBSMod.STRUCTURE_PICKER_ITEM)
+            {
+                if (world.isClient)
+                {
+                    return StructurePickerClient.onAttackBlock();
+                }
+
+                return ActionResult.SUCCESS;
+            }
+
             return ActionResult.PASS;
+        });
+
+        UseBlockCallback.EVENT.register((player, world, hand, hitResult) ->
+        {
+            if (!world.isClient)
+            {
+                if (player.getStackInHand(hand).getItem() == BBSMod.STRUCTURE_PICKER_ITEM)
+                {
+                    return ActionResult.SUCCESS;
+                }
+
+                return ActionResult.PASS;
+            }
+
+            return StructurePickerClient.onUseBlock(hitResult, player.isSneaking());
         });
 
         FabricLoader.getInstance()
@@ -480,6 +519,16 @@ public class BBSModClient implements ClientModInitializer
         BBSMod.events.post(new RegisterFilmPreviewEvent());
         BBSMod.events.post(new RegisterReplayListContextMenuEvent());
         BBSMod.events.post(new RegisterReplayPanelEvent());
+        BBSMod.events.post(new RegisterUIThemeEvent());
+        BBSMod.events.post(new RegisterFormEditorSectionEvent());
+        BBSMod.events.post(new RegisterFormRenderPhaseEvent());
+        BBSMod.events.post(new RegisterFormBlendEvent());
+        BBSMod.events.post(new RegisterClipInteractionEvent());
+        BBSMod.events.post(new RegisterDockLayoutEvent(BBSModClient::getDashboard));
+        BBSMod.events.post(new RegisterParticleSchemeUIEvent());
+        BBSMod.events.post(new RegisterFilmControllerInteractionEvent());
+        BBSMod.events.post(new RegisterSettingsUISectionEvent());
+        BBSMod.events.post(new RegisterFilmSyncEvent());
         screenshotRecorder = new ScreenshotRecorder(new File(parentFile, "screenshots"));
         videoRecorder = new VideoRecorder();
         selectors = new EntitySelectors();
@@ -519,6 +568,22 @@ public class BBSModClient implements ClientModInitializer
         BBSSettings.discordPresence.postCallback((v, f) -> DiscordPresenceManager.INSTANCE.onSettingsChanged());
         BBSSettings.discordApplicationId.postCallback((v, f) -> DiscordPresenceManager.INSTANCE.onSettingsChanged());
 
+        if (BBSSettings.irisOpacityFix != null)
+        {
+            BBSSettings.irisOpacityFix.postCallback((v, f) -> IrisUtils.reloadShaders());
+        }
+
+        if (BBSSettings.shaderShadowOpacity != null)
+        {
+            BBSSettings.shaderShadowOpacity.postCallback((v, f) ->
+                ShaderOpacityPatch.syncShadowOpacityDefault());
+        }
+
+        if (BBSSettings.worldGammaPercent != null)
+        {
+            WorldPropertiesHelper.setGammaPercent(BBSSettings.worldGammaPercent.get());
+        }
+
         IValueListener refreshModelHover = (v, f) ->
         {
             if (!UISettingsOverlayPanel.isDeferringLiveSettings())
@@ -536,6 +601,20 @@ public class BBSModClient implements ClientModInitializer
 
         BBSSettings.editorTimelineToolbar.postCallback((v, f) -> TimelineToolbarDockSync.applySettingsChange());
 
+        BBSSettings.editorSeparateReplayPropertiesPanel.postCallback((v, f) ->
+        {
+            if (dashboard != null && dashboard.getPanels().panel instanceof UIFilmPanel panel)
+            {
+                panel.applySeparateReplayPropertiesPanelSetting();
+            }
+        });
+        BBSSettings.editorEmbeddedKeyframeSidePanel.postCallback((v, f) ->
+        {
+            if (dashboard != null && dashboard.getPanels().panel instanceof UIFilmPanel panel)
+            {
+                panel.applyEmbeddedKeyframeSidePanelSetting();
+            }
+        });
         BBSSettings.tooltipStyle.modes(
             UIKeys.ENGINE_TOOLTIP_STYLE_LIGHT,
             UIKeys.ENGINE_TOOLTIP_STYLE_DARK
@@ -545,6 +624,12 @@ public class BBSModClient implements ClientModInitializer
             UIKeys.CONFIG_GENERAL_COMPACTED_OPTIONS_DEFAULT,
             UIKeys.CONFIG_GENERAL_COMPACTED_OPTIONS_SEPARATED,
             UIKeys.CONFIG_GENERAL_COMPACTED_OPTIONS_COMPACTED
+        );
+
+        BBSSettings.gizmoStyle.modes(
+            UIKeys.CONFIG_AXES_GIZMO_STYLE_1,
+            UIKeys.CONFIG_AXES_GIZMO_STYLE_2,
+            UIKeys.CONFIG_AXES_GIZMO_STYLE_3
         );
 
         BBSSettings.editorTimeMode.modes(
@@ -587,10 +672,7 @@ public class BBSModClient implements ClientModInitializer
 
         WorldRenderEvents.AFTER_ENTITIES.register((context) ->
         {
-            if (!BBSRendering.isIrisShadersEnabled())
-            {
-                BBSRendering.renderCoolStuff(context);
-            }
+            BBSRendering.renderCoolStuff(context);
 
             if (BBSRendering.isChromaSkyEnabled())
             {
@@ -642,8 +724,22 @@ public class BBSModClient implements ClientModInitializer
             }
         });
 
+        /* Soft-opacity forms wait until water/lava/portals are drawn; flush here (not inside
+         * renderLayer) so WorldRenderer's pose stack stays balanced. Under Iris this also
+         * runs after pack cloud composite; vanilla holds until LAST (after vanilla clouds). */
+        WorldRenderEvents.AFTER_TRANSLUCENT.register((context) ->
+        {
+            ShaderOpacityPatch.onAfterTranslucentTerrain();
+        });
+
         WorldRenderEvents.LAST.register((context) ->
         {
+            /* Vanilla only: soft forms deferred past AFTER_TRANSLUCENT so clouds are not
+             * depth-occluded. Iris already flushed; paint overlays still run at world end. */
+            ShaderOpacityPatch.onAfterVanillaClouds();
+
+            Draw.flushIrisBoxes();
+
             if (Gizmo.INSTANCE.hasDeferred())
             {
                 RenderSystem.enableDepthTest();
@@ -679,7 +775,11 @@ public class BBSModClient implements ClientModInitializer
         ClientTickEvents.START_CLIENT_TICK.register((client) ->
         {
             BBSRendering.startTick();
-            TriggerBlockEntityRenderer.capturedTriggerBlocks.clear();
+
+            if (!client.isPaused())
+            {
+                TriggerBlockEntityRenderer.capturedTriggerBlocks.clear();
+            }
         });
 
         ClientTickEvents.END_WORLD_TICK.register((client) ->
@@ -716,6 +816,8 @@ public class BBSModClient implements ClientModInitializer
                 gunItemRenderer.update();
                 textures.update();
             }
+
+            StructurePickerClient.tick(mc);
 
             while (keyDashboard.wasPressed()) UIScreen.open(getDashboard());
             while (keyItemEditor.wasPressed()) this.keyOpenModelBlockEditor(mc);
@@ -969,15 +1071,39 @@ public class BBSModClient implements ClientModInitializer
                     return;
                 }
 
-                UIMobCaptureRecordOverlayPanel.openInGame((setup) ->
+                UIFilmPanel filmPanel = dashboard.getPanel(UIFilmPanel.class);
+
+                if (filmPanel == null || filmPanel.getData() == null)
                 {
-                    UIFilmPanel filmPanel = dashboard.getPanel(UIFilmPanel.class);
+                    return;
+                }
 
-                    if (filmPanel == null || filmPanel.getData() == null)
+                if (BBSSettings.recordingMobCaptureOnAlt.get())
+                {
+                    UIMobCaptureRecordOverlayPanel.openInGame((setup) ->
                     {
-                        return;
-                    }
+                        if (filmPanel.getData() == null)
+                        {
+                            return;
+                        }
 
+                        Replay replay = filmPanel.replayEditor.getReplay();
+
+                        if (replay == null)
+                        {
+                            replay = getSelectedReplay();
+                        }
+
+                        int index = filmPanel.getData().replays.getList().indexOf(replay);
+
+                        if (index >= 0)
+                        {
+                            getFilms().startRecording(filmPanel.getData(), index, 0);
+                        }
+                    });
+                }
+                else
+                {
                     Replay replay = filmPanel.replayEditor.getReplay();
 
                     if (replay == null)
@@ -991,7 +1117,7 @@ public class BBSModClient implements ClientModInitializer
                     {
                         getFilms().startRecording(filmPanel.getData(), index, 0);
                     }
-                });
+                }
             }
         }
     }
@@ -1175,14 +1301,12 @@ public class BBSModClient implements ClientModInitializer
         {
             MinecraftClient client = MinecraftClient.getInstance();
 
-            if (client != null && client.options != null && client.options.language != null && !client.options.language.isEmpty())
+            if (client == null || client.options == null)
             {
-                key = client.options.language;
+                return "";
             }
-            else
-            {
-                key = L10n.DEFAULT_LANGUAGE;
-            }
+
+            key = client.options.language;
         }
 
         return key;

@@ -92,6 +92,61 @@ public final class QuaternionMath
         return twist.normalize();
     }
 
+    /**
+     * Shortest-arc alignment without the cubic X-mirror. BOBJ bones do not get a
+     * per-bone Ry(180°) in their armature matrices (only a global render flip), so
+     * mirrored from-to inverts swing for IK on short chains.
+     */
+    public static Quaternionf rotationFromTo(Vector3f restDir, Vector3f desiredDir)
+    {
+        Vector3f a = new Vector3f(restDir).normalize();
+        Vector3f b = new Vector3f(desiredDir).normalize();
+
+        return new Quaternionf().rotationTo(a, b);
+    }
+
+    /**
+     * Frame orientation without the cubic X-mirror — BOBJ IK chain orientations.
+     */
+    public static Quaternionf buildOrientedFrameDirect(Vector3f restDir, Vector3f restNormal, Vector3f toDir, Vector3f toNormal)
+    {
+        Matrix3f rest = orthonormal(restDir, restNormal);
+        Matrix3f to = orthonormal(toDir, toNormal);
+        Matrix3f rot = to.mul(rest.transpose());
+
+        return new Quaternionf().setFromNormalized(rot);
+    }
+
+    private static Matrix3f orthonormal(Vector3f dir, Vector3f normal)
+    {
+        Vector3f u = new Vector3f(dir).normalize();
+        Vector3f w = new Vector3f(u).cross(normal);
+
+        if (w.lengthSquared() < FRAME_EPS)
+        {
+            Vector3f ref = Math.abs(u.x) < 0.9F ? new Vector3f(1F, 0F, 0F) : new Vector3f(0F, 1F, 0F);
+
+            w.set(u).cross(ref);
+        }
+
+        w.normalize();
+
+        Vector3f v = new Vector3f(w).cross(u);
+        Matrix3f m = new Matrix3f();
+
+        m.m00 = u.x;
+        m.m01 = u.y;
+        m.m02 = u.z;
+        m.m10 = v.x;
+        m.m11 = v.y;
+        m.m12 = v.z;
+        m.m20 = w.x;
+        m.m21 = w.y;
+        m.m22 = w.z;
+
+        return m;
+    }
+
     private static Matrix3f mirroredOrthonormal(Vector3f dir, Vector3f normal)
     {
         Vector3f u = new Vector3f(-dir.x, dir.y, dir.z).normalize();

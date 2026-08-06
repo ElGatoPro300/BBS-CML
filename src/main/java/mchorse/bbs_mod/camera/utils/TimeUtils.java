@@ -64,13 +64,14 @@ public class TimeUtils
 
         if (mode == 1)
         {
-            return Math.round(time * 20D);
+            /* Keep sub-tick precision (keyframes support floating-point ticks). */
+            return time * 20D;
         }
         else if (mode == 2)
         {
-            return Math.round(time / BBSSettings.videoSettings.frameRate.get() * 20D);
+            return time / BBSSettings.videoSettings.frameRate.get() * 20D;
         }
 
-        return (int) time;
+        return time;
     }
 }

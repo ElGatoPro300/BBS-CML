@@ -11,4 +11,9 @@ public class SodiumUtils
     {
         return new RecolorVertexSodiumConsumer(b, color);
     }
+
+    public static VertexConsumer createVertexBuffer(VertexConsumer b, Color color, Color paintColor)
+    {
+        return new RecolorVertexSodiumConsumer(b, color, paintColor);
+    }
 }

@@ -40,6 +40,12 @@ public class Keyframe <T> extends BaseValueGroup
      */
     private boolean spectrum;
 
+    /**
+     * Color keyframes only: use the clean deferred Iris opacity path for this form
+     * at the keyframe's opacity (keeps RGB; does not affect other models).
+     */
+    private boolean noshadingOpacity;
+
     private final IKeyframeFactory<T> factory;
 
     public Keyframe(String id, IKeyframeFactory<T> factory, float tick, T value)
@@ -147,6 +153,18 @@ public class Keyframe <T> extends BaseValueGroup
         this.postNotify();
     }
 
+    public boolean isNoshadingOpacity()
+    {
+        return this.noshadingOpacity;
+    }
+
+    public void setNoshadingOpacity(boolean noshadingOpacity)
+    {
+        this.preNotify();
+        this.noshadingOpacity = noshadingOpacity;
+        this.postNotify();
+    }
+
     @Override
     public List<BaseValue> getAll()
     {
@@ -211,6 +229,7 @@ public class Keyframe <T> extends BaseValueGroup
         this.color = keyframe.color;
         this.bend = keyframe.bend;
         this.spectrum = keyframe.spectrum;
+        this.noshadingOpacity = keyframe.noshadingOpacity;
     }
 
     @Override
@@ -255,6 +274,7 @@ public class Keyframe <T> extends BaseValueGroup
         if (this.shape != KeyframeShape.SQUARE) data.putString("shape", this.shape.toString().toUpperCase());
         if (this.bend) data.putBool("bend", true);
         if (this.spectrum) data.putBool("spectrum", true);
+        if (this.noshadingOpacity) data.putBool("noshading_opacity", true);
 
         return data;
     }
@@ -273,6 +293,7 @@ public class Keyframe <T> extends BaseValueGroup
         this.color = null;
         this.bend = false;
         this.spectrum = false;
+        this.noshadingOpacity = false;
 
         if (map.has("tick")) this.tick = map.getFloat("tick");
         if (map.has("duration")) this.duration = map.getFloat("duration");
@@ -286,6 +307,7 @@ public class Keyframe <T> extends BaseValueGroup
         if (map.has("color")) this.color = Color.rgb(map.getInt("color"));
         if (map.has("bend")) this.bend = map.getBool("bend");
         if (map.has("spectrum")) this.spectrum = map.getBool("spectrum");
+        if (map.has("noshading_opacity")) this.noshadingOpacity = map.getBool("noshading_opacity");
     }
 
     public void copyOverExtra(Keyframe<T> a)
@@ -295,5 +317,6 @@ public class Keyframe <T> extends BaseValueGroup
         this.setColor(a.getColor());
         this.setBend(a.isBend());
         this.spectrum = a.spectrum;
+        this.noshadingOpacity = a.noshadingOpacity;
     }
 }

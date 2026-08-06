@@ -48,4 +48,12 @@ public class UIBezierHandles
         this.rx.setValue(TimeUtils.toTime(this.keyframe.rx));
         this.ry.setValue(this.keyframe.ry);
     }
+
+    public void setKeyframe(Keyframe<?> keyframe)
+    {
+        if (keyframe != null)
+        {
+            this.keyframe = keyframe;
+        }
+    }
 }

@@ -30,6 +30,18 @@ public class Animator implements IAnimator
     public ActionPlayback ridingIdle;
     public ActionPlayback dying;
     public ActionPlayback falling;
+    public ActionPlayback swimming;
+    public ActionPlayback swimmingIdle;
+    public ActionPlayback flying;
+    public ActionPlayback flyingIdle;
+    public ActionPlayback gliding;
+    public ActionPlayback crawling;
+    public ActionPlayback crawlingIdle;
+    public ActionPlayback climbing;
+    public ActionPlayback climbingIdle;
+    public ActionPlayback blocking;
+    public ActionPlayback sleeping;
+    public ActionPlayback riptide;
 
     public ActionPlayback jump1;
     public ActionPlayback jump2;
@@ -63,7 +75,9 @@ public class Animator implements IAnimator
     {
         return Arrays.asList(
             "idle", "running", "sprinting", "crouching", "crouching_idle", "riding", "riding_idle", "dying", "falling",
-            "swipe", "jump", "hurt", "land", "shoot", "consume", "base_pre", "base_post"
+            "swipe", "jump", "hurt", "land", "shoot", "consume", "base_pre", "base_post",
+            "swimming", "swimming_idle", "flying", "flying_idle", "gliding",
+            "crawling", "crawling_idle", "climbing", "climbing_idle", "blocking", "sleeping", "riptide"
         );
     }
 
@@ -81,6 +95,18 @@ public class Animator implements IAnimator
         this.ridingIdle = this.createAction(this.ridingIdle, actions.getConfig("riding_idle"), true);
         this.dying = this.createAction(this.dying, actions.getConfig("dying"), false);
         this.falling = this.createAction(this.falling, actions.getConfig("falling"), true);
+        this.swimming = this.createAction(this.swimming, actions.getConfig("swimming"), true);
+        this.swimmingIdle = this.createAction(this.swimmingIdle, actions.getConfig("swimming_idle"), true);
+        this.flying = this.createAction(this.flying, actions.getConfig("flying"), true);
+        this.flyingIdle = this.createAction(this.flyingIdle, actions.getConfig("flying_idle"), true);
+        this.gliding = this.createAction(this.gliding, actions.getConfig("gliding"), true);
+        this.crawling = this.createAction(this.crawling, actions.getConfig("crawling"), true);
+        this.crawlingIdle = this.createAction(this.crawlingIdle, actions.getConfig("crawling_idle"), true);
+        this.climbing = this.createAction(this.climbing, actions.getConfig("climbing"), true);
+        this.climbingIdle = this.createAction(this.climbingIdle, actions.getConfig("climbing_idle"), true);
+        this.blocking = this.createAction(this.blocking, actions.getConfig("blocking"), true);
+        this.sleeping = this.createAction(this.sleeping, actions.getConfig("sleeping"), true);
+        this.riptide = this.createAction(this.riptide, actions.getConfig("riptide"), true);
 
         this.swipe = this.createAction(this.swipe, actions.getConfig("swipe"), false);
         this.jump1 = this.createAction(this.jump1, actions.getConfig("jump"), false, 2);
@@ -245,7 +271,15 @@ public class Animator implements IAnimator
         }
         else
         {
-            if (target.isRiding() || target.isSitting())
+            if (target.isSleeping())
+            {
+                this.setActiveAction(this.sleeping);
+            }
+            else if (target.isUsingRiptide())
+            {
+                this.setActiveAction(this.riptide);
+            }
+            else if (target.isRiding() || target.isSitting())
             {
                 IEntity mount = target.getMountTarget();
                 boolean mountMoves = false;
@@ -276,6 +310,37 @@ public class Animator implements IAnimator
                 {
                     this.setActiveAction(this.idle);
                 }
+            }
+            else if (target.isFallFlying())
+            {
+                if (this.gliding != null)
+                {
+                    this.setActiveAction(this.gliding);
+                }
+                else
+                {
+                    this.setActiveAction(!moves && this.flyingIdle != null ? this.flyingIdle : this.flying);
+                }
+            }
+            else if (target.isSwimming())
+            {
+                this.setActiveAction(!moves && this.swimmingIdle != null ? this.swimmingIdle : this.swimming);
+            }
+            else if (target.isFlying())
+            {
+                this.setActiveAction(!moves && this.flyingIdle != null ? this.flyingIdle : this.flying);
+            }
+            else if (target.isCrawling())
+            {
+                this.setActiveAction(!moves && this.crawlingIdle != null ? this.crawlingIdle : this.crawling);
+            }
+            else if (target.isClimbing())
+            {
+                this.setActiveAction(!moves && this.climbingIdle != null ? this.climbingIdle : this.climbing);
+            }
+            else if (target.isBlocking())
+            {
+                this.setActiveAction(this.blocking);
             }
             else if (target.isSneaking())
             {

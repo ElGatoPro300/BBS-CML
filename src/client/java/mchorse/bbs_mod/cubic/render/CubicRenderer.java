@@ -45,32 +45,27 @@ public class CubicRenderer
     }
 
     /**
-     * Re-render specific groups after the main pass so overlapping stencil picks
+     * Re-render specific groups after the main pass so coplanar / z-tied stencil picks
      * prefer these bones over parents/siblings drawn earlier (e.g. low_body over torso).
+     * Depth testing stays on: closer geometry (e.g. head in front of torso) must keep winning.
      */
     public static void renderStencilPickPriority(ICubicRenderer renderProcessor, BufferBuilder builder, MatrixStack stack, Model model, Collection<String> boneIds)
     {
-        RenderSystem.disableDepthTest();
+        RenderSystem.enableDepthTest();
+        RenderSystem.depthMask(true);
 
-        try
+        for (String boneId : boneIds)
         {
-            for (String boneId : boneIds)
+            ModelGroup group = model.getGroup(boneId);
+
+            if (group != null)
             {
-                ModelGroup group = model.getGroup(boneId);
-
-                if (group != null)
-                {
-                    renderGroupBranch(renderProcessor, builder, stack, model, group);
-                }
+                renderGroupBranch(renderProcessor, builder, stack, model, group);
             }
-        }
-        finally
-        {
-            RenderSystem.enableDepthTest();
         }
     }
 
-    private static void renderGroupBranch(ICubicRenderer renderProcessor, BufferBuilder builder, MatrixStack stack, Model model, ModelGroup target)
+    public static void renderGroupBranch(ICubicRenderer renderProcessor, BufferBuilder builder, MatrixStack stack, Model model, ModelGroup target)
     {
         List<ModelGroup> path = new ArrayList<>();
         ModelGroup current = target;

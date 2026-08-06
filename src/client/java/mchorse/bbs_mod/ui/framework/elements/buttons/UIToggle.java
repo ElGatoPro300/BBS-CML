@@ -6,6 +6,8 @@ import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.ui.framework.elements.utils.Batcher2D;
 import mchorse.bbs_mod.ui.framework.elements.utils.FontRenderer;
 import mchorse.bbs_mod.ui.framework.elements.utils.ITextColoring;
+import mchorse.bbs_mod.ui.framework.theme.IUIStyleProvider;
+import mchorse.bbs_mod.ui.framework.theme.UIThemeManager;
 import mchorse.bbs_mod.ui.utils.icons.Icons;
 import mchorse.bbs_mod.utils.colors.Colors;
 
@@ -108,6 +110,12 @@ public class UIToggle extends UIClickable<UIToggle> implements ITextColoring
     @Override
     protected void renderSkin(UIContext context)
     {
+        IUIStyleProvider theme = UIThemeManager.getActiveTheme();
+
+        if (theme != null && theme.renderToggleSkin(context, this))
+        {
+            return;
+        }
         Batcher2D batcher = context.batcher;
         FontRenderer font = batcher.getFont();
 
@@ -158,8 +166,15 @@ public class UIToggle extends UIClickable<UIToggle> implements ITextColoring
 
         if (!this.isEnabled())
         {
-            batcher.box(this.area.x, this.area.y, this.area.ex(), this.area.ey(), 0xAA000000);
-            batcher.outlinedIcon(Icons.LOCKED, this.area.mx(), this.area.my(), 0.5F, 0.5F);
+            boolean labeled = this.label != null && !this.label.get().isEmpty();
+
+            /* Compact / unlabeled toggles only dim; labeled ones keep the lock cue. */
+            batcher.box(this.area.x, this.area.y, this.area.ex(), this.area.ey(), labeled ? 0xAA000000 : 0x99000000);
+
+            if (labeled)
+            {
+                batcher.outlinedIcon(Icons.LOCKED, this.area.mx(), this.area.my(), 0.5F, 0.5F);
+            }
         }
     }
 }

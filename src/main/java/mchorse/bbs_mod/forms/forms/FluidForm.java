@@ -22,7 +22,6 @@ public class FluidForm extends Form
     public final ValueFloat flowSpeed = new ValueFloat("flowSpeed", 1F);
     public final ValueFloat turbulence = new ValueFloat("turbulence", 0.1F);
     public final ValueColor color = new ValueColor("color", new Color(0.0f, 0.5f, 1.0f, 0.8f));
-    public final ValueFloat opacity = new ValueFloat("opacity", 0.8F);
     public final ValueLink texture = new ValueLink("texture", LinkUtils.create("minecraft:textures/block/water_still.png"));
     public final ValueFloat physicsSensitivity = new ValueFloat("physicsSensitivity", 1F);
     public final ValueInt subdivisions = new ValueInt("subdivisions", 1, 1, 8);
@@ -50,7 +49,6 @@ public class FluidForm extends Form
         this.add(this.flowSpeed);
         this.add(this.turbulence);
         this.add(this.color);
-        this.add(this.opacity);
         this.add(this.texture);
         this.add(this.physicsSensitivity);
         this.add(this.subdivisions);

@@ -7,14 +7,27 @@ import mchorse.bbs_mod.utils.colors.Color;
 import java.util.Objects;
 
 /**
- * Paint color and intensity settings. Intensity is unbounded and may be negative
- * (negative values darken the surface). Legacy paint_color used alpha as opacity.
+ * Paint color and intensity settings. Intensity is clamped to [-1, 1]; negative values
+ * darken the surface. Legacy paint_color used alpha as opacity.
  */
 public class PaintSettings
 {
+    public static final float MIN_INTENSITY = -1F;
+    public static final float MAX_INTENSITY = 1F;
     public static final float SHADER_SHADOW_DEFAULT = 1F;
-    public static final float SHADER_SHADOW_FIX_BUG = 0.005F;
+    /**
+     * Legacy Complementary fringe flag. Must stay high enough to pass Iris/Complementary
+     * shadow-map alpha tests (~0.1); crushing to ~0.001 removed ground shadows entirely.
+     */
+    public static final float SHADER_SHADOW_FIX_BUG = SHADER_SHADOW_DEFAULT;
     public static final float SHADER_SHADOW_FIX_BUG_THRESHOLD = 0.01F;
+    /* Legacy constant; Opacity 0 no longer forces a faint caster silhouette. */
+    public static final float SHADER_SHADOW_ZERO_OPACITY = 0F;
+    /**
+     * Structure forms that are only block entities (chests, beds, …): soft enough to clear the
+     * Complementary cursor speck, but strong enough that a silhouette still casts.
+     */
+    public static final float SHADER_SHADOW_BLOCK_ENTITY = 0.05F;
 
     public float r = 1F;
     public float g = 1F;
@@ -22,6 +35,7 @@ public class PaintSettings
     public float intensity;
     public boolean sync = false;
     public float shaderShadow = SHADER_SHADOW_DEFAULT;
+    public EffectTransform transform = new EffectTransform();
 
     public PaintSettings()
     {}
@@ -36,6 +50,7 @@ public class PaintSettings
         copy.intensity = this.intensity;
         copy.sync = this.sync;
         copy.shaderShadow = this.shaderShadow;
+        copy.transform = this.transform.copy();
 
         return copy;
     }
@@ -50,14 +65,55 @@ public class PaintSettings
         return enabled ? SHADER_SHADOW_FIX_BUG : SHADER_SHADOW_DEFAULT;
     }
 
+    public static float clampIntensity(float value)
+    {
+        return Math.max(MIN_INTENSITY, Math.min(MAX_INTENSITY, value));
+    }
+
+    /**
+     * Maps a legacy paint_color into an intensity value. Non-white RGB with alpha 0
+     * used to mean full-strength paint before intensity lived in {@link PaintSettings}.
+     */
+    public static float resolveLegacyPaintIntensity(Color legacy)
+    {
+        if (legacy == null)
+        {
+            return 0F;
+        }
+
+        if (legacy.a != 0F)
+        {
+            return clampIntensity(legacy.a);
+        }
+
+        if (legacy.r != 1F || legacy.g != 1F || legacy.b != 1F)
+        {
+            return 1F;
+        }
+
+        return 0F;
+    }
+
+    /**
+     * Paint / pose paint no longer softens shadow-map alpha (that killed ground shadows under
+     * Iris). Casting is controlled by {@code Form.shaderShadow} and form opacity only.
+     */
     public static float resolveAutoShaderShadow(float intensity)
     {
-        return intensity != 0F ? SHADER_SHADOW_FIX_BUG : SHADER_SHADOW_DEFAULT;
+        return SHADER_SHADOW_DEFAULT;
     }
 
     public static float resolveAutoShaderShadowForPoseAlpha(float paintAlpha)
     {
-        return paintAlpha != 0F ? SHADER_SHADOW_FIX_BUG : SHADER_SHADOW_DEFAULT;
+        return SHADER_SHADOW_DEFAULT;
+    }
+
+    /**
+     * Shadow-pass alpha follows form display opacity (0 = no ground shadow).
+     */
+    public static float resolveZeroOpacityShaderShadowAlpha(float formAlpha)
+    {
+        return formAlpha;
     }
 
     public float effectiveShaderShadow(Color legacy)
@@ -74,6 +130,11 @@ public class PaintSettings
     {
         out.set(this.r, this.g, this.b, 1F);
 
+        if (this.intensity != 0F)
+        {
+            return;
+        }
+
         if (this.r == 1F && this.g == 1F && this.b == 1F && fallback != null)
         {
             if (fallback.r != 1F || fallback.g != 1F || fallback.b != 1F)
@@ -84,26 +145,14 @@ public class PaintSettings
     }
 
     /**
-     * Returns paint intensity, or a default when only a legacy paint_color tint is set.
+     * Returns paint intensity. {@link #intensity} is always authoritative (including {@code 0} =
+     * paint off). Legacy {@code paint_color} alpha is migrated into {@link #intensity} in
+     * {@code Form.fromData} / FormProperties — do not re-interpret it at render time, or white
+     * {@code paint_color} with alpha 1 (common after dual-write saves) forces full-strength paint.
      */
     public float resolveIntensity(Color legacy)
     {
-        if (this.intensity != 0F)
-        {
-            return this.intensity;
-        }
-
-        if (legacy != null && legacy.a != 0F)
-        {
-            return legacy.a;
-        }
-
-        if (legacy != null && (legacy.r != 1F || legacy.g != 1F || legacy.b != 1F))
-        {
-            return 1F;
-        }
-
-        return 0F;
+        return clampIntensity(this.intensity);
     }
 
     public boolean resolveSync()
@@ -118,7 +167,7 @@ public class PaintSettings
             this.r = map.has("r") ? map.getFloat("r") : 1F;
             this.g = map.has("g") ? map.getFloat("g") : 1F;
             this.b = map.has("b") ? map.getFloat("b") : 1F;
-            this.intensity = map.getFloat("intensity");
+            this.intensity = clampIntensity(map.getFloat("intensity"));
             this.sync = map.getBool("sync", false);
             if (map.has("shaderShadow"))
             {
@@ -135,6 +184,11 @@ public class PaintSettings
             {
                 this.shaderShadow = SHADER_SHADOW_DEFAULT;
             }
+
+            if (map.has("transform"))
+            {
+                this.transform.fromData(map.get("transform"));
+            }
         }
     }
 
@@ -148,6 +202,7 @@ public class PaintSettings
         map.putFloat("intensity", this.intensity);
         map.putBool("sync", this.sync);
         map.putFloat("shaderShadow", this.shaderShadow);
+        map.put("transform", this.transform.toData());
 
         return map;
     }
@@ -170,12 +225,13 @@ public class PaintSettings
             && Float.compare(this.b, that.b) == 0
             && Float.compare(this.intensity, that.intensity) == 0
             && this.sync == that.sync
-            && Float.compare(this.shaderShadow, that.shaderShadow) == 0;
+            && Float.compare(this.shaderShadow, that.shaderShadow) == 0
+            && Objects.equals(this.transform, that.transform);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(this.r, this.g, this.b, this.intensity, this.sync, this.shaderShadow);
+        return Objects.hash(this.r, this.g, this.b, this.intensity, this.sync, this.shaderShadow, this.transform);
     }
 }

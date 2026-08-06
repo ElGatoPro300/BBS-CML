@@ -5,6 +5,7 @@ import mchorse.bbs_mod.l10n.L10n;
 import mchorse.bbs_mod.l10n.keys.IKey;
 import mchorse.bbs_mod.resources.Link;
 import mchorse.bbs_mod.ui.UIKeys;
+import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.ui.framework.elements.UIElement;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIButton;
 import mchorse.bbs_mod.ui.framework.elements.input.list.UIFileLinkList;
@@ -82,11 +83,12 @@ public class UIFolderPickerOverlayPanel extends UIOverlayPanel
         
         this.content.add(this.picker, this.confirmBtn, this.openFolder);
         
-        // Start at assets folder
+        /* Start at assets folder */
         this.picker.setPath(Link.assets(""));
+        this.picker.clearNavigationHistory();
         this.updateOpenFolderButton();
     }
-    
+
     private void confirmSelection()
     {
         File folder = BBSMod.getProvider().getFile(this.picker.path);
@@ -122,13 +124,5 @@ public class UIFolderPickerOverlayPanel extends UIOverlayPanel
     {
         File folder = BBSMod.getProvider().getFile(this.picker.path);
         this.openFolder.setEnabled(folder != null && folder.isDirectory());
-    }
-    
-    @Override
-    public void resize()
-    {
-        super.resize();
-        
-        this.content.wh(500, 350);
     }
 }

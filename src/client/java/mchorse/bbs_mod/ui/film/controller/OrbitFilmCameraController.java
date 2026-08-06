@@ -17,6 +17,7 @@ import mchorse.bbs_mod.graphics.window.Window;
 import mchorse.bbs_mod.ui.Keys;
 import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.ui.utils.Area;
+import mchorse.bbs_mod.ui.utils.Gizmo;
 import mchorse.bbs_mod.ui.utils.keys.KeyAction;
 import mchorse.bbs_mod.ui.utils.keys.KeyCombo;
 import mchorse.bbs_mod.utils.MathUtils;
@@ -65,6 +66,12 @@ public class OrbitFilmCameraController implements ICameraController
     private final Vector3d animToPosition = new Vector3d();
     private final Vector3f animFromRotation = new Vector3f();
     private final Vector3f animToRotation = new Vector3f();
+
+    /* While a gizmo handle is dragged, keep the orbit pose fixed so editing Transform /
+     * Anchor cannot chase the camera (shake + runaway rotation). */
+    private boolean frozenForGizmoDrag;
+    private final Vector3d frozenDragPosition = new Vector3d();
+    private final Vector3f frozenDragRotation = new Vector3f();
 
     public OrbitFilmCameraController(UIFilmController controller)
     {
@@ -154,9 +161,13 @@ public class OrbitFilmCameraController implements ICameraController
             return false;
         }
 
-        if (this.controller.panel.isFlying() || area.isInside(context) || (!this.velocityPosition.equals(0, 0, 0) && context.getKeyAction() == KeyAction.RELEASED) || (!this.velocityAngle.equals(0, 0, 0, 0) && context.getKeyAction() == KeyAction.RELEASED))
+        /* WASD/Space/arrows are flight keys — only while flying. Otherwise Space
+         * (shared with play/pause) is swallowed whenever orbit POV is selected. */
+        boolean flying = this.controller.panel.isFlying();
+
+        if (flying || area.isInside(context) || (!this.velocityPosition.equals(0, 0, 0) && context.getKeyAction() == KeyAction.RELEASED) || (!this.velocityAngle.equals(0, 0, 0, 0) && context.getKeyAction() == KeyAction.RELEASED))
         {
-            if (!this.controller.panel.isFlying() && context.getKeyAction() != KeyAction.RELEASED)
+            if (!flying && context.getKeyAction() != KeyAction.RELEASED)
             {
                 return false;
             }
@@ -291,6 +302,11 @@ public class OrbitFilmCameraController implements ICameraController
                 changed = true;
             }
         }
+        else
+        {
+            this.velocityPosition.set(0, 0, 0);
+            this.velocityAngle.set(0, 0, 0, 0);
+        }
 
         return changed;
     }
@@ -390,7 +406,7 @@ public class OrbitFilmCameraController implements ICameraController
 
         this.syncFromCamera(toCamera, transition);
 
-        if (BBSSettings.editorOrbitNoAnimation.get())
+        if (!BBSSettings.editorOrbitSmoothTransition.get())
         {
             this.animating = false;
             this.animProgress = 1F;
@@ -407,6 +423,10 @@ public class OrbitFilmCameraController implements ICameraController
         this.center = false;
     }
 
+    /**
+     * Mouse drag / scroll / start. Keyboard flight keys are gated separately in
+     * {@link #keyPressed} so Space can still toggle play when not flying.
+     */
     private boolean canInteract()
     {
         if (this.controller.panel.isFlying())
@@ -447,6 +467,25 @@ public class OrbitFilmCameraController implements ICameraController
             return;
         }
 
+        if (Gizmo.INSTANCE.isDragging())
+        {
+            if (!this.frozenForGizmoDrag)
+            {
+                this.computeCamera(camera, transition);
+                this.frozenDragPosition.set(camera.position);
+                this.frozenDragRotation.set(camera.rotation);
+                this.frozenForGizmoDrag = true;
+            }
+            else
+            {
+                camera.position.set(this.frozenDragPosition);
+                camera.rotation.set(this.frozenDragRotation);
+            }
+
+            return;
+        }
+
+        this.frozenForGizmoDrag = false;
         this.computeCamera(camera, transition);
     }
 
@@ -615,6 +654,7 @@ public class OrbitFilmCameraController implements ICameraController
         this.center = false;
         this.animating = false;
         this.animProgress = 0F;
+        this.frozenForGizmoDrag = false;
         this.velocityPosition.set(0);
         this.velocityAngle.set(0);
     }

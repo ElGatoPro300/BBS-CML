@@ -59,6 +59,86 @@ public class ProceduralPoseDefaults
         return pose;
     }
 
+    /**
+     * Vanilla Minecraft shield blocking pose (offhand shield).
+     */
+    public static Pose createStandardBlockingPose()
+    {
+        Pose pose = new Pose();
+
+        pose.get("left_arm").rotate.set(0.7853982F, -0.4363323F, -0.2617994F);
+
+        return pose;
+    }
+
+    /**
+     * Vanilla Minecraft sleeping pose (horizontal lying pose).
+     */
+    public static Pose createStandardSleepingPose()
+    {
+        Pose pose = new Pose();
+
+        pose.get("torso").rotate.set(1.5707964F, 0F, 0F);
+        pose.get("head").rotate.set(0F, 0F, 0F);
+        pose.get("left_arm").rotate.set(1.5707964F, 0F, 0F);
+        pose.get("right_arm").rotate.set(1.5707964F, 0F, 0F);
+        pose.get("left_leg").rotate.set(1.5707964F, 0F, 0F);
+        pose.get("right_leg").rotate.set(1.5707964F, 0F, 0F);
+
+        pose.get("anchor").translate.set(0F, -18F, 0F);
+
+        return pose;
+    }
+
+    /**
+     * Vanilla Minecraft crawling pose (face-down ground posture).
+     */
+    public static Pose createStandardCrawlingPose()
+    {
+        Pose pose = new Pose();
+
+        pose.get("torso").rotate.set(1.5707964F, 0F, 0F);
+        pose.get("head").translate.set(0F, -12F, 0F);
+        pose.get("left_arm").rotate.set(3.1415927F, 0F, 0F);
+        pose.get("right_arm").rotate.set(3.1415927F, 0F, 0F);
+
+        pose.get("anchor").translate.set(0F, -18F, 0F);
+
+        return pose;
+    }
+
+    /**
+     * Vanilla Minecraft swimming pose (horizontal water posture).
+     */
+    public static Pose createStandardSwimmingPose()
+    {
+        Pose pose = new Pose();
+
+        pose.get("torso").rotate.set(1.5707964F, 0F, 0F);
+        pose.get("left_arm").rotate.set(3.1415927F, 0F, 0F);
+        pose.get("right_arm").rotate.set(3.1415927F, 0F, 0F);
+
+        pose.get("anchor").translate.set(0F, -14F, 0F);
+
+        return pose;
+    }
+
+    /**
+     * Vanilla Minecraft elytra gliding pose.
+     */
+    public static Pose createStandardGlidingPose()
+    {
+        Pose pose = new Pose();
+
+        pose.get("torso").rotate.set(1.5707964F, 0F, 0F);
+        pose.get("left_arm").rotate.set(3.1415927F, 0F, 0F);
+        pose.get("right_arm").rotate.set(3.1415927F, 0F, 0F);
+
+        pose.get("anchor").translate.set(0F, -14F, 0F);
+
+        return pose;
+    }
+
     public static Pose applyRidingPoseToModel(IModel model, Pose sourcePose)
     {
         Pose output = applyMappedPoseToModel(model, sourcePose);

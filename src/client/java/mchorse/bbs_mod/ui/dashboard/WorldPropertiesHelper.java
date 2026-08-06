@@ -1,5 +1,7 @@
 package mchorse.bbs_mod.ui.dashboard;
 
+import mchorse.bbs_mod.BBSSettings;
+
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.network.ClientPlayerEntity;
 import net.minecraft.client.world.ClientWorld;
@@ -55,6 +57,11 @@ public class WorldPropertiesHelper
     public static void setGammaPercent(double percent)
     {
         gammaOverride = Math.max(0D, percent) / 100D;
+
+        if (BBSSettings.worldGammaPercent != null)
+        {
+            BBSSettings.worldGammaPercent.set(percent);
+        }
     }
 
     public static Double getGammaOverride()
@@ -72,6 +79,33 @@ public class WorldPropertiesHelper
         MinecraftClient mc = MinecraftClient.getInstance();
 
         return mc.options == null ? 100D : mc.options.getGamma().getValue() * 100D;
+    }
+
+    public static void setSunPathRotation(float degrees)
+    {
+        if (degrees > 180F)
+        {
+            degrees = 180F;
+        }
+        else if (degrees < -180F)
+        {
+            degrees = -180F;
+        }
+
+        if (BBSSettings.worldSunPathRotation != null)
+        {
+            BBSSettings.worldSunPathRotation.set(degrees);
+        }
+    }
+
+    public static float getSunPathRotation()
+    {
+        if (BBSSettings.worldSunPathRotation != null)
+        {
+            return BBSSettings.worldSunPathRotation.get();
+        }
+
+        return 0F;
     }
 
     public static void setNightVision(boolean enabled)

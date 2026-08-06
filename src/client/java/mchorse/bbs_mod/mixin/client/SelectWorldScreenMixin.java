@@ -24,42 +24,58 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 public abstract class SelectWorldScreenMixin
 {
     @Shadow
-    protected int width;
-
-    @Shadow
-    protected int height;
-
-    @Shadow
     protected abstract <T extends Element & Drawable & Selectable> T addDrawableChild(T drawableElement);
 
     @Unique
-    private BBSLogoButtonWidget bbs$logoButton;
+    private BBSLogoButtonWidget bbs$selectWorldLogoButton;
 
     @Inject(method = "init", at = @At("TAIL"))
     private void bbs$addSelectWorldBbsButton(CallbackInfo ci)
     {
-        if (!((Object) this instanceof SelectWorldScreen))
+        if (!((Object) this instanceof SelectWorldScreen screen))
         {
             return;
         }
 
-        this.bbs$logoButton = null;
-        this.bbs$ensureBbsButton();
+        this.bbs$selectWorldLogoButton = null;
+        this.bbs$ensureSelectWorldBbsButton(screen);
+    }
+
+    @Inject(method = "initTabNavigation", at = @At("TAIL"))
+    private void bbs$repositionSelectWorldBbsButton(CallbackInfo ci)
+    {
+        if (!((Object) this instanceof SelectWorldScreen screen))
+        {
+            return;
+        }
+
+        this.bbs$ensureSelectWorldBbsButton(screen);
     }
 
     @Inject(method = "resize", at = @At("TAIL"))
     private void bbs$resizeSelectWorldBbsButton(MinecraftClient client, int width, int height, CallbackInfo ci)
     {
+        if (!((Object) this instanceof SelectWorldScreen screen))
+        {
+            return;
+        }
+
+        this.bbs$ensureSelectWorldBbsButton(screen);
+    }
+
+    @Inject(method = "removed", at = @At("HEAD"))
+    private void bbs$clearSelectWorldBbsButton(CallbackInfo ci)
+    {
         if (!((Object) this instanceof SelectWorldScreen))
         {
             return;
         }
 
-        this.bbs$ensureBbsButton();
+        this.bbs$selectWorldLogoButton = null;
     }
 
     @Unique
-    private void bbs$ensureBbsButton()
+    private void bbs$ensureSelectWorldBbsButton(SelectWorldScreen screen)
     {
         if (MinecraftClient.getInstance().world != null)
         {
@@ -67,13 +83,13 @@ public abstract class SelectWorldScreenMixin
         }
 
         int size = 20;
-        int vanillaLeft = this.width / 2 - 154;
+        int vanillaLeft = screen.width / 2 - 154;
         int x = Math.max(4, vanillaLeft - size - 4);
-        int y = this.height - 52;
+        int y = screen.height - 52;
 
-        if (this.bbs$logoButton == null)
+        if (!this.bbs$isSelectWorldButtonAttached(screen))
         {
-            this.bbs$logoButton = new BBSLogoButtonWidget(x, y, size, size, (button) ->
+            this.bbs$selectWorldLogoButton = new BBSLogoButtonWidget(x, y, size, size, (button) ->
             {
                 UIDashboard dashboard = BBSModClient.getDashboard();
 
@@ -81,14 +97,33 @@ public abstract class SelectWorldScreenMixin
                 UIScreen.open(dashboard);
             });
 
-            this.addDrawableChild(this.bbs$logoButton);
+            this.addDrawableChild(this.bbs$selectWorldLogoButton);
         }
         else
         {
-            this.bbs$logoButton.setX(x);
-            this.bbs$logoButton.setY(y);
-            this.bbs$logoButton.setWidth(size);
-            this.bbs$logoButton.setHeight(size);
+            this.bbs$selectWorldLogoButton.setX(x);
+            this.bbs$selectWorldLogoButton.setY(y);
+            this.bbs$selectWorldLogoButton.setWidth(size);
+            this.bbs$selectWorldLogoButton.setHeight(size);
         }
+    }
+
+    @Unique
+    private boolean bbs$isSelectWorldButtonAttached(SelectWorldScreen screen)
+    {
+        if (this.bbs$selectWorldLogoButton == null)
+        {
+            return false;
+        }
+
+        for (Element element : screen.children())
+        {
+            if (element == this.bbs$selectWorldLogoButton)
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 }

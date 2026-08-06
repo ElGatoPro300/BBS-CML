@@ -38,6 +38,7 @@ public class CurveClip extends CameraClip
         this.add(this.channels);
         this.add(this.chromaSky);
         this.channels.addChannel("sun_rotation");
+        this.channels.addChannel("sun_path_rotation");
     }
 
     @Override
