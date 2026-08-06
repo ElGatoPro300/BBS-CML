@@ -95,17 +95,14 @@ public class FilmEditorController extends BaseFilmController
             int index = replays.indexOf(replay);
             int cursor = this.controller.panel.getCursor();
 
-            BaseValue.runSilent(() ->
-            {
-                MobCemPoseCapture.syncReplay(replay);
-                replay.keyframes.record(cursor, entity, groups);
-                RecorderMobCapture.recordMountKeyframes(replays, index, replay.keyframes, entity, cursor);
+            MobCemPoseCapture.syncReplay(replay);
+            replay.keyframes.record(cursor, entity, groups);
+            RecorderMobCapture.recordMountKeyframes(replays, index, replay.keyframes, entity, cursor);
 
-                if (MobCemPoseCapture.isActive(replay))
-                {
-                    MobCemPoseCapture.recordPoseKeyframe(replay, replay.form.get(), entity, cursor, 0F);
-                }
-            });
+            if (MobCemPoseCapture.isActive(replay))
+            {
+                MobCemPoseCapture.recordPoseKeyframe(replay, replay.form.get(), entity, cursor, 0F);
+            }
 
             if (this.controller.getRecordingCountdown() <= 0 && index >= 0)
             {

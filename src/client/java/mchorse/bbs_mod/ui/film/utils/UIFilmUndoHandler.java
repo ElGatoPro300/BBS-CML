@@ -1,10 +1,8 @@
 package mchorse.bbs_mod.ui.film.utils;
 
 import mchorse.bbs_mod.BBSMod;
-import mchorse.bbs_mod.BBSModClient;
 import mchorse.bbs_mod.data.types.MapType;
 import mchorse.bbs_mod.events.register.RegisterFilmSyncEvent;
-import mchorse.bbs_mod.film.Recorder;
 import mchorse.bbs_mod.network.ClientNetwork;
 import mchorse.bbs_mod.settings.values.base.BaseValue;
 import mchorse.bbs_mod.settings.values.core.ValueGroup;
@@ -200,7 +198,7 @@ public class UIFilmUndoHandler extends UIFormUndoHandler
     @Override
     public void handlePreValues(BaseValue baseValue, int flag)
     {
-        if (this.isUndoing || this.isFilmMetadata(baseValue) || this.isFilmRecording())
+        if (this.isUndoing || this.isFilmMetadata(baseValue))
         {
             return;
         }
@@ -211,14 +209,6 @@ public class UIFilmUndoHandler extends UIFormUndoHandler
     @Override
     public void submitUndo()
     {
-        if (this.isFilmRecording())
-        {
-            this.cachedValues.clear();
-            this.uiData = null;
-
-            return;
-        }
-
         this.pendingSplitUndo = null;
         this.pendingSplitIndex = -1;
         this.cachedValues.keySet().removeIf(this::isFilmMetadata);
@@ -386,28 +376,6 @@ public class UIFilmUndoHandler extends UIFormUndoHandler
         String path = value.getPath().toString();
 
         return path.endsWith("/totalTimeWorked") || path.endsWith("/contributors") || path.contains("/contributors/");
-    }
-
-    /**
-     * While film/world recording is writing dozens of keyframes per tick per mob,
-     * undo snapshots would freeze the integrated server. Recording stop paths
-     * already batch a single notify for undo/sync.
-     */
-    private boolean isFilmRecording()
-    {
-        if (!(this.uiElement instanceof UIFilmPanel panel))
-        {
-            return false;
-        }
-
-        if (panel.getController() != null && panel.getController().isRecording() && panel.getController().getRecordingCountdown() <= 0)
-        {
-            return true;
-        }
-
-        Recorder recorder = BBSModClient.getFilms().getRecorder();
-
-        return recorder != null && !recorder.hasNotStarted();
     }
 
     private boolean isReplayActions(BaseValue value)
