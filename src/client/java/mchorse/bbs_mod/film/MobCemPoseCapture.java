@@ -61,7 +61,7 @@ public class MobCemPoseCapture
             return;
         }
 
-        MobCemPoseCapture.applySampledPose(replay, resolved, sampled, tick);
+        MobCemPoseCapture.applySampledPose(resolved, sampled);
     }
 
     public static void recordPoseKeyframe(Replay replay, Form form, IEntity entity, int tick, float transition)
@@ -144,7 +144,7 @@ public class MobCemPoseCapture
         return form;
     }
 
-    private static void applySampledPose(Replay replay, Form form, Pose sampled, float tick)
+    private static void applySampledPose(Form form, Pose sampled)
     {
         ValuePose valuePose = MobCemPoseCapture.getPoseValue(form);
 
@@ -156,8 +156,8 @@ public class MobCemPoseCapture
         Pose merged = valuePose.get().copy();
 
         MobCemPoseCapture.mergeSampledPose(merged, sampled);
+        /* Runtime only — keyframes are written by recordPoseKeyframe() while recording. */
         valuePose.setRuntimeValue(merged);
-        MobCemPoseCapture.insertPoseKeyframe(replay.properties, form, (float) Math.floor(tick), sampled);
     }
 
     private static ValuePose getPoseValue(Form form)
