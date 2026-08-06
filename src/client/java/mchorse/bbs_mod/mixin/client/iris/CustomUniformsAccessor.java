@@ -9,9 +9,6 @@ import java.util.List;
 @Mixin(CustomUniforms.class)
 public interface CustomUniformsAccessor
 {
-    @Accessor(value = "uniforms", remap = false)
-    public List bbs$uniforms();
-
     @Accessor(value = "uniformOrder", remap = false)
     public List bbs$uniformOrder();
 }

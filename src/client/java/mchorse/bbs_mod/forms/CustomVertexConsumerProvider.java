@@ -2,7 +2,7 @@ package mchorse.bbs_mod.forms;
 
 import com.mojang.blaze3d.systems.RenderSystem;
 import mchorse.bbs_mod.forms.renderers.utils.RecolorVertexConsumer;
-import net.minecraft.client.render.BufferBuilder;
+import net.minecraft.client.util.BufferAllocator;
 import net.minecraft.client.render.RenderLayer;
 import net.minecraft.client.render.VertexConsumer;
 import net.minecraft.client.render.VertexConsumerProvider;
@@ -37,7 +37,7 @@ public class CustomVertexConsumerProvider extends VertexConsumerProvider.Immedia
         runnables = null;
     }
 
-    public CustomVertexConsumerProvider(BufferBuilder fallback, Map<RenderLayer, BufferBuilder> layers)
+    public CustomVertexConsumerProvider(BufferAllocator fallback, java.util.SequencedMap<RenderLayer, BufferAllocator> layers)
     {
         super(fallback, layers);
     }

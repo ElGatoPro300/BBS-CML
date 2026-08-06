@@ -68,7 +68,7 @@ public class UIBlockStateEditor extends UIElement
 
     private void setBlock(String blockID)
     {
-        Identifier id = new Identifier(blockID);
+        Identifier id = Identifier.of(blockID);
         BlockState blockState = Registries.BLOCK.get(id).getDefaultState();
 
         this.acceptBlockState(blockState);

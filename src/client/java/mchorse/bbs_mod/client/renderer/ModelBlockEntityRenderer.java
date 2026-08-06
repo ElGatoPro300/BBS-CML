@@ -158,7 +158,7 @@ public class ModelBlockEntityRenderer implements BlockEntityRenderer<ModelBlockE
 
         RenderSystem.disableDepthTest();
 
-        if (MinecraftClient.getInstance().options.debugEnabled)
+        if (mc.getDebugHud().shouldShowDebugHud())
         {
             Draw.renderBox(matrices, -0.5D, 0, -0.5D, 1, 1, 1, 0, 0.5F, 1F, 0.5F);
         }

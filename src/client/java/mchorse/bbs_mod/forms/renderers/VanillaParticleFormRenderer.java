@@ -61,23 +61,19 @@ public class VanillaParticleFormRenderer extends FormRenderer<VanillaParticleFor
     {
         super.render3D(context);
 
-        Camera camera = MinecraftClient.getInstance().gameRenderer.getCamera();
-        Matrix4f matrix = new Matrix4f(RenderSystem.getInverseViewRotationMatrix());
+        Matrix4f positionMatrix = new Matrix4f(context.stack.peek().getPositionMatrix());
+        Vector3f translation = positionMatrix.getTranslation(new Vector3f());
 
-        matrix.mul(context.stack.peek().getPositionMatrix());
+        this.pos.set(
+            translation.x + context.camera.position.x,
+            translation.y + context.camera.position.y,
+            translation.z + context.camera.position.z
+        );
 
-        Vector3d translation = new Vector3d(matrix.getTranslation(Vectors.TEMP_3F));
+        positionMatrix.get3x3(this.rot);
 
-        translation.add(camera.getPos().x, camera.getPos().y, camera.getPos().z);
-        context.stack.push();
-        context.stack.loadIdentity();
-        context.stack.multiplyPositionMatrix(new Matrix4f(RenderSystem.getInverseViewRotationMatrix()).invert());
-
-        this.pos.set(translation);
         this.vel.set(0F, 0F, 1F);
-        this.rot.set(matrix).transform(this.vel);
-
-        context.stack.pop();
+        this.rot.transform(this.vel);
     }
 
     @Override
@@ -98,18 +94,13 @@ public class VanillaParticleFormRenderer extends FormRenderer<VanillaParticleFor
                 Matrix3f m = Matrices.TEMP_3F;
                 Vector3f v = Vectors.TEMP_3F;
                 ParticleSettings settings = this.form.settings.get();
-                ParticleType type = Registries.PARTICLE_TYPE.get(settings.particle);
+                ParticleType<?> type = Registries.PARTICLE_TYPE.get(settings.particle);
                 ParticleEffect effect = ParticleTypes.FLAME;
 
-                try
+                if (type instanceof net.minecraft.particle.SimpleParticleType simple)
                 {
-                    if (type != null)
-                    {
-                        effect = type.getParametersFactory().read(type, new StringReader(" " + settings.arguments));
-                    }
+                    effect = simple;
                 }
-                catch (Exception e)
-                {}
 
                 for (int i = 0; i < count; i++)
                 {

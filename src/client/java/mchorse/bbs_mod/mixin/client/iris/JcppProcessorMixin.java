@@ -9,7 +9,7 @@ import org.spongepowered.asm.mixin.injection.ModifyVariable;
 @Mixin(JcppProcessor.class)
 public class JcppProcessorMixin
 {
-    @ModifyVariable(method = "glslPreprocessSource", at = @At("HEAD"), ordinal = 0, remap = false)
+    @ModifyVariable(method = "glslPreprocessSource", at = @At("HEAD"), ordinal = 0, remap = false, require = 0)
     private static String returnClean(String source)
     {
         return ShaderCurves.processSource(source);

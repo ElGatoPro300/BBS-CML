@@ -27,9 +27,9 @@ public class DiamondKeyframeShapeRenderer implements IKeyframeShapeRenderer
     {
         float fOffset = offset * 1.5F;
 
-        builder.vertex(matrix, x, y - fOffset, 0F).color(c).next();
-        builder.vertex(matrix, x - fOffset, y, 0F).color(c).next();
-        builder.vertex(matrix, x, y + fOffset, 0F).color(c).next();
-        builder.vertex(matrix, x + fOffset, y, 0F).color(c).next();
+        builder.vertex(matrix, x, y - fOffset, 0F).color(c);
+        builder.vertex(matrix, x - fOffset, y, 0F).color(c);
+        builder.vertex(matrix, x, y + fOffset, 0F).color(c);
+        builder.vertex(matrix, x + fOffset, y, 0F).color(c);
     }
 }

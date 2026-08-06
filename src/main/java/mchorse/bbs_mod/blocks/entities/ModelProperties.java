@@ -24,6 +24,7 @@ public class ModelProperties implements IMapSerializable
     private boolean global;
     private boolean shadow;
     private boolean lookAt;
+    private boolean hitbox;
 
     public Form getForm()
     {
@@ -135,6 +136,16 @@ public class ModelProperties implements IMapSerializable
         this.lookAt = lookAt;
     }
 
+    public boolean isHitbox()
+    {
+        return this.hitbox;
+    }
+
+    public void setHitbox(boolean hitbox)
+    {
+        this.hitbox = hitbox;
+    }
+
     public Form getForm(ModelTransformationMode mode)
     {
         Form form = this.form;
@@ -192,6 +203,7 @@ public class ModelProperties implements IMapSerializable
         this.shadow = data.getBool("shadow");
         this.global = data.getBool("global");
         this.lookAt = data.getBool("look_at");
+        this.hitbox = data.getBool("hitbox");
     }
 
     @Override
@@ -211,6 +223,7 @@ public class ModelProperties implements IMapSerializable
         data.putBool("shadow", this.shadow);
         data.putBool("global", this.global);
         data.putBool("look_at", this.lookAt);
+        data.putBool("hitbox", this.hitbox);
     }
 
     public void update(IEntity entity)

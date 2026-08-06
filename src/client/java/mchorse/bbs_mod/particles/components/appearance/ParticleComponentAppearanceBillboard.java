@@ -391,8 +391,14 @@ public class ParticleComponentAppearanceBillboard extends ParticleComponentBase 
             builder.vertex(matrix, vertex.x, vertex.y, vertex.z)
                 .texture(u, v)
                 .color(particle.r, particle.g, particle.b, particle.a)
-                .light(this.light)
-                .next();
+                .light(this.light);
+        }
+        else if (format == VertexFormats.POSITION_TEXTURE_COLOR)
+        {
+            /* VertexFormats.POSITION_TEXTURE_COLOR */
+            builder.vertex(matrix, vertex.x, vertex.y, vertex.z)
+                .texture(u, v)
+                .color(particle.r, particle.g, particle.b, particle.a);
         }
         else
         {
@@ -402,8 +408,7 @@ public class ParticleComponentAppearanceBillboard extends ParticleComponentBase 
                 .texture(u, v)
                 .overlay(overlay)
                 .light(this.light)
-                .normal(this.n.x, this.n.y, this.n.z)
-                .next();
+                .normal(this.n.x, this.n.y, this.n.z);
         }
     }
 
@@ -454,8 +459,7 @@ public class ParticleComponentAppearanceBillboard extends ParticleComponentBase 
     {
         builder.vertex(matrix, vertex.x, vertex.y, 0F)
             .texture(u, v)
-            .color(particle.r, particle.g, particle.b, particle.a)
-            .next();
+            .color(particle.r, particle.g, particle.b, particle.a);
     }
 
     public void calculateUVs(Particle particle, ParticleEmitter emitter, float transition)

@@ -52,6 +52,8 @@ public class UIScreen extends Screen implements IFileDropListener
 
         MinecraftClient mc = MinecraftClient.getInstance();
 
+        this.client = mc;
+
         this.menu = menu;
         this.context = new UIRenderingContext(new DrawContext(mc, mc.getBufferBuilders().getEntityVertexConsumers()));
 
@@ -153,15 +155,10 @@ public class UIScreen extends Screen implements IFileDropListener
         return this.menu.mouseClicked((int) mouseX, (int) mouseY, button);
     }
 
-    public void setHorizontal(double horizontal)
-    {
-        this.menu.context.mouseWheelHorizontal = horizontal;
-    }
-
     @Override
-    public boolean mouseScrolled(double mouseX, double mouseY, double verticalAmount)
+    public boolean mouseScrolled(double mouseX, double mouseY, double horizontalAmount, double verticalAmount)
     {
-        return this.menu.mouseScrolled((int) mouseX, (int) mouseY, verticalAmount);
+        return this.menu.mouseScrolled((int) mouseX, (int) mouseY, horizontalAmount, verticalAmount);
     }
 
     @Override
@@ -191,7 +188,7 @@ public class UIScreen extends Screen implements IFileDropListener
     }
 
     @Override
-    public void renderBackground(DrawContext context)
+    public void renderBackground(DrawContext context, int mouseX, int mouseY, float delta)
     {}
 
     @Override
@@ -199,7 +196,7 @@ public class UIScreen extends Screen implements IFileDropListener
     {
         super.render(context, mouseX, mouseY, delta);
 
-        this.menu.context.setTransition(this.client.getTickDelta());
+        this.menu.context.setTransition(this.client.getRenderTickCounter().getTickDelta(false));
         this.menu.renderMenu(this.context, mouseX, mouseY);
         this.menu.context.render.executeRunnables();
     }

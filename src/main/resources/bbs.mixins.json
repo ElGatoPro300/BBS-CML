@@ -1,7 +1,7 @@
 {
     "required": true,
     "package": "mchorse.bbs_mod.mixin",
-    "compatibilityLevel": "JAVA_17",
+    "compatibilityLevel": "JAVA_21",
     "mixins": [
         "PlayerEntityMixin",
         "PlayerEntityMorphMixin",
@@ -13,7 +13,8 @@
         "LivingEntityMixin",
         "ServerPlayerEntityMixin",
         "LimbAnimatorAccessor",
-        "LevelPropertiesAccessor"
+        "LevelPropertiesAccessor",
+        "EntityMixin"
     ],
     "injectors": {
         "defaultRequire": 1
