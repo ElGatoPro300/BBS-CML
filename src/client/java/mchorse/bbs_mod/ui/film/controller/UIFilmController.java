@@ -758,10 +758,10 @@ public class UIFilmController extends UIElement
 
         this.panel.replayEditor.setReplay(this.panel.getData().replays.getList().get(index));
 
-        if (!this.panel.replayEditor.isVisible())
-        {
-            this.panel.showPanel(this.panel.replayEditor);
-        }
+        /* Switch to the replay/keyframes tab even when another timeline tab is active. */
+        this.panel.focusPanelTab("replayTimeline");
+        this.panel.focusLinkedPropertiesTab("replayTimeline");
+        this.panel.showPanel(this.panel.replayEditor);
     }
 
     @Override
