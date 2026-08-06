@@ -66,7 +66,7 @@ public class UISelectorsOverlayPanel extends UIOverlayPanel
 
             try
             {
-                this.current.entity = id.isEmpty() ? null : new Identifier(id);
+                this.current.entity = id.isEmpty() ? null : Identifier.of(id);
             }
             catch (Exception e)
             {

@@ -124,12 +124,47 @@ public class ParticleFormRenderer extends FormRenderer<ParticleForm> implements 
 
             this.updateTexture(context.getTransition());
 
-            Matrix4f matrix = new Matrix4f(RenderSystem.getInverseViewRotationMatrix());
+            boolean useGameCamera = !context.modelRenderer && context.type != FormRenderType.PREVIEW;
+            
+            if (useGameCamera)
+            {
+                /* For game rendering, use the main camera for emitter properties to ensure
+                 * correct yaw/pitch for billboards (avoiding 180 degree flip in Camera wrapper) */
+                emitter.setupCameraProperties(MinecraftClient.getInstance().gameRenderer.getCamera());
+            }
+            else
+            {
+                if (context.modelRenderer)
+                {
+                    float originalPitch = context.camera.rotation.x;
+                    float originalYaw = context.camera.rotation.y;
+                    double originalX = context.camera.position.x;
+                    double originalY = context.camera.position.y;
+                    double originalZ = context.camera.position.z;
 
-            matrix.mul(context.stack.peek().getPositionMatrix());
+                    context.camera.rotation.set(0, 0, 0);
+                    context.camera.position.set(0, 0, 0);
 
-            Vector3d translation = new Vector3d(matrix.getTranslation(Vectors.TEMP_3F));
-            translation.add(context.camera.position.x, context.camera.position.y, context.camera.position.z);
+                    emitter.setupCameraProperties(context.camera);
+
+                    context.camera.rotation.x = originalPitch;
+                    context.camera.rotation.y = originalYaw;
+                    context.camera.position.set(originalX, originalY, originalZ);
+                }
+                else
+                {
+                    emitter.setupCameraProperties(context.camera);
+                }
+            }
+
+            Matrix4f modelMatrix = new Matrix4f(context.stack.peek().getPositionMatrix());
+
+            Vector3d translation = new Vector3d(modelMatrix.getTranslation(Vectors.TEMP_3F));
+            
+            if (!context.modelRenderer)
+            {
+                translation.add(context.camera.position.x, context.camera.position.y, context.camera.position.z);
+            }
 
             GameRenderer gameRenderer = MinecraftClient.getInstance().gameRenderer;
 
@@ -138,21 +173,20 @@ public class ParticleFormRenderer extends FormRenderer<ParticleForm> implements 
 
             context.stack.push();
             context.stack.loadIdentity();
-            context.stack.multiplyPositionMatrix(new Matrix4f(RenderSystem.getInverseViewRotationMatrix()).invert());
 
             emitter.lastGlobal.set(translation);
-            emitter.rotation.set(matrix);
-
+            emitter.rotation.set(modelMatrix);
+            
             if (!BBSRendering.isIrisShadowPass())
             {
                 boolean shadersEnabled = BBSRendering.isIrisShadersEnabled();
+                boolean billboard = shadersEnabled;
 
-                VertexFormat format = shadersEnabled ? VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL : VertexFormats.POSITION_TEXTURE_COLOR_LIGHT;
-                Supplier<ShaderProgram> shader = shadersEnabled
+                VertexFormat format = billboard ? VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL : VertexFormats.POSITION_TEXTURE_COLOR_LIGHT;
+                Supplier<ShaderProgram> shader = billboard
                     ? this.getShader(context, GameRenderer::getRenderTypeEntityTranslucentProgram, BBSShaders::getPickerBillboardProgram)
                     : this.getShader(context, GameRenderer::getParticleProgram, BBSShaders::getPickerParticlesProgram);
 
-                emitter.setupCameraProperties(context.camera);
                 emitter.render(format, shader, context.stack, context.overlay, context.getTransition());
             }
 

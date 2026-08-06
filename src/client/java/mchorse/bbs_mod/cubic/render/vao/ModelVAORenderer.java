@@ -3,6 +3,7 @@ package mchorse.bbs_mod.cubic.render.vao;
 import com.mojang.blaze3d.systems.RenderSystem;
 import net.minecraft.client.gl.GlUniform;
 import net.minecraft.client.gl.ShaderProgram;
+import net.minecraft.client.render.GameRenderer;
 import net.minecraft.client.render.VertexFormats;
 import net.minecraft.client.util.math.MatrixStack;
 import org.joml.Matrix4f;
@@ -51,11 +52,6 @@ public class ModelVAORenderer
         if (normalUniform != null)
         {
             normalUniform.set(stack.peek().getNormalMatrix());
-        }
-
-        if (shader.viewRotationMat != null)
-        {
-            shader.viewRotationMat.set(RenderSystem.getInverseViewRotationMatrix());
         }
 
         if (shader.fogStart != null)

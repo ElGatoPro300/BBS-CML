@@ -17,6 +17,7 @@ import net.minecraft.nbt.NbtOps;
 import net.minecraft.nbt.StringNbtReader;
 import net.minecraft.registry.Registries;
 import net.minecraft.registry.RegistryKey;
+import net.minecraft.component.DataComponentTypes;
 import net.minecraft.text.Text;
 import net.minecraft.util.Identifier;
 
@@ -54,7 +55,7 @@ public class UIItemStackOverlayPanel extends UIOverlayPanel
         this.stack = stack.copy();
         this.name = new UITextbox(1000, (v) ->
         {
-            this.stack.setCustomName(Text.literal(v));
+            this.stack.set(DataComponentTypes.CUSTOM_NAME, Text.literal(v));
             this.pickItemStack(this.stack);
             this.updateNbt();
         });
@@ -71,7 +72,7 @@ public class UIItemStackOverlayPanel extends UIOverlayPanel
             try
             {
                 NbtCompound nbtCompound = new StringNbtReader(new StringReader(v)).parseCompound();
-                ItemStack itemStack = ItemStack.fromNbt(nbtCompound);
+                ItemStack itemStack = ItemStack.CODEC.parse(NbtOps.INSTANCE, nbtCompound).result().orElse(ItemStack.EMPTY);
 
                 this.pickItemStack(itemStack);
                 this.itemList.list.setCurrentScroll(Registries.ITEM.getId(this.stack.getItem()).toString());
@@ -101,7 +102,7 @@ public class UIItemStackOverlayPanel extends UIOverlayPanel
 
     private void updateNbt()
     {
-        this.nbt.setText((ItemStack.CODEC.encodeStart(NbtOps.INSTANCE, this.stack).result().get()).asString());
+        this.nbt.setText(ItemStack.CODEC.encodeStart(NbtOps.INSTANCE, this.stack).result().map(net.minecraft.nbt.NbtElement::asString).orElse("{}"));
     }
 
     private void pickItemStack(ItemStack itemStack)
@@ -114,7 +115,7 @@ public class UIItemStackOverlayPanel extends UIOverlayPanel
 
     private void setItem(String s)
     {
-        this.stack = new ItemStack(Registries.ITEM.get(new Identifier(s)));
+        this.stack = new ItemStack(Registries.ITEM.get(Identifier.of(s)));
 
         this.pickItemStack(this.stack);
         this.updateNbt();

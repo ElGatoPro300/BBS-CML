@@ -18,14 +18,13 @@ import net.irisshaders.iris.shaderpack.option.menu.OptionMenuElementScreen;
 import net.irisshaders.iris.shaderpack.option.menu.OptionMenuLinkElement;
 import net.irisshaders.iris.shaderpack.option.menu.OptionMenuOptionElement;
 import net.irisshaders.iris.shaderpack.properties.ShaderProperties;
-import net.irisshaders.iris.texture.TextureTracker;
-import net.irisshaders.iris.texture.pbr.loader.PBRTextureLoaderRegistry;
 import net.irisshaders.iris.uniforms.custom.cached.CachedUniform;
 import net.irisshaders.iris.uniforms.custom.cached.FloatCachedUniform;
 import net.irisshaders.iris.uniforms.custom.cached.IntCachedUniform;
 import net.irisshaders.iris.vertices.NormI8;
 import net.irisshaders.iris.vertices.NormalHelper;
 import net.irisshaders.iris.vertices.views.TriView;
+import net.minecraft.client.texture.AbstractTexture;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -34,6 +33,9 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.lang.reflect.Method;
+import java.lang.reflect.Proxy;
+import java.lang.reflect.Constructor;
 
 public class IrisUtils
 {
@@ -137,7 +139,155 @@ public class IrisUtils
 
     public static void setup()
     {
-        PBRTextureLoaderRegistry.INSTANCE.register(IrisTextureWrapper.class, new IrisTextureWrapperLoader());
+        try
+        {
+            Class<?> registryClass;
+            Class<?> loaderInterface;
+
+            try
+            {
+                registryClass = Class.forName("net.irisshaders.iris.pbr.loader.PBRTextureLoaderRegistry");
+                loaderInterface = Class.forName("net.irisshaders.iris.pbr.loader.PBRTextureLoader");
+            }
+            catch (ClassNotFoundException e)
+            {
+                registryClass = Class.forName("net.irisshaders.iris.texture.pbr.loader.PBRTextureLoaderRegistry");
+                loaderInterface = Class.forName("net.irisshaders.iris.texture.pbr.loader.PBRTextureLoader");
+            }
+
+            Object registryInstance = registryClass.getField("INSTANCE").get(null);
+            Method register = registryClass.getMethod("register", Class.class, loaderInterface);
+
+            Class<?> pbrTypeClass;
+            try
+            {
+                pbrTypeClass = Class.forName("net.irisshaders.iris.pbr.texture.PBRType");
+            }
+            catch (ClassNotFoundException e1)
+            {
+                try
+                {
+                    pbrTypeClass = Class.forName("net.irisshaders.iris.pbr.PBRType");
+                }
+                catch (ClassNotFoundException e2)
+                {
+                    pbrTypeClass = Class.forName("net.irisshaders.iris.texture.pbr.PBRType");
+                }
+            }
+
+            Class<?> singleColorClass = Class.forName("net.irisshaders.iris.targets.backed.NativeImageBackedSingleColorTexture");
+
+            Method loadMethod = null;
+            for (Method m : loaderInterface.getMethods())
+            {
+                if (m.getName().equals("load") && m.getParameterTypes().length == 3)
+                {
+                    loadMethod = m;
+                    break;
+                }
+            }
+
+            final Method finalLoadMethod = loadMethod;
+            final Class<?> consumerClass = loadMethod != null ? loadMethod.getParameterTypes()[2] : null;
+            final Method acceptNormal;
+            final Method acceptSpecular;
+            Method acceptGeneric = null;
+            if (consumerClass != null)
+            {
+                Method aNormal = null;
+                Method aSpec = null;
+                for (Method mth : consumerClass.getMethods())
+                {
+                    Class<?>[] pts = mth.getParameterTypes();
+                    if (pts.length == 1 && AbstractTexture.class.isAssignableFrom(pts[0]))
+                    {
+                        String nm = mth.getName().toLowerCase();
+                        if (nm.contains("normal")) aNormal = mth;
+                        if (nm.contains("specular")) aSpec = mth;
+                    }
+                    else if (pts.length == 2 && pts[0].isEnum() && AbstractTexture.class.isAssignableFrom(pts[1]))
+                    {
+                        acceptGeneric = mth;
+                    }
+                }
+                acceptNormal = aNormal;
+                acceptSpecular = aSpec;
+            }
+            else
+            {
+                acceptNormal = null;
+                acceptSpecular = null;
+            }
+
+            final Method getDefaultValue = pbrTypeClass.getMethod("getDefaultValue");
+            final Object normalEnum = Enum.valueOf((Class<Enum>) pbrTypeClass.asSubclass(Enum.class), "NORMAL");
+            final Object specularEnum = Enum.valueOf((Class<Enum>) pbrTypeClass.asSubclass(Enum.class), "SPECULAR");
+
+            final Object[] defaults = new Object[2];
+
+            final Method finalAcceptGeneric = acceptGeneric;
+
+            Object proxy = Proxy.newProxyInstance(
+                loaderInterface.getClassLoader(),
+                new Class<?>[]{loaderInterface},
+                (p, m, args) -> {
+                    if (finalLoadMethod != null && m.getName().equals("load") && args != null && args.length == 3)
+                    {
+                        Object textureObj = args[0];
+                        Object consumer = args[2];
+
+                        if (defaults[0] == null || defaults[1] == null)
+                        {
+                            Object normalDefault = getDefaultValue.invoke(normalEnum);
+                            Object specDefault = getDefaultValue.invoke(specularEnum);
+
+                            Constructor<?> chosenN = null;
+                            Constructor<?> chosenS = null;
+                            for (Constructor<?> c : singleColorClass.getConstructors())
+                            {
+                                Class<?>[] pt = c.getParameterTypes();
+                                if (pt.length == 1)
+                                {
+                                    if (chosenN == null) chosenN = c;
+                                    if (chosenS == null) chosenS = c;
+                                }
+                            }
+
+                            defaults[0] = chosenN != null ? chosenN.newInstance(normalDefault) : null;
+                            defaults[1] = chosenS != null ? chosenS.newInstance(specDefault) : null;
+                        }
+
+                        if (textureObj instanceof IrisTextureWrapper wrapper)
+                        {
+                            IrisTextureWrapperLoader helper = new IrisTextureWrapperLoader();
+                            Link normalKey = helper.createPrefixedCopy(wrapper.texture, "_n.png");
+                            Link specularKey = helper.createPrefixedCopy(wrapper.texture, "_s.png");
+
+                            IrisTextureWrapper normalWrapper = new IrisTextureWrapper(normalKey, (AbstractTexture) defaults[0], wrapper.index);
+                            IrisTextureWrapper specWrapper = new IrisTextureWrapper(specularKey, (AbstractTexture) defaults[1], wrapper.index);
+
+                            if (acceptNormal != null) acceptNormal.invoke(consumer, normalWrapper);
+                            if (acceptSpecular != null) acceptSpecular.invoke(consumer, specWrapper);
+                            if (finalAcceptGeneric != null)
+                            {
+                                finalAcceptGeneric.invoke(consumer, normalEnum, normalWrapper);
+                                finalAcceptGeneric.invoke(consumer, specularEnum, specWrapper);
+                            }
+                        }
+
+                        return null;
+                    }
+
+                    return null;
+                }
+            );
+
+            register.invoke(registryInstance, IrisTextureWrapper.class, proxy);
+        }
+        catch (Throwable t)
+        {
+            System.err.println("[BBS] PBRTextureLoader registration failed; wrappers disabled: " + t);
+        }
     }
 
     public static void trackTexture(Texture texture)
@@ -163,7 +313,60 @@ public class IrisUtils
                     index = texture.getParent().textures.indexOf(texture);
                 }
 
-                TextureTracker.INSTANCE.trackTexture(texture.id, new IrisTextureWrapper(key, index));
+                try
+                {
+                    Class<?> trackerClass;
+                    try
+                    {
+                        trackerClass = Class.forName("net.irisshaders.iris.pbr.TextureTracker");
+                    }
+                    catch (ClassNotFoundException e)
+                    {
+                        try
+                        {
+                            trackerClass = Class.forName("net.irisshaders.iris.texture.TextureTracker");
+                        }
+                        catch (ClassNotFoundException e2)
+                        {
+                            trackerClass = Class.forName("net.irisshaders.iris.texture.tracking.TextureTracker");
+                        }
+                    }
+
+                    Object tracker = trackerClass.getField("INSTANCE").get(null);
+
+                    Method trackMethod = null;
+                    for (Method m : trackerClass.getMethods())
+                    {
+                        Class<?>[] p = m.getParameterTypes();
+                        if (m.getName().equals("trackTexture") && p.length == 2 && p[0] == int.class)
+                        {
+                            trackMethod = m;
+                            break;
+                        }
+                    }
+
+                    if (trackMethod == null)
+                    {
+                        for (Method m : trackerClass.getDeclaredMethods())
+                        {
+                            Class<?>[] p = m.getParameterTypes();
+                            if (m.getName().equals("trackTexture") && p.length == 2 && p[0] == int.class)
+                            {
+                                trackMethod = m;
+                                break;
+                            }
+                        }
+                    }
+
+                    if (trackMethod != null)
+                    {
+                        trackMethod.invoke(tracker, texture.id, new IrisTextureWrapper(key, index));
+                    }
+                }
+                catch (Throwable t)
+                {
+                    System.err.println("[BBS] TextureTracker not available or changed; skipping tracking: " + t);
+                }
             }
 
             textureSet.add(texture);
