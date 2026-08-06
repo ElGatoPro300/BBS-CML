@@ -152,7 +152,7 @@ public class UIReplaysOverlayPanel extends UIOverlayPanel
                     MobCemPoseCapture.syncReplay(replay);
                     boolean isMobForm = form instanceof MobForm;
 
-                    this.vanillaMobPlayback.setVisible(isMobForm);
+                    this.updateVanillaMobPlaybackVisibility(isMobForm);
 
                     if (isMobForm)
                     {
@@ -257,6 +257,7 @@ public class UIReplaysOverlayPanel extends UIOverlayPanel
             filmPanel.getController().createEntities();
         });
         this.vanillaMobPlayback.tooltip(UIKeys.FILM_REPLAY_VANILLA_MOB_PLAYBACK_TOOLTIP);
+        this.vanillaMobPlayback.setVisible(false);
         this.relative = new UIToggle(UIKeys.CAMERA_PANELS_RELATIVE, (b) -> this.edit((replay) -> replay.relative.set(b.getValue())));
         this.relative.tooltip(UIKeys.FILM_REPLAY_RELATIVE_TOOLTIP);
         this.relativeOffsetX = new UITrackpad((v) -> this.edit((replay) -> BaseValue.edit(replay.relativeOffset, (value) -> value.get().x = v)));
@@ -336,7 +337,7 @@ public class UIReplaysOverlayPanel extends UIOverlayPanel
         this.replayProperties = UI.scrollView(6, 6);
 
         this.addPropertySection(UIKeys.FILM_REPLAY_SECTION_GENERAL, UI.column(4,
-            this.pickEdit, this.enabled, this.label, this.nameTag
+            this.pickEdit, this.enabled, this.label, this.nameTag, this.vanillaMobPlayback
         ));
         UIElement shadowSection = UI.column(4,
             this.shadow,
@@ -358,7 +359,7 @@ public class UIReplaysOverlayPanel extends UIOverlayPanel
 
         this.addPropertySection(UIKeys.FILM_REPLAY_SHADOW, shadowSection);
         this.addPropertySection(UIKeys.FILM_REPLAY_SECTION_PLAYBACK, UI.column(4,
-            this.looping, this.actor, this.fp, this.vanillaMobPlayback
+            this.looping, this.actor, this.fp
         ));
         this.addPropertySection(UIKeys.FILM_REPLAY_SECTION_POSITIONING, UI.column(4,
             this.relative, this.relativeRow, this.axesPreview, this.pickAxesPreviewBone
@@ -700,7 +701,7 @@ public class UIReplaysOverlayPanel extends UIOverlayPanel
                 MobCemPoseCapture.syncReplay(replay);
                 boolean isMobForm = replay.form.get() instanceof MobForm;
 
-                this.vanillaMobPlayback.setVisible(isMobForm);
+                this.updateVanillaMobPlaybackVisibility(isMobForm);
 
                 if (isMobForm)
                 {
@@ -738,6 +739,17 @@ public class UIReplaysOverlayPanel extends UIOverlayPanel
             this.itemDropsContent.remove(this.dropVelocityGroup);
             this.resize();
         }
+    }
+
+    private void updateVanillaMobPlaybackVisibility(boolean visible)
+    {
+        if (this.vanillaMobPlayback.isVisible() == visible)
+        {
+            return;
+        }
+
+        this.vanillaMobPlayback.setVisible(visible);
+        this.resize();
     }
 
     private void editShadow(Consumer<ShadowSettings> editor)

@@ -20,6 +20,13 @@ public abstract class BaseValue implements IDataSerializable<BaseType>, IValueNo
     private List<IValueListener> preCallbacks;
     private List<IValueListener> postCallbacks;
 
+    /**
+     * Depth of nested {@link #runSilent} calls. While &gt; 0, value notifications
+     * (including Film undo listeners) are suppressed — used during high-frequency
+     * recording so per-tick keyframe inserts do not freeze the client.
+     */
+    private static final ThreadLocal<Integer> silentDepth = ThreadLocal.withInitial(() -> 0);
+
     public static <T extends BaseValue> void edit(T value, Consumer<T> callback)
     {
         edit(value, 0, callback);
@@ -35,6 +42,39 @@ public abstract class BaseValue implements IDataSerializable<BaseType>, IValueNo
         value.preNotify(flag);
         callback.accept(value);
         value.postNotify(flag);
+    }
+
+    public static void runSilent(Runnable callback)
+    {
+        if (callback == null)
+        {
+            return;
+        }
+
+        silentDepth.set(silentDepth.get() + 1);
+
+        try
+        {
+            callback.run();
+        }
+        finally
+        {
+            int depth = silentDepth.get() - 1;
+
+            if (depth <= 0)
+            {
+                silentDepth.remove();
+            }
+            else
+            {
+                silentDepth.set(depth);
+            }
+        }
+    }
+
+    public static boolean isSilent()
+    {
+        return silentDepth.get() > 0;
     }
 
     public BaseValue(String id)
@@ -134,6 +174,11 @@ public abstract class BaseValue implements IDataSerializable<BaseType>, IValueNo
     @Override
     public void preNotify(BaseValue value, int flag)
     {
+        if (BaseValue.isSilent())
+        {
+            return;
+        }
+
         IValueNotifier.super.preNotify(value, flag);
 
         if (this.preCallbacks != null)
@@ -154,6 +199,11 @@ public abstract class BaseValue implements IDataSerializable<BaseType>, IValueNo
     @Override
     public void postNotify(BaseValue value, int flag)
     {
+        if (BaseValue.isSilent())
+        {
+            return;
+        }
+
         IValueNotifier.super.postNotify(value, flag);
 
         if (this.postCallbacks != null)

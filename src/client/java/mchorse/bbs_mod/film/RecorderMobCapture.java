@@ -33,12 +33,10 @@ import net.minecraft.entity.ItemEntity;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.item.ItemStack;
-import net.minecraft.nbt.NbtCompound;
 import net.minecraft.util.math.Box;
 import net.minecraft.util.math.Vec3d;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -475,7 +473,6 @@ public final class RecorderMobCapture
             {
                 this.updateSessionState(session, entity);
                 this.recordEntity(replay, entity, tick);
-                this.syncMobFormNbt(replay, entity);
                 continue;
             }
 
@@ -664,7 +661,6 @@ public final class RecorderMobCapture
             {
                 this.updateSessionState(session, entity);
                 this.recordEntity(replay, entity, tick);
-                this.syncMobFormNbt(replay, entity);
                 continue;
             }
 
@@ -796,17 +792,20 @@ public final class RecorderMobCapture
         boolean fire = living.getFireTicks() > 0;
         boolean particles = living.isAlive();
 
-        if (session.lastFire == null || session.lastFire.booleanValue() != fire)
+        BaseValue.runSilent(() ->
         {
-            replay.keyframes.fire.insert(tick, fire ? 1D : 0D);
-            session.lastFire = fire;
-        }
+            if (session.lastFire == null || session.lastFire.booleanValue() != fire)
+            {
+                replay.keyframes.fire.insert(tick, fire ? 1D : 0D);
+                session.lastFire = fire;
+            }
 
-        if (session.lastParticles == null || session.lastParticles.booleanValue() != particles)
-        {
-            replay.keyframes.particles.insert(tick, particles ? 1D : 0D);
-            session.lastParticles = particles;
-        }
+            if (session.lastParticles == null || session.lastParticles.booleanValue() != particles)
+            {
+                replay.keyframes.particles.insert(tick, particles ? 1D : 0D);
+                session.lastParticles = particles;
+            }
+        });
     }
 
     private boolean isSnowGolem(Form form, LivingEntity living)
@@ -819,15 +818,19 @@ public final class RecorderMobCapture
         return living.getType() == EntityType.SNOW_GOLEM;
     }
 
-    private static final List<String> MOB_NBT_STRIP_KEYS = Arrays.asList("Pos", "Motion", "Rotation", "FallDistance", "Fire", "Air", "OnGround", "Invulnerable", "PortalCooldown", "UUID");
-
     private void recordEntity(Replay replay, Entity entity, int tick)
+    {
+        BaseValue.runSilent(() -> this.recordEntitySilent(replay, entity, tick));
+    }
+
+    private void recordEntitySilent(Replay replay, Entity entity, int tick)
     {
         MCEntity wrapper = new MCEntity(entity);
 
         wrapper.update();
+        /* Keyframes only — NBT is captured once at tryCapture/bulkCapture.
+         * Per-tick writeNbt + mobNBT.set freezes the integrated server (AI, pickups). */
         replay.keyframes.record(tick, wrapper, null);
-        this.syncMobFormNbt(replay, entity);
 
         Form form = replay.form.get();
 
@@ -840,25 +843,6 @@ public final class RecorderMobCapture
         {
             MobCemItemCapture.recordItemStats(replay, mobForm, wrapper, tick, 0F);
         }
-    }
-
-    private void syncMobFormNbt(Replay replay, Entity entity)
-    {
-        Form form = replay.form.get();
-
-        if (!(form instanceof MobForm mobForm))
-        {
-            return;
-        }
-
-        NbtCompound compound = entity.writeNbt(new NbtCompound());
-
-        for (String key : MOB_NBT_STRIP_KEYS)
-        {
-            compound.remove(key);
-        }
-
-        mobForm.mobNBT.set(compound.toString());
     }
 
     private void recordDeathEntity(Replay replay, Session session, int tick, int deathTime)
@@ -884,7 +868,7 @@ public final class RecorderMobCapture
         wrapper.setOnGround(true);
         wrapper.setVelocity(0F, 0F, 0F);
 
-        replay.keyframes.record(tick, wrapper, null);
+        BaseValue.runSilent(() -> replay.keyframes.record(tick, wrapper, null));
     }
 
     private void updateSessionState(Session session, Entity entity)

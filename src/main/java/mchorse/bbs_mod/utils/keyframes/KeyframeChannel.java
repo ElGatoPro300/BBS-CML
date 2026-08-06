@@ -322,28 +322,49 @@ public class KeyframeChannel <T> extends ValueList<Keyframe<T>>
     {
         this.preNotify();
 
-        Keyframe<T> prev;
-
+        /* Fast path for forward recording: overwrite or append at the end without sorting. */
         if (!this.list.isEmpty())
         {
-            prev = this.list.get(0);
+            int lastIndex = this.list.size() - 1;
+            Keyframe<T> last = this.list.get(lastIndex);
 
-            if (tick < prev.getTick())
+            if (tick == last.getTick())
+            {
+                last.setValue(value);
+                this.postNotify();
+
+                return lastIndex;
+            }
+
+            if (tick > last.getTick())
             {
                 Keyframe<T> kf = new Keyframe<>("", this.factory, tick, value);
+
                 this.applyDefaultInterpolation(kf);
                 this.applyDefaultShape(kf);
+                this.add(lastIndex + 1, kf);
+                this.postNotify();
 
+                return lastIndex + 1;
+            }
+
+            Keyframe<T> first = this.list.get(0);
+
+            if (tick < first.getTick())
+            {
+                Keyframe<T> kf = new Keyframe<>("", this.factory, tick, value);
+
+                this.applyDefaultInterpolation(kf);
+                this.applyDefaultShape(kf);
                 this.add(0, kf);
                 this.sort();
-
                 this.postNotify();
 
                 return 0;
             }
         }
 
-        prev = null;
+        Keyframe<T> prev = null;
         int index = 0;
 
         for (Keyframe<T> frame : this.list)

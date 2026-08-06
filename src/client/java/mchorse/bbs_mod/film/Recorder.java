@@ -19,6 +19,7 @@ import mchorse.bbs_mod.forms.forms.Form;
 import mchorse.bbs_mod.graphics.Draw;
 import mchorse.bbs_mod.morphing.Morph;
 import mchorse.bbs_mod.network.ClientNetwork;
+import mchorse.bbs_mod.settings.values.base.BaseValue;
 import mchorse.bbs_mod.utils.CollectionUtils;
 import mchorse.bbs_mod.utils.MathUtils;
 import mchorse.bbs_mod.utils.PlayerUtils;
@@ -498,20 +499,23 @@ public class Recorder extends WorldFilmController
             Morph morph = Morph.getMorph(player);
 
             this.mobCapture.ensurePlayerVehicleCaptured(this);
-            this.keyframes.record(this.tick, morph.entity, null);
-            Replay playerReplay = CollectionUtils.getSafe(this.film.replays.getList(), this.exception);
-
-            if (playerReplay != null)
+            BaseValue.runSilent(() ->
             {
-                MobCemPoseCapture.syncReplay(playerReplay);
+                this.keyframes.record(this.tick, morph.entity, null);
+                Replay playerReplay = CollectionUtils.getSafe(this.film.replays.getList(), this.exception);
 
-                if (MobCemPoseCapture.isActive(playerReplay))
+                if (playerReplay != null)
                 {
-                    MobCemPoseCapture.recordPoseKeyframe(playerReplay, playerReplay.form.get(), morph.entity, this.tick, 0F);
-                }
-            }
+                    MobCemPoseCapture.syncReplay(playerReplay);
 
-            RecorderMobCapture.recordMountKeyframes(this.film.replays.getList(), 0, this.keyframes, morph.entity, this.tick);
+                    if (MobCemPoseCapture.isActive(playerReplay))
+                    {
+                        MobCemPoseCapture.recordPoseKeyframe(playerReplay, playerReplay.form.get(), morph.entity, this.tick, 0F);
+                    }
+                }
+
+                RecorderMobCapture.recordMountKeyframes(this.film.replays.getList(), 0, this.keyframes, morph.entity, this.tick);
+            });
             this.mobCapture.recordTick(this);
             this.projectileCapture.recordTick(this, this.mobCapture);
         }
