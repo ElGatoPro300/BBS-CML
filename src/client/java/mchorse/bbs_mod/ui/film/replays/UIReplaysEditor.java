@@ -785,6 +785,8 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
      * so this list is limited to properties that {@link mchorse.bbs_mod.film.BaseFilmController}
      * can apply to every form (visibility, color multiply, transform, paint, glow).
      * {@code render} is created for the visible/Enabled pairing but stays timeline-hidden.
+     * Shadow size/opacity come from {@link mchorse.bbs_mod.film.replays.ReplayKeyframes}
+     * (same channels as normal replays) and are merged onto members at render time.
      */
     private static final List<String> GROUP_FORM_PROPERTIES = Arrays.asList(
         "visible",
@@ -796,6 +798,11 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
         "color_grade",
         "paint",
         "glow"
+    );
+
+    private static final List<String> GROUP_SHADOW_CHANNELS = Arrays.asList(
+        "shadow_size",
+        "shadow_opacity"
     );
 
     public static boolean renderBackground(UIContext context, UIKeyframes keyframes, Clips camera, int clipOffset, Clip selectedClip)
@@ -2139,6 +2146,29 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
                     sheets.add(withTrackIcon(sheet, key));
                 }
             }
+
+            for (String key : GROUP_SHADOW_CHANNELS)
+            {
+                BaseValue value = this.replay.keyframes.get(key);
+
+                if (!(value instanceof KeyframeChannel channel))
+                {
+                    continue;
+                }
+
+                String customTitle = this.replay.getCustomSheetTitle(key);
+                Integer customColor = this.replay.getSheetColor(key);
+                int sheetColor = customColor != null ? customColor : getColor(key);
+                IKey resolvedTitle = resolvePropertyTrackTitle(key);
+
+                UIKeyframeSheet sheet = customTitle != null && !customTitle.isEmpty()
+                    ? new UIKeyframeSheet(key, IKey.constant(customTitle), sheetColor, false, channel, null)
+                    : resolvedTitle != null
+                        ? new UIKeyframeSheet(key, resolvedTitle, sheetColor, false, channel, null)
+                        : new UIKeyframeSheet(sheetColor, false, channel, null);
+
+                sheets.add(withTrackIcon(sheet, key));
+            }
         }
         else
         {
@@ -2259,6 +2289,13 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
 
                 if (curatedIndex != -1)
                 {
+                    /* Group shadow tracks belong at the bottom, not with world channels. */
+                    if (UIReplaysEditor.this.replay != null && UIReplaysEditor.this.replay.isGroup.get()
+                        && (id.equals("shadow_size") || id.equals("shadow_opacity")))
+                    {
+                        return id.equals("shadow_size") ? 900 : 901;
+                    }
+
                     return -100 + curatedIndex;
                 }
 
@@ -3426,6 +3463,15 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
 
         if (WORLD_CHANNELS.contains(trackName) && !isFormItemUseTimeTrack(sheet))
         {
+            /* Folder shadow tracks stay at the end of the group timeline. */
+            if (this.replay != null && this.replay.isGroup.get()
+                && (trackName.equals("shadow_size") || trackName.equals("shadow_opacity")))
+            {
+                after.add(sheet);
+
+                return;
+            }
+
             before.add(sheet);
 
             return;

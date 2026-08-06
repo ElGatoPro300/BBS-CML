@@ -204,7 +204,7 @@ public abstract class BaseFilmController
             InverseKinematicsApplier.apply(context, form);
         }
 
-        if (context.localGroupTransform != null)
+        if (context.localGroupTransform != null && !context.isShadowPass)
         {
             target.mul(context.localGroupTransform);
         }
@@ -1562,52 +1562,33 @@ public abstract class BaseFilmController
 
     protected boolean isReplayVisibleAt(Replay replay, float tick)
     {
-        BaseValue renderValue = replay.properties.get("render");
+        /* Visible + Enabled (render) both gate groups, same as form.visible && form.render.
+         * Empty channel = default on. KeyframeChannel already holds the first keyframe's
+         * value before its tick — do not force true before the first keyframe. */
+        return this.evaluateGroupBooleanChannel(replay, "visible", tick)
+            && this.evaluateGroupBooleanChannel(replay, "render", tick);
+    }
 
-        if (renderValue instanceof KeyframeChannel)
+    @SuppressWarnings("unchecked")
+    private boolean evaluateGroupBooleanChannel(Replay replay, String key, float tick)
+    {
+        BaseValue value = replay.properties.get(key);
+
+        if (!(value instanceof KeyframeChannel))
         {
-            @SuppressWarnings("unchecked")
-            KeyframeChannel<Boolean> render = (KeyframeChannel<Boolean>) renderValue;
-
-            if (!render.isEmpty())
-            {
-                Keyframe<Boolean> first = render.get(0);
-
-                if (first != null && tick < first.getTick())
-                {
-                    return true;
-                }
-
-                Boolean value = render.interpolate(tick, true);
-
-                return value == null || value;
-            }
+            return true;
         }
 
-        /* Older group films keyed only "visible" before the visible/render pairing. */
-        BaseValue visibleValue = replay.properties.get("visible");
+        KeyframeChannel<Boolean> channel = (KeyframeChannel<Boolean>) value;
 
-        if (visibleValue instanceof KeyframeChannel)
+        if (channel.isEmpty())
         {
-            @SuppressWarnings("unchecked")
-            KeyframeChannel<Boolean> visible = (KeyframeChannel<Boolean>) visibleValue;
-
-            if (!visible.isEmpty())
-            {
-                Keyframe<Boolean> first = visible.get(0);
-
-                if (first != null && tick < first.getTick())
-                {
-                    return true;
-                }
-
-                Boolean value = visible.interpolate(tick, true);
-
-                return value == null || value;
-            }
+            return true;
         }
 
-        return true;
+        Boolean result = channel.interpolate(tick, true);
+
+        return result == null || result;
     }
 
 
@@ -1795,12 +1776,19 @@ public abstract class BaseFilmController
 
         String[] groups = replay.group.get().split("/");
         int finalColor = Colors.WHITE;
-        Matrix4f globalTranslate = new Matrix4f().identity();
         Matrix4f localTransform = new Matrix4f().identity();
         PaintSettings groupPaint = null;
         GlowSettings groupGlow = null;
         Color groupColorGrade = null;
         Illusion groupIllusion = null;
+        boolean groupShadowSize = false;
+        boolean groupShadowOpacity = false;
+        float shadowRadiusX = context.shadowRadiusX;
+        float shadowRadiusZ = context.shadowRadiusZ;
+        float shadowOpacity = context.shadowOpacity;
+        float shadowOffsetX = context.shadowOffsetX;
+        float shadowOffsetY = context.shadowOffsetY;
+        float shadowOffsetZ = context.shadowOffsetZ;
 
         for (String uuid : groups)
         {
@@ -1837,9 +1825,11 @@ public abstract class BaseFilmController
 
                 if (!groupTransform.isDefault())
                 {
-                    globalTranslate.translate(groupTransform.translate.x, groupTransform.translate.y, groupTransform.translate.z);
-
                     Matrix4f local = new Matrix4f();
+
+                    /* Keep group translation on the mesh matrix only — never on the render
+                     * stack — so entity shadows stay at the replay world position. */
+                    local.translate(groupTransform.translate.x, groupTransform.translate.y, groupTransform.translate.z);
 
                     if (groupTransform.pivot.x != 0F || groupTransform.pivot.y != 0F || groupTransform.pivot.z != 0F)
                     {
@@ -1889,6 +1879,34 @@ public abstract class BaseFilmController
                 {
                     groupIllusion = illusion;
                 }
+
+                if (!groupReplay.keyframes.shadowSize.isEmpty())
+                {
+                    ShadowSettings size = groupReplay.keyframes.shadowSize.interpolate((float) tick);
+
+                    if (size != null)
+                    {
+                        /* Additive vs form shadow: group 0.5 / 0 offset is identity. */
+                        shadowRadiusX = Math.max(0F, shadowRadiusX + (size.widthX - 0.5F));
+                        shadowRadiusZ = Math.max(0F, shadowRadiusZ + (size.widthZ - 0.5F));
+                        shadowOffsetX += size.offsetX;
+                        shadowOffsetY += size.offsetY;
+                        shadowOffsetZ += size.offsetZ;
+                        groupShadowSize = true;
+                    }
+                }
+
+                if (!groupReplay.keyframes.shadowOpacity.isEmpty())
+                {
+                    Double opacity = groupReplay.keyframes.shadowOpacity.interpolate((float) tick);
+
+                    if (opacity != null)
+                    {
+                        /* Multiply so group 1 keeps the form opacity unchanged. */
+                        shadowOpacity *= MathUtils.clamp(opacity.floatValue(), 0F, 1F);
+                        groupShadowOpacity = true;
+                    }
+                }
             }
         }
 
@@ -1897,14 +1915,14 @@ public abstract class BaseFilmController
             context.color(this.mulColors(context.color, finalColor));
         }
 
-        if (!globalTranslate.equals(new Matrix4f().identity()))
-        {
-            context.stack.peek().getPositionMatrix().mul(globalTranslate);
-        }
-
         if (!localTransform.equals(new Matrix4f().identity()))
         {
             context.localGroupTransform = localTransform;
+        }
+
+        if (groupShadowSize || groupShadowOpacity)
+        {
+            context.shadow(true, shadowRadiusX, shadowRadiusZ, shadowOpacity, shadowOffsetX, shadowOffsetY, shadowOffsetZ);
         }
 
         context.groupPaint = groupPaint;
