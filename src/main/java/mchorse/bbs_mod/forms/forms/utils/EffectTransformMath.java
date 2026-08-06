@@ -255,6 +255,36 @@ public class EffectTransformMath
         return evaluateSoftMask(x, y, z, transform, halfExtents, false);
     }
 
+    /**
+     * Soft rim thickness in form/local units, derived from unscaled mask half extents
+     * so transform scale keeps a stable gradient and per-axis scale does not bleed.
+     */
+    public static float resolveMaskFalloff(EffectTransform transform, Vector3f scaledHalfExtents)
+    {
+        if (scaledHalfExtents == null)
+        {
+            return EPSILON;
+        }
+
+        float scaleX = 1F;
+        float scaleY = 1F;
+        float scaleZ = 1F;
+
+        if (transform != null)
+        {
+            scaleX = transform.scaleX == 0F ? EPSILON : Math.abs(transform.scaleX);
+            scaleY = transform.scaleY == 0F ? EPSILON : Math.abs(transform.scaleY);
+            scaleZ = transform.scaleZ == 0F ? EPSILON : Math.abs(transform.scaleZ);
+        }
+
+        float baseX = Math.abs(scaledHalfExtents.x) / scaleX;
+        float baseY = Math.abs(scaledHalfExtents.y) / scaleY;
+        float baseZ = Math.abs(scaledHalfExtents.z) / scaleZ;
+        float baseMax = Math.max(baseX, Math.max(baseY, baseZ));
+
+        return Math.max(baseMax * 0.15F, EPSILON);
+    }
+
     private static float evaluateSoftMask(float x, float y, float z, EffectTransform transform, Vector3f halfExtents, boolean bottomAnchoredY)
     {
         buildInverseMatrix(transform, MATRIX);
@@ -276,6 +306,7 @@ public class EffectTransformMath
 
         PaintMaskShape shape = transform == null ? PaintMaskShape.BOX : transform.shape;
         float dist;
+        float falloff = resolveMaskFalloff(transform, halfExtents);
 
         if (shape == PaintMaskShape.CIRCLE)
         {
@@ -287,7 +318,14 @@ public class EffectTransformMath
             float qz = LOCAL.z / hz;
             float radius = (float) Math.sqrt(qx * qx + qy * qy + qz * qz);
 
-            dist = (radius - 1F) * maxHalf;
+            if (radius <= 1F)
+            {
+                return 1F;
+            }
+
+            float localLen = (float) Math.sqrt(LOCAL.x * LOCAL.x + LOCAL.y * LOCAL.y + LOCAL.z * LOCAL.z);
+
+            dist = (radius - 1F) * localLen / radius;
         }
         else if (shape == PaintMaskShape.TRIANGLE)
         {
@@ -317,8 +355,6 @@ public class EffectTransformMath
         {
             return 1F;
         }
-
-        float falloff = Math.max(maxHalf * 0.15F, EPSILON);
 
         if (dist >= falloff)
         {

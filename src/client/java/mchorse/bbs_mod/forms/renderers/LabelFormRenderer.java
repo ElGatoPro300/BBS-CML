@@ -2,12 +2,19 @@ package mchorse.bbs_mod.forms.renderers;
 
 import mchorse.bbs_mod.client.BBSRendering;
 import mchorse.bbs_mod.client.BBSShaders;
+import mchorse.bbs_mod.cubic.render.vao.ModelVAORenderer;
 import mchorse.bbs_mod.forms.CustomVertexConsumerProvider;
 import mchorse.bbs_mod.forms.FormUtilsClient;
 import mchorse.bbs_mod.forms.forms.LabelForm;
+import mchorse.bbs_mod.forms.forms.utils.EffectTransform;
+import mchorse.bbs_mod.forms.forms.utils.EffectTransformMath;
 import mchorse.bbs_mod.forms.forms.utils.GlowSettings;
 import mchorse.bbs_mod.forms.forms.utils.PaintSettings;
+import mchorse.bbs_mod.forms.renderers.utils.BlockEffectOverlayUniforms;
+import mchorse.bbs_mod.forms.renderers.utils.FlatColorTintOverlayPass;
+import mchorse.bbs_mod.forms.renderers.utils.FlatPaintOverlayPass;
 import mchorse.bbs_mod.forms.renderers.utils.FormColorEffects;
+import mchorse.bbs_mod.forms.renderers.utils.LabelTextTintQuadCapture;
 import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.ui.framework.elements.utils.FontRenderer;
 import mchorse.bbs_mod.utils.FontUtils;
@@ -15,7 +22,6 @@ import mchorse.bbs_mod.utils.MatrixStackUtils;
 import mchorse.bbs_mod.utils.StringUtils;
 import mchorse.bbs_mod.utils.TextureFont;
 import mchorse.bbs_mod.utils.colors.Color;
-import mchorse.bbs_mod.utils.joml.Vectors;
 
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.font.TextRenderer;
@@ -23,6 +29,7 @@ import net.minecraft.client.render.BufferBuilder;
 import net.minecraft.client.render.BufferRenderer;
 import net.minecraft.client.render.GameRenderer;
 import net.minecraft.client.render.LightmapTextureManager;
+import net.minecraft.client.render.OverlayTexture;
 import net.minecraft.client.render.RenderLayer;
 import net.minecraft.client.render.Tessellator;
 import net.minecraft.client.render.VertexFormat;
@@ -33,16 +40,31 @@ import net.minecraft.client.util.math.MatrixStack;
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
 
+import com.mojang.blaze3d.platform.GlStateManager;
 import com.mojang.blaze3d.systems.RenderSystem;
 
 import org.lwjgl.opengl.GL11;
 
 import java.awt.Font;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 public class LabelFormRenderer extends FormRenderer<LabelForm>
 {
+    /**
+     * Minecraft's {@link TextRenderer} treats {@code (color & 0xFC000000) == 0} as fully
+     * opaque, so alpha bytes 0–3 become 255. Keep a minimum of 4 when opacity is intended.
+     */
+    private static final int MIN_TEXT_ALPHA_BYTE = 4;
+
     private float nametagAlpha = 1F;
+    private int lastBoundTextTexture;
+    private final Vector3f maskHalfExtents = new Vector3f();
+    private final LabelTextTintQuadCapture tintCapture = new LabelTextTintQuadCapture();
+    private final Matrix4f identityMatrix = new Matrix4f();
+
     public static void fillQuad(BufferBuilder builder, MatrixStack stack, float x1, float y1, float z1, float x2, float y2, float z2, float x3, float y3, float z3, float x4, float y4, float z4, float r, float g, float b, float a)
     {
         Matrix4f matrix4f = stack.peek().getPositionMatrix();
@@ -74,7 +96,13 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
             FormColorEffects.blendFormGlowBrighten(color, glowSettings, legacyGlow);
         }
 
-        int argb = color.getARGBColor();
+        /* Minecraft TextRenderer treats ARGB alpha 0 as fully opaque. */
+        if (isFullyTransparent(color))
+        {
+            return;
+        }
+
+        int argb = toSafeTextArgb(color);
         String text = StringUtils.processColoredText(this.form.text.get());
         List<String> wrap = context.batcher.getFont().wrap(text, x2 - x1 - 4);
 
@@ -99,7 +127,7 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
             glowColor.g *= color.g;
             glowColor.b *= color.b;
 
-            int glowArgb = glowColor.getARGBColor();
+            int glowArgb = toSafeTextArgb(glowColor);
             int glowY = (y2 + y1) / 2 - h / 2;
 
             RenderSystem.enableBlend();
@@ -236,7 +264,7 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
 
     private void renderTextShadow(FormRenderingContext context, CustomVertexConsumerProvider consumers, TextRenderer renderer, TextureFont customFont, String content, float x, float y, float letterSpacing, int light, Color shadowColor)
     {
-        if (shadowColor.a <= 0)
+        if (isFullyTransparent(shadowColor))
         {
             return;
         }
@@ -250,7 +278,7 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
 
         if (blur > 0)
         {
-            int originalColor = shadowColor.getARGBColor();
+            int originalColor = toSafeTextArgb(shadowColor);
             int alpha = (originalColor >> 24) & 0xFF;
             int rgb = originalColor & 0x00FFFFFF;
             int blurAlpha = Math.max(1, alpha / 4);
@@ -263,7 +291,7 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
         }
         else
         {
-            this.drawSimpleText(context, consumers, renderer, customFont, content, x + sx, y + sy, letterSpacing, light, shadowColor.getARGBColor());
+            this.drawSimpleText(context, consumers, renderer, customFont, content, x + sx, y + sy, letterSpacing, light, toSafeTextArgb(shadowColor));
         }
 
         context.stack.pop();
@@ -395,9 +423,28 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
         PaintSettings paintSettings = this.form.paintSettings.get();
         Color legacyPaint = this.form.paintColor.get();
         Color shadowColor = this.form.shadowColor.get().copy();
+        Color storedFormColor = this.form.color.get();
+        boolean colorTransformWanted = FormColorEffects.wantsColorTransformMask(storedFormColor) && !context.isPicking();
         Color color = new Color().set(context.color, true);
+        Color formTintColor = null;
+        EffectTransform colorTransform = null;
 
-        color.mul(this.form.color.get());
+        /* Spatial Color transform: bake mask per glyph (AABB overlay would tint the background). */
+        if (colorTransformWanted)
+        {
+            color.r = 1F;
+            color.g = 1F;
+            color.b = 1F;
+            this.form.applyFormOpacity(color);
+            formTintColor = storedFormColor.copyDeferringColorGrade().copy();
+            this.form.applyFormOpacity(formTintColor);
+            formTintColor.mul(new Color().set(context.color, true));
+            colorTransform = storedFormColor.transform == null ? null : storedFormColor.transform.copy();
+        }
+        else
+        {
+            color.mul(storedFormColor);
+        }
 
         FormColorEffects.applyPaintBlend(color, paintSettings, legacyPaint);
 
@@ -409,23 +456,34 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
         shadowColor.a *= this.nametagAlpha;
         color.a *= this.nametagAlpha;
 
-        float formOpacity = this.form.color.get().a;
-        shadowColor.a *= formOpacity;
+        if (formTintColor != null)
+        {
+            formTintColor.a *= this.nametagAlpha;
+        }
 
+        float formOpacity = color.a;
+        shadowColor.a *= this.form.color.get().a;
         shadowColor.mul(context.color);
+
+        if (isFullyTransparent(color) && !context.isPicking())
+        {
+            this.renderShadow(context, x, y, w, h);
+
+            return;
+        }
 
         this.renderTextShadow(context, consumers, renderer, customFont, content, x, y, letterSpacing, light, shadowColor);
 
-        if (this.form.outline.get())
+        if (this.form.outline.get() && !isFullyTransparent(color))
         {
             Color outlineColor = this.form.outlineColor.get().copy();
             outlineColor.a *= formOpacity;
-            int oc = outlineColor.getARGBColor();
+            int oc = toSafeTextArgb(outlineColor);
             float ow = this.form.outlineWidth.get();
-            
+
             context.stack.push();
             context.stack.translate(0, 0, -0.025F);
-            
+
             if (customFont != null)
             {
                 customFont.draw(content, x - ow, y, oc, oc, letterSpacing, 0F, context.stack.peek().getPositionMatrix(), consumers, light);
@@ -440,46 +498,33 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
                 renderer.draw(content, x, y - ow, oc, false, context.stack.peek().getPositionMatrix(), consumers, TextRenderer.TextLayerType.NORMAL, 0, light);
                 renderer.draw(content, x, y + ow, oc, false, context.stack.peek().getPositionMatrix(), consumers, TextRenderer.TextLayerType.NORMAL, 0, light);
             }
-            
+
             context.stack.pop();
         }
 
-        if (customFont != null)
-        {
-            int c1 = color.getARGBColor();
-            int c2 = c1;
+        Color gradientEnd = null;
 
-            if (this.form.gradient.get())
-            {
-                Color gradientColor = this.form.gradientEndColor.get().copy();
-                
-                gradientColor.a *= formOpacity;
-                gradientColor.mul(context.color);
-                c2 = gradientColor.getARGBColor();
-            }
-
-            customFont.draw(content, x, y, c1, c2, letterSpacing, 0F, context.stack.peek().getPositionMatrix(), consumers, light, this.form.gradientOffset.get());
-        }
-        else
+        if (this.form.gradient.get() && !colorTransformWanted)
         {
-            renderer.draw(
-                content,
-                x,
-                y,
-                color.getARGBColor(), false,
-                context.stack.peek().getPositionMatrix(),
-                consumers,
-                TextRenderer.TextLayerType.NORMAL,
-                0,
-                light
-            );
+            gradientEnd = this.form.gradientEndColor.get().copy();
+            gradientEnd.a *= formOpacity;
+            gradientEnd.mul(context.color);
         }
+
+        int textArgb = this.drawLabelContent(context, consumers, renderer, customFont, content, x, y, letterSpacing, light, color, gradientEnd);
 
         RenderSystem.enableDepthTest();
 
         this.flushLabelConsumers(consumers);
 
-        this.renderTextGlowOverlay(context, consumers, renderer, customFont, content, x, y, letterSpacing, glowSettings, legacyGlow, color.a, glowIntensity, color.getARGBColor());
+        if (formTintColor != null)
+        {
+            this.tintCapture.clear();
+            this.captureLabelGlyphs(this.tintCapture, renderer, customFont, content, x, y, letterSpacing, light);
+            this.submitOrRenderLabelColorTint(context, x, y, w, h, formTintColor, colorTransform, this.tintCapture.snapshot());
+        }
+
+        this.renderTextGlowOverlay(context, consumers, renderer, customFont, content, x, y, letterSpacing, glowSettings, legacyGlow, color.a, glowIntensity, textArgb);
 
         this.renderShadow(context, x, y, w, h);
     }
@@ -545,24 +590,66 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
         Color legacyGlow = this.form.glowingColor.get();
         float glowIntensity = glowSettings.resolveIntensity(legacyGlow);
         Color shadowColor = this.form.shadowColor.get().copy();
+        Color storedFormColor = this.form.color.get();
+        boolean colorTransformWanted = FormColorEffects.wantsColorTransformMask(storedFormColor) && !context.isPicking();
         Color color = new Color().set(context.color, true);
+        Color formTintColor = null;
+        EffectTransform colorTransform = null;
 
-        color.mul(this.form.color.get());
+        if (colorTransformWanted)
+        {
+            color.r = 1F;
+            color.g = 1F;
+            color.b = 1F;
+            this.form.applyFormOpacity(color);
+            formTintColor = storedFormColor.copyDeferringColorGrade().copy();
+            this.form.applyFormOpacity(formTintColor);
+            formTintColor.mul(new Color().set(context.color, true));
+            colorTransform = storedFormColor.transform == null ? null : storedFormColor.transform.copy();
+        }
+        else
+        {
+            color.mul(storedFormColor);
+        }
 
         if (glowIntensity < 0F)
         {
             FormColorEffects.blendFormGlowBrighten(color, glowSettings, legacyGlow);
         }
-        
-        float formOpacity = this.form.color.get().a;
-        shadowColor.a *= formOpacity;
+
+        float formOpacity = color.a;
+        shadowColor.a *= this.form.color.get().a;
 
         shadowColor.mul(context.color);
         shadowColor.a *= this.nametagAlpha;
         color.a *= this.nametagAlpha;
 
+        if (formTintColor != null)
+        {
+            formTintColor.a *= this.nametagAlpha;
+        }
+
+        if (isFullyTransparent(color) && !context.isPicking())
+        {
+            this.renderShadow(context, x, shadowY, w, totalHeight);
+
+            return;
+        }
+
         int align = this.form.textAlign.get(); /* 0: Left, 1: Center, 2: Right */
         boolean anchorLines = this.form.anchorLines.get();
+        Color gradientEnd = null;
+
+        if (this.form.gradient.get() && !colorTransformWanted)
+        {
+            gradientEnd = this.form.gradientEndColor.get().copy();
+            gradientEnd.a *= formOpacity;
+            gradientEnd.mul(context.color);
+        }
+
+        int textArgb = toSafeTextArgb(color);
+
+        this.tintCapture.clear();
 
         for (String line : lines)
         {
@@ -583,17 +670,17 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
             }
 
             this.renderTextShadow(context, consumers, renderer, customFont, line, lx, y, letterSpacing, light, shadowColor);
-            
+
             if (this.form.outline.get())
             {
                 Color outlineColor = this.form.outlineColor.get().copy();
                 outlineColor.a *= formOpacity;
-                int oc = outlineColor.getARGBColor();
+                int oc = toSafeTextArgb(outlineColor);
                 float ow = this.form.outlineWidth.get();
-                
+
                 context.stack.push();
                 context.stack.translate(0, 0, -0.025F);
-                
+
                 if (customFont != null)
                 {
                     customFont.draw(line, lx - ow, y, oc, oc, letterSpacing, 0F, context.stack.peek().getPositionMatrix(), consumers, light);
@@ -611,35 +698,11 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
                 context.stack.pop();
             }
 
-            if (customFont != null)
-            {
-                int c1 = color.getARGBColor();
-                int c2 = c1;
+            textArgb = this.drawLabelContent(context, consumers, renderer, customFont, line, lx, y, letterSpacing, light, color, gradientEnd);
 
-                if (this.form.gradient.get())
-                {
-                    Color gradientColor = this.form.gradientEndColor.get().copy();
-                    
-                    gradientColor.a *= formOpacity;
-                    gradientColor.mul(context.color);
-                    c2 = gradientColor.getARGBColor();
-                }
-
-                customFont.draw(line, lx, y, c1, c2, letterSpacing, 0F, context.stack.peek().getPositionMatrix(), consumers, light);
-            }
-            else
+            if (formTintColor != null)
             {
-                renderer.draw(
-                    line,
-                    lx,
-                    y,
-                    color.getARGBColor(), false,
-                    context.stack.peek().getPositionMatrix(),
-                    consumers,
-                    TextRenderer.TextLayerType.NORMAL,
-                    0,
-                    light
-                );
+                this.captureLabelGlyphs(this.tintCapture, renderer, customFont, line, lx, y, letterSpacing, light);
             }
 
             y += lineHeight;
@@ -648,6 +711,11 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
         RenderSystem.enableDepthTest();
 
         this.flushLabelConsumers(consumers);
+
+        if (formTintColor != null)
+        {
+            this.submitOrRenderLabelColorTint(context, x, shadowY, w, totalHeight, formTintColor, colorTransform, this.tintCapture.snapshot());
+        }
 
         y = shadowY;
 
@@ -669,12 +737,206 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
                 lx = x + (w - lw);
             }
 
-            this.renderTextGlowOverlay(context, consumers, renderer, customFont, line, lx, y, letterSpacing, glowSettings, legacyGlow, color.a, glowIntensity, color.getARGBColor());
+            this.renderTextGlowOverlay(context, consumers, renderer, customFont, line, lx, y, letterSpacing, glowSettings, legacyGlow, color.a, glowIntensity, textArgb);
 
             y += lineHeight;
         }
 
         this.renderShadow(context, x, shadowY, w, totalHeight);
+    }
+
+    /**
+     * Draws label glyphs with a flat vertex color (no spatial mask bake). Color transform is
+     * applied afterward via FlatColorTint on captured glyph quads.
+     */
+    private int drawLabelContent(FormRenderingContext context, CustomVertexConsumerProvider consumers, TextRenderer renderer, TextureFont customFont, String content, float drawX, float drawY, float letterSpacing, int light, Color color, Color gradientEnd)
+    {
+        int c1 = toSafeTextArgb(color);
+        int c2 = c1;
+
+        if (gradientEnd != null)
+        {
+            c2 = toSafeTextArgb(gradientEnd);
+        }
+
+        if (customFont != null)
+        {
+            customFont.draw(content, drawX, drawY, c1, c2, letterSpacing, 0F, context.stack.peek().getPositionMatrix(), consumers, light, this.form.gradientOffset.get());
+        }
+        else
+        {
+            renderer.draw(
+                content,
+                drawX,
+                drawY,
+                c1, false,
+                context.stack.peek().getPositionMatrix(),
+                consumers,
+                TextRenderer.TextLayerType.NORMAL,
+                0,
+                light
+            );
+        }
+
+        return c1;
+    }
+
+    private void captureLabelGlyphs(LabelTextTintQuadCapture capture, TextRenderer renderer, TextureFont customFont, String content, float x, float y, float letterSpacing, int light)
+    {
+        int opaqueWhite = 0xFFFFFFFF;
+
+        this.identityMatrix.identity();
+
+        if (customFont != null)
+        {
+            customFont.draw(content, x, y, opaqueWhite, opaqueWhite, letterSpacing, 0F, this.identityMatrix, capture, light);
+        }
+        else
+        {
+            renderer.draw(content, x, y, opaqueWhite, false, this.identityMatrix, capture, TextRenderer.TextLayerType.NORMAL, 0, light);
+        }
+    }
+
+    private void submitOrRenderLabelColorTint(FormRenderingContext context, float x, float y, float w, float h, Color formTintColor, EffectTransform colorTransform, List<LabelTextTintQuadCapture.GlyphQuad> quads)
+    {
+        if (formTintColor == null || quads == null || quads.isEmpty())
+        {
+            return;
+        }
+
+        /* Glyph AABB can extend past layout metrics (descenders, bearings). Keep the mask
+         * origin on the label layout center (same as the form gizmo), and grow half extents
+         * so every captured glyph stays inside. */
+        float minX = Float.POSITIVE_INFINITY;
+        float minY = Float.POSITIVE_INFINITY;
+        float maxX = Float.NEGATIVE_INFINITY;
+        float maxY = Float.NEGATIVE_INFINITY;
+
+        for (LabelTextTintQuadCapture.GlyphQuad quad : quads)
+        {
+            minX = Math.min(minX, Math.min(Math.min(quad.x0, quad.x1), Math.min(quad.x2, quad.x3)));
+            minY = Math.min(minY, Math.min(Math.min(quad.y0, quad.y1), Math.min(quad.y2, quad.y3)));
+            maxX = Math.max(maxX, Math.max(Math.max(quad.x0, quad.x1), Math.max(quad.x2, quad.x3)));
+            maxY = Math.max(maxY, Math.max(Math.max(quad.y0, quad.y1), Math.max(quad.y2, quad.y3)));
+        }
+
+        float centerX = x + w * 0.5F;
+        float centerY = y + h * 0.5F;
+        float resolvedHalfX = w * 0.5F;
+        float resolvedHalfY = h * 0.5F;
+
+        if (minX < maxX && minY < maxY)
+        {
+            resolvedHalfX = Math.max(resolvedHalfX, Math.max(Math.abs(maxX - centerX), Math.abs(minX - centerX)));
+            resolvedHalfY = Math.max(resolvedHalfY, Math.max(Math.abs(maxY - centerY), Math.abs(minY - centerY)));
+        }
+
+        final float halfX = Math.max(resolvedHalfX, 0.001F);
+        final float halfY = Math.max(resolvedHalfY, 0.001F);
+
+        Color tintSnapshot = formTintColor.copy();
+        EffectTransform transformSnapshot = colorTransform == null ? null : colorTransform.copy();
+        List<LabelTextTintQuadCapture.GlyphQuad> quadSnapshot = new ArrayList<>(quads);
+        boolean defer = BBSRendering.isIrisWorldModelPass() && !context.modelRenderer && !context.isPicking();
+
+        context.stack.push();
+        context.stack.translate(centerX, centerY, 0.001F);
+
+        Matrix4f rootMatrix = new Matrix4f(context.stack.peek().getPositionMatrix());
+
+        context.stack.pop();
+
+        if (defer)
+        {
+            Matrix4f positionMatrix = ModelVAORenderer.capturePaintOverlayRootMatrix(rootMatrix);
+
+            ModelVAORenderer.submitColorTintOverlay(() ->
+            {
+                MatrixStack overlayStack = new MatrixStack();
+
+                overlayStack.peek().getPositionMatrix().set(positionMatrix);
+                this.renderLabelColorTintOverlay(overlayStack, centerX, centerY, halfX, halfY, tintSnapshot, transformSnapshot, quadSnapshot, FlatPaintOverlayPass.DEFERRED_BILLBOARD_FACTOR, FlatPaintOverlayPass.DEFERRED_BILLBOARD_UNITS);
+            });
+        }
+        else
+        {
+            MatrixStack overlayStack = new MatrixStack();
+
+            overlayStack.peek().getPositionMatrix().set(rootMatrix);
+            this.renderLabelColorTintOverlay(overlayStack, centerX, centerY, halfX, halfY, tintSnapshot, transformSnapshot, quadSnapshot, FlatPaintOverlayPass.DEFAULT_FACTOR, FlatPaintOverlayPass.DEFAULT_UNITS);
+        }
+    }
+
+    /**
+     * Billboard-style FlatColorTint on glyph quads. Glyph positions are converted into
+     * AABB-centered local space so mask scale/offset match other forms (origin at text center).
+     */
+    private void renderLabelColorTintOverlay(MatrixStack stack, float centerX, float centerY, float halfX, float halfY, Color formTintColor, EffectTransform colorTransform, List<LabelTextTintQuadCapture.GlyphQuad> quads, float polygonOffsetFactor, float polygonOffsetUnits)
+    {
+        Matrix4f tintMatrix = stack.peek().getPositionMatrix();
+        MatrixStack.Entry entry = stack.peek();
+        Matrix4f formRootInverse = new Matrix4f(tintMatrix).invert();
+
+        EffectTransformMath.resolveBillboardMaskHalfExtents(colorTransform, this.maskHalfExtents, halfX, halfY);
+
+        Map<RenderLayer, List<LabelTextTintQuadCapture.GlyphQuad>> byLayer = new LinkedHashMap<>();
+
+        for (LabelTextTintQuadCapture.GlyphQuad quad : quads)
+        {
+            byLayer.computeIfAbsent(quad.layer, (layer) -> new ArrayList<>()).add(quad);
+        }
+
+        FlatColorTintOverlayPass.render(polygonOffsetFactor, polygonOffsetUnits, formRootInverse, colorTransform, false, this.maskHalfExtents, formTintColor, () ->
+        {
+            int tintLight = LightmapTextureManager.MAX_LIGHT_COORDINATE;
+            int overlay = OverlayTexture.DEFAULT_UV;
+
+            RenderSystem.disableCull();
+
+            for (Map.Entry<RenderLayer, List<LabelTextTintQuadCapture.GlyphQuad>> layerEntry : byLayer.entrySet())
+            {
+                this.bindTextLayerTexture(layerEntry.getKey());
+                /* Text RenderLayer.startDrawing replaces the FlatColorTint program — restore it. */
+                BlockEffectOverlayUniforms.configureFlatColorTintOverlay(formRootInverse, colorTransform, false, this.maskHalfExtents, formTintColor);
+                GlStateManager._bindTexture(this.lastBoundTextTexture);
+
+                BufferBuilder builder = Tessellator.getInstance().begin(VertexFormat.DrawMode.TRIANGLES, VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL);
+
+                for (LabelTextTintQuadCapture.GlyphQuad quad : layerEntry.getValue())
+                {
+                    this.fillLabelTint(builder, tintMatrix, entry, quad.x0 - centerX, quad.y0 - centerY, quad.u0, quad.v0, overlay, tintLight);
+                    this.fillLabelTint(builder, tintMatrix, entry, quad.x1 - centerX, quad.y1 - centerY, quad.u1, quad.v1, overlay, tintLight);
+                    this.fillLabelTint(builder, tintMatrix, entry, quad.x2 - centerX, quad.y2 - centerY, quad.u2, quad.v2, overlay, tintLight);
+
+                    this.fillLabelTint(builder, tintMatrix, entry, quad.x0 - centerX, quad.y0 - centerY, quad.u0, quad.v0, overlay, tintLight);
+                    this.fillLabelTint(builder, tintMatrix, entry, quad.x2 - centerX, quad.y2 - centerY, quad.u2, quad.v2, overlay, tintLight);
+                    this.fillLabelTint(builder, tintMatrix, entry, quad.x3 - centerX, quad.y3 - centerY, quad.u3, quad.v3, overlay, tintLight);
+                }
+
+                BufferRenderer.drawWithGlobalProgram(builder.end());
+            }
+
+            RenderSystem.enableCull();
+        });
+    }
+
+    private void bindTextLayerTexture(RenderLayer layer)
+    {
+        this.lastBoundTextTexture = 0;
+
+        if (layer == null)
+        {
+            return;
+        }
+
+        layer.startDrawing();
+        this.lastBoundTextTexture = GL11.glGetInteger(GL11.GL_TEXTURE_BINDING_2D);
+        layer.endDrawing();
+    }
+
+    private void fillLabelTint(BufferBuilder builder, Matrix4f matrix, MatrixStack.Entry entry, float x, float y, float u, float v, int overlay, int light)
+    {
+        builder.vertex(matrix, x, y, 0F).color(1F, 1F, 1F, 1F).texture(u, v).overlay(overlay).light(light).normal(entry, 0F, 0F, 1F);
     }
 
     private void renderShadow(FormRenderingContext context, int x, int y, int w, int h)
@@ -684,7 +946,7 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
 
         color.mul(context.color);
 
-        if (color.a <= 0)
+        if (isFullyTransparent(color))
         {
             return;
         }
@@ -708,5 +970,26 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
         RenderSystem.setShader(GameRenderer::getPositionColorProgram);
         BufferRenderer.drawWithGlobalProgram(builder.end());
         context.stack.pop();
+    }
+
+    /**
+     * Skip only when opacity is truly zero. Minecraft forces alpha bytes 0–3 to opaque.
+     */
+    private static boolean isFullyTransparent(Color color)
+    {
+        return color == null || color.a <= 0F;
+    }
+
+    private static int toSafeTextArgb(Color color)
+    {
+        int argb = color.getARGBColor();
+        int alpha = (argb >>> 24) & 0xFF;
+
+        if (color.a > 0F && alpha < MIN_TEXT_ALPHA_BYTE)
+        {
+            argb = (argb & 0x00FFFFFF) | (MIN_TEXT_ALPHA_BYTE << 24);
+        }
+
+        return argb;
     }
 }

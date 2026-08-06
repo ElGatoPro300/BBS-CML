@@ -5,6 +5,7 @@ uniform sampler2D Sampler0;
 uniform mat4 ColorEffectInverse;
 uniform float ColorEffectActive;
 uniform vec3 ColorMaskHalf;
+uniform float ColorMaskFalloff;
 uniform float ColorMaskBottomAnchored;
 uniform float ColorMaskShape;
 uniform vec4 FormColorTint;
@@ -34,7 +35,7 @@ float bbsSdTriangle2D(vec2 p, vec2 a, vec2 b, vec2 c)
     return -sqrt(max(d.x, 0.0)) * sign(d.y);
 }
 
-float bbsPaintEffectMask(vec3 rootPos, mat4 effectInverse, float activeFlag, vec3 halfExtents, float bottomAnchored, float shape)
+float bbsPaintEffectMask(vec3 rootPos, mat4 effectInverse, float activeFlag, vec3 halfExtents, float falloffWorld, float bottomAnchored, float shape)
 {
     if (activeFlag < 0.5)
     {
@@ -48,13 +49,17 @@ float bbsPaintEffectMask(vec3 rootPos, mat4 effectInverse, float activeFlag, vec
         local.y -= halfExtents.y;
     }
 
-    float dist;
     float maxHalf = max(halfExtents.x, max(halfExtents.y, halfExtents.z));
 
     if (maxHalf < 0.001)
     {
         return 0.0;
     }
+
+    /* Hard volume uses scaled half extents; soft rim uses falloffWorld from the
+     * unscaled form size so transform scale keeps a stable soft edge and axis scales
+     * do not thicken the opposite axis. */
+    float dist;
 
     if (shape > 1.5)
     {
@@ -72,7 +77,12 @@ float bbsPaintEffectMask(vec3 rootPos, mat4 effectInverse, float activeFlag, vec
         vec3 safeHalf = max(halfExtents, vec3(0.001));
         float radius = length(local / safeHalf);
 
-        dist = (radius - 1.0) * maxHalf;
+        if (radius <= 1.0)
+        {
+            return 1.0;
+        }
+
+        dist = (radius - 1.0) * length(local) / radius;
     }
     else
     {
@@ -81,7 +91,12 @@ float bbsPaintEffectMask(vec3 rootPos, mat4 effectInverse, float activeFlag, vec
         dist = length(max(d, 0.0)) + min(max(max(d.x, d.y), d.z), 0.0);
     }
 
-    float falloff = max(maxHalf * 0.15, 0.001);
+    if (dist <= 0.0)
+    {
+        return 1.0;
+    }
+
+    float falloff = max(falloffWorld, 0.001);
 
     return 1.0 - smoothstep(0.0, falloff, dist);
 }
@@ -98,7 +113,7 @@ void main()
     /* Evaluate mask per fragment — billboards only have 4 corners, so vertex masks
      * cannot form a center strip and collapse to a uniform tint strength. */
     vec3 maskPos = vec3(formRootPos.xy, 0.0);
-    float cmask = bbsPaintEffectMask(maskPos, ColorEffectInverse, ColorEffectActive, ColorMaskHalf, ColorMaskBottomAnchored, ColorMaskShape);
+    float cmask = bbsPaintEffectMask(maskPos, ColorEffectInverse, ColorEffectActive, ColorMaskHalf, ColorMaskFalloff, ColorMaskBottomAnchored, ColorMaskShape);
 
     if (cmask < 0.001)
     {

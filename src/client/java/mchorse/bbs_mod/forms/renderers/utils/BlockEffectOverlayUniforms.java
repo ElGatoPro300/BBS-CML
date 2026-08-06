@@ -686,6 +686,13 @@ public final class BlockEffectOverlayUniforms
             halfUniform.set(colorMaskHalf.x, colorMaskHalf.y, colorMaskHalf.z);
         }
 
+        GlUniform falloffUniform = shader.getUniform("ColorMaskFalloff");
+
+        if (falloffUniform != null)
+        {
+            falloffUniform.set(EffectTransformMath.resolveMaskFalloff(transform, colorMaskHalf));
+        }
+
         GlUniform activeUniform = shader.getUniform("ColorEffectActive");
 
         if (activeUniform != null)
