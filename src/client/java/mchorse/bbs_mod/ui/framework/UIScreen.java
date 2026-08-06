@@ -155,10 +155,15 @@ public class UIScreen extends Screen implements IFileDropListener
         return this.menu.mouseClicked((int) mouseX, (int) mouseY, button);
     }
 
-    @Override
-    public boolean mouseScrolled(double mouseX, double mouseY, double horizontalAmount, double verticalAmount)
+    public void setHorizontal(double horizontal)
     {
-        return this.menu.mouseScrolled((int) mouseX, (int) mouseY, horizontalAmount, verticalAmount);
+        this.menu.context.mouseWheelHorizontal = horizontal;
+    }
+
+    @Override
+    public boolean mouseScrolled(double mouseX, double mouseY, double verticalAmount)
+    {
+        return this.menu.mouseScrolled((int) mouseX, (int) mouseY, 0.0, verticalAmount);
     }
 
     @Override
@@ -188,7 +193,7 @@ public class UIScreen extends Screen implements IFileDropListener
     }
 
     @Override
-    public void renderBackground(DrawContext context, int mouseX, int mouseY, float delta)
+    public void renderBackground(DrawContext context)
     {}
 
     @Override

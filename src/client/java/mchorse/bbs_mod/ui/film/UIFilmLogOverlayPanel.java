@@ -175,7 +175,7 @@ public class UIFilmLogOverlayPanel extends UIOverlayPanel
                     profile = new GameProfile(uuid, this.contributor.name.get());
                 }
 
-                this.skinTexture = mc.getSkinProvider().getSkinTextures(profile).texture();
+                this.skinTexture = mc.player.getSkinTexture();
             }
             catch (Exception e)
             {}

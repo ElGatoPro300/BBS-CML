@@ -216,7 +216,7 @@ public class GunProjectileEntity extends ProjectileEntity implements IEntityForm
 
             pos = oldPos.add(v);
 
-            HitResult hitResult = ProjectileUtil.getCollision(this, this::canHit, RaycastContext.ShapeType.COLLIDER);
+            HitResult hitResult = ProjectileUtil.getCollision(this, this::canHit);
 
             if (hitResult.getType() != HitResult.Type.MISS)
             {

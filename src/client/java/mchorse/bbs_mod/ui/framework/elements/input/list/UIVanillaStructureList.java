@@ -132,7 +132,7 @@ public class UIVanillaStructureList extends UIStringList
                     try (InputStream is = entry.getValue().get(0).getInputStream();
                          DataInputStream dis = new DataInputStream(is))
                     {
-                        NbtCompound nbt = NbtIo.readCompressed(dis, NbtTagSizeTracker.ofUnlimitedBytes());
+                        NbtCompound nbt = NbtIo.readCompressed(dis);
 
                         if (nbt.contains("size"))
                         {

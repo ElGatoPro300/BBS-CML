@@ -2308,7 +2308,7 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
             || (b instanceof AttachedStemBlock)
             || state.isOf(Blocks.FERN)
             || state.isOf(Blocks.SUGAR_CANE)
-            || state.isOf(Blocks.SHORT_GRASS)
+            || state.isOf(Blocks.GRASS)
             || state.isOf(Blocks.TALL_GRASS)
             || state.isOf(Blocks.LARGE_FERN);
     }
@@ -2507,8 +2507,7 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
         {
             try
             {
-                NbtCompound root = NbtIo.readCompressed(nbtFile.toPath(), NbtTagSizeTracker.ofUnlimitedBytes());
-
+                NbtCompound root = NbtIo.readCompressed(nbtFile);
                 this.parseStructure(root);
 
                 return;
@@ -2522,8 +2521,7 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
         {
             try
             {
-                NbtCompound root = NbtIo.readCompressed(is, NbtTagSizeTracker.ofUnlimitedBytes());
-
+                NbtCompound root = NbtIo.readCompressed(is);
                 this.parseStructure(root);
             }
             catch (IOException e)

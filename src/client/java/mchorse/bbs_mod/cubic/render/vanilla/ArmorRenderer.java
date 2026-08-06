@@ -137,7 +137,7 @@ public class ArmorRenderer
                     this.renderArmorParts(part, matrices, vertexConsumers, light, armorItem, innerModel, 1F, 1F, 1F, null);
                 }
 
-                ArmorTrim trim = ArmorTrim.getTrim(MinecraftClient.getInstance().world.getRegistryManager(), itemStack, true).orElse(null);
+                ArmorTrim trim = ArmorTrim.getTrim(MinecraftClient.getInstance().world.getRegistryManager(), itemStack).orElse(null);
                 if (trim != null)
                 {
                     this.renderTrim(part, armorItem.getMaterial(), matrices, vertexConsumers, light, trim, innerModel);
@@ -194,7 +194,7 @@ public class ArmorRenderer
         BakedModelManager bakedModelManager = MinecraftClient.getInstance().getBakedModelManager();
         Sprite sprite = bakedModelManager.getAtlas(TexturedRenderLayers.ARMOR_TRIMS_ATLAS_TEXTURE).getSprite(innerModel ? trim.getLeggingsModelId(armorMaterial) : trim.getGenericModelId(armorMaterial));
 
-        VertexConsumer vertexConsumer = sprite.getTextureSpecificVertexConsumer(vertexConsumers.getBuffer(TexturedRenderLayers.getArmorTrims(trim.getPattern().value().decal())));
+        VertexConsumer vertexConsumer = sprite.getTextureSpecificVertexConsumer(vertexConsumers.getBuffer(TexturedRenderLayers.getArmorTrims()));
         part.render(matrices, vertexConsumer, light, OverlayTexture.DEFAULT_UV, 1F, 1F, 1F, 1F);
     }
 
