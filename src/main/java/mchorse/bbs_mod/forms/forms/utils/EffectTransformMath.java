@@ -88,7 +88,10 @@ public class EffectTransformMath
 
     /**
      * Structure paint/color masks: UI scale 1 covers the full structure AABB for box,
-     * circle, and triangle; scale 0 covers nothing. {@code size*} are block counts.
+     * circle, and triangle; scale 0 covers nothing. Negative scale shrinks through zero
+     * and clears the mask (same as model/billboard/label) — do not abs the half extents
+     * or negative scale mirrors back to a visible positive mask.
+     * {@code size*} are block counts.
      */
     public static void resolveStructureMaskHalfExtents(EffectTransform transform, Vector3f dest, float sizeX, float sizeY, float sizeZ)
     {
@@ -102,16 +105,16 @@ public class EffectTransformMath
 
         if (transform != null)
         {
-            scaleX = transform.scaleX;
-            scaleY = transform.scaleY;
-            scaleZ = transform.scaleZ;
+            scaleX = transform.scaleX == 0F ? 0.001F : transform.scaleX;
+            scaleY = transform.scaleY == 0F ? 0.001F : transform.scaleY;
+            scaleZ = transform.scaleZ == 0F ? 0.001F : transform.scaleZ;
             cover = structureShapeCover(transform.shape);
         }
 
         dest.set(
-            Math.abs(baseX * scaleX) * cover,
-            Math.abs(baseY * scaleY) * cover,
-            Math.abs(baseZ * scaleZ) * cover
+            baseX * scaleX * cover,
+            baseY * scaleY * cover,
+            baseZ * scaleZ * cover
         );
     }
 
