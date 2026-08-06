@@ -8,6 +8,7 @@ import mchorse.bbs_mod.importers.ImporterContext;
 import mchorse.bbs_mod.importers.Importers;
 import mchorse.bbs_mod.importers.types.IImporter;
 import mchorse.bbs_mod.ui.UIKeys;
+import mchorse.bbs_mod.ui.framework.elements.overlay.UIOverlay;
 import mchorse.bbs_mod.ui.utils.IFileDropListener;
 import mchorse.bbs_mod.ui.utils.UIUtils;
 import mchorse.bbs_mod.utils.FFMpegUtils;
@@ -104,6 +105,16 @@ public class UIScreen extends Screen implements IFileDropListener
         MinecraftClient.getInstance().onResolutionChanged();
 
         super.removed();
+
+        /* Force overlay teardown so deferred close animations cannot skip onClose
+         * (e.g. RecordingPauseHelper.pop) when setScreen(null) replaces this UI. */
+        if (this.menu != null && this.menu.overlay != null)
+        {
+            for (UIOverlay overlay : this.menu.overlay.getChildren(UIOverlay.class))
+            {
+                overlay.forceClose();
+            }
+        }
 
         this.menu.onClose(null);
         DiscordPresenceManager.INSTANCE.onBbsUiClosed();

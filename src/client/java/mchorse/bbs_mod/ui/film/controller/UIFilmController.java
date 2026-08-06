@@ -15,6 +15,7 @@ import mchorse.bbs_mod.film.FilmControllerContext;
 import mchorse.bbs_mod.film.MobCaptureRecordingSetup;
 import mchorse.bbs_mod.film.Recorder;
 import mchorse.bbs_mod.film.RecorderMobCapture;
+import mchorse.bbs_mod.film.RecordingPauseHelper;
 import mchorse.bbs_mod.film.replays.Replay;
 import mchorse.bbs_mod.film.replays.ReplayKeyframes;
 import mchorse.bbs_mod.forms.FormUtilsClient;
@@ -530,6 +531,9 @@ public class UIFilmController extends UIElement
         {
             return;
         }
+
+        /* Safety: never leave integrated-server ticks blocked once countdown starts. */
+        RecordingPauseHelper.reset();
 
         MobCaptureRecordingSetup setup = MobCaptureRecordingSetup.pending;
         MobCaptureRecordingSetup.pending = null;

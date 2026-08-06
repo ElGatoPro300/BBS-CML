@@ -298,6 +298,20 @@ public class UIOverlay extends UIElement
         }
     }
 
+    /**
+     * Closes immediately and fires panel {@code onClose} handlers. Use when the
+     * screen is being destroyed so deferred close animations cannot skip teardown.
+     */
+    public void forceClose()
+    {
+        if (!this.closing)
+        {
+            this.closing = true;
+        }
+
+        this.performClose();
+    }
+
     private void performClose()
     {
         for (UIOverlayPanel element : this.getChildren(UIOverlayPanel.class))

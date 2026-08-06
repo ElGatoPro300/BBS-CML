@@ -210,6 +210,9 @@ public class Films
 
     public void startRecording(Film film, int replayId, int tick)
     {
+        /* Safety: never leave integrated-server ticks blocked after recording starts. */
+        RecordingPauseHelper.reset();
+
         Morph morph = Morph.getMorph(MinecraftClient.getInstance().player);
 
         this.recorder = new Recorder(film, morph == null ? null : morph.getForm(), replayId, tick);
@@ -244,6 +247,8 @@ public class Films
 
     public Recorder stopRecording()
     {
+        RecordingPauseHelper.reset();
+
         Recorder recorder = this.recorder;
 
         this.recorder = null;

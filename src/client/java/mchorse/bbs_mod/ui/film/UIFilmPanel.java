@@ -29,6 +29,7 @@ import mchorse.bbs_mod.film.CrossWorldFilmEntry;
 import mchorse.bbs_mod.film.Film;
 import mchorse.bbs_mod.film.FilmContributor;
 import mchorse.bbs_mod.film.Recorder;
+import mchorse.bbs_mod.film.RecordingPauseHelper;
 import mchorse.bbs_mod.film.replays.Replay;
 import mchorse.bbs_mod.forms.FormUtils;
 import mchorse.bbs_mod.forms.forms.Form;
@@ -5040,6 +5041,8 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
     public void open()
     {
         super.open();
+
+        RecordingPauseHelper.reset();
 
         Recorder recorder = BBSModClient.getFilms().stopRecording();
 

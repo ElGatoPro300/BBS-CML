@@ -51,6 +51,7 @@ public class UIMobCaptureRecordOverlayPanel extends UIOverlayPanel
     private final Consumer<MobCaptureRecordingSetup> callback;
     private final Runnable onCancel;
     private final MobCaptureRecordingSetup setup = new MobCaptureRecordingSetup();
+    private boolean recordingPauseHeld;
 
     private UIText description;
     private UILabel conditionsHeader;
@@ -254,7 +255,7 @@ public class UIMobCaptureRecordOverlayPanel extends UIOverlayPanel
 
         this.onClose((event) ->
         {
-            RecordingPauseHelper.pop();
+            this.releaseRecordingPause();
 
             if (opened == this)
             {
@@ -262,12 +263,30 @@ public class UIMobCaptureRecordOverlayPanel extends UIOverlayPanel
             }
         });
 
-        RecordingPauseHelper.push();
+        this.holdRecordingPause();
         this.seedOriginFromPlayer();
         this.syncOriginFieldsFromSetup();
         this.updateOriginModeUi();
         this.updateLayout();
         this.refreshTypes();
+    }
+
+    private void holdRecordingPause()
+    {
+        if (!this.recordingPauseHeld)
+        {
+            RecordingPauseHelper.push();
+            this.recordingPauseHeld = true;
+        }
+    }
+
+    private void releaseRecordingPause()
+    {
+        if (this.recordingPauseHeld)
+        {
+            RecordingPauseHelper.pop();
+            this.recordingPauseHeld = false;
+        }
     }
 
     private UILabel createSectionLabel(IKey title)
@@ -887,6 +906,9 @@ public class UIMobCaptureRecordOverlayPanel extends UIOverlayPanel
         UIContext context = this.getContext();
         Runnable onCancel = this.onCancel;
 
+        /* Release before close/callback so deferred UI animations cannot leave
+         * the integrated server frozen after recording starts or the screen swaps. */
+        this.releaseRecordingPause();
         this.close();
 
         if (onCancel != null && context != null)
@@ -899,6 +921,7 @@ public class UIMobCaptureRecordOverlayPanel extends UIOverlayPanel
     {
         this.setup.captureMobs = true;
         MobCaptureRecordingSetup.pending = this.setup;
+        this.releaseRecordingPause();
         this.close();
 
         if (this.callback != null)
