@@ -402,7 +402,7 @@ public final class RecorderMobCapture
         {
             panel.replayEditor.replays.replays.buildVisualList();
             panel.replayEditor.updateChannelsList();
-            panel.getController().createEntities();
+            panel.getController().refreshEntities();
         }
     }
 
@@ -1064,7 +1064,7 @@ public final class RecorderMobCapture
 
             panel.replayEditor.replays.replays.buildVisualList();
             panel.replayEditor.updateChannelsList();
-            panel.getController().createEntities();
+            panel.getController().refreshEntities();
         });
     }
 }

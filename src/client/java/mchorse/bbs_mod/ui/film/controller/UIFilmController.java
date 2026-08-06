@@ -367,7 +367,15 @@ public class UIFilmController extends UIElement
     public void createEntities()
     {
         this.stopRecording();
+        this.refreshEntities();
+    }
 
+    /**
+     * Rebuild stub actors from the current film without stopping an active recording.
+     * Used as a one-shot refresh after mob capture so new MobForms are visible immediately.
+     */
+    public void refreshEntities()
+    {
         if (this.controlled != null)
         {
             this.toggleControl();
@@ -656,6 +664,9 @@ public class UIFilmController extends UIElement
 
         if (this.recordingCountdown > 0)
         {
+            /* Capture already added replays during setup — refresh once so they show up. */
+            MinecraftClient.getInstance().execute(this::refreshEntities);
+
             return;
         }
 
@@ -688,6 +699,9 @@ public class UIFilmController extends UIElement
         BBSModClient.getFilms().getEditorProjectileCapture().clear();
 
         this.setMouseMode(ClientNetwork.isIsBBSModOnServer() ? 0 : 1);
+
+        /* One-shot rebuild after capture — same effect as toggling VA, without per-tick updates. */
+        MinecraftClient.getInstance().execute(this::refreshEntities);
     }
 
     /* Input handling */
