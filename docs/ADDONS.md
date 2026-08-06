@@ -287,7 +287,7 @@ event.registerBlendHandler((form, blendState) -> {
 ```
 
 ### `registerClipInteraction(RegisterClipInteractionEvent event)`
-Registers interaction, double-click, curve picker rerouting, and hotkey handlers for timeline clips.
+Registers interaction, double-click, curve picker rerouting, and dope sheet post-rendering handlers for timeline clips.
 ```java
 event.registerDoubleClick((clip) -> {
     // Handle double-click on clip
@@ -295,13 +295,22 @@ event.registerDoubleClick((clip) -> {
 event.registerCurvePickerHandler((clipContext) -> {
     // Reroute or handle custom curve picker selection (e.g. Iris shader curve pickers)
 });
+event.registerDopeSheetRender((context, area) -> {
+    // Render custom collaborator cursors, selection overlays, or markers on timeline graph
+});
 ```
 
 ### `registerDockLayout(RegisterDockLayoutEvent event)`
-Registers sub-panel layout extensions, mini-windows, and docking layout modifications for the main Dashboard.
+Registers sub-panel layout extensions, mini-windows, docking layout modifications, and dashboard open/close lifecycle handlers.
 ```java
 event.registerCustomizer((dashboard) -> {
     // Extend dashboard layout or dock mini-windows
+});
+event.registerDashboardOpen((dashboard) -> {
+    // Handle dashboard opening (e.g. notify multiplayer presence)
+});
+event.registerDashboardClose((dashboard) -> {
+    // Handle dashboard closing
 });
 ```
 

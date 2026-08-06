@@ -6,6 +6,7 @@ import mchorse.bbs_mod.camera.controller.CameraController;
 import mchorse.bbs_mod.camera.controller.ICameraController;
 import mchorse.bbs_mod.camera.controller.PlayCameraController;
 import mchorse.bbs_mod.client.BBSRendering;
+import mchorse.bbs_mod.client.IrlWorldFilmLightBridge;
 import mchorse.bbs_mod.film.Films;
 import mchorse.bbs_mod.items.GunZoom;
 
@@ -163,6 +164,26 @@ public class GameRendererMixin
     private void onWorldRenderBegin(CallbackInfo callbackInfo)
     {
         BBSRendering.onWorldRenderBegin();
+    }
+
+    /**
+     * Register in-world film IRLights in absolute world space just after Camera.update
+     * and before IRLights' SSBO flush (same injection point, lower order). Avoids the
+     * render-path view mix when playing a film with Right-Ctrl outside the dashboard.
+     */
+    @Inject(
+        method = "renderWorld",
+        at = @At(
+            value = "INVOKE",
+            target = "Lnet/minecraft/client/render/Camera;update(Lnet/minecraft/world/BlockView;Lnet/minecraft/entity/Entity;ZZF)V",
+            shift = At.Shift.AFTER,
+            ordinal = 0
+        ),
+        order = 900
+    )
+    private void bbs$registerWorldFilmIrlLights(float tickDelta, long limitTime, MatrixStack matrixStack, CallbackInfo ci)
+    {
+        IrlWorldFilmLightBridge.collectBeforeFlush(tickDelta);
     }
 
     @Inject(at = @At("RETURN"), method = "renderWorld")

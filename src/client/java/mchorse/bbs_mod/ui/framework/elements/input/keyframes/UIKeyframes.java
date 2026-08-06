@@ -1140,7 +1140,17 @@ public class UIKeyframes extends UIElement
             return;
         }
 
-        int index = sheet.channel.insertInterpolated(tick);
+        int index;
+
+        if (sheet.channel.isEmpty() && sheet.defaultInsertValue != null)
+        {
+            index = sheet.channel.insert(tick, sheet.channel.getFactory().copy(sheet.defaultInsertValue));
+        }
+        else
+        {
+            index = sheet.channel.insertInterpolated(tick);
+        }
+
         Keyframe keyframe = sheet.channel.get(index);
 
         if (keyframe != null)

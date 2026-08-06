@@ -720,7 +720,7 @@ public class BBSSettings
         editorSafeMarginsColor = builder.getInt("safe_margins_color", 0xcccc0000).colorAlpha();
         editorSafeMargins = builder.getBoolean("safe_margins", false);
         editorFlightFreeLook = builder.getBoolean("flight_free_look", false);
-        editorOrbitWithoutFlight = builder.getBoolean("orbit_without_flight", true);
+        editorOrbitWithoutFlight = builder.getBoolean("orbit_without_flight", false);
         editorOrbitSmoothTransition = builder.getBoolean("orbit_smooth_transition", false);
         editorOrbitRestrictToViewport = builder.getBoolean("orbit_restrict_to_viewport", false);
         editorOrbitTransitionDuration = builder.getFloat("orbit_transition_duration", 1.25F, 0.1F, 10F);

@@ -106,6 +106,13 @@ public abstract class BaseFilmController
     public boolean paused;
     public int exception = -1;
 
+    /**
+     * Last film tick at which each replay already evaluated a step sound.
+     * Film editor keeps calling {@link #update()} while the playhead is parked, so
+     * without this edge the same step tick would spam audio every client tick.
+     */
+    private final Map<String, Integer> lastStepSoundTicks = new HashMap<>();
+
     /* Rendering helpers */
 
     public static void renderEntity(FilmControllerContext context)
@@ -118,7 +125,7 @@ public abstract class BaseFilmController
 
         Form form = entity.getForm();
 
-        if (form == null || !form.render.get())
+        if (form == null || !form.render.get() || !form.visible.get())
         {
             return;
         }
@@ -246,9 +253,11 @@ public abstract class BaseFilmController
             MatrixStackUtils.multiply(stack, target);
 
             /* IRLights 1.21+ reads FormRenderingContext.world (absolute) for light poses.
-             * Rebuild that root in true world space (independent of any render camera or viewport)
-             * so light registration cannot mix the film actor frame with the spectator/player view. */
-            syncIrlAbsoluteWorldMatrix(formContext, context, entity, relative, transition);
+             * Convert the posed camera-relative actor root into absolute world space:
+             * world = T(camera) * target. Keeps anchors/look-at aligned with the mesh and
+             * avoids mixing the spectator view into light registration. Mesh keeps using
+             * camera-relative target (do not zero cx/cy/cz — that made forms invisible). */
+            syncIrlAbsoluteWorldMatrix(formContext, target, camera);
 
             ModelFormRenderer lookAtRenderer = relative ? null : applyLookAtPose(context, form, position);
 
@@ -369,7 +378,8 @@ public abstract class BaseFilmController
          * Blob opacity is the Shadow track only; form Opacity must not fade the ground circle.
          * Size X/Z are independent (matrix scale); vanilla API only has one radius. */
         if (!relative && context.map == null && opacity > 0F
-            && (context.shadowRadiusX > 0F || context.shadowRadiusZ > 0F) && form.render.get()
+            && (context.shadowRadiusX > 0F || context.shadowRadiusZ > 0F)
+            && form.render.get() && form.visible.get()
             && !context.isShadowPass && !IrisUtils.isShaderPackEnabled())
         {
             float shadowOpacity = MathUtils.clamp(opacity * context.shadowOpacity, 0F, 1F);
@@ -950,64 +960,35 @@ public abstract class BaseFilmController
 
     /**
      * IRLights resolves point/spotlight poses from {@link FormRenderingContext#world}.
-     * Rebuild the actor's absolute world matrix stack in true world coordinates
-     * (independent of any render camera or viewport) so lights remain fixed in place.
+     * Convert the posed camera-relative actor root into absolute world space so light
+     * registration cannot mix the film actor frame with the spectator/player view.
+     * In-world film playback also re-registers lights via {@code IrlWorldFilmLightBridge}
+     * before the SSBO flush (scanner-style absolute coords).
      */
-    private static void syncIrlAbsoluteWorldMatrix(FormRenderingContext formContext, FilmControllerContext context, IEntity entity, boolean relative, float transition)
+    private static void syncIrlAbsoluteWorldMatrix(FormRenderingContext formContext, Matrix4f cameraRelativeRoot, Camera camera)
     {
-        if (formContext == null || formContext.world == null || entity == null || context == null)
+        if (formContext == null || formContext.world == null || cameraRelativeRoot == null || camera == null)
         {
             return;
         }
 
-        if (relative)
+        if (formContext.relative)
         {
             return;
         }
 
-        Vector3d position = Vectors.TEMP_3D.set(
-            Lerps.lerp(entity.getPrevX(), entity.getX(), transition),
-            Lerps.lerp(entity.getPrevY(), entity.getY(), transition),
-            Lerps.lerp(entity.getPrevZ(), entity.getZ(), transition)
+        Matrix4f worldRoot = new Matrix4f(cameraRelativeRoot);
+        Vector3f translation = worldRoot.getTranslation(new Vector3f());
+        Vec3d cam = camera.getPos();
+
+        worldRoot.setTranslation(
+            translation.x + (float) cam.x,
+            translation.y + (float) cam.y,
+            translation.z + (float) cam.z
         );
 
-        Form form = entity.getForm();
-        Matrix4f defaultMatrix = getMatrixForRenderWithRotation(entity, 0D, 0D, 0D, transition);
-        Matrix4f worldTarget = null;
-
-        if (context.entities != null && form != null && form.anchor.get() != null)
-        {
-            Pair<Matrix4f, Float> pair = getTotalMatrix(context.entities, form.anchor.get(), defaultMatrix, 0D, 0D, 0D, transition, 0);
-
-            worldTarget = pair.a;
-        }
-
-        if (worldTarget != null)
-        {
-            Vector3f v = worldTarget.getTranslation(new Vector3f());
-            Vector3f v2 = defaultMatrix.getTranslation(new Vector3f());
-
-            position.x += v.x - v2.x;
-            position.y += v.y - v2.y;
-            position.z += v.z - v2.z;
-        }
-        else
-        {
-            worldTarget = defaultMatrix;
-        }
-
-        if (form != null)
-        {
-            applyLookAt(context, form, position, worldTarget);
-        }
-
-        if (context.localGroupTransform != null)
-        {
-            worldTarget.mul(context.localGroupTransform);
-        }
-
-        formContext.world.peek().getPositionMatrix().set(worldTarget);
-        formContext.world.peek().getNormalMatrix().set(new Matrix3f(worldTarget));
+        formContext.world.peek().getPositionMatrix().set(worldRoot);
+        formContext.world.peek().getNormalMatrix().set(new Matrix3f(worldRoot));
     }
 
     public static Matrix4f getMatrixForRenderWithRotation(IEntity entity, double cameraX, double cameraY, double cameraZ, float tickDelta)
@@ -1092,6 +1073,7 @@ public abstract class BaseFilmController
     {
         this.entities.clear();
         this.replayMap.clear();
+        this.lastStepSoundTicks.clear();
 
         if (this.film == null)
         {
@@ -1297,11 +1279,26 @@ public abstract class BaseFilmController
                             boolean grounded = replay.keyframes.grounded.interpolate(replayTick) > 0;
 
                             Vec3d pos = player.getPos();
+                            double dx = x - pos.x;
+                            double dy = y - pos.y;
+                            double dz = z - pos.z;
+                            boolean shouldStep = !this.paused
+                                && (BBSSettings.editorReplayStepSound == null || BBSSettings.editorReplayStepSound.get())
+                                && (dx * dx + dy * dy + dz * dz) > 1.0E-8D;
 
-                            if (!this.paused && (BBSSettings.editorReplayStepSound == null || BBSSettings.editorReplayStepSound.get()))
+                            if (shouldStep)
                             {
-                                player.setOnGround(grounded);
-                                player.move(MovementType.SELF, new Vec3d(x - pos.x, y - pos.y, z - pos.z));
+                                String replayId = replay.getId();
+                                Integer lastTick = this.lastStepSoundTicks.get(replayId);
+
+                                /* Same edge as spawnReplayStepSound: parked playhead must not
+                                 * call move() every client tick (vanilla step spam). */
+                                if (lastTick == null || lastTick.intValue() != replayTick)
+                                {
+                                    this.lastStepSoundTicks.put(replayId, replayTick);
+                                    player.setOnGround(grounded);
+                                    player.move(MovementType.SELF, new Vec3d(dx, dy, dz));
+                                }
                             }
 
                             player.setPosition(x, y, z);
@@ -1434,6 +1431,17 @@ public abstract class BaseFilmController
             return;
         }
 
+        String replayId = replay.getId();
+        Integer lastTick = this.lastStepSoundTicks.get(replayId);
+
+        /* One evaluation per film tick (scrub once, play once; parked playhead = silence). */
+        if (lastTick != null && lastTick.intValue() == ticks)
+        {
+            return;
+        }
+
+        this.lastStepSoundTicks.put(replayId, ticks);
+
         if (!this.isReplayVisible(replay, ticks))
         {
             return;
@@ -1444,7 +1452,7 @@ public abstract class BaseFilmController
             return;
         }
 
-        /* Reduce spam and approximate vanilla stepping cadence. */
+        /* Approximate vanilla stepping cadence while the timeline is advancing. */
         if ((ticks & 7) != 0)
         {
             return;

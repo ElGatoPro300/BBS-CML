@@ -36,7 +36,6 @@ import mchorse.bbs_mod.ui.Keys;
 import mchorse.bbs_mod.ui.UIKeys;
 import mchorse.bbs_mod.ui.film.UIFilmPanel;
 import mchorse.bbs_mod.ui.film.replays.FilmPoseGizmoDrag;
-import mchorse.bbs_mod.ui.film.replays.UIMobCaptureRecordOverlayPanel;
 import mchorse.bbs_mod.ui.film.replays.UIRecordOverlayPanel;
 import mchorse.bbs_mod.ui.film.replays.overlays.UIReplaysOverlayPanel;
 import mchorse.bbs_mod.ui.framework.UIBaseMenu;
@@ -829,13 +828,22 @@ public class UIFilmController extends UIElement
 
     private void openRecordOverlay()
     {
+        this.openRecordOverlay(false);
+    }
+
+    private void openRecordOverlay(boolean mobToMorph)
+    {
         UIRecordOverlayPanel panel = new UIRecordOverlayPanel(
             UIKeys.FILM_CONTROLLER_RECORD_TITLE,
             UIKeys.FILM_CONTROLLER_RECORD_DESCRIPTION,
             this::startRecording,
             true
         );
-        UIIcon icon = new UIIcon(Icons.UPLOAD, (b) -> UIMobCaptureRecordOverlayPanel.openOnContext(this.getContext(), (setup) -> this.startRecording(Arrays.asList("outside"))));
+
+        panel.onMobCaptureCancel(() -> this.openRecordOverlay(true));
+        panel.setMobToMorph(mobToMorph);
+
+        UIIcon icon = new UIIcon(Icons.UPLOAD, (b) -> panel.submit(Arrays.asList("outside")));
 
         icon.tooltip(UIKeys.FILM_GROUPS_OUTSIDE);
         panel.bar.add(icon);

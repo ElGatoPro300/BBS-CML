@@ -69,7 +69,7 @@ public final class TimelineClipTypeGroups
         buckets.put(UIKeys.ACTION_TIMELINE_CLIPS_TABS_ITEMS,
             List.of(Link.bbs("use_item"), Link.bbs("use_block_item"), Link.bbs("drop_item")));
         buckets.put(UIKeys.ACTION_TIMELINE_CLIPS_TABS_COMBAT,
-            List.of(Link.bbs("attack"), Link.bbs("damage"), Link.bbs("swipe")));
+            List.of(Link.bbs("attack"), Link.bbs("damage"), Link.bbs("mob_death"), Link.bbs("swipe")));
         buckets.put(UIKeys.ACTION_TIMELINE_CLIPS_TABS_OTHER,
             List.of(Link.bbs("chat"), Link.bbs("command")));
 

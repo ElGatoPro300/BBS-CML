@@ -2,6 +2,7 @@ package mchorse.bbs_mod.ui.film.utils;
 
 import mchorse.bbs_mod.BBSMod;
 import mchorse.bbs_mod.data.types.MapType;
+import mchorse.bbs_mod.events.register.RegisterFilmSyncEvent;
 import mchorse.bbs_mod.network.ClientNetwork;
 import mchorse.bbs_mod.settings.values.base.BaseValue;
 import mchorse.bbs_mod.settings.values.core.ValueGroup;
@@ -213,6 +214,11 @@ public class UIFilmUndoHandler extends UIFormUndoHandler
         this.cachedValues.keySet().removeIf(this::isFilmMetadata);
 
         super.submitUndo();
+
+        if (!this.applyingUndo && this.uiElement instanceof UIFilmPanel panel && panel.getData() != null)
+        {
+            RegisterFilmSyncEvent.postSaveFilm(panel.getData());
+        }
     }
 
     @Override

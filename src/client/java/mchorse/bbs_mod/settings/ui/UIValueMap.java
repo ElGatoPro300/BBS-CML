@@ -545,6 +545,10 @@ public class UIValueMap
             frameRate.w(90);
             list.add(customColumn(frameRate, UIKeys.VIDEO_SETTINGS_FRAME_RATE, IKey.raw("")));
 
+            UITrackpad warmupDelay = UIValueFactory.floatUI(value.warmupDelay, null);
+            warmupDelay.w(90);
+            list.add(customColumn(warmupDelay, UIKeys.VIDEO_SETTINGS_WARMUP_DELAY, UIKeys.VIDEO_SETTINGS_WARMUP_DELAY_TOOLTIP));
+
             UITrackpad motionBlur = UIValueFactory.intUI(value.motionBlur, null);
             motionBlur.w(90);
             list.add(customColumn(motionBlur, UIKeys.VIDEO_SETTINGS_MOTION_BLUR, UIKeys.VIDEO_SETTINGS_MOTION_BLUR_TOOLTIP));

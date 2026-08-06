@@ -2266,24 +2266,8 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
 
         Color color = this.form.color.get();
 
-        if (color == null)
-        {
-            return false;
-        }
-
-        if (color.hasActiveTransform())
-        {
-            return true;
-        }
-
-        float intensity = MathUtils.clamp(color.a, 0F, 1F);
-
-        if (intensity <= 0.001F)
-        {
-            return false;
-        }
-
-        return color.r < 0.999F || color.g < 0.999F || color.b < 0.999F;
+        /* Plain RGB without a spatial transform bakes into vertex tint. */
+        return color != null && color.hasActiveTransform();
     }
 
     /**

@@ -29,9 +29,11 @@ public class UIHotbarRenderer
     private static final float SCALE_PIVOT_Y = 0.5F;
     private static final int MAX_HEALTH_ROWS = 60;
     private static final float MAX_HEALTH_CONTAINER = MAX_HEALTH_ROWS * 10F * 2F;
+
     private static final Identifier GUI_ICONS = new Identifier("minecraft", "textures/gui/icons.png");
     private static final Identifier WIDGETS_TEXTURE = new Identifier("minecraft", "textures/gui/widgets.png");
     private static final int GUI_ICONS_SIZE = 256;
+
     private static boolean wasHeartRegenerationEnabled;
     private static long heartRegenerationStartTick;
 
@@ -92,16 +94,32 @@ public class UIHotbarRenderer
         batcher.getContext().setShaderColor(1F, 1F, 1F, alpha);
         RenderSystem.setShaderColor(1F, 1F, 1F, alpha);
 
-        drawTexture(batcher, WIDGETS_TEXTURE, 0, 0, 0, 0, 182, 22);
-
         boolean hasOffhandItem = hotbar.offhandItem != null && !hotbar.offhandItem.isEmpty();
-        if (hasOffhandItem)
-        {
-            drawTexture(batcher, WIDGETS_TEXTURE, -29, -1, 24, 22, 29, 24);
-        }
 
-        int selectedSlot = MathHelper.clamp(hotbar.selectedSlot, 0, 8);
-        drawTexture(batcher, WIDGETS_TEXTURE, selectedSlot * 20 - 1, -1, 0, 22, 24, 22);
+        if (hotbar.showHotbar)
+        {
+            drawTexture(batcher, WIDGETS_TEXTURE, 0, 0, 0, 0, 182, 22);
+
+            if (hasOffhandItem)
+            {
+                int offhandBgX = hotbar.rightOffhand ? 182 : -29;
+                drawTexture(batcher, WIDGETS_TEXTURE, offhandBgX, -1, 24, 22, 29, 24);
+            }
+
+            int selectedSlot = MathHelper.clamp(hotbar.selectedSlot, 0, 8);
+            drawTexture(batcher, WIDGETS_TEXTURE, selectedSlot * 20 - 1, -1, 0, 22, 24, 22);
+
+            if (hotbar.showAttackCooldown && hotbar.attackCooldown > 0F)
+            {
+                int selectedX = selectedSlot * 20 + 3;
+                int cooldownH = MathHelper.ceil(hotbar.attackCooldown * 18F);
+                drawTexture(batcher, WIDGETS_TEXTURE, selectedX, -19, 0, 94, 18, 18);
+                if (cooldownH > 0)
+                {
+                    drawTexture(batcher, WIDGETS_TEXTURE, selectedX, -19 + (18 - cooldownH), 18, 94 + (18 - cooldownH), 18, cooldownH);
+                }
+            }
+        }
 
         int barsY = BAR_ICON_Y;
         int hardcoreOffsetY = hotbar.hardcore ? 45 : 0;
@@ -145,71 +163,111 @@ public class UIHotbarRenderer
             wasHeartRegenerationEnabled = false;
         }
 
-        renderBar(batcher, hotbar.health, containerU, containerV, heartHalfU, heartV, heartFullU, heartV, 0, barsY, healthSlots, heartShakeRandom, regenerationHeartIndex);
-        if (absorptionSlots > 0)
+        if (hotbar.showHealth)
         {
-            renderBar(batcher, hotbar.absorption, containerU, containerV, absorptionHalfU, absorptionV, absorptionFullU, absorptionV, 0, barsY - healthRows * 10, absorptionSlots, heartShakeRandom, -1);
-        }
-        if (hotbar.armor > 0F)
-        {
-            renderBar(batcher, hotbar.armor, 16, 9, 25, 9, 34, 9, 0, barsY - (healthRows + absorptionRows) * 10, 10, null, -1);
-        }
-
-        int foodEmptyU = 16;
-        int foodHalfU = 61;
-        int foodFullU = 52;
-        int foodV = hotbar.hungerEffect ? 144 : 27;
-        renderBarReverse(batcher, hotbar.hunger, foodEmptyU, foodV, foodHalfU, foodV, foodFullU, foodV, 182 - 9, barsY, 10, hungerShakeRandom);
-
-        renderAirBar(batcher, hotbar.air, 182 - 9, barsY - 10);
-
-        float experience = MathHelper.clamp(hotbar.experience, 0F, 1F);
-        int xpPixels = MathHelper.ceil(experience * 182F);
-        drawGuiIcon(batcher, 0, EXPERIENCE_BAR_Y, 0, 64, 182, 5);
-        if (xpPixels > 0)
-        {
-            drawGuiIcon(batcher, 0, EXPERIENCE_BAR_Y, 0, 69, xpPixels, 5);
-        }
-
-        if (hotbar.experienceLevel > 0)
-        {
-            String level = Integer.toString(hotbar.experienceLevel);
-            int levelX = (182 - batcher.getFont().getWidth(level)) / 2;
-
-            batcher.textShadow(level, levelX, EXPERIENCE_TEXT_Y, applyAlpha(HUD_GREEN, alpha));
-        }
-
-        /* Item glint (enchants) requires depth test in GUI item renderer. */
-        RenderSystem.enableDepthTest();
-        RenderSystem.depthMask(true);
-
-        Vector3f light0 = new Vector3f(0.85F, 0.85F, -1.0F).normalize();
-        Vector3f light1 = new Vector3f(-0.85F, 0.85F, 1.0F).normalize();
-        RenderSystem.setupGui3DDiffuseLighting(light0, light1);
-
-        for (int i = 0; i < 9; i++)
-        {
-            ItemStack stackItem = hotbar.items[i];
-
-            if (stackItem == null || stackItem.isEmpty())
+            renderBar(batcher, hotbar.health, containerU, containerV, heartHalfU, heartV, heartFullU, heartV, 0, barsY, healthSlots, heartShakeRandom, regenerationHeartIndex);
+            if (absorptionSlots > 0)
             {
-                continue;
+                renderBar(batcher, hotbar.absorption, containerU, containerV, absorptionHalfU, absorptionV, absorptionFullU, absorptionV, 0, barsY - healthRows * 10, absorptionSlots, heartShakeRandom, -1);
+            }
+        }
+
+        if (hotbar.showArmor && hotbar.armor > 0F)
+        {
+            int armorY = barsY - (hotbar.showHealth ? (healthRows + absorptionRows) * 10 : 0);
+            renderBar(batcher, hotbar.armor, 16, 9, 25, 9, 34, 9, 0, armorY, 10, null, -1);
+        }
+
+        if (hotbar.mountHealthContainer > 0F)
+        {
+            int mountSlots = MathHelper.ceil(MathHelper.clamp(hotbar.mountHealthContainer, 0F, MAX_HEALTH_CONTAINER) / 2F);
+            renderBarReverse(batcher, hotbar.mountHealth, 52, 9, 97, 9, 88, 9, 182 - 9, barsY, mountSlots, null);
+        }
+        else if (hotbar.showHunger)
+        {
+            int foodEmptyU = 16;
+            int foodHalfU = 61;
+            int foodFullU = 52;
+            int foodV = hotbar.hungerEffect ? 144 : 27;
+            renderBarReverse(batcher, hotbar.hunger, foodEmptyU, foodV, foodHalfU, foodV, foodFullU, foodV, 182 - 9, barsY, 10, hungerShakeRandom);
+        }
+
+        if (hotbar.showAir)
+        {
+            int airY = barsY - (hotbar.mountHealthContainer > 0F || hotbar.showHunger ? 10 : 0);
+            renderAirBar(batcher, hotbar.air, 182 - 9, airY);
+        }
+
+        if (hotbar.showHorseJump)
+        {
+            float jumpProgress = MathHelper.clamp(hotbar.horseJump, 0F, 1F);
+            int jumpPixels = MathHelper.ceil(jumpProgress * 182F);
+            drawGuiIcon(batcher, 0, EXPERIENCE_BAR_Y, 0, 84, 182, 5);
+            if (jumpPixels > 0)
+            {
+                drawGuiIcon(batcher, 0, EXPERIENCE_BAR_Y, 0, 89, jumpPixels, 5);
+            }
+        }
+        else if (hotbar.showExperience)
+        {
+            float experience = MathHelper.clamp(hotbar.experience, 0F, 1F);
+            int xpPixels = MathHelper.ceil(experience * 182F);
+            drawGuiIcon(batcher, 0, EXPERIENCE_BAR_Y, 0, 64, 182, 5);
+            if (xpPixels > 0)
+            {
+                drawGuiIcon(batcher, 0, EXPERIENCE_BAR_Y, 0, 69, xpPixels, 5);
             }
 
-            int itemX = 3 + i * 20;
-            int itemY = 3;
+            if (hotbar.experienceLevel > 0)
+            {
+                String level = Integer.toString(hotbar.experienceLevel);
+                int levelX = (182 - batcher.getFont().getWidth(level)) / 2;
+                int outlineColor = applyAlpha(0x000000, alpha);
+                int levelColor = applyAlpha(HUD_GREEN, alpha);
 
-            batcher.getContext().drawItem(stackItem, itemX, itemY);
-            batcher.getContext().drawItemInSlot(batcher.getFont().getRenderer(), stackItem, itemX, itemY);
+                /* Vanilla-like outlined XP number: no drop shadow, solid contour around glyphs. */
+                batcher.text(level, levelX - 1, EXPERIENCE_TEXT_Y, outlineColor, false);
+                batcher.text(level, levelX + 1, EXPERIENCE_TEXT_Y, outlineColor, false);
+                batcher.text(level, levelX, EXPERIENCE_TEXT_Y - 1, outlineColor, false);
+                batcher.text(level, levelX, EXPERIENCE_TEXT_Y + 1, outlineColor, false);
+                batcher.text(level, levelX, EXPERIENCE_TEXT_Y, levelColor, false);
+            }
         }
 
-        if (hasOffhandItem)
+        if (hotbar.showHotbar)
         {
-            int offhandX = -26;
-            int offhandY = 3;
+            /* Item glint (enchants) requires depth test in GUI item renderer. */
+            RenderSystem.enableDepthTest();
+            RenderSystem.depthMask(true);
 
-            batcher.getContext().drawItem(hotbar.offhandItem, offhandX, offhandY);
-            batcher.getContext().drawItemInSlot(batcher.getFont().getRenderer(), hotbar.offhandItem, offhandX, offhandY);
+            Vector3f light0 = new Vector3f(0.85F, 0.85F, -1.0F).normalize();
+            Vector3f light1 = new Vector3f(-0.85F, 0.85F, 1.0F).normalize();
+            RenderSystem.setupGui3DDiffuseLighting(light0, light1);
+
+            for (int i = 0; i < 9; i++)
+            {
+                ItemStack stackItem = hotbar.items[i];
+
+                if (stackItem == null || stackItem.isEmpty())
+                {
+                    continue;
+                }
+
+                int itemX = 3 + i * 20;
+                int itemY = 3;
+
+                batcher.getContext().drawItem(stackItem, itemX, itemY);
+                batcher.getContext().drawItemInSlot(batcher.getFont().getRenderer(), stackItem, itemX, itemY);
+            }
+
+            if (hasOffhandItem)
+            {
+                int offhandX = hotbar.rightOffhand ? 192 : -26;
+                int offhandY = 3;
+
+                batcher.getContext().drawItem(hotbar.offhandItem, offhandX, offhandY);
+                batcher.getContext().drawItemInSlot(batcher.getFont().getRenderer(), hotbar.offhandItem, offhandX, offhandY);
+            }
         }
 
         batcher.getContext().draw();

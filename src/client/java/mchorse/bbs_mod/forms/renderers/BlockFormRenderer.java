@@ -755,8 +755,7 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
 
     private void renderColorTintOverlayPass(FormRenderingContext context, MatrixStack stack, CustomVertexConsumerProvider consumers, Color formColor, float alpha, int overlay, boolean ui, Color gradeSource)
     {
-        Matrix4f formRootInverse = new Matrix4f();
-        boolean gradeActive = gradeSource != null && gradeSource.hasColorAdjustments();
+        Matrix4f formRootInverse = new Matrix4f(stack.peek().getPositionMatrix()).invert();
         int savedDepthFunc = GL11.glGetInteger(GL11.GL_DEPTH_FUNC);
         boolean savedDepthMask = GL11.glGetBoolean(GL11.GL_DEPTH_WRITEMASK);
         boolean savedPolygonOffsetFill = GL11.glGetBoolean(GL11.GL_POLYGON_OFFSET_FILL);
@@ -768,6 +767,7 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
         RenderSystem.enableDepthTest();
         RenderSystem.depthFunc(GL11.GL_LEQUAL);
         RenderSystem.depthMask(false);
+        /* Pull tint overlay toward camera so it does not z-fight the main block pass. */
         GL11.glEnable(GL11.GL_POLYGON_OFFSET_FILL);
         GL11.glPolygonOffset(-1F, -2F);
 
@@ -842,7 +842,7 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
 
     private void renderPaintOverlayPass(FormRenderingContext context, MatrixStack stack, CustomVertexConsumerProvider consumers, Color paintOverlay, int overlay, boolean ui, EffectTransform transform, GlowSettings glowSettings, Color legacyGlow, float glowIntensity, float alpha)
     {
-        Matrix4f formRootInverse = new Matrix4f();
+        Matrix4f formRootInverse = new Matrix4f(stack.peek().getPositionMatrix()).invert();
 
         CustomVertexConsumerProvider.clearRunnables();
         CustomVertexConsumerProvider.hijackVertexFormat((l) -> BlockEffectOverlayUniforms.configurePaintOverlayRenderState(formRootInverse, transform, true, glowSettings, legacyGlow, glowIntensity, alpha));
