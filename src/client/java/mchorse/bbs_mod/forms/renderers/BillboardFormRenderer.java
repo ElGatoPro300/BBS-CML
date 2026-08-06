@@ -338,8 +338,6 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
 
         texture.bind();
         texture.setFilterMipmap(this.form.linear.get(), this.form.mipmap.get());
-        BufferBuilder builder = Tessellator.getInstance().getBuffer();
-        builder.begin(VertexFormat.DrawMode.TRIANGLES, format);
 
         RenderSystem.disableCull();
 
@@ -542,7 +540,7 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
 
             try
             {
-                builder = Tessellator.getInstance().getBuffer();
+                BufferBuilder builder = Tessellator.getInstance().getBuffer();
                 builder.begin(VertexFormat.DrawMode.TRIANGLES, format);
 
                 /* Front */
