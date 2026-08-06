@@ -5054,6 +5054,7 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
         }
 
         this.applyRecordedKeyframes(recorder, this.data);
+        this.controller.refreshEntities();
     }
 
 

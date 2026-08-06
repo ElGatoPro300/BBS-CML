@@ -13,6 +13,7 @@ import mchorse.bbs_mod.forms.entities.IEntity;
 import mchorse.bbs_mod.forms.entities.MCEntity;
 import mchorse.bbs_mod.forms.entities.StubEntity;
 import mchorse.bbs_mod.forms.forms.Form;
+import mchorse.bbs_mod.forms.forms.MobForm;
 import mchorse.bbs_mod.forms.renderers.FormRenderer;
 import mchorse.bbs_mod.settings.values.base.BaseValue;
 import mchorse.bbs_mod.settings.values.ui.ValueOnionSkin;
@@ -73,6 +74,13 @@ public class FilmEditorController extends BaseFilmController
         if (isPlaying && isActor)
         {
             super.updateEntityAndForm(entity, tick);
+        }
+        else if (isActor && entity.getForm() instanceof MobForm)
+        {
+            /* MobForm's hidden vanilla entity must keep ticking while the playhead is parked.
+             * Without VA pose sampling, skipping Form.update leaves the morph invisible until
+             * the VA toggle forces createEntities + ensureRenderEntity. */
+            entity.getForm().update(entity);
         }
     }
 
