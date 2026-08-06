@@ -4,7 +4,6 @@ import mchorse.bbs_mod.forms.ITickable;
 import mchorse.bbs_mod.forms.entities.IEntity;
 import mchorse.bbs_mod.forms.forms.VanillaParticleForm;
 import mchorse.bbs_mod.forms.forms.utils.ParticleSettings;
-import mchorse.bbs_mod.forms.renderers.FormRenderType;
 import mchorse.bbs_mod.graphics.texture.Texture;
 import mchorse.bbs_mod.resources.Link;
 import mchorse.bbs_mod.ui.framework.UIContext;
@@ -13,8 +12,6 @@ import mchorse.bbs_mod.utils.interps.Lerps;
 import mchorse.bbs_mod.utils.joml.Matrices;
 import mchorse.bbs_mod.utils.joml.Vectors;
 
-import net.minecraft.block.Block;
-import net.minecraft.block.Blocks;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.particle.Particle;
 import net.minecraft.client.render.Camera;
@@ -99,40 +96,23 @@ public class VanillaParticleFormRenderer extends FormRenderer<VanillaParticleFor
     {
         super.render3D(context);
 
-        Matrix4f positionMatrix;
+        Camera camera = MinecraftClient.getInstance().gameRenderer.getCamera();
+        Matrix4f matrix = new Matrix4f(RenderSystem.getInverseViewRotationMatrix());
 
-        if (context.type == FormRenderType.PREVIEW)
-        {
-            net.minecraft.client.render.Camera realCamera = MinecraftClient.getInstance().gameRenderer.getCamera();
+        matrix.mul(context.stack.peek().getPositionMatrix());
 
-            positionMatrix = new Matrix4f().rotation(realCamera.getRotation());
-            positionMatrix.mul(context.stack.peek().getPositionMatrix());
+        Vector3d translation = new Vector3d(matrix.getTranslation(Vectors.TEMP_3F));
 
-            Vector3f translation = positionMatrix.getTranslation(new Vector3f());
+        translation.add(camera.getPos().x, camera.getPos().y, camera.getPos().z);
+        context.stack.push();
+        context.stack.loadIdentity();
+        context.stack.multiplyPositionMatrix(new Matrix4f(RenderSystem.getInverseViewRotationMatrix()).invert());
 
-            this.pos.set(
-                translation.x + (float) realCamera.getPos().x,
-                translation.y + (float) realCamera.getPos().y,
-                translation.z + (float) realCamera.getPos().z
-            );
-        }
-        else
-        {
-            positionMatrix = new Matrix4f(context.stack.peek().getPositionMatrix());
-
-            Vector3f translation = positionMatrix.getTranslation(new Vector3f());
-
-            this.pos.set(
-                translation.x + context.camera.position.x,
-                translation.y + context.camera.position.y,
-                translation.z + context.camera.position.z
-            );
-        }
-
-        positionMatrix.get3x3(this.rot);
-
+        this.pos.set(translation);
         this.vel.set(0F, 0F, 1F);
-        this.rot.transform(this.vel);
+        this.rot.set(matrix).transform(this.vel);
+
+        context.stack.pop();
     }
 
     @Override
@@ -189,10 +169,10 @@ public class VanillaParticleFormRenderer extends FormRenderer<VanillaParticleFor
                 Matrix3f m = Matrices.TEMP_3F;
                 Vector3f v = Vectors.TEMP_3F;
                 ParticleSettings settings = this.form.settings.get();
-                ParticleType<?> type = Registries.PARTICLE_TYPE.get(settings.particle);
+                ParticleType type = Registries.PARTICLE_TYPE.get(settings.particle);
                 ParticleEffect effect = ParticleTypes.FLAME;
 
-                if (type != null)
+                try
                 {
                     RegistryWrapper.WrapperLookup registries = world.getRegistryManager();
                     String path = settings.particle != null ? settings.particle.getPath() : "";

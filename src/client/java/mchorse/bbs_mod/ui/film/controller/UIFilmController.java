@@ -180,7 +180,14 @@ public class UIFilmController extends UIElement
             UIContext context = this.getContext();
             Vector3d hit = this.panel.replayEditor.rayTraceViewportFromContext(context, area);
 
-            if (hit != null)
+            HitResult result = RayTracing.rayTrace(
+                world,
+                RayTracing.fromVector3d(camera.position),
+                RayTracing.fromVector3f(camera.getMouseDirection(context.mouseX, context.mouseY, area.x, area.y, area.w, area.h)),
+                512F
+            );
+
+            if (result.getType() == HitResult.Type.BLOCK)
             {
                 this.panel.replayEditor.moveReplay(hit.x, hit.y, hit.z);
             }
@@ -1259,27 +1266,12 @@ public class UIFilmController extends UIElement
 
         /* Render the stencil */
         MatrixStack worldStack = this.worldRenderContext.matrixStack();
-        if (worldStack != null)
-        {
-            worldStack.push();
-            worldStack.loadIdentity();
-            MatrixStackUtils.multiply(worldStack, BBSRendering.camera);
-            this.renderStencil(this.worldRenderContext, context, altPressed);
-            worldStack.pop();
-        }
-        else
-        {
-            MatrixStack mvStack = RenderSystem.getModelViewStack();
-            mvStack.push();
-            mvStack.loadIdentity();
-            MatrixStackUtils.multiply(mvStack, BBSRendering.camera);
-            RenderSystem.applyModelViewMatrix();
 
-            this.renderStencil(this.worldRenderContext, context, altPressed);
-
-            mvStack.pop();
-            RenderSystem.applyModelViewMatrix();
-        }
+        worldStack.push();
+        worldStack.loadIdentity();
+        MatrixStackUtils.multiply(worldStack, this.panel.lastView);
+        this.renderStencil(this.worldRenderContext, this.getContext(), altPressed);
+        worldStack.pop();
 
         /* Return back to orthographic projection */
         MatrixStackUtils.restoreMatrices();
@@ -1672,7 +1664,7 @@ public class UIFilmController extends UIElement
                         .filmTick(cursorTick)
                         .transition(isPlaying ? renderContext.tickDelta() : 0)
                         .stencil(this.stencilMap)
-                        .relative(currentReplay.relative.get())
+                        .relative(replay.relative.get())
                         .bone(bone != null ? bone.a : null, bone != null ? bone.b : TransformOrientation.PARENT));
                 }
             }

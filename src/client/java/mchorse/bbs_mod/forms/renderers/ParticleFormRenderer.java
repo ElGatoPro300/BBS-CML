@@ -165,7 +165,7 @@ public class ParticleFormRenderer extends FormRenderer<ParticleForm> implements 
                 }
             }
 
-            Matrix4f modelMatrix = new Matrix4f(context.stack.peek().getPositionMatrix());
+            Matrix4f matrix = new Matrix4f(RenderSystem.getInverseViewRotationMatrix());
 
             Vector3d translation = new Vector3d(modelMatrix.getTranslation(Vectors.TEMP_3F));
             

@@ -445,13 +445,6 @@ public class ParticleEmitter
             component.apply(this, particle);
         }
 
-        if (this.modelRenderer)
-        {
-            particle.relativePosition = true;
-            particle.relativeRotation = true;
-            particle.setupMatrix(this);
-        }
-
         if (!particle.relativeRotation)
         {
             Vector3f vec = new Vector3f().set(particle.position);
@@ -644,14 +637,5 @@ public class ParticleEmitter
         this.cX = camera.position.x;
         this.cY = camera.position.y;
         this.cZ = camera.position.z;
-    }
-
-    public void setupCameraProperties(net.minecraft.client.render.Camera camera)
-    {
-        this.cYaw = 180 - camera.getYaw();
-        this.cPitch = -camera.getPitch();
-        this.cX = camera.getPos().x;
-        this.cY = camera.getPos().y;
-        this.cZ = camera.getPos().z;
     }
 }

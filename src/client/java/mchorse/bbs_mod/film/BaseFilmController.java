@@ -6,7 +6,6 @@ import mchorse.bbs_mod.client.renderer.ModelBlockEntityRenderer;
 import mchorse.bbs_mod.client.renderer.MorphFireRenderer;
 import mchorse.bbs_mod.entity.ActorEntity;
 import mchorse.bbs_mod.film.replays.Replay;
-import mchorse.bbs_mod.forms.CustomVertexConsumerProvider;
 import mchorse.bbs_mod.forms.FormUtils;
 import mchorse.bbs_mod.forms.FormUtilsClient;
 import mchorse.bbs_mod.forms.entities.IEntity;
@@ -146,25 +145,9 @@ public abstract class BaseFilmController
 
         if (relative)
         {
-            if (context.map != null)
-            {
-                cx = context.replay.keyframes.x.interpolate(0F) + context.replay.relativeOffset.get().x;
-                cy = context.replay.keyframes.y.interpolate(0F) + context.replay.relativeOffset.get().y;
-                cz = context.replay.keyframes.z.interpolate(0F) + context.replay.relativeOffset.get().z;
-            }
-            else
-            {
-                cx = position.x + context.replay.relativeOffset.get().x;
-                cy = position.y + context.replay.relativeOffset.get().y;
-                cz = position.z + context.replay.relativeOffset.get().z;
-            }
-
-            if (context.isShadowPass)
-            {
-                cx += camera.getPos().x;
-                cy += camera.getPos().y;
-                cz += camera.getPos().z;
-            }
+            cx = context.replay.keyframes.x.interpolate(0F) + context.replay.relativeOffset.get().x;
+            cy = context.replay.keyframes.y.interpolate(0F) + context.replay.relativeOffset.get().y;
+            cz = context.replay.keyframes.z.interpolate(0F) + context.replay.relativeOffset.get().z;
         }
 
         Matrix4f target = null;
@@ -399,12 +382,12 @@ public abstract class BaseFilmController
             }
         }
 
-        if (!relative && !context.nameTag.isEmpty())
+        if (!relative && !context.nameTag.isEmpty() && context.map == null)
         {
             stack.push();
             stack.translate(position.x - cx, position.y - cy, position.z - cz);
 
-            renderNameTag(entity, Text.literal(StringUtils.processColoredText(context.nameTag)), stack, context.consumers, LightmapTextureManager.MAX_LIGHT_COORDINATE);
+            renderNameTag(entity, Text.literal(StringUtils.processColoredText(context.nameTag)), stack, context.consumers, light);
 
             stack.pop();
         }
@@ -1016,7 +999,7 @@ public abstract class BaseFilmController
         matrices.push();
         matrices.translate(0F, hitboxH, 0F);
         matrices.multiply(MinecraftClient.getInstance().getEntityRenderDispatcher().getRotation());
-        matrices.scale(0.025F, -0.025F, 0.025F);
+        matrices.scale(-0.025F, -0.025F, 0.025F);
 
         Matrix4f matrix4f = matrices.peek().getPositionMatrix();
         TextRenderer textRenderer = MinecraftClient.getInstance().textRenderer;
@@ -1025,29 +1008,12 @@ public abstract class BaseFilmController
         int background = (int) (opacity * 255F) << 24;
         float h = (float) (-textRenderer.getWidth(text) / 2);
 
-        int maxLight = LightmapTextureManager.MAX_LIGHT_COORDINATE;
+        textRenderer.draw(text, h, 0, 0x20ffffff, false, matrix4f, vertexConsumers, sneaking ? TextRenderer.TextLayerType.SEE_THROUGH : TextRenderer.TextLayerType.NORMAL, background, light);
 
-            RenderSystem.enableBlend();
-            RenderSystem.disableCull();
-
-            CustomVertexConsumerProvider consumers = FormUtilsClient.getProvider();
-
-            CustomVertexConsumerProvider.hijackVertexFormat((layer) ->
-            {
-                RenderSystem.disableDepthTest();
-            });
-
-            textRenderer.draw(text, h, 0, 0x00FFFFFF, false, matrix4f, consumers, TextRenderer.TextLayerType.NORMAL, background, maxLight);
-            consumers.draw();
-
-            textRenderer.draw(text, h, 0, -1, false, matrix4f, consumers, TextRenderer.TextLayerType.NORMAL, 0, maxLight);
-            consumers.draw();
-
-            CustomVertexConsumerProvider.clearRunnables();
-            RenderSystem.enableDepthTest();
-
-            RenderSystem.enableCull();
-            RenderSystem.disableBlend();
+        if (sneaking)
+        {
+            textRenderer.draw(text, h, 0, -1, false, matrix4f, vertexConsumers, TextRenderer.TextLayerType.NORMAL, 0, light);
+        }
 
         matrices.pop();
     }

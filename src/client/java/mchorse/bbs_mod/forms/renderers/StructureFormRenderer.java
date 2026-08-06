@@ -44,7 +44,6 @@ import net.minecraft.block.entity.BlockEntity;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gl.ShaderProgram;
 import net.minecraft.client.option.GraphicsMode;
-import net.minecraft.client.render.DiffuseLighting;
 import net.minecraft.client.render.GameRenderer;
 import net.minecraft.client.render.LightmapTextureManager;
 import net.minecraft.client.render.OverlayTexture;
@@ -73,11 +72,8 @@ import net.minecraft.util.math.random.Random;
 import net.minecraft.world.BlockRenderView;
 import net.minecraft.world.LightType;
 
-import net.irisshaders.iris.api.v0.IrisApi;
-
 import org.joml.Matrix3f;
 import org.joml.Matrix4f;
-import org.joml.Vector3f;
 
 import com.mojang.blaze3d.systems.RenderSystem;
 
@@ -93,6 +89,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.Function;
+
+import net.irisshaders.iris.api.v0.IrisApi;
 
 /**
  * StructureForm Renderer
@@ -244,10 +242,6 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
 
         MatrixStackUtils.invertUiNormalY(matrices);
 
-        Vector3f light0 = new Vector3f(0.85F, 0.85F, -1F).normalize();
-        Vector3f light1 = new Vector3f(-0.85F, 0.85F, 1F).normalize();
-        RenderSystem.setupGui3DDiffuseLighting(light0, light1);
-
         StructureLightSettings slUi = this.form.structureLight.getRuntimeValue();
         boolean currentEmitLightUi = (slUi != null) ? slUi.enabled : this.form.emitLight.get();
         int currentLightIntensityUi = (slUi != null) ? slUi.intensity : this.form.lightIntensity.get();
@@ -293,7 +287,9 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
         {
             /* BufferBuilder mode: better lighting, worse performance */
             boolean shaders = this.isShadersActive();
-            VertexConsumerProvider consumers = MinecraftClient.getInstance().getBufferBuilders().getEntityVertexConsumers();
+            VertexConsumerProvider consumers = shaders
+                ? MinecraftClient.getInstance().getBufferBuilders().getEntityVertexConsumers()
+                : VertexConsumerProvider.immediate(Tessellator.getInstance().getBuffer());
 
             try
             {
@@ -469,8 +465,6 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
                 }
             }
         }
-
-        DiffuseLighting.disableGuiDepthLighting();
 
         matrices.pop();
 
@@ -2837,7 +2831,13 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
         public VertexConsumer normal(float x, float y, float z)
         {
             this.delegate.normal(x, y, z);
+            return this;
+        }
 
+        @Override
+        public void next()
+        {
+            this.delegate.next();
             this.quadIndex++;
 
             if (this.quadIndex == 4)
@@ -2852,14 +2852,14 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
 
                 this.quadIndex = 0;
             }
-
-            return this;
         }
 
+        @Override
         public void fixedColor(int red, int green, int blue, int alpha)
         {
         }
 
+        @Override
         public void unfixColor()
         {
         }
@@ -3170,15 +3170,21 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
         }
 
         @Override
-        public void unfixColor()
+        public void next()
         {
-            this.parent.unfixColor();
+            this.parent.next();
         }
 
         @Override
         public void fixedColor(int red, int green, int blue, int alpha)
         {
             this.parent.fixedColor(red, green, blue, alpha);
+        }
+
+        @Override
+        public void unfixColor()
+        {
+            this.parent.unfixColor();
         }
     }
 }
