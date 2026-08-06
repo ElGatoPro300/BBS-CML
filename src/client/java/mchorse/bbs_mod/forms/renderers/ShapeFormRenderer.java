@@ -1039,7 +1039,8 @@ public class ShapeFormRenderer extends FormRenderer<ShapeForm>
         {
             builder.vertex(matrix, x, y, z)
                    .texture(u, v)
-                   .color(c.r, c.g, c.b, c.a);
+                   .color(c.r, c.g, c.b, c.a)
+                   .next();
         }
         else if (this.overlayVertexMode == OverlayVertexMode.PAINT)
         {
@@ -1049,7 +1050,8 @@ public class ShapeFormRenderer extends FormRenderer<ShapeForm>
                    .texture(u, v)
                    .overlay(overlay)
                    .light(light)
-                   .normal(normal.x, normal.y, normal.z);
+                   .normal(normal.x, normal.y, normal.z)
+                   .next();
         }
         else if (this.overlayVertexMode == OverlayVertexMode.COLOR_TINT)
         {
@@ -1059,7 +1061,8 @@ public class ShapeFormRenderer extends FormRenderer<ShapeForm>
                    .texture(u, v)
                    .overlay(overlay)
                    .light(light)
-                   .normal(normal.x, normal.y, normal.z);
+                   .normal(normal.x, normal.y, normal.z)
+                   .next();
         }
         else
         {
@@ -1068,7 +1071,8 @@ public class ShapeFormRenderer extends FormRenderer<ShapeForm>
                    .texture(u, v)
                    .overlay(overlay)
                    .light(light)
-                   .normal(normal.x, normal.y, normal.z);
+                   .normal(normal.x, normal.y, normal.z)
+                   .next();
         }
     }
 

@@ -174,6 +174,6 @@ public class CubicCpuGlowOverlayRenderer extends CubicCubeRenderer
             builder.light(LightmapTextureManager.MAX_LIGHT_COORDINATE);
         }
 
-        builder.normal(normal.x, normal.y, normal.z);
+        builder.normal(normal.x, normal.y, normal.z).next();
     }
 }

@@ -239,8 +239,8 @@ public class Draw
 
     private static void wireLine(BufferBuilder builder, Matrix4f matrix, float x0, float y0, float z0, float x1, float y1, float z1, float r, float g, float b, float a)
     {
-        builder.vertex(matrix, x0, y0, z0).color(r, g, b, a);
-        builder.vertex(matrix, x1, y1, z1).color(r, g, b, a);
+        builder.vertex(matrix, x0, y0, z0).color(r, g, b, a).next();
+        builder.vertex(matrix, x1, y1, z1).color(r, g, b, a).next();
     }
     /**
      * Fill a quad for {@link VertexFormats#POSITION_TEXTURE_COLOR_NORMAL}. Points should

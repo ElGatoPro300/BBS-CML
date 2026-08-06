@@ -590,7 +590,8 @@ public class ParticleComponentAppearanceBillboard extends ParticleComponentBase 
     {
         builder.vertex(matrix, vertex.x, vertex.y, vertex.z)
             .texture(u, v)
-            .color(color.r, color.g, color.b, color.a);
+            .color(color.r, color.g, color.b, color.a)
+            .next();
     }
 
     private Color resolveDisplayColor(ParticleEmitter emitter, Particle particle)

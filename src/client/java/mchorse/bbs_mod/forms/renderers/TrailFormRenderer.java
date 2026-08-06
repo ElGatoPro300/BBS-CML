@@ -449,14 +449,14 @@ public class TrailFormRenderer extends FormRenderer<TrailForm> implements ITicka
         float b = unblended.b + (blended.b - unblended.b) * mask;
         float a = unblended.a + (blended.a - unblended.a) * mask;
 
-        builder.vertex(matrix, x, y, z).texture(u, v).color(r, g, b, a);
+        builder.vertex(matrix, x, y, z).texture(u, v).color(r, g, b, a).next();
     }
 
     private void fillPaintVertex(BufferBuilder builder, Matrix4f matrix, float x, float y, float z, float u, float v, Color color, int overlay, int light, EffectTransform paintTransform)
     {
         float mask = this.sampleMask(x, y, z, paintTransform);
 
-        builder.vertex(matrix, x, y, z).color(color.r, color.g, color.b, color.a * mask).texture(u, v).overlay(overlay).light(light).normal(0F, 0F, 1F);
+        builder.vertex(matrix, x, y, z).color(color.r, color.g, color.b, color.a * mask).texture(u, v).overlay(overlay).light(light).normal(0F, 0F, 1F).next();
     }
 
     /**
