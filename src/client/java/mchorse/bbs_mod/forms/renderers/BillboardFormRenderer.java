@@ -401,11 +401,7 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
             boolean noshadingPaintPath = BBSRendering.needsIrisNoshadingOpacityDeferral(color.a, this.form.noshadingOpacity.get());
             boolean afterFluids = ShaderOpacityPatch.shouldFlushAfterFluids(color.a);
             boolean softFlat = color.a < ShaderOpacityPatch.LIVE_DEPTH_WRITE_ALPHA;
-            /* Soft flats must not stamp depth. With depth write, any soft limb/actor that still
-             * draws later (or sorts after) fails the depth test and vanishes behind the plane —
-             * the dual of “soft draws on top” when depth write is off. Near-opaque flats keep
-             * depth so they occlude like solid cards. Order vs soft meshes is renderDepth. */
-            boolean depthWrite = !softFlat && ShaderOpacityPatch.shouldWriteDepthForOpacity(color.a);
+            boolean depthWrite = ShaderOpacityPatch.shouldWriteDepthForOpacity(color.a);
             /* Soft flats after soft meshes in the same flush (not the frame-end paint queue). */
             double renderDepth = softFlat
                 ? ShaderOpacityPatch.SOFT_FLAT_POST_DEFERRED_DEPTH
