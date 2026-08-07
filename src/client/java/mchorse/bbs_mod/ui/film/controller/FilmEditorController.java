@@ -77,6 +77,12 @@ public class FilmEditorController extends BaseFilmController
     }
 
     @Override
+    protected boolean shouldFreezeActorLimbSwing()
+    {
+        return !this.controller.isPlaying();
+    }
+
+    @Override
     protected void applyReplay(Replay replay, int ticks, IEntity entity)
     {
         List<String> groups = this.controller.getRecordingGroups();

@@ -1220,6 +1220,15 @@ public abstract class BaseFilmController
         this.updateEntities(this.getTick());
     }
 
+    /**
+     * When true, live {@link ActorEntity} limb swing and form actions stay frozen
+     * (film paused / editor not playing), matching StubEntity pause behavior.
+     */
+    protected boolean shouldFreezeActorLimbSwing()
+    {
+        return this.paused;
+    }
+
     protected void updateEntities(int ticks)
     {
         List<Replay> replays = this.film.replays.getList();
@@ -1279,6 +1288,22 @@ public abstract class BaseFilmController
 
                         if (anEntity instanceof ActorEntity actor)
                         {
+                            boolean freezeLimbs = this.shouldFreezeActorLimbSwing();
+
+                            /* Entering freeze: copy stub limb pose so toggling Actor on
+                             * while paused keeps the same swing pose instead of restarting. */
+                            if (freezeLimbs && !actor.isLimbSwingFrozen())
+                            {
+                                actor.copyLimbSwingFrom(entity.getLimbAnimator());
+                            }
+
+                            actor.setLimbSwingFrozen(freezeLimbs);
+
+                            if (freezeLimbs)
+                            {
+                                actor.setVelocity(0D, 0D, 0D);
+                            }
+
                             /* IEntity already has mount rotation applied by MorphMountSync */
                             actor.setYaw(entity.getYaw());
                             actor.setHeadYaw(entity.getHeadYaw());

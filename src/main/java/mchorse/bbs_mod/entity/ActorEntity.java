@@ -5,6 +5,7 @@ import mchorse.bbs_mod.film.Film;
 import mchorse.bbs_mod.film.replays.Replay;
 import mchorse.bbs_mod.forms.entities.MCEntity;
 import mchorse.bbs_mod.forms.forms.Form;
+import mchorse.bbs_mod.mixin.LimbAnimatorAccessor;
 import mchorse.bbs_mod.network.ServerNetwork;
 
 import net.minecraft.entity.Entity;
@@ -13,6 +14,7 @@ import net.minecraft.entity.EntityPose;
 import net.minecraft.entity.EntityType;
 import net.minecraft.entity.EquipmentSlot;
 import net.minecraft.entity.ItemEntity;
+import net.minecraft.entity.LimbAnimator;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.attribute.DefaultAttributeContainer;
 import net.minecraft.entity.attribute.EntityAttributes;
@@ -62,6 +64,12 @@ public class ActorEntity extends LivingEntity implements IEntityFormProvider
     private float lastHitboxSneakMultiplier = Float.NaN;
     private boolean lastSneaking;
 
+    /* When the film is paused, keep limb swing and form actions frozen (same as StubEntity). */
+    private boolean limbSwingFrozen;
+    private float frozenLimbPos;
+    private float frozenLimbSpeed;
+    private float frozenLimbPrevSpeed;
+
     /* Film and replay data for item drops */
     private Film film;
     private Replay replay;
@@ -95,6 +103,58 @@ public class ActorEntity extends LivingEntity implements IEntityFormProvider
     public void updateTick(int tick)
     {
         this.currentTick = tick;
+    }
+
+    public boolean isLimbSwingFrozen()
+    {
+        return this.limbSwingFrozen;
+    }
+
+    /**
+     * Film pause / scrub: freeze limb swing at the current pose so arms and legs
+     * do not decay toward idle or restart a walk cycle while the actor is still.
+     */
+    public void setLimbSwingFrozen(boolean frozen)
+    {
+        if (frozen && !this.limbSwingFrozen)
+        {
+            this.captureLimbSwing();
+        }
+
+        this.limbSwingFrozen = frozen;
+    }
+
+    public void captureLimbSwing()
+    {
+        LimbAnimator animator = this.limbAnimator;
+
+        if (animator instanceof LimbAnimatorAccessor accessor)
+        {
+            this.frozenLimbPos = accessor.getPos();
+            this.frozenLimbSpeed = accessor.getSpeed();
+            this.frozenLimbPrevSpeed = accessor.getPrevSpeed();
+        }
+    }
+
+    public void copyLimbSwingFrom(LimbAnimator source)
+    {
+        if (source instanceof LimbAnimatorAccessor from && this.limbAnimator instanceof LimbAnimatorAccessor to)
+        {
+            to.setPos(from.getPos());
+            to.setSpeed(from.getSpeed());
+            to.setPrevSpeed(from.getPrevSpeed());
+            this.captureLimbSwing();
+        }
+    }
+
+    private void restoreLimbSwing()
+    {
+        if (this.limbAnimator instanceof LimbAnimatorAccessor accessor)
+        {
+            accessor.setPos(this.frozenLimbPos);
+            accessor.setSpeed(this.frozenLimbSpeed);
+            accessor.setPrevSpeed(this.frozenLimbPrevSpeed);
+        }
     }
 
     private void initializeRuntimeInventory()
@@ -224,10 +284,17 @@ public class ActorEntity extends LivingEntity implements IEntityFormProvider
     {
         super.tick();
 
+        if (this.limbSwingFrozen)
+        {
+            this.restoreLimbSwing();
+        }
+
         this.tickHandSwing();
         this.updateHitboxDimensions();
 
-        if (this.form != null)
+        /* Skip form.update while frozen so walk/idle action blending does not keep
+         * advancing (StubEntity also stops updating when the film is paused). */
+        if (this.form != null && !this.limbSwingFrozen)
         {
             this.form.update(this.entity);
         }
