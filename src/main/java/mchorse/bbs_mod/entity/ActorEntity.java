@@ -124,27 +124,46 @@ public class ActorEntity extends LivingEntity implements IEntityFormProvider
         this.limbSwingFrozen = frozen;
     }
 
+    /**
+     * Bake the currently displayed limb pose and zero speed. Keeping a non-zero
+     * speed while frozen makes {@link LimbAnimator#getPos(float)} re-lerp that
+     * last walk step every render frame (tickDelta 0→1), which looks like jitter.
+     * Highlight/stencil uses tickDelta 0 so it already looked correct.
+     */
     public void captureLimbSwing()
     {
         LimbAnimator animator = this.limbAnimator;
 
         if (animator instanceof LimbAnimatorAccessor accessor)
         {
-            this.frozenLimbPos = accessor.getPos();
-            this.frozenLimbSpeed = accessor.getSpeed();
-            this.frozenLimbPrevSpeed = accessor.getPrevSpeed();
+            float bakedPos = animator.getPos(0F);
+
+            accessor.setPos(bakedPos);
+            accessor.setSpeed(0F);
+            accessor.setPrevSpeed(0F);
+
+            this.frozenLimbPos = bakedPos;
+            this.frozenLimbSpeed = 0F;
+            this.frozenLimbPrevSpeed = 0F;
         }
     }
 
     public void copyLimbSwingFrom(LimbAnimator source)
     {
-        if (source instanceof LimbAnimatorAccessor from && this.limbAnimator instanceof LimbAnimatorAccessor to)
+        if (source == null || !(this.limbAnimator instanceof LimbAnimatorAccessor to))
         {
-            to.setPos(from.getPos());
-            to.setSpeed(from.getSpeed());
-            to.setPrevSpeed(from.getPrevSpeed());
-            this.captureLimbSwing();
+            return;
         }
+
+        float bakedPos = source.getPos(0F);
+
+        to.setPos(bakedPos);
+        to.setSpeed(0F);
+        to.setPrevSpeed(0F);
+
+        this.frozenLimbPos = bakedPos;
+        this.frozenLimbSpeed = 0F;
+        this.frozenLimbPrevSpeed = 0F;
     }
 
     private void restoreLimbSwing()
