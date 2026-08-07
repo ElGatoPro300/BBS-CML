@@ -337,6 +337,8 @@
     "bbs.config.replays.replay_sprint_particles-comment": "Emite partículas de sprint en replays al correr (modo no actor)",
     "bbs.config.replays.replay_step_sound": "Sonido de pasos en replays",
     "bbs.config.replays.replay_step_sound-comment": "Permite que los jugadores de replay emitan sonidos de pasos mientras son conducidos por datos del replay",
+    "bbs.config.replays.actor_paused_swipe_loop": "Repetir swipe de actores en pausa",
+    "bbs.config.replays.actor_paused_swipe_loop-comment": "Con la film en pausa sobre un tick de swipe, los replays en modo actor repiten el swing del brazo. Desactívalo para hacer un único swipe hasta que muevas el cursor de ese tick",
     "bbs.config.replays.title": "Reproducciones",
     "bbs.config.replays.tooltip": "Opciones relacionadas con reproducciones de actores y animaciones",
     "bbs.config.scrollbars.sensitivity": "Sensibilidad de desplazamiento",

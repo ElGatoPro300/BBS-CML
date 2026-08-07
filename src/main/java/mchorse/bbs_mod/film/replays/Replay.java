@@ -3,6 +3,7 @@ package mchorse.bbs_mod.film.replays;
 import mchorse.bbs_mod.BBSMod;
 import mchorse.bbs_mod.actions.SuperFakePlayer;
 import mchorse.bbs_mod.actions.types.ActionClip;
+import mchorse.bbs_mod.actions.types.SwipeActionClip;
 import mchorse.bbs_mod.camera.data.Point;
 import mchorse.bbs_mod.camera.values.ValuePoint;
 import mchorse.bbs_mod.data.types.BaseType;
@@ -165,6 +166,8 @@ public class Replay extends ValueGroup
     public void applyClientActions(int tick, IEntity entity, Film film)
     {
         tick = this.getTick(tick);
+
+        SwipeActionClip.noteClientFilmTick(entity, tick);
 
         List<Clip> clips = this.actions.getClips(tick);
 
