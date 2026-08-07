@@ -374,10 +374,15 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
         Color resolvedPaint = positivePaint ? FormColorEffects.resolvePaintColor(paintSettings, legacyPaint) : null;
         boolean applyColorTint = colorTransformWanted && !shadowPass;
         boolean deferForColorGrade = hasColorAdjustments && irisWorld;
+        /* No-shader soft: live depthMask(true) seals the plane and post-deferred soft actors
+         * behind vanish. Iris already composites soft flats correctly — leave that path alone. */
+        boolean softNoShaderWorld = !BBSRendering.isIrisShadersEnabled() && !modelRenderer && !shadowPass
+            && color.a > 0.001F && color.a < ShaderOpacityPatch.LIVE_DEPTH_WRITE_ALPHA;
         boolean deferTranslucent = !modelRenderer && !shadowPass
             && (BBSRendering.needsIrisTranslucentFlatDeferral(color.a)
                 || (opacityPatch && BBSRendering.isIrisWorldModelPass())
-                || deferForColorGrade);
+                || deferForColorGrade
+                || softNoShaderWorld);
 
         if (deferTranslucent)
         {
@@ -401,8 +406,12 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
             /* Noshading opacity: redraw after paint via BBS translucent queue, not Iris post-deferred. */
             boolean noshadingPaintPath = BBSRendering.needsIrisNoshadingOpacityDeferral(color.a, this.form.noshadingOpacity.get());
             boolean afterFluids = ShaderOpacityPatch.shouldFlushAfterFluids(color.a);
-            /* Soft-opacity depth write stays opacity-based. */
-            boolean depthWrite = ShaderOpacityPatch.shouldWriteDepthForOpacity(color.a);
+            /* Soft-opacity depth write stays opacity-based. Soft no-shader flats skip depth so
+             * they do not erase soft actors; they sort after meshes (renderDepth 1). */
+            boolean depthWrite = softNoShaderWorld
+                ? false
+                : ShaderOpacityPatch.shouldWriteDepthForOpacity(color.a);
+            double renderDepth = softNoShaderWorld ? 1D : 0D;
             double distanceSq = 0D;
             /* Iris deferred: apply FormColorGrade in model.fsh on the post-deferred BBS draw. */
             VertexFormat deferredFormat = VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL;
@@ -529,10 +538,10 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
                 }
             };
 
-            if (opacityPatch && !noshadingPaintPath)
+            if (softNoShaderWorld || (opacityPatch && !noshadingPaintPath))
             {
-                /* Same sorted post-deferred queue as models — render depth low→high, before VL. */
-                ShaderOpacityPatch.submitPostDeferredBbsForm(0D, distanceSq, depthWrite, afterFluids, deferredDraw);
+                /* No-shader soft: join the same post-deferred flush as soft actors (Iris unchanged). */
+                ShaderOpacityPatch.submitPostDeferredBbsForm(renderDepth, distanceSq, depthWrite, afterFluids, deferredDraw);
             }
             else
             {
@@ -541,7 +550,7 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
         }
         else
         {
-            /* Live path — opaque / no-shader / Iris without deferral. */
+            /* Live path — opaque / no-shader opaque / Iris without deferral. */
             if (format == VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL)
             {
                 if (useFormColorGrade || BBSRendering.needsBbsModelForLowOpacity(color.a))
