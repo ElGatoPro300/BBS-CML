@@ -1392,8 +1392,11 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
     }
 
     /**
-     * Expand collapsed form / pose / limb track groups so nested-form bone picks
-     * have their sheets in the keyframe graph (avoids a runaway gizmo).
+     * Expand collapsed nested-form track groups so bone picks on body parts can
+     * reach that form's pose sheet. Does <b>not</b> expand the pose/limb group
+     * itself — limb sheets stay hidden until the user opens pose (default), so
+     * picking a bone selects the nearest pose keyframe instead of inserting a
+     * provisional limb keyframe.
      */
     private void ensureTracksVisibleForFormBone(Form form, String bone)
     {
@@ -1430,12 +1433,12 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
             }
         }
 
-        /* Limb sheets are omitted while their parent pose track is collapsed (default). */
+        /* Only expand nested limb subgroups when pose limbs are already visible. */
         String poseId = StringUtils.combinePaths(formPath, "pose");
+        String poseKey = replayId + ":" + poseId;
+        boolean poseExpanded = !this.collapsedModelTracks.getOrDefault(poseKey, true);
 
-        changed |= this.expandTrackGroup(replayId + ":" + poseId, true);
-
-        if (bone != null && !bone.isEmpty() && form instanceof ModelForm modelForm)
+        if (poseExpanded && bone != null && !bone.isEmpty() && form instanceof ModelForm modelForm)
         {
             ModelInstance model = ModelFormRenderer.getModel(modelForm);
 
@@ -2876,6 +2879,9 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
 
         if (!sheets.isEmpty())
         {
+            /* Rebuilding the editor drops selection; remove untouched provisional
+             * limb keyframes first or they become permanent after collapse/reopen. */
+            this.cleanupUntouchedAutomaticKeyframe(this.lastPickedKeyframe, null);
             this.lastPickedKeyframe = null;
             this.keyframeEditor = new UIKeyframeEditor((consumer) ->
             {
@@ -3219,7 +3225,17 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
             sheet.expanded = expanded;
             sheet.toggleExpanded = () ->
             {
-                this.collapsedModelTracks.put(parentKey, !this.collapsedModelTracks.getOrDefault(parentKey, true));
+                boolean collapsing = !this.collapsedModelTracks.getOrDefault(parentKey, true);
+
+                this.collapsedModelTracks.put(parentKey, collapsing);
+
+                /* Closing pose limbs should discard untouched preview keyframes. */
+                if (collapsing)
+                {
+                    this.cleanupUntouchedAutomaticKeyframe(this.lastPickedKeyframe, null);
+                    this.lastPickedKeyframe = null;
+                }
+
                 this.updateChannelsList();
             };
 
@@ -3233,7 +3249,16 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
             sheet.expanded = expanded;
             sheet.toggleExpanded = () ->
             {
-                this.collapsedModelTracks.put(parentKey, !this.collapsedModelTracks.getOrDefault(parentKey, true));
+                boolean collapsing = !this.collapsedModelTracks.getOrDefault(parentKey, true);
+
+                this.collapsedModelTracks.put(parentKey, collapsing);
+
+                if (collapsing)
+                {
+                    this.cleanupUntouchedAutomaticKeyframe(this.lastPickedKeyframe, null);
+                    this.lastPickedKeyframe = null;
+                }
+
                 this.updateChannelsList();
             };
 
