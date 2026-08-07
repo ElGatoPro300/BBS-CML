@@ -429,7 +429,6 @@ public class ProceduralAnimator implements IAnimator
 
             if (!riding && handSwingProgress > 0F && torso != null && leftArm != null && rightArm != null)
             {
-                ModelGroup group;
                 float swingFactor = handSwingProgress;
 
                 torso.current.rotate.y = -MathUtils.toDeg(MathHelper.sin(MathHelper.sqrt(swingFactor) * MathUtils.PI * 2F) * 0.2F);
@@ -439,12 +438,9 @@ public class ProceduralAnimator implements IAnimator
                 rightArm.current.translate.z -= (float) Math.sin(MathUtils.toRad(torso.current.rotate.y)) * 5F;
                 rightArm.current.translate.x -= (float) Math.cos(MathUtils.toRad(torso.current.rotate.y)) * 5F - 5F;
 
-                group = rightArm;
-                group.current.rotate.y += torso.current.rotate.y;
-                group = leftArm;
-                group.current.rotate.y += torso.current.rotate.y;
-                group = leftArm;
-                group.current.rotate.x += torso.current.rotate.y;
+                rightArm.current.rotate.y += torso.current.rotate.y;
+                leftArm.current.rotate.y += torso.current.rotate.y;
+                leftArm.current.rotate.x += torso.current.rotate.y;
 
                 swingFactor = 1F - handSwingProgress;
                 swingFactor *= swingFactor;
@@ -453,8 +449,11 @@ public class ProceduralAnimator implements IAnimator
 
                 float headPitch = 0F;
                 float swing1 = MathHelper.sin(swingFactor * MathUtils.PI);
-                float swign2 = MathHelper.sin(handSwingProgress * MathUtils.PI) * -(headPitch - 0.7F) * 0.75F;
-                rightArm.current.rotate.x = group.current.rotate.x + MathUtils.toDeg(swing1 * 1.2F + swign2);
+                float swing2 = MathHelper.sin(handSwingProgress * MathUtils.PI) * -(headPitch - 0.7F) * 0.75F;
+
+                /* Apply swing on the attacking arm's own pitch (vanilla BipedEntityModel).
+                 * Using the other arm's pitch as base made the arm snap when progress hit 0. */
+                rightArm.current.rotate.x += MathUtils.toDeg(swing1 * 1.2F + swing2);
                 rightArm.current.rotate.y += torso.current.rotate.y * 2F;
                 rightArm.current.rotate.z += MathUtils.toDeg(MathHelper.sin(handSwingProgress * MathUtils.PI) * -0.4F);
             }
@@ -659,7 +658,6 @@ public class ProceduralAnimator implements IAnimator
 
             if (!riding && handSwingProgress > 0F && bobjLeftArm != null && bobjRightArm != null)
             {
-                BOBJBone group;
                 float swingFactor = handSwingProgress;
                 float rotate = -MathUtils.toDeg(MathHelper.sin(MathHelper.sqrt(swingFactor) * MathUtils.PI * 2F) * 0.2F);
 
@@ -668,12 +666,9 @@ public class ProceduralAnimator implements IAnimator
                 bobjRightArm.transform.translate.z += ((float) Math.sin(MathUtils.toRad(rotate)) * 5F) / 16F;
                 bobjRightArm.transform.translate.x += ((float) Math.cos(MathUtils.toRad(rotate)) * 5F - 5F) / 16F;
 
-                group = bobjRightArm;
-                group.transform.rotate.y -= MathUtils.toRad(rotate);
-                group = bobjLeftArm;
-                group.transform.rotate.y -= MathUtils.toRad(rotate);
-                group = bobjLeftArm;
-                group.transform.rotate.x += MathUtils.toRad(rotate);
+                bobjRightArm.transform.rotate.y -= MathUtils.toRad(rotate);
+                bobjLeftArm.transform.rotate.y -= MathUtils.toRad(rotate);
+                bobjLeftArm.transform.rotate.x += MathUtils.toRad(rotate);
 
                 swingFactor = 1F - handSwingProgress;
                 swingFactor *= swingFactor;
@@ -682,8 +677,11 @@ public class ProceduralAnimator implements IAnimator
 
                 float headPitch = 0F;
                 float swing1 = MathHelper.sin(swingFactor * MathUtils.PI);
-                float swign2 = MathHelper.sin(handSwingProgress * MathUtils.PI) * -(headPitch - 0.7F) * 0.75F;
-                bobjRightArm.transform.rotate.x = MathUtils.toRad(group.transform.rotate.x + MathUtils.toDeg(swing1 * 1.2F + swign2));
+                float swing2 = MathHelper.sin(handSwingProgress * MathUtils.PI) * -(headPitch - 0.7F) * 0.75F;
+
+                /* Same as the non-BOBJ path: swing offsets the attacking arm, do not
+                 * replace its pitch with the other arm's (caused end-of-swipe snaps). */
+                bobjRightArm.transform.rotate.x += swing1 * 1.2F + swing2;
                 bobjRightArm.transform.rotate.y -= MathUtils.toRad(rotate * 2F);
                 bobjRightArm.transform.rotate.z -= MathHelper.sin(handSwingProgress * MathUtils.PI) * -0.4F;
             }
