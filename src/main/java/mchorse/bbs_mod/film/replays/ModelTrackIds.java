@@ -92,13 +92,18 @@ public final class ModelTrackIds
      * Overlay rows are omitted — Pose / Transform / Color / Illusion auto-stack.
      */
     public static final List<String> PALETTE_CORE = Collections.unmodifiableList(Arrays.asList(
-        VISIBLE, LIGHTING, RENDER_DEPTH, TRANSFORM, POSE, COLOR, OPACITY, PAINT, GLOW, TEXTURE
+        VISIBLE, TRANSFORM, POSE, SHAPE_KEYS, ACTIONS, MODEL
+    ));
+
+    public static final List<String> PALETTE_APPEARANCE = Collections.unmodifiableList(Arrays.asList(
+        LIGHTING, COLOR, PAINT, GLOW, TEXTURE, "pbr_normal_intensity", "pbr_specular_intensity"
     ));
 
     public static final List<String> PALETTE_MOTION = Collections.unmodifiableList(Arrays.asList(
-        SHAKE, ANCHOR, LOOK_AT, INVERSE_KINEMATICS, ILLUSION
+        SHAKE, ANCHOR, INVERSE_KINEMATICS, LOOK_AT, ILLUSION
     ));
 
+    /** @deprecated Kept for callers; Minecut Tracks UI no longer uses Animation/Form tabs. */
     public static final List<String> PALETTE_ANIMATION = Collections.unmodifiableList(Arrays.asList(
         ACTIONS, SHAPE_KEYS, MODEL, MODEL_TRANSFORM, SAME_ANIMATION_WHEN_DROPPED, PAUSED, SETTINGS
     ));

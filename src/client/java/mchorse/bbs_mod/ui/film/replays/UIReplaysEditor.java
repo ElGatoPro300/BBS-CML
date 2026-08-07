@@ -649,6 +649,13 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
             return null;
         }
 
+        Icon minecut = FilmUiCapabilities.resolveTrackIcon(key);
+
+        if (minecut != null)
+        {
+            return minecut;
+        }
+
         String topLevel = StringUtils.fileName(key);
 
         if (topLevel.startsWith("pose_overlay"))

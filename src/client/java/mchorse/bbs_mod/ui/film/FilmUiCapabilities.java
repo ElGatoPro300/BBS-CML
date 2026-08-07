@@ -1,6 +1,7 @@
 package mchorse.bbs_mod.ui.film;
 
 import mchorse.bbs_mod.ui.framework.styles.UIStyle;
+import mchorse.bbs_mod.ui.utils.icons.Icon;
 
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -13,6 +14,7 @@ public final class FilmUiCapabilities
 {
     private static Function<UIFilmPanel, IFilmUiWorkspace> workspaceFactory;
     private static Supplier<UIStyle> minecutStyleFactory;
+    private static Function<String, Icon> trackIconResolver;
     private static boolean sparseTracksPreferred;
 
     private FilmUiCapabilities()
@@ -26,6 +28,11 @@ public final class FilmUiCapabilities
     public static void registerMinecutStyleFactory(Supplier<UIStyle> factory)
     {
         minecutStyleFactory = factory;
+    }
+
+    public static void registerTrackIconResolver(Function<String, Icon> resolver)
+    {
+        trackIconResolver = resolver;
     }
 
     /**
@@ -52,6 +59,16 @@ public final class FilmUiCapabilities
         return minecutStyleFactory == null ? null : minecutStyleFactory.get();
     }
 
+    public static Icon resolveTrackIcon(String trackId)
+    {
+        if (trackIconResolver == null || trackId == null || !UIStyle.isMinecut())
+        {
+            return null;
+        }
+
+        return trackIconResolver.apply(trackId);
+    }
+
     public static boolean prefersSparseModelTracks()
     {
         return sparseTracksPreferred && hasAddon();
@@ -62,6 +79,7 @@ public final class FilmUiCapabilities
     {
         workspaceFactory = null;
         minecutStyleFactory = null;
+        trackIconResolver = null;
         sparseTracksPreferred = false;
     }
 }

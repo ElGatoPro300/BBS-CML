@@ -1678,12 +1678,22 @@ public class UIFilmController extends UIElement
             else
             {
                 /* Bone pick only the selected replay. Without Alt, limbs on other actors
-                 * must not be clickable (Alt is the way to target/switch other replays). */
-                int currentIndex = this.panel.replayEditor.replays.replays.getIndex();
-                Replay currentReplay = CollectionUtils.getSafe(this.panel.getData().replays.getList(), currentIndex);
+                 * must not be clickable (Alt is the way to target/switch other replays).
+                 * Use the selected Replay object + raw film index — UIReplayList.getIndex()
+                 * is a visualList index and diverges whenever folders/groups exist. */
+                Replay currentReplay = this.panel.replayEditor.getReplay();
+
+                if (currentReplay != null && currentReplay.isGroup.get())
+                {
+                    currentReplay = null;
+                }
+
+                int currentIndex = currentReplay == null || this.panel.getData() == null
+                    ? -1
+                    : this.panel.getData().replays.getList().indexOf(currentReplay);
                 Set<String> allowedBones = this.resolveMarkedBonesFilter(currentReplay);
 
-                if (currentReplay != null && this.editorController != null
+                if (currentIndex >= 0 && currentReplay != null && this.editorController != null
                     && this.editorController.isReplayVisible(currentReplay, currentReplay.getTick(cursorTick)))
                 {
                     IEntity currentEntity = this.getEntities().get(currentIndex);

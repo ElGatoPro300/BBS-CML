@@ -21,6 +21,7 @@ import mchorse.bbs_mod.ui.framework.elements.input.keyframes.shapes.IKeyframeSha
 import mchorse.bbs_mod.ui.framework.elements.input.keyframes.shapes.KeyframeShapeRenderers;
 import mchorse.bbs_mod.ui.framework.elements.overlay.UIOverlay;
 import mchorse.bbs_mod.ui.framework.elements.utils.FontRenderer;
+import mchorse.bbs_mod.ui.framework.styles.UIStyle;
 import mchorse.bbs_mod.ui.utils.Area;
 import mchorse.bbs_mod.ui.utils.Scale;
 import mchorse.bbs_mod.ui.utils.Scroll;
@@ -64,6 +65,8 @@ public class UIKeyframeDopeSheet implements IUIKeyframeGraph
     private static final double COMPANION_SPLIT_RATIO = 0.52D;
     private static final double PRIMARY_LINE_RATIO = 0.30D;
     private static final double COMPANION_LINE_RATIO = 0.72D;
+    /** Minecut: soft lane inset from top/bottom of the track row. */
+    private static final int MINECUT_LANE_PAD = 3;
 
     private UIKeyframes keyframes;
 
@@ -1500,7 +1503,10 @@ public class UIKeyframeDopeSheet implements IUIKeyframeGraph
                 context.batcher.box(startX, y, endX, (float) (y + this.trackHeight), 0x26000000);
             }
 
-            context.batcher.box(startX, (float) (y + this.trackHeight) - 1, endX, (float) (y + this.trackHeight), 0x16000000);
+            if (!UIStyle.isMinecut())
+            {
+                context.batcher.box(startX, (float) (y + this.trackHeight) - 1, endX, (float) (y + this.trackHeight), 0x16000000);
+            }
 
             if (sheet.companion != null)
             {
@@ -1568,10 +1574,17 @@ public class UIKeyframeDopeSheet implements IUIKeyframeGraph
                 context.batcher.box(startX, y, endX, (float) (y + this.trackHeight), pulseColor);
             }
 
-            /* Render track bars (horizontal lines) */
+            /* Render track bars (horizontal lines) — Minecut uses a soft color halo, no solid center stroke. */
             BufferBuilder builder = Tessellator.getInstance().begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_COLOR);
 
-            context.batcher.fillRect(builder, matrix, startX, my - TRACK_LINE_HALF_HEIGHT, endX - startX, TRACK_LINE_HALF_HEIGHT * 2, cc, cc, cc, cc);
+            if (UIStyle.isMinecut())
+            {
+                this.renderMinecutTrackHalo(context, startX, endX, y, (int) this.trackHeight, sheet.color, hover);
+            }
+            else
+            {
+                context.batcher.fillRect(builder, matrix, startX, my - TRACK_LINE_HALF_HEIGHT, endX - startX, TRACK_LINE_HALF_HEIGHT * 2, cc, cc, cc, cc);
+            }
 
             if (sheet.separator)
             {
@@ -1600,7 +1613,18 @@ public class UIKeyframeDopeSheet implements IUIKeyframeGraph
                 {
                     if (xxx > xx)
                     {
-                        context.batcher.fillRect(builder, matrix, xx, my - TRACK_LINE_HALF_HEIGHT, xxx - xx, TRACK_LINE_HALF_HEIGHT * 2, c, c, c, c);
+                        if (UIStyle.isMinecut())
+                        {
+                            /* Soft equal-value glow — thinner than the track lane halo, white wash. */
+                            int laneH = Math.max(4, (int) this.trackHeight - 2 * MINECUT_LANE_PAD);
+                            int half = Math.max(2, laneH / 4);
+
+                            context.batcher.box(xx, my - half, xxx, my + half, 0x28FFFFFF);
+                        }
+                        else
+                        {
+                            context.batcher.fillRect(builder, matrix, xx, my - TRACK_LINE_HALF_HEIGHT, xxx - xx, TRACK_LINE_HALF_HEIGHT * 2, c, c, c, c);
+                        }
                     }
                 }
 
@@ -1706,7 +1730,7 @@ public class UIKeyframeDopeSheet implements IUIKeyframeGraph
 
             RenderSystem.enableBlend();
             RenderSystem.setShader(GameRenderer::getPositionColorProgram);
-            BufferRenderer.drawWithGlobalProgram(builder.end());
+            this.drawBufferIfAny(builder);
 
             if (sheet.companion != null)
             {
@@ -1888,13 +1912,39 @@ public class UIKeyframeDopeSheet implements IUIKeyframeGraph
         this.dopeSheet.setScroll(extra.getDouble("scroll"));
     }
 
+    private void renderMinecutTrackHalo(UIContext context, int startX, int endX, int rowY, int rowH, int color, boolean hover)
+    {
+        int pad = Math.min(MINECUT_LANE_PAD, Math.max(1, rowH / 4));
+        int y1 = rowY + pad;
+        int y2 = rowY + rowH - pad;
+
+        if (y2 <= y1 || endX <= startX)
+        {
+            return;
+        }
+
+        /* Soft color wash only — no center stroke. */
+        context.batcher.box(startX, y1, endX, y2, Colors.setA(color, hover ? 0.18F : 0.10F));
+    }
+
     private void renderCompanionChannel(UIContext context, Matrix4f matrix, Area area, int startX, int endX, int lineY, UIKeyframeSheet sheet, boolean rowHover)
     {
         List keyframes = sheet.channel.getKeyframes();
         int cc = Colors.setA(sheet.color, rowHover ? 0.65F : 0.28F);
         BufferBuilder builder = Tessellator.getInstance().begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_COLOR);
 
-        context.batcher.fillRect(builder, matrix, startX, lineY - TRACK_LINE_HALF_HEIGHT, endX - startX, TRACK_LINE_HALF_HEIGHT * 2, cc, cc, cc, cc);
+        if (UIStyle.isMinecut())
+        {
+            int band = Math.max(4, (int) this.trackHeight / 4);
+            int y1 = lineY - band / 2;
+            int y2 = lineY + band / 2;
+
+            context.batcher.box(startX, y1, endX, y2, Colors.setA(sheet.color, rowHover ? 0.16F : 0.09F));
+        }
+        else
+        {
+            context.batcher.fillRect(builder, matrix, startX, lineY - TRACK_LINE_HALF_HEIGHT, endX - startX, TRACK_LINE_HALF_HEIGHT * 2, cc, cc, cc, cc);
+        }
 
         for (int j = 1; j < keyframes.size(); j++)
         {
@@ -1906,7 +1956,17 @@ public class UIKeyframeDopeSheet implements IUIKeyframeGraph
 
             if (previous.getFactory().compare(previous.getValue(), frame.getValue()) && xxx > xx)
             {
-                context.batcher.fillRect(builder, matrix, xx, lineY - TRACK_LINE_HALF_HEIGHT, xxx - xx, TRACK_LINE_HALF_HEIGHT * 2, c, c, c, c);
+                if (UIStyle.isMinecut())
+                {
+                    int laneH = Math.max(4, (int) this.trackHeight / 4);
+                    int half = Math.max(2, laneH / 4);
+
+                    context.batcher.box(xx, lineY - half, xxx, lineY + half, 0x28FFFFFF);
+                }
+                else
+                {
+                    context.batcher.fillRect(builder, matrix, xx, lineY - TRACK_LINE_HALF_HEIGHT, xxx - xx, TRACK_LINE_HALF_HEIGHT * 2, c, c, c, c);
+                }
             }
         }
 
@@ -1959,9 +2019,20 @@ public class UIKeyframeDopeSheet implements IUIKeyframeGraph
 
         RenderSystem.enableBlend();
         RenderSystem.setShader(GameRenderer::getPositionColorProgram);
-        BufferRenderer.drawWithGlobalProgram(builder.end());
+        this.drawBufferIfAny(builder);
 
         RegisterFilmSyncEvent.postRenderDopeSheet(context, this.keyframes.area);
+    }
+
+    /** 1.21+ crashes if {@link BufferBuilder#end()} is called with no vertices. */
+    private void drawBufferIfAny(BufferBuilder builder)
+    {
+        net.minecraft.client.render.BuiltBuffer built = builder.endNullable();
+
+        if (built != null)
+        {
+            BufferRenderer.drawWithGlobalProgram(built);
+        }
     }
 
     private boolean handleSidebarScrollbarClick(UIContext context)
