@@ -3229,7 +3229,6 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
     public void render3D(FormRenderingContext context)
     {
         this.ensureAnimator(context.getTransition());
-        this.advanceAnimatorForEntity(context.entity);
 
         ModelInstance model = this.getModel();
 
@@ -3474,46 +3473,16 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
     @Override
     public void tick(IEntity entity)
     {
-        this.ensureAnimator(0F);
-        this.advanceAnimatorForEntity(entity);
-    }
-
-    /**
-     * Advances action playback once per entity age. Also used from {@link #render3D} so morphs
-     * still animate if {@link mchorse.bbs_mod.forms.forms.Form#update} ran before the renderer
-     * was lazily attached (first frames after morphing).
-     * <p>
-     * Only restart the animator when age seeks <em>backward</em>. Film playback calls
-     * {@code setAge(filmTick)} then {@code StubEntity.update()} (age++), and forward scrub jumps
-     * are common — treating those as discontinuities and calling {@link #resetAnimator()} froze
-     * emoticons/alex on bind pose every frame.
-     */
-    private void advanceAnimatorForEntity(IEntity entity)
-    {
-        if (entity == null)
-        {
-            return;
-        }
-
-        this.ensureAnimator(0F);
-
-        if (this.animator == null)
-        {
-            return;
-        }
-
         int age = entity.getAge();
 
-        if (age == this.lastAge)
-        {
-            return;
-        }
-
+        /* Only restart when age seeks backward (timeline scrub). Forward jumps from
+         * film setAge()+StubEntity.age++ must not wipe ActionPlayback or emoticons freeze. */
         if (this.lastAge != -1 && age < this.lastAge)
         {
             this.resetAnimator();
-            this.ensureAnimator(0F);
         }
+
+        this.ensureAnimator(0F);
 
         if (this.animator != null)
         {
