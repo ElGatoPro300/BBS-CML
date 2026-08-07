@@ -3482,6 +3482,11 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
      * Advances action playback once per entity age. Also used from {@link #render3D} so morphs
      * still animate if {@link mchorse.bbs_mod.forms.forms.Form#update} ran before the renderer
      * was lazily attached (first frames after morphing).
+     * <p>
+     * Only restart the animator when age seeks <em>backward</em>. Film playback calls
+     * {@code setAge(filmTick)} then {@code StubEntity.update()} (age++), and forward scrub jumps
+     * are common — treating those as discontinuities and calling {@link #resetAnimator()} froze
+     * emoticons/alex on bind pose every frame.
      */
     private void advanceAnimatorForEntity(IEntity entity)
     {
@@ -3490,22 +3495,31 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
             return;
         }
 
+        this.ensureAnimator(0F);
+
+        if (this.animator == null)
+        {
+            return;
+        }
+
         int age = entity.getAge();
 
-        if (this.lastAge != -1 && age != this.lastAge + 1 && age != this.lastAge)
+        if (age == this.lastAge)
+        {
+            return;
+        }
+
+        if (this.lastAge != -1 && age < this.lastAge)
         {
             this.resetAnimator();
             this.ensureAnimator(0F);
         }
 
-        if (age != this.lastAge)
+        if (this.animator != null)
         {
-            if (this.animator != null)
-            {
-                this.animator.update(entity);
-            }
-
-            this.lastAge = age;
+            this.animator.update(entity);
         }
+
+        this.lastAge = age;
     }
 }

@@ -249,6 +249,10 @@ public class MCEntity implements IEntity
     @Override
     public void setUsingItem(boolean usingItem)
     {
+        if (this.mcEntity instanceof LivingEntity living)
+        {
+            living.setLivingFlag(1, usingItem);
+        }
     }
 
     @Override
@@ -265,6 +269,10 @@ public class MCEntity implements IEntity
     @Override
     public void setItemUseTimeLeft(int itemUseTimeLeft)
     {
+        if (this.mcEntity instanceof LivingEntity living && itemUseTimeLeft > 0)
+        {
+            living.setLivingFlag(1, true);
+        }
     }
 
     @Override
@@ -305,6 +313,10 @@ public class MCEntity implements IEntity
     @Override
     public void setActiveHand(Hand hand)
     {
+        if (this.mcEntity instanceof LivingEntity living)
+        {
+            living.setLivingFlag(2, hand == Hand.OFF_HAND && living.isUsingItem());
+        }
     }
 
     @Override
