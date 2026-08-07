@@ -7,6 +7,7 @@ import mchorse.bbs_mod.film.Film;
 import mchorse.bbs_mod.film.replays.Replay;
 import mchorse.bbs_mod.forms.entities.IEntity;
 import mchorse.bbs_mod.forms.entities.MCEntity;
+import mchorse.bbs_mod.forms.entities.StubEntity;
 import mchorse.bbs_mod.utils.clips.Clip;
 
 import net.minecraft.entity.LivingEntity;
@@ -97,6 +98,19 @@ public class SwipeActionClip extends ActionClip
             if (!actor.handSwinging)
             {
                 actor.swingHand(Hand.MAIN_HAND);
+            }
+
+            return;
+        }
+
+        /* Stubs: applyClientActions repeats every frame on this tick. Re-calling
+         * swingArm() reset progress to 0 each frame and desynced the swipe from
+         * ActorEntity / LivingEntity timing. */
+        if (entity instanceof StubEntity stub)
+        {
+            if (!stub.isHandSwinging())
+            {
+                stub.swingArm();
             }
 
             return;

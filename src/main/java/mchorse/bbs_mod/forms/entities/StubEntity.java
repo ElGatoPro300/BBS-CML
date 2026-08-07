@@ -186,23 +186,34 @@ public class StubEntity implements IEntity
     public void swingArm()
     {
         this.handSwinging = true;
-        this.handSwingTicks = 0;
+        /* LivingEntity.swingHand starts at -1 so the first tickHandSwing lands on 0. */
+        this.handSwingTicks = -1;
         this.prevHandSwingProgress = 0F;
         this.handSwingProgress = 0F;
+    }
+
+    public boolean isHandSwinging()
+    {
+        return this.handSwinging;
     }
 
     @Override
     public float getHandSwingProgress(float tickDelta)
     {
-        /* Same interpolation as LivingEntity so procedural swipe (torso / off-hand)
-         * matches ActorEntity. If the swing just started and update() has not run
-         * yet (paused film / transition 0), expose the first step so the pose is
-         * not stuck at progress 0. */
-        if (this.handSwinging && this.handSwingTicks == 0 && this.handSwingProgress == 0F)
+        /* Just started, update() not run yet: expose the first step so paused /
+         * transition-0 scrubbing is not stuck at progress 0. */
+        if (this.handSwinging && this.handSwingTicks < 0 && this.handSwingProgress == 0F)
         {
             float start = tickDelta > 0F ? tickDelta : 1F;
 
             return start / HAND_SWING_DURATION;
+        }
+
+        /* Paused film scrubbing passes tickDelta 0. Interpolating from prev made
+         * the arm snap back for one playhead step after the swipe started. */
+        if (tickDelta <= 0F)
+        {
+            return this.handSwingProgress;
         }
 
         float delta = this.handSwingProgress - this.prevHandSwingProgress;
@@ -234,7 +245,9 @@ public class StubEntity implements IEntity
             this.handSwingTicks = 0;
         }
 
-        this.handSwingProgress = (float) this.handSwingTicks / (float) HAND_SWING_DURATION;
+        this.handSwingProgress = this.handSwingTicks < 0
+            ? 0F
+            : (float) this.handSwingTicks / (float) HAND_SWING_DURATION;
     }
 
     @Override
