@@ -334,6 +334,32 @@ public class ActionPlayer
             {
                 this.updateReplayEntities();
             }
+            else
+            {
+                /* Keyframes / properties / form data: keep live actors on the
+                 * updated timeline without discarding entities. */
+                this.reapplyActors();
+            }
+        }
+    }
+
+    private void reapplyActors()
+    {
+        for (Map.Entry<String, LivingEntity> entry : this.actors.entrySet())
+        {
+            Replay replay = (Replay) this.film.replays.get(entry.getKey());
+
+            if (replay != null)
+            {
+                LivingEntity actor = entry.getValue();
+
+                this.apply(actor, replay, this.tick, false);
+
+                if (!this.playing)
+                {
+                    actor.setVelocity(0D, 0D, 0D);
+                }
+            }
         }
     }
 
@@ -395,16 +421,6 @@ public class ActionPlayer
 
     public void goTo(int from, int tick)
     {
-        for (Map.Entry<String, LivingEntity> entry : this.actors.entrySet())
-        {
-            Replay replay = (Replay) this.film.replays.get(entry.getKey());
-
-            if (replay != null)
-            {
-                this.apply(entry.getValue(), replay, this.tick, false);
-            }
-        }
-
         if (from != tick)
         {
             this.tick = from;
@@ -416,6 +432,15 @@ public class ActionPlayer
                 this.applyAction();
             }
         }
+        else
+        {
+            this.tick = tick;
+        }
+
+        /* Snap actors to the target tick after action walk-through. Previously
+         * applied this.tick (pre-seek), leaving ActorEntity at a stale pose until
+         * the next server tick. */
+        this.reapplyActors();
     }
 
     public void stop()

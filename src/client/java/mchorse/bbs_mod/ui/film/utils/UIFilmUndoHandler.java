@@ -186,6 +186,16 @@ public class UIFilmUndoHandler extends UIFormUndoHandler
                     }
                 }
             }
+
+            /* Undo/redo mutates the client film only. Actor-mode entities are driven by
+             * the server ActionPlayer copy — sync replay data so toggling Actor ON does
+             * not respawn from stale (pre-undo) keyframes. */
+            this.syncFilmUndoToServer(undo);
+
+            if (this.uiElement instanceof UIFilmPanel panel && panel.getData() != null)
+            {
+                RegisterFilmSyncEvent.postSaveFilm(panel.getData());
+            }
         }
         catch (Exception e)
         {
@@ -194,6 +204,36 @@ public class UIFilmUndoHandler extends UIFormUndoHandler
         finally
         {
             this.isUndoing = false;
+        }
+    }
+
+    private void syncFilmUndoToServer(IUndo<ValueGroup> undo)
+    {
+        if (!(this.uiElement instanceof UIFilmPanel panel) || panel.getData() == null)
+        {
+            return;
+        }
+
+        if (undo instanceof CompoundUndo)
+        {
+            for (IUndo<ValueGroup> child : ((CompoundUndo<ValueGroup>) undo).getUndos())
+            {
+                this.syncFilmUndoToServer(child);
+            }
+
+            return;
+        }
+
+        if (!(undo instanceof ValueChangeUndo change))
+        {
+            return;
+        }
+
+        BaseValue value = panel.getData().getRecursively(change.getName());
+
+        if (value != null && this.isReplayActions(value))
+        {
+            ClientNetwork.sendSyncData(panel.getData().getId(), value);
         }
     }
 
