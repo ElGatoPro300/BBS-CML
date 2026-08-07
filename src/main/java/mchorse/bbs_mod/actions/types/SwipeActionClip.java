@@ -22,10 +22,19 @@ public class SwipeActionClip extends ActionClip
     @Override
     protected void applyClientAction(IEntity entity, Film film, Replay replay, int tick)
     {
-        /* ActorEntity already receives swingHand from applyAction on the server.
-         * Calling swingArm again on the client restarts the swing mid-animation. */
-        if (entity instanceof MCEntity mcEntity && mcEntity.getMcEntity() instanceof ActorEntity)
+        if (entity instanceof MCEntity mcEntity && mcEntity.getMcEntity() instanceof ActorEntity actor)
         {
+            /* Actor-mode delay came from waiting on server swingHand sync.
+             * Start locally as soon as the film hits this tick. Only skip when a
+             * swing is already active: applyClientActions repeats every frame
+             * while the cursor stays here, and LivingEntity.swingHand restarts
+             * while handSwingTicks == -1 (arm jitter). Server applyAction remains
+             * as a fallback if this client path did not run. */
+            if (!actor.handSwinging)
+            {
+                actor.swingHand(Hand.MAIN_HAND);
+            }
+
             return;
         }
 
