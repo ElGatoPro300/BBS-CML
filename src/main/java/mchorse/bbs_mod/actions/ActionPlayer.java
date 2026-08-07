@@ -137,7 +137,6 @@ public class ActionPlayer
 
                 actor.setForm(FormUtils.copy(replay.form.get()));
                 actor.setReplayData(this.film, replay, this.tick);
-                actor.setLimbSwingFrozen(!this.playing);
 
                 this.apply(actor, replay, this.tick, false);
 
@@ -241,15 +240,13 @@ public class ActionPlayer
             {
                 LivingEntity actor = entry.getValue();
 
-                // Update tick in ActorEntity for accurate item drops on death
                 if (actor instanceof ActorEntity actorEntity)
                 {
                     actorEntity.updateTick(this.tick);
-                    actorEntity.setLimbSwingFrozen(!this.playing);
                 }
 
-                /* While paused, do not move()/inject walk velocity — that restarts
-                 * limb swing and then lets it decay even though the film is still. */
+                /* While paused: hold position without move()/walk velocity so
+                 * LivingEntity limb swing decays naturally (player-stop style). */
                 this.apply(actor, replay, this.tick, this.playing);
 
                 if (!this.playing)

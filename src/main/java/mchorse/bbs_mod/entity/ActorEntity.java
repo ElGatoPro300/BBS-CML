@@ -5,9 +5,7 @@ import mchorse.bbs_mod.film.Film;
 import mchorse.bbs_mod.film.replays.Replay;
 import mchorse.bbs_mod.forms.entities.MCEntity;
 import mchorse.bbs_mod.forms.forms.Form;
-import mchorse.bbs_mod.mixin.LimbAnimatorAccessor;
 import mchorse.bbs_mod.network.ServerNetwork;
-import mchorse.bbs_mod.utils.MathUtils;
 
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityDimensions;
@@ -15,7 +13,6 @@ import net.minecraft.entity.EntityPose;
 import net.minecraft.entity.EntityType;
 import net.minecraft.entity.EquipmentSlot;
 import net.minecraft.entity.ItemEntity;
-import net.minecraft.entity.LimbAnimator;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.attribute.DefaultAttributeContainer;
 import net.minecraft.entity.attribute.EntityAttributes;
@@ -65,13 +62,6 @@ public class ActorEntity extends LivingEntity implements IEntityFormProvider
     private float lastHitboxSneakMultiplier = Float.NaN;
     private boolean lastSneaking;
 
-    /* When the film is paused, keep limb swing and form actions frozen (same as StubEntity). */
-    private boolean limbSwingFrozen;
-    private boolean hasFrozenLimbPose;
-    private float frozenLimbPos;
-    private float frozenLimbSpeed;
-    private float frozenLimbPrevSpeed;
-
     /* Film and replay data for item drops */
     private Film film;
     private Replay replay;
@@ -105,102 +95,6 @@ public class ActorEntity extends LivingEntity implements IEntityFormProvider
     public void updateTick(int tick)
     {
         this.currentTick = tick;
-    }
-
-    public boolean isLimbSwingFrozen()
-    {
-        return this.limbSwingFrozen;
-    }
-
-    /**
-     * Film pause / scrub: freeze limb swing at the current pose so arms and legs
-     * do not decay toward idle or restart a walk cycle while the actor is still.
-     * Call {@link #captureLimbSwing(float)} or {@link #copyLimbSwingFrom(LimbAnimator, float)}
-     * first when a specific render tickDelta must be baked; otherwise end-of-tick is used.
-     */
-    public void setLimbSwingFrozen(boolean frozen)
-    {
-        if (!frozen)
-        {
-            this.limbSwingFrozen = false;
-            this.hasFrozenLimbPose = false;
-
-            return;
-        }
-
-        if (!this.limbSwingFrozen)
-        {
-            if (!this.hasFrozenLimbPose)
-            {
-                this.captureLimbSwing(1F);
-            }
-
-            this.limbSwingFrozen = true;
-        }
-    }
-
-    public void captureLimbSwing()
-    {
-        this.captureLimbSwing(1F);
-    }
-
-    /**
-     * Bake the limb pose shown at {@code tickDelta} and zero speed. A non-zero speed
-     * while frozen makes {@link LimbAnimator#getPos(float)} re-lerp the last walk
-     * step every render frame. Baking with the current frame's tickDelta avoids a
-     * snap away from what was on screen when pausing.
-     */
-    public void captureLimbSwing(float tickDelta)
-    {
-        LimbAnimator animator = this.limbAnimator;
-
-        if (animator instanceof LimbAnimatorAccessor accessor)
-        {
-            float bakedPos = animator.getPos(MathUtils.clamp(tickDelta, 0F, 1F));
-
-            accessor.setPos(bakedPos);
-            accessor.setSpeed(0F);
-            accessor.setPrevSpeed(0F);
-
-            this.frozenLimbPos = bakedPos;
-            this.frozenLimbSpeed = 0F;
-            this.frozenLimbPrevSpeed = 0F;
-            this.hasFrozenLimbPose = true;
-        }
-    }
-
-    public void copyLimbSwingFrom(LimbAnimator source)
-    {
-        this.copyLimbSwingFrom(source, 1F);
-    }
-
-    public void copyLimbSwingFrom(LimbAnimator source, float tickDelta)
-    {
-        if (source == null || !(this.limbAnimator instanceof LimbAnimatorAccessor to))
-        {
-            return;
-        }
-
-        float bakedPos = source.getPos(MathUtils.clamp(tickDelta, 0F, 1F));
-
-        to.setPos(bakedPos);
-        to.setSpeed(0F);
-        to.setPrevSpeed(0F);
-
-        this.frozenLimbPos = bakedPos;
-        this.frozenLimbSpeed = 0F;
-        this.frozenLimbPrevSpeed = 0F;
-        this.hasFrozenLimbPose = true;
-    }
-
-    private void restoreLimbSwing()
-    {
-        if (this.limbAnimator instanceof LimbAnimatorAccessor accessor)
-        {
-            accessor.setPos(this.frozenLimbPos);
-            accessor.setSpeed(this.frozenLimbSpeed);
-            accessor.setPrevSpeed(this.frozenLimbPrevSpeed);
-        }
     }
 
     private void initializeRuntimeInventory()
@@ -330,17 +224,10 @@ public class ActorEntity extends LivingEntity implements IEntityFormProvider
     {
         super.tick();
 
-        if (this.limbSwingFrozen)
-        {
-            this.restoreLimbSwing();
-        }
-
         this.tickHandSwing();
         this.updateHitboxDimensions();
 
-        /* Skip form.update while frozen so walk/idle action blending does not keep
-         * advancing (StubEntity also stops updating when the film is paused). */
-        if (this.form != null && !this.limbSwingFrozen)
+        if (this.form != null)
         {
             this.form.update(this.entity);
         }

@@ -31,7 +31,6 @@ import mchorse.bbs_mod.forms.renderers.utils.MatrixCache;
 import mchorse.bbs_mod.forms.renderers.utils.MatrixCacheEntry;
 import mchorse.bbs_mod.graphics.Draw;
 import mchorse.bbs_mod.mixin.client.ClientPlayerEntityAccessor;
-import mchorse.bbs_mod.mixin.LimbAnimatorAccessor;
 import mchorse.bbs_mod.morphing.Morph;
 import mchorse.bbs_mod.settings.values.base.BaseValue;
 import mchorse.bbs_mod.settings.values.core.ValueColor;
@@ -1222,22 +1221,12 @@ public abstract class BaseFilmController
     }
 
     /**
-     * When true, live {@link ActorEntity} limb swing and form actions stay frozen
-     * (film paused / editor not playing), matching StubEntity pause behavior.
+     * Whether actor replays should keep receiving playback motion. When false,
+     * live actors hold still so vanilla limb swing can settle naturally.
      */
-    protected boolean shouldFreezeActorLimbSwing()
+    protected boolean isActorPlaybackActive()
     {
-        return this.paused;
-    }
-
-    private boolean isActorLimbSwingAtRest(ActorEntity actor)
-    {
-        if (!(actor.limbAnimator instanceof LimbAnimatorAccessor accessor))
-        {
-            return true;
-        }
-
-        return Math.abs(accessor.getSpeed()) < 0.001F && Math.abs(accessor.getPrevSpeed()) < 0.001F;
+        return !this.paused;
     }
 
     protected void updateEntities(int ticks)
@@ -1299,27 +1288,7 @@ public abstract class BaseFilmController
 
                         if (anEntity instanceof ActorEntity actor)
                         {
-                            boolean freezeLimbs = this.shouldFreezeActorLimbSwing();
-
-                            if (freezeLimbs && !actor.isLimbSwingFrozen())
-                            {
-                                float tickDelta = MinecraftClient.getInstance().getRenderTickCounter().getTickDelta(false);
-
-                                /* Pause mid-walk: bake the actor's on-screen pose.
-                                 * Fresh spawn / Actor toggle while paused: borrow stub pose. */
-                                if (this.isActorLimbSwingAtRest(actor))
-                                {
-                                    actor.copyLimbSwingFrom(entity.getLimbAnimator(), tickDelta);
-                                }
-                                else
-                                {
-                                    actor.captureLimbSwing(tickDelta);
-                                }
-                            }
-
-                            actor.setLimbSwingFrozen(freezeLimbs);
-
-                            if (freezeLimbs)
+                            if (!this.isActorPlaybackActive())
                             {
                                 actor.setVelocity(0D, 0D, 0D);
                             }

@@ -77,9 +77,9 @@ public class FilmEditorController extends BaseFilmController
     }
 
     @Override
-    protected boolean shouldFreezeActorLimbSwing()
+    protected boolean isActorPlaybackActive()
     {
-        return !this.controller.isPlaying();
+        return this.controller.isPlaying();
     }
 
     @Override
