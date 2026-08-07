@@ -44,6 +44,7 @@ public class ActionPlayer
     private ServerPlayerEntity serverPlayer;
     private ServerWorld world;
     private int duration;
+    private boolean wasPlaying = true;
 
     private Map<String, LivingEntity> actors = new HashMap<>();
 
@@ -218,7 +219,23 @@ public class ActionPlayer
             vy = -0.0784;
         }
 
-        actor.setVelocity(vx, vy, vz);
+        if (actor instanceof ActorEntity actorEntity)
+        {
+            if (!ticking)
+            {
+                actor.setVelocity(0D, 0D, 0D);
+            }
+            else
+            {
+                double scale = actorEntity.consumePlaybackVelocityScale();
+
+                actor.setVelocity(vx * scale, vy, vz * scale);
+            }
+        }
+        else
+        {
+            actor.setVelocity(vx, vy, vz);
+        }
 
         actor.fallDistance = replay.keyframes.fall.interpolate(tick).floatValue();
     }
@@ -232,6 +249,10 @@ public class ActionPlayer
             return false;
         }
 
+        boolean justResumed = this.playing && !this.wasPlaying;
+
+        this.wasPlaying = this.playing;
+
         for (Map.Entry<String, LivingEntity> entry : this.actors.entrySet())
         {
             Replay replay = (Replay) this.film.replays.get(entry.getKey());
@@ -243,6 +264,11 @@ public class ActionPlayer
                 if (actor instanceof ActorEntity actorEntity)
                 {
                     actorEntity.updateTick(this.tick);
+
+                    if (justResumed)
+                    {
+                        actorEntity.markPlaybackResumed();
+                    }
                 }
 
                 /* While paused: hold position without move()/walk velocity so
