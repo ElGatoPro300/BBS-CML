@@ -31,6 +31,7 @@ import mchorse.bbs_mod.forms.renderers.utils.MatrixCache;
 import mchorse.bbs_mod.forms.renderers.utils.MatrixCacheEntry;
 import mchorse.bbs_mod.graphics.Draw;
 import mchorse.bbs_mod.mixin.client.ClientPlayerEntityAccessor;
+import mchorse.bbs_mod.mixin.LimbAnimatorAccessor;
 import mchorse.bbs_mod.morphing.Morph;
 import mchorse.bbs_mod.settings.values.base.BaseValue;
 import mchorse.bbs_mod.settings.values.core.ValueColor;
@@ -1229,6 +1230,16 @@ public abstract class BaseFilmController
         return this.paused;
     }
 
+    private boolean isActorLimbSwingAtRest(ActorEntity actor)
+    {
+        if (!(actor.limbAnimator instanceof LimbAnimatorAccessor accessor))
+        {
+            return true;
+        }
+
+        return Math.abs(accessor.getSpeed()) < 0.001F && Math.abs(accessor.getPrevSpeed()) < 0.001F;
+    }
+
     protected void updateEntities(int ticks)
     {
         List<Replay> replays = this.film.replays.getList();
@@ -1290,11 +1301,20 @@ public abstract class BaseFilmController
                         {
                             boolean freezeLimbs = this.shouldFreezeActorLimbSwing();
 
-                            /* Entering freeze: copy stub limb pose so toggling Actor on
-                             * while paused keeps the same swing pose instead of restarting. */
                             if (freezeLimbs && !actor.isLimbSwingFrozen())
                             {
-                                actor.copyLimbSwingFrom(entity.getLimbAnimator());
+                                float tickDelta = MinecraftClient.getInstance().getRenderTickCounter().getTickDelta(false);
+
+                                /* Pause mid-walk: bake the actor's on-screen pose.
+                                 * Fresh spawn / Actor toggle while paused: borrow stub pose. */
+                                if (this.isActorLimbSwingAtRest(actor))
+                                {
+                                    actor.copyLimbSwingFrom(entity.getLimbAnimator(), tickDelta);
+                                }
+                                else
+                                {
+                                    actor.captureLimbSwing(tickDelta);
+                                }
                             }
 
                             actor.setLimbSwingFrozen(freezeLimbs);

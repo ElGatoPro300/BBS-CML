@@ -7,6 +7,7 @@ import mchorse.bbs_mod.forms.entities.MCEntity;
 import mchorse.bbs_mod.forms.forms.Form;
 import mchorse.bbs_mod.mixin.LimbAnimatorAccessor;
 import mchorse.bbs_mod.network.ServerNetwork;
+import mchorse.bbs_mod.utils.MathUtils;
 
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityDimensions;
@@ -66,6 +67,7 @@ public class ActorEntity extends LivingEntity implements IEntityFormProvider
 
     /* When the film is paused, keep limb swing and form actions frozen (same as StubEntity). */
     private boolean limbSwingFrozen;
+    private boolean hasFrozenLimbPose;
     private float frozenLimbPos;
     private float frozenLimbSpeed;
     private float frozenLimbPrevSpeed;
@@ -113,30 +115,48 @@ public class ActorEntity extends LivingEntity implements IEntityFormProvider
     /**
      * Film pause / scrub: freeze limb swing at the current pose so arms and legs
      * do not decay toward idle or restart a walk cycle while the actor is still.
+     * Call {@link #captureLimbSwing(float)} or {@link #copyLimbSwingFrom(LimbAnimator, float)}
+     * first when a specific render tickDelta must be baked; otherwise end-of-tick is used.
      */
     public void setLimbSwingFrozen(boolean frozen)
     {
-        if (frozen && !this.limbSwingFrozen)
+        if (!frozen)
         {
-            this.captureLimbSwing();
+            this.limbSwingFrozen = false;
+            this.hasFrozenLimbPose = false;
+
+            return;
         }
 
-        this.limbSwingFrozen = frozen;
+        if (!this.limbSwingFrozen)
+        {
+            if (!this.hasFrozenLimbPose)
+            {
+                this.captureLimbSwing(1F);
+            }
+
+            this.limbSwingFrozen = true;
+        }
+    }
+
+    public void captureLimbSwing()
+    {
+        this.captureLimbSwing(1F);
     }
 
     /**
-     * Bake the currently displayed limb pose and zero speed. Keeping a non-zero
-     * speed while frozen makes {@link LimbAnimator#getPos(float)} re-lerp that
-     * last walk step every render frame (tickDelta 0→1), which looks like jitter.
-     * Highlight/stencil uses tickDelta 0 so it already looked correct.
+     * Bake the limb pose shown at {@code tickDelta} and zero speed. A non-zero speed
+     * while frozen makes {@link LimbAnimator#getPos(float)} re-lerp the last walk
+     * step every render frame. Baking with the current frame's tickDelta avoids a
+     * snap away from what was on screen when pausing.
      */
-    public void captureLimbSwing()
+    public void captureLimbSwing(float tickDelta)
     {
         LimbAnimator animator = this.limbAnimator;
 
         if (animator instanceof LimbAnimatorAccessor accessor)
         {
-            float bakedPos = animator.getPos(0F);
+            float bakedPos = animator.getPos(MathUtils.clamp(tickDelta, 0F, 1F));
 
             accessor.setPos(bakedPos);
             accessor.setSpeed(0F);
@@ -145,17 +165,23 @@ public class ActorEntity extends LivingEntity implements IEntityFormProvider
             this.frozenLimbPos = bakedPos;
             this.frozenLimbSpeed = 0F;
             this.frozenLimbPrevSpeed = 0F;
+            this.hasFrozenLimbPose = true;
         }
     }
 
     public void copyLimbSwingFrom(LimbAnimator source)
+    {
+        this.copyLimbSwingFrom(source, 1F);
+    }
+
+    public void copyLimbSwingFrom(LimbAnimator source, float tickDelta)
     {
         if (source == null || !(this.limbAnimator instanceof LimbAnimatorAccessor to))
         {
             return;
         }
 
-        float bakedPos = source.getPos(0F);
+        float bakedPos = source.getPos(MathUtils.clamp(tickDelta, 0F, 1F));
 
         to.setPos(bakedPos);
         to.setSpeed(0F);
@@ -164,6 +190,7 @@ public class ActorEntity extends LivingEntity implements IEntityFormProvider
         this.frozenLimbPos = bakedPos;
         this.frozenLimbSpeed = 0F;
         this.frozenLimbPrevSpeed = 0F;
+        this.hasFrozenLimbPose = true;
     }
 
     private void restoreLimbSwing()
