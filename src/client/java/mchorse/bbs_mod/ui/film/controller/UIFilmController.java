@@ -1643,13 +1643,17 @@ public class UIFilmController extends UIElement
 
                 this.stencilMap.objectIndex = entry.getKey() + Gizmo.STENCIL_HANDLE_MAX + 1;
 
+                IEntity renderEntity = this.editorController.getRenderEntity(replay, entry.getValue());
+                boolean physicalActor = renderEntity != entry.getValue();
+
                 BaseFilmController.renderEntity(FilmControllerContext.instance
-                    .setup(this.getEntities(), entry.getValue(), replay, renderContext)
+                    .setup(this.getEntities(), renderEntity, replay, renderContext)
                     .film(this.panel.getData())
                     .filmTick(cursorTick)
                     .transition(isPlaying ? renderContext.tickCounter().getTickDelta(false) : 0)
                     .stencil(this.stencilMap)
-                    .relative(replay.relative.get()));
+                    .relative(replay.relative.get())
+                    .physicalActor(physicalActor));
             }
         }
         else
@@ -1691,13 +1695,39 @@ public class UIFilmController extends UIElement
                         }
                     }
 
+                    IEntity renderEntity = this.editorController.getRenderEntity(currentReplay, currentEntity);
+                    boolean physicalActor = renderEntity != currentEntity;
+
+                    /* Prefer the physical actor's form for marked-bone filtering when Actor is on. */
+                    if (physicalActor && markedBonesOnly)
+                    {
+                        Form actorForm = renderEntity.getForm();
+
+                        if (actorForm instanceof ModelForm modelForm)
+                        {
+                            ModelInstance model = ModelFormRenderer.getModel(modelForm);
+                            String poseGroup = model == null ? modelForm.model.get() : model.poseGroup;
+
+                            if (poseGroup == null || poseGroup.isEmpty())
+                            {
+                                poseGroup = model == null ? modelForm.model.get() : model.id;
+                            }
+
+                            if (UIPoseEditor.hasMarkedBones(poseGroup))
+                            {
+                                this.stencilMap.allowedBones = UIPoseEditor.getMarkedBones(poseGroup);
+                            }
+                        }
+                    }
+
                     BaseFilmController.renderEntity(FilmControllerContext.instance
-                        .setup(this.getEntities(), currentEntity, currentReplay, renderContext)
+                        .setup(this.getEntities(), renderEntity, currentReplay, renderContext)
                         .film(this.panel.getData())
                         .filmTick(cursorTick)
                         .transition(isPlaying ? renderContext.tickCounter().getTickDelta(false) : 0)
                         .stencil(this.stencilMap)
                         .relative(currentReplay.relative.get())
+                        .physicalActor(physicalActor)
                         .bone(bone != null ? bone.a : null, bone != null ? bone.b : TransformOrientation.PARENT));
                 }
             }

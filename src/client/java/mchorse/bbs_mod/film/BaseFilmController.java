@@ -198,7 +198,7 @@ public abstract class BaseFilmController
             target = defaultMatrix;
         }
 
-        if (!relative)
+        if (!relative && !context.physicalActor)
         {
             applyLookAt(context, form, position, target);
             InverseKinematicsApplier.apply(context, form);
@@ -237,6 +237,10 @@ public abstract class BaseFilmController
         formContext.isShadowPass = context.isShadowPass;
         formContext.viewMatrix = context.viewMatrix;
 
+        /* World pass: physical ActorEntity already draws the body — only capture gizmos.
+         * Stencil pass (map != null): still draw the form so bone pick/highlight match the actor. */
+        boolean drawBody = !context.physicalActor || context.map != null;
+
         stack.push();
 
         try
@@ -260,11 +264,14 @@ public abstract class BaseFilmController
             /* IRLights 1.21+ reads FormRenderingContext.world (absolute) for light poses.
              * Rebuild that root in true world space (independent of any render camera or viewport)
              * so light registration cannot mix the film actor frame with the spectator/player view. */
-            syncIrlAbsoluteWorldMatrix(formContext, context, entity, relative, transition);
+            if (drawBody)
+            {
+                syncIrlAbsoluteWorldMatrix(formContext, context, entity, relative, transition);
+            }
 
-            ModelFormRenderer lookAtRenderer = relative ? null : applyLookAtPose(context, form, position);
+            ModelFormRenderer lookAtRenderer = (relative || context.physicalActor) ? null : applyLookAtPose(context, form, position);
 
-            if (context.isShadowPass)
+            if (drawBody && context.isShadowPass)
             {
                 if (context.shadowOpacity <= 0.001F || (context.shadowRadiusX <= 0F && context.shadowRadiusZ <= 0F))
                 {
@@ -306,7 +313,7 @@ public abstract class BaseFilmController
 
             FormIllusionRenderer.Extras illusionExtras = null;
 
-            if (context.replay != null && !Float.isNaN(context.propertyTick))
+            if (drawBody && context.replay != null && !Float.isNaN(context.propertyTick))
             {
                 illusionExtras = new FormIllusionRenderer.Extras();
                 illusionExtras.propertyTick = context.propertyTick;
@@ -322,12 +329,15 @@ public abstract class BaseFilmController
                 };
             }
 
-            /* Illusions are drawn inside FormUtilsClient for model blocks / morphs / preview too. */
-            FormUtilsClient.render(form, formContext, context.map == null ? illusionExtras : null);
-
-            if (!context.isShadowPass && context.map == null && entity.getFireTicks() > 0)
+            if (drawBody)
             {
-                MorphFireRenderer.render(stack, context.consumers, entity, form, transition, camera, relative);
+                /* Illusions are drawn inside FormUtilsClient for model blocks / morphs / preview too. */
+                FormUtilsClient.render(form, formContext, context.map == null ? illusionExtras : null);
+
+                if (!context.isShadowPass && context.map == null && entity.getFireTicks() > 0)
+                {
+                    MorphFireRenderer.render(stack, context.consumers, entity, form, transition, camera, relative);
+                }
             }
 
             if (lookAtRenderer != null)
@@ -380,7 +390,7 @@ public abstract class BaseFilmController
         /* Vanilla blob shadows only without Iris shaders — Comp/BSL use the shadow map.
          * Blob opacity is the Shadow track only; form Opacity must not fade the ground circle.
          * Size X/Z are independent (matrix scale); vanilla API only has one radius. */
-        if (!relative && context.map == null && opacity > 0F
+        if (drawBody && !relative && context.map == null && opacity > 0F
             && (context.shadowRadiusX > 0F || context.shadowRadiusZ > 0F)
             && form.render.get() && form.visible.get()
             && !context.isShadowPass && !IrisUtils.isShaderPackEnabled())
@@ -402,7 +412,7 @@ public abstract class BaseFilmController
             }
         }
 
-        if (!relative && !context.nameTag.isEmpty())
+        if (drawBody && !relative && !context.nameTag.isEmpty())
         {
             stack.push();
             stack.translate(position.x - cx, position.y - cy, position.z - cz);
@@ -1146,6 +1156,59 @@ public abstract class BaseFilmController
     public abstract Map<String, Integer> getActors();
 
     public abstract int getTick();
+
+    /**
+     * Live world entity used when a replay has Actor mode on ({@link ActorEntity}
+     * or first-person player morph). {@code null} when the actor is not spawned yet.
+     */
+    public IEntity getPhysicalActorEntity(Replay replay)
+    {
+        if (replay == null || !replay.actor.get())
+        {
+            return null;
+        }
+
+        Map<String, Integer> actors = this.getActors();
+
+        if (actors == null || MinecraftClient.getInstance().world == null)
+        {
+            return null;
+        }
+
+        Integer entityId = actors.get(replay.getId());
+
+        if (entityId == null)
+        {
+            return null;
+        }
+
+        Entity anEntity = MinecraftClient.getInstance().world.getEntityById(entityId);
+
+        if (anEntity instanceof ActorEntity actor)
+        {
+            return actor.getEntity();
+        }
+
+        if (anEntity instanceof PlayerEntity player)
+        {
+            Morph morph = Morph.getMorph(player);
+
+            return morph == null ? null : morph.entity;
+        }
+
+        return null;
+    }
+
+    /**
+     * Entity whose form/pose should drive gizmos, bone picking and highlights.
+     * Prefers the physical actor when Actor mode is on; otherwise the stub.
+     */
+    public IEntity getRenderEntity(Replay replay, IEntity stub)
+    {
+        IEntity physical = this.getPhysicalActorEntity(replay);
+
+        return physical != null ? physical : stub;
+    }
 
     public boolean hasFinished()
     {

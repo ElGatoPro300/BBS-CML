@@ -65,6 +65,13 @@ public class FilmControllerContext
     public String nameTag = "";
     public boolean relative;
     public boolean isShadowPass;
+    /**
+     * True when tools (gizmo / stencil) use a live {@code ActorEntity} / FP player
+     * instead of the editor StubEntity. Skips look-at/IK so bone matrices match
+     * {@code ActorEntityRenderer}, and skips drawing the body in the world pass
+     * (the physical entity already draws it).
+     */
+    public boolean physicalActor;
     public Matrix4f localGroupTransform;
     public Matrix4f viewMatrix;
     public PaintSettings groupPaint;
@@ -98,6 +105,7 @@ public class FilmControllerContext
         this.nameTag = "";
         this.relative = false;
         this.isShadowPass = false;
+        this.physicalActor = false;
         this.localGroupTransform = null;
         this.viewMatrix = null;
         this.groupPaint = null;
@@ -291,6 +299,13 @@ public class FilmControllerContext
     public FilmControllerContext isShadowPass(boolean isShadowPass)
     {
         this.isShadowPass = isShadowPass;
+
+        return this;
+    }
+
+    public FilmControllerContext physicalActor(boolean physicalActor)
+    {
+        this.physicalActor = physicalActor;
 
         return this;
     }
