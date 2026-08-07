@@ -642,11 +642,13 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
         ModelVAORenderer.setGlow(glow, glowColor.r, glowColor.g, glowColor.b, legacyGlow);
 
         boolean shadowPass = (renderContext != null && renderContext.isShadowPass) || BBSRendering.isIrisShadowPass();
-        /* Orbit UI, form/model-block pickable preview: draw live. World post-deferred /
-         * Iris queues are never flushed for those passes — soft limbs would vanish. */
+        /* Orbit UI, form/model-block pickable preview, and inventory GUI items: draw live.
+         * World post-deferred / Iris queues are never flushed for those passes — soft limbs
+         * and translucent forms would vanish (inventory slots draw after world flush). */
         boolean localPreview = ui
             || (renderContext != null && (renderContext.ui || renderContext.modelRenderer
-                || renderContext.type == FormRenderType.PREVIEW));
+                || renderContext.type == FormRenderType.PREVIEW
+                || renderContext.type == FormRenderType.ITEM_INVENTORY));
         boolean irisWorldPaintDeferral = BBSRendering.isIrisWorldPaintDeferral();
         boolean paintActive = this.hasAnyPaint(model);
         boolean bbsModelShader = this.usesBbsModelShader(model);
