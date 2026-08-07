@@ -61,7 +61,12 @@ public class StubEntity implements IEntity
     private float pitch;
     private float bodyYaw;
 
-    private int armSwing;
+    /** Matches {@link net.minecraft.entity.LivingEntity} hand-swing duration. */
+    private static final int HAND_SWING_DURATION = 6;
+    private boolean handSwinging;
+    private int handSwingTicks;
+    private float handSwingProgress;
+    private float prevHandSwingProgress;
 
     private Vec3d velocity = Vec3d.ZERO;
 
@@ -180,13 +185,56 @@ public class StubEntity implements IEntity
     @Override
     public void swingArm()
     {
-        this.armSwing = 6;
+        this.handSwinging = true;
+        this.handSwingTicks = 0;
+        this.prevHandSwingProgress = 0F;
+        this.handSwingProgress = 0F;
     }
 
     @Override
     public float getHandSwingProgress(float tickDelta)
     {
-        return this.armSwing <= 0 ? 0F : 1F - (this.armSwing - tickDelta) / 6F;
+        /* Same interpolation as LivingEntity so procedural swipe (torso / off-hand)
+         * matches ActorEntity. If the swing just started and update() has not run
+         * yet (paused film / transition 0), expose the first step so the pose is
+         * not stuck at progress 0. */
+        if (this.handSwinging && this.handSwingTicks == 0 && this.handSwingProgress == 0F)
+        {
+            float start = tickDelta > 0F ? tickDelta : 1F;
+
+            return start / HAND_SWING_DURATION;
+        }
+
+        float delta = this.handSwingProgress - this.prevHandSwingProgress;
+
+        if (delta < 0F)
+        {
+            delta += 1F;
+        }
+
+        return this.prevHandSwingProgress + delta * tickDelta;
+    }
+
+    private void tickHandSwing()
+    {
+        this.prevHandSwingProgress = this.handSwingProgress;
+
+        if (this.handSwinging)
+        {
+            this.handSwingTicks += 1;
+
+            if (this.handSwingTicks >= HAND_SWING_DURATION)
+            {
+                this.handSwingTicks = 0;
+                this.handSwinging = false;
+            }
+        }
+        else
+        {
+            this.handSwingTicks = 0;
+        }
+
+        this.handSwingProgress = (float) this.handSwingTicks / (float) HAND_SWING_DURATION;
     }
 
     @Override
@@ -532,7 +580,7 @@ public class StubEntity implements IEntity
 
         this.limbAnimator.updateLimbs(speed, 0.4F);
 
-        this.armSwing -= 1;
+        this.tickHandSwing();
         this.age += 1;
 
         this.prevFallFlyingTicks = this.fallFlyingTicks;

@@ -427,20 +427,24 @@ public class ProceduralAnimator implements IAnimator
                 }
             }
 
-            if (!riding && handSwingProgress > 0F && torso != null && leftArm != null && rightArm != null)
+            if (!riding && handSwingProgress > 0F && leftArm != null && rightArm != null)
             {
                 float swingFactor = handSwingProgress;
+                float swingBodyYaw = -MathUtils.toDeg(MathHelper.sin(MathHelper.sqrt(swingFactor) * MathUtils.PI * 2F) * 0.2F);
 
-                torso.current.rotate.y = -MathUtils.toDeg(MathHelper.sin(MathHelper.sqrt(swingFactor) * MathUtils.PI * 2F) * 0.2F);
+                if (torso != null)
+                {
+                    torso.current.rotate.y = swingBodyYaw;
+                }
 
-                leftArm.current.translate.z += (float) Math.sin(MathUtils.toRad(torso.current.rotate.y)) * 5F;
-                leftArm.current.translate.x += (float) Math.cos(MathUtils.toRad(torso.current.rotate.y)) * 5F - 5F;
-                rightArm.current.translate.z -= (float) Math.sin(MathUtils.toRad(torso.current.rotate.y)) * 5F;
-                rightArm.current.translate.x -= (float) Math.cos(MathUtils.toRad(torso.current.rotate.y)) * 5F - 5F;
+                leftArm.current.translate.z += (float) Math.sin(MathUtils.toRad(swingBodyYaw)) * 5F;
+                leftArm.current.translate.x += (float) Math.cos(MathUtils.toRad(swingBodyYaw)) * 5F - 5F;
+                rightArm.current.translate.z -= (float) Math.sin(MathUtils.toRad(swingBodyYaw)) * 5F;
+                rightArm.current.translate.x -= (float) Math.cos(MathUtils.toRad(swingBodyYaw)) * 5F - 5F;
 
-                rightArm.current.rotate.y += torso.current.rotate.y;
-                leftArm.current.rotate.y += torso.current.rotate.y;
-                leftArm.current.rotate.x += torso.current.rotate.y;
+                rightArm.current.rotate.y += swingBodyYaw;
+                leftArm.current.rotate.y += swingBodyYaw;
+                leftArm.current.rotate.x += swingBodyYaw;
 
                 swingFactor = 1F - handSwingProgress;
                 swingFactor *= swingFactor;
@@ -454,7 +458,7 @@ public class ProceduralAnimator implements IAnimator
                 /* Apply swing on the attacking arm's own pitch (vanilla BipedEntityModel).
                  * Using the other arm's pitch as base made the arm snap when progress hit 0. */
                 rightArm.current.rotate.x += MathUtils.toDeg(swing1 * 1.2F + swing2);
-                rightArm.current.rotate.y += torso.current.rotate.y * 2F;
+                rightArm.current.rotate.y += swingBodyYaw * 2F;
                 rightArm.current.rotate.z += MathUtils.toDeg(MathHelper.sin(handSwingProgress * MathUtils.PI) * -0.4F);
             }
         }
