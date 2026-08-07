@@ -86,6 +86,7 @@ import net.minecraft.client.util.math.MatrixStack;
 import net.irisshaders.iris.uniforms.custom.cached.CachedUniform;
 
 import org.joml.Matrix4f;
+import org.joml.Vector3f;
 
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.systems.VertexSorter;
@@ -108,6 +109,10 @@ public class BBSRendering
      * Cached rendered model blocks
      */
     public static final Set<ModelBlockEntity> capturedModelBlocks = new HashSet<>();
+
+    /** Vanilla level diffuse basis (same as UIModelRenderer / DiffuseLighting world pass). */
+    private static final Vector3f WORLD_LEVEL_LIGHT_0 = new Vector3f(0.2F, 1.0F, -0.7F).normalize();
+    private static final Vector3f WORLD_LEVEL_LIGHT_1 = new Vector3f(-0.2F, 1.0F, 0.7F).normalize();
 
     public static boolean canRender;
 
@@ -346,6 +351,27 @@ public class BBSRendering
         RenderSystem.depthFunc(GL11.GL_ALWAYS);
         GL11.glPolygonOffset(0F, 0F);
         GL11.glDisable(GL11.GL_POLYGON_OFFSET_FILL);
+    }
+
+    /**
+     * Soft-opacity / glow / equipment can leave depthMask/blend/shader color wrong and poison
+     * later Model Block / Iris shadow draws. Only sanitize leaky state — do not force depth-test
+     * on or rewrite level lights (that changed the post-morph entity pipeline and froze
+     * GPU-skinned / procedural limb motion).
+     */
+    public static void restoreWorldRenderState()
+    {
+        RenderSystem.depthMask(true);
+        RenderSystem.colorMask(true, true, true, true);
+        RenderSystem.enableBlend();
+        RenderSystem.defaultBlendFunc();
+        RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
+    }
+
+    /** Vanilla level diffuse basis shared by morphs and editor previews. */
+    public static void setupWorldLevelDiffuseLighting()
+    {
+        RenderSystem.setupLevelDiffuseLighting(WORLD_LEVEL_LIGHT_0, WORLD_LEVEL_LIGHT_1);
     }
 
     public static Texture getTexture()

@@ -27,11 +27,7 @@ import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.util.math.RotationAxis;
 
-import org.joml.Vector3f;
-
 import com.mojang.blaze3d.systems.RenderSystem;
-
-import org.lwjgl.opengl.GL11;
 
 public class MorphRenderer
 {
@@ -72,16 +68,12 @@ public class MorphRenderer
             {
                 RenderSystem.enableDepthTest();
 
-                /* World morphs keep MorphRenderer's level lights. InventoryScreen.drawEntity
-                 * (and creative inventory) already set GUI diffuse lighting for the vanilla
-                 * player — override only there so forms match that preview without changing
-                 * world / film / first-person lighting. */
+                /* InventoryScreen.drawEntity already set GUI diffuse lighting for the vanilla
+                 * player — override only there so forms match that preview. In the world, use
+                 * the same level lights as model blocks / editor previews. */
                 if (BBSRendering.isRenderingWorld())
                 {
-                    Vector3f a = new Vector3f(0.85F, 0.85F, -1F).normalize();
-                    Vector3f b = new Vector3f(-0.85F, 0.85F, 1F).normalize();
-
-                    RenderSystem.setupLevelDiffuseLighting(a, b);
+                    BBSRendering.setupWorldLevelDiffuseLighting();
                 }
                 else
                 {
@@ -113,6 +105,9 @@ public class MorphRenderer
 
                 matrixStack.pop();
 
+                BBSRendering.restoreWorldRenderState();
+                /* Prior morph pipeline left depth disabled after the form draw; keep that so
+                 * GPU-skinned BOBJ / procedural limbs keep matching the working entity pass. */
                 RenderSystem.disableDepthTest();
             }
 
@@ -191,6 +186,7 @@ public class MorphRenderer
 
             matrixStack.pop();
 
+            BBSRendering.restoreWorldRenderState();
             RenderSystem.disableDepthTest();
 
             return true;

@@ -108,6 +108,7 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
     private boolean constraintsAppliedThisRender;
 
     private int lastAge = -1;
+    private int lastUiAnimTick = Integer.MIN_VALUE;
 
     private IEntity entity = new StubEntity();
 
@@ -458,7 +459,19 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
 
             model.model.resetPose();
 
-            this.animator.applyActions(null, model, context.getTransition());
+            /* ProceduralAnimator (emoticons) no-ops on a null entity; also advance idle
+             * once per game tick so UI / morph thumbnails are not frozen on bind pose. */
+            MinecraftClient client = MinecraftClient.getInstance();
+            int tick = client.world != null ? (int) (client.world.getTime() & 0x7FFFFFFF) : this.lastUiAnimTick + 1;
+
+            if (tick != this.lastUiAnimTick)
+            {
+                this.lastUiAnimTick = tick;
+                this.entity.update();
+                this.animator.update(this.entity);
+            }
+
+            this.animator.applyActions(this.entity, model, context.getTransition());
             model.model.applyPose(this.getPose());
 
             MatrixStackUtils.multiply(stack, uiMatrix);
@@ -3214,6 +3227,7 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
     public void render3D(FormRenderingContext context)
     {
         this.ensureAnimator(context.getTransition());
+        this.advanceAnimatorForEntity(context.entity);
 
         ModelInstance model = this.getModel();
 
@@ -3458,20 +3472,38 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
     @Override
     public void tick(IEntity entity)
     {
+        this.ensureAnimator(0F);
+        this.advanceAnimatorForEntity(entity);
+    }
+
+    /**
+     * Advances action playback once per entity age. Also used from {@link #render3D} so morphs
+     * still animate if {@link mchorse.bbs_mod.forms.forms.Form#update} ran before the renderer
+     * was lazily attached (first frames after morphing).
+     */
+    private void advanceAnimatorForEntity(IEntity entity)
+    {
+        if (entity == null)
+        {
+            return;
+        }
+
         int age = entity.getAge();
 
-        if (this.lastAge != -1 && age != this.lastAge + 1)
+        if (this.lastAge != -1 && age != this.lastAge + 1 && age != this.lastAge)
         {
             this.resetAnimator();
+            this.ensureAnimator(0F);
         }
 
-        this.ensureAnimator(0F);
-
-        if (this.animator != null)
+        if (age != this.lastAge)
         {
-            this.animator.update(entity);
-        }
+            if (this.animator != null)
+            {
+                this.animator.update(entity);
+            }
 
-        this.lastAge = age;
+            this.lastAge = age;
+        }
     }
 }

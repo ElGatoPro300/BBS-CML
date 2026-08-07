@@ -478,7 +478,10 @@ public class ShaderOpacityPatch
         finally
         {
             flushingPostDeferred = false;
+            /* Soft-opacity flushes can leave depthMask dirty for later world draws. */
             RenderSystem.depthMask(true);
+            RenderSystem.colorMask(true, true, true, true);
+            RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
         }
     }
 
