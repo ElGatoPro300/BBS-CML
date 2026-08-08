@@ -244,6 +244,10 @@ public class ActorEntity extends LivingEntity implements IEntityFormProvider
     /**
      * Advance emoticon/BOBJ clocks only when the timeline tick changes (avoids
      * scrub-cursor flicker pumping ActionPlayback every frame).
+     * <p>
+     * Does not assign {@code age = filmTick}: actors accumulate a real entity age
+     * while playing, and dropping age to the playhead triggers
+     * {@code ModelFormRenderer} animator reset (walk/run/emoticon restart).
      */
     public void syncTimelineFormTick(int tick)
     {
@@ -251,38 +255,25 @@ public class ActorEntity extends LivingEntity implements IEntityFormProvider
 
         if (this.timelineFormTick == Integer.MIN_VALUE)
         {
-            this.age = t;
+            /* Anchor playhead tracking only — keep current age / ActionPlayback. */
             this.timelineFormTick = t;
-
-            if (this.form != null)
-            {
-                this.form.update(this.entity);
-            }
 
             return;
         }
 
         if (t == this.timelineFormTick)
         {
-            this.age = t;
-
             return;
         }
 
         int delta = t - this.timelineFormTick;
 
-        this.age = t;
-
         if (delta < 0)
         {
-            /* Seeking backward: one update so ModelFormRenderer can reset on age drop. */
+            /* Seeking backward: one age drop so ModelFormRenderer can reset. */
             if (this.form != null)
             {
-                int saved = this.age;
-
-                this.age = t - 1;
-                this.form.update(this.entity);
-                this.age = saved;
+                this.age = Math.max(0, this.age + delta);
                 this.form.update(this.entity);
             }
         }
@@ -292,6 +283,26 @@ public class ActorEntity extends LivingEntity implements IEntityFormProvider
         }
 
         this.timelineFormTick = t;
+    }
+
+    /**
+     * Remember the film tick at pause without changing limbs or form clocks.
+     * Scrub steps then advance relative to this anchor.
+     */
+    public void anchorTimelinePauseState(int tick)
+    {
+        int t = Math.max(0, tick);
+
+        if (this.timelineFormTick == Integer.MIN_VALUE)
+        {
+            this.timelineFormTick = t;
+        }
+
+        if (this.timelineLimbTick < 0 && this.limbAnimator instanceof LimbAnimatorAccessor limb)
+        {
+            this.timelineLimbPos = limb.getPos();
+            this.timelineLimbTick = t;
+        }
     }
 
     /**
@@ -307,6 +318,7 @@ public class ActorEntity extends LivingEntity implements IEntityFormProvider
 
         for (int i = 0; i < steps; i++)
         {
+            this.age += 1;
             this.form.update(this.entity);
         }
     }

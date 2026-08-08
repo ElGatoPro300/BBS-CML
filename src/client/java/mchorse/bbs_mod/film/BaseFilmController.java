@@ -1323,8 +1323,17 @@ public abstract class BaseFilmController
         actor.prevPitch = actor.getPitch();
         actor.setVelocity(0D, 0D, 0D);
 
-        actor.applyTimelineLimbPhase(keyframes, toReplayTick, mounted);
-        actor.syncTimelineFormTick(toReplayTick);
+        if (steps > 0)
+        {
+            actor.applyTimelineLimbPhase(keyframes, toReplayTick, mounted);
+            actor.syncTimelineFormTick(toReplayTick);
+        }
+        else
+        {
+            /* Pause-in-place: freeze whatever play already showed. Re-binding age or
+             * limb phase to the playhead restarts BOBJ/emoticon ActionPlayback. */
+            actor.anchorTimelinePauseState(toReplayTick);
+        }
     }
 
     protected void updateEntities(int ticks)
