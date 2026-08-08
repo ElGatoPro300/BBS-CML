@@ -446,10 +446,14 @@ public class UIFilmController extends UIElement
             }
 
             this.controlled = null;
+            this.notifyActorPuppet(-1);
         }
         else if (this.panel.replayEditor.replays.replays.isSelected())
         {
             this.controlled = this.getCurrentEntity();
+
+            Integer key = this.controlled == null ? null : CollectionUtils.getKey(entities, this.controlled);
+            int replayIndex = key == null ? -1 : key;
 
             if (replacePlayer && this.controlled != null)
             {
@@ -464,6 +468,8 @@ public class UIFilmController extends UIElement
 
                 this.controlled = player;
             }
+
+            this.notifyActorPuppet(replayIndex);
         }
 
         this.setMouseMode(this.mouseMode);
@@ -473,6 +479,22 @@ public class UIFilmController extends UIElement
         {
             this.stopRecording();
         }
+    }
+
+    /**
+     * Tell the server film-editor ActionPlayer which actor body the client is
+     * puppeteering, so it stops snapping that entity to keyframes.
+     */
+    private void notifyActorPuppet(int replayIndex)
+    {
+        Film film = this.panel.getData();
+
+        if (film == null || !ClientNetwork.isIsBBSModOnServer())
+        {
+            return;
+        }
+
+        ClientNetwork.sendActionState(film.getId(), ActionState.PUPPET, replayIndex);
     }
 
     private boolean canControl()

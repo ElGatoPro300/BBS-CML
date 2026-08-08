@@ -1289,10 +1289,7 @@ public abstract class BaseFilmController
 
                         if (anEntity instanceof ActorEntity actor)
                         {
-                            if (!this.isActorPlaybackActive())
-                            {
-                                actor.setVelocity(0D, 0D, 0D);
-                            }
+                            boolean controlling = !this.shouldEmitReplayMotionFx(entity);
 
                             /* IEntity already has mount rotation applied by MorphMountSync */
                             actor.setYaw(entity.getYaw());
@@ -1302,9 +1299,30 @@ public abstract class BaseFilmController
                             /* Stub already has vanilla pose/action keyframes; copy them so
                              * MCEntity(actor) used by ActorEntityRenderer sees sprint/limbs/etc. */
                             ActorReplayStateSync.syncFromSource(actor, entity);
-                            /* Only gate vanilla sprint dust — do not touch position, velocity,
-                             * visibility, or the sprinting flag (needed for run anim). */
-                            actor.setSuppressSprintParticles(!this.shouldEmitReplayMotionFx(entity));
+                            /* Only gate vanilla sprint dust — do not clear sprinting (run anim). */
+                            actor.setSuppressSprintParticles(controlling);
+
+                            if (controlling)
+                            {
+                                /* Actor-control: keep the visible ActorEntity on the live
+                                 * player pose (server ActionPlayer skips this replay via PUPPET). */
+                                actor.setPosition(entity.getX(), entity.getY(), entity.getZ());
+                                actor.prevX = entity.getPrevX();
+                                actor.prevY = entity.getPrevY();
+                                actor.prevZ = entity.getPrevZ();
+
+                                PlayerEntity clientPlayer = MinecraftClient.getInstance().player;
+
+                                if (clientPlayer != null)
+                                {
+                                    actor.setVelocity(clientPlayer.getVelocity());
+                                }
+                            }
+                            else if (!this.isActorPlaybackActive())
+                            {
+                                actor.setVelocity(0D, 0D, 0D);
+                            }
+
                             /* Keep label in sync while editing name_tag in the film UI. */
                             actor.syncNameTag(replay);
                             replay.applyClientActions(replayTick, new MCEntity(anEntity), this.film);

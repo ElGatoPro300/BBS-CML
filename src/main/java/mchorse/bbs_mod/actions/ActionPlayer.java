@@ -37,6 +37,11 @@ public class ActionPlayer
     public boolean playing = true;
     public int countdown;
     public int exception;
+    /**
+     * Replay index currently driven by film-editor actor-control ({@code -1} = none).
+     * While set, {@link #tick()} must not snap that actor back to keyframe pose.
+     */
+    public int controlledReplay = -1;
     public PlayerType type;
 
     public boolean syncing;
@@ -259,12 +264,22 @@ public class ActionPlayer
 
         this.wasPlaying = this.playing;
 
+        List<Replay> list = this.film.replays.getList();
+
         for (Map.Entry<String, LivingEntity> entry : this.actors.entrySet())
         {
             Replay replay = (Replay) this.film.replays.get(entry.getKey());
 
             if (replay != null)
             {
+                int index = list.indexOf(replay);
+
+                /* Editor actor-control owns this body — leave pose to the client/player. */
+                if (index >= 0 && index == this.controlledReplay)
+                {
+                    continue;
+                }
+
                 LivingEntity actor = entry.getValue();
 
                 if (actor instanceof ActorEntity actorEntity)
