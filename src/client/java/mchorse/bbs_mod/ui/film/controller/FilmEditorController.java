@@ -35,6 +35,7 @@ public class FilmEditorController extends BaseFilmController
 
     private int lastTick;
     private int pausedAnimationSteps;
+    private boolean wasRunnerRunning;
 
     public FilmEditorController(Film film, UIFilmController controller)
     {
@@ -58,17 +59,27 @@ public class FilmEditorController extends BaseFilmController
     @Override
     protected void updateEntities(int ticks)
     {
-        ticks = this.getTick() + (this.controller.panel.getRunner().isRunning() ? 1 : 0);
+        boolean running = this.controller.panel.getRunner().isRunning();
+
+        ticks = this.getTick() + (running ? 1 : 0);
         this.pausedAnimationSteps = 0;
 
         if (!this.controller.isPlaying())
         {
             this.pausedAnimationSteps = Math.abs(ticks - this.lastTick);
+
+            /* Play applies at cursor+1; pause drops that +1. That single-tick delta
+             * is not a scrub — treating it as one would snap actors and look like a teleport. */
+            if (this.wasRunnerRunning && !running && this.pausedAnimationSteps == 1)
+            {
+                this.pausedAnimationSteps = 0;
+            }
         }
 
         super.updateEntities(ticks);
 
         this.lastTick = ticks;
+        this.wasRunnerRunning = running;
     }
 
     @Override

@@ -1270,10 +1270,11 @@ public abstract class BaseFilmController
     }
 
     /**
-     * While timeline-paused with actor-pause-animations: snap the body to the
-     * keyframed pose (including render interpolation anchors) and set limb swing
-     * to a deterministic phase for this film tick. That matches the stable
-     * alt-hover highlight and avoids scrub/cursor jitter accumulating walk steps.
+     * While timeline-paused with actor-pause-animations: freeze limb/form clocks
+     * to this film tick. Scrubbing also snaps the body to keyframes (deterministic
+     * like alt-hover). Pause-in-place must not re-apply keyframe position — during
+     * play the visible ActorEntity follows ActionPlayer (with the editor's
+     * {@code cursor+1} convention), so snapping to {@code cursor} jumps ~1 tick.
      */
     private void applyPausedActorNaturalMotion(ActorEntity actor, Replay replay, int toReplayTick)
     {
@@ -1284,18 +1285,38 @@ public abstract class BaseFilmController
             return;
         }
 
-        double x = keyframes.x.interpolate(toReplayTick);
-        double y = keyframes.y.interpolate(toReplayTick);
-        double z = keyframes.z.interpolate(toReplayTick);
         boolean mounted = actor.hasVehicle();
+        int steps = this.getPausedAnimationAdvanceSteps();
 
-        actor.setPosition(x, y, z);
-        actor.prevX = x;
-        actor.prevY = y;
-        actor.prevZ = z;
-        actor.lastRenderX = x;
-        actor.lastRenderY = y;
-        actor.lastRenderZ = z;
+        if (steps > 0)
+        {
+            double x = keyframes.x.interpolate(toReplayTick);
+            double y = keyframes.y.interpolate(toReplayTick);
+            double z = keyframes.z.interpolate(toReplayTick);
+
+            actor.setPosition(x, y, z);
+            actor.prevX = x;
+            actor.prevY = y;
+            actor.prevZ = z;
+            actor.lastRenderX = x;
+            actor.lastRenderY = y;
+            actor.lastRenderZ = z;
+        }
+        else
+        {
+            /* Hold the pose playback already showed; only kill render interpolation. */
+            double x = actor.getX();
+            double y = actor.getY();
+            double z = actor.getZ();
+
+            actor.prevX = x;
+            actor.prevY = y;
+            actor.prevZ = z;
+            actor.lastRenderX = x;
+            actor.lastRenderY = y;
+            actor.lastRenderZ = z;
+        }
+
         actor.prevYaw = actor.getYaw();
         actor.prevHeadYaw = actor.headYaw;
         actor.prevBodyYaw = actor.bodyYaw;
