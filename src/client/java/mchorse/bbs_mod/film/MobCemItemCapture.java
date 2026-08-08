@@ -7,13 +7,16 @@ import mchorse.bbs_mod.forms.forms.MobForm;
 import mchorse.bbs_mod.forms.renderers.MobFormRenderer;
 import mchorse.bbs_mod.settings.values.base.BaseValue;
 
-import net.minecraft.entity.EquipmentSlot;
-import net.minecraft.entity.LivingEntity;
 import net.minecraft.item.ItemStack;
 import net.minecraft.util.Hand;
 
+import java.util.Map;
+import java.util.WeakHashMap;
+
 public class MobCemItemCapture
 {
+    private static final Map<Replay, MobItemStats> lastRecordedStats = new WeakHashMap<>();
+
     private MobCemItemCapture()
     {}
 
@@ -56,6 +59,13 @@ public class MobCemItemCapture
 
     private static void recordItemStats(Replay replay, float tick, MobItemStats stats)
     {
+        MobItemStats last = lastRecordedStats.get(replay);
+
+        if (last != null && itemStatsEqual(last, stats))
+        {
+            return;
+        }
+
         BaseValue.edit(replay.keyframes, (keyframes) ->
         {
             keyframes.usingItem.insert(tick, stats.usingItem ? 1D : 0D);
@@ -64,5 +74,29 @@ public class MobCemItemCapture
             keyframes.mainHand.insert(tick, stats.mainHand.copy());
             keyframes.offHand.insert(tick, stats.offHand.copy());
         });
+
+        lastRecordedStats.put(replay, copyStats(stats));
+    }
+
+    private static boolean itemStatsEqual(MobItemStats a, MobItemStats b)
+    {
+        return a.usingItem == b.usingItem
+            && a.itemUseElapsed == b.itemUseElapsed
+            && a.activeHand == b.activeHand
+            && ItemStack.areEqual(a.mainHand, b.mainHand)
+            && ItemStack.areEqual(a.offHand, b.offHand);
+    }
+
+    private static MobItemStats copyStats(MobItemStats stats)
+    {
+        MobItemStats copy = new MobItemStats();
+
+        copy.usingItem = stats.usingItem;
+        copy.itemUseElapsed = stats.itemUseElapsed;
+        copy.activeHand = stats.activeHand;
+        copy.mainHand = stats.mainHand.copy();
+        copy.offHand = stats.offHand.copy();
+
+        return copy;
     }
 }

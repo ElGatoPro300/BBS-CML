@@ -86,6 +86,7 @@ import net.minecraft.client.util.math.MatrixStack;
 import net.irisshaders.iris.uniforms.custom.cached.CachedUniform;
 
 import org.joml.Matrix4f;
+import org.joml.Vector3f;
 
 import com.mojang.blaze3d.platform.GlStateManager;
 import com.mojang.blaze3d.systems.ProjectionType;
@@ -111,6 +112,10 @@ public class BBSRendering
      * Cached rendered model blocks
      */
     public static final Set<ModelBlockEntity> capturedModelBlocks = new HashSet<>();
+
+    /** Vanilla level diffuse basis (same as UIModelRenderer / DiffuseLighting world pass). */
+    private static final Vector3f WORLD_LEVEL_LIGHT_0 = new Vector3f(0.2F, 1.0F, -0.7F).normalize();
+    private static final Vector3f WORLD_LEVEL_LIGHT_1 = new Vector3f(-0.2F, 1.0F, 0.7F).normalize();
 
     public static boolean canRender;
 
@@ -153,8 +158,8 @@ public class BBSRendering
     private static int width;
     private static int height;
     /**
-     * Scale used for this frame's fisheye FOV widen (1 = off). Color grade reads this
-     * so the UV warp matches the projection even if effect lists were rebuilt.
+     * Scale used for this frame's fisheye FOV match (1 = off, {@code >1} widen,
+     * {@code <1} narrow). Color grade reads this so the UV warp matches the projection.
      */
     private static float lensOverscanScale = 1F;
 
@@ -213,7 +218,14 @@ public class BBSRendering
 
     public static void setLensOverscanScale(float scale)
     {
-        lensOverscanScale = scale > 1.0001F ? scale : 1F;
+        if (!Float.isFinite(scale) || scale <= 1.0e-3F)
+        {
+            lensOverscanScale = 1F;
+
+            return;
+        }
+
+        lensOverscanScale = Math.abs(scale - 1F) > 1.0e-4F ? scale : 1F;
     }
 
     public static int getVideoFrameRate()
@@ -347,6 +359,27 @@ public class BBSRendering
         RenderSystem.depthFunc(GL11.GL_ALWAYS);
         GL11.glPolygonOffset(0F, 0F);
         GL11.glDisable(GL11.GL_POLYGON_OFFSET_FILL);
+    }
+
+    /**
+     * Soft-opacity / glow / equipment can leave depthMask/blend/shader color wrong and poison
+     * later Model Block / Iris shadow draws. Only sanitize leaky state — do not force depth-test
+     * on or rewrite level lights (that changed the post-morph entity pipeline and froze
+     * GPU-skinned / procedural limb motion).
+     */
+    public static void restoreWorldRenderState()
+    {
+        RenderSystem.depthMask(true);
+        RenderSystem.colorMask(true, true, true, true);
+        RenderSystem.enableBlend();
+        RenderSystem.defaultBlendFunc();
+        RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
+    }
+
+    /** Vanilla level diffuse basis shared by morphs and editor previews. */
+    public static void setupWorldLevelDiffuseLighting()
+    {
+        RenderSystem.setupLevelDiffuseLighting(WORLD_LEVEL_LIGHT_0, WORLD_LEVEL_LIGHT_1);
     }
 
     public static Texture getTexture()

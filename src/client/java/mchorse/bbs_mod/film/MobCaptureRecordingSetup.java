@@ -12,6 +12,11 @@ public class MobCaptureRecordingSetup
 
     public boolean captureMobs = true;
     public double areaSize = 32D;
+    public boolean usePlayerOrigin = true;
+    public boolean includeHeight = false;
+    public double originX;
+    public double originY;
+    public double originZ;
     public final Set<String> selectedTypeIds = new HashSet<>();
     public final Set<Integer> selectedEntityIds = new HashSet<>();
     public final Set<Integer> vanillaPlaybackEntityIds = new HashSet<>();

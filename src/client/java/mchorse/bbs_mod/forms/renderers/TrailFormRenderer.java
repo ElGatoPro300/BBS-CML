@@ -47,7 +47,7 @@ import java.util.Map;
 
 public class TrailFormRenderer extends FormRenderer<TrailForm> implements ITickable
 {
-    private final Map<FormRenderType, ArrayDeque<Trail>> record = new HashMap<>();
+    private final Map<Integer, Map<FormRenderType, ArrayDeque<Trail>>> recordsByInstance = new HashMap<>();
     private final Matrix4f formRootInverse = new Matrix4f();
     private final Vector3f maskLocal = new Vector3f();
     private int tick;
@@ -55,6 +55,13 @@ public class TrailFormRenderer extends FormRenderer<TrailForm> implements ITicka
     public TrailFormRenderer(TrailForm form)
     {
         super(form);
+    }
+
+    private ArrayDeque<Trail> getTrails(FormRenderType type, int trailInstance)
+    {
+        Map<FormRenderType, ArrayDeque<Trail>> byType = this.recordsByInstance.computeIfAbsent(trailInstance, (k) -> new HashMap<>());
+
+        return byType.computeIfAbsent(type, (k) -> new ArrayDeque<>());
     }
 
     @Override
@@ -114,7 +121,7 @@ public class TrailFormRenderer extends FormRenderer<TrailForm> implements ITicka
         double baseY = camera.position.y;
         double baseZ = camera.position.z;
         float current = (float) this.tick + context.transition;
-        ArrayDeque<Trail> trails = this.record.computeIfAbsent(context.type, (k) -> new ArrayDeque<>());
+        ArrayDeque<Trail> trails = this.getTrails(context.type, context.trailInstance);
 
         if (!this.form.paused.get())
         {
@@ -130,6 +137,14 @@ public class TrailFormRenderer extends FormRenderer<TrailForm> implements ITicka
             record.top = new Vector3d(topVec.x + baseX, topVec.y + baseY, topVec.z + baseZ);
             record.bottom = new Vector3d(bottomVec.x + baseX, bottomVec.y + baseY, bottomVec.z + baseZ);
             record.stop = new Vector3f((float) (topVec.x - bottomVec.x), (float) (topVec.y - bottomVec.y), (float) (topVec.z - bottomVec.z)).lengthSquared() < 1.0E-4D;
+
+            /* Same frame may re-render (illusion streaks); keep one sample per tick. */
+            Trail last = trails.peekLast();
+
+            if (last != null && Math.abs(last.tick - current) < 0.0001F)
+            {
+                trails.removeLast();
+            }
 
             trails.addLast(record);
         }
@@ -475,6 +490,37 @@ public class TrailFormRenderer extends FormRenderer<TrailForm> implements ITicka
     public void tick(IEntity entity)
     {
         this.tick += 1;
+
+        float end = this.tick - Math.max(this.form.length.get(), 0F) - 1F;
+        Iterator<Map.Entry<Integer, Map<FormRenderType, ArrayDeque<Trail>>>> instances = this.recordsByInstance.entrySet().iterator();
+
+        while (instances.hasNext())
+        {
+            Map.Entry<Integer, Map<FormRenderType, ArrayDeque<Trail>>> instanceEntry = instances.next();
+            Map<FormRenderType, ArrayDeque<Trail>> byType = instanceEntry.getValue();
+            Iterator<Map.Entry<FormRenderType, ArrayDeque<Trail>>> types = byType.entrySet().iterator();
+
+            while (types.hasNext())
+            {
+                Map.Entry<FormRenderType, ArrayDeque<Trail>> typeEntry = types.next();
+                ArrayDeque<Trail> trails = typeEntry.getValue();
+
+                while (!trails.isEmpty() && trails.peekFirst().tick < end)
+                {
+                    trails.removeFirst();
+                }
+
+                if (trails.isEmpty() && instanceEntry.getKey() != 0)
+                {
+                    types.remove();
+                }
+            }
+
+            if (instanceEntry.getKey() != 0 && byType.isEmpty())
+            {
+                instances.remove();
+            }
+        }
     }
 
     public static class Trail

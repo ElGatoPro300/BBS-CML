@@ -1084,6 +1084,7 @@ public class BBSModClient implements ClientModInitializer
                 panel.applyRecordedKeyframes(recorder, panel.getData());
                 panel.replayEditor.replays.replays.buildVisualList();
                 panel.replayEditor.updateChannelsList();
+                panel.getController().refreshEntities();
                 panel.save();
             }
             else

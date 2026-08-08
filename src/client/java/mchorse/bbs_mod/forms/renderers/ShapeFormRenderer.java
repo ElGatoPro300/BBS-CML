@@ -1044,10 +1044,9 @@ public class ShapeFormRenderer extends FormRenderer<ShapeForm>
         }
         else if (this.overlayVertexMode == OverlayVertexMode.PAINT)
         {
-            float mask = EffectTransformMath.maskBillboard(x, y, z, this.overlayTransform);
-
+            /* Paint RGB/A from verts; spatial mask is applied in flat_paint_overlay. */
             builder.vertex(matrix, x, y, z)
-                   .color(c.r, c.g, c.b, c.a * mask)
+                   .color(c.r, c.g, c.b, c.a)
                    .texture(u, v)
                    .overlay(overlay)
                    .light(light)
@@ -1055,19 +1054,9 @@ public class ShapeFormRenderer extends FormRenderer<ShapeForm>
         }
         else if (this.overlayVertexMode == OverlayVertexMode.COLOR_TINT)
         {
-            float mask = EffectTransformMath.maskBillboard(x, y, z, this.overlayTransform);
-
-            if (mask < 0.001F)
-            {
-                mask = 0F;
-            }
-
-            float r = 1F + (c.r - 1F) * mask;
-            float g = 1F + (c.g - 1F) * mask;
-            float b = 1F + (c.b - 1F) * mask;
-
+            /* Neutral verts — FormColorTint + spatial mask live in flat_color_tint_overlay. */
             builder.vertex(matrix, x, y, z)
-                   .color(r, g, b, mask)
+                   .color(1F, 1F, 1F, 1F)
                    .texture(u, v)
                    .overlay(overlay)
                    .light(light)
@@ -1167,17 +1156,30 @@ public class ShapeFormRenderer extends FormRenderer<ShapeForm>
         this.overlayVertexMode = OverlayVertexMode.PAINT;
         this.overlayTransform = paintTransform;
 
-        FlatPaintOverlayPass.render(() ->
-        {
-            Tessellator tessellator = Tessellator.getInstance();
-            BufferBuilder builder = tessellator.begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL);
-            int paintLight = LightmapTextureManager.MAX_LIGHT_COORDINATE;
+        Matrix4f formRootInverse = new Matrix4f(stack.peek().getPositionMatrix()).invert();
+        Vector3f maskHalf = new Vector3f();
 
-            RenderSystem.disableCull();
-            this.buildShapeGeometry(builder, stack, type, paint, overlay, paintLight);
-            BufferRenderer.drawWithGlobalProgram(builder.end());
-            RenderSystem.enableCull();
-        });
+        EffectTransformMath.resolveBillboardMaskHalfExtents(paintTransform, maskHalf);
+
+        FlatPaintOverlayPass.render(
+            FlatPaintOverlayPass.DEFAULT_FACTOR,
+            FlatPaintOverlayPass.DEFAULT_UNITS,
+            formRootInverse,
+            paintTransform,
+            false,
+            maskHalf,
+            () ->
+            {
+                Tessellator tessellator = Tessellator.getInstance();
+                BufferBuilder builder = tessellator.begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL);
+                int paintLight = LightmapTextureManager.MAX_LIGHT_COORDINATE;
+
+                RenderSystem.disableCull();
+                this.buildShapeGeometry(builder, stack, type, paint, overlay, paintLight);
+                BufferRenderer.drawWithGlobalProgram(builder.end());
+                RenderSystem.enableCull();
+            }
+        );
 
         this.overlayVertexMode = OverlayVertexMode.NONE;
         this.overlayTransform = null;
@@ -1219,17 +1221,31 @@ public class ShapeFormRenderer extends FormRenderer<ShapeForm>
         this.overlayVertexMode = OverlayVertexMode.COLOR_TINT;
         this.overlayTransform = colorTransform;
 
-        FlatColorTintOverlayPass.render(() ->
-        {
-            Tessellator tessellator = Tessellator.getInstance();
-            BufferBuilder builder = tessellator.begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL);
-            int tintLight = LightmapTextureManager.MAX_LIGHT_COORDINATE;
+        Matrix4f formRootInverse = new Matrix4f(stack.peek().getPositionMatrix()).invert();
+        Vector3f maskHalf = new Vector3f();
 
-            RenderSystem.disableCull();
-            this.buildShapeGeometry(builder, stack, type, formTintColor, overlay, tintLight);
-            BufferRenderer.drawWithGlobalProgram(builder.end());
-            RenderSystem.enableCull();
-        });
+        EffectTransformMath.resolveBillboardMaskHalfExtents(colorTransform, maskHalf);
+
+        FlatColorTintOverlayPass.render(
+            FlatPaintOverlayPass.DEFAULT_FACTOR,
+            FlatPaintOverlayPass.DEFAULT_UNITS,
+            formRootInverse,
+            colorTransform,
+            false,
+            maskHalf,
+            formTintColor,
+            () ->
+            {
+                Tessellator tessellator = Tessellator.getInstance();
+                BufferBuilder builder = tessellator.begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL);
+                int tintLight = LightmapTextureManager.MAX_LIGHT_COORDINATE;
+
+                RenderSystem.disableCull();
+                this.buildShapeGeometry(builder, stack, type, formTintColor, overlay, tintLight);
+                BufferRenderer.drawWithGlobalProgram(builder.end());
+                RenderSystem.enableCull();
+            }
+        );
 
         this.overlayVertexMode = OverlayVertexMode.NONE;
         this.overlayTransform = null;

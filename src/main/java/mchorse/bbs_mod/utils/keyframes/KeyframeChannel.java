@@ -77,6 +77,13 @@ public class KeyframeChannel <T> extends ValueList<Keyframe<T>>
 
     private void applyDefaultInterpolation(Keyframe<T> kf)
     {
+        if (this.factory == KeyframeFactories.BOOLEAN)
+        {
+            kf.getInterpolation().setInterp(Interpolations.CONST);
+
+            return;
+        }
+
         if ((this.model ? BBSSettings.defaultModelInterpolation : BBSSettings.defaultInterpolation) == null)
         {
             return;

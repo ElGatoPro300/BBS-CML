@@ -3,6 +3,7 @@ package mchorse.bbs_mod.film.replays;
 import mchorse.bbs_mod.BBSMod;
 import mchorse.bbs_mod.actions.SuperFakePlayer;
 import mchorse.bbs_mod.actions.types.ActionClip;
+import mchorse.bbs_mod.actions.types.SwipeActionClip;
 import mchorse.bbs_mod.camera.data.Point;
 import mchorse.bbs_mod.camera.values.ValuePoint;
 import mchorse.bbs_mod.data.types.BaseType;
@@ -23,6 +24,7 @@ import mchorse.bbs_mod.settings.values.numeric.ValueFloat;
 import mchorse.bbs_mod.settings.values.numeric.ValueInt;
 import mchorse.bbs_mod.utils.clips.Clip;
 import mchorse.bbs_mod.utils.clips.Clips;
+import mchorse.bbs_mod.utils.keyframes.Keyframe;
 
 import net.minecraft.entity.LivingEntity;
 
@@ -164,6 +166,8 @@ public class Replay extends ValueGroup
     public void applyClientActions(int tick, IEntity entity, Film film)
     {
         tick = this.getTick(tick);
+
+        SwipeActionClip.noteClientFilmTick(entity, tick);
 
         List<Clip> clips = this.actions.getClips(tick);
 
@@ -320,6 +324,15 @@ public class Replay extends ValueGroup
 
     private void ensureShadowKeyframes()
     {
+        /* Groups only contribute when the user keys shadow tracks. Auto-seeding would
+         * overwrite every member's shadow until emptied. */
+        if (this.isGroup.get())
+        {
+            this.clearIdentityGroupShadowSeeds();
+
+            return;
+        }
+
         if (this.keyframes.shadowSize.isEmpty())
         {
             ShadowSettings settings = new ShadowSettings(1F, this.shadowSize.get(), this.shadowSizeZ.get());
@@ -335,5 +348,48 @@ public class Replay extends ValueGroup
         {
             this.keyframes.shadowOpacity.insert(0, (double) this.shadowOpacity.get());
         }
+    }
+
+    /**
+     * Remove auto-seeded identity shadow keys from groups (single default key at tick 0)
+     * left by older builds so member form shadows work again without manual cleanup.
+     */
+    private void clearIdentityGroupShadowSeeds()
+    {
+        if (this.keyframes.shadowSize.getKeyframes().size() == 1)
+        {
+            Keyframe<ShadowSettings> keyframe = this.keyframes.shadowSize.get(0);
+            ShadowSettings value = keyframe == null ? null : keyframe.getValue();
+
+            if (keyframe != null && keyframe.getTick() == 0F && isIdentityGroupShadowSize(value))
+            {
+                this.keyframes.shadowSize.removeAll();
+            }
+        }
+
+        if (this.keyframes.shadowOpacity.getKeyframes().size() == 1)
+        {
+            Keyframe<Double> keyframe = this.keyframes.shadowOpacity.get(0);
+            Double value = keyframe == null ? null : keyframe.getValue();
+
+            if (keyframe != null && keyframe.getTick() == 0F && value != null && Math.abs(value - 1D) < 0.0001D)
+            {
+                this.keyframes.shadowOpacity.removeAll();
+            }
+        }
+    }
+
+    private static boolean isIdentityGroupShadowSize(ShadowSettings value)
+    {
+        if (value == null)
+        {
+            return true;
+        }
+
+        return Math.abs(value.widthX - 0.5F) < 0.0001F
+            && Math.abs(value.widthZ - 0.5F) < 0.0001F
+            && Math.abs(value.offsetX) < 0.0001F
+            && Math.abs(value.offsetY) < 0.0001F
+            && Math.abs(value.offsetZ) < 0.0001F;
     }
 }

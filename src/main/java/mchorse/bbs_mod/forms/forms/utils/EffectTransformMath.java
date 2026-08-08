@@ -50,7 +50,30 @@ public class EffectTransformMath
 
     public static void resolveBillboardMaskHalfExtents(EffectTransform transform, Vector3f dest)
     {
-        resolveMaskHalfExtents(transform, dest, BILLBOARD_MASK_HALF, 1F);
+        resolveBillboardMaskHalfExtents(transform, dest, BILLBOARD_MASK_HALF, BILLBOARD_MASK_HALF);
+    }
+
+    /**
+     * Billboard / flat-quad masks sized to the actual half extents of the drawn quad
+     * (aspect-scaled billboards are often narrower or shorter than the unit 0.5 box).
+     */
+    public static void resolveBillboardMaskHalfExtents(EffectTransform transform, Vector3f dest, float quadHalfX, float quadHalfY)
+    {
+        float baseX = Math.max(Math.abs(quadHalfX), EPSILON);
+        float baseY = Math.max(Math.abs(quadHalfY), EPSILON);
+
+        if (transform == null)
+        {
+            dest.set(baseX, baseY, BILLBOARD_MASK_HALF);
+
+            return;
+        }
+
+        float scaleX = transform.scaleX == 0F ? 0.001F : transform.scaleX;
+        float scaleY = transform.scaleY == 0F ? 0.001F : transform.scaleY;
+        float scaleZ = transform.scaleZ == 0F ? 0.001F : transform.scaleZ;
+
+        dest.set(baseX * scaleX, baseY * scaleY, BILLBOARD_MASK_HALF * scaleZ);
     }
 
     public static void resolveBlockMaskHalfExtents(EffectTransform transform, Vector3f dest)
@@ -65,7 +88,10 @@ public class EffectTransformMath
 
     /**
      * Structure paint/color masks: UI scale 1 covers the full structure AABB for box,
-     * circle, and triangle; scale 0 covers nothing. {@code size*} are block counts.
+     * circle, and triangle; scale 0 covers nothing. Negative scale shrinks through zero
+     * and clears the mask (same as model/billboard/label) — do not abs the half extents
+     * or negative scale mirrors back to a visible positive mask.
+     * {@code size*} are block counts.
      */
     public static void resolveStructureMaskHalfExtents(EffectTransform transform, Vector3f dest, float sizeX, float sizeY, float sizeZ)
     {
@@ -79,16 +105,16 @@ public class EffectTransformMath
 
         if (transform != null)
         {
-            scaleX = transform.scaleX;
-            scaleY = transform.scaleY;
-            scaleZ = transform.scaleZ;
+            scaleX = transform.scaleX == 0F ? 0.001F : transform.scaleX;
+            scaleY = transform.scaleY == 0F ? 0.001F : transform.scaleY;
+            scaleZ = transform.scaleZ == 0F ? 0.001F : transform.scaleZ;
             cover = structureShapeCover(transform.shape);
         }
 
         dest.set(
-            Math.abs(baseX * scaleX) * cover,
-            Math.abs(baseY * scaleY) * cover,
-            Math.abs(baseZ * scaleZ) * cover
+            baseX * scaleX * cover,
+            baseY * scaleY * cover,
+            baseZ * scaleZ * cover
         );
     }
 
@@ -198,6 +224,15 @@ public class EffectTransformMath
      */
     public static float maskBillboard(float x, float y, float z, EffectTransform transform)
     {
+        return maskBillboard(x, y, z, transform, BILLBOARD_MASK_HALF, BILLBOARD_MASK_HALF);
+    }
+
+    /**
+     * Billboard mask sized to the drawn quad's half extents (see
+     * {@link #resolveBillboardMaskHalfExtents(EffectTransform, Vector3f, float, float)}).
+     */
+    public static float maskBillboard(float x, float y, float z, EffectTransform transform, float quadHalfX, float quadHalfY)
+    {
         if (!isTransformActive(transform))
         {
             return 1F;
@@ -205,9 +240,52 @@ public class EffectTransformMath
 
         Vector3f half = new Vector3f();
 
-        resolveBillboardMaskHalfExtents(transform, half);
+        resolveBillboardMaskHalfExtents(transform, half, quadHalfX, quadHalfY);
 
         return evaluateSoftMask(x, y, z, transform, half, false);
+    }
+
+    /**
+     * Billboard mask using precomputed half extents (avoids per-vertex allocation).
+     */
+    public static float maskBillboard(float x, float y, float z, EffectTransform transform, Vector3f halfExtents)
+    {
+        if (!isTransformActive(transform))
+        {
+            return 1F;
+        }
+
+        return evaluateSoftMask(x, y, z, transform, halfExtents, false);
+    }
+
+    /**
+     * Soft rim thickness in form/local units, derived from unscaled mask half extents
+     * so transform scale keeps a stable gradient and per-axis scale does not bleed.
+     */
+    public static float resolveMaskFalloff(EffectTransform transform, Vector3f scaledHalfExtents)
+    {
+        if (scaledHalfExtents == null)
+        {
+            return EPSILON;
+        }
+
+        float scaleX = 1F;
+        float scaleY = 1F;
+        float scaleZ = 1F;
+
+        if (transform != null)
+        {
+            scaleX = transform.scaleX == 0F ? EPSILON : Math.abs(transform.scaleX);
+            scaleY = transform.scaleY == 0F ? EPSILON : Math.abs(transform.scaleY);
+            scaleZ = transform.scaleZ == 0F ? EPSILON : Math.abs(transform.scaleZ);
+        }
+
+        float baseX = Math.abs(scaledHalfExtents.x) / scaleX;
+        float baseY = Math.abs(scaledHalfExtents.y) / scaleY;
+        float baseZ = Math.abs(scaledHalfExtents.z) / scaleZ;
+        float baseMax = Math.max(baseX, Math.max(baseY, baseZ));
+
+        return Math.max(baseMax * 0.15F, EPSILON);
     }
 
     private static float evaluateSoftMask(float x, float y, float z, EffectTransform transform, Vector3f halfExtents, boolean bottomAnchoredY)
@@ -231,6 +309,7 @@ public class EffectTransformMath
 
         PaintMaskShape shape = transform == null ? PaintMaskShape.BOX : transform.shape;
         float dist;
+        float falloff = resolveMaskFalloff(transform, halfExtents);
 
         if (shape == PaintMaskShape.CIRCLE)
         {
@@ -242,7 +321,14 @@ public class EffectTransformMath
             float qz = LOCAL.z / hz;
             float radius = (float) Math.sqrt(qx * qx + qy * qy + qz * qz);
 
-            dist = (radius - 1F) * maxHalf;
+            if (radius <= 1F)
+            {
+                return 1F;
+            }
+
+            float localLen = (float) Math.sqrt(LOCAL.x * LOCAL.x + LOCAL.y * LOCAL.y + LOCAL.z * LOCAL.z);
+
+            dist = (radius - 1F) * localLen / radius;
         }
         else if (shape == PaintMaskShape.TRIANGLE)
         {
@@ -272,8 +358,6 @@ public class EffectTransformMath
         {
             return 1F;
         }
-
-        float falloff = Math.max(maxHalf * 0.15F, EPSILON);
 
         if (dist >= falloff)
         {

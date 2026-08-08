@@ -161,6 +161,9 @@ public class OrbitFilmCameraController implements ICameraController
             return false;
         }
 
+        /* Flight keys (WASD/Space/arrows) follow canInteract(): either flight mode,
+         * or orbit-without-flight when that setting is enabled. With the setting off
+         * (default), Space stays free for play/pause while orbit POV is selected. */
         if (this.canInteract() || area.isInside(context) || (!this.velocityPosition.equals(0, 0, 0) && context.getKeyAction() == KeyAction.RELEASED) || (!this.velocityAngle.equals(0, 0, 0, 0) && context.getKeyAction() == KeyAction.RELEASED))
         {
             if (!this.canInteract() && context.getKeyAction() != KeyAction.RELEASED)
@@ -298,6 +301,11 @@ public class OrbitFilmCameraController implements ICameraController
                 changed = true;
             }
         }
+        else
+        {
+            this.velocityPosition.set(0, 0, 0);
+            this.velocityAngle.set(0, 0, 0, 0);
+        }
 
         return changed;
     }
@@ -414,6 +422,11 @@ public class OrbitFilmCameraController implements ICameraController
         this.center = false;
     }
 
+    /**
+     * Whether orbit mouse/keyboard controls are active: always while flying,
+     * or without flight when {@link BBSSettings#editorOrbitWithoutFlight} is on
+     * (off by default so Space can still play/pause in orbit POV).
+     */
     private boolean canInteract()
     {
         if (this.controller.panel.isFlying())
@@ -421,7 +434,8 @@ public class OrbitFilmCameraController implements ICameraController
             return true;
         }
 
-        return this.controller.getPovMode() == UIFilmController.CAMERA_MODE_ORBIT;
+        return BBSSettings.editorOrbitWithoutFlight.get()
+            && this.controller.getPovMode() == UIFilmController.CAMERA_MODE_ORBIT;
     }
 
     private float getOrbitDistance()

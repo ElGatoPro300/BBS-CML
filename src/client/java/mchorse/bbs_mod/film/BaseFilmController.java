@@ -5,6 +5,7 @@ import mchorse.bbs_mod.client.BBSRendering;
 import mchorse.bbs_mod.client.renderer.ModelBlockEntityRenderer;
 import mchorse.bbs_mod.client.renderer.MorphFireRenderer;
 import mchorse.bbs_mod.entity.ActorEntity;
+import mchorse.bbs_mod.film.replays.ActorReplayStateSync;
 import mchorse.bbs_mod.film.replays.Replay;
 import mchorse.bbs_mod.forms.CustomVertexConsumerProvider;
 import mchorse.bbs_mod.forms.FormUtils;
@@ -16,7 +17,9 @@ import mchorse.bbs_mod.forms.forms.Form;
 import mchorse.bbs_mod.forms.forms.MobForm;
 import mchorse.bbs_mod.forms.forms.ModelForm;
 import mchorse.bbs_mod.forms.forms.utils.Anchor;
+import mchorse.bbs_mod.forms.forms.utils.EffectTransform;
 import mchorse.bbs_mod.forms.forms.utils.GlowSettings;
+import mchorse.bbs_mod.forms.forms.utils.Illusion;
 import mchorse.bbs_mod.forms.forms.utils.LookAt;
 import mchorse.bbs_mod.forms.forms.utils.LookAtBone;
 import mchorse.bbs_mod.forms.forms.utils.PaintSettings;
@@ -31,6 +34,7 @@ import mchorse.bbs_mod.graphics.Draw;
 import mchorse.bbs_mod.mixin.client.ClientPlayerEntityAccessor;
 import mchorse.bbs_mod.morphing.Morph;
 import mchorse.bbs_mod.settings.values.base.BaseValue;
+import mchorse.bbs_mod.settings.values.core.ValueColor;
 import mchorse.bbs_mod.ui.framework.UIBaseMenu;
 import mchorse.bbs_mod.ui.framework.elements.utils.StencilMap;
 import mchorse.bbs_mod.ui.utils.Gizmo;
@@ -106,6 +110,13 @@ public abstract class BaseFilmController
     public boolean paused;
     public int exception = -1;
 
+    /**
+     * Last film tick at which each replay already evaluated a step sound.
+     * Film editor keeps calling {@link #update()} while the playhead is parked, so
+     * without this edge the same step tick would spam audio every client tick.
+     */
+    private final Map<String, Integer> lastStepSoundTicks = new HashMap<>();
+
     /* Rendering helpers */
 
     public static void renderEntity(FilmControllerContext context)
@@ -118,12 +129,14 @@ public abstract class BaseFilmController
 
         Form form = entity.getForm();
 
-        if (form == null || !form.render.get())
+        if (form == null || !form.render.get() || !form.visible.get())
         {
             return;
         }
 
         applyGroupPaintGlow(form, context.groupPaint, context.groupGlow);
+        applyGroupColorGrade(form, context.groupColorGrade);
+        applyGroupIllusion(form, context.groupIllusion);
 
         Vector3d position = Vectors.TEMP_3D.set(
             Lerps.lerp(entity.getPrevX(), entity.getX(), transition),
@@ -186,13 +199,13 @@ public abstract class BaseFilmController
             target = defaultMatrix;
         }
 
-        if (!relative)
+        if (!relative && !context.physicalActor)
         {
             applyLookAt(context, form, position, target);
             InverseKinematicsApplier.apply(context, form);
         }
 
-        if (context.localGroupTransform != null)
+        if (context.localGroupTransform != null && !context.isShadowPass)
         {
             target.mul(context.localGroupTransform);
         }
@@ -225,6 +238,10 @@ public abstract class BaseFilmController
         formContext.isShadowPass = context.isShadowPass;
         formContext.viewMatrix = context.viewMatrix;
 
+        /* World pass: physical ActorEntity already draws the body — only capture gizmos.
+         * Stencil pass (map != null): still draw the form so bone pick/highlight match the actor. */
+        boolean drawBody = !context.physicalActor || context.map != null;
+
         stack.push();
 
         try
@@ -248,11 +265,14 @@ public abstract class BaseFilmController
             /* IRLights 1.21+ reads FormRenderingContext.world (absolute) for light poses.
              * Rebuild that root in true world space (independent of any render camera or viewport)
              * so light registration cannot mix the film actor frame with the spectator/player view. */
-            syncIrlAbsoluteWorldMatrix(formContext, context, entity, relative, transition);
+            if (drawBody)
+            {
+                syncIrlAbsoluteWorldMatrix(formContext, context, entity, relative, transition);
+            }
 
-            ModelFormRenderer lookAtRenderer = relative ? null : applyLookAtPose(context, form, position);
+            ModelFormRenderer lookAtRenderer = (relative || context.physicalActor) ? null : applyLookAtPose(context, form, position);
 
-            if (context.isShadowPass)
+            if (drawBody && context.isShadowPass)
             {
                 if (context.shadowOpacity <= 0.001F || (context.shadowRadiusX <= 0F && context.shadowRadiusZ <= 0F))
                 {
@@ -294,7 +314,7 @@ public abstract class BaseFilmController
 
             FormIllusionRenderer.Extras illusionExtras = null;
 
-            if (context.replay != null && !Float.isNaN(context.propertyTick))
+            if (drawBody && context.replay != null && !Float.isNaN(context.propertyTick))
             {
                 illusionExtras = new FormIllusionRenderer.Extras();
                 illusionExtras.propertyTick = context.propertyTick;
@@ -310,12 +330,15 @@ public abstract class BaseFilmController
                 };
             }
 
-            /* Illusions are drawn inside FormUtilsClient for model blocks / morphs / preview too. */
-            FormUtilsClient.render(form, formContext, context.map == null ? illusionExtras : null);
-
-            if (!context.isShadowPass && context.map == null && entity.getFireTicks() > 0)
+            if (drawBody)
             {
-                MorphFireRenderer.render(stack, context.consumers, entity, form, transition, camera, relative);
+                /* Illusions are drawn inside FormUtilsClient for model blocks / morphs / preview too. */
+                FormUtilsClient.render(form, formContext, context.map == null ? illusionExtras : null);
+
+                if (!context.isShadowPass && context.map == null && entity.getFireTicks() > 0)
+                {
+                    MorphFireRenderer.render(stack, context.consumers, entity, form, transition, camera, relative);
+                }
             }
 
             if (lookAtRenderer != null)
@@ -368,8 +391,9 @@ public abstract class BaseFilmController
         /* Vanilla blob shadows only without Iris shaders — Comp/BSL use the shadow map.
          * Blob opacity is the Shadow track only; form Opacity must not fade the ground circle.
          * Size X/Z are independent (matrix scale); vanilla API only has one radius. */
-        if (!relative && context.map == null && opacity > 0F
-            && (context.shadowRadiusX > 0F || context.shadowRadiusZ > 0F) && form.render.get()
+        if (drawBody && !relative && context.map == null && opacity > 0F
+            && (context.shadowRadiusX > 0F || context.shadowRadiusZ > 0F)
+            && form.render.get() && form.visible.get()
             && !context.isShadowPass && !IrisUtils.isShaderPackEnabled())
         {
             float shadowOpacity = MathUtils.clamp(opacity * context.shadowOpacity, 0F, 1F);
@@ -389,7 +413,7 @@ public abstract class BaseFilmController
             }
         }
 
-        if (!relative && !context.nameTag.isEmpty())
+        if (drawBody && !relative && !context.nameTag.isEmpty())
         {
             stack.push();
             stack.translate(position.x - cx, position.y - cy, position.z - cz);
@@ -1092,6 +1116,7 @@ public abstract class BaseFilmController
     {
         this.entities.clear();
         this.replayMap.clear();
+        this.lastStepSoundTicks.clear();
 
         if (this.film == null)
         {
@@ -1133,6 +1158,59 @@ public abstract class BaseFilmController
 
     public abstract int getTick();
 
+    /**
+     * Live world entity used when a replay has Actor mode on ({@link ActorEntity}
+     * or first-person player morph). {@code null} when the actor is not spawned yet.
+     */
+    public IEntity getPhysicalActorEntity(Replay replay)
+    {
+        if (replay == null || !replay.actor.get())
+        {
+            return null;
+        }
+
+        Map<String, Integer> actors = this.getActors();
+
+        if (actors == null || MinecraftClient.getInstance().world == null)
+        {
+            return null;
+        }
+
+        Integer entityId = actors.get(replay.getId());
+
+        if (entityId == null)
+        {
+            return null;
+        }
+
+        Entity anEntity = MinecraftClient.getInstance().world.getEntityById(entityId);
+
+        if (anEntity instanceof ActorEntity actor)
+        {
+            return actor.getEntity();
+        }
+
+        if (anEntity instanceof PlayerEntity player)
+        {
+            Morph morph = Morph.getMorph(player);
+
+            return morph == null ? null : morph.entity;
+        }
+
+        return null;
+    }
+
+    /**
+     * Entity whose form/pose should drive gizmos, bone picking and highlights.
+     * Prefers the physical actor when Actor mode is on; otherwise the stub.
+     */
+    public IEntity getRenderEntity(Replay replay, IEntity stub)
+    {
+        IEntity physical = this.getPhysicalActorEntity(replay);
+
+        return physical != null ? physical : stub;
+    }
+
     public boolean hasFinished()
     {
         return false;
@@ -1141,6 +1219,15 @@ public abstract class BaseFilmController
     public void update()
     {
         this.updateEntities(this.getTick());
+    }
+
+    /**
+     * Whether actor replays should keep receiving playback motion. When false,
+     * live actors hold still so vanilla limb swing can settle naturally.
+     */
+    protected boolean isActorPlaybackActive()
+    {
+        return !this.paused;
     }
 
     protected void updateEntities(int ticks)
@@ -1202,11 +1289,19 @@ public abstract class BaseFilmController
 
                         if (anEntity instanceof ActorEntity actor)
                         {
+                            if (!this.isActorPlaybackActive())
+                            {
+                                actor.setVelocity(0D, 0D, 0D);
+                            }
+
                             /* IEntity already has mount rotation applied by MorphMountSync */
                             actor.setYaw(entity.getYaw());
                             actor.setHeadYaw(entity.getHeadYaw());
                             actor.setBodyYaw(entity.getBodyYaw());
                             actor.setPitch(entity.getPitch());
+                            /* Stub already has vanilla pose/action keyframes; copy them so
+                             * MCEntity(actor) used by ActorEntityRenderer sees sprint/limbs/etc. */
+                            ActorReplayStateSync.syncFromSource(actor, entity);
                             replay.applyClientActions(replayTick, new MCEntity(anEntity), this.film);
 
                             spawned = true;
@@ -1297,11 +1392,26 @@ public abstract class BaseFilmController
                             boolean grounded = replay.keyframes.grounded.interpolate(replayTick) > 0;
 
                             Vec3d pos = player.getPos();
+                            double dx = x - pos.x;
+                            double dy = y - pos.y;
+                            double dz = z - pos.z;
+                            boolean shouldStep = !this.paused
+                                && (BBSSettings.editorReplayStepSound == null || BBSSettings.editorReplayStepSound.get())
+                                && (dx * dx + dy * dy + dz * dz) > 1.0E-8D;
 
-                            if (!this.paused && (BBSSettings.editorReplayStepSound == null || BBSSettings.editorReplayStepSound.get()))
+                            if (shouldStep)
                             {
-                                player.setOnGround(grounded);
-                                player.move(MovementType.SELF, new Vec3d(x - pos.x, y - pos.y, z - pos.z));
+                                String replayId = replay.getId();
+                                Integer lastTick = this.lastStepSoundTicks.get(replayId);
+
+                                /* Same edge as spawnReplayStepSound: parked playhead must not
+                                 * call move() every client tick (vanilla step spam). */
+                                if (lastTick == null || lastTick.intValue() != replayTick)
+                                {
+                                    this.lastStepSoundTicks.put(replayId, replayTick);
+                                    player.setOnGround(grounded);
+                                    player.move(MovementType.SELF, new Vec3d(dx, dy, dz));
+                                }
                             }
 
                             player.setPosition(x, y, z);
@@ -1434,6 +1544,17 @@ public abstract class BaseFilmController
             return;
         }
 
+        String replayId = replay.getId();
+        Integer lastTick = this.lastStepSoundTicks.get(replayId);
+
+        /* One evaluation per film tick (scrub once, play once; parked playhead = silence). */
+        if (lastTick != null && lastTick.intValue() == ticks)
+        {
+            return;
+        }
+
+        this.lastStepSoundTicks.put(replayId, ticks);
+
         if (!this.isReplayVisible(replay, ticks))
         {
             return;
@@ -1444,7 +1565,7 @@ public abstract class BaseFilmController
             return;
         }
 
-        /* Reduce spam and approximate vanilla stepping cadence. */
+        /* Approximate vanilla stepping cadence while the timeline is advancing. */
         if ((ticks & 7) != 0)
         {
             return;
@@ -1549,31 +1670,33 @@ public abstract class BaseFilmController
 
     protected boolean isReplayVisibleAt(Replay replay, float tick)
     {
-        BaseValue renderValue = replay.properties.get("render");
+        /* Visible + Enabled (render) both gate groups, same as form.visible && form.render.
+         * Empty channel = default on. KeyframeChannel already holds the first keyframe's
+         * value before its tick — do not force true before the first keyframe. */
+        return this.evaluateGroupBooleanChannel(replay, "visible", tick)
+            && this.evaluateGroupBooleanChannel(replay, "render", tick);
+    }
 
-        if (renderValue instanceof KeyframeChannel)
+    @SuppressWarnings("unchecked")
+    private boolean evaluateGroupBooleanChannel(Replay replay, String key, float tick)
+    {
+        BaseValue value = replay.properties.get(key);
+
+        if (!(value instanceof KeyframeChannel))
         {
-            @SuppressWarnings("unchecked")
-            KeyframeChannel<Boolean> render = (KeyframeChannel<Boolean>) renderValue;
-
-            if (render.isEmpty())
-            {
-                return true;
-            }
-
-            Keyframe<Boolean> first = render.get(0);
-
-            if (first != null && tick < first.getTick())
-            {
-                return true;
-            }
-
-            Boolean value = render.interpolate(tick, true);
-
-            return value == null || value;
+            return true;
         }
 
-        return true;
+        KeyframeChannel<Boolean> channel = (KeyframeChannel<Boolean>) value;
+
+        if (channel.isEmpty())
+        {
+            return true;
+        }
+
+        Boolean result = channel.interpolate(tick, true);
+
+        return result == null || result;
     }
 
 
@@ -1761,10 +1884,19 @@ public abstract class BaseFilmController
 
         String[] groups = replay.group.get().split("/");
         int finalColor = Colors.WHITE;
-        Matrix4f globalTranslate = new Matrix4f().identity();
         Matrix4f localTransform = new Matrix4f().identity();
         PaintSettings groupPaint = null;
         GlowSettings groupGlow = null;
+        Color groupColorGrade = null;
+        Illusion groupIllusion = null;
+        boolean groupShadowSize = false;
+        boolean groupShadowOpacity = false;
+        float shadowRadiusX = context.shadowRadiusX;
+        float shadowRadiusZ = context.shadowRadiusZ;
+        float shadowOpacity = context.shadowOpacity;
+        float shadowOffsetX = context.shadowOffsetX;
+        float shadowOffsetY = context.shadowOffsetY;
+        float shadowOffsetZ = context.shadowOffsetZ;
 
         for (String uuid : groups)
         {
@@ -1801,9 +1933,11 @@ public abstract class BaseFilmController
 
                 if (!groupTransform.isDefault())
                 {
-                    globalTranslate.translate(groupTransform.translate.x, groupTransform.translate.y, groupTransform.translate.z);
-
                     Matrix4f local = new Matrix4f();
+
+                    /* Keep group translation on the mesh matrix only — never on the render
+                     * stack — so entity shadows stay at the replay world position. */
+                    local.translate(groupTransform.translate.x, groupTransform.translate.y, groupTransform.translate.z);
 
                     if (groupTransform.pivot.x != 0F || groupTransform.pivot.y != 0F || groupTransform.pivot.z != 0F)
                     {
@@ -1839,6 +1973,48 @@ public abstract class BaseFilmController
                 {
                     groupGlow = groupGlow == null ? glow : this.mergeGlowSettings(groupGlow, glow);
                 }
+
+                Color grade = this.getGroupColorGrade(groupReplay, (float) tick);
+
+                if (grade != null)
+                {
+                    groupColorGrade = groupColorGrade == null ? grade : this.mergeColorGrade(groupColorGrade, grade);
+                }
+
+                Illusion illusion = this.getGroupIllusion(groupReplay, (float) tick);
+
+                if (illusion != null)
+                {
+                    groupIllusion = illusion;
+                }
+
+                if (!groupReplay.keyframes.shadowSize.isEmpty())
+                {
+                    ShadowSettings size = groupReplay.keyframes.shadowSize.interpolate((float) tick);
+
+                    if (size != null)
+                    {
+                        /* Additive vs form shadow: group 0.5 / 0 offset is identity. */
+                        shadowRadiusX = Math.max(0F, shadowRadiusX + (size.widthX - 0.5F));
+                        shadowRadiusZ = Math.max(0F, shadowRadiusZ + (size.widthZ - 0.5F));
+                        shadowOffsetX += size.offsetX;
+                        shadowOffsetY += size.offsetY;
+                        shadowOffsetZ += size.offsetZ;
+                        groupShadowSize = true;
+                    }
+                }
+
+                if (!groupReplay.keyframes.shadowOpacity.isEmpty())
+                {
+                    Double opacity = groupReplay.keyframes.shadowOpacity.interpolate((float) tick);
+
+                    if (opacity != null)
+                    {
+                        /* Multiply so group 1 keeps the form opacity unchanged. */
+                        shadowOpacity *= MathUtils.clamp(opacity.floatValue(), 0F, 1F);
+                        groupShadowOpacity = true;
+                    }
+                }
             }
         }
 
@@ -1847,18 +2023,20 @@ public abstract class BaseFilmController
             context.color(this.mulColors(context.color, finalColor));
         }
 
-        if (!globalTranslate.equals(new Matrix4f().identity()))
-        {
-            context.stack.peek().getPositionMatrix().mul(globalTranslate);
-        }
-
         if (!localTransform.equals(new Matrix4f().identity()))
         {
             context.localGroupTransform = localTransform;
         }
 
+        if (groupShadowSize || groupShadowOpacity)
+        {
+            context.shadow(true, shadowRadiusX, shadowRadiusZ, shadowOpacity, shadowOffsetX, shadowOffsetY, shadowOffsetZ);
+        }
+
         context.groupPaint = groupPaint;
         context.groupGlow = groupGlow;
+        context.groupColorGrade = groupColorGrade;
+        context.groupIllusion = groupIllusion;
 
         return true;
     }
@@ -1948,6 +2126,60 @@ public abstract class BaseFilmController
         return null;
     }
 
+    private Color getGroupColorGrade(Replay groupReplay, float tick)
+    {
+        BaseValue gradeValue = groupReplay.properties.get("color_grade");
+
+        if (gradeValue instanceof KeyframeChannel)
+        {
+            KeyframeChannel<Color> channel = (KeyframeChannel<Color>) gradeValue;
+
+            if (!channel.isEmpty())
+            {
+                Color grade = channel.interpolate(tick);
+
+                return grade == null ? null : grade.copy();
+            }
+        }
+
+        return null;
+    }
+
+    private Illusion getGroupIllusion(Replay groupReplay, float tick)
+    {
+        BaseValue illusionValue = groupReplay.properties.get("illusion");
+
+        if (illusionValue instanceof KeyframeChannel)
+        {
+            KeyframeChannel<Illusion> channel = (KeyframeChannel<Illusion>) illusionValue;
+
+            if (!channel.isEmpty())
+            {
+                Illusion illusion = channel.interpolate(tick);
+
+                return illusion == null ? null : illusion.copy();
+            }
+        }
+
+        return null;
+    }
+
+    private Color mergeColorGrade(Color base, Color overlay)
+    {
+        Color merged = base.copy();
+
+        merged.brightness += overlay.brightness;
+        merged.contrast += overlay.contrast;
+        merged.hue += overlay.hue;
+        merged.saturation += overlay.saturation;
+        merged.brightnessTransform = overlay.brightnessTransform == null ? new EffectTransform() : overlay.brightnessTransform.copy();
+        merged.contrastTransform = overlay.contrastTransform == null ? new EffectTransform() : overlay.contrastTransform.copy();
+        merged.hueTransform = overlay.hueTransform == null ? new EffectTransform() : overlay.hueTransform.copy();
+        merged.saturationTransform = overlay.saturationTransform == null ? new EffectTransform() : overlay.saturationTransform.copy();
+
+        return merged;
+    }
+
     private PaintSettings mergePaintSettings(PaintSettings base, PaintSettings overlay)
     {
         PaintSettings merged = base.copy();
@@ -2010,6 +2242,61 @@ public abstract class BaseFilmController
             current.width = Math.max(current.width, groupGlow.width);
             current.height = Math.max(current.height, groupGlow.height);
             form.glowSettings.setRuntimeValue(current);
+        }
+    }
+
+    private static void applyGroupColorGrade(Form form, Color groupGrade)
+    {
+        if (groupGrade == null)
+        {
+            return;
+        }
+
+        BaseValue colorValue = form.get("color");
+
+        if (!(colorValue instanceof ValueColor valueColor))
+        {
+            return;
+        }
+
+        Color runtime = valueColor.getRuntimeValue() instanceof Color runtimeColor
+            ? runtimeColor
+            : null;
+
+        if (runtime == null)
+        {
+            Color base = valueColor.getOriginalValue();
+
+            runtime = base == null ? new Color(1F, 1F, 1F, 1F) : base.copy();
+            valueColor.setRuntimeValue(runtime);
+        }
+
+        runtime.brightness = groupGrade.brightness;
+        runtime.contrast = groupGrade.contrast;
+        runtime.hue = groupGrade.hue;
+        runtime.saturation = groupGrade.saturation;
+        runtime.brightnessTransform = groupGrade.brightnessTransform == null ? new EffectTransform() : groupGrade.brightnessTransform.copy();
+        runtime.contrastTransform = groupGrade.contrastTransform == null ? new EffectTransform() : groupGrade.contrastTransform.copy();
+        runtime.hueTransform = groupGrade.hueTransform == null ? new EffectTransform() : groupGrade.hueTransform.copy();
+        runtime.saturationTransform = groupGrade.saturationTransform == null ? new EffectTransform() : groupGrade.saturationTransform.copy();
+    }
+
+    private static void applyGroupIllusion(Form form, Illusion groupIllusion)
+    {
+        if (groupIllusion == null)
+        {
+            return;
+        }
+
+        Illusion current = form.illusion.get();
+
+        if (current == null || current.count <= 0)
+        {
+            form.illusion.setRuntimeValue(groupIllusion.copy());
+        }
+        else
+        {
+            form.illusionOverlay.setRuntimeValue(groupIllusion.copy());
         }
     }
 

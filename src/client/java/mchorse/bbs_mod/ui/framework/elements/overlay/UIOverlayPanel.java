@@ -1,6 +1,5 @@
 package mchorse.bbs_mod.ui.framework.elements.overlay;
 
-import mchorse.bbs_mod.BBSSettings;
 import mchorse.bbs_mod.graphics.window.Window;
 import mchorse.bbs_mod.l10n.keys.IKey;
 import mchorse.bbs_mod.ui.Keys;
@@ -319,9 +318,13 @@ public class UIOverlayPanel extends UIElement
             transition = ((UIOverlay) parent).getOpenTransition();
         }
 
-        if (transition < 1.0F)
+        /* Keep close/open scale subtle. Scaling by raw transition (~0..1) shrinks the
+         * dark panel toward a speck and reads as a full-view blot on some frames. */
+        boolean animateScale = transition < 0.999F;
+
+        if (animateScale)
         {
-            float scale = Math.max(0.01F, transition);
+            float scale = 0.92F + 0.08F * transition;
             float cx = this.area.mx();
             float cy = this.area.my();
 
@@ -335,8 +338,9 @@ public class UIOverlayPanel extends UIElement
 
         super.render(context);
 
-        if (transition < 1.0F)
+        if (animateScale)
         {
+            context.render.batcher.flushDraw();
             context.render.batcher.getContext().getMatrices().pop();
         }
     }
