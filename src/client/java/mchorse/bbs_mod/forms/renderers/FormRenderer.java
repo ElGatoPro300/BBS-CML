@@ -29,7 +29,7 @@ import net.minecraft.util.Hand;
 
 import org.joml.Matrix4f;
 
-import com.mojang.blaze3d.opengl.GlStateManager;
+import com.mojang.blaze3d.platform.GlStateManager;
 import com.mojang.blaze3d.systems.RenderSystem;
 
 import org.lwjgl.opengl.GL11;
@@ -302,7 +302,9 @@ public abstract class FormRenderer <T extends Form>
 
         if (target != null)
         {
-            /* 1.21.11: GlUniform no longer exposes set(int); picker target is set via BBSPickerRenderer. */
+            int pickingIndex = context.getPickingIndex();
+
+            target.set(pickingIndex);
         }
     }
 

@@ -21,12 +21,11 @@ import mchorse.bbs_mod.utils.clips.Clip;
 import mchorse.bbs_mod.utils.colors.Colors;
 import mchorse.bbs_mod.utils.keyframes.KeyframeChannel;
 
-import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderContext;
+import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
 
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.network.ClientPlayerEntity;
 
-import com.mojang.blaze3d.opengl.GlStateManager;
 import com.mojang.blaze3d.systems.RenderSystem;
 
 import java.util.ArrayList;
@@ -360,7 +359,7 @@ public class Films
     {
         Gizmo.INSTANCE.clearVisual();
 
-        GlStateManager._enableDepthTest();
+        RenderSystem.enableDepthTest();
 
         for (BaseFilmController controller : this.controllers)
         {
@@ -372,7 +371,7 @@ public class Films
             this.recorder.render(context);
         }
 
-        /* TODO(1.21.11 render): depth-test state now lives in the RenderPipeline/RenderLayer; removed GlStateManager._disableDepthTest() */
+        RenderSystem.disableDepthTest();
     }
 
     public void renderHud(Batcher2D batcher2D, float tickDelta)

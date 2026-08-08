@@ -127,7 +127,7 @@ import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
 import net.fabricmc.fabric.api.client.rendering.v1.BlockEntityRendererRegistry;
 import net.fabricmc.fabric.api.client.rendering.v1.EntityRendererRegistry;
 import net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback;
-import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderEvents;
+import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents;
 import net.fabricmc.fabric.api.event.player.AttackBlockCallback;
 import net.fabricmc.fabric.api.event.player.UseBlockCallback;
 import net.fabricmc.fabric.api.resource.ResourceManagerHelper;
@@ -139,11 +139,14 @@ import net.fabricmc.loader.api.metadata.ModMetadata;
 import net.fabricmc.loader.api.metadata.Person;
 
 import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.gl.ShaderProgramKeys;
 import net.minecraft.client.network.ClientPlayerEntity;
 import net.minecraft.client.option.KeyBinding;
 import net.minecraft.client.render.BufferBuilder;
+import net.minecraft.client.render.BufferRenderer;
 import net.minecraft.client.render.GameRenderer;
 import net.minecraft.client.render.Tessellator;
+import net.minecraft.client.render.VertexFormat;
 import net.minecraft.client.render.VertexFormats;
 import net.minecraft.client.render.block.entity.BlockEntityRendererFactories;
 import net.minecraft.client.render.item.model.special.SpecialModelTypes;
@@ -163,9 +166,7 @@ import net.minecraft.util.Identifier;
 import org.joml.Matrix4f;
 import org.joml.Matrix4fStack;
 
-import com.mojang.blaze3d.opengl.GlStateManager;
 import com.mojang.blaze3d.systems.RenderSystem;
-import com.mojang.blaze3d.vertex.VertexFormat;
 import com.mojang.serialization.MapCodec;
 
 import org.lwjgl.glfw.GLFW;
@@ -473,7 +474,7 @@ public class BBSModClient implements ClientModInitializer
 
             if (player.getStackInHand(hand).getItem() == BBSMod.STRUCTURE_PICKER_ITEM)
             {
-                if (world.isClient())
+                if (world.isClient)
                 {
                     return StructurePickerClient.onAttackBlock();
                 }
@@ -486,7 +487,7 @@ public class BBSModClient implements ClientModInitializer
 
         UseBlockCallback.EVENT.register((player, world, hand, hitResult) ->
         {
-            if (!world.isClient())
+            if (!world.isClient)
             {
                 if (player.getStackInHand(hand).getItem() == BBSMod.STRUCTURE_PICKER_ITEM)
                 {
@@ -701,7 +702,7 @@ public class BBSModClient implements ClientModInitializer
 
                 if (d > 0)
                 {
-                     MatrixStack stack = context.matrices();
+                    MatrixStack stack = context.matrixStack();
                     Color color = Colors.COLOR.set(BBSRendering.getChromaSkyColor());
 
                     stack.push();
@@ -712,7 +713,7 @@ public class BBSModClient implements ClientModInitializer
                     peek.getNormalMatrix().identity();
                     stack.translate(0F, 0F, -d);
 
-                    GlStateManager._enableDepthTest();
+                    RenderSystem.enableDepthTest();
                     BufferBuilder builder = Tessellator.getInstance().begin(VertexFormat.DrawMode.TRIANGLES, VertexFormats.POSITION_COLOR);
 
                     float fov = MinecraftClient.getInstance().options.getFov().getValue();
@@ -726,17 +727,19 @@ public class BBSModClient implements ClientModInitializer
                         color.r, color.g, color.b, 1F
                     );
 
+                    RenderSystem.setShader(ShaderProgramKeys.POSITION_COLOR);
+
                     Matrix4fStack mvStack = RenderSystem.getModelViewStack();
                     mvStack.pushMatrix();
                     mvStack.identity();
                     MatrixStackUtils.applyModelViewMatrix();
 
-                    builder.end().close();
+                    BufferRenderer.drawWithGlobalProgram(builder.end());
 
                     mvStack.popMatrix();
                     MatrixStackUtils.applyModelViewMatrix();
 
-                    GlStateManager._disableDepthTest();
+                    RenderSystem.disableDepthTest();
 
                     stack.pop();
                 }
@@ -746,12 +749,12 @@ public class BBSModClient implements ClientModInitializer
         /* Soft-opacity forms wait until water/lava/portals are drawn; flush here (not inside
          * renderLayer) so WorldRenderer's pose stack stays balanced. Under Iris this also
          * runs after pack cloud composite; vanilla holds until LAST (after vanilla clouds). */
-        WorldRenderEvents.BEFORE_TRANSLUCENT.register((context) ->
+        WorldRenderEvents.AFTER_TRANSLUCENT.register((context) ->
         {
             ShaderOpacityPatch.onAfterTranslucentTerrain();
         });
 
-        WorldRenderEvents.END_MAIN.register((context) ->
+        WorldRenderEvents.LAST.register((context) ->
         {
             /* Vanilla only: soft forms deferred past AFTER_TRANSLUCENT so clouds are not
              * depth-occluded. Iris already flushed; paint overlays still run at world end. */
@@ -761,10 +764,10 @@ public class BBSModClient implements ClientModInitializer
 
             if (Gizmo.INSTANCE.hasDeferred())
             {
-                GlStateManager._enableDepthTest();
-                GlStateManager._depthMask(false);
-                Gizmo.INSTANCE.renderDeferred(context.matrices());
-                GlStateManager._depthMask(true);
+                RenderSystem.enableDepthTest();
+                RenderSystem.depthMask(false);
+                Gizmo.INSTANCE.renderDeferred(context.matrixStack());
+                RenderSystem.depthMask(true);
             }
 
             if (videoRecorder.isRecording() && BBSRendering.canRender)
@@ -891,11 +894,11 @@ public class BBSModClient implements ClientModInitializer
 
         HudRenderCallback.EVENT.register((drawContext, tickCounter) ->
         {
-            BBSRendering.renderHud(drawContext, tickCounter.getTickProgress(false));
+            BBSRendering.renderHud(drawContext, tickCounter.getTickDelta(false));
 
             if (gunZoom != null)
             {
-                gunZoom.update(keyZoom.isPressed(), tickCounter.getDynamicDeltaTicks());
+                gunZoom.update(keyZoom.isPressed(), tickCounter.getLastFrameDuration());
 
                 if (gunZoom.canBeRemoved())
                 {
@@ -1010,7 +1013,7 @@ public class BBSModClient implements ClientModInitializer
             "key." + BBSMod.MOD_ID + "." + id,
             InputUtil.Type.KEYSYM,
             key,
-            KeyBinding.Category.create(Identifier.of("category." + BBSMod.MOD_ID + ".main"))
+            "category." + BBSMod.MOD_ID + ".main"
         ));
     }
 
@@ -1020,7 +1023,7 @@ public class BBSModClient implements ClientModInitializer
             "key." + BBSMod.MOD_ID + "." + id,
             InputUtil.Type.MOUSE,
             button,
-            KeyBinding.Category.create(Identifier.of("category." + BBSMod.MOD_ID + ".main"))
+            "category." + BBSMod.MOD_ID + ".main"
         ));
     }
 

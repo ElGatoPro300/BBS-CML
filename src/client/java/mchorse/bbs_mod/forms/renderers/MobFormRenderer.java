@@ -44,9 +44,6 @@ import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NbtCompound;
 import net.minecraft.nbt.StringNbtReader;
 import net.minecraft.registry.Registries;
-import net.minecraft.storage.NbtReadView;
-import net.minecraft.storage.ReadView;
-import net.minecraft.util.ErrorReporter;
 import net.minecraft.util.Hand;
 import net.minecraft.util.Identifier;
 import net.minecraft.util.math.RotationAxis;
@@ -55,7 +52,6 @@ import org.joml.Matrix4f;
 import org.joml.Vector3f;
 
 import com.mojang.authlib.GameProfile;
-import com.mojang.blaze3d.opengl.GlStateManager;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.brigadier.StringReader;
 
@@ -276,7 +272,7 @@ public class MobFormRenderer extends FormRenderer<MobForm> implements ITickable
 
         try
         {
-            compound = StringNbtReader.readCompound(nbt);
+            compound = (new StringNbtReader(new StringReader(nbt))).parseCompound();
         }
         catch (Exception e)
         {}
@@ -292,8 +288,7 @@ public class MobFormRenderer extends FormRenderer<MobForm> implements ITickable
         if (this.entity != null)
         {
             compound.putString("id", id);
-            ReadView view = NbtReadView.create(ErrorReporter.EMPTY, this.entity.getRegistryManager(), compound);
-            this.entity.readData(view);
+            this.entity.readNbt(compound);
             this.entity.noClip = true;
         }
     }
@@ -433,7 +428,7 @@ public class MobFormRenderer extends FormRenderer<MobForm> implements ITickable
 
         if (this.entity != null)
         {
-            MatrixStack stack = new MatrixStack();
+            MatrixStack stack = context.batcher.getContext().getMatrices();
 
             stack.push();
 
@@ -470,17 +465,13 @@ public class MobFormRenderer extends FormRenderer<MobForm> implements ITickable
 
             Vector3f light0 = new Vector3f(0.85F, 0.85F, -1F).normalize();
             Vector3f light1 = new Vector3f(-0.85F, 0.85F, 1F).normalize();
-            // RenderSystem.setupLevelDiffuseLighting(light0, light1);
+            RenderSystem.setupLevelDiffuseLighting(light0, light1);
 
             consumers.setUI(true);
             MobTextureOverride.begin(this.form.texture.get());
             try
             {
-                var state = MinecraftClient.getInstance().getEntityRenderDispatcher().getAndUpdateRenderState(this.entity, 0F);
-                if (state != null)
-                {
-                    MinecraftClient.getInstance().getEntityRenderDispatcher().render(state, null, 0D, 0D, 0D, stack, null);
-                }
+                MinecraftClient.getInstance().getEntityRenderDispatcher().render(this.entity, 0D, 0D, 0D, 0F, stack, consumers, LightmapTextureManager.MAX_BLOCK_LIGHT_COORDINATE);
             }
             finally
             {
@@ -491,11 +482,11 @@ public class MobFormRenderer extends FormRenderer<MobForm> implements ITickable
 
             CustomVertexConsumerProvider.clearRunnables();
 
-            // DiffuseLighting.disableGuiDepthLighting();
+            DiffuseLighting.disableGuiDepthLighting();
 
             stack.pop();
 
-            GlStateManager._depthFunc(GL11.GL_ALWAYS);
+            RenderSystem.depthFunc(GL11.GL_ALWAYS);
         }
     }
 
@@ -517,8 +508,8 @@ public class MobFormRenderer extends FormRenderer<MobForm> implements ITickable
                     if (!first.bool)
                     {
                         this.bindTexture();
-                        // this.setupTarget(context, BBSShaders.getPickerModelsProgram());
-                        // RenderSystem.setShader(BBSShaders.getPickerModelsProgram());
+                        this.setupTarget(context, BBSShaders.getPickerModelsProgram());
+                        RenderSystem.setShader(BBSShaders.getPickerModelsProgram());
 
                         first.bool = true;
                     }
@@ -602,11 +593,7 @@ public class MobFormRenderer extends FormRenderer<MobForm> implements ITickable
             MobTextureOverride.begin(this.form.texture.get());
             try
             {
-                var state = MinecraftClient.getInstance().getEntityRenderDispatcher().getAndUpdateRenderState(this.entity, context.getTransition());
-                if (state != null)
-                {
-                    MinecraftClient.getInstance().getEntityRenderDispatcher().render(state, null, 0D, 0D, 0D, context.stack, null);
-                }
+                MinecraftClient.getInstance().getEntityRenderDispatcher().render(this.entity, 0D, 0D, 0D, 0F, context.stack, consumers, light);
             }
             finally
             {
@@ -630,7 +617,7 @@ public class MobFormRenderer extends FormRenderer<MobForm> implements ITickable
 
             context.stack.pop();
 
-            GlStateManager._enableDepthTest();
+            RenderSystem.enableDepthTest();
         }
     }
 
@@ -690,9 +677,9 @@ public class MobFormRenderer extends FormRenderer<MobForm> implements ITickable
                     this.prevHandSwing = handSwingProgress;
                 }
 
-                this.entity.lastX = entity.getPrevX();
-                this.entity.lastY = entity.getPrevY();
-                this.entity.lastZ = entity.getPrevZ();
+                this.entity.prevX = entity.getPrevX();
+                this.entity.prevY = entity.getPrevY();
+                this.entity.prevZ = entity.getPrevZ();
                 this.entity.setPos(entity.getX(), entity.getY(), entity.getZ());
                 this.entity.setOnGround(entity.isOnGround());
                 this.entity.setSneaking(entity.isSneaking());
@@ -775,10 +762,10 @@ public class MobFormRenderer extends FormRenderer<MobForm> implements ITickable
         livingMorph.setBodyYaw(0F);
         livingMorph.setHeadYaw(relativeHeadYaw);
         livingMorph.setPitch(source.getPitch());
-        livingMorph.lastYaw = 0F;
-        livingMorph.lastBodyYaw = 0F;
-        livingMorph.lastHeadYaw = relativePrevHeadYaw;
-        livingMorph.lastPitch = source.getPrevPitch();
+        livingMorph.prevYaw = 0F;
+        livingMorph.prevBodyYaw = 0F;
+        livingMorph.prevHeadYaw = relativePrevHeadYaw;
+        livingMorph.prevPitch = source.getPrevPitch();
     }
 
     /**
@@ -815,11 +802,10 @@ public class MobFormRenderer extends FormRenderer<MobForm> implements ITickable
 
         try
         {
-            NbtCompound compound = StringNbtReader.readCompound(nbt);
+            NbtCompound compound = (new StringNbtReader(new StringReader(nbt))).parseCompound();
 
             compound.putString("id", this.form.mobID.get());
-            ReadView view = NbtReadView.create(ErrorReporter.EMPTY, this.entity.getRegistryManager(), compound);
-            this.entity.readData(view);
+            this.entity.readNbt(compound);
             this.appliedMobNbt = nbt;
             this.entity.noClip = true;
         }
