@@ -95,6 +95,12 @@ public class UIMobCaptureRecordOverlayPanel extends UIOverlayPanel
         UIScreen.open(new UIBaseMenu()
         {
             @Override
+            public boolean needsWorldRender()
+            {
+                return true;
+            }
+
+            @Override
             public boolean canHideHUD()
             {
                 return false;
@@ -111,7 +117,9 @@ public class UIMobCaptureRecordOverlayPanel extends UIOverlayPanel
             {
                 super.onOpen(oldMenu);
 
-                UIOverlay.addOverlay(this.context, panel, 500, 480).noBackground();
+                /* instantClose: onClose → setScreen(null) must not finish inside the
+                 * overlay close animation render pass (one-frame dark flash). */
+                UIOverlay.addOverlay(this.context, panel, 500, 480).noBackground().instantClose();
             }
         });
     }

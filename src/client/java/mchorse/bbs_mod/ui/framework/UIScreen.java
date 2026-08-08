@@ -101,8 +101,7 @@ public class UIScreen extends Screen implements IFileDropListener
     @Override
     public void removed()
     {
-        MinecraftClient.getInstance().options.getGuiScale().setValue(this.lastGuiScale);
-        MinecraftClient.getInstance().onResolutionChanged();
+        this.restoreGuiScale();
 
         super.removed();
 
@@ -125,17 +124,36 @@ public class UIScreen extends Screen implements IFileDropListener
     @Override
     public void onDisplayed()
     {
-        this.lastGuiScale = MinecraftClient.getInstance().options.getGuiScale().getValue();
+        MinecraftClient client = MinecraftClient.getInstance();
 
-        MinecraftClient.getInstance().options.getGuiScale().setValue(BBSModClient.getGUIScale());
-        MinecraftClient.getInstance().onResolutionChanged();
+        this.lastGuiScale = client.options.getGuiScale().getValue();
+        this.applyGuiScale(BBSModClient.getGUIScale());
 
         super.onDisplayed();
 
         this.menu.onOpen(null);
         DiscordPresenceManager.INSTANCE.onBbsUiOpened(this.menu);
 
-        MinecraftClient.getInstance().options.hudHidden = this.menu.canHideHUD();
+        client.options.hudHidden = this.menu.canHideHUD();
+    }
+
+    private void applyGuiScale(int scale)
+    {
+        MinecraftClient client = MinecraftClient.getInstance();
+        int current = client.options.getGuiScale().getValue();
+
+        if (current == scale)
+        {
+            return;
+        }
+
+        client.options.getGuiScale().setValue(scale);
+        client.onResolutionChanged();
+    }
+
+    private void restoreGuiScale()
+    {
+        this.applyGuiScale(this.lastGuiScale);
     }
 
     @Override
