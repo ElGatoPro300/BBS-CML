@@ -6,6 +6,7 @@ import mchorse.bbs_mod.utils.AABB;
 import net.minecraft.entity.EntityPose;
 import net.minecraft.entity.EquipmentSlot;
 import net.minecraft.entity.LimbAnimator;
+import net.minecraft.entity.LivingEntity;
 import net.minecraft.item.ItemStack;
 import net.minecraft.util.Hand;
 import net.minecraft.util.math.MathHelper;
@@ -61,7 +62,7 @@ public class StubEntity implements IEntity
     private float pitch;
     private float bodyYaw;
 
-    /** Matches {@link net.minecraft.entity.LivingEntity} hand-swing duration. */
+    /** Matches {@link LivingEntity} hand-swing duration. */
     private static final int HAND_SWING_DURATION = 6;
     private boolean handSwinging;
     private int handSwingTicks;
