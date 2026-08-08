@@ -1,5 +1,7 @@
 package mchorse.bbs_mod.client;
 
+import mchorse.bbs_mod.ui.dashboard.WorldPropertiesHelper;
+
 import net.minecraft.util.math.RotationAxis;
 
 import org.joml.Matrix4f;
@@ -22,7 +24,7 @@ public final class SunPathRotation
 
     public static float getDegrees()
     {
-        return BBSRendering.getSunPathRotationDegrees();
+        return WorldPropertiesHelper.getSunPathRotation();
     }
 
     /**

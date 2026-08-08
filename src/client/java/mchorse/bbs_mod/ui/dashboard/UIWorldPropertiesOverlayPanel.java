@@ -1,37 +1,34 @@
 package mchorse.bbs_mod.ui.dashboard;
 
 import mchorse.bbs_mod.graphics.window.Window;
+import mchorse.bbs_mod.l10n.keys.IKey;
 import mchorse.bbs_mod.ui.UIKeys;
 import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.ui.framework.elements.UIElement;
 import mchorse.bbs_mod.ui.framework.elements.UIScrollView;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIButton;
+import mchorse.bbs_mod.ui.framework.elements.buttons.UIIcon;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIToggle;
-import mchorse.bbs_mod.ui.framework.elements.input.UIPoseSectionCollapse;
 import mchorse.bbs_mod.ui.framework.elements.input.UITrackpad;
 import mchorse.bbs_mod.ui.framework.elements.overlay.UIConfirmOverlayPanel;
 import mchorse.bbs_mod.ui.framework.elements.overlay.UIOverlay;
 import mchorse.bbs_mod.ui.framework.elements.overlay.UIOverlayPanel;
 import mchorse.bbs_mod.ui.framework.elements.utils.FontRenderer;
 import mchorse.bbs_mod.ui.utils.UI;
+import mchorse.bbs_mod.ui.utils.icons.Icons;
 import mchorse.bbs_mod.utils.colors.Colors;
 
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.world.ClientWorld;
-import net.minecraft.world.GameRules;
 
 /**
- * Legacy World Properties overlay. The main-menu World button now opens
- * {@link UIWorldDropdownMenu}; this panel remains for {@link #isOpen()} compatibility
- * if constructed elsewhere.
+ * World Properties overlay (World menu bar button). Collapsible Time, Weather, and Mobs sections. Toggle states
+ * are read from the integrated server's gamerules when the panel opens. Time-slider updates use the
+ * same client-side sun override as the Sun Rotation curve for smooth dragging, with throttled server sync.
  */
 public class UIWorldPropertiesOverlayPanel extends UIOverlayPanel
 {
     private static final long THROTTLE_MS = 10L;
-    private static final int TIME_COLOR = 0x3aa0ff;
-    private static final int WEATHER_COLOR = 0x2f8f72;
-    private static final int MOBS_COLOR = 0xe07a3a;
-    private static final int GAMMA_COLOR = 0xd4b23a;
 
     private static int openCount;
 
@@ -39,17 +36,20 @@ public class UIWorldPropertiesOverlayPanel extends UIOverlayPanel
 
     private UIToggle freezeTime;
     private UITrackpad time;
-    private UITrackpad sunPathRotation;
+    private UIElement timeContent;
     private UIToggle pauseWeather;
+    private UIElement weatherContent;
     private UIToggle mobSpawning;
     private UIButton killMobs;
+    private UIElement mobsContent;
     private UITrackpad gamma;
     private UIToggle nightVision;
+    private UIElement gammaContent;
 
-    private UIPoseSectionCollapse timeSection;
-    private UIPoseSectionCollapse weatherSection;
-    private UIPoseSectionCollapse mobsSection;
-    private UIPoseSectionCollapse gammaSection;
+    private boolean timeExpanded = false;
+    private boolean weatherExpanded = false;
+    private boolean mobsExpanded = false;
+    private boolean gammaExpanded = false;
 
     private int pendingTime = -1;
     private int lastSentTime = -1;
@@ -71,44 +71,38 @@ public class UIWorldPropertiesOverlayPanel extends UIOverlayPanel
 
         this.resizable().minSize(240, 200);
 
-        this.freezeTime = new UIToggle(UIKeys.WORLD_FREEZE_TIME, !WorldPropertiesHelper.readGamerule(GameRules.DO_DAYLIGHT_CYCLE, true), (b) ->
-            WorldPropertiesHelper.setGamerule(GameRules.DO_DAYLIGHT_CYCLE, !b.getValue()));
+        this.freezeTime = new UIToggle(UIKeys.WORLD_FREEZE_TIME, !WorldPropertiesHelper.readGamerule("doDaylightCycle", true), (b) ->
+            WorldPropertiesHelper.setGamerule("doDaylightCycle", !b.getValue()));
 
         this.time = new UITrackpad((v) -> this.pendingTime = (int) v.doubleValue());
         this.time.limit(0D, 24000D, true).increment(100D).values(100D, 10D, 1000D);
-
-        this.sunPathRotation = new UITrackpad((v) -> WorldPropertiesHelper.setSunPathRotation(v.floatValue()));
-        this.sunPathRotation.limit(-180D, 180D).increment(5D).values(5D, 1D, 15D);
-        this.sunPathRotation.setValue(WorldPropertiesHelper.getSunPathRotation());
 
         UIButton day = new UIButton(UIKeys.WORLD_TIME_DAY, (b) -> this.setTime(1000));
         UIButton noon = new UIButton(UIKeys.WORLD_TIME_NOON, (b) -> this.setTime(6000));
         UIButton night = new UIButton(UIKeys.WORLD_TIME_NIGHT, (b) -> this.setTime(13000));
         UIButton midnight = new UIButton(UIKeys.WORLD_TIME_MIDNIGHT, (b) -> this.setTime(18000));
 
-        UIElement timeContent = UI.column(5, 0,
+        this.timeContent = UI.column(5, 0,
             this.freezeTime,
             UI.label(UIKeys.WORLD_TIME_LABEL).marginTop(4),
             this.time,
-            UI.row(4, day, noon, night, midnight),
-            UI.label(UIKeys.WORLD_SUN_PATH_ROTATION).marginTop(4),
-            this.sunPathRotation
+            UI.row(4, day, noon, night, midnight)
         );
 
-        this.pauseWeather = new UIToggle(UIKeys.WORLD_PAUSE_WEATHER, !WorldPropertiesHelper.readGamerule(GameRules.DO_WEATHER_CYCLE, true), (b) ->
-            WorldPropertiesHelper.setGamerule(GameRules.DO_WEATHER_CYCLE, !b.getValue()));
+        this.pauseWeather = new UIToggle(UIKeys.WORLD_PAUSE_WEATHER, !WorldPropertiesHelper.readGamerule("doWeatherCycle", true), (b) ->
+            WorldPropertiesHelper.setGamerule("doWeatherCycle", !b.getValue()));
 
         UIButton clear = new UIButton(UIKeys.WORLD_WEATHER_CLEAR, (b) -> WorldPropertiesHelper.setWeatherClear());
         UIButton rain = new UIButton(UIKeys.WORLD_WEATHER_RAIN, (b) -> WorldPropertiesHelper.setWeatherRain());
         UIButton thunder = new UIButton(UIKeys.WORLD_WEATHER_THUNDER, (b) -> WorldPropertiesHelper.setWeatherThunder());
 
-        UIElement weatherContent = UI.column(5, 0,
+        this.weatherContent = UI.column(5, 0,
             this.pauseWeather,
             UI.row(4, clear, rain, thunder)
         );
 
-        this.mobSpawning = new UIToggle(UIKeys.WORLD_MOB_SPAWN, WorldPropertiesHelper.readGamerule(GameRules.DO_MOB_SPAWNING, true), (b) ->
-            WorldPropertiesHelper.setGamerule(GameRules.DO_MOB_SPAWNING, b.getValue()));
+        this.mobSpawning = new UIToggle(UIKeys.WORLD_MOB_SPAWN, WorldPropertiesHelper.readGamerule("doMobSpawning", true), (b) ->
+            WorldPropertiesHelper.setGamerule("doMobSpawning", b.getValue()));
 
         this.killMobs = new UIButton(UIKeys.WORLD_KILL_ALL_MOBS, this::killAllMobsClicked)
         {
@@ -136,38 +130,33 @@ public class UIWorldPropertiesOverlayPanel extends UIOverlayPanel
             }
         };
 
-        UIElement mobsContent = UI.column(5, 0, this.mobSpawning, this.killMobs);
+        this.mobsContent = UI.column(5, 0, this.mobSpawning, this.killMobs);
 
         this.gamma = new UITrackpad((v) -> WorldPropertiesHelper.setGammaPercent(v));
         this.gamma.limit(0D, 1500D, true).increment(50D).values(10D, 1D, 100D);
         this.gamma.setValue(WorldPropertiesHelper.getGammaPercent());
 
-        UIButton gammaNormal = new UIButton(UIKeys.WORLD_GAMMA_NORMAL, (b) -> this.setGamma(100D));
-        UIButton gammaSemi = new UIButton(UIKeys.WORLD_GAMMA_SEMI, (b) -> this.setGamma(750D));
-        UIButton gammaFull = new UIButton(UIKeys.WORLD_GAMMA_FULL, (b) -> this.setGamma(1500D));
+        UIButton gammaNormal = new UIButton(UIKeys.WORLD_GAMMA_NORMAL, (b) -> { this.gamma.setValue(100D); WorldPropertiesHelper.setGammaPercent(100D); });
+        UIButton gammaSemi = new UIButton(UIKeys.WORLD_GAMMA_SEMI, (b) -> { this.gamma.setValue(750D); WorldPropertiesHelper.setGammaPercent(750D); });
+        UIButton gammaFull = new UIButton(UIKeys.WORLD_GAMMA_FULL, (b) -> { this.gamma.setValue(1500D); WorldPropertiesHelper.setGammaPercent(1500D); });
 
-        this.nightVision = new UIToggle(UIKeys.WORLD_GAMMA_NIGHT_VISION, this.hasNightVision(), (b) ->
+        this.nightVision = new UIToggle(UIKeys.WORLD_GAMMA_NIGHT_VISION, WorldPropertiesHelper.hasNightVision(), (b) ->
             WorldPropertiesHelper.setNightVision(b.getValue()));
 
-        UIElement gammaContent = UI.column(5, 0,
+        this.gammaContent = UI.column(5, 0,
             UI.label(UIKeys.WORLD_GAMMA_LABEL),
             this.gamma,
             UI.row(4, gammaNormal, gammaSemi, gammaFull),
             this.nightVision
         );
 
-        this.timeSection = new UIPoseSectionCollapse(UIKeys.WORLD_SECTION_TIME, TIME_COLOR, timeContent);
-        this.weatherSection = new UIPoseSectionCollapse(UIKeys.WORLD_SECTION_WEATHER, WEATHER_COLOR, weatherContent);
-        this.mobsSection = new UIPoseSectionCollapse(UIKeys.WORLD_SECTION_MOBS, MOBS_COLOR, mobsContent);
-        this.gammaSection = new UIPoseSectionCollapse(UIKeys.WORLD_SECTION_GAMMA, GAMMA_COLOR, gammaContent);
-
         this.scroll = new UIScrollView();
         this.scroll.relative(this.content).w(1F).h(1F);
         this.scroll.column(6).vertical().stretch().scroll().padding(6);
-        this.scroll.add(this.timeSection, this.weatherSection, this.mobsSection, this.gammaSection);
 
         this.content.add(this.scroll);
         this.syncFromWorld();
+        this.rebuild();
     }
 
     private void syncFromWorld()
@@ -185,23 +174,9 @@ public class UIWorldPropertiesOverlayPanel extends UIOverlayPanel
         this.time.setValue(this.lastSentTime);
         WorldPropertiesHelper.setClientTimeOverride(timeOfDay);
 
-        this.freezeTime.setValue(!WorldPropertiesHelper.readGamerule(GameRules.DO_DAYLIGHT_CYCLE, true));
-        this.pauseWeather.setValue(!WorldPropertiesHelper.readGamerule(GameRules.DO_WEATHER_CYCLE, true));
-        this.mobSpawning.setValue(WorldPropertiesHelper.readGamerule(GameRules.DO_MOB_SPAWNING, true));
-        this.gamma.setValue(WorldPropertiesHelper.getGammaPercent());
-        this.nightVision.setValue(WorldPropertiesHelper.hasNightVision());
-        this.sunPathRotation.setValue(WorldPropertiesHelper.getSunPathRotation());
-    }
-
-    private void setGamma(double percent)
-    {
-        this.gamma.setValue(percent);
-        WorldPropertiesHelper.setGammaPercent(percent);
-    }
-
-    private boolean hasNightVision()
-    {
-        return WorldPropertiesHelper.hasNightVision();
+        this.freezeTime.setValue(!WorldPropertiesHelper.readGamerule("doDaylightCycle", true));
+        this.pauseWeather.setValue(!WorldPropertiesHelper.readGamerule("doWeatherCycle", true));
+        this.mobSpawning.setValue(WorldPropertiesHelper.readGamerule("doMobSpawning", true));
     }
 
     private void killAllMobsClicked(UIButton button)
@@ -244,6 +219,70 @@ public class UIWorldPropertiesOverlayPanel extends UIOverlayPanel
                 this.killMobsHighlightColor = KILL_MOBS_SUCCESS_GREEN;
             }
         });
+    }
+
+    private void rebuild()
+    {
+        this.scroll.removeAll();
+
+        this.scroll.add(this.header(UIKeys.WORLD_SECTION_TIME, this.timeExpanded, () ->
+        {
+            this.timeExpanded = !this.timeExpanded;
+            this.rebuild();
+        }));
+
+        if (this.timeExpanded)
+        {
+            this.scroll.add(this.timeContent);
+        }
+
+        this.scroll.add(this.header(UIKeys.WORLD_SECTION_WEATHER, this.weatherExpanded, () ->
+        {
+            this.weatherExpanded = !this.weatherExpanded;
+            this.rebuild();
+        }));
+
+        if (this.weatherExpanded)
+        {
+            this.scroll.add(this.weatherContent);
+        }
+
+        this.scroll.add(this.header(UIKeys.WORLD_SECTION_MOBS, this.mobsExpanded, () ->
+        {
+            this.mobsExpanded = !this.mobsExpanded;
+            this.rebuild();
+        }));
+
+        if (this.mobsExpanded)
+        {
+            this.scroll.add(this.mobsContent);
+        }
+
+        this.scroll.add(this.header(UIKeys.WORLD_SECTION_GAMMA, this.gammaExpanded, () ->
+        {
+            this.gammaExpanded = !this.gammaExpanded;
+            this.rebuild();
+        }));
+
+        if (this.gammaExpanded)
+        {
+            this.scroll.add(this.gammaContent);
+        }
+
+        if (this.scroll.hasParent())
+        {
+            this.scroll.resize();
+        }
+    }
+
+    private UIElement header(IKey label, boolean expanded, Runnable toggle)
+    {
+        UIIcon icon = new UIIcon(expanded ? Icons.MOVE_DOWN : Icons.MOVE_RIGHT, (b) -> toggle.run());
+        UIButton title = new UIButton(label, (b) -> toggle.run());
+
+        title.w(1F);
+
+        return UI.row(4, 0, 20, icon, title);
     }
 
     private void setTime(int value)

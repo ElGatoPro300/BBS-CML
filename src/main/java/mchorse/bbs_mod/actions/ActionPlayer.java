@@ -165,7 +165,7 @@ public class ActionPlayer
         float pitch = replay.keyframes.pitch.interpolate(tick).floatValue();
         boolean grounded = replay.keyframes.grounded.interpolate(tick) > 0;
 
-        Vec3d pos = actor.getPos();
+        Vec3d pos = actor.getEntityPos();
 
         if (ticking)
         {
@@ -188,7 +188,7 @@ public class ActionPlayer
 
         if (actor instanceof ServerPlayerEntity player)
         {
-            int selectedSlot = player.getInventory().selectedSlot;
+            int selectedSlot = player.getInventory().getSelectedSlot();
             int slot = MathUtils.clamp(replay.keyframes.selectedSlot.interpolate(this.tick), 0, 8);
 
             if (selectedSlot != slot)

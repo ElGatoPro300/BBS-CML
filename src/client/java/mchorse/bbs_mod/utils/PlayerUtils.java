@@ -7,6 +7,7 @@ import net.minecraft.client.network.ClientPlayerEntity;
 import net.minecraft.entity.data.TrackedData;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.util.math.BlockPos;
+import net.minecraft.world.GameMode;
 import net.minecraft.world.World;
 
 import com.mojang.authlib.GameProfile;
@@ -24,9 +25,9 @@ public class PlayerUtils
 
         if (!ClientNetwork.isIsBBSModOnServer())
         {
-            String command = "tp " + player.getGameProfile().getName() + " " + x + " " + y + " " + z + " " + yaw + " " + pitch;
+            String command = "tp " + player.getGameProfile().name() + " " + x + " " + y + " " + z + " " + yaw + " " + pitch;
 
-            player.networkHandler.sendCommand(command);
+            player.networkHandler.sendChatCommand(command);
         }
         else
         {
@@ -44,7 +45,7 @@ public class PlayerUtils
 
         if (!ClientNetwork.isIsBBSModOnServer())
         {
-            player.networkHandler.sendCommand("tp " + player.getGameProfile().getName() + " " + x + " " + y + " " + z);
+            player.networkHandler.sendChatCommand("tp " + player.getGameProfile().name() + " " + x + " " + y + " " + z);
         }
         else
         {
@@ -56,12 +57,22 @@ public class PlayerUtils
     {
         public static TrackedData<Byte> getModelParts()
         {
-            return PLAYER_MODEL_PARTS;
+            /* TODO(1.21.11 render): PlayerEntity.PLAYER_MODEL_PARTS tracked-data was removed; the
+             * cosmetic model-parts (cape/jacket/sleeves) byte is no longer exposed via the data
+             * tracker. This accessor is currently unused; returns null until the new player-model/
+             * skin-config path is ported (see MobFormRenderer for the matching TODO). */
+            return null;
         }
 
-        public ProtectedAccess(World world, BlockPos pos, float yaw, GameProfile gameProfile)
+        public ProtectedAccess(World world, GameProfile gameProfile)
         {
-            super(world, pos, yaw, gameProfile);
+            super(world, gameProfile);
+        }
+
+        @Override
+        public GameMode getGameMode()
+        {
+            return GameMode.SURVIVAL;
         }
 
         @Override
