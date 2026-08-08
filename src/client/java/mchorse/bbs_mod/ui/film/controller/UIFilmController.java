@@ -28,6 +28,7 @@ import mchorse.bbs_mod.graphics.Draw;
 import mchorse.bbs_mod.graphics.texture.Texture;
 import mchorse.bbs_mod.graphics.window.Window;
 import mchorse.bbs_mod.l10n.keys.IKey;
+import mchorse.bbs_mod.mixin.client.MinecraftClientInvoker;
 import mchorse.bbs_mod.morphing.Morph;
 import mchorse.bbs_mod.network.ClientNetwork;
 import mchorse.bbs_mod.resources.Link;
@@ -35,6 +36,7 @@ import mchorse.bbs_mod.settings.values.base.BaseValue;
 import mchorse.bbs_mod.settings.values.ui.ValueOnionSkin;
 import mchorse.bbs_mod.ui.Keys;
 import mchorse.bbs_mod.ui.UIKeys;
+import mchorse.bbs_mod.ui.dashboard.EditorSpectatorHelper;
 import mchorse.bbs_mod.ui.film.UIFilmPanel;
 import mchorse.bbs_mod.ui.film.replays.FilmPoseGizmoDrag;
 import mchorse.bbs_mod.ui.film.replays.UIRecordOverlayPanel;
@@ -555,6 +557,7 @@ public class UIFilmController extends UIElement
             this.actorControlCoastVelocity = null;
             this.notifyActorPuppet(-1);
             this.restoreControlFlight();
+            EditorSpectatorHelper.resumeAfterControl();
         }
         else if (this.panel.replayEditor.replays.replays.isSelected())
         {
@@ -587,6 +590,8 @@ public class UIFilmController extends UIElement
                 this.applyGroundControlFlight();
             }
 
+            /* Spectator cannot swipe / use shields / deal damage — leave it for control. */
+            EditorSpectatorHelper.suspendForControl();
             this.notifyActorPuppet(replayIndex);
         }
 
@@ -935,6 +940,108 @@ public class UIFilmController extends UIElement
     private boolean shouldConsumeControlMouse(UIContext context)
     {
         return this.panel.preview.getViewport().isInside(context);
+    }
+
+    /**
+     * While actor-control has the OS cursor disabled, absolute mouse coords still move over
+     * the editor and steal LMB/RMB (no swipe / shield). Route those clicks to vanilla
+     * attack/use instead, and park UI hover elsewhere.
+     */
+    public boolean handleControlMousePress(int button)
+    {
+        if (!this.canControl())
+        {
+            return false;
+        }
+
+        MinecraftClient client = MinecraftClient.getInstance();
+
+        if (client.player == null)
+        {
+            return true;
+        }
+
+        /* Keep crosshair in sync with the look we drive while the Screen is open. */
+        if (client.gameRenderer != null)
+        {
+            client.gameRenderer.updateCrosshairTarget(1F);
+        }
+
+        if (button == GLFW.GLFW_MOUSE_BUTTON_LEFT)
+        {
+            boolean swung = ((MinecraftClientInvoker) client).bbs$invokeDoAttack();
+
+            if (!swung)
+            {
+                client.player.swingHand(net.minecraft.util.Hand.MAIN_HAND);
+            }
+
+            this.swingVisibleActor();
+        }
+        else if (button == GLFW.GLFW_MOUSE_BUTTON_RIGHT)
+        {
+            ((MinecraftClientInvoker) client).bbs$invokeDoItemUse();
+        }
+
+        return true;
+    }
+
+    /**
+     * Actor-mode bodies are a separate {@link mchorse.bbs_mod.entity.ActorEntity};
+     * mirror the live player swing so the visible actor animates the attack.
+     */
+    private void swingVisibleActor()
+    {
+        if (this.actors == null || this.panel.getData() == null)
+        {
+            return;
+        }
+
+        Replay replay = this.getReplay();
+
+        if (replay == null || !replay.actor.get())
+        {
+            return;
+        }
+
+        Integer entityId = this.actors.get(replay.getId());
+
+        if (entityId == null || MinecraftClient.getInstance().world == null)
+        {
+            return;
+        }
+
+        net.minecraft.entity.Entity entity = MinecraftClient.getInstance().world.getEntityById(entityId);
+
+        if (entity instanceof net.minecraft.entity.LivingEntity living)
+        {
+            living.swingHand(net.minecraft.util.Hand.MAIN_HAND);
+        }
+    }
+
+    public boolean handleControlMouseRelease(int button)
+    {
+        if (!this.canControl())
+        {
+            return false;
+        }
+
+        MinecraftClient client = MinecraftClient.getInstance();
+
+        if (button == GLFW.GLFW_MOUSE_BUTTON_RIGHT
+            && client.player != null
+            && client.interactionManager != null
+            && client.player.isUsingItem())
+        {
+            client.interactionManager.stopUsingItem(client.player);
+        }
+
+        return true;
+    }
+
+    public boolean shouldParkUiMouse()
+    {
+        return this.canControl();
     }
 
     @Override

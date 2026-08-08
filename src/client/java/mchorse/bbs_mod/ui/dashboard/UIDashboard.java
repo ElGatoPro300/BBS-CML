@@ -233,6 +233,26 @@ public class UIDashboard extends UIBaseMenu
     }
 
     @Override
+    protected boolean handleControlCaptureMouse(int button, boolean pressed)
+    {
+        if (!(this.panels.panel instanceof UIFilmPanel filmPanel))
+        {
+            return false;
+        }
+
+        return pressed
+            ? filmPanel.getController().handleControlMousePress(button)
+            : filmPanel.getController().handleControlMouseRelease(button);
+    }
+
+    @Override
+    protected boolean shouldParkMouseWhileControlling()
+    {
+        return this.panels.panel instanceof UIFilmPanel filmPanel
+            && filmPanel.getController().shouldParkUiMouse();
+    }
+
+    @Override
     public boolean canPause()
     {
         if (UIWorldDropdownMenu.isOpen() || UIWorldPropertiesOverlayPanel.isOpen())
