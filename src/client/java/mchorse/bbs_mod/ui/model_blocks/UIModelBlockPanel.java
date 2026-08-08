@@ -286,6 +286,9 @@ public class UIModelBlockPanel extends UIDashboardPanel implements IFlightSuppor
                     });
 
             palette.immersive();
+            /* Match Transformaciones/morphing: keep the world visible behind the form list
+             * instead of the default near-opaque palette scrim. */
+            palette.noBackground();
             palette.editor.keys().register(Keys.MODEL_BLOCKS_TOGGLE_RENDERING,
                     () -> toggleRendering = !toggleRendering);
             palette.editor.renderer.full(dashboard.getRoot());
