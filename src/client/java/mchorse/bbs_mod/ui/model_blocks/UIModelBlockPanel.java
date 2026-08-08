@@ -280,9 +280,10 @@ public class UIModelBlockPanel extends UIDashboardPanel implements IFlightSuppor
                         if (this.isEditing(this.modelBlock))
                         {
                             this.toSave.add(this.modelBlock);
-                            return;
                         }
 
+                        /* Always finish the undo entry so a later gizmo drag cannot keep the
+                         * pre-form snapshot in pendingUndoBefore and merge form+transform. */
                         this.endUndoCapture();
                     });
 
@@ -1447,9 +1448,13 @@ public class UIModelBlockPanel extends UIDashboardPanel implements IFlightSuppor
 
         this.undoManager.pushUndo(new ModelBlockPropertiesUndo(this.modelBlock.getPos(), before, after));
         this.toSave.add(this.modelBlock);
-        /* Sync immediately so paint/color transforms are not lost if the world unloads
-         * before the panel's close() flush. */
-        this.save(this.modelBlock);
+
+        /* Nested form editor mutates the live form instance; syncing now round-trips
+         * fromData() and replaces it (stale F7 transforms). Defer until the editor closes. */
+        if (!this.isEditing(this.modelBlock))
+        {
+            this.save(this.modelBlock);
+        }
     }
 
     private void applyPropertiesSnapshot(BlockPos pos, MapType data) {
@@ -1494,6 +1499,13 @@ public class UIModelBlockPanel extends UIDashboardPanel implements IFlightSuppor
     }
 
     private static class ModelBlockPropertiesUndo implements IUndo<UIModelBlockPanel> {
+        private static final Set<String> TRANSFORM_KEYS = Set.of(
+            "transform",
+            "transformThirdPerson",
+            "transformInventory",
+            "transformFirstPerson"
+        );
+
         private final BlockPos pos;
         private final MapType before;
         private MapType after;
@@ -1513,7 +1525,14 @@ public class UIModelBlockPanel extends UIDashboardPanel implements IFlightSuppor
 
         @Override
         public boolean isMergeable(IUndo<UIModelBlockPanel> undo) {
-            return this.mergable && undo instanceof ModelBlockPropertiesUndo other && this.pos.equals(other.pos);
+            if (!this.mergable || !(undo instanceof ModelBlockPropertiesUndo other) || !this.pos.equals(other.pos)) {
+                return false;
+            }
+
+            /* Only coalesce consecutive transform/gizmo edits. Merging a form pick with a
+             * later gizmo move made Ctrl+Z restore the previous form as well. */
+            return isTransformOnlyChange(this.before, this.after)
+                && isTransformOnlyChange(other.before, other.after);
         }
 
         @Override
@@ -1530,6 +1549,35 @@ public class UIModelBlockPanel extends UIDashboardPanel implements IFlightSuppor
         @Override
         public void redo(UIModelBlockPanel context) {
             context.applyPropertiesSnapshot(this.pos, this.after);
+        }
+
+        private static boolean isTransformOnlyChange(MapType before, MapType after) {
+            if (before == null || after == null) {
+                return false;
+            }
+
+            Set<String> keys = new HashSet<>();
+            keys.addAll(before.keys());
+            keys.addAll(after.keys());
+
+            boolean anyChange = false;
+
+            for (String key : keys) {
+                String a = before.has(key) ? String.valueOf(before.get(key)) : "";
+                String b = after.has(key) ? String.valueOf(after.get(key)) : "";
+
+                if (a.equals(b)) {
+                    continue;
+                }
+
+                anyChange = true;
+
+                if (!TRANSFORM_KEYS.contains(key)) {
+                    return false;
+                }
+            }
+
+            return anyChange;
         }
     }
 
