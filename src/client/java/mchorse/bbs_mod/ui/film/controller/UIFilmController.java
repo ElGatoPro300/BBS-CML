@@ -151,6 +151,13 @@ public class UIFilmController extends UIElement
     private boolean wasControlAllowFlying;
     private boolean controlFlightModified;
 
+    /**
+     * Horizontal release-coast while actor-controlling. Avoids stacking extra
+     * friction on top of LivingEntity (hard stop) while still decaying residual
+     * motion so ice-like flight leftovers cannot slide forever.
+     */
+    private Vec3d actorControlCoastVelocity;
+
     /* Replay and group picking */
     private IEntity hoveredEntity;
     private StencilFormFramebuffer stencil = new StencilFormFramebuffer();
@@ -446,10 +453,21 @@ public class UIFilmController extends UIElement
         return replay != null && replay.actor.get();
     }
 
+    /**
+     * Soft vanilla-like stop for actor-control without the decoupled puppet path.
+     * <p>
+     * On WASD release we capture horizontal speed and re-apply a decaying coast
+     * each input tick. That curve is the only intentional idle brake (≈ ground
+     * friction {@code 0.6 * 0.91}), so we do not multiply velocity by an extra
+     * {@code 0.55} on top of {@code LivingEntity} friction (that felt like a hard stop).
+     * Cap + decay also prevent the old infinite ice slide from flight leftovers.
+     */
     public void dampenActorControlDrift(boolean moving)
     {
-        if (moving || !this.isControllingActorReplay())
+        if (!this.isControllingActorReplay())
         {
+            this.actorControlCoastVelocity = null;
+
             return;
         }
 
@@ -460,19 +478,60 @@ public class UIFilmController extends UIElement
             return;
         }
 
-        Vec3d velocity = player.getVelocity();
-        double factor = player.isOnGround() ? 0.55D : 0.91D;
-        double x = velocity.x * factor;
-        double z = velocity.z * factor;
-
-        if (x * x + z * z < 0.0004D)
+        if (moving)
         {
-            x = 0D;
-            z = 0D;
+            this.actorControlCoastVelocity = null;
+
+            return;
+        }
+
+        Vec3d velocity = player.getVelocity();
+
+        if (this.actorControlCoastVelocity == null)
+        {
+            double hx = velocity.x;
+            double hz = velocity.z;
+            double horizSq = hx * hx + hz * hz;
+
+            if (horizSq <= 1.0E-6D)
+            {
+                player.setSprinting(false);
+
+                return;
+            }
+
+            /* Clamp seed so a flight/ice leftover cannot launch a long slide. */
+            double maxSeed = player.isSprinting() ? 0.3D : 0.22D;
+            double horiz = Math.sqrt(horizSq);
+
+            if (horiz > maxSeed)
+            {
+                double scale = maxSeed / horiz;
+
+                hx *= scale;
+                hz *= scale;
+            }
+
+            this.actorControlCoastVelocity = new Vec3d(hx, 0D, hz);
+        }
+
+        /* Match normal-block ground friction; air uses the usual 0.91 horizontal drag. */
+        double drag = player.isOnGround() ? (0.6D * 0.91D) : 0.91D;
+        double cx = this.actorControlCoastVelocity.x;
+        double cz = this.actorControlCoastVelocity.z;
+
+        if (cx * cx + cz * cz < 0.0004D)
+        {
+            this.actorControlCoastVelocity = null;
+            player.setSprinting(false);
+            player.setVelocity(0D, velocity.y, 0D);
+
+            return;
         }
 
         player.setSprinting(false);
-        player.setVelocity(x, velocity.y, z);
+        player.setVelocity(cx, velocity.y, cz);
+        this.actorControlCoastVelocity = new Vec3d(cx * drag, 0D, cz * drag);
     }
 
     public void toggleControl()
@@ -493,6 +552,7 @@ public class UIFilmController extends UIElement
             }
 
             this.controlled = null;
+            this.actorControlCoastVelocity = null;
             this.notifyActorPuppet(-1);
             this.restoreControlFlight();
         }
