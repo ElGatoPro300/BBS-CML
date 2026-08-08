@@ -1091,6 +1091,7 @@
     "bbs.ui.film.replay.track.anchor": "Anclaje",
     "bbs.ui.film.replay.track.body_yaw": "Guiñada del cuerpo",
     "bbs.ui.film.replay.track.damage": "Daño",
+    "bbs.ui.film.replay.track.invulnerable": "Invencible",
     "bbs.ui.film.replay.track.death_time": "Tiempo de muerte",
     "bbs.ui.film.replay.track.fall": "Distancia de caída",
     "bbs.ui.film.replay.track.fire": "Fuego",

@@ -199,6 +199,8 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
         COLORS.put("extra2_y", Colors.GREEN);
         COLORS.put("shadow_size", Colors.MAGENTA);
         COLORS.put("shadow_opacity", Colors.ORANGE);
+        COLORS.put("damage", Colors.RED);
+        COLORS.put("invulnerable", Colors.YELLOW);
         COLORS.put("riding", Colors.ORANGE);
         COLORS.put("ridden", Colors.BLUE);
 
@@ -303,6 +305,8 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
         ICONS.put("extra2_x", Icons.CURVES);
         ICONS.put("shadow_size", Icons.SCALE);
         ICONS.put("shadow_opacity", Icons.VISIBLE);
+        ICONS.put("damage", Icons.SKULL);
+        ICONS.put("invulnerable", Icons.LOCKED);
         ICONS.put("item_main_hand", Icons.LIMB);
 
         ICONS.put("user1", Icons.PARTICLE);
@@ -1342,6 +1346,7 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
         this.collapsedModelTracks.put(replayId + ":__vanilla_poses__", true);
         this.collapsedModelTracks.put(replayId + ":__vanilla_actions__", true);
         this.collapsedModelTracks.put(replayId + ":__model__:color", true);
+        this.collapsedModelTracks.put(replayId + ":damage", true);
 
         List<String> childPaths = new ArrayList<>();
 
@@ -1580,7 +1585,7 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
             && this.filmPanel.getController().getCurrentEntity() != null;
     }
 
-    private static final List<String> WORLD_CHANNELS = Arrays.asList("x", "y", "z", "vX", "vY", "vZ", "yaw", "pitch", "headYaw", "bodyYaw", "grounded", "damage", "death_time", "using_item", "item_use_time", "fire", "particles", "active_hand", "fall", "sneaking", "riding", "sprinting", "swimming", "flying", "fall_flying", "crawling", "climbing", "blocking", "sleeping", "riptide", "item_main_hand", "item_off_hand", "item_head", "item_chest", "item_legs", "item_feet", "selected_slot", "stick_lx", "stick_ly", "stick_rx", "stick_ry", "trigger_l", "trigger_r", "extra1_x", "extra1_y", "extra2_x", "extra2_y", "shadow_size", "shadow_opacity");
+    private static final List<String> WORLD_CHANNELS = Arrays.asList("x", "y", "z", "vX", "vY", "vZ", "yaw", "pitch", "headYaw", "bodyYaw", "grounded", "damage", "invulnerable", "death_time", "using_item", "item_use_time", "fire", "particles", "active_hand", "fall", "sneaking", "riding", "sprinting", "swimming", "flying", "fall_flying", "crawling", "climbing", "blocking", "sleeping", "riptide", "item_main_hand", "item_off_hand", "item_head", "item_chest", "item_legs", "item_feet", "selected_slot", "stick_lx", "stick_ly", "stick_rx", "stick_ry", "trigger_l", "trigger_r", "extra1_x", "extra1_y", "extra2_x", "extra2_y", "shadow_size", "shadow_opacity");
     private static final Set<String> VANILLA_POSE_CHANNELS = Set.of(
         "riding", "swimming", "flying", "fall_flying",
         "crawling", "climbing", "blocking", "sleeping", "riptide"
@@ -1658,6 +1663,11 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
         if (trackName.equals("damage"))
         {
             return UIKeys.FILM_REPLAY_TRACK_DAMAGE;
+        }
+
+        if (trackName.equals("invulnerable"))
+        {
+            return UIKeys.FILM_REPLAY_TRACK_INVULNERABLE;
         }
 
         if (trackName.equals("death_time"))
@@ -2177,6 +2187,12 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
         {
             for (String key : ReplayKeyframes.CURATED_CHANNELS)
             {
+                /* Actor-only nested Damage child — omit for non-actor replays. */
+                if (key.equals("invulnerable") && !this.replay.actor.get())
+                {
+                    continue;
+                }
+
                 BaseValue value = this.replay.keyframes.get(key);
                 KeyframeChannel channel = (KeyframeChannel) value;
 
@@ -2647,6 +2663,8 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
                 List<UIKeyframeSheet> modelTracksAfterPose = new ArrayList<>();
                 boolean hasVanillaPoses = false;
                 boolean hasVanillaActions = false;
+                UIKeyframeSheet invulnerableSheet = null;
+                boolean actorReplay = this.replay.actor.get();
 
                 Map<String, FormTracks> subForms = new LinkedHashMap<>();
 
@@ -2654,6 +2672,16 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
                 {
                     if (WORLD_CHANNELS.contains(sheet.id) && !isFormItemUseTimeTrack(sheet))
                     {
+                        if (sheet.id.equals("invulnerable"))
+                        {
+                            if (actorReplay)
+                            {
+                                invulnerableSheet = sheet;
+                            }
+
+                            continue;
+                        }
+
                         if (!this.collapsedModelTracks.getOrDefault(worldKey, false))
                         {
                             if (VANILLA_POSE_CHANNELS.contains(sheet.id))
@@ -2679,6 +2707,20 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
                             else
                             {
                                 sheet.level = 2;
+
+                                if (sheet.id.equals("damage") && actorReplay)
+                                {
+                                    String damageKey = this.replay.uuid.get() + ":damage";
+                                    boolean damageExpanded = !this.collapsedModelTracks.getOrDefault(damageKey, true);
+
+                                    sheet.expanded = damageExpanded;
+                                    sheet.toggleExpanded = () ->
+                                    {
+                                        this.collapsedModelTracks.put(damageKey, !this.collapsedModelTracks.getOrDefault(damageKey, true));
+                                        this.updateChannelsList();
+                                    };
+                                }
+
                                 worldTracks.add(sheet);
                             }
                         }
@@ -2739,6 +2781,24 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
                             String groupKey = this.replay.uuid.get() + ":" + path;
 
                             this.processTrack(sheet, groupKey, path.split("/").length, subForms.get(path).before, subForms.get(path).pose, subForms.get(path).limbs, subForms.get(path).overlayRoots, subForms.get(path).overlayLimbs, subForms.get(path).after);
+                        }
+                    }
+                }
+
+                if (actorReplay && invulnerableSheet != null)
+                {
+                    String damageKey = this.replay.uuid.get() + ":damage";
+
+                    if (!this.collapsedModelTracks.getOrDefault(damageKey, true))
+                    {
+                        for (int i = 0; i < worldTracks.size(); i++)
+                        {
+                            if (worldTracks.get(i).id.equals("damage"))
+                            {
+                                invulnerableSheet.level = worldTracks.get(i).level + 1;
+                                worldTracks.add(i + 1, invulnerableSheet);
+                                break;
+                            }
                         }
                     }
                 }

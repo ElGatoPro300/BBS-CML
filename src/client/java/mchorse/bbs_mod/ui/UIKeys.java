@@ -952,6 +952,7 @@ public class UIKeys
     public static final IKey FILM_REPLAY_TRACK_BODY_YAW = L10n.lang("bbs.ui.film.replay.track.body_yaw");
     public static final IKey FILM_REPLAY_TRACK_GROUNDED = L10n.lang("bbs.ui.film.replay.track.grounded");
     public static final IKey FILM_REPLAY_TRACK_DAMAGE = L10n.lang("bbs.ui.film.replay.track.damage");
+    public static final IKey FILM_REPLAY_TRACK_INVULNERABLE = L10n.lang("bbs.ui.film.replay.track.invulnerable");
     public static final IKey FILM_REPLAY_TRACK_DEATH_TIME = L10n.lang("bbs.ui.film.replay.track.death_time");
     public static final IKey FILM_REPLAY_TRACK_USING_ITEM = L10n.lang("bbs.ui.film.replay.track.using_item");
     public static final IKey FILM_REPLAY_TRACK_ITEM_USE_TIME = L10n.lang("bbs.ui.film.replay.track.item_use_time");

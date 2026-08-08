@@ -1209,6 +1209,7 @@
     "bbs.ui.film.replay.track.body_yaw": "Body yaw",
     "bbs.ui.film.replay.track.grounded": "Grounded",
     "bbs.ui.film.replay.track.damage": "Damage",
+    "bbs.ui.film.replay.track.invulnerable": "Invulnerable",
     "bbs.ui.film.replay.track.death_time": "Death time",
     "bbs.ui.film.replay.track.using_item": "Using item",
     "bbs.ui.film.replay.track.item_use_time": "Item use time (elapsed ticks)",

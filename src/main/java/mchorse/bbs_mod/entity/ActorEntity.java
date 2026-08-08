@@ -460,7 +460,7 @@ public class ActorEntity extends LivingEntity implements IEntityFormProvider
 
 
 
-        @Override
+    @Override
     public void onDeath(DamageSource damageSource)
     {
         super.onDeath(damageSource);
@@ -470,6 +470,32 @@ public class ActorEntity extends LivingEntity implements IEntityFormProvider
             this.dropReplayItems();
             this.replayItemsDropped = true;
         }
+    }
+
+    /**
+     * Actor-mode invulnerability from the nested {@code invulnerable} keyframe track.
+     * Blocks live hits / action-clip damage while keyframed {@code damage} hurt flash
+     * still applies via {@link ActorReplayStateSync}.
+     */
+    @Override
+    public boolean isInvulnerableTo(DamageSource damageSource)
+    {
+        if (this.isKeyframeInvulnerable())
+        {
+            return true;
+        }
+
+        return super.isInvulnerableTo(damageSource);
+    }
+
+    private boolean isKeyframeInvulnerable()
+    {
+        if (this.replay == null || this.replay.keyframes == null)
+        {
+            return false;
+        }
+
+        return this.replay.keyframes.isInvulnerableAt((float) this.currentTick);
     }
     
     /**
