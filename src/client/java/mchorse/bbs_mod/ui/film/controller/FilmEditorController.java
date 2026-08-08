@@ -146,6 +146,12 @@ public class FilmEditorController extends BaseFilmController
     }
 
     @Override
+    protected boolean shouldEmitReplayMotionFx(IEntity entity)
+    {
+        return !this.controller.isControlling() || entity != this.controller.getControlled();
+    }
+
+    @Override
     protected float getTransition(IEntity entity, float transition)
     {
         boolean current = this.isCurrent(entity) && this.controller.isControlling();

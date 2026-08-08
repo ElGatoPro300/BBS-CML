@@ -1302,6 +1302,9 @@ public abstract class BaseFilmController
                             /* Stub already has vanilla pose/action keyframes; copy them so
                              * MCEntity(actor) used by ActorEntityRenderer sees sprint/limbs/etc. */
                             ActorReplayStateSync.syncFromSource(actor, entity);
+                            /* Only gate vanilla sprint dust — do not touch position, velocity,
+                             * visibility, or the sprinting flag (needed for run anim). */
+                            actor.setSuppressSprintParticles(!this.shouldEmitReplayMotionFx(entity));
                             /* Keep label in sync while editing name_tag in the film UI. */
                             actor.syncNameTag(replay);
                             replay.applyClientActions(replayTick, new MCEntity(anEntity), this.film);
@@ -1321,7 +1324,10 @@ public abstract class BaseFilmController
 
                                 player.setVelocity(x - prevX, y - prevY, z - prevZ);
 
-                                this.spawnSprintParticles(replay, replayTick, player);
+                                if (this.shouldEmitReplayMotionFx(entity))
+                                {
+                                    this.spawnSprintParticles(replay, replayTick, player);
+                                }
                             }
                             else
                             {
@@ -1333,7 +1339,7 @@ public abstract class BaseFilmController
                     }
                 }
 
-                if (!spawned && !mounted)
+                if (!spawned && !mounted && this.shouldEmitReplayMotionFx(entity))
                 {
                     World world = MinecraftClient.getInstance().world;
                     Form form = replay.form.get();
@@ -1532,6 +1538,16 @@ public abstract class BaseFilmController
         double z = zPos + (world.random.nextDouble() - 0.5D) * width;
 
         world.addParticle(new BlockStateParticleEffect(ParticleTypes.BLOCK, world.getBlockState(pos)), x, y, z, 0D, 0.1D, 0D);
+    }
+
+    /**
+     * Whether film-pose motion FX (BBS keyframe sprint dust / step sounds) may emit
+     * for this replay entity. Defaults to true; the film editor turns it off for the
+     * entity currently under actor-control so dust is not sprayed at the parked pose.
+     */
+    protected boolean shouldEmitReplayMotionFx(IEntity entity)
+    {
+        return true;
     }
 
     private void spawnReplayStepSound(Replay replay, int ticks, World world)

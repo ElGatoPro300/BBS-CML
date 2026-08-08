@@ -70,6 +70,14 @@ public class ActorEntity extends LivingEntity implements IEntityFormProvider
      */
     private int playbackVelocityBlendTicks;
 
+    /**
+     * When true, {@link #spawnSprintingParticles()} is a no-op. Used while the film
+     * editor has actor-control on this replay: the live player may be sprinting, and
+     * {@code ActorReplayStateSync} copies that flag onto this entity, but the body can
+     * still sit on the film pose — without this, vanilla dust sprays at the wrong place.
+     */
+    private boolean suppressSprintParticles;
+
     /* Film and replay data for item drops */
     private Film film;
     private Replay replay;
@@ -151,6 +159,22 @@ public class ActorEntity extends LivingEntity implements IEntityFormProvider
         this.playbackVelocityBlendTicks -= 1;
 
         return 1D - (remaining / 4D);
+    }
+
+    public void setSuppressSprintParticles(boolean suppress)
+    {
+        this.suppressSprintParticles = suppress;
+    }
+
+    @Override
+    protected void spawnSprintingParticles()
+    {
+        if (this.suppressSprintParticles)
+        {
+            return;
+        }
+
+        super.spawnSprintingParticles();
     }
 
     private void initializeRuntimeInventory()
