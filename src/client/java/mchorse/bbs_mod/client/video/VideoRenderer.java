@@ -10,17 +10,13 @@ import mchorse.bbs_mod.ui.utils.Area;
 import mchorse.bbs_mod.utils.clips.Clip;
 
 import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.gl.ShaderProgramKeys;
 import net.minecraft.client.render.*;
-import net.minecraft.client.render.RenderLayers;
 import net.minecraft.client.util.math.MatrixStack;
 
 import org.joml.Matrix4f;
 
-import com.mojang.blaze3d.opengl.GlStateManager;
 import com.mojang.blaze3d.systems.RenderSystem;
-import com.mojang.blaze3d.vertex.VertexFormat;
-
-import org.lwjgl.opengl.GL11;
 
 import java.io.File;
 import java.util.ArrayList;
@@ -426,12 +422,14 @@ public class VideoRenderer
                 return;
             }
 
-            GlStateManager._colorMask(true, true, true, true);
-            GlStateManager._enableBlend();
-            GlStateManager._blendFuncSeparate(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA, GL11.GL_ONE, GL11.GL_ZERO);
-            GlStateManager._disableDepthTest();
-            GlStateManager._depthMask(false);
-            GlStateManager._disableCull();
+            RenderSystem.setShader(ShaderProgramKeys.POSITION_TEX);
+            RenderSystem.setShaderTexture(0, texture);
+            RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, opacity);
+            RenderSystem.enableBlend();
+            RenderSystem.defaultBlendFunc();
+            RenderSystem.disableDepthTest();
+            RenderSystem.depthMask(false);
+            RenderSystem.disableCull();
 
             Tessellator tessellator = Tessellator.getInstance();
             BufferBuilder buffer = tessellator.begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_TEXTURE);
@@ -445,12 +443,12 @@ public class VideoRenderer
             buffer.vertex(matrix, drawX + drawW, drawY + drawH, 0).texture(u1, v1);
             buffer.vertex(matrix, drawX + drawW, drawY, 0).texture(u1, v0);
             buffer.vertex(matrix, drawX, drawY, 0).texture(u0, v0);
-            RenderLayers.debugFilledBox().draw(buffer.end());
+            BufferRenderer.drawWithGlobalProgram(buffer.end());
             
-            GlStateManager._enableCull();
-            GlStateManager._depthMask(true);
-            GlStateManager._enableDepthTest();
-            GlStateManager._colorMask(true, true, true, true);
+            RenderSystem.enableCull();
+            RenderSystem.depthMask(true);
+            RenderSystem.enableDepthTest();
+            RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
         }
     }
 

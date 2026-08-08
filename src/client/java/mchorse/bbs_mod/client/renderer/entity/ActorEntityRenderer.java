@@ -8,24 +8,22 @@ import mchorse.bbs_mod.forms.renderers.FormRenderType;
 import mchorse.bbs_mod.forms.renderers.FormRenderingContext;
 
 import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.render.TexturedRenderLayers;
-import net.minecraft.client.render.command.OrderedRenderCommandQueue;
+import net.minecraft.client.render.VertexConsumerProvider;
 import net.minecraft.client.render.entity.EntityRenderer;
 import net.minecraft.client.render.entity.EntityRendererFactory;
 import net.minecraft.client.render.entity.LivingEntityRenderer;
-import net.minecraft.client.render.entity.model.BipedEntityModel;
+import net.minecraft.client.render.entity.model.ArmorEntityModel;
 import net.minecraft.client.render.entity.model.ElytraEntityModel;
 import net.minecraft.client.render.entity.model.EntityModelLayers;
+import net.minecraft.client.render.entity.state.EntityRenderState;
 import net.minecraft.client.render.entity.state.LivingEntityRenderState;
-import net.minecraft.client.render.state.CameraRenderState;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.entity.EntityPose;
-import net.minecraft.entity.EquipmentSlot;
 import net.minecraft.util.Identifier;
 import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.RotationAxis;
 
-import org.lwjgl.opengl.GL11;
+import com.mojang.blaze3d.systems.RenderSystem;
 
 public class ActorEntityRenderer extends EntityRenderer<ActorEntity, ActorEntityRenderer.ActorEntityState>
 {
@@ -45,11 +43,13 @@ public class ActorEntityRenderer extends EntityRenderer<ActorEntity, ActorEntity
         super(ctx);
 
         armorRenderer = new ArmorRenderer(
-            new BipedEntityModel(ctx.getPart(EntityModelLayers.PLAYER_EQUIPMENT.getModelData(EquipmentSlot.LEGS))),
-            new BipedEntityModel(ctx.getPart(EntityModelLayers.PLAYER_EQUIPMENT.getModelData(EquipmentSlot.CHEST))),
+            new ArmorEntityModel(ctx.getPart(EntityModelLayers.PLAYER_INNER_ARMOR)),
+            new ArmorEntityModel(ctx.getPart(EntityModelLayers.PLAYER_OUTER_ARMOR)),
             new ElytraEntityModel(ctx.getPart(EntityModelLayers.ELYTRA)),
-            MinecraftClient.getInstance().getAtlasManager().getAtlasTexture(TexturedRenderLayers.ARMOR_TRIMS_ATLAS_TEXTURE)
+            ctx.getModelManager()
         );
+
+        // this.shadowRadius = 0.5F;
     }
 
     @Override
@@ -62,8 +62,8 @@ public class ActorEntityRenderer extends EntityRenderer<ActorEntity, ActorEntity
         super.updateRenderState(entity, state, tickDelta);
         state.entity = entity;
         state.tickDelta = tickDelta;
-        state.bodyYaw = entity.getBodyYaw();
-        state.prevBodyYaw = entity.lastBodyYaw;
+        state.bodyYaw = entity.bodyYaw;
+        state.prevBodyYaw = entity.prevBodyYaw;
         state.deathTime = (float)entity.deathTime;
         state.isSleeping = entity.isInPose(EntityPose.SLEEPING);
     }
@@ -74,7 +74,7 @@ public class ActorEntityRenderer extends EntityRenderer<ActorEntity, ActorEntity
     }
 
     @Override
-    public void render(ActorEntityState state, MatrixStack matrices, OrderedRenderCommandQueue queue, CameraRenderState cameraState)
+    public void render(ActorEntityState state, MatrixStack matrices, VertexConsumerProvider vertexConsumers, int light)
     {
         ActorEntity livingEntity = state.entity;
         if (livingEntity == null) return;
@@ -85,22 +85,21 @@ public class ActorEntityRenderer extends EntityRenderer<ActorEntity, ActorEntity
 
         float bodyYaw = MathHelper.lerpAngleDegrees(tickDelta, state.prevBodyYaw, state.bodyYaw);
         int overlay = LivingEntityRenderer.getOverlay(state, 0F);
-        int light = state.light;
 
         this.setupTransforms(livingEntity, matrices, bodyYaw, tickDelta);
 
-        GL11.glEnable(GL11.GL_BLEND);
-        GL11.glEnable(GL11.GL_DEPTH_TEST);
+        RenderSystem.enableBlend();
+        RenderSystem.enableDepthTest();
         FormUtilsClient.render(livingEntity.getForm(), new FormRenderingContext()
-            .set(FormRenderType.ENTITY, livingEntity.getWrappingEntity(), matrices, light, overlay, tickDelta)
+            .set(FormRenderType.ENTITY, livingEntity.getEntity(), matrices, light, overlay, tickDelta)
             .camera(MinecraftClient.getInstance().gameRenderer.getCamera()));
 
-        if (livingEntity.getWrappingEntity().getFireTicks() > 0)
+        if (livingEntity.getEntity().getFireTicks() > 0)
         {
             MorphFireRenderer.render(
                 matrices,
-                MinecraftClient.getInstance().getBufferBuilders().getEntityVertexConsumers(),
-                livingEntity.getWrappingEntity(),
+                vertexConsumers,
+                livingEntity.getEntity(),
                 livingEntity.getForm(),
                 tickDelta,
                 MinecraftClient.getInstance().gameRenderer.getCamera(),
@@ -108,12 +107,12 @@ public class ActorEntityRenderer extends EntityRenderer<ActorEntity, ActorEntity
             );
         }
 
-        GL11.glDisable(GL11.GL_DEPTH_TEST);
-        GL11.glDisable(GL11.GL_BLEND);
+        RenderSystem.disableDepthTest();
+        RenderSystem.disableBlend();
 
         matrices.pop();
 
-        super.render(state, matrices, queue, cameraState);
+        super.render(state, matrices, vertexConsumers, light);
     }
 
     protected boolean isVisible(ActorEntity entity)

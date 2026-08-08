@@ -18,7 +18,7 @@ import org.joml.Matrix4f;
 import org.joml.Vector3f;
 import org.joml.Vector4f;
 
-import com.mojang.blaze3d.opengl.GlStateManager;
+import com.mojang.blaze3d.platform.GlStateManager;
 import com.mojang.blaze3d.systems.RenderSystem;
 
 import org.lwjgl.opengl.GL15;
@@ -329,8 +329,8 @@ public class BOBJModelVAO
 
         /* Keep depth on so nearer limbs (head in front of torso) stay pickable. Priority
          * bones only win z-ties / coplanar overlaps against parents drawn earlier. */
-        GlStateManager._enableDepthTest();
-        GlStateManager._depthMask(true);
+        RenderSystem.enableDepthTest();
+        RenderSystem.depthMask(true);
 
         for (String boneId : CubicRenderer.STENCIL_PICK_PRIORITY_BONES)
         {
@@ -384,7 +384,8 @@ public class BOBJModelVAO
     protected void rebindShaderSamplers(ShaderProgram shader, MatrixStack stack, float r, float g, float b, float a, int light, int overlay)
     {
         ModelVAORenderer.setupUniforms(stack, shader);
-        GlStateManager._glUseProgram(shader.getGlRef());
+        RenderSystem.setShader(shader);
+        shader.bind();
         GL30.glBindVertexArray(this.vao);
 
         GL30.glDisableVertexAttribArray(Attributes.COLOR);
@@ -410,12 +411,13 @@ public class BOBJModelVAO
 
         ModelVAORenderer.setupUniforms(stack, shader);
 
-        GlStateManager._glUseProgram(shader.getGlRef());
+        RenderSystem.setShader(shader);
+        shader.bind();
         FormColorGradePatch.uploadToCurrentProgram();
 
-        // int textureID = RenderSystem.getShaderTexture(0);
-        // GlStateManager._activeTexture(GL30.GL_TEXTURE0);
-        // GlStateManager._bindTexture(textureID);
+        int textureID = RenderSystem.getShaderTexture(0);
+        GlStateManager._activeTexture(GL30.GL_TEXTURE0);
+        GlStateManager._bindTexture(textureID);
 
         GL30.glBindVertexArray(this.vao);
 
@@ -518,7 +520,7 @@ public class BOBJModelVAO
         if (hasShaders) GL30.glDisableVertexAttribArray(Attributes.TANGENTS);
         if (hasShaders) GL30.glDisableVertexAttribArray(Attributes.MID_TEXTURE_UV);
 
-        GlStateManager._glUseProgram(0);
+        shader.unbind();
 
         GL30.glBindVertexArray(currentVAO);
         GL30.glBindBuffer(GL30.GL_ELEMENT_ARRAY_BUFFER, currentElementArrayBuffer);

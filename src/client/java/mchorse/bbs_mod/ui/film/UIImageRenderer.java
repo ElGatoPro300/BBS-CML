@@ -11,17 +11,22 @@ import mchorse.bbs_mod.utils.Quad;
 import mchorse.bbs_mod.utils.colors.Color;
 
 import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.gl.ShaderProgram;
+import net.minecraft.client.render.GameRenderer;
 import net.minecraft.client.util.math.MatrixStack;
 
 import org.joml.Matrix4f;
 import org.joml.Vector4f;
 
-import com.mojang.blaze3d.opengl.GlStateManager;
+import com.mojang.blaze3d.platform.GlStateManager;
+import com.mojang.blaze3d.systems.ProjectionType;
+import com.mojang.blaze3d.systems.RenderSystem;
 
 import org.lwjgl.opengl.GL11;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.function.Supplier;
 
 public class UIImageRenderer
 {
@@ -35,16 +40,20 @@ public class UIImageRenderer
             return;
         }
 
+        ShaderProgram program = BBSShaders.getSubtitlesProgram();
+
         net.minecraft.client.gl.Framebuffer fb = MinecraftClient.getInstance().getFramebuffer();
         int width = fb.textureWidth / 2;
         int height = fb.textureHeight / 2;
-        Matrix4f cache = new Matrix4f();
+        Matrix4f cache = new Matrix4f(RenderSystem.getProjectionMatrix());
+        ProjectionType savedProjType = RenderSystem.getProjectionType();
         Matrix4f ortho = new Matrix4f().ortho(0, width, height, 0, -100, 100);
 
-        GlStateManager._depthFunc(GL11.GL_ALWAYS);
-        GlStateManager._disableCull();
-        GlStateManager._enableBlend();
-        GlStateManager._blendFuncSeparate(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA, GL11.GL_ONE, GL11.GL_ZERO);
+        RenderSystem.setProjectionMatrix(ortho, ProjectionType.ORTHOGRAPHIC);
+        RenderSystem.depthFunc(GL11.GL_ALWAYS);
+        RenderSystem.disableCull();
+        RenderSystem.enableBlend();
+        RenderSystem.blendFuncSeparate(GlStateManager.SrcFactor.SRC_ALPHA, GlStateManager.DstFactor.ONE_MINUS_SRC_ALPHA, GlStateManager.SrcFactor.ONE, GlStateManager.DstFactor.ONE_MINUS_SRC_ALPHA);
 
         for (ImageOverlay overlay : images)
         {
@@ -55,16 +64,18 @@ public class UIImageRenderer
 
             float widthPercent = overlay.width / 100F;
             float heightPercent = overlay.height / 100F;
-            int fw = widthPercent == 0F ? 0 : Math.max(1, Math.round(width * Math.abs(widthPercent))) * (widthPercent < 0F ? -1 : 1);
-            int fh = heightPercent == 0F ? 0 : Math.max(1, Math.round(height * Math.abs(heightPercent))) * (heightPercent < 0F ? -1 : 1);
+            /* Keep sub-pixel size so width/height keyframes interpolate smoothly
+             * instead of stair-stepping on whole pixels (worse over long spans). */
+            float fw = widthPercent == 0F ? 0F : width * widthPercent;
+            float fh = heightPercent == 0F ? 0F : height * heightPercent;
 
-            if (fw == 0 || fh == 0)
+            if (fw == 0F || fh == 0F)
             {
                 continue;
             }
 
-            int x = (int) (width * overlay.windowX + overlay.x);
-            int y = (int) (height * overlay.windowY + overlay.y);
+            float x = width * overlay.windowX + overlay.x;
+            float y = height * overlay.windowY + overlay.y;
 
             FormTextureBlendRenderer.draw(overlay.textureBlend, overlay.texture, (link, alphaFactor) ->
             {
@@ -88,14 +99,15 @@ public class UIImageRenderer
                 stack.translate(x, y, 0);
 
                 texture.setFilterMipmap(overlay.linear, overlay.mipmap);
-                batcher.texturedBox(texture.id, color, drawX, drawY, fw, fh, uv[0], uv[1], uv[2], uv[3], texture.width, texture.height);
+                batcher.texturedBox(program, texture.id, color, drawX, drawY, fw, fh, uv[0], uv[1], uv[2], uv[3], texture.width, texture.height);
                 texture.setFilterMipmap(false, false);
 
                 stack.pop();
             });
         }
 
-        GlStateManager._enableCull();
+        RenderSystem.setProjectionMatrix(cache, savedProjType);
+        RenderSystem.enableCull();
     }
 
     public static void renderImage(MatrixStack stack, Batcher2D batcher, ImageOverlay overlay)

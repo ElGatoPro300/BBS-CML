@@ -10,12 +10,13 @@ import net.minecraft.entity.effect.StatusEffects;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.world.ServerWorld;
+import net.minecraft.world.GameRules;
 
 import java.util.function.IntConsumer;
 
 /**
  * Applies world-property changes through the integrated-server API when available (no chat spam, no
- * command parsing lag). Falls back to silent {@code sendChatCommand} only on multiplayer without direct access.
+ * command parsing lag). Falls back to silent {@code sendCommand} only on multiplayer without direct access.
  */
 public class WorldPropertiesHelper
 {
@@ -146,7 +147,7 @@ public class WorldPropertiesHelper
         sendSilentCommand("time set " + time);
     }
 
-    public static void setGamerule(String key, boolean value)
+    public static void setGamerule(GameRules.Key<GameRules.BooleanRule> key, boolean value)
     {
         MinecraftClient mc = MinecraftClient.getInstance();
         MinecraftServer server = mc.getServer();
@@ -166,7 +167,9 @@ public class WorldPropertiesHelper
             return;
         }
 
-        sendSilentCommand("gamerule " + key + " " + value);
+        String name = key.getName();
+
+        sendSilentCommand("gamerule " + name + " " + value);
     }
 
     public static void setWeatherClear()
@@ -248,7 +251,7 @@ public class WorldPropertiesHelper
         sendSilentCommand(command);
     }
 
-    public static boolean readGamerule(String key, boolean fallback)
+    public static boolean readGamerule(GameRules.Key<GameRules.BooleanRule> key, boolean fallback)
     {
         MinecraftClient mc = MinecraftClient.getInstance();
         MinecraftServer server = mc.getServer();
@@ -275,7 +278,7 @@ public class WorldPropertiesHelper
 
     private static void sendSilentCommandOnServer(MinecraftServer server, String command)
     {
-        server.getCommandManager().parseAndExecute(server.getCommandSource(), command);
+        server.getCommandManager().executeWithPrefix(server.getCommandSource(), command);
     }
 
     private static void sendSilentCommand(String command)
@@ -284,7 +287,7 @@ public class WorldPropertiesHelper
 
         if (player != null)
         {
-            player.networkHandler.sendChatCommand(command);
+            player.networkHandler.sendCommand(command);
         }
     }
 }
