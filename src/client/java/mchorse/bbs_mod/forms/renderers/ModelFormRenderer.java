@@ -108,6 +108,7 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
     private boolean constraintsAppliedThisRender;
 
     private int lastAge = -1;
+    private int lastUiAnimTick = Integer.MIN_VALUE;
 
     private IEntity entity = new StubEntity();
 
@@ -458,7 +459,19 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
 
             model.model.resetPose();
 
-            this.animator.applyActions(null, model, context.getTransition());
+            /* ProceduralAnimator (emoticons) no-ops on a null entity; also advance idle
+             * once per game tick so UI / morph thumbnails are not frozen on bind pose. */
+            MinecraftClient client = MinecraftClient.getInstance();
+            int tick = client.world != null ? (int) (client.world.getTime() & 0x7FFFFFFF) : this.lastUiAnimTick + 1;
+
+            if (tick != this.lastUiAnimTick)
+            {
+                this.lastUiAnimTick = tick;
+                this.entity.update();
+                this.animator.update(this.entity);
+            }
+
+            this.animator.applyActions(this.entity, model, context.getTransition());
             model.model.applyPose(this.getPose());
 
             MatrixStackUtils.multiply(stack, uiMatrix);
@@ -628,11 +641,13 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
         ModelVAORenderer.setGlow(glow, glowColor.r, glowColor.g, glowColor.b, legacyGlow);
 
         boolean shadowPass = (renderContext != null && renderContext.isShadowPass) || BBSRendering.isIrisShadowPass();
-        /* Orbit UI, form/model-block pickable preview: draw live. World post-deferred /
-         * Iris queues are never flushed for those passes — soft limbs would vanish. */
+        /* Orbit UI, form/model-block pickable preview, and inventory GUI items: draw live.
+         * World post-deferred / Iris queues are never flushed for those passes — soft limbs
+         * and translucent forms would vanish (inventory slots draw after world flush). */
         boolean localPreview = ui
             || (renderContext != null && (renderContext.ui || renderContext.modelRenderer
-                || renderContext.type == FormRenderType.PREVIEW));
+                || renderContext.type == FormRenderType.PREVIEW
+                || renderContext.type == FormRenderType.ITEM_INVENTORY));
         boolean irisWorldPaintDeferral = BBSRendering.isIrisWorldPaintDeferral();
         boolean paintActive = this.hasAnyPaint(model);
         boolean bbsModelShader = this.usesBbsModelShader(model);
@@ -3459,7 +3474,9 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
     {
         int age = entity.getAge();
 
-        if (this.lastAge != -1 && age != this.lastAge + 1)
+        /* Only restart when age seeks backward (timeline scrub). Forward jumps from
+         * film setAge()+StubEntity.age++ must not wipe ActionPlayback or emoticons freeze. */
+        if (this.lastAge != -1 && age < this.lastAge)
         {
             this.resetAnimator();
         }

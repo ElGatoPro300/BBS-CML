@@ -27,6 +27,7 @@ public class MobCemPoseCapture
     private static final float FIX_ROT_THRESHOLD = 0.05F;
     private static final float FIX_PIVOT_THRESHOLD = 0.05F;
     private static final float FIX_SCALE_THRESHOLD = 0.01F;
+    private static final float POSE_EQUAL_EPSILON = 0.001F;
 
     private MobCemPoseCapture()
     {}
@@ -61,7 +62,7 @@ public class MobCemPoseCapture
             return;
         }
 
-        MobCemPoseCapture.applySampledPose(replay, resolved, sampled, tick);
+        MobCemPoseCapture.applySampledPose(resolved, sampled);
     }
 
     public static void recordPoseKeyframe(Replay replay, Form form, IEntity entity, int tick, float transition)
@@ -144,7 +145,7 @@ public class MobCemPoseCapture
         return form;
     }
 
-    private static void applySampledPose(Replay replay, Form form, Pose sampled, float tick)
+    private static void applySampledPose(Form form, Pose sampled)
     {
         ValuePose valuePose = MobCemPoseCapture.getPoseValue(form);
 
@@ -156,8 +157,8 @@ public class MobCemPoseCapture
         Pose merged = valuePose.get().copy();
 
         MobCemPoseCapture.mergeSampledPose(merged, sampled);
+        /* Runtime only — keyframes are written by recordPoseKeyframe() while recording. */
         valuePose.setRuntimeValue(merged);
-        MobCemPoseCapture.insertPoseKeyframe(replay.properties, form, (float) Math.floor(tick), sampled);
     }
 
     private static ValuePose getPoseValue(Form form)
@@ -176,11 +177,63 @@ public class MobCemPoseCapture
         {
             KeyframeChannel<Pose> channel = edited.getOrCreate(form, "pose");
 
-            if (channel != null)
+            if (channel == null)
             {
-                channel.insert(tick, pose.copy());
+                return;
             }
+
+            /* Skip duplicate consecutive poses to limit film bloat / save hangs. */
+            if (!channel.isEmpty())
+            {
+                Pose last = channel.get(channel.getKeyframes().size() - 1).getValue();
+
+                if (MobCemPoseCapture.posesApproximatelyEqual(last, pose))
+                {
+                    return;
+                }
+            }
+
+            channel.insert(tick, pose.copy());
         });
+    }
+
+    private static boolean posesApproximatelyEqual(Pose a, Pose b)
+    {
+        if (a == b)
+        {
+            return true;
+        }
+
+        if (a == null || b == null || a.transforms.size() != b.transforms.size())
+        {
+            return false;
+        }
+
+        for (Map.Entry<String, PoseTransform> entry : a.transforms.entrySet())
+        {
+            PoseTransform other = b.transforms.get(entry.getKey());
+
+            if (other == null || !MobCemPoseCapture.transformsApproximatelyEqual(entry.getValue(), other))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private static boolean transformsApproximatelyEqual(PoseTransform a, PoseTransform b)
+    {
+        return Math.abs(a.fix - b.fix) <= POSE_EQUAL_EPSILON
+            && Math.abs(a.rotate.x - b.rotate.x) <= POSE_EQUAL_EPSILON
+            && Math.abs(a.rotate.y - b.rotate.y) <= POSE_EQUAL_EPSILON
+            && Math.abs(a.rotate.z - b.rotate.z) <= POSE_EQUAL_EPSILON
+            && Math.abs(a.pivot.x - b.pivot.x) <= POSE_EQUAL_EPSILON
+            && Math.abs(a.pivot.y - b.pivot.y) <= POSE_EQUAL_EPSILON
+            && Math.abs(a.pivot.z - b.pivot.z) <= POSE_EQUAL_EPSILON
+            && Math.abs(a.scale.x - b.scale.x) <= POSE_EQUAL_EPSILON
+            && Math.abs(a.scale.y - b.scale.y) <= POSE_EQUAL_EPSILON
+            && Math.abs(a.scale.z - b.scale.z) <= POSE_EQUAL_EPSILON;
     }
 
     public static Pose partsToPose(Map<String, ModelPart> parts)

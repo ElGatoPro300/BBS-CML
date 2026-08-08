@@ -525,15 +525,7 @@ public class FormProperties extends ValueGroup
             return;
         }
 
-        Keyframe<Boolean> first = channel.get(0);
-
-        if (first != null && tick < first.getTick())
-        {
-            property.setRuntimeValue(null);
-
-            return;
-        }
-
+        /* Hold first keyframe before its tick (same as KeyframeChannel.findSegment). */
         property.setRuntimeValue(channel.interpolate(tick, true));
     }
 

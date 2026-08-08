@@ -1106,6 +1106,7 @@
     "bbs.ui.film.replay.track.item_main_hand": "آیتم دست اصلی",
     "bbs.ui.film.replay.track.item_off_hand": "آیتم دست فرعی",
     "bbs.ui.film.replay.track.item_stack": "فهرست ایتم‌ها",
+    "bbs.ui.film.replay.track.same_animation_when_dropped": "انیمیشن آیتم",
     "bbs.ui.film.replay.track.item_use_time": "زمان استفاده از آیتم (تیک سپری‌شده)",
     "bbs.ui.film.replay.track.item_use_time_label": "زمان استفاده از آیتم",
     "bbs.ui.film.replay.track.lighting": "روشنایی",

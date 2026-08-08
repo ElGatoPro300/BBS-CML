@@ -930,6 +930,7 @@ public class UIKeys
     public static final IKey FILM_REPLAY_TRACK_ACTIONS = L10n.lang("bbs.ui.film.replay.track.actions");
     public static final IKey FILM_REPLAY_TRACK_SHAPE_KEYS = L10n.lang("bbs.ui.film.replay.track.shape_keys");
     public static final IKey FILM_REPLAY_TRACK_ITEM_STACK = L10n.lang("bbs.ui.film.replay.track.item_stack");
+    public static final IKey FILM_REPLAY_TRACK_SAME_ANIMATION_WHEN_DROPPED = L10n.lang("bbs.ui.film.replay.track.same_animation_when_dropped");
     public static final IKey FILM_REPLAY_TRACK_POSE = L10n.lang("bbs.ui.film.replay.track.pose");
     public static final IKey FILM_REPLAY_TRACK_POSE_OVERLAY = L10n.lang("bbs.ui.film.replay.track.pose_overlay");
     public static final IKey FILM_REPLAY_TRACK_POSE_OVERLAY_N = L10n.lang("bbs.ui.film.replay.track.pose_overlay_n");

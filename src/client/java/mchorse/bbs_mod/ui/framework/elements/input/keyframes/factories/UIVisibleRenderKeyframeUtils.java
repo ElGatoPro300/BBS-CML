@@ -75,13 +75,6 @@ public class UIVisibleRenderKeyframeUtils
             return true;
         }
 
-        Keyframe<Boolean> first = render.get(0);
-
-        if (first != null && tick < first.getTick())
-        {
-            return true;
-        }
-
         Boolean value = render.interpolate(tick, true);
 
         return value == null || value;

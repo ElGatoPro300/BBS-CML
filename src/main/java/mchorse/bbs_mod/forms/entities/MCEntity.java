@@ -1,5 +1,6 @@
 package mchorse.bbs_mod.forms.entities;
 
+import mchorse.bbs_mod.entity.IEntityFormProvider;
 import mchorse.bbs_mod.forms.forms.Form;
 import mchorse.bbs_mod.morphing.Morph;
 import mchorse.bbs_mod.utils.AABB;
@@ -55,6 +56,11 @@ public class MCEntity implements IEntity
     @Override
     public Form getForm()
     {
+        if (this.mcEntity instanceof IEntityFormProvider provider)
+        {
+            return provider.getForm();
+        }
+
         Morph morph = Morph.getMorph(this.mcEntity);
 
         return morph == null ? null : morph.getForm();
@@ -63,6 +69,13 @@ public class MCEntity implements IEntity
     @Override
     public void setForm(Form form)
     {
+        if (this.mcEntity instanceof IEntityFormProvider provider)
+        {
+            provider.setForm(form);
+
+            return;
+        }
+
         Morph morph = Morph.getMorph(this.mcEntity);
 
         if (morph != null)
@@ -236,6 +249,10 @@ public class MCEntity implements IEntity
     @Override
     public void setUsingItem(boolean usingItem)
     {
+        if (this.mcEntity instanceof LivingEntity living)
+        {
+            living.setLivingFlag(1, usingItem);
+        }
     }
 
     @Override
@@ -252,6 +269,10 @@ public class MCEntity implements IEntity
     @Override
     public void setItemUseTimeLeft(int itemUseTimeLeft)
     {
+        if (this.mcEntity instanceof LivingEntity living && itemUseTimeLeft > 0)
+        {
+            living.setLivingFlag(1, true);
+        }
     }
 
     @Override
@@ -292,6 +313,10 @@ public class MCEntity implements IEntity
     @Override
     public void setActiveHand(Hand hand)
     {
+        if (this.mcEntity instanceof LivingEntity living)
+        {
+            living.setLivingFlag(2, hand == Hand.OFF_HAND && living.isUsingItem());
+        }
     }
 
     @Override

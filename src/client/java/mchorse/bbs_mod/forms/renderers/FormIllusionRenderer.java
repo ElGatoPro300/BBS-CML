@@ -265,37 +265,49 @@ public final class FormIllusionRenderer
             float y = dir.y * distance + lift;
             float z = dir.z * distance;
             float mainAlpha = alpha * (1F - distortFactor);
+            int savedTrailInstance = formContext.trailInstance;
 
-            if (mainAlpha > 0F)
+            /* Unique positive slot so TrailFormRenderer does not append illusion
+             * samples into the primary trail history. */
+            formContext.trailInstance = liftKeyBase + i + 1;
+
+            try
             {
-                int a = Math.round(((baseColor >>> 24) & 0xFF) * mainAlpha);
-
-                stack.push();
-
-                try
+                if (mainAlpha > 0F)
                 {
-                    stack.translate(x, y, z);
+                    int a = Math.round(((baseColor >>> 24) & 0xFF) * mainAlpha);
 
-                    if (partial != null)
+                    stack.push();
+
+                    try
                     {
-                        MatrixStackUtils.multiply(stack, partial.createMatrix());
-                    }
+                        stack.translate(x, y, z);
 
-                    formContext.color((a << 24) | (baseColor & Colors.RGB));
-                    FormUtilsClient.render(form, formContext);
+                        if (partial != null)
+                        {
+                            MatrixStackUtils.multiply(stack, partial.createMatrix());
+                        }
+
+                        formContext.color((a << 24) | (baseColor & Colors.RGB));
+                        FormUtilsClient.render(form, formContext);
+                    }
+                    finally
+                    {
+                        stack.pop();
+                    }
                 }
-                finally
+
+                if (distortFactor > 0F)
                 {
-                    stack.pop();
+                    float streakAlpha = alpha * (1F - distortFactor);
+                    int a = Math.round(((baseColor >>> 24) & 0xFF) * Math.min(streakAlpha + 0.2F * (1F - distortFactor), 1F));
+
+                    renderIllusionStreaks(form, formContext, stack, x, y, z, partial, (a << 24) | (baseColor & Colors.RGB), distortFactor, liftKeyBase + i, height);
                 }
             }
-
-            if (distortFactor > 0F)
+            finally
             {
-                float streakAlpha = alpha * (1F - distortFactor);
-                int a = Math.round(((baseColor >>> 24) & 0xFF) * Math.min(streakAlpha + 0.2F * (1F - distortFactor), 1F));
-
-                renderIllusionStreaks(form, formContext, stack, x, y, z, partial, (a << 24) | (baseColor & Colors.RGB), distortFactor, liftKeyBase + i, height);
+                formContext.trailInstance = savedTrailInstance;
             }
 
             formContext.textureOverride = savedTextureOverride;

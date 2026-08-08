@@ -161,13 +161,12 @@ public class OrbitFilmCameraController implements ICameraController
             return false;
         }
 
-        /* WASD/Space/arrows are flight keys — only while flying. Otherwise Space
-         * (shared with play/pause) is swallowed whenever orbit POV is selected. */
-        boolean flying = this.controller.panel.isFlying();
-
-        if (flying || area.isInside(context) || (!this.velocityPosition.equals(0, 0, 0) && context.getKeyAction() == KeyAction.RELEASED) || (!this.velocityAngle.equals(0, 0, 0, 0) && context.getKeyAction() == KeyAction.RELEASED))
+        /* Flight keys (WASD/Space/arrows) follow canInteract(): either flight mode,
+         * or orbit-without-flight when that setting is enabled. With the setting off
+         * (default), Space stays free for play/pause while orbit POV is selected. */
+        if (this.canInteract() || area.isInside(context) || (!this.velocityPosition.equals(0, 0, 0) && context.getKeyAction() == KeyAction.RELEASED) || (!this.velocityAngle.equals(0, 0, 0, 0) && context.getKeyAction() == KeyAction.RELEASED))
         {
-            if (!flying && context.getKeyAction() != KeyAction.RELEASED)
+            if (!this.canInteract() && context.getKeyAction() != KeyAction.RELEASED)
             {
                 return false;
             }
@@ -278,7 +277,7 @@ public class OrbitFilmCameraController implements ICameraController
             changed = true;
         }
 
-        if (this.controller.panel.isFlying())
+        if (this.canInteract())
         {
             if (this.velocityPosition.lengthSquared() > 0 && !this.center)
             {
@@ -424,8 +423,9 @@ public class OrbitFilmCameraController implements ICameraController
     }
 
     /**
-     * Mouse drag / scroll / start. Keyboard flight keys are gated separately in
-     * {@link #keyPressed} so Space can still toggle play when not flying.
+     * Whether orbit mouse/keyboard controls are active: always while flying,
+     * or without flight when {@link BBSSettings#editorOrbitWithoutFlight} is on
+     * (off by default so Space can still play/pause in orbit POV).
      */
     private boolean canInteract()
     {

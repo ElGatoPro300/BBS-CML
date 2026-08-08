@@ -1,0 +1,201 @@
+package mchorse.bbs_mod.film.replays;
+
+import mchorse.bbs_mod.forms.entities.IEntity;
+import mchorse.bbs_mod.mixin.LimbAnimatorAccessor;
+
+import net.minecraft.entity.EntityPose;
+import net.minecraft.entity.LivingEntity;
+import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.util.Hand;
+import net.minecraft.util.math.MathHelper;
+
+/**
+ * Copies replay vanilla pose / action state onto a physical {@link LivingEntity} actor.
+ * Stub playback applies these via {@link ReplayKeyframes#apply}; actor mode previously only
+ * synced rotation, so procedural/Gecko animators saw walk instead of run (and other poses).
+ */
+public final class ActorReplayStateSync
+{
+    private ActorReplayStateSync()
+    {}
+
+    /**
+     * Sync animation-driving state from the keyframe-updated stub (or any {@link IEntity})
+     * onto the spawned actor. Does not touch position/rotation — callers own those.
+     */
+    public static void syncFromSource(LivingEntity actor, IEntity source)
+    {
+        if (actor == null || source == null)
+        {
+            return;
+        }
+
+        boolean mounted = source.getMountTarget() != null || source.isSitting();
+
+        actor.setSneaking(mounted ? false : source.isSneaking());
+        actor.setSprinting(mounted ? false : source.isSprinting());
+        actor.setSwimming(mounted ? false : source.isSwimming());
+        actor.setOnGround(source.isOnGround());
+        actor.setFlag(7, mounted ? false : source.isFallFlying());
+        actor.setPose(resolvePose(source, mounted));
+        actor.hurtTime = source.getHurtTimer();
+        actor.deathTime = source.getDeathTime();
+        actor.setFireTicks(source.getFireTicks());
+        actor.fallDistance = source.getFallDistance();
+
+        if (actor instanceof PlayerEntity player)
+        {
+            player.getAbilities().flying = mounted ? false : source.isFlying();
+        }
+
+        boolean usingItem = source.isUsingItem() || source.getItemUseTimeLeft() > 0;
+
+        actor.setLivingFlag(1, usingItem || source.isBlocking());
+        actor.setLivingFlag(2, source.getActiveHand() == Hand.OFF_HAND && usingItem);
+        actor.setLivingFlag(4, source.isUsingRiptide());
+
+        syncLimbAnimator(actor, source, mounted);
+    }
+
+    /**
+     * Server-side path when only keyframes are available (no stub). Applies the same vanilla
+     * pose/action flags {@link ReplayKeyframes#apply} would set on a stub.
+     *
+     * @param advanceLimbs when true (playing), advance limb swing pos like {@link mchorse.bbs_mod.forms.entities.StubEntity#update};
+     *                     when false (paused), only refresh speed so cadence does not drift.
+     */
+    public static void applyFromKeyframes(ReplayKeyframes keyframes, float tick, LivingEntity actor, boolean mounted, boolean advanceLimbs)
+    {
+        if (actor == null || keyframes == null)
+        {
+            return;
+        }
+
+        boolean sneaking = !mounted && keyframes.sneaking.interpolate(tick) != 0D;
+        boolean sprinting = !mounted && keyframes.sprinting.interpolate(tick) != 0D;
+        boolean swimming = !mounted && keyframes.swimming.interpolate(tick) != 0D;
+        boolean flying = !mounted && keyframes.flying.interpolate(tick) != 0D;
+        boolean fallFlying = !mounted && keyframes.fallFlying.interpolate(tick) != 0D;
+        boolean crawling = !mounted && keyframes.crawling.interpolate(tick) != 0D;
+        boolean blocking = !mounted && keyframes.blocking.interpolate(tick) != 0D;
+        boolean sleeping = !mounted && keyframes.sleeping.interpolate(tick) != 0D;
+        boolean riptide = !mounted && keyframes.riptide.interpolate(tick) != 0D;
+        boolean grounded = keyframes.grounded.interpolate(tick) != 0D;
+        int itemUseElapsed = keyframes.itemUseTime.interpolate(tick).intValue();
+        boolean usingItem = keyframes.usingItem.interpolate(tick) > 0D || itemUseElapsed > 0;
+        boolean offHand = keyframes.activeHand.interpolate(tick) > 0D;
+
+        actor.setSneaking(sneaking);
+        actor.setSprinting(sprinting);
+        actor.setSwimming(swimming);
+        actor.setOnGround(grounded);
+        actor.setFlag(7, fallFlying);
+        actor.setPose(resolvePose(sneaking, swimming, crawling, sleeping, mounted));
+        actor.hurtTime = keyframes.damage.interpolate(tick).intValue();
+        actor.deathTime = keyframes.deathTime.interpolate(tick).intValue();
+        actor.setFireTicks(keyframes.getFireTicksAt((int) tick));
+        actor.fallDistance = keyframes.fall.interpolate(tick).floatValue();
+
+        if (actor instanceof PlayerEntity player)
+        {
+            player.getAbilities().flying = flying;
+        }
+
+        actor.setLivingFlag(1, usingItem || blocking);
+        actor.setLivingFlag(2, offHand && usingItem);
+        actor.setLivingFlag(4, riptide);
+
+        if (!mounted && actor.limbAnimator instanceof LimbAnimatorAccessor limb)
+        {
+            double x = keyframes.x.interpolate(tick);
+            double z = keyframes.z.interpolate(tick);
+            double prevX = keyframes.x.interpolate(tick - 1F);
+            double prevZ = keyframes.z.interpolate(tick - 1F);
+            float delta = (float) MathHelper.magnitude(x - prevX, 0D, z - prevZ);
+            float speed = Math.min(delta * 4F, 1F);
+
+            limb.setPrevSpeed(limb.getSpeed());
+            limb.setSpeed(speed);
+
+            if (advanceLimbs)
+            {
+                limb.setPos(limb.getPos() + speed);
+            }
+        }
+        else if (mounted && actor.limbAnimator instanceof LimbAnimatorAccessor limb)
+        {
+            limb.setPrevSpeed(0F);
+            limb.setSpeed(0F);
+        }
+    }
+
+    public static void applyFromKeyframes(ReplayKeyframes keyframes, float tick, LivingEntity actor, boolean mounted)
+    {
+        applyFromKeyframes(keyframes, tick, actor, mounted, true);
+    }
+
+    private static void syncLimbAnimator(LivingEntity actor, IEntity source, boolean mounted)
+    {
+        if (!(actor.limbAnimator instanceof LimbAnimatorAccessor actorLimb))
+        {
+            return;
+        }
+
+        if (mounted)
+        {
+            actorLimb.setPrevSpeed(0F);
+            actorLimb.setSpeed(0F);
+
+            return;
+        }
+
+        if (source.getLimbAnimator() instanceof LimbAnimatorAccessor sourceLimb)
+        {
+            actorLimb.setPrevSpeed(sourceLimb.getPrevSpeed());
+            actorLimb.setSpeed(sourceLimb.getSpeed());
+            actorLimb.setPos(sourceLimb.getPos());
+        }
+    }
+
+    private static EntityPose resolvePose(IEntity source, boolean mounted)
+    {
+        EntityPose pose = source.getEntityPose();
+
+        if ((mounted || source.isSitting()) && pose == EntityPose.STANDING)
+        {
+            return EntityPose.SITTING;
+        }
+
+        if (source.isSneaking() && pose == EntityPose.STANDING)
+        {
+            return EntityPose.CROUCHING;
+        }
+
+        return pose;
+    }
+
+    private static EntityPose resolvePose(boolean sneaking, boolean swimming, boolean crawling, boolean sleeping, boolean mounted)
+    {
+        if (sleeping)
+        {
+            return EntityPose.SLEEPING;
+        }
+
+        if (mounted)
+        {
+            return EntityPose.SITTING;
+        }
+
+        if (swimming || crawling)
+        {
+            return EntityPose.SWIMMING;
+        }
+
+        if (sneaking)
+        {
+            return EntityPose.CROUCHING;
+        }
+
+        return EntityPose.STANDING;
+    }
+}
