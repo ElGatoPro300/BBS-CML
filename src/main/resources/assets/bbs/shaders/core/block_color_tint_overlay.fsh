@@ -255,8 +255,10 @@ void main()
         discard;
     }
 
-    vec3 tintRgb = mix(vec3(1.0), FormColorTint.rgb, cmask);
-    float tintA = mix(1.0, FormColorTint.a, cmask);
+    /* FormColorTint.a is traditional form opacity — fade mask tint with the form. */
+    float opacity = clamp(FormColorTint.a, 0.0, 1.0);
+    float strength = cmask * opacity;
+    vec3 tintRgb = mix(vec3(1.0), FormColorTint.rgb, strength);
 
-    fragColor = vec4(tintRgb, tintA);
+    fragColor = vec4(tintRgb, 1.0);
 }

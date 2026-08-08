@@ -345,6 +345,95 @@ public final class BlockEffectOverlayUniforms
         }
     }
 
+    public static void configureFlatPaintOverlay(Matrix4f rootInverse, EffectTransform transform, boolean bottomAnchored, Vector3f maskHalf)
+    {
+        RenderSystem.enableBlend();
+        RenderSystem.blendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
+        RenderSystem.enableDepthTest();
+        RenderSystem.depthFunc(GL11.GL_LEQUAL);
+        RenderSystem.depthMask(false);
+
+        ShaderProgram program = BBSShaders.getFlatPaintOverlayProgram();
+
+        if (program != null)
+        {
+            RenderSystem.setShader(program);
+            bindFormRootInverse(program, rootInverse);
+            bindPaintPrecomputed(program, transform, bottomAnchored, maskHalf);
+        }
+
+        RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
+    }
+
+    public static void bindPaintPrecomputed(ShaderProgram shader, EffectTransform transform, boolean bottomAnchored, Vector3f maskHalf)
+    {
+        if (shader == null)
+        {
+            return;
+        }
+
+        boolean active = EffectTransformMath.isTransformActive(transform);
+
+        if (active)
+        {
+            EffectTransformMath.buildInverseMatrix(transform, paintEffectInverse);
+        }
+        else
+        {
+            paintEffectInverse.identity();
+        }
+
+        if (maskHalf != null)
+        {
+            paintMaskHalf.set(maskHalf);
+        }
+        else if (active)
+        {
+            resolveOverlayMaskHalf(transform, paintMaskHalf, bottomAnchored, 0.5F, false, 1F, 1F, 1F);
+        }
+        else
+        {
+            paintMaskHalf.set(0.5F, 0.5F, 0.5F);
+        }
+
+        GlUniform inverseUniform = shader.getUniform("PaintEffectInverse");
+
+        if (inverseUniform != null)
+        {
+            inverseUniform.set(paintEffectInverse);
+        }
+
+        GlUniform halfUniform = shader.getUniform("PaintMaskHalf");
+
+        if (halfUniform != null)
+        {
+            halfUniform.set(paintMaskHalf.x, paintMaskHalf.y, paintMaskHalf.z);
+        }
+
+        GlUniform activeUniform = shader.getUniform("PaintEffectActive");
+
+        if (activeUniform != null)
+        {
+            activeUniform.set(active ? 1F : 0F);
+        }
+
+        GlUniform anchorUniform = shader.getUniform("PaintMaskBottomAnchored");
+
+        if (anchorUniform != null)
+        {
+            anchorUniform.set(bottomAnchored ? 1F : 0F);
+        }
+
+        GlUniform shapeUniform = shader.getUniform("PaintMaskShape");
+
+        if (shapeUniform != null)
+        {
+            float shape = transform == null || transform.shape == null ? 0F : transform.shape.id;
+
+            shapeUniform.set(shape);
+        }
+    }
+
     public static void bindPaint(ShaderProgram shader, EffectTransform transform)
     {
         bindPaint(shader, transform, true, 0.5F);
@@ -495,6 +584,113 @@ public final class BlockEffectOverlayUniforms
         if (halfUniform != null)
         {
             halfUniform.set(colorMaskHalf.x, colorMaskHalf.y, colorMaskHalf.z);
+        }
+
+        GlUniform activeUniform = shader.getUniform("ColorEffectActive");
+
+        if (activeUniform != null)
+        {
+            activeUniform.set(active ? 1F : 0F);
+        }
+
+        GlUniform anchorUniform = shader.getUniform("ColorMaskBottomAnchored");
+
+        if (anchorUniform != null)
+        {
+            anchorUniform.set(bottomAnchored ? 1F : 0F);
+        }
+
+        GlUniform shapeUniform = shader.getUniform("ColorMaskShape");
+
+        if (shapeUniform != null)
+        {
+            float shape = transform == null || transform.shape == null ? 0F : transform.shape.id;
+
+            shapeUniform.set(shape);
+        }
+    }
+
+    /**
+     * Flat billboard / shape color-tint overlay: fragment mask in quad-local space.
+     * {@code maskHalf} must already include transform scale (see
+     * {@link EffectTransformMath#resolveBillboardMaskHalfExtents}).
+     */
+    public static void configureFlatColorTintOverlay(Matrix4f rootInverse, EffectTransform transform, boolean bottomAnchored, Vector3f maskHalf, Color formColor)
+    {
+        RenderSystem.enableBlend();
+        RenderSystem.blendFuncSeparate(
+            GlStateManager.SrcFactor.DST_COLOR,
+            GlStateManager.DstFactor.ZERO,
+            GlStateManager.SrcFactor.DST_ALPHA,
+            GlStateManager.DstFactor.ZERO
+        );
+        RenderSystem.enableDepthTest();
+        RenderSystem.depthFunc(GL11.GL_LEQUAL);
+        RenderSystem.depthMask(false);
+
+        ShaderProgram program = BBSShaders.getFlatColorTintOverlayProgram();
+
+        if (program != null)
+        {
+            RenderSystem.setShader(program);
+            bindFormRootInverse(program, rootInverse);
+            bindColorEffectPrecomputed(program, transform, bottomAnchored, maskHalf);
+            bindFormColorTint(program, formColor);
+        }
+
+        RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
+    }
+
+    public static void bindColorEffectPrecomputed(ShaderProgram shader, EffectTransform transform, boolean bottomAnchored, Vector3f maskHalf)
+    {
+        if (shader == null)
+        {
+            return;
+        }
+
+        boolean active = EffectTransformMath.isTransformActive(transform);
+
+        if (active)
+        {
+            EffectTransformMath.buildInverseMatrix(transform, colorEffectInverse);
+        }
+        else
+        {
+            colorEffectInverse.identity();
+        }
+
+        if (maskHalf != null)
+        {
+            colorMaskHalf.set(maskHalf);
+        }
+        else if (active)
+        {
+            resolveOverlayMaskHalf(transform, colorMaskHalf, bottomAnchored, 0.5F, false, 1F, 1F, 1F);
+        }
+        else
+        {
+            colorMaskHalf.set(0.5F, 0.5F, 0.5F);
+        }
+
+        GlUniform inverseUniform = shader.getUniform("ColorEffectInverse");
+
+        if (inverseUniform != null)
+        {
+            inverseUniform.set(colorEffectInverse);
+        }
+
+        GlUniform halfUniform = shader.getUniform("ColorMaskHalf");
+
+        if (halfUniform != null)
+        {
+            halfUniform.set(colorMaskHalf.x, colorMaskHalf.y, colorMaskHalf.z);
+        }
+
+        GlUniform falloffUniform = shader.getUniform("ColorMaskFalloff");
+
+        if (falloffUniform != null)
+        {
+            falloffUniform.set(EffectTransformMath.resolveMaskFalloff(transform, colorMaskHalf));
         }
 
         GlUniform activeUniform = shader.getUniform("ColorEffectActive");

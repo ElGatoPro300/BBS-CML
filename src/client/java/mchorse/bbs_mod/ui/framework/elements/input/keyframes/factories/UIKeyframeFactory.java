@@ -79,6 +79,7 @@ public abstract class UIKeyframeFactory <T> extends UIElement
         register(KeyframeFactories.GLOW_SETTINGS, UIGlowSettingsKeyframeFactory::new);
         register(KeyframeFactories.PAINT_SETTINGS, UIPaintSettingsKeyframeFactory::new);
         register(KeyframeFactories.SHADOW_SETTINGS, UIShadowSettingsKeyframeFactory::new);
+        register(KeyframeFactories.LENS_RADIUS_SETTINGS, UILensRadiusSettingsKeyframeFactory::new);
         register(KeyframeFactories.CHROMA_SKY_SETTINGS, UIChromaSkyCurveSettingsKeyframeFactory::new);
     }
 

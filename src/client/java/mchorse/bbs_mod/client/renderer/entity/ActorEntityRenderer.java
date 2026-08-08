@@ -1,5 +1,6 @@
 package mchorse.bbs_mod.client.renderer.entity;
 
+import mchorse.bbs_mod.client.BBSRendering;
 import mchorse.bbs_mod.client.renderer.MorphFireRenderer;
 import mchorse.bbs_mod.cubic.render.vanilla.ArmorRenderer;
 import mchorse.bbs_mod.entity.ActorEntity;
@@ -107,6 +108,7 @@ public class ActorEntityRenderer extends EntityRenderer<ActorEntity, ActorEntity
             );
         }
 
+        BBSRendering.restoreWorldRenderState();
         RenderSystem.disableDepthTest();
         RenderSystem.disableBlend();
 

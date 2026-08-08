@@ -22,5 +22,7 @@ void main()
 
     vertexColor = Color;
     texCoord0 = UV0;
-    formRootPos = (FormRootInverse * ModelViewMat * vec4(Position, 1.0)).xyz;
+    /* Position is already stack-transformed by the block VertexConsumer; including
+     * ModelViewMat here made color masks follow the camera in world renders. */
+    formRootPos = (FormRootInverse * vec4(Position, 1.0)).xyz;
 }

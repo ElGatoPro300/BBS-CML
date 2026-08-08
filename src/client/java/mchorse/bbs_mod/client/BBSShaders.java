@@ -65,6 +65,11 @@ public class BBSShaders
         ShaderProgramKey pickerParticlesKey = new ShaderProgramKey(Identifier.of(BBSMod.MOD_ID, "core/picker_particles"), VertexFormats.POSITION_COLOR_TEXTURE_LIGHT, defines);
         ShaderProgramKey pickerModelsKey = new ShaderProgramKey(Identifier.of(BBSMod.MOD_ID, "core/picker_models"), VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL, defines);
 
+        ShaderProgramKey blockPaintOverlayKey = new ShaderProgramKey(Identifier.of(BBSMod.MOD_ID, "core/block_paint_overlay"), VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL, defines);
+        ShaderProgramKey flatPaintOverlayKey = new ShaderProgramKey(Identifier.of(BBSMod.MOD_ID, "core/flat_paint_overlay"), VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL, defines);
+        ShaderProgramKey blockColorTintOverlayKey = new ShaderProgramKey(Identifier.of(BBSMod.MOD_ID, "core/block_color_tint_overlay"), VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL, defines);
+        ShaderProgramKey flatColorTintOverlayKey = new ShaderProgramKey(Identifier.of(BBSMod.MOD_ID, "core/flat_color_tint_overlay"), VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL, defines);
+
         model = loader.getOrCreateProgram(modelKey);
         multiLink = loader.getOrCreateProgram(multiLinkKey);
         subtitles = loader.getOrCreateProgram(subtitlesKey);
@@ -74,6 +79,10 @@ public class BBSShaders
         pickerBillboardNoShading = loader.getOrCreateProgram(pickerBillboardNoShadingKey);
         pickerParticles = loader.getOrCreateProgram(pickerParticlesKey);
         pickerModels = loader.getOrCreateProgram(pickerModelsKey);
+        blockPaintOverlay = loader.getOrCreateProgram(blockPaintOverlayKey);
+        flatPaintOverlay = loader.getOrCreateProgram(flatPaintOverlayKey);
+        blockColorTintOverlay = loader.getOrCreateProgram(blockColorTintOverlayKey);
+        flatColorTintOverlay = loader.getOrCreateProgram(flatColorTintOverlayKey);
 
         for (Runnable runnable : LOADERS)
         {
@@ -126,14 +135,14 @@ public class BBSShaders
         return blockPaintOverlay;
     }
 
-    public static ShaderProgram getBlockColorTintOverlayProgram()
-    {
-        return blockColorTintOverlay;
-    }
-
     public static ShaderProgram getFlatPaintOverlayProgram()
     {
         return flatPaintOverlay;
+    }
+
+    public static ShaderProgram getBlockColorTintOverlayProgram()
+    {
+        return blockColorTintOverlay;
     }
 
     public static ShaderProgram getFlatColorTintOverlayProgram()

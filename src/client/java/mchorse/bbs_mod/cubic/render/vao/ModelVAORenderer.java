@@ -150,7 +150,6 @@ public class ModelVAORenderer
     private static final EffectTransform baseGradeHueTransform = new EffectTransform();
     private static final EffectTransform baseGradeSaturationTransform = new EffectTransform();
     private static boolean suppressShapeKeyMainPassGlow;
-    private static boolean cpuPretransformed;
 
     /* 1x1 white texture used as the albedo source during the paint overlay pass. */
     private static NativeImageBackedTexture whiteTexture;
@@ -578,22 +577,6 @@ public class ModelVAORenderer
         {
             return;
         }
-
-        BBSRendering.ensurePaintOverlayTargetFramebuffer();
-
-        GameRenderer gameRenderer = MinecraftClient.getInstance().gameRenderer;
-
-        gameRenderer.getLightmapTextureManager().enable();
-        gameRenderer.getOverlayTexture().setupOverlayColor();
-
-        RenderSystem.enableBlend();
-        RenderSystem.defaultBlendFunc();
-        RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
-        RenderSystem.setShader(BBSShaders.getModel());
-
-        Matrix4f savedProjection = new Matrix4f(RenderSystem.getProjectionMatrix());
-        ProjectionType savedProjType = RenderSystem.getProjectionType();
-        Matrix4f savedModelView = new Matrix4f(RenderSystem.getModelViewMatrix());
 
         try
         {
@@ -1225,7 +1208,6 @@ public class ModelVAORenderer
 
     public static void beginCpuGeometry(ShaderProgram shader)
     {
-        cpuPretransformed = true;
         GlUniform glowingUniform = shader.getUniform("GlowingColor");
 
         glowingUniformActive = glowingUniform != null;
@@ -1736,7 +1718,29 @@ public class ModelVAORenderer
 
     public static void setupUniforms(MatrixStack stack, ShaderProgram shader)
     {
-        Matrix4f modelView = new Matrix4f(RenderSystem.getModelViewMatrix()).mul(stack.peek().getPositionMatrix());
+
+        if (colorGradeOverlayPass && gradeSceneColor != null && gradeSceneColor.isValid())
+        {
+            RenderSystem.setShaderTexture(3, gradeSceneColor.id);
+        }
+
+
+        setupUniforms(stack, shader, false);
+    }
+
+    /**
+     * CPU shape-key path writes positions/normals already transformed by the render stack.
+     * ModelViewMat must not multiply that stack again (or meshes vanish at the origin when
+     * {@code drawWithGlobalProgram} keeps only the camera matrix), and NormalMat must stay
+     * identity or diffuse lighting is applied twice.
+     */
+    public static void setupUniformsCpuPretransformed(ShaderProgram shader)
+    {
+        setupUniforms(null, shader, true);
+    }
+
+    private static void setupUniforms(MatrixStack stack, ShaderProgram shader, boolean cpuPretransformed)
+    {
 
         for (int i = 0; i < 12; i++)
         {
@@ -1776,11 +1780,11 @@ public class ModelVAORenderer
 
         if (normalUniform != null)
         {
-            if (BBSRendering.isIrisShadersEnabled())
+            if (cpuPretransformed && stack == null)
             {
-                normalUniform.set(modelView.normal(new Matrix3f()));
+                normalUniform.set(RenderSystem.getModelViewMatrix().normal(new Matrix3f()));
             }
-            else
+            else if (stack != null)
             {
                 normalUniform.set(stack.peek().getNormalMatrix());
             }

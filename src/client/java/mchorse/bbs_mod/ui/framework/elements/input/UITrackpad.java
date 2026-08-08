@@ -769,10 +769,10 @@ public class UITrackpad extends UIBaseTextbox
         int padding = 0;
 
         boolean dragging = this.isDraggingTime();
-        boolean hovered = this.area.isInside(context);
+        boolean hovered = this.isEnabled() && this.area.isInside(context);
         int accent = 0xFF000000 | BBSSettings.primaryColor.get();
         FontRenderer font = context.batcher.getFont();
-        boolean wantsArrows = BBSSettings.enableTrackpadIncrements.get() && hovered;
+        boolean wantsArrows = this.isEnabled() && BBSSettings.enableTrackpadIncrements.get() && hovered;
         boolean showArrows = wantsArrows && this.area.w >= this.minusOne.w + this.plusOne.w + 6;
         boolean showMinusArrow = showArrows;
         boolean showPlusArrow = showArrows;
@@ -908,7 +908,11 @@ public class UITrackpad extends UIBaseTextbox
             context.batcher.outlineCenter(this.initialX, this.initialY, 4, Colors.WHITE);
         }
 
-        this.renderLockedArea(context);
+        if (!this.isEnabled())
+        {
+            /* Soft dim without lock icon — number fields read better greyed-out. */
+            context.batcher.box(x, y, x + w, y + h, 0x99000000);
+        }
 
         super.render(context);
     }

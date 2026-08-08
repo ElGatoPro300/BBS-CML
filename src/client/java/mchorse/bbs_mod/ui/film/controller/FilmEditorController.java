@@ -1,6 +1,7 @@
 package mchorse.bbs_mod.ui.film.controller;
 
 import mchorse.bbs_mod.BBSModClient;
+import mchorse.bbs_mod.entity.ActorEntity;
 import mchorse.bbs_mod.film.BaseFilmController;
 import mchorse.bbs_mod.film.Film;
 import mchorse.bbs_mod.film.FilmControllerContext;
@@ -74,6 +75,12 @@ public class FilmEditorController extends BaseFilmController
         {
             super.updateEntityAndForm(entity, tick);
         }
+    }
+
+    @Override
+    protected boolean isActorPlaybackActive()
+    {
+        return this.controller.isPlaying();
     }
 
     @Override
@@ -164,7 +171,14 @@ public class FilmEditorController extends BaseFilmController
 
         if (!(this.controller.getPovMode() == UIFilmController.CAMERA_MODE_FIRST_PERSON && current))
         {
-            super.renderEntity(context, replay, entity, index);
+            if (replay.actor.get())
+            {
+                this.renderActorModeEntity(context, replay, entity);
+            }
+            else
+            {
+                super.renderEntity(context, replay, entity, index);
+            }
         }
 
         boolean isPlaying = this.controller.isPlaying();
@@ -212,6 +226,55 @@ public class FilmEditorController extends BaseFilmController
                     }
                 }
             }
+        }
+    }
+
+    /**
+     * Actor mode: prefer the live {@link ActorEntity} for
+     * gizmo capture (no StubEntity ghost). If the physical actor is not spawned
+     * yet, fall back to a normal stub draw so editing still works.
+     */
+    private void renderActorModeEntity(WorldRenderContext context, Replay replay, IEntity stub)
+    {
+        int replayTick = replay.getTick(this.getTick());
+
+        if (!this.isReplayVisible(replay, replayTick))
+        {
+            return;
+        }
+
+        IEntity physical = this.getPhysicalActorEntity(replay);
+
+        /* Keep bone selection from the stub (isCurrent), then swap to the physical
+         * actor so pose matrices match what ActorEntityRenderer draws. */
+        FilmControllerContext filmContext = this.getFilmControllerContext(context, replay, stub);
+
+        if (physical != null)
+        {
+            if (filmContext.bone == null && filmContext.bone2 == null)
+            {
+                return;
+            }
+
+            filmContext.entity = physical;
+            filmContext.physicalActor(true);
+        }
+
+        filmContext.transition = this.getTransition(stub, context.tickCounter().getTickDelta(false));
+        filmContext.stack.push();
+
+        try
+        {
+            if (!this.applyGroupProperties(replay, filmContext))
+            {
+                return;
+            }
+
+            renderEntity(filmContext);
+        }
+        finally
+        {
+            filmContext.stack.pop();
         }
     }
 

@@ -716,24 +716,12 @@ public class UIFormModelEditor extends UIElement implements IUIModelPanelHost
         }
 
         this.formTransformGizmoMode = true;
-        this.setWorkspacePanel(this.modelSettingsPanel);
 
         UIGeneralFormPanel general = this.parent.editor.generalPanel;
 
         general.transform.setTransform(this.parent.editor.form.transform.get());
-        general.transform.removeFromParent();
-        this.setRight(general.transform);
-
-        for (UIModelSection section : this.sections)
-        {
-            if (section instanceof UIModelGeneralSection)
-            {
-                section.fields.setVisible(true);
-            }
-        }
-
-        this.sectionsView.scroll.setScroll(0);
-        this.sectionsView.resize();
+        /* Keep the current section/workspace; do not force General open or relocate the
+         * transform grid. Detached drag uses gizmoDragContext + UIFormEditor.tickDetachedGizmoDrag. */
         this.syncFormTransformGizmo();
     }
 

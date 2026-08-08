@@ -47,7 +47,7 @@ public class BBSLogoButtonWidget extends ButtonWidget
         RenderSystem.defaultBlendFunc();
         RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
 
-        context.drawTexture(id -> RenderLayer.getGui(), LOGO, logoX, logoY, 0f, 0f, logoSize, logoSize, logoSize, logoSize);
+        context.drawTexture(RenderLayer::getGuiTextured, LOGO, logoX, logoY, 0F, 0F, logoSize, logoSize, logoSize, logoSize);
 
         RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
     }

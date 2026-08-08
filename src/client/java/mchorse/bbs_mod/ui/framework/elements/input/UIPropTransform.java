@@ -13,6 +13,7 @@ import mchorse.bbs_mod.ui.framework.elements.utils.FontRenderer;
 import mchorse.bbs_mod.ui.utils.Gizmo;
 import mchorse.bbs_mod.ui.utils.UIUtils;
 import mchorse.bbs_mod.ui.utils.context.ContextMenuManager;
+import mchorse.bbs_mod.ui.utils.gizmo.GizmoController;
 import mchorse.bbs_mod.ui.utils.gizmo.TransformOrientation;
 import mchorse.bbs_mod.ui.utils.icons.Icons;
 import mchorse.bbs_mod.utils.Axis;
@@ -55,6 +56,13 @@ public class UIPropTransform extends UITransform
     private Transform transform;
     private Runnable preCallback;
     private Runnable postCallback;
+
+    /**
+     * Viewport {@link UIContext} supplied by {@link GizmoController}
+     * when this widget is not mounted (e.g. form editor General tab closed). {@link #getContext()}
+     * is null in that case, so enable/drag start would otherwise no-op.
+     */
+    private UIContext gizmoDragContext;
 
     private boolean editing;
     private int mode;
@@ -1026,6 +1034,36 @@ public class UIPropTransform extends UITransform
         this.enableMode(mode, null);
     }
 
+    /** Lets an editor start a gizmo drag even when this widget is off the UI tree. */
+    public void setGizmoDragContext(UIContext context)
+    {
+        this.gizmoDragContext = context;
+    }
+
+    public boolean isGizmoEditing()
+    {
+        return this.editing;
+    }
+
+    /**
+     * Advances an in-progress gizmo drag. Normally called from {@link #render(UIContext)};
+     * call this when the widget is unmounted so values still update without opening its panel.
+     */
+    public void tickGizmoDrag(UIContext context)
+    {
+        if (this.editing)
+        {
+            this.processDragFrame(context);
+        }
+    }
+
+    private UIContext resolveDragContext()
+    {
+        UIContext context = this.getContext();
+
+        return context != null ? context : this.gizmoDragContext;
+    }
+
     private void beginDragAnchor(UIContext context)
     {
         this.syncDragMouseFromContext(context);
@@ -1094,7 +1132,7 @@ public class UIPropTransform extends UITransform
     /**
      * After a cursor warp, align legacy 2D drag references so no spurious screen delta is applied.
      * Ray-driven drags use {@link #refreshDragMousePosition(UIContext)} so the click anchor and
-     * compensated ray baselines are not disturbed (see {@link #compensateRayDragForScreenWarp}).
+     * compensated ray baselines are not disturbed (see {@link #reanchorRayDragAfterScreenWarp}).
      */
     private void syncDragPointerAfterWarp(UIContext context)
     {
@@ -1402,7 +1440,7 @@ public class UIPropTransform extends UITransform
             return;
         }
 
-        UIContext context = this.getContext();
+        UIContext context = this.resolveDragContext();
 
         if (context == null)
         {
@@ -1449,7 +1487,7 @@ public class UIPropTransform extends UITransform
             return;
         }
 
-        UIContext context = this.getContext();
+        UIContext context = this.resolveDragContext();
 
         if (context == null)
         {
@@ -1483,7 +1521,7 @@ public class UIPropTransform extends UITransform
             return;
         }
 
-        UIContext context = this.getContext();
+        UIContext context = this.resolveDragContext();
 
         if (context == null)
         {
@@ -1522,7 +1560,7 @@ public class UIPropTransform extends UITransform
 
     public void enableFreeTranslation(int mode)
     {
-        UIContext context = this.getContext();
+        UIContext context = this.resolveDragContext();
 
         if (context == null)
         {
@@ -1555,7 +1593,7 @@ public class UIPropTransform extends UITransform
      *  dragging a single scale axis (see the {@code all} branch in {@link #render(UIContext)}). */
     public void enableUniformScale(int mode)
     {
-        UIContext context = this.getContext();
+        UIContext context = this.resolveDragContext();
 
         if (context == null)
         {
@@ -1588,7 +1626,7 @@ public class UIPropTransform extends UITransform
      */
     public void enableModeKeepGizmoMode(int mode, Axis axis)
     {
-        UIContext context = this.getContext();
+        UIContext context = this.resolveDragContext();
 
         if (context == null)
         {
@@ -1636,7 +1674,7 @@ public class UIPropTransform extends UITransform
      */
     public void enablePlaneModeKeepGizmoMode(int mode, Axis primary, Axis secondary)
     {
-        UIContext context = this.getContext();
+        UIContext context = this.resolveDragContext();
 
         if (context == null)
         {
@@ -1674,7 +1712,7 @@ public class UIPropTransform extends UITransform
      */
     public void enableTrackballRotate(int mode)
     {
-        UIContext context = this.getContext();
+        UIContext context = this.resolveDragContext();
 
         if (context == null)
         {
@@ -1723,7 +1761,7 @@ public class UIPropTransform extends UITransform
      */
     public void enableViewRotate(int mode)
     {
-        UIContext context = this.getContext();
+        UIContext context = this.resolveDragContext();
 
         if (context == null)
         {
@@ -1874,6 +1912,7 @@ public class UIPropTransform extends UITransform
         this.raySphereDragInitialized = false;
         this.rayDragPlaneAngleOffset = 0F;
         this.rayDragViewRingAngleOffsetRad = 0F;
+        this.gizmoDragContext = null;
         this.resetPlaneSweepUnwrap();
         this.resetViewSweepUnwrap();
 
@@ -2026,10 +2065,7 @@ public class UIPropTransform extends UITransform
     @Override
     public void render(UIContext context)
     {
-        if (this.editing)
-        {
-            this.processDragFrame(context);
-        }
+        this.tickGizmoDrag(context);
 
         super.render(context);
 

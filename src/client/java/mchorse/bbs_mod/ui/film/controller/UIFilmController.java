@@ -15,6 +15,7 @@ import mchorse.bbs_mod.film.FilmControllerContext;
 import mchorse.bbs_mod.film.MobCaptureRecordingSetup;
 import mchorse.bbs_mod.film.Recorder;
 import mchorse.bbs_mod.film.RecorderMobCapture;
+import mchorse.bbs_mod.film.RecordingPauseHelper;
 import mchorse.bbs_mod.film.replays.Replay;
 import mchorse.bbs_mod.film.replays.ReplayKeyframes;
 import mchorse.bbs_mod.forms.FormUtilsClient;
@@ -36,7 +37,6 @@ import mchorse.bbs_mod.ui.Keys;
 import mchorse.bbs_mod.ui.UIKeys;
 import mchorse.bbs_mod.ui.film.UIFilmPanel;
 import mchorse.bbs_mod.ui.film.replays.FilmPoseGizmoDrag;
-import mchorse.bbs_mod.ui.film.replays.UIMobCaptureRecordOverlayPanel;
 import mchorse.bbs_mod.ui.film.replays.UIRecordOverlayPanel;
 import mchorse.bbs_mod.ui.film.replays.overlays.UIReplaysOverlayPanel;
 import mchorse.bbs_mod.ui.framework.UIBaseMenu;
@@ -369,7 +369,15 @@ public class UIFilmController extends UIElement
     public void createEntities()
     {
         this.stopRecording();
+        this.refreshEntities();
+    }
 
+    /**
+     * Rebuild stub actors from the current film without stopping an active recording.
+     * Used as a one-shot refresh after mob capture so new MobForms are visible immediately.
+     */
+    public void refreshEntities()
+    {
         if (this.controlled != null)
         {
             this.toggleControl();
@@ -534,6 +542,9 @@ public class UIFilmController extends UIElement
             return;
         }
 
+        /* Safety: never leave integrated-server ticks blocked once countdown starts. */
+        RecordingPauseHelper.reset();
+
         MobCaptureRecordingSetup setup = MobCaptureRecordingSetup.pending;
         MobCaptureRecordingSetup.pending = null;
 
@@ -655,6 +666,9 @@ public class UIFilmController extends UIElement
 
         if (this.recordingCountdown > 0)
         {
+            /* Capture already added replays during setup — refresh once so they show up. */
+            MinecraftClient.getInstance().execute(this::refreshEntities);
+
             return;
         }
 
@@ -687,6 +701,9 @@ public class UIFilmController extends UIElement
         BBSModClient.getFilms().getEditorProjectileCapture().clear();
 
         this.setMouseMode(ClientNetwork.isIsBBSModOnServer() ? 0 : 1);
+
+        /* One-shot rebuild after capture — same effect as toggling VA, without per-tick updates. */
+        MinecraftClient.getInstance().execute(this::refreshEntities);
     }
 
     /* Input handling */
@@ -743,10 +760,10 @@ public class UIFilmController extends UIElement
 
         this.panel.replayEditor.setReplay(this.panel.getData().replays.getList().get(index));
 
-        if (!this.panel.replayEditor.isVisible())
-        {
-            this.panel.showPanel(this.panel.replayEditor);
-        }
+        /* Switch to the replay/keyframes tab even when another timeline tab is active. */
+        this.panel.focusPanelTab("replayTimeline");
+        this.panel.focusLinkedPropertiesTab("replayTimeline");
+        this.panel.showPanel(this.panel.replayEditor);
     }
 
     @Override
@@ -832,13 +849,22 @@ public class UIFilmController extends UIElement
 
     private void openRecordOverlay()
     {
+        this.openRecordOverlay(false);
+    }
+
+    private void openRecordOverlay(boolean mobToMorph)
+    {
         UIRecordOverlayPanel panel = new UIRecordOverlayPanel(
             UIKeys.FILM_CONTROLLER_RECORD_TITLE,
             UIKeys.FILM_CONTROLLER_RECORD_DESCRIPTION,
             this::startRecording,
             true
         );
-        UIIcon icon = new UIIcon(Icons.UPLOAD, (b) -> UIMobCaptureRecordOverlayPanel.openOnContext(this.getContext(), (setup) -> this.startRecording(Arrays.asList("outside"))));
+
+        panel.onMobCaptureCancel(() -> this.openRecordOverlay(true));
+        panel.setMobToMorph(mobToMorph);
+
+        UIIcon icon = new UIIcon(Icons.UPLOAD, (b) -> panel.submit(Arrays.asList("outside")));
 
         icon.tooltip(UIKeys.FILM_GROUPS_OUTSIDE);
         panel.bar.add(icon);
@@ -1543,6 +1569,13 @@ public class UIFilmController extends UIElement
 
     public Pair<String, TransformOrientation> getBone()
     {
+        /* Pose gizmos belong to the replay timeline; hide them while another
+         * tab (e.g. camera clips) is active in the same tab group. */
+        if (this.panel.replayEditor == null || !this.panel.replayEditor.isVisible())
+        {
+            return null;
+        }
+
         UIKeyframeEditor keyframeEditor = this.panel.replayEditor.keyframeEditor;
 
         return keyframeEditor != null ? keyframeEditor.getBone() : null;
@@ -1612,13 +1645,17 @@ public class UIFilmController extends UIElement
 
                 this.stencilMap.objectIndex = entry.getKey() + Gizmo.STENCIL_HANDLE_MAX + 1;
 
+                IEntity renderEntity = this.editorController.getRenderEntity(replay, entry.getValue());
+                boolean physicalActor = renderEntity != entry.getValue();
+
                 BaseFilmController.renderEntity(FilmControllerContext.instance
-                    .setup(this.getEntities(), entry.getValue(), replay, renderContext)
+                    .setup(this.getEntities(), renderEntity, replay, renderContext)
                     .film(this.panel.getData())
                     .filmTick(cursorTick)
                     .transition(isPlaying ? renderContext.tickCounter().getTickDelta(false) : 0)
                     .stencil(this.stencilMap)
-                    .relative(replay.relative.get()));
+                    .relative(replay.relative.get())
+                    .physicalActor(physicalActor));
             }
         }
         else
@@ -1660,13 +1697,39 @@ public class UIFilmController extends UIElement
                         }
                     }
 
+                    IEntity renderEntity = this.editorController.getRenderEntity(currentReplay, currentEntity);
+                    boolean physicalActor = renderEntity != currentEntity;
+
+                    /* Prefer the physical actor's form for marked-bone filtering when Actor is on. */
+                    if (physicalActor && markedBonesOnly)
+                    {
+                        Form actorForm = renderEntity.getForm();
+
+                        if (actorForm instanceof ModelForm modelForm)
+                        {
+                            ModelInstance model = ModelFormRenderer.getModel(modelForm);
+                            String poseGroup = model == null ? modelForm.model.get() : model.poseGroup;
+
+                            if (poseGroup == null || poseGroup.isEmpty())
+                            {
+                                poseGroup = model == null ? modelForm.model.get() : model.id;
+                            }
+
+                            if (UIPoseEditor.hasMarkedBones(poseGroup))
+                            {
+                                this.stencilMap.allowedBones = UIPoseEditor.getMarkedBones(poseGroup);
+                            }
+                        }
+                    }
+
                     BaseFilmController.renderEntity(FilmControllerContext.instance
-                        .setup(this.getEntities(), currentEntity, currentReplay, renderContext)
+                        .setup(this.getEntities(), renderEntity, currentReplay, renderContext)
                         .film(this.panel.getData())
                         .filmTick(cursorTick)
                         .transition(isPlaying ? renderContext.tickCounter().getTickDelta(false) : 0)
                         .stencil(this.stencilMap)
                         .relative(currentReplay.relative.get())
+                        .physicalActor(physicalActor)
                         .bone(bone != null ? bone.a : null, bone != null ? bone.b : TransformOrientation.PARENT));
                 }
             }

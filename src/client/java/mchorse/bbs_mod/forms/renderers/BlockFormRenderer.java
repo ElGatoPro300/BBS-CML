@@ -20,6 +20,7 @@ import mchorse.bbs_mod.utils.joml.Vectors;
 import mchorse.bbs_mod.utils.pose.Transform;
 
 import net.minecraft.block.BlockEntityProvider;
+import net.minecraft.block.BlockRenderType;
 import net.minecraft.block.BlockState;
 import net.minecraft.block.ShapeContext;
 import net.minecraft.block.entity.BlockEntity;
@@ -113,18 +114,7 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
 
         consumers.setSubstitute(this.getBlockMainConsumer(set, resolvedPaint));
         consumers.setUI(true);
-        MinecraftClient.getInstance().getBlockRenderManager().renderBlockAsEntity(this.form.blockState.get(), matrices, consumers, LightmapTextureManager.MAX_BLOCK_LIGHT_COORDINATE, OverlayTexture.DEFAULT_UV);
-        this.renderBlockEntity(matrices, consumers, LightmapTextureManager.MAX_BLOCK_LIGHT_COORDINATE, OverlayTexture.DEFAULT_UV, false);
-
-        int breakingLevel = this.form.breaking.get();
-        if (breakingLevel > 0 && breakingLevel <= 10)
-        {
-            RenderLayer crackingLayer = ModelBaker.BLOCK_DESTRUCTION_RENDER_LAYERS.get(breakingLevel - 1);
-            VertexConsumer delegateConsumer = consumers.getBuffer(crackingLayer);
-            VertexConsumer crackingConsumer = new OverlayVertexConsumer(delegateConsumer, matrices.peek(), 1.0F);
-            consumers.setSubstitute((vertexConsumer) -> crackingConsumer);
-            MinecraftClient.getInstance().getBlockRenderManager().renderBlockAsEntity(this.form.blockState.get(), matrices, consumers, LightmapTextureManager.MAX_BLOCK_LIGHT_COORDINATE, OverlayTexture.DEFAULT_UV);
-        }
+        this.renderRepeatedBlocks(null, matrices, consumers, LightmapTextureManager.MAX_BLOCK_LIGHT_COORDINATE, OverlayTexture.DEFAULT_UV, false, true, false, false);
 
         consumers.draw();
 
@@ -166,8 +156,14 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
         {
             if (context.isPicking())
             {
-                this.setupTarget(context, BBSShaders.getPickerModelsProgram());
-                RenderSystem.setShader(BBSShaders.getPickerModelsProgram());
+                CustomVertexConsumerProvider.hijackVertexFormat((layer) ->
+                {
+                    this.setupTarget(context, BBSShaders.getPickerModelsProgram());
+                    RenderSystem.setShader(BBSShaders.getPickerModelsProgram());
+                    RenderSystem.setShaderTexture(0, SpriteAtlasTexture.BLOCK_ATLAS_TEXTURE);
+                    /* Unit pick cubes need both faces; culling clipped the volume to a flat slab. */
+                    RenderSystem.disableCull();
+                });
 
                 light = 0;
                 /* Form opacity / blend intensity must not discard pick pixels (picker_models a < 0.1). */
@@ -282,24 +278,6 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
 
             context.stack.pop();
         }
-
-        int breakingLevel = this.form.breaking.get();
-        if (!context.isPicking() && breakingLevel > 0 && breakingLevel <= 10)
-        {
-            RenderLayer crackingLayer = ModelBaker.BLOCK_DESTRUCTION_RENDER_LAYERS.get(breakingLevel - 1);
-            VertexConsumer delegateConsumer = consumers.getBuffer(crackingLayer);
-            VertexConsumer crackingConsumer = new OverlayVertexConsumer(delegateConsumer, context.stack.peek(), 1.0F);
-            consumers.setSubstitute((vertexConsumer) -> crackingConsumer);
-            MinecraftClient.getInstance().getBlockRenderManager().renderBlockAsEntity(this.form.blockState.get(), context.stack, consumers, light, context.overlay);
-        }
-
-        consumers.draw();
-        consumers.setSubstitute(null);
-
-        CustomVertexConsumerProvider.clearRunnables();
-        RenderSystem.defaultBlendFunc();
-
-        context.stack.pop();
 
         RenderSystem.enableDepthTest();
     }
@@ -515,8 +493,9 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
             return false;
         }
 
-        /* Signs / hanging signs / chests / beds / … — animated mesh or has block entity. */
-        if (state.hasBlockEntity())
+        /* Signs / hanging signs / chests / beds / … — animated or invisible mesh, or any BE. */
+        if (state.getRenderType() == BlockRenderType.INVISIBLE
+            || state.getBlock() instanceof BlockEntityProvider)
         {
             return true;
         }
@@ -609,7 +588,8 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
             return false;
         }
 
-        return state.hasBlockEntity();
+        return state.getBlock() instanceof BlockEntityProvider
+            || state.getRenderType() == BlockRenderType.INVISIBLE;
     }
 
     private Color resolveBlockEntityColor()
@@ -775,13 +755,20 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
     private void renderColorTintOverlayPass(FormRenderingContext context, MatrixStack stack, CustomVertexConsumerProvider consumers, Color formColor, float alpha, int overlay, boolean ui, Color gradeSource)
     {
         Matrix4f formRootInverse = new Matrix4f(stack.peek().getPositionMatrix()).invert();
-        boolean gradeActive = gradeSource != null && gradeSource.hasColorAdjustments();
+        int savedDepthFunc = GL11.glGetInteger(GL11.GL_DEPTH_FUNC);
+        boolean savedDepthMask = GL11.glGetBoolean(GL11.GL_DEPTH_WRITEMASK);
+        boolean savedPolygonOffsetFill = GL11.glGetBoolean(GL11.GL_POLYGON_OFFSET_FILL);
 
         CustomVertexConsumerProvider.clearRunnables();
         CustomVertexConsumerProvider.hijackVertexFormat((l) -> BlockEffectOverlayUniforms.configureColorTintOverlayRenderState(formRootInverse, formColor.transform, true, formColor, 0.5F, gradeSource));
 
         RenderSystem.enableBlend();
+        RenderSystem.enableDepthTest();
+        RenderSystem.depthFunc(GL11.GL_LEQUAL);
         RenderSystem.depthMask(false);
+        /* Pull tint overlay toward camera so it does not z-fight the main block pass. */
+        GL11.glEnable(GL11.GL_POLYGON_OFFSET_FILL);
+        GL11.glPolygonOffset(-1F, -2F);
 
         /* Neutral vertices — lighting lives in the scene copy when grading. */
         consumers.setSubstitute(BBSRendering.getBlockColorTintOverlayConsumer());
@@ -794,7 +781,19 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
         finally
         {
             consumers.setSubstitute(null);
-            RenderSystem.depthMask(true);
+            RenderSystem.depthMask(savedDepthMask);
+            RenderSystem.depthFunc(savedDepthFunc);
+            GL11.glPolygonOffset(0F, 0F);
+
+            if (savedPolygonOffsetFill)
+            {
+                GL11.glEnable(GL11.GL_POLYGON_OFFSET_FILL);
+            }
+            else
+            {
+                GL11.glDisable(GL11.GL_POLYGON_OFFSET_FILL);
+            }
+
             RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
             RenderSystem.defaultBlendFunc();
             CustomVertexConsumerProvider.clearRunnables();

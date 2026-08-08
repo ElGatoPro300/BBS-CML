@@ -3,11 +3,13 @@ package mchorse.bbs_mod.film;
 import mchorse.bbs_mod.film.replays.Replay;
 import mchorse.bbs_mod.forms.entities.IEntity;
 import mchorse.bbs_mod.forms.forms.utils.GlowSettings;
+import mchorse.bbs_mod.forms.forms.utils.Illusion;
 import mchorse.bbs_mod.forms.forms.utils.PaintSettings;
 import mchorse.bbs_mod.forms.forms.utils.ShadowSettings;
 import mchorse.bbs_mod.ui.framework.elements.utils.StencilMap;
 import mchorse.bbs_mod.ui.utils.gizmo.TransformOrientation;
 import mchorse.bbs_mod.utils.MatrixStackUtils;
+import mchorse.bbs_mod.utils.colors.Color;
 import mchorse.bbs_mod.utils.colors.Colors;
 
 import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
@@ -63,10 +65,19 @@ public class FilmControllerContext
     public String nameTag = "";
     public boolean relative;
     public boolean isShadowPass;
+    /**
+     * True when tools (gizmo / stencil) use a live {@code ActorEntity} / FP player
+     * instead of the editor StubEntity. Skips look-at/IK so bone matrices match
+     * {@code ActorEntityRenderer}, and skips drawing the body in the world pass
+     * (the physical entity already draws it).
+     */
+    public boolean physicalActor;
     public Matrix4f localGroupTransform;
     public Matrix4f viewMatrix;
     public PaintSettings groupPaint;
     public GlowSettings groupGlow;
+    public Color groupColorGrade;
+    public Illusion groupIllusion;
 
     private FilmControllerContext()
     {}
@@ -94,10 +105,13 @@ public class FilmControllerContext
         this.nameTag = "";
         this.relative = false;
         this.isShadowPass = false;
+        this.physicalActor = false;
         this.localGroupTransform = null;
         this.viewMatrix = null;
         this.groupPaint = null;
         this.groupGlow = null;
+        this.groupColorGrade = null;
+        this.groupIllusion = null;
     }
 
     public FilmControllerContext setup(IntObjectMap<IEntity> entities, IEntity entity, Replay replay, WorldRenderContext context)
@@ -285,6 +299,13 @@ public class FilmControllerContext
     public FilmControllerContext isShadowPass(boolean isShadowPass)
     {
         this.isShadowPass = isShadowPass;
+
+        return this;
+    }
+
+    public FilmControllerContext physicalActor(boolean physicalActor)
+    {
+        this.physicalActor = physicalActor;
 
         return this;
     }

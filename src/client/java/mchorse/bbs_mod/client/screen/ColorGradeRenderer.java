@@ -1,10 +1,7 @@
 package mchorse.bbs_mod.client.screen;
 
-import mchorse.bbs_mod.BBSSettings;
 import mchorse.bbs_mod.camera.clips.screen.ColorEffect;
 import mchorse.bbs_mod.camera.clips.screen.GrainEffect;
-import mchorse.bbs_mod.camera.clips.screen.LensDistortionOverscan;
-import mchorse.bbs_mod.client.BBSRendering;
 import mchorse.bbs_mod.graphics.texture.Texture;
 import mchorse.bbs_mod.graphics.texture.TextureFormat;
 import mchorse.bbs_mod.ui.framework.elements.utils.Batcher2D;
@@ -16,6 +13,7 @@ import net.minecraft.util.Identifier;
 import com.mojang.blaze3d.systems.RenderSystem;
 
 import org.lwjgl.opengl.GL11;
+import org.lwjgl.opengl.GL12;
 import org.lwjgl.opengl.GL13;
 import org.lwjgl.opengl.GL15;
 import org.lwjgl.opengl.GL20;
@@ -73,9 +71,20 @@ public class ColorGradeRenderer
 
             /* Cinematic effects */
             uniform float u_aberration;
+            uniform float u_aberrationAngle;
+            uniform float u_aberrationDirectional;
+            uniform float u_aberrationRadius;
+            uniform float u_aberrationHardness;
+            uniform float u_aberrationBalance;
+            uniform vec2 u_aberrationCenter;
+            uniform float u_aberrationGreen;
+            uniform float u_aberrationSpectrum;
             uniform float u_vhs;
             uniform float u_lensDistortion;
-            uniform float u_lensOverscan;
+            uniform float u_lensRadiusX;
+            uniform float u_lensRadiusY;
+            uniform float u_lensHardness;
+            uniform float u_lensSharpen;
             uniform float u_vintage;
             uniform float u_radialBlur;
             uniform float u_rain;
@@ -158,29 +167,76 @@ public class ColorGradeRenderer
 
             void main()
             {
-                /* Fisheye on clean UVs so the screen edges map to the wide-FOV image
-                 * edges. Distort / VHS are applied after. */
+                /* Fisheye on the copied native-FOV frame. Radius/hardness define a
+                 * local lens mask; the warp is fit in UV space so it never stretches
+                 * framebuffer edges into the rim. */
                 vec2 distortedUV = v_uv;
-                if (abs(u_lensDistortion) > 0.001)
+                float lensMask = 0.0;
+                if (abs(u_lensDistortion) > 0.001 && (u_lensRadiusX > 0.001 || u_lensRadiusY > 0.001))
                 {
                     vec2 uvOffset = v_uv - vec2(0.5);
-                    float r2 = dot(uvOffset, uvOffset);
                     float k = u_lensDistortion;
+                    float cornerRadius = 0.70710678;
+                    float radiusX = max(u_lensRadiusX * cornerRadius, 1.0e-6);
+                    float radiusY = max(u_lensRadiusY * cornerRadius, 1.0e-6);
+                    vec2 scaled = uvOffset / vec2(radiusX, radiusY);
+                    float rNorm = length(scaled);
+                    float localR2 = min(0.5, 0.5 * dot(scaled, scaled));
+                    float hardness = clamp(u_lensHardness, 0.0, 1.0);
+                    /* Relative feather so circular X=Y matches the previous radius behavior. */
+                    float feather = (1.0 - hardness) * 0.75;
 
-                    if (k > 0.0 && u_lensOverscan > 1.0)
+                    if (feather < 0.0001)
                     {
-                        float s = u_lensOverscan;
-                        /* Strongest k that still lands on the FOV-matched edge (no stretch). */
-                        float kFit = 2.0 * (s - 1.0);
-                        float kUse = min(k, kFit);
-                        vec2 warped = uvOffset * (1.0 + kUse * r2);
-                        distortedUV = warped / s + vec2(0.5);
+                        lensMask = step(rNorm, 1.0);
                     }
                     else
                     {
-                        vec2 warped = uvOffset * (1.0 + k * r2);
-                        distortedUV = clamp(warped + vec2(0.5), 0.0, 1.0);
+                        lensMask = 1.0 - smoothstep(max(0.0, 1.0 - feather), 1.0 + feather, rNorm);
                     }
+
+                    vec2 passthroughUV = v_uv;
+                    vec2 warpedUV = v_uv;
+
+                    if (k > 0.0)
+                    {
+                        /* Isotropic fit (one scale for X and Y) so the warp keeps its
+                         * radial direction — per-axis squash breaks the radius look.
+                         * extent caps at the screen half-edge so radius>1 (common when
+                         * unlocking X/Y) still keeps samples inside [0,1]. */
+                        float extent = min(0.5, max(radiusX, radiusY) * (1.0 + feather));
+                        float fitScale = max(1.0, extent * (1.0 + k * 0.5) / 0.5);
+                        vec2 raw = uvOffset * (1.0 + k * localR2) / fitScale;
+                        /* Safety: shrink isotropically if anything still exceeds the
+                         * UV square (feather / extreme ellipses). Preserves angle. */
+                        float box = max(abs(raw.x), abs(raw.y));
+
+                        if (box > 0.5)
+                        {
+                            raw *= 0.5 / box;
+                        }
+
+                        warpedUV = raw + vec2(0.5);
+                    }
+                    else
+                    {
+                        /* Negative intensity: use 1/(1+|k|·r²) instead of 1+k·r².
+                         * The linear form hits a singularity near k≈-2 (UI ≈-7.8) and
+                         * then looks inverted at the rim; the reciprocal keeps zooming
+                         * in smoothly for arbitrarily strong negatives. */
+                        float scale = 1.0 / max(1.0 - k * localR2, 0.001);
+                        vec2 raw = uvOffset * scale;
+                        float box = max(abs(raw.x), abs(raw.y));
+
+                        if (box > 0.5)
+                        {
+                            raw *= 0.5 / box;
+                        }
+
+                        warpedUV = raw + vec2(0.5);
+                    }
+
+                    distortedUV = mix(passthroughUV, warpedUV, clamp(lensMask, 0.0, 1.0));
                 }
 
                 vec2 sampleUV = distortedUV + u_distort;
@@ -246,22 +302,78 @@ public class ColorGradeRenderer
 
                 /* Chromatic Aberration splitting */
                 vec2 uvRed = distortedUV;
+                vec2 uvGreen = distortedUV;
                 vec2 uvBlue = distortedUV;
                 if (u_aberration > 0.001)
                 {
-                    vec2 dir = distortedUV - vec2(0.5);
-                    float dist = length(dir);
-                    vec2 offset = dir * dist * u_aberration;
-                    uvRed += offset;
-                    uvBlue -= offset;
+                    vec2 delta = distortedUV - u_aberrationCenter;
+                    float dist = length(delta);
+                    vec2 radialDir = dist > 1.0e-6 ? delta / dist : vec2(1.0, 0.0);
+                    float angle = radians(u_aberrationAngle);
+                    vec2 linearDir = vec2(cos(angle), sin(angle));
+                    vec2 splitDir = mix(radialDir, linearDir, clamp(u_aberrationDirectional, 0.0, 1.0));
+                    float splitLen = length(splitDir);
+
+                    splitDir = splitLen > 1.0e-6 ? splitDir / splitLen : radialDir;
+
+                    float cornerRadius = 0.70710678;
+                    float radius = max(u_aberrationRadius * cornerRadius, 1.0e-6);
+                    float rNorm = dist / radius;
+                    float hardness = clamp(u_aberrationHardness, 0.0, 1.0);
+                    float feather = (1.0 - hardness) * 0.75;
+                    float mask = 1.0;
+
+                    if (u_aberrationRadius < 0.999 || feather > 0.0001)
+                    {
+                        if (feather < 0.0001)
+                        {
+                            mask = step(rNorm, 1.0);
+                        }
+                        else
+                        {
+                            mask = 1.0 - smoothstep(max(0.0, 1.0 - feather), 1.0 + feather, rNorm);
+                        }
+                    }
+
+                    float amount = dist * dist * u_aberration * clamp(mask, 0.0, 1.0);
+                    float balance = clamp(u_aberrationBalance, -1.0, 1.0);
+                    float redScale = max(0.0, 1.0 + balance);
+                    float blueScale = max(0.0, 1.0 - balance);
+                    float spectrum = clamp(u_aberrationSpectrum, 0.0, 1.0);
+                    float green = max(0.0, u_aberrationGreen);
+                    float greenAmount = max(green, spectrum * 0.5);
+                    vec2 perp = vec2(-splitDir.y, splitDir.x);
+                    vec2 redDir = normalize(mix(splitDir, splitDir + perp * 0.5, spectrum));
+                    vec2 blueDir = normalize(mix(-splitDir, -splitDir + perp * 0.5, spectrum));
+                    vec2 greenDir = greenAmount > 1.0e-6 ? perp : vec2(0.0);
+
+                    uvRed += redDir * amount * redScale;
+                    uvBlue += blueDir * amount * blueScale;
+                    uvGreen += greenDir * amount * greenAmount;
                     uvRed = clamp(uvRed, 0.0, 1.0);
+                    uvGreen = clamp(uvGreen, 0.0, 1.0);
                     uvBlue = clamp(uvBlue, 0.0, 1.0);
                 }
 
                 float r = texture(u_sampler, uvRed).r;
-                float g = texture(u_sampler, distortedUV).g;
+                float g = texture(u_sampler, uvGreen).g;
                 float b = texture(u_sampler, uvBlue).b;
                 vec3 rgb = vec3(r, g, b);
+
+                /* Radial center sharpen for positive fisheye (soft center from FOV-widen). */
+                if (u_lensSharpen > 0.001 && u_lensDistortion > 0.001)
+                {
+                    vec2 texel = 1.0 / vec2(textureSize(u_sampler, 0));
+                    vec3 blur = texture(u_sampler, clamp(distortedUV + vec2(texel.x, 0.0), 0.0, 1.0)).rgb
+                        + texture(u_sampler, clamp(distortedUV - vec2(texel.x, 0.0), 0.0, 1.0)).rgb
+                        + texture(u_sampler, clamp(distortedUV + vec2(0.0, texel.y), 0.0, 1.0)).rgb
+                        + texture(u_sampler, clamp(distortedUV - vec2(0.0, texel.y), 0.0, 1.0)).rgb;
+                    blur *= 0.25;
+                    vec3 sharp = rgb + (rgb - blur) * u_lensSharpen;
+                    float centerW = 1.0 - smoothstep(0.0, 0.85, length(v_uv - vec2(0.5)) / 0.70710678);
+                    float sharpenW = clamp(u_lensSharpen, 0.0, 2.0) * centerW * max(lensMask, 0.0);
+                    rgb = mix(rgb, sharp, clamp(sharpenW, 0.0, 1.0));
+                }
 
                 /* Radial Action Blur */
                 if (u_radialBlur > 0.001)
@@ -423,7 +535,7 @@ public class ColorGradeRenderer
             }
             """;
 
-    private static final int SHADER_VERSION = 9;
+    private static final int SHADER_VERSION = 21;
     private static int loadedShaderVersion;
     private static boolean initialized;
     private static boolean failed;
@@ -448,9 +560,20 @@ public class ColorGradeRenderer
     private static int uGrainSeed;
     private static int uDistort;
     private static int uAberration;
+    private static int uAberrationAngle;
+    private static int uAberrationDirectional;
+    private static int uAberrationRadius;
+    private static int uAberrationHardness;
+    private static int uAberrationBalance;
+    private static int uAberrationCenter;
+    private static int uAberrationGreen;
+    private static int uAberrationSpectrum;
     private static int uVHS;
     private static int uLensDistortion;
-    private static int uLensOverscan;
+    private static int uLensRadiusX;
+    private static int uLensRadiusY;
+    private static int uLensHardness;
+    private static int uLensSharpen;
     private static int uVintage;
     private static int uRadialBlur;
     private static int uRain;
@@ -516,6 +639,8 @@ public class ColorGradeRenderer
             tempTex = new Texture();
             tempTex.setFormat(TextureFormat.RGB_U8);
             tempTex.setFilter(GL11.GL_LINEAR);
+            /* Prevent fisheye UVs that slightly leave [0,1] from tiling the scene. */
+            tempTex.setWrap(GL12.GL_CLAMP_TO_EDGE);
         }
 
         fb.beginRead();
@@ -600,9 +725,21 @@ public class ColorGradeRenderer
 
         /* Accumulate cinematic effects */
         float aberration = 0F;
+        float aberrationAngle = 0F;
+        float aberrationDirectional = 0F;
+        float aberrationRadius = 1F;
+        float aberrationHardness = 1F;
+        float aberrationBalance = 0F;
+        float aberrationCenterX = 0.5F;
+        float aberrationCenterY = 0.5F;
+        float aberrationGreen = 0F;
+        float aberrationSpectrum = 0F;
         float vhs = 0F;
         float lensDistortion = 0F;
-        float lensOverscan = 1F;
+        float lensRadiusX = 1F;
+        float lensRadiusY = 1F;
+        float lensHardness = 1F;
+        float lensSharpen = 0F;
         float vintage = 0F;
         float radialBlur = 0F;
         float rain = 0F;
@@ -617,10 +754,30 @@ public class ColorGradeRenderer
         {
             if (e.hasCinematic)
             {
-                aberration = Math.max(aberration, e.aberration);
+                if (e.aberration > aberration)
+                {
+                    aberration = e.aberration;
+                    aberrationAngle = e.aberrationAngle;
+                    aberrationDirectional = e.aberrationDirectional;
+                    aberrationRadius = e.aberrationRadius;
+                    aberrationHardness = e.aberrationHardness;
+                    aberrationBalance = e.aberrationBalance;
+                    aberrationCenterX = e.aberrationCenterX;
+                    aberrationCenterY = e.aberrationCenterY;
+                    aberrationGreen = e.aberrationGreen;
+                    aberrationSpectrum = e.aberrationSpectrum;
+                }
+
                 vhs = Math.max(vhs, e.vhs);
                 lensDistortion += e.lensDistortion;
-                lensOverscan = Math.max(lensOverscan, e.lensOverscan);
+
+                if (Math.abs(e.lensDistortion) > 1.0e-6F)
+                {
+                    lensRadiusX = e.lensRadiusX;
+                    lensRadiusY = e.lensRadiusY;
+                    lensHardness = e.lensHardness;
+                    lensSharpen = Math.max(lensSharpen, e.lensSharpen);
+                }
                 vintage = Math.max(vintage, e.vintage);
                 radialBlur = Math.max(radialBlur, e.radialBlur);
                 rain = Math.max(rain, e.rain);
@@ -662,28 +819,36 @@ public class ColorGradeRenderer
         GL20.glUniform1f(uGrainSeed, grainSeed);
         GL20.glUniform2f(uDistort, distortX, distortY);
         GL20.glUniform1f(uAberration, aberration);
+        GL20.glUniform1f(uAberrationAngle, aberrationAngle);
+        GL20.glUniform1f(
+            uAberrationDirectional,
+            Math.max(0F, Math.min(1F, aberrationDirectional))
+        );
+        GL20.glUniform1f(uAberrationRadius, Math.max(0F, aberrationRadius));
+        GL20.glUniform1f(
+            uAberrationHardness,
+            Math.max(0F, Math.min(1F, aberrationHardness))
+        );
+        GL20.glUniform1f(
+            uAberrationBalance,
+            Math.max(-1F, Math.min(1F, aberrationBalance))
+        );
+        GL20.glUniform2f(
+            uAberrationCenter,
+            Math.max(0F, Math.min(1F, aberrationCenterX)),
+            Math.max(0F, Math.min(1F, aberrationCenterY))
+        );
+        GL20.glUniform1f(uAberrationGreen, Math.max(0F, aberrationGreen));
+        GL20.glUniform1f(
+            uAberrationSpectrum,
+            Math.max(0F, Math.min(1F, aberrationSpectrum))
+        );
         GL20.glUniform1f(uVHS, vhs);
-        /* Use the scale actually applied to this frame's camera FOV. */
-        if (lensDistortion > 0F && BBSSettings.editorFisheyeWidenFov != null && BBSSettings.editorFisheyeWidenFov.get())
-        {
-            float rendered = BBSRendering.getLensOverscanScale();
-
-            if (rendered > 1.0001F)
-            {
-                lensOverscan = rendered;
-            }
-            else
-            {
-                lensOverscan = Math.max(lensOverscan, LensDistortionOverscan.overscanScale(lensDistortion));
-            }
-        }
-        else
-        {
-            lensOverscan = 1F;
-        }
-
         GL20.glUniform1f(uLensDistortion, lensDistortion);
-        GL20.glUniform1f(uLensOverscan, lensOverscan);
+        GL20.glUniform1f(uLensRadiusX, Math.max(0F, lensRadiusX));
+        GL20.glUniform1f(uLensRadiusY, Math.max(0F, lensRadiusY));
+        GL20.glUniform1f(uLensHardness, Math.max(0F, Math.min(1F, lensHardness)));
+        GL20.glUniform1f(uLensSharpen, Math.max(0F, lensSharpen));
         GL20.glUniform1f(uVintage, vintage);
         GL20.glUniform1f(uRadialBlur, radialBlur);
         GL20.glUniform1f(uRain, rain);
@@ -809,9 +974,20 @@ public class ColorGradeRenderer
         uGrainSeed = GL20.glGetUniformLocation(program, "u_grainSeed");
         uDistort = GL20.glGetUniformLocation(program, "u_distort");
         uAberration = GL20.glGetUniformLocation(program, "u_aberration");
+        uAberrationAngle = GL20.glGetUniformLocation(program, "u_aberrationAngle");
+        uAberrationDirectional = GL20.glGetUniformLocation(program, "u_aberrationDirectional");
+        uAberrationRadius = GL20.glGetUniformLocation(program, "u_aberrationRadius");
+        uAberrationHardness = GL20.glGetUniformLocation(program, "u_aberrationHardness");
+        uAberrationBalance = GL20.glGetUniformLocation(program, "u_aberrationBalance");
+        uAberrationCenter = GL20.glGetUniformLocation(program, "u_aberrationCenter");
+        uAberrationGreen = GL20.glGetUniformLocation(program, "u_aberrationGreen");
+        uAberrationSpectrum = GL20.glGetUniformLocation(program, "u_aberrationSpectrum");
         uVHS = GL20.glGetUniformLocation(program, "u_vhs");
         uLensDistortion = GL20.glGetUniformLocation(program, "u_lensDistortion");
-        uLensOverscan = GL20.glGetUniformLocation(program, "u_lensOverscan");
+        uLensRadiusX = GL20.glGetUniformLocation(program, "u_lensRadiusX");
+        uLensRadiusY = GL20.glGetUniformLocation(program, "u_lensRadiusY");
+        uLensHardness = GL20.glGetUniformLocation(program, "u_lensHardness");
+        uLensSharpen = GL20.glGetUniformLocation(program, "u_lensSharpen");
         uVintage = GL20.glGetUniformLocation(program, "u_vintage");
         uRadialBlur = GL20.glGetUniformLocation(program, "u_radialBlur");
         uRain = GL20.glGetUniformLocation(program, "u_rain");

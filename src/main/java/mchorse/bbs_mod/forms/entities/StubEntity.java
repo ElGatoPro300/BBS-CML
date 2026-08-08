@@ -6,6 +6,7 @@ import mchorse.bbs_mod.utils.AABB;
 import net.minecraft.entity.EntityPose;
 import net.minecraft.entity.EquipmentSlot;
 import net.minecraft.entity.LimbAnimator;
+import net.minecraft.entity.LivingEntity;
 import net.minecraft.item.ItemStack;
 import net.minecraft.util.Hand;
 import net.minecraft.util.math.MathHelper;
@@ -61,7 +62,12 @@ public class StubEntity implements IEntity
     private float pitch;
     private float bodyYaw;
 
-    private int armSwing;
+    /** Matches {@link LivingEntity} hand-swing duration. */
+    private static final int HAND_SWING_DURATION = 6;
+    private boolean handSwinging;
+    private int handSwingTicks;
+    private float handSwingProgress;
+    private float prevHandSwingProgress;
 
     private Vec3d velocity = Vec3d.ZERO;
 
@@ -180,13 +186,69 @@ public class StubEntity implements IEntity
     @Override
     public void swingArm()
     {
-        this.armSwing = 6;
+        this.handSwinging = true;
+        /* LivingEntity.swingHand starts at -1 so the first tickHandSwing lands on 0. */
+        this.handSwingTicks = -1;
+        this.prevHandSwingProgress = 0F;
+        this.handSwingProgress = 0F;
+    }
+
+    public boolean isHandSwinging()
+    {
+        return this.handSwinging;
     }
 
     @Override
     public float getHandSwingProgress(float tickDelta)
     {
-        return this.armSwing <= 0 ? 0F : 1F - (this.armSwing - tickDelta) / 6F;
+        /* Just started, update() not run yet: expose the first step so paused /
+         * transition-0 scrubbing is not stuck at progress 0. */
+        if (this.handSwinging && this.handSwingTicks < 0 && this.handSwingProgress == 0F)
+        {
+            float start = tickDelta > 0F ? tickDelta : 1F;
+
+            return start / HAND_SWING_DURATION;
+        }
+
+        /* Paused film scrubbing passes tickDelta 0. Interpolating from prev made
+         * the arm snap back for one playhead step after the swipe started. */
+        if (tickDelta <= 0F)
+        {
+            return this.handSwingProgress;
+        }
+
+        float delta = this.handSwingProgress - this.prevHandSwingProgress;
+
+        if (delta < 0F)
+        {
+            delta += 1F;
+        }
+
+        return this.prevHandSwingProgress + delta * tickDelta;
+    }
+
+    private void tickHandSwing()
+    {
+        this.prevHandSwingProgress = this.handSwingProgress;
+
+        if (this.handSwinging)
+        {
+            this.handSwingTicks += 1;
+
+            if (this.handSwingTicks >= HAND_SWING_DURATION)
+            {
+                this.handSwingTicks = 0;
+                this.handSwinging = false;
+            }
+        }
+        else
+        {
+            this.handSwingTicks = 0;
+        }
+
+        this.handSwingProgress = this.handSwingTicks < 0
+            ? 0F
+            : (float) this.handSwingTicks / (float) HAND_SWING_DURATION;
     }
 
     @Override
@@ -532,7 +594,7 @@ public class StubEntity implements IEntity
 
         this.limbAnimator.updateLimbs(speed, 0.4F, 1F);
 
-        this.armSwing -= 1;
+        this.tickHandSwing();
         this.age += 1;
 
         this.prevFallFlyingTicks = this.fallFlyingTicks;

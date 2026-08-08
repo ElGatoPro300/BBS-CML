@@ -14,6 +14,7 @@ import net.minecraft.client.render.WorldRenderer;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.util.math.Vec3d;
 
+import org.joml.Matrix3f;
 import org.joml.Matrix4f;
 
 import com.mojang.blaze3d.systems.RenderSystem;
@@ -102,5 +103,26 @@ public class WorldRendererMixin
         */
 
         BBSRendering.resizeExtraFramebuffers();
+    }
+    
+    @Inject(method = "checkEmpty", at = @At("HEAD"), cancellable = true, require = 0)
+    private void onCheckEmpty(MatrixStack matrices, CallbackInfo info)
+    {
+        if (matrices != null)
+        {
+            if (matrices.stack.isEmpty())
+            {
+                matrices.stack.add(new MatrixStack().peek());
+            }
+            else
+            {
+                while (matrices.stack.size() > 1)
+                {
+                    matrices.pop();
+                }
+            }
+        }
+
+        info.cancel();
     }
 }

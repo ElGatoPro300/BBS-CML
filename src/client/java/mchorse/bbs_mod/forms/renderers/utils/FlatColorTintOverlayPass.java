@@ -1,18 +1,19 @@
 package mchorse.bbs_mod.forms.renderers.utils;
 
-import mchorse.bbs_mod.client.BBSShaders;
-import mchorse.bbs_mod.cubic.render.vao.ModelVAORenderer;
+import mchorse.bbs_mod.forms.forms.utils.EffectTransform;
+import mchorse.bbs_mod.utils.colors.Color;
 
-import net.minecraft.client.gl.ShaderProgram;
+import org.joml.Matrix4f;
+import org.joml.Vector3f;
 
-import com.mojang.blaze3d.platform.GlStateManager;
 import com.mojang.blaze3d.systems.RenderSystem;
 
 import org.lwjgl.opengl.GL11;
 
 /**
  * Multiply-blend color-mask overlay for flat textured forms (billboards, shapes).
- * Matches {@link ModelVAORenderer#beginColorTintOverlayPass()}.
+ * Mask is evaluated per fragment in {@code flat_color_tint_overlay} (billboards only have
+ * four corners, so vertex-baked masks cannot form a spatial strip).
  */
 public final class FlatColorTintOverlayPass
 {
@@ -20,6 +21,16 @@ public final class FlatColorTintOverlayPass
     {}
 
     public static void render(Runnable draw)
+    {
+        render(FlatPaintOverlayPass.DEFAULT_FACTOR, FlatPaintOverlayPass.DEFAULT_UNITS, null, null, false, null, null, draw);
+    }
+
+    public static void render(float factor, float units, Runnable draw)
+    {
+        render(factor, units, null, null, false, null, null, draw);
+    }
+
+    public static void render(float factor, float units, Matrix4f formRootInverse, EffectTransform transform, boolean bottomAnchored, Vector3f maskHalf, Color formColor, Runnable draw)
     {
         if (draw == null)
         {
@@ -29,29 +40,22 @@ public final class FlatColorTintOverlayPass
         boolean savedDepthMask = GL11.glGetBoolean(GL11.GL_DEPTH_WRITEMASK);
         boolean savedPolygonOffsetFill = GL11.glGetBoolean(GL11.GL_POLYGON_OFFSET_FILL);
 
-        RenderSystem.enableBlend();
-        RenderSystem.blendFuncSeparate(
-            GlStateManager.SrcFactor.DST_COLOR,
-            GlStateManager.DstFactor.ZERO,
-            GlStateManager.SrcFactor.DST_ALPHA,
-            GlStateManager.DstFactor.ZERO
-        );
-        RenderSystem.enableDepthTest();
-        RenderSystem.depthFunc(GL11.GL_LEQUAL);
-        RenderSystem.depthMask(false);
-
-        GL11.glEnable(GL11.GL_POLYGON_OFFSET_FILL);
-        /* Same far-distance units bias as FlatPaintOverlayPass (camera-facing quads). */
-        GL11.glPolygonOffset(FlatPaintOverlayPass.POLYGON_OFFSET_FACTOR, FlatPaintOverlayPass.POLYGON_OFFSET_UNITS);
-
-        ShaderProgram program = BBSShaders.getFlatColorTintOverlayProgram();
-
-        if (program != null)
+        if (formRootInverse != null)
         {
-            RenderSystem.setShader(program);
+            BlockEffectOverlayUniforms.configureFlatColorTintOverlay(formRootInverse, transform, bottomAnchored, maskHalf, formColor);
+        }
+        else
+        {
+            RenderSystem.enableBlend();
+            RenderSystem.defaultBlendFunc();
+            RenderSystem.enableDepthTest();
+            RenderSystem.depthFunc(GL11.GL_LEQUAL);
+            RenderSystem.depthMask(false);
+            RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
         }
 
-        RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
+        GL11.glEnable(GL11.GL_POLYGON_OFFSET_FILL);
+        GL11.glPolygonOffset(factor, units);
 
         try
         {

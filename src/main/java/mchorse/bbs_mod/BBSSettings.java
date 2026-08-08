@@ -163,6 +163,7 @@ public class BBSSettings
     public static ValueInt editorDockGuideColor;
     public static ValueFloat editorDockGuideOpacity;
     public static ValueBoolean editorReplayStepSound;
+    public static ValueBoolean editorActorPausedSwipeLoop;
     public static ValueBoolean editorSimplifyAnimations;
     public static ValueBoolean editorMuteRenderAudioClips;
     public static ValueInt editorTimeMode;
@@ -720,7 +721,7 @@ public class BBSSettings
         editorSafeMarginsColor = builder.getInt("safe_margins_color", 0xcccc0000).colorAlpha();
         editorSafeMargins = builder.getBoolean("safe_margins", false);
         editorFlightFreeLook = builder.getBoolean("flight_free_look", false);
-        editorOrbitWithoutFlight = builder.getBoolean("orbit_without_flight", true);
+        editorOrbitWithoutFlight = builder.getBoolean("orbit_without_flight", false);
         editorOrbitSmoothTransition = builder.getBoolean("orbit_smooth_transition", false);
         editorOrbitRestrictToViewport = builder.getBoolean("orbit_restrict_to_viewport", false);
         editorOrbitTransitionDuration = builder.getFloat("orbit_transition_duration", 1.25F, 0.1F, 10F);
@@ -743,6 +744,7 @@ public class BBSSettings
         replayContextOptions = builder.getInt("compacted_options", 0, 0, 2);
         editorReplaySprintParticles = builder.getBoolean("replay_sprint_particles", false);
         editorReplayStepSound = builder.getBoolean("replay_step_sound", false);
+        editorActorPausedSwipeLoop = builder.getBoolean("actor_paused_swipe_loop", true);
         replayMarkedBonesOnly = builder.getBoolean("replay_marked_bones_only", false);
         editorReplayEditorTitleLimit = builder.getInt("replay_editor_title_limit", 12, 0, 64);
         replayFpBobbingIntensity = builder.getFloat("replay_fp_bobbing_intensity", 0.25F, 0F, 2F);

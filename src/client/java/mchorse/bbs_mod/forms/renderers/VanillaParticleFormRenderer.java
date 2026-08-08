@@ -34,7 +34,6 @@ import net.minecraft.particle.SimpleParticleType;
 import net.minecraft.registry.Registries;
 import net.minecraft.registry.RegistryWrapper;
 import net.minecraft.util.Identifier;
-import net.minecraft.util.math.ColorHelper;
 import net.minecraft.world.World;
 
 import org.joml.Matrix3f;
@@ -251,17 +250,17 @@ public class VanillaParticleFormRenderer extends FormRenderer<VanillaParticleFor
                         else if (path.equals("dust_color_transition"))
                         {
                             float scale = colorA > 0F ? colorA : 1F;
-                            int colorInt = ColorHelper.fromFloats(1.0F, colorR, colorG, colorB);
+                            int rgb = new mchorse.bbs_mod.utils.colors.Color(colorR, colorG, colorB).getRGBColor();
 
-                            effect = new DustColorTransitionParticleEffect(colorInt, colorInt, scale);
+                            effect = new DustColorTransitionParticleEffect(rgb, rgb, scale);
                             parsedCustom = true;
                         }
                         else if (path.contains("dust"))
                         {
                             float scale = colorA > 0F ? colorA : 1F;
-                            int colorInt = ColorHelper.fromFloats(1.0F, colorR, colorG, colorB);
+                            int rgb = new mchorse.bbs_mod.utils.colors.Color(colorR, colorG, colorB).getRGBColor();
 
-                            effect = new DustParticleEffect(colorInt, scale);
+                            effect = new DustParticleEffect(rgb, scale);
                             parsedCustom = true;
                         }
                     }
@@ -401,7 +400,7 @@ public class VanillaParticleFormRenderer extends FormRenderer<VanillaParticleFor
                         }
                         else if (particleObj == null && world != null)
                         {
-                            world.addParticle(effect, x, y, z, v.x, v.y, v.z);
+                            world.addImportantParticle(effect, x, y, z, v.x, v.y, v.z);
                         }
                     }
 

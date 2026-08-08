@@ -13,6 +13,7 @@ import net.minecraft.entity.EntityPose;
 import net.minecraft.entity.EntityType;
 import net.minecraft.entity.EquipmentSlot;
 import net.minecraft.entity.ItemEntity;
+import net.minecraft.entity.LimbAnimator;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.attribute.DefaultAttributeContainer;
 import net.minecraft.entity.attribute.EntityAttributes;
@@ -62,6 +63,12 @@ public class ActorEntity extends LivingEntity implements IEntityFormProvider
     private float lastHitboxSneakMultiplier = Float.NaN;
     private boolean lastSneaking;
 
+    /**
+     * After unpause, ramp walk velocity back in over a few ticks so limb swing
+     * accelerates naturally instead of snapping for one tick from settled → full walk.
+     */
+    private int playbackVelocityBlendTicks;
+
     /* Film and replay data for item drops */
     private Film film;
     private Replay replay;
@@ -95,6 +102,32 @@ public class ActorEntity extends LivingEntity implements IEntityFormProvider
     public void updateTick(int tick)
     {
         this.currentTick = tick;
+    }
+
+    /**
+     * Film playback resumed after a hold-still pause. Softens the first walk
+     * velocities so {@link LimbAnimator} does not jump.
+     */
+    public void markPlaybackResumed()
+    {
+        this.playbackVelocityBlendTicks = 4;
+    }
+
+    /**
+     * Multiplier for keyframe horizontal velocity this tick (1 = normal playback).
+     */
+    public double consumePlaybackVelocityScale()
+    {
+        if (this.playbackVelocityBlendTicks <= 0)
+        {
+            return 1D;
+        }
+
+        int remaining = this.playbackVelocityBlendTicks;
+
+        this.playbackVelocityBlendTicks -= 1;
+
+        return 1D - (remaining / 4D);
     }
 
     private void initializeRuntimeInventory()
