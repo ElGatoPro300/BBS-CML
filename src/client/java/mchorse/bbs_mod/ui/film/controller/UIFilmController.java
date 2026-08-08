@@ -28,7 +28,7 @@ import mchorse.bbs_mod.graphics.Draw;
 import mchorse.bbs_mod.graphics.texture.Texture;
 import mchorse.bbs_mod.graphics.window.Window;
 import mchorse.bbs_mod.l10n.keys.IKey;
-import mchorse.bbs_mod.mixin.client.MinecraftClientInvoker;
+import mchorse.bbs_mod.entity.ActorEntity;
 import mchorse.bbs_mod.morphing.Morph;
 import mchorse.bbs_mod.network.ClientNetwork;
 import mchorse.bbs_mod.resources.Link;
@@ -75,6 +75,7 @@ import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.Mouse;
 import net.minecraft.client.network.ClientPlayerEntity;
+import net.minecraft.client.network.ClientPlayerInteractionManager;
 import net.minecraft.client.option.GameOptions;
 import net.minecraft.client.render.BufferBuilder;
 import net.minecraft.client.render.BufferRenderer;
@@ -84,8 +85,14 @@ import net.minecraft.client.render.VertexFormat;
 import net.minecraft.client.render.VertexFormats;
 import net.minecraft.client.util.InputUtil;
 import net.minecraft.client.util.math.MatrixStack;
+import net.minecraft.entity.Entity;
+import net.minecraft.entity.projectile.ProjectileUtil;
+import net.minecraft.util.ActionResult;
+import net.minecraft.util.Hand;
 import net.minecraft.util.hit.BlockHitResult;
+import net.minecraft.util.hit.EntityHitResult;
 import net.minecraft.util.hit.HitResult;
+import net.minecraft.util.math.Box;
 import net.minecraft.util.math.Vec3d;
 import net.minecraft.world.RaycastContext;
 import net.minecraft.world.World;
@@ -945,7 +952,8 @@ public class UIFilmController extends UIElement
     /**
      * While actor-control has the OS cursor disabled, absolute mouse coords still move over
      * the editor and steal LMB/RMB (no swipe / shield). Route those clicks to vanilla
-     * attack/use instead, and park UI hover elsewhere.
+     * attack/use from the <em>player</em> eye/look (not the film camera crosshair), and
+     * park UI hover elsewhere.
      */
     public boolean handleControlMousePress(int button)
     {
@@ -956,38 +964,163 @@ public class UIFilmController extends UIElement
 
         MinecraftClient client = MinecraftClient.getInstance();
 
-        if (client.player == null)
+        if (client.player == null || client.interactionManager == null)
         {
             return true;
         }
 
-        /* Keep crosshair in sync with the look we drive while the Screen is open. */
-        if (client.gameRenderer != null)
-        {
-            client.gameRenderer.updateCrosshairTarget(1F);
-        }
+        EditorSpectatorHelper.ensurePlayableForControl();
 
         if (button == GLFW.GLFW_MOUSE_BUTTON_LEFT)
         {
-            boolean swung = ((MinecraftClientInvoker) client).bbs$invokeDoAttack();
-
-            if (!swung)
-            {
-                client.player.swingHand(net.minecraft.util.Hand.MAIN_HAND);
-            }
-
-            this.swingVisibleActor();
+            this.performControlAttack(client);
         }
         else if (button == GLFW.GLFW_MOUSE_BUTTON_RIGHT)
         {
-            ((MinecraftClientInvoker) client).bbs$invokeDoItemUse();
+            this.performControlUse(client);
         }
 
         return true;
     }
 
     /**
-     * Actor-mode bodies are a separate {@link mchorse.bbs_mod.entity.ActorEntity};
+     * Attack / break whatever is in front of the controlled player body.
+     * Film-camera {@code crosshairTarget} is useless here (orbit / path look).
+     */
+    private void performControlAttack(MinecraftClient client)
+    {
+        ClientPlayerEntity player = client.player;
+        ClientPlayerInteractionManager interactions = client.interactionManager;
+        HitResult hit = this.raycastControlTarget(player, true);
+
+        if (hit.getType() == HitResult.Type.ENTITY)
+        {
+            interactions.attackEntity(player, ((EntityHitResult) hit).getEntity());
+        }
+        else if (hit.getType() == HitResult.Type.BLOCK)
+        {
+            BlockHitResult blockHit = (BlockHitResult) hit;
+
+            interactions.attackBlock(blockHit.getBlockPos(), blockHit.getSide());
+        }
+
+        player.swingHand(Hand.MAIN_HAND);
+        this.swingVisibleActor();
+    }
+
+    /**
+     * Interact with entity / block / held item in front of the controlled player.
+     */
+    private void performControlUse(MinecraftClient client)
+    {
+        ClientPlayerEntity player = client.player;
+        ClientPlayerInteractionManager interactions = client.interactionManager;
+        HitResult hit = this.raycastControlTarget(player, false);
+
+        for (Hand hand : Hand.values())
+        {
+            if (hit.getType() == HitResult.Type.ENTITY)
+            {
+                EntityHitResult entityHit = (EntityHitResult) hit;
+                ActionResult atLocation = interactions.interactEntityAtLocation(player, entityHit.getEntity(), entityHit, hand);
+
+                if (atLocation.isAccepted())
+                {
+                    return;
+                }
+
+                ActionResult onEntity = interactions.interactEntity(player, entityHit.getEntity(), hand);
+
+                if (onEntity.isAccepted())
+                {
+                    return;
+                }
+            }
+            else if (hit.getType() == HitResult.Type.BLOCK)
+            {
+                ActionResult onBlock = interactions.interactBlock(player, hand, (BlockHitResult) hit);
+
+                if (onBlock.isAccepted())
+                {
+                    return;
+                }
+            }
+
+            ActionResult onItem = interactions.interactItem(player, hand);
+
+            if (onItem.isAccepted())
+            {
+                return;
+            }
+        }
+    }
+
+    /**
+     * Ray from the live player's eyes along their look — same basis as WASD control.
+     * Skips the puppeteered {@link ActorEntity} so it cannot eat the hit.
+     */
+    private HitResult raycastControlTarget(ClientPlayerEntity player, boolean forAttack)
+    {
+        double entityRange = player.getEntityInteractionRange();
+        double blockRange = player.getBlockInteractionRange();
+        double maxRange = Math.max(entityRange, blockRange);
+        Vec3d origin = player.getCameraPosVec(1F);
+        Vec3d rotation = player.getRotationVec(1F);
+        Vec3d end = origin.add(rotation.x * maxRange, rotation.y * maxRange, rotation.z * maxRange);
+        HitResult blockHit = player.raycast(maxRange, 1F, false);
+        double blockDistSq = blockHit.getType() != HitResult.Type.MISS
+            ? blockHit.getPos().squaredDistanceTo(origin)
+            : maxRange * maxRange;
+        Box box = player.getBoundingBox().stretch(rotation.multiply(maxRange)).expand(1D, 1D, 1D);
+        EntityHitResult entityHit = ProjectileUtil.raycast(player, origin, end, box,
+            entity -> !entity.isSpectator() && entity.canHit() && !this.isOwnControlledActorBody(entity),
+            blockDistSq);
+
+        if (entityHit != null)
+        {
+            double entityDist = entityHit.getPos().distanceTo(origin);
+            double allowed = forAttack ? entityRange : Math.max(entityRange, blockRange);
+
+            if (entityDist <= allowed + 1.0E-4D)
+            {
+                return entityHit;
+            }
+        }
+
+        if (blockHit.getType() == HitResult.Type.BLOCK)
+        {
+            double blockDist = blockHit.getPos().distanceTo(origin);
+
+            if (blockDist <= blockRange + 1.0E-4D)
+            {
+                return blockHit;
+            }
+        }
+
+        return BlockHitResult.createMissed(end, player.getHorizontalFacing(), player.getBlockPos());
+    }
+
+    private boolean isOwnControlledActorBody(Entity entity)
+    {
+        if (!(entity instanceof ActorEntity) || this.actors == null)
+        {
+            return false;
+        }
+
+        Replay replay = this.getReplay();
+
+        if (replay == null)
+        {
+            return false;
+        }
+
+        Integer entityId = this.actors.get(replay.getId());
+
+        return entityId != null && entityId == entity.getId();
+    }
+
+    /**
+     * Actor-mode bodies are a separate {@link ActorEntity};
      * mirror the live player swing so the visible actor animates the attack.
      */
     private void swingVisibleActor()
@@ -1011,11 +1144,11 @@ public class UIFilmController extends UIElement
             return;
         }
 
-        net.minecraft.entity.Entity entity = MinecraftClient.getInstance().world.getEntityById(entityId);
+        Entity entity = MinecraftClient.getInstance().world.getEntityById(entityId);
 
         if (entity instanceof net.minecraft.entity.LivingEntity living)
         {
-            living.swingHand(net.minecraft.util.Hand.MAIN_HAND);
+            living.swingHand(Hand.MAIN_HAND);
         }
     }
 
@@ -1028,10 +1161,16 @@ public class UIFilmController extends UIElement
 
         MinecraftClient client = MinecraftClient.getInstance();
 
-        if (button == GLFW.GLFW_MOUSE_BUTTON_RIGHT
-            && client.player != null
-            && client.interactionManager != null
-            && client.player.isUsingItem())
+        if (client.player == null || client.interactionManager == null)
+        {
+            return true;
+        }
+
+        if (button == GLFW.GLFW_MOUSE_BUTTON_LEFT)
+        {
+            client.interactionManager.cancelBlockBreaking();
+        }
+        else if (button == GLFW.GLFW_MOUSE_BUTTON_RIGHT && client.player.isUsingItem())
         {
             client.interactionManager.stopUsingItem(client.player);
         }
@@ -1393,7 +1532,36 @@ public class UIFilmController extends UIElement
         if (this.canControl())
         {
             this.updateControls();
+            this.updateControlBlockBreaking();
         }
+    }
+
+    private void updateControlBlockBreaking()
+    {
+        if (!Window.isMouseButtonPressed(GLFW.GLFW_MOUSE_BUTTON_LEFT))
+        {
+            return;
+        }
+
+        MinecraftClient client = MinecraftClient.getInstance();
+
+        if (client.player == null || client.interactionManager == null)
+        {
+            return;
+        }
+
+        HitResult hit = this.raycastControlTarget(client.player, true);
+
+        if (hit.getType() != HitResult.Type.BLOCK)
+        {
+            client.interactionManager.cancelBlockBreaking();
+
+            return;
+        }
+
+        BlockHitResult blockHit = (BlockHitResult) hit;
+
+        client.interactionManager.updateBlockBreakingProgress(blockHit.getBlockPos(), blockHit.getSide());
     }
 
     private void handleRecording(RunnerCameraController runner)

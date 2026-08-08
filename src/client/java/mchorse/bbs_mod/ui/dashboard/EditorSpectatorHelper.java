@@ -111,6 +111,11 @@ public final class EditorSpectatorHelper
     {
         if (!spectatorApplied || controlSuspended)
         {
+            if (controlSuspended)
+            {
+                ensurePlayableForControl();
+            }
+
             return;
         }
 
@@ -122,6 +127,41 @@ public final class EditorSpectatorHelper
         }
 
         controlSuspended = true;
+        applyGameMode(playable);
+    }
+
+    /**
+     * Re-assert a playable mode while actor-control is active (server sync lag
+     * or a stray spectator restore must not leave combat disabled).
+     */
+    public static void ensurePlayableForControl()
+    {
+        if (!controlSuspended)
+        {
+            return;
+        }
+
+        ClientPlayerInteractionManager interactions = MinecraftClient.getInstance().interactionManager;
+
+        if (interactions == null)
+        {
+            return;
+        }
+
+        GameMode current = interactions.getCurrentGameMode();
+
+        if (current != GameMode.SPECTATOR)
+        {
+            return;
+        }
+
+        GameMode playable = savedMode == null ? GameMode.CREATIVE : savedMode;
+
+        if (playable == GameMode.SPECTATOR)
+        {
+            playable = GameMode.CREATIVE;
+        }
+
         applyGameMode(playable);
     }
 
