@@ -1306,9 +1306,9 @@ public abstract class BaseFilmController
                             {
                                 /* Actor-control: keep the visible ActorEntity on the live
                                  * player pose (server ActionPlayer skips this replay via PUPPET).
-                                 * Pose/prev come from the player; limbs/emotes come from
-                                 * syncFromSource. Keep actor velocity at 0 so entity tick
-                                 * does not integrate a second copy of player motion. */
+                                 * Do not copy player velocity — LivingEntity.tick would keep
+                                 * integrating it on top of the snap (and creative-flight
+                                 * residual looks like ice). Pose is fully driven here. */
                                 actor.setPosition(entity.getX(), entity.getY(), entity.getZ());
                                 actor.prevX = entity.getPrevX();
                                 actor.prevY = entity.getPrevY();
