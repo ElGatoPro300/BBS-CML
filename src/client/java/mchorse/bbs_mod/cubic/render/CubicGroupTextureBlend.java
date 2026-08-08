@@ -9,6 +9,8 @@ import mchorse.bbs_mod.resources.Link;
 import net.minecraft.client.gl.GlUniform;
 import net.minecraft.client.gl.ShaderProgram;
 
+import com.mojang.blaze3d.opengl.GlStateManager;
+import com.mojang.blaze3d.pipeline.RenderPipeline;
 import com.mojang.blaze3d.systems.RenderSystem;
 
 import org.lwjgl.opengl.GL11;
@@ -126,18 +128,44 @@ public final class CubicGroupTextureBlend
     }
 
     /**
+     * Binds a CPU group's texture for a RenderLayer draw. Partial blends are rendered by the
+     * caller as two alpha passes because RenderLayer does not expose mutable shader uniforms.
+     */
+    public static void bindForDraw(RenderPipeline pipeline, CubicGroupTextureBlend state, Link defaultTexture)
+    {
+        if (state == null)
+        {
+            ModelVAORenderer.clearTextureBlend();
+            BBSModClient.getTextures().bindTexture(defaultTexture);
+
+            return;
+        }
+
+        ModelVAORenderer.clearTextureBlend();
+
+        if (state.blend >= 1F)
+        {
+            BBSModClient.getTextures().bindTexture(state.to);
+        }
+        else
+        {
+            BBSModClient.getTextures().bindTexture(state.from);
+        }
+    }
+
+    /**
      * Two-pass opacity crossfade for vanilla / Iris entity shaders (no TextureBlend uniforms).
      */
     public static void drawTwoPass(Runnable fromPass, Runnable toPass, float blend)
     {
-        RenderSystem.enableBlend();
-        RenderSystem.defaultBlendFunc();
+        GlStateManager._enableBlend();
+        GlStateManager._blendFuncSeparate(770, 771, 1, 0);
 
         boolean depthMask = GL11.glGetBoolean(GL11.GL_DEPTH_WRITEMASK);
 
         fromPass.run();
 
-        RenderSystem.depthMask(false);
+        GlStateManager._depthMask(false);
 
         try
         {
@@ -145,7 +173,7 @@ public final class CubicGroupTextureBlend
         }
         finally
         {
-            RenderSystem.depthMask(depthMask);
+            GlStateManager._depthMask(depthMask);
         }
     }
 }

@@ -2,6 +2,7 @@ package mchorse.bbs_mod.client;
 
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.server.integrated.IntegratedServerLoader;
+import net.minecraft.text.Text;
 import net.minecraft.util.WorldSavePath;
 import net.minecraft.world.level.storage.LevelStorage;
 
@@ -47,7 +48,7 @@ public class WorldLaunchHelper
 
         if (client.world != null)
         {
-            client.disconnect();
+            client.disconnect(Text.of(""));
         }
 
         IntegratedServerLoader loader = client.createIntegratedServerLoader();

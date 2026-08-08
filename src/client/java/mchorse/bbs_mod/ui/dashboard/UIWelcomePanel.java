@@ -17,10 +17,12 @@ import mchorse.bbs_mod.ui.utils.icons.Icons;
 import mchorse.bbs_mod.utils.colors.Colors;
 
 import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.gl.RenderPipelines;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.render.RenderLayer;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.util.Identifier;
+import net.minecraft.util.math.Matrix3x2fStack;
 
 import org.lwjgl.glfw.GLFW;
 
@@ -121,8 +123,8 @@ public class UIWelcomePanel extends UIElement {
 
     private void drawPlayerHead(DrawContext drawContext, Identifier skinTexture, int x, int y, int size)
     {
-        drawContext.drawTexture(RenderLayer::getGuiTextured, skinTexture, x, y, 8F, 8F, size, size, 8, 8, 64, 64);
-        drawContext.drawTexture(RenderLayer::getGuiTextured, skinTexture, x, y, 40F, 8F, size, size, 8, 8, 64, 64);
+        drawContext.drawTexture(RenderPipelines.GUI_TEXTURED, skinTexture, x, y, 8F, 8F, size, size, 8, 8, 64, 64);
+        drawContext.drawTexture(RenderPipelines.GUI_TEXTURED, skinTexture, x, y, 40F, 8F, size, size, 8, 8, 64, 64);
     }
 
     @Override
@@ -168,7 +170,7 @@ public class UIWelcomePanel extends UIElement {
             Identifier skinTexture = null;
             if (mc.player != null) {
                 try {
-                    skinTexture = mc.getSkinProvider().getSkinTextures(mc.player.getGameProfile()).texture();
+                    skinTexture = mc.getSkinProvider().supplySkinTextures(mc.player.getGameProfile(), true).get().texture();
                 } catch (Exception e) {
                 }
             }
@@ -190,9 +192,9 @@ public class UIWelcomePanel extends UIElement {
             float drawX = (realX / scale) - (totalW / 2.0F);
             float drawY = greetRealY / scale;
 
-            MatrixStack matrices = context.batcher.getContext().getMatrices();
+            Matrix3x2fStack matrices = context.batcher.getContext().getMatrices();
             matrices.push();
-            matrices.scale(scale, scale, 1.0F);
+            matrices.scale(scale, scale);
 
             context.batcher.textShadow(welcomePart1, drawX, drawY, Colors.setA(Colors.WHITE, textAlpha));
             float headX = drawX + w1;

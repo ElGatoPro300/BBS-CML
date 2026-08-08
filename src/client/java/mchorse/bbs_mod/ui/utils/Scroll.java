@@ -9,8 +9,12 @@ import mchorse.bbs_mod.utils.colors.Colors;
 import mchorse.bbs_mod.utils.interps.Lerps;
 
 import net.minecraft.client.MinecraftClient;
+import net.minecraft.util.Util;
 
 import org.lwjgl.glfw.GLFW;
+
+import java.util.function.BooleanSupplier;
+import java.util.function.IntSupplier;
 
 /**
  * Scroll
@@ -153,6 +157,74 @@ public class Scroll
         this.scrollbar = false;
 
         return this;
+    }
+
+    public Scroll smoothScrolling(BooleanSupplier supplier)
+    {
+        this.smoothScrolling = supplier;
+
+        return this;
+    }
+
+    public Scroll wheelScrollStep(IntSupplier supplier)
+    {
+        this.wheelScrollStep = supplier;
+
+        return this;
+    }
+
+    private boolean isSmoothScrolling()
+    {
+        return BBSSettings.scrollingSmoothness.get() && (this.smoothScrolling == null || this.smoothScrolling.getAsBoolean());
+    }
+
+    private int getWheelScrollStep()
+    {
+        return this.wheelScrollStep == null ? 0 : Math.max(0, this.wheelScrollStep.getAsInt());
+    }
+
+    private void scrollByStep(double scroll)
+    {
+        int step = this.getWheelScrollStep();
+
+        if (step <= 0 || scroll == 0D)
+        {
+            this.scrollBy(scroll);
+
+            return;
+        }
+
+        double target = this.targetScroll;
+        double epsilon = 0.0001D;
+        boolean forward = scroll > 0D;
+        double snapped;
+
+        if (forward)
+        {
+            snapped = Math.floor(target / step) * step;
+
+            if (target - snapped > epsilon)
+            {
+                this.scrollTo(snapped + step);
+            }
+            else
+            {
+                this.scrollTo(target + step);
+            }
+        }
+        else
+        {
+            snapped = Math.ceil(target / step) * step;
+
+            if (snapped - target > epsilon)
+            {
+                this.scrollTo(snapped - step);
+            }
+            else
+            {
+                this.scrollTo(target - step);
+            }
+        }
     }
 
     public int getScrollbarWidth()
@@ -452,13 +524,22 @@ public class Scroll
 
         if (isInside)
         {
-            if (MinecraftClient.IS_SYSTEM_MAC)
+            if (Util.getOperatingSystem() == Util.OperatingSystem.OSX)
             {
-                this.scrollBy(scroll * BBSSettings.scrollingSensitivity.get());
+                this.scrollByStep(scroll * BBSSettings.scrollingSensitivity.get());
             }
             else if (scroll != 0D)
             {
-                this.scrollBy((int) (Math.copySign(this.scrollSpeed, scroll) * BBSSettings.scrollingSensitivity.get()));
+                int step = this.getWheelScrollStep();
+
+                if (step > 0)
+                {
+                    this.scrollByStep(Math.copySign(1D, scroll));
+                }
+                else
+                {
+                    this.scrollBy((int) (Math.copySign(this.scrollSpeed, scroll) * BBSSettings.scrollingSensitivity.get()));
+                }
             }
         }
 
@@ -496,7 +577,7 @@ public class Scroll
 
         if (BBSSettings.scrollingSmoothness.get() || this.contentFitAnimating)
         {
-            float delta = MinecraftClient.getInstance().getRenderTickCounter().getLastFrameDuration();
+            float delta = MinecraftClient.getInstance().getRenderTickCounter().getDynamicDeltaTicks();
 
             /* The higher the FPS, the smaller the lerp factor is,
              * the lower the FPS, the bigger the factor is */

@@ -1,6 +1,7 @@
 package mchorse.bbs_mod.forms.renderers;
 
 import mchorse.bbs_mod.client.BBSRendering;
+import mchorse.bbs_mod.client.render.ItemRenderHelper;
 import mchorse.bbs_mod.forms.CustomVertexConsumerProvider;
 import mchorse.bbs_mod.forms.FormUtilsClient;
 import mchorse.bbs_mod.forms.entities.IEntity;
@@ -19,13 +20,13 @@ import mchorse.bbs_mod.utils.pose.Transform;
 
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.render.LightmapTextureManager;
-import net.minecraft.client.render.model.BakedModel;
 import net.minecraft.client.world.ClientWorld;
 import net.minecraft.entity.LivingEntity;
+import net.minecraft.item.ItemDisplayContext;
 import net.minecraft.item.ItemStack;
-import net.minecraft.item.ModelTransformationMode;
 import net.minecraft.world.World;
 
+import com.mojang.blaze3d.opengl.GlStateManager;
 import com.mojang.blaze3d.systems.RenderSystem;
 
 import java.util.List;
@@ -39,7 +40,7 @@ public final class ItemBodyPartBatch
 {
     private static boolean active;
     private static boolean deferFlush;
-    private static BakedModel cachedModel;
+    private static Object cachedModel;
     private static final Transform SCRATCH_TRANSFORM = new Transform();
 
     private ItemBodyPartBatch()
@@ -55,7 +56,7 @@ public final class ItemBodyPartBatch
         return deferFlush;
     }
 
-    public static BakedModel getCachedModel()
+    public static Object getCachedModel()
     {
         return cachedModel;
     }
@@ -89,8 +90,8 @@ public final class ItemBodyPartBatch
         boolean flushOnce = context.stencilMap == null;
         boolean isDropped = context.type == FormRenderType.ITEM;
         boolean useDroppedMode = itemRenderer.shouldUseDroppedMode(isDropped);
-        ModelTransformationMode mode = itemRenderer.getRenderMode(useDroppedMode);
-        boolean leftHand = mode == ModelTransformationMode.THIRD_PERSON_LEFT_HAND;
+        ItemDisplayContext mode = itemRenderer.getRenderMode(useDroppedMode);
+        boolean leftHand = mode == ItemDisplayContext.THIRD_PERSON_LEFT_HAND;
 
         PaintSettings paintSettings = template.paintSettings.get();
         Color resolvedPaint = FormColorEffects.resolvePaintColor(paintSettings, template.paintColor.get());
@@ -103,8 +104,8 @@ public final class ItemBodyPartBatch
         {
             CustomVertexConsumerProvider.hijackVertexFormat((layer) ->
             {
-                RenderSystem.enableBlend();
-                RenderSystem.defaultBlendFunc();
+                GlStateManager._enableBlend();
+                GlStateManager._blendFuncSeparate(770, 771, 1, 0);
             });
         }
 
@@ -161,7 +162,7 @@ public final class ItemBodyPartBatch
                     BlockFormRenderer.color.mul(item.color.get());
 
                     consumers.setSubstitute(itemRenderer.getMainConsumer(BlockFormRenderer.color, resolvedPaint));
-                    client.getItemRenderer().renderItem(context.entity instanceof LivingEntity le ? le : null, itemStack, mode, leftHand, context.stack, consumers, context.entity != null ? context.entity.getWorld() : client.world, context.light, context.overlay, 0);
+                    ItemRenderHelper.renderItem(context.entity instanceof LivingEntity le ? le : null, itemStack, mode, leftHand, context.stack, consumers, context.entity != null ? context.entity.getWorld() : client.world, context.light, context.overlay, 0);
 
                     if (context.isPicking())
                     {
@@ -192,7 +193,7 @@ public final class ItemBodyPartBatch
             {
                 consumers.draw();
                 CustomVertexConsumerProvider.clearRunnables();
-                RenderSystem.defaultBlendFunc();
+                GlStateManager._blendFuncSeparate(770, 771, 1, 0);
             }
 
             active = false;
@@ -200,7 +201,7 @@ public final class ItemBodyPartBatch
             cachedModel = null;
         }
 
-        RenderSystem.enableDepthTest();
+        GlStateManager._enableDepthTest();
 
         return true;
     }

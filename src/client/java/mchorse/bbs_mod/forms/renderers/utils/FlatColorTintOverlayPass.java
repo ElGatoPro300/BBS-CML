@@ -7,6 +7,8 @@ import org.joml.Matrix4f;
 import org.joml.Vector3f;
 
 import com.mojang.blaze3d.systems.RenderSystem;
+import com.mojang.blaze3d.opengl.GlStateManager;
+import com.mojang.blaze3d.pipeline.RenderPipeline;
 
 import org.lwjgl.opengl.GL11;
 
@@ -70,9 +72,8 @@ public final class FlatColorTintOverlayPass
                 GL11.glDisable(GL11.GL_POLYGON_OFFSET_FILL);
             }
 
-            RenderSystem.depthMask(savedDepthMask);
-            RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
-            RenderSystem.defaultBlendFunc();
+            GlStateManager._depthMask(savedDepthMask);
+            GlStateManager._blendFuncSeparate(770, 771, 1, 0);
         }
     }
 }

@@ -52,9 +52,11 @@ public class AttackActionClip extends ActionClip
         {
             Entity entity = enittyHit.getEntity();
 
-            if (entity != null && player.getWorld() instanceof ServerWorld serverWorld)
+            if (entity != null)
             {
-                entity.damage(serverWorld, player.getWorld().getDamageSources().mobAttack(player), damage);
+                ServerWorld serverWorld = player.getEntityWorld();
+
+                entity.damage(serverWorld, serverWorld.getDamageSources().mobAttack(player), damage);
             }
         }
     }
