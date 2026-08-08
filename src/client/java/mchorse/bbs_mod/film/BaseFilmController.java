@@ -2225,9 +2225,8 @@ public abstract class BaseFilmController
             return;
         }
 
-        Color runtime = valueColor.getRuntimeValue() instanceof Color runtimeColor
-            ? runtimeColor
-            : null;
+        Object val = valueColor.getRuntimeValue();
+        Color runtime = val instanceof Color ? (Color) val : null;
 
         if (runtime == null)
         {

@@ -153,7 +153,7 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
         if (this.form.billboard.get())
         {
             Matrix4f modelMatrix = context.stack.peek().getPositionMatrix();
-            Vector3f scale = Vectors.TEMP_3F;
+            Vector3f scale = new Vector3f();
 
             modelMatrix.getScale(scale);
 
@@ -899,7 +899,8 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
                 BlockEffectOverlayUniforms.configureFlatColorTintOverlay(formRootInverse, colorTransform, false, this.maskHalfExtents, formTintColor);
                 GlStateManager._bindTexture(this.lastBoundTextTexture);
 
-                BufferBuilder builder = Tessellator.getInstance().begin(VertexFormat.DrawMode.TRIANGLES, VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL);
+                BufferBuilder builder = Tessellator.getInstance().getBuffer();
+                builder.begin(VertexFormat.DrawMode.TRIANGLES, VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL);
 
                 for (LabelTextTintQuadCapture.GlyphQuad quad : layerEntry.getValue())
                 {
@@ -935,7 +936,7 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
 
     private void fillLabelTint(BufferBuilder builder, Matrix4f matrix, MatrixStack.Entry entry, float x, float y, float u, float v, int overlay, int light)
     {
-        builder.vertex(matrix, x, y, 0F).color(1F, 1F, 1F, 1F).texture(u, v).overlay(overlay).light(light).normal(entry, 0F, 0F, 1F);
+        builder.vertex(matrix, x, y, 0F).color(1F, 1F, 1F, 1F).texture(u, v).overlay(overlay).light(light).normal(entry.getNormalMatrix(), 0F, 0F, 1F).next();
     }
 
     private void renderShadow(FormRenderingContext context, int x, int y, int w, int h)

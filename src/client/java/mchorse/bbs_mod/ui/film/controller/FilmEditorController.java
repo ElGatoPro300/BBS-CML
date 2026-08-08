@@ -259,7 +259,7 @@ public class FilmEditorController extends BaseFilmController
             filmContext.physicalActor(true);
         }
 
-        filmContext.transition = this.getTransition(stub, context.tickCounter().getTickDelta(false));
+        filmContext.transition = this.getTransition(stub, context.tickDelta());
         filmContext.stack.push();
 
         try
