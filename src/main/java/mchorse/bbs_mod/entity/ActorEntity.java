@@ -6,6 +6,7 @@ import mchorse.bbs_mod.film.replays.Replay;
 import mchorse.bbs_mod.forms.entities.MCEntity;
 import mchorse.bbs_mod.forms.forms.Form;
 import mchorse.bbs_mod.network.ServerNetwork;
+import mchorse.bbs_mod.utils.StringUtils;
 
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityDimensions;
@@ -26,6 +27,7 @@ import net.minecraft.registry.RegistryOps;
 import net.minecraft.registry.RegistryWrapper;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.server.world.ServerWorld;
+import net.minecraft.text.Text;
 import net.minecraft.util.Arm;
 import net.minecraft.util.math.Box;
 import net.minecraft.world.World;
@@ -93,6 +95,28 @@ public class ActorEntity extends LivingEntity implements IEntityFormProvider
         this.replay = replay;
         this.currentTick = tick;
         this.initializeRuntimeInventory();
+        this.syncNameTag(replay);
+    }
+
+    /**
+     * Actor-mode bodies are drawn by {@code ActorEntityRenderer}, not the film
+     * stub path that draws {@link Replay#nameTag}. Mirror that string onto the
+     * living entity so vanilla label rendering shows it.
+     */
+    public void syncNameTag(Replay replay)
+    {
+        String nameTag = replay == null ? "" : replay.nameTag.get();
+
+        if (nameTag == null || nameTag.isEmpty())
+        {
+            this.setCustomName(null);
+            this.setCustomNameVisible(false);
+        }
+        else
+        {
+            this.setCustomName(Text.literal(StringUtils.processColoredText(nameTag)));
+            this.setCustomNameVisible(true);
+        }
     }
     
     /**

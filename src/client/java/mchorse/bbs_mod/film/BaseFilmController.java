@@ -1302,6 +1302,8 @@ public abstract class BaseFilmController
                             /* Stub already has vanilla pose/action keyframes; copy them so
                              * MCEntity(actor) used by ActorEntityRenderer sees sprint/limbs/etc. */
                             ActorReplayStateSync.syncFromSource(actor, entity);
+                            /* Keep label in sync while editing name_tag in the film UI. */
+                            actor.syncNameTag(replay);
                             replay.applyClientActions(replayTick, new MCEntity(anEntity), this.film);
 
                             spawned = true;

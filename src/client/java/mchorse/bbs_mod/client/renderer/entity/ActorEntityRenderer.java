@@ -86,6 +86,13 @@ public class ActorEntityRenderer extends EntityRenderer<ActorEntity>
         super.render(livingEntity, yaw, tickDelta, matrices, vertexConsumers, light);
     }
 
+    @Override
+    protected boolean hasLabel(ActorEntity entity)
+    {
+        /* Replay name tags always draw above the actor (same as stub film path). */
+        return entity.hasCustomName();
+    }
+
     protected boolean isVisible(ActorEntity entity)
     {
         return !entity.isInvisible();

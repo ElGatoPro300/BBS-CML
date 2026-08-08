@@ -225,6 +225,8 @@ public class ActionPlayer
 
         if (actor instanceof ActorEntity actorEntity)
         {
+            actorEntity.syncNameTag(replay);
+
             if (!ticking)
             {
                 actor.setVelocity(0D, 0D, 0D);
