@@ -6,6 +6,7 @@ import mchorse.bbs_mod.film.replays.ActorReplayStateSync;
 import mchorse.bbs_mod.film.replays.Replay;
 import mchorse.bbs_mod.forms.entities.MCEntity;
 import mchorse.bbs_mod.forms.forms.Form;
+import mchorse.bbs_mod.mixin.LimbAnimatorAccessor;
 import mchorse.bbs_mod.network.ServerNetwork;
 import mchorse.bbs_mod.utils.StringUtils;
 
@@ -85,6 +86,13 @@ public class ActorEntity extends LivingEntity implements IEntityFormProvider
      * {@code BBSSettings.editorActorPauseAnimations}).
      */
     private boolean pauseNaturalAnimations;
+
+    /**
+     * Cached deterministic limb phase for timeline-paused scrubbing.
+     */
+    private int timelineLimbTick = -1;
+    private float timelineLimbPos;
+    private int timelineFormTick = Integer.MIN_VALUE;
 
     /* Film and replay data for item drops */
     private Film film;
@@ -176,12 +184,114 @@ public class ActorEntity extends LivingEntity implements IEntityFormProvider
 
     public void setPauseNaturalAnimations(boolean pause)
     {
+        if (!pause)
+        {
+            this.timelineLimbTick = -1;
+            this.timelineFormTick = Integer.MIN_VALUE;
+        }
+
         this.pauseNaturalAnimations = pause;
     }
 
     public boolean areNaturalAnimationsPaused()
     {
         return this.pauseNaturalAnimations;
+    }
+
+    /**
+     * Lock limb swing to the walk phase implied by keyframe motion up to {@code tick}.
+     * Same pose every time you scrub to that tick (no accumulating jitter).
+     */
+    public void applyTimelineLimbPhase(mchorse.bbs_mod.film.replays.ReplayKeyframes keyframes, int tick, boolean mounted)
+    {
+        if (!(this.limbAnimator instanceof LimbAnimatorAccessor limb))
+        {
+            return;
+        }
+
+        if (mounted || keyframes == null)
+        {
+            limb.setPrevSpeed(0F);
+            limb.setSpeed(0F);
+            this.timelineLimbTick = tick;
+
+            return;
+        }
+
+        int t = Math.max(0, tick);
+
+        if (this.timelineLimbTick < 0 || t < this.timelineLimbTick || t - this.timelineLimbTick > 64)
+        {
+            this.timelineLimbPos = ActorReplayStateSync.limbPosUntil(keyframes, t);
+        }
+        else if (t > this.timelineLimbTick)
+        {
+            for (int i = this.timelineLimbTick + 1; i <= t; i++)
+            {
+                this.timelineLimbPos += ActorReplayStateSync.limbSpeedAt(keyframes, i);
+            }
+        }
+
+        this.timelineLimbTick = t;
+
+        float speed = ActorReplayStateSync.limbSpeedAt(keyframes, t);
+
+        limb.setPrevSpeed(speed);
+        limb.setSpeed(speed);
+        limb.setPos(this.timelineLimbPos);
+    }
+
+    /**
+     * Advance emoticon/BOBJ clocks only when the timeline tick changes (avoids
+     * scrub-cursor flicker pumping ActionPlayback every frame).
+     */
+    public void syncTimelineFormTick(int tick)
+    {
+        int t = Math.max(0, tick);
+
+        if (this.timelineFormTick == Integer.MIN_VALUE)
+        {
+            this.age = t;
+            this.timelineFormTick = t;
+
+            if (this.form != null)
+            {
+                this.form.update(this.entity);
+            }
+
+            return;
+        }
+
+        if (t == this.timelineFormTick)
+        {
+            this.age = t;
+
+            return;
+        }
+
+        int delta = t - this.timelineFormTick;
+
+        this.age = t;
+
+        if (delta < 0)
+        {
+            /* Seeking backward: one update so ModelFormRenderer can reset on age drop. */
+            if (this.form != null)
+            {
+                int saved = this.age;
+
+                this.age = t - 1;
+                this.form.update(this.entity);
+                this.age = saved;
+                this.form.update(this.entity);
+            }
+        }
+        else
+        {
+            this.advanceFormAnimationTicks(Math.min(delta, 16));
+        }
+
+        this.timelineFormTick = t;
     }
 
     /**

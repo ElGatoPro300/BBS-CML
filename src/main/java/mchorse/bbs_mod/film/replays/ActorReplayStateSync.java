@@ -86,12 +86,79 @@ public final class ActorReplayStateSync
             return;
         }
 
-        float delta = (float) MathHelper.magnitude(toX - fromX, 0D, toZ - fromZ);
-        float speed = Math.min(delta * 4F, 1F);
+        float speed = limbSpeedFromDelta(toX - fromX, toZ - fromZ);
 
         limb.setPrevSpeed(limb.getSpeed());
         limb.setSpeed(speed);
         limb.setPos(limb.getPos() + speed);
+    }
+
+    /**
+     * Deterministic limb phase for a film tick so scrubbing (and cursor jitter) always
+     * lands on the same walk pose — same stability as the alt-hover highlight silhouette.
+     */
+    public static void applyTimelineLimbs(LivingEntity actor, ReplayKeyframes keyframes, int tick, boolean mounted)
+    {
+        if (actor == null || !(actor.limbAnimator instanceof LimbAnimatorAccessor limb))
+        {
+            return;
+        }
+
+        if (mounted || keyframes == null)
+        {
+            limb.setPrevSpeed(0F);
+            limb.setSpeed(0F);
+
+            return;
+        }
+
+        int t = Math.max(0, tick);
+        float speed = limbSpeedAt(keyframes, t);
+        float pos = limbPosUntil(keyframes, t);
+
+        limb.setPrevSpeed(speed);
+        limb.setSpeed(speed);
+        limb.setPos(pos);
+    }
+
+    public static float limbSpeedAt(ReplayKeyframes keyframes, int tick)
+    {
+        if (keyframes == null)
+        {
+            return 0F;
+        }
+
+        double x = keyframes.x.interpolate(tick);
+        double z = keyframes.z.interpolate(tick);
+        double prevX = keyframes.x.interpolate(tick - 1F);
+        double prevZ = keyframes.z.interpolate(tick - 1F);
+
+        return limbSpeedFromDelta(x - prevX, z - prevZ);
+    }
+
+    public static float limbPosUntil(ReplayKeyframes keyframes, int tick)
+    {
+        if (keyframes == null || tick <= 0)
+        {
+            return 0F;
+        }
+
+        float pos = 0F;
+        int end = Math.min(tick, 200000);
+
+        for (int t = 1; t <= end; t++)
+        {
+            pos += limbSpeedAt(keyframes, t);
+        }
+
+        return pos;
+    }
+
+    private static float limbSpeedFromDelta(double dx, double dz)
+    {
+        float delta = (float) MathHelper.magnitude(dx, 0D, dz);
+
+        return Math.min(delta * 4F, 1F);
     }
 
     /**

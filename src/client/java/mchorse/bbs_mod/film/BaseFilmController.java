@@ -1270,62 +1270,40 @@ public abstract class BaseFilmController
     }
 
     /**
-     * While timeline-paused with actor-pause-animations: hold the body on the
-     * keyframed pose, and for each scrubbed tick advance limbs/forms from the
-     * horizontal move between consecutive keyframe samples (natural walk), not
-     * by replaying historical limb poses.
+     * While timeline-paused with actor-pause-animations: snap the body to the
+     * keyframed pose (including render interpolation anchors) and set limb swing
+     * to a deterministic phase for this film tick. That matches the stable
+     * alt-hover highlight and avoids scrub/cursor jitter accumulating walk steps.
      */
     private void applyPausedActorNaturalMotion(ActorEntity actor, Replay replay, int toReplayTick)
     {
-        int steps = this.getPausedAnimationAdvanceSteps();
         ReplayKeyframes keyframes = replay.keyframes;
 
-        if (steps > 0 && keyframes != null)
+        if (keyframes == null)
         {
-            int fromTick = replay.getTick(this.getPausedAnimationFromTick());
-            int toTick = toReplayTick;
-            int deltaTicks = toTick - fromTick;
-            int dir = deltaTicks >= 0 ? 1 : -1;
-            int count = Math.abs(deltaTicks);
-
-            if (count <= 0)
-            {
-                count = steps;
-                fromTick = toTick - dir * steps;
-            }
-
-            double x = keyframes.x.interpolate(fromTick);
-            double y = keyframes.y.interpolate(fromTick);
-            double z = keyframes.z.interpolate(fromTick);
-
-            for (int i = 1; i <= count; i++)
-            {
-                int tick = fromTick + i * dir;
-                double nx = keyframes.x.interpolate(tick);
-                double ny = keyframes.y.interpolate(tick);
-                double nz = keyframes.z.interpolate(tick);
-
-                actor.advanceNaturalMotionStep(x, z, nx, nz);
-                actor.setPosition(nx, ny, nz);
-                x = nx;
-                y = ny;
-                z = nz;
-            }
-        }
-        else if (keyframes != null)
-        {
-            /* Parked: snap to current keyframe pose and hold (no limb step). */
-            actor.setPosition(
-                keyframes.x.interpolate(toReplayTick),
-                keyframes.y.interpolate(toReplayTick),
-                keyframes.z.interpolate(toReplayTick)
-            );
+            return;
         }
 
-        actor.prevX = actor.getX();
-        actor.prevY = actor.getY();
-        actor.prevZ = actor.getZ();
+        double x = keyframes.x.interpolate(toReplayTick);
+        double y = keyframes.y.interpolate(toReplayTick);
+        double z = keyframes.z.interpolate(toReplayTick);
+        boolean mounted = actor.hasVehicle();
+
+        actor.setPosition(x, y, z);
+        actor.prevX = x;
+        actor.prevY = y;
+        actor.prevZ = z;
+        actor.lastRenderX = x;
+        actor.lastRenderY = y;
+        actor.lastRenderZ = z;
+        actor.prevYaw = actor.getYaw();
+        actor.prevHeadYaw = actor.headYaw;
+        actor.prevBodyYaw = actor.bodyYaw;
+        actor.prevPitch = actor.getPitch();
         actor.setVelocity(0D, 0D, 0D);
+
+        actor.applyTimelineLimbPhase(keyframes, toReplayTick, mounted);
+        actor.syncTimelineFormTick(toReplayTick);
     }
 
     protected void updateEntities(int ticks)
