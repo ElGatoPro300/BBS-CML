@@ -1,5 +1,6 @@
 package mchorse.bbs_mod.ui.framework.elements.overlay;
 
+import mchorse.bbs_mod.BBSSettings;
 import mchorse.bbs_mod.graphics.window.Window;
 import mchorse.bbs_mod.l10n.keys.IKey;
 import mchorse.bbs_mod.ui.Keys;
@@ -318,13 +319,9 @@ public class UIOverlayPanel extends UIElement
             transition = ((UIOverlay) parent).getOpenTransition();
         }
 
-        /* Subtle scale only — scaling by raw transition (~0) left a near-zero dark
-         * panel that, with matrix/flush timing, could flash as a full-view blot. */
-        boolean animateScale = transition < 0.999F;
-
-        if (animateScale)
+        if (transition < 1.0F)
         {
-            float scale = 0.92F + 0.08F * transition;
+            float scale = Math.max(0.01F, transition);
             float cx = this.area.mx();
             float cy = this.area.my();
 
@@ -338,9 +335,8 @@ public class UIOverlayPanel extends UIElement
 
         super.render(context);
 
-        if (animateScale)
+        if (transition < 1.0F)
         {
-            context.render.batcher.flushDraw();
             context.render.batcher.getContext().getMatrices().pop();
         }
     }
