@@ -433,6 +433,48 @@ public class UIFilmController extends UIElement
         return this.controlled != null;
     }
 
+    public boolean isControllingActorReplay()
+    {
+        if (this.controlled == null || this.panel.getData() == null)
+        {
+            return false;
+        }
+
+        Integer key = CollectionUtils.getKey(this.getEntities(), this.controlled);
+        Replay replay = key == null ? null : CollectionUtils.getSafe(this.panel.getData().replays.getList(), key);
+
+        return replay != null && replay.actor.get();
+    }
+
+    public void dampenActorControlDrift(boolean moving)
+    {
+        if (moving || !this.isControllingActorReplay())
+        {
+            return;
+        }
+
+        ClientPlayerEntity player = MinecraftClient.getInstance().player;
+
+        if (player == null)
+        {
+            return;
+        }
+
+        Vec3d velocity = player.getVelocity();
+        double factor = player.isOnGround() ? 0.55D : 0.91D;
+        double x = velocity.x * factor;
+        double z = velocity.z * factor;
+
+        if (x * x + z * z < 0.0004D)
+        {
+            x = 0D;
+            z = 0D;
+        }
+
+        player.setSprinting(false);
+        player.setVelocity(x, velocity.y, z);
+    }
+
     public void toggleControl()
     {
         this.getContext().unfocus();
@@ -460,6 +502,7 @@ public class UIFilmController extends UIElement
 
             Integer key = this.controlled == null ? null : CollectionUtils.getKey(entities, this.controlled);
             int replayIndex = key == null ? -1 : key;
+            Replay replay = key == null ? null : CollectionUtils.getSafe(this.panel.getData().replays.getList(), key);
 
             if (replacePlayer && this.controlled != null)
             {
@@ -468,7 +511,15 @@ public class UIFilmController extends UIElement
                 this.playerForm = player.getForm();
                 this.previousEntity = this.controlled;
 
-                player.copy(this.controlled);
+                if (replay != null && replay.actor.get())
+                {
+                    this.setupActorControlPlayer(player, this.controlled);
+                }
+                else
+                {
+                    player.copy(this.controlled);
+                }
+
                 PlayerUtils.teleport(this.controlled.getX(), this.controlled.getY(), this.controlled.getZ(), this.controlled.getHeadYaw(), this.controlled.getBodyYaw(), this.controlled.getPitch());
                 entities.put(CollectionUtils.getKey(entities, this.controlled), player);
 
@@ -489,17 +540,25 @@ public class UIFilmController extends UIElement
     }
 
     /**
-     * Whether WASD actor-control should use grounded friction (not creative flight).
-     * Look-only recording sets {@link #flightModified} and needs flight physics.
+     * Actor replay control must not copy replay physics onto the live player.
+     * Keyframed velocity/flying/sprint are playback state; puppet movement should
+     * start from a neutral vanilla player and then be driven by actual input.
      */
-    public boolean shouldForceGroundedControl()
+    private void setupActorControlPlayer(MCEntity player, IEntity replayEntity)
     {
-        return this.controlled != null && !this.flightModified;
+        player.setForm(replayEntity.getForm());
+        player.setSprinting(false);
+        player.setSwimming(false);
+        player.setFlying(false);
+        player.setFallFlying(false);
+        player.setCrawling(false);
+        player.setClimbing(false);
+        player.setRiptide(false);
+        player.setVelocity(0F, 0F, 0F);
     }
 
     /**
-     * Remember and clear creative flight so the first control tick is already grounded.
-     * {@link mchorse.bbs_mod.mixin.client.ClientPlayerEntityMixin} keeps it cleared each tick.
+     * Remember and clear creative flight so the first control tick is grounded.
      */
     private void applyGroundControlFlight()
     {
@@ -520,7 +579,6 @@ public class UIFilmController extends UIElement
         this.controlFlightModified = true;
         player.getAbilities().allowFlying = false;
         player.getAbilities().flying = false;
-        player.setVelocity(0D, player.getVelocity().y, 0D);
         player.sendAbilitiesUpdate();
     }
 
