@@ -357,7 +357,7 @@ public final class BlockEffectOverlayUniforms
 
         if (program != null)
         {
-            RenderSystem.setShader(() -> program);
+            RenderSystem.setShader(program);
             bindFormRootInverse(program, rootInverse);
             bindPaintPrecomputed(program, transform, bottomAnchored, maskHalf);
         }
@@ -632,7 +632,7 @@ public final class BlockEffectOverlayUniforms
 
         if (program != null)
         {
-            RenderSystem.setShader(() -> program);
+            RenderSystem.setShader(program);
             bindFormRootInverse(program, rootInverse);
             bindColorEffectPrecomputed(program, transform, bottomAnchored, maskHalf);
             bindFormColorTint(program, formColor);

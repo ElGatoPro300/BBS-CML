@@ -986,7 +986,7 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
         }
 
         return useEntityLayers
-            ? RenderLayers.getEntityBlockLayer(state, false)
+            ? RenderLayers.getEntityBlockLayer(state)
             : RenderLayers.getBlockLayer(state);
     }
 
@@ -1007,7 +1007,7 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
         this.syncFancyGraphicsFromOptions();
 
         return useEntityLayers
-            ? RenderLayers.getEntityBlockLayer(state, false)
+            ? RenderLayers.getEntityBlockLayer(state)
             : RenderLayer.getSolid();
     }
 
@@ -1040,7 +1040,7 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
         {
             this.syncFancyGraphicsFromOptions();
             layer = irisWorld
-                ? RenderLayers.getEntityBlockLayer(state, false)
+                ? RenderLayers.getEntityBlockLayer(state)
                 : RenderLayer.getSolid();
             cull = true;
         }
@@ -1374,7 +1374,7 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
         RenderSystem.enableBlend();
         RenderSystem.defaultBlendFunc();
         /* Ensure block atlas is active */
-        RenderSystem.setShaderTexture(0, PlayerScreenHandler.BLOCK_ATLAS_TEXTURE);
+        RenderSystem.setShaderTexture(0, SpriteAtlasTexture.BLOCK_ATLAS_TEXTURE);
         /* Match client Graphics for foliage (Fancy → cutout holes; Fast → opaque). */
         this.syncFancyGraphicsFromOptions();
 
