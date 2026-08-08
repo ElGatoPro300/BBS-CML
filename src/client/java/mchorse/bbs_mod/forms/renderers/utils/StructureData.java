@@ -24,7 +24,7 @@ import net.minecraft.nbt.NbtCompound;
 import net.minecraft.nbt.NbtElement;
 import net.minecraft.nbt.NbtIo;
 import net.minecraft.nbt.NbtList;
-import net.minecraft.nbt.NbtSizeTracker;
+import net.minecraft.nbt.NbtTagSizeTracker;
 import net.minecraft.registry.Registries;
 import net.minecraft.state.property.Property;
 import net.minecraft.util.Identifier;
@@ -228,7 +228,7 @@ public class StructureData
         {
             try
             {
-                NbtCompound root = NbtIo.readCompressed(nbtFile.toPath(), NbtSizeTracker.ofUnlimitedBytes());
+                NbtCompound root = NbtIo.readCompressed(nbtFile.toPath(), NbtTagSizeTracker.ofUnlimitedBytes());
                 this.parseStructure(root);
                 return true;
             }
@@ -242,7 +242,7 @@ public class StructureData
         {
             try
             {
-                NbtCompound root = NbtIo.readCompressed(is, NbtSizeTracker.ofUnlimitedBytes());
+                NbtCompound root = NbtIo.readCompressed(is, NbtTagSizeTracker.ofUnlimitedBytes());
                 this.parseStructure(root);
                 return true;
             }
@@ -411,7 +411,7 @@ public class StructureData
 
         try
         {
-            Identifier id = Identifier.of(name);
+            Identifier id = new Identifier(name);
             block = Registries.BLOCK.get(id);
 
             if (block == null)
