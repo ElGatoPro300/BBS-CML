@@ -7,10 +7,7 @@ import mchorse.bbs_mod.ui.film.controller.UIFilmController;
 import mchorse.bbs_mod.ui.framework.UIBaseMenu;
 import mchorse.bbs_mod.ui.framework.UIScreen;
 
-import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.input.KeyboardInput;
-import net.minecraft.client.option.KeyBinding;
-import net.minecraft.client.util.InputUtil;
 
 import org.lwjgl.glfw.GLFW;
 
@@ -25,31 +22,6 @@ public class KeyboardInputMixin
     private static float getMovementMultiplier(boolean positive, boolean negative)
     {
         return positive == negative ? 0F : (positive ? 1F : -1F);
-    }
-
-    private static boolean isSprintKeyPressed()
-    {
-        KeyBinding sprintKey = MinecraftClient.getInstance().options.sprintKey;
-        InputUtil.Key bound = sprintKey.getDefaultKey();
-
-        try
-        {
-            bound = InputUtil.fromTranslationKey(sprintKey.getBoundKeyTranslationKey());
-        }
-        catch (Exception ignored)
-        {}
-
-        if (bound.getCategory() == InputUtil.Type.KEYSYM && bound.getCode() != InputUtil.UNKNOWN_KEY.getCode())
-        {
-            if (Window.isKeyPressed(bound.getCode()))
-            {
-                return true;
-            }
-        }
-
-        /* Fallback: Ctrl is the vanilla default and stays readable with the film UI open. */
-        return Window.isKeyPressed(GLFW.GLFW_KEY_LEFT_CONTROL)
-            || Window.isKeyPressed(GLFW.GLFW_KEY_RIGHT_CONTROL);
     }
 
     @Inject(method = "tick", at = @At("RETURN"))
@@ -80,22 +52,9 @@ public class KeyboardInputMixin
             }
 
             UIFilmController controller = filmPanel.getController();
+            boolean moving = input.movementForward != 0F || input.movementSideways != 0F;
 
-            if (controller.isControllingActorReplay())
-            {
-                boolean sprinting = isSprintKeyPressed();
-
-                controller.updateActorPuppetMovement(input.movementForward, input.movementSideways, input.jumping, input.sneaking, sprinting);
-
-                input.pressingForward = false;
-                input.pressingBack = false;
-                input.pressingLeft = false;
-                input.pressingRight = false;
-                input.movementForward = 0F;
-                input.movementSideways = 0F;
-                input.jumping = false;
-                input.sneaking = false;
-            }
+            controller.dampenActorControlDrift(moving);
         }
     }
 }

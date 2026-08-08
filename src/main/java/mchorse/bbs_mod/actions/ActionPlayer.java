@@ -293,10 +293,9 @@ public class ActionPlayer
             {
                 int index = list.indexOf(replay);
 
-                /* Editor actor-control: client keeps the real player on the decoupled
-                 * puppet pose (teleport, no WASD physics). Follow that player so the
-                 * server ActorEntity stays in sync and does not rubber-band back to a
-                 * parked keyframe pose (which re-triggers walk emotes). */
+                /* Editor actor-control owns this body — follow the editor player and
+                 * hold velocity at zero so the server entity does not keep sliding with
+                 * leftover keyframe/walk velocity while the client puppets. */
                 if (index >= 0 && index == this.controlledReplay)
                 {
                     LivingEntity actor = entry.getValue();
