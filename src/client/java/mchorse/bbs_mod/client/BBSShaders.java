@@ -126,14 +126,14 @@ public class BBSShaders
         return blockPaintOverlay;
     }
 
-    public static ShaderProgram getBlockColorTintOverlayProgram()
-    {
-        return blockColorTintOverlay;
-    }
-
     public static ShaderProgram getFlatPaintOverlayProgram()
     {
         return flatPaintOverlay;
+    }
+
+    public static ShaderProgram getBlockColorTintOverlayProgram()
+    {
+        return blockColorTintOverlay;
     }
 
     public static ShaderProgram getFlatColorTintOverlayProgram()

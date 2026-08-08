@@ -129,20 +129,17 @@ public class ExtrudedFormRenderer extends FormRenderer<ExtrudedForm>
             shading = true;
         }
 
-        VertexFormat format = shading ? VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL : VertexFormats.POSITION_TEXTURE_COLOR;
-        Supplier<ShaderProgram> normalShader = shading
-            ? () -> {
-                RenderSystem.setShader(ShaderProgramKeys.RENDERTYPE_ENTITY_TRANSLUCENT);
-                return RenderSystem.getShader();
-            }
-            : () -> {
-                RenderSystem.setShader(ShaderProgramKeys.POSITION_TEX_COLOR);
-                return RenderSystem.getShader();
-            };
-        Supplier<ShaderProgram> pickingShader = shading
-            ? BBSShaders::getPickerBillboardProgram
-            : BBSShaders::getPickerBillboardNoShadingProgram;
-        Supplier<ShaderProgram> shader = this.getShader(context, normalShader, pickingShader);
+        PaintSettings paint = this.form.paintSettings.get();
+        float paintStrength = paint.resolveIntensity(this.form.paintColor.get());
+        boolean irisWorldModelPass = BBSRendering.isIrisWorldModelPass();
+        boolean hasColorGrade = this.form.color.get() != null && this.form.color.get().hasColorAdjustments();
+        /* PositionTexColor has no PaintColor / FormColorGrade — keep BBS model.fsh when those run. */
+        boolean useShadedFormat = shading
+            || ((paintStrength != 0F || hasColorGrade) && !irisWorldModelPass);
+        Supplier<ShaderProgram> shader = this.getShader(context,
+            useShadedFormat ? (irisWorldModelPass ? () -> { RenderSystem.setShader(ShaderProgramKeys.RENDERTYPE_ENTITY_TRANSLUCENT); return RenderSystem.getShader(); } : BBSShaders::getModel) : () -> { RenderSystem.setShader(ShaderProgramKeys.POSITION_TEX_COLOR); return RenderSystem.getShader(); },
+            shading ? BBSShaders::getPickerBillboardProgram : BBSShaders::getPickerBillboardNoShadingProgram
+        );
 
         this.renderModel(shader, context.stack, context.overlay, context.light, context.color, context.getTransition(), context.camera, false, context.modelRenderer || context.isPicking(), context.world, context);
     }

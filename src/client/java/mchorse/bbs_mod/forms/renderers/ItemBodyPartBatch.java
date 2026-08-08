@@ -21,6 +21,7 @@ import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.render.LightmapTextureManager;
 import net.minecraft.client.render.model.BakedModel;
 import net.minecraft.client.world.ClientWorld;
+import net.minecraft.entity.LivingEntity;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.ModelTransformationMode;
 import net.minecraft.world.World;
@@ -77,9 +78,13 @@ public final class ItemBodyPartBatch
 
         MinecraftClient client = MinecraftClient.getInstance();
         ItemStack itemStack = template.stack.get();
-        World world = context.entity != null && context.entity.getWorld() != null
-            ? context.entity.getWorld()
-            : client.world;
+        if (itemStack.isEmpty())
+        {
+            return false;
+        }
+
+        BakedModel bakedModel = client.getBakedModelManager().getModel(new net.minecraft.client.util.ModelIdentifier(net.minecraft.registry.Registries.ITEM.getId(itemStack.getItem()), "inventory"));
+
         CustomVertexConsumerProvider consumers = FormUtilsClient.getProvider();
         boolean flushOnce = context.stencilMap == null;
         boolean isDropped = context.type == FormRenderType.ITEM;
@@ -92,7 +97,7 @@ public final class ItemBodyPartBatch
 
         active = true;
         deferFlush = flushOnce;
-        cachedModel = null;
+        cachedModel = bakedModel;
 
         if (flushOnce)
         {
@@ -156,7 +161,7 @@ public final class ItemBodyPartBatch
                     BlockFormRenderer.color.mul(item.color.get());
 
                     consumers.setSubstitute(itemRenderer.getMainConsumer(BlockFormRenderer.color, resolvedPaint));
-                    client.getItemRenderer().renderItem(null, itemStack, mode, false, context.stack, consumers, client.world, context.light, context.overlay, 0);
+                    client.getItemRenderer().renderItem(context.entity instanceof LivingEntity le ? le : null, itemStack, mode, leftHand, context.stack, consumers, context.entity != null ? context.entity.getWorld() : client.world, context.light, context.overlay, 0);
 
                     if (context.isPicking())
                     {

@@ -102,6 +102,7 @@ public class TrailFormRenderer extends FormRenderer<TrailForm> implements ITicka
 
             Draw.fillBox(builder, stack, -outlineOffset, -outlineSize, -outlineOffset, outlineOffset, outlineSize, outlineOffset, 0, 0, 0);
             Draw.fillBox(builder, stack, -axisOffset, -1F, -axisOffset, axisOffset, 1F, axisOffset, 0, 1, 0);
+
             RenderSystem.setShader(ShaderProgramKeys.POSITION_COLOR);
             RenderSystem.disableDepthTest();
             BufferRenderer.drawWithGlobalProgram(builder.end());

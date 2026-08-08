@@ -155,8 +155,11 @@ public class ItemFormRenderer extends FormRenderer<ItemForm>
             {
                 if (context.isPicking())
                 {
-                    this.setupTarget(context, BBSShaders.getPickerModelsProgram());
-                    RenderSystem.setShader(BBSShaders.getPickerModelsProgram());
+                    CustomVertexConsumerProvider.hijackVertexFormat((layer) ->
+                    {
+                        this.setupTarget(context, BBSShaders.getPickerModelsProgram());
+                        RenderSystem.setShader(BBSShaders.getPickerModelsProgram());
+                    });
 
                     light = 0;
                 }

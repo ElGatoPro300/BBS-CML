@@ -96,7 +96,12 @@ public class ShapeFormRenderer extends FormRenderer<ShapeForm>
         Vector3f light1 = new Vector3f(-0.85F, 0.85F, 1F).normalize();
         RenderSystem.setupLevelDiffuseLighting(light0, light1);
 
-        this.renderShape(stack, ShaderProgramKeys.RENDERTYPE_ENTITY_TRANSLUCENT, OverlayTexture.DEFAULT_UV, LightmapTextureManager.MAX_LIGHT_COORDINATE);
+        Supplier<ShaderProgram> shaderSupplier = () -> {
+            RenderSystem.setShader(ShaderProgramKeys.RENDERTYPE_ENTITY_TRANSLUCENT);
+            return RenderSystem.getShader();
+        };
+
+        this.renderShape(stack, shaderSupplier, OverlayTexture.DEFAULT_UV, LightmapTextureManager.MAX_LIGHT_COORDINATE, null);
 
         DiffuseLighting.disableGuiDepthLighting();
 
@@ -106,17 +111,15 @@ public class ShapeFormRenderer extends FormRenderer<ShapeForm>
     @Override
     protected void render3D(FormRenderingContext context)
     {
-        ShaderProgramKey shader = ShaderProgramKeys.RENDERTYPE_ENTITY_TRANSLUCENT;
+        Supplier<ShaderProgram> shader = () -> {
+            RenderSystem.setShader(ShaderProgramKeys.RENDERTYPE_ENTITY_TRANSLUCENT);
+            return RenderSystem.getShader();
+        };
 
         this.renderShape(context.stack, shader, context.overlay, context.light, context);
     }
 
-    private void renderShape(MatrixStack stack, ShaderProgramKey shader, int overlay, int light)
-    {
-        this.renderShape(stack, shader, overlay, light, null);
-    }
-
-    private void renderShape(MatrixStack stack, ShaderProgramKey shader, int overlay, int light, FormRenderingContext renderContext)
+    private void renderShape(MatrixStack stack, Supplier<ShaderProgram> shader, int overlay, int light, FormRenderingContext renderContext)
     {
         this.evaluator = new ShapeGraphEvaluator(this.form.graph.get());
         
@@ -137,7 +140,7 @@ public class ShapeFormRenderer extends FormRenderer<ShapeForm>
             }
         }
 
-        RenderSystem.setShader(shader);
+        RenderSystem.setShader(shader.get());
         RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
         RenderSystem.enableBlend();
 
@@ -354,7 +357,7 @@ public class ShapeFormRenderer extends FormRenderer<ShapeForm>
 
                 this.unshadedVertices = false;
                 RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
-                RenderSystem.setShader(shader);
+                RenderSystem.setShader(shader.get());
                 RenderSystem.depthMask(true);
             }
         }
