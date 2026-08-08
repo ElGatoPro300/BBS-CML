@@ -32,6 +32,7 @@ public class GizmoController
     private int pendingMouseX;
     private int pendingMouseY;
     private UIPropTransform pendingTransform;
+    private UIContext pendingContext;
     private Pair<Form, String> pendingClickThrough;
 
     public GizmoController(GizmoSurface surface)
@@ -60,6 +61,7 @@ public class GizmoController
         {
             this.clearPendingTrackball();
             this.surface.prepareGizmoDrag(transform);
+            transform.setGizmoDragContext(context);
 
             return Gizmo.INSTANCE.start(index, context.mouseX, context.mouseY, transform);
         }
@@ -130,10 +132,12 @@ public class GizmoController
     private void armPendingTrackball(UIContext context, UIPropTransform transform, Pair<Form, String> clickThrough)
     {
         this.surface.prepareGizmoDrag(transform);
+        transform.setGizmoDragContext(context);
         this.pendingTrackball = true;
         this.pendingMouseX = context.mouseX;
         this.pendingMouseY = context.mouseY;
         this.pendingTransform = transform;
+        this.pendingContext = context;
         this.pendingClickThrough = clickThrough;
     }
 
@@ -144,7 +148,12 @@ public class GizmoController
             return;
         }
 
-        UIContext context = this.pendingTransform.getContext();
+        UIContext context = this.pendingContext;
+
+        if (context == null)
+        {
+            context = this.pendingTransform.getContext();
+        }
 
         if (context == null)
         {
@@ -163,6 +172,7 @@ public class GizmoController
 
         this.clearPendingTrackball();
         this.surface.prepareGizmoDrag(transform);
+        transform.setGizmoDragContext(context);
         Gizmo.INSTANCE.start(Gizmo.STENCIL_TRACKBALL, context.mouseX, context.mouseY, transform);
     }
 
@@ -170,6 +180,7 @@ public class GizmoController
     {
         this.pendingTrackball = false;
         this.pendingTransform = null;
+        this.pendingContext = null;
         this.pendingClickThrough = null;
     }
 

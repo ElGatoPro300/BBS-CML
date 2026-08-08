@@ -51,13 +51,17 @@ public class UIMobCaptureRecordOverlayPanel extends UIOverlayPanel
     private final Consumer<MobCaptureRecordingSetup> callback;
     private final Runnable onCancel;
     private final MobCaptureRecordingSetup setup = new MobCaptureRecordingSetup();
+    private boolean recordingPauseHeld;
 
     private UIText description;
     private UILabel conditionsHeader;
+    private UIElement conditionsGrid;
+    private UIElement conditionsLeft;
+    private UIElement conditionsRight;
     private UILabel radiusLabel;
     private UITrackpad radius;
     private UILabel originLabel;
-    private UIElement originControls;
+    private UIElement coordsRow;
     private UIButton originMode;
     private UITrackpad originX;
     private UITrackpad originY;
@@ -91,6 +95,12 @@ public class UIMobCaptureRecordOverlayPanel extends UIOverlayPanel
         UIScreen.open(new UIBaseMenu()
         {
             @Override
+            public boolean needsWorldRender()
+            {
+                return true;
+            }
+
+            @Override
             public boolean canHideHUD()
             {
                 return false;
@@ -107,7 +117,9 @@ public class UIMobCaptureRecordOverlayPanel extends UIOverlayPanel
             {
                 super.onOpen(oldMenu);
 
-                UIOverlay.addOverlay(this.context, panel, 500, 480).noBackground();
+                /* instantClose: onClose → setScreen(null) must not finish inside the
+                 * overlay close animation render pass (one-frame dark flash). */
+                UIOverlay.addOverlay(this.context, panel, 500, 480).noBackground().instantClose();
             }
         });
     }
@@ -161,7 +173,7 @@ public class UIMobCaptureRecordOverlayPanel extends UIOverlayPanel
         this.conditionsHeader.relative(this.content).x(12).w(1F, -24).h(14);
 
         this.radiusLabel = UI.label(UIKeys.FILM_MOB_CAPTURE_RADIUS);
-        this.radiusLabel.relative(this.content).x(12).w(1F, -24).h(14);
+        this.radiusLabel.h(14);
         this.radius = new UITrackpad((v) ->
         {
             this.setup.areaSize = v.floatValue();
@@ -169,13 +181,21 @@ public class UIMobCaptureRecordOverlayPanel extends UIOverlayPanel
         });
         this.radius.limit(16D, 256D, true).increment(4D).values(16D, 4D, 32D);
         this.radius.setValue(this.setup.areaSize);
-        this.radius.relative(this.content).x(12).w(TRACKPAD_WIDTH).h(20);
+        this.radius.w(TRACKPAD_WIDTH).h(20);
+
+        this.includeHeight = new UIToggle(UIKeys.FILM_MOB_CAPTURE_INCLUDE_HEIGHT, this.setup.includeHeight, (b) ->
+        {
+            this.setup.includeHeight = b.getValue();
+            this.updateOriginFieldsEnabled();
+            this.refreshTypes();
+        });
+        this.includeHeight.tooltip(UIKeys.FILM_MOB_CAPTURE_INCLUDE_HEIGHT_TOOLTIP);
+        this.includeHeight.w(1F).h(14);
 
         this.originLabel = UI.label(UIKeys.FILM_MOB_CAPTURE_ORIGIN);
-        this.originLabel.relative(this.content).x(12).w(1F, -24).h(14);
-
+        this.originLabel.h(14);
         this.originMode = new UIButton(this.getOriginModeLabel(), (b) -> this.toggleOriginMode());
-        this.originMode.h(20);
+        this.originMode.w(1F).h(20);
         this.originMode.tooltip(UIKeys.FILM_MOB_CAPTURE_ORIGIN_TOOLTIP);
 
         this.originX = new UITrackpad((v) ->
@@ -199,22 +219,15 @@ public class UIMobCaptureRecordOverlayPanel extends UIOverlayPanel
         this.originX.w(COORD_WIDTH).h(20);
         this.originY.w(COORD_WIDTH).h(20);
         this.originZ.w(COORD_WIDTH).h(20);
-        this.originMode.w(160);
+        this.coordsRow = UI.row(6, 0, 20, this.originX, this.originY, this.originZ);
 
-        /* Spacer absorbs leftover width so X/Y/Z stay fixed and right-aligned. */
-        UIElement originSpacer = new UIElement();
-
-        this.originControls = UI.row(6, 0, 20, this.originMode, originSpacer, this.originX, this.originY, this.originZ);
-        this.originControls.relative(this.content).x(12).w(1F, -24).h(20);
-
-        this.includeHeight = new UIToggle(UIKeys.FILM_MOB_CAPTURE_INCLUDE_HEIGHT, this.setup.includeHeight, (b) ->
-        {
-            this.setup.includeHeight = b.getValue();
-            this.updateOriginFieldsEnabled();
-            this.refreshTypes();
-        });
-        this.includeHeight.tooltip(UIKeys.FILM_MOB_CAPTURE_INCLUDE_HEIGHT_TOOLTIP);
-        this.includeHeight.relative(this.content).x(12).w(1F, -24).h(14);
+        this.conditionsLeft = UI.column(8, this.radiusLabel, this.radius, this.includeHeight);
+        this.conditionsRight = UI.column(8, this.originLabel, this.originMode, this.coordsRow);
+        this.conditionsGrid = new UIElement();
+        this.conditionsLeft.relative(this.conditionsGrid).x(0).y(0).w(0.44F);
+        this.conditionsRight.relative(this.conditionsGrid).x(0.46F).y(0).w(0.54F);
+        this.conditionsGrid.add(this.conditionsLeft, this.conditionsRight);
+        this.conditionsGrid.relative(this.content).x(12).w(1F, -24).h(72);
 
         this.entitiesTitle = this.createSectionLabel(UIKeys.FILM_MOB_CAPTURE_SECTION_ENTITIES);
         this.entitiesTitle.w(1F);
@@ -241,11 +254,7 @@ public class UIMobCaptureRecordOverlayPanel extends UIOverlayPanel
         this.content.add(
             this.description,
             this.conditionsHeader,
-            this.radiusLabel,
-            this.radius,
-            this.originLabel,
-            this.originControls,
-            this.includeHeight,
+            this.conditionsGrid,
             this.entitiesHeader,
             this.summary,
             this.scroll,
@@ -254,7 +263,7 @@ public class UIMobCaptureRecordOverlayPanel extends UIOverlayPanel
 
         this.onClose((event) ->
         {
-            RecordingPauseHelper.pop();
+            this.releaseRecordingPause();
 
             if (opened == this)
             {
@@ -262,12 +271,30 @@ public class UIMobCaptureRecordOverlayPanel extends UIOverlayPanel
             }
         });
 
-        RecordingPauseHelper.push();
+        this.holdRecordingPause();
         this.seedOriginFromPlayer();
         this.syncOriginFieldsFromSetup();
         this.updateOriginModeUi();
         this.updateLayout();
         this.refreshTypes();
+    }
+
+    private void holdRecordingPause()
+    {
+        if (!this.recordingPauseHeld)
+        {
+            RecordingPauseHelper.push();
+            this.recordingPauseHeld = true;
+        }
+    }
+
+    private void releaseRecordingPause()
+    {
+        if (this.recordingPauseHeld)
+        {
+            RecordingPauseHelper.pop();
+            this.recordingPauseHeld = false;
+        }
     }
 
     private UILabel createSectionLabel(IKey title)
@@ -375,22 +402,10 @@ public class UIMobCaptureRecordOverlayPanel extends UIOverlayPanel
         y += 40;
 
         this.conditionsHeader.y(y);
-        y += 22;
+        y += 18;
 
-        this.radiusLabel.y(y);
-        y += 16;
-
-        this.radius.y(y);
-        y += 34;
-
-        this.originLabel.y(y);
-        y += 16;
-
-        this.originControls.y(y);
-        y += 34;
-
-        this.includeHeight.y(y);
-        y += 30;
+        this.conditionsGrid.y(y);
+        y += 80;
 
         this.entitiesHeader.y(y);
         y += 18;
@@ -402,18 +417,6 @@ public class UIMobCaptureRecordOverlayPanel extends UIOverlayPanel
         this.content.resize();
     }
 
-    private void updateOriginModeButtonWidth(UIContext context)
-    {
-        int labelW = context.batcher.getFont().getWidth(this.originMode.label.get());
-        int targetW = Math.max(TOGGLE_WIDTH + 8, labelW + 16);
-
-        if (this.originMode.area.w != targetW)
-        {
-            this.originMode.w(targetW);
-            this.originControls.resize();
-        }
-    }
-
     @Override
     public void render(UIContext context)
     {
@@ -422,7 +425,6 @@ public class UIMobCaptureRecordOverlayPanel extends UIOverlayPanel
             this.syncOriginFieldsFromPlayer();
         }
 
-        this.updateOriginModeButtonWidth(context);
         super.render(context);
     }
 
@@ -912,6 +914,9 @@ public class UIMobCaptureRecordOverlayPanel extends UIOverlayPanel
         UIContext context = this.getContext();
         Runnable onCancel = this.onCancel;
 
+        /* Release before close/callback so deferred UI animations cannot leave
+         * the integrated server frozen after recording starts or the screen swaps. */
+        this.releaseRecordingPause();
         this.close();
 
         if (onCancel != null && context != null)
@@ -924,6 +929,7 @@ public class UIMobCaptureRecordOverlayPanel extends UIOverlayPanel
     {
         this.setup.captureMobs = true;
         MobCaptureRecordingSetup.pending = this.setup;
+        this.releaseRecordingPause();
         this.close();
 
         if (this.callback != null)

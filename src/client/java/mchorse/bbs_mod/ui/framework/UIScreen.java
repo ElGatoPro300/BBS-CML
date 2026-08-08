@@ -8,6 +8,7 @@ import mchorse.bbs_mod.importers.ImporterContext;
 import mchorse.bbs_mod.importers.Importers;
 import mchorse.bbs_mod.importers.types.IImporter;
 import mchorse.bbs_mod.ui.UIKeys;
+import mchorse.bbs_mod.ui.framework.elements.overlay.UIOverlay;
 import mchorse.bbs_mod.ui.utils.IFileDropListener;
 import mchorse.bbs_mod.ui.utils.UIUtils;
 import mchorse.bbs_mod.utils.FFMpegUtils;
@@ -98,10 +99,19 @@ public class UIScreen extends Screen implements IFileDropListener
     @Override
     public void removed()
     {
-        MinecraftClient.getInstance().options.getGuiScale().setValue(this.lastGuiScale);
-        MinecraftClient.getInstance().onResolutionChanged();
+        this.restoreGuiScale();
 
         super.removed();
+
+        /* Force overlay teardown so deferred close animations cannot skip onClose
+         * (e.g. RecordingPauseHelper.pop) when setScreen(null) replaces this UI. */
+        if (this.menu != null && this.menu.overlay != null)
+        {
+            for (UIOverlay overlay : this.menu.overlay.getChildren(UIOverlay.class))
+            {
+                overlay.forceClose();
+            }
+        }
 
         this.menu.onClose(null);
         DiscordPresenceManager.INSTANCE.onBbsUiClosed();
@@ -112,17 +122,36 @@ public class UIScreen extends Screen implements IFileDropListener
     @Override
     public void onDisplayed()
     {
-        this.lastGuiScale = MinecraftClient.getInstance().options.getGuiScale().getValue();
+        MinecraftClient client = MinecraftClient.getInstance();
 
-        MinecraftClient.getInstance().options.getGuiScale().setValue(BBSModClient.getGUIScale());
-        MinecraftClient.getInstance().onResolutionChanged();
+        this.lastGuiScale = client.options.getGuiScale().getValue();
+        this.applyGuiScale(BBSModClient.getGUIScale());
 
         super.onDisplayed();
 
         this.menu.onOpen(null);
         DiscordPresenceManager.INSTANCE.onBbsUiOpened(this.menu);
 
-        MinecraftClient.getInstance().options.hudHidden = this.menu.canHideHUD();
+        client.options.hudHidden = this.menu.canHideHUD();
+    }
+
+    private void applyGuiScale(int scale)
+    {
+        MinecraftClient client = MinecraftClient.getInstance();
+        int current = client.options.getGuiScale().getValue();
+
+        if (current == scale)
+        {
+            return;
+        }
+
+        client.options.getGuiScale().setValue(scale);
+        client.onResolutionChanged();
+    }
+
+    private void restoreGuiScale()
+    {
+        this.applyGuiScale(this.lastGuiScale);
     }
 
     @Override

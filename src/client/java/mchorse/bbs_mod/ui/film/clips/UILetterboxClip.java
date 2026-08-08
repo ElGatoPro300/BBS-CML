@@ -51,8 +51,8 @@ public class UILetterboxClip extends UIClip<LetterboxClip>
 
         this.color = this.createColorField(this.clip.color, this.clip.uniform.color);
 
-        /* All numeric letterbox fields: 0 → ∞ (no upper cap). */
-        this.rotation = this.createDoubleTrackpad(this.clip.rotation, this.clip.uniform.rotation, 0F, UIKeys.SCREEN_PANELS_LETTERBOX_ROTATION);
+        /* Size/zoom stay non-negative; rotation is unbounded so negative tilt works. */
+        this.rotation = this.createDoubleTrackpad(this.clip.rotation, this.clip.uniform.rotation, UIKeys.SCREEN_PANELS_LETTERBOX_ROTATION);
         this.zoom = this.createDoubleTrackpad(this.clip.zoom, this.clip.uniform.zoom, 0F, UIKeys.SCREEN_PANELS_LETTERBOX_ZOOM);
         this.width = this.createDoubleTrackpad(this.clip.width, this.clip.uniform.width, 0F, UIKeys.SCREEN_PANELS_LETTERBOX_WIDTH);
         this.height = this.createDoubleTrackpad(this.clip.height, this.clip.uniform.height, 0F, UIKeys.SCREEN_PANELS_LETTERBOX_HEIGHT);
@@ -254,8 +254,7 @@ public class UILetterboxClip extends UIClip<LetterboxClip>
                 sheet.defaultInsertValue = 1D;
                 sheet.limit(0D, null);
             }
-            else if ("rotation".equals(sheet.id)
-                || "offsetX".equals(sheet.id)
+            else if ("offsetX".equals(sheet.id)
                 || "offsetY".equals(sheet.id)
                 || "smoothness".equals(sheet.id))
             {

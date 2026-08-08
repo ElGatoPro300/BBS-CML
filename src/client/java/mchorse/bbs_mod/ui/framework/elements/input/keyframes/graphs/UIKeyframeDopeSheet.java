@@ -123,16 +123,19 @@ public class UIKeyframeDopeSheet implements IUIKeyframeGraph
     {
         this.trackHeight = MathUtils.clamp(height, 8D, 100D);
         this.dopeSheet.scrollSpeed = (int) this.trackHeight * 2;
-        this.dopeSheet.scrollSize = (int) this.trackHeight * this.sheets.size() + this.topMargin + TRACKS_BOTTOM_MARGIN;
-
-        this.dopeSheet.clamp();
+        this.refreshScrollSize(true);
     }
 
     public void setTopMargin(int topMargin)
     {
         this.topMargin = Math.max(RULER_HEIGHT, topMargin);
+        this.refreshScrollSize(true);
+    }
+
+    private void refreshScrollSize(boolean animateFit)
+    {
         this.dopeSheet.scrollSize = (int) this.trackHeight * this.sheets.size() + this.topMargin + TRACKS_BOTTOM_MARGIN;
-        this.dopeSheet.clamp();
+        this.dopeSheet.fitAfterContentResize(animateFit);
     }
 
     private int getRowIndex(UIKeyframeSheet sheet)
@@ -694,7 +697,9 @@ public class UIKeyframeDopeSheet implements IUIKeyframeGraph
     @Override
     public void resize()
     {
-        this.dopeSheet.clamp();
+        /* Update size only; overscroll fit/animation is handled by
+         * refreshScrollSize / renderGraph after content changes. */
+        this.dopeSheet.scrollSize = (int) this.trackHeight * this.sheets.size() + this.topMargin + TRACKS_BOTTOM_MARGIN;
     }
 
     /* Input handling */
@@ -1328,6 +1333,7 @@ public class UIKeyframeDopeSheet implements IUIKeyframeGraph
         }
 
         this.dopeSheet.scrollSize = (int) this.trackHeight * this.sheets.size() + this.topMargin + TRACKS_BOTTOM_MARGIN;
+        this.dopeSheet.fitAfterContentResize(true);
 
         Area area = this.keyframes.area;
         this.updateSidebarScrollLimits(context);
@@ -1640,6 +1646,7 @@ public class UIKeyframeDopeSheet implements IUIKeyframeGraph
     @Override
     public void postRender(UIContext context)
     {
+        this.dopeSheet.drag(context);
         this.dopeSheet.renderScrollbar(context.batcher);
         this.renderSidebarScrollbar(context);
     }

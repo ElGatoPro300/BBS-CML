@@ -402,7 +402,7 @@ public final class RecorderMobCapture
         {
             panel.replayEditor.replays.replays.buildVisualList();
             panel.replayEditor.updateChannelsList();
-            panel.getController().createEntities();
+            panel.getController().refreshEntities();
         }
     }
 
@@ -819,7 +819,13 @@ public final class RecorderMobCapture
         return living.getType() == EntityType.SNOW_GOLEM;
     }
 
-    private static final List<String> MOB_NBT_STRIP_KEYS = Arrays.asList("Pos", "Motion", "Rotation", "FallDistance", "Fire", "Air", "OnGround", "Invulnerable", "PortalCooldown", "UUID");
+    private static final List<String> MOB_NBT_STRIP_KEYS = Arrays.asList(
+        "Pos", "Motion", "Rotation", "FallDistance", "Fire", "Air", "OnGround",
+        "Invulnerable", "PortalCooldown", "UUID",
+        "HurtTime", "HurtByTimestamp", "DeathTime", "AbsorptionAmount",
+        "FallFlying", "Brain", "Attributes", "ActiveEffects", "Passengers",
+        "SleepingX", "SleepingY", "SleepingZ"
+    );
 
     private void recordEntity(Replay replay, Entity entity, int tick)
     {
@@ -858,7 +864,15 @@ public final class RecorderMobCapture
             compound.remove(key);
         }
 
-        mobForm.mobNBT.set(compound.toString());
+        String nbt = compound.toString();
+
+        /* Skip writes when NBT is unchanged so recording does not spam form updates. */
+        if (nbt.equals(mobForm.mobNBT.get()))
+        {
+            return;
+        }
+
+        mobForm.mobNBT.set(nbt);
     }
 
     private void recordDeathEntity(Replay replay, Session session, int tick, int deathTime)
@@ -1050,7 +1064,7 @@ public final class RecorderMobCapture
 
             panel.replayEditor.replays.replays.buildVisualList();
             panel.replayEditor.updateChannelsList();
-            panel.getController().createEntities();
+            panel.getController().refreshEntities();
         });
     }
 }
