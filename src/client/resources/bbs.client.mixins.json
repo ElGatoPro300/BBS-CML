@@ -28,6 +28,7 @@
         "ClientWorldPropertiesMixin",
         "sodium.ColorAttributeMixin",
         "KeyboardInputMixin",
+        "ClientPlayerEntityMixin",
         "EntityRendererMixin",
         "ClientPlayerEntityAccessor",
         "LivingEntityItemAccessor",

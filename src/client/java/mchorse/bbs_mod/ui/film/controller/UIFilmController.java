@@ -446,6 +446,24 @@ public class UIFilmController extends UIElement
         return replay != null && replay.actor.get();
     }
 
+    /**
+     * True while actor-control should keep creative flight suppressed.
+     * Look-only recording sets {@link #flightModified} and needs flight.
+     */
+    public boolean shouldForceGroundedControl()
+    {
+        return this.isControllingActorReplay() && !this.flightModified;
+    }
+
+    /**
+     * Soft-stop for actor puppeting.
+     * <p>
+     * Limitation: with the film UI open the live player often is not reliably
+     * {@code onGround}, so vanilla walk friction barely runs and leftover speed
+     * coasts like air/ice (jump even adds to it). Forcing grounded state when idle
+     * and nearly vertical-still lets the rest of {@code tickMovement} apply normal
+     * block friction once — short inertia, no infinite slide, no hard zero.
+     */
     public void dampenActorControlDrift(boolean moving)
     {
         if (moving || !this.isControllingActorReplay())
@@ -460,19 +478,15 @@ public class UIFilmController extends UIElement
             return;
         }
 
+        player.getAbilities().flying = false;
+        player.getAbilities().allowFlying = false;
+
         Vec3d velocity = player.getVelocity();
-        double factor = player.isOnGround() ? 0.55D : 0.91D;
-        double x = velocity.x * factor;
-        double z = velocity.z * factor;
 
-        if (x * x + z * z < 0.0004D)
+        if (Math.abs(velocity.y) < 0.08D)
         {
-            x = 0D;
-            z = 0D;
+            player.setOnGround(true);
         }
-
-        player.setSprinting(false);
-        player.setVelocity(x, velocity.y, z);
     }
 
     public void toggleControl()
