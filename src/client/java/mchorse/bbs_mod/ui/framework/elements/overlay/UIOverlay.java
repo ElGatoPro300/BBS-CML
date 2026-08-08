@@ -12,6 +12,8 @@ import mchorse.bbs_mod.ui.utils.UIUtils;
 import mchorse.bbs_mod.ui.utils.resizers.Flex;
 import mchorse.bbs_mod.utils.colors.Colors;
 
+import net.minecraft.client.MinecraftClient;
+
 import org.joml.Vector2i;
 
 import org.lwjgl.glfw.GLFW;
@@ -29,6 +31,8 @@ public class UIOverlay extends UIElement
     private int background = Colors.A50;
     private float openTransition = 0.0F;
     private boolean closing = false;
+    private boolean closed = false;
+    private boolean closeScheduled = false;
 
     public float getOpenTransition()
     {
@@ -314,6 +318,15 @@ public class UIOverlay extends UIElement
 
     private void performClose()
     {
+        if (this.closed)
+        {
+            return;
+        }
+
+        this.closed = true;
+        this.closing = true;
+        this.closeScheduled = false;
+
         for (UIOverlayPanel element : this.getChildren(UIOverlayPanel.class))
         {
             saveOverlayState(element);
@@ -323,6 +336,22 @@ public class UIOverlay extends UIElement
         }
 
         this.removeFromParent();
+    }
+
+    /**
+     * Finishes close after the current frame. Calling {@link #performClose()} from
+     * {@link #render} can tear down the screen mid-pass (setScreen / GUI scale) and
+     * flash a dark frame; panel {@code onClose} handlers still run.
+     */
+    private void schedulePerformClose()
+    {
+        if (this.closed || this.closeScheduled)
+        {
+            return;
+        }
+
+        this.closeScheduled = true;
+        MinecraftClient.getInstance().execute(this::performClose);
     }
 
     /* Don't pass user input down the line... */
@@ -338,6 +367,11 @@ public class UIOverlay extends UIElement
     @Override
     public void render(UIContext context)
     {
+        if (this.closed || this.closeScheduled)
+        {
+            return;
+        }
+
         float target = this.closing ? 0.0F : 1.0F;
 
         if (BBSSettings.editorSimplifyAnimations.get())
@@ -356,7 +390,7 @@ public class UIOverlay extends UIElement
 
         if (this.closing && this.openTransition <= 0.01F)
         {
-            this.performClose();
+            this.schedulePerformClose();
             return;
         }
 

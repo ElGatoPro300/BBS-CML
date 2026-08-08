@@ -95,6 +95,14 @@ public class UIMobCaptureRecordOverlayPanel extends UIOverlayPanel
         UIScreen.open(new UIBaseMenu()
         {
             @Override
+            public boolean needsWorldRender()
+            {
+                /* World must keep rendering while this modal closes, otherwise the
+                 * last animation frames (and deferred teardown) show a black view. */
+                return true;
+            }
+
+            @Override
             public boolean canHideHUD()
             {
                 return false;
