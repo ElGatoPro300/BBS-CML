@@ -11,6 +11,7 @@ import mchorse.bbs_mod.forms.forms.StructureForm;
 import mchorse.bbs_mod.forms.forms.utils.EffectTransform;
 import mchorse.bbs_mod.forms.forms.utils.GlowSettings;
 import mchorse.bbs_mod.forms.forms.utils.PaintSettings;
+import mchorse.bbs_mod.forms.forms.utils.StructureLightSettings;
 import mchorse.bbs_mod.forms.renderers.utils.FormColorEffects;
 import mchorse.bbs_mod.forms.renderers.utils.RecolorVertexConsumer;
 import mchorse.bbs_mod.forms.renderers.utils.StructureData;
@@ -50,11 +51,12 @@ import net.minecraft.util.math.random.Random;
 import net.minecraft.world.BlockRenderView;
 import net.minecraft.world.LightType;
 
-import com.mojang.blaze3d.systems.RenderSystem;
-
 import org.joml.Matrix3f;
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
+
+import com.mojang.blaze3d.systems.RenderSystem;
+
 import org.lwjgl.opengl.GL11;
 
 import java.util.Arrays;
@@ -421,7 +423,7 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
 
     private void checkLightState()
     {
-        mchorse.bbs_mod.forms.forms.utils.StructureLightSettings sl = this.form.structureLight.getRuntimeValue();
+        StructureLightSettings sl = this.form.structureLight.getRuntimeValue();
         boolean currentEmitLight = (sl != null) ? sl.enabled : this.form.emitLight.get();
         int currentLightIntensity = (sl != null) ? sl.intensity : this.form.lightIntensity.get();
 
@@ -551,7 +553,7 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
             this.data.setEntriesCache(cache);
         }
 
-        mchorse.bbs_mod.forms.forms.utils.StructureLightSettings slRuntime = this.form.structureLight.getRuntimeValue();
+        StructureLightSettings slRuntime = this.form.structureLight.getRuntimeValue();
         boolean lightsEnabled;
         int lightIntensity;
 

@@ -13,6 +13,7 @@ import mchorse.bbs_mod.ui.framework.elements.utils.FontRenderer;
 import mchorse.bbs_mod.ui.utils.Gizmo;
 import mchorse.bbs_mod.ui.utils.UIUtils;
 import mchorse.bbs_mod.ui.utils.context.ContextMenuManager;
+import mchorse.bbs_mod.ui.utils.gizmo.GizmoController;
 import mchorse.bbs_mod.ui.utils.gizmo.TransformOrientation;
 import mchorse.bbs_mod.ui.utils.icons.Icons;
 import mchorse.bbs_mod.utils.Axis;
@@ -57,7 +58,7 @@ public class UIPropTransform extends UITransform
     private Runnable postCallback;
 
     /**
-     * Viewport {@link UIContext} supplied by {@link mchorse.bbs_mod.ui.utils.gizmo.GizmoController}
+     * Viewport {@link UIContext} supplied by {@link GizmoController}
      * when this widget is not mounted (e.g. form editor General tab closed). {@link #getContext()}
      * is null in that case, so enable/drag start would otherwise no-op.
      */

@@ -1,6 +1,7 @@
 package mchorse.bbs_mod.film.replays;
 
 import mchorse.bbs_mod.forms.entities.IEntity;
+import mchorse.bbs_mod.forms.entities.StubEntity;
 import mchorse.bbs_mod.mixin.LimbAnimatorAccessor;
 
 import net.minecraft.entity.EntityPose;
@@ -61,7 +62,7 @@ public final class ActorReplayStateSync
      * Server-side path when only keyframes are available (no stub). Applies the same vanilla
      * pose/action flags {@link ReplayKeyframes#apply} would set on a stub.
      *
-     * @param advanceLimbs when true (playing), advance limb swing pos like {@link mchorse.bbs_mod.forms.entities.StubEntity#update};
+     * @param advanceLimbs when true (playing), advance limb swing pos like {@link StubEntity#update};
      *                     when false (paused), only refresh speed so cadence does not drift.
      */
     public static void applyFromKeyframes(ReplayKeyframes keyframes, float tick, LivingEntity actor, boolean mounted, boolean advanceLimbs)

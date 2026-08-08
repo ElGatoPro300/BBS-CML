@@ -1,5 +1,8 @@
 package mchorse.bbs_mod.forms.renderers.utils;
 
+import mchorse.bbs_mod.utils.TextureFont;
+
+import net.minecraft.client.font.TextRenderer;
 import net.minecraft.client.render.RenderLayer;
 import net.minecraft.client.render.VertexConsumer;
 import net.minecraft.client.render.VertexConsumerProvider;
@@ -10,8 +13,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Captures text glyph quads (vanilla {@link net.minecraft.client.font.TextRenderer} or
- * {@link mchorse.bbs_mod.utils.TextureFont}) so a FlatColorTint pass can redraw them with a
+ * Captures text glyph quads (vanilla {@link TextRenderer} or
+ * {@link TextureFont}) so a FlatColorTint pass can redraw them with a
  * per-fragment spatial mask — only letter texels are tinted, with a continuous falloff.
  */
 public class LabelTextTintQuadCapture implements VertexConsumerProvider, VertexConsumer
