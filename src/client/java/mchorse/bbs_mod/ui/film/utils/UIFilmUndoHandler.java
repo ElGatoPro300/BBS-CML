@@ -4,6 +4,7 @@ import mchorse.bbs_mod.BBSMod;
 import mchorse.bbs_mod.BBSModClient;
 import mchorse.bbs_mod.data.types.MapType;
 import mchorse.bbs_mod.events.register.RegisterFilmSyncEvent;
+import mchorse.bbs_mod.film.Film;
 import mchorse.bbs_mod.film.Recorder;
 import mchorse.bbs_mod.network.ClientNetwork;
 import mchorse.bbs_mod.settings.values.base.BaseValue;
@@ -452,6 +453,15 @@ public class UIFilmUndoHandler extends UIFormUndoHandler
 
     private boolean isReplayActions(BaseValue value)
     {
+        /* applyRecordedKeyframes uses BaseValue.edit(film), which caches the film root.
+         * reduceUndoRedundancy then collapses channel undos into one film-level undo.
+         * Without syncing that, ActionPlayer keeps pre-undo keyframes and Actor ON
+         * respawns at the stale recorded position. */
+        if (value instanceof Film)
+        {
+            return true;
+        }
+
         String path = value.getPath().toString();
 
         if (

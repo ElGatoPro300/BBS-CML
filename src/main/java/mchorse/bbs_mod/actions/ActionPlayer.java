@@ -334,7 +334,12 @@ public class ActionPlayer
         {
             baseValue.fromData(data);
 
-            if (baseValue.getId().equals("actor") || baseValue.getId().equals("enabled") || baseValue.getId().equals("replays"))
+            /* Full-film undos replace keyframes + actor flags together — respawn so
+             * ActorEntity is not left on a pre-undo pose after Ctrl+Z. */
+            if (baseValue instanceof Film
+                || baseValue.getId().equals("actor")
+                || baseValue.getId().equals("enabled")
+                || baseValue.getId().equals("replays"))
             {
                 this.updateReplayEntities();
             }
