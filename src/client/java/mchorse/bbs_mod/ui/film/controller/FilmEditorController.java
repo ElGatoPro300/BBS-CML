@@ -34,6 +34,7 @@ public class FilmEditorController extends BaseFilmController
     public UIFilmController controller;
 
     private int lastTick;
+    private int pausedAnimationSteps;
 
     public FilmEditorController(Film film, UIFilmController controller)
     {
@@ -58,6 +59,12 @@ public class FilmEditorController extends BaseFilmController
     protected void updateEntities(int ticks)
     {
         ticks = this.getTick() + (this.controller.panel.getRunner().isRunning() ? 1 : 0);
+        this.pausedAnimationSteps = 0;
+
+        if (!this.controller.isPlaying())
+        {
+            this.pausedAnimationSteps = Math.abs(this.lastTick - ticks);
+        }
 
         super.updateEntities(ticks);
 
@@ -80,6 +87,12 @@ public class FilmEditorController extends BaseFilmController
     protected boolean isActorPlaybackActive()
     {
         return this.controller.isPlaying();
+    }
+
+    @Override
+    protected int getPausedAnimationAdvanceSteps()
+    {
+        return this.pausedAnimationSteps;
     }
 
     @Override
@@ -129,7 +142,7 @@ public class FilmEditorController extends BaseFilmController
             entity.setPrevBodyYaw(entity.getBodyYaw());
             entity.setPrevPitch(entity.getPitch());
 
-            int diff = Math.abs(this.lastTick - ticks);
+            int diff = this.pausedAnimationSteps;
 
             while (diff > 0)
             {

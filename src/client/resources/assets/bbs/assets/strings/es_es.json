@@ -339,6 +339,8 @@
     "bbs.config.replays.replay_step_sound-comment": "Permite que los jugadores de replay emitan sonidos de pasos mientras son conducidos por datos del replay",
     "bbs.config.replays.actor_paused_swipe_loop": "Repetir swipe de actores en pausa",
     "bbs.config.replays.actor_paused_swipe_loop-comment": "Con la film en pausa sobre un tick de swipe, los replays en modo actor repiten el swing del brazo. Desactívalo para hacer un único swipe hasta que muevas el cursor de ese tick",
+    "bbs.config.replays.actor_pause_animations": "Pausar animaciones de actores con la timeline",
+    "bbs.config.replays.actor_pause_animations-comment": "Si está activo (por defecto), el balanceo de limbs y las animaciones emoticon/BOBJ de replays en modo actor se pausan con la timeline y avanzan un paso por cada tick al scrubear (como en no-actores). Desactívalo para que sigan en tiempo real mientras la timeline está pausada",
     "bbs.config.replays.actor_damage_flash": "Flash de daño en actores",
     "bbs.config.replays.actor_damage_flash-comment": "Si está activo, los replays en modo actor parpadean en rojo al recibir golpes durante la reproducción (además de los keyframes de daño). Desactivado por defecto",
     "bbs.config.replays.title": "Reproducciones",

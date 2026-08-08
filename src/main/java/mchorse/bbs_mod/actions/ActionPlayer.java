@@ -1,6 +1,7 @@
 package mchorse.bbs_mod.actions;
 
 import mchorse.bbs_mod.BBSMod;
+import mchorse.bbs_mod.BBSSettings;
 import mchorse.bbs_mod.data.types.BaseType;
 import mchorse.bbs_mod.entity.ActorEntity;
 import mchorse.bbs_mod.film.Film;
@@ -314,6 +315,7 @@ public class ActionPlayer
                         {
                             actorEntity.updateTick(this.tick);
                             actorEntity.setSuppressSprintParticles(true);
+                            actorEntity.setPauseNaturalAnimations(false);
                         }
                     }
 
@@ -327,9 +329,16 @@ public class ActionPlayer
                     actorEntity.updateTick(this.tick);
                     actorEntity.setSuppressSprintParticles(false);
 
+                    boolean pauseAnims = BBSSettings.editorActorPauseAnimations != null
+                        && BBSSettings.editorActorPauseAnimations.get()
+                        && !this.playing;
+
+                    actorEntity.setPauseNaturalAnimations(pauseAnims);
+
                     if (justResumed)
                     {
                         actorEntity.markPlaybackResumed();
+                        actorEntity.setPauseNaturalAnimations(false);
                     }
                 }
 

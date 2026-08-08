@@ -1251,6 +1251,15 @@ public abstract class BaseFilmController
         return !this.paused;
     }
 
+    /**
+     * How many natural-animation ticks to advance on actor forms while the
+     * timeline is parked (film editor scrub). World films return 0.
+     */
+    protected int getPausedAnimationAdvanceSteps()
+    {
+        return 0;
+    }
+
     protected void updateEntities(int ticks)
     {
         List<Replay> replays = this.film.replays.getList();
@@ -1311,6 +1320,12 @@ public abstract class BaseFilmController
                         if (anEntity instanceof ActorEntity actor)
                         {
                             boolean controlling = !this.shouldEmitReplayMotionFx(entity);
+                            boolean pauseAnims = BBSSettings.editorActorPauseAnimations != null
+                                && BBSSettings.editorActorPauseAnimations.get()
+                                && !this.isActorPlaybackActive()
+                                && !controlling;
+
+                            actor.setPauseNaturalAnimations(pauseAnims);
 
                             /* IEntity already has mount rotation applied by MorphMountSync */
                             actor.setYaw(entity.getYaw());
@@ -1320,8 +1335,14 @@ public abstract class BaseFilmController
                             /* Stub already has vanilla pose/action keyframes; copy them so
                              * MCEntity(actor) used by ActorEntityRenderer sees sprint/limbs/etc. */
                             ActorReplayStateSync.syncFromSource(actor, entity);
+                            actor.age = entity.getAge();
                             /* Only gate vanilla sprint dust — do not clear sprinting (run anim). */
                             actor.setSuppressSprintParticles(controlling);
+
+                            if (pauseAnims)
+                            {
+                                actor.advanceFormAnimationTicks(this.getPausedAnimationAdvanceSteps());
+                            }
 
                             if (controlling)
                             {

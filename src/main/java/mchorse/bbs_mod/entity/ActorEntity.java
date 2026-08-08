@@ -78,6 +78,13 @@ public class ActorEntity extends LivingEntity implements IEntityFormProvider
      */
     private boolean suppressSprintParticles;
 
+    /**
+     * When true, skip real-time {@link LivingEntity} limb/age ticks and form animator
+     * updates so film timeline pause/scrub can drive them instead (see
+     * {@code BBSSettings.editorActorPauseAnimations}).
+     */
+    private boolean pauseNaturalAnimations;
+
     /* Film and replay data for item drops */
     private Film film;
     private Replay replay;
@@ -164,6 +171,33 @@ public class ActorEntity extends LivingEntity implements IEntityFormProvider
     public void setSuppressSprintParticles(boolean suppress)
     {
         this.suppressSprintParticles = suppress;
+    }
+
+    public void setPauseNaturalAnimations(boolean pause)
+    {
+        this.pauseNaturalAnimations = pause;
+    }
+
+    public boolean areNaturalAnimationsPaused()
+    {
+        return this.pauseNaturalAnimations;
+    }
+
+    /**
+     * Advance emoticon/BOBJ form animators by {@code steps} ticks while natural
+     * animations are timeline-driven (limb/age state is copied separately from the stub).
+     */
+    public void advanceFormAnimationTicks(int steps)
+    {
+        if (steps <= 0 || this.form == null)
+        {
+            return;
+        }
+
+        for (int i = 0; i < steps; i++)
+        {
+            this.form.update(this.entity);
+        }
     }
 
     @Override
@@ -302,6 +336,20 @@ public class ActorEntity extends LivingEntity implements IEntityFormProvider
     @Override
     public void tick()
     {
+        if (this.pauseNaturalAnimations)
+        {
+            /* Hold limbs / emoticon clocks; still allow swipe hand-swing progress. */
+            this.tickHandSwing();
+            this.updateHitboxDimensions();
+
+            if (!this.getWorld().isClient())
+            {
+                this.tickItemPickup();
+            }
+
+            return;
+        }
+
         super.tick();
 
         this.tickHandSwing();
@@ -312,11 +360,14 @@ public class ActorEntity extends LivingEntity implements IEntityFormProvider
             this.form.update(this.entity);
         }
 
-        if (this.getWorld().isClient)
+        if (!this.getWorld().isClient())
         {
-            return;
+            this.tickItemPickup();
         }
+    }
 
+    private void tickItemPickup()
+    {
         /* Don't pickup items when dead */
         if (this.isDead())
         {

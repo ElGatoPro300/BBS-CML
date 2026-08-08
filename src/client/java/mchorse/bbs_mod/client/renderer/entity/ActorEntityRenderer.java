@@ -57,13 +57,14 @@ public class ActorEntityRenderer extends EntityRenderer<ActorEntity>
 
         float bodyYaw = MathHelper.lerpAngleDegrees(tickDelta, livingEntity.prevBodyYaw, livingEntity.bodyYaw);
         int overlay = LivingEntityRenderer.getOverlay(livingEntity, 0F);
+        float animDelta = livingEntity.areNaturalAnimationsPaused() ? 0F : tickDelta;
 
-        this.setupTransforms(livingEntity, matrices, bodyYaw, tickDelta);
+        this.setupTransforms(livingEntity, matrices, bodyYaw, animDelta);
 
         RenderSystem.enableBlend();
         RenderSystem.enableDepthTest();
         FormUtilsClient.render(livingEntity.getForm(), new FormRenderingContext()
-            .set(FormRenderType.ENTITY, livingEntity.getEntity(), matrices, light, overlay, tickDelta)
+            .set(FormRenderType.ENTITY, livingEntity.getEntity(), matrices, light, overlay, animDelta)
             .camera(MinecraftClient.getInstance().gameRenderer.getCamera()));
 
         if (livingEntity.getEntity().getFireTicks() > 0)
@@ -73,7 +74,7 @@ public class ActorEntityRenderer extends EntityRenderer<ActorEntity>
                 vertexConsumers,
                 livingEntity.getEntity(),
                 livingEntity.getForm(),
-                tickDelta,
+                animDelta,
                 MinecraftClient.getInstance().gameRenderer.getCamera(),
                 false
             );

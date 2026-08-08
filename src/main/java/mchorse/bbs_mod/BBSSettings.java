@@ -163,6 +163,7 @@ public class BBSSettings
     public static ValueFloat editorDockGuideOpacity;
     public static ValueBoolean editorReplayStepSound;
     public static ValueBoolean editorActorPausedSwipeLoop;
+    public static ValueBoolean editorActorPauseAnimations;
     public static ValueBoolean actorDamageFlash;
     public static ValueBoolean editorSimplifyAnimations;
     public static ValueBoolean editorMuteRenderAudioClips;
@@ -745,6 +746,7 @@ public class BBSSettings
         editorReplaySprintParticles = builder.getBoolean("replay_sprint_particles", false);
         editorReplayStepSound = builder.getBoolean("replay_step_sound", false);
         editorActorPausedSwipeLoop = builder.getBoolean("actor_paused_swipe_loop", true);
+        editorActorPauseAnimations = builder.getBoolean("actor_pause_animations", true);
         actorDamageFlash = builder.getBoolean("actor_damage_flash", false);
         replayMarkedBonesOnly = builder.getBoolean("replay_marked_bones_only", false);
         editorReplayEditorTitleLimit = builder.getInt("replay_editor_title_limit", 12, 0, 64);

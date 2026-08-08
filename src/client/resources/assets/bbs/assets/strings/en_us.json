@@ -375,6 +375,8 @@
     "bbs.config.replays.replay_step_sound-comment": "Allow replay players to emit step sounds while being driven by replay data",
     "bbs.config.replays.actor_paused_swipe_loop": "Loop actor swipe while paused",
     "bbs.config.replays.actor_paused_swipe_loop-comment": "When the film is paused on a swipe action tick, actor-mode replays keep repeating the arm swing. Disable to play the swipe only once until the cursor moves off that tick",
+    "bbs.config.replays.actor_pause_animations": "Pause actor animations with timeline",
+    "bbs.config.replays.actor_pause_animations-comment": "When enabled (default), actor-mode limb swing and emoticon/BOBJ animations pause with the film timeline and advance one step per scrubbed tick (same idea as non-actor replays). Disable to keep those animations running in real time while the timeline is paused",
     "bbs.config.replays.actor_damage_flash": "Actor damage flash",
     "bbs.config.replays.actor_damage_flash-comment": "When enabled, actor-mode replays flash red when hit by players during film playback (in addition to any damage keyframes). Off by default",
     "bbs.config.replays.title": "Replays",
