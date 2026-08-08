@@ -1814,6 +1814,8 @@
     "bbs.ui.model_blocks.display": "Display",
     "bbs.ui.model_blocks.equipment": "Equipment",
     "bbs.ui.model_blocks.form": "Form",
+    "bbs.ui.model_blocks.local_lighting": "Local lighting",
+    "bbs.ui.model_blocks.local_lighting-tooltip": "When enabled (default), world light is sampled at the form's offset. Disable to use the model block's position instead — useful when moving the form into solid blocks makes it too dark.",
     "bbs.ui.model_blocks.global": "Global",
     "bbs.ui.model_blocks.hardness": "Block hardness",
     "bbs.ui.model_blocks.hitbox": "Enable Hitbox",

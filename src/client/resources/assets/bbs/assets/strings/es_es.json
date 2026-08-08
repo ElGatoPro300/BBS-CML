@@ -1671,6 +1671,8 @@
     "bbs.ui.model_blocks.display": "Pantalla",
     "bbs.ui.model_blocks.equipment": "Equipamiento",
     "bbs.ui.model_blocks.form": "Forma",
+    "bbs.ui.model_blocks.local_lighting": "Iluminación local",
+    "bbs.ui.model_blocks.local_lighting-tooltip": "Activado (por defecto): la luz del mundo se toma en la posición desplazada de la forma. Desactívalo para usar la posición del bloque de modelo — útil si al meter la forma en bloques sólidos se oscurece.",
     "bbs.ui.model_blocks.global": "Global",
     "bbs.ui.model_blocks.hardness": "Dureza",
     "bbs.ui.model_blocks.hitbox": "Activar Hitbox",

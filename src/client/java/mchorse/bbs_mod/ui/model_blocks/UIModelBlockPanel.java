@@ -192,6 +192,7 @@ public class UIModelBlockPanel extends UIDashboardPanel implements IFlightSuppor
     public UIToggle global;
     public UIToggle lookAt;
     public UIToggle chromaSky;
+    public UIToggle localLighting;
     public UITrackpad lightLevel;
     public UITrackpad hardness;
     public UIPropTransform transform;
@@ -382,6 +383,14 @@ public class UIModelBlockPanel extends UIDashboardPanel implements IFlightSuppor
             this.endUndoCapture();
         });
         this.chromaSky.tooltip(UIKeys.MODEL_BLOCKS_CHROMA_SKY_TOOLTIP);
+        this.localLighting = new UIToggle(UIKeys.MODEL_BLOCKS_LOCAL_LIGHTING, (b) -> {
+            if (this.modelBlock == null)
+                return;
+            this.beginUndoCapture();
+            this.modelBlock.getProperties().setLocalLighting(b.getValue());
+            this.endUndoCapture();
+        });
+        this.localLighting.tooltip(UIKeys.MODEL_BLOCKS_LOCAL_LIGHTING_TOOLTIP);
 
         this.lightLevel = new UITrackpad((v) -> {
             if (this.modelBlock == null)
@@ -522,6 +531,7 @@ public class UIModelBlockPanel extends UIDashboardPanel implements IFlightSuppor
                 UI.row(4, this.enabled, this.shadow),
                 UI.row(4, this.global, this.lookAt),
                 UI.row(4, this.hitbox, this.chromaSky),
+                UI.row(4, this.localLighting),
                 this.sectionHeader(UIKeys.MODEL_BLOCKS_BLOCK),
                 UI.row(4, lightGroup, hardnessGroup),
                 this.sectionHeader(UIKeys.MODEL_BLOCKS_EQUIPMENT),
@@ -1950,6 +1960,7 @@ public class UIModelBlockPanel extends UIDashboardPanel implements IFlightSuppor
         this.global.setValue(properties.isGlobal());
         this.lookAt.setValue(properties.isLookAt());
         this.chromaSky.setValue(properties.isChromaSky());
+        this.localLighting.setValue(properties.isLocalLighting());
         this.lightLevel.setValue(properties.getLightLevel());
         this.hardness.setValue(properties.getHardness());
 

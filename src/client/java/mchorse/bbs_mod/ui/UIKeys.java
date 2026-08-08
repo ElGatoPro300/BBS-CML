@@ -1316,6 +1316,8 @@ public class UIKeys
     public static final IKey MODEL_BLOCKS_GLOBAL = L10n.lang("bbs.ui.model_blocks.global");
     public static final IKey MODEL_BLOCKS_CHROMA_SKY = L10n.lang("bbs.ui.model_blocks.chroma_sky");
     public static final IKey MODEL_BLOCKS_CHROMA_SKY_TOOLTIP = L10n.lang("bbs.ui.model_blocks.chroma_sky-tooltip");
+    public static final IKey MODEL_BLOCKS_LOCAL_LIGHTING = L10n.lang("bbs.ui.model_blocks.local_lighting");
+    public static final IKey MODEL_BLOCKS_LOCAL_LIGHTING_TOOLTIP = L10n.lang("bbs.ui.model_blocks.local_lighting-tooltip");
     public static final IKey MODEL_BLOCKS_KEYS_MOVE_TO = L10n.lang("bbs.ui.model_blocks.keys.move_to");
     public static final IKey MODEL_BLOCKS_KEYS_TELEPORT = L10n.lang("bbs.ui.model_blocks.keys.teleport");
     public static final IKey MODEL_BLOCKS_KEYS_TOGGLE_RENDERING = L10n.lang("bbs.ui.model_blocks.keys.toggle_rendering");
