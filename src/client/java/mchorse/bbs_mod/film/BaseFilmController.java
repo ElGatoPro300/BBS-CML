@@ -1299,25 +1299,35 @@ public abstract class BaseFilmController
                             /* Stub already has vanilla pose/action keyframes; copy them so
                              * MCEntity(actor) used by ActorEntityRenderer sees sprint/limbs/etc. */
                             ActorReplayStateSync.syncFromSource(actor, entity);
-                            /* Only gate vanilla sprint dust — do not clear sprinting (run anim). */
-                            actor.setSuppressSprintParticles(controlling);
 
                             if (controlling)
                             {
                                 /* Actor-control: keep the visible ActorEntity on the live
-                                 * player pose (server ActionPlayer skips this replay via PUPPET).
-                                 * Do not copy player velocity — LivingEntity.tick would keep
-                                 * integrating it on top of the snap (and creative-flight
-                                 * residual looks like ice). Pose is fully driven here. */
+                                 * puppet pose. Limbs/sprint flags come from syncFromSource;
+                                 * zero velocity so LivingEntity.travel cannot drift away
+                                 * from the stub (that drift re-triggers walk emotes). */
                                 actor.setPosition(entity.getX(), entity.getY(), entity.getZ());
                                 actor.prevX = entity.getPrevX();
                                 actor.prevY = entity.getPrevY();
                                 actor.prevZ = entity.getPrevZ();
                                 actor.setVelocity(0D, 0D, 0D);
+                                /* Decoupled puppet owns sprint state — emit dust at the
+                                 * live actor pose from stub sprint/velocity, not keyframes. */
+                                actor.setSuppressSprintParticles(true);
+
+                                if (entity.isSprinting() && entity.isOnGround())
+                                {
+                                    this.spawnLiveControlSprintParticles(actor, entity.getVelocity());
+                                }
                             }
-                            else if (!this.isActorPlaybackActive())
+                            else
                             {
-                                actor.setVelocity(0D, 0D, 0D);
+                                actor.setSuppressSprintParticles(false);
+
+                                if (!this.isActorPlaybackActive())
+                                {
+                                    actor.setVelocity(0D, 0D, 0D);
+                                }
                             }
 
                             /* Keep label in sync while editing name_tag in the film UI. */
@@ -1541,6 +1551,31 @@ public abstract class BaseFilmController
         double yPos = replay.keyframes.y.interpolate(ticks);
         double zPos = replay.keyframes.z.interpolate(ticks);
 
+        this.spawnSprintParticlesAt(world, width, xPos, yPos, zPos);
+    }
+
+    /**
+     * Sprint dust while actor-controlling a decoupled puppet (live sprint flag / velocity,
+     * not parked keyframes). {@code velocity} is the stub's motion; the ActorEntity itself
+     * is held at zero velocity to avoid physics drift.
+     */
+    private void spawnLiveControlSprintParticles(Entity entity, Vec3d velocity)
+    {
+        if (!BBSSettings.editorReplaySprintParticles.get() || entity == null || entity.getWorld() == null || velocity == null)
+        {
+            return;
+        }
+
+        if ((velocity.x * velocity.x + velocity.z * velocity.z) < 0.001D)
+        {
+            return;
+        }
+
+        this.spawnSprintParticlesAt(entity.getWorld(), entity.getWidth(), entity.getX(), entity.getY(), entity.getZ());
+    }
+
+    private void spawnSprintParticlesAt(World world, double width, double xPos, double yPos, double zPos)
+    {
         BlockPos pos = BlockPos.ofFloored(xPos, yPos - 0.2D, zPos);
 
         if (world.isAir(pos))

@@ -130,6 +130,9 @@ public class UIFilmController extends UIElement
     private final Vector2i lastMouse = new Vector2i();
     private int mouseMode;
     private final Vector2f mouseStick = new Vector2f();
+    private final Vector3d actorControlVelocity = new Vector3d();
+    private double actorControlGroundY;
+    private boolean actorControlOnGround;
 
     /* Recording state */
     private IEntity previousEntity;
@@ -446,35 +449,6 @@ public class UIFilmController extends UIElement
         return replay != null && replay.actor.get();
     }
 
-    public void dampenActorControlDrift(boolean moving)
-    {
-        if (moving || !this.isControllingActorReplay())
-        {
-            return;
-        }
-
-        ClientPlayerEntity player = MinecraftClient.getInstance().player;
-
-        if (player == null)
-        {
-            return;
-        }
-
-        Vec3d velocity = player.getVelocity();
-        double factor = player.isOnGround() ? 0.55D : 0.91D;
-        double x = velocity.x * factor;
-        double z = velocity.z * factor;
-
-        if (x * x + z * z < 0.0004D)
-        {
-            x = 0D;
-            z = 0D;
-        }
-
-        player.setSprinting(false);
-        player.setVelocity(x, velocity.y, z);
-    }
-
     public void toggleControl()
     {
         this.getContext().unfocus();
@@ -503,23 +477,21 @@ public class UIFilmController extends UIElement
             Integer key = this.controlled == null ? null : CollectionUtils.getKey(entities, this.controlled);
             int replayIndex = key == null ? -1 : key;
             Replay replay = key == null ? null : CollectionUtils.getSafe(this.panel.getData().replays.getList(), key);
+            boolean actorReplay = replay != null && replay.actor.get();
 
-            if (replacePlayer && this.controlled != null)
+            if (actorReplay && this.controlled != null)
+            {
+                this.beginActorPuppetControl(this.controlled);
+                this.applyGroundControlFlight();
+            }
+            else if (replacePlayer && this.controlled != null)
             {
                 MCEntity player = Morph.getMorph(MinecraftClient.getInstance().player).entity;
 
                 this.playerForm = player.getForm();
                 this.previousEntity = this.controlled;
 
-                if (replay != null && replay.actor.get())
-                {
-                    this.setupActorControlPlayer(player, this.controlled);
-                }
-                else
-                {
-                    player.copy(this.controlled);
-                }
-
+                player.copy(this.controlled);
                 PlayerUtils.teleport(this.controlled.getX(), this.controlled.getY(), this.controlled.getZ(), this.controlled.getHeadYaw(), this.controlled.getBodyYaw(), this.controlled.getPitch());
                 entities.put(CollectionUtils.getKey(entities, this.controlled), player);
 
@@ -540,21 +512,147 @@ public class UIFilmController extends UIElement
     }
 
     /**
-     * Actor replay control must not copy replay physics onto the live player.
-     * Keyframed velocity/flying/sprint are playback state; puppet movement should
-     * start from a neutral vanilla player and then be driven by actual input.
+     * Actor replay control is intentionally decoupled from the real player physics.
+     * The live player only supplies camera/look; this proxy supplies bounded movement.
      */
-    private void setupActorControlPlayer(MCEntity player, IEntity replayEntity)
+    private void beginActorPuppetControl(IEntity entity)
     {
-        player.setForm(replayEntity.getForm());
-        player.setSprinting(false);
-        player.setSwimming(false);
-        player.setFlying(false);
-        player.setFallFlying(false);
-        player.setCrawling(false);
-        player.setClimbing(false);
-        player.setRiptide(false);
-        player.setVelocity(0F, 0F, 0F);
+        this.actorControlVelocity.set(0D, 0D, 0D);
+        this.actorControlGroundY = entity.getY();
+        this.actorControlOnGround = true;
+
+        entity.setSprinting(false);
+        entity.setSwimming(false);
+        entity.setFlying(false);
+        entity.setFallFlying(false);
+        entity.setCrawling(false);
+        entity.setClimbing(false);
+        entity.setRiptide(false);
+        entity.setOnGround(true);
+        entity.setVelocity(0F, 0F, 0F);
+    }
+
+    public void updateActorPuppetMovement(float forward, float sideways, boolean jumping, boolean sneaking, boolean sprinting)
+    {
+        if (!this.isControllingActorReplay() || this.controlled == null)
+        {
+            return;
+        }
+
+        double length = Math.sqrt(forward * forward + sideways * sideways);
+        boolean moving = length > 0.0001D;
+        /* Match Animator.controlActions move threshold so idle emotes do not flicker. */
+        final double animStopSq = 0.01D * 0.01D;
+        boolean wantsSprint = sprinting && moving && forward > 0F && !sneaking;
+
+        if (moving)
+        {
+            forward /= length;
+            sideways /= length;
+
+            double yaw = Math.toRadians(this.controlled.getYaw());
+            double sin = Math.sin(yaw);
+            double cos = Math.cos(yaw);
+            double speed = sneaking ? 0.08D : (wantsSprint ? 0.28D : 0.215D);
+            double targetX = (-sin * forward + cos * sideways) * speed;
+            double targetZ = (cos * forward + sin * sideways) * speed;
+
+            this.actorControlVelocity.x += (targetX - this.actorControlVelocity.x) * 0.45D;
+            this.actorControlVelocity.z += (targetZ - this.actorControlVelocity.z) * 0.45D;
+        }
+        else
+        {
+            /* Soft stop, but snap as soon as motion is below the walk-anim threshold
+             * so residual coasting cannot re-trigger running/idle flicker. */
+            this.actorControlVelocity.x *= 0.55D;
+            this.actorControlVelocity.z *= 0.55D;
+
+            if ((this.actorControlVelocity.x * this.actorControlVelocity.x + this.actorControlVelocity.z * this.actorControlVelocity.z) < animStopSq)
+            {
+                this.actorControlVelocity.x = 0D;
+                this.actorControlVelocity.z = 0D;
+            }
+        }
+
+        if (jumping && this.actorControlOnGround)
+        {
+            this.actorControlVelocity.y = 0.42D;
+            this.actorControlOnGround = false;
+        }
+        else if (!this.actorControlOnGround)
+        {
+            this.actorControlVelocity.y = (this.actorControlVelocity.y - 0.08D) * 0.98D;
+        }
+
+        double oldX = this.controlled.getX();
+        double oldY = this.controlled.getY();
+        double oldZ = this.controlled.getZ();
+        double x = oldX + this.actorControlVelocity.x;
+        double y = oldY + this.actorControlVelocity.y;
+        double z = oldZ + this.actorControlVelocity.z;
+
+        if (y <= this.actorControlGroundY)
+        {
+            y = this.actorControlGroundY;
+            this.actorControlVelocity.y = 0D;
+            this.actorControlOnGround = true;
+        }
+
+        boolean stopped = !moving
+            && this.actorControlVelocity.x == 0D
+            && this.actorControlVelocity.z == 0D;
+
+        /* Keep prev != current while moving so limbs/Animator see a real step;
+         * when fully stopped force prev == current to kill micro-delta flicker. */
+        this.controlled.setPrevX(stopped ? x : oldX);
+        this.controlled.setPrevY(stopped ? y : oldY);
+        this.controlled.setPrevZ(stopped ? z : oldZ);
+        this.controlled.setPosition(x, y, z);
+        this.controlled.setVelocity((float) this.actorControlVelocity.x, (float) this.actorControlVelocity.y, (float) this.actorControlVelocity.z);
+        this.controlled.setSneaking(sneaking);
+        this.controlled.setSprinting(wantsSprint);
+        this.controlled.setOnGround(this.actorControlOnGround);
+        this.controlled.update();
+
+        if (this.controlled.getForm() != null)
+        {
+            this.controlled.getForm().update(this.controlled);
+        }
+
+        /* Keep the real player on the puppet pose (no WASD physics) so the server
+         * ActionPlayer can follow the player onto the actor without rubber-banding
+         * back to parked keyframes. */
+        ClientPlayerEntity player = MinecraftClient.getInstance().player;
+
+        if (player != null)
+        {
+            player.setVelocity(0D, 0D, 0D);
+            player.velocityModified = true;
+            player.setOnGround(this.actorControlOnGround);
+            player.setPosition(x, y, z);
+            PlayerUtils.teleport(x, y, z, player.getYaw(), player.getBodyYaw(), player.getPitch());
+        }
+    }
+
+    private void updateActorPuppetLook(float cursorDeltaX, float cursorDeltaY)
+    {
+        ClientPlayerEntity player = MinecraftClient.getInstance().player;
+
+        if (player == null || this.controlled == null)
+        {
+            return;
+        }
+
+        player.changeLookDirection(cursorDeltaX, cursorDeltaY);
+
+        this.controlled.setPrevYaw(this.controlled.getYaw());
+        this.controlled.setPrevHeadYaw(this.controlled.getHeadYaw());
+        this.controlled.setPrevBodyYaw(this.controlled.getBodyYaw());
+        this.controlled.setPrevPitch(this.controlled.getPitch());
+        this.controlled.setYaw(player.getYaw());
+        this.controlled.setHeadYaw(player.getHeadYaw());
+        this.controlled.setBodyYaw(player.getBodyYaw());
+        this.controlled.setPitch(player.getPitch());
     }
 
     /**
@@ -1576,7 +1674,14 @@ public class UIFilmController extends UIElement
                 float cursorDeltaX = (x - this.lastMouse.x) / 2F;
                 float cursorDeltaY = (y - this.lastMouse.y) / 2F;
 
-                MinecraftClient.getInstance().player.changeLookDirection(cursorDeltaX, cursorDeltaY);
+                if (this.isControllingActorReplay())
+                {
+                    this.updateActorPuppetLook(cursorDeltaX, cursorDeltaY);
+                }
+                else
+                {
+                    MinecraftClient.getInstance().player.changeLookDirection(cursorDeltaX, cursorDeltaY);
+                }
             }
             else
             {
