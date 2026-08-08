@@ -1608,11 +1608,7 @@ public class UIModelBlockPanel extends UIDashboardPanel implements IFlightSuppor
             BBSModClient.getCameraController().remove(this.cameraController);
         }
 
-        for (ModelBlockEntity entity : this.toSave) {
-            this.save(entity);
-        }
-
-        this.toSave.clear();
+        this.flushPendingSaves();
     }
 
     /**
@@ -1682,10 +1678,14 @@ public class UIModelBlockPanel extends UIDashboardPanel implements IFlightSuppor
 
         BBSRendering.ensureMainFramebuffer();
         this.updateList();
+        this.dropRemovedSelection();
+    }
 
-        if (this.modelBlock != null && this.modelBlock.isRemoved()) {
-            this.fill(null, true);
-        }
+    @Override
+    public void update() {
+        super.update();
+
+        this.dropRemovedSelection();
     }
 
     @Override
@@ -1695,12 +1695,7 @@ public class UIModelBlockPanel extends UIDashboardPanel implements IFlightSuppor
         this.dismissFormPaletteSilently();
         this.removeCameraController();
         this.saveLayout();
-
-        for (ModelBlockEntity entity : this.toSave) {
-            this.save(entity);
-        }
-
-        this.toSave.clear();
+        this.flushPendingSaves();
     }
 
     private void updateList() {
@@ -1713,8 +1708,41 @@ public class UIModelBlockPanel extends UIDashboardPanel implements IFlightSuppor
         this.fill(this.modelBlock, true);
     }
 
+    /**
+     * Drop selection and pending saves for block entities that no longer exist in the
+     * world. Otherwise leaving/reopening this panel (including right-click → setPanel)
+     * would flush stale properties to the same BlockPos and overwrite a newly placed block.
+     */
+    private void dropRemovedSelection() {
+        this.toSave.removeIf((entity) -> entity == null || entity.isRemoved());
+
+        if (this.modelBlock != null && this.modelBlock.isRemoved()) {
+            this.pendingUndoBefore = null;
+            this.fill(null, true);
+        }
+    }
+
+    private void flushPendingSaves() {
+        this.toSave.removeIf((entity) -> entity == null || entity.isRemoved());
+
+        for (ModelBlockEntity entity : this.toSave) {
+            this.save(entity);
+        }
+
+        this.toSave.clear();
+    }
+
     public void fill(ModelBlockEntity modelBlock, boolean select) {
-        if (modelBlock != null) {
+        /* Never keep pending writes for a broken block, or for a previous entity that
+         * shared this position — both would overwrite the live block on flush. */
+        this.toSave.removeIf((entity) ->
+            entity == null
+                || entity.isRemoved()
+                || (modelBlock != null
+                    && entity != modelBlock
+                    && entity.getPos().equals(modelBlock.getPos())));
+
+        if (modelBlock != null && !modelBlock.isRemoved()) {
             this.toSave.add(modelBlock);
         }
 
@@ -1931,7 +1959,7 @@ public class UIModelBlockPanel extends UIDashboardPanel implements IFlightSuppor
     }
 
     private void save(ModelBlockEntity modelBlock) {
-        if (modelBlock != null) {
+        if (modelBlock != null && !modelBlock.isRemoved()) {
             ClientNetwork.sendModelBlockForm(modelBlock.getPos(), modelBlock);
         }
     }
