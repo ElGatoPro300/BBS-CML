@@ -1305,18 +1305,15 @@ public abstract class BaseFilmController
                             if (controlling)
                             {
                                 /* Actor-control: keep the visible ActorEntity on the live
-                                 * player pose (server ActionPlayer skips this replay via PUPPET). */
+                                 * player pose (server ActionPlayer skips this replay via PUPPET).
+                                 * Do not copy player velocity — LivingEntity.tick would keep
+                                 * integrating it on top of the snap (and creative-flight
+                                 * residual looks like ice). Pose is fully driven here. */
                                 actor.setPosition(entity.getX(), entity.getY(), entity.getZ());
                                 actor.prevX = entity.getPrevX();
                                 actor.prevY = entity.getPrevY();
                                 actor.prevZ = entity.getPrevZ();
-
-                                PlayerEntity clientPlayer = MinecraftClient.getInstance().player;
-
-                                if (clientPlayer != null)
-                                {
-                                    actor.setVelocity(clientPlayer.getVelocity());
-                                }
+                                actor.setVelocity(0D, 0D, 0D);
                             }
                             else if (!this.isActorPlaybackActive())
                             {

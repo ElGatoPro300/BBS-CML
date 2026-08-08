@@ -146,6 +146,11 @@ public class UIFilmController extends UIElement
     private boolean wasAllowFlying;
     private boolean flightModified;
 
+    /* Grounded WASD while actor-controlling (creative flight = ice friction). */
+    private boolean wasControlFlying;
+    private boolean wasControlAllowFlying;
+    private boolean controlFlightModified;
+
     /* Replay and group picking */
     private IEntity hoveredEntity;
     private StencilFormFramebuffer stencil = new StencilFormFramebuffer();
@@ -447,6 +452,7 @@ public class UIFilmController extends UIElement
 
             this.controlled = null;
             this.notifyActorPuppet(-1);
+            this.restoreControlFlight();
         }
         else if (this.panel.replayEditor.replays.replays.isSelected())
         {
@@ -467,6 +473,7 @@ public class UIFilmController extends UIElement
                 entities.put(CollectionUtils.getKey(entities, this.controlled), player);
 
                 this.controlled = player;
+                this.applyGroundControlFlight();
             }
 
             this.notifyActorPuppet(replayIndex);
@@ -479,6 +486,61 @@ public class UIFilmController extends UIElement
         {
             this.stopRecording();
         }
+    }
+
+    /**
+     * Whether WASD actor-control should use grounded friction (not creative flight).
+     * Look-only recording sets {@link #flightModified} and needs flight physics.
+     */
+    public boolean shouldForceGroundedControl()
+    {
+        return this.controlled != null && !this.flightModified;
+    }
+
+    /**
+     * Remember and clear creative flight so the first control tick is already grounded.
+     * {@link mchorse.bbs_mod.mixin.client.ClientPlayerEntityMixin} keeps it cleared each tick.
+     */
+    private void applyGroundControlFlight()
+    {
+        if (this.flightModified || this.controlFlightModified)
+        {
+            return;
+        }
+
+        ClientPlayerEntity player = MinecraftClient.getInstance().player;
+
+        if (player == null)
+        {
+            return;
+        }
+
+        this.wasControlAllowFlying = player.getAbilities().allowFlying;
+        this.wasControlFlying = player.getAbilities().flying;
+        this.controlFlightModified = true;
+        player.getAbilities().allowFlying = false;
+        player.getAbilities().flying = false;
+        player.setVelocity(0D, player.getVelocity().y, 0D);
+        player.sendAbilitiesUpdate();
+    }
+
+    private void restoreControlFlight()
+    {
+        if (!this.controlFlightModified)
+        {
+            return;
+        }
+
+        ClientPlayerEntity player = MinecraftClient.getInstance().player;
+
+        if (player != null)
+        {
+            player.getAbilities().allowFlying = this.wasControlAllowFlying;
+            player.getAbilities().flying = this.wasControlFlying;
+            player.sendAbilitiesUpdate();
+        }
+
+        this.controlFlightModified = false;
     }
 
     /**
@@ -642,12 +704,25 @@ public class UIFilmController extends UIElement
         {
             ClientPlayerEntity player = MinecraftClient.getInstance().player;
 
-            this.wasAllowFlying = player.getAbilities().allowFlying;
-            this.wasFlying = player.getAbilities().flying;
+            /* Prefer pre-control flight so stopRecording restores the real state,
+             * not the temporary grounded flags from actor control. */
+            if (this.controlFlightModified)
+            {
+                this.wasAllowFlying = this.wasControlAllowFlying;
+                this.wasFlying = this.wasControlFlying;
+                this.controlFlightModified = false;
+            }
+            else
+            {
+                this.wasAllowFlying = player.getAbilities().allowFlying;
+                this.wasFlying = player.getAbilities().flying;
+            }
+
             this.flightModified = true;
 
             player.getAbilities().allowFlying = true;
             player.getAbilities().flying = true;
+            player.sendAbilitiesUpdate();
         }
 
         this.toggleMousePointer(this.controlled != null);
@@ -674,7 +749,14 @@ public class UIFilmController extends UIElement
 
             player.getAbilities().allowFlying = this.wasAllowFlying;
             player.getAbilities().flying = this.wasFlying;
+            player.sendAbilitiesUpdate();
             this.flightModified = false;
+
+            /* Still actor-controlling after a look-only capture — re-apply grounded mode. */
+            if (this.controlled != null)
+            {
+                this.applyGroundControlFlight();
+            }
         }
 
         this.panel.setCursor(this.recordingTick);

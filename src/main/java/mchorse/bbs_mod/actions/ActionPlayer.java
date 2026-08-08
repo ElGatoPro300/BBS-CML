@@ -293,9 +293,30 @@ public class ActionPlayer
             {
                 int index = list.indexOf(replay);
 
-                /* Editor actor-control owns this body — leave pose to the client/player. */
+                /* Editor actor-control owns this body — follow the editor player and
+                 * hold velocity at zero so the server entity does not keep sliding with
+                 * leftover keyframe/walk velocity while the client puppets. */
                 if (index >= 0 && index == this.controlledReplay)
                 {
+                    LivingEntity actor = entry.getValue();
+
+                    if (actor != null && this.serverPlayer != null)
+                    {
+                        actor.setPosition(this.serverPlayer.getX(), this.serverPlayer.getY(), this.serverPlayer.getZ());
+                        actor.setYaw(this.serverPlayer.getYaw());
+                        actor.setHeadYaw(this.serverPlayer.getHeadYaw());
+                        actor.setBodyYaw(this.serverPlayer.getBodyYaw());
+                        actor.setPitch(this.serverPlayer.getPitch());
+                        actor.setVelocity(0D, 0D, 0D);
+                        actor.velocityModified = true;
+
+                        if (actor instanceof ActorEntity actorEntity)
+                        {
+                            actorEntity.updateTick(this.tick);
+                            actorEntity.setSuppressSprintParticles(true);
+                        }
+                    }
+
                     continue;
                 }
 
@@ -304,6 +325,7 @@ public class ActionPlayer
                 if (actor instanceof ActorEntity actorEntity)
                 {
                     actorEntity.updateTick(this.tick);
+                    actorEntity.setSuppressSprintParticles(false);
 
                     if (justResumed)
                     {
