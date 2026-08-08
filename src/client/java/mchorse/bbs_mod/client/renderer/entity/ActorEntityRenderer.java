@@ -24,6 +24,8 @@ import net.minecraft.util.math.RotationAxis;
 
 import com.mojang.blaze3d.systems.RenderSystem;
 
+import org.lwjgl.opengl.GL11;
+
 public class ActorEntityRenderer extends EntityRenderer<ActorEntity>
 {
     public static ArmorRenderer armorRenderer;
@@ -78,7 +80,8 @@ public class ActorEntityRenderer extends EntityRenderer<ActorEntity>
         }
 
         BBSRendering.restoreWorldRenderState();
-        RenderSystem.disableDepthTest();
+        RenderSystem.enableDepthTest();
+        RenderSystem.depthFunc(GL11.GL_LEQUAL);
         RenderSystem.disableBlend();
 
         matrices.pop();
@@ -89,7 +92,7 @@ public class ActorEntityRenderer extends EntityRenderer<ActorEntity>
     @Override
     protected boolean hasLabel(ActorEntity entity)
     {
-        /* Replay name tags always draw above the actor (same as stub film path). */
+        /* Same visibility rules as stub film nametags / vanilla labels. */
         return entity.hasCustomName();
     }
 

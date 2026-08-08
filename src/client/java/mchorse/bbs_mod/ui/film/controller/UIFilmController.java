@@ -1929,7 +1929,9 @@ public class UIFilmController extends UIElement
 
         this.lastMouse.set(x, y);
 
-        RenderSystem.disableDepthTest();
+        BBSRendering.restoreWorldRenderState();
+        RenderSystem.enableDepthTest();
+        RenderSystem.depthFunc(GL11.GL_LEQUAL);
     }
 
     private void renderDropItemTrajectory(WorldRenderContext context)

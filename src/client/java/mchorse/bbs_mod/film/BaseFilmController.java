@@ -88,6 +88,8 @@ import org.joml.Vector2f;
 import org.joml.Vector3d;
 import org.joml.Vector3f;
 
+import org.lwjgl.opengl.GL11;
+
 import com.mojang.blaze3d.systems.RenderSystem;
 
 import java.util.ArrayList;
@@ -388,6 +390,11 @@ public abstract class BaseFilmController
             stack.pop();
         }
 
+        /* Soft-opacity / glow / UI-style form passes can leave depthMask false or
+         * depthFunc=ALWAYS — blob shadows and nametags then ignore walls and draw on top
+         * of the body. Actors avoid this via the vanilla entity pass. */
+        restoreFilmOverlayDepthState();
+
         /* Vanilla blob shadows only without Iris shaders — Comp/BSL use the shadow map.
          * Blob opacity is the Shadow track only; form Opacity must not fade the ground circle.
          * Size X/Z are independent (matrix scale); vanilla API only has one radius. */
@@ -423,7 +430,17 @@ public abstract class BaseFilmController
             stack.pop();
         }
 
+        restoreFilmOverlayDepthState();
+    }
+
+    /**
+     * Depth state expected by vanilla ground shadows and name labels after a form draw.
+     */
+    private static void restoreFilmOverlayDepthState()
+    {
+        BBSRendering.restoreWorldRenderState();
         RenderSystem.enableDepthTest();
+        RenderSystem.depthFunc(GL11.GL_LEQUAL);
     }
 
     /**
@@ -1050,11 +1067,15 @@ public abstract class BaseFilmController
         return matrix;
     }
 
+    /**
+     * Stub-replay name tags — mirror vanilla {@code EntityRenderer.renderLabelIfPresent}:
+     * standing = SEE_THROUGH fade behind walls + NORMAL on top; sneaking = NORMAL only
+     * (hidden when occluded). Do not disable depth test (that caused permanent x-ray).
+     */
     private static void renderNameTag(IEntity entity, Text text, MatrixStack matrices, VertexConsumerProvider vertexConsumers, int light)
     {
-        boolean sneaking = !entity.isSneaking();
+        boolean seeThrough = !entity.isSneaking();
         float hitboxH = (float) entity.getPickingHitbox().h + (entity.isSneaking() ? 0.25F : 0.5F);
-
 
         matrices.push();
         matrices.translate(0F, hitboxH, 0F);
@@ -1067,30 +1088,30 @@ public abstract class BaseFilmController
         float opacity = MinecraftClient.getInstance().options.getTextBackgroundOpacity(0.25F);
         int background = (int) (opacity * 255F) << 24;
         float h = (float) (-textRenderer.getWidth(text) / 2);
+        /* Same translucent white vanilla uses for the see-through / background pass. */
+        int translucentColor = 0x20FFFFFF;
+        TextRenderer.TextLayerType firstLayer = seeThrough
+            ? TextRenderer.TextLayerType.SEE_THROUGH
+            : TextRenderer.TextLayerType.NORMAL;
 
-        int maxLight = LightmapTextureManager.MAX_LIGHT_COORDINATE;
+        RenderSystem.enableBlend();
+        RenderSystem.disableCull();
+        RenderSystem.enableDepthTest();
+        RenderSystem.depthFunc(GL11.GL_LEQUAL);
 
-            RenderSystem.enableBlend();
-            RenderSystem.disableCull();
+        CustomVertexConsumerProvider consumers = FormUtilsClient.getProvider();
 
-            CustomVertexConsumerProvider consumers = FormUtilsClient.getProvider();
+        textRenderer.draw(text, h, 0, translucentColor, false, matrix4f, consumers, firstLayer, background, light);
+        consumers.draw();
 
-            CustomVertexConsumerProvider.hijackVertexFormat((layer) ->
-            {
-                RenderSystem.disableDepthTest();
-            });
-
-            textRenderer.draw(text, h, 0, 0x00FFFFFF, false, matrix4f, consumers, TextRenderer.TextLayerType.NORMAL, background, maxLight);
+        if (seeThrough)
+        {
+            textRenderer.draw(text, h, 0, -1, false, matrix4f, consumers, TextRenderer.TextLayerType.NORMAL, 0, light);
             consumers.draw();
+        }
 
-            textRenderer.draw(text, h, 0, -1, false, matrix4f, consumers, TextRenderer.TextLayerType.NORMAL, 0, maxLight);
-            consumers.draw();
-
-            CustomVertexConsumerProvider.clearRunnables();
-            RenderSystem.enableDepthTest();
-
-            RenderSystem.enableCull();
-            RenderSystem.disableBlend();
+        RenderSystem.enableCull();
+        RenderSystem.disableBlend();
 
         matrices.pop();
     }
