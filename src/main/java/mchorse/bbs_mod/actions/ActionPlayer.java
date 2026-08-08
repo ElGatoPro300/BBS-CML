@@ -170,6 +170,25 @@ public class ActionPlayer
 
     public void apply(LivingEntity actor, Replay replay, float tick, boolean ticking)
     {
+        /* Once combat has killed this actor, stop snapping pose/position from the
+         * film so the death animation can play instead of looking invulnerable.
+         * Keyframed death (deathTime without being dead) still uses the full apply. */
+        if (actor instanceof ActorEntity && (actor.isDead() || actor.getHealth() <= 0F))
+        {
+            int keyframeDeath = replay.keyframes.deathTime.interpolate(tick).intValue();
+
+            actor.deathTime = Math.max(actor.deathTime, keyframeDeath);
+            actor.setVelocity(0D, 0D, 0D);
+
+            if (actor instanceof ActorEntity actorEntity)
+            {
+                actorEntity.syncNameTag(replay);
+                actorEntity.updateTick((int) tick);
+            }
+
+            return;
+        }
+
         double x = replay.keyframes.x.interpolate(tick);
         double y = replay.keyframes.y.interpolate(tick);
         double z = replay.keyframes.z.interpolate(tick);

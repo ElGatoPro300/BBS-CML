@@ -1,5 +1,7 @@
 package mchorse.bbs_mod.film.replays;
 
+import mchorse.bbs_mod.BBSSettings;
+import mchorse.bbs_mod.entity.ActorEntity;
 import mchorse.bbs_mod.forms.entities.IEntity;
 import mchorse.bbs_mod.mixin.LimbAnimatorAccessor;
 
@@ -38,8 +40,7 @@ public final class ActorReplayStateSync
         actor.setOnGround(source.isOnGround());
         actor.setFlag(7, mounted ? false : source.isFallFlying());
         actor.setPose(resolvePose(source, mounted));
-        actor.hurtTime = source.getHurtTimer();
-        actor.deathTime = source.getDeathTime();
+        applyHurtAndDeath(actor, source.getHurtTimer(), source.getDeathTime());
         actor.setFireTicks(source.getFireTicks());
         actor.fallDistance = source.getFallDistance();
 
@@ -91,8 +92,9 @@ public final class ActorReplayStateSync
         actor.setOnGround(grounded);
         actor.setFlag(7, fallFlying);
         actor.setPose(resolvePose(sneaking, swimming, crawling, sleeping, mounted));
-        actor.hurtTime = keyframes.damage.interpolate(tick).intValue();
-        actor.deathTime = keyframes.deathTime.interpolate(tick).intValue();
+        applyHurtAndDeath(actor,
+            keyframes.damage.interpolate(tick).intValue(),
+            keyframes.deathTime.interpolate(tick).intValue());
         actor.setFireTicks(keyframes.getFireTicksAt((int) tick));
         actor.fallDistance = keyframes.fall.interpolate(tick).floatValue();
 
@@ -132,6 +134,43 @@ public final class ActorReplayStateSync
     public static void applyFromKeyframes(ReplayKeyframes keyframes, float tick, LivingEntity actor, boolean mounted)
     {
         applyFromKeyframes(keyframes, tick, actor, mounted, true);
+    }
+
+    /**
+     * Merge keyframed damage/death with any live combat on {@link ActorEntity}.
+     * ActionPlayer used to assign keyframe values every tick, which wiped vanilla
+     * {@code hurtTime}/{@code deathTime} and made actors look immune after a few hits.
+     * <p>
+     * Death always takes the max so a real kill can finish its animation.
+     * Hurt flash from live hits is gated by {@link BBSSettings#actorDamageFlash}.
+     */
+    private static void applyHurtAndDeath(LivingEntity actor, int keyframeHurt, int keyframeDeath)
+    {
+        if (!(actor instanceof ActorEntity))
+        {
+            actor.hurtTime = keyframeHurt;
+            actor.deathTime = keyframeDeath;
+
+            return;
+        }
+
+        actor.deathTime = Math.max(actor.deathTime, keyframeDeath);
+
+        boolean flashLiveHits = BBSSettings.actorDamageFlash != null && BBSSettings.actorDamageFlash.get();
+
+        if (flashLiveHits)
+        {
+            actor.hurtTime = Math.max(actor.hurtTime, keyframeHurt);
+        }
+        else
+        {
+            actor.hurtTime = keyframeHurt;
+        }
+
+        if (actor.hurtTime > 0 && actor.maxHurtTime < actor.hurtTime)
+        {
+            actor.maxHurtTime = Math.max(10, actor.hurtTime);
+        }
     }
 
     private static void syncLimbAnimator(LivingEntity actor, IEntity source, boolean mounted)
