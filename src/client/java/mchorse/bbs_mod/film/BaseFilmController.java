@@ -7,6 +7,7 @@ import mchorse.bbs_mod.client.renderer.MorphFireRenderer;
 import mchorse.bbs_mod.entity.ActorEntity;
 import mchorse.bbs_mod.film.replays.ActorReplayStateSync;
 import mchorse.bbs_mod.film.replays.Replay;
+import mchorse.bbs_mod.film.replays.ReplayKeyframes;
 import mchorse.bbs_mod.forms.CustomVertexConsumerProvider;
 import mchorse.bbs_mod.forms.FormUtils;
 import mchorse.bbs_mod.forms.FormUtilsClient;
@@ -1260,6 +1261,73 @@ public abstract class BaseFilmController
         return 0;
     }
 
+    /**
+     * Film tick before the current scrub step (editor only).
+     */
+    protected int getPausedAnimationFromTick()
+    {
+        return this.getTick();
+    }
+
+    /**
+     * While timeline-paused with actor-pause-animations: hold the body on the
+     * keyframed pose, and for each scrubbed tick advance limbs/forms from the
+     * horizontal move between consecutive keyframe samples (natural walk), not
+     * by replaying historical limb poses.
+     */
+    private void applyPausedActorNaturalMotion(ActorEntity actor, Replay replay, int toReplayTick)
+    {
+        int steps = this.getPausedAnimationAdvanceSteps();
+        ReplayKeyframes keyframes = replay.keyframes;
+
+        if (steps > 0 && keyframes != null)
+        {
+            int fromTick = replay.getTick(this.getPausedAnimationFromTick());
+            int toTick = toReplayTick;
+            int deltaTicks = toTick - fromTick;
+            int dir = deltaTicks >= 0 ? 1 : -1;
+            int count = Math.abs(deltaTicks);
+
+            if (count <= 0)
+            {
+                count = steps;
+                fromTick = toTick - dir * steps;
+            }
+
+            double x = keyframes.x.interpolate(fromTick);
+            double y = keyframes.y.interpolate(fromTick);
+            double z = keyframes.z.interpolate(fromTick);
+
+            for (int i = 1; i <= count; i++)
+            {
+                int tick = fromTick + i * dir;
+                double nx = keyframes.x.interpolate(tick);
+                double ny = keyframes.y.interpolate(tick);
+                double nz = keyframes.z.interpolate(tick);
+
+                actor.advanceNaturalMotionStep(x, z, nx, nz);
+                actor.setPosition(nx, ny, nz);
+                x = nx;
+                y = ny;
+                z = nz;
+            }
+        }
+        else if (keyframes != null)
+        {
+            /* Parked: snap to current keyframe pose and hold (no limb step). */
+            actor.setPosition(
+                keyframes.x.interpolate(toReplayTick),
+                keyframes.y.interpolate(toReplayTick),
+                keyframes.z.interpolate(toReplayTick)
+            );
+        }
+
+        actor.prevX = actor.getX();
+        actor.prevY = actor.getY();
+        actor.prevZ = actor.getZ();
+        actor.setVelocity(0D, 0D, 0D);
+    }
+
     protected void updateEntities(int ticks)
     {
         List<Replay> replays = this.film.replays.getList();
@@ -1320,8 +1388,9 @@ public abstract class BaseFilmController
                         if (anEntity instanceof ActorEntity actor)
                         {
                             boolean controlling = !this.shouldEmitReplayMotionFx(entity);
-                            boolean pauseAnims = BBSSettings.editorActorPauseAnimations != null
-                                && BBSSettings.editorActorPauseAnimations.get()
+                            boolean timelineAnims = BBSSettings.editorActorPauseAnimations != null
+                                && BBSSettings.editorActorPauseAnimations.get();
+                            boolean pauseAnims = timelineAnims
                                 && !this.isActorPlaybackActive()
                                 && !controlling;
 
@@ -1332,19 +1401,18 @@ public abstract class BaseFilmController
                             actor.setHeadYaw(entity.getHeadYaw());
                             actor.setBodyYaw(entity.getBodyYaw());
                             actor.setPitch(entity.getPitch());
-                            /* Stub already has vanilla pose/action keyframes; copy them so
-                             * MCEntity(actor) used by ActorEntityRenderer sees sprint/limbs/etc. */
-                            ActorReplayStateSync.syncFromSource(actor, entity);
-                            actor.age = entity.getAge();
+                            /* Pose/action flags from the stub, but never copy limbAnimator —
+                             * limbs stay natural on the ActorEntity (tick while playing,
+                             * scrub steps while timeline-paused with the setting on). */
+                            ActorReplayStateSync.syncFromSource(actor, entity, false);
                             /* Only gate vanilla sprint dust — do not clear sprinting (run anim). */
                             actor.setSuppressSprintParticles(controlling);
 
                             if (pauseAnims)
                             {
-                                actor.advanceFormAnimationTicks(this.getPausedAnimationAdvanceSteps());
+                                this.applyPausedActorNaturalMotion(actor, replay, replayTick);
                             }
-
-                            if (controlling)
+                            else if (controlling)
                             {
                                 /* Actor-control: keep the visible ActorEntity on the live
                                  * player pose (server ActionPlayer skips this replay via PUPPET).

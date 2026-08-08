@@ -27,6 +27,15 @@ public final class ActorReplayStateSync
      */
     public static void syncFromSource(LivingEntity actor, IEntity source)
     {
+        syncFromSource(actor, source, true);
+    }
+
+    /**
+     * @param syncLimbs when false, leave {@link LivingEntity#limbAnimator} alone so the
+     *                  actor can keep natural walk-cycle motion from {@code tick()} / scrub steps.
+     */
+    public static void syncFromSource(LivingEntity actor, IEntity source, boolean syncLimbs)
+    {
         if (actor == null || source == null)
         {
             return;
@@ -55,7 +64,34 @@ public final class ActorReplayStateSync
         actor.setLivingFlag(2, source.getActiveHand() == Hand.OFF_HAND && usingItem);
         actor.setLivingFlag(4, source.isUsingRiptide());
 
-        syncLimbAnimator(actor, source, mounted);
+        if (syncLimbs)
+        {
+            syncLimbAnimator(actor, source, mounted);
+        }
+        else if (mounted && actor.limbAnimator instanceof LimbAnimatorAccessor actorLimb)
+        {
+            actorLimb.setPrevSpeed(0F);
+            actorLimb.setSpeed(0F);
+        }
+    }
+
+    /**
+     * One StubEntity-style limb step from a horizontal move (used when scrubbing the
+     * timeline with actor-pause-animations enabled).
+     */
+    public static void advanceLimbStep(LivingEntity actor, double fromX, double fromZ, double toX, double toZ)
+    {
+        if (actor == null || !(actor.limbAnimator instanceof LimbAnimatorAccessor limb))
+        {
+            return;
+        }
+
+        float delta = (float) MathHelper.magnitude(toX - fromX, 0D, toZ - fromZ);
+        float speed = Math.min(delta * 4F, 1F);
+
+        limb.setPrevSpeed(limb.getSpeed());
+        limb.setSpeed(speed);
+        limb.setPos(limb.getPos() + speed);
     }
 
     /**

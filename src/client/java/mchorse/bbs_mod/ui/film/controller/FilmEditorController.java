@@ -63,7 +63,7 @@ public class FilmEditorController extends BaseFilmController
 
         if (!this.controller.isPlaying())
         {
-            this.pausedAnimationSteps = Math.abs(this.lastTick - ticks);
+            this.pausedAnimationSteps = Math.abs(ticks - this.lastTick);
         }
 
         super.updateEntities(ticks);
@@ -96,11 +96,21 @@ public class FilmEditorController extends BaseFilmController
     }
 
     @Override
+    protected int getPausedAnimationFromTick()
+    {
+        return this.lastTick;
+    }
+
+    @Override
     protected void applyReplay(Replay replay, int ticks, IEntity entity)
     {
         List<String> groups = this.controller.getRecordingGroups();
         boolean isPlaying = this.controller.isPlaying();
         boolean isActor = !(entity instanceof MCEntity);
+        boolean scrubbingStub = !isPlaying && isActor && this.pausedAnimationSteps > 0;
+        double scrubFromX = entity.getX();
+        double scrubFromY = entity.getY();
+        double scrubFromZ = entity.getZ();
 
         if (entity != this.controller.getControlled() || (this.controller.isRecording() && this.controller.getRecordingCountdown() <= 0 && groups != null))
         {
@@ -131,12 +141,22 @@ public class FilmEditorController extends BaseFilmController
 
         ticks = this.getTick() + (this.controller.panel.getRunner().isRunning() ? 1 : 0);
 
-        /* Special pausing logic */
+        /* Special pausing logic for stubs (non-actor path / hidden stubs). */
         if (!isPlaying && isActor)
         {
-            entity.setPrevX(entity.getX());
-            entity.setPrevY(entity.getY());
-            entity.setPrevZ(entity.getZ());
+            if (scrubbingStub)
+            {
+                entity.setPrevX(scrubFromX);
+                entity.setPrevY(scrubFromY);
+                entity.setPrevZ(scrubFromZ);
+            }
+            else
+            {
+                entity.setPrevX(entity.getX());
+                entity.setPrevY(entity.getY());
+                entity.setPrevZ(entity.getZ());
+            }
+
             entity.setPrevYaw(entity.getYaw());
             entity.setPrevHeadYaw(entity.getHeadYaw());
             entity.setPrevBodyYaw(entity.getBodyYaw());

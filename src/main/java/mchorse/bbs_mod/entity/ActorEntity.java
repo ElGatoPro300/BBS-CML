@@ -2,6 +2,7 @@ package mchorse.bbs_mod.entity;
 
 import mchorse.bbs_mod.BBSMod;
 import mchorse.bbs_mod.film.Film;
+import mchorse.bbs_mod.film.replays.ActorReplayStateSync;
 import mchorse.bbs_mod.film.replays.Replay;
 import mchorse.bbs_mod.forms.entities.MCEntity;
 import mchorse.bbs_mod.forms.forms.Form;
@@ -185,7 +186,7 @@ public class ActorEntity extends LivingEntity implements IEntityFormProvider
 
     /**
      * Advance emoticon/BOBJ form animators by {@code steps} ticks while natural
-     * animations are timeline-driven (limb/age state is copied separately from the stub).
+     * animations are timeline-driven.
      */
     public void advanceFormAnimationTicks(int steps)
     {
@@ -195,6 +196,22 @@ public class ActorEntity extends LivingEntity implements IEntityFormProvider
         }
 
         for (int i = 0; i < steps; i++)
+        {
+            this.form.update(this.entity);
+        }
+    }
+
+    /**
+     * One natural walk/form step for timeline scrub: limb swing from horizontal
+     * delta (same formula as {@link mchorse.bbs_mod.forms.entities.StubEntity#update})
+     * plus one form animator tick.
+     */
+    public void advanceNaturalMotionStep(double fromX, double fromZ, double toX, double toZ)
+    {
+        ActorReplayStateSync.advanceLimbStep(this, fromX, fromZ, toX, toZ);
+        this.age += 1;
+
+        if (this.form != null)
         {
             this.form.update(this.entity);
         }
