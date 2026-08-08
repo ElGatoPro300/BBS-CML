@@ -18,6 +18,7 @@ import mchorse.bbs_mod.cubic.data.model.Model;
 import mchorse.bbs_mod.cubic.data.model.ModelGroup;
 import mchorse.bbs_mod.data.DataStorageUtils;
 import mchorse.bbs_mod.data.types.MapType;
+import mchorse.bbs_mod.film.BaseFilmController;
 import mchorse.bbs_mod.film.Film;
 import mchorse.bbs_mod.film.replays.FormProperties;
 import mchorse.bbs_mod.film.replays.PerLimbService;
@@ -782,10 +783,10 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
 
     /**
      * Tracks exposed on replay folder/group timelines. Folders can contain any form type,
-     * so this list is limited to properties that {@link mchorse.bbs_mod.film.BaseFilmController}
+     * so this list is limited to properties that {@link BaseFilmController}
      * can apply to every form (visibility, color multiply, transform, paint, glow).
      * {@code render} is created for the visible/Enabled pairing but stays timeline-hidden.
-     * Shadow size/opacity come from {@link mchorse.bbs_mod.film.replays.ReplayKeyframes}
+     * Shadow size/opacity come from {@link ReplayKeyframes}
      * (same channels as normal replays) and are merged onto members at render time.
      */
     private static final List<String> GROUP_FORM_PROPERTIES = Arrays.asList(

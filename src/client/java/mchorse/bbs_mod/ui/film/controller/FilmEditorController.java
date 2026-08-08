@@ -1,6 +1,7 @@
 package mchorse.bbs_mod.ui.film.controller;
 
 import mchorse.bbs_mod.BBSModClient;
+import mchorse.bbs_mod.entity.ActorEntity;
 import mchorse.bbs_mod.film.BaseFilmController;
 import mchorse.bbs_mod.film.Film;
 import mchorse.bbs_mod.film.FilmControllerContext;
@@ -229,7 +230,7 @@ public class FilmEditorController extends BaseFilmController
     }
 
     /**
-     * Actor mode: prefer the live {@link mchorse.bbs_mod.entity.ActorEntity} for
+     * Actor mode: prefer the live {@link ActorEntity} for
      * gizmo capture (no StubEntity ghost). If the physical actor is not spawned
      * yet, fall back to a normal stub draw so editing still works.
      */
