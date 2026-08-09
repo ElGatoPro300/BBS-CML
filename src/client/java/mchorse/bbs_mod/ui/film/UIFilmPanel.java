@@ -3092,12 +3092,27 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
             {
                 if (ANCHORED_REPLAYS_PROPERTIES_PANEL_ID.equals(panelId))
                 {
-                    this.floatingPanels.add(panelId);
-                    this.ensureFloatingPanelSize(panelId);
+                    EditorLayoutNode root = BBSSettings.editorLayoutSettings.getFilmLayoutRoot();
+                    boolean canDockUnderReplays = root != null
+                        && this.hasPanelInLayout(root, ANCHORED_REPLAYS_PANEL_ID)
+                        && !this.floatingPanels.contains(ANCHORED_REPLAYS_PANEL_ID)
+                        && this.isSeparateReplayPropertiesPanelEnabled();
 
-                    if (!this.floatingPanelPositions.containsKey(panelId))
+                    if (canDockUnderReplays)
                     {
-                        this.floatingPanelPositions.put(panelId, new Vector2i(this.editor.area.mx() - 140, this.editor.area.my() - 120));
+                        /* Legacy / incomplete trees: dock General under Replays rather than float. */
+                        BBSSettings.editorLayoutSettings.setFilmLayoutRoot(
+                            EditorLayoutNode.copyWithReplacedLeaf(root, ANCHORED_REPLAYS_PANEL_ID, this.createAnchoredReplaysColumn()));
+                    }
+                    else
+                    {
+                        this.floatingPanels.add(panelId);
+                        this.ensureFloatingPanelSize(panelId);
+
+                        if (!this.floatingPanelPositions.containsKey(panelId))
+                        {
+                            this.floatingPanelPositions.put(panelId, new Vector2i(this.editor.area.mx() - 140, this.editor.area.my() - 120));
+                        }
                     }
                 }
                 else
@@ -4397,6 +4412,38 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
         return EditorLayoutNode.copyWithReplacedLeaf(root, ANCHORED_REPLAYS_PANEL_ID, this.createAnchoredReplaysColumn());
     }
 
+    /**
+     * Legacy layout presets store only {@code replaysPanel}. Insert the General panel
+     * under Replays while leaving it in {@link #hiddenPanels}, so enabling Windows >
+     * General docks below Replays instead of spawning a floating window.
+     */
+    private void ensureLegacyDockedReplaysPropertiesColumn()
+    {
+        if (!this.isSeparateReplayPropertiesPanelEnabled())
+        {
+            return;
+        }
+
+        if (this.floatingPanels.contains(ANCHORED_REPLAYS_PANEL_ID)
+            || this.floatingPanels.contains(ANCHORED_REPLAYS_PROPERTIES_PANEL_ID))
+        {
+            return;
+        }
+
+        ValueEditorLayout layout = BBSSettings.editorLayoutSettings;
+        EditorLayoutNode root = layout.getFilmLayoutRoot();
+
+        if (root == null
+            || !this.hasPanelInLayout(root, ANCHORED_REPLAYS_PANEL_ID)
+            || this.hasPanelInLayout(root, ANCHORED_REPLAYS_PROPERTIES_PANEL_ID))
+        {
+            return;
+        }
+
+        layout.setFilmLayoutRoot(EditorLayoutNode.copyWithReplacedLeaf(
+            root, ANCHORED_REPLAYS_PANEL_ID, this.createAnchoredReplaysColumn()));
+    }
+
     private boolean isReplaysPropertiesPanelActive()
     {
         EditorLayoutNode root = BBSSettings.editorLayoutSettings.getFilmLayoutRoot();
@@ -4795,7 +4842,9 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
             /* Legacy presets created before ANCHORED_REPLAYS_PROPERTIES_PANEL_ID existed
                do not specify the General panel. Default General to hidden so properties render
                embedded inside the Replays window (classic backwards-compatible behavior). */
-            if (!this.hasPanelInPresetData(data, ANCHORED_REPLAYS_PROPERTIES_PANEL_ID))
+            boolean legacyGeneral = !this.hasPanelInPresetData(data, ANCHORED_REPLAYS_PROPERTIES_PANEL_ID);
+
+            if (legacyGeneral)
             {
                 this.hiddenPanels.add(ANCHORED_REPLAYS_PROPERTIES_PANEL_ID);
             }
@@ -4809,6 +4858,13 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
             else
             {
                 this.setAnchoredReplaysPanelEnabled(this.isAnchoredReplaysPanelEnabled());
+            }
+
+            /* Old presets only store replaysPanel. Insert the General leaf under Replays
+               now (still hidden) so Windows > General docks in place instead of floating. */
+            if (legacyGeneral)
+            {
+                this.ensureLegacyDockedReplaysPropertiesColumn();
             }
         }
 
