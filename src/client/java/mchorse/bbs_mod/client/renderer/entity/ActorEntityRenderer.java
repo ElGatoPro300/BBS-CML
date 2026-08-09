@@ -122,7 +122,7 @@ public class ActorEntityRenderer extends EntityRenderer<ActorEntity, ActorEntity
     }
 
     @Override
-    protected boolean hasLabel(ActorEntity entity)
+    protected boolean hasLabel(ActorEntity entity, double squaredDistanceToCamera)
     {
         /* Same visibility rules as stub film nametags / vanilla labels. */
         return entity.hasCustomName();

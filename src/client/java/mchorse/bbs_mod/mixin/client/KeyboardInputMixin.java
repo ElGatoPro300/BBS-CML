@@ -50,12 +50,6 @@ public class KeyboardInputMixin
 
             MinecraftClient.getInstance().options.jumpKey.setPressed(jump);
             MinecraftClient.getInstance().options.sneakKey.setPressed(sneak);
-            
-            if (slowDown)
-            {
-                input.movementSideways *= slowDownFactor;
-                input.movementForward *= slowDownFactor;
-            }
 
             UIFilmController controller = filmPanel.getController();
             boolean moving = input.movementForward != 0F || input.movementSideways != 0F;

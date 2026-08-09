@@ -669,14 +669,14 @@ public class ActorEntity extends LivingEntity implements IEntityFormProvider
      * still applies via {@link ActorReplayStateSync}.
      */
     @Override
-    public boolean isInvulnerableTo(DamageSource damageSource)
+    public boolean isInvulnerableTo(ServerWorld world, DamageSource damageSource)
     {
         if (this.isKeyframeInvulnerable())
         {
             return true;
         }
 
-        return super.isInvulnerableTo(damageSource);
+        return super.isInvulnerableTo(world, damageSource);
     }
 
     private boolean isKeyframeInvulnerable()
