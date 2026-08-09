@@ -18,6 +18,7 @@ import mchorse.bbs_mod.cubic.data.model.Model;
 import mchorse.bbs_mod.cubic.data.model.ModelGroup;
 import mchorse.bbs_mod.data.DataStorageUtils;
 import mchorse.bbs_mod.data.types.MapType;
+import mchorse.bbs_mod.film.BaseFilmController;
 import mchorse.bbs_mod.film.Film;
 import mchorse.bbs_mod.film.replays.FormProperties;
 import mchorse.bbs_mod.film.replays.ModelTrackIds;
@@ -205,6 +206,8 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
         COLORS.put("extra2_y", Colors.GREEN);
         COLORS.put("shadow_size", Colors.MAGENTA);
         COLORS.put("shadow_opacity", Colors.ORANGE);
+        COLORS.put("damage", Colors.RED);
+        COLORS.put("invulnerable", Colors.YELLOW);
         COLORS.put("riding", Colors.ORANGE);
         COLORS.put("ridden", Colors.BLUE);
 
@@ -319,6 +322,8 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
         ICONS.put("extra2_x", Icons.CURVES);
         ICONS.put("shadow_size", Icons.SCALE);
         ICONS.put("shadow_opacity", Icons.VISIBLE);
+        ICONS.put("damage", Icons.SKULL);
+        ICONS.put("invulnerable", Icons.LOCKED);
         ICONS.put("item_main_hand", Icons.LIMB);
 
         ICONS.put("user1", Icons.PARTICLE);
@@ -829,6 +834,31 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
     }
 
     public static final Form DUMMY_FORM = new StructureForm();
+
+    /**
+     * Tracks exposed on replay folder/group timelines. Folders can contain any form type,
+     * so this list is limited to properties that {@link BaseFilmController}
+     * can apply to every form (visibility, color multiply, transform, paint, glow).
+     * {@code render} is created for the visible/Enabled pairing but stays timeline-hidden.
+     * Shadow size/opacity come from {@link ReplayKeyframes}
+     * (same channels as normal replays) and are merged onto members at render time.
+     */
+    private static final List<String> GROUP_FORM_PROPERTIES = Arrays.asList(
+        "visible",
+        "render",
+        "transform",
+        "transform_overlay",
+        "illusion",
+        "color",
+        "color_grade",
+        "paint",
+        "glow"
+    );
+
+    private static final List<String> GROUP_SHADOW_CHANNELS = Arrays.asList(
+        "shadow_size",
+        "shadow_opacity"
+    );
 
     public static boolean renderBackground(UIContext context, UIKeyframes keyframes, Clips camera, int clipOffset, Clip selectedClip)
     {
@@ -1369,6 +1399,7 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
         this.collapsedModelTracks.put(replayId + ":__vanilla_poses__", true);
         this.collapsedModelTracks.put(replayId + ":__vanilla_actions__", true);
         this.collapsedModelTracks.put(replayId + ":__model__:color", true);
+        this.collapsedModelTracks.put(replayId + ":damage", true);
 
         List<String> childPaths = new ArrayList<>();
 
@@ -1400,6 +1431,104 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
             out.add(path);
             this.collectChildFormPaths(child, path, out);
         }
+    }
+
+    /**
+     * Switch to the replay timeline tab (and its linked properties) so viewport
+     * bone picks can drive pose gizmos instead of staying on the camera timeline.
+     */
+    private void focusReplayTimelineForPick()
+    {
+        if (this.filmPanel == null)
+        {
+            return;
+        }
+
+        this.filmPanel.focusPanelTab("replayTimeline");
+        this.filmPanel.focusLinkedPropertiesTab("replayTimeline");
+        this.filmPanel.showPanel(this);
+    }
+
+    /**
+     * Expand collapsed nested-form track groups so bone picks on body parts can
+     * reach that form's pose sheet. Does <b>not</b> expand the pose/limb group
+     * itself — limb sheets stay hidden until the user opens pose (default), so
+     * picking a bone selects the nearest pose keyframe instead of inserting a
+     * provisional limb keyframe.
+     */
+    private void ensureTracksVisibleForFormBone(Form form, String bone)
+    {
+        if (this.replay == null || form == null)
+        {
+            return;
+        }
+
+        String replayId = this.replay.uuid.get();
+
+        replayId = replayId == null ? "" : replayId;
+
+        boolean changed = false;
+        String formPath = FormUtils.getPath(form);
+        Form rootForm = FormUtils.getRoot(form);
+        String rootPath = FormUtils.getPath(rootForm);
+
+        changed |= this.expandTrackGroup(replayId + ":" + rootPath, false);
+
+        if (!formPath.isEmpty())
+        {
+            String[] segments = formPath.split("/");
+            StringBuilder built = new StringBuilder();
+
+            for (int i = 0; i < segments.length; i++)
+            {
+                if (i > 0)
+                {
+                    built.append('/');
+                }
+
+                built.append(segments[i]);
+                changed |= this.expandTrackGroup(replayId + ":" + built, false);
+            }
+        }
+
+        /* Only expand nested limb subgroups when pose limbs are already visible. */
+        String poseId = StringUtils.combinePaths(formPath, "pose");
+        String poseKey = replayId + ":" + poseId;
+        boolean poseExpanded = !this.collapsedModelTracks.getOrDefault(poseKey, true);
+
+        if (poseExpanded && bone != null && !bone.isEmpty() && form instanceof ModelForm modelForm)
+        {
+            ModelInstance model = ModelFormRenderer.getModel(modelForm);
+
+            if (model != null && model.model != null)
+            {
+                Map<String, String> parentByBone = this.collectBoneParents(model.model);
+                String parent = parentByBone.get(bone);
+
+                while (parent != null)
+                {
+                    changed |= this.expandTrackGroup(replayId + ":" + poseId + ":" + parent, false);
+                    parent = parentByBone.get(parent);
+                }
+            }
+        }
+
+        if (changed)
+        {
+            this.updateChannelsList();
+        }
+    }
+
+    private boolean expandTrackGroup(String key, boolean collapsedByDefault)
+    {
+        if (this.collapsedModelTracks.getOrDefault(key, collapsedByDefault))
+        {
+            this.collapsedModelTracks.put(key, false);
+
+            return true;
+        }
+
+        return false;
     }
 
     public void moveReplay(double x, double y, double z)
@@ -1509,7 +1638,7 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
             && this.filmPanel.getController().getCurrentEntity() != null;
     }
 
-    private static final List<String> WORLD_CHANNELS = Arrays.asList("x", "y", "z", "vX", "vY", "vZ", "yaw", "pitch", "headYaw", "bodyYaw", "grounded", "damage", "death_time", "using_item", "item_use_time", "fire", "particles", "active_hand", "fall", "sneaking", "riding", "sprinting", "swimming", "flying", "fall_flying", "crawling", "climbing", "blocking", "sleeping", "riptide", "item_main_hand", "item_off_hand", "item_head", "item_chest", "item_legs", "item_feet", "selected_slot", "stick_lx", "stick_ly", "stick_rx", "stick_ry", "trigger_l", "trigger_r", "extra1_x", "extra1_y", "extra2_x", "extra2_y", "shadow_size", "shadow_opacity");
+    private static final List<String> WORLD_CHANNELS = Arrays.asList("x", "y", "z", "vX", "vY", "vZ", "yaw", "pitch", "headYaw", "bodyYaw", "grounded", "damage", "invulnerable", "death_time", "using_item", "item_use_time", "fire", "particles", "active_hand", "fall", "sneaking", "riding", "sprinting", "swimming", "flying", "fall_flying", "crawling", "climbing", "blocking", "sleeping", "riptide", "item_main_hand", "item_off_hand", "item_head", "item_chest", "item_legs", "item_feet", "selected_slot", "stick_lx", "stick_ly", "stick_rx", "stick_ry", "trigger_l", "trigger_r", "extra1_x", "extra1_y", "extra2_x", "extra2_y", "shadow_size", "shadow_opacity");
     private static final Set<String> VANILLA_POSE_CHANNELS = Set.of(
         "riding", "swimming", "flying", "fall_flying",
         "crawling", "climbing", "blocking", "sleeping", "riptide"
@@ -1588,6 +1717,11 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
         if (trackName.equals("damage"))
         {
             return UIKeys.FILM_REPLAY_TRACK_DAMAGE;
+        }
+
+        if (trackName.equals("invulnerable"))
+        {
+            return UIKeys.FILM_REPLAY_TRACK_INVULNERABLE;
         }
 
         if (trackName.equals("death_time"))
@@ -2789,13 +2923,7 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
 
         if (this.replay.isGroup.get())
         {
-            List<String> properties = new ArrayList<>();
-
-            properties.add("visible");
-            properties.add("render");
-            properties.add("color");
-            properties.add("transform");
-            properties.add("transform_overlay");
+            List<String> properties = new ArrayList<>(GROUP_FORM_PROPERTIES);
 
             for (int i = 0; i < BBSSettings.recordingPoseTransformOverlays.get(); i++)
             {
@@ -2819,16 +2947,60 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
                 if (property != null)
                 {
                     BaseValueBasic formProperty = FormUtils.getProperty(DUMMY_FORM, key);
-                    UIKeyframeSheet sheet = new UIKeyframeSheet(getColor(key), false, property, formProperty);
+
+                    if (formProperty == null && FormProperties.isColorGradeChannelKey(key))
+                    {
+                        formProperty = FormUtils.getProperty(DUMMY_FORM, FormProperties.colorPropertyPathForGrade(key));
+                    }
+
+                    String customTitle = this.replay.getCustomSheetTitle(key);
+                    Integer customColor = this.replay.getSheetColor(key);
+                    int sheetColor = customColor != null ? customColor : getColor(key);
+                    IKey resolvedTitle = resolvePropertyTrackTitle(key);
+
+                    UIKeyframeSheet sheet = customTitle != null && !customTitle.isEmpty()
+                        ? new UIKeyframeSheet(key, IKey.constant(customTitle), sheetColor, false, property, formProperty)
+                        : resolvedTitle != null
+                            ? new UIKeyframeSheet(key, resolvedTitle, sheetColor, false, property, formProperty)
+                            : new UIKeyframeSheet(sheetColor, false, property, formProperty);
 
                     sheets.add(withTrackIcon(sheet, key));
                 }
+            }
+
+            for (String key : GROUP_SHADOW_CHANNELS)
+            {
+                BaseValue value = this.replay.keyframes.get(key);
+
+                if (!(value instanceof KeyframeChannel channel))
+                {
+                    continue;
+                }
+
+                String customTitle = this.replay.getCustomSheetTitle(key);
+                Integer customColor = this.replay.getSheetColor(key);
+                int sheetColor = customColor != null ? customColor : getColor(key);
+                IKey resolvedTitle = resolvePropertyTrackTitle(key);
+
+                UIKeyframeSheet sheet = customTitle != null && !customTitle.isEmpty()
+                    ? new UIKeyframeSheet(key, IKey.constant(customTitle), sheetColor, false, channel, null)
+                    : resolvedTitle != null
+                        ? new UIKeyframeSheet(key, resolvedTitle, sheetColor, false, channel, null)
+                        : new UIKeyframeSheet(sheetColor, false, channel, null);
+
+                sheets.add(withTrackIcon(sheet, key));
             }
         }
         else
         {
             for (String key : ReplayKeyframes.CURATED_CHANNELS)
             {
+                /* Actor-only nested Damage child — omit for non-actor replays. */
+                if (key.equals("invulnerable") && !this.replay.actor.get())
+                {
+                    continue;
+                }
+
                 BaseValue value = this.replay.keyframes.get(key);
                 KeyframeChannel channel = (KeyframeChannel) value;
 
@@ -2956,6 +3128,13 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
 
                 if (curatedIndex != -1)
                 {
+                    /* Group shadow tracks belong at the bottom, not with world channels. */
+                    if (UIReplaysEditor.this.replay != null && UIReplaysEditor.this.replay.isGroup.get()
+                        && (id.equals("shadow_size") || id.equals("shadow_opacity")))
+                    {
+                        return id.equals("shadow_size") ? 900 : 901;
+                    }
+
                     return -100 + curatedIndex;
                 }
 
@@ -3316,6 +3495,8 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
                 List<UIKeyframeSheet> modelTracksAfterPose = new ArrayList<>();
                 boolean hasVanillaPoses = false;
                 boolean hasVanillaActions = false;
+                UIKeyframeSheet invulnerableSheet = null;
+                boolean actorReplay = this.replay.actor.get();
 
                 Map<String, FormTracks> subForms = new LinkedHashMap<>();
 
@@ -3326,6 +3507,16 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
                 {
                     if (WORLD_CHANNELS.contains(sheet.id) && !isFormItemUseTimeTrack(sheet))
                     {
+                        if (sheet.id.equals("invulnerable"))
+                        {
+                            if (actorReplay)
+                            {
+                                invulnerableSheet = sheet;
+                            }
+
+                            continue;
+                        }
+
                         if (!this.collapsedModelTracks.getOrDefault(worldKey, false))
                         {
                             if (VANILLA_POSE_CHANNELS.contains(sheet.id))
@@ -3351,6 +3542,20 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
                             else
                             {
                                 sheet.level = 2;
+
+                                if (sheet.id.equals("damage") && actorReplay)
+                                {
+                                    String damageKey = this.replay.uuid.get() + ":damage";
+                                    boolean damageExpanded = !this.collapsedModelTracks.getOrDefault(damageKey, true);
+
+                                    sheet.expanded = damageExpanded;
+                                    sheet.toggleExpanded = () ->
+                                    {
+                                        this.collapsedModelTracks.put(damageKey, !this.collapsedModelTracks.getOrDefault(damageKey, true));
+                                        this.updateChannelsList();
+                                    };
+                                }
+
                                 worldTracks.add(sheet);
                             }
                         }
@@ -3405,6 +3610,24 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
                             String groupKey = this.replay.uuid.get() + ":" + path;
 
                             this.processTrack(sheet, groupKey, path.split("/").length, subForms.get(path).before, subForms.get(path).pose, subForms.get(path).limbs, subForms.get(path).overlayRoots, subForms.get(path).overlayLimbs, subForms.get(path).after);
+                        }
+                    }
+                }
+
+                if (actorReplay && invulnerableSheet != null)
+                {
+                    String damageKey = this.replay.uuid.get() + ":damage";
+
+                    if (!this.collapsedModelTracks.getOrDefault(damageKey, true))
+                    {
+                        for (int i = 0; i < worldTracks.size(); i++)
+                        {
+                            if (worldTracks.get(i).id.equals("damage"))
+                            {
+                                invulnerableSheet.level = worldTracks.get(i).level + 1;
+                                worldTracks.add(i + 1, invulnerableSheet);
+                                break;
+                            }
                         }
                     }
                 }
@@ -3496,6 +3719,32 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
 
             sheets = grouped;
         }
+        else if (this.replay.isGroup.get())
+        {
+            /* Nest paint / glow / color_grade under color (same as replay form timeline). */
+            List<UIKeyframeSheet> before = new ArrayList<>();
+            List<UIKeyframeSheet> pose = new ArrayList<>();
+            List<UIKeyframeSheet> limbs = new ArrayList<>();
+            List<UIKeyframeSheet> overlayRoots = new ArrayList<>();
+            List<UIKeyframeSheet> overlayLimbs = new ArrayList<>();
+            List<UIKeyframeSheet> after = new ArrayList<>();
+
+            for (UIKeyframeSheet sheet : sheets)
+            {
+                this.processTrack(sheet, "", 0, before, pose, limbs, overlayRoots, overlayLimbs, after);
+            }
+
+            this.injectColorGradeSheets(before);
+            this.injectColorGradeSheets(after);
+
+            sheets = new ArrayList<>();
+            sheets.addAll(before);
+            sheets.addAll(pose);
+            sheets.addAll(limbs);
+            sheets.addAll(overlayRoots);
+            sheets.addAll(overlayLimbs);
+            sheets.addAll(after);
+        }
 
         Object lastForm = null;
 
@@ -3531,6 +3780,9 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
 
         if (!sheets.isEmpty())
         {
+            /* Rebuilding the editor drops selection; remove untouched provisional
+             * limb keyframes first or they become permanent after collapse/reopen. */
+            this.cleanupUntouchedAutomaticKeyframe(this.lastPickedKeyframe, null);
             this.lastPickedKeyframe = null;
             this.keyframeEditor = new UIKeyframeEditor((consumer) ->
             {
@@ -3664,6 +3916,11 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
         }
 
         this.resize();
+
+        if (this.keyframeEditor != null)
+        {
+            this.keyframeEditor.view.getDopeSheet().setTrackHeight(this.keyframeEditor.view.getDopeSheet().getTrackHeight());
+        }
 
         if (this.keyframeEditor != null && lastEditor == null)
         {
@@ -3884,7 +4141,17 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
             sheet.expanded = expanded;
             sheet.toggleExpanded = () ->
             {
-                this.collapsedModelTracks.put(parentKey, !this.collapsedModelTracks.getOrDefault(parentKey, true));
+                boolean collapsing = !this.collapsedModelTracks.getOrDefault(parentKey, true);
+
+                this.collapsedModelTracks.put(parentKey, collapsing);
+
+                /* Closing pose limbs should discard untouched preview keyframes. */
+                if (collapsing)
+                {
+                    this.cleanupUntouchedAutomaticKeyframe(this.lastPickedKeyframe, null);
+                    this.lastPickedKeyframe = null;
+                }
+
                 this.updateChannelsList();
             };
 
@@ -3898,7 +4165,16 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
             sheet.expanded = expanded;
             sheet.toggleExpanded = () ->
             {
-                this.collapsedModelTracks.put(parentKey, !this.collapsedModelTracks.getOrDefault(parentKey, true));
+                boolean collapsing = !this.collapsedModelTracks.getOrDefault(parentKey, true);
+
+                this.collapsedModelTracks.put(parentKey, collapsing);
+
+                if (collapsing)
+                {
+                    this.cleanupUntouchedAutomaticKeyframe(this.lastPickedKeyframe, null);
+                    this.lastPickedKeyframe = null;
+                }
+
                 this.updateChannelsList();
             };
 
@@ -4148,6 +4424,15 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
 
         if (WORLD_CHANNELS.contains(trackName) && !isFormItemUseTimeTrack(sheet))
         {
+            /* Folder shadow tracks stay at the end of the group timeline. */
+            if (this.replay != null && this.replay.isGroup.get()
+                && (trackName.equals("shadow_size") || trackName.equals("shadow_opacity")))
+            {
+                after.add(sheet);
+
+                return;
+            }
+
             before.add(sheet);
 
             return;
@@ -4615,13 +4900,16 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
             return;
         }
 
-        if (this.filmPanel != null)
+        this.focusReplayTimelineForPick();
+
+        if (!this.ensureReplayForForm(form))
         {
-            this.filmPanel.focusLinkedPropertiesTab("replayTimeline");
-            this.filmPanel.showPanel(this);
+            return;
         }
 
-        if (!this.ensureReplayForForm(form) || this.keyframeEditor == null)
+        this.ensureTracksVisibleForFormBone(form, bone);
+
+        if (this.keyframeEditor == null)
         {
             return;
         }
@@ -4804,10 +5092,14 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
             return;
         }
 
+        this.focusReplayTimelineForPick();
+
         if (!this.ensureReplayForForm(form))
         {
             return;
         }
+
+        this.ensureTracksVisibleForFormBone(form, bone);
 
         String path = FormUtils.getPath(form);
         boolean shift = Window.isShiftPressed();
@@ -5161,12 +5453,6 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
 
                 if (allowPick)
                 {
-                    if (this.filmPanel != null)
-                    {
-                        this.filmPanel.focusLinkedPropertiesTab("replayTimeline");
-                        this.filmPanel.showPanel(this);
-                    }
-
                     if (pair.a == null)
                     {
                         return false;

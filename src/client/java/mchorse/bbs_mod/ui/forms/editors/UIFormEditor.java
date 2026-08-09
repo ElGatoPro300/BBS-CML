@@ -594,7 +594,7 @@ public class UIFormEditor extends UIElement implements IUIFormList, ICursor
         return this.gizmoTargetsTransform;
     }
 
-    /** Enables the toolbar transform gizmo, opens the General panel, and wires the gizmo to its numbers. */
+    /** Enables the toolbar transform gizmo and wires it to the form transform (General need not be open). */
     public void enableFormTransformGizmo()
     {
         this.gizmoTargetsTransform = true;
@@ -608,6 +608,11 @@ public class UIFormEditor extends UIElement implements IUIFormList, ICursor
     {
         this.gizmoTargetsTransform = true;
         this.gizmoTargetsBodyPart = false;
+
+        if (this.editor != null && this.editor.generalPanel != null && this.editor.form != null)
+        {
+            this.editor.generalPanel.transform.setTransform(this.editor.form.transform.get());
+        }
 
         if (this.modelSettingsEditor != null && this.modelSettingsEditor.isVisible())
         {
@@ -1403,7 +1408,26 @@ public class UIFormEditor extends UIElement implements IUIFormList, ICursor
             this.undoHandler.submitUndo();
         }
 
+        this.tickDetachedGizmoDrag(context);
+
         super.render(context);
+    }
+
+    /**
+     * {@link UIPropTransform} advances gizmo drags from its own {@code render()}. When the
+     * General panel that owns that widget is not mounted, drive the drag here so form
+     * transform values still update without auto-opening that panel.
+     */
+    private void tickDetachedGizmoDrag(UIContext context)
+    {
+        UIPropTransform transform = this.getGizmoDragTransform();
+
+        if (transform == null || !transform.isGizmoEditing() || transform.getRoot() != null)
+        {
+            return;
+        }
+
+        transform.tickGizmoDrag(context);
     }
 
     public Matrix4f getOrigin(float transition)

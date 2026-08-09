@@ -41,6 +41,13 @@ public class FormRenderingContext
     /** Overrides texture crossfade for this render pass only. */
     public TextureBlend textureBlendOverride;
 
+    /**
+     * Trail history slot. {@code 0} is the primary form; illusion copies use a
+     * unique positive id so each keeps an independent trail instead of sharing
+     * (and teleporting) the main ribbon.
+     */
+    public int trailInstance;
+
     public FormRenderingContext()
     {}
 
@@ -62,6 +69,7 @@ public class FormRenderingContext
         this.renderEquipment = true;
         this.textureOverride = null;
         this.textureBlendOverride = null;
+        this.trailInstance = 0;
 
         if (entity != null && (this.type == FormRenderType.ENTITY || this.type == FormRenderType.MODEL_BLOCK))
         {

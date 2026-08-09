@@ -158,7 +158,7 @@ public class FontRenderer
             {
                 int w = RtlAwtTextRenderer.getWidth(str);
 
-                if (w < width)
+                if (w <= width)
                 {
                     return str;
                 }
@@ -166,7 +166,7 @@ public class FontRenderer
                 int sw = RtlAwtTextRenderer.getWidth(suffix);
                 int i = str.length() - 1;
 
-                while (w + sw >= width && i > 0)
+                while (w + sw > width && i > 0)
                 {
                     w -= RtlAwtTextRenderer.getWidth(String.valueOf(str.charAt(i)));
                     i -= 1;
@@ -180,7 +180,7 @@ public class FontRenderer
 
         int w = this.renderer.getWidth(str);
 
-        if (w < width)
+        if (w <= width)
         {
             return str;
         }
@@ -188,7 +188,7 @@ public class FontRenderer
         int sw = this.renderer.getWidth(suffix);
         int i = str.length() - 1;
 
-        while (w + sw >= width && i > 0)
+        while (w + sw > width && i > 0)
         {
             w -= this.renderer.getWidth(String.valueOf(str.charAt(i)));
             i -= 1;

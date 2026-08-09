@@ -45,6 +45,7 @@ import mchorse.bbs_mod.ui.framework.elements.overlay.UIOverlayPanel;
 import mchorse.bbs_mod.ui.framework.elements.overlay.UIPromptOverlayPanel;
 import mchorse.bbs_mod.ui.framework.elements.utils.EventPropagation;
 import mchorse.bbs_mod.ui.framework.elements.utils.FontRenderer;
+import mchorse.bbs_mod.ui.utils.Scroll;
 import mchorse.bbs_mod.ui.utils.UI;
 import mchorse.bbs_mod.ui.utils.icons.Icon;
 import mchorse.bbs_mod.ui.utils.icons.Icons;
@@ -1302,6 +1303,15 @@ public class UIFormList extends UIElement
 
         int searchX = SELECTED_INFO_WIDTH + 6;
         this.search.relative(this.bar).x(searchX).y(0).w(1F, -(searchX + rightOffset)).h(ACTIONS_BAR_HEIGHT);
+
+        /* Apply flex immediately so icons added after construction (e.g. morph actions)
+         * are visible on the first open, not only after a later resize/reopen. */
+        this.bar.resize();
+    }
+
+    public void refreshActionBar()
+    {
+        this.layoutActionBar();
     }
 
     public void setFavoriteCategoryChangedListener(Consumer<String> callback)
@@ -2660,6 +2670,47 @@ public class UIFormList extends UIElement
             }
         }
 
+        /**
+         * Keep the user's scroll when the drawer opens or closes. Shrinking used to
+         * subtract the lost height from scroll every animation frame, which yanked the
+         * view upward on close. Opening still grows the panel under the category row.
+         */
+        private void applyContentHeight()
+        {
+            this.rebuildIfNeeded();
+
+            int contentHeight = this.contentHeight;
+
+            if (this.lastHeight == contentHeight)
+            {
+                return;
+            }
+
+            this.lastHeight = contentHeight;
+            this.h(contentHeight);
+
+            UIElement parent = this.getParent();
+
+            if (parent == null)
+            {
+                return;
+            }
+
+            UIScrollView scrollView = parent instanceof UIScrollView view ? view : null;
+            Scroll scroll = scrollView == null ? null : scrollView.scroll;
+            double scrollBefore = scroll == null ? 0D : scroll.getScroll();
+
+            parent.resize();
+
+            if (scroll != null)
+            {
+                /* Ensure the scroll range matches drawer height (column resizer can lag). */
+                scroll.scrollSize = Math.max(scroll.scrollSize, contentHeight);
+                scroll.setScroll(scrollBefore);
+                scroll.clamp();
+            }
+        }
+
         private float easeOutCubic(float t)
         {
             float f = t - 1F;
@@ -3018,19 +3069,7 @@ public class UIFormList extends UIElement
         public void render(UIContext context)
         {
             this.updateAnimations(context);
-            this.rebuildIfNeeded();
-            int contentHeight = this.contentHeight;
-
-            if (this.lastHeight != contentHeight)
-            {
-                this.lastHeight = contentHeight;
-                this.h(contentHeight);
-
-                if (this.getParent() != null)
-                {
-                    this.getParent().resize();
-                }
-            }
+            this.applyContentHeight();
 
             if (this.cardCells.isEmpty() && UIFormList.this.appliedSearchQuery.isEmpty())
             {

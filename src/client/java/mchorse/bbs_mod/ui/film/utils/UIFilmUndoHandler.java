@@ -1,8 +1,11 @@
 package mchorse.bbs_mod.ui.film.utils;
 
 import mchorse.bbs_mod.BBSMod;
+import mchorse.bbs_mod.BBSModClient;
 import mchorse.bbs_mod.data.types.MapType;
 import mchorse.bbs_mod.events.register.RegisterFilmSyncEvent;
+import mchorse.bbs_mod.film.Film;
+import mchorse.bbs_mod.film.Recorder;
 import mchorse.bbs_mod.network.ClientNetwork;
 import mchorse.bbs_mod.settings.values.base.BaseValue;
 import mchorse.bbs_mod.settings.values.core.ValueGroup;
@@ -184,6 +187,16 @@ public class UIFilmUndoHandler extends UIFormUndoHandler
                     }
                 }
             }
+
+            /* Undo/redo mutates the client film only. Actor-mode entities are driven by
+             * the server ActionPlayer copy — sync replay data so toggling Actor ON does
+             * not respawn from stale (pre-undo) keyframes. */
+            this.syncFilmUndoToServer(undo);
+
+            if (this.uiElement instanceof UIFilmPanel panel && panel.getData() != null)
+            {
+                RegisterFilmSyncEvent.postSaveFilm(panel.getData());
+            }
         }
         catch (Exception e)
         {
@@ -195,10 +208,40 @@ public class UIFilmUndoHandler extends UIFormUndoHandler
         }
     }
 
+    private void syncFilmUndoToServer(IUndo<ValueGroup> undo)
+    {
+        if (!(this.uiElement instanceof UIFilmPanel panel) || panel.getData() == null)
+        {
+            return;
+        }
+
+        if (undo instanceof CompoundUndo)
+        {
+            for (IUndo<ValueGroup> child : ((CompoundUndo<ValueGroup>) undo).getUndos())
+            {
+                this.syncFilmUndoToServer(child);
+            }
+
+            return;
+        }
+
+        if (!(undo instanceof ValueChangeUndo change))
+        {
+            return;
+        }
+
+        BaseValue value = panel.getData().getRecursively(change.getName());
+
+        if (value != null && this.isReplayActions(value))
+        {
+            ClientNetwork.sendSyncData(panel.getData().getId(), value);
+        }
+    }
+
     @Override
     public void handlePreValues(BaseValue baseValue, int flag)
     {
-        if (this.isUndoing || this.isFilmMetadata(baseValue))
+        if (this.isUndoing || this.isFilmMetadata(baseValue) || this.isFilmRecording())
         {
             return;
         }
@@ -209,6 +252,14 @@ public class UIFilmUndoHandler extends UIFormUndoHandler
     @Override
     public void submitUndo()
     {
+        if (this.isFilmRecording())
+        {
+            this.cachedValues.clear();
+            this.uiData = null;
+
+            return;
+        }
+
         this.pendingSplitUndo = null;
         this.pendingSplitIndex = -1;
         this.cachedValues.keySet().removeIf(this::isFilmMetadata);
@@ -378,8 +429,39 @@ public class UIFilmUndoHandler extends UIFormUndoHandler
         return path.endsWith("/totalTimeWorked") || path.endsWith("/contributors") || path.contains("/contributors/");
     }
 
+    /**
+     * While recording, do not snapshot undo states. Keyframe spam would bloat the
+     * undo stack, and undo/redo during an active capture is not meaningful — only
+     * after returning to the film UI. Stop-recording paths already batch a notify.
+     */
+    public boolean isFilmRecording()
+    {
+        if (!(this.uiElement instanceof UIFilmPanel panel))
+        {
+            return false;
+        }
+
+        if (panel.getController() != null && panel.getController().isRecording() && panel.getController().getRecordingCountdown() <= 0)
+        {
+            return true;
+        }
+
+        Recorder recorder = BBSModClient.getFilms().getRecorder();
+
+        return recorder != null && !recorder.hasNotStarted();
+    }
+
     private boolean isReplayActions(BaseValue value)
     {
+        /* applyRecordedKeyframes uses BaseValue.edit(film), which caches the film root.
+         * reduceUndoRedundancy then collapses channel undos into one film-level undo.
+         * Without syncing that, ActionPlayer keeps pre-undo keyframes and Actor ON
+         * respawns at the stale recorded position. */
+        if (value instanceof Film)
+        {
+            return true;
+        }
+
         String path = value.getPath().toString();
 
         if (
@@ -390,6 +472,7 @@ public class UIFilmUndoHandler extends UIFormUndoHandler
             path.endsWith("/actor") ||
             path.endsWith("/enabled") ||
             path.endsWith("/form") ||
+            path.endsWith("/name_tag") ||
             path.endsWith("/inventory") ||
             path.contains("/drop_velocity_")
         ) {

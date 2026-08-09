@@ -1,9 +1,11 @@
 package mchorse.bbs_mod.actions;
 
 import mchorse.bbs_mod.BBSMod;
+import mchorse.bbs_mod.BBSSettings;
 import mchorse.bbs_mod.data.types.BaseType;
 import mchorse.bbs_mod.entity.ActorEntity;
 import mchorse.bbs_mod.film.Film;
+import mchorse.bbs_mod.film.replays.ActorReplayStateSync;
 import mchorse.bbs_mod.film.replays.FormProperties;
 import mchorse.bbs_mod.film.replays.Replay;
 import mchorse.bbs_mod.forms.FormUtils;
@@ -36,6 +38,11 @@ public class ActionPlayer
     public boolean playing = true;
     public int countdown;
     public int exception;
+    /**
+     * Replay index currently driven by film-editor actor-control ({@code -1} = none).
+     * While set, {@link #tick()} must not snap that actor back to keyframe pose.
+     */
+    public int controlledReplay = -1;
     public PlayerType type;
 
     public boolean syncing;
@@ -44,6 +51,7 @@ public class ActionPlayer
     private ServerPlayerEntity serverPlayer;
     private ServerWorld world;
     private int duration;
+    private boolean wasPlaying = true;
 
     private Map<String, LivingEntity> actors = new HashMap<>();
 
@@ -139,6 +147,12 @@ public class ActionPlayer
                 actor.setReplayData(this.film, replay, this.tick);
 
                 this.apply(actor, replay, this.tick, false);
+
+                if (!this.playing)
+                {
+                    actor.setVelocity(0D, 0D, 0D);
+                }
+
                 this.actors.put(replay.getId(), actor);
                 this.world.spawnEntity(actor);
             }
@@ -157,6 +171,25 @@ public class ActionPlayer
 
     public void apply(LivingEntity actor, Replay replay, float tick, boolean ticking)
     {
+        /* Once combat has killed this actor, stop snapping pose/position from the
+         * film so the death animation can play instead of looking invulnerable.
+         * Keyframed death (deathTime without being dead) still uses the full apply. */
+        if (actor instanceof ActorEntity && (actor.isDead() || actor.getHealth() <= 0F))
+        {
+            int keyframeDeath = replay.keyframes.deathTime.interpolate(tick).intValue();
+
+            actor.deathTime = Math.max(actor.deathTime, keyframeDeath);
+            actor.setVelocity(0D, 0D, 0D);
+
+            if (actor instanceof ActorEntity actorEntity)
+            {
+                actorEntity.syncNameTag(replay);
+                actorEntity.updateTick((int) tick);
+            }
+
+            return;
+        }
+
         double x = replay.keyframes.x.interpolate(tick);
         double y = replay.keyframes.y.interpolate(tick);
         double z = replay.keyframes.z.interpolate(tick);
@@ -180,6 +213,9 @@ public class ActionPlayer
         actor.setBodyYaw(yawBody);
         actor.setSneaking(replay.keyframes.sneaking.interpolate(tick) > 0);
         actor.setOnGround(grounded);
+        /* Apply full vanilla pose/action keyframes (sprinting, swimming, limbs, …) so
+         * actor-mode procedural/Gecko animators match stub playback. */
+        ActorReplayStateSync.applyFromKeyframes(replay.keyframes, tick, actor, actor.hasVehicle(), ticking);
         actor.equipStack(EquipmentSlot.OFFHAND, replay.keyframes.offHand.interpolate(tick, ItemStack.EMPTY));
         actor.equipStack(EquipmentSlot.HEAD, replay.keyframes.armorHead.interpolate(tick, ItemStack.EMPTY));
         actor.equipStack(EquipmentSlot.CHEST, replay.keyframes.armorChest.interpolate(tick, ItemStack.EMPTY));
@@ -212,7 +248,25 @@ public class ActionPlayer
             vy = -0.0784;
         }
 
-        actor.setVelocity(vx, vy, vz);
+        if (actor instanceof ActorEntity actorEntity)
+        {
+            actorEntity.syncNameTag(replay);
+
+            if (!ticking)
+            {
+                actor.setVelocity(0D, 0D, 0D);
+            }
+            else
+            {
+                double scale = actorEntity.consumePlaybackVelocityScale();
+
+                actor.setVelocity(vx * scale, vy, vz * scale);
+            }
+        }
+        else
+        {
+            actor.setVelocity(vx, vy, vz);
+        }
 
         actor.fallDistance = replay.keyframes.fall.interpolate(tick).floatValue();
     }
@@ -226,22 +280,76 @@ public class ActionPlayer
             return false;
         }
 
+        boolean justResumed = this.playing && !this.wasPlaying;
+
+        this.wasPlaying = this.playing;
+
+        List<Replay> list = this.film.replays.getList();
+
         for (Map.Entry<String, LivingEntity> entry : this.actors.entrySet())
         {
             Replay replay = (Replay) this.film.replays.get(entry.getKey());
 
             if (replay != null)
             {
+                int index = list.indexOf(replay);
+
+                /* Editor actor-control owns this body — follow the editor player and
+                 * hold velocity at zero so the server entity does not keep sliding with
+                 * leftover keyframe/walk velocity while the client puppets. */
+                if (index >= 0 && index == this.controlledReplay)
+                {
+                    LivingEntity actor = entry.getValue();
+
+                    if (actor != null && this.serverPlayer != null)
+                    {
+                        actor.setPosition(this.serverPlayer.getX(), this.serverPlayer.getY(), this.serverPlayer.getZ());
+                        actor.setYaw(this.serverPlayer.getYaw());
+                        actor.setHeadYaw(this.serverPlayer.getHeadYaw());
+                        actor.setBodyYaw(this.serverPlayer.getBodyYaw());
+                        actor.setPitch(this.serverPlayer.getPitch());
+                        actor.setVelocity(0D, 0D, 0D);
+                        actor.velocityModified = true;
+
+                        if (actor instanceof ActorEntity actorEntity)
+                        {
+                            actorEntity.updateTick(this.tick);
+                            actorEntity.setSuppressSprintParticles(true);
+                            actorEntity.setPauseNaturalAnimations(false);
+                        }
+                    }
+
+                    continue;
+                }
+
                 LivingEntity actor = entry.getValue();
-                
-                // Update tick in ActorEntity for accurate item drops on death
+
                 if (actor instanceof ActorEntity actorEntity)
                 {
                     actorEntity.updateTick(this.tick);
-                }
-                
-                this.apply(actor, replay, this.tick, true);
+                    actorEntity.setSuppressSprintParticles(false);
 
+                    boolean pauseAnims = BBSSettings.editorActorPauseAnimations != null
+                        && BBSSettings.editorActorPauseAnimations.get()
+                        && !this.playing;
+
+                    actorEntity.setPauseNaturalAnimations(pauseAnims);
+
+                    if (justResumed)
+                    {
+                        actorEntity.markPlaybackResumed();
+                        actorEntity.setPauseNaturalAnimations(false);
+                    }
+                }
+
+                /* While paused: hold position without move()/walk velocity so
+                 * LivingEntity limb swing decays naturally (player-stop style). */
+                this.apply(actor, replay, this.tick, this.playing);
+
+                if (!this.playing)
+                {
+                    actor.setVelocity(0D, 0D, 0D);
+                }
             }
         }
 
@@ -293,9 +401,40 @@ public class ActionPlayer
         {
             baseValue.fromData(data);
 
-            if (baseValue.getId().equals("actor") || baseValue.getId().equals("enabled") || baseValue.getId().equals("replays"))
+            /* Full-film undos replace keyframes + actor flags together — respawn so
+             * ActorEntity is not left on a pre-undo pose after Ctrl+Z. */
+            if (baseValue instanceof Film
+                || baseValue.getId().equals("actor")
+                || baseValue.getId().equals("enabled")
+                || baseValue.getId().equals("replays"))
             {
                 this.updateReplayEntities();
+            }
+            else
+            {
+                /* Keyframes / properties / form data: keep live actors on the
+                 * updated timeline without discarding entities. */
+                this.reapplyActors();
+            }
+        }
+    }
+
+    private void reapplyActors()
+    {
+        for (Map.Entry<String, LivingEntity> entry : this.actors.entrySet())
+        {
+            Replay replay = (Replay) this.film.replays.get(entry.getKey());
+
+            if (replay != null)
+            {
+                LivingEntity actor = entry.getValue();
+
+                this.apply(actor, replay, this.tick, false);
+
+                if (!this.playing)
+                {
+                    actor.setVelocity(0D, 0D, 0D);
+                }
             }
         }
     }
@@ -358,16 +497,6 @@ public class ActionPlayer
 
     public void goTo(int from, int tick)
     {
-        for (Map.Entry<String, LivingEntity> entry : this.actors.entrySet())
-        {
-            Replay replay = (Replay) this.film.replays.get(entry.getKey());
-
-            if (replay != null)
-            {
-                this.apply(entry.getValue(), replay, this.tick, false);
-            }
-        }
-
         if (from != tick)
         {
             this.tick = from;
@@ -379,6 +508,15 @@ public class ActionPlayer
                 this.applyAction();
             }
         }
+        else
+        {
+            this.tick = tick;
+        }
+
+        /* Snap actors to the target tick after action walk-through. Previously
+         * applied this.tick (pre-seek), leaving ActorEntity at a stale pose until
+         * the next server tick. */
+        this.reapplyActors();
     }
 
     public void stop()

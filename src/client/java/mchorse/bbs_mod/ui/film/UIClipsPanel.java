@@ -190,6 +190,33 @@ public class UIClipsPanel extends UIElement implements IUIClipsDelegate
         return this;
     }
 
+    public UIElement getTarget()
+    {
+        return this.target;
+    }
+
+    /**
+     * Re-parent the open clip form onto {@link #target} after the film panel
+     * retargets hosts (e.g. Action Properties hidden → Properties fallback).
+     */
+    public void remountClipPanel()
+    {
+        if (this.panel == null)
+        {
+            return;
+        }
+
+        Clip clip = this.panel.clip;
+
+        this.panel.removeFromParent();
+        this.panel = null;
+
+        if (clip != null)
+        {
+            this.pickClip(clip);
+        }
+    }
+
     @Override
     public void removeFromParent()
     {

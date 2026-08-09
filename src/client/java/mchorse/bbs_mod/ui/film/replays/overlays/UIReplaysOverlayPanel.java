@@ -108,6 +108,7 @@ public class UIReplaysOverlayPanel extends UIOverlayPanel
     public UIElement dropVelocityRowZ;
     public UIElement dropVelocityGroup;
     public UIElement itemDropsContent;
+    public UIElement playbackContent;
     public UIDraggable dockedResizer;
 
     private UIElement propertiesHost;
@@ -152,7 +153,7 @@ public class UIReplaysOverlayPanel extends UIOverlayPanel
                     MobCemPoseCapture.syncReplay(replay);
                     boolean isMobForm = form instanceof MobForm;
 
-                    this.vanillaMobPlayback.setVisible(isMobForm);
+                    this.updateVanillaMobPlaybackVisibility(isMobForm);
 
                     if (isMobForm)
                     {
@@ -230,7 +231,12 @@ public class UIReplaysOverlayPanel extends UIOverlayPanel
         this.shadowOffsetZ.textbox.setColor(Colors.BLUE);
         this.looping = new UITrackpad((v) -> this.edit((replay) -> replay.looping.set(v.intValue())));
         this.looping.limit(0).integer().tooltip(UIKeys.FILM_REPLAY_LOOPING_TOOLTIP);
-        this.actor = new UIToggle(UIKeys.FILM_REPLAY_ACTOR, (b) -> this.edit((replay) -> replay.actor.set(b.getValue())));
+        this.actor = new UIToggle(UIKeys.FILM_REPLAY_ACTOR, (b) ->
+        {
+            this.edit((replay) -> replay.actor.set(b.getValue()));
+            this.filmPanel.replayEditor.updateChannelsList();
+            this.filmPanel.getController().createEntities();
+        });
         this.actor.tooltip(UIKeys.FILM_REPLAY_ACTOR_TOOLTIP);
         this.fp = new UIToggle(UIKeys.FILM_REPLAY_FP, (b) ->
         {
@@ -357,9 +363,8 @@ public class UIReplaysOverlayPanel extends UIOverlayPanel
         });
 
         this.addPropertySection(UIKeys.FILM_REPLAY_SHADOW, shadowSection);
-        this.addPropertySection(UIKeys.FILM_REPLAY_SECTION_PLAYBACK, UI.column(4,
-            this.looping, this.actor, this.fp, this.vanillaMobPlayback
-        ));
+        this.playbackContent = UI.column(4, this.looping, this.actor, this.fp);
+        this.addPropertySection(UIKeys.FILM_REPLAY_SECTION_PLAYBACK, this.playbackContent);
         this.addPropertySection(UIKeys.FILM_REPLAY_SECTION_POSITIONING, UI.column(4,
             this.relative, this.relativeRow, this.axesPreview, this.pickAxesPreviewBone
         ));
@@ -712,7 +717,7 @@ public class UIReplaysOverlayPanel extends UIOverlayPanel
                 MobCemPoseCapture.syncReplay(replay);
                 boolean isMobForm = replay.form.get() instanceof MobForm;
 
-                this.vanillaMobPlayback.setVisible(isMobForm);
+                this.updateVanillaMobPlaybackVisibility(isMobForm);
 
                 if (isMobForm)
                 {
@@ -748,6 +753,22 @@ public class UIReplaysOverlayPanel extends UIOverlayPanel
         else if (!visible && present)
         {
             this.itemDropsContent.remove(this.dropVelocityGroup);
+            this.resize();
+        }
+    }
+
+    private void updateVanillaMobPlaybackVisibility(boolean visible)
+    {
+        boolean present = this.playbackContent.getChildren().contains(this.vanillaMobPlayback);
+
+        if (visible && !present)
+        {
+            this.playbackContent.add(this.vanillaMobPlayback);
+            this.resize();
+        }
+        else if (!visible && present)
+        {
+            this.playbackContent.remove(this.vanillaMobPlayback);
             this.resize();
         }
     }

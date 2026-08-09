@@ -805,7 +805,9 @@ public class UIKeyframeDopeSheet implements IUIKeyframeGraph
     @Override
     public void resize()
     {
-        this.dopeSheet.clamp();
+        /* Update size only; overscroll fit/animation is handled by
+         * refreshScrollSize / renderGraph after content changes. */
+        this.dopeSheet.scrollSize = (int) this.trackHeight * this.sheets.size() + this.topMargin + TRACKS_BOTTOM_MARGIN;
     }
 
     /* Input handling */
@@ -1477,6 +1479,7 @@ public class UIKeyframeDopeSheet implements IUIKeyframeGraph
         }
 
         this.dopeSheet.scrollSize = (int) this.trackHeight * this.sheets.size() + this.topMargin + TRACKS_BOTTOM_MARGIN;
+        this.dopeSheet.fitAfterContentResize(true);
 
         if (!this.ignoreTrackInsertGap && this.trackInsertGapBefore >= 0 && this.trackInsertGapHeight > 0)
         {
@@ -1838,6 +1841,7 @@ public class UIKeyframeDopeSheet implements IUIKeyframeGraph
     @Override
     public void postRender(UIContext context)
     {
+        this.dopeSheet.drag(context);
         this.dopeSheet.renderScrollbar(context.batcher);
         this.renderSidebarScrollbar(context);
     }

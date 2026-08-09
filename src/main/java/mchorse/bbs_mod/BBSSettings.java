@@ -28,7 +28,6 @@ import mchorse.bbs_mod.utils.colors.Colors;
 import mchorse.bbs_mod.utils.keyframes.KeyframeShape;
 
 import java.io.File;
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -167,6 +166,10 @@ public class BBSSettings
     public static ValueInt editorDockGuideColor;
     public static ValueFloat editorDockGuideOpacity;
     public static ValueBoolean editorReplayStepSound;
+    public static ValueBoolean editorActorPausedSwipeLoop;
+    public static ValueBoolean editorActorPauseAnimations;
+    public static ValueBoolean editorActorPausedRunInPlace;
+    public static ValueBoolean actorDamageFlash;
     public static ValueBoolean editorSimplifyAnimations;
     public static ValueBoolean editorMuteRenderAudioClips;
     public static ValueInt editorTimeMode;
@@ -305,6 +308,16 @@ public class BBSSettings
     public static boolean isEmbeddedKeyframeSidePanelEnabled()
     {
         return editorEmbeddedKeyframeSidePanel == null || editorEmbeddedKeyframeSidePanel.get();
+    }
+
+    /**
+     * When {@link #editorActorPauseAnimations} is off and the film is paused:
+     * default ({@code false}) settles emoticon/BOBJ to idle; enabled keeps the
+     * older run-in-place cadence from paused keyframes.
+     */
+    public static boolean shouldSettleActorNaturalStopWhenPaused()
+    {
+        return editorActorPausedRunInPlace == null || !editorActorPausedRunInPlace.get();
     }
 
     public static int primaryColor()
@@ -792,7 +805,7 @@ public class BBSSettings
         editorSafeMarginsColor = builder.getInt("safe_margins_color", 0xcccc0000).colorAlpha();
         editorSafeMargins = builder.getBoolean("safe_margins", false);
         editorFlightFreeLook = builder.getBoolean("flight_free_look", false);
-        editorOrbitWithoutFlight = builder.getBoolean("orbit_without_flight", true);
+        editorOrbitWithoutFlight = builder.getBoolean("orbit_without_flight", false);
         editorOrbitSmoothTransition = builder.getBoolean("orbit_smooth_transition", false);
         editorOrbitRestrictToViewport = builder.getBoolean("orbit_restrict_to_viewport", false);
         editorOrbitTransitionDuration = builder.getFloat("orbit_transition_duration", 1.25F, 0.1F, 10F);
@@ -815,6 +828,10 @@ public class BBSSettings
         replayContextOptions = builder.getInt("compacted_options", 0, 0, 2);
         editorReplaySprintParticles = builder.getBoolean("replay_sprint_particles", false);
         editorReplayStepSound = builder.getBoolean("replay_step_sound", false);
+        editorActorPausedSwipeLoop = builder.getBoolean("actor_paused_swipe_loop", true);
+        editorActorPauseAnimations = builder.getBoolean("actor_pause_animations", true);
+        editorActorPausedRunInPlace = builder.getBoolean("actor_paused_run_in_place", false);
+        actorDamageFlash = builder.getBoolean("actor_damage_flash", false);
         replayMarkedBonesOnly = builder.getBoolean("replay_marked_bones_only", false);
         editorReplayEditorTitleLimit = builder.getInt("replay_editor_title_limit", 12, 0, 64);
         replayFpBobbingIntensity = builder.getFloat("replay_fp_bobbing_intensity", 0.25F, 0F, 2F);
@@ -929,7 +946,7 @@ public class BBSSettings
                     }
                 }
             }
-            catch (IOException e)
+            catch (Exception e)
             {
                 e.printStackTrace();
             }

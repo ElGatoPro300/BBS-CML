@@ -129,26 +129,18 @@ public class FormColorEffects
     }
 
     /**
-     * True when Color should use a spatial mask / FormColorTint path instead of baking
+     * True when Color should use a spatial mask / FormColorTint overlay instead of baking
      * into vertex color — same rules as ModelFormRenderer.canApplyColorTransformMask, without
      * requiring a ModelInstance.
      * <p>
-     * Pass the stored form color. Color adjustments alone do not force this path; they bake
-     * or use FormColorGrade in-shader. Alpha is traditional opacity and is ignored here.
+     * Only an active color transform forces this path. Plain RGB tint bakes into the form
+     * geometry (legacy behavior). Color Grade alone does not force this; see
+     * {@link #wantsColorTintForAdjustments} / {@link #wantsColorTintOverlay}.
+     * Alpha is traditional opacity and is ignored here.
      */
     public static boolean wantsColorTransformMask(Color color)
     {
-        if (color == null)
-        {
-            return false;
-        }
-
-        if (color.hasActiveTransform())
-        {
-            return true;
-        }
-
-        return color.r < 0.999F || color.g < 0.999F || color.b < 0.999F;
+        return color != null && color.hasActiveTransform();
     }
 
     /**
@@ -162,8 +154,8 @@ public class FormColorEffects
 
     /**
      * Block / item / structure / billboard / shape: use FormColorTint overlay for color
-     * spatial masks <b>or</b> Color Grade. Vertex bake alone is ignored by many block/item
-     * pipelines (lighting / Sodium / Iris), while Paint already goes through this overlay.
+     * spatial masks <b>or</b> Color Grade. Plain RGB without a transform bakes into vertices
+     * ({@link #shouldBakeFormColor}).
      */
     public static boolean wantsColorTintOverlay(Color color)
     {
@@ -171,7 +163,8 @@ public class FormColorEffects
     }
 
     /**
-     * Bake form color into vertex tint only when no FormColorTint overlay will run.
+     * Bake form color into vertex tint when no FormColorTint overlay will run
+     * (no active color transform and no Color Grade overlay).
      */
     public static boolean shouldBakeFormColor(Color color)
     {

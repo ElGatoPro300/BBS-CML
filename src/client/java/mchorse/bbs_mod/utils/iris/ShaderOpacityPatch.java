@@ -360,8 +360,8 @@ public class ShaderOpacityPatch
          * can run mid-frame while WorldRenderer still has an unbalanced pose stack; flushing
          * then throws IllegalStateException on pop(). Only mark the phase — actual soft-opacity
          * flush is WorldRenderEvents.AFTER_TRANSLUCENT / onAfterTranslucentTerrain().
-         * Paint/blend/grade overlays stay queued until onWorldRenderEnd — the BBS model shader
-         * only composites correctly on the final framebuffer after Iris finishes. */
+         * Paint/blend/grade overlays stay queued until onWorldRenderEnd — Iris composites after
+         * translucent terrain would overwrite an early color-tint multiply. */
         postDeferredPhase = true;
     }
 
@@ -483,7 +483,10 @@ public class ShaderOpacityPatch
         finally
         {
             flushingPostDeferred = false;
+            /* Soft-opacity flushes can leave depthMask dirty for later world draws. */
             RenderSystem.depthMask(true);
+            RenderSystem.colorMask(true, true, true, true);
+            RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
         }
     }
 

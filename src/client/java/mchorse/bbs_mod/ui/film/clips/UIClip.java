@@ -3,6 +3,7 @@ package mchorse.bbs_mod.ui.film.clips;
 import mchorse.bbs_mod.BBSSettings;
 import mchorse.bbs_mod.actions.types.AttackActionClip;
 import mchorse.bbs_mod.actions.types.DamageActionClip;
+import mchorse.bbs_mod.actions.types.MobDeathActionClip;
 import mchorse.bbs_mod.actions.types.SwipeActionClip;
 import mchorse.bbs_mod.actions.types.blocks.BreakBlockActionClip;
 import mchorse.bbs_mod.actions.types.blocks.InteractBlockActionClip;
@@ -54,6 +55,7 @@ import mchorse.bbs_mod.ui.film.clips.actions.UICommandActionClip;
 import mchorse.bbs_mod.ui.film.clips.actions.UIDamageActionClip;
 import mchorse.bbs_mod.ui.film.clips.actions.UIInteractBlockActionClip;
 import mchorse.bbs_mod.ui.film.clips.actions.UIItemDropActionClip;
+import mchorse.bbs_mod.ui.film.clips.actions.UIMobDeathActionClip;
 import mchorse.bbs_mod.ui.film.clips.actions.UIPlaceBlockActionClip;
 import mchorse.bbs_mod.ui.film.clips.actions.UISwipeActionClip;
 import mchorse.bbs_mod.ui.film.clips.actions.UIUseBlockItemActionClip;
@@ -134,6 +136,7 @@ public abstract class UIClip <T extends Clip> extends UIElement
         register(UseBlockItemActionClip.class, UIUseBlockItemActionClip::new);
         register(AttackActionClip.class, UIAttackActionClip::new);
         register(DamageActionClip.class, UIDamageActionClip::new);
+        register(MobDeathActionClip.class, UIMobDeathActionClip::new);
         register(ItemDropActionClip.class, UIItemDropActionClip::new);
         register(SwipeActionClip.class, UISwipeActionClip::new);
     }
@@ -166,7 +169,8 @@ public abstract class UIClip <T extends Clip> extends UIElement
 
     public static UILabel label(IKey key)
     {
-        return UI.label(key).background(() -> BBSSettings.primaryColor(Colors.A50));
+        /* Narrow clip inspector truncates single-line headers; wrap so full titles remain readable. */
+        return UI.label(key).background(() -> BBSSettings.primaryColor(Colors.A50)).wrapping();
     }
 
     public UIClip(T clip, IUIClipsDelegate editor)
@@ -209,6 +213,8 @@ public abstract class UIClip <T extends Clip> extends UIElement
 
         this.registerUI();
         this.registerPanels();
+        /* Clip-specific options first; envelopes last so they do not bury property fields. */
+        this.addEnvelopes();
 
         this.add(this.panels);
     }
@@ -221,8 +227,6 @@ public abstract class UIClip <T extends Clip> extends UIElement
         this.panels.add(UIClip.label(UIKeys.CAMERA_PANELS_TITLE), this.title);
         this.panels.add(this.enabled.marginBottom(6));
         this.panels.add(UI.column(UIClip.label(UIKeys.CAMERA_PANELS_METRICS), UI.row(this.layer, this.tick), this.duration));
-
-        this.addEnvelopes();
     }
 
     protected void addEnvelopes()

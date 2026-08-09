@@ -6,6 +6,7 @@ import mchorse.bbs_mod.data.DataToString;
 import mchorse.bbs_mod.data.types.BaseType;
 import mchorse.bbs_mod.data.types.MapType;
 import mchorse.bbs_mod.ui.framework.UIContext;
+import mchorse.bbs_mod.ui.framework.elements.IUIElement;
 import mchorse.bbs_mod.ui.framework.elements.UIElement;
 import mchorse.bbs_mod.ui.framework.elements.utils.EventPropagation;
 import mchorse.bbs_mod.ui.utils.UIUtils;
@@ -29,6 +30,7 @@ public class UIOverlay extends UIElement
     private int background = Colors.A50;
     private float openTransition = 0.0F;
     private boolean closing = false;
+    private boolean instantClose = false;
 
     public float getOpenTransition()
     {
@@ -262,7 +264,23 @@ public class UIOverlay extends UIElement
 
     public static boolean has(UIContext context)
     {
-        return !context.menu.getRoot().getChildren(UIOverlayPanel.class).isEmpty();
+        if (context == null || context.menu == null || context.menu.overlay == null)
+        {
+            return false;
+        }
+
+        /* Only count modal overlays under menu.overlay. Film/replays keep docked
+         * UIOverlayPanel subclasses in the panel tree; treating those as "open"
+         * blocked F6 and other overlay openers while editing a film. */
+        for (IUIElement child : context.menu.overlay.getChildren())
+        {
+            if (child instanceof UIOverlay && child.isEnabled())
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     public UIOverlay()
@@ -282,6 +300,19 @@ public class UIOverlay extends UIElement
         return this.background(0);
     }
 
+    /**
+     * Skip the close-scale animation and run {@link #performClose()} in the same
+     * input/event turn. Needed for world-behind overlays whose {@code onClose}
+     * calls {@code setScreen(null)} — finishing close inside {@link #render} can
+     * resize/clear framebuffers mid-frame and flash a dark view for one frame.
+     */
+    public UIOverlay instantClose()
+    {
+        this.instantClose = true;
+
+        return this;
+    }
+
     public void closeItself()
     {
         if (this.closing)
@@ -291,7 +322,7 @@ public class UIOverlay extends UIElement
 
         UIUtils.playClick();
 
-        if (BBSSettings.editorSimplifyAnimations.get())
+        if (this.instantClose || BBSSettings.editorSimplifyAnimations.get())
         {
             this.openTransition = 0.0F;
             this.closing = true;
@@ -301,6 +332,20 @@ public class UIOverlay extends UIElement
         {
             this.closing = true;
         }
+    }
+
+    /**
+     * Closes immediately and fires panel {@code onClose} handlers. Use when the
+     * screen is being destroyed so deferred close animations cannot skip teardown.
+     */
+    public void forceClose()
+    {
+        if (!this.closing)
+        {
+            this.closing = true;
+        }
+
+        this.performClose();
     }
 
     private void performClose()

@@ -1,6 +1,5 @@
 package mchorse.bbs_mod.ui.framework.elements.overlay;
 
-import mchorse.bbs_mod.BBSSettings;
 import mchorse.bbs_mod.graphics.window.Window;
 import mchorse.bbs_mod.l10n.keys.IKey;
 import mchorse.bbs_mod.ui.Keys;
@@ -342,7 +341,7 @@ public class UIOverlayPanel extends UIElement
     {
         if (transition < 1.0F)
         {
-            float scale = Math.max(0.01F, transition);
+            float scale = 0.92F + 0.08F * transition;
             float cx = this.area.mx();
             float cy = this.area.my();
 
@@ -357,6 +356,7 @@ public class UIOverlayPanel extends UIElement
     {
         if (transition < 1.0F)
         {
+            context.render.batcher.flushDraw();
             context.render.batcher.getContext().getMatrices().pop();
         }
     }

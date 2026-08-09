@@ -1016,6 +1016,7 @@
     "bbs.ui.forms.editors.general.visible": "可见性",
     "bbs.ui.forms.editors.item.same_animation_when_dropped": "掉落时使用相同动画",
     "bbs.ui.forms.editors.item.same_animation_when_dropped-tooltip": "启用后，即使模型方块没有被丢在地上，也会强制立即播放掉落物品动画（GROUND 模式）。",
+    "bbs.ui.film.replay.track.same_animation_when_dropped": "物品动画",
     "bbs.ui.forms.editors.item.title": "物品",
     "bbs.ui.forms.editors.item.transforms": "物品变换",
     "bbs.ui.forms.editors.label.advanced_text": "高级文本",

@@ -68,7 +68,13 @@ public class Morph
             MobForm form = new MobForm();
             NbtCompound compound = target.writeNbt(new NbtCompound());
 
-            for (String s : Arrays.asList("Pos", "Motion", "Rotation", "FallDistance", "Fire", "Air", "OnGround", "Invulnerable", "PortalCooldown", "UUID"))
+            for (String s : Arrays.asList(
+                "Pos", "Motion", "Rotation", "FallDistance", "Fire", "Air", "OnGround",
+                "Invulnerable", "PortalCooldown", "UUID",
+                "HurtTime", "HurtByTimestamp", "DeathTime", "AbsorptionAmount",
+                "FallFlying", "Brain", "Attributes", "ActiveEffects", "Passengers",
+                "SleepingX", "SleepingY", "SleepingZ"
+            ))
             {
                 compound.remove(s);
             }

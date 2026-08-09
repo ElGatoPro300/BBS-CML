@@ -34,7 +34,7 @@
             "type": "splitter",
             "dir": "h",
             "first": {
-                "active_tab": 0,
+                "active_tab": 2,
                 "tabs": [
                     {
                         "id": "cameraEditArea",
@@ -43,28 +43,37 @@
                     {
                         "id": "editArea",
                         "type": "panel"
+                    },
+                    {
+                        "id": "unifiedEditArea",
+                        "type": "panel"
                     }
                 ],
                 "type": "tabbed"
             },
             "ratio": 0.50337076,
             "second": {
-                "id": "replaysPanel",
-                "type": "panel"
+                "type": "splitter",
+                "dir": "h",
+                "first": {
+                    "id": "replaysPanel",
+                    "type": "panel"
+                },
+                "ratio": 0.65,
+                "second": {
+                    "id": "replaysPropertiesPanel",
+                    "type": "panel"
+                }
             }
         }
     },
     "replays_panel_floating": false,
+    "hidden_panels": ["editArea", "cameraEditArea", "actionEditArea"],
     "video_frame_width": 1920,
     "video_frame_rate": 60,
     "video_motion_blur": 0,
     "video_frame_height": 1080,
     "replays_panel_enabled": true,
-    "hidden_panels": [
-        "actionEditArea",
-        "unifiedEditArea",
-        "replaysPropertiesPanel"
-    ],
     "film_layout": {
         "type": "splitter",
         "dir": "v",
@@ -97,7 +106,7 @@
         },
         "ratio": 0.7375,
         "second": {
-            "active_tab": 0,
+            "active_tab": 2,
             "tabs": [
                 {
                     "id": "cameraEditArea",
@@ -106,6 +115,10 @@
                 {
                     "id": "editArea",
                     "type": "panel"
+                },
+                {
+                    "id": "unifiedEditArea",
+                    "type": "panel"
                 }
             ],
             "type": "tabbed"
@@ -113,8 +126,8 @@
     },
     "timeline_toolbar_docks": {
         "replayTimeline": "left",
-        "cameraTimeline": "left",
         "actionTimeline": "left",
-        "screenNodeView": "left"
+        "screenNodeView": "left",
+        "cameraTimeline": "left"
     }
 }

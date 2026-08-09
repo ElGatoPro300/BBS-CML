@@ -1,5 +1,6 @@
 package mchorse.bbs_mod.client.renderer;
 
+import mchorse.bbs_mod.client.BBSRendering;
 import mchorse.bbs_mod.data.types.MapType;
 import mchorse.bbs_mod.forms.FormUtils;
 import mchorse.bbs_mod.forms.FormUtilsClient;
@@ -19,17 +20,14 @@ import mchorse.bbs_mod.utils.interps.Lerps;
 
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.network.AbstractClientPlayerEntity;
+import net.minecraft.client.render.DiffuseLighting;
 import net.minecraft.client.render.VertexConsumerProvider;
 import net.minecraft.client.render.entity.LivingEntityRenderer;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.util.math.RotationAxis;
 
-import org.joml.Vector3f;
-
 import com.mojang.blaze3d.systems.RenderSystem;
-
-import org.lwjgl.opengl.GL11;
 
 public class MorphRenderer
 {
@@ -70,9 +68,17 @@ public class MorphRenderer
             {
                 RenderSystem.enableDepthTest();
 
-                Vector3f a = new Vector3f(0.85F, 0.85F, -1F).normalize();
-                Vector3f b = new Vector3f(-0.85F, 0.85F, 1F).normalize();
-                RenderSystem.setupLevelDiffuseLighting(a, b);
+                /* InventoryScreen.drawEntity already set GUI diffuse lighting for the vanilla
+                 * player — override only there so forms match that preview. In the world, use
+                 * the same level lights as model blocks / editor previews. */
+                if (BBSRendering.isRenderingWorld())
+                {
+                    BBSRendering.setupWorldLevelDiffuseLighting();
+                }
+                else
+                {
+                    DiffuseLighting.enableGuiDepthLighting();
+                }
 
                 float bodyYaw = Lerps.lerp(player.prevBodyYaw, player.bodyYaw, g);
                 int overlay = LivingEntityRenderer.getOverlay(player, 0F);
@@ -99,6 +105,9 @@ public class MorphRenderer
 
                 matrixStack.pop();
 
+                BBSRendering.restoreWorldRenderState();
+                /* Prior morph pipeline left depth disabled after the form draw; keep that so
+                 * GPU-skinned BOBJ / procedural limbs keep matching the working entity pass. */
                 RenderSystem.disableDepthTest();
             }
 
@@ -177,6 +186,7 @@ public class MorphRenderer
 
             matrixStack.pop();
 
+            BBSRendering.restoreWorldRenderState();
             RenderSystem.disableDepthTest();
 
             return true;

@@ -689,11 +689,13 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
         ModelVAORenderer.setGlow(glow, glowColor.r, glowColor.g, glowColor.b, legacyGlow);
 
         boolean shadowPass = (renderContext != null && renderContext.isShadowPass) || BBSRendering.isIrisShadowPass();
-        /* Orbit UI, form/model-block pickable preview: draw live. World post-deferred /
-         * Iris queues are never flushed for those passes — soft limbs would vanish. */
+        /* Orbit UI, form/model-block pickable preview, and inventory GUI items: draw live.
+         * World post-deferred / Iris queues are never flushed for those passes — soft limbs
+         * and translucent forms would vanish (inventory slots draw after world flush). */
         boolean localPreview = ui
             || (renderContext != null && (renderContext.ui || renderContext.modelRenderer
-                || renderContext.type == FormRenderType.PREVIEW));
+                || renderContext.type == FormRenderType.PREVIEW
+                || renderContext.type == FormRenderType.ITEM_INVENTORY));
         boolean irisWorldPaintDeferral = BBSRendering.isIrisWorldPaintDeferral();
         boolean paintActive = this.hasAnyPaint(model);
         boolean bbsModelShader = this.usesBbsModelShader(model);
@@ -2326,24 +2328,8 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
 
         Color color = this.form.getFormColor();
 
-        if (color == null)
-        {
-            return false;
-        }
-
-        if (color.hasActiveTransform())
-        {
-            return true;
-        }
-
-        float intensity = MathUtils.clamp(color.a, 0F, 1F);
-
-        if (intensity <= 0.001F)
-        {
-            return false;
-        }
-
-        return color.r < 0.999F || color.g < 0.999F || color.b < 0.999F;
+        /* Plain RGB without a spatial transform bakes into vertex tint. */
+        return color != null && color.hasActiveTransform();
     }
 
     /**
@@ -3536,7 +3522,9 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
     {
         int age = entity.getAge();
 
-        if (this.lastAge != -1 && age != this.lastAge + 1)
+        /* Only restart when age seeks backward (timeline scrub). Forward jumps from
+         * film setAge()+StubEntity.age++ must not wipe ActionPlayback or emoticons freeze. */
+        if (this.lastAge != -1 && age < this.lastAge)
         {
             this.resetAnimator();
         }

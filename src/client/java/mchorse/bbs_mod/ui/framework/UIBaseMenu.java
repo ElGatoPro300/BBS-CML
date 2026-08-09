@@ -137,6 +137,11 @@ public abstract class UIBaseMenu
     {
         this.context.setMouse(mouseX, mouseY, mouseButton);
 
+        if (this.handleControlCaptureMouse(mouseButton, true))
+        {
+            return true;
+        }
+
         if (mouseButton == GLFW.GLFW_MOUSE_BUTTON_4)
         {
             if (this.tryTexturePickerMouseBack())
@@ -177,6 +182,24 @@ public abstract class UIBaseMenu
         }
 
         return result;
+    }
+
+    /**
+     * Film actor-control captures LMB/RMB for vanilla swipe / shield while the
+     * OS cursor is hidden. Override in menus that host the film editor.
+     */
+    protected boolean handleControlCaptureMouse(int button, boolean pressed)
+    {
+        return false;
+    }
+
+    /**
+     * When true, render/hover uses parked mouse coords so invisible control
+     * cursor cannot highlight timeline tracks and other widgets.
+     */
+    protected boolean shouldParkMouseWhileControlling()
+    {
+        return false;
     }
 
     /**
@@ -252,6 +275,11 @@ public abstract class UIBaseMenu
 
     public boolean mouseReleased(int mouseX, int mouseY, int mouseButton)
     {
+        if (this.handleControlCaptureMouse(mouseButton, false))
+        {
+            return true;
+        }
+
         boolean result = false;
 
         this.context.setMouse(mouseX, mouseY, mouseButton);
@@ -334,6 +362,11 @@ public abstract class UIBaseMenu
 
     public void renderMenu(UIRenderingContext context, int mouseX, int mouseY)
     {
+        if (this.shouldParkMouseWhileControlling())
+        {
+            mouseX = mouseY = -1;
+        }
+
         RenderSystem.depthFunc(GL11.GL_ALWAYS);
 
         this.context.resetMatrix();

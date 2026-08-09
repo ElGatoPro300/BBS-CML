@@ -98,7 +98,15 @@ public class UILabelFormPanel extends UIFormPanel<LabelForm>
         this.billboard = new UIToggle(UIKeys.FORMS_EDITORS_BILLBOARD_TITLE, (b) -> this.form.billboard.set(b.getValue()));
         this.nametag = new UIToggle(UIKeys.FORMS_EDITORS_LABEL_NAMETAG, (b) -> this.form.nametag.set(b.getValue()));
         this.nametag.tooltip(UIKeys.FORMS_EDITORS_LABEL_NAMETAG_HINT);
-        this.color = new UIColor((c) -> this.form.color.set(Color.rgba(c))).withAlpha();
+        /* Preserve color transform / grade when editing RGBA (Color.rgba would wipe them). */
+        this.color = new UIColor((c) ->
+        {
+            Color color = this.form.color.get().copy();
+            Color next = Color.rgba(c);
+
+            color.set(next.r, next.g, next.b, next.a);
+            this.form.color.set(color);
+        }).withAlpha();
         this.color.tooltip(UIKeys.FILM_REPLAY_TRACK_COLOR);
         this.colorTransform = new UIFormColorTransform(() -> this.form.color.get(), (color) -> this.form.color.set(color));
         this.paintColor = new UIColor((c) ->
