@@ -134,6 +134,8 @@
     "bbs.config.axes.gizmo_translate_speed-comment": "Multiplier for how fast objects move when dragging gizmo translate handles (1 = slowest, 20 = fastest)",
     "bbs.config.axes.gizmo_toolbar": "Gizmo toolbar",
     "bbs.config.axes.gizmo_toolbar-comment": "Drag to reorder gizmo buttons in the film viewport. Right-click a button to hide or show it",
+    "bbs.config.axes.gizmo_toolbar_horizontal": "Horizontal gizmo toolbar",
+    "bbs.config.axes.gizmo_toolbar_horizontal-comment": "When enabled (default), gizmo mode buttons sit in a horizontal row along the top of the film viewport. Disable for the previous vertical column on the left",
     "bbs.config.axes.gizmo_y_axis_horizontal": "Horizontal Y axis drag",
     "bbs.config.axes.gizmo_y_axis_horizontal-comment": "If enabled, dragging the Y gizmo axis uses horizontal mouse movement instead of vertical",
     "bbs.config.axes.gizmos": "Axes/Gizmos",

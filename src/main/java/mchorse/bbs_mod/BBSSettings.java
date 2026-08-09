@@ -70,6 +70,7 @@ public class BBSSettings
     public static ValueBoolean forceQwerty;
     public static ValueBoolean freezeModels;
     public static ValueGizmoToolbar editorGizmoToolbar;
+    public static ValueBoolean editorGizmoToolbarHorizontal;
     public static ValueFloat axesScale;
     public static ValueFloat axesThickness;
     public static ValueFloat gizmoHitbox;
@@ -675,6 +676,7 @@ public class BBSSettings
         gizmoGuideOpacity = builder.getFloat("gizmo_guide_opacity", 0.35F, 0.05F, 1F);
         gizmoTranslateSpeed = builder.getInt("gizmo_translate_speed", 5, 1, 20);
         builder.register(editorGizmoToolbar = new ValueGizmoToolbar("gizmo_toolbar"));
+        editorGizmoToolbarHorizontal = builder.getBoolean("gizmo_toolbar_horizontal", true);
         builder.register(editorFormGizmoToolbar = new ValueFormEditorGizmoToolbar("form_gizmo_toolbar"));
 
         builder.category("tutorials");
