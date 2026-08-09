@@ -7,6 +7,7 @@ import mchorse.bbs_mod.entity.ActorEntity;
 import mchorse.bbs_mod.forms.FormUtilsClient;
 import mchorse.bbs_mod.forms.renderers.FormRenderType;
 import mchorse.bbs_mod.forms.renderers.FormRenderingContext;
+import mchorse.bbs_mod.utils.iris.IrisUtils;
 
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.render.VertexConsumerProvider;
@@ -42,6 +43,26 @@ public class ActorEntityRenderer extends EntityRenderer<ActorEntity>
         );
 
         this.shadowRadius = 0.5F;
+    }
+
+    /**
+     * Match film stub shadows: vanilla ground blob only when Iris/shaders are off.
+     * With a shader pack the mesh already casts into the shadow map; keeping the blob
+     * stacks two dark circles under the actor.
+     */
+    public static void updateShadowRadius(ActorEntity entity)
+    {
+        if (entity == null)
+        {
+            return;
+        }
+
+        EntityRenderer<?> renderer = MinecraftClient.getInstance().getEntityRenderDispatcher().getRenderer(entity);
+
+        if (renderer instanceof ActorEntityRenderer actorRenderer)
+        {
+            actorRenderer.shadowRadius = IrisUtils.isShaderPackEnabled() ? 0F : 0.5F;
+        }
     }
 
     @Override

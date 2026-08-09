@@ -4,6 +4,7 @@ import mchorse.bbs_mod.BBSSettings;
 import mchorse.bbs_mod.client.BBSRendering;
 import mchorse.bbs_mod.client.renderer.ModelBlockEntityRenderer;
 import mchorse.bbs_mod.client.renderer.MorphFireRenderer;
+import mchorse.bbs_mod.client.renderer.entity.ActorEntityRenderer;
 import mchorse.bbs_mod.entity.ActorEntity;
 import mchorse.bbs_mod.film.replays.ActorReplayStateSync;
 import mchorse.bbs_mod.film.replays.Replay;
@@ -1414,16 +1415,24 @@ public abstract class BaseFilmController
                             actor.setHeadYaw(entity.getHeadYaw());
                             actor.setBodyYaw(entity.getBodyYaw());
                             actor.setPitch(entity.getPitch());
-                            /* Pose/action flags from the stub, but never copy limbAnimator —
-                             * limbs stay natural on the ActorEntity (tick while playing,
-                             * scrub steps while timeline-paused with the setting on). */
-                            ActorReplayStateSync.syncFromSource(actor, entity, false);
+                            /* While playing, copy limbAnimator from the stub. ActionPlayer
+                             * teleports the physical actor so client distance-based limb
+                             * updates often stall; ProceduralAnimator then freezes walk
+                             * swing at an extreme pose (velocity restores amplitude, stuck
+                             * limbPhase does not advance). Timeline-freeze / actor-control
+                             * keep their own limb paths below. */
+                            boolean syncLimbs = this.isActorPlaybackActive() && !controlling && !pauseAnims;
+
+                            ActorReplayStateSync.syncFromSource(actor, entity, syncLimbs);
                             /* Keep keyframed equipment on the visible ActorEntity — stub
                              * already received applyReplay; without this, actor toggle can
                              * show empty armor until the server respawns the actor. */
                             this.syncActorEquipmentFromStub(actor, entity);
                             /* Only gate vanilla sprint dust — do not clear sprinting (run anim). */
                             actor.setSuppressSprintParticles(controlling);
+                            /* Iris packs cast mesh shadows; drop the vanilla blob then so
+                             * actor ground circles are not stacked darker. */
+                            ActorEntityRenderer.updateShadowRadius(actor);
 
                             if (pauseAnims)
                             {
