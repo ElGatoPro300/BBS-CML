@@ -7,6 +7,7 @@ import mchorse.bbs_mod.data.types.MapType;
 import mchorse.bbs_mod.utils.interps.IInterp;
 
 import net.minecraft.item.ItemStack;
+import net.minecraft.nbt.NbtCompound;
 import net.minecraft.nbt.NbtElement;
 import net.minecraft.nbt.NbtOps;
 import net.minecraft.registry.RegistryOps;
@@ -23,22 +24,70 @@ public class ItemStackKeyframeFactory implements IKeyframeFactory<ItemStack>
     @Override
     public ItemStack fromData(BaseType data)
     {
-        RegistryWrapper.WrapperLookup registries = BBSMod.getRegistryManager();
-        DynamicOps<NbtElement> ops = registries != null ? RegistryOps.of(NbtOps.INSTANCE, registries) : NbtOps.INSTANCE;
-        DataResult<Pair<ItemStack, NbtElement>> decode = ItemStack.CODEC.decode(ops, DataStorageUtils.toNbt(data));
-        Optional<Pair<ItemStack, NbtElement>> result = decode.result();
+        if (data == null)
+        {
+            return ItemStack.EMPTY;
+        }
 
-        return result.map(Pair::getFirst).orElse(ItemStack.EMPTY);
+        NbtElement nbt = DataStorageUtils.toNbt(data);
+        RegistryWrapper.WrapperLookup registries = BBSMod.getRegistryManager();
+
+        if (registries != null)
+        {
+            DynamicOps<NbtElement> ops = RegistryOps.of(NbtOps.INSTANCE, registries);
+            Optional<ItemStack> decoded = ItemStack.CODEC.decode(ops, nbt).result().map(Pair::getFirst);
+
+            if (decoded.isPresent())
+            {
+                return decoded.get();
+            }
+
+            /* Legacy / partially corrupted entries still often decode via fromNbt. */
+            if (nbt instanceof NbtCompound compound)
+            {
+                return ItemStack.fromNbtOrEmpty(registries, compound);
+            }
+
+            return ItemStack.EMPTY;
+        }
+
+        /* No registries: plain NbtOps drops enchantment components on 1.20.5+. */
+        DataResult<Pair<ItemStack, NbtElement>> decode = ItemStack.CODEC.decode(NbtOps.INSTANCE, nbt);
+
+        return decode.result().map(Pair::getFirst).orElse(ItemStack.EMPTY);
     }
 
     @Override
     public BaseType toData(ItemStack value)
     {
+        if (value == null || value.isEmpty())
+        {
+            return new MapType();
+        }
+
         RegistryWrapper.WrapperLookup registries = BBSMod.getRegistryManager();
-        DynamicOps<NbtElement> ops = registries != null ? RegistryOps.of(NbtOps.INSTANCE, registries) : NbtOps.INSTANCE;
+        DynamicOps<NbtElement> ops = registries != null
+            ? RegistryOps.of(NbtOps.INSTANCE, registries)
+            : NbtOps.INSTANCE;
         Optional<NbtElement> result = ItemStack.CODEC.encodeStart(ops, value).result();
 
-        return result.map(DataStorageUtils::fromNbt).orElse(new MapType());
+        if (result.isPresent())
+        {
+            return DataStorageUtils.fromNbt(result.get());
+        }
+
+        /* Last resort: encode without registry ops may still keep id/count. */
+        if (registries != null)
+        {
+            result = ItemStack.CODEC.encodeStart(NbtOps.INSTANCE, value).result();
+
+            if (result.isPresent())
+            {
+                return DataStorageUtils.fromNbt(result.get());
+            }
+        }
+
+        return new MapType();
     }
 
     @Override

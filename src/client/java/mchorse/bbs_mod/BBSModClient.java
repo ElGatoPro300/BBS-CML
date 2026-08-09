@@ -756,6 +756,11 @@ public class BBSModClient implements ClientModInitializer
 
         ClientPlayConnectionEvents.JOIN.register((handler, sender, client) ->
         {
+            /* Required for ItemStack.CODEC (enchantments / components) on film
+             * keyframes, undo snapshots, and inventory slots. Without this the
+             * client falls back to plain NbtOps and enchanted stacks vanish. */
+            BBSMod.setRegistryManager(handler.getRegistryManager());
+            BBSMod.setClientRegistryManager(handler.getRegistryManager());
             RecentAssetsTracker.load();
             PendingFilmLaunch.onJoin();
         });
@@ -770,11 +775,20 @@ public class BBSModClient implements ClientModInitializer
             films.reset();
             cameraController.reset();
             BBSMod.setRegistryManager(null);
+            BBSMod.setClientRegistryManager(null);
         });
 
         ClientTickEvents.START_CLIENT_TICK.register((client) ->
         {
             BBSRendering.startTick();
+
+            /* JOIN can be missed after resource reload / dimension changes; keep
+             * the client registry lookup alive for enchanted ItemStack codecs. */
+            if (BBSMod.getRegistryManager() == null && client.world != null)
+            {
+                BBSMod.setRegistryManager(client.world.getRegistryManager());
+                BBSMod.setClientRegistryManager(client.world.getRegistryManager());
+            }
 
             if (!client.isPaused())
             {
