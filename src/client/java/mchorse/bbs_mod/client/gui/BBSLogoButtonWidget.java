@@ -3,6 +3,7 @@ package mchorse.bbs_mod.client.gui;
 import net.minecraft.client.gl.RenderPipelines;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.widget.ButtonWidget;
+import net.minecraft.screen.ScreenTexts;
 import net.minecraft.text.Text;
 import net.minecraft.util.Identifier;
 
@@ -12,7 +13,7 @@ public class BBSLogoButtonWidget extends ButtonWidget
 
     public BBSLogoButtonWidget(int x, int y, int width, int height, ButtonWidget.PressAction onPress)
     {
-        super(x, y, width, height, net.minecraft.screen.ScreenTexts.EMPTY, onPress, DEFAULT_NARRATION_SUPPLIER);
+        super(x, y, width, height, ScreenTexts.EMPTY, onPress, DEFAULT_NARRATION_SUPPLIER);
     }
 
     @Override

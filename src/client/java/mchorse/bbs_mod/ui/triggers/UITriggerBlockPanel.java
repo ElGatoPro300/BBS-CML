@@ -29,7 +29,6 @@ import mchorse.bbs_mod.utils.colors.Colors;
 
 import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderContext;
 
-import com.mojang.blaze3d.opengl.GlStateManager;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.render.Camera;
 import net.minecraft.client.util.math.MatrixStack;
@@ -41,6 +40,7 @@ import org.joml.Vector2i;
 import org.joml.Vector3d;
 import org.joml.Vector3f;
 
+import com.mojang.blaze3d.opengl.GlStateManager;
 import com.mojang.blaze3d.systems.RenderSystem;
 
 import org.lwjgl.glfw.GLFW;

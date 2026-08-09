@@ -7,6 +7,7 @@ import mchorse.bbs_mod.mixin.client.iris.IrisRenderingPipelineAccessor;
 
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.render.RawProjectionMatrix;
+import net.minecraft.client.texture.GlTexture;
 
 import net.irisshaders.iris.gl.blending.AlphaTest;
 import net.irisshaders.iris.gl.blending.AlphaTestFunction;
@@ -520,8 +521,8 @@ public class ShaderOpacityPatch
 
             int width = targets.getCurrentWidth();
             int height = targets.getCurrentHeight();
-            int opaqueDepth = (targets.getDepthTextureNoTranslucents() instanceof net.minecraft.client.texture.GlTexture gt1) ? gt1.getGlId() : -1;
-            int liveDepth = (targets.getDepthTexture() instanceof net.minecraft.client.texture.GlTexture gt2) ? gt2.getGlId() : -1;
+            int opaqueDepth = (targets.getDepthTextureNoTranslucents() instanceof GlTexture gt1) ? gt1.getGlId() : -1;
+            int liveDepth = (targets.getDepthTexture() instanceof GlTexture gt2) ? gt2.getGlId() : -1;
 
             if (width > 0 && height > 0 && opaqueDepth > 0 && liveDepth > 0)
             {

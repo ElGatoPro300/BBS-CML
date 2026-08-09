@@ -6,6 +6,7 @@ import mchorse.bbs_mod.resources.Link;
 import mchorse.bbs_mod.utils.CollectionUtils;
 
 import net.minecraft.client.texture.AbstractTexture;
+import net.minecraft.client.texture.GlTexture;
 import net.minecraft.resource.ResourceManager;
 
 import org.lwjgl.opengl.GL11;
@@ -62,7 +63,7 @@ public class IrisTextureWrapper extends AbstractTexture
 
         if (texture == null || texture == BBSModClient.getTextures().getError())
         {
-            return (this.fallback != null && this.fallback.getGlTexture() instanceof net.minecraft.client.texture.GlTexture gt) ? gt.getGlId() : -1;
+            return (this.fallback != null && this.fallback.getGlTexture() instanceof GlTexture gt) ? gt.getGlId() : -1;
         }
 
         if (this.index >= 0 && texture.getParent() != null)

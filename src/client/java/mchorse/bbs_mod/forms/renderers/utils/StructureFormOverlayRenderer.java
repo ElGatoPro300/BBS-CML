@@ -12,10 +12,9 @@ import mchorse.bbs_mod.forms.forms.utils.EffectTransform;
 import mchorse.bbs_mod.forms.forms.utils.EffectTransformMath;
 import mchorse.bbs_mod.forms.forms.utils.GlowSettings;
 import mchorse.bbs_mod.forms.renderers.FormRenderingContext;
+import mchorse.bbs_mod.resources.Link;
 import mchorse.bbs_mod.utils.colors.Color;
 
-import com.mojang.blaze3d.opengl.GlStateManager;
-import com.mojang.blaze3d.pipeline.RenderPipeline;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.render.GameRenderer;
 import net.minecraft.client.render.LightmapTextureManager;
@@ -28,6 +27,8 @@ import org.joml.Matrix3f;
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
 
+import com.mojang.blaze3d.opengl.GlStateManager;
+import com.mojang.blaze3d.pipeline.RenderPipeline;
 import com.mojang.blaze3d.systems.RenderSystem;
 
 import org.lwjgl.opengl.GL11;
@@ -273,7 +274,7 @@ public class StructureFormOverlayRenderer
             GL11.glPolygonOffset(-1F, -2F);
             ModelVAORenderer.setPaint(paintOverlay.r, paintOverlay.g, paintOverlay.b, paintOverlay.a);
             ModelVAORenderer.setPaintEffectTransform(formRootInverse, transform, paintMaskHalf, true);
-            BBSModClient.getTextures().bindTexture(new mchorse.bbs_mod.resources.Link(SpriteAtlasTexture.BLOCK_ATLAS_TEXTURE.getNamespace(), SpriteAtlasTexture.BLOCK_ATLAS_TEXTURE.getPath()));
+            BBSModClient.getTextures().bindTexture(new Link(SpriteAtlasTexture.BLOCK_ATLAS_TEXTURE.getNamespace(), SpriteAtlasTexture.BLOCK_ATLAS_TEXTURE.getPath()));
             GlStateManager._enableBlend();
             GlStateManager._blendFuncSeparate(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA, 1, 0);
             GlStateManager._depthMask(false);

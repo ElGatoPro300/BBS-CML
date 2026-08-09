@@ -262,7 +262,7 @@ public class FilmEditorController extends BaseFilmController
             filmContext.physicalActor(true);
         }
 
-        filmContext.transition = this.getTransition(stub, net.minecraft.client.MinecraftClient.getInstance().getRenderTickCounter().getTickProgress(false));
+        filmContext.transition = this.getTransition(stub, MinecraftClient.getInstance().getRenderTickCounter().getTickProgress(false));
         filmContext.stack.push();
 
         try

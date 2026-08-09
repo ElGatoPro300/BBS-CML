@@ -1,5 +1,6 @@
 package mchorse.bbs_mod.ui.particles;
 
+import mchorse.bbs_mod.client.BBSShaders;
 import mchorse.bbs_mod.graphics.Draw;
 import mchorse.bbs_mod.particles.ParticleScheme;
 import mchorse.bbs_mod.particles.components.expiration.ParticleComponentKillPlane;
@@ -9,7 +10,6 @@ import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.ui.framework.elements.utils.UIModelRenderer;
 import mchorse.bbs_mod.utils.joml.Vectors;
 
-import com.mojang.blaze3d.opengl.GlStateManager;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.render.BufferBuilder;
 import net.minecraft.client.render.GameRenderer;
@@ -111,7 +111,7 @@ public class UIParticleSchemeRenderer extends UIModelRenderer
 
         GlStateManager._enableBlend();
         GlStateManager._enableDepthTest();
-        this.emitter.render(VertexFormats.POSITION_TEXTURE_COLOR, mchorse.bbs_mod.client.BBSShaders.getParticlesLayer(), stack, OverlayTexture.DEFAULT_UV, context.getTransition());
+        this.emitter.render(VertexFormats.POSITION_TEXTURE_COLOR, BBSShaders.getParticlesLayer(), stack, OverlayTexture.DEFAULT_UV, context.getTransition());
         GlStateManager._disableDepthTest();
         GlStateManager._disableBlend();
 

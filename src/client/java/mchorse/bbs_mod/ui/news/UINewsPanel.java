@@ -533,7 +533,7 @@ public class UINewsPanel extends UISidebarDashboardPanel
                         return;
                     }
 
-                    net.minecraft.client.MinecraftClient.getInstance().execute(() ->
+                    MinecraftClient.getInstance().execute(() ->
                     {
                         try
                         {

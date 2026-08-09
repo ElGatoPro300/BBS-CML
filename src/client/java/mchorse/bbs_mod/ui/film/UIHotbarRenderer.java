@@ -3,7 +3,6 @@ package mchorse.bbs_mod.ui.film;
 import mchorse.bbs_mod.camera.clips.misc.HotbarState;
 import mchorse.bbs_mod.ui.framework.elements.utils.Batcher2D;
 
-import com.mojang.blaze3d.opengl.GlStateManager;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gl.RenderPipelines;
 import net.minecraft.client.render.DiffuseLighting;
@@ -15,6 +14,7 @@ import net.minecraft.util.math.MathHelper;
 
 import org.joml.Vector3f;
 
+import com.mojang.blaze3d.opengl.GlStateManager;
 import com.mojang.blaze3d.systems.RenderSystem;
 
 import java.util.List;
