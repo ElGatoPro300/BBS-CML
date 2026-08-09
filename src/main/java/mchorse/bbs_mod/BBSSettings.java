@@ -582,11 +582,6 @@ public class BBSSettings
     {
         HashSet<String> defaultFilters = new HashSet<>();
 
-        defaultFilters.add("item_off_hand");
-        defaultFilters.add("item_head");
-        defaultFilters.add("item_chest");
-        defaultFilters.add("item_legs");
-        defaultFilters.add("item_feet");
         defaultFilters.add("vX");
         defaultFilters.add("vY");
         defaultFilters.add("vZ");
