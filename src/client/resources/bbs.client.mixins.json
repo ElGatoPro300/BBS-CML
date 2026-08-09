@@ -30,6 +30,7 @@
         "ClientWorldPropertiesMixin",
         "sodium.ColorAttributeMixin",
         "KeyboardInputMixin",
+        "MinecraftClientInvoker",
         "EntityRendererMixin",
         "ClientPlayerEntityAccessor",
         "LivingEntityItemAccessor",

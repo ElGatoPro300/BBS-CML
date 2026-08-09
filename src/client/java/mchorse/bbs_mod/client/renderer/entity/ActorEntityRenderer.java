@@ -26,6 +26,8 @@ import net.minecraft.util.math.RotationAxis;
 
 import com.mojang.blaze3d.systems.RenderSystem;
 
+import org.lwjgl.opengl.GL11;
+
 public class ActorEntityRenderer extends EntityRenderer<ActorEntity, ActorEntityRenderer.ActorEntityState>
 {
     public static class ActorEntityState extends LivingEntityRenderState {
@@ -86,13 +88,14 @@ public class ActorEntityRenderer extends EntityRenderer<ActorEntity, ActorEntity
 
         float bodyYaw = MathHelper.lerpAngleDegrees(tickDelta, state.prevBodyYaw, state.bodyYaw);
         int overlay = LivingEntityRenderer.getOverlay(state, 0F);
+        float animDelta = livingEntity.areNaturalAnimationsPaused() ? 0F : tickDelta;
 
-        this.setupTransforms(livingEntity, matrices, bodyYaw, tickDelta);
+        this.setupTransforms(livingEntity, matrices, bodyYaw, animDelta);
 
         RenderSystem.enableBlend();
         RenderSystem.enableDepthTest();
         FormUtilsClient.render(livingEntity.getForm(), new FormRenderingContext()
-            .set(FormRenderType.ENTITY, livingEntity.getEntity(), matrices, light, overlay, tickDelta)
+            .set(FormRenderType.ENTITY, livingEntity.getEntity(), matrices, light, overlay, animDelta)
             .camera(MinecraftClient.getInstance().gameRenderer.getCamera()));
 
         if (livingEntity.getEntity().getFireTicks() > 0)
@@ -102,19 +105,27 @@ public class ActorEntityRenderer extends EntityRenderer<ActorEntity, ActorEntity
                 vertexConsumers,
                 livingEntity.getEntity(),
                 livingEntity.getForm(),
-                tickDelta,
+                animDelta,
                 MinecraftClient.getInstance().gameRenderer.getCamera(),
                 false
             );
         }
 
         BBSRendering.restoreWorldRenderState();
-        RenderSystem.disableDepthTest();
+        RenderSystem.enableDepthTest();
+        RenderSystem.depthFunc(GL11.GL_LEQUAL);
         RenderSystem.disableBlend();
 
         matrices.pop();
 
         super.render(state, matrices, vertexConsumers, light);
+    }
+
+    @Override
+    protected boolean hasLabel(ActorEntity entity)
+    {
+        /* Same visibility rules as stub film nametags / vanilla labels. */
+        return entity.hasCustomName();
     }
 
     protected boolean isVisible(ActorEntity entity)

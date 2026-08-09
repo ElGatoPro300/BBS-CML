@@ -739,6 +739,8 @@ public class UIKeys
     public static final IKey FORMS_EDITORS_GENERAL_HITBOX_WIDTH = L10n.lang("bbs.ui.forms.editors.general.hitbox_width");
     public static final IKey FORMS_EDITORS_GENERAL_HOTKEY = L10n.lang("bbs.ui.forms.editors.general.hotkey");
     public static final IKey FORMS_EDITORS_GENERAL_HP = L10n.lang("bbs.ui.forms.editors.general.hp");
+    public static final IKey FORMS_EDITORS_GENERAL_FILM_INVULNERABLE = L10n.lang("bbs.ui.forms.editors.general.film_invulnerable");
+    public static final IKey FORMS_EDITORS_GENERAL_FILM_INVULNERABLE_TOOLTIP = L10n.lang("bbs.ui.forms.editors.general.film_invulnerable-tooltip");
     public static final IKey FORMS_EDITORS_GENERAL_LIGHTING = L10n.lang("bbs.ui.forms.editors.general.lighting");
     public static final IKey FORMS_EDITORS_GENERAL_LIGHTING_TOOLTIP = L10n.lang("bbs.ui.forms.editors.general.lighting-tooltip");
     public static final IKey FORMS_EDITORS_GENERAL_MOVEMENT_SPEED = L10n.lang("bbs.ui.forms.editors.general.movement_speed");
@@ -952,6 +954,7 @@ public class UIKeys
     public static final IKey FILM_REPLAY_TRACK_BODY_YAW = L10n.lang("bbs.ui.film.replay.track.body_yaw");
     public static final IKey FILM_REPLAY_TRACK_GROUNDED = L10n.lang("bbs.ui.film.replay.track.grounded");
     public static final IKey FILM_REPLAY_TRACK_DAMAGE = L10n.lang("bbs.ui.film.replay.track.damage");
+    public static final IKey FILM_REPLAY_TRACK_INVULNERABLE = L10n.lang("bbs.ui.film.replay.track.invulnerable");
     public static final IKey FILM_REPLAY_TRACK_DEATH_TIME = L10n.lang("bbs.ui.film.replay.track.death_time");
     public static final IKey FILM_REPLAY_TRACK_USING_ITEM = L10n.lang("bbs.ui.film.replay.track.using_item");
     public static final IKey FILM_REPLAY_TRACK_ITEM_USE_TIME = L10n.lang("bbs.ui.film.replay.track.item_use_time");
@@ -1315,6 +1318,8 @@ public class UIKeys
     public static final IKey MODEL_BLOCKS_GLOBAL = L10n.lang("bbs.ui.model_blocks.global");
     public static final IKey MODEL_BLOCKS_CHROMA_SKY = L10n.lang("bbs.ui.model_blocks.chroma_sky");
     public static final IKey MODEL_BLOCKS_CHROMA_SKY_TOOLTIP = L10n.lang("bbs.ui.model_blocks.chroma_sky-tooltip");
+    public static final IKey MODEL_BLOCKS_LOCAL_LIGHTING = L10n.lang("bbs.ui.model_blocks.local_lighting");
+    public static final IKey MODEL_BLOCKS_LOCAL_LIGHTING_TOOLTIP = L10n.lang("bbs.ui.model_blocks.local_lighting-tooltip");
     public static final IKey MODEL_BLOCKS_KEYS_MOVE_TO = L10n.lang("bbs.ui.model_blocks.keys.move_to");
     public static final IKey MODEL_BLOCKS_KEYS_TELEPORT = L10n.lang("bbs.ui.model_blocks.keys.teleport");
     public static final IKey MODEL_BLOCKS_KEYS_TOGGLE_RENDERING = L10n.lang("bbs.ui.model_blocks.keys.toggle_rendering");

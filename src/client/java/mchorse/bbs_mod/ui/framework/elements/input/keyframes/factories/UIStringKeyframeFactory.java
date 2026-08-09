@@ -171,6 +171,11 @@ public class UIStringKeyframeFactory extends UIKeyframeFactory<String>
     {
         super.update();
 
-        this.string.setText(this.keyframe.getValue());
+        /* setText() moves the caret to the start — skip while the user is typing
+         * (same issue as the subtitle clip's main title field). */
+        if (!this.string.isFocused())
+        {
+            this.string.setText(this.keyframe.getValue());
+        }
     }
 }

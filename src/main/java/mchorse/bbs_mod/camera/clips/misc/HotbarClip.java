@@ -5,6 +5,11 @@ import mchorse.bbs_mod.camera.data.Position;
 import mchorse.bbs_mod.data.types.BaseType;
 import mchorse.bbs_mod.data.types.ListType;
 import mchorse.bbs_mod.data.types.MapType;
+import mchorse.bbs_mod.settings.values.mc.ValueItemStack;
+import mchorse.bbs_mod.settings.values.misc.ValueVector4f;
+import mchorse.bbs_mod.settings.values.numeric.ValueBoolean;
+import mchorse.bbs_mod.settings.values.numeric.ValueDouble;
+import mchorse.bbs_mod.settings.values.numeric.ValueInt;
 import mchorse.bbs_mod.utils.clips.Clip;
 import mchorse.bbs_mod.utils.clips.ClipContext;
 import mchorse.bbs_mod.utils.keyframes.Keyframe;
@@ -24,6 +29,7 @@ import java.util.TreeSet;
 public class HotbarClip extends CameraClip
 {
     private static final float MAX_HEALTH_CONTAINER = 1200F; /* 60 rows * 10 hearts * 2 HP */
+    private static final Vector4f DEFAULT_LAYOUT = new Vector4f(0F, 0F, 1F, 0F);
 
     public final KeyframeChannel<Integer> selectedSlot = new KeyframeChannel<>("selected_slot", KeyframeFactories.INTEGER);
     public final KeyframeChannel<ItemStack> slot0 = new KeyframeChannel<>("slot_0", KeyframeFactories.ITEM_STACK);
@@ -65,7 +71,12 @@ public class HotbarClip extends CameraClip
     public final KeyframeChannel<Double> attackCooldown = new KeyframeChannel<>("attack_cooldown", KeyframeFactories.DOUBLE);
     public final KeyframeChannel<Boolean> showAttackCooldown = new KeyframeChannel<>("show_attack_cooldown", KeyframeFactories.BOOLEAN);
 
+    public final ValueBoolean useKeyframes = new ValueBoolean("use_keyframes", false);
+    public final ValueBoolean uniformSeeded = new ValueBoolean("uniform_seeded", false);
+    public final HotbarUniform uniform = new HotbarUniform("uniform");
+
     public final KeyframeChannel[] channels;
+
     public HotbarClip()
     {
         this.channels = new KeyframeChannel[] {
@@ -82,34 +93,9 @@ public class HotbarClip extends CameraClip
             this.add(channel);
         }
 
-        this.selectedSlot.insert(0, 0);
-        this.health.insert(0, 20D);
-        this.healthContainer.insert(0, 20D);
-        this.absorption.insert(0, 0D);
-        this.absorptionContainer.insert(0, 0D);
-        this.heartType.insert(0, HotbarState.HEART_NORMAL);
-        this.hardcore.insert(0, false);
-        this.heartRegeneration.insert(0, false);
-        this.armor.insert(0, 0D);
-        this.hunger.insert(0, 20D);
-        this.hungerEffect.insert(0, false);
-        this.air.insert(0, 300D);
-        this.experience.insert(0, 0D);
-        this.experienceLevel.insert(0, 0);
-        this.rightOffhand.insert(0, false);
-        this.showHotbar.insert(0, true);
-        this.showHealth.insert(0, true);
-        this.showArmor.insert(0, true);
-        this.showHunger.insert(0, true);
-        this.showAir.insert(0, true);
-        this.showExperience.insert(0, true);
-        this.mountHealth.insert(0, 0D);
-        this.mountHealthContainer.insert(0, 0D);
-        this.horseJump.insert(0, 0D);
-        this.showHorseJump.insert(0, false);
-        this.attackCooldown.insert(0, 0D);
-        this.showAttackCooldown.insert(0, false);
-        this.layout.insert(0, new Vector4f(0F, 0F, 1F, 0F));
+        this.add(this.useKeyframes);
+        this.add(this.uniformSeeded);
+        this.add(this.uniform);
     }
 
     public static List<HotbarState> getHotbars(ClipContext context)
@@ -130,44 +116,44 @@ public class HotbarClip extends CameraClip
 
         HotbarState state = new HotbarState();
 
-        state.selectedSlot = Math.max(0, Math.min(8, this.selectedSlot.interpolate(t)));
-        state.items[0] = this.copyItem(this.slot0.interpolate(t));
-        state.items[1] = this.copyItem(this.slot1.interpolate(t));
-        state.items[2] = this.copyItem(this.slot2.interpolate(t));
-        state.items[3] = this.copyItem(this.slot3.interpolate(t));
-        state.items[4] = this.copyItem(this.slot4.interpolate(t));
-        state.items[5] = this.copyItem(this.slot5.interpolate(t));
-        state.items[6] = this.copyItem(this.slot6.interpolate(t));
-        state.items[7] = this.copyItem(this.slot7.interpolate(t));
-        state.items[8] = this.copyItem(this.slot8.interpolate(t));
-        state.offhandItem = this.copyItem(this.offhandSlot.interpolate(t));
-        state.rightOffhand = this.rightOffhand.interpolate(t, false);
-        state.showHotbar = this.showHotbar.interpolate(t, true);
-        state.showHealth = this.showHealth.interpolate(t, true);
-        state.showArmor = this.showArmor.interpolate(t, true);
-        state.showHunger = this.showHunger.interpolate(t, true);
-        state.showAir = this.showAir.interpolate(t, true);
-        state.showExperience = this.showExperience.interpolate(t, true);
-        state.mountHealthContainer = this.clampHealthContainer(this.mountHealthContainer.interpolate(t));
-        state.mountHealth = this.clampHealth(this.mountHealth.interpolate(t), state.mountHealthContainer);
-        state.horseJump = Math.max(0F, Math.min(1F, this.horseJump.interpolate(t).floatValue()));
-        state.showHorseJump = this.showHorseJump.interpolate(t, false);
-        state.attackCooldown = Math.max(0F, Math.min(1F, this.attackCooldown.interpolate(t).floatValue()));
-        state.showAttackCooldown = this.showAttackCooldown.interpolate(t, false);
-        state.healthContainer = this.clampHealthContainer(this.healthContainer.interpolate(t));
-        state.health = this.clampHealth(this.health.interpolate(t), state.healthContainer);
-        state.absorptionContainer = this.clampHealthContainer(this.absorptionContainer.interpolate(t));
-        state.absorption = this.clampHealth(this.absorption.interpolate(t), state.absorptionContainer);
-        state.heartType = this.clampHeartType(this.heartType.interpolate(t));
-        state.hardcore = this.interpolateHardcore(t);
-        state.heartRegeneration = this.heartRegeneration.interpolate(t, false);
-        state.armor = this.clampStat(this.armor.interpolate(t));
-        state.hunger = this.clampStat(this.hunger.interpolate(t));
-        state.hungerEffect = this.hungerEffect.interpolate(t, false);
-        state.air = this.clampAir(this.air.interpolate(t));
-        state.experience = this.clampExperience(this.experience.interpolate(t));
-        state.experienceLevel = this.clampExperienceLevel(this.experienceLevel.interpolate(t));
-        Vector4f layout = this.layout.interpolate(t, new Vector4f(0F, 0F, 1F, 0F));
+        state.selectedSlot = Math.max(0, Math.min(8, this.valueInt(this.selectedSlot, this.uniform.selectedSlot, t, 0)));
+        state.items[0] = this.copyItem(this.valueItem(this.slot0, this.uniform.slot0, t, ItemStack.EMPTY));
+        state.items[1] = this.copyItem(this.valueItem(this.slot1, this.uniform.slot1, t, ItemStack.EMPTY));
+        state.items[2] = this.copyItem(this.valueItem(this.slot2, this.uniform.slot2, t, ItemStack.EMPTY));
+        state.items[3] = this.copyItem(this.valueItem(this.slot3, this.uniform.slot3, t, ItemStack.EMPTY));
+        state.items[4] = this.copyItem(this.valueItem(this.slot4, this.uniform.slot4, t, ItemStack.EMPTY));
+        state.items[5] = this.copyItem(this.valueItem(this.slot5, this.uniform.slot5, t, ItemStack.EMPTY));
+        state.items[6] = this.copyItem(this.valueItem(this.slot6, this.uniform.slot6, t, ItemStack.EMPTY));
+        state.items[7] = this.copyItem(this.valueItem(this.slot7, this.uniform.slot7, t, ItemStack.EMPTY));
+        state.items[8] = this.copyItem(this.valueItem(this.slot8, this.uniform.slot8, t, ItemStack.EMPTY));
+        state.offhandItem = this.copyItem(this.valueItem(this.offhandSlot, this.uniform.offhandSlot, t, ItemStack.EMPTY));
+        state.rightOffhand = this.valueBoolean(this.rightOffhand, this.uniform.rightOffhand, t, false);
+        state.showHotbar = this.valueBoolean(this.showHotbar, this.uniform.showHotbar, t, true);
+        state.showHealth = this.valueBoolean(this.showHealth, this.uniform.showHealth, t, true);
+        state.showArmor = this.valueBoolean(this.showArmor, this.uniform.showArmor, t, true);
+        state.showHunger = this.valueBoolean(this.showHunger, this.uniform.showHunger, t, true);
+        state.showAir = this.valueBoolean(this.showAir, this.uniform.showAir, t, true);
+        state.showExperience = this.valueBoolean(this.showExperience, this.uniform.showExperience, t, true);
+        state.mountHealthContainer = this.clampHealthContainer(this.valueDouble(this.mountHealthContainer, this.uniform.mountHealthContainer, t, 0D));
+        state.mountHealth = this.clampHealth(this.valueDouble(this.mountHealth, this.uniform.mountHealth, t, 0D), state.mountHealthContainer);
+        state.horseJump = Math.max(0F, Math.min(1F, (float) this.valueDouble(this.horseJump, this.uniform.horseJump, t, 0D)));
+        state.showHorseJump = this.valueBoolean(this.showHorseJump, this.uniform.showHorseJump, t, false);
+        state.attackCooldown = Math.max(0F, Math.min(1F, (float) this.valueDouble(this.attackCooldown, this.uniform.attackCooldown, t, 0D)));
+        state.showAttackCooldown = this.valueBoolean(this.showAttackCooldown, this.uniform.showAttackCooldown, t, false);
+        state.healthContainer = this.clampHealthContainer(this.valueDouble(this.healthContainer, this.uniform.healthContainer, t, 20D));
+        state.health = this.clampHealth(this.valueDouble(this.health, this.uniform.health, t, 20D), state.healthContainer);
+        state.absorptionContainer = this.clampHealthContainer(this.valueDouble(this.absorptionContainer, this.uniform.absorptionContainer, t, 0D));
+        state.absorption = this.clampHealth(this.valueDouble(this.absorption, this.uniform.absorption, t, 0D), state.absorptionContainer);
+        state.heartType = this.clampHeartType(this.valueInt(this.heartType, this.uniform.heartType, t, HotbarState.HEART_NORMAL));
+        state.hardcore = this.valueHardcore(t);
+        state.heartRegeneration = this.valueBoolean(this.heartRegeneration, this.uniform.heartRegeneration, t, false);
+        state.armor = this.clampStat(this.valueDouble(this.armor, this.uniform.armor, t, 0D));
+        state.hunger = this.clampStat(this.valueDouble(this.hunger, this.uniform.hunger, t, 20D));
+        state.hungerEffect = this.valueBoolean(this.hungerEffect, this.uniform.hungerEffect, t, false);
+        state.air = this.clampAir(this.valueDouble(this.air, this.uniform.air, t, 300D));
+        state.experience = this.clampExperience(this.valueDouble(this.experience, this.uniform.experience, t, 0D));
+        state.experienceLevel = this.clampExperienceLevel(this.valueInt(this.experienceLevel, this.uniform.experienceLevel, t, 0));
+        Vector4f layout = this.valueVector4f(this.layout, this.uniform.layout, t, DEFAULT_LAYOUT);
         state.x = layout.x;
         state.y = layout.y;
         state.scale = Math.max(0.05F, layout.z);
@@ -177,42 +163,326 @@ public class HotbarClip extends CameraClip
         getHotbars(context).add(state);
     }
 
+    /**
+     * Copy the current keyframed values into uniform storage the first time
+     * keyframe mode is disabled, without modifying the keyframe channels.
+     */
+    public void ensureUniformSeeded(float tick)
+    {
+        if (this.uniformSeeded.get())
+        {
+            return;
+        }
+
+        this.uniform.layout.set(new Vector4f(this.interpVector4f(this.layout, tick, DEFAULT_LAYOUT)));
+        this.uniform.selectedSlot.set(this.interpInt(this.selectedSlot, tick, 0));
+        this.uniform.slot0.set(this.copyItem(this.interpItem(this.slot0, tick, ItemStack.EMPTY)));
+        this.uniform.slot1.set(this.copyItem(this.interpItem(this.slot1, tick, ItemStack.EMPTY)));
+        this.uniform.slot2.set(this.copyItem(this.interpItem(this.slot2, tick, ItemStack.EMPTY)));
+        this.uniform.slot3.set(this.copyItem(this.interpItem(this.slot3, tick, ItemStack.EMPTY)));
+        this.uniform.slot4.set(this.copyItem(this.interpItem(this.slot4, tick, ItemStack.EMPTY)));
+        this.uniform.slot5.set(this.copyItem(this.interpItem(this.slot5, tick, ItemStack.EMPTY)));
+        this.uniform.slot6.set(this.copyItem(this.interpItem(this.slot6, tick, ItemStack.EMPTY)));
+        this.uniform.slot7.set(this.copyItem(this.interpItem(this.slot7, tick, ItemStack.EMPTY)));
+        this.uniform.slot8.set(this.copyItem(this.interpItem(this.slot8, tick, ItemStack.EMPTY)));
+        this.uniform.offhandSlot.set(this.copyItem(this.interpItem(this.offhandSlot, tick, ItemStack.EMPTY)));
+        this.uniform.rightOffhand.set(this.interpBoolean(this.rightOffhand, tick, false));
+        this.uniform.health.set(this.interpDouble(this.health, tick, 20D));
+        this.uniform.healthContainer.set(this.interpDouble(this.healthContainer, tick, 20D));
+        this.uniform.absorption.set(this.interpDouble(this.absorption, tick, 0D));
+        this.uniform.absorptionContainer.set(this.interpDouble(this.absorptionContainer, tick, 0D));
+        this.uniform.heartType.set(this.interpInt(this.heartType, tick, HotbarState.HEART_NORMAL));
+        this.uniform.hardcore.set(this.interpHardcore(tick));
+        this.uniform.heartRegeneration.set(this.interpBoolean(this.heartRegeneration, tick, false));
+        this.uniform.armor.set(this.interpDouble(this.armor, tick, 0D));
+        this.uniform.hunger.set(this.interpDouble(this.hunger, tick, 20D));
+        this.uniform.hungerEffect.set(this.interpBoolean(this.hungerEffect, tick, false));
+        this.uniform.air.set(this.interpDouble(this.air, tick, 300D));
+        this.uniform.experience.set(this.interpDouble(this.experience, tick, 0D));
+        this.uniform.experienceLevel.set(this.interpInt(this.experienceLevel, tick, 0));
+        this.uniform.mountHealth.set(this.interpDouble(this.mountHealth, tick, 0D));
+        this.uniform.mountHealthContainer.set(this.interpDouble(this.mountHealthContainer, tick, 0D));
+        this.uniform.horseJump.set(this.interpDouble(this.horseJump, tick, 0D));
+        this.uniform.showHorseJump.set(this.interpBoolean(this.showHorseJump, tick, false));
+        this.uniform.attackCooldown.set(this.interpDouble(this.attackCooldown, tick, 0D));
+        this.uniform.showAttackCooldown.set(this.interpBoolean(this.showAttackCooldown, tick, false));
+        this.uniform.showHotbar.set(this.interpBoolean(this.showHotbar, tick, true));
+        this.uniform.showHealth.set(this.interpBoolean(this.showHealth, tick, true));
+        this.uniform.showArmor.set(this.interpBoolean(this.showArmor, tick, true));
+        this.uniform.showHunger.set(this.interpBoolean(this.showHunger, tick, true));
+        this.uniform.showAir.set(this.interpBoolean(this.showAir, tick, true));
+        this.uniform.showExperience.set(this.interpBoolean(this.showExperience, tick, true));
+        this.uniformSeeded.set(true);
+    }
+
+    /**
+     * When enabling keyframe mode, fill any empty channels from uniform values
+     * so scrubbing/playback can interpolate. Existing keyframes are preserved.
+     */
+    public void ensureChannelsSeeded(float tick)
+    {
+        this.ensureUniformSeeded(tick);
+
+        this.seedVector4f(this.layout, this.uniform.layout.get());
+        this.seedInt(this.selectedSlot, this.uniform.selectedSlot.get());
+        this.seedItem(this.slot0, this.uniform.slot0.get());
+        this.seedItem(this.slot1, this.uniform.slot1.get());
+        this.seedItem(this.slot2, this.uniform.slot2.get());
+        this.seedItem(this.slot3, this.uniform.slot3.get());
+        this.seedItem(this.slot4, this.uniform.slot4.get());
+        this.seedItem(this.slot5, this.uniform.slot5.get());
+        this.seedItem(this.slot6, this.uniform.slot6.get());
+        this.seedItem(this.slot7, this.uniform.slot7.get());
+        this.seedItem(this.slot8, this.uniform.slot8.get());
+        this.seedItem(this.offhandSlot, this.uniform.offhandSlot.get());
+        this.seedBoolean(this.rightOffhand, this.uniform.rightOffhand.get());
+        this.seedDouble(this.health, this.uniform.health.get());
+        this.seedDouble(this.healthContainer, this.uniform.healthContainer.get());
+        this.seedDouble(this.absorption, this.uniform.absorption.get());
+        this.seedDouble(this.absorptionContainer, this.uniform.absorptionContainer.get());
+        this.seedInt(this.heartType, this.uniform.heartType.get());
+        this.seedBoolean(this.hardcore, this.uniform.hardcore.get());
+        this.seedBoolean(this.heartRegeneration, this.uniform.heartRegeneration.get());
+        this.seedDouble(this.armor, this.uniform.armor.get());
+        this.seedDouble(this.hunger, this.uniform.hunger.get());
+        this.seedBoolean(this.hungerEffect, this.uniform.hungerEffect.get());
+        this.seedDouble(this.air, this.uniform.air.get());
+        this.seedDouble(this.experience, this.uniform.experience.get());
+        this.seedInt(this.experienceLevel, this.uniform.experienceLevel.get());
+        this.seedDouble(this.mountHealth, this.uniform.mountHealth.get());
+        this.seedDouble(this.mountHealthContainer, this.uniform.mountHealthContainer.get());
+        this.seedDouble(this.horseJump, this.uniform.horseJump.get());
+        this.seedBoolean(this.showHorseJump, this.uniform.showHorseJump.get());
+        this.seedDouble(this.attackCooldown, this.uniform.attackCooldown.get());
+        this.seedBoolean(this.showAttackCooldown, this.uniform.showAttackCooldown.get());
+        this.seedBoolean(this.showHotbar, this.uniform.showHotbar.get());
+        this.seedBoolean(this.showHealth, this.uniform.showHealth.get());
+        this.seedBoolean(this.showArmor, this.uniform.showArmor.get());
+        this.seedBoolean(this.showHunger, this.uniform.showHunger.get());
+        this.seedBoolean(this.showAir, this.uniform.showAir.get());
+        this.seedBoolean(this.showExperience, this.uniform.showExperience.get());
+    }
+
+    private void seedDouble(KeyframeChannel<Double> channel, double value)
+    {
+        if (channel.isEmpty())
+        {
+            channel.insert(0, value);
+        }
+    }
+
+    private void seedInt(KeyframeChannel<Integer> channel, int value)
+    {
+        if (channel.isEmpty())
+        {
+            channel.insert(0, value);
+        }
+    }
+
+    private void seedBoolean(KeyframeChannel<Boolean> channel, boolean value)
+    {
+        if (channel.isEmpty())
+        {
+            channel.insert(0, value);
+        }
+    }
+
+    private void seedItem(KeyframeChannel<ItemStack> channel, ItemStack value)
+    {
+        if (channel.isEmpty())
+        {
+            channel.insert(0, this.copyItem(value));
+        }
+    }
+
+    private void seedVector4f(KeyframeChannel<Vector4f> channel, Vector4f value)
+    {
+        if (channel.isEmpty())
+        {
+            channel.insert(0, new Vector4f(value == null ? DEFAULT_LAYOUT : value));
+        }
+    }
+
+    private double valueDouble(KeyframeChannel<Double> channel, ValueDouble uniform, float t, double fallback)
+    {
+        if (!this.useKeyframes.get())
+        {
+            return uniform.get();
+        }
+
+        if (channel.isEmpty())
+        {
+            return this.uniformSeeded.get() ? uniform.get() : fallback;
+        }
+
+        return this.interpDouble(channel, t, fallback);
+    }
+
+    private int valueInt(KeyframeChannel<Integer> channel, ValueInt uniform, float t, int fallback)
+    {
+        if (!this.useKeyframes.get())
+        {
+            return uniform.get();
+        }
+
+        if (channel.isEmpty())
+        {
+            return this.uniformSeeded.get() ? uniform.get() : fallback;
+        }
+
+        return this.interpInt(channel, t, fallback);
+    }
+
+    private boolean valueBoolean(KeyframeChannel<Boolean> channel, ValueBoolean uniform, float t, boolean fallback)
+    {
+        if (!this.useKeyframes.get())
+        {
+            return uniform.get();
+        }
+
+        if (channel.isEmpty())
+        {
+            return this.uniformSeeded.get() ? uniform.get() : fallback;
+        }
+
+        return this.interpBoolean(channel, t, fallback);
+    }
+
+    private ItemStack valueItem(KeyframeChannel<ItemStack> channel, ValueItemStack uniform, float t, ItemStack fallback)
+    {
+        if (!this.useKeyframes.get())
+        {
+            return uniform.get();
+        }
+
+        if (channel.isEmpty())
+        {
+            return this.uniformSeeded.get() ? uniform.get() : fallback;
+        }
+
+        return this.interpItem(channel, t, fallback);
+    }
+
+    private Vector4f valueVector4f(KeyframeChannel<Vector4f> channel, ValueVector4f uniform, float t, Vector4f fallback)
+    {
+        if (!this.useKeyframes.get())
+        {
+            return uniform.get();
+        }
+
+        if (channel.isEmpty())
+        {
+            return this.uniformSeeded.get() ? uniform.get() : fallback;
+        }
+
+        return this.interpVector4f(channel, t, fallback);
+    }
+
+    private boolean valueHardcore(float t)
+    {
+        if (!this.useKeyframes.get())
+        {
+            return this.uniform.hardcore.get();
+        }
+
+        if (this.hardcore.isEmpty())
+        {
+            return this.uniformSeeded.get() ? this.uniform.hardcore.get() : false;
+        }
+
+        return this.interpHardcore(t);
+    }
+
+    private double interpDouble(KeyframeChannel<Double> channel, float t, double fallback)
+    {
+        if (channel.isEmpty())
+        {
+            return fallback;
+        }
+
+        return channel.interpolate(t);
+    }
+
+    private int interpInt(KeyframeChannel<Integer> channel, float t, int fallback)
+    {
+        if (channel.isEmpty())
+        {
+            return fallback;
+        }
+
+        Integer value = channel.interpolate(t, fallback);
+
+        return value == null ? fallback : value;
+    }
+
+    private boolean interpBoolean(KeyframeChannel<Boolean> channel, float t, boolean fallback)
+    {
+        if (channel.isEmpty())
+        {
+            return fallback;
+        }
+
+        return channel.interpolate(t, fallback);
+    }
+
+    private ItemStack interpItem(KeyframeChannel<ItemStack> channel, float t, ItemStack fallback)
+    {
+        if (channel.isEmpty())
+        {
+            return fallback;
+        }
+
+        ItemStack value = channel.interpolate(t, fallback);
+
+        return value == null ? fallback : value;
+    }
+
+    private Vector4f interpVector4f(KeyframeChannel<Vector4f> channel, float t, Vector4f fallback)
+    {
+        if (channel.isEmpty())
+        {
+            return fallback;
+        }
+
+        return channel.interpolate(t, fallback);
+    }
+
     private ItemStack copyItem(ItemStack stack)
     {
         return stack == null ? ItemStack.EMPTY : stack.copy();
     }
 
-    private float clampStat(Double value)
+    private float clampStat(double value)
     {
-        return Math.max(0F, Math.min(20F, value.floatValue()));
+        return Math.max(0F, Math.min(20F, (float) value));
     }
 
-    private float clampHealth(Double value, float healthContainer)
+    private float clampHealth(double value, float healthContainer)
     {
-        return Math.max(0F, Math.min(healthContainer, value.floatValue()));
+        return Math.max(0F, Math.min(healthContainer, (float) value));
     }
 
-    private int clampHeartType(Integer value)
+    private int clampHeartType(int value)
     {
         return Math.max(HotbarState.HEART_NORMAL, Math.min(HotbarState.HEART_FROZEN, value));
     }
 
-    private float clampHealthContainer(Double value)
+    private float clampHealthContainer(double value)
     {
-        return Math.max(0F, Math.min(MAX_HEALTH_CONTAINER, value.floatValue()));
+        return Math.max(0F, Math.min(MAX_HEALTH_CONTAINER, (float) value));
     }
 
-    private float clampExperience(Double value)
+    private float clampExperience(double value)
     {
-        return Math.max(0F, Math.min(1F, value.floatValue()));
+        return Math.max(0F, Math.min(1F, (float) value));
     }
 
-    private float clampAir(Double value)
+    private float clampAir(double value)
     {
-        return Math.max(0F, Math.min(300F, value.floatValue()));
+        return Math.max(0F, Math.min(300F, (float) value));
     }
 
-    private int clampExperienceLevel(Integer value)
+    private int clampExperienceLevel(int value)
     {
         return Math.max(0, Math.min(9999, value));
     }
@@ -220,6 +490,8 @@ public class HotbarClip extends CameraClip
     @Override
     public void fromData(BaseType data)
     {
+        boolean hasUseKeyframes = data != null && data.isMap() && data.asMap().has("use_keyframes");
+
         if (data != null && data.isMap())
         {
             MapType map = data.asMap();
@@ -234,6 +506,12 @@ public class HotbarClip extends CameraClip
         }
 
         super.fromData(data);
+
+        /* Older films did not store this flag — keep keyframe mode enabled for compatibility. */
+        if (!hasUseKeyframes)
+        {
+            this.useKeyframes.set(true);
+        }
     }
 
     private void migrateLegacyLayout(MapType map)
@@ -322,7 +600,7 @@ public class HotbarClip extends CameraClip
     }
 
     @SuppressWarnings("rawtypes")
-    private boolean interpolateHardcore(float tick)
+    private boolean interpHardcore(float tick)
     {
         if (this.hardcore.getFactory() == KeyframeFactories.BOOLEAN)
         {

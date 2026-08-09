@@ -169,7 +169,8 @@ public abstract class UIClip <T extends Clip> extends UIElement
 
     public static UILabel label(IKey key)
     {
-        return UI.label(key).background(() -> BBSSettings.primaryColor(Colors.A50));
+        /* Narrow clip inspector truncates single-line headers; wrap so full titles remain readable. */
+        return UI.label(key).background(() -> BBSSettings.primaryColor(Colors.A50)).wrapping();
     }
 
     public UIClip(T clip, IUIClipsDelegate editor)
@@ -212,6 +213,8 @@ public abstract class UIClip <T extends Clip> extends UIElement
 
         this.registerUI();
         this.registerPanels();
+        /* Clip-specific options first; envelopes last so they do not bury property fields. */
+        this.addEnvelopes();
 
         this.add(this.panels);
     }
@@ -224,8 +227,6 @@ public abstract class UIClip <T extends Clip> extends UIElement
         this.panels.add(UIClip.label(UIKeys.CAMERA_PANELS_TITLE), this.title);
         this.panels.add(this.enabled.marginBottom(6));
         this.panels.add(UI.column(UIClip.label(UIKeys.CAMERA_PANELS_METRICS), UI.row(this.layer, this.tick), this.duration));
-
-        this.addEnvelopes();
     }
 
     protected void addEnvelopes()

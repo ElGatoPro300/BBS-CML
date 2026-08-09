@@ -6,6 +6,7 @@ import mchorse.bbs_mod.data.DataToString;
 import mchorse.bbs_mod.data.types.BaseType;
 import mchorse.bbs_mod.data.types.MapType;
 import mchorse.bbs_mod.ui.framework.UIContext;
+import mchorse.bbs_mod.ui.framework.elements.IUIElement;
 import mchorse.bbs_mod.ui.framework.elements.UIElement;
 import mchorse.bbs_mod.ui.framework.elements.utils.EventPropagation;
 import mchorse.bbs_mod.ui.utils.UIUtils;
@@ -258,7 +259,23 @@ public class UIOverlay extends UIElement
 
     public static boolean has(UIContext context)
     {
-        return !context.menu.getRoot().getChildren(UIOverlayPanel.class).isEmpty();
+        if (context == null || context.menu == null || context.menu.overlay == null)
+        {
+            return false;
+        }
+
+        /* Only count modal overlays under menu.overlay. Film/replays keep docked
+         * UIOverlayPanel subclasses in the panel tree; treating those as "open"
+         * blocked F6 and other overlay openers while editing a film. */
+        for (IUIElement child : context.menu.overlay.getChildren())
+        {
+            if (child instanceof UIOverlay && child.isEnabled())
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     public UIOverlay()
