@@ -1642,15 +1642,16 @@ public abstract class BaseFilmController
             return;
         }
 
-        this.spawnSprintParticles(replay, ticks, entity.getWorld(), entity.getWidth(), force);
+        /* Prefer the visible body pose (actor hold can lag the playhead keyframe). */
+        this.spawnSprintParticles(replay, ticks, entity.getWorld(), entity.getWidth(), force, entity);
     }
 
     private void spawnSprintParticles(Replay replay, int ticks, World world, double width)
     {
-        this.spawnSprintParticles(replay, ticks, world, width, false);
+        this.spawnSprintParticles(replay, ticks, world, width, false, null);
     }
 
-    private void spawnSprintParticles(Replay replay, int ticks, World world, double width, boolean force)
+    private void spawnSprintParticles(Replay replay, int ticks, World world, double width, boolean force, Entity atEntity)
     {
         if ((!force && !BBSSettings.editorReplaySprintParticles.get()) || replay == null || world == null)
         {
@@ -1680,9 +1681,9 @@ public abstract class BaseFilmController
             return;
         }
 
-        double xPos = replay.keyframes.x.interpolate(ticks);
-        double yPos = replay.keyframes.y.interpolate(ticks);
-        double zPos = replay.keyframes.z.interpolate(ticks);
+        double xPos = atEntity != null ? atEntity.getX() : replay.keyframes.x.interpolate(ticks);
+        double yPos = atEntity != null ? atEntity.getY() : replay.keyframes.y.interpolate(ticks);
+        double zPos = atEntity != null ? atEntity.getZ() : replay.keyframes.z.interpolate(ticks);
 
         BlockPos pos = BlockPos.ofFloored(xPos, yPos - 0.2D, zPos);
 
