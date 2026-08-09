@@ -241,6 +241,11 @@ public class BBSSettings
      * OFF culls backfaces (cleaner colors). Default ON. Without shaders, {@code model.culling} applies.
      */
     public static ValueBoolean softTransparencyBackfaces;
+    /**
+     * Complementary/BSL: draw block-form water through {@code gbuffers_water} and force water
+     * material so pack waves/reflections/color match world water. Reloads shaders when toggled.
+     */
+    public static ValueBoolean irisFormFluidPatch;
     /** Kept invisible for migrating saved Complementary/BSL toggles. */
     @Deprecated
     public static ValueBoolean complementaryOpacityFix;
@@ -864,6 +869,7 @@ public class BBSSettings
         shaderCurvesEnabled = builder.getBoolean("enabled", true);
         irisOpacityFix = builder.getBoolean("iris_opacity_fix", true);
         softTransparencyBackfaces = builder.getBoolean("soft_transparency_backfaces", true);
+        irisFormFluidPatch = builder.getBoolean("iris_form_fluid_patch", true);
         complementaryOpacityFix = builder.getBoolean("complementary_opacity_fix", true);
         complementaryOpacityFix.invisible();
         bslOpacityFix = builder.getBoolean("bsl_opacity_fix", true);

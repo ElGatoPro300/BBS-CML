@@ -22,6 +22,12 @@ public class BlockForm extends Form
     public final ValueBoolean repeatCenterX = new ValueBoolean("repeat_center_x", false);
     public final ValueBoolean repeatCenterY = new ValueBoolean("repeat_center_y", false);
     public final ValueBoolean repeatCenterZ = new ValueBoolean("repeat_center_z", false);
+    /** When true, adjacent repeated fluid cells cull shared faces like vanilla water. */
+    public final ValueBoolean cullFluid = new ValueBoolean("cull_fluid", true);
+    /** When true, the outer side and bottom walls of the fluid volume are rendered (double-sided). */
+    public final ValueBoolean outerFluidWalls = new ValueBoolean("outer_fluid_walls", true);
+    /** When true, fluid faces pressed against solid world block faces are dropped (vanilla-like merging). */
+    public final ValueBoolean interactBlocks = new ValueBoolean("interact_blocks", false);
 
     public static int repeatAxisStart(int count, boolean centered)
     {
@@ -30,7 +36,8 @@ public class BlockForm extends Form
             return 0;
         }
 
-        return -((count - 1) / 2);
+        /* Even counts: -count/2 centers the volume on the origin (e.g. 2 → -1..0). */
+        return -(count / 2);
     }
 
     public BlockForm()
@@ -46,6 +53,9 @@ public class BlockForm extends Form
         this.add(this.repeatCenterX);
         this.add(this.repeatCenterY);
         this.add(this.repeatCenterZ);
+        this.add(this.cullFluid);
+        this.add(this.outerFluidWalls);
+        this.add(this.interactBlocks);
     }
 
     @Override

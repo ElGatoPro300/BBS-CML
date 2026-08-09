@@ -682,6 +682,12 @@ public class UIKeys
     public static final IKey FORMS_EDITORS_BLOCK_REPEAT_CENTER_X_TOOLTIP = L10n.lang("bbs.ui.forms.editors.block.repeat_center_x-tooltip");
     public static final IKey FORMS_EDITORS_BLOCK_REPEAT_CENTER_Y_TOOLTIP = L10n.lang("bbs.ui.forms.editors.block.repeat_center_y-tooltip");
     public static final IKey FORMS_EDITORS_BLOCK_REPEAT_CENTER_Z_TOOLTIP = L10n.lang("bbs.ui.forms.editors.block.repeat_center_z-tooltip");
+    public static final IKey FORMS_EDITORS_BLOCK_CULL_FLUID = L10n.lang("bbs.ui.forms.editors.block.cull_fluid");
+    public static final IKey FORMS_EDITORS_BLOCK_CULL_FLUID_TOOLTIP = L10n.lang("bbs.ui.forms.editors.block.cull_fluid-tooltip");
+    public static final IKey FORMS_EDITORS_BLOCK_OUTER_FLUID_WALLS = L10n.lang("bbs.ui.forms.editors.block.outer_fluid_walls");
+    public static final IKey FORMS_EDITORS_BLOCK_OUTER_FLUID_WALLS_TOOLTIP = L10n.lang("bbs.ui.forms.editors.block.outer_fluid_walls-tooltip");
+    public static final IKey FORMS_EDITORS_BLOCK_INTERACT_BLOCKS = L10n.lang("bbs.ui.forms.editors.block.interact_blocks");
+    public static final IKey FORMS_EDITORS_BLOCK_INTERACT_BLOCKS_TOOLTIP = L10n.lang("bbs.ui.forms.editors.block.interact_blocks-tooltip");
     public static final IKey FORMS_EDITORS_EXTRUDED_TITLE = L10n.lang("bbs.ui.forms.editors.extruded.title");
     public static final IKey FORMS_EDITORS_GENERAL = L10n.lang("bbs.ui.forms.editors.general");
     public static final IKey FORMS_EDITOR_GIZMO_TOOLBAR_HINT = L10n.lang("bbs.ui.forms.editor.gizmo_toolbar.hint");

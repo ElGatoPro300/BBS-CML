@@ -393,6 +393,32 @@ public class ModelVAORenderer
         );
     }
 
+    /**
+     * Always queues a vanilla translucent draw for {@link #flushPaintOverlayQueue()} (even without
+     * Iris). Used for block-form fluids so they composite after every entity — depth-test on,
+     * depth-write off — instead of being overdrawn by later forms behind the volume.
+     */
+    public static void submitTranslucentEndOfFrame(Runnable draw)
+    {
+        if (BBSRendering.isIrisShadowPass())
+        {
+            return;
+        }
+
+        paintOverlayQueue.add(new PaintOverlayEntry(
+            new Matrix4f(RenderSystem.getProjectionMatrix()),
+            new Matrix4f(RenderSystem.getModelViewMatrix()),
+            false,
+            false,
+            false,
+            false,
+            true,
+            false,
+            true,
+            draw
+        ));
+    }
+
     private static void runPaintOverlayEntry(PaintOverlayEntry entry, boolean restoreFramebuffer)
     {
         if (restoreFramebuffer)

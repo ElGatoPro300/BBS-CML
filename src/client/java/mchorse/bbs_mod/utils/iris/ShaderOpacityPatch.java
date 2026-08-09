@@ -377,11 +377,15 @@ public class ShaderOpacityPatch
     {
         if (BBSRendering.isIrisShadersEnabled())
         {
+            /* Form water (Complementary/BSL patch) before soft-opacity forms. */
+            FormFluidShaderPatch.flushWaterPhaseFluids();
             flushPostDeferredForms(null);
 
             return;
         }
 
+        /* Vanilla: form fluids while world depth is still the live scene (before clouds / LAST). */
+        FormFluidShaderPatch.flushVanillaFluids();
         postDeferredPhase = true;
     }
 
@@ -405,6 +409,7 @@ public class ShaderOpacityPatch
         postDeferredForms.clear();
         postDeferredPhase = false;
         flushingPostDeferred = false;
+        FormFluidShaderPatch.clearFrameQueue();
     }
 
     public static void onWorldRenderEnd()
