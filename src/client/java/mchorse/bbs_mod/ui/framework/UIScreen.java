@@ -235,6 +235,7 @@ public class UIScreen extends Screen implements IFileDropListener
     {
         super.render(context, mouseX, mouseY, delta);
 
+        this.context.setContext(context);
         this.menu.context.setTransition(this.client.getRenderTickCounter().getTickProgress(false));
         this.menu.renderMenu(this.context, mouseX, mouseY);
         this.menu.context.render.executeRunnables();
