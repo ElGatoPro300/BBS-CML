@@ -1,6 +1,7 @@
 package mchorse.bbs_mod.entity;
 
 import mchorse.bbs_mod.BBSMod;
+import mchorse.bbs_mod.BBSSettings;
 import mchorse.bbs_mod.film.Film;
 import mchorse.bbs_mod.film.replays.ActorReplayStateSync;
 import mchorse.bbs_mod.film.replays.Replay;
@@ -94,6 +95,17 @@ public class ActorEntity extends LivingEntity implements IEntityFormProvider
     private int timelineLimbTick = -1;
     private float timelineLimbPos;
     private int timelineFormTick = Integer.MIN_VALUE;
+
+    /**
+     * True while the film damage keyframe track is driving hurt flash this tick.
+     */
+    private boolean keyframeHurtActive;
+
+    /**
+     * Client form animator consumes this to start emoticon/BOBJ {@code hurt}
+     * on the same hit that set {@link #hurtTime} (avoids missing a mid-tick edge).
+     */
+    private boolean pendingHurtAnimation;
 
     /* Film and replay data for item drops */
     private Film film;
@@ -660,6 +672,165 @@ public class ActorEntity extends LivingEntity implements IEntityFormProvider
         {
             this.dropReplayItems();
             this.replayItemsDropped = true;
+        }
+    }
+
+    /**
+     * Live combat still applies HP/knockback. Red overlay and damage pose are
+     * gated separately by {@link BBSSettings#actorDamageFlash} and
+     * {@link BBSSettings#actorDamageAnimation}. Keyframed damage still applies
+     * via {@link ActorReplayStateSync} each playback tick.
+     */
+    @Override
+    public boolean damage(DamageSource source, float amount)
+    {
+        boolean damaged = super.damage(source, amount);
+
+        if (damaged)
+        {
+            this.afterLiveDamageReaction();
+        }
+
+        return damaged;
+    }
+
+    /**
+     * Client {@code EntityDamageS2CPacket} path.
+     */
+    @Override
+    public void onDamaged(DamageSource damageSource)
+    {
+        super.onDamaged(damageSource);
+        this.afterLiveDamageReaction();
+    }
+
+    /**
+     * Client {@code DamageTiltS2CPacket} path.
+     */
+    @Override
+    public void animateDamage(float yaw)
+    {
+        if (!BBSSettings.shouldKeepActorLiveHurtTime())
+        {
+            return;
+        }
+
+        super.animateDamage(yaw);
+
+        if (!BBSSettings.shouldPlayActorDamageAnimation())
+        {
+            this.clearLiveLimbSpeedSpike();
+        }
+        else
+        {
+            /* animateDamage only sets hurtTime — restore the vanilla limb swing spike. */
+            this.applyVanillaHurtLimbSpeedSpike();
+        }
+    }
+
+    private void afterLiveDamageReaction()
+    {
+        if (!BBSSettings.shouldKeepActorLiveHurtTime())
+        {
+            this.clearLiveLimbSpeedSpike();
+            this.clearLiveHurtFlash();
+            this.pendingHurtAnimation = false;
+
+            return;
+        }
+
+        if (BBSSettings.shouldPlayActorDamageAnimation())
+        {
+            /* Same reaction as pre-fix commits / vanilla LivingEntity.onDamaged:
+             * amplify existing walk swing on all limbs via limbAnimator speed. */
+            this.applyVanillaHurtLimbSpeedSpike();
+
+            if (this.getWorld().isClient())
+            {
+                this.pendingHurtAnimation = true;
+            }
+        }
+        else
+        {
+            this.clearLiveLimbSpeedSpike();
+            this.pendingHurtAnimation = false;
+        }
+    }
+
+    /**
+     * Whether film stub limb sync should leave {@link #limbAnimator} alone so a
+     * live hurt swing spike can play out (procedural forms).
+     */
+    public boolean shouldPreserveLiveHurtLimbSwing()
+    {
+        return BBSSettings.shouldPlayActorDamageAnimation() && this.hurtTime > 0;
+    }
+
+    private void applyVanillaHurtLimbSpeedSpike()
+    {
+        if (this.limbAnimator instanceof LimbAnimatorAccessor limb)
+        {
+            limb.setPrevSpeed(limb.getSpeed());
+            limb.setSpeed(1.5F);
+        }
+    }
+
+    public boolean shouldShowDamageFlashOverlay()
+    {
+        if (this.hurtTime <= 0 && this.deathTime <= 0)
+        {
+            return false;
+        }
+
+        if (this.keyframeHurtActive || this.deathTime > 0)
+        {
+            return true;
+        }
+
+        return BBSSettings.shouldFlashActorLiveDamage();
+    }
+
+    public boolean shouldPlayDamageAnimation()
+    {
+        return BBSSettings.shouldPlayActorDamageAnimation();
+    }
+
+    /**
+     * @return true once per live hit so {@code Animator} can blend the hurt action.
+     */
+    public boolean consumePendingHurtAnimation()
+    {
+        if (!this.pendingHurtAnimation)
+        {
+            return false;
+        }
+
+        this.pendingHurtAnimation = false;
+
+        return true;
+    }
+
+    /**
+     * Updated each playback sync tick — keyframed damage must still flash red
+     * even when live-hit flash is disabled.
+     */
+    public void setKeyframeHurtActive(boolean active)
+    {
+        this.keyframeHurtActive = active;
+    }
+
+    private void clearLiveHurtFlash()
+    {
+        this.hurtTime = 0;
+        this.maxHurtTime = 0;
+    }
+
+    private void clearLiveLimbSpeedSpike()
+    {
+        if (this.limbAnimator instanceof LimbAnimatorAccessor limb)
+        {
+            limb.setPrevSpeed(0F);
+            limb.setSpeed(0F);
         }
     }
 
