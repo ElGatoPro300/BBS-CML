@@ -677,19 +677,20 @@ public class BBSModClient implements ClientModInitializer
             .register(Link.bbs("curve"), CurveClientClip.class, new ClipFactoryData(Icons.ARC, 0xff775f));
 
         /* Keybinds */
-        keyDashboard = this.createKey("dashboard", GLFW.GLFW_KEY_0);
-        keyItemEditor = this.createKey("item_editor", GLFW.GLFW_KEY_HOME);
-        keyPlayFilm = this.createKey("play_film", GLFW.GLFW_KEY_RIGHT_CONTROL);
-        keyPauseFilm = this.createKey("pause_film", GLFW.GLFW_KEY_BACKSLASH);
-        keyRecordReplay = this.createKey("record_replay", GLFW.GLFW_KEY_RIGHT_ALT);
-        keyRecordVideo = this.createKey("record_video", GLFW.GLFW_KEY_F4);
-        keyOpenReplays = this.createKey("open_replays", GLFW.GLFW_KEY_RIGHT_SHIFT);
-        keyOpenQuickReplays = this.createKey("open_quick_replays", GLFW.GLFW_KEY_RIGHT_BRACKET);
-        keyOpenMorphing = this.createKey("open_morphing", GLFW.GLFW_KEY_B);
-        keyDemorph = this.createKey("demorph", GLFW.GLFW_KEY_PERIOD);
-        keyTeleport = this.createKey("teleport", GLFW.GLFW_KEY_Y);
-        keyZoom = this.createKeyMouse("zoom", 2);
-        keyToggleReplayHud = this.createKey("toggle_replay_hud", GLFW.GLFW_KEY_P);
+        KeyBinding.Category bbsCategory = KeyBinding.Category.create(Identifier.of("category." + BBSMod.MOD_ID + ".main"));
+        keyDashboard = this.createKey("dashboard", GLFW.GLFW_KEY_0, bbsCategory);
+        keyItemEditor = this.createKey("item_editor", GLFW.GLFW_KEY_HOME, bbsCategory);
+        keyPlayFilm = this.createKey("play_film", GLFW.GLFW_KEY_RIGHT_CONTROL, bbsCategory);
+        keyPauseFilm = this.createKey("pause_film", GLFW.GLFW_KEY_BACKSLASH, bbsCategory);
+        keyRecordReplay = this.createKey("record_replay", GLFW.GLFW_KEY_RIGHT_ALT, bbsCategory);
+        keyRecordVideo = this.createKey("record_video", GLFW.GLFW_KEY_F4, bbsCategory);
+        keyOpenReplays = this.createKey("open_replays", GLFW.GLFW_KEY_RIGHT_SHIFT, bbsCategory);
+        keyOpenQuickReplays = this.createKey("open_quick_replays", GLFW.GLFW_KEY_RIGHT_BRACKET, bbsCategory);
+        keyOpenMorphing = this.createKey("open_morphing", GLFW.GLFW_KEY_B, bbsCategory);
+        keyDemorph = this.createKey("demorph", GLFW.GLFW_KEY_PERIOD, bbsCategory);
+        keyTeleport = this.createKey("teleport", GLFW.GLFW_KEY_Y, bbsCategory);
+        keyZoom = this.createKeyMouse("zoom", 2, bbsCategory);
+        keyToggleReplayHud = this.createKey("toggle_replay_hud", GLFW.GLFW_KEY_P, bbsCategory);
 
         WorldRenderEvents.AFTER_ENTITIES.register((context) ->
         {
@@ -1004,23 +1005,23 @@ public class BBSModClient implements ClientModInitializer
         }
     }
 
-    private KeyBinding createKey(String id, int key)
+    private KeyBinding createKey(String id, int key, KeyBinding.Category category)
     {
         return KeyBindingHelper.registerKeyBinding(new KeyBinding(
             "key." + BBSMod.MOD_ID + "." + id,
             InputUtil.Type.KEYSYM,
             key,
-            KeyBinding.Category.create(Identifier.of("category." + BBSMod.MOD_ID + ".main"))
+            category
         ));
     }
 
-    private KeyBinding createKeyMouse(String id, int button)
+    private KeyBinding createKeyMouse(String id, int button, KeyBinding.Category category)
     {
         return KeyBindingHelper.registerKeyBinding(new KeyBinding(
             "key." + BBSMod.MOD_ID + "." + id,
             InputUtil.Type.MOUSE,
             button,
-            KeyBinding.Category.create(Identifier.of("category." + BBSMod.MOD_ID + ".main"))
+            category
         ));
     }
 
