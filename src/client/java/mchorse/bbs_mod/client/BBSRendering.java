@@ -551,28 +551,43 @@ public class BBSRendering
                 framebuffer.resize(w, h);
             }
 
-            clientFramebuffer = mc.getFramebuffer();
+            /* Never overwrite the real window FBO with our video-sized one. */
+            Framebuffer current = mc.getFramebuffer();
+
+            if (current != null && current != framebuffer)
+            {
+                clientFramebuffer = current;
+            }
 
             reassignFramebuffer(framebuffer);
+            bindFramebuffer(framebuffer, false);
 
             mc.worldRenderer.onResized(w, h);
-
-            /* 1.21.11: Framebuffer.beginWrite(boolean) was removed */
         }
         else
         {
             Framebuffer target = clientFramebuffer != null ? clientFramebuffer : mc.getFramebuffer();
 
-            /* 1.21.11: Framebuffer.beginWrite(boolean) was removed */
-
-            int fbW = window.getFramebufferWidth();
-            int fbH = window.getFramebufferHeight();
-
-            if (width != 0 || customSize)
+            if ((width != 0 || customSize) && framebuffer != null)
             {
                 /* 1.21.11: Framebuffer.draw(w, h) -> blitToScreen() */
                 framebuffer.blitToScreen();
             }
+
+            /* beginWrite() used to re-bind the window FBO; without this the UI keeps
+             * drawing into the video-resolution buffer and distorts with export size. */
+            if (target != null && target != framebuffer)
+            {
+                reassignFramebuffer(target);
+            }
+
+            bindMainFramebuffer(false);
+
+            int realW = window.getFramebufferWidth();
+            int realH = window.getFramebufferHeight();
+
+            mc.worldRenderer.onResized(realW, realH);
+            resizeExtraFramebuffers();
         }
     }
 

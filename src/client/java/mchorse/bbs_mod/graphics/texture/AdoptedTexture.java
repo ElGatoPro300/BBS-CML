@@ -26,9 +26,23 @@ public final class AdoptedTexture extends AbstractTexture
 {
     private static final int USAGE = GpuTexture.USAGE_TEXTURE_BINDING;
 
-    private static final Map<Texture, Identifier> REGISTRY = new WeakHashMap<>();
-    private static final Map<Integer, Identifier> GLID_REGISTRY = new HashMap<>();
+    private static final Map<Texture, Cached> REGISTRY = new WeakHashMap<>();
+    private static final Map<Integer, Cached> GLID_REGISTRY = new HashMap<>();
     private static int counter;
+
+    private static final class Cached
+    {
+        private final Identifier id;
+        private final int width;
+        private final int height;
+
+        private Cached(Identifier id, int width, int height)
+        {
+            this.id = id;
+            this.width = width;
+            this.height = height;
+        }
+    }
 
     public static Identifier identifier(Texture texture)
     {
@@ -37,17 +51,20 @@ public final class AdoptedTexture extends AbstractTexture
             return null;
         }
 
-        Identifier id = REGISTRY.get(texture);
+        int width = Math.max(1, texture.width);
+        int height = Math.max(1, texture.height);
+        Cached cached = REGISTRY.get(texture);
 
-        if (id == null)
+        if (cached != null && cached.width == width && cached.height == height)
         {
-            id = Identifier.of(BBSMod.MOD_ID, "adopted/" + (counter++));
-
-            MinecraftClient.getInstance().getTextureManager().registerTexture(id,
-                new AdoptedTexture(texture.id, "bbs_adopted_" + texture.id,
-                    texture.width, texture.height, texture.isLinear()));
-            REGISTRY.put(texture, id);
+            return cached.id;
         }
+
+        Identifier id = cached != null ? cached.id : Identifier.of(BBSMod.MOD_ID, "adopted/" + (counter++));
+
+        MinecraftClient.getInstance().getTextureManager().registerTexture(id,
+            new AdoptedTexture(texture.id, "bbs_adopted_" + texture.id, width, height, texture.isLinear()));
+        REGISTRY.put(texture, new Cached(id, width, height));
 
         return id;
     }
@@ -59,16 +76,20 @@ public final class AdoptedTexture extends AbstractTexture
             return null;
         }
 
-        Identifier id = GLID_REGISTRY.get(glId);
+        int safeW = Math.max(1, width);
+        int safeH = Math.max(1, height);
+        Cached cached = GLID_REGISTRY.get(glId);
 
-        if (id == null)
+        if (cached != null && cached.width == safeW && cached.height == safeH)
         {
-            id = Identifier.of(BBSMod.MOD_ID, "adopted/glid_" + glId);
-
-            MinecraftClient.getInstance().getTextureManager().registerTexture(id,
-                new AdoptedTexture(glId, "bbs_adopted_glid_" + glId, width, height, linear));
-            GLID_REGISTRY.put(glId, id);
+            return cached.id;
         }
+
+        Identifier id = cached != null ? cached.id : Identifier.of(BBSMod.MOD_ID, "adopted/glid_" + glId);
+
+        MinecraftClient.getInstance().getTextureManager().registerTexture(id,
+            new AdoptedTexture(glId, "bbs_adopted_glid_" + glId, safeW, safeH, linear));
+        GLID_REGISTRY.put(glId, new Cached(id, safeW, safeH));
 
         return id;
     }
