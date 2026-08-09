@@ -1288,6 +1288,8 @@
     "bbs.ui.forms.editors.general.hitbox_width": "Ancho (y profundidad) de la hitbox",
     "bbs.ui.forms.editors.general.hotkey": "Tecla de acceso rápido",
     "bbs.ui.forms.editors.general.hp": "Vida",
+    "bbs.ui.forms.editors.general.film_invulnerable": "Invencibilidad en películas",
+    "bbs.ui.forms.editors.general.film_invulnerable-tooltip": "Solo para replays tipo actor. Se usa como valor por defecto del track Invencible cuando no tiene fotogramas; los fotogramas de ese track tienen prioridad.",
     "bbs.ui.forms.editors.general.illusion": "Ilusiones",
     "bbs.ui.forms.editors.general.illusion_back": "Atrás",
     "bbs.ui.forms.editors.general.illusion_connected": "Ilusiones conectadas",

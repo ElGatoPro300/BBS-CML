@@ -1414,6 +1414,8 @@
     "bbs.ui.forms.editors.general.hitbox_width": "Hitbox width (and depth)",
     "bbs.ui.forms.editors.general.hotkey": "Hotkey",
     "bbs.ui.forms.editors.general.hp": "HP",
+    "bbs.ui.forms.editors.general.film_invulnerable": "Film invulnerability",
+    "bbs.ui.forms.editors.general.film_invulnerable-tooltip": "Only for actor-mode replays. Used as the default for the Invulnerable track when it has no keyframes; keyframes on that track override this.",
     "bbs.ui.forms.editors.general.illusion": "Illusions",
     "bbs.ui.forms.editors.general.illusion_back": "Back",
     "bbs.ui.forms.editors.general.illusion_connected": "Connected illusions",

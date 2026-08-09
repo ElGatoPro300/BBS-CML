@@ -739,6 +739,8 @@ public class UIKeys
     public static final IKey FORMS_EDITORS_GENERAL_HITBOX_WIDTH = L10n.lang("bbs.ui.forms.editors.general.hitbox_width");
     public static final IKey FORMS_EDITORS_GENERAL_HOTKEY = L10n.lang("bbs.ui.forms.editors.general.hotkey");
     public static final IKey FORMS_EDITORS_GENERAL_HP = L10n.lang("bbs.ui.forms.editors.general.hp");
+    public static final IKey FORMS_EDITORS_GENERAL_FILM_INVULNERABLE = L10n.lang("bbs.ui.forms.editors.general.film_invulnerable");
+    public static final IKey FORMS_EDITORS_GENERAL_FILM_INVULNERABLE_TOOLTIP = L10n.lang("bbs.ui.forms.editors.general.film_invulnerable-tooltip");
     public static final IKey FORMS_EDITORS_GENERAL_LIGHTING = L10n.lang("bbs.ui.forms.editors.general.lighting");
     public static final IKey FORMS_EDITORS_GENERAL_LIGHTING_TOOLTIP = L10n.lang("bbs.ui.forms.editors.general.lighting-tooltip");
     public static final IKey FORMS_EDITORS_GENERAL_MOVEMENT_SPEED = L10n.lang("bbs.ui.forms.editors.general.movement_speed");

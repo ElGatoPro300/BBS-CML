@@ -5,6 +5,7 @@ import mchorse.bbs_mod.data.types.MapType;
 import mchorse.bbs_mod.forms.entities.IEntity;
 import mchorse.bbs_mod.forms.entities.MCEntity;
 import mchorse.bbs_mod.forms.entities.StubEntity;
+import mchorse.bbs_mod.forms.forms.Form;
 import mchorse.bbs_mod.forms.forms.utils.ShadowSettings;
 import mchorse.bbs_mod.settings.values.base.BaseValue;
 import mchorse.bbs_mod.settings.values.core.ValueGroup;
@@ -820,9 +821,21 @@ public class ReplayKeyframes extends ValueGroup
     /**
      * Actor-only nested toggle under Damage: when true, the physical actor
      * ignores live damage while still applying keyframed hurt flash.
+     * <p>
+     * Empty track falls back to {@link Form#filmInvulnerable}.
      */
     public boolean isInvulnerableAt(float tick)
     {
+        return this.isInvulnerableAt(tick, null);
+    }
+
+    public boolean isInvulnerableAt(float tick, Form form)
+    {
+        if (this.invulnerable.isEmpty())
+        {
+            return form != null && form.filmInvulnerable.get();
+        }
+
         Boolean value = this.invulnerable.interpolate(tick);
 
         return value != null && value;

@@ -685,7 +685,14 @@ public class ActorEntity extends LivingEntity implements IEntityFormProvider
             return false;
         }
 
-        return this.replay.keyframes.isInvulnerableAt((float) this.currentTick);
+        Form form = this.form;
+
+        if (form == null && this.replay.form != null)
+        {
+            form = this.replay.form.get();
+        }
+
+        return this.replay.keyframes.isInvulnerableAt((float) this.currentTick, form);
     }
     
     /**
