@@ -39,6 +39,11 @@ public class ModelProperties implements IMapSerializable
     private boolean lookAt;
     /* When chroma sky hides terrain, this block still renders if true (or if the global setting is on). */
     private boolean chromaSky;
+    /**
+     * When true (default), sample world light at the form's translated position (local).
+     * When false, sample light at the model block itself (avoids dark forms pushed into solids).
+     */
+    private boolean localLighting = true;
     private int lightLevel = 0;
     private float hardness;
 
@@ -242,6 +247,16 @@ public class ModelProperties implements IMapSerializable
         this.chromaSky = chromaSky;
     }
 
+    public boolean isLocalLighting()
+    {
+        return this.localLighting;
+    }
+
+    public void setLocalLighting(boolean localLighting)
+    {
+        this.localLighting = localLighting;
+    }
+
     public int getLightLevel()
     {
         return this.lightLevel;
@@ -337,6 +352,15 @@ public class ModelProperties implements IMapSerializable
         this.lookAt = data.getBool("look_at");
         if (data.has("hitbox")) this.hitbox = data.getBool("hitbox");
         if (data.has("chroma_sky")) this.chromaSky = data.getBool("chroma_sky");
+        if (data.has("local_lighting"))
+        {
+            this.localLighting = data.getBool("local_lighting");
+        }
+        else if (data.has("form_lighting"))
+        {
+            /* Legacy key from the first revision of this toggle. */
+            this.localLighting = data.getBool("form_lighting");
+        }
         if (data.has("light_level")) this.lightLevel = data.getInt("light_level");
         this.setHardness(data.getFloat("hardness", 0F));
     }
@@ -367,6 +391,7 @@ public class ModelProperties implements IMapSerializable
         data.putBool("hitbox", this.hitbox);
         data.putBool("look_at", this.lookAt);
         data.putBool("chroma_sky", this.chromaSky);
+        data.putBool("local_lighting", this.localLighting);
         data.putInt("light_level", this.lightLevel);
         data.putFloat("hardness", this.hardness);
     }

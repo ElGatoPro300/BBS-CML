@@ -231,7 +231,12 @@ public class UIReplaysOverlayPanel extends UIOverlayPanel
         this.shadowOffsetZ.textbox.setColor(Colors.BLUE);
         this.looping = new UITrackpad((v) -> this.edit((replay) -> replay.looping.set(v.intValue())));
         this.looping.limit(0).integer().tooltip(UIKeys.FILM_REPLAY_LOOPING_TOOLTIP);
-        this.actor = new UIToggle(UIKeys.FILM_REPLAY_ACTOR, (b) -> this.edit((replay) -> replay.actor.set(b.getValue())));
+        this.actor = new UIToggle(UIKeys.FILM_REPLAY_ACTOR, (b) ->
+        {
+            this.edit((replay) -> replay.actor.set(b.getValue()));
+            this.filmPanel.replayEditor.updateChannelsList();
+            this.filmPanel.getController().createEntities();
+        });
         this.actor.tooltip(UIKeys.FILM_REPLAY_ACTOR_TOOLTIP);
         this.fp = new UIToggle(UIKeys.FILM_REPLAY_FP, (b) ->
         {

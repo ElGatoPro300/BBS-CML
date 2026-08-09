@@ -100,6 +100,11 @@ public abstract class Form extends ValueGroup
     public final ValueFloat hp = new ValueFloat("hp", 20F);
     public final ValueFloat speed = new ValueFloat("movement_speed", 0.1F);
     public final ValueFloat stepHeight = new ValueFloat("step_height", 0.5F);
+    /**
+     * Default actor-mode film invulnerability when the replay {@code invulnerable}
+     * keyframe track is empty. Keyframes on that track override this.
+     */
+    public final ValueBoolean filmInvulnerable = new ValueBoolean("film_invulnerable", false);
 
     public final ValueInt hotkey = new ValueInt("keybind", 0);
 
@@ -200,10 +205,12 @@ public abstract class Form extends ValueGroup
         this.hp.invisible();
         this.speed.invisible();
         this.stepHeight.invisible();
+        this.filmInvulnerable.invisible();
 
         this.add(this.hp);
         this.add(this.speed);
         this.add(this.stepHeight);
+        this.add(this.filmInvulnerable);
 
         this.hotkey.invisible();
 

@@ -902,7 +902,7 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
                 && this.cameraEditor.getClipPanel() instanceof UIKeyframeClip;
         }).label(UIKeys.CAMERA_PANELS_EDIT_KEYFRAMES).category(editor);
 
-        /* F6 utility panel: separate element so it stays reachable while editing a film */
+        /* F6 utility panel: separate element so ignoreFocus does not affect other film keys */
         UIElement utilityPanelKeys = new UIElement().noCulling();
 
         utilityPanelKeys.keys().ignoreFocus().register(Keys.OPEN_UTILITY_PANEL, () ->
@@ -912,8 +912,8 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
                 return;
             }
 
-            UIOverlay.addOverlay(this.getContext(), new UIUtilityOverlayPanel(UIKeys.UTILITY_TITLE, null), 240, 230);
-        }).active(() -> this.data != null && !this.showingHomePage).category(UIKeys.DASHBOARD_CATEGORY);
+            UIOverlay.addOverlay(this.getContext(), new UIUtilityOverlayPanel(UIKeys.UTILITY_TITLE, null), 320, 280);
+        }).category(UIKeys.DASHBOARD_CATEGORY);
         this.add(utilityPanelKeys);
 
         this.toolMenuActions = (menu) ->

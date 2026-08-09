@@ -5,6 +5,7 @@ import mchorse.bbs_mod.data.types.MapType;
 import mchorse.bbs_mod.forms.entities.IEntity;
 import mchorse.bbs_mod.forms.entities.MCEntity;
 import mchorse.bbs_mod.forms.entities.StubEntity;
+import mchorse.bbs_mod.forms.forms.Form;
 import mchorse.bbs_mod.forms.forms.utils.ShadowSettings;
 import mchorse.bbs_mod.settings.values.base.BaseValue;
 import mchorse.bbs_mod.settings.values.core.ValueGroup;
@@ -37,7 +38,7 @@ public class ReplayKeyframes extends ValueGroup
     public static final String GROUP_EXTRA1 = "extra1";
     public static final String GROUP_EXTRA2 = "extra2";
 
-    public static final List<String> CURATED_CHANNELS = Arrays.asList("x", "y", "z", "pitch", "yaw", "headYaw", "bodyYaw", "sneaking", "riding", "sprinting", "swimming", "flying", "fall_flying", "crawling", "climbing", "blocking", "sleeping", "riptide", "item_main_hand", "item_off_hand", "item_head", "item_chest", "item_legs", "item_feet", "selected_slot", "stick_lx", "stick_ly", "stick_rx", "stick_ry", "trigger_l", "trigger_r", "extra1_x", "extra1_y", "extra2_x", "extra2_y", "grounded", "damage", "death_time", "using_item", "item_use_time", "fire", "particles", "active_hand", "vX", "vY", "vZ", "shadow_size", "shadow_opacity");
+    public static final List<String> CURATED_CHANNELS = Arrays.asList("x", "y", "z", "pitch", "yaw", "headYaw", "bodyYaw", "sneaking", "riding", "sprinting", "swimming", "flying", "fall_flying", "crawling", "climbing", "blocking", "sleeping", "riptide", "item_main_hand", "item_off_hand", "item_head", "item_chest", "item_legs", "item_feet", "selected_slot", "stick_lx", "stick_ly", "stick_rx", "stick_ry", "trigger_l", "trigger_r", "extra1_x", "extra1_y", "extra2_x", "extra2_y", "grounded", "damage", "invulnerable", "death_time", "using_item", "item_use_time", "fire", "particles", "active_hand", "vX", "vY", "vZ", "shadow_size", "shadow_opacity");
 
     public final KeyframeChannel<Double> x = new KeyframeChannel<>("x", KeyframeFactories.DOUBLE);
     public final KeyframeChannel<Double> y = new KeyframeChannel<>("y", KeyframeFactories.DOUBLE);
@@ -65,6 +66,7 @@ public class ReplayKeyframes extends ValueGroup
     public final KeyframeChannel<Double> grounded = new KeyframeChannel<>("grounded", KeyframeFactories.DOUBLE);
     public final KeyframeChannel<Double> fall = new KeyframeChannel<>("fall", KeyframeFactories.DOUBLE);
     public final KeyframeChannel<Double> damage = new KeyframeChannel<>("damage", KeyframeFactories.DOUBLE);
+    public final KeyframeChannel<Boolean> invulnerable = new KeyframeChannel<>("invulnerable", KeyframeFactories.BOOLEAN);
     public final KeyframeChannel<Double> deathTime = new KeyframeChannel<>("death_time", KeyframeFactories.DOUBLE);
     public final KeyframeChannel<Double> usingItem = new KeyframeChannel<>("using_item", KeyframeFactories.DOUBLE);
     public final KeyframeChannel<Double> itemUseTime = new KeyframeChannel<>("item_use_time", KeyframeFactories.DOUBLE);
@@ -124,6 +126,7 @@ public class ReplayKeyframes extends ValueGroup
         this.add(this.grounded);
         this.add(this.fall);
         this.add(this.damage);
+        this.add(this.invulnerable);
         this.add(this.deathTime);
         this.add(this.usingItem);
         this.add(this.itemUseTime);
@@ -813,6 +816,29 @@ public class ReplayKeyframes extends ValueGroup
         }
 
         return this.particles.interpolate(tick) > 0D;
+    }
+
+    /**
+     * Actor-only nested toggle under Damage: when true, the physical actor
+     * ignores live damage while still applying keyframed hurt flash.
+     * <p>
+     * Empty track falls back to {@link Form#filmInvulnerable}.
+     */
+    public boolean isInvulnerableAt(float tick)
+    {
+        return this.isInvulnerableAt(tick, null);
+    }
+
+    public boolean isInvulnerableAt(float tick, Form form)
+    {
+        if (this.invulnerable.isEmpty())
+        {
+            return form != null && form.filmInvulnerable.get();
+        }
+
+        Boolean value = this.invulnerable.interpolate(tick);
+
+        return value != null && value;
     }
 
     public MountLink getRidingAt(float tick)

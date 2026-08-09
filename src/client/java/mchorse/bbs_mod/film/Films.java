@@ -28,6 +28,8 @@ import net.minecraft.client.network.ClientPlayerEntity;
 
 import com.mojang.blaze3d.systems.RenderSystem;
 
+import org.lwjgl.opengl.GL11;
+
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -376,7 +378,9 @@ public class Films
             this.recorder.render(context);
         }
 
-        RenderSystem.disableDepthTest();
+        /* Leave world depth usable for later translucent / particle passes. */
+        RenderSystem.enableDepthTest();
+        RenderSystem.depthFunc(GL11.GL_LEQUAL);
     }
 
     public void renderHud(Batcher2D batcher2D, float tickDelta)

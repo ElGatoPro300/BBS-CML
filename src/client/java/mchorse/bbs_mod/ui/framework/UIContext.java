@@ -4,6 +4,7 @@ import mchorse.bbs_mod.graphics.window.Window;
 import mchorse.bbs_mod.l10n.keys.IKey;
 import mchorse.bbs_mod.ui.film.toolbar.TimelineInteractionHints;
 import mchorse.bbs_mod.ui.film.toolbar.ToolbarMenu;
+import mchorse.bbs_mod.ui.forms.UIFormPalette;
 import mchorse.bbs_mod.ui.framework.elements.IFocusedUIElement;
 import mchorse.bbs_mod.ui.framework.elements.UIElement;
 import mchorse.bbs_mod.ui.framework.elements.UIScrollView;
@@ -247,7 +248,8 @@ public class UIContext implements IViewportStack
      */
     public boolean shouldDeferInteractionHintToForeground()
     {
-        return !this.hasOpenTimelineToolbarMenus() && !this.hasContextMenu() && !this.hasOverlayPanel();
+        return !this.hasOpenTimelineToolbarMenus() && !this.hasContextMenu()
+            && !this.hasOverlayPanel() && !this.hasFormPaletteOpen();
     }
 
     /**
@@ -256,6 +258,15 @@ public class UIContext implements IViewportStack
     public boolean hasOverlayPanel()
     {
         return UIOverlay.has(this);
+    }
+
+    /**
+     * @return {@code true} when a fullscreen {@link UIFormPalette} (form picker /
+     * preview editor) is open under the menu root
+     */
+    public boolean hasFormPaletteOpen()
+    {
+        return !this.menu.getRoot().getChildren(UIFormPalette.class).isEmpty();
     }
 
     /**
@@ -272,6 +283,31 @@ public class UIContext implements IViewportStack
         }
 
         return false;
+    }
+
+    /**
+     * @return {@code true} when the given screen point lies over a visible form palette
+     */
+    public boolean isPointerOverFormPalette(int x, int y)
+    {
+        for (UIFormPalette palette : this.menu.getRoot().getChildren(UIFormPalette.class))
+        {
+            if (palette.canBeSeen() && palette.area.isInside(x, y))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Modal layers that should suppress timeline toolbar hover cards (overlay
+     * panels and fullscreen form palettes / preview editors).
+     */
+    public boolean isPointerOverBlockingOverlay(int x, int y)
+    {
+        return this.isPointerOverOverlayPanel(x, y) || this.isPointerOverFormPalette(x, y);
     }
 
     public void setTimelineToolbarConsumePointer(boolean consume)
@@ -443,7 +479,7 @@ public class UIContext implements IViewportStack
     private void renderForegroundTextCard()
     {
         if (this.foregroundTextCard == null
-            || this.isPointerOverOverlayPanel(this.mouseX, this.mouseY))
+            || this.isPointerOverBlockingOverlay(this.mouseX, this.mouseY))
         {
             this.foregroundTextCard = null;
 

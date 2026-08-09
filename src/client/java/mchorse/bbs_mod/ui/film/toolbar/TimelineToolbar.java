@@ -940,7 +940,7 @@ public class TimelineToolbar extends UIElement
         context.batcher.clip(this.sectionsViewportArea, context);
 
         int hovered = this.getSectionIndexAt(context.mouseX, context.mouseY);
-        boolean suppressSectionHover = context.isPointerOverOverlayPanel(context.mouseX, context.mouseY)
+        boolean suppressSectionHover = context.isPointerOverBlockingOverlay(context.mouseX, context.mouseY)
             || (this.openMenu != null && this.isPointerOverOpenMenu(context));
 
         this.renderSections(context, font, hovered, suppressSectionHover);
@@ -966,7 +966,9 @@ public class TimelineToolbar extends UIElement
             TimelineToolbarTooltips.drawForeground(context, text, context.mouseX, context.mouseY,
                 Colors.WHITE, Colors.A75, this.dock, this.isMenuOpen());
         }
-        else if (this.dragHandleArea.isInside(context.mouseX, context.mouseY) && !this.dockDragging)
+        else if (!suppressSectionHover
+            && this.dragHandleArea.isInside(context.mouseX, context.mouseY)
+            && !this.dockDragging)
         {
             String tip = this.isDockDragEnabled()
                 ? UIKeys.TIMELINE_TOOLBAR_DRAG.get()
