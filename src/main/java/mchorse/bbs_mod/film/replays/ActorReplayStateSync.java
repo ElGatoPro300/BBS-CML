@@ -3,6 +3,7 @@ package mchorse.bbs_mod.film.replays;
 import mchorse.bbs_mod.BBSSettings;
 import mchorse.bbs_mod.entity.ActorEntity;
 import mchorse.bbs_mod.forms.entities.IEntity;
+import mchorse.bbs_mod.forms.entities.StubEntity;
 import mchorse.bbs_mod.mixin.LimbAnimatorAccessor;
 
 import net.minecraft.entity.EntityPose;

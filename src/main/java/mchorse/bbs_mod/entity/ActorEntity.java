@@ -16,6 +16,7 @@ import net.minecraft.entity.EntityPose;
 import net.minecraft.entity.EntityType;
 import net.minecraft.entity.EquipmentSlot;
 import net.minecraft.entity.ItemEntity;
+import net.minecraft.entity.LimbAnimator;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.attribute.DefaultAttributeContainer;
 import net.minecraft.entity.attribute.EntityAttributes;
@@ -153,7 +154,7 @@ public class ActorEntity extends LivingEntity implements IEntityFormProvider
 
     /**
      * Film playback resumed after a hold-still pause. Softens the first walk
-     * velocities so {@link net.minecraft.entity.LimbAnimator} does not jump.
+     * velocities so {@link LimbAnimator} does not jump.
      */
     public void markPlaybackResumed()
     {
