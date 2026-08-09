@@ -2540,7 +2540,7 @@ public abstract class BaseFilmController
             .filmTick(this.getTick())
             .shadow(replay.shadow.get(), shadow)
             .nameTag(replay.nameTag.get())
-            .relative(replay.relative.get());
+            .relative(replay.isCameraRelative());
     }
 
     /**
