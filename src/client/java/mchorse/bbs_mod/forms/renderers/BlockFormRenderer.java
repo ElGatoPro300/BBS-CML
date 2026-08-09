@@ -40,6 +40,7 @@ import net.minecraft.client.texture.Sprite;
 import net.minecraft.client.texture.SpriteAtlasTexture;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.screen.PlayerScreenHandler;
+import net.minecraft.util.Atlases;
 import net.minecraft.util.Identifier;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Box;
@@ -542,7 +543,7 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
     private float[] getOpaquePickUv()
     {
         Sprite sprite = MinecraftClient.getInstance().getAtlasManager()
-            .getAtlasTexture(SpriteAtlasTexture.BLOCK_ATLAS_TEXTURE)
+            .getAtlasTexture(Atlases.BLOCKS)
             .getSprite(Identifier.of("minecraft", "block/white_concrete"));
         float u = (sprite.getMinU() + sprite.getMaxU()) * 0.5F;
         float v = (sprite.getMinV() + sprite.getMaxV()) * 0.5F;
