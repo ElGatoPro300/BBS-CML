@@ -1436,6 +1436,13 @@ public abstract class BaseFilmController
                             else if (!this.isActorPlaybackActive())
                             {
                                 actor.setVelocity(0D, 0D, 0D);
+
+                                /* Toggle off: stub sync still copies sprint/limb cadence from
+                                 * the paused keyframe — settle so emoticon/BOBJ leave run for idle. */
+                                if (!timelineAnims)
+                                {
+                                    ActorReplayStateSync.settleNaturalStop(actor);
+                                }
                             }
 
                             /* Keep label in sync while editing name_tag in the film UI. */

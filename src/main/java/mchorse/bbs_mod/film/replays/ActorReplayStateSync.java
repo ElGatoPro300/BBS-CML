@@ -165,8 +165,10 @@ public final class ActorReplayStateSync
      * Server-side path when only keyframes are available (no stub). Applies the same vanilla
      * pose/action flags {@link ReplayKeyframes#apply} would set on a stub.
      *
-     * @param advanceLimbs when true (playing), advance limb swing pos like {@link mchorse.bbs_mod.forms.entities.StubEntity#update};
-     *                     when false (paused), only refresh speed so cadence does not drift.
+     * @param advanceLimbs when true (playing), drive limb swing from keyframe motion like
+     *                     {@link mchorse.bbs_mod.forms.entities.StubEntity#update}; when false
+     *                     (paused), settle limbs/sprint so emoticon/BOBJ can leave run for idle
+     *                     (timeline-freeze mode freezes the form clock separately).
      */
     public static void applyFromKeyframes(ReplayKeyframes keyframes, float tick, LivingEntity actor, boolean mounted, boolean advanceLimbs)
     {
@@ -176,7 +178,7 @@ public final class ActorReplayStateSync
         }
 
         boolean sneaking = !mounted && keyframes.sneaking.interpolate(tick) != 0D;
-        boolean sprinting = !mounted && keyframes.sprinting.interpolate(tick) != 0D;
+        boolean sprinting = advanceLimbs && !mounted && keyframes.sprinting.interpolate(tick) != 0D;
         boolean swimming = !mounted && keyframes.swimming.interpolate(tick) != 0D;
         boolean flying = !mounted && keyframes.flying.interpolate(tick) != 0D;
         boolean fallFlying = !mounted && keyframes.fallFlying.interpolate(tick) != 0D;
@@ -212,22 +214,48 @@ public final class ActorReplayStateSync
 
         if (!mounted && actor.limbAnimator instanceof LimbAnimatorAccessor limb)
         {
-            double x = keyframes.x.interpolate(tick);
-            double z = keyframes.z.interpolate(tick);
-            double prevX = keyframes.x.interpolate(tick - 1F);
-            double prevZ = keyframes.z.interpolate(tick - 1F);
-            float delta = (float) MathHelper.magnitude(x - prevX, 0D, z - prevZ);
-            float speed = Math.min(delta * 4F, 1F);
-
-            limb.setPrevSpeed(limb.getSpeed());
-            limb.setSpeed(speed);
-
             if (advanceLimbs)
             {
+                double x = keyframes.x.interpolate(tick);
+                double z = keyframes.z.interpolate(tick);
+                double prevX = keyframes.x.interpolate(tick - 1F);
+                double prevZ = keyframes.z.interpolate(tick - 1F);
+                float delta = (float) MathHelper.magnitude(x - prevX, 0D, z - prevZ);
+                float speed = Math.min(delta * 4F, 1F);
+
+                limb.setPrevSpeed(limb.getSpeed());
+                limb.setSpeed(speed);
                 limb.setPos(limb.getPos() + speed);
+            }
+            else
+            {
+                /* Paused: do not keep refreshing walk speed from keyframe deltas —
+                 * that traps emoticon/BOBJ run/sprint ActionPlayback in a loop. */
+                settleNaturalStop(actor);
             }
         }
         else if (mounted && actor.limbAnimator instanceof LimbAnimatorAccessor limb)
+        {
+            limb.setPrevSpeed(0F);
+            limb.setSpeed(0F);
+        }
+    }
+
+    /**
+     * Player-stop style settle for paused actor bodies when timeline animation
+     * freeze is off: clear sprint and limb cadence so forms pick idle (or other
+     * natural actions) instead of looping run forever.
+     */
+    public static void settleNaturalStop(LivingEntity actor)
+    {
+        if (actor == null)
+        {
+            return;
+        }
+
+        actor.setSprinting(false);
+
+        if (actor.limbAnimator instanceof LimbAnimatorAccessor limb)
         {
             limb.setPrevSpeed(0F);
             limb.setSpeed(0F);
