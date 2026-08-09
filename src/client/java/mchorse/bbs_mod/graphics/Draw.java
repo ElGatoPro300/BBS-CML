@@ -23,6 +23,7 @@ import net.minecraft.util.math.RotationAxis;
 import org.joml.Matrix4f;
 
 import com.mojang.blaze3d.systems.RenderSystem;
+import com.mojang.blaze3d.systems.VertexSorter;
 
 import org.lwjgl.opengl.GL11;
 
@@ -49,10 +50,14 @@ public class Draw
 
     public static void renderBox(MatrixStack stack, double x, double y, double z, double w, double h, double d, float r, float g, float b, float a)
     {
-        /* Iris TAA turns lines/alpha into stipple during the world pass. Queue solid edges for LAST. */
+        /* Iris TAA turns lines/alpha into stipple during the world pass. Queue solid edges for LAST.
+         * Skip the shadow map — those passes leave a different MV and would spawn sky ghosts. */
         if (BBSRendering.isIrisShadersEnabled() && BBSRendering.isRenderingWorld())
         {
-            enqueueIrisBox(stack, x, y, z, w, h, d, r, g, b);
+            if (!BBSRendering.isIrisShadowPass())
+            {
+                enqueueIrisBox(stack, x, y, z, w, h, d, r, g, b);
+            }
 
             return;
         }
@@ -96,6 +101,7 @@ public class Draw
     private static final class IrisBox
     {
         private final Matrix4f matrix;
+        private final Matrix4f projection;
         private final float w;
         private final float h;
         private final float d;
@@ -103,9 +109,10 @@ public class Draw
         private final float g;
         private final float b;
 
-        private IrisBox(Matrix4f matrix, float w, float h, float d, float r, float g, float b)
+        private IrisBox(Matrix4f matrix, Matrix4f projection, float w, float h, float d, float r, float g, float b)
         {
             this.matrix = matrix;
+            this.projection = projection;
             this.w = w;
             this.h = h;
             this.d = d;
@@ -115,12 +122,46 @@ public class Draw
         }
     }
 
+    /**
+     * Bake a camera-relative model matrix for the Iris LAST flush. Prefer the stack alone
+     * when it already includes the view; otherwise compose with {@link BBSRendering#camera}.
+     * Never multiply {@code RenderSystem.getModelViewMatrix()} — that was double-applying
+     * the camera and parking boxes in the sky. Mirrors {@code Gizmo.composeVisualMatrix}.
+     */
+    private static Matrix4f bakeIrisBoxMatrix(MatrixStack stack, double x, double y, double z)
+    {
+        Matrix4f baked = new Matrix4f(stack.peek().getPositionMatrix());
+
+        baked.translate((float) x, (float) y, (float) z);
+
+        Matrix4f composed = new Matrix4f(BBSRendering.camera).mul(baked);
+        float bakedDist = viewOriginLengthSq(baked);
+        float composedDist = viewOriginLengthSq(composed);
+
+        /* Double-applied view: composed collapses toward the view origin. */
+        if (bakedDist > 1.0E-6F && composedDist < bakedDist * 0.49F)
+        {
+            return baked;
+        }
+
+        return composed;
+    }
+
+    private static float viewOriginLengthSq(Matrix4f view)
+    {
+        float ox = view.m30();
+        float oy = view.m31();
+        float oz = view.m32();
+
+        return ox * ox + oy * oy + oz * oz;
+    }
+
     private static void enqueueIrisBox(MatrixStack stack, double x, double y, double z, double w, double h, double d, float r, float g, float b)
     {
-        Matrix4f matrix = new Matrix4f(RenderSystem.getModelViewMatrix()).mul(stack.peek().getPositionMatrix());
+        Matrix4f matrix = bakeIrisBoxMatrix(stack, x, y, z);
+        Matrix4f projection = new Matrix4f(RenderSystem.getProjectionMatrix());
 
-        matrix.translate((float) x, (float) y, (float) z);
-        irisBoxQueue.add(new IrisBox(matrix, (float) w, (float) h, (float) d, r, g, b));
+        irisBoxQueue.add(new IrisBox(matrix, projection, (float) w, (float) h, (float) d, r, g, b));
     }
 
     /** Flush hitboxes queued during the Iris world pass (call from WorldRenderEvents.LAST). */
@@ -133,17 +174,22 @@ public class Draw
 
         boolean savedBlend = GL11.glIsEnabled(GL11.GL_BLEND);
         boolean savedDepth = GL11.glIsEnabled(GL11.GL_DEPTH_TEST);
+        Matrix4f savedProjection = new Matrix4f(RenderSystem.getProjectionMatrix());
         MatrixStack stack = new MatrixStack();
 
         RenderSystem.disableBlend();
         RenderSystem.disableDepthTest();
         RenderSystem.setShader(GameRenderer::getPositionColorProgram);
+        /* Pack compositing can leave a non-white shader color multiplier before LAST. */
+        RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
         MatrixStackUtils.pushIdentityModelView();
 
         try
         {
             for (IrisBox box : irisBoxQueue)
             {
+                /* LAST no longer carries the solid-pass projection; rebind what was captured. */
+                RenderSystem.setProjectionMatrix(box.projection, VertexSorter.BY_Z);
                 stack.push();
                 stack.peek().getPositionMatrix().set(box.matrix);
                 renderBoxSolidEdges(stack, box.w, box.h, box.d, box.r, box.g, box.b);
@@ -152,8 +198,10 @@ public class Draw
         }
         finally
         {
+            RenderSystem.setProjectionMatrix(savedProjection, VertexSorter.BY_Z);
             MatrixStackUtils.popModelView();
             irisBoxQueue.clear();
+            RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
 
             if (savedDepth)
             {
