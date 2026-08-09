@@ -4,6 +4,7 @@ import mchorse.bbs_mod.BBSModClient;
 import mchorse.bbs_mod.client.BBSShaders;
 import mchorse.bbs_mod.client.ItemUseRenderState;
 import mchorse.bbs_mod.client.MobTextureOverride;
+import mchorse.bbs_mod.client.render.EntityRenderHelper;
 import mchorse.bbs_mod.client.renderer.MorphMobParticles;
 import mchorse.bbs_mod.film.MobItemStats;
 import mchorse.bbs_mod.film.MorphMountSync;
@@ -477,10 +478,8 @@ public class MobFormRenderer extends FormRenderer<MobForm> implements ITickable
             try
             {
                 var state = MinecraftClient.getInstance().getEntityRenderDispatcher().getAndUpdateRenderState(this.entity, 0F);
-                if (state != null)
-                {
-                    MinecraftClient.getInstance().getEntityRenderDispatcher().render(state, null, 0D, 0D, 0D, stack, null);
-                }
+
+                EntityRenderHelper.renderEntityState(state, stack, true);
             }
             finally
             {
@@ -603,10 +602,9 @@ public class MobFormRenderer extends FormRenderer<MobForm> implements ITickable
             try
             {
                 var state = MinecraftClient.getInstance().getEntityRenderDispatcher().getAndUpdateRenderState(this.entity, context.getTransition());
-                if (state != null)
-                {
-                    MinecraftClient.getInstance().getEntityRenderDispatcher().render(state, null, 0D, 0D, 0D, context.stack, null);
-                }
+
+                /* World/film path: queue is flushed by the frame pipeline — do not flush here. */
+                EntityRenderHelper.renderEntityState(state, context.stack, false);
             }
             finally
             {
