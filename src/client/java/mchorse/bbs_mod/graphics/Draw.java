@@ -23,6 +23,7 @@ import net.minecraft.util.math.RotationAxis;
 
 import org.joml.Matrix4f;
 
+import com.mojang.blaze3d.systems.ProjectionType;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.systems.VertexSorter;
 
@@ -190,7 +191,7 @@ public class Draw
             for (IrisBox box : irisBoxQueue)
             {
                 /* LAST no longer carries the solid-pass projection; rebind what was captured. */
-                RenderSystem.setProjectionMatrix(box.projection, VertexSorter.BY_Z);
+                RenderSystem.setProjectionMatrix(box.projection, ProjectionType.ORTHOGRAPHIC);
                 stack.push();
                 stack.peek().getPositionMatrix().set(box.matrix);
                 renderBoxSolidEdges(stack, box.w, box.h, box.d, box.r, box.g, box.b);
@@ -199,7 +200,7 @@ public class Draw
         }
         finally
         {
-            RenderSystem.setProjectionMatrix(savedProjection, VertexSorter.BY_Z);
+            RenderSystem.setProjectionMatrix(savedProjection, ProjectionType.ORTHOGRAPHIC);
             MatrixStackUtils.popModelView();
             irisBoxQueue.clear();
             RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
