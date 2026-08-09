@@ -1420,11 +1420,8 @@ public abstract class BaseFilmController
                              * updates often stall; ProceduralAnimator then freezes walk
                              * swing at an extreme pose (velocity restores amplitude, stuck
                              * limbPhase does not advance). Timeline-freeze / actor-control
-                             * keep their own limb paths below.
-                             * Skip while a live hurt swing spike is active so procedural
-                             * damage uses the same limbSpeed amplification as vanilla. */
-                            boolean syncLimbs = this.isActorPlaybackActive() && !controlling && !pauseAnims
-                                && !actor.shouldPreserveLiveHurtLimbSwing();
+                             * keep their own limb paths below. */
+                            boolean syncLimbs = this.isActorPlaybackActive() && !controlling && !pauseAnims;
 
                             ActorReplayStateSync.syncFromSource(actor, entity, syncLimbs);
                             /* Keep keyframed equipment on the visible ActorEntity — stub

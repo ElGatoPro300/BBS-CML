@@ -294,11 +294,11 @@ public final class ActorReplayStateSync
      * {@code hurtTime}/{@code deathTime} and made actors look immune after a few hits.
      * <p>
      * Death always takes the max so a real kill can finish its animation.
-     * Live {@code hurtTime} is kept when damage flash and/or damage animation is enabled.
+     * Hurt flash from live hits is gated by {@link BBSSettings#actorDamageFlash}.
      */
     private static void applyHurtAndDeath(LivingEntity actor, int keyframeHurt, int keyframeDeath)
     {
-        if (!(actor instanceof ActorEntity actorEntity))
+        if (!(actor instanceof ActorEntity))
         {
             actor.hurtTime = keyframeHurt;
             actor.deathTime = keyframeDeath;
@@ -307,9 +307,10 @@ public final class ActorReplayStateSync
         }
 
         actor.deathTime = Math.max(actor.deathTime, keyframeDeath);
-        actorEntity.setKeyframeHurtActive(keyframeHurt > 0);
 
-        if (BBSSettings.shouldKeepActorLiveHurtTime())
+        boolean flashLiveHits = BBSSettings.actorDamageFlash != null && BBSSettings.actorDamageFlash.get();
+
+        if (flashLiveHits)
         {
             actor.hurtTime = Math.max(actor.hurtTime, keyframeHurt);
         }

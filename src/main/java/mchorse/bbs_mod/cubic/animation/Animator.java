@@ -1,12 +1,9 @@
 package mchorse.bbs_mod.cubic.animation;
 
-import mchorse.bbs_mod.BBSSettings;
 import mchorse.bbs_mod.cubic.IModelInstance;
 import mchorse.bbs_mod.cubic.data.animation.Animation;
 import mchorse.bbs_mod.cubic.data.animation.Animations;
-import mchorse.bbs_mod.entity.ActorEntity;
 import mchorse.bbs_mod.forms.entities.IEntity;
-import mchorse.bbs_mod.forms.entities.MCEntity;
 
 import net.minecraft.util.math.Vec3d;
 
@@ -66,7 +63,6 @@ public class Animator implements IAnimator
     public double prevZ = Float.MAX_VALUE;
     public double prevMY;
     public float prevHandSwing;
-    public int prevHurtTimer;
 
     /* States */
     public boolean wasOnGround = true;
@@ -396,37 +392,12 @@ public class Animator implements IAnimator
             this.addAction(this.swipe);
         }
 
-        int hurtTimer = target.getHurtTimer();
-        boolean pendingActorHurt = false;
-
-        if (target instanceof MCEntity mcEntity && mcEntity.getMcEntity() instanceof ActorEntity actor)
-        {
-            pendingActorHurt = actor.consumePendingHurtAnimation();
-        }
-
-        if (this.shouldPlayHurtAction(target)
-            && ((hurtTimer > 0 && this.prevHurtTimer <= 0) || pendingActorHurt))
-        {
-            this.addAction(this.hurt);
-        }
-
         this.prevX = target.getX();
         this.prevZ = target.getZ();
         this.prevMY = velocity.y;
         this.prevHandSwing = handSwingProgress;
-        this.prevHurtTimer = hurtTimer;
 
         this.wasOnGround = target.isOnGround();
-    }
-
-    private boolean shouldPlayHurtAction(IEntity target)
-    {
-        if (target instanceof MCEntity mcEntity && mcEntity.getMcEntity() instanceof ActorEntity)
-        {
-            return BBSSettings.shouldPlayActorDamageAnimation();
-        }
-
-        return true;
     }
 
     /**

@@ -10,7 +10,6 @@ import mchorse.bbs_mod.forms.renderers.FormRenderingContext;
 import mchorse.bbs_mod.utils.iris.IrisUtils;
 
 import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.render.OverlayTexture;
 import net.minecraft.client.render.VertexConsumerProvider;
 import net.minecraft.client.render.entity.EntityRenderer;
 import net.minecraft.client.render.entity.EntityRendererFactory;
@@ -78,9 +77,7 @@ public class ActorEntityRenderer extends EntityRenderer<ActorEntity>
         matrices.push();
 
         float bodyYaw = MathHelper.lerpAngleDegrees(tickDelta, livingEntity.prevBodyYaw, livingEntity.bodyYaw);
-        int overlay = livingEntity.shouldShowDamageFlashOverlay()
-            ? LivingEntityRenderer.getOverlay(livingEntity, 0F)
-            : OverlayTexture.DEFAULT_UV;
+        int overlay = LivingEntityRenderer.getOverlay(livingEntity, 0F);
         float animDelta = livingEntity.areNaturalAnimationsPaused() ? 0F : tickDelta;
 
         this.setupTransforms(livingEntity, matrices, bodyYaw, animDelta);
