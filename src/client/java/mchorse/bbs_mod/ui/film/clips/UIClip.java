@@ -169,7 +169,8 @@ public abstract class UIClip <T extends Clip> extends UIElement
 
     public static UILabel label(IKey key)
     {
-        return UI.label(key).background(() -> BBSSettings.primaryColor(Colors.A50));
+        /* Narrow clip inspector truncates single-line headers; wrap so full titles remain readable. */
+        return UI.label(key).background(() -> BBSSettings.primaryColor(Colors.A50)).wrapping();
     }
 
     public UIClip(T clip, IUIClipsDelegate editor)
