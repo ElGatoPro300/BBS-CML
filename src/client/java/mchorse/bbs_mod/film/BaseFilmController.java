@@ -1458,9 +1458,9 @@ public abstract class BaseFilmController
                             {
                                 actor.setVelocity(0D, 0D, 0D);
 
-                                /* Toggle off: stub sync still copies sprint/limb cadence from
-                                 * the paused keyframe — settle so emoticon/BOBJ leave run for idle
-                                 * unless legacy run-in-place is enabled in settings. */
+                                /* Toggle off: clear sprint so emoticon/BOBJ leave run for
+                                 * idle (unless legacy run-in-place is enabled). Limb swing is
+                                 * left alone so procedural forms decay naturally. */
                                 if (!timelineAnims && BBSSettings.shouldSettleActorNaturalStopWhenPaused())
                                 {
                                     ActorReplayStateSync.settleNaturalStop(actor);

@@ -264,8 +264,11 @@ public final class ActorReplayStateSync
 
     /**
      * Player-stop style settle for paused actor bodies when timeline animation
-     * freeze is off: clear sprint and limb cadence so forms pick idle (or other
-     * natural actions) instead of looping run forever.
+     * freeze is off: clear sprint so emoticon/BOBJ leave run for idle.
+     * <p>
+     * Does <b>not</b> zero {@code limbAnimator} — procedural forms keep decaying
+     * walk swing naturally from {@link LivingEntity#tick} (forcing speed to 0
+     * snapped actors to idle the moment the film paused).
      */
     public static void settleNaturalStop(LivingEntity actor)
     {
@@ -275,12 +278,6 @@ public final class ActorReplayStateSync
         }
 
         actor.setSprinting(false);
-
-        if (actor.limbAnimator instanceof LimbAnimatorAccessor limb)
-        {
-            limb.setPrevSpeed(0F);
-            limb.setSpeed(0F);
-        }
     }
 
     public static void applyFromKeyframes(ReplayKeyframes keyframes, float tick, LivingEntity actor, boolean mounted)
