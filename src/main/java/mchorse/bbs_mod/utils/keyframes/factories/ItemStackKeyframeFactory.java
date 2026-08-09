@@ -14,7 +14,6 @@ import net.minecraft.registry.RegistryOps;
 import net.minecraft.registry.RegistryWrapper;
 
 import com.mojang.datafixers.util.Pair;
-import com.mojang.serialization.DataResult;
 import com.mojang.serialization.DynamicOps;
 
 import java.util.Optional;
@@ -32,29 +31,27 @@ public class ItemStackKeyframeFactory implements IKeyframeFactory<ItemStack>
         NbtElement nbt = DataStorageUtils.toNbt(data);
         RegistryWrapper.WrapperLookup registries = BBSMod.getRegistryManager();
 
-        if (registries != null)
+        if (registries == null)
         {
-            DynamicOps<NbtElement> ops = RegistryOps.of(NbtOps.INSTANCE, registries);
-            Optional<ItemStack> decoded = ItemStack.CODEC.decode(ops, nbt).result().map(Pair::getFirst);
-
-            if (decoded.isPresent())
-            {
-                return decoded.get();
-            }
-
-            /* Legacy / partially corrupted entries still often decode via fromNbt. */
-            if (nbt instanceof NbtCompound compound)
-            {
-                return ItemStack.fromNbtOrEmpty(registries, compound);
-            }
-
+            /* Without RegistryOps, enchanted components cannot be restored safely. */
             return ItemStack.EMPTY;
         }
 
-        /* No registries: plain NbtOps drops enchantment components on 1.20.5+. */
-        DataResult<Pair<ItemStack, NbtElement>> decode = ItemStack.CODEC.decode(NbtOps.INSTANCE, nbt);
+        DynamicOps<NbtElement> ops = RegistryOps.of(NbtOps.INSTANCE, registries);
+        Optional<ItemStack> decoded = ItemStack.CODEC.decode(ops, nbt).result().map(Pair::getFirst);
 
-        return decode.result().map(Pair::getFirst).orElse(ItemStack.EMPTY);
+        if (decoded.isPresent())
+        {
+            return decoded.get();
+        }
+
+        /* Legacy / partially corrupted entries still often decode via fromNbt. */
+        if (nbt instanceof NbtCompound compound)
+        {
+            return ItemStack.fromNbtOrEmpty(registries, compound);
+        }
+
+        return ItemStack.EMPTY;
     }
 
     @Override
@@ -66,28 +63,18 @@ public class ItemStackKeyframeFactory implements IKeyframeFactory<ItemStack>
         }
 
         RegistryWrapper.WrapperLookup registries = BBSMod.getRegistryManager();
-        DynamicOps<NbtElement> ops = registries != null
-            ? RegistryOps.of(NbtOps.INSTANCE, registries)
-            : NbtOps.INSTANCE;
+
+        if (registries == null)
+        {
+            /* Never encode with plain NbtOps — it drops enchantment components on
+             * 1.20.5+ and corrupts actor equipment keyframes on sync/save/undo. */
+            return new MapType();
+        }
+
+        DynamicOps<NbtElement> ops = RegistryOps.of(NbtOps.INSTANCE, registries);
         Optional<NbtElement> result = ItemStack.CODEC.encodeStart(ops, value).result();
 
-        if (result.isPresent())
-        {
-            return DataStorageUtils.fromNbt(result.get());
-        }
-
-        /* Last resort: encode without registry ops may still keep id/count. */
-        if (registries != null)
-        {
-            result = ItemStack.CODEC.encodeStart(NbtOps.INSTANCE, value).result();
-
-            if (result.isPresent())
-            {
-                return DataStorageUtils.fromNbt(result.get());
-            }
-        }
-
-        return new MapType();
+        return result.map(DataStorageUtils::fromNbt).orElse(new MapType());
     }
 
     @Override

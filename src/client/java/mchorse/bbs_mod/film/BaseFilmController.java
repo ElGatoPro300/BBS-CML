@@ -71,6 +71,7 @@ import net.minecraft.client.render.VertexConsumerProvider;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityPose;
+import net.minecraft.entity.EquipmentSlot;
 import net.minecraft.entity.MovementType;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.particle.BlockStateParticleEffect;
@@ -1146,6 +1147,9 @@ public abstract class BaseFilmController
         }
 
         int i = 0;
+        /* Apply the playhead tick — not 0. Actor toggle calls this and tick 0
+         * would wipe equipment/pose that only exists on later keyframes. */
+        int tick = this.getTick();
 
         for (Replay replay : this.film.replays.getList())
         {
@@ -1157,9 +1161,10 @@ public abstract class BaseFilmController
             {
                 World world = MinecraftClient.getInstance().world;
                 IEntity entity = new StubEntity(world);
+                int replayTick = replay.getTick(tick);
 
                 entity.setForm(FormUtils.copy(replay.form.get()));
-                replay.keyframes.apply(0, entity);
+                replay.keyframes.apply(replayTick, entity);
                 entity.setPrevX(entity.getX());
                 entity.setPrevY(entity.getY());
                 entity.setPrevZ(entity.getZ());
@@ -1413,6 +1418,10 @@ public abstract class BaseFilmController
                              * limbs stay natural on the ActorEntity (tick while playing,
                              * scrub steps while timeline-paused with the setting on). */
                             ActorReplayStateSync.syncFromSource(actor, entity, false);
+                            /* Keep keyframed equipment on the visible ActorEntity — stub
+                             * already received applyReplay; without this, actor toggle can
+                             * show empty armor until the server respawns the actor. */
+                            this.syncActorEquipmentFromStub(actor, entity);
                             /* Only gate vanilla sprint dust — do not clear sprinting (run anim). */
                             actor.setSuppressSprintParticles(controlling);
 
@@ -1628,6 +1637,16 @@ public abstract class BaseFilmController
     {
         replay.keyframes.apply(ticks, entity);
         replay.applyClientActions(ticks, entity, this.film);
+    }
+
+    private void syncActorEquipmentFromStub(ActorEntity actor, IEntity stub)
+    {
+        actor.equipStack(EquipmentSlot.MAINHAND, stub.getEquipmentStack(EquipmentSlot.MAINHAND));
+        actor.equipStack(EquipmentSlot.OFFHAND, stub.getEquipmentStack(EquipmentSlot.OFFHAND));
+        actor.equipStack(EquipmentSlot.HEAD, stub.getEquipmentStack(EquipmentSlot.HEAD));
+        actor.equipStack(EquipmentSlot.CHEST, stub.getEquipmentStack(EquipmentSlot.CHEST));
+        actor.equipStack(EquipmentSlot.LEGS, stub.getEquipmentStack(EquipmentSlot.LEGS));
+        actor.equipStack(EquipmentSlot.FEET, stub.getEquipmentStack(EquipmentSlot.FEET));
     }
 
     private void spawnSprintParticles(Replay replay, int ticks, Entity entity)
