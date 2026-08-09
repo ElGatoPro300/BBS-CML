@@ -250,6 +250,13 @@ public class UIReplaysOverlayPanel extends UIOverlayPanel
         this.actor.tooltip(UIKeys.FILM_REPLAY_ACTOR_TOOLTIP);
         this.fp = new UIToggle(UIKeys.FILM_REPLAY_FP, (b) ->
         {
+            Replay current = this.replays.getCurrentFirst();
+
+            if (current == null)
+            {
+                return;
+            }
+
             for (Replay replay : this.replays.getList())
             {
                 if (replay.fp.get())
@@ -258,7 +265,7 @@ public class UIReplaysOverlayPanel extends UIOverlayPanel
                 }
             }
 
-            this.replays.getCurrentFirst().fp.set(b.getValue());
+            current.fp.set(b.getValue());
         });
         this.vanillaMobPlayback = new UIToggle(UIKeys.FILM_REPLAY_VANILLA_MOB_PLAYBACK, (b) ->
         {
