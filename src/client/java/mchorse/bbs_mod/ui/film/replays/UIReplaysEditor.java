@@ -1,5 +1,6 @@
 package mchorse.bbs_mod.ui.film.replays;
 
+import mchorse.bbs_mod.BBSFeatures;
 import mchorse.bbs_mod.BBSModClient;
 import mchorse.bbs_mod.BBSSettings;
 import mchorse.bbs_mod.audio.SoundBuffer;
@@ -3918,7 +3919,8 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
 
     private boolean isBonePickProperty(String propertyId)
     {
-        return propertyId.equals("pose") || propertyId.startsWith("pose_overlay") || propertyId.equals("look_at") || propertyId.equals("inverse_kinematics");
+        return propertyId.equals("pose") || propertyId.startsWith("pose_overlay")
+            || (BBSFeatures.isFormIkLookAtUiEnabled() && BBSFeatures.isFormIkLookAtProperty(propertyId));
     }
 
     /**
@@ -4127,11 +4129,11 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
             {
                 propertyPath = posePath;
             }
-            else if (lookAtPath != null)
+            else if (BBSFeatures.isFormIkLookAtUiEnabled() && lookAtPath != null)
             {
                 propertyPath = lookAtPath;
             }
-            else if (inverseKinematicsPath != null)
+            else if (BBSFeatures.isFormIkLookAtUiEnabled() && inverseKinematicsPath != null)
             {
                 propertyPath = inverseKinematicsPath;
             }
@@ -4139,11 +4141,11 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
 
         if (propertyPath == null)
         {
-            if (this.keyframeEditor.editor instanceof UIInverseKinematicsKeyframeFactory)
+            if (BBSFeatures.isFormIkLookAtUiEnabled() && this.keyframeEditor.editor instanceof UIInverseKinematicsKeyframeFactory)
             {
                 propertyPath = StringUtils.combinePaths(formPath, "inverse_kinematics");
             }
-            else if (this.keyframeEditor.editor instanceof UILookAtKeyframeFactory)
+            else if (BBSFeatures.isFormIkLookAtUiEnabled() && this.keyframeEditor.editor instanceof UILookAtKeyframeFactory)
             {
                 propertyPath = StringUtils.combinePaths(formPath, "look_at");
             }
