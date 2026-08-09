@@ -1438,11 +1438,19 @@ public abstract class BaseFilmController
                                 actor.setVelocity(0D, 0D, 0D);
 
                                 /* Toggle off: stub sync still copies sprint/limb cadence from
-                                 * the paused keyframe — settle so emoticon/BOBJ leave run for idle. */
-                                if (!timelineAnims)
+                                 * the paused keyframe — settle so emoticon/BOBJ leave run for idle
+                                 * unless legacy run-in-place is enabled in settings. */
+                                if (!timelineAnims && BBSSettings.shouldSettleActorNaturalStopWhenPaused())
                                 {
                                     ActorReplayStateSync.settleNaturalStop(actor);
                                 }
+                            }
+
+                            /* Timeline-freeze skips ActorEntity.tick, so vanilla sprint dust
+                             * never runs — emit keyframe dust while the body clock is frozen. */
+                            if (pauseAnims && this.shouldEmitReplayMotionFx(entity))
+                            {
+                                this.spawnSprintParticles(replay, replayTick, actor, true);
                             }
 
                             /* Keep label in sync while editing name_tag in the film UI. */
@@ -1622,19 +1630,29 @@ public abstract class BaseFilmController
         replay.applyClientActions(ticks, entity, this.film);
     }
 
-      private void spawnSprintParticles(Replay replay, int ticks, Entity entity)
+    private void spawnSprintParticles(Replay replay, int ticks, Entity entity)
+    {
+        this.spawnSprintParticles(replay, ticks, entity, false);
+    }
+
+    private void spawnSprintParticles(Replay replay, int ticks, Entity entity, boolean force)
     {
         if (entity == null)
         {
             return;
         }
 
-        this.spawnSprintParticles(replay, ticks, entity.getWorld(), entity.getWidth());
+        this.spawnSprintParticles(replay, ticks, entity.getWorld(), entity.getWidth(), force);
     }
 
     private void spawnSprintParticles(Replay replay, int ticks, World world, double width)
     {
-        if (!BBSSettings.editorReplaySprintParticles.get() || replay == null || world == null)
+        this.spawnSprintParticles(replay, ticks, world, width, false);
+    }
+
+    private void spawnSprintParticles(Replay replay, int ticks, World world, double width, boolean force)
+    {
+        if ((!force && !BBSSettings.editorReplaySprintParticles.get()) || replay == null || world == null)
         {
             return;
         }

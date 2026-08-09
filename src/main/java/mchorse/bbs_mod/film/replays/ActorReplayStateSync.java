@@ -177,8 +177,15 @@ public final class ActorReplayStateSync
             return;
         }
 
+        /* Idle-settle is only for timeline-freeze OFF. With freeze ON, keep keyframe
+         * sprint/limb cadence so run dust and frozen run pose stay consistent. */
+        boolean timelineFreeze = BBSSettings.editorActorPauseAnimations != null
+            && BBSSettings.editorActorPauseAnimations.get();
+        boolean settleWhenPaused = !advanceLimbs
+            && !timelineFreeze
+            && BBSSettings.shouldSettleActorNaturalStopWhenPaused();
         boolean sneaking = !mounted && keyframes.sneaking.interpolate(tick) != 0D;
-        boolean sprinting = advanceLimbs && !mounted && keyframes.sprinting.interpolate(tick) != 0D;
+        boolean sprinting = !mounted && keyframes.sprinting.interpolate(tick) != 0D && (advanceLimbs || !settleWhenPaused);
         boolean swimming = !mounted && keyframes.swimming.interpolate(tick) != 0D;
         boolean flying = !mounted && keyframes.flying.interpolate(tick) != 0D;
         boolean fallFlying = !mounted && keyframes.fallFlying.interpolate(tick) != 0D;
@@ -227,11 +234,24 @@ public final class ActorReplayStateSync
                 limb.setSpeed(speed);
                 limb.setPos(limb.getPos() + speed);
             }
+            else if (settleWhenPaused)
+            {
+                /* Paused (default): do not keep refreshing walk speed from keyframe
+                 * deltas — that traps emoticon/BOBJ run/sprint ActionPlayback in a loop. */
+                settleNaturalStop(actor);
+            }
             else
             {
-                /* Paused: do not keep refreshing walk speed from keyframe deltas —
-                 * that traps emoticon/BOBJ run/sprint ActionPlayback in a loop. */
-                settleNaturalStop(actor);
+                /* Legacy run-in-place: refresh limb speed from keyframes without advancing pos. */
+                double x = keyframes.x.interpolate(tick);
+                double z = keyframes.z.interpolate(tick);
+                double prevX = keyframes.x.interpolate(tick - 1F);
+                double prevZ = keyframes.z.interpolate(tick - 1F);
+                float delta = (float) MathHelper.magnitude(x - prevX, 0D, z - prevZ);
+                float speed = Math.min(delta * 4F, 1F);
+
+                limb.setPrevSpeed(limb.getSpeed());
+                limb.setSpeed(speed);
             }
         }
         else if (mounted && actor.limbAnimator instanceof LimbAnimatorAccessor limb)
