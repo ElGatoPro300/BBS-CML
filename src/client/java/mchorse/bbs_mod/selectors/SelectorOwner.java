@@ -44,7 +44,7 @@ public class SelectorOwner
     {
         World world = this.entity.getWorld();
 
-        if (!world.isClient)
+        if (!world.isClient())
         {
             return;
         }

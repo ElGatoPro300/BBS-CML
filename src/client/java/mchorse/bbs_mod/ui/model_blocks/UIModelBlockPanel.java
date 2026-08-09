@@ -2179,8 +2179,9 @@ public class UIModelBlockPanel extends UIDashboardPanel implements IFlightSuppor
          * (which doesn't use this ray) kept working fine. */
         Matrix4f view = new Matrix4f().rotation(camera.getRotation().conjugate(new Quaternionf()));
 
+        Matrix4f proj = mc.gameRenderer.getBasicProjectionMatrix(mc.options.getFov().getValue().floatValue());
         this.mouseDirection.set(CameraUtils.getMouseDirection(
-                RenderSystem.getProjectionMatrix(),
+                proj,
                 view,
                 (int) x, (int) y, 0, 0, mc.getWindow().getWidth(), mc.getWindow().getHeight()));
         this.hovered = this.getClosestObject(new Vector3d(pos.x, pos.y, pos.z), this.mouseDirection);
@@ -2216,14 +2217,14 @@ public class UIModelBlockPanel extends UIDashboardPanel implements IFlightSuppor
                     }
                 }
 
-                ms.pop();
+                matrices.pop();
             }
         }
 
         this.renderSelectedHitbox(matrices, pos, shaderPath);
         this.renderGizmo(context, pos, matrices);
 
-        RenderSystem.enableDepthTest();
+        GlStateManager._enableDepthTest();
     }
 
     /** Draws the selected block's form hitbox wireframe in world space. */
@@ -2311,7 +2312,7 @@ public class UIModelBlockPanel extends UIDashboardPanel implements IFlightSuppor
 
         this.gizmoCameraPosition.set(cameraPos.x, cameraPos.y, cameraPos.z);
         this.hasGizmo = true;
-        this.gizmoProjection.set(RenderSystem.getProjectionMatrix());
+        this.gizmoProjection.set(MinecraftClient.getInstance().gameRenderer.getBasicProjectionMatrix(MinecraftClient.getInstance().options.getFov().getValue().floatValue()));
 
         MatrixStack gizmoStack;
 
@@ -2399,7 +2400,7 @@ public class UIModelBlockPanel extends UIDashboardPanel implements IFlightSuppor
         this.gizmoStencil.unbind(this.gizmoStencilMap);
         this.gizmoController.updateHover();
 
-        mc.getFramebuffer().beginWrite(true);
+        // mc.getFramebuffer().beginWrite(true);
     }
 
     @Override

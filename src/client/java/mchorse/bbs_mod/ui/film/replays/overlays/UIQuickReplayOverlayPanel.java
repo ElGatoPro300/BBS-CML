@@ -250,7 +250,7 @@ public class UIQuickReplayOverlayPanel extends UIOverlayPanel
 
         KeyBinding keybind = BBSModClient.getKeyOpenQuickReplays();
 
-        if (keybind != null && context.getKeyAction() == KeyAction.PRESSED && keybind.matchesKey(context.getKeyCode(), context.getScanCode()))
+        if (keybind != null && context.getKeyAction() == KeyAction.PRESSED && keybind.matchesKey(new net.minecraft.client.input.KeyInput(context.getKeyCode(), context.getScanCode(), 0)))
         {
             this.confirmSelection();
 

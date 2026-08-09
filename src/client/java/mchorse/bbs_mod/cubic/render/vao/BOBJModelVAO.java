@@ -11,6 +11,7 @@ import mchorse.bbs_mod.ui.framework.elements.utils.StencilMap;
 import mchorse.bbs_mod.utils.iris.FormColorGradePatch;
 import mchorse.bbs_mod.utils.joml.Matrices;
 
+import com.mojang.blaze3d.pipeline.RenderPipeline;
 import net.minecraft.client.gl.ShaderProgram;
 import net.minecraft.client.util.math.MatrixStack;
 
@@ -381,10 +382,10 @@ public class BOBJModelVAO
         }
     }
 
-    protected void rebindShaderSamplers(ShaderProgram shader, MatrixStack stack, float r, float g, float b, float a, int light, int overlay)
+    protected void rebindShaderSamplers(RenderPipeline shader, MatrixStack stack, float r, float g, float b, float a, int light, int overlay)
     {
         ModelVAORenderer.setupUniforms(stack, shader);
-        GlStateManager._glUseProgram(shader.getGlRef());
+        // GlStateManager._glUseProgram(shader.getGlRef());
         GL30.glBindVertexArray(this.vao);
 
         GL30.glDisableVertexAttribArray(Attributes.COLOR);
@@ -396,7 +397,7 @@ public class BOBJModelVAO
         GL30.glVertexAttribI2i(Attributes.LIGHTMAP_UV, light & '\uffff', light >> 16 & '\uffff');
     }
 
-    public void render(ShaderProgram shader, MatrixStack stack, float r, float g, float b, float a, StencilMap stencilMap, int light, int overlay, Link defaultTexture)
+    public void render(RenderPipeline shader, MatrixStack stack, float r, float g, float b, float a, StencilMap stencilMap, int light, int overlay, Link defaultTexture)
     {
         boolean hasShaders = BBSRendering.isIrisShadersEnabled();
 
@@ -410,7 +411,7 @@ public class BOBJModelVAO
 
         ModelVAORenderer.setupUniforms(stack, shader);
 
-        GlStateManager._glUseProgram(shader.getGlRef());
+        // GlStateManager._glUseProgram(shader.getGlRef());
         FormColorGradePatch.uploadToCurrentProgram();
 
         // int textureID = RenderSystem.getShaderTexture(0);

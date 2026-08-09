@@ -20,6 +20,7 @@ import mchorse.bbs_mod.utils.interps.Lerps;
 import mchorse.bbs_mod.utils.pose.Transform;
 
 import net.minecraft.client.MinecraftClient;
+import com.mojang.blaze3d.pipeline.RenderPipeline;
 import net.minecraft.client.gl.GlUniform;
 import net.minecraft.client.gl.ShaderProgram;
 import net.minecraft.client.network.AbstractClientPlayerEntity;
@@ -272,11 +273,11 @@ public abstract class FormRenderer <T extends Form>
         transform.pivot.add(overlay.pivot);
     }
 
-    protected Supplier<ShaderProgram> getShader(FormRenderingContext context, Supplier<ShaderProgram> normal, Supplier<ShaderProgram> picking)
+    protected Supplier<RenderPipeline> getShader(FormRenderingContext context, Supplier<RenderPipeline> normal, Supplier<RenderPipeline> picking)
     {
         if (context.isPicking())
         {
-            ShaderProgram program = picking.get();
+            RenderPipeline program = picking.get();
 
             if (program == null)
             {
@@ -291,18 +292,11 @@ public abstract class FormRenderer <T extends Form>
         return normal;
     }
 
-    protected void setupTarget(FormRenderingContext context, ShaderProgram program)
+    protected void setupTarget(FormRenderingContext context, RenderPipeline program)
     {
         if (program == null)
         {
             return;
-        }
-
-        GlUniform target = program.getUniform("Target");
-
-        if (target != null)
-        {
-            /* 1.21.11: GlUniform no longer exposes set(int); picker target is set via BBSPickerRenderer. */
         }
     }
 

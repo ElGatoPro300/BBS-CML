@@ -352,8 +352,8 @@ public class ShaderOpacityPatch
             depthWrite,
             afterFluids,
             irisCamera,
-            readProjectionMatrix(),
-            readModelViewMatrix(),
+            new Matrix4f(),
+            RenderSystem.getModelViewMatrix(),
             draw
         ));
     }
@@ -470,8 +470,8 @@ public class ShaderOpacityPatch
 
             if (mc != null && mc.gameRenderer != null)
             {
-                mc.gameRenderer.getLightmapTextureManager().enable();
-                mc.gameRenderer.getOverlayTexture().setupOverlayColor();
+                // mc.gameRenderer.getLightmapTextureManager().enable();
+                // mc.gameRenderer.getOverlayTexture().setupOverlayColor();
             }
 
             for (PostDeferredEntry entry : batch)
@@ -483,9 +483,8 @@ public class ShaderOpacityPatch
         {
             flushingPostDeferred = false;
             /* Soft-opacity flushes can leave depthMask dirty for later world draws. */
-            RenderSystem.depthMask(true);
-            RenderSystem.colorMask(true, true, true, true);
-            RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
+            GlStateManager._depthMask(true);
+            GlStateManager._colorMask(true, true, true, true);
         }
     }
 
@@ -521,8 +520,8 @@ public class ShaderOpacityPatch
 
             int width = targets.getCurrentWidth();
             int height = targets.getCurrentHeight();
-            int opaqueDepth = targets.getDepthTextureNoTranslucents().getTextureId();
-            int liveDepth = targets.getDepthTexture();
+            int opaqueDepth = (targets.getDepthTextureNoTranslucents() instanceof net.minecraft.client.texture.GlTexture gt1) ? gt1.getGlId() : -1;
+            int liveDepth = (targets.getDepthTexture() instanceof net.minecraft.client.texture.GlTexture gt2) ? gt2.getGlId() : -1;
 
             if (width > 0 && height > 0 && opaqueDepth > 0 && liveDepth > 0)
             {
@@ -548,9 +547,9 @@ public class ShaderOpacityPatch
 
     private static void runEntry(PostDeferredEntry entry)
     {
-        Matrix4f savedProjection = readProjectionMatrix();
+        Matrix4f savedProjection = new Matrix4f();
         Matrix4fStack modelViewStack = RenderSystem.getModelViewStack();
-        Matrix4f savedModelView = readModelViewMatrix();
+        Matrix4f savedModelView = RenderSystem.getModelViewMatrix();
         boolean savedDepthMask = GL11.glGetBoolean(GL11.GL_DEPTH_WRITEMASK);
         boolean beganDeferredPass = false;
 

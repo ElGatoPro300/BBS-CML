@@ -1188,7 +1188,7 @@ public abstract class BaseFilmController
 
         if (anEntity instanceof ActorEntity actor)
         {
-            return actor.getEntity();
+            return actor.getBbsEntity();
         }
 
         if (anEntity instanceof PlayerEntity player)

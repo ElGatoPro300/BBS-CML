@@ -307,6 +307,20 @@ public class StructureVaoManager
         }
 
         @Override
+        public VertexConsumer color(int argb)
+        {
+            this.delegate.color(argb);
+            return this;
+        }
+
+        @Override
+        public VertexConsumer lineWidth(float width)
+        {
+            this.delegate.lineWidth(width);
+            return this;
+        }
+
+        @Override
         public VertexConsumer texture(float u, float v)
         {
             this.delegate.texture(u, v);

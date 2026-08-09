@@ -23,6 +23,7 @@ import mchorse.bbs_mod.utils.iris.FormColorGradePatch;
 import mchorse.bbs_mod.utils.iris.ShaderOpacityPatch;
 import mchorse.bbs_mod.utils.joml.Vectors;
 
+import com.mojang.blaze3d.pipeline.RenderPipeline;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gl.ShaderProgram;
 import net.minecraft.client.render.DiffuseLighting;
@@ -136,15 +137,15 @@ public class ExtrudedFormRenderer extends FormRenderer<ExtrudedForm>
         /* PositionTexColor has no PaintColor / FormColorGrade — keep BBS model.fsh when those run. */
         boolean useShadedFormat = shading
             || ((paintStrength != 0F || hasColorGrade) && !irisWorldModelPass);
-        Supplier<ShaderProgram> shader = this.getShader(context,
-            useShadedFormat ? (irisWorldModelPass ? () -> { RenderSystem.setShader(ShaderProgramKeys.RENDERTYPE_ENTITY_TRANSLUCENT); return RenderSystem.getShader(); } : BBSShaders::getModel) : () -> { RenderSystem.setShader(ShaderProgramKeys.POSITION_TEX_COLOR); return RenderSystem.getShader(); },
+        Supplier<RenderPipeline> shader = this.getShader(context,
+            useShadedFormat ? (irisWorldModelPass ? BBSShaders::getModel : BBSShaders::getModel) : BBSShaders::getModel,
             shading ? BBSShaders::getPickerBillboardProgram : BBSShaders::getPickerBillboardNoShadingProgram
         );
 
         this.renderModel(shader, context.stack, context.overlay, context.light, context.color, context.getTransition(), context.camera, false, context.modelRenderer || context.isPicking(), context.world, context);
     }
 
-    private void renderModel(Supplier<ShaderProgram> shader, MatrixStack matrices, int overlay, int light, int overlayColor, float transition, Camera camera, boolean invertY, boolean modelRenderer, MatrixStack world, FormRenderingContext renderContext)
+    private void renderModel(Supplier<RenderPipeline> shader, MatrixStack matrices, int overlay, int light, int overlayColor, float transition, Camera camera, boolean invertY, boolean modelRenderer, MatrixStack world, FormRenderingContext renderContext)
     {
         Link texture = this.form.texture.get();
         ModelVAO data = BBSModClient.getTextures().getExtruder().get(texture);
@@ -235,7 +236,7 @@ public class ExtrudedFormRenderer extends FormRenderer<ExtrudedForm>
                 && (paintActive || hasColorAdjustments);
             boolean deferTranslucentModel = lowAlphaDefer || noshadingOpacityDefer || forceIrisEffectDeferred;
             boolean deferPaintToOverlay = paintActive && irisWorldPaintDeferral && !deferTranslucentModel;
-            Supplier<ShaderProgram> renderShader = shader;
+            Supplier<RenderPipeline> renderShader = shader;
             boolean bbsModelShader = !BBSRendering.isIrisWorldModelPass() || deferTranslucentModel;
             /* No-shader / UI / Iris effect deferred: FormColorGrade in model.fsh. */
             boolean useFormColorGrade = hasColorAdjustments
@@ -443,7 +444,7 @@ public class ExtrudedFormRenderer extends FormRenderer<ExtrudedForm>
                 Color resolvedGlowSnapshot = resolvedGlow.copy();
                 Color legacyGlowSnapshot = legacyGlow.copy();
                 Link textureSnapshot = texture;
-                Supplier<ShaderProgram> shaderSnapshot = () -> null;
+                Supplier<RenderPipeline> shaderSnapshot = () -> null;
                 int overlayLight = light;
                 int overlayOverlay = overlay;
                 EffectTransform paintTransformQueued = paintTransformSnapshot;

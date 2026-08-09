@@ -27,6 +27,7 @@ import mchorse.bbs_mod.data.DataStorageUtils;
 import mchorse.bbs_mod.data.types.BaseType;
 import mchorse.bbs_mod.data.types.ListType;
 import mchorse.bbs_mod.data.types.MapType;
+import com.mojang.blaze3d.pipeline.RenderPipeline;
 import mchorse.bbs_mod.forms.forms.Form;
 import mchorse.bbs_mod.forms.forms.ModelForm;
 import mchorse.bbs_mod.forms.renderers.utils.MatrixCache;
@@ -828,7 +829,7 @@ public class ModelInstance implements IModelInstance
      * Legacy direct VAO/BOBJ rendering. This is intentionally separate from the CPU pipeline
      * overload so the two render APIs cannot be mixed accidentally.
      */
-    public void renderLegacy(MatrixStack stack, Supplier<ShaderProgram> program, Color color, int light, int overlay, StencilMap stencilMap, ShapeKeys keys, Function<String, Link> textureResolver)
+    public void renderLegacy(MatrixStack stack, Supplier<RenderPipeline> program, Color color, int light, int overlay, StencilMap stencilMap, ShapeKeys keys, Function<String, Link> textureResolver)
     {
         if (this.model instanceof Model model && this.isVAORendered())
         {

@@ -48,12 +48,12 @@ public final class FlatColorTintOverlayPass
         }
         else
         {
-            RenderSystem.enableBlend();
-            RenderSystem.defaultBlendFunc();
-            RenderSystem.enableDepthTest();
-            RenderSystem.depthFunc(GL11.GL_LEQUAL);
-            RenderSystem.depthMask(false);
-            RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
+            GlStateManager._enableBlend();
+            GlStateManager._blendFuncSeparate(770, 771, 1, 0);
+            GlStateManager._enableDepthTest();
+            GlStateManager._depthFunc(GL11.GL_LEQUAL);
+            GlStateManager._depthMask(false);
+            // RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
         }
 
         GL11.glEnable(GL11.GL_POLYGON_OFFSET_FILL);

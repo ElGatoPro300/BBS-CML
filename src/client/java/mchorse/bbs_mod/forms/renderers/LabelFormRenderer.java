@@ -515,7 +515,7 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
 
         int textArgb = this.drawLabelContent(context, consumers, renderer, customFont, content, x, y, letterSpacing, light, color, gradientEnd);
 
-        RenderSystem.enableDepthTest();
+        GlStateManager._enableDepthTest();
 
         this.flushLabelConsumers(consumers);
 
@@ -895,7 +895,7 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
             int tintLight = LightmapTextureManager.MAX_LIGHT_COORDINATE;
             int overlay = OverlayTexture.DEFAULT_UV;
 
-            RenderSystem.disableCull();
+            GlStateManager._disableCull();
 
             for (Map.Entry<RenderLayer, List<LabelTextTintQuadCapture.GlyphQuad>> layerEntry : byLayer.entrySet())
             {
@@ -917,10 +917,10 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
                     this.fillLabelTint(builder, tintMatrix, entry, quad.x3 - centerX, quad.y3 - centerY, quad.u3, quad.v3, overlay, tintLight);
                 }
 
-                BufferRenderer.drawWithGlobalProgram(builder.end());
+                builder.end().close();
             }
 
-            RenderSystem.enableCull();
+            GlStateManager._enableCull();
         });
     }
 
@@ -933,9 +933,9 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
             return;
         }
 
-        layer.startDrawing();
+        // layer.startDrawing();
         this.lastBoundTextTexture = GL11.glGetInteger(GL11.GL_TEXTURE_BINDING_2D);
-        layer.endDrawing();
+        // layer.endDrawing();
     }
 
     private void fillLabelTint(BufferBuilder builder, Matrix4f matrix, MatrixStack.Entry entry, float x, float y, float u, float v, int overlay, int light)

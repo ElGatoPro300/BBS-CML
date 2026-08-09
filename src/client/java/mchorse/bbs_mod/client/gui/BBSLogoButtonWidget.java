@@ -12,7 +12,7 @@ public class BBSLogoButtonWidget extends ButtonWidget
 
     public BBSLogoButtonWidget(int x, int y, int width, int height, ButtonWidget.PressAction onPress)
     {
-        super(x, y, width, height, Text.empty(), onPress, DEFAULT_NARRATION_SUPPLIER);
+        super(x, y, width, height, net.minecraft.screen.ScreenTexts.EMPTY, onPress, DEFAULT_NARRATION_SUPPLIER);
     }
 
     @Override
@@ -39,12 +39,6 @@ public class BBSLogoButtonWidget extends ButtonWidget
         int logoX = x1 + (this.width - logoSize) / 2;
         int logoY = y1 + (this.height - logoSize) / 2;
 
-        RenderSystem.enableBlend();
-        RenderSystem.defaultBlendFunc();
-        RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
-
         context.drawTexture(RenderPipelines.GUI_TEXTURED, LOGO, logoX, logoY, 0F, 0F, logoSize, logoSize, logoSize, logoSize);
-
-        RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
     }
 }

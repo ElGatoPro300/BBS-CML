@@ -29,6 +29,7 @@ import mchorse.bbs_mod.utils.colors.Colors;
 
 import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderContext;
 
+import com.mojang.blaze3d.opengl.GlStateManager;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.render.Camera;
 import net.minecraft.client.util.math.MatrixStack;
@@ -1063,16 +1064,16 @@ public class UITriggerBlockPanel extends UIDashboardPanel implements IFlightSupp
         Vec3d pos = camera.getCameraPos();
 
         Vector3f mouseDirection = CameraUtils.getMouseDirection(
-            RenderSystem.getProjectionMatrix(),
+            mc.gameRenderer.getBasicProjectionMatrix(mc.options.getFov().getValue().floatValue()),
             context.matrices().peek().getPositionMatrix(),
             (int) mc.mouse.getX(), (int) mc.mouse.getY(), 0, 0, mc.getWindow().getWidth(), mc.getWindow().getHeight()
         );
 
         this.hovered = this.getClosestObject(new Vector3d(pos.x, pos.y, pos.z), mouseDirection);
 
-        RenderSystem.enableDepthTest();
-        RenderSystem.enableBlend();
-        RenderSystem.defaultBlendFunc();
+        GlStateManager._enableDepthTest();
+        GlStateManager._enableBlend();
+        GlStateManager._blendFuncSeparate(770, 771, 1, 0);
 
         context.matrices().push();
         context.matrices().translate(-pos.x, -pos.y, -pos.z);
@@ -1083,9 +1084,9 @@ public class UITriggerBlockPanel extends UIDashboardPanel implements IFlightSupp
 
             if (this.entity.region.get())
             {
-                RenderSystem.disableDepthTest();
+                GlStateManager._disableDepthTest();
                 this.renderRegionBox(context.matrices(), this.entity, 1F, 1F, 1F);
-                RenderSystem.enableDepthTest();
+                GlStateManager._enableDepthTest();
             }
         }
 
@@ -1099,8 +1100,8 @@ public class UITriggerBlockPanel extends UIDashboardPanel implements IFlightSupp
 
         context.matrices().pop();
 
-        RenderSystem.enableDepthTest();
-        RenderSystem.disableBlend();
+        GlStateManager._enableDepthTest();
+        GlStateManager._disableBlend();
     }
 
     private void renderBox(MatrixStack stack, TriggerBlockEntity entity, float r, float g, float b)

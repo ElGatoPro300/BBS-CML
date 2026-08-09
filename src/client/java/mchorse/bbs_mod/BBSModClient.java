@@ -757,7 +757,7 @@ public class BBSModClient implements ClientModInitializer
              * depth-occluded. Iris already flushed; paint overlays still run at world end. */
             ShaderOpacityPatch.onAfterVanillaClouds();
 
-            Draw.flushIrisBoxes();
+            // Draw.flushIrisBoxes();
 
             if (Gizmo.INSTANCE.hasDeferred())
             {

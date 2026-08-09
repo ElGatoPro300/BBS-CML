@@ -131,7 +131,7 @@ public class CubicCpuGroupDrawRenderer extends CubicCubeRenderer
 
         if (built != null)
         {
-            BBSShaders.getModelLayer().draw(built);
+            built.close();
         }
     }
 }

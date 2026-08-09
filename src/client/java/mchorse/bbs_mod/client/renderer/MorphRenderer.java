@@ -21,6 +21,7 @@ import mchorse.bbs_mod.ui.morphing.UIMorphingPanel;
 import mchorse.bbs_mod.utils.MatrixStackUtils;
 import mchorse.bbs_mod.utils.interps.Lerps;
 
+import com.mojang.blaze3d.opengl.GlStateManager;
 import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderContext;
 
 import net.minecraft.client.MinecraftClient;
@@ -90,7 +91,7 @@ public class MorphRenderer
                 }
                 else
                 {
-                    DiffuseLighting.enableGuiDepthLighting();
+                    // DiffuseLighting.enableGuiDepthLighting();
                 }
 
                 float bodyYaw = /* 1.21.11: prevBodyYaw removed */ player.bodyYaw;
@@ -121,7 +122,7 @@ public class MorphRenderer
                 BBSRendering.restoreWorldRenderState();
                 /* Prior morph pipeline left depth disabled after the form draw; keep that so
                  * GPU-skinned BOBJ / procedural limbs keep matching the working entity pass. */
-                RenderSystem.disableDepthTest();
+                GlStateManager._disableDepthTest();
             }
 
             return true;
@@ -306,7 +307,7 @@ public class MorphRenderer
             matrixStack.pop();
 
             BBSRendering.restoreWorldRenderState();
-            RenderSystem.disableDepthTest();
+            GlStateManager._disableDepthTest();
 
             return true;
         }

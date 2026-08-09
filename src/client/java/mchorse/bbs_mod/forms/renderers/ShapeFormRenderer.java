@@ -90,31 +90,14 @@ public class ShapeFormRenderer extends FormRenderer<ShapeForm>
         /* Shading fix for UI */
         MatrixStackUtils.invertUiNormalY(stack);
 
-        Vector3f light0 = new Vector3f(0.85F, 0.85F, -1F).normalize();
-        Vector3f light1 = new Vector3f(-0.85F, 0.85F, 1F).normalize();
-        // RenderSystem.setupLevelDiffuseLighting(light0, light1);
-
-        Supplier<ShaderProgram> shaderSupplier = () -> {
-            RenderSystem.setShader(ShaderProgramKeys.RENDERTYPE_ENTITY_TRANSLUCENT);
-            return RenderSystem.getShader();
-        };
-
-        this.renderShape(stack, shaderSupplier, OverlayTexture.DEFAULT_UV, LightmapTextureManager.MAX_LIGHT_COORDINATE, null);
-
-        // DiffuseLighting.disableGuiDepthLighting();
-
+        this.renderShape(stack, null, OverlayTexture.DEFAULT_UV, LightmapTextureManager.MAX_LIGHT_COORDINATE, null);
         stack.pop();
     }
 
     @Override
     protected void render3D(FormRenderingContext context)
     {
-        Supplier<ShaderProgram> shader = () -> {
-            RenderSystem.setShader(ShaderProgramKeys.RENDERTYPE_ENTITY_TRANSLUCENT);
-            return RenderSystem.getShader();
-        };
-
-        this.renderShape(context.stack, shader, context.overlay, context.light, context);
+        this.renderShape(context.stack, null, context.overlay, context.light, context);
     }
 
     private void renderShape(MatrixStack stack, Supplier<ShaderProgram> shader, int overlay, int light, FormRenderingContext renderContext)
@@ -138,9 +121,7 @@ public class ShapeFormRenderer extends FormRenderer<ShapeForm>
             }
         }
 
-        RenderSystem.setShader(shader.get());
-        RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
-        RenderSystem.enableBlend();
+        GlStateManager._enableBlend();
 
         GlowSettings glowSettings = this.form.glowSettings.get();
         Color legacyGlow = this.form.glowingColor.get();
@@ -347,9 +328,7 @@ public class ShapeFormRenderer extends FormRenderer<ShapeForm>
                 glowBuilder.end().close();
 
                 this.unshadedVertices = false;
-                RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
-                RenderSystem.setShader(shader.get());
-                RenderSystem.depthMask(true);
+                GlStateManager._depthMask(true);
             }
         }
 
@@ -1168,10 +1147,10 @@ public class ShapeFormRenderer extends FormRenderer<ShapeForm>
                 BufferBuilder builder = tessellator.begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL);
                 int paintLight = LightmapTextureManager.MAX_LIGHT_COORDINATE;
 
-                RenderSystem.disableCull();
+                GlStateManager._disableCull();
                 this.buildShapeGeometry(builder, stack, type, paint, overlay, paintLight);
-                BufferRenderer.drawWithGlobalProgram(builder.end());
-                RenderSystem.enableCull();
+                builder.end().close();
+                GlStateManager._enableCull();
             }
         );
 
@@ -1234,10 +1213,10 @@ public class ShapeFormRenderer extends FormRenderer<ShapeForm>
                 BufferBuilder builder = tessellator.begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL);
                 int tintLight = LightmapTextureManager.MAX_LIGHT_COORDINATE;
 
-                RenderSystem.disableCull();
+                GlStateManager._disableCull();
                 this.buildShapeGeometry(builder, stack, type, formTintColor, overlay, tintLight);
-                BufferRenderer.drawWithGlobalProgram(builder.end());
-                RenderSystem.enableCull();
+                builder.end().close();
+                GlStateManager._enableCull();
             }
         );
 

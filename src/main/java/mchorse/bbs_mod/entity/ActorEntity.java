@@ -57,6 +57,11 @@ public class ActorEntity extends LivingEntity implements IEntityFormProvider
     private MCEntity entity = new MCEntity(this);
     private Form form;
 
+    public MCEntity getBbsEntity()
+    {
+        return this.entity;
+    }
+
     private Map<EquipmentSlot, ItemStack> equipment = new HashMap<>();
 
     private boolean lastHitboxEnabled;

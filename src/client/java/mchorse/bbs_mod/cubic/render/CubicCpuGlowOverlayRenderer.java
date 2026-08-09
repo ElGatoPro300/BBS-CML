@@ -127,7 +127,7 @@ public class CubicCpuGlowOverlayRenderer extends CubicCubeRenderer
 
         if (built != null)
         {
-            BBSShaders.getModelLayer().draw(built);
+            built.close();
         }
     }
 

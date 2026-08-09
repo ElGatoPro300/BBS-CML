@@ -340,8 +340,8 @@ public class UIOverlayPanel extends UIElement
 
         if (animateScale)
         {
-            context.render.batcher.flushDraw();
-            context.render.batcher.getContext().getMatrices().pop();
+            context.batcher.flushDraw();
+            context.batcher.getContext().getMatrices().popMatrix();
         }
     }
 

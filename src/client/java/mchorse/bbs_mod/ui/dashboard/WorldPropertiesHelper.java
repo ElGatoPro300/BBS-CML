@@ -151,21 +151,6 @@ public class WorldPropertiesHelper
         MinecraftClient mc = MinecraftClient.getInstance();
         MinecraftServer server = mc.getServer();
 
-        if (server != null)
-        {
-            server.execute(() ->
-            {
-                ServerWorld world = server.getOverworld();
-
-                if (world != null)
-                {
-                    world.getGameRules().get(key).set(value, server);
-                }
-            });
-
-            return;
-        }
-
         sendSilentCommand("gamerule " + key + " " + value);
     }
 
@@ -252,23 +237,6 @@ public class WorldPropertiesHelper
     {
         MinecraftClient mc = MinecraftClient.getInstance();
         MinecraftServer server = mc.getServer();
-
-        if (server != null)
-        {
-            ServerWorld world = server.getOverworld();
-
-            if (world != null)
-            {
-                try
-                {
-                    return world.getGameRules().getBoolean(key);
-                }
-                catch (Exception e)
-                {
-                    return fallback;
-                }
-            }
-        }
 
         return fallback;
     }

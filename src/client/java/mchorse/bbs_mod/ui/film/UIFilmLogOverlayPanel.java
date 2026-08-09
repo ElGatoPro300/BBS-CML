@@ -163,7 +163,7 @@ public class UIFilmLogOverlayPanel extends UIOverlayPanel
                 {
                     for (PlayerListEntry entry : mc.getNetworkHandler().getPlayerList())
                     {
-                        if (entry.getProfile().getName().equalsIgnoreCase(this.contributor.name.get()))
+                        if (entry.getProfile().name().equalsIgnoreCase(this.contributor.name.get()))
                         {
                             profile = entry.getProfile();
                             break;
@@ -177,7 +177,7 @@ public class UIFilmLogOverlayPanel extends UIOverlayPanel
                     profile = new GameProfile(uuid, this.contributor.name.get());
                 }
 
-                this.skinTexture = mc.getSkinProvider().supplySkinTextures(profile, true).get().texture();
+                this.skinTexture = mc.getSkinProvider().supplySkinTextures(profile, true).get().body().id();
             }
             catch (Exception e)
             {}

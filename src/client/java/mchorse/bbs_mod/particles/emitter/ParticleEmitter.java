@@ -560,7 +560,8 @@ public class ParticleEmitter
 
             if (built != null)
             {
-                layer.draw(built);
+                RenderLayer drawLayer = layer != null ? layer : BBSShaders.getParticlesLayer();
+                drawLayer.draw(built);
             }
         }
 

@@ -8,6 +8,7 @@ import mchorse.bbs_mod.forms.FormUtilsClient;
 import mchorse.bbs_mod.forms.renderers.FormRenderType;
 import mchorse.bbs_mod.forms.renderers.FormRenderingContext;
 
+import com.mojang.blaze3d.opengl.GlStateManager;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.render.TexturedRenderLayers;
 import net.minecraft.client.render.command.OrderedRenderCommandQueue;
@@ -110,8 +111,8 @@ public class ActorEntityRenderer extends EntityRenderer<ActorEntity, ActorEntity
         }
 
         BBSRendering.restoreWorldRenderState();
-        RenderSystem.disableDepthTest();
-        RenderSystem.disableBlend();
+        GlStateManager._disableDepthTest();
+        GlStateManager._disableBlend();
 
         matrices.pop();
 

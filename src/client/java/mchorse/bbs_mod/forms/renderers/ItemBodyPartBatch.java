@@ -84,7 +84,7 @@ public final class ItemBodyPartBatch
             return false;
         }
 
-        BakedModel bakedModel = client.getBakedModelManager().getModel(new net.minecraft.client.util.ModelIdentifier(net.minecraft.registry.Registries.ITEM.getId(itemStack.getItem()), "inventory"));
+        Object bakedModel = itemStack.getItem();
 
         CustomVertexConsumerProvider consumers = FormUtilsClient.getProvider();
         boolean flushOnce = context.stencilMap == null;
@@ -162,7 +162,7 @@ public final class ItemBodyPartBatch
                     BlockFormRenderer.color.mul(item.color.get());
 
                     consumers.setSubstitute(itemRenderer.getMainConsumer(BlockFormRenderer.color, resolvedPaint));
-                    ItemRenderHelper.renderItem(context.entity instanceof LivingEntity le ? le : null, itemStack, mode, leftHand, context.stack, consumers, context.entity != null ? context.entity.getWorld() : client.world, context.light, context.overlay, 0);
+                    ItemRenderHelper.renderItem(itemStack, mode, context.stack, context.light, context.overlay, context.entity != null ? context.entity.getWorld() : client.world, context.entity instanceof LivingEntity le ? le : null);
 
                     if (context.isPicking())
                     {

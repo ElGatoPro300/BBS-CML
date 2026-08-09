@@ -15,6 +15,7 @@ import mchorse.bbs_mod.utils.iris.FormColorGradePatch;
 import mchorse.bbs_mod.utils.iris.ShaderOpacityPatch;
 
 import net.minecraft.client.MinecraftClient;
+import com.mojang.blaze3d.pipeline.RenderPipeline;
 import net.minecraft.client.gl.GlUniform;
 import net.minecraft.client.gl.ShaderProgram;
 import net.minecraft.client.render.GameRenderer;
@@ -1700,7 +1701,7 @@ public class ModelVAORenderer
         render(null, modelVAO, stack, r, g, b, a, light, overlay);
     }
 
-    public static void render(ShaderProgram shader, IModelVAO modelVAO, MatrixStack stack, float r, float g, float b, float a, int light, int overlay)
+    public static void render(RenderPipeline shader, IModelVAO modelVAO, MatrixStack stack, float r, float g, float b, float a, int light, int overlay)
     {
         int currentVAO = GL30.glGetInteger(GL30.GL_VERTEX_ARRAY_BINDING);
         int currentElementArrayBuffer = GL30.glGetInteger(GL30.GL_ELEMENT_ARRAY_BUFFER_BINDING);
@@ -1726,66 +1727,38 @@ public class ModelVAORenderer
         GL30.glBindBuffer(GL30.GL_ELEMENT_ARRAY_BUFFER, currentElementArrayBuffer);
     }
 
-    private static void setUniform1f(ShaderProgram shader, String name, float val)
+    private static void setUniform1f(RenderPipeline shader, String name, float val)
     {
-        if (shader == null) return;
-        int loc = GL30.glGetUniformLocation(shader.getGlRef(), name);
-        if (loc != -1) GL30.glUniform1f(loc, val);
     }
 
-    private static void setUniform1i(ShaderProgram shader, String name, int val)
+    private static void setUniform1i(RenderPipeline shader, String name, int val)
     {
-        if (shader == null) return;
-        int loc = GL30.glGetUniformLocation(shader.getGlRef(), name);
-        if (loc != -1) GL30.glUniform1i(loc, val);
     }
 
-    private static void setUniform3f(ShaderProgram shader, String name, float x, float y, float z)
+    private static void setUniform3f(RenderPipeline shader, String name, float x, float y, float z)
     {
-        if (shader == null) return;
-        int loc = GL30.glGetUniformLocation(shader.getGlRef(), name);
-        if (loc != -1) GL30.glUniform3f(loc, x, y, z);
     }
 
-    private static void setUniform4f(ShaderProgram shader, String name, float x, float y, float z, float w)
+    private static void setUniform4f(RenderPipeline shader, String name, float x, float y, float z, float w)
     {
-        if (shader == null) return;
-        int loc = GL30.glGetUniformLocation(shader.getGlRef(), name);
-        if (loc != -1) GL30.glUniform4f(loc, x, y, z, w);
     }
 
-    private static void setUniformMatrix4f(ShaderProgram shader, String name, Matrix4f mat)
+    private static void setUniformMatrix4f(RenderPipeline shader, String name, Matrix4f mat)
     {
-        if (shader == null) return;
-        int loc = GL30.glGetUniformLocation(shader.getGlRef(), name);
-        if (loc != -1)
-        {
-            float[] arr = new float[16];
-            mat.get(arr);
-            GL30.glUniformMatrix4fv(loc, false, arr);
-        }
     }
 
-    private static void setUniformMatrix3f(ShaderProgram shader, String name, Matrix3f mat)
+    private static void setUniformMatrix3f(RenderPipeline shader, String name, Matrix3f mat)
     {
-        if (shader == null) return;
-        int loc = GL30.glGetUniformLocation(shader.getGlRef(), name);
-        if (loc != -1)
-        {
-            float[] arr = new float[9];
-            mat.get(arr);
-            GL30.glUniformMatrix3fv(loc, false, arr);
-        }
     }
 
-    public static void setupUniforms(MatrixStack stack, ShaderProgram shader)
+    public static void setupUniforms(MatrixStack stack, RenderPipeline shader)
     {
-
+        /*
         if (colorGradeOverlayPass && gradeSceneColor != null && gradeSceneColor.isValid())
         {
             RenderSystem.setShaderTexture(3, gradeSceneColor.id);
         }
-
+        */
 
         setupUniforms(stack, shader, false);
     }
@@ -1796,14 +1769,13 @@ public class ModelVAORenderer
      * {@code drawWithGlobalProgram} keeps only the camera matrix), and NormalMat must stay
      * identity or diffuse lighting is applied twice.
      */
-    public static void setupUniformsCpuPretransformed(ShaderProgram shader)
+    public static void setupUniformsCpuPretransformed(RenderPipeline shader)
     {
         setupUniforms(null, shader, true);
     }
 
-    private static void setupUniforms(MatrixStack stack, ShaderProgram shader, boolean cpuPretransformed)
+    private static void setupUniforms(MatrixStack stack, RenderPipeline shader, boolean cpuPretransformed)
     {
-
         if (cpuPretransformed)
         {
             if (usesCapturedModelView())
@@ -1815,35 +1787,19 @@ public class ModelVAORenderer
                 setUniformMatrix4f(shader, "ModelViewMat", RenderSystem.getModelViewMatrix());
             }
         }
-        else
-        {
-            if (cpuPretransformed && stack == null)
-            {
-                normalUniform.set(RenderSystem.getModelViewMatrix().normal(new Matrix3f()));
-            }
-            else if (stack != null)
-            {
-                normalUniform.set(stack.peek().getNormalMatrix());
-            }
-        }
 
         if (BBSRendering.isIrisShadersEnabled())
         {
-            setUniformMatrix3f(shader, "NormalMat", modelView.normal(new Matrix3f()));
+            setUniformMatrix3f(shader, "NormalMat", new Matrix4f(RenderSystem.getModelViewMatrix()).normal(new Matrix3f()));
         }
-        else
+        else if (stack != null)
         {
             setUniformMatrix3f(shader, "NormalMat", stack.peek().getNormalMatrix());
         }
 
         setUniform4f(shader, "PaintColor", paintR, paintG, paintB, paintStrength);
 
-        int glowingLoc = GL30.glGetUniformLocation(shader.getGlRef(), "GlowingColor");
-        glowingUniformActive = glowingLoc != -1;
-        if (glowingUniformActive)
-        {
-            GL30.glUniform4f(glowingLoc, glowR, glowG, glowB, glowStrength);
-        }
+        /* 1.21.11: GlowingColor set via RenderPipeline */
 
         setUniform1f(shader, "GlowPaintOnly", glowPaintOnly ? 1F : 0F);
         setUniform1f(shader, "PaintOverlay", paintOverlayPass ? 1F : 0F);
@@ -1871,10 +1827,10 @@ public class ModelVAORenderer
         setUniform4f(shader, "FormColorTint", formColorR, formColorG, formColorB, formColorA);
         setUniform4f(shader, "FormColorGrade", formColorGradeBrightness, formColorGradeContrast, formColorGradeHue, formColorGradeSaturation);
 
-        gradeBrightnessMask.upload(shader, "GradeBrightness");
+        /* gradeBrightnessMask.upload(shader, "GradeBrightness");
         gradeContrastMask.upload(shader, "GradeContrast");
         gradeHueMask.upload(shader, "GradeHue");
-        gradeSaturationMask.upload(shader, "GradeSaturation");
+        gradeSaturationMask.upload(shader, "GradeSaturation"); */
 
         setUniform1f(shader, "ColorTintMasked", colorTintMasked ? 1F : 0F);
         setUniform1f(shader, "ColorTintOverlay", colorTintOverlayPass ? 1F : 0F);
@@ -1898,7 +1854,7 @@ public class ModelVAORenderer
         setUniform4f(shader, "ColorModulator", 1F, 1F, 1F, 1F);
     }
 
-    private static void setModelViewUniform(MatrixStack stack, ShaderProgram shader)
+    private static void setModelViewUniform(MatrixStack stack, RenderPipeline shader)
     {
         Matrix4f modelView;
 

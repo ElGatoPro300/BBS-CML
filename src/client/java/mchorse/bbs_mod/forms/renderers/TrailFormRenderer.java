@@ -86,6 +86,8 @@ public class TrailFormRenderer extends FormRenderer<TrailForm> implements ITicka
         Map<FormRenderType, ArrayDeque<Trail>> byType = this.recordsByInstance.computeIfAbsent(trailInstance, (k) -> new HashMap<>());
 
         return byType.computeIfAbsent(type, (k) -> new ArrayDeque<>());
+    }
+
     private static RenderLayer getTrailLayer()
     {
         if (trailPipeline == null)

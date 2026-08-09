@@ -78,6 +78,8 @@ public class Scroll
     private float scrollbarRatio;
     private double targetScroll;
     private boolean contentFitAnimating;
+    public BooleanSupplier smoothScrolling;
+    public IntSupplier wheelScrollStep;
 
     public static void bar(Batcher2D batcher, int x1, int y1, int x2, int y2, int color)
     {

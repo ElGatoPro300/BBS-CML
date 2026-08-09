@@ -59,52 +59,6 @@ public class BBSShaders
 
     public static void setup()
     {
-        if (model != null) model.close();
-        if (subtitles != null) subtitles.close();
-        if (subtitles != null) subtitles.close();
-
-        if (pickerPreview != null) pickerPreview.close();
-        if (pickerBillboard != null) pickerBillboard.close();
-        if (pickerBillboardNoShading != null) pickerBillboardNoShading.close();
-        if (pickerParticles != null) pickerParticles.close();
-        if (pickerModels != null) pickerModels.close();
-        if (blockPaintOverlay != null) blockPaintOverlay.close();
-        if (flatPaintOverlay != null) flatPaintOverlay.close();
-        if (blockColorTintOverlay != null) blockColorTintOverlay.close();
-        if (flatColorTintOverlay != null) flatColorTintOverlay.close();
-
-        ShaderLoader loader = MinecraftClient.getInstance().getShaderLoader();
-        Defines defines = Defines.EMPTY;
-
-        ShaderProgramKey modelKey = new ShaderProgramKey(Identifier.of(BBSMod.MOD_ID, "core/model"), VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL, defines);
-        ShaderProgramKey multiLinkKey = new ShaderProgramKey(Identifier.of(BBSMod.MOD_ID, "core/multilink"), VertexFormats.POSITION_TEXTURE_COLOR, defines);
-        ShaderProgramKey subtitlesKey = new ShaderProgramKey(Identifier.of(BBSMod.MOD_ID, "core/subtitles"), VertexFormats.POSITION_TEXTURE_COLOR, defines);
-
-        ShaderProgramKey pickerPreviewKey = new ShaderProgramKey(Identifier.of(BBSMod.MOD_ID, "core/picker_preview"), VertexFormats.POSITION_TEXTURE_COLOR, defines);
-        ShaderProgramKey pickerBillboardKey = new ShaderProgramKey(Identifier.of(BBSMod.MOD_ID, "core/picker_billboard"), VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL, defines);
-        ShaderProgramKey pickerBillboardNoShadingKey = new ShaderProgramKey(Identifier.of(BBSMod.MOD_ID, "core/picker_billboard_no_shading"), VertexFormats.POSITION_TEXTURE_LIGHT_COLOR, defines);
-        ShaderProgramKey pickerParticlesKey = new ShaderProgramKey(Identifier.of(BBSMod.MOD_ID, "core/picker_particles"), VertexFormats.POSITION_COLOR_TEXTURE_LIGHT, defines);
-        ShaderProgramKey pickerModelsKey = new ShaderProgramKey(Identifier.of(BBSMod.MOD_ID, "core/picker_models"), VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL, defines);
-
-        ShaderProgramKey blockPaintOverlayKey = new ShaderProgramKey(Identifier.of(BBSMod.MOD_ID, "core/block_paint_overlay"), VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL, defines);
-        ShaderProgramKey flatPaintOverlayKey = new ShaderProgramKey(Identifier.of(BBSMod.MOD_ID, "core/flat_paint_overlay"), VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL, defines);
-        ShaderProgramKey blockColorTintOverlayKey = new ShaderProgramKey(Identifier.of(BBSMod.MOD_ID, "core/block_color_tint_overlay"), VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL, defines);
-        ShaderProgramKey flatColorTintOverlayKey = new ShaderProgramKey(Identifier.of(BBSMod.MOD_ID, "core/flat_color_tint_overlay"), VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL, defines);
-
-        model = loader.getOrCreateProgram(modelKey);
-        multiLink = loader.getOrCreateProgram(multiLinkKey);
-        subtitles = loader.getOrCreateProgram(subtitlesKey);
-
-        pickerPreview = loader.getOrCreateProgram(pickerPreviewKey);
-        pickerBillboard = loader.getOrCreateProgram(pickerBillboardKey);
-        pickerBillboardNoShading = loader.getOrCreateProgram(pickerBillboardNoShadingKey);
-        pickerParticles = loader.getOrCreateProgram(pickerParticlesKey);
-        pickerModels = loader.getOrCreateProgram(pickerModelsKey);
-        blockPaintOverlay = loader.getOrCreateProgram(blockPaintOverlayKey);
-        flatPaintOverlay = loader.getOrCreateProgram(flatPaintOverlayKey);
-        blockColorTintOverlay = loader.getOrCreateProgram(blockColorTintOverlayKey);
-        flatColorTintOverlay = loader.getOrCreateProgram(flatColorTintOverlayKey);
-
         for (Runnable runnable : LOADERS)
         {
             runnable.run();
@@ -156,7 +110,7 @@ public class BBSShaders
         return PARTICLES;
     }
 
-    public static ShaderProgram getFlatPaintOverlayProgram()
+    public static RenderLayer getMultilinkLayer()
     {
         if (multiLinkLayer == null)
         {
@@ -166,22 +120,21 @@ public class BBSShaders
         return multiLinkLayer;
     }
 
-    public static ShaderProgram getBlockColorTintOverlayProgram()
-    {
-        return blockColorTintOverlay;
-    }
-
-    public static ShaderProgram getFlatColorTintOverlayProgram()
+    public static RenderLayer getSubtitlesLayer()
     {
         if (subtitlesLayer == null)
         {
             subtitlesLayer = layer("subtitles", SUBTITLES, false);
+        }
 
         return subtitlesLayer;
     }
 
     public static RenderLayer getPickerPreviewLayer()
     {
+        if (pickerPreviewLayer == null)
+        {
+            pickerPreviewLayer = layer("picker_preview", PICKER_PREVIEW, false);
         }
 
         return pickerPreviewLayer;

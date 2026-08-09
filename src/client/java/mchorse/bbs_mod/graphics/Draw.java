@@ -190,6 +190,11 @@ public class Draw
         builder.vertex(mat, x4, y4, z4).color(r, g, b, a);
     }
 
+    public static void fillBoxTo(BufferBuilder builder, MatrixStack stack, double x1, double y1, double z1, double x2, double y2, double z2, float t, float r, float g, float b, float a)
+    {
+        fillBox(builder, stack, (float) Math.min(x1, x2) - t, (float) Math.min(y1, y2) - t, (float) Math.min(z1, z2) - t, (float) Math.max(x1, x2) + t, (float) Math.max(y1, y2) + t, (float) Math.max(z1, z2) + t, r, g, b, a);
+    }
+
     public static void fillBox(BufferBuilder builder, MatrixStack stack, float x1, float y1, float z1, float x2, float y2, float z2, float r, float g, float b)
     {
         fillBox(builder, stack, x1, y1, z1, x2, y2, z2, r, g, b, 1F);

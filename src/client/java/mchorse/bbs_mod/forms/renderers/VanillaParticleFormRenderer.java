@@ -407,7 +407,7 @@ public class VanillaParticleFormRenderer extends FormRenderer<VanillaParticleFor
                         }
                         else if (particleObj == null && world != null)
                         {
-                            world.addImportantParticle(effect, x, y, z, v.x, v.y, v.z);
+                            world.addImportantParticleClient(effect, x, y, z, v.x, v.y, v.z);
                         }
                     }
 
