@@ -20,12 +20,16 @@ public class UIAudioClipRenderer extends UIClipRenderer<AudioClip>
         {
             SoundBuffer player = BBSModClient.getSounds().get(link, true);
 
-            if (player != null)
+            if (player != null && player.getWaveform() != null)
             {
                 int offset = clip.offset.get();
 
                 context.batcher.box(area.x, area.y, area.ex(), area.ey(), Colors.mulRGB(color, 0.6F));
                 player.getWaveform().render(context.batcher, Colors.WHITE, area.x, area.y, area.w, area.h, TimeUtils.toSeconds(offset), TimeUtils.toSeconds(offset + clip.duration.get()));
+            }
+            else
+            {
+                super.renderBackground(context, color, clip, area, selected, current);
             }
         }
         else
