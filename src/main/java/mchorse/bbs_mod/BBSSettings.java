@@ -772,8 +772,8 @@ public class BBSSettings
         replayContextOptions = builder.getInt("compacted_options", 0, 0, 2);
         editorReplaySprintParticles = builder.getBoolean("replay_sprint_particles", false);
         editorReplayStepSound = builder.getBoolean("replay_step_sound", false);
-        editorActorPausedSwipeLoop = builder.getBoolean("actor_paused_swipe_loop", true);
-        editorActorPauseAnimations = builder.getBoolean("actor_pause_animations", true);
+        editorActorPausedSwipeLoop = builder.getBoolean("actor_paused_swipe_loop", false);
+        editorActorPauseAnimations = builder.getBoolean("actor_pause_animations", false);
         editorActorPausedRunInPlace = builder.getBoolean("actor_paused_run_in_place", false);
         actorDamageFlash = builder.getBoolean("actor_damage_flash", false);
         actorDamageAnimation = builder.getBoolean("actor_damage_animation", true);
