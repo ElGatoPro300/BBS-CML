@@ -99,6 +99,14 @@ public abstract class Form extends ValueGroup
     public final List<ValueColor> additionalColors = new ArrayList<>();
     private transient boolean colorOverlaysRegistered;
 
+    /**
+     * Extra Paint tracks (same stacking idea as color overlays). Registered on demand via
+     * {@link #ensurePaintOverlay(int)}.
+     */
+    public final ValuePaintSettings paintOverlay = new ValuePaintSettings("paint_overlay", new PaintSettings());
+    public final List<ValuePaintSettings> additionalPaints = new ArrayList<>();
+    private transient boolean paintOverlaysRegistered;
+
     /* Hitbox properties */
     public final ValueBoolean hitbox = new ValueBoolean("hitbox", false);
     public final ValueFloat hitboxWidth = new ValueFloat("hitboxWidth", 0.5F);
@@ -726,6 +734,34 @@ public abstract class Form extends ValueGroup
         return this.additionalColors.get(numberedIndex);
     }
 
+    /**
+     * Ensure {@code paint_overlay} / {@code paint_overlayN}.
+     */
+    public ValuePaintSettings ensurePaintOverlay(int numberedIndex)
+    {
+        if (!this.paintOverlaysRegistered)
+        {
+            this.paintOverlaysRegistered = true;
+            this.add(this.paintOverlay);
+        }
+
+        if (numberedIndex < 0)
+        {
+            return this.paintOverlay;
+        }
+
+        while (this.additionalPaints.size() <= numberedIndex)
+        {
+            int i = this.additionalPaints.size();
+            ValuePaintSettings overlay = new ValuePaintSettings("paint_overlay" + i, new PaintSettings());
+
+            this.additionalPaints.add(overlay);
+            this.add(overlay);
+        }
+
+        return this.additionalPaints.get(numberedIndex);
+    }
+
     public ValueIllusion ensureIllusionOverlay(int numberedIndex)
     {
         if (numberedIndex < 0)
@@ -811,6 +847,11 @@ public abstract class Form extends ValueGroup
             this.ensureColorOverlay(last);
         }
 
+        if (this.paintOverlaysRegistered)
+        {
+            this.ensurePaintOverlay(last);
+        }
+
         if (this instanceof ModelForm modelForm)
         {
             modelForm.ensurePoseOverlay(last);
@@ -892,6 +933,68 @@ public abstract class Form extends ValueGroup
             target.contrastTransform = overlay.contrastTransform == null ? null : overlay.contrastTransform.copy();
             target.hueTransform = overlay.hueTransform == null ? null : overlay.hueTransform.copy();
             target.saturationTransform = overlay.saturationTransform == null ? null : overlay.saturationTransform.copy();
+        }
+    }
+
+    /**
+     * Base {@code paint} plus stacked paint overlays.
+     */
+    public PaintSettings getFormPaintSettings()
+    {
+        return this.composePaintOverlays(this.paintSettings.get());
+    }
+
+    /**
+     * Stacks registered paint overlays onto {@code base}. Neutral overlays (intensity 0, no
+     * transform) are skipped.
+     */
+    public PaintSettings composePaintOverlays(PaintSettings base)
+    {
+        PaintSettings out = base == null ? new PaintSettings() : base.copy();
+
+        if (!this.paintOverlaysRegistered)
+        {
+            return out;
+        }
+
+        this.applyPaintOverlay(out, this.paintOverlay.get());
+
+        for (ValuePaintSettings overlay : this.additionalPaints)
+        {
+            this.applyPaintOverlay(out, overlay.get());
+        }
+
+        return out;
+    }
+
+    private void applyPaintOverlay(PaintSettings target, PaintSettings overlay)
+    {
+        if (overlay == null || target == null)
+        {
+            return;
+        }
+
+        float intensity = PaintSettings.clampIntensity(overlay.intensity);
+        boolean hasMask = overlay.transform != null && overlay.transform.isActive();
+
+        if (Math.abs(intensity) <= 0.001F && !hasMask)
+        {
+            return;
+        }
+
+        if (Math.abs(intensity) > 0.001F)
+        {
+            float blend = Math.abs(intensity);
+
+            target.r = Lerps.lerp(target.r, overlay.r, blend);
+            target.g = Lerps.lerp(target.g, overlay.g, blend);
+            target.b = Lerps.lerp(target.b, overlay.b, blend);
+            target.intensity = PaintSettings.clampIntensity(target.intensity + intensity * (1F - Math.abs(target.intensity)));
+        }
+
+        if (hasMask)
+        {
+            target.transform = overlay.transform.copy();
         }
     }
 

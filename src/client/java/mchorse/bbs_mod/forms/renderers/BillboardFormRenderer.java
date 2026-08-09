@@ -249,7 +249,7 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
 
     private void renderQuad(VertexFormat format, Texture texture, Supplier<ShaderProgram> shader, MatrixStack matrices, int overlay, int light, int overlayColor, float transition, Camera camera, boolean invertY, boolean modelRenderer, float alphaFactor, FormRenderingContext deferContext, Link textureLink)
     {
-        Color storedFormColor = this.form.color.get();
+        Color storedFormColor = this.form.getFormColor();
         boolean hasColorAdjustments = storedFormColor != null && storedFormColor.hasColorAdjustments();
         boolean colorTransformWanted = FormColorEffects.wantsColorTransformMask(storedFormColor);
         Color color = new Color().set(overlayColor, true);
@@ -286,7 +286,7 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
 
         boolean shadowPass = shadowPassEarly;
 
-        FormColorEffects.applyShadowPassColorFix(color, this.form.color.get(), this.form.paintSettings.get(), this.form.paintColor.get(), shadowPass);
+        FormColorEffects.applyShadowPassColorFix(color, this.form.getFormColor(), this.form.getFormPaintSettings(), this.form.paintColor.get(), shadowPass);
 
         if (color.a <= 0.001F && !shadowPass)
         {
@@ -294,7 +294,7 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
         }
 
         /* Main pass: negative paint only; positive paint is drawn in a separate overlay pass */
-        PaintSettings paintSettings = this.form.paintSettings.get();
+        PaintSettings paintSettings = this.form.getFormPaintSettings();
         Color legacyPaint = this.form.paintColor.get();
         float paintStrength = paintSettings.resolveIntensity(legacyPaint);
 
@@ -633,7 +633,7 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
             if (modelRenderer)
             {
                 /* Form editor preview: draw paint immediately (no Iris world deferral). */
-                this.renderPaintOverlay(texture, shader, matrices, OverlayTexture.DEFAULT_UV, resolvedPaint, color.a, this.form.paintSettings.get().transform, glowSettings, legacyGlow, glowIntensity);
+                this.renderPaintOverlay(texture, shader, matrices, OverlayTexture.DEFAULT_UV, resolvedPaint, color.a, this.form.getFormPaintSettings().transform, glowSettings, legacyGlow, glowIntensity);
             }
             else
             {
@@ -783,7 +783,7 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
         localQuad.copy(quad);
         localUvQuad.copy(uvQuad);
 
-        EffectTransform paintTransform = this.form.paintSettings.get().transform.copy();
+        EffectTransform paintTransform = this.form.getFormPaintSettings().transform.copy();
 
         ModelVAORenderer.submitPaintOverlay(false, () ->
         {

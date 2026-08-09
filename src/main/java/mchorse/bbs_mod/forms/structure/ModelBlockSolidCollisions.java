@@ -34,8 +34,8 @@ import java.util.WeakHashMap;
  */
 public final class ModelBlockSolidCollisions
 {
-    /** Hitboxes shorter than this are climbable via boosted step height (auto-step / auto-jump feel). */
-    public static final float CLIMB_STEP_HEIGHT = 1.0F;
+    /** Hitboxes up to this height (e.g. 0.9) are climbable via boosted step; full 1-block ledges are not. */
+    public static final float CLIMB_STEP_HEIGHT = 0.9F;
 
     private static final Set<ModelBlockEntity> ACTIVE = Collections.newSetFromMap(new WeakHashMap<>());
     private static final Object ACTIVE_LOCK = new Object();
@@ -358,8 +358,9 @@ public final class ModelBlockSolidCollisions
     }
 
     /**
-     * Raise step height to 1 block when standing against short solid model/structure hitboxes
-     * so the player auto-steps instead of getting stuck.
+     * Raise step height when standing against short solid model/structure hitboxes
+     * (up to {@link #CLIMB_STEP_HEIGHT}) so the player auto-steps; 1-block-tall
+     * ledges stay blocking.
      */
     public static float boostStepHeight(Entity entity, float stepHeight)
     {

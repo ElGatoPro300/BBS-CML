@@ -65,6 +65,6 @@ public class VideoForm extends Form
     {
         String path = this.video.get();
 
-        return path == null || path.isEmpty() ? "none" : path;
+        return path == null || path.isEmpty() ? "video" : path;
     }
 }

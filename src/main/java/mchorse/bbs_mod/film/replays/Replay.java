@@ -330,6 +330,30 @@ public class Replay extends ValueGroup
         this.modelTrackOrder.add(at, trackId);
         this.modelTrackOrderExplicit = true;
 
+        /* Block Repeat palette row drops the full XYZ family so the Repeat group appears. */
+        if ("repeat_x".equals(ModelTrackIds.leafTrackId(trackId)))
+        {
+            for (String axis : new String[] {"repeat_y", "repeat_z"})
+            {
+                String sibling = ModelTrackIds.qualifyTrackId(path, axis);
+
+                if (this.modelTrackOrder.contains(sibling))
+                {
+                    continue;
+                }
+
+                if (root != null)
+                {
+                    ModelTrackIds.ensureChannel(this, root, sibling);
+                }
+
+                int siblingAt = Math.min(at + 1, this.modelTrackOrder.size());
+
+                this.modelTrackOrder.add(siblingAt, sibling);
+                at = siblingAt;
+            }
+        }
+
         return trackId;
     }
 

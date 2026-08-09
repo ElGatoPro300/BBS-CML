@@ -157,17 +157,48 @@ public class UITextarea <T extends TextLine> extends UIElement implements IFocus
 
     public void setText(String text)
     {
+        if (text == null)
+        {
+            text = "";
+        }
+
+        /* Same content: keep caret so external refreshes don't yank the cursor. */
+        if (this.getText().equals(text))
+        {
+            return;
+        }
+
+        int previousLine = this.cursor.line;
+        int previousOffset = this.cursor.offset;
+        boolean focused = this.focused;
+
         this.text.clear();
 
-        for (String line : text.split("\n"))
+        for (String line : text.split("\n", -1))
         {
             this.text.add(this.createTextLine(line));
         }
 
-        this.cursor.set(0, 0);
+        if (this.text.isEmpty())
+        {
+            this.text.add(this.createTextLine(""));
+        }
+
+        if (focused)
+        {
+            int line = MathUtils.clamp(previousLine, 0, this.text.size() - 1);
+            int offset = MathUtils.clamp(previousOffset, 0, this.text.get(line).text.length());
+
+            this.cursor.set(line, offset);
+        }
+        else
+        {
+            this.cursor.set(0, 0);
+            this.horizontal.scrollTo(0);
+            this.vertical.scrollTo(0);
+        }
+
         this.selection.set(-1, 0);
-        this.horizontal.scrollTo(0);
-        this.vertical.scrollTo(0);
         this.undo = new UndoManager<UITextarea>(100).simpleMerge();
 
         if (this.area.w > 0)

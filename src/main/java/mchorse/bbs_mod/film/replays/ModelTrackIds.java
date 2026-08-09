@@ -42,8 +42,14 @@ public final class ModelTrackIds
     public static final String OPACITY = "opacity";
     public static final String GLOW = "glow";
     public static final String TEXTURE = "texture";
+    public static final String BILLBOARD = "billboard";
+    public static final String CROP = "crop";
+    public static final String OFFSET_X = "offsetX";
+    public static final String OFFSET_Y = "offsetY";
+    public static final String ROTATION = "rotation";
     public static final String PAINT = "paint";
     public static final String PAINT_COLOR = "paint_color";
+    public static final String PAINT_OVERLAY = "paint_overlay";
     public static final String ACTIONS = "actions";
     public static final String SHAPE_KEYS = "shape_keys";
     public static final String MODEL = "model";
@@ -67,7 +73,7 @@ public final class ModelTrackIds
 
     /** Palette row types that allocate a new overlay instance on each drop. */
     public static final Set<String> STACKABLE_PALETTE_TYPES = Set.of(
-        TRANSFORM_OVERLAY, POSE_OVERLAY, COLOR_OVERLAY, ILLUSION_OVERLAY
+        TRANSFORM_OVERLAY, POSE_OVERLAY, COLOR_OVERLAY, PAINT_OVERLAY, ILLUSION_OVERLAY
     );
 
     /**
@@ -75,7 +81,7 @@ public final class ModelTrackIds
      * These rows stay visible in the Tracks menu so overlays can be added again.
      */
     public static final Set<String> AUTO_OVERLAY_BASES = Set.of(
-        TRANSFORM, POSE, COLOR, ILLUSION
+        TRANSFORM, POSE, COLOR, PAINT, ILLUSION
     );
 
     /** Singleton palette rows — only one line per replay. */
@@ -84,19 +90,24 @@ public final class ModelTrackIds
         ILLUSION, COLOR, COLOR_GRADE, OPACITY, GLOW, TEXTURE, PAINT, ACTIONS,
         SHAPE_KEYS, MODEL, MODEL_TRANSFORM, SAME_ANIMATION_WHEN_DROPPED, BLOCK_STATE, ITEM_STACK,
         SETTINGS, PAUSED, FREQUENCY, COUNT, STRUCTURE_FILE, BIOME_ID, EMIT_LIGHT, LIGHT_INTENSITY,
-        STRUCTURE_LIGHT, ENABLED, LEVEL, EFFECT
+        STRUCTURE_LIGHT, ENABLED, LEVEL, EFFECT, BILLBOARD, CROP, OFFSET_X, OFFSET_Y, ROTATION,
+        "breaking", "repeat_x", "block_entity_nbt", "item_use_time", "length", "loop",
+        "velocity", "scattering_yaw", "scattering_pitch", "offset_x", "offset_y", "offset_z", "local"
     ));
 
     /**
      * Full Tracks-menu order (grouped for the Minecut palette UI).
-     * Overlay rows are omitted — Pose / Transform / Color / Illusion auto-stack.
+     * Overlay rows are omitted — Pose / Transform / Color / Paint / Illusion auto-stack.
+     * Billboard / crop / offset / rotation appear only when the form exposes them
+     * (Billboard + Extruded forms via {@link #isApplicableToForm}).
      */
     public static final List<String> PALETTE_CORE = Collections.unmodifiableList(Arrays.asList(
-        VISIBLE, TRANSFORM, POSE, SHAPE_KEYS, ACTIONS, MODEL
+        VISIBLE, TRANSFORM, POSE, SHAPE_KEYS, ACTIONS, MODEL, TEXTURE,
+        BILLBOARD, CROP, OFFSET_X, OFFSET_Y, ROTATION
     ));
 
     public static final List<String> PALETTE_APPEARANCE = Collections.unmodifiableList(Arrays.asList(
-        LIGHTING, COLOR, PAINT, GLOW, TEXTURE, "pbr_normal_intensity", "pbr_specular_intensity"
+        LIGHTING, COLOR, PAINT, GLOW, "pbr_normal_intensity", "pbr_specular_intensity"
     ));
 
     public static final List<String> PALETTE_MOTION = Collections.unmodifiableList(Arrays.asList(
@@ -108,11 +119,39 @@ public final class ModelTrackIds
         ACTIONS, SHAPE_KEYS, MODEL, MODEL_TRANSFORM, SAME_ANIMATION_WHEN_DROPPED, PAUSED, SETTINGS
     ));
 
+    /**
+     * Form-specific Core rows (filtered by {@link #isApplicableToForm}). Also the seed list
+     * for discovering addon tracks (irl light, …) that are not in Core/Appearance/Motion.
+     */
     public static final List<String> PALETTE_FORM = Collections.unmodifiableList(Arrays.asList(
-        COLOR_GRADE, BLOCK_STATE, ITEM_STACK, FREQUENCY, COUNT, STRUCTURE_FILE, BIOME_ID,
-        EMIT_LIGHT, LIGHT_INTENSITY, STRUCTURE_LIGHT, ENABLED, LEVEL, EFFECT,
-        "offset_x", "offset_y", "offset_z", "velocity", "scattering_yaw", "scattering_pitch", "local"
+        /* Block — Repeat is a single family row (repeat_x); axes/centers are not palette rows. */
+        BLOCK_STATE, "block_entity_nbt", "breaking", "repeat_x",
+        /* Item */
+        ITEM_STACK, "item_use_time", SAME_ANIMATION_WHEN_DROPPED,
+        /* Particle */
+        SETTINGS, PAUSED, "velocity", COUNT, FREQUENCY,
+        "scattering_yaw", "scattering_pitch", "offset_x", "offset_y", "offset_z",
+        /* Trail / video */
+        "length", "loop",
+        /* Structure */
+        STRUCTURE_FILE, BIOME_ID, STRUCTURE_LIGHT,
+        /* Light */
+        ENABLED, LEVEL, EFFECT,
+        /* Misc form extras */
+        COLOR_GRADE, "local"
     ));
+
+    /** Actor / world channels that must never be treated as Model/Core form tracks. */
+    private static final Set<String> WORLD_ONLY_LEAVES = Set.of(
+        "x", "y", "z", "vx", "vy", "vz", "yaw", "pitch", "headyaw", "bodyyaw",
+        "grounded", "damage", "death_time", "active_hand", "fall", "sneaking",
+        "riding", "sprinting", "swimming", "flying", "fall_flying", "crawling",
+        "climbing", "blocking", "sleeping", "riptide",
+        "item_main_hand", "item_off_hand", "item_head", "item_chest", "item_legs", "item_feet",
+        "selected_slot", "stick_lx", "stick_ly", "stick_rx", "stick_ry",
+        "trigger_l", "trigger_r", "extra1_x", "extra1_y", "extra2_x", "extra2_y",
+        "shadow_size", "shadow_opacity", "fire"
+    );
 
     private ModelTrackIds()
     {
@@ -139,6 +178,12 @@ public final class ModelTrackIds
         if (paletteType.equals(COLOR) || paletteType.equals(COLOR_OVERLAY) || paletteType.startsWith(COLOR_OVERLAY))
         {
             return COLOR_OVERLAY;
+        }
+
+        if (paletteType.equals(PAINT) || paletteType.equals(PAINT_OVERLAY) || paletteType.startsWith(PAINT_OVERLAY)
+            || paletteType.equals(PAINT_COLOR))
+        {
+            return PAINT_OVERLAY;
         }
 
         if (paletteType.equals(ILLUSION) || paletteType.equals(ILLUSION_OVERLAY) || paletteType.startsWith(ILLUSION_OVERLAY))
@@ -315,7 +360,7 @@ public final class ModelTrackIds
 
     /**
      * Palette row is shown when the form supports it. True singletons hide once
-     * present; Pose / Transform / Color / Illusion stay visible for overlays.
+     * present; Pose / Transform / Color / Paint / Illusion stay visible for overlays.
      */
     public static boolean canAddFromPalette(Replay replay, String paletteType)
     {
@@ -343,6 +388,13 @@ public final class ModelTrackIds
         }
 
         replay.ensureModelTrackOrder();
+
+        if ("repeat_x".equals(paletteType))
+        {
+            List<String> leaves = leavesUnder(replay.getModelTrackOrder(), formPath);
+
+            return !leaves.contains("repeat_x") && !leaves.contains("repeat_y") && !leaves.contains("repeat_z");
+        }
 
         return !isPaletteTypeAlreadyPresent(replay.getModelTrackOrder(), paletteType, formPath);
     }
@@ -402,6 +454,7 @@ public final class ModelTrackIds
             String base = overlayBase.equals(POSE_OVERLAY) ? POSE
                 : overlayBase.equals(TRANSFORM_OVERLAY) ? TRANSFORM
                 : overlayBase.equals(COLOR_OVERLAY) ? COLOR
+                : overlayBase.equals(PAINT_OVERLAY) ? PAINT
                 : ILLUSION;
             int last = -1;
 
@@ -655,26 +708,13 @@ public final class ModelTrackIds
             return lower.startsWith("pose");
         }
 
-        return lower.equals(VISIBLE) || lower.equals(RENDER) || lower.equals(LIGHTING)
-            || lower.equals(RENDER_DEPTH) || lower.equals(TRANSFORM) || lower.startsWith(TRANSFORM_OVERLAY)
-            || lower.equals(SHAKE)
-            || lower.equals(POSE) || lower.startsWith(POSE_OVERLAY)
-            || lower.equals(ANCHOR) || lower.equals(LOOK_AT) || lower.equals(INVERSE_KINEMATICS)
-            || lower.equals(ILLUSION) || lower.startsWith(ILLUSION_OVERLAY)
-            || lower.equals(COLOR) || lower.startsWith(COLOR_OVERLAY) || lower.equals(COLOR_GRADE)
-            || lower.equals(OPACITY) || lower.equals(GLOW) || lower.equals(TEXTURE)
-            || lower.equals(PAINT) || lower.equals("paint") || lower.equals("glow_settings")
-            || lower.equals(ACTIONS) || lower.equals(SHAPE_KEYS) || lower.equals(MODEL)
-            || lower.equals(MODEL_TRANSFORM.toLowerCase(Locale.ROOT)) || lower.equals("modeltransform")
-            || lower.equals(SAME_ANIMATION_WHEN_DROPPED) || lower.equals(BLOCK_STATE)
-            || lower.equals(ITEM_STACK) || lower.equals(SETTINGS) || lower.equals(PAUSED)
-            || lower.equals(FREQUENCY) || lower.equals(COUNT) || lower.equals(STRUCTURE_FILE)
-            || lower.equals(BIOME_ID) || lower.equals(EMIT_LIGHT) || lower.equals(LIGHT_INTENSITY)
-            || lower.equals(STRUCTURE_LIGHT) || lower.equals(ENABLED) || lower.equals(LEVEL)
-            || lower.equals(EFFECT) || lower.startsWith("illusion_transform")
-            || lower.equals("offset_x") || lower.equals("offset_y") || lower.equals("offset_z")
-            || lower.equals("velocity") || lower.equals("scattering_yaw") || lower.equals("scattering_pitch")
-            || lower.equals("local");
+        if (WORLD_ONLY_LEAVES.contains(lower))
+        {
+            return false;
+        }
+
+        /* Body-part paths and any remaining form / addon leaf (irl light, …). */
+        return true;
     }
 
     public static boolean isLimbChildOfOrdered(String path, List<String> order)
@@ -749,6 +789,15 @@ public final class ModelTrackIds
         if (colorN >= -1)
         {
             form.ensureColorOverlay(colorN);
+
+            return;
+        }
+
+        int paintN = overlayNumberedIndex(leaf, PAINT_OVERLAY);
+
+        if (paintN >= -1)
+        {
+            form.ensurePaintOverlay(paintN);
 
             return;
         }

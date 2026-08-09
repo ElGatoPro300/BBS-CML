@@ -6891,6 +6891,12 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
 
         this.fillData();
         this.controller.createEntities();
+        this.syncAnchoredReplaysPanelWithFilm();
+
+        if (this.minecutWorkspace != null)
+        {
+            this.minecutWorkspace.refreshReplayCards();
+        }
 
         if (this.newFilm)
         {
@@ -6978,6 +6984,11 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
         this.fillData();
         this.controller.createEntities();
         this.syncAnchoredReplaysPanelWithFilm();
+
+        if (this.minecutWorkspace != null)
+        {
+            this.minecutWorkspace.refreshReplayCards();
+        }
 
         if (cameraRebound)
         {
@@ -7252,6 +7263,50 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
                 this.lastPosition.set(Position.ZERO);
             }
         }
+    }
+
+    /**
+     * Flight (F) may keep a selected camera clip across Replay/Action work.
+     * Only write clip/keyframe edits while the Camera timeline section is the active one.
+     */
+    private boolean canApplyFlightEditsToCameraClip()
+    {
+        if (this.cameraEditor == null || this.cameraEditor.getClip() == null || this.controller.isFreeCameraMode())
+        {
+            return false;
+        }
+
+        if (this.isMinecutFilmUi())
+        {
+            return this.isMinecutDockPanelActive(MINECUT_TIMELINE_CAMERA_PANEL_ID);
+        }
+
+        return this.cameraEditor.isVisible();
+    }
+
+    /** True when {@code panelId} is the selected tab (or a visible standalone dock/float panel). */
+    private boolean isMinecutDockPanelActive(String panelId)
+    {
+        if (panelId == null || this.hiddenPanels.contains(panelId))
+        {
+            return false;
+        }
+
+        EditorLayoutNode root = this.getActiveDockLayoutRoot();
+        EditorLayoutNode.TabbedNode tabbed = this.findTabbedNodeContaining(root, panelId);
+
+        if (tabbed != null && !tabbed.tabs.isEmpty())
+        {
+            int index = MathUtils.clamp(tabbed.activeTab, 0, tabbed.tabs.size() - 1);
+            EditorLayoutNode active = tabbed.tabs.get(index);
+
+            return active instanceof EditorLayoutNode.PanelNode
+                && panelId.equals(((EditorLayoutNode.PanelNode) active).getPanelId());
+        }
+
+        UIElement panel = this.panelById.get(panelId);
+
+        return panel != null && panel.isVisible();
     }
 
     public Vector2i getLoopingRange()
@@ -7542,7 +7597,9 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
             Position current = new Position(this.getCamera());
             boolean check = this.flightEditTime.check();
 
-            if (this.cameraEditor.getClip() != null && this.cameraEditor.isVisible() && !this.controller.isFreeCameraMode())
+            /* Only author camera keyframes while the Camera timeline section is active.
+             * Keeping a camera clip selected on Replay/Action must not write on F-flight. */
+            if (this.canApplyFlightEditsToCameraClip())
             {
                 if (!this.lastPosition.equals(current) && check)
                 {

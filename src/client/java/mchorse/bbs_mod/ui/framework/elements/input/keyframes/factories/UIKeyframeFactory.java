@@ -185,7 +185,7 @@ public abstract class UIKeyframeFactory <T> extends UIElement
                     return new UIFormColorGradeKeyframeFactory(colorKeyframe, editor);
                 }
 
-                if (name.equals("color"))
+                if (isFormColorTrack(name))
                 {
                     @SuppressWarnings("unchecked")
                     Keyframe<Color> colorKeyframe = (Keyframe<Color>) keyframe;
@@ -204,6 +204,13 @@ public abstract class UIKeyframeFactory <T> extends UIElement
         }
 
         return uiEditor;
+    }
+
+    /** True for the Color track and its overlay family ({@code color_overlay}, {@code color_overlay0}, …). */
+    private static boolean isFormColorTrack(String name)
+    {
+        return "color".equals(name) || "color_overlay".equals(name)
+            || (name != null && name.startsWith("color_overlay") && name.length() > "color_overlay".length());
     }
 
     /**

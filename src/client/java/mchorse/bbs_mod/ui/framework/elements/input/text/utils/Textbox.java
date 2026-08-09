@@ -96,15 +96,48 @@ public class Textbox
 
     public void setText(String text)
     {
+        if (text == null)
+        {
+            text = "";
+        }
+
         if (text.length() > this.length)
         {
             text = text.substring(0, this.length);
         }
 
+        /* Same content: keep caret/selection so mid-typing refreshes don't
+         * shove the cursor back to the start (which reverses typed digits). */
+        if (this.text.equals(text))
+        {
+            return;
+        }
+
+        int previousCursor = this.cursor;
+        boolean wasSelected = this.isSelected();
+        int previousSelection = this.selection;
+
         this.text = text;
 
-        this.moveCursorToStart();
-        this.deselect();
+        if (this.focused)
+        {
+            this.moveCursorTo(Math.min(previousCursor, this.text.length()));
+
+            if (wasSelected)
+            {
+                this.selection = MathUtils.clamp(previousSelection, 0, this.text.length());
+            }
+            else
+            {
+                this.deselect();
+            }
+        }
+        else
+        {
+            this.moveCursorToStart();
+            this.deselect();
+        }
+
         this.updateBounds(false);
     }
 

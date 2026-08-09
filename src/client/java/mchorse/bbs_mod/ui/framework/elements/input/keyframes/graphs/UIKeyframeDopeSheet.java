@@ -378,8 +378,10 @@ public class UIKeyframeDopeSheet implements IUIKeyframeGraph
         {
             Icon arrow = this.getGroupArrow(sheet);
             int base = this.isWorldOrModelGroup(sheet) || this.isFormGroup(sheet) ? 2 : 6;
+            Icon trackIcon = (!this.isWorldOrModelGroup(sheet) && !this.isFormGroup(sheet)) ? sheet.getIcon() : null;
 
-            return base + sheet.level * LEVEL_INDENT + arrow.w + 4;
+            return base + sheet.level * LEVEL_INDENT + arrow.w + 4
+                + (trackIcon != null ? trackIcon.w + 4 : 0);
         }
 
         Icon arrow = sheet.toggleExpanded != null ? (sheet.expanded ? Icons.UNCOLLAPSED : Icons.COLLAPSED) : null;
@@ -417,7 +419,11 @@ public class UIKeyframeDopeSheet implements IUIKeyframeGraph
 
     private boolean isFormGroup(UIKeyframeSheet sheet)
     {
-        return sheet.groupHeader && !this.isWorldOrModelGroup(sheet);
+        /* Form / body-part headers use "uuid:path". Property families (Repeat, …) use a plain key. */
+        return sheet.groupHeader
+            && !this.isWorldOrModelGroup(sheet)
+            && sheet.groupKey != null
+            && sheet.groupKey.contains(":");
     }
 
     private Icon getGroupArrow(UIKeyframeSheet sheet)
@@ -840,6 +846,12 @@ public class UIKeyframeDopeSheet implements IUIKeyframeGraph
         }
 
         int iconWidth = 2 + (arrow != null ? arrow.w + 4 : 0);
+
+        if (sheet.groupHeader && !this.isWorldOrModelGroup(sheet) && !this.isFormGroup(sheet) && sheet.getIcon() != null)
+        {
+            iconWidth += sheet.getIcon().w + 4;
+        }
+
         int titleWidth = font.getWidth(displayTitle);
         int clickableWidth = Math.min(this.sidebarWidth - sheet.level * LEVEL_INDENT, iconWidth + titleWidth + 6);
 
@@ -1551,7 +1563,19 @@ public class UIKeyframeDopeSheet implements IUIKeyframeGraph
 
                 context.batcher.clip(area.x, y, this.sidebarWidth, (int) this.trackHeight, context);
                 context.batcher.icon(arrow, iconX, iconY);
-                context.batcher.textShadow(displayTitle, textX, textY);
+
+                int labelX = textX;
+                Icon trackIcon = (!this.isWorldOrModelGroup(sheet) && !this.isFormGroup(sheet))
+                    ? sheet.getIcon()
+                    : null;
+
+                if (trackIcon != null)
+                {
+                    context.batcher.icon(trackIcon, labelX, my - trackIcon.h / 2);
+                    labelX += trackIcon.w + 4;
+                }
+
+                context.batcher.textShadow(displayTitle, labelX, textY);
                 context.batcher.unclip(context);
 
                 continue;
@@ -1870,6 +1894,15 @@ public class UIKeyframeDopeSheet implements IUIKeyframeGraph
                 }
 
                 int width = base + arrow.w + 4 + titleWidth + 4;
+                Icon trackIcon = (!this.isWorldOrModelGroup(sheet) && !this.isFormGroup(sheet))
+                    ? sheet.getIcon()
+                    : null;
+
+                if (trackIcon != null)
+                {
+                    width += trackIcon.w + 4;
+                }
+
                 maxWidth = Math.max(maxWidth, width);
 
                 continue;
