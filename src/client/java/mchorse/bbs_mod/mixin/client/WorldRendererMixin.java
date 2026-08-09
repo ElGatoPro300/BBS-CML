@@ -94,21 +94,16 @@ public class WorldRendererMixin
         BBSRendering.resizeExtraFramebuffers();
     }
     
+    /* 1.21.11 MatrixStack keeps a reusable List plus stackDepth; size() is not the
+     * logical depth. isEmpty() is true iff only the identity entry remains. */
     @Inject(method = "checkEmpty", at = @At("HEAD"), cancellable = true, require = 0)
     private void onCheckEmpty(MatrixStack matrices, CallbackInfo info)
     {
         if (matrices != null)
         {
-            if (matrices.stack.isEmpty())
+            while (!matrices.isEmpty())
             {
-                matrices.stack.add(new MatrixStack().peek());
-            }
-            else
-            {
-                while (matrices.stack.size() > 1)
-                {
-                    matrices.pop();
-                }
+                matrices.pop();
             }
         }
 
