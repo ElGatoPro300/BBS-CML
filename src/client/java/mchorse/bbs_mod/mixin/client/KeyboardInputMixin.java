@@ -42,6 +42,15 @@ public class KeyboardInputMixin
             boolean left = Window.isKeyPressed(GLFW.GLFW_KEY_A);
             boolean right = Window.isKeyPressed(GLFW.GLFW_KEY_D);
 
+            input.movementForward = getMovementMultiplier(forward, back);
+            input.movementSideways = getMovementMultiplier(left, right);
+
+            boolean jump = Window.isKeyPressed(GLFW.GLFW_KEY_SPACE);
+            boolean sneak = Window.isKeyPressed(GLFW.GLFW_KEY_LEFT_SHIFT);
+
+            MinecraftClient.getInstance().options.jumpKey.setPressed(jump);
+            MinecraftClient.getInstance().options.sneakKey.setPressed(sneak);
+            
             if (slowDown)
             {
                 input.movementSideways *= slowDownFactor;
