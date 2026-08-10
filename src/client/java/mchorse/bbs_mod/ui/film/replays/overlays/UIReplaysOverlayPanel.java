@@ -233,7 +233,17 @@ public class UIReplaysOverlayPanel extends UIOverlayPanel
         this.looping.limit(0).integer().tooltip(UIKeys.FILM_REPLAY_LOOPING_TOOLTIP);
         this.actor = new UIToggle(UIKeys.FILM_REPLAY_ACTOR, (b) ->
         {
-            this.edit((replay) -> replay.actor.set(b.getValue()));
+            this.edit((replay) ->
+            {
+                replay.actor.set(b.getValue());
+
+                /* Relative is stub/camera render only — clear it with actor mode. */
+                if (b.getValue() && replay.relative.get())
+                {
+                    replay.relative.set(false);
+                }
+            });
+            this.updateRelativeAvailability(b.getValue());
             this.filmPanel.replayEditor.updateChannelsList();
             this.filmPanel.getController().createEntities();
         });
@@ -723,6 +733,7 @@ public class UIReplaysOverlayPanel extends UIOverlayPanel
                 this.relativeOffsetX.setValue(replay.relativeOffset.get().x);
                 this.relativeOffsetY.setValue(replay.relativeOffset.get().y);
                 this.relativeOffsetZ.setValue(replay.relativeOffset.get().z);
+                this.updateRelativeAvailability(replay.actor.get());
                 this.axesPreview.setValue(replay.axesPreview.get());
                 this.dropItemsOnDeath.setValue(replay.dropItemsOnDeath.get());
                 this.dropVelocityMinX.setValue(replay.dropVelocityMinX.get());
@@ -732,6 +743,33 @@ public class UIReplaysOverlayPanel extends UIOverlayPanel
                 this.dropVelocityMinZ.setValue(replay.dropVelocityMinZ.get());
                 this.dropVelocityMaxZ.setValue(replay.dropVelocityMaxZ.get());
                 this.updateDropVelocityVisibility(replay.dropItemsOnDeath.get());
+            }
+        }
+    }
+
+    private void updateRelativeAvailability(boolean actorMode)
+    {
+        boolean relativeAllowed = !actorMode;
+
+        this.relative.setEnabled(relativeAllowed);
+        this.relativeOffsetX.setEnabled(relativeAllowed);
+        this.relativeOffsetY.setEnabled(relativeAllowed);
+        this.relativeOffsetZ.setEnabled(relativeAllowed);
+        this.relative.tooltip(relativeAllowed
+            ? UIKeys.FILM_REPLAY_RELATIVE_TOOLTIP
+            : UIKeys.FILM_REPLAY_RELATIVE_ACTOR_DISABLED_TOOLTIP);
+
+        if (actorMode)
+        {
+            this.relative.setValue(false);
+        }
+        else
+        {
+            Replay current = this.replays.getCurrentFirst();
+
+            if (current != null)
+            {
+                this.relative.setValue(current.relative.get());
             }
         }
     }

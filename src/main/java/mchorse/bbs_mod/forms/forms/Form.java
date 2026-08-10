@@ -1,5 +1,6 @@
 package mchorse.bbs_mod.forms.forms;
 
+import mchorse.bbs_mod.BBSFeatures;
 import mchorse.bbs_mod.BBSMod;
 import mchorse.bbs_mod.BBSSettings;
 import mchorse.bbs_mod.data.types.BaseType;
@@ -158,6 +159,12 @@ public abstract class Form extends ValueGroup
         this.add(this.lookAt);
         this.add(this.inverseKinematics);
         this.add(this.shaderShadow);
+
+        if (!BBSFeatures.isFormIkLookAtUiEnabled())
+        {
+            this.lookAt.invisible();
+            this.inverseKinematics.invisible();
+        }
         this.add(this.noshadingOpacity);
         this.add(this.paintColor);
         this.add(this.paintSettings);

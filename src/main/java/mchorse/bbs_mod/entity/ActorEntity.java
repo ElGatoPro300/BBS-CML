@@ -1,6 +1,7 @@
 package mchorse.bbs_mod.entity;
 
 import mchorse.bbs_mod.BBSMod;
+import mchorse.bbs_mod.BBSSettings;
 import mchorse.bbs_mod.film.Film;
 import mchorse.bbs_mod.film.replays.ActorReplayStateSync;
 import mchorse.bbs_mod.film.replays.Replay;
@@ -94,6 +95,12 @@ public class ActorEntity extends LivingEntity implements IEntityFormProvider
     private int timelineLimbTick = -1;
     private float timelineLimbPos;
     private int timelineFormTick = Integer.MIN_VALUE;
+
+    /** Keyframed damage track is driving red flash this sync tick. */
+    private boolean keyframeHurtActive;
+
+    /** One-shot flag so emoticon/BOBJ {@code hurt} starts on the hit tick. */
+    private boolean pendingHurtAnimation;
 
     /* Film and replay data for item drops */
     private Film film;
@@ -660,6 +667,110 @@ public class ActorEntity extends LivingEntity implements IEntityFormProvider
         {
             this.dropReplayItems();
             this.replayItemsDropped = true;
+        }
+    }
+
+    /**
+     * Live hits keep HP/knockback. Flash overlay and procedural/emoticon damage
+     * pose are gated by {@link BBSSettings#actorDamageFlash} /
+     * {@link BBSSettings#actorDamageAnimation}. Keyframed damage still applies
+     * via {@link ActorReplayStateSync}.
+     * <p>
+     * Only {@link #onDamaged} / {@link #animateDamage} are overridden — {@code damage()}
+     * already calls {@link #onDamaged}, so a second hook there would double-run.
+     */
+    @Override
+    public void onDamaged(DamageSource damageSource)
+    {
+        super.onDamaged(damageSource);
+        /* super already set limbAnimator speed to 1.5F */
+        this.gateLiveDamageReaction(true);
+    }
+
+    @Override
+    public void animateDamage(float yaw)
+    {
+        if (!BBSSettings.shouldKeepActorLiveHurtTime())
+        {
+            return;
+        }
+
+        super.animateDamage(yaw);
+        /* animateDamage only sets hurtTime */
+        this.gateLiveDamageReaction(false);
+    }
+
+    private void gateLiveDamageReaction(boolean limbSpikeFromSuper)
+    {
+        boolean playAnim = BBSSettings.shouldPlayActorDamageAnimation();
+
+        if (!BBSSettings.shouldKeepActorLiveHurtTime())
+        {
+            this.hurtTime = 0;
+            this.maxHurtTime = 0;
+            this.setLimbSwingSpeed(0F);
+            this.pendingHurtAnimation = false;
+
+            return;
+        }
+
+        if (playAnim)
+        {
+            if (!limbSpikeFromSuper)
+            {
+                this.setLimbSwingSpeed(1.5F);
+            }
+
+            if (this.getWorld().isClient())
+            {
+                this.pendingHurtAnimation = true;
+            }
+        }
+        else
+        {
+            this.setLimbSwingSpeed(0F);
+            this.pendingHurtAnimation = false;
+        }
+    }
+
+    public boolean shouldPreserveLiveHurtLimbSwing()
+    {
+        return BBSSettings.shouldPlayActorDamageAnimation() && this.hurtTime > 0;
+    }
+
+    public boolean shouldShowDamageFlashOverlay()
+    {
+        if (this.deathTime > 0 || this.keyframeHurtActive)
+        {
+            return true;
+        }
+
+        return this.hurtTime > 0 && BBSSettings.shouldFlashActorLiveDamage();
+    }
+
+    public boolean consumePendingHurtAnimation()
+    {
+        if (!this.pendingHurtAnimation)
+        {
+            return false;
+        }
+
+        this.pendingHurtAnimation = false;
+
+        return true;
+    }
+
+    public void setKeyframeHurtActive(boolean active)
+    {
+        this.keyframeHurtActive = active;
+    }
+
+    private void setLimbSwingSpeed(float speed)
+    {
+        if (this.limbAnimator instanceof LimbAnimatorAccessor limb)
+        {
+            limb.setPrevSpeed(speed <= 0F ? 0F : limb.getSpeed());
+            limb.setSpeed(speed);
         }
     }
 

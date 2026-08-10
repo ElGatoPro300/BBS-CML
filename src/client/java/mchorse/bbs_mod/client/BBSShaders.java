@@ -38,19 +38,77 @@ public class BBSShaders
 
     public static void setup()
     {
-        if (model != null) model.close();
-        if (subtitles != null) subtitles.close();
-        if (subtitles != null) subtitles.close();
+        if (model != null)
+        {
+            model.close();
+            model = null;
+        }
 
-        if (pickerPreview != null) pickerPreview.close();
-        if (pickerBillboard != null) pickerBillboard.close();
-        if (pickerBillboardNoShading != null) pickerBillboardNoShading.close();
-        if (pickerParticles != null) pickerParticles.close();
-        if (pickerModels != null) pickerModels.close();
-        if (blockPaintOverlay != null) blockPaintOverlay.close();
-        if (flatPaintOverlay != null) flatPaintOverlay.close();
-        if (blockColorTintOverlay != null) blockColorTintOverlay.close();
-        if (flatColorTintOverlay != null) flatColorTintOverlay.close();
+        if (multiLink != null)
+        {
+            multiLink.close();
+            multiLink = null;
+        }
+
+        if (subtitles != null)
+        {
+            subtitles.close();
+            subtitles = null;
+        }
+
+        if (pickerPreview != null)
+        {
+            pickerPreview.close();
+            pickerPreview = null;
+        }
+
+        if (pickerBillboard != null)
+        {
+            pickerBillboard.close();
+            pickerBillboard = null;
+        }
+
+        if (pickerBillboardNoShading != null)
+        {
+            pickerBillboardNoShading.close();
+            pickerBillboardNoShading = null;
+        }
+
+        if (pickerParticles != null)
+        {
+            pickerParticles.close();
+            pickerParticles = null;
+        }
+
+        if (pickerModels != null)
+        {
+            pickerModels.close();
+            pickerModels = null;
+        }
+
+        if (blockPaintOverlay != null)
+        {
+            blockPaintOverlay.close();
+            blockPaintOverlay = null;
+        }
+
+        if (flatPaintOverlay != null)
+        {
+            flatPaintOverlay.close();
+            flatPaintOverlay = null;
+        }
+
+        if (blockColorTintOverlay != null)
+        {
+            blockColorTintOverlay.close();
+            blockColorTintOverlay = null;
+        }
+
+        if (flatColorTintOverlay != null)
+        {
+            flatColorTintOverlay.close();
+            flatColorTintOverlay = null;
+        }
 
         ShaderLoader loader = MinecraftClient.getInstance().getShaderLoader();
         Defines defines = Defines.EMPTY;
@@ -92,6 +150,11 @@ public class BBSShaders
 
     public static ShaderProgram getModel()
     {
+        if (model == null)
+        {
+            setup();
+        }
+
         return model;
     }
 

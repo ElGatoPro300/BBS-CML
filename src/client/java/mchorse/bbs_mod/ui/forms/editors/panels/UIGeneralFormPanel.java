@@ -1,5 +1,6 @@
 package mchorse.bbs_mod.ui.forms.editors.panels;
 
+import mchorse.bbs_mod.BBSFeatures;
 import mchorse.bbs_mod.forms.FormUtils;
 import mchorse.bbs_mod.forms.FormUtilsClient;
 import mchorse.bbs_mod.forms.forms.Form;
@@ -420,7 +421,7 @@ public class UIGeneralFormPanel extends UIFormPanel
      */
     private void updateFilmOnlySectionsVisibility()
     {
-        boolean show = !this.isModelBlockFormContext();
+        boolean show = BBSFeatures.isFormIkLookAtUiEnabled() && !this.isModelBlockFormContext();
 
         this.lookAtSection.setVisible(show);
         this.lookAtSection.getShell().setVisible(show);

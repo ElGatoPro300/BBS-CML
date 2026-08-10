@@ -2153,7 +2153,7 @@ public class UIFilmController extends UIElement
                     .filmTick(cursorTick)
                     .transition(isPlaying ? renderContext.tickCounter().getTickDelta(false) : 0)
                     .stencil(this.stencilMap)
-                    .relative(replay.relative.get())
+                    .relative(replay.isCameraRelative())
                     .physicalActor(physicalActor));
             }
         }

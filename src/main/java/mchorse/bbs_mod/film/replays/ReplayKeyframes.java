@@ -753,12 +753,12 @@ public class ReplayKeyframes extends ValueGroup
             sticks[9] = this.extra2Y.interpolate(tick).floatValue();
         }
 
-        entity.setEquipmentStack(EquipmentSlot.MAINHAND, this.mainHand.interpolate(tick));
-        entity.setEquipmentStack(EquipmentSlot.OFFHAND, this.offHand.interpolate(tick));
-        entity.setEquipmentStack(EquipmentSlot.HEAD, this.armorHead.interpolate(tick));
-        entity.setEquipmentStack(EquipmentSlot.CHEST, this.armorChest.interpolate(tick));
-        entity.setEquipmentStack(EquipmentSlot.LEGS, this.armorLegs.interpolate(tick));
-        entity.setEquipmentStack(EquipmentSlot.FEET, this.armorFeet.interpolate(tick));
+        entity.setEquipmentStack(EquipmentSlot.MAINHAND, this.mainHand.interpolate(tick, ItemStack.EMPTY));
+        entity.setEquipmentStack(EquipmentSlot.OFFHAND, this.offHand.interpolate(tick, ItemStack.EMPTY));
+        entity.setEquipmentStack(EquipmentSlot.HEAD, this.armorHead.interpolate(tick, ItemStack.EMPTY));
+        entity.setEquipmentStack(EquipmentSlot.CHEST, this.armorChest.interpolate(tick, ItemStack.EMPTY));
+        entity.setEquipmentStack(EquipmentSlot.LEGS, this.armorLegs.interpolate(tick, ItemStack.EMPTY));
+        entity.setEquipmentStack(EquipmentSlot.FEET, this.armorFeet.interpolate(tick, ItemStack.EMPTY));
     }
 
     /**
