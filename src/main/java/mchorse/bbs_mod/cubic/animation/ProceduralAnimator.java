@@ -17,9 +17,7 @@ import mchorse.bbs_mod.cubic.data.animation.Animation;
 import mchorse.bbs_mod.cubic.data.animation.Animations;
 import mchorse.bbs_mod.cubic.data.model.Model;
 import mchorse.bbs_mod.cubic.data.model.ModelGroup;
-import mchorse.bbs_mod.entity.ActorEntity;
 import mchorse.bbs_mod.forms.entities.IEntity;
-import mchorse.bbs_mod.forms.entities.MCEntity;
 import mchorse.bbs_mod.forms.entities.StubEntity;
 import mchorse.bbs_mod.utils.MathUtils;
 import mchorse.bbs_mod.utils.interps.Lerps;
@@ -174,35 +172,19 @@ public class ProceduralAnimator implements IAnimator
         float velocityForwardSpeed = ((float) entityVelocity.x * forwardX + (float) entityVelocity.z * forwardZ) * 20F;
         float displacementForwardSpeed = ((float) dx * forwardX + (float) dz * forwardZ) * 20F;
         float forwardSpeed = Math.abs(velocityForwardSpeed) >= Math.abs(displacementForwardSpeed) ? velocityForwardSpeed : displacementForwardSpeed;
-        /* Film actors get lookahead velocity from ActionPlayer for render coast.
-         * Procedural swing / gecko blend must follow prev→pos like stubs, or the
-         * first idle→walk frame invents a full-amplitude limb kick. */
-        boolean filmActor = target instanceof MCEntity mcEntity
-            && mcEntity.getMcEntity() instanceof ActorEntity;
-
-        if (filmActor)
-        {
-            horizontalSpeed = displacementHorizontalSpeed;
-            forwardSpeed = displacementForwardSpeed;
-        }
 
         if (!target.isRiding() && !target.isSitting())
         {
-            if (!filmActor)
+            if (limbSpeed < 0.01F && horizontalSpeed > 0.08F)
             {
-                if (limbSpeed < 0.01F && horizontalSpeed > 0.08F)
-                {
-                    limbSpeed = MathHelper.clamp(horizontalSpeed / 4F, 0F, 1F);
-
-                    if (limbPhase == 0F || displacementHorizontalSpeed > 10F)
-                    {
-                        limbPhase = age * 0.6662F;
-                    }
-                }
-                else if (limbPhase == 0F && horizontalSpeed > 0.08F)
-                {
-                    limbPhase = age * 0.6662F;
-                }
+                limbSpeed = MathHelper.clamp(horizontalSpeed / 4F, 0F, 1F);
+                /* Synthesizing amplitude from motion must also drive phase. Leaving a
+                 * non-zero stuck limbPos (teleported actors) freezes limbs at walk extremes. */
+                limbPhase = age * 0.6662F;
+            }
+            else if (limbPhase == 0F && horizontalSpeed > 0.08F)
+            {
+                limbPhase = age * 0.6662F;
             }
         }
         else
