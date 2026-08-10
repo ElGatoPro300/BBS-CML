@@ -80,6 +80,7 @@ import net.minecraft.particle.ParticleTypes;
 import net.minecraft.sound.SoundCategory;
 import net.minecraft.text.Text;
 import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.Vec3d;
 import net.minecraft.world.LightType;
 import net.minecraft.world.World;
@@ -1416,14 +1417,32 @@ public abstract class BaseFilmController
                             actor.setBodyYaw(entity.getBodyYaw());
                             actor.setPitch(entity.getPitch());
                             /* Actor-control: copy the live player's LimbAnimator (vanilla).
-                             * Playback: do not hard-copy stub limbs — that fights forward
-                             * coast velocity and snaps swing. LivingEntity.tick + server
-                             * applyFromKeyframes use updateLimbs(target, 0.4) toward the
-                             * same motion as the body (vanilla stop/accel ease).
-                             * Skip while a live hurt swing spike is active so procedural
-                             * damage uses the same limbSpeed amplification as vanilla. */
-                            boolean syncLimbs = controlling
-                                && !actor.shouldPreserveLiveHurtLimbSwing();
+                             * Playback: drive LimbAnimator from this tick's keyframe
+                             * displacement (StubEntity / vanilla updateLimbs) so procedural
+                             * swing never invents phase from ActionPlayer lookahead velocity.
+                             * Timeline pause keeps applyPausedActorNaturalMotion / scrub limbs.
+                             * Skip film drive while a live hurt swing spike is active. */
+                            boolean syncLimbs = false;
+
+                            if (controlling)
+                            {
+                                actor.setFilmLimbDrive(false);
+                                syncLimbs = !actor.shouldPreserveLiveHurtLimbSwing();
+                            }
+                            else if (pauseAnims)
+                            {
+                                actor.setFilmLimbDrive(false);
+                            }
+                            else if (this.isActorPlaybackActive()
+                                && !actor.shouldPreserveLiveHurtLimbSwing())
+                            {
+                                actor.setFilmLimbDrive(true);
+                                this.driveActorFilmLimbs(actor, replay, replayTick);
+                            }
+                            else
+                            {
+                                actor.setFilmLimbDrive(false);
+                            }
 
                             ActorReplayStateSync.syncFromSource(actor, entity, syncLimbs);
                             /* Keep keyframed equipment on the visible ActorEntity — stub
@@ -1649,6 +1668,34 @@ public abstract class BaseFilmController
     {
         replay.keyframes.apply(ticks, entity);
         replay.applyClientActions(ticks, entity, this.film);
+    }
+
+    /**
+     * Drive physical-actor limbs from keyframe horizontal delta — same input
+     * StubEntity uses in {@code update()}. Does not touch position or velocity
+     * (ActionPlayer coast / timeline pause stay unchanged).
+     */
+    private void driveActorFilmLimbs(ActorEntity actor, Replay replay, int tick)
+    {
+        if (actor == null || replay == null || replay.keyframes == null)
+        {
+            return;
+        }
+
+        if (actor.hasVehicle())
+        {
+            actor.driveFilmLimbs(0F);
+
+            return;
+        }
+
+        double x = replay.keyframes.x.interpolate(tick);
+        double z = replay.keyframes.z.interpolate(tick);
+        double prevX = replay.keyframes.x.interpolate(tick - 1F);
+        double prevZ = replay.keyframes.z.interpolate(tick - 1F);
+        float delta = (float) MathHelper.magnitude(x - prevX, 0D, z - prevZ);
+
+        actor.driveFilmLimbs(delta);
     }
 
     private void syncActorEquipmentFromStub(ActorEntity actor, IEntity stub)
