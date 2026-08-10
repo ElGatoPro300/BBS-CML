@@ -82,25 +82,29 @@ public abstract class ActionClip extends Clip
 
     /**
      * Fire server actions whose start (and frequency hits) cross {@code (prevTime, currTime]}.
+     *
+     * @return how many action applications ran
      */
-    public final void applyCrossing(LivingEntity actor, SuperFakePlayer player, Film film, Replay replay, float prevTime, float currTime)
+    public final int applyCrossing(LivingEntity actor, SuperFakePlayer player, Film film, Replay replay, float prevTime, float currTime)
     {
         if (!this.enabled.get() || currTime <= prevTime)
         {
-            return;
+            return 0;
         }
 
         int frequency = this.frequency.get();
         float start = this.tick.get();
+        int fired = 0;
 
         if (frequency <= 0)
         {
             if (prevTime < start && currTime >= start)
             {
                 this.applyAction(actor, player, film, replay, Math.round(start));
+                fired += 1;
             }
 
-            return;
+            return fired;
         }
 
         float first = start;
@@ -117,8 +121,11 @@ public abstract class ActionClip extends Clip
             if (t > prevTime)
             {
                 this.applyAction(actor, player, film, replay, Math.round(t));
+                fired += 1;
             }
         }
+
+        return fired;
     }
 
     public void applyAction(LivingEntity actor, SuperFakePlayer player, Film film, Replay replay, int tick)

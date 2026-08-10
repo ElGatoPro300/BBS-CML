@@ -164,14 +164,17 @@ public class Replay extends ValueGroup
         this.applyActionsCrossing(actor, fakePlayer, film, tick - 1F, tick);
     }
 
-    public void applyActionsCrossing(LivingEntity actor, SuperFakePlayer fakePlayer, Film film, float prevTime, float currTime)
+    public int applyActionsCrossing(LivingEntity actor, SuperFakePlayer fakePlayer, Film film, float prevTime, float currTime)
     {
         List<Clip> clips = this.actions.getClipsCrossing(prevTime, currTime);
+        int fired = 0;
 
         for (Clip clip : clips)
         {
-            ((ActionClip) clip).applyCrossing(actor, fakePlayer, film, this, prevTime, currTime);
+            fired += ((ActionClip) clip).applyCrossing(actor, fakePlayer, film, this, prevTime, currTime);
         }
+
+        return fired;
     }
 
     public void applyClientActions(int tick, IEntity entity, Film film)

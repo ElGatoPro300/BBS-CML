@@ -263,6 +263,12 @@ public class BBSModClient implements ClientModInitializer
      */
     private static void syncExportActions(VideoRecorder recorder)
     {
+        /* HQ already syncs (and may settle) in RenderTickCounterMixin before the world draws. */
+        if (recorder.isHighQualityRender())
+        {
+            return;
+        }
+
         MinecraftClient client = MinecraftClient.getInstance();
         net.minecraft.server.MinecraftServer server = client.getServer();
 

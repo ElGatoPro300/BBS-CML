@@ -60,6 +60,11 @@ public class RunnerCameraController extends CameraWorkCameraController
     @Override
     public void update()
     {
+        if (mchorse.bbs_mod.BBSModClient.getVideoRecorder().isSettling())
+        {
+            return;
+        }
+
         if (this.context.playing && this.manual == null)
         {
             this.ticks += 1;

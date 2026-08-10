@@ -44,6 +44,14 @@ public class ActionPlayer
     public int countdown;
     public int exception;
     /**
+     * When true, skip applying action clips (used while HQ export settles the world).
+     */
+    private boolean freezeActions;
+    /**
+     * HQ export: skip applying actions in {@link #tick()}; film sync drives them instead.
+     */
+    private boolean exportSyncOnly;
+    /**
      * Replay index currently driven by film-editor actor-control ({@code -1} = none).
      * While set, {@link #tick()} must not snap that actor back to keyframe pose.
      */
@@ -364,7 +372,13 @@ public class ActionPlayer
             return false;
         }
 
-        if (this.tick >= 0)
+        /* HQ settle: keep actors posed on the current film tick; do not advance or fire. */
+        if (this.freezeActions)
+        {
+            return false;
+        }
+
+        if (this.tick >= 0 && !this.exportSyncOnly)
         {
             this.applyActionsUpTo(this.tick);
         }
@@ -374,31 +388,49 @@ public class ActionPlayer
         return !this.syncing && this.tick >= this.duration;
     }
 
+    public void setFreezeActions(boolean freeze)
+    {
+        this.freezeActions = freeze;
+    }
+
+    public boolean isFreezeActions()
+    {
+        return this.freezeActions;
+    }
+
+    public void setExportSyncOnly(boolean syncOnly)
+    {
+        this.exportSyncOnly = syncOnly;
+    }
+
     /**
      * Fire action clips whose times cross {@code (lastActionTime, filmTime]}.
      * Used during video export so commands hit the same fractional film clock as the camera.
+     *
+     * @return {@code true} if at least one action application ran
      */
-    public void syncActionsTo(float filmTime)
+    public boolean syncActionsTo(float filmTime)
     {
-        if (this.countdown > 0 || !this.playing)
+        if (this.countdown > 0 || !this.playing || this.freezeActions)
         {
-            return;
+            return false;
         }
 
-        this.applyActionsUpTo(filmTime);
+        return this.applyActionsUpTo(filmTime) > 0;
     }
 
-    private void applyActionsUpTo(float filmTime)
+    private int applyActionsUpTo(float filmTime)
     {
         if (filmTime <= this.lastActionTime)
         {
-            return;
+            return 0;
         }
 
         SuperFakePlayer fakePlayer = SuperFakePlayer.get(this.world);
         List<Replay> list = this.film.replays.getList();
         float prev = this.lastActionTime;
         float curr = filmTime;
+        int fired = 0;
 
         for (int i = 0; i < list.size(); i++)
         {
@@ -416,10 +448,12 @@ public class ActionPlayer
 
             LivingEntity actor = this.actors.get(replay.getId());
 
-            replay.applyActionsCrossing(actor, fakePlayer, this.film, prev, curr);
+            fired += replay.applyActionsCrossing(actor, fakePlayer, this.film, prev, curr);
         }
 
         this.lastActionTime = filmTime;
+
+        return fired;
     }
 
     public void syncData(DataPath key, BaseType data)

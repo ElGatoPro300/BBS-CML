@@ -56,9 +56,164 @@ public class VideoRecorder
     /** Film tick at the start of the current export (loop min or 0). */
     public float filmStartTick;
 
+    private boolean settling;
+    private int settleStableFrames;
+    private int settleMinFramesRemaining;
+    private int settleRequiredStable;
+    private long settleDeadlineMs;
+    private long settleHardDeadlineMs;
+    private boolean captureAfterSettle;
+
     public boolean isRecording()
     {
         return this.recording;
+    }
+
+    public boolean isSettling()
+    {
+        return this.settling;
+    }
+
+    public boolean isHighQualityRender()
+    {
+        return BBSSettings.videoSettings != null
+            && BBSSettings.videoSettings.highQualityRender != null
+            && BBSSettings.videoSettings.highQualityRender.get();
+    }
+
+    public int getEffectiveHeldFrames()
+    {
+        int held = BBSSettings.videoSettings.heldFrames.get();
+
+        if (this.isHighQualityRender())
+        {
+            return Math.max(held, 3);
+        }
+
+        return held;
+    }
+
+    /**
+     * After commands/actions fire, hold film time until terrain meshes are idle
+     * for {@code highQualitySettleTicks} consecutive frames (or timeout).
+     */
+    public void beginSettle()
+    {
+        if (!this.isHighQualityRender())
+        {
+            return;
+        }
+
+        int stable = Math.max(1, BBSSettings.videoSettings.highQualitySettleTicks.get());
+        /*
+         * Always burn world/client ticks first so block packets from large /fills
+         * arrive before we trust an idle chunk builder (false-idle caused later commands).
+         */
+        int minWork = Math.max(24, Math.min(160, stable * 5));
+
+        this.settling = true;
+        this.settleRequiredStable = stable;
+        this.settleStableFrames = 0;
+        this.settleMinFramesRemaining = minWork;
+        /* Prefer waiting for real terrain idle; hard cap only avoids infinite hangs. */
+        long now = System.currentTimeMillis();
+        long timeoutMs = Math.max(300000L, stable * 30000L);
+
+        this.settleDeadlineMs = now + timeoutMs;
+        this.settleHardDeadlineMs = now + timeoutMs + 180000L;
+        this.captureAfterSettle = true;
+        BBSMod.getActions().setFreezeActions(true);
+        BBSMod.getActions().setExportSyncOnly(true);
+    }
+
+    /**
+     * @return {@code true} when settle finished and this frame should be captured
+     */
+    public boolean tickSettle()
+    {
+        if (!this.settling)
+        {
+            return false;
+        }
+
+        mchorse.bbs_mod.client.ExportChunkSettle.pumpUploads();
+
+        if (this.settleMinFramesRemaining > 0)
+        {
+            this.settleMinFramesRemaining -= 1;
+        }
+
+        long now = System.currentTimeMillis();
+        boolean softTimedOut = now >= this.settleDeadlineMs;
+        boolean hardTimedOut = now >= this.settleHardDeadlineMs;
+        boolean terrainIdle = mchorse.bbs_mod.client.ExportChunkSettle.isTerrainSettled();
+
+        if (this.settleMinFramesRemaining <= 0 && terrainIdle)
+        {
+            this.settleStableFrames += 1;
+        }
+        else
+        {
+            this.settleStableFrames = 0;
+        }
+
+        boolean stableEnough = this.settleStableFrames >= this.settleRequiredStable;
+        /* Soft timeout: only finish if terrain is at least idle; hard timeout always ends. */
+        boolean softTimeoutOk = softTimedOut && terrainIdle && this.settleMinFramesRemaining <= 0;
+
+        if (stableEnough || softTimeoutOk || hardTimedOut)
+        {
+            this.settling = false;
+            this.settleStableFrames = 0;
+            this.settleMinFramesRemaining = 0;
+            BBSMod.getActions().setFreezeActions(false);
+
+            boolean capture = this.captureAfterSettle;
+
+            this.captureAfterSettle = false;
+
+            return capture;
+        }
+
+        return false;
+    }
+
+    public void clearSettle()
+    {
+        this.settling = false;
+        this.settleStableFrames = 0;
+        this.settleMinFramesRemaining = 0;
+        this.settleRequiredStable = 0;
+        this.captureAfterSettle = false;
+        this.settleDeadlineMs = 0L;
+        this.settleHardDeadlineMs = 0L;
+
+        try
+        {
+            BBSMod.getActions().setFreezeActions(false);
+        }
+        catch (Exception e)
+        {}
+    }
+
+    public void enableExportSyncOnly()
+    {
+        try
+        {
+            BBSMod.getActions().setExportSyncOnly(true);
+        }
+        catch (Exception e)
+        {}
+    }
+
+    public void disableExportSyncOnly()
+    {
+        try
+        {
+            BBSMod.getActions().setExportSyncOnly(false);
+        }
+        catch (Exception e)
+        {}
     }
 
     /**
@@ -113,6 +268,11 @@ public class VideoRecorder
         this.textureId = textureId;
         this.textureWidth = width;
         this.textureHeight = height;
+
+        if (this.isHighQualityRender())
+        {
+            this.enableExportSyncOnly();
+        }
 
         LoopbackAudioController.suppressFilmClipPlayback(this.suppressFilmClipPlaybackForRender);
 
@@ -239,6 +399,7 @@ public class VideoRecorder
         }
 
         this.serverTicks = this.lastServerTicks = 0;
+        this.clearSettle();
     }
 
     private void enableAmbientCapture(int frameRate) throws IOException
@@ -604,6 +765,8 @@ public class VideoRecorder
         UIUtils.playClick(0.5F);
 
         this.serverTicks = this.lastServerTicks = 0;
+        this.clearSettle();
+        this.disableExportSyncOnly();
     }
 
     /**
