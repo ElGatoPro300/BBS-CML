@@ -5,11 +5,15 @@ import mchorse.bbs_mod.BBSSettings;
 import mchorse.bbs_mod.camera.clips.CameraClipContext;
 import mchorse.bbs_mod.camera.clips.misc.AudioClientClip;
 import mchorse.bbs_mod.camera.data.Position;
+import mchorse.bbs_mod.entity.ActorEntity;
 import mchorse.bbs_mod.utils.clips.Clip;
 
 import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderContext;
 
 import net.minecraft.client.MinecraftClient;
+
+import net.minecraft.client.MinecraftClient;
+import net.minecraft.entity.Entity;
 
 import java.util.List;
 import java.util.Map;
@@ -87,8 +91,44 @@ public class WorldFilmController extends BaseFilmController
 
         super.update();
 
+        if (this.paused)
+        {
+            this.syncPausedActorAnimationFreeze();
+        }
+
         /* Keep curve data fresh for time-of-day / sun-path even before render. */
         this.applyCameraClips(0F);
+    }
+
+    /**
+     * World films skip the UPDATE loop while paused, so actor freeze flags must
+     * be applied here for timeline-synced natural animations.
+     */
+    private void syncPausedActorAnimationFreeze()
+    {
+        boolean freeze = BBSSettings.editorActorPauseAnimations != null
+            && BBSSettings.editorActorPauseAnimations.get();
+        Map<String, Integer> actors = this.getActors();
+
+        if (actors == null || MinecraftClient.getInstance().world == null)
+        {
+            return;
+        }
+
+        for (Integer entityId : actors.values())
+        {
+            if (entityId == null)
+            {
+                continue;
+            }
+
+            Entity entity = MinecraftClient.getInstance().world.getEntityById(entityId);
+
+            if (entity instanceof ActorEntity actor)
+            {
+                actor.setPauseNaturalAnimations(freeze);
+            }
+        }
     }
 
     @Override

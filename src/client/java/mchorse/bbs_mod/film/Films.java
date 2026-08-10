@@ -29,6 +29,8 @@ import net.minecraft.client.network.ClientPlayerEntity;
 import com.mojang.blaze3d.opengl.GlStateManager;
 import com.mojang.blaze3d.systems.RenderSystem;
 
+import org.lwjgl.opengl.GL11;
+
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -377,7 +379,9 @@ public class Films
             this.recorder.render(context);
         }
 
-        /* TODO(1.21.11 render): depth-test state now lives in the RenderPipeline/RenderLayer; removed GlStateManager._disableDepthTest() */
+        /* Leave world depth usable for later translucent / particle passes. */
+        GlStateManager._enableDepthTest();
+        GlStateManager.depthFunc(GL11.GL_LEQUAL);
     }
 
     public void renderHud(Batcher2D batcher2D, float tickDelta)

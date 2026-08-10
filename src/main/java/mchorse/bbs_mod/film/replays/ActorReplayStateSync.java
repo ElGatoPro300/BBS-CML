@@ -1,5 +1,7 @@
 package mchorse.bbs_mod.film.replays;
 
+import mchorse.bbs_mod.BBSSettings;
+import mchorse.bbs_mod.entity.ActorEntity;
 import mchorse.bbs_mod.forms.entities.IEntity;
 import mchorse.bbs_mod.forms.entities.StubEntity;
 import mchorse.bbs_mod.mixin.LimbAnimatorAccessor;
@@ -26,6 +28,15 @@ public final class ActorReplayStateSync
      */
     public static void syncFromSource(LivingEntity actor, IEntity source)
     {
+        syncFromSource(actor, source, true);
+    }
+
+    /**
+     * @param syncLimbs when false, leave {@link LivingEntity#limbAnimator} alone so the
+     *                  actor can keep natural walk-cycle motion from {@code tick()} / scrub steps.
+     */
+    public static void syncFromSource(LivingEntity actor, IEntity source, boolean syncLimbs)
+    {
         if (actor == null || source == null)
         {
             return;
@@ -39,8 +50,7 @@ public final class ActorReplayStateSync
         actor.setOnGround(source.isOnGround());
         actor.setFlag(7, mounted ? false : source.isFallFlying());
         actor.setPose(resolvePose(source, mounted));
-        actor.hurtTime = source.getHurtTimer();
-        actor.deathTime = source.getDeathTime();
+        applyHurtAndDeath(actor, source.getHurtTimer(), source.getDeathTime());
         actor.setFireTicks(source.getFireTicks());
         actor.fallDistance = source.getFallDistance();
 
@@ -55,15 +65,111 @@ public final class ActorReplayStateSync
         actor.setLivingFlag(2, source.getActiveHand() == Hand.OFF_HAND && usingItem);
         actor.setLivingFlag(4, source.isUsingRiptide());
 
-        syncLimbAnimator(actor, source, mounted);
+        if (syncLimbs)
+        {
+            syncLimbAnimator(actor, source, mounted);
+        }
+        else if (mounted && actor.limbAnimator instanceof LimbAnimatorAccessor actorLimb)
+        {
+            actorLimb.setPrevSpeed(0F);
+            actorLimb.setSpeed(0F);
+        }
+    }
+
+    /**
+     * One StubEntity-style limb step from a horizontal move (used when scrubbing the
+     * timeline with actor-pause-animations enabled).
+     */
+    public static void advanceLimbStep(LivingEntity actor, double fromX, double fromZ, double toX, double toZ)
+    {
+        if (actor == null || !(actor.limbAnimator instanceof LimbAnimatorAccessor limb))
+        {
+            return;
+        }
+
+        float speed = limbSpeedFromDelta(toX - fromX, toZ - fromZ);
+
+        limb.setPrevSpeed(limb.getSpeed());
+        limb.setSpeed(speed);
+        limb.setPos(limb.getPos() + speed);
+    }
+
+    /**
+     * Deterministic limb phase for a film tick so scrubbing (and cursor jitter) always
+     * lands on the same walk pose — same stability as the alt-hover highlight silhouette.
+     */
+    public static void applyTimelineLimbs(LivingEntity actor, ReplayKeyframes keyframes, int tick, boolean mounted)
+    {
+        if (actor == null || !(actor.limbAnimator instanceof LimbAnimatorAccessor limb))
+        {
+            return;
+        }
+
+        if (mounted || keyframes == null)
+        {
+            limb.setPrevSpeed(0F);
+            limb.setSpeed(0F);
+
+            return;
+        }
+
+        int t = Math.max(0, tick);
+        float speed = limbSpeedAt(keyframes, t);
+        float pos = limbPosUntil(keyframes, t);
+
+        limb.setPrevSpeed(speed);
+        limb.setSpeed(speed);
+        limb.setPos(pos);
+    }
+
+    public static float limbSpeedAt(ReplayKeyframes keyframes, int tick)
+    {
+        if (keyframes == null)
+        {
+            return 0F;
+        }
+
+        double x = keyframes.x.interpolate(tick);
+        double z = keyframes.z.interpolate(tick);
+        double prevX = keyframes.x.interpolate(tick - 1F);
+        double prevZ = keyframes.z.interpolate(tick - 1F);
+
+        return limbSpeedFromDelta(x - prevX, z - prevZ);
+    }
+
+    public static float limbPosUntil(ReplayKeyframes keyframes, int tick)
+    {
+        if (keyframes == null || tick <= 0)
+        {
+            return 0F;
+        }
+
+        float pos = 0F;
+        int end = Math.min(tick, 200000);
+
+        for (int t = 1; t <= end; t++)
+        {
+            pos += limbSpeedAt(keyframes, t);
+        }
+
+        return pos;
+    }
+
+    private static float limbSpeedFromDelta(double dx, double dz)
+    {
+        float delta = (float) MathHelper.magnitude(dx, 0D, dz);
+
+        return Math.min(delta * 4F, 1F);
     }
 
     /**
      * Server-side path when only keyframes are available (no stub). Applies the same vanilla
      * pose/action flags {@link ReplayKeyframes#apply} would set on a stub.
      *
-     * @param advanceLimbs when true (playing), advance limb swing pos like {@link StubEntity#update};
-     *                     when false (paused), only refresh speed so cadence does not drift.
+     * @param advanceLimbs when true (playing), drive limb swing from keyframe motion like
+     *                     {@link mchorse.bbs_mod.forms.entities.StubEntity#update}; when false
+     *                     (paused), settle limbs/sprint so emoticon/BOBJ can leave run for idle
+     *                     (timeline-freeze mode freezes the form clock separately).
      */
     public static void applyFromKeyframes(ReplayKeyframes keyframes, float tick, LivingEntity actor, boolean mounted, boolean advanceLimbs)
     {
@@ -72,8 +178,15 @@ public final class ActorReplayStateSync
             return;
         }
 
+        /* Idle-settle is only for timeline-freeze OFF. With freeze ON, keep keyframe
+         * sprint/limb cadence so run dust and frozen run pose stay consistent. */
+        boolean timelineFreeze = BBSSettings.editorActorPauseAnimations != null
+            && BBSSettings.editorActorPauseAnimations.get();
+        boolean settleWhenPaused = !advanceLimbs
+            && !timelineFreeze
+            && BBSSettings.shouldSettleActorNaturalStopWhenPaused();
         boolean sneaking = !mounted && keyframes.sneaking.interpolate(tick) != 0D;
-        boolean sprinting = !mounted && keyframes.sprinting.interpolate(tick) != 0D;
+        boolean sprinting = !mounted && keyframes.sprinting.interpolate(tick) != 0D && (advanceLimbs || !settleWhenPaused);
         boolean swimming = !mounted && keyframes.swimming.interpolate(tick) != 0D;
         boolean flying = !mounted && keyframes.flying.interpolate(tick) != 0D;
         boolean fallFlying = !mounted && keyframes.fallFlying.interpolate(tick) != 0D;
@@ -92,8 +205,9 @@ public final class ActorReplayStateSync
         actor.setOnGround(grounded);
         actor.setFlag(7, fallFlying);
         actor.setPose(resolvePose(sneaking, swimming, crawling, sleeping, mounted));
-        actor.hurtTime = keyframes.damage.interpolate(tick).intValue();
-        actor.deathTime = keyframes.deathTime.interpolate(tick).intValue();
+        applyHurtAndDeath(actor,
+            keyframes.damage.interpolate(tick).intValue(),
+            keyframes.deathTime.interpolate(tick).intValue());
         actor.setFireTicks(keyframes.getFireTicksAt((int) tick));
         actor.fallDistance = keyframes.fall.interpolate(tick).floatValue();
 
@@ -108,19 +222,37 @@ public final class ActorReplayStateSync
 
         if (!mounted && actor.limbAnimator instanceof LimbAnimatorAccessor limb)
         {
-            double x = keyframes.x.interpolate(tick);
-            double z = keyframes.z.interpolate(tick);
-            double prevX = keyframes.x.interpolate(tick - 1F);
-            double prevZ = keyframes.z.interpolate(tick - 1F);
-            float delta = (float) MathHelper.magnitude(x - prevX, 0D, z - prevZ);
-            float speed = Math.min(delta * 4F, 1F);
-
-            limb.setPrevSpeed(limb.getSpeed());
-            limb.setSpeed(speed);
-
             if (advanceLimbs)
             {
+                double x = keyframes.x.interpolate(tick);
+                double z = keyframes.z.interpolate(tick);
+                double prevX = keyframes.x.interpolate(tick - 1F);
+                double prevZ = keyframes.z.interpolate(tick - 1F);
+                float delta = (float) MathHelper.magnitude(x - prevX, 0D, z - prevZ);
+                float speed = Math.min(delta * 4F, 1F);
+
+                limb.setPrevSpeed(limb.getSpeed());
+                limb.setSpeed(speed);
                 limb.setPos(limb.getPos() + speed);
+            }
+            else if (settleWhenPaused)
+            {
+                /* Paused (default): do not keep refreshing walk speed from keyframe
+                 * deltas — that traps emoticon/BOBJ run/sprint ActionPlayback in a loop. */
+                settleNaturalStop(actor);
+            }
+            else
+            {
+                /* Legacy run-in-place: refresh limb speed from keyframes without advancing pos. */
+                double x = keyframes.x.interpolate(tick);
+                double z = keyframes.z.interpolate(tick);
+                double prevX = keyframes.x.interpolate(tick - 1F);
+                double prevZ = keyframes.z.interpolate(tick - 1F);
+                float delta = (float) MathHelper.magnitude(x - prevX, 0D, z - prevZ);
+                float speed = Math.min(delta * 4F, 1F);
+
+                limb.setPrevSpeed(limb.getSpeed());
+                limb.setSpeed(speed);
             }
         }
         else if (mounted && actor.limbAnimator instanceof LimbAnimatorAccessor limb)
@@ -130,9 +262,63 @@ public final class ActorReplayStateSync
         }
     }
 
+    /**
+     * Player-stop style settle for paused actor bodies when timeline animation
+     * freeze is off: clear sprint so emoticon/BOBJ leave run for idle.
+     * <p>
+     * Does <b>not</b> zero {@code limbAnimator} — procedural forms keep decaying
+     * walk swing naturally from {@link LivingEntity#tick} (forcing speed to 0
+     * snapped actors to idle the moment the film paused).
+     */
+    public static void settleNaturalStop(LivingEntity actor)
+    {
+        if (actor == null)
+        {
+            return;
+        }
+
+        actor.setSprinting(false);
+    }
+
     public static void applyFromKeyframes(ReplayKeyframes keyframes, float tick, LivingEntity actor, boolean mounted)
     {
         applyFromKeyframes(keyframes, tick, actor, mounted, true);
+    }
+
+    /**
+     * Merge keyframed damage/death with any live combat on {@link ActorEntity}.
+     * ActionPlayer used to assign keyframe values every tick, which wiped vanilla
+     * {@code hurtTime}/{@code deathTime} and made actors look immune after a few hits.
+     * <p>
+     * Death always takes the max so a real kill can finish its animation.
+     * Live {@code hurtTime} is kept when damage flash and/or damage animation is enabled.
+     */
+    private static void applyHurtAndDeath(LivingEntity actor, int keyframeHurt, int keyframeDeath)
+    {
+        if (!(actor instanceof ActorEntity actorEntity))
+        {
+            actor.hurtTime = keyframeHurt;
+            actor.deathTime = keyframeDeath;
+
+            return;
+        }
+
+        actor.deathTime = Math.max(actor.deathTime, keyframeDeath);
+        actorEntity.setKeyframeHurtActive(keyframeHurt > 0);
+
+        if (BBSSettings.shouldKeepActorLiveHurtTime())
+        {
+            actor.hurtTime = Math.max(actor.hurtTime, keyframeHurt);
+        }
+        else
+        {
+            actor.hurtTime = keyframeHurt;
+        }
+
+        if (actor.hurtTime > 0 && actor.maxHurtTime < actor.hurtTime)
+        {
+            actor.maxHurtTime = Math.max(10, actor.hurtTime);
+        }
     }
 
     private static void syncLimbAnimator(LivingEntity actor, IEntity source, boolean mounted)

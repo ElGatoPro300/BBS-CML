@@ -3,6 +3,7 @@ package mchorse.bbs_mod.ui.framework.elements.buttons;
 import mchorse.bbs_mod.BBSSettings;
 import mchorse.bbs_mod.l10n.keys.IKey;
 import mchorse.bbs_mod.ui.framework.UIContext;
+import mchorse.bbs_mod.ui.framework.elements.UIElement;
 import mchorse.bbs_mod.ui.framework.elements.utils.Batcher2D;
 import mchorse.bbs_mod.ui.framework.elements.utils.FontRenderer;
 import mchorse.bbs_mod.ui.framework.elements.utils.ITextColoring;
@@ -11,15 +12,27 @@ import mchorse.bbs_mod.ui.framework.theme.UIThemeManager;
 import mchorse.bbs_mod.ui.utils.icons.Icons;
 import mchorse.bbs_mod.utils.colors.Colors;
 
+import java.util.Collections;
+import java.util.List;
 import java.util.function.Consumer;
 
 public class UIToggle extends UIClickable<UIToggle> implements ITextColoring
 {
+    private static final int SWITCH_WIDTH = 22;
+    private static final int SWITCH_HEIGHT = 12;
+    private static final int LINE_HEIGHT = 12;
+    private static final int MIN_HEIGHT = 14;
+
     public IKey label;
     public int color = Colors.WHITE;
     public boolean textShadow = true;
     private boolean value;
     private float currentKnobX = -1F;
+    private boolean wrapping = true;
+    private List<String> wrappedLines;
+    private String lastWrappedText;
+    private int lastWrapWidth = -1;
+    private int wrappedHeight = MIN_HEIGHT;
 
     public UIToggle(IKey label, Consumer<UIToggle> callback)
     {
@@ -32,7 +45,7 @@ public class UIToggle extends UIClickable<UIToggle> implements ITextColoring
 
         this.label = label;
         this.value = value;
-        this.h(14);
+        this.h(MIN_HEIGHT);
     }
 
     @Override
@@ -44,6 +57,24 @@ public class UIToggle extends UIClickable<UIToggle> implements ITextColoring
     public UIToggle label(IKey label)
     {
         this.label = label;
+        this.invalidateWrappedLabel();
+
+        return this;
+    }
+
+    /**
+     * Wrap long labels onto multiple lines instead of truncating with ellipsis.
+     * Enabled by default for narrow panels such as the film clip inspector.
+     */
+    public UIToggle wrapping()
+    {
+        return this.wrapping(true);
+    }
+
+    public UIToggle wrapping(boolean wrapping)
+    {
+        this.wrapping = wrapping;
+        this.invalidateWrappedLabel();
 
         return this;
     }
@@ -87,6 +118,21 @@ public class UIToggle extends UIClickable<UIToggle> implements ITextColoring
         return this;
     }
 
+    @Override
+    public void resize()
+    {
+        super.resize();
+
+        this.invalidateWrappedLabel();
+    }
+
+    private void invalidateWrappedLabel()
+    {
+        this.wrappedLines = null;
+        this.lastWrappedText = null;
+        this.lastWrapWidth = -1;
+    }
+
     private int interpolateColor(int c1, int c2, float t)
     {
         int a1 = (c1 >> 24) & 0xFF;
@@ -107,6 +153,52 @@ public class UIToggle extends UIClickable<UIToggle> implements ITextColoring
         return (a << 24) | (r << 16) | (g << 8) | b;
     }
 
+    private void ensureWrappedLabel(FontRenderer font, int maxWidth)
+    {
+        String text = this.label == null ? "" : this.label.get();
+
+        if (this.wrappedLines != null && text.equals(this.lastWrappedText) && maxWidth == this.lastWrapWidth)
+        {
+            return;
+        }
+
+        List<String> lines;
+
+        if (text.isEmpty() || maxWidth <= 0)
+        {
+            lines = Collections.emptyList();
+        }
+        else if (this.wrapping)
+        {
+            lines = font.wrap(text, maxWidth);
+        }
+        else
+        {
+            lines = Collections.singletonList(font.limitToWidth(text, maxWidth));
+        }
+
+        int lineCount = Math.max(1, lines.isEmpty() ? 1 : lines.size());
+        int height = Math.max(MIN_HEIGHT, lineCount * LINE_HEIGHT - (LINE_HEIGHT - font.getHeight()) + 2);
+
+        if (height != this.wrappedHeight)
+        {
+            this.wrappedHeight = height;
+            this.h(height);
+
+            UIElement container = this.getParentContainer();
+
+            if (container != null)
+            {
+                /* Parent resize clears caches via resize(); restore lines afterward. */
+                container.resize();
+            }
+        }
+
+        this.wrappedLines = lines;
+        this.lastWrappedText = text;
+        this.lastWrapWidth = maxWidth;
+    }
+
     @Override
     protected void renderSkin(UIContext context)
     {
@@ -120,13 +212,25 @@ public class UIToggle extends UIClickable<UIToggle> implements ITextColoring
         FontRenderer font = batcher.getFont();
 
         /* Square (cube-shaped) toggle switch. */
-        int w = 22;
-        int h = 12;
+        int w = SWITCH_WIDTH;
+        int h = SWITCH_HEIGHT;
         int x = this.area.ex() - w - 2;
         int y = this.area.my() - h / 2;
+        int labelWidth = Math.max(0, this.area.w - w - 8);
 
-        String label = font.limitToWidth(this.label.get(), this.area.w - w - 8);
-        batcher.text(label, this.area.x, this.area.my(font.getHeight()), this.color, this.textShadow);
+        this.ensureWrappedLabel(font, labelWidth);
+
+        if (!this.wrappedLines.isEmpty())
+        {
+            int textHeight = this.wrappedLines.size() * LINE_HEIGHT - (LINE_HEIGHT - font.getHeight());
+            int textY = this.area.my() - textHeight / 2;
+
+            for (String line : this.wrappedLines)
+            {
+                batcher.text(line, this.area.x, textY, this.color, this.textShadow);
+                textY += LINE_HEIGHT;
+            }
+        }
 
         /* Track — primary color when on, dark grey when off, with a 1px border. */
         int primary = 0xFF000000 | BBSSettings.primaryColor.get();

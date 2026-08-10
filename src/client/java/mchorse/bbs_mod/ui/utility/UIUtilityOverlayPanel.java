@@ -56,7 +56,13 @@ public class UIUtilityOverlayPanel extends UIOverlayPanel
         this.window = MinecraftClient.getInstance().getWindow();
         this.callback = callback;
 
-        this.view = UI.scrollView(5, 10, 140);
+        /* Use the full panel width under the title bar. The default overlay content
+         * reserves a 20px strip for the icon column, which leaves an empty gap beside
+         * the scrollbar when this panel only has the close button. */
+        this.content.relative(this).xy(0, 20).w(1F).h(1F, -20);
+        this.icons.relative(this).x(1F, -20).y(0).w(20).h(20);
+
+        this.view = UI.scrollView(5, 10);
         this.view.full(this.content);
 
         UIButton openGameDirectory = new UIButton(UIKeys.UTILITY_OPEN_GAME_FOLDER, (b) -> this.openFolder(BBSMod.getGameFolder()));

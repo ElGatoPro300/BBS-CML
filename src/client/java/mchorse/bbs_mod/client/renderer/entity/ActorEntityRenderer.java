@@ -7,9 +7,12 @@ import mchorse.bbs_mod.entity.ActorEntity;
 import mchorse.bbs_mod.forms.FormUtilsClient;
 import mchorse.bbs_mod.forms.renderers.FormRenderType;
 import mchorse.bbs_mod.forms.renderers.FormRenderingContext;
+import mchorse.bbs_mod.utils.iris.IrisUtils;
 
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.render.command.OrderedRenderCommandQueue;
+import net.minecraft.client.render.OverlayTexture;
+import net.minecraft.client.render.VertexConsumerProvider;
 import net.minecraft.client.render.entity.EntityRenderer;
 import net.minecraft.client.render.entity.EntityRendererFactory;
 import net.minecraft.client.render.entity.LivingEntityRenderer;
@@ -27,6 +30,8 @@ import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.RotationAxis;
 
 import com.mojang.blaze3d.opengl.GlStateManager;
+
+import org.lwjgl.opengl.GL11;
 
 import org.lwjgl.opengl.GL11;
 
@@ -53,6 +58,26 @@ public class ActorEntityRenderer extends EntityRenderer<ActorEntity, ActorEntity
             new ElytraEntityModel(ctx.getPart(EntityModelLayers.ELYTRA)),
             MinecraftClient.getInstance().getAtlasManager().getAtlasTexture(Atlases.ARMOR_TRIMS)
         );
+    }
+
+    /**
+     * Match film stub shadows: vanilla ground blob only when Iris/shaders are off.
+     * With a shader pack the mesh already casts into the shadow map; keeping the blob
+     * stacks two dark circles under the actor.
+     */
+    public static void updateShadowRadius(ActorEntity entity)
+    {
+        if (entity == null)
+        {
+            return;
+        }
+
+        EntityRenderer<?, ?> renderer = MinecraftClient.getInstance().getEntityRenderDispatcher().getRenderer(entity);
+
+        if (renderer instanceof ActorEntityRenderer actorRenderer)
+        {
+            actorRenderer.shadowRadius = IrisUtils.isShaderPackEnabled() ? 0F : 0.5F;
+        }
     }
 
     @Override
@@ -87,15 +112,17 @@ public class ActorEntityRenderer extends EntityRenderer<ActorEntity, ActorEntity
         matrices.push();
 
         float bodyYaw = MathHelper.lerpAngleDegrees(tickDelta, state.prevBodyYaw, state.bodyYaw);
-        int overlay = LivingEntityRenderer.getOverlay(state, 0F);
-        int light = state.light;
+        int overlay = livingEntity.shouldShowDamageFlashOverlay()
+            ? LivingEntityRenderer.getOverlay(state, 0F)
+            : OverlayTexture.DEFAULT_UV;
+        float animDelta = livingEntity.areNaturalAnimationsPaused() ? 0F : tickDelta;
 
-        this.setupTransforms(livingEntity, matrices, bodyYaw, tickDelta);
+        this.setupTransforms(livingEntity, matrices, bodyYaw, animDelta);
 
         GL11.glEnable(GL11.GL_BLEND);
         GL11.glEnable(GL11.GL_DEPTH_TEST);
         FormUtilsClient.render(livingEntity.getForm(), new FormRenderingContext()
-            .set(FormRenderType.ENTITY, livingEntity.getWrappingEntity(), matrices, light, overlay, tickDelta)
+            .set(FormRenderType.ENTITY, livingEntity.getEntity(), matrices, light, overlay, animDelta)
             .camera(MinecraftClient.getInstance().gameRenderer.getCamera()));
 
         if (livingEntity.getWrappingEntity().getFireTicks() > 0)
@@ -105,7 +132,7 @@ public class ActorEntityRenderer extends EntityRenderer<ActorEntity, ActorEntity
                 MinecraftClient.getInstance().getBufferBuilders().getEntityVertexConsumers(),
                 livingEntity.getWrappingEntity(),
                 livingEntity.getForm(),
-                tickDelta,
+                animDelta,
                 MinecraftClient.getInstance().gameRenderer.getCamera(),
                 false
             );
@@ -113,11 +140,19 @@ public class ActorEntityRenderer extends EntityRenderer<ActorEntity, ActorEntity
 
         BBSRendering.restoreWorldRenderState();
         GlStateManager._disableDepthTest();
+        GlStateManager.depthFunc(GL11.GL_LEQUAL);
         GlStateManager._disableBlend();
 
         matrices.pop();
 
         super.render(state, matrices, queue, cameraState);
+    }
+
+    @Override
+    protected boolean hasLabel(ActorEntity entity, double squaredDistanceToCamera)
+    {
+        /* Same visibility rules as stub film nametags / vanilla labels. */
+        return entity.hasCustomName();
     }
 
     protected boolean isVisible(ActorEntity entity)

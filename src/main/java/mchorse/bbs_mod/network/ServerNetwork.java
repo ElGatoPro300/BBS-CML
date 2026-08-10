@@ -630,6 +630,16 @@ public class ServerNetwork
 
                 actions.restoreDamage(world);
             }
+            else if (state == ActionState.PUPPET)
+            {
+                ActionPlayer actionPlayer = actions.getPlayer(filmId);
+
+                if (actionPlayer != null)
+                {
+                    /* tick payload is the replay index, or -1 to release. */
+                    actionPlayer.controlledReplay = tick;
+                }
+            }
             else if (state == ActionState.STOP)
             {
                 actions.stop(filmId);

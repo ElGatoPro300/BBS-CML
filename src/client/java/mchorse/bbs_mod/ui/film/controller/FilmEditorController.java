@@ -37,6 +37,8 @@ public class FilmEditorController extends BaseFilmController
     public UIFilmController controller;
 
     private int lastTick;
+    private int pausedAnimationSteps;
+    private boolean wasRunnerRunning;
 
     public FilmEditorController(Film film, UIFilmController controller)
     {
@@ -60,11 +62,27 @@ public class FilmEditorController extends BaseFilmController
     @Override
     protected void updateEntities(int ticks)
     {
-        ticks = this.getTick() + (this.controller.panel.getRunner().isRunning() ? 1 : 0);
+        boolean running = this.controller.panel.getRunner().isRunning();
+
+        ticks = this.getTick() + (running ? 1 : 0);
+        this.pausedAnimationSteps = 0;
+
+        if (!this.controller.isPlaying())
+        {
+            this.pausedAnimationSteps = Math.abs(ticks - this.lastTick);
+
+            /* Play applies at cursor+1; pause drops that +1. That single-tick delta
+             * is not a scrub — treating it as one would snap actors and look like a teleport. */
+            if (this.wasRunnerRunning && !running && this.pausedAnimationSteps == 1)
+            {
+                this.pausedAnimationSteps = 0;
+            }
+        }
 
         super.updateEntities(ticks);
 
         this.lastTick = ticks;
+        this.wasRunnerRunning = running;
     }
 
     @Override
@@ -86,11 +104,27 @@ public class FilmEditorController extends BaseFilmController
     }
 
     @Override
+    protected int getPausedAnimationAdvanceSteps()
+    {
+        return this.pausedAnimationSteps;
+    }
+
+    @Override
+    protected int getPausedAnimationFromTick()
+    {
+        return this.lastTick;
+    }
+
+    @Override
     protected void applyReplay(Replay replay, int ticks, IEntity entity)
     {
         List<String> groups = this.controller.getRecordingGroups();
         boolean isPlaying = this.controller.isPlaying();
         boolean isActor = !(entity instanceof MCEntity);
+        boolean scrubbingStub = !isPlaying && isActor && this.pausedAnimationSteps > 0;
+        double scrubFromX = entity.getX();
+        double scrubFromY = entity.getY();
+        double scrubFromZ = entity.getZ();
 
         if (entity != this.controller.getControlled() || (this.controller.isRecording() && this.controller.getRecordingCountdown() <= 0 && groups != null))
         {
@@ -121,18 +155,28 @@ public class FilmEditorController extends BaseFilmController
 
         ticks = this.getTick() + (this.controller.panel.getRunner().isRunning() ? 1 : 0);
 
-        /* Special pausing logic */
+        /* Special pausing logic for stubs (non-actor path / hidden stubs). */
         if (!isPlaying && isActor)
         {
-            entity.setPrevX(entity.getX());
-            entity.setPrevY(entity.getY());
-            entity.setPrevZ(entity.getZ());
+            if (scrubbingStub)
+            {
+                entity.setPrevX(scrubFromX);
+                entity.setPrevY(scrubFromY);
+                entity.setPrevZ(scrubFromZ);
+            }
+            else
+            {
+                entity.setPrevX(entity.getX());
+                entity.setPrevY(entity.getY());
+                entity.setPrevZ(entity.getZ());
+            }
+
             entity.setPrevYaw(entity.getYaw());
             entity.setPrevHeadYaw(entity.getHeadYaw());
             entity.setPrevBodyYaw(entity.getBodyYaw());
             entity.setPrevPitch(entity.getPitch());
 
-            int diff = Math.abs(this.lastTick - ticks);
+            int diff = this.pausedAnimationSteps;
 
             while (diff > 0)
             {
@@ -146,6 +190,12 @@ public class FilmEditorController extends BaseFilmController
                 diff -= 1;
             }
         }
+    }
+
+    @Override
+    protected boolean shouldEmitReplayMotionFx(IEntity entity)
+    {
+        return !this.controller.isControlling() || entity != this.controller.getControlled();
     }
 
     @Override

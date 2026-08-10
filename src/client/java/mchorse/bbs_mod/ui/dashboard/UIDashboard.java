@@ -167,7 +167,7 @@ public class UIDashboard extends UIBaseMenu
                 return;
             }
 
-            UIOverlay.addOverlay(this.context, new UIUtilityOverlayPanel(UIKeys.UTILITY_TITLE, null), 240, 230);
+            UIOverlay.addOverlay(this.context, new UIUtilityOverlayPanel(UIKeys.UTILITY_TITLE, null), 320, 280);
         });
     }
 
@@ -230,6 +230,26 @@ public class UIDashboard extends UIBaseMenu
     public UIDashboardPanels getPanels()
     {
         return this.panels;
+    }
+
+    @Override
+    protected boolean handleControlCaptureMouse(int button, boolean pressed)
+    {
+        if (!(this.panels.panel instanceof UIFilmPanel filmPanel))
+        {
+            return false;
+        }
+
+        return pressed
+            ? filmPanel.getController().handleControlMousePress(button)
+            : filmPanel.getController().handleControlMouseRelease(button);
+    }
+
+    @Override
+    protected boolean shouldParkMouseWhileControlling()
+    {
+        return this.panels.panel instanceof UIFilmPanel filmPanel
+            && filmPanel.getController().shouldParkUiMouse();
     }
 
     @Override
