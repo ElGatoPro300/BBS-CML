@@ -1415,19 +1415,15 @@ public abstract class BaseFilmController
                             actor.setHeadYaw(entity.getHeadYaw());
                             actor.setBodyYaw(entity.getBodyYaw());
                             actor.setPitch(entity.getPitch());
-                            /* While playing, copy limbAnimator from the stub. ActionPlayer
-                             * teleports the physical actor so client distance-based limb
-                             * updates often stall; ProceduralAnimator then freezes walk
-                             * swing at an extreme pose (velocity restores amplitude, stuck
-                             * limbPhase does not advance).
-                             * Actor-control: prefer the live player's natural LimbAnimator
-                             * (vanilla walk / stop / backpedal). The puppet body is snapped
-                             * each frame with velocity zeroed, so its own tick() collapses
-                             * prev→current and decays swing inconsistently.
+                            /* Actor-control: copy the live player's LimbAnimator (vanilla).
+                             * Playback: do not hard-copy stub limbs — that fights forward
+                             * coast velocity and snaps swing. LivingEntity.tick + server
+                             * applyFromKeyframes use updateLimbs(target, 0.4) toward the
+                             * same motion as the body (vanilla stop/accel ease).
                              * Skip while a live hurt swing spike is active so procedural
                              * damage uses the same limbSpeed amplification as vanilla. */
-                            boolean syncLimbs = !actor.shouldPreserveLiveHurtLimbSwing()
-                                && (controlling || (this.isActorPlaybackActive() && !pauseAnims));
+                            boolean syncLimbs = controlling
+                                && !actor.shouldPreserveLiveHurtLimbSwing();
 
                             ActorReplayStateSync.syncFromSource(actor, entity, syncLimbs);
                             /* Keep keyframed equipment on the visible ActorEntity — stub
