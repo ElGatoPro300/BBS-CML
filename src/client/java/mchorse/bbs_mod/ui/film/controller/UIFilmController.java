@@ -1060,8 +1060,11 @@ public class UIFilmController extends UIElement
      */
     private HitResult raycastControlTarget(ClientPlayerEntity player, boolean forAttack)
     {
-        double entityRange = player.getEntityInteractionRange();
-        double blockRange = player.getBlockInteractionRange();
+        double reach = MinecraftClient.getInstance().interactionManager != null
+            ? MinecraftClient.getInstance().interactionManager.getReachDistance()
+            : 4.5D;
+        double entityRange = reach;
+        double blockRange = reach;
         double maxRange = Math.max(entityRange, blockRange);
         Vec3d origin = player.getCameraPosVec(1F);
         Vec3d rotation = player.getRotationVec(1F);
