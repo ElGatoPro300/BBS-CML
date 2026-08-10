@@ -439,8 +439,7 @@ public final class RecorderMobCapture
 
             if (session.recordingDeath)
             {
-                session.deathTickIndex += 1;
-                this.recordDeathEntity(replay, session, tick, Math.min(session.deathTickIndex, DEATH_ANIMATION_TICKS));
+                this.advanceDeathRecording(replay, session, entity, tick);
 
                 if (session.deathTickIndex >= DEATH_ANIMATION_TICKS)
                 {
@@ -463,7 +462,7 @@ public final class RecorderMobCapture
                 {
                     session.recordingDeath = true;
                     session.deathTickIndex = 1;
-                    this.recordDeathEntity(replay, session, tick, 1);
+                    this.recordDeathEntity(replay, session, null, tick, 1);
                 }
                 else
                 {
@@ -507,7 +506,7 @@ public final class RecorderMobCapture
                         session.deathTickIndex = living.deathTime > 0 ? living.deathTime : 1;
                     }
 
-                    this.recordDeathEntity(replay, session, tick, Math.min(session.deathTickIndex, DEATH_ANIMATION_TICKS));
+                    this.recordDeathEntity(replay, session, living, tick, Math.min(session.deathTickIndex, DEATH_ANIMATION_TICKS));
 
                     if (session.deathTickIndex >= DEATH_ANIMATION_TICKS)
                     {
@@ -525,7 +524,7 @@ public final class RecorderMobCapture
             {
                 session.recordingDeath = true;
                 session.deathTickIndex = 1;
-                this.recordDeathEntity(replay, session, tick, 1);
+                this.recordDeathEntity(replay, session, null, tick, 1);
             }
             else if (session.livingEntity)
             {
@@ -625,8 +624,7 @@ public final class RecorderMobCapture
 
             if (session.recordingDeath)
             {
-                session.deathTickIndex += 1;
-                this.recordDeathEntity(replay, session, tick, Math.min(session.deathTickIndex, DEATH_ANIMATION_TICKS));
+                this.advanceDeathRecording(replay, session, entity, tick);
 
                 if (session.deathTickIndex >= DEATH_ANIMATION_TICKS)
                 {
@@ -647,7 +645,7 @@ public final class RecorderMobCapture
                 {
                     session.recordingDeath = true;
                     session.deathTickIndex = 1;
-                    this.recordDeathEntity(replay, session, tick, 1);
+                    this.recordDeathEntity(replay, session, null, tick, 1);
                 }
                 else
                 {
@@ -691,7 +689,7 @@ public final class RecorderMobCapture
                         session.deathTickIndex = living.deathTime > 0 ? living.deathTime : 1;
                     }
 
-                    this.recordDeathEntity(replay, session, tick, Math.min(session.deathTickIndex, DEATH_ANIMATION_TICKS));
+                    this.recordDeathEntity(replay, session, living, tick, Math.min(session.deathTickIndex, DEATH_ANIMATION_TICKS));
 
                     if (session.deathTickIndex >= DEATH_ANIMATION_TICKS)
                     {
@@ -707,7 +705,7 @@ public final class RecorderMobCapture
             {
                 session.recordingDeath = true;
                 session.deathTickIndex = 1;
-                this.recordDeathEntity(replay, session, tick, 1);
+                this.recordDeathEntity(replay, session, null, tick, 1);
             }
             else if (session.livingEntity)
             {
@@ -775,7 +773,7 @@ public final class RecorderMobCapture
             {
                 session.deathTickIndex += 1;
                 disappearTick += 1;
-                this.recordDeathEntity(replay, session, disappearTick, Math.min(session.deathTickIndex, DEATH_ANIMATION_TICKS));
+                this.recordDeathEntity(replay, session, null, disappearTick, Math.min(session.deathTickIndex, DEATH_ANIMATION_TICKS));
             }
 
             this.applyDeathVisibilityKeyframes(replay, disappearTick);
@@ -934,8 +932,46 @@ public final class RecorderMobCapture
         mobForm.mobNBT.set(nbt);
     }
 
-    private void recordDeathEntity(Replay replay, Session session, int tick, int deathTime)
+    /**
+     * While the corpse still exists, keep sampling live pose (knockback hop, etc.).
+     * After despawn, hold the last sampled pose and only advance {@code death_time}.
+     */
+    private void advanceDeathRecording(Replay replay, Session session, Entity entity, int tick)
     {
+        if (entity instanceof LivingEntity living && living.deathTime > 0)
+        {
+            session.deathTickIndex = living.deathTime;
+        }
+        else
+        {
+            session.deathTickIndex += 1;
+        }
+
+        this.recordDeathEntity(replay, session, entity, tick, Math.min(session.deathTickIndex, DEATH_ANIMATION_TICKS));
+    }
+
+    private void recordDeathEntity(Replay replay, Session session, Entity entity, int tick, int deathTime)
+    {
+        if (entity != null)
+        {
+            this.updateSessionState(session, entity);
+            session.deathX = session.lastX;
+            session.deathY = session.lastY;
+            session.deathZ = session.lastZ;
+            session.deathYaw = session.lastYaw;
+            session.deathPitch = session.lastPitch;
+            session.deathHeadYaw = session.lastHeadYaw;
+            session.deathBodyYaw = session.lastBodyYaw;
+
+            MCEntity wrapper = new MCEntity(entity);
+
+            wrapper.update();
+            replay.keyframes.record(tick, wrapper, null);
+            replay.keyframes.deathTime.insert(tick, (double) deathTime);
+
+            return;
+        }
+
         StubEntity wrapper = new StubEntity(MinecraftClient.getInstance().world);
 
         wrapper.setPosition(session.deathX, session.deathY, session.deathZ);
