@@ -139,7 +139,7 @@ public class ShadowRendererMixin
                                 .setup(editorController.getEntities(), entity, replay, gameCamera, shadowStack, consumers, transition)
                                 .film(editorController.film)
                                 .shadow(true, shadow)
-                                .relative((Boolean) replay.relative.get())
+                                .relative(replay.isCameraRelative())
                                 .isShadowPass(true)
                                 .viewMatrix(new Matrix4f(shadowStack.peek().getPositionMatrix()));
 
@@ -236,7 +236,7 @@ public class ShadowRendererMixin
                         .setup(controller.getEntities(), entity, replay, gameCamera, shadowStack, consumers, transition)
                         .film(controller.film)
                         .shadow(true, shadow)
-                        .relative((Boolean) replay.relative.get())
+                        .relative(replay.isCameraRelative())
                         .isShadowPass(true)
                         .viewMatrix(new Matrix4f(shadowStack.peek().getPositionMatrix()));
 
@@ -293,7 +293,7 @@ public class ShadowRendererMixin
                         .setup(recorder.getEntities(), entity, replay, gameCamera, shadowStack, consumers, transition)
                         .film(recorder.film)
                         .shadow(true, shadow)
-                        .relative((Boolean) replay.relative.get())
+                        .relative(replay.isCameraRelative())
                         .isShadowPass(true)
                         .viewMatrix(new Matrix4f(shadowStack.peek().getPositionMatrix()));
 
@@ -372,7 +372,7 @@ public class ShadowRendererMixin
                 .setup(editorController.getEntities(), entity, replay, camera, shadowStack, consumers, 0F)
                 .film(editorController.film)
                 .shadow(true, shadow)
-                .relative((Boolean) replay.relative.get())
+                .relative(replay.isCameraRelative())
                 .isShadowPass(true)
                 .viewMatrix(new Matrix4f(shadowStack.peek().getPositionMatrix()));
 

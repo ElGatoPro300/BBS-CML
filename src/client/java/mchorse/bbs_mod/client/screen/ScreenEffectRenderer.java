@@ -124,6 +124,11 @@ public class ScreenEffectRenderer
 
     private static void renderLetterbox(Batcher2D batcher, LetterboxEffect effect, int screenW, int screenH)
     {
+        if (effect.width <= 0F)
+        {
+            return;
+        }
+
         int barH = (int)(screenH * effect.size);
 
         if (barH <= 0)
@@ -157,7 +162,7 @@ public class ScreenEffectRenderer
     {
         int color = effect.color;
         int smoothH = (int)(screenH * effect.smoothness);
-        float barWidthFactor = effect.width <= 0F ? 1F : effect.width;
+        float barWidthFactor = effect.width;
         int barW = Math.max(1, Math.round(screenW * barWidthFactor));
         int barX = (screenW - barW) / 2;
 

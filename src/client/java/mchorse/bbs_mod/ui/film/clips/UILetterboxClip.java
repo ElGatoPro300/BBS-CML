@@ -57,8 +57,9 @@ public class UILetterboxClip extends UIClip<LetterboxClip>
         this.width = this.createDoubleTrackpad(this.clip.width, this.clip.uniform.width, 0F, UIKeys.SCREEN_PANELS_LETTERBOX_WIDTH);
         this.height = this.createDoubleTrackpad(this.clip.height, this.clip.uniform.height, 0F, UIKeys.SCREEN_PANELS_LETTERBOX_HEIGHT);
         this.height.increment(0.01D).values(0.1D, 0.01D, 0.25D);
-        this.offsetX = this.createDoubleTrackpad(this.clip.offsetX, this.clip.uniform.offsetX, 0F, UIKeys.SCREEN_PANELS_LETTERBOX_OFFSET_X);
-        this.offsetY = this.createDoubleTrackpad(this.clip.offsetY, this.clip.uniform.offsetY, 0F, UIKeys.SCREEN_PANELS_LETTERBOX_OFFSET_Y);
+        /* Offsets are relative screen shifts — negatives must be allowed. */
+        this.offsetX = this.createDoubleTrackpad(this.clip.offsetX, this.clip.uniform.offsetX, UIKeys.SCREEN_PANELS_LETTERBOX_OFFSET_X);
+        this.offsetY = this.createDoubleTrackpad(this.clip.offsetY, this.clip.uniform.offsetY, UIKeys.SCREEN_PANELS_LETTERBOX_OFFSET_Y);
 
         this.useKeyframes = new UIToggle(UIKeys.SCREEN_PANELS_USE_KEYFRAMES, (b) ->
         {
@@ -254,9 +255,7 @@ public class UILetterboxClip extends UIClip<LetterboxClip>
                 sheet.defaultInsertValue = 1D;
                 sheet.limit(0D, null);
             }
-            else if ("offsetX".equals(sheet.id)
-                || "offsetY".equals(sheet.id)
-                || "smoothness".equals(sheet.id))
+            else if ("smoothness".equals(sheet.id))
             {
                 sheet.limit(0D, null);
             }

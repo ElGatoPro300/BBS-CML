@@ -1,5 +1,6 @@
 package mchorse.bbs_mod.ui.model;
 
+import mchorse.bbs_mod.BBSFeatures;
 import mchorse.bbs_mod.BBSMod;
 import mchorse.bbs_mod.BBSModClient;
 import mchorse.bbs_mod.BBSSettings;
@@ -140,7 +141,9 @@ public class UIModelGeometryPanel extends UIElement
         this.addFolderIcon.tooltip(UIKeys.MODELS_GEOMETRY_ADD_FOLDER);
         this.addIKLocatorIcon.tooltip(UIKeys.MODELS_IK_CREATE_LOCATOR_TOOLTIP);
 
-        UIElement actionButtonsRow = UI.row(this.addCubeIcon, this.addFolderIcon, this.addIKLocatorIcon);
+        UIElement actionButtonsRow = BBSFeatures.MODEL_IK_UI
+            ? UI.row(this.addCubeIcon, this.addFolderIcon, this.addIKLocatorIcon)
+            : UI.row(this.addCubeIcon, this.addFolderIcon);
         actionButtonsRow.relative(hierarchyTitle).y(1F, 4).w(1F).h(20);
 
         this.hierarchyList = new UIList<>((l) -> this.selectCurrentHierarchyEntry())

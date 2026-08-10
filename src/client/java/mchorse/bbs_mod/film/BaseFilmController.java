@@ -4,9 +4,12 @@ import mchorse.bbs_mod.BBSSettings;
 import mchorse.bbs_mod.client.BBSRendering;
 import mchorse.bbs_mod.client.renderer.ModelBlockEntityRenderer;
 import mchorse.bbs_mod.client.renderer.MorphFireRenderer;
+import mchorse.bbs_mod.client.renderer.entity.ActorEntityRenderer;
 import mchorse.bbs_mod.entity.ActorEntity;
 import mchorse.bbs_mod.film.replays.ActorReplayStateSync;
 import mchorse.bbs_mod.film.replays.Replay;
+import mchorse.bbs_mod.film.replays.ReplayKeyframes;
+import mchorse.bbs_mod.forms.CustomVertexConsumerProvider;
 import mchorse.bbs_mod.forms.FormUtils;
 import mchorse.bbs_mod.forms.FormUtilsClient;
 import mchorse.bbs_mod.forms.entities.IEntity;
@@ -69,6 +72,7 @@ import net.minecraft.client.render.VertexConsumerProvider;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityPose;
+import net.minecraft.entity.EquipmentSlot;
 import net.minecraft.entity.MovementType;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.particle.BlockStateParticleEffect;
@@ -86,6 +90,8 @@ import org.joml.Quaternionf;
 import org.joml.Vector2f;
 import org.joml.Vector3d;
 import org.joml.Vector3f;
+
+import org.lwjgl.opengl.GL11;
 
 import com.mojang.blaze3d.systems.RenderSystem;
 
@@ -371,6 +377,11 @@ public abstract class BaseFilmController
             stack.pop();
         }
 
+        /* Soft-opacity / glow / UI-style form passes can leave depthMask false or
+         * depthFunc=ALWAYS — blob shadows and nametags then ignore walls and draw on top
+         * of the body. Actors avoid this via the vanilla entity pass. */
+        restoreFilmOverlayDepthState();
+
         /* Vanilla blob shadows only without Iris shaders — Comp/BSL use the shadow map.
          * Blob opacity is the Shadow track only; form Opacity must not fade the ground circle.
          * Size X/Z are independent (matrix scale); vanilla API only has one radius. */
@@ -406,7 +417,17 @@ public abstract class BaseFilmController
             stack.pop();
         }
 
+        restoreFilmOverlayDepthState();
+    }
+
+    /**
+     * Depth state expected by vanilla ground shadows and name labels after a form draw.
+     */
+    private static void restoreFilmOverlayDepthState()
+    {
+        BBSRendering.restoreWorldRenderState();
         RenderSystem.enableDepthTest();
+        RenderSystem.depthFunc(GL11.GL_LEQUAL);
     }
 
     /**
@@ -1033,11 +1054,15 @@ public abstract class BaseFilmController
         return matrix;
     }
 
+    /**
+     * Stub-replay name tags — mirror vanilla {@code EntityRenderer.renderLabelIfPresent}:
+     * standing = SEE_THROUGH fade behind walls + NORMAL on top; sneaking = NORMAL only
+     * (hidden when occluded). Do not disable depth test (that caused permanent x-ray).
+     */
     private static void renderNameTag(IEntity entity, Text text, MatrixStack matrices, VertexConsumerProvider vertexConsumers, int light)
     {
-        boolean sneaking = !entity.isSneaking();
+        boolean seeThrough = !entity.isSneaking();
         float hitboxH = (float) entity.getPickingHitbox().h + (entity.isSneaking() ? 0.25F : 0.5F);
-
 
         matrices.push();
         matrices.translate(0F, hitboxH, 0F);
@@ -1050,13 +1075,30 @@ public abstract class BaseFilmController
         float opacity = MinecraftClient.getInstance().options.getTextBackgroundOpacity(0.25F);
         int background = (int) (opacity * 255F) << 24;
         float h = (float) (-textRenderer.getWidth(text) / 2);
+        /* Same translucent white vanilla uses for the see-through / background pass. */
+        int translucentColor = 0x20FFFFFF;
+        TextRenderer.TextLayerType firstLayer = seeThrough
+            ? TextRenderer.TextLayerType.SEE_THROUGH
+            : TextRenderer.TextLayerType.NORMAL;
 
-        textRenderer.draw(text, h, 0, 0x20ffffff, false, matrix4f, vertexConsumers, sneaking ? TextRenderer.TextLayerType.SEE_THROUGH : TextRenderer.TextLayerType.NORMAL, background, light);
+        RenderSystem.enableBlend();
+        RenderSystem.disableCull();
+        RenderSystem.enableDepthTest();
+        RenderSystem.depthFunc(GL11.GL_LEQUAL);
 
-        if (sneaking)
+        CustomVertexConsumerProvider consumers = FormUtilsClient.getProvider();
+
+        textRenderer.draw(text, h, 0, translucentColor, false, matrix4f, consumers, firstLayer, background, light);
+        consumers.draw();
+
+        if (seeThrough)
         {
-            textRenderer.draw(text, h, 0, -1, false, matrix4f, vertexConsumers, TextRenderer.TextLayerType.NORMAL, 0, light);
+            textRenderer.draw(text, h, 0, -1, false, matrix4f, consumers, TextRenderer.TextLayerType.NORMAL, 0, light);
+            consumers.draw();
         }
+
+        RenderSystem.enableCull();
+        RenderSystem.disableBlend();
 
         matrices.pop();
     }
@@ -1090,6 +1132,9 @@ public abstract class BaseFilmController
         }
 
         int i = 0;
+        /* Apply the playhead tick — not 0. Actor toggle calls this and tick 0
+         * would wipe equipment/pose that only exists on later keyframes. */
+        int tick = this.getTick();
 
         for (Replay replay : this.film.replays.getList())
         {
@@ -1101,9 +1146,10 @@ public abstract class BaseFilmController
             {
                 World world = MinecraftClient.getInstance().world;
                 IEntity entity = new StubEntity(world);
+                int replayTick = replay.getTick(tick);
 
                 entity.setForm(FormUtils.copy(replay.form.get()));
-                replay.keyframes.apply(0, entity);
+                replay.keyframes.apply(replayTick, entity);
                 entity.setPrevX(entity.getX());
                 entity.setPrevY(entity.getY());
                 entity.setPrevZ(entity.getZ());
@@ -1196,6 +1242,90 @@ public abstract class BaseFilmController
         return !this.paused;
     }
 
+    /**
+     * How many natural-animation ticks to advance on actor forms while the
+     * timeline is parked (film editor scrub). World films return 0.
+     */
+    protected int getPausedAnimationAdvanceSteps()
+    {
+        return 0;
+    }
+
+    /**
+     * Film tick before the current scrub step (editor only).
+     */
+    protected int getPausedAnimationFromTick()
+    {
+        return this.getTick();
+    }
+
+    /**
+     * While timeline-paused with actor-pause-animations: freeze limb/form clocks
+     * to this film tick. Scrubbing also snaps the body to keyframes (deterministic
+     * like alt-hover). Pause-in-place must not re-apply keyframe position — during
+     * play the visible ActorEntity follows ActionPlayer (with the editor's
+     * {@code cursor+1} convention), so snapping to {@code cursor} jumps ~1 tick.
+     */
+    private void applyPausedActorNaturalMotion(ActorEntity actor, Replay replay, int toReplayTick)
+    {
+        ReplayKeyframes keyframes = replay.keyframes;
+
+        if (keyframes == null)
+        {
+            return;
+        }
+
+        boolean mounted = actor.hasVehicle();
+        int steps = this.getPausedAnimationAdvanceSteps();
+
+        if (steps > 0)
+        {
+            double x = keyframes.x.interpolate(toReplayTick);
+            double y = keyframes.y.interpolate(toReplayTick);
+            double z = keyframes.z.interpolate(toReplayTick);
+
+            actor.setPosition(x, y, z);
+            actor.prevX = x;
+            actor.prevY = y;
+            actor.prevZ = z;
+            actor.lastRenderX = x;
+            actor.lastRenderY = y;
+            actor.lastRenderZ = z;
+        }
+        else
+        {
+            /* Hold the pose playback already showed; only kill render interpolation. */
+            double x = actor.getX();
+            double y = actor.getY();
+            double z = actor.getZ();
+
+            actor.prevX = x;
+            actor.prevY = y;
+            actor.prevZ = z;
+            actor.lastRenderX = x;
+            actor.lastRenderY = y;
+            actor.lastRenderZ = z;
+        }
+
+        actor.prevYaw = actor.getYaw();
+        actor.prevHeadYaw = actor.headYaw;
+        actor.prevBodyYaw = actor.bodyYaw;
+        actor.prevPitch = actor.getPitch();
+        actor.setVelocity(0D, 0D, 0D);
+
+        if (steps > 0)
+        {
+            actor.applyTimelineLimbPhase(keyframes, toReplayTick, mounted);
+            actor.syncTimelineFormTick(toReplayTick);
+        }
+        else
+        {
+            /* Pause-in-place: freeze whatever play already showed. Re-binding age or
+             * limb phase to the playhead restarts BOBJ/emoticon ActionPlayback. */
+            actor.anchorTimelinePauseState(toReplayTick);
+        }
+    }
+
     protected void updateEntities(int ticks)
     {
         List<Replay> replays = this.film.replays.getList();
@@ -1255,19 +1385,81 @@ public abstract class BaseFilmController
 
                         if (anEntity instanceof ActorEntity actor)
                         {
-                            if (!this.isActorPlaybackActive())
-                            {
-                                actor.setVelocity(0D, 0D, 0D);
-                            }
+                            boolean controlling = !this.shouldEmitReplayMotionFx(entity);
+                            boolean timelineAnims = BBSSettings.editorActorPauseAnimations != null
+                                && BBSSettings.editorActorPauseAnimations.get();
+                            boolean pauseAnims = timelineAnims
+                                && !this.isActorPlaybackActive()
+                                && !controlling;
+
+                            actor.setPauseNaturalAnimations(pauseAnims);
 
                             /* IEntity already has mount rotation applied by MorphMountSync */
                             actor.setYaw(entity.getYaw());
                             actor.setHeadYaw(entity.getHeadYaw());
                             actor.setBodyYaw(entity.getBodyYaw());
                             actor.setPitch(entity.getPitch());
-                            /* Stub already has vanilla pose/action keyframes; copy them so
-                             * MCEntity(actor) used by ActorEntityRenderer sees sprint/limbs/etc. */
-                            ActorReplayStateSync.syncFromSource(actor, entity);
+                            /* While playing, copy limbAnimator from the stub. ActionPlayer
+                             * teleports the physical actor so client distance-based limb
+                             * updates often stall; ProceduralAnimator then freezes walk
+                             * swing at an extreme pose (velocity restores amplitude, stuck
+                             * limbPhase does not advance). Timeline-freeze / actor-control
+                             * keep their own limb paths below.
+                             * Skip while a live hurt swing spike is active so procedural
+                             * damage uses the same limbSpeed amplification as vanilla. */
+                            boolean syncLimbs = this.isActorPlaybackActive() && !controlling && !pauseAnims
+                                && !actor.shouldPreserveLiveHurtLimbSwing();
+
+                            ActorReplayStateSync.syncFromSource(actor, entity, syncLimbs);
+                            /* Keep keyframed equipment on the visible ActorEntity — stub
+                             * already received applyReplay; without this, actor toggle can
+                             * show empty armor until the server respawns the actor. */
+                            this.syncActorEquipmentFromStub(actor, entity);
+                            /* Only gate vanilla sprint dust — do not clear sprinting (run anim). */
+                            actor.setSuppressSprintParticles(controlling);
+                            /* Iris packs cast mesh shadows; drop the vanilla blob then so
+                             * actor ground circles are not stacked darker. */
+                            ActorEntityRenderer.updateShadowRadius(actor);
+
+                            if (pauseAnims)
+                            {
+                                this.applyPausedActorNaturalMotion(actor, replay, replayTick);
+                            }
+                            else if (controlling)
+                            {
+                                /* Actor-control: keep the visible ActorEntity on the live
+                                 * player pose (server ActionPlayer skips this replay via PUPPET).
+                                 * Do not copy player velocity — LivingEntity.tick would keep
+                                 * integrating it on top of the snap (and creative-flight
+                                 * residual looks like ice). Pose is fully driven here. */
+                                actor.setPosition(entity.getX(), entity.getY(), entity.getZ());
+                                actor.prevX = entity.getPrevX();
+                                actor.prevY = entity.getPrevY();
+                                actor.prevZ = entity.getPrevZ();
+                                actor.setVelocity(0D, 0D, 0D);
+                            }
+                            else if (!this.isActorPlaybackActive())
+                            {
+                                actor.setVelocity(0D, 0D, 0D);
+
+                                /* Toggle off: clear sprint so emoticon/BOBJ leave run for
+                                 * idle (unless legacy run-in-place is enabled). Limb swing is
+                                 * left alone so procedural forms decay naturally. */
+                                if (!timelineAnims && BBSSettings.shouldSettleActorNaturalStopWhenPaused())
+                                {
+                                    ActorReplayStateSync.settleNaturalStop(actor);
+                                }
+                            }
+
+                            /* Timeline-freeze skips ActorEntity.tick, so vanilla sprint dust
+                             * never runs — emit keyframe dust while the body clock is frozen. */
+                            if (pauseAnims && this.shouldEmitReplayMotionFx(entity))
+                            {
+                                this.spawnSprintParticles(replay, replayTick, actor, true);
+                            }
+
+                            /* Keep label in sync while editing name_tag in the film UI. */
+                            actor.syncNameTag(replay);
                             replay.applyClientActions(replayTick, new MCEntity(anEntity), this.film);
 
                             spawned = true;
@@ -1285,7 +1477,10 @@ public abstract class BaseFilmController
 
                                 player.setVelocity(x - prevX, y - prevY, z - prevZ);
 
-                                this.spawnSprintParticles(replay, replayTick, player);
+                                if (this.shouldEmitReplayMotionFx(entity))
+                                {
+                                    this.spawnSprintParticles(replay, replayTick, player);
+                                }
                             }
                             else
                             {
@@ -1297,7 +1492,7 @@ public abstract class BaseFilmController
                     }
                 }
 
-                if (!spawned && !mounted)
+                if (!spawned && !mounted && this.shouldEmitReplayMotionFx(entity))
                 {
                     World world = MinecraftClient.getInstance().world;
                     Form form = replay.form.get();
@@ -1440,19 +1635,40 @@ public abstract class BaseFilmController
         replay.applyClientActions(ticks, entity, this.film);
     }
 
-      private void spawnSprintParticles(Replay replay, int ticks, Entity entity)
+    private void syncActorEquipmentFromStub(ActorEntity actor, IEntity stub)
+    {
+        actor.equipStack(EquipmentSlot.MAINHAND, stub.getEquipmentStack(EquipmentSlot.MAINHAND));
+        actor.equipStack(EquipmentSlot.OFFHAND, stub.getEquipmentStack(EquipmentSlot.OFFHAND));
+        actor.equipStack(EquipmentSlot.HEAD, stub.getEquipmentStack(EquipmentSlot.HEAD));
+        actor.equipStack(EquipmentSlot.CHEST, stub.getEquipmentStack(EquipmentSlot.CHEST));
+        actor.equipStack(EquipmentSlot.LEGS, stub.getEquipmentStack(EquipmentSlot.LEGS));
+        actor.equipStack(EquipmentSlot.FEET, stub.getEquipmentStack(EquipmentSlot.FEET));
+    }
+
+    private void spawnSprintParticles(Replay replay, int ticks, Entity entity)
+    {
+        this.spawnSprintParticles(replay, ticks, entity, false);
+    }
+
+    private void spawnSprintParticles(Replay replay, int ticks, Entity entity, boolean force)
     {
         if (entity == null)
         {
             return;
         }
 
-        this.spawnSprintParticles(replay, ticks, entity.getWorld(), entity.getWidth());
+        /* Prefer the visible body pose (actor hold can lag the playhead keyframe). */
+        this.spawnSprintParticles(replay, ticks, entity.getWorld(), entity.getWidth(), force, entity);
     }
 
     private void spawnSprintParticles(Replay replay, int ticks, World world, double width)
     {
-        if (!BBSSettings.editorReplaySprintParticles.get() || replay == null || world == null)
+        this.spawnSprintParticles(replay, ticks, world, width, false, null);
+    }
+
+    private void spawnSprintParticles(Replay replay, int ticks, World world, double width, boolean force, Entity atEntity)
+    {
+        if ((!force && !BBSSettings.editorReplaySprintParticles.get()) || replay == null || world == null)
         {
             return;
         }
@@ -1480,9 +1696,9 @@ public abstract class BaseFilmController
             return;
         }
 
-        double xPos = replay.keyframes.x.interpolate(ticks);
-        double yPos = replay.keyframes.y.interpolate(ticks);
-        double zPos = replay.keyframes.z.interpolate(ticks);
+        double xPos = atEntity != null ? atEntity.getX() : replay.keyframes.x.interpolate(ticks);
+        double yPos = atEntity != null ? atEntity.getY() : replay.keyframes.y.interpolate(ticks);
+        double zPos = atEntity != null ? atEntity.getZ() : replay.keyframes.z.interpolate(ticks);
 
         BlockPos pos = BlockPos.ofFloored(xPos, yPos - 0.2D, zPos);
 
@@ -1496,6 +1712,16 @@ public abstract class BaseFilmController
         double z = zPos + (world.random.nextDouble() - 0.5D) * width;
 
         world.addParticle(new BlockStateParticleEffect(ParticleTypes.BLOCK, world.getBlockState(pos)), x, y, z, 0D, 0.1D, 0D);
+    }
+
+    /**
+     * Whether film-pose motion FX (BBS keyframe sprint dust / step sounds) may emit
+     * for this replay entity. Defaults to true; the film editor turns it off for the
+     * entity currently under actor-control so dust is not sprayed at the parked pose.
+     */
+    protected boolean shouldEmitReplayMotionFx(IEntity entity)
+    {
+        return true;
     }
 
     private void spawnReplayStepSound(Replay replay, int ticks, World world)
@@ -2297,7 +2523,7 @@ public abstract class BaseFilmController
             .filmTick(this.getTick())
             .shadow(replay.shadow.get(), shadow)
             .nameTag(replay.nameTag.get())
-            .relative(replay.relative.get());
+            .relative(replay.isCameraRelative());
     }
 
     /**

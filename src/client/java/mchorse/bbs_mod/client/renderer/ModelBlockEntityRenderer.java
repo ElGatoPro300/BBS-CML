@@ -165,7 +165,7 @@ public class ModelBlockEntityRenderer implements BlockEntityRenderer<ModelBlockE
 
             MatrixStackUtils.applyTransform(matrices, applied);
 
-            int lightAbove = WorldRenderer.getLightmapCoordinates(entity.getWorld(), pos.add((int) transform.translate.x, (int) transform.translate.y, (int) transform.translate.z));
+            int lightAbove = resolveModelBlockLight(entity, properties, transform, light);
             Camera camera = mc.gameRenderer.getCamera();
 
             RenderSystem.enableDepthTest();
@@ -378,7 +378,7 @@ public class ModelBlockEntityRenderer implements BlockEntityRenderer<ModelBlockE
 
         MatrixStackUtils.applyTransform(shadowStack, applied);
 
-        int lightAbove = WorldRenderer.getLightmapCoordinates(entity.getWorld(), pos.add((int) transform.translate.x, (int) transform.translate.y, (int) transform.translate.z));
+        int lightAbove = resolveModelBlockLight(entity, properties, transform, 0xF000F0);
         FormRenderingContext formContext = new FormRenderingContext()
             .set(FormRenderType.MODEL_BLOCK, entity.getEntity(), shadowStack, lightAbove, OverlayTexture.DEFAULT_UV, tickDelta)
             .camera(mc.gameRenderer.getCamera());
@@ -388,6 +388,26 @@ public class ModelBlockEntityRenderer implements BlockEntityRenderer<ModelBlockE
         RenderSystem.enableDepthTest();
         FormUtilsClient.render(form, formContext);
         shadowStack.pop();
+    }
+
+    private static int resolveModelBlockLight(ModelBlockEntity entity, ModelProperties properties, Transform transform, int fallbackLight)
+    {
+        if (entity.getWorld() == null)
+        {
+            return fallbackLight;
+        }
+
+        BlockPos pos = entity.getPos();
+
+        if (!properties.isLocalLighting())
+        {
+            return WorldRenderer.getLightmapCoordinates(entity.getWorld(), pos);
+        }
+
+        return WorldRenderer.getLightmapCoordinates(entity.getWorld(), pos.add(
+            (int) transform.translate.x,
+            (int) transform.translate.y,
+            (int) transform.translate.z));
     }
 
     private static boolean canRenderStatic(ModelBlockEntity entity)

@@ -1,5 +1,6 @@
 package mchorse.bbs_mod.ui.forms.editors.utils;
 
+import mchorse.bbs_mod.BBSFeatures;
 import mchorse.bbs_mod.BBSSettings;
 import mchorse.bbs_mod.bobj.BOBJBone;
 import mchorse.bbs_mod.cubic.IModel;
@@ -90,7 +91,8 @@ public final class UIFormPropertyTrackSheets
         return path.endsWith("tint_block_entities")
             || path.endsWith("_item")
             || HIDDEN_MODEL_PROPERTIES.contains(name)
-            || name.startsWith("illusion_transform");
+            || name.startsWith("illusion_transform")
+            || (!BBSFeatures.isFormIkLookAtUiEnabled() && BBSFeatures.isFormIkLookAtProperty(name));
     }
 
     public static boolean isAnimationStateHiddenProperty(String key)

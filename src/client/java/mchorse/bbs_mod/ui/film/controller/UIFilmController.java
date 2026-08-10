@@ -28,6 +28,7 @@ import mchorse.bbs_mod.graphics.Draw;
 import mchorse.bbs_mod.graphics.texture.Texture;
 import mchorse.bbs_mod.graphics.window.Window;
 import mchorse.bbs_mod.l10n.keys.IKey;
+import mchorse.bbs_mod.entity.ActorEntity;
 import mchorse.bbs_mod.morphing.Morph;
 import mchorse.bbs_mod.network.ClientNetwork;
 import mchorse.bbs_mod.resources.Link;
@@ -35,6 +36,7 @@ import mchorse.bbs_mod.settings.values.base.BaseValue;
 import mchorse.bbs_mod.settings.values.ui.ValueOnionSkin;
 import mchorse.bbs_mod.ui.Keys;
 import mchorse.bbs_mod.ui.UIKeys;
+import mchorse.bbs_mod.ui.dashboard.EditorSpectatorHelper;
 import mchorse.bbs_mod.ui.film.UIFilmPanel;
 import mchorse.bbs_mod.ui.film.replays.FilmPoseGizmoDrag;
 import mchorse.bbs_mod.ui.film.replays.UIRecordOverlayPanel;
@@ -73,6 +75,7 @@ import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.Mouse;
 import net.minecraft.client.network.ClientPlayerEntity;
+import net.minecraft.client.network.ClientPlayerInteractionManager;
 import net.minecraft.client.option.GameOptions;
 import net.minecraft.client.render.BufferBuilder;
 import net.minecraft.client.render.BufferRenderer;
@@ -82,8 +85,14 @@ import net.minecraft.client.render.VertexFormat;
 import net.minecraft.client.render.VertexFormats;
 import net.minecraft.client.util.InputUtil;
 import net.minecraft.client.util.math.MatrixStack;
+import net.minecraft.entity.Entity;
+import net.minecraft.entity.projectile.ProjectileUtil;
+import net.minecraft.util.ActionResult;
+import net.minecraft.util.Hand;
 import net.minecraft.util.hit.BlockHitResult;
+import net.minecraft.util.hit.EntityHitResult;
 import net.minecraft.util.hit.HitResult;
+import net.minecraft.util.math.Box;
 import net.minecraft.util.math.Vec3d;
 import net.minecraft.world.RaycastContext;
 import net.minecraft.world.World;
@@ -144,6 +153,18 @@ public class UIFilmController extends UIElement
     private boolean wasFlying;
     private boolean wasAllowFlying;
     private boolean flightModified;
+
+    /* Grounded WASD while actor-controlling (creative flight = ice friction). */
+    private boolean wasControlFlying;
+    private boolean wasControlAllowFlying;
+    private boolean controlFlightModified;
+
+    /**
+     * Horizontal release-coast while actor-controlling. Avoids stacking extra
+     * friction on top of LivingEntity (hard stop) while still decaying residual
+     * motion so ice-like flight leftovers cannot slide forever.
+     */
+    private Vec3d actorControlCoastVelocity;
 
     /* Replay and group picking */
     private IEntity hoveredEntity;
@@ -427,6 +448,100 @@ public class UIFilmController extends UIElement
         return this.controlled != null;
     }
 
+    public boolean isControllingActorReplay()
+    {
+        if (this.controlled == null || this.panel.getData() == null)
+        {
+            return false;
+        }
+
+        Integer key = CollectionUtils.getKey(this.getEntities(), this.controlled);
+        Replay replay = key == null ? null : CollectionUtils.getSafe(this.panel.getData().replays.getList(), key);
+
+        return replay != null && replay.actor.get();
+    }
+
+    /**
+     * Soft vanilla-like stop for actor-control without the decoupled puppet path.
+     * <p>
+     * On WASD release we capture horizontal speed and re-apply a decaying coast
+     * each input tick. That curve is the only intentional idle brake (≈ ground
+     * friction {@code 0.6 * 0.91}), so we do not multiply velocity by an extra
+     * {@code 0.55} on top of {@code LivingEntity} friction (that felt like a hard stop).
+     * Cap + decay also prevent the old infinite ice slide from flight leftovers.
+     */
+    public void dampenActorControlDrift(boolean moving)
+    {
+        if (!this.isControllingActorReplay())
+        {
+            this.actorControlCoastVelocity = null;
+
+            return;
+        }
+
+        ClientPlayerEntity player = MinecraftClient.getInstance().player;
+
+        if (player == null)
+        {
+            return;
+        }
+
+        if (moving)
+        {
+            this.actorControlCoastVelocity = null;
+
+            return;
+        }
+
+        Vec3d velocity = player.getVelocity();
+
+        if (this.actorControlCoastVelocity == null)
+        {
+            double hx = velocity.x;
+            double hz = velocity.z;
+            double horizSq = hx * hx + hz * hz;
+
+            if (horizSq <= 1.0E-6D)
+            {
+                player.setSprinting(false);
+
+                return;
+            }
+
+            /* Clamp seed so a flight/ice leftover cannot launch a long slide. */
+            double maxSeed = player.isSprinting() ? 0.3D : 0.22D;
+            double horiz = Math.sqrt(horizSq);
+
+            if (horiz > maxSeed)
+            {
+                double scale = maxSeed / horiz;
+
+                hx *= scale;
+                hz *= scale;
+            }
+
+            this.actorControlCoastVelocity = new Vec3d(hx, 0D, hz);
+        }
+
+        /* Match normal-block ground friction; air uses the usual 0.91 horizontal drag. */
+        double drag = player.isOnGround() ? (0.6D * 0.91D) : 0.91D;
+        double cx = this.actorControlCoastVelocity.x;
+        double cz = this.actorControlCoastVelocity.z;
+
+        if (cx * cx + cz * cz < 0.0004D)
+        {
+            this.actorControlCoastVelocity = null;
+            player.setSprinting(false);
+            player.setVelocity(0D, velocity.y, 0D);
+
+            return;
+        }
+
+        player.setSprinting(false);
+        player.setVelocity(cx, velocity.y, cz);
+        this.actorControlCoastVelocity = new Vec3d(cx * drag, 0D, cz * drag);
+    }
+
     public void toggleControl()
     {
         this.getContext().unfocus();
@@ -445,10 +560,18 @@ public class UIFilmController extends UIElement
             }
 
             this.controlled = null;
+            this.actorControlCoastVelocity = null;
+            this.notifyActorPuppet(-1);
+            this.restoreControlFlight();
+            EditorSpectatorHelper.resumeAfterControl();
         }
         else if (this.panel.replayEditor.replays.replays.isSelected())
         {
             this.controlled = this.getCurrentEntity();
+
+            Integer key = this.controlled == null ? null : CollectionUtils.getKey(entities, this.controlled);
+            int replayIndex = key == null ? -1 : key;
+            Replay replay = key == null ? null : CollectionUtils.getSafe(this.panel.getData().replays.getList(), key);
 
             if (replacePlayer && this.controlled != null)
             {
@@ -457,12 +580,25 @@ public class UIFilmController extends UIElement
                 this.playerForm = player.getForm();
                 this.previousEntity = this.controlled;
 
-                player.copy(this.controlled);
+                if (replay != null && replay.actor.get())
+                {
+                    this.setupActorControlPlayer(player, this.controlled);
+                }
+                else
+                {
+                    player.copy(this.controlled);
+                }
+
                 PlayerUtils.teleport(this.controlled.getX(), this.controlled.getY(), this.controlled.getZ(), this.controlled.getHeadYaw(), this.controlled.getBodyYaw(), this.controlled.getPitch());
                 entities.put(CollectionUtils.getKey(entities, this.controlled), player);
 
                 this.controlled = player;
+                this.applyGroundControlFlight();
             }
+
+            /* Spectator cannot swipe / use shields / deal damage — leave it for control. */
+            EditorSpectatorHelper.suspendForControl();
+            this.notifyActorPuppet(replayIndex);
         }
 
         this.setMouseMode(this.mouseMode);
@@ -472,6 +608,84 @@ public class UIFilmController extends UIElement
         {
             this.stopRecording();
         }
+    }
+
+    /**
+     * Actor replay control must not copy replay physics onto the live player.
+     * Keyframed velocity/flying/sprint are playback state; puppet movement should
+     * start from a neutral vanilla player and then be driven by actual input.
+     */
+    private void setupActorControlPlayer(MCEntity player, IEntity replayEntity)
+    {
+        player.setForm(replayEntity.getForm());
+        player.setSprinting(false);
+        player.setSwimming(false);
+        player.setFlying(false);
+        player.setFallFlying(false);
+        player.setCrawling(false);
+        player.setClimbing(false);
+        player.setRiptide(false);
+        player.setVelocity(0F, 0F, 0F);
+    }
+
+    /**
+     * Remember and clear creative flight so the first control tick is grounded.
+     */
+    private void applyGroundControlFlight()
+    {
+        if (this.flightModified || this.controlFlightModified)
+        {
+            return;
+        }
+
+        ClientPlayerEntity player = MinecraftClient.getInstance().player;
+
+        if (player == null)
+        {
+            return;
+        }
+
+        this.wasControlAllowFlying = player.getAbilities().allowFlying;
+        this.wasControlFlying = player.getAbilities().flying;
+        this.controlFlightModified = true;
+        player.getAbilities().allowFlying = false;
+        player.getAbilities().flying = false;
+        player.sendAbilitiesUpdate();
+    }
+
+    private void restoreControlFlight()
+    {
+        if (!this.controlFlightModified)
+        {
+            return;
+        }
+
+        ClientPlayerEntity player = MinecraftClient.getInstance().player;
+
+        if (player != null)
+        {
+            player.getAbilities().allowFlying = this.wasControlAllowFlying;
+            player.getAbilities().flying = this.wasControlFlying;
+            player.sendAbilitiesUpdate();
+        }
+
+        this.controlFlightModified = false;
+    }
+
+    /**
+     * Tell the server film-editor ActionPlayer which actor body the client is
+     * puppeteering, so it stops snapping that entity to keyframes.
+     */
+    private void notifyActorPuppet(int replayIndex)
+    {
+        Film film = this.panel.getData();
+
+        if (film == null || !ClientNetwork.isIsBBSModOnServer())
+        {
+            return;
+        }
+
+        ClientNetwork.sendActionState(film.getId(), ActionState.PUPPET, replayIndex);
     }
 
     private boolean canControl()
@@ -619,12 +833,25 @@ public class UIFilmController extends UIElement
         {
             ClientPlayerEntity player = MinecraftClient.getInstance().player;
 
-            this.wasAllowFlying = player.getAbilities().allowFlying;
-            this.wasFlying = player.getAbilities().flying;
+            /* Prefer pre-control flight so stopRecording restores the real state,
+             * not the temporary grounded flags from actor control. */
+            if (this.controlFlightModified)
+            {
+                this.wasAllowFlying = this.wasControlAllowFlying;
+                this.wasFlying = this.wasControlFlying;
+                this.controlFlightModified = false;
+            }
+            else
+            {
+                this.wasAllowFlying = player.getAbilities().allowFlying;
+                this.wasFlying = player.getAbilities().flying;
+            }
+
             this.flightModified = true;
 
             player.getAbilities().allowFlying = true;
             player.getAbilities().flying = true;
+            player.sendAbilitiesUpdate();
         }
 
         this.toggleMousePointer(this.controlled != null);
@@ -651,7 +878,14 @@ public class UIFilmController extends UIElement
 
             player.getAbilities().allowFlying = this.wasAllowFlying;
             player.getAbilities().flying = this.wasFlying;
+            player.sendAbilitiesUpdate();
             this.flightModified = false;
+
+            /* Still actor-controlling after a look-only capture — re-apply grounded mode. */
+            if (this.controlled != null)
+            {
+                this.applyGroundControlFlight();
+            }
         }
 
         this.panel.setCursor(this.recordingTick);
@@ -712,6 +946,240 @@ public class UIFilmController extends UIElement
     private boolean shouldConsumeControlMouse(UIContext context)
     {
         return this.panel.preview.getViewport().isInside(context);
+    }
+
+    /**
+     * While actor-control has the OS cursor disabled, absolute mouse coords still move over
+     * the editor and steal LMB/RMB (no swipe / shield). Route those clicks to vanilla
+     * attack/use from the <em>player</em> eye/look (not the film camera crosshair), and
+     * park UI hover elsewhere.
+     */
+    public boolean handleControlMousePress(int button)
+    {
+        if (!this.canControl())
+        {
+            return false;
+        }
+
+        MinecraftClient client = MinecraftClient.getInstance();
+
+        if (client.player == null || client.interactionManager == null)
+        {
+            return true;
+        }
+
+        EditorSpectatorHelper.ensurePlayableForControl();
+
+        if (button == GLFW.GLFW_MOUSE_BUTTON_LEFT)
+        {
+            this.performControlAttack(client);
+        }
+        else if (button == GLFW.GLFW_MOUSE_BUTTON_RIGHT)
+        {
+            this.performControlUse(client);
+        }
+
+        return true;
+    }
+
+    /**
+     * Attack / break whatever is in front of the controlled player body.
+     * Film-camera {@code crosshairTarget} is useless here (orbit / path look).
+     */
+    private void performControlAttack(MinecraftClient client)
+    {
+        ClientPlayerEntity player = client.player;
+        ClientPlayerInteractionManager interactions = client.interactionManager;
+        HitResult hit = this.raycastControlTarget(player, true);
+
+        if (hit.getType() == HitResult.Type.ENTITY)
+        {
+            interactions.attackEntity(player, ((EntityHitResult) hit).getEntity());
+        }
+        else if (hit.getType() == HitResult.Type.BLOCK)
+        {
+            BlockHitResult blockHit = (BlockHitResult) hit;
+
+            interactions.attackBlock(blockHit.getBlockPos(), blockHit.getSide());
+        }
+
+        player.swingHand(Hand.MAIN_HAND);
+        this.swingVisibleActor();
+    }
+
+    /**
+     * Interact with entity / block / held item in front of the controlled player.
+     */
+    private void performControlUse(MinecraftClient client)
+    {
+        ClientPlayerEntity player = client.player;
+        ClientPlayerInteractionManager interactions = client.interactionManager;
+        HitResult hit = this.raycastControlTarget(player, false);
+
+        for (Hand hand : Hand.values())
+        {
+            if (hit.getType() == HitResult.Type.ENTITY)
+            {
+                EntityHitResult entityHit = (EntityHitResult) hit;
+                ActionResult atLocation = interactions.interactEntityAtLocation(player, entityHit.getEntity(), entityHit, hand);
+
+                if (atLocation.isAccepted())
+                {
+                    return;
+                }
+
+                ActionResult onEntity = interactions.interactEntity(player, entityHit.getEntity(), hand);
+
+                if (onEntity.isAccepted())
+                {
+                    return;
+                }
+            }
+            else if (hit.getType() == HitResult.Type.BLOCK)
+            {
+                ActionResult onBlock = interactions.interactBlock(player, hand, (BlockHitResult) hit);
+
+                if (onBlock.isAccepted())
+                {
+                    return;
+                }
+            }
+
+            ActionResult onItem = interactions.interactItem(player, hand);
+
+            if (onItem.isAccepted())
+            {
+                return;
+            }
+        }
+    }
+
+    /**
+     * Ray from the live player's eyes along their look — same basis as WASD control.
+     * Skips the puppeteered {@link ActorEntity} so it cannot eat the hit.
+     */
+    private HitResult raycastControlTarget(ClientPlayerEntity player, boolean forAttack)
+    {
+        double entityRange = player.getEntityInteractionRange();
+        double blockRange = player.getBlockInteractionRange();
+        double maxRange = Math.max(entityRange, blockRange);
+        Vec3d origin = player.getCameraPosVec(1F);
+        Vec3d rotation = player.getRotationVec(1F);
+        Vec3d end = origin.add(rotation.x * maxRange, rotation.y * maxRange, rotation.z * maxRange);
+        HitResult blockHit = player.raycast(maxRange, 1F, false);
+        double blockDistSq = blockHit.getType() != HitResult.Type.MISS
+            ? blockHit.getPos().squaredDistanceTo(origin)
+            : maxRange * maxRange;
+        Box box = player.getBoundingBox().stretch(rotation.multiply(maxRange)).expand(1D, 1D, 1D);
+        EntityHitResult entityHit = ProjectileUtil.raycast(player, origin, end, box,
+            entity -> !entity.isSpectator() && entity.canHit() && !this.isOwnControlledActorBody(entity),
+            blockDistSq);
+
+        if (entityHit != null)
+        {
+            double entityDist = entityHit.getPos().distanceTo(origin);
+            double allowed = forAttack ? entityRange : Math.max(entityRange, blockRange);
+
+            if (entityDist <= allowed + 1.0E-4D)
+            {
+                return entityHit;
+            }
+        }
+
+        if (blockHit.getType() == HitResult.Type.BLOCK)
+        {
+            double blockDist = blockHit.getPos().distanceTo(origin);
+
+            if (blockDist <= blockRange + 1.0E-4D)
+            {
+                return blockHit;
+            }
+        }
+
+        return BlockHitResult.createMissed(end, player.getHorizontalFacing(), player.getBlockPos());
+    }
+
+    private boolean isOwnControlledActorBody(Entity entity)
+    {
+        if (!(entity instanceof ActorEntity) || this.actors == null)
+        {
+            return false;
+        }
+
+        Replay replay = this.getReplay();
+
+        if (replay == null)
+        {
+            return false;
+        }
+
+        Integer entityId = this.actors.get(replay.getId());
+
+        return entityId != null && entityId == entity.getId();
+    }
+
+    /**
+     * Actor-mode bodies are a separate {@link ActorEntity};
+     * mirror the live player swing so the visible actor animates the attack.
+     */
+    private void swingVisibleActor()
+    {
+        if (this.actors == null || this.panel.getData() == null)
+        {
+            return;
+        }
+
+        Replay replay = this.getReplay();
+
+        if (replay == null || !replay.actor.get())
+        {
+            return;
+        }
+
+        Integer entityId = this.actors.get(replay.getId());
+
+        if (entityId == null || MinecraftClient.getInstance().world == null)
+        {
+            return;
+        }
+
+        Entity entity = MinecraftClient.getInstance().world.getEntityById(entityId);
+
+        if (entity instanceof net.minecraft.entity.LivingEntity living)
+        {
+            living.swingHand(Hand.MAIN_HAND);
+        }
+    }
+
+    public boolean handleControlMouseRelease(int button)
+    {
+        if (!this.canControl())
+        {
+            return false;
+        }
+
+        MinecraftClient client = MinecraftClient.getInstance();
+
+        if (client.player == null || client.interactionManager == null)
+        {
+            return true;
+        }
+
+        if (button == GLFW.GLFW_MOUSE_BUTTON_LEFT)
+        {
+            client.interactionManager.cancelBlockBreaking();
+        }
+        else if (button == GLFW.GLFW_MOUSE_BUTTON_RIGHT && client.player.isUsingItem())
+        {
+            client.interactionManager.stopUsingItem(client.player);
+        }
+
+        return true;
+    }
+
+    public boolean shouldParkUiMouse()
+    {
+        return this.canControl();
     }
 
     @Override
@@ -1063,7 +1531,36 @@ public class UIFilmController extends UIElement
         if (this.canControl())
         {
             this.updateControls();
+            this.updateControlBlockBreaking();
         }
+    }
+
+    private void updateControlBlockBreaking()
+    {
+        if (!Window.isMouseButtonPressed(GLFW.GLFW_MOUSE_BUTTON_LEFT))
+        {
+            return;
+        }
+
+        MinecraftClient client = MinecraftClient.getInstance();
+
+        if (client.player == null || client.interactionManager == null)
+        {
+            return;
+        }
+
+        HitResult hit = this.raycastControlTarget(client.player, true);
+
+        if (hit.getType() != HitResult.Type.BLOCK)
+        {
+            client.interactionManager.cancelBlockBreaking();
+
+            return;
+        }
+
+        BlockHitResult blockHit = (BlockHitResult) hit;
+
+        client.interactionManager.updateBlockBreakingProgress(blockHit.getBlockPos(), blockHit.getSide());
     }
 
     private void handleRecording(RunnerCameraController runner)
@@ -1417,7 +1914,9 @@ public class UIFilmController extends UIElement
 
         this.lastMouse.set(x, y);
 
-        RenderSystem.disableDepthTest();
+        BBSRendering.restoreWorldRenderState();
+        RenderSystem.enableDepthTest();
+        RenderSystem.depthFunc(GL11.GL_LEQUAL);
     }
 
     private void renderDropItemTrajectory(WorldRenderContext context)
@@ -1637,7 +2136,7 @@ public class UIFilmController extends UIElement
                     .filmTick(cursorTick)
                     .transition(isPlaying ? renderContext.tickDelta() : 0)
                     .stencil(this.stencilMap)
-                    .relative(replay.relative.get())
+                    .relative(replay.isCameraRelative())
                     .physicalActor(physicalActor));
             }
         }

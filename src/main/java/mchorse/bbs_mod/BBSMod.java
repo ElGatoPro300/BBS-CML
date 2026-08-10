@@ -197,10 +197,22 @@ public class BBSMod implements ModInitializer
     private static List<Runnable> runnables = new ArrayList<>();
 
     private static final ThreadLocal<RegistryWrapper.WrapperLookup> registryManager = new ThreadLocal<>();
+    /**
+     * Client-side fallback for registry-backed codecs (ItemStack enchantments, etc.).
+     * {@link ThreadLocal} alone is not enough if a client helper runs off the JOIN thread.
+     */
+    private static volatile RegistryWrapper.WrapperLookup clientRegistryManager;
 
     public static RegistryWrapper.WrapperLookup getRegistryManager()
     {
-        return registryManager.get();
+        RegistryWrapper.WrapperLookup local = registryManager.get();
+
+        if (local != null)
+        {
+            return local;
+        }
+
+        return clientRegistryManager;
     }
 
     public static void setRegistryManager(RegistryWrapper.WrapperLookup registryManager)
@@ -213,6 +225,11 @@ public class BBSMod implements ModInitializer
         {
             BBSMod.registryManager.set(registryManager);
         }
+    }
+
+    public static void setClientRegistryManager(RegistryWrapper.WrapperLookup registries)
+    {
+        clientRegistryManager = registries;
     }
 
     private static MapFactory<Clip, ClipFactoryData> factoryCameraClips;
