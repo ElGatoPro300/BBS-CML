@@ -573,7 +573,8 @@ public class ServerNetwork
 
                 if (actionPlayer != null)
                 {
-                    actionPlayer.goTo(tick);
+                    /* Soft sync — do not clear combat deaths like a timeline SEEK. */
+                    actionPlayer.syncPlaybackTick(tick);
                     actionPlayer.playing = true;
                 }
             }
@@ -583,7 +584,8 @@ public class ServerNetwork
 
                 if (actionPlayer != null)
                 {
-                    actionPlayer.goTo(tick);
+                    /* Soft sync — do not clear combat deaths like a timeline SEEK. */
+                    actionPlayer.syncPlaybackTick(tick);
                     actionPlayer.playing = false;
                 }
             }
@@ -615,7 +617,7 @@ public class ServerNetwork
 
                     if (tick != 0)
                     {
-                        actionPlayer.goTo(0, tick);
+                        actionPlayer.seekTo(tick);
                     }
                 }
 
