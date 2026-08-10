@@ -166,8 +166,7 @@ public class Replay extends ValueGroup
 
     public void applyActions(LivingEntity actor, SuperFakePlayer fakePlayer, Film film, int tick)
     {
-        if (actor != null && (actor.isDead() || actor.getHealth() <= 0F || actor.deathTime > 0
-            || this.keyframes.deathTime.interpolate(tick).intValue() > 0))
+        if (actor != null && (actor.isDead() || actor.getHealth() <= 0F || actor.deathTime > 0))
         {
             return;
         }
@@ -186,8 +185,7 @@ public class Replay extends ValueGroup
 
         SwipeActionClip.noteClientFilmTick(entity, tick);
 
-        boolean dead = entity != null && (entity.getDeathTime() > 0
-            || this.keyframes.deathTime.interpolate(tick).intValue() > 0);
+        boolean dead = entity != null && entity.getDeathTime() > 0;
         List<Clip> clips = this.actions.getClips(tick);
 
         for (Clip clip : clips)

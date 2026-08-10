@@ -27,6 +27,7 @@ import net.minecraft.nbt.NbtCompound;
 import net.minecraft.nbt.NbtElement;
 import net.minecraft.nbt.NbtOps;
 import net.minecraft.network.packet.s2c.play.ItemPickupAnimationS2CPacket;
+import net.minecraft.particle.ParticleTypes;
 import net.minecraft.registry.RegistryOps;
 import net.minecraft.registry.RegistryWrapper;
 import net.minecraft.server.network.ServerPlayerEntity;
@@ -34,6 +35,7 @@ import net.minecraft.server.world.ServerWorld;
 import net.minecraft.text.Text;
 import net.minecraft.util.Arm;
 import net.minecraft.util.math.Box;
+import net.minecraft.util.math.random.Random;
 import net.minecraft.world.World;
 
 import java.util.ArrayList;
@@ -501,6 +503,12 @@ public class ActorEntity extends LivingEntity implements IEntityFormProvider
             return;
         }
 
+        /* Poof burst on the last living death tick — same timing as MobDeathActionClip. */
+        if (this.getWorld().isClient() && dying && this.deathTime == 19)
+        {
+            this.spawnDeathBurstParticles();
+        }
+
         super.tick();
 
         this.tickHandSwing();
@@ -514,6 +522,27 @@ public class ActorEntity extends LivingEntity implements IEntityFormProvider
         if (!this.getWorld().isClient())
         {
             this.tickItemPickup();
+        }
+    }
+
+    private void spawnDeathBurstParticles()
+    {
+        Random random = this.getWorld().getRandom();
+        double x = this.getX();
+        double y = this.getY() + this.getEyeHeight(this.getPose()) * 0.5D;
+        double z = this.getZ();
+        float width = 0.6F;
+
+        for (int i = 0; i < 20; i++)
+        {
+            double offsetX = (random.nextDouble() - 0.5D) * width;
+            double offsetY = random.nextDouble() * 0.5D;
+            double offsetZ = (random.nextDouble() - 0.5D) * width;
+            double velocityX = random.nextGaussian() * 0.02D;
+            double velocityY = random.nextGaussian() * 0.02D;
+            double velocityZ = random.nextGaussian() * 0.02D;
+
+            this.getWorld().addParticle(ParticleTypes.POOF, x + offsetX, y + offsetY, z + offsetZ, velocityX, velocityY, velocityZ);
         }
     }
 

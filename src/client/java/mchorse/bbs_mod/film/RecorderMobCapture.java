@@ -592,7 +592,6 @@ public final class RecorderMobCapture
     public void recordTick(Recorder recorder)
     {
         this.capturePlayerVehicle(recorder);
-        this.syncFilmActorDeathSessions(recorder);
 
         if (this.sessions.isEmpty())
         {
@@ -1018,70 +1017,6 @@ public final class RecorderMobCapture
         });
 
         this.refreshFilmUi(recorder);
-    }
-
-    /**
-     * When a film {@link ActorEntity} dies during recording, attach a death session to
-     * that existing replay instead of creating a phantom mob capture named "actor".
-     */
-    private void syncFilmActorDeathSessions(Recorder recorder)
-    {
-        Map<String, Integer> actors = recorder.getActors();
-
-        if (actors == null || actors.isEmpty())
-        {
-            return;
-        }
-
-        MinecraftClient mc = MinecraftClient.getInstance();
-        ClientWorld world = mc.world;
-
-        if (world == null)
-        {
-            return;
-        }
-
-        List<Replay> list = recorder.film.replays.getList();
-
-        for (Map.Entry<String, Integer> entry : actors.entrySet())
-        {
-            Integer entityId = entry.getValue();
-
-            if (entityId == null || this.capturedEntityIds.contains(entityId))
-            {
-                continue;
-            }
-
-            Entity entity = world.getEntityById(entityId);
-
-            if (!(entity instanceof ActorEntity actor))
-            {
-                continue;
-            }
-
-            boolean dying = !actor.isAlive() || actor.deathTime > 0;
-
-            if (!dying)
-            {
-                continue;
-            }
-
-            Replay replay = (Replay) recorder.film.replays.get(entry.getKey());
-
-            if (replay == null)
-            {
-                continue;
-            }
-
-            int replayIndex = list.indexOf(replay);
-
-            if (replayIndex < 0 || replayIndex == recorder.exception)
-            {
-                continue;
-            }
-
-            this.registerSession(recorder, actor, replayIndex);
-        }
     }
 
     private boolean captureNearbyDrops(Replay replay, int tick, double x, double y, double z, ClientWorld world)

@@ -289,12 +289,12 @@ public final class ActorReplayStateSync
     }
 
     /**
-     * Merge keyframed damage/death with any live combat on {@link ActorEntity}.
+     * Merge keyframed damage with any live combat on {@link ActorEntity}.
      * ActionPlayer used to assign keyframe values every tick, which wiped vanilla
-     * {@code hurtTime}/{@code deathTime} and made actors look immune after a few hits.
+     * {@code hurtTime} and made actors look immune after a few hits.
      * <p>
-     * Keyframed death drives {@code deathTime} exactly so scrubbing/playback match the film.
-     * Live kills with no death keyframes yet keep progressing via vanilla {@code deathTime}.
+     * Actor death is Attack/combat-driven at playback — {@code death_time} keyframes
+     * must not force-kill an actor (or keep them dead when Attack clips are disabled).
      * Live {@code hurtTime} is kept when damage flash and/or damage animation is enabled.
      */
     private static void applyHurtAndDeath(LivingEntity actor, int keyframeHurt, int keyframeDeath)
@@ -305,15 +305,6 @@ public final class ActorReplayStateSync
             actor.deathTime = keyframeDeath;
 
             return;
-        }
-
-        if (keyframeDeath > 0)
-        {
-            actor.deathTime = keyframeDeath;
-        }
-        else if (!actor.isDead() && actor.getHealth() > 0F)
-        {
-            actor.deathTime = 0;
         }
 
         actorEntity.setKeyframeHurtActive(keyframeHurt > 0);

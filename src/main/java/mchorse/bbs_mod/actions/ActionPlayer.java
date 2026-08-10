@@ -143,13 +143,6 @@ public class ActionPlayer
             }
             else
             {
-                int keyframeDeath = replay.keyframes.deathTime.interpolate(this.tick).intValue();
-
-                if (keyframeDeath >= DEATH_ANIMATION_TICKS)
-                {
-                    continue;
-                }
-
                 ActorEntity actor = this.spawnActor(replay);
 
                 this.actors.put(replay.getId(), actor);
@@ -186,6 +179,40 @@ public class ActionPlayer
         }
     }
 
+    /**
+     * Respawn actor-mode bodies missing from the map (e.g. after a combat death)
+     * so seeking / undo can revive them before actions re-apply.
+     */
+    private void ensureMissingActors()
+    {
+        List<Replay> list = this.film.replays.getList();
+        boolean changed = false;
+
+        for (int i = 0; i < list.size(); i++)
+        {
+            Replay replay = list.get(i);
+            boolean isActor = replay.actor.get() || replay.fp.get();
+
+            if (i == this.exception || !isActor || !replay.enabled.get() || replay.fp.get())
+            {
+                continue;
+            }
+
+            LivingEntity existing = this.actors.get(replay.getId());
+
+            if (existing == null || existing.isRemoved())
+            {
+                this.actors.put(replay.getId(), this.spawnActor(replay));
+                changed = true;
+            }
+        }
+
+        if (changed)
+        {
+            this.broadcastActors();
+        }
+    }
+
     public ServerWorld getWorld()
     {
         return this.world;
@@ -193,25 +220,21 @@ public class ActionPlayer
 
     public void apply(LivingEntity actor, Replay replay, float tick, boolean ticking)
     {
-        int keyframeDeath = replay.keyframes.deathTime.interpolate(tick).intValue();
-
-        /* Keyframed corpse finished — drop body so shadow/nametag cannot linger. */
-        if (actor instanceof ActorEntity && keyframeDeath >= DEATH_ANIMATION_TICKS)
-        {
-            if (!actor.isRemoved())
-            {
-                actor.discard();
-            }
-
-            return;
-        }
-
-        /* Once combat has killed this actor, stop snapping pose/position from the
-         * film so the death animation can play instead of looking invulnerable.
-         * Keyframed death still applies deathTime below via applyFromKeyframes. */
+        /* Once combat (Attack clip) has killed this actor, stop snapping pose/position
+         * from the film so the death animation can play. Death is not driven by
+         * death_time keyframes — otherwise disabling Attack would still "kill" them. */
         if (actor instanceof ActorEntity && (actor.isDead() || actor.getHealth() <= 0F))
         {
-            actor.deathTime = Math.max(actor.deathTime, keyframeDeath);
+            if (actor.deathTime >= DEATH_ANIMATION_TICKS)
+            {
+                if (!actor.isRemoved())
+                {
+                    actor.discard();
+                }
+
+                return;
+            }
+
             actor.setVelocity(0D, 0D, 0D);
 
             if (actor instanceof ActorEntity actorEntity)
@@ -377,30 +400,15 @@ public class ActionPlayer
 
                 LivingEntity actor = entry.getValue();
 
+                /* After a combat death the body is discarded. Do not respawn from
+                 * later movement keyframes mid-playback — that teleports the actor
+                 * to where they "would have been". Seek/updateReplayEntities revives. */
                 if (actor == null || actor.isRemoved())
                 {
-                    int keyframeDeath = replay.keyframes.deathTime.interpolate(this.tick).intValue();
+                    removeIds.add(entry.getKey());
+                    actorsChanged = true;
 
-                    if (keyframeDeath >= DEATH_ANIMATION_TICKS)
-                    {
-                        removeIds.add(entry.getKey());
-                        actorsChanged = true;
-                    }
-                    else if (replay.actor.get() && !replay.fp.get())
-                    {
-                        ActorEntity respawned = this.spawnActor(replay);
-
-                        entry.setValue(respawned);
-                        actorsChanged = true;
-                        actor = respawned;
-                    }
-                    else
-                    {
-                        removeIds.add(entry.getKey());
-                        actorsChanged = true;
-
-                        continue;
-                    }
+                    continue;
                 }
 
                 if (actor instanceof ActorEntity actorEntity)
@@ -483,8 +491,7 @@ public class ActionPlayer
 
             LivingEntity actor = this.actors.get(replay.getId());
 
-            if (actor != null && (actor.isDead() || actor.getHealth() <= 0F || actor.deathTime > 0
-                || replay.keyframes.deathTime.interpolate(this.tick).intValue() > 0))
+            if (actor != null && (actor.isDead() || actor.getHealth() <= 0F || actor.deathTime > 0))
             {
                 continue;
             }
@@ -531,11 +538,10 @@ public class ActionPlayer
             if (replay != null)
             {
                 LivingEntity actor = entry.getValue();
-                int keyframeDeath = replay.keyframes.deathTime.interpolate(this.tick).intValue();
 
                 if (actor == null || actor.isRemoved())
                 {
-                    if (keyframeDeath >= DEATH_ANIMATION_TICKS || !replay.actor.get() || replay.fp.get())
+                    if (!replay.actor.get() || replay.fp.get())
                     {
                         if (actor != null && actor.isRemoved())
                         {
@@ -634,6 +640,10 @@ public class ActionPlayer
 
     public void goTo(int from, int tick)
     {
+        /* Revive actors discarded by a prior combat death so Attack clips can
+         * hit them again when scrubbing through the kill. */
+        this.ensureMissingActors();
+
         if (from != tick)
         {
             this.tick = from;
