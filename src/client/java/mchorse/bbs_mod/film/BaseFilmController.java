@@ -1652,6 +1652,11 @@ public abstract class BaseFilmController
 
     private void spawnSprintParticles(Replay replay, int ticks, World world, double width, boolean force, Entity atEntity)
     {
+        if (mchorse.bbs_mod.client.ExportParticleFreeze.isFrozen())
+        {
+            return;
+        }
+
         if ((!force && !BBSSettings.editorReplaySprintParticles.get()) || replay == null || world == null)
         {
             return;

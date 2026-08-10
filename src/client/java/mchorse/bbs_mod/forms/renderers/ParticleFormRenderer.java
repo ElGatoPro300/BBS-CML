@@ -223,6 +223,11 @@ public class ParticleFormRenderer extends FormRenderer<ParticleForm> implements 
     @Override
     public void tick(IEntity entity)
     {
+        if (mchorse.bbs_mod.client.ExportParticleFreeze.isFrozen())
+        {
+            return;
+        }
+
         this.ensureEmitter(entity.getWorld(), 0F);
 
         if (this.emitter != null)

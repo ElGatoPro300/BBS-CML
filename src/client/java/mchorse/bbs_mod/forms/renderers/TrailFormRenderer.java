@@ -489,6 +489,11 @@ public class TrailFormRenderer extends FormRenderer<TrailForm> implements ITicka
     @Override
     public void tick(IEntity entity)
     {
+        if (mchorse.bbs_mod.client.ExportParticleFreeze.isFrozen())
+        {
+            return;
+        }
+
         this.tick += 1;
 
         float end = this.tick - Math.max(this.form.length.get(), 0F) - 1F;

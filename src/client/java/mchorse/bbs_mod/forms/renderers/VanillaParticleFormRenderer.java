@@ -139,6 +139,11 @@ public class VanillaParticleFormRenderer extends FormRenderer<VanillaParticleFor
     @Override
     public void tick(IEntity entity)
     {
+        if (mchorse.bbs_mod.client.ExportParticleFreeze.isFrozen())
+        {
+            return;
+        }
+
         World world = entity == null ? null : entity.getWorld();
 
         if (world == null)

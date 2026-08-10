@@ -61,11 +61,7 @@ public class RenderTickCounterMixin
                 }
                 else
                 {
-                    /*
-                     * Run several world ticks per settle frame so large /fills and chunk
-                     * packets catch up faster while the film clock stays frozen.
-                     */
-                    int catchUp = 4;
+                    int catchUp = videoRecorder.getSettleCatchUpTicks();
 
                     videoRecorder.serverTicks += catchUp;
                     info.setReturnValue(catchUp);

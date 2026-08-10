@@ -60,6 +60,8 @@ public class VideoRecorder
     private int settleStableFrames;
     private int settleMinFramesRemaining;
     private int settleRequiredStable;
+    private int settleBloomFramesRemaining;
+    private boolean settleParticlesFrozen;
     private long settleDeadlineMs;
     private long settleHardDeadlineMs;
     private boolean captureAfterSettle;
@@ -72,6 +74,38 @@ public class VideoRecorder
     public boolean isSettling()
     {
         return this.settling;
+    }
+
+    /**
+     * True while HQ is waiting on chunks — particles must not age.
+     * False during the short post-terrain bloom so dig/emit effects can spread before capture.
+     */
+    public boolean areExportParticlesFrozen()
+    {
+        return this.settling && this.settleParticlesFrozen;
+    }
+
+    private void syncWorldFxFreeze()
+    {
+        boolean particles = this.settling && this.settleParticlesFrozen;
+        /* Keep drops at break coords for the whole settle (including particle bloom). */
+        boolean items = this.settling;
+
+        mchorse.bbs_mod.utils.ExportWorldFxFreeze.setParticlesFrozen(particles);
+        mchorse.bbs_mod.utils.ExportWorldFxFreeze.setItemPhysicsFrozen(items);
+    }
+
+    /**
+     * World-tick catch-up while film is frozen. Fast during chunk wait, normal during particle bloom.
+     */
+    public int getSettleCatchUpTicks()
+    {
+        if (!this.settling)
+        {
+            return 1;
+        }
+
+        return this.settleParticlesFrozen ? 4 : 1;
     }
 
     public boolean isHighQualityRender()
@@ -95,7 +129,8 @@ public class VideoRecorder
 
     /**
      * After commands/actions fire, hold film time until terrain meshes are idle
-     * for {@code highQualitySettleTicks} consecutive frames (or timeout).
+     * for {@code highQualitySettleTicks} consecutive frames (or timeout), then
+     * briefly unfreeze particles so dig/emit effects can spread before capture.
      */
     public void beginSettle()
     {
@@ -115,6 +150,9 @@ public class VideoRecorder
         this.settleRequiredStable = stable;
         this.settleStableFrames = 0;
         this.settleMinFramesRemaining = minWork;
+        this.settleBloomFramesRemaining = 0;
+        this.settleParticlesFrozen = true;
+        this.syncWorldFxFreeze();
         /* Prefer waiting for real terrain idle; hard cap only avoids infinite hangs. */
         long now = System.currentTimeMillis();
         long timeoutMs = Math.max(300000L, stable * 30000L);
@@ -137,6 +175,32 @@ public class VideoRecorder
         }
 
         mchorse.bbs_mod.client.ExportChunkSettle.pumpUploads();
+
+        /* Particle bloom: terrain ready — particles spray at break coords; items stay put. */
+        if (this.settleBloomFramesRemaining > 0)
+        {
+            this.settleParticlesFrozen = false;
+            this.syncWorldFxFreeze();
+            this.settleBloomFramesRemaining -= 1;
+
+            if (this.settleBloomFramesRemaining <= 0)
+            {
+                this.settling = false;
+                this.settleStableFrames = 0;
+                this.settleMinFramesRemaining = 0;
+                this.settleParticlesFrozen = false;
+                this.syncWorldFxFreeze();
+                BBSMod.getActions().setFreezeActions(false);
+
+                boolean capture = this.captureAfterSettle;
+
+                this.captureAfterSettle = false;
+
+                return capture;
+            }
+
+            return false;
+        }
 
         if (this.settleMinFramesRemaining > 0)
         {
@@ -163,16 +227,19 @@ public class VideoRecorder
 
         if (stableEnough || softTimeoutOk || hardTimedOut)
         {
-            this.settling = false;
+            /*
+             * Short bloom: enough for dig dust to spray at the block, not enough to fall
+             * a full row like the long catch-up used to force.
+             */
+            int bloom = Math.max(2, Math.min(4, this.settleRequiredStable));
+
+            this.settleBloomFramesRemaining = bloom;
+            this.settleParticlesFrozen = false;
             this.settleStableFrames = 0;
             this.settleMinFramesRemaining = 0;
-            BBSMod.getActions().setFreezeActions(false);
+            this.syncWorldFxFreeze();
 
-            boolean capture = this.captureAfterSettle;
-
-            this.captureAfterSettle = false;
-
-            return capture;
+            return false;
         }
 
         return false;
@@ -184,9 +251,12 @@ public class VideoRecorder
         this.settleStableFrames = 0;
         this.settleMinFramesRemaining = 0;
         this.settleRequiredStable = 0;
+        this.settleBloomFramesRemaining = 0;
+        this.settleParticlesFrozen = false;
         this.captureAfterSettle = false;
         this.settleDeadlineMs = 0L;
         this.settleHardDeadlineMs = 0L;
+        this.syncWorldFxFreeze();
 
         try
         {

@@ -10,6 +10,7 @@
         "BlockItemMixin",
         "ServerWorldMixin",
         "ItemStackMixin",
+        "ItemEntityMixin",
         "WorldMixin",
         "LivingEntityMixin",
         "ServerPlayerEntityMixin",
