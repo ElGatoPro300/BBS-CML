@@ -1416,14 +1416,14 @@ public abstract class BaseFilmController
                             actor.setBodyYaw(entity.getBodyYaw());
                             actor.setPitch(entity.getPitch());
                             /* Actor-control: copy the live player's LimbAnimator (vanilla).
-                             * Playback: do not hard-copy stub limbs — that fights forward
-                             * coast velocity and snaps swing. LivingEntity.tick + server
-                             * applyFromKeyframes use updateLimbs(target, 0.4) toward the
-                             * same motion as the body (vanilla stop/accel ease).
+                             * Playback: pull limbs UP from the stub only while accelerating
+                             * (idle→walk / walk→sprint) so swing matches non-actor timing.
+                             * Never copy stub deceleration — that fought ActionPlayer coast
+                             * velocity and snapped swing to idle while the body still moved.
                              * Skip while a live hurt swing spike is active so procedural
                              * damage uses the same limbSpeed amplification as vanilla. */
-                            boolean syncLimbs = controlling
-                                && !actor.shouldPreserveLiveHurtLimbSwing();
+                            boolean syncLimbs = !actor.shouldPreserveLiveHurtLimbSwing()
+                                && (controlling || this.shouldCatchUpActorLimbsFromStub(actor, entity));
 
                             ActorReplayStateSync.syncFromSource(actor, entity, syncLimbs);
                             /* Keep keyframed equipment on the visible ActorEntity — stub
@@ -1649,6 +1649,24 @@ public abstract class BaseFilmController
     {
         replay.keyframes.apply(ticks, entity);
         replay.applyClientActions(ticks, entity, this.film);
+    }
+
+    /**
+     * During playback, copy stub limbs onto the actor only while accelerating.
+     * That matches non-actor idle→walk swing timing. Copying stub deceleration
+     * would snap swing to idle while ActionPlayer coast velocity still moves the body.
+     */
+    private boolean shouldCatchUpActorLimbsFromStub(ActorEntity actor, IEntity stub)
+    {
+        if (!this.isActorPlaybackActive() || actor == null || stub == null)
+        {
+            return false;
+        }
+
+        float stubSpeed = stub.getLimbSpeed(1F);
+        float actorSpeed = actor.limbAnimator.getSpeed();
+
+        return stubSpeed > actorSpeed + 0.02F;
     }
 
     private void syncActorEquipmentFromStub(ActorEntity actor, IEntity stub)
