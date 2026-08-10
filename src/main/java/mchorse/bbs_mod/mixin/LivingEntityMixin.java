@@ -1,6 +1,7 @@
 package mchorse.bbs_mod.mixin;
 
 import mchorse.bbs_mod.BBSMod;
+import mchorse.bbs_mod.actions.AttackDamage;
 import mchorse.bbs_mod.actions.types.AttackActionClip;
 
 import net.minecraft.entity.Entity;
@@ -21,22 +22,19 @@ public class LivingEntityMixin
     {
         Entity attacker = source.getAttacker();
 
-        if (source.isDirect() && attacker != null && attacker.getClass() == ServerPlayerEntity.class)
+        if (source.isDirect() && attacker instanceof ServerPlayerEntity player)
         {
-            BBSMod.getActions().addAction((ServerPlayerEntity) attacker, () ->
+            LivingEntity target = (LivingEntity) (Object) this;
+            float recorded = Math.max(amount, AttackDamage.fromAttacker(player, target));
+
+            BBSMod.getActions().addAction(player, () ->
             {
                 AttackActionClip clip = new AttackActionClip();
 
-                clip.damage.set(amount);
+                clip.damage.set(recorded);
 
                 return clip;
             });
         }
     }
-
-    /* @Inject(method = "swingHand(Lnet/minecraft/util/Hand;Z)V", at = @At("HEAD"), cancellable = true)
-    public void onSwingHand(Hand hand, boolean fromServerPlayer, CallbackInfo info)
-    {
-        info.cancel();
-    } */
 }

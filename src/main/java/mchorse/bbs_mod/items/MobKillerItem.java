@@ -24,6 +24,8 @@ public class MobKillerItem extends SwordItem
     {
         if (!target.getWorld().isClient && !(target instanceof PlayerEntity))
         {
+            /* Instakill is kill(), not sword attributes. AttackDamage.fromAttacker
+             * maps this item to MOB_KILLER_DAMAGE when the melee hit is recorded. */
             target.kill();
         }
 

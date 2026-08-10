@@ -692,6 +692,19 @@ public class ActorEntity extends LivingEntity implements IEntityFormProvider
 
 
     @Override
+    public void takeKnockback(double strength, double x, double z)
+    {
+        /* Film actors are pose-driven by keyframes; vanilla hit knockback causes
+         * a visible hop on lethal hits. */
+        if (this.replay != null)
+        {
+            return;
+        }
+
+        super.takeKnockback(strength, x, z);
+    }
+
+    @Override
     public void onDeath(DamageSource damageSource)
     {
         super.onDeath(damageSource);

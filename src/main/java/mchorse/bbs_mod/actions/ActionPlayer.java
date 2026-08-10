@@ -29,8 +29,10 @@ import net.minecraft.util.math.Vec3d;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 public class ActionPlayer
 {
@@ -56,6 +58,12 @@ public class ActionPlayer
     private boolean wasPlaying = true;
 
     private Map<String, LivingEntity> actors = new HashMap<>();
+    /**
+     * Actor replays that finished a combat death this session. Kept out of
+     * {@link #ensureMissingActors()} so Play/Pause at the current tick cannot
+     * revive them mid-timeline (Alt+R / seek rebuild clears this).
+     */
+    private Set<String> combatFinishedIds = new HashSet<>();
 
     private List<ItemStack> cachedInventory = new ArrayList<>();
     private Form cachedForm;
@@ -112,6 +120,8 @@ public class ActionPlayer
 
     public void updateReplayEntities()
     {
+        this.combatFinishedIds.clear();
+
         for (LivingEntity entity : this.actors.values())
         {
             if (!entity.isPlayer())
@@ -200,6 +210,11 @@ public class ActionPlayer
 
             LivingEntity existing = this.actors.get(replay.getId());
 
+            if (this.combatFinishedIds.contains(replay.getId()))
+            {
+                continue;
+            }
+
             if (existing == null || existing.isRemoved())
             {
                 this.actors.put(replay.getId(), this.spawnActor(replay));
@@ -220,9 +235,8 @@ public class ActionPlayer
 
     public void apply(LivingEntity actor, Replay replay, float tick, boolean ticking)
     {
-        /* Once combat (Attack clip) has killed this actor, stop snapping pose/position
-         * from the film so the death animation can play. Death is not driven by
-         * death_time keyframes — otherwise disabling Attack would still "kill" them. */
+        /* Once combat (Attack clip) has killed this actor, keep snapping to
+         * keyframed pose (no knockback hop) while death anim plays. */
         if (actor instanceof ActorEntity && (actor.isDead() || actor.getHealth() <= 0F))
         {
             if (actor.deathTime >= DEATH_ANIMATION_TICKS)
@@ -232,10 +246,24 @@ public class ActionPlayer
                     actor.discard();
                 }
 
+                this.combatFinishedIds.add(replay.getId());
+
                 return;
             }
 
+            double x = replay.keyframes.x.interpolate(tick);
+            double y = replay.keyframes.y.interpolate(tick);
+            double z = replay.keyframes.z.interpolate(tick);
+            float yawHead = replay.keyframes.headYaw.interpolate(tick).floatValue();
+            float yawBody = replay.keyframes.bodyYaw.interpolate(tick).floatValue();
+            float pitch = replay.keyframes.pitch.interpolate(tick).floatValue();
+
             actor.setVelocity(0D, 0D, 0D);
+            actor.setPosition(x, y, z);
+            actor.setYaw(yawHead);
+            actor.setHeadYaw(yawHead);
+            actor.setPitch(pitch);
+            actor.setBodyYaw(yawBody);
 
             if (actor instanceof ActorEntity actorEntity)
             {
@@ -406,6 +434,7 @@ public class ActionPlayer
                 if (actor == null || actor.isRemoved())
                 {
                     removeIds.add(entry.getKey());
+                    this.combatFinishedIds.add(entry.getKey());
                     actorsChanged = true;
 
                     continue;
@@ -436,6 +465,7 @@ public class ActionPlayer
                 if (actor.isRemoved())
                 {
                     removeIds.add(entry.getKey());
+                    this.combatFinishedIds.add(entry.getKey());
                     actorsChanged = true;
                 }
                 else if (!this.playing)
@@ -541,7 +571,7 @@ public class ActionPlayer
 
                 if (actor == null || actor.isRemoved())
                 {
-                    if (!replay.actor.get() || replay.fp.get())
+                    if (!replay.actor.get() || replay.fp.get() || this.combatFinishedIds.contains(replay.getId()))
                     {
                         if (actor != null && actor.isRemoved())
                         {
@@ -562,6 +592,7 @@ public class ActionPlayer
                 if (actor.isRemoved())
                 {
                     removeIds.add(entry.getKey());
+                    this.combatFinishedIds.add(entry.getKey());
                     actorsChanged = true;
                 }
                 else if (!this.playing)
@@ -640,12 +671,13 @@ public class ActionPlayer
 
     public void goTo(int from, int tick)
     {
-        /* Revive actors discarded by a prior combat death so Attack clips can
-         * hit them again when scrubbing through the kill. */
-        this.ensureMissingActors();
-
         if (from != tick)
         {
+            /* Real seek/scrub: revive everyone and re-simulate actions so Attack
+             * can kill again. Same-tick Play/Pause must not revive corpses. */
+            this.combatFinishedIds.clear();
+            this.ensureMissingActors();
+
             this.tick = from;
 
             while (this.tick != tick)
