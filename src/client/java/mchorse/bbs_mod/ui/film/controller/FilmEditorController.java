@@ -283,8 +283,7 @@ public class FilmEditorController extends BaseFilmController
      * Actor mode: draw gizmos from the live {@link ActorEntity} only.
      * Never fall back to the stub body — after combat death the physical actor
      * is removed and a stub fallback looked like a revived corpse following
-     * the remaining keyframes. Scrub / Alt+R re-simulate Attack damage from
-     * tick 0 so actors that should be dead at the cursor stay dead.
+     * the remaining keyframes. Alt+R / RESTART respawns actors.
      */
     private void renderActorModeEntity(WorldRenderContext context, Replay replay, IEntity stub)
     {

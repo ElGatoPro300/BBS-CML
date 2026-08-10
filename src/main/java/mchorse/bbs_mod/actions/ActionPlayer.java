@@ -676,142 +676,36 @@ public class ActionPlayer
 
     public void goTo(int tick)
     {
-        this.seekTo(tick);
-    }
-
-    /**
-     * Align the playback tick for Play/Pause without reviving combat-dead actors.
-     * The client cursor is often one tick behind the server counter while playing,
-     * so a full {@link #seekTo} would rebuild combat from scratch every pause.
-     */
-    public void syncPlaybackTick(int tick)
-    {
-        this.tick = Math.max(0, tick);
-        this.reapplyActors();
+        this.goTo(this.tick, tick);
     }
 
     public void goTo(int from, int tick)
     {
-        /* {@code from} is ignored — combat must always rebuild from tick 0 so
-         * Attack damage earlier in the film is not skipped when scrubbing forward. */
-        this.seekTo(tick);
-    }
-
-    /**
-     * Scrub/restart: respawn every actor-mode body and re-apply action clips from
-     * tick 0 through {@code tick}, advancing combat deaths so HP damage lands and
-     * corpses despawn at the same times as during playback.
-     */
-    public void seekTo(int tick)
-    {
-        tick = Math.max(0, tick);
-        this.tick = 0;
-        this.updateReplayEntities();
-
-        while (true)
+        if (from != tick)
         {
-            this.prepareActorsForActionTick();
-            this.applyAction();
-            this.advanceCombatDeathSimulation();
+            /* Real seek/scrub: revive everyone and re-simulate actions so Attack
+             * can kill again. Same-tick Play/Pause must not revive corpses. */
+            this.combatFinishedIds.clear();
+            this.ensureMissingActors();
 
-            if (this.tick >= tick)
+            this.tick = from;
+
+            while (this.tick != tick)
             {
-                break;
-            }
+                this.tick += this.tick > tick ? -1 : 1;
 
-            this.tick += 1;
+                this.applyAction();
+            }
+        }
+        else
+        {
+            this.tick = tick;
         }
 
+        /* Snap actors to the target tick after action walk-through. Previously
+         * applied this.tick (pre-seek), leaving ActorEntity at a stale pose until
+         * the next server tick. */
         this.reapplyActors();
-        this.broadcastActors();
-    }
-
-    /**
-     * Snap living actors to this tick's keyframes (pose + invulnerability clock)
-     * and clear vanilla i-frames so multi-hit seeks accumulate damage in one go.
-     */
-    private void prepareActorsForActionTick()
-    {
-        for (Map.Entry<String, LivingEntity> entry : this.actors.entrySet())
-        {
-            Replay replay = (Replay) this.film.replays.get(entry.getKey());
-            LivingEntity actor = entry.getValue();
-
-            if (replay == null || actor == null || actor.isRemoved())
-            {
-                continue;
-            }
-
-            if (actor instanceof ActorEntity actorEntity)
-            {
-                actorEntity.updateTick(this.tick);
-            }
-
-            if (actor.isDead() || actor.getHealth() <= 0F || actor.deathTime > 0)
-            {
-                continue;
-            }
-
-            this.apply(actor, replay, this.tick, false);
-            actor.hurtTime = 0;
-            actor.timeUntilRegen = 0;
-        }
-    }
-
-    /**
-     * Fast-forward vanilla deathTime during seek (world ticks do not run per film tick).
-     */
-    private void advanceCombatDeathSimulation()
-    {
-        List<String> removeIds = new ArrayList<>();
-
-        for (Map.Entry<String, LivingEntity> entry : this.actors.entrySet())
-        {
-            Replay replay = (Replay) this.film.replays.get(entry.getKey());
-            LivingEntity actor = entry.getValue();
-
-            if (actor == null || actor.isRemoved())
-            {
-                if (actor != null)
-                {
-                    removeIds.add(entry.getKey());
-                    this.combatFinishedIds.add(entry.getKey());
-                }
-
-                continue;
-            }
-
-            if (!(actor instanceof ActorEntity) || (!actor.isDead() && actor.getHealth() > 0F))
-            {
-                continue;
-            }
-
-            if (actor.deathTime < DEATH_ANIMATION_TICKS)
-            {
-                actor.deathTime += 1;
-            }
-
-            if (replay != null)
-            {
-                this.apply(actor, replay, this.tick, false);
-            }
-
-            if (actor.deathTime >= DEATH_ANIMATION_TICKS || actor.isRemoved())
-            {
-                if (!actor.isRemoved())
-                {
-                    actor.discard();
-                }
-
-                removeIds.add(entry.getKey());
-                this.combatFinishedIds.add(entry.getKey());
-            }
-        }
-
-        for (String id : removeIds)
-        {
-            this.actors.remove(id);
-        }
     }
 
     public void stop()
