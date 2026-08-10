@@ -111,7 +111,7 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
 
         if (glowIntensity < 0F)
         {
-            FormColorEffects.blendFormGlowBrighten(set, glowSettings, legacyGlow);
+            FormColorEffects.blendFormGlowBrighten(set, glowSettings, legacyGlow, this.form.paintSettings.get(), this.form.paintColor.get(), storedFormColor);
         }
 
         Color resolvedPaint = FormColorEffects.resolvePaintColor(this.form.paintSettings.get(), this.form.paintColor.get());
@@ -235,7 +235,7 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
 
             if (glowIntensity < 0F)
             {
-                FormColorEffects.blendFormGlowBrighten(color, glowSettings, legacyGlow);
+                FormColorEffects.blendFormGlowBrighten(color, glowSettings, legacyGlow, this.form.paintSettings.get(), this.form.paintColor.get(), storedFormColor);
             }
 
             PaintSettings paintSettings = this.form.paintSettings.get();
@@ -1240,7 +1240,7 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
         Matrix4f formRootInverse = new Matrix4f(stack.peek().getPositionMatrix()).invert();
 
         CustomVertexConsumerProvider.clearRunnables();
-        CustomVertexConsumerProvider.hijackVertexFormat((l) -> BlockEffectOverlayUniforms.configurePaintOverlayRenderState(formRootInverse, transform, true, glowSettings, legacyGlow, glowIntensity, alpha));
+        CustomVertexConsumerProvider.hijackVertexFormat((l) -> BlockEffectOverlayUniforms.configurePaintOverlayRenderState(formRootInverse, transform, true, glowSettings, legacyGlow, glowIntensity, alpha, this.form.paintSettings.get(), this.form.paintColor.get(), this.form.getFormColor()));
 
         RenderSystem.enableBlend();
         RenderSystem.blendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
@@ -1281,7 +1281,7 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
         {
             for (int i = 0; i < layers; i++)
             {
-                Color glowColor = FormColorEffects.resolveGlowOverlayColor(glowSettings, legacyGlow, alpha, glowIntensity, layers);
+                Color glowColor = FormColorEffects.resolveGlowOverlayColor(glowSettings, legacyGlow, this.form.paintSettings.get(), this.form.paintColor.get(), this.form.getFormColor(), alpha, glowIntensity, layers);
 
                 consumers.setSubstitute(BBSRendering.getGlowOverlayConsumer(glowColor));
                 this.renderRepeatedBlocks(context, stack, consumers, LightmapTextureManager.MAX_LIGHT_COORDINATE, overlay, false, ui, true, false, false);

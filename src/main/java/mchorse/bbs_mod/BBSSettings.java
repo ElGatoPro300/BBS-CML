@@ -249,6 +249,11 @@ public class BBSSettings
      * material so pack waves/reflections/color match world water. Reloads shaders when toggled.
      */
     public static ValueBoolean irisFormFluidPatch;
+    /**
+     * Complementary/BSL: BBS form glow Size/Spread drive pack bloom radius and softness.
+     * Reloads shaders when toggled. Default ON.
+     */
+    public static ValueBoolean irisFormGlowBloomPatch;
     /** Kept invisible for migrating saved Complementary/BSL toggles. */
     @Deprecated
     public static ValueBoolean complementaryOpacityFix;
@@ -887,6 +892,7 @@ public class BBSSettings
         irisOpacityFix = builder.getBoolean("iris_opacity_fix", true);
         softTransparencyBackfaces = builder.getBoolean("soft_transparency_backfaces", true);
         irisFormFluidPatch = builder.getBoolean("iris_form_fluid_patch", true);
+        irisFormGlowBloomPatch = builder.getBoolean("iris_form_glow_bloom_patch", true);
         complementaryOpacityFix = builder.getBoolean("complementary_opacity_fix", true);
         complementaryOpacityFix.invisible();
         bslOpacityFix = builder.getBoolean("bsl_opacity_fix", true);

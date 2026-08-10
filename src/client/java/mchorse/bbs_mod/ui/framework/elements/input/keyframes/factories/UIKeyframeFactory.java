@@ -5,8 +5,6 @@ import mchorse.bbs_mod.forms.FormUtils;
 import mchorse.bbs_mod.ui.Keys;
 import mchorse.bbs_mod.ui.UIKeys;
 import mchorse.bbs_mod.ui.film.clips.UIBossBarColorKeyframeFactory;
-import mchorse.bbs_mod.ui.film.replays.UIReplaysEditor;
-import mchorse.bbs_mod.ui.film.replays.UIReplaysEditorUtils;
 import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.ui.framework.elements.UIElement;
 import mchorse.bbs_mod.ui.framework.elements.UIScrollView;
@@ -32,7 +30,6 @@ import mchorse.bbs_mod.utils.keyframes.KeyframeShape;
 import mchorse.bbs_mod.utils.keyframes.factories.IKeyframeFactory;
 import mchorse.bbs_mod.utils.keyframes.factories.KeyframeFactories;
 
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -388,24 +385,6 @@ public abstract class UIKeyframeFactory <T> extends UIElement
         if (Math.abs(diff) > 1.0E-6F)
         {
             boolean movedSelection = false;
-            UIKeyframeSheet hostSheet = this.editor.getGraph().getSheet(this.keyframe);
-
-            if (hostSheet != null && "color".equals(hostSheet.id))
-            {
-                if (hostSheet.selection.hasAny())
-                {
-                    UIReplaysEditorUtils.moveCompanionPaintForSelectedColor(this.editor, diff);
-                }
-                else
-                {
-                    UIReplaysEditor replays = this.editor.getParent(UIReplaysEditor.class);
-
-                    if (replays != null && replays.getReplay() != null)
-                    {
-                        replays.getReplay().properties.moveCompanionPaintBy(diff, Collections.singletonList(this.keyframe.getTick()));
-                    }
-                }
-            }
 
             /* Diff is relative to the panel's (live) keyframe so the trackpad
              * absolute value stays the source of truth. */

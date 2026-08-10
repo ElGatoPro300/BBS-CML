@@ -756,6 +756,10 @@ public class UIKeys
     public static final IKey FORMS_EDITORS_GLOWING_COLOR = L10n.lang("bbs.ui.forms.editors.glowing_color");
     public static final IKey FORMS_EDITORS_GLOW_INTENSITY = L10n.lang("bbs.ui.forms.editors.glow_intensity");
     public static final IKey FORMS_EDITORS_GLOW_RADIUS = L10n.lang("bbs.ui.forms.editors.glow_radius");
+    public static final IKey FORMS_EDITORS_GLOW_SIZE = L10n.lang("bbs.ui.forms.editors.glow_size");
+    public static final IKey FORMS_EDITORS_GLOW_SIZE_TOOLTIP = L10n.lang("bbs.ui.forms.editors.glow_size-tooltip");
+    public static final IKey FORMS_EDITORS_GLOW_SPREAD = L10n.lang("bbs.ui.forms.editors.glow_spread");
+    public static final IKey FORMS_EDITORS_GLOW_SPREAD_TOOLTIP = L10n.lang("bbs.ui.forms.editors.glow_spread-tooltip");
     public static final IKey FORMS_EDITORS_GLOW = L10n.lang("bbs.ui.forms.editors.glow");
     public static final IKey FORMS_EDITORS_GLOW_SETTINGS = L10n.lang("bbs.ui.forms.editors.glow_settings");
     public static final IKey FORMS_EDITORS_GLOW_CENTER_X = L10n.lang("bbs.ui.forms.editors.glow_center_x");

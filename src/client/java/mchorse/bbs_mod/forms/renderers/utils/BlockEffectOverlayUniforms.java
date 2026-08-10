@@ -5,6 +5,7 @@ import mchorse.bbs_mod.cubic.render.vao.ModelVAORenderer;
 import mchorse.bbs_mod.forms.forms.utils.EffectTransform;
 import mchorse.bbs_mod.forms.forms.utils.EffectTransformMath;
 import mchorse.bbs_mod.forms.forms.utils.GlowSettings;
+import mchorse.bbs_mod.forms.forms.utils.PaintSettings;
 import mchorse.bbs_mod.utils.colors.Color;
 
 import net.minecraft.client.gl.GlUniform;
@@ -60,10 +61,20 @@ public final class BlockEffectOverlayUniforms
 
     public static void configurePaintOverlayRenderState(Matrix4f rootInverse, EffectTransform transform, boolean bottomAnchored, GlowSettings glow, Color legacyGlow, float glowIntensity, float alpha)
     {
-        configurePaintOverlayRenderState(rootInverse, transform, bottomAnchored, glow, legacyGlow, glowIntensity, alpha, 0.5F);
+        configurePaintOverlayRenderState(rootInverse, transform, bottomAnchored, glow, legacyGlow, glowIntensity, alpha, 0.5F, null, null, null);
     }
 
     public static void configurePaintOverlayRenderState(Matrix4f rootInverse, EffectTransform transform, boolean bottomAnchored, GlowSettings glow, Color legacyGlow, float glowIntensity, float alpha, float maskHalfBase)
+    {
+        configurePaintOverlayRenderState(rootInverse, transform, bottomAnchored, glow, legacyGlow, glowIntensity, alpha, maskHalfBase, null, null, null);
+    }
+
+    public static void configurePaintOverlayRenderState(Matrix4f rootInverse, EffectTransform transform, boolean bottomAnchored, GlowSettings glow, Color legacyGlow, float glowIntensity, float alpha, PaintSettings paint, Color legacyPaint, Color formColor)
+    {
+        configurePaintOverlayRenderState(rootInverse, transform, bottomAnchored, glow, legacyGlow, glowIntensity, alpha, 0.5F, paint, legacyPaint, formColor);
+    }
+
+    public static void configurePaintOverlayRenderState(Matrix4f rootInverse, EffectTransform transform, boolean bottomAnchored, GlowSettings glow, Color legacyGlow, float glowIntensity, float alpha, float maskHalfBase, PaintSettings paint, Color legacyPaint, Color formColor)
     {
         RenderSystem.enableBlend();
         RenderSystem.blendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
@@ -75,7 +86,7 @@ public final class BlockEffectOverlayUniforms
             RenderSystem.setShader(() -> program);
             bindFormRootInverse(program, rootInverse);
             bindPaint(program, transform, bottomAnchored, maskHalfBase);
-            bindGlowOverlay(program, glow, legacyGlow, glowIntensity, alpha);
+            bindGlowOverlay(program, glow, legacyGlow, glowIntensity, alpha, paint, legacyPaint, formColor);
         }
 
         RenderSystem.setShaderTexture(0, PlayerScreenHandler.BLOCK_ATLAS_TEXTURE);
@@ -97,7 +108,7 @@ public final class BlockEffectOverlayUniforms
             RenderSystem.setShader(() -> program);
             bindFormRootInverse(program, rootInverse);
             bindPaintStructure(program, transform, bottomAnchored, sizeX, sizeY, sizeZ);
-            bindGlowOverlay(program, glow, legacyGlow, glowIntensity, alpha);
+            bindGlowOverlay(program, glow, legacyGlow, glowIntensity, alpha, null, null, null);
         }
 
         RenderSystem.setShaderTexture(0, PlayerScreenHandler.BLOCK_ATLAS_TEXTURE);
@@ -514,6 +525,11 @@ public final class BlockEffectOverlayUniforms
 
     public static void bindGlowOverlay(ShaderProgram shader, GlowSettings glow, Color legacyGlow, float glowIntensity, float alpha)
     {
+        bindGlowOverlay(shader, glow, legacyGlow, glowIntensity, alpha, null, null, null);
+    }
+
+    public static void bindGlowOverlay(ShaderProgram shader, GlowSettings glow, Color legacyGlow, float glowIntensity, float alpha, PaintSettings paint, Color legacyPaint, Color formColor)
+    {
         GlUniform glowUniform = shader == null ? null : shader.getUniform("GlowOverlayColor");
         float glowR = 0F;
         float glowG = 0F;
@@ -524,7 +540,7 @@ public final class BlockEffectOverlayUniforms
         {
             Color resolved = new Color();
 
-            glow.resolveColor(legacyGlow, resolved);
+            FormColorEffects.resolveGlowTint(glow, legacyGlow, paint, legacyPaint, formColor, resolved);
             glowR = resolved.r;
             glowG = resolved.g;
             glowB = resolved.b;

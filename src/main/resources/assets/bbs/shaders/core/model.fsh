@@ -263,16 +263,11 @@ vec3 bbsApplyGlow(vec3 color, float strength)
         return color;
     }
 
-    vec3 glowRgb = GlowingColor.rgb;
-
     if (strength > 0.0)
     {
-        /* Tint toward the chosen glow hue, then add pure glow energy.
-         * Old path (albedo + glow) washed pale textures white / complementary-looking. */
-        float t = min(strength, 1.0);
-        vec3 tinted = mix(color, glowRgb, t);
-
-        return tinted + glowRgb * strength * 7.0;
+        /* Soft amplify — keep form Color / texture hue. Intensity stays usable without hard cap. */
+        float soft = strength / (1.0 + strength * 0.08);
+        return color * (1.0 + soft * 2.0);
     }
 
     float factor = max(0.0, 1.0 + strength);

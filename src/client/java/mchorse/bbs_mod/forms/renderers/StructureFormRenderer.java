@@ -168,7 +168,7 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
 
         if (glowIntensity < 0F)
         {
-            FormColorEffects.blendFormGlowBrighten(tint, glowSettings, legacyGlow);
+            FormColorEffects.blendFormGlowBrighten(tint, glowSettings, legacyGlow, this.form.getFormPaintSettings(), this.form.paintColor.get(), this.form.getFormColor());
         }
 
         boolean irisWorldPaintDeferral = BBSRendering.isIrisWorldPaintDeferral();
@@ -206,7 +206,7 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
             RenderSystem.enableCull();
 
             this.overlayRenderer.prepareVaoPaintForMainPass(resolvedPaint);
-            this.overlayRenderer.prepareVaoGlowForMainPass(glowSettings, legacyGlow, glowIntensity);
+            this.overlayRenderer.prepareVaoGlowForMainPass(glowSettings, legacyGlow, glowIntensity, this.form.getFormPaintSettings(), this.form.paintColor.get(), this.form.getFormColor());
 
             try
             {
@@ -310,7 +310,7 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
 
             if (glowIntensity < 0F)
             {
-                FormColorEffects.blendFormGlowBrighten(mainTint3D, glowSettings, legacyGlow);
+                FormColorEffects.blendFormGlowBrighten(mainTint3D, glowSettings, legacyGlow, this.form.getFormPaintSettings(), this.form.paintColor.get(), this.form.getFormColor());
             }
 
             boolean irisWorldPaintDeferral = BBSRendering.isIrisWorldPaintDeferral();
@@ -355,7 +355,7 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
                     RenderSystem.defaultBlendFunc();
 
                     this.overlayRenderer.prepareVaoPaintForMainPass(resolvedPaint);
-                    this.overlayRenderer.prepareVaoGlowForMainPass(glowSettings, legacyGlow, glowIntensity);
+                    this.overlayRenderer.prepareVaoGlowForMainPass(glowSettings, legacyGlow, glowIntensity, this.form.getFormPaintSettings(), this.form.paintColor.get(), this.form.getFormColor());
 
                     try
                     {

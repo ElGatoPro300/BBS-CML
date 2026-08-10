@@ -853,45 +853,19 @@ public class FormProperties extends ValueGroup
     }
 
     /**
-     * Paint is edited from the Color inspector but stored on a hidden {@code "paint"}
-     * channel. When Color keyframes at {@code ticks} are removed, drop matching paint
-     * companions so leftover paint does not keep rendering. Color grade has its own
-     * channel and must not drive paint companions.
+     * Paint Color is now its own timeline track. Do not auto-delete paint when Color keyframes change.
      */
     public void removeCompanionPaintAtTicks(Form form, Collection<Float> ticks)
     {
-        if (ticks == null || ticks.isEmpty())
-        {
-            return;
-        }
-
-        this.removeKeyframesAtTicks("paint", ticks);
-        this.removeKeyframesAtTicks("paint_color", ticks);
-
-        KeyframeChannel color = this.properties.get("color");
-
-        if (color == null || color.isEmpty())
-        {
-            this.clearPaintChannels(form);
-        }
-        else
-        {
-            this.clearPaintRuntimeIfChannelsEmpty(form);
-        }
+        /* no-op: paint is an independent property track */
     }
 
     /**
-     * Move hidden paint companions by the same delta as Color keyframes.
+     * Paint Color is an independent track. Do not drag-sync with Color keyframes.
      */
     public void moveCompanionPaintBy(float diff, Collection<Float> fromTicks)
     {
-        if (Math.abs(diff) < 0.0001F || fromTicks == null || fromTicks.isEmpty())
-        {
-            return;
-        }
-
-        this.moveKeyframesBy("paint", diff, fromTicks);
-        this.moveKeyframesBy("paint_color", diff, fromTicks);
+        /* no-op: paint is an independent property track */
     }
 
     private void clearPaintChannels(Form form)

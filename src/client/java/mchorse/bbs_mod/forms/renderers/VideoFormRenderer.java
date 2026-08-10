@@ -7,7 +7,6 @@ import mchorse.bbs_mod.client.BBSShaders;
 import mchorse.bbs_mod.client.video.VideoFormEngine;
 import mchorse.bbs_mod.client.video.VideoFormPlayback;
 import mchorse.bbs_mod.client.video.VideoRenderer;
-import mchorse.bbs_mod.cubic.render.vao.ModelVAORenderer;
 import mchorse.bbs_mod.forms.ITickable;
 import mchorse.bbs_mod.forms.entities.IEntity;
 import mchorse.bbs_mod.forms.forms.VideoForm;
@@ -569,13 +568,12 @@ public class VideoFormRenderer extends FormRenderer<VideoForm> implements ITicka
             return;
         }
 
-        /* Iris: bake matrix + depth test so a ground video cannot paint over the world. */
+        /* Iris world pass: keep entity-local stack verts; live ModelView is the camera.
+         * Do NOT bake ModelView into the matrix (that was only for deferred identity-MV flush). */
         boolean irisPass = deferContext != null
             && BBSRendering.isIrisWorldModelPass()
             && !BBSRendering.isIrisShadowPass();
-        Matrix4f positionMatrix = irisPass
-            ? ModelVAORenderer.capturePaintOverlayRootMatrix(new Matrix4f(matrices.peek().getPositionMatrix()))
-            : new Matrix4f(matrices.peek().getPositionMatrix());
+        Matrix4f positionMatrix = new Matrix4f(matrices.peek().getPositionMatrix());
         Color tintSnapshot = tint.copy();
         Quad localQuad = new Quad();
 
@@ -610,12 +608,18 @@ public class VideoFormRenderer extends FormRenderer<VideoForm> implements ITicka
 
         if (irisPass)
         {
-            /* depthWrite+depthTest: without depth test a dark video quad blacks out the world. */
-            ModelVAORenderer.submitDeferredTranslucentModel(() ->
+            /* Draw immediately. Deferring a WaterMedia/VLC texture lets Iris recycle or
+             * rebind samplers before flush → magenta/black-stripe garbage and shader thrash.
+             * Depth test+write in drawVideoFront still keeps the plane behind nearer geometry. */
+            try
             {
                 draw.run();
+            }
+            finally
+            {
                 BBSRendering.restoreWorldRenderState();
-            }, true, true);
+            }
+
             return;
         }
 

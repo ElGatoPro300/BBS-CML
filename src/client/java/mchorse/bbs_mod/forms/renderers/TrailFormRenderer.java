@@ -227,7 +227,7 @@ public class TrailFormRenderer extends FormRenderer<TrailForm> implements ITicka
         unblended.a *= alphaFactor;
         blended.a *= alphaFactor;
 
-        if (paintStrength < 0F)
+        if (paintStrength < 0F || (paintStrength > 0F && (paintTransform == null || !paintTransform.isActive())))
         {
             FormColorEffects.applyPaintBlend(unblended, paintSettings, legacyPaint);
             FormColorEffects.applyPaintBlend(blended, paintSettings, legacyPaint);
@@ -235,8 +235,8 @@ public class TrailFormRenderer extends FormRenderer<TrailForm> implements ITicka
 
         if (glowIntensity < 0F)
         {
-            FormColorEffects.blendFormGlowBrighten(unblended, glowSettings, legacyGlow);
-            FormColorEffects.blendFormGlowBrighten(blended, glowSettings, legacyGlow);
+            FormColorEffects.blendFormGlowBrighten(unblended, glowSettings, legacyGlow, this.form.getFormPaintSettings(), this.form.paintColor.get(), this.form.getFormColor());
+            FormColorEffects.blendFormGlowBrighten(blended, glowSettings, legacyGlow, this.form.getFormPaintSettings(), this.form.paintColor.get(), this.form.getFormColor());
         }
 
         Tessellator tessellator = Tessellator.getInstance();
@@ -317,7 +317,7 @@ public class TrailFormRenderer extends FormRenderer<TrailForm> implements ITicka
 
     private void renderGlowOverlay(Tessellator tessellator, Matrix4f matrix, ArrayDeque<Trail> trails, boolean loop, float length, float current, double baseX, double baseY, double baseZ, GlowSettings glowSettings, Color legacyGlow, float alpha, float glowIntensity, EffectTransform glowTransform)
     {
-        FlatGlowOverlayPass.render(glowSettings, legacyGlow, alpha, glowIntensity, (glowColor) ->
+        FlatGlowOverlayPass.render(glowSettings, legacyGlow, this.form.getFormPaintSettings(), this.form.paintColor.get(), this.form.getFormColor(), alpha, glowIntensity, (glowColor) ->
         {
             /* Outside the mask: fully transparent; inside: full glow. Same soft volume as Color/Paint. */
             Color glowOutside = glowColor.copy();
@@ -326,7 +326,7 @@ public class TrailFormRenderer extends FormRenderer<TrailForm> implements ITicka
 
             BufferBuilder glowBuilder = tessellator.begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_TEXTURE_COLOR);
 
-            RenderSystem.setShader(GameRenderer::getPositionTexColorProgram);
+            /* FlatGlowOverlayPass binds flat_glow_overlay (Size/Spread). */
             this.buildTrailQuads(glowBuilder, matrix, trails, loop, length, current, baseX, baseY, baseZ, glowOutside, glowColor, glowTransform);
             BufferRenderer.drawWithGlobalProgram(glowBuilder.end());
         });

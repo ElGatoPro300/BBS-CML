@@ -599,6 +599,11 @@ public class BBSModClient implements ClientModInitializer
             BBSSettings.irisFormFluidPatch.postCallback((v, f) -> IrisUtils.reloadShaders());
         }
 
+        if (BBSSettings.irisFormGlowBloomPatch != null)
+        {
+            BBSSettings.irisFormGlowBloomPatch.postCallback((v, f) -> IrisUtils.reloadShaders());
+        }
+
         if (BBSSettings.shaderShadowOpacity != null)
         {
             BBSSettings.shaderShadowOpacity.postCallback((v, f) ->

@@ -30,6 +30,7 @@ public class BBSShaders
     private static ShaderProgram pickerModels;
     private static ShaderProgram blockPaintOverlay;
     private static ShaderProgram flatPaintOverlay;
+    private static ShaderProgram flatGlowOverlay;
     private static ShaderProgram blockColorTintOverlay;
     private static ShaderProgram flatColorTintOverlay;
 
@@ -51,6 +52,7 @@ public class BBSShaders
         if (pickerModels != null) pickerModels.close();
         if (blockPaintOverlay != null) blockPaintOverlay.close();
         if (flatPaintOverlay != null) flatPaintOverlay.close();
+        if (flatGlowOverlay != null) flatGlowOverlay.close();
         if (blockColorTintOverlay != null) blockColorTintOverlay.close();
         if (flatColorTintOverlay != null) flatColorTintOverlay.close();
 
@@ -69,6 +71,7 @@ public class BBSShaders
             pickerModels = new ShaderProgram(factory, "picker_models", VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL);
             blockPaintOverlay = new ShaderProgram(factory, "block_paint_overlay", VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL);
             flatPaintOverlay = new ShaderProgram(factory, "flat_paint_overlay", VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL);
+            flatGlowOverlay = new ShaderProgram(factory, "flat_glow_overlay", VertexFormats.POSITION_TEXTURE_COLOR);
             blockColorTintOverlay = new ShaderProgram(factory, "block_color_tint_overlay", VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL);
             flatColorTintOverlay = new ShaderProgram(factory, "flat_color_tint_overlay", VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL);
         
@@ -131,6 +134,11 @@ public class BBSShaders
     public static ShaderProgram getFlatPaintOverlayProgram()
     {
         return flatPaintOverlay;
+    }
+
+    public static ShaderProgram getFlatGlowOverlayProgram()
+    {
+        return flatGlowOverlay;
     }
 
     public static ShaderProgram getBlockColorTintOverlayProgram()

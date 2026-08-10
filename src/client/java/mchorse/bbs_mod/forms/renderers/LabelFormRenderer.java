@@ -93,7 +93,7 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
 
         if (glowIntensity < 0F)
         {
-            FormColorEffects.blendFormGlowBrighten(color, glowSettings, legacyGlow);
+            FormColorEffects.blendFormGlowBrighten(color, glowSettings, legacyGlow, this.form.getFormPaintSettings(), this.form.paintColor.get(), this.form.getFormColor());
         }
 
         /* Minecraft TextRenderer treats ARGB alpha 0 as fully opaque. */
@@ -128,7 +128,7 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
 
             for (int i = 0; i < layers; i++)
             {
-                Color glowColor = FormColorEffects.resolveGlowOverlayColor(glowSettings, legacyGlow, 1F, glowIntensity, layers);
+                Color glowColor = FormColorEffects.resolveGlowOverlayColor(glowSettings, legacyGlow, this.form.getFormPaintSettings(), this.form.paintColor.get(), this.form.getFormColor(), 1F, glowIntensity, layers);
                 int glowArgb = toSafeTextArgb(glowColor);
                 int glowY = (y2 + y1) / 2 - h / 2;
 
@@ -352,7 +352,7 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
         {
             for (int i = 0; i < layers; i++)
             {
-                Color glowColor = FormColorEffects.resolveGlowOverlayColor(glowSettings, legacyGlow, alpha, glowIntensity, layers);
+                Color glowColor = FormColorEffects.resolveGlowOverlayColor(glowSettings, legacyGlow, this.form.getFormPaintSettings(), this.form.paintColor.get(), this.form.getFormColor(), alpha, glowIntensity, layers);
 
                 consumers.setSubstitute(BBSRendering.getTextGlowOverlayConsumer(glowColor));
 
@@ -456,7 +456,7 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
 
         if (glowIntensity < 0F)
         {
-            FormColorEffects.blendFormGlowBrighten(color, glowSettings, legacyGlow);
+            FormColorEffects.blendFormGlowBrighten(color, glowSettings, legacyGlow, this.form.getFormPaintSettings(), this.form.paintColor.get(), this.form.getFormColor());
         }
 
         shadowColor.a *= this.nametagAlpha;
@@ -623,7 +623,7 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
 
         if (glowIntensity < 0F)
         {
-            FormColorEffects.blendFormGlowBrighten(color, glowSettings, legacyGlow);
+            FormColorEffects.blendFormGlowBrighten(color, glowSettings, legacyGlow, this.form.getFormPaintSettings(), this.form.paintColor.get(), this.form.getFormColor());
         }
 
         float formOpacity = color.a;

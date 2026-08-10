@@ -2,6 +2,7 @@ package mchorse.bbs_mod.mixin.client.iris;
 
 import mchorse.bbs_mod.utils.iris.FormColorGradePatch;
 import mchorse.bbs_mod.utils.iris.FormFluidShaderPatch;
+import mchorse.bbs_mod.utils.iris.FormGlowBloomPatch;
 import mchorse.bbs_mod.utils.iris.ShaderCurves;
 
 import net.irisshaders.iris.uniforms.custom.CustomUniformFixedInputUniformsHolder;
@@ -22,6 +23,7 @@ public class CustomUniformsBuilderMixin
         {
             ShaderCurves.addUniforms(accessor.bbs$uniformOrder());
             FormColorGradePatch.addUniforms(accessor.bbs$uniformOrder());
+            FormGlowBloomPatch.addUniforms(accessor.bbs$uniformOrder());
             FormFluidShaderPatch.addUniforms(accessor.bbs$uniformOrder());
         }
     }

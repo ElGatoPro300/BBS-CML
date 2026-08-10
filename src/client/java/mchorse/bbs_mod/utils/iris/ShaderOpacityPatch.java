@@ -410,6 +410,7 @@ public class ShaderOpacityPatch
         postDeferredPhase = false;
         flushingPostDeferred = false;
         FormFluidShaderPatch.clearFrameQueue();
+        FormGlowBloomPatch.beginFrame();
     }
 
     public static void onWorldRenderEnd()

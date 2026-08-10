@@ -324,7 +324,7 @@ public class ShapeFormRenderer extends FormRenderer<ShapeForm>
 
             if (positiveGlow)
             {
-                glowSettings.resolveColor(legacyGlow, glowResolved);
+                FormColorEffects.resolveGlowTint(glowSettings, legacyGlow, this.form.getFormPaintSettings(), this.form.paintColor.get(), this.form.getFormColor(), glowResolved);
                 ModelVAORenderer.setGlow(glowSettings, glowResolved.r, glowResolved.g, glowResolved.b, legacyGlow);
             }
 
@@ -418,7 +418,7 @@ public class ShapeFormRenderer extends FormRenderer<ShapeForm>
 
         if (positiveGlow)
         {
-            glowSettings.resolveColor(legacyGlow, glowResolved);
+            FormColorEffects.resolveGlowTint(glowSettings, legacyGlow, this.form.getFormPaintSettings(), this.form.paintColor.get(), this.form.getFormColor(), glowResolved);
             ModelVAORenderer.setGlow(glowSettings, glowResolved.r, glowResolved.g, glowResolved.b, legacyGlow);
             RenderSystem.setShader(BBSShaders::getModel);
         }
@@ -1087,7 +1087,7 @@ public class ShapeFormRenderer extends FormRenderer<ShapeForm>
         Color legacyPaint = this.form.paintColor.get();
         float paintStrength = paintSettings.resolveIntensity(legacyPaint);
 
-        if (paintStrength < 0F)
+        if (paintStrength < 0F || (paintStrength > 0F && (paintSettings.transform == null || !paintSettings.transform.isActive())))
         {
             FormColorEffects.applyPaintBlend(color, paintSettings, legacyPaint);
         }
@@ -1097,7 +1097,7 @@ public class ShapeFormRenderer extends FormRenderer<ShapeForm>
 
         if (glow.resolveIntensity(legacyGlow) < 0F)
         {
-            FormColorEffects.blendFormGlowBrighten(color, glow, legacyGlow);
+            FormColorEffects.blendFormGlowBrighten(color, glow, legacyGlow, this.form.getFormPaintSettings(), this.form.paintColor.get(), this.form.getFormColor());
         }
 
         return color;
@@ -1259,7 +1259,7 @@ public class ShapeFormRenderer extends FormRenderer<ShapeForm>
 
         Color glowResolved = new Color();
 
-        glowSettings.resolveColor(legacyGlow, glowResolved);
+        FormColorEffects.resolveGlowTint(glowSettings, legacyGlow, this.form.getFormPaintSettings(), this.form.paintColor.get(), this.form.getFormColor(), glowResolved);
         FormColorEffects.blendEmission(paintOverlay, glowResolved, glowIntensity);
     }
 }

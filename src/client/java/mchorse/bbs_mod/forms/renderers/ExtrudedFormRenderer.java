@@ -207,8 +207,6 @@ public class ExtrudedFormRenderer extends FormRenderer<ExtrudedForm>
             boolean hasGlow = glow.resolveIntensity(legacyGlow) != 0F;
             Color resolvedGlow = new Color();
 
-            glow.resolveColor(legacyGlow, resolvedGlow);
-
             PaintSettings paint = this.form.getFormPaintSettings();
             Color legacyPaint = this.form.paintColor.get();
             Color paintColor = new Color();
@@ -218,6 +216,7 @@ public class ExtrudedFormRenderer extends FormRenderer<ExtrudedForm>
             float paintStrength = paint.resolveIntensity(legacyPaint);
 
             paintColor.a = paintStrength;
+            FormColorEffects.resolveGlowTint(glow, legacyGlow, paint, legacyPaint, storedFormColor, resolvedGlow);
 
             boolean irisWorldPaintDeferral = BBSRendering.isIrisWorldPaintDeferral();
             boolean paintActive = paintStrength != 0F;
@@ -269,7 +268,7 @@ public class ExtrudedFormRenderer extends FormRenderer<ExtrudedForm>
 
             if (!bbsModelShader && !shaderOverlay && !deferPaintToOverlay && !paintOnlyGlow && !deferTranslucentModel)
             {
-                FormColorEffects.blendFormGlowBrighten(color, glow, legacyGlow);
+                FormColorEffects.blendFormGlowBrighten(color, glow, legacyGlow, paint, legacyPaint, storedFormColor);
             }
 
             Matrix4f formRootInverse = new Matrix4f();

@@ -51,6 +51,7 @@ import mchorse.bbs_mod.utils.StringUtils;
 import mchorse.bbs_mod.utils.colors.Color;
 import mchorse.bbs_mod.utils.interps.Lerps;
 import mchorse.bbs_mod.utils.iris.FormColorGradePatch;
+import mchorse.bbs_mod.utils.iris.FormGlowBloomPatch;
 import mchorse.bbs_mod.utils.iris.ShaderOpacityPatch;
 import mchorse.bbs_mod.utils.joml.Vectors;
 import mchorse.bbs_mod.utils.pose.Pose;
@@ -684,7 +685,7 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
         Color legacyGlow = this.form.glowingColor.get();
         Color glowColor = new Color();
 
-        glow.resolveColor(legacyGlow, glowColor);
+        FormColorEffects.resolveGlowTint(glow, legacyGlow, paint, legacyPaint, this.form.getFormColor(), glowColor);
 
         ModelVAORenderer.setGlow(glow, glowColor.r, glowColor.g, glowColor.b, legacyGlow);
 
@@ -820,12 +821,13 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
 
         if (irisWorldPaintDeferral && hasEmissiveGlow && !deferTranslucentModel)
         {
-            /* Must hit the Iris entity/gbuffer pass — post-composite BBS additive never blooms. */
-            FormColorEffects.blendFormGlowBrighten(color, glow, legacyGlow);
+            /* Pack emission (FormGlowBloomPatch) owns bloom under Complementary/BSL. Soft albedo
+             * brighten only when the pack patch is unavailable. */
+            FormColorEffects.blendFormGlowBrighten(color, glow, legacyGlow, paint, legacyPaint, storedFormColor);
         }
         else if (!bbsModelShader && !shaderOverlay && !deferPaintToOverlay && !paintOnlyGlow && !shapeKeyPositiveOverlay && !deferTranslucentModel)
         {
-            FormColorEffects.blendFormGlowBrighten(color, glow, legacyGlow);
+            FormColorEffects.blendFormGlowBrighten(color, glow, legacyGlow, paint, legacyPaint, storedFormColor);
         }
 
         /* Position attributes are already in form/model space; camera/UI matrices must not
@@ -1746,6 +1748,8 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
             ModelVAORenderer.clearFormColorTint();
             ModelVAORenderer.clearFormColorGrade();
             FormColorGradePatch.uploadToCurrentProgram();
+            FormGlowBloomPatch.clear();
+            FormGlowBloomPatch.uploadToCurrentProgram();
             ModelVAORenderer.clearPaintEffectTransform();
             ModelVAORenderer.clearGlowEffectTransform();
             ModelVAORenderer.clearPaint();
@@ -1959,6 +1963,9 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
     {
         boolean shapeKeyGlowOverlay = ShapeKeyGlowPass.shouldUseGlowOverlay(model, this.hasAnyPositiveGlow(model, glow, legacyGlow), glowDeferredToOverlay);
 
+        FormGlowBloomPatch.setFromGlow(glow, legacyGlow);
+        FormGlowBloomPatch.uploadToCurrentProgram();
+
         try
         {
             ModelVAORenderer.setSuppressShapeKeyMainPassGlow(shapeKeyGlowOverlay);
@@ -1972,10 +1979,75 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
             }
 
             this.renderModelGeometry(stack, program, model, light, overlay, stencilMap, color, defaultTexture, textureBlend);
+
+            if (FormColorEffects.hasPositiveGlow(glow, legacyGlow) && Math.abs(glow.resolveSize()) > 0.001F
+                && !FormGlowBloomPatch.shouldSkipGeometrySizeShells())
+            {
+                this.renderGlowSizeShells(stack, program, model, light, overlay, stencilMap, color, defaultTexture, textureBlend, glow, glowColor, legacyGlow);
+            }
         }
         finally
         {
             ModelVAORenderer.setSuppressShapeKeyMainPassGlow(false);
+        }
+    }
+
+    /**
+     * Photoshop-like Outer Glow Size: soft scaled additive shells so bloom has a larger seed.
+     */
+    private void renderGlowSizeShells(MatrixStack stack, Supplier<ShaderProgram> program, ModelInstance model, int light, int overlay, StencilMap stencilMap, Color color, Link defaultTexture, TextureBlend textureBlend, GlowSettings glow, Color glowColor, Color legacyGlow)
+    {
+        float intensity = glow.resolveIntensity(legacyGlow);
+        float size = glow.resolveSize();
+        float spread = glow.resolveSpread();
+        int shells = FormColorEffects.resolveGlowSizeShells(size, spread);
+
+        if (shells <= 0)
+        {
+            return;
+        }
+
+        boolean savedDepthMask = GL11.glGetBoolean(GL11.GL_DEPTH_WRITEMASK);
+
+        RenderSystem.enableBlend();
+        RenderSystem.blendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE);
+        RenderSystem.depthMask(false);
+
+        try
+        {
+            for (int i = 0; i < shells; i++)
+            {
+                float expand = FormColorEffects.resolveGlowShellExpand(size, spread, i, shells);
+                float fade = FormColorEffects.resolveGlowShellFade(spread, i, shells);
+                Color shellColor = color.copy();
+                GlowSettings shellGlow = glow.copy();
+
+                shellGlow.intensity = intensity * fade;
+                /* Emission-only shell — avoid drawing a larger solid form Color silhouette. */
+                shellColor.r = Math.min(1F, glowColor.r * fade);
+                shellColor.g = Math.min(1F, glowColor.g * fade);
+                shellColor.b = Math.min(1F, glowColor.b * fade);
+                shellColor.a = color.a * Math.max(0.15F, fade * (1F - spread * 0.35F));
+
+                stack.push();
+                /* Prefer XY pad for outer glow feel; Z stays closer so depth doesn't explode. */
+                float scale = 1F + expand;
+                float scaleZ = 1F + expand * 0.35F;
+                stack.scale(scale, scale, scaleZ);
+                ModelVAORenderer.setGlow(shellGlow, glowColor.r, glowColor.g, glowColor.b, legacyGlow);
+                FormGlowBloomPatch.set(shellGlow.intensity, size, spread);
+                FormGlowBloomPatch.uploadToCurrentProgram();
+                this.renderModelGeometry(stack, program, model, light, overlay, stencilMap, shellColor, defaultTexture, textureBlend);
+                stack.pop();
+            }
+        }
+        finally
+        {
+            ModelVAORenderer.setGlow(glow, glowColor.r, glowColor.g, glowColor.b, legacyGlow);
+            FormGlowBloomPatch.setFromGlow(glow, legacyGlow);
+            FormGlowBloomPatch.uploadToCurrentProgram();
+            RenderSystem.depthMask(savedDepthMask);
+            RenderSystem.defaultBlendFunc();
         }
     }
 
@@ -2043,9 +2115,20 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
         {
             float formIntensity = glow.resolveIntensity(legacyGlow);
 
-            ShapeKeyGlowPass.renderOverlay(glow, legacyGlow, color.a, formIntensity, (glowLayerColor) ->
+            ShapeKeyGlowPass.renderOverlay(glow, legacyGlow, color.a, formIntensity, (glowLayerColor, expand) ->
             {
-                this.drawShapeKeyGlowOverlayLayer(stack, model, overlay, stencilMap, shapeKeys, defaultTexture, textureBlend, glowLayerColor, false, formIntensity, null, bonePositive);
+                if (expand > 0.001F)
+                {
+                    stack.push();
+                    float scale = 1F + expand;
+                    stack.scale(scale, scale, scale);
+                    this.drawShapeKeyGlowOverlayLayer(stack, model, overlay, stencilMap, shapeKeys, defaultTexture, textureBlend, glowLayerColor, false, formIntensity, null, bonePositive);
+                    stack.pop();
+                }
+                else
+                {
+                    this.drawShapeKeyGlowOverlayLayer(stack, model, overlay, stencilMap, shapeKeys, defaultTexture, textureBlend, glowLayerColor, false, formIntensity, null, bonePositive);
+                }
             });
         }
 
@@ -2060,9 +2143,20 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
 
                 float boneIntensity = group.glowIntensity;
 
-                ShapeKeyGlowPass.renderOverlay(glow, legacyGlow, color.a, boneIntensity, (glowLayerColor) ->
+                ShapeKeyGlowPass.renderOverlay(glow, legacyGlow, color.a, boneIntensity, (glowLayerColor, expand) ->
                 {
-                    this.drawShapeKeyGlowOverlayLayer(stack, model, overlay, stencilMap, shapeKeys, defaultTexture, textureBlend, glowLayerColor, true, boneIntensity, group.id, false);
+                    if (expand > 0.001F)
+                    {
+                        stack.push();
+                        float scale = 1F + expand;
+                        stack.scale(scale, scale, scale);
+                        this.drawShapeKeyGlowOverlayLayer(stack, model, overlay, stencilMap, shapeKeys, defaultTexture, textureBlend, glowLayerColor, true, boneIntensity, group.id, false);
+                        stack.pop();
+                    }
+                    else
+                    {
+                        this.drawShapeKeyGlowOverlayLayer(stack, model, overlay, stencilMap, shapeKeys, defaultTexture, textureBlend, glowLayerColor, true, boneIntensity, group.id, false);
+                    }
                 });
             }
         }

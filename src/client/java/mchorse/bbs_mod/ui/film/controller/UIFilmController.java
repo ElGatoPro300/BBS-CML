@@ -178,6 +178,7 @@ public class UIFilmController extends UIElement
     private int stencilCacheMouseY = Integer.MIN_VALUE;
     private boolean stencilCacheAlt;
     private int stencilCacheTick = Integer.MIN_VALUE;
+    private int stencilCacheReplayIndex = Integer.MIN_VALUE;
     private long stencilCacheMs;
     private boolean stencilCacheValid;
 
@@ -2156,7 +2157,25 @@ public class UIFilmController extends UIElement
             return;
         }
 
-        this.ensureStencilFramebuffer();
+        /* Resolve selected Media replay before cache — switching actors must invalidate. */
+        Replay currentReplay = null;
+        int currentIndex = -1;
+
+        if (!altPressed && this.panel.replayEditor != null)
+        {
+            currentReplay = this.panel.replayEditor.getReplay();
+
+            if (currentReplay != null && currentReplay.isGroup.get())
+            {
+                currentReplay = null;
+            }
+
+            currentIndex = currentReplay == null || this.panel.getData() == null
+                ? -1
+                : this.panel.getData().replays.getList().indexOf(currentReplay);
+        }
+
+        this.ensureStencilFramebuffer(pickArea);
 
         boolean isPlaying = this.isPlaying();
         Texture mainTexture = this.stencil.getFramebuffer().getMainTexture();
@@ -2174,26 +2193,34 @@ public class UIFilmController extends UIElement
         boolean mouseMoved = mouseX != this.stencilCacheMouseX || mouseY != this.stencilCacheMouseY;
         boolean altChanged = altPressed != this.stencilCacheAlt;
         boolean tickChanged = cursorTick != this.stencilCacheTick;
+        boolean replayChanged = !altPressed && currentIndex != this.stencilCacheReplayIndex;
 
-        /* Rebuilding the stencil FBO every UI frame (all actors on Alt) nukes FPS and thrash-seeks
-         * shared WaterMedia players. Reuse / throttle while the cursor is still or moving slowly. */
-        if (this.stencilCacheValid && this.stencil.hasPicked() && !altChanged && !tickChanged)
+        /* Do NOT gate on hasPicked() — empty sky under the cursor used to force a full FBO
+         * rebuild every UI frame whenever a Media model was selected (huge FPS drop).
+         * Also do not rebuild every tick while playing: throttle ~10/s. */
+        if (this.stencilCacheValid && !altChanged && !replayChanged)
         {
+            long age = now - this.stencilCacheMs;
+
             if (!mouseMoved)
             {
-                if (!isPlaying || (now - this.stencilCacheMs) < 50L)
+                if (!isPlaying && !tickChanged)
+                {
+                    return;
+                }
+
+                if (age < 100L)
                 {
                     return;
                 }
             }
-            else if ((now - this.stencilCacheMs) < 32L)
+            else if (age < 80L)
             {
-                /* Cap Alt hover rebuilds ~30/s while dragging the mouse. */
                 return;
             }
         }
 
-        /* stencil.apply() sets glViewport to the film/video size; save so UI scale stays correct. */
+        /* stencil.apply() sets glViewport to the pick FBO; save so UI scale stays correct. */
         int[] prevViewport = new int[4];
 
         GL11.glGetIntegerv(GL11.GL_VIEWPORT, prevViewport);
@@ -2244,19 +2271,7 @@ public class UIFilmController extends UIElement
             else
             {
                 /* Bone pick only the selected replay. Without Alt, limbs on other actors
-                 * must not be clickable (Alt is the way to target/switch other replays).
-                 * Use the selected Replay object + raw film index — UIReplayList.getIndex()
-                 * is a visualList index and diverges whenever folders/groups exist. */
-                Replay currentReplay = this.panel.replayEditor.getReplay();
-
-                if (currentReplay != null && currentReplay.isGroup.get())
-                {
-                    currentReplay = null;
-                }
-
-                int currentIndex = currentReplay == null || this.panel.getData() == null
-                    ? -1
-                    : this.panel.getData().replays.getList().indexOf(currentReplay);
+                 * must not be clickable (Alt is the way to target/switch other replays). */
                 Set<String> allowedBones = this.resolveMarkedBonesFilter(currentReplay);
 
                 if (currentIndex >= 0 && currentReplay != null && this.editorController != null
@@ -2295,6 +2310,7 @@ public class UIFilmController extends UIElement
             this.stencilCacheMouseY = mouseY;
             this.stencilCacheAlt = altPressed;
             this.stencilCacheTick = cursorTick;
+            this.stencilCacheReplayIndex = altPressed ? Integer.MIN_VALUE : currentIndex;
             this.stencilCacheMs = now;
             this.stencilCacheValid = true;
         }
@@ -2381,17 +2397,16 @@ public class UIFilmController extends UIElement
         return UIPoseEditor.hasMarkedBones(poseGroup) ? UIPoseEditor.getMarkedBones(poseGroup) : null;
     }
 
-    private void ensureStencilFramebuffer()
+    private void ensureStencilFramebuffer(Area pickArea)
     {
         this.stencil.setup(Link.bbs("stencil_film"));
 
         Texture mainTexture = this.stencil.getFramebuffer().getMainTexture();
-        int w = BBSRendering.getVideoWidth();
-        int h = BBSRendering.getVideoHeight();
-
-        /* resizeGUI multiplies by GUI scale — compare against the scaled target so we do
-         * not recreate the FBO every frame (classic hover used to break when scissor was
-         * force-enabled after a thrashing resize). */
+        /* Match the on-screen Player viewport (like the model editor), not full video×GUI
+         * scale. Video-sized pick FBOs made Media selection redraw a multi-megapixel mesh
+         * buffer and crushed FPS. */
+        int w = Math.max(1, pickArea.w);
+        int h = Math.max(1, pickArea.h);
         int targetW = w * BBSModClient.getGUIScale();
         int targetH = h * BBSModClient.getGUIScale();
 

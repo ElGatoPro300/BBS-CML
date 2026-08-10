@@ -24,6 +24,7 @@ import mchorse.bbs_mod.utils.Quad;
 import mchorse.bbs_mod.utils.colors.Color;
 import mchorse.bbs_mod.utils.colors.Colors;
 import mchorse.bbs_mod.utils.interps.Lerps;
+import mchorse.bbs_mod.utils.iris.FormGlowBloomPatch;
 import mchorse.bbs_mod.utils.iris.ShaderOpacityPatch;
 import mchorse.bbs_mod.utils.joml.Vectors;
 
@@ -293,12 +294,14 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
             return;
         }
 
-        /* Main pass: negative paint only; positive paint is drawn in a separate overlay pass */
+        /* Positive paint still needs the overlay (mask / strength), but baking tint into the
+         * main pass kills the white AA fringe that otherwise shows through semi-transparent paint. */
         PaintSettings paintSettings = this.form.getFormPaintSettings();
         Color legacyPaint = this.form.paintColor.get();
         float paintStrength = paintSettings.resolveIntensity(legacyPaint);
+        boolean paintSpatialMask = paintSettings.transform != null && paintSettings.transform.isActive();
 
-        if (paintStrength < 0F)
+        if (paintStrength < 0F || (paintStrength > 0F && !paintSpatialMask))
         {
             FormColorEffects.applyPaintBlend(color, paintSettings, legacyPaint);
         }
@@ -309,7 +312,7 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
 
         if (glowIntensity < 0F)
         {
-            FormColorEffects.blendFormGlowBrighten(color, glowSettings, legacyGlow);
+            FormColorEffects.blendFormGlowBrighten(color, glowSettings, legacyGlow, paintSettings, legacyPaint, storedFormColor);
         }
 
         /* World/entity billboard: face the camera and ignore authored rotation.
@@ -547,6 +550,15 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
                     }
                 }
             };
+
+            if (emitGlowSnapshot)
+            {
+                /* Publish Size/Spread during the entity pass so Iris composite bloom
+                 * (often before post-deferred flush) still reads this frame's values.
+                 * Billboard mesh itself is deferred (after bloom); Size/Spread halo is the
+                 * BBS Outer Glow pass. Pack DoBloom still helps models in gbuffer. */
+                FormGlowBloomPatch.setFromGlow(glowSettingsSnapshot, legacyGlowSnapshot);
+            }
 
             if (irisCamera)
             {
@@ -1114,23 +1126,43 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
         texture.bind();
         texture.setFilterMipmap(this.form.linear.get(), this.form.mipmap.get());
 
-        FlatGlowOverlayPass.render(glowSettings, legacyGlow, alpha, glowIntensity, (glowColor) ->
+        FlatGlowOverlayPass.renderSized(glowSettings, legacyGlow, this.form.getFormPaintSettings(), this.form.paintColor.get(), this.form.getFormColor(), alpha, glowIntensity, (glowColor, expand) ->
         {
             BufferBuilder glowBuilder = Tessellator.getInstance().begin(VertexFormat.DrawMode.TRIANGLES, VertexFormats.POSITION_TEXTURE_COLOR);
 
-            RenderSystem.setShader(GameRenderer::getPositionTexColorProgram);
+            /* Shader is bound by FlatGlowOverlayPass (flat_glow_overlay) — Size/Spread live there. */
             float glowZ = this.resolveOverlayFaceZ(glowMatrix);
+            /* Size shells: expand>0 grows halo; expand<0 tightens (negative Size). */
+            float scale = Math.max(0.05F, 1F + expand);
+            float cx = (drawQuad.p1.x + drawQuad.p2.x + drawQuad.p3.x + drawQuad.p4.x) * 0.25F;
+            float cy = (drawQuad.p1.y + drawQuad.p2.y + drawQuad.p3.y + drawQuad.p4.y) * 0.25F;
+            float x1 = cx + (drawQuad.p1.x - cx) * scale;
+            float y1 = cy + (drawQuad.p1.y - cy) * scale;
+            float x2 = cx + (drawQuad.p2.x - cx) * scale;
+            float y2 = cy + (drawQuad.p2.y - cy) * scale;
+            float x3 = cx + (drawQuad.p3.x - cx) * scale;
+            float y3 = cy + (drawQuad.p3.y - cy) * scale;
+            float x4 = cx + (drawQuad.p4.x - cx) * scale;
+            float y4 = cy + (drawQuad.p4.y - cy) * scale;
+            /* UV pad: texture stays center-sized; outside 0..1 = empty → real Outer Glow. */
+            float u1 = FlatGlowOverlayPass.remapUvForOuterGlow(drawUvQuad.p1.x, expand);
+            float v1 = FlatGlowOverlayPass.remapUvForOuterGlow(drawUvQuad.p1.y, expand);
+            float u2 = FlatGlowOverlayPass.remapUvForOuterGlow(drawUvQuad.p2.x, expand);
+            float v2 = FlatGlowOverlayPass.remapUvForOuterGlow(drawUvQuad.p2.y, expand);
+            float u3 = FlatGlowOverlayPass.remapUvForOuterGlow(drawUvQuad.p3.x, expand);
+            float v3 = FlatGlowOverlayPass.remapUvForOuterGlow(drawUvQuad.p3.y, expand);
+            float u4 = FlatGlowOverlayPass.remapUvForOuterGlow(drawUvQuad.p4.x, expand);
+            float v4 = FlatGlowOverlayPass.remapUvForOuterGlow(drawUvQuad.p4.y, expand);
 
-            /* One camera-facing plane, both sides via disableCull — same as paint. */
             RenderSystem.disableCull();
 
-            this.fillGlow(glowBuilder, glowMatrix, drawQuad.p3.x, drawQuad.p3.y, glowZ, glowColor, drawUvQuad.p3.x, drawUvQuad.p3.y);
-            this.fillGlow(glowBuilder, glowMatrix, drawQuad.p2.x, drawQuad.p2.y, glowZ, glowColor, drawUvQuad.p2.x, drawUvQuad.p2.y);
-            this.fillGlow(glowBuilder, glowMatrix, drawQuad.p1.x, drawQuad.p1.y, glowZ, glowColor, drawUvQuad.p1.x, drawUvQuad.p1.y);
+            this.fillGlow(glowBuilder, glowMatrix, x3, y3, glowZ, glowColor, u3, v3);
+            this.fillGlow(glowBuilder, glowMatrix, x2, y2, glowZ, glowColor, u2, v2);
+            this.fillGlow(glowBuilder, glowMatrix, x1, y1, glowZ, glowColor, u1, v1);
 
-            this.fillGlow(glowBuilder, glowMatrix, drawQuad.p3.x, drawQuad.p3.y, glowZ, glowColor, drawUvQuad.p3.x, drawUvQuad.p3.y);
-            this.fillGlow(glowBuilder, glowMatrix, drawQuad.p4.x, drawQuad.p4.y, glowZ, glowColor, drawUvQuad.p4.x, drawUvQuad.p4.y);
-            this.fillGlow(glowBuilder, glowMatrix, drawQuad.p2.x, drawQuad.p2.y, glowZ, glowColor, drawUvQuad.p2.x, drawUvQuad.p2.y);
+            this.fillGlow(glowBuilder, glowMatrix, x3, y3, glowZ, glowColor, u3, v3);
+            this.fillGlow(glowBuilder, glowMatrix, x4, y4, glowZ, glowColor, u4, v4);
+            this.fillGlow(glowBuilder, glowMatrix, x2, y2, glowZ, glowColor, u2, v2);
 
             BufferRenderer.drawWithGlobalProgram(glowBuilder.end());
 
@@ -1156,7 +1188,7 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
 
         Color glowResolved = new Color();
 
-        glowSettings.resolveColor(legacyGlow, glowResolved);
+        FormColorEffects.resolveGlowTint(glowSettings, legacyGlow, this.form.getFormPaintSettings(), this.form.paintColor.get(), this.form.getFormColor(), glowResolved);
         FormColorEffects.blendEmission(paintOverlay, glowResolved, glowIntensity);
     }
 }

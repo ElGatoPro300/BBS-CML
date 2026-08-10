@@ -7,11 +7,13 @@ import mchorse.bbs_mod.forms.forms.utils.EffectTransform;
 import mchorse.bbs_mod.forms.forms.utils.EffectTransformMath;
 import mchorse.bbs_mod.forms.forms.utils.GlowSettings;
 import mchorse.bbs_mod.forms.renderers.utils.FlatPaintOverlayPass;
+import mchorse.bbs_mod.forms.renderers.utils.FormColorEffects;
 import mchorse.bbs_mod.graphics.texture.Texture;
 import mchorse.bbs_mod.resources.Link;
 import mchorse.bbs_mod.utils.MatrixStackUtils;
 import mchorse.bbs_mod.utils.colors.Color;
 import mchorse.bbs_mod.utils.iris.FormColorGradePatch;
+import mchorse.bbs_mod.utils.iris.FormGlowBloomPatch;
 import mchorse.bbs_mod.utils.iris.ShaderOpacityPatch;
 
 import net.minecraft.client.MinecraftClient;
@@ -1176,8 +1178,9 @@ public class ModelVAORenderer
         glowR = colorR;
         glowG = colorG;
         glowB = colorB;
-        glowStrength = strength;
+        glowStrength = FormColorEffects.resolveShaderGlowStrength(strength);
         glowPaintOnly = settings != null && settings.resolvePaintOnly();
+        FormGlowBloomPatch.setFromGlow(settings, legacyColor);
     }
 
     public static void setGlowing(float r, float g, float b, float strength, float radius)
@@ -1192,7 +1195,7 @@ public class ModelVAORenderer
         glowR = r;
         glowG = g;
         glowB = b;
-        glowStrength = strength;
+        glowStrength = FormColorEffects.resolveShaderGlowStrength(strength);
     }
 
     public static void clearGlowing()
@@ -1207,6 +1210,7 @@ public class ModelVAORenderer
         glowB = 0F;
         glowStrength = 0F;
         glowPaintOnly = false;
+        FormGlowBloomPatch.clear();
     }
 
     public static boolean isGlowPaintOnly()
@@ -1732,6 +1736,7 @@ public class ModelVAORenderer
         shader.bind();
         ShaderOpacityPatch.reassertPostDeferredDepthState();
         FormColorGradePatch.uploadToCurrentProgram();
+        FormGlowBloomPatch.uploadToCurrentProgram();
         modelVAO.render(shader.getFormat(), r, g, b, a, light, overlay);
         shader.unbind();
 
