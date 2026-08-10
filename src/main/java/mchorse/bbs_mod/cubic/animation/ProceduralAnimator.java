@@ -17,7 +17,9 @@ import mchorse.bbs_mod.cubic.data.animation.Animation;
 import mchorse.bbs_mod.cubic.data.animation.Animations;
 import mchorse.bbs_mod.cubic.data.model.Model;
 import mchorse.bbs_mod.cubic.data.model.ModelGroup;
+import mchorse.bbs_mod.entity.ActorEntity;
 import mchorse.bbs_mod.forms.entities.IEntity;
+import mchorse.bbs_mod.forms.entities.MCEntity;
 import mchorse.bbs_mod.forms.entities.StubEntity;
 import mchorse.bbs_mod.utils.MathUtils;
 import mchorse.bbs_mod.utils.interps.Lerps;
@@ -172,19 +174,59 @@ public class ProceduralAnimator implements IAnimator
         float velocityForwardSpeed = ((float) entityVelocity.x * forwardX + (float) entityVelocity.z * forwardZ) * 20F;
         float displacementForwardSpeed = ((float) dx * forwardX + (float) dz * forwardZ) * 20F;
         float forwardSpeed = Math.abs(velocityForwardSpeed) >= Math.abs(displacementForwardSpeed) ? velocityForwardSpeed : displacementForwardSpeed;
+        /* Film actors: ActionPlayer lookahead velocity creates a one-frame void
+         * (velocity says walking, LimbAnimator still idle). Filling that void from
+         * velocity + age*0.6662 caused the idle→walk microsnap. Gate swing/gecko
+         * motion on real prev→pos displacement instead; keep LimbAnimator for the
+         * rest of the walk once it catches up. */
+        boolean filmActor = target instanceof MCEntity mcEntity
+            && mcEntity.getMcEntity() instanceof ActorEntity;
+
+        if (filmActor)
+        {
+            horizontalSpeed = displacementHorizontalSpeed;
+            forwardSpeed = displacementForwardSpeed;
+        }
 
         if (!target.isRiding() && !target.isSitting())
         {
             if (limbSpeed < 0.01F && horizontalSpeed > 0.08F)
             {
-                limbSpeed = MathHelper.clamp(horizontalSpeed / 4F, 0F, 1F);
-                /* Synthesizing amplitude from motion must also drive phase. Leaving a
-                 * non-zero stuck limbPos (teleported actors) freezes limbs at walk extremes. */
-                limbPhase = age * 0.6662F;
+                float synthesized = MathHelper.clamp(horizontalSpeed / 4F, 0F, 1F);
+
+                if (filmActor)
+                {
+                    /* Soft-fill like one vanilla updateLimbs(0.4) step from real
+                     * displacement only — complements the void without a phase jump. */
+                    limbSpeed = synthesized * 0.4F;
+                    limbPhase = limbPhase + limbSpeed;
+
+                    if (displacementHorizontalSpeed > 10F)
+                    {
+                        limbPhase = age * 0.6662F;
+                    }
+                }
+                else
+                {
+                    limbSpeed = synthesized;
+                    /* Synthesizing amplitude from motion must also drive phase. Leaving a
+                     * non-zero stuck limbPos (teleported actors) freezes limbs at walk extremes. */
+                    limbPhase = age * 0.6662F;
+                }
             }
             else if (limbPhase == 0F && horizontalSpeed > 0.08F)
             {
-                limbPhase = age * 0.6662F;
+                if (filmActor)
+                {
+                    float synthesized = MathHelper.clamp(horizontalSpeed / 4F, 0F, 1F);
+
+                    limbSpeed = Math.max(limbSpeed, synthesized * 0.4F);
+                    limbPhase = limbPhase + Math.max(limbSpeed, 0.01F);
+                }
+                else
+                {
+                    limbPhase = age * 0.6662F;
+                }
             }
         }
         else
