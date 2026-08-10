@@ -966,8 +966,12 @@ public final class RecorderMobCapture
             MCEntity wrapper = new MCEntity(entity);
 
             wrapper.update();
+            /* Keep ambient morph particles off while dying; MobDeathActionClip
+             * spawns the single vanilla-style poof burst at despawn. */
+            wrapper.setParticlesEnabled(false);
             replay.keyframes.record(tick, wrapper, null);
             replay.keyframes.deathTime.insert(tick, (double) deathTime);
+            replay.keyframes.particles.insert(tick, 0D);
 
             return;
         }
@@ -992,8 +996,10 @@ public final class RecorderMobCapture
         wrapper.setSprinting(false);
         wrapper.setOnGround(true);
         wrapper.setVelocity(0F, 0F, 0F);
+        wrapper.setParticlesEnabled(false);
 
         replay.keyframes.record(tick, wrapper, null);
+        replay.keyframes.particles.insert(tick, 0D);
     }
 
     private void updateSessionState(Session session, Entity entity)
