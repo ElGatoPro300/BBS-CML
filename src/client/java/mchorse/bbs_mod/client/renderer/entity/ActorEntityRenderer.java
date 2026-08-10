@@ -69,7 +69,7 @@ public class ActorEntityRenderer extends EntityRenderer<ActorEntity, ActorEntity
             return;
         }
 
-        EntityRenderer<?> renderer = MinecraftClient.getInstance().getEntityRenderDispatcher().getRenderer(entity);
+        EntityRenderer<?, ?> renderer = MinecraftClient.getInstance().getEntityRenderDispatcher().getRenderer(entity);
 
         if (renderer instanceof ActorEntityRenderer actorRenderer)
         {
@@ -110,7 +110,7 @@ public class ActorEntityRenderer extends EntityRenderer<ActorEntity, ActorEntity
 
         float bodyYaw = MathHelper.lerpAngleDegrees(tickDelta, state.prevBodyYaw, state.bodyYaw);
         int overlay = livingEntity.shouldShowDamageFlashOverlay()
-            ? LivingEntityRenderer.getOverlay(livingEntity, 0F)
+            ? LivingEntityRenderer.getOverlay(state, 0F)
             : OverlayTexture.DEFAULT_UV;
         float animDelta = livingEntity.areNaturalAnimationsPaused() ? 0F : tickDelta;
 
