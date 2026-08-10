@@ -92,14 +92,6 @@ public class ActorEntity extends LivingEntity implements IEntityFormProvider
     private boolean pauseNaturalAnimations;
 
     /**
-     * Client film playback: limbs are driven from keyframe displacement (vanilla
-     * {@code updateLimbs} / StubEntity style). Suppresses
-     * {@link LivingEntity#updateLimbs(boolean)} so network velocity cannot race
-     * or double-step the animator.
-     */
-    private boolean filmLimbDrive;
-
-    /**
      * Cached deterministic limb phase for timeline-paused scrubbing.
      */
     private int timelineLimbTick = -1;
@@ -224,38 +216,6 @@ public class ActorEntity extends LivingEntity implements IEntityFormProvider
     public boolean areNaturalAnimationsPaused()
     {
         return this.pauseNaturalAnimations;
-    }
-
-    public void setFilmLimbDrive(boolean enabled)
-    {
-        this.filmLimbDrive = enabled;
-    }
-
-    public boolean isFilmLimbDrive()
-    {
-        return this.filmLimbDrive;
-    }
-
-    /**
-     * One vanilla {@code LimbAnimator.updateLimbs(speed, 0.4)} step from horizontal
-     * move delta — same formula as {@link mchorse.bbs_mod.forms.entities.StubEntity#update()}.
-     */
-    public void driveFilmLimbs(float horizontalDelta)
-    {
-        float speed = Math.min(Math.max(0F, horizontalDelta) * 4F, 1F);
-
-        this.limbAnimator.updateLimbs(speed, 0.4F);
-    }
-
-    @Override
-    public void updateLimbs(boolean flutter)
-    {
-        if (this.filmLimbDrive && this.getWorld().isClient())
-        {
-            return;
-        }
-
-        super.updateLimbs(flutter);
     }
 
     /**

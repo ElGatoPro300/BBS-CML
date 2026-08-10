@@ -224,14 +224,13 @@ public final class ActorReplayStateSync
         {
             if (advanceLimbs)
             {
-                /* Same horizontal step as StubEntity / vanilla updateLimbs: this tick's
-                 * keyframe delta (tick − (tick−1)). Forward lookahead is only for
-                 * ActionPlayer render coast velocity, not limb phase. */
+                /* Same horizontal target as ActionPlayer forward playback velocity, with
+                 * vanilla LimbAnimator lerp (0.4) — not an instant setSpeed/setPos snap. */
                 double x = keyframes.x.interpolate(tick);
                 double z = keyframes.z.interpolate(tick);
-                double prevX = keyframes.x.interpolate(tick - 1F);
-                double prevZ = keyframes.z.interpolate(tick - 1F);
-                float delta = (float) MathHelper.magnitude(x - prevX, 0D, z - prevZ);
+                double nextX = keyframes.x.interpolate(tick + 1F);
+                double nextZ = keyframes.z.interpolate(tick + 1F);
+                float delta = (float) MathHelper.magnitude(nextX - x, 0D, nextZ - z);
                 float speed = Math.min(delta * 4F, 1F);
 
                 actor.limbAnimator.updateLimbs(speed, 0.4F);
