@@ -1,6 +1,7 @@
 package mchorse.bbs_mod.ui.model;
 
 import mchorse.bbs_mod.BBSClient;
+import mchorse.bbs_mod.BBSFeatures;
 import mchorse.bbs_mod.BBSModClient;
 import mchorse.bbs_mod.BBSSettings;
 import mchorse.bbs_mod.cubic.ModelInstance;
@@ -522,7 +523,11 @@ public class UIModelPanel extends UIDataDashboardPanel<ModelConfig> implements I
         this.addSection(new UIModelItemsSection(this));
         this.addSection(new UIModelHandsSection(this));
         this.addSection(new UIModelSneakingSection(this));
-        this.addSection(new UIModelLookAtSection(this));
+
+        if (BBSFeatures.MODEL_PROCEDURAL_LOOK_AT_UI)
+        {
+            this.addSection(new UIModelLookAtSection(this));
+        }
 
         /* Register Panels */
         UIElement spacer = new UIElement();
@@ -533,7 +538,12 @@ public class UIModelPanel extends UIDataDashboardPanel<ModelConfig> implements I
         this.ikPanel = new UIModelIKPanel(this);
 
         this.registerPanel(this.modelSettingsPanel, UIKeys.MODELS_SETTINGS, Icons.MODELS_SETTINGS);
-        this.registerPanel(this.ikPanel, UIKeys.MODELS_IK_EDITOR, Icons.IK);
+
+        if (BBSFeatures.MODEL_IK_UI)
+        {
+            this.registerPanel(this.ikPanel, UIKeys.MODELS_IK_EDITOR, Icons.IK);
+        }
+
         this.registerPanel(this.physBonesPanel, UIKeys.MODELS_PHYS_BONES_EDITOR, Icons.DYNAMIC_BONES);
         this.registerPanel(this.constraintsPanel, UIKeys.MODELS_CONSTRAINTS_EDITOR, Icons.LOCKED);
         this.registerPanel(this.geometryPanel, UIKeys.MODELS_GEOMETRY_EDITOR, Icons.GEOMETRY_EDITOR);

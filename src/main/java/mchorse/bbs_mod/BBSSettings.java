@@ -74,6 +74,7 @@ public class BBSSettings
     /** Cached form-picker thumbnails (morph menu). Off by default — opt in for lighter UI. */
     public static ValueBoolean optimizedMorphMenu;
     public static ValueGizmoToolbar editorGizmoToolbar;
+    public static ValueBoolean editorGizmoToolbarHorizontal;
     public static ValueFloat axesScale;
     public static ValueFloat axesThickness;
     public static ValueFloat gizmoHitbox;
@@ -170,6 +171,7 @@ public class BBSSettings
     public static ValueBoolean editorActorPauseAnimations;
     public static ValueBoolean editorActorPausedRunInPlace;
     public static ValueBoolean actorDamageFlash;
+    public static ValueBoolean actorDamageAnimation;
     public static ValueBoolean editorSimplifyAnimations;
     public static ValueBoolean editorMuteRenderAudioClips;
     public static ValueInt editorTimeMode;
@@ -323,6 +325,21 @@ public class BBSSettings
     public static boolean shouldSettleActorNaturalStopWhenPaused()
     {
         return editorActorPausedRunInPlace == null || !editorActorPausedRunInPlace.get();
+    }
+
+    public static boolean shouldFlashActorLiveDamage()
+    {
+        return actorDamageFlash != null && actorDamageFlash.get();
+    }
+
+    public static boolean shouldPlayActorDamageAnimation()
+    {
+        return actorDamageAnimation == null || actorDamageAnimation.get();
+    }
+
+    public static boolean shouldKeepActorLiveHurtTime()
+    {
+        return shouldFlashActorLiveDamage() || shouldPlayActorDamageAnimation();
     }
 
     public static int primaryColor()
@@ -640,11 +657,6 @@ public class BBSSettings
     {
         HashSet<String> defaultFilters = new HashSet<>();
 
-        defaultFilters.add("item_off_hand");
-        defaultFilters.add("item_head");
-        defaultFilters.add("item_chest");
-        defaultFilters.add("item_legs");
-        defaultFilters.add("item_feet");
         defaultFilters.add("vX");
         defaultFilters.add("vY");
         defaultFilters.add("vZ");
@@ -736,6 +748,7 @@ public class BBSSettings
         gizmoGuideOpacity = builder.getFloat("gizmo_guide_opacity", 0.35F, 0.05F, 1F);
         gizmoTranslateSpeed = builder.getInt("gizmo_translate_speed", 5, 1, 20);
         builder.register(editorGizmoToolbar = new ValueGizmoToolbar("gizmo_toolbar"));
+        editorGizmoToolbarHorizontal = builder.getBoolean("gizmo_toolbar_horizontal", true);
         builder.register(editorFormGizmoToolbar = new ValueFormEditorGizmoToolbar("form_gizmo_toolbar"));
 
         builder.category("tutorials");
@@ -833,10 +846,11 @@ public class BBSSettings
         replayContextOptions = builder.getInt("compacted_options", 0, 0, 2);
         editorReplaySprintParticles = builder.getBoolean("replay_sprint_particles", false);
         editorReplayStepSound = builder.getBoolean("replay_step_sound", false);
-        editorActorPausedSwipeLoop = builder.getBoolean("actor_paused_swipe_loop", true);
-        editorActorPauseAnimations = builder.getBoolean("actor_pause_animations", true);
+        editorActorPausedSwipeLoop = builder.getBoolean("actor_paused_swipe_loop", false);
+        editorActorPauseAnimations = builder.getBoolean("actor_pause_animations", false);
         editorActorPausedRunInPlace = builder.getBoolean("actor_paused_run_in_place", false);
         actorDamageFlash = builder.getBoolean("actor_damage_flash", false);
+        actorDamageAnimation = builder.getBoolean("actor_damage_animation", true);
         replayMarkedBonesOnly = builder.getBoolean("replay_marked_bones_only", false);
         editorReplayEditorTitleLimit = builder.getInt("replay_editor_title_limit", 12, 0, 64);
         replayFpBobbingIntensity = builder.getFloat("replay_fp_bobbing_intensity", 0.25F, 0F, 2F);
