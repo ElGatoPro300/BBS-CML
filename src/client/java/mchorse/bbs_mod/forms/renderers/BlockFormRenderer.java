@@ -185,6 +185,15 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
                 /* Form opacity / blend intensity must not discard pick pixels (picker_models a < 0.1). */
                 consumers.setSubstitute(BBSRendering.getColorConsumer(new Color(1F, 1F, 1F, 1F)));
             }
+            else if (context.isShadowPass || BBSRendering.isIrisShadowPass())
+            {
+                /* Opaque casters — enabling blend here made Complementary treat solids like leaves. */
+                CustomVertexConsumerProvider.hijackVertexFormat((l) ->
+                {
+                    RenderSystem.disableBlend();
+                    RenderSystem.depthMask(true);
+                });
+            }
             else
             {
                 CustomVertexConsumerProvider.hijackVertexFormat((l) ->
@@ -638,8 +647,8 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
         boolean packPhase = packFluid > 0.5F;
         boolean lavaPhase = packFluid > 1.5F;
         float fluidMode = this.resolveFormFluidMode();
-        /* Vanilla water must keep face culling like world water. Disabling cull (outerFluidWalls)
-         * draws back-faces too and roughly doubles opacity vs. real water. Leave lava alone. */
+        /* When outer walls are on: optional double-sided draw (non-vanilla-water / non-shader) so far
+         * faces stay visible. Vanilla water keeps normal cull — back-faces would double opacity. */
         boolean vanillaWater = !shaders && !ui && fluidMode > 0.5F && fluidMode < 1.5F;
         boolean allowDisableCull = this.form.outerFluidWalls.get() && !shaders && !vanillaWater;
 
@@ -745,8 +754,11 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
         int startY = BlockForm.repeatAxisStart(repeatY, this.form.repeatCenterY.get());
         int startZ = BlockForm.repeatAxisStart(repeatZ, this.form.repeatCenterZ.get());
         int cachedBiomeColor = this.sampleFluidBiomeColor(context, startX, startY, startZ);
+        boolean outerWalls = this.form.outerFluidWalls.get();
+        /* Without outer walls only the top surface matters — skip buried layers entirely. */
+        int yBegin = outerWalls ? 0 : Math.max(0, repeatY - 1);
 
-        for (int y = 0; y < repeatY; y++)
+        for (int y = yBegin; y < repeatY; y++)
         {
             for (int z = 0; z < repeatZ; z++)
             {
@@ -766,7 +778,7 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
                         MatrixStackUtils.invertUiNormalY(stack);
                     }
 
-                    this.renderFluid(stack, consumers, fluidWorldPos, localX, localY, localZ, startX, startY, startZ, startX + repeatX, startY + repeatY, startZ + repeatZ, cachedBiomeColor, shaders);
+                    this.renderFluid(stack, consumers, fluidWorldPos, localX, localY, localZ, startX, startY, startZ, startX + repeatX, startY + repeatY, startZ + repeatZ, cachedBiomeColor, shaders, outerWalls);
                     stack.pop();
                 }
             }
@@ -806,7 +818,7 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
      * Tessellate at ORIGIN with a relative neighbor view (fixes repeat-center).
      * Vanilla FluidRenderer supplies sloping corners, level height and solid-neighbor flattening.
      */
-    private void renderFluid(MatrixStack stack, CustomVertexConsumerProvider consumers, BlockPos fluidWorldPos, int localX, int localY, int localZ, int minX, int minY, int minZ, int maxX, int maxY, int maxZ, int cachedBiomeColor, boolean shaders)
+    private void renderFluid(MatrixStack stack, CustomVertexConsumerProvider consumers, BlockPos fluidWorldPos, int localX, int localY, int localZ, int minX, int minY, int minZ, int maxX, int maxY, int maxZ, int cachedBiomeColor, boolean shaders, boolean outerWalls)
     {
         BlockState blockState = this.form.blockState.get();
         FluidState fluidState = blockState.getFluidState();
@@ -839,6 +851,7 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
             fluidWorldPos,
             cellLocal,
             cull,
+            outerWalls,
             interact,
             minX,
             minY,
@@ -1257,26 +1270,29 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
 
     private void renderGlowOverlay(FormRenderingContext context, MatrixStack stack, CustomVertexConsumerProvider consumers, GlowSettings glowSettings, Color legacyGlow, float glowIntensity, float alpha, int overlay, boolean ui)
     {
-        Color glowColor = FormColorEffects.resolveGlowOverlayEmissionColor(glowSettings, legacyGlow, alpha, glowIntensity);
-        float shaderScale = FormColorEffects.resolveGlowOverlayShaderScale(glowIntensity);
+        int layers = FormColorEffects.resolveGlowOverlayLayers(glowIntensity);
 
         RenderSystem.enableBlend();
         RenderSystem.blendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE);
         RenderSystem.depthMask(false);
-        RenderSystem.setShaderColor(shaderScale, shaderScale, shaderScale, 1F);
-
-        consumers.setSubstitute(BBSRendering.getGlowOverlayConsumer(glowColor));
+        RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
 
         try
         {
-            this.renderRepeatedBlocks(context, stack, consumers, LightmapTextureManager.MAX_LIGHT_COORDINATE, overlay, false, ui, true, false, false);
-
-            if (this.hasFluid())
+            for (int i = 0; i < layers; i++)
             {
-                this.renderRepeatedFluids(context, stack, consumers, LightmapTextureManager.MAX_LIGHT_COORDINATE, overlay, ui, false);
-            }
+                Color glowColor = FormColorEffects.resolveGlowOverlayColor(glowSettings, legacyGlow, alpha, glowIntensity, layers);
 
-            consumers.draw();
+                consumers.setSubstitute(BBSRendering.getGlowOverlayConsumer(glowColor));
+                this.renderRepeatedBlocks(context, stack, consumers, LightmapTextureManager.MAX_LIGHT_COORDINATE, overlay, false, ui, true, false, false);
+
+                if (this.hasFluid())
+                {
+                    this.renderRepeatedFluids(context, stack, consumers, LightmapTextureManager.MAX_LIGHT_COORDINATE, overlay, ui, false);
+                }
+
+                consumers.draw();
+            }
         }
         finally
         {
@@ -1385,6 +1401,7 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
         private final BlockPos worldPos;
         private final BlockPos cellLocal;
         private final boolean cull;
+        private final boolean outerWalls;
         private final boolean interact;
         private final int minX;
         private final int minY;
@@ -1394,12 +1411,13 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
         private final int maxZ;
         private final int cachedBiomeColor;
 
-        public BlockFormFluidView(BlockState state, BlockPos worldPos, BlockPos cellLocal, boolean cull, boolean interact, int minX, int minY, int minZ, int maxX, int maxY, int maxZ, int cachedBiomeColor)
+        public BlockFormFluidView(BlockState state, BlockPos worldPos, BlockPos cellLocal, boolean cull, boolean outerWalls, boolean interact, int minX, int minY, int minZ, int maxX, int maxY, int maxZ, int cachedBiomeColor)
         {
             this.state = state;
             this.worldPos = worldPos;
             this.cellLocal = cellLocal;
             this.cull = cull;
+            this.outerWalls = outerWalls;
             this.interact = interact;
             this.minX = minX;
             this.minY = minY;
@@ -1420,9 +1438,35 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
             int ry = relative.getY();
             int rz = relative.getZ();
 
+            if (rx == 0 && ry == 0 && rz == 0)
+            {
+                return true;
+            }
+
+            /* Top-surface-only: pretend fluid covers every side and the bottom so FluidRenderer
+             * drops those faces; leave above empty so the top surface still emits. */
+            if (!this.outerWalls)
+            {
+                if (ry < 0 || (ry == 0 && (rx != 0 || rz != 0)))
+                {
+                    return true;
+                }
+
+                if (ry > 0)
+                {
+                    int ax = this.cellLocal.getX() + rx;
+                    int ay = this.cellLocal.getY() + ry;
+                    int az = this.cellLocal.getZ() + rz;
+
+                    return ax >= this.minX && ax < this.maxX
+                        && ay >= this.minY && ay < this.maxY
+                        && az >= this.minZ && az < this.maxZ;
+                }
+            }
+
             if (!this.cull)
             {
-                return rx == 0 && ry == 0 && rz == 0;
+                return false;
             }
 
             int ax = this.cellLocal.getX() + rx;

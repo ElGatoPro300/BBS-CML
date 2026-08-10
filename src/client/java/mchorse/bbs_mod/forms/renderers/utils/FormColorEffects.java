@@ -103,9 +103,13 @@ public class FormColorEffects
 
         if (intensity > 0F)
         {
-            base.r += r * intensity * EMISSION_STRENGTH;
-            base.g += g * intensity * EMISSION_STRENGTH;
-            base.b += b * intensity * EMISSION_STRENGTH;
+            /* Tint toward glow hue then add pure emission — albedo+glow washed skins white. */
+            float t = Math.min(intensity, 1F);
+            float boost = intensity * (EMISSION_STRENGTH - 1F);
+
+            base.r = base.r * (1F - t) + r * t + r * boost;
+            base.g = base.g * (1F - t) + g * t + g * boost;
+            base.b = base.b * (1F - t) + b * t + b * boost;
         }
         else
         {

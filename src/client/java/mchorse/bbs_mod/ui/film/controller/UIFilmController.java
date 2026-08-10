@@ -173,6 +173,13 @@ public class UIFilmController extends UIElement
     private IEntity hoveredEntity;
     private StencilFormFramebuffer stencil = new StencilFormFramebuffer();
     private StencilMap stencilMap = new StencilMap();
+    /** Skip rebuilding the Alt/bone pick FBO when the cursor has not moved (huge FPS saver). */
+    private int stencilCacheMouseX = Integer.MIN_VALUE;
+    private int stencilCacheMouseY = Integer.MIN_VALUE;
+    private boolean stencilCacheAlt;
+    private int stencilCacheTick = Integer.MIN_VALUE;
+    private long stencilCacheMs;
+    private boolean stencilCacheValid;
 
     public final OrbitFilmCameraController orbit = new OrbitFilmCameraController(this);
     private int pov;
@@ -1207,7 +1214,7 @@ public class UIFilmController extends UIElement
      */
     public boolean tryPickHoveredReplay(UIContext context)
     {
-        if (this.canControl() || context.mouseButton != 0 || this.hoveredEntity == null)
+        if (!Window.isAltPressed() || this.canControl() || context.mouseButton != 0 || this.hoveredEntity == null)
         {
             return false;
         }
@@ -2126,6 +2133,7 @@ public class UIFilmController extends UIElement
         if (this.panel.getData() == null)
         {
             this.stencil.clearPicking();
+            this.stencilCacheValid = false;
 
             return;
         }
@@ -2136,6 +2144,7 @@ public class UIFilmController extends UIElement
             || !pickArea.isInside(context.mouseX(), context.mouseY()) || this.controlled != null)
         {
             this.stencil.clearPicking();
+            this.stencilCacheValid = false;
 
             return;
         }
@@ -2154,7 +2163,35 @@ public class UIFilmController extends UIElement
         int cursorTick = this.getTick();
         int pickX = (int) ((context.mouseX() - pickArea.x) / (float) pickArea.w * mainTexture.width);
         int pickY = (int) ((1F - (context.mouseY() - pickArea.y) / (float) pickArea.h) * mainTexture.height);
+
+        pickX = MathUtils.clamp(pickX, 0, Math.max(0, mainTexture.width - 1));
+        pickY = MathUtils.clamp(pickY, 0, Math.max(0, mainTexture.height - 1));
         float transition = isPlaying ? renderContext.tickCounter().getTickDelta(false) : 0F;
+
+        int mouseX = context.mouseX();
+        int mouseY = context.mouseY();
+        long now = System.currentTimeMillis();
+        boolean mouseMoved = mouseX != this.stencilCacheMouseX || mouseY != this.stencilCacheMouseY;
+        boolean altChanged = altPressed != this.stencilCacheAlt;
+        boolean tickChanged = cursorTick != this.stencilCacheTick;
+
+        /* Rebuilding the stencil FBO every UI frame (all actors on Alt) nukes FPS and thrash-seeks
+         * shared WaterMedia players. Reuse / throttle while the cursor is still or moving slowly. */
+        if (this.stencilCacheValid && this.stencil.hasPicked() && !altChanged && !tickChanged)
+        {
+            if (!mouseMoved)
+            {
+                if (!isPlaying || (now - this.stencilCacheMs) < 50L)
+                {
+                    return;
+                }
+            }
+            else if ((now - this.stencilCacheMs) < 32L)
+            {
+                /* Cap Alt hover rebuilds ~30/s while dragging the mouse. */
+                return;
+            }
+        }
 
         /* stencil.apply() sets glViewport to the film/video size; save so UI scale stays correct. */
         int[] prevViewport = new int[4];
@@ -2253,6 +2290,13 @@ public class UIFilmController extends UIElement
 
             this.stencil.unbind(this.stencilMap);
             this.panel.replayEditor.updateGizmoHover();
+
+            this.stencilCacheMouseX = mouseX;
+            this.stencilCacheMouseY = mouseY;
+            this.stencilCacheAlt = altPressed;
+            this.stencilCacheTick = cursorTick;
+            this.stencilCacheMs = now;
+            this.stencilCacheValid = true;
         }
         finally
         {

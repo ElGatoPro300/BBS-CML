@@ -4079,7 +4079,9 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
             return;
         }
 
-        boolean unified = this.shouldRedirectProperties();
+        UIElement cameraHost = this.getPropertiesHostElement(this.resolveCameraPropertiesPanelId());
+        UIElement actionHost = this.getPropertiesHostElement(this.resolveActionPropertiesPanelId());
+        UIElement replayHost = this.getPropertiesHostElement(this.resolveReplayPropertiesPanelId());
 
         if (cameraHost == null)
         {

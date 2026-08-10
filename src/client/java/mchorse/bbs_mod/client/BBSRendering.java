@@ -366,6 +366,12 @@ public class BBSRendering
         RenderSystem.enableBlend();
         RenderSystem.defaultBlendFunc();
         RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
+        /* Video frame uploads can leave UNPACK_ROW_LENGTH = frameWidth; that poisons
+         * every later block-atlas upload and turns the whole world black. */
+        GL11.glPixelStorei(GL11.GL_UNPACK_ROW_LENGTH, 0);
+        GL11.glPixelStorei(GL11.GL_UNPACK_SKIP_PIXELS, 0);
+        GL11.glPixelStorei(GL11.GL_UNPACK_SKIP_ROWS, 0);
+        GL11.glPixelStorei(GL11.GL_UNPACK_ALIGNMENT, 4);
     }
 
     /** Vanilla level diffuse basis shared by morphs and editor previews. */

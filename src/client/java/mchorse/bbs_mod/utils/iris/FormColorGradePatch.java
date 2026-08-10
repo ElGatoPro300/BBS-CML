@@ -166,7 +166,16 @@ public final class FormColorGradePatch
 
     public static String processSource(String source)
     {
-        if (!shouldPatchPack() || source == null || source.isEmpty())
+        if (source == null || source.isEmpty())
+        {
+            return source;
+        }
+
+        /* Runs for Complementary/BSL includes and gbuffers: IPBR Lab/SEUS emission resamples
+         * albedo without glColor, which dropped form Color from _s / specular glow. */
+        source = patchIpbrEmissiveVertexColor(source);
+
+        if (!shouldPatchPack())
         {
             return source;
         }
@@ -199,6 +208,38 @@ public final class FormColorGradePatch
         }
 
         return patched;
+    }
+
+    /**
+     * Complementary {@code GetCustomEmissionForIPBR} reloads {@code tex} without multiplying
+     * {@code glColor}, so baked form Color never reaches LabPBR/SEUSPBR emission. Restore the
+     * vertex tint after that resample (Paint Color stays an overlay and is intentionally skipped).
+     */
+    private static String patchIpbrEmissiveVertexColor(String source)
+    {
+        if (!shouldPatchPack() || source.contains("BBS_IPBR_EMISSIVE_GLCOLOR"))
+        {
+            return source;
+        }
+
+        int functionAt = source.indexOf("GetCustomEmissionForIPBR");
+
+        if (functionAt < 0)
+        {
+            return source;
+        }
+
+        String reload = "color = texture2D(tex, texCoord);";
+        int reloadAt = source.indexOf(reload, functionAt);
+
+        if (reloadAt < 0)
+        {
+            return source;
+        }
+
+        return source.substring(0, reloadAt)
+            + "color = texture2D(tex, texCoord); color *= glColor; /* BBS_IPBR_EMISSIVE_GLCOLOR */"
+            + source.substring(reloadAt + reload.length());
     }
 
     private static boolean isEntityOrBlockGbufferFragment(String source)

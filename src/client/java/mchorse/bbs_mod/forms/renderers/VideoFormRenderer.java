@@ -16,10 +16,14 @@ import mchorse.bbs_mod.graphics.texture.Texture;
 import mchorse.bbs_mod.ui.dashboard.UIDashboard;
 import mchorse.bbs_mod.ui.film.UIFilmPanel;
 import mchorse.bbs_mod.ui.framework.UIContext;
+import mchorse.bbs_mod.utils.FFMpegUtils;
 import mchorse.bbs_mod.utils.MatrixStackUtils;
 import mchorse.bbs_mod.utils.Quad;
 import mchorse.bbs_mod.utils.colors.Color;
 import mchorse.bbs_mod.utils.colors.Colors;
+import mchorse.bbs_mod.utils.keyframes.Keyframe;
+import mchorse.bbs_mod.utils.keyframes.KeyframeChannel;
+import mchorse.bbs_mod.utils.keyframes.factories.KeyframeFactories;
 
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gl.ShaderProgram;
@@ -39,6 +43,7 @@ import org.lwjgl.opengl.GL13;
 
 import com.mojang.blaze3d.systems.RenderSystem;
 
+import java.io.File;
 import java.util.function.Supplier;
 
 /**
@@ -49,7 +54,8 @@ public class VideoFormRenderer extends FormRenderer<VideoForm> implements ITicka
 {
     private static final Quad QUAD = new Quad();
     private static final float FACE_Z_BIAS = 0.0005F;
-    private static final int PLACEHOLDER_COLOR = 0xFF33CCFF;
+    /** Dark waiting tint — never cyan/blue “error screen”. */
+    private static final int PLACEHOLDER_COLOR = 0xFF141414;
     /** Wall-clock freeze while Minecraft pause menu is open. */
     private static long pauseFreezeMs = -1L;
     /** Wall/time anchor so play continues from the scrubbed Time value. */
@@ -57,6 +63,9 @@ public class VideoFormRenderer extends FormRenderer<VideoForm> implements ITicka
     private long playAnchorWallMs = -1L;
     private int lastScrubTime = Integer.MIN_VALUE;
     private float lastSpeed = Float.NaN;
+    /** Last decoded frame size — used for stencil pick quads (never decode during pick). */
+    private float lastFrameW = 16F;
+    private float lastFrameH = 9F;
 
     public VideoFormRenderer(VideoForm form)
     {
@@ -100,8 +109,84 @@ public class VideoFormRenderer extends FormRenderer<VideoForm> implements ITicka
             return;
         }
 
+        /* Stencil / Alt-pick must NEVER touch WaterMedia or ffmpeg. Decoding while the
+         * pick FBO is bound seeks the shared player every mouse move → FPS collapse and
+         * the film preview looking like it scrubs forward/back. */
+        if (context.isPicking())
+        {
+            this.renderPickProxy(context);
+
+            return;
+        }
+
         this.renderModel(context.stack, context.color, context.getTransition(), context.camera,
-            false, context.modelRenderer || context.isPicking(), context);
+            false, context.modelRenderer, context);
+    }
+
+    /**
+     * Cheap solid quad for entity picking — same aspect as the last decoded frame.
+     */
+    private void renderPickProxy(FormRenderingContext context)
+    {
+        float w = Math.max(1F, this.lastFrameW);
+        float h = Math.max(1F, this.lastFrameH);
+        float ratioX = w > h ? h / w : 1F;
+        float ratioY = h > w ? w / h : 1F;
+        float halfW = 0.5F * ratioY;
+        float fullH = ratioX;
+
+        QUAD.p1.set(-halfW, fullH, 0F);
+        QUAD.p2.set(halfW, fullH, 0F);
+        QUAD.p3.set(-halfW, 0F, 0F);
+        QUAD.p4.set(halfW, 0F, 0F);
+
+        if (this.form.billboard.get())
+        {
+            Matrix4f modelMatrix = context.stack.peek().getPositionMatrix();
+            Vector3f scale = new Vector3f();
+
+            modelMatrix.getScale(scale);
+            modelMatrix.m00(1).m01(0).m02(0);
+            modelMatrix.m10(0).m11(1).m12(0);
+            modelMatrix.m20(0).m21(0).m22(1);
+
+            if (context.camera != null)
+            {
+                modelMatrix.mul(context.camera.view);
+            }
+
+            modelMatrix.scale(scale);
+            context.stack.peek().getNormalMatrix().identity();
+        }
+
+        Color tint = new Color().set(context.color, true);
+        Color formColor = this.form.getFormColor().copyWithBlendIntensity();
+
+        tint.mul(formColor);
+
+        float formOpacity = this.form.getFormOpacity();
+
+        if (formOpacity <= 0.001F)
+        {
+            tint.a = Math.max(tint.a, 1F);
+        }
+        else
+        {
+            this.form.applyFormOpacity(tint);
+        }
+
+        if (tint.a <= 0.001F)
+        {
+            tint.a = 1F;
+        }
+
+        Supplier<ShaderProgram> pickShader = this.getShader(context,
+            GameRenderer::getPositionColorProgram, BBSShaders::getPickerBillboardNoShadingProgram);
+        Matrix4f positionMatrix = new Matrix4f(context.stack.peek().getPositionMatrix());
+        Quad localQuad = new Quad();
+
+        localQuad.copy(QUAD);
+        this.drawSolidFront(positionMatrix, tint, localQuad, pickShader);
     }
 
     private static long playbackClockMs()
@@ -131,11 +216,11 @@ public class VideoFormRenderer extends FormRenderer<VideoForm> implements ITicka
     /**
      * Video frame tick.
      * <p>
-     * In the film editor, time follows the film cursor (plus Time scrub) so the
-     * video cannot independently loop back to its intro while the film plays.
+     * In the film editor, time follows the film cursor (plus Time scrub), skipping spans where
+     * {@code paused} keyframes are true so unpause resumes in sync with the timeline.
      * Outside the film editor, wall-clock advances from the scrub anchor.
      */
-    private long getTickPosition(boolean playing, boolean filmDriven, int filmCursor)
+    private long getTickPosition(boolean playing, boolean filmDriven, int filmCursor, UIFilmPanel filmPanel)
     {
         int scrub = Math.max(0, this.form.time.get()) + this.form.offset.get();
         float speed = Math.max(0.01F, this.form.speed.get());
@@ -147,7 +232,9 @@ public class VideoFormRenderer extends FormRenderer<VideoForm> implements ITicka
             this.lastScrubTime = scrub;
             this.lastSpeed = speed;
 
-            return scrub + (long) (Math.max(0, filmCursor) * speed);
+            long activeFilmTicks = countUnpausedFilmTicks(filmPanel, filmCursor);
+
+            return scrub + (long) (activeFilmTicks * speed);
         }
 
         if (!playing)
@@ -182,6 +269,93 @@ public class VideoFormRenderer extends FormRenderer<VideoForm> implements ITicka
         }
 
         return this.playAnchorTime + (long) ((now - this.playAnchorWallMs) / 50.0D * speed);
+    }
+
+    /**
+     * Film ticks from 0..cursor where VideoForm {@code paused} was false.
+     * Pause keyframes freeze the video clock; after unpause, only post-unpause film time counts.
+     */
+    private static long countUnpausedFilmTicks(UIFilmPanel filmPanel, int filmCursor)
+    {
+        if (filmCursor <= 0)
+        {
+            return 0L;
+        }
+
+        KeyframeChannel<Boolean> pausedChannel = findPausedChannel(filmPanel);
+
+        if (pausedChannel == null || pausedChannel.isEmpty())
+        {
+            return filmCursor;
+        }
+
+        double active = 0D;
+        float prevTick = 0F;
+        boolean paused = Boolean.TRUE.equals(pausedChannel.interpolate(0F, Boolean.FALSE));
+
+        for (Keyframe<Boolean> keyframe : pausedChannel.getKeyframes())
+        {
+            float tick = keyframe.getTick();
+
+            if (tick <= 0F)
+            {
+                paused = Boolean.TRUE.equals(keyframe.getValue());
+                prevTick = Math.max(prevTick, tick);
+                continue;
+            }
+
+            if (tick > filmCursor)
+            {
+                break;
+            }
+
+            if (!paused)
+            {
+                active += tick - prevTick;
+            }
+
+            paused = Boolean.TRUE.equals(keyframe.getValue());
+            prevTick = tick;
+        }
+
+        if (!paused && filmCursor > prevTick)
+        {
+            active += filmCursor - prevTick;
+        }
+
+        return Math.max(0L, Math.round(active));
+    }
+
+    @SuppressWarnings("unchecked")
+    private static KeyframeChannel<Boolean> findPausedChannel(UIFilmPanel filmPanel)
+    {
+        if (filmPanel == null || filmPanel.replayEditor == null)
+        {
+            return null;
+        }
+
+        try
+        {
+            mchorse.bbs_mod.film.replays.Replay replay = filmPanel.replayEditor.getReplay();
+
+            if (replay == null || replay.properties == null)
+            {
+                return null;
+            }
+
+            KeyframeChannel<?> channel = replay.properties.properties.get("paused");
+
+            if (channel == null || channel.getFactory() != KeyframeFactories.BOOLEAN)
+            {
+                return null;
+            }
+
+            return (KeyframeChannel<Boolean>) channel;
+        }
+        catch (Exception ignored)
+        {
+            return null;
+        }
     }
 
     private static UIFilmPanel getActiveFilmPanel()
@@ -221,6 +395,9 @@ public class VideoFormRenderer extends FormRenderer<VideoForm> implements ITicka
 
         boolean staticPreview = this.isStaticPreview(modelRenderer, deferContext);
         boolean allowFfmpegFallback = this.allowsFfmpegFallback(deferContext);
+        boolean waterMedia = VideoRenderer.isAvailable();
+        String ffmpegPath = FFMpegUtils.getFFMPEG();
+        boolean ffmpegOk = ffmpegPath != null && !ffmpegPath.isEmpty() && new File(ffmpegPath).isFile();
 
         int textureId = 0;
         float w = 16F;
@@ -230,15 +407,9 @@ public class VideoFormRenderer extends FormRenderer<VideoForm> implements ITicka
         {
             /* Editor / inventory / item: still frame at scrubbed Time. */
             long stillTick = Math.max(0, this.form.time.get()) + this.form.offset.get();
-            VideoFormEngine.Frame still = VideoFormEngine.bindStill(path, stillTick, this.form.resolution.get());
 
-            if (still != null && still.textureId > 0)
-            {
-                textureId = still.textureId;
-                w = Math.max(1, still.width);
-                h = Math.max(1, still.height);
-            }
-            else if (VideoRenderer.isAvailable())
+            /* Prefer WaterMedia still when available — first frame without waiting on ffmpeg probe. */
+            if (waterMedia)
             {
                 VideoRenderer.FrameInfo waterStill = VideoRenderer.ensureFormStillFrame(path, stillTick, this.form.loop.get());
 
@@ -249,6 +420,18 @@ public class VideoFormRenderer extends FormRenderer<VideoForm> implements ITicka
                     h = Math.max(1, waterStill.height);
                 }
             }
+
+            if (textureId <= 0 && ffmpegOk)
+            {
+                VideoFormEngine.Frame still = VideoFormEngine.bindStill(path, stillTick, this.form.resolution.get());
+
+                if (still != null && still.textureId > 0)
+                {
+                    textureId = still.textureId;
+                    w = Math.max(1, still.width);
+                    h = Math.max(1, still.height);
+                }
+            }
         }
         else
         {
@@ -257,36 +440,22 @@ public class VideoFormRenderer extends FormRenderer<VideoForm> implements ITicka
             boolean filmDriven = isFilmDrivenContext(deferContext);
             UIFilmPanel filmPanel = filmDriven ? getActiveFilmPanel() : null;
             int filmCursor = filmPanel == null ? 0 : filmPanel.getCursor();
-            boolean playing = !gamePaused && !formPaused;
+            boolean filmPlaying = filmPanel != null
+                && filmPanel.isRunning()
+                && !filmPanel.getController().isPaused();
+            /* Film stop/pause OR form Pause track → freeze. Never free-run against the timeline. */
+            boolean playing = !gamePaused && !formPaused && (!filmDriven || filmPlaying);
 
-            if (filmDriven && filmPanel != null)
-            {
-                /* Stop / freeze film → freeze video (do not keep wall-clock playing). */
-                if (!filmPanel.isRunning() || filmPanel.getController().isPaused())
-                {
-                    playing = false;
-                }
-            }
-
-            long tickPosition = this.getTickPosition(playing, filmDriven, filmCursor);
+            long tickPosition = this.getTickPosition(playing, filmDriven, filmCursor, filmPanel);
             /* Film-driven: do not independently loop — that flashes the intro mid-timeline. */
             boolean loop = filmDriven ? false : this.form.loop.get();
+            float distSq = this.getDistanceSqToCamera(deferContext);
 
-            /* Speed already baked into tickPosition — pass 1F so decoder does not double it. */
-            VideoFormEngine.Frame engineFrame = VideoFormEngine.bindFrame(
-                path, tickPosition, 1F, loop, this.form.resolution.get(), playing);
-
-            if (engineFrame != null && engineFrame.textureId > 0)
+            /* WaterMedia first: VLC owns the GL texture (no UNPACK leaks). FFmpeg only if needed. */
+            if (waterMedia)
             {
-                textureId = engineFrame.textureId;
-                w = Math.max(1, engineFrame.width);
-                h = Math.max(1, engineFrame.height);
-            }
-
-            if (textureId <= 0 && VideoRenderer.isAvailable())
-            {
-                float distSq = this.getDistanceSqToCamera(deferContext);
-                VideoRenderer.FrameInfo waterFrame = VideoRenderer.prepareFormFrame(path, tickPosition, loop, distSq);
+                VideoRenderer.FrameInfo waterFrame = VideoRenderer.prepareFormFrame(
+                    path, tickPosition, loop, distSq, 0, playing, filmDriven);
 
                 if (waterFrame != null && waterFrame.textureId > 0)
                 {
@@ -296,7 +465,20 @@ public class VideoFormRenderer extends FormRenderer<VideoForm> implements ITicka
                 }
             }
 
-            if (textureId <= 0 && allowFfmpegFallback && playing)
+            if (textureId <= 0 && ffmpegOk)
+            {
+                VideoFormEngine.Frame engineFrame = VideoFormEngine.bindFrame(
+                    path, tickPosition, 1F, loop, this.form.resolution.get(), playing);
+
+                if (engineFrame != null && engineFrame.textureId > 0)
+                {
+                    textureId = engineFrame.textureId;
+                    w = Math.max(1, engineFrame.width);
+                    h = Math.max(1, engineFrame.height);
+                }
+            }
+
+            if (textureId <= 0 && allowFfmpegFallback && ffmpegOk)
             {
                 int maxLongSide = VideoResolution.effectiveDecodeLongSide(this.form.resolution.get());
                 VideoFormPlayback playback = VideoFormPlayback.get(path, maxLongSide);
@@ -312,38 +494,22 @@ public class VideoFormRenderer extends FormRenderer<VideoForm> implements ITicka
                 {
                     textureId = ffmpegTexture.id;
                 }
-            }
-            else if (textureId <= 0 && allowFfmpegFallback && !playing)
-            {
-                int maxLongSide = VideoResolution.effectiveDecodeLongSide(this.form.resolution.get());
-                VideoFormPlayback playback = VideoFormPlayback.get(path, maxLongSide);
-
-                if (playback != null)
+                else if (!playing && playback != null)
                 {
-                    /* Seek to the frozen film tick — do not leave an old wall-clock frame. */
-                    Texture frozen = playback.ensureFrame(tickPosition, 1F, loop);
+                    Texture last = playback.peekTexture();
 
-                    if (playback.getWidth() > 0 && playback.getHeight() > 0)
+                    if (last != null && last.isValid())
                     {
-                        w = playback.getWidth();
-                        h = playback.getHeight();
-                    }
-
-                    if (frozen != null && frozen.isValid())
-                    {
-                        textureId = frozen.id;
-                    }
-                    else
-                    {
-                        Texture last = playback.peekTexture();
-
-                        if (last != null && last.isValid())
-                        {
-                            textureId = last.id;
-                        }
+                        textureId = last.id;
                     }
                 }
             }
+        }
+
+        if (textureId > 0 && w >= 2F && h >= 2F)
+        {
+            this.lastFrameW = w;
+            this.lastFrameH = h;
         }
 
         float ratioX = w > h ? h / w : 1F;
@@ -385,7 +551,18 @@ public class VideoFormRenderer extends FormRenderer<VideoForm> implements ITicka
         Color formColor = this.form.getFormColor().copyWithBlendIntensity();
 
         tint.mul(formColor);
-        this.form.applyFormOpacity(tint);
+
+        /* Legacy VideoForm used color.a=0 as “no tint”, not invisible. Keep film visible. */
+        float formOpacity = this.form.getFormOpacity();
+
+        if (formOpacity <= 0.001F)
+        {
+            tint.a = Math.max(tint.a, 1F);
+        }
+        else
+        {
+            this.form.applyFormOpacity(tint);
+        }
 
         if (tint.a <= 0.001F)
         {
@@ -421,8 +598,9 @@ public class VideoFormRenderer extends FormRenderer<VideoForm> implements ITicka
             {
                 this.drawSolidFront(positionMatrix, tintSnapshot, localQuad, pickShader);
             }
-            else
+            else if (staticPreview)
             {
+                /* UI / inventory only — never paint a bright blue error plane in the world. */
                 Color placeholder = Color.rgba(PLACEHOLDER_COLOR);
 
                 placeholder.a = tintSnapshot.a;
@@ -433,11 +611,22 @@ public class VideoFormRenderer extends FormRenderer<VideoForm> implements ITicka
         if (irisPass)
         {
             /* depthWrite+depthTest: without depth test a dark video quad blacks out the world. */
-            ModelVAORenderer.submitDeferredTranslucentModel(draw, true, true);
+            ModelVAORenderer.submitDeferredTranslucentModel(() ->
+            {
+                draw.run();
+                BBSRendering.restoreWorldRenderState();
+            }, true, true);
             return;
         }
 
-        draw.run();
+        try
+        {
+            draw.run();
+        }
+        finally
+        {
+            BBSRendering.restoreWorldRenderState();
+        }
     }
 
     private float getDistanceSqToCamera(FormRenderingContext context)
@@ -460,34 +649,44 @@ public class VideoFormRenderer extends FormRenderer<VideoForm> implements ITicka
 
     private boolean isStaticPreview(boolean modelRenderer, FormRenderingContext context)
     {
-        if (modelRenderer || context == null)
+        if (context == null)
         {
             return true;
         }
 
         FormRenderType type = context.type;
 
-        return type == FormRenderType.ITEM_INVENTORY
-            || type == FormRenderType.PREVIEW
-            || type == FormRenderType.ITEM;
+        /* Form editor viewport (PREVIEW): play the video so authors see frames, not a blank still. */
+        if (type == FormRenderType.PREVIEW)
+        {
+            return false;
+        }
+
+        if (modelRenderer)
+        {
+            return true;
+        }
+
+        return type == FormRenderType.ITEM_INVENTORY || type == FormRenderType.ITEM;
     }
 
     private boolean allowsFfmpegFallback(FormRenderingContext context)
     {
         if (context == null)
         {
-            return false;
+            return true;
         }
 
         FormRenderType type = context.type;
 
-        return type == FormRenderType.ENTITY || type == FormRenderType.MODEL_BLOCK;
+        return type == FormRenderType.ENTITY
+            || type == FormRenderType.MODEL_BLOCK
+            || type == FormRenderType.PREVIEW;
     }
 
     /** Front face only — nothing on the back. Restores GL state so terrain stays valid. */
     private void drawVideoFront(Matrix4f matrix, Color tint, Quad quad, int textureId, boolean linear)
     {
-        int previousTexture = GL11.glGetInteger(GL11.GL_TEXTURE_BINDING_2D);
         boolean previousCull = GL11.glIsEnabled(GL11.GL_CULL_FACE);
         boolean previousDepthMask = GL11.glGetBoolean(GL11.GL_DEPTH_WRITEMASK);
 
@@ -495,13 +694,10 @@ public class VideoFormRenderer extends FormRenderer<VideoForm> implements ITicka
         {
             RenderSystem.setShader(GameRenderer::getPositionTexProgram);
             RenderSystem.setShaderColor(tint.r, tint.g, tint.b, tint.a);
+            /* Only RenderSystem — never glTexParameteri on WaterMedia/VLC textures.
+             * Mutating wrap/filter on a non-2D / foreign texture throws GL_INVALID_ENUM
+             * and can poison the block atlas → black world. */
             RenderSystem.setShaderTexture(0, textureId);
-
-            GL11.glBindTexture(GL11.GL_TEXTURE_2D, textureId);
-            GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MIN_FILTER, linear ? GL11.GL_LINEAR : GL11.GL_NEAREST);
-            GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MAG_FILTER, linear ? GL11.GL_LINEAR : GL11.GL_NEAREST);
-            GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_WRAP_S, GL13.GL_CLAMP_TO_EDGE);
-            GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_WRAP_T, GL13.GL_CLAMP_TO_EDGE);
 
             RenderSystem.enableBlend();
             RenderSystem.defaultBlendFunc();
@@ -524,16 +720,19 @@ public class VideoFormRenderer extends FormRenderer<VideoForm> implements ITicka
         finally
         {
             RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
-            RenderSystem.depthMask(previousDepthMask);
-            GL11.glBindTexture(GL11.GL_TEXTURE_2D, previousTexture);
+            RenderSystem.depthMask(true);
+            RenderSystem.enableCull();
+            RenderSystem.defaultBlendFunc();
+            BBSRendering.restoreWorldRenderState();
 
-            if (previousCull)
-            {
-                RenderSystem.enableCull();
-            }
-            else
+            if (!previousCull)
             {
                 RenderSystem.disableCull();
+            }
+
+            if (!previousDepthMask)
+            {
+                RenderSystem.depthMask(false);
             }
         }
     }

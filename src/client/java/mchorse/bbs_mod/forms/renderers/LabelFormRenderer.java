@@ -120,25 +120,24 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
 
         if (glowIntensity > 0F)
         {
-            Color glowColor = FormColorEffects.resolveGlowOverlayEmissionColor(glowSettings, legacyGlow, 1F, glowIntensity);
-            float shaderScale = FormColorEffects.resolveGlowOverlayShaderScale(glowIntensity);
-
-            glowColor.r *= color.r;
-            glowColor.g *= color.g;
-            glowColor.b *= color.b;
-
-            int glowArgb = toSafeTextArgb(glowColor);
-            int glowY = (y2 + y1) / 2 - h / 2;
+            int layers = FormColorEffects.resolveGlowOverlayLayers(glowIntensity);
 
             RenderSystem.enableBlend();
             RenderSystem.blendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE);
-            RenderSystem.setShaderColor(shaderScale, shaderScale, shaderScale, 1F);
+            RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
 
-            for (String s : wrap)
+            for (int i = 0; i < layers; i++)
             {
-                context.batcher.text(s, x1 + 2, glowY, glowArgb);
+                Color glowColor = FormColorEffects.resolveGlowOverlayColor(glowSettings, legacyGlow, 1F, glowIntensity, layers);
+                int glowArgb = toSafeTextArgb(glowColor);
+                int glowY = (y2 + y1) / 2 - h / 2;
 
-                glowY += lineHeight;
+                for (String s : wrap)
+                {
+                    context.batcher.text(s, x1 + 2, glowY, glowArgb);
+
+                    glowY += lineHeight;
+                }
             }
 
             RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
@@ -337,8 +336,7 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
             RenderSystem.blendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE);
         });
 
-        Color glowColor = FormColorEffects.resolveGlowOverlayEmissionColor(glowSettings, legacyGlow, alpha, glowIntensity);
-        float shaderScale = FormColorEffects.resolveGlowOverlayShaderScale(glowIntensity);
+        int layers = FormColorEffects.resolveGlowOverlayLayers(glowIntensity);
         int maxLight = LightmapTextureManager.MAX_LIGHT_COORDINATE;
         boolean savedDepthMask = GL11.glGetBoolean(GL11.GL_DEPTH_WRITEMASK);
         boolean savedPolygonOffsetFill = GL11.glGetBoolean(GL11.GL_POLYGON_OFFSET_FILL);
@@ -348,33 +346,38 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
         RenderSystem.depthMask(false);
         GL11.glEnable(GL11.GL_POLYGON_OFFSET_FILL);
         GL11.glPolygonOffset(-1F, -1F);
-        RenderSystem.setShaderColor(shaderScale, shaderScale, shaderScale, 1F);
+        RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
 
         try
         {
-            consumers.setSubstitute(BBSRendering.getTextGlowOverlayConsumer(glowColor));
-
-            if (customFont != null)
+            for (int i = 0; i < layers; i++)
             {
-                customFont.draw(content, x, y, textColor, textColor, letterSpacing, 0F, context.stack.peek().getPositionMatrix(), consumers, maxLight);
-            }
-            else
-            {
-                renderer.draw(
-                    content,
-                    x,
-                    y,
-                    textColor,
-                    false,
-                    context.stack.peek().getPositionMatrix(),
-                    consumers,
-                    TextRenderer.TextLayerType.NORMAL,
-                    0,
-                    maxLight
-                );
-            }
+                Color glowColor = FormColorEffects.resolveGlowOverlayColor(glowSettings, legacyGlow, alpha, glowIntensity, layers);
 
-            this.flushLabelConsumers(consumers);
+                consumers.setSubstitute(BBSRendering.getTextGlowOverlayConsumer(glowColor));
+
+                if (customFont != null)
+                {
+                    customFont.draw(content, x, y, textColor, textColor, letterSpacing, 0F, context.stack.peek().getPositionMatrix(), consumers, maxLight);
+                }
+                else
+                {
+                    renderer.draw(
+                        content,
+                        x,
+                        y,
+                        textColor,
+                        false,
+                        context.stack.peek().getPositionMatrix(),
+                        consumers,
+                        TextRenderer.TextLayerType.NORMAL,
+                        0,
+                        maxLight
+                    );
+                }
+
+                this.flushLabelConsumers(consumers);
+            }
         }
         finally
         {
@@ -430,7 +433,24 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
         Color formTintColor = null;
         EffectTransform colorTransform = null;
 
-        color.mul(this.form.getFormColor());
+        /* Spatial Color transform: bake mask per glyph (AABB overlay would tint the background). */
+        if (colorTransformWanted)
+        {
+            color.r = 1F;
+            color.g = 1F;
+            color.b = 1F;
+            this.form.applyFormOpacity(color);
+            /* Keep base + FlatColorTint opacity in sync (context alpha used to hit only the tint). */
+            color.a *= contextColor.a;
+            formTintColor = storedFormColor.copyDeferringColorGrade().copy();
+            this.form.applyFormOpacity(formTintColor);
+            formTintColor.mul(contextColor);
+            colorTransform = storedFormColor.transform == null ? null : storedFormColor.transform.copy();
+        }
+        else
+        {
+            color.mul(storedFormColor);
+        }
 
         FormColorEffects.applyPaintBlend(color, paintSettings, legacyPaint);
 
@@ -583,7 +603,23 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
         Color formTintColor = null;
         EffectTransform colorTransform = null;
 
-        color.mul(this.form.getFormColor());
+        /* Spatial Color transform: bake mask per glyph (AABB overlay would tint the background). */
+        if (colorTransformWanted)
+        {
+            color.r = 1F;
+            color.g = 1F;
+            color.b = 1F;
+            this.form.applyFormOpacity(color);
+            color.a *= contextColor.a;
+            formTintColor = storedFormColor.copyDeferringColorGrade().copy();
+            this.form.applyFormOpacity(formTintColor);
+            formTintColor.mul(contextColor);
+            colorTransform = storedFormColor.transform == null ? null : storedFormColor.transform.copy();
+        }
+        else
+        {
+            color.mul(storedFormColor);
+        }
 
         if (glowIntensity < 0F)
         {

@@ -69,6 +69,9 @@ public class WorldRendererMixin
     @Inject(method = "renderLayer", at = @At("HEAD"), cancellable = true)
     public void onRenderLayer(RenderLayer renderLayer, double cameraX, double cameraY, double cameraZ, Matrix4f positionMatrix, Matrix4f projectionMatrix, CallbackInfo info)
     {
+        /* Video form uploads must never leave UNPACK_* dirty before terrain draws. */
+        BBSRendering.restoreWorldRenderState();
+
         if (BBSRendering.shouldHideChromaTerrain())
         {
             BBSRendering.onRenderChunkLayer(positionMatrix, projectionMatrix);

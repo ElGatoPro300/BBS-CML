@@ -495,20 +495,23 @@ public class ItemFormRenderer extends FormRenderer<ItemForm>
 
     private void renderGlowOverlay(FormRenderingContext context, MatrixStack stack, CustomVertexConsumerProvider consumers, GlowSettings glowSettings, Color legacyGlow, float glowIntensity, float alpha, int overlay, boolean ui, ModelTransformationMode mode, LivingEntity itemEntity, boolean leftHand)
     {
-        Color glowColor = FormColorEffects.resolveGlowOverlayEmissionColor(glowSettings, legacyGlow, alpha, glowIntensity);
-        float shaderScale = FormColorEffects.resolveGlowOverlayShaderScale(glowIntensity);
+        int layers = FormColorEffects.resolveGlowOverlayLayers(glowIntensity);
 
         RenderSystem.enableBlend();
         RenderSystem.blendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE);
         RenderSystem.depthMask(false);
-        RenderSystem.setShaderColor(shaderScale, shaderScale, shaderScale, 1F);
-
-        consumers.setSubstitute(BBSRendering.getGlowOverlayConsumer(glowColor));
+        RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
 
         try
         {
-            this.renderItem(context, stack, consumers, LightmapTextureManager.MAX_LIGHT_COORDINATE, overlay, mode, leftHand, itemEntity);
-            consumers.draw();
+            for (int i = 0; i < layers; i++)
+            {
+                Color glowColor = FormColorEffects.resolveGlowOverlayColor(glowSettings, legacyGlow, alpha, glowIntensity, layers);
+
+                consumers.setSubstitute(BBSRendering.getGlowOverlayConsumer(glowColor));
+                this.renderItem(context, stack, consumers, LightmapTextureManager.MAX_LIGHT_COORDINATE, overlay, mode, leftHand, itemEntity);
+                consumers.draw();
+            }
         }
         finally
         {

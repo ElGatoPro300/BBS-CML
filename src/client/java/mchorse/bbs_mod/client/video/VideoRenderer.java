@@ -308,7 +308,12 @@ public class VideoRenderer
      */
     public static FrameInfo prepareFrame(String path, long tickPosition, boolean playing, boolean loops, int volume)
     {
-        return prepareFrame(path, tickPosition, playing, loops, volume, false);
+        return prepareFrame(path, tickPosition, playing, loops, volume, false, false);
+    }
+
+    private static FrameInfo prepareFrame(String path, long tickPosition, boolean playing, boolean loops, int volume, boolean formMode)
+    {
+        return prepareFrame(path, tickPosition, playing, loops, volume, formMode, false);
     }
 
     /**
@@ -316,15 +321,24 @@ public class VideoRenderer
      */
     public static FrameInfo prepareFormFrame(String path, long tickPosition, boolean loops)
     {
-        return prepareFormFrame(path, tickPosition, loops, 0F, 0);
+        return prepareFormFrame(path, tickPosition, loops, 0F, 0, true, false);
     }
 
     public static FrameInfo prepareFormFrame(String path, long tickPosition, boolean loops, float distanceSq)
     {
-        return prepareFormFrame(path, tickPosition, loops, distanceSq, 0);
+        return prepareFormFrame(path, tickPosition, loops, distanceSq, 0, true, false);
     }
 
     public static FrameInfo prepareFormFrame(String path, long tickPosition, boolean loops, float distanceSq, int maxLongSide)
+    {
+        return prepareFormFrame(path, tickPosition, loops, distanceSq, maxLongSide, true, false);
+    }
+
+    /**
+     * @param playing when false, VLC is paused and seeks to {@code tickPosition}
+     * @param filmSync when true, keep VLC locked to film ticks (no free-run)
+     */
+    public static FrameInfo prepareFormFrame(String path, long tickPosition, boolean loops, float distanceSq, int maxLongSide, boolean playing, boolean filmSync)
     {
         String resolved = resolveVideoPath(path);
 
@@ -367,20 +381,20 @@ public class VideoRenderer
 
             FrameInfo peeked = peekFormFrame(path);
 
-            if (peeked != null)
+            if (peeked != null && !filmSync)
             {
                 return peeked;
             }
 
-            /* Cold still: start paused once so we have a texture, then keep paused. */
-            return prepareFrame(path, tickPosition, false, loops, 0, true);
+            /* Cold still / film scrub: seek paused to the requested tick. */
+            return prepareFrame(path, tickPosition, false, loops, 0, true, filmSync);
         }
 
         formLivePaths.add(resolved);
 
         /* Skip GPU blit on the live path — per-frame 4K→720 blit often costs more than it saves.
          * Resolution presets still scale ffmpeg decode; WaterMedia keeps native upload. */
-        return prepareFrame(path, tickPosition, true, loops, 0, true);
+        return prepareFrame(path, tickPosition, playing, loops, 0, true, filmSync);
     }
 
     /**
@@ -482,7 +496,7 @@ public class VideoRenderer
         return prepareFrame(path, tickPosition, false, loops, 0, true);
     }
 
-    private static FrameInfo prepareFrame(String path, long tickPosition, boolean playing, boolean loops, int volume, boolean formMode)
+    private static FrameInfo prepareFrame(String path, long tickPosition, boolean playing, boolean loops, int volume, boolean formMode, boolean filmSync)
     {
         String resolved = resolveVideoPath(path);
 
@@ -588,7 +602,7 @@ public class VideoRenderer
             wrapper.lastVideoTime = videoTime;
         }
 
-        if (loops && duration > 0)
+        if (loops && duration > 0 && !filmSync)
         {
             bbsTime = bbsTime % duration;
 
@@ -597,21 +611,36 @@ public class VideoRenderer
                 bbsTime += duration;
             }
         }
+        else if (filmSync && duration > 0 && bbsTime > duration)
+        {
+            /* Film past video end — clamp, do not wrap (avoids intro flash). */
+            bbsTime = duration;
+        }
 
         boolean shouldSeek = false;
-        long seekThreshold = formMode ? 2500L : 1000L;
-        long seekCooldown = formMode ? 5000L : 3000L;
+        long seekThreshold = filmSync ? 80L : (formMode ? 2500L : 1000L);
+        long seekCooldown = filmSync ? 40L : (formMode ? 5000L : 3000L);
 
-        if (formMode && playing)
+        if (!playing)
+        {
+            /* Still frame: seek only when the target tick changes.
+             * Chasing VLC clock drift while paused caused scrub-jitter + FPS death
+             * (especially together with Alt stencil re-draws). */
+            if (wrapper.lastBbsTime != bbsTime)
+            {
+                shouldSeek = true;
+            }
+        }
+        else if (formMode && !filmSync)
         {
             /* Free-run in world forms — seeking from multiple forms fights and tanks FPS. */
             shouldSeek = false;
         }
-        else if (playing)
+        else
         {
             long diff = Math.abs(videoTime - bbsTime);
 
-            if (loops && duration > 0)
+            if (loops && duration > 0 && !filmSync)
             {
                 long loopDiff = Math.abs(diff - duration);
                 diff = Math.min(diff, loopDiff);
@@ -622,23 +651,18 @@ public class VideoRenderer
                 shouldSeek = true;
             }
         }
-        else
-        {
-            if (wrapper.lastBbsTime != bbsTime)
-            {
-                shouldSeek = true;
-            }
-            else if (Math.abs(videoTime - bbsTime) > seekThreshold && (systemTime - wrapper.lastSeekTime) > seekCooldown)
-            {
-                shouldSeek = true;
-            }
-        }
 
         if (shouldSeek)
         {
             player.seekTo(bbsTime);
             wrapper.lastSeekTime = systemTime;
             wrapper.lastBbsTime = bbsTime;
+
+            if (!playing)
+            {
+                player.pause();
+                wrapper.wasPlaying = false;
+            }
         }
         else if (!playing)
         {

@@ -21,7 +21,7 @@ public class VideoForm extends Form
     /* Absolute video timeline position in ticks — keyframe to scrub forward/back. */
     public final ValueInt time = new ValueInt("time", 0, 0, Integer.MAX_VALUE);
     public final ValueInt offset = new ValueInt("offset", 0, Integer.MIN_VALUE, Integer.MAX_VALUE);
-    public final ValueColor color = new ValueColor("color", new Color(1F, 1F, 1F, 0F));
+    public final ValueColor color = new ValueColor("color", new Color(1F, 1F, 1F, 1F));
     public final ValueFloat offsetX = new ValueFloat("offsetX", 0F);
     public final ValueFloat offsetY = new ValueFloat("offsetY", 0F);
     public final ValueFloat rotation = new ValueFloat("rotation", 0F);

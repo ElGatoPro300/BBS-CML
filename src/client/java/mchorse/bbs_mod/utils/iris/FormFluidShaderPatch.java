@@ -413,7 +413,42 @@ public final class FormFluidShaderPatch
         }
     }
 
+    /**
+     * Tag Iris vertices with the real pack block id so Complementary shadow/gbuffer materials
+     * match terrain (solids stay solid — not foliage dither).
+     */
+    public static boolean beginSolidBlockTag(Object buffer, net.minecraft.block.BlockState state)
+    {
+        if (state == null || !(buffer instanceof net.irisshaders.iris.vertices.BlockSensitiveBufferBuilder sensitive))
+        {
+            return false;
+        }
+
+        try
+        {
+            int id = resolveBlockId(state);
+
+            if (id < 0)
+            {
+                return false;
+            }
+
+            sensitive.beginBlock(id, (byte) 0, (byte) 0, 0, 0, 0);
+
+            return true;
+        }
+        catch (Throwable t)
+        {
+            return false;
+        }
+    }
+
     public static void endFluidBlockTag(Object buffer)
+    {
+        endBlockTag(buffer);
+    }
+
+    public static void endBlockTag(Object buffer)
     {
         if (buffer instanceof net.irisshaders.iris.vertices.BlockSensitiveBufferBuilder sensitive)
         {

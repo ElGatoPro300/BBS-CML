@@ -12,6 +12,9 @@ import java.util.function.Consumer;
 /**
  * Additive glow overlay for flat geometry (billboards, labels, zero-thickness quads).
  * Main pass should apply negative glow only; positive emission is drawn here without depth writes.
+ * <p>
+ * Intensity is applied via layered additive draws with ColorModulator left at identity.
+ * Scaling ColorModulator by {@code intensity * 8} broke Iris/Complementary (red → cyan, no bloom).
  */
 public class FlatGlowOverlayPass
 {
@@ -26,8 +29,7 @@ public class FlatGlowOverlayPass
             return;
         }
 
-        Color glowColor = FormColorEffects.resolveGlowOverlayEmissionColor(glowSettings, legacyGlow, alpha, glowIntensity);
-        float shaderScale = FormColorEffects.resolveGlowOverlayShaderScale(glowIntensity);
+        int layers = FormColorEffects.resolveGlowOverlayLayers(glowIntensity);
         boolean savedDepthMask = GL11.glGetBoolean(GL11.GL_DEPTH_WRITEMASK);
         boolean savedPolygonOffsetFill = GL11.glGetBoolean(GL11.GL_POLYGON_OFFSET_FILL);
 
@@ -36,11 +38,16 @@ public class FlatGlowOverlayPass
         RenderSystem.depthMask(false);
         GL11.glEnable(GL11.GL_POLYGON_OFFSET_FILL);
         GL11.glPolygonOffset(-1F, -1F);
-        RenderSystem.setShaderColor(shaderScale, shaderScale, shaderScale, 1F);
+        RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
 
         try
         {
-            drawLayer.accept(glowColor);
+            for (int i = 0; i < layers; i++)
+            {
+                Color layer = FormColorEffects.resolveGlowOverlayColor(glowSettings, legacyGlow, alpha, glowIntensity, layers);
+
+                drawLayer.accept(layer);
+            }
         }
         finally
         {

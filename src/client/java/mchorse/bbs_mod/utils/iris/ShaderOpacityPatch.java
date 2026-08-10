@@ -654,7 +654,7 @@ public class ShaderOpacityPatch
          * shadows on otherwise binary Iris shadow maps. */
         if (isShadowCasterSource(source))
         {
-            return processShadowOpacity(processShadowCasterAlpha(patched));
+            return processShadowOpacity(processShadowCasterAlpha(patchComplementaryOpaqueBlockShadow(patched)));
         }
 
         /* Only relax alpha discards on gbuffer/entity paths. Do not rewrite translucentMult. */
@@ -672,14 +672,109 @@ public class ShaderOpacityPatch
     private static boolean isShadowCasterSource(String source)
     {
         return source.contains("DoNaturalShadowCalculation")
+            || source.contains("Natural Shadow Color Calculation")
             || source.contains("float premult = float(mat > 0.98")
-            || source.contains("BBS_SHADOW_CASTER_DITHER");
+            || source.contains("BBS_SHADOW_CASTER_DITHER")
+            || (source.contains("gl_FragData[0] = color1; // Shadow Color")
+                && source.contains("gl_FragData[1] = color2; // Light Shaft Color"));
+    }
+
+    /**
+     * Complementary maps some entity/form casters into the foliage / natural-shadow path,
+     * which dapples by texture alpha. Opaque atlas samples (stone, full blocks) must cast
+     * solid shadows. Matches both legacy inline {@code Natural Shadow Color Calculation}
+     * and Complementary r5 / IRLights {@code DoNaturalShadowCalculation}.
+     */
+    public static String patchComplementaryOpaqueBlockShadow(String source)
+    {
+        if (!isActive() || source == null || source.isEmpty() || source.contains("BBS_SOLID_SHADOW_FIX"))
+        {
+            return source;
+        }
+
+        String fn = "void DoNaturalShadowCalculation(inout vec4 color1, inout vec4 color2) {";
+        int fnAt = source.indexOf(fn);
+
+        if (fnAt < 0)
+        {
+            fn = "void DoNaturalShadowCalculation(inout vec4 color1, inout vec4 color2){";
+            fnAt = source.indexOf(fn);
+        }
+
+        if (fnAt >= 0)
+        {
+            String insert =
+                fn
+                    + "\n"
+                    + "    /* BBS_SOLID_SHADOW_FIX: vanilla solid blocks must stay solid at any height */\n"
+                    + "    if (color1.a > 0.5) {\n"
+                    + "        color1 = vec4(0.0, 0.0, 0.0, 1.0);\n"
+                    + "        color2.rgb = vec3(0.0);\n"
+                    + "        return;\n"
+                    + "    }\n";
+
+            return source.substring(0, fnAt) + insert + source.substring(fnAt + fn.length());
+        }
+
+        if (!source.contains("Natural Shadow Color Calculation"))
+        {
+            return source;
+        }
+
+        String open = "if (mat >= 30000) { // Natural Shadow Color Calculation";
+        int openAt = source.indexOf(open);
+
+        if (openAt < 0)
+        {
+            open = "if (mat >= 30000){ // Natural Shadow Color Calculation";
+            openAt = source.indexOf(open);
+        }
+
+        if (openAt < 0)
+        {
+            return source;
+        }
+
+        String strength = "color1.rgb *= 0.25; // Natural Strength";
+        int strengthAt = source.indexOf(strength, openAt);
+
+        if (strengthAt < 0)
+        {
+            return source;
+        }
+
+        String color2 = "color2.rgb = normalize(color1.rgb) * 0.5;";
+        int color2At = source.indexOf(color2, strengthAt);
+
+        if (color2At < 0)
+        {
+            return source;
+        }
+
+        StringBuilder out = new StringBuilder(source.length() + 256);
+
+        out.append(source, 0, openAt);
+        out.append(open);
+        out.append('\n');
+        out.append(" /* BBS_SOLID_SHADOW_FIX: vanilla solid blocks must stay solid at any height */\n");
+        out.append(" if (color1.a > 0.5) {\n");
+        out.append("  color1 = vec4(0.0, 0.0, 0.0, 1.0);\n");
+        out.append("  color2.rgb = vec3(0.0);\n");
+        out.append(" } else {\n");
+        int bodyStart = openAt + open.length();
+
+        out.append(source, bodyStart, color2At + color2.length());
+        out.append("\n }");
+        out.append(source, color2At + color2.length(), source.length());
+
+        return out.toString();
     }
 
     /**
      * Complementary/BSL shadow map programs: dither-discard by <b>vertex color alpha only</b>
      * so form Opacity and replay shadow_opacity fade per-actor ground shadows linearly
      * (coverage ≈ alpha). Does not multiply texture alpha (that made leaves/grass holey).
+     * Fully opaque casters ({@code a >= 0.999}) never dither — solids stay solid.
      */
     public static String processShadowCasterAlpha(String source)
     {
@@ -693,22 +788,38 @@ public class ShaderOpacityPatch
             return source;
         }
 
-        /* Complementary shadow.glsl */
+        String ditherBody =
+            "{\n"
+                + "        float bbsCasterAlpha = glColor.a;\n"
+                + "        if (bbsCasterAlpha < 0.999){\n"
+                + "            float bbsShadowDither = fract(sin(dot(gl_FragCoord.xy, vec2(12.9898, 78.233))) * 43758.5453);\n"
+                + "            if (bbsShadowDither > bbsCasterAlpha) discard;\n"
+                + "        }\n"
+                + "    }\n";
+
+        /* Complementary (legacy DRAWBUFFERS comment) */
         if (source.contains("DoNaturalShadowCalculation") && source.contains("gl_FragData[0] = color1;"))
         {
-            String dither =
-                "/* BBS_SHADOW_CASTER_DITHER */\n"
-                    + "    {\n"
-                    + "        float bbsCasterAlpha = glColor.a;\n"
-                    + "        if (bbsCasterAlpha < 0.999){\n"
-                    + "            float bbsShadowDither = fract(sin(dot(gl_FragCoord.xy, vec2(12.9898, 78.233))) * 43758.5453);\n"
-                    + "            if (bbsShadowDither > bbsCasterAlpha) discard;\n"
-                    + "        }\n"
-                    + "    }\n";
+            String dither = "/* BBS_SHADOW_CASTER_DITHER */\n    " + ditherBody;
+
+            if (source.contains("    /* DRAWBUFFERS:0 */\n    gl_FragData[0] = color1; // Shadow Color"))
+            {
+                return source.replace(
+                    "    /* DRAWBUFFERS:0 */\n    gl_FragData[0] = color1; // Shadow Color",
+                    dither + "    /* DRAWBUFFERS:0 */\n    gl_FragData[0] = color1; // Shadow Color"
+                );
+            }
+        }
+
+        /* Complementary Reimagined / Unbound r5+ (no DRAWBUFFERS comment in shadow.glsl) */
+        if (source.contains("Natural Shadow Color Calculation")
+            && source.contains("gl_FragData[0] = color1; // Shadow Color"))
+        {
+            String dither = "/* BBS_SHADOW_CASTER_DITHER */\n " + ditherBody;
 
             return source.replace(
-                "    /* DRAWBUFFERS:0 */\n    gl_FragData[0] = color1; // Shadow Color",
-                dither + "    /* DRAWBUFFERS:0 */\n    gl_FragData[0] = color1; // Shadow Color"
+                " gl_FragData[0] = color1; // Shadow Color",
+                " " + dither + " gl_FragData[0] = color1; // Shadow Color"
             );
         }
 

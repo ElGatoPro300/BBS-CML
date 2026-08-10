@@ -80,25 +80,7 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
 
     public static void clearAllCachedVaos()
     {
-        for (VaoHolder holder : VAO_CACHE.values())
-        {
-            if (holder.vao instanceof ModelVAO)
-            {
-                ((ModelVAO) holder.vao).delete();
-            }
-
-            if (holder.vao instanceof LightmapModelVAO)
-            {
-                ((LightmapModelVAO) holder.vao).delete();
-            }
-
-            if (holder.picking instanceof ModelVAO)
-            {
-                ((ModelVAO) holder.picking).delete();
-            }
-        }
-
-        VAO_CACHE.clear();
+        StructureVaoManager.clearAllCachedVaos();
     }
 
     /**
@@ -107,15 +89,6 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
     public static void notifyStructureFileChanged()
     {
         StructureFormRenderer.clearAllCachedVaos();
-    }
-
-    private static void ensureLightingRevision()
-    {
-        if (cachedLightingRevision != LIGHTING_REVISION)
-        {
-            StructureFormRenderer.clearAllCachedVaos();
-            cachedLightingRevision = LIGHTING_REVISION;
-        }
     }
 
     public StructureFormRenderer(StructureForm form)
@@ -977,6 +950,11 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
         return tint;
     }
 
+    /**
+     * Soften shadow-map alpha for BE-only structures: keep casting solid (alpha 1). The old
+     * {@code 0.05} crush + Complementary/BBS dither made chests/beds cast leaf-like holes;
+     * cursor fringe is handled elsewhere.
+     */
     private void applyBlockEntityOnlyShaderShadow(Color color, boolean shadowPass)
     {
         if (color == null || !shadowPass || !this.data.isEntirelyBlockEntities())
@@ -984,7 +962,10 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
             return;
         }
 
-        color.a = PaintSettings.SHADER_SHADOW_BLOCK_ENTITY;
+        if (color.a > 0.001F)
+        {
+            color.a = Math.max(color.a, PaintSettings.SHADER_SHADOW_BLOCK_ENTITY);
+        }
     }
 
     private boolean needsDeferredBlockEntityTint(boolean positivePaint, boolean applyColorTint, Color storedFormColor)

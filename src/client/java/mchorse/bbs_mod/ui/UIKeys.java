@@ -1591,6 +1591,9 @@ public class UIKeys
     public static final IKey OVERLAYS_VIDEOS_ADD_EXTERNAL = L10n.lang("bbs.ui.overlays.videos.add_external");
     public static final IKey OVERLAYS_VIDEOS_ADD_EXTERNAL_TITLE = L10n.lang("bbs.ui.overlays.videos.add_external.title");
     public static final IKey OVERLAYS_VIDEOS_ADD_EXTERNAL_MESSAGE = L10n.lang("bbs.ui.overlays.videos.add_external.message");
+    public static final IKey OVERLAYS_VIDEOS_IMPORT_SUCCESS = L10n.lang("bbs.ui.overlays.videos.import_success");
+    public static final IKey OVERLAYS_VIDEOS_IMPORT_FAILED = L10n.lang("bbs.ui.overlays.videos.import_failed");
+    public static final IKey OVERLAYS_VIDEOS_IMPORT_UNSUPPORTED = L10n.lang("bbs.ui.overlays.videos.import_unsupported");
     public static final IKey OVERLAYS_VIDEOS_MAIN = L10n.lang("bbs.ui.overlays.videos.main");
     public static final IKey OVERLAYS_VIDEOS_CLIENT_MODE = L10n.lang("bbs.ui.overlays.videos.client_mode");
     public static final IKey OVERLAYS_VIDEOS_EXTERNAL_MODE = L10n.lang("bbs.ui.overlays.videos.external_mode");

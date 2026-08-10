@@ -77,10 +77,13 @@ public final class VideoFormEngine
         }
 
         int decodeSide = VideoResolution.effectiveDecodeLongSide(resolutionPreset);
-        String key = file.getAbsolutePath() + "|" + decodeSide;
+        /* One session per file — resolution keyframes reconfigure decode size in place.
+         * Keying by decodeSide spawned parallel ffmpeg+setSize races that corrupted the atlas. */
+        String key = file.getAbsolutePath();
         Session session = SESSIONS.computeIfAbsent(key, (k) -> new Session(file, decodeSide));
 
         session.lastUsedMs = System.currentTimeMillis();
+        session.ensureMaxLongSide(decodeSide);
 
         if (playing)
         {
@@ -149,7 +152,6 @@ public final class VideoFormEngine
     private static final class Session
     {
         private final File file;
-        private final int maxLongSide;
         private final Texture texture = new Texture();
         private final Object uploadLock = new Object();
         private final AtomicBoolean workerRunning = new AtomicBoolean(false);
@@ -157,6 +159,9 @@ public final class VideoFormEngine
         private final AtomicLong requestedFrame = new AtomicLong(0L);
         private final AtomicBoolean requestedLoop = new AtomicBoolean(true);
 
+        private volatile int maxLongSide;
+        private int nativeWidth = 16;
+        private int nativeHeight = 9;
         private int width = 16;
         private int height = 9;
         private float fps = 24F;
@@ -173,6 +178,8 @@ public final class VideoFormEngine
 
         private ByteBuffer pendingPixels;
         private int pendingBytes;
+        private int pendingWidth;
+        private int pendingHeight;
         private volatile boolean pendingReady;
         private ByteBuffer readScratch;
 
@@ -184,6 +191,84 @@ public final class VideoFormEngine
             this.texture.setFilter(GL11.GL_LINEAR);
             this.texture.setWrap(GL13.GL_CLAMP_TO_EDGE);
             this.texture.setSize(16, 9);
+        }
+
+        /**
+         * Apply a new decode long-side cap (resolution keyframe). Restarts the stream so
+         * ffmpeg scale and GL texture size stay matched — never TexSubImage into a wrong size.
+         */
+        private void ensureMaxLongSide(int decodeSide)
+        {
+            int side = decodeSide > 0 ? decodeSide : VideoResolution.P720;
+
+            if (this.maxLongSide == side)
+            {
+                return;
+            }
+
+            synchronized (this.uploadLock)
+            {
+                this.maxLongSide = side;
+                this.pendingReady = false;
+                this.textureAllocated = false;
+
+                if (this.probed && !this.probeFailed)
+                {
+                    this.applyDecodeSizeFromNative();
+                    this.reallocDecodeBuffers();
+                }
+            }
+
+            this.closeProcess();
+            this.streamFrame = -1L;
+            this.streamAlive = false;
+        }
+
+        private void applyDecodeSizeFromNative()
+        {
+            this.width = clampDim(this.nativeWidth);
+            this.height = clampDim(this.nativeHeight);
+
+            int longSide = Math.max(this.width, this.height);
+
+            if (longSide > this.maxLongSide)
+            {
+                float scale = this.maxLongSide / (float) longSide;
+
+                this.width = clampDim(Math.round(this.width * scale) & ~1);
+                this.height = clampDim(Math.round(this.height * scale) & ~1);
+            }
+
+            long bytes = (long) this.width * (long) this.height * 4L;
+
+            if (this.width < 2 || this.height < 2 || bytes <= 0L || bytes > Integer.MAX_VALUE)
+            {
+                this.probeFailed = true;
+
+                return;
+            }
+
+            this.pendingBytes = (int) bytes;
+        }
+
+        private void reallocDecodeBuffers()
+        {
+            if (this.readScratch != null)
+            {
+                MemoryUtil.memFree(this.readScratch);
+                this.readScratch = null;
+            }
+
+            if (this.pendingPixels != null)
+            {
+                MemoryUtil.memFree(this.pendingPixels);
+                this.pendingPixels = null;
+            }
+
+            if (this.pendingBytes > 0 && !this.probeFailed)
+            {
+                this.readScratch = MemoryUtil.memAlloc(this.pendingBytes);
+            }
         }
 
         private void setPaused(boolean value)
@@ -315,30 +400,46 @@ public final class VideoFormEngine
                     return;
                 }
 
-                if (!this.textureAllocated)
+                int uploadW = this.pendingWidth > 0 ? this.pendingWidth : this.width;
+                int uploadH = this.pendingHeight > 0 ? this.pendingHeight : this.height;
+                int expectedBytes = uploadW * uploadH * 4;
+
+                if (uploadW < 2 || uploadH < 2 || this.pendingPixels.remaining() < expectedBytes)
                 {
-                    this.texture.setSize(this.width, this.height);
+                    this.pendingReady = false;
+
+                    return;
+                }
+
+                /* Resize when first frame OR after resolution keyframe changed decode size. */
+                if (!this.textureAllocated || this.texture.width != uploadW || this.texture.height != uploadH)
+                {
+                    this.texture.setSize(uploadW, uploadH);
                     this.textureAllocated = true;
                 }
 
+                this.width = uploadW;
+                this.height = uploadH;
                 this.pendingPixels.position(0);
-                this.pendingPixels.limit(this.pendingBytes);
+                this.pendingPixels.limit(expectedBytes);
                 this.texture.bind();
-
-                int prevAlign = GL11.glGetInteger(GL11.GL_UNPACK_ALIGNMENT);
-                int prevRowLength = GL11.glGetInteger(GL11.GL_UNPACK_ROW_LENGTH);
 
                 try
                 {
-                    GL11.glPixelStorei(GL11.GL_UNPACK_ALIGNMENT, 1);
-                    GL11.glPixelStorei(GL11.GL_UNPACK_ROW_LENGTH, this.width);
-                    GL11.glTexSubImage2D(GL11.GL_TEXTURE_2D, 0, 0, 0, this.width, this.height, GL11.GL_RGBA, GL11.GL_UNSIGNED_BYTE, this.pendingPixels);
+                    /* Tightly packed RGBA — do NOT touch UNPACK_ROW_LENGTH. Setting it and
+                     * failing to restore blacks out the block atlas for the rest of the session. */
+                    GL11.glPixelStorei(GL11.GL_UNPACK_ALIGNMENT, 4);
+                    GL11.glPixelStorei(GL11.GL_UNPACK_ROW_LENGTH, 0);
+                    GL11.glPixelStorei(GL11.GL_UNPACK_SKIP_PIXELS, 0);
+                    GL11.glPixelStorei(GL11.GL_UNPACK_SKIP_ROWS, 0);
+                    GL11.glTexSubImage2D(GL11.GL_TEXTURE_2D, 0, 0, 0, uploadW, uploadH, GL11.GL_RGBA, GL11.GL_UNSIGNED_BYTE, this.pendingPixels);
                 }
                 finally
                 {
-                    /* Leaving UNPACK_ROW_LENGTH set corrupts all later atlas uploads → black world. */
-                    GL11.glPixelStorei(GL11.GL_UNPACK_ALIGNMENT, prevAlign);
-                    GL11.glPixelStorei(GL11.GL_UNPACK_ROW_LENGTH, prevRowLength);
+                    GL11.glPixelStorei(GL11.GL_UNPACK_ROW_LENGTH, 0);
+                    GL11.glPixelStorei(GL11.GL_UNPACK_SKIP_PIXELS, 0);
+                    GL11.glPixelStorei(GL11.GL_UNPACK_SKIP_ROWS, 0);
+                    GL11.glPixelStorei(GL11.GL_UNPACK_ALIGNMENT, 4);
                     this.texture.unbind();
                 }
 
@@ -390,6 +491,8 @@ public final class VideoFormEngine
                     this.pendingPixels.clear();
                     this.pendingPixels.put(this.readScratch);
                     this.pendingPixels.flip();
+                    this.pendingWidth = this.width;
+                    this.pendingHeight = this.height;
                     this.pendingReady = true;
                 }
 
@@ -513,28 +616,17 @@ public final class VideoFormEngine
 
                 this.width = clampDim(this.width);
                 this.height = clampDim(this.height);
+                this.nativeWidth = this.width;
+                this.nativeHeight = this.height;
 
-                int longSide = Math.max(this.width, this.height);
+                this.applyDecodeSizeFromNative();
 
-                if (longSide > this.maxLongSide)
+                if (this.probeFailed)
                 {
-                    float scale = this.maxLongSide / (float) longSide;
-
-                    this.width = clampDim(Math.round(this.width * scale) & ~1);
-                    this.height = clampDim(Math.round(this.height * scale) & ~1);
-                }
-
-                long bytes = (long) this.width * (long) this.height * 4L;
-
-                if (this.width < 2 || this.height < 2 || bytes <= 0L || bytes > Integer.MAX_VALUE)
-                {
-                    this.probeFailed = true;
-
                     return;
                 }
 
-                this.pendingBytes = (int) bytes;
-                this.readScratch = MemoryUtil.memAlloc(this.pendingBytes);
+                this.reallocDecodeBuffers();
                 /* Texture size is applied on the render thread in uploadIfReady. */
             }
             catch (Exception e)

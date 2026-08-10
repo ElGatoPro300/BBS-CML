@@ -159,8 +159,6 @@ public class StructureFormOverlayRenderer
         int savedDepthFunc = GL11.glGetInteger(GL11.GL_DEPTH_FUNC);
         boolean savedDepthMask = GL11.glGetBoolean(GL11.GL_DEPTH_WRITEMASK);
         boolean savedPolygonOffsetFill = GL11.glGetBoolean(GL11.GL_POLYGON_OFFSET_FILL);
-        Color glowColor = FormColorEffects.resolveGlowOverlayEmissionColor(glowSettings, legacyGlow, alpha, glowIntensity);
-        float shaderScale = FormColorEffects.resolveGlowOverlayShaderScale(glowIntensity);
 
         RenderSystem.enableBlend();
         RenderSystem.blendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE);
@@ -169,13 +167,18 @@ public class StructureFormOverlayRenderer
         RenderSystem.depthMask(false);
         GL11.glEnable(GL11.GL_POLYGON_OFFSET_FILL);
         GL11.glPolygonOffset(-1F, -1F);
-        RenderSystem.setShaderColor(shaderScale, shaderScale, shaderScale, 1F);
+        RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
 
         try
         {
-            consumers.setSubstitute(BBSRendering.getGlowOverlayConsumer(glowColor));
-            draw.run();
-            consumers.draw();
+            for (int i = 0; i < layers; i++)
+            {
+                Color glowColor = FormColorEffects.resolveGlowOverlayColor(glowSettings, legacyGlow, alpha, glowIntensity, layers);
+
+                consumers.setSubstitute(BBSRendering.getGlowOverlayConsumer(glowColor));
+                draw.run();
+                consumers.draw();
+            }
         }
         finally
         {

@@ -39,10 +39,12 @@ public final class VideoFormPlayback
     private static long liveDecodeFrameMs;
 
     private final File file;
-    private final int maxLongSide;
     private final Texture texture = new Texture();
     private final byte[] readChunk = new byte[65536];
 
+    private int maxLongSide;
+    private int nativeWidth = 16;
+    private int nativeHeight = 9;
     private int width = 16;
     private int height = 9;
     private float fps = 30F;
@@ -84,9 +86,68 @@ public final class VideoFormPlayback
         }
 
         int limit = maxLongSide > 0 ? maxLongSide : 0;
-        String key = file.getAbsolutePath() + "|" + limit;
+        String key = file.getAbsolutePath();
+        VideoFormPlayback playback = CACHE.computeIfAbsent(key, (k) -> new VideoFormPlayback(file, limit));
 
-        return CACHE.computeIfAbsent(key, (k) -> new VideoFormPlayback(file, limit));
+        playback.ensureMaxLongSide(limit);
+
+        return playback;
+    }
+
+    private void ensureMaxLongSide(int limit)
+    {
+        int side = limit > 0 ? limit : MAX_DIM;
+
+        if (this.maxLongSide == side)
+        {
+            return;
+        }
+
+        this.maxLongSide = side;
+        this.textureAllocated = false;
+        this.closeProcess();
+        this.currentFrameIndex = -1L;
+
+        if (this.probed && !this.probeFailed)
+        {
+            this.applyDecodeSizeFromNative();
+        }
+    }
+
+    private void applyDecodeSizeFromNative()
+    {
+        this.width = clampDim(this.nativeWidth);
+        this.height = clampDim(this.nativeHeight);
+
+        int longSide = Math.max(this.width, this.height);
+        int limit = this.maxLongSide > 0 && this.maxLongSide < MAX_DIM ? this.maxLongSide : 0;
+
+        if (limit > 0 && longSide > limit)
+        {
+            float scale = limit / (float) longSide;
+
+            this.width = clampDim(Math.round(this.width * scale) & ~1);
+            this.height = clampDim(Math.round(this.height * scale) & ~1);
+        }
+
+        long bytes = (long) this.width * (long) this.height * 4L;
+
+        if (this.width < 2 || this.height < 2 || bytes <= 0L || bytes > Integer.MAX_VALUE)
+        {
+            this.probeFailed = true;
+
+            return;
+        }
+
+        this.frameBytes = (int) bytes;
+
+        if (this.frameBuffer != null)
+        {
+            MemoryUtil.memFree(this.frameBuffer);
+            this.frameBuffer = null;
+        }
+
+        this.frameBuffer = MemoryUtil.memAlloc(this.frameBytes);
     }
 
     public Texture ensureFrame(long tickPosition, float speed, boolean loop)
@@ -221,31 +282,18 @@ public final class VideoFormPlayback
 
             this.width = clampDim(this.width);
             this.height = clampDim(this.height);
+            this.nativeWidth = this.width;
+            this.nativeHeight = this.height;
+            this.applyDecodeSizeFromNative();
 
-            int longSide = Math.max(this.width, this.height);
-            int limit = this.maxLongSide > 0 && this.maxLongSide < MAX_DIM ? this.maxLongSide : 0;
-
-            if (limit > 0 && longSide > limit)
-            {
-                float scale = limit / (float) longSide;
-
-                this.width = clampDim(Math.round(this.width * scale) & ~1);
-                this.height = clampDim(Math.round(this.height * scale) & ~1);
-            }
-
-            long bytes = (long) this.width * (long) this.height * 4L;
-
-            if (this.width < 2 || this.height < 2 || bytes <= 0L || bytes > Integer.MAX_VALUE)
+            if (this.probeFailed || this.frameBuffer == null)
             {
                 this.probeFailed = true;
 
                 return;
             }
 
-            this.frameBytes = (int) bytes;
-            this.frameBuffer = MemoryUtil.memAlloc(this.frameBytes);
-            this.texture.setSize(this.width, this.height);
-            this.textureAllocated = true;
+            /* Texture size is applied on first upload in readOneFrame. */
         }
         catch (Exception e)
         {
@@ -523,21 +571,29 @@ public final class VideoFormPlayback
             this.frameBuffer.flip();
             this.currentFrameIndex++;
 
-            this.texture.bind();
+            if (!this.textureAllocated || this.texture.width != this.width || this.texture.height != this.height)
+            {
+                this.texture.setSize(this.width, this.height);
+                this.textureAllocated = true;
+            }
 
-            int prevAlign = GL11.glGetInteger(GL11.GL_UNPACK_ALIGNMENT);
-            int prevRowLength = GL11.glGetInteger(GL11.GL_UNPACK_ROW_LENGTH);
+            this.texture.bind();
 
             try
             {
-                GL11.glPixelStorei(GL11.GL_UNPACK_ALIGNMENT, 1);
-                GL11.glPixelStorei(GL11.GL_UNPACK_ROW_LENGTH, this.width);
+                /* Tightly packed RGBA — never set UNPACK_ROW_LENGTH (atlas black-world leak). */
+                GL11.glPixelStorei(GL11.GL_UNPACK_ALIGNMENT, 4);
+                GL11.glPixelStorei(GL11.GL_UNPACK_ROW_LENGTH, 0);
+                GL11.glPixelStorei(GL11.GL_UNPACK_SKIP_PIXELS, 0);
+                GL11.glPixelStorei(GL11.GL_UNPACK_SKIP_ROWS, 0);
                 GL11.glTexSubImage2D(GL11.GL_TEXTURE_2D, 0, 0, 0, this.width, this.height, GL11.GL_RGBA, GL11.GL_UNSIGNED_BYTE, this.frameBuffer);
             }
             finally
             {
-                GL11.glPixelStorei(GL11.GL_UNPACK_ALIGNMENT, prevAlign);
-                GL11.glPixelStorei(GL11.GL_UNPACK_ROW_LENGTH, prevRowLength);
+                GL11.glPixelStorei(GL11.GL_UNPACK_ROW_LENGTH, 0);
+                GL11.glPixelStorei(GL11.GL_UNPACK_SKIP_PIXELS, 0);
+                GL11.glPixelStorei(GL11.GL_UNPACK_SKIP_ROWS, 0);
+                GL11.glPixelStorei(GL11.GL_UNPACK_ALIGNMENT, 4);
                 this.texture.unbind();
             }
 

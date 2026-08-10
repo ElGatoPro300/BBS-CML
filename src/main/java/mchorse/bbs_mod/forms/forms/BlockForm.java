@@ -24,7 +24,7 @@ public class BlockForm extends Form
     public final ValueBoolean repeatCenterZ = new ValueBoolean("repeat_center_z", false);
     /** When true, adjacent repeated fluid cells cull shared faces like vanilla water. */
     public final ValueBoolean cullFluid = new ValueBoolean("cull_fluid", true);
-    /** When true, the outer side and bottom walls of the fluid volume are rendered (double-sided). */
+    /** When true, outer side and bottom walls of the fluid volume are drawn. When false, only the top surface. */
     public final ValueBoolean outerFluidWalls = new ValueBoolean("outer_fluid_walls", true);
     /** When true, fluid faces pressed against solid world block faces are dropped (vanilla-like merging). */
     public final ValueBoolean interactBlocks = new ValueBoolean("interact_blocks", false);
