@@ -1740,6 +1740,7 @@ public class ModelVAORenderer
         {
             return;
         }
+    }
 
     private static void setUniform1i(RenderPipeline shader, String name, int val)
     {

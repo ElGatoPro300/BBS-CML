@@ -19,6 +19,7 @@ import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderContext;
 
 import net.minecraft.client.MinecraftClient;
 
+import com.mojang.blaze3d.opengl.GlStateManager;
 import com.mojang.blaze3d.systems.RenderSystem;
 
 import org.lwjgl.glfw.GLFW;
@@ -371,7 +372,7 @@ public abstract class UIBaseMenu
             mouseX = mouseY = -1;
         }
 
-        RenderSystem.depthFunc(GL11.GL_ALWAYS);
+        GlStateManager._depthFunc(GL11.GL_ALWAYS);
 
         this.context.resetMatrix();
         this.context.setMouse(mouseX, mouseY);

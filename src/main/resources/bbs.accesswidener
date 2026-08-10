@@ -21,3 +21,5 @@ accessible field net/minecraft/client/particle/Particle dead Z
 accessible method net/minecraft/client/particle/Particle isAlive ()Z
 
 accessible field net/minecraft/client/util/math/MatrixStack stack Ljava/util/List;
+
+accessible field net/minecraft/client/input/Input movementVector Lnet/minecraft/util/math/Vec2f;

@@ -63,6 +63,7 @@ import mchorse.bbs_mod.utils.pose.Transform;
 import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderContext;
 
 import net.minecraft.client.MinecraftClient;
+import com.mojang.blaze3d.opengl.GlStateManager;
 import net.minecraft.client.font.TextRenderer;
 import net.minecraft.client.network.ClientPlayerEntity;
 import net.minecraft.client.render.Camera;
@@ -444,7 +445,7 @@ public abstract class BaseFilmController
     {
         BBSRendering.restoreWorldRenderState();
         GlStateManager._enableDepthTest();
-        GlStateManager.depthFunc(GL11.GL_LEQUAL);
+        GlStateManager._depthFunc(GL11.GL_LEQUAL);
     }
 
     /**
@@ -1098,10 +1099,10 @@ public abstract class BaseFilmController
             ? TextRenderer.TextLayerType.SEE_THROUGH
             : TextRenderer.TextLayerType.NORMAL;
 
-        RenderSystem.enableBlend();
-        RenderSystem.disableCull();
-        RenderSystem.enableDepthTest();
-        RenderSystem.depthFunc(GL11.GL_LEQUAL);
+        GlStateManager._enableBlend();
+        GlStateManager._disableCull();
+        GlStateManager._enableDepthTest();
+        GlStateManager._depthFunc(GL11.GL_LEQUAL);
 
         CustomVertexConsumerProvider consumers = FormUtilsClient.getProvider();
 
@@ -1114,8 +1115,8 @@ public abstract class BaseFilmController
             consumers.draw();
         }
 
-        RenderSystem.enableCull();
-        RenderSystem.disableBlend();
+        GlStateManager._enableCull();
+        GlStateManager._disableBlend();
 
         matrices.pop();
     }
@@ -1302,9 +1303,6 @@ public abstract class BaseFilmController
             double z = keyframes.z.interpolate(toReplayTick);
 
             actor.setPosition(x, y, z);
-            actor.prevX = x;
-            actor.prevY = y;
-            actor.prevZ = z;
             actor.lastRenderX = x;
             actor.lastRenderY = y;
             actor.lastRenderZ = z;
@@ -1316,18 +1314,15 @@ public abstract class BaseFilmController
             double y = actor.getY();
             double z = actor.getZ();
 
-            actor.prevX = x;
-            actor.prevY = y;
-            actor.prevZ = z;
             actor.lastRenderX = x;
             actor.lastRenderY = y;
             actor.lastRenderZ = z;
         }
 
-        actor.prevYaw = actor.getYaw();
-        actor.prevHeadYaw = actor.headYaw;
-        actor.prevBodyYaw = actor.bodyYaw;
-        actor.prevPitch = actor.getPitch();
+        actor.lastYaw = actor.getYaw();
+        actor.lastHeadYaw = actor.headYaw;
+        actor.lastBodyYaw = actor.bodyYaw;
+        actor.lastPitch = actor.getPitch();
         actor.setVelocity(0D, 0D, 0D);
 
         if (steps > 0)
@@ -1450,9 +1445,9 @@ public abstract class BaseFilmController
                                  * integrating it on top of the snap (and creative-flight
                                  * residual looks like ice). Pose is fully driven here. */
                                 actor.setPosition(entity.getX(), entity.getY(), entity.getZ());
-                                actor.prevX = entity.getPrevX();
-                                actor.prevY = entity.getPrevY();
-                                actor.prevZ = entity.getPrevZ();
+                                actor.lastRenderX = entity.getPrevX();
+                                actor.lastRenderY = entity.getPrevY();
+                                actor.lastRenderZ = entity.getPrevZ();
                                 actor.setVelocity(0D, 0D, 0D);
                             }
                             else if (!this.isActorPlaybackActive())
@@ -1675,7 +1670,7 @@ public abstract class BaseFilmController
         }
 
         /* Prefer the visible body pose (actor hold can lag the playhead keyframe). */
-        this.spawnSprintParticles(replay, ticks, entity.getWorld(), entity.getWidth(), force, entity);
+        this.spawnSprintParticles(replay, ticks, entity.getEntityWorld(), entity.getWidth(), force, entity);
     }
 
     private void spawnSprintParticles(Replay replay, int ticks, World world, double width)

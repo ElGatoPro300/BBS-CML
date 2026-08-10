@@ -24,7 +24,7 @@ import mchorse.bbs_mod.utils.iris.ShaderOpacityPatch;
 import mchorse.bbs_mod.utils.joml.Vectors;
 
 import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gl.ShaderProgram;
+import com.mojang.blaze3d.pipeline.RenderPipeline;
 import net.minecraft.client.render.DiffuseLighting;
 import net.minecraft.client.render.GameRenderer;
 import net.minecraft.client.render.LightmapTextureManager;
@@ -104,7 +104,7 @@ public class ExtrudedFormRenderer extends FormRenderer<ExtrudedForm>
 
         GlStateManager._depthFunc(GL11.GL_LEQUAL);
 
-        ShaderProgram modelShader = BBSShaders.getModel();
+        RenderPipeline modelShader = BBSShaders.getModel();
 
         if (modelShader != null)
         {

@@ -122,7 +122,7 @@ public class ActorEntityRenderer extends EntityRenderer<ActorEntity, ActorEntity
         GL11.glEnable(GL11.GL_BLEND);
         GL11.glEnable(GL11.GL_DEPTH_TEST);
         FormUtilsClient.render(livingEntity.getForm(), new FormRenderingContext()
-            .set(FormRenderType.ENTITY, livingEntity.getEntity(), matrices, light, overlay, animDelta)
+            .set(FormRenderType.ENTITY, livingEntity.getWrappingEntity(), matrices, state.light, overlay, animDelta)
             .camera(MinecraftClient.getInstance().gameRenderer.getCamera()));
 
         if (livingEntity.getWrappingEntity().getFireTicks() > 0)
@@ -140,7 +140,7 @@ public class ActorEntityRenderer extends EntityRenderer<ActorEntity, ActorEntity
 
         BBSRendering.restoreWorldRenderState();
         GlStateManager._disableDepthTest();
-        GlStateManager.depthFunc(GL11.GL_LEQUAL);
+        GlStateManager._depthFunc(GL11.GL_LEQUAL);
         GlStateManager._disableBlend();
 
         matrices.pop();

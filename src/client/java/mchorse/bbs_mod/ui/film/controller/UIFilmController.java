@@ -1926,7 +1926,7 @@ public class UIFilmController extends UIElement
         this.lastMouse.set(x, y);
 
         BBSRendering.restoreWorldRenderState();
-        GlStateManager.enableDepthTest();
+        GlStateManager._enableDepthTest();
         GlStateManager._depthFunc(GL11.GL_LEQUAL);
     }
 

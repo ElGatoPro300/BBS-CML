@@ -309,7 +309,7 @@ public class ActionPlayer
                         actor.setBodyYaw(this.serverPlayer.getBodyYaw());
                         actor.setPitch(this.serverPlayer.getPitch());
                         actor.setVelocity(0D, 0D, 0D);
-                        actor.velocityModified = true;
+                        actor.velocityDirty = true;
 
                         if (actor instanceof ActorEntity actorEntity)
                         {

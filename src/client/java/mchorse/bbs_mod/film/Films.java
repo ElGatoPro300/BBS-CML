@@ -381,7 +381,7 @@ public class Films
 
         /* Leave world depth usable for later translucent / particle passes. */
         GlStateManager._enableDepthTest();
-        GlStateManager.depthFunc(GL11.GL_LEQUAL);
+        GlStateManager._depthFunc(GL11.GL_LEQUAL);
     }
 
     public void renderHud(Batcher2D batcher2D, float tickDelta)

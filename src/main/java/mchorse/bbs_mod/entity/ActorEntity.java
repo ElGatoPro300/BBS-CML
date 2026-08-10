@@ -491,7 +491,7 @@ public class ActorEntity extends LivingEntity implements IEntityFormProvider
             this.tickHandSwing();
             this.updateHitboxDimensions();
 
-            if (!this.getWorld().isClient())
+            if (!this.getEntityWorld().isClient())
             {
                 this.tickItemPickup();
             }
@@ -723,7 +723,7 @@ public class ActorEntity extends LivingEntity implements IEntityFormProvider
                 this.setLimbSwingSpeed(1.5F);
             }
 
-            if (this.getWorld().isClient())
+            if (this.getEntityWorld().isClient())
             {
                 this.pendingHurtAnimation = true;
             }

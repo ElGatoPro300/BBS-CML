@@ -21,14 +21,15 @@ import net.minecraft.util.math.RotationAxis;
 
 import org.joml.Matrix4f;
 
+import com.mojang.blaze3d.buffers.GpuBufferSlice;
+import com.mojang.blaze3d.opengl.GlStateManager;
 import com.mojang.blaze3d.pipeline.BlendFunction;
 import com.mojang.blaze3d.pipeline.RenderPipeline;
 import com.mojang.blaze3d.platform.DepthTestFunction;
-import com.mojang.blaze3d.systems.RenderSystem;
-import com.mojang.blaze3d.vertex.VertexFormat;
 import com.mojang.blaze3d.systems.ProjectionType;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.systems.VertexSorter;
+import com.mojang.blaze3d.vertex.VertexFormat;
 
 import org.lwjgl.opengl.GL11;
 
@@ -183,14 +184,13 @@ public class Draw
         stack.pop();
     }
 
-    private static void enqueueIrisBox(MatrixStack stack, double x, double y, double z, double w, double h, double d, float r, float g, float b)
 
     private static final List<IrisBox> irisBoxQueue = new ArrayList<>();
 
     private static final class IrisBox
     {
         private final Matrix4f matrix;
-        private final Matrix4f projection;
+        private final GpuBufferSlice projection;
         private final float w;
         private final float h;
         private final float d;
@@ -198,7 +198,7 @@ public class Draw
         private final float g;
         private final float b;
 
-        private IrisBox(Matrix4f matrix, Matrix4f projection, float w, float h, float d, float r, float g, float b)
+        private IrisBox(Matrix4f matrix, GpuBufferSlice projection, float w, float h, float d, float r, float g, float b)
         {
             this.matrix = matrix;
             this.projection = projection;
@@ -248,7 +248,7 @@ public class Draw
     private static void enqueueIrisBox(MatrixStack stack, double x, double y, double z, double w, double h, double d, float r, float g, float b)
     {
         Matrix4f matrix = bakeIrisBoxMatrix(stack, x, y, z);
-        Matrix4f projection = new Matrix4f(RenderSystem.getProjectionMatrix());
+        GpuBufferSlice projection = RenderSystem.getProjectionMatrixBuffer();
 
         irisBoxQueue.add(new IrisBox(matrix, projection, (float) w, (float) h, (float) d, r, g, b));
     }
@@ -263,14 +263,12 @@ public class Draw
 
         boolean savedBlend = GL11.glIsEnabled(GL11.GL_BLEND);
         boolean savedDepth = GL11.glIsEnabled(GL11.GL_DEPTH_TEST);
-        Matrix4f savedProjection = new Matrix4f(RenderSystem.getProjectionMatrix());
+        GpuBufferSlice savedProjection = RenderSystem.getProjectionMatrixBuffer();
+        ProjectionType savedType = RenderSystem.getProjectionType();
         MatrixStack stack = new MatrixStack();
 
-        RenderSystem.disableBlend();
-        RenderSystem.disableDepthTest();
-        RenderSystem.setShader(ShaderProgramKeys.POSITION_COLOR);
-        /* Pack compositing can leave a non-white shader color multiplier before LAST. */
-        RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
+        GlStateManager._disableBlend();
+        GlStateManager._disableDepthTest();
         MatrixStackUtils.pushIdentityModelView();
 
         try
@@ -278,7 +276,10 @@ public class Draw
             for (IrisBox box : irisBoxQueue)
             {
                 /* LAST no longer carries the solid-pass projection; rebind what was captured. */
-                RenderSystem.setProjectionMatrix(box.projection, ProjectionType.ORTHOGRAPHIC);
+                if (box.projection != null)
+                {
+                    RenderSystem.setProjectionMatrix(box.projection, ProjectionType.ORTHOGRAPHIC);
+                }
                 stack.push();
                 stack.peek().getPositionMatrix().set(box.matrix);
                 renderBoxSolidEdges(stack, box.w, box.h, box.d, box.r, box.g, box.b);
@@ -287,19 +288,21 @@ public class Draw
         }
         finally
         {
-            RenderSystem.setProjectionMatrix(savedProjection, ProjectionType.ORTHOGRAPHIC);
+            if (savedProjection != null)
+            {
+                RenderSystem.setProjectionMatrix(savedProjection, savedType);
+            }
             MatrixStackUtils.popModelView();
             irisBoxQueue.clear();
-            RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
 
             if (savedDepth)
             {
-                RenderSystem.enableDepthTest();
+                GlStateManager._enableDepthTest();
             }
 
             if (savedBlend)
             {
-                RenderSystem.enableBlend();
+                GlStateManager._enableBlend();
             }
         }
     }
@@ -324,7 +327,7 @@ public class Draw
         fillBox(builder, stack, -t, -t, -t, t, t, t + fd, r, g, b, 1F);
         fillBox(builder, stack, -t + fw, -t, -t, t + fw, t, t + fd, r, g, b, 1F);
 
-        BufferRenderer.drawWithGlobalProgram(builder.end());
+        flush(builder, getPositionColorLayer());
     }
 
     private static void renderBoxWireframe(MatrixStack stack, double x, double y, double z, double w, double h, double d, float r, float g, float b, float a)
@@ -341,9 +344,7 @@ public class Draw
         float z2 = (float) d;
         boolean savedBlend = GL11.glIsEnabled(GL11.GL_BLEND);
 
-        RenderSystem.disableBlend();
-        RenderSystem.setShader(ShaderProgramKeys.POSITION_COLOR);
-        RenderSystem.lineWidth(2F);
+        GlStateManager._disableBlend();
 
         BufferBuilder builder = Tessellator.getInstance().begin(VertexFormat.DrawMode.DEBUG_LINES, VertexFormats.POSITION_COLOR);
 
@@ -362,13 +363,11 @@ public class Draw
         wireLine(builder, matrix, x2, y1, z2, x2, y2, z2, r, g, b, a);
         wireLine(builder, matrix, x1, y1, z2, x1, y2, z2, r, g, b, a);
 
-        BufferRenderer.drawWithGlobalProgram(builder.end());
-
-        RenderSystem.lineWidth(1F);
+        flushLines(builder);
 
         if (savedBlend)
         {
-            RenderSystem.enableBlend();
+            GlStateManager._enableBlend();
         }
 
         stack.pop();
