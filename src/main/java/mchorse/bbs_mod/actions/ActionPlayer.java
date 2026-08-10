@@ -240,15 +240,6 @@ public class ActionPlayer
             actor.equipStack(EquipmentSlot.MAINHAND, replay.keyframes.mainHand.interpolate(tick, ItemStack.EMPTY));
         }
 
-        double vx = x - replay.keyframes.x.interpolate(tick - 1);
-        double vy = y - replay.keyframes.y.interpolate(tick - 1);
-        double vz = z - replay.keyframes.z.interpolate(tick - 1);
-
-        if (vy == 0D)
-        {
-            vy = -0.0784;
-        }
-
         if (actor instanceof ActorEntity actorEntity)
         {
             actorEntity.syncNameTag(replay);
@@ -259,6 +250,20 @@ public class ActionPlayer
             }
             else
             {
+                /* Aim LivingEntity's post-ActionPlayer integration at the *next*
+                 * keyframe. Backward Δ (t - (t-1)) matches constant speed, but on
+                 * deceleration overshoots tick+1 and reads as extra coast vs stubs.
+                 * Forward Δ keeps non-zero velocity for smooth interp without that
+                 * stop overshoot. Non-actor / ServerPlayer paths stay unchanged. */
+                double vx = replay.keyframes.x.interpolate(tick + 1) - x;
+                double vy = replay.keyframes.y.interpolate(tick + 1) - y;
+                double vz = replay.keyframes.z.interpolate(tick + 1) - z;
+
+                if (vy == 0D)
+                {
+                    vy = -0.0784;
+                }
+
                 double scale = actorEntity.consumePlaybackVelocityScale();
 
                 actor.setVelocity(vx * scale, vy, vz * scale);
@@ -266,6 +271,15 @@ public class ActionPlayer
         }
         else
         {
+            double vx = x - replay.keyframes.x.interpolate(tick - 1);
+            double vy = y - replay.keyframes.y.interpolate(tick - 1);
+            double vz = z - replay.keyframes.z.interpolate(tick - 1);
+
+            if (vy == 0D)
+            {
+                vy = -0.0784;
+            }
+
             actor.setVelocity(vx, vy, vz);
         }
 
