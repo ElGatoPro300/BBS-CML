@@ -14,13 +14,8 @@ import java.util.List;
 import java.util.Locale;
 
 /**
- * Complementary / BSL shader patch for BBS form glow — Photoshop-like Outer Glow controls:
- * <ul>
- *   <li>{@code Intensity} — emission / bloom seed strength (gbuffer)</li>
- *   <li>{@code Size} — bloom blur radius / which mip LODs dominate (composite)</li>
- *   <li>{@code Spread} — choke / softness of the bloom mix (composite)</li>
- * </ul>
- * Frame-max uniforms feed composite so Size/Spread still apply after entity draws end.
+ * BSL shader patch for BBS form glow Size/Spread. Complementary uses
+ * {@link ComplementaryFormGlowPatch} (Euphoria-style dedicated pack patch).
  */
 public final class FormGlowBloomPatch
 {
@@ -152,6 +147,7 @@ public final class FormGlowBloomPatch
     public static void resetPackState()
     {
         patchedThisPack = false;
+        ComplementaryFormGlowPatch.resetPackState();
         beginFrame();
     }
 
@@ -172,12 +168,13 @@ public final class FormGlowBloomPatch
 
         String lower = pack.toLowerCase(Locale.ROOT);
 
-        return lower.contains("complementary") || lower.contains("bsl");
+        /* Complementary uses ComplementaryFormGlowPatch (Euphoria-style). This class keeps BSL. */
+        return lower.contains("bsl");
     }
 
     public static boolean isPackPatched()
     {
-        return patchedThisPack && shouldPatchPack();
+        return (patchedThisPack && shouldPatchPack()) || ComplementaryFormGlowPatch.isPackPatched();
     }
 
     /**
@@ -224,7 +221,18 @@ public final class FormGlowBloomPatch
 
     public static String processSource(String source)
     {
-        if (source == null || source.isEmpty() || !shouldPatchPack())
+        if (source == null || source.isEmpty())
+        {
+            return source;
+        }
+
+        /* Complementary gets its own Euphoria-style Size/Spread bloom patch. */
+        if (ComplementaryFormGlowPatch.isComplementaryPack())
+        {
+            return ComplementaryFormGlowPatch.processSource(source);
+        }
+
+        if (!shouldPatchPack())
         {
             return source;
         }
@@ -462,53 +470,12 @@ public final class FormGlowBloomPatch
 
     /**
      * Size → favor wide vs tight bloom mips; Spread → choke/softness of the mix.
+     * Complementary DoBloom is handled by {@link ComplementaryFormGlowPatch}.
      */
     private static String patchDoBloomMix(String source)
     {
         if (source.contains("BBS_GLOW_DO_BLOOM") || source.contains("BBS_GLOW_BSL_BLOOM"))
         {
-            return source;
-        }
-
-        String complementaryFrom = "vec3 blur = (blur1 + blur2 + blur3 + blur4 + blur5 + blur6 + blur7) * 0.14;";
-
-        if (source.contains(complementaryFrom))
-        {
-            /* Real Size/Spread Outer Glow on Complementary bloom mips:
-             * Size → tight vs wide mip weights; Spread → soft wide vs sharp choke. */
-            String to =
-                "float bbsGlowSize = clamp(" + U_SIZE + ", -8.0, 16.0);\n"
-                    + "        float bbsGlowSpread = clamp(" + U_SPREAD + ", 0.0, 1.0);\n"
-                    + "        float bbsGlowIntensity = max(" + U_INTENSITY + ", 0.0);\n"
-                    + "        float bbsSizeT = clamp(bbsGlowSize / 8.0, -1.0, 2.0);\n"
-                    + "        vec3 bbsDefault = (blur1 + blur2 + blur3 + blur4 + blur5 + blur6 + blur7) * 0.14;\n"
-                    + "        vec3 bbsTight = (blur1 * 2.2 + blur2 * 1.6 + blur3 * 0.9) / 4.7;\n"
-                    + "        vec3 bbsMid = (blur2 + blur3 + blur4 + blur5) * 0.25;\n"
-                    + "        vec3 bbsWide = (blur4 * 0.9 + blur5 * 1.2 + blur6 * 1.5 + blur7 * 1.8) / 5.4;\n"
-                    + "        vec3 bbsSized = mix(bbsTight, bbsMid, clamp(bbsSizeT * 0.55 + 0.45, 0.0, 1.0));\n"
-                    + "        bbsSized = mix(bbsSized, bbsWide, clamp(bbsSizeT * 0.6, 0.0, 1.0));\n"
-                    + "        bbsSized = mix(bbsSized, bbsTight, clamp(-bbsSizeT, 0.0, 1.0));\n"
-                    + "        /* Spread 0 soft/wide, 1 sharp/choked — Photoshop Outer Glow. */\n"
-                    + "        vec3 bbsSoft = mix(bbsSized, bbsWide, 0.6);\n"
-                    + "        vec3 bbsSharp = mix(bbsSized, bbsTight * 1.2, 0.75);\n"
-                    + "        vec3 bbsGlowBlur = mix(bbsSoft, bbsSharp, bbsGlowSpread);\n"
-                    + "        vec3 blur = mix(bbsDefault, bbsGlowBlur, step(0.001, bbsGlowIntensity)); /* BBS_GLOW_DO_BLOOM */";
-
-            source = source.replace(complementaryFrom, to);
-
-            String strengthFrom = "float bloomStrength = BLOOM_STRENGTH + 0.2 * darknessFactor;";
-            String strengthTo =
-                "float bloomStrength = BLOOM_STRENGTH + 0.2 * darknessFactor;\n"
-                    + "        if (bbsGlowIntensity > 0.001) {\n"
-                    + "         bloomStrength *= 1.0 + clamp(bbsGlowIntensity, 0.0, 24.0) * 0.14 + max(bbsGlowSize, 0.0) * 0.4;\n"
-                    + "         bloomStrength *= mix(1.55, 0.55, bbsGlowSpread);\n"
-                    + "        } /* BBS_GLOW_STRENGTH */";
-
-            if (source.contains(strengthFrom) && !source.contains("BBS_GLOW_STRENGTH"))
-            {
-                source = source.replace(strengthFrom, strengthTo);
-            }
-
             return source;
         }
 
