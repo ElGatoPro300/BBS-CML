@@ -293,7 +293,8 @@ public final class ActorReplayStateSync
      * ActionPlayer used to assign keyframe values every tick, which wiped vanilla
      * {@code hurtTime}/{@code deathTime} and made actors look immune after a few hits.
      * <p>
-     * Death always takes the max so a real kill can finish its animation.
+     * Keyframed death drives {@code deathTime} exactly so scrubbing/playback match the film.
+     * Live kills with no death keyframes yet keep progressing via vanilla {@code deathTime}.
      * Live {@code hurtTime} is kept when damage flash and/or damage animation is enabled.
      */
     private static void applyHurtAndDeath(LivingEntity actor, int keyframeHurt, int keyframeDeath)
@@ -306,7 +307,15 @@ public final class ActorReplayStateSync
             return;
         }
 
-        actor.deathTime = Math.max(actor.deathTime, keyframeDeath);
+        if (keyframeDeath > 0)
+        {
+            actor.deathTime = keyframeDeath;
+        }
+        else if (!actor.isDead() && actor.getHealth() > 0F)
+        {
+            actor.deathTime = 0;
+        }
+
         actorEntity.setKeyframeHurtActive(keyframeHurt > 0);
 
         if (BBSSettings.shouldKeepActorLiveHurtTime())

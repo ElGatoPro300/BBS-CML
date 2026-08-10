@@ -34,6 +34,7 @@ import java.util.Map;
 
 public class ActionPlayer
 {
+    private static final int DEATH_ANIMATION_TICKS = 20;
     public Film film;
     public int tick;
     public boolean playing = true;
@@ -142,23 +143,43 @@ public class ActionPlayer
             }
             else
             {
-                ActorEntity actor = new ActorEntity(BBSMod.ACTOR_ENTITY, this.world);
+                int keyframeDeath = replay.keyframes.deathTime.interpolate(this.tick).intValue();
 
-                actor.setForm(FormUtils.copy(replay.form.get()));
-                actor.setReplayData(this.film, replay, this.tick);
-
-                this.apply(actor, replay, this.tick, false);
-
-                if (!this.playing)
+                if (keyframeDeath >= DEATH_ANIMATION_TICKS)
                 {
-                    actor.setVelocity(0D, 0D, 0D);
+                    continue;
                 }
 
+                ActorEntity actor = this.spawnActor(replay);
+
                 this.actors.put(replay.getId(), actor);
-                this.world.spawnEntity(actor);
             }
         }
 
+        this.broadcastActors();
+    }
+
+    private ActorEntity spawnActor(Replay replay)
+    {
+        ActorEntity actor = new ActorEntity(BBSMod.ACTOR_ENTITY, this.world);
+
+        actor.setForm(FormUtils.copy(replay.form.get()));
+        actor.setReplayData(this.film, replay, this.tick);
+
+        this.apply(actor, replay, this.tick, false);
+
+        if (!this.playing)
+        {
+            actor.setVelocity(0D, 0D, 0D);
+        }
+
+        this.world.spawnEntity(actor);
+
+        return actor;
+    }
+
+    private void broadcastActors()
+    {
         for (ServerPlayerEntity player : this.world.getPlayers())
         {
             ServerNetwork.sendActors(player, this.film.getId(), this.actors);
@@ -172,13 +193,24 @@ public class ActionPlayer
 
     public void apply(LivingEntity actor, Replay replay, float tick, boolean ticking)
     {
+        int keyframeDeath = replay.keyframes.deathTime.interpolate(tick).intValue();
+
+        /* Keyframed corpse finished — drop body so shadow/nametag cannot linger. */
+        if (actor instanceof ActorEntity && keyframeDeath >= DEATH_ANIMATION_TICKS)
+        {
+            if (!actor.isRemoved())
+            {
+                actor.discard();
+            }
+
+            return;
+        }
+
         /* Once combat has killed this actor, stop snapping pose/position from the
          * film so the death animation can play instead of looking invulnerable.
-         * Keyframed death (deathTime without being dead) still uses the full apply. */
+         * Keyframed death still applies deathTime below via applyFromKeyframes. */
         if (actor instanceof ActorEntity && (actor.isDead() || actor.getHealth() <= 0F))
         {
-            int keyframeDeath = replay.keyframes.deathTime.interpolate(tick).intValue();
-
             actor.deathTime = Math.max(actor.deathTime, keyframeDeath);
             actor.setVelocity(0D, 0D, 0D);
 
@@ -301,6 +333,9 @@ public class ActionPlayer
 
         List<Replay> list = this.film.replays.getList();
 
+        boolean actorsChanged = false;
+        List<String> removeIds = new ArrayList<>();
+
         for (Map.Entry<String, LivingEntity> entry : this.actors.entrySet())
         {
             Replay replay = (Replay) this.film.replays.get(entry.getKey());
@@ -342,6 +377,32 @@ public class ActionPlayer
 
                 LivingEntity actor = entry.getValue();
 
+                if (actor == null || actor.isRemoved())
+                {
+                    int keyframeDeath = replay.keyframes.deathTime.interpolate(this.tick).intValue();
+
+                    if (keyframeDeath >= DEATH_ANIMATION_TICKS)
+                    {
+                        removeIds.add(entry.getKey());
+                        actorsChanged = true;
+                    }
+                    else if (replay.actor.get() && !replay.fp.get())
+                    {
+                        ActorEntity respawned = this.spawnActor(replay);
+
+                        entry.setValue(respawned);
+                        actorsChanged = true;
+                        actor = respawned;
+                    }
+                    else
+                    {
+                        removeIds.add(entry.getKey());
+                        actorsChanged = true;
+
+                        continue;
+                    }
+                }
+
                 if (actor instanceof ActorEntity actorEntity)
                 {
                     actorEntity.updateTick(this.tick);
@@ -364,11 +425,26 @@ public class ActionPlayer
                  * LivingEntity limb swing decays naturally (player-stop style). */
                 this.apply(actor, replay, this.tick, this.playing);
 
-                if (!this.playing)
+                if (actor.isRemoved())
+                {
+                    removeIds.add(entry.getKey());
+                    actorsChanged = true;
+                }
+                else if (!this.playing)
                 {
                     actor.setVelocity(0D, 0D, 0D);
                 }
             }
+        }
+
+        for (String id : removeIds)
+        {
+            this.actors.remove(id);
+        }
+
+        if (actorsChanged)
+        {
+            this.broadcastActors();
         }
 
         if (!this.playing)
@@ -407,6 +483,12 @@ public class ActionPlayer
 
             LivingEntity actor = this.actors.get(replay.getId());
 
+            if (actor != null && (actor.isDead() || actor.getHealth() <= 0F || actor.deathTime > 0
+                || replay.keyframes.deathTime.interpolate(this.tick).intValue() > 0))
+            {
+                continue;
+            }
+
             replay.applyActions(actor, fakePlayer, this.film, this.tick);
         }
     }
@@ -439,6 +521,9 @@ public class ActionPlayer
 
     private void reapplyActors()
     {
+        boolean actorsChanged = false;
+        List<String> removeIds = new ArrayList<>();
+
         for (Map.Entry<String, LivingEntity> entry : this.actors.entrySet())
         {
             Replay replay = (Replay) this.film.replays.get(entry.getKey());
@@ -446,14 +531,48 @@ public class ActionPlayer
             if (replay != null)
             {
                 LivingEntity actor = entry.getValue();
+                int keyframeDeath = replay.keyframes.deathTime.interpolate(this.tick).intValue();
+
+                if (actor == null || actor.isRemoved())
+                {
+                    if (keyframeDeath >= DEATH_ANIMATION_TICKS || !replay.actor.get() || replay.fp.get())
+                    {
+                        if (actor != null && actor.isRemoved())
+                        {
+                            removeIds.add(entry.getKey());
+                            actorsChanged = true;
+                        }
+
+                        continue;
+                    }
+
+                    actor = this.spawnActor(replay);
+                    entry.setValue(actor);
+                    actorsChanged = true;
+                }
 
                 this.apply(actor, replay, this.tick, false);
 
-                if (!this.playing)
+                if (actor.isRemoved())
+                {
+                    removeIds.add(entry.getKey());
+                    actorsChanged = true;
+                }
+                else if (!this.playing)
                 {
                     actor.setVelocity(0D, 0D, 0D);
                 }
             }
+        }
+
+        for (String id : removeIds)
+        {
+            this.actors.remove(id);
+        }
+
+        if (actorsChanged)
+        {
+            this.broadcastActors();
         }
     }
 

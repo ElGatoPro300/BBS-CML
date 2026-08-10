@@ -4,6 +4,7 @@ import mchorse.bbs_mod.BBSModClient;
 import mchorse.bbs_mod.BBSSettings;
 import mchorse.bbs_mod.actions.types.MobDeathActionClip;
 import mchorse.bbs_mod.actions.types.item.ItemDropActionClip;
+import mchorse.bbs_mod.entity.ActorEntity;
 import mchorse.bbs_mod.film.MobCemItemCapture;
 import mchorse.bbs_mod.film.MobCemPoseCapture;
 import mchorse.bbs_mod.film.replays.MountLink;
@@ -227,7 +228,7 @@ public final class RecorderMobCapture
 
     public boolean tryCapture(Recorder recorder, Entity target, String groupPath)
     {
-        if (target == null || target instanceof PlayerEntity)
+        if (target == null || target instanceof PlayerEntity || target instanceof ActorEntity)
         {
             return false;
         }
@@ -353,7 +354,7 @@ public final class RecorderMobCapture
                         continue;
                     }
 
-                    if (this.capturedEntityIds.contains(entity.getId()))
+                    if (this.capturedEntityIds.contains(entity.getId()) || entity instanceof ActorEntity)
                     {
                         continue;
                     }
@@ -444,6 +445,7 @@ public final class RecorderMobCapture
                 if (session.deathTickIndex >= DEATH_ANIMATION_TICKS)
                 {
                     this.applyDeathVisibilityKeyframes(replay, tick);
+                    this.addMobDeathClip(replay, tick);
                     iterator.remove();
                 }
 
@@ -510,6 +512,7 @@ public final class RecorderMobCapture
                     if (session.deathTickIndex >= DEATH_ANIMATION_TICKS)
                     {
                         this.applyDeathVisibilityKeyframes(replay, tick);
+                        this.addMobDeathClip(replay, tick);
                         iterator.remove();
                     }
                     else
@@ -561,12 +564,6 @@ public final class RecorderMobCapture
 
         BaseValue.edit(replay.actions, (actions) ->
         {
-            MobDeathActionClip deathClip = new MobDeathActionClip();
-
-            deathClip.tick.set(tick);
-            deathClip.duration.set(1);
-            actions.addClip(deathClip);
-
             if (!this.captureNearbyDrops(replay, tick, session.deathX, session.deathY, session.deathZ, world))
             {
                 this.captureEquipmentDrops(replay, living, tick, session.deathX, session.deathY, session.deathZ);
@@ -595,6 +592,7 @@ public final class RecorderMobCapture
     public void recordTick(Recorder recorder)
     {
         this.capturePlayerVehicle(recorder);
+        this.syncFilmActorDeathSessions(recorder);
 
         if (this.sessions.isEmpty())
         {
@@ -721,6 +719,8 @@ public final class RecorderMobCapture
 
     public void simplify(Film film)
     {
+        this.finishOpenDeathSessions(film);
+
         for (Session session : this.sessions)
         {
             if (session.replayIndex >= 0 && session.replayIndex < film.replays.getList().size())
@@ -742,11 +742,71 @@ public final class RecorderMobCapture
         }
     }
 
+    /**
+     * If recording stops mid-death, still hide the corpse and spawn death particles.
+     */
+    private void finishOpenDeathSessions(Film film)
+    {
+        int tick = -1;
+        Recorder recorder = BBSModClient.getFilms().getRecorder();
+
+        if (recorder != null)
+        {
+            tick = recorder.getTick();
+        }
+
+        for (Session session : this.sessions)
+        {
+            if ((!session.recordingDeath && !session.deathHandled)
+                || session.replayIndex < 0
+                || session.replayIndex >= film.replays.getList().size())
+            {
+                continue;
+            }
+
+            Replay replay = film.replays.getList().get(session.replayIndex);
+            int disappearTick = tick >= 0 ? tick : session.deathTickIndex;
+
+            if (disappearTick < 0)
+            {
+                disappearTick = 0;
+            }
+
+            while (session.deathTickIndex < DEATH_ANIMATION_TICKS)
+            {
+                session.deathTickIndex += 1;
+                disappearTick += 1;
+                this.recordDeathEntity(replay, session, disappearTick, Math.min(session.deathTickIndex, DEATH_ANIMATION_TICKS));
+            }
+
+            this.applyDeathVisibilityKeyframes(replay, disappearTick);
+            this.addMobDeathClip(replay, disappearTick);
+        }
+    }
+
     private void finishDeathRecording(Recorder recorder, Replay replay, int disappearTick, Iterator<Session> iterator)
     {
         this.applyDeathVisibilityKeyframes(replay, disappearTick);
+        this.addMobDeathClip(replay, disappearTick);
         iterator.remove();
         this.refreshFilmUi(recorder);
+    }
+
+    private void addMobDeathClip(Replay replay, int tick)
+    {
+        if (tick < 0)
+        {
+            return;
+        }
+
+        BaseValue.edit(replay.actions, (actions) ->
+        {
+            MobDeathActionClip deathClip = new MobDeathActionClip();
+
+            deathClip.tick.set(tick);
+            deathClip.duration.set(1);
+            actions.addClip(deathClip);
+        });
     }
 
     private void applyDeathVisibilityKeyframes(Replay replay, int disappearTick)
@@ -951,12 +1011,6 @@ public final class RecorderMobCapture
 
         BaseValue.edit(replay.actions, (actions) ->
         {
-            MobDeathActionClip deathClip = new MobDeathActionClip();
-
-            deathClip.tick.set(tick);
-            deathClip.duration.set(1);
-            actions.addClip(deathClip);
-
             if (!this.captureNearbyDrops(replay, tick, session.deathX, session.deathY, session.deathZ, world))
             {
                 this.captureEquipmentDrops(replay, living, tick, session.deathX, session.deathY, session.deathZ);
@@ -964,6 +1018,70 @@ public final class RecorderMobCapture
         });
 
         this.refreshFilmUi(recorder);
+    }
+
+    /**
+     * When a film {@link ActorEntity} dies during recording, attach a death session to
+     * that existing replay instead of creating a phantom mob capture named "actor".
+     */
+    private void syncFilmActorDeathSessions(Recorder recorder)
+    {
+        Map<String, Integer> actors = recorder.getActors();
+
+        if (actors == null || actors.isEmpty())
+        {
+            return;
+        }
+
+        MinecraftClient mc = MinecraftClient.getInstance();
+        ClientWorld world = mc.world;
+
+        if (world == null)
+        {
+            return;
+        }
+
+        List<Replay> list = recorder.film.replays.getList();
+
+        for (Map.Entry<String, Integer> entry : actors.entrySet())
+        {
+            Integer entityId = entry.getValue();
+
+            if (entityId == null || this.capturedEntityIds.contains(entityId))
+            {
+                continue;
+            }
+
+            Entity entity = world.getEntityById(entityId);
+
+            if (!(entity instanceof ActorEntity actor))
+            {
+                continue;
+            }
+
+            boolean dying = !actor.isAlive() || actor.deathTime > 0;
+
+            if (!dying)
+            {
+                continue;
+            }
+
+            Replay replay = (Replay) recorder.film.replays.get(entry.getKey());
+
+            if (replay == null)
+            {
+                continue;
+            }
+
+            int replayIndex = list.indexOf(replay);
+
+            if (replayIndex < 0 || replayIndex == recorder.exception)
+            {
+                continue;
+            }
+
+            this.registerSession(recorder, actor, replayIndex);
+        }
     }
 
     private boolean captureNearbyDrops(Replay replay, int tick, double x, double y, double z, ClientWorld world)

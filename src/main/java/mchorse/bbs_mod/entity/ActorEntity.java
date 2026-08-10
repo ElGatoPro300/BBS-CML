@@ -483,7 +483,11 @@ public class ActorEntity extends LivingEntity implements IEntityFormProvider
     @Override
     public void tick()
     {
-        if (this.pauseNaturalAnimations)
+        /* Timeline freeze must not stall vanilla death: otherwise corpses never
+         * finish deathTime removal and leave permanent shadow/nametag ghosts. */
+        boolean dying = this.isDead() || this.getHealth() <= 0F || this.deathTime > 0;
+
+        if (this.pauseNaturalAnimations && !dying)
         {
             /* Hold limbs / emoticon clocks; still allow swipe hand-swing progress. */
             this.tickHandSwing();
@@ -502,7 +506,7 @@ public class ActorEntity extends LivingEntity implements IEntityFormProvider
         this.tickHandSwing();
         this.updateHitboxDimensions();
 
-        if (this.form != null)
+        if (this.form != null && !dying)
         {
             this.form.update(this.entity);
         }
