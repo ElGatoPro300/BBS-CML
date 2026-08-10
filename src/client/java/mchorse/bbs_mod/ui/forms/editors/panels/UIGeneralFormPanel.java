@@ -1,5 +1,6 @@
 package mchorse.bbs_mod.ui.forms.editors.panels;
 
+import mchorse.bbs_mod.BBSFeatures;
 import mchorse.bbs_mod.forms.FormUtils;
 import mchorse.bbs_mod.forms.FormUtilsClient;
 import mchorse.bbs_mod.forms.forms.Form;
@@ -84,6 +85,7 @@ public class UIGeneralFormPanel extends UIFormPanel
     public UITrackpad hitboxEyeHeight;
 
     public UITrackpad hp;
+    public UIToggle filmInvulnerable;
     public UITrackpad speed;
     public UITrackpad stepHeight;
 
@@ -193,6 +195,8 @@ public class UIGeneralFormPanel extends UIFormPanel
 
         this.hp = new UITrackpad((v) -> this.form.hp.set(v.floatValue()));
         this.hp.limit(1F);
+        this.filmInvulnerable = new UIToggle(UIKeys.FORMS_EDITORS_GENERAL_FILM_INVULNERABLE, (b) -> this.form.filmInvulnerable.set(b.getValue()));
+        this.filmInvulnerable.tooltip(UIKeys.FORMS_EDITORS_GENERAL_FILM_INVULNERABLE_TOOLTIP);
         this.speed = new UITrackpad((v) -> this.form.speed.set(v.floatValue()));
         this.speed.limit(0F);
         this.stepHeight = new UITrackpad((v) -> this.form.stepHeight.set(v.floatValue()));
@@ -245,6 +249,7 @@ public class UIGeneralFormPanel extends UIFormPanel
         this.options.add(UI.label(UIKeys.FORMS_EDITORS_GENERAL_DISPLAY), this.name);
         this.options.add(this.hotkey, this.visible, this.animatable, this.trackName, this.lighting, this.shaderShadow);
         this.options.add(UI.label(UIKeys.FORMS_EDITORS_GENERAL_UI_SCALE), this.uiScale);
+        this.options.add(this.filmInvulnerable.marginTop(8));
         this.options.add(this.transform.marginTop(8));
         this.options.add(this.lookAtSection);
         this.options.add(this.inverseKinematicsSection);
@@ -392,6 +397,7 @@ public class UIGeneralFormPanel extends UIFormPanel
         this.hitboxEyeHeight.setValue(form.hitboxEyeHeight.get());
 
         this.hp.setValue(form.hp.get());
+        this.filmInvulnerable.setValue(form.filmInvulnerable.get());
         this.speed.setValue(form.speed.get());
         this.stepHeight.setValue(form.stepHeight.get());
     }
@@ -415,7 +421,7 @@ public class UIGeneralFormPanel extends UIFormPanel
      */
     private void updateFilmOnlySectionsVisibility()
     {
-        boolean show = !this.isModelBlockFormContext();
+        boolean show = BBSFeatures.isFormIkLookAtUiEnabled() && !this.isModelBlockFormContext();
 
         this.lookAtSection.setVisible(show);
         this.lookAtSection.getShell().setVisible(show);

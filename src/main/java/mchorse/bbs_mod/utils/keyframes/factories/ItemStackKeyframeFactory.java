@@ -7,13 +7,13 @@ import mchorse.bbs_mod.data.types.MapType;
 import mchorse.bbs_mod.utils.interps.IInterp;
 
 import net.minecraft.item.ItemStack;
+import net.minecraft.nbt.NbtCompound;
 import net.minecraft.nbt.NbtElement;
 import net.minecraft.nbt.NbtOps;
 import net.minecraft.registry.RegistryOps;
 import net.minecraft.registry.RegistryWrapper;
 
 import com.mojang.datafixers.util.Pair;
-import com.mojang.serialization.DataResult;
 import com.mojang.serialization.DynamicOps;
 
 import java.util.Optional;
@@ -23,19 +23,55 @@ public class ItemStackKeyframeFactory implements IKeyframeFactory<ItemStack>
     @Override
     public ItemStack fromData(BaseType data)
     {
-        RegistryWrapper.WrapperLookup registries = BBSMod.getRegistryManager();
-        DynamicOps<NbtElement> ops = registries != null ? RegistryOps.of(NbtOps.INSTANCE, registries) : NbtOps.INSTANCE;
-        DataResult<Pair<ItemStack, NbtElement>> decode = ItemStack.CODEC.decode(ops, DataStorageUtils.toNbt(data));
-        Optional<Pair<ItemStack, NbtElement>> result = decode.result();
+        if (data == null)
+        {
+            return ItemStack.EMPTY;
+        }
 
-        return result.map(Pair::getFirst).orElse(ItemStack.EMPTY);
+        NbtElement nbt = DataStorageUtils.toNbt(data);
+        RegistryWrapper.WrapperLookup registries = BBSMod.getRegistryManager();
+
+        if (registries == null)
+        {
+            /* Without RegistryOps, enchanted components cannot be restored safely. */
+            return ItemStack.EMPTY;
+        }
+
+        DynamicOps<NbtElement> ops = RegistryOps.of(NbtOps.INSTANCE, registries);
+        Optional<ItemStack> decoded = ItemStack.CODEC.decode(ops, nbt).result().map(Pair::getFirst);
+
+        if (decoded.isPresent())
+        {
+            return decoded.get();
+        }
+
+        /* Legacy / partially corrupted entries still often decode via fromNbt. */
+        if (nbt instanceof NbtCompound compound)
+        {
+            return ItemStack.fromNbt(compound);
+        }
+
+        return ItemStack.EMPTY;
     }
 
     @Override
     public BaseType toData(ItemStack value)
     {
+        if (value == null || value.isEmpty())
+        {
+            return new MapType();
+        }
+
         RegistryWrapper.WrapperLookup registries = BBSMod.getRegistryManager();
-        DynamicOps<NbtElement> ops = registries != null ? RegistryOps.of(NbtOps.INSTANCE, registries) : NbtOps.INSTANCE;
+
+        if (registries == null)
+        {
+            /* Never encode with plain NbtOps — it drops enchantment components on
+             * 1.20.5+ and corrupts actor equipment keyframes on sync/save/undo. */
+            return new MapType();
+        }
+
+        DynamicOps<NbtElement> ops = RegistryOps.of(NbtOps.INSTANCE, registries);
         Optional<NbtElement> result = ItemStack.CODEC.encodeStart(ops, value).result();
 
         return result.map(DataStorageUtils::fromNbt).orElse(new MapType());

@@ -79,6 +79,9 @@ public class UIFilmPreview extends UIElement
 {
     public static final List<Consumer<UIFilmPreview>> extensions = new ArrayList<>();
 
+    private static final int GIZMO_ICON_IDLE = Colors.setA(Colors.WHITE, 0.5F);
+    private static final int GIZMO_ICON_HOVER = Colors.WHITE;
+
     private List<AudioClip> clips = new ArrayList<>();
     private File pendingThumbnail;
     private Runnable pendingThumbnailCallback;
@@ -120,8 +123,8 @@ public class UIFilmPreview extends UIElement
         this.icons.row().resize();
         this.icons.relative(this).x(0.5F).y(1F).anchor(0.5F, 1F);
 
-        /* Gizmo transform-mode buttons (move / scale / rotate), aligned to the viewport's
-           top-left corner like Blockbench's transform tools. */
+        /* Gizmo transform-mode buttons (move / scale / rotate), horizontal along the
+           top letterbox so they sit in the empty bar above the camera render. */
         this.gizmoMove = this.createGizmoButton(Icons.ALL_DIRECTIONS, Gizmo.Mode.TRANSLATE, UIKeys.FILM_GIZMO_MOVE);
         this.gizmoScale = this.createGizmoButton(Icons.SCALE, Gizmo.Mode.SCALE, UIKeys.FILM_GIZMO_SCALE);
         this.gizmoRotate = this.createGizmoButton(Icons.ARC, Gizmo.Mode.ROTATE, UIKeys.FILM_GIZMO_ROTATE);
@@ -133,11 +136,13 @@ public class UIFilmPreview extends UIElement
             this.getContext().replaceContextMenu(new UIGizmoSizeContextMenu())
         );
         this.gizmoSize.tooltip(UIKeys.FILM_GIZMO_SIZE);
+        this.styleGizmoToolbarIcon(this.gizmoSize);
 
         this.gizmoTranslateSpeed = new UIIcon(Icons.FORWARD, (b) ->
             this.getContext().replaceContextMenu(new UIGizmoTranslateSpeedContextMenu())
         );
         this.gizmoTranslateSpeed.tooltip(UIKeys.FILM_GIZMO_TRANSLATE_SPEED);
+        this.styleGizmoToolbarIcon(this.gizmoTranslateSpeed);
 
         this.gizmoButtonMap.put(ValueGizmoToolbar.MOVE, this.gizmoMove);
         this.gizmoButtonMap.put(ValueGizmoToolbar.SCALE, this.gizmoScale);
@@ -147,10 +152,11 @@ public class UIFilmPreview extends UIElement
         this.gizmoButtonMap.put(ValueGizmoToolbar.SIZE, this.gizmoSize);
         this.gizmoButtonMap.put(ValueGizmoToolbar.TRANSLATE_SPEED, this.gizmoTranslateSpeed);
 
-        this.gizmos = UI.column(0);
-        this.gizmos.relative(this).x(4).y(4).w(20);
+        this.gizmos = new UIElement();
+        this.gizmos.relative(this).x(4).y(4);
         this.rebuildGizmoToolbar();
         BBSSettings.editorGizmoToolbar.postCallback((v, f) -> this.rebuildGizmoToolbar());
+        BBSSettings.editorGizmoToolbarHorizontal.postCallback((v, f) -> this.rebuildGizmoToolbar());
         this.add(this.gizmos);
 
 
@@ -367,19 +373,42 @@ public class UIFilmPreview extends UIElement
     }
 
     /* Build a single gizmo transform-mode button that selects its mode and highlights while that
-       mode is active. */
+       mode is active. Idle icons stay half-transparent so the letterbox stays readable. */
     private UIIcon createGizmoButton(Icon icon, Gizmo.Mode mode, IKey tooltip)
     {
         UIIcon button = new UIIcon(icon, (b) ->
         {
             Gizmo.INSTANCE.setMode(mode);
             UIUtils.playClick();
-        });
+        })
+        {
+            @Override
+            protected void renderSkin(UIContext context)
+            {
+                int previous = this.iconColor;
+
+                /* Selected mode stays fully opaque (activeBackground would otherwise keep idle alpha). */
+                if (this.isActive())
+                {
+                    this.iconColor = GIZMO_ICON_HOVER;
+                }
+
+                super.renderSkin(context);
+                this.iconColor = previous;
+            }
+        };
 
         button.tooltip(tooltip);
+        this.styleGizmoToolbarIcon(button);
         button.activeBackground(Colors.A50 | Colors.BLUE);
 
         return button;
+    }
+
+    private void styleGizmoToolbarIcon(UIIcon button)
+    {
+        button.iconColor(GIZMO_ICON_IDLE);
+        button.hoverColor(GIZMO_ICON_HOVER);
     }
 
     public void openReplays()
@@ -410,8 +439,22 @@ public class UIFilmPreview extends UIElement
         }
 
         int count = this.gizmos.getChildren().size();
+        boolean horizontal = BBSSettings.editorGizmoToolbarHorizontal == null
+            || BBSSettings.editorGizmoToolbarHorizontal.get();
 
-        this.gizmos.h(Math.max(20, count * 20));
+        if (horizontal)
+        {
+            this.gizmos.row(0);
+            this.gizmos.w(Math.max(20, count * 20));
+            this.gizmos.h(20);
+        }
+        else
+        {
+            this.gizmos.column(0).vertical().stretch();
+            this.gizmos.w(20);
+            this.gizmos.h(Math.max(20, count * 20));
+        }
+
         this.gizmos.resize();
 
         if (this.viewportButtonsHidden)

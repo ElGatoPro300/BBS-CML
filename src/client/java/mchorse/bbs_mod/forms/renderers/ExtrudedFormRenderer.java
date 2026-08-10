@@ -99,16 +99,23 @@ public class ExtrudedFormRenderer extends FormRenderer<ExtrudedForm>
         RenderSystem.setupGui3DDiffuseLighting(light0, light1);
 
         RenderSystem.depthFunc(GL11.GL_LEQUAL);
-        this.renderModel(BBSShaders::getModel,
-            stack,
-            OverlayTexture.DEFAULT_UV, LightmapTextureManager.MAX_LIGHT_COORDINATE, Colors.WHITE,
-            context.getTransition(),
-            null,
-            true,
-            false,
-            null,
-            null
-        );
+
+        ShaderProgram modelShader = BBSShaders.getModel();
+
+        if (modelShader != null)
+        {
+            this.renderModel(() -> modelShader,
+                stack,
+                OverlayTexture.DEFAULT_UV, LightmapTextureManager.MAX_LIGHT_COORDINATE, Colors.WHITE,
+                context.getTransition(),
+                null,
+                true,
+                false,
+                null,
+                null
+            );
+        }
+
         RenderSystem.depthFunc(GL11.GL_ALWAYS);
 
         DiffuseLighting.disableGuiDepthLighting();

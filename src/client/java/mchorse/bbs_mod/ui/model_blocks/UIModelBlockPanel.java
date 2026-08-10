@@ -192,6 +192,7 @@ public class UIModelBlockPanel extends UIDashboardPanel implements IFlightSuppor
     public UIToggle global;
     public UIToggle lookAt;
     public UIToggle chromaSky;
+    public UIToggle localLighting;
     public UITrackpad lightLevel;
     public UITrackpad hardness;
     public UIPropTransform transform;
@@ -279,13 +280,17 @@ public class UIModelBlockPanel extends UIDashboardPanel implements IFlightSuppor
                         if (this.isEditing(this.modelBlock))
                         {
                             this.toSave.add(this.modelBlock);
-                            return;
                         }
 
+                        /* Always finish the undo entry so a later gizmo drag cannot keep the
+                         * pre-form snapshot in pendingUndoBefore and merge form+transform. */
                         this.endUndoCapture();
                     });
 
             palette.immersive();
+            /* Match Transformaciones/morphing: keep the world visible behind the form list
+             * instead of the default near-opaque palette scrim. */
+            palette.noBackground();
             palette.editor.keys().register(Keys.MODEL_BLOCKS_TOGGLE_RENDERING,
                     () -> toggleRendering = !toggleRendering);
             palette.editor.renderer.full(dashboard.getRoot());
@@ -379,6 +384,14 @@ public class UIModelBlockPanel extends UIDashboardPanel implements IFlightSuppor
             this.endUndoCapture();
         });
         this.chromaSky.tooltip(UIKeys.MODEL_BLOCKS_CHROMA_SKY_TOOLTIP);
+        this.localLighting = new UIToggle(UIKeys.MODEL_BLOCKS_LOCAL_LIGHTING, (b) -> {
+            if (this.modelBlock == null)
+                return;
+            this.beginUndoCapture();
+            this.modelBlock.getProperties().setLocalLighting(b.getValue());
+            this.endUndoCapture();
+        });
+        this.localLighting.tooltip(UIKeys.MODEL_BLOCKS_LOCAL_LIGHTING_TOOLTIP);
 
         this.lightLevel = new UITrackpad((v) -> {
             if (this.modelBlock == null)
@@ -519,6 +532,7 @@ public class UIModelBlockPanel extends UIDashboardPanel implements IFlightSuppor
                 UI.row(4, this.enabled, this.shadow),
                 UI.row(4, this.global, this.lookAt),
                 UI.row(4, this.hitbox, this.chromaSky),
+                UI.row(4, this.localLighting),
                 this.sectionHeader(UIKeys.MODEL_BLOCKS_BLOCK),
                 UI.row(4, lightGroup, hardnessGroup),
                 this.sectionHeader(UIKeys.MODEL_BLOCKS_EQUIPMENT),
@@ -1434,9 +1448,13 @@ public class UIModelBlockPanel extends UIDashboardPanel implements IFlightSuppor
 
         this.undoManager.pushUndo(new ModelBlockPropertiesUndo(this.modelBlock.getPos(), before, after));
         this.toSave.add(this.modelBlock);
-        /* Sync immediately so paint/color transforms are not lost if the world unloads
-         * before the panel's close() flush. */
-        this.save(this.modelBlock);
+
+        /* Nested form editor mutates the live form instance; syncing now round-trips
+         * fromData() and replaces it (stale F7 transforms). Defer until the editor closes. */
+        if (!this.isEditing(this.modelBlock))
+        {
+            this.save(this.modelBlock);
+        }
     }
 
     private void applyPropertiesSnapshot(BlockPos pos, MapType data) {
@@ -1481,6 +1499,13 @@ public class UIModelBlockPanel extends UIDashboardPanel implements IFlightSuppor
     }
 
     private static class ModelBlockPropertiesUndo implements IUndo<UIModelBlockPanel> {
+        private static final Set<String> TRANSFORM_KEYS = Set.of(
+            "transform",
+            "transformThirdPerson",
+            "transformInventory",
+            "transformFirstPerson"
+        );
+
         private final BlockPos pos;
         private final MapType before;
         private MapType after;
@@ -1500,7 +1525,14 @@ public class UIModelBlockPanel extends UIDashboardPanel implements IFlightSuppor
 
         @Override
         public boolean isMergeable(IUndo<UIModelBlockPanel> undo) {
-            return this.mergable && undo instanceof ModelBlockPropertiesUndo other && this.pos.equals(other.pos);
+            if (!this.mergable || !(undo instanceof ModelBlockPropertiesUndo other) || !this.pos.equals(other.pos)) {
+                return false;
+            }
+
+            /* Only coalesce consecutive transform/gizmo edits. Merging a form pick with a
+             * later gizmo move made Ctrl+Z restore the previous form as well. */
+            return isTransformOnlyChange(this.before, this.after)
+                && isTransformOnlyChange(other.before, other.after);
         }
 
         @Override
@@ -1517,6 +1549,35 @@ public class UIModelBlockPanel extends UIDashboardPanel implements IFlightSuppor
         @Override
         public void redo(UIModelBlockPanel context) {
             context.applyPropertiesSnapshot(this.pos, this.after);
+        }
+
+        private static boolean isTransformOnlyChange(MapType before, MapType after) {
+            if (before == null || after == null) {
+                return false;
+            }
+
+            Set<String> keys = new HashSet<>();
+            keys.addAll(before.keys());
+            keys.addAll(after.keys());
+
+            boolean anyChange = false;
+
+            for (String key : keys) {
+                String a = before.has(key) ? String.valueOf(before.get(key)) : "";
+                String b = after.has(key) ? String.valueOf(after.get(key)) : "";
+
+                if (a.equals(b)) {
+                    continue;
+                }
+
+                anyChange = true;
+
+                if (!TRANSFORM_KEYS.contains(key)) {
+                    return false;
+                }
+            }
+
+            return anyChange;
         }
     }
 
@@ -1608,11 +1669,7 @@ public class UIModelBlockPanel extends UIDashboardPanel implements IFlightSuppor
             BBSModClient.getCameraController().remove(this.cameraController);
         }
 
-        for (ModelBlockEntity entity : this.toSave) {
-            this.save(entity);
-        }
-
-        this.toSave.clear();
+        this.flushPendingSaves();
     }
 
     /**
@@ -1682,10 +1739,14 @@ public class UIModelBlockPanel extends UIDashboardPanel implements IFlightSuppor
 
         BBSRendering.ensureMainFramebuffer();
         this.updateList();
+        this.dropRemovedSelection();
+    }
 
-        if (this.modelBlock != null && this.modelBlock.isRemoved()) {
-            this.fill(null, true);
-        }
+    @Override
+    public void update() {
+        super.update();
+
+        this.dropRemovedSelection();
     }
 
     @Override
@@ -1695,12 +1756,7 @@ public class UIModelBlockPanel extends UIDashboardPanel implements IFlightSuppor
         this.dismissFormPaletteSilently();
         this.removeCameraController();
         this.saveLayout();
-
-        for (ModelBlockEntity entity : this.toSave) {
-            this.save(entity);
-        }
-
-        this.toSave.clear();
+        this.flushPendingSaves();
     }
 
     private void updateList() {
@@ -1713,8 +1769,41 @@ public class UIModelBlockPanel extends UIDashboardPanel implements IFlightSuppor
         this.fill(this.modelBlock, true);
     }
 
+    /**
+     * Drop selection and pending saves for block entities that no longer exist in the
+     * world. Otherwise leaving/reopening this panel (including right-click → setPanel)
+     * would flush stale properties to the same BlockPos and overwrite a newly placed block.
+     */
+    private void dropRemovedSelection() {
+        this.toSave.removeIf((entity) -> entity == null || entity.isRemoved());
+
+        if (this.modelBlock != null && this.modelBlock.isRemoved()) {
+            this.pendingUndoBefore = null;
+            this.fill(null, true);
+        }
+    }
+
+    private void flushPendingSaves() {
+        this.toSave.removeIf((entity) -> entity == null || entity.isRemoved());
+
+        for (ModelBlockEntity entity : this.toSave) {
+            this.save(entity);
+        }
+
+        this.toSave.clear();
+    }
+
     public void fill(ModelBlockEntity modelBlock, boolean select) {
-        if (modelBlock != null) {
+        /* Never keep pending writes for a broken block, or for a previous entity that
+         * shared this position — both would overwrite the live block on flush. */
+        this.toSave.removeIf((entity) ->
+            entity == null
+                || entity.isRemoved()
+                || (modelBlock != null
+                    && entity != modelBlock
+                    && entity.getPos().equals(modelBlock.getPos())));
+
+        if (modelBlock != null && !modelBlock.isRemoved()) {
             this.toSave.add(modelBlock);
         }
 
@@ -1919,6 +2008,7 @@ public class UIModelBlockPanel extends UIDashboardPanel implements IFlightSuppor
         this.global.setValue(properties.isGlobal());
         this.lookAt.setValue(properties.isLookAt());
         this.chromaSky.setValue(properties.isChromaSky());
+        this.localLighting.setValue(properties.isLocalLighting());
         this.lightLevel.setValue(properties.getLightLevel());
         this.hardness.setValue(properties.getHardness());
 
@@ -1931,7 +2021,7 @@ public class UIModelBlockPanel extends UIDashboardPanel implements IFlightSuppor
     }
 
     private void save(ModelBlockEntity modelBlock) {
-        if (modelBlock != null) {
+        if (modelBlock != null && !modelBlock.isRemoved()) {
             ClientNetwork.sendModelBlockForm(modelBlock.getPos(), modelBlock);
         }
     }

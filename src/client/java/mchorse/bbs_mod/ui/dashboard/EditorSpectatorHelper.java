@@ -19,6 +19,11 @@ public final class EditorSpectatorHelper
 {
     private static GameMode savedMode;
     private static boolean spectatorApplied;
+    /**
+     * Actor-control needs a playable mode (swipe / shield / damage). Keep the
+     * spectator session armed but temporarily apply {@link #savedMode}.
+     */
+    private static boolean controlSuspended;
 
     private EditorSpectatorHelper()
     {}
@@ -46,6 +51,11 @@ public final class EditorSpectatorHelper
 
         if (isSpectatorEditorPanel(panel))
         {
+            if (controlSuspended)
+            {
+                return;
+            }
+
             enterSpectator();
         }
         else
@@ -89,12 +99,93 @@ public final class EditorSpectatorHelper
         }
 
         spectatorApplied = true;
-        ClientNetwork.sendSetGameMode(GameMode.SPECTATOR);
+        controlSuspended = false;
+        applyGameMode(GameMode.SPECTATOR);
+    }
+
+    /**
+     * Leave spectator for actor-control combat without forgetting the editor
+     * spectator session (so {@link #resumeAfterControl()} can put it back).
+     */
+    public static void suspendForControl()
+    {
+        if (!spectatorApplied || controlSuspended)
+        {
+            if (controlSuspended)
+            {
+                ensurePlayableForControl();
+            }
+
+            return;
+        }
+
+        GameMode playable = savedMode == null ? GameMode.CREATIVE : savedMode;
+
+        if (playable == GameMode.SPECTATOR)
+        {
+            playable = GameMode.CREATIVE;
+        }
+
+        controlSuspended = true;
+        applyGameMode(playable);
+    }
+
+    /**
+     * Re-assert a playable mode while actor-control is active (server sync lag
+     * or a stray spectator restore must not leave combat disabled).
+     */
+    public static void ensurePlayableForControl()
+    {
+        if (!controlSuspended)
+        {
+            return;
+        }
+
+        ClientPlayerInteractionManager interactions = MinecraftClient.getInstance().interactionManager;
+
+        if (interactions == null)
+        {
+            return;
+        }
+
+        GameMode current = interactions.getCurrentGameMode();
+
+        if (current != GameMode.SPECTATOR)
+        {
+            return;
+        }
+
+        GameMode playable = savedMode == null ? GameMode.CREATIVE : savedMode;
+
+        if (playable == GameMode.SPECTATOR)
+        {
+            playable = GameMode.CREATIVE;
+        }
+
+        applyGameMode(playable);
+    }
+
+    /**
+     * Re-enter editor spectator after actor-control ends.
+     */
+    public static void resumeAfterControl()
+    {
+        if (!controlSuspended)
+        {
+            return;
+        }
+
+        controlSuspended = false;
+
+        if (spectatorApplied)
+        {
+            applyGameMode(GameMode.SPECTATOR);
+        }
     }
 
     public static void restore()
     {
-        if (!spectatorApplied)
+        if (!spectatorApplied && !controlSuspended)
         {
             return;
         }
@@ -102,13 +193,29 @@ public final class EditorSpectatorHelper
         GameMode restoreTo = savedMode == null ? GameMode.CREATIVE : savedMode;
 
         spectatorApplied = false;
+        controlSuspended = false;
         savedMode = null;
 
         ClientPlayerInteractionManager interactions = MinecraftClient.getInstance().interactionManager;
 
         if (interactions != null && interactions.getCurrentGameMode() != restoreTo)
         {
-            ClientNetwork.sendSetGameMode(restoreTo);
+            applyGameMode(restoreTo);
         }
+    }
+
+    /**
+     * Apply locally first so the next click can attack immediately, then sync server.
+     */
+    private static void applyGameMode(GameMode mode)
+    {
+        ClientPlayerInteractionManager interactions = MinecraftClient.getInstance().interactionManager;
+
+        if (interactions != null && interactions.getCurrentGameMode() != mode)
+        {
+            interactions.setGameMode(mode);
+        }
+
+        ClientNetwork.sendSetGameMode(mode);
     }
 }

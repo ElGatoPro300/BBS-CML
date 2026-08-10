@@ -116,7 +116,7 @@ public class Settings extends BaseValue
     @Override
     public void fromData(BaseType data)
     {
-        if (!data.isMap())
+        if (data == null || !data.isMap())
         {
             return;
         }

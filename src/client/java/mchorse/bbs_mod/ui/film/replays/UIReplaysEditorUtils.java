@@ -1,5 +1,6 @@
 package mchorse.bbs_mod.ui.film.replays;
 
+import mchorse.bbs_mod.BBSFeatures;
 import mchorse.bbs_mod.cubic.ModelInstance;
 import mchorse.bbs_mod.cubic.data.animation.Animation;
 import mchorse.bbs_mod.cubic.data.animation.AnimationPart;
@@ -201,7 +202,12 @@ public class UIReplaysEditorUtils
 
     private static boolean isBonePickProperty(String propertyId)
     {
-        return propertyId.equals("pose") || propertyId.startsWith("pose_overlay") || propertyId.equals("look_at") || propertyId.equals("inverse_kinematics");
+        if (propertyId.equals("pose") || propertyId.startsWith("pose_overlay"))
+        {
+            return true;
+        }
+
+        return BBSFeatures.isFormIkLookAtUiEnabled() && BBSFeatures.isFormIkLookAtProperty(propertyId);
     }
 
     public static void pickFormProperty(UIContext context, UIKeyframeEditor editor, ICursor cursor, Form form, String bone)
@@ -278,11 +284,11 @@ public class UIReplaysEditorUtils
             }
             else if (keyframeEditor.editor instanceof UILookAtKeyframeFactory)
             {
-                type = "look_at";
+                type = BBSFeatures.isFormIkLookAtUiEnabled() ? "look_at" : "pose";
             }
             else if (keyframeEditor.editor instanceof UIInverseKinematicsKeyframeFactory)
             {
-                type = "inverse_kinematics";
+                type = BBSFeatures.isFormIkLookAtUiEnabled() ? "inverse_kinematics" : "pose";
             }
         }
 
