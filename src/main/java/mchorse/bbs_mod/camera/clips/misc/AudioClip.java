@@ -31,7 +31,7 @@ public class AudioClip extends CameraClip
     {
         super.shiftLeft(tick);
 
-        this.offset.set(this.offset.get() - (this.tick.get() - tick));
+        this.offset.set(this.offset.get() - Math.round(this.tick.get() - tick));
     }
 
     @Override

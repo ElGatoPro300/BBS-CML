@@ -161,27 +161,39 @@ public class Replay extends ValueGroup
 
     public void applyActions(LivingEntity actor, SuperFakePlayer fakePlayer, Film film, int tick)
     {
-        List<Clip> clips = this.actions.getClips(tick);
+        this.applyActionsCrossing(actor, fakePlayer, film, tick - 1F, tick);
+    }
+
+    public void applyActionsCrossing(LivingEntity actor, SuperFakePlayer fakePlayer, Film film, float prevTime, float currTime)
+    {
+        List<Clip> clips = this.actions.getClipsCrossing(prevTime, currTime);
 
         for (Clip clip : clips)
         {
-            ((ActionClip) clip).apply(actor, fakePlayer, film, this, tick);
+            ((ActionClip) clip).applyCrossing(actor, fakePlayer, film, this, prevTime, currTime);
         }
     }
 
     public void applyClientActions(int tick, IEntity entity, Film film)
     {
+        this.applyClientActionsCrossing(tick - 1F, tick, entity, film);
+    }
+
+    public void applyClientActionsCrossing(float prevTime, float currTime, IEntity entity, Film film)
+    {
+        int tick = Math.round(currTime);
+
         tick = this.getTick(tick);
 
         SwipeActionClip.noteClientFilmTick(entity, tick);
 
-        List<Clip> clips = this.actions.getClips(tick);
+        List<Clip> clips = this.actions.getClipsCrossing(prevTime, currTime);
 
         for (Clip clip : clips)
         {
             if (clip instanceof ActionClip actionClip && actionClip.isClient())
             {
-                actionClip.applyClient(entity, film, this, tick);
+                actionClip.applyClientCrossing(entity, film, this, prevTime, currTime);
             }
         }
     }

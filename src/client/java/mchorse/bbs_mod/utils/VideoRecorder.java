@@ -53,10 +53,23 @@ public class VideoRecorder
 
     public int serverTicks;
     public int lastServerTicks;
+    /** Film tick at the start of the current export (loop min or 0). */
+    public float filmStartTick;
 
     public boolean isRecording()
     {
         return this.recording;
+    }
+
+    /**
+     * Current film time in ticks for the frame about to be / just being captured.
+     * Matches camera playback: {@code start + frame * 20 / videoFPS}.
+     */
+    public float getFilmTime()
+    {
+        int fps = Math.max(1, BBSRendering.getVideoFrameRate());
+
+        return this.filmStartTick + this.counter * (20F / fps);
     }
 
     public int getTextureId()

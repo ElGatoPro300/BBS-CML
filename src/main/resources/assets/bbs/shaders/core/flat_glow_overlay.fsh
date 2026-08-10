@@ -62,16 +62,17 @@ void main()
     float coverage = bbsDilate(texCoord0, radiusPx);
 
     /* Outer Glow fringe (outside silhouette). */
-    float choke = mix(0.4, 0.92, spreadM);
+    float choke = mix(0.35, 0.88, spreadM);
     float outer = max(0.0, coverage - src * choke);
-    float softEdge = mix(1.0, 0.15, spreadM);
+    /* Wider softEdge = cleaner, less muddy rim. */
+    float softEdge = mix(1.45, 0.28, spreadM);
     float outerMask = smoothstep(0.0, softEdge, outer);
 
     /* Always keep on-sprite emission so Intensity alone still glows. */
-    float coreMask = src * mix(0.55, 0.9, spreadM);
-    float glowMask = max(coreMask, outerMask * 1.25);
+    float coreMask = src * mix(0.5, 0.85, spreadM);
+    float glowMask = max(coreMask, outerMask);
 
-    float strength = intensity / (1.0 + intensity * 0.06);
+    float strength = intensity / (1.0 + intensity * 0.1);
     float alpha = glowMask * strength * max(vertexColor.a, 0.2);
 
     if (alpha < 0.002)
@@ -79,7 +80,8 @@ void main()
         discard;
     }
 
-    vec3 rgb = vertexColor.rgb * (0.9 + strength * 0.7);
+    /* Keep tint clean — avoid over-boost that washes dirty under HDR. */
+    vec3 rgb = vertexColor.rgb * mix(1.0, 1.15, clamp(strength * 0.35, 0.0, 1.0));
 
     fragColor = vec4(rgb, clamp(alpha, 0.0, 1.0));
 }

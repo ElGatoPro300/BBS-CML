@@ -50,9 +50,9 @@ public class UIClipPlacementInteraction
             return;
         }
 
-        int tick = this.state.lockedTick >= 0
+        float tick = this.state.lockedTick >= 0
             ? this.state.lockedTick
-            : clips.fromGraphX(context.mouseX);
+            : clips.fromGraphXFloat(context.mouseX);
         int layer = this.state.lockedLayer >= 0
             ? this.state.lockedLayer
             : clips.fromLayerY(context.mouseY);

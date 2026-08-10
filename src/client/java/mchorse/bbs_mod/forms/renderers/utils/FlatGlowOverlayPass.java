@@ -71,8 +71,8 @@ public class FlatGlowOverlayPass
             /* Intensity MUST use PTC layers — soft-only path was invisible under HDR / full-bleed sprites. */
             RenderSystem.setShader(GameRenderer::getPositionTexColorProgram);
 
-            int intensityLayers = Math.max(1, FormColorEffects.resolveGlowOverlayLayers(glowIntensity));
-            int bundles = Math.max(1, FormColorEffects.resolveGlowOverlayBundles(glowIntensity));
+            int intensityLayers = Math.min(6, Math.max(1, FormColorEffects.resolveGlowOverlayLayers(glowIntensity)));
+            int bundles = Math.min(3, Math.max(1, FormColorEffects.resolveGlowOverlayBundles(glowIntensity)));
 
             for (int bundle = 0; bundle < bundles; bundle++)
             {

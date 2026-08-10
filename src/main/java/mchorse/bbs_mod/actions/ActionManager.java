@@ -57,6 +57,17 @@ public class ActionManager
         }
     }
 
+    /**
+     * Advance action clips to a fractional film time (video export / high-FPS timeline).
+     */
+    public void syncActionsTo(float filmTime)
+    {
+        for (ActionPlayer player : this.players)
+        {
+            player.syncActionsTo(filmTime);
+        }
+    }
+
     /* Actions playback */
 
     public void syncData(String filmId, DataPath key, BaseType data)

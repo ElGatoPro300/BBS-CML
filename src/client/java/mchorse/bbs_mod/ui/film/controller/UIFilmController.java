@@ -1997,7 +1997,7 @@ public class UIFilmController extends UIElement
             return;
         }
 
-        int actionTick = replay.getTick(itemDrop.tick.get());
+        int actionTick = replay.getTick(Math.round(itemDrop.tick.get()));
         ReplayKeyframes keyframes = replay.keyframes;
         double replayX = keyframes.x.interpolate(actionTick);
         double replayY = keyframes.y.interpolate(actionTick);

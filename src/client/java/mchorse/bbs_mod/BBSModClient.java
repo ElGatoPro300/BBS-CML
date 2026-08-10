@@ -258,6 +258,31 @@ public class BBSModClient implements ClientModInitializer
         return videoRecorder;
     }
 
+    /**
+     * Apply action/command clips up to the current export film clock before a frame is captured.
+     */
+    private static void syncExportActions(VideoRecorder recorder)
+    {
+        MinecraftClient client = MinecraftClient.getInstance();
+        net.minecraft.server.MinecraftServer server = client.getServer();
+
+        if (server == null)
+        {
+            return;
+        }
+
+        float filmTime = recorder.getFilmTime();
+
+        try
+        {
+            server.submit(() -> BBSMod.getActions().syncActionsTo(filmTime)).get(100L, java.util.concurrent.TimeUnit.MILLISECONDS);
+        }
+        catch (Exception e)
+        {
+            /* Export continues even if a sync times out; next frame retries. */
+        }
+    }
+
     public static EntitySelectors getSelectors()
     {
         return selectors;
@@ -814,6 +839,7 @@ public class BBSModClient implements ClientModInitializer
 
             if (videoRecorder.isRecording() && BBSRendering.canRender)
             {
+                syncExportActions(videoRecorder);
                 videoRecorder.recordFrame();
             }
         });

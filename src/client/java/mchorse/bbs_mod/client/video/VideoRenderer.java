@@ -179,7 +179,7 @@ public class VideoRenderer
 
                 render(stack,
                     video.video.get(),
-                    tick - video.tick.get() + video.offset.get(),
+                    tick - Math.round(video.tick.get()) + video.offset.get(),
                     isRunning,
                     video.volume.get(),
                     vx, vy, vw, vh, video.opacity.get(),

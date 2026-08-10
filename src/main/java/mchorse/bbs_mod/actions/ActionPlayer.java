@@ -35,6 +35,11 @@ public class ActionPlayer
 {
     public Film film;
     public int tick;
+    /**
+     * Exclusive lower bound for the last applied action window.
+     * Export can advance this with fractional film time between world ticks.
+     */
+    private float lastActionTime;
     public boolean playing = true;
     public int countdown;
     public int exception;
@@ -68,6 +73,7 @@ public class ActionPlayer
         this.world = world;
         this.film = film;
         this.tick = tick;
+        this.lastActionTime = tick - 1F;
         this.countdown = countdown;
         this.exception = exception;
         this.type = type;
@@ -360,7 +366,7 @@ public class ActionPlayer
 
         if (this.tick >= 0)
         {
-            this.applyAction();
+            this.applyActionsUpTo(this.tick);
         }
 
         this.tick += 1;
@@ -368,10 +374,31 @@ public class ActionPlayer
         return !this.syncing && this.tick >= this.duration;
     }
 
-    private void applyAction()
+    /**
+     * Fire action clips whose times cross {@code (lastActionTime, filmTime]}.
+     * Used during video export so commands hit the same fractional film clock as the camera.
+     */
+    public void syncActionsTo(float filmTime)
     {
+        if (this.countdown > 0 || !this.playing)
+        {
+            return;
+        }
+
+        this.applyActionsUpTo(filmTime);
+    }
+
+    private void applyActionsUpTo(float filmTime)
+    {
+        if (filmTime <= this.lastActionTime)
+        {
+            return;
+        }
+
         SuperFakePlayer fakePlayer = SuperFakePlayer.get(this.world);
         List<Replay> list = this.film.replays.getList();
+        float prev = this.lastActionTime;
+        float curr = filmTime;
 
         for (int i = 0; i < list.size(); i++)
         {
@@ -389,8 +416,10 @@ public class ActionPlayer
 
             LivingEntity actor = this.actors.get(replay.getId());
 
-            replay.applyActions(actor, fakePlayer, this.film, this.tick);
+            replay.applyActionsCrossing(actor, fakePlayer, this.film, prev, curr);
         }
+
+        this.lastActionTime = filmTime;
     }
 
     public void syncData(DataPath key, BaseType data)
@@ -500,17 +529,32 @@ public class ActionPlayer
         if (from != tick)
         {
             this.tick = from;
+            this.lastActionTime = Math.min(from, tick) - 1F;
+
+            int step = from < tick ? 1 : -1;
 
             while (this.tick != tick)
             {
-                this.tick += this.tick > tick ? -1 : 1;
+                this.tick += step;
 
-                this.applyAction();
+                if (step > 0)
+                {
+                    this.applyActionsUpTo(this.tick);
+                }
             }
+
+            if (step < 0)
+            {
+                /* Seeking backward: reset action window so future play fires correctly. */
+                this.lastActionTime = tick - 1F;
+            }
+
+            this.tick = tick;
         }
         else
         {
             this.tick = tick;
+            this.lastActionTime = tick - 1F;
         }
 
         /* Snap actors to the target tick after action walk-through. Previously

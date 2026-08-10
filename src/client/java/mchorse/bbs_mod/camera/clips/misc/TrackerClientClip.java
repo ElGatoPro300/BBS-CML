@@ -50,7 +50,7 @@ public class TrackerClientClip extends TrackerClip
         float t = context.relativeTick + context.transition;
         boolean keyframed = this.useKeyframes.get();
 
-        if (!context.applyUnderneath(this.tick.get(), 0F, this.position))
+        if (!context.applyUnderneath(Math.round(this.tick.get()), 0F, this.position))
         {
             this.position.copy(position);
         }

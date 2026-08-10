@@ -180,15 +180,18 @@ public final class ComplementaryFormGlowPatch
 
         String to =
             "float bbsGlowI = max(" + U_INTENSITY + ", 0.0);\n"
-                + "                float bbsGlowSize = clamp(" + U_SIZE + ", -8.0, 16.0);\n"
+                + "                float bbsGlowSize = clamp(" + U_SIZE + ", -32.0, 24.0);\n"
                 + "                float bbsGlowSpread = clamp(" + U_SPREAD + ", 0.0, 1.0);\n"
-                + "                float bbsSizeT = clamp(bbsGlowSize / 8.0, -1.0, 2.0);\n"
+                + "                /* /16 so Size past -10 still moves (was hard-capped at -8). */\n"
+                + "                float bbsSizeT = clamp(bbsGlowSize / 16.0, -2.0, 2.0);\n"
                 + "                /* Size expands blur radius; Spread 0=soft/wide, 1=sharp/tight. */\n"
                 + "                float bbsKernel = 1.0;\n"
                 + "                if (bbsGlowI > 0.001) {\n"
-                + "                 bbsKernel = mix(1.0, mix(3.2, 1.25, bbsGlowSpread), clamp(bbsSizeT, 0.0, 1.0));\n"
-                + "                 bbsKernel = mix(bbsKernel, mix(0.45, 0.8, bbsGlowSpread), clamp(-bbsSizeT, 0.0, 1.0));\n"
-                + "                 bbsKernel = mix(bbsKernel, bbsKernel * 1.35, (1.0 - bbsGlowSpread) * clamp(bbsSizeT, 0.0, 1.0) * 0.5);\n"
+                + "                 float bbsPos = clamp(bbsSizeT, 0.0, 1.0);\n"
+                + "                 float bbsNeg = clamp(-bbsSizeT / 2.0, 0.0, 1.0);\n"
+                + "                 bbsKernel = mix(1.0, mix(2.6, 1.2, bbsGlowSpread), bbsPos);\n"
+                + "                 bbsKernel = mix(bbsKernel, mix(0.12, 0.4, bbsGlowSpread), bbsNeg);\n"
+                + "                 bbsKernel = mix(bbsKernel, bbsKernel * 1.2, (1.0 - bbsGlowSpread) * bbsPos * 0.35);\n"
                 + "                }\n"
                 + "                vec2 pixelOffset = vec2(i, j) / view * bbsKernel; /* " + TILE_GUARD + " */";
 
@@ -210,22 +213,26 @@ public final class ComplementaryFormGlowPatch
         }
 
         String to =
-            "float bbsGlowSize = clamp(" + U_SIZE + ", -8.0, 16.0);\n"
+            "float bbsGlowSize = clamp(" + U_SIZE + ", -32.0, 24.0);\n"
                 + "        float bbsGlowSpread = clamp(" + U_SPREAD + ", 0.0, 1.0);\n"
                 + "        float bbsGlowIntensity = max(" + U_INTENSITY + ", 0.0);\n"
-                + "        float bbsSizeT = clamp(bbsGlowSize / 8.0, -1.0, 2.0);\n"
+                + "        float bbsSizeT = clamp(bbsGlowSize / 16.0, -2.0, 2.0);\n"
                 + "        vec3 bbsDefault = (blur1 + blur2 + blur3 + blur4 + blur5 + blur6 + blur7) * 0.14;\n"
-                + "        vec3 bbsTight = (blur1 * 2.4 + blur2 * 1.7 + blur3 * 0.8) / 4.9;\n"
+                + "        /* Softer bases — keep white clean (less harsh tight-mip crush). */\n"
+                + "        vec3 bbsTight = (blur1 * 1.6 + blur2 * 1.4 + blur3 * 1.1 + blur4 * 0.6) / 4.7;\n"
                 + "        vec3 bbsMid = (blur2 + blur3 + blur4 + blur5) * 0.25;\n"
-                + "        vec3 bbsWide = (blur4 * 0.85 + blur5 * 1.25 + blur6 * 1.55 + blur7 * 1.9) / 5.55;\n"
-                + "        vec3 bbsSized = mix(bbsTight, bbsMid, clamp(bbsSizeT * 0.5 + 0.5, 0.0, 1.0));\n"
-                + "        bbsSized = mix(bbsSized, bbsWide, clamp(bbsSizeT * 0.7, 0.0, 1.0));\n"
-                + "        bbsSized = mix(bbsSized, bbsTight, clamp(-bbsSizeT, 0.0, 1.0));\n"
-                + "        /* Spread: 0 soft/wide wash, 1 sharp choked core (Euphoria-style Outer Glow). */\n"
-                + "        vec3 bbsSoft = mix(bbsSized, bbsWide, 0.65);\n"
-                + "        vec3 bbsSharp = mix(bbsSized, bbsTight * 1.25, 0.8);\n"
+                + "        vec3 bbsWide = (blur3 * 0.7 + blur4 + blur5 * 1.2 + blur6 * 1.4 + blur7 * 1.5) / 5.8;\n"
+                + "        float bbsPos = clamp(bbsSizeT, 0.0, 1.0);\n"
+                + "        float bbsNeg = clamp(-bbsSizeT / 2.0, 0.0, 1.0);\n"
+                + "        vec3 bbsSized = mix(bbsMid, bbsWide, bbsPos * 0.85);\n"
+                + "        bbsSized = mix(bbsSized, bbsTight, bbsNeg);\n"
+                + "        /* Spread: 0 soft/wide wash, 1 sharper core — still soft enough for clean white. */\n"
+                + "        vec3 bbsSoft = mix(bbsSized, bbsWide, 0.55);\n"
+                + "        vec3 bbsSharp = mix(bbsSized, bbsTight, 0.55);\n"
                 + "        vec3 bbsGlowBlur = mix(bbsSoft, bbsSharp, bbsGlowSpread);\n"
-                + "        vec3 blur = mix(bbsDefault, bbsGlowBlur, step(0.001, bbsGlowIntensity)); /* " + DO_BLOOM_GUARD + " */";
+                + "        /* Soft-cap intensity so HDR tonemap does not dirty pure white. */\n"
+                + "        float bbsGlowAmt = smoothstep(0.001, 0.35, bbsGlowIntensity);\n"
+                + "        vec3 blur = mix(bbsDefault, bbsGlowBlur, bbsGlowAmt); /* " + DO_BLOOM_GUARD + " */";
 
         source = source.replace(from, to);
 
@@ -233,8 +240,11 @@ public final class ComplementaryFormGlowPatch
         String strengthTo =
             "float bloomStrength = BLOOM_STRENGTH + 0.2 * darknessFactor;\n"
                 + "        if (bbsGlowIntensity > 0.001) {\n"
-                + "         bloomStrength *= 1.0 + clamp(bbsGlowIntensity, 0.0, 24.0) * 0.16 + max(bbsGlowSize, 0.0) * 0.48;\n"
-                + "         bloomStrength *= mix(1.65, 0.48, bbsGlowSpread);\n"
+                + "         float bbsISoft = bbsGlowIntensity / (1.0 + bbsGlowIntensity * 0.12);\n"
+                + "         bloomStrength *= 1.0 + bbsISoft * 0.1 + max(bbsGlowSize, 0.0) * 0.28;\n"
+                + "         bloomStrength *= mix(1.35, 0.7, bbsGlowSpread);\n"
+                + "         /* Slight lift so whites stay clean under Complementary tonemap. */\n"
+                + "         bloomStrength = min(bloomStrength * 1.05, BLOOM_STRENGTH * 2.4);\n"
                 + "        } /* BBS_COMP_GLOW_STRENGTH */";
 
         if (source.contains(strengthFrom) && !source.contains("BBS_COMP_GLOW_STRENGTH"))
@@ -261,20 +271,21 @@ public final class ComplementaryFormGlowPatch
                 + "#define " + PACK_GUARD + " 1\n"
                 + "float " + APPLY + "(){\n"
                 + " if(" + U_INTENSITY + "<=0.001) return 0.0;\n"
-                + " float soft=" + U_INTENSITY + "/(1.0+" + U_INTENSITY + "*0.04);\n"
-                + " float sizeM=clamp(" + U_SIZE + ",-4.0,12.0);\n"
+                + " float soft=" + U_INTENSITY + "/(1.0+" + U_INTENSITY + "*0.08);\n"
+                + " float sizeM=clamp(" + U_SIZE + ",-32.0,24.0);\n"
                 + " float spreadM=clamp(" + U_SPREAD + ",0.0,1.0);\n"
-                + " /* Feed Complementary bloom atlas a strong emissive seed. */\n"
-                + " return soft*(1.6+max(sizeM,0.0)*0.7)*(1.0+spreadM*0.25);\n"
+                + " /* Soft emission seed — avoid overdrive that dirty-washes white. */\n"
+                + " return soft*(1.25+max(sizeM,0.0)*0.45)*(0.95+spreadM*0.15);\n"
                 + "}\n"
                 + "vec3 " + AFTER_LIGHT + "(vec3 rgb){\n"
                 + " if(" + U_INTENSITY + "<=0.001) return rgb;\n"
-                + " float soft=" + U_INTENSITY + "/(1.0+" + U_INTENSITY + "*0.04);\n"
-                + " float sizeM=clamp(" + U_SIZE + ",-4.0,12.0);\n"
+                + " float soft=" + U_INTENSITY + "/(1.0+" + U_INTENSITY + "*0.08);\n"
+                + " float sizeM=clamp(" + U_SIZE + ",-32.0,24.0);\n"
                 + " float spreadM=clamp(" + U_SPREAD + ",0.0,1.0);\n"
-                + " rgb += rgb*soft*(0.28+max(sizeM,0.0)*0.22);\n"
-                + " float choke=mix(0.85,1.4,spreadM);\n"
-                + " return mix(rgb, rgb*choke, soft*mix(0.35,0.7,spreadM));\n"
+                + " /* Gentle lift toward glow tint; keep neutrals clean white. */\n"
+                + " rgb += rgb*soft*(0.12+max(sizeM,0.0)*0.1);\n"
+                + " float lift=mix(1.02,1.12,spreadM);\n"
+                + " return mix(rgb, rgb*lift, soft*mix(0.2,0.4,spreadM));\n"
                 + "}\n"
                 + "#endif\n";
 
