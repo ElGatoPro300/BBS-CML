@@ -573,7 +573,8 @@ public class ServerNetwork
 
                 if (actionPlayer != null)
                 {
-                    actionPlayer.goTo(tick);
+                    /* Soft sync — do not rebuild combat / re-fire clips on play. */
+                    actionPlayer.syncPlaybackTick(tick);
                     actionPlayer.playing = true;
                 }
             }
@@ -583,7 +584,8 @@ public class ServerNetwork
 
                 if (actionPlayer != null)
                 {
-                    actionPlayer.goTo(tick);
+                    /* Soft sync — do not revive combat-dead actors on pause. */
+                    actionPlayer.syncPlaybackTick(tick);
                     actionPlayer.playing = false;
                 }
             }
@@ -612,11 +614,8 @@ public class ServerNetwork
                 {
                     actionPlayer.syncing = true;
                     actionPlayer.playing = false;
-
-                    if (tick != 0)
-                    {
-                        actionPlayer.goTo(0, tick);
-                    }
+                    /* Always sync HP + world clips from 0..cursor (incl. tick 0). */
+                    actionPlayer.goTo(0, tick);
                 }
 
                 sendStopFilm(player, filmId);

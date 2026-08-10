@@ -2,6 +2,9 @@ package mchorse.bbs_mod.actions;
 
 import mchorse.bbs_mod.BBSMod;
 import mchorse.bbs_mod.BBSSettings;
+import mchorse.bbs_mod.actions.types.ActionClip;
+import mchorse.bbs_mod.actions.types.AttackActionClip;
+import mchorse.bbs_mod.actions.types.DamageActionClip;
 import mchorse.bbs_mod.data.types.BaseType;
 import mchorse.bbs_mod.entity.ActorEntity;
 import mchorse.bbs_mod.film.Film;
@@ -18,6 +21,7 @@ import mchorse.bbs_mod.settings.values.base.BaseValueGroup;
 import mchorse.bbs_mod.utils.CollectionUtils;
 import mchorse.bbs_mod.utils.DataPath;
 import mchorse.bbs_mod.utils.MathUtils;
+import mchorse.bbs_mod.utils.clips.Clip;
 
 import net.minecraft.entity.EquipmentSlot;
 import net.minecraft.entity.LivingEntity;
@@ -512,6 +516,21 @@ public class ActionPlayer
 
     private void applyAction()
     {
+        this.applyActionsFiltered(false);
+    }
+
+    /**
+     * Seek scrub: fire world clips (drops, swipe, …) like before, but skip
+     * Attack/Damage — cumulative HP is applied separately via silent calc so
+     * scrubbing cannot spam hits or forget earlier damage.
+     */
+    private void applyNonCombatActions()
+    {
+        this.applyActionsFiltered(true);
+    }
+
+    private void applyActionsFiltered(boolean skipCombatClips)
+    {
         SuperFakePlayer fakePlayer = SuperFakePlayer.get(this.world);
         List<Replay> list = this.film.replays.getList();
 
@@ -536,7 +555,25 @@ public class ActionPlayer
                 continue;
             }
 
-            replay.applyActions(actor, fakePlayer, this.film, this.tick);
+            if (!skipCombatClips)
+            {
+                replay.applyActions(actor, fakePlayer, this.film, this.tick);
+
+                continue;
+            }
+
+            for (Clip clip : replay.actions.getClips(this.tick))
+            {
+                if (clip instanceof AttackActionClip || clip instanceof DamageActionClip)
+                {
+                    continue;
+                }
+
+                if (clip instanceof ActionClip actionClip)
+                {
+                    actionClip.apply(actor, fakePlayer, this.film, replay, this.tick);
+                }
+            }
         }
     }
 
@@ -679,22 +716,49 @@ public class ActionPlayer
         this.goTo(this.tick, tick);
     }
 
+    /**
+     * Play/Pause only: move the server tick without rebuilding combat or
+     * re-firing clips (avoids the cursor vs cursor+1 revive on pause).
+     */
+    public void syncPlaybackTick(int tick)
+    {
+        this.tick = Math.max(0, tick);
+        this.reapplyActors();
+    }
+
     public void goTo(int from, int tick)
     {
+        tick = Math.max(0, tick);
+        from = Math.max(0, from);
+
+        /* 1) Silent HP from all Attack/Damage clips in [0..tick] — preserves
+         * damage taken before the scrub window (fixes “final hit doesn’t kill”). */
+        Map<String, Float> health = this.computeSilentHealth(tick);
+
+        this.combatFinishedIds.clear();
+
+        for (Map.Entry<String, Float> entry : health.entrySet())
+        {
+            if (entry.getValue() <= 0F)
+            {
+                this.combatFinishedIds.add(entry.getKey());
+            }
+        }
+
+        this.discardFinishedActors();
+        this.ensureMissingActors();
+        this.applySilentHealthToActors(health);
+
+        /* 2) Same delta walk as before for world clips (item drops, etc.).
+         * Combat clips are skipped here to avoid hit spam; HP already matches tick. */
         if (from != tick)
         {
-            /* Real seek/scrub: revive everyone and re-simulate actions so Attack
-             * can kill again. Same-tick Play/Pause must not revive corpses. */
-            this.combatFinishedIds.clear();
-            this.ensureMissingActors();
-
             this.tick = from;
 
             while (this.tick != tick)
             {
                 this.tick += this.tick > tick ? -1 : 1;
-
-                this.applyAction();
+                this.applyNonCombatActions();
             }
         }
         else
@@ -702,10 +766,189 @@ public class ActionPlayer
             this.tick = tick;
         }
 
-        /* Snap actors to the target tick after action walk-through. Previously
-         * applied this.tick (pre-seek), leaving ActorEntity at a stale pose until
-         * the next server tick. */
         this.reapplyActors();
+    }
+
+    /**
+     * Dry-run Attack/Damage into an HP map. Does not touch the world.
+     */
+    private Map<String, Float> computeSilentHealth(int tick)
+    {
+        Map<String, Float> health = new HashMap<>();
+        List<Replay> list = this.film.replays.getList();
+
+        for (int i = 0; i < list.size(); i++)
+        {
+            Replay replay = list.get(i);
+
+            if (i == this.exception || !this.isCombatTrackedReplay(replay))
+            {
+                continue;
+            }
+
+            health.put(replay.getId(), 20F);
+        }
+
+        if (health.isEmpty() || tick < 0)
+        {
+            return health;
+        }
+
+        for (int t = 0; t <= tick; t++)
+        {
+            for (int i = 0; i < list.size(); i++)
+            {
+                if (i == this.exception)
+                {
+                    continue;
+                }
+
+                Replay replay = list.get(i);
+
+                if (!replay.enabled.get())
+                {
+                    continue;
+                }
+
+                for (Clip clip : replay.actions.getClips(t))
+                {
+                    if (!this.shouldApplyActionClip(clip, t))
+                    {
+                        continue;
+                    }
+
+                    if (clip instanceof DamageActionClip damageClip)
+                    {
+                        this.applySilentDamage(health, replay.getId(), damageClip.damage.get());
+                    }
+                    else if (clip instanceof AttackActionClip attackClip)
+                    {
+                        String targetId = attackClip.target.get();
+
+                        if (targetId != null && !targetId.isEmpty())
+                        {
+                            this.applySilentDamage(health, targetId, attackClip.damage.get());
+                        }
+                    }
+                }
+            }
+        }
+
+        return health;
+    }
+
+    private boolean isCombatTrackedReplay(Replay replay)
+    {
+        return replay != null
+            && replay.enabled.get()
+            && replay.actor.get()
+            && !replay.fp.get();
+    }
+
+    private boolean shouldApplyActionClip(Clip clip, int tick)
+    {
+        if (!(clip instanceof ActionClip actionClip) || !actionClip.enabled.get())
+        {
+            return false;
+        }
+
+        int relative = tick - actionClip.tick.get();
+        int frequency = actionClip.frequency.get();
+
+        if (frequency == 0)
+        {
+            return relative == 0;
+        }
+
+        return relative >= 0 && relative % frequency == 0;
+    }
+
+    private void applySilentDamage(Map<String, Float> health, String replayId, float amount)
+    {
+        if (replayId == null || !health.containsKey(replayId))
+        {
+            return;
+        }
+
+        float current = health.get(replayId);
+
+        if (current <= 0F)
+        {
+            return;
+        }
+
+        if (amount >= AttackDamage.MOB_KILLER_DAMAGE)
+        {
+            health.put(replayId, 0F);
+
+            return;
+        }
+
+        if (amount <= 0F)
+        {
+            return;
+        }
+
+        health.put(replayId, Math.max(0F, current - amount));
+    }
+
+    private void applySilentHealthToActors(Map<String, Float> health)
+    {
+        for (Map.Entry<String, Float> entry : health.entrySet())
+        {
+            if (this.combatFinishedIds.contains(entry.getKey()))
+            {
+                continue;
+            }
+
+            LivingEntity actor = this.actors.get(entry.getKey());
+
+            if (actor == null || actor.isRemoved() || actor.isPlayer())
+            {
+                continue;
+            }
+
+            float hp = Math.max(0.01F, entry.getValue());
+
+            actor.deathTime = 0;
+            actor.setHealth(Math.min(hp, actor.getMaxHealth()));
+            actor.hurtTime = 0;
+            actor.timeUntilRegen = 0;
+        }
+    }
+
+    private void discardFinishedActors()
+    {
+        boolean changed = false;
+        List<String> removeIds = new ArrayList<>();
+
+        for (Map.Entry<String, LivingEntity> entry : this.actors.entrySet())
+        {
+            if (!this.combatFinishedIds.contains(entry.getKey()))
+            {
+                continue;
+            }
+
+            LivingEntity actor = entry.getValue();
+
+            if (actor != null && !actor.isPlayer() && !actor.isRemoved())
+            {
+                actor.discard();
+            }
+
+            removeIds.add(entry.getKey());
+            changed = true;
+        }
+
+        for (String id : removeIds)
+        {
+            this.actors.remove(id);
+        }
+
+        if (changed)
+        {
+            this.broadcastActors();
+        }
     }
 
     public void stop()

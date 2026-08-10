@@ -1401,84 +1401,98 @@ public abstract class BaseFilmController
 
                         if (anEntity instanceof ActorEntity actor)
                         {
-                            boolean controlling = !this.shouldEmitReplayMotionFx(entity);
-                            boolean timelineAnims = BBSSettings.editorActorPauseAnimations != null
-                                && BBSSettings.editorActorPauseAnimations.get();
-                            boolean pauseAnims = timelineAnims
-                                && !this.isActorPlaybackActive()
-                                && !controlling;
+                            boolean combatDead = actor.isDead() || actor.getHealth() <= 0F || actor.deathTime > 0;
 
-                            actor.setPauseNaturalAnimations(pauseAnims);
-
-                            /* IEntity already has mount rotation applied by MorphMountSync */
-                            actor.setYaw(entity.getYaw());
-                            actor.setHeadYaw(entity.getHeadYaw());
-                            actor.setBodyYaw(entity.getBodyYaw());
-                            actor.setPitch(entity.getPitch());
-                            /* Actor-control: copy the live player's LimbAnimator (vanilla).
-                             * Playback: do not hard-copy stub limbs — that fights forward
-                             * coast velocity and snaps swing. LivingEntity.tick + server
-                             * applyFromKeyframes use updateLimbs(target, 0.4) toward the
-                             * same motion as the body (vanilla stop/accel ease).
-                             * Skip while a live hurt swing spike is active so procedural
-                             * damage uses the same limbSpeed amplification as vanilla. */
-                            boolean syncLimbs = controlling
-                                && !actor.shouldPreserveLiveHurtLimbSwing();
-
-                            ActorReplayStateSync.syncFromSource(actor, entity, syncLimbs);
-                            /* Keep keyframed equipment on the visible ActorEntity — stub
-                             * already received applyReplay; without this, actor toggle can
-                             * show empty armor until the server respawns the actor. */
-                            this.syncActorEquipmentFromStub(actor, entity);
-                            /* Only gate vanilla sprint dust — do not clear sprinting (run anim). */
-                            actor.setSuppressSprintParticles(controlling);
-                            /* Iris packs cast mesh shadows; drop the vanilla blob then so
-                             * actor ground circles are not stacked darker. */
-                            ActorEntityRenderer.updateShadowRadius(actor);
-
-                            if (pauseAnims)
+                            if (combatDead)
                             {
-                                this.applyPausedActorNaturalMotion(actor, replay, replayTick);
-                            }
-                            else if (controlling)
-                            {
-                                /* Actor-control: keep the visible ActorEntity on the live
-                                 * player pose (server ActionPlayer skips this replay via PUPPET).
-                                 * Do not copy player velocity — LivingEntity.tick would keep
-                                 * integrating it on top of the snap (and creative-flight
-                                 * residual looks like ice). Limbs already come from the
-                                 * player via syncLimbs above. */
-                                actor.setPosition(entity.getX(), entity.getY(), entity.getZ());
-                                actor.prevX = entity.getPrevX();
-                                actor.prevY = entity.getPrevY();
-                                actor.prevZ = entity.getPrevZ();
+                                /* Keep server combat-death pose; do not overlay alive keyframes. */
+                                actor.setPauseNaturalAnimations(false);
                                 actor.setVelocity(0D, 0D, 0D);
+                                actor.syncNameTag(replay);
+                                replay.applyClientActions(replayTick, new MCEntity(anEntity), this.film);
+                                spawned = true;
                             }
-                            else if (!this.isActorPlaybackActive())
+                            else
                             {
-                                actor.setVelocity(0D, 0D, 0D);
+                                boolean controlling = !this.shouldEmitReplayMotionFx(entity);
+                                boolean timelineAnims = BBSSettings.editorActorPauseAnimations != null
+                                    && BBSSettings.editorActorPauseAnimations.get();
+                                boolean pauseAnims = timelineAnims
+                                    && !this.isActorPlaybackActive()
+                                    && !controlling;
 
-                                /* Toggle off: clear sprint so emoticon/BOBJ leave run for
-                                 * idle (unless legacy run-in-place is enabled). Limb swing is
-                                 * left alone so procedural forms decay naturally. */
-                                if (!timelineAnims && BBSSettings.shouldSettleActorNaturalStopWhenPaused())
+                                actor.setPauseNaturalAnimations(pauseAnims);
+
+                                /* IEntity already has mount rotation applied by MorphMountSync */
+                                actor.setYaw(entity.getYaw());
+                                actor.setHeadYaw(entity.getHeadYaw());
+                                actor.setBodyYaw(entity.getBodyYaw());
+                                actor.setPitch(entity.getPitch());
+                                /* Actor-control: copy the live player's LimbAnimator (vanilla).
+                                 * Playback: do not hard-copy stub limbs — that fights forward
+                                 * coast velocity and snaps swing. LivingEntity.tick + server
+                                 * applyFromKeyframes use updateLimbs(target, 0.4) toward the
+                                 * same motion as the body (vanilla stop/accel ease).
+                                 * Skip while a live hurt swing spike is active so procedural
+                                 * damage uses the same limbSpeed amplification as vanilla. */
+                                boolean syncLimbs = controlling
+                                    && !actor.shouldPreserveLiveHurtLimbSwing();
+
+                                ActorReplayStateSync.syncFromSource(actor, entity, syncLimbs);
+                                /* Keep keyframed equipment on the visible ActorEntity — stub
+                                 * already received applyReplay; without this, actor toggle can
+                                 * show empty armor until the server respawns the actor. */
+                                this.syncActorEquipmentFromStub(actor, entity);
+                                /* Only gate vanilla sprint dust — do not clear sprinting (run anim). */
+                                actor.setSuppressSprintParticles(controlling);
+                                /* Iris packs cast mesh shadows; drop the vanilla blob then so
+                                 * actor ground circles are not stacked darker. */
+                                ActorEntityRenderer.updateShadowRadius(actor);
+
+                                if (pauseAnims)
                                 {
-                                    ActorReplayStateSync.settleNaturalStop(actor);
+                                    this.applyPausedActorNaturalMotion(actor, replay, replayTick);
                                 }
+                                else if (controlling)
+                                {
+                                    /* Actor-control: keep the visible ActorEntity on the live
+                                     * player pose (server ActionPlayer skips this replay via PUPPET).
+                                     * Do not copy player velocity — LivingEntity.tick would keep
+                                     * integrating it on top of the snap (and creative-flight
+                                     * residual looks like ice). Limbs already come from the
+                                     * player via syncLimbs above. */
+                                    actor.setPosition(entity.getX(), entity.getY(), entity.getZ());
+                                    actor.prevX = entity.getPrevX();
+                                    actor.prevY = entity.getPrevY();
+                                    actor.prevZ = entity.getPrevZ();
+                                    actor.setVelocity(0D, 0D, 0D);
+                                }
+                                else if (!this.isActorPlaybackActive())
+                                {
+                                    actor.setVelocity(0D, 0D, 0D);
+
+                                    /* Toggle off: clear sprint so emoticon/BOBJ leave run for
+                                     * idle (unless legacy run-in-place is enabled). Limb swing is
+                                     * left alone so procedural forms decay naturally. */
+                                    if (!timelineAnims && BBSSettings.shouldSettleActorNaturalStopWhenPaused())
+                                    {
+                                        ActorReplayStateSync.settleNaturalStop(actor);
+                                    }
+                                }
+
+                                /* Timeline-freeze skips ActorEntity.tick, so vanilla sprint dust
+                                 * never runs — emit keyframe dust while the body clock is frozen. */
+                                if (pauseAnims && this.shouldEmitReplayMotionFx(entity))
+                                {
+                                    this.spawnSprintParticles(replay, replayTick, actor, true);
+                                }
+
+                                /* Keep label in sync while editing name_tag in the film UI. */
+                                actor.syncNameTag(replay);
+                                replay.applyClientActions(replayTick, new MCEntity(anEntity), this.film);
+
+                                spawned = true;
                             }
-
-                            /* Timeline-freeze skips ActorEntity.tick, so vanilla sprint dust
-                             * never runs — emit keyframe dust while the body clock is frozen. */
-                            if (pauseAnims && this.shouldEmitReplayMotionFx(entity))
-                            {
-                                this.spawnSprintParticles(replay, replayTick, actor, true);
-                            }
-
-                            /* Keep label in sync while editing name_tag in the film UI. */
-                            actor.syncNameTag(replay);
-                            replay.applyClientActions(replayTick, new MCEntity(anEntity), this.film);
-
-                            spawned = true;
                         }
                         else if (anEntity instanceof PlayerEntity player)
                         {
