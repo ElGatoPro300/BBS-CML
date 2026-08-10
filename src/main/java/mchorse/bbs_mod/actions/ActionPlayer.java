@@ -233,6 +233,16 @@ public class ActionPlayer
         return this.world;
     }
 
+    public LivingEntity getActor(String replayId)
+    {
+        return replayId == null || replayId.isEmpty() ? null : this.actors.get(replayId);
+    }
+
+    public Map<String, LivingEntity> getActors()
+    {
+        return this.actors;
+    }
+
     public void apply(LivingEntity actor, Replay replay, float tick, boolean ticking)
     {
         /* Once combat (Attack clip) has killed this actor, keep snapping to

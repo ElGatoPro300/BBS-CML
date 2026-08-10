@@ -3,6 +3,8 @@ package mchorse.bbs_mod.mixin;
 import mchorse.bbs_mod.BBSMod;
 import mchorse.bbs_mod.actions.AttackDamage;
 import mchorse.bbs_mod.actions.types.AttackActionClip;
+import mchorse.bbs_mod.entity.ActorEntity;
+import mchorse.bbs_mod.film.replays.Replay;
 
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.LivingEntity;
@@ -32,6 +34,16 @@ public class LivingEntityMixin
                 AttackActionClip clip = new AttackActionClip();
 
                 clip.damage.set(recorded);
+
+                if (target instanceof ActorEntity actorEntity)
+                {
+                    Replay replay = actorEntity.getReplay();
+
+                    if (replay != null)
+                    {
+                        clip.target.set(replay.getId());
+                    }
+                }
 
                 return clip;
             });

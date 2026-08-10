@@ -132,6 +132,16 @@ public class ActorEntity extends LivingEntity implements IEntityFormProvider
         this.syncNameTag(replay);
     }
 
+    public Film getFilm()
+    {
+        return this.film;
+    }
+
+    public Replay getReplay()
+    {
+        return this.replay;
+    }
+
     /**
      * Actor-mode bodies are drawn by {@code ActorEntityRenderer}, not the film
      * stub path that draws {@link Replay#nameTag}. Mirror that string onto the
