@@ -85,8 +85,11 @@ public class UIClips extends UIElement
     private static final int MARGIN = 10;
     private static final int LAYER_HEIGHT = 20;
     private static final int RULER_HEIGHT = 16;
+    /** Minimum clickable width so sub-tick clips stay selectable when zoomed out. */
+    private static final int MIN_CLIP_HIT_WIDTH = 8;
 
     private static final Area CLIP_AREA = new Area();
+    private static final Area CLIP_HIT_AREA = new Area();
 
     /* Main objects */
     private IUIClipsDelegate delegate;
@@ -1727,10 +1730,8 @@ public class UIClips extends UIElement
     {
         if (!this.hasEmbeddedView())
         {
-            int tick = (int) Math.floor(this.scale.from(mouseX));
-            int layerIndex = this.fromLayerY(mouseY);
             Clip original = this.delegate.getClip();
-            Clip clip = this.clips.getClipAt(tick, layerIndex);
+            Clip clip = this.findClipAt(mouseX, mouseY);
 
             if (clip != null)
             {
@@ -2413,9 +2414,59 @@ public class UIClips extends UIElement
         return area;
     }
 
+    /**
+     * Hit box for selection/handles: same as draw area but never thinner than
+     * {@link #MIN_CLIP_HIT_WIDTH} so fractional-tick clips stay easy to click.
+     */
+    private Area getClipHitArea(Clip clip, Area area, int h)
+    {
+        this.getClipArea(clip, area, h);
+
+        if (area.w < MIN_CLIP_HIT_WIDTH)
+        {
+            int pad = MIN_CLIP_HIT_WIDTH - area.w;
+
+            area.x -= pad / 2;
+            area.w = MIN_CLIP_HIT_WIDTH;
+        }
+
+        return area;
+    }
+
+    /**
+     * Pick by on-screen rect (float tick positions), not floored world ticks.
+     * Floored ticks miss clips that start between integers (e.g. 1.5).
+     */
+    private Clip findClipAt(int mouseX, int mouseY)
+    {
+        int layerIndex = this.fromLayerY(mouseY);
+
+        if (layerIndex < 0)
+        {
+            return null;
+        }
+
+        Clip match = null;
+
+        for (Clip clip : this.clips.get())
+        {
+            if (clip.layer.get() != layerIndex)
+            {
+                continue;
+            }
+
+            if (this.getClipHitArea(clip, CLIP_HIT_AREA, LAYER_HEIGHT).isInside(mouseX, mouseY))
+            {
+                match = clip;
+            }
+        }
+
+        return match;
+    }
+
     private int getClipHandle(Clip clip, UIContext context, int h)
     {
-        Area clipArea = this.getClipArea(clip, CLIP_AREA, h);
+        Area clipArea = this.getClipHitArea(clip, CLIP_AREA, h);
         int separation = Math.min(clipArea.w / 2, 5);
 
         if (clipArea.isInside(context))

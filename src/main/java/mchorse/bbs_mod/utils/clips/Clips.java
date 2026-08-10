@@ -120,6 +120,11 @@ public class Clips extends ValueGroup
 
     public Clip getClipAt(int tick, int layer)
     {
+        return this.getClipAt((float) tick, layer);
+    }
+
+    public Clip getClipAt(float tick, int layer)
+    {
         for (Clip clip : this.clips)
         {
             if (clip.isInside(tick) && clip.layer.get() == layer)

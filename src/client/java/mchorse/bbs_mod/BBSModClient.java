@@ -616,17 +616,35 @@ public class BBSModClient implements ClientModInitializer
 
         if (BBSSettings.irisOpacityFix != null)
         {
-            BBSSettings.irisOpacityFix.postCallback((v, f) -> IrisUtils.reloadShaders());
+            BBSSettings.irisOpacityFix.postCallback((v, f) ->
+            {
+                if (BBSRendering.isIrisLoaded())
+                {
+                    IrisUtils.reloadShaders();
+                }
+            });
         }
 
         if (BBSSettings.irisFormFluidPatch != null)
         {
-            BBSSettings.irisFormFluidPatch.postCallback((v, f) -> IrisUtils.reloadShaders());
+            BBSSettings.irisFormFluidPatch.postCallback((v, f) ->
+            {
+                if (BBSRendering.isIrisLoaded())
+                {
+                    IrisUtils.reloadShaders();
+                }
+            });
         }
 
         if (BBSSettings.irisFormGlowBloomPatch != null)
         {
-            BBSSettings.irisFormGlowBloomPatch.postCallback((v, f) -> IrisUtils.reloadShaders());
+            BBSSettings.irisFormGlowBloomPatch.postCallback((v, f) ->
+            {
+                if (BBSRendering.isIrisLoaded())
+                {
+                    IrisUtils.reloadShaders();
+                }
+            });
         }
 
         if (BBSSettings.shaderShadowOpacity != null)
