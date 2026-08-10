@@ -1419,12 +1419,15 @@ public abstract class BaseFilmController
                              * teleports the physical actor so client distance-based limb
                              * updates often stall; ProceduralAnimator then freezes walk
                              * swing at an extreme pose (velocity restores amplitude, stuck
-                             * limbPhase does not advance). Timeline-freeze / actor-control
-                             * keep their own limb paths below.
+                             * limbPhase does not advance).
+                             * Actor-control: prefer the live player's natural LimbAnimator
+                             * (vanilla walk / stop / backpedal). The puppet body is snapped
+                             * each frame with velocity zeroed, so its own tick() collapses
+                             * prev→current and decays swing inconsistently.
                              * Skip while a live hurt swing spike is active so procedural
                              * damage uses the same limbSpeed amplification as vanilla. */
-                            boolean syncLimbs = this.isActorPlaybackActive() && !controlling && !pauseAnims
-                                && !actor.shouldPreserveLiveHurtLimbSwing();
+                            boolean syncLimbs = !actor.shouldPreserveLiveHurtLimbSwing()
+                                && (controlling || (this.isActorPlaybackActive() && !pauseAnims));
 
                             ActorReplayStateSync.syncFromSource(actor, entity, syncLimbs);
                             /* Keep keyframed equipment on the visible ActorEntity — stub
@@ -1447,7 +1450,8 @@ public abstract class BaseFilmController
                                  * player pose (server ActionPlayer skips this replay via PUPPET).
                                  * Do not copy player velocity — LivingEntity.tick would keep
                                  * integrating it on top of the snap (and creative-flight
-                                 * residual looks like ice). Pose is fully driven here. */
+                                 * residual looks like ice). Limbs already come from the
+                                 * player via syncLimbs above. */
                                 actor.setPosition(entity.getX(), entity.getY(), entity.getZ());
                                 actor.prevX = entity.getPrevX();
                                 actor.prevY = entity.getPrevY();

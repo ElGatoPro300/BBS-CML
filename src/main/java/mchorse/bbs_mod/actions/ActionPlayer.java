@@ -9,6 +9,7 @@ import mchorse.bbs_mod.film.replays.ActorReplayStateSync;
 import mchorse.bbs_mod.film.replays.FormProperties;
 import mchorse.bbs_mod.film.replays.Replay;
 import mchorse.bbs_mod.forms.FormUtils;
+import mchorse.bbs_mod.forms.entities.MCEntity;
 import mchorse.bbs_mod.forms.forms.Form;
 import mchorse.bbs_mod.morphing.Morph;
 import mchorse.bbs_mod.network.ServerNetwork;
@@ -310,6 +311,9 @@ public class ActionPlayer
                         actor.setPitch(this.serverPlayer.getPitch());
                         actor.setVelocity(0D, 0D, 0D);
                         actor.velocityModified = true;
+                        /* Drive procedural walk from the editor player's natural limbs,
+                         * not from teleport deltas on the snapped actor body. */
+                        ActorReplayStateSync.syncFromSource(actor, new MCEntity(this.serverPlayer), true);
 
                         if (actor instanceof ActorEntity actorEntity)
                         {
