@@ -77,8 +77,8 @@ public class VideoRecorder
     }
 
     /**
-     * True while HQ is waiting on chunks — particles must not age.
-     * False during the short post-terrain bloom so dig/emit effects can spread before capture.
+     * True while HQ is waiting on chunks — particles and item drops must not age/fall.
+     * False during post-terrain bloom so drops fall and dig FX spray like vanilla.
      */
     public boolean areExportParticlesFrozen()
     {
@@ -87,16 +87,15 @@ public class VideoRecorder
 
     private void syncWorldFxFreeze()
     {
-        boolean particles = this.settling && this.settleParticlesFrozen;
-        /* Keep drops at break coords for the whole settle (including particle bloom). */
-        boolean items = this.settling;
+        /* Chunk wait: freeze drops + particles. Bloom: both run like vanilla (fall / spray). */
+        boolean frozen = this.settling && this.settleParticlesFrozen;
 
-        mchorse.bbs_mod.utils.ExportWorldFxFreeze.setParticlesFrozen(particles);
-        mchorse.bbs_mod.utils.ExportWorldFxFreeze.setItemPhysicsFrozen(items);
+        mchorse.bbs_mod.utils.ExportWorldFxFreeze.setParticlesFrozen(frozen);
+        mchorse.bbs_mod.utils.ExportWorldFxFreeze.setItemPhysicsFrozen(frozen);
     }
 
     /**
-     * World-tick catch-up while film is frozen. Fast during chunk wait, normal during particle bloom.
+     * World-tick catch-up while film is frozen. Fast during chunk wait, normal during bloom.
      */
     public int getSettleCatchUpTicks()
     {
@@ -176,7 +175,7 @@ public class VideoRecorder
 
         mchorse.bbs_mod.client.ExportChunkSettle.pumpUploads();
 
-        /* Particle bloom: terrain ready — particles spray at break coords; items stay put. */
+        /* Bloom: terrain ready — unfreeze items + particles so drops fall like vanilla. */
         if (this.settleBloomFramesRemaining > 0)
         {
             this.settleParticlesFrozen = false;
@@ -228,10 +227,10 @@ public class VideoRecorder
         if (stableEnough || softTimeoutOk || hardTimedOut)
         {
             /*
-             * Short bloom: enough for dig dust to spray at the block, not enough to fall
-             * a full row like the long catch-up used to force.
+             * After chunks are ready, let item gravity + dig particles run for a few ticks
+             * like a normal break before capturing.
              */
-            int bloom = Math.max(2, Math.min(4, this.settleRequiredStable));
+            int bloom = Math.max(8, Math.min(16, this.settleRequiredStable * 2));
 
             this.settleBloomFramesRemaining = bloom;
             this.settleParticlesFrozen = false;
