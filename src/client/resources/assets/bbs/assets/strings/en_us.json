@@ -333,7 +333,7 @@
     "bbs.config.recording.auto_capture_mobs": "Auto capture mobs",
     "bbs.config.recording.auto_capture_mobs-comment": "While recording a replay with Right Alt, attacking or interacting with mobs adds them to the film and records their movement. Riding a boat or mount also auto-captures the vehicle.",
     "bbs.config.recording.auto_capture_mob_actions": "Action clips on autocaptured mobs",
-    "bbs.config.recording.auto_capture_mob_actions-comment": "While autocapturing mobs, also record Attack/Damage/ProjectileAttack action clips from mob combat (real vanilla damage). Needed for Actor-mode HP/death playback; stub/non-actor replays stay keyframe-based.",
+    "bbs.config.recording.auto_capture_mob_actions-comment": "While autocapturing mobs, also record Attack/Damage/ProjectileAttack/Swipe action clips from mob combat (real vanilla damage + melee arm swing). Needed for Actor-mode HP/death playback and attack animations; stub/non-actor replays stay keyframe-based for death.",
     "bbs.config.recording.vanilla_mob_playback_default": "Vanilla mob playback by default",
     "bbs.config.recording.vanilla_mob_playback_default-comment": "When auto-capturing mobs into a film, enable vanilla mob playback on new replays so animations and particles use a real mob during playback",
     "bbs.config.recording.auto_capture_projectiles": "Auto capture projectiles",

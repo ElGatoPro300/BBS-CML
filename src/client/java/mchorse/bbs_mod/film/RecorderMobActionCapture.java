@@ -6,12 +6,14 @@ import mchorse.bbs_mod.actions.types.ActionClip;
 import mchorse.bbs_mod.actions.types.AttackActionClip;
 import mchorse.bbs_mod.actions.types.DamageActionClip;
 import mchorse.bbs_mod.actions.types.ProjectileAttackActionClip;
+import mchorse.bbs_mod.actions.types.SwipeActionClip;
 import mchorse.bbs_mod.film.replays.Replay;
 import mchorse.bbs_mod.settings.values.base.BaseValue;
 
 /**
  * Places combat action clips on autocaptured mob replays from server damage events.
- * Stub/non-actor playback ignores these for death (keyframes); Actor mode uses them for HP.
+ * Stub/non-actor playback ignores Attack/Damage for death (keyframes); Actor mode uses them for HP.
+ * Swipe is client-side and drives arm-swing on both stub and Actor playback.
  */
 public final class RecorderMobActionCapture
 {
@@ -48,13 +50,21 @@ public final class RecorderMobActionCapture
 
         if (kind == KIND_MELEE)
         {
-            if (sourceReplay >= 0 && victimReplay >= 0)
+            if (sourceReplay >= 0)
             {
-                AttackActionClip clip = new AttackActionClip();
+                Replay attacker = recorder.film.replays.getList().get(sourceReplay);
 
-                clip.damage.set(amount);
-                clip.target.set(recorder.film.replays.getList().get(victimReplay).getId());
-                addClip(recorder.film.replays.getList().get(sourceReplay), clip, tick);
+                /* Same pairing as ActionRecorder: swipe for the arm, Attack for HP. */
+                addClip(attacker, new SwipeActionClip(), tick);
+
+                if (victimReplay >= 0)
+                {
+                    AttackActionClip clip = new AttackActionClip();
+
+                    clip.damage.set(amount);
+                    clip.target.set(recorder.film.replays.getList().get(victimReplay).getId());
+                    addClip(attacker, clip, tick);
+                }
 
                 return;
             }
