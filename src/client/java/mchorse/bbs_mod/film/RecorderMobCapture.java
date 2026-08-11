@@ -234,14 +234,14 @@ public final class RecorderMobCapture
             mountIndex = RecorderMobCapture.resolveReplayIndexForEntity(vehicle.getId());
         }
 
-        riderKeyframes.riding.insert(tick, mountIndex >= 0 ? 1D : 0D);
+        riderKeyframes.riding.insertIfChanged(tick, mountIndex >= 0 ? 1D : 0D);
 
         if (mountIndex >= 0 && replays != null && mountIndex < replays.size())
         {
             Replay mountReplay = replays.get(mountIndex);
             MountLink ridden = new MountLink(true, riderIndex);
 
-            mountReplay.keyframes.ridden.insert(tick, ridden);
+            mountReplay.keyframes.ridden.insertIfChanged(tick, ridden);
         }
     }
 
@@ -935,13 +935,13 @@ public final class RecorderMobCapture
 
         if (session.lastFire == null || session.lastFire.booleanValue() != fire)
         {
-            replay.keyframes.fire.insert(tick, fire ? 1D : 0D);
+            replay.keyframes.fire.insertIfChanged(tick, fire ? 1D : 0D);
             session.lastFire = fire;
         }
 
         if (session.lastParticles == null || session.lastParticles.booleanValue() != particles)
         {
-            replay.keyframes.particles.insert(tick, particles ? 1D : 0D);
+            replay.keyframes.particles.insertIfChanged(tick, particles ? 1D : 0D);
             session.lastParticles = particles;
         }
     }
@@ -1050,8 +1050,8 @@ public final class RecorderMobCapture
              * spawns the single vanilla-style poof burst at despawn. */
             wrapper.setParticlesEnabled(false);
             replay.keyframes.record(tick, wrapper, null);
-            replay.keyframes.deathTime.insert(tick, (double) deathTime);
-            replay.keyframes.particles.insert(tick, 0D);
+            replay.keyframes.deathTime.insertIfChanged(tick, (double) deathTime);
+            replay.keyframes.particles.insertIfChanged(tick, 0D);
 
             return;
         }
@@ -1079,7 +1079,7 @@ public final class RecorderMobCapture
         wrapper.setParticlesEnabled(false);
 
         replay.keyframes.record(tick, wrapper, null);
-        replay.keyframes.particles.insert(tick, 0D);
+        replay.keyframes.particles.insertIfChanged(tick, 0D);
     }
 
     private void updateSessionState(Session session, Entity entity)
