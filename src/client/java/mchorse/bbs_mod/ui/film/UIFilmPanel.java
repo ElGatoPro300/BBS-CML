@@ -2969,6 +2969,41 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
     }
 
     /**
+     * After Alt-picking a replay in the viewport: select the Replays ("Reproducción")
+     * panel when it lives in a multi-tab group (more useful than empty properties tabs).
+     * Still activates the replay timeline; linked properties are only focused when the
+     * Replays panel cannot be selected as a tab.
+     */
+    public void focusAfterAltReplayPick()
+    {
+        EditorLayoutNode root = BBSSettings.editorLayoutSettings.getFilmLayoutRoot();
+        boolean focusedReplaysTab = false;
+
+        if (root != null
+            && !this.hiddenPanels.contains(ANCHORED_REPLAYS_PANEL_ID)
+            && !this.floatingPanels.contains(ANCHORED_REPLAYS_PANEL_ID))
+        {
+            EditorLayoutNode.TabbedNode tabbed = this.findTabbedNodeContaining(root, ANCHORED_REPLAYS_PANEL_ID);
+
+            if (tabbed != null && tabbed.tabs.size() >= 2)
+            {
+                this.focusPanelTab(ANCHORED_REPLAYS_PANEL_ID);
+                focusedReplaysTab = true;
+            }
+        }
+
+        /* Switch to the replay/keyframes tab even when another timeline tab is active. */
+        this.focusPanelTab("replayTimeline");
+
+        if (!focusedReplaysTab)
+        {
+            this.focusLinkedPropertiesTab("replayTimeline");
+        }
+
+        this.showPanel(this.replayEditor);
+    }
+
+    /**
      * Activate {@code panelId} inside its tab group without clearing timeline
      * selections or re-entering through {@link #focusLinkedPropertiesTab}.
      */
