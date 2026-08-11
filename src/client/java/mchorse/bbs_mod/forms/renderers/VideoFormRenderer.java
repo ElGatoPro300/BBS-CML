@@ -394,9 +394,10 @@ public class VideoFormRenderer extends FormRenderer<VideoForm> implements ITicka
 
         boolean staticPreview = this.isStaticPreview(modelRenderer, deferContext);
         boolean allowFfmpegFallback = this.allowsFfmpegFallback(deferContext);
-        boolean waterMedia = VideoRenderer.isAvailable();
         String ffmpegPath = FFMpegUtils.getFFMPEG();
         boolean ffmpegOk = ffmpegPath != null && !ffmpegPath.isEmpty() && new File(ffmpegPath).isFile();
+        /* WaterMedia/VLC last resort only — its player cache leaked and hard-crashed on menu open/close. */
+        boolean waterMedia = !ffmpegOk && VideoRenderer.isAvailable();
 
         int textureId = 0;
         float w = 16F;
@@ -407,20 +408,7 @@ public class VideoFormRenderer extends FormRenderer<VideoForm> implements ITicka
             /* Editor / inventory / item: still frame at scrubbed Time. */
             long stillTick = Math.max(0, this.form.time.get()) + this.form.offset.get();
 
-            /* Prefer WaterMedia still when available — first frame without waiting on ffmpeg probe. */
-            if (waterMedia)
-            {
-                VideoRenderer.FrameInfo waterStill = VideoRenderer.ensureFormStillFrame(path, stillTick, this.form.loop.get());
-
-                if (waterStill != null && waterStill.textureId > 0)
-                {
-                    textureId = waterStill.textureId;
-                    w = Math.max(1, waterStill.width);
-                    h = Math.max(1, waterStill.height);
-                }
-            }
-
-            if (textureId <= 0 && ffmpegOk)
+            if (ffmpegOk)
             {
                 VideoFormEngine.Frame still = VideoFormEngine.bindStill(path, stillTick, this.form.resolution.get());
 
@@ -429,6 +417,18 @@ public class VideoFormRenderer extends FormRenderer<VideoForm> implements ITicka
                     textureId = still.textureId;
                     w = Math.max(1, still.width);
                     h = Math.max(1, still.height);
+                }
+            }
+
+            if (textureId <= 0 && waterMedia)
+            {
+                VideoRenderer.FrameInfo waterStill = VideoRenderer.ensureFormStillFrame(path, stillTick, this.form.loop.get());
+
+                if (waterStill != null && waterStill.textureId > 0)
+                {
+                    textureId = waterStill.textureId;
+                    w = Math.max(1, waterStill.width);
+                    h = Math.max(1, waterStill.height);
                 }
             }
         }
@@ -450,21 +450,8 @@ public class VideoFormRenderer extends FormRenderer<VideoForm> implements ITicka
             boolean loop = filmDriven ? false : this.form.loop.get();
             float distSq = this.getDistanceSqToCamera(deferContext);
 
-            /* WaterMedia first: VLC owns the GL texture (no UNPACK leaks). FFmpeg only if needed. */
-            if (waterMedia)
-            {
-                VideoRenderer.FrameInfo waterFrame = VideoRenderer.prepareFormFrame(
-                    path, tickPosition, loop, distSq, 0, playing, filmDriven);
-
-                if (waterFrame != null && waterFrame.textureId > 0)
-                {
-                    textureId = waterFrame.textureId;
-                    w = Math.max(1, waterFrame.width);
-                    h = Math.max(1, waterFrame.height);
-                }
-            }
-
-            if (textureId <= 0 && ffmpegOk)
+            /* FFmpeg first; WaterMedia/VLC only if ffmpeg is missing. */
+            if (ffmpegOk)
             {
                 VideoFormEngine.Frame engineFrame = VideoFormEngine.bindFrame(
                     path, tickPosition, 1F, loop, this.form.resolution.get(), playing);
@@ -501,6 +488,19 @@ public class VideoFormRenderer extends FormRenderer<VideoForm> implements ITicka
                     {
                         textureId = last.id;
                     }
+                }
+            }
+
+            if (textureId <= 0 && waterMedia)
+            {
+                VideoRenderer.FrameInfo waterFrame = VideoRenderer.prepareFormFrame(
+                    path, tickPosition, loop, distSq, 0, playing, filmDriven);
+
+                if (waterFrame != null && waterFrame.textureId > 0)
+                {
+                    textureId = waterFrame.textureId;
+                    w = Math.max(1, waterFrame.width);
+                    h = Math.max(1, waterFrame.height);
                 }
             }
         }

@@ -15,6 +15,7 @@ import mchorse.bbs_mod.client.BBSShaders;
 import mchorse.bbs_mod.client.PendingFilmLaunch;
 import mchorse.bbs_mod.client.StructurePickerClient;
 import mchorse.bbs_mod.client.video.VideoFormEngine;
+import mchorse.bbs_mod.client.video.VideoRenderer;
 import mchorse.bbs_mod.client.renderer.ModelBlockEntityRenderer;
 import mchorse.bbs_mod.client.renderer.TriggerBlockEntityRenderer;
 import mchorse.bbs_mod.client.renderer.entity.ActorEntityRenderer;
@@ -930,6 +931,7 @@ public class BBSModClient implements ClientModInitializer
                 gunItemRenderer.update();
                 textures.update();
                 VideoFormEngine.tickCleanup();
+                VideoRenderer.update();
             }
 
             StructurePickerClient.tick(mc);

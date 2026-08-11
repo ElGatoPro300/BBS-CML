@@ -308,6 +308,11 @@ public class UIDashboard extends UIBaseMenu
         this.orbit.reset();
         BBSModClient.getCameraController().remove(this.camera);
 
+        /* Escape/close often skips panel.disappear() — free VLC/ffmpeg caches here too. */
+        mchorse.bbs_mod.client.video.VideoRenderer.releaseAllPlayers();
+        mchorse.bbs_mod.client.video.VideoFormEngine.releaseAll();
+        mchorse.bbs_mod.client.video.VideoFormPlayback.releaseAll();
+
         MinecraftClient.getInstance().options.setPerspective(this.lastPerspective);
     }
 

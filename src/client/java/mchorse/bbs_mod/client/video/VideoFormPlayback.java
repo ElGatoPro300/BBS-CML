@@ -94,6 +94,21 @@ public final class VideoFormPlayback
         return playback;
     }
 
+    public static void releaseAll()
+    {
+        for (VideoFormPlayback playback : CACHE.values())
+        {
+            try
+            {
+                playback.close();
+            }
+            catch (Throwable t)
+            {}
+        }
+
+        CACHE.clear();
+    }
+
     private void ensureMaxLongSide(int limit)
     {
         int side = limit > 0 ? limit : MAX_DIM;

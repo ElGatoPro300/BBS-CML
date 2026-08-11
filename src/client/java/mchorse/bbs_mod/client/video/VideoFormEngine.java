@@ -135,6 +135,21 @@ public final class VideoFormEngine
         }
     }
 
+    public static void releaseAll()
+    {
+        for (Session session : SESSIONS.values())
+        {
+            try
+            {
+                session.close();
+            }
+            catch (Throwable t)
+            {}
+        }
+
+        SESSIONS.clear();
+    }
+
     public static final class Frame
     {
         public final int textureId;

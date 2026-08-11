@@ -17,6 +17,8 @@ import mchorse.bbs_mod.client.CrossWorldFilmScanner;
 import mchorse.bbs_mod.client.FilmLaunchHelper;
 import mchorse.bbs_mod.client.WorldLaunchHelper;
 import mchorse.bbs_mod.client.renderer.MorphRenderer;
+import mchorse.bbs_mod.client.video.VideoFormEngine;
+import mchorse.bbs_mod.client.video.VideoFormPlayback;
 import mchorse.bbs_mod.client.video.VideoRenderer;
 import mchorse.bbs_mod.data.DataToString;
 import mchorse.bbs_mod.data.types.BaseType;
@@ -6642,7 +6644,10 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
         MorphRenderer.hidePlayer = false;
         this.lastViewportRenderW = -1;
         this.lastViewportRenderH = -1;
-        VideoRenderer.stopAll();
+        /* Must release native VLC players — stopAll() only pauses and leaked on menu close. */
+        VideoRenderer.releaseAllPlayers();
+        VideoFormEngine.releaseAll();
+        VideoFormPlayback.releaseAll();
 
         CameraController cameraController = this.getCameraController();
 

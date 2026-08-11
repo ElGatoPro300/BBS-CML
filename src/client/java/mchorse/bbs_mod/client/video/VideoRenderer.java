@@ -65,8 +65,9 @@ public class VideoRenderer
     }
 
     /**
-     * Prefer WaterMedia's shared factory (VLC already discovered/extracted).
-     * Never construct MediaPlayerFactory directly — that breaks when VLC isn't ready yet.
+     * Prefer a BBS software-decode VLC factory.
+     * WaterMedia's shared default enables {@code d3d11va}/{@code dxva2}, which can
+     * hard-kill the JVM (Invalid memory access) with no Minecraft crash report.
      */
     private static MediaPlayerFactory resolveFactory()
     {
@@ -77,25 +78,26 @@ public class VideoRenderer
 
         try
         {
-            MediaPlayerFactory factory = PlayerAPI.getFactory();
-
-            if (factory != null)
+            if (!PlayerAPI.isReady())
             {
-                return factory;
+                /* VLC still extracting / not ready — retry on next frame. */
+                return null;
             }
 
-            if (PlayerAPI.isReady())
-            {
-                factory = PlayerAPI.registerFactory("bbs:default", new String[] {"--avcodec-hw=none"});
+            MediaPlayerFactory soft = PlayerAPI.registerFactory("bbs:soft", new String[]{
+                "--avcodec-hw=none",
+                "--vout=none",
+                "--no-video-title-show",
+                "--quiet"
+            });
 
-                if (factory != null)
-                {
-                    return factory;
-                }
+            if (soft != null)
+            {
+                return soft;
             }
 
-            /* VLC still extracting / not ready — retry on next frame. */
-            return null;
+            /* Last resort only — may be unstable on some GPUs. */
+            return PlayerAPI.getFactory();
         }
         catch (Throwable t)
         {
@@ -525,10 +527,10 @@ public class VideoRenderer
                 }
             }
 
-            player = new VideoPlayer(FACTORY, MinecraftClient.getInstance());
-
             try
             {
+                /* Constructor calls native LibVLC — can throw Error (Invalid memory access), not just Exception. */
+                player = new VideoPlayer(FACTORY, MinecraftClient.getInstance());
                 player.start(new File(resolved).toURI());
                 player.setVolume(volume);
                 /* Force decode so the first form frame is not blank while dimensions are still 0. */
@@ -771,9 +773,14 @@ public class VideoRenderer
 
             return player.getDuration();
         }
-        catch (Exception e)
+        catch (Throwable e)
         {
-            e.printStackTrace();
+            if (!(e instanceof ClassNotFoundException) && !(e instanceof NoClassDefFoundError) && !(e instanceof LinkageError))
+            {
+                e.printStackTrace();
+            }
+
+            factoryFailed = true;
             return 0L;
         }
     }
@@ -839,19 +846,43 @@ public class VideoRenderer
         }
     }
 
-    public static void cleanup()
+    /**
+     * Release every cached VLC player but keep the factory (menu open/close cycles).
+     * {@link #stopAll()} only pauses — that leaked native memory when the dashboard closed.
+     */
+    public static void releaseAllPlayers()
     {
         for (PlayerWrapper wrapper : PLAYERS.values())
         {
-            wrapper.player.release();
+            try
+            {
+                if (wrapper != null && wrapper.player != null)
+                {
+                    wrapper.player.release();
+                }
+            }
+            catch (Throwable t)
+            {}
         }
-        
+
         PLAYERS.clear();
         formStillKick.clear();
+        formLivePaths.clear();
+    }
+
+    public static void cleanup()
+    {
+        releaseAllPlayers();
 
         if (FACTORY != null)
         {
-            FACTORY.release();
+            try
+            {
+                FACTORY.release();
+            }
+            catch (Throwable t)
+            {}
+
             FACTORY = null;
         }
     }
