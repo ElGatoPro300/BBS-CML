@@ -83,6 +83,11 @@ public class ServerNetwork
     public static final Identifier CLIENT_REFRESH_MODEL_BLOCKS = Identifier.of(BBSMod.MOD_ID, "c17");
     public static final Identifier CLIENT_CLICKED_TRIGGER_BLOCK_PACKET = Identifier.of(BBSMod.MOD_ID, "c18");
     public static final Identifier CLIENT_BAY4LLY_SKIN = Identifier.of(BBSMod.MOD_ID, "c19");
+    public static final Identifier CLIENT_MOB_COMBAT_ACTION = Identifier.of(BBSMod.MOD_ID, "c20");
+
+    public static final byte MOB_COMBAT_KIND_MELEE = 0;
+    public static final byte MOB_COMBAT_KIND_PROJECTILE = 1;
+    public static final byte MOB_COMBAT_KIND_DAMAGE = 2;
 
     public static final Identifier SERVER_MODEL_BLOCK_FORM_PACKET = Identifier.of(BBSMod.MOD_ID, "s1");
     public static final Identifier SERVER_MODEL_BLOCK_TRANSFORMS_PACKET = Identifier.of(BBSMod.MOD_ID, "s2");
@@ -201,6 +206,7 @@ public class ServerNetwork
                 PayloadTypeRegistry.playS2C().register(idFor(CLIENT_ANIMATION_STATE_MODEL_BLOCK_TRIGGER), BufPayload.codecFor(idFor(CLIENT_ANIMATION_STATE_MODEL_BLOCK_TRIGGER)));
                 PayloadTypeRegistry.playS2C().register(idFor(CLIENT_REFRESH_MODEL_BLOCKS), BufPayload.codecFor(idFor(CLIENT_REFRESH_MODEL_BLOCKS)));
                 PayloadTypeRegistry.playS2C().register(idFor(CLIENT_CLICKED_TRIGGER_BLOCK_PACKET), BufPayload.codecFor(idFor(CLIENT_CLICKED_TRIGGER_BLOCK_PACKET)));
+                PayloadTypeRegistry.playS2C().register(idFor(CLIENT_MOB_COMBAT_ACTION), BufPayload.codecFor(idFor(CLIENT_MOB_COMBAT_ACTION)));
             }
         } catch (Throwable t) {
         }
@@ -883,6 +889,18 @@ public class ServerNetwork
             packetByteBuf.writeInt(replayId);
             packetByteBuf.writeInt(tick);
         });
+    }
+
+    public static void sendMobCombatAction(ServerPlayerEntity player, int victimEntityId, int sourceEntityId, float amount, byte kind)
+    {
+        PacketByteBuf buf = PacketByteBufs.create();
+
+        buf.writeInt(victimEntityId);
+        buf.writeInt(sourceEntityId);
+        buf.writeFloat(amount);
+        buf.writeByte(kind);
+
+        ServerPlayNetworking.send(player, BufPayload.from(buf, idFor(CLIENT_MOB_COMBAT_ACTION)));
     }
 
     public static void sendHandshake(MinecraftServer server, PacketSender packetSender)

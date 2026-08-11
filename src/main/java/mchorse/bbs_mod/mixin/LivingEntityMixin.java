@@ -5,11 +5,16 @@ import mchorse.bbs_mod.actions.AttackDamage;
 import mchorse.bbs_mod.actions.types.AttackActionClip;
 import mchorse.bbs_mod.entity.ActorEntity;
 import mchorse.bbs_mod.film.replays.Replay;
+import mchorse.bbs_mod.network.ServerNetwork;
 
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.damage.DamageSource;
+import net.minecraft.entity.damage.DamageTypes;
+import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.entity.projectile.ProjectileEntity;
 import net.minecraft.server.network.ServerPlayerEntity;
+import net.minecraft.server.world.ServerWorld;
 
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
@@ -33,44 +38,92 @@ public class LivingEntityMixin
             return;
         }
 
+        LivingEntity target = (LivingEntity) (Object) this;
         Entity attacker = source.getAttacker();
 
-        if (!source.isDirect() || !(attacker instanceof ServerPlayerEntity player))
+        /* Player melee → ActionRecorder on the player replay (existing path). */
+        if (source.isDirect() && attacker instanceof ServerPlayerEntity player)
+        {
+            float recorded = amount;
+
+            if (AttackDamage.isMobKiller(player.getMainHandStack()))
+            {
+                recorded = AttackDamage.MOB_KILLER_DAMAGE;
+            }
+            else if (recorded < 0F)
+            {
+                recorded = 0F;
+            }
+
+            float damageToStore = recorded;
+
+            BBSMod.getActions().addAction(player, () ->
+            {
+                AttackActionClip clip = new AttackActionClip();
+
+                clip.damage.set(damageToStore);
+
+                if (target instanceof ActorEntity actorEntity)
+                {
+                    Replay replay = actorEntity.getReplay();
+
+                    if (replay != null)
+                    {
+                        clip.target.set(replay.getId());
+                    }
+                }
+
+                return clip;
+            });
+
+            return;
+        }
+
+        /* Mob autocapture combat clips (client places them on captured replays). */
+        if (!(target.getWorld() instanceof ServerWorld serverWorld))
         {
             return;
         }
 
-        LivingEntity target = (LivingEntity) (Object) this;
-        float recorded = amount;
-
-        if (AttackDamage.isMobKiller(player.getMainHandStack()))
+        if (!BBSMod.getActions().hasActiveRecorders(serverWorld))
         {
-            recorded = AttackDamage.MOB_KILLER_DAMAGE;
-        }
-        else if (recorded < 0F)
-        {
-            recorded = 0F;
+            return;
         }
 
-        float damageToStore = recorded;
+        float recorded = Math.max(0F, amount);
+        byte kind;
+        int sourceEntityId = -1;
+        Entity sourceEntity = source.getSource();
 
-        BBSMod.getActions().addAction(player, () ->
+        if (source.isOf(DamageTypes.THORNS))
         {
-            AttackActionClip clip = new AttackActionClip();
+            kind = ServerNetwork.MOB_COMBAT_KIND_DAMAGE;
+        }
+        else if (sourceEntity instanceof ProjectileEntity projectile)
+        {
+            Entity owner = projectile.getOwner();
 
-            clip.damage.set(damageToStore);
-
-            if (target instanceof ActorEntity actorEntity)
+            if (owner != null)
             {
-                Replay replay = actorEntity.getReplay();
-
-                if (replay != null)
-                {
-                    clip.target.set(replay.getId());
-                }
+                kind = ServerNetwork.MOB_COMBAT_KIND_PROJECTILE;
+                sourceEntityId = owner.getId();
             }
+            else
+            {
+                kind = ServerNetwork.MOB_COMBAT_KIND_DAMAGE;
+            }
+        }
+        else if (source.isDirect() && attacker instanceof LivingEntity && !(attacker instanceof PlayerEntity))
+        {
+            kind = ServerNetwork.MOB_COMBAT_KIND_MELEE;
+            sourceEntityId = attacker.getId();
+        }
+        else
+        {
+            /* Magic / environmental / other — Damage clip on the victim if captured. */
+            kind = ServerNetwork.MOB_COMBAT_KIND_DAMAGE;
+        }
 
-            return clip;
-        });
+        BBSMod.getActions().broadcastMobCombatHit(serverWorld, target.getId(), sourceEntityId, recorded, kind);
     }
 }

@@ -195,6 +195,7 @@ public class BBSSettings
     public static ValueBoolean recordingSwipeDamage;
     public static ValueBoolean recordingAutoCaptureMobs;
     public static ValueBoolean recordingAutoCaptureProjectiles;
+    public static ValueBoolean recordingAutoCaptureMobActions;
     public static ValueBoolean recordingMobCaptureOnAlt;
     public static ValueBoolean recordingOverlays;
     public static ValueInt recordingPoseTransformOverlays;
@@ -799,6 +800,7 @@ public class BBSSettings
         recordingSwipeDamage = builder.getBoolean("swipe_damage", false);
         recordingAutoCaptureMobs = builder.getBoolean("auto_capture_mobs", true);
         recordingAutoCaptureProjectiles = builder.getBoolean("auto_capture_projectiles", true);
+        recordingAutoCaptureMobActions = builder.getBoolean("auto_capture_mob_actions", false);
         recordingMobCaptureOnAlt = builder.getBoolean("mob_capture_on_alt", false);
         recordingOverlays = builder.getBoolean("overlays", true);
         recordingPoseTransformOverlays = builder.getInt("pose_transform_overlays", 0, 0, 42);
