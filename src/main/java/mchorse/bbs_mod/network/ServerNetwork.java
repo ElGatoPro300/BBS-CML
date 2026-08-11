@@ -750,7 +750,7 @@ public class ServerNetwork
 
         buf.writeString(filmId);
 
-        ServerPlayNetworking.send(player, BufPayload.from(buf, idFor(CLIENT_STOP_FILM_PACKET)));
+        ServerPlayNetworking.send(player, CLIENT_STOP_FILM_PACKET, buf);
     }
 
     public static void sendManagerData(ServerPlayerEntity player, int callbackId, RepositoryOperation op, BaseType data)

@@ -113,7 +113,7 @@ public class LivingEntityMixin
                 kind = ServerNetwork.MOB_COMBAT_KIND_DAMAGE;
             }
         }
-        else if (source.isDirect() && attacker instanceof LivingEntity && !(attacker instanceof PlayerEntity))
+        else if (!source.isIndirect() && attacker instanceof LivingEntity && !(attacker instanceof PlayerEntity))
         {
             kind = ServerNetwork.MOB_COMBAT_KIND_MELEE;
             sourceEntityId = attacker.getId();
