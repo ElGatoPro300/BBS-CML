@@ -69,6 +69,7 @@ import net.minecraft.client.render.Camera;
 import net.minecraft.client.render.LightmapTextureManager;
 import net.minecraft.client.render.OverlayTexture;
 import net.minecraft.client.render.VertexConsumerProvider;
+import net.minecraft.client.render.WorldRenderer;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityPose;
@@ -215,7 +216,6 @@ public abstract class BaseFilmController
             target.mul(context.localGroupTransform);
         }
 
-        BlockPos pos = BlockPos.ofFloored(position.x, position.y + 0.5D, position.z);
         World world = entity.getWorld();
 
         if (world == null)
@@ -228,9 +228,25 @@ public abstract class BaseFilmController
             return;
         }
 
-        int sky = world.getLightLevel(LightType.SKY, pos);
-        int torch = world.getLightLevel(LightType.BLOCK, pos);
-        int light = LightmapTextureManager.pack(torch, sky);
+        /* MobForm stubs must match ActorEntity / EntityRenderer.getLight (eye height +
+         * WorldRenderer). Other film forms keep the historical feet+0.5 sample. */
+        int light;
+
+        if (form instanceof MobForm)
+        {
+            BlockPos pos = BlockPos.ofFloored(position.x, position.y + entity.getEyeHeight(), position.z);
+
+            light = WorldRenderer.getLightmapCoordinates(world, pos);
+        }
+        else
+        {
+            BlockPos pos = BlockPos.ofFloored(position.x, position.y + 0.5D, position.z);
+            int sky = world.getLightLevel(LightType.SKY, pos);
+            int torch = world.getLightLevel(LightType.BLOCK, pos);
+
+            light = LightmapTextureManager.pack(torch, sky);
+        }
+
         int overlay = OverlayTexture.packUv(OverlayTexture.getU(0F), OverlayTexture.getV(entity.getHurtTimer() > 0));
 
         FormRenderingContext formContext = new FormRenderingContext()
