@@ -172,6 +172,22 @@ public class UIFilmController extends UIElement
     private StencilFormFramebuffer stencil = new StencilFormFramebuffer();
     private StencilMap stencilMap = new StencilMap();
 
+    /**
+     * Skip re-rendering the stencil FBO when the cursor and scene under it are
+     * unchanged (mouse idle over preview while paused). Hover/highlight/click still
+     * use the last pick result.
+     */
+    private boolean stencilPickCacheValid;
+    private int lastStencilMouseX = Integer.MIN_VALUE;
+    private int lastStencilMouseY = Integer.MIN_VALUE;
+    private boolean lastStencilAlt;
+    private boolean lastStencilShift;
+    private int lastStencilTick = Integer.MIN_VALUE;
+    private int lastStencilReplayIndex = Integer.MIN_VALUE;
+    private String lastStencilBoneKey = "";
+    private boolean lastStencilGizmoDragging;
+    private int lastStencilPov = Integer.MIN_VALUE;
+
     public final OrbitFilmCameraController orbit = new OrbitFilmCameraController(this);
     private int pov;
     private boolean paused;
@@ -1761,6 +1777,15 @@ public class UIFilmController extends UIElement
 
         boolean altPressed = Window.isAltPressed();
 
+        /* Idle cursor over a static preview: reuse last stencil pick (no FBO re-render). */
+        if (this.canReuseStencilPick(context, altPressed))
+        {
+            this.applyPickingPreviewResult(context, area, altPressed);
+            this.panel.replayEditor.updateGizmoHover();
+
+            return;
+        }
+
         RenderSystem.depthFunc(GL11.GL_LESS);
 
         /* Cache the global stuff */
@@ -1797,6 +1822,11 @@ public class UIFilmController extends UIElement
 
         RenderSystem.depthFunc(GL11.GL_ALWAYS);
 
+        this.applyPickingPreviewResult(context, area, altPressed);
+    }
+
+    private void applyPickingPreviewResult(UIContext context, Area area, boolean altPressed)
+    {
         this.hoveredEntity = null;
 
         if (!this.stencil.hasPicked())
@@ -1863,6 +1893,104 @@ public class UIFilmController extends UIElement
 
             context.batcher.textCard(label, context.mouseX + 12, context.mouseY + 8);
         }
+    }
+
+    private boolean canReuseStencilPick(UIContext context, boolean altPressed)
+    {
+        if (!this.stencilPickCacheValid)
+        {
+            return false;
+        }
+
+        /* Scene under the cursor is changing every frame. */
+        if (this.panel.isRunning() || this.recording)
+        {
+            return false;
+        }
+
+        if (this.orbit.isInteractivelyMoving())
+        {
+            return false;
+        }
+
+        boolean gizmoDragging = Gizmo.INSTANCE.isDragging();
+
+        /* After a gizmo drag the bone may have moved under a still cursor. */
+        if (this.lastStencilGizmoDragging && !gizmoDragging)
+        {
+            return false;
+        }
+
+        /* Hover is frozen during drag; skipping the FBO is fine. */
+        if (gizmoDragging)
+        {
+            return true;
+        }
+
+        if (context.mouseX() != this.lastStencilMouseX || context.mouseY() != this.lastStencilMouseY)
+        {
+            return false;
+        }
+
+        if (altPressed != this.lastStencilAlt)
+        {
+            return false;
+        }
+
+        if (Window.isShiftPressed() != this.lastStencilShift)
+        {
+            return false;
+        }
+
+        if (this.getTick() != this.lastStencilTick)
+        {
+            return false;
+        }
+
+        if (this.pov != this.lastStencilPov)
+        {
+            return false;
+        }
+
+        int replayIndex = this.panel.replayEditor == null ? -1 : this.panel.replayEditor.replays.replays.getIndex();
+
+        if (replayIndex != this.lastStencilReplayIndex)
+        {
+            return false;
+        }
+
+        return this.getStencilBoneKey().equals(this.lastStencilBoneKey);
+    }
+
+    private void rememberStencilPickCache(UIContext context, boolean altPressed)
+    {
+        this.lastStencilMouseX = context.mouseX();
+        this.lastStencilMouseY = context.mouseY();
+        this.lastStencilAlt = altPressed;
+        this.lastStencilShift = Window.isShiftPressed();
+        this.lastStencilTick = this.getTick();
+        this.lastStencilReplayIndex = this.panel.replayEditor == null ? -1 : this.panel.replayEditor.replays.replays.getIndex();
+        this.lastStencilBoneKey = this.getStencilBoneKey();
+        this.lastStencilGizmoDragging = Gizmo.INSTANCE.isDragging();
+        this.lastStencilPov = this.pov;
+        this.stencilPickCacheValid = true;
+    }
+
+    private void invalidateStencilPickCache()
+    {
+        this.stencilPickCacheValid = false;
+    }
+
+    private String getStencilBoneKey()
+    {
+        Pair<String, TransformOrientation> bone = this.getBone();
+
+        if (bone == null)
+        {
+            return "";
+        }
+
+        return bone.a + "\0" + bone.b;
     }
 
     public void startRenderFrame(float tickDelta)
@@ -2084,6 +2212,7 @@ public class UIFilmController extends UIElement
         if (this.panel.getData() == null)
         {
             this.stencil.clearPicking();
+            this.invalidateStencilPickCache();
 
             return;
         }
@@ -2093,6 +2222,7 @@ public class UIFilmController extends UIElement
         if (!viewport.isInside(context.mouseX(), context.mouseY()) || this.controlled != null)
         {
             this.stencil.clearPicking();
+            this.invalidateStencilPickCache();
 
             return;
         }
@@ -2240,6 +2370,7 @@ public class UIFilmController extends UIElement
         this.stencil.pick(x, y);
         this.stencil.unbind(this.stencilMap);
         this.panel.replayEditor.updateGizmoHover();
+        this.rememberStencilPickCache(context, altPressed);
 
         /* Rebind the main target without clearing — beginWrite(true) wiped the film
          * preview every mouse move over the viewport (deferred translucents looked like flicker).

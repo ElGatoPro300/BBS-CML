@@ -83,6 +83,18 @@ public class OrbitFilmCameraController implements ICameraController
         return this.animating;
     }
 
+    /**
+     * True while orbit drag, tween, or flight-key velocity is changing the camera
+     * without necessarily moving the GUI cursor (WASD / animated orbit).
+     */
+    public boolean isInteractivelyMoving()
+    {
+        return this.dragging >= 0
+            || this.animating
+            || this.velocityPosition.lengthSquared() > 0
+            || this.velocityAngle.lengthSquared() > 0;
+    }
+
     public int canStart(UIContext context)
     {
         if (this.animating)
