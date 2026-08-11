@@ -12,6 +12,7 @@
         "ItemStackMixin",
         "WorldMixin",
         "LivingEntityMixin",
+        "MobEntityMixin",
         "ServerPlayerEntityMixin",
         "LimbAnimatorAccessor",
         "LevelPropertiesAccessor",
