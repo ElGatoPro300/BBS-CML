@@ -68,32 +68,48 @@ public final class MorphMobParticles
 
         if (morph instanceof LivingEntity living)
         {
-            emitDeathParticles(world, living, source);
+            emitDeathParticles(world, living, source, state);
         }
 
         emitStatusParticles(morph, source, state);
     }
 
-    private static void emitDeathParticles(World world, LivingEntity living, IEntity source)
+    /**
+     * Vanilla living entities only spawn the poof burst once when the corpse finishes
+     * its death animation ({@code deathTime == 20}), not every tick while dying.
+     */
+    private static void emitDeathParticles(World world, LivingEntity living, IEntity source, ParticleState state)
     {
         int deathTime = source.getDeathTime();
 
-        if (deathTime <= 0 || deathTime >= 20)
+        if (deathTime < 19)
+        {
+            state.deathBurstEmitted = false;
+            return;
+        }
+
+        if (state.deathBurstEmitted)
         {
             return;
         }
 
-        double x = living.getX();
-        double y = living.getY() + living.getHeight() * 0.5D;
-        double z = living.getZ();
+        state.deathBurstEmitted = true;
 
-        for (int i = 0; i < 4; ++i)
+        double x = living.getX();
+        double y = living.getY() + living.getEyeHeight(living.getPose()) * 0.5D;
+        double z = living.getZ();
+        float width = Math.max(living.getWidth(), 0.6F);
+
+        for (int i = 0; i < 20; ++i)
         {
+            double offsetX = (living.getRandom().nextDouble() - 0.5D) * width;
+            double offsetY = living.getRandom().nextDouble() * living.getHeight();
+            double offsetZ = (living.getRandom().nextDouble() - 0.5D) * width;
             double dx = living.getRandom().nextGaussian() * 0.02D;
             double dy = living.getRandom().nextGaussian() * 0.02D;
             double dz = living.getRandom().nextGaussian() * 0.02D;
 
-            world.addParticle(ParticleTypes.POOF, x, y, z, dx, dy, dz);
+            world.addParticle(ParticleTypes.POOF, x + offsetX, y + offsetY, z + offsetZ, dx, dy, dz);
         }
     }
 
@@ -236,5 +252,6 @@ public final class MorphMobParticles
         public boolean chargingSonicBoom;
         public boolean roaring;
         public boolean sniffing;
+        public boolean deathBurstEmitted;
     }
 }
