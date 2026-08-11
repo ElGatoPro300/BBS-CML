@@ -5,12 +5,15 @@ import mchorse.bbs_mod.client.BBSShaders;
 import mchorse.bbs_mod.client.ItemUseRenderState;
 import mchorse.bbs_mod.client.MobTextureOverride;
 import mchorse.bbs_mod.client.renderer.MorphMobParticles;
+import mchorse.bbs_mod.entity.ActorEntity;
 import mchorse.bbs_mod.film.MobItemStats;
 import mchorse.bbs_mod.film.MorphMountSync;
+import mchorse.bbs_mod.film.replays.Replay;
 import mchorse.bbs_mod.forms.CustomVertexConsumerProvider;
 import mchorse.bbs_mod.forms.FormUtilsClient;
 import mchorse.bbs_mod.forms.ITickable;
 import mchorse.bbs_mod.forms.entities.IEntity;
+import mchorse.bbs_mod.forms.entities.MCEntity;
 import mchorse.bbs_mod.forms.forms.MobForm;
 import mchorse.bbs_mod.mixin.LimbAnimatorAccessor;
 import mchorse.bbs_mod.resources.Link;
@@ -364,7 +367,7 @@ public class MobFormRenderer extends FormRenderer<MobForm> implements ITickable
             living.setSprinting(source.getMountTarget() == null && source.isSprinting());
             this.applyMorphRotation(living, source);
             this.applyLivingAnimationState(living, source);
-            living.deathTime = source.getDeathTime();
+            living.deathTime = this.resolveDeathTimeForRender(source);
             living.hurtTime = source.getHurtTimer();
             living.maxHurtTime = source.getHurtTimer() > 0 ? Math.max(source.getHurtTimer(), living.maxHurtTime) : 0;
             living.equipStack(EquipmentSlot.MAINHAND, source.getEquipmentStack(EquipmentSlot.MAINHAND));
@@ -545,7 +548,10 @@ public class MobFormRenderer extends FormRenderer<MobForm> implements ITickable
                 if (context.entity != null)
                 {
                     detachedRiding = this.prepareMorphRenderState(livingMorph, context.entity);
-                    livingMorph.deathTime = context.entity.getDeathTime();
+                    /* Tip comes from LivingEntityRenderer via morph.deathTime. Sample
+                     * keyframed death_time for ActorEntity+MobForm here only — never
+                     * write it onto ActorEntity (that stuck the red overlay on scrub). */
+                    livingMorph.deathTime = this.resolveDeathTimeForRender(context.entity);
                     ItemUseRenderState.syncEquipment(livingMorph, context.entity);
                     this.applyLivingAnimationState(livingMorph, context.entity);
 
@@ -643,7 +649,7 @@ public class MobFormRenderer extends FormRenderer<MobForm> implements ITickable
 
                 if (this.entity instanceof LivingEntity livingEntity)
                 {
-                    livingEntity.deathTime = entity.getDeathTime();
+                    livingEntity.deathTime = this.resolveDeathTimeForRender(entity);
                     this.applyMorphRotation(livingEntity, entity);
 
                     /* Limb swing is so ugly */
@@ -764,6 +770,41 @@ public class MobFormRenderer extends FormRenderer<MobForm> implements ITickable
         livingMorph.prevBodyYaw = 0F;
         livingMorph.prevHeadYaw = relativePrevHeadYaw;
         livingMorph.prevPitch = source.getPrevPitch();
+    }
+
+    /**
+     * Death tip for mob morphs is driven by {@code livingMorph.deathTime} inside
+     * vanilla {@code LivingEntityRenderer}. For film actors, also honor keyframed
+     * {@code death_time} without mutating {@link ActorEntity#deathTime} (writing
+     * that field stuck the damage-red overlay across timeline scrubs).
+     */
+    private int resolveDeathTimeForRender(IEntity source)
+    {
+        int deathTime = source == null ? 0 : source.getDeathTime();
+
+        if (!(source instanceof MCEntity mcEntity) || !(mcEntity.getMcEntity() instanceof ActorEntity actor))
+        {
+            return deathTime;
+        }
+
+        Replay replay = actor.getReplay();
+
+        if (replay != null && replay.keyframes != null)
+        {
+            int keyDeath = replay.keyframes.deathTime.interpolate((float) actor.getCurrentTick()).intValue();
+
+            if (keyDeath > 0)
+            {
+                deathTime = Math.max(deathTime, keyDeath);
+            }
+        }
+
+        if (deathTime <= 0 && (actor.isDead() || actor.getHealth() <= 0F))
+        {
+            deathTime = Math.max(1, actor.deathTime);
+        }
+
+        return deathTime;
     }
 
     /**

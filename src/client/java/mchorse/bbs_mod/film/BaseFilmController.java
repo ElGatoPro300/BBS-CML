@@ -1406,6 +1406,7 @@ public abstract class BaseFilmController
                             if (combatDead)
                             {
                                 /* Keep server combat-death pose; do not overlay alive keyframes. */
+                                actor.updateTick(replayTick);
                                 actor.setPauseNaturalAnimations(false);
                                 actor.setVelocity(0D, 0D, 0D);
                                 actor.syncNameTag(replay);
@@ -1421,6 +1422,7 @@ public abstract class BaseFilmController
                                     && !this.isActorPlaybackActive()
                                     && !controlling;
 
+                                actor.updateTick(replayTick);
                                 actor.setPauseNaturalAnimations(pauseAnims);
 
                                 /* IEntity already has mount rotation applied by MorphMountSync */

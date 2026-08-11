@@ -279,6 +279,14 @@ public class ActionPlayer
             actor.setPitch(pitch);
             actor.setBodyYaw(yawBody);
 
+            /* Seed deathTime so MobForm tip + discard can progress if entity.tick
+             * has not advanced it yet this phase. Do not read death_time keyframes
+             * into ActorEntity (scrubs stuck the red overlay). */
+            if (ticking && actor.deathTime <= 0)
+            {
+                actor.deathTime = 1;
+            }
+
             if (actor instanceof ActorEntity actorEntity)
             {
                 actorEntity.syncNameTag(replay);
@@ -928,6 +936,11 @@ public class ActionPlayer
             actor.setHealth(Math.min(hp, actor.getMaxHealth()));
             actor.hurtTime = 0;
             actor.timeUntilRegen = 0;
+
+            if (actor instanceof ActorEntity actorEntity)
+            {
+                actorEntity.setKeyframeHurtActive(false);
+            }
         }
     }
 
