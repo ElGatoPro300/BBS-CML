@@ -6102,8 +6102,6 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
     @Override
     public void render(UIContext context)
     {
-        super.render(context);
-
         if (this.data != null)
         {
             /*
