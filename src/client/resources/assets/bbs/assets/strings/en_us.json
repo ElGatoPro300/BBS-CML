@@ -1067,6 +1067,7 @@
     "bbs.ui.film.insert_space-description": "Input how many ticks of emptiness to insert:",
     "bbs.ui.film.insert_space-title": "Insert space",
     "bbs.ui.film.layout.anchored_replays": "Anchored Replays panel",
+    "bbs.ui.film.layout.snap_cancel_tip": "Press Alt to cancel snap",
     "bbs.ui.film.layout.docked": "Docked layout",
     "bbs.ui.film.layout.horizontal": "Horizontal layout",
     "bbs.ui.film.layout.horizontal_bottom": "Horizontal (timeline bottom)",

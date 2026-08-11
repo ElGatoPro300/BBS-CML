@@ -2465,7 +2465,19 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
 
     private void updateDropTargetFromMouse(int mouseX, int mouseY)
     {
+        if (this.isDockSnapCancelled())
+        {
+            this.setDropIntent(null);
+
+            return;
+        }
+
         this.setDropIntent(this.resolveDropIntent(mouseX, mouseY));
+    }
+
+    private boolean isDockSnapCancelled()
+    {
+        return Window.isKeyPressed(GLFW.GLFW_KEY_LEFT_ALT) || Window.isKeyPressed(GLFW.GLFW_KEY_RIGHT_ALT);
     }
 
     private boolean canApplyDropIntent(String draggedId, DropIntent intent)
@@ -3880,11 +3892,22 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
             return;
         }
 
+        /* Refresh each frame so holding/releasing Alt updates snap without needing mouse movement. */
+        this.updateDropTargetFromMouse(context.mouseX, context.mouseY);
+
+        boolean snapCancelled = this.isDockSnapCancelled();
+        DropIntent nearSnap = this.resolveDropIntent(context.mouseX, context.mouseY);
+
         /* Snapping to a whole-workspace edge: show just that single edge guide. */
-        if (DROP_TARGET_WORKSPACE.equals(this.dropTargetPanelId))
+        if (nearSnap != null && DROP_TARGET_WORKSPACE.equals(nearSnap.targetId))
         {
-            this.renderDockGuideZone(context, this.editor.area, this.dropTargetZone, true);
-            this.renderDropPreviewLayout(context);
+            this.renderDockGuideZone(context, this.editor.area, nearSnap.zone, !snapCancelled, snapCancelled);
+
+            if (!snapCancelled)
+            {
+                this.renderDropPreviewLayout(context);
+                this.renderDockSnapCancelTip(context, activeDragId);
+            }
 
             return;
         }
@@ -3907,7 +3930,7 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
         }
 
         Area targetArea = target.area;
-        boolean targeted = guidePanelId.equals(this.dropTargetPanelId);
+        boolean targeted = nearSnap != null && guidePanelId.equals(nearSnap.targetId);
         int[] zones = new int[] {
             EditorLayoutNode.EDGE_LEFT,
             EditorLayoutNode.EDGE_RIGHT,
@@ -3918,10 +3941,69 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
 
         for (int zone : zones)
         {
-            this.renderDockGuideZone(context, targetArea, zone, targeted && zone == this.dropTargetZone);
+            boolean active = !snapCancelled && targeted && nearSnap != null && zone == nearSnap.zone;
+
+            this.renderDockGuideZone(context, targetArea, zone, active, snapCancelled);
         }
 
-        this.renderDropPreviewLayout(context);
+        if (!snapCancelled)
+        {
+            this.renderDropPreviewLayout(context);
+
+            if (nearSnap != null)
+            {
+                this.renderDockSnapCancelTip(context, activeDragId);
+            }
+        }
+    }
+
+    private void renderDockSnapCancelTip(UIContext context, String activeDragId)
+    {
+        if (activeDragId == null)
+        {
+            return;
+        }
+
+        String label = UIKeys.FILM_LAYOUT_SNAP_CANCEL_TIP.get();
+        int textW = context.batcher.getFont().getWidth(label);
+        int textH = context.batcher.getFont().getHeight();
+        int tipX;
+        int tipY;
+
+        if (this.floatingPanels.contains(activeDragId))
+        {
+            Vector2i pos = this.floatingPanelPositions.get(activeDragId);
+            Vector2i size = this.floatingPanelSizes.get(activeDragId);
+
+            if (pos == null || size == null)
+            {
+                return;
+            }
+
+            int panelX = this.editor.area.x + pos.x;
+            int panelY = this.editor.area.y + pos.y;
+            int panelW = size.x;
+
+            tipX = panelX + (panelW - textW) / 2;
+            tipY = panelY - textH - 12;
+        }
+        else
+        {
+            UIElement panel = this.panelById.get(activeDragId);
+
+            if (panel == null)
+            {
+                return;
+            }
+
+            tipX = panel.area.mx() - textW / 2;
+            tipY = panel.area.y - PANEL_HEADER_HEIGHT - textH - 12;
+        }
+
+        tipX = MathUtils.clamp(tipX, this.editor.area.x + 4, Math.max(this.editor.area.x + 4, this.editor.area.ex() - textW - 4));
+        tipY = Math.max(this.editor.area.y + 4, tipY);
+
+        context.batcher.textCard(label, tipX, tipY, Colors.WHITE, Colors.A75);
     }
 
     private String resolveDockGuidePanelId(int mouseX, int mouseY, String activeDragId)
@@ -3959,6 +4041,11 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
 
     private void renderDockGuideZone(UIContext context, Area area, int zone, boolean active)
     {
+        this.renderDockGuideZone(context, area, zone, active, false);
+    }
+
+    private void renderDockGuideZone(UIContext context, Area area, int zone, boolean active, boolean suppressed)
+    {
         int[] rect = this.getDockGuideRect(area, zone);
         if (rect == null)
         {
@@ -3968,14 +4055,32 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
         int baseColor = BBSSettings.primaryColor.get();
         int cx = (rect[0] + rect[2]) / 2;
         int cy = (rect[1] + rect[3]) / 2;
-        int bg = active ? Colors.setA(baseColor, 0.85F) : 0xEE1A1A20;
-        int border = active ? 0xFFFFFFFF : (0xFF000000 | baseColor);
+        int bg;
+        int border;
+        int coreColor;
+        int core;
+
+        if (suppressed)
+        {
+            int darkBase = Colors.mulRGB(0xFF000000 | baseColor, 0.55F);
+            int darkBorder = Colors.mulRGB(0xFF000000 | baseColor, 0.4F);
+
+            bg = Colors.setA(darkBase, 0.5F);
+            border = Colors.setA(darkBorder, 0.5F);
+            coreColor = Colors.setA(Colors.WHITE, 0.5F);
+            core = 4;
+            active = false;
+        }
+        else
+        {
+            bg = active ? Colors.setA(baseColor, 0.85F) : 0xEE1A1A20;
+            border = active ? 0xFFFFFFFF : (0xFF000000 | baseColor);
+            coreColor = 0xFFFFFFFF;
+            core = active ? 5 : 4;
+        }
 
         context.batcher.box(rect[0], rect[1], rect[2], rect[3], bg);
         context.batcher.outline(rect[0], rect[1], rect[2], rect[3], border);
-
-        int core = active ? 5 : 4;
-        int coreColor = 0xFFFFFFFF;
         context.batcher.box(cx - core, cy - core, cx + core, cy + core, coreColor);
 
         if (active)

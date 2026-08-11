@@ -981,6 +981,7 @@
     "bbs.ui.film.insert_space-title": "Insertar espacio",
     "bbs.ui.film.join_world": "Entrar al mundo",
     "bbs.ui.film.layout.anchored_replays": "Panel Replays anclado",
+    "bbs.ui.film.layout.snap_cancel_tip": "Pulsa Alt para cancelar el anclaje",
     "bbs.ui.film.layout.docked": "Diseño acoplado",
     "bbs.ui.film.layout.horizontal": "Diseño horizontal",
     "bbs.ui.film.layout.horizontal_bottom": "Horizontal (timeline abajo)",
