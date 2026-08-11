@@ -1,6 +1,7 @@
 package mchorse.bbs_mod.forms.renderers;
 
 import mchorse.bbs_mod.BBSModClient;
+import mchorse.bbs_mod.client.BBSRendering;
 import mchorse.bbs_mod.client.BBSShaders;
 import mchorse.bbs_mod.client.ItemUseRenderState;
 import mchorse.bbs_mod.client.MobTextureOverride;
@@ -30,6 +31,7 @@ import net.minecraft.client.model.ModelPart;
 import net.minecraft.client.network.OtherClientPlayerEntity;
 import net.minecraft.client.render.DiffuseLighting;
 import net.minecraft.client.render.LightmapTextureManager;
+import net.minecraft.client.render.entity.EntityRenderDispatcher;
 import net.minecraft.client.render.entity.LivingEntityRenderer;
 import net.minecraft.client.render.entity.model.EntityModel;
 import net.minecraft.client.util.math.MatrixStack;
@@ -498,9 +500,13 @@ public class MobFormRenderer extends FormRenderer<MobForm> implements ITickable
 
         if (this.entity != null)
         {
-            CustomVertexConsumerProvider consumers = FormUtilsClient.getProvider();
+            /* Private Immediate so villager clothing layers are not mixed with world leftovers. */
+            CustomVertexConsumerProvider consumers = FormUtilsClient.getMobMorphProvider();
             int light = context.light;
             BooleanHolder first = new BooleanHolder();
+            boolean prepareLighting = BBSRendering.isRenderingWorld()
+                && !context.isPicking()
+                && !context.isShadowPass;
 
             if (context.isPicking())
             {
@@ -595,12 +601,24 @@ public class MobFormRenderer extends FormRenderer<MobForm> implements ITickable
             }
 
             MobTextureOverride.begin(this.form.texture.get());
+
+            EntityRenderDispatcher dispatcher = MinecraftClient.getInstance().getEntityRenderDispatcher();
+
             try
             {
-                MinecraftClient.getInstance().getEntityRenderDispatcher().render(this.entity, 0D, 0D, 0D, 0F, context.getTransition(), context.stack, consumers, light);
+                if (prepareLighting)
+                {
+                    BBSRendering.prepareVanillaEntityLighting();
+                }
+
+                /* Film draws its own ground shadow; nested vanilla shadow on the morph can
+                 * defer the last clothing layer until a late draw with a bad light basis. */
+                dispatcher.setRenderShadows(false);
+                dispatcher.render(this.entity, 0D, 0D, 0D, 0F, context.getTransition(), context.stack, consumers, light);
             }
             finally
             {
+                dispatcher.setRenderShadows(true);
                 MobTextureOverride.end();
             }
 
@@ -616,8 +634,19 @@ public class MobFormRenderer extends FormRenderer<MobForm> implements ITickable
 
             currentPose = currentPoseOverlay = null;
 
+            if (prepareLighting)
+            {
+                BBSRendering.prepareVanillaEntityLighting();
+            }
+
             consumers.draw();
             CustomVertexConsumerProvider.clearRunnables();
+
+            if (prepareLighting)
+            {
+                MinecraftClient.getInstance().gameRenderer.getOverlayTexture().teardownOverlayColor();
+                BBSRendering.restoreWorldRenderState();
+            }
 
             context.stack.pop();
 
