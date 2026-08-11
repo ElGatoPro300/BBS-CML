@@ -548,9 +548,23 @@ public class ActionPlayer
                 continue;
             }
 
+            /* Combat-dead actors are removed from the map; without this guard their
+             * Attack clips keep firing through SuperFakePlayer + bound target. */
+            if (this.combatFinishedIds.contains(replay.getId()))
+            {
+                continue;
+            }
+
             LivingEntity actor = this.actors.get(replay.getId());
 
-            if (actor != null && (actor.isDead() || actor.getHealth() <= 0F || actor.deathTime > 0))
+            if (actor != null && (actor.isDead() || actor.getHealth() <= 0F || actor.deathTime > 0 || actor.isRemoved()))
+            {
+                continue;
+            }
+
+            /* Actor-mode replay with no living body (discarded mid-play): never
+             * fall back to FakePlayer combat / world clips as if still alive. */
+            if ((replay.actor.get() || replay.fp.get()) && (actor == null || actor.isRemoved()))
             {
                 continue;
             }
