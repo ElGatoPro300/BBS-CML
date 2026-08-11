@@ -1118,6 +1118,7 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
     {
         ValueEditorLayout layout = BBSSettings.editorLayoutSettings;
         EditorLayoutNode root = layout.getFilmLayoutRoot();
+        Map<String, Integer> preservedTabScroll = recreateTabs ? this.captureTabBarScroll() : null;
 
         if (this.hasPanelInLayout(root, "main"))
         {
@@ -1197,6 +1198,7 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
         }
         
         this.setupTabBars(root, visibleRoot, bounds, recreateTabs);
+        this.restoreTabBarScroll(preservedTabScroll);
         this.syncReplaysPropertiesLayoutMode();
 
         if (resize)
@@ -7614,6 +7616,74 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
         return null;
     }
 
+    /**
+     * Stable key for a tab group so horizontal scroll survives tab-bar rebuilds
+     * (selection / reorder). Panel ids are sorted so reorder does not change the key.
+     */
+    private String getTabBarScrollKey(EditorLayoutNode.TabbedNode tabbed)
+    {
+        if (tabbed == null)
+        {
+            return null;
+        }
+
+        List<String> ids = new ArrayList<>();
+
+        for (EditorLayoutNode tab : tabbed.tabs)
+        {
+            if (tab instanceof EditorLayoutNode.PanelNode)
+            {
+                ids.add(((EditorLayoutNode.PanelNode) tab).getPanelId());
+            }
+        }
+
+        if (ids.isEmpty())
+        {
+            return null;
+        }
+
+        Collections.sort(ids);
+
+        return String.join("|", ids);
+    }
+
+    private Map<String, Integer> captureTabBarScroll()
+    {
+        Map<String, Integer> scrolls = new HashMap<>();
+
+        for (UITabBar bar : this.tabBars)
+        {
+            String key = this.getTabBarScrollKey(bar.getTabbedNode());
+
+            if (key != null)
+            {
+                scrolls.put(key, bar.scroll);
+            }
+        }
+
+        return scrolls;
+    }
+
+    private void restoreTabBarScroll(Map<String, Integer> scrolls)
+    {
+        if (scrolls == null || scrolls.isEmpty())
+        {
+            return;
+        }
+
+        for (UITabBar bar : this.tabBars)
+        {
+            String key = this.getTabBarScrollKey(bar.getTabbedNode());
+            Integer scroll = key == null ? null : scrolls.get(key);
+
+            if (scroll != null)
+            {
+                bar.scroll = scroll;
+                bar.clampScroll();
+            }
+        }
+    }
+
     private float[] getTabGroupBounds(EditorLayoutNode.TabbedNode tabbed, Map<String, float[]> bounds)
     {
         if (tabbed == null || bounds == null)
@@ -8379,7 +8449,8 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
                 this.panel.syncLinkedPropertiesTab(this.panelId);
                 ValueEditorLayout layout = BBSSettings.editorLayoutSettings;
                 layout.setFilmLayoutRoot(layout.getFilmLayoutRoot());
-                this.panel.setupEditorFlex(true, false, true);
+                /* Keep existing tab bars so horizontal scroll is not wiped before a drag starts. */
+                this.panel.setupEditorFlex(true, false, false);
 
                 if (!layout.isLayoutLocked())
                 {
