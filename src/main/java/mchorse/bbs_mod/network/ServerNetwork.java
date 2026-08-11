@@ -76,6 +76,11 @@ public class ServerNetwork
     public static final Identifier CLIENT_REFRESH_MODEL_BLOCKS = new Identifier(BBSMod.MOD_ID, "c17");
     public static final Identifier CLIENT_CLICKED_TRIGGER_BLOCK_PACKET = new Identifier(BBSMod.MOD_ID, "c18");
     public static final Identifier CLIENT_BAY4LLY_SKIN = new Identifier(BBSMod.MOD_ID, "c19");
+    public static final Identifier CLIENT_MOB_COMBAT_ACTION = new Identifier(BBSMod.MOD_ID, "c20");
+
+    public static final byte MOB_COMBAT_KIND_MELEE = 0;
+    public static final byte MOB_COMBAT_KIND_PROJECTILE = 1;
+    public static final byte MOB_COMBAT_KIND_DAMAGE = 2;
 
     public static final Identifier SERVER_MODEL_BLOCK_FORM_PACKET = new Identifier(BBSMod.MOD_ID, "s1");
     public static final Identifier SERVER_MODEL_BLOCK_TRANSFORMS_PACKET = new Identifier(BBSMod.MOD_ID, "s2");
@@ -457,7 +462,8 @@ public class ServerNetwork
 
                 if (actionPlayer != null)
                 {
-                    actionPlayer.goTo(tick);
+                    /* Soft sync — do not rebuild combat / re-fire clips on play. */
+                    actionPlayer.syncPlaybackTick(tick);
                     actionPlayer.playing = true;
                 }
             }
@@ -467,7 +473,8 @@ public class ServerNetwork
 
                 if (actionPlayer != null)
                 {
-                    actionPlayer.goTo(tick);
+                    /* Soft sync — do not revive combat-dead actors on pause. */
+                    actionPlayer.syncPlaybackTick(tick);
                     actionPlayer.playing = false;
                 }
             }
@@ -496,11 +503,8 @@ public class ServerNetwork
                 {
                     actionPlayer.syncing = true;
                     actionPlayer.playing = false;
-
-                    if (tick != 0)
-                    {
-                        actionPlayer.goTo(0, tick);
-                    }
+                    /* Always sync HP + world clips from 0..cursor (incl. tick 0). */
+                    actionPlayer.goTo(0, tick);
                 }
 
                 sendStopFilm(player, filmId);
@@ -746,7 +750,7 @@ public class ServerNetwork
 
         buf.writeString(filmId);
 
-        ServerPlayNetworking.send(player, CLIENT_STOP_FILM_PACKET, buf);
+        ServerPlayNetworking.send(player, BufPayload.from(buf, idFor(CLIENT_STOP_FILM_PACKET)));
     }
 
     public static void sendManagerData(ServerPlayerEntity player, int callbackId, RepositoryOperation op, BaseType data)
@@ -766,6 +770,18 @@ public class ServerNetwork
             packetByteBuf.writeInt(replayId);
             packetByteBuf.writeInt(tick);
         });
+    }
+
+    public static void sendMobCombatAction(ServerPlayerEntity player, int victimEntityId, int sourceEntityId, float amount, byte kind)
+    {
+        PacketByteBuf buf = PacketByteBufs.create();
+
+        buf.writeInt(victimEntityId);
+        buf.writeInt(sourceEntityId);
+        buf.writeFloat(amount);
+        buf.writeByte(kind);
+
+        ServerPlayNetworking.send(player, CLIENT_MOB_COMBAT_ACTION, buf);
     }
 
     public static void sendHandshake(MinecraftServer server, PacketSender packetSender)
@@ -800,7 +816,7 @@ public class ServerNetwork
 
         buf.writeBoolean(cheats);
 
-        ServerPlayNetworking.send(player, ServerNetwork.CLIENT_CHEATS_PERMISSION, buf);
+        ServerPlayNetworking.send(player, CLIENT_CHEATS_PERMISSION, buf);
     }
 
     public static void sendSharedForm(ServerPlayerEntity player, MapType data)
