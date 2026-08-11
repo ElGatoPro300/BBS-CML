@@ -15,6 +15,10 @@ import net.minecraft.server.world.ServerWorld;
  * Resolves melee attack damage from the attacker's held item / attributes so
  * film Attack clips match swords (incl. Sharpness / {@link MobKillerItem})
  * instead of a flat stub value.
+ * <p>
+ * Recorded clips should store the <b>actual</b> vanilla hit amount (cooldown,
+ * crits, strength, enchants already baked in). Playback must not inflate that
+ * back to full weapon damage.
  */
 public final class AttackDamage
 {
@@ -32,6 +36,27 @@ public final class AttackDamage
         return stack != null && !stack.isEmpty() && stack.getItem() instanceof MobKillerItem;
     }
 
+    /**
+     * Vanilla {@link PlayerEntity} attack-strength scale applied to melee damage
+     * ({@code 0.2 + cooldown² * 0.8}).
+     */
+    public static float attackStrengthScale(PlayerEntity player)
+    {
+        if (player == null)
+        {
+            return 1F;
+        }
+
+        float cooldown = player.getAttackCooldownProgress(0.5F);
+
+        return 0.2F + cooldown * cooldown * 0.8F;
+    }
+
+    /**
+     * Estimate damage from the current held item (attributes + enchants +
+     * player attack cooldown). Prefer recording the real {@code damage()} amount
+     * when a hit lands — this is a fallback for speculative clips.
+     */
     public static float fromAttacker(LivingEntity attacker, Entity target)
     {
         if (attacker == null)
@@ -51,12 +76,12 @@ public final class AttackDamage
 
         if (stack.isEmpty() || !(attacker.getWorld() instanceof ServerWorld serverWorld))
         {
-            return Math.max(1F, base);
+            return scaleForAttacker(attacker, Math.max(0F, base));
         }
 
         if (target == null)
         {
-            return Math.max(1F, base);
+            return scaleForAttacker(attacker, Math.max(0F, base));
         }
 
         DamageSource source = serverWorld.getDamageSources().mobAttack(attacker);
@@ -68,14 +93,31 @@ public final class AttackDamage
 
         float enchanted = EnchantmentHelper.getDamage(serverWorld, stack, target, source, base);
 
-        return Math.max(base, enchanted);
+        return scaleForAttacker(attacker, Math.max(0F, Math.max(base, enchanted)));
     }
 
+    private static float scaleForAttacker(LivingEntity attacker, float damage)
+    {
+        if (attacker instanceof PlayerEntity player)
+        {
+            return damage * attackStrengthScale(player);
+        }
+
+        return damage;
+    }
+
+    /**
+     * Clip damage is authoritative when present (recorded vanilla hit). Only
+     * fall back to a live weapon estimate when the clip has no damage stored.
+     */
     public static float resolve(float clipDamage, LivingEntity attacker, Entity target)
     {
-        float weapon = fromAttacker(attacker, target);
+        if (clipDamage > 0F)
+        {
+            return clipDamage;
+        }
 
-        return Math.max(Math.max(0F, clipDamage), weapon);
+        return Math.max(0F, fromAttacker(attacker, target));
     }
 
     /**
