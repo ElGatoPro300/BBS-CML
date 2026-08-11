@@ -2140,6 +2140,11 @@ public class UIFilmController extends UIElement
                     continue;
                 }
 
+                if (this.editorController.isActorPickingBlocked(replay))
+                {
+                    continue;
+                }
+
                 this.stencilMap.objectIndex = entry.getKey() + Gizmo.STENCIL_HANDLE_MAX + 1;
 
                 IEntity renderEntity = this.editorController.getRenderEntity(replay, entry.getValue());
@@ -2165,7 +2170,8 @@ public class UIFilmController extends UIElement
             boolean markedBonesOnly = BBSSettings.replayMarkedBonesOnly.get() && !Window.isShiftPressed();
 
             if (currentReplay != null && this.editorController != null
-                && this.editorController.isReplayVisible(currentReplay, currentReplay.getTick(cursorTick)))
+                && this.editorController.isReplayVisible(currentReplay, currentReplay.getTick(cursorTick))
+                && !this.editorController.isActorPickingBlocked(currentReplay))
             {
                 IEntity currentEntity = this.getEntities().get(currentIndex);
 

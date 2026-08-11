@@ -74,6 +74,7 @@ import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityPose;
 import net.minecraft.entity.EquipmentSlot;
+import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.MovementType;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.particle.BlockStateParticleEffect;
@@ -1253,6 +1254,42 @@ public abstract class BaseFilmController
         IEntity physical = this.getPhysicalActorEntity(replay);
 
         return physical != null ? physical : stub;
+    }
+
+    /**
+     * Actor-mode replays must not fall back to the stub for picking/highlight after
+     * combat death — that left a standing invisible ghost (yellow form / blue limbs).
+     * Also blocks picking for the whole death animation once {@code deathTime} starts.
+     */
+    public boolean isActorPickingBlocked(Replay replay)
+    {
+        if (replay == null || !replay.actor.get())
+        {
+            return false;
+        }
+
+        Map<String, Integer> actors = this.getActors();
+
+        if (actors == null || MinecraftClient.getInstance().world == null)
+        {
+            return true;
+        }
+
+        Integer entityId = actors.get(replay.getId());
+
+        if (entityId == null)
+        {
+            return true;
+        }
+
+        Entity anEntity = MinecraftClient.getInstance().world.getEntityById(entityId);
+
+        if (!(anEntity instanceof LivingEntity living) || living.isRemoved())
+        {
+            return true;
+        }
+
+        return living.isDead() || living.getHealth() <= 0F || living.deathTime > 0;
     }
 
     public boolean hasFinished()
