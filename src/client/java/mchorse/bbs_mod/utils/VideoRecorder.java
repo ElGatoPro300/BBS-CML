@@ -730,6 +730,8 @@ public class VideoRecorder
             return;
         }
 
+        this.flushPendingPboFrames();
+
         this.encodingThreadActive = false;
 
         if (this.encodingThread != null)
@@ -840,6 +842,51 @@ public class VideoRecorder
     }
 
     /**
+     * Encode PBO frames already submitted but not yet mapped (pipeline delay of
+     * {@code pbos.length - 1}). Must run on the render thread before deleting PBOs.
+     */
+    private void flushPendingPboFrames()
+    {
+        if (this.pbos == null || this.counter < this.pbos.length - 1)
+        {
+            return;
+        }
+
+        int pending = this.pbos.length - 1;
+
+        for (int i = 0; i < pending; i++)
+        {
+            int readPbo = (this.pboIndex + 1) % this.pbos.length;
+
+            GL30.glBindBuffer(GL30.GL_PIXEL_PACK_BUFFER, this.pbos[readPbo]);
+
+            ByteBuffer mappedBuffer = GL30.glMapBuffer(GL30.GL_PIXEL_PACK_BUFFER, GL30.GL_READ_ONLY);
+
+            if (mappedBuffer != null)
+            {
+                int size = this.textureWidth * this.textureHeight * 3;
+                ByteBuffer buf = this.bufferPool.poll();
+
+                if (buf == null || buf.capacity() < size)
+                {
+                    buf = MemoryUtil.memAlloc(size);
+                }
+
+                buf.clear();
+                buf.put(mappedBuffer);
+                buf.flip();
+
+                this.frameQueue.offer(buf);
+            }
+
+            GL30.glUnmapBuffer(GL30.GL_PIXEL_PACK_BUFFER);
+            this.pboIndex = readPbo;
+        }
+
+        GL30.glBindBuffer(GL30.GL_PIXEL_PACK_BUFFER, 0);
+    }
+
+    /**
      * Record a frame
      */
     public void recordFrame()
@@ -851,8 +898,13 @@ public class VideoRecorder
 
         try
         {
+            /* Async PBO ring: write the current texture into pbos[pbo], then map
+             * pbos[next] which was filled (N - 1) frames ago. Priming frames must
+             * not be encoded — with 3 PBOs that is the first two calls; encoding
+             * an unwritten buffer is what produced a solid black first video frame. */
             int pbo = this.pboIndex;
             int nextPbo = (this.pboIndex + 1) % this.pbos.length;
+            int pipelineDelay = this.pbos.length - 1;
 
             GL30.glPixelStorei(GL30.GL_PACK_ALIGNMENT, 1);
             GL30.glBindBuffer(GL30.GL_PIXEL_PACK_BUFFER, this.pbos[pbo]);
@@ -863,7 +915,7 @@ public class VideoRecorder
 
             ByteBuffer mappedBuffer = GL30.glMapBuffer(GL30.GL_PIXEL_PACK_BUFFER, GL30.GL_READ_ONLY);
 
-            if (mappedBuffer != null && this.counter != 0)
+            if (mappedBuffer != null && this.counter >= pipelineDelay)
             {
                 int size = this.textureWidth * this.textureHeight * 3;
                 ByteBuffer buf = this.bufferPool.poll();

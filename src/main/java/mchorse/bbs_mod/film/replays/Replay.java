@@ -152,6 +152,16 @@ public class Replay extends ValueGroup
         return form.getDisplayName();
     }
 
+    /**
+     * Camera-relative rendering is stub-only. Actor-mode replays are physical
+     * entities teleported to absolute keyframe coordinates, so relative mode
+     * has no effect while {@link #actor} is enabled.
+     */
+    public boolean isCameraRelative()
+    {
+        return this.relative.get() && !this.actor.get();
+    }
+
     public void shift(float tick)
     {
         this.keyframes.shift(tick);

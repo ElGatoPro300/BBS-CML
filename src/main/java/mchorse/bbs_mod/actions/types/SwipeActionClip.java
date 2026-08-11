@@ -37,7 +37,7 @@ public class SwipeActionClip extends ActionClip
      */
     public static void noteClientFilmTick(IEntity entity, int tick)
     {
-        if (BBSSettings.editorActorPausedSwipeLoop == null || BBSSettings.editorActorPausedSwipeLoop.get())
+        if (BBSSettings.editorActorPausedSwipeLoop != null && BBSSettings.editorActorPausedSwipeLoop.get())
         {
             return;
         }
@@ -78,8 +78,8 @@ public class SwipeActionClip extends ActionClip
              * while the cursor stays here, and LivingEntity.swingHand restarts
              * while handSwingTicks == -1 (arm jitter). Server applyAction remains
              * as a fallback if this client path did not run. */
-            boolean loopWhileParked = BBSSettings.editorActorPausedSwipeLoop == null
-                || BBSSettings.editorActorPausedSwipeLoop.get();
+            boolean loopWhileParked = BBSSettings.editorActorPausedSwipeLoop != null
+                && BBSSettings.editorActorPausedSwipeLoop.get();
 
             if (!loopWhileParked)
             {

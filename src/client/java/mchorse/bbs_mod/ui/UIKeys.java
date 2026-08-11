@@ -496,6 +496,7 @@ public class UIKeys
     public static final IKey FILM_REPLAY_DROP_ITEMS_ON_DEATH_TOOLTIP = L10n.lang("bbs.ui.film.replay.drop_items_on_death-tooltip");
     public static final IKey FILM_REPLAY_RECORD = L10n.lang("bbs.ui.film.replay.record");
     public static final IKey FILM_REPLAY_RELATIVE_TOOLTIP = L10n.lang("bbs.ui.film.replay.relative-tooltip");
+    public static final IKey FILM_REPLAY_RELATIVE_ACTOR_DISABLED_TOOLTIP = L10n.lang("bbs.ui.film.replay.relative-actor-disabled-tooltip");
     public static final IKey FILM_REPLAY_REPLAY = L10n.lang("bbs.ui.film.replay.replay");
     public static final IKey FILM_REPLAY_SECTION_GENERAL = L10n.lang("bbs.ui.film.replay.section_general");
     public static final IKey FILM_REPLAY_SECTION_PLAYBACK = L10n.lang("bbs.ui.film.replay.section_playback");

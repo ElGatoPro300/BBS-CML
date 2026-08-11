@@ -1722,6 +1722,13 @@ public class ModelVAORenderer
 
     public static void render(ShaderProgram shader, IModelVAO modelVAO, MatrixStack stack, float r, float g, float b, float a, int light, int overlay)
     {
+        /* Iris / resource-reload races can leave BBSShaders.getModel() null while
+         * form-list UI cards still try to draw Extruded/Structure VAOs. */
+        if (shader == null || modelVAO == null)
+        {
+            return;
+        }
+
         int currentVAO = GL30.glGetInteger(GL30.GL_VERTEX_ARRAY_BINDING);
         int currentElementArrayBuffer = GL30.glGetInteger(GL30.GL_ELEMENT_ARRAY_BUFFER_BINDING);
 
@@ -1746,6 +1753,10 @@ public class ModelVAORenderer
 
     public static void setupUniforms(MatrixStack stack, ShaderProgram shader)
     {
+        if (shader == null)
+        {
+            return;
+        }
 
         if (colorGradeOverlayPass && gradeSceneColor != null && gradeSceneColor.isValid())
         {
@@ -1764,11 +1775,20 @@ public class ModelVAORenderer
      */
     public static void setupUniformsCpuPretransformed(ShaderProgram shader)
     {
+        if (shader == null)
+        {
+            return;
+        }
+
         setupUniforms(null, shader, true);
     }
 
     private static void setupUniforms(MatrixStack stack, ShaderProgram shader, boolean cpuPretransformed)
     {
+        if (shader == null)
+        {
+            return;
+        }
 
         for (int i = 0; i < 12; i++)
         {

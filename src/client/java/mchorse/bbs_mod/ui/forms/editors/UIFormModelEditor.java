@@ -1,6 +1,7 @@
 package mchorse.bbs_mod.ui.forms.editors;
 
 import mchorse.bbs_mod.BBSClient;
+import mchorse.bbs_mod.BBSFeatures;
 import mchorse.bbs_mod.BBSModClient;
 import mchorse.bbs_mod.cubic.model.ModelConfig;
 import mchorse.bbs_mod.cubic.model.ModelManager;
@@ -122,10 +123,19 @@ public class UIFormModelEditor extends UIElement implements IUIModelPanelHost
         this.addSection(new UIModelItemsSection(this));
         this.addSection(new UIModelHandsSection(this));
         this.addSection(new UIModelSneakingSection(this));
-        this.addSection(new UIModelLookAtSection(this));
+
+        if (BBSFeatures.MODEL_PROCEDURAL_LOOK_AT_UI)
+        {
+            this.addSection(new UIModelLookAtSection(this));
+        }
 
         this.registerWorkspacePanel(this.modelSettingsPanel, UIKeys.MODELS_SETTINGS, Icons.MODELS_SETTINGS);
-        this.registerWorkspacePanel(this.ikPanel, UIKeys.MODELS_IK_EDITOR, Icons.IK);
+
+        if (BBSFeatures.MODEL_IK_UI)
+        {
+            this.registerWorkspacePanel(this.ikPanel, UIKeys.MODELS_IK_EDITOR, Icons.IK);
+        }
+
         this.registerWorkspacePanel(this.physBonesPanel, UIKeys.MODELS_PHYS_BONES_EDITOR, Icons.DYNAMIC_BONES);
         this.registerWorkspacePanel(this.constraintsPanel, UIKeys.MODELS_CONSTRAINTS_EDITOR, Icons.LOCKED);
         this.registerWorkspacePanel(this.geometryPanel, UIKeys.MODELS_GEOMETRY_EDITOR, Icons.GEOMETRY_EDITOR);
