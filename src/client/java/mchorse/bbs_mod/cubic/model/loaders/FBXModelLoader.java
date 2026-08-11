@@ -100,18 +100,8 @@ public class FBXModelLoader implements IModelLoader
 
                 if (id.startsWith("emoticons/"))
                 {
-                    if (this.defaultAnimations == null)
-                    {
-                        this.loadDefaultAnimations(models.provider, models.parser);
-                    }
-
-                    if (this.defaultAnimations != null)
-                    {
-                        for (Animation value : this.defaultAnimations.animations.values())
-                        {
-                            instance.animations.add(value);
-                        }
-                    }
+                    this.ensureDefaultAnimations(models.provider, models.parser);
+                    this.applyDefaultAnimations(instance);
                 }
 
                 instance.applyConfig(config);
@@ -129,9 +119,37 @@ public class FBXModelLoader implements IModelLoader
         return null;
     }
 
+    public void ensureDefaultAnimations(AssetProvider provider, MolangParser parser)
+    {
+        if (this.defaultAnimations != null && !this.defaultAnimations.animations.isEmpty())
+        {
+            return;
+        }
+
+        this.loadDefaultAnimations(provider, parser);
+    }
+
+    private void applyDefaultAnimations(ModelInstance instance)
+    {
+        this.mergeDefaultAnimationsInto(instance);
+    }
+
+    public void mergeDefaultAnimationsInto(ModelInstance instance)
+    {
+        if (instance == null || instance.animations == null || this.defaultAnimations == null)
+        {
+            return;
+        }
+
+        for (Animation value : this.defaultAnimations.animations.values())
+        {
+            instance.animations.add(value);
+        }
+    }
+
     public void loadDefaultAnimations(AssetProvider provider, MolangParser parser)
     {
-        this.defaultAnimations = new Animations(parser);
+        Animations loaded = new Animations(parser);
 
         List<Link> actionsList = new ArrayList<>();
 
@@ -151,13 +169,23 @@ public class FBXModelLoader implements IModelLoader
             {
                 BOBJLoader.BOBJData bobjData = BOBJLoader.readData(stream);
 
-                this.convertAnimations(bobjData, this.defaultAnimations);
+                this.convertAnimations(bobjData, loaded);
             }
             catch (Exception e)
             {
                 System.err.println("Failed to load Emoticons " + link + "!");
                 e.printStackTrace();
             }
+        }
+
+        if (!loaded.animations.isEmpty())
+        {
+            this.defaultAnimations = loaded;
+        }
+        else
+        {
+            this.defaultAnimations = null;
+            System.err.println("Emoticons default animation library is empty; will retry on next load.");
         }
     }
 
