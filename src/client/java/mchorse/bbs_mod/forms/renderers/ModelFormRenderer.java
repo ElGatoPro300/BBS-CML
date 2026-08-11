@@ -609,7 +609,13 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
                 ModelVAORenderer.clearGlowing();
             }
 
-            gameRenderer.getLightmapTextureManager().disable();
+            /* World film pass: leave lightmap on so later MobForm stubs (AFTER_ENTITIES)
+             * keep LivingEntityRenderer clothing shading. UI still disables. */
+            if (ui || !BBSRendering.isRenderingWorld())
+            {
+                gameRenderer.getLightmapTextureManager().disable();
+            }
+
             gameRenderer.getOverlayTexture().teardownOverlayColor();
             RenderSystem.disableBlend();
             RenderSystem.defaultBlendFunc();
@@ -1705,7 +1711,11 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
             ModelVAORenderer.clearGlowing();
         }
 
-        gameRenderer.getLightmapTextureManager().disable();
+        if (ui || !BBSRendering.isRenderingWorld())
+        {
+            gameRenderer.getLightmapTextureManager().disable();
+        }
+
         gameRenderer.getOverlayTexture().teardownOverlayColor();
         RenderSystem.disableBlend();
         RenderSystem.defaultBlendFunc();

@@ -1,6 +1,7 @@
 package mchorse.bbs_mod.forms.renderers;
 
 import mchorse.bbs_mod.BBSModClient;
+import mchorse.bbs_mod.client.BBSRendering;
 import mchorse.bbs_mod.client.BBSShaders;
 import mchorse.bbs_mod.client.ItemUseRenderState;
 import mchorse.bbs_mod.client.MobTextureOverride;
@@ -594,7 +595,19 @@ public class MobFormRenderer extends FormRenderer<MobForm> implements ITickable
                 livingMorphForFire.setFireTicks(0);
             }
 
+            /* Film stubs draw in AFTER_ENTITIES; ModelForm may have disabled the lightmap.
+             * Re-enable level diffuse + lightmap like the vanilla entity pass (Actor path). */
+            boolean prepareLighting = BBSRendering.isRenderingWorld()
+                && !context.isPicking()
+                && !context.isShadowPass;
+
+            if (prepareLighting)
+            {
+                BBSRendering.prepareVanillaEntityLighting();
+            }
+
             MobTextureOverride.begin(this.form.texture.get());
+
             try
             {
                 MinecraftClient.getInstance().getEntityRenderDispatcher().render(this.entity, 0D, 0D, 0D, 0F, context.getTransition(), context.stack, consumers, light);
@@ -618,6 +631,14 @@ public class MobFormRenderer extends FormRenderer<MobForm> implements ITickable
 
             consumers.draw();
             CustomVertexConsumerProvider.clearRunnables();
+
+            if (prepareLighting)
+            {
+                MinecraftClient.getInstance().gameRenderer.getOverlayTexture().teardownOverlayColor();
+                BBSRendering.restoreWorldRenderState();
+                /* Keep lightmap on — disabling here flattened later film MobForm stubs. */
+                BBSRendering.setupWorldLevelDiffuseLighting();
+            }
 
             context.stack.pop();
 

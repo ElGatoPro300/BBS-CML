@@ -374,6 +374,26 @@ public class BBSRendering
         RenderSystem.setupLevelDiffuseLighting(WORLD_LEVEL_LIGHT_0, WORLD_LEVEL_LIGHT_1);
     }
 
+    /**
+     * LivingEntityRenderer (villager clothing layers included) expects level diffuse lights
+     * plus an enabled lightmap. Film stubs draw in {@code AFTER_ENTITIES} after ModelForm and
+     * similar paths may have disabled the lightmap or left a GUI diffuse basis — restore both
+     * before vanilla morph draws. Do not disable the lightmap afterward.
+     */
+    public static void prepareVanillaEntityLighting()
+    {
+        MinecraftClient client = MinecraftClient.getInstance();
+
+        if (client == null || client.gameRenderer == null)
+        {
+            return;
+        }
+
+        setupWorldLevelDiffuseLighting();
+        client.gameRenderer.getLightmapTextureManager().enable();
+        client.gameRenderer.getOverlayTexture().setupOverlayColor();
+    }
+
     public static Texture getTexture()
     {
         if (texture == null)
