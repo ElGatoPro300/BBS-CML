@@ -74,6 +74,12 @@ public class MobFormRenderer extends FormRenderer<MobForm> implements ITickable
     private static final Map<ModelPart, Transform> cache = new HashMap<>();
     private static Pose currentPose;
     private static Pose currentPoseOverlay;
+    /**
+     * While true, {@link #getStencilPickOffset} forces lightmap U to 0 so every ModelPart
+     * (body, eyes, clothing, armor, …) writes the same pick id. Eyes/glow layers hardcode
+     * fullbright light and would otherwise only highlight the hit layer under Alt-hover.
+     */
+    private static boolean forceZeroPickLight;
 
     public static final GameProfile WIDE = new GameProfile(UUID.fromString("b99a2400-28a8-4288-92dc-924beafbf756"), "McHorseYT");
     public static final GameProfile SLIM = new GameProfile(UUID.fromString("5477bd28-e672-4f87-a209-c03cf75f3606"), "osmiq");
@@ -510,16 +516,15 @@ public class MobFormRenderer extends FormRenderer<MobForm> implements ITickable
 
             if (context.isPicking())
             {
+                forceZeroPickLight = true;
+                /* Re-apply picker shader after every RenderLayer.startDrawing (TAIL mixin),
+                 * same as ItemFormRenderer — otherwise eyes/clothing keep their own shader
+                 * or a different lightmap and Alt-hover only highlights one layer. */
                 CustomVertexConsumerProvider.hijackVertexFormat((layer) ->
                 {
-                    if (!first.bool)
-                    {
-                        this.bindTexture();
-                        this.setupTarget(context, BBSShaders.getPickerModelsProgram());
-                        RenderSystem.setShader(BBSShaders::getPickerModelsProgram);
-
-                        first.bool = true;
-                    }
+                    this.bindTexture();
+                    this.setupTarget(context, BBSShaders.getPickerModelsProgram());
+                    RenderSystem.setShader(BBSShaders::getPickerModelsProgram);
                 });
 
                 light = 0;
@@ -537,6 +542,8 @@ public class MobFormRenderer extends FormRenderer<MobForm> implements ITickable
                 });
             }
 
+            try
+            {
             context.stack.push();
 
             if (this.form.mobID.get().equals("minecraft:ender_dragon"))
@@ -651,6 +658,11 @@ public class MobFormRenderer extends FormRenderer<MobForm> implements ITickable
             context.stack.pop();
 
             RenderSystem.enableDepthTest();
+            }
+            finally
+            {
+                forceZeroPickLight = false;
+            }
         }
     }
 
@@ -899,6 +911,9 @@ public class MobFormRenderer extends FormRenderer<MobForm> implements ITickable
 
     public static int getStencilPickOffset(ModelPart part, int light)
     {
-        return light;
+        /* Eyes / glowing feature layers pass fullbright light into ModelPart.render;
+         * picker_models encodes Target + lightmap.u, so non-zero light splits the form
+         * into multiple pick ids. Zero them while stencil-picking MobForms. */
+        return forceZeroPickLight ? 0 : light;
     }
 }
