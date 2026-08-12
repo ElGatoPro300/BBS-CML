@@ -1717,7 +1717,11 @@ public class ModelVAORenderer
         shader.unbind();
 
         GL30.glBindVertexArray(currentVAO);
-        GL30.glBindBuffer(GL30.GL_ELEMENT_ARRAY_BUFFER, currentElementArrayBuffer);
+
+        if (currentVAO != 0)
+        {
+            GL30.glBindBuffer(GL30.GL_ELEMENT_ARRAY_BUFFER, currentElementArrayBuffer);
+        }
     }
 
     public static void setupUniforms(MatrixStack stack, ShaderProgram shader)
