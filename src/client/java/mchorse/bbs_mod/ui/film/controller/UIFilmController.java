@@ -149,6 +149,7 @@ public class UIFilmController extends UIElement
     private List<String> recordingGroups;
     private BaseType recordingOld;
     private int recordingReplayIndex = -1;
+    private boolean recordingKeyframesPrepared;
     private boolean instantKeyframes;
     private boolean countdownControl;
 
@@ -795,6 +796,7 @@ public class UIFilmController extends UIElement
         this.recording = true;
         this.recordingCountdown = 30;
         this.recordingGroups = groups;
+        this.recordingKeyframesPrepared = false;
 
         Replay recordReplay = this.getReplay();
 
@@ -874,6 +876,7 @@ public class UIFilmController extends UIElement
 
         this.recording = false;
         this.recordingGroups = null;
+        this.recordingKeyframesPrepared = false;
 
         if (this.controlled != null)
         {
@@ -1631,6 +1634,7 @@ public class UIFilmController extends UIElement
 
                 if (this.recordingCountdown <= 0)
                 {
+                    this.prepareRecordingKeyframes();
                     this.panel.togglePlayback();
                 }
             }
@@ -1657,6 +1661,27 @@ public class UIFilmController extends UIElement
                 }
             }
         }
+    }
+
+    /**
+     * Drop leftover keyframes from the capture start so All-groups (and other)
+     * viewport recording does not blend into old future poses while capturing.
+     */
+    private void prepareRecordingKeyframes()
+    {
+        if (this.recordingKeyframesPrepared)
+        {
+            return;
+        }
+
+        Replay replay = this.getReplay();
+
+        if (replay != null)
+        {
+            replay.keyframes.clearFrom(this.recordingTick, this.recordingGroups);
+        }
+
+        this.recordingKeyframesPrepared = true;
     }
 
     private void updateControls()

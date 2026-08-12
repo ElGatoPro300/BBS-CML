@@ -614,7 +614,13 @@ public class ActionPlayer
                 || baseValue.getId().equals("enabled")
                 || baseValue.getId().equals("replays"))
             {
+                int keepTick = this.tick;
+
                 this.updateReplayEntities();
+                /* updateReplayEntities clears combatFinishedIds and respawns at full HP.
+                 * Re-run silent combat at the current film tick so dead actors stay dead
+                 * and the next hit still kills when it should. */
+                this.goTo(keepTick);
             }
             else
             {
