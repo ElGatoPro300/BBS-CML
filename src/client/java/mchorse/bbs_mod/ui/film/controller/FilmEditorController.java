@@ -135,7 +135,7 @@ public class FilmEditorController extends BaseFilmController
         {
             replay.keyframes.apply(ticks, entity, isControlled ? groups : null);
 
-            if (!isControlled)
+            if (!isControlled && this.shouldApplyClientActions(entity))
             {
                 replay.applyClientActions(ticks, entity, this.film);
             }
@@ -205,6 +205,12 @@ public class FilmEditorController extends BaseFilmController
     protected boolean shouldEmitReplayMotionFx(IEntity entity)
     {
         return !this.controller.isControlling() || entity != this.controller.getControlled();
+    }
+
+    @Override
+    protected boolean shouldApplyClientActions(IEntity entity)
+    {
+        return !this.controller.shouldSuppressClientActions(this.getTick());
     }
 
     @Override

@@ -1484,7 +1484,7 @@ public abstract class BaseFilmController
                                 actor.syncShadow(replay.shadow.get(), BaseFilmController.resolveShadowSettings(replay, replayTick));
 
                                 /* Same as live control: the puppeteer owns swings / client clips. */
-                                if (this.shouldEmitReplayMotionFx(entity))
+                                if (this.shouldEmitReplayMotionFx(entity) && this.shouldApplyClientActions(entity))
                                 {
                                     replay.applyClientActions(replayTick, new MCEntity(anEntity), this.film);
                                 }
@@ -1579,7 +1579,7 @@ public abstract class BaseFilmController
                                 /* While actor-controlling (incl. viewport record), do not replay
                                  * timeline Swipe/etc. on the puppet — Outside uses exception for
                                  * the same idea. Other replays still play their clips. */
-                                if (!controlling)
+                                if (!controlling && this.shouldApplyClientActions(entity))
                                 {
                                     replay.applyClientActions(replayTick, new MCEntity(anEntity), this.film);
                                 }
@@ -1858,6 +1858,15 @@ public abstract class BaseFilmController
      * entity currently under actor-control so dust is not sprayed at the parked pose.
      */
     protected boolean shouldEmitReplayMotionFx(IEntity entity)
+    {
+        return true;
+    }
+
+    /**
+     * Whether timeline client action clips (swipe, etc.) may run for this entity.
+     * Film editor suppresses one pass after soft-seeking back from a viewport record.
+     */
+    protected boolean shouldApplyClientActions(IEntity entity)
     {
         return true;
     }

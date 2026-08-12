@@ -582,6 +582,16 @@ public class ServerNetwork
                     actionPlayer.goTo(tick);
                 }
             }
+            else if (state == ActionState.SYNC)
+            {
+                ActionPlayer actionPlayer = actions.getPlayer(filmId);
+
+                if (actionPlayer != null)
+                {
+                    /* Soft tick move — same as Play/Pause; no world-clip walk. */
+                    actionPlayer.syncPlaybackTick(tick);
+                }
+            }
             else if (state == ActionState.PLAY)
             {
                 ActionPlayer actionPlayer = actions.getPlayer(filmId);

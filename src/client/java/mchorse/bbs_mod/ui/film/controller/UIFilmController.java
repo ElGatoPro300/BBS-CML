@@ -152,6 +152,11 @@ public class UIFilmController extends UIElement
     private boolean recordingKeyframesPrepared;
     private boolean instantKeyframes;
     private boolean countdownControl;
+    /**
+     * After viewport record stop, soft-seek lands on this tick without wanting
+     * another Swipe/etc. pass. Cleared when the playhead leaves the tick.
+     */
+    private int suppressClientActionsAtTick = -1;
 
     private boolean wasFlying;
     private boolean wasAllowFlying;
@@ -749,6 +754,27 @@ public class UIFilmController extends UIElement
         return this.recordingGroups;
     }
 
+    /**
+     * True while parked on the tick restored after viewport record stop — skips
+     * one client action pass (swipe) that would otherwise re-fire on soft-seek.
+     */
+    public boolean shouldSuppressClientActions(int tick)
+    {
+        if (this.suppressClientActionsAtTick < 0)
+        {
+            return false;
+        }
+
+        if (tick != this.suppressClientActionsAtTick)
+        {
+            this.suppressClientActionsAtTick = -1;
+
+            return false;
+        }
+
+        return true;
+    }
+
     public void startRecording(List<String> groups)
     {
         if (this.panel.getData() == null)
@@ -797,6 +823,7 @@ public class UIFilmController extends UIElement
         this.recordingCountdown = 30;
         this.recordingGroups = groups;
         this.recordingKeyframesPrepared = false;
+        this.suppressClientActionsAtTick = -1;
 
         Replay recordReplay = this.getReplay();
 
@@ -899,7 +926,10 @@ public class UIFilmController extends UIElement
             }
         }
 
-        this.panel.setCursor(this.recordingTick);
+        /* Soft restore — SEEK goTo would re-fire swipe / break / drops while
+         * walking back from the end of the take to the start tick. */
+        this.suppressClientActionsAtTick = this.recordingTick;
+        this.panel.setCursor(this.recordingTick, false);
 
         if (this.panel.getRunner().isRunning())
         {
