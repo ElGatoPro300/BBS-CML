@@ -7,6 +7,7 @@ import mchorse.bbs_mod.film.replays.ActorReplayStateSync;
 import mchorse.bbs_mod.film.replays.Replay;
 import mchorse.bbs_mod.forms.entities.MCEntity;
 import mchorse.bbs_mod.forms.forms.Form;
+import mchorse.bbs_mod.forms.forms.utils.ShadowSettings;
 import mchorse.bbs_mod.mixin.LimbAnimatorAccessor;
 import mchorse.bbs_mod.network.ServerNetwork;
 import mchorse.bbs_mod.utils.StringUtils;
@@ -115,6 +116,18 @@ public class ActorEntity extends LivingEntity implements IEntityFormProvider
     private boolean runtimeInventoryInitialized;
     private final Set<UUID> pickedUpEntityIds = new HashSet<>();
 
+    /**
+     * Ground-blob shadow from the owning replay (toggle / size / opacity / offset).
+     * Applied by {@code ActorEntityRenderer}; defaults match a normal entity blob.
+     */
+    private boolean filmShadowEnabled = true;
+    private float filmShadowOpacity = 1F;
+    private float filmShadowRadiusX = 0.5F;
+    private float filmShadowRadiusZ = 0.5F;
+    private float filmShadowOffsetX;
+    private float filmShadowOffsetY;
+    private float filmShadowOffsetZ;
+
     public ActorEntity(EntityType<? extends LivingEntity> entityType, World world)
     {
         super(entityType, world);
@@ -130,6 +143,7 @@ public class ActorEntity extends LivingEntity implements IEntityFormProvider
         this.currentTick = tick;
         this.initializeRuntimeInventory();
         this.syncNameTag(replay);
+        this.syncShadow(replay, tick);
     }
 
     public Film getFilm()
@@ -166,6 +180,128 @@ public class ActorEntity extends LivingEntity implements IEntityFormProvider
             this.setCustomName(Text.literal(StringUtils.processColoredText(nameTag)));
             this.setCustomNameVisible(true);
         }
+    }
+
+    /**
+     * Mirror {@link Replay#shadow} (+ size / opacity / offset) onto this entity so
+     * {@code ActorEntityRenderer} can draw the same ground blob as stub replays.
+     * Does not affect movement or pose.
+     */
+    public void syncShadow(Replay replay, float tick)
+    {
+        if (replay == null)
+        {
+            this.filmShadowEnabled = true;
+            this.filmShadowOpacity = 1F;
+            this.filmShadowRadiusX = 0.5F;
+            this.filmShadowRadiusZ = 0.5F;
+            this.filmShadowOffsetX = 0F;
+            this.filmShadowOffsetY = 0F;
+            this.filmShadowOffsetZ = 0F;
+
+            return;
+        }
+
+        this.filmShadowEnabled = replay.shadow.get();
+        this.filmShadowOpacity = Math.max(0F, Math.min(1F, replay.shadowOpacity.get()));
+        this.filmShadowRadiusX = Math.max(0F, replay.shadowSize.get());
+        this.filmShadowRadiusZ = Math.max(0F, replay.shadowSizeZ.get());
+        this.filmShadowOffsetX = replay.shadowOffsetX.get();
+        this.filmShadowOffsetY = replay.shadowOffsetY.get();
+        this.filmShadowOffsetZ = replay.shadowOffsetZ.get();
+
+        if (!replay.keyframes.shadowSize.isEmpty())
+        {
+            ShadowSettings size = replay.keyframes.shadowSize.interpolate(tick);
+
+            if (size != null)
+            {
+                this.filmShadowRadiusX = Math.max(0F, size.widthX);
+                this.filmShadowRadiusZ = Math.max(0F, size.widthZ);
+                this.filmShadowOffsetX = size.offsetX;
+                this.filmShadowOffsetY = size.offsetY;
+                this.filmShadowOffsetZ = size.offsetZ;
+            }
+        }
+
+        if (!replay.keyframes.shadowOpacity.isEmpty())
+        {
+            Double opacity = replay.keyframes.shadowOpacity.interpolate(tick);
+
+            if (opacity != null)
+            {
+                this.filmShadowOpacity = Math.max(0F, Math.min(1F, opacity.floatValue()));
+            }
+        }
+    }
+
+    /**
+     * Prefer client-resolved settings (includes the same path as stub film shadows).
+     */
+    public void syncShadow(boolean enabled, ShadowSettings settings)
+    {
+        this.filmShadowEnabled = enabled;
+
+        if (settings == null)
+        {
+            this.filmShadowOpacity = enabled ? 1F : 0F;
+            this.filmShadowRadiusX = enabled ? 0.5F : 0F;
+            this.filmShadowRadiusZ = enabled ? 0.5F : 0F;
+            this.filmShadowOffsetX = 0F;
+            this.filmShadowOffsetY = 0F;
+            this.filmShadowOffsetZ = 0F;
+
+            return;
+        }
+
+        this.filmShadowOpacity = Math.max(0F, Math.min(1F, settings.opacity));
+        this.filmShadowRadiusX = Math.max(0F, settings.widthX);
+        this.filmShadowRadiusZ = Math.max(0F, settings.widthZ);
+        this.filmShadowOffsetX = settings.offsetX;
+        this.filmShadowOffsetY = settings.offsetY;
+        this.filmShadowOffsetZ = settings.offsetZ;
+    }
+
+    public boolean isFilmShadowEnabled()
+    {
+        return this.filmShadowEnabled;
+    }
+
+    public float getFilmShadowOpacity()
+    {
+        return this.filmShadowOpacity;
+    }
+
+    public float getFilmShadowRadiusX()
+    {
+        return this.filmShadowRadiusX;
+    }
+
+    public float getFilmShadowRadiusZ()
+    {
+        return this.filmShadowRadiusZ;
+    }
+
+    public float getFilmShadowOffsetX()
+    {
+        return this.filmShadowOffsetX;
+    }
+
+    public float getFilmShadowOffsetY()
+    {
+        return this.filmShadowOffsetY;
+    }
+
+    public float getFilmShadowOffsetZ()
+    {
+        return this.filmShadowOffsetZ;
+    }
+
+    public boolean shouldRenderFilmGroundShadow()
+    {
+        return this.filmShadowEnabled
+            && this.filmShadowOpacity > 0.001F
+            && (this.filmShadowRadiusX > 0F || this.filmShadowRadiusZ > 0F);
     }
     
     /**

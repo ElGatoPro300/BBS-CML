@@ -1463,6 +1463,7 @@ public abstract class BaseFilmController
                                 actor.setPauseNaturalAnimations(false);
                                 actor.setVelocity(0D, 0D, 0D);
                                 actor.syncNameTag(replay);
+                                actor.syncShadow(replay.shadow.get(), BaseFilmController.resolveShadowSettings(replay, replayTick));
                                 replay.applyClientActions(replayTick, new MCEntity(anEntity), this.film);
                                 spawned = true;
                             }
@@ -1500,9 +1501,6 @@ public abstract class BaseFilmController
                                 this.syncActorEquipmentFromStub(actor, entity);
                                 /* Only gate vanilla sprint dust — do not clear sprinting (run anim). */
                                 actor.setSuppressSprintParticles(controlling);
-                                /* Iris packs cast mesh shadows; drop the vanilla blob then so
-                                 * actor ground circles are not stacked darker. */
-                                ActorEntityRenderer.updateShadowRadius(actor);
 
                                 if (pauseAnims)
                                 {
@@ -1544,6 +1542,9 @@ public abstract class BaseFilmController
 
                                 /* Keep label in sync while editing name_tag in the film UI. */
                                 actor.syncNameTag(replay);
+                                /* Same shadow toggle / size / offset as stub film blobs. */
+                                actor.syncShadow(replay.shadow.get(), BaseFilmController.resolveShadowSettings(replay, replayTick));
+                                ActorEntityRenderer.updateShadowRadius(actor);
                                 replay.applyClientActions(replayTick, new MCEntity(anEntity), this.film);
 
                                 spawned = true;
