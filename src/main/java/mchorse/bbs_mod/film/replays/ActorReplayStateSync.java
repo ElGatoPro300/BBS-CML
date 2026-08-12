@@ -167,7 +167,7 @@ public final class ActorReplayStateSync
      * pose/action flags {@link ReplayKeyframes#apply} would set on a stub.
      *
      * @param advanceLimbs when true (playing), drive limb swing from keyframe motion like
-     *                     {@link mchorse.bbs_mod.forms.entities.StubEntity#update}; when false
+     *                     {@link StubEntity#update}; when false
      *                     (paused), settle limbs/sprint so emoticon/BOBJ can leave run for idle
      *                     (timeline-freeze mode freezes the form clock separately).
      */
