@@ -99,6 +99,8 @@ import org.lwjgl.opengl.GL11;
 
 import com.mojang.blaze3d.systems.RenderSystem;
 
+import org.lwjgl.opengl.GL11;
+
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
