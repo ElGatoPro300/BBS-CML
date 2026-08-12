@@ -148,6 +148,7 @@ public class UIFilmController extends UIElement
     private int recordingCountdown;
     private List<String> recordingGroups;
     private BaseType recordingOld;
+    private int recordingReplayIndex = -1;
     private boolean instantKeyframes;
     private boolean countdownControl;
 
@@ -795,7 +796,13 @@ public class UIFilmController extends UIElement
         this.recordingCountdown = 30;
         this.recordingGroups = groups;
 
-        this.recordingOld = this.getReplay().keyframes.toData();
+        Replay recordReplay = this.getReplay();
+
+        this.recordingOld = recordReplay.keyframes.toData();
+        this.recordingReplayIndex = this.panel.getData().replays.getList().indexOf(recordReplay);
+
+        /* Match Outside/world recording: server ActionRecorder captures Swipe/Attack clips. */
+        this.startViewportActionRecording();
 
         if (groups != null)
         {
@@ -898,6 +905,8 @@ public class UIFilmController extends UIElement
 
         if (this.recordingCountdown > 0)
         {
+            this.stopViewportActionRecording(true);
+
             /* Capture already added replays during setup — refresh once so they show up. */
             MinecraftClient.getInstance().execute(this::refreshEntities);
 
@@ -932,10 +941,48 @@ public class UIFilmController extends UIElement
         BBSModClient.getFilms().getEditorMobCapture().clear();
         BBSModClient.getFilms().getEditorProjectileCapture().clear();
 
+        /* Merge Swipe/Attack clips via receiveActions, then restore FILM_EDITOR ActionPlayer. */
+        this.stopViewportActionRecording(true);
+
         this.setMouseMode(ClientNetwork.isIsBBSModOnServer() ? 0 : 1);
 
         /* One-shot rebuild after capture — same effect as toggling VA, without per-tick updates. */
         MinecraftClient.getInstance().execute(this::refreshEntities);
+    }
+
+    private void startViewportActionRecording()
+    {
+        Film film = this.panel.getData();
+
+        if (!ClientNetwork.isIsBBSModOnServer() || film == null || this.recordingReplayIndex < 0)
+        {
+            return;
+        }
+
+        /* Drop FILM_EDITOR ActionPlayer so RECORDING can own server actors (same as Outside). */
+        this.panel.notifyServer(ActionState.STOP);
+        ClientNetwork.sendActionRecording(film.getId(), this.recordingReplayIndex, this.recordingTick, this.recordingCountdown, true);
+    }
+
+    private void stopViewportActionRecording(boolean restoreEditorPlayer)
+    {
+        Film film = this.panel.getData();
+        int replayIndex = this.recordingReplayIndex;
+        int tick = this.recordingTick;
+
+        this.recordingReplayIndex = -1;
+
+        if (!ClientNetwork.isIsBBSModOnServer() || film == null || replayIndex < 0)
+        {
+            return;
+        }
+
+        ClientNetwork.sendActionRecording(film.getId(), replayIndex, tick, 0, false);
+
+        if (restoreEditorPlayer)
+        {
+            this.panel.notifyServer(ActionState.RESTART);
+        }
     }
 
     /* Input handling */
@@ -986,6 +1033,8 @@ public class UIFilmController extends UIElement
     /**
      * Attack / break whatever is in front of the controlled player body.
      * Film-camera {@code crosshairTarget} is useless here (orbit / path look).
+     * {@code swingHand} syncs to the server so {@code ActionRecorder} (started with
+     * viewport recording) can write {@link mchorse.bbs_mod.actions.types.SwipeActionClip}.
      */
     private void performControlAttack(MinecraftClient client)
     {

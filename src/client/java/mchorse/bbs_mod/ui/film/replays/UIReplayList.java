@@ -1,5 +1,6 @@
 package mchorse.bbs_mod.ui.film.replays;
 
+import mchorse.bbs_mod.actions.types.AttackActionClip;
 import mchorse.bbs_mod.BBSMod;
 import mchorse.bbs_mod.BBSModClient;
 import mchorse.bbs_mod.BBSSettings;
@@ -1412,11 +1413,14 @@ public class UIReplayList extends UIList<Replay> {
     private void copyReplay() {
         MapType replays = new MapType();
         ListType replayList = new ListType();
+        ListType idList = new ListType();
 
         replays.put("replays", replayList);
+        replays.put("ids", idList);
 
         for (Replay replay : this.getCurrent()) {
             replayList.add(replay.toData());
+            idList.addString(replay.getId());
         }
 
         Window.setInMemoryClipboard(replays, "_CopyReplay");
@@ -1684,16 +1688,28 @@ public class UIReplayList extends UIList<Replay> {
     private void pasteReplay(MapType data) {
         Film film = this.panel.getData();
         ListType replays = data.getList("replays");
+        ListType ids = data.getList("ids");
+        Map<String, String> idMap = new HashMap<>();
+        List<Replay> created = new ArrayList<>();
         Replay last = null;
 
-        for (BaseType replayType : replays) {
+        for (int i = 0; i < replays.size(); i++) {
+            BaseType replayType = replays.get(i);
             Replay replay = film.replays.addReplay();
+            String oldId = ids != null && ids.has(i) ? ids.getString(i) : "";
 
             BaseValue.edit(replay, (r) -> r.fromData(replayType));
             replay.uuid.set(UUID.randomUUID().toString());
 
+            if (oldId != null && !oldId.isEmpty()) {
+                idMap.put(oldId, replay.getId());
+            }
+
+            created.add(replay);
             last = replay;
         }
+
+        AttackActionClip.remapTargets(created, idMap);
 
         if (last != null) {
             this.buildVisualList();
@@ -1993,17 +2009,23 @@ public class UIReplayList extends UIList<Replay> {
             return;
         }
 
+        Film film = this.panel.getData();
+        Map<String, String> idMap = new HashMap<>();
+        List<Replay> created = new ArrayList<>();
         Replay last = null;
 
         for (Replay replay : this.getCurrent()) {
-            Film film = this.panel.getData();
             Replay newReplay = film.replays.addReplay();
+            String oldId = replay.getId();
 
             newReplay.copy(replay);
             newReplay.uuid.set(UUID.randomUUID().toString());
-
+            idMap.put(oldId, newReplay.getId());
+            created.add(newReplay);
             last = newReplay;
         }
+
+        AttackActionClip.remapTargets(created, idMap);
 
         if (last != null) {
             this.buildVisualList();
