@@ -427,14 +427,16 @@ public abstract class BaseFilmController
 
             if (shadowOpacity > 0F)
             {
+                /* X/Z offset moves the ground sample; Y offset must lift the PNG via matrix
+                 * translate — putting it into entity Y only fades the vanilla blob in place. */
                 double sx = position.x + context.shadowOffsetX;
-                double sy = position.y + context.shadowOffsetY;
+                double sy = position.y;
                 double sz = position.z + context.shadowOffsetZ;
 
                 stack.push();
                 stack.translate(sx - cx, sy - cy, sz - cz);
 
-                ModelBlockEntityRenderer.renderShadow(context.consumers, stack, transition, sx, sy, sz, 0F, 0F, 0F, context.shadowRadiusX, context.shadowRadiusZ, shadowOpacity);
+                ModelBlockEntityRenderer.renderShadow(context.consumers, stack, transition, sx, sy, sz, 0F, context.shadowOffsetY, 0F, context.shadowRadiusX, context.shadowRadiusZ, shadowOpacity);
 
                 stack.pop();
             }

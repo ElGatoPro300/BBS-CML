@@ -158,11 +158,12 @@ public class ActorEntityRenderer extends EntityRenderer<ActorEntity>
     private void renderFilmGroundShadow(ActorEntity entity, float tickDelta, MatrixStack matrices, VertexConsumerProvider vertexConsumers)
     {
         double x = MathHelper.lerp(tickDelta, entity.prevX, entity.getX()) + entity.getFilmShadowOffsetX();
-        double y = MathHelper.lerp(tickDelta, entity.prevY, entity.getY()) + entity.getFilmShadowOffsetY();
+        double y = MathHelper.lerp(tickDelta, entity.prevY, entity.getY());
         double z = MathHelper.lerp(tickDelta, entity.prevZ, entity.getZ()) + entity.getFilmShadowOffsetZ();
 
         matrices.push();
-        matrices.translate(entity.getFilmShadowOffsetX(), entity.getFilmShadowOffsetY(), entity.getFilmShadowOffsetZ());
+        /* X/Z follow the sample point; Y lifts the PNG (entity Y stays at feet to avoid fade). */
+        matrices.translate(entity.getFilmShadowOffsetX(), 0F, entity.getFilmShadowOffsetZ());
         ModelBlockEntityRenderer.renderShadow(
             vertexConsumers,
             matrices,
@@ -171,7 +172,7 @@ public class ActorEntityRenderer extends EntityRenderer<ActorEntity>
             y,
             z,
             0F,
-            0F,
+            entity.getFilmShadowOffsetY(),
             0F,
             entity.getFilmShadowRadiusX(),
             entity.getFilmShadowRadiusZ(),
