@@ -160,7 +160,7 @@ public class ActionManager
 
         for (ServerPlayerEntity player : this.recorders.keySet())
         {
-            if (player != null && player.getServerWorld() == world)
+            if (player != null && player.getEntityWorld() == world)
             {
                 return true;
             }
@@ -176,7 +176,7 @@ public class ActionManager
     {
         for (ServerPlayerEntity player : this.recorders.keySet())
         {
-            if (player != null && player.getServerWorld() == world)
+            if (player != null && player.getEntityWorld() == world)
             {
                 mchorse.bbs_mod.network.ServerNetwork.sendMobCombatAction(player, victimEntityId, sourceEntityId, amount, kind);
             }
@@ -190,7 +190,7 @@ public class ActionManager
     {
         for (ServerPlayerEntity player : this.recorders.keySet())
         {
-            if (player != null && player.getServerWorld() == world)
+            if (player != null && player.getEntityWorld() == world)
             {
                 mchorse.bbs_mod.network.ServerNetwork.sendMobConversion(player, oldEntityId, newEntityId);
             }

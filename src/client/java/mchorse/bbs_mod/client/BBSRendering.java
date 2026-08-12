@@ -432,8 +432,6 @@ public class BBSRendering
         }
 
         setupWorldLevelDiffuseLighting();
-        client.gameRenderer.getLightmapTextureManager().enable();
-        client.gameRenderer.getOverlayTexture().setupOverlayColor();
     }
 
     public static Texture getTexture()

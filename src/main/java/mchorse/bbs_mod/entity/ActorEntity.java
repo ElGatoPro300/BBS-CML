@@ -521,7 +521,7 @@ public class ActorEntity extends LivingEntity implements IEntityFormProvider
         }
 
         /* Poof burst on the last living death tick — same timing as MobDeathActionClip. */
-        if (this.getWorld().isClient() && dying && this.deathTime == 19)
+        if (this.getEntityWorld().isClient() && dying && this.deathTime == 19)
         {
             this.spawnDeathBurstParticles();
         }
@@ -544,7 +544,7 @@ public class ActorEntity extends LivingEntity implements IEntityFormProvider
 
     private void spawnDeathBurstParticles()
     {
-        Random random = this.getWorld().getRandom();
+        Random random = this.getEntityWorld().getRandom();
         double x = this.getX();
         double y = this.getY() + this.getEyeHeight(this.getPose()) * 0.5D;
         double z = this.getZ();
@@ -559,7 +559,7 @@ public class ActorEntity extends LivingEntity implements IEntityFormProvider
             double velocityY = random.nextGaussian() * 0.02D;
             double velocityZ = random.nextGaussian() * 0.02D;
 
-            this.getWorld().addParticle(ParticleTypes.POOF, x + offsetX, y + offsetY, z + offsetZ, velocityX, velocityY, velocityZ);
+            this.getEntityWorld().addParticleClient(ParticleTypes.POOF, x + offsetX, y + offsetY, z + offsetZ, velocityX, velocityY, velocityZ);
         }
     }
 
