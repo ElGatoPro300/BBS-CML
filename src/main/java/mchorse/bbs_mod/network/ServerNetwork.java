@@ -77,6 +77,7 @@ public class ServerNetwork
     public static final Identifier CLIENT_CLICKED_TRIGGER_BLOCK_PACKET = new Identifier(BBSMod.MOD_ID, "c18");
     public static final Identifier CLIENT_BAY4LLY_SKIN = new Identifier(BBSMod.MOD_ID, "c19");
     public static final Identifier CLIENT_MOB_COMBAT_ACTION = new Identifier(BBSMod.MOD_ID, "c20");
+    public static final Identifier CLIENT_MOB_CONVERSION = new Identifier(BBSMod.MOD_ID, "c21");
 
     public static final byte MOB_COMBAT_KIND_MELEE = 0;
     public static final byte MOB_COMBAT_KIND_PROJECTILE = 1;
@@ -782,6 +783,16 @@ public class ServerNetwork
         buf.writeByte(kind);
 
         ServerPlayNetworking.send(player, CLIENT_MOB_COMBAT_ACTION, buf);
+    }
+
+    public static void sendMobConversion(ServerPlayerEntity player, int oldEntityId, int newEntityId)
+    {
+        PacketByteBuf buf = PacketByteBufs.create();
+
+        buf.writeInt(oldEntityId);
+        buf.writeInt(newEntityId);
+
+        ServerPlayNetworking.send(player, CLIENT_MOB_CONVERSION, buf);
     }
 
     public static void sendHandshake(MinecraftServer server, PacketSender packetSender)

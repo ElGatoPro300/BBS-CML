@@ -375,6 +375,24 @@ public class BBSRendering
         RenderSystem.setupLevelDiffuseLighting(WORLD_LEVEL_LIGHT_0, WORLD_LEVEL_LIGHT_1, RenderSystem.getModelViewMatrix());
     }
 
+    /**
+     * Level diffuse + lightmap + overlay expected by LivingEntityRenderer cutout layers.
+     * Used for MobForm morph draws (private Immediate) and villager clothing flush.
+     */
+    public static void prepareVanillaEntityLighting()
+    {
+        MinecraftClient client = MinecraftClient.getInstance();
+
+        if (client == null || client.gameRenderer == null)
+        {
+            return;
+        }
+
+        setupWorldLevelDiffuseLighting();
+        client.gameRenderer.getLightmapTextureManager().enable();
+        client.gameRenderer.getOverlayTexture().setupOverlayColor();
+    }
+
     public static Texture getTexture()
     {
         if (texture == null)

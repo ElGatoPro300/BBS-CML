@@ -296,7 +296,7 @@ public class FilmEditorController extends BaseFilmController
 
         IEntity physical = this.getPhysicalActorEntity(replay);
 
-        if (physical == null)
+        if (physical == null || this.isActorPickingBlocked(replay))
         {
             return;
         }

@@ -1,16 +1,20 @@
 package mchorse.bbs_mod.forms.renderers;
 
 import mchorse.bbs_mod.BBSModClient;
+import mchorse.bbs_mod.client.BBSRendering;
 import mchorse.bbs_mod.client.BBSShaders;
 import mchorse.bbs_mod.client.ItemUseRenderState;
 import mchorse.bbs_mod.client.MobTextureOverride;
 import mchorse.bbs_mod.client.renderer.MorphMobParticles;
+import mchorse.bbs_mod.entity.ActorEntity;
 import mchorse.bbs_mod.film.MobItemStats;
 import mchorse.bbs_mod.film.MorphMountSync;
+import mchorse.bbs_mod.film.replays.Replay;
 import mchorse.bbs_mod.forms.CustomVertexConsumerProvider;
 import mchorse.bbs_mod.forms.FormUtilsClient;
 import mchorse.bbs_mod.forms.ITickable;
 import mchorse.bbs_mod.forms.entities.IEntity;
+import mchorse.bbs_mod.forms.entities.MCEntity;
 import mchorse.bbs_mod.forms.forms.MobForm;
 import mchorse.bbs_mod.mixin.LimbAnimatorAccessor;
 import mchorse.bbs_mod.resources.Link;
@@ -27,6 +31,7 @@ import net.minecraft.client.model.ModelPart;
 import net.minecraft.client.network.OtherClientPlayerEntity;
 import net.minecraft.client.render.DiffuseLighting;
 import net.minecraft.client.render.LightmapTextureManager;
+import net.minecraft.client.render.entity.EntityRenderDispatcher;
 import net.minecraft.client.render.entity.LivingEntityRenderer;
 import net.minecraft.client.render.entity.model.EntityModel;
 import net.minecraft.client.util.math.MatrixStack;
@@ -69,6 +74,12 @@ public class MobFormRenderer extends FormRenderer<MobForm> implements ITickable
     private static final Map<ModelPart, Transform> cache = new HashMap<>();
     private static Pose currentPose;
     private static Pose currentPoseOverlay;
+    /**
+     * While true, {@link #getStencilPickOffset} forces lightmap U to 0 so every ModelPart
+     * (body, eyes, clothing, armor, …) writes the same pick id. Eyes/glow layers hardcode
+     * fullbright light and would otherwise only highlight the hit layer under Alt-hover.
+     */
+    private static boolean forceZeroPickLight;
 
     public static final GameProfile WIDE = new GameProfile(UUID.fromString("b99a2400-28a8-4288-92dc-924beafbf756"), "McHorseYT");
     public static final GameProfile SLIM = new GameProfile(UUID.fromString("5477bd28-e672-4f87-a209-c03cf75f3606"), "osmiq");
@@ -364,7 +375,7 @@ public class MobFormRenderer extends FormRenderer<MobForm> implements ITickable
             living.setSprinting(source.getMountTarget() == null && source.isSprinting());
             this.applyMorphRotation(living, source);
             this.applyLivingAnimationState(living, source);
-            living.deathTime = source.getDeathTime();
+            living.deathTime = this.resolveDeathTimeForRender(source);
             living.hurtTime = source.getHurtTimer();
             living.maxHurtTime = source.getHurtTimer() > 0 ? Math.max(source.getHurtTimer(), living.maxHurtTime) : 0;
             living.equipStack(EquipmentSlot.MAINHAND, source.getEquipmentStack(EquipmentSlot.MAINHAND));
@@ -495,22 +506,25 @@ public class MobFormRenderer extends FormRenderer<MobForm> implements ITickable
 
         if (this.entity != null)
         {
-            CustomVertexConsumerProvider consumers = FormUtilsClient.getProvider();
+            /* Private Immediate so villager clothing layers are not mixed with world leftovers. */
+            CustomVertexConsumerProvider consumers = FormUtilsClient.getMobMorphProvider();
             int light = context.light;
             BooleanHolder first = new BooleanHolder();
+            boolean prepareLighting = BBSRendering.isRenderingWorld()
+                && !context.isPicking()
+                && !context.isShadowPass;
 
             if (context.isPicking())
             {
+                forceZeroPickLight = true;
+                /* Re-apply picker shader after every RenderLayer.startDrawing (TAIL mixin),
+                 * same as ItemFormRenderer — otherwise eyes/clothing keep their own shader
+                 * or a different lightmap and Alt-hover only highlights one layer. */
                 CustomVertexConsumerProvider.hijackVertexFormat((layer) ->
                 {
-                    if (!first.bool)
-                    {
-                        this.bindTexture();
-                        this.setupTarget(context, BBSShaders.getPickerModelsProgram());
-                        RenderSystem.setShader(BBSShaders::getPickerModelsProgram);
-
-                        first.bool = true;
-                    }
+                    this.bindTexture();
+                    this.setupTarget(context, BBSShaders.getPickerModelsProgram());
+                    RenderSystem.setShader(BBSShaders::getPickerModelsProgram);
                 });
 
                 light = 0;
@@ -528,6 +542,8 @@ public class MobFormRenderer extends FormRenderer<MobForm> implements ITickable
                 });
             }
 
+            try
+            {
             context.stack.push();
 
             if (this.form.mobID.get().equals("minecraft:ender_dragon"))
@@ -545,7 +561,10 @@ public class MobFormRenderer extends FormRenderer<MobForm> implements ITickable
                 if (context.entity != null)
                 {
                     detachedRiding = this.prepareMorphRenderState(livingMorph, context.entity);
-                    livingMorph.deathTime = context.entity.getDeathTime();
+                    /* Tip comes from LivingEntityRenderer via morph.deathTime. Sample
+                     * keyframed death_time for ActorEntity+MobForm here only — never
+                     * write it onto ActorEntity (that stuck the red overlay on scrub). */
+                    livingMorph.deathTime = this.resolveDeathTimeForRender(context.entity);
                     ItemUseRenderState.syncEquipment(livingMorph, context.entity);
                     this.applyLivingAnimationState(livingMorph, context.entity);
 
@@ -589,12 +608,24 @@ public class MobFormRenderer extends FormRenderer<MobForm> implements ITickable
             }
 
             MobTextureOverride.begin(this.form.texture.get());
+
+            EntityRenderDispatcher dispatcher = MinecraftClient.getInstance().getEntityRenderDispatcher();
+
             try
             {
-                MinecraftClient.getInstance().getEntityRenderDispatcher().render(this.entity, 0D, 0D, 0D, 0F, context.getTransition(), context.stack, consumers, light);
+                if (prepareLighting)
+                {
+                    BBSRendering.prepareVanillaEntityLighting();
+                }
+
+                /* Film draws its own ground shadow; nested vanilla shadow on the morph can
+                 * defer the last clothing layer until a late draw with a bad light basis. */
+                dispatcher.setRenderShadows(false);
+                dispatcher.render(this.entity, 0D, 0D, 0D, 0F, context.getTransition(), context.stack, consumers, light);
             }
             finally
             {
+                dispatcher.setRenderShadows(true);
                 MobTextureOverride.end();
             }
 
@@ -610,12 +641,28 @@ public class MobFormRenderer extends FormRenderer<MobForm> implements ITickable
 
             currentPose = currentPoseOverlay = null;
 
+            if (prepareLighting)
+            {
+                BBSRendering.prepareVanillaEntityLighting();
+            }
+
             consumers.draw();
             CustomVertexConsumerProvider.clearRunnables();
+
+            if (prepareLighting)
+            {
+                MinecraftClient.getInstance().gameRenderer.getOverlayTexture().teardownOverlayColor();
+                BBSRendering.restoreWorldRenderState();
+            }
 
             context.stack.pop();
 
             RenderSystem.enableDepthTest();
+            }
+            finally
+            {
+                forceZeroPickLight = false;
+            }
         }
     }
 
@@ -643,7 +690,7 @@ public class MobFormRenderer extends FormRenderer<MobForm> implements ITickable
 
                 if (this.entity instanceof LivingEntity livingEntity)
                 {
-                    livingEntity.deathTime = entity.getDeathTime();
+                    livingEntity.deathTime = this.resolveDeathTimeForRender(entity);
                     this.applyMorphRotation(livingEntity, entity);
 
                     /* Limb swing is so ugly */
@@ -767,6 +814,41 @@ public class MobFormRenderer extends FormRenderer<MobForm> implements ITickable
     }
 
     /**
+     * Death tip for mob morphs is driven by {@code livingMorph.deathTime} inside
+     * vanilla {@code LivingEntityRenderer}. For film actors, also honor keyframed
+     * {@code death_time} without mutating {@link ActorEntity#deathTime} (writing
+     * that field stuck the damage-red overlay across timeline scrubs).
+     */
+    private int resolveDeathTimeForRender(IEntity source)
+    {
+        int deathTime = source == null ? 0 : source.getDeathTime();
+
+        if (!(source instanceof MCEntity mcEntity) || !(mcEntity.getMcEntity() instanceof ActorEntity actor))
+        {
+            return deathTime;
+        }
+
+        Replay replay = actor.getReplay();
+
+        if (replay != null && replay.keyframes != null)
+        {
+            int keyDeath = replay.keyframes.deathTime.interpolate((float) actor.getCurrentTick()).intValue();
+
+            if (keyDeath > 0)
+            {
+                deathTime = Math.max(deathTime, keyDeath);
+            }
+        }
+
+        if (deathTime <= 0 && (actor.isDead() || actor.getHealth() <= 0F))
+        {
+            deathTime = Math.max(1, actor.deathTime);
+        }
+
+        return deathTime;
+    }
+
+    /**
      * Vanilla passenger rendering repositions and frustum-culls from the vehicle AABB.
      * Film morphs are already placed by the form matrix, so detach riding for the draw call.
      */
@@ -829,6 +911,9 @@ public class MobFormRenderer extends FormRenderer<MobForm> implements ITickable
 
     public static int getStencilPickOffset(ModelPart part, int light)
     {
-        return light;
+        /* Eyes / glowing feature layers pass fullbright light into ModelPart.render;
+         * picker_models encodes Target + lightmap.u, so non-zero light splits the form
+         * into multiple pick ids. Zero them while stencil-picking MobForms. */
+        return forceZeroPickLight ? 0 : light;
     }
 }

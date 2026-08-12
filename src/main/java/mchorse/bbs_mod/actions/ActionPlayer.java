@@ -279,6 +279,14 @@ public class ActionPlayer
             actor.setPitch(pitch);
             actor.setBodyYaw(yawBody);
 
+            /* Seed deathTime so MobForm tip + discard can progress if entity.tick
+             * has not advanced it yet this phase. Do not read death_time keyframes
+             * into ActorEntity (scrubs stuck the red overlay). */
+            if (ticking && actor.deathTime <= 0)
+            {
+                actor.deathTime = 1;
+            }
+
             if (actor instanceof ActorEntity actorEntity)
             {
                 actorEntity.syncNameTag(replay);
@@ -548,9 +556,23 @@ public class ActionPlayer
                 continue;
             }
 
+            /* Combat-dead actors are removed from the map; without this guard their
+             * Attack clips keep firing through SuperFakePlayer + bound target. */
+            if (this.combatFinishedIds.contains(replay.getId()))
+            {
+                continue;
+            }
+
             LivingEntity actor = this.actors.get(replay.getId());
 
-            if (actor != null && (actor.isDead() || actor.getHealth() <= 0F || actor.deathTime > 0))
+            if (actor != null && (actor.isDead() || actor.getHealth() <= 0F || actor.deathTime > 0 || actor.isRemoved()))
+            {
+                continue;
+            }
+
+            /* Actor-mode replay with no living body (discarded mid-play): never
+             * fall back to FakePlayer combat / world clips as if still alive. */
+            if ((replay.actor.get() || replay.fp.get()) && (actor == null || actor.isRemoved()))
             {
                 continue;
             }
@@ -914,6 +936,11 @@ public class ActionPlayer
             actor.setHealth(Math.min(hp, actor.getMaxHealth()));
             actor.hurtTime = 0;
             actor.timeUntilRegen = 0;
+
+            if (actor instanceof ActorEntity actorEntity)
+            {
+                actorEntity.setKeyframeHurtActive(false);
+            }
         }
     }
 
