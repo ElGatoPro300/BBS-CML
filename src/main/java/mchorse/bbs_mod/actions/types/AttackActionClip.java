@@ -46,6 +46,13 @@ public class AttackActionClip extends ActionClip
     @Override
     public void applyAction(LivingEntity actor, SuperFakePlayer player, Film film, Replay replay, int tick)
     {
+        /* Dead / discarded attackers must not keep dealing bound-target damage
+         * (FakePlayer + target id would otherwise still hit survivors). */
+        if (actor != null && (actor.isRemoved() || actor.isDead() || actor.getHealth() <= 0F || actor.deathTime > 0))
+        {
+            return;
+        }
+
         this.applyPositionRotation(player, replay, tick);
 
         /* Aim with look (headYaw + pitch), not body yaw — ActionPlayer snaps
@@ -94,7 +101,7 @@ public class AttackActionClip extends ActionClip
             ActionPlayer actionPlayer = BBSMod.getActions().getPlayer(film.getId());
             LivingEntity bound = actionPlayer == null ? null : actionPlayer.getActor(targetId);
 
-            if (bound != null && !bound.isRemoved() && bound != damageSource)
+            if (bound != null && !bound.isRemoved() && !bound.isDead() && bound.getHealth() > 0F && bound.deathTime <= 0 && bound != damageSource)
             {
                 return bound;
             }
@@ -141,7 +148,7 @@ public class AttackActionClip extends ActionClip
         {
             LivingEntity entity = entry.getValue();
 
-            if (entity == null || entity == exclude || entity.isRemoved() || !entity.canHit())
+            if (entity == null || entity == exclude || entity.isRemoved() || entity.isDead() || entity.getHealth() <= 0F || entity.deathTime > 0 || !entity.canHit())
             {
                 continue;
             }

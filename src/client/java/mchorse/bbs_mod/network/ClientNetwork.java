@@ -90,6 +90,7 @@ public class ClientNetwork
         ClientPlayNetworking.registerGlobalReceiver(ServerNetwork.CLIENT_PAUSE_FILM, (client, handler, buf, responseSender) -> handlePauseFilmPacket(client, buf));
         ClientPlayNetworking.registerGlobalReceiver(ServerNetwork.CLIENT_SELECTED_SLOT, (client, handler, buf, responseSender) -> handleSelectedSlotPacket(client, buf));
         ClientPlayNetworking.registerGlobalReceiver(ServerNetwork.CLIENT_MOB_COMBAT_ACTION, (client, handler, buf, responseSender) -> handleMobCombatActionPacket(client, buf));
+        ClientPlayNetworking.registerGlobalReceiver(ServerNetwork.CLIENT_MOB_CONVERSION, (client, handler, buf, responseSender) -> handleMobConversionPacket(client, buf));
         ClientPlayNetworking.registerGlobalReceiver(ServerNetwork.CLIENT_ANIMATION_STATE_MODEL_BLOCK_TRIGGER, (client, handler, buf, responseSender) -> handleAnimationStateModelBlockPacket(client, buf));
         ClientPlayNetworking.registerGlobalReceiver(ServerNetwork.CLIENT_REFRESH_MODEL_BLOCKS, (client, handler, buf, responseSender) -> handleRefreshModelBlocksPacket(client, buf));
     }
@@ -258,6 +259,17 @@ public class ClientNetwork
         client.execute(() ->
         {
             mchorse.bbs_mod.film.RecorderMobActionCapture.handleServerCombat(victimEntityId, sourceEntityId, amount, kind);
+        });
+    }
+
+    private static void handleMobConversionPacket(MinecraftClient client, PacketByteBuf buf)
+    {
+        int oldEntityId = buf.readInt();
+        int newEntityId = buf.readInt();
+
+        client.execute(() ->
+        {
+            mchorse.bbs_mod.film.RecorderMobCapture.handleServerConversion(oldEntityId, newEntityId);
         });
     }
 

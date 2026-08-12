@@ -105,6 +105,17 @@ public class UIOrbitCamera implements IUIElement
             return;
         }
 
+        /* Opening a form palette / modal overlay stops key events, so WASD velocity would
+         * otherwise keep applying until a release is seen. Freeze and clear control. */
+        if (context.hasOverlayPanel() || context.hasFormPaletteOpen())
+        {
+            this.orbit.reset();
+            this.orbit.release();
+            this.orbit.cache(context.mouseX, context.mouseY);
+
+            return;
+        }
+
         this.orbit.drag(context.mouseX, context.mouseY);
         this.orbit.update(context);
     }
