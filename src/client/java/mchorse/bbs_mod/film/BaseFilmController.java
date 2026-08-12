@@ -1482,7 +1482,13 @@ public abstract class BaseFilmController
                                 actor.setVelocity(0D, 0D, 0D);
                                 actor.syncNameTag(replay);
                                 actor.syncShadow(replay.shadow.get(), BaseFilmController.resolveShadowSettings(replay, replayTick));
-                                replay.applyClientActions(replayTick, new MCEntity(anEntity), this.film);
+
+                                /* Same as live control: the puppeteer owns swings / client clips. */
+                                if (this.shouldEmitReplayMotionFx(entity))
+                                {
+                                    replay.applyClientActions(replayTick, new MCEntity(anEntity), this.film);
+                                }
+
                                 spawned = true;
                             }
                             else
@@ -1569,7 +1575,14 @@ public abstract class BaseFilmController
                                 /* Same shadow toggle / size / offset as stub film blobs. */
                                 actor.syncShadow(replay.shadow.get(), BaseFilmController.resolveShadowSettings(replay, replayTick));
                                 ActorEntityRenderer.updateShadowRadius(actor);
-                                replay.applyClientActions(replayTick, new MCEntity(anEntity), this.film);
+
+                                /* While actor-controlling (incl. viewport record), do not replay
+                                 * timeline Swipe/etc. on the puppet — Outside uses exception for
+                                 * the same idea. Other replays still play their clips. */
+                                if (!controlling)
+                                {
+                                    replay.applyClientActions(replayTick, new MCEntity(anEntity), this.film);
+                                }
 
                                 spawned = true;
                             }

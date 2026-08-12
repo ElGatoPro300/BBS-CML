@@ -124,10 +124,21 @@ public class FilmEditorController extends BaseFilmController
         double scrubFromY = entity.getY();
         double scrubFromZ = entity.getZ();
 
-        if (entity != this.controller.getControlled() || (this.controller.isRecording() && this.controller.getRecordingCountdown() <= 0 && groups != null))
+        boolean isControlled = entity == this.controller.getControlled();
+        boolean recordingLive = this.controller.isRecording() && this.controller.getRecordingCountdown() <= 0;
+
+        /* Outside recording sets exception so the take subject never replays old
+         * client clips. Viewport keeps the stub for keyframe capture — skip swipe
+         * (and other client actions) on the controlled entity while recording, but
+         * still apply non-recorded keyframe groups when capturing a subset. */
+        if (!isControlled || (recordingLive && groups != null))
         {
-            replay.keyframes.apply(ticks, entity, entity == this.controller.getControlled() ? groups : null);
-            replay.applyClientActions(ticks, entity, this.film);
+            replay.keyframes.apply(ticks, entity, isControlled ? groups : null);
+
+            if (!isControlled)
+            {
+                replay.applyClientActions(ticks, entity, this.film);
+            }
         }
 
         if (entity == this.controller.getControlled() && this.controller.isRecording() && this.controller.panel.getRunner().isRunning())

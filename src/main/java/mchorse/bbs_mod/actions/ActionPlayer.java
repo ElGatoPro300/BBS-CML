@@ -544,7 +544,10 @@ public class ActionPlayer
 
         for (int i = 0; i < list.size(); i++)
         {
-            if (i == this.exception)
+            /* Outside RECORDING uses exception; editor puppet / viewport record uses
+             * controlledReplay — both must skip pre-recorded Attack/Swipe/etc. so the
+             * live player is the only source of those clips for that replay. */
+            if (i == this.exception || i == this.controlledReplay)
             {
                 continue;
             }
