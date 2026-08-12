@@ -79,6 +79,19 @@ public class FilmEditorController extends BaseFilmController
 
         super.updateEntities(ticks);
 
+        /* Stubs do not run updateEntityAndForm while paused. After a swipe ends,
+         * settle stale hand-swing prev so wrap cannot block procedural idle. */
+        if (!this.controller.isPlaying())
+        {
+            for (IEntity entity : this.entities.values())
+            {
+                if (entity instanceof StubEntity stub)
+                {
+                    stub.settleFinishedHandSwing();
+                }
+            }
+        }
+
         this.lastTick = ticks;
         this.wasRunnerRunning = running;
     }
