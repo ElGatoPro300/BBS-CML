@@ -1,9 +1,11 @@
 package mchorse.bbs_mod.importers;
 
+import mchorse.bbs_mod.importers.types.BBSProjectImporter;
 import mchorse.bbs_mod.importers.types.GIFImporter;
 import mchorse.bbs_mod.importers.types.IImporter;
 import mchorse.bbs_mod.importers.types.OldSkinImporter;
 import mchorse.bbs_mod.importers.types.PNGImporter;
+import mchorse.bbs_mod.importers.types.StructureImporter;
 import mchorse.bbs_mod.importers.types.ToPNGImporter;
 import mchorse.bbs_mod.importers.types.ToWAVImporter;
 import mchorse.bbs_mod.importers.types.WAVImporter;
@@ -42,6 +44,13 @@ public class Importers
         importers.add(new OldSkinImporter());
         importers.add(new PNGImporter());
         importers.add(new WAVImporter());
+        importers.add(new StructureImporter());
+        importers.add(new BBSProjectImporter());
+    }
+
+    public static void register(IImporter importer)
+    {
+        importers.add(importer);
     }
 
     public static List<IImporter> getImporters()

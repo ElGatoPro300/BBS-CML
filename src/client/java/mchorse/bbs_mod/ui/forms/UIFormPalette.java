@@ -7,7 +7,7 @@ import mchorse.bbs_mod.ui.forms.editors.UIFormEditor;
 import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.ui.framework.elements.UIElement;
 import mchorse.bbs_mod.ui.framework.elements.utils.EventPropagation;
-import mchorse.bbs_mod.utils.colors.Colors;
+
 import org.lwjgl.glfw.GLFW;
 
 import java.util.function.Consumer;
@@ -23,6 +23,7 @@ public class UIFormPalette extends UIElement implements IUIFormList
     private boolean background = true;
     private boolean cantExit;
     private boolean immersive;
+    private boolean favorites;
     private boolean canModify;
 
     public static UIFormPalette open(UIElement parent, boolean editing, Form form, Consumer<Form> callback)
@@ -70,15 +71,24 @@ public class UIFormPalette extends UIElement implements IUIFormList
 
         this.add(this.list, this.editor);
 
-        this.eventPropagataion(EventPropagation.BLOCK_INSIDE).markContainer();
+        this.mouseEventPropagataion(EventPropagation.BLOCK_INSIDE).keyboardEventPropagataion(EventPropagation.PASS).markContainer();
 
         this.keys().register(Keys.FORMS_EDIT, () ->
         {
-            if (!this.editor.isEditing())
+            if (!this.editor.isEditing() && (this.getContext() == null || !this.getContext().isFocused()))
             {
                 this.toggleEditor();
             }
         });
+        this.keys().register(Keys.FORMS_EDIT_ALT, () ->
+        {
+            if (!this.editor.isEditing() && (this.getContext() == null || !this.getContext().isFocused()))
+            {
+                this.toggleEditor();
+            }
+        });
+        this.keys().register(Keys.FORMS_FOCUS, () -> this.list.focusSearch());
+        this.keys().ignoreFocus();
     }
 
     public void noBackground()
@@ -107,6 +117,16 @@ public class UIFormPalette extends UIElement implements IUIFormList
     public void immersive()
     {
         this.immersive = true;
+    }
+
+    public boolean hasFavorites()
+    {
+        return this.favorites;
+    }
+
+    public void favorites()
+    {
+        this.favorites = true;
     }
 
     public UIFormPalette updatable()
@@ -143,22 +163,24 @@ public class UIFormPalette extends UIElement implements IUIFormList
     @Override
     public void toggleEditor()
     {
+        this.list.closeOpenedCategoryPopup();
         this.events.emit(new UIToggleEditorEvent(this, !this.editor.isEditing()));
 
         if (!this.editor.isEditing())
         {
-            Form form = this.list.getSelected();
+            UIFormCategory selected = this.list.getSelectedCategory();
+            Form form = selected == null ? null : selected.selected;
 
             if (this.editor.edit(form))
             {
-                this.lastSelected = this.list.getSelectedCategory();
+                this.lastSelected = selected;
             }
         }
         else
         {
             Form form = this.editor.finish();
 
-            if (this.canModify && this.lastSelected.category.canModify(form))
+            if (this.canModify && this.lastSelected != null && this.lastSelected.category != null && this.lastSelected.category.canModify(form))
             {
                 int index = this.lastSelected.category.getForms().indexOf(this.lastSelected.selected);
 
@@ -212,18 +234,18 @@ public class UIFormPalette extends UIElement implements IUIFormList
             }
         }
 
-        return false;
+        return super.subKeyPressed(context);
     }
 
     @Override
     public void render(UIContext context)
     {
-        if (this.background)
+        /* Immersive model-block / morph pick: darken only while the form list is open.
+         * While editing immersively, keep the live world visible behind the form preview
+         * (F7 toggles gizmos vs the world instance, not a scrim). */
+        if (this.background && (!this.immersive || this.list.isVisible()))
         {
-            if (!this.immersive || this.list.isVisible())
-            {
-                this.area.render(context.batcher, Colors.A75);
-            }
+            this.area.render(context.batcher, 0xEE111115);
         }
 
         super.render(context);

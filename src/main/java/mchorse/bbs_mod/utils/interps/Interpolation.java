@@ -37,8 +37,40 @@ public class Interpolation extends BaseValue implements IInterp
     }
 
     @Override
+    public double interpolate(double a, double b, double x)
+    {
+        if (this.interp instanceof CustomInterpolation)
+        {
+            return this.interp.interpolate(a, b, x);
+        }
+
+        return IInterp.super.interpolate(a, b, x);
+    }
+
+    @Override
+    public float interpolate(float a, float b, float x)
+    {
+        if (this.interp instanceof CustomInterpolation)
+        {
+            return this.interp.interpolate(a, b, x);
+        }
+
+        return IInterp.super.interpolate(a, b, x);
+    }
+
+    @Override
     public double interpolate(InterpContext context)
     {
+        if (this.interp == null)
+        {
+            return Lerps.lerp(context.a, context.b, context.x);
+        }
+
+        if (this.interp instanceof CustomInterpolation)
+        {
+            return this.interp.interpolate(context);
+        }
+
         return this.interp.interpolate(context.extra(this.args));
     }
 
@@ -62,6 +94,11 @@ public class Interpolation extends BaseValue implements IInterp
     public IInterp getInterp()
     {
         return this.interp;
+    }
+
+    public EasingArgs getArgs()
+    {
+        return this.args;
     }
 
     public void setInterp(IInterp interp)
@@ -129,11 +166,22 @@ public class Interpolation extends BaseValue implements IInterp
 
         if (obj instanceof Interpolation i)
         {
-            return this.interp == i.interp
+            boolean result = this.interp == i.interp
                 && this.args.v1 == i.args.v1
                 && this.args.v2 == i.args.v2
                 && this.args.v3 == i.args.v3
                 && this.args.v4 == i.args.v4;
+
+            if (!result && this.interp != null && i.interp != null)
+            {
+                result = this.interp.equals(i.interp)
+                    && this.args.v1 == i.args.v1
+                    && this.args.v2 == i.args.v2
+                    && this.args.v3 == i.args.v3
+                    && this.args.v4 == i.args.v4;
+            }
+
+            return result;
         }
 
         return false;
@@ -144,13 +192,26 @@ public class Interpolation extends BaseValue implements IInterp
     {
         if (this.args.v1 == 0 && this.args.v2 == 0 && this.args.v3 == 0 && this.args.v4 == 0)
         {
-            return new StringType(CollectionUtils.getKey(this.map, this.interp));
+            String key = CollectionUtils.getKey(this.map, this.interp);
+
+            if (key == null)
+            {
+                key = this.interp.getKey();
+            }
+
+            return new StringType(key);
         }
 
         MapType map = new MapType();
         ListType list = new ListType();
+        String key = CollectionUtils.getKey(this.map, this.interp);
 
-        map.putString("key", CollectionUtils.getKey(this.map, this.interp));
+        if (key == null)
+        {
+            key = this.interp.getKey();
+        }
+
+        map.putString("key", key);
         map.put("args", list);
         list.addDouble(this.args.v1);
         list.addDouble(this.args.v2);
@@ -174,7 +235,19 @@ public class Interpolation extends BaseValue implements IInterp
 
             if (list.size() >= 5)
             {
-                this.interp = this.map.getOrDefault(list.getString(0), Interpolations.LINEAR);
+                String key = list.getString(0);
+                this.interp = this.map.get(key);
+
+                if (this.interp == null)
+                {
+                    this.interp = CustomInterpolationManager.INSTANCE.get(key);
+                }
+
+                if (this.interp == null)
+                {
+                    this.interp = Interpolations.LINEAR;
+                }
+
                 this.args.v1 = list.getDouble(1);
                 this.args.v2 = list.getDouble(2);
                 this.args.v3 = list.getDouble(3);
@@ -185,8 +258,19 @@ public class Interpolation extends BaseValue implements IInterp
         {
             MapType map = data.asMap();
             ListType args = map.getList("args");
+            String key = map.getString("key");
 
-            this.interp = this.map.getOrDefault(map.getString("key"), Interpolations.LINEAR);
+            this.interp = this.map.get(key);
+
+            if (this.interp == null)
+            {
+                this.interp = CustomInterpolationManager.INSTANCE.get(key);
+            }
+
+            if (this.interp == null)
+            {
+                this.interp = Interpolations.LINEAR;
+            }
 
             if (args.size() >= 4)
             {
@@ -198,7 +282,19 @@ public class Interpolation extends BaseValue implements IInterp
         }
         else if (data.isString())
         {
-            this.interp = this.map.getOrDefault(data.asString(), Interpolations.LINEAR);
+            String key = data.asString();
+            this.interp = this.map.get(key);
+
+            if (this.interp == null)
+            {
+                this.interp = CustomInterpolationManager.INSTANCE.get(key);
+            }
+
+            if (this.interp == null)
+            {
+                this.interp = Interpolations.LINEAR;
+            }
+
             this.args.v1 = this.args.v2 = this.args.v3 = this.args.v4 = 0;
         }
     }

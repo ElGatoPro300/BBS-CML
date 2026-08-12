@@ -24,5 +24,8 @@
     "key.bbs.zoom": "Zoom (BBS gun)",
     "category.bbs.main": "BBS mod",
 
-    "gamerule.bbsEditing": "BBS mod's editing permission"
+    "gamerule.bbsEditing": "BBS mod's editing permission",
+    "command.getskin.success": "✅ 스킨이 모든 플레이어에게 적용되었습니다",
+    "command.getskin.error": "❌ 오류: %s",
+    "command.getskin.downloading": "🔄 스킨 다운로드 중..."
 }

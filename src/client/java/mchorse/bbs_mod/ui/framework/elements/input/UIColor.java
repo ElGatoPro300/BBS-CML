@@ -1,5 +1,6 @@
 package mchorse.bbs_mod.ui.framework.elements.input;
 
+import mchorse.bbs_mod.ui.UIKeys;
 import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.ui.framework.elements.UIElement;
 import mchorse.bbs_mod.ui.framework.elements.input.color.UIColorPicker;
@@ -28,9 +29,10 @@ public class UIColor extends UIElement
         super();
 
         this.picker = new UIColorPicker(callback);
-        this.picker.wh(200, 85);
+        this.picker.wh(160, 290);
 
         this.direction(Direction.BOTTOM).h(20);
+        this.tooltip(UIKeys.RAW_COLOR);
     }
 
     public UIColor withTarget(UIElement target)

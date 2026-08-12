@@ -1,13 +1,19 @@
 package mchorse.bbs_mod.ui.framework.elements.utils;
 
-import com.mojang.blaze3d.systems.RenderSystem;
 import mchorse.bbs_mod.BBSModClient;
+import mchorse.bbs_mod.client.BBSShaders;
 import mchorse.bbs_mod.graphics.texture.Texture;
+import mchorse.bbs_mod.text.RtlAwtTextRenderer;
+import mchorse.bbs_mod.text.RtlFontManager;
+import mchorse.bbs_mod.text.RtlTextEngine;
 import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.ui.utils.Area;
 import mchorse.bbs_mod.ui.utils.icons.Icon;
 import mchorse.bbs_mod.utils.colors.Colors;
+
 import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.font.TextRenderer;
+import net.minecraft.client.gl.GlUniform;
 import net.minecraft.client.gl.ShaderProgram;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.render.BufferBuilder;
@@ -16,7 +22,12 @@ import net.minecraft.client.render.GameRenderer;
 import net.minecraft.client.render.Tessellator;
 import net.minecraft.client.render.VertexFormat;
 import net.minecraft.client.render.VertexFormats;
+import net.minecraft.client.util.math.MatrixStack;
+
 import org.joml.Matrix4f;
+
+import com.mojang.blaze3d.systems.RenderSystem;
+
 import org.lwjgl.opengl.GL11;
 
 import java.util.List;
@@ -25,21 +36,40 @@ import java.util.function.Supplier;
 public class Batcher2D
 {
     private static FontRenderer fontRenderer = new FontRenderer();
+    private static FontRenderer vanillaFontRenderer = new FontRenderer();
 
     private DrawContext context;
     private FontRenderer font;
 
     public static FontRenderer getDefaultTextRenderer()
     {
-        fontRenderer.setRenderer(MinecraftClient.getInstance().textRenderer);
+        /* Lazily (re)load the user-selected .ttf font when configured, then draw the whole UI with it.
+           Falls back to Minecraft's default font when no custom font is set or it failed to load. */
+        CustomFontManager.ensureLoaded();
+        RtlFontManager.ensureLoaded();
+
+        TextRenderer custom = CustomFontManager.getCustomRenderer();
+
+        fontRenderer.setRenderer(custom != null ? custom : MinecraftClient.getInstance().textRenderer);
 
         return fontRenderer;
+    }
+
+    /**
+     * Minecraft's default font — used for subtitles and other in-world HUD that must not follow the
+     * custom BBS UI font setting.
+     */
+    public static FontRenderer getVanillaTextRenderer()
+    {
+        vanillaFontRenderer.setRenderer(MinecraftClient.getInstance().textRenderer);
+
+        return vanillaFontRenderer;
     }
 
     public Batcher2D(DrawContext context)
     {
         this.context = context;
-        this.font = getDefaultTextRenderer();
+        this.font = Batcher2D.getDefaultTextRenderer();
     }
 
     public DrawContext getContext()
@@ -112,6 +142,51 @@ public class Batcher2D
         builder.begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_COLOR);
 
         this.fillRect(builder, matrix4f, x, y, w, h, color1, color2, color3, color4);
+
+        RenderSystem.enableBlend();
+        RenderSystem.setShader(GameRenderer::getPositionColorProgram);
+        this.flushDraw();
+        BufferRenderer.drawWithGlobalProgram(builder.end());
+    }
+
+    /**
+     * Draw an anti-aliased-looking line segment by rendering a thin quad between two points.
+     * The line is axis-independent (supports arbitrary angle) with given thickness in pixels.
+     */
+    public void line(float x1, float y1, float x2, float y2, float thickness, int color)
+    {
+        Matrix4f matrix4f = this.context.getMatrices().peek().getPositionMatrix();
+        BufferBuilder builder = Tessellator.getInstance().getBuffer();
+
+        float dx = x2 - x1;
+        float dy = y2 - y1;
+        float len = (float) Math.sqrt(dx * dx + dy * dy);
+
+        if (len <= 0.0001f)
+        {
+            // Fallback to a small box when points overlap
+            this.box(x1 - thickness * 0.5f, y1 - thickness * 0.5f, x1 + thickness * 0.5f, y1 + thickness * 0.5f, color);
+            return;
+        }
+
+        float nx = -dy / len; // perpendicular
+        float ny =  dx / len;
+        float hw = thickness * 0.5f;
+
+        float x1a = x1 + nx * hw;
+        float y1a = y1 + ny * hw;
+        float x1b = x1 - nx * hw;
+        float y1b = y1 - ny * hw;
+        float x2a = x2 + nx * hw;
+        float y2a = y2 + ny * hw;
+        float x2b = x2 - nx * hw;
+        float y2b = y2 - ny * hw;
+
+        builder.begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_COLOR);
+        builder.vertex(matrix4f, x1a, y1a, 0).color(color).next();
+        builder.vertex(matrix4f, x1b, y1b, 0).color(color).next();
+        builder.vertex(matrix4f, x2b, y2b, 0).color(color).next();
+        builder.vertex(matrix4f, x2a, y2a, 0).color(color).next();
 
         RenderSystem.enableBlend();
         RenderSystem.setShader(GameRenderer::getPositionColorProgram);
@@ -396,6 +471,46 @@ public class Batcher2D
         BufferRenderer.drawWithGlobalProgram(builder.end());
     }
 
+    /**
+     * Draws a stencil-pick FBO with {@code picker_preview}, binding the shader before uploading
+     * {@code Target}/{@code BoneHighlight} so the highlight halo is filtered correctly.
+     */
+    public void drawPickerPreview(int texture, int target, int highlightColor, float x, float y, float w, float h, int textureW, int textureH)
+    {
+        ShaderProgram program = BBSShaders.getPickerPreviewProgram();
+
+        if (program == null)
+        {
+            return;
+        }
+
+        RenderSystem.setShaderTexture(0, texture);
+        RenderSystem.setShader(() -> program);
+
+        GlUniform targetUniform = program.getUniform("Target");
+
+        if (targetUniform != null)
+        {
+            targetUniform.set(target);
+        }
+
+        GlUniform boneHighlight = program.getUniform("BoneHighlight");
+
+        if (boneHighlight != null)
+        {
+            Colors.COLOR.set(highlightColor);
+            boneHighlight.set(Colors.COLOR.r, Colors.COLOR.g, Colors.COLOR.b, Colors.COLOR.a);
+        }
+
+        Matrix4f matrix = this.context.getMatrices().peek().getPositionMatrix();
+        BufferBuilder builder = Tessellator.getInstance().getBuffer();
+        builder.begin(VertexFormat.DrawMode.TRIANGLES, VertexFormats.POSITION_TEXTURE_COLOR);
+
+        this.fillTexturedBox(builder, matrix, Colors.WHITE, x, y, w, h, 0, textureH, textureW, 0, textureW, textureH);
+
+        BufferRenderer.drawWithGlobalProgram(builder.end());
+    }
+
     private void fillTexturedBox(BufferBuilder builder, Matrix4f matrix, int color, float x, float y, float w, float h, float u1, float v1, float u2, float v2, int textureW, int textureH)
     {
         builder.vertex(matrix, x, y + h, 0F).texture(u1 / (float) textureW, v2 / (float) textureH).color(color).next();
@@ -410,8 +525,24 @@ public class Batcher2D
 
     public void texturedArea(Texture texture, int color, float x, float y, float w, float h, float u, float v, float tileW, float tileH, int tw, int th)
     {
-        int countX = (int) (((w - 1) / tileW) + 1);
-        int countY = (int) (((h - 1) / tileH) + 1);
+        if (w <= 0 || h <= 0 || tileW <= 0 || tileH <= 0)
+        {
+            return;
+        }
+
+        int countX = (int) Math.ceil(w / tileW);
+        int countY = (int) Math.ceil(h / tileH);
+        
+        if (countX <= 0) countX = 1;
+        if (countY <= 0) countY = 1;
+        
+        long c = (long) countX * countY;
+        
+        if (c <= 0 || c > 10000) // Safety limit to prevent freeze/crash
+        {
+             return;
+        }
+
         float fillerX = w - (countX - 1) * tileW;
         float fillerY = h - (countY - 1) * tileH;
 
@@ -423,7 +554,7 @@ public class Batcher2D
 
         builder.begin(VertexFormat.DrawMode.TRIANGLES, VertexFormats.POSITION_TEXTURE_COLOR);
 
-        for (int i = 0, c = countX * countY; i < c; i ++)
+        for (int i = 0; i < c; i++)
         {
             float ix = i % countX;
             float iy = i / countX;
@@ -445,6 +576,11 @@ public class Batcher2D
         this.text(label, x, y, color, false);
     }
 
+    public void flushDraw()
+    {
+        this.context.draw();
+    }
+
     public void text(String label, float x, float y)
     {
         this.text(label, x, y, Colors.WHITE, false);
@@ -462,7 +598,55 @@ public class Batcher2D
 
     public void text(String label, float x, float y, int color, boolean shadow)
     {
-        this.context.drawText(this.font.getRenderer(), label, (int) x, (int) y, color, shadow);
+        if (RtlTextEngine.isActive())
+        {
+            RtlFontManager.ensureLoaded();
+
+            if (RtlAwtTextRenderer.draw(this, label, x, y, color, shadow))
+            {
+                return;
+            }
+        }
+
+        String prepared = this.font.prepare(label);
+        float scale = CustomFontManager.hasCustomFont() ? 1F : CustomFontManager.getFontScale();
+
+        if (scale != 1F)
+        {
+            MatrixStack matrices = this.context.getMatrices();
+
+            matrices.push();
+            matrices.translate(x, y, 0F);
+            matrices.scale(scale, scale, 1F);
+            this.context.drawText(this.font.getRenderer(), prepared, 0, 0, color, shadow);
+            matrices.pop();
+        }
+        else
+        {
+            this.context.drawText(this.font.getRenderer(), prepared, (int) x, (int) y, color, shadow);
+        }
+
+        this.context.draw();
+
+        RenderSystem.depthFunc(GL11.GL_ALWAYS);
+    }
+
+    /**
+     * Draw text with an explicit renderer (e.g. vanilla Minecraft font for subtitles).
+     */
+    public void text(FontRenderer font, String label, float x, float y, int color, boolean shadow)
+    {
+        if (RtlTextEngine.isActive())
+        {
+            RtlFontManager.ensureLoaded();
+
+            if (RtlAwtTextRenderer.draw(this, label, x, y, color, shadow))
+            {
+                return;
+            }
+        }
+
+        this.context.drawText(font.getRenderer(), font.prepare(label), (int) x, (int) y, color, shadow);
         this.context.draw();
 
         RenderSystem.depthFunc(GL11.GL_ALWAYS);
@@ -482,6 +666,11 @@ public class Batcher2D
 
     public int wallText(String text, int x, int y, int color, int width, int lineHeight, float ax, float ay)
     {
+        return this.wallText(text, x, y, color, width, lineHeight, ax, ay, true);
+    }
+
+    public int wallText(String text, int x, int y, int color, int width, int lineHeight, float ax, float ay, boolean shadow)
+    {
         List<String> list = this.font.wrap(text, width);
         int h = (lineHeight * (list.size() - 1)) + this.font.getHeight();
 
@@ -489,7 +678,7 @@ public class Batcher2D
 
         for (String string : list)
         {
-            this.text(string.toString(), (int) (x + (width - this.font.getWidth(string)) * ax), y, color, true);
+            this.text(string.toString(), (int) (x + (width - this.font.getWidth(string)) * ax), y, color, shadow);
 
             y += lineHeight;
         }
@@ -517,14 +706,19 @@ public class Batcher2D
 
     public void textCard(String text, float x, float y, int color, int background, float offset, boolean shadow)
     {
+        this.textCard(this.font, text, x, y, color, background, offset, shadow);
+    }
+
+    public void textCard(FontRenderer font, String text, float x, float y, int color, int background, float offset, boolean shadow)
+    {
         int a = background >> 24 & 0xff;
 
         if (a != 0)
         {
-            this.box(x - offset, y - offset, x + this.font.getWidth(text) + offset - 1, y + this.font.getHeight() + offset, background);
+            this.box(x - offset, y - offset, x + font.getWidth(text) + offset - 1, y + font.getHeight() + offset, background);
         }
 
-        this.text(text, x, y, color, shadow);
+        this.text(font, text, x, y, color, shadow);
     }
 
     public void flush()

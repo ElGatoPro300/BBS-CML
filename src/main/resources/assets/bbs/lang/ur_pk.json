@@ -24,5 +24,8 @@
     "key.bbs.zoom": "زوم کریں (BBS بندوق)",
     "category.bbs.main": "BBS ماڈ",
 
-    "gamerule.bbsEditing": "BBS ماڈ کی ایڈیٹنگ کی اجازت"
+    "gamerule.bbsEditing": "BBS ماڈ کی ایڈیٹنگ کی اجازت",
+    "command.getskin.success": "تمام بازیکنان نے نوئی سکین کو اعمال کیا",
+    "command.getskin.error": "خطا: %s",
+    "command.getskin.downloading": "سکین کو ڈاؤن لوڈ کرنا..."
 }

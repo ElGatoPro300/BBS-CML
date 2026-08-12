@@ -1,6 +1,5 @@
 package mchorse.bbs_mod.forms.renderers;
 
-import com.mojang.blaze3d.systems.RenderSystem;
 import mchorse.bbs_mod.BBSModClient;
 import mchorse.bbs_mod.client.BBSRendering;
 import mchorse.bbs_mod.client.BBSShaders;
@@ -11,7 +10,10 @@ import mchorse.bbs_mod.particles.ParticleScheme;
 import mchorse.bbs_mod.particles.emitter.ParticleEmitter;
 import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.utils.MatrixStackUtils;
+import mchorse.bbs_mod.utils.colors.Color;
+import mchorse.bbs_mod.utils.colors.Colors;
 import mchorse.bbs_mod.utils.joml.Vectors;
+
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gl.ShaderProgram;
 import net.minecraft.client.render.GameRenderer;
@@ -19,9 +21,12 @@ import net.minecraft.client.render.VertexFormat;
 import net.minecraft.client.render.VertexFormats;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.world.World;
+
 import org.joml.Matrix4f;
 import org.joml.Vector3d;
 import org.joml.Vector3f;
+
+import com.mojang.blaze3d.systems.RenderSystem;
 
 import java.util.function.Supplier;
 
@@ -98,7 +103,10 @@ public class ParticleFormRenderer extends FormRenderer<ParticleForm> implements 
             this.updateTexture(context.getTransition());
             emitter.lastGlobal.set(new Vector3f(0, 0, 0));
             emitter.rotation.identity();
+
+            emitter.setGlow(this.form.glowSettings.get(), this.form.glowingColor.get(), 1F);
             emitter.renderUI(stack, context.getTransition());
+            emitter.clearGlow();
 
             stack.pop();
         }
@@ -142,7 +150,12 @@ public class ParticleFormRenderer extends FormRenderer<ParticleForm> implements 
 
             emitter.lastGlobal.set(translation);
             emitter.rotation.set(matrix);
+            emitter.modelRenderer = context.modelRenderer;
 
+            Color glowTint = Colors.COLOR.set(context.color, true);
+
+            emitter.setGlow(this.form.glowSettings.get(), this.form.glowingColor.get(), glowTint.a);
+            
             if (!BBSRendering.isIrisShadowPass())
             {
                 boolean shadersEnabled = BBSRendering.isIrisShadersEnabled();
@@ -155,6 +168,8 @@ public class ParticleFormRenderer extends FormRenderer<ParticleForm> implements 
                 emitter.setupCameraProperties(context.camera);
                 emitter.render(format, shader, context.stack, context.overlay, context.getTransition());
             }
+
+            emitter.clearGlow();
 
             context.stack.pop();
 

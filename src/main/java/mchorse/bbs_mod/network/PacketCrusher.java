@@ -2,7 +2,9 @@ package mchorse.bbs_mod.network;
 
 import mchorse.bbs_mod.data.DataStorageUtils;
 import mchorse.bbs_mod.data.types.BaseType;
+
 import net.fabricmc.fabric.api.networking.v1.PacketByteBufs;
+
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.network.PacketByteBuf;
 import net.minecraft.util.Identifier;

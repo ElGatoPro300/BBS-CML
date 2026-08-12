@@ -1,7 +1,7 @@
 package mchorse.bbs_mod.ui.utils;
 
-import mchorse.bbs_mod.utils.Pair;
 import mchorse.bbs_mod.utils.MathUtils;
+import mchorse.bbs_mod.utils.Pair;
 
 public class StringGroupMatcher
 {

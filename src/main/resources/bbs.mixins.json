@@ -3,6 +3,7 @@
     "package": "mchorse.bbs_mod.mixin",
     "compatibilityLevel": "JAVA_17",
     "mixins": [
+        "EntityMixin",
         "PlayerEntityMixin",
         "PlayerEntityMorphMixin",
         "ServerPlayNetworkHandlerMixin",
@@ -11,9 +12,13 @@
         "ItemStackMixin",
         "WorldMixin",
         "LivingEntityMixin",
+        "MobEntityMixin",
         "ServerPlayerEntityMixin",
         "LimbAnimatorAccessor",
-        "LevelPropertiesAccessor"
+        "LevelPropertiesAccessor",
+        "StructureTemplateAccessor",
+        "StructureTemplatePalettedListAccessor",
+        "EntityMixin"
     ],
     "injectors": {
         "defaultRequire": 1

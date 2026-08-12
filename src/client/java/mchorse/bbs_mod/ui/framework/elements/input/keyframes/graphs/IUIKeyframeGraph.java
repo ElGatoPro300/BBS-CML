@@ -2,8 +2,11 @@ package mchorse.bbs_mod.ui.framework.elements.input.keyframes.graphs;
 
 import mchorse.bbs_mod.data.types.MapType;
 import mchorse.bbs_mod.settings.values.base.BaseValueBasic;
+import mchorse.bbs_mod.ui.film.replays.UIReplaysEditorUtils;
 import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.ui.framework.elements.input.keyframes.UIKeyframeSheet;
+import mchorse.bbs_mod.ui.framework.elements.input.keyframes.UIKeyframes;
+import mchorse.bbs_mod.ui.framework.elements.input.keyframes.factories.UIVisibleRenderKeyframeUtils;
 import mchorse.bbs_mod.ui.utils.Area;
 import mchorse.bbs_mod.utils.Pair;
 import mchorse.bbs_mod.utils.interps.Interpolation;
@@ -16,7 +19,18 @@ import java.util.List;
 
 public interface IUIKeyframeGraph
 {
-    public static final int TOP_MARGIN = 25;
+    public static final int TOP_MARGIN = 15;
+    public static final int SIDEBAR_WIDTH = 140;
+
+    public default UIKeyframes getHostKeyframes()
+    {
+        return null;
+    }
+
+    public default int getSidebarWidth()
+    {
+        return SIDEBAR_WIDTH;
+    }
 
     public void resetView();
 
@@ -122,10 +136,28 @@ public interface IUIKeyframeGraph
 
         if (value == null)
         {
-            if (segment != null)
+            if ("shadow_size".equals(sheet.id))
+            {
+                value = sheet.channel.getFactory().createEmpty();
+            }
+            else if ("lens_radius".equals(sheet.id))
+            {
+                value = sheet.defaultInsertValue != null
+                    ? sheet.channel.getFactory().copy(sheet.defaultInsertValue)
+                    : sheet.channel.getFactory().createEmpty();
+            }
+            else if ("shadow_opacity".equals(sheet.id))
+            {
+                value = 1D;
+            }
+            else if (segment != null)
             {
                 value = segment.createInterpolated();
                 extra = segment.a;
+            }
+            else if (sheet.defaultInsertValue != null)
+            {
+                value = sheet.channel.getFactory().copy(sheet.defaultInsertValue);
             }
             else if (property != null)
             {
@@ -136,6 +168,8 @@ public interface IUIKeyframeGraph
                 value = sheet.channel.getFactory().createEmpty();
             }
         }
+
+        value = sheet.clampValue(value);
 
         int index = sheet.channel.insert(tick, value);
         Keyframe keyframe = sheet.channel.get(index);
@@ -156,18 +190,26 @@ public interface IUIKeyframeGraph
     {
         UIKeyframeSheet sheet = this.getSheet(keyframe);
 
+        UIReplaysEditorUtils.removeCompanionPaintForColorKeyframe(this.getHostKeyframes(), keyframe);
+        UIVisibleRenderKeyframeUtils.removeRenderForVisibleKeyframe(this.getHostKeyframes(), keyframe);
+
         sheet.remove(keyframe);
+        UIVisibleRenderKeyframeUtils.pruneRenderAfterVisibleEdit(this.getHostKeyframes());
         this.clearSelection();
         this.pickKeyframe(null);
     }
 
     public default void removeSelected()
     {
+        UIReplaysEditorUtils.removeCompanionPaintForSelectedColor(this.getHostKeyframes());
+        UIVisibleRenderKeyframeUtils.removeRenderForSelectedVisible(this.getHostKeyframes());
+
         for (UIKeyframeSheet sheet : this.getSheets())
         {
             sheet.selection.removeSelected();
         }
 
+        UIVisibleRenderKeyframeUtils.pruneRenderAfterVisibleEdit(this.getHostKeyframes());
         this.pickKeyframe(null);
     }
 
@@ -188,7 +230,14 @@ public interface IUIKeyframeGraph
     public default void setTick(float tick, boolean dirty)
     {
         Keyframe selected = this.getSelected();
+        if (selected == null)
+        {
+            return;
+        }
+
         float diff = tick - selected.getTick();
+
+        UIReplaysEditorUtils.moveCompanionPaintForSelectedColor(this.getHostKeyframes(), diff);
 
         for (UIKeyframeSheet sheet : this.getSheets())
         {
@@ -215,6 +264,11 @@ public interface IUIKeyframeGraph
     public default void setValue(Object value, boolean unmergeable)
     {
         Keyframe selected = this.getSelected();
+        if (selected == null)
+        {
+            return;
+        }
+
         IKeyframeFactory factory = selected.getFactory();
         Object keyframe = factory.copy(selected.getValue());
 

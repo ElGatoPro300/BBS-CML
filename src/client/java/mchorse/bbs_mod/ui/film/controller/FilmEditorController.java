@@ -1,21 +1,30 @@
 package mchorse.bbs_mod.ui.film.controller;
 
+import mchorse.bbs_mod.BBSModClient;
+import mchorse.bbs_mod.entity.ActorEntity;
 import mchorse.bbs_mod.film.BaseFilmController;
 import mchorse.bbs_mod.film.Film;
 import mchorse.bbs_mod.film.FilmControllerContext;
+import mchorse.bbs_mod.film.MobCemPoseCapture;
+import mchorse.bbs_mod.film.RecorderMobCapture;
 import mchorse.bbs_mod.film.replays.Replay;
+import mchorse.bbs_mod.forms.FormUtilsClient;
+import mchorse.bbs_mod.forms.ITickable;
 import mchorse.bbs_mod.forms.entities.IEntity;
 import mchorse.bbs_mod.forms.entities.MCEntity;
 import mchorse.bbs_mod.forms.entities.StubEntity;
 import mchorse.bbs_mod.forms.forms.Form;
+import mchorse.bbs_mod.forms.renderers.FormRenderer;
 import mchorse.bbs_mod.settings.values.base.BaseValue;
 import mchorse.bbs_mod.settings.values.ui.ValueOnionSkin;
+import mchorse.bbs_mod.ui.utils.gizmo.TransformOrientation;
 import mchorse.bbs_mod.utils.CollectionUtils;
 import mchorse.bbs_mod.utils.Pair;
 import mchorse.bbs_mod.utils.colors.Colors;
 import mchorse.bbs_mod.utils.keyframes.Keyframe;
 import mchorse.bbs_mod.utils.keyframes.KeyframeChannel;
 import mchorse.bbs_mod.utils.keyframes.KeyframeSegment;
+
 import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
 
 import java.util.List;
@@ -26,6 +35,8 @@ public class FilmEditorController extends BaseFilmController
     public UIFilmController controller;
 
     private int lastTick;
+    private int pausedAnimationSteps;
+    private boolean wasRunnerRunning;
 
     public FilmEditorController(Film film, UIFilmController controller)
     {
@@ -49,11 +60,27 @@ public class FilmEditorController extends BaseFilmController
     @Override
     protected void updateEntities(int ticks)
     {
-        ticks = this.getTick() + (this.controller.panel.getRunner().isRunning() ? 1 : 0);
+        boolean running = this.controller.panel.getRunner().isRunning();
+
+        ticks = this.getTick() + (running ? 1 : 0);
+        this.pausedAnimationSteps = 0;
+
+        if (!this.controller.isPlaying())
+        {
+            this.pausedAnimationSteps = Math.abs(ticks - this.lastTick);
+
+            /* Play applies at cursor+1; pause drops that +1. That single-tick delta
+             * is not a scrub — treating it as one would snap actors and look like a teleport. */
+            if (this.wasRunnerRunning && !running && this.pausedAnimationSteps == 1)
+            {
+                this.pausedAnimationSteps = 0;
+            }
+        }
 
         super.updateEntities(ticks);
 
         this.lastTick = ticks;
+        this.wasRunnerRunning = running;
     }
 
     @Override
@@ -69,11 +96,33 @@ public class FilmEditorController extends BaseFilmController
     }
 
     @Override
+    protected boolean isActorPlaybackActive()
+    {
+        return this.controller.isPlaying();
+    }
+
+    @Override
+    protected int getPausedAnimationAdvanceSteps()
+    {
+        return this.pausedAnimationSteps;
+    }
+
+    @Override
+    protected int getPausedAnimationFromTick()
+    {
+        return this.lastTick;
+    }
+
+    @Override
     protected void applyReplay(Replay replay, int ticks, IEntity entity)
     {
         List<String> groups = this.controller.getRecordingGroups();
         boolean isPlaying = this.controller.isPlaying();
         boolean isActor = !(entity instanceof MCEntity);
+        boolean scrubbingStub = !isPlaying && isActor && this.pausedAnimationSteps > 0;
+        double scrubFromX = entity.getX();
+        double scrubFromY = entity.getY();
+        double scrubFromZ = entity.getZ();
 
         if (entity != this.controller.getControlled() || (this.controller.isRecording() && this.controller.getRecordingCountdown() <= 0 && groups != null))
         {
@@ -83,23 +132,49 @@ public class FilmEditorController extends BaseFilmController
 
         if (entity == this.controller.getControlled() && this.controller.isRecording() && this.controller.panel.getRunner().isRunning())
         {
-            replay.keyframes.record(this.controller.panel.getCursor(), entity, groups);
+            List<Replay> replays = this.film.replays.getList();
+            int index = replays.indexOf(replay);
+            int cursor = this.controller.panel.getCursor();
+
+            MobCemPoseCapture.syncReplay(replay);
+            replay.keyframes.record(cursor, entity, groups);
+            RecorderMobCapture.recordMountKeyframes(replays, index, replay.keyframes, entity, cursor);
+
+            if (MobCemPoseCapture.isActive(replay))
+            {
+                MobCemPoseCapture.recordPoseKeyframe(replay, replay.form.get(), entity, cursor, 0F);
+            }
+
+            if (this.controller.getRecordingCountdown() <= 0 && index >= 0)
+            {
+                BBSModClient.getFilms().getEditorProjectileCapture().recordEditorTick(this.film, index, cursor, BBSModClient.getFilms().getEditorMobCapture(), this.controller.getActors());
+            }
         }
 
         ticks = this.getTick() + (this.controller.panel.getRunner().isRunning() ? 1 : 0);
 
-        /* Special pausing logic */
+        /* Special pausing logic for stubs (non-actor path / hidden stubs). */
         if (!isPlaying && isActor)
         {
-            entity.setPrevX(entity.getX());
-            entity.setPrevY(entity.getY());
-            entity.setPrevZ(entity.getZ());
+            if (scrubbingStub)
+            {
+                entity.setPrevX(scrubFromX);
+                entity.setPrevY(scrubFromY);
+                entity.setPrevZ(scrubFromZ);
+            }
+            else
+            {
+                entity.setPrevX(entity.getX());
+                entity.setPrevY(entity.getY());
+                entity.setPrevZ(entity.getZ());
+            }
+
             entity.setPrevYaw(entity.getYaw());
             entity.setPrevHeadYaw(entity.getHeadYaw());
             entity.setPrevBodyYaw(entity.getBodyYaw());
             entity.setPrevPitch(entity.getPitch());
 
-            int diff = Math.abs(this.lastTick - ticks);
+            int diff = this.pausedAnimationSteps;
 
             while (diff > 0)
             {
@@ -113,6 +188,12 @@ public class FilmEditorController extends BaseFilmController
                 diff -= 1;
             }
         }
+    }
+
+    @Override
+    protected boolean shouldEmitReplayMotionFx(IEntity entity)
+    {
+        return !this.controller.isControlling() || entity != this.controller.getControlled();
     }
 
     @Override
@@ -134,13 +215,20 @@ public class FilmEditorController extends BaseFilmController
     }
 
     @Override
-    protected void renderEntity(WorldRenderContext context, Replay replay, IEntity entity)
+    protected void renderEntity(WorldRenderContext context, Replay replay, IEntity entity, int index)
     {
         boolean current = this.isCurrent(entity);
 
         if (!(this.controller.getPovMode() == UIFilmController.CAMERA_MODE_FIRST_PERSON && current))
         {
-            super.renderEntity(context, replay, entity);
+            if (replay.actor.get())
+            {
+                this.renderActorModeEntity(context, replay, entity);
+            }
+            else
+            {
+                super.renderEntity(context, replay, entity, index);
+            }
         }
 
         boolean isPlaying = this.controller.isPlaying();
@@ -191,6 +279,57 @@ public class FilmEditorController extends BaseFilmController
         }
     }
 
+    /**
+     * Actor mode: draw gizmos from the live {@link ActorEntity} only.
+     * Never fall back to the stub body — after combat death the physical actor
+     * is removed and a stub fallback looked like a revived corpse following
+     * the remaining keyframes. Scrub keeps world clips; combat HP is silent.
+     */
+    private void renderActorModeEntity(WorldRenderContext context, Replay replay, IEntity stub)
+    {
+        int replayTick = replay.getTick(this.getTick());
+
+        if (!this.isReplayVisible(replay, replayTick))
+        {
+            return;
+        }
+
+        IEntity physical = this.getPhysicalActorEntity(replay);
+
+        if (physical == null || this.isActorPickingBlocked(replay))
+        {
+            return;
+        }
+
+        /* Keep bone selection from the stub (isCurrent), then swap to the physical
+         * actor so pose matrices match what ActorEntityRenderer draws. */
+        FilmControllerContext filmContext = this.getFilmControllerContext(context, replay, stub);
+
+        if (filmContext.bone == null && filmContext.bone2 == null)
+        {
+            return;
+        }
+
+        filmContext.entity = physical;
+        filmContext.physicalActor(true);
+        filmContext.transition = this.getTransition(stub, context.tickDelta());
+        filmContext.stack.push();
+
+        try
+        {
+            if (!this.applyGroupProperties(replay, filmContext))
+            {
+                return;
+            }
+
+            renderEntity(filmContext);
+        }
+        finally
+        {
+            filmContext.stack.pop();
+        }
+    }
+
     private void renderOnion(Replay replay, int index, int direction, KeyframeChannel<?> pose, int color, int frames, WorldRenderContext context, boolean isPlaying, IEntity entity)
     {
         List<? extends Keyframe<?>> keyframes = pose.getKeyframes();
@@ -209,10 +348,14 @@ public class FilmEditorController extends BaseFilmController
             replay.keyframes.apply(tick1, entity);
             float tick = (int) keyframe.getTick();
             Form form = entity.getForm();
+            replay.properties.resetProperties(form);
             replay.properties.applyProperties(form, tick);
 
             BaseFilmController.renderEntity(FilmControllerContext.instance
                 .setup(this.getEntities(), entity, replay, context)
+                .film(this.film)
+                .propertyTick(tick)
+                .filmTick(this.getTick())
                 .color(Colors.setA(color, alpha))
                 .transition(0F));
 
@@ -224,30 +367,30 @@ public class FilmEditorController extends BaseFilmController
     @Override
     protected FilmControllerContext getFilmControllerContext(WorldRenderContext context, Replay replay, IEntity entity)
     {
-        Pair<String, Boolean> bone = this.isCurrent(entity) && !this.controller.panel.recorder.isRecording() ? this.controller.getBone() : null;
+        Pair<String, TransformOrientation> bone = this.isCurrent(entity) && !this.controller.panel.recorder.isRecording() ? this.controller.getBone() : null;
         String aBone = bone == null ? null : bone.a;
-        boolean local = bone != null && bone.b;
+        TransformOrientation orientation = bone == null ? TransformOrientation.PARENT : bone.b;
         String aBone2 = null;
-        boolean local2 = false;
+        TransformOrientation orientation2 = TransformOrientation.PARENT;
 
         if (replay.axesPreview.get())
         {
             aBone2 = replay.axesPreviewBone.get();
-            local2 = true;
+            orientation2 = TransformOrientation.LOCAL;
         }
 
         if (this.controller.panel.recorder.isRecording())
         {
             aBone = null;
-            local = false;
+            orientation = TransformOrientation.PARENT;
             aBone2 = null;
-            local2 = false;
+            orientation2 = TransformOrientation.PARENT;
         }
 
         return super.getFilmControllerContext(context, replay, entity)
             .transition(this.getTransition(entity, context.tickDelta()))
-            .bone(aBone, local)
-            .bone2(aBone2, local2);
+            .bone(aBone, orientation)
+            .bone2(aBone2, orientation2);
     }
 
     private boolean isCurrent(IEntity entity)

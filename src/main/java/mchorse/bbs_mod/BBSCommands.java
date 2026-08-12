@@ -1,14 +1,6 @@
 package mchorse.bbs_mod;
 
-import com.mojang.brigadier.CommandDispatcher;
-import com.mojang.brigadier.arguments.BoolArgumentType;
-import com.mojang.brigadier.arguments.FloatArgumentType;
-import com.mojang.brigadier.arguments.IntegerArgumentType;
-import com.mojang.brigadier.arguments.StringArgumentType;
-import com.mojang.brigadier.builder.LiteralArgumentBuilder;
-import com.mojang.brigadier.builder.RequiredArgumentBuilder;
-import com.mojang.brigadier.context.CommandContext;
-import com.mojang.brigadier.exceptions.CommandSyntaxException;
+import mchorse.bbs_mod.bay4lly.SkinCommands;
 import mchorse.bbs_mod.blocks.entities.ModelBlockEntity;
 import mchorse.bbs_mod.data.DataToString;
 import mchorse.bbs_mod.data.types.BaseType;
@@ -21,6 +13,7 @@ import mchorse.bbs_mod.network.ServerNetwork;
 import mchorse.bbs_mod.settings.Settings;
 import mchorse.bbs_mod.settings.values.base.BaseValue;
 import mchorse.bbs_mod.settings.values.core.ValueGroup;
+
 import net.minecraft.block.Blocks;
 import net.minecraft.block.entity.BlockEntity;
 import net.minecraft.command.CommandRegistryAccess;
@@ -48,6 +41,16 @@ import net.minecraft.world.SaveProperties;
 import net.minecraft.world.World;
 import net.minecraft.world.level.LevelInfo;
 
+import com.mojang.brigadier.CommandDispatcher;
+import com.mojang.brigadier.arguments.BoolArgumentType;
+import com.mojang.brigadier.arguments.FloatArgumentType;
+import com.mojang.brigadier.arguments.IntegerArgumentType;
+import com.mojang.brigadier.arguments.StringArgumentType;
+import com.mojang.brigadier.builder.LiteralArgumentBuilder;
+import com.mojang.brigadier.builder.RequiredArgumentBuilder;
+import com.mojang.brigadier.context.CommandContext;
+import com.mojang.brigadier.exceptions.CommandSyntaxException;
+
 import java.util.Collection;
 import java.util.function.Predicate;
 
@@ -68,6 +71,7 @@ public class BBSCommands
         registerCheatsCommand(bbs, environment);
         registerBoomCommand(bbs, environment, hasPermissions);
         registerStructureSaveCommand(bbs, environment, hasPermissions);
+        SkinCommands.attach(bbs, hasPermissions);
 
         dispatcher.register(bbs);
     }
@@ -145,7 +149,7 @@ public class BBSCommands
                         {
                             for (ServerPlayerEntity player : ctx.getSource().getWorld().getPlayers())
                             {
-                                if (player.getBlockPos().getSquaredDistance(pos) <= 64F)
+                                if (player.getBlockPos().getSquaredDistance(pos) <= (Math.pow(BBSSettings.modelBlockAnimationStateDistance.get(), 2)))
                                 {
                                     ServerNetwork.sendModelBlockState(player, pos, animationState);
                                 }
@@ -462,6 +466,8 @@ public class BBSCommands
     {
         Collection<ServerPlayerEntity> players = EntityArgumentType.getPlayers(source, "target");
         String filmId = StringArgumentType.getString(source, "film");
+
+        BBSMod.getActions().stop(filmId);
 
         for (ServerPlayerEntity player : players)
         {

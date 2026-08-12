@@ -7,13 +7,15 @@ import mchorse.bbs_mod.data.types.ListType;
 import mchorse.bbs_mod.data.types.MapType;
 import mchorse.bbs_mod.data.types.StringType;
 import mchorse.bbs_mod.resources.Link;
+
 import com.mojang.logging.LogUtils;
-import org.slf4j.Logger;
 
 import java.io.File;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
+
+import org.slf4j.Logger;
 
 /**
  * Manages audio files' like/unlike status
@@ -197,7 +199,7 @@ public class SoundLikeManager
         return sound != null ? sound.getDisplayName() : null;
     }
 
-    public java.util.List<LikedSound> getLikedSounds()
+    public List<LikedSound> getLikedSounds()
     {
         return new ArrayList<>(this.likedSounds.values());
     }

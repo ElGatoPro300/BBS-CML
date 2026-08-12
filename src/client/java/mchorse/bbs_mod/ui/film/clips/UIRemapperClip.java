@@ -31,7 +31,7 @@ public class UIRemapperClip extends UIClip<RemapperClip>
         this.keyframes = new UIKeyframeEditor((consumer) -> new UIFilmKeyframes(this.editor, consumer));
         this.keyframes.view.backgroundRenderer((context) ->
         {
-            UIReplaysEditor.renderBackground(context, this.keyframes.view, (Clips) this.clip.getParent(), this.clip.tick.get());
+            UIReplaysEditor.renderBackground(context, this.keyframes.view, (Clips) this.clip.getParent(), this.clip.tick.get(), this.clip);
         });
         this.keyframes.view.single().duration(() -> this.clip.duration.get());
         this.keyframes.setUndoId("remapper_keyframes");
@@ -64,26 +64,8 @@ public class UIRemapperClip extends UIClip<RemapperClip>
     }
 
     @Override
-    public void applyUndoData(MapType data)
+    protected UIKeyframeEditor resolveClipEmbeddableView(String undoId)
     {
-        super.applyUndoData(data);
-
-        if (data.getString("embed").equals("remapper"))
-        {
-            this.editor.embedView(this.keyframes);
-            this.keyframes.view.editSheet(this.keyframes.view.getGraph().getSheets().get(0));
-            this.keyframes.view.resetView();
-        }
-    }
-
-    @Override
-    public void collectUndoData(MapType data)
-    {
-        super.collectUndoData(data);
-
-        if (this.keyframes.hasParent())
-        {
-            data.putString("embed", "remapper");
-        }
+        return undoId.equals(this.keyframes.getUndoId()) ? this.keyframes : null;
     }
 }

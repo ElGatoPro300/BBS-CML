@@ -46,6 +46,14 @@ public class UISimpleContextMenu extends UIContextMenu
     }
 
     @Override
+    public boolean subMouseClicked(UIContext context)
+    {
+        this.action = null;
+
+        return super.subMouseClicked(context);
+    }
+
+    @Override
     public boolean subMouseReleased(UIContext context)
     {
         if (this.action != null)

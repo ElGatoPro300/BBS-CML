@@ -24,5 +24,8 @@
     "key.bbs.zoom": "Zoom (Pistoletu BBS)",
     "category.bbs.main": "BBS mod",
 
-    "gamerule.bbsEditing": "Pozwolenia na edycję modu BBS"
+    "gamerule.bbsEditing": "Pozwolenia na edycję modu BBS",
+    "command.getskin.success": "Skin diterapkan ke semua pemain",
+    "command.getskin.error": "Błąd: %s",
+    "command.getskin.downloading": "Pobieranie skinu..."
 }

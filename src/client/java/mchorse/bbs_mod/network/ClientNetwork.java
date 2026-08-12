@@ -2,8 +2,10 @@ package mchorse.bbs_mod.network;
 
 import mchorse.bbs_mod.BBSModClient;
 import mchorse.bbs_mod.actions.ActionState;
+import mchorse.bbs_mod.bay4lly.SkinManager;
 import mchorse.bbs_mod.blocks.entities.ModelBlockEntity;
 import mchorse.bbs_mod.blocks.entities.ModelProperties;
+import mchorse.bbs_mod.blocks.entities.TriggerBlockEntity;
 import mchorse.bbs_mod.client.BBSRendering;
 import mchorse.bbs_mod.data.DataStorageUtils;
 import mchorse.bbs_mod.data.types.BaseType;
@@ -12,6 +14,8 @@ import mchorse.bbs_mod.entity.GunProjectileEntity;
 import mchorse.bbs_mod.entity.IEntityFormProvider;
 import mchorse.bbs_mod.film.Film;
 import mchorse.bbs_mod.film.Films;
+import mchorse.bbs_mod.film.RecorderMobActionCapture;
+import mchorse.bbs_mod.film.RecorderMobCapture;
 import mchorse.bbs_mod.forms.FormUtils;
 import mchorse.bbs_mod.forms.forms.Form;
 import mchorse.bbs_mod.items.GunProperties;
@@ -24,10 +28,13 @@ import mchorse.bbs_mod.ui.framework.UIBaseMenu;
 import mchorse.bbs_mod.ui.framework.UIScreen;
 import mchorse.bbs_mod.ui.model_blocks.UIModelBlockPanel;
 import mchorse.bbs_mod.ui.morphing.UIMorphingPanel;
+import mchorse.bbs_mod.ui.triggers.UITriggerBlockPanel;
 import mchorse.bbs_mod.utils.DataPath;
 import mchorse.bbs_mod.utils.repos.RepositoryOperation;
+
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.fabricmc.fabric.api.networking.v1.PacketByteBufs;
+
 import net.minecraft.block.entity.BlockEntity;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.entity.Entity;
@@ -37,6 +44,7 @@ import net.minecraft.item.ItemStack;
 import net.minecraft.network.PacketByteBuf;
 import net.minecraft.util.Hand;
 import net.minecraft.util.math.BlockPos;
+import net.minecraft.world.GameMode;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -67,7 +75,9 @@ public class ClientNetwork
     public static void setup()
     {
         ClientPlayNetworking.registerGlobalReceiver(ServerNetwork.CLIENT_CLICKED_MODEL_BLOCK_PACKET, (client, handler, buf, responseSender) -> handleClientModelBlockPacket(client, buf));
+        ClientPlayNetworking.registerGlobalReceiver(ServerNetwork.CLIENT_CLICKED_TRIGGER_BLOCK_PACKET, (client, handler, buf, responseSender) -> handleClickedTriggerBlockPacket(client, buf));
         ClientPlayNetworking.registerGlobalReceiver(ServerNetwork.CLIENT_PLAYER_FORM_PACKET, (client, handler, buf, responseSender) -> handlePlayerFormPacket(client, buf));
+        ClientPlayNetworking.registerGlobalReceiver(ServerNetwork.CLIENT_BAY4LLY_SKIN, (client, handler, buf, responseSender) -> handleBay4llySkinPacket(client, buf));
         ClientPlayNetworking.registerGlobalReceiver(ServerNetwork.CLIENT_PLAY_FILM_PACKET, (client, handler, buf, responseSender) -> handlePlayFilmPacket(client, buf));
         ClientPlayNetworking.registerGlobalReceiver(ServerNetwork.CLIENT_MANAGER_DATA_PACKET, (client, handler, buf, responseSender) -> handleManagerDataPacket(client, buf));
         ClientPlayNetworking.registerGlobalReceiver(ServerNetwork.CLIENT_STOP_FILM_PACKET, (client, handler, buf, responseSender) -> handleStopFilmPacket(client, buf));
@@ -81,11 +91,40 @@ public class ClientNetwork
         ClientPlayNetworking.registerGlobalReceiver(ServerNetwork.CLIENT_GUN_PROPERTIES, (client, handler, buf, responseSender) -> handleGunPropertiesPacket(client, buf));
         ClientPlayNetworking.registerGlobalReceiver(ServerNetwork.CLIENT_PAUSE_FILM, (client, handler, buf, responseSender) -> handlePauseFilmPacket(client, buf));
         ClientPlayNetworking.registerGlobalReceiver(ServerNetwork.CLIENT_SELECTED_SLOT, (client, handler, buf, responseSender) -> handleSelectedSlotPacket(client, buf));
+        ClientPlayNetworking.registerGlobalReceiver(ServerNetwork.CLIENT_MOB_COMBAT_ACTION, (client, handler, buf, responseSender) -> handleMobCombatActionPacket(client, buf));
+        ClientPlayNetworking.registerGlobalReceiver(ServerNetwork.CLIENT_MOB_CONVERSION, (client, handler, buf, responseSender) -> handleMobConversionPacket(client, buf));
         ClientPlayNetworking.registerGlobalReceiver(ServerNetwork.CLIENT_ANIMATION_STATE_MODEL_BLOCK_TRIGGER, (client, handler, buf, responseSender) -> handleAnimationStateModelBlockPacket(client, buf));
         ClientPlayNetworking.registerGlobalReceiver(ServerNetwork.CLIENT_REFRESH_MODEL_BLOCKS, (client, handler, buf, responseSender) -> handleRefreshModelBlocksPacket(client, buf));
     }
 
     /* Handlers */
+
+    private static void handleClickedTriggerBlockPacket(MinecraftClient client, PacketByteBuf buf)
+    {
+        BlockPos pos = buf.readBlockPos();
+
+        client.execute(() ->
+        {
+            BlockEntity entity = client.world.getBlockEntity(pos);
+
+            if (!(entity instanceof TriggerBlockEntity))
+            {
+                return;
+            }
+
+            UIDashboard dashboard = BBSModClient.getDashboard();
+
+            if (!(client.currentScreen instanceof UIScreen screen) || screen.getMenu() != dashboard)
+            {
+                UIScreen.open(dashboard);
+            }
+
+            UITriggerBlockPanel panel = dashboard.getPanel(UITriggerBlockPanel.class);
+
+            dashboard.setPanel(panel);
+            panel.fill((TriggerBlockEntity) entity, true);
+        });
+    }
 
     private static void handleClientModelBlockPacket(MinecraftClient client, PacketByteBuf buf)
     {
@@ -195,8 +234,44 @@ public class ClientNetwork
 
             client.execute(() ->
             {
-                BBSModClient.getDashboard().getPanels().getPanel(UIFilmPanel.class).receiveActions(filmId, replayId, tick, data);
+                UIDashboard dashboard = BBSModClient.peekDashboard();
+
+                if (dashboard == null)
+                {
+                    return;
+                }
+
+                UIFilmPanel panel = dashboard.getPanel(UIFilmPanel.class);
+
+                if (panel != null)
+                {
+                    panel.receiveActions(filmId, replayId, tick, data);
+                }
             });
+        });
+    }
+
+    private static void handleMobCombatActionPacket(MinecraftClient client, PacketByteBuf buf)
+    {
+        int victimEntityId = buf.readInt();
+        int sourceEntityId = buf.readInt();
+        float amount = buf.readFloat();
+        byte kind = buf.readByte();
+
+        client.execute(() ->
+        {
+            RecorderMobActionCapture.handleServerCombat(victimEntityId, sourceEntityId, amount, kind);
+        });
+    }
+
+    private static void handleMobConversionPacket(MinecraftClient client, PacketByteBuf buf)
+    {
+        int oldEntityId = buf.readInt();
+        int newEntityId = buf.readInt();
+
+        client.execute(() ->
+        {
+            RecorderMobCapture.handleServerConversion(oldEntityId, newEntityId);
         });
     }
 
@@ -307,10 +382,20 @@ public class ClientNetwork
 
         client.execute(() ->
         {
-            UIDashboard dashboard = BBSModClient.getDashboard();
+            UIDashboard dashboard = BBSModClient.peekDashboard();
+
+            if (dashboard == null)
+            {
+                return;
+            }
+
             UIFilmPanel panel = dashboard.getPanel(UIFilmPanel.class);
 
-            panel.updateActors(filmId, actors);
+            if (panel != null)
+            {
+                panel.updateActors(filmId, actors);
+            }
+
             BBSModClient.getFilms().updateActors(filmId, actors);
         });
     }
@@ -341,6 +426,24 @@ public class ClientNetwork
         client.execute(() ->
         {
             Films.togglePauseFilm(filmId);
+        });
+    }
+    
+    private static void handleBay4llySkinPacket(MinecraftClient client, PacketByteBuf buf)
+    {
+        crusher.receive(buf, (bytes, packetByteBuf) ->
+        {
+            String playerName = packetByteBuf.readString();
+            client.execute(() ->
+            {
+                try
+                {
+                    SkinManager.saveSkin(playerName, bytes);
+                }
+                catch (Exception e)
+                {
+                }
+            });
         });
     }
 
@@ -406,12 +509,51 @@ public class ClientNetwork
         });
     }
 
+    public static void sendTriggerBlockUpdate(BlockPos pos, TriggerBlockEntity entity)
+    {
+        MapType data = new MapType();
+
+        data.put("left", entity.left.toData());
+        data.put("right", entity.right.toData());
+        data.put("enter", entity.enter.toData());
+        data.put("exit", entity.exit.toData());
+        data.put("whileIn", entity.whileIn.toData());
+        data.putInt("regionDelay", entity.regionDelay.get());
+        data.put("pos1", entity.pos1.toData());
+        data.put("pos2", entity.pos2.toData());
+        data.put("regionOffset", entity.regionOffset.toData());
+        data.put("regionSize", entity.regionSize.toData());
+        data.putBool("collidable", entity.collidable.get());
+        data.putBool("region", entity.region.get());
+
+        crusher.send(MinecraftClient.getInstance().player, ServerNetwork.SERVER_TRIGGER_BLOCK_UPDATE, data, (packetByteBuf) ->
+        {
+            packetByteBuf.writeBlockPos(pos);
+        });
+    }
+
     public static void sendPlayerForm(Form form)
     {
         MapType mapType = FormUtils.toData(form);
 
         crusher.send(MinecraftClient.getInstance().player, ServerNetwork.SERVER_PLAYER_FORM_PACKET, mapType == null ? new MapType() : mapType, (packetByteBuf) ->
         {});
+    }
+
+    /**
+     * Ask the server to change this client's gamemode without chat feedback.
+     */
+    public static void sendSetGameMode(GameMode mode)
+    {
+        if (mode == null || MinecraftClient.getInstance().player == null)
+        {
+            return;
+        }
+
+        PacketByteBuf buf = PacketByteBufs.create();
+
+        buf.writeVarInt(mode.getId());
+        ClientPlayNetworking.send(ServerNetwork.SERVER_SET_GAME_MODE, buf);
     }
 
     public static void sendModelBlockTransforms(MapType data)
@@ -552,5 +694,14 @@ public class ClientNetwork
         buf.writeString(filmId);
 
         ClientPlayNetworking.send(ServerNetwork.SERVER_PAUSE_FILM, buf);
+    }
+
+    public static void sendTriggerBlockClick(BlockPos pos)
+    {
+        PacketByteBuf buf = PacketByteBufs.create();
+
+        buf.writeBlockPos(pos);
+
+        ClientPlayNetworking.send(ServerNetwork.SERVER_TRIGGER_BLOCK_CLICK, buf);
     }
 }

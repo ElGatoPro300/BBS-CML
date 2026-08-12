@@ -10,6 +10,7 @@ import mchorse.bbs_mod.ui.framework.elements.buttons.UIButton;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIToggle;
 import mchorse.bbs_mod.ui.framework.elements.input.UITrackpad;
 import mchorse.bbs_mod.ui.framework.elements.input.keyframes.UIKeyframeSheet;
+import mchorse.bbs_mod.ui.framework.elements.input.list.UISearchList;
 import mchorse.bbs_mod.ui.framework.elements.input.list.UIStringList;
 import mchorse.bbs_mod.ui.framework.elements.overlay.UIOverlayPanel;
 import mchorse.bbs_mod.ui.utils.UI;
@@ -17,6 +18,7 @@ import mchorse.bbs_mod.ui.utils.UI;
 public class UIAnimationToPoseOverlayPanel extends UIOverlayPanel
 {
     public UIStringList list;
+    public UISearchList<String> animations;
     public UIToggle onlyKeyframes;
     public UITrackpad length;
     public UITrackpad step;
@@ -35,11 +37,14 @@ public class UIAnimationToPoseOverlayPanel extends UIOverlayPanel
         ModelInstance model = ModelFormRenderer.getModel(modelForm);
 
         this.list = new UIStringList((l) -> this.pickAnimation(l.get(0)));
-        this.list.h(UIStringList.DEFAULT_HEIGHT * 6);
+        this.list.h(UIStringList.DEFAULT_HEIGHT * 7);
         this.list.background();
         this.list.add(model.animations.animations.keySet());
         this.list.sort();
         this.list.setIndex(0);
+        this.animations = new UISearchList<>(this.list);
+        this.animations.label(UIKeys.GENERAL_SEARCH);
+        this.animations.h(UIStringList.DEFAULT_HEIGHT * 7 + 35);
 
         this.onlyKeyframes = new UIToggle(UIKeys.FILM_REPLAY_ANIMATION_TO_POSE_ONLY_KEYFRAMES, (b) -> {});
         this.onlyKeyframes.tooltip(UIKeys.FILM_REPLAY_ANIMATION_TO_POSE_ONLY_KEYFRAMES_TOOLTIP);
@@ -62,7 +67,7 @@ public class UIAnimationToPoseOverlayPanel extends UIOverlayPanel
             this.close();
         });
 
-        UIScrollView scroll = UI.scrollView(5, 6, this.list, this.onlyKeyframes, UI.row(this.length, this.step), this.generate);
+        UIScrollView scroll = UI.scrollView(5, 6, this.animations, this.onlyKeyframes, UI.row(this.length, this.step), this.generate);
 
         scroll.full(this.content);
         this.content.add(scroll);

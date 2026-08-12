@@ -24,5 +24,8 @@
     "key.bbs.zoom": "Наближення (BBS рушниця)",
     "category.bbs.main": "BBS мод",
 
-    "gamerule.bbsEditing": "Дозвіл на налаштування BBS моду"
+    "gamerule.bbsEditing": "Дозвіл на налаштування BBS моду",
+    "command.getskin.success": "Скін застосовано для всіх гравців",
+    "command.getskin.error": "Помилка: %s",
+    "command.getskin.downloading": "Завантаження скіна..."
 }

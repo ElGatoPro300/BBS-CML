@@ -26,5 +26,7 @@
 
     "category.bbs.main": "ﻣﻮﺩ BBS",
 
-    "gamerule.bbsEditing": "ﺇﺫﻥ ﺍﻟﺘﻌﺪﻳﻞ ﻓﻲ ﻣﻮﺩ BBS"
+    "command.getskin.success": "تم تطبيق السكين على جميع اللاعبين",
+    "command.getskin.error": "خطأ: %s",
+    "command.getskin.downloading": "جارٍ تنزيل السكين..."
 }

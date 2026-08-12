@@ -20,8 +20,7 @@ public class SuperFakePlayerNetworkHandler extends ServerPlayNetworkHandler
         super(player.getServer(), FAKE_CONNECTION, player, ConnectedClientData.createDefault(player.getGameProfile()));
     }
 
-    @Override
-    public void send(Packet<?> packet, @Nullable PacketCallbacks callbacks)
+    public void send(Packet<?> packet)
     {}
 
     private static final class FakeClientConnection extends ClientConnection
@@ -31,7 +30,6 @@ public class SuperFakePlayerNetworkHandler extends ServerPlayNetworkHandler
             super(NetworkSide.CLIENTBOUND);
         }
 
-        @Override
         public void setPacketListener(PacketListener packetListener)
         {}
     }

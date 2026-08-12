@@ -3,7 +3,9 @@ package mchorse.bbs_mod.actions;
 import mchorse.bbs_mod.actions.types.ActionClip;
 import mchorse.bbs_mod.data.types.BaseType;
 import mchorse.bbs_mod.film.Film;
+import mchorse.bbs_mod.network.ServerNetwork;
 import mchorse.bbs_mod.utils.DataPath;
+
 import net.minecraft.block.BlockState;
 import net.minecraft.block.entity.BlockEntity;
 import net.minecraft.entity.Entity;
@@ -150,6 +152,52 @@ public class ActionManager
         }
     }
 
+    public boolean hasActiveRecorders(ServerWorld world)
+    {
+        if (this.recorders.isEmpty())
+        {
+            return false;
+        }
+
+        for (ServerPlayerEntity player : this.recorders.keySet())
+        {
+            if (player != null && player.getServerWorld() == world)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Notify recording clients so autocapture can place combat clips on mob replays.
+     */
+    public void broadcastMobCombatHit(ServerWorld world, int victimEntityId, int sourceEntityId, float amount, byte kind)
+    {
+        for (ServerPlayerEntity player : this.recorders.keySet())
+        {
+            if (player != null && player.getServerWorld() == world)
+            {
+                ServerNetwork.sendMobCombatAction(player, victimEntityId, sourceEntityId, amount, kind);
+            }
+        }
+    }
+
+    /**
+     * Notify recording clients so autocapture can follow vanilla mob conversions.
+     */
+    public void broadcastMobConversion(ServerWorld world, int oldEntityId, int newEntityId)
+    {
+        for (ServerPlayerEntity player : this.recorders.keySet())
+        {
+            if (player != null && player.getServerWorld() == world)
+            {
+                ServerNetwork.sendMobConversion(player, oldEntityId, newEntityId);
+            }
+        }
+    }
+
     public ActionRecorder stopRecording(ServerPlayerEntity entity)
     {
         ActionRecorder remove = this.recorders.remove(entity);
@@ -201,6 +249,20 @@ public class ActionManager
         if (dc != null)
         {
             dc.restore();
+        }
+    }
+
+    /**
+     * Puts captured blocks/entities back while keeping damage control armed
+     * for further film playback.
+     */
+    public void restoreDamage(ServerWorld world)
+    {
+        DamageControl damageControl = this.dc.get(world);
+
+        if (damageControl != null)
+        {
+            damageControl.restore();
         }
     }
 

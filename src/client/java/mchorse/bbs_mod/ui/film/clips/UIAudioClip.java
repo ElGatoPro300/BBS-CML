@@ -24,6 +24,7 @@ public class UIAudioClip extends UIClip<AudioClip>
     public UIIcon openFolder;
     public UIIcon extendDuration;
     public UITrackpad offset;
+    public UITrackpad volume;
 
     public UIAudioClip(AudioClip clip, IUIClipsDelegate editor)
     {
@@ -79,6 +80,10 @@ public class UIAudioClip extends UIClip<AudioClip>
 
         this.offset = new UITrackpad((v) -> this.clip.offset.set(v.intValue()));
         this.offset.integer();
+
+        this.volume = new UITrackpad((v) -> this.clip.volume.set(v.intValue()));
+        this.volume.integer();
+        this.volume.limit(0, 400);
     }
 
     @Override
@@ -88,6 +93,7 @@ public class UIAudioClip extends UIClip<AudioClip>
 
         this.panels.add(UI.column(UIClip.label(UIKeys.C_CLIP.get("bbs:audio")), UI.row(this.pickAudio, this.extendDuration, this.openFolder)).marginTop(12));
         this.panels.add(UI.column(UIClip.label(UIKeys.CAMERA_PANELS_AUDIO_OFFSET).marginTop(6), this.offset).marginTop(12));
+        this.panels.add(UI.column(UIClip.label(UIKeys.CAMERA_PANELS_AUDIO_VOLUME).marginTop(6), this.volume).marginTop(12));
     }
 
     @Override
@@ -96,5 +102,6 @@ public class UIAudioClip extends UIClip<AudioClip>
         super.fillData();
 
         this.offset.setValue(this.clip.offset.get());
+        this.volume.setValue(this.clip.volume.get());
     }
 }

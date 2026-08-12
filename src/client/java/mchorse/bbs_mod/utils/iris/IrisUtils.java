@@ -1,15 +1,29 @@
 package mchorse.bbs_mod.utils.iris;
 
-import joptsimple.internal.Strings;
 import mchorse.bbs_mod.BBSModClient;
+import mchorse.bbs_mod.client.SunPathRotation;
 import mchorse.bbs_mod.graphics.texture.Texture;
 import mchorse.bbs_mod.graphics.texture.TextureManager;
 import mchorse.bbs_mod.resources.Link;
 import mchorse.bbs_mod.utils.CollectionUtils;
 import mchorse.bbs_mod.utils.DataPath;
+
+import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.texture.AbstractTexture;
+
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+
+import joptsimple.internal.Strings;
 import net.irisshaders.iris.Iris;
 import net.irisshaders.iris.api.v0.IrisApi;
 import net.irisshaders.iris.gl.uniform.UniformUpdateFrequency;
+import net.irisshaders.iris.gui.screen.ShaderPackScreen;
 import net.irisshaders.iris.shaderpack.LanguageMap;
 import net.irisshaders.iris.shaderpack.ShaderPack;
 import net.irisshaders.iris.shaderpack.option.menu.OptionMenuContainer;
@@ -27,18 +41,37 @@ import net.irisshaders.iris.vertices.NormI8;
 import net.irisshaders.iris.vertices.NormalHelper;
 import net.irisshaders.iris.vertices.views.TriView;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-
 public class IrisUtils
 {
     private static Set<Texture> textureSet = new HashSet<>();
+    private static Map<Integer, PBRIntensity> trackedPBRIntensities = new HashMap<>();
+    private static final ThreadLocal<PBRIntensity> activePBRIntensity = new ThreadLocal<>();
     private static ShaderProperties properties;
+
+    private static class PBRIntensity
+    {
+        public float normal = 1F;
+        public float specular = 1F;
+
+        public PBRIntensity()
+        {}
+
+        public PBRIntensity(float normal, float specular)
+        {
+            this.normal = normal;
+            this.specular = specular;
+        }
+
+        public PBRIntensity(PBRIntensity other)
+        {
+            this(other.normal, other.specular);
+        }
+
+        public boolean sameAs(PBRIntensity other)
+        {
+            return other != null && Math.abs(this.normal - other.normal) < 0.0001F && Math.abs(this.specular - other.specular) < 0.0001F;
+        }
+    }
 
     public static void setShaderProperties(ShaderProperties shaderProperties)
     {
@@ -144,8 +177,10 @@ public class IrisUtils
     {
         TextureManager textures = BBSModClient.getTextures();
         Texture error = textures.getError();
+        PBRIntensity active = activePBRIntensity.get();
+        PBRIntensity current = active == null ? new PBRIntensity(1F, 1F) : new PBRIntensity(active);
 
-        if (texture != error && !textureSet.contains(texture))
+        if (texture != error)
         {
             Link key = CollectionUtils.getKey(textures.textures, texture);
 
@@ -163,16 +198,87 @@ public class IrisUtils
                     index = texture.getParent().textures.indexOf(texture);
                 }
 
-                TextureTracker.INSTANCE.trackTexture(texture.id, new IrisTextureWrapper(key, index));
+                PBRIntensity tracked = trackedPBRIntensities.get(texture.id);
+
+                if (!textureSet.contains(texture) || tracked == null || !tracked.sameAs(current))
+                {
+                    TextureTracker.INSTANCE.trackTexture(texture.id, new IrisTextureWrapper(key, index, current.normal, current.specular));
+                    trackedPBRIntensities.put(texture.id, current);
+                }
             }
 
             textureSet.add(texture);
         }
     }
 
+    public static void setPBRTextureIntensity(float normalIntensity, float specularIntensity)
+    {
+        activePBRIntensity.set(new PBRIntensity(normalIntensity, specularIntensity));
+    }
+
+    public static void clearPBRTextureIntensity()
+    {
+        activePBRIntensity.remove();
+    }
+
+    public static float getActivePBRNormalIntensity()
+    {
+        PBRIntensity intensity = activePBRIntensity.get();
+
+        return intensity == null ? 1F : intensity.normal;
+    }
+
+    public static float getActivePBRSpecularIntensity()
+    {
+        PBRIntensity intensity = activePBRIntensity.get();
+
+        return intensity == null ? 1F : intensity.specular;
+    }
+
     public static boolean isShaderPackEnabled()
     {
         return IrisApi.getInstance().isShaderPackInUse();
+    }
+
+    public static void toggleShaders()
+    {
+        try
+        {
+            Iris.toggleShaders(MinecraftClient.getInstance(), !IrisUtils.isShaderPackEnabled());
+        }
+        catch (Exception e)
+        {
+            e.printStackTrace();
+        }
+    }
+
+    public static void reloadShaders()
+    {
+        try
+        {
+            if (isShaderPackEnabled())
+            {
+                Iris.reload();
+            }
+        }
+        catch (Exception e)
+        {
+            e.printStackTrace();
+        }
+    }
+
+    public static void openShaderPackScreen()
+    {
+        try
+        {
+            MinecraftClient client = MinecraftClient.getInstance();
+
+            client.execute(() -> client.setScreen(new ShaderPackScreen(client.currentScreen)));
+        }
+        catch (Exception e)
+        {
+            e.printStackTrace();
+        }
     }
 
     public static boolean isShadowPass()
@@ -241,6 +347,15 @@ public class IrisUtils
     {
         for (ShaderCurves.ShaderVariable value : variableMap.values())
         {
+            if (ShaderCurves.SUN_PATH_ROTATION.equals(value.name))
+            {
+                /* Negated vs sky matrix so Complementary light stays opposite the sun disc. */
+                list.add(new FloatCachedUniform(value.uniformName, UniformUpdateFrequency.PER_FRAME, () ->
+                    SunPathRotation.getLightYawDegrees()));
+
+                continue;
+            }
+
             if (value.integer)
             {
                 list.add(new IntCachedUniform(value.uniformName, UniformUpdateFrequency.PER_FRAME, () -> (int) value.getValue()));

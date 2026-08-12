@@ -1,7 +1,5 @@
 package mchorse.bbs_mod.ui.framework.elements.utils;
 
-import com.mojang.blaze3d.systems.RenderSystem;
-import com.mojang.blaze3d.systems.VertexSorter;
 import mchorse.bbs_mod.BBSModClient;
 import mchorse.bbs_mod.camera.Camera;
 import mchorse.bbs_mod.forms.entities.IEntity;
@@ -12,6 +10,7 @@ import mchorse.bbs_mod.ui.framework.elements.UIElement;
 import mchorse.bbs_mod.utils.Factor;
 import mchorse.bbs_mod.utils.MathUtils;
 import mchorse.bbs_mod.utils.MatrixStackUtils;
+
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.render.BufferBuilder;
 import net.minecraft.client.render.BufferRenderer;
@@ -21,12 +20,17 @@ import net.minecraft.client.render.Tessellator;
 import net.minecraft.client.render.VertexFormat;
 import net.minecraft.client.render.VertexFormats;
 import net.minecraft.client.util.math.MatrixStack;
+
 import org.joml.Intersectiond;
 import org.joml.Matrix3d;
 import org.joml.Matrix3f;
 import org.joml.Matrix4f;
 import org.joml.Vector3d;
 import org.joml.Vector3f;
+
+import com.mojang.blaze3d.systems.RenderSystem;
+import com.mojang.blaze3d.systems.VertexSorter;
+
 import org.lwjgl.opengl.GL11;
 
 /**
@@ -60,11 +64,31 @@ public abstract class UIModelRenderer extends UIElement
     private long tick;
     private Matrix4f transform = new Matrix4f();
 
+    private boolean stencilViewport;
+    private int stencilViewportW;
+    private int stencilViewportH;
+
     public UIModelRenderer()
     {
         super();
 
         this.reset();
+    }
+
+    /**
+     * When rendering the stencil pick pass into an FBO, the GL viewport must be {@code 0,0,fboW,fboH}
+     * instead of window-relative coordinates so pick pixels align with the on-screen gizmo.
+     */
+    protected void beginStencilViewport(int fboW, int fboH)
+    {
+        this.stencilViewport = true;
+        this.stencilViewportW = fboW;
+        this.stencilViewportH = fboH;
+    }
+
+    protected void endStencilViewport()
+    {
+        this.stencilViewport = false;
     }
 
     public void setTransform(Matrix4f transform)
@@ -207,6 +231,7 @@ public abstract class UIModelRenderer extends UIElement
     private void renderModel(UIContext context)
     {
         RenderSystem.depthFunc(GL11.GL_LEQUAL);
+        RenderSystem.depthMask(true);
 
         this.setupPosition();
         this.setupViewport(context);
@@ -225,11 +250,21 @@ public abstract class UIModelRenderer extends UIElement
         stack.translate(-this.camera.position.x, -this.camera.position.y, -this.camera.position.z);
         MatrixStackUtils.multiply(stack, this.transform);
 
-        RenderSystem.setupLevelDiffuseLighting(
-            new Vector3f(0, 0.85F, -1).normalize(),
-            new Vector3f(0, 0.85F, 1).normalize(),
-            this.camera.view
-        );
+        /* Keep diffuse normals in model/block space. Baking the orbit camera into NormalMat
+         * made face shading follow the view angle; the world / F7 pass keeps lighting tied to
+         * how the model sits in the world instead. */
+        Matrix3f lightingNormals = new Matrix3f();
+
+        this.transform.normal(lightingNormals);
+        stack.peek().getNormalMatrix().set(lightingNormals);
+
+        /* Vanilla level diffuse lights (same basis DiffuseLighting uses for the world pass).
+         * MorphRenderer-style (±0.85, 0.85, ∓1) over-lit X-aligned faces in the editor preview
+         * compared to model-block / F7 world shading. */
+        Vector3f light0 = new Vector3f(0.2F, 1.0F, -0.7F).normalize();
+        Vector3f light1 = new Vector3f(-0.2F, 1.0F, 0.7F).normalize();
+
+        RenderSystem.setupLevelDiffuseLighting(light0, light1, new Matrix4f());
 
         if (this.grid)
         {
@@ -248,7 +283,9 @@ public abstract class UIModelRenderer extends UIElement
         RenderSystem.viewport(0, 0, mc.getWindow().getFramebufferWidth(), mc.getWindow().getFramebufferHeight());
         MatrixStackUtils.restoreMatrices();
 
-        RenderSystem.depthFunc(GL11.GL_ALWAYS);
+        RenderSystem.depthFunc(GL11.GL_LEQUAL);
+        RenderSystem.enableDepthTest();
+        RenderSystem.depthMask(true);
 
         this.processInputs(context);
     }
@@ -301,7 +338,7 @@ public abstract class UIModelRenderer extends UIElement
     {
         Vector3d vector = new Vector3d();
         Vector3d origin = new Vector3d(this.cachedCamera.position).sub(this.cachedPos);
-        Vector3d destination = new Vector3d(this.cachedCamera.getMouseDirection(context.mouseX, context.mouseY, this.area.x, this.area.y, this.area.w, this.area.h)).mul(this.distance.getValue() * 2).add(origin);
+        Vector3d destination = new Vector3d(this.cachedCamera.getMouseDirection(context.mouseX, context.mouseY, context.globalX(this.area.x), context.globalY(this.area.y), this.area.w, this.area.h)).mul(this.distance.getValue() * 2).add(origin);
         Intersectiond.intersectLineSegmentPlane(origin.x, origin.y, origin.z, destination.x, destination.y, destination.z, this.plane.x, this.plane.y, this.plane.z, 0, vector);
 
         return vector;
@@ -321,12 +358,23 @@ public abstract class UIModelRenderer extends UIElement
 
         MinecraftClient mc = MinecraftClient.getInstance();
 
-        float rx = (float) Math.round(mc.getWindow().getWidth() / (double) context.menu.width);
-        float ry = (float) Math.round(mc.getWindow().getHeight() / (double) context.menu.height);
+        if (this.stencilViewport)
+        {
+            RenderSystem.viewport(0, 0, this.stencilViewportW, this.stencilViewportH);
+            this.camera.updatePerspectiveProjection(this.stencilViewportW, this.stencilViewportH);
+            this.camera.updateView();
+
+            return;
+        }
+
+        /* Exact physical-to-logical ratio (the UI scale factor). Rounding this snapped fractional scales
+           like 1.5 up to 2, which offset the viewport and misaligned model/morph previews. */
+        float rx = (float) (mc.getWindow().getWidth() / (double) context.menu.width);
+        float ry = (float) (mc.getWindow().getHeight() / (double) context.menu.height);
         float size = BBSModClient.getOriginalFramebufferScale();
 
-        int vx = (int) (this.area.x * rx);
-        int vy = (int) (mc.getWindow().getHeight() - (this.area.y + this.area.h) * ry);
+        int vx = (int) (context.globalX(this.area.x) * rx);
+        int vy = (int) (mc.getWindow().getHeight() - (context.globalY(this.area.y) + this.area.h) * ry);
         int vw = (int) (this.area.w * rx);
         int vh = (int) (this.area.h * ry);
 

@@ -1,9 +1,10 @@
 package mchorse.bbs_mod.utils;
 
-import org.jetbrains.annotations.Nullable;
 import org.joml.*;
 
 import java.lang.Math;
+
+import org.jetbrains.annotations.Nullable;
 
 /**
  * @author Christian Fritz (also known as Chryfi)

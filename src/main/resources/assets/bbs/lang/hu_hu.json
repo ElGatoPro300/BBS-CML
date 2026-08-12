@@ -20,5 +20,10 @@
     "key.bbs.record_replay": "Jelenlegi visszajátszás felvétele",
     "key.bbs.record_video": "Videó felvétele",
     "key.bbs.teleport": "Teleportálás a visszajátszáshoz",
-    "category.bbs.main": "BBS mod"
+    "category.bbs.main": "BBS mod",
+
+    "gamerule.bbsEditing": "BBS mod szerkesztési jogosultságai",
+    "command.getskin.success": "Skin alkalmazása minden játékosra sikeres",
+    "command.getskin.error": "Hiba: %s",
+    "command.getskin.downloading": "Skin letöltése..."
 }

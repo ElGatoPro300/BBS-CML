@@ -1,0 +1,132 @@
+#version 150
+
+uniform sampler2D Sampler0;
+
+uniform mat4 ColorEffectInverse;
+uniform float ColorEffectActive;
+uniform vec3 ColorMaskHalf;
+uniform float ColorMaskFalloff;
+uniform float ColorMaskBottomAnchored;
+uniform float ColorMaskShape;
+uniform vec4 FormColorTint;
+
+in vec4 vertexColor;
+in vec2 texCoord0;
+in vec3 formRootPos;
+
+out vec4 fragColor;
+
+float bbsSdTriangle2D(vec2 p, vec2 a, vec2 b, vec2 c)
+{
+    vec2 e0 = b - a;
+    vec2 e1 = c - b;
+    vec2 e2 = a - c;
+    vec2 v0 = p - a;
+    vec2 v1 = p - b;
+    vec2 v2 = p - c;
+    vec2 pq0 = v0 - e0 * clamp(dot(v0, e0) / max(dot(e0, e0), 0.0001), 0.0, 1.0);
+    vec2 pq1 = v1 - e1 * clamp(dot(v1, e1) / max(dot(e1, e1), 0.0001), 0.0, 1.0);
+    vec2 pq2 = v2 - e2 * clamp(dot(v2, e2) / max(dot(e2, e2), 0.0001), 0.0, 1.0);
+    float s = sign(e0.x * e2.y - e0.y * e2.x);
+    vec2 d = min(min(vec2(dot(pq0, pq0), s * (v0.x * e0.y - v0.y * e0.x)),
+                     vec2(dot(pq1, pq1), s * (v1.x * e1.y - v1.y * e1.x))),
+                     vec2(dot(pq2, pq2), s * (v2.x * e2.y - v2.y * e2.x)));
+
+    return -sqrt(max(d.x, 0.0)) * sign(d.y);
+}
+
+float bbsPaintEffectMask(vec3 rootPos, mat4 effectInverse, float activeFlag, vec3 halfExtents, float falloffWorld, float bottomAnchored, float shape)
+{
+    if (activeFlag < 0.5)
+    {
+        return 1.0;
+    }
+
+    vec3 local = (effectInverse * vec4(rootPos, 1.0)).xyz;
+
+    if (bottomAnchored > 0.5)
+    {
+        local.y -= halfExtents.y;
+    }
+
+    float maxHalf = max(halfExtents.x, max(halfExtents.y, halfExtents.z));
+
+    if (maxHalf < 0.001)
+    {
+        return 0.0;
+    }
+
+    /* Hard volume uses scaled half extents; soft rim uses falloffWorld from the
+     * unscaled form size so transform scale keeps a stable soft edge and axis scales
+     * do not thicken the opposite axis. */
+    float dist;
+
+    if (shape > 1.5)
+    {
+        vec2 halfXY = max(halfExtents.xy, vec2(0.001));
+        vec2 a = vec2(0.0, halfXY.y);
+        vec2 b = vec2(-halfXY.x, -halfXY.y);
+        vec2 c = vec2(halfXY.x, -halfXY.y);
+        float dTri = bbsSdTriangle2D(local.xy, a, b, c);
+        float dZ = abs(local.z) - halfExtents.z;
+
+        dist = length(max(vec2(dTri, dZ), 0.0)) + min(max(dTri, dZ), 0.0);
+    }
+    else if (shape > 0.5)
+    {
+        vec3 safeHalf = max(halfExtents, vec3(0.001));
+        float radius = length(local / safeHalf);
+
+        if (radius <= 1.0)
+        {
+            return 1.0;
+        }
+
+        dist = (radius - 1.0) * length(local) / radius;
+    }
+    else
+    {
+        vec3 d = abs(local) - halfExtents;
+
+        dist = length(max(d, 0.0)) + min(max(max(d.x, d.y), d.z), 0.0);
+    }
+
+    if (dist <= 0.0)
+    {
+        return 1.0;
+    }
+
+    float falloff = max(falloffWorld, 0.001);
+
+    return 1.0 - smoothstep(0.0, falloff, dist);
+}
+
+void main()
+{
+    vec4 tex = texture(Sampler0, texCoord0);
+
+    if (tex.a < 0.01)
+    {
+        discard;
+    }
+
+    /* Evaluate mask per fragment — billboards only have 4 corners, so vertex masks
+     * cannot form a center strip and collapse to a uniform tint strength. */
+    vec3 maskPos = vec3(formRootPos.xy, 0.0);
+    float cmask = bbsPaintEffectMask(maskPos, ColorEffectInverse, ColorEffectActive, ColorMaskHalf, ColorMaskFalloff, ColorMaskBottomAnchored, ColorMaskShape);
+
+    if (cmask < 0.001)
+    {
+        discard;
+    }
+
+    /* FormColorTint.a is traditional form opacity. Scale spatial tint strength with it so
+     * translucent labels/billboards fade the mask with the base (RGB multiply ignored .a
+     * before, leaving a fully saturated / “opaque” mask on a soft base). Keep src alpha at
+     * 1 so DST_ALPHA multiply does not rewrite the base pass opacity. */
+    float opacity = clamp(FormColorTint.a, 0.0, 1.0);
+    float strength = cmask * opacity;
+    vec3 tintRgb = mix(vec3(1.0), FormColorTint.rgb, strength);
+
+    fragColor = vec4(tintRgb, 1.0);
+}

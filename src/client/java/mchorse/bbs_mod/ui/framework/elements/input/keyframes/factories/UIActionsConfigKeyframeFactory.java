@@ -44,7 +44,7 @@ public class UIActionsConfigKeyframeFactory extends UIKeyframeFactory<ActionsCon
         {
             this.actionsEditor.add(UI.row(
                 UI.column(
-                    UI.label(UIKeys.FORMS_EDITORS_MODEL_ACTIONS), this.actionsEditor.actions,
+                    UI.label(UIKeys.FORMS_EDITORS_MODEL_ACTIONS), this.actionsEditor.actionsSearch,
                     UI.label(UIKeys.FORMS_EDITORS_ACTIONS_SPEED).marginTop(6), this.actionsEditor.speed,
                     this.actionsEditor.loop.marginTop(20)
                 ),
@@ -57,7 +57,7 @@ public class UIActionsConfigKeyframeFactory extends UIKeyframeFactory<ActionsCon
         }
         else
         {
-            this.actionsEditor.add(UI.label(UIKeys.FORMS_EDITORS_MODEL_ACTIONS), this.actionsEditor.actions);
+            this.actionsEditor.add(UI.label(UIKeys.FORMS_EDITORS_MODEL_ACTIONS), this.actionsEditor.actionsSearch);
             this.actionsEditor.add(UI.label(UIKeys.FORMS_EDITORS_ACTIONS_ANIMATIONS).marginTop(6), this.actionsEditor.animations, this.actionsEditor.loop.marginTop(6));
             this.actionsEditor.add(UI.label(UIKeys.FORMS_EDITORS_ACTIONS_SPEED).marginTop(6), this.actionsEditor.speed);
             this.actionsEditor.add(UI.label(UIKeys.FORMS_EDITORS_ACTIONS_FADE).marginTop(6), this.actionsEditor.fade);

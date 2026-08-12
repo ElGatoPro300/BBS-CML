@@ -24,5 +24,8 @@
     "key.bbs.zoom": "瞄準 (BBS 槍)",
     "category.bbs.main": "BBS mod",
 
-    "gamerule.bbsEditing": "BBS mod 的編輯權限"
+    "gamerule.bbsEditing": "BBS mod 的編輯權限",
+    "command.getskin.success": "所有玩家的皮膚已應用",
+    "command.getskin.error": "錯誤: %s",
+    "command.getskin.downloading": "正在下載皮膚..."
 }

@@ -1,14 +1,16 @@
 package mchorse.bbs_mod.utils.keyframes.factories;
 
-import com.mojang.datafixers.util.Pair;
-import com.mojang.serialization.DataResult;
 import mchorse.bbs_mod.data.DataStorageUtils;
 import mchorse.bbs_mod.data.types.BaseType;
 import mchorse.bbs_mod.utils.interps.IInterp;
+
 import net.minecraft.block.BlockState;
 import net.minecraft.block.Blocks;
 import net.minecraft.nbt.NbtElement;
 import net.minecraft.nbt.NbtOps;
+
+import com.mojang.datafixers.util.Pair;
+import com.mojang.serialization.DataResult;
 
 import java.util.Optional;
 

@@ -4,7 +4,7 @@ import mchorse.bbs_mod.ui.forms.IUIFormList;
 import mchorse.bbs_mod.ui.forms.UIFormList;
 import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.ui.framework.elements.utils.EventPropagation;
-import mchorse.bbs_mod.utils.colors.Colors;
+
 import org.lwjgl.glfw.GLFW;
 
 public class UIFormEditorList extends UIFormList
@@ -14,7 +14,7 @@ public class UIFormEditorList extends UIFormList
         super(palette);
 
         this.edit.removeFromParent();
-        this.eventPropagataion(EventPropagation.BLOCK_INSIDE).markContainer();
+        this.mouseEventPropagataion(EventPropagation.BLOCK_INSIDE).keyboardEventPropagataion(EventPropagation.PASS).markContainer();
     }
 
     @Override
@@ -23,15 +23,17 @@ public class UIFormEditorList extends UIFormList
         if (context.isPressed(GLFW.GLFW_KEY_ESCAPE))
         {
             this.palette.exit();
+
+            return true;
         }
 
-        return true;
+        return super.subKeyPressed(context);
     }
 
     @Override
     public void render(UIContext context)
     {
-        this.area.render(context.batcher, Colors.A50);
+        this.area.render(context.batcher, 0xFF111115);
 
         super.render(context);
     }

@@ -15,10 +15,16 @@ public class UIAngleModule extends UIAbstractModule
     public UITrackpad pitch;
     public UITrackpad roll;
     public UITrackpad fov;
+    public UITrackpad distance;
 
     public ValueAngle angle;
 
     public UIAngleModule(IUIClipsDelegate editor)
+    {
+        this(editor, false);
+    }
+
+    public UIAngleModule(IUIClipsDelegate editor, boolean includeDistance)
     {
         super(editor);
 
@@ -33,9 +39,22 @@ public class UIAngleModule extends UIAbstractModule
 
         this.fov = new UITrackpad((v) -> BaseValue.edit(this.angle, (value) -> value.get().fov = v.floatValue()));
         this.fov.tooltip(UIKeys.CAMERA_PANELS_FOV);
+        
+        if (includeDistance)
+        {
+            this.distance = new UITrackpad((v) -> BaseValue.edit(this.angle, (value) -> value.get().distance = v.floatValue()));
+            this.distance.tooltip(UIKeys.CAMERA_PANELS_DISTANCE);
+        }
 
         this.column().vertical().stretch().height(20);
-        this.add(UIClip.label(UIKeys.CAMERA_PANELS_ANGLE), this.yaw, this.pitch, this.roll, this.fov);
+        if (includeDistance)
+        {
+            this.add(UIClip.label(UIKeys.CAMERA_PANELS_ANGLE), this.yaw, this.pitch, this.roll, this.fov, this.distance);
+        }
+        else
+        {
+            this.add(UIClip.label(UIKeys.CAMERA_PANELS_ANGLE), this.yaw, this.pitch, this.roll, this.fov);
+        }
     }
 
     public UIAngleModule contextMenu()
@@ -53,5 +72,9 @@ public class UIAngleModule extends UIAbstractModule
         this.pitch.setValue(angle.get().pitch);
         this.roll.setValue(angle.get().roll);
         this.fov.setValue(angle.get().fov);
+        if (this.distance != null)
+        {
+            this.distance.setValue(angle.get().distance);
+        }
     }
 }

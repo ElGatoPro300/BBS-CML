@@ -51,7 +51,7 @@ public class RunnerCameraController extends CameraWorkCameraController
     {
         this.manual = manual;
 
-        if (manual != null && this.panel.getController().getPovMode() != UIFilmController.CAMERA_MODE_FREE)
+        if (manual != null && !this.panel.getController().isFreeCameraMode())
         {
             manual.copy(this.position);
         }
@@ -83,7 +83,9 @@ public class RunnerCameraController extends CameraWorkCameraController
             /* kms */
             boolean free = this.panel.getController().getPovMode() == UIFilmController.CAMERA_MODE_FREE;
 
-            this.apply(free ? null : camera, this.ticks, this.context.playing ? transition : 0F);
+            /* Always pass the camera so fisheye FOV overscan reaches GameRenderer.getFov;
+             * free mode only skips writing position/rotation back. */
+            this.apply(camera, this.ticks, this.context.playing ? transition : 0F, !free);
         }
 
         this.panel.getController().handleCamera(camera, transition);

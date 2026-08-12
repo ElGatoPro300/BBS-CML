@@ -3,6 +3,7 @@ package mchorse.bbs_mod.utils.keyframes.factories;
 import mchorse.bbs_mod.data.DataStorageUtils;
 import mchorse.bbs_mod.data.types.BaseType;
 import mchorse.bbs_mod.utils.interps.IInterp;
+
 import org.joml.Vector4f;
 
 public class Vector4fKeyframeFactory implements IKeyframeFactory<Vector4f>
