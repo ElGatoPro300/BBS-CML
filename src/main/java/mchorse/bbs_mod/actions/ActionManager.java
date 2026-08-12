@@ -3,6 +3,7 @@ package mchorse.bbs_mod.actions;
 import mchorse.bbs_mod.actions.types.ActionClip;
 import mchorse.bbs_mod.data.types.BaseType;
 import mchorse.bbs_mod.film.Film;
+import mchorse.bbs_mod.network.ServerNetwork;
 import mchorse.bbs_mod.utils.DataPath;
 
 import net.minecraft.block.BlockState;
@@ -178,7 +179,7 @@ public class ActionManager
         {
             if (player != null && player.getServerWorld() == world)
             {
-                mchorse.bbs_mod.network.ServerNetwork.sendMobCombatAction(player, victimEntityId, sourceEntityId, amount, kind);
+                ServerNetwork.sendMobCombatAction(player, victimEntityId, sourceEntityId, amount, kind);
             }
         }
     }
@@ -192,7 +193,7 @@ public class ActionManager
         {
             if (player != null && player.getServerWorld() == world)
             {
-                mchorse.bbs_mod.network.ServerNetwork.sendMobConversion(player, oldEntityId, newEntityId);
+                ServerNetwork.sendMobConversion(player, oldEntityId, newEntityId);
             }
         }
     }

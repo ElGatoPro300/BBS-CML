@@ -14,6 +14,8 @@ import mchorse.bbs_mod.entity.GunProjectileEntity;
 import mchorse.bbs_mod.entity.IEntityFormProvider;
 import mchorse.bbs_mod.film.Film;
 import mchorse.bbs_mod.film.Films;
+import mchorse.bbs_mod.film.RecorderMobActionCapture;
+import mchorse.bbs_mod.film.RecorderMobCapture;
 import mchorse.bbs_mod.forms.FormUtils;
 import mchorse.bbs_mod.forms.forms.Form;
 import mchorse.bbs_mod.items.GunProperties;
@@ -258,7 +260,7 @@ public class ClientNetwork
 
         client.execute(() ->
         {
-            mchorse.bbs_mod.film.RecorderMobActionCapture.handleServerCombat(victimEntityId, sourceEntityId, amount, kind);
+            RecorderMobActionCapture.handleServerCombat(victimEntityId, sourceEntityId, amount, kind);
         });
     }
 
@@ -269,7 +271,7 @@ public class ClientNetwork
 
         client.execute(() ->
         {
-            mchorse.bbs_mod.film.RecorderMobCapture.handleServerConversion(oldEntityId, newEntityId);
+            RecorderMobCapture.handleServerConversion(oldEntityId, newEntityId);
         });
     }
 
