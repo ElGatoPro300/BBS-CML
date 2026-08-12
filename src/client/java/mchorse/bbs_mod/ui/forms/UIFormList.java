@@ -2,7 +2,6 @@ package mchorse.bbs_mod.ui.forms;
 
 import mchorse.bbs_mod.BBSModClient;
 import mchorse.bbs_mod.BBSSettings;
-import mchorse.bbs_mod.client.BBSRendering;
 import mchorse.bbs_mod.data.DataToString;
 import mchorse.bbs_mod.data.types.BaseType;
 import mchorse.bbs_mod.data.types.ListType;
@@ -3386,8 +3385,7 @@ public class UIFormList extends UIElement
             else if (item.form != null)
             {
                 context.batcher.clip(cx, cy, EXPANDED_CELL_WIDTH, EXPANDED_CELL_HEIGHT, context);
-                        FormUtilsClient.renderUI(item.form, context, cx, cy, cx + EXPANDED_CELL_WIDTH, cy + EXPANDED_CELL_HEIGHT);
-                        BBSRendering.restoreGuiRenderState();
+                FormUtilsClient.renderUI(item.form, context, cx, cy, cx + EXPANDED_CELL_WIDTH, cy + EXPANDED_CELL_HEIGHT);
                 context.batcher.unclip(context);
 
                 FavoriteMarker marker = UIFormList.this.getFavoriteMarker(item.form);
@@ -3722,9 +3720,6 @@ public class UIFormList extends UIElement
 
         private void renderCategoryCard(UIContext context, UIFormCategory category, int x, int y)
         {
-            /* Previous card may have drawn 3D previews; sanitize before the first outline. */
-            BBSRendering.restoreGuiRenderState();
-
             List<Form> forms = this.previewCache.getOrDefault(category, category.getForms());
             boolean previewsVisible = UIFormList.this.isCategoryPreviewVisible(category);
             boolean isOpen = UIFormList.this.expandedCategory == category;
@@ -3795,9 +3790,6 @@ public class UIFormList extends UIElement
                         context.batcher.clip(px, py, cellW, cellH, context);
                         FormUtilsClient.renderUI(forms.get(i), context, px, py, px + cellW, py + cellH);
                         context.batcher.unclip(context);
-                        /* Extra sanitize before outline — previous card's 3D preview must not
-                         * leave a VAO that crashes AMD drivers on the next Batcher2D draw. */
-                        BBSRendering.restoreGuiRenderState();
 
                         if (marker != null)
                         {
