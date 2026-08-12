@@ -20,10 +20,10 @@ public class SwipeActionClip extends ActionClip
 {
     /**
      * When {@link BBSSettings#editorActorPausedSwipeLoop} is off, records the film
-     * tick on which an actor already started a client swipe so paused scrubbing
-     * does not loop the swing forever.
+     * tick on which a client entity already started a swipe so paused scrubbing
+     * does not loop the swing forever (actors and non-actor stubs).
      */
-    private static final Map<Object, Integer> ACTOR_ONE_SHOT_AT_TICK = new WeakHashMap<>();
+    private static final Map<Object, Integer> CLIENT_ONE_SHOT_AT_TICK = new WeakHashMap<>();
 
     @Override
     public boolean isClient()
@@ -42,26 +42,31 @@ public class SwipeActionClip extends ActionClip
             return;
         }
 
-        Object key = actorSwipeKey(entity);
+        Object key = clientSwipeKey(entity);
 
         if (key == null)
         {
             return;
         }
 
-        Integer at = ACTOR_ONE_SHOT_AT_TICK.get(key);
+        Integer at = CLIENT_ONE_SHOT_AT_TICK.get(key);
 
         if (at != null && at != tick)
         {
-            ACTOR_ONE_SHOT_AT_TICK.remove(key);
+            CLIENT_ONE_SHOT_AT_TICK.remove(key);
         }
     }
 
-    private static Object actorSwipeKey(IEntity entity)
+    private static Object clientSwipeKey(IEntity entity)
     {
         if (entity instanceof MCEntity mcEntity && mcEntity.getMcEntity() instanceof ActorEntity actor)
         {
             return actor;
+        }
+
+        if (entity instanceof StubEntity stub)
+        {
+            return stub;
         }
 
         return null;
@@ -83,7 +88,7 @@ public class SwipeActionClip extends ActionClip
 
             if (!loopWhileParked)
             {
-                Integer at = ACTOR_ONE_SHOT_AT_TICK.get(actor);
+                Integer at = CLIENT_ONE_SHOT_AT_TICK.get(actor);
 
                 if (at != null && at == tick)
                 {
@@ -92,7 +97,7 @@ public class SwipeActionClip extends ActionClip
 
                 /* Claim this tick even if a swing is already in progress so we do
                  * not re-fire after it ends while the cursor stays parked here. */
-                ACTOR_ONE_SHOT_AT_TICK.put(actor, tick);
+                CLIENT_ONE_SHOT_AT_TICK.put(actor, tick);
             }
 
             if (!actor.handSwinging)
@@ -103,15 +108,27 @@ public class SwipeActionClip extends ActionClip
             return;
         }
 
-        /* Stubs: applyClientActions repeats every frame on this tick. Re-calling
-         * swingArm() reset progress to 0 each frame and desynced the swipe from
-         * ActorEntity / LivingEntity timing. */
+        /* Stubs have no server LivingEntity swingHand(true) fallback. Guard by film
+         * tick (not isHandSwinging) so a later swipe clip can restart mid-swing,
+         * while parked scrubbing on the same tick still only fires once. */
         if (entity instanceof StubEntity stub)
         {
-            if (!stub.isHandSwinging())
+            boolean loopWhileParked = BBSSettings.editorActorPausedSwipeLoop != null
+                && BBSSettings.editorActorPausedSwipeLoop.get();
+
+            if (!loopWhileParked)
             {
-                stub.swingArm();
+                Integer at = CLIENT_ONE_SHOT_AT_TICK.get(stub);
+
+                if (at != null && at == tick)
+                {
+                    return;
+                }
+
+                CLIENT_ONE_SHOT_AT_TICK.put(stub, tick);
             }
+
+            stub.swingArm();
 
             return;
         }
