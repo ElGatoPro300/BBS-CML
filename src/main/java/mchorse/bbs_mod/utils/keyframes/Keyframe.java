@@ -46,6 +46,13 @@ public class Keyframe <T> extends BaseValueGroup
      */
     private boolean noshadingOpacity;
 
+    /**
+     * Lighting float keyframes only: when true, ignore the float amount and use
+     * world/natural lighting until another keyframe changes this flag (step/hold).
+     * Missing in old films → false.
+     */
+    private boolean naturalLighting;
+
     private final IKeyframeFactory<T> factory;
 
     public Keyframe(String id, IKeyframeFactory<T> factory, float tick, T value)
@@ -165,6 +172,18 @@ public class Keyframe <T> extends BaseValueGroup
         this.postNotify();
     }
 
+    public boolean isNaturalLighting()
+    {
+        return this.naturalLighting;
+    }
+
+    public void setNaturalLighting(boolean naturalLighting)
+    {
+        this.preNotify();
+        this.naturalLighting = naturalLighting;
+        this.postNotify();
+    }
+
     @Override
     public List<BaseValue> getAll()
     {
@@ -230,6 +249,7 @@ public class Keyframe <T> extends BaseValueGroup
         this.bend = keyframe.bend;
         this.spectrum = keyframe.spectrum;
         this.noshadingOpacity = keyframe.noshadingOpacity;
+        this.naturalLighting = keyframe.naturalLighting;
     }
 
     @Override
@@ -275,6 +295,7 @@ public class Keyframe <T> extends BaseValueGroup
         if (this.bend) data.putBool("bend", true);
         if (this.spectrum) data.putBool("spectrum", true);
         if (this.noshadingOpacity) data.putBool("noshading_opacity", true);
+        if (this.naturalLighting) data.putBool("natural_lighting", true);
 
         return data;
     }
@@ -294,6 +315,7 @@ public class Keyframe <T> extends BaseValueGroup
         this.bend = false;
         this.spectrum = false;
         this.noshadingOpacity = false;
+        this.naturalLighting = false;
 
         if (map.has("tick")) this.tick = map.getFloat("tick");
         if (map.has("duration")) this.duration = map.getFloat("duration");
@@ -308,6 +330,7 @@ public class Keyframe <T> extends BaseValueGroup
         if (map.has("bend")) this.bend = map.getBool("bend");
         if (map.has("spectrum")) this.spectrum = map.getBool("spectrum");
         if (map.has("noshading_opacity")) this.noshadingOpacity = map.getBool("noshading_opacity");
+        if (map.has("natural_lighting")) this.naturalLighting = map.getBool("natural_lighting");
     }
 
     public void copyOverExtra(Keyframe<T> a)
@@ -318,5 +341,6 @@ public class Keyframe <T> extends BaseValueGroup
         this.setBend(a.isBend());
         this.spectrum = a.spectrum;
         this.noshadingOpacity = a.noshadingOpacity;
+        this.naturalLighting = a.naturalLighting;
     }
 }

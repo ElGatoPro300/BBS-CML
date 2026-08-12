@@ -410,6 +410,33 @@ public class FormProperties extends ValueGroup
                 form.noshadingOpacity.setRuntimeValue(segment.getClosest().isNoshadingOpacity());
             }
 
+            /* Natural lighting is a step/hold flag on the left keyframe (like visibility). */
+            if (isWorldLightingChannelKey(id) && value.getFactory() == KeyframeFactories.FLOAT)
+            {
+                float amount = segment.a.isNaturalLighting()
+                    ? 1F
+                    : MathUtils.clamp(toFloatAmount(segment.createInterpolated()), 0F, 1F);
+
+                if (blend < 1F)
+                {
+                    float base = 1F;
+                    Object current = property.get();
+
+                    if (current instanceof Number number)
+                    {
+                        base = MathUtils.clamp(number.floatValue(), 0F, 1F);
+                    }
+
+                    property.setRuntimeValue(Lerps.lerp(base, amount, MathUtils.clamp(blend, 0F, 1F)));
+                }
+                else
+                {
+                    property.setRuntimeValue(amount);
+                }
+
+                return;
+            }
+
             if (blend < 1F)
             {
                 IKeyframeFactory factory = value.getFactory();
@@ -550,6 +577,93 @@ public class FormProperties extends ValueGroup
         }
 
         return value;
+    }
+
+    private static boolean isWorldLightingChannelKey(String key)
+    {
+        return key != null && (key.equals("lighting") || key.endsWith("/lighting"));
+    }
+
+    private static float toFloatAmount(Object keyframeValue)
+    {
+        if (keyframeValue instanceof Number number)
+        {
+            return number.floatValue();
+        }
+
+        return 1F;
+    }
+
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    private static KeyframeChannel migrateLightingSettingsChannel(String key, MapType mapType)
+    {
+        KeyframeChannel channel = new KeyframeChannel(key, KeyframeFactories.FLOAT);
+
+        channel.setModel(true);
+
+        ListType keyframes = mapType.getList("keyframes");
+
+        if (keyframes == null || keyframes.isEmpty())
+        {
+            return channel;
+        }
+
+        for (int i = 0; i < keyframes.size(); i++)
+        {
+            BaseType entry = keyframes.get(i);
+
+            if (entry == null || !entry.isMap())
+            {
+                continue;
+            }
+
+            MapType kfData = entry.asMap();
+            float tick = kfData.has("tick") ? kfData.getFloat("tick") : 0F;
+            float amount = 1F;
+            boolean natural = false;
+            BaseType valueData = kfData.get("value");
+
+            if (valueData != null && valueData.isMap())
+            {
+                MapType valueMap = valueData.asMap();
+
+                amount = valueMap.has("amount") ? valueMap.getFloat("amount") : 1F;
+                natural = valueMap.getBool("natural");
+            }
+            else if (valueData != null && valueData.isNumeric())
+            {
+                amount = valueData.asNumeric().floatValue();
+            }
+
+            int index = channel.insert(tick, MathUtils.clamp(amount, 0F, 1F));
+            List keyframeList = channel.getKeyframes();
+
+            if (index < 0 || index >= keyframeList.size())
+            {
+                continue;
+            }
+
+            Keyframe keyframe = (Keyframe) keyframeList.get(index);
+
+            keyframe.setNaturalLighting(natural);
+
+            if (kfData.has("duration"))
+            {
+                keyframe.setDuration(kfData.getFloat("duration"));
+            }
+
+            if (kfData.has("interp"))
+            {
+                keyframe.getInterpolation().fromData(kfData.get("interp"));
+            }
+
+            if (kfData.has("lx")) keyframe.lx = kfData.getFloat("lx");
+            if (kfData.has("ly")) keyframe.ly = kfData.getFloat("ly");
+            if (kfData.has("rx")) keyframe.rx = kfData.getFloat("rx");
+            if (kfData.has("ry")) keyframe.ry = kfData.getFloat("ry");
+        }
+
+        return channel;
     }
 
     /**
@@ -1383,6 +1497,20 @@ public class FormProperties extends ValueGroup
                 }
 
                 String type = mapType.getString("type");
+
+                /* Prototype lighting_settings compound → float + natural_lighting flag. */
+                if (isWorldLightingChannelKey(key) && "lighting_settings".equals(type))
+                {
+                    KeyframeChannel migrated = migrateLightingSettingsChannel(key, mapType);
+
+                    if (migrated != null && migrated.getFactory() != null)
+                    {
+                        this.properties.put(key, migrated);
+                        this.add(migrated);
+                    }
+
+                    continue;
+                }
 
                 /* Skip unknown factories early — older builds NPE here; stay resilient too. */
                 if (type != null && !type.isEmpty() && !KeyframeFactories.FACTORIES.containsKey(type))

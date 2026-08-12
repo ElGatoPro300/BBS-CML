@@ -111,6 +111,19 @@ public abstract class UIKeyframeFactory <T> extends UIElement
             }
         }
 
+        if (keyframe.getFactory() == KeyframeFactories.FLOAT && editor != null)
+        {
+            UIKeyframeSheet sheet = editor.getGraph().getSheet(keyframe);
+
+            if (sheet != null && isWorldLightingSheet(sheet.id))
+            {
+                @SuppressWarnings("unchecked")
+                Keyframe<Float> floatKeyframe = (Keyframe<Float>) keyframe;
+
+                return new UILightingKeyframeFactory(floatKeyframe, editor);
+            }
+        }
+
         if (keyframe.getFactory() == KeyframeFactories.DOUBLE && editor != null)
         {
             UIKeyframeSheet sheet = editor.getGraph().getSheet(keyframe);
@@ -501,6 +514,11 @@ public abstract class UIKeyframeFactory <T> extends UIElement
             this.editor.submitKeyframes();
             this.rebindKeyframe();
         });
+    }
+
+    private static boolean isWorldLightingSheet(String id)
+    {
+        return id != null && (id.equals("lighting") || id.endsWith("/lighting"));
     }
 
     public static interface IUIKeyframeFactoryFactory <T>
