@@ -92,6 +92,7 @@ import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.systems.VertexSorter;
 
 import org.lwjgl.opengl.GL11;
+import org.lwjgl.opengl.GL15;
 import org.lwjgl.opengl.GL30;
 
 import java.io.File;
@@ -338,6 +339,9 @@ public class BBSRendering
     /**
      * Reset GL state after mid-UI 3D form/model draws so later Batcher2D text is not
      * left with additive blend / depthMask false / grade uniforms (white doubled glyphs).
+     * Also clears bound VAO/buffers — AMD OpenGL drivers (atio6axx) have been seen to
+     * null-deref in {@code glDrawElements} when a leftover model VAO is still bound
+     * during form-list card outlines.
      */
     public static void restoreGuiRenderState()
     {
@@ -351,6 +355,9 @@ public class BBSRendering
         RenderSystem.depthFunc(GL11.GL_ALWAYS);
         GL11.glPolygonOffset(0F, 0F);
         GL11.glDisable(GL11.GL_POLYGON_OFFSET_FILL);
+        GL30.glBindVertexArray(0);
+        GL15.glBindBuffer(GL15.GL_ARRAY_BUFFER, 0);
+        GL15.glBindBuffer(GL15.GL_ELEMENT_ARRAY_BUFFER, 0);
     }
 
     /**

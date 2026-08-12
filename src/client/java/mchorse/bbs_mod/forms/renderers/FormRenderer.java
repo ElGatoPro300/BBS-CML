@@ -64,7 +64,16 @@ public abstract class FormRenderer <T extends Form>
         context.batcher.flush();
         GL11.glClear(GL11.GL_DEPTH_BUFFER_BIT);
 
-        this.renderInUI(context, x1, y1, x2, y2);
+        try
+        {
+            this.renderInUI(context, x1, y1, x2, y2);
+        }
+        finally
+        {
+            /* Form list cards draw Batcher2D outlines right after thumbnails; a leftover
+             * model VAO / bad blend state can hard-crash AMD drivers in glDrawElements. */
+            BBSRendering.restoreGuiRenderState();
+        }
 
         context.batcher.flush();
         GL11.glClear(GL11.GL_DEPTH_BUFFER_BIT);
