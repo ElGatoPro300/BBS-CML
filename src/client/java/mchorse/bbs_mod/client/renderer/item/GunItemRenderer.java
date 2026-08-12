@@ -17,10 +17,14 @@ import mchorse.bbs_mod.utils.pose.Transform;
 import net.fabricmc.fabric.api.client.rendering.v1.BuiltinItemRendererRegistry;
 
 import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.render.DiffuseLighting;
+import net.minecraft.client.render.LightmapTextureManager;
 import net.minecraft.client.render.VertexConsumerProvider;
 import net.minecraft.client.render.model.json.ModelTransformationMode;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.item.ItemStack;
+
+import org.joml.Vector3f;
 
 import com.mojang.blaze3d.systems.RenderSystem;
 
@@ -85,9 +89,24 @@ public class GunItemRenderer implements BuiltinItemRendererRegistry.DynamicItemR
                 MatrixStackUtils.applyTransform(matrices, transform);
 
                 RenderSystem.enableDepthTest();
+
+                if (mode == ModelTransformationMode.GUI)
+                {
+                    Vector3f a = new Vector3f(0.85F, 0.85F, -1.0F).normalize();
+                    Vector3f b = new Vector3f(-0.85F, 0.85F, 1.0F).normalize();
+                    RenderSystem.setupGui3DDiffuseLighting(a, b);
+                }
+
+                int maxLight = LightmapTextureManager.MAX_BLOCK_LIGHT_COORDINATE;
                 FormUtilsClient.render(form, new FormRenderingContext()
-                    .set(FormRenderType.fromModelMode(mode), item.formEntity, matrices, light, overlay, MinecraftClient.getInstance().getTickDelta())
+                    .set(FormRenderType.fromModelMode(mode), item.formEntity, matrices, maxLight, overlay, MinecraftClient.getInstance().getRenderTickCounter().getTickDelta(false))
                     .camera(MinecraftClient.getInstance().gameRenderer.getCamera()));
+
+                if (mode == ModelTransformationMode.GUI)
+                {
+                    DiffuseLighting.disableGuiDepthLighting();
+                }
+
                 RenderSystem.disableDepthTest();
 
                 matrices.pop();

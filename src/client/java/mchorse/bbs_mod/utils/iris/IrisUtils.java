@@ -11,6 +11,27 @@ import mchorse.bbs_mod.utils.DataPath;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.texture.AbstractTexture;
 
+import net.irisshaders.iris.Iris;
+import net.irisshaders.iris.api.v0.IrisApi;
+import net.irisshaders.iris.gl.uniform.UniformUpdateFrequency;
+import net.irisshaders.iris.gui.screen.ShaderPackScreen;
+import net.irisshaders.iris.pbr.TextureTracker;
+import net.irisshaders.iris.pbr.loader.PBRTextureLoaderRegistry;
+import net.irisshaders.iris.shaderpack.LanguageMap;
+import net.irisshaders.iris.shaderpack.ShaderPack;
+import net.irisshaders.iris.shaderpack.option.menu.OptionMenuContainer;
+import net.irisshaders.iris.shaderpack.option.menu.OptionMenuElement;
+import net.irisshaders.iris.shaderpack.option.menu.OptionMenuElementScreen;
+import net.irisshaders.iris.shaderpack.option.menu.OptionMenuLinkElement;
+import net.irisshaders.iris.shaderpack.option.menu.OptionMenuOptionElement;
+import net.irisshaders.iris.shaderpack.properties.ShaderProperties;
+import net.irisshaders.iris.uniforms.custom.cached.CachedUniform;
+import net.irisshaders.iris.uniforms.custom.cached.FloatCachedUniform;
+import net.irisshaders.iris.uniforms.custom.cached.IntCachedUniform;
+import net.irisshaders.iris.vertices.NormI8;
+import net.irisshaders.iris.vertices.NormalHelper;
+import net.irisshaders.iris.vertices.views.TriView;
+
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -20,26 +41,6 @@ import java.util.Map;
 import java.util.Set;
 
 import joptsimple.internal.Strings;
-import net.irisshaders.iris.Iris;
-import net.irisshaders.iris.api.v0.IrisApi;
-import net.irisshaders.iris.gl.uniform.UniformUpdateFrequency;
-import net.irisshaders.iris.gui.screen.ShaderPackScreen;
-import net.irisshaders.iris.shaderpack.LanguageMap;
-import net.irisshaders.iris.shaderpack.ShaderPack;
-import net.irisshaders.iris.shaderpack.option.menu.OptionMenuContainer;
-import net.irisshaders.iris.shaderpack.option.menu.OptionMenuElement;
-import net.irisshaders.iris.shaderpack.option.menu.OptionMenuElementScreen;
-import net.irisshaders.iris.shaderpack.option.menu.OptionMenuLinkElement;
-import net.irisshaders.iris.shaderpack.option.menu.OptionMenuOptionElement;
-import net.irisshaders.iris.shaderpack.properties.ShaderProperties;
-import net.irisshaders.iris.texture.TextureTracker;
-import net.irisshaders.iris.texture.pbr.loader.PBRTextureLoaderRegistry;
-import net.irisshaders.iris.uniforms.custom.cached.CachedUniform;
-import net.irisshaders.iris.uniforms.custom.cached.FloatCachedUniform;
-import net.irisshaders.iris.uniforms.custom.cached.IntCachedUniform;
-import net.irisshaders.iris.vertices.NormI8;
-import net.irisshaders.iris.vertices.NormalHelper;
-import net.irisshaders.iris.vertices.views.TriView;
 
 public class IrisUtils
 {

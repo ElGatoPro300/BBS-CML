@@ -5,10 +5,9 @@ import mchorse.bbs_mod.utils.colors.Color;
 import net.minecraft.client.render.VertexConsumer;
 import net.minecraft.client.render.VertexFormat;
 
-import org.lwjgl.system.MemoryStack;
-
 import net.caffeinemc.mods.sodium.api.vertex.buffer.VertexBufferWriter;
-import net.caffeinemc.mods.sodium.api.vertex.format.VertexFormatDescription;
+
+import org.lwjgl.system.MemoryStack;
 
 public class GlowEmissionVertexSodiumConsumer extends GlowEmissionVertexConsumer implements VertexBufferWriter
 {
@@ -20,7 +19,7 @@ public class GlowEmissionVertexSodiumConsumer extends GlowEmissionVertexConsumer
     }
 
     @Override
-    public void push(MemoryStack memoryStack, long l, int i, VertexFormatDescription vertexFormat)
+    public void push(MemoryStack memoryStack, long l, int i, VertexFormat vertexFormat)
     {
         if (this.consumer instanceof VertexBufferWriter writer)
         {

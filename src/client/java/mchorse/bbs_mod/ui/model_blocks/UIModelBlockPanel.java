@@ -81,10 +81,10 @@ import org.joml.Vector2d;
 import org.joml.Vector2i;
 import org.joml.Vector3d;
 import org.joml.Vector3f;
+import org.joml.Vector4f;
 
 import com.mojang.blaze3d.platform.GlStateManager;
 import com.mojang.blaze3d.systems.RenderSystem;
-import com.mojang.blaze3d.systems.VertexSorter;
 
 import org.lwjgl.glfw.GLFW;
 import org.lwjgl.opengl.GL11;
@@ -2278,9 +2278,16 @@ public class UIModelBlockPanel extends UIDashboardPanel implements IFlightSuppor
         double x = mc.mouse.getX();
         double y = mc.mouse.getY();
 
+        /* The view matrix is rebuilt from the camera's own rotation instead of using the world
+         * render matrix stack top: that stack isn't guaranteed to hold the camera rotation
+         * (and doesn't in 1.21.1), which used to skew this ray - the gizmo dragged with an
+         * inverted/stuttering rotation and a way-too-fast Z axis while stencil-based hover
+         * (which doesn't use this ray) kept working fine. */
+        Matrix4f view = new Matrix4f().rotation(camera.getRotation().conjugate(new Quaternionf()));
+
         this.mouseDirection.set(CameraUtils.getMouseDirection(
                 RenderSystem.getProjectionMatrix(),
-                context.matrixStack().peek().getPositionMatrix(),
+                view,
                 (int) x, (int) y, 0, 0, mc.getWindow().getWidth(), mc.getWindow().getHeight()));
         this.hovered = this.getClosestObject(new Vector3d(pos.x, pos.y, pos.z), this.mouseDirection);
 

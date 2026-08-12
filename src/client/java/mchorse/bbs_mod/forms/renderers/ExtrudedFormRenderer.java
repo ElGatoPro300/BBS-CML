@@ -96,7 +96,7 @@ public class ExtrudedFormRenderer extends FormRenderer<ExtrudedForm>
 
         Vector3f light0 = new Vector3f(0.85F, 0.85F, -1F).normalize();
         Vector3f light1 = new Vector3f(-0.85F, 0.85F, 1F).normalize();
-        RenderSystem.setupGui3DDiffuseLighting(light0, light1);
+        RenderSystem.setupLevelDiffuseLighting(light0, light1);
 
         RenderSystem.depthFunc(GL11.GL_LEQUAL);
 

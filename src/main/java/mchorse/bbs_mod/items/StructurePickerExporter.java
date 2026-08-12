@@ -36,8 +36,8 @@ public class StructurePickerExporter
             return null;
         }
 
-        BlockPos min = blocks.get(0);
-        BlockPos max = blocks.get(0);
+        BlockPos min = blocks.getFirst();
+        BlockPos max = blocks.getFirst();
 
         for (BlockPos pos : blocks)
         {

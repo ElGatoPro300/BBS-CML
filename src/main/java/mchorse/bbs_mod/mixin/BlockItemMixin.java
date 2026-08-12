@@ -5,9 +5,10 @@ import mchorse.bbs_mod.actions.types.blocks.PlaceBlockActionClip;
 
 import net.minecraft.block.BlockState;
 import net.minecraft.block.entity.BlockEntity;
+import net.minecraft.component.DataComponentTypes;
+import net.minecraft.component.type.NbtComponent;
 import net.minecraft.item.BlockItem;
 import net.minecraft.item.ItemPlacementContext;
-import net.minecraft.nbt.NbtCompound;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.util.math.BlockPos;
 
@@ -36,15 +37,15 @@ public class BlockItemMixin
                 clip.z.set(pos.getZ());
                 clip.state.set(placedState);
 
-                NbtCompound stackNbt = context.getStack().getNbt();
+                NbtComponent stackBlockEntityData = context.getStack().get(DataComponentTypes.BLOCK_ENTITY_DATA);
 
-                if (stackNbt != null && stackNbt.contains("BlockEntityTag"))
+                if (stackBlockEntityData != null)
                 {
-                    clip.blockEntityNbt.set(stackNbt.getCompound("BlockEntityTag").copy().toString());
+                    clip.blockEntityNbt.set(stackBlockEntityData.getNbt().copy().toString());
                 }
                 else if (blockEntity != null)
                 {
-                    clip.blockEntityNbt.set(blockEntity.createNbtWithId().toString());
+                    clip.blockEntityNbt.set(blockEntity.createNbtWithId(context.getWorld().getRegistryManager()).toString());
                 }
 
                 return clip;

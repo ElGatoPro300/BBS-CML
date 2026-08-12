@@ -117,7 +117,6 @@ public final class FormUIPreviewCache
         GL11.glGetIntegerv(GL11.GL_VIEWPORT, viewport);
 
         context.batcher.flush();
-
         scratchFramebuffer.bind();
         scratchFramebuffer.applyClear();
         FormUtilsClient.renderUI(form, context, 0, 0, width, height);
@@ -129,7 +128,6 @@ public final class FormUIPreviewCache
         entry.texture.unbind();
 
         scratchFramebuffer.unbind();
-
 
         if (client != null && client.getFramebuffer() != null)
         {

@@ -17,7 +17,7 @@ public class SuperFakePlayerNetworkHandler extends ServerPlayNetworkHandler
 
     public SuperFakePlayerNetworkHandler(ServerPlayerEntity player)
     {
-        super(player.getServer(), FAKE_CONNECTION, player, ConnectedClientData.createDefault(player.getGameProfile()));
+        super(player.getServer(), FAKE_CONNECTION, player, ConnectedClientData.createDefault(player.getGameProfile(), false));
     }
 
     public void send(Packet<?> packet)

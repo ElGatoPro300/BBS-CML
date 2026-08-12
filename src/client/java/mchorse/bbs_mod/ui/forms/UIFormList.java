@@ -2449,7 +2449,7 @@ public class UIFormList extends UIElement
         Vector3f a = new Vector3f(0.85F, 0.85F, -1F).normalize();
         Vector3f b = new Vector3f(-0.85F, 0.85F, 1F).normalize();
 
-        RenderSystem.setupGui3DDiffuseLighting(a, b);
+        RenderSystem.setupLevelDiffuseLighting(a, b);
 
         super.render(context);
 

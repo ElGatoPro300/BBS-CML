@@ -111,46 +111,37 @@ public class MatrixStackUtils
         /* Cache the global stuff */
         oldProjection.set(RenderSystem.getProjectionMatrix());
         oldMV.set(RenderSystem.getModelViewMatrix());
-        oldInverse.set(RenderSystem.getInverseViewRotationMatrix());
+        oldInverse.set(new Matrix3f(RenderSystem.getModelViewMatrix()));
 
-        MatrixStack renderStack = RenderSystem.getModelViewStack();
-
-        renderStack.push();
-        renderStack.loadIdentity();
+        Matrix4fStack mvStack = RenderSystem.getModelViewStack();
+        mvStack.identity();
         RenderSystem.applyModelViewMatrix();
-        renderStack.pop();
     }
 
     public static void restoreMatrices()
     {
         /* Return back to orthographic projection */
         RenderSystem.setProjectionMatrix(oldProjection, VertexSorter.BY_Z);
-        RenderSystem.setInverseViewRotationMatrix(oldInverse);
 
-        MatrixStack renderStack = RenderSystem.getModelViewStack();
-
-        renderStack.push();
-        renderStack.loadIdentity();
-        MatrixStackUtils.multiply(renderStack, oldMV);
+        Matrix4fStack mvStack = RenderSystem.getModelViewStack();
+        mvStack.set(oldMV);
         RenderSystem.applyModelViewMatrix();
-        renderStack.pop();
     }
 
     public static void pushIdentityModelView()
     {
-        MatrixStack mvStack = RenderSystem.getModelViewStack();
+        Matrix4fStack mvStack = RenderSystem.getModelViewStack();
 
-        mvStack.push();
-        mvStack.peek().getPositionMatrix().identity();
-        mvStack.peek().getNormalMatrix().identity();
+        mvStack.pushMatrix();
+        mvStack.identity();
         RenderSystem.applyModelViewMatrix();
     }
 
     public static void popModelView()
     {
-        MatrixStack mvStack = RenderSystem.getModelViewStack();
+        Matrix4fStack mvStack = RenderSystem.getModelViewStack();
 
-        mvStack.pop();
+        mvStack.popMatrix();
         RenderSystem.applyModelViewMatrix();
     }
 

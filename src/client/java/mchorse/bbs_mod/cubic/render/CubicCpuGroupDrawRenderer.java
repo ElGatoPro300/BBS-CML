@@ -123,8 +123,7 @@ public class CubicCpuGroupDrawRenderer extends CubicCubeRenderer
 
         this.setColor(cr, cg, cb, alpha);
 
-        BufferBuilder groupBuilder = Tessellator.getInstance().getBuffer();
-        groupBuilder.begin(VertexFormat.DrawMode.TRIANGLES, VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL);
+        BufferBuilder groupBuilder = Tessellator.getInstance().begin(VertexFormat.DrawMode.TRIANGLES, VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL);
 
         ModelVAORenderer.beginCpuGeometry(this.shader);
         super.renderGroup(groupBuilder, stack, group, model);

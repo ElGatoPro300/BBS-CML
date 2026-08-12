@@ -20,9 +20,9 @@ import net.minecraft.client.util.math.MatrixStack;
 
 import org.joml.Matrix4f;
 
-import io.netty.util.collection.IntObjectMap;
-
 import com.mojang.blaze3d.systems.RenderSystem;
+
+import io.netty.util.collection.IntObjectMap;
 
 public class FilmControllerContext
 {
@@ -123,8 +123,13 @@ public class FilmControllerContext
         this.replay = replay;
         this.camera = context.camera();
         this.stack = context.matrixStack();
+        if (this.stack == null)
+        {
+            this.stack = new MatrixStack();
+            MatrixStackUtils.multiply(this.stack, RenderSystem.getModelViewMatrix());
+        }
         this.consumers = context.consumers();
-        this.transition = context.tickDelta();
+        this.transition = context.tickCounter().getTickDelta(false);
 
         return this;
     }

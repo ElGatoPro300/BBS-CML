@@ -43,11 +43,11 @@ public class StructureVAOCollector implements VertexConsumer
     }
 
     @Override
-    public VertexConsumer vertex(double x, double y, double z)
+    public VertexConsumer vertex(float x, float y, float z)
     {
-        this.vx = (float) x;
-        this.vy = (float) y;
-        this.vz = (float) z;
+        this.vx = x;
+        this.vy = y;
+        this.vz = z;
         return this;
     }
 
@@ -100,10 +100,6 @@ public class StructureVAOCollector implements VertexConsumer
         this.finalizeCurrent();
         return this;
     }
-
-    @Override
-    public void next()
-    {}
 
     private void finalizeCurrent()
     {
