@@ -1,0 +1,20 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(ls \"C:/Users/lyanh/IdeaProjects/BBS-CML-EDITION/PC _ Computer - Undertale - Enemies & Bosses - Flowey_sprites/\")",
+      "Bash(./gradlew build:*)",
+      "Bash(./gradlew compileClientJava)",
+      "Bash(xargs grep:*)",
+      "Bash(git log:*)",
+      "Bash(grep \"\\\\.java$\")",
+      "Bash(grep -v \"^+import\\\\|^+//\")",
+      "Bash(./gradlew compileJava --rerun)",
+      "Bash(./gradlew compileClientJava --rerun)",
+      "Bash(./gradlew compileJava compileClientJava --quiet)",
+      "Bash(./gradlew compileClientJava --quiet)",
+      "Bash(./gradlew compileJava compileClientJava -q)",
+      "Bash(./gradlew runClient)",
+      "Bash(git grep *)"
+    ]
+  }
+}

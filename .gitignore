@@ -47,7 +47,24 @@ Blockbench_full/
 .trae/
 crash-reports/
 open-source/
+.agents/
 
 #some
 
 translation_workspace/
+
+#cursor rules
+.cursor/rules/PROJECT-STRUCTURE.mdc
+.cursor/plans/shortcut-interaction-mode.plan.md
+
+# local shader/debug scratch (never commit)
+.tmp_bsl/
+.tmp_shadow_frames/
+.tmp_shadow_frames2/
+.tmp_*/
+.tmp-*/
+.cursor-tmp-*/
+.cursor-video-frames/
+.video_*/
+*.pyc
+__pycache__/

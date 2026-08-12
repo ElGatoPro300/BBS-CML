@@ -1,5 +1,5 @@
 plugins {
-	id 'net.fabricmc.fabric-loom' version '1.16-SNAPSHOT'
+	id 'net.fabricmc.fabric-loom' version '1.17-SNAPSHOT'
 	id 'maven-publish'
 }
 
@@ -47,7 +47,7 @@ loom {
 
 	runs {
 		client {
-			vmArgs "-Dorg.lwjgl.openal.libname=${project.file('audio_fix/openal-soft-1.15.1-bin/Win64/soft_oal.dll').absolutePath}"
+			vmArgs "-Dorg.lwjgl.openal.libname=${project.file('resources/audio/soft_oal.dll').absolutePath}"
 		}
 	}
 }

@@ -1,13 +1,15 @@
 import json
 import os
 import glob
+from pathlib import Path
 
 # -----------------------------------------------------------------------------
 # Console Command: python update_langs.py
 # -----------------------------------------------------------------------------
 
-# Path to strings directory
-strings_dir = r"C:\Users\PC\Documents\GitHub\bbs-mod\src\client\resources\assets\bbs\assets\strings"
+ROOT = Path(__file__).resolve().parent
+strings_dir = ROOT / "src" / "client" / "resources" / "assets" / "bbs" / "assets" / "strings"
+export_dir = ROOT / "run" / "export"
 
 # New keys and English values
 new_keys_en = {
@@ -109,6 +111,12 @@ new_keys_ur = {
     "bbs.example": "ترجمہ کی چابیاں یہاں پیسٹ کریں، اس صورت میں اردو کے لیے۔"
 }
 
+# Farsi (fa_ir)
+new_keys_fa = {
+    "bbs.ui.forms.editors.general.look_at": "نگاه",
+    "bbs.ui.forms.editors.general.illusion": "توهم"
+}
+
 # -----------------------------------------------------------------------------
 # Logic to select dictionary
 # -----------------------------------------------------------------------------
@@ -161,6 +169,8 @@ def update_file(filepath):
             updates = new_keys_ar
         elif filename == "ur_pk.json":
             updates = new_keys_ur
+        elif filename == "fa_ir.json":
+            updates = new_keys_fa
         else:
             # Fallback to English for any other unmapped files (e.g. he_il.json)
             updates = new_keys_en
@@ -176,10 +186,9 @@ def update_file(filepath):
                  data[key] = value
                  modified = True
         
-        if modified or True: # Always write to ensure sorting
-            # Sort keys to ensure correct order
+        if modified:
             sorted_data = dict(sorted(data.items()))
-            
+
             with open(filepath, 'w', encoding='utf-8') as f:
                 json.dump(sorted_data, f, indent=4, ensure_ascii=False)
             print(f"Updated {filename}")
@@ -187,7 +196,82 @@ def update_file(filepath):
     except Exception as e:
         print(f"Error updating {filepath}: {e}")
 
-# Process all json files
-json_files = glob.glob(os.path.join(strings_dir, "*.json"))
-for json_file in json_files:
-    update_file(json_file)
+def merge_lang_exports():
+    """Merge run/export language editor dumps into es_es.json."""
+    export_en = export_dir / "lang.assets_strings.en_us.json"
+    export_es = export_dir / "lang.assets_strings.es_es.json"
+
+    if not export_en.is_file() and not export_es.is_file():
+        print("No run/export lang.assets_strings.*.json files found, skipping export merge.")
+        return
+
+    from merge_lang_exports import collect_updates, merge_preserving_order
+
+    updates = collect_updates()
+
+    if not updates:
+        print("Export merge: no changes needed")
+        return
+
+    updated, added = merge_preserving_order(updates)
+
+    print(f"Export merge: updated {updated}, added {added}, total {updated + added}")
+
+
+def has_manual_updates(updates: dict) -> bool:
+    return len(updates) > 1 or "bbs.example" not in updates
+
+
+def apply_manual_updates():
+    json_files = glob.glob(str(strings_dir / "*.json"))
+
+    for json_file in json_files:
+        filename = os.path.basename(json_file)
+
+        if filename == "es_es.json":
+            updates = new_keys_es
+        elif filename == "en_us.json":
+            updates = new_keys_en
+        elif filename == "fr_fr.json":
+            updates = new_keys_fr
+        elif filename == "de_de.json":
+            updates = new_keys_de
+        elif filename in ("pt_br.json", "pt_pt.json"):
+            updates = new_keys_pt
+        elif filename == "pl_pl.json":
+            updates = new_keys_pl
+        elif filename == "hu_hu.json":
+            updates = new_keys_hu
+        elif filename == "zh_cn.json":
+            updates = new_keys_cn
+        elif filename == "zh_tw.json":
+            updates = new_keys_tw
+        elif filename == "ko_kr.json":
+            updates = new_keys_kr
+        elif filename == "vi_vn.json":
+            updates = new_keys_vi
+        elif filename == "th_th.json":
+            updates = new_keys_th
+        elif filename == "id_id.json":
+            updates = new_keys_id
+        elif filename == "ru_ru.json":
+            updates = new_keys_ru
+        elif filename == "uk_ua.json":
+            updates = new_keys_uk
+        elif filename == "tr_tr.json":
+            updates = new_keys_tr
+        elif filename == "ar_ar.json":
+            updates = new_keys_ar
+        elif filename == "ur_pk.json":
+            updates = new_keys_ur
+        elif filename == "fa_ir.json":
+            updates = new_keys_fa
+        else:
+            updates = new_keys_en
+
+        if has_manual_updates(updates):
+            update_file(json_file)
+
+
+merge_lang_exports()
+apply_manual_updates()
