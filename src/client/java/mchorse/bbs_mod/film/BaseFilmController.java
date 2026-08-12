@@ -124,6 +124,12 @@ public abstract class BaseFilmController
      */
     private final Map<String, Integer> lastStepSoundTicks = new HashMap<>();
 
+    /**
+     * Last resolved physical actor entity id per replay. Used to one-shot snap
+     * world position when Actor mode binds a new entity (toggle on / respawn).
+     */
+    private final Map<String, Integer> lastSeenActorEntityIds = new HashMap<>();
+
     /* Rendering helpers */
 
     public static void renderEntity(FilmControllerContext context)
@@ -1160,6 +1166,7 @@ public abstract class BaseFilmController
         this.entities.clear();
         this.replayMap.clear();
         this.lastStepSoundTicks.clear();
+        this.lastSeenActorEntityIds.clear();
 
         if (this.film == null)
         {
@@ -1450,12 +1457,21 @@ public abstract class BaseFilmController
                 {
                     Integer entityId = actors.get(replay.getId());
 
-                    if (entityId != null)
+                    if (entityId == null)
+                    {
+                        this.lastSeenActorEntityIds.remove(replay.getId());
+                    }
+                    else
                     {
                         Entity anEntity = MinecraftClient.getInstance().world.getEntityById(entityId);
 
                         if (anEntity instanceof ActorEntity actor)
                         {
+                            /* Record only once the entity exists — otherwise a late spawn
+                             * after the actors packet would skip the one-shot position snap. */
+                            Integer previousEntityId = this.lastSeenActorEntityIds.put(replay.getId(), entityId);
+                            boolean actorEntityJustBound = !Objects.equals(previousEntityId, entityId);
+
                             boolean combatDead = actor.isDead() || actor.getHealth() <= 0F || actor.deathTime > 0;
 
                             if (combatDead)
@@ -1504,6 +1520,15 @@ public abstract class BaseFilmController
                                 /* Only gate vanilla sprint dust — do not clear sprinting (run anim). */
                                 actor.setSuppressSprintParticles(controlling);
 
+                                if (actorEntityJustBound)
+                                {
+                                    /* One-shot: Actor toggle / respawn can leave the body at an
+                                     * old server pose while yaw/limbs already follow the stub.
+                                     * Do not heal every tick — that fights walk velocity. */
+                                    this.syncActorWorldPositionFromStub(actor, entity);
+                                    actor.setVelocity(0D, 0D, 0D);
+                                }
+
                                 if (pauseAnims)
                                 {
                                     this.applyPausedActorNaturalMotion(actor, replay, replayTick);
@@ -1516,10 +1541,7 @@ public abstract class BaseFilmController
                                      * integrating it on top of the snap (and creative-flight
                                      * residual looks like ice). Limbs already come from the
                                      * player via syncLimbs above. */
-                                    actor.setPosition(entity.getX(), entity.getY(), entity.getZ());
-                                    actor.prevX = entity.getPrevX();
-                                    actor.prevY = entity.getPrevY();
-                                    actor.prevZ = entity.getPrevZ();
+                                    this.syncActorWorldPositionFromStub(actor, entity);
                                     actor.setVelocity(0D, 0D, 0D);
                                 }
                                 else if (!this.isActorPlaybackActive())
@@ -1731,6 +1753,21 @@ public abstract class BaseFilmController
         actor.equipStack(EquipmentSlot.CHEST, stub.getEquipmentStack(EquipmentSlot.CHEST));
         actor.equipStack(EquipmentSlot.LEGS, stub.getEquipmentStack(EquipmentSlot.LEGS));
         actor.equipStack(EquipmentSlot.FEET, stub.getEquipmentStack(EquipmentSlot.FEET));
+    }
+
+    /**
+     * Copy world position from the client stub onto the visible actor (toggle bind /
+     * actor-control). Not used every playback tick — continuous snaps fight walk velocity.
+     */
+    private void syncActorWorldPositionFromStub(ActorEntity actor, IEntity stub)
+    {
+        actor.setPosition(stub.getX(), stub.getY(), stub.getZ());
+        actor.prevX = stub.getPrevX();
+        actor.prevY = stub.getPrevY();
+        actor.prevZ = stub.getPrevZ();
+        actor.lastRenderX = stub.getPrevX();
+        actor.lastRenderY = stub.getPrevY();
+        actor.lastRenderZ = stub.getPrevZ();
     }
 
     private void spawnSprintParticles(Replay replay, int ticks, Entity entity)
