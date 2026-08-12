@@ -69,10 +69,12 @@ import net.minecraft.client.render.Camera;
 import net.minecraft.client.render.LightmapTextureManager;
 import net.minecraft.client.render.OverlayTexture;
 import net.minecraft.client.render.VertexConsumerProvider;
+import net.minecraft.client.render.WorldRenderer;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityPose;
 import net.minecraft.entity.EquipmentSlot;
+import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.MovementType;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.particle.BlockStateParticleEffect;
@@ -215,7 +217,6 @@ public abstract class BaseFilmController
             target.mul(context.localGroupTransform);
         }
 
-        BlockPos pos = BlockPos.ofFloored(position.x, position.y + 0.5D, position.z);
         World world = entity.getWorld();
 
         if (world == null)
@@ -228,9 +229,25 @@ public abstract class BaseFilmController
             return;
         }
 
-        int sky = world.getLightLevel(LightType.SKY, pos);
-        int torch = world.getLightLevel(LightType.BLOCK, pos);
-        int light = LightmapTextureManager.pack(torch, sky);
+        /* MobForm stubs must match ActorEntity / EntityRenderer.getLight (eye height +
+         * WorldRenderer). Other film forms keep the historical feet+0.5 sample. */
+        int light;
+
+        if (form instanceof MobForm)
+        {
+            BlockPos pos = BlockPos.ofFloored(position.x, position.y + entity.getEyeHeight(), position.z);
+
+            light = WorldRenderer.getLightmapCoordinates(world, pos);
+        }
+        else
+        {
+            BlockPos pos = BlockPos.ofFloored(position.x, position.y + 0.5D, position.z);
+            int sky = world.getLightLevel(LightType.SKY, pos);
+            int torch = world.getLightLevel(LightType.BLOCK, pos);
+
+            light = LightmapTextureManager.pack(torch, sky);
+        }
+
         int overlay = OverlayTexture.packUv(OverlayTexture.getU(0F), OverlayTexture.getV(entity.getHurtTimer() > 0));
 
         FormRenderingContext formContext = new FormRenderingContext()
@@ -1239,6 +1256,42 @@ public abstract class BaseFilmController
         return physical != null ? physical : stub;
     }
 
+    /**
+     * Actor-mode replays must not fall back to the stub for picking/highlight after
+     * combat death — that left a standing invisible ghost (yellow form / blue limbs).
+     * Also blocks picking for the whole death animation once {@code deathTime} starts.
+     */
+    public boolean isActorPickingBlocked(Replay replay)
+    {
+        if (replay == null || !replay.actor.get())
+        {
+            return false;
+        }
+
+        Map<String, Integer> actors = this.getActors();
+
+        if (actors == null || MinecraftClient.getInstance().world == null)
+        {
+            return true;
+        }
+
+        Integer entityId = actors.get(replay.getId());
+
+        if (entityId == null)
+        {
+            return true;
+        }
+
+        Entity anEntity = MinecraftClient.getInstance().world.getEntityById(entityId);
+
+        if (!(anEntity instanceof LivingEntity living) || living.isRemoved())
+        {
+            return true;
+        }
+
+        return living.isDead() || living.getHealth() <= 0F || living.deathTime > 0;
+    }
+
     public boolean hasFinished()
     {
         return false;
@@ -1406,6 +1459,7 @@ public abstract class BaseFilmController
                             if (combatDead)
                             {
                                 /* Keep server combat-death pose; do not overlay alive keyframes. */
+                                actor.updateTick(replayTick);
                                 actor.setPauseNaturalAnimations(false);
                                 actor.setVelocity(0D, 0D, 0D);
                                 actor.syncNameTag(replay);
@@ -1421,6 +1475,7 @@ public abstract class BaseFilmController
                                     && !this.isActorPlaybackActive()
                                     && !controlling;
 
+                                actor.updateTick(replayTick);
                                 actor.setPauseNaturalAnimations(pauseAnims);
 
                                 /* IEntity already has mount rotation applied by MorphMountSync */

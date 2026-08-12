@@ -42,6 +42,8 @@ import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.render.BufferBuilder;
 import net.minecraft.client.render.RenderLayer;
 import net.minecraft.client.render.TexturedRenderLayers;
+import net.minecraft.client.render.VertexConsumerProvider;
+import net.minecraft.client.render.model.ModelLoader;
 import net.minecraft.client.util.BufferAllocator;
 import net.minecraft.util.Util;
 
@@ -58,6 +60,8 @@ public class FormUtilsClient
 {
     private static Map<Class, IFormRendererFactory> map = new HashMap<>();
     private static CustomVertexConsumerProvider customVertexConsumerProvider;
+    /** Isolated Immediate for MobForm morph draws — avoids flushing world entity leftovers. */
+    private static CustomVertexConsumerProvider mobMorphVertexConsumerProvider;
     private static Stack<Form> currentForm = new Stack<>();
     /** Guards against recursive illusion copies spawning more illusions. */
     private static int illusionDepth;
@@ -90,6 +94,23 @@ public class FormUtilsClient
         }
 
         return customVertexConsumerProvider;
+    }
+
+    /**
+     * Private Immediate for MobForm morph geometry. Villager clothing uses several dynamic
+     * cutout layers; flushing them on the shared world Immediate mixed in leftover entity
+     * layers and deferred the last clothing pass past held-item/shadow with bad lighting.
+     */
+    public static CustomVertexConsumerProvider getMobMorphProvider()
+    {
+        if (mobMorphVertexConsumerProvider == null)
+        {
+            mobMorphVertexConsumerProvider = new CustomVertexConsumerProvider(
+                VertexConsumerProvider.immediate(new BufferAllocator(2048))
+            );
+        }
+
+        return mobMorphVertexConsumerProvider;
     }
 
     public static <T extends Form> void register(Class<T> clazz, IFormRendererFactory<T> function)

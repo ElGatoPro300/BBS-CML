@@ -142,6 +142,11 @@ public class ActorEntity extends LivingEntity implements IEntityFormProvider
         return this.replay;
     }
 
+    public int getCurrentTick()
+    {
+        return this.currentTick;
+    }
+
     /**
      * Actor-mode bodies are drawn by {@code ActorEntityRenderer}, not the film
      * stub path that draws {@link Replay#nameTag}. Mirror that string onto the
