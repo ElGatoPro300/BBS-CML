@@ -111,9 +111,21 @@ public class UIPoseEditor extends UIElement
     private UIIcon invertLiveMirrorZButton;
     private UIIcon showOnlyMarkedButton;
     private String currentBone;
+    /**
+     * Paint / glow / color-grade / noshading belong on forms (and form pose keyframes).
+     * Base model editor edits {@code ModelConfig.parts} only — hide those controls there.
+     */
+    private final boolean formAppearanceExtras;
 
     public UIPoseEditor()
     {
+        this(true);
+    }
+
+    public UIPoseEditor(boolean formAppearanceExtras)
+    {
+        this.formAppearanceExtras = formAppearanceExtras;
+
         this.extra = new UIElement();
         this.extra.column().vertical().stretch();
 
@@ -1343,7 +1355,7 @@ public class UIPoseEditor extends UIElement
 
     /**
      * Bone appearance controls above the transform grid:
-     * section label, bone texture, color + lighting, Glow, Paint, Color grade.
+     * section label, bone texture, color + lighting; form-only Extra (glow/paint/grade) when enabled.
      */
     public UIElement createPoseFooter()
     {
@@ -1359,12 +1371,16 @@ public class UIPoseEditor extends UIElement
 
         /* Color+icon cluster shares the row with Lighting; grid opens full-width below. */
         footer.add(UIFormColorLayout.colorWithTransformAndExtras(this.color, this.colorTransform, this.lighting));
-        footer.add(this.noShading);
-        footer.add(UIFormColorLayout.createExtraSection(
-            this.glowSection,
-            this.paintSection,
-            this.colorAdjustments.marginTop(4)
-        ).marginTop(4));
+
+        if (this.formAppearanceExtras)
+        {
+            footer.add(this.noShading);
+            footer.add(UIFormColorLayout.createExtraSection(
+                this.glowSection,
+                this.paintSection,
+                this.colorAdjustments.marginTop(4)
+            ).marginTop(4));
+        }
 
         return footer;
     }
