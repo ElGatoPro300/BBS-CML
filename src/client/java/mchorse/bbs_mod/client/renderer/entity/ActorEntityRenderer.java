@@ -12,6 +12,8 @@ import mchorse.bbs_mod.forms.renderers.FormRenderingContext;
 import mchorse.bbs_mod.utils.iris.IrisUtils;
 
 import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.model.Dilation;
+import net.minecraft.client.model.TexturedModelData;
 import net.minecraft.client.render.OverlayTexture;
 import net.minecraft.client.render.VertexConsumerProvider;
 import net.minecraft.client.render.entity.EntityRenderer;
@@ -19,7 +21,6 @@ import net.minecraft.client.render.entity.EntityRendererFactory;
 import net.minecraft.client.render.entity.LivingEntityRenderer;
 import net.minecraft.client.render.entity.model.ArmorEntityModel;
 import net.minecraft.client.render.entity.model.ElytraEntityModel;
-import net.minecraft.client.render.entity.model.EntityModelLayers;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.entity.EntityPose;
 import net.minecraft.util.Identifier;
@@ -38,10 +39,11 @@ public class ActorEntityRenderer extends EntityRenderer<ActorEntity>
     {
         super(ctx);
 
+        /* Private copies — ArmorRenderer mutates pivots/wings; never share with vanilla players. */
         armorRenderer = new ArmorRenderer(
-            new ArmorEntityModel(ctx.getPart(EntityModelLayers.PLAYER_INNER_ARMOR)),
-            new ArmorEntityModel(ctx.getPart(EntityModelLayers.PLAYER_OUTER_ARMOR)),
-            new ElytraEntityModel(ctx.getPart(EntityModelLayers.ELYTRA)),
+            new ArmorEntityModel(TexturedModelData.of(ArmorEntityModel.getModelData(new Dilation(0.5F)), 64, 32).createModel()),
+            new ArmorEntityModel(TexturedModelData.of(ArmorEntityModel.getModelData(new Dilation(1.0F)), 64, 32).createModel()),
+            new ElytraEntityModel(ElytraEntityModel.getTexturedModelData().createModel()),
             ctx.getModelManager()
         );
 

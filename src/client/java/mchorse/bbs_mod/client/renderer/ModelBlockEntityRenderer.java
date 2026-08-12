@@ -182,11 +182,6 @@ public class ModelBlockEntityRenderer implements BlockEntityRenderer<ModelBlockE
 
             FormUtilsClient.render(form, formContext);
 
-            if (!formContext.isShadowPass)
-            {
-                RenderSystem.disableDepthTest();
-            }
-
             if (!formContext.isShadowPass && this.canRenderAxes(entity) && UIBaseMenu.renderAxes)
             {
                 matrices.push();
@@ -195,12 +190,14 @@ public class ModelBlockEntityRenderer implements BlockEntityRenderer<ModelBlockE
                 matrices.pop();
             }
 
-            matrices.pop();
-        }
+            /* ModelForm tears down lightmap; do not leave depth off — WorldRenderer may still
+             * flush buffered vanilla entity layers (enchanted armor) after block entities. */
+            if (!formContext.isShadowPass)
+            {
+                BBSRendering.restoreWorldRenderState();
+            }
 
-        if (!BBSRendering.isIrisShadowPass())
-        {
-            RenderSystem.disableDepthTest();
+            matrices.pop();
         }
 
         if (mc.getDebugHud().shouldShowDebugHud())
