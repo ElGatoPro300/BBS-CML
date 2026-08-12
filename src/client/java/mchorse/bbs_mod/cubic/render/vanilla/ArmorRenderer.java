@@ -183,7 +183,14 @@ public class ArmorRenderer
         Sprite sprite = this.armorTrimsAtlas.getSprite(leggings ? trim.getLeggingsModelId(material) : trim.getGenericModelId(material));
         VertexConsumer vertexConsumer = sprite.getTextureSpecificVertexConsumer(vertexConsumers.getBuffer(TexturedRenderLayers.getArmorTrims(trim.getPattern().value().decal())));
 
+        /* Armor + trim share the same ModelPart. In GUI / model-block previews the
+         * near depth range hides coplanar fighting; film/world cameras do not.
+         * Bake a tiny scale into the trim vertices (draw is deferred, so GL
+         * polygon-offset at submit time would not stick through consumers.draw()). */
+        matrices.push();
+        matrices.scale(1.005F, 1.005F, 1.005F);
         part.render(matrices, vertexConsumer, light, OverlayTexture.DEFAULT_UV);
+        matrices.pop();
     }
 
     private void renderGlint(ModelPart part, MatrixStack matrices, VertexConsumerProvider vertexConsumers, int light)
