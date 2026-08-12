@@ -29,7 +29,8 @@ import net.minecraft.util.Hand;
 
 import org.joml.Matrix4f;
 
-import com.mojang.blaze3d.platform.GlStateManager;
+import com.mojang.blaze3d.opengl.GlStateManager;
+import com.mojang.blaze3d.pipeline.RenderPipeline;
 import com.mojang.blaze3d.systems.RenderSystem;
 
 import org.lwjgl.opengl.GL11;
@@ -272,11 +273,11 @@ public abstract class FormRenderer <T extends Form>
         transform.pivot.add(overlay.pivot);
     }
 
-    protected Supplier<ShaderProgram> getShader(FormRenderingContext context, Supplier<ShaderProgram> normal, Supplier<ShaderProgram> picking)
+    protected Supplier<RenderPipeline> getShader(FormRenderingContext context, Supplier<RenderPipeline> normal, Supplier<RenderPipeline> picking)
     {
         if (context.isPicking())
         {
-            ShaderProgram program = picking.get();
+            RenderPipeline program = picking.get();
 
             if (program == null)
             {
@@ -291,20 +292,11 @@ public abstract class FormRenderer <T extends Form>
         return normal;
     }
 
-    protected void setupTarget(FormRenderingContext context, ShaderProgram program)
+    protected void setupTarget(FormRenderingContext context, RenderPipeline program)
     {
         if (program == null)
         {
             return;
-        }
-
-        GlUniform target = program.getUniform("Target");
-
-        if (target != null)
-        {
-            int pickingIndex = context.getPickingIndex();
-
-            target.set(pickingIndex);
         }
     }
 

@@ -16,9 +16,8 @@ import mchorse.bbs_mod.utils.joml.Vectors;
 
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gl.ShaderProgram;
-import net.minecraft.client.gl.ShaderProgramKeys;
 import net.minecraft.client.render.GameRenderer;
-import net.minecraft.client.render.VertexFormat;
+import net.minecraft.client.render.RenderLayer;
 import net.minecraft.client.render.VertexFormats;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.world.World;
@@ -28,6 +27,7 @@ import org.joml.Vector3d;
 import org.joml.Vector3f;
 
 import com.mojang.blaze3d.systems.RenderSystem;
+import com.mojang.blaze3d.vertex.VertexFormat;
 
 import java.util.function.Supplier;
 
@@ -94,7 +94,7 @@ public class ParticleFormRenderer extends FormRenderer<ParticleForm> implements 
 
         if (emitter != null)
         {
-            MatrixStack stack = context.batcher.getContext().getMatrices();
+            MatrixStack stack = new MatrixStack();
             int scale = (y2 - y1) / 2;
 
             stack.push();
@@ -177,8 +177,8 @@ public class ParticleFormRenderer extends FormRenderer<ParticleForm> implements 
 
             GameRenderer gameRenderer = MinecraftClient.getInstance().gameRenderer;
 
-            gameRenderer.getLightmapTextureManager().enable();
-            gameRenderer.getOverlayTexture().setupOverlayColor();
+            // gameRenderer.getLightmapTextureManager().enable();
+            // gameRenderer.getOverlayTexture().setupOverlayColor();
 
             context.stack.push();
             context.stack.loadIdentity();
@@ -197,19 +197,16 @@ public class ParticleFormRenderer extends FormRenderer<ParticleForm> implements 
                 boolean billboard = shadersEnabled;
 
                 VertexFormat format = billboard ? VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL : VertexFormats.POSITION_TEXTURE_COLOR_LIGHT;
-                Supplier<ShaderProgram> shader = billboard
-                    ? this.getShader(context, () -> { RenderSystem.setShader(ShaderProgramKeys.RENDERTYPE_ENTITY_TRANSLUCENT); return RenderSystem.getShader(); }, BBSShaders::getPickerBillboardProgram)
-                    : this.getShader(context, () -> { RenderSystem.setShader(ShaderProgramKeys.PARTICLE); return RenderSystem.getShader(); }, BBSShaders::getPickerParticlesProgram);
 
-                emitter.render(format, shader, context.stack, context.overlay, context.getTransition());
+                emitter.render(format, (RenderLayer) null, context.stack, context.overlay, context.getTransition());
             }
 
             emitter.clearGlow();
 
             context.stack.pop();
 
-            gameRenderer.getLightmapTextureManager().disable();
-            gameRenderer.getOverlayTexture().teardownOverlayColor();
+            // gameRenderer.getLightmapTextureManager().disable();
+            // gameRenderer.getOverlayTexture().teardownOverlayColor();
         }
     }
 

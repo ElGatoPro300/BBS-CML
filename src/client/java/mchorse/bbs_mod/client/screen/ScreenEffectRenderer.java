@@ -14,8 +14,7 @@ import mchorse.bbs_mod.utils.MathUtils;
 import mchorse.bbs_mod.utils.clips.ClipContext;
 import mchorse.bbs_mod.utils.colors.Colors;
 
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.util.math.RotationAxis;
+import org.joml.Matrix3x2fStack;
 
 import java.util.List;
 
@@ -141,16 +140,16 @@ public class ScreenEffectRenderer
 
         if (transformed)
         {
-            MatrixStack stack = batcher.getContext().getMatrices();
+            Matrix3x2fStack stack = batcher.getContext().getMatrices();
 
-            stack.push();
-            stack.translate(effect.offsetX * screenW, effect.offsetY * screenH, 0F);
-            stack.translate(screenW / 2F, screenH / 2F, 0F);
-            stack.multiply(RotationAxis.POSITIVE_Z.rotation(MathUtils.toRad(effect.rotation)));
-            stack.scale(zoom, zoom, 1F);
-            stack.translate(-screenW / 2F, -screenH / 2F, 0F);
+            stack.pushMatrix();
+            stack.translate(effect.offsetX * screenW, effect.offsetY * screenH);
+            stack.translate(screenW / 2F, screenH / 2F);
+            stack.rotate(MathUtils.toRad(effect.rotation));
+            stack.scale(zoom, zoom);
+            stack.translate(-screenW / 2F, -screenH / 2F);
             renderLetterboxBars(batcher, effect, screenW, screenH, barH);
-            stack.pop();
+            stack.popMatrix();
         }
         else
         {
@@ -201,16 +200,16 @@ public class ScreenEffectRenderer
 
         if (transformed)
         {
-            MatrixStack stack = batcher.getContext().getMatrices();
+            Matrix3x2fStack stack = batcher.getContext().getMatrices();
 
-            stack.push();
-            stack.translate(effect.offsetX * screenW, effect.offsetY * screenH, 0F);
-            stack.translate(screenW / 2F, screenH / 2F, 0F);
-            stack.multiply(RotationAxis.POSITIVE_Z.rotation(MathUtils.toRad(effect.rotation)));
-            stack.scale(zoom, zoom, 1F);
-            stack.translate(-screenW / 2F, -screenH / 2F, 0F);
+            stack.pushMatrix();
+            stack.translate(effect.offsetX * screenW, effect.offsetY * screenH);
+            stack.translate(screenW / 2F, screenH / 2F);
+            stack.rotate(MathUtils.toRad(effect.rotation));
+            stack.scale(zoom, zoom);
+            stack.translate(-screenW / 2F, -screenH / 2F);
             renderEyeMask(batcher, effect, screenW, screenH, blink);
-            stack.pop();
+            stack.popMatrix();
         }
         else
         {

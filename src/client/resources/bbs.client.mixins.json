@@ -33,8 +33,12 @@
         "KeyboardInputMixin",
         "MinecraftClientInvoker",
         "EntityRendererMixin",
+        "EntityRenderStateMixin",
+        "LivingEntityRendererMorphMixin",
+        "LivingEntityRendererInvoker",
         "ClientPlayerEntityAccessor",
         "LivingEntityItemAccessor",
+        "LivingEntityAccessor",
         "FireworkRocketEntityAccessor",
         "iris.IrisRenderingPipelineAccessor",
         "iris.IrisRenderingPipelineMixin",
@@ -59,7 +63,9 @@
         "SelectWorldScreenMixin",
         "ModelPartMixin",
         "MatrixStackMixin",
-        "YggdrasilServicesKeyInfoMixin"
+        "YggdrasilServicesKeyInfoMixin",
+        "GuiRendererMixin",
+        "audio.SoundEngineMixin"
     ],
     "injectors": {
         "defaultRequire": 1

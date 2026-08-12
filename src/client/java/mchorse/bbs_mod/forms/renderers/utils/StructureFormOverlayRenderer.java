@@ -1,5 +1,6 @@
 package mchorse.bbs_mod.forms.renderers.utils;
 
+import mchorse.bbs_mod.BBSModClient;
 import mchorse.bbs_mod.client.BBSRendering;
 import mchorse.bbs_mod.client.BBSShaders;
 import mchorse.bbs_mod.cubic.render.vao.IModelVAO;
@@ -11,6 +12,7 @@ import mchorse.bbs_mod.forms.forms.utils.EffectTransform;
 import mchorse.bbs_mod.forms.forms.utils.EffectTransformMath;
 import mchorse.bbs_mod.forms.forms.utils.GlowSettings;
 import mchorse.bbs_mod.forms.renderers.FormRenderingContext;
+import mchorse.bbs_mod.resources.Link;
 import mchorse.bbs_mod.utils.colors.Color;
 
 import net.minecraft.client.MinecraftClient;
@@ -25,6 +27,8 @@ import org.joml.Matrix3f;
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
 
+import com.mojang.blaze3d.opengl.GlStateManager;
+import com.mojang.blaze3d.pipeline.RenderPipeline;
 import com.mojang.blaze3d.systems.RenderSystem;
 
 import org.lwjgl.opengl.GL11;
@@ -162,14 +166,14 @@ public class StructureFormOverlayRenderer
         Color glowColor = FormColorEffects.resolveGlowOverlayEmissionColor(glowSettings, legacyGlow, alpha, glowIntensity);
         float shaderScale = FormColorEffects.resolveGlowOverlayShaderScale(glowIntensity);
 
-        RenderSystem.enableBlend();
-        RenderSystem.blendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE);
-        RenderSystem.enableDepthTest();
-        RenderSystem.depthFunc(GL11.GL_LEQUAL);
-        RenderSystem.depthMask(false);
+        GlStateManager._enableBlend();
+        GlStateManager._blendFuncSeparate(GL11.GL_SRC_ALPHA, GL11.GL_ONE, 1, 0);
+        GlStateManager._enableDepthTest();
+        GlStateManager._depthFunc(GL11.GL_LEQUAL);
+        GlStateManager._depthMask(false);
         GL11.glEnable(GL11.GL_POLYGON_OFFSET_FILL);
         GL11.glPolygonOffset(-1F, -1F);
-        RenderSystem.setShaderColor(shaderScale, shaderScale, shaderScale, 1F);
+        // RenderSystem.setShaderColor(shaderScale, shaderScale, shaderScale, 1F);
 
         try
         {
@@ -180,9 +184,9 @@ public class StructureFormOverlayRenderer
         finally
         {
             consumers.setSubstitute(null);
-            RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
-            RenderSystem.depthMask(savedDepthMask);
-            RenderSystem.depthFunc(savedDepthFunc);
+            // RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
+            GlStateManager._depthMask(savedDepthMask);
+            GlStateManager._depthFunc(savedDepthFunc);
 
             if (savedPolygonOffsetFill)
             {
@@ -193,7 +197,7 @@ public class StructureFormOverlayRenderer
                 GL11.glDisable(GL11.GL_POLYGON_OFFSET_FILL);
             }
 
-            RenderSystem.defaultBlendFunc();
+            GlStateManager._blendFuncSeparate(770, 771, 1, 0);
         }
     }
 
@@ -260,8 +264,8 @@ public class StructureFormOverlayRenderer
 
         this.resolveStructureMaskHalf(data, transform, paintMaskHalf);
 
-        gameRenderer.getLightmapTextureManager().enable();
-        gameRenderer.getOverlayTexture().setupOverlayColor();
+        // MinecraftClient.getInstance().gameRenderer.getLightmapTextureManager().enable();
+        // MinecraftClient.getInstance().gameRenderer.getOverlayTexture().setupOverlayColor();
 
         try
         {
@@ -270,21 +274,20 @@ public class StructureFormOverlayRenderer
             GL11.glPolygonOffset(-1F, -2F);
             ModelVAORenderer.setPaint(paintOverlay.r, paintOverlay.g, paintOverlay.b, paintOverlay.a);
             ModelVAORenderer.setPaintEffectTransform(formRootInverse, transform, paintMaskHalf, true);
-            RenderSystem.setShader(BBSShaders.getModel());
-            RenderSystem.setShaderTexture(0, SpriteAtlasTexture.BLOCK_ATLAS_TEXTURE);
-            RenderSystem.enableBlend();
-            RenderSystem.blendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
-            RenderSystem.depthMask(false);
+            BBSModClient.getTextures().bindTexture(new Link(SpriteAtlasTexture.BLOCK_ATLAS_TEXTURE.getNamespace(), SpriteAtlasTexture.BLOCK_ATLAS_TEXTURE.getPath()));
+            GlStateManager._enableBlend();
+            GlStateManager._blendFuncSeparate(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA, 1, 0);
+            GlStateManager._depthMask(false);
             ModelVAORenderer.render(BBSShaders.getModel(), vao, stack, tint.r, tint.g, tint.b, tint.a, light, overlay);
         }
         finally
         {
-            RenderSystem.depthMask(true);
+            GlStateManager._depthMask(true);
             ModelVAORenderer.clearPaintEffectTransform();
             ModelVAORenderer.endPaintOverlayPass();
             this.clearVaoPaint();
-            gameRenderer.getLightmapTextureManager().disable();
-            gameRenderer.getOverlayTexture().teardownOverlayColor();
+            // MinecraftClient.getInstance().gameRenderer.getLightmapTextureManager().disable();
+            // MinecraftClient.getInstance().gameRenderer.getOverlayTexture().teardownOverlayColor();
         }
     }
 
@@ -302,11 +305,11 @@ public class StructureFormOverlayRenderer
         this.resolveStructureMaskSize(data, structureSize);
         CustomVertexConsumerProvider.hijackVertexFormat((l) -> BlockEffectOverlayUniforms.configurePaintOverlayRenderStateStructure(formRootInverse, transform, true, glowSettings, legacyGlow, glowIntensity, alpha, structureSize.x, structureSize.y, structureSize.z));
 
-        RenderSystem.enableBlend();
-        RenderSystem.blendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
-        RenderSystem.enableDepthTest();
-        RenderSystem.depthFunc(GL11.GL_LEQUAL);
-        RenderSystem.depthMask(false);
+        GlStateManager._enableBlend();
+        GlStateManager._blendFuncSeparate(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA, 1, 0);
+        GlStateManager._enableDepthTest();
+        GlStateManager._depthFunc(GL11.GL_LEQUAL);
+        GlStateManager._depthMask(false);
         GL11.glEnable(GL11.GL_POLYGON_OFFSET_FILL);
         GL11.glPolygonOffset(-1F, -2F);
 
@@ -320,8 +323,8 @@ public class StructureFormOverlayRenderer
         finally
         {
             consumers.setSubstitute(null);
-            RenderSystem.depthMask(savedDepthMask);
-            RenderSystem.depthFunc(savedDepthFunc);
+            GlStateManager._depthMask(savedDepthMask);
+            GlStateManager._depthFunc(savedDepthFunc);
             GL11.glPolygonOffset(0F, 0F);
 
             if (savedPolygonOffsetFill)
@@ -333,7 +336,7 @@ public class StructureFormOverlayRenderer
                 GL11.glDisable(GL11.GL_POLYGON_OFFSET_FILL);
             }
 
-            RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
+            // RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
             CustomVertexConsumerProvider.clearRunnables();
         }
     }
@@ -426,10 +429,10 @@ public class StructureFormOverlayRenderer
         this.resolveStructureMaskSize(data, structureSize);
         CustomVertexConsumerProvider.hijackVertexFormat((l) -> BlockEffectOverlayUniforms.configureColorTintOverlayRenderStateStructure(formRootInverse, formColor.transform, true, formColor, gradeSource, structureSize.x, structureSize.y, structureSize.z));
 
-        RenderSystem.enableBlend();
-        RenderSystem.enableDepthTest();
-        RenderSystem.depthFunc(GL11.GL_LEQUAL);
-        RenderSystem.depthMask(false);
+        GlStateManager._enableBlend();
+        GlStateManager._enableDepthTest();
+        GlStateManager._depthFunc(GL11.GL_LEQUAL);
+        GlStateManager._depthMask(false);
         GL11.glEnable(GL11.GL_POLYGON_OFFSET_FILL);
         GL11.glPolygonOffset(-1F, -2F);
 
@@ -443,8 +446,8 @@ public class StructureFormOverlayRenderer
         finally
         {
             consumers.setSubstitute(null);
-            RenderSystem.depthMask(savedDepthMask);
-            RenderSystem.depthFunc(savedDepthFunc);
+            GlStateManager._depthMask(savedDepthMask);
+            GlStateManager._depthFunc(savedDepthFunc);
             GL11.glPolygonOffset(0F, 0F);
 
             if (savedPolygonOffsetFill)
@@ -456,8 +459,8 @@ public class StructureFormOverlayRenderer
                 GL11.glDisable(GL11.GL_POLYGON_OFFSET_FILL);
             }
 
-            RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
-            RenderSystem.defaultBlendFunc();
+            // RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
+            GlStateManager._blendFuncSeparate(770, 771, 1, 0);
             CustomVertexConsumerProvider.clearRunnables();
         }
     }

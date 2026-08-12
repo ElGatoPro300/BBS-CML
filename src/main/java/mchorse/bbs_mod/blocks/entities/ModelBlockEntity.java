@@ -8,10 +8,8 @@ import mchorse.bbs_mod.data.types.MapType;
 import mchorse.bbs_mod.events.ModelBlockEntityUpdateCallback;
 import mchorse.bbs_mod.forms.entities.IEntity;
 import mchorse.bbs_mod.forms.entities.StubEntity;
-import mchorse.bbs_mod.forms.forms.BillboardForm;
 import mchorse.bbs_mod.forms.forms.Form;
 import mchorse.bbs_mod.forms.forms.LightForm;
-import mchorse.bbs_mod.resources.Link;
 
 import net.minecraft.block.Block;
 import net.minecraft.block.BlockState;
@@ -21,6 +19,8 @@ import net.minecraft.network.listener.ClientPlayPacketListener;
 import net.minecraft.network.packet.Packet;
 import net.minecraft.network.packet.s2c.play.BlockEntityUpdateS2CPacket;
 import net.minecraft.registry.RegistryWrapper.WrapperLookup;
+import net.minecraft.storage.ReadView;
+import net.minecraft.storage.WriteView;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.world.World;
 
@@ -153,7 +153,7 @@ public class ModelBlockEntity extends BlockEntity
 
         blockEntity.entity.update();
         blockEntity.properties.update(blockEntity.entity);
-        if (!world.isClient)
+        if (!world.isClient())
         {
             int target = blockEntity.properties.getLightLevel();
             Form form = blockEntity.properties.getForm();
@@ -198,23 +198,30 @@ public class ModelBlockEntity extends BlockEntity
     @Override
     public NbtCompound toInitialChunkDataNbt(WrapperLookup registryLookup)
     {
-        return this.createNbtWithId(registryLookup);
+        return this.createNbt(registryLookup);
     }
 
     @Override
-    protected void writeNbt(NbtCompound nbt, WrapperLookup registryLookup)
+    protected void writeData(WriteView view)
     {
-        super.writeNbt(nbt, registryLookup);
+        super.writeData(view);
 
         MapType data = this.properties.toData();
+        NbtCompound nbt = new NbtCompound();
 
         DataStorageUtils.writeToNbtCompound(nbt, "Properties", data);
+
+        view.put("Properties", NbtCompound.CODEC, nbt.getCompoundOrEmpty("Properties"));
     }
 
     @Override
-    public void readNbt(NbtCompound nbt, WrapperLookup registryLookup)
+    protected void readData(ReadView view)
     {
-        super.readNbt(nbt, registryLookup);
+        super.readData(view);
+
+        NbtCompound nbt = new NbtCompound();
+
+        view.read("Properties", NbtCompound.CODEC).ifPresent((compound) -> nbt.put("Properties", compound));
 
         BaseType baseType = DataStorageUtils.readFromNbtCompound(nbt, "Properties");
 
@@ -223,7 +230,7 @@ public class ModelBlockEntity extends BlockEntity
             this.properties.fromData(mapType);
         }
         /* Ensure block state reflects stored light level when chunk/block is loaded */
-        if (this.world != null && !this.world.isClient)
+        if (this.world != null && !this.world.isClient())
         {
             try
             {

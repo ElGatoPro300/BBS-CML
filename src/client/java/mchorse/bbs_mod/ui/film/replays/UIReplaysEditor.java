@@ -1005,7 +1005,7 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
          * not include the camera rotation (see renderPickingPreview). */
         Camera camera = this.filmPanel.getWorldCamera();
 
-        Area viewport = preview.getAbsoluteViewport();
+        Area viewport = preview.getViewport();
 
         if (!viewport.isInside(context.mouseX(), context.mouseY()))
         {

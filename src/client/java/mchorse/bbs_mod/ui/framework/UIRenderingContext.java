@@ -20,6 +20,16 @@ public class UIRenderingContext
         this.batcher = new Batcher2D(context);
     }
 
+    /**
+     * Swap in the live per-frame vanilla {@link DrawContext}. Must be called once per frame (from
+     * {@code UIScreen.render}) before any drawing, so the batcher draws into the {@code GuiRenderState}
+     * vanilla actually composites (two-phase GUI, 1.21.6+).
+     */
+    public void setContext(DrawContext context)
+    {
+        this.batcher.setContext(context);
+    }
+
     /* Rendering context implementations */
 
     public TextureManager getTextures()

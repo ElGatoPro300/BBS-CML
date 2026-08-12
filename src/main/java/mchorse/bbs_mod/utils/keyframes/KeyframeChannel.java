@@ -253,24 +253,18 @@ public class KeyframeChannel <T> extends ValueList<Keyframe<T>>
         this.postNotify();
     }
 
-    public boolean removeSilently(Keyframe<T> keyframe)
+    public boolean removeSilently(Keyframe keyframe)
     {
-        if (keyframe == null)
-        {
-            return false;
-        }
-
         int index = this.list.indexOf(keyframe);
 
-        if (index < 0)
+        if (index >= 0)
         {
-            return false;
+            this.list.remove(index);
+            this.sync();
+            return true;
         }
 
-        this.list.remove(index);
-        this.sync();
-
-        return true;
+        return false;
     }
 
     public void insertSpace(int where, int ticks)
@@ -612,7 +606,7 @@ public class KeyframeChannel <T> extends ValueList<Keyframe<T>>
             Keyframe<T> value = new Keyframe<>(keyframe.getId(), keyframe.getFactory());
 
             value.copy(keyframe);
-            this.list.add(value);
+            this.add(value);
         }
 
         this.sort();
