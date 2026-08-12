@@ -499,6 +499,7 @@ public class ServerNetwork
         int tick = buf.readInt();
         int countdown = buf.readInt();
         boolean recording = buf.readBoolean();
+        boolean recorderOnly = buf.isReadable() && buf.readBoolean();
 
         server.execute(() ->
         {
@@ -508,12 +509,18 @@ public class ServerNetwork
 
                 if (film != null)
                 {
-                    BBSMod.getActions().startRecording(film, player, 0, countdown, replayId);
+                    BBSMod.getActions().startRecording(film, player, 0, countdown, replayId, recorderOnly);
                 }
             }
             else
             {
-                ActionRecorder recorder = BBSMod.getActions().stopRecording(player);
+                ActionRecorder recorder = BBSMod.getActions().stopRecording(player, recorderOnly);
+
+                if (recorder == null)
+                {
+                    return;
+                }
+
                 Clips clips = recorder.composeClips();
 
                 /* Send recorded clips to the client */

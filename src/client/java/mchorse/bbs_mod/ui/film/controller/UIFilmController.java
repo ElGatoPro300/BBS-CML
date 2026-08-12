@@ -801,9 +801,6 @@ public class UIFilmController extends UIElement
         this.recordingOld = recordReplay.keyframes.toData();
         this.recordingReplayIndex = this.panel.getData().replays.getList().indexOf(recordReplay);
 
-        /* Match Outside/world recording: server ActionRecorder captures Swipe/Attack clips. */
-        this.startViewportActionRecording();
-
         if (groups != null)
         {
             if (groups.contains(ReplayKeyframes.GROUP_LEFT_STICK))
@@ -862,6 +859,9 @@ public class UIFilmController extends UIElement
             player.sendAbilitiesUpdate();
         }
 
+        /* After control/puppet is armed — keep FILM_EDITOR actors, only attach ActionRecorder. */
+        this.startViewportActionRecording();
+
         this.toggleMousePointer(this.controlled != null);
     }
 
@@ -905,7 +905,7 @@ public class UIFilmController extends UIElement
 
         if (this.recordingCountdown > 0)
         {
-            this.stopViewportActionRecording(true);
+            this.stopViewportActionRecording();
 
             /* Capture already added replays during setup — refresh once so they show up. */
             MinecraftClient.getInstance().execute(this::refreshEntities);
@@ -941,8 +941,8 @@ public class UIFilmController extends UIElement
         BBSModClient.getFilms().getEditorMobCapture().clear();
         BBSModClient.getFilms().getEditorProjectileCapture().clear();
 
-        /* Merge Swipe/Attack clips via receiveActions, then restore FILM_EDITOR ActionPlayer. */
-        this.stopViewportActionRecording(true);
+        /* Merge Swipe/Attack/block clips via receiveActions; keep FILM_EDITOR ActionPlayer. */
+        this.stopViewportActionRecording();
 
         this.setMouseMode(ClientNetwork.isIsBBSModOnServer() ? 0 : 1);
 
@@ -959,12 +959,19 @@ public class UIFilmController extends UIElement
             return;
         }
 
-        /* Drop FILM_EDITOR ActionPlayer so RECORDING can own server actors (same as Outside). */
-        this.panel.notifyServer(ActionState.STOP);
-        ClientNetwork.sendActionRecording(film.getId(), this.recordingReplayIndex, this.recordingTick, this.recordingCountdown, true);
+        /* Keep FILM_EDITOR ActionPlayer (actors stay visible). Only attach ActionRecorder.
+         * Full RECORDING ActionPlayer used exception=replay and hid actor-mode bodies. */
+        ClientNetwork.sendActionRecording(film.getId(), this.recordingReplayIndex, this.recordingTick, this.recordingCountdown, true, true);
+
+        if (this.controlled != null)
+        {
+            this.notifyActorPuppet(this.recordingReplayIndex);
+        }
+
+        EditorSpectatorHelper.ensurePlayableForControl();
     }
 
-    private void stopViewportActionRecording(boolean restoreEditorPlayer)
+    private void stopViewportActionRecording()
     {
         Film film = this.panel.getData();
         int replayIndex = this.recordingReplayIndex;
@@ -977,11 +984,16 @@ public class UIFilmController extends UIElement
             return;
         }
 
-        ClientNetwork.sendActionRecording(film.getId(), replayIndex, tick, 0, false);
+        ClientNetwork.sendActionRecording(film.getId(), replayIndex, tick, 0, false, true);
 
-        if (restoreEditorPlayer)
+        /* Keep puppet if still controlling after the capture ends. */
+        if (this.controlled != null)
         {
-            this.panel.notifyServer(ActionState.RESTART);
+            this.notifyActorPuppet(replayIndex);
+        }
+        else
+        {
+            this.notifyActorPuppet(-1);
         }
     }
 
