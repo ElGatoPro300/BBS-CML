@@ -4,21 +4,21 @@ import mchorse.bbs_mod.actions.types.chat.CommandActionClip;
 import mchorse.bbs_mod.film.replays.Replay;
 import mchorse.bbs_mod.settings.values.base.BaseValue;
 
-import net.minecraft.block.BlockState;
-import net.minecraft.block.Blocks;
-import net.minecraft.block.SnowBlock;
-import net.minecraft.client.world.ClientWorld;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.nbt.NbtCompound;
-import net.minecraft.nbt.NbtDouble;
-import net.minecraft.nbt.NbtList;
-import net.minecraft.registry.Registries;
-import net.minecraft.storage.NbtWriteView;
-import net.minecraft.util.ErrorReporter;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.client.multiplayer.ClientLevel;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.DoubleTag;
+import net.minecraft.nbt.ListTag;
+import net.minecraft.resources.Identifier;
+import net.minecraft.util.ProblemReporter;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.SnowLayerBlock;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.storage.TagValueOutput;
+import net.minecraft.world.phys.Vec3;
 
 import java.util.Arrays;
 import java.util.List;
@@ -37,41 +37,41 @@ public final class RecorderWorldEffectCapture
     private RecorderWorldEffectCapture()
     {}
 
-    public static void captureSnowTrail(Replay replay, Map<Long, BlockState> snapshots, LivingEntity entity, int tick, ClientWorld world)
+    public static void captureSnowTrail(Replay replay, Map<Long, BlockState> snapshots, LivingEntity entity, int tick, ClientLevel world)
     {
-        BlockPos footing = entity.getBlockPos();
+        BlockPos footing = entity.blockPosition();
 
         for (int dx = -SNOW_TRAIL_RADIUS; dx <= SNOW_TRAIL_RADIUS; dx++)
         {
             for (int dz = -SNOW_TRAIL_RADIUS; dz <= SNOW_TRAIL_RADIUS; dz++)
             {
-                BlockPos offset = footing.add(dx, 0, dz);
+                BlockPos offset = footing.offset(dx, 0, dz);
 
                 RecorderWorldEffectCapture.checkSnowLayer(replay, snapshots, tick, world, offset);
-                RecorderWorldEffectCapture.checkSnowLayer(replay, snapshots, tick, world, offset.down());
+                RecorderWorldEffectCapture.checkSnowLayer(replay, snapshots, tick, world, offset.below());
             }
         }
     }
 
-    private static void checkSnowLayer(Replay replay, Map<Long, BlockState> snapshots, int tick, ClientWorld world, BlockPos pos)
+    private static void checkSnowLayer(Replay replay, Map<Long, BlockState> snapshots, int tick, ClientLevel world, BlockPos pos)
     {
         BlockState state = world.getBlockState(pos);
 
-        if (!state.isOf(Blocks.SNOW))
+        if (!state.is(Blocks.SNOW))
         {
             return;
         }
 
         long key = pos.asLong();
         BlockState previous = snapshots.get(key);
-        int layers = state.get(SnowBlock.LAYERS);
+        int layers = state.getValue(SnowLayerBlock.LAYERS);
 
         if (layers <= 0)
         {
             return;
         }
 
-        if (previous != null && previous.isOf(Blocks.SNOW) && previous.get(SnowBlock.LAYERS) >= layers)
+        if (previous != null && previous.is(Blocks.SNOW) && previous.getValue(SnowLayerBlock.LAYERS) >= layers)
         {
             return;
         }
@@ -95,22 +95,22 @@ public final class RecorderWorldEffectCapture
 
     public static void addSummonCommand(Replay replay, int tick, Entity entity)
     {
-        Identifier typeId = Registries.ENTITY_TYPE.getId(entity.getType());
-        NbtWriteView view = NbtWriteView.create(ErrorReporter.EMPTY, entity.getRegistryManager());
-        entity.saveSelfData(view);
-        NbtCompound nbt = view.getNbt();
+        Identifier typeId = BuiltInRegistries.ENTITY_TYPE.getKey(entity.getType());
+        TagValueOutput view = TagValueOutput.createWithContext(ProblemReporter.DISCARDING, entity.registryAccess());
+        entity.saveAsPassenger(view);
+        CompoundTag nbt = view.buildResult();
 
         for (String key : SUMMON_NBT_STRIP_KEYS)
         {
             nbt.remove(key);
         }
 
-        Vec3d velocity = entity.getVelocity();
-        NbtList motion = new NbtList();
+        Vec3 velocity = entity.getDeltaMovement();
+        ListTag motion = new ListTag();
 
-        motion.add(NbtDouble.of(velocity.x));
-        motion.add(NbtDouble.of(velocity.y));
-        motion.add(NbtDouble.of(velocity.z));
+        motion.add(DoubleTag.valueOf(velocity.x));
+        motion.add(DoubleTag.valueOf(velocity.y));
+        motion.add(DoubleTag.valueOf(velocity.z));
         nbt.put("Motion", motion);
 
         StringBuilder command = new StringBuilder();
@@ -138,8 +138,8 @@ public final class RecorderWorldEffectCapture
 
     public static String formatSetblockState(BlockState state)
     {
-        String id = Registries.BLOCK.getId(state.getBlock()).toString();
-        String properties = state.getEntries().entrySet().stream()
+        String id = BuiltInRegistries.BLOCK.getKey(state.getBlock()).toString();
+        String properties = state.getValues().entrySet().stream()
             .map((entry) -> entry.getKey().getName() + "=" + entry.getValue().toString())
             .collect(Collectors.joining(","));
 

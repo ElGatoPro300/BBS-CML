@@ -1,22 +1,22 @@
 package mchorse.bbs_mod.forms.renderers.utils;
 
-import net.minecraft.block.BlockState;
-import net.minecraft.block.Blocks;
-import net.minecraft.block.entity.BlockEntity;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.fluid.FluidState;
-import net.minecraft.fluid.Fluids;
-import net.minecraft.registry.Registry;
-import net.minecraft.registry.RegistryKeys;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Direction;
-import net.minecraft.world.BlockRenderView;
-import net.minecraft.world.LightType;
-import net.minecraft.world.World;
-import net.minecraft.world.biome.Biome;
-import net.minecraft.world.biome.ColorResolver;
-import net.minecraft.world.chunk.light.LightingProvider;
+import net.minecraft.client.Minecraft;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.core.Registry;
+import net.minecraft.core.registries.Registries;
+import net.minecraft.resources.Identifier;
+import net.minecraft.world.level.BlockAndTintGetter;
+import net.minecraft.world.level.ColorResolver;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.LightLayer;
+import net.minecraft.world.level.biome.Biome;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.lighting.LevelLightEngine;
+import net.minecraft.world.level.material.FluidState;
+import net.minecraft.world.level.material.Fluids;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -30,7 +30,7 @@ import java.util.Map;
  * Lighting and color are delegated to the ClientWorld if it exists; in the absence of a world,
  * safe values (max brightness and zero base light) are returned to avoid NPEs.
  */
-public class VirtualBlockRenderView implements BlockRenderView
+public class VirtualBlockRenderView implements BlockAndTintGetter
 {
     private final Map<BlockPos, BlockState> states = new HashMap<>();
     /* Precomputed local block light (max per position) */
@@ -44,7 +44,7 @@ public class VirtualBlockRenderView implements BlockRenderView
 
     /* World anchor and base offsets to translate local structure positions
      * to real world coordinates when querying lighting and color. */
-    private BlockPos worldAnchor = BlockPos.ORIGIN;
+    private BlockPos worldAnchor = BlockPos.ZERO;
     private int baseDx = 0;
     private int baseDy = 0;
     private int baseDz = 0;
@@ -63,11 +63,11 @@ public class VirtualBlockRenderView implements BlockRenderView
 
         for (Entry e : entries)
         {
-            this.states.put(e.pos, e.state == null ? Blocks.AIR.getDefaultState() : e.state);
+            this.states.put(e.pos, e.state == null ? Blocks.AIR.defaultBlockState() : e.state);
 
             /* Register light emitters for precomputation */
             BlockState st = this.states.get(e.pos);
-            int lum = st == null ? 0 : st.getLuminance();
+            int lum = st == null ? 0 : st.getLightEmission();
             if (lum > 0)
             {
                 emitters.add(e.pos);
@@ -121,7 +121,7 @@ public class VirtualBlockRenderView implements BlockRenderView
      */
     public VirtualBlockRenderView setWorldAnchor(BlockPos anchor, int baseDx, int baseDy, int baseDz)
     {
-        BlockPos newAnchor = anchor == null ? BlockPos.ORIGIN : anchor;
+        BlockPos newAnchor = anchor == null ? BlockPos.ZERO : anchor;
         boolean changed = !newAnchor.equals(this.worldAnchor)
             || this.baseDx != baseDx
             || this.baseDy != baseDy
@@ -142,7 +142,7 @@ public class VirtualBlockRenderView implements BlockRenderView
 
     private BlockPos toWorldPos(BlockPos localPos)
     {
-        return this.worldAnchor.add(this.baseDx + localPos.getX(), this.baseDy + localPos.getY(), this.baseDz + localPos.getZ());
+        return this.worldAnchor.offset(this.baseDx + localPos.getX(), this.baseDy + localPos.getY(), this.baseDz + localPos.getZ());
     }
 
     private void rebuildSkyLight()
@@ -163,7 +163,7 @@ public class VirtualBlockRenderView implements BlockRenderView
             columns.computeIfAbsent(key, (k) -> new ArrayList<>()).add(pos);
         }
 
-        var world = MinecraftClient.getInstance().world;
+        var world = Minecraft.getInstance().level;
 
         for (List<BlockPos> column : columns.values())
         {
@@ -194,7 +194,7 @@ public class VirtualBlockRenderView implements BlockRenderView
 
                 for (Direction dir : Direction.values())
                 {
-                    Integer neighbor = this.precomputedSkyLight.get(pos.offset(dir));
+                    Integer neighbor = this.precomputedSkyLight.get(pos.relative(dir));
 
                     if (neighbor != null)
                     {
@@ -215,21 +215,21 @@ public class VirtualBlockRenderView implements BlockRenderView
         }
     }
 
-    private int computeColumnTopSky(BlockPos topInColumn, World world)
+    private int computeColumnTopSky(BlockPos topInColumn, Level world)
     {
-        BlockPos above = topInColumn.up();
+        BlockPos above = topInColumn.above();
 
         while (this.states.containsKey(above))
         {
-            above = above.up();
+            above = above.above();
         }
 
         if (world != null && !this.forceMaxSkyLight)
         {
             BlockPos worldPos = this.toWorldPos(above);
-            int worldSky = world.getLightLevel(LightType.SKY, worldPos);
+            int worldSky = world.getBrightness(LightLayer.SKY, worldPos);
 
-            if (!world.isSkyVisible(worldPos))
+            if (!world.canSeeSky(worldPos))
             {
                 return worldSky;
             }
@@ -248,7 +248,7 @@ public class VirtualBlockRenderView implements BlockRenderView
         {
             for (Direction dir : Direction.values())
             {
-                BlockPos neighbor = pos.offset(dir);
+                BlockPos neighbor = pos.relative(dir);
 
                 if (!this.states.containsKey(neighbor))
                 {
@@ -273,7 +273,7 @@ public class VirtualBlockRenderView implements BlockRenderView
 
         for (Direction dir : Direction.values())
         {
-            Integer neighbor = this.precomputedSkyLight.get(pos.offset(dir));
+            Integer neighbor = this.precomputedSkyLight.get(pos.relative(dir));
 
             if (neighbor != null)
             {
@@ -318,12 +318,12 @@ public class VirtualBlockRenderView implements BlockRenderView
 
         try
         {
-            this.biomeOverrideId = Identifier.of(biomeId);
+            this.biomeOverrideId = Identifier.parse(biomeId);
             /* Resolve preferably from the client world */
-            if (MinecraftClient.getInstance().world != null)
+            if (Minecraft.getInstance().level != null)
             {
-                Registry<Biome> reg = MinecraftClient.getInstance().world.getRegistryManager().getOrThrow(RegistryKeys.BIOME);
-                this.biomeOverride = reg.get(this.biomeOverrideId);
+                Registry<Biome> reg = Minecraft.getInstance().level.registryAccess().lookupOrThrow(Registries.BIOME);
+                this.biomeOverride = reg.getValue(this.biomeOverrideId);
             }
             else
             {
@@ -379,43 +379,43 @@ public class VirtualBlockRenderView implements BlockRenderView
     public BlockState getBlockState(BlockPos pos)
     {
         BlockState state = this.states.get(pos);
-        return state != null ? state : Blocks.AIR.getDefaultState();
+        return state != null ? state : Blocks.AIR.defaultBlockState();
     }
 
     @Override
     public FluidState getFluidState(BlockPos pos)
     {
-        return Fluids.EMPTY.getDefaultState();
+        return Fluids.EMPTY.defaultFluidState();
     }
 
     @Override
-    public int getLuminance(BlockPos pos)
+    public int getLightEmission(BlockPos pos)
     {
         if (!this.lightsEnabled)
         {
             return 0;
         }
         BlockState s = getBlockState(pos);
-        int lum = s == null ? 0 : s.getLuminance();
+        int lum = s == null ? 0 : s.getLightEmission();
         return Math.min(lum, this.lightIntensity);
     }
 
-    public float getBrightness(Direction direction, boolean shaded)
+    public float getShade(Direction direction, boolean shaded)
     {
-        if (MinecraftClient.getInstance().world != null)
+        if (Minecraft.getInstance().level != null)
         {
-            return MinecraftClient.getInstance().world.getBrightness(direction, shaded);
+            return Minecraft.getInstance().level.getShade(direction, shaded);
         }
 
         return 1.0F;
     }
 
     @Override
-    public LightingProvider getLightingProvider()
+    public LevelLightEngine getLightEngine()
     {
-        if (MinecraftClient.getInstance().world != null)
+        if (Minecraft.getInstance().level != null)
         {
-            return MinecraftClient.getInstance().world.getLightingProvider();
+            return Minecraft.getInstance().level.getLightEngine();
         }
 
         /* Without a world: returning null is not ideal, but the UI route maintains render as entity.
@@ -424,7 +424,7 @@ public class VirtualBlockRenderView implements BlockRenderView
     }
 
     @Override
-    public int getColor(BlockPos pos, ColorResolver colorResolver)
+    public int getBlockTint(BlockPos pos, ColorResolver colorResolver)
     {
         /* If there is a forced biome, use it to resolve the color */
         if (this.biomeOverride != null)
@@ -434,19 +434,19 @@ public class VirtualBlockRenderView implements BlockRenderView
             return colorResolver.getColor(this.biomeOverride, wx, wz);
         }
 
-        if (MinecraftClient.getInstance().world != null)
+        if (Minecraft.getInstance().level != null)
         {
-            BlockPos worldPos = this.worldAnchor.add(this.baseDx + pos.getX(), this.baseDy + pos.getY(), this.baseDz + pos.getZ());
-            return MinecraftClient.getInstance().world.getColor(worldPos, colorResolver);
+            BlockPos worldPos = this.worldAnchor.offset(this.baseDx + pos.getX(), this.baseDy + pos.getY(), this.baseDz + pos.getZ());
+            return Minecraft.getInstance().level.getBlockTint(worldPos, colorResolver);
         }
 
         return 0xFFFFFF;
     }
 
     @Override
-    public int getLightLevel(LightType type, BlockPos pos)
+    public int getBrightness(LightLayer type, BlockPos pos)
     {
-        if (type == LightType.SKY && !this.precomputedSkyLight.isEmpty())
+        if (type == LightLayer.SKY && !this.precomputedSkyLight.isEmpty())
         {
             if (this.forceMaxSkyLight)
             {
@@ -462,13 +462,13 @@ public class VirtualBlockRenderView implements BlockRenderView
         return this.queryWorldLightLevel(type, pos);
     }
 
-    private int queryWorldLightLevel(LightType type, BlockPos pos)
+    private int queryWorldLightLevel(LightLayer type, BlockPos pos)
     {
         /* UI or forced mode: return safe and bright levels
          * to avoid dark models. Sky at max; block according to local emitters. */
-        if (this.forceMaxSkyLight || MinecraftClient.getInstance().world == null)
+        if (this.forceMaxSkyLight || Minecraft.getInstance().level == null)
         {
-            if (type == LightType.SKY)
+            if (type == LightLayer.SKY)
             {
                 return 15;
             }
@@ -480,11 +480,11 @@ public class VirtualBlockRenderView implements BlockRenderView
 
         int worldLevel = 0;
         BlockPos worldPos = this.toWorldPos(pos);
-        worldLevel = MinecraftClient.getInstance().world.getLightLevel(type, worldPos);
+        worldLevel = Minecraft.getInstance().level.getBrightness(type, worldPos);
 
         /* For block light, combine with that emitted by luminous blocks
          * contained in this virtual view (not present in the real world). */
-        if (type == LightType.BLOCK)
+        if (type == LightLayer.BLOCK)
         {
             int local = this.lightsEnabled ? Math.min(this.localBlockLight.getOrDefault(pos, 0), this.lightIntensity) : 0;
             return Math.max(worldLevel, local);
@@ -494,12 +494,12 @@ public class VirtualBlockRenderView implements BlockRenderView
     }
 
     @Override
-    public int getBaseLightLevel(BlockPos pos, int ambientDarkness)
+    public int getRawBrightness(BlockPos pos, int ambientDarkness)
     {
         if (!this.precomputedSkyLight.isEmpty())
         {
-            int sky = this.getLightLevel(LightType.SKY, pos);
-            int block = this.getLightLevel(LightType.BLOCK, pos);
+            int sky = this.getBrightness(LightLayer.SKY, pos);
+            int block = this.getBrightness(LightLayer.BLOCK, pos);
 
             return Math.max(this.queryBaseLightLevel(pos, ambientDarkness), Math.max(sky, block));
         }
@@ -510,13 +510,13 @@ public class VirtualBlockRenderView implements BlockRenderView
     private int queryBaseLightLevel(BlockPos pos, int ambientDarkness)
     {
         /* UI or forced mode: use max base brightness to avoid darkening. */
-        if (this.forceMaxSkyLight || MinecraftClient.getInstance().world == null)
+        if (this.forceMaxSkyLight || Minecraft.getInstance().level == null)
         {
             return 15;
         }
 
         BlockPos worldPos = this.toWorldPos(pos);
-        int worldBase = MinecraftClient.getInstance().world.getBaseLightLevel(worldPos, ambientDarkness);
+        int worldBase = Minecraft.getInstance().level.getRawBrightness(worldPos, ambientDarkness);
 
         /* The base level is the maximum between sky/block. Incorporate the local
          * block contribution so that virtual sources illuminate correctly. */
@@ -525,7 +525,7 @@ public class VirtualBlockRenderView implements BlockRenderView
     }
 
     @Override
-    public boolean isSkyVisible(BlockPos pos)
+    public boolean canSeeSky(BlockPos pos)
     {
         if (!this.precomputedSkyLight.isEmpty())
         {
@@ -542,13 +542,13 @@ public class VirtualBlockRenderView implements BlockRenderView
             }
         }
 
-        if (this.forceMaxSkyLight || MinecraftClient.getInstance().world == null)
+        if (this.forceMaxSkyLight || Minecraft.getInstance().level == null)
         {
             /* In UI, assume sky visibility to avoid excessive shading. */
             return true;
         }
 
-        return MinecraftClient.getInstance().world.isSkyVisible(this.toWorldPos(pos));
+        return Minecraft.getInstance().level.canSeeSky(this.toWorldPos(pos));
     }
 
     /**
@@ -559,7 +559,7 @@ public class VirtualBlockRenderView implements BlockRenderView
     /* Method removed: now using the O(1) precomputed map */
 
     // HeightLimitView
-    public int getBottomY()
+    public int getMinY()
     {
         return this.bottomY;
     }

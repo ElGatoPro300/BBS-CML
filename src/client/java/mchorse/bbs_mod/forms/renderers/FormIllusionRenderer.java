@@ -16,13 +16,14 @@ import mchorse.bbs_mod.utils.colors.Colors;
 import mchorse.bbs_mod.utils.interps.Lerps;
 import mchorse.bbs_mod.utils.pose.Transform;
 
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Direction;
-import net.minecraft.util.shape.VoxelShape;
-import net.minecraft.world.World;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.phys.shapes.VoxelShape;
 
 import org.joml.Vector3f;
+
+import com.mojang.blaze3d.vertex.PoseStack;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -91,7 +92,7 @@ public final class FormIllusionRenderer
         int baseLight = formContext.light;
         AABB hitbox = resolveHitbox(form, formContext.entity);
         float height = (float) hitbox.h;
-        MatrixStack stack = formContext.stack;
+        PoseStack stack = formContext.stack;
 
         for (int layer = 0; layer < layers.size(); layer++)
         {
@@ -174,7 +175,7 @@ public final class FormIllusionRenderer
         transform.pivot.add(overlay.pivot);
     }
 
-    private static void renderIllusionLayer(Form form, FormRenderingContext formContext, MatrixStack stack, Illusion illusion, Transform illusionTransform, AABB hitbox, float height, int layerIndex, int baseColor, int baseLight, Extras extras)
+    private static void renderIllusionLayer(Form form, FormRenderingContext formContext, PoseStack stack, Illusion illusion, Transform illusionTransform, AABB hitbox, float height, int layerIndex, int baseColor, int baseLight, Extras extras)
     {
         List<Vector3f> directions = getIllusionDirections(illusion.directions);
         float strength = Math.max(illusion.opacity, 0F);
@@ -277,7 +278,7 @@ public final class FormIllusionRenderer
                 {
                     int a = Math.round(((baseColor >>> 24) & 0xFF) * mainAlpha);
 
-                    stack.push();
+                    stack.pushPose();
 
                     try
                     {
@@ -293,7 +294,7 @@ public final class FormIllusionRenderer
                     }
                     finally
                     {
-                        stack.pop();
+                        stack.popPose();
                     }
                 }
 
@@ -411,7 +412,7 @@ public final class FormIllusionRenderer
         form.glowSettings.setRuntimeValue(override);
     }
 
-    private static void renderIllusionStreaks(Form form, FormRenderingContext formContext, MatrixStack stack, float x, float y, float z, Transform partial, int argb, float distortFactor, int index, float height)
+    private static void renderIllusionStreaks(Form form, FormRenderingContext formContext, PoseStack stack, float x, float y, float z, Transform partial, int argb, float distortFactor, int index, float height)
     {
         if (((argb >>> 24) & 0xFF) <= 0)
         {
@@ -431,7 +432,7 @@ public final class FormIllusionRenderer
             float squash = 0.03F + random.nextFloat() * 0.09F;
             float stretch = 1F + random.nextFloat() * (0.5F + distortFactor);
 
-            stack.push();
+            stack.pushPose();
 
             try
             {
@@ -447,7 +448,7 @@ public final class FormIllusionRenderer
             }
             finally
             {
-                stack.pop();
+                stack.popPose();
             }
         }
     }
@@ -473,7 +474,7 @@ public final class FormIllusionRenderer
 
     private static float getIllusionLift(IEntity entity, Vector3f dir, float distance, int index, float transition)
     {
-        World world = entity.getWorld();
+        Level world = entity.getWorld();
 
         if (world == null)
         {
@@ -515,11 +516,11 @@ public final class FormIllusionRenderer
         return lift.value;
     }
 
-    private static float getIllusionGroundDelta(World world, double x, double y, double z)
+    private static float getIllusionGroundDelta(Level world, double x, double y, double z)
     {
         for (int i = 0; i <= 6; i++)
         {
-            BlockPos blockPos = BlockPos.ofFloored(x, y + 3D - i, z);
+            BlockPos blockPos = BlockPos.containing(x, y + 3D - i, z);
             VoxelShape shape = world.getBlockState(blockPos).getCollisionShape(world, blockPos);
 
             if (shape.isEmpty())
@@ -527,7 +528,7 @@ public final class FormIllusionRenderer
                 continue;
             }
 
-            double top = blockPos.getY() + shape.getMax(Direction.Axis.Y);
+            double top = blockPos.getY() + shape.max(Direction.Axis.Y);
 
             return MathUtils.clamp((float) (top - y), -3F, 3F);
         }

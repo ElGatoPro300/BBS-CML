@@ -8,8 +8,7 @@ import mchorse.bbs_mod.resources.Link;
 import mchorse.bbs_mod.utils.CollectionUtils;
 import mchorse.bbs_mod.utils.DataPath;
 
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.texture.AbstractTexture;
+import net.minecraft.client.Minecraft;
 
 import net.irisshaders.iris.Iris;
 import net.irisshaders.iris.api.v0.IrisApi;
@@ -245,7 +244,7 @@ public class IrisUtils
     {
         try
         {
-            Iris.toggleShaders(MinecraftClient.getInstance(), !IrisUtils.isShaderPackEnabled());
+            Iris.toggleShaders(Minecraft.getInstance(), !IrisUtils.isShaderPackEnabled());
         }
         catch (Exception e)
         {
@@ -272,9 +271,9 @@ public class IrisUtils
     {
         try
         {
-            MinecraftClient client = MinecraftClient.getInstance();
+            Minecraft client = Minecraft.getInstance();
 
-            client.execute(() -> client.setScreen(new ShaderPackScreen(client.currentScreen)));
+            client.execute(() -> client.setScreen(new ShaderPackScreen(client.screen)));
         }
         catch (Exception e)
         {

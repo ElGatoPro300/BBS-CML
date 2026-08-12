@@ -3,10 +3,10 @@ package mchorse.bbs_mod.mixin.client;
 import mchorse.bbs_mod.selectors.ISelectorOwnerProvider;
 import mchorse.bbs_mod.selectors.SelectorOwner;
 
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.EntityType;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.world.World;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.level.Level;
 
 import org.spongepowered.asm.mixin.Mixin;
 
@@ -15,7 +15,7 @@ public abstract class LivingEntityMixin extends Entity implements ISelectorOwner
 {
     public SelectorOwner selector = new SelectorOwner((LivingEntity) (Object) this);
 
-    protected LivingEntityMixin(EntityType<?> type, World world)
+    protected LivingEntityMixin(EntityType<?> type, Level world)
     {
         super(type, world);
     }

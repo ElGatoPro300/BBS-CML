@@ -8,7 +8,7 @@ import mchorse.bbs_mod.cubic.render.vao.StructureVAOCollector;
 import mchorse.bbs_mod.forms.CustomVertexConsumerProvider;
 import mchorse.bbs_mod.forms.FormUtilsClient;
 
-import net.minecraft.client.render.VertexConsumer;
+import com.mojang.blaze3d.vertex.VertexConsumer;
 
 import java.util.Arrays;
 import java.util.HashMap;
@@ -293,49 +293,49 @@ public class StructureVaoManager
         }
 
         @Override
-        public VertexConsumer vertex(float x, float y, float z)
+        public VertexConsumer addVertex(float x, float y, float z)
         {
             this.delegate.vertex(x, y, z);
             return this;
         }
 
         @Override
-        public VertexConsumer color(int red, int green, int blue, int alpha)
+        public VertexConsumer setColor(int red, int green, int blue, int alpha)
         {
             this.delegate.color(red, green, blue, alpha);
             return this;
         }
 
         @Override
-        public VertexConsumer color(int argb)
+        public VertexConsumer setColor(int argb)
         {
             this.delegate.color(argb);
             return this;
         }
 
         @Override
-        public VertexConsumer lineWidth(float width)
+        public VertexConsumer setLineWidth(float width)
         {
             this.delegate.lineWidth(width);
             return this;
         }
 
         @Override
-        public VertexConsumer texture(float u, float v)
+        public VertexConsumer setUv(float u, float v)
         {
             this.delegate.texture(u, v);
             return this;
         }
 
         @Override
-        public VertexConsumer overlay(int u, int v)
+        public VertexConsumer setUv1(int u, int v)
         {
             this.delegate.overlay(u, v);
             return this;
         }
 
         @Override
-        public VertexConsumer light(int u, int v)
+        public VertexConsumer setUv2(int u, int v)
         {
             this.quadLights[this.quadIndex] = (u & 0xFFFF) | ((v & 0xFFFF) << 16);
             this.delegate.light(u, v);
@@ -343,7 +343,7 @@ public class StructureVaoManager
         }
 
         @Override
-        public VertexConsumer normal(float x, float y, float z)
+        public VertexConsumer setNormal(float x, float y, float z)
         {
             this.delegate.normal(x, y, z);
             this.quadIndex++;

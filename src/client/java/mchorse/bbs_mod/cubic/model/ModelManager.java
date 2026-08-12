@@ -26,7 +26,7 @@ import mchorse.bbs_mod.utils.pose.ShapeKeysManager;
 import mchorse.bbs_mod.utils.watchdog.IWatchDogListener;
 import mchorse.bbs_mod.utils.watchdog.WatchDogEvent;
 
-import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.Minecraft;
 
 import java.io.File;
 import java.io.InputStream;
@@ -487,7 +487,7 @@ public class ModelManager implements IWatchDogListener
                  * on a file-system watcher thread that has no OpenGL context. */
                 final ModelInstance toDelete = model;
 
-                MinecraftClient.getInstance().execute(() ->
+                Minecraft.getInstance().execute(() ->
                 {
                     toDelete.delete();
 

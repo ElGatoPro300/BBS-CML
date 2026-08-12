@@ -1,10 +1,10 @@
 package mchorse.bbs_mod.mixin.client;
 
-import net.minecraft.client.render.block.entity.BlockEntityRenderManager;
+import net.minecraft.client.renderer.blockentity.BlockEntityRenderDispatcher;
 
 import org.spongepowered.asm.mixin.Mixin;
 
-@Mixin(BlockEntityRenderManager.class)
+@Mixin(BlockEntityRenderDispatcher.class)
 public class BlockEntityRenderDispatcherMixin
 {
 }

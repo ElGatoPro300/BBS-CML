@@ -5,12 +5,13 @@ import mchorse.bbs_mod.forms.FormUtilsClient;
 import mchorse.bbs_mod.forms.forms.LightForm;
 import mchorse.bbs_mod.ui.framework.UIContext;
 
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.component.DataComponentTypes;
-import net.minecraft.component.type.BlockStateComponent;
-import net.minecraft.item.ItemStack;
-import net.minecraft.registry.Registries;
-import net.minecraft.util.Identifier;
+import net.minecraft.core.component.DataComponents;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.resources.Identifier;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.component.BlockItemStateProperties;
+
+import com.mojang.blaze3d.vertex.PoseStack;
 
 import java.util.Map;
 
@@ -21,7 +22,7 @@ public class LightFormRenderer extends FormRenderer<LightForm>
     public LightFormRenderer(LightForm form)
     {
         super(form);
-        this.stack = new ItemStack(Registries.ITEM.get(Identifier.of("minecraft", "light")));
+        this.stack = new ItemStack(BuiltInRegistries.ITEM.getValue(Identifier.fromNamespaceAndPath("minecraft", "light")));
     }
 
     @Override
@@ -34,7 +35,7 @@ public class LightFormRenderer extends FormRenderer<LightForm>
 
         if (!stack.isEmpty())
         {
-            stack.set(DataComponentTypes.BLOCK_STATE, new BlockStateComponent(Map.of("level", Integer.toString(level))));
+            stack.set(DataComponents.BLOCK_STATE, new BlockItemStateProperties(Map.of("level", Integer.toString(level))));
         }
 
         if (stack.isEmpty())
@@ -43,7 +44,7 @@ public class LightFormRenderer extends FormRenderer<LightForm>
         }
 
         CustomVertexConsumerProvider consumers = FormUtilsClient.getProvider();
-        MatrixStack matrices = new MatrixStack();
+        PoseStack matrices = new PoseStack();
 
         float cellW = x2 - x1;
         float cellH = y2 - y1;
@@ -51,7 +52,7 @@ public class LightFormRenderer extends FormRenderer<LightForm>
         float centerX = x1 + cellW / 2F;
         float centerY = y1 + cellH / 2F;
 
-        matrices.push();
+        matrices.pushPose();
         matrices.translate(centerX, centerY, 0F);
         matrices.scale(scale, scale, 1F);
 
@@ -59,7 +60,7 @@ public class LightFormRenderer extends FormRenderer<LightForm>
         context.batcher.getContext().drawItem(stack, -8, -8);
         context.batcher.getContext().drawStackOverlay(context.batcher.getFont().getRenderer(), stack, -8, -8);
         consumers.setUI(false);
-        matrices.pop();
+        matrices.popPose();
     }
 
     @Override

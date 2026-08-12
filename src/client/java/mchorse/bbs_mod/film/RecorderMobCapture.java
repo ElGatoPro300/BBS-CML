@@ -23,22 +23,22 @@ import mchorse.bbs_mod.ui.film.UIFilmPanel;
 import mchorse.bbs_mod.ui.framework.UIScreen;
 import mchorse.bbs_mod.utils.keyframes.KeyframeChannel;
 
-import net.minecraft.block.BlockState;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.network.ClientPlayerEntity;
-import net.minecraft.client.world.ClientWorld;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.EntityType;
-import net.minecraft.entity.EquipmentSlot;
-import net.minecraft.entity.ItemEntity;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.item.ItemStack;
-import net.minecraft.nbt.NbtCompound;
-import net.minecraft.storage.NbtWriteView;
-import net.minecraft.util.ErrorReporter;
-import net.minecraft.util.math.Box;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.multiplayer.ClientLevel;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.util.ProblemReporter;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.item.ItemEntity;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.storage.TagValueOutput;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -49,6 +49,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+
+import Film;
 
 /**
  * Captures world mobs into new film replays while {@link Recorder} is active.
@@ -299,7 +301,7 @@ public final class RecorderMobCapture
 
     public boolean tryCapture(Recorder recorder, Entity target, String groupPath)
     {
-        if (target == null || target instanceof PlayerEntity || target instanceof ActorEntity)
+        if (target == null || target instanceof Player || target instanceof ActorEntity)
         {
             return false;
         }
@@ -309,8 +311,8 @@ public final class RecorderMobCapture
             return false;
         }
 
-        MinecraftClient mc = MinecraftClient.getInstance();
-        ClientPlayerEntity player = mc.player;
+        Minecraft mc = Minecraft.getInstance();
+        LocalPlayer player = mc.player;
 
         if (player == null)
         {
@@ -369,8 +371,8 @@ public final class RecorderMobCapture
         }
 
         Map<String, MobCaptureAreaScanner.TypeBucket> buckets = MobCaptureAreaScanner.scan(setup);
-        MinecraftClient mc = MinecraftClient.getInstance();
-        ClientPlayerEntity player = mc.player;
+        Minecraft mc = Minecraft.getInstance();
+        LocalPlayer player = mc.player;
 
         if (player == null || buckets.isEmpty())
         {
@@ -488,8 +490,8 @@ public final class RecorderMobCapture
         this.lastFilm = film;
         this.lastTick = tick;
 
-        MinecraftClient mc = MinecraftClient.getInstance();
-        ClientWorld world = mc.world;
+        Minecraft mc = Minecraft.getInstance();
+        ClientLevel world = mc.level;
 
         if (world == null)
         {
@@ -511,7 +513,7 @@ public final class RecorderMobCapture
             }
 
             Replay replay = film.replays.getList().get(session.replayIndex);
-            Entity entity = world.getEntityById(session.entityId);
+            Entity entity = world.getEntity(session.entityId);
 
             if (session.recordingDeath)
             {
@@ -618,7 +620,7 @@ public final class RecorderMobCapture
         return true;
     }
 
-    private void handleDeathForFilm(Film film, Replay replay, Session session, LivingEntity living, int tick, ClientWorld world)
+    private void handleDeathForFilm(Film film, Replay replay, Session session, LivingEntity living, int tick, ClientLevel world)
     {
         this.applyDeathEffectKeyframes(replay, session, tick);
 
@@ -633,8 +635,8 @@ public final class RecorderMobCapture
 
     private void capturePlayerVehicle(Recorder recorder)
     {
-        MinecraftClient mc = MinecraftClient.getInstance();
-        ClientPlayerEntity player = mc.player;
+        Minecraft mc = Minecraft.getInstance();
+        LocalPlayer player = mc.player;
 
         if (player == null)
         {
@@ -658,8 +660,8 @@ public final class RecorderMobCapture
             return;
         }
 
-        MinecraftClient mc = MinecraftClient.getInstance();
-        ClientWorld world = mc.world;
+        Minecraft mc = Minecraft.getInstance();
+        ClientLevel world = mc.level;
 
         if (world == null)
         {
@@ -686,7 +688,7 @@ public final class RecorderMobCapture
             }
 
             Replay replay = film.replays.getList().get(session.replayIndex);
-            Entity entity = world.getEntityById(session.entityId);
+            Entity entity = world.getEntity(session.entityId);
 
             if (session.recordingDeath)
             {
@@ -932,7 +934,7 @@ public final class RecorderMobCapture
 
     private void recordFireAndParticlesIfChanged(Replay replay, Session session, LivingEntity living, int tick)
     {
-        boolean fire = living.getFireTicks() > 0;
+        boolean fire = living.getRemainingFireTicks() > 0;
         boolean particles = living.isAlive();
 
         if (session.lastFire == null || session.lastFire.booleanValue() != fire)
@@ -996,9 +998,9 @@ public final class RecorderMobCapture
             return;
         }
 
-        NbtWriteView view = NbtWriteView.create(ErrorReporter.EMPTY, entity.getEntityWorld().getRegistryManager());
-        entity.writeData(view);
-        NbtCompound compound = view.getNbt();
+        TagValueOutput view = TagValueOutput.createWithContext(ProblemReporter.DISCARDING, entity.level().registryAccess());
+        entity.saveWithoutId(view);
+        CompoundTag compound = view.buildResult();
 
         for (String key : MOB_NBT_STRIP_KEYS)
         {
@@ -1060,7 +1062,7 @@ public final class RecorderMobCapture
             return;
         }
 
-        StubEntity wrapper = new StubEntity(MinecraftClient.getInstance().world);
+        StubEntity wrapper = new StubEntity(Minecraft.getInstance().level);
 
         wrapper.setPosition(session.deathX, session.deathY, session.deathZ);
         wrapper.setPrevX(session.deathX);
@@ -1091,18 +1093,18 @@ public final class RecorderMobCapture
         session.lastX = entity.getX();
         session.lastY = entity.getY();
         session.lastZ = entity.getZ();
-        session.lastYaw = entity.getYaw();
-        session.lastPitch = entity.getPitch();
+        session.lastYaw = entity.getYRot();
+        session.lastPitch = entity.getXRot();
 
         if (entity instanceof LivingEntity living)
         {
-            session.lastHeadYaw = living.getHeadYaw();
-            session.lastBodyYaw = living.bodyYaw;
+            session.lastHeadYaw = living.getYHeadRot();
+            session.lastBodyYaw = living.yBodyRot;
         }
         else
         {
-            session.lastHeadYaw = entity.getYaw();
-            session.lastBodyYaw = entity.getYaw();
+            session.lastHeadYaw = entity.getYRot();
+            session.lastBodyYaw = entity.getYRot();
         }
     }
 
@@ -1113,10 +1115,10 @@ public final class RecorderMobCapture
             session.deathX = living.getX();
             session.deathY = living.getY();
             session.deathZ = living.getZ();
-            session.deathYaw = living.getYaw();
-            session.deathPitch = living.getPitch();
-            session.deathHeadYaw = living.getHeadYaw();
-            session.deathBodyYaw = living.bodyYaw;
+            session.deathYaw = living.getYRot();
+            session.deathPitch = living.getXRot();
+            session.deathHeadYaw = living.getYHeadRot();
+            session.deathBodyYaw = living.yBodyRot;
         }
         else
         {
@@ -1130,7 +1132,7 @@ public final class RecorderMobCapture
         }
     }
 
-    private void handleDeath(Recorder recorder, Replay replay, Session session, LivingEntity living, int tick, ClientWorld world)
+    private void handleDeath(Recorder recorder, Replay replay, Session session, LivingEntity living, int tick, ClientLevel world)
     {
         this.applyDeathEffectKeyframes(replay, session, tick);
 
@@ -1145,23 +1147,23 @@ public final class RecorderMobCapture
         this.refreshFilmUi(recorder);
     }
 
-    private boolean captureNearbyDrops(Replay replay, int tick, double x, double y, double z, ClientWorld world)
+    private boolean captureNearbyDrops(Replay replay, int tick, double x, double y, double z, ClientLevel world)
     {
-        Box box = new Box(
+        AABB box = new AABB(
             x - DROP_SCAN_RADIUS, y - DROP_SCAN_RADIUS, z - DROP_SCAN_RADIUS,
             x + DROP_SCAN_RADIUS, y + DROP_SCAN_RADIUS, z + DROP_SCAN_RADIUS
         );
-        List<ItemEntity> items = world.getEntitiesByClass(ItemEntity.class, box, (item) -> item.age <= 2);
+        List<ItemEntity> items = world.getEntitiesOfClass(ItemEntity.class, box, (item) -> item.tickCount <= 2);
         boolean found = false;
 
         for (ItemEntity item : items)
         {
-            if (item.getStack().isEmpty())
+            if (item.getItem().isEmpty())
             {
                 continue;
             }
 
-            this.addItemDropClip(replay, tick, item.getEntityPos(), item.getVelocity(), item.getStack());
+            this.addItemDropClip(replay, tick, item.position(), item.getDeltaMovement(), item.getItem());
             found = true;
         }
 
@@ -1172,24 +1174,24 @@ public final class RecorderMobCapture
     {
         for (EquipmentSlot slot : EquipmentSlot.values())
         {
-            ItemStack stack = living.getEquippedStack(slot);
+            ItemStack stack = living.getItemBySlot(slot);
 
             if (stack.isEmpty())
             {
                 continue;
             }
 
-            Vec3d velocity = new Vec3d(
+            Vec3 velocity = new Vec3(
                 (living.getRandom().nextDouble() - 0.5D) * 0.2D,
                 living.getRandom().nextDouble() * 0.2D + 0.1D,
                 (living.getRandom().nextDouble() - 0.5D) * 0.2D
             );
 
-            this.addItemDropClip(replay, tick, new Vec3d(x, y + 0.5D, z), velocity, stack);
+            this.addItemDropClip(replay, tick, new Vec3(x, y + 0.5D, z), velocity, stack);
         }
     }
 
-    private void addItemDropClip(Replay replay, int tick, Vec3d pos, Vec3d velocity, ItemStack stack)
+    private void addItemDropClip(Replay replay, int tick, Vec3 pos, Vec3 velocity, ItemStack stack)
     {
         ItemDropActionClip clip = new ItemDropActionClip();
 
@@ -1223,7 +1225,7 @@ public final class RecorderMobCapture
         return entity.getName().getString();
     }
 
-    private void onCapturedEntityMissing(Film film, Replay replay, Session session, int tick, ClientWorld world, Iterator<Session> iterator, Recorder recorder)
+    private void onCapturedEntityMissing(Film film, Replay replay, Session session, int tick, ClientLevel world, Iterator<Session> iterator, Recorder recorder)
     {
         if (!session.livingEntity)
         {
@@ -1245,7 +1247,7 @@ public final class RecorderMobCapture
         this.finishSilentRemoval(film, replay, session, tick, world, iterator, recorder);
     }
 
-    private void finishSilentRemoval(Film film, Replay replay, Session session, int tick, ClientWorld world, Iterator<Session> iterator, Recorder recorder)
+    private void finishSilentRemoval(Film film, Replay replay, Session session, int tick, ClientLevel world, Iterator<Session> iterator, Recorder recorder)
     {
         this.applyDeathVisibilityKeyframes(replay, tick);
 
@@ -1315,9 +1317,9 @@ public final class RecorderMobCapture
             return;
         }
 
-        MinecraftClient mc = MinecraftClient.getInstance();
-        ClientWorld world = mc.world;
-        Entity successor = world == null ? null : world.getEntityById(newEntityId);
+        Minecraft mc = Minecraft.getInstance();
+        ClientLevel world = mc.level;
+        Entity successor = world == null ? null : world.getEntity(newEntityId);
 
         if (successor != null)
         {
@@ -1347,9 +1349,9 @@ public final class RecorderMobCapture
         this.entityReplayIndices.remove(entityId);
     }
 
-    private Entity findConversionSuccessor(ClientWorld world, Session session)
+    private Entity findConversionSuccessor(ClientLevel world, Session session)
     {
-        Box box = new Box(
+        AABB box = new AABB(
             session.lastX - CONVERSION_SCAN_RADIUS,
             session.lastY - CONVERSION_SCAN_RADIUS,
             session.lastZ - CONVERSION_SCAN_RADIUS,
@@ -1360,14 +1362,14 @@ public final class RecorderMobCapture
         Entity best = null;
         double bestDist = Double.MAX_VALUE;
 
-        for (Entity entity : world.getOtherEntities(null, box, this::canCaptureConversionSuccessor))
+        for (Entity entity : world.getEntities(null, box, this::canCaptureConversionSuccessor))
         {
-            if (entity.age > CONVERSION_SUCCESSOR_MAX_AGE)
+            if (entity.tickCount > CONVERSION_SUCCESSOR_MAX_AGE)
             {
                 continue;
             }
 
-            double dist = entity.squaredDistanceTo(session.lastX, session.lastY, session.lastZ);
+            double dist = entity.distanceToSqr(session.lastX, session.lastY, session.lastZ);
 
             if (dist < bestDist)
             {
@@ -1381,7 +1383,7 @@ public final class RecorderMobCapture
 
     private boolean canCaptureConversionSuccessor(Entity entity)
     {
-        if (entity == null || entity instanceof PlayerEntity || entity instanceof ActorEntity)
+        if (entity == null || entity instanceof Player || entity instanceof ActorEntity)
         {
             return false;
         }
@@ -1394,7 +1396,7 @@ public final class RecorderMobCapture
         return !this.capturedEntityIds.contains(entity.getId());
     }
 
-    private void processPendingConversions(Film film, int tick, ClientWorld world, Recorder recorder)
+    private void processPendingConversions(Film film, int tick, ClientLevel world, Recorder recorder)
     {
         if (!this.pendingConversions.isEmpty())
         {
@@ -1404,7 +1406,7 @@ public final class RecorderMobCapture
             {
                 Map.Entry<Integer, PendingConversion> entry = iterator.next();
                 PendingConversion pending = entry.getValue();
-                Entity successor = world.getEntityById(entry.getKey());
+                Entity successor = world.getEntity(entry.getKey());
 
                 if (successor != null)
                 {
@@ -1511,7 +1513,7 @@ public final class RecorderMobCapture
 
     private boolean tryCaptureOnFilm(Film film, int tick, Entity target, String groupPath)
     {
-        if (target == null || target instanceof PlayerEntity || target instanceof ActorEntity)
+        if (target == null || target instanceof Player || target instanceof ActorEntity)
         {
             return false;
         }
@@ -1521,8 +1523,8 @@ public final class RecorderMobCapture
             return false;
         }
 
-        MinecraftClient mc = MinecraftClient.getInstance();
-        ClientPlayerEntity player = mc.player;
+        Minecraft mc = Minecraft.getInstance();
+        LocalPlayer player = mc.player;
 
         if (player == null || film == null)
         {
@@ -1584,7 +1586,7 @@ public final class RecorderMobCapture
 
     private void refreshFilmUi(Film film)
     {
-        MinecraftClient.getInstance().execute(() ->
+        Minecraft.getInstance().execute(() ->
         {
             UIDashboard dashboard = BBSModClient.getDashboard();
 

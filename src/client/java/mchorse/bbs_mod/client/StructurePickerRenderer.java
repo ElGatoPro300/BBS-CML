@@ -8,13 +8,13 @@ import mchorse.bbs_mod.ui.items.UIStructurePickerPanel;
 
 import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderContext;
 
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Direction;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.client.Minecraft;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.world.phys.Vec3;
 
 import com.mojang.blaze3d.opengl.GlStateManager;
+import com.mojang.blaze3d.vertex.PoseStack;
 
 import java.util.LinkedHashSet;
 import java.util.Set;
@@ -33,23 +33,23 @@ public class StructurePickerRenderer
             return;
         }
 
-        MinecraftClient mc = MinecraftClient.getInstance();
+        Minecraft mc = Minecraft.getInstance();
 
         if (context.matrices() == null)
         {
             return;
         }
 
-        Vec3d camera = mc.gameRenderer.getCamera().getCameraPos();
+        Vec3 camera = mc.gameRenderer.getMainCamera().position();
 
         GlStateManager._enableBlend();
         GlStateManager._blendFuncSeparate(770, 771, 1, 0);
         GlStateManager._disableDepthTest();
         GlStateManager._depthMask(false);
 
-        MatrixStack stack = context.matrices();
+        PoseStack stack = context.matrices();
 
-        stack.push();
+        stack.pushPose();
         stack.translate(-camera.x, -camera.y, -camera.z);
 
         Set<BlockPos> blockPositions = new LinkedHashSet<>();
@@ -83,14 +83,14 @@ public class StructurePickerRenderer
             }
         }
 
-        stack.pop();
+        stack.popPose();
 
         GlStateManager._depthMask(true);
         GlStateManager._enableDepthTest();
         GlStateManager._disableBlend();
     }
 
-    private static void renderRegionBox(MatrixStack stack, BlockPos first, BlockPos second, StructurePickerMode mode, Direction triangleFacing, float r, float g, float b)
+    private static void renderRegionBox(PoseStack stack, BlockPos first, BlockPos second, StructurePickerMode mode, Direction triangleFacing, float r, float g, float b)
     {
         BlockPos adjusted = StructurePickerSelection.adjustSecond(first, second, mode);
         BlockPos min = StructurePickerSelection.min(first, adjusted);
@@ -107,7 +107,7 @@ public class StructurePickerRenderer
         Draw.renderBox(stack, min.getX(), min.getY(), min.getZ(), sizeX, sizeY, sizeZ, r, g, b, 0.95F);
     }
 
-    private static void renderMergedBlockBox(MatrixStack stack, BlockPos min, BlockPos max, float r, float g, float b)
+    private static void renderMergedBlockBox(PoseStack stack, BlockPos min, BlockPos max, float r, float g, float b)
     {
         double sizeX = max.getX() - min.getX() + 1D;
         double sizeY = max.getY() - min.getY() + 1D;

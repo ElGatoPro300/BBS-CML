@@ -9,12 +9,13 @@ import mchorse.bbs_mod.client.BBSRendering;
 import mchorse.bbs_mod.film.Films;
 import mchorse.bbs_mod.items.GunZoom;
 
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.render.GameRenderer;
-import net.minecraft.client.render.RenderTickCounter;
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.util.math.MathHelper;
-import net.minecraft.util.math.RotationAxis;
+import net.minecraft.client.DeltaTracker;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.GameRenderer;
+import net.minecraft.util.Mth;
+
+import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.math.Axis;
 
 import org.objectweb.asm.Opcodes;
 import org.spongepowered.asm.mixin.Mixin;
@@ -36,7 +37,7 @@ public class GameRendererMixin
      * This injection cancels bobbing when camera controller takes over
      */
     @Inject(method = "bobView", at = @At("HEAD"), cancellable = true)
-    public void onBob(MatrixStack matrices, float tickDelta, CallbackInfo ci)
+    public void onBob(PoseStack matrices, float tickDelta, CallbackInfo ci)
     {
         Films.FirstPersonBobbingSample sample = BBSModClient.getFilms().getFirstPersonBobbingSample(tickDelta);
 
@@ -56,16 +57,16 @@ public class GameRendererMixin
         }
     }
 
-    private void bbs$applyReplayFirstPersonBobbing(MatrixStack matrices, float tickDelta, Films.FirstPersonBobbingSample sample)
+    private void bbs$applyReplayFirstPersonBobbing(PoseStack matrices, float tickDelta, Films.FirstPersonBobbingSample sample)
     {
-        MinecraftClient mc = MinecraftClient.getInstance();
+        Minecraft mc = Minecraft.getInstance();
 
-        if (mc.world == null)
+        if (mc.level == null)
         {
             return;
         }
 
-        long worldTick = mc.world.getTime();
+        long worldTick = mc.level.getGameTime();
 
         if (this.bbs$lastFpBobbingTick != worldTick)
         {
@@ -75,8 +76,8 @@ public class GameRendererMixin
 
             if (!sample.paused)
             {
-                float movement = sample.grounded ? MathHelper.sqrt(sample.vX * sample.vX + sample.vZ * sample.vZ) * 4F : 0F;
-                float frequency = BBSSettings.replayFpBobbingFrequency == null ? 1F : MathHelper.clamp(BBSSettings.replayFpBobbingFrequency.get(), 0F, 3F);
+                float movement = sample.grounded ? Mth.sqrt(sample.vX * sample.vX + sample.vZ * sample.vZ) * 4F : 0F;
+                float frequency = BBSSettings.replayFpBobbingFrequency == null ? 1F : Mth.clamp(BBSSettings.replayFpBobbingFrequency.get(), 0F, 3F);
 
                 movement = Math.min(1F, movement);
                 this.bbs$fpBobStride += (movement - this.bbs$fpBobStride) * 0.4F;
@@ -84,13 +85,13 @@ public class GameRendererMixin
             }
         }
 
-        float phase = MathHelper.lerp(tickDelta, this.bbs$fpBobPrevPhase, this.bbs$fpBobPhase);
-        float intensity = BBSSettings.replayFpBobbingIntensity == null ? 1F : MathHelper.clamp(BBSSettings.replayFpBobbingIntensity.get(), 0F, 2F);
-        float stride = MathHelper.lerp(tickDelta, this.bbs$fpBobPrevStride, this.bbs$fpBobStride) * intensity;
+        float phase = Mth.lerp(tickDelta, this.bbs$fpBobPrevPhase, this.bbs$fpBobPhase);
+        float intensity = BBSSettings.replayFpBobbingIntensity == null ? 1F : Mth.clamp(BBSSettings.replayFpBobbingIntensity.get(), 0F, 2F);
+        float stride = Mth.lerp(tickDelta, this.bbs$fpBobPrevStride, this.bbs$fpBobStride) * intensity;
 
-        matrices.translate(MathHelper.sin(phase * (float) Math.PI) * stride * 0.5F, -Math.abs(MathHelper.cos(phase * (float) Math.PI) * stride), 0F);
-        matrices.multiply(RotationAxis.POSITIVE_Z.rotationDegrees(MathHelper.sin(phase * (float) Math.PI) * stride * 3F));
-        matrices.multiply(RotationAxis.POSITIVE_X.rotationDegrees(Math.abs(MathHelper.cos(phase * (float) Math.PI - 0.2F) * stride) * 5F));
+        matrices.translate(Mth.sin(phase * (float) Math.PI) * stride * 0.5F, -Math.abs(Mth.cos(phase * (float) Math.PI) * stride), 0F);
+        matrices.mulPose(Axis.ZP.rotationDegrees(Mth.sin(phase * (float) Math.PI) * stride * 3F));
+        matrices.mulPose(Axis.XP.rotationDegrees(Math.abs(Mth.cos(phase * (float) Math.PI - 0.2F) * stride) * 5F));
     }
 
     private void bbs$resetReplayFirstPersonBobbing()
@@ -128,20 +129,20 @@ public class GameRendererMixin
     /**
      * This injection replaces the camera roll when camera controller takes over
      */
-    @Inject(method = "tiltViewWhenHurt", at = @At("HEAD"), cancellable = true)
-    public void onTiltViewWhenHurt(MatrixStack matrices, float tickDelta, CallbackInfo info)
+    @Inject(method = "bobHurt", at = @At("HEAD"), cancellable = true)
+    public void onTiltViewWhenHurt(PoseStack matrices, float tickDelta, CallbackInfo info)
     {
         CameraController controller = BBSModClient.getCameraController();
 
         if (controller.getCurrent() != null && !BBSRendering.isIrisShadowPass())
         {
-            matrices.multiply(RotationAxis.POSITIVE_Z.rotationDegrees(controller.getRoll()));
+            matrices.mulPose(Axis.ZP.rotationDegrees(controller.getRoll()));
 
             info.cancel();
         }
     }
 
-    @Inject(method = "renderHand", at = @At("HEAD"), cancellable = true)
+    @Inject(method = "renderItemInHand", at = @At("HEAD"), cancellable = true)
     public void onRenderHand(CallbackInfo info)
     {
         ICameraController current = BBSModClient.getCameraController().getCurrent();
@@ -152,24 +153,24 @@ public class GameRendererMixin
         }
     }
 
-    @Inject(at = @At("HEAD"), method = "renderWorld")
+    @Inject(at = @At("HEAD"), method = "renderLevel")
     private void onWorldRenderBegin(CallbackInfo callbackInfo)
     {
         BBSRendering.onWorldRenderBegin();
     }
 
-    @Inject(at = @At("RETURN"), method = "renderWorld")
+    @Inject(at = @At("RETURN"), method = "renderLevel")
     private void onWorldRenderEnd(CallbackInfo callbackInfo)
     {
         BBSRendering.onWorldRenderEnd();
     }
 
-    @Inject(method = "render", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/gui/hud/InGameHud;render(Lnet/minecraft/client/gui/DrawContext;Lnet/minecraft/client/render/RenderTickCounter;)V", ordinal = 0), require = 0)
-    private void onBeforeHudRendering(RenderTickCounter tickCounter, boolean tick, CallbackInfo info)
+    @Inject(method = "render", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/gui/Gui;render(Lnet/minecraft/client/gui/GuiGraphics;Lnet/minecraft/client/DeltaTracker;)V", ordinal = 0), require = 0)
+    private void onBeforeHudRendering(DeltaTracker tickCounter, boolean tick, CallbackInfo info)
     {
         ICameraController current = BBSModClient.getCameraController().getCurrent();
 
-        if (MinecraftClient.getInstance().options.hudHidden && current == null)
+        if (Minecraft.getInstance().options.hideGui && current == null)
         {
             BBSRendering.onRenderBeforeScreen();
         }

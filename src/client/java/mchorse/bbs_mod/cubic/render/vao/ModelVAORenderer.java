@@ -14,25 +14,26 @@ import mchorse.bbs_mod.utils.colors.Color;
 import mchorse.bbs_mod.utils.iris.FormColorGradePatch;
 import mchorse.bbs_mod.utils.iris.ShaderOpacityPatch;
 
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gl.GlUniform;
-import net.minecraft.client.gl.ShaderProgram;
-import net.minecraft.client.render.GameRenderer;
-import net.minecraft.client.render.VertexFormats;
-import net.minecraft.client.texture.NativeImage;
-import net.minecraft.client.texture.NativeImageBackedTexture;
-import net.minecraft.client.util.math.MatrixStack;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.GameRenderer;
+import net.minecraft.client.renderer.texture.DynamicTexture;
 
 import org.joml.Matrix3f;
 import org.joml.Matrix4f;
 import org.joml.Matrix4fStack;
 import org.joml.Vector3f;
 
+import com.mojang.blaze3d.ProjectionType;
 import com.mojang.blaze3d.buffers.GpuBufferSlice;
+import com.mojang.blaze3d.opengl.GlProgram;
 import com.mojang.blaze3d.opengl.GlStateManager;
+import com.mojang.blaze3d.opengl.Uniform;
 import com.mojang.blaze3d.pipeline.RenderPipeline;
-import com.mojang.blaze3d.systems.ProjectionType;
+import com.mojang.blaze3d.pipeline.RenderTarget;
+import com.mojang.blaze3d.platform.NativeImage;
 import com.mojang.blaze3d.systems.RenderSystem;
+import com.mojang.blaze3d.vertex.DefaultVertexFormat;
+import com.mojang.blaze3d.vertex.PoseStack;
 
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL30;
@@ -153,7 +154,7 @@ public class ModelVAORenderer
     private static boolean suppressShapeKeyMainPassGlow;
 
     /* 1x1 white texture used as the albedo source during the paint overlay pass. */
-    private static NativeImageBackedTexture whiteTexture;
+    private static DynamicTexture whiteTexture;
     /* Scene color copy for ColorGradeOverlay (Iris-lit pixels → FormColorGrade). */
     private static Texture gradeSceneColor;
 
@@ -189,9 +190,9 @@ public class ModelVAORenderer
             this.half.set(EffectTransformMath.MODEL_MASK_HALF_BASE, EffectTransformMath.MODEL_MASK_HALF_BASE * EffectTransformMath.MODEL_MASK_Y_BIAS, EffectTransformMath.MODEL_MASK_HALF_BASE);
         }
 
-        private void upload(ShaderProgram shader, String prefix)
+        private void upload(GlProgram shader, String prefix)
         {
-            int location = GL30.glGetUniformLocation(shader.getGlRef(), prefix + "Inverse");
+            int location = GL30.glGetUniformLocation(shader.getProgramId(), prefix + "Inverse");
             if (location != -1)
             {
                 float[] buf = new float[16];
@@ -199,25 +200,25 @@ public class ModelVAORenderer
                 GL30.glUniformMatrix4fv(location, false, buf);
             }
 
-            location = GL30.glGetUniformLocation(shader.getGlRef(), prefix + "Active");
+            location = GL30.glGetUniformLocation(shader.getProgramId(), prefix + "Active");
             if (location != -1)
             {
                 GL30.glUniform1f(location, this.active ? 1F : 0F);
             }
 
-            location = GL30.glGetUniformLocation(shader.getGlRef(), prefix + "Half");
+            location = GL30.glGetUniformLocation(shader.getProgramId(), prefix + "Half");
             if (location != -1)
             {
                 GL30.glUniform3f(location, this.half.x, this.half.y, this.half.z);
             }
 
-            location = GL30.glGetUniformLocation(shader.getGlRef(), prefix + "BottomAnchored");
+            location = GL30.glGetUniformLocation(shader.getProgramId(), prefix + "BottomAnchored");
             if (location != -1)
             {
                 GL30.glUniform1f(location, this.bottomAnchored ? 1F : 0F);
             }
 
-            location = GL30.glGetUniformLocation(shader.getGlRef(), prefix + "Shape");
+            location = GL30.glGetUniformLocation(shader.getProgramId(), prefix + "Shape");
             if (location != -1)
             {
                 GL30.glUniform1f(location, this.shape);
@@ -399,7 +400,7 @@ public class ModelVAORenderer
             BBSRendering.ensurePaintOverlayTargetFramebuffer();
         }
 
-        GameRenderer gameRenderer = MinecraftClient.getInstance().gameRenderer;
+        GameRenderer gameRenderer = Minecraft.getInstance().gameRenderer;
 
         // gameRenderer.getLightmapTextureManager().enable();
         // gameRenderer.getOverlayTexture().setupOverlayColor();
@@ -818,15 +819,15 @@ public class ModelVAORenderer
      */
     public static boolean captureGradeSceneColor()
     {
-        net.minecraft.client.gl.Framebuffer source = BBSRendering.getPaintOverlaySourceFramebuffer();
+        RenderTarget source = BBSRendering.getPaintOverlaySourceFramebuffer();
 
         if (source == null)
         {
             return false;
         }
 
-        int width = source.textureWidth;
-        int height = source.textureHeight;
+        int width = source.width;
+        int height = source.height;
 
         if (width <= 0 || height <= 0)
         {
@@ -1097,7 +1098,7 @@ public class ModelVAORenderer
 
                 ImageIO.write(image, "png", baos);
 
-                whiteTexture = new NativeImageBackedTexture(() -> "bbs_white_texture", NativeImage.read(new ByteArrayInputStream(baos.toByteArray())));
+                whiteTexture = new DynamicTexture(() -> "bbs_white_texture", NativeImage.read(new ByteArrayInputStream(baos.toByteArray())));
             }
             catch (Exception e)
             {
@@ -1105,7 +1106,7 @@ public class ModelVAORenderer
             }
         }
 
-        return whiteTexture.getGlTexture() != null ? 1 : 0;
+        return whiteTexture.getTexture() != null ? 1 : 0;
     }
 
     public static void setPaint(float r, float g, float b, float strength)
@@ -1213,9 +1214,9 @@ public class ModelVAORenderer
         suppressShapeKeyMainPassGlow = suppress;
     }
 
-    public static void beginCpuGeometry(ShaderProgram shader)
+    public static void beginCpuGeometry(GlProgram shader)
     {
-        GlUniform glowingUniform = shader.getUniform("GlowingColor");
+        Uniform glowingUniform = shader.getUniform("GlowingColor");
 
         glowingUniformActive = glowingUniform != null;
     }
@@ -1696,12 +1697,12 @@ public class ModelVAORenderer
         return formRootInverse;
     }
 
-    public static void render(IModelVAO modelVAO, MatrixStack stack, float r, float g, float b, float a, int light, int overlay)
+    public static void render(IModelVAO modelVAO, PoseStack stack, float r, float g, float b, float a, int light, int overlay)
     {
         render(null, modelVAO, stack, r, g, b, a, light, overlay);
     }
 
-    public static void render(RenderPipeline shader, IModelVAO modelVAO, MatrixStack stack, float r, float g, float b, float a, int light, int overlay)
+    public static void render(RenderPipeline shader, IModelVAO modelVAO, PoseStack stack, float r, float g, float b, float a, int light, int overlay)
     {
         /* Iris / resource-reload races can leave BBSShaders.getModel() null while
          * form-list UI cards still try to draw Extruded/Structure VAOs. */
@@ -1723,7 +1724,7 @@ public class ModelVAORenderer
         // shader.bind();
         ShaderOpacityPatch.reassertPostDeferredDepthState();
         FormColorGradePatch.uploadToCurrentProgram();
-        modelVAO.render(VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL, r, g, b, a, light, overlay);
+        modelVAO.render(DefaultVertexFormat.NEW_ENTITY, r, g, b, a, light, overlay);
 
         GlStateManager._activeTexture(GL30.GL_TEXTURE0);
         // GlStateManager._bindTexture(...);
@@ -1762,7 +1763,7 @@ public class ModelVAORenderer
     {
     }
 
-    public static void setupUniforms(MatrixStack stack, RenderPipeline shader)
+    public static void setupUniforms(PoseStack stack, RenderPipeline shader)
     {
         /*
         if (colorGradeOverlayPass && gradeSceneColor != null && gradeSceneColor.isValid())
@@ -1790,7 +1791,7 @@ public class ModelVAORenderer
         setupUniforms(null, shader, true);
     }
 
-    private static void setupUniforms(MatrixStack stack, RenderPipeline shader, boolean cpuPretransformed)
+    private static void setupUniforms(PoseStack stack, RenderPipeline shader, boolean cpuPretransformed)
     {
         if (shader == null)
         {
@@ -1815,7 +1816,7 @@ public class ModelVAORenderer
         }
         else if (stack != null)
         {
-            setUniformMatrix3f(shader, "NormalMat", stack.peek().getNormalMatrix());
+            setUniformMatrix3f(shader, "NormalMat", stack.last().normal());
         }
 
         setUniform4f(shader, "PaintColor", paintR, paintG, paintB, paintStrength);
@@ -1875,17 +1876,17 @@ public class ModelVAORenderer
         setUniform4f(shader, "ColorModulator", 1F, 1F, 1F, 1F);
     }
 
-    private static void setModelViewUniform(MatrixStack stack, RenderPipeline shader)
+    private static void setModelViewUniform(PoseStack stack, RenderPipeline shader)
     {
         Matrix4f modelView;
 
         if (usesCapturedModelView())
         {
-            modelView = new Matrix4f(stack.peek().getPositionMatrix());
+            modelView = new Matrix4f(stack.last().pose());
         }
         else
         {
-            modelView = new Matrix4f(RenderSystem.getModelViewMatrix()).mul(stack.peek().getPositionMatrix());
+            modelView = new Matrix4f(RenderSystem.getModelViewMatrix()).mul(stack.last().pose());
         }
 
         setUniformMatrix4f(shader, "ModelViewMat", modelView);

@@ -9,12 +9,11 @@ import mchorse.bbs_mod.obj.shapes.ShapeKeys;
 import mchorse.bbs_mod.resources.Link;
 import mchorse.bbs_mod.ui.framework.elements.utils.StencilMap;
 
-import net.minecraft.client.render.BufferBuilder;
-import net.minecraft.client.render.BuiltBuffer;
-import net.minecraft.client.render.Tessellator;
-import net.minecraft.client.util.math.MatrixStack;
-
 import com.mojang.blaze3d.pipeline.RenderPipeline;
+import com.mojang.blaze3d.vertex.BufferBuilder;
+import com.mojang.blaze3d.vertex.MeshData;
+import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.blaze3d.vertex.Tesselator;
 import com.mojang.blaze3d.vertex.VertexFormat;
 
 /**
@@ -38,7 +37,7 @@ public class CubicCpuGroupDrawRenderer extends CubicCubeRenderer
     }
 
     @Override
-    public boolean renderGroup(BufferBuilder builder, MatrixStack stack, ModelGroup group, Model model)
+    public boolean renderGroup(BufferBuilder builder, PoseStack stack, ModelGroup group, Model model)
     {
         if (group.cubes.isEmpty() && group.meshes.isEmpty())
         {
@@ -75,7 +74,7 @@ public class CubicCpuGroupDrawRenderer extends CubicCubeRenderer
         return false;
     }
 
-    private void drawGroup(MatrixStack stack, ModelGroup group, Model model, Link texture, float alpha)
+    private void drawGroup(PoseStack stack, ModelGroup group, Model model, Link texture, float alpha)
     {
         if (texture != null)
         {
@@ -123,11 +122,11 @@ public class CubicCpuGroupDrawRenderer extends CubicCubeRenderer
 
         this.setColor(cr, cg, cb, alpha);
 
-        BufferBuilder groupBuilder = Tessellator.getInstance().begin(VertexFormat.DrawMode.TRIANGLES, this.pipeline.getVertexFormat());
+        BufferBuilder groupBuilder = Tesselator.getInstance().begin(VertexFormat.DrawMode.TRIANGLES, this.pipeline.getVertexFormat());
 
         super.renderGroup(groupBuilder, stack, group, model);
 
-        BuiltBuffer built = groupBuilder.endNullable();
+        MeshData built = groupBuilder.build();
 
         if (built != null)
         {

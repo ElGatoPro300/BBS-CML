@@ -11,16 +11,15 @@ import mchorse.bbs_mod.ui.framework.elements.utils.StencilMap;
 import mchorse.bbs_mod.utils.iris.FormColorGradePatch;
 import mchorse.bbs_mod.utils.joml.Matrices;
 
-import net.minecraft.client.gl.ShaderProgram;
-import net.minecraft.client.util.math.MatrixStack;
-
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
 import org.joml.Vector4f;
 
+import com.mojang.blaze3d.opengl.GlProgram;
 import com.mojang.blaze3d.opengl.GlStateManager;
 import com.mojang.blaze3d.pipeline.RenderPipeline;
 import com.mojang.blaze3d.systems.RenderSystem;
+import com.mojang.blaze3d.vertex.PoseStack;
 
 import org.lwjgl.opengl.GL15;
 import org.lwjgl.opengl.GL30;
@@ -370,7 +369,7 @@ public class BOBJModelVAO
     }
 
     /**
-     * BBS {@link ShaderProgram#bind()} snapshots Sampler* from {@link RenderSystem} at
+     * BBS {@link GlProgram#bind()} snapshots Sampler* from {@link RenderSystem} at
      * {@link ModelVAORenderer#setupUniforms}. Skin must be bound before that — binding after
      * leaves Sampler0 on whatever Iris left (featureless tinted silhouette, no skin).
      */
@@ -382,7 +381,7 @@ public class BOBJModelVAO
         }
     }
 
-    protected void rebindShaderSamplers(RenderPipeline shader, MatrixStack stack, float r, float g, float b, float a, int light, int overlay)
+    protected void rebindShaderSamplers(RenderPipeline shader, PoseStack stack, float r, float g, float b, float a, int light, int overlay)
     {
         ModelVAORenderer.setupUniforms(stack, shader);
         // GlStateManager._glUseProgram(shader.getGlRef());
@@ -397,7 +396,7 @@ public class BOBJModelVAO
         GL30.glVertexAttribI2i(Attributes.LIGHTMAP_UV, light & '\uffff', light >> 16 & '\uffff');
     }
 
-    public void render(RenderPipeline shader, MatrixStack stack, float r, float g, float b, float a, StencilMap stencilMap, int light, int overlay, Link defaultTexture)
+    public void render(RenderPipeline shader, PoseStack stack, float r, float g, float b, float a, StencilMap stencilMap, int light, int overlay, Link defaultTexture)
     {
         boolean hasShaders = BBSRendering.isIrisShadersEnabled();
 

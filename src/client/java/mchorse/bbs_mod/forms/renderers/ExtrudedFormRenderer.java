@@ -23,13 +23,10 @@ import mchorse.bbs_mod.utils.iris.FormColorGradePatch;
 import mchorse.bbs_mod.utils.iris.ShaderOpacityPatch;
 import mchorse.bbs_mod.utils.joml.Vectors;
 
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.render.DiffuseLighting;
-import net.minecraft.client.render.GameRenderer;
-import net.minecraft.client.render.LightmapTextureManager;
-import net.minecraft.client.render.OverlayTexture;
-import net.minecraft.client.render.VertexFormats;
-import net.minecraft.client.util.math.MatrixStack;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.GameRenderer;
+import net.minecraft.client.renderer.LightTexture;
+import net.minecraft.client.renderer.texture.OverlayTexture;
 
 import org.joml.Matrix3f;
 import org.joml.Matrix4f;
@@ -38,6 +35,7 @@ import org.joml.Vector3f;
 import com.mojang.blaze3d.opengl.GlStateManager;
 import com.mojang.blaze3d.pipeline.RenderPipeline;
 import com.mojang.blaze3d.systems.RenderSystem;
+import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexFormat;
 
 import org.lwjgl.opengl.GL11;
@@ -82,9 +80,9 @@ public class ExtrudedFormRenderer extends FormRenderer<ExtrudedForm>
     @Override
     public void renderInUI(UIContext context, int x1, int y1, int x2, int y2)
     {
-        MatrixStack stack = new MatrixStack();
+        PoseStack stack = new PoseStack();
 
-        stack.push();
+        stack.pushPose();
 
         Matrix4f uiMatrix = ModelFormRenderer.getUIMatrix(context, x1, y1, x2, y2);
 
@@ -109,7 +107,7 @@ public class ExtrudedFormRenderer extends FormRenderer<ExtrudedForm>
         {
             this.renderModel(() -> modelShader,
                 stack,
-                OverlayTexture.DEFAULT_UV, LightmapTextureManager.MAX_LIGHT_COORDINATE, Colors.WHITE,
+                OverlayTexture.NO_OVERLAY, LightTexture.FULL_BRIGHT, Colors.WHITE,
                 context.getTransition(),
                 null,
                 true,
@@ -123,7 +121,7 @@ public class ExtrudedFormRenderer extends FormRenderer<ExtrudedForm>
 
         // DiffuseLighting.disableGuiDepthLighting();
 
-        stack.pop();
+        stack.popPose();
     }
 
     @Override
@@ -151,7 +149,7 @@ public class ExtrudedFormRenderer extends FormRenderer<ExtrudedForm>
         this.renderModel(shader, context.stack, context.overlay, context.light, context.color, context.getTransition(), context.camera, false, context.modelRenderer || context.isPicking(), context.world, context);
     }
 
-    private void renderModel(Supplier<RenderPipeline> shader, MatrixStack matrices, int overlay, int light, int overlayColor, float transition, Camera camera, boolean invertY, boolean modelRenderer, MatrixStack world, FormRenderingContext renderContext)
+    private void renderModel(Supplier<RenderPipeline> shader, PoseStack matrices, int overlay, int light, int overlayColor, float transition, Camera camera, boolean invertY, boolean modelRenderer, PoseStack world, FormRenderingContext renderContext)
     {
         Link texture = this.form.texture.get();
         ModelVAO data = BBSModClient.getTextures().getExtruder().get(texture);
@@ -163,7 +161,7 @@ public class ExtrudedFormRenderer extends FormRenderer<ExtrudedForm>
              * gizmo handles and General translate/rotate/scale fields match what you see. */
             if (this.form.billboard.get() && (renderContext == null || !renderContext.modelRenderer))
             {
-                Matrix4f modelMatrix = matrices.peek().getPositionMatrix();
+                Matrix4f modelMatrix = matrices.last().pose();
                 Vector3f scale = new Vector3f();
 
                 modelMatrix.getScale(scale);
@@ -184,14 +182,14 @@ public class ExtrudedFormRenderer extends FormRenderer<ExtrudedForm>
 
                 modelMatrix.scale(scale);
 
-                matrices.peek().getNormalMatrix().identity();
+                matrices.last().normal().identity();
 
                 if (camera != null && !modelRenderer)
                 {
-                    matrices.peek().getNormalMatrix().set(camera.view);
+                    matrices.last().normal().set(camera.view);
                 }
 
-                matrices.peek().getNormalMatrix().scale(
+                matrices.last().normal().scale(
                     MatrixStackUtils.safeNormalScaleReciprocal(scale.x),
                     MatrixStackUtils.safeNormalScaleReciprocal(scale.y),
                     MatrixStackUtils.safeNormalScaleReciprocal(scale.z)
@@ -199,7 +197,7 @@ public class ExtrudedFormRenderer extends FormRenderer<ExtrudedForm>
             }
 
             Color color = Colors.COLOR.set(overlayColor, true);
-            GameRenderer gameRenderer = MinecraftClient.getInstance().gameRenderer;
+            GameRenderer gameRenderer = Minecraft.getInstance().gameRenderer;
             Color storedFormColor = this.form.color.get();
             boolean shadowPass = BBSRendering.isIrisShadowPass();
             boolean ui = modelRenderer;
@@ -326,8 +324,8 @@ public class ExtrudedFormRenderer extends FormRenderer<ExtrudedForm>
                     ModelVAORenderer.clearGlowing();
                 }
 
-                Matrix4f positionMatrix = ModelVAORenderer.capturePaintOverlayRootMatrix(new Matrix4f(matrices.peek().getPositionMatrix()));
-                Matrix3f normalMatrix = new Matrix3f(matrices.peek().getNormalMatrix());
+                Matrix4f positionMatrix = ModelVAORenderer.capturePaintOverlayRootMatrix(new Matrix4f(matrices.last().pose()));
+                Matrix3f normalMatrix = new Matrix3f(matrices.last().normal());
                 TextureBlend textureBlendSnapshot = this.form.textureBlend == null ? null : new TextureBlend(this.form.textureBlend.from, this.form.textureBlend.to, this.form.textureBlend.blend);
                 boolean useShaderBlend = FormTextureBlendRenderer.isBlending(this.form.textureBlend);
                 float ca = lowAlphaDefer
@@ -434,9 +432,9 @@ public class ExtrudedFormRenderer extends FormRenderer<ExtrudedForm>
             {
                 boolean irisCamera = BBSRendering.isIrisWorldModelPass() && !bbsModelShader;
                 Matrix4f positionMatrix = irisCamera
-                    ? new Matrix4f(matrices.peek().getPositionMatrix())
-                    : ModelVAORenderer.capturePaintOverlayRootMatrix(new Matrix4f(matrices.peek().getPositionMatrix()));
-                Matrix3f normalMatrix = new Matrix3f(matrices.peek().getNormalMatrix());
+                    ? new Matrix4f(matrices.last().pose())
+                    : ModelVAORenderer.capturePaintOverlayRootMatrix(new Matrix4f(matrices.last().pose()));
+                Matrix3f normalMatrix = new Matrix3f(matrices.last().normal());
                 Color colorSnapshot = color.copy();
                 Color paintSnapshot = paintColor.copy();
                 float paintStrengthSnapshot = paintStrength;
@@ -461,10 +459,10 @@ public class ExtrudedFormRenderer extends FormRenderer<ExtrudedForm>
                 Color gradeTransformsSnapshot = storedFormColor;
                 Runnable deferredDraw = () ->
                 {
-                    MatrixStack overlayStack = new MatrixStack();
+                    PoseStack overlayStack = new PoseStack();
 
-                    overlayStack.peek().getPositionMatrix().set(positionMatrix);
-                    overlayStack.peek().getNormalMatrix().set(normalMatrix);
+                    overlayStack.last().pose().set(positionMatrix);
+                    overlayStack.last().normal().set(normalMatrix);
 
                     try
                     {
@@ -574,7 +572,7 @@ public class ExtrudedFormRenderer extends FormRenderer<ExtrudedForm>
 
                                     try
                                     {
-                                        this.renderExtrudedOverlayPass(useShaderBlend, textureBlendSnapshot, textureSnapshot, overlayStack, 0F, 0F, 0F, colorSnapshot.a, LightmapTextureManager.MAX_LIGHT_COORDINATE, overlayOverlay, true);
+                                        this.renderExtrudedOverlayPass(useShaderBlend, textureBlendSnapshot, textureSnapshot, overlayStack, 0F, 0F, 0F, colorSnapshot.a, LightTexture.FULL_BRIGHT, overlayOverlay, true);
                                     }
                                     finally
                                     {
@@ -597,7 +595,7 @@ public class ExtrudedFormRenderer extends FormRenderer<ExtrudedForm>
 
                             try
                             {
-                                this.renderExtrudedOverlayPass(useShaderBlend, textureBlendSnapshot, textureSnapshot, overlayStack, 0F, 0F, 0F, colorSnapshot.a, LightmapTextureManager.MAX_LIGHT_COORDINATE, overlayOverlay, true);
+                                this.renderExtrudedOverlayPass(useShaderBlend, textureBlendSnapshot, textureSnapshot, overlayStack, 0F, 0F, 0F, colorSnapshot.a, LightTexture.FULL_BRIGHT, overlayOverlay, true);
                             }
                             finally
                             {
@@ -708,8 +706,8 @@ public class ExtrudedFormRenderer extends FormRenderer<ExtrudedForm>
 
                 if (deferPaintToOverlay)
                 {
-                    Matrix4f positionMatrix = ModelVAORenderer.capturePaintOverlayRootMatrix(new Matrix4f(matrices.peek().getPositionMatrix()));
-                    Matrix3f normalMatrix = new Matrix3f(matrices.peek().getNormalMatrix());
+                    Matrix4f positionMatrix = ModelVAORenderer.capturePaintOverlayRootMatrix(new Matrix4f(matrices.last().pose()));
+                    Matrix3f normalMatrix = new Matrix3f(matrices.last().normal());
                     float cr = color.r;
                     float cg = color.g;
                     float cb = color.b;
@@ -785,8 +783,8 @@ public class ExtrudedFormRenderer extends FormRenderer<ExtrudedForm>
                 }
                 else if (shaderOverlay)
                 {
-                    Matrix4f positionMatrix = ModelVAORenderer.capturePaintOverlayRootMatrix(new Matrix4f(matrices.peek().getPositionMatrix()));
-                    Matrix3f normalMatrix = new Matrix3f(matrices.peek().getNormalMatrix());
+                    Matrix4f positionMatrix = ModelVAORenderer.capturePaintOverlayRootMatrix(new Matrix4f(matrices.last().pose()));
+                    Matrix3f normalMatrix = new Matrix3f(matrices.last().normal());
                     float cr = color.r;
                     float cg = color.g;
                     float cb = color.b;
@@ -831,8 +829,8 @@ public class ExtrudedFormRenderer extends FormRenderer<ExtrudedForm>
 
                 if (useColorGradeOverlay)
                 {
-                    Matrix4f positionMatrix = ModelVAORenderer.capturePaintOverlayRootMatrix(new Matrix4f(matrices.peek().getPositionMatrix()));
-                    Matrix3f normalMatrix = new Matrix3f(matrices.peek().getNormalMatrix());
+                    Matrix4f positionMatrix = ModelVAORenderer.capturePaintOverlayRootMatrix(new Matrix4f(matrices.last().pose()));
+                    Matrix3f normalMatrix = new Matrix3f(matrices.last().normal());
                     Color colorSnapshot = color.copy();
                     TextureBlend textureBlendSnapshotFinal = textureBlendSnapshot;
                     boolean useShaderBlendFinal = useShaderBlend;
@@ -894,7 +892,7 @@ public class ExtrudedFormRenderer extends FormRenderer<ExtrudedForm>
         }
     }
 
-    private void renderExtrudedOverlayPass(boolean useShaderBlend, TextureBlend textureBlendSnapshot, Link texture, MatrixStack overlayStack, float cr, float cg, float cb, float ca, int overlayLight, int overlayOverlay, boolean depthBias)
+    private void renderExtrudedOverlayPass(boolean useShaderBlend, TextureBlend textureBlendSnapshot, Link texture, PoseStack overlayStack, float cr, float cg, float cb, float ca, int overlayLight, int overlayOverlay, boolean depthBias)
     {
         /* Extruded slabs are ~1/16 thick. Mild bias beats self z-fight with the Iris-lit
          * surface; billboard-scale units (-32) pull fragments through nearby grass/terrain. */

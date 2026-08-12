@@ -19,35 +19,30 @@ import mchorse.bbs_mod.utils.interps.Lerps;
 import mchorse.bbs_mod.utils.joml.Vectors;
 import mchorse.bbs_mod.utils.pose.Transform;
 
-import net.minecraft.block.BlockEntityProvider;
-import net.minecraft.block.BlockRenderType;
-import net.minecraft.block.BlockState;
-import net.minecraft.block.ShapeContext;
-import net.minecraft.block.entity.BlockEntity;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.render.DiffuseLighting;
-import net.minecraft.client.render.LightmapTextureManager;
-import net.minecraft.client.render.OverlayTexture;
-import net.minecraft.client.render.OverlayVertexConsumer;
-import net.minecraft.client.render.RenderLayer;
-import net.minecraft.client.render.RenderLayers;
-import net.minecraft.client.render.VertexConsumer;
-import net.minecraft.client.render.WorldRenderer;
-import net.minecraft.client.render.block.entity.BlockEntityRenderManager;
-import net.minecraft.client.render.block.entity.BlockEntityRenderer;
-import net.minecraft.client.render.model.ModelBaker;
-import net.minecraft.client.texture.Sprite;
-import net.minecraft.client.texture.SpriteAtlasTexture;
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.screen.PlayerScreenHandler;
-import net.minecraft.util.Atlases;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Box;
-import net.minecraft.util.math.Vec3d;
-import net.minecraft.util.shape.VoxelShape;
-import net.minecraft.world.EmptyBlockView;
-import net.minecraft.world.World;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.LevelRenderer;
+import net.minecraft.client.renderer.LightTexture;
+import net.minecraft.client.renderer.blockentity.BlockEntityRenderDispatcher;
+import net.minecraft.client.renderer.blockentity.BlockEntityRenderer;
+import net.minecraft.client.renderer.rendertype.RenderType;
+import net.minecraft.client.renderer.rendertype.RenderTypes;
+import net.minecraft.client.renderer.texture.OverlayTexture;
+import net.minecraft.client.renderer.texture.TextureAtlas;
+import net.minecraft.client.renderer.texture.TextureAtlasSprite;
+import net.minecraft.client.resources.model.ModelBakery;
+import net.minecraft.core.BlockPos;
+import net.minecraft.data.AtlasIds;
+import net.minecraft.resources.Identifier;
+import net.minecraft.world.level.EmptyBlockGetter;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.EntityBlock;
+import net.minecraft.world.level.block.RenderShape;
+import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
+import net.minecraft.world.phys.shapes.CollisionContext;
+import net.minecraft.world.phys.shapes.VoxelShape;
 
 import org.joml.Matrix3f;
 import org.joml.Matrix4f;
@@ -55,6 +50,9 @@ import org.joml.Vector3f;
 
 import com.mojang.blaze3d.opengl.GlStateManager;
 import com.mojang.blaze3d.systems.RenderSystem;
+import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.blaze3d.vertex.SheetedDecalTextureGenerator;
+import com.mojang.blaze3d.vertex.VertexConsumer;
 
 import org.lwjgl.opengl.GL11;
 
@@ -75,11 +73,11 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
         // context.batcher.getContext().draw();
 
         CustomVertexConsumerProvider consumers = FormUtilsClient.getProvider();
-        MatrixStack matrices = new MatrixStack();
+        PoseStack matrices = new PoseStack();
 
         Matrix4f uiMatrix = ModelFormRenderer.getUIMatrix(context, x1, y1, x2, y2);
 
-        matrices.push();
+        matrices.pushPose();
         MatrixStackUtils.multiply(matrices, uiMatrix);
         matrices.scale(this.form.uiScale.get(), this.form.uiScale.get(), this.form.uiScale.get());
 
@@ -117,13 +115,13 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
 
         consumers.setSubstitute(this.getBlockMainConsumer(set, resolvedPaint));
         consumers.setUI(true);
-        this.renderRepeatedBlocks(null, matrices, consumers, LightmapTextureManager.MAX_BLOCK_LIGHT_COORDINATE, OverlayTexture.DEFAULT_UV, false, true, false, false);
+        this.renderRepeatedBlocks(null, matrices, consumers, LightTexture.FULL_BLOCK, OverlayTexture.NO_OVERLAY, false, true, false, false);
 
         consumers.draw();
 
         if (positivePaint && !blockEntityVisual)
         {
-            this.submitDeferredBlockPaintOverlay(null, matrices, resolvedPaint, set.a, OverlayTexture.DEFAULT_UV, this.form.paintSettings.get().transform, glowSettings, legacyGlow, glowIntensity, true);
+            this.submitDeferredBlockPaintOverlay(null, matrices, resolvedPaint, set.a, OverlayTexture.NO_OVERLAY, this.form.paintSettings.get().transform, glowSettings, legacyGlow, glowIntensity, true);
         }
 
         if (colorTransformWanted && !blockEntityVisual)
@@ -131,12 +129,12 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
             Color overlayTint = colorGradeWanted ? storedFormColor.copyDeferringColorGrade() : formColor;
 
             this.form.applyFormOpacity(overlayTint);
-            this.renderBlockColorTintOverlay(null, matrices, overlayTint, set.a, OverlayTexture.DEFAULT_UV, true, storedFormColor);
+            this.renderBlockColorTintOverlay(null, matrices, overlayTint, set.a, OverlayTexture.NO_OVERLAY, true, storedFormColor);
         }
 
         if (glowIntensity > 0F && !glowSettings.resolvePaintOnly() && !blockEntityVisual)
         {
-            this.renderGlowOverlay(null, matrices, consumers, glowSettings, legacyGlow, glowIntensity, set.a, OverlayTexture.DEFAULT_UV, true);
+            this.renderGlowOverlay(null, matrices, consumers, glowSettings, legacyGlow, glowIntensity, set.a, OverlayTexture.NO_OVERLAY, true);
         }
 
         consumers.setUI(false);
@@ -144,7 +142,7 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
 
         // DiffuseLighting.disableGuiDepthLighting();
 
-        matrices.pop();
+        matrices.popPose();
     }
 
     @Override
@@ -153,7 +151,7 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
         CustomVertexConsumerProvider consumers = FormUtilsClient.getProvider();
         int light = context.light;
 
-        context.stack.push();
+        context.stack.pushPose();
 
         try
         {
@@ -277,7 +275,7 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
                 CustomVertexConsumerProvider.clearRunnables();
             }
 
-            context.stack.pop();
+            context.stack.popPose();
         }
 
         GlStateManager._enableDepthTest();
@@ -293,7 +291,7 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
         return BBSRendering.getColorConsumer(color);
     }
 
-    private void renderRepeatedBlocks(FormRenderingContext context, MatrixStack stack, CustomVertexConsumerProvider consumers, int light, int overlay, boolean picking, boolean ui, boolean glowOverlay, boolean paintOverlay)
+    private void renderRepeatedBlocks(FormRenderingContext context, PoseStack stack, CustomVertexConsumerProvider consumers, int light, int overlay, boolean picking, boolean ui, boolean glowOverlay, boolean paintOverlay)
     {
         int repeatX = this.form.repeatX.get();
         int repeatY = this.form.repeatY.get();
@@ -308,7 +306,7 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
             {
                 for (int x = 0; x < repeatX; x++)
                 {
-                    stack.push();
+                    stack.pushPose();
                     stack.translate(startX + x, startY + y, startZ + z);
 
                     int blockLight = light;
@@ -319,7 +317,7 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
                     }
 
                     this.renderSingleBlock(stack, consumers, blockLight, overlay, picking, ui, glowOverlay, paintOverlay);
-                    stack.pop();
+                    stack.popPose();
                 }
             }
         }
@@ -336,7 +334,7 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
             return fallback;
         }
 
-        World world = null;
+        Level world = null;
 
         if (context.entity != null)
         {
@@ -345,7 +343,7 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
 
         if (world == null)
         {
-            world = MinecraftClient.getInstance().world;
+            world = Minecraft.getInstance().level;
         }
 
         if (world == null)
@@ -360,12 +358,12 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
             return fallback;
         }
 
-        int sampled = WorldRenderer.getLightmapCoordinates(world, blockPos);
+        int sampled = LevelRenderer.getLightColor(world, blockPos);
         float lf = 1F - MathUtils.clamp(this.form.lighting.get(), 0F, 1F);
         int u = sampled & '\uffff';
         int v = sampled >> 16 & '\uffff';
 
-        u = (int) Lerps.lerp(u, LightmapTextureManager.MAX_BLOCK_LIGHT_COORDINATE, lf);
+        u = (int) Lerps.lerp(u, LightTexture.FULL_BLOCK, lf);
 
         return u | v << 16;
     }
@@ -374,14 +372,14 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
     {
         if (context.world != null)
         {
-            MatrixStack probe = new MatrixStack();
+            PoseStack probe = new PoseStack();
 
-            probe.peek().getPositionMatrix().set(context.world.peek().getPositionMatrix());
+            probe.last().pose().set(context.world.last().pose());
             probe.translate(localX, localY, localZ);
 
-            Vector3f translation = probe.peek().getPositionMatrix().getTranslation(new Vector3f());
+            Vector3f translation = probe.last().pose().getTranslation(new Vector3f());
 
-            return BlockPos.ofFloored(translation.x, translation.y + 0.5D, translation.z);
+            return BlockPos.containing(translation.x, translation.y + 0.5D, translation.z);
         }
 
         if (context.entity == null)
@@ -396,12 +394,12 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
         double y = Lerps.lerp(context.entity.getPrevY(), context.entity.getY(), transition) + offset.y;
         double z = Lerps.lerp(context.entity.getPrevZ(), context.entity.getZ(), transition) + offset.z;
 
-        return BlockPos.ofFloored(x, y, z);
+        return BlockPos.containing(x, y, z);
     }
 
-    private void renderSingleBlock(MatrixStack stack, CustomVertexConsumerProvider consumers, int light, int overlay, boolean picking, boolean ui, boolean glowOverlay, boolean paintOverlay)
+    private void renderSingleBlock(PoseStack stack, CustomVertexConsumerProvider consumers, int light, int overlay, boolean picking, boolean ui, boolean glowOverlay, boolean paintOverlay)
     {
-        stack.push();
+        stack.pushPose();
         stack.translate(-0.5F, 0F, -0.5F);
 
         /* UI preview uses fixed diffuse lights; world rendering relied on vanilla block lighting before repeat. */
@@ -434,7 +432,7 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
             }
             else
             {
-                MinecraftClient.getInstance().getBlockRenderManager().renderBlockAsEntity(blockState, stack, consumers, light, overlay);
+                Minecraft.getInstance().getBlockRenderer().renderSingleBlock(blockState, stack, consumers, light, overlay);
 
                 /* Skip BE on paint / color-tint / glow overlay redraw — those shaders expect block atlas. */
                 if (!picking && !glowOverlay && !paintOverlay)
@@ -446,16 +444,16 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
 
                 if (!picking && !glowOverlay && !paintOverlay && breakingLevel > 0 && breakingLevel <= 10)
                 {
-                    RenderLayer crackingLayer = ModelBaker.BLOCK_DESTRUCTION_RENDER_LAYERS.get(breakingLevel - 1);
+                    RenderType crackingLayer = ModelBakery.DESTROY_TYPES.get(breakingLevel - 1);
                     VertexConsumer delegateConsumer = consumers.getBuffer(crackingLayer);
-                    VertexConsumer crackingConsumer = new OverlayVertexConsumer(delegateConsumer, stack.peek(), 1.0F);
+                    VertexConsumer crackingConsumer = new SheetedDecalTextureGenerator(delegateConsumer, stack.last(), 1.0F);
                     Function<VertexConsumer, VertexConsumer> previousSubstitute = consumers.getSubstitute();
 
                     consumers.setSubstitute((vertexConsumer) -> crackingConsumer);
 
                     try
                     {
-                        MinecraftClient.getInstance().getBlockRenderManager().renderBlockAsEntity(this.form.blockState.get(), stack, consumers, light, overlay);
+                        Minecraft.getInstance().getBlockRenderer().renderSingleBlock(this.form.blockState.get(), stack, consumers, light, overlay);
                     }
                     finally
                     {
@@ -472,7 +470,7 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
             }
         }
 
-        stack.pop();
+        stack.popPose();
     }
 
     private boolean isTranslucentBlockState(BlockState state)
@@ -482,7 +480,7 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
             return false;
         }
 
-        return !state.isOpaqueFullCube();
+        return !state.isSolidRender();
     }
 
     private boolean needsPickVolume(BlockState state)
@@ -493,22 +491,22 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
         }
 
         /* Signs / hanging signs / chests / beds / … — animated or invisible mesh, or any BE. */
-        if (state.getRenderType() == BlockRenderType.INVISIBLE
-            || state.getBlock() instanceof BlockEntityProvider)
+        if (state.getRenderShape() == RenderShape.INVISIBLE
+            || state.getBlock() instanceof EntityBlock)
         {
             return true;
         }
 
         try
         {
-            VoxelShape shape = state.getOutlineShape(EmptyBlockView.INSTANCE, BlockPos.ORIGIN, ShapeContext.absent());
+            VoxelShape shape = state.getShape(EmptyBlockGetter.INSTANCE, BlockPos.ZERO, CollisionContext.empty());
 
             if (shape.isEmpty())
             {
                 return true;
             }
 
-            Box box = shape.getBoundingBox();
+            AABB box = shape.bounds();
 
             /* Fences, panes, rods, chains, … — thin outline is nearly impossible to Alt-pick from the side. */
             return (box.maxX - box.minX) < 0.999D
@@ -528,13 +526,13 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
      * discards transparent samples, which left only a noisy flat square (and looked like
      * extra offset hitboxes from the side).
      */
-    private void renderPickVolume(MatrixStack stack, CustomVertexConsumerProvider consumers, int light, int overlay)
+    private void renderPickVolume(PoseStack stack, CustomVertexConsumerProvider consumers, int light, int overlay)
     {
         GlStateManager._disableCull();
 
-        VertexConsumer buffer = consumers.getBuffer(RenderLayers.entitySolid(SpriteAtlasTexture.BLOCK_ATLAS_TEXTURE));
-        MatrixStack.Entry entry = stack.peek();
-        Matrix4f matrix = entry.getPositionMatrix();
+        VertexConsumer buffer = consumers.getBuffer(RenderTypes.entitySolid(TextureAtlas.LOCATION_BLOCKS));
+        PoseStack.Pose entry = stack.last();
+        Matrix4f matrix = entry.pose();
         float[] uv = this.getOpaquePickUv();
 
         this.emitPickCube(buffer, entry, matrix, 0F, 0F, 0F, 1F, 1F, 1F, uv[0], uv[1], light, overlay);
@@ -542,16 +540,16 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
 
     private float[] getOpaquePickUv()
     {
-        Sprite sprite = MinecraftClient.getInstance().getAtlasManager()
-            .getAtlasTexture(Atlases.BLOCKS)
-            .getSprite(Identifier.of("minecraft", "block/white_concrete"));
-        float u = (sprite.getMinU() + sprite.getMaxU()) * 0.5F;
-        float v = (sprite.getMinV() + sprite.getMaxV()) * 0.5F;
+        TextureAtlasSprite sprite = Minecraft.getInstance().getAtlasManager()
+            .getAtlasOrThrow(AtlasIds.BLOCKS)
+            .getSprite(Identifier.fromNamespaceAndPath("minecraft", "block/white_concrete"));
+        float u = (sprite.getU0() + sprite.getU1()) * 0.5F;
+        float v = (sprite.getV0() + sprite.getV1()) * 0.5F;
 
         return new float[] {u, v};
     }
 
-    private void emitPickCube(VertexConsumer buffer, MatrixStack.Entry entry, Matrix4f matrix, float x0, float y0, float z0, float x1, float y1, float z1, float u, float v, int light, int overlay)
+    private void emitPickCube(VertexConsumer buffer, PoseStack.Pose entry, Matrix4f matrix, float x0, float y0, float z0, float x1, float y1, float z1, float u, float v, int light, int overlay)
     {
         /* Front faces */
         this.emitPickQuad(buffer, entry, matrix, x0, y0, z0, x1, y0, z0, x1, y1, z0, x0, y1, z0, 0F, 0F, -1F, u, v, light, overlay);
@@ -569,12 +567,12 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
         this.emitPickQuad(buffer, entry, matrix, x1, y1, z0, x1, y1, z1, x1, y0, z1, x1, y0, z0, -1F, 0F, 0F, u, v, light, overlay);
     }
 
-    private void emitPickQuad(VertexConsumer buffer, MatrixStack.Entry entry, Matrix4f matrix, float x0, float y0, float z0, float x1, float y1, float z1, float x2, float y2, float z2, float x3, float y3, float z3, float nx, float ny, float nz, float u, float v, int light, int overlay)
+    private void emitPickQuad(VertexConsumer buffer, PoseStack.Pose entry, Matrix4f matrix, float x0, float y0, float z0, float x1, float y1, float z1, float x2, float y2, float z2, float x3, float y3, float z3, float nx, float ny, float nz, float u, float v, int light, int overlay)
     {
-        buffer.vertex(matrix, x0, y0, z0).color(1F, 1F, 1F, 1F).texture(u, v).overlay(overlay).light(light).normal(entry, nx, ny, nz);
-        buffer.vertex(matrix, x1, y1, z1).color(1F, 1F, 1F, 1F).texture(u, v).overlay(overlay).light(light).normal(entry, nx, ny, nz);
-        buffer.vertex(matrix, x2, y2, z2).color(1F, 1F, 1F, 1F).texture(u, v).overlay(overlay).light(light).normal(entry, nx, ny, nz);
-        buffer.vertex(matrix, x3, y3, z3).color(1F, 1F, 1F, 1F).texture(u, v).overlay(overlay).light(light).normal(entry, nx, ny, nz);
+        buffer.addVertex(matrix, x0, y0, z0).setColor(1F, 1F, 1F, 1F).setUv(u, v).setOverlay(overlay).setLight(light).setNormal(entry, nx, ny, nz);
+        buffer.addVertex(matrix, x1, y1, z1).setColor(1F, 1F, 1F, 1F).setUv(u, v).setOverlay(overlay).setLight(light).setNormal(entry, nx, ny, nz);
+        buffer.addVertex(matrix, x2, y2, z2).setColor(1F, 1F, 1F, 1F).setUv(u, v).setOverlay(overlay).setLight(light).setNormal(entry, nx, ny, nz);
+        buffer.addVertex(matrix, x3, y3, z3).setColor(1F, 1F, 1F, 1F).setUv(u, v).setOverlay(overlay).setLight(light).setNormal(entry, nx, ny, nz);
     }
 
     private boolean isBlockEntityVisual()
@@ -586,8 +584,8 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
             return false;
         }
 
-        return state.getBlock() instanceof BlockEntityProvider
-            || state.getRenderType() == BlockRenderType.INVISIBLE;
+        return state.getBlock() instanceof EntityBlock
+            || state.getRenderShape() == RenderShape.INVISIBLE;
     }
 
     private Color resolveBlockEntityColor()
@@ -613,8 +611,8 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
 
     private void submitDeferredBlockEntityTint(FormRenderingContext context, int overlay)
     {
-        Matrix4f positionMatrix = ModelVAORenderer.capturePaintOverlayRootMatrix(new Matrix4f(context.stack.peek().getPositionMatrix()));
-        Matrix3f normalMatrix = new Matrix3f(context.stack.peek().getNormalMatrix());
+        Matrix4f positionMatrix = ModelVAORenderer.capturePaintOverlayRootMatrix(new Matrix4f(context.stack.last().pose()));
+        Matrix3f normalMatrix = new Matrix3f(context.stack.last().normal());
 
         ModelVAORenderer.submitVanillaPostComposite(() ->
         {
@@ -639,7 +637,7 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
         });
     }
 
-    private void renderRepeatedBlockEntitiesTinted(FormRenderingContext context, MatrixStack stack, CustomVertexConsumerProvider consumers, int light, int overlay)
+    private void renderRepeatedBlockEntitiesTinted(FormRenderingContext context, PoseStack stack, CustomVertexConsumerProvider consumers, int light, int overlay)
     {
         int repeatX = this.form.repeatX.get();
         int repeatY = this.form.repeatY.get();
@@ -654,7 +652,7 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
             {
                 for (int x = 0; x < repeatX; x++)
                 {
-                    stack.push();
+                    stack.pushPose();
                     stack.translate(startX + x, startY + y, startZ + z);
                     stack.translate(-0.5F, 0F, -0.5F);
 
@@ -666,35 +664,35 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
                     }
 
                     this.renderBlockEntity(stack, consumers, blockLight, overlay, true);
-                    stack.pop();
+                    stack.popPose();
                 }
             }
         }
     }
 
-    private void renderBlockEntity(MatrixStack stack, CustomVertexConsumerProvider consumers, int light, int overlay, boolean forceTint)
+    private void renderBlockEntity(PoseStack stack, CustomVertexConsumerProvider consumers, int light, int overlay, boolean forceTint)
     {
-        if (!(this.form.blockState.get().getBlock() instanceof BlockEntityProvider provider))
+        if (!(this.form.blockState.get().getBlock() instanceof EntityBlock provider))
         {
             return;
         }
 
-        MinecraftClient client = MinecraftClient.getInstance();
-        BlockEntity blockEntity = provider.createBlockEntity(BlockPos.ORIGIN, this.form.blockState.get());
+        Minecraft client = Minecraft.getInstance();
+        BlockEntity blockEntity = provider.newBlockEntity(BlockPos.ZERO, this.form.blockState.get());
 
         if (blockEntity == null)
         {
             return;
         }
 
-        if (client.world != null)
+        if (client.level != null)
         {
-            blockEntity.setWorld(client.world);
+            blockEntity.setLevel(client.level);
         }
 
-        BlockEntityRenderManager dispatcher = client.getBlockEntityRenderDispatcher();
+        BlockEntityRenderDispatcher dispatcher = client.getBlockEntityRenderDispatcher();
         @SuppressWarnings({"rawtypes", "unchecked"})
-        BlockEntityRenderer renderer = dispatcher.get(blockEntity);
+        BlockEntityRenderer renderer = dispatcher.getRenderer(blockEntity);
 
         if (renderer == null)
         {
@@ -713,8 +711,8 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
             var renderState = renderer.createRenderState();
             if (renderState != null)
             {
-                renderer.updateRenderState(blockEntity, renderState, 0F, Vec3d.ZERO, null);
-                renderer.render(renderState, stack, null, null);
+                renderer.extractRenderState(blockEntity, renderState, 0F, Vec3.ZERO, null);
+                renderer.submit(renderState, stack, null, null);
             }
         }
         catch (Exception e)
@@ -722,10 +720,10 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
         }
     }
 
-    private void submitDeferredBlockColorTintOverlay(FormRenderingContext context, MatrixStack stack, Color formColor, float alpha, int overlay, boolean ui, Color gradeSource)
+    private void submitDeferredBlockColorTintOverlay(FormRenderingContext context, PoseStack stack, Color formColor, float alpha, int overlay, boolean ui, Color gradeSource)
     {
-        Matrix4f positionMatrix = ModelVAORenderer.capturePaintOverlayRootMatrix(new Matrix4f(stack.peek().getPositionMatrix()));
-        Matrix3f normalMatrix = new Matrix3f(stack.peek().getNormalMatrix());
+        Matrix4f positionMatrix = ModelVAORenderer.capturePaintOverlayRootMatrix(new Matrix4f(stack.last().pose()));
+        Matrix3f normalMatrix = new Matrix3f(stack.last().normal());
         Color formColorSnapshot = formColor.copy();
         Color gradeSnapshot = gradeSource == null ? null : gradeSource.copy();
 
@@ -740,16 +738,16 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
         });
     }
 
-    private void renderBlockColorTintOverlay(FormRenderingContext context, MatrixStack stack, Color formColor, float alpha, int overlay, boolean ui, Color gradeSource)
+    private void renderBlockColorTintOverlay(FormRenderingContext context, PoseStack stack, Color formColor, float alpha, int overlay, boolean ui, Color gradeSource)
     {
         CustomVertexConsumerProvider consumers = FormUtilsClient.getProvider();
 
         this.renderColorTintOverlayPass(context, stack, consumers, formColor, alpha, overlay, ui, gradeSource);
     }
 
-    private void renderColorTintOverlayPass(FormRenderingContext context, MatrixStack stack, CustomVertexConsumerProvider consumers, Color formColor, float alpha, int overlay, boolean ui, Color gradeSource)
+    private void renderColorTintOverlayPass(FormRenderingContext context, PoseStack stack, CustomVertexConsumerProvider consumers, Color formColor, float alpha, int overlay, boolean ui, Color gradeSource)
     {
-        Matrix4f formRootInverse = new Matrix4f(stack.peek().getPositionMatrix()).invert();
+        Matrix4f formRootInverse = new Matrix4f(stack.last().pose()).invert();
         int savedDepthFunc = GL11.glGetInteger(GL11.GL_DEPTH_FUNC);
         boolean savedDepthMask = GL11.glGetBoolean(GL11.GL_DEPTH_WRITEMASK);
         boolean savedPolygonOffsetFill = GL11.glGetBoolean(GL11.GL_POLYGON_OFFSET_FILL);
@@ -770,7 +768,7 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
 
         try
         {
-            this.renderRepeatedBlocks(context, stack, consumers, LightmapTextureManager.MAX_LIGHT_COORDINATE, overlay, false, ui, false, true);
+            this.renderRepeatedBlocks(context, stack, consumers, LightTexture.FULL_BRIGHT, overlay, false, ui, false, true);
             consumers.draw();
         }
         finally
@@ -795,10 +793,10 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
         }
     }
 
-    private void submitDeferredBlockPaintOverlay(FormRenderingContext context, MatrixStack stack, Color resolvedPaint, float alpha, int overlay, EffectTransform transform, GlowSettings glowSettings, Color legacyGlow, float glowIntensity, boolean ui)
+    private void submitDeferredBlockPaintOverlay(FormRenderingContext context, PoseStack stack, Color resolvedPaint, float alpha, int overlay, EffectTransform transform, GlowSettings glowSettings, Color legacyGlow, float glowIntensity, boolean ui)
     {
-        Matrix4f positionMatrix = ModelVAORenderer.capturePaintOverlayRootMatrix(new Matrix4f(stack.peek().getPositionMatrix()));
-        Matrix3f normalMatrix = new Matrix3f(stack.peek().getNormalMatrix());
+        Matrix4f positionMatrix = ModelVAORenderer.capturePaintOverlayRootMatrix(new Matrix4f(stack.last().pose()));
+        Matrix3f normalMatrix = new Matrix3f(stack.last().normal());
         Color paintOverlay = new Color(resolvedPaint.r, resolvedPaint.g, resolvedPaint.b, resolvedPaint.a);
 
         paintOverlay.a *= alpha;
@@ -815,12 +813,12 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
         });
     }
 
-    private void renderPaintOverlay(FormRenderingContext context, MatrixStack stack, CustomVertexConsumerProvider consumers, Color resolvedPaint, float alpha, int overlay, boolean ui, EffectTransform transform)
+    private void renderPaintOverlay(FormRenderingContext context, PoseStack stack, CustomVertexConsumerProvider consumers, Color resolvedPaint, float alpha, int overlay, boolean ui, EffectTransform transform)
     {
         this.renderPaintOverlay(context, stack, consumers, resolvedPaint, alpha, overlay, ui, transform, null, null, 0F);
     }
 
-    private void renderPaintOverlay(FormRenderingContext context, MatrixStack stack, CustomVertexConsumerProvider consumers, Color resolvedPaint, float alpha, int overlay, boolean ui, EffectTransform transform, GlowSettings glowSettings, Color legacyGlow, float glowIntensity)
+    private void renderPaintOverlay(FormRenderingContext context, PoseStack stack, CustomVertexConsumerProvider consumers, Color resolvedPaint, float alpha, int overlay, boolean ui, EffectTransform transform, GlowSettings glowSettings, Color legacyGlow, float glowIntensity)
     {
         Color paintOverlay = new Color(resolvedPaint.r, resolvedPaint.g, resolvedPaint.b, resolvedPaint.a);
 
@@ -829,14 +827,14 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
         this.renderPaintOverlayPass(context, stack, consumers, paintOverlay, overlay, ui, transform, glowSettings, legacyGlow, glowIntensity, alpha);
     }
 
-    private void renderPaintOverlayPass(FormRenderingContext context, MatrixStack stack, CustomVertexConsumerProvider consumers, Color paintOverlay, int overlay, boolean ui, EffectTransform transform)
+    private void renderPaintOverlayPass(FormRenderingContext context, PoseStack stack, CustomVertexConsumerProvider consumers, Color paintOverlay, int overlay, boolean ui, EffectTransform transform)
     {
         this.renderPaintOverlayPass(context, stack, consumers, paintOverlay, overlay, ui, transform, null, null, 0F, 1F);
     }
 
-    private void renderPaintOverlayPass(FormRenderingContext context, MatrixStack stack, CustomVertexConsumerProvider consumers, Color paintOverlay, int overlay, boolean ui, EffectTransform transform, GlowSettings glowSettings, Color legacyGlow, float glowIntensity, float alpha)
+    private void renderPaintOverlayPass(FormRenderingContext context, PoseStack stack, CustomVertexConsumerProvider consumers, Color paintOverlay, int overlay, boolean ui, EffectTransform transform, GlowSettings glowSettings, Color legacyGlow, float glowIntensity, float alpha)
     {
-        Matrix4f formRootInverse = new Matrix4f(stack.peek().getPositionMatrix()).invert();
+        Matrix4f formRootInverse = new Matrix4f(stack.last().pose()).invert();
 
         CustomVertexConsumerProvider.clearRunnables();
         CustomVertexConsumerProvider.hijackVertexFormat((l) -> BlockEffectOverlayUniforms.configurePaintOverlayRenderState(formRootInverse, transform, true, glowSettings, legacyGlow, glowIntensity, alpha));
@@ -849,7 +847,7 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
 
         try
         {
-            this.renderRepeatedBlocks(context, stack, consumers, LightmapTextureManager.MAX_LIGHT_COORDINATE, overlay, false, ui, false, true);
+            this.renderRepeatedBlocks(context, stack, consumers, LightTexture.FULL_BRIGHT, overlay, false, ui, false, true);
             consumers.draw();
         }
         finally
@@ -861,7 +859,7 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
         }
     }
 
-    private void renderGlowOverlay(FormRenderingContext context, MatrixStack stack, CustomVertexConsumerProvider consumers, GlowSettings glowSettings, Color legacyGlow, float glowIntensity, float alpha, int overlay, boolean ui)
+    private void renderGlowOverlay(FormRenderingContext context, PoseStack stack, CustomVertexConsumerProvider consumers, GlowSettings glowSettings, Color legacyGlow, float glowIntensity, float alpha, int overlay, boolean ui)
     {
         Color glowColor = FormColorEffects.resolveGlowOverlayEmissionColor(glowSettings, legacyGlow, alpha, glowIntensity);
         float shaderScale = FormColorEffects.resolveGlowOverlayShaderScale(glowIntensity);
@@ -875,7 +873,7 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
 
         try
         {
-            this.renderRepeatedBlocks(context, stack, consumers, LightmapTextureManager.MAX_LIGHT_COORDINATE, overlay, false, ui, true, false);
+            this.renderRepeatedBlocks(context, stack, consumers, LightTexture.FULL_BRIGHT, overlay, false, ui, true, false);
             consumers.draw();
         }
         finally

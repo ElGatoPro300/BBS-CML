@@ -38,13 +38,11 @@ import mchorse.bbs_mod.forms.renderers.TrailFormRenderer;
 import mchorse.bbs_mod.forms.renderers.VanillaParticleFormRenderer;
 import mchorse.bbs_mod.ui.framework.UIContext;
 
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.render.BufferBuilder;
-import net.minecraft.client.render.RenderLayer;
-import net.minecraft.client.render.TexturedRenderLayers;
-import net.minecraft.client.render.VertexConsumerProvider;
-import net.minecraft.client.util.BufferAllocator;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.util.Util;
+
+import com.mojang.blaze3d.vertex.ByteBufferBuilder;
 
 import java.util.Collections;
 import java.util.HashMap;
@@ -89,7 +87,7 @@ public class FormUtilsClient
     {
         if (customVertexConsumerProvider == null)
         {
-            customVertexConsumerProvider = new CustomVertexConsumerProvider(MinecraftClient.getInstance().getBufferBuilders().getEntityVertexConsumers());
+            customVertexConsumerProvider = new CustomVertexConsumerProvider(Minecraft.getInstance().renderBuffers().bufferSource());
         }
 
         return customVertexConsumerProvider;
@@ -105,7 +103,7 @@ public class FormUtilsClient
         if (mobMorphVertexConsumerProvider == null)
         {
             mobMorphVertexConsumerProvider = new CustomVertexConsumerProvider(
-                VertexConsumerProvider.immediate(new BufferAllocator(2048))
+                MultiBufferSource.immediate(new ByteBufferBuilder(2048))
             );
         }
 

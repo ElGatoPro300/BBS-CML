@@ -2,16 +2,16 @@ package mchorse.bbs_mod.client;
 
 import mchorse.bbs_mod.BBSMod;
 
-import net.minecraft.client.gl.RenderPipelines;
-import net.minecraft.client.gl.UniformType;
-import net.minecraft.client.render.RenderLayer;
-import net.minecraft.client.render.RenderSetup;
-import net.minecraft.client.render.VertexFormats;
-import net.minecraft.util.Identifier;
+import net.minecraft.client.renderer.RenderPipelines;
+import net.minecraft.client.renderer.rendertype.RenderSetup;
+import net.minecraft.client.renderer.rendertype.RenderType;
+import net.minecraft.resources.Identifier;
 
 import com.mojang.blaze3d.pipeline.BlendFunction;
 import com.mojang.blaze3d.pipeline.RenderPipeline;
 import com.mojang.blaze3d.platform.DepthTestFunction;
+import com.mojang.blaze3d.shaders.UniformType;
+import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import com.mojang.blaze3d.vertex.VertexFormat;
 
 import java.util.ArrayList;
@@ -30,32 +30,32 @@ public class BBSShaders
     private static final RenderPipeline SUBTITLES = registerSubtitles();
 
     private static final RenderPipeline PICKER_PREVIEW = registerPicker(
-        "picker_preview", VertexFormats.POSITION_TEXTURE_COLOR
+        "picker_preview", DefaultVertexFormat.POSITION_TEX_COLOR
     );
     private static final RenderPipeline PICKER_BILLBOARD = registerPicker(
-        "picker_billboard", VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL
+        "picker_billboard", DefaultVertexFormat.NEW_ENTITY
     );
     private static final RenderPipeline PICKER_BILLBOARD_NO_SHADING = registerPicker(
-        "picker_billboard_no_shading", VertexFormats.POSITION_TEXTURE_LIGHT_COLOR
+        "picker_billboard_no_shading", DefaultVertexFormat.POSITION_TEX_LIGHTMAP_COLOR
     );
     private static final RenderPipeline PICKER_PARTICLES = registerPicker(
-        "picker_particles", VertexFormats.POSITION_COLOR_TEXTURE_LIGHT
+        "picker_particles", DefaultVertexFormat.POSITION_COLOR_TEX_LIGHTMAP
     );
     private static final RenderPipeline PICKER_MODELS = registerPicker(
-        "picker_models", VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL
+        "picker_models", DefaultVertexFormat.NEW_ENTITY
     );
 
     private static final RenderPipeline PARTICLES = registerParticles();
 
-    private static RenderLayer modelLayer;
-    private static RenderLayer multiLinkLayer;
-    private static RenderLayer subtitlesLayer;
-    private static RenderLayer pickerPreviewLayer;
-    private static RenderLayer pickerBillboardLayer;
-    private static RenderLayer pickerBillboardNoShadingLayer;
-    private static RenderLayer pickerParticlesLayer;
-    private static RenderLayer pickerModelsLayer;
-    private static RenderLayer particlesLayer;
+    private static RenderType modelLayer;
+    private static RenderType multiLinkLayer;
+    private static RenderType subtitlesLayer;
+    private static RenderType pickerPreviewLayer;
+    private static RenderType pickerBillboardLayer;
+    private static RenderType pickerBillboardNoShadingLayer;
+    private static RenderType pickerParticlesLayer;
+    private static RenderType pickerModelsLayer;
+    private static RenderType particlesLayer;
 
     public static void setup()
     {
@@ -110,7 +110,7 @@ public class BBSShaders
         return PARTICLES;
     }
 
-    public static RenderLayer getMultilinkLayer()
+    public static RenderType getMultilinkLayer()
     {
         if (multiLinkLayer == null)
         {
@@ -120,7 +120,7 @@ public class BBSShaders
         return multiLinkLayer;
     }
 
-    public static RenderLayer getSubtitlesLayer()
+    public static RenderType getSubtitlesLayer()
     {
         if (subtitlesLayer == null)
         {
@@ -130,7 +130,7 @@ public class BBSShaders
         return subtitlesLayer;
     }
 
-    public static RenderLayer getPickerPreviewLayer()
+    public static RenderType getPickerPreviewLayer()
     {
         if (pickerPreviewLayer == null)
         {
@@ -140,7 +140,7 @@ public class BBSShaders
         return pickerPreviewLayer;
     }
 
-    public static RenderLayer getPickerBillboardLayer()
+    public static RenderType getPickerBillboardLayer()
     {
         if (pickerBillboardLayer == null)
         {
@@ -150,7 +150,7 @@ public class BBSShaders
         return pickerBillboardLayer;
     }
 
-    public static RenderLayer getPickerBillboardNoShadingLayer()
+    public static RenderType getPickerBillboardNoShadingLayer()
     {
         if (pickerBillboardNoShadingLayer == null)
         {
@@ -160,7 +160,7 @@ public class BBSShaders
         return pickerBillboardNoShadingLayer;
     }
 
-    public static RenderLayer getPickerParticlesLayer()
+    public static RenderType getPickerParticlesLayer()
     {
         if (pickerParticlesLayer == null)
         {
@@ -170,7 +170,7 @@ public class BBSShaders
         return pickerParticlesLayer;
     }
 
-    public static RenderLayer getPickerModelsLayer()
+    public static RenderType getPickerModelsLayer()
     {
         if (pickerModelsLayer == null)
         {
@@ -180,16 +180,16 @@ public class BBSShaders
         return pickerModelsLayer;
     }
 
-    public static RenderLayer getParticlesLayer()
+    public static RenderType getParticlesLayer()
     {
         if (particlesLayer == null)
         {
-            RenderSetup.Builder setup = RenderSetup.builder(PARTICLES)
-                .expectedBufferSize(RenderLayer.field_64008)
-                .translucent()
+            RenderSetup.RenderSetupBuilder setup = RenderSetup.builder(PARTICLES)
+                .bufferSize(RenderType.BIG_BUFFER_SIZE)
+                .sortOnUpload()
                 .useLightmap();
 
-            particlesLayer = RenderLayer.of(BBSMod.MOD_ID + "_particles", setup.build());
+            particlesLayer = RenderType.create(BBSMod.MOD_ID + "_particles", setup.createRenderSetup());
         }
 
         return particlesLayer;
@@ -222,13 +222,13 @@ public class BBSShaders
 
     private static RenderPipeline registerModel()
     {
-        Identifier shader = Identifier.of(BBSMod.MOD_ID, "core/model");
+        Identifier shader = Identifier.fromNamespaceAndPath(BBSMod.MOD_ID, "core/model");
 
         RenderPipeline.Builder builder = RenderPipeline.builder()
-            .withLocation(Identifier.of(BBSMod.MOD_ID, "pipeline/model"))
+            .withLocation(Identifier.fromNamespaceAndPath(BBSMod.MOD_ID, "pipeline/model"))
             .withVertexShader(shader)
             .withFragmentShader(shader)
-            .withVertexFormat(VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL, VertexFormat.DrawMode.QUADS)
+            .withVertexFormat(DefaultVertexFormat.NEW_ENTITY, VertexFormat.DrawMode.QUADS)
             .withBlend(BLEND)
             .withDepthTestFunction(DepthTestFunction.LEQUAL_DEPTH_TEST)
             .withCull(false)
@@ -245,13 +245,13 @@ public class BBSShaders
 
     private static RenderPipeline registerParticles()
     {
-        Identifier shader = Identifier.of(BBSMod.MOD_ID, "core/particles");
+        Identifier shader = Identifier.fromNamespaceAndPath(BBSMod.MOD_ID, "core/particles");
 
         RenderPipeline.Builder builder = RenderPipeline.builder()
-            .withLocation(Identifier.of(BBSMod.MOD_ID, "pipeline/particles"))
+            .withLocation(Identifier.fromNamespaceAndPath(BBSMod.MOD_ID, "pipeline/particles"))
             .withVertexShader(shader)
             .withFragmentShader(shader)
-            .withVertexFormat(VertexFormats.POSITION_TEXTURE_COLOR_LIGHT, VertexFormat.DrawMode.QUADS)
+            .withVertexFormat(DefaultVertexFormat.PARTICLE, VertexFormat.DrawMode.QUADS)
             .withBlend(BLEND)
             .withDepthTestFunction(DepthTestFunction.LEQUAL_DEPTH_TEST)
             .withCull(false)
@@ -266,13 +266,13 @@ public class BBSShaders
 
     private static RenderPipeline registerMultilink()
     {
-        Identifier shader = Identifier.of(BBSMod.MOD_ID, "core/multilink");
+        Identifier shader = Identifier.fromNamespaceAndPath(BBSMod.MOD_ID, "core/multilink");
 
         RenderPipeline.Builder builder = RenderPipeline.builder()
-            .withLocation(Identifier.of(BBSMod.MOD_ID, "pipeline/multilink"))
+            .withLocation(Identifier.fromNamespaceAndPath(BBSMod.MOD_ID, "pipeline/multilink"))
             .withVertexShader(shader)
             .withFragmentShader(shader)
-            .withVertexFormat(VertexFormats.POSITION_TEXTURE_COLOR, VertexFormat.DrawMode.QUADS)
+            .withVertexFormat(DefaultVertexFormat.POSITION_TEX_COLOR, VertexFormat.DrawMode.QUADS)
             .withBlend(BLEND)
             .withDepthTestFunction(DepthTestFunction.LEQUAL_DEPTH_TEST)
             .withCull(false)
@@ -287,13 +287,13 @@ public class BBSShaders
 
     private static RenderPipeline registerSubtitles()
     {
-        Identifier shader = Identifier.of(BBSMod.MOD_ID, "core/subtitles");
+        Identifier shader = Identifier.fromNamespaceAndPath(BBSMod.MOD_ID, "core/subtitles");
 
         RenderPipeline.Builder builder = RenderPipeline.builder()
-            .withLocation(Identifier.of(BBSMod.MOD_ID, "pipeline/subtitles"))
+            .withLocation(Identifier.fromNamespaceAndPath(BBSMod.MOD_ID, "pipeline/subtitles"))
             .withVertexShader(shader)
             .withFragmentShader(shader)
-            .withVertexFormat(VertexFormats.POSITION_TEXTURE_COLOR, VertexFormat.DrawMode.QUADS)
+            .withVertexFormat(DefaultVertexFormat.POSITION_TEX_COLOR, VertexFormat.DrawMode.QUADS)
             .withBlend(BLEND)
             .withDepthTestFunction(DepthTestFunction.LEQUAL_DEPTH_TEST)
             .withCull(false)
@@ -307,10 +307,10 @@ public class BBSShaders
 
     private static RenderPipeline registerPicker(String name, VertexFormat format)
     {
-        Identifier shader = Identifier.of(BBSMod.MOD_ID, "core/" + name);
+        Identifier shader = Identifier.fromNamespaceAndPath(BBSMod.MOD_ID, "core/" + name);
 
         RenderPipeline.Builder builder = RenderPipeline.builder()
-            .withLocation(Identifier.of(BBSMod.MOD_ID, "pipeline/" + name))
+            .withLocation(Identifier.fromNamespaceAndPath(BBSMod.MOD_ID, "pipeline/" + name))
             .withVertexShader(shader)
             .withFragmentShader(shader)
             .withVertexFormat(format, VertexFormat.DrawMode.QUADS)
@@ -325,17 +325,17 @@ public class BBSShaders
         return RenderPipelines.register(builder.build());
     }
 
-    private static RenderLayer layer(String name, RenderPipeline pipeline, boolean useLightmapOverlay)
+    private static RenderType layer(String name, RenderPipeline pipeline, boolean useLightmapOverlay)
     {
-        RenderSetup.Builder setup = RenderSetup.builder(pipeline)
-            .expectedBufferSize(RenderLayer.field_64008)
-            .translucent();
+        RenderSetup.RenderSetupBuilder setup = RenderSetup.builder(pipeline)
+            .bufferSize(RenderType.BIG_BUFFER_SIZE)
+            .sortOnUpload();
 
         if (useLightmapOverlay)
         {
             setup.useLightmap().useOverlay();
         }
 
-        return RenderLayer.of(BBSMod.MOD_ID + "_" + name, setup.build());
+        return RenderType.create(BBSMod.MOD_ID + "_" + name, setup.createRenderSetup());
     }
 }

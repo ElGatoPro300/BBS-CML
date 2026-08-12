@@ -1,6 +1,6 @@
 package mchorse.bbs_mod.mixin.client;
 
-import net.minecraft.client.render.entity.EntityRenderManager;
+import net.minecraft.client.renderer.entity.EntityRenderDispatcher;
 
 import org.spongepowered.asm.mixin.Mixin;
 
@@ -11,7 +11,7 @@ import org.spongepowered.asm.mixin.Mixin;
  * interception (MorphRenderer.renderLivingEntity) needs to be re-hooked into either the
  * new render() method or EntityRenderer.render(EntityRenderState, MatrixStack,
  * VertexConsumerProvider, int) directly. */
-@Mixin(EntityRenderManager.class)
+@Mixin(EntityRenderDispatcher.class)
 public class EntityRenderDispatcherMixin
 {
 }

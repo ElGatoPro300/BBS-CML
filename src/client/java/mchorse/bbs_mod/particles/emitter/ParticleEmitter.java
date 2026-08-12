@@ -21,24 +21,22 @@ import mchorse.bbs_mod.utils.MatrixStackUtils;
 import mchorse.bbs_mod.utils.colors.Color;
 import mchorse.bbs_mod.utils.interps.Lerps;
 
-import net.minecraft.client.render.BufferBuilder;
-import net.minecraft.client.render.BuiltBuffer;
-import net.minecraft.client.render.GameRenderer;
-import net.minecraft.client.render.OverlayTexture;
-import net.minecraft.client.render.RenderLayer;
-import net.minecraft.client.render.Tessellator;
-import net.minecraft.client.render.VertexConsumer;
-import net.minecraft.client.render.VertexFormats;
-import net.minecraft.client.util.BufferAllocator;
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.world.World;
+import net.minecraft.client.Camera;
+import net.minecraft.client.renderer.rendertype.RenderType;
+import net.minecraft.client.renderer.texture.OverlayTexture;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.level.Level;
 
 import org.joml.Matrix3f;
 import org.joml.Matrix4f;
 import org.joml.Vector3d;
 import org.joml.Vector3f;
 
+import com.mojang.blaze3d.vertex.BufferBuilder;
+import com.mojang.blaze3d.vertex.DefaultVertexFormat;
+import com.mojang.blaze3d.vertex.MeshData;
+import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.blaze3d.vertex.Tesselator;
 import com.mojang.blaze3d.vertex.VertexFormat;
 
 import java.util.ArrayList;
@@ -56,7 +54,7 @@ public class ParticleEmitter
 
     public Link texture;
     public LivingEntity target;
-    public World world;
+    public Level world;
     public boolean lit;
     public boolean modelRenderer;
 
@@ -137,10 +135,10 @@ public class ParticleEmitter
     public void setTarget(LivingEntity target)
     {
         this.target = target;
-        this.world = target == null ? null : target.getEntityWorld();
+        this.world = target == null ? null : target.level();
     }
 
-    public void setWorld(World world)
+    public void setWorld(Level world)
     {
         this.world = world;
     }
@@ -480,7 +478,7 @@ public class ParticleEmitter
     /**
      * Render the particle on screen
      */
-    public void renderUI(MatrixStack stack, float transition)
+    public void renderUI(PoseStack stack, float transition)
     {
         if (this.scheme == null)
         {
@@ -503,16 +501,16 @@ public class ParticleEmitter
             this.setEmitterVariables(transition);
             this.setParticleVariables(this.uiParticle, transition);
 
-            Matrix4f matrix = stack.peek().getPositionMatrix();
+            Matrix4f matrix = stack.last().pose();
 
-            BufferBuilder builder = Tessellator.getInstance().begin(VertexFormat.DrawMode.TRIANGLES, VertexFormats.POSITION_TEXTURE_COLOR_LIGHT);
+            BufferBuilder builder = Tesselator.getInstance().begin(VertexFormat.DrawMode.TRIANGLES, DefaultVertexFormat.PARTICLE);
 
             for (IComponentParticleRender render : list)
             {
                 render.renderUI(this.uiParticle, builder, matrix, transition);
             }
 
-            BuiltBuffer built = builder.endNullable();
+            MeshData built = builder.build();
 
             if (built != null)
             {
@@ -524,7 +522,7 @@ public class ParticleEmitter
     /**
      * Render all the particles in this particle emitter
      */
-    public void render(VertexFormat format, RenderLayer layer, MatrixStack stack, int overlay, float transition)
+    public void render(VertexFormat format, RenderType layer, PoseStack stack, int overlay, float transition)
     {
         if (this.scheme == null)
         {
@@ -540,10 +538,10 @@ public class ParticleEmitter
 
         if (!this.particles.isEmpty())
         {
-            Matrix4f matrix = stack.peek().getPositionMatrix();
+            Matrix4f matrix = stack.last().pose();
 
             this.bindTexture();
-            BufferBuilder builder = Tessellator.getInstance().begin(VertexFormat.DrawMode.TRIANGLES, format);
+            BufferBuilder builder = Tesselator.getInstance().begin(VertexFormat.DrawMode.TRIANGLES, format);
 
             for (Particle particle : this.particles)
             {
@@ -556,11 +554,11 @@ public class ParticleEmitter
                 }
             }
             
-            BuiltBuffer built = builder.endNullable();
+            MeshData built = builder.build();
 
             if (built != null)
             {
-                RenderLayer drawLayer = layer != null ? layer : BBSShaders.getParticlesLayer();
+                RenderType drawLayer = layer != null ? layer : BBSShaders.getParticlesLayer();
                 drawLayer.draw(built);
             }
         }
@@ -571,12 +569,12 @@ public class ParticleEmitter
         }
     }
 
-    private void renderGlowOverlay(MatrixStack stack, float transition, boolean ui)
+    private void renderGlowOverlay(PoseStack stack, float transition, boolean ui)
     {
-        this.renderGlowOverlay(stack, OverlayTexture.DEFAULT_UV, transition, ui);
+        this.renderGlowOverlay(stack, OverlayTexture.NO_OVERLAY, transition, ui);
     }
 
-    private void renderGlowOverlay(MatrixStack stack, int overlay, float transition, boolean ui)
+    private void renderGlowOverlay(PoseStack stack, int overlay, float transition, boolean ui)
     {
         float glowIntensity = this.getGlowIntensity();
 
@@ -592,7 +590,7 @@ public class ParticleEmitter
             return;
         }
 
-        Matrix4f matrix = stack.peek().getPositionMatrix();
+        Matrix4f matrix = stack.last().pose();
 
         this.bindTexture();
 
@@ -646,12 +644,12 @@ public class ParticleEmitter
         this.cZ = camera.position.z;
     }
 
-    public void setupCameraProperties(net.minecraft.client.render.Camera camera)
+    public void setupCameraProperties(Camera camera)
     {
-        this.cYaw = 180 - camera.getYaw();
-        this.cPitch = -camera.getPitch();
-        this.cX = camera.getCameraPos().x;
-        this.cY = camera.getCameraPos().y;
-        this.cZ = camera.getCameraPos().z;
+        this.cYaw = 180 - camera.yRot();
+        this.cPitch = -camera.xRot();
+        this.cX = camera.position().x;
+        this.cY = camera.position().y;
+        this.cZ = camera.position().z;
     }
 }

@@ -1,21 +1,22 @@
 package mchorse.bbs_mod.client.render;
 
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.render.command.OrderedRenderCommandQueue;
-import net.minecraft.client.render.command.RenderDispatcher;
-import net.minecraft.client.render.entity.EntityRenderManager;
-import net.minecraft.client.render.entity.state.EntityRenderState;
-import net.minecraft.client.render.state.CameraRenderState;
-import net.minecraft.client.render.state.WorldRenderState;
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.SubmitNodeCollector;
+import net.minecraft.client.renderer.entity.EntityRenderDispatcher;
+import net.minecraft.client.renderer.entity.state.EntityRenderState;
+import net.minecraft.client.renderer.feature.FeatureRenderDispatcher;
+import net.minecraft.client.renderer.state.CameraRenderState;
+import net.minecraft.client.renderer.state.LevelRenderState;
+import net.minecraft.core.BlockPos;
+import net.minecraft.world.phys.Vec3;
 
 import org.joml.Quaternionf;
 
+import com.mojang.blaze3d.vertex.PoseStack;
+
 /**
- * 1.21.11 entity draw path: submit into {@link OrderedRenderCommandQueue}, then optionally flush
- * via {@link RenderDispatcher#render()}.
+ * 1.21.11 entity draw path: submit into {@link SubmitNodeCollector}, then optionally flush
+ * via {@link FeatureRenderDispatcher#renderAllFeatures()}.
  */
 public final class EntityRenderHelper
 {
@@ -24,9 +25,9 @@ public final class EntityRenderHelper
     static
     {
         UI_CAMERA.initialized = true;
-        UI_CAMERA.blockPos = BlockPos.ORIGIN;
-        UI_CAMERA.pos = Vec3d.ZERO;
-        UI_CAMERA.entityPos = Vec3d.ZERO;
+        UI_CAMERA.blockPos = BlockPos.ZERO;
+        UI_CAMERA.pos = Vec3.ZERO;
+        UI_CAMERA.entityPos = Vec3.ZERO;
         UI_CAMERA.orientation = new Quaternionf();
     }
 
@@ -34,15 +35,15 @@ public final class EntityRenderHelper
     {
     }
 
-    public static void renderEntityState(EntityRenderState state, MatrixStack matrices, boolean flush)
+    public static void renderEntityState(EntityRenderState state, PoseStack matrices, boolean flush)
     {
         if (state == null)
         {
             return;
         }
 
-        MinecraftClient client = MinecraftClient.getInstance();
-        OrderedRenderCommandQueue queue = client.gameRenderer.getEntityRenderCommandQueue();
+        Minecraft client = Minecraft.getInstance();
+        SubmitNodeCollector queue = client.gameRenderer.getSubmitNodeStorage();
 
         if (queue == null)
         {
@@ -50,22 +51,22 @@ public final class EntityRenderHelper
         }
 
         CameraRenderState camera = UI_CAMERA;
-        WorldRenderState worldStates = client.gameRenderer.getEntityRenderStates();
+        LevelRenderState worldStates = client.gameRenderer.getLevelRenderState();
 
         if (worldStates != null && worldStates.cameraRenderState != null && worldStates.cameraRenderState.initialized)
         {
             camera = worldStates.cameraRenderState;
         }
 
-        EntityRenderManager dispatcher = client.getEntityRenderDispatcher();
+        EntityRenderDispatcher dispatcher = client.getEntityRenderDispatcher();
 
-        dispatcher.render(state, camera, 0D, 0D, 0D, matrices, queue);
+        dispatcher.submit(state, camera, 0D, 0D, 0D, matrices, queue);
 
         if (flush)
         {
-            RenderDispatcher renderDispatcher = client.gameRenderer.getEntityRenderDispatcher();
+            FeatureRenderDispatcher renderDispatcher = client.gameRenderer.getFeatureRenderDispatcher();
 
-            renderDispatcher.render();
+            renderDispatcher.renderAllFeatures();
         }
     }
 }

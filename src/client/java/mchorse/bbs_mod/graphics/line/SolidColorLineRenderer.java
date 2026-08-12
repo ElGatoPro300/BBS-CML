@@ -2,9 +2,9 @@ package mchorse.bbs_mod.graphics.line;
 
 import mchorse.bbs_mod.utils.colors.Color;
 
-import net.minecraft.client.render.VertexConsumer;
-
 import org.joml.Matrix3x2fc;
+
+import com.mojang.blaze3d.vertex.VertexConsumer;
 
 public class SolidColorLineRenderer implements ILineRenderer
 {
@@ -39,6 +39,6 @@ public class SolidColorLineRenderer implements ILineRenderer
     @Override
     public void render(VertexConsumer builder, Matrix3x2fc matrix, LinePoint point)
     {
-        builder.vertex(matrix, point.x, point.y).color(this.color.r, this.color.g, this.color.b, this.color.a);
+        builder.addVertexWith2DPose(matrix, point.x, point.y).setColor(this.color.r, this.color.g, this.color.b, this.color.a);
     }
 }

@@ -1,32 +1,32 @@
 package mchorse.bbs_mod.client;
 
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.server.integrated.IntegratedServerLoader;
-import net.minecraft.text.Text;
-import net.minecraft.util.WorldSavePath;
-import net.minecraft.world.level.storage.LevelStorage;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.screens.worldselection.WorldOpenFlows;
+import net.minecraft.network.chat.Component;
+import net.minecraft.world.level.storage.LevelResource;
+import net.minecraft.world.level.storage.LevelStorageSource;
 
 import java.nio.file.Path;
 
 public class WorldLaunchHelper
 {
-    public static boolean isCurrentWorld(MinecraftClient client, String worldFolder)
+    public static boolean isCurrentWorld(Minecraft client, String worldFolder)
     {
         if (worldFolder == null || worldFolder.isEmpty())
         {
             return false;
         }
 
-        if (!client.isIntegratedServerRunning() || client.getServer() == null)
+        if (!client.hasSingleplayerServer() || client.getSingleplayerServer() == null)
         {
             return false;
         }
 
-        Path currentSave = client.getServer().getSavePath(WorldSavePath.ROOT);
+        Path currentSave = client.getSingleplayerServer().getWorldPath(LevelResource.ROOT);
 
-        for (LevelStorage.LevelSave save : client.getLevelStorage().getLevelList().levels())
+        for (LevelStorageSource.LevelDirectory save : client.getLevelSource().findLevelCandidates().levels())
         {
-            if (save.getRootPath().equals(worldFolder) && currentSave.equals(save.path()))
+            if (save.directoryName().equals(worldFolder) && currentSave.equals(save.path()))
             {
                 return true;
             }
@@ -39,20 +39,20 @@ public class WorldLaunchHelper
 
     public static void loadWorld(String worldFolder)
     {
-        MinecraftClient client = MinecraftClient.getInstance();
+        Minecraft client = Minecraft.getInstance();
 
         if (WorldLaunchHelper.isCurrentWorld(client, worldFolder))
         {
             return;
         }
 
-        if (client.world != null)
+        if (client.level != null)
         {
-            client.disconnect(Text.of(""));
+            client.disconnectFromWorld(Component.nullToEmpty(""));
         }
 
-        IntegratedServerLoader loader = client.createIntegratedServerLoader();
+        WorldOpenFlows loader = client.createWorldOpenFlows();
 
-        loader.start(worldFolder, PendingFilmLaunch::clear);
+        loader.openWorld(worldFolder, PendingFilmLaunch::clear);
     }
 }

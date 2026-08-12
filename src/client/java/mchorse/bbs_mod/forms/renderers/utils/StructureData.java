@@ -3,32 +3,29 @@ package mchorse.bbs_mod.forms.renderers.utils;
 import mchorse.bbs_mod.BBSMod;
 import mchorse.bbs_mod.resources.Link;
 
-import net.minecraft.block.AttachedStemBlock;
-import net.minecraft.block.Block;
-import net.minecraft.block.BlockEntityProvider;
-import net.minecraft.block.BlockState;
-import net.minecraft.block.Blocks;
-import net.minecraft.block.GrassBlock;
-import net.minecraft.block.LeavesBlock;
-import net.minecraft.block.LilyPadBlock;
-import net.minecraft.block.RedstoneWireBlock;
-import net.minecraft.block.StemBlock;
-import net.minecraft.block.VineBlock;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.option.GraphicsMode;
-import net.minecraft.client.render.RenderLayer;
-import net.minecraft.client.render.RenderLayers;
-import net.minecraft.fluid.FluidState;
-import net.minecraft.fluid.Fluids;
-import net.minecraft.nbt.NbtCompound;
-import net.minecraft.nbt.NbtElement;
+import net.minecraft.client.GraphicsPreset;
+import net.minecraft.client.Minecraft;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.ListTag;
+import net.minecraft.nbt.NbtAccounter;
 import net.minecraft.nbt.NbtIo;
-import net.minecraft.nbt.NbtList;
-import net.minecraft.nbt.NbtSizeTracker;
-import net.minecraft.registry.Registries;
-import net.minecraft.state.property.Property;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.math.BlockPos;
+import net.minecraft.resources.Identifier;
+import net.minecraft.world.level.block.AttachedStemBlock;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.EntityBlock;
+import net.minecraft.world.level.block.GrassBlock;
+import net.minecraft.world.level.block.LeavesBlock;
+import net.minecraft.world.level.block.RedStoneWireBlock;
+import net.minecraft.world.level.block.StemBlock;
+import net.minecraft.world.level.block.VineBlock;
+import net.minecraft.world.level.block.WaterlilyBlock;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.properties.Property;
+import net.minecraft.world.level.material.FluidState;
+import net.minecraft.world.level.material.Fluids;
 
 import java.io.File;
 import java.io.IOException;
@@ -47,9 +44,9 @@ public class StructureData
     {
         public final BlockState state;
         public final BlockPos pos;
-        public final NbtCompound nbt;
+        public final CompoundTag nbt;
 
-        public BlockEntry(BlockState state, BlockPos pos, NbtCompound nbt)
+        public BlockEntry(BlockState state, BlockPos pos, CompoundTag nbt)
         {
             this.state = state;
             this.pos = pos;
@@ -65,7 +62,7 @@ public class StructureData
 
     private String lastFile = null;
 
-    private BlockPos size = BlockPos.ORIGIN;
+    private BlockPos size = BlockPos.ZERO;
     private BlockPos boundsMin = null;
     private BlockPos boundsMax = null;
 
@@ -192,7 +189,7 @@ public class StructureData
         this.biomeTintedBlocks.clear();
         this.translucentBlocks.clear();
         this.blockEntitiesList.clear();
-        this.size = BlockPos.ORIGIN;
+        this.size = BlockPos.ZERO;
         this.boundsMin = null;
         this.boundsMax = null;
         this.hasTranslucentLayer = false;
@@ -228,7 +225,7 @@ public class StructureData
         {
             try
             {
-                NbtCompound root = NbtIo.readCompressed(nbtFile.toPath(), NbtSizeTracker.ofUnlimitedBytes());
+                CompoundTag root = NbtIo.readCompressed(nbtFile.toPath(), NbtAccounter.unlimitedHeap());
                 this.parseStructure(root);
                 return true;
             }
@@ -242,7 +239,7 @@ public class StructureData
         {
             try
             {
-                NbtCompound root = NbtIo.readCompressed(is, NbtSizeTracker.ofUnlimitedBytes());
+                CompoundTag root = NbtIo.readCompressed(is, NbtAccounter.unlimitedHeap());
                 this.parseStructure(root);
                 return true;
             }
@@ -259,7 +256,7 @@ public class StructureData
         return true;
     }
 
-    private void parseStructure(NbtCompound root)
+    private void parseStructure(CompoundTag root)
     {
         if (root.contains("size"))
         {
@@ -275,11 +272,11 @@ public class StructureData
 
         if (root.contains("palette"))
         {
-            NbtList palette = root.getListOrEmpty("palette");
+            ListTag palette = root.getListOrEmpty("palette");
 
             for (int i = 0; i < palette.size(); i++)
             {
-                NbtCompound entry = palette.getCompoundOrEmpty(i);
+                CompoundTag entry = palette.getCompoundOrEmpty(i);
                 BlockState state = this.readBlockState(entry);
                 paletteStates.add(state);
             }
@@ -293,15 +290,15 @@ public class StructureData
             int maxX = Integer.MIN_VALUE;
             int maxY = Integer.MIN_VALUE;
             int maxZ = Integer.MIN_VALUE;
-            NbtList list = root.getListOrEmpty("blocks");
+            ListTag list = root.getListOrEmpty("blocks");
 
             StructureData.syncFancyGraphicsFromOptions();
 
             for (int i = 0; i < list.size(); i++)
             {
-                NbtCompound be = list.getCompoundOrEmpty(i);
+                CompoundTag be = list.getCompoundOrEmpty(i);
                 BlockPos pos = this.readBlockPos(be.getListOrEmpty("pos"));
-                int stateIndex = be.getInt("state", 0);
+                int stateIndex = be.getIntOr("state", 0);
 
                 if (stateIndex >= 0 && stateIndex < paletteStates.size())
                 {
@@ -312,12 +309,12 @@ public class StructureData
                         continue;
                     }
 
-                    NbtCompound nbt = be.contains("nbt") ? be.getCompoundOrEmpty("nbt") : null;
+                    CompoundTag nbt = be.contains("nbt") ? be.getCompoundOrEmpty("nbt") : null;
                     BlockEntry blockEntry = new BlockEntry(state, pos, nbt);
 
                     this.blocks.add(blockEntry);
 
-                    if (!state.isOpaque())
+                    if (!state.canOcclude())
                     {
                         this.hasCutoutLayer = true;
                     }
@@ -345,7 +342,7 @@ public class StructureData
                         this.hasTranslucentLayer = true;
                     }
 
-                    if (state.getBlock() instanceof BlockEntityProvider)
+                    if (state.getBlock() instanceof EntityBlock)
                     {
                         this.blockEntitiesList.add(blockEntry);
                         this.hasBlockEntityLayer = true;
@@ -391,26 +388,26 @@ public class StructureData
         }
     }
 
-    private BlockPos readBlockPos(NbtList list)
+    private BlockPos readBlockPos(ListTag list)
     {
         if (list == null || list.size() < 3)
         {
-            return BlockPos.ORIGIN;
+            return BlockPos.ZERO;
         }
 
-        return new BlockPos(list.getInt(0, 0), list.getInt(1, 0), list.getInt(2, 0));
+        return new BlockPos(list.getIntOr(0, 0), list.getIntOr(1, 0), list.getIntOr(2, 0));
     }
 
-    private BlockState readBlockState(NbtCompound entry)
+    private BlockState readBlockState(CompoundTag entry)
     {
-        String name = entry.getString("Name", "");
+        String name = entry.getStringOr("Name", "");
         Block block;
         BlockState state;
 
         try
         {
-            Identifier id = Identifier.of(name);
-            block = Registries.BLOCK.get(id);
+            Identifier id = Identifier.parse(name);
+            block = BuiltInRegistries.BLOCK.getValue(id);
 
             if (block == null)
             {
@@ -424,23 +421,23 @@ public class StructureData
 
         if ("minecraft:jigsaw".equals(name) || block == Blocks.JIGSAW)
         {
-            return Blocks.AIR.getDefaultState();
+            return Blocks.AIR.defaultBlockState();
         }
 
-        state = block.getDefaultState();
+        state = block.defaultBlockState();
 
         if (entry.contains("Properties"))
         {
-            NbtCompound props = entry.getCompoundOrEmpty("Properties");
+            CompoundTag props = entry.getCompoundOrEmpty("Properties");
 
-            for (String key : props.getKeys())
+            for (String key : props.keySet())
             {
-                String value = props.getString(key, "");
-                Property<?> property = block.getStateManager().getProperty(key);
+                String value = props.getStringOr(key, "");
+                Property<?> property = block.getStateDefinition().getProperty(key);
 
                 if (property != null)
                 {
-                    Optional<?> parsed = property.parse(value);
+                    Optional<?> parsed = property.getValue(value);
 
                     if (parsed.isPresent())
                     {
@@ -450,7 +447,7 @@ public class StructureData
                             Property raw = property;
                             @SuppressWarnings("unchecked")
                             Comparable c = (Comparable) parsed.get();
-                            state = state.with(raw, c);
+                            state = state.setValue(raw, c);
                         }
                         catch (Exception ignored)
                         {
@@ -471,7 +468,7 @@ public class StructureData
             return false;
         }
 
-        return state.isTransparent();
+        return state.propagatesSkylightDown();
     }
 
     public static boolean isAnimatedTexture(BlockState state)
@@ -481,7 +478,7 @@ public class StructureData
             return false;
         }
 
-        if (state.isOf(Blocks.NETHER_PORTAL) || state.isOf(Blocks.FIRE) || state.isOf(Blocks.SOUL_FIRE))
+        if (state.is(Blocks.NETHER_PORTAL) || state.is(Blocks.FIRE) || state.is(Blocks.SOUL_FIRE))
         {
             return true;
         }
@@ -490,8 +487,8 @@ public class StructureData
 
         if (fs != null)
         {
-            if (fs.getFluid() == Fluids.WATER || fs.getFluid() == Fluids.FLOWING_WATER ||
-                fs.getFluid() == Fluids.LAVA || fs.getFluid() == Fluids.FLOWING_LAVA)
+            if (fs.getType() == Fluids.WATER || fs.getType() == Fluids.FLOWING_WATER ||
+                fs.getType() == Fluids.LAVA || fs.getType() == Fluids.FLOWING_LAVA)
             {
                 return true;
             }
@@ -512,22 +509,22 @@ public class StructureData
         return (b instanceof LeavesBlock)
             || (b instanceof GrassBlock)
             || (b instanceof VineBlock)
-            || (b instanceof LilyPadBlock)
-            || (b instanceof RedstoneWireBlock)
+            || (b instanceof WaterlilyBlock)
+            || (b instanceof RedStoneWireBlock)
             || (b instanceof StemBlock)
             || (b instanceof AttachedStemBlock)
-            || state.isOf(Blocks.FERN)
-            || state.isOf(Blocks.SUGAR_CANE)
-            || state.isOf(Blocks.SHORT_GRASS)
-            || state.isOf(Blocks.TALL_GRASS)
-            || state.isOf(Blocks.LARGE_FERN);
+            || state.is(Blocks.FERN)
+            || state.is(Blocks.SUGAR_CANE)
+            || state.is(Blocks.SHORT_GRASS)
+            || state.is(Blocks.TALL_GRASS)
+            || state.is(Blocks.LARGE_FERN);
     }
 
     public static boolean isFancyGraphicsEnabled()
     {
         try
         {
-            return MinecraftClient.getInstance().options.getPreset().getValue() != GraphicsMode.FAST;
+            return Minecraft.getInstance().options.graphicsPreset().get() != GraphicsPreset.FAST;
         }
         catch (Throwable ignored)
         {

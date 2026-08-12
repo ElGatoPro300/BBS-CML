@@ -17,17 +17,17 @@ import mchorse.bbs_mod.utils.interps.Lerps;
 import mchorse.bbs_mod.utils.joml.Matrices;
 import mchorse.bbs_mod.utils.joml.Vectors;
 
-import net.minecraft.client.render.BufferBuilder;
-import net.minecraft.client.render.LightmapTextureManager;
-import net.minecraft.client.render.VertexFormats;
-import net.minecraft.client.render.WorldRenderer;
-import net.minecraft.util.math.BlockPos;
+import net.minecraft.client.renderer.LevelRenderer;
+import net.minecraft.client.renderer.LightTexture;
+import net.minecraft.core.BlockPos;
 
 import org.joml.Matrix4f;
 import org.joml.Vector3d;
 import org.joml.Vector3f;
 import org.joml.Vector4f;
 
+import com.mojang.blaze3d.vertex.BufferBuilder;
+import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import com.mojang.blaze3d.vertex.VertexFormat;
 
 public class ParticleComponentAppearanceBillboard extends ParticleComponentBase implements IComponentParticleRender
@@ -344,7 +344,7 @@ public class ParticleComponentAppearanceBillboard extends ParticleComponentBase 
 
     public void renderGlowOverlay(ParticleEmitter emitter, Particle particle, BufferBuilder builder, Matrix4f matrix, int overlay, float transition, Color glowColor)
     {
-        this.renderWorld(emitter, VertexFormats.POSITION_TEXTURE_COLOR, particle, builder, matrix, overlay, transition, glowColor);
+        this.renderWorld(emitter, DefaultVertexFormat.POSITION_TEX_COLOR, particle, builder, matrix, overlay, transition, glowColor);
     }
 
     public void renderUIGlowOverlay(Particle particle, BufferBuilder builder, Matrix4f matrix, float transition, Color glowColor)
@@ -483,7 +483,7 @@ public class ParticleComponentAppearanceBillboard extends ParticleComponentBase 
             }
         }
 
-        if (format != VertexFormats.POSITION_TEXTURE_COLOR_LIGHT)
+        if (format != DefaultVertexFormat.PARTICLE)
         {
             this.n.set(0F, 0F, 1F);
 
@@ -589,9 +589,9 @@ public class ParticleComponentAppearanceBillboard extends ParticleComponentBase 
 
     private void writeGlowVertex(BufferBuilder builder, Matrix4f matrix, Vector4f vertex, float u, float v, Color color)
     {
-        builder.vertex(matrix, vertex.x, vertex.y, vertex.z)
-            .texture(u, v)
-            .color(color.r, color.g, color.b, color.a);
+        builder.addVertex(matrix, vertex.x, vertex.y, vertex.z)
+            .setUv(u, v)
+            .setColor(color.r, color.g, color.b, color.a);
     }
 
     private Color resolveDisplayColor(ParticleEmitter emitter, Particle particle)
@@ -616,26 +616,26 @@ public class ParticleComponentAppearanceBillboard extends ParticleComponentBase 
     {
         Color color = this.resolveDisplayColor(emitter, particle);
 
-        if (format == VertexFormats.POSITION_TEXTURE_COLOR_LIGHT)
+        if (format == DefaultVertexFormat.PARTICLE)
         {
             /* VertexFormats.POSITION_TEXTURE_COLOR_LIGHT */
-            builder.vertex(matrix, vertex.x, vertex.y, vertex.z)
-                .texture(u, v)
-                .color(color.r, color.g, color.b, color.a)
+            builder.addVertex(matrix, vertex.x, vertex.y, vertex.z)
+                .setUv(u, v)
+                .setColor(color.r, color.g, color.b, color.a)
                 .light(this.light);
         }
-        else if (format == VertexFormats.POSITION_TEXTURE_COLOR)
+        else if (format == DefaultVertexFormat.POSITION_TEX_COLOR)
         {
             /* VertexFormats.POSITION_TEXTURE_COLOR */
-            builder.vertex(matrix, vertex.x, vertex.y, vertex.z)
-                .texture(u, v)
-                .color(color.r, color.g, color.b, color.a);
+            builder.addVertex(matrix, vertex.x, vertex.y, vertex.z)
+                .setUv(u, v)
+                .setColor(color.r, color.g, color.b, color.a);
         }
         else
         {
             /* VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL */
-            builder.vertex(matrix, vertex.x, vertex.y, vertex.z)
-                .color(color.r, color.g, color.b, color.a)
+            builder.addVertex(matrix, vertex.x, vertex.y, vertex.z)
+                .setColor(color.r, color.g, color.b, color.a)
                 .texture(u, v)
                 .overlay(overlay)
                 .light(this.light)
@@ -688,10 +688,10 @@ public class ParticleComponentAppearanceBillboard extends ParticleComponentBase 
 
     private void writeVertexUI(BufferBuilder builder, Matrix4f matrix, Vector4f vertex, float u, float v, Particle particle)
     {
-        builder.vertex(matrix, vertex.x, vertex.y, 0F)
-            .texture(u, v)
-            .color(particle.r, particle.g, particle.b, particle.a)
-            .light(LightmapTextureManager.MAX_LIGHT_COORDINATE);
+        builder.addVertex(matrix, vertex.x, vertex.y, 0F)
+            .setUv(u, v)
+            .setColor(particle.r, particle.g, particle.b, particle.a)
+            .setLight(LightTexture.FULL_BRIGHT);
     }
 
     public void calculateUVs(Particle particle, ParticleEmitter emitter, float transition)
@@ -738,13 +738,13 @@ public class ParticleComponentAppearanceBillboard extends ParticleComponentBase 
 
         if (emitter == null || emitter.lit || emitter.world == null)
         {
-            this.light = LightmapTextureManager.pack(15, 15);
+            this.light = LightTexture.pack(15, 15);
         }
         else
         {
             Vector3d pos = particle.getGlobalPosition(emitter);
             BlockPos blockPos = new BlockPos((int) pos.x, (int) pos.y, (int) pos.z);
-            int lightLevel = WorldRenderer.getLightmapCoordinates(emitter.world, blockPos);
+            int lightLevel = LevelRenderer.getLightColor(emitter.world, blockPos);
 
             this.light = lightLevel;
         }

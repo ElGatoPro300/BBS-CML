@@ -1,6 +1,6 @@
 package mchorse.bbs_mod.client;
 
-import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.Minecraft;
 
 public class PendingFilmLaunch
 {
@@ -35,14 +35,14 @@ public class PendingFilmLaunch
         }
     }
 
-    public static void tick(MinecraftClient client)
+    public static void tick(Minecraft client)
     {
         if (!PendingFilmLaunch.hasPending())
         {
             return;
         }
 
-        if (client.player == null || client.world == null || !client.isIntegratedServerRunning())
+        if (client.player == null || client.level == null || !client.hasSingleplayerServer())
         {
             return;
         }

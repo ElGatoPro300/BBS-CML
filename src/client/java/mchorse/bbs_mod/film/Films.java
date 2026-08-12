@@ -23,8 +23,8 @@ import mchorse.bbs_mod.utils.keyframes.KeyframeChannel;
 
 import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderContext;
 
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.network.ClientPlayerEntity;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.player.LocalPlayer;
 
 import com.mojang.blaze3d.opengl.GlStateManager;
 import com.mojang.blaze3d.systems.RenderSystem;
@@ -36,6 +36,8 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+
+import Film;
 
 public class Films
 {
@@ -164,7 +166,7 @@ public class Films
 
     public FirstPersonBobbingSample getFirstPersonBobbingSample(float tickDelta)
     {
-        ClientPlayerEntity player = MinecraftClient.getInstance().player;
+        LocalPlayer player = Minecraft.getInstance().player;
 
         if (player == null)
         {
@@ -216,7 +218,7 @@ public class Films
         /* Safety: never leave integrated-server ticks blocked after recording starts. */
         RecordingPauseHelper.reset();
 
-        Morph morph = Morph.getMorph(MinecraftClient.getInstance().player);
+        Morph morph = Morph.getMorph(Minecraft.getInstance().player);
 
         this.recorder = new Recorder(film, morph == null ? null : morph.getForm(), replayId, tick);
 
@@ -412,8 +414,8 @@ public class Films
                 }
             }
 
-            int sw = MinecraftClient.getInstance().getWindow().getScaledWidth();
-            int sh = MinecraftClient.getInstance().getWindow().getScaledHeight();
+            int sw = Minecraft.getInstance().getWindow().getGuiScaledWidth();
+            int sh = Minecraft.getInstance().getWindow().getGuiScaledHeight();
             w = (int) (sw * BBSSettings.audioWaveformWidth.get());
             x = sw / 2 - w / 2;
             y = sh / 2 + 100;

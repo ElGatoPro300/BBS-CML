@@ -5,9 +5,9 @@ import mchorse.bbs_mod.cubic.constraints.JointLimitConfig;
 import mchorse.bbs_mod.cubic.render.CubicRenderer.PivotFrame;
 import mchorse.bbs_mod.utils.joml.QuaternionMath;
 
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.MathHelper;
-import net.minecraft.world.World;
+import net.minecraft.core.BlockPos;
+import net.minecraft.util.Mth;
+import net.minecraft.world.level.Level;
 
 import org.joml.Quaternionf;
 import org.joml.Vector3f;
@@ -189,7 +189,7 @@ final class VerletChainSimulator
         }
     }
 
-    static void step(World world, int age, float transition, IModel model, List<String> ids, SpringChainCompiler.CompiledChain chain, float pullStrengthMul, float dragValue, float springReturnValue, WindDef wind, Map<String, JointLimitConfig.JointLimit> jointLimits, Vector3f anchorPosition, Quaternionf anchorOrientation, Quaternionf parentRotation, Vector3f targetPosition, List<PivotFrame> chainFrames, VerletChainSnapshot state)
+    static void step(Level world, int age, float transition, IModel model, List<String> ids, SpringChainCompiler.CompiledChain chain, float pullStrengthMul, float dragValue, float springReturnValue, WindDef wind, Map<String, JointLimitConfig.JointLimit> jointLimits, Vector3f anchorPosition, Quaternionf anchorOrientation, Quaternionf parentRotation, Vector3f targetPosition, List<PivotFrame> chainFrames, VerletChainSnapshot state)
     {
         Vector3f newAnchor = anchorPosition;
         Quaternionf newAnchorOrientation = anchorOrientation;
@@ -274,7 +274,7 @@ final class VerletChainSimulator
         Vector3f vel = new Vector3f();
         Vector3f poseDir = new Vector3f();
         Vector3f curDir = new Vector3f();
-        BlockPos.Mutable mutable = collisions ? new BlockPos.Mutable() : null;
+        BlockPos.MutableBlockPos mutable = collisions ? new BlockPos.MutableBlockPos() : null;
 
         copySnapshots(state.snapshotCurrent, state.snapshotPrevious);
 
@@ -401,7 +401,7 @@ final class VerletChainSimulator
         {
         }
 
-        static void execute(VerletChainSnapshot state, float dampMul, float gravityX, float gravityY, float gravityZ, boolean hasWind, Vector3f windDir, float windMagnitude, WindDef wind, float filmTime, Vector3f windVec, float gravityScale, boolean collisions, World world, BlockPos.Mutable mutable, float radius, Vector3f vel)
+        static void execute(VerletChainSnapshot state, float dampMul, float gravityX, float gravityY, float gravityZ, boolean hasWind, Vector3f windDir, float windMagnitude, WindDef wind, float filmTime, Vector3f windVec, float gravityScale, boolean collisions, Level world, BlockPos.MutableBlockPos mutable, float radius, Vector3f vel)
         {
             VerletChainSnapshot.Particle[] particles = state.particles;
 
@@ -432,7 +432,7 @@ final class VerletChainSimulator
             }
         }
 
-        private static void clampTunnelStep(World world, BlockPos.Mutable mutable, Vector3f p, Vector3f prev, float radius)
+        private static void clampTunnelStep(Level world, BlockPos.MutableBlockPos mutable, Vector3f p, Vector3f prev, float radius)
         {
             float dx = p.x - prev.x;
             float dy = p.y - prev.y;
@@ -446,12 +446,12 @@ final class VerletChainSimulator
                 return;
             }
 
-            int minBX = MathHelper.floor(Math.min(prev.x, p.x) - radius);
-            int minBY = MathHelper.floor(Math.min(prev.y, p.y) - radius);
-            int minBZ = MathHelper.floor(Math.min(prev.z, p.z) - radius);
-            int maxBX = MathHelper.floor(Math.max(prev.x, p.x) + radius);
-            int maxBY = MathHelper.floor(Math.max(prev.y, p.y) + radius);
-            int maxBZ = MathHelper.floor(Math.max(prev.z, p.z) + radius);
+            int minBX = Mth.floor(Math.min(prev.x, p.x) - radius);
+            int minBY = Mth.floor(Math.min(prev.y, p.y) - radius);
+            int minBZ = Mth.floor(Math.min(prev.z, p.z) - radius);
+            int maxBX = Mth.floor(Math.max(prev.x, p.x) + radius);
+            int maxBY = Mth.floor(Math.max(prev.y, p.y) + radius);
+            int maxBZ = Mth.floor(Math.max(prev.z, p.z) + radius);
 
             if (!TerrainCollisionResolver.hasFullCubeInAabb(world, mutable, minBX, minBY, minBZ, maxBX, maxBY, maxBZ))
             {
@@ -738,7 +738,7 @@ final class VerletChainSimulator
         {
         }
 
-        static void execute(World world, VerletChainSnapshot state, Vector3f target, int last, float radius)
+        static void execute(Level world, VerletChainSnapshot state, Vector3f target, int last, float radius)
         {
             int to = target != null ? last : state.particles.length;
             Vector3f[] pos = positionsView(state);

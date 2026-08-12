@@ -23,18 +23,14 @@ import mchorse.bbs_mod.resources.Link;
 import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.utils.colors.Color;
 
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gl.RenderPipelines;
-import net.minecraft.client.gl.UniformType;
+import net.minecraft.client.Camera;
 import net.minecraft.client.render.*;
-import net.minecraft.client.render.BufferBuilder;
-import net.minecraft.client.render.BuiltBuffer;
-import net.minecraft.client.render.RenderLayer;
-import net.minecraft.client.render.RenderSetup;
-import net.minecraft.client.render.Tessellator;
-import net.minecraft.client.render.VertexFormats;
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.util.Identifier;
+import net.minecraft.client.renderer.LightTexture;
+import net.minecraft.client.renderer.RenderPipelines;
+import net.minecraft.client.renderer.rendertype.RenderSetup;
+import net.minecraft.client.renderer.rendertype.RenderType;
+import net.minecraft.client.renderer.texture.OverlayTexture;
+import net.minecraft.resources.Identifier;
 
 import org.joml.Matrix4f;
 import org.joml.Vector3d;
@@ -45,7 +41,12 @@ import com.mojang.blaze3d.opengl.GlStateManager;
 import com.mojang.blaze3d.pipeline.BlendFunction;
 import com.mojang.blaze3d.pipeline.RenderPipeline;
 import com.mojang.blaze3d.platform.DepthTestFunction;
+import com.mojang.blaze3d.shaders.UniformType;
 import com.mojang.blaze3d.systems.RenderSystem;
+import com.mojang.blaze3d.vertex.BufferBuilder;
+import com.mojang.blaze3d.vertex.DefaultVertexFormat;
+import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.blaze3d.vertex.Tesselator;
 import com.mojang.blaze3d.vertex.VertexFormat;
 
 import java.util.ArrayDeque;
@@ -63,13 +64,13 @@ public class TrailFormRenderer extends FormRenderer<TrailForm> implements ITicka
      * pipeline/RenderLayer with world-appropriate translucent + depth-tested state, mirroring how
      * BBSShaders builds its own pipelines. */
     private static RenderPipeline trailPipeline;
-    private static RenderLayer trailLayer;
+    private static RenderType trailLayer;
 
     /* Axes gizmo: opaque POSITION_COLOR triangles drawn without depth testing so the gizmo stays visible
      * on top while previewing in the model editor (old code bracketed the draw with
      * GlStateManager._disableDepthTest()/enableDepthTest(), which no longer exists as a mutable global toggle). */
     private static RenderPipeline axesPipeline;
-    private static RenderLayer axesLayer;
+    private static RenderType axesLayer;
 
     private final Map<FormRenderType, ArrayDeque<Trail>> record = new HashMap<>();
     private final Matrix4f formRootInverse = new Matrix4f();
@@ -88,12 +89,12 @@ public class TrailFormRenderer extends FormRenderer<TrailForm> implements ITicka
         return byType.computeIfAbsent(type, (k) -> new ArrayDeque<>());
     }
 
-    private static RenderLayer getTrailLayer()
+    private static RenderType getTrailLayer()
     {
         if (trailPipeline == null)
         {
             trailPipeline = RenderPipelines.register(RenderPipeline.builder()
-                .withLocation(Identifier.of(BBSMod.MOD_ID, "pipeline/trail"))
+                .withLocation(Identifier.fromNamespaceAndPath(BBSMod.MOD_ID, "pipeline/trail"))
                 .withVertexShader("core/position_tex_color")
                 .withFragmentShader("core/position_tex_color")
                 .withUniform("DynamicTransforms", UniformType.UNIFORM_BUFFER)
@@ -102,43 +103,43 @@ public class TrailFormRenderer extends FormRenderer<TrailForm> implements ITicka
                 .withBlend(BlendFunction.TRANSLUCENT)
                 .withDepthTestFunction(DepthTestFunction.LEQUAL_DEPTH_TEST)
                 .withCull(false)
-                .withVertexFormat(VertexFormats.POSITION_TEXTURE_COLOR, VertexFormat.DrawMode.QUADS)
+                .withVertexFormat(DefaultVertexFormat.POSITION_TEX_COLOR, VertexFormat.DrawMode.QUADS)
                 .build());
         }
 
         if (trailLayer == null)
         {
-            RenderSetup.Builder setup = RenderSetup.builder(trailPipeline)
-                .expectedBufferSize(RenderLayer.field_64008)
-                .translucent();
+            RenderSetup.RenderSetupBuilder setup = RenderSetup.builder(trailPipeline)
+                .bufferSize(RenderType.BIG_BUFFER_SIZE)
+                .sortOnUpload();
 
-            trailLayer = RenderLayer.of(BBSMod.MOD_ID + "_trail", setup.build());
+            trailLayer = RenderType.create(BBSMod.MOD_ID + "_trail", setup.createRenderSetup());
         }
 
         return trailLayer;
     }
 
-    private static RenderLayer getAxesLayer()
+    private static RenderType getAxesLayer()
     {
         if (axesPipeline == null)
         {
             axesPipeline = RenderPipelines.register(RenderPipeline.builder()
-                .withLocation(Identifier.of(BBSMod.MOD_ID, "pipeline/trail_axes"))
+                .withLocation(Identifier.fromNamespaceAndPath(BBSMod.MOD_ID, "pipeline/trail_axes"))
                 .withVertexShader("core/position_color")
                 .withFragmentShader("core/position_color")
                 .withUniform("DynamicTransforms", UniformType.UNIFORM_BUFFER)
                 .withUniform("Projection", UniformType.UNIFORM_BUFFER)
                 .withDepthTestFunction(DepthTestFunction.NO_DEPTH_TEST)
-                .withVertexFormat(VertexFormats.POSITION_COLOR, VertexFormat.DrawMode.TRIANGLES)
+                .withVertexFormat(DefaultVertexFormat.POSITION_COLOR, VertexFormat.DrawMode.TRIANGLES)
                 .build());
         }
 
         if (axesLayer == null)
         {
-            RenderSetup.Builder setup = RenderSetup.builder(axesPipeline)
-                .expectedBufferSize(RenderLayer.field_64008);
+            RenderSetup.RenderSetupBuilder setup = RenderSetup.builder(axesPipeline)
+                .bufferSize(RenderType.BIG_BUFFER_SIZE);
 
-            axesLayer = RenderLayer.of(BBSMod.MOD_ID + "_trail_axes", setup.build());
+            axesLayer = RenderType.create(BBSMod.MOD_ID + "_trail_axes", setup.createRenderSetup());
         }
 
         return axesLayer;
@@ -172,18 +173,18 @@ public class TrailFormRenderer extends FormRenderer<TrailForm> implements ITicka
 
         if (context.modelRenderer || context.ui)
         {
-            MatrixStack stack = context.stack;
+            PoseStack stack = context.stack;
             float scale = BBSSettings.axesScale.get();
             float axisOffset = 0.01F * scale;
             float outlineSize = 1.01F;
             float outlineOffset = 0.02F * scale;
 
-            BufferBuilder builder = Tessellator.getInstance().begin(VertexFormat.DrawMode.TRIANGLES, VertexFormats.POSITION_COLOR);
+            BufferBuilder builder = Tesselator.getInstance().begin(VertexFormat.DrawMode.TRIANGLES, DefaultVertexFormat.POSITION_COLOR);
 
             Draw.fillBox(builder, stack, -outlineOffset, -outlineSize, -outlineOffset, outlineOffset, outlineSize, outlineOffset, 0, 0, 0);
             Draw.fillBox(builder, stack, -axisOffset, -1F, -axisOffset, axisOffset, 1F, axisOffset, 0, 1, 0);
             GlStateManager._disableDepthTest();
-            builder.end().close();
+            builder.buildOrThrow().close();
             GlStateManager._enableDepthTest();
 
             return;
@@ -194,7 +195,7 @@ public class TrailFormRenderer extends FormRenderer<TrailForm> implements ITicka
             return;
         }
 
-        MatrixStack stack = context.stack;
+        PoseStack stack = context.stack;
         Camera camera = context.camera;
         double baseX = camera.position.x;
         double baseY = camera.position.y;
@@ -204,7 +205,7 @@ public class TrailFormRenderer extends FormRenderer<TrailForm> implements ITicka
 
         if (!this.form.paused.get())
         {
-            Matrix4f modelPosMatrix = new Matrix4f(stack.peek().getPositionMatrix());
+            Matrix4f modelPosMatrix = new Matrix4f(stack.last().pose());
             Vector4f topVec = new Vector4f(0F, 1F, 0F, 1F);
             Vector4f bottomVec = new Vector4f(0F, -1F, 0F, 1F);
 
@@ -270,7 +271,7 @@ public class TrailFormRenderer extends FormRenderer<TrailForm> implements ITicka
             return;
         }
 
-        this.formRootInverse.set(stack.peek().getPositionMatrix()).invert();
+        this.formRootInverse.set(stack.last().pose()).invert();
 
         FormTextureBlendRenderer.draw(this.form.textureBlend, defaultTexture, (link, alphaFactor) ->
         {
@@ -278,7 +279,7 @@ public class TrailFormRenderer extends FormRenderer<TrailForm> implements ITicka
         });
     }
 
-    private void renderTrailPass(MatrixStack stack, ArrayDeque<Trail> trails, boolean loop, float length, float current, double baseX, double baseY, double baseZ, Link textureLink, Color unblendedTint, Color blendedTint, float alphaFactor)
+    private void renderTrailPass(PoseStack stack, ArrayDeque<Trail> trails, boolean loop, float length, float current, double baseX, double baseY, double baseZ, Link textureLink, Color unblendedTint, Color blendedTint, float alphaFactor)
     {
         if (textureLink == null)
         {
@@ -286,7 +287,7 @@ public class TrailFormRenderer extends FormRenderer<TrailForm> implements ITicka
         }
 
         BBSModClient.getTextures().bindTexture(textureLink);
-        stack.push();
+        stack.pushPose();
 
         PaintSettings paintSettings = this.form.paintSettings.get();
         Color legacyPaint = this.form.paintColor.get();
@@ -318,8 +319,8 @@ public class TrailFormRenderer extends FormRenderer<TrailForm> implements ITicka
             FormColorEffects.blendFormGlowBrighten(blended, glowSettings, legacyGlow);
         }
 
-        Tessellator tessellator = Tessellator.getInstance();
-        BufferBuilder builder = tessellator.begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_TEXTURE_COLOR);
+        Tesselator tessellator = Tesselator.getInstance();
+        BufferBuilder builder = tessellator.begin(VertexFormat.DrawMode.QUADS, DefaultVertexFormat.POSITION_TEX_COLOR);
         Matrix4f identityMatrix = new Matrix4f();
 
         this.buildTrailQuads(builder, identityMatrix, trails, loop, length, current, baseX, baseY, baseZ, unblended, blended, colorTransform);
@@ -327,7 +328,7 @@ public class TrailFormRenderer extends FormRenderer<TrailForm> implements ITicka
         // RenderSystem.setShader(GameRenderer::getPositionTexColorProgram);
         GlStateManager._enableBlend();
         GlStateManager._blendFuncSeparate(770, 771, 1, 0);
-        builder.end().close();
+        builder.buildOrThrow().close();
 
         if (positivePaint)
         {
@@ -340,14 +341,14 @@ public class TrailFormRenderer extends FormRenderer<TrailForm> implements ITicka
         }
 
         GlStateManager._enableDepthTest();
-        stack.pop();
+        stack.popPose();
     }
 
-    private void submitDeferredTrailPaintOverlay(MatrixStack stack, ArrayDeque<Trail> trails, boolean loop, float length, float current, double baseX, double baseY, double baseZ, Link textureLink, Color resolvedPaint, float alpha, EffectTransform paintTransform)
+    private void submitDeferredTrailPaintOverlay(PoseStack stack, ArrayDeque<Trail> trails, boolean loop, float length, float current, double baseX, double baseY, double baseZ, Link textureLink, Color resolvedPaint, float alpha, EffectTransform paintTransform)
     {
         ArrayDeque<Trail> trailSnapshot = this.copyTrails(trails);
         Color paintOverlay = new Color(resolvedPaint.r, resolvedPaint.g, resolvedPaint.b, resolvedPaint.a);
-        Matrix4f paintMatrix = new Matrix4f(stack.peek().getPositionMatrix());
+        Matrix4f paintMatrix = new Matrix4f(stack.last().pose());
         EffectTransform paintTransformSnapshot = paintTransform == null ? null : paintTransform.copy();
         Matrix4f formRootInverseSnapshot = new Matrix4f(this.formRootInverse);
 
@@ -386,20 +387,20 @@ public class TrailFormRenderer extends FormRenderer<TrailForm> implements ITicka
 
     private void renderPaintOverlayPass(ArrayDeque<Trail> trails, boolean loop, float length, float current, double baseX, double baseY, double baseZ, Color paintOverlay, Matrix4f vertexMatrix, EffectTransform paintTransform)
     {
-        Tessellator tessellator = Tessellator.getInstance();
+        Tesselator tessellator = Tesselator.getInstance();
 
         FlatPaintOverlayPass.render(() ->
         {
-            BufferBuilder paintBuilder = tessellator.begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL);
-            int paintLight = LightmapTextureManager.MAX_LIGHT_COORDINATE;
-            int overlay = OverlayTexture.DEFAULT_UV;
+            BufferBuilder paintBuilder = tessellator.begin(VertexFormat.DrawMode.QUADS, DefaultVertexFormat.NEW_ENTITY);
+            int paintLight = LightTexture.FULL_BRIGHT;
+            int overlay = OverlayTexture.NO_OVERLAY;
 
             this.buildTrailPaintQuads(paintBuilder, vertexMatrix, trails, loop, length, current, baseX, baseY, baseZ, paintOverlay, overlay, paintLight, paintTransform);
-            paintBuilder.end().close();
+            paintBuilder.buildOrThrow().close();
         });
     }
 
-    private void renderGlowOverlay(Tessellator tessellator, Matrix4f matrix, ArrayDeque<Trail> trails, boolean loop, float length, float current, double baseX, double baseY, double baseZ, GlowSettings glowSettings, Color legacyGlow, float alpha, float glowIntensity, EffectTransform glowTransform)
+    private void renderGlowOverlay(Tesselator tessellator, Matrix4f matrix, ArrayDeque<Trail> trails, boolean loop, float length, float current, double baseX, double baseY, double baseZ, GlowSettings glowSettings, Color legacyGlow, float alpha, float glowIntensity, EffectTransform glowTransform)
     {
         FlatGlowOverlayPass.render(glowSettings, legacyGlow, alpha, glowIntensity, (glowColor) ->
         {
@@ -473,16 +474,16 @@ public class TrailFormRenderer extends FormRenderer<TrailForm> implements ITicka
                 float u2 = loop ? lastTrail.tick / length : (current - lastTrail.tick) / length;
 
                 /* Front face */
-                builder.vertex(matrix, x1, y1, z1).texture(u1, 0F).color(1F, 1F, 1F, 1F);
-                builder.vertex(matrix, x2, y2, z2).texture(u1, 1F).color(1F, 1F, 1F, 1F);
-                builder.vertex(matrix, x3, y3, z3).texture(u2, 1F).color(1F, 1F, 1F, 1F);
-                builder.vertex(matrix, x4, y4, z4).texture(u2, 0F).color(1F, 1F, 1F, 1F);
+                builder.addVertex(matrix, x1, y1, z1).setUv(u1, 0F).setColor(1F, 1F, 1F, 1F);
+                builder.addVertex(matrix, x2, y2, z2).setUv(u1, 1F).setColor(1F, 1F, 1F, 1F);
+                builder.addVertex(matrix, x3, y3, z3).setUv(u2, 1F).setColor(1F, 1F, 1F, 1F);
+                builder.addVertex(matrix, x4, y4, z4).setUv(u2, 0F).setColor(1F, 1F, 1F, 1F);
 
                 /* Back face */
-                builder.vertex(matrix, x4, y4, z4).texture(u2, 0F).color(1F, 1F, 1F, 1F);
-                builder.vertex(matrix, x3, y3, z3).texture(u2, 1F).color(1F, 1F, 1F, 1F);
-                builder.vertex(matrix, x2, y2, z2).texture(u1, 1F).color(1F, 1F, 1F, 1F);
-                builder.vertex(matrix, x1, y1, z1).texture(u1, 0F).color(1F, 1F, 1F, 1F);
+                builder.addVertex(matrix, x4, y4, z4).setUv(u2, 0F).setColor(1F, 1F, 1F, 1F);
+                builder.addVertex(matrix, x3, y3, z3).setUv(u2, 1F).setColor(1F, 1F, 1F, 1F);
+                builder.addVertex(matrix, x2, y2, z2).setUv(u1, 1F).setColor(1F, 1F, 1F, 1F);
+                builder.addVertex(matrix, x1, y1, z1).setUv(u1, 0F).setColor(1F, 1F, 1F, 1F);
             }
 
             lastTrail = trail;
@@ -573,14 +574,14 @@ public class TrailFormRenderer extends FormRenderer<TrailForm> implements ITicka
         float b = unblended.b + (blended.b - unblended.b) * mask;
         float a = unblended.a + (blended.a - unblended.a) * mask;
 
-        builder.vertex(matrix, x, y, z).texture(u, v).color(r, g, b, a);
+        builder.addVertex(matrix, x, y, z).setUv(u, v).setColor(r, g, b, a);
     }
 
     private void fillPaintVertex(BufferBuilder builder, Matrix4f matrix, float x, float y, float z, float u, float v, Color color, int overlay, int light, EffectTransform paintTransform)
     {
         float mask = this.sampleMask(x, y, z, paintTransform);
 
-        builder.vertex(matrix, x, y, z).color(color.r, color.g, color.b, color.a * mask).texture(u, v).overlay(overlay).light(light).normal(0F, 0F, 1F);
+        builder.addVertex(matrix, x, y, z).setColor(color.r, color.g, color.b, color.a * mask).texture(u, v).overlay(overlay).light(light).normal(0F, 0F, 1F);
     }
 
     /**

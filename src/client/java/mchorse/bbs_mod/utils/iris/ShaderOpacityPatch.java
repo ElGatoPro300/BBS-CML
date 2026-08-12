@@ -5,9 +5,8 @@ import mchorse.bbs_mod.client.BBSRendering;
 import mchorse.bbs_mod.cubic.render.vao.ModelVAORenderer;
 import mchorse.bbs_mod.mixin.client.iris.IrisRenderingPipelineAccessor;
 
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.render.RawProjectionMatrix;
-import net.minecraft.client.texture.GlTexture;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.PerspectiveProjectionMatrixBuffer;
 
 import net.irisshaders.iris.gl.blending.AlphaTest;
 import net.irisshaders.iris.gl.blending.AlphaTestFunction;
@@ -21,8 +20,9 @@ import net.irisshaders.iris.targets.RenderTargets;
 import org.joml.Matrix4f;
 import org.joml.Matrix4fStack;
 
+import com.mojang.blaze3d.ProjectionType;
 import com.mojang.blaze3d.opengl.GlStateManager;
-import com.mojang.blaze3d.systems.ProjectionType;
+import com.mojang.blaze3d.opengl.GlTexture;
 import com.mojang.blaze3d.systems.RenderSystem;
 
 import org.lwjgl.BufferUtils;
@@ -467,7 +467,7 @@ public class ShaderOpacityPatch
             GL11.glEnable(GL11.GL_BLEND);
             GlStateManager._blendFuncSeparate(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA, GL11.GL_ONE, GL11.GL_ZERO);
 
-            MinecraftClient mc = MinecraftClient.getInstance();
+            Minecraft mc = Minecraft.getInstance();
 
             if (mc != null && mc.gameRenderer != null)
             {
@@ -521,8 +521,8 @@ public class ShaderOpacityPatch
 
             int width = targets.getCurrentWidth();
             int height = targets.getCurrentHeight();
-            int opaqueDepth = (targets.getDepthTextureNoTranslucents() instanceof GlTexture gt1) ? gt1.getGlId() : -1;
-            int liveDepth = (targets.getDepthTexture() instanceof GlTexture gt2) ? gt2.getGlId() : -1;
+            int opaqueDepth = (targets.getDepthTextureNoTranslucents() instanceof GlTexture gt1) ? gt1.glId() : -1;
+            int liveDepth = (targets.getDepthTexture() instanceof GlTexture gt2) ? gt2.glId() : -1;
 
             if (width > 0 && height > 0 && opaqueDepth > 0 && liveDepth > 0)
             {
@@ -556,7 +556,7 @@ public class ShaderOpacityPatch
 
         try
         {
-            RenderSystem.setProjectionMatrix(new RawProjectionMatrix("shader_opacity_deferred").set(entry.projection), ProjectionType.ORTHOGRAPHIC);
+            RenderSystem.setProjectionMatrix(new PerspectiveProjectionMatrixBuffer("shader_opacity_deferred").getBuffer(entry.projection), ProjectionType.ORTHOGRAPHIC);
             flushingDepthWrite = entry.depthWrite;
             GL11.glDepthMask(entry.depthWrite);
 
@@ -584,7 +584,7 @@ public class ShaderOpacityPatch
             }
 
             GL11.glDepthMask(savedDepthMask);
-            RenderSystem.setProjectionMatrix(new RawProjectionMatrix("shader_opacity_restore").set(savedProjection), ProjectionType.ORTHOGRAPHIC);
+            RenderSystem.setProjectionMatrix(new PerspectiveProjectionMatrixBuffer("shader_opacity_restore").getBuffer(savedProjection), ProjectionType.ORTHOGRAPHIC);
             modelViewStack.set(savedModelView);
         }
     }

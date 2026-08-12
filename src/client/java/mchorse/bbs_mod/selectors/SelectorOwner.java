@@ -7,12 +7,12 @@ import mchorse.bbs_mod.forms.entities.IEntity;
 import mchorse.bbs_mod.forms.entities.MCEntity;
 import mchorse.bbs_mod.forms.forms.Form;
 
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.nbt.NbtCompound;
-import net.minecraft.nbt.NbtElement;
-import net.minecraft.storage.NbtWriteView;
-import net.minecraft.util.ErrorReporter;
-import net.minecraft.world.World;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.Tag;
+import net.minecraft.util.ProblemReporter;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.storage.TagValueOutput;
 
 import java.util.HashSet;
 import java.util.Objects;
@@ -25,7 +25,7 @@ public class SelectorOwner
     private Form form;
     private long check;
     private int nbtCheck;
-    private NbtCompound lastNbt;
+    private CompoundTag lastNbt;
 
     private LivingEntity mcEntity;
 
@@ -42,9 +42,9 @@ public class SelectorOwner
 
     public void update()
     {
-        World world = this.entity.getWorld();
+        Level world = this.entity.getWorld();
 
-        if (!world.isClient())
+        if (!world.isClientSide())
         {
             return;
         }
@@ -67,14 +67,14 @@ public class SelectorOwner
             this.nbtCheck = 10;
 
             Set<String> keys = createWhitelist();
-            NbtWriteView view = NbtWriteView.create(ErrorReporter.EMPTY, this.mcEntity.getEntityWorld().getRegistryManager());
-            this.mcEntity.writeData(view);
-            NbtCompound compound = view.getNbt();
-            NbtCompound newCompound = new NbtCompound();
+            TagValueOutput view = TagValueOutput.createWithContext(ProblemReporter.DISCARDING, this.mcEntity.level().registryAccess());
+            this.mcEntity.saveWithoutId(view);
+            CompoundTag compound = view.buildResult();
+            CompoundTag newCompound = new CompoundTag();
 
             for (String key : keys)
             {
-                NbtElement element = compound.get(key);
+                Tag element = compound.get(key);
 
                 if (element != null)
                 {

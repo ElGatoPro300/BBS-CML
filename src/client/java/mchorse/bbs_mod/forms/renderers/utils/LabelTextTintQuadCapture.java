@@ -2,27 +2,28 @@ package mchorse.bbs_mod.forms.renderers.utils;
 
 import mchorse.bbs_mod.utils.TextureFont;
 
-import net.minecraft.client.font.TextRenderer;
-import net.minecraft.client.render.RenderLayer;
-import net.minecraft.client.render.VertexConsumer;
-import net.minecraft.client.render.VertexConsumerProvider;
+import net.minecraft.client.gui.Font;
+import net.minecraft.client.renderer.MultiBufferSource;
+import net.minecraft.client.renderer.rendertype.RenderType;
 
 import org.joml.Matrix4f;
 import org.joml.Matrix4fc;
+
+import com.mojang.blaze3d.vertex.VertexConsumer;
 
 import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Captures text glyph quads (vanilla {@link TextRenderer} or
+ * Captures text glyph quads (vanilla {@link Font} or
  * {@link TextureFont}) so a FlatColorTint pass can redraw them with a
  * per-fragment spatial mask — only letter texels are tinted, with a continuous falloff.
  */
-public class LabelTextTintQuadCapture implements VertexConsumerProvider, VertexConsumer
+public class LabelTextTintQuadCapture implements MultiBufferSource, VertexConsumer
 {
     public static final class GlyphQuad
     {
-        public final RenderLayer layer;
+        public final RenderType layer;
         public final float x0;
         public final float y0;
         public final float x1;
@@ -40,7 +41,7 @@ public class LabelTextTintQuadCapture implements VertexConsumerProvider, VertexC
         public final float u3;
         public final float v3;
 
-        private GlyphQuad(RenderLayer layer, float[] xs, float[] ys, float[] us, float[] vs)
+        private GlyphQuad(RenderType layer, float[] xs, float[] ys, float[] us, float[] vs)
         {
             this.layer = layer;
             this.x0 = xs[0];
@@ -68,7 +69,7 @@ public class LabelTextTintQuadCapture implements VertexConsumerProvider, VertexC
     private final float[] us = new float[4];
     private final float[] vs = new float[4];
 
-    private RenderLayer currentLayer;
+    private RenderType currentLayer;
     private float pendingX;
     private float pendingY;
     private float pendingU;
@@ -93,7 +94,7 @@ public class LabelTextTintQuadCapture implements VertexConsumerProvider, VertexC
     }
 
     @Override
-    public VertexConsumer getBuffer(RenderLayer layer)
+    public VertexConsumer getBuffer(RenderType layer)
     {
         this.flushPartialQuad();
         this.currentLayer = layer;
@@ -102,7 +103,7 @@ public class LabelTextTintQuadCapture implements VertexConsumerProvider, VertexC
     }
 
     @Override
-    public VertexConsumer vertex(float x, float y, float z)
+    public VertexConsumer addVertex(float x, float y, float z)
     {
         this.pendingX = x;
         this.pendingY = y;
@@ -111,19 +112,19 @@ public class LabelTextTintQuadCapture implements VertexConsumerProvider, VertexC
     }
 
     @Override
-    public VertexConsumer color(int argb)
+    public VertexConsumer setColor(int argb)
     {
         return this;
     }
 
     @Override
-    public VertexConsumer lineWidth(float width)
+    public VertexConsumer setLineWidth(float width)
     {
         return this;
     }
 
     @Override
-    public VertexConsumer vertex(Matrix4fc matrix, float x, float y, float z)
+    public VertexConsumer addVertex(Matrix4fc matrix, float x, float y, float z)
     {
         /* Identity / text-local capture: bake matrix so callers may pass a real stack matrix. */
         float tx = matrix.m00() * x + matrix.m10() * y + matrix.m20() * z + matrix.m30();
@@ -136,19 +137,19 @@ public class LabelTextTintQuadCapture implements VertexConsumerProvider, VertexC
     }
 
     @Override
-    public VertexConsumer color(int red, int green, int blue, int alpha)
+    public VertexConsumer setColor(int red, int green, int blue, int alpha)
     {
         return this;
     }
 
     @Override
-    public VertexConsumer color(float red, float green, float blue, float alpha)
+    public VertexConsumer setColor(float red, float green, float blue, float alpha)
     {
         return this;
     }
 
     @Override
-    public VertexConsumer texture(float u, float v)
+    public VertexConsumer setUv(float u, float v)
     {
         this.pendingU = u;
         this.pendingV = v;
@@ -157,21 +158,13 @@ public class LabelTextTintQuadCapture implements VertexConsumerProvider, VertexC
     }
 
     @Override
-    public VertexConsumer overlay(int u, int v)
+    public VertexConsumer setUv1(int u, int v)
     {
         return this;
     }
 
     @Override
-    public VertexConsumer light(int u, int v)
-    {
-        this.finishVertex();
-
-        return this;
-    }
-
-    @Override
-    public VertexConsumer light(int light)
+    public VertexConsumer setUv2(int u, int v)
     {
         this.finishVertex();
 
@@ -179,7 +172,15 @@ public class LabelTextTintQuadCapture implements VertexConsumerProvider, VertexC
     }
 
     @Override
-    public VertexConsumer normal(float x, float y, float z)
+    public VertexConsumer setLight(int light)
+    {
+        this.finishVertex();
+
+        return this;
+    }
+
+    @Override
+    public VertexConsumer setNormal(float x, float y, float z)
     {
         return this;
     }

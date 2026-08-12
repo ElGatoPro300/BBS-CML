@@ -28,15 +28,9 @@ import mchorse.bbs_mod.utils.keyframes.Keyframe;
 
 import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderContext;
 
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.network.ClientPlayerEntity;
-import net.minecraft.client.render.BufferBuilder;
-import net.minecraft.client.render.Camera;
-import net.minecraft.client.render.GameRenderer;
-import net.minecraft.client.render.Tessellator;
-import net.minecraft.client.render.VertexFormats;
-import net.minecraft.client.util.BufferAllocator;
-import net.minecraft.client.util.math.MatrixStack;
+import net.minecraft.client.Camera;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.player.LocalPlayer;
 
 import org.joml.Matrix4f;
 import org.joml.Quaternionf;
@@ -44,6 +38,10 @@ import org.joml.Vector3d;
 import org.joml.Vector4f;
 
 import com.mojang.blaze3d.systems.RenderSystem;
+import com.mojang.blaze3d.vertex.BufferBuilder;
+import com.mojang.blaze3d.vertex.DefaultVertexFormat;
+import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.blaze3d.vertex.Tesselator;
 import com.mojang.blaze3d.vertex.VertexFormat;
 
 public class Recorder extends WorldFilmController
@@ -76,21 +74,21 @@ public class Recorder extends WorldFilmController
         return this.projectileCapture;
     }
 
-    public static void renderCameraPreview(Position position, Camera camera, MatrixStack stack)
+    public static void renderCameraPreview(Position position, Camera camera, PoseStack stack)
     {
         renderCameraPreview(position, camera, stack, 1F, 1F, 1F, 0.85F, true);
     }
 
-    public static void renderCameraPreview(Position position, Camera camera, MatrixStack stack, float r, float g, float b, float a, boolean drawForward)
+    public static void renderCameraPreview(Position position, Camera camera, PoseStack stack, float r, float g, float b, float a, boolean drawForward)
     {
         if (!BBSSettings.recordingOverlays.get())
         {
             return;
         }
 
-        float x = (float) (position.point.x - camera.getCameraPos().x);
-        float y = (float) (position.point.y - camera.getCameraPos().y);
-        float z = (float) (position.point.z - camera.getCameraPos().z);
+        float x = (float) (position.point.x - camera.position().x);
+        float y = (float) (position.point.y - camera.position().y);
+        float z = (float) (position.point.z - camera.position().z);
         float fov = MathUtils.toRad(position.angle.fov);
         float aspect = BBSRendering.getVideoWidth() / (float) BBSRendering.getVideoHeight();
         float distance = 5.5F;
@@ -151,7 +149,7 @@ public class Recorder extends WorldFilmController
         Vector4f bottomLeft = frustumCorner(fx, fy, fz, rrx, rry, rrz, uux, uuy, uuz, distance, -halfWidth, -halfHeight);
         Vector4f forward = new Vector4f(fx * (distance + 100F), fy * (distance + 100F), fz * (distance + 100F), 1F);
 
-        BufferBuilder builder = Tessellator.getInstance().begin(VertexFormat.DrawMode.TRIANGLES, VertexFormats.POSITION_COLOR);
+        BufferBuilder builder = Tesselator.getInstance().begin(VertexFormat.DrawMode.TRIANGLES, DefaultVertexFormat.POSITION_COLOR);
 
         fillPreviewSegment(builder, stack, x, y, z, x + topRight.x, y + topRight.y, z + topRight.z, thickness, r, g, b, a);
         fillPreviewSegment(builder, stack, x, y, z, x + topLeft.x, y + topLeft.y, z + topLeft.z, thickness, r, g, b, a);
@@ -197,7 +195,7 @@ public class Recorder extends WorldFilmController
         return hasClip;
     }
 
-    public static void renderCameraPreviewTimeline(Clips clips, int tick, float transition, int duration, Position current, Camera camera, MatrixStack stack)
+    public static void renderCameraPreviewTimeline(Clips clips, int tick, float transition, int duration, Position current, Camera camera, PoseStack stack)
     {
         Clip active = findActiveCameraClip(clips, tick);
         int futureCount = Math.max(1, BBSSettings.recordingCameraPreviewFutureCount == null ? 3 : BBSSettings.recordingCameraPreviewFutureCount.get());
@@ -426,7 +424,7 @@ public class Recorder extends WorldFilmController
         );
     }
 
-    private static void fillPreviewSegment(BufferBuilder builder, MatrixStack stack, float x1, float y1, float z1, float x2, float y2, float z2, float thickness, float r, float g, float b, float a)
+    private static void fillPreviewSegment(BufferBuilder builder, PoseStack stack, float x1, float y1, float z1, float x2, float y2, float z2, float thickness, float r, float g, float b, float a)
     {
         float dx = x2 - x1;
         float dy = y2 - y1;
@@ -443,11 +441,11 @@ public class Recorder extends WorldFilmController
         float nz = dz / distance;
         Quaternionf rotation = new Quaternionf().rotationTo(0F, 0F, 1F, nx, ny, nz);
 
-        stack.push();
+        stack.pushPose();
         stack.translate(x1, y1, z1);
-        stack.multiply(rotation);
+        stack.mulPose(rotation);
         Draw.fillBox(builder, stack, -thickness / 2F, -thickness / 2F, 0F, thickness / 2F, thickness / 2F, distance, r, g, b, a);
-        stack.pop();
+        stack.popPose();
     }
 
     public Recorder(Film film, Form form, int replayId, int tick)
@@ -475,16 +473,16 @@ public class Recorder extends WorldFilmController
             return;
         }
 
-        ClientPlayerEntity player = MinecraftClient.getInstance().player;
+        LocalPlayer player = Minecraft.getInstance().player;
 
         if (this.lastPosition == null)
         {
             this.lastPosition = new Vector3d(player.getX(), player.getY(), player.getZ());
-            this.lastRotation = new Vector4f(player.getYaw(), player.getPitch(), player.getHeadYaw(), player.getBodyYaw());
+            this.lastRotation = new Vector4f(player.getYRot(), player.getXRot(), player.getYHeadRot(), player.getVisualRotationYInDegrees());
             this.inventory.fromPlayer(player);
 
             this.hp = player.getHealth();
-            this.hunger = player.getHungerManager().getSaturationLevel();
+            this.hunger = player.getFoodData().getSaturationLevel();
             this.xpLevel = player.experienceLevel;
             this.xpProgress = player.experienceProgress;
         }
@@ -519,7 +517,7 @@ public class Recorder extends WorldFilmController
     {
         super.render(context);
 
-        renderCameraPreview(this.position, MinecraftClient.getInstance().gameRenderer.getCamera(), context.matrices());
+        renderCameraPreview(this.position, Minecraft.getInstance().gameRenderer.getMainCamera(), context.matrices());
     }
 
     @Override

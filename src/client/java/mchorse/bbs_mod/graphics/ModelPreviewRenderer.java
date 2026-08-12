@@ -1,16 +1,16 @@
 package mchorse.bbs_mod.graphics;
 
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.render.DiffuseLighting;
-import net.minecraft.client.render.RawProjectionMatrix;
-import net.minecraft.client.texture.GlTexture;
-import net.minecraft.util.Identifier;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.PerspectiveProjectionMatrixBuffer;
+import net.minecraft.resources.Identifier;
 
 import org.joml.Matrix4f;
 import org.joml.Matrix4fStack;
 
+import com.mojang.blaze3d.ProjectionType;
+import com.mojang.blaze3d.opengl.GlTexture;
+import com.mojang.blaze3d.platform.Lighting;
 import com.mojang.blaze3d.systems.GpuDevice;
-import com.mojang.blaze3d.systems.ProjectionType;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.textures.GpuTexture;
 import com.mojang.blaze3d.textures.GpuTextureView;
@@ -27,7 +27,7 @@ public class ModelPreviewRenderer
     public static boolean ACTIVE = false;
     public static Identifier TEXTURE = null;
 
-    private final RawProjectionMatrix projection = new RawProjectionMatrix("bbs_model_preview");
+    private final PerspectiveProjectionMatrixBuffer projection = new PerspectiveProjectionMatrixBuffer("bbs_model_preview");
 
     private GpuTexture color;
     private GpuTexture depth;
@@ -64,13 +64,13 @@ public class ModelPreviewRenderer
             .clearColorAndDepthTextures(this.color, 0x00000000, this.depth, 1.0D);
 
         RenderSystem.backupProjectionMatrix();
-        RenderSystem.setProjectionMatrix(this.projection.set(projectionMatrix), ProjectionType.PERSPECTIVE);
+        RenderSystem.setProjectionMatrix(this.projection.getBuffer(projectionMatrix), ProjectionType.PERSPECTIVE);
 
         Matrix4fStack stack = RenderSystem.getModelViewStack();
         stack.pushMatrix();
         stack.identity();
 
-        MinecraftClient.getInstance().gameRenderer.getDiffuseLighting().setShaderLights(DiffuseLighting.Type.ENTITY_IN_UI);
+        Minecraft.getInstance().gameRenderer.getLighting().setupFor(Lighting.Entry.ENTITY_IN_UI);
 
         RenderSystem.outputColorTextureOverride = this.colorView;
         RenderSystem.outputDepthTextureOverride = this.depthView;
@@ -87,7 +87,7 @@ public class ModelPreviewRenderer
 
     public int getColorGlId()
     {
-        return ((GlTexture) this.color).getGlId();
+        return ((GlTexture) this.color).glId();
     }
 
     public int getWidth()

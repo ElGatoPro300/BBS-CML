@@ -18,14 +18,11 @@ import mchorse.bbs_mod.utils.colors.Color;
 import mchorse.bbs_mod.utils.interps.Lerps;
 import mchorse.bbs_mod.utils.pose.Transform;
 
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.render.LightmapTextureManager;
-import net.minecraft.client.world.ClientWorld;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.item.ItemDisplayContext;
-import net.minecraft.item.ItemStack;
-import net.minecraft.registry.Registries;
-import net.minecraft.world.World;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.LightTexture;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.item.ItemDisplayContext;
+import net.minecraft.world.item.ItemStack;
 
 import com.mojang.blaze3d.opengl.GlStateManager;
 import com.mojang.blaze3d.systems.RenderSystem;
@@ -78,7 +75,7 @@ public final class ItemBodyPartBatch
             return false;
         }
 
-        MinecraftClient client = MinecraftClient.getInstance();
+        Minecraft client = Minecraft.getInstance();
         ItemStack itemStack = template.stack.get();
         if (itemStack.isEmpty())
         {
@@ -134,11 +131,11 @@ public final class ItemBodyPartBatch
                 }
 
                 context.entity = part.useTarget.get() ? oldEntity : part.getEntity();
-                context.stack.push();
+                context.stack.pushPose();
 
                 if (context.world != null)
                 {
-                    context.world.push();
+                    context.world.pushPose();
                 }
 
                 try
@@ -163,7 +160,7 @@ public final class ItemBodyPartBatch
                     BlockFormRenderer.color.mul(item.color.get());
 
                     consumers.setSubstitute(itemRenderer.getMainConsumer(BlockFormRenderer.color, resolvedPaint));
-                    ItemRenderHelper.renderItem(itemStack, mode, context.stack, context.light, context.overlay, context.entity != null ? context.entity.getWorld() : client.world, context.entity instanceof LivingEntity le ? le : null);
+                    ItemRenderHelper.renderItem(itemStack, mode, context.stack, context.light, context.overlay, context.entity != null ? context.entity.getWorld() : client.level, context.entity instanceof LivingEntity le ? le : null);
 
                     if (context.isPicking())
                     {
@@ -172,11 +169,11 @@ public final class ItemBodyPartBatch
                 }
                 finally
                 {
-                    context.stack.pop();
+                    context.stack.popPose();
 
                     if (context.world != null)
                     {
-                        context.world.pop();
+                        context.world.popPose();
                     }
 
                     context.light = savedLight;
@@ -240,7 +237,7 @@ public final class ItemBodyPartBatch
         int u = context.light & '\uffff';
         int v = context.light >> 16 & '\uffff';
 
-        u = (int) Lerps.lerp(u, LightmapTextureManager.MAX_BLOCK_LIGHT_COORDINATE, lf);
+        u = (int) Lerps.lerp(u, LightTexture.FULL_BLOCK, lf);
         context.light = u | v << 16;
     }
 
@@ -310,7 +307,7 @@ public final class ItemBodyPartBatch
 
     private static boolean isCompatible(ItemForm a, ItemForm b)
     {
-        if (!ItemStack.areEqual(a.stack.get(), b.stack.get()))
+        if (!ItemStack.matches(a.stack.get(), b.stack.get()))
         {
             return false;
         }

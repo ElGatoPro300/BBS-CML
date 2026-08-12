@@ -1,23 +1,22 @@
 package mchorse.bbs_mod.client.gui;
 
-import net.minecraft.client.gl.RenderPipelines;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.widget.ButtonWidget;
-import net.minecraft.screen.ScreenTexts;
-import net.minecraft.text.Text;
-import net.minecraft.util.Identifier;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.renderer.RenderPipelines;
+import net.minecraft.network.chat.CommonComponents;
+import net.minecraft.resources.Identifier;
 
-public class BBSLogoButtonWidget extends ButtonWidget
+public class BBSLogoButtonWidget extends Button
 {
-    private static final Identifier LOGO = Identifier.of("bbs", "textures/gui/cml_icon.png");
+    private static final Identifier LOGO = Identifier.fromNamespaceAndPath("bbs", "textures/gui/cml_icon.png");
 
-    public BBSLogoButtonWidget(int x, int y, int width, int height, ButtonWidget.PressAction onPress)
+    public BBSLogoButtonWidget(int x, int y, int width, int height, Button.OnPress onPress)
     {
-        super(x, y, width, height, ScreenTexts.EMPTY, onPress, DEFAULT_NARRATION_SUPPLIER);
+        super(x, y, width, height, CommonComponents.EMPTY, onPress, DEFAULT_NARRATION);
     }
 
     @Override
-    protected void drawIcon(DrawContext context, int mouseX, int mouseY, float delta)
+    protected void renderContents(GuiGraphics context, int mouseX, int mouseY, float delta)
     {
         int x1 = this.getX();
         int y1 = this.getY();
@@ -40,6 +39,6 @@ public class BBSLogoButtonWidget extends ButtonWidget
         int logoX = x1 + (this.width - logoSize) / 2;
         int logoY = y1 + (this.height - logoSize) / 2;
 
-        context.drawTexture(RenderPipelines.GUI_TEXTURED, LOGO, logoX, logoY, 0F, 0F, logoSize, logoSize, logoSize, logoSize);
+        context.blit(RenderPipelines.GUI_TEXTURED, LOGO, logoX, logoY, 0F, 0F, logoSize, logoSize, logoSize, logoSize);
     }
 }

@@ -6,19 +6,20 @@ import mchorse.bbs_mod.forms.forms.Form;
 import mchorse.bbs_mod.forms.renderers.FormRenderer;
 import mchorse.bbs_mod.morphing.Morph;
 
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.model.ModelPart;
-import net.minecraft.client.network.AbstractClientPlayerEntity;
-import net.minecraft.client.render.command.OrderedRenderCommandQueue;
-import net.minecraft.client.render.entity.PlayerEntityRenderer;
-import net.minecraft.client.render.entity.model.BipedEntityModel;
-import net.minecraft.client.render.entity.state.PlayerEntityRenderState;
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.entity.Entity;
-import net.minecraft.util.Hand;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.math.Vec3d;
-import net.minecraft.world.World;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.model.HumanoidModel;
+import net.minecraft.client.model.geom.ModelPart;
+import net.minecraft.client.player.AbstractClientPlayer;
+import net.minecraft.client.renderer.SubmitNodeCollector;
+import net.minecraft.client.renderer.entity.player.AvatarRenderer;
+import net.minecraft.client.renderer.entity.state.AvatarRenderState;
+import net.minecraft.resources.Identifier;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.phys.Vec3;
+
+import com.mojang.blaze3d.vertex.PoseStack;
 
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
@@ -26,30 +27,30 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
-@Mixin(PlayerEntityRenderer.class)
+@Mixin(AvatarRenderer.class)
 public class PlayerEntityRendererMixin
 {
-    @Inject(method = "getPositionOffset", at = @At("HEAD"), cancellable = true)
-    public void onPositionOffset(PlayerEntityRenderState state, CallbackInfoReturnable<Vec3d> info)
+    @Inject(method = "getRenderOffset", at = @At("HEAD"), cancellable = true)
+    public void onPositionOffset(AvatarRenderState state, CallbackInfoReturnable<Vec3> info)
     {
-        World world = MinecraftClient.getInstance().world;
-        Entity entity = world != null ? world.getEntityById(state.id) : null;
+        Level world = Minecraft.getInstance().level;
+        Entity entity = world != null ? world.getEntity(state.id) : null;
 
-        if (entity instanceof AbstractClientPlayerEntity abstractClientPlayerEntity)
+        if (entity instanceof AbstractClientPlayer abstractClientPlayerEntity)
         {
             Morph morph = Morph.getMorph(abstractClientPlayerEntity);
 
             if (morph != null && morph.getForm() != null)
             {
-                info.setReturnValue(Vec3d.ZERO);
+                info.setReturnValue(Vec3.ZERO);
             }
         }
     }
 
-    @Inject(method = "renderArm", at = @At("HEAD"), cancellable = true)
-    public void onRenderArmBegin(MatrixStack matrices, OrderedRenderCommandQueue queue, int light, Identifier skin, ModelPart arm, boolean sleeve, CallbackInfo info)
+    @Inject(method = "renderHand", at = @At("HEAD"), cancellable = true)
+    public void onRenderArmBegin(PoseStack matrices, SubmitNodeCollector queue, int light, Identifier skin, ModelPart arm, boolean sleeve, CallbackInfo info)
     {
-        AbstractClientPlayerEntity player = MinecraftClient.getInstance().player;
+        AbstractClientPlayer player = Minecraft.getInstance().player;
         Morph morph = Morph.getMorph(player);
 
         if (morph != null)
@@ -59,8 +60,8 @@ public class PlayerEntityRendererMixin
             if (form != null)
             {
                 FormRenderer renderer = FormUtilsClient.getRenderer(form);
-                BipedEntityModel<?> model = (BipedEntityModel<?>) ((PlayerEntityRenderer) (Object) this).getModel();
-                Hand hand = model.rightArm == arm ? Hand.MAIN_HAND : Hand.OFF_HAND;
+                HumanoidModel<?> model = (HumanoidModel<?>) ((AvatarRenderer) (Object) this).getModel();
+                InteractionHand hand = model.rightArm == arm ? InteractionHand.MAIN_HAND : InteractionHand.OFF_HAND;
 
                 if (renderer != null && renderer.renderArm(matrices, light, player, hand))
                 {

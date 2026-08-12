@@ -3,8 +3,6 @@ package mchorse.bbs_mod.forms.renderers.utils;
 import mchorse.bbs_mod.client.BBSShaders;
 import mchorse.bbs_mod.forms.forms.utils.EffectTransform;
 
-import net.minecraft.client.gl.ShaderProgram;
-
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
 

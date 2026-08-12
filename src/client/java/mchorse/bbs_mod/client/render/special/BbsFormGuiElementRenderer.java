@@ -3,28 +3,28 @@ package mchorse.bbs_mod.client.render.special;
 import mchorse.bbs_mod.forms.renderers.FormRenderer;
 import mchorse.bbs_mod.graphics.ModelPreviewRenderer;
 
-import net.minecraft.client.gl.RenderPipelines;
-import net.minecraft.client.gui.render.SpecialGuiElementRenderer;
+import net.minecraft.client.gui.render.TextureSetup;
+import net.minecraft.client.gui.render.pip.PictureInPictureRenderer;
+import net.minecraft.client.gui.render.state.BlitRenderState;
 import net.minecraft.client.gui.render.state.GuiRenderState;
-import net.minecraft.client.gui.render.state.TexturedQuadGuiElementRenderState;
-import net.minecraft.client.render.DiffuseLighting;
-import net.minecraft.client.render.ProjectionMatrix2;
-import net.minecraft.client.render.VertexConsumerProvider.Immediate;
-import net.minecraft.client.texture.TextureSetup;
-import net.minecraft.client.util.math.MatrixStack;
+import net.minecraft.client.renderer.CachedOrthoProjectionMatrixBuffer;
+import net.minecraft.client.renderer.MultiBufferSource.BufferSource;
+import net.minecraft.client.renderer.RenderPipelines;
 
 import org.joml.Vector3f;
 
+import com.mojang.blaze3d.ProjectionType;
 import com.mojang.blaze3d.buffers.GpuBuffer;
 import com.mojang.blaze3d.buffers.GpuBufferSlice;
 import com.mojang.blaze3d.buffers.Std140Builder;
+import com.mojang.blaze3d.platform.Lighting;
 import com.mojang.blaze3d.systems.GpuDevice;
-import com.mojang.blaze3d.systems.ProjectionType;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.textures.FilterMode;
 import com.mojang.blaze3d.textures.GpuTexture;
 import com.mojang.blaze3d.textures.GpuTextureView;
 import com.mojang.blaze3d.textures.TextureFormat;
+import com.mojang.blaze3d.vertex.PoseStack;
 
 import org.lwjgl.system.MemoryStack;
 
@@ -35,24 +35,24 @@ import java.util.Map;
 /**
  * Renders BBS form thumbnails into off-screen FBOs and composites them into form-list cells.
  */
-public class BbsFormGuiElementRenderer extends SpecialGuiElementRenderer<BbsFormGuiElementRenderState>
+public class BbsFormGuiElementRenderer extends PictureInPictureRenderer<BbsFormGuiElementRenderState>
 {
     private static int errorLog;
 
-    private final ProjectionMatrix2 projection = new ProjectionMatrix2("PIP - bbs form", -1000.0F, 1000.0F, true);
+    private final CachedOrthoProjectionMatrixBuffer projection = new CachedOrthoProjectionMatrixBuffer("PIP - bbs form", -1000.0F, 1000.0F, true);
 
     private final Map<String, Target> targets = new HashMap<>();
 
     private GpuBuffer lightsBuffer;
     private GpuBufferSlice lights;
 
-    public BbsFormGuiElementRenderer(Immediate vertexConsumers)
+    public BbsFormGuiElementRenderer(BufferSource vertexConsumers)
     {
         super(vertexConsumers);
     }
 
     @Override
-    public Class<BbsFormGuiElementRenderState> getElementClass()
+    public Class<BbsFormGuiElementRenderState> getRenderStateClass()
     {
         return BbsFormGuiElementRenderState.class;
     }
@@ -60,8 +60,8 @@ public class BbsFormGuiElementRenderer extends SpecialGuiElementRenderer<BbsForm
     @Override
     public void render(BbsFormGuiElementRenderState state, GuiRenderState guiState, int windowScaleFactor)
     {
-        int w = (state.x2() - state.x1()) * windowScaleFactor;
-        int h = (state.y2() - state.y1()) * windowScaleFactor;
+        int w = (state.x1() - state.x0()) * windowScaleFactor;
+        int h = (state.y1() - state.y0()) * windowScaleFactor;
 
         if (w <= 0 || h <= 0)
         {
@@ -73,34 +73,34 @@ public class BbsFormGuiElementRenderer extends SpecialGuiElementRenderer<BbsForm
         RenderSystem.outputColorTextureOverride = target.colorView;
         RenderSystem.outputDepthTextureOverride = target.depthView;
         RenderSystem.getDevice().createCommandEncoder().clearColorAndDepthTextures(target.color, 0, target.depth, 1.0);
-        RenderSystem.setProjectionMatrix(this.projection.set(w, h), ProjectionType.ORTHOGRAPHIC);
+        RenderSystem.setProjectionMatrix(this.projection.getBuffer(w, h), ProjectionType.ORTHOGRAPHIC);
 
-        MatrixStack matrices = new MatrixStack();
+        PoseStack matrices = new PoseStack();
 
-        matrices.translate(w / 2.0F, this.getYOffset(h, windowScaleFactor), 0.0F);
+        matrices.translate(w / 2.0F, this.getTranslateY(h, windowScaleFactor), 0.0F);
 
         float f = windowScaleFactor * state.scale();
 
         matrices.scale(f, f, -f);
 
         this.render(state, matrices);
-        this.vertexConsumers.draw();
+        this.bufferSource.endBatch();
 
         RenderSystem.outputColorTextureOverride = null;
         RenderSystem.outputDepthTextureOverride = null;
 
-        guiState.addSimpleElementToCurrentLayer(new TexturedQuadGuiElementRenderState(
+        guiState.submitBlitToCurrentLayer(new BlitRenderState(
             RenderPipelines.GUI_TEXTURED_PREMULTIPLIED_ALPHA,
-            TextureSetup.of(target.colorView, RenderSystem.getSamplerCache().getRepeated(FilterMode.NEAREST)),
+            TextureSetup.singleTexture(target.colorView, RenderSystem.getSamplerCache().getRepeated(FilterMode.NEAREST)),
             state.pose(),
-            state.x1(), state.y1(), state.x2(), state.y2(),
+            state.x0(), state.y0(), state.x1(), state.y1(),
             0.0F, 1.0F, 1.0F, 0.0F,
             -1,
             state.scissorArea()));
     }
 
     @Override
-    protected void render(BbsFormGuiElementRenderState state, MatrixStack matrices)
+    protected void render(BbsFormGuiElementRenderState state, PoseStack matrices)
     {
         RenderSystem.setShaderLights(this.lights());
 
@@ -135,13 +135,13 @@ public class BbsFormGuiElementRenderer extends SpecialGuiElementRenderer<BbsForm
 
             try (MemoryStack stack = MemoryStack.stackPush())
             {
-                ByteBuffer data = Std140Builder.onStack(stack, DiffuseLighting.UBO_SIZE)
+                ByteBuffer data = Std140Builder.onStack(stack, Lighting.UBO_SIZE)
                     .putVec3(lightA)
                     .putVec3(lightB)
                     .get();
 
                 this.lightsBuffer = RenderSystem.getDevice().createBuffer(() -> "BBS form preview lights UBO", 136, data);
-                this.lights = this.lightsBuffer.slice(0, DiffuseLighting.UBO_SIZE);
+                this.lights = this.lightsBuffer.slice(0, Lighting.UBO_SIZE);
             }
         }
 
@@ -172,13 +172,13 @@ public class BbsFormGuiElementRenderer extends SpecialGuiElementRenderer<BbsForm
     }
 
     @Override
-    protected float getYOffset(int height, int windowScaleFactor)
+    protected float getTranslateY(int height, int windowScaleFactor)
     {
         return 0.85F * height;
     }
 
     @Override
-    protected String getName()
+    protected String getTextureLabel()
     {
         return "bbs form";
     }

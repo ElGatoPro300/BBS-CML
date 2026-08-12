@@ -1,9 +1,9 @@
 package mchorse.bbs_mod.forms.renderers.utils;
 
-import net.minecraft.block.BlockState;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.world.LightType;
+import net.minecraft.client.Minecraft;
+import net.minecraft.core.BlockPos;
+import net.minecraft.world.level.LightLayer;
+import net.minecraft.world.level.block.state.BlockState;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -27,7 +27,7 @@ public class StructureVirtualBlockRenderView extends VirtualBlockRenderView
 
             if (state != null)
             {
-                int lum = state.getLuminance();
+                int lum = state.getLightEmission();
 
                 if (lum > 0)
                 {
@@ -54,16 +54,16 @@ public class StructureVirtualBlockRenderView extends VirtualBlockRenderView
     }
 
     @Override
-    public int getLightLevel(LightType type, BlockPos pos)
+    public int getBrightness(LightLayer type, BlockPos pos)
     {
-        int base = super.getLightLevel(type, pos);
+        int base = super.getBrightness(type, pos);
 
-        if (type == LightType.BLOCK && this.ignoreWorldBlockLight)
+        if (type == LightLayer.BLOCK && this.ignoreWorldBlockLight)
         {
             base = 0;
         }
 
-        if (!this.virtualMode || type != LightType.BLOCK || this.emitters.isEmpty())
+        if (!this.virtualMode || type != LightLayer.BLOCK || this.emitters.isEmpty())
         {
             return base;
         }
@@ -94,14 +94,14 @@ public class StructureVirtualBlockRenderView extends VirtualBlockRenderView
     }
 
     @Override
-    public int getBaseLightLevel(BlockPos pos, int ambientDarkness)
+    public int getRawBrightness(BlockPos pos, int ambientDarkness)
     {
         if (!this.ignoreWorldBlockLight)
         {
-            return super.getBaseLightLevel(pos, ambientDarkness);
+            return super.getRawBrightness(pos, ambientDarkness);
         }
 
-        if (MinecraftClient.getInstance().world == null)
+        if (Minecraft.getInstance().level == null)
         {
             return 15;
         }
@@ -112,6 +112,6 @@ public class StructureVirtualBlockRenderView extends VirtualBlockRenderView
             this.getWorldAnchor().getZ() + this.getBaseDz() + pos.getZ()
         );
 
-        return MinecraftClient.getInstance().world.getLightLevel(LightType.SKY, worldPos);
+        return Minecraft.getInstance().level.getBrightness(LightLayer.SKY, worldPos);
     }
 }

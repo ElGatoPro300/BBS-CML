@@ -8,15 +8,13 @@ import mchorse.bbs_mod.forms.forms.utils.EffectTransformMath;
 import mchorse.bbs_mod.forms.forms.utils.GlowSettings;
 import mchorse.bbs_mod.utils.colors.Color;
 
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gl.GlUniform;
-import net.minecraft.client.gl.ShaderProgram;
-import net.minecraft.client.texture.SpriteAtlasTexture;
+import net.minecraft.client.renderer.texture.TextureAtlas;
 
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
 
 import com.mojang.blaze3d.opengl.GlStateManager;
+import com.mojang.blaze3d.opengl.Uniform;
 import com.mojang.blaze3d.pipeline.RenderPipeline;
 import com.mojang.blaze3d.systems.RenderSystem;
 
@@ -78,7 +76,7 @@ public final class BlockEffectOverlayUniforms
             bindGlowOverlay(program, glow, legacyGlow, glowIntensity, alpha);
         }
 
-        BBSModClient.getTextures().bindTextureId(SpriteAtlasTexture.BLOCK_ATLAS_TEXTURE);
+        BBSModClient.getTextures().bindTextureId(TextureAtlas.LOCATION_BLOCKS);
         // RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
     }
 
@@ -97,7 +95,7 @@ public final class BlockEffectOverlayUniforms
             bindGlowOverlay(program, glow, legacyGlow, glowIntensity, alpha);
         }
 
-        BBSModClient.getTextures().bindTextureId(SpriteAtlasTexture.BLOCK_ATLAS_TEXTURE);
+        BBSModClient.getTextures().bindTextureId(TextureAtlas.LOCATION_BLOCKS);
         // RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
     }
 
@@ -167,7 +165,7 @@ public final class BlockEffectOverlayUniforms
             }
         }
 
-        BBSModClient.getTextures().bindTextureId(SpriteAtlasTexture.BLOCK_ATLAS_TEXTURE);
+        BBSModClient.getTextures().bindTextureId(TextureAtlas.LOCATION_BLOCKS);
         // RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
     }
 
@@ -193,8 +191,8 @@ public final class BlockEffectOverlayUniforms
             return;
         }
 
-        GlUniform gradeUniform = null;
-        GlUniform activeUniform = null;
+        Uniform gradeUniform = null;
+        Uniform activeUniform = null;
         boolean active = gradeSource != null && gradeSource.hasColorAdjustments();
 
         /*
@@ -242,11 +240,11 @@ public final class BlockEffectOverlayUniforms
             resolveOverlayMaskHalf(null, colorMaskHalf, bottomAnchored, maskHalfBase, structureSized, sizeX, sizeY, sizeZ);
         }
 
-        GlUniform inverseUniform = null;
-        GlUniform halfUniform = null;
-        GlUniform activeUniform = null;
-        GlUniform anchorUniform = null;
-        GlUniform shapeUniform = null;
+        Uniform inverseUniform = null;
+        Uniform halfUniform = null;
+        Uniform activeUniform = null;
+        Uniform anchorUniform = null;
+        Uniform shapeUniform = null;
 
         /*
         if (shapeUniform != null)
@@ -300,7 +298,7 @@ public final class BlockEffectOverlayUniforms
             formRootInverse.identity();
         }
 
-        GlUniform uniform = null;
+        Uniform uniform = null;
 
         /*
         if (uniform != null)
@@ -440,11 +438,11 @@ public final class BlockEffectOverlayUniforms
             resolveOverlayMaskHalf(null, paintMaskHalf, bottomAnchored, maskHalfBase, structureSized, sizeX, sizeY, sizeZ);
         }
 
-        GlUniform inverseUniform = null;
-        GlUniform halfUniform = null;
-        GlUniform activeUniform = null;
-        GlUniform anchorUniform = null;
-        GlUniform shapeUniform = null;
+        Uniform inverseUniform = null;
+        Uniform halfUniform = null;
+        Uniform activeUniform = null;
+        Uniform anchorUniform = null;
+        Uniform shapeUniform = null;
 
         /*
         if (shapeUniform != null)
@@ -458,7 +456,7 @@ public final class BlockEffectOverlayUniforms
 
     public static void bindGlowOverlay(RenderPipeline shader, GlowSettings glow, Color legacyGlow, float glowIntensity, float alpha)
     {
-        GlUniform glowUniform = null;
+        Uniform glowUniform = null;
         float glowR = 0F;
         float glowG = 0F;
         float glowB = 0F;
@@ -518,11 +516,11 @@ public final class BlockEffectOverlayUniforms
             resolveOverlayMaskHalf(null, colorMaskHalf, bottomAnchored, maskHalfBase, structureSized, sizeX, sizeY, sizeZ);
         }
 
-        GlUniform inverseUniform = null;
-        GlUniform halfUniform = null;
-        GlUniform activeUniform = null;
-        GlUniform anchorUniform = null;
-        GlUniform shapeUniform = null;
+        Uniform inverseUniform = null;
+        Uniform halfUniform = null;
+        Uniform activeUniform = null;
+        Uniform anchorUniform = null;
+        Uniform shapeUniform = null;
 
         /*
         if (shapeUniform != null)
@@ -644,7 +642,7 @@ public final class BlockEffectOverlayUniforms
             return;
         }
 
-        GlUniform tintUniform = null;
+        Uniform tintUniform = null;
 
         /*
         if (tintUniform != null)

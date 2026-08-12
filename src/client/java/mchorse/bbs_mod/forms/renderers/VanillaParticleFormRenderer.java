@@ -14,29 +14,29 @@ import mchorse.bbs_mod.utils.interps.Lerps;
 import mchorse.bbs_mod.utils.joml.Matrices;
 import mchorse.bbs_mod.utils.joml.Vectors;
 
-import net.minecraft.block.Block;
-import net.minecraft.block.Blocks;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.particle.BillboardParticle;
+import net.minecraft.client.Camera;
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.particle.Particle;
-import net.minecraft.client.render.Camera;
-import net.minecraft.command.argument.ParticleEffectArgumentType;
-import net.minecraft.item.Item;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.Items;
-import net.minecraft.particle.BlockStateParticleEffect;
-import net.minecraft.particle.DustColorTransitionParticleEffect;
-import net.minecraft.particle.DustParticleEffect;
-import net.minecraft.particle.ItemStackParticleEffect;
-import net.minecraft.particle.ParticleEffect;
-import net.minecraft.particle.ParticleType;
-import net.minecraft.particle.ParticleTypes;
-import net.minecraft.particle.SimpleParticleType;
-import net.minecraft.particle.TintedParticleEffect;
-import net.minecraft.registry.Registries;
-import net.minecraft.registry.RegistryWrapper;
-import net.minecraft.util.Identifier;
-import net.minecraft.world.World;
+import net.minecraft.client.particle.SingleQuadParticle;
+import net.minecraft.commands.arguments.ParticleArgument;
+import net.minecraft.core.HolderLookup;
+import net.minecraft.core.particles.BlockParticleOption;
+import net.minecraft.core.particles.ColorParticleOption;
+import net.minecraft.core.particles.DustColorTransitionOptions;
+import net.minecraft.core.particles.DustParticleOptions;
+import net.minecraft.core.particles.ItemParticleOption;
+import net.minecraft.core.particles.ParticleOptions;
+import net.minecraft.core.particles.ParticleType;
+import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.core.particles.SimpleParticleType;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.resources.Identifier;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.Blocks;
 
 import org.joml.Matrix3f;
 import org.joml.Matrix4f;
@@ -106,22 +106,22 @@ public class VanillaParticleFormRenderer extends FormRenderer<VanillaParticleFor
 
         if (context.type == FormRenderType.PREVIEW)
         {
-            net.minecraft.client.render.Camera realCamera = MinecraftClient.getInstance().gameRenderer.getCamera();
+            Camera realCamera = Minecraft.getInstance().gameRenderer.getMainCamera();
 
-            positionMatrix = new Matrix4f().rotation(realCamera.getRotation());
-            positionMatrix.mul(context.stack.peek().getPositionMatrix());
+            positionMatrix = new Matrix4f().rotation(realCamera.rotation());
+            positionMatrix.mul(context.stack.last().pose());
 
             Vector3f translation = positionMatrix.getTranslation(new Vector3f());
 
             this.pos.set(
-                translation.x + (float) realCamera.getCameraPos().x,
-                translation.y + (float) realCamera.getCameraPos().y,
-                translation.z + (float) realCamera.getCameraPos().z
+                translation.x + (float) realCamera.position().x,
+                translation.y + (float) realCamera.position().y,
+                translation.z + (float) realCamera.position().z
             );
         }
         else
         {
-            positionMatrix = new Matrix4f(context.stack.peek().getPositionMatrix());
+            positionMatrix = new Matrix4f(context.stack.last().pose());
 
             Vector3f translation = positionMatrix.getTranslation(new Vector3f());
 
@@ -141,17 +141,17 @@ public class VanillaParticleFormRenderer extends FormRenderer<VanillaParticleFor
     @Override
     public void tick(IEntity entity)
     {
-        World world = entity == null ? null : entity.getWorld();
+        Level world = entity == null ? null : entity.getWorld();
 
         if (world == null)
         {
-            world = MinecraftClient.getInstance().world;
+            world = Minecraft.getInstance().level;
         }
 
         boolean paused = this.form.paused.get();
         Vector3f temp3f = new Vector3f();
 
-        if (world != null && MinecraftClient.getInstance().world != null && !paused)
+        if (world != null && Minecraft.getInstance().level != null && !paused)
         {
             if (!this.trackedParticles.isEmpty())
             {
@@ -167,7 +167,7 @@ public class VanillaParticleFormRenderer extends FormRenderer<VanillaParticleFor
                         continue;
                     }
 
-                    int maxAge = tracked.particle.maxAge;
+                    int maxAge = tracked.particle.lifetime;
                     int age = tracked.particle.age;
 
                     float progress = maxAge > 0 ? (float) age / (float) maxAge : 1F;
@@ -178,7 +178,7 @@ public class VanillaParticleFormRenderer extends FormRenderer<VanillaParticleFor
                     float b = Lerps.lerp(tracked.startColor.b, tracked.endColor.b, progress);
                     float a = Lerps.lerp(tracked.startColor.a, tracked.endColor.a, progress);
 
-                    if (tracked.particle instanceof BillboardParticle bbp)
+                    if (tracked.particle instanceof SingleQuadParticle bbp)
                     {
                         bbp.setColor(r, g, b);
                         bbp.setAlpha(a);
@@ -195,12 +195,12 @@ public class VanillaParticleFormRenderer extends FormRenderer<VanillaParticleFor
                 Matrix3f m = Matrices.TEMP_3F;
                 Vector3f v = Vectors.TEMP_3F;
                 ParticleSettings settings = this.form.settings.get();
-                ParticleType<?> type = Registries.PARTICLE_TYPE.get(settings.particle);
-                ParticleEffect effect = ParticleTypes.FLAME;
+                ParticleType<?> type = BuiltInRegistries.PARTICLE_TYPE.getValue(settings.particle);
+                ParticleOptions effect = ParticleTypes.FLAME;
 
                 if (type != null)
                 {
-                    RegistryWrapper.WrapperLookup registries = world.getRegistryManager();
+                    HolderLookup.Provider registries = world.registryAccess();
                     String path = settings.particle != null ? settings.particle.getPath() : "";
                     String args = settings.arguments.trim();
 
@@ -250,8 +250,8 @@ public class VanillaParticleFormRenderer extends FormRenderer<VanillaParticleFor
                         if (path.contains("effect"))
                         {
                             @SuppressWarnings("unchecked")
-                            ParticleType<TintedParticleEffect> entityEffectType = (ParticleType<TintedParticleEffect>) ParticleTypes.ENTITY_EFFECT;
-                            effect = TintedParticleEffect.create(entityEffectType, colorR, colorG, colorB);
+                            ParticleType<ColorParticleOption> entityEffectType = (ParticleType<ColorParticleOption>) ParticleTypes.ENTITY_EFFECT;
+                            effect = ColorParticleOption.create(entityEffectType, colorR, colorG, colorB);
                             parsedCustom = true;
                         }
                         else if (path.equals("dust_color_transition"))
@@ -259,7 +259,7 @@ public class VanillaParticleFormRenderer extends FormRenderer<VanillaParticleFor
                             float scale = colorA > 0F ? colorA : 1F;
                             int rgb = new mchorse.bbs_mod.utils.colors.Color(colorR, colorG, colorB).getRGBColor();
 
-                            effect = new DustColorTransitionParticleEffect(rgb, rgb, scale);
+                            effect = new DustColorTransitionOptions(rgb, rgb, scale);
                             parsedCustom = true;
                         }
                         else if (path.contains("dust"))
@@ -267,7 +267,7 @@ public class VanillaParticleFormRenderer extends FormRenderer<VanillaParticleFor
                             float scale = colorA > 0F ? colorA : 1F;
                             int rgb = new mchorse.bbs_mod.utils.colors.Color(colorR, colorG, colorB).getRGBColor();
 
-                            effect = new DustParticleEffect(rgb, scale);
+                            effect = new DustParticleOptions(rgb, scale);
                             parsedCustom = true;
                         }
                     }
@@ -289,7 +289,7 @@ public class VanillaParticleFormRenderer extends FormRenderer<VanillaParticleFor
 
                             try
                             {
-                                effect = ParticleEffectArgumentType.readParameters(new StringReader(full), registries);
+                                effect = ParticleArgument.readParticle(new StringReader(full), registries);
                             }
                             catch (Exception e)
                             {
@@ -301,19 +301,19 @@ public class VanillaParticleFormRenderer extends FormRenderer<VanillaParticleFor
 
                                         if (id != null)
                                         {
-                                            Block block = Registries.BLOCK.get(id);
+                                            Block block = BuiltInRegistries.BLOCK.getValue(id);
 
                                             if (block != Blocks.AIR)
                                             {
-                                                effect = new BlockStateParticleEffect(ParticleTypes.BLOCK, block.getDefaultState());
+                                                effect = new BlockParticleOption(ParticleTypes.BLOCK, block.defaultBlockState());
                                             }
                                             else
                                             {
-                                                Item item = Registries.ITEM.get(id);
+                                                Item item = BuiltInRegistries.ITEM.getValue(id);
 
                                                 if (item != Items.AIR)
                                                 {
-                                                    effect = new ItemStackParticleEffect(ParticleTypes.ITEM, new ItemStack(item));
+                                                    effect = new ItemParticleOption(ParticleTypes.ITEM, new ItemStack(item));
                                                 }
                                             }
                                         }
@@ -389,12 +389,12 @@ public class VanillaParticleFormRenderer extends FormRenderer<VanillaParticleFor
                         double y = this.pos.y + temp3f.y;
                         double z = this.pos.z + temp3f.z;
 
-                        MinecraftClient mc = MinecraftClient.getInstance();
-                        Particle particleObj = (mc.world != null && mc.particleManager != null) ? mc.particleManager.addParticle(effect, x, y, z, v.x, v.y, v.z) : null;
+                        Minecraft mc = Minecraft.getInstance();
+                        Particle particleObj = (mc.level != null && mc.particleEngine != null) ? mc.particleEngine.createParticle(effect, x, y, z, v.x, v.y, v.z) : null;
 
                         if (particleObj != null && pR >= 0F)
                         {
-                            if (particleObj instanceof BillboardParticle bbp)
+                            if (particleObj instanceof SingleQuadParticle bbp)
                             {
                                 bbp.setColor(pR, pG, pB);
                                 bbp.setAlpha(pA);
@@ -407,7 +407,7 @@ public class VanillaParticleFormRenderer extends FormRenderer<VanillaParticleFor
                         }
                         else if (particleObj == null && world != null)
                         {
-                            world.addImportantParticleClient(effect, x, y, z, v.x, v.y, v.z);
+                            world.addAlwaysVisibleParticle(effect, x, y, z, v.x, v.y, v.z);
                         }
                     }
 

@@ -3,20 +3,20 @@ package mchorse.bbs_mod.client.renderer;
 import mchorse.bbs_mod.blocks.entities.TriggerBlockEntity;
 import mchorse.bbs_mod.graphics.Draw;
 
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.render.block.entity.BlockEntityRenderer;
-import net.minecraft.client.render.block.entity.BlockEntityRendererFactory;
-import net.minecraft.client.render.block.entity.state.BlockEntityRenderState;
-import net.minecraft.client.render.command.ModelCommandRenderer;
-import net.minecraft.client.render.command.OrderedRenderCommandQueue;
-import net.minecraft.client.render.state.CameraRenderState;
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.util.math.Box;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.SubmitNodeCollector;
+import net.minecraft.client.renderer.blockentity.BlockEntityRenderer;
+import net.minecraft.client.renderer.blockentity.BlockEntityRendererProvider;
+import net.minecraft.client.renderer.blockentity.state.BlockEntityRenderState;
+import net.minecraft.client.renderer.feature.ModelFeatureRenderer;
+import net.minecraft.client.renderer.state.CameraRenderState;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
 
 import org.joml.Vector3f;
 
 import com.mojang.blaze3d.opengl.GlStateManager;
+import com.mojang.blaze3d.vertex.PoseStack;
 
 import java.util.HashSet;
 import java.util.Set;
@@ -25,7 +25,7 @@ public class TriggerBlockEntityRenderer implements BlockEntityRenderer<TriggerBl
 {
     public static final Set<TriggerBlockEntity> capturedTriggerBlocks = new HashSet<>();
 
-    public TriggerBlockEntityRenderer(BlockEntityRendererFactory.Context ctx)
+    public TriggerBlockEntityRenderer(BlockEntityRendererProvider.Context ctx)
     {}
 
     @Override
@@ -35,15 +35,15 @@ public class TriggerBlockEntityRenderer implements BlockEntityRenderer<TriggerBl
     }
 
     @Override
-    public void updateRenderState(TriggerBlockEntity entity, TriggerBlockEntityRenderState state, float tickDelta, Vec3d cameraPosition, ModelCommandRenderer.CrumblingOverlayCommand crumblingOverlay)
+    public void updateRenderState(TriggerBlockEntity entity, TriggerBlockEntityRenderState state, float tickDelta, Vec3 cameraPosition, ModelFeatureRenderer.CrumblingOverlay crumblingOverlay)
     {
-        BlockEntityRenderState.updateBlockEntityRenderState(entity, state, crumblingOverlay);
+        BlockEntityRenderState.extractBase(entity, state, crumblingOverlay);
         state.entity = entity;
         capturedTriggerBlocks.add(entity);
     }
 
     @Override
-    public void render(TriggerBlockEntityRenderState state, MatrixStack matrices, OrderedRenderCommandQueue queue, CameraRenderState cameraState)
+    public void render(TriggerBlockEntityRenderState state, PoseStack matrices, SubmitNodeCollector queue, CameraRenderState cameraState)
     {
         TriggerBlockEntity entity = state.entity;
 
@@ -52,19 +52,19 @@ public class TriggerBlockEntityRenderer implements BlockEntityRenderer<TriggerBl
             return;
         }
 
-        MinecraftClient mc = MinecraftClient.getInstance();
+        Minecraft mc = Minecraft.getInstance();
         
-        if (mc.getDebugHud().shouldShowDebugHud())
+        if (mc.getDebugOverlay().showDebugScreen())
         {
-            matrices.push();
+            matrices.pushPose();
             matrices.translate(0.5D, 0, 0.5D);
             /* Render green debug box for triggers */
             Draw.renderBox(matrices, -0.5D, 0, -0.5D, 1, 1, 1, 0, 1F, 0.5F, 0.5F);
-            matrices.pop();
+            matrices.popPose();
 
             if (entity.region.get())
             {
-                Box box = entity.getRegionBoxRelative();
+                AABB box = entity.getRegionBoxRelative();
 
                 /* Render white debug box for region triggers */
                 GlStateManager._disableDepthTest();

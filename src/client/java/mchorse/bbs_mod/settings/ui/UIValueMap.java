@@ -53,8 +53,6 @@ import mchorse.bbs_mod.utils.interps.Interpolation;
 import mchorse.bbs_mod.utils.interps.Interpolations;
 import mchorse.bbs_mod.utils.keyframes.KeyframeShape;
 
-import net.minecraft.client.MinecraftClient;
-
 import java.io.File;
 import java.nio.file.Path;
 import java.util.ArrayList;

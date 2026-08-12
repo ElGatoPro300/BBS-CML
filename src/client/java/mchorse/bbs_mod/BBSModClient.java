@@ -138,32 +138,22 @@ import net.fabricmc.loader.api.metadata.ContactInformation;
 import net.fabricmc.loader.api.metadata.ModMetadata;
 import net.fabricmc.loader.api.metadata.Person;
 
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.network.ClientPlayerEntity;
-import net.minecraft.client.option.KeyBinding;
-import net.minecraft.client.render.BufferBuilder;
-import net.minecraft.client.render.GameRenderer;
-import net.minecraft.client.render.Tessellator;
-import net.minecraft.client.render.VertexFormats;
-import net.minecraft.client.render.block.entity.BlockEntityRendererFactories;
-import net.minecraft.client.render.item.model.special.SpecialModelTypes;
-import net.minecraft.client.util.BufferAllocator;
-import net.minecraft.client.util.InputUtil;
-import net.minecraft.client.util.Window;
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.entity.EquipmentSlot;
-import net.minecraft.item.ItemStack;
-import net.minecraft.registry.RegistryKeys;
-import net.minecraft.resource.ResourceManager;
-import net.minecraft.resource.ResourceType;
-import net.minecraft.util.ActionResult;
-import net.minecraft.util.Hand;
-import net.minecraft.util.Identifier;
+import net.minecraft.client.KeyMapping;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.client.renderer.blockentity.BlockEntityRenderers;
+import net.minecraft.client.renderer.special.SpecialModelRenderers;
+import net.minecraft.resources.Identifier;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.item.ItemStack;
 
 import org.joml.Matrix4f;
 import org.joml.Matrix4fStack;
 
 import com.mojang.blaze3d.opengl.GlStateManager;
+import com.mojang.blaze3d.platform.InputConstants;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.VertexFormat;
 import com.mojang.serialization.MapCodec;
@@ -200,19 +190,19 @@ public class BBSModClient implements ClientModInitializer
 
     private static ParticleManager particles;
 
-    private static KeyBinding keyDashboard;
-    private static KeyBinding keyItemEditor;
-    private static KeyBinding keyPlayFilm;
-    private static KeyBinding keyPauseFilm;
-    private static KeyBinding keyRecordReplay;
-    private static KeyBinding keyRecordVideo;
-    private static KeyBinding keyOpenReplays;
-    private static KeyBinding keyOpenQuickReplays;
-    private static KeyBinding keyOpenMorphing;
-    private static KeyBinding keyDemorph;
-    private static KeyBinding keyTeleport;
-    private static KeyBinding keyZoom;
-    private static KeyBinding keyToggleReplayHud;
+    private static KeyMapping keyDashboard;
+    private static KeyMapping keyItemEditor;
+    private static KeyMapping keyPlayFilm;
+    private static KeyMapping keyPauseFilm;
+    private static KeyMapping keyRecordReplay;
+    private static KeyMapping keyRecordVideo;
+    private static KeyMapping keyOpenReplays;
+    private static KeyMapping keyOpenQuickReplays;
+    private static KeyMapping keyOpenMorphing;
+    private static KeyMapping keyDemorph;
+    private static KeyMapping keyTeleport;
+    private static KeyMapping keyZoom;
+    private static KeyMapping keyToggleReplayHud;
 
     private static UIDashboard dashboard;
 
@@ -312,17 +302,17 @@ public class BBSModClient implements ClientModInitializer
         return modelBlockItemRenderer;
     }
 
-    public static KeyBinding getKeyZoom()
+    public static KeyMapping getKeyZoom()
     {
         return keyZoom;
     }
 
-    public static KeyBinding getKeyRecordVideo()
+    public static KeyMapping getKeyRecordVideo()
     {
         return keyRecordVideo;
     }
 
-    public static KeyBinding getKeyOpenQuickReplays()
+    public static KeyMapping getKeyOpenQuickReplays()
     {
         return keyOpenQuickReplays;
     }
@@ -348,7 +338,7 @@ public class BBSModClient implements ClientModInitializer
 
         if (scale <= 0F)
         {
-            return MinecraftClient.getInstance().options.getGuiScale().getValue();
+            return Minecraft.getInstance().options.guiScale().get();
         }
 
         return Math.max(1, Math.round(scale));
@@ -394,9 +384,9 @@ public class BBSModClient implements ClientModInitializer
             return;
         }
 
-        ClientPlayerEntity player = MinecraftClient.getInstance().player;
+        LocalPlayer player = Minecraft.getInstance().player;
 
-        if (player == null || MinecraftClient.getInstance().currentScreen != null)
+        if (player == null || Minecraft.getInstance().screen != null)
         {
             return;
         }
@@ -412,8 +402,8 @@ public class BBSModClient implements ClientModInitializer
             return;
 
         /* Animation state trigger for items*/
-        ModelProperties main = getItemStackProperties(player.getStackInHand(Hand.MAIN_HAND));
-        ModelProperties offhand = getItemStackProperties(player.getStackInHand(Hand.OFF_HAND));
+        ModelProperties main = getItemStackProperties(player.getItemInHand(InteractionHand.MAIN_HAND));
+        ModelProperties offhand = getItemStackProperties(player.getItemInHand(InteractionHand.OFF_HAND));
 
         if (main != null && main.getForm() != null && main.getForm().findState(key, (form, state) ->
         {
@@ -463,40 +453,40 @@ public class BBSModClient implements ClientModInitializer
             {
                 if (player.isCreative())
                 {
-                    return ActionResult.PASS;
+                    return InteractionResult.PASS;
                 }
 
                 ClientNetwork.sendTriggerBlockClick(pos);
 
-                return ActionResult.SUCCESS;
+                return InteractionResult.SUCCESS;
             }
 
-            if (player.getStackInHand(hand).getItem() == BBSMod.STRUCTURE_PICKER_ITEM)
+            if (player.getItemInHand(hand).getItem() == BBSMod.STRUCTURE_PICKER_ITEM)
             {
-                if (world.isClient())
+                if (world.isClientSide())
                 {
                     return StructurePickerClient.onAttackBlock();
                 }
 
-                return ActionResult.SUCCESS;
+                return InteractionResult.SUCCESS;
             }
 
-            return ActionResult.PASS;
+            return InteractionResult.PASS;
         });
 
         UseBlockCallback.EVENT.register((player, world, hand, hitResult) ->
         {
-            if (!world.isClient())
+            if (!world.isClientSide())
             {
-                if (player.getStackInHand(hand).getItem() == BBSMod.STRUCTURE_PICKER_ITEM)
+                if (player.getItemInHand(hand).getItem() == BBSMod.STRUCTURE_PICKER_ITEM)
                 {
-                    return ActionResult.SUCCESS;
+                    return InteractionResult.SUCCESS;
                 }
 
-                return ActionResult.PASS;
+                return InteractionResult.PASS;
             }
 
-            return StructurePickerClient.onUseBlock(hitResult, player.isSneaking());
+            return StructurePickerClient.onUseBlock(hitResult, player.isShiftKeyDown());
         });
 
         FabricLoader.getInstance()
@@ -677,7 +667,7 @@ public class BBSModClient implements ClientModInitializer
             .register(Link.bbs("curve"), CurveClientClip.class, new ClipFactoryData(Icons.ARC, 0xff775f));
 
         /* Keybinds */
-        KeyBinding.Category bbsCategory = KeyBinding.Category.create(Identifier.of("category." + BBSMod.MOD_ID + ".main"));
+        KeyMapping.Category bbsCategory = KeyMapping.Category.register(Identifier.parse("category." + BBSMod.MOD_ID + ".main"));
         keyDashboard = this.createKey("dashboard", GLFW.GLFW_KEY_0, bbsCategory);
         keyItemEditor = this.createKey("item_editor", GLFW.GLFW_KEY_HOME, bbsCategory);
         keyPlayFilm = this.createKey("play_film", GLFW.GLFW_KEY_RIGHT_CONTROL, bbsCategory);
@@ -998,11 +988,11 @@ public class BBSModClient implements ClientModInitializer
         EntityRendererRegistry.register(BBSMod.ACTOR_ENTITY, (ctx) -> new ActorEntityRenderer(ctx));
         EntityRendererRegistry.register(BBSMod.GUN_PROJECTILE_ENTITY, (ctx) -> new GunProjectileEntityRenderer(ctx));
 
-        BlockEntityRendererFactories.register(BBSMod.MODEL_BLOCK_ENTITY, ModelBlockEntityRenderer::new);
-        BlockEntityRendererFactories.register(BBSMod.TRIGGER_BLOCK_ENTITY, TriggerBlockEntityRenderer::new);
+        BlockEntityRenderers.register(BBSMod.MODEL_BLOCK_ENTITY, ModelBlockEntityRenderer::new);
+        BlockEntityRenderers.register(BBSMod.TRIGGER_BLOCK_ENTITY, TriggerBlockEntityRenderer::new);
 
-        SpecialModelTypes.ID_MAPPER.put(Identifier.of(BBSMod.MOD_ID, "gun"), GunItemRenderer.Unbaked.CODEC);
-        SpecialModelTypes.ID_MAPPER.put(Identifier.of(BBSMod.MOD_ID, "model_block"), ModelBlockItemRenderer.Unbaked.CODEC);
+        SpecialModelRenderers.ID_MAPPER.put(Identifier.fromNamespaceAndPath(BBSMod.MOD_ID, "gun"), GunItemRenderer.Unbaked.CODEC);
+        SpecialModelRenderers.ID_MAPPER.put(Identifier.fromNamespaceAndPath(BBSMod.MOD_ID, "model_block"), ModelBlockItemRenderer.Unbaked.CODEC);
 
         /* Create folders */
         BBSMod.getAudioFolder().mkdirs();
@@ -1019,29 +1009,29 @@ public class BBSModClient implements ClientModInitializer
         }
     }
 
-    private KeyBinding createKey(String id, int key, KeyBinding.Category category)
+    private KeyMapping createKey(String id, int key, KeyMapping.Category category)
     {
-        return KeyBindingHelper.registerKeyBinding(new KeyBinding(
+        return KeyBindingHelper.registerKeyBinding(new KeyMapping(
             "key." + BBSMod.MOD_ID + "." + id,
-            InputUtil.Type.KEYSYM,
+            InputConstants.Type.KEYSYM,
             key,
             category
         ));
     }
 
-    private KeyBinding createKeyMouse(String id, int button, KeyBinding.Category category)
+    private KeyMapping createKeyMouse(String id, int button, KeyMapping.Category category)
     {
-        return KeyBindingHelper.registerKeyBinding(new KeyBinding(
+        return KeyBindingHelper.registerKeyBinding(new KeyMapping(
             "key." + BBSMod.MOD_ID + "." + id,
-            InputUtil.Type.MOUSE,
+            InputConstants.Type.MOUSE,
             button,
             category
         ));
     }
 
-    private void keyOpenModelBlockEditor(MinecraftClient mc)
+    private void keyOpenModelBlockEditor(Minecraft mc)
     {
-        ItemStack stack = mc.player.getEquippedStack(EquipmentSlot.MAINHAND);
+        ItemStack stack = mc.player.getItemBySlot(EquipmentSlot.MAINHAND);
         ModelBlockItemRenderer.Item item = modelBlockItemRenderer.get(stack);
         GunItemRenderer.Item gunItem = gunItemRenderer.get(stack);
 
@@ -1271,15 +1261,15 @@ public class BBSModClient implements ClientModInitializer
             }
         }
 
-        MinecraftClient mc = MinecraftClient.getInstance();
+        Minecraft mc = Minecraft.getInstance();
         UIBaseMenu menu = UIScreen.getCurrentMenu();
 
         if (menu != null && mc != null)
         {
             int desiredScale = getGUIScale();
-            mc.options.getGuiScale().setValue(desiredScale);
-            mc.onResolutionChanged();
-            menu.resize(mc.getWindow().getScaledWidth(), mc.getWindow().getScaledHeight());
+            mc.options.guiScale().set(desiredScale);
+            mc.resizeDisplay();
+            menu.resize(mc.getWindow().getGuiScaledWidth(), mc.getWindow().getGuiScaledHeight());
         }
     }
 
@@ -1288,14 +1278,14 @@ public class BBSModClient implements ClientModInitializer
      *  (saving settings to disk, reloading language, etc). */
     public static void applyUIScaleLive()
     {
-        MinecraftClient mc = MinecraftClient.getInstance();
+        Minecraft mc = Minecraft.getInstance();
         UIBaseMenu menu = UIScreen.getCurrentMenu();
 
         if (menu != null && mc != null)
         {
-            mc.options.getGuiScale().setValue(getGUIScale());
-            mc.onResolutionChanged();
-            menu.resize(mc.getWindow().getScaledWidth(), mc.getWindow().getScaledHeight());
+            mc.options.guiScale().set(getGUIScale());
+            mc.resizeDisplay();
+            menu.resize(mc.getWindow().getGuiScaledWidth(), mc.getWindow().getGuiScaledHeight());
         }
     }
 
@@ -1334,14 +1324,14 @@ public class BBSModClient implements ClientModInitializer
     {
         if (key == null || key.isEmpty())
         {
-            MinecraftClient client = MinecraftClient.getInstance();
+            Minecraft client = Minecraft.getInstance();
 
             if (client == null || client.options == null)
             {
                 return "";
             }
 
-            key = client.options.language;
+            key = client.options.languageCode;
         }
 
         return key;

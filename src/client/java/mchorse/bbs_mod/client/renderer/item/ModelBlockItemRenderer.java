@@ -4,6 +4,7 @@ import mchorse.bbs_mod.BBSMod;
 import mchorse.bbs_mod.BBSModClient;
 import mchorse.bbs_mod.blocks.entities.ModelBlockEntity;
 import mchorse.bbs_mod.blocks.entities.ModelProperties;
+import mchorse.bbs_mod.client.renderer.item.ModelBlockItemRenderer;
 import mchorse.bbs_mod.forms.FormUtilsClient;
 import mchorse.bbs_mod.forms.entities.IEntity;
 import mchorse.bbs_mod.forms.entities.StubEntity;
@@ -13,23 +14,21 @@ import mchorse.bbs_mod.forms.renderers.FormRenderingContext;
 import mchorse.bbs_mod.utils.MatrixStackUtils;
 import mchorse.bbs_mod.utils.pose.Transform;
 
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.render.DiffuseLighting;
-import net.minecraft.client.render.command.OrderedRenderCommandQueue;
-import net.minecraft.client.render.entity.model.LoadedEntityModels;
-import net.minecraft.client.render.item.model.special.SpecialModelRenderer;
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.component.DataComponentTypes;
-import net.minecraft.component.type.NbtComponent;
-import net.minecraft.item.ItemDisplayContext;
-import net.minecraft.item.ItemStack;
-import net.minecraft.nbt.NbtCompound;
-import net.minecraft.storage.NbtReadView;
-import net.minecraft.util.ErrorReporter;
-import net.minecraft.util.math.BlockPos;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.SubmitNodeCollector;
+import net.minecraft.client.renderer.special.SpecialModelRenderer;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.component.DataComponents;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.util.ProblemReporter;
+import net.minecraft.world.item.ItemDisplayContext;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.storage.TagValueInput;
 
 import org.joml.Vector3fc;
 
+import com.mojang.blaze3d.platform.Lighting;
+import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.serialization.MapCodec;
 
 import java.util.HashMap;
@@ -61,18 +60,18 @@ public class ModelBlockItemRenderer implements SpecialModelRenderer<ItemStack>
     }
 
     @Override
-    public ItemStack getData(ItemStack stack)
+    public ItemStack extractArgument(ItemStack stack)
     {
         return stack;
     }
 
     @Override
-    public void collectVertices(Consumer<Vector3fc> consumer)
+    public void getExtents(Consumer<Vector3fc> consumer)
     {
     }
 
     @Override
-    public void render(ItemStack stack, ItemDisplayContext mode, MatrixStack matrices, OrderedRenderCommandQueue queue, int light, int overlay, boolean hasGlint, int outlineColor)
+    public void render(ItemStack stack, ItemDisplayContext mode, PoseStack matrices, SubmitNodeCollector queue, int light, int overlay, boolean hasGlint, int outlineColor)
     {
         Item item = this.get(stack);
 
@@ -87,25 +86,25 @@ public class ModelBlockItemRenderer implements SpecialModelRenderer<ItemStack>
 
                 Transform transform = properties.getTransform(mode);
 
-                matrices.push();
+                matrices.pushPose();
                 matrices.translate(0.5F, 0F, 0.5F);
                 MatrixStackUtils.applyTransform(matrices, transform);
 
                 if (mode == ItemDisplayContext.GUI)
                 {
-                    MinecraftClient.getInstance().gameRenderer.getDiffuseLighting().setShaderLights(DiffuseLighting.Type.ITEMS_3D);
+                    Minecraft.getInstance().gameRenderer.getLighting().setupFor(Lighting.Entry.ITEMS_3D);
                 }
 
                 FormUtilsClient.render(form, new FormRenderingContext()
-                    .set(FormRenderType.fromModelMode(mode), item.formEntity, matrices, light, overlay, MinecraftClient.getInstance().getRenderTickCounter().getTickProgress(false))
-                    .camera(MinecraftClient.getInstance().gameRenderer.getCamera()));
+                    .set(FormRenderType.fromModelMode(mode), item.formEntity, matrices, light, overlay, Minecraft.getInstance().getDeltaTracker().getGameTimeDeltaPartialTick(false))
+                    .camera(Minecraft.getInstance().gameRenderer.getMainCamera()));
 
                 if (mode == ItemDisplayContext.GUI)
                 {
-                    MinecraftClient.getInstance().gameRenderer.getDiffuseLighting().setShaderLights(DiffuseLighting.Type.ITEMS_FLAT);
+                    Minecraft.getInstance().gameRenderer.getLighting().setupFor(Lighting.Entry.ITEMS_FLAT);
                 }
 
-                matrices.pop();
+                matrices.popPose();
             }
         }
     }
@@ -122,22 +121,22 @@ public class ModelBlockItemRenderer implements SpecialModelRenderer<ItemStack>
             return this.map.get(stack);
         }
 
-        ModelBlockEntity entity = new ModelBlockEntity(BlockPos.ORIGIN, BBSMod.MODEL_BLOCK.getDefaultState());
+        ModelBlockEntity entity = new ModelBlockEntity(BlockPos.ZERO, BBSMod.MODEL_BLOCK.getDefaultState());
         Item item = new Item(entity);
 
         this.map.put(stack, item);
 
-        var nbtComponent = stack.get(DataComponentTypes.BLOCK_ENTITY_DATA);
+        var nbtComponent = stack.get(DataComponents.BLOCK_ENTITY_DATA);
         if (nbtComponent == null)
         {
             return item;
         }
 
-        NbtCompound nbt = nbtComponent.copyNbtWithoutId();
-        var world = MinecraftClient.getInstance().world;
+        CompoundTag nbt = nbtComponent.copyTagWithoutId();
+        var world = Minecraft.getInstance().level;
         if (world != null)
         {
-            entity.read(NbtReadView.create(ErrorReporter.EMPTY, world.getRegistryManager(), nbt));
+            entity.read(TagValueInput.create(ProblemReporter.DISCARDING, world.registryAccess(), nbt));
         }
 
         return item;
@@ -145,16 +144,16 @@ public class ModelBlockItemRenderer implements SpecialModelRenderer<ItemStack>
 
     public static class Unbaked implements SpecialModelRenderer.Unbaked
     {
-        public static final MapCodec<Unbaked> CODEC = MapCodec.unit(new Unbaked());
+        public static final MapCodec<ModelBlockItemRenderer.Unbaked> CODEC = MapCodec.unit(new ModelBlockItemRenderer.Unbaked());
 
         @Override
-        public MapCodec<Unbaked> getCodec()
+        public MapCodec<ModelBlockItemRenderer.Unbaked> type()
         {
             return CODEC;
         }
 
         @Override
-        public SpecialModelRenderer<?> bake(SpecialModelRenderer.BakeContext context)
+        public SpecialModelRenderer<?> bake(SpecialModelRenderer.BakingContext context)
         {
             return BBSModClient.getModelBlockItemRenderer();
         }
@@ -169,7 +168,7 @@ public class ModelBlockItemRenderer implements SpecialModelRenderer<ItemStack>
         public Item(ModelBlockEntity entity)
         {
             this.entity = entity;
-            this.formEntity = new StubEntity(MinecraftClient.getInstance().world);
+            this.formEntity = new StubEntity(Minecraft.getInstance().level);
         }
     }
 }

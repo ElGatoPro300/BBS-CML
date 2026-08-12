@@ -7,13 +7,13 @@ import mchorse.bbs_mod.ui.dashboard.UIDashboard;
 import mchorse.bbs_mod.ui.film.UIFilmPanel;
 import mchorse.bbs_mod.ui.framework.UIScreen;
 
-import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.Minecraft;
 
 public class FilmLaunchHelper
 {
     public static void launch(CrossWorldFilmEntry entry)
     {
-        MinecraftClient client = MinecraftClient.getInstance();
+        Minecraft client = Minecraft.getInstance();
 
         if (WorldLaunchHelper.isCurrentWorld(client, entry.worldFolder))
         {

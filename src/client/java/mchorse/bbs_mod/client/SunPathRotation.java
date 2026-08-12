@@ -2,10 +2,10 @@ package mchorse.bbs_mod.client;
 
 import mchorse.bbs_mod.ui.dashboard.WorldPropertiesHelper;
 
-import net.minecraft.util.math.RotationAxis;
-
 import org.joml.Matrix4f;
 import org.joml.Vector4f;
+
+import com.mojang.math.Axis;
 
 /**
  * Rotates the celestial dome around the vertical axis (Mine-imator sun path rotation).
@@ -81,7 +81,7 @@ public final class SunPathRotation
             return;
         }
 
-        matrix.rotate(RotationAxis.POSITIVE_Y.rotationDegrees(degrees));
+        matrix.rotate(Axis.YP.rotationDegrees(degrees));
     }
 
     public static void applyY(Vector4f vector)

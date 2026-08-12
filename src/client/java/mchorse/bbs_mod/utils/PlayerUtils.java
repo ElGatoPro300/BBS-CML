@@ -2,13 +2,12 @@ package mchorse.bbs_mod.utils;
 
 import mchorse.bbs_mod.network.ClientNetwork;
 
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.network.ClientPlayerEntity;
-import net.minecraft.entity.data.TrackedData;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.world.GameMode;
-import net.minecraft.world.World;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.network.syncher.EntityDataAccessor;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.Level;
 
 import com.mojang.authlib.GameProfile;
 
@@ -21,31 +20,31 @@ public class PlayerUtils
 
     public static void teleport(double x, double y, double z, float yaw, float bodyYaw, float pitch)
     {
-        ClientPlayerEntity player = MinecraftClient.getInstance().player;
+        LocalPlayer player = Minecraft.getInstance().player;
 
         if (!ClientNetwork.isIsBBSModOnServer())
         {
             String command = "tp " + player.getGameProfile().name() + " " + x + " " + y + " " + z + " " + yaw + " " + pitch;
 
-            player.networkHandler.sendChatCommand(command);
+            player.connection.sendCommand(command);
         }
         else
         {
             ClientNetwork.sendTeleport(x, y, z, yaw, bodyYaw, pitch);
-            player.setYaw(yaw);
-            player.setHeadYaw(yaw);
-            player.setBodyYaw(bodyYaw);
-            player.setPitch(pitch);
+            player.setYRot(yaw);
+            player.setYHeadRot(yaw);
+            player.setYBodyRot(bodyYaw);
+            player.setXRot(pitch);
         }
     }
 
     public static void teleport(double x, double y, double z)
     {
-        ClientPlayerEntity player = MinecraftClient.getInstance().player;
+        LocalPlayer player = Minecraft.getInstance().player;
 
         if (!ClientNetwork.isIsBBSModOnServer())
         {
-            player.networkHandler.sendChatCommand("tp " + player.getGameProfile().name() + " " + x + " " + y + " " + z);
+            player.connection.sendCommand("tp " + player.getGameProfile().name() + " " + x + " " + y + " " + z);
         }
         else
         {
@@ -53,9 +52,9 @@ public class PlayerUtils
         }
     }
 
-    public static class ProtectedAccess extends PlayerEntity
+    public static class ProtectedAccess extends Player
     {
-        public static TrackedData<Byte> getModelParts()
+        public static EntityDataAccessor<Byte> getModelParts()
         {
             /* TODO(1.21.11 render): PlayerEntity.PLAYER_MODEL_PARTS tracked-data was removed; the
              * cosmetic model-parts (cape/jacket/sleeves) byte is no longer exposed via the data
@@ -64,15 +63,15 @@ public class PlayerUtils
             return null;
         }
 
-        public ProtectedAccess(World world, GameProfile gameProfile)
+        public ProtectedAccess(Level world, GameProfile gameProfile)
         {
             super(world, gameProfile);
         }
 
         @Override
-        public GameMode getGameMode()
+        public GameType gameMode()
         {
-            return GameMode.SURVIVAL;
+            return GameType.SURVIVAL;
         }
 
         @Override

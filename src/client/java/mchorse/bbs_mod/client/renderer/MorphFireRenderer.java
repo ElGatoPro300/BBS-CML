@@ -13,22 +13,23 @@ import mchorse.bbs_mod.utils.MathUtils;
 import mchorse.bbs_mod.utils.MatrixStackUtils;
 import mchorse.bbs_mod.utils.interps.Lerps;
 
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.render.Camera;
-import net.minecraft.client.render.VertexConsumerProvider;
-import net.minecraft.client.render.entity.EntityRenderManager;
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.client.world.ClientWorld;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.EntityDimensions;
-import net.minecraft.entity.EntityPose;
-import net.minecraft.entity.EntityType;
-import net.minecraft.registry.Registries;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.math.RotationAxis;
+import net.minecraft.client.Camera;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.multiplayer.ClientLevel;
+import net.minecraft.client.renderer.MultiBufferSource;
+import net.minecraft.client.renderer.entity.EntityRenderDispatcher;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.resources.Identifier;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EntityDimensions;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.Pose;
 
 import org.joml.Matrix4f;
 import org.joml.Quaternionf;
+
+import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.math.Axis;
 
 /**
  * Renders vanilla entity fire overlay on morph replays.
@@ -42,15 +43,15 @@ public final class MorphFireRenderer
     private MorphFireRenderer()
     {}
 
-    public static void render(MatrixStack matrices, VertexConsumerProvider consumers, IEntity morph, Form form, float tickDelta, Camera camera, boolean relative)
+    public static void render(PoseStack matrices, MultiBufferSource consumers, IEntity morph, Form form, float tickDelta, Camera camera, boolean relative)
     {
         if (morph.getFireTicks() <= 0 || consumers == null)
         {
             return;
         }
 
-        MinecraftClient mc = MinecraftClient.getInstance();
-        ClientWorld world = mc.world;
+        Minecraft mc = Minecraft.getInstance();
+        ClientLevel world = mc.level;
 
         if (world == null)
         {
@@ -64,7 +65,7 @@ public final class MorphFireRenderer
 
         ActorEntity entity = MorphFireRenderer.proxy;
         float[] size = MorphFireRenderer.getFireDimensions(morph, form);
-        EntityPose pose = morph.isSneaking() ? EntityPose.CROUCHING : EntityPose.STANDING;
+        Pose pose = morph.isSneaking() ? Pose.CROUCHING : Pose.STANDING;
 
         entity.setFireTicks(morph.getFireTicks());
         entity.age = Math.max(entity.age, morph.getAge());
@@ -82,33 +83,33 @@ public final class MorphFireRenderer
         entity.setInvisible(false);
 
         float bodyYaw = Lerps.lerp(morph.getPrevBodyYaw(), morph.getBodyYaw(), tickDelta);
-        EntityRenderManager dispatcher = mc.getEntityRenderDispatcher();
+        EntityRenderDispatcher dispatcher = mc.getEntityRenderDispatcher();
         boolean irisWorld = BBSRendering.isIrisShadersEnabled() && BBSRendering.isRenderingWorld();
 
-        matrices.push();
+        matrices.pushPose();
 
         if (irisWorld && !relative)
         {
             /* Iris bakes the terrain matrix into the stack; strip it and rebuild the
              * camera-relative entity transform the same way as ParticleFormRenderer. */
-            Matrix4f composed = BBSRendering.stripTerrainPositionMatrix(new Matrix4f(matrices.peek().getPositionMatrix()));
+            Matrix4f composed = BBSRendering.stripTerrainPositionMatrix(new Matrix4f(matrices.last().pose()));
             Matrix4f oriented = new Matrix4f(MatrixStackUtils.getInverseViewRotationMatrix());
 
             oriented.mul(composed);
 
-            matrices.loadIdentity();
-            matrices.multiplyPositionMatrix(MatrixStackUtils.getViewRotationMatrix());
+            matrices.setIdentity();
+            matrices.mulPose(MatrixStackUtils.getViewRotationMatrix());
             MatrixStackUtils.multiply(matrices, oriented);
         }
         else if (relative)
         {
-            matrices.multiply(camera.getRotation().conjugate(MorphFireRenderer.TEMP_QUATERNION));
+            matrices.mulPose(camera.rotation().conjugate(MorphFireRenderer.TEMP_QUATERNION));
         }
 
-        matrices.multiply(RotationAxis.POSITIVE_Y.rotation(MathUtils.toRad(bodyYaw)));
+        matrices.mulPose(Axis.YP.rotation(MathUtils.toRad(bodyYaw)));
 
         /* TODO 1.21.4: EntityRenderDispatcher.renderFire removed */
-        matrices.pop();
+        matrices.popPose();
 
         entity.setFireTicks(0);
     }
@@ -117,7 +118,7 @@ public final class MorphFireRenderer
     {
         if (form instanceof MobForm mobForm)
         {
-            EntityType<?> type = Registries.ENTITY_TYPE.get(Identifier.of(mobForm.mobID.get()));
+            EntityType<?> type = BuiltInRegistries.ENTITY_TYPE.getValue(Identifier.parse(mobForm.mobID.get()));
 
             if (type != null)
             {
@@ -125,7 +126,7 @@ public final class MorphFireRenderer
 
                 if (morph.isSneaking())
                 {
-                    dimensions = dimensions.scaled(0.8F);
+                    dimensions = dimensions.scale(0.8F);
                 }
 
                 return new float[] {dimensions.width(), dimensions.height()};
@@ -148,7 +149,7 @@ public final class MorphFireRenderer
         {
             Entity mc = mcEntity.getMcEntity();
 
-            return new float[] {mc.getWidth(), mc.getHeight()};
+            return new float[] {mc.getBbWidth(), mc.getBbHeight()};
         }
 
         AABB hitbox = morph.getPickingHitbox();

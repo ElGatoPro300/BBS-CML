@@ -10,8 +10,8 @@ import mchorse.bbs_mod.utils.clips.Clip;
 
 import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderContext;
 
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.entity.Entity;
+import net.minecraft.client.Minecraft;
+import net.minecraft.world.entity.Entity;
 
 import java.util.List;
 import java.util.Map;
@@ -108,7 +108,7 @@ public class WorldFilmController extends BaseFilmController
             && BBSSettings.editorActorPauseAnimations.get();
         Map<String, Integer> actors = this.getActors();
 
-        if (actors == null || MinecraftClient.getInstance().world == null)
+        if (actors == null || Minecraft.getInstance().level == null)
         {
             return;
         }
@@ -120,7 +120,7 @@ public class WorldFilmController extends BaseFilmController
                 continue;
             }
 
-            Entity entity = MinecraftClient.getInstance().world.getEntityById(entityId);
+            Entity entity = Minecraft.getInstance().level.getEntity(entityId);
 
             if (entity instanceof ActorEntity actor)
             {
@@ -141,13 +141,13 @@ public class WorldFilmController extends BaseFilmController
     {
         super.render(context);
 
-        this.applyCameraClips(MinecraftClient.getInstance().getRenderTickCounter().getTickProgress(false));
+        this.applyCameraClips(Minecraft.getInstance().getDeltaTracker().getGameTimeDeltaPartialTick(false));
 
         if (BBSSettings.recordingCameraPreview.get())
         {
             int tick = Math.max(this.tick, 0);
 
-            Recorder.renderCameraPreviewTimeline(this.context.clips, tick, MinecraftClient.getInstance().getRenderTickCounter().getTickProgress(true), this.duration, this.position, MinecraftClient.getInstance().gameRenderer.getCamera(), context.matrices());
+            Recorder.renderCameraPreviewTimeline(this.context.clips, tick, Minecraft.getInstance().getDeltaTracker().getGameTimeDeltaPartialTick(true), this.duration, this.position, Minecraft.getInstance().gameRenderer.getMainCamera(), context.matrices());
         }
 
         AudioClientClip.manageSounds(this.context);
