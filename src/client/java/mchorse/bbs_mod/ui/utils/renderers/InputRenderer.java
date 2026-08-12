@@ -11,8 +11,8 @@ import mchorse.bbs_mod.ui.utils.keys.KeyCodes;
 import mchorse.bbs_mod.utils.colors.Colors;
 import mchorse.bbs_mod.utils.interps.Interpolations;
 
-import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.Font;
+import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.font.TextRenderer;
 
 import java.util.ArrayList;
 import java.util.Iterator;
@@ -270,7 +270,7 @@ public class InputRenderer
             int x = last == null ? 0 : last.x + last.width + 18;
             PressedKey newKey = new PressedKey(key, x);
 
-            newKey.setupName(Minecraft.getInstance().font);
+            newKey.setupName(MinecraftClient.getInstance().textRenderer);
 
             if (newKey.x + newKey.width + offset > context.menu.width - offset * 2)
             {
@@ -306,10 +306,10 @@ public class InputRenderer
             this.i = INDEX ++;
         }
 
-        public void setupName(Font font)
+        public void setupName(TextRenderer font)
         {
             this.name = KeyCodes.getName(this.key);
-            this.width = font.width(this.name) - 1;
+            this.width = font.getWidth(this.name) - 1;
         }
 
         public float getFactor()

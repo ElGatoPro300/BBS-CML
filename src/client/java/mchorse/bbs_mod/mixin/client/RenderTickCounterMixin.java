@@ -5,7 +5,7 @@ import mchorse.bbs_mod.BBSSettings;
 import mchorse.bbs_mod.client.BBSRendering;
 import mchorse.bbs_mod.utils.VideoRecorder;
 
-import net.minecraft.client.DeltaTracker;
+import net.minecraft.client.render.RenderTickCounter;
 
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
@@ -13,22 +13,24 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
-@Mixin(DeltaTracker.Timer.class)
+@Mixin(RenderTickCounter.Dynamic.class)
 public class RenderTickCounterMixin
 {
     @Shadow
-    private float deltaTickResidual;
+    public float tickProgress;
 
     @Shadow
-    private float deltaTicks;
+    public float dynamicDeltaTicks;
 
     @Shadow
-    private long lastMs;
+    private long lastTimeMillis;
 
     private int heldFrames;
 
-    @Inject(method = "advanceGameTime", at = @At("HEAD"), cancellable = true)
-    public void onBeginRenderTick(long timeMillis, CallbackInfoReturnable<Integer> info)
+    private long lastFrameTime;
+
+    @Inject(method = "beginRenderTick", at = @At("HEAD"), cancellable = true)
+    public void onBeginRenderTick(long timeMillis, boolean tick, CallbackInfoReturnable<Integer> info)
     {
         VideoRecorder videoRecorder = BBSModClient.getVideoRecorder();
 
@@ -36,18 +38,18 @@ public class RenderTickCounterMixin
         {
             if (videoRecorder.getCounter() == 0)
             {
-                this.deltaTickResidual = 0;
+                this.tickProgress = 0;
             }
 
             if (this.heldFrames == 0)
             {
-                this.deltaTicks = 20F / (float) BBSRendering.getVideoFrameRate();
-                this.lastMs = timeMillis;
-                this.deltaTickResidual += this.deltaTicks;
+                this.dynamicDeltaTicks = 20F / (float) BBSRendering.getVideoFrameRate();
+                this.lastTimeMillis = timeMillis;
+                this.tickProgress += this.dynamicDeltaTicks;
 
-                int i = (int) this.deltaTickResidual;
+                int i = (int) this.tickProgress;
 
-                this.deltaTickResidual -= (float) i;
+                this.tickProgress -= (float) i;
 
                 videoRecorder.serverTicks += i;
                 BBSRendering.canRender = true;
@@ -71,6 +73,7 @@ public class RenderTickCounterMixin
         else
         {
             this.heldFrames = 0;
+            this.lastFrameTime = 0;
         }
     }
 }

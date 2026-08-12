@@ -36,6 +36,14 @@ public class BOBJModelLoader implements IModelLoader
     public ModelInstance load(String id, ModelManager models, Link model, Collection<Link> links, MapType config)
     {
         Link modelBOBJ = IModelLoader.getLink(model.combine("model.bobj"), links, ".bobj");
+
+        /* No BOBJ file in this model's folder — it's not a BOBJ model, let the
+         * next loader handle it instead of noisily failing to open a missing file. */
+        if (!links.contains(modelBOBJ))
+        {
+            return null;
+        }
+
         Link modelTexture = IModelLoader.getLink(model.combine("model.png"), links, ".png");
 
         try (InputStream stream = models.provider.getAsset(modelBOBJ))
@@ -50,41 +58,49 @@ public class BOBJModelLoader implements IModelLoader
             }
 
             BOBJArmature armature = bobjData.armatures.values().iterator().next();
-            BOBJLoader.BOBJMesh finalMesh = null;
+            List<BOBJLoader.CompiledData> compiledMeshes = new ArrayList<>();
 
             for (BOBJLoader.BOBJMesh mesh : bobjData.meshes)
             {
                 if (mesh.armature == armature)
                 {
-                    finalMesh = mesh;
-
-                    break;
+                    compiledMeshes.add(BOBJLoader.compileMesh(bobjData, mesh));
                 }
             }
 
-            if (finalMesh != null)
+            if (!compiledMeshes.isEmpty())
             {
-                BOBJLoader.CompiledData compiledData = BOBJLoader.compileMesh(bobjData, finalMesh);
-                BOBJModel bobjModel = new BOBJModel(armature, compiledData, id.startsWith("emoticons") && id.endsWith("_simple"));
+                BOBJModel bobjModel = new BOBJModel(armature, compiledMeshes, id.startsWith("emoticons") && id.endsWith("_simple"));
 
                 bobjData.initiateArmatures();
 
                 ModelInstance instance = new ModelInstance(id, bobjModel, this.convertAnimations(bobjData, new Animations(models.parser)), modelTexture);
 
+                /* Each BOBJ mesh is its own material (keyed by mesh name): load its default texture
+                 * from a folder named after the mesh; without one it falls back to the model texture. */
+                for (BOBJLoader.CompiledData mesh : compiledMeshes)
+                {
+                    String material = mesh.mesh.name;
+
+                    instance.materials.add(material);
+
+                    Link texture = IModelLoader.findMaterialTexture(links, model, material);
+
+                    if (texture != null)
+                    {
+                        instance.materialTextures.put(material, texture);
+                    }
+                    else
+                    {
+                        /* No texture yet: surface an empty folder for this mesh to drop one into. */
+                        IModelLoader.ensureMaterialFolder(models.provider, model, material);
+                    }
+                }
+
                 if (id.startsWith("emoticons/"))
                 {
-                    if (this.defaultAnimations == null)
-                    {
-                        this.loadDefaultAnimations(models.provider, models.parser);
-                    }
-
-                    if (this.defaultAnimations != null)
-                    {
-                        for (Animation value : this.defaultAnimations.animations.values())
-                        {
-                            instance.animations.add(value);
-                        }
-                    }
+                    this.ensureDefaultAnimations(models.provider, models.parser);
+                    this.applyDefaultAnimations(instance);
                 }
 
                 instance.applyConfig(config);
@@ -102,9 +118,41 @@ public class BOBJModelLoader implements IModelLoader
         return null;
     }
 
+    /**
+     * Shared Emoticons clip library ({@code actions.bobj} + {@code emotes/*.bobj}).
+     * Retries when a previous attempt left an empty cache (slow disks / low-memory IO).
+     */
+    public void ensureDefaultAnimations(AssetProvider provider, MolangParser parser)
+    {
+        if (this.defaultAnimations != null && !this.defaultAnimations.animations.isEmpty())
+        {
+            return;
+        }
+
+        this.loadDefaultAnimations(provider, parser);
+    }
+
+    private void applyDefaultAnimations(ModelInstance instance)
+    {
+        this.mergeDefaultAnimationsInto(instance);
+    }
+
+    public void mergeDefaultAnimationsInto(ModelInstance instance)
+    {
+        if (instance == null || instance.animations == null || this.defaultAnimations == null)
+        {
+            return;
+        }
+
+        for (Animation value : this.defaultAnimations.animations.values())
+        {
+            instance.animations.add(value);
+        }
+    }
+
     public void loadDefaultAnimations(AssetProvider provider, MolangParser parser)
     {
-        this.defaultAnimations = new Animations(parser);
+        Animations loaded = new Animations(parser);
 
         List<Link> actionsList = new ArrayList<>();
 
@@ -124,13 +172,25 @@ public class BOBJModelLoader implements IModelLoader
             {
                 BOBJLoader.BOBJData bobjData = BOBJLoader.readData(stream);
 
-                this.convertAnimations(bobjData, this.defaultAnimations);
+                this.convertAnimations(bobjData, loaded);
             }
             catch (Exception e)
             {
                 System.err.println("Failed to load Emoticons " + link + "!");
                 e.printStackTrace();
             }
+        }
+
+        /* Only cache a successful library. An empty cache would permanently starve
+         * every emoticons/* model on the next load (common on flaky low-end IO). */
+        if (!loaded.animations.isEmpty())
+        {
+            this.defaultAnimations = loaded;
+        }
+        else
+        {
+            this.defaultAnimations = null;
+            System.err.println("Emoticons default animation library is empty; will retry on next load.");
         }
     }
 

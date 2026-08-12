@@ -1,43 +1,158 @@
 package mchorse.bbs_mod.mixin;
 
 import mchorse.bbs_mod.BBSMod;
+import mchorse.bbs_mod.actions.AttackDamage;
 import mchorse.bbs_mod.actions.types.AttackActionClip;
+import mchorse.bbs_mod.entity.ActorEntity;
+import mchorse.bbs_mod.film.replays.Replay;
+import mchorse.bbs_mod.forms.forms.Form;
+import mchorse.bbs_mod.morphing.IMorphProvider;
+import mchorse.bbs_mod.network.ServerNetwork;
 
-import net.minecraft.server.level.ServerLevel;
-import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.damagesource.DamageSource;
-import net.minecraft.world.entity.Entity;
-import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.entity.Entity;
+import net.minecraft.entity.EntityDimensions;
+import net.minecraft.entity.LivingEntity;
+import net.minecraft.entity.damage.DamageSource;
+import net.minecraft.entity.damage.DamageTypes;
+import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.entity.projectile.ProjectileEntity;
+import net.minecraft.server.network.ServerPlayerEntity;
+import net.minecraft.server.world.ServerWorld;
 
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 @Mixin(LivingEntity.class)
 public class LivingEntityMixin
 {
-    @Inject(method = "actuallyHurt", at = @At("HEAD"))
-    public void onApplyDamage(ServerLevel world, DamageSource source, float amount, CallbackInfo info)
+    /**
+     * Record the amount passed into {@link LivingEntity#damage} after a successful
+     * hit. That value already includes vanilla attack cooldown, critical hits,
+     * strength, and weapon enchants — do <b>not</b> replace it with full weapon
+     * damage ({@link AttackDamage#fromAttacker}), or spam-clicks replay as full hits.
+     */
+    @Inject(method = "damage", at = @At("RETURN"))
+    private void onDamage(ServerWorld world, DamageSource source, float amount, CallbackInfoReturnable<Boolean> info)
     {
-        Entity attacker = source.getEntity();
-
-        if (source.isDirect() && attacker != null && attacker.getClass() == ServerPlayer.class)
+        if (!Boolean.TRUE.equals(info.getReturnValue()))
         {
-            BBSMod.getActions().addAction((ServerPlayer) attacker, () ->
+            return;
+        }
+
+        LivingEntity target = (LivingEntity) (Object) this;
+        Entity attacker = source.getAttacker();
+
+        /* Player melee → ActionRecorder on the player replay (existing path). */
+        if (source.isDirect() && attacker instanceof ServerPlayerEntity player)
+        {
+            float recorded = amount;
+
+            if (AttackDamage.isMobKiller(player.getMainHandStack()))
+            {
+                recorded = AttackDamage.MOB_KILLER_DAMAGE;
+            }
+            else if (recorded < 0F)
+            {
+                recorded = 0F;
+            }
+
+            float damageToStore = recorded;
+
+            BBSMod.getActions().addAction(player, () ->
             {
                 AttackActionClip clip = new AttackActionClip();
 
-                clip.damage.set(amount);
+                clip.damage.set(damageToStore);
+
+                if (target instanceof ActorEntity actorEntity)
+                {
+                    Replay replay = actorEntity.getReplay();
+
+                    if (replay != null)
+                    {
+                        clip.target.set(replay.getId());
+                    }
+                }
 
                 return clip;
             });
+
+            return;
         }
+
+        /* Mob autocapture combat clips (client places them on captured replays). */
+        if (!(target.getEntityWorld() instanceof ServerWorld serverWorld))
+        {
+            return;
+        }
+
+        if (!BBSMod.getActions().hasActiveRecorders(serverWorld))
+        {
+            return;
+        }
+
+        float recorded = Math.max(0F, amount);
+        byte kind;
+        int sourceEntityId = -1;
+        Entity sourceEntity = source.getSource();
+
+        if (source.isOf(DamageTypes.THORNS))
+        {
+            kind = ServerNetwork.MOB_COMBAT_KIND_DAMAGE;
+        }
+        else if (sourceEntity instanceof ProjectileEntity projectile)
+        {
+            Entity owner = projectile.getOwner();
+
+            if (owner != null)
+            {
+                kind = ServerNetwork.MOB_COMBAT_KIND_PROJECTILE;
+                sourceEntityId = owner.getId();
+            }
+            else
+            {
+                kind = ServerNetwork.MOB_COMBAT_KIND_DAMAGE;
+            }
+        }
+        else if (source.isDirect() && attacker instanceof LivingEntity && !(attacker instanceof PlayerEntity))
+        {
+            kind = ServerNetwork.MOB_COMBAT_KIND_MELEE;
+            sourceEntityId = attacker.getId();
+        }
+        else
+        {
+            /* Magic / environmental / other — Damage clip on the victim if captured. */
+            kind = ServerNetwork.MOB_COMBAT_KIND_DAMAGE;
+        }
+
+        BBSMod.getActions().broadcastMobCombatHit(serverWorld, target.getId(), sourceEntityId, recorded, kind);
     }
 
-    /* @Inject(method = "swingHand(Lnet/minecraft/util/Hand;Z)V", at = @At("HEAD"), cancellable = true)
-    public void onSwingHand(Hand hand, boolean fromServerPlayer, CallbackInfo info)
+    @Inject(method = "getBaseDimensions", at = @At("RETURN"), cancellable = true)
+    public void onGetBaseDimensions(CallbackInfoReturnable<EntityDimensions> info)
     {
-        info.cancel();
-    } */
+        if (this instanceof IMorphProvider provider)
+        {
+            Form form = provider.getMorph().getForm();
+
+            if (form != null && form.hitbox.get())
+            {
+                LivingEntity entity = (LivingEntity) (Object) this;
+                EntityDimensions dimensions = info.getReturnValue();
+                float height = form.hitboxHeight.get() * (entity.isSneaking() ? form.hitboxSneakMultiplier.get() : 1F);
+
+                if (dimensions.fixed())
+                {
+                    info.setReturnValue(EntityDimensions.fixed(form.hitboxWidth.get(), height));
+                }
+                else
+                {
+                    info.setReturnValue(EntityDimensions.changing(form.hitboxWidth.get(), height));
+                }
+            }
+        }
+    }
 }

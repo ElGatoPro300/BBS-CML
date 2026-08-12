@@ -12,9 +12,9 @@ import mchorse.bbs_mod.ui.framework.elements.input.list.UIStringList;
 import mchorse.bbs_mod.ui.framework.elements.input.text.UITextarea;
 import mchorse.bbs_mod.ui.framework.elements.input.text.utils.TextLine;
 
-import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.resources.ResourceKey;
-import net.minecraft.world.entity.EntityType;
+import net.minecraft.entity.EntityType;
+import net.minecraft.registry.Registries;
+import net.minecraft.registry.RegistryKey;
 
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -33,9 +33,9 @@ public class UIMobFormPanel extends UIFormPanel<MobForm>
     {
         mobIDs = new ArrayList<>();
 
-        for (ResourceKey<EntityType<?>> key : BuiltInRegistries.ENTITY_TYPE.registryKeySet())
+        for (RegistryKey<EntityType<?>> key : Registries.ENTITY_TYPE.getKeys())
         {
-            mobIDs.add(key.identifier().toString());
+            mobIDs.add(key.getValue().toString());
         }
 
         mobIDs.sort(Comparator.comparing((a) -> a));

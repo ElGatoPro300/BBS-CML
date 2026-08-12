@@ -8,12 +8,12 @@ import mchorse.bbs_mod.settings.values.mc.ValueBlockState;
 import mchorse.bbs_mod.settings.values.numeric.ValueBoolean;
 import mchorse.bbs_mod.utils.clips.Clip;
 
-import net.minecraft.core.BlockPos;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.nbt.TagParser;
-import net.minecraft.world.entity.LivingEntity;
-import net.minecraft.world.level.block.Blocks;
-import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.block.Blocks;
+import net.minecraft.block.entity.BlockEntity;
+import net.minecraft.entity.LivingEntity;
+import net.minecraft.nbt.NbtCompound;
+import net.minecraft.nbt.StringNbtReader;
+import net.minecraft.util.math.BlockPos;
 
 public class PlaceBlockActionClip extends BlockActionClip
 {
@@ -37,11 +37,11 @@ public class PlaceBlockActionClip extends BlockActionClip
 
         if (this.state.get().getBlock() == Blocks.AIR)
         {
-            player.level().destroyBlock(pos, this.drop.get());
+            player.getEntityWorld().breakBlock(pos, this.drop.get());
         }
         else
         {
-            player.level().setBlockAndUpdate(pos, this.state.get());
+            player.getEntityWorld().setBlockState(pos, this.state.get());
 
             String nbtString = this.blockEntityNbt.get();
 
@@ -49,18 +49,18 @@ public class PlaceBlockActionClip extends BlockActionClip
             {
                 try
                 {
-                    CompoundTag nbt = TagParser.parseCompoundFully(nbtString);
+                    NbtCompound nbt = StringNbtReader.readCompound(nbtString);
                     nbt.putInt("x", pos.getX());
                     nbt.putInt("y", pos.getY());
                     nbt.putInt("z", pos.getZ());
-                    BlockEntity created = BlockEntity.loadStatic(pos, this.state.get(), nbt, player.level().registryAccess());
+                    BlockEntity created = BlockEntity.createFromNbt(pos, this.state.get(), nbt, player.getEntityWorld().getRegistryManager());
 
                     if (created != null)
                     {
-                        player.level().removeBlockEntity(pos);
-                        player.level().setBlockEntity(created);
-                        created.setChanged();
-                        player.level().sendBlockUpdated(pos, this.state.get(), this.state.get(), 3);
+                        player.getEntityWorld().removeBlockEntity(pos);
+                        player.getEntityWorld().addBlockEntity(created);
+                        created.markDirty();
+                        player.getEntityWorld().updateListeners(pos, this.state.get(), this.state.get(), 3);
                     }
                 }
                 catch (Exception ignored)

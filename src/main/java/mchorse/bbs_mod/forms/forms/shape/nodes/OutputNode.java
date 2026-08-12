@@ -17,6 +17,6 @@ public class OutputNode extends ShapeNode
     @Override
     public List<String> getInputs()
     {
-        return Arrays.asList("result", "color");
+        return Arrays.asList("result", "color", "material");
     }
 }

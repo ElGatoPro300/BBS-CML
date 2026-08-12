@@ -177,8 +177,7 @@ public class MolangParser extends MathBuilder
         }
         catch (Exception e)
         {
-            System.err.println("Failed to parse MoLang: " + data);
-            e.printStackTrace();
+            System.err.println("Failed to parse MoLang: " + data + " (" + e.getMessage() + ")");
         }
 
         return defaultExpression;
@@ -336,9 +335,7 @@ public class MolangParser extends MathBuilder
         }
         catch (Exception e)
         {
-            e.printStackTrace();
-
-            throw new MolangException("Couldn't parse an expression!");
+            throw new MolangException("Couldn't parse an expression!", e);
         }
     }
 

@@ -8,27 +8,29 @@ import mchorse.bbs_mod.graphics.texture.Texture;
 import mchorse.bbs_mod.resources.Link;
 import mchorse.bbs_mod.ui.framework.elements.utils.Batcher2D;
 import mchorse.bbs_mod.ui.framework.elements.utils.FontRenderer;
-import mchorse.bbs_mod.utils.MatrixStackUtils;
 import mchorse.bbs_mod.utils.StringUtils;
 import mchorse.bbs_mod.utils.colors.Colors;
-import mchorse.bbs_mod.utils.pose.Transform;
 
-import net.minecraft.client.Minecraft;
+import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.font.TextRenderer;
+import net.minecraft.client.gl.GlUniform;
+import net.minecraft.client.gl.ShaderProgram;
+import net.minecraft.client.util.math.MatrixStack;
 
 import org.joml.Matrix4f;
 
-import com.mojang.blaze3d.opengl.GlProgram;
 import com.mojang.blaze3d.opengl.GlStateManager;
-import com.mojang.blaze3d.opengl.Uniform;
-import com.mojang.blaze3d.pipeline.RenderTarget;
+import com.mojang.blaze3d.pipeline.RenderPipeline;
+import com.mojang.blaze3d.systems.ProjectionType;
 import com.mojang.blaze3d.systems.RenderSystem;
-import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.blaze3d.systems.VertexSorter;
 
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL13;
 import org.lwjgl.opengl.GL30;
 
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.function.Supplier;
 
@@ -50,23 +52,30 @@ public class UISubtitleRenderer
         });
     }
 
-    public static void renderSubtitles(PoseStack stack, Batcher2D batcher, List<Subtitle> subtitles)
+    public static void renderSubtitles(MatrixStack stack, Batcher2D batcher, List<Subtitle> subtitles)
     {
         if (subtitles.isEmpty())
         {
             return;
         }
 
-        GlProgram program = BBSShaders.getSubtitlesProgram();
-        Uniform blur = program.getUniform("Blur");
-        Uniform textureSize = program.getUniform("TextureSize");
-        Supplier<GlProgram> supplier = () -> program;
+        ShaderProgram program = (ShaderProgram)(Object) BBSShaders.getSubtitlesProgram();
+        GlUniform blur = program.getUniform("Blur");
+        GlUniform textureSize = program.getUniform("TextureSize");
+        Supplier<ShaderProgram> supplier = () -> program;
 
-        RenderTarget fb = Minecraft.getInstance().getMainRenderTarget();
-        int width = fb.width;
-        int height = fb.height;
+        net.minecraft.client.gl.Framebuffer fb = MinecraftClient.getInstance().getFramebuffer();
+        int width = fb.textureWidth;
+        int height = fb.textureHeight;
 
-        Matrix4f cache = new Matrix4f(RenderSystem.getModelViewMatrix());
+        /* Text-atlas FBO applyClear() shrinks glViewport; beginWrite(false) alone may not
+         * restore it (same class of bug as UIFilmController stencil picking). Save so
+         * Hotbar/Bossbar/Image drawn after a Subtitle keep full-frame placement. */
+        int[] prevViewport = new int[4];
+
+        GL11.glGetIntegerv(GL11.GL_VIEWPORT, prevViewport);
+
+        RenderSystem.backupProjectionMatrix();
 
         width /= 2;
         height /= 2;
@@ -74,10 +83,23 @@ public class UISubtitleRenderer
         Framebuffer framebuffer = getTextFramebuffer();
         Texture texture = framebuffer.getMainTexture();
         Matrix4f ortho = new Matrix4f().ortho(0, width, height, 0, -100, 100);
-        FontRenderer font = Batcher2D.getDefaultTextRenderer();
+        FontRenderer font = Batcher2D.getVanillaTextRenderer();
+        TextRenderer vanilla = MinecraftClient.getInstance().textRenderer;
+
+        /*
+         * After ColorGrade raw-GL, the first textured Minecraft draw repairs Sampler0
+         * tracking. If Subtitle is the only HUD clip it would otherwise bake text with
+         * texture 0 bound → black atlas. Image/Hotbar/another Subtitle hide the bug by
+         * drawing a textured quad first; do that here explicitly.
+         */
+        // fb.beginWrite(false);
+        GL11.glViewport(prevViewport[0], prevViewport[1], prevViewport[2], prevViewport[3]);
+        // ColorGradeRenderer.resyncMinecraftState(batcher);
 
         GlStateManager._depthFunc(GL11.GL_ALWAYS);
         GlStateManager._disableCull();
+        GlStateManager._enableBlend();
+        GlStateManager._blendFuncSeparate(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA, 1, GL11.GL_ONE_MINUS_SRC_ALPHA);
 
         for (Subtitle subtitle : subtitles)
         {
@@ -96,22 +118,26 @@ public class UISubtitleRenderer
             float scale = subtitle.size;
             int subColor = subtitle.color;
 
-            List<String> strings = subtitle.maxWidth <= 10 ? Arrays.asList(label) : font.wrap(label, subtitle.maxWidth);
+            List<String> strings = subtitle.maxWidth <= 10 ? Arrays.asList(label) : FontRenderer.wrap(vanilla, label, (int) subtitle.maxWidth);
 
             for (String string : strings)
             {
-                w = Math.max(w, font.getWidth(string.trim()));
+                w = Math.max(w, vanilla.getWidth(string.trim()));
             }
 
-            h = (strings.size() - 1) * subtitle.lineHeight + font.getHeight();
+            h = (int) ((strings.size() - 1) * subtitle.lineHeight + vanilla.fontHeight - 2F);
 
             int fw = (int) ((w + 10) * scale);
             int fh = (int) ((h + 10) * scale);
 
-            /* projection matrix state managed by 1.21.11 renderer */
+            /* TODO 1.21.11: RenderSystem.setProjectionMatrix(new Matrix4f().ortho(0, w + 10, 0, h + 10, -100, 100), ProjectionType.ORTHOGRAPHIC); */
 
             framebuffer.resize(fw, fh);
+            /* Transparent clear — opaque world clear-color would show as a black plate
+             * if text baking still failed. */
+            GL11.glClearColor(0F, 0F, 0F, 0F);
             framebuffer.applyClear();
+            // RenderSystem.setShaderTexture(0, 0);
 
             int yy = 5;
 
@@ -119,51 +145,68 @@ public class UISubtitleRenderer
             {
                 string = string.trim();
 
-                int xx = 5 + (w - font.getWidth(string)) / 2;
+                int xx = 5 + (w - vanilla.getWidth(string)) / 2;
 
                 if (Colors.getA(subtitle.backgroundColor) > 0)
                 {
-                    batcher.textCard(string, xx, yy, Colors.setA(subColor, 1F), Colors.mulA(subtitle.backgroundColor, alpha), subtitle.backgroundOffset, subtitle.textShadow);
+                    float offset = subtitle.backgroundOffset;
+                    int tw = vanilla.getWidth(string);
+                    int th = vanilla.fontHeight - 2;
+
+                    batcher.box(xx - offset, yy - offset, xx + tw + offset - 1, yy + th + offset, Colors.mulA(subtitle.backgroundColor, alpha));
+                    batcher.text(font, string, xx, yy, Colors.setA(subColor, 1F), subtitle.textShadow);
                 }
                 else
                 {
-                    batcher.text(string, xx, yy, Colors.setA(subColor, 1F), subtitle.textShadow);
+                    batcher.text(font, string, xx, yy, Colors.setA(subColor, 1F), subtitle.textShadow);
                 }
 
                 yy += subtitle.lineHeight;
             }
 
-            /* Render the texture */
+            batcher.flush();
 
-            /* projection matrix state managed by 1.21.11 renderer */
+            /* Do not clear the main target — that would wipe Hotbar/Bossbar/Image already
+             * drawn earlier in renderHudOverlays. Also restore viewport explicitly. */
+            // fb.beginWrite(false);
+            GL11.glViewport(prevViewport[0], prevViewport[1], prevViewport[2], prevViewport[3]);
 
-            Transform transform = new Transform();
+            // RenderSystem.setProjectionMatrix(ortho, ProjectionType.ORTHOGRAPHIC);
 
-            transform.lerp(subtitle.transform, 1F - subtitle.factor);
-
-            stack.pushPose();
+            stack.push();
             stack.translate(x, y, 0);
-            MatrixStackUtils.applyTransform(stack, transform);
 
             if (blur != null)
             {
-                // Uniform setter API changed in 1.21.11.
+                /* TODO 1.21.11: blur.set(subtitle.shadow, subtitle.shadowOpaque ? 1F : 0F); */
             }
 
             if (textureSize != null)
             {
-                // Uniform setter API changed in 1.21.11.
+                /* TODO 1.21.11: textureSize uniform */
             }
 
             GlStateManager._enableBlend();
-            GlStateManager._blendFuncSeparate(770, 771, 1, 771);
+            GlStateManager._blendFuncSeparate(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA, 1, GL11.GL_ONE_MINUS_SRC_ALPHA);
 
-            batcher.texturedBox(program, texture.id, Colors.setA(Colors.WHITE, alpha), -fw * subtitle.anchorX, -fh * subtitle.anchorY, texture.width, texture.height, 0, 0, texture.width, texture.height, texture.width, texture.height);
+            batcher.texturedBox((Supplier<RenderPipeline>)(Object) program, texture.id, Colors.setA(Colors.WHITE, alpha), -fw * subtitle.anchorX, -fh * subtitle.anchorY, texture.width, texture.height, 0, 0, texture.width, texture.height, texture.width, texture.height);
 
-            stack.popPose();
+            stack.pop();
         }
 
-        /* projection matrix state managed by 1.21.11 renderer */
+        RenderSystem.restoreProjectionMatrix();
         GlStateManager._enableCull();
+        GlStateManager._depthFunc(GL11.GL_LEQUAL);
+        GlStateManager._blendFuncSeparate(770, 771, 1, 0);
+    }
+
+    public static void renderSubtitle(MatrixStack stack, Batcher2D batcher, Subtitle subtitle)
+    {
+        if (subtitle == null)
+        {
+            return;
+        }
+
+        renderSubtitles(stack, batcher, Collections.singletonList(subtitle));
     }
 }

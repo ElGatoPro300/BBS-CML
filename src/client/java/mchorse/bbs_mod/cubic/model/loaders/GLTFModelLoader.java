@@ -27,9 +27,7 @@ import mchorse.bbs_mod.utils.keyframes.Keyframe;
 import mchorse.bbs_mod.utils.keyframes.KeyframeChannel;
 import mchorse.bbs_mod.utils.resources.Pixels;
 
-import net.minecraft.client.Minecraft;
-
-import com.mojang.blaze3d.systems.RenderSystem;
+import net.minecraft.client.MinecraftClient;
 
 import org.lwjgl.opengl.GL11;
 
@@ -39,6 +37,7 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.Base64;
 import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 
 public class GLTFModelLoader implements IModelLoader
@@ -129,7 +128,9 @@ public class GLTFModelLoader implements IModelLoader
                         {
                             Link embeddedLink = new Link(gltfLink.source, gltfLink.path + "/embedded_texture.png");
                             
-                            Minecraft.getInstance().execute(() -> 
+                            /* RenderSystem.recordRenderCall(...) was removed in 1.21.11; MinecraftClient.execute(...)
+                             * schedules this on the client/render thread the same way. */
+                            MinecraftClient.getInstance().execute(() ->
                             {
                                 try
                                 {
@@ -165,7 +166,7 @@ public class GLTFModelLoader implements IModelLoader
                 
                 data.initiateArmatures();
                 
-                BOBJModel bobjModel = new BOBJModel(mesh.armature, compiled, false);
+                BOBJModel bobjModel = new BOBJModel(mesh.armature, List.of(compiled), false);
                 
                 Animations animations = this.convertAnimations(data, new Animations(models.parser));
                 
@@ -177,8 +178,7 @@ public class GLTFModelLoader implements IModelLoader
         }
         catch (Exception e)
         {
-            System.err.println("Failed to load GLTF model: " + gltfLink);
-            e.printStackTrace();
+            System.err.println("Failed to load GLTF model '" + gltfLink + "': " + e.getMessage());
         }
         
         return null;

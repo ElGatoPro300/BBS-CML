@@ -8,9 +8,9 @@ import mchorse.bbs_mod.settings.values.core.ValueString;
 import mchorse.bbs_mod.utils.StringUtils;
 import mchorse.bbs_mod.utils.clips.Clip;
 
-import net.minecraft.network.chat.Component;
-import net.minecraft.world.entity.LivingEntity;
-import net.minecraft.world.entity.player.Player;
+import net.minecraft.entity.LivingEntity;
+import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.text.Text;
 
 public class ChatActionClip extends ActionClip
 {
@@ -24,9 +24,9 @@ public class ChatActionClip extends ActionClip
     @Override
     public void applyAction(LivingEntity actor, SuperFakePlayer player, Film film, Replay replay, int tick)
     {
-        for (Player entity : player.level().players())
+        for (PlayerEntity entity : player.getEntityWorld().getPlayers())
         {
-            entity.sendSystemMessage(Component.literal(StringUtils.processColoredText(this.message.get())));
+            entity.sendMessage(Text.literal(StringUtils.processColoredText(this.message.get())), false);
         }
     }
 

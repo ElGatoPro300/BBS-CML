@@ -4,6 +4,7 @@ import mchorse.bbs_mod.resources.Link;
 import mchorse.bbs_mod.ui.UIKeys;
 import mchorse.bbs_mod.ui.forms.editors.utils.UIStructureOverlayPanel;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIButton;
+import mchorse.bbs_mod.ui.framework.elements.buttons.UIToggle;
 import mchorse.bbs_mod.ui.framework.elements.input.UITexturePicker;
 import mchorse.bbs_mod.ui.framework.elements.input.keyframes.UIKeyframeSheet;
 import mchorse.bbs_mod.ui.framework.elements.input.keyframes.UIKeyframes;
@@ -38,6 +39,21 @@ public class UILinkKeyframeFactory extends UIKeyframeFactory<Link>
         }
         else
         {
+            UIToggle bend = new UIToggle(UIKeys.GENERIC_KEYFRAMES_LINK_BEND, (b) ->
+            {
+                for (UIKeyframeSheet keyframeSheet : this.editor.getGraph().getSheets())
+                {
+                    for (Keyframe kf : keyframeSheet.selection.getSelected())
+                    {
+                        kf.setBend(b.getValue());
+                    }
+                }
+            });
+
+            bend.setValue(this.keyframe.isBend());
+            bend.tooltip(UIKeys.GENERIC_KEYFRAMES_LINK_BEND_TOOLTIP);
+
+            this.scroll.add(bend);
             this.scroll.add(new UIButton(UIKeys.GENERIC_KEYFRAMES_LINK_PICK_TEXTURE, (b) ->
             {
                 UITexturePicker.open(this.getContext(), this.keyframe.getValue(), (l) ->

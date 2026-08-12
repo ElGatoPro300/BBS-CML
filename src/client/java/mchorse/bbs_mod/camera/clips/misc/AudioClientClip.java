@@ -52,7 +52,7 @@ public class AudioClientClip extends AudioClip
             float tickTime = entry.getValue();
             SoundPlayer player = BBSModClient.getSounds().playUnique(entry.getKey());
 
-            if (player == null)
+            if (player == null || player.getBuffer() == null || !player.getBuffer().isValid())
             {
                 continue;
             }
@@ -117,7 +117,7 @@ public class AudioClientClip extends AudioClip
         {
             SoundPlayer player = BBSModClient.getSounds().playUnique(link);
 
-            if (player == null)
+            if (player == null || player.getBuffer() == null || !player.getBuffer().isValid())
             {
                 return;
             }

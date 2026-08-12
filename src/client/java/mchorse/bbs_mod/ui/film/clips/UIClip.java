@@ -3,6 +3,8 @@ package mchorse.bbs_mod.ui.film.clips;
 import mchorse.bbs_mod.BBSSettings;
 import mchorse.bbs_mod.actions.types.AttackActionClip;
 import mchorse.bbs_mod.actions.types.DamageActionClip;
+import mchorse.bbs_mod.actions.types.MobDeathActionClip;
+import mchorse.bbs_mod.actions.types.ProjectileAttackActionClip;
 import mchorse.bbs_mod.actions.types.SwipeActionClip;
 import mchorse.bbs_mod.actions.types.blocks.BreakBlockActionClip;
 import mchorse.bbs_mod.actions.types.blocks.InteractBlockActionClip;
@@ -13,7 +15,10 @@ import mchorse.bbs_mod.actions.types.item.ItemDropActionClip;
 import mchorse.bbs_mod.actions.types.item.UseBlockItemActionClip;
 import mchorse.bbs_mod.actions.types.item.UseItemActionClip;
 import mchorse.bbs_mod.camera.clips.misc.AudioClientClip;
+import mchorse.bbs_mod.camera.clips.misc.BossBarClip;
 import mchorse.bbs_mod.camera.clips.misc.CurveClientClip;
+import mchorse.bbs_mod.camera.clips.misc.HotbarClip;
+import mchorse.bbs_mod.camera.clips.misc.ImageClip;
 import mchorse.bbs_mod.camera.clips.misc.SubtitleClip;
 import mchorse.bbs_mod.camera.clips.misc.TrackerClientClip;
 import mchorse.bbs_mod.camera.clips.misc.VideoClip;
@@ -30,6 +35,13 @@ import mchorse.bbs_mod.camera.clips.overwrite.DollyClip;
 import mchorse.bbs_mod.camera.clips.overwrite.IdleClip;
 import mchorse.bbs_mod.camera.clips.overwrite.KeyframeClip;
 import mchorse.bbs_mod.camera.clips.overwrite.PathClip;
+import mchorse.bbs_mod.camera.clips.screen.CinematicClip;
+import mchorse.bbs_mod.camera.clips.screen.ColorClip;
+import mchorse.bbs_mod.camera.clips.screen.EyeClip;
+import mchorse.bbs_mod.camera.clips.screen.GrainClip;
+import mchorse.bbs_mod.camera.clips.screen.LetterboxClip;
+import mchorse.bbs_mod.camera.clips.screen.ScreenNodeClip;
+import mchorse.bbs_mod.camera.clips.screen.VignetteClip;
 import mchorse.bbs_mod.camera.data.Position;
 import mchorse.bbs_mod.camera.utils.TimeUtils;
 import mchorse.bbs_mod.data.types.MapType;
@@ -44,7 +56,9 @@ import mchorse.bbs_mod.ui.film.clips.actions.UICommandActionClip;
 import mchorse.bbs_mod.ui.film.clips.actions.UIDamageActionClip;
 import mchorse.bbs_mod.ui.film.clips.actions.UIInteractBlockActionClip;
 import mchorse.bbs_mod.ui.film.clips.actions.UIItemDropActionClip;
+import mchorse.bbs_mod.ui.film.clips.actions.UIMobDeathActionClip;
 import mchorse.bbs_mod.ui.film.clips.actions.UIPlaceBlockActionClip;
+import mchorse.bbs_mod.ui.film.clips.actions.UIProjectileAttackActionClip;
 import mchorse.bbs_mod.ui.film.clips.actions.UISwipeActionClip;
 import mchorse.bbs_mod.ui.film.clips.actions.UIUseBlockItemActionClip;
 import mchorse.bbs_mod.ui.film.clips.actions.UIUseItemActionClip;
@@ -102,8 +116,18 @@ public abstract class UIClip <T extends Clip> extends UIElement
         register(AudioClientClip.class, UIAudioClip::new);
         register(VideoClip.class, UIVideoClip::new);
         register(SubtitleClip.class, UISubtitleClip::new);
+        register(ImageClip.class, UIImageClip::new);
+        register(HotbarClip.class, UIHotbarClip::new);
         register(CurveClientClip.class, UICurveClip::new);
         register(DollyZoomClip.class, UIDollyZoomClip::new);
+        register(ColorClip.class, UIColorClip::new);
+        register(CinematicClip.class, UICinematicClip::new);
+        register(VignetteClip.class, UIVignetteClip::new);
+        register(LetterboxClip.class, UILetterboxClip::new);
+        register(GrainClip.class, UIGrainClip::new);
+        register(ScreenNodeClip.class, UIScreenNodeClip::new);
+        register(BossBarClip.class, UIBossBarClip::new);
+        register(EyeClip.class, UIEyeClip::new);
 
         register(ChatActionClip.class, UIChatActionClip::new);
         register(CommandActionClip.class, UICommandActionClip::new);
@@ -113,7 +137,9 @@ public abstract class UIClip <T extends Clip> extends UIElement
         register(UseItemActionClip.class, UIUseItemActionClip::new);
         register(UseBlockItemActionClip.class, UIUseBlockItemActionClip::new);
         register(AttackActionClip.class, UIAttackActionClip::new);
+        register(ProjectileAttackActionClip.class, UIProjectileAttackActionClip::new);
         register(DamageActionClip.class, UIDamageActionClip::new);
+        register(MobDeathActionClip.class, UIMobDeathActionClip::new);
         register(ItemDropActionClip.class, UIItemDropActionClip::new);
         register(SwipeActionClip.class, UISwipeActionClip::new);
     }
@@ -146,7 +172,8 @@ public abstract class UIClip <T extends Clip> extends UIElement
 
     public static UILabel label(IKey key)
     {
-        return UI.label(key).background(() -> BBSSettings.primaryColor(Colors.A50));
+        /* Narrow clip inspector truncates single-line headers; wrap so full titles remain readable. */
+        return UI.label(key).background(() -> BBSSettings.primaryColor(Colors.A50)).wrapping();
     }
 
     public UIClip(T clip, IUIClipsDelegate editor)
@@ -189,6 +216,8 @@ public abstract class UIClip <T extends Clip> extends UIElement
 
         this.registerUI();
         this.registerPanels();
+        /* Clip-specific options first; envelopes last so they do not bury property fields. */
+        this.addEnvelopes();
 
         this.add(this.panels);
     }
@@ -201,8 +230,6 @@ public abstract class UIClip <T extends Clip> extends UIElement
         this.panels.add(UIClip.label(UIKeys.CAMERA_PANELS_TITLE), this.title);
         this.panels.add(this.enabled.marginBottom(6));
         this.panels.add(UI.column(UIClip.label(UIKeys.CAMERA_PANELS_METRICS), UI.row(this.layer, this.tick), this.duration));
-
-        this.addEnvelopes();
     }
 
     protected void addEnvelopes()
@@ -229,7 +256,13 @@ public abstract class UIClip <T extends Clip> extends UIElement
         TimeUtilsClient.configure(this.duration, 1);
 
         this.enabled.setValue(this.clip.enabled.get());
-        this.title.setText(this.clip.title.get());
+
+        /* setText() moves the caret to the start — skip while the user is typing. */
+        if (!this.title.isFocused())
+        {
+            this.title.setText(this.clip.title.get());
+        }
+
         this.layer.setValue(this.clip.layer.get());
         this.tick.setValue(TimeUtils.toTime(this.clip.tick.get()));
         this.duration.setValue(TimeUtils.toTime(this.clip.duration.get()));
@@ -267,6 +300,16 @@ public abstract class UIClip <T extends Clip> extends UIElement
         {
             data.putString("embed", "envelope");
         }
+    }
+
+    public UIElement resolveEmbeddableView(String embeddedId)
+    {
+        return this.resolveClipEmbeddableView(embeddedId);
+    }
+
+    protected UIElement resolveClipEmbeddableView(String embeddedId)
+    {
+        return null;
     }
 
     public static interface IUIClipFactory <T extends Clip>

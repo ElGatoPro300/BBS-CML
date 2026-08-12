@@ -1,6 +1,7 @@
 package mchorse.bbs_mod.ui.forms.editors.panels;
 
 import mchorse.bbs_mod.forms.forms.LightForm;
+import mchorse.bbs_mod.l10n.L10n;
 import mchorse.bbs_mod.l10n.keys.IKey;
 import mchorse.bbs_mod.ui.UIKeys;
 import mchorse.bbs_mod.ui.forms.editors.forms.UIForm;
@@ -21,7 +22,7 @@ public class UILightFormPanel extends UIFormPanel<LightForm>
     {
         super(editor);
 
-        this.enabled = new UIToggle(IKey.raw("Enable"), false, (t) ->
+        this.enabled = new UIToggle(UIKeys.RAW_ENABLE, false, (t) ->
         {
             if (this.form != null)
             {

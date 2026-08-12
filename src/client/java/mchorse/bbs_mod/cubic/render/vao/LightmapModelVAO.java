@@ -20,7 +20,11 @@ public class LightmapModelVAO implements IModelVAO
 
     public void delete()
     {
-        GL30.glDeleteVertexArrays(this.vao);
+        if (this.vao != 0)
+        {
+            GL30.glDeleteVertexArrays(this.vao);
+            this.vao = 0;
+        }
     }
 
     private void upload(ModelVAOData data, int[] lightData)
@@ -52,7 +56,7 @@ public class LightmapModelVAO implements IModelVAO
         GL30.glVertexAttribPointer(Attributes.TANGENTS, 4, GL30.GL_FLOAT, false, 0, 0);
 
         GL30.glBindBuffer(GL30.GL_ARRAY_BUFFER, midTexCoordBuffer);
-        GL30.glBufferData(GL30.GL_ARRAY_BUFFER, data.texCoords(), GL30.GL_STATIC_DRAW);
+        GL30.glBufferData(GL30.GL_ARRAY_BUFFER, data.midTexCoords(), GL30.GL_STATIC_DRAW);
         GL30.glVertexAttribPointer(Attributes.MID_TEXTURE_UV, 2, GL30.GL_FLOAT, false, 0, 0);
 
         short[] light = new short[lightData.length * 2];
@@ -81,6 +85,11 @@ public class LightmapModelVAO implements IModelVAO
     @Override
     public void render(VertexFormat format, float r, float g, float b, float a, int light, int overlay)
     {
+        if (this.vao == 0 || !GL30.glIsVertexArray(this.vao))
+        {
+            return;
+        }
+
         boolean hasShaders = BBSRendering.isIrisShadersEnabled();
 
         GL30.glBindVertexArray(this.vao);

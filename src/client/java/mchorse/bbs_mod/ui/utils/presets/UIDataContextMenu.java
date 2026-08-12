@@ -47,7 +47,7 @@ public class UIDataContextMenu extends UIContextMenu
         this.callback = callback;
         this.data = this.manager.getData(group);
 
-        this.copy = new UIIcon(Icons.COPY, (b) -> Window.setClipboard(this.supplier.get(), this.copyGroup));
+        this.copy = new UIIcon(Icons.COPY, (b) -> Window.setInMemoryClipboard(this.supplier.get(), this.copyGroup));
         this.copy.tooltip(UIKeys.POSE_CONTEXT_COPY);
         this.paste = new UIIcon(Icons.PASTE, (b) ->
         {

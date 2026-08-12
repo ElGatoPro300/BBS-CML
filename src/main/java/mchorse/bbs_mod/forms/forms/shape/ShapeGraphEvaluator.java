@@ -8,15 +8,23 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Function;
 
 public class ShapeGraphEvaluator
 {
+    /**
+     * Optional texture sampler for TextureNode. Receives (path, u, v) and
+     * returns [r, g, b, a] in 0-1 range. Set this client-side before evaluating
+     * any graph that contains TextureNodes.
+     */
+    public Function<float[], float[]> textureSampler;
+
     public final List<IrisShaderNode> irisNodes = new ArrayList<>();
     public final List<IrisAttributeNode> irisAttributeNodes = new ArrayList<>();
-    private final Map<Integer, ShapeNode> nodes = new HashMap<>();
-    private final Map<Integer, Map<Integer, ShapeConnection>> inputs = new HashMap<>();
-    private OutputNode output;
-    private Noise noiseGen;
+    protected final Map<Integer, ShapeNode> nodes = new HashMap<>();
+    protected final Map<Integer, Map<Integer, ShapeConnection>> inputs = new HashMap<>();
+    protected OutputNode output;
+    protected Noise noiseGen;
 
     public ShapeGraphEvaluator(ShapeFormGraph graph)
     {
@@ -62,7 +70,24 @@ public class ShapeGraphEvaluator
         return color;
     }
 
-    private double evaluate(ShapeNode node, int outputIndex, double x, double y, double z, double time)
+    /**
+     * Returns the TextureNode wired to OutputNode's "material" input (index 2),
+     * or null if nothing is connected or the connected node is not a TextureNode.
+     */
+    public TextureNode getMaterialNode()
+    {
+        if (this.output == null || !this.hasInput(this.output.id, 2))
+        {
+            return null;
+        }
+
+        ShapeConnection c = this.inputs.get(this.output.id).get(2);
+        ShapeNode node = this.nodes.get(c.outputNodeId);
+
+        return node instanceof TextureNode ? (TextureNode) node : null;
+    }
+
+    protected double evaluate(ShapeNode node, int outputIndex, double x, double y, double z, double time)
     {
         if (node instanceof ValueNode) return ((ValueNode) node).value;
         if (node instanceof TimeNode) return time;
@@ -367,9 +392,123 @@ public class ShapeGraphEvaluator
             {
                 return this.getInput(node.id, 1, x, y, z, time);
             }
+
             return this.getInput(node.id, 0, x, y, z, time);
         }
-        
+
+        /* InvertNode: scalar 1-value or color RGB invert */
+        if (node instanceof InvertNode)
+        {
+            InvertNode inv = (InvertNode) node;
+            double val = this.getInput(node.id, 0, x, y, z, time);
+
+            if (inv.mode == 1) /* Color */
+            {
+                int argb = (int) val;
+                int a = (argb >> 24) & 0xFF;
+                int r = 255 - ((argb >> 16) & 0xFF);
+                int g = 255 - ((argb >> 8) & 0xFF);
+                int b = 255 - (argb & 0xFF);
+
+                return (a << 24) | (r << 16) | (g << 8) | b;
+            }
+
+            return 1 - val;
+        }
+
+        /* Remap: to_min + (value - from_min) / (from_max - from_min) * (to_max - to_min) */
+        if (node instanceof RemapNode)
+        {
+            double value = this.getInput(node.id, 0, x, y, z, time);
+            double fromMin = this.hasInput(node.id, 1) ? this.getInput(node.id, 1, x, y, z, time) : 0;
+            double fromMax = this.hasInput(node.id, 2) ? this.getInput(node.id, 2, x, y, z, time) : 1;
+            double toMin = this.hasInput(node.id, 3) ? this.getInput(node.id, 3, x, y, z, time) : 0;
+            double toMax = this.hasInput(node.id, 4) ? this.getInput(node.id, 4, x, y, z, time) : 1;
+            double range = fromMax - fromMin;
+
+            if (range == 0) return toMin;
+
+            return toMin + (value - fromMin) / range * (toMax - toMin);
+        }
+
+        /* Clamp: clamp(value, min, max) */
+        if (node instanceof ClampNode)
+        {
+            double value = this.getInput(node.id, 0, x, y, z, time);
+            double min = this.hasInput(node.id, 1) ? this.getInput(node.id, 1, x, y, z, time) : 0;
+            double max = this.hasInput(node.id, 2) ? this.getInput(node.id, 2, x, y, z, time) : 1;
+
+            return Math.max(min, Math.min(max, value));
+        }
+
+        /* Smoothstep: Hermite interpolation */
+        if (node instanceof SmoothstepNode)
+        {
+            double edge0 = this.getInput(node.id, 0, x, y, z, time);
+            double edge1 = this.hasInput(node.id, 1) ? this.getInput(node.id, 1, x, y, z, time) : 1;
+            double val = this.getInput(node.id, 2, x, y, z, time);
+            double range = edge1 - edge0;
+
+            if (range == 0) return val >= edge1 ? 1 : 0;
+
+            double t = Math.max(0, Math.min(1, (val - edge0) / range));
+
+            return t * t * (3 - 2 * t);
+        }
+
+        /* SplitColor: unpack ARGB int into 0-1 channels */
+        if (node instanceof SplitColorNode)
+        {
+            int argb = (int) this.getInput(node.id, 0, x, y, z, time);
+
+            if (outputIndex == 0) return ((argb >> 16) & 0xFF) / 255.0;
+            if (outputIndex == 1) return ((argb >> 8) & 0xFF) / 255.0;
+            if (outputIndex == 2) return (argb & 0xFF) / 255.0;
+            if (outputIndex == 3) return ((argb >> 24) & 0xFF) / 255.0;
+
+            return 0;
+        }
+
+        /* CombineColor: pack 0-1 channels into ARGB int */
+        if (node instanceof CombineColorNode)
+        {
+            int r = (int) Math.max(0, Math.min(255, this.getInput(node.id, 0, x, y, z, time) * 255));
+            int g = (int) Math.max(0, Math.min(255, this.getInput(node.id, 1, x, y, z, time) * 255));
+            int b = (int) Math.max(0, Math.min(255, this.getInput(node.id, 2, x, y, z, time) * 255));
+            int a = (int) Math.max(0, Math.min(255, this.hasInput(node.id, 3) ? this.getInput(node.id, 3, x, y, z, time) * 255 : 255));
+
+            return (a << 24) | (r << 16) | (g << 8) | b;
+        }
+
+        /* TextureNode: delegate to textureSampler if set, otherwise return 0 */
+        if (node instanceof TextureNode)
+        {
+            if (this.textureSampler == null) return 0;
+
+            float u = (float) this.getInput(node.id, 0, x, y, z, time);
+            float v = (float) this.getInput(node.id, 1, x, y, z, time);
+            float[] sample = this.textureSampler.apply(new float[] {u, v, (float) node.id, 0F});
+            /* sample = [r, g, b, a] in 0-1; index 3 is reserved for the path lookup key */
+
+            if (sample == null) return 0;
+
+            if (outputIndex == 0) return sample[0]; /* r */
+            if (outputIndex == 1) return sample[1]; /* g */
+            if (outputIndex == 2) return sample[2]; /* b */
+            if (outputIndex == 3) return sample.length > 3 ? sample[3] : 1; /* a */
+            if (outputIndex == 4) /* rgba packed */
+            {
+                int ri = (int) Math.max(0, Math.min(255, sample[0] * 255));
+                int gi = (int) Math.max(0, Math.min(255, sample[1] * 255));
+                int bi = (int) Math.max(0, Math.min(255, sample[2] * 255));
+                int ai = (int) Math.max(0, Math.min(255, sample.length > 3 ? sample[3] * 255 : 255));
+
+                return (ai << 24) | (ri << 16) | (gi << 8) | bi;
+            }
+
+            return 0;
+        }
+
         return 0;
     }
     
@@ -378,12 +517,12 @@ public class ShapeGraphEvaluator
         return this.getInput(nodeId, index, x, y, z, time);
     }
 
-    private boolean hasInput(int nodeId, int index)
+    protected boolean hasInput(int nodeId, int index)
     {
         return this.inputs.containsKey(nodeId) && this.inputs.get(nodeId).containsKey(index);
     }
 
-    private double getInput(int nodeId, int index, double x, double y, double z, double time)
+    protected double getInput(int nodeId, int index, double x, double y, double z, double time)
     {
         if (this.hasInput(nodeId, index))
         {

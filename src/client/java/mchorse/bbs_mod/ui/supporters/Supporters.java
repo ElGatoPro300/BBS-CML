@@ -13,15 +13,14 @@ public class Supporters
 
     public void setup()
     {
-        /* Developers of BBS CML EDITION */
+        /* Developers of BBS CML */
         this.add("Discord", "https://discord.gg/MAHVQBSce6", "textures/banners/CML.png").withDate(12, 1);
         this.add("ElGatoPro300", "https://www.youtube.com/@ElGatoPro300", "textures/banners/ElGatoPro300.png").withDate(12, 1);
-        this.add("seb024xd", "https://www.youtube.com/@seb024yt", "textures/banners/seb024xd.png").withDate(12, 1);
-        this.add("Diobede", "https://www.youtube.com/watch?v=iik25wqIuFo", "textures/banners/Diobede.png").withDate(12, 1);
-        this.add("Fanyel", "http://youtube.com/@imLOSTStudios", "textures/banners/Fanyel.png").withDate(12, 1);
-        this.add("Mattux", "https://www.youtube.com/@Mattux", "textures/banners/Mattux.png").withDate(12, 1);
+        this.add("SIRSYP", "https://www.youtube.com/@SIRSYP1", "textures/banners/SIRSYP.png").withDate(12, 1);
 
-        /* Founders of BBS CML EDITION */
+        /* Founders of BBS CML */
+        this.add("seb024xd", "https://www.youtube.com/@seb024yt", "textures/banners/seb024xd.png").withDate(12, 1);
+        this.add("Mattux", "https://www.youtube.com/@Mattux", "textures/banners/Mattux.png").withDate(12, 1);
         this.add("SEKZA_MC", "https://www.youtube.com/@secxavier49_official", "textures/banners/SEKZA_MC.png").withDate(12, 1);
         this.add("MrJack", "https://x.com/MrJackDnZ", "textures/banners/MrJack.png").withDate(12, 1);
         this.add("AymaWolf Omega", "https://www.youtube.com/@AymaWolfOmega", "textures/banners/AymaWolfOmega.png").withDate(12, 1);
@@ -48,11 +47,12 @@ public class Supporters
         this.add("Nioum", "https://www.youtube.com/@NioumMC", "textures/banners/Nioum.png").withDate(3, 27);
         this.add("FunkyFight", "https://www.youtube.com/@FunkyFight", "textures/banners/funkyfight.png").withDate(4, 2);
         this.add("Afegor (Alyokhin Dmitrii)", "https://www.youtube.com/@Afegor", "textures/banners/afegor.png").withDate(4, 8);
-        this.add("SIRSYP", "https://www.youtube.com/@SIRSYP1", "textures/banners/SIRSYP.png").withDate(4, 8);
         this.add("Plixitizthz", "https://x.com/PlixtIz", "textures/banners/Plixitizthz.png").withDate(4, 8);
         this.add("bay4lly", "https://www.youtube.com/@bay4lly", "textures/banners/bay4lly.png").withDate(12, 1);
         this.add("AND_010", "https://www.youtube.com/@AND010", "textures/banners/AND_010.png").withDate(12, 1);
         this.add("SR400X", "https://x.com/SR400X_", "textures/banners/SR400X.png").withDate(12, 1);
+        this.add("Diobede", "https://www.youtube.com/watch?v=iik25wqIuFo", "textures/banners/Diobede.png").withDate(12, 1);
+        this.add("Fanyel", "http://youtube.com/@imLOSTStudios", "textures/banners/Fanyel.png").withDate(12, 1);
     }
 
     private Supporter add(String name, String link, String banner)
@@ -76,16 +76,16 @@ public class Supporters
 
     public List<Supporter> getCMLSupporters()
     {
-        return this.supporters.stream().filter(s -> s.name.equals("TobbyMC") || s.name.equals("JaviCubito") || s.name.equals("SEKZA_MC") || s.name.equals("Jesuluto") || s.name.equals("Kazu_MC") || s.name.equals("SoyTon") || s.name.equals("TheRocket") || s.name.equals("MrJack") || s.name.equals("Yeyo Sin Contexto") || s.name.equals("Redbirdpro") || s.name.equals("MiniSunn_") || s.name.equals("lolinmalo") || s.name.equals("ItzUkyo2013") || s.name.equals("SoyFrann") || s.name.equals("AymaWolf Omega") || s.name.equals("Mokaccino") || s.name.equals("itzPizzaXD") || s.name.equals("Pirata_12") || s.name.equals("Alabi Pictures") || s.name.equals("Soru San") || s.name.equals("SERGIO PLAYER") || s.name.equals("Gooxy Series") || s.name.equals("ElRandi") ).sorted(Comparator.comparing((a) -> a.date)).collect(Collectors.toList());
+        return this.supporters.stream().filter(s -> s.name.equals("seb024xd") || s.name.equals("Mattux") || s.name.equals("TobbyMC") || s.name.equals("JaviCubito") || s.name.equals("SEKZA_MC") || s.name.equals("Jesuluto") || s.name.equals("Kazu_MC") || s.name.equals("SoyTon") || s.name.equals("TheRocket") || s.name.equals("MrJack") || s.name.equals("Yeyo Sin Contexto") || s.name.equals("Redbirdpro") || s.name.equals("MiniSunn_") || s.name.equals("lolinmalo") || s.name.equals("ItzUkyo2013") || s.name.equals("SoyFrann") || s.name.equals("AymaWolf Omega") || s.name.equals("Mokaccino") || s.name.equals("itzPizzaXD") || s.name.equals("Pirata_12") || s.name.equals("Alabi Pictures") || s.name.equals("Soru San") || s.name.equals("SERGIO PLAYER") || s.name.equals("Gooxy Series") || s.name.equals("ElRandi") ).sorted(Comparator.comparing((a) -> a.date)).collect(Collectors.toList());
     }
 
     public List<Supporter> getCMLDevelopers()
     {
-        return this.supporters.stream().filter(s -> s.name.equals("Discord") || s.name.equals("ElGatoPro300") || s.name.equals("seb024xd") || s.name.equals("Diobede") || s.name.equals("Fanyel") || s.name.equals("Mattux")) .sorted(Comparator.comparing((a) -> a.date)).collect(Collectors.toList());
+        return this.supporters.stream().filter(s -> s.name.equals("Discord") || s.name.equals("ElGatoPro300") || s.name.equals("SIRSYP")) .sorted(Comparator.comparing((a) -> a.date)).collect(Collectors.toList());
     }
 
     public List<Supporter> getSpecialThanksSupporters()
     {
-        return this.supporters.stream().filter(s -> s.name.equals("McHorse") || s.name.equals("Nioum") || s.name.equals("FunkyFight") || s.name.equals("Afegor (Alyokhin Dmitrii)") || s.name.equals("SIRSYP") || s.name.equals("Plixitizthz") || s.name.equals("bay4lly") || s.name.equals("SR400X") || s.name.equals("AND_010")).sorted(Comparator.comparing((a) -> a.date)).collect(Collectors.toList());
+        return this.supporters.stream().filter(s -> s.name.equals("McHorse") || s.name.equals("Nioum") || s.name.equals("FunkyFight") || s.name.equals("Afegor (Alyokhin Dmitrii)") || s.name.equals("Plixitizthz") || s.name.equals("bay4lly") || s.name.equals("SR400X") || s.name.equals("AND_010") || s.name.equals("Diobede") || s.name.equals("Fanyel")).sorted(Comparator.comparing((a) -> a.date)).collect(Collectors.toList());
     }
 }

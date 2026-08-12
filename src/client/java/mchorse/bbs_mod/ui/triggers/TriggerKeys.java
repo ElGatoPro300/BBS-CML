@@ -41,4 +41,12 @@ public class TriggerKeys
     public static final IKey POS2 = L10n.lang("bbs.ui.trigger_blocks.pos2");
     public static final IKey REGION_OFFSET = L10n.lang("bbs.ui.trigger_blocks.region_offset");
     public static final IKey REGION_SIZE = L10n.lang("bbs.ui.trigger_blocks.region_size");
+    public static final IKey PICK_BLOCK = L10n.lang("bbs.ui.trigger_blocks.pick_block");
+    public static final IKey ADD_FILM = L10n.lang("bbs.ui.trigger_blocks.add_film");
+    public static final IKey ACTION_FILM = L10n.lang("bbs.ui.trigger_blocks.action_film");
+    public static final IKey PLAY_CAMERA = L10n.lang("bbs.ui.trigger_blocks.play_camera");
+    public static final IKey PLAY_FILM_EMPTY = L10n.lang("bbs.ui.trigger_blocks.play_film_empty");
+    public static final IKey PLAY_FILM_NAME = L10n.lang("bbs.ui.trigger_blocks.play_film_name");
+    public static final IKey COPY_TRIGGER = L10n.lang("bbs.ui.trigger_blocks.copy_trigger");
+    public static final IKey PASTE_TRIGGER = L10n.lang("bbs.ui.trigger_blocks.paste_trigger");
 }

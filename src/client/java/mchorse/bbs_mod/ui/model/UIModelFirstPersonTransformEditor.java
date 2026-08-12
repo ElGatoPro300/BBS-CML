@@ -14,7 +14,6 @@ import mchorse.bbs_mod.morphing.Morph;
 import mchorse.bbs_mod.ui.UIKeys;
 import mchorse.bbs_mod.ui.dashboard.panels.UIDashboardPanel;
 import mchorse.bbs_mod.ui.framework.UIContext;
-import mchorse.bbs_mod.ui.framework.elements.buttons.UIButton;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIIcon;
 import mchorse.bbs_mod.ui.framework.elements.input.UIPropTransform;
 import mchorse.bbs_mod.ui.framework.elements.input.list.UISearchList;
@@ -24,14 +23,14 @@ import mchorse.bbs_mod.ui.utils.UI;
 import mchorse.bbs_mod.ui.utils.icons.Icons;
 import mchorse.bbs_mod.utils.colors.Colors;
 
-import net.minecraft.client.CameraType;
-import net.minecraft.client.Minecraft;
+import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.option.Perspective;
 
 import org.lwjgl.glfw.GLFW;
 
 public class UIModelFirstPersonTransformEditor extends UIDashboardPanel
 {
-    public UIModelPanel parent;
+    public IUIModelPanelHost host;
     public ModelConfig config;
 
     public UIPropTransform transform;
@@ -40,16 +39,16 @@ public class UIModelFirstPersonTransformEditor extends UIDashboardPanel
     public UIStringList hands;
     public UIIcon back;
 
-    private CameraType lastPerspective;
+    private Perspective lastPerspective;
     private Form lastForm;
     private boolean changed;
     private ModelInstance cachedModel;
 
-    public UIModelFirstPersonTransformEditor(UIModelPanel parent, ModelConfig config)
+    public UIModelFirstPersonTransformEditor(IUIModelPanelHost host, ModelConfig config)
     {
-        super(parent.dashboard);
+        super(host.getDashboard());
 
-        this.parent = parent;
+        this.host = host;
         this.config = config;
 
         this.handsLabel = UI.label(UIKeys.MODELS_HANDS).background(() -> Colors.A50 | BBSSettings.primaryColor.get());
@@ -76,15 +75,15 @@ public class UIModelFirstPersonTransformEditor extends UIDashboardPanel
         this.transform = new UIPropTransform();
         this.transform.callbacks(null, () ->
         {
-            this.parent.dirty();
+            this.host.dirty();
             this.syncModel();
         });
         this.transform.relative(this).x(1F, -200).y(0.5F, 10).w(190).h(70);
 
         this.back = new UIIcon(Icons.CLOSE, (b) ->
         {
-            this.parent.renderer.dirty();
-            this.dashboard.setPanel(this.parent);
+            this.host.getModelRenderer().dirty();
+            this.host.returnFromSubEditor();
         });
         this.back.relative(this).x(1F, -26).y(6);
 
@@ -92,7 +91,7 @@ public class UIModelFirstPersonTransformEditor extends UIDashboardPanel
         this.handsLabel.relative(this.handsSearch).y(-12).w(1F).h(12);
 
         this.add(this.transform, this.handsSearch, this.handsLabel, this.back);
-        
+
         this.setSlot(this.config.fpMain);
     }
 
@@ -103,7 +102,7 @@ public class UIModelFirstPersonTransformEditor extends UIDashboardPanel
 
     private void acquireModel()
     {
-        Morph morph = Morph.getMorph(Minecraft.getInstance().player);
+        Morph morph = Morph.getMorph(MinecraftClient.getInstance().player);
 
         if (morph != null && morph.getForm() instanceof ModelForm)
         {
@@ -160,8 +159,8 @@ public class UIModelFirstPersonTransformEditor extends UIDashboardPanel
     {
         if (context.getKeyCode() == GLFW.GLFW_KEY_ESCAPE)
         {
-            this.parent.renderer.dirty();
-            this.dashboard.setPanel(this.parent);
+            this.host.getModelRenderer().dirty();
+            this.host.returnFromSubEditor();
             return true;
         }
 
@@ -173,11 +172,11 @@ public class UIModelFirstPersonTransformEditor extends UIDashboardPanel
     {
         super.appear();
 
-        Minecraft mc = Minecraft.getInstance();
+        MinecraftClient mc = MinecraftClient.getInstance();
 
-        this.lastPerspective = mc.options.getCameraType();
-        mc.options.setCameraType(CameraType.FIRST_PERSON);
-        mc.options.hideGui = false;
+        this.lastPerspective = mc.options.getPerspective();
+        mc.options.setPerspective(Perspective.FIRST_PERSON);
+        mc.options.hudHidden = false;
 
         BBSModClient.getCameraController().remove(this.dashboard.camera);
 
@@ -202,10 +201,10 @@ public class UIModelFirstPersonTransformEditor extends UIDashboardPanel
     {
         super.disappear();
 
-        this.parent.forceSave();
+        this.host.forceSave();
         this.restore();
 
-        Minecraft.getInstance().options.hideGui = true;
+        MinecraftClient.getInstance().options.hudHidden = true;
         BBSModClient.getCameraController().add(this.dashboard.camera);
     }
 
@@ -220,16 +219,16 @@ public class UIModelFirstPersonTransformEditor extends UIDashboardPanel
     @Override
     public UIDashboardPanel getMainPanel()
     {
-        return this.parent;
+        return this.host.getModelPanel() != null ? this.host.getModelPanel() : this;
     }
 
     private void restore()
     {
-        Minecraft mc = Minecraft.getInstance();
+        MinecraftClient mc = MinecraftClient.getInstance();
 
         if (this.lastPerspective != null)
         {
-            mc.options.setCameraType(this.lastPerspective);
+            mc.options.setPerspective(this.lastPerspective);
             this.lastPerspective = null;
         }
 

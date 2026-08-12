@@ -6,7 +6,7 @@ import mchorse.bbs_mod.BBSSettings;
 import mchorse.bbs_mod.client.BBSRendering;
 import mchorse.bbs_mod.ui.utils.UIUtils;
 
-import net.minecraft.client.Minecraft;
+import net.minecraft.client.MinecraftClient;
 
 import org.lwjgl.opengl.GL30;
 import org.lwjgl.system.MemoryUtil;
@@ -27,6 +27,9 @@ import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 
 import sun.misc.Unsafe;
@@ -36,6 +39,11 @@ public class VideoRecorder
     private Process process;
     private WritableByteChannel channel;
     private boolean recording;
+
+    private final BlockingQueue<ByteBuffer> frameQueue = new LinkedBlockingQueue<>();
+    private final ConcurrentLinkedQueue<ByteBuffer> bufferPool = new ConcurrentLinkedQueue<>();
+    private Thread encodingThread;
+    private volatile boolean encodingThreadActive;
 
     private ByteBuffer buffer;
     private int textureId = -1;
@@ -147,10 +155,10 @@ public class VideoRecorder
 
             System.out.println("Recording video with following arguments: " + args);
 
-            this.pbos = new int[2];
+            this.pbos = new int[3];
             this.pboIndex = 0;
 
-            for (int i = 0; i < 2; i++)
+            for (int i = 0; i < 3; i++)
             {
                 this.pbos[i] = GL30.glGenBuffers();
 
@@ -201,6 +209,12 @@ public class VideoRecorder
             this.channel = Channels.newChannel(os);
             this.recording = true;
 
+            this.frameQueue.clear();
+            this.bufferPool.clear();
+            this.encodingThreadActive = true;
+            this.encodingThread = new Thread(this::runEncodingLoop, "BBS Video Encoder Worker");
+            this.encodingThread.start();
+
             UIUtils.playClick(2F);
         }
         catch (Exception e)
@@ -216,12 +230,12 @@ public class VideoRecorder
 
     private void enableAmbientCapture(int frameRate) throws IOException
     {
-        Minecraft.getInstance().getSoundManager().stop();
+        MinecraftClient.getInstance().getSoundManager().stopAll();
         BBSModClient.getSounds().deleteSounds();
         LoopbackAudioController.suppressFilmClipPlayback(this.suppressFilmClipPlaybackForRender || this.filmAudioFile != null);
         LoopbackAudioController.requestCapture(true);
-        Minecraft.getInstance().getSoundManager().reload();
-        Minecraft.getInstance().getSoundManager().stop();
+        MinecraftClient.getInstance().getSoundManager().reloadSounds();
+        MinecraftClient.getInstance().getSoundManager().stopAll();
         this.ambientCapture = AmbientAudioCapture.open(this.exportFolder, this.movieName, frameRate);
     }
 
@@ -250,9 +264,9 @@ public class VideoRecorder
 
             if (hadCapture)
             {
-                Minecraft.getInstance().getSoundManager().stop();
-                Minecraft.getInstance().getSoundManager().reload();
-                Minecraft.getInstance().getSoundManager().stop();
+                MinecraftClient.getInstance().getSoundManager().stopAll();
+                MinecraftClient.getInstance().getSoundManager().reloadSounds();
+                MinecraftClient.getInstance().getSoundManager().stopAll();
                 BBSModClient.getSounds().deleteSounds();
             }
         }
@@ -415,6 +429,53 @@ public class VideoRecorder
         return second;
     }
 
+    private void cleanupTemporaryAudioFiles(File filmAudio, File ambientAudio, String movieName, Path exportFolder)
+    {
+        this.deleteIfExists(filmAudio);
+        this.deleteIfExists(ambientAudio);
+
+        if (movieName == null || exportFolder == null)
+        {
+            return;
+        }
+
+        this.deleteIfExists(exportFolder.resolve(movieName + "_mix.wav").toFile());
+        this.deleteIfExists(exportFolder.resolve(movieName + "_ambient.wav").toFile());
+    }
+
+    private void deleteIfExists(File file)
+    {
+        if (file != null && file.isFile())
+        {
+            file.delete();
+        }
+    }
+
+    private void runEncodingLoop()
+    {
+        while (this.encodingThreadActive || !this.frameQueue.isEmpty())
+        {
+            try
+            {
+                ByteBuffer buf = this.frameQueue.poll(10, TimeUnit.MILLISECONDS);
+
+                if (buf != null)
+                {
+                    if (this.channel != null && this.channel.isOpen())
+                    {
+                        this.channel.write(buf);
+                    }
+
+                    this.bufferPool.offer(buf);
+                }
+            }
+            catch (Exception e)
+            {
+                e.printStackTrace();
+            }
+        }
+    }
+
     /**
      * Stop recording
      */
@@ -423,6 +484,24 @@ public class VideoRecorder
         if (!this.recording)
         {
             return;
+        }
+
+        this.flushPendingPboFrames();
+
+        this.encodingThreadActive = false;
+
+        if (this.encodingThread != null)
+        {
+            try
+            {
+                this.encodingThread.join(10000);
+            }
+            catch (InterruptedException e)
+            {
+                e.printStackTrace();
+            }
+
+            this.encodingThread = null;
         }
 
         if (this.pbos != null)
@@ -442,6 +521,24 @@ public class VideoRecorder
 
             this.buffer = null;
         }
+
+        for (ByteBuffer buf : this.bufferPool)
+        {
+            if (buf != null)
+            {
+                MemoryUtil.memFree(buf);
+            }
+        }
+        this.bufferPool.clear();
+
+        for (ByteBuffer buf : this.frameQueue)
+        {
+            if (buf != null)
+            {
+                MemoryUtil.memFree(buf);
+            }
+        }
+        this.frameQueue.clear();
 
         try
         {
@@ -480,6 +577,11 @@ public class VideoRecorder
             this.mergeAudioTrack(this.findOutputVideo(), mixed);
         }
 
+        if (!BBSSettings.videoSettings.audioSeparateFile.get())
+        {
+            this.cleanupTemporaryAudioFiles(this.filmAudioFile, this.ambientAudioFile, this.movieName, this.exportFolder);
+        }
+
         this.recording = false;
         this.filmAudioFile = null;
         this.movieName = null;
@@ -494,6 +596,51 @@ public class VideoRecorder
     }
 
     /**
+     * Encode PBO frames already submitted but not yet mapped (pipeline delay of
+     * {@code pbos.length - 1}). Must run on the render thread before deleting PBOs.
+     */
+    private void flushPendingPboFrames()
+    {
+        if (this.pbos == null || this.counter < this.pbos.length - 1)
+        {
+            return;
+        }
+
+        int pending = this.pbos.length - 1;
+
+        for (int i = 0; i < pending; i++)
+        {
+            int readPbo = (this.pboIndex + 1) % this.pbos.length;
+
+            GL30.glBindBuffer(GL30.GL_PIXEL_PACK_BUFFER, this.pbos[readPbo]);
+
+            ByteBuffer mappedBuffer = GL30.glMapBuffer(GL30.GL_PIXEL_PACK_BUFFER, GL30.GL_READ_ONLY);
+
+            if (mappedBuffer != null)
+            {
+                int size = this.textureWidth * this.textureHeight * 3;
+                ByteBuffer buf = this.bufferPool.poll();
+
+                if (buf == null || buf.capacity() < size)
+                {
+                    buf = MemoryUtil.memAlloc(size);
+                }
+
+                buf.clear();
+                buf.put(mappedBuffer);
+                buf.flip();
+
+                this.frameQueue.offer(buf);
+            }
+
+            GL30.glUnmapBuffer(GL30.GL_PIXEL_PACK_BUFFER);
+            this.pboIndex = readPbo;
+        }
+
+        GL30.glBindBuffer(GL30.GL_PIXEL_PACK_BUFFER, 0);
+    }
+
+    /**
      * Record a frame
      */
     public void recordFrame()
@@ -505,8 +652,13 @@ public class VideoRecorder
 
         try
         {
+            /* Async PBO ring: write the current texture into pbos[pbo], then map
+             * pbos[next] which was filled (N - 1) frames ago. Priming frames must
+             * not be encoded — with 3 PBOs that is the first two calls; encoding
+             * an unwritten buffer is what produced a solid black first video frame. */
             int pbo = this.pboIndex;
             int nextPbo = (this.pboIndex + 1) % this.pbos.length;
+            int pipelineDelay = this.pbos.length - 1;
 
             GL30.glPixelStorei(GL30.GL_PACK_ALIGNMENT, 1);
             GL30.glBindBuffer(GL30.GL_PIXEL_PACK_BUFFER, this.pbos[pbo]);
@@ -517,9 +669,21 @@ public class VideoRecorder
 
             ByteBuffer mappedBuffer = GL30.glMapBuffer(GL30.GL_PIXEL_PACK_BUFFER, GL30.GL_READ_ONLY);
 
-            if (mappedBuffer != null && this.counter != 0)
+            if (mappedBuffer != null && this.counter >= pipelineDelay)
             {
-                this.channel.write(mappedBuffer);
+                int size = this.textureWidth * this.textureHeight * 3;
+                ByteBuffer buf = this.bufferPool.poll();
+
+                if (buf == null || buf.capacity() < size)
+                {
+                    buf = MemoryUtil.memAlloc(size);
+                }
+
+                buf.clear();
+                buf.put(mappedBuffer);
+                buf.flip();
+
+                this.frameQueue.offer(buf);
             }
 
             GL30.glUnmapBuffer(GL30.GL_PIXEL_PACK_BUFFER);

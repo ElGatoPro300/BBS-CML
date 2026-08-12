@@ -1,9 +1,11 @@
 package mchorse.bbs_mod.mixin.client.iris;
 
+import mchorse.bbs_mod.utils.iris.FormColorGradePatch;
 import mchorse.bbs_mod.utils.iris.ShaderCurves;
 
 import net.irisshaders.iris.uniforms.custom.CustomUniformFixedInputUniformsHolder;
 import net.irisshaders.iris.uniforms.custom.CustomUniforms;
+
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
@@ -18,6 +20,7 @@ public class CustomUniformsBuilderMixin
         if (info.getReturnValue() instanceof CustomUniformsAccessor accessor)
         {
             ShaderCurves.addUniforms(accessor.bbs$uniformOrder());
+            FormColorGradePatch.addUniforms(accessor.bbs$uniformOrder());
         }
     }
 }

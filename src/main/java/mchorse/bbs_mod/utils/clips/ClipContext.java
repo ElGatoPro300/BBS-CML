@@ -37,9 +37,21 @@ public abstract class ClipContext <T extends Clip, E>
     public boolean playing = true;
 
     /**
-     * How many camera clips were applied
+     * How many position (camera) clips were applied.
+     * Used by modifier clips such as Angle/Translate.
      */
     public int count;
+
+    /**
+     * How many top-level clips were applied this frame.
+     * Used for HUD overlay draw order (subtitle/image/boss bar/hotbar).
+     */
+    public int applied;
+
+    /**
+     * Nesting depth of {@link #applyUnderneath} calls.
+     */
+    public int applyDepth;
 
     /**
      * How many blocks did camera moved
@@ -66,6 +78,8 @@ public abstract class ClipContext <T extends Clip, E>
     public ClipContext setup(int ticks, int relativeTick, float transition, int currentLayer)
     {
         this.count = 0;
+        this.applied = 0;
+        this.applyDepth = 0;
         this.ticks = ticks;
         this.relativeTick = relativeTick;
         this.transition = transition;
@@ -98,14 +112,23 @@ public abstract class ClipContext <T extends Clip, E>
 
             boolean applied = false;
 
-            for (Clip clip : this.clips.getClips(ticks, lastLayer))
-            {
-                boolean allowed = filter == null || filter.test(clip);
+            this.applyDepth += 1;
 
-                if (allowed && this.apply(clip, position))
+            try
+            {
+                for (Clip clip : this.clips.getClips(ticks, lastLayer))
                 {
-                    applied = true;
+                    boolean allowed = filter == null || filter.test(clip);
+
+                    if (allowed && this.apply(clip, position))
+                    {
+                        applied = true;
+                    }
                 }
+            }
+            finally
+            {
+                this.applyDepth -= 1;
             }
 
             this.currentLayer = lastLayer;

@@ -12,6 +12,7 @@ import mchorse.bbs_mod.items.GunProperties;
 import mchorse.bbs_mod.network.ClientNetwork;
 import mchorse.bbs_mod.ui.Keys;
 import mchorse.bbs_mod.ui.UIKeys;
+import mchorse.bbs_mod.ui.dashboard.panels.UIDashboardPanels;
 import mchorse.bbs_mod.ui.dashboard.utils.UIOrbitCamera;
 import mchorse.bbs_mod.ui.forms.UIFormPalette;
 import mchorse.bbs_mod.ui.forms.UINestedEdit;
@@ -32,14 +33,15 @@ import mchorse.bbs_mod.ui.utils.icons.Icons;
 import mchorse.bbs_mod.ui.utils.presets.UICopyPasteController;
 import mchorse.bbs_mod.ui.utils.presets.UIPresetContextMenu;
 import mchorse.bbs_mod.utils.CollectionUtils;
+import mchorse.bbs_mod.utils.Direction;
 import mchorse.bbs_mod.utils.MathUtils;
 import mchorse.bbs_mod.utils.colors.Colors;
 import mchorse.bbs_mod.utils.pose.Transform;
 import mchorse.bbs_mod.utils.presets.PresetManager;
 
-import net.minecraft.client.CameraType;
-import net.minecraft.client.Minecraft;
-import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.network.ClientPlayerEntity;
+import net.minecraft.client.option.Perspective;
 
 import java.util.HashMap;
 import java.util.List;
@@ -93,7 +95,7 @@ public class UIModelBlockEditorMenu extends UIBaseMenu
             this.gunProperties = gunProperties;
         }
 
-        LocalPlayer player = Minecraft.getInstance().player;
+        ClientPlayerEntity player = MinecraftClient.getInstance().player;
         OrbitDistanceCamera orbit = new OrbitDistanceCamera();
 
         orbit.distance.setX(14);
@@ -103,7 +105,7 @@ public class UIModelBlockEditorMenu extends UIBaseMenu
         this.uiOrbitCamera.orbit = orbit;
         this.orbitCameraController = new OrbitCameraController(this.uiOrbitCamera.orbit);
         this.orbitCameraController.camera.position.set(player.getX(), player.getY() + 1D, player.getZ());
-        this.orbitCameraController.camera.rotation.set(0, MathUtils.toRad(player.yBodyRot), 0);
+        this.orbitCameraController.camera.rotation.set(0, MathUtils.toRad(player.bodyYaw), 0);
 
         if (this.gunProperties != null)
         {
@@ -435,12 +437,12 @@ public class UIModelBlockEditorMenu extends UIBaseMenu
 
             if (element == this.sectionTp)
             {
-                Minecraft.getInstance().options.setCameraType(CameraType.THIRD_PERSON_FRONT);
+                MinecraftClient.getInstance().options.setPerspective(Perspective.THIRD_PERSON_FRONT);
                 BBSModClient.getCameraController().add(this.orbitCameraController);
             }
             else
             {
-                Minecraft.getInstance().options.setCameraType(CameraType.FIRST_PERSON);
+                MinecraftClient.getInstance().options.setPerspective(Perspective.FIRST_PERSON);
                 BBSModClient.getCameraController().remove(this.orbitCameraController);
             }
         }
@@ -465,15 +467,7 @@ public class UIModelBlockEditorMenu extends UIBaseMenu
 
         if (icon != null)
         {
-            this.renderHighlight(context.batcher, icon.area);
+            UIDashboardPanels.renderHighlight(context.batcher, icon.area, Direction.TOP);
         }
-    }
-
-    private void renderHighlight(Batcher2D batcher, Area area)
-    {
-        int color = BBSSettings.primaryColor.get();
-
-        batcher.box(area.x, area.y, area.ex(), area.y + 2, Colors.A100 | color);
-        batcher.gradientVBox(area.x, area.y + 2, area.ex(), area.ey(), Colors.A50 | color, color);
     }
 }

@@ -2,27 +2,32 @@ package mchorse.bbs_mod.data;
 
 import mchorse.bbs_mod.data.storage.DataStorage;
 import mchorse.bbs_mod.data.types.BaseType;
+import mchorse.bbs_mod.data.types.ByteArrayType;
 import mchorse.bbs_mod.data.types.ByteType;
 import mchorse.bbs_mod.data.types.DoubleType;
 import mchorse.bbs_mod.data.types.FloatType;
+import mchorse.bbs_mod.data.types.IntArrayType;
 import mchorse.bbs_mod.data.types.IntType;
 import mchorse.bbs_mod.data.types.ListType;
 import mchorse.bbs_mod.data.types.LongType;
 import mchorse.bbs_mod.data.types.MapType;
+import mchorse.bbs_mod.data.types.ShortArrayType;
 import mchorse.bbs_mod.data.types.ShortType;
 import mchorse.bbs_mod.data.types.StringType;
 
-import net.minecraft.nbt.ByteTag;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.nbt.DoubleTag;
-import net.minecraft.nbt.FloatTag;
-import net.minecraft.nbt.IntTag;
-import net.minecraft.nbt.ListTag;
-import net.minecraft.nbt.LongTag;
-import net.minecraft.nbt.ShortTag;
-import net.minecraft.nbt.StringTag;
-import net.minecraft.nbt.Tag;
-import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.nbt.NbtByte;
+import net.minecraft.nbt.NbtByteArray;
+import net.minecraft.nbt.NbtCompound;
+import net.minecraft.nbt.NbtDouble;
+import net.minecraft.nbt.NbtElement;
+import net.minecraft.nbt.NbtFloat;
+import net.minecraft.nbt.NbtInt;
+import net.minecraft.nbt.NbtIntArray;
+import net.minecraft.nbt.NbtList;
+import net.minecraft.nbt.NbtLong;
+import net.minecraft.nbt.NbtShort;
+import net.minecraft.nbt.NbtString;
+import net.minecraft.network.PacketByteBuf;
 
 import org.joml.Matrix3f;
 import org.joml.Vector2i;
@@ -87,7 +92,7 @@ public class DataStorageUtils
         return null;
     }
 
-    public static void writeToPacket(FriendlyByteBuf packet, BaseType type)
+    public static void writeToPacket(PacketByteBuf packet, BaseType type)
     {
         try
         {
@@ -103,7 +108,7 @@ public class DataStorageUtils
         }
     }
 
-    public static BaseType readFromPacket(FriendlyByteBuf packet)
+    public static BaseType readFromPacket(PacketByteBuf packet)
     {
         try
         {
@@ -121,110 +126,143 @@ public class DataStorageUtils
 
     /* NBT */
 
-    public static Tag toNbt(BaseType type)
+    public static NbtElement toNbt(BaseType type)
     {
+        if (type == null)
+        {
+            return null;
+        }
+
         if (type instanceof ByteType byteType)
         {
-            return ByteTag.valueOf(byteType.value);
+            return NbtByte.of(byteType.value);
         }
         else if (type instanceof DoubleType doubleType)
         {
-            return DoubleTag.valueOf(doubleType.value);
+            return NbtDouble.of(doubleType.value);
         }
         else if (type instanceof FloatType floatType)
         {
-            return FloatTag.valueOf(floatType.value);
+            return NbtFloat.of(floatType.value);
         }
         else if (type instanceof IntType intType)
         {
-            return IntTag.valueOf(intType.value);
+            return NbtInt.of(intType.value);
         }
         else if (type instanceof LongType longType)
         {
-            return LongTag.valueOf(longType.value);
+            return NbtLong.of(longType.value);
         }
         else if (type instanceof ShortType shortType)
         {
-            return ShortTag.valueOf(shortType.value);
+            return NbtShort.of(shortType.value);
         }
         else if (type instanceof StringType stringType)
         {
-            return StringTag.valueOf(stringType.value);
+            return NbtString.of(stringType.value);
+        }
+        else if (type instanceof ByteArrayType byteArrayType)
+        {
+            return new NbtByteArray(byteArrayType.value);
+        }
+        else if (type instanceof IntArrayType intArrayType)
+        {
+            return new NbtIntArray(intArrayType.value);
+        }
+        else if (type instanceof ShortArrayType shortArrayType)
+        {
+            return new NbtList(); // Minecraft doesn't have NbtShortArray, it usually uses NbtList or NbtIntArray
         }
         else if (type instanceof ListType listType)
         {
-            ListTag list = new ListTag();
+            NbtList list = new NbtList();
 
             for (BaseType baseType : listType)
             {
-                list.add(toNbt(baseType));
+                NbtElement element = toNbt(baseType);
+
+                if (element != null)
+                {
+                    list.add(element);
+                }
             }
 
             return list;
         }
         else if (type instanceof MapType mapType)
         {
-            CompoundTag compound = new CompoundTag();
+            NbtCompound compound = new NbtCompound();
 
             for (String key : mapType.keys())
             {
-                compound.put(key, toNbt(mapType.get(key)));
+                NbtElement element = toNbt(mapType.get(key));
+
+                if (element != null)
+                {
+                    compound.put(key, element);
+                }
             }
 
             return compound;
         }
 
-        // TODO: ArrayType
-
         return null;
     }
 
-    public static BaseType fromNbt(Tag element)
+    public static BaseType fromNbt(NbtElement element)
     {
-        if (element instanceof ByteTag nbtByte)
+        if (element instanceof NbtByte nbtByte)
         {
             return new ByteType(nbtByte.byteValue());
         }
-        else if (element instanceof DoubleTag nbtDouble)
+        else if (element instanceof NbtDouble nbtDouble)
         {
             return new DoubleType(nbtDouble.doubleValue());
         }
-        else if (element instanceof FloatTag nbtFloat)
+        else if (element instanceof NbtFloat nbtFloat)
         {
             return new FloatType(nbtFloat.floatValue());
         }
-        else if (element instanceof IntTag nbtInt)
+        else if (element instanceof NbtInt nbtInt)
         {
             return new IntType(nbtInt.intValue());
         }
-        else if (element instanceof LongTag nbtLong)
+        else if (element instanceof NbtLong nbtLong)
         {
             return new LongType(nbtLong.longValue());
         }
-        else if (element instanceof ShortTag nbtShort)
+        else if (element instanceof NbtShort nbtShort)
         {
             return new ShortType(nbtShort.shortValue());
         }
-        else if (element instanceof StringTag nbtString)
+        else if (element instanceof NbtString nbtString)
         {
-            return new StringType(nbtString.asString().orElse(""));
+            return new StringType(nbtString.value());
         }
-        else if (element instanceof ListTag nbtList)
+        else if (element instanceof NbtByteArray nbtByteArray)
+        {
+            return new ByteArrayType(nbtByteArray.getByteArray());
+        }
+        else if (element instanceof NbtIntArray nbtIntArray)
+        {
+            return new IntArrayType(nbtIntArray.getIntArray());
+        }
+        else if (element instanceof NbtList nbtList)
         {
             ListType list = new ListType();
 
-            for (Tag nbtElement : nbtList)
+            for (NbtElement nbtElement : nbtList)
             {
                 list.add(fromNbt(nbtElement));
             }
 
             return list;
         }
-        else if (element instanceof CompoundTag nbtCompound)
+        else if (element instanceof NbtCompound nbtCompound)
         {
             MapType map = new MapType();
 
-            for (String key : nbtCompound.keySet())
+            for (String key : nbtCompound.getKeys())
             {
                 map.put(key, fromNbt(nbtCompound.get(key)));
             }
@@ -232,17 +270,20 @@ public class DataStorageUtils
             return map;
         }
 
-        // TODO: ArrayType
-
         return null;
     }
 
-    public static void writeToNbtCompound(CompoundTag compound, String key, BaseType data)
+    public static void writeToNbtCompound(NbtCompound compound, String key, BaseType data)
     {
-        compound.put(key, DataStorageUtils.toNbt(data));
+        NbtElement nbt = toNbt(data);
+
+        if (nbt != null)
+        {
+            compound.put(key, nbt);
+        }
     }
 
-    public static BaseType readFromNbtCompound(CompoundTag compound, String key)
+    public static BaseType readFromNbtCompound(NbtCompound compound, String key)
     {
         BaseType baseType = DataStorageUtils.fromNbt(compound.get(key));
 

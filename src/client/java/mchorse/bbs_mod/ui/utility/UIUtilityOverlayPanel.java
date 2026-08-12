@@ -5,10 +5,13 @@ import mchorse.bbs_mod.BBSModClient;
 import mchorse.bbs_mod.BBSResources;
 import mchorse.bbs_mod.BBSSettings;
 import mchorse.bbs_mod.client.BBSShaders;
+import mchorse.bbs_mod.forms.FormUIPreviewCache;
+import mchorse.bbs_mod.l10n.L10n;
 import mchorse.bbs_mod.l10n.L10nUtils;
 import mchorse.bbs_mod.l10n.keys.IKey;
 import mchorse.bbs_mod.ui.UIKeys;
 import mchorse.bbs_mod.ui.dashboard.panels.UIDashboardPanels;
+import mchorse.bbs_mod.ui.film.UIFilmPanel;
 import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.ui.framework.elements.UIScrollView;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIButton;
@@ -26,9 +29,8 @@ import mchorse.bbs_mod.utils.Pair;
 import mchorse.bbs_mod.utils.StringUtils;
 import mchorse.bbs_mod.utils.resources.CDNAssetSyncService;
 
-import net.minecraft.client.Minecraft;
-
-import com.mojang.blaze3d.platform.Window;
+import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.util.Window;
 
 import java.io.File;
 import java.util.Arrays;
@@ -51,10 +53,16 @@ public class UIUtilityOverlayPanel extends UIOverlayPanel
     {
         super(title);
 
-        this.window = Minecraft.getInstance().getWindow();
+        this.window = MinecraftClient.getInstance().getWindow();
         this.callback = callback;
 
-        this.view = UI.scrollView(5, 10, 140);
+        /* Use the full panel width under the title bar. The default overlay content
+         * reserves a 20px strip for the icon column, which leaves an empty gap beside
+         * the scrollbar when this panel only has the close button. */
+        this.content.relative(this).xy(0, 20).w(1F).h(1F, -20);
+        this.icons.relative(this).x(1F, -20).y(0).w(20).h(20);
+
+        this.view = UI.scrollView(5, 10);
         this.view.full(this.content);
 
         UIButton openGameDirectory = new UIButton(UIKeys.UTILITY_OPEN_GAME_FOLDER, (b) -> this.openFolder(BBSMod.getGameFolder()));
@@ -93,7 +101,7 @@ public class UIUtilityOverlayPanel extends UIOverlayPanel
         UIIcon terrain = new UIIcon(Icons.TREE, (b) ->
         {
             this.print("Forcing chunk loader");
-            // TODO: this.getContext().menu.bridge.get(IBridgeWorld.class).getWorld().chunks.buildChunks(BBS.getRender(), true);
+            // TODO: this.getContext().menu.bridge.get(IBridgeWorld.class).getEntityWorld().chunks.buildChunks(BBS.getRender(), true);
             BBSShaders.setup();
             this.close();
         });
@@ -101,15 +109,15 @@ public class UIUtilityOverlayPanel extends UIOverlayPanel
 
         this.width = new UITrackpad((v) ->
         {
-            this.window.setWindowed((int) this.width.getValue(), (int) this.height.getValue());
+            this.window.setWindowedSize((int) this.width.getValue(), (int) this.height.getValue());
         });
         this.height = new UITrackpad((v) ->
         {
-            this.window.setWindowed((int) this.width.getValue(), (int) this.height.getValue());
+            this.window.setWindowedSize((int) this.width.getValue(), (int) this.height.getValue());
         });
 
-        this.width.delayedInput().limit(2, 4096, true).values(2, 1, 10).setValue(this.window.getScreenWidth());
-        this.height.delayedInput().limit(2, 4096, true).values(2, 1, 10).setValue(this.window.getScreenHeight());
+        this.width.delayedInput().limit(2, 4096, true).values(2, 1, 10).setValue(this.window.getWidth());
+        this.height.delayedInput().limit(2, 4096, true).values(2, 1, 10).setValue(this.window.getHeight());
 
         UIButton analyze = new UIButton(UIKeys.UTILITY_ANALYZE_LANG, (b) -> this.analyzeLanguageStrings());
         UIButton compile = new UIButton(UIKeys.UTILITY_COMPILE_LANG, (b) -> this.compileLanguageStrings());
@@ -131,7 +139,7 @@ public class UIUtilityOverlayPanel extends UIOverlayPanel
                 {
                     CDNAssetSyncService syncService = new CDNAssetSyncService(BBSSettings.cdnUrl.get(), BBSMod.getAssetsFolder().toPath(), (p) ->
                     {
-                        Minecraft.getInstance().execute(() -> panel.list.add(new Pair<>(p.a.color, p.b)));
+                        MinecraftClient.getInstance().execute(() -> panel.list.add(new Pair<>(p.a.color, p.b)));
                     });
 
                     syncService.syncOnce();
@@ -143,7 +151,7 @@ public class UIUtilityOverlayPanel extends UIOverlayPanel
 
                 BBSResources.setupWatchdog();
                 
-                Minecraft.getInstance().execute(() ->
+                MinecraftClient.getInstance().execute(() ->
                 {
                     BBSModClient.getTextures().delete();
                     BBSModClient.getSounds().deleteSounds();
@@ -166,7 +174,7 @@ public class UIUtilityOverlayPanel extends UIOverlayPanel
                 {
                     CDNAssetSyncService syncService = new CDNAssetSyncService(BBSSettings.cdnUrl.get(), BBSMod.getAssetsFolder().toPath(), (p) ->
                     {
-                        Minecraft.getInstance().execute(() -> panel.list.add(new Pair<>(p.a.color, p.b)));
+                        MinecraftClient.getInstance().execute(() -> panel.list.add(new Pair<>(p.a.color, p.b)));
                     });
 
                     syncService.pushChangedFiles(BBSSettings.cdnToken.get());
@@ -186,7 +194,10 @@ public class UIUtilityOverlayPanel extends UIOverlayPanel
         this.view.add(UI.column(UI.label(UIKeys.UTILITY_RESIZE_WINDOW), UI.row(this.width, this.height)).marginBottom(8));
         this.view.add(UI.label(UIKeys.UTILITY_LANG_LABEL), UI.row(analyze, compile), langEditor.marginBottom(8));
         this.view.add(UI.label(UIKeys.UTILITY_AUDIO), openAudioEditor.marginBottom(8));
-        this.view.add(UI.label(IKey.raw("CDN")), UI.row(cdnDownload, cdnUpload));
+        UIButton clearThumbnailCache = new UIButton(UIKeys.UTILITY_CLEAR_THUMBNAIL_CACHE, (b) -> this.clearThumbnailCache());
+
+        this.view.add(UI.label(UIKeys.RAW_CACHE), clearThumbnailCache.marginBottom(8));
+        this.view.add(UI.label(UIKeys.RAW_CDN), UI.row(cdnDownload, cdnUpload));
         this.content.add(this.view);
     }
 
@@ -203,8 +214,25 @@ public class UIUtilityOverlayPanel extends UIOverlayPanel
 
         for (String command : commands)
         {
-            Minecraft.getInstance().player.connection.sendCommand(command);
+            MinecraftClient.getInstance().player.networkHandler.sendChatCommand(command);
         }
+    }
+
+    private void clearThumbnailCache()
+    {
+        FormUIPreviewCache.clear();
+
+        for (UIDashboardPanels child : this.getContext().menu.getRoot().getChildren(UIDashboardPanels.class))
+        {
+            UIFilmPanel filmPanel = child.getPanel(UIFilmPanel.class);
+
+            if (filmPanel != null)
+            {
+                filmPanel.clearThumbnailCache();
+            }
+        }
+
+        this.print("Cleared thumbnail cache!");
     }
 
     private void openFolder(File gameFolder)
@@ -293,8 +321,8 @@ public class UIUtilityOverlayPanel extends UIOverlayPanel
     {
         super.resize();
 
-        this.width.setValue(this.window.getScreenWidth());
-        this.height.setValue(this.window.getScreenHeight());
+        this.width.setValue(this.window.getWidth());
+        this.height.setValue(this.window.getHeight());
     }
 
     @Override

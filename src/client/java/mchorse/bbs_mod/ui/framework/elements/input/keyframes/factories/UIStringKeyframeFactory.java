@@ -12,10 +12,12 @@ import mchorse.bbs_mod.ui.framework.elements.overlay.UIListOverlayPanel;
 import mchorse.bbs_mod.ui.framework.elements.overlay.UIOverlay;
 import mchorse.bbs_mod.utils.keyframes.Keyframe;
 
-import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.resources.Identifier;
-import net.minecraft.resources.ResourceKey;
-import net.minecraft.world.entity.EntityType;
+import net.minecraft.client.MinecraftClient;
+import net.minecraft.registry.Registries;
+import net.minecraft.registry.Registry;
+import net.minecraft.registry.RegistryKeys;
+import net.minecraft.util.Identifier;
+import net.minecraft.world.biome.Biome;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -77,7 +79,18 @@ public class UIStringKeyframeFactory extends UIKeyframeFactory<String>
                 });
 
                 List<String> ids = new ArrayList<>();
-                // Biome registry access differs between mappings; keep manual input available.
+                try
+                {
+                    if (MinecraftClient.getInstance().world != null)
+                    {
+                        Registry<Biome> reg = MinecraftClient.getInstance().world.getRegistryManager().getOrThrow(RegistryKeys.BIOME);
+                        for (Identifier id : reg.getIds())
+                        {
+                            ids.add(id.toString());
+                        }
+                    }
+                }
+                catch (Throwable ignored) {}
 
                 overlay.addValues(ids);
                 overlay.setValue(this.keyframe.getValue());
@@ -115,9 +128,9 @@ public class UIStringKeyframeFactory extends UIKeyframeFactory<String>
                 });
 
                 List<String> ids = new ArrayList<>();
-                for (ResourceKey<EntityType<?>> key : BuiltInRegistries.ENTITY_TYPE.registryKeySet())
+                for (Identifier id : Registries.ENTITY_TYPE.getIds())
                 {
-                    ids.add(key.identifier().toString());
+                    ids.add(id.toString());
                 }
 
                 overlay.addValues(ids);
@@ -158,6 +171,11 @@ public class UIStringKeyframeFactory extends UIKeyframeFactory<String>
     {
         super.update();
 
-        this.string.setText(this.keyframe.getValue());
+        /* setText() moves the caret to the start — skip while the user is typing
+         * (same issue as the subtitle clip's main title field). */
+        if (!this.string.isFocused())
+        {
+            this.string.setText(this.keyframe.getValue());
+        }
     }
 }

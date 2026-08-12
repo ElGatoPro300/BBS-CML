@@ -16,11 +16,11 @@ public class EnumUtils
         return values[ordinal];
     }
 
-    public static List<String> getKeys(Class<? extends Enum<?>> clazz)
+    public static List<String> getKeys(Class<? extends Enum> clazz)
     {
         List<String> keys = new ArrayList<>();
 
-        for (Enum<?> e : clazz.getEnumConstants())
+        for (Enum e : clazz.getEnumConstants())
         {
             keys.add(e.name().toLowerCase());
         }

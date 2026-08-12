@@ -4,7 +4,7 @@ import mchorse.bbs_mod.BBSModClient;
 import mchorse.bbs_mod.BBSSettings;
 import mchorse.bbs_mod.graphics.texture.Texture;
 
-import net.minecraft.client.Minecraft;
+import net.minecraft.client.MinecraftClient;
 
 import java.io.IOException;
 import java.util.Stack;
@@ -95,18 +95,21 @@ public class MultiLinkThread implements Runnable
 
                 Pixels pixels = TextureProcessor.process(location);
 
-                Minecraft.getInstance().execute(() ->
+                if (pixels != null)
                 {
-                    Texture newTexture = BBSModClient.getTextures().createTexture(location);
-
-                    newTexture.bind();
-                    newTexture.uploadTexture(pixels);
-
-                    if (newTexture.isMipmap())
+                    MinecraftClient.getInstance().execute(() ->
                     {
-                        newTexture.generateMipmap();
-                    }
-                });
+                        Texture newTexture = BBSModClient.getTextures().createTexture(location);
+
+                        newTexture.bind();
+                        newTexture.uploadTexture(pixels);
+
+                        if (newTexture.isMipmap())
+                        {
+                            newTexture.generateMipmap();
+                        }
+                    });
+                }
 
                 Thread.sleep(100);
             }

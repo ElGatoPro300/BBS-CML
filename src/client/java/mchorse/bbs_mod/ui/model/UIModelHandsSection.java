@@ -16,7 +16,7 @@ import java.util.List;
 
 public class UIModelHandsSection extends UIModelSection
 {
-    public UIModelHandsSection(UIModelPanel editor)
+    public UIModelHandsSection(IUIModelPanelHost editor)
     {
         super(editor);
 
@@ -28,7 +28,7 @@ public class UIModelHandsSection extends UIModelSection
 
         this.fields.add(new UIButton(UIKeys.MODELS_HANDS_EDIT, (b) ->
         {
-            this.editor.dashboard.setPanel(new UIModelFirstPersonTransformEditor(this.editor, this.config));
+            this.editor.openTransformEditor(new UIModelFirstPersonTransformEditor(this.editor, this.config));
         }));
     }
 

@@ -1,13 +1,17 @@
 package mchorse.bbs_mod.forms;
 
+import mchorse.bbs_mod.forms.renderers.utils.BlockPaintOverlayVertexConsumer;
+import mchorse.bbs_mod.forms.renderers.utils.GlowEmissionVertexConsumer;
 import mchorse.bbs_mod.forms.renderers.utils.RecolorVertexConsumer;
 
-import net.minecraft.client.renderer.MultiBufferSource;
-import net.minecraft.client.renderer.rendertype.RenderType;
+import net.minecraft.client.render.BufferBuilder;
+import net.minecraft.client.render.RenderLayer;
+import net.minecraft.client.render.VertexConsumer;
+import net.minecraft.client.render.VertexConsumerProvider;
+import net.minecraft.client.util.BufferAllocator;
 
 import com.mojang.blaze3d.opengl.GlStateManager;
 import com.mojang.blaze3d.systems.RenderSystem;
-import com.mojang.blaze3d.vertex.VertexConsumer;
 
 import org.lwjgl.opengl.GL11;
 
@@ -15,15 +19,15 @@ import java.util.Map;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
-public class CustomVertexConsumerProvider implements MultiBufferSource
+public class CustomVertexConsumerProvider implements VertexConsumerProvider
 {
-    private static Consumer<RenderType> runnables;
+    private static Consumer<RenderLayer> runnables;
 
-    private final MultiBufferSource.BufferSource delegate;
+    private final VertexConsumerProvider.Immediate delegate;
     private Function<VertexConsumer, VertexConsumer> substitute;
     private boolean ui;
 
-    public static void drawLayer(RenderType layer)
+    public static void drawLayer(RenderLayer layer)
     {
         if (runnables != null)
         {
@@ -31,7 +35,7 @@ public class CustomVertexConsumerProvider implements MultiBufferSource
         }
     }
 
-    public static void hijackVertexFormat(Consumer<RenderType> runnable)
+    public static void hijackVertexFormat(Consumer<RenderLayer> runnable)
     {
         runnables = runnable;
     }
@@ -41,9 +45,14 @@ public class CustomVertexConsumerProvider implements MultiBufferSource
         runnables = null;
     }
 
-    public CustomVertexConsumerProvider(MultiBufferSource.BufferSource delegate)
+    public CustomVertexConsumerProvider(VertexConsumerProvider.Immediate delegate)
     {
         this.delegate = delegate;
+    }
+
+    public Function<VertexConsumer, VertexConsumer> getSubstitute()
+    {
+        return this.substitute;
     }
 
     public void setSubstitute(Function<VertexConsumer, VertexConsumer> substitute)
@@ -53,6 +62,9 @@ public class CustomVertexConsumerProvider implements MultiBufferSource
         if (this.substitute == null)
         {
             RecolorVertexConsumer.newColor = null;
+            RecolorVertexConsumer.newPaintColor = null;
+            GlowEmissionVertexConsumer.emissionColor = null;
+            BlockPaintOverlayVertexConsumer.paintOverlayColor = null;
         }
     }
 
@@ -62,7 +74,7 @@ public class CustomVertexConsumerProvider implements MultiBufferSource
     }
 
     @Override
-    public VertexConsumer getBuffer(RenderType renderLayer)
+    public VertexConsumer getBuffer(RenderLayer renderLayer)
     {
         VertexConsumer buffer = this.delegate.getBuffer(renderLayer);
 
@@ -81,7 +93,7 @@ public class CustomVertexConsumerProvider implements MultiBufferSource
 
     public void draw()
     {
-        this.delegate.endBatch();
+        this.delegate.draw();
 
         if (this.ui)
         {
@@ -90,5 +102,14 @@ public class CustomVertexConsumerProvider implements MultiBufferSource
              * is designed  */
             GlStateManager._depthFunc(GL11.GL_ALWAYS);
         }
+    }
+
+    /**
+     * Flushes only the active dynamic layer (e.g. last villager clothing pass) without
+     * iterating fixed world layerBuffers.
+     */
+    public void drawCurrentLayer()
+    {
+        this.delegate.drawCurrentLayer();
     }
 }

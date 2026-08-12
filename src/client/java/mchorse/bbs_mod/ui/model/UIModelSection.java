@@ -15,9 +15,9 @@ public abstract class UIModelSection extends UIElement
     public UIElement fields;
 
     protected ModelConfig config;
-    protected UIModelPanel editor;
+    protected IUIModelPanelHost editor;
 
-    public UIModelSection(UIModelPanel editor)
+    public UIModelSection(IUIModelPanelHost editor)
     {
         super();
 

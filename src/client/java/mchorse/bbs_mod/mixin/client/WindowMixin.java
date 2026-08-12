@@ -3,7 +3,7 @@ package mchorse.bbs_mod.mixin.client;
 import mchorse.bbs_mod.BBSModClient;
 import mchorse.bbs_mod.client.BBSRendering;
 
-import com.mojang.blaze3d.platform.Window;
+import net.minecraft.client.util.Window;
 
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
@@ -12,12 +12,30 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 @Mixin(Window.class)
-public abstract class WindowMixin
+public class WindowMixin
 {
     @Shadow
-    public abstract int getGuiScale();
+    private int width;
 
-    @Inject(method = "getScreenWidth", at = @At("HEAD"), cancellable = true)
+    @Shadow
+    private int height;
+
+    @Shadow
+    private int framebufferWidth;
+
+    @Shadow
+    private int framebufferHeight;
+
+    @Shadow
+    private int scaledWidth;
+
+    @Shadow
+    private int scaledHeight;
+
+    @Shadow
+    private int scaleFactor;
+
+    @Inject(method = "getWidth", at = @At("HEAD"), cancellable = true)
     public void onGetWidth(CallbackInfoReturnable<Integer> info)
     {
         if (BBSRendering.canReplaceFramebuffer())
@@ -26,7 +44,7 @@ public abstract class WindowMixin
         }
     }
 
-    @Inject(method = "getScreenHeight", at = @At("HEAD"), cancellable = true)
+    @Inject(method = "getHeight", at = @At("HEAD"), cancellable = true)
     public void onGetHeight(CallbackInfoReturnable<Integer> info)
     {
         if (BBSRendering.canReplaceFramebuffer())
@@ -35,7 +53,7 @@ public abstract class WindowMixin
         }
     }
 
-    @Inject(method = "getWidth", at = @At("HEAD"), cancellable = true)
+    @Inject(method = "getFramebufferWidth", at = @At("HEAD"), cancellable = true)
     public void onGetFramebufferWidth(CallbackInfoReturnable<Integer> info)
     {
         if (BBSRendering.canReplaceFramebuffer())
@@ -44,7 +62,7 @@ public abstract class WindowMixin
         }
     }
 
-    @Inject(method = "getHeight", at = @At("HEAD"), cancellable = true)
+    @Inject(method = "getFramebufferHeight", at = @At("HEAD"), cancellable = true)
     public void onGetFramebufferHeight(CallbackInfoReturnable<Integer> info)
     {
         if (BBSRendering.canReplaceFramebuffer())
@@ -53,21 +71,21 @@ public abstract class WindowMixin
         }
     }
 
-    @Inject(method = "getGuiScaledWidth", at = @At("HEAD"), cancellable = true)
+    @Inject(method = "getScaledWidth", at = @At("HEAD"), cancellable = true)
     public void onGetScaledWidth(CallbackInfoReturnable<Integer> info)
     {
         if (BBSRendering.canReplaceFramebuffer())
         {
-            info.setReturnValue((int) (BBSRendering.getVideoWidth() / this.getGuiScale() * BBSModClient.getOriginalFramebufferScale()));
+            info.setReturnValue((int) (BBSRendering.getVideoWidth() / (double) this.scaleFactor * BBSModClient.getOriginalFramebufferScale()));
         }
     }
 
-    @Inject(method = "getGuiScaledHeight", at = @At("HEAD"), cancellable = true)
+    @Inject(method = "getScaledHeight", at = @At("HEAD"), cancellable = true)
     public void onGetScaledHeight(CallbackInfoReturnable<Integer> info)
     {
         if (BBSRendering.canReplaceFramebuffer())
         {
-            info.setReturnValue((int) (BBSRendering.getVideoHeight() / this.getGuiScale() * BBSModClient.getOriginalFramebufferScale()));
+            info.setReturnValue((int) (BBSRendering.getVideoHeight() / (double) this.scaleFactor * BBSModClient.getOriginalFramebufferScale()));
         }
     }
 }

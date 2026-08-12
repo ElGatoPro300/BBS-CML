@@ -2,11 +2,16 @@ package mchorse.bbs_mod.ui.framework;
 
 import mchorse.bbs_mod.graphics.window.Window;
 import mchorse.bbs_mod.l10n.keys.IKey;
+import mchorse.bbs_mod.ui.film.toolbar.TimelineInteractionHints;
+import mchorse.bbs_mod.ui.film.toolbar.ToolbarMenu;
+import mchorse.bbs_mod.ui.forms.UIFormPalette;
 import mchorse.bbs_mod.ui.framework.elements.IFocusedUIElement;
 import mchorse.bbs_mod.ui.framework.elements.UIElement;
 import mchorse.bbs_mod.ui.framework.elements.UIScrollView;
 import mchorse.bbs_mod.ui.framework.elements.context.UIContextMenu;
 import mchorse.bbs_mod.ui.framework.elements.input.UIKeybinds;
+import mchorse.bbs_mod.ui.framework.elements.overlay.UIOverlay;
+import mchorse.bbs_mod.ui.framework.elements.overlay.UIOverlayPanel;
 import mchorse.bbs_mod.ui.framework.elements.utils.Batcher2D;
 import mchorse.bbs_mod.ui.framework.elements.utils.IViewportStack;
 import mchorse.bbs_mod.ui.framework.elements.utils.UIViewportStack;
@@ -21,6 +26,9 @@ import mchorse.bbs_mod.ui.utils.keys.KeyCombo;
 import mchorse.bbs_mod.utils.MathUtils;
 import mchorse.bbs_mod.utils.colors.Colors;
 
+import org.lwjgl.glfw.GLFW;
+
+import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Consumer;
 
@@ -36,6 +44,34 @@ public class UIContext implements IViewportStack
     public final UINotifications notifications;
     public IFocusedUIElement activeElement;
     public UIContextMenu contextMenu;
+
+    /**
+     * Optional text card deferred to {@link #postRender()} so it draws above the
+     * full UI tree (e.g. timeline toolbar section tooltips).
+     */
+    private String foregroundTextCard;
+    private int foregroundTextCardX;
+    private int foregroundTextCardY;
+    private int foregroundTextCardColor;
+    private int foregroundTextCardBackground;
+
+    /**
+     * Optional interaction hint card deferred to {@link #postRender()} (same
+     * styling as timeline interaction hints, including primary glow and border).
+     */
+    private TimelineInteractionHints.HintCard foregroundInteractionHint;
+
+    /**
+     * Screen-space rectangles of open {@link ToolbarMenu}
+     * popups, populated each frame before the main UI tree renders.
+     */
+    private final List<Area> timelineToolbarMenuAreas = new ArrayList<>();
+
+    /**
+     * When {@code true}, timeline elements must ignore pointer input for this
+     * frame (e.g. after a toolbar menu item consumed a click).
+     */
+    private boolean timelineToolbarConsumePointer;
 
     /* Mouse states */
     public int mouseX;
@@ -56,6 +92,7 @@ public class UIContext implements IViewportStack
     /* Render states */
     private float transition;
     private long tick;
+    private int cursorShape = GLFW.GLFW_ARROW_CURSOR;
 
     public UIViewportStack viewportStack = new UIViewportStack();
 
@@ -129,6 +166,10 @@ public class UIContext implements IViewportStack
     {
         this.viewportStack.reset();
         this.resetTooltip();
+        this.foregroundTextCard = null;
+        this.foregroundInteractionHint = null;
+        this.timelineToolbarMenuAreas.clear();
+        this.timelineToolbarConsumePointer = false;
     }
 
     public void resetTooltip()
@@ -139,6 +180,144 @@ public class UIContext implements IViewportStack
         {
             this.unfocus();
         }
+    }
+
+    /**
+     * Queue a {@link Batcher2D#textCard} to be drawn during {@link #postRender()},
+     * after the main UI tree. Coordinates must be in screen/menu space.
+     */
+    public void drawForegroundTextCard(String text, int screenX, int screenY, int color, int background)
+    {
+        if (text == null || text.isEmpty())
+        {
+            return;
+        }
+
+        this.foregroundTextCard = text;
+        this.foregroundTextCardX = screenX;
+        this.foregroundTextCardY = screenY;
+        this.foregroundTextCardColor = color;
+        this.foregroundTextCardBackground = background;
+    }
+
+    /**
+     * Queue an interaction hint card to be drawn during {@link #postRender()},
+     * after the main UI tree. Coordinates must be in screen/menu space.
+     */
+    public void drawForegroundInteractionHint(TimelineInteractionHints.HintCard hint)
+    {
+        if (hint == null || hint.lines.isEmpty())
+        {
+            return;
+        }
+
+        this.foregroundInteractionHint = hint;
+    }
+
+    public void registerTimelineToolbarMenuArea(Area area)
+    {
+        this.timelineToolbarMenuAreas.add(area);
+    }
+
+    public boolean isPointerOverTimelineToolbarMenu(int x, int y)
+    {
+        for (Area area : this.timelineToolbarMenuAreas)
+        {
+            if (area.isInside(x, y))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * @return {@code true} when at least one timeline toolbar popup is open this frame
+     */
+    public boolean hasOpenTimelineToolbarMenus()
+    {
+        return !this.timelineToolbarMenuAreas.isEmpty();
+    }
+
+    /**
+     * @return {@code true} when interaction hint cards may use the post-render
+     * foreground layer (above viewport chrome). When {@code false}, hints must
+     * be drawn during normal panel rendering so toolbar menus, context menus, and
+     * modal overlay panels (e.g. settings) stay on top.
+     */
+    public boolean shouldDeferInteractionHintToForeground()
+    {
+        return !this.hasOpenTimelineToolbarMenus() && !this.hasContextMenu()
+            && !this.hasOverlayPanel() && !this.hasFormPaletteOpen();
+    }
+
+    /**
+     * @return {@code true} when a modal {@link UIOverlayPanel} (e.g. settings) is open
+     */
+    public boolean hasOverlayPanel()
+    {
+        return UIOverlay.has(this);
+    }
+
+    /**
+     * @return {@code true} when a fullscreen {@link UIFormPalette} (form picker /
+     * preview editor) is open under the menu root
+     */
+    public boolean hasFormPaletteOpen()
+    {
+        return !this.menu.getRoot().getChildren(UIFormPalette.class).isEmpty();
+    }
+
+    /**
+     * @return {@code true} when the given screen point lies over a visible overlay panel
+     */
+    public boolean isPointerOverOverlayPanel(int x, int y)
+    {
+        for (UIOverlayPanel panel : this.menu.getRoot().getChildren(UIOverlayPanel.class))
+        {
+            if (panel.canBeSeen() && panel.area.isInside(x, y))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * @return {@code true} when the given screen point lies over a visible form palette
+     */
+    public boolean isPointerOverFormPalette(int x, int y)
+    {
+        for (UIFormPalette palette : this.menu.getRoot().getChildren(UIFormPalette.class))
+        {
+            if (palette.canBeSeen() && palette.area.isInside(x, y))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Modal layers that should suppress timeline toolbar hover cards (overlay
+     * panels and fullscreen form palettes / preview editors).
+     */
+    public boolean isPointerOverBlockingOverlay(int x, int y)
+    {
+        return this.isPointerOverOverlayPanel(x, y) || this.isPointerOverFormPalette(x, y);
+    }
+
+    public void setTimelineToolbarConsumePointer(boolean consume)
+    {
+        this.timelineToolbarConsumePointer = consume;
+    }
+
+    public boolean isTimelineToolbarConsumePointer()
+    {
+        return this.timelineToolbarConsumePointer;
     }
 
     public void markUpdateScroll()
@@ -278,8 +457,60 @@ public class UIContext implements IViewportStack
     {
         this.updateScroll();
 
+        this.batcher.flush();
+
+        this.batcher.getContext().getMatrices().pushMatrix();
+        this.batcher.getContext().getMatrices().translate(0F, 0F);
+
         this.tooltip.render(this);
         this.notifications.render(this);
+        this.renderForegroundTextCard();
+        this.renderForegroundInteractionHint();
+
+        this.batcher.getContext().getMatrices().popMatrix();
+    }
+
+    private void renderForegroundInteractionHint()
+    {
+        if (this.foregroundInteractionHint == null || !this.shouldDeferInteractionHintToForeground())
+        {
+            this.foregroundInteractionHint = null;
+
+            return;
+        }
+
+        TimelineInteractionHints.drawHintCard(this.batcher, this.foregroundInteractionHint);
+        this.foregroundInteractionHint = null;
+    }
+
+    private void renderForegroundTextCard()
+    {
+        if (this.foregroundTextCard == null
+            || this.isPointerOverBlockingOverlay(this.mouseX, this.mouseY))
+        {
+            this.foregroundTextCard = null;
+
+            return;
+        }
+
+        this.batcher.textCard(this.foregroundTextCard, this.foregroundTextCardX, this.foregroundTextCardY,
+            this.foregroundTextCardColor, this.foregroundTextCardBackground);
+        this.foregroundTextCard = null;
+    }
+
+    public void requestCursor(int shape)
+    {
+        this.cursorShape = shape;
+    }
+
+    public void resetCursor()
+    {
+        this.cursorShape = GLFW.GLFW_ARROW_CURSOR;
+    }
+
+    public void applyCursor()
+    {
+        Window.setStandardCursor(this.cursorShape);
     }
 
     /* Element focusing */
@@ -506,7 +737,7 @@ public class UIContext implements IViewportStack
     public void shiftX(int x)
     {
         this.mouseX += x;
-        this.render.batcher.getContext().pose().translate(-x, 0);
+        this.render.batcher.getContext().getMatrices().translate((float) -x, 0.0F);
         this.viewportStack.shiftX(x);
     }
 
@@ -514,7 +745,7 @@ public class UIContext implements IViewportStack
     public void shiftY(int y)
     {
         this.mouseY += y;
-        this.render.batcher.getContext().pose().translate(0, -y);
+        this.render.batcher.getContext().getMatrices().translate(0.0F, (float) -y);
         this.viewportStack.shiftY(y);
     }
 
@@ -538,7 +769,7 @@ public class UIContext implements IViewportStack
 
     public void resetMatrix()
     {
-        this.render.batcher.getContext().pose().identity();
+        this.render.batcher.getContext().getMatrices().identity();
     }
 
     public void update()

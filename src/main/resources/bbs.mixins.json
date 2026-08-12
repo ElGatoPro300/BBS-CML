@@ -12,8 +12,13 @@
         "ItemStackMixin",
         "WorldMixin",
         "LivingEntityMixin",
+        "MobEntityMixin",
         "ServerPlayerEntityMixin",
+        "LimbAnimatorAccessor",
         "LevelPropertiesAccessor",
+        "StructureTemplateAccessor",
+        "StructureTemplatePalettedListAccessor",
+        "EntityAccessor",
         "EntityMixin"
     ],
     "injectors": {

@@ -10,20 +10,23 @@ import mchorse.bbs_mod.particles.ParticleScheme;
 import mchorse.bbs_mod.particles.emitter.ParticleEmitter;
 import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.utils.MatrixStackUtils;
+import mchorse.bbs_mod.utils.colors.Color;
+import mchorse.bbs_mod.utils.colors.Colors;
 import mchorse.bbs_mod.utils.joml.Vectors;
 
-import net.minecraft.client.Minecraft;
-import net.minecraft.client.renderer.GameRenderer;
-import net.minecraft.world.level.Level;
+import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.gl.ShaderProgram;
+import net.minecraft.client.render.GameRenderer;
+import net.minecraft.client.render.RenderLayer;
+import net.minecraft.client.render.VertexFormats;
+import net.minecraft.client.util.math.MatrixStack;
+import net.minecraft.world.World;
 
 import org.joml.Matrix4f;
 import org.joml.Vector3d;
 import org.joml.Vector3f;
 
-import com.mojang.blaze3d.opengl.GlProgram;
 import com.mojang.blaze3d.systems.RenderSystem;
-import com.mojang.blaze3d.vertex.DefaultVertexFormat;
-import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexFormat;
 
 import java.util.function.Supplier;
@@ -47,7 +50,7 @@ public class ParticleFormRenderer extends FormRenderer<ParticleForm> implements 
         return this.emitter;
     }
 
-    public void ensureEmitter(Level world, float transition)
+    public void ensureEmitter(World world, float transition)
     {
         if (this.lastParticleUpdate < lastUpdate)
         {
@@ -85,32 +88,35 @@ public class ParticleFormRenderer extends FormRenderer<ParticleForm> implements 
     @Override
     public void renderInUI(UIContext context, int x1, int y1, int x2, int y2)
     {
-        this.ensureEmitter(Minecraft.getInstance().level, context.getTransition());
+        this.ensureEmitter(MinecraftClient.getInstance().world, context.getTransition());
 
         ParticleEmitter emitter = this.emitter;
 
         if (emitter != null)
         {
-            PoseStack stack = new PoseStack();
+            MatrixStack stack = new MatrixStack();
             int scale = (y2 - y1) / 2;
 
-            stack.pushPose();
+            stack.push();
             stack.translate((x2 + x1) / 2, (y2 + y1) / 2, 40);
             MatrixStackUtils.scaleStack(stack, scale, scale, scale);
 
             this.updateTexture(context.getTransition());
             emitter.lastGlobal.set(new Vector3f(0, 0, 0));
             emitter.rotation.identity();
-            emitter.renderUI(stack, context.getTransition());
 
-            stack.popPose();
+            emitter.setGlow(this.form.glowSettings.get(), this.form.glowingColor.get(), 1F);
+            emitter.renderUI(stack, context.getTransition());
+            emitter.clearGlow();
+
+            stack.pop();
         }
     }
 
     @Override
     public void render3D(FormRenderingContext context)
     {
-        this.ensureEmitter(Minecraft.getInstance().level, context.transition);
+        this.ensureEmitter(MinecraftClient.getInstance().world, context.transition);
 
         ParticleEmitter emitter = this.emitter;
 
@@ -133,7 +139,7 @@ public class ParticleFormRenderer extends FormRenderer<ParticleForm> implements 
             {
                 /* For game rendering, use the main camera for emitter properties to ensure
                  * correct yaw/pitch for billboards (avoiding 180 degree flip in Camera wrapper) */
-                emitter.setupCameraProperties(Minecraft.getInstance().gameRenderer.getMainCamera());
+                emitter.setupCameraProperties(MinecraftClient.getInstance().gameRenderer.getCamera());
             }
             else
             {
@@ -160,7 +166,7 @@ public class ParticleFormRenderer extends FormRenderer<ParticleForm> implements 
                 }
             }
 
-            Matrix4f modelMatrix = new Matrix4f(context.stack.last().pose());
+            Matrix4f modelMatrix = new Matrix4f(context.stack.peek().getPositionMatrix());
 
             Vector3d translation = new Vector3d(modelMatrix.getTranslation(Vectors.TEMP_3F));
             
@@ -169,48 +175,38 @@ public class ParticleFormRenderer extends FormRenderer<ParticleForm> implements 
                 translation.add(context.camera.position.x, context.camera.position.y, context.camera.position.z);
             }
 
-            GameRenderer gameRenderer = Minecraft.getInstance().gameRenderer;
+            GameRenderer gameRenderer = MinecraftClient.getInstance().gameRenderer;
 
+            // gameRenderer.getLightmapTextureManager().enable();
+            // gameRenderer.getOverlayTexture().setupOverlayColor();
 
-            context.stack.pushPose();
-            context.stack.setIdentity();
+            context.stack.push();
+            context.stack.loadIdentity();
 
             emitter.lastGlobal.set(translation);
             emitter.rotation.set(modelMatrix);
+            emitter.modelRenderer = context.modelRenderer;
+
+            Color glowTint = Colors.COLOR.set(context.color, true);
+
+            emitter.setGlow(this.form.glowSettings.get(), this.form.glowingColor.get(), glowTint.a);
             
             if (!BBSRendering.isIrisShadowPass())
             {
                 boolean shadersEnabled = BBSRendering.isIrisShadersEnabled();
                 boolean billboard = shadersEnabled;
 
-                VertexFormat format = billboard ? DefaultVertexFormat.ENTITY : DefaultVertexFormat.PARTICLE;
-                Supplier<GlProgram> shader = billboard
-                    ? this.getShader(
-                        context,
-                        () ->
-                        {
-                            // RenderSystem.setShader(ShaderProgramKeys.RENDERTYPE_ENTITY_TRANSLUCENT);
-                            /* shader binding handled by RenderLayer in 1.21.11 */
-                            return null;
-                        },
-                        BBSShaders::getPickerBillboardProgram
-                    )
-                    : this.getShader(
-                        context,
-                        () ->
-                        {
-                            // RenderSystem.setShader(ShaderProgramKeys.PARTICLE);
-                            /* shader binding handled by RenderLayer in 1.21.11 */
-                            return null;
-                        },
-                        BBSShaders::getPickerParticlesProgram
-                    );
+                VertexFormat format = billboard ? VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL : VertexFormats.POSITION_TEXTURE_COLOR_LIGHT;
 
-                emitter.render(format, shader, context.stack, context.overlay, context.getTransition());
+                emitter.render(format, (RenderLayer) null, context.stack, context.overlay, context.getTransition());
             }
 
-            context.stack.popPose();
+            emitter.clearGlow();
 
+            context.stack.pop();
+
+            // gameRenderer.getLightmapTextureManager().disable();
+            // gameRenderer.getOverlayTexture().teardownOverlayColor();
         }
     }
 

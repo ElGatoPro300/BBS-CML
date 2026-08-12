@@ -1,0 +1,940 @@
+package mchorse.bbs_mod.ui.film.replays;
+
+import mchorse.bbs_mod.film.MobCaptureAreaScanner;
+import mchorse.bbs_mod.film.MobCaptureRecordingSetup;
+import mchorse.bbs_mod.film.RecordingPauseHelper;
+import mchorse.bbs_mod.l10n.keys.IKey;
+import mchorse.bbs_mod.ui.UIKeys;
+import mchorse.bbs_mod.ui.framework.UIBaseMenu;
+import mchorse.bbs_mod.ui.framework.UIContext;
+import mchorse.bbs_mod.ui.framework.UIScreen;
+import mchorse.bbs_mod.ui.framework.elements.UIElement;
+import mchorse.bbs_mod.ui.framework.elements.UIScrollView;
+import mchorse.bbs_mod.ui.framework.elements.buttons.UIButton;
+import mchorse.bbs_mod.ui.framework.elements.buttons.UIIcon;
+import mchorse.bbs_mod.ui.framework.elements.buttons.UIToggle;
+import mchorse.bbs_mod.ui.framework.elements.input.UITrackpad;
+import mchorse.bbs_mod.ui.framework.elements.overlay.UIOverlay;
+import mchorse.bbs_mod.ui.framework.elements.overlay.UIOverlayPanel;
+import mchorse.bbs_mod.ui.framework.elements.utils.FontRenderer;
+import mchorse.bbs_mod.ui.framework.elements.utils.UILabel;
+import mchorse.bbs_mod.ui.framework.elements.utils.UIText;
+import mchorse.bbs_mod.ui.utils.UI;
+import mchorse.bbs_mod.ui.utils.icons.Icons;
+import mchorse.bbs_mod.utils.colors.Colors;
+
+import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.font.TextRenderer;
+import net.minecraft.client.network.ClientPlayerEntity;
+import net.minecraft.entity.Entity;
+import net.minecraft.util.math.Vec3d;
+
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.function.Consumer;
+
+public class UIMobCaptureRecordOverlayPanel extends UIOverlayPanel
+{
+    private static final int ICON_COLUMN_WIDTH = 20;
+    private static final int TOGGLE_WIDTH = 28;
+    private static final int TRACKPAD_WIDTH = 90;
+    private static final int COORD_WIDTH = 70;
+    private static final int COLUMN_HEADER_MAX_WIDTH = 52;
+    private static final int SCROLLBAR_GUTTER = 12;
+    private static final int FOOTER_BUTTON_WIDTH = 100;
+    private static final int FOOTER_GAP = 8;
+    private static final int FOOTER_SPACE = 36;
+
+    private static UIMobCaptureRecordOverlayPanel opened;
+
+    private final Consumer<MobCaptureRecordingSetup> callback;
+    private final Runnable onCancel;
+    private final MobCaptureRecordingSetup setup = new MobCaptureRecordingSetup();
+    private boolean recordingPauseHeld;
+
+    private UIText description;
+    private UILabel conditionsHeader;
+    private UIElement conditionsGrid;
+    private UIElement conditionsLeft;
+    private UIElement conditionsRight;
+    private UILabel radiusLabel;
+    private UITrackpad radius;
+    private UILabel originLabel;
+    private UIElement coordsRow;
+    private UIButton originMode;
+    private UITrackpad originX;
+    private UITrackpad originY;
+    private UITrackpad originZ;
+    private UIToggle includeHeight;
+    private UIElement entitiesHeader;
+    private UILabel entitiesTitle;
+    private UIIcon refresh;
+    private UILabel summary;
+    private UIScrollView scroll;
+    private UIElement footer;
+
+    private int addColumnWidth = TOGGLE_WIDTH;
+    private int vaColumnWidth = TOGGLE_WIDTH;
+    private int columnHeaderHeight = 14;
+
+    private final Map<String, Boolean> expandedTypes = new HashMap<>();
+    private Map<String, MobCaptureAreaScanner.TypeBucket> lastBuckets = new HashMap<>();
+
+    public static void openInGame(Consumer<MobCaptureRecordingSetup> callback)
+    {
+        if (isOpened())
+        {
+            return;
+        }
+
+        UIMobCaptureRecordOverlayPanel panel = new UIMobCaptureRecordOverlayPanel(callback, null);
+
+        panel.onClose((event) -> MinecraftClient.getInstance().setScreen(null));
+
+        UIScreen.open(new UIBaseMenu()
+        {
+            @Override
+            public boolean needsWorldRender()
+            {
+                return true;
+            }
+
+            @Override
+            public boolean canHideHUD()
+            {
+                return false;
+            }
+
+            @Override
+            public boolean canPause()
+            {
+                return false;
+            }
+
+            @Override
+            public void onOpen(UIBaseMenu oldMenu)
+            {
+                super.onOpen(oldMenu);
+
+                /* instantClose: onClose → setScreen(null) must not finish inside the
+                 * overlay close animation render pass (one-frame dark flash). */
+                UIOverlay.addOverlay(this.context, panel, 500, 480).noBackground().instantClose();
+            }
+        });
+    }
+
+    public static void openOnContext(UIContext context, Consumer<MobCaptureRecordingSetup> callback)
+    {
+        openOnContext(context, callback, null);
+    }
+
+    public static void openOnContext(UIContext context, Consumer<MobCaptureRecordingSetup> callback, Runnable onCancel)
+    {
+        if (context == null || isOpened())
+        {
+            return;
+        }
+
+        UIOverlay.addOverlay(context, new UIMobCaptureRecordOverlayPanel(callback, onCancel), 500, 480);
+    }
+
+    public static boolean isOpened()
+    {
+        return opened != null && opened.hasParent();
+    }
+
+    public static void closeOpened()
+    {
+        if (opened != null)
+        {
+            opened.close();
+        }
+    }
+
+    public UIMobCaptureRecordOverlayPanel(Consumer<MobCaptureRecordingSetup> callback)
+    {
+        this(callback, null);
+    }
+
+    public UIMobCaptureRecordOverlayPanel(Consumer<MobCaptureRecordingSetup> callback, Runnable onCancel)
+    {
+        super(UIKeys.FILM_MOB_CAPTURE_TITLE);
+
+        opened = this;
+        this.callback = callback;
+        this.onCancel = onCancel;
+        this.resizable().minSize(400, 420);
+
+        this.description = new UIText(UIKeys.FILM_MOB_CAPTURE_DESCRIPTION).textAnchorX(0.5F);
+        this.description.relative(this.content).x(0.5F).w(0.9F).h(36).anchorX(0.5F);
+
+        this.conditionsHeader = this.createSectionLabel(UIKeys.FILM_MOB_CAPTURE_SECTION_CONDITIONS);
+        this.conditionsHeader.relative(this.content).x(12).w(1F, -24).h(14);
+
+        this.radiusLabel = UI.label(UIKeys.FILM_MOB_CAPTURE_RADIUS);
+        this.radiusLabel.h(14);
+        this.radius = new UITrackpad((v) ->
+        {
+            this.setup.areaSize = v.floatValue();
+            this.refreshTypes();
+        });
+        this.radius.limit(16D, 256D, true).increment(4D).values(16D, 4D, 32D);
+        this.radius.setValue(this.setup.areaSize);
+        this.radius.w(TRACKPAD_WIDTH).h(20);
+
+        this.includeHeight = new UIToggle(UIKeys.FILM_MOB_CAPTURE_INCLUDE_HEIGHT, this.setup.includeHeight, (b) ->
+        {
+            this.setup.includeHeight = b.getValue();
+            this.updateOriginFieldsEnabled();
+            this.refreshTypes();
+        });
+        this.includeHeight.tooltip(UIKeys.FILM_MOB_CAPTURE_INCLUDE_HEIGHT_TOOLTIP);
+        this.includeHeight.w(1F).h(14);
+
+        this.originLabel = UI.label(UIKeys.FILM_MOB_CAPTURE_ORIGIN);
+        this.originLabel.h(14);
+        this.originMode = new UIButton(this.getOriginModeLabel(), (b) -> this.toggleOriginMode());
+        this.originMode.w(1F).h(20);
+        this.originMode.tooltip(UIKeys.FILM_MOB_CAPTURE_ORIGIN_TOOLTIP);
+
+        this.originX = new UITrackpad((v) ->
+        {
+            this.setup.originX = v;
+            this.refreshTypes();
+        });
+        this.originY = new UITrackpad((v) ->
+        {
+            this.setup.originY = v;
+            this.refreshTypes();
+        });
+        this.originZ = new UITrackpad((v) ->
+        {
+            this.setup.originZ = v;
+            this.refreshTypes();
+        });
+        this.originX.tooltip(UIKeys.GENERAL_X);
+        this.originY.tooltip(UIKeys.GENERAL_Y);
+        this.originZ.tooltip(UIKeys.GENERAL_Z);
+        this.originX.w(COORD_WIDTH).h(20);
+        this.originY.w(COORD_WIDTH).h(20);
+        this.originZ.w(COORD_WIDTH).h(20);
+        this.coordsRow = UI.row(6, 0, 20, this.originX, this.originY, this.originZ);
+
+        this.conditionsLeft = UI.column(8, this.radiusLabel, this.radius, this.includeHeight);
+        this.conditionsRight = UI.column(8, this.originLabel, this.originMode, this.coordsRow);
+        this.conditionsGrid = new UIElement();
+        this.conditionsLeft.relative(this.conditionsGrid).x(0).y(0).w(0.44F);
+        this.conditionsRight.relative(this.conditionsGrid).x(0.46F).y(0).w(0.54F);
+        this.conditionsGrid.add(this.conditionsLeft, this.conditionsRight);
+        this.conditionsGrid.relative(this.content).x(12).w(1F, -24).h(72);
+
+        this.entitiesTitle = this.createSectionLabel(UIKeys.FILM_MOB_CAPTURE_SECTION_ENTITIES);
+        this.entitiesTitle.w(1F);
+        this.refresh = new UIIcon(Icons.REFRESH, (b) -> this.refreshEntityList());
+        this.refresh.tooltip(UIKeys.FILM_MOB_CAPTURE_REFRESH);
+        this.entitiesHeader = UI.row(4, 0, 16, this.entitiesTitle, this.refresh);
+        this.entitiesHeader.relative(this.content).x(12).w(1F, -24).h(16);
+
+        this.summary = UI.label(IKey.EMPTY).color(Colors.LIGHTER_GRAY);
+        this.summary.relative(this.content).x(12).w(1F, -24).h(14);
+
+        this.scroll = UI.scrollView(4, 4);
+        this.scroll.relative(this.content).x(12).w(1F, -24);
+
+        UIButton start = new UIButton(UIKeys.FILM_MOB_CAPTURE_START, (b) -> this.submit());
+        UIButton cancel = new UIButton(UIKeys.CONFIG_CANCEL, (b) -> this.cancel());
+
+        cancel.w(FOOTER_BUTTON_WIDTH).h(20);
+        start.w(FOOTER_BUTTON_WIDTH).h(20);
+        this.footer = UI.row(FOOTER_GAP, 0, 20, cancel, start);
+        this.footer.w(FOOTER_BUTTON_WIDTH * 2 + FOOTER_GAP).h(20);
+        this.footer.relative(this.content).x(0.5F).y(1F, -12).anchor(0.5F, 1F);
+
+        this.content.add(
+            this.description,
+            this.conditionsHeader,
+            this.conditionsGrid,
+            this.entitiesHeader,
+            this.summary,
+            this.scroll,
+            this.footer
+        );
+
+        this.onClose((event) ->
+        {
+            this.releaseRecordingPause();
+
+            if (opened == this)
+            {
+                opened = null;
+            }
+        });
+
+        this.holdRecordingPause();
+        this.seedOriginFromPlayer();
+        this.syncOriginFieldsFromSetup();
+        this.updateOriginModeUi();
+        this.updateLayout();
+        this.refreshTypes();
+    }
+
+    private void holdRecordingPause()
+    {
+        if (!this.recordingPauseHeld)
+        {
+            RecordingPauseHelper.push();
+            this.recordingPauseHeld = true;
+        }
+    }
+
+    private void releaseRecordingPause()
+    {
+        if (this.recordingPauseHeld)
+        {
+            RecordingPauseHelper.pop();
+            this.recordingPauseHeld = false;
+        }
+    }
+
+    private UILabel createSectionLabel(IKey title)
+    {
+        return new UILabel(title)
+        {
+            @Override
+            public void render(UIContext context)
+            {
+                FontRenderer font = context.batcher.getFont();
+                String text = "\u00A7l" + this.label.get();
+                int x = this.area.x(this.anchorX, font.getWidth(text));
+                int y = this.area.y(this.anchorY, font.getHeight()) + this.textOffsetY;
+
+                context.batcher.text(text, x, y, this.color, this.textShadow);
+            }
+        }.color(Colors.WHITE);
+    }
+
+    private IKey getOriginModeLabel()
+    {
+        return this.setup.usePlayerOrigin
+            ? UIKeys.FILM_MOB_CAPTURE_ORIGIN_PLAYER
+            : UIKeys.FILM_MOB_CAPTURE_ORIGIN_COORDS;
+    }
+
+    private void toggleOriginMode()
+    {
+        this.setup.usePlayerOrigin = !this.setup.usePlayerOrigin;
+
+        if (!this.setup.usePlayerOrigin)
+        {
+            this.seedOriginFromPlayer();
+            this.syncOriginFieldsFromSetup();
+        }
+
+        this.updateOriginModeUi();
+        this.refreshTypes();
+    }
+
+    private void updateOriginModeUi()
+    {
+        this.originMode.label = this.getOriginModeLabel();
+        this.updateOriginFieldsEnabled();
+
+        if (!this.setup.usePlayerOrigin)
+        {
+            this.syncOriginFieldsFromSetup();
+        }
+        else
+        {
+            this.syncOriginFieldsFromPlayer();
+        }
+    }
+
+    private void updateOriginFieldsEnabled()
+    {
+        boolean coordsEnabled = !this.setup.usePlayerOrigin;
+
+        this.originX.setEnabled(coordsEnabled);
+        this.originY.setEnabled(coordsEnabled && this.setup.includeHeight);
+        this.originZ.setEnabled(coordsEnabled);
+    }
+
+    private void seedOriginFromPlayer()
+    {
+        ClientPlayerEntity player = MinecraftClient.getInstance().player;
+
+        if (player == null)
+        {
+            return;
+        }
+
+        this.setup.originX = player.getX();
+        this.setup.originY = player.getY();
+        this.setup.originZ = player.getZ();
+    }
+
+    private void syncOriginFieldsFromSetup()
+    {
+        this.originX.setValue(this.setup.originX);
+        this.originY.setValue(this.setup.originY);
+        this.originZ.setValue(this.setup.originZ);
+    }
+
+    private void syncOriginFieldsFromPlayer()
+    {
+        ClientPlayerEntity player = MinecraftClient.getInstance().player;
+
+        if (player == null)
+        {
+            return;
+        }
+
+        this.originX.setValue(player.getX());
+        this.originY.setValue(player.getY());
+        this.originZ.setValue(player.getZ());
+    }
+
+    private void updateLayout()
+    {
+        int y = 8;
+
+        this.description.y(y);
+        y += 40;
+
+        this.conditionsHeader.y(y);
+        y += 18;
+
+        this.conditionsGrid.y(y);
+        y += 80;
+
+        this.entitiesHeader.y(y);
+        y += 18;
+
+        this.summary.y(y);
+        y += 16;
+
+        this.scroll.y(y).h(1F, -(y + FOOTER_SPACE));
+        this.content.resize();
+    }
+
+    @Override
+    public void render(UIContext context)
+    {
+        if (this.setup.usePlayerOrigin)
+        {
+            this.syncOriginFieldsFromPlayer();
+        }
+
+        super.render(context);
+    }
+
+    private Vec3d getScanOrigin()
+    {
+        if (this.setup.usePlayerOrigin)
+        {
+            ClientPlayerEntity player = MinecraftClient.getInstance().player;
+
+            return player == null ? Vec3d.ZERO : player.getEntityPos();
+        }
+
+        return new Vec3d(this.setup.originX, this.setup.originY, this.setup.originZ);
+    }
+
+    /**
+     * Commit focused trackpads and copy their current values into {@link #setup}
+     * before rescanning, so Refresh always uses what the user sees in the fields.
+     */
+    private void commitConditionsFromUi()
+    {
+        UIContext context = this.getContext();
+
+        if (context != null && context.isFocused())
+        {
+            context.unfocus();
+        }
+
+        this.setup.areaSize = this.radius.getValue();
+        this.setup.includeHeight = this.includeHeight.getValue();
+
+        if (!this.setup.usePlayerOrigin)
+        {
+            this.setup.originX = this.originX.getValue();
+            this.setup.originY = this.originY.getValue();
+            this.setup.originZ = this.originZ.getValue();
+        }
+    }
+
+    private void refreshEntityList()
+    {
+        this.commitConditionsFromUi();
+        this.refreshTypes();
+    }
+
+    private void clearScrollChildren()
+    {
+        this.scroll.getChildren().clear();
+    }
+
+    private void refreshTypes()
+    {
+        /* Keep setup in sync even when refresh comes from a trackpad callback. */
+        if (!this.setup.usePlayerOrigin)
+        {
+            this.setup.originX = this.originX.getValue();
+            this.setup.originY = this.originY.getValue();
+            this.setup.originZ = this.originZ.getValue();
+        }
+
+        this.setup.areaSize = this.radius.getValue();
+        this.setup.includeHeight = this.includeHeight.getValue();
+        this.lastBuckets = MobCaptureAreaScanner.scan(this.setup);
+        this.clearScrollChildren();
+        this.updateColumnMetrics();
+
+        int total = 0;
+
+        for (MobCaptureAreaScanner.TypeBucket bucket : this.lastBuckets.values())
+        {
+            total += bucket.entities.size();
+        }
+
+        if (this.lastBuckets.isEmpty())
+        {
+            this.summary.label = UIKeys.FILM_MOB_CAPTURE_EMPTY;
+            this.scroll.resize();
+
+            return;
+        }
+
+        this.summary.label = UIKeys.FILM_MOB_CAPTURE_SUMMARY.format(String.valueOf(total), String.valueOf(this.lastBuckets.size()));
+
+        this.addColumnHeaderRow();
+        this.addSelectAllRow();
+
+        Vec3d origin = this.getScanOrigin();
+
+        for (MobCaptureAreaScanner.TypeBucket bucket : this.lastBuckets.values())
+        {
+            String typeId = bucket.typeId;
+            boolean typeExpanded = this.expandedTypes.getOrDefault(typeId, false);
+            boolean typeSelected = this.isTypeFullySelected(bucket);
+            String typeLabel = bucket.label + " (" + bucket.entities.size() + ")";
+            UIIcon typeIcon = new UIIcon(typeExpanded ? Icons.ARROW_DOWN : Icons.ARROW_RIGHT, (b) ->
+            {
+                this.expandedTypes.put(typeId, !this.expandedTypes.getOrDefault(typeId, false));
+                this.refreshTypes();
+            });
+            UIElement typeName = UI.label(IKey.raw(typeLabel)).w(1F);
+            UIToggle typeSelectToggle = new UIToggle(IKey.EMPTY, typeSelected, (b) ->
+            {
+                this.setTypeSelected(bucket, b.getValue());
+                this.syncTypeSelection(bucket);
+                this.refreshTypes();
+            });
+            UIToggle typeVanillaToggle = new UIToggle(IKey.EMPTY, this.setup.vanillaPlaybackTypeIds.contains(typeId), (b) ->
+            {
+                this.setTypeVanilla(bucket, b.getValue());
+                this.refreshTypes();
+            });
+
+            typeSelectToggle.w(this.addColumnWidth);
+            typeVanillaToggle.w(this.vaColumnWidth);
+            typeVanillaToggle.tooltip(UIKeys.FILM_REPLAY_VANILLA_MOB_PLAYBACK_TOOLTIP);
+            typeVanillaToggle.setEnabled(typeSelected);
+
+            UIElement typeRow = UI.row(4, 0, 20, typeIcon, typeName, typeSelectToggle, typeVanillaToggle, this.createScrollbarGutter(20));
+
+            typeRow.w(1F).h(20);
+            this.scroll.add(typeRow);
+            this.syncTypeSelection(bucket);
+
+            if (typeExpanded)
+            {
+                int index = 0;
+
+                for (Entity entity : bucket.entities)
+                {
+                    int entityId = entity.getId();
+                    boolean entitySelected = this.setup.selectedEntityIds.contains(entityId);
+                    String entityLabel = MobCaptureAreaScanner.getEntityLabel(
+                        entity, index, origin.x, origin.y, origin.z, this.setup.includeHeight
+                    );
+                    UIElement entityName = UI.label(IKey.raw(entityLabel)).w(1F);
+                    UIToggle entitySelectToggle = new UIToggle(IKey.EMPTY, entitySelected, (b) ->
+                    {
+                        if (b.getValue())
+                        {
+                            this.setup.selectedEntityIds.add(entityId);
+                        }
+                        else
+                        {
+                            this.setup.selectedEntityIds.remove(entityId);
+                        }
+
+                        this.syncTypeSelection(bucket);
+                        this.refreshTypes();
+                    });
+                    UIToggle entityVanillaToggle = new UIToggle(IKey.EMPTY, this.setup.vanillaPlaybackEntityIds.contains(entityId), (b) ->
+                    {
+                        if (b.getValue())
+                        {
+                            this.setup.vanillaPlaybackEntityIds.add(entityId);
+                        }
+                        else
+                        {
+                            this.setup.vanillaPlaybackEntityIds.remove(entityId);
+                        }
+
+                        this.syncTypeVanilla(bucket);
+                        this.refreshTypes();
+                    });
+
+                    entitySelectToggle.w(this.addColumnWidth);
+                    entityVanillaToggle.w(this.vaColumnWidth);
+                    entityVanillaToggle.tooltip(UIKeys.FILM_REPLAY_VANILLA_MOB_PLAYBACK_TOOLTIP);
+                    entityVanillaToggle.setEnabled(entitySelected);
+
+                    UIElement entityIndent = new UIElement();
+
+                    entityIndent.w(ICON_COLUMN_WIDTH).h(20);
+
+                    UIElement entityRow = UI.row(4, 0, 20, entityIndent, entityName, entitySelectToggle, entityVanillaToggle, this.createScrollbarGutter(20));
+
+                    entityRow.w(1F).h(20);
+                    this.scroll.add(entityRow);
+                    index += 1;
+                }
+            }
+        }
+
+        this.scroll.resize();
+    }
+
+    private UIElement createScrollbarGutter(int height)
+    {
+        return new UIElement().w(SCROLLBAR_GUTTER).h(height);
+    }
+
+    private void updateColumnMetrics()
+    {
+        TextRenderer font = MinecraftClient.getInstance().textRenderer;
+        String addText = UIKeys.FILM_MOB_CAPTURE_COLUMN_ADD.get();
+        String vaText = UIKeys.FILM_MOB_CAPTURE_COLUMN_VA.get();
+
+        this.addColumnWidth = this.measureColumnWidth(font, addText);
+        this.vaColumnWidth = this.measureColumnWidth(font, vaText);
+        this.columnHeaderHeight = Math.max(
+            this.measureColumnHeaderHeight(font, addText, this.addColumnWidth),
+            this.measureColumnHeaderHeight(font, vaText, this.vaColumnWidth)
+        );
+    }
+
+    private int measureColumnWidth(TextRenderer font, String text)
+    {
+        int natural = font.getWidth(text) + 4;
+
+        if (natural <= COLUMN_HEADER_MAX_WIDTH)
+        {
+            return Math.max(TOGGLE_WIDTH, natural);
+        }
+
+        return COLUMN_HEADER_MAX_WIDTH;
+    }
+
+    private int measureColumnHeaderHeight(TextRenderer font, String text, int width)
+    {
+        List<String> lines = FontRenderer.wrap(font, text, Math.max(1, width - 2));
+
+        return Math.max(14, lines.size() * font.fontHeight + 2);
+    }
+
+    private UIElement createWrappedColumnHeader(IKey key, int width, int height)
+    {
+        return new UIElement()
+        {
+            @Override
+            public void render(UIContext context)
+            {
+                FontRenderer font = context.batcher.getFont();
+                List<String> lines = FontRenderer.wrap(font.getRenderer(), key.get(), Math.max(1, this.area.w - 2));
+                int lineH = font.getHeight();
+                int totalH = lines.size() * lineH;
+                int y = this.area.my() - totalH / 2;
+
+                for (String line : lines)
+                {
+                    int x = this.area.mx() - font.getWidth(line) / 2;
+
+                    context.batcher.text(line, x, y, Colors.LIGHTER_GRAY, true);
+                    y += lineH;
+                }
+
+                super.render(context);
+            }
+        }.w(width).h(height);
+    }
+
+    private void addColumnHeaderRow()
+    {
+        UIElement spacer = new UIElement();
+
+        spacer.w(ICON_COLUMN_WIDTH).h(this.columnHeaderHeight);
+
+        UIElement nameSpacer = new UIElement();
+
+        nameSpacer.w(1F).h(this.columnHeaderHeight);
+
+        UIElement addHeader = this.createWrappedColumnHeader(UIKeys.FILM_MOB_CAPTURE_COLUMN_ADD, this.addColumnWidth, this.columnHeaderHeight);
+        UIElement vanillaHeader = this.createWrappedColumnHeader(UIKeys.FILM_MOB_CAPTURE_COLUMN_VA, this.vaColumnWidth, this.columnHeaderHeight);
+
+        vanillaHeader.tooltip(UIKeys.FILM_REPLAY_VANILLA_MOB_PLAYBACK_TOOLTIP);
+
+        UIElement headerRow = UI.row(4, 0, this.columnHeaderHeight, spacer, nameSpacer, addHeader, vanillaHeader, this.createScrollbarGutter(this.columnHeaderHeight));
+
+        headerRow.w(1F).h(this.columnHeaderHeight);
+        this.scroll.add(headerRow);
+    }
+
+    private void addSelectAllRow()
+    {
+        UIElement spacer = new UIElement();
+
+        spacer.w(ICON_COLUMN_WIDTH).h(20);
+
+        UILabel selectAllLabel = UI.label(UIKeys.FILM_MOB_CAPTURE_SELECT_ALL);
+
+        selectAllLabel.w(1F).h(20);
+
+        boolean allSelected = this.isAllSelected();
+        UIToggle selectAllAdd = new UIToggle(IKey.EMPTY, allSelected, (b) ->
+        {
+            this.setAllSelected(b.getValue());
+            this.refreshTypes();
+        });
+        UIToggle selectAllVanilla = new UIToggle(IKey.EMPTY, this.isAllVanilla(), (b) ->
+        {
+            this.setAllVanilla(b.getValue());
+            this.refreshTypes();
+        });
+
+        selectAllAdd.w(this.addColumnWidth);
+        selectAllVanilla.w(this.vaColumnWidth);
+        selectAllVanilla.tooltip(UIKeys.FILM_REPLAY_VANILLA_MOB_PLAYBACK_TOOLTIP);
+        selectAllVanilla.setEnabled(allSelected);
+
+        UIElement selectAllRow = UI.row(4, 0, 20, spacer, selectAllLabel, selectAllAdd, selectAllVanilla, this.createScrollbarGutter(20));
+
+        selectAllRow.w(1F).h(20);
+        this.scroll.add(selectAllRow);
+    }
+
+    private boolean isAllSelected()
+    {
+        if (this.lastBuckets.isEmpty())
+        {
+            return false;
+        }
+
+        for (MobCaptureAreaScanner.TypeBucket bucket : this.lastBuckets.values())
+        {
+            for (Entity entity : bucket.entities)
+            {
+                if (!this.setup.selectedEntityIds.contains(entity.getId()))
+                {
+                    return false;
+                }
+            }
+        }
+
+        return true;
+    }
+
+    private boolean isAllVanilla()
+    {
+        if (this.lastBuckets.isEmpty())
+        {
+            return false;
+        }
+
+        for (MobCaptureAreaScanner.TypeBucket bucket : this.lastBuckets.values())
+        {
+            for (Entity entity : bucket.entities)
+            {
+                if (!this.setup.vanillaPlaybackEntityIds.contains(entity.getId()))
+                {
+                    return false;
+                }
+            }
+        }
+
+        return true;
+    }
+
+    private void setAllSelected(boolean selected)
+    {
+        this.setup.selectedEntityIds.clear();
+        this.setup.selectedTypeIds.clear();
+
+        if (!selected)
+        {
+            return;
+        }
+
+        for (MobCaptureAreaScanner.TypeBucket bucket : this.lastBuckets.values())
+        {
+            this.setup.selectedTypeIds.add(bucket.typeId);
+
+            for (Entity entity : bucket.entities)
+            {
+                this.setup.selectedEntityIds.add(entity.getId());
+            }
+        }
+    }
+
+    private void setAllVanilla(boolean enabled)
+    {
+        this.setup.vanillaPlaybackEntityIds.clear();
+        this.setup.vanillaPlaybackTypeIds.clear();
+
+        if (!enabled)
+        {
+            return;
+        }
+
+        for (MobCaptureAreaScanner.TypeBucket bucket : this.lastBuckets.values())
+        {
+            this.setup.vanillaPlaybackTypeIds.add(bucket.typeId);
+
+            for (Entity entity : bucket.entities)
+            {
+                this.setup.vanillaPlaybackEntityIds.add(entity.getId());
+            }
+        }
+    }
+
+    private boolean isTypeFullySelected(MobCaptureAreaScanner.TypeBucket bucket)
+    {
+        if (bucket.entities.isEmpty())
+        {
+            return false;
+        }
+
+        for (Entity entity : bucket.entities)
+        {
+            if (!this.setup.selectedEntityIds.contains(entity.getId()))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private void setTypeSelected(MobCaptureAreaScanner.TypeBucket bucket, boolean selected)
+    {
+        for (Entity entity : bucket.entities)
+        {
+            if (selected)
+            {
+                this.setup.selectedEntityIds.add(entity.getId());
+            }
+            else
+            {
+                this.setup.selectedEntityIds.remove(entity.getId());
+            }
+        }
+    }
+
+    private void syncTypeSelection(MobCaptureAreaScanner.TypeBucket bucket)
+    {
+        if (this.isTypeFullySelected(bucket))
+        {
+            this.setup.selectedTypeIds.add(bucket.typeId);
+        }
+        else
+        {
+            this.setup.selectedTypeIds.remove(bucket.typeId);
+        }
+    }
+
+    private void setTypeVanilla(MobCaptureAreaScanner.TypeBucket bucket, boolean enabled)
+    {
+        if (enabled)
+        {
+            this.setup.vanillaPlaybackTypeIds.add(bucket.typeId);
+
+            for (Entity entity : bucket.entities)
+            {
+                this.setup.vanillaPlaybackEntityIds.add(entity.getId());
+            }
+        }
+        else
+        {
+            this.setup.vanillaPlaybackTypeIds.remove(bucket.typeId);
+
+            for (Entity entity : bucket.entities)
+            {
+                this.setup.vanillaPlaybackEntityIds.remove(entity.getId());
+            }
+        }
+    }
+
+    private void syncTypeVanilla(MobCaptureAreaScanner.TypeBucket bucket)
+    {
+        if (this.isTypeFullyVanilla(bucket))
+        {
+            this.setup.vanillaPlaybackTypeIds.add(bucket.typeId);
+        }
+        else
+        {
+            this.setup.vanillaPlaybackTypeIds.remove(bucket.typeId);
+        }
+    }
+
+    private boolean isTypeFullyVanilla(MobCaptureAreaScanner.TypeBucket bucket)
+    {
+        if (bucket.entities.isEmpty())
+        {
+            return false;
+        }
+
+        for (Entity entity : bucket.entities)
+        {
+            if (!this.setup.vanillaPlaybackEntityIds.contains(entity.getId()))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private void cancel()
+    {
+        UIContext context = this.getContext();
+        Runnable onCancel = this.onCancel;
+
+        /* Release before close/callback so deferred UI animations cannot leave
+         * the integrated server frozen after recording starts or the screen swaps. */
+        this.releaseRecordingPause();
+        this.close();
+
+        if (onCancel != null && context != null)
+        {
+            onCancel.run();
+        }
+    }
+
+    private void submit()
+    {
+        this.setup.captureMobs = true;
+        MobCaptureRecordingSetup.pending = this.setup;
+        this.releaseRecordingPause();
+        this.close();
+
+        if (this.callback != null)
+        {
+            this.callback.accept(this.setup);
+        }
+    }
+}

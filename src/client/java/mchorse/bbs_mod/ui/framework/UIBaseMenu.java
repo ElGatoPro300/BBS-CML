@@ -1,18 +1,23 @@
 package mchorse.bbs_mod.ui.framework;
 
 import mchorse.bbs_mod.ui.Keys;
+import mchorse.bbs_mod.ui.film.toolbar.TimelineToolbar;
+import mchorse.bbs_mod.ui.film.toolbar.TimelineToolbarPointerBlock;
+import mchorse.bbs_mod.ui.forms.UIFormList;
 import mchorse.bbs_mod.ui.framework.elements.IUIElement;
 import mchorse.bbs_mod.ui.framework.elements.IViewport;
 import mchorse.bbs_mod.ui.framework.elements.UIElement;
+import mchorse.bbs_mod.ui.framework.elements.input.UIAnimatedCollapseShell;
+import mchorse.bbs_mod.ui.framework.elements.input.UITexturePicker;
 import mchorse.bbs_mod.ui.framework.elements.utils.IViewportStack;
 import mchorse.bbs_mod.ui.utils.Area;
 import mchorse.bbs_mod.ui.utils.Gizmo;
 import mchorse.bbs_mod.ui.utils.renderers.InputRenderer;
 import mchorse.bbs_mod.utils.colors.Colors;
 
-import net.fabricmc.fabric.api.client.rendering.v1.level.LevelRenderContext;
+import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderContext;
 
-import net.minecraft.client.Minecraft;
+import net.minecraft.client.MinecraftClient;
 
 import com.mojang.blaze3d.opengl.GlStateManager;
 import com.mojang.blaze3d.systems.RenderSystem;
@@ -20,12 +25,20 @@ import com.mojang.blaze3d.systems.RenderSystem;
 import org.lwjgl.glfw.GLFW;
 import org.lwjgl.opengl.GL11;
 
+import java.util.ArrayList;
+import java.util.List;
+
 /**
  * Base class for GUI screens using this framework
  */
 public abstract class UIBaseMenu
 {
     public static boolean renderAxes = true;
+
+    public static boolean shouldRenderAxes()
+    {
+        return renderAxes;
+    }
 
     private static InputRenderer inputRenderer = new InputRenderer();
 
@@ -47,14 +60,33 @@ public abstract class UIBaseMenu
 
         this.main = new UIElement();
         this.main.full(this.viewport);
-        this.overlay = new UIElement();
+        this.overlay = new UIElement()
+        {
+            @Override
+            public void render(UIContext context)
+            {
+                context.batcher.getContext().getMatrices().pushMatrix();
+                context.batcher.getContext().getMatrices().translate(0F, 0F); // Z translation is not supported on 2D Matrix3x2fStack
+                super.render(context);
+                context.batcher.getContext().getMatrices().popMatrix();
+            }
+        };
         this.overlay.full(this.viewport);
         this.root.add(this.main, this.overlay);
 
         UIElement popka = new UIElement();
 
         popka.keys().register(Keys.KEYBINDS, () -> this.context.toggleKeybinds());
-        popka.keys().register(Keys.TRANSFORMATIONS_TOGGLE_AXES, () -> renderAxes = !renderAxes);
+        popka.keys().register(Keys.TRANSFORMATIONS_TOGGLE_AXES, () ->
+        {
+            renderAxes = !renderAxes;
+
+            if (!renderAxes)
+            {
+                Gizmo.INSTANCE.setHoveredIndex(-1);
+                Gizmo.INSTANCE.stop();
+            }
+        });
         this.root.add(popka);
 
         this.context.keybinds.relative(this.viewport).wh(0.5F, 1F);
@@ -68,6 +100,15 @@ public abstract class UIBaseMenu
     public boolean canHideHUD()
     {
         return true;
+    }
+
+    /**
+     * Whether the vanilla world should render while this menu is open. Most BBS editors draw an
+     * opaque UI and do not need the world pass behind them.
+     */
+    public boolean needsWorldRender()
+    {
+        return false;
     }
 
     public boolean canPause()
@@ -109,13 +150,34 @@ public abstract class UIBaseMenu
 
     public boolean mouseClicked(int mouseX, int mouseY, int mouseButton)
     {
-        boolean result = false;
-
         this.context.setMouse(mouseX, mouseY, mouseButton);
+
+        if (this.handleControlCaptureMouse(mouseButton, true))
+        {
+            return true;
+        }
+
+        if (mouseButton == GLFW.GLFW_MOUSE_BUTTON_4)
+        {
+            if (this.tryTexturePickerMouseBack())
+            {
+                return true;
+            }
+
+            return this.handleKey(GLFW.GLFW_KEY_ESCAPE, 0, GLFW.GLFW_PRESS, 0);
+        }
+
+        if (mouseButton == GLFW.GLFW_MOUSE_BUTTON_5 && this.tryTexturePickerMouseForward())
+        {
+            return true;
+        }
+
+        boolean result = false;
 
         if (this.root.isEnabled())
         {
             this.context.pushViewport(this.viewport);
+            TimelineToolbarPointerBlock.prepare(this.context);
 
             IUIElement element = this.root.mouseClicked(this.context);
 
@@ -125,6 +187,75 @@ public abstract class UIBaseMenu
         }
 
         return result;
+    }
+
+    /**
+     * Film actor-control captures LMB/RMB for vanilla swipe / shield while the
+     * OS cursor is hidden. Override in menus that host the film editor.
+     */
+    protected boolean handleControlCaptureMouse(int button, boolean pressed)
+    {
+        return false;
+    }
+
+    /**
+     * When true, render/hover uses parked mouse coords so invisible control
+     * cursor cannot highlight timeline tracks and other widgets.
+     */
+    protected boolean shouldParkMouseWhileControlling()
+    {
+        return false;
+    }
+
+    /**
+     * Texture picker Files tab uses the back mouse button for folder navigation instead of Escape.
+     */
+    private boolean tryTexturePickerMouseBack()
+    {
+        if (!this.root.isEnabled())
+        {
+            return false;
+        }
+
+        this.context.pushViewport(this.viewport);
+
+        for (UITexturePicker picker : this.root.getChildren(UITexturePicker.class))
+        {
+            if (picker.tryMouseBack(this.context))
+            {
+                this.context.popViewport();
+
+                return true;
+            }
+        }
+
+        this.context.popViewport();
+
+        return false;
+    }
+
+    private boolean tryTexturePickerMouseForward()
+    {
+        if (!this.root.isEnabled())
+        {
+            return false;
+        }
+
+        this.context.pushViewport(this.viewport);
+
+        for (UITexturePicker picker : this.root.getChildren(UITexturePicker.class))
+        {
+            if (picker.tryMouseForward(this.context))
+            {
+                this.context.popViewport();
+
+                return true;
+            }
+        }
+
+        this.context.popViewport();
+
+        return false;
     }
 
     public boolean mouseScrolled(int x, int y, double h, double v)
@@ -149,6 +280,11 @@ public abstract class UIBaseMenu
 
     public boolean mouseReleased(int mouseX, int mouseY, int mouseButton)
     {
+        if (this.handleControlCaptureMouse(mouseButton, false))
+        {
+            return true;
+        }
+
         boolean result = false;
 
         this.context.setMouse(mouseX, mouseY, mouseButton);
@@ -156,6 +292,7 @@ public abstract class UIBaseMenu
         if (this.root.isEnabled())
         {
             this.context.pushViewport(this.viewport);
+            TimelineToolbarPointerBlock.prepare(this.context);
 
             IUIElement element = this.root.mouseReleased(this.context);
 
@@ -187,6 +324,11 @@ public abstract class UIBaseMenu
 
         if (this.context.isPressed(GLFW.GLFW_KEY_ESCAPE))
         {
+            if (TimelineToolbar.cancelDockDragIfEscape(this.context))
+            {
+                return true;
+            }
+
             this.closeMenu();
 
             return true;
@@ -210,7 +352,7 @@ public abstract class UIBaseMenu
      */
     protected void closeMenu()
     {
-        Minecraft.getInstance().setScreen(null);
+        MinecraftClient.getInstance().setScreen(null);
     }
 
     public void closeThisMenu()
@@ -225,19 +367,28 @@ public abstract class UIBaseMenu
 
     public void renderMenu(UIRenderingContext context, int mouseX, int mouseY)
     {
+        if (this.shouldParkMouseWhileControlling())
+        {
+            mouseX = mouseY = -1;
+        }
+
         GlStateManager._depthFunc(GL11.GL_ALWAYS);
 
         this.context.resetMatrix();
         this.context.setMouse(mouseX, mouseY);
+        this.context.resetCursor();
 
         this.preRenderMenu(context);
+        UIAnimatedCollapseShell.tickAll();
 
         if (this.root.isVisible())
         {
             this.context.reset();
+            TimelineToolbarPointerBlock.prepare(this.context);
             this.context.pushViewport(this.viewport);
 
             this.root.render(this.context);
+            this.context.batcher.flushDraw();
 
             this.context.popViewport();
             this.context.postRender();
@@ -248,7 +399,7 @@ public abstract class UIBaseMenu
             inputRenderer.render(this, mouseX, mouseY);
         }
 
-        GlStateManager._depthFunc(GL11.GL_LEQUAL);
+        this.context.applyCursor();
     }
 
     protected void preRenderMenu(UIRenderingContext context)
@@ -257,7 +408,7 @@ public abstract class UIBaseMenu
     public void startRenderFrame(float tickDelta)
     {}
 
-    public void renderInWorld(LevelRenderContext context)
+    public void renderInWorld(WorldRenderContext context)
     {}
 
     public static class UIRootElement extends UIElement implements IViewport
@@ -288,6 +439,25 @@ public abstract class UIBaseMenu
         public void unapply(IViewportStack stack)
         {
             stack.popViewport();
+        }
+        @Override
+        public void render(UIContext context)
+        {
+            List<IUIElement> snapshot = new ArrayList<>(this.getChildren());
+
+            for (IUIElement element : snapshot)
+            {
+                if (element.isVisible() && element.canBeRendered(context.getViewport()))
+                {
+                    element.render(context);
+
+                    /* Commit DrawContext text before the overlay layer so modal panels cover background labels */
+                    if (element == this.context.menu.main)
+                    {
+                        context.batcher.flushDraw();
+                    }
+                }
+            }
         }
     }
 }

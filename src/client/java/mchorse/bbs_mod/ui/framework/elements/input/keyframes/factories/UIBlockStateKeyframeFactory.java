@@ -4,7 +4,7 @@ import mchorse.bbs_mod.ui.forms.editors.panels.widgets.UIBlockStateEditor;
 import mchorse.bbs_mod.ui.framework.elements.input.keyframes.UIKeyframes;
 import mchorse.bbs_mod.utils.keyframes.Keyframe;
 
-import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.block.BlockState;
 
 public class UIBlockStateKeyframeFactory extends UIKeyframeFactory<BlockState>
 {

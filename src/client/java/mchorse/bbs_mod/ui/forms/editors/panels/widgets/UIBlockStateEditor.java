@@ -12,15 +12,15 @@ import mchorse.bbs_mod.ui.utils.UI;
 import mchorse.bbs_mod.ui.utils.UIUtils;
 import mchorse.bbs_mod.ui.utils.icons.Icons;
 
-import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.resources.Identifier;
-import net.minecraft.resources.ResourceKey;
-import net.minecraft.world.item.BlockItem;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.level.block.Block;
-import net.minecraft.world.level.block.Blocks;
-import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.level.block.state.properties.Property;
+import net.minecraft.block.Block;
+import net.minecraft.block.BlockState;
+import net.minecraft.block.Blocks;
+import net.minecraft.item.BlockItem;
+import net.minecraft.item.ItemStack;
+import net.minecraft.registry.Registries;
+import net.minecraft.registry.RegistryKey;
+import net.minecraft.state.property.Property;
+import net.minecraft.util.Identifier;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -39,9 +39,9 @@ public class UIBlockStateEditor extends UIElement
 
     static
     {
-        for (ResourceKey<Block> key : BuiltInRegistries.BLOCK.registryKeySet())
+        for (RegistryKey<Block> key : Registries.BLOCK.getKeys())
         {
-            blockIDs.add(key.identifier().toString());
+            blockIDs.add(key.getValue().toString());
         }
 
         blockIDs.sort(String::compareToIgnoreCase);
@@ -72,13 +72,13 @@ public class UIBlockStateEditor extends UIElement
         this.blockState = blockState;
 
         this.fillPropertiesEditor(blockState);
-        this.blockList.list.setCurrentScroll(BuiltInRegistries.BLOCK.getKey(blockState.getBlock()).toString());
+        this.blockList.list.setCurrentScroll(Registries.BLOCK.getId(blockState.getBlock()).toString());
     }
 
     private void setBlock(String blockID)
     {
-        Identifier id = Identifier.parse(blockID);
-        BlockState blockState = BuiltInRegistries.BLOCK.getValue(id).defaultBlockState();
+        Identifier id = Identifier.of(blockID);
+        BlockState blockState = Registries.BLOCK.get(id).getDefaultState();
 
         this.acceptBlockState(blockState);
         this.fillPropertiesEditor(blockState);
@@ -97,7 +97,7 @@ public class UIBlockStateEditor extends UIElement
 
             this.acceptBlockState(state);
             this.fillPropertiesEditor(state);
-            this.blockList.list.setCurrentScroll(BuiltInRegistries.BLOCK.getKey(state.getBlock()).toString());
+            this.blockList.list.setCurrentScroll(Registries.BLOCK.getId(state.getBlock()).toString());
         });
 
         UIOverlay.addOverlay(this.getContext(), panel, UIPlayerInventoryPanel.PANEL_WIDTH, UIPlayerInventoryPanel.PANEL_HEIGHT);
@@ -108,12 +108,12 @@ public class UIBlockStateEditor extends UIElement
     {
         if (stack == null || stack.isEmpty())
         {
-            return Blocks.AIR.defaultBlockState();
+            return Blocks.AIR.getDefaultState();
         }
 
         if (stack.getItem() instanceof BlockItem blockItem)
         {
-            return blockItem.getBlock().defaultBlockState();
+            return blockItem.getBlock().getDefaultState();
         }
 
         return null;
@@ -135,17 +135,17 @@ public class UIBlockStateEditor extends UIElement
 
         for (Property p : state.getProperties())
         {
-            UIButton button = new UIButton(IKey.constant(state.getValue(p).toString()), (b) ->
+            UIButton button = new UIButton(IKey.constant(state.get(p).toString()), (b) ->
             {
                 this.getContext().replaceContextMenu((menu) ->
                 {
-                    for (Object v : p.getPossibleValues())
+                    for (Object v : p.getValues())
                     {
                         IKey raw = IKey.constant(v.toString());
 
                         menu.action(Icons.BLOCK, raw, () ->
                         {
-                            this.acceptBlockState(this.blockState.setValue(p, (Comparable) v));
+                            this.acceptBlockState(this.blockState.with(p, (Comparable) v));
 
                             b.label = raw;
                         });

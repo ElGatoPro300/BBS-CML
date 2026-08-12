@@ -6,7 +6,9 @@ import mchorse.bbs_mod.ui.utils.icons.Icon;
 import mchorse.bbs_mod.ui.utils.icons.Icons;
 import mchorse.bbs_mod.utils.DataPath;
 import mchorse.bbs_mod.utils.NaturalOrderComparator;
+import mchorse.bbs_mod.utils.Pair;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
@@ -33,6 +35,13 @@ public class UIDataPathList extends UIList<DataPath>
     private Icon fileIcon = Icons.FILE;
 
     private DataPath previousPath;
+
+    public IMoveCallback moveCallback;
+
+    public interface IMoveCallback
+    {
+        public void move(DataPath from, DataPath to);
+    }
 
     public UIDataPathList(Consumer<List<DataPath>> callback)
     {
@@ -115,7 +124,7 @@ public class UIDataPathList extends UIList<DataPath>
         this.goTo(DataPath.EMPTY);
     }
 
-    private void goTo(DataPath path)
+    public void goTo(DataPath path)
     {
         this.path.copy(path);
         this.previousPath = null;
@@ -254,6 +263,21 @@ public class UIDataPathList extends UIList<DataPath>
         }
     }
 
+    public List<DataPath> getFilteredList()
+    {
+        if (this.isFiltering())
+        {
+            List<DataPath> list = new ArrayList<>();
+            for (Pair<DataPath, Integer> pair : this.filtered)
+            {
+                list.add(pair.a);
+            }
+            return list;
+        }
+
+        return this.list;
+    }
+
     /* UIList overrides */
 
     @Override
@@ -285,5 +309,77 @@ public class UIDataPathList extends UIList<DataPath>
     protected String elementToString(UIContext context, int i, DataPath element)
     {
         return element.getLast() + (element.folder ? "/" : "");
+    }
+
+    @Override
+    public boolean isDragging()
+    {
+        return this.exists(this.dragging) && System.currentTimeMillis() - this.dragTime > 250;
+    }
+
+    @Override
+    public boolean subMouseClicked(UIContext context)
+    {
+        boolean result = super.subMouseClicked(context);
+
+        if (this.area.isInside(context) && context.mouseButton == 0 && this.moveCallback != null)
+        {
+            int index = this.scroll.getIndex(context.mouseX, context.mouseY);
+
+            if (this.isFiltering())
+            {
+                index = this.exists(this.filtered, index) ? this.filtered.get(index).b : -1;
+            }
+
+            if (this.exists(index))
+            {
+                DataPath clicked = this.getElementAt(this.scroll.getIndex(context.mouseX, context.mouseY));
+
+                if (clicked != null && !clicked.getLast().equals(".."))
+                {
+                    this.dragging = index;
+                    this.dragTime = System.currentTimeMillis();
+                }
+            }
+        }
+
+        return result;
+    }
+
+    @Override
+    public boolean subMouseReleased(UIContext context)
+    {
+        if (this.dragging != -1 && this.moveCallback != null)
+        {
+            if (this.isDragging())
+            {
+                int index = this.scroll.getIndex(context.mouseX, context.mouseY);
+                DataPath target = this.getElementAt(index);
+
+                if (target != null && (target.folder || target.getLast().equals("..")))
+                {
+                    DataPath dragElement = this.list.get(this.dragging);
+
+                    if (!target.equals(dragElement))
+                    {
+                        DataPath targetPath = target.getLast().equals("..") ? this.path.getParent() : target;
+                        DataPath destPath = targetPath.copy();
+
+                        destPath.combine(new DataPath(dragElement.getLast()));
+
+                        if (dragElement.folder)
+                        {
+                            destPath.folder = true;
+                        }
+
+                        this.moveCallback.move(dragElement, destPath);
+                    }
+                }
+            }
+
+            this.dragging = -1;
+        }
+
+        return super.subMouseReleased(context);
     }
 }

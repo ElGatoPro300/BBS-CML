@@ -1,11 +1,14 @@
 package mchorse.bbs_mod.mixin.client.iris;
 
+import mchorse.bbs_mod.utils.iris.FormColorGradePatch;
 import mchorse.bbs_mod.utils.iris.QueueMap;
 import mchorse.bbs_mod.utils.iris.ShaderCurves;
+import mchorse.bbs_mod.utils.iris.ShaderOpacityPatch;
+
+import net.irisshaders.iris.Iris;
 
 import java.util.Map;
 
-import net.irisshaders.iris.Iris;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
@@ -27,12 +30,18 @@ public class IrisMixin
     private static void onLoadExternalShaderpack(String name, CallbackInfoReturnable<Boolean> info)
     {
         ShaderCurves.reset();
+        FormColorGradePatch.resetPackState();
+        ShaderOpacityPatch.setLoadingPackName(name);
+        ShaderOpacityPatch.ensureShadowOpacityVariable();
+        ShaderCurves.ensureSunPathRotationVariable();
     }
 
     @Inject(method = "setShadersDisabled", at = @At("HEAD"), remap = false, require = 0)
-    private static void onLoadExternalShaderpack(CallbackInfo info)
+    private static void onSetShadersDisabled(CallbackInfo info)
     {
         ShaderCurves.reset();
+        FormColorGradePatch.resetPackState();
+        ShaderOpacityPatch.clearLoadingPackName();
     }
 
     @Inject(method = "loadExternalShaderpack", at = @At(value = "RETURN", ordinal = 9), remap = false, require = 0)

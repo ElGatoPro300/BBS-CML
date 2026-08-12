@@ -1,8 +1,7 @@
 package mchorse.bbs_mod.blocks.entities;
 
 import mchorse.bbs_mod.BBSMod;
-import mchorse.bbs_mod.data.DataToString;
-import mchorse.bbs_mod.data.types.BaseType;
+import mchorse.bbs_mod.data.DataStorageUtils;
 import mchorse.bbs_mod.events.TriggerBlockEntityUpdateCallback;
 import mchorse.bbs_mod.forms.FormUtils;
 import mchorse.bbs_mod.forms.forms.Form;
@@ -14,19 +13,20 @@ import mchorse.bbs_mod.settings.values.numeric.ValueBoolean;
 import mchorse.bbs_mod.settings.values.numeric.ValueInt;
 import mchorse.bbs_mod.triggers.Trigger;
 
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.HolderLookup;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.network.protocol.Packet;
-import net.minecraft.network.protocol.game.ClientGamePacketListener;
-import net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket;
-import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.level.Level;
-import net.minecraft.world.level.block.entity.BlockEntity;
-import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.level.storage.ValueInput;
-import net.minecraft.world.level.storage.ValueOutput;
-import net.minecraft.world.phys.AABB;
+import net.minecraft.block.BlockState;
+import net.minecraft.block.entity.BlockEntity;
+import net.minecraft.command.permission.PermissionPredicate;
+import net.minecraft.nbt.NbtCompound;
+import net.minecraft.network.listener.ClientPlayPacketListener;
+import net.minecraft.network.packet.Packet;
+import net.minecraft.network.packet.s2c.play.BlockEntityUpdateS2CPacket;
+import net.minecraft.registry.RegistryWrapper;
+import net.minecraft.server.network.ServerPlayerEntity;
+import net.minecraft.storage.ReadView;
+import net.minecraft.storage.WriteView;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.Box;
+import net.minecraft.world.World;
 
 import org.joml.Vector3f;
 
@@ -102,12 +102,12 @@ public class TriggerBlockEntity extends BlockEntity
         super(BBSMod.TRIGGER_BLOCK_ENTITY, pos, state);
     }
 
-    public void trigger(ServerPlayer player, boolean rightClick)
+    public void trigger(ServerPlayerEntity player, boolean rightClick)
     {
         this.trigger(player, rightClick ? this.right.getList() : this.left.getList());
     }
 
-    public void trigger(ServerPlayer player, List<Trigger> triggers)
+    public void trigger(ServerPlayerEntity player, List<Trigger> triggers)
     {
         for (Trigger trigger : triggers)
         {
@@ -121,7 +121,7 @@ public class TriggerBlockEntity extends BlockEntity
                 {
                     try
                     {
-                        player.createCommandSourceStack().getServer().getCommands().performPrefixedCommand(player.createCommandSourceStack(), cmd);
+                        player.getEntityWorld().getServer().getCommandManager().parseAndExecute(player.getCommandSource().withPermissions(PermissionPredicate.ALL), cmd);
                     }
                     catch (Exception e)
                     {
@@ -145,24 +145,34 @@ public class TriggerBlockEntity extends BlockEntity
                 
                 BlockPos pos = new BlockPos(x, y, z);
                 
-                if (this.level.isLoaded(pos))
+                if (this.world.isChunkLoaded(pos))
                 {
-                    BlockEntity be = this.level.getBlockEntity(pos);
+                    BlockEntity be = this.world.getBlockEntity(pos);
                     
                     if (be instanceof ModelBlockEntity modelBlock)
                     {
                         modelBlock.getProperties().setForm(FormUtils.copy(form));
-                        modelBlock.setChanged();
-                        this.level.sendBlockUpdated(pos, this.level.getBlockState(pos), this.level.getBlockState(pos), 3);
+                        modelBlock.markDirty();
+                        this.world.updateListeners(pos, this.world.getBlockState(pos), this.world.getBlockState(pos), 3);
                     }
+                }
+            }
+            else if (type.equals("film"))
+            {
+                String filmName = trigger.film.get();
+                boolean playCamera = trigger.playCamera.get();
+                
+                if (!filmName.isEmpty())
+                {
+                    ServerNetwork.sendPlayFilm(player, filmName, playCamera);
                 }
             }
         }
     }
     
-    public static void tick(Level world, BlockPos pos, BlockState state, TriggerBlockEntity blockEntity)
+    public static void tick(World world, BlockPos pos, BlockState state, TriggerBlockEntity blockEntity)
     {
-        if (!world.isClientSide() && blockEntity.region.get())
+        if (!world.isClient() && blockEntity.region.get())
         {
             blockEntity.tickRegion();
         }
@@ -170,17 +180,17 @@ public class TriggerBlockEntity extends BlockEntity
         TriggerBlockEntityUpdateCallback.EVENT.invoker().update(blockEntity);
     }
 
-    public AABB getRegionBox()
+    public Box getRegionBox()
     {
-        return this.getRegionBox(this.worldPosition.getX(), this.worldPosition.getY(), this.worldPosition.getZ());
+        return this.getRegionBox(this.pos.getX(), this.pos.getY(), this.pos.getZ());
     }
 
-    public AABB getRegionBoxRelative()
+    public Box getRegionBoxRelative()
     {
         return this.getRegionBox(0, 0, 0);
     }
 
-    public AABB getRegionBox(double x, double y, double z)
+    public Box getRegionBox(double x, double y, double z)
     {
         Vector3f offset = this.regionOffset.get();
         Vector3f size = this.regionSize.get();
@@ -194,7 +204,7 @@ public class TriggerBlockEntity extends BlockEntity
         double maxY = offset.y + 0.5 + size.y / 2.0 + expansion;
         double maxZ = offset.z + 0.5 + size.z / 2.0 + expansion;
 
-        return new AABB(
+        return new Box(
             x + minX, y + minY, z + minZ,
             x + maxX, y + maxY, z + maxZ
         );
@@ -202,14 +212,14 @@ public class TriggerBlockEntity extends BlockEntity
 
     private void tickRegion()
     {
-        AABB box = this.getRegionBox();
-        List<ServerPlayer> players = this.level.getEntitiesOfClass(ServerPlayer.class, box, (p) -> true);
+        Box box = this.getRegionBox();
+        List<ServerPlayerEntity> players = this.world.getEntitiesByClass(ServerPlayerEntity.class, box, (p) -> true);
         Set<UUID> currentPlayers = new HashSet<>();
-        long time = this.level.getGameTime();
+        long time = this.world.getTime();
 
-        for (ServerPlayer player : players)
+        for (ServerPlayerEntity player : players)
         {
-            UUID uuid = player.getUUID();
+            UUID uuid = player.getUuid();
             currentPlayers.add(uuid);
 
             boolean isNew = !this.playersInRegion.contains(uuid);
@@ -231,7 +241,7 @@ public class TriggerBlockEntity extends BlockEntity
         {
             if (!currentPlayers.contains(uuid))
             {
-                ServerPlayer player = (ServerPlayer) this.level.getPlayerByUUID(uuid);
+                ServerPlayerEntity player = (ServerPlayerEntity) this.world.getPlayerByUuid(uuid);
 
                 if (player != null)
                 {
@@ -246,89 +256,59 @@ public class TriggerBlockEntity extends BlockEntity
     }
 
     @Override
-    protected void loadAdditional(ValueInput view)
+    protected void readData(ReadView view)
     {
-        super.loadAdditional(view);
-        
-        view.getString("Left").ifPresent((value) -> {
-            BaseType type = DataToString.fromString(value);
+        super.readData(view);
 
-            if (type != null) this.left.fromData(type);
-        });
-        view.getString("Right").ifPresent((value) -> {
-            BaseType type = DataToString.fromString(value);
+        NbtCompound nbt = view.read("TriggerData", NbtCompound.CODEC).orElse(new NbtCompound());
 
-            if (type != null) this.right.fromData(type);
-        });
-        view.getString("Enter").ifPresent((value) -> {
-            BaseType type = DataToString.fromString(value);
-
-            if (type != null) this.enter.fromData(type);
-        });
-        view.getString("Exit").ifPresent((value) -> {
-            BaseType type = DataToString.fromString(value);
-
-            if (type != null) this.exit.fromData(type);
-        });
-        view.getString("WhileIn").ifPresent((value) -> {
-            BaseType type = DataToString.fromString(value);
-
-            if (type != null) this.whileIn.fromData(type);
-        });
-        this.regionDelay.set(view.getIntOr("RegionDelay", this.regionDelay.get()));
-        this.collidable.set(view.getBooleanOr("Collidable", this.collidable.get()));
-        this.region.set(view.getBooleanOr("Region", this.region.get()));
-        view.getString("Pos1").ifPresent((value) -> {
-            BaseType type = DataToString.fromString(value);
-
-            if (type != null) this.pos1.fromData(type);
-        });
-        view.getString("Pos2").ifPresent((value) -> {
-            BaseType type = DataToString.fromString(value);
-
-            if (type != null) this.pos2.fromData(type);
-        });
-        view.getString("RegionOffset").ifPresent((value) -> {
-            BaseType type = DataToString.fromString(value);
-
-            if (type != null) this.regionOffset.fromData(type);
-        });
-        view.getString("RegionSize").ifPresent((value) -> {
-            BaseType type = DataToString.fromString(value);
-
-            if (type != null) this.regionSize.fromData(type);
-        });
+        if (nbt.contains("Left")) this.left.fromData(DataStorageUtils.fromNbt(nbt.get("Left")));
+        if (nbt.contains("Right")) this.right.fromData(DataStorageUtils.fromNbt(nbt.get("Right")));
+        if (nbt.contains("Enter")) this.enter.fromData(DataStorageUtils.fromNbt(nbt.get("Enter")));
+        if (nbt.contains("Exit")) this.exit.fromData(DataStorageUtils.fromNbt(nbt.get("Exit")));
+        if (nbt.contains("WhileIn")) this.whileIn.fromData(DataStorageUtils.fromNbt(nbt.get("WhileIn")));
+        if (nbt.contains("RegionDelay")) this.regionDelay.set(nbt.getInt("RegionDelay").orElse(15));
+        if (nbt.contains("Collidable")) this.collidable.set(nbt.getBoolean("Collidable").orElse(false));
+        if (nbt.contains("Region")) this.region.set(nbt.getBoolean("Region").orElse(false));
+        if (nbt.contains("Pos1")) this.pos1.fromData(DataStorageUtils.fromNbt(nbt.get("Pos1")));
+        if (nbt.contains("Pos2")) this.pos2.fromData(DataStorageUtils.fromNbt(nbt.get("Pos2")));
+        if (nbt.contains("RegionOffset")) this.regionOffset.fromData(DataStorageUtils.fromNbt(nbt.get("RegionOffset")));
+        if (nbt.contains("RegionSize")) this.regionSize.fromData(DataStorageUtils.fromNbt(nbt.get("RegionSize")));
     }
 
     @Override
-    protected void saveAdditional(ValueOutput view)
+    protected void writeData(WriteView view)
     {
-        super.saveAdditional(view);
-        
-        view.putString("Left", DataToString.toString(this.left.toData()));
-        view.putString("Right", DataToString.toString(this.right.toData()));
-        view.putString("Enter", DataToString.toString(this.enter.toData()));
-        view.putString("Exit", DataToString.toString(this.exit.toData()));
-        view.putString("WhileIn", DataToString.toString(this.whileIn.toData()));
-        view.putInt("RegionDelay", this.regionDelay.get());
-        view.putBoolean("Collidable", this.collidable.get());
-        view.putBoolean("Region", this.region.get());
-        view.putString("Pos1", DataToString.toString(this.pos1.toData()));
-        view.putString("Pos2", DataToString.toString(this.pos2.toData()));
-        view.putString("RegionOffset", DataToString.toString(this.regionOffset.toData()));
-        view.putString("RegionSize", DataToString.toString(this.regionSize.toData()));
+        super.writeData(view);
+
+        NbtCompound nbt = new NbtCompound();
+
+        DataStorageUtils.writeToNbtCompound(nbt, "Left", this.left.toData());
+        DataStorageUtils.writeToNbtCompound(nbt, "Right", this.right.toData());
+        DataStorageUtils.writeToNbtCompound(nbt, "Enter", this.enter.toData());
+        DataStorageUtils.writeToNbtCompound(nbt, "Exit", this.exit.toData());
+        DataStorageUtils.writeToNbtCompound(nbt, "WhileIn", this.whileIn.toData());
+        nbt.putInt("RegionDelay", this.regionDelay.get());
+        nbt.putBoolean("Collidable", this.collidable.get());
+        nbt.putBoolean("Region", this.region.get());
+        DataStorageUtils.writeToNbtCompound(nbt, "Pos1", this.pos1.toData());
+        DataStorageUtils.writeToNbtCompound(nbt, "Pos2", this.pos2.toData());
+        DataStorageUtils.writeToNbtCompound(nbt, "RegionOffset", this.regionOffset.toData());
+        DataStorageUtils.writeToNbtCompound(nbt, "RegionSize", this.regionSize.toData());
+
+        view.put("TriggerData", NbtCompound.CODEC, nbt);
     }
 
     @Nullable
     @Override
-    public Packet<ClientGamePacketListener> getUpdatePacket()
+    public Packet<ClientPlayPacketListener> toUpdatePacket()
     {
-        return ClientboundBlockEntityDataPacket.create(this);
+        return BlockEntityUpdateS2CPacket.create(this);
     }
 
     @Override
-    public CompoundTag getUpdateTag(HolderLookup.Provider registryLookup)
+    public NbtCompound toInitialChunkDataNbt(RegistryWrapper.WrapperLookup registryLookup)
     {
-        return this.saveWithoutMetadata(registryLookup);
+        return this.createNbt(registryLookup);
     }
 }

@@ -4,8 +4,10 @@ import mchorse.bbs_mod.BBSMod;
 import mchorse.bbs_mod.BBSModClient;
 import mchorse.bbs_mod.graphics.texture.Texture;
 import mchorse.bbs_mod.graphics.window.Window;
+import mchorse.bbs_mod.l10n.L10n;
 import mchorse.bbs_mod.l10n.keys.IKey;
 import mchorse.bbs_mod.resources.Link;
+import mchorse.bbs_mod.ui.UIKeys;
 import mchorse.bbs_mod.ui.dashboard.panels.UIDashboardPanel;
 import mchorse.bbs_mod.ui.dashboard.panels.UIDashboardPanels;
 import mchorse.bbs_mod.ui.framework.UIContext;
@@ -81,10 +83,10 @@ public class UIDebugPanel extends UIDashboardPanel
         this.editor = new UIElement();
         this.editor.relative(this).x(0.5F, 5).y(10).w(0.5F, -15).h(1F, -20).markContainer();
 
-        this.addButton = new UIButton(IKey.raw("Add element"), (b) -> this.openAddElementOverlay());
-        this.addToggle = new UIButton(IKey.raw("Import panel"), (b) -> this.openImportPanelOverlay());
-        this.exportButton = new UIButton(IKey.raw("Export UI (clipboard)"), (b) -> this.exportLayout());
-        this.exportFileButton = new UIButton(IKey.raw("Export UI (file)"), (b) -> this.exportLayoutToFile());
+        this.addButton = new UIButton(UIKeys.RAW_ADD_ELEMENT, (b) -> this.openAddElementOverlay());
+        this.addToggle = new UIButton(UIKeys.RAW_IMPORT_PANEL, (b) -> this.openImportPanelOverlay());
+        this.exportButton = new UIButton(UIKeys.RAW_EXPORT_UI_CLIPBOARD, (b) -> this.exportLayout());
+        this.exportFileButton = new UIButton(UIKeys.RAW_EXPORT_UI_FILE, (b) -> this.exportLayoutToFile());
 
         UIElement palette = UI.row(this.addButton, this.addToggle, this.exportButton, this.exportFileButton);
         palette.relative(this.editor).x(0).y(0).w(1F).h(20);
@@ -124,10 +126,10 @@ public class UIDebugPanel extends UIDashboardPanel
             }
         });
 
-        this.variableInput.placeholder(IKey.raw("Variable name")).border();
-        this.keyInput.placeholder(IKey.raw("Localization key (bbs.ui.something)")).border();
-        this.iconInput.placeholder(IKey.raw("Icon name (e.g. HELP)")).border();
-        this.imageInput.placeholder(IKey.raw("Image link (e.g. bbs:textures/...png)")).border();
+        this.variableInput.placeholder(UIKeys.RAW_VARIABLE_NAME).border();
+        this.keyInput.placeholder(UIKeys.RAW_LOCALIZATION_KEY_BBS_UI_SOMETHING).border();
+        this.iconInput.placeholder(UIKeys.RAW_ICON_NAME_E_G_HELP).border();
+        this.imageInput.placeholder(UIKeys.RAW_IMAGE_LINK_E_G_BBS_TEXTURES_PNG).border();
 
         this.iconInput.setVisible(false);
         this.imageInput.setVisible(false);
@@ -151,7 +153,7 @@ public class UIDebugPanel extends UIDashboardPanel
             types.add(type.name().toLowerCase());
         }
 
-        UIStringOverlayPanel panel = new UIStringOverlayPanel(IKey.raw("Pick element type"), types, (name) ->
+        UIStringOverlayPanel panel = new UIStringOverlayPanel(UIKeys.RAW_PICK_ELEMENT_TYPE, types, (name) ->
         {
             if (name == null || name.isEmpty())
             {
@@ -211,7 +213,7 @@ public class UIDebugPanel extends UIDashboardPanel
             return;
         }
 
-        UIStringOverlayPanel overlay = new UIStringOverlayPanel(IKey.raw("Import from panel"), names, (name) ->
+        UIStringOverlayPanel overlay = new UIStringOverlayPanel(UIKeys.RAW_IMPORT_FROM_PANEL, names, (name) ->
         {
             UIDashboardPanel panel = map.get(name);
 

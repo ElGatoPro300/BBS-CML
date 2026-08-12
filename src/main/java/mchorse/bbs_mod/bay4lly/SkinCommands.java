@@ -2,10 +2,10 @@ package mchorse.bbs_mod.bay4lly;
 
 import mchorse.bbs_mod.network.ServerNetwork;
 
-import net.minecraft.commands.CommandSourceStack;
-import net.minecraft.commands.Commands;
-import net.minecraft.network.chat.Component;
 import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.command.CommandManager;
+import net.minecraft.server.command.ServerCommandSource;
+import net.minecraft.text.Text;
 
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
@@ -37,20 +37,20 @@ public class SkinCommands
         return t;
     });
 
-    public static void attach(LiteralArgumentBuilder<CommandSourceStack> bbs, Predicate<CommandSourceStack> hasPermissions)
+    public static void attach(LiteralArgumentBuilder<ServerCommandSource> bbs, Predicate<ServerCommandSource> hasPermissions)
     {
-        LiteralArgumentBuilder<CommandSourceStack> getskin = Commands.literal("getskin");
-        LiteralArgumentBuilder<CommandSourceStack> name = Commands.literal("name");
-        RequiredArgumentBuilder<CommandSourceStack, String> player = Commands.argument("player", StringArgumentType.word());
-        LiteralArgumentBuilder<CommandSourceStack> url = Commands.literal("url");
-        RequiredArgumentBuilder<CommandSourceStack, String> link = Commands.argument("link", StringArgumentType.string());
-        RequiredArgumentBuilder<CommandSourceStack, String> saveName = Commands.argument("name", StringArgumentType.word());
+        LiteralArgumentBuilder<ServerCommandSource> getskin = CommandManager.literal("getskin");
+        LiteralArgumentBuilder<ServerCommandSource> name = CommandManager.literal("name");
+        RequiredArgumentBuilder<ServerCommandSource, String> player = CommandManager.argument("player", StringArgumentType.word());
+        LiteralArgumentBuilder<ServerCommandSource> url = CommandManager.literal("url");
+        RequiredArgumentBuilder<ServerCommandSource, String> link = CommandManager.argument("link", StringArgumentType.string());
+        RequiredArgumentBuilder<ServerCommandSource, String> saveName = CommandManager.argument("name", StringArgumentType.word());
 
         player.executes(ctx ->
         {
-            CommandSourceStack source = ctx.getSource();
+            ServerCommandSource source = ctx.getSource();
             String playerName = StringArgumentType.getString(ctx, "player");
-            source.sendSuccess(() -> Component.translatable("command.getskin.downloading"), false);
+            source.sendFeedback(() -> Text.translatable("command.getskin.downloading"), false);
             CompletableFuture
                 .supplyAsync(() ->
                 {
@@ -72,16 +72,16 @@ public class SkinCommands
                         MinecraftServer srv = source.getServer();
                         byte[] bytes = Files.readAllBytes(file.toPath());
                         ServerNetwork.sendBay4llySkinToAll(srv, bytes, playerName);
-                        source.sendSuccess(() -> Component.translatable("command.getskin.success"), true);
+                        source.sendFeedback(() -> Text.translatable("command.getskin.success"), true);
                     }
                     catch (Exception e)
                     {
-                        source.sendFailure(Component.translatable("command.getskin.error", e.getMessage()));
+                        source.sendError(Text.translatable("command.getskin.error", e.getMessage()));
                     }
                 }, source.getServer())
                 .exceptionally(th ->
                 {
-                    source.sendFailure(Component.translatable("command.getskin.error", th.getMessage()));
+                    source.sendError(Text.translatable("command.getskin.error", th.getMessage()));
                     return null;
                 });
             return 1;
@@ -89,10 +89,10 @@ public class SkinCommands
 
         saveName.executes(ctx ->
         {
-            CommandSourceStack source = ctx.getSource();
+            ServerCommandSource source = ctx.getSource();
             String u = StringArgumentType.getString(ctx, "link");
             String n = StringArgumentType.getString(ctx, "name");
-            source.sendSuccess(() -> Component.translatable("command.getskin.downloading"), false);
+            source.sendFeedback(() -> Text.translatable("command.getskin.downloading"), false);
             CompletableFuture
                 .supplyAsync(() ->
                 {
@@ -113,16 +113,16 @@ public class SkinCommands
                         MinecraftServer srv = source.getServer();
                         byte[] bytes = Files.readAllBytes(file.toPath());
                         ServerNetwork.sendBay4llySkinToAll(srv, bytes, n);
-                        source.sendSuccess(() -> Component.translatable("command.getskin.success"), true);
+                        source.sendFeedback(() -> Text.translatable("command.getskin.success"), true);
                     }
                     catch (Exception e)
                     {
-                        source.sendFailure(Component.translatable("command.getskin.error", e.getMessage()));
+                        source.sendError(Text.translatable("command.getskin.error", e.getMessage()));
                     }
                 }, source.getServer())
                 .exceptionally(th ->
                 {
-                    source.sendFailure(Component.translatable("command.getskin.error", th.getMessage()));
+                    source.sendError(Text.translatable("command.getskin.error", th.getMessage()));
                     return null;
                 });
             return 1;

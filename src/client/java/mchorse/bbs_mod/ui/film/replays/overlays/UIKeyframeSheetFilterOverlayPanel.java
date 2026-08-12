@@ -27,7 +27,7 @@ public class UIKeyframeSheetFilterOverlayPanel extends UIOverlayPanel
 
         for (String key : keys)
         {
-            UIToggle toggle = new UICoolToggle(key, IKey.constant(key), (b) ->
+            UIToggle toggle = new UICoolToggle(key, UIReplaysEditor.resolveTrackTitle(key), (b) ->
             {
                 if (disabled.contains(key))
                 {

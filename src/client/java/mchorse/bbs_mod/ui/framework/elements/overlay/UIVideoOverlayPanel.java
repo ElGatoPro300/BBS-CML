@@ -364,7 +364,7 @@ public class UIVideoOverlayPanel extends UIStringOverlayPanel
 
     private boolean isMediaFoldersEnhancementsEnabled()
     {
-        return BBSSettings.mediaFoldersEnhancements != null && BBSSettings.mediaFoldersEnhancements.get();
+        return true;
     }
 
     private List<String> getCurrentClientFolderEntries()

@@ -7,19 +7,21 @@ import mchorse.bbs_mod.cubic.data.model.ModelGroup;
 import mchorse.bbs_mod.cubic.data.model.ModelMesh;
 import mchorse.bbs_mod.cubic.data.model.ModelQuad;
 import mchorse.bbs_mod.cubic.data.model.ModelVertex;
+import mchorse.bbs_mod.cubic.render.vao.ModelVAORenderer;
 import mchorse.bbs_mod.obj.shapes.ShapeKeys;
 import mchorse.bbs_mod.ui.framework.elements.utils.StencilMap;
 import mchorse.bbs_mod.utils.MathUtils;
 import mchorse.bbs_mod.utils.interps.Lerps;
+
+import net.minecraft.client.render.BufferBuilder;
+import net.minecraft.client.render.LightmapTextureManager;
+import net.minecraft.client.util.math.MatrixStack;
 
 import org.joml.Matrix3f;
 import org.joml.Matrix4f;
 import org.joml.Vector2f;
 import org.joml.Vector3f;
 import org.joml.Vector4f;
-
-import com.mojang.blaze3d.vertex.BufferBuilder;
-import com.mojang.blaze3d.vertex.PoseStack;
 
 import java.util.Map;
 
@@ -55,12 +57,12 @@ public class CubicCubeRenderer implements ICubicRenderer
     private ModelVertex modelVertex = new ModelVertex();
     private ShapeKeys shapeKeys;
 
-    public static void moveToPivot(PoseStack stack, Vector3f pivot)
+    public static void moveToPivot(MatrixStack stack, Vector3f pivot)
     {
         stack.translate(pivot.x / 16F, pivot.y / 16F, pivot.z / 16F);
     }
 
-    public static void rotate(PoseStack stack, Vector3f rotation)
+    public static void rotate(MatrixStack stack, Vector3f rotation)
     {
         if (rotation.x == 0 && rotation.y == 0 && rotation.z == 0)
         {
@@ -90,11 +92,11 @@ public class CubicCubeRenderer implements ICubicRenderer
         matrix3f.identity().rotateX(MathUtils.toRad(rotation.x));
         normalM.mul(matrix3f);
 
-        stack.last().pose().mul(modelM);
-        stack.last().normal().mul(normalM);
+        stack.peek().getPositionMatrix().mul(modelM);
+        stack.peek().getNormalMatrix().mul(normalM);
     }
 
-    public static void moveBackFromPivot(PoseStack stack, Vector3f pivot)
+    public static void moveBackFromPivot(MatrixStack stack, Vector3f pivot)
     {
         stack.translate(-pivot.x / 16F, -pivot.y / 16F, -pivot.z / 16F);
     }
@@ -116,7 +118,7 @@ public class CubicCubeRenderer implements ICubicRenderer
     }
 
     @Override
-    public boolean renderGroup(BufferBuilder builder, PoseStack stack, ModelGroup group, Model model)
+    public boolean renderGroup(BufferBuilder builder, MatrixStack stack, ModelGroup group, Model model)
     {
         for (ModelCube cube : group.cubes)
         {
@@ -131,9 +133,9 @@ public class CubicCubeRenderer implements ICubicRenderer
         return false;
     }
 
-    protected void renderCube(BufferBuilder builder, PoseStack stack, ModelGroup group, ModelCube cube)
+    protected void renderCube(BufferBuilder builder, MatrixStack stack, ModelGroup group, ModelCube cube)
     {
-        stack.pushPose();
+        stack.push();
         moveToPivot(stack, cube.pivot);
         rotate(stack, cube.rotate);
         moveBackFromPivot(stack, cube.pivot);
@@ -141,7 +143,7 @@ public class CubicCubeRenderer implements ICubicRenderer
         for (ModelQuad quad : cube.quads)
         {
             this.normal.set(quad.normal.x, quad.normal.y, quad.normal.z);
-            stack.last().normal().transform(this.normal);
+            stack.peek().getNormalMatrix().transform(this.normal);
 
             if (quad.vertices.size() == 4)
             {
@@ -154,12 +156,12 @@ public class CubicCubeRenderer implements ICubicRenderer
             }
         }
 
-        stack.popPose();
+        stack.pop();
     }
 
-    protected void renderMesh(BufferBuilder builder, PoseStack stack, Model model, ModelGroup group, ModelMesh mesh)
+    protected void renderMesh(BufferBuilder builder, MatrixStack stack, Model model, ModelGroup group, ModelMesh mesh)
     {
-        stack.pushPose();
+        stack.push();
         moveToPivot(stack, mesh.origin);
         rotate(stack, mesh.rotate);
         moveBackFromPivot(stack, mesh.origin);
@@ -205,22 +207,22 @@ public class CubicCubeRenderer implements ICubicRenderer
 
             /* Write vertices */
             this.normal.set(n1.x, n1.y, n1.z);
-            stack.last().normal().transform(this.normal);
+            stack.peek().getNormalMatrix().transform(this.normal);
             this.modelVertex.set(v1, u1, model);
             this.writeVertex(builder, stack, group, this.modelVertex, this.normal);
 
             this.normal.set(n2.x, n2.y, n2.z);
-            stack.last().normal().transform(this.normal);
+            stack.peek().getNormalMatrix().transform(this.normal);
             this.modelVertex.set(v2, u2, model);
             this.writeVertex(builder, stack, group, this.modelVertex, this.normal);
 
             this.normal.set(n3.x, n3.y, n3.z);
-            stack.last().normal().transform(this.normal);
+            stack.peek().getNormalMatrix().transform(this.normal);
             this.modelVertex.set(v3, u3, model);
             this.writeVertex(builder, stack, group, this.modelVertex, this.normal);
         }
 
-        stack.popPose();
+        stack.pop();
     }
 
     private void relativeShift(Vector3f temp, Vector3f initial, Vector3f current, float x)
@@ -236,28 +238,108 @@ public class CubicCubeRenderer implements ICubicRenderer
         temp.y = temp.y + Lerps.lerp(initial.y, current.y, x) - initial.y;
     }
 
-    protected void writeVertex(BufferBuilder builder, PoseStack stack, ModelGroup group, ModelVertex vertex, Vector3f normal)
+    protected void writeVertex(BufferBuilder builder, MatrixStack stack, ModelGroup group, ModelVertex vertex, Vector3f normal)
     {
         this.vertex.set(vertex.vertex.x, vertex.vertex.y, vertex.vertex.z, 1);
-        stack.last().pose().transform(this.vertex);
+        stack.peek().getPositionMatrix().transform(this.vertex);
 
-        builder.addVertex(this.vertex.x, this.vertex.y, this.vertex.z)
-            .setColor(this.r * group.color.r, this.g * group.color.g, this.b * group.color.b, this.a * group.color.a)
-            .setUv(vertex.uv.x, vertex.uv.y)
-            .setOverlay(this.overlay);
+        builder.vertex(this.vertex.x, this.vertex.y, this.vertex.z)
+            .color(this.r * group.color.r, this.g * group.color.g, this.b * group.color.b, this.a * group.color.a)
+            .texture(vertex.uv.x, vertex.uv.y)
+            .overlay(this.overlay);
 
         if (this.stencilMap != null)
         {
-            builder.setUv2(stencilMap.increment ? group.index : 0, 0);
+            builder.light(stencilMap.increment ? group.index : 0, 0);
         }
         else
         {
-            int u = (int) Lerps.lerp(this.light & '\uffff', 240, MathUtils.clamp(group.lighting, 0F, 1F));
+            int u = (int) Lerps.lerp(this.light & '\uffff', LightmapTextureManager.MAX_BLOCK_LIGHT_COORDINATE, MathUtils.clamp(group.lighting, 0F, 1F));
             int v = this.light >> 16 & '\uffff';
 
-            builder.setUv2(u, v);
+            builder.light(u, v);
         }
 
-        builder.setNormal(normal.x, normal.y, normal.z);
+        builder.normal(normal.x, normal.y, normal.z);
+    }
+
+    protected float resolveEffectiveGlowStrength(ModelGroup group)
+    {
+        if (group.glowIntensity != 0F)
+        {
+            return group.glowIntensity;
+        }
+
+        return ModelVAORenderer.getBaseGlowingStrength();
+    }
+
+    protected float resolveEffectiveGlowR(ModelGroup group)
+    {
+        if (group.glowIntensity != 0F)
+        {
+            return group.glowingColor.r;
+        }
+
+        return ModelVAORenderer.getBaseGlowingR();
+    }
+
+    protected float resolveEffectiveGlowG(ModelGroup group)
+    {
+        if (group.glowIntensity != 0F)
+        {
+            return group.glowingColor.g;
+        }
+
+        return ModelVAORenderer.getBaseGlowingG();
+    }
+
+    protected float resolveEffectiveGlowB(ModelGroup group)
+    {
+        if (group.glowIntensity != 0F)
+        {
+            return group.glowingColor.b;
+        }
+
+        return ModelVAORenderer.getBaseGlowingB();
+    }
+
+    protected float resolveEffectivePaintStrength(ModelGroup group)
+    {
+        if (group.paintColor.a != 0F)
+        {
+            return group.paintColor.a;
+        }
+
+        return ModelVAORenderer.getBasePaintStrength();
+    }
+
+    protected float resolveEffectivePaintR(ModelGroup group)
+    {
+        if (group.paintColor.a != 0F)
+        {
+            return group.paintColor.r;
+        }
+
+        return ModelVAORenderer.getBasePaintR();
+    }
+
+    protected float resolveEffectivePaintG(ModelGroup group)
+    {
+        if (group.paintColor.a != 0F)
+        {
+            return group.paintColor.g;
+        }
+
+        return ModelVAORenderer.getBasePaintG();
+    }
+
+    protected float resolveEffectivePaintB(ModelGroup group)
+    {
+        if (group.paintColor.a != 0F)
+        {
+            return group.paintColor.b;
+        }
+
+        return ModelVAORenderer.getBasePaintB();
     }
 }

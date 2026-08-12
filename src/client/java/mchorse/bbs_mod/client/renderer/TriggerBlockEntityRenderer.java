@@ -3,43 +3,68 @@ package mchorse.bbs_mod.client.renderer;
 import mchorse.bbs_mod.blocks.entities.TriggerBlockEntity;
 import mchorse.bbs_mod.graphics.Draw;
 
-import net.minecraft.client.Minecraft;
-import net.minecraft.client.renderer.MultiBufferSource;
-import net.minecraft.client.renderer.blockentity.BlockEntityRendererProvider;
-import net.minecraft.world.phys.AABB;
+import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.render.block.entity.BlockEntityRenderer;
+import net.minecraft.client.render.block.entity.BlockEntityRendererFactory;
+import net.minecraft.client.render.block.entity.state.BlockEntityRenderState;
+import net.minecraft.client.render.command.ModelCommandRenderer;
+import net.minecraft.client.render.command.OrderedRenderCommandQueue;
+import net.minecraft.client.render.state.CameraRenderState;
+import net.minecraft.client.util.math.MatrixStack;
+import net.minecraft.util.math.Box;
+import net.minecraft.util.math.Vec3d;
 
 import org.joml.Vector3f;
 
 import com.mojang.blaze3d.opengl.GlStateManager;
-import com.mojang.blaze3d.vertex.PoseStack;
 
 import java.util.HashSet;
 import java.util.Set;
 
-public class TriggerBlockEntityRenderer
+public class TriggerBlockEntityRenderer implements BlockEntityRenderer<TriggerBlockEntity, TriggerBlockEntityRenderState>
 {
     public static final Set<TriggerBlockEntity> capturedTriggerBlocks = new HashSet<>();
 
-    public TriggerBlockEntityRenderer(BlockEntityRendererProvider.Context ctx)
+    public TriggerBlockEntityRenderer(BlockEntityRendererFactory.Context ctx)
     {}
 
-    public void render(TriggerBlockEntity entity, float tickDelta, PoseStack matrices, MultiBufferSource vertexConsumers, int light, int overlay)
+    @Override
+    public TriggerBlockEntityRenderState createRenderState()
     {
-        capturedTriggerBlocks.add(entity);
+        return new TriggerBlockEntityRenderState();
+    }
 
-        Minecraft mc = Minecraft.getInstance();
-        
-        if (mc.getDebugOverlay().showDebugScreen())
+    @Override
+    public void updateRenderState(TriggerBlockEntity entity, TriggerBlockEntityRenderState state, float tickDelta, Vec3d cameraPosition, ModelCommandRenderer.CrumblingOverlayCommand crumblingOverlay)
+    {
+        BlockEntityRenderState.updateBlockEntityRenderState(entity, state, crumblingOverlay);
+        state.entity = entity;
+        capturedTriggerBlocks.add(entity);
+    }
+
+    @Override
+    public void render(TriggerBlockEntityRenderState state, MatrixStack matrices, OrderedRenderCommandQueue queue, CameraRenderState cameraState)
+    {
+        TriggerBlockEntity entity = state.entity;
+
+        if (entity == null)
         {
-            matrices.pushPose();
+            return;
+        }
+
+        MinecraftClient mc = MinecraftClient.getInstance();
+        
+        if (mc.getDebugHud().shouldShowDebugHud())
+        {
+            matrices.push();
             matrices.translate(0.5D, 0, 0.5D);
             /* Render green debug box for triggers */
             Draw.renderBox(matrices, -0.5D, 0, -0.5D, 1, 1, 1, 0, 1F, 0.5F, 0.5F);
-            matrices.popPose();
+            matrices.pop();
 
             if (entity.region.get())
             {
-                AABB box = entity.getRegionBoxRelative();
+                Box box = entity.getRegionBoxRelative();
 
                 /* Render white debug box for region triggers */
                 GlStateManager._disableDepthTest();

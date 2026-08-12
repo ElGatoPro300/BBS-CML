@@ -1,35 +1,49 @@
 package mchorse.bbs_mod.ui.forms.editors.panels.shape;
 
+import mchorse.bbs_mod.BBSModClient;
 import mchorse.bbs_mod.data.types.BaseType;
+import mchorse.bbs_mod.data.types.IntType;
 import mchorse.bbs_mod.data.types.ListType;
 import mchorse.bbs_mod.data.types.MapType;
+import mchorse.bbs_mod.forms.forms.shape.INodeGraph;
 import mchorse.bbs_mod.forms.forms.shape.ShapeConnection;
 import mchorse.bbs_mod.forms.forms.shape.ShapeFormGraph;
 import mchorse.bbs_mod.forms.forms.shape.ValueShapeGraph;
 import mchorse.bbs_mod.forms.forms.shape.nodes.BumpNode;
+import mchorse.bbs_mod.forms.forms.shape.nodes.ClampNode;
 import mchorse.bbs_mod.forms.forms.shape.nodes.ColorNode;
+import mchorse.bbs_mod.forms.forms.shape.nodes.CombineColorNode;
 import mchorse.bbs_mod.forms.forms.shape.nodes.CommentNode;
 import mchorse.bbs_mod.forms.forms.shape.nodes.CoordinateNode;
 import mchorse.bbs_mod.forms.forms.shape.nodes.FlowNoiseNode;
+import mchorse.bbs_mod.forms.forms.shape.nodes.InvertNode;
 import mchorse.bbs_mod.forms.forms.shape.nodes.IrisAttributeNode;
 import mchorse.bbs_mod.forms.forms.shape.nodes.IrisShaderNode;
 import mchorse.bbs_mod.forms.forms.shape.nodes.MathNode;
 import mchorse.bbs_mod.forms.forms.shape.nodes.MixColorNode;
 import mchorse.bbs_mod.forms.forms.shape.nodes.NoiseNode;
 import mchorse.bbs_mod.forms.forms.shape.nodes.OutputNode;
+import mchorse.bbs_mod.forms.forms.shape.nodes.RemapNode;
 import mchorse.bbs_mod.forms.forms.shape.nodes.ShapeNode;
+import mchorse.bbs_mod.forms.forms.shape.nodes.SmoothstepNode;
+import mchorse.bbs_mod.forms.forms.shape.nodes.SplitColorNode;
+import mchorse.bbs_mod.forms.forms.shape.nodes.TextureNode;
 import mchorse.bbs_mod.forms.forms.shape.nodes.TimeNode;
 import mchorse.bbs_mod.forms.forms.shape.nodes.TriggerNode;
 import mchorse.bbs_mod.forms.forms.shape.nodes.ValueNode;
 import mchorse.bbs_mod.forms.forms.shape.nodes.VectorMathNode;
 import mchorse.bbs_mod.forms.forms.shape.nodes.VoronoiNode;
+import mchorse.bbs_mod.graphics.texture.Texture;
 import mchorse.bbs_mod.graphics.window.Window;
+import mchorse.bbs_mod.l10n.L10n;
 import mchorse.bbs_mod.l10n.keys.IKey;
+import mchorse.bbs_mod.resources.Link;
 import mchorse.bbs_mod.settings.values.base.BaseValue;
 import mchorse.bbs_mod.ui.UIKeys;
 import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.ui.framework.elements.UIElement;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIIcon;
+import mchorse.bbs_mod.ui.framework.elements.input.UITexturePicker;
 import mchorse.bbs_mod.ui.framework.elements.overlay.UIColorOverlayPanel;
 import mchorse.bbs_mod.ui.framework.elements.overlay.UINumberOverlayPanel;
 import mchorse.bbs_mod.ui.framework.elements.overlay.UIOverlay;
@@ -43,20 +57,16 @@ import mchorse.bbs_mod.ui.utils.presets.UICopyPasteController;
 import mchorse.bbs_mod.utils.colors.Colors;
 import mchorse.bbs_mod.utils.presets.PresetManager;
 
-import net.minecraft.client.renderer.rendertype.RenderTypes;
+import net.minecraft.client.render.BufferBuilder;
+import net.minecraft.client.render.Tessellator;
+import net.minecraft.client.render.VertexFormats;
 
 import org.joml.Matrix4f;
 import org.joml.Vector2f;
 
-import com.mojang.blaze3d.opengl.GlStateManager;
-import com.mojang.blaze3d.systems.RenderSystem;
-import com.mojang.blaze3d.vertex.BufferBuilder;
-import com.mojang.blaze3d.vertex.DefaultVertexFormat;
-import com.mojang.blaze3d.vertex.Tesselator;
 import com.mojang.blaze3d.vertex.VertexFormat;
 
 import org.lwjgl.glfw.GLFW;
-import org.lwjgl.opengl.GL11;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -67,17 +77,33 @@ import java.util.Set;
 
 public class UIShapeNodeEditor extends UIElement
 {
-    private ShapeFormGraph graph;
+    /* ---- Socket type palette ---- */
+    protected static final int SOCKET_FLOAT = Colors.WHITE;
+    protected static final int SOCKET_COLOR = 0xFFFFAA33;
+    protected static final int SOCKET_VECTOR = 0xFF5599FF;
+
+    /* ---- Node header palette ---- */
+    protected static final int HEADER_DEFAULT  = Colors.A100 | 0x444444;
+    protected static final int HEADER_OUTPUT   = Colors.A100 | 0xFF5555;
+    protected static final int HEADER_MATH     = Colors.A100 | 0x5555FF;
+    protected static final int HEADER_INPUT    = Colors.A100 | 0x55BB55;
+    protected static final int HEADER_TEXTURE  = Colors.A100 | 0xBB8833;
+    protected static final int HEADER_TRIGGER  = Colors.A100 | 0xFF55FF;
+    protected static final int HEADER_NOISE    = Colors.A100 | 0xFFAA00;
+    protected static final int HEADER_BUMP     = Colors.A100 | 0xFF55AA;
+    protected static final int HEADER_COLOR    = Colors.A100 | 0xFF7733;
+
+    private INodeGraph graph;
     private ValueShapeGraph value;
-    
+
     private float scale = 1F;
-    private float translateX = 0;
-    private float translateY = 0;
-    
+    private float translateX = 0F;
+    private float translateY = 0F;
+
     private int lastMouseX;
     private int lastMouseY;
     private boolean dragging;
-    
+
     private ShapeNode draggingNode;
     private float draggingNodeX;
     private float draggingNodeY;
@@ -103,175 +129,41 @@ public class UIShapeNodeEditor extends UIElement
     public UIShapeNodeEditor()
     {
         super();
-        
+
         this.copyPaste = new UICopyPasteController(PresetManager.SHAPE_GRAPHS, "ShapeGraph");
         this.copyPaste.supplier(this::createData);
         this.copyPaste.consumer(this::pasteData);
 
         this.toolbar = UI.row(0, 0);
         this.toolbar.relative(this).x(10).y(10).w(100).h(20);
-        
+
         this.presets = new UIIcon(Icons.SAVED, (b) -> this.openPresets());
         this.toolbar.add(this.presets);
         this.toolbar.add(new UIIcon(Icons.REFRESH, (b) -> this.resetView()));
-        
+
         this.add(this.toolbar);
     }
-    
+
     private void openPresets()
-    {
-        // Implementation assumed
-    }
-    
+    {}
+
     private void resetView()
     {
         this.scale = 1F;
-        this.translateX = 0;
-        this.translateY = 0;
-    }
-    
-    private MapType createData()
-    {
-        if (this.selection.isEmpty() && this.selectedConnections.isEmpty()) return null;
-        
-        MapType data = new MapType();
-        ListType nodesList = new ListType();
-        ListType connectionsList = new ListType();
-        
-        for (ShapeNode node : this.selection)
-        {
-            MapType nodeData = new MapType();
-            node.toData(nodeData);
-            nodesList.add(nodeData);
-        }
-        
-        // Add selected connections or connections between selected nodes
-        Set<ShapeConnection> connectionsToAdd = new HashSet<>(this.selectedConnections);
-        
-        if (this.graph != null)
-        {
-            for (ShapeConnection c : this.graph.connections)
-            {
-                boolean inputSelected = false;
-                boolean outputSelected = false;
-                
-                for (ShapeNode node : this.selection)
-                {
-                    if (node.id == c.inputNodeId) inputSelected = true;
-                    if (node.id == c.outputNodeId) outputSelected = true;
-                }
-                
-                if (inputSelected && outputSelected)
-                {
-                    connectionsToAdd.add(c);
-                }
-            }
-        }
-        
-        for (ShapeConnection c : connectionsToAdd)
-        {
-            MapType cData = new MapType();
-            c.toData(cData);
-            connectionsList.add(cData);
-        }
-        
-        data.put("nodes", nodesList);
-        data.put("connections", connectionsList);
-        
-        return data;
-    }
-    
-    private void pasteData(MapType data, int mouseX, int mouseY)
-    {
-        if (this.graph == null) return;
-        
-        MapType map = data;
-        ListType nodesList = map.getList("nodes");
-        ListType connectionsList = map.getList("connections");
-        
-        Map<Integer, Integer> idMap = new HashMap<>();
-        
-        this.selection.clear();
-        this.selectedConnections.clear();
-        
-        float minX = Float.MAX_VALUE;
-        float minY = Float.MAX_VALUE;
-        
-        // Calculate center
-        for (BaseType element : nodesList)
-        {
-            if (element instanceof MapType)
-            {
-                MapType nodeData = (MapType) element;
-                float x = nodeData.getFloat("x");
-                float y = nodeData.getFloat("y");
-                
-                if (x < minX) minX = x;
-                if (y < minY) minY = y;
-            }
-        }
-        
-        float graphX = (-this.translateX + mouseX - this.area.x) / this.scale;
-        float graphY = (-this.translateY + mouseY - this.area.y) / this.scale;
-        
-        for (BaseType element : nodesList)
-        {
-            if (element instanceof MapType)
-            {
-                MapType nodeData = (MapType) element;
-                String type = nodeData.getString("type");
-                ShapeNode node = this.graph.createNode(type);
-                
-                if (node != null)
-                {
-                    node.fromData(nodeData);
-                    
-                    int oldId = node.id;
-                    node.id = 0;
-                    this.graph.addNode(node);
-                    idMap.put(oldId, node.id);
-                    
-                    node.x = graphX + (node.x - minX);
-                    node.y = graphY + (node.y - minY);
-                    
-                    this.selection.add(node);
-                }
-            }
-        }
-        
-        for (BaseType element : connectionsList)
-        {
-            if (element instanceof MapType)
-            {
-                ShapeConnection c = new ShapeConnection();
-                c.fromData((MapType) element);
-                
-                if (idMap.containsKey(c.inputNodeId) && idMap.containsKey(c.outputNodeId))
-                {
-                    this.graph.connect(idMap.get(c.outputNodeId), c.outputIndex, idMap.get(c.inputNodeId), c.inputIndex);
-                }
-            }
-        }
-    }
-    
-    private void copyNodes()
-    {
-        MapType data = this.createData();
-        
-        if (data != null)
-        {
-            clipboard = data;
-        }
-    }
-    
-    private void pasteNodes(int mx, int my)
-    {
-        if (clipboard != null)
-        {
-            this.pasteData(clipboard, mx, my);
-        }
+        this.translateX = 0F;
+        this.translateY = 0F;
     }
 
+    /* ======================================================================
+     * Graph / value wiring
+     * ====================================================================== */
+
+    public void setGraph(INodeGraph graph)
+    {
+        this.graph = graph;
+    }
+
+    /** Convenience overload so callers that already have a ShapeFormGraph compile. */
     public void setGraph(ShapeFormGraph graph)
     {
         this.graph = graph;
@@ -299,258 +191,384 @@ public class UIShapeNodeEditor extends UIElement
         }
     }
 
-    @Override
-    protected boolean subMouseClicked(UIContext context)
+    /* ======================================================================
+     * Portability — override these in subclasses for custom node types
+     * ====================================================================== */
+
+    /**
+     * Human-readable label shown in the node header. Override to customise for
+     * node types that are not part of the default shape graph.
+     */
+    protected String getNodeTitle(ShapeNode node)
     {
-        if (this.area.isInside(context))
+        if (node instanceof MathNode)
         {
-            int mx = context.mouseX;
-            int my = context.mouseY;
-            
-            if (this.graph != null)
-            {
-                // Check sockets first
-                for (int i = this.graph.nodes.size() - 1; i >= 0; i--)
-                {
-                    ShapeNode node = this.graph.nodes.get(i);
-                    int nx = (int) (this.area.x + this.translateX + node.x * this.scale);
-                    int ny = (int) (this.area.y + this.translateY + node.y * this.scale);
-                    int w = (int) (120 * this.scale);
-                    
-                    // Outputs
-                    List<String> outputs = node.getOutputs();
-                    for (int j = 0; j < outputs.size(); j++)
-                    {
-                        int sx = nx + w;
-                        int sy = ny + (int) ((30 + j * 20) * this.scale);
-                        
-                        if (Math.abs(mx - sx) < Math.max(10 * this.scale, 6F) && Math.abs(my - sy) < Math.max(10 * this.scale, 6F))
-                        {
-                            this.draggingConnectionNode = node.id;
-                            this.draggingConnectionIndex = j;
-                            this.draggingConnectionInput = false;
-                            return true;
-                        }
-                    }
-                    
-                    // Inputs
-                    List<String> inputs = node.getInputs();
-                    for (int j = 0; j < inputs.size(); j++)
-                    {
-                        int sx = nx;
-                        int sy = ny + (int) ((30 + j * 20) * this.scale);
-                        
-                        if (Math.abs(mx - sx) < Math.max(10 * this.scale, 6F) && Math.abs(my - sy) < Math.max(10 * this.scale, 6F))
-                        {
-                            this.draggingConnectionNode = node.id;
-                            this.draggingConnectionIndex = j;
-                            this.draggingConnectionInput = true;
-                            return true;
-                        }
-                    }
-                }
+            MathNode math = (MathNode) node;
+            String[] ops = {"+", "-", "×", "÷", "%", "min", "max", "^"};
+            int op = math.operation;
 
-                // Check nodes
-                for (int i = this.graph.nodes.size() - 1; i >= 0; i--)
-                {
-                    ShapeNode node = this.graph.nodes.get(i);
-                    int nx = (int) (this.area.x + this.translateX + node.x * this.scale);
-                    int ny = (int) (this.area.y + this.translateY + node.y * this.scale);
-                    
-                    int max = Math.max(node.getInputs().size(), node.getOutputs().size());
-                    int w = (int) (120 * this.scale);
-                    int h = (int) ((35 + max * 20) * this.scale);
+            if (op == 8) return "Math (" + math.expression + ")";
+            if (op >= 0 && op < ops.length) return "Math (" + ops[op] + ")";
 
-                    if (mx >= nx && mx <= nx + w && my >= ny && my <= ny + h)
-                    {
-                        if (context.mouseButton == 0)
-                        {
-                            if (Window.isCtrlPressed())
-                            {
-                                if (this.selection.contains(node)) this.selection.remove(node);
-                                else this.selection.add(node);
-                            }
-                            else if (Window.isShiftPressed())
-                            {
-                                this.selection.add(node);
-                            }
-                            else
-                            {
-                                if (!this.selection.contains(node))
-                                {
-                                    this.selection.clear();
-                                    this.selectedConnections.clear();
-                                    this.selection.add(node);
-                                }
-                            }
-                            
-                            this.draggingNode = node;
-                            this.draggingNodeX = node.x;
-                            this.draggingNodeY = node.y;
-                            this.draggingMouseX = mx;
-                            this.draggingMouseY = my;
-                            this.lastMouseX = mx;
-                            this.lastMouseY = my;
-                            
-                            this.initialPositions.clear();
-                            for (ShapeNode selected : this.selection)
-                            {
-                                this.initialPositions.put(selected, new Vector2f(selected.x, selected.y));
-                            }
-                            
-                            return true;
-                        }
-                        else if (context.mouseButton == 1)
-                        {
-                            this.lastMouseX = mx;
-                            this.lastMouseY = my;
-
-                            if (!this.selection.contains(node))
-                            {
-                                this.selection.clear();
-                                this.selectedConnections.clear();
-                                this.selection.add(node);
-                            }
-                            
-                            this.openNodeContextMenu(context, node);
-                            return true;
-                        }
-                    }
-                }
-                
-                // Check connections
-                for (ShapeConnection c : this.graph.connections)
-                {
-                    if (this.isOverConnection(mx, my, c))
-                    {
-                        if (context.mouseButton == 0)
-                        {
-                            if (Window.isCtrlPressed())
-                            {
-                                if (this.selectedConnections.contains(c)) this.selectedConnections.remove(c);
-                                else this.selectedConnections.add(c);
-                            }
-                            else if (Window.isShiftPressed())
-                            {
-                                this.selectedConnections.add(c);
-                            }
-                            else
-                            {
-                                this.selection.clear();
-                                this.selectedConnections.clear();
-                                this.selectedConnections.add(c);
-                            }
-                            return true;
-                        }
-                    }
-                }
-            }
-
-            if (context.mouseButton == 2 || context.mouseButton == 0)
-            {
-                if (context.mouseButton == 0 && Window.isShiftPressed())
-                {
-                    this.selecting = true;
-                    this.selectingX = mx;
-                    this.selectingY = my;
-                }
-                else
-                {
-                    this.lastMouseX = mx;
-                    this.lastMouseY = my;
-                    this.dragging = true;
-                }
-                
-                // Clear selection if not adding
-                if (!Window.isShiftPressed() && !Window.isCtrlPressed())
-                {
-                    this.selection.clear();
-                    this.selectedConnections.clear();
-                }
-                
-                return true;
-            }
-            
-            if (context.mouseButton == 1)
-            {
-                this.lastMouseX = mx;
-                this.lastMouseY = my;
-                this.openContextMenu(context);
-            }
+            return "Math";
         }
 
-        return super.subMouseClicked(context);
+        if (node instanceof VectorMathNode)
+        {
+            String[] ops = {"Add", "Sub", "Mul", "Div", "Cross", "Project", "Reflect",
+                "Dot", "Distance", "Length", "Scale", "Normalize", "Abs",
+                "Min", "Max", "Floor", "Ceil", "Fract", "Mod", "Snap", "Sin", "Cos", "Tan"};
+            int op = ((VectorMathNode) node).operation;
+            String label = (op >= 0 && op < ops.length) ? ops[op] : "?";
+
+            return "Vector (" + label + ")";
+        }
+
+        if (node instanceof ValueNode)    return "Value: " + ((ValueNode) node).value;
+        if (node instanceof TimeNode)     return "Time";
+        if (node instanceof CoordinateNode) return "Coordinate";
+        if (node instanceof ColorNode)    return "Color";
+        if (node instanceof TextureNode)
+        {
+            Link t = ((TextureNode) node).texture;
+            return "Texture" + (t == null ? "" : ": " + t.path);
+        }
+
+        if (node instanceof InvertNode)
+        {
+            return ((InvertNode) node).mode == 1 ? "Invert (color)" : "Invert";
+        }
+
+        if (node instanceof RemapNode)     return "Remap";
+        if (node instanceof ClampNode)     return "Clamp";
+        if (node instanceof SmoothstepNode) return "Smoothstep";
+        if (node instanceof MixColorNode)  return "Mix Color";
+        if (node instanceof SplitColorNode) return "Split Color";
+        if (node instanceof CombineColorNode) return "Combine Color";
+
+        if (node instanceof NoiseNode)     return "Noise (seed " + ((NoiseNode) node).seed + ")";
+        if (node instanceof VoronoiNode)   return "Voronoi (seed " + ((VoronoiNode) node).seed + ")";
+        if (node instanceof FlowNoiseNode) return "Flow Noise (seed " + ((FlowNoiseNode) node).seed + ")";
+
+        if (node instanceof TriggerNode)
+        {
+            String[] modes = {"Greater", "Less", "Equal", "Not Equal", "Pulse"};
+            int m = ((TriggerNode) node).mode;
+            return "Trigger (" + (m >= 0 && m < modes.length ? modes[m] : "?") + ")";
+        }
+
+        if (node instanceof BumpNode)       return "Bump";
+        if (node instanceof CommentNode)    return ((CommentNode) node).title;
+        if (node instanceof OutputNode)     return "Output";
+        if (node instanceof IrisShaderNode)
+        {
+            String u = ((IrisShaderNode) node).uniform;
+            return "Iris Shader" + (u.isEmpty() ? "" : ": " + u);
+        }
+        if (node instanceof IrisAttributeNode) return "Iris: " + ((IrisAttributeNode) node).attribute.name();
+
+        return node.getType();
     }
-    
-    private void openContextMenu(UIContext context)
+
+    /**
+     * Header background colour. Override to theme custom node types.
+     */
+    protected int getNodeHeaderColor(ShapeNode node)
     {
-        ContextMenuManager menu = new ContextMenuManager();
-        
-        if (!this.selection.isEmpty() || !this.selectedConnections.isEmpty())
-        {
-            menu.action(Icons.REMOVE, UIKeys.GENERAL_REMOVE, Colors.NEGATIVE, () -> this.removeSelection());
-        }
-        
-        if (!this.selection.isEmpty())
-        {
-            menu.action(Icons.COPY, IKey.raw("Copy Nodes"), () -> this.copyNodes());
-        }
-        
-        if (clipboard != null)
-        {
-            menu.action(Icons.PASTE, IKey.raw("Paste Nodes"), () -> this.pasteNodes(this.lastMouseX, this.lastMouseY));
-        }
-        
-        menu.action(Icons.ADD, IKey.raw("Add Node"), () -> this.openNodeAddMenu(context));
-        
-        context.replaceContextMenu(menu.create());
+        if (node instanceof OutputNode)   return HEADER_OUTPUT;
+        if (node instanceof MathNode || node instanceof VectorMathNode
+            || node instanceof RemapNode || node instanceof ClampNode
+            || node instanceof SmoothstepNode || node instanceof InvertNode) return HEADER_MATH;
+        if (node instanceof ValueNode || node instanceof TimeNode
+            || node instanceof CoordinateNode) return HEADER_INPUT;
+        if (node instanceof ColorNode || node instanceof MixColorNode
+            || node instanceof SplitColorNode || node instanceof CombineColorNode) return HEADER_COLOR;
+        if (node instanceof TextureNode)  return HEADER_TEXTURE;
+        if (node instanceof TriggerNode)  return HEADER_TRIGGER;
+        if (node instanceof NoiseNode || node instanceof VoronoiNode
+            || node instanceof FlowNoiseNode) return HEADER_NOISE;
+        if (node instanceof BumpNode)     return HEADER_BUMP;
+
+        return HEADER_DEFAULT;
     }
-    
-    private void openNodeAddMenu(UIContext context)
+
+    /**
+     * Node body width in unscaled graph pixels. Override for nodes that need
+     * more space (e.g. those with many long slot labels).
+     */
+    protected int getNodeWidth(ShapeNode node)
     {
-        ContextMenuManager menu = new ContextMenuManager();
-        
-        menu.action(Icons.DOWNLOAD, IKey.raw("Output"), () -> this.addNode("output"));
-        menu.action(Icons.ALL_DIRECTIONS, IKey.raw("Coordinate"), () -> this.addNode("coordinate"));
-        menu.action(Icons.GEAR, IKey.raw("Math"), () -> this.addNode("math"));
-        menu.action(Icons.ALL_DIRECTIONS, IKey.raw("Vector Math"), () -> this.addNode("vector_math"));
-        menu.action(Icons.MAXIMIZE, IKey.raw("Value"), () -> this.addNode("value"));
-        menu.action(Icons.TIME, IKey.raw("Time"), () -> this.addNode("time"));
-        menu.action(Icons.MATERIAL, IKey.raw("Color"), () -> this.addNode("color"));
-        menu.action(Icons.REFRESH, IKey.raw("Mix Color"), () -> this.addNode("mix_color"));
-        menu.action(Icons.EDIT, IKey.raw("Comment"), () -> this.addNode("comment"));
-        menu.action(Icons.SOUND, IKey.raw("Noise"), () -> this.addNode("noise"));
-        menu.action(Icons.SOUND, IKey.raw("Voronoi"), () -> this.addNode("voronoi"));
-        menu.action(Icons.SOUND, IKey.raw("Flow Noise"), () -> this.addNode("flow_noise"));
-        menu.action(Icons.GEAR, IKey.raw("Trigger"), () -> this.addNode("trigger"));
-        menu.action(Icons.UPLOAD, IKey.raw("Bump"), () -> this.addNode("bump"));
-        menu.action(Icons.GLOBE, IKey.raw("Iris Shader"), () -> this.addNode("iris_shader"));
-        menu.action(Icons.VISIBLE, IKey.raw("Iris Attribute"), () -> this.addNode("iris_attribute"));
-        
-        context.replaceContextMenu(menu.create());
+        if (node instanceof VectorMathNode) return 140;
+        if (node instanceof RemapNode)      return 140;
+
+        return 120;
     }
-    
-    private void addNode(String type)
+
+    /**
+     * Height of the extra preview area drawn between the node header and the first
+     * socket row, in unscaled graph pixels. Override to add more preview space for
+     * custom node types.
+     */
+    protected int getNodePreviewHeight(ShapeNode node)
+    {
+        if (node instanceof TextureNode) return 52;
+        if (node instanceof MixColorNode || node instanceof SplitColorNode
+            || node instanceof CombineColorNode) return 14;
+
+        return 0;
+    }
+
+    /**
+     * Called after type-specific items are added but before Remove/Copy/Paste.
+     * Override to inject extra menu items for custom node types.
+     */
+    protected void appendNodeContextMenu(UIContext context, ShapeNode node, ContextMenuManager menu)
+    {}
+
+    /**
+     * Override to add custom node categories / types to the Add-Node submenu.
+     * The default implementation adds all built-in shape nodes organised by category.
+     */
+    protected void populateAddMenu(UIContext context, ContextMenuManager menu)
+    {
+        /* Input — green */
+        ContextMenuManager inputSub = new ContextMenuManager();
+        inputSub.action(Icons.MAXIMIZE, UIKeys.RAW_VALUE,      Colors.POSITIVE, () -> this.addNode("value"));
+        inputSub.action(Icons.MATERIAL, UIKeys.RAW_COLOR,      Colors.POSITIVE, () -> this.addNode("color"));
+        inputSub.action(Icons.TIME,     UIKeys.RAW_TIME,       Colors.POSITIVE, () -> this.addNode("time"));
+        inputSub.action(Icons.ALL_DIRECTIONS, UIKeys.RAW_COORDINATE, Colors.POSITIVE, () -> this.addNode("coordinate"));
+        inputSub.action(Icons.IMAGE,    UIKeys.RAW_TEXTURE,    Colors.POSITIVE, () -> this.addNode("texture"));
+        menu.action(Icons.DOWNLOAD, UIKeys.RAW_INPUT, Colors.POSITIVE, () -> context.replaceContextMenu(inputSub.create()));
+
+        /* Math — blue */
+        ContextMenuManager mathSub = new ContextMenuManager();
+        mathSub.action(Icons.GEAR,   UIKeys.RAW_MATH,       Colors.ACTIVE, () -> this.addNode("math"));
+        mathSub.action(Icons.ALL_DIRECTIONS, UIKeys.RAW_VECTOR_MATH, Colors.ACTIVE, () -> this.addNode("vector_math"));
+        mathSub.action(Icons.GEAR,   UIKeys.RAW_REMAP,      Colors.ACTIVE, () -> this.addNode("remap"));
+        mathSub.action(Icons.GEAR,   UIKeys.RAW_CLAMP,      Colors.ACTIVE, () -> this.addNode("clamp"));
+        mathSub.action(Icons.GEAR,   UIKeys.RAW_SMOOTHSTEP, Colors.ACTIVE, () -> this.addNode("smoothstep"));
+        mathSub.action(Icons.REFRESH, UIKeys.RAW_INVERT,    Colors.ACTIVE, () -> this.addNode("invert"));
+        menu.action(Icons.GEAR, UIKeys.RAW_MATH, Colors.ACTIVE, () -> context.replaceContextMenu(mathSub.create()));
+
+        /* Color — orange */
+        ContextMenuManager colorSub = new ContextMenuManager();
+        colorSub.action(Icons.REFRESH, UIKeys.RAW_MIX_COLOR,     Colors.ORANGE, () -> this.addNode("mix_color"));
+        colorSub.action(Icons.FILTER,  UIKeys.RAW_SPLIT_COLOR,   Colors.ORANGE, () -> this.addNode("split_color"));
+        colorSub.action(Icons.FILTER,  UIKeys.RAW_COMBINE_COLOR, Colors.ORANGE, () -> this.addNode("combine_color"));
+        menu.action(Icons.MATERIAL, UIKeys.RAW_COLOR, Colors.ORANGE, () -> context.replaceContextMenu(colorSub.create()));
+
+        /* Noise — yellow */
+        ContextMenuManager noiseSub = new ContextMenuManager();
+        noiseSub.action(Icons.SOUND, UIKeys.RAW_PERLIN_NOISE, Colors.INACTIVE, () -> this.addNode("noise"));
+        noiseSub.action(Icons.SOUND, UIKeys.RAW_VORONOI,      Colors.INACTIVE, () -> this.addNode("voronoi"));
+        noiseSub.action(Icons.SOUND, UIKeys.RAW_FLOW_NOISE,   Colors.INACTIVE, () -> this.addNode("flow_noise"));
+        menu.action(Icons.SOUND, UIKeys.RAW_NOISE, Colors.INACTIVE, () -> context.replaceContextMenu(noiseSub.create()));
+
+        /* Utility — no color */
+        ContextMenuManager utilitySub = new ContextMenuManager();
+        utilitySub.action(Icons.GEAR,   UIKeys.RAW_TRIGGER, () -> this.addNode("trigger"));
+        utilitySub.action(Icons.UPLOAD, UIKeys.RAW_BUMP,    () -> this.addNode("bump"));
+        utilitySub.action(Icons.EDIT,   UIKeys.RAW_COMMENT, () -> this.addNode("comment"));
+        menu.action(Icons.MORE, UIKeys.RAW_UTILITY, () -> context.replaceContextMenu(utilitySub.create()));
+
+        /* Output / integration — red */
+        ContextMenuManager outputSub = new ContextMenuManager();
+        outputSub.action(Icons.DOWNLOAD, UIKeys.RAW_OUTPUT,         Colors.NEGATIVE, () -> this.addNode("output"));
+        outputSub.action(Icons.GLOBE,    UIKeys.RAW_IRIS_SHADER,    Colors.NEGATIVE, () -> this.addNode("iris_shader"));
+        outputSub.action(Icons.VISIBLE,  UIKeys.RAW_IRIS_ATTRIBUTE, Colors.NEGATIVE, () -> this.addNode("iris_attribute"));
+        menu.action(Icons.UPLOAD, UIKeys.RAW_OUTPUT, Colors.NEGATIVE, () -> context.replaceContextMenu(outputSub.create()));
+    }
+
+    /* ======================================================================
+     * Copy / paste helpers
+     * ====================================================================== */
+
+    private MapType createData()
+    {
+        if (this.selection.isEmpty() && this.selectedConnections.isEmpty()) return null;
+
+        MapType data = new MapType();
+        ListType nodesList = new ListType();
+        ListType connectionsList = new ListType();
+
+        for (ShapeNode node : this.selection)
+        {
+            MapType nodeData = new MapType();
+            node.toData(nodeData);
+            nodesList.add(nodeData);
+        }
+
+        Set<ShapeConnection> toAdd = new HashSet<>(this.selectedConnections);
+
+        if (this.graph != null)
+        {
+            for (ShapeConnection c : this.graph.getConnections())
+            {
+                boolean inputSelected = false;
+                boolean outputSelected = false;
+
+                for (ShapeNode node : this.selection)
+                {
+                    if (node.id == c.inputNodeId) inputSelected = true;
+                    if (node.id == c.outputNodeId) outputSelected = true;
+                }
+
+                if (inputSelected && outputSelected) toAdd.add(c);
+            }
+        }
+
+        for (ShapeConnection c : toAdd)
+        {
+            MapType cData = new MapType();
+            c.toData(cData);
+            connectionsList.add(cData);
+        }
+
+        data.put("nodes", nodesList);
+        data.put("connections", connectionsList);
+
+        return data;
+    }
+
+    private void pasteData(MapType data, int mouseX, int mouseY)
     {
         if (this.graph == null) return;
-        
+
+        ListType nodesList = data.getList("nodes");
+        ListType connectionsList = data.getList("connections");
+
+        Map<Integer, Integer> idMap = new HashMap<>();
+
+        this.selection.clear();
+        this.selectedConnections.clear();
+
+        float minX = Float.MAX_VALUE;
+        float minY = Float.MAX_VALUE;
+
+        for (BaseType element : nodesList)
+        {
+            if (element instanceof MapType)
+            {
+                float nx = ((MapType) element).getFloat("x");
+                float ny = ((MapType) element).getFloat("y");
+
+                if (nx < minX) minX = nx;
+                if (ny < minY) minY = ny;
+            }
+        }
+
+        float graphX = (-this.translateX + mouseX - this.area.x) / this.scale;
+        float graphY = (-this.translateY + mouseY - this.area.y) / this.scale;
+
+        for (BaseType element : nodesList)
+        {
+            if (element instanceof MapType)
+            {
+                MapType nodeData = (MapType) element;
+                String type = nodeData.getString("type");
+                ShapeNode node = this.graph.createNode(type);
+
+                if (node != null)
+                {
+                    node.fromData(nodeData);
+
+                    int oldId = node.id;
+                    node.id = 0;
+                    this.graph.addNode(node);
+                    idMap.put(oldId, node.id);
+
+                    node.x = graphX + (node.x - minX);
+                    node.y = graphY + (node.y - minY);
+
+                    this.selection.add(node);
+                }
+            }
+        }
+
+        for (BaseType element : connectionsList)
+        {
+            if (element instanceof MapType)
+            {
+                ShapeConnection c = new ShapeConnection();
+                c.fromData((MapType) element);
+
+                if (idMap.containsKey(c.inputNodeId) && idMap.containsKey(c.outputNodeId))
+                {
+                    this.graph.connect(idMap.get(c.outputNodeId), c.outputIndex,
+                        idMap.get(c.inputNodeId), c.inputIndex);
+                }
+            }
+        }
+    }
+
+    private void copyNodes()
+    {
+        MapType data = this.createData();
+
+        if (data != null) clipboard = data;
+    }
+
+    private void pasteNodes(int mx, int my)
+    {
+        if (clipboard != null) this.pasteData(clipboard, mx, my);
+    }
+
+    public boolean hasToolbarNodeSelection()
+    {
+        return !this.selection.isEmpty();
+    }
+
+    public boolean hasToolbarClipboard()
+    {
+        return clipboard != null;
+    }
+
+    public void toolbarRemoveSelectedNodes()
+    {
+        if (!this.selection.isEmpty())
+        {
+            this.removeSelection();
+        }
+    }
+
+    public void toolbarCopyNodes()
+    {
+        if (!this.selection.isEmpty())
+        {
+            this.copyNodes();
+        }
+    }
+
+    public void toolbarPasteNodes()
+    {
+        if (clipboard != null)
+        {
+            this.pasteNodes(this.lastMouseX, this.lastMouseY);
+        }
+    }
+
+    /* ======================================================================
+     * Node management helpers
+     * ====================================================================== */
+
+    protected void addNode(String type)
+    {
+        if (this.graph == null) return;
+
         ShapeNode node = this.graph.createNode(type);
-        
+
         if (node != null)
         {
             node.x = (this.lastMouseX - this.area.x - this.translateX) / this.scale;
             node.y = (this.lastMouseY - this.area.y - this.translateY) / this.scale;
-            
-            this.graph.addNode(node);
+
+            this.editGraph(() -> this.graph.addNode(node));
         }
     }
-    
+
     private void removeSelection()
     {
-        if (this.graph == null)
-        {
-            return;
-        }
+        if (this.graph == null) return;
 
         this.editGraph(() ->
         {
@@ -559,50 +577,86 @@ public class UIShapeNodeEditor extends UIElement
                 this.graph.removeNode(node);
             }
 
-            this.graph.connections.removeAll(this.selectedConnections);
+            this.graph.getConnections().removeAll(this.selectedConnections);
         });
 
         this.selection.clear();
         this.selectedConnections.clear();
     }
-    
+
     private void removeNode(ShapeNode node)
     {
-        this.graph.removeNode(node);
+        this.editGraph(() -> this.graph.removeNode(node));
         this.selection.remove(node);
     }
-    
+
+    /* ======================================================================
+     * Context menus
+     * ====================================================================== */
+
+    private void openContextMenu(UIContext context)
+    {
+        ContextMenuManager menu = new ContextMenuManager();
+
+        if (!this.selection.isEmpty() || !this.selectedConnections.isEmpty())
+        {
+            menu.action(Icons.REMOVE, UIKeys.GENERAL_REMOVE, Colors.NEGATIVE, () -> this.removeSelection());
+        }
+
+        if (!this.selection.isEmpty())
+        {
+            menu.action(Icons.COPY, UIKeys.RAW_COPY, Colors.POSITIVE, () -> this.copyNodes());
+        }
+
+        if (clipboard != null)
+        {
+            menu.action(Icons.PASTE, UIKeys.RAW_PASTE, Colors.INACTIVE, () -> this.pasteNodes(this.lastMouseX, this.lastMouseY));
+        }
+
+        ContextMenuManager addSub = new ContextMenuManager();
+        this.populateAddMenu(context, addSub);
+        menu.action(Icons.ADD, UIKeys.RAW_ADD_NODE, Colors.ACTIVE, () -> context.replaceContextMenu(addSub.create()));
+
+        context.replaceContextMenu(menu.create());
+    }
+
     private void openNodeContextMenu(UIContext context, ShapeNode node)
     {
         ContextMenuManager menu = new ContextMenuManager();
 
+        /* Type-specific items */
         if (node instanceof MathNode)
         {
             MathNode math = (MathNode) node;
             ContextMenuManager op = new ContextMenuManager();
 
-            op.action(Icons.ADD, IKey.raw("Add"), () -> math.operation = 0);
-            op.action(Icons.REMOVE, IKey.raw("Sub"), () -> math.operation = 1);
-            op.action(Icons.CLOSE, IKey.raw("Mul"), () -> math.operation = 2);
-            op.action(Icons.MAXIMIZE, IKey.raw("Div"), () -> math.operation = 3);
-            op.action(Icons.REFRESH, IKey.raw("Mod"), () -> math.operation = 4);
-            op.action(Icons.DOWNLOAD, IKey.raw("Min"), () -> math.operation = 5);
-            op.action(Icons.UPLOAD, IKey.raw("Max"), () -> math.operation = 6);
-            op.action(Icons.MORE, IKey.raw("Pow"), () -> math.operation = 7);
-            op.action(Icons.EDIT, IKey.raw("Custom..."), () -> {
+            op.action(Icons.ADD,    UIKeys.RAW_ADD,    () -> math.operation = 0);
+            op.action(Icons.REMOVE, UIKeys.RAW_SUB,    () -> math.operation = 1);
+            op.action(Icons.CLOSE,  UIKeys.RAW_MUL,    () -> math.operation = 2);
+            op.action(Icons.MAXIMIZE, UIKeys.RAW_DIV,  () -> math.operation = 3);
+            op.action(Icons.REFRESH, UIKeys.RAW_MOD,   () -> math.operation = 4);
+            op.action(Icons.DOWNLOAD, UIKeys.RAW_MIN,  () -> math.operation = 5);
+            op.action(Icons.UPLOAD,  UIKeys.RAW_MAX,   () -> math.operation = 6);
+            op.action(Icons.MORE,    UIKeys.RAW_POW,   () -> math.operation = 7);
+            op.action(Icons.EDIT,    UIKeys.RAW_CUSTOM, () ->
+            {
                 math.operation = 8;
-                
-                UIPromptOverlayPanel panel = new UIPromptOverlayPanel(IKey.raw("Edit Expression"), IKey.raw("Enter Molang expression"), (s) -> math.setExpression(s));
+                UIPromptOverlayPanel panel = new UIPromptOverlayPanel(
+                    UIKeys.RAW_EDIT_EXPRESSION, UIKeys.RAW_ENTER_MOLANG_EXPRESSION,
+                    (s) -> math.setExpression(s));
                 panel.text.setText(math.expression);
                 UIOverlay.addOverlay(context, panel);
             });
 
-            menu.action(Icons.GEAR, IKey.raw("Operation"), () -> context.replaceContextMenu(op.create()));
-            
+            menu.action(Icons.GEAR, UIKeys.RAW_OPERATION, Colors.INACTIVE, () -> context.replaceContextMenu(op.create()));
+
             if (math.operation == 8)
             {
-                menu.action(Icons.EDIT, IKey.raw("Edit Expression"), () -> {
-                    UIPromptOverlayPanel panel = new UIPromptOverlayPanel(IKey.raw("Edit Expression"), IKey.raw("Enter Molang expression"), (s) -> math.setExpression(s));
+                menu.action(Icons.EDIT, UIKeys.RAW_EDIT_EXPRESSION, Colors.ACTIVE, () ->
+                {
+                    UIPromptOverlayPanel panel = new UIPromptOverlayPanel(
+                        UIKeys.RAW_EDIT_EXPRESSION, UIKeys.RAW_ENTER_MOLANG_EXPRESSION,
+                        (s) -> math.setExpression(s));
                     panel.text.setText(math.expression);
                     UIOverlay.addOverlay(context, panel);
                 });
@@ -613,248 +667,541 @@ public class UIShapeNodeEditor extends UIElement
             VectorMathNode math = (VectorMathNode) node;
             ContextMenuManager op = new ContextMenuManager();
 
-            op.action(Icons.ADD, IKey.raw("Add"), () -> math.operation = 0);
-            op.action(Icons.REMOVE, IKey.raw("Sub"), () -> math.operation = 1);
-            op.action(Icons.CLOSE, IKey.raw("Mul"), () -> math.operation = 2);
-            op.action(Icons.MAXIMIZE, IKey.raw("Div"), () -> math.operation = 3);
-            op.action(Icons.CLOSE, IKey.raw("Cross"), () -> math.operation = 4);
-            op.action(Icons.DOWNLOAD, IKey.raw("Project"), () -> math.operation = 5);
-            op.action(Icons.REFRESH, IKey.raw("Reflect"), () -> math.operation = 6);
-            op.action(Icons.VISIBLE, IKey.raw("Dot"), () -> math.operation = 7);
-            op.action(Icons.ALL_DIRECTIONS, IKey.raw("Distance"), () -> math.operation = 8);
-            op.action(Icons.ALL_DIRECTIONS, IKey.raw("Length"), () -> math.operation = 9);
-            op.action(Icons.MAXIMIZE, IKey.raw("Scale"), () -> math.operation = 10);
-            op.action(Icons.ALL_DIRECTIONS, IKey.raw("Normalize"), () -> math.operation = 11);
-            op.action(Icons.GEAR, IKey.raw("Abs"), () -> math.operation = 12);
-            op.action(Icons.DOWNLOAD, IKey.raw("Min"), () -> math.operation = 13);
-            op.action(Icons.UPLOAD, IKey.raw("Max"), () -> math.operation = 14);
-            op.action(Icons.GEAR, IKey.raw("Floor"), () -> math.operation = 15);
-            op.action(Icons.GEAR, IKey.raw("Ceil"), () -> math.operation = 16);
-            op.action(Icons.GEAR, IKey.raw("Fract"), () -> math.operation = 17);
-            op.action(Icons.REFRESH, IKey.raw("Modulo"), () -> math.operation = 18);
-            op.action(Icons.GEAR, IKey.raw("Snap"), () -> math.operation = 19);
-            op.action(Icons.GEAR, IKey.raw("Sin"), () -> math.operation = 20);
-            op.action(Icons.GEAR, IKey.raw("Cos"), () -> math.operation = 21);
-            op.action(Icons.GEAR, IKey.raw("Tan"), () -> math.operation = 22);
+            String[] names = {"Add", "Sub", "Mul", "Div", "Cross", "Project", "Reflect",
+                "Dot", "Distance", "Length", "Scale", "Normalize", "Abs", "Min", "Max",
+                "Floor", "Ceil", "Fract", "Modulo", "Snap", "Sin", "Cos", "Tan"};
 
-            menu.action(Icons.GEAR, IKey.raw("Operation"), () -> context.replaceContextMenu(op.create()));
+            for (int i = 0; i < names.length; i++)
+            {
+                final int idx = i;
+                op.action(Icons.GEAR, IKey.raw(names[i]), () -> math.operation = idx);
+            }
+
+            menu.action(Icons.GEAR, UIKeys.RAW_OPERATION, Colors.INACTIVE, () -> context.replaceContextMenu(op.create()));
         }
         else if (node instanceof ValueNode)
         {
-            ValueNode valueNode = (ValueNode) node;
-            menu.action(Icons.EDIT, IKey.raw("Edit Value"), () -> {
-                UINumberOverlayPanel panel = new UINumberOverlayPanel(IKey.raw("Edit Value"), IKey.raw("Enter a new value"), (v) -> valueNode.value = v.floatValue());
-                panel.value.setValue((double) valueNode.value);
+            ValueNode vn = (ValueNode) node;
+            menu.action(Icons.EDIT, UIKeys.RAW_EDIT_VALUE, Colors.ACTIVE, () ->
+            {
+                UINumberOverlayPanel panel = new UINumberOverlayPanel(
+                    UIKeys.RAW_EDIT_VALUE, UIKeys.RAW_ENTER_A_NEW_VALUE,
+                    (v) -> vn.value = v.floatValue());
+                panel.value.setValue((double) vn.value);
                 UIOverlay.addOverlay(context, panel);
             });
         }
         else if (node instanceof ColorNode)
         {
-            ColorNode colorNode = (ColorNode) node;
-            menu.action(Icons.MATERIAL, IKey.raw("Edit Color"), () -> {
-                UIColorOverlayPanel panel = new UIColorOverlayPanel(IKey.raw("Edit Color"), (c) -> colorNode.color.set(c));
+            ColorNode cn = (ColorNode) node;
+            menu.action(Icons.MATERIAL, UIKeys.RAW_EDIT_COLOR, Colors.ACTIVE, () ->
+            {
+                UIColorOverlayPanel panel = new UIColorOverlayPanel(UIKeys.RAW_EDIT_COLOR, (c) -> cn.color.set(c));
                 panel.picker.editAlpha = true;
-                panel.picker.setColor(colorNode.color.getARGBColor());
+                panel.picker.setColor(cn.color.getARGBColor());
                 UIOverlay.addOverlay(context, panel, 250, 160);
             });
         }
-        else if (node instanceof CommentNode)
+        else if (node instanceof TextureNode)
         {
-            CommentNode commentNode = (CommentNode) node;
-            menu.action(Icons.EDIT, IKey.raw("Edit Title"), () -> {
-                UIPromptOverlayPanel panel = new UIPromptOverlayPanel(IKey.raw("Edit Title"), IKey.raw("Enter title"), (s) -> commentNode.title = s);
-                panel.text.setText(commentNode.title);
+            TextureNode tn = (TextureNode) node;
+            menu.action(Icons.IMAGE, UIKeys.RAW_PICK_TEXTURE, Colors.ACTIVE, () ->
+                UITexturePicker.open(context, tn.texture, (l) -> tn.texture = l));
+        }
+        else if (node instanceof InvertNode)
+        {
+            InvertNode inv = (InvertNode) node;
+            ContextMenuManager modeMenu = new ContextMenuManager();
+
+            modeMenu.action(Icons.GEAR, UIKeys.RAW_SCALAR_1_VALUE, () -> inv.mode = 0);
+            modeMenu.action(Icons.MATERIAL, UIKeys.RAW_COLOR_INVERT_RGB, Colors.INACTIVE, () -> inv.mode = 1);
+
+            menu.action(Icons.GEAR, UIKeys.RAW_MODE, Colors.INACTIVE, () -> context.replaceContextMenu(modeMenu.create()));
+        }
+        else if (node instanceof NoiseNode)
+        {
+            NoiseNode nn = (NoiseNode) node;
+            menu.action(Icons.EDIT, UIKeys.RAW_EDIT_SEED, Colors.ACTIVE, () ->
+            {
+                UINumberOverlayPanel panel = new UINumberOverlayPanel(
+                    UIKeys.RAW_NOISE_SEED, UIKeys.RAW_ENTER_INTEGER_SEED,
+                    (v) -> nn.seed = v.intValue());
+                panel.value.setValue(nn.seed);
                 UIOverlay.addOverlay(context, panel);
             });
-            menu.action(Icons.EDIT, IKey.raw("Edit Comment"), () -> {
-                UITextareaOverlayPanel panel = new UITextareaOverlayPanel(IKey.raw("Edit Comment"), IKey.raw("Enter comment"), (s) -> commentNode.comment = s);
-                panel.text.setText(commentNode.comment);
+        }
+        else if (node instanceof VoronoiNode)
+        {
+            VoronoiNode vn = (VoronoiNode) node;
+            menu.action(Icons.EDIT, UIKeys.RAW_EDIT_SEED, Colors.ACTIVE, () ->
+            {
+                UINumberOverlayPanel panel = new UINumberOverlayPanel(
+                    UIKeys.RAW_VORONOI_SEED, UIKeys.RAW_ENTER_INTEGER_SEED,
+                    (v) -> vn.seed = v.intValue());
+                panel.value.setValue(vn.seed);
+                UIOverlay.addOverlay(context, panel);
+            });
+        }
+        else if (node instanceof FlowNoiseNode)
+        {
+            FlowNoiseNode fn = (FlowNoiseNode) node;
+            menu.action(Icons.EDIT, UIKeys.RAW_EDIT_SEED, Colors.ACTIVE, () ->
+            {
+                UINumberOverlayPanel panel = new UINumberOverlayPanel(
+                    UIKeys.RAW_FLOW_NOISE_SEED, UIKeys.RAW_ENTER_INTEGER_SEED,
+                    (v) -> fn.seed = v.intValue());
+                panel.value.setValue(fn.seed);
+                UIOverlay.addOverlay(context, panel);
+            });
+        }
+        else if (node instanceof TriggerNode)
+        {
+            TriggerNode tn = (TriggerNode) node;
+            ContextMenuManager modeMenu = new ContextMenuManager();
+
+            modeMenu.action(Icons.GEAR, UIKeys.RAW_GREATER,   () -> tn.mode = 0);
+            modeMenu.action(Icons.GEAR, UIKeys.RAW_LESS,      () -> tn.mode = 1);
+            modeMenu.action(Icons.GEAR, UIKeys.RAW_EQUAL,     () -> tn.mode = 2);
+            modeMenu.action(Icons.GEAR, UIKeys.RAW_NOT_EQUAL, () -> tn.mode = 3);
+            modeMenu.action(Icons.GEAR, UIKeys.RAW_PULSE,     () -> tn.mode = 4);
+
+            menu.action(Icons.GEAR, UIKeys.RAW_MODE, Colors.INACTIVE, () -> context.replaceContextMenu(modeMenu.create()));
+        }
+        else if (node instanceof CommentNode)
+        {
+            CommentNode cn = (CommentNode) node;
+            menu.action(Icons.EDIT, UIKeys.RAW_EDIT_TITLE, Colors.ACTIVE, () ->
+            {
+                UIPromptOverlayPanel panel = new UIPromptOverlayPanel(
+                    UIKeys.RAW_EDIT_TITLE, UIKeys.RAW_ENTER_TITLE, (s) -> cn.title = s);
+                panel.text.setText(cn.title);
+                UIOverlay.addOverlay(context, panel);
+            });
+            menu.action(Icons.EDIT, UIKeys.RAW_EDIT_COMMENT, Colors.ACTIVE, () ->
+            {
+                UITextareaOverlayPanel panel = new UITextareaOverlayPanel(
+                    UIKeys.RAW_EDIT_COMMENT, UIKeys.RAW_ENTER_COMMENT, (s) -> cn.comment = s);
+                panel.text.setText(cn.comment);
                 UIOverlay.addOverlay(context, panel);
             });
         }
         else if (node instanceof IrisShaderNode)
         {
-            IrisShaderNode irisNode = (IrisShaderNode) node;
-            menu.action(Icons.EDIT, IKey.raw("Edit Uniform"), () -> {
-                UIPromptOverlayPanel panel = new UIPromptOverlayPanel(IKey.raw("Edit Uniform"), IKey.raw("Enter uniform name"), (s) -> irisNode.uniform = s);
-                panel.text.setText(irisNode.uniform);
+            IrisShaderNode sn = (IrisShaderNode) node;
+            menu.action(Icons.EDIT, UIKeys.RAW_EDIT_UNIFORM, Colors.ACTIVE, () ->
+            {
+                UIPromptOverlayPanel panel = new UIPromptOverlayPanel(
+                    UIKeys.RAW_EDIT_UNIFORM, UIKeys.RAW_ENTER_UNIFORM_NAME, (s) -> sn.uniform = s);
+                panel.text.setText(sn.uniform);
                 UIOverlay.addOverlay(context, panel);
             });
         }
         else if (node instanceof IrisAttributeNode)
         {
-            IrisAttributeNode attrNode = (IrisAttributeNode) node;
+            IrisAttributeNode an = (IrisAttributeNode) node;
             ContextMenuManager attrMenu = new ContextMenuManager();
-            
+
             for (IrisAttributeNode.Attribute attr : IrisAttributeNode.Attribute.values())
             {
-                attrMenu.action(Icons.GEAR, IKey.raw(attr.name()), () -> attrNode.attribute = attr);
+                attrMenu.action(Icons.GEAR, IKey.raw(attr.name()), () -> an.attribute = attr);
             }
-            
-            menu.action(Icons.GEAR, IKey.raw("Attribute: " + attrNode.attribute.name()), () -> context.replaceContextMenu(attrMenu.create()));
+
+            menu.action(Icons.GEAR, IKey.raw("Attribute: " + an.attribute.name()), Colors.INACTIVE,
+                () -> context.replaceContextMenu(attrMenu.create()));
         }
-        
+
+        /* Hook for subclasses */
+        this.appendNodeContextMenu(context, node, menu);
+
+        /* Always-present actions */
         menu.action(Icons.REMOVE, UIKeys.GENERAL_REMOVE, Colors.NEGATIVE, () -> this.removeNode(node));
-        
+
         if (!this.selection.isEmpty())
         {
-            menu.action(Icons.COPY, IKey.raw("Copy Nodes"), () -> this.copyNodes());
+            menu.action(Icons.COPY, UIKeys.RAW_COPY, Colors.POSITIVE, () -> this.copyNodes());
         }
-        
+
         if (clipboard != null)
         {
-            menu.action(Icons.PASTE, IKey.raw("Paste Nodes"), () -> this.pasteNodes(this.lastMouseX, this.lastMouseY));
+            menu.action(Icons.PASTE, UIKeys.RAW_PASTE, Colors.INACTIVE, () -> this.pasteNodes(this.lastMouseX, this.lastMouseY));
         }
-        
+
         context.replaceContextMenu(menu.create());
     }
-    
+
+    /* ======================================================================
+     * Input handling
+     * ====================================================================== */
+
+    @Override
+    protected boolean subMouseClicked(UIContext context)
+    {
+        if (!this.area.isInside(context)) return super.subMouseClicked(context);
+
+        int mx = context.mouseX;
+        int my = context.mouseY;
+
+        if (this.graph != null)
+        {
+            /* Check sockets first (reverse order, topmost node wins) */
+            List<ShapeNode> nodes = this.graph.getNodes();
+
+            for (int i = nodes.size() - 1; i >= 0; i--)
+            {
+                ShapeNode node = nodes.get(i);
+                int nx = this.nodeScreenX(node);
+                int ny = this.nodeScreenY(node);
+                int w = this.nodeScreenW(node);
+                float hitR = Math.max(10F * this.scale, 6F);
+
+                List<String> outputs = node.getOutputs();
+
+                for (int j = 0; j < outputs.size(); j++)
+                {
+                    int sx = nx + w;
+                    int sy = this.socketScreenY(node, j);
+
+                    if (Math.abs(mx - sx) < hitR && Math.abs(my - sy) < hitR)
+                    {
+                        this.draggingConnectionNode = node.id;
+                        this.draggingConnectionIndex = j;
+                        this.draggingConnectionInput = false;
+
+                        return true;
+                    }
+                }
+
+                List<String> inputs = node.getInputs();
+
+                for (int j = 0; j < inputs.size(); j++)
+                {
+                    int sx = nx;
+                    int sy = this.socketScreenY(node, j);
+
+                    if (Math.abs(mx - sx) < hitR && Math.abs(my - sy) < hitR)
+                    {
+                        this.draggingConnectionNode = node.id;
+                        this.draggingConnectionIndex = j;
+                        this.draggingConnectionInput = true;
+
+                        return true;
+                    }
+                }
+            }
+
+            /* Check node bodies */
+            for (int i = nodes.size() - 1; i >= 0; i--)
+            {
+                ShapeNode node = nodes.get(i);
+                int nx = this.nodeScreenX(node);
+                int ny = this.nodeScreenY(node);
+                int max = Math.max(node.getInputs().size(), node.getOutputs().size());
+                int w = this.nodeScreenW(node);
+                int h = (int) ((35 + this.getNodePreviewHeight(node) + max * 20) * this.scale);
+
+                if (mx >= nx && mx <= nx + w && my >= ny && my <= ny + h)
+                {
+                    if (context.mouseButton == 0)
+                    {
+                        if (Window.isCtrlPressed())
+                        {
+                            if (this.selection.contains(node)) this.selection.remove(node);
+                            else this.selection.add(node);
+                        }
+                        else if (Window.isShiftPressed())
+                        {
+                            this.selection.add(node);
+                        }
+                        else
+                        {
+                            if (!this.selection.contains(node))
+                            {
+                                this.selection.clear();
+                                this.selectedConnections.clear();
+                                this.selection.add(node);
+                            }
+                        }
+
+                        /* Bring node to top of render stack */
+                        this.graph.bringToFront(node);
+
+                        this.draggingNode = node;
+                        this.draggingMouseX = mx;
+                        this.draggingMouseY = my;
+                        this.lastMouseX = mx;
+                        this.lastMouseY = my;
+
+                        this.initialPositions.clear();
+
+                        for (ShapeNode sel : this.selection)
+                        {
+                            this.initialPositions.put(sel, new Vector2f(sel.x, sel.y));
+                        }
+
+                        return true;
+                    }
+                    else if (context.mouseButton == 1)
+                    {
+                        this.lastMouseX = mx;
+                        this.lastMouseY = my;
+
+                        if (!this.selection.contains(node))
+                        {
+                            this.selection.clear();
+                            this.selectedConnections.clear();
+                            this.selection.add(node);
+                        }
+
+                        this.openNodeContextMenu(context, node);
+
+                        return true;
+                    }
+                }
+            }
+
+            /* Check connections */
+            for (ShapeConnection c : this.graph.getConnections())
+            {
+                if (this.isOverConnection(mx, my, c))
+                {
+                    if (context.mouseButton == 0)
+                    {
+                        if (Window.isCtrlPressed())
+                        {
+                            if (this.selectedConnections.contains(c)) this.selectedConnections.remove(c);
+                            else this.selectedConnections.add(c);
+                        }
+                        else if (Window.isShiftPressed())
+                        {
+                            this.selectedConnections.add(c);
+                        }
+                        else
+                        {
+                            this.selection.clear();
+                            this.selectedConnections.clear();
+                            this.selectedConnections.add(c);
+                        }
+
+                        return true;
+                    }
+                }
+            }
+        }
+
+        if (context.mouseButton == 2 || context.mouseButton == 0)
+        {
+            if (context.mouseButton == 0 && Window.isShiftPressed())
+            {
+                this.selecting = true;
+                this.selectingX = mx;
+                this.selectingY = my;
+            }
+            else
+            {
+                this.lastMouseX = mx;
+                this.lastMouseY = my;
+                this.dragging = true;
+            }
+
+            if (!Window.isShiftPressed() && !Window.isCtrlPressed())
+            {
+                this.selection.clear();
+                this.selectedConnections.clear();
+            }
+
+            return true;
+        }
+
+        if (context.mouseButton == 1)
+        {
+            this.lastMouseX = mx;
+            this.lastMouseY = my;
+            this.openContextMenu(context);
+        }
+
+        return super.subMouseClicked(context);
+    }
+
     @Override
     protected boolean subMouseReleased(UIContext context)
     {
         if (this.draggingConnectionNode != -1)
         {
-             if (this.graph != null)
-             {
-                 int mx = context.mouseX;
-                 int my = context.mouseY;
-                 
-                 for (int i = this.graph.nodes.size() - 1; i >= 0; i--)
-                 {
-                    ShapeNode node = this.graph.nodes.get(i);
-                    int nx = (int) (this.area.x + this.translateX + node.x * this.scale);
-                    int ny = (int) (this.area.y + this.translateY + node.y * this.scale);
-                    int w = (int) (120 * this.scale);
-                    
+            if (this.graph != null)
+            {
+                int mx = context.mouseX;
+                int my = context.mouseY;
+                List<ShapeNode> nodes = this.graph.getNodes();
+
+                for (int i = nodes.size() - 1; i >= 0; i--)
+                {
+                    ShapeNode node = nodes.get(i);
+                    int nx = this.nodeScreenX(node);
+                    int ny = this.nodeScreenY(node);
+                    int w = this.nodeScreenW(node);
+                    float hitR = Math.max(10F * this.scale, 6F);
+
                     if (!this.draggingConnectionInput)
                     {
-                        // Connecting output to input
+                        /* Output → find input socket on target node */
                         List<String> inputs = node.getInputs();
+
                         for (int j = 0; j < inputs.size(); j++)
                         {
                             int sx = nx;
-                            int sy = ny + (int) ((30 + j * 20) * this.scale);
-                            
-                            if (Math.abs(mx - sx) < Math.max(10 * this.scale, 6F) && Math.abs(my - sy) < Math.max(10 * this.scale, 6F))
+                            int sy = this.socketScreenY(node, j);
+
+                            if (Math.abs(mx - sx) < hitR && Math.abs(my - sy) < hitR)
                             {
-                                this.graph.connect(this.draggingConnectionNode, this.draggingConnectionIndex, node.id, j);
+                                final int inputIdx = j;
+                                this.editGraph(() -> this.graph.connect(
+                                    this.draggingConnectionNode, this.draggingConnectionIndex,
+                                    node.id, inputIdx));
                                 break;
                             }
                         }
                     }
                     else
                     {
-                        // Connecting input to output
+                        /* Input → find output socket on target node */
                         List<String> outputs = node.getOutputs();
+
                         for (int j = 0; j < outputs.size(); j++)
                         {
                             int sx = nx + w;
-                            int sy = ny + (int) ((30 + j * 20) * this.scale);
-                            
-                            if (Math.abs(mx - sx) < Math.max(10 * this.scale, 6F) && Math.abs(my - sy) < Math.max(10 * this.scale, 6F))
+                            int sy = this.socketScreenY(node, j);
+
+                            if (Math.abs(mx - sx) < hitR && Math.abs(my - sy) < hitR)
                             {
-                                this.graph.connect(node.id, j, this.draggingConnectionNode, this.draggingConnectionIndex);
+                                final int outputIdx = j;
+                                this.editGraph(() -> this.graph.connect(
+                                    node.id, outputIdx,
+                                    this.draggingConnectionNode, this.draggingConnectionIndex));
                                 break;
                             }
                         }
                     }
-                 }
-             }
-             
-             this.draggingConnectionNode = -1;
-             this.draggingConnectionIndex = -1;
-             this.draggingConnectionInput = false;
-             return true;
+                }
+            }
+
+            this.draggingConnectionNode = -1;
+            this.draggingConnectionIndex = -1;
+            this.draggingConnectionInput = false;
+
+            return true;
         }
-        
+
         if (this.selecting)
         {
-            this.selectNodes(this.selectingX, this.selectingY, context.mouseX, context.mouseY, Window.isCtrlPressed());
+            this.selectNodes(this.selectingX, this.selectingY, context.mouseX, context.mouseY,
+                Window.isCtrlPressed());
             this.selecting = false;
+
             return true;
         }
 
         this.draggingNode = null;
         this.dragging = false;
+
         return super.subMouseReleased(context);
     }
-    
+
     @Override
     protected boolean subKeyPressed(UIContext context)
     {
-        if (this.area.isInside(context))
+        if (!this.area.isInside(context)) return super.subKeyPressed(context);
+
+        if (Window.isCtrlPressed())
         {
-            if (Window.isCtrlPressed())
+            if (context.getKeyCode() == GLFW.GLFW_KEY_C)
             {
-                if (context.getKeyCode() == GLFW.GLFW_KEY_C)
-                {
-                    this.copyNodes();
-                    return true;
-                }
-                else if (context.getKeyCode() == GLFW.GLFW_KEY_X)
-                {
-                    if (this.selection.isEmpty() && this.selectedConnections.isEmpty())
-                    {
-                        context.notifyError(UIKeys.GENERAL_CUT_EMPTY);
-                        return true;
-                    }
-
-                    this.copyNodes();
-
-                    if (clipboard == null)
-                    {
-                        context.notifyError(UIKeys.GENERAL_CUT_NOT_ALLOWED);
-                        return true;
-                    }
-
-                    this.removeSelection();
-                    UIUtils.playClick();
-                    context.notifyInfo(UIKeys.GENERAL_CUT);
-                    return true;
-                }
-                else if (context.getKeyCode() == GLFW.GLFW_KEY_V)
-                {
-                    this.pasteNodes(this.lastMouseX, this.lastMouseY);
-                    return true;
-                }
+                this.copyNodes();
+                return true;
             }
-            
-            if (context.getKeyCode() == GLFW.GLFW_KEY_DELETE || context.getKeyCode() == GLFW.GLFW_KEY_BACKSPACE)
+            else if (context.getKeyCode() == GLFW.GLFW_KEY_X)
             {
-                if (!this.selection.isEmpty() || !this.selectedConnections.isEmpty())
+                if (this.selection.isEmpty() && this.selectedConnections.isEmpty())
                 {
-                    this.removeSelection();
+                    context.notifyError(UIKeys.GENERAL_CUT_EMPTY);
                     return true;
                 }
+
+                this.copyNodes();
+
+                if (clipboard == null)
+                {
+                    context.notifyError(UIKeys.GENERAL_CUT_NOT_ALLOWED);
+                    return true;
+                }
+
+                this.removeSelection();
+                UIUtils.playClick();
+                context.notifyInfo(UIKeys.GENERAL_CUT);
+                return true;
+            }
+            else if (context.getKeyCode() == GLFW.GLFW_KEY_V)
+            {
+                this.pasteNodes(this.lastMouseX, this.lastMouseY);
+                return true;
             }
         }
-        
+
+        if (context.getKeyCode() == GLFW.GLFW_KEY_DELETE
+            || context.getKeyCode() == GLFW.GLFW_KEY_BACKSPACE)
+        {
+            if (!this.selection.isEmpty() || !this.selectedConnections.isEmpty())
+            {
+                this.removeSelection();
+                return true;
+            }
+        }
+
         return super.subKeyPressed(context);
     }
-    
+
+    @Override
+    protected boolean subMouseScrolled(UIContext context)
+    {
+        if (!this.area.isInside(context)) return super.subMouseScrolled(context);
+
+        float oldScale = this.scale;
+        /* Proportional zoom: 10% per scroll step */
+        this.scale *= (float) Math.pow(1.1, Math.copySign(1, context.mouseWheel));
+        this.scale = Math.max(0.1F, Math.min(this.scale, 4F));
+
+        float factor = this.scale / oldScale;
+
+        /* Zoom towards mouse cursor */
+        float cx = context.mouseX - this.area.x;
+        float cy = context.mouseY - this.area.y;
+        this.translateX = cx - (cx - this.translateX) * factor;
+        this.translateY = cy - (cy - this.translateY) * factor;
+
+        return true;
+    }
+
     private void selectNodes(int x1, int y1, int x2, int y2, boolean add)
     {
         if (this.graph == null) return;
-        
+
         int minX = Math.min(x1, x2);
         int minY = Math.min(y1, y2);
         int maxX = Math.max(x1, x2);
         int maxY = Math.max(y1, y2);
-        
+
         if (!add)
         {
             this.selection.clear();
         }
-        
-        for (ShapeNode node : this.graph.nodes)
+
+        for (ShapeNode node : this.graph.getNodes())
         {
-            int nx = (int) (this.area.x + this.translateX + node.x * this.scale);
-            int ny = (int) (this.area.y + this.translateY + node.y * this.scale);
-            
+            int nx = this.nodeScreenX(node);
+            int ny = this.nodeScreenY(node);
             int max = Math.max(node.getInputs().size(), node.getOutputs().size());
-            int w = (int) (120 * this.scale);
-            int h = (int) ((35 + max * 20) * this.scale);
-            
+            int w = this.nodeScreenW(node);
+            int h = (int) ((35 + this.getNodePreviewHeight(node) + max * 20) * this.scale);
+
             if (nx + w > minX && nx < maxX && ny + h > minY && ny < maxY)
             {
                 this.selection.add(node);
@@ -862,47 +1209,32 @@ public class UIShapeNodeEditor extends UIElement
         }
     }
 
-    @Override
-    protected boolean subMouseScrolled(UIContext context)
-    {
-        if (this.area.isInside(context))
-        {
-            float oldScale = this.scale;
-            this.scale += Math.copySign(0.1F, context.mouseWheel);
-            this.scale = Math.max(0.1F, Math.min(this.scale, 4F));
-            
-            float newScale = this.scale;
-            float scaleFactor = newScale / oldScale;
-            
-            // Zoom towards mouse
-            this.translateX = context.mouseX - (context.mouseX - this.translateX) * scaleFactor;
-            this.translateY = context.mouseY - (context.mouseY - this.translateY) * scaleFactor;
-            
-            return true;
-        }
-        return super.subMouseScrolled(context);
-    }
+    /* ======================================================================
+     * Rendering
+     * ====================================================================== */
 
     @Override
     public void render(UIContext context)
     {
+        /* Pan update */
         if (this.dragging)
         {
             this.translateX += context.mouseX - this.lastMouseX;
             this.translateY += context.mouseY - this.lastMouseY;
-            
             this.lastMouseX = context.mouseX;
             this.lastMouseY = context.mouseY;
         }
-        
+
+        /* Node drag update */
         if (this.draggingNode != null)
         {
             float dx = (context.mouseX - this.draggingMouseX) / this.scale;
             float dy = (context.mouseY - this.draggingMouseY) / this.scale;
-            
+
             for (ShapeNode node : this.selection)
             {
                 Vector2f pos = this.initialPositions.get(node);
+
                 if (pos != null)
                 {
                     node.x = pos.x + dx;
@@ -910,7 +1242,7 @@ public class UIShapeNodeEditor extends UIElement
                 }
             }
         }
-        
+
         if (!Window.isMouseButtonPressed(0) && !Window.isMouseButtonPressed(2))
         {
             this.dragging = false;
@@ -920,382 +1252,421 @@ public class UIShapeNodeEditor extends UIElement
 
         if (this.graph != null)
         {
-             for (ShapeConnection c : this.graph.connections)
-             {
-                 drawConnection(context, c);
-             }
-             
-             if (this.draggingConnectionNode != -1)
-             {
-                 drawDraggingConnection(context);
-             }
+            for (ShapeNode node : this.graph.getNodes())
+            {
+                this.drawNode(context, node);
+            }
 
-             for (ShapeNode node : this.graph.nodes)
-             {
-                 drawNode(context, node);
-             }
+            for (ShapeConnection c : this.graph.getConnections())
+            {
+                this.drawConnection(context, c);
+            }
+
+            if (this.draggingConnectionNode != -1)
+            {
+                this.drawDraggingConnection(context);
+            }
         }
-        
+
         if (this.selecting)
         {
-            context.batcher.normalizedBox(this.selectingX, this.selectingY, context.mouseX, context.mouseY, Colors.setA(Colors.ACTIVE, 0.25F));
+            context.batcher.normalizedBox(this.selectingX, this.selectingY,
+                context.mouseX, context.mouseY, Colors.setA(Colors.ACTIVE, 0.25F));
         }
 
         super.render(context);
     }
-    
+
     private void renderBackground(UIContext context)
     {
         context.batcher.box(this.area.x, this.area.y, this.area.ex(), this.area.ey(), Colors.A75 | 0x181818);
-        
         context.batcher.clip(this.area, context);
-        
+
         int size = 20;
         int color = Colors.A25 | 0xFFFFFF;
-        
         float sc = this.scale;
         float ox = this.translateX % (size * sc);
         float oy = this.translateY % (size * sc);
-        
+
         if (ox < 0) ox += size * sc;
         if (oy < 0) oy += size * sc;
-        
-        // Draw grid dots
+
         for (float x = ox; x < this.area.w; x += size * sc)
         {
             for (float y = oy; y < this.area.h; y += size * sc)
             {
-                context.batcher.box(this.area.x + x - 1, this.area.y + y - 1, this.area.x + x + 1, this.area.y + y + 1, color);
+                context.batcher.box(this.area.x + x - 1F, this.area.y + y - 1F,
+                    this.area.x + x + 1F, this.area.y + y + 1F, color);
             }
         }
-        
+
         context.batcher.unclip(context);
     }
 
     private void drawNode(UIContext context, ShapeNode node)
     {
-         int x = (int) (this.area.x + this.translateX + node.x * this.scale);
-         int y = (int) (this.area.y + this.translateY + node.y * this.scale);
-         
-         if (node instanceof CommentNode)
-         {
-             CommentNode comment = (CommentNode) node;
-             int w = (int) (comment.width * this.scale);
-             int h = (int) (comment.height * this.scale);
-             
-             context.batcher.box(x, y, x + w, y + h, Colors.A50 | 0x000000);
-             context.batcher.outline(x, y, x + w, y + h, Colors.A50 | 0xFFFFFF);
-             
-             context.batcher.text(comment.title, x + 5, y + 5);
-             if (!comment.comment.isEmpty())
-             {
-                 context.batcher.text(comment.comment, x + 5, y + 20);
-             }
-             return;
-         }
-         
-         List<String> inputs = node.getInputs();
-         List<String> outputs = node.getOutputs();
-         int max = Math.max(inputs.size(), outputs.size());
-         
-         int w = (int) (120 * this.scale);
-         int h = (int) ((35 + max * 20) * this.scale);
-         int headerH = (int) (20 * this.scale);
-         
-         // Shadow
-         context.batcher.dropShadow(x, y, x + w, y + h, (int) (10 * this.scale), Colors.A50 | 0x000000, 0);
-         
-         if (this.selection.contains(node))
-         {
-             context.batcher.outline(x - 1, y - 1, x + w + 1, y + h + 1, Colors.WHITE);
-             context.batcher.outline(x - 2, y - 2, x + w + 2, y + h + 2, Colors.WHITE);
-         }
-         
-         // Header
-         int headerColor = Colors.A100 | 0x444444;
-         
-         if (node instanceof OutputNode) headerColor = Colors.A100 | 0xFF5555;
-         else if (node instanceof MathNode) headerColor = Colors.A100 | 0x5555FF;
-         else if (node instanceof ValueNode || node instanceof TimeNode || node instanceof CoordinateNode || node instanceof ColorNode) headerColor = Colors.A100 | 0x55FF55;
-         else if (node instanceof TriggerNode) headerColor = Colors.A100 | 0xFF55FF;
-         else if (node instanceof NoiseNode || node instanceof VoronoiNode || node instanceof FlowNoiseNode) headerColor = Colors.A100 | 0xFFAA00;
-         else if (node instanceof BumpNode) headerColor = Colors.A100 | 0xFF55AA;
-         
-         context.batcher.box(x, y, x + w, y + headerH, headerColor);
-         context.batcher.outline(x, y, x + w, y + headerH, 0xFF222222);
-         
-         // Body
-         context.batcher.box(x, y + headerH, x + w, y + h, Colors.A75 | 0x222222);
-         context.batcher.outline(x, y + headerH, x + w, y + h, 0xFF000000);
-         
-         // Title
-         String title = node.getType();
-         
-         if (node instanceof MathNode)
-        {
-            MathNode math = (MathNode) node;
-            String[] ops = {"+", "-", "*", "/", "%", "min", "max", "^"};
-            int op = math.operation;
-            
-            if (op == 8)
-            {
-                title += " (" + math.expression + ")";
-            }
-            else if (op >= 0 && op < ops.length)
-            {
-                title += " (" + ops[op] + ")";
-            }
-        }
-         else if (node instanceof ValueNode)
-        {
-            title += ": " + ((ValueNode) node).value;
-        }
-        else if (node instanceof ColorNode)
-        {
-            title += ": " + Integer.toHexString(((ColorNode) node).color.getARGBColor()).toUpperCase();
-        }
-        else if (node instanceof NoiseNode)
-        {
-            title += " (" + ((NoiseNode) node).seed + ")";
-        }
-        else if (node instanceof FlowNoiseNode)
-        {
-            title += " (" + ((FlowNoiseNode) node).seed + ")";
-        }
-        else if (node instanceof VoronoiNode)
-        {
-            title += " (" + ((VoronoiNode) node).seed + ")";
-        }
-        else if (node instanceof TriggerNode)
-        {
-            int mode = ((TriggerNode) node).mode;
-            String label = "";
+        int x = this.nodeScreenX(node);
+        int y = this.nodeScreenY(node);
 
-            if (mode == 0) label = "Greater";
-            else if (mode == 1) label = "Less";
-            else if (mode == 2) label = "Equal";
-            else if (mode == 3) label = "Not Equal";
-            else if (mode == 4) label = "Pulse";
+        if (node instanceof CommentNode)
+        {
+            CommentNode comment = (CommentNode) node;
+            int w = (int) (comment.width * this.scale);
+            int h = (int) (comment.height * this.scale);
 
-            title += " (" + label + ")";
+            context.batcher.box(x, y, x + w, y + h, Colors.A50 | 0x000000);
+            context.batcher.outline(x, y, x + w, y + h, Colors.A50 | 0xFFFFFF);
+            context.batcher.text(comment.title, x + 5, y + 5);
+
+            if (!comment.comment.isEmpty())
+            {
+                context.batcher.text(comment.comment, x + 5, y + 20);
+            }
+
+            return;
         }
-        
-        context.batcher.text(title, x + 5, y + 6);
-        
+
+        List<String> inputs = node.getInputs();
+        List<String> outputs = node.getOutputs();
+        int max = Math.max(inputs.size(), outputs.size());
+
+        int w = this.nodeScreenW(node);
+        int h = (int) ((35 + this.getNodePreviewHeight(node) + max * 20) * this.scale);
+        int headerH = (int) (20 * this.scale);
+
+        /* Shadow */
+        context.batcher.dropShadow(x, y, x + w, y + h, (int) (10 * this.scale), Colors.A50 | 0x000000, 0);
+
+        /* Selection outline */
+        if (this.selection.contains(node))
+        {
+            context.batcher.outline(x - 1, y - 1, x + w + 1, y + h + 1, Colors.WHITE);
+            context.batcher.outline(x - 2, y - 2, x + w + 2, y + h + 2, Colors.WHITE);
+        }
+
+        /* Header */
+        int headerColor = this.getNodeHeaderColor(node);
+        context.batcher.box(x, y, x + w, y + headerH, headerColor);
+        context.batcher.outline(x, y, x + w, y + headerH, 0xFF222222);
+
+        /* Body */
+        context.batcher.box(x, y + headerH, x + w, y + h, Colors.A75 | 0x222222);
+        context.batcher.outline(x, y + headerH, x + w, y + h, 0xFF000000);
+
+        /* Title */
+        context.batcher.text(this.getNodeTitle(node), x + 5, y + 6);
+
+        /* Color preview swatch for ColorNode */
         if (node instanceof ColorNode)
         {
-             int c = ((ColorNode) node).color.getARGBColor();
-             context.batcher.box(x + 5, y + 25, x + w - 5, y + 45, c);
-             context.batcher.outline(x + 5, y + 25, x + w - 5, y + 45, 0xFF000000);
+            int c = ((ColorNode) node).color.getARGBColor();
+            context.batcher.box(x + 5, y + 25, x + w - 5, y + 45, c);
+            context.batcher.outline(x + 5, y + 25, x + w - 5, y + 45, 0xFF000000);
         }
-        
-        float socketSize = Math.max(10 * this.scale, 6F);
-         
-         for (int i = 0; i < inputs.size(); i++)
-         {
-             int sy = y + (int) ((30 + i * 20) * this.scale);
-             
-             this.drawSocket(context, x, sy, Colors.WHITE);
-             context.batcher.text(inputs.get(i), x + (int)(8 * this.scale), sy - 4);
-         }
-         
-         for (int i = 0; i < outputs.size(); i++)
-         {
-             int sy = y + (int) ((30 + i * 20) * this.scale);
-             
-             this.drawSocket(context, x + w, sy, Colors.WHITE);
-             String label = outputs.get(i);
-             context.batcher.text(label, x + w - (int)(8 * this.scale) - context.batcher.getFont().getWidth(label), sy - 4);
-         }
-    }
-    
-    private void drawConnection(UIContext context, ShapeConnection c)
-    {
-        ShapeNode out = findNode(c.outputNodeId);
-        ShapeNode in = findNode(c.inputNodeId);
-        
-        if (out != null && in != null)
+
+        /* Texture preview */
+        if (node instanceof TextureNode)
         {
-             int x1 = (int) (this.area.x + this.translateX + out.x * this.scale + 120 * this.scale);
-             int y1 = (int) (this.area.y + this.translateY + out.y * this.scale + (30 + c.outputIndex * 20) * this.scale);
-             
-             int x2 = (int) (this.area.x + this.translateX + in.x * this.scale);
-             int y2 = (int) (this.area.y + this.translateY + in.y * this.scale + (30 + c.inputIndex * 20) * this.scale);
-             
-             int color = this.selectedConnections.contains(c) ? Colors.A100 | Colors.ACTIVE : Colors.WHITE;
-             
-             drawBezier(context, x1, y1, x2, y2, color, 2F * this.scale);
-        }
-    }
-    
-    private void drawDraggingConnection(UIContext context)
-    {
-        ShapeNode node = findNode(this.draggingConnectionNode);
-        if (node != null)
-        {
-             if (!this.draggingConnectionInput)
+            TextureNode tn = (TextureNode) node;
+            int pad = (int) (5 * this.scale);
+            int previewX = x + pad;
+            int previewY = y + headerH + pad;
+            int previewW = w - pad * 2;
+            int previewH = (int) (42 * this.scale);
+
+            if (tn.texture != null)
             {
-                int x1 = (int) (this.area.x + this.translateX + node.x * this.scale + 120 * this.scale);
-                int y1 = (int) (this.area.y + this.translateY + node.y * this.scale + (30 + this.draggingConnectionIndex * 20) * this.scale);
-                
-                drawBezier(context, x1, y1, context.mouseX, context.mouseY, Colors.WHITE, 2F * this.scale);
+                Texture tex = BBSModClient.getTextures().getTexture(tn.texture);
+
+                if (tex != null)
+                {
+                    context.batcher.fullTexturedBox(tex, Colors.WHITE, previewX, previewY, previewW, previewH);
+                }
+                else
+                {
+                    context.batcher.box(previewX, previewY, previewX + previewW, previewY + previewH, Colors.A75 | 0x111111);
+                }
             }
             else
             {
-                int x1 = (int) (this.area.x + this.translateX + node.x * this.scale);
-                int y1 = (int) (this.area.y + this.translateY + node.y * this.scale + (30 + this.draggingConnectionIndex * 20) * this.scale);
-                
-                drawBezier(context, context.mouseX, context.mouseY, x1, y1, Colors.WHITE, 2F * this.scale);
+                context.batcher.box(previewX, previewY, previewX + previewW, previewY + previewH, Colors.A75 | 0x111111);
             }
+
+            context.batcher.outline(previewX, previewY, previewX + previewW, previewY + previewH, 0xFF000000);
+        }
+
+        /* RGBA channel strip for color mix/split/combine nodes */
+        if (node instanceof MixColorNode || node instanceof SplitColorNode || node instanceof CombineColorNode)
+        {
+            int barY = y + headerH + (int) (2 * this.scale);
+            int barH = (int) (10 * this.scale);
+            int bw = w / 4;
+
+            context.batcher.box(x,          barY, x + bw,     barY + barH, Colors.A100 | 0xFF4444);
+            context.batcher.box(x + bw,     barY, x + bw * 2, barY + barH, Colors.A100 | 0x44FF44);
+            context.batcher.box(x + bw * 2, barY, x + bw * 3, barY + barH, Colors.A100 | 0x4444FF);
+            context.batcher.box(x + bw * 3, barY, x + w,      barY + barH, Colors.A100 | 0x888888);
+        }
+
+        /* Input sockets */
+        for (int i = 0; i < inputs.size(); i++)
+        {
+            int sy = this.socketScreenY(node, i);
+            int sockColor = this.socketColor(inputs.get(i));
+            boolean connected = this.isInputConnected(node.id, i);
+
+            this.drawSocket(context, x, sy, sockColor, connected);
+            context.batcher.text(inputs.get(i), x + (int) (8 * this.scale), sy - 4);
+        }
+
+        /* Output sockets */
+        for (int i = 0; i < outputs.size(); i++)
+        {
+            int sy = this.socketScreenY(node, i);
+            String label = outputs.get(i);
+            int sockColor = this.socketColor(label);
+            boolean connected = this.isOutputConnected(node.id, i);
+
+            this.drawSocket(context, x + w, sy, sockColor, connected);
+            context.batcher.text(label,
+                x + w - (int) (8 * this.scale) - context.batcher.getFont().getWidth(label),
+                sy - 4);
         }
     }
 
-    private void drawSocket(UIContext context, int x, int y, int color)
+    private void drawConnection(UIContext context, ShapeConnection c)
     {
-        context.batcher.flush();
+        ShapeNode out = this.findNode(c.outputNodeId);
+        ShapeNode in = this.findNode(c.inputNodeId);
 
-        float radius = Math.max(5 * this.scale, 3F);
-        int segments = 32;
+        if (out == null || in == null) return;
 
-        Matrix4f matrix4f = new Matrix4f();
-        Tesselator tessellator = Tesselator.getInstance();
+        int x1 = this.nodeScreenX(out) + this.nodeScreenW(out);
+        int y1 = this.socketScreenY(out, c.outputIndex);
+        int x2 = this.nodeScreenX(in);
+        int y2 = this.socketScreenY(in, c.inputIndex);
 
-        GlStateManager._enableBlend();
-        GlStateManager._blendFuncSeparate(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA, GL11.GL_ONE, GL11.GL_ZERO);
-        /* shader binding handled by RenderLayer in 1.21.11 */
+        int color = this.selectedConnections.contains(c)
+            ? (Colors.A100 | Colors.ACTIVE)
+            : Colors.WHITE;
 
-        // Border
-        BufferBuilder builder = tessellator.begin(VertexFormat.Mode.TRIANGLES, DefaultVertexFormat.POSITION_COLOR);
+        this.drawBezier(context, x1, y1, x2, y2, color, 2F * this.scale);
+    }
 
-        for (int i = 0; i < segments; i++)
+    private void drawDraggingConnection(UIContext context)
+    {
+        ShapeNode node = this.findNode(this.draggingConnectionNode);
+
+        if (node == null) return;
+
+        if (!this.draggingConnectionInput)
         {
-            double a1 = i / (double) segments * Math.PI * 2;
-            double a2 = (i + 1) / (double) segments * Math.PI * 2;
+            int x1 = this.nodeScreenX(node) + this.nodeScreenW(node);
+            int y1 = this.socketScreenY(node, this.draggingConnectionIndex);
 
-            builder.addVertex(matrix4f, x, y, 0F).setColor(0xFF000000);
-            builder.addVertex(matrix4f, (float) (x + Math.cos(a1) * (radius + 1.5F)), (float) (y + Math.sin(a1) * (radius + 1.5F)), 0F).setColor(0xFF000000);
-            builder.addVertex(matrix4f, (float) (x + Math.cos(a2) * (radius + 1.5F)), (float) (y + Math.sin(a2) * (radius + 1.5F)), 0F).setColor(0xFF000000);
+            this.drawBezier(context, x1, y1, context.mouseX, context.mouseY, Colors.WHITE, 2F * this.scale);
         }
-
-        RenderTypes.debugFilledBox().draw(builder.buildOrThrow());
-
-        // Fill
-        builder = tessellator.begin(VertexFormat.Mode.TRIANGLES, DefaultVertexFormat.POSITION_COLOR);
-
-        for (int i = 0; i < segments; i++)
+        else
         {
-            double a1 = i / (double) segments * Math.PI * 2;
-            double a2 = (i + 1) / (double) segments * Math.PI * 2;
+            int x1 = this.nodeScreenX(node);
+            int y1 = this.socketScreenY(node, this.draggingConnectionIndex);
 
-            builder.addVertex(matrix4f, x, y, 0F).setColor(color);
-            builder.addVertex(matrix4f, (float) (x + Math.cos(a1) * radius), (float) (y + Math.sin(a1) * radius), 0F).setColor(color);
-            builder.addVertex(matrix4f, (float) (x + Math.cos(a2) * radius), (float) (y + Math.sin(a2) * radius), 0F).setColor(color);
+            this.drawBezier(context, context.mouseX, context.mouseY, x1, y1, Colors.WHITE, 2F * this.scale);
         }
+    }
 
-        RenderTypes.debugFilledBox().draw(builder.buildOrThrow());
+    private void drawSocket(UIContext context, int x, int y, int color, boolean filled)
+    {
+        int r = (int) Math.max(5F * this.scale, 3F);
+
+        /* Dark border */
+        context.batcher.box(x - r - 1, y - r - 1, x + r + 1, y + r + 1, 0xFF000000);
+
+        /* Fill — colored when connected, dark when not */
+        int fillColor = filled ? color : (Colors.A100 | 0x333333);
+        context.batcher.box(x - r, y - r, x + r, y + r, fillColor);
+
+        /* Inner dot when connected */
+        if (filled)
+        {
+            int ir = Math.max(1, (int) (r * 0.45F));
+            context.batcher.box(x - ir, y - ir, x + ir, y + ir, 0xFF000000);
+        }
     }
 
     private void drawBezier(UIContext context, int x1, int y1, int x2, int y2, int color, float thickness)
     {
-        int segments = 24;
+        int segments = 32;
         float dist = Math.max(Math.abs(x2 - x1) / 2F, 50F * this.scale);
-        
+        float hw = Math.max(1.5F, thickness * 0.5F);
+
         float px = x1;
         float py = y1;
-        
+
         for (int i = 1; i <= segments; i++)
         {
             float t = i / (float) segments;
             float t1 = 1 - t;
-            
+
             float c0 = t1 * t1 * t1;
             float c1 = 3 * t1 * t1 * t;
             float c2 = 3 * t1 * t * t;
             float c3 = t * t * t;
-            
-            float x = c0 * x1 + c1 * (x1 + dist) + c2 * (x2 - dist) + c3 * x2;
-            float y = c0 * y1 + c1 * y1 + c2 * y2 + c3 * y2;
-            
-            context.batcher.line(px, py, x, y, thickness, color);
-            
-            px = x;
-            py = y;
+
+            float nx = c0 * x1 + c1 * (x1 + dist) + c2 * (x2 - dist) + c3 * x2;
+            float ny = c0 * y1 + c1 * y1 + c2 * y2 + c3 * y2;
+
+            float minX = Math.min(px, nx);
+            float maxX = Math.max(px, nx);
+            float minY = Math.min(py, ny);
+            float maxY = Math.max(py, ny);
+
+            /* Ensure minimum thickness on nearly-horizontal or nearly-vertical segments */
+            if (maxX - minX < hw * 2)
+            {
+                float cx = (minX + maxX) / 2F;
+                minX = cx - hw;
+                maxX = cx + hw;
+            }
+
+            if (maxY - minY < hw * 2)
+            {
+                float cy = (minY + maxY) / 2F;
+                minY = cy - hw;
+                maxY = cy + hw;
+            }
+
+            context.batcher.box(minX, minY, maxX, maxY, color);
+
+            px = nx;
+            py = ny;
         }
     }
-    
+
+    /* ======================================================================
+     * Helpers
+     * ====================================================================== */
+
+    /** Returns a color for a socket based on its slot name. */
+    private static int socketColor(String name)
+    {
+        String n = name.toLowerCase();
+
+        if (n.equals("rgba") || n.contains("color")) return SOCKET_COLOR;
+
+        if (n.equals("r") || n.equals("g") || n.equals("b") || n.equals("a")) return SOCKET_COLOR;
+
+        if (n.equals("x") || n.equals("y") || n.equals("z")
+            || n.startsWith("ax") || n.startsWith("ay") || n.startsWith("az")
+            || n.startsWith("bx") || n.startsWith("by") || n.startsWith("bz")) return SOCKET_VECTOR;
+
+        return SOCKET_FLOAT;
+    }
+
+    private int nodeScreenX(ShapeNode node)
+    {
+        return (int) (this.area.x + this.translateX + node.x * this.scale);
+    }
+
+    private int nodeScreenY(ShapeNode node)
+    {
+        return (int) (this.area.y + this.translateY + node.y * this.scale);
+    }
+
+    private int nodeScreenW(ShapeNode node)
+    {
+        return (int) (this.getNodeWidth(node) * this.scale);
+    }
+
+    private int socketScreenY(ShapeNode node, int index)
+    {
+        return this.nodeScreenY(node) + (int) ((30 + this.getNodePreviewHeight(node) + index * 20) * this.scale);
+    }
+
+    private boolean isInputConnected(int nodeId, int inputIndex)
+    {
+        if (this.graph == null) return false;
+
+        for (ShapeConnection c : this.graph.getConnections())
+        {
+            if (c.inputNodeId == nodeId && c.inputIndex == inputIndex) return true;
+        }
+
+        return false;
+    }
+
+    private boolean isOutputConnected(int nodeId, int outputIndex)
+    {
+        if (this.graph == null) return false;
+
+        for (ShapeConnection c : this.graph.getConnections())
+        {
+            if (c.outputNodeId == nodeId && c.outputIndex == outputIndex) return true;
+        }
+
+        return false;
+    }
+
     private boolean isOverConnection(int mx, int my, ShapeConnection c)
     {
-        ShapeNode out = findNode(c.outputNodeId);
-        ShapeNode in = findNode(c.inputNodeId);
-        
-        if (out != null && in != null)
-        {
-             int x1 = (int) (this.area.x + this.translateX + out.x * this.scale + 120 * this.scale);
-             int y1 = (int) (this.area.y + this.translateY + out.y * this.scale + (30 + c.outputIndex * 20) * this.scale);
-             
-             int x2 = (int) (this.area.x + this.translateX + in.x * this.scale);
-             int y2 = (int) (this.area.y + this.translateY + in.y * this.scale + (30 + c.inputIndex * 20) * this.scale);
-             
-             return isOverBezier(mx, my, x1, y1, x2, y2);
-        }
-        
-        return false;
+        ShapeNode out = this.findNode(c.outputNodeId);
+        ShapeNode in = this.findNode(c.inputNodeId);
+
+        if (out == null || in == null) return false;
+
+        int x1 = this.nodeScreenX(out) + this.nodeScreenW(out);
+        int y1 = this.socketScreenY(out, c.outputIndex);
+        int x2 = this.nodeScreenX(in);
+        int y2 = this.socketScreenY(in, c.inputIndex);
+
+        return this.isOverBezier(mx, my, x1, y1, x2, y2);
     }
 
     private boolean isOverBezier(int mx, int my, int x1, int y1, int x2, int y2)
     {
         int segments = 24;
         float dist = Math.max(Math.abs(x2 - x1) / 2F, 50F * this.scale);
-        
+        float threshold = 5F * this.scale;
+
         float px = x1;
         float py = y1;
-        
-        float threshold = 5F * this.scale;
-        
+
         for (int i = 1; i <= segments; i++)
         {
             float t = i / (float) segments;
             float t1 = 1 - t;
-            
+
             float c0 = t1 * t1 * t1;
             float c1 = 3 * t1 * t1 * t;
             float c2 = 3 * t1 * t * t;
             float c3 = t * t * t;
-            
+
             float x = c0 * x1 + c1 * (x1 + dist) + c2 * (x2 - dist) + c3 * x2;
             float y = c0 * y1 + c1 * y1 + c2 * y2 + c3 * y2;
-            
-            // Check distance to line segment (px, py) -> (x, y)
-            if (distanceToSegment(mx, my, px, py, x, y) < threshold)
-            {
-                return true;
-            }
-            
+
+            if (this.distanceToSegment(mx, my, px, py, x, y) < threshold) return true;
+
             px = x;
             py = y;
         }
-        
+
         return false;
     }
-    
+
     private float distanceToSegment(float x, float y, float x1, float y1, float x2, float y2)
     {
         float A = x - x1;
         float B = y - y1;
         float C = x2 - x1;
         float D = y2 - y1;
-        
+
         float dot = A * C + B * D;
-        float len_sq = C * C + D * D;
-        float param = -1;
-        
-        if (len_sq != 0)
-        {
-            param = dot / len_sq;
-        }
-        
-        float xx, yy;
-        
+        float lenSq = C * C + D * D;
+        float param = lenSq != 0 ? dot / lenSq : -1;
+
+        float xx;
+        float yy;
+
         if (param < 0)
         {
             xx = x1;
@@ -1311,22 +1682,106 @@ public class UIShapeNodeEditor extends UIElement
             xx = x1 + param * C;
             yy = y1 + param * D;
         }
-        
+
         float dx = x - xx;
         float dy = y - yy;
-        
+
         return (float) Math.sqrt(dx * dx + dy * dy);
     }
-    
+
     private ShapeNode findNode(int id)
     {
         if (this.graph == null) return null;
-        
-        for (ShapeNode node : this.graph.nodes)
+
+        for (ShapeNode node : this.graph.getNodes())
         {
             if (node.id == id) return node;
         }
-        
+
         return null;
+    }
+
+    @Override
+    public void collectUndoData(MapType data)
+    {
+        super.collectUndoData(data);
+
+        data.putFloat("scale", this.scale);
+        data.putFloat("translate_x", this.translateX);
+        data.putFloat("translate_y", this.translateY);
+
+        ListType nodeIds = new ListType();
+
+        for (ShapeNode node : this.selection)
+        {
+            nodeIds.add(new IntType(node.id));
+        }
+
+        data.put("node_selection", nodeIds);
+
+        ListType connections = new ListType();
+
+        for (ShapeConnection connection : this.selectedConnections)
+        {
+            MapType connectionData = new MapType();
+
+            connection.toData(connectionData);
+            connections.add(connectionData);
+        }
+
+        data.put("connection_selection", connections);
+    }
+
+    @Override
+    public void applyUndoData(MapType data)
+    {
+        super.applyUndoData(data);
+
+        this.scale = data.getFloat("scale", 1F);
+        this.translateX = data.getFloat("translate_x");
+        this.translateY = data.getFloat("translate_y");
+
+        this.selection.clear();
+        this.selectedConnections.clear();
+
+        if (this.graph == null)
+        {
+            return;
+        }
+
+        for (BaseType type : data.getList("node_selection"))
+        {
+            ShapeNode node = this.findNode(type.asNumeric().intValue());
+
+            if (node != null)
+            {
+                this.selection.add(node);
+            }
+        }
+
+        for (BaseType type : data.getList("connection_selection"))
+        {
+            ShapeConnection stored = new ShapeConnection();
+
+            stored.fromData(type.asMap());
+
+            for (ShapeConnection connection : this.graph.getConnections())
+            {
+                if (this.connectionMatches(connection, stored))
+                {
+                    this.selectedConnections.add(connection);
+
+                    break;
+                }
+            }
+        }
+    }
+
+    private boolean connectionMatches(ShapeConnection a, ShapeConnection b)
+    {
+        return a.outputNodeId == b.outputNodeId
+            && a.outputIndex == b.outputIndex
+            && a.inputNodeId == b.inputNodeId
+            && a.inputIndex == b.inputIndex;
     }
 }

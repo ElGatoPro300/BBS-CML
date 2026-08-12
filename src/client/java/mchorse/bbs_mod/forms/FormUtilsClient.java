@@ -22,6 +22,7 @@ import mchorse.bbs_mod.forms.renderers.BillboardFormRenderer;
 import mchorse.bbs_mod.forms.renderers.BlockFormRenderer;
 import mchorse.bbs_mod.forms.renderers.ExtrudedFormRenderer;
 import mchorse.bbs_mod.forms.renderers.FluidFormRenderer;
+import mchorse.bbs_mod.forms.renderers.FormIllusionRenderer;
 import mchorse.bbs_mod.forms.renderers.FormRenderer;
 import mchorse.bbs_mod.forms.renderers.FormRenderingContext;
 import mchorse.bbs_mod.forms.renderers.FramebufferFormRenderer;
@@ -37,7 +38,12 @@ import mchorse.bbs_mod.forms.renderers.TrailFormRenderer;
 import mchorse.bbs_mod.forms.renderers.VanillaParticleFormRenderer;
 import mchorse.bbs_mod.ui.framework.UIContext;
 
-import net.minecraft.client.Minecraft;
+import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.render.BufferBuilder;
+import net.minecraft.client.render.RenderLayer;
+import net.minecraft.client.render.TexturedRenderLayers;
+import net.minecraft.client.render.VertexConsumerProvider;
+import net.minecraft.client.util.BufferAllocator;
 import net.minecraft.util.Util;
 
 import java.util.Collections;
@@ -53,7 +59,11 @@ public class FormUtilsClient
 {
     private static Map<Class, IFormRendererFactory> map = new HashMap<>();
     private static CustomVertexConsumerProvider customVertexConsumerProvider;
+    /** Isolated Immediate for MobForm morph draws — avoids flushing world entity leftovers. */
+    private static CustomVertexConsumerProvider mobMorphVertexConsumerProvider;
     private static Stack<Form> currentForm = new Stack<>();
+    /** Guards against recursive illusion copies spawning more illusions. */
+    private static int illusionDepth;
 
     static
     {
@@ -79,10 +89,27 @@ public class FormUtilsClient
     {
         if (customVertexConsumerProvider == null)
         {
-            customVertexConsumerProvider = new CustomVertexConsumerProvider(Minecraft.getInstance().renderBuffers().bufferSource());
+            customVertexConsumerProvider = new CustomVertexConsumerProvider(MinecraftClient.getInstance().getBufferBuilders().getEntityVertexConsumers());
         }
 
         return customVertexConsumerProvider;
+    }
+
+    /**
+     * Private Immediate for MobForm morph geometry. Villager clothing uses several dynamic
+     * cutout layers; flushing them on the shared world Immediate mixed in leftover entity
+     * layers and deferred the last clothing pass past held-item/shadow with bad lighting.
+     */
+    public static CustomVertexConsumerProvider getMobMorphProvider()
+    {
+        if (mobMorphVertexConsumerProvider == null)
+        {
+            mobMorphVertexConsumerProvider = new CustomVertexConsumerProvider(
+                VertexConsumerProvider.immediate(new BufferAllocator(2048))
+            );
+        }
+
+        return mobMorphVertexConsumerProvider;
     }
 
     public static <T extends Form> void register(Class<T> clazz, IFormRendererFactory<T> function)
@@ -131,7 +158,24 @@ public class FormUtilsClient
         }
     }
 
+    /**
+     * Cached variant of {@link #renderUI} for list thumbnails and HUD overlays.
+     */
+    public static void renderUICached(Form form, UIContext context, int x1, int y1, int x2, int y2)
+    {
+        FormUIPreviewCache.render(form, context, x1, y1, x2, y2);
+    }
+
     public static void render(Form form, FormRenderingContext context)
+    {
+        render(form, context, null);
+    }
+
+    /**
+     * Renders a form and, at the outermost call, any configured illusions.
+     * {@code extras} carries film-only delay hooks (replay property ticks).
+     */
+    public static void render(Form form, FormRenderingContext context, FormIllusionRenderer.Extras extras)
     {
         FormRenderer renderer = getRenderer(form);
 
@@ -147,6 +191,20 @@ public class FormUtilsClient
             {}
 
             currentForm.pop();
+
+            if (illusionDepth == 0)
+            {
+                illusionDepth++;
+
+                try
+                {
+                    FormIllusionRenderer.render(form, context, extras);
+                }
+                finally
+                {
+                    illusionDepth--;
+                }
+            }
         }
     }
 

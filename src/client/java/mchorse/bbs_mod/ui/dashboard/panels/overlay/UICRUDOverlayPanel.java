@@ -70,6 +70,14 @@ public abstract class UICRUDOverlayPanel extends UIOverlayPanel
         this.icons.add(this.add, this.dupe, this.rename, this.remove);
     }
 
+    public void setTooltips(IKey add, IKey dupe, IKey rename, IKey remove)
+    {
+        this.add.tooltip(add, Direction.LEFT);
+        this.dupe.tooltip(dupe, Direction.LEFT);
+        this.rename.tooltip(rename, Direction.LEFT);
+        this.remove.tooltip(remove, Direction.LEFT);
+    }
+
     private String getNextAutoId()
     {
         int i = 1;

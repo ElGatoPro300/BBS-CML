@@ -2,7 +2,7 @@ package mchorse.bbs_mod;
 
 import mchorse.bbs_mod.utils.watchdog.WatchDog;
 
-import net.minecraft.client.Minecraft;
+import net.minecraft.client.MinecraftClient;
 
 import java.io.File;
 
@@ -21,7 +21,7 @@ public class BBSResources
     {
         File assetsFolder = BBSMod.getAssetsFolder();
 
-        watchDog = new WatchDog(assetsFolder, false, (runnable) -> Minecraft.getInstance().execute(runnable));
+        watchDog = new WatchDog(assetsFolder, false, (runnable) -> MinecraftClient.getInstance().execute(runnable));
         watchDog.getProxy().register(BBSModClient.getTextures());
         watchDog.getProxy().register(BBSModClient.getModels());
         watchDog.getProxy().register(BBSModClient.getSounds());

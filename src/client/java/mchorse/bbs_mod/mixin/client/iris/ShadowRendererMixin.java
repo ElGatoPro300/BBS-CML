@@ -1,6 +1,9 @@
 package mchorse.bbs_mod.mixin.client.iris;
 
 import mchorse.bbs_mod.BBSModClient;
+import mchorse.bbs_mod.blocks.entities.ModelBlockEntity;
+import mchorse.bbs_mod.client.BBSRendering;
+import mchorse.bbs_mod.client.renderer.ModelBlockEntityRenderer;
 import mchorse.bbs_mod.film.BaseFilmController;
 import mchorse.bbs_mod.film.FilmControllerContext;
 import mchorse.bbs_mod.film.Films;
@@ -9,6 +12,7 @@ import mchorse.bbs_mod.film.replays.Replay;
 import mchorse.bbs_mod.forms.entities.IEntity;
 import mchorse.bbs_mod.forms.entities.StubEntity;
 import mchorse.bbs_mod.forms.forms.Form;
+import mchorse.bbs_mod.forms.forms.utils.ShadowSettings;
 import mchorse.bbs_mod.settings.values.base.BaseValue;
 import mchorse.bbs_mod.settings.values.ui.ValueOnionSkin;
 import mchorse.bbs_mod.ui.dashboard.UIDashboard;
@@ -25,23 +29,26 @@ import mchorse.bbs_mod.utils.keyframes.KeyframeSegment;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
 
-import net.minecraft.client.Camera;
-import net.minecraft.client.Minecraft;
-import net.minecraft.client.renderer.MultiBufferSource;
-import net.minecraft.client.renderer.culling.Frustum;
-import net.minecraft.client.renderer.entity.EntityRenderDispatcher;
+import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.render.Camera;
+import net.minecraft.client.render.Frustum;
+import net.minecraft.client.render.VertexConsumerProvider;
+import net.minecraft.client.render.entity.EntityRenderManager;
+import net.minecraft.client.util.math.MatrixStack;
+
+import net.irisshaders.iris.mixin.LevelRendererAccessor;
+import net.irisshaders.iris.shadows.ShadowRenderer;
 
 import org.joml.Matrix4f;
 
+import com.mojang.blaze3d.opengl.GlStateManager;
 import com.mojang.blaze3d.systems.RenderSystem;
-import com.mojang.blaze3d.vertex.PoseStack;
 
+import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map.Entry;
 
-import net.irisshaders.iris.mixin.LevelRendererAccessor;
-import net.irisshaders.iris.shadows.ShadowRenderer;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
@@ -53,9 +60,9 @@ public class ShadowRendererMixin
 {
     @Inject(method = "renderEntities", at = @At("TAIL"))
     private void bbs$renderFormsShadows(LevelRendererAccessor levelRenderer,
-                                        EntityRenderDispatcher dispatcher,
-                                        MultiBufferSource.BufferSource consumers,
-                                        PoseStack shadowStack,
+                                        EntityRenderManager dispatcher,
+                                        VertexConsumerProvider.Immediate consumers,
+                                        MatrixStack shadowStack,
                                         float tickDelta,
                                         Frustum frustum,
                                         double camX,
@@ -69,7 +76,8 @@ public class ShadowRendererMixin
         }
 
         UIBaseMenu menu = UIScreen.getCurrentMenu();
-        Camera gameCamera = Minecraft.getInstance().gameRenderer.getMainCamera();
+        Camera gameCamera = MinecraftClient.getInstance().gameRenderer.getCamera();
+        GlStateManager._enableDepthTest();
 
         /* Case 1: film panel open – keep existing onion skin and panel-specific logic */
         if (menu instanceof UIDashboard)
@@ -109,17 +117,33 @@ public class ShadowRendererMixin
                                 continue;
                             }
 
-                            if (entity.getForm() != null && !((Boolean) entity.getForm().shaderShadow.get()))
+                            if (entity.getForm() != null && !entity.getForm().shaderShadow.get())
+                            {
+                                continue;
+                            }
+
+                            int replayTick = replay.getTick(editorController.getTick());
+
+                            if (!editorController.isReplayVisible(replay, replayTick))
+                            {
+                                continue;
+                            }
+
+                            float propertyTick = replayTick + transition;
+                            ShadowSettings shadow = BaseFilmController.resolveShadowSettings(replay, propertyTick);
+
+                            if (!(Boolean) replay.shadow.get() || shadow.opacity <= 0.001F)
                             {
                                 continue;
                             }
 
                             FilmControllerContext context = FilmControllerContext.instance
                                 .setup(editorController.getEntities(), entity, replay, gameCamera, shadowStack, consumers, transition)
-                                .shadow((Boolean) replay.shadow.get(), (Float) replay.shadowSize.get())
-                                .relative((Boolean) replay.relative.get())
+                                .film(editorController.film)
+                                .shadow(true, shadow)
+                                .relative(replay.isCameraRelative())
                                 .isShadowPass(true)
-                                .viewMatrix(new Matrix4f(shadowStack.last().pose()));
+                                .viewMatrix(new Matrix4f(shadowStack.peek().getPositionMatrix()));
 
                             BaseFilmController.renderEntity(context);
 
@@ -190,16 +214,33 @@ public class ShadowRendererMixin
                         continue;
                     }
 
-                    if (entity.getForm() != null && !((Boolean) entity.getForm().shaderShadow.get()))
+                    if (entity.getForm() != null && !entity.getForm().shaderShadow.get())
+                    {
+                        continue;
+                    }
+
+                    int replayTick = replay.getTick(controller.getTick());
+
+                    if (!controller.isReplayVisible(replay, replayTick))
+                    {
+                        continue;
+                    }
+
+                    float propertyTick = replayTick + transition;
+                    ShadowSettings shadow = BaseFilmController.resolveShadowSettings(replay, propertyTick);
+
+                    if (!(Boolean) replay.shadow.get() || shadow.opacity <= 0.001F)
                     {
                         continue;
                     }
 
                     FilmControllerContext context = FilmControllerContext.instance
                         .setup(controller.getEntities(), entity, replay, gameCamera, shadowStack, consumers, transition)
-                        .shadow((Boolean) replay.shadow.get(), (Float) replay.shadowSize.get())
-                        .relative((Boolean) replay.relative.get())
-                        .isShadowPass(true);
+                        .film(controller.film)
+                        .shadow(true, shadow)
+                        .relative(replay.isCameraRelative())
+                        .isShadowPass(true)
+                        .viewMatrix(new Matrix4f(shadowStack.peek().getPositionMatrix()));
 
                     BaseFilmController.renderEntity(context);
                 }
@@ -230,23 +271,46 @@ public class ShadowRendererMixin
                         continue;
                     }
 
-                    if (entity.getForm() != null && !((Boolean) entity.getForm().shaderShadow.get()))
+                    if (entity.getForm() != null && !entity.getForm().shaderShadow.get())
+                    {
+                        continue;
+                    }
+
+                    int replayTick = replay.getTick(recorder.getTick());
+
+                    if (!recorder.isReplayVisible(replay, replayTick))
+                    {
+                        continue;
+                    }
+
+                    float propertyTick = replayTick + transition;
+                    ShadowSettings shadow = BaseFilmController.resolveShadowSettings(replay, propertyTick);
+
+                    if (!(Boolean) replay.shadow.get() || shadow.opacity <= 0.001F)
                     {
                         continue;
                     }
 
                     FilmControllerContext context = FilmControllerContext.instance
                         .setup(recorder.getEntities(), entity, replay, gameCamera, shadowStack, consumers, transition)
-                        .shadow((Boolean) replay.shadow.get(), (Float) replay.shadowSize.get())
-                        .relative((Boolean) replay.relative.get())
-                        .viewMatrix(new Matrix4f(shadowStack.last().pose()));
+                        .film(recorder.film)
+                        .shadow(true, shadow)
+                        .relative(replay.isCameraRelative())
+                        .isShadowPass(true)
+                        .viewMatrix(new Matrix4f(shadowStack.peek().getPositionMatrix()));
 
                     BaseFilmController.renderEntity(context);
                 }
             }
         }
 
-        consumers.endBatch();
+        /* Model-block forms are block entities — shadowEntities alone does not include them. */
+        for (ModelBlockEntity modelBlock : new ArrayList<>(BBSRendering.capturedModelBlocks))
+        {
+            ModelBlockEntityRenderer.renderIntoShadowMap(modelBlock, shadowStack, consumers, tickDelta, camX, camY, camZ);
+        }
+
+        consumers.draw();
     }
 
     private static void renderOnionGhostShadows(FilmEditorController editorController,
@@ -255,8 +319,8 @@ public class ShadowRendererMixin
                                                 Replay replay,
                                                 KeyframeChannel<?> pose,
                                                 int direction,
-                                                PoseStack shadowStack,
-                                                MultiBufferSource.BufferSource consumers,
+                                                MatrixStack shadowStack,
+                                                VertexConsumerProvider.Immediate consumers,
                                                 Camera camera)
     {
         int cursor = controller.panel.getCursor();
@@ -296,11 +360,23 @@ public class ShadowRendererMixin
             Form form = entity.getForm();
             replay.properties.applyProperties(form, tick);
 
+            ShadowSettings shadow = BaseFilmController.resolveShadowSettings(replay, tick);
+
+            if (!(Boolean) replay.shadow.get() || shadow.opacity <= 0.001F)
+            {
+                frames -= 1;
+                index += direction;
+
+                continue;
+            }
+
             FilmControllerContext ctx = FilmControllerContext.instance
                 .setup(editorController.getEntities(), entity, replay, camera, shadowStack, consumers, 0F)
-                .shadow((Boolean) replay.shadow.get(), (Float) replay.shadowSize.get())
-                .relative((Boolean) replay.relative.get())
-                .viewMatrix(new Matrix4f(shadowStack.last().pose()));
+                .film(editorController.film)
+                .shadow(true, shadow)
+                .relative(replay.isCameraRelative())
+                .isShadowPass(true)
+                .viewMatrix(new Matrix4f(shadowStack.peek().getPositionMatrix()));
 
             BaseFilmController.renderEntity(ctx);
 

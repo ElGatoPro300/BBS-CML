@@ -11,9 +11,11 @@ import mchorse.bbs_mod.ui.framework.elements.events.UIRemovedEvent;
 import mchorse.bbs_mod.ui.framework.elements.utils.EventPropagation;
 import mchorse.bbs_mod.ui.framework.tooltips.ITooltip;
 import mchorse.bbs_mod.ui.framework.tooltips.LabelTooltip;
+import mchorse.bbs_mod.ui.framework.tooltips.ShortcutLabelTooltip;
 import mchorse.bbs_mod.ui.utils.Area;
 import mchorse.bbs_mod.ui.utils.context.ContextMenuManager;
 import mchorse.bbs_mod.ui.utils.icons.Icons;
+import mchorse.bbs_mod.ui.utils.keys.KeyCombo;
 import mchorse.bbs_mod.ui.utils.keys.KeybindManager;
 import mchorse.bbs_mod.ui.utils.resizers.Flex;
 import mchorse.bbs_mod.ui.utils.resizers.IResizer;
@@ -247,7 +249,10 @@ public class UIElement implements IUIElement, IUndoElement
             consumer.accept(clazz.cast(this));
         }
 
-        for (IUIElement element : this.getChildren())
+        /* Snapshot the children before iterating: applying undo data can add/remove/replace
+         * elements (e.g. rebuilding a list panel) as a side effect of visiting them, which would
+         * otherwise throw a ConcurrentModificationException on the live list mid-traversal. */
+        for (IUIElement element : new ArrayList<>(this.getChildren()))
         {
             if (clazz.isAssignableFrom(element.getClass()))
             {
@@ -471,6 +476,16 @@ public class UIElement implements IUIElement, IUndoElement
     public UIElement tooltip(IKey label, int width, Direction direction)
     {
         return this.tooltip(new LabelTooltip(label, width, direction));
+    }
+
+    public UIElement tooltip(IKey label, KeyCombo shortcut)
+    {
+        return this.tooltip(label, shortcut, Direction.BOTTOM);
+    }
+
+    public UIElement tooltip(IKey label, KeyCombo shortcut, Direction direction)
+    {
+        return this.tooltip(new ShortcutLabelTooltip(label, shortcut, direction));
     }
 
     public UIElement noCulling()
@@ -1094,7 +1109,7 @@ public class UIElement implements IUIElement, IUndoElement
 
     public void clickItself(UIContext context, int mouseButton)
     {
-        if (!this.isEnabled())
+        if (context == null || !this.isEnabled())
         {
             return;
         }
@@ -1108,6 +1123,10 @@ public class UIElement implements IUIElement, IUndoElement
         context.mouseButton = mouseButton;
 
         this.mouseClicked(context);
+
+        /* Complete the simulated click with a release, since clickable elements fire
+           their callback on mouse release (and only when they received the press). */
+        this.mouseReleased(context);
 
         context.mouseX = mouseX;
         context.mouseY = mouseY;
@@ -1150,12 +1169,22 @@ public class UIElement implements IUIElement, IUndoElement
     {
         IUIElement element = this.childrenMouseReleased(context);
 
+        /*
+         * A mouse release must always reach this element's own handler, even when a child (or an
+         * element in another panel) already "consumed" the release. This guarantees that any
+         * in-progress drag (numeric trackpad drag, timeline panning, list reorder, colour picker,
+         * draggable handle, etc.) is ended on release regardless of where the cursor currently is.
+         * Individual handlers only act when they hold active drag state, so this is side-effect free
+         * for elements that were not dragging.
+         */
+        boolean handled = this.subMouseReleased(context);
+
         if (element != null)
         {
             return element;
         }
 
-        return this.subMouseReleased(context) || this.cantPropagate(this.mousePropagation, context) ? this : null;
+        return handled || this.cantPropagate(this.mousePropagation, context) ? this : null;
     }
 
     @Override
@@ -1188,9 +1217,13 @@ public class UIElement implements IUIElement, IUndoElement
 
     protected IUIElement childrenMouseClicked(UIContext context)
     {
-        for (int i = this.children.size() - 1; i >= 0; i--)
+        /* Iterate over a snapshot: an event handler may add/remove children mid loop
+         * (e.g. closing an embedded editor view), which would corrupt the indexes. */
+        List<IUIElement> children = new ArrayList<>(this.children);
+
+        for (int i = children.size() - 1; i >= 0; i--)
         {
-            IUIElement element = this.children.get(i);
+            IUIElement element = children.get(i);
 
             if (element.isEnabled())
             {
@@ -1208,9 +1241,11 @@ public class UIElement implements IUIElement, IUndoElement
 
     protected IUIElement childrenMouseScrolled(UIContext context)
     {
-        for (int i = this.children.size() - 1; i >= 0; i--)
+        List<IUIElement> children = new ArrayList<>(this.children);
+
+        for (int i = children.size() - 1; i >= 0; i--)
         {
-            IUIElement element = this.children.get(i);
+            IUIElement element = children.get(i);
 
             if (element.isEnabled())
             {
@@ -1228,29 +1263,45 @@ public class UIElement implements IUIElement, IUndoElement
 
     protected IUIElement childrenMouseReleased(UIContext context)
     {
-        for (int i = this.children.size() - 1; i >= 0; i--)
+        IUIElement consumed = null;
+
+        /*
+         * Visit every enabled child (do not stop at the first consumer) so a mouse release is
+         * delivered to the whole tree. This ends drags started in one panel even if the cursor was
+         * moved over a different panel before releasing. The first (top-most) consumer is still
+         * returned so the "handled" result is preserved.
+         *
+         * Iterate over a snapshot: a release handler may add/remove children mid loop (e.g. the
+         * close button of an embedded keyframe editor removing its view), which would otherwise
+         * throw an IndexOutOfBoundsException here.
+         */
+        List<IUIElement> children = new ArrayList<>(this.children);
+
+        for (int i = children.size() - 1; i >= 0; i--)
         {
-            IUIElement element = this.children.get(i);
+            IUIElement element = children.get(i);
 
             if (element.isEnabled())
             {
                 IUIElement anElement = element.mouseReleased(context);
 
-                if (anElement != null)
+                if (anElement != null && consumed == null)
                 {
-                    return anElement;
+                    consumed = anElement;
                 }
             }
         }
 
-        return null;
+        return consumed;
     }
 
     protected IUIElement childrenKeyPressed(UIContext context)
     {
-        for (int i = this.children.size() - 1; i >= 0; i--)
+        List<IUIElement> children = new ArrayList<>(this.children);
+
+        for (int i = children.size() - 1; i >= 0; i--)
         {
-            IUIElement element = this.children.get(i);
+            IUIElement element = children.get(i);
 
             if (element.isEnabled())
             {

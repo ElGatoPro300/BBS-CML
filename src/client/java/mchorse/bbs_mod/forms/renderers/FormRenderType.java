@@ -1,6 +1,6 @@
 package mchorse.bbs_mod.forms.renderers;
 
-import net.minecraft.world.item.ItemDisplayContext;
+import net.minecraft.item.ItemDisplayContext;
 
 public enum FormRenderType
 {
@@ -8,7 +8,7 @@ public enum FormRenderType
 
     public static FormRenderType fromModelMode(ItemDisplayContext mode)
     {
-        if (mode.firstPerson())
+        if (mode.isFirstPerson())
         {
             return ITEM_FP;
         }

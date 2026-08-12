@@ -94,6 +94,8 @@ public class Keys
     public static final KeyCombo KEYFRAMES_SELECT_NEXT = new KeyCombo("select_next", UIKeys.KEYFRAMES_KEYS_SELECT_NEXT, GLFW.GLFW_KEY_RIGHT_BRACKET).repeatable().categoryKey("keyframes");
     public static final KeyCombo KEYFRAMES_SPREAD = new KeyCombo("spread", UIKeys.KEYFRAMES_CONTEXT_SPREAD, GLFW.GLFW_KEY_B, GLFW.GLFW_KEY_LEFT_ALT).categoryKey("keyframes");
     public static final KeyCombo KEYFRAMES_ADJUST_VALUES = new KeyCombo("adjust_values", UIKeys.KEYFRAMES_CONTEXT_ADJUST_VALUES, GLFW.GLFW_KEY_N, GLFW.GLFW_KEY_LEFT_SHIFT).categoryKey("keyframes");
+    public static final KeyCombo POSE_LIMB_KEYFRAME = new KeyCombo("pose_limb_keyframe", UIKeys.POSE_LIMB_KEYFRAME, GLFW.GLFW_KEY_P).categoryKey("pose_limbs");
+    public static final KeyCombo POSE_LIMB_KEYFRAME_DEFAULT = new KeyCombo("pose_limb_keyframe_default", UIKeys.POSE_LIMB_KEYFRAME_DEFAULT, GLFW.GLFW_KEY_R).categoryKey("pose_limbs");
 
     /* World menu */
     public static final KeyCombo CYCLE_PANELS = new KeyCombo("cycle_panels", UIKeys.WORLD_KEYS_CYCLE_PANELS, GLFW.GLFW_KEY_TAB).categoryKey("world");
@@ -102,6 +104,7 @@ public class Keys
     public static final KeyCombo TRANSFORMATIONS_TRANSLATE = new KeyCombo("translate", UIKeys.TRANSFORMS_TRANSLATE, GLFW.GLFW_KEY_G).categoryKey("transformations");
     public static final KeyCombo TRANSFORMATIONS_SCALE = new KeyCombo("scale", UIKeys.TRANSFORMS_SCALE, GLFW.GLFW_KEY_S).categoryKey("transformations");
     public static final KeyCombo TRANSFORMATIONS_ROTATE = new KeyCombo("rotate", UIKeys.TRANSFORMS_ROTATE, GLFW.GLFW_KEY_R).categoryKey("transformations");
+    public static final KeyCombo TRANSFORMATIONS_COMBINED = new KeyCombo("combined", UIKeys.FILM_GIZMO_COMBINED, GLFW.GLFW_KEY_C).categoryKey("transformations");
     public static final KeyCombo TRANSFORMATIONS_X = new KeyCombo("x", UIKeys.GENERAL_X, GLFW.GLFW_KEY_X).categoryKey("transformations");
     public static final KeyCombo TRANSFORMATIONS_Y = new KeyCombo("y", UIKeys.GENERAL_Y, GLFW.GLFW_KEY_Y).categoryKey("transformations");
     public static final KeyCombo TRANSFORMATIONS_Z = new KeyCombo("z", UIKeys.GENERAL_Z, GLFW.GLFW_KEY_Z).categoryKey("transformations");
@@ -111,6 +114,8 @@ public class Keys
     /* Film controller */
     public static final KeyCombo FILM_CONTROLLER_START_RECORDING = new KeyCombo("start_recording", UIKeys.FILM_CONTROLLER_KEYS_START_RECORDING, GLFW.GLFW_KEY_R, GLFW.GLFW_KEY_LEFT_CONTROL).categoryKey("film_controller");
     public static final KeyCombo FILM_CONTROLLER_INSERT_FRAME = new KeyCombo("insert_frame", UIKeys.FILM_CONTROLLER_KEYS_INSERT_FRAME, GLFW.GLFW_KEY_I).categoryKey("film_controller");
+    public static final KeyCombo KEYFRAMES_INSERT_INDIVIDUAL = new KeyCombo("insert_individual", UIKeys.KEYFRAMES_INSERT_SINGLE_AT_CURSOR, GLFW.GLFW_MOUSE_BUTTON_LEFT, GLFW.GLFW_KEY_LEFT_CONTROL).categoryKey("keyframes");
+    public static final KeyCombo KEYFRAMES_DUPLICATE = new KeyCombo("duplicate_keyframes", UIKeys.KEYFRAMES_DUPLICATE_AT_CURSOR, GLFW.GLFW_MOUSE_BUTTON_LEFT, GLFW.GLFW_KEY_LEFT_ALT).categoryKey("keyframes");
     public static final KeyCombo FILM_CONTROLLER_TOGGLE_CONTROL = new KeyCombo("toggle_control", UIKeys.FILM_CONTROLLER_KEYS_TOGGLE_CONTROL, GLFW.GLFW_KEY_H).categoryKey("film_controller");
     public static final KeyCombo FILM_CONTROLLER_TOGGLE_ORBIT_MODE = new KeyCombo("toggle_orbit_mode", UIKeys.FILM_CONTROLLER_KEYS_CHANGE_CAMERA_MODE, GLFW.GLFW_KEY_F3).categoryKey("film_controller");
     public static final KeyCombo FILM_CONTROLLER_MOVE_REPLAY_TO_CURSOR = new KeyCombo("move_replay_to_cursor", UIKeys.FILM_CONTROLLER_KEYS_MOVE_REPLAY_TO_CURSOR, GLFW.GLFW_KEY_G, GLFW.GLFW_KEY_LEFT_CONTROL).categoryKey("film_controller");

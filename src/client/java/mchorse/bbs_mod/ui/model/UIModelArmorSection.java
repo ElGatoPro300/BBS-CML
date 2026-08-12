@@ -23,7 +23,7 @@ public class UIModelArmorSection extends UIModelSection
 
     private String currentBone;
 
-    public UIModelArmorSection(UIModelPanel editor)
+    public UIModelArmorSection(IUIModelPanelHost editor)
     {
         super(editor);
 
@@ -31,7 +31,7 @@ public class UIModelArmorSection extends UIModelSection
 
         this.fields.add(this.pickArmor, new UIButton(UIKeys.MODELS_HANDS_EDIT, (b) ->
         {
-            this.editor.dashboard.setPanel(new UIModelArmorTransformEditor(this.editor, this.config));
+            this.editor.openTransformEditor(new UIModelArmorTransformEditor(this.editor, this.config));
         }));
     }
 
@@ -145,7 +145,7 @@ public class UIModelArmorSection extends UIModelSection
     {
         if (this.title.area.isInside(context) && context.mouseButton == 0)
         {
-            this.updateUI(this.editor.renderer.getSelectedBone());
+            this.updateUI(this.editor.getSelectedBone());
         }
 
         return super.subMouseClicked(context);
@@ -162,6 +162,6 @@ public class UIModelArmorSection extends UIModelSection
     {
         super.setConfig(config);
         
-        this.updateUI(this.editor.renderer.getSelectedBone());
+        this.updateUI(this.editor.getSelectedBone());
     }
 }

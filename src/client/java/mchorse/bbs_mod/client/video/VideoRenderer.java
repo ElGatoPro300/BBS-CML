@@ -9,18 +9,15 @@ import mchorse.bbs_mod.ui.framework.elements.utils.Batcher2D;
 import mchorse.bbs_mod.ui.utils.Area;
 import mchorse.bbs_mod.utils.clips.Clip;
 
-import net.minecraft.client.Minecraft;
-import net.minecraft.client.renderer.*;
-import net.minecraft.client.renderer.rendertype.RenderTypes;
+import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.render.*;
+import net.minecraft.client.render.RenderLayers;
+import net.minecraft.client.util.math.MatrixStack;
 
 import org.joml.Matrix4f;
 
 import com.mojang.blaze3d.opengl.GlStateManager;
 import com.mojang.blaze3d.systems.RenderSystem;
-import com.mojang.blaze3d.vertex.BufferBuilder;
-import com.mojang.blaze3d.vertex.DefaultVertexFormat;
-import com.mojang.blaze3d.vertex.PoseStack;
-import com.mojang.blaze3d.vertex.Tesselator;
 import com.mojang.blaze3d.vertex.VertexFormat;
 
 import org.lwjgl.opengl.GL11;
@@ -57,7 +54,7 @@ public class VideoRenderer
     private static MediaPlayerFactory FACTORY;
     private static boolean factoryFailed;
 
-    public static void renderClips(PoseStack stack, Batcher2D batcher, List<Clip> clips, int tick, boolean isRunning, Area viewport, Area globalArea, UIContext context, int screenWidth, int screenHeight, boolean renderGlobal)
+    public static void renderClips(MatrixStack stack, Batcher2D batcher, List<Clip> clips, int tick, boolean isRunning, Area viewport, Area globalArea, UIContext context, int screenWidth, int screenHeight, boolean renderGlobal)
     {
         for (Clip clip : clips)
         {
@@ -203,7 +200,7 @@ public class VideoRenderer
         return file.exists() ? file : null;
     }
 
-    public static void render(PoseStack stack, String path, long position, boolean playing, int volume, int x, int y, int w, int h, float opacity, int cropX, int cropY, int cropWidth, int cropHeight, boolean loops)
+    public static void render(MatrixStack stack, String path, long position, boolean playing, int volume, int x, int y, int w, int h, float opacity, int cropX, int cropY, int cropWidth, int cropHeight, boolean loops)
     {
         String resolved = resolveVideoPath(path);
 
@@ -236,7 +233,7 @@ public class VideoRenderer
                 }
             }
 
-            player = new VideoPlayer(FACTORY, Minecraft.getInstance());
+            player = new VideoPlayer(FACTORY, MinecraftClient.getInstance());
             try
             {
                 player.start(new File(resolved).toURI());
@@ -429,31 +426,31 @@ public class VideoRenderer
                 return;
             }
 
-            /* shader binding handled by RenderLayer in 1.21.11 */
-            /* texture binding handled by render pipeline */
+            GlStateManager._colorMask(true, true, true, true);
             GlStateManager._enableBlend();
             GlStateManager._blendFuncSeparate(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA, GL11.GL_ONE, GL11.GL_ZERO);
             GlStateManager._disableDepthTest();
             GlStateManager._depthMask(false);
             GlStateManager._disableCull();
 
-            Tesselator tessellator = Tesselator.getInstance();
-            BufferBuilder buffer = tessellator.begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION_TEX);
-            Matrix4f matrix = stack.last().pose();
+            Tessellator tessellator = Tessellator.getInstance();
+            BufferBuilder buffer = tessellator.begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_TEXTURE);
+            Matrix4f matrix = stack.peek().getPositionMatrix();
 
             /* Desplazar por recorte de izquierda/arriba para mantener el contenido en su lugar. */
             int drawX = x + Math.round(absW * left) * wSign;
             int drawY = y + Math.round(absH * top) * hSign;
 
-            buffer.addVertex(matrix, drawX, drawY + drawH, 0).setUv(u0, v1);
-            buffer.addVertex(matrix, drawX + drawW, drawY + drawH, 0).setUv(u1, v1);
-            buffer.addVertex(matrix, drawX + drawW, drawY, 0).setUv(u1, v0);
-            buffer.addVertex(matrix, drawX, drawY, 0).setUv(u0, v0);
-            RenderTypes.debugFilledBox().draw(buffer.buildOrThrow());
+            buffer.vertex(matrix, drawX, drawY + drawH, 0).texture(u0, v1);
+            buffer.vertex(matrix, drawX + drawW, drawY + drawH, 0).texture(u1, v1);
+            buffer.vertex(matrix, drawX + drawW, drawY, 0).texture(u1, v0);
+            buffer.vertex(matrix, drawX, drawY, 0).texture(u0, v0);
+            RenderLayers.debugFilledBox().draw(buffer.end());
             
             GlStateManager._enableCull();
             GlStateManager._depthMask(true);
             GlStateManager._enableDepthTest();
+            GlStateManager._colorMask(true, true, true, true);
         }
     }
 
@@ -508,7 +505,7 @@ public class VideoRenderer
 
         try
         {
-            VideoPlayer player = new VideoPlayer(FACTORY, Minecraft.getInstance());
+            VideoPlayer player = new VideoPlayer(FACTORY, MinecraftClient.getInstance());
             player.start(new File(resolved).toURI());
             player.pause();
 

@@ -4,6 +4,10 @@ import mchorse.bbs_mod.BBSMod;
 import mchorse.bbs_mod.BBSSettings;
 import mchorse.bbs_mod.utils.OS;
 
+import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.sound.PositionedSoundInstance;
+import net.minecraft.sound.SoundEvents;
+
 import java.io.File;
 import java.io.IOException;
 
@@ -93,6 +97,13 @@ public class UIUtils
 
     public static void playClick(float pitch)
     {
-        // TODO 1.21.11: migrate to the new PositionedSoundInstance factory path.
+        if (BBSSettings.clickSound.get())
+        {
+            MinecraftClient.getInstance().getSoundManager().play(PositionedSoundInstance.ui(BBSMod.CLICK, pitch));
+        }
+        else
+        {
+            MinecraftClient.getInstance().getSoundManager().play(PositionedSoundInstance.ui(SoundEvents.UI_BUTTON_CLICK, pitch));
+        }
     }
 }

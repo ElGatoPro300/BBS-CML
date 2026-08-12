@@ -4,13 +4,13 @@ import mchorse.bbs_mod.BBSMod;
 import mchorse.bbs_mod.actions.types.item.UseBlockItemActionClip;
 import mchorse.bbs_mod.actions.types.item.UseItemActionClip;
 
-import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.InteractionHand;
-import net.minecraft.world.InteractionResult;
-import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.context.UseOnContext;
-import net.minecraft.world.level.Level;
+import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.item.ItemStack;
+import net.minecraft.item.ItemUsageContext;
+import net.minecraft.server.network.ServerPlayerEntity;
+import net.minecraft.util.ActionResult;
+import net.minecraft.util.Hand;
+import net.minecraft.world.World;
 
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
@@ -21,13 +21,13 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 public class ItemStackMixin
 {
     @Inject(method = "use", at = @At("HEAD"))
-    public void onUse(Level world, Player user, InteractionHand hand, CallbackInfoReturnable<InteractionResult> info)
+    public void onUse(World world, PlayerEntity user, Hand hand, CallbackInfoReturnable<ActionResult> info)
     {
-        if (user instanceof ServerPlayer player)
+        if (user instanceof ServerPlayerEntity player)
         {
-            ItemStack stack = user.getItemInHand(hand);
+            ItemStack stack = user.getStackInHand(hand);
 
-            if (stack.getUseDuration(user) > 0)
+            if (stack.getMaxUseTime(user) > 0)
             {
                 return;
             }
@@ -36,25 +36,25 @@ public class ItemStackMixin
                 UseItemActionClip clip = new UseItemActionClip();
 
                 clip.itemStack.set(stack.copy());
-                clip.hand.set(hand == InteractionHand.MAIN_HAND);
+                clip.hand.set(hand == Hand.MAIN_HAND);
 
                 return clip;
             });
         }
     }
 
-    @Inject(method = "useOn", at = @At("HEAD"))
-    public void onUseOnBlock(UseOnContext context, CallbackInfoReturnable<InteractionResult> info)
+    @Inject(method = "useOnBlock", at = @At("HEAD"))
+    public void onUseOnBlock(ItemUsageContext context, CallbackInfoReturnable<ActionResult> info)
     {
-        if (context.getPlayer() instanceof ServerPlayer player)
+        if (context.getPlayer() instanceof ServerPlayerEntity player)
         {
             BBSMod.getActions().addAction(player, () ->
             {
                 UseBlockItemActionClip clip = new UseBlockItemActionClip();
 
                 clip.hit.setHitResult(context);
-                clip.itemStack.set(context.getItemInHand().copy());
-                clip.hand.set(context.getHand() == InteractionHand.MAIN_HAND);
+                clip.itemStack.set(context.getStack().copy());
+                clip.hand.set(context.getHand() == Hand.MAIN_HAND);
 
                 return clip;
             });

@@ -1,34 +1,30 @@
 package mchorse.bbs_mod.ui.framework.elements.input.keyframes.factories;
 
 import mchorse.bbs_mod.BBSSettings;
+import mchorse.bbs_mod.cubic.IModel;
 import mchorse.bbs_mod.cubic.ModelInstance;
 import mchorse.bbs_mod.data.types.MapType;
-import mchorse.bbs_mod.film.replays.Replay;
 import mchorse.bbs_mod.forms.FormUtils;
 import mchorse.bbs_mod.forms.FormUtilsClient;
 import mchorse.bbs_mod.forms.forms.MobForm;
 import mchorse.bbs_mod.forms.forms.ModelForm;
+import mchorse.bbs_mod.forms.forms.utils.PaintSettings;
 import mchorse.bbs_mod.forms.renderers.ModelFormRenderer;
-import mchorse.bbs_mod.l10n.keys.IKey;
 import mchorse.bbs_mod.resources.Link;
 import mchorse.bbs_mod.ui.UIKeys;
 import mchorse.bbs_mod.ui.film.UIFilmPanel;
+import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.ui.framework.elements.UIElement;
-import mchorse.bbs_mod.ui.framework.elements.buttons.UIButton;
 import mchorse.bbs_mod.ui.framework.elements.input.UIPropTransform;
 import mchorse.bbs_mod.ui.framework.elements.input.keyframes.UIKeyframeSheet;
 import mchorse.bbs_mod.ui.framework.elements.input.keyframes.UIKeyframes;
-import mchorse.bbs_mod.ui.framework.elements.input.list.UIList;
-import mchorse.bbs_mod.ui.framework.elements.input.list.UISearchList;
 import mchorse.bbs_mod.ui.framework.elements.input.list.UIStringList;
-import mchorse.bbs_mod.ui.framework.elements.overlay.UIConfirmOverlayPanel;
-import mchorse.bbs_mod.ui.framework.elements.overlay.UIOverlay;
-import mchorse.bbs_mod.ui.framework.elements.utils.UILabel;
 import mchorse.bbs_mod.ui.utils.UI;
 import mchorse.bbs_mod.ui.utils.pose.UIPoseEditor;
 import mchorse.bbs_mod.utils.Axis;
 import mchorse.bbs_mod.utils.CollectionUtils;
 import mchorse.bbs_mod.utils.MathUtils;
+import mchorse.bbs_mod.utils.colors.Color;
 import mchorse.bbs_mod.utils.joml.Vectors;
 import mchorse.bbs_mod.utils.keyframes.Keyframe;
 import mchorse.bbs_mod.utils.pose.Pose;
@@ -39,11 +35,19 @@ import org.joml.Vector3d;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.function.Consumer;
 
 public class UIPoseKeyframeFactory extends UIKeyframeFactory<Pose>
 {
     public UIPoseFactoryEditor poseEditor;
+
+    /**
+     * -1 = not built yet; 0 = narrow stack; 1 = wide two-column.
+     * Rebuild only when this flips — every resize used to wipe the tree and
+     * orphan open Color/Glow shells so footer buttons vanished.
+     */
+    private int layoutMode = -1;
 
     public UIPoseKeyframeFactory(Keyframe<Pose> keyframe, UIKeyframes editor)
     {
@@ -76,12 +80,6 @@ public class UIPoseKeyframeFactory extends UIKeyframeFactory<Pose>
                 this.poseEditor.setPose(keyframe.getValue(), model.poseGroup);
                 this.poseEditor.fillGroups(model.model, model.flippedParts, false);
 
-                /* Si la pista está anclada, seleccionar el hueso anclado al crear el editor */
-                if (BBSSettings.boneAnchoringEnabled.get() && sheet != null && sheet.anchoredBone != null)
-                {
-                    this.poseEditor.selectBone(sheet.anchoredBone);
-                }
-
                 this.poseEditor.refreshCurrentBone();
             }
         }
@@ -92,10 +90,6 @@ public class UIPoseKeyframeFactory extends UIKeyframeFactory<Pose>
             this.poseEditor.setPose(keyframe.getValue(), "");
             this.poseEditor.fillGroups(bones, false);
 
-            if (BBSSettings.boneAnchoringEnabled.get() && sheet != null && sheet.anchoredBone != null)
-            {
-                this.poseEditor.selectBone(sheet.anchoredBone);
-            }
         }
 
         this.scroll.add(this.poseEditor);
@@ -116,114 +110,113 @@ public class UIPoseKeyframeFactory extends UIKeyframeFactory<Pose>
     @Override
     public void resize()
     {
+        int mode = this.resolveLayoutMode();
+
+        if (mode != this.layoutMode || this.poseEditor.getChildren().isEmpty())
+        {
+            this.rebuildPoseLayout(mode == 1);
+            this.layoutMode = mode;
+        }
+
+        super.resize();
+
+        /* Width is often still 0 on the first pass; rebuild once area is known. */
+        int after = this.resolveLayoutMode();
+
+        if (after != this.layoutMode)
+        {
+            this.rebuildPoseLayout(after == 1);
+            this.layoutMode = after;
+            super.resize();
+        }
+    }
+
+    private int resolveLayoutMode()
+    {
+        int w = this.getFlex().getW();
+
+        if (w <= 0)
+        {
+            w = this.area.w;
+        }
+
+        return w > 240 ? 1 : 0;
+    }
+
+    private void rebuildPoseLayout(boolean wide)
+    {
+        /* Closing shells before wipe avoids orphan ACTIVE shells after removeAll. */
+        if (this.poseEditor.colorAdjustments != null)
+        {
+            this.poseEditor.colorAdjustments.setExpanded(false);
+        }
+
+        if (this.poseEditor.colorTransform != null)
+        {
+            this.poseEditor.colorTransform.setExpanded(false);
+        }
+
+        if (this.poseEditor.paintTransform != null)
+        {
+            this.poseEditor.paintTransform.setExpanded(false);
+        }
+
+        if (this.poseEditor.glowTransform != null)
+        {
+            this.poseEditor.glowTransform.setExpanded(false);
+        }
+
         this.poseEditor.removeAll();
 
-        /* Construir disposición según estado de anclaje y ajuste global */
-        UIKeyframeSheet sheet = this.editor.getGraph().getSheet(this.keyframe);
-        boolean anchoringEnabled = BBSSettings.boneAnchoringEnabled.get();
-        boolean isAnchored = anchoringEnabled && sheet != null && sheet.anchoredBone != null;
+        /* Rebuilding the pose editor tree while a child trackpad is focused
+         * leaves a stale textbox focus that freezes further edits. */
+        UIContext context = this.getContext();
+
+        if (context != null && context.activeElement instanceof UIElement focused
+            && focused.getParent(UIPoseFactoryEditor.class) == this.poseEditor)
+        {
+            context.unfocus();
+        }
+
         boolean categoriesEnabled = BBSSettings.modelBlockCategoriesPanelEnabled != null && BBSSettings.modelBlockCategoriesPanelEnabled.get();
+        UIElement footer = this.poseEditor.createPoseFooter();
 
-        if (isAnchored)
+        if (wide)
         {
-            this.poseEditor.anchoredLegend.setVisible(true);
-            IKey legendRaw = IKey.constant("%s %s");
-            this.poseEditor.anchoredLegend.label = legendRaw.format(UIKeys.POSE_TRACKS_ANCHOR_LEGEND, IKey.constant(sheet.anchoredBone));
-            this.poseEditor.selectBone(sheet.anchoredBone);
-        }
-        else
-        {
-            this.poseEditor.anchoredLegend.setVisible(false);
-            /* Si el anclaje está deshabilitado globalmente, ocultar botones de anclaje */
-            if (!anchoringEnabled)
-            {
-                this.poseEditor.anchorBone.setVisible(false);
-                this.poseEditor.unanchorBone.setVisible(false);
-            }
-            else
-            {
-                this.poseEditor.anchorBone.setVisible(true);
-                this.poseEditor.unanchorBone.setVisible(true);
-            }
-        }
+            /* 5 transform rows at 20px + 4×5px column margins; Fix trackpad sits above. */
+            int transformHeight = 20 * 5 + 5 * 4;
+            int boneListHeight = 20 + 5 + transformHeight;
 
-        if (this.getFlex().getW() > 240)
-        {
-            UIElement left = UI.column(UI.label(UIKeys.POSE_CONTEXT_FIX), this.poseEditor.fix, UI.row(this.poseEditor.color, this.poseEditor.lighting), this.poseEditor.transform);
+            this.poseEditor.transform.h(transformHeight);
+            this.poseEditor.groups.h(boneListHeight);
+            this.poseEditor.categories.h(Math.max(UIStringList.DEFAULT_HEIGHT, boneListHeight - 20));
 
-            UIElement right;
-            if (isAnchored)
-            {
-                /* En anclado, mantener visible el botón de textura usando el hueso anclado */
-                this.poseEditor.pickTexture.w(1F);
-                right = UI.column(UI.label(UIKeys.FORMS_EDITOR_BONE), this.poseEditor.anchoredLegend, this.poseEditor.pickTexture, this.poseEditor.unanchorBone);
-            }
-            else
-            {
-                /* Insertar botón de textura de hueso entre la lista y el anclaje */
-                this.poseEditor.pickTexture.w(1F);
-                UIElement groupsRow = categoriesEnabled ? UI.row(this.poseEditor.groups, this.poseEditor.categories) : UI.row(this.poseEditor.groups);
-                if (anchoringEnabled)
-                {
-                    right = UI.column(
-                        UI.label(UIKeys.FORMS_EDITOR_BONE),
-                        groupsRow,
-                        this.poseEditor.pickTexture,
-                        this.poseEditor.anchorBone
-                    );
-                }
-                else
-                {
-                    /* Anclaje deshabilitado: no mostrar botón de anclar */
-                    right = UI.column(
-                        UI.label(UIKeys.FORMS_EDITOR_BONE),
-                        groupsRow,
-                        this.poseEditor.pickTexture
-                    );
-                }
-            }
+            UIElement left = UI.column(
+                UI.label(UIKeys.POSE_CONTEXT_FIX),
+                this.poseEditor.fix,
+                this.poseEditor.transform
+            );
+
+            UIElement groupsRow = categoriesEnabled ? UI.row(this.poseEditor.groups, this.poseEditor.categories) : UI.row(this.poseEditor.groups);
+            UIElement right = UI.column(
+                UI.label(UIKeys.FORMS_EDITOR_BONE),
+                groupsRow
+            );
 
             this.poseEditor.add(UI.row(left, right));
+            this.poseEditor.add(footer);
         }
         else
         {
-            if (isAnchored)
-            {
-                /* En estrecho y anclado, conservar el botón de textura */
-                this.poseEditor.add(UI.label(UIKeys.FORMS_EDITOR_BONE), this.poseEditor.anchoredLegend, this.poseEditor.pickTexture, this.poseEditor.unanchorBone,
-                    UI.label(UIKeys.POSE_CONTEXT_FIX), this.poseEditor.fix, UI.row(this.poseEditor.color, this.poseEditor.lighting), this.poseEditor.transform);
-            }
-            else
-            {
-                /* En modo estrecho, también colocar el botón antes del anclaje */
-                UIElement groupsRow = categoriesEnabled ? UI.row(this.poseEditor.groups, this.poseEditor.categories) : UI.row(this.poseEditor.groups);
-                if (anchoringEnabled)
-                {
-                    this.poseEditor.add(
-                        UI.label(UIKeys.FORMS_EDITOR_BONE),
-                        groupsRow,
-                        this.poseEditor.pickTexture,
-                        this.poseEditor.anchorBone,
-                        UI.label(UIKeys.POSE_CONTEXT_FIX),
-                        this.poseEditor.fix,
-                        UI.row(this.poseEditor.color, this.poseEditor.lighting),
-                        this.poseEditor.transform
-                    );
-                }
-                else
-                {
-                    /* Anclaje deshabilitado: ocultar botón de anclar */
-                    this.poseEditor.add(
-                        UI.label(UIKeys.FORMS_EDITOR_BONE),
-                        groupsRow,
-                        this.poseEditor.pickTexture,
-                        UI.label(UIKeys.POSE_CONTEXT_FIX),
-                        this.poseEditor.fix,
-                        UI.row(this.poseEditor.color, this.poseEditor.lighting),
-                        this.poseEditor.transform
-                    );
-                }
-            }
+            UIElement groupsRow = categoriesEnabled ? UI.row(this.poseEditor.groups, this.poseEditor.categories) : UI.row(this.poseEditor.groups);
+            this.poseEditor.add(
+                UI.label(UIKeys.FORMS_EDITOR_BONE),
+                groupsRow,
+                footer,
+                UI.label(UIKeys.POSE_CONTEXT_FIX),
+                this.poseEditor.fix,
+                this.poseEditor.transform
+            );
         }
 
         /* Ew... */
@@ -231,17 +224,12 @@ public class UIPoseKeyframeFactory extends UIKeyframeFactory<Pose>
         {
             child.noCulling();
         }
-
-        super.resize();
     }
 
     public static class UIPoseFactoryEditor extends UIPoseEditor
     {
         private UIKeyframes editor;
         private Keyframe<Pose> keyframe;
-        public UIButton anchorBone;
-        public UIButton unanchorBone;
-        public UILabel anchoredLegend;
 
         public void refreshCurrentBone()
         {
@@ -286,99 +274,20 @@ public class UIPoseKeyframeFactory extends UIKeyframeFactory<Pose>
             this.keyframe = keyframe;
 
             ((UIPoseTransforms) this.transform).setKeyframe(this);
+        }
 
-            IKey legendRaw = IKey.constant("%s %s");
-            this.anchoredLegend = UI.label(legendRaw.format(UIKeys.POSE_TRACKS_ANCHOR_LEGEND, IKey.constant("-")));
-            this.anchoredLegend.h(20);
-            this.anchoredLegend.setVisible(false);
+        @Override
+        protected boolean useModelGizmoDrag()
+        {
+            /* Film pose uses FilmPoseGizmoDrag axis sign correction instead of setModel(). */
+            return false;
+        }
 
-            /* Bone anchoring buttons (optional) */
-            this.anchorBone = new UIButton(UIKeys.POSE_TRACKS_ANCHOR_SELECT_BONE, (b) ->
-            {
-                if (!BBSSettings.boneAnchoringEnabled.get()) return;
-
-                UIKeyframeSheet sheet = this.editor.getGraph().getSheet(this.keyframe);
-                if (sheet == null) return;
-
-                /* Overlay para elegir el hueso */
-                List<String> bones = this.groups.list.getList();
-                UISearchList<String> search = new UISearchList<>(new UIStringList(null));
-                UIList<String> list = search.list;
-                UIConfirmOverlayPanel panel = new UIConfirmOverlayPanel(
-                    UIKeys.POSE_TRACKS_ANCHOR_SELECT_BONE_TITLE,
-                    UIKeys.POSE_TRACKS_ANCHOR_SELECT_BONE_DESCRIPTION,
-                    (confirm) ->
-                    {
-                        if (confirm)
-                        {
-                            int index = list.getIndex();
-                            String bone = CollectionUtils.getSafe(bones, index);
-
-                            if (bone != null)
-                            {
-                                sheet.anchoredBone = bone;
-                                this.selectBone(bone);
-                                this.anchoredLegend.setVisible(true);
-                                this.anchoredLegend.label = legendRaw.format(UIKeys.POSE_TRACKS_ANCHOR_LEGEND, IKey.constant(bone));
-
-                                UIPoseKeyframeFactory factory = this.getParent(UIPoseKeyframeFactory.class);
-                                if (factory != null) { factory.resize(); }
-
-                                UIFilmPanel filmPanel = this.getParent(UIFilmPanel.class);
-                                if (filmPanel != null && filmPanel.replayEditor != null && filmPanel.replayEditor.getReplay() != null)
-                                {
-                                    Replay replay = filmPanel.replayEditor.getReplay();
-                                    replay.setAnchoredBone(sheet.id, bone);
-                                    replay.setCustomSheetTitle(sheet.id, bone);
-                                }
-                            }
-                        }
-                    }
-                );
-
-                for (String g : bones) { list.add(g); }
-
-                /* Preseleccionar */
-                String current = sheet.anchoredBone != null ? sheet.anchoredBone : this.getCurrentBone();
-
-                if (current == null || current.isEmpty())
-                {
-                    current = this.groups.list.getCurrentFirst();
-                }
-                int idx = bones.indexOf(current);
-                list.setIndex(Math.max(idx, 0));
-
-                list.background();
-                search.relative(panel.confirm).y(-5).w(1F).h(16 * 9 + 20).anchor(0F, 1F);
-                panel.confirm.w(1F, -10);
-                panel.content.add(search);
-                UIOverlay.addOverlay(this.getContext(), panel, 240, 300);
-            });
-
-            this.unanchorBone = new UIButton(UIKeys.POSE_TRACKS_ANCHOR_UNANCHOR, (b) ->
-            {
-                UIKeyframeSheet sheet = this.editor.getGraph().getSheet(this.keyframe);
-                if (sheet != null)
-                {
-                    sheet.anchoredBone = null;
-                    this.anchoredLegend.setVisible(false);
-
-                    UIFilmPanel filmPanel = this.getParent(UIFilmPanel.class);
-                    if (filmPanel != null && filmPanel.replayEditor != null && filmPanel.replayEditor.getReplay() != null)
-                    {
-                        Replay replay = filmPanel.replayEditor.getReplay();
-                        replay.setAnchoredBone(sheet.id, null);
-                        replay.setCustomSheetTitle(sheet.id, null);
-                    }
-
-                    UIPoseKeyframeFactory factory = this.getParent(UIPoseKeyframeFactory.class);
-                    if (factory != null) { factory.resize(); }
-                }
-            });
-
-            /* Asegurar que los botones ocupen el ancho completo cuando estén visibles */
-            this.anchorBone.w(1F);
-            this.unanchorBone.w(1F);
+        @Override
+        protected float getGizmoTranslationScale()
+        {
+            /* BOBJ bones translate in blocks; cubic groups use model pixels (/16). */
+            return ModelFormRenderer.isBobjModel(this.model) ? 1F : 16F;
         }
 
         private String getGroup(PoseTransform transform)
@@ -397,10 +306,61 @@ public class UIPoseKeyframeFactory extends UIKeyframeFactory<Pose>
             return this.boneCategories.getBones(this.getPoseGroupKey(), category);
         }
 
+        public List<String> getLiveMirrorBonesForReplayEditor()
+        {
+            return this.getLiveMirrorBones();
+        }
+
+        public boolean shouldInvertLiveMirrorRotationZForReplayEditor(List<String> targets)
+        {
+            return this.shouldInvertLiveMirrorRotationZ(targets);
+        }
+
         @Override
         protected UIPropTransform createTransformEditor()
         {
-            return new UIPoseTransforms().enableHotkeys();
+            /* Same ring / translate sign tuning as UIModelPoseEditor; film drag prepare clears
+             * trackball euler flips when using the arcball sphere. */
+            UIPoseTransforms editor = new UIPoseTransforms();
+
+            editor.enableHotkeys();
+            editor.translationScale(this.getGizmoTranslationScale());
+
+            if (ModelFormRenderer.isBobjModel(this.model))
+            {
+                editor.bobjPoseGizmoTuning();
+            }
+            else
+            {
+                editor.poseModelGizmoTuning();
+                editor.invertModelPoseTrackballXZ();
+                editor.invertModelPoseTrackballDragY();
+            }
+
+            return editor;
+        }
+
+        @Override
+        public void fillGroups(IModel model, Map<String, String> flippedParts, boolean reset)
+        {
+            super.fillGroups(model, flippedParts, reset);
+
+            if (this.transform != null)
+            {
+                boolean bobj = ModelFormRenderer.isBobjModel(model);
+
+                this.transform.translationScale(bobj ? 1F : 16F);
+                this.transform.setAxisProjectedTranslation(bobj);
+
+                if (bobj)
+                {
+                    this.transform.configurePoseRingTuning(true);
+                }
+                else
+                {
+                    this.transform.configurePoseRingTuning(false);
+                }
+            }
         }
 
         @Override
@@ -440,13 +400,111 @@ public class UIPoseKeyframeFactory extends UIKeyframeFactory<Pose>
         @Override
         protected void setColor(PoseTransform transform, int value)
         {
-            apply(this.editor, this.keyframe, this.getGroup(transform), (poseT) -> poseT.color.set(value));
+            apply(this.editor, this.keyframe, this.getGroup(transform), (poseT) ->
+            {
+                Color rgba = Color.rgba(value);
+
+                poseT.color.set(rgba.r, rgba.g, rgba.b, rgba.a);
+            });
+        }
+
+        @Override
+        protected void editPoseColor(Consumer<Color> editor)
+        {
+            String group = this.getCurrentBone();
+
+            if (group == null || group.isEmpty())
+            {
+                group = this.groups.list.getCurrentFirst();
+            }
+
+            if (group == null || group.isEmpty())
+            {
+                return;
+            }
+
+            apply(this.editor, this.keyframe, group, (poseT) -> editor.accept(poseT.color));
+        }
+
+        @Override
+        protected void editPosePaintColor(Consumer<Color> editor)
+        {
+            String group = this.getCurrentBone();
+
+            if (group == null || group.isEmpty())
+            {
+                group = this.groups.list.getCurrentFirst();
+            }
+
+            if (group == null || group.isEmpty())
+            {
+                return;
+            }
+
+            apply(this.editor, this.keyframe, group, (poseT) -> editor.accept(poseT.paintColor));
+        }
+
+        @Override
+        protected void setPaintColor(PoseTransform transform, int value)
+        {
+            apply(this.editor, this.keyframe, this.getGroup(transform), (poseT) ->
+            {
+                float intensity = poseT.paintColor.a;
+
+                poseT.paintColor.set(value);
+                poseT.paintColor.a = intensity;
+                poseT.shaderShadow = PaintSettings.resolveAutoShaderShadowForPoseAlpha(poseT.paintColor.a);
+            });
+        }
+
+        @Override
+        protected void setPaintIntensity(PoseTransform transform, float value)
+        {
+            apply(this.editor, this.keyframe, this.getGroup(transform), (poseT) ->
+            {
+                poseT.paintColor.a = PaintSettings.clampIntensity(value);
+                poseT.shaderShadow = PaintSettings.resolveAutoShaderShadowForPoseAlpha(poseT.paintColor.a);
+            });
+        }
+
+        @Override
+        protected void setGlowingColor(PoseTransform transform, int value)
+        {
+            apply(this.editor, this.keyframe, this.getGroup(transform), (poseT) ->
+            {
+                poseT.glowingColor.set(value);
+                poseT.glowingColor.a = 1F;
+            });
+        }
+
+        @Override
+        protected void setGlowIntensity(PoseTransform transform, float value)
+        {
+            apply(this.editor, this.keyframe, this.getGroup(transform), (poseT) -> poseT.glowIntensity = value);
+        }
+
+        @Override
+        protected void setGlowRadius(PoseTransform transform, float value)
+        {
+            apply(this.editor, this.keyframe, this.getGroup(transform), (poseT) -> poseT.glowRadius = value);
         }
 
         @Override
         protected void setLighting(PoseTransform poseTransform, boolean value)
         {
             apply(this.editor, this.keyframe, this.getGroup(poseTransform), (poseT) -> poseT.lighting = value ? 0F : 1F);
+        }
+
+        @Override
+        protected void setNoshadingOpacity(PoseTransform poseTransform, boolean value)
+        {
+            apply(this.editor, this.keyframe, this.getGroup(poseTransform), (poseT) -> poseT.noshadingOpacity = value);
+        }
+
+        @Override
+        protected void setTextureBlend(PoseTransform transform, float value)
+        {
+            apply(this.editor, this.keyframe, this.getGroup(transform), (poseT) -> poseT.textureBlend = 1F);
         }
     }
 
@@ -461,7 +519,7 @@ public class UIPoseKeyframeFactory extends UIKeyframeFactory<Pose>
 
         private void checkAutoKeyframe()
         {
-            if (BBSSettings.autoKeyframe.get() && BBSSettings.boneAnchoringEnabled.get())
+            if (BBSSettings.realtimeKeyframes.get())
             {
                 UIFilmPanel filmPanel = this.editor.getParent(UIFilmPanel.class);
 
@@ -546,6 +604,12 @@ public class UIPoseKeyframeFactory extends UIKeyframeFactory<Pose>
             String selectedCategory = categoriesEnabled && this.editor.categories != null ? this.editor.categories.getCurrentFirst() : null;
             if (selectedCategory == null || selectedCategory.isEmpty())
             {
+                List<String> liveMirror = this.editor.getLiveMirrorBonesForReplayEditor();
+                if (!liveMirror.isEmpty())
+                {
+                    return liveMirror;
+                }
+
                 String currentBone = this.editor.getCurrentBone();
 
                 if (currentBone == null || currentBone.isEmpty())
@@ -677,14 +741,18 @@ public class UIPoseKeyframeFactory extends UIKeyframeFactory<Pose>
             float dx = MathUtils.toRad((float) x) - transform.rotate.x;
             float dy = MathUtils.toRad((float) y) - transform.rotate.y;
             float dz = MathUtils.toRad((float) z) - transform.rotate.z;
+            List<String> targets = this.targets();
+            boolean invertAxes = this.editor.shouldInvertLiveMirrorRotationZForReplayEditor(targets);
+            String sourceBone = this.editor.getCurrentBone();
 
-            for (String key : this.targets())
+            for (String key : targets)
             {
                 UIPoseFactoryEditor.apply(this.editor.editor, this.editor.keyframe, key, (poseT) ->
                 {
-                    poseT.rotate.x += dx;
-                    poseT.rotate.y += dy;
-                    poseT.rotate.z += dz;
+                    boolean mirroredBone = invertAxes && !key.equals(sourceBone);
+                    poseT.rotate.x += mirroredBone ? -dx : dx;
+                    poseT.rotate.y += mirroredBone ? -dy : dy;
+                    poseT.rotate.z += mirroredBone ? -dz : dz;
                 });
             }
         }
@@ -698,14 +766,18 @@ public class UIPoseKeyframeFactory extends UIKeyframeFactory<Pose>
             float dx = MathUtils.toRad((float) x) - transform.rotate2.x;
             float dy = MathUtils.toRad((float) y) - transform.rotate2.y;
             float dz = MathUtils.toRad((float) z) - transform.rotate2.z;
+            List<String> targets = this.targets();
+            boolean invertAxes = this.editor.shouldInvertLiveMirrorRotationZForReplayEditor(targets);
+            String sourceBone = this.editor.getCurrentBone();
 
-            for (String key : this.targets())
+            for (String key : targets)
             {
                 UIPoseFactoryEditor.apply(this.editor.editor, this.editor.keyframe, key, (poseT) ->
                 {
-                    poseT.rotate2.x += dx;
-                    poseT.rotate2.y += dy;
-                    poseT.rotate2.z += dz;
+                    boolean mirroredBone = invertAxes && !key.equals(sourceBone);
+                    poseT.rotate2.x += mirroredBone ? -dx : dx;
+                    poseT.rotate2.y += mirroredBone ? -dy : dy;
+                    poseT.rotate2.z += mirroredBone ? -dz : dz;
                 });
             }
         }

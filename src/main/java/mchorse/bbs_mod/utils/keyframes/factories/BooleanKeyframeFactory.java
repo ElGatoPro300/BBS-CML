@@ -33,6 +33,9 @@ public class BooleanKeyframeFactory implements IKeyframeFactory<Boolean>
     @Override
     public Boolean interpolate(Boolean preA, Boolean a, Boolean b, Boolean postB, IInterp interpolation, float x)
     {
+        /* Discrete hold: keep the left keyframe for the whole segment.
+         * Never threshold at 0.5 / use easing — that creates mid-segment “ghost”
+         * flips on visible/render tracks (value changes before the next keyframe). */
         return a;
     }
 }

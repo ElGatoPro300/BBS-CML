@@ -21,6 +21,11 @@ public class ArmorSlot extends ValueGroup
     @Override
     public BaseType toData()
     {
+        if (this.group.get().isEmpty() && this.transform.isDefault())
+        {
+            return null;
+        }
+
         MapType data = (MapType) super.toData();
         Transform transform = this.transform.copy();
 

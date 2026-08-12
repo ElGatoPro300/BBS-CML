@@ -27,7 +27,7 @@ import java.util.stream.Collectors;
 
 public class UIModelItemsSection extends UIModelSection
 {
-    public UIModelItemsSection(UIModelPanel editor)
+    public UIModelItemsSection(IUIModelPanelHost editor)
     {
         super(editor);
 
@@ -36,6 +36,10 @@ public class UIModelItemsSection extends UIModelSection
             new UIButton(UIKeys.MODELS_ITEMS_MAIN, (b) -> this.openContextMenu(this.config.itemsMain)),
             new UIButton(UIKeys.MODELS_ITEMS_OFF, (b) -> this.openContextMenu(this.config.itemsOff))
         ));
+        this.fields.add(new UIButton(UIKeys.MODELS_HANDS_EDIT, (b) ->
+        {
+            this.editor.openTransformEditor(new UIModelItemsTransformEditor(this.editor, this.config));
+        }));
     }
 
     @Override
@@ -44,7 +48,7 @@ public class UIModelItemsSection extends UIModelSection
         return UIKeys.MODELS_ITEMS;
     }
 
-    private void openContextMenu(ValueList<ValueString> valueList)
+    private void openContextMenu(ValueList<ArmorSlot> valueList)
     {
         if (this.config == null) return;
 
@@ -56,15 +60,18 @@ public class UIModelItemsSection extends UIModelSection
         groups.add(0, "<none>");
 
         this.getContext().replaceContextMenu(new UIStringListContextMenu(groups, 
-            () -> valueList.getList().stream().map(ValueString::get).collect(Collectors.toSet()), 
+            () -> valueList.getList().stream().map(v -> v.group.get()).collect(Collectors.toSet()), 
             (group) ->
             {
-                boolean existed = valueList.getList().stream().anyMatch(v -> v.get().equals(group));
+                boolean existed = valueList.getList().stream().anyMatch(v -> v.group.get().equals(group));
                 valueList.getAllTyped().clear();
 
                 if (!group.equals("<none>") && !existed)
                 {
-                    valueList.add(new ValueString("0", group));
+                    ArmorSlot slot = new ArmorSlot("0");
+
+                    slot.group.set(group);
+                    valueList.add(slot);
                 }
 
                 this.editor.dirty();

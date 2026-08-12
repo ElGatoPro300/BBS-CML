@@ -55,7 +55,13 @@ public class UIBodyPartEditor extends UIScrollView
 
         this.useTarget = new UIToggle(UIKeys.FORMS_EDITOR_USE_TARGET, (b) ->
         {
-            this.part.useTarget.set(b.getValue());
+            for (UIForms.FormEntry entry : this.editor.formsList.getCurrent())
+            {
+                if (entry.part != null)
+                {
+                    entry.part.useTarget.set(b.getValue());
+                }
+            }
         });
 
         this.bone = new UIStringList((l) -> this.part.bone.set(l.get(0)));
@@ -70,6 +76,11 @@ public class UIBodyPartEditor extends UIScrollView
 
         this.column(5).vertical().stretch().scroll().padding(10);
         this.scroll.cancelScrolling();
+    }
+
+    public BodyPart getPart()
+    {
+        return this.part;
     }
 
     public void setPart(BodyPart part, Form form)

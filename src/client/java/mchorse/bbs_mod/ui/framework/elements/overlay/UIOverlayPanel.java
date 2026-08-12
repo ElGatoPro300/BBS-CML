@@ -1,6 +1,5 @@
 package mchorse.bbs_mod.ui.framework.elements.overlay;
 
-import mchorse.bbs_mod.BBSSettings;
 import mchorse.bbs_mod.graphics.window.Window;
 import mchorse.bbs_mod.l10n.keys.IKey;
 import mchorse.bbs_mod.ui.Keys;
@@ -48,13 +47,13 @@ public class UIOverlayPanel extends UIElement
     {
         super();
 
-        this.title = UI.label(title);
+        this.title = UI.label(title).color(Colors.WHITE);
         this.close = new UIIcon(Icons.CLOSE, (b) -> this.close());
         this.close.tooltip(UIKeys.GENERAL_CLOSE, Direction.LEFT);
         this.content = new UIElement();
         this.icons = new UIElement();
 
-        this.title.labelAnchor(0, 0.5F).relative(this).xy(6, 0).w(0.6F).h(20);
+        this.title.labelAnchor(0.5F, 0.5F).relative(this).xy(0.5F, 0).anchor(0.5F, 0).w(0.8F).h(20);
         this.icons.relative(this).x(1F, -20).y(0).w(20).h(1F).column(0).stretch();
         this.content.relative(this).xy(0, 20).w(1F, -20).h(1F, -20);
 
@@ -63,6 +62,7 @@ public class UIOverlayPanel extends UIElement
         this.add(this.title, this.icons, this.content);
 
         this.mouseEventPropagataion(EventPropagation.BLOCK_INSIDE);
+        this.resizable = true;
     }
 
     public void setInitialOffset(int x, int y)
@@ -111,6 +111,23 @@ public class UIOverlayPanel extends UIElement
         return this;
     }
 
+    public String getKey()
+    {
+        String className = this.getClass().getSimpleName();
+
+        if (className.isEmpty())
+        {
+            className = this.getClass().getSuperclass().getSimpleName();
+        }
+
+        if (this.title != null && this.title.label != null && this.title.label.get() != null && !this.title.label.get().isEmpty())
+        {
+            return className + "_" + this.title.label.get();
+        }
+
+        return className;
+    }
+
     public void onClose(Consumer<UIOverlayCloseEvent> callback)
     {
         this.events.register(UIOverlayCloseEvent.class, callback);
@@ -144,6 +161,8 @@ public class UIOverlayPanel extends UIElement
                     this.getParent().resize();
                 }
 
+                UIOverlay.saveOverlayState(this);
+
                 return true;
             }
 
@@ -168,6 +187,8 @@ public class UIOverlayPanel extends UIElement
                     this.getParent().resize();
                 }
 
+                UIOverlay.saveOverlayState(this);
+
                 return true;
             }
 
@@ -184,6 +205,11 @@ public class UIOverlayPanel extends UIElement
     @Override
     public boolean subMouseReleased(UIContext context)
     {
+        if (this.resizing || this.moving)
+        {
+            UIOverlay.saveOverlayState(this);
+        }
+
         this.resizing = false;
         this.moving = super.subMouseReleased(context);
 
@@ -284,19 +310,53 @@ public class UIOverlayPanel extends UIElement
             this.lastY = context.mouseY;
         }
 
+        float transition = 1.0F;
+        UIElement parent = this.getParent();
+
+        if (parent instanceof UIOverlay)
+        {
+            transition = ((UIOverlay) parent).getOpenTransition();
+        }
+
+        /* Keep close/open scale subtle. Scaling by raw transition (~0..1) shrinks the
+         * dark panel toward a speck and reads as a full-view blot on some frames. */
+        boolean animateScale = transition < 0.999F;
+
+        if (animateScale)
+        {
+            float scale = 0.92F + 0.08F * transition;
+            float cx = this.area.mx();
+            float cy = this.area.my();
+
+            context.render.batcher.getContext().getMatrices().pushMatrix();
+            context.render.batcher.getContext().getMatrices().translate(cx, cy);
+            context.render.batcher.getContext().getMatrices().scale(scale, scale);
+            context.render.batcher.getContext().getMatrices().translate(-cx, -cy);
+        }
+
         this.renderBackground(context);
 
         super.render(context);
+
+        if (animateScale)
+        {
+            context.batcher.flushDraw();
+            context.batcher.getContext().getMatrices().popMatrix();
+        }
     }
 
     protected void renderBackground(UIContext context)
     {
-        int color = BBSSettings.primaryColor.get();
+        context.batcher.dropShadow(this.area.x, this.area.y, this.area.ex(), this.area.ey(), 10, 0x44000000, 0x00000000);
 
-        context.batcher.dropShadow(this.area.x, this.area.y, this.area.ex(), this.area.ey(), 10, Colors.A25 | color, color);
-        this.area.render(context.batcher, Colors.mulRGB(color | Colors.A100, 0.1F));
+        // Main background
+        context.batcher.box(this.area.x, this.area.y, this.area.ex(), this.area.ey(), 0xFF141418);
+        context.batcher.outline(this.area.x, this.area.y, this.area.ex(), this.area.ey(), 0xFF2A2A35, 1);
 
-        this.icons.area.render(context.batcher, Colors.CONTROL_BAR);
+        // Header Row
+        int headerH = 20;
+        context.batcher.box(this.area.x, this.area.y, this.area.ex(), this.area.y + headerH, 0xFF1A1A22);
+        context.batcher.outline(this.area.x, this.area.y, this.area.ex(), this.area.y + headerH, 0xFF2A2A35, 1);
 
         if (this.close.area.isInside(context))
         {

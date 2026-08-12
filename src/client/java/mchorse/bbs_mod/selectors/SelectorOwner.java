@@ -7,10 +7,12 @@ import mchorse.bbs_mod.forms.entities.IEntity;
 import mchorse.bbs_mod.forms.entities.MCEntity;
 import mchorse.bbs_mod.forms.forms.Form;
 
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.nbt.Tag;
-import net.minecraft.world.entity.LivingEntity;
-import net.minecraft.world.level.Level;
+import net.minecraft.entity.LivingEntity;
+import net.minecraft.nbt.NbtCompound;
+import net.minecraft.nbt.NbtElement;
+import net.minecraft.storage.NbtWriteView;
+import net.minecraft.util.ErrorReporter;
+import net.minecraft.world.World;
 
 import java.util.HashSet;
 import java.util.Objects;
@@ -23,7 +25,7 @@ public class SelectorOwner
     private Form form;
     private long check;
     private int nbtCheck;
-    private CompoundTag lastNbt;
+    private NbtCompound lastNbt;
 
     private LivingEntity mcEntity;
 
@@ -40,9 +42,9 @@ public class SelectorOwner
 
     public void update()
     {
-        Level world = this.entity.getWorld();
+        World world = this.entity.getWorld();
 
-        if (!world.isClientSide())
+        if (!world.isClient())
         {
             return;
         }
@@ -65,12 +67,14 @@ public class SelectorOwner
             this.nbtCheck = 10;
 
             Set<String> keys = createWhitelist();
-            CompoundTag compound = new CompoundTag();
-            CompoundTag newCompound = new CompoundTag();
+            NbtWriteView view = NbtWriteView.create(ErrorReporter.EMPTY, this.mcEntity.getEntityWorld().getRegistryManager());
+            this.mcEntity.writeData(view);
+            NbtCompound compound = view.getNbt();
+            NbtCompound newCompound = new NbtCompound();
 
             for (String key : keys)
             {
-                Tag element = compound.get(key);
+                NbtElement element = compound.get(key);
 
                 if (element != null)
                 {

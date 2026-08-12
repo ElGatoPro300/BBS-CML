@@ -145,6 +145,11 @@ public class SoundPlayer
 
     public void setPlaybackPosition(float seconds)
     {
+        if (this.buffer == null)
+        {
+            return;
+        }
+
         seconds = MathUtils.clamp(seconds, 0, this.buffer.getDuration());
 
         AL10.alSourcef(this.source, AL11.AL_SEC_OFFSET, seconds);

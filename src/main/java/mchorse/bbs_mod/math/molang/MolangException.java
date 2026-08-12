@@ -6,4 +6,9 @@ public class MolangException extends Exception
     {
         super(message);
     }
+
+    public MolangException(String message, Throwable cause)
+    {
+        super(message, cause);
+    }
 }

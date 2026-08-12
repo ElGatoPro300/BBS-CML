@@ -7,9 +7,9 @@ import mchorse.bbs_mod.forms.renderers.FormRenderingContext;
 import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.ui.framework.elements.utils.UIModelRenderer;
 
-import net.minecraft.client.renderer.texture.OverlayTexture;
-
-import com.mojang.blaze3d.vertex.PoseStack;
+import net.minecraft.client.render.LightmapTextureManager;
+import net.minecraft.client.render.OverlayTexture;
+import net.minecraft.client.util.math.MatrixStack;
 
 public class UIFormRenderer extends UIModelRenderer
 {
@@ -24,7 +24,7 @@ public class UIFormRenderer extends UIModelRenderer
         }
 
         FormRenderingContext formContext = new FormRenderingContext()
-            .set(FormRenderType.PREVIEW, this.entity, new PoseStack(), 15728880, OverlayTexture.NO_OVERLAY, context.getTransition())
+            .set(FormRenderType.PREVIEW, this.entity, new MatrixStack(), LightmapTextureManager.pack(15, 15), OverlayTexture.DEFAULT_UV, context.getTransition())
             .camera(this.camera)
             .modelRenderer();
 

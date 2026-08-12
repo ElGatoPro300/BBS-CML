@@ -1,5 +1,6 @@
 package mchorse.bbs_mod.camera.clips.overwrite;
 
+import mchorse.bbs_mod.BBSSettings;
 import mchorse.bbs_mod.camera.Camera;
 import mchorse.bbs_mod.camera.clips.CameraClip;
 import mchorse.bbs_mod.camera.clips.CameraClipContext;
@@ -43,6 +44,27 @@ public class PathClip extends CameraClip
         this.add(this.points);
         this.add(this.interpolationPoint);
         this.add(this.interpolationAngle);
+
+        this.interpolationPoint.setInterp(this.getDefaultPathInterpolation());
+        this.interpolationAngle.setInterp(this.getDefaultPathInterpolation());
+    }
+
+    private IInterp getDefaultPathInterpolation()
+    {
+        int idx = BBSSettings.defaultPathInterpolation == null ? -1 : BBSSettings.defaultPathInterpolation.get();
+        int i = 0;
+
+        for (IInterp interp : Interpolations.MAP.values())
+        {
+            if (i == idx)
+            {
+                return interp;
+            }
+
+            i++;
+        }
+
+        return Interpolations.HERMITE;
     }
 
     public Position getPoint(int index)

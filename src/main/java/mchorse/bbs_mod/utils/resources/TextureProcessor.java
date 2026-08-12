@@ -4,6 +4,7 @@ import mchorse.bbs_mod.BBSMod;
 import mchorse.bbs_mod.utils.colors.Color;
 import mchorse.bbs_mod.utils.colors.Colors;
 
+import java.io.FileNotFoundException;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
@@ -30,11 +31,20 @@ public class TextureProcessor
 
                 images.add(pixels);
             }
-            catch (Exception e)
+            catch (FileNotFoundException e)
             {
-                e.printStackTrace();
                 images.add(null);
             }
+            catch (Exception e)
+            {
+                System.err.println("Error processing texture child: " + child.path + " (" + e.getMessage() + ")");
+                images.add(null);
+            }
+        }
+
+        if (w <= 0 || h <= 0)
+        {
+            return null;
         }
 
         Pixels output = Pixels.fromSize(w, h);

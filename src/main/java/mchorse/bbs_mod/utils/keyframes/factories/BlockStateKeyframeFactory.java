@@ -4,10 +4,10 @@ import mchorse.bbs_mod.data.DataStorageUtils;
 import mchorse.bbs_mod.data.types.BaseType;
 import mchorse.bbs_mod.utils.interps.IInterp;
 
+import net.minecraft.block.BlockState;
+import net.minecraft.block.Blocks;
+import net.minecraft.nbt.NbtElement;
 import net.minecraft.nbt.NbtOps;
-import net.minecraft.nbt.Tag;
-import net.minecraft.world.level.block.Blocks;
-import net.minecraft.world.level.block.state.BlockState;
 
 import com.mojang.datafixers.util.Pair;
 import com.mojang.serialization.DataResult;
@@ -19,8 +19,8 @@ public class BlockStateKeyframeFactory implements IKeyframeFactory<BlockState>
     @Override
     public BlockState fromData(BaseType data)
     {
-        DataResult<Pair<BlockState, Tag>> decode = BlockState.CODEC.decode(NbtOps.INSTANCE, DataStorageUtils.toNbt(data));
-        Optional<Pair<BlockState, Tag>> result = decode.result();
+        DataResult<Pair<BlockState, NbtElement>> decode = BlockState.CODEC.decode(NbtOps.INSTANCE, DataStorageUtils.toNbt(data));
+        Optional<Pair<BlockState, NbtElement>> result = decode.result();
 
         return result.map(Pair::getFirst).orElse(null);
     }
@@ -28,8 +28,7 @@ public class BlockStateKeyframeFactory implements IKeyframeFactory<BlockState>
     @Override
     public BaseType toData(BlockState value)
     {
-        BlockState safe = value != null ? value : this.createEmpty();
-        Optional<Tag> result = BlockState.CODEC.encodeStart(NbtOps.INSTANCE, safe).result();
+        Optional<NbtElement> result = BlockState.CODEC.encodeStart(NbtOps.INSTANCE, value).result();
 
         return result.map(DataStorageUtils::fromNbt).orElse(null);
     }
@@ -37,7 +36,7 @@ public class BlockStateKeyframeFactory implements IKeyframeFactory<BlockState>
     @Override
     public BlockState createEmpty()
     {
-        return Blocks.AIR.defaultBlockState();
+        return Blocks.AIR.getDefaultState();
     }
 
     @Override

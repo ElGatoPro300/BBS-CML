@@ -2,7 +2,7 @@
     "schemaVersion": 1,
     "id": "bbs",
     "version": "${version}",
-    "name": "BBS CML Edition",
+    "name": "BBS CML",
     "description": "A new generation of video production mod",
     "authors": [
         "McHorse",
@@ -60,8 +60,8 @@
     "accessWidener": "bbs.accesswidener",
     "depends": {
         "fabricloader": ">=0.16.14",
-        "minecraft": "~26.1.2",
-        "java": ">=25",
+        "minecraft": "~1.21.11",
+        "java": ">=21",
         "fabric-api": "*"
     }
 }

@@ -2,6 +2,7 @@ package mchorse.bbs_mod.ui.framework.elements.context;
 
 import mchorse.bbs_mod.data.types.MapType;
 import mchorse.bbs_mod.graphics.window.Window;
+import mchorse.bbs_mod.l10n.L10n;
 import mchorse.bbs_mod.l10n.keys.IKey;
 import mchorse.bbs_mod.ui.UIKeys;
 import mchorse.bbs_mod.ui.framework.UIContext;
@@ -98,7 +99,7 @@ public class UICustomInterpolationPanel extends UIOverlayPanel
             keyframe.rx = 0.15f;
         }
 
-        UIKeyframeSheet sheet = new UIKeyframeSheet("interp", IKey.raw("interp"), Colors.ACTIVE, false, channel, null);
+        UIKeyframeSheet sheet = new UIKeyframeSheet("interp", UIKeys.RAW_INTERP, Colors.ACTIVE, false, channel, null);
 
         this.keyframes.addSheet(sheet);
         this.keyframes.editSheet(sheet);

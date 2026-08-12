@@ -14,7 +14,7 @@ public class UIColorOverlayPanel extends UIOverlayPanel
         super(title);
 
         this.picker = new UIColorPicker(callback);
-        this.picker.relative(this.content).xy(0.5F, 0.5F).wh(200, 120).anchor(0.5F);
+        this.picker.relative(this.content).xy(0.5F, 0.5F).wh(160, 260).anchor(0.5F);
         
         this.content.add(this.picker);
     }

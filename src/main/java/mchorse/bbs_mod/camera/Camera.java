@@ -3,8 +3,8 @@ package mchorse.bbs_mod.camera;
 import mchorse.bbs_mod.utils.MathUtils;
 import mchorse.bbs_mod.utils.joml.Matrices;
 
-import net.minecraft.world.entity.Entity;
-import net.minecraft.world.phys.Vec3;
+import net.minecraft.entity.Entity;
+import net.minecraft.util.math.Vec3d;
 
 import org.joml.Matrix4f;
 import org.joml.Vector3d;
@@ -123,10 +123,10 @@ public class Camera
 
     public void set(Entity cameraEntity, float fov)
     {
-        Vec3 eyePos = cameraEntity.getEyePosition();
+        Vec3d eyePos = cameraEntity.getEyePos();
 
         this.position.set(eyePos.x, eyePos.y, eyePos.z);
-        this.rotation.set(MathUtils.toRad(cameraEntity.getXRot()), MathUtils.toRad(cameraEntity.getYHeadRot() + 180F), 0);
+        this.rotation.set(MathUtils.toRad(cameraEntity.getPitch()), MathUtils.toRad(cameraEntity.getHeadYaw() + 180F), 0);
         this.fov = fov;
     }
 }

@@ -1,8 +1,12 @@
 package mchorse.bbs_mod.ui.model;
 
+import mchorse.bbs_mod.cubic.ModelInstance;
+import mchorse.bbs_mod.cubic.animation.ProceduralDefaults;
 import mchorse.bbs_mod.cubic.model.ModelConfig;
 import mchorse.bbs_mod.l10n.keys.IKey;
 import mchorse.bbs_mod.ui.UIKeys;
+import mchorse.bbs_mod.ui.forms.editors.UIFormModelEditor;
+import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.ui.framework.elements.UIElement;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIToggle;
 import mchorse.bbs_mod.ui.framework.elements.input.UITrackpad;
@@ -23,7 +27,7 @@ public class UIModelGeneralSection extends UIModelSection
     public UITrackpad scaleY;
     public UITrackpad scaleZ;
 
-    public UIModelGeneralSection(UIModelPanel editor)
+    public UIModelGeneralSection(IUIModelPanelHost editor)
     {
         super(editor);
 
@@ -34,6 +38,17 @@ public class UIModelGeneralSection extends UIModelSection
             if (this.config != null)
             {
                 this.config.procedural.set(b.getValue());
+
+                if (b.getValue())
+                {
+                    ModelInstance preview = this.editor.getModelRenderer().getPreviewModelInstance();
+
+                    if (preview != null && preview.model != null)
+                    {
+                        ProceduralDefaults.ensureForConfig(this.config, preview.model);
+                    }
+                }
+
                 this.editor.dirty();
             }
         });
@@ -71,7 +86,7 @@ public class UIModelGeneralSection extends UIModelSection
             if (this.config != null) this.config.anchorGroup.set(str);
         });
         this.anchorGroup.tooltip(UIKeys.MODELS_ANCHOR_GROUP_TOOLTIP);
-        
+
         this.uiScale = new UITrackpad((v) ->
         {
             if (this.config != null) this.config.uiScale.set(v.floatValue());
@@ -96,6 +111,20 @@ public class UIModelGeneralSection extends UIModelSection
         this.fields.add(UI.label(UIKeys.TRANSFORMS_SCALE), scaleRow);
     }
     
+    @Override
+    public boolean subMouseClicked(UIContext context)
+    {
+        boolean wasVisible = this.fields.isVisible();
+        boolean handled = super.subMouseClicked(context);
+
+        if (handled && !wasVisible && this.fields.isVisible() && this.editor instanceof UIFormModelEditor formModelEditor)
+        {
+            formModelEditor.onGeneralSectionOpened();
+        }
+
+        return handled;
+    }
+
     private void updateScale(int axis, float value)
     {
         if (this.config == null)

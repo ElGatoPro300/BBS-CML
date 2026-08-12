@@ -1,7 +1,6 @@
 package mchorse.bbs_mod.ui.framework.elements.utils;
 
 import mchorse.bbs_mod.forms.forms.Form;
-import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.ui.utils.Gizmo;
 import mchorse.bbs_mod.utils.Pair;
 
@@ -28,10 +27,12 @@ public class StencilMap
 
     public void setup()
     {
-        this.objectIndex = 7;
+        this.objectIndex = Gizmo.STENCIL_HANDLE_MAX + 1;
 
-        /* Reset map and setup pairs for Gizmo's individual axes
-         * and perpendicular planes */
+        /* Reset map and setup pairs for every Gizmo handle (solo translate/scale/rotate axes
+         * and planes, the screen-move cube, and the Combined-mode-only scale/rotate/trackball
+         * handles), so a).getPicked() != null for every handle id and b) picking never collides
+         * with a bone/form's own picking id. */
         this.indexMap.clear();
         this.indexMap.put(Gizmo.STENCIL_X, new Pair<>(null, "x"));
         this.indexMap.put(Gizmo.STENCIL_Y, new Pair<>(null, "y"));
@@ -39,6 +40,16 @@ public class StencilMap
         this.indexMap.put(Gizmo.STENCIL_XZ, new Pair<>(null, "xz"));
         this.indexMap.put(Gizmo.STENCIL_XY, new Pair<>(null, "xy"));
         this.indexMap.put(Gizmo.STENCIL_ZY, new Pair<>(null, "zy"));
+        this.indexMap.put(Gizmo.STENCIL_FREE, new Pair<>(null, "free"));
+        this.indexMap.put(Gizmo.STENCIL_SCALE_X, new Pair<>(null, "scale_x"));
+        this.indexMap.put(Gizmo.STENCIL_SCALE_Y, new Pair<>(null, "scale_y"));
+        this.indexMap.put(Gizmo.STENCIL_SCALE_Z, new Pair<>(null, "scale_z"));
+        this.indexMap.put(Gizmo.STENCIL_ROTATE_X, new Pair<>(null, "rotate_x"));
+        this.indexMap.put(Gizmo.STENCIL_ROTATE_Y, new Pair<>(null, "rotate_y"));
+        this.indexMap.put(Gizmo.STENCIL_ROTATE_Z, new Pair<>(null, "rotate_z"));
+        this.indexMap.put(Gizmo.STENCIL_TRACKBALL, new Pair<>(null, "trackball"));
+        this.indexMap.put(Gizmo.STENCIL_SCREEN, new Pair<>(null, "screen"));
+        this.indexMap.put(Gizmo.STENCIL_VIEW, new Pair<>(null, "view"));
 
         for (Consumer<StencilMap> consumer : extensions)
         {
@@ -65,18 +76,38 @@ public class StencilMap
         }
     }
 
-    public boolean hasStencil()
+    public void addPicking(int index, Form form, String bone)
     {
-        return !this.indexMap.isEmpty();
+        this.indexMap.put(index, new Pair<>(form, bone));
+
+        if (this.increment)
+        {
+            this.objectIndex = Math.max(this.objectIndex, index + 1);
+        }
     }
 
-    public void render(UIContext context)
-    {
-        // TODO: Implement render
-    }
-    
     public boolean isBoneAllowed(String bone)
     {
         return this.allowedBones == null || this.allowedBones.contains(bone);
+    }
+
+    public int findIndex(Form form, String bone)
+    {
+        if (form == null)
+        {
+            return 0;
+        }
+
+        String key = bone == null ? "" : bone;
+
+        for (Map.Entry<Integer, Pair<Form, String>> entry : this.indexMap.entrySet())
+        {
+            if (entry.getValue() != null && entry.getValue().a == form && key.equals(entry.getValue().b))
+            {
+                return entry.getKey();
+            }
+        }
+
+        return 0;
     }
 }

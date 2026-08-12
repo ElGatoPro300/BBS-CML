@@ -3,6 +3,7 @@ package mchorse.bbs_mod.ui.framework.elements.context;
 import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.ui.framework.elements.input.list.UIList;
 import mchorse.bbs_mod.ui.utils.context.ContextAction;
+import mchorse.bbs_mod.ui.utils.context.ContextCategoryAction;
 import mchorse.bbs_mod.ui.utils.context.ContextSeparatorAction;
 
 import java.util.List;
@@ -12,6 +13,8 @@ public class UIActionList extends UIList<ContextAction>
 {
     private static final int SEPARATOR_HEIGHT = 8;
 
+    private boolean pressed;
+
     public UIActionList(Consumer<List<ContextAction>> callback)
     {
         super(callback);
@@ -19,6 +22,10 @@ public class UIActionList extends UIList<ContextAction>
 
     private int getItemHeight(ContextAction action)
     {
+        if (action instanceof ContextCategoryAction)
+        {
+            return 20;
+        }
         return action instanceof ContextSeparatorAction ? SEPARATOR_HEIGHT : this.scroll.scrollItemSize;
     }
 
@@ -108,30 +115,63 @@ public class UIActionList extends UIList<ContextAction>
 
         if (this.area.isInside(context) && context.mouseButton == 0)
         {
+            this.pressed = true;
+
             int index = this.getIndexAt(context.mouseY);
 
             if (this.exists(index))
             {
                 ContextAction action = this.list.get(index);
 
-                if (action instanceof ContextSeparatorAction)
+                if (action instanceof ContextSeparatorAction || action instanceof ContextCategoryAction)
                 {
                     return true;
                 }
 
                 this.setIndex(index);
 
-                if (this.callback != null)
-                {
-                    this.callback.accept(this.getCurrent());
-
-                    return true;
-                }
+                return true;
             }
 
             return true;
         }
 
         return super.subMouseClicked(context);
+    }
+
+    @Override
+    public boolean subMouseReleased(UIContext context)
+    {
+        /* Only pick an action when this list also received the matching mouse press.
+           Mouse releases are broadcast to the whole element tree, so without this check
+           a release that started on another element (e.g. a category tab button which
+           repositions the menu under the cursor) would trigger the hovered action. */
+        boolean pressed = this.pressed;
+
+        this.pressed = false;
+
+        if (pressed && this.area.isInside(context) && context.mouseButton == 0)
+        {
+            int index = this.getIndexAt(context.mouseY);
+
+            if (this.exists(index))
+            {
+                ContextAction action = this.list.get(index);
+
+                if (!(action instanceof ContextSeparatorAction) && !(action instanceof ContextCategoryAction))
+                {
+                    this.setIndex(index);
+
+                    if (this.callback != null)
+                    {
+                        this.callback.accept(this.getCurrent());
+
+                        return true;
+                    }
+                }
+            }
+        }
+
+        return super.subMouseReleased(context);
     }
 }

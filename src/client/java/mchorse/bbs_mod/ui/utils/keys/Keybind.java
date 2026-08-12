@@ -27,6 +27,11 @@ public class Keybind
         this.callback = callback;
     }
 
+    public KeyCombo getCombo()
+    {
+        return this.combo;
+    }
+
     public Keybind inside()
     {
         this.inside = true;
@@ -77,6 +82,11 @@ public class Keybind
 
     public boolean check(int keyCode, KeyAction keyAction, boolean inside)
     {
+        if (this.combo.keys.isEmpty())
+        {
+            return false;
+        }
+
         if (keyAction == KeyAction.REPEAT && !this.combo.repeatable)
         {
             return false;
@@ -111,6 +121,11 @@ public class Keybind
 
     public boolean checkMouse(int mouseButton, boolean inside)
     {
+        if (this.combo.keys.isEmpty())
+        {
+            return false;
+        }
+
         mouseButton = -mouseButton;
 
         if (mouseButton != this.combo.getMainKey())

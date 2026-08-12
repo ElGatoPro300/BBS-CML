@@ -116,6 +116,7 @@ public abstract class ValueList <T extends BaseValue> extends BaseValueGroup
             T newValue = this.create(value.getId());
 
             this.add(newValue);
+            newValue.copy(value);
         }
     }
 
@@ -137,14 +138,24 @@ public abstract class ValueList <T extends BaseValue> extends BaseValueGroup
     @Override
     public BaseType toData()
     {
+        if (this.list.isEmpty())
+        {
+            return null;
+        }
+
         ListType list = new ListType();
 
         for (T value : this.list)
         {
-            list.add(value.toData());
+            BaseType data = value.toData();
+
+            if (data != null)
+            {
+                list.add(data);
+            }
         }
 
-        return list;
+        return list.isEmpty() ? null : list;
     }
 
     @Override
@@ -152,7 +163,7 @@ public abstract class ValueList <T extends BaseValue> extends BaseValueGroup
     {
         this.list.clear();
 
-        if (!data.isList())
+        if (data == null || !data.isList())
         {
             return;
         }

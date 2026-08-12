@@ -1,6 +1,8 @@
 package mchorse.bbs_mod.settings.ui;
 
+import mchorse.bbs_mod.BBSSettings;
 import mchorse.bbs_mod.l10n.L10n;
+import mchorse.bbs_mod.l10n.keys.IKey;
 import mchorse.bbs_mod.settings.values.base.BaseValue;
 import mchorse.bbs_mod.settings.values.core.ValueString;
 import mchorse.bbs_mod.settings.values.numeric.ValueBoolean;
@@ -13,6 +15,7 @@ import mchorse.bbs_mod.ui.framework.elements.input.UIColor;
 import mchorse.bbs_mod.ui.framework.elements.input.UITrackpad;
 import mchorse.bbs_mod.ui.framework.elements.input.text.UITextbox;
 import mchorse.bbs_mod.ui.framework.elements.utils.UILabel;
+import mchorse.bbs_mod.ui.framework.elements.utils.UIText;
 import mchorse.bbs_mod.ui.utils.UI;
 
 import java.util.List;
@@ -66,6 +69,19 @@ public class UIValueFactory
         value.postCallback((changed, flag) -> booleanToogle.setValue(value.get()));
 
         booleanToogle.tooltip(L10n.lang(getValueCommentKey(value)));
+
+        return booleanToogle;
+    }
+
+    public static UIToggle booleanUINoLabel(ValueBoolean value, Consumer<UIToggle> callback)
+    {
+        UIToggle booleanToogle = new UIToggle(IKey.raw(""), value.get(), callback == null ? (toggle) -> value.set(toggle.getValue()) : (toggle) ->
+        {
+            value.set(toggle.getValue());
+            callback.accept(toggle);
+        });
+
+        value.postCallback((changed, flag) -> booleanToogle.setValue(value.get()));
 
         return booleanToogle;
     }
@@ -152,12 +168,34 @@ public class UIValueFactory
     public static UIElement column(UIElement control, BaseValue value)
     {
         UIElement element = new UIElement();
-
         control.removeTooltip();
-        element.row(0).preferred(0).height(20);
-        element.add(UIValueFactory.label(value), control);
 
-        return commetTooltip(element, value);
+        String comment = L10n.lang(UIValueFactory.getValueCommentKey(value)).get();
+        boolean hasComment = !comment.isEmpty()
+            && !comment.startsWith("bbs.settings.")
+            && !comment.startsWith("cml.settings.")
+            && (BBSSettings.hideSettingDescriptions == null || !BBSSettings.hideSettingDescriptions.get());
+
+        if (hasComment)
+        {
+            UILabel title = UIValueFactory.label(value);
+            title.relative(element).w(1F).h(11);
+            UIText desc = new UIText(L10n.lang(UIValueFactory.getValueCommentKey(value)))
+                .color(0xFF777788, true);
+            desc.relative(element).w(1F);
+
+            // Stack title, desc, and control vertically (without stretch so control keeps its custom width!)
+            element.column(3).vertical().padding(0).height(0);
+            element.add(title, desc.marginTop(1), control.marginTop(2));
+        }
+        else
+        {
+            element.row(0).preferred(0).height(20);
+            element.add(UIValueFactory.label(value), control);
+            control.marginTop(0);
+        }
+
+        return element;
     }
 
     public static UILabel label(BaseValue value)

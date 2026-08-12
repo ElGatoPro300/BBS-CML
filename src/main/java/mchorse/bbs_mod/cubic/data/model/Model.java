@@ -9,6 +9,7 @@ import mchorse.bbs_mod.data.IMapSerializable;
 import mchorse.bbs_mod.data.types.ListType;
 import mchorse.bbs_mod.data.types.MapType;
 import mchorse.bbs_mod.forms.entities.IEntity;
+import mchorse.bbs_mod.forms.forms.utils.PaintSettings;
 import mchorse.bbs_mod.math.molang.MolangParser;
 import mchorse.bbs_mod.resources.Link;
 import mchorse.bbs_mod.utils.MathUtils;
@@ -149,9 +150,17 @@ public class Model implements IMapSerializable, IModel
             }
 
             group.lighting = transform.lighting;
+            group.noshadingOpacity = transform.noshadingOpacity;
             group.color.copy(transform.color);
+            group.paintColor.copy(transform.paintColor);
+            group.glowingColor.copy(transform.glowingColor);
+            group.glowIntensity = transform.glowIntensity;
+            group.glowRadius = transform.glowRadius;
+            group.shaderShadow = PaintSettings.resolveAutoShaderShadowForPoseAlpha(transform.paintColor.a);
             Link texture = transform.texture;
             group.textureOverride = texture != null ? LinkUtils.copy(texture) : null;
+            group.textureBlend = transform.textureBlend;
+            group.textureBlendTo = transform.textureBlendTo != null ? LinkUtils.copy(transform.textureBlendTo) : null;
             group.current.translate.add(transform.translate);
             group.current.scale.add(transform.scale).sub(1, 1, 1);
             group.current.translate.add(transform.pivot);
@@ -242,6 +251,52 @@ public class Model implements IMapSerializable, IModel
         }
 
         return groups;
+    }
+
+    @Override
+    public String getParentGroupKey(String key)
+    {
+        ModelGroup group = this.namedGroups.get(key);
+
+        if (group == null || group.parent == null)
+        {
+            return null;
+        }
+
+        return group.parent.id;
+    }
+
+    @Override
+    public Collection<String> getRootGroupKeys()
+    {
+        List<String> roots = new ArrayList<>();
+
+        for (ModelGroup group : this.topGroups)
+        {
+            roots.add(group.id);
+        }
+
+        return roots;
+    }
+
+    @Override
+    public Collection<String> getDirectChildrenKeys(String key)
+    {
+        ModelGroup group = this.namedGroups.get(key);
+
+        if (group == null)
+        {
+            return Collections.emptyList();
+        }
+
+        List<String> children = new ArrayList<>();
+
+        for (ModelGroup child : group.children)
+        {
+            children.add(child.id);
+        }
+
+        return children;
     }
 
     @Override

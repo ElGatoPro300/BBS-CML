@@ -11,13 +11,13 @@ import mchorse.bbs_mod.utils.colors.Colors;
 
 import net.fabricmc.loader.api.FabricLoader;
 
-import net.minecraft.client.Minecraft;
-import net.minecraft.core.Registry;
-import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.resources.Identifier;
-import net.minecraft.server.packs.resources.Resource;
-import net.minecraft.server.packs.resources.ResourceManager;
-import net.minecraft.sounds.SoundEvent;
+import net.minecraft.client.MinecraftClient;
+import net.minecraft.registry.Registries;
+import net.minecraft.registry.Registry;
+import net.minecraft.resource.Resource;
+import net.minecraft.resource.ResourceManager;
+import net.minecraft.sound.SoundEvent;
+import net.minecraft.util.Identifier;
 
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
@@ -143,7 +143,7 @@ public class UIVanillaSoundList extends UIStringList
 
         try
         {
-            Minecraft client = Minecraft.getInstance();
+            MinecraftClient client = MinecraftClient.getInstance();
             ResourceManager resourceManager = client.getResourceManager();
 
             if (this.cachedSoundsJson == null)
@@ -151,9 +151,9 @@ public class UIVanillaSoundList extends UIStringList
                 this.cachedSoundsJson = this.loadSoundsJson(resourceManager);
             }
 
-            Registry<SoundEvent> soundRegistry = BuiltInRegistries.SOUND_EVENT;
+            Registry<SoundEvent> soundRegistry = Registries.SOUND_EVENT;
 
-            for (Identifier soundId : soundRegistry.keySet())
+            for (Identifier soundId : soundRegistry.getIds())
             {
                 if (soundId.getNamespace().equals("minecraft"))
                 {
@@ -220,12 +220,12 @@ public class UIVanillaSoundList extends UIStringList
     {
         try
         {
-            Identifier soundsJsonId = Identifier.fromNamespaceAndPath("minecraft", "sounds.json");
+            Identifier soundsJsonId = Identifier.of("minecraft", "sounds.json");
             Optional<Resource> resource = resourceManager.getResource(soundsJsonId);
 
             if (resource.isPresent())
             {
-                try (InputStream inputStream = resource.get().open())
+                try (InputStream inputStream = resource.get().getInputStream())
                 {
                     String jsonContent = IOUtils.readText(inputStream);
 
@@ -582,13 +582,13 @@ public class UIVanillaSoundList extends UIStringList
                     return null;
                 }
                 
-                Identifier soundFileId = Identifier.fromNamespaceAndPath("minecraft", "sounds/" + soundPath);
-                Minecraft client = Minecraft.getInstance();
+                Identifier soundFileId = Identifier.of("minecraft", "sounds/" + soundPath);
+                MinecraftClient client = MinecraftClient.getInstance();
                 Optional<Resource> resource = client.getResourceManager().getResource(soundFileId);
 
                 if (resource.isPresent())
                 {
-                    try (InputStream inputStream = resource.get().open())
+                    try (InputStream inputStream = resource.get().getInputStream())
                     {
                         Files.copy(inputStream, cacheFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
                     }
@@ -685,8 +685,8 @@ public class UIVanillaSoundList extends UIStringList
                     soundPath = soundPath + ".ogg";
                 }
                 
-                Identifier soundFileId = Identifier.fromNamespaceAndPath("minecraft", "sounds/" + soundPath);
-                Minecraft client = Minecraft.getInstance();
+                Identifier soundFileId = Identifier.of("minecraft", "sounds/" + soundPath);
+                MinecraftClient client = MinecraftClient.getInstance();
                 Optional<Resource> resource = client.getResourceManager().getResource(soundFileId);
 
                 if (resource.isPresent())
@@ -694,7 +694,7 @@ public class UIVanillaSoundList extends UIStringList
                     String newSoundName = this.generateSoundName(originalName, targetDir);
                     File targetFile = new File(targetDir, newSoundName + ".ogg");
 
-                    try (InputStream inputStream = resource.get().open())
+                    try (InputStream inputStream = resource.get().getInputStream())
                     {
                         Files.copy(inputStream, targetFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
                     }
@@ -723,7 +723,7 @@ public class UIVanillaSoundList extends UIStringList
 
     private boolean isMediaFoldersEnhancementsEnabled()
     {
-        return BBSSettings.mediaFoldersEnhancements != null && BBSSettings.mediaFoldersEnhancements.get();
+        return true;
     }
 
     /**

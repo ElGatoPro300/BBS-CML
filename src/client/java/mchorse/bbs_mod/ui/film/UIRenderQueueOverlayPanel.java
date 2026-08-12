@@ -184,8 +184,8 @@ public class UIRenderQueueOverlayPanel extends UIOverlayPanel
         else
         {
             String label = UIKeys.RENDER_QUEUE_NO_PREVIEW.get();
-            int tw = context.batcher.getDefaultTextRenderer().getWidth(label);
-            int th = context.batcher.getDefaultTextRenderer().getHeight();
+            int tw = context.batcher.getFont().getWidth(label);
+            int th = context.batcher.getFont().getHeight();
 
             context.batcher.text(
                 label,

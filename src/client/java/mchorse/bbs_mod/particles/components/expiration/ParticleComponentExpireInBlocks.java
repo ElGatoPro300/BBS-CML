@@ -4,7 +4,7 @@ import mchorse.bbs_mod.particles.components.IComponentParticleUpdate;
 import mchorse.bbs_mod.particles.emitter.Particle;
 import mchorse.bbs_mod.particles.emitter.ParticleEmitter;
 
-import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.block.BlockState;
 
 public class ParticleComponentExpireInBlocks extends ParticleComponentExpireBlocks implements IComponentParticleUpdate
 {
@@ -20,7 +20,7 @@ public class ParticleComponentExpireInBlocks extends ParticleComponentExpireBloc
 
         for (String block : this.blocks)
         {
-            if (current.getBlock().builtInRegistryHolder().key().identifier().toString().equals(block))
+            if (current.getBlock().getRegistryEntry().registryKey().getValue().toString().equals(block))
             {
                 particle.setDead();
 

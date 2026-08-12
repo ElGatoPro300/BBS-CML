@@ -15,6 +15,7 @@ import java.util.List;
 public class ModelCube implements IMapSerializable
 {
     public List<ModelQuad> quads = new ArrayList<>();
+    public String name = "";
     public Vector3f origin = new Vector3f();
     public Vector3f size = new Vector3f();
     public Vector3f pivot = new Vector3f();
@@ -232,6 +233,11 @@ public class ModelCube implements IMapSerializable
     @Override
     public void toData(MapType data)
     {
+        if (!this.name.isBlank())
+        {
+            data.putString("name", this.name);
+        }
+
         data.put("from", DataStorageUtils.vector3fToData(this.origin));
         data.put("size", DataStorageUtils.vector3fToData(this.size));
         data.put("origin", DataStorageUtils.vector3fToData(this.pivot));
@@ -272,6 +278,7 @@ public class ModelCube implements IMapSerializable
     @Override
     public void fromData(MapType data)
     {
+        this.name = data.getString("name");
         this.origin.set(DataStorageUtils.vector3fFromData(data.getList("from")));
         this.size.set(DataStorageUtils.vector3fFromData(data.getList("size")));
         this.pivot.set(DataStorageUtils.vector3fFromData(data.getList("origin")));
@@ -320,6 +327,7 @@ public class ModelCube implements IMapSerializable
     {
         ModelCube cube = new ModelCube();
 
+        cube.name = this.name;
         cube.origin.set(this.origin);
         cube.size.set(this.size);
         cube.pivot.set(this.pivot);

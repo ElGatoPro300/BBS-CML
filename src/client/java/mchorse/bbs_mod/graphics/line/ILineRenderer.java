@@ -1,10 +1,10 @@
 package mchorse.bbs_mod.graphics.line;
 
-import org.joml.Matrix4f;
+import net.minecraft.client.render.VertexConsumer;
 
-import com.mojang.blaze3d.vertex.BufferBuilder;
+import org.joml.Matrix3x2fc;
 
 public interface ILineRenderer <T>
 {
-    public void render(BufferBuilder builder, Matrix4f matrix, LinePoint<T> point);
+    public void render(VertexConsumer builder, Matrix3x2fc matrix, LinePoint<T> point);
 }

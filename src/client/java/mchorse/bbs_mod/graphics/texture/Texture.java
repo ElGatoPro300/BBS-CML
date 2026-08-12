@@ -3,7 +3,6 @@ package mchorse.bbs_mod.graphics.texture;
 import mchorse.bbs_mod.utils.resources.Pixels;
 
 import com.mojang.blaze3d.opengl.GlStateManager;
-import com.mojang.blaze3d.platform.TextureUtil;
 
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL13;
@@ -61,7 +60,7 @@ public class Texture
 
     public Texture()
     {
-        this.id = GL11.glGenTextures();
+        this.id = GlStateManager._genTexture();
         this.target = GL11.GL_TEXTURE_2D;
 
         this.bind();
@@ -109,28 +108,24 @@ public class Texture
 
     public void bind()
     {
-        GL11.glBindTexture(this.target, this.id);
+        GlStateManager._bindTexture(this.id);
     }
 
-    public void bind(int texture)
+    public void bind(int unit)
     {
-        int unit = texture < GL13.GL_TEXTURE0 ? GL13.GL_TEXTURE0 + texture : texture;
-
-        GL13.glActiveTexture(unit);
-        GL11.glBindTexture(this.target, this.id);
+        GlStateManager._activeTexture(GL13.GL_TEXTURE0 + unit);
+        GlStateManager._bindTexture(this.id);
     }
 
     public void unbind()
     {
-        GL11.glBindTexture(this.target, 0);
+        GlStateManager._bindTexture(0);
     }
 
-    public void unbind(int texture)
+    public void unbind(int unit)
     {
-        int unit = texture < GL13.GL_TEXTURE0 ? GL13.GL_TEXTURE0 + texture : texture;
-
-        GL13.glActiveTexture(unit);
-        GL11.glBindTexture(this.target, 0);
+        GlStateManager._activeTexture(GL13.GL_TEXTURE0 + unit);
+        GlStateManager._bindTexture(0);
     }
 
     public void setFormat(TextureFormat format)
@@ -188,7 +183,7 @@ public class Texture
 
     public void delete()
     {
-        GL11.glDeleteTextures(this.id);
+        GlStateManager._deleteTexture(this.id);
         this.id = -1;
     }
 
@@ -222,11 +217,6 @@ public class Texture
 
     public void uploadTexture(int target, int level, Pixels pixels)
     {
-        /* Some textures might not be pixel aligned. For example FunkyFight's 398x444 avatar
-         * wasn't aligned, and it caused some interesting visual issues when loading
-         * the texture. This fixes it.
-         *
-         * https://www.khronos.org/opengl/wiki/Pixel_Transfer#Pixel_layout */
         GL11.glPixelStorei(GL11.GL_UNPACK_ALIGNMENT, 1);
 
         this.setFormat(pixels.bits == 4 ? TextureFormat.RGBA_U8 : TextureFormat.RGB_U8);

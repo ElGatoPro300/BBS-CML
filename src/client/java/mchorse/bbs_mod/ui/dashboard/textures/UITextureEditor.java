@@ -25,6 +25,7 @@ import java.util.HashSet;
 import java.util.Set;
 import java.util.Stack;
 import java.util.function.Consumer;
+import java.util.function.Supplier;
 
 public class UITextureEditor extends UIPixelsEditor
 {
@@ -36,6 +37,8 @@ public class UITextureEditor extends UIPixelsEditor
     private boolean dirty;
 
     private Consumer<Link> saveCallback;
+    private Supplier<Texture> renderTextureSupplier;
+    private Supplier<Pixels> savePixelsSupplier;
 
     public UITextureEditor()
     {
@@ -76,6 +79,20 @@ public class UITextureEditor extends UIPixelsEditor
     public UITextureEditor saveCallback(Consumer<Link> saveCallback)
     {
         this.saveCallback = saveCallback;
+
+        return this;
+    }
+
+    public UITextureEditor renderTextureSupplier(Supplier<Texture> renderTextureSupplier)
+    {
+        this.renderTextureSupplier = renderTextureSupplier;
+
+        return this;
+    }
+
+    public UITextureEditor savePixelsSupplier(Supplier<Pixels> savePixelsSupplier)
+    {
+        this.savePixelsSupplier = savePixelsSupplier;
 
         return this;
     }
@@ -216,7 +233,14 @@ public class UITextureEditor extends UIPixelsEditor
             file.getParentFile().mkdirs();
         }
 
-        Pixels pixels = this.getPixels();
+        Pixels pixels = this.savePixelsSupplier == null ? this.getPixels() : this.savePixelsSupplier.get();
+
+        if (pixels == null)
+        {
+            this.getContext().notifyError(UIKeys.TEXTURES_EXPORT_OVERLAY_ERROR.format(file.getName()));
+
+            return;
+        }
 
         try
         {
@@ -267,6 +291,21 @@ public class UITextureEditor extends UIPixelsEditor
     @Override
     protected Texture getRenderTexture(UIContext context)
     {
-        return this.isEditing() ? super.getRenderTexture(context) : context.render.getTextures().getTexture(this.texture);
+        if (this.isEditing())
+        {
+            if (this.renderTextureSupplier != null)
+            {
+                Texture texture = this.renderTextureSupplier.get();
+
+                if (texture != null)
+                {
+                    return texture;
+                }
+            }
+
+            return super.getRenderTexture(context);
+        }
+
+        return context.render.getTextures().getTexture(this.texture);
     }
 }

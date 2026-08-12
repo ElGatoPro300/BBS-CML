@@ -5,6 +5,11 @@ import mchorse.bbs_mod.utils.StringUtils;
 
 public class TimeUtils
 {
+    private static int getTimeMode()
+    {
+        return BBSSettings.editorTimeMode == null ? 0 : BBSSettings.editorTimeMode.get();
+    }
+
     public static int toTick(float seconds)
     {
         return (int) (seconds * 20);
@@ -17,14 +22,16 @@ public class TimeUtils
 
     public static String formatTime(double ticks)
     {
-        if (BBSSettings.editorSeconds.get())
+        int mode = getTimeMode();
+
+        if (mode == 1)
         {
             long seconds = (long) (ticks / 20D);
             int milliseconds = (int) (ticks % 20 == 0 ? 0 : ticks % 20 * 5D);
 
             return seconds + "." + StringUtils.leftPad(String.valueOf(milliseconds), 2, "0");
         }
-        else if (BBSSettings.editorFrames.get())
+        else if (mode == 2)
         {
             int fps = BBSSettings.videoSettings.frameRate.get();
             int frame = (int) Math.round(ticks / 20.0 * fps);
@@ -37,11 +44,13 @@ public class TimeUtils
 
     public static double toTime(double ticks)
     {
-        if (BBSSettings.editorSeconds.get())
+        int mode = getTimeMode();
+
+        if (mode == 1)
         {
             return ticks / 20D;
         }
-        else if (BBSSettings.editorFrames.get())
+        else if (mode == 2)
         {
             return ticks / 20D * BBSSettings.videoSettings.frameRate.get();
         }
@@ -51,15 +60,18 @@ public class TimeUtils
 
     public static double fromTime(double time)
     {
-        if (BBSSettings.editorSeconds.get())
+        int mode = getTimeMode();
+
+        if (mode == 1)
         {
-            return Math.round(time * 20D);
+            /* Keep sub-tick precision (keyframes support floating-point ticks). */
+            return time * 20D;
         }
-        else if (BBSSettings.editorFrames.get())
+        else if (mode == 2)
         {
-            return Math.round(time / BBSSettings.videoSettings.frameRate.get() * 20D);
+            return time / BBSSettings.videoSettings.frameRate.get() * 20D;
         }
 
-        return (int) time;
+        return time;
     }
 }

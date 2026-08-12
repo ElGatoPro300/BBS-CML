@@ -27,7 +27,9 @@ public class Particle
     public boolean relativeRotation;
     public boolean relativeVelocity;
     public boolean textureScale;
-    public boolean manual;
+    /** Set by parametric motion: when true the corresponding axis is driven directly, skipping physics integration. */
+    public boolean manualPosition;
+    public boolean manualRotation;
 
     /* Rotation */
     public float rotation;
@@ -50,6 +52,9 @@ public class Particle
     public Vector3f accelerationFactor = new Vector3f(1, 1, 1);
     public float drag = 0;
     public float dragFactor = 0;
+
+    /** Last resolved facing direction for the direction_x/y/z billboard modes (kept when nearly stationary). */
+    public Vector3f facingDirection = new Vector3f();
 
     /* Color */
     public float r = 1;
@@ -122,13 +127,16 @@ public class Particle
 
         this.setupMatrix(emitter);
 
-        if (!this.manual)
+        if (!this.manualRotation)
         {
             float rotationAcceleration = this.rotationAcceleration / 20F -this.rotationDrag * this.rotationVelocity;
 
             this.rotationVelocity += rotationAcceleration / 20F;
             this.rotation = this.initialRotation + this.rotationVelocity * this.age;
+        }
 
+        if (!this.manualPosition)
+        {
             /* Position */
             Vector3f vec = new Vector3f(this.speed);
             vec.mul(-(this.drag + this.dragFactor));

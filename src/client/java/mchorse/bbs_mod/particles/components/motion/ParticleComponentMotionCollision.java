@@ -11,9 +11,9 @@ import mchorse.bbs_mod.particles.components.ParticleComponentBase;
 import mchorse.bbs_mod.particles.emitter.Particle;
 import mchorse.bbs_mod.particles.emitter.ParticleEmitter;
 
-import net.minecraft.world.entity.Entity;
-import net.minecraft.world.phys.AABB;
-import net.minecraft.world.phys.Vec3;
+import net.minecraft.entity.Entity;
+import net.minecraft.util.math.Box;
+import net.minecraft.util.math.Vec3d;
 
 import org.joml.Vector3d;
 
@@ -77,7 +77,7 @@ public class ParticleComponentMotionCollision extends ParticleComponentBase impl
             return;
         }
 
-        if (!particle.manual && Operation.equals(this.enabled.get(), 1))
+        if (!particle.manualPosition && Operation.equals(this.enabled.get(), 1))
         {
             float r = this.radius;
 
@@ -97,8 +97,8 @@ public class ParticleComponentMotionCollision extends ParticleComponentBase impl
                 return;
             }
 
-            AABB box = new AABB(prev.x - r, prev.y - r, prev.z - r, prev.x + r, prev.y + r, prev.z + r);
-            Vec3 vec = Entity.collideBoundingBox(null, new Vec3(x, y, z), box, emitter.world, Collections.emptyList());
+            Box box = new Box(prev.x - r, prev.y - r, prev.z - r, prev.x + r, prev.y + r, prev.z + r);
+            Vec3d vec = Entity.adjustMovementForCollisions(null, new Vec3d(x, y, z), box, emitter.world, Collections.emptyList());
 
             if (vec.x != x || vec.y != y || vec.z != z)
             {

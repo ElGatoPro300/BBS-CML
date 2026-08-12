@@ -1,19 +1,28 @@
 package mchorse.bbs_mod.ui.triggers;
 
+import mchorse.bbs_mod.BBSSettings;
 import mchorse.bbs_mod.blocks.entities.TriggerBlockEntity;
+import mchorse.bbs_mod.l10n.keys.IKey;
 import mchorse.bbs_mod.network.ClientNetwork;
 import mchorse.bbs_mod.settings.values.core.ValueList;
 import mchorse.bbs_mod.triggers.Trigger;
+import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.ui.framework.elements.UIElement;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIButton;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIToggle;
 import mchorse.bbs_mod.ui.framework.elements.input.UITrackpad;
 import mchorse.bbs_mod.ui.framework.elements.overlay.UIOverlay;
+import mchorse.bbs_mod.ui.framework.elements.utils.UILabel;
 import mchorse.bbs_mod.ui.utils.UI;
-import mchorse.bbs_mod.ui.utils.UIUtils;
 import mchorse.bbs_mod.utils.colors.Colors;
 
-public class UITriggerEditor extends UIElement
+/**
+ * Holder for the trigger editor inputs and their content groups. The trigger
+ * block panel embeds {@link #actionsContent} and {@link #geometryContent} into
+ * separate cards, so this class is no longer a UIElement itself — it's just a
+ * controller that wires inputs to the active TriggerBlockEntity.
+ */
+public class UITriggerEditor
 {
     public UIToggle collidable;
     public UIToggle region;
@@ -23,7 +32,7 @@ public class UITriggerEditor extends UIElement
     public UIButton exit;
     public UIButton whileIn;
     public UITrackpad regionDelay;
-    
+
     public UIElement hitboxLabel;
     public UIElement pos1Label;
     public UIElement pos2Label;
@@ -35,6 +44,10 @@ public class UITriggerEditor extends UIElement
     public UITrackpad x2, y2, z2;
     public UITrackpad ox, oy, oz;
     public UITrackpad sx, sy, sz;
+
+    /* Content groups handed out to the panel's two editor cards. */
+    public final UIElement actionsContent;
+    public final UIElement geometryContent;
 
     private TriggerBlockEntity entity;
 
@@ -66,11 +79,11 @@ public class UITriggerEditor extends UIElement
         this.whileIn = new UIButton(TriggerKeys.WHILE_IN, (b) -> this.openOverlay(this.entity.whileIn));
         this.regionDelay = new UITrackpad((v) -> { if (this.entity != null) { this.entity.regionDelay.set(v.intValue()); this.save(); } }).limit(0, 1000).integer();
         this.regionDelay.tooltip(TriggerKeys.REGION_DELAY);
-        
+
         this.x1 = new UITrackpad((v) -> { if (this.entity != null) { this.entity.pos1.set(v.floatValue(), this.entity.pos1.get().y, this.entity.pos1.get().z); this.save(); } }).limit(0, 1).increment(0.1);
         this.y1 = new UITrackpad((v) -> { if (this.entity != null) { this.entity.pos1.set(this.entity.pos1.get().x, v.floatValue(), this.entity.pos1.get().z); this.save(); } }).limit(0, 1).increment(0.1);
         this.z1 = new UITrackpad((v) -> { if (this.entity != null) { this.entity.pos1.set(this.entity.pos1.get().x, this.entity.pos1.get().y, v.floatValue()); this.save(); } }).limit(0, 1).increment(0.1);
-        
+
         this.x2 = new UITrackpad((v) -> { if (this.entity != null) { this.entity.pos2.set(v.floatValue(), this.entity.pos2.get().y, this.entity.pos2.get().z); this.save(); } }).limit(0, 1).increment(0.1);
         this.y2 = new UITrackpad((v) -> { if (this.entity != null) { this.entity.pos2.set(this.entity.pos2.get().x, v.floatValue(), this.entity.pos2.get().z); this.save(); } }).limit(0, 1).increment(0.1);
         this.z2 = new UITrackpad((v) -> { if (this.entity != null) { this.entity.pos2.set(this.entity.pos2.get().x, this.entity.pos2.get().y, v.floatValue()); this.save(); } }).limit(0, 1).increment(0.1);
@@ -96,27 +109,48 @@ public class UITriggerEditor extends UIElement
         this.sy.textbox.setColor(Colors.GREEN);
         this.sz.textbox.setColor(Colors.BLUE);
 
-        this.hitboxLabel = UI.label(TriggerKeys.HITBOX).background(() -> 0x88000000).marginTop(10).marginBottom(2);
+        this.hitboxLabel = sectionHeader(TriggerKeys.HITBOX);
         this.pos1Label = UI.label(TriggerKeys.POS1);
         this.pos2Label = UI.label(TriggerKeys.POS2);
-        this.shapeLabel = UI.label(TriggerKeys.SHAPE).background(() -> 0x88000000).marginTop(10).marginBottom(2);
+        this.shapeLabel = sectionHeader(TriggerKeys.SHAPE);
         this.delayLabel = UI.label(TriggerKeys.REGION_DELAY);
         this.offsetLabel = UI.label(TriggerKeys.OFFSET);
         this.sizeLabel = UI.label(TriggerKeys.SIZE);
 
-        this.add(UI.row(this.left, this.right));
-        this.add(UI.row(this.enter, this.exit));
-        this.add(this.whileIn);
-        this.add(UI.row(this.collidable, this.region).marginTop(4));
-        this.add(this.delayLabel, this.regionDelay);
-        this.add(this.hitboxLabel);
-        this.add(this.pos1Label, UI.row(this.x1, this.y1, this.z1));
-        this.add(this.pos2Label, UI.row(this.x2, this.y2, this.z2));
-        this.add(this.shapeLabel);
-        this.add(this.offsetLabel, UI.row(this.ox, this.oy, this.oz));
-        this.add(this.sizeLabel, UI.row(this.sx, this.sy, this.sz));
-        
-        this.column(5).vertical().stretch();
+        /* Actions card: event handlers + region toggles + delay. */
+        this.actionsContent = UI.column(5,
+            UI.row(4, this.left, this.right),
+            UI.row(4, this.enter, this.exit),
+            this.whileIn,
+            UI.row(4, this.collidable, this.region),
+            this.delayLabel,
+            this.regionDelay);
+
+        /* Geometry card: hitbox + region shape positioning. */
+        this.geometryContent = UI.column(5,
+            this.hitboxLabel,
+            this.pos1Label,
+            UI.row(4, this.x1, this.y1, this.z1),
+            this.pos2Label,
+            UI.row(4, this.x2, this.y2, this.z2),
+            this.shapeLabel,
+            this.offsetLabel,
+            UI.row(4, this.ox, this.oy, this.oz),
+            this.sizeLabel,
+            UI.row(4, this.sx, this.sy, this.sz));
+    }
+
+    /* Settings-style section header — primary-color text on a dark background. */
+    private static UIElement sectionHeader(IKey label)
+    {
+        UILabel header = UI.label(label)
+            .labelAnchor(0, 1)
+            .color(0xFF000000 | BBSSettings.primaryColor.get())
+            .background(() -> 0xFF1A1A22);
+
+        header.h(20).marginTop(8);
+
+        return header;
     }
 
     private void updateButtons()
@@ -147,11 +181,11 @@ public class UITriggerEditor extends UIElement
         {
             this.collidable.setValue(entity.collidable.get());
             this.region.setValue(entity.region.get());
-            
+
             this.x1.setValue(entity.pos1.get().x);
             this.y1.setValue(entity.pos1.get().y);
             this.z1.setValue(entity.pos1.get().z);
-            
+
             this.x2.setValue(entity.pos2.get().x);
             this.y2.setValue(entity.pos2.get().y);
             this.z2.setValue(entity.pos2.get().z);
@@ -164,7 +198,7 @@ public class UITriggerEditor extends UIElement
             this.sy.setValue(entity.regionSize.get().y);
             this.sz.setValue(entity.regionSize.get().z);
             this.regionDelay.setValue(entity.regionDelay.get());
-            
+
             this.updateButtons();
         }
     }
@@ -173,14 +207,14 @@ public class UITriggerEditor extends UIElement
     {
         if (this.entity != null)
         {
-            ClientNetwork.sendTriggerBlockUpdate(this.entity.getBlockPos(), this.entity);
+            ClientNetwork.sendTriggerBlockUpdate(this.entity.getPos(), this.entity);
         }
     }
 
     private void openOverlay(ValueList<Trigger> list)
     {
-        if (this.entity == null) return;
+        if (this.entity == null || this.actionsContent.getContext() == null) return;
 
-        UIOverlay.addOverlay(this.getContext(), new UITriggerOverlayPanel(list, this::save), 400, 250);
+        UIOverlay.addOverlay(this.actionsContent.getContext(), new UITriggerOverlayPanel(list, this::save), 400, 250);
     }
 }

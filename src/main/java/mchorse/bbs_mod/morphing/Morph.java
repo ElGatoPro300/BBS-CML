@@ -8,15 +8,17 @@ import mchorse.bbs_mod.forms.forms.Form;
 import mchorse.bbs_mod.forms.forms.MobForm;
 import mchorse.bbs_mod.utils.RayTracing;
 
-import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.nbt.Tag;
-import net.minecraft.resources.ResourceKey;
-import net.minecraft.world.entity.Entity;
-import net.minecraft.world.entity.EntityType;
-import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.phys.EntityHitResult;
-import net.minecraft.world.phys.HitResult;
+import net.minecraft.entity.Entity;
+import net.minecraft.entity.EntityType;
+import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.nbt.NbtCompound;
+import net.minecraft.nbt.NbtElement;
+import net.minecraft.registry.Registries;
+import net.minecraft.registry.RegistryKey;
+import net.minecraft.storage.NbtWriteView;
+import net.minecraft.util.ErrorReporter;
+import net.minecraft.util.hit.EntityHitResult;
+import net.minecraft.util.hit.HitResult;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -30,41 +32,61 @@ public class Morph
     private Form form;
     public final MCEntity entity;
 
-    public static Form getMobForm(Player player)
+    public static Form getMobForm(PlayerEntity player)
     {
-        HitResult hitResult = RayTracing.rayTraceEntity(player, player.level(), player.getEyePosition(), player.getLookAngle(), 64);
+        HitResult hitResult = RayTracing.rayTraceEntity(player, player.getEntityWorld(), player.getEyePos(), player.getRotationVector(), 64);
 
         if (hitResult.getType() == HitResult.Type.ENTITY)
         {
             Entity target = ((EntityHitResult) hitResult).getEntity();
 
-            for (IEntityCaptureHandler handler : HANDLERS)
+            return captureFormFromEntity(player, target);
+        }
+
+        return null;
+    }
+
+    public static Form captureFormFromEntity(PlayerEntity player, Entity target)
+    {
+        if (target == null || target == player)
+        {
+            return null;
+        }
+
+        for (IEntityCaptureHandler handler : HANDLERS)
+        {
+            Form form = handler.capture(player, target);
+
+            if (form != null)
             {
-                Form form = handler.capture(player, target);
-
-                if (form != null)
-                {
-                    return form;
-                }
-            }
-
-            Optional<ResourceKey<EntityType<?>>> key = BuiltInRegistries.ENTITY_TYPE.getResourceKey(target.getType());
-
-            if (key.isPresent())
-            {
-                MobForm form = new MobForm();
-                CompoundTag compound = new CompoundTag();
-
-                for (String s : Arrays.asList("Pos", "Motion", "Rotation", "FallDistance", "Fire", "Air", "OnGround", "Invulnerable", "PortalCooldown", "UUID"))
-                {
-                    compound.remove(s);
-                }
-
-                form.mobID.set(key.get().identifier().toString());
-                form.mobNBT.set(compound.toString());
-
                 return form;
             }
+        }
+
+        Optional<RegistryKey<EntityType<?>>> key = Registries.ENTITY_TYPE.getKey(target.getType());
+
+        if (key.isPresent())
+        {
+            MobForm form = new MobForm();
+            NbtWriteView view = NbtWriteView.create(ErrorReporter.EMPTY, target.getEntityWorld().getRegistryManager());
+            target.writeData(view);
+            NbtCompound compound = view.getNbt();
+
+            for (String s : Arrays.asList(
+                "Pos", "Motion", "Rotation", "FallDistance", "Fire", "Air", "OnGround",
+                "Invulnerable", "PortalCooldown", "UUID",
+                "HurtTime", "HurtByTimestamp", "DeathTime", "AbsorptionAmount",
+                "FallFlying", "Brain", "Attributes", "ActiveEffects", "Passengers",
+                "SleepingX", "SleepingY", "SleepingZ"
+            ))
+            {
+                compound.remove(s);
+            }
+
+            form.mobID.set(key.get().getValue().toString());
+            form.mobNBT.set(compound.toString());
+
+            return form;
         }
 
         return null;
@@ -92,20 +114,20 @@ public class Morph
 
     public void setForm(Form form)
     {
-        if (form == null && this.form != null && this.entity.getMcEntity() instanceof Player player)
+        if (form == null && this.form != null && this.entity.getMcEntity() instanceof PlayerEntity player)
         {
             this.form.onDemorph(player);
         }
 
         this.form = form;
 
-        if (this.form != null && this.entity.getMcEntity() instanceof Player player)
+        if (this.form != null && this.entity.getMcEntity() instanceof PlayerEntity player)
         {
             this.form.onMorph(player);
             this.form.playMain();
         }
 
-        this.entity.getMcEntity().refreshDimensions();
+        this.entity.getMcEntity().calculateDimensions();
     }
 
     public void update()
@@ -118,9 +140,9 @@ public class Morph
         }
     }
 
-    public Tag toNbt()
+    public NbtElement toNbt()
     {
-        CompoundTag compound = new CompoundTag();
+        NbtCompound compound = new NbtCompound();
 
         if (this.form != null)
         {
@@ -130,18 +152,11 @@ public class Morph
         return compound;
     }
 
-    public void fromNbt(CompoundTag compound)
+    public void fromNbt(NbtCompound compound)
     {
         if (compound.contains("Form"))
         {
-            Optional<CompoundTag> formNbt = compound.getCompound("Form");
-
-            if (formNbt.isEmpty())
-            {
-                return;
-            }
-
-            MapType map = (MapType) DataStorageUtils.fromNbt(formNbt.get());
+            MapType map = (MapType) DataStorageUtils.fromNbt(compound.getCompoundOrEmpty("Form"));
 
             this.form = FormUtils.fromData(map);
         }

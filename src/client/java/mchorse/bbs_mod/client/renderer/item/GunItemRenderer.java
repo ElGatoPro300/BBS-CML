@@ -2,7 +2,6 @@ package mchorse.bbs_mod.client.renderer.item;
 
 import mchorse.bbs_mod.BBSMod;
 import mchorse.bbs_mod.BBSModClient;
-import mchorse.bbs_mod.client.renderer.item.GunItemRenderer;
 import mchorse.bbs_mod.forms.FormUtilsClient;
 import mchorse.bbs_mod.forms.entities.IEntity;
 import mchorse.bbs_mod.forms.entities.StubEntity;
@@ -15,18 +14,17 @@ import mchorse.bbs_mod.ui.model_blocks.UIModelBlockEditorMenu;
 import mchorse.bbs_mod.utils.MatrixStackUtils;
 import mchorse.bbs_mod.utils.pose.Transform;
 
-import net.minecraft.client.Minecraft;
-import net.minecraft.client.renderer.SubmitNodeCollector;
-import net.minecraft.client.renderer.special.SpecialModelRenderer;
-import net.minecraft.world.item.ItemDisplayContext;
-import net.minecraft.world.item.ItemStack;
+import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.render.DiffuseLighting;
+import net.minecraft.client.render.LightmapTextureManager;
+import net.minecraft.client.render.command.OrderedRenderCommandQueue;
+import net.minecraft.client.render.item.model.special.SpecialModelRenderer;
+import net.minecraft.client.util.math.MatrixStack;
+import net.minecraft.item.ItemDisplayContext;
+import net.minecraft.item.ItemStack;
 
-import org.joml.Vector3f;
 import org.joml.Vector3fc;
 
-import com.mojang.blaze3d.opengl.GlStateManager;
-import com.mojang.blaze3d.systems.RenderSystem;
-import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.serialization.MapCodec;
 
 import java.util.HashMap;
@@ -58,23 +56,27 @@ public class GunItemRenderer implements SpecialModelRenderer<ItemStack>
     }
 
     @Override
-    public ItemStack extractArgument(ItemStack stack)
+    public ItemStack getData(ItemStack stack)
     {
         return stack;
     }
 
     @Override
-    public void submit(ItemStack data, PoseStack matrices, SubmitNodeCollector queue, int light, int overlay, boolean hasGlint, int seed)
+    public void collectVertices(Consumer<Vector3fc> consumer)
+    {
+    }
+
+    @Override
+    public void render(ItemStack data, ItemDisplayContext mode, MatrixStack matrices, OrderedRenderCommandQueue queue, int light, int overlay, boolean hasGlint, int outlineColor)
     {
         Item item = this.get(data);
-        ItemDisplayContext mode = ItemDisplayContext.FIXED;
 
         if (item != null)
         {
             GunProperties properties = item.properties;
             Form form = properties.getForm(mode);
             Transform transform = properties.getTransform(mode);
-            boolean zoom = mode.firstPerson() && BBSModClient.getGunZoom() != null && properties.getZoomForm() != null;
+            boolean zoom = mode.isFirstPerson() && BBSModClient.getGunZoom() != null && properties.getZoomForm() != null;
 
             if (zoom)
             {
@@ -93,37 +95,29 @@ public class GunItemRenderer implements SpecialModelRenderer<ItemStack>
             {
                 item.expiration = 20;
 
-                matrices.pushPose();
+                matrices.push();
                 matrices.translate(0.5F, 0F, 0.5F);
                 MatrixStackUtils.applyTransform(matrices, transform);
 
-                GlStateManager._enableDepthTest();
-
                 if (mode == ItemDisplayContext.GUI)
                 {
-                    // GUI diffuse helper moved in 1.21.11 pipeline.
+                    MinecraftClient.getInstance().gameRenderer.getDiffuseLighting().setShaderLights(DiffuseLighting.Type.ITEMS_3D);
                 }
 
-                int maxLight = 240;
+                int maxLight = LightmapTextureManager.MAX_BLOCK_LIGHT_COORDINATE;
                 FormUtilsClient.render(form, new FormRenderingContext()
-                    .set(FormRenderType.fromModelMode(mode), item.formEntity, matrices, maxLight, overlay, Minecraft.getInstance().getDeltaTracker().getGameTimeDeltaPartialTick(false))
-                    .camera(Minecraft.getInstance().gameRenderer.getMainCamera()));
+                    .set(FormRenderType.fromModelMode(mode), item.formEntity, matrices, maxLight, overlay, MinecraftClient.getInstance().getRenderTickCounter().getTickProgress(false))
+                    .camera(MinecraftClient.getInstance().gameRenderer.getCamera()));
 
                 if (mode == ItemDisplayContext.GUI)
                 {
-                    // Keep compatibility with newer pipeline API where GUI depth-light toggle was removed.
+                    MinecraftClient.getInstance().gameRenderer.getDiffuseLighting().setShaderLights(DiffuseLighting.Type.ITEMS_FLAT);
                 }
 
-                GlStateManager._disableDepthTest();
-
-                matrices.popPose();
+                matrices.pop();
             }
         }
     }
-
-    @Override
-    public void getExtents(Consumer<Vector3fc> consumer)
-    {}
 
     public Item get(ItemStack stack)
     {
@@ -144,18 +138,18 @@ public class GunItemRenderer implements SpecialModelRenderer<ItemStack>
         return item;
     }
 
-    public static class Unbaked implements SpecialModelRenderer.Unbaked<ItemStack>
+    public static class Unbaked implements SpecialModelRenderer.Unbaked
     {
-        public static final MapCodec<GunItemRenderer.Unbaked> CODEC = MapCodec.unit(new GunItemRenderer.Unbaked());
+        public static final MapCodec<Unbaked> CODEC = MapCodec.unit(new Unbaked());
 
         @Override
-        public MapCodec<? extends SpecialModelRenderer.Unbaked<ItemStack>> type()
+        public MapCodec<Unbaked> getCodec()
         {
             return CODEC;
         }
 
         @Override
-        public SpecialModelRenderer<ItemStack> bake(SpecialModelRenderer.BakingContext config)
+        public SpecialModelRenderer<?> bake(SpecialModelRenderer.BakeContext context)
         {
             return BBSModClient.getGunItemRenderer();
         }
@@ -170,8 +164,7 @@ public class GunItemRenderer implements SpecialModelRenderer<ItemStack>
         public Item(GunProperties properties)
         {
             this.properties = properties;
-            this.formEntity = new StubEntity(Minecraft.getInstance().level);
+            this.formEntity = new StubEntity(MinecraftClient.getInstance().world);
         }
     }
 }
-

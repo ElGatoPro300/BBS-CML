@@ -2,15 +2,15 @@ package mchorse.bbs_mod.graphics.line;
 
 import mchorse.bbs_mod.ui.framework.elements.utils.Batcher2D;
 
-import net.minecraft.client.renderer.rendertype.RenderTypes;
+import net.minecraft.client.render.BufferBuilder;
+import net.minecraft.client.render.GameRenderer;
+import net.minecraft.client.render.Tessellator;
+import net.minecraft.client.render.VertexFormats;
+import net.minecraft.client.util.BufferAllocator;
 
 import org.joml.Matrix4f;
 
-import com.mojang.blaze3d.opengl.GlStateManager;
 import com.mojang.blaze3d.systems.RenderSystem;
-import com.mojang.blaze3d.vertex.BufferBuilder;
-import com.mojang.blaze3d.vertex.DefaultVertexFormat;
-import com.mojang.blaze3d.vertex.Tesselator;
 import com.mojang.blaze3d.vertex.VertexFormat;
 
 import java.util.ArrayList;
@@ -82,23 +82,6 @@ public class LineBuilder <T>
 
     public void render(Batcher2D batcher2D, ILineRenderer<T> renderer)
     {
-        Matrix4f matrix = new Matrix4f();
-        List<List<LinePoint<T>>> build = this.build();
-
-        for (List<LinePoint<T>> points : build)
-        {
-            BufferBuilder builder = Tesselator.getInstance().begin(VertexFormat.Mode.TRIANGLE_STRIP, DefaultVertexFormat.POSITION_COLOR);
-
-            // SRenderSystem.setShader(ShaderProgramKeys.POSITION_COLOR);
-            /* shader binding handled by RenderLayer in 1.21.11 */
-            GlStateManager._enableBlend();
-
-            for (LinePoint<T> point : points)
-            {
-                renderer.render(builder, matrix, point);
-            }
-
-            RenderTypes.debugFilledBox().draw(builder.buildOrThrow());
-        }
+        /* TODO 1.21.11: disable debug line rendering */
     }
 }

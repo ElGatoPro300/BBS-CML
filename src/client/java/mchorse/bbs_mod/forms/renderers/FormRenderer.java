@@ -1,5 +1,6 @@
 package mchorse.bbs_mod.forms.renderers;
 
+import mchorse.bbs_mod.BBSModClient;
 import mchorse.bbs_mod.client.BBSRendering;
 import mchorse.bbs_mod.forms.FormUtilsClient;
 import mchorse.bbs_mod.forms.entities.IEntity;
@@ -9,6 +10,7 @@ import mchorse.bbs_mod.forms.renderers.utils.MatrixCache;
 import mchorse.bbs_mod.settings.values.core.ValueTransform;
 import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.ui.framework.elements.utils.FontRenderer;
+import mchorse.bbs_mod.ui.utils.Area;
 import mchorse.bbs_mod.ui.utils.keys.KeyCodes;
 import mchorse.bbs_mod.utils.MathUtils;
 import mchorse.bbs_mod.utils.MatrixStackUtils;
@@ -17,17 +19,23 @@ import mchorse.bbs_mod.utils.colors.Colors;
 import mchorse.bbs_mod.utils.interps.Lerps;
 import mchorse.bbs_mod.utils.pose.Transform;
 
-import net.minecraft.client.player.AbstractClientPlayer;
-import net.minecraft.world.InteractionHand;
+import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.gl.GlUniform;
+import net.minecraft.client.gl.ShaderProgram;
+import net.minecraft.client.network.AbstractClientPlayerEntity;
+import net.minecraft.client.render.LightmapTextureManager;
+import net.minecraft.client.util.math.MatrixStack;
+import net.minecraft.util.Hand;
 
 import org.joml.Matrix4f;
 
-import com.mojang.blaze3d.opengl.GlProgram;
-import com.mojang.blaze3d.opengl.Uniform;
+import com.mojang.blaze3d.opengl.GlStateManager;
+import com.mojang.blaze3d.pipeline.RenderPipeline;
 import com.mojang.blaze3d.systems.RenderSystem;
-import com.mojang.blaze3d.vertex.PoseStack;
 
-import java.lang.reflect.Method;
+import org.lwjgl.opengl.GL11;
+
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.function.Supplier;
@@ -60,7 +68,63 @@ public abstract class FormRenderer <T extends Form>
 
     public final void renderUI(UIContext context, int x1, int y1, int x2, int y2)
     {
+        context.batcher.flush();
+        GL11.glClear(GL11.GL_DEPTH_BUFFER_BIT);
+
+        /* Set up absolute/global coordinates for scissoring */
+        boolean scissored = false;
+        Area viewport = context.getViewport();
+
+        if (viewport != null)
+        {
+            MinecraftClient mc = MinecraftClient.getInstance();
+
+            float rx = (float) Math.round(mc.getWindow().getWidth() / (double) context.menu.width);
+            float ry = (float) Math.round(mc.getWindow().getHeight() / (double) context.menu.height);
+            float size = BBSModClient.getOriginalFramebufferScale();
+
+            int cellX = context.globalX(x1);
+            int cellY = context.globalY(y1);
+            int cellW = x2 - x1;
+            int cellH = y2 - y1;
+
+            int viewportX = context.globalX(viewport.x);
+            int viewportY = context.globalY(viewport.y);
+
+            int ix = Math.max(cellX, viewportX);
+            int iy = Math.max(cellY, viewportY);
+            int iw = Math.min(cellX + cellW, viewportX + viewport.w) - ix;
+            int ih = Math.min(cellY + cellH, viewportY + viewport.h) - iy;
+
+            if (iw > 0 && ih > 0)
+            {
+                int vx = (int) (ix * rx);
+                int vy = (int) (mc.getWindow().getHeight() - (iy + ih) * ry);
+                int vw = (int) (iw * rx);
+                int vh = (int) (ih * ry);
+
+                GlStateManager._enableScissorTest();
+                GlStateManager._scissorBox((int) (vx * size), (int) (vy * size), (int) (vw * size), (int) (vh * size));
+                scissored = true;
+            }
+            else
+            {
+                /* Completely out of bounds, set a 0-size scissor box */
+                GlStateManager._enableScissorTest();
+                GlStateManager._scissorBox(0, 0, 0, 0);
+                scissored = true;
+            }
+        }
+
         this.renderInUI(context, x1, y1, x2, y2);
+
+        context.batcher.flush();
+        GL11.glClear(GL11.GL_DEPTH_BUFFER_BIT);
+
+        if (scissored)
+        {
+            GlStateManager._disableScissorTest();
+        }
 
         FontRenderer font = context.batcher.getFont();
         String name = this.form.name.get();
@@ -89,57 +153,84 @@ public abstract class FormRenderer <T extends Form>
 
     protected abstract void renderInUI(UIContext context, int x1, int y1, int x2, int y2);
 
-    public boolean renderArm(PoseStack matrices, int light, AbstractClientPlayer player, InteractionHand hand)
+    public boolean renderArm(MatrixStack matrices, int light, AbstractClientPlayerEntity player, Hand hand)
     {
         return false;
     }
 
     public final void render(FormRenderingContext context)
     {
+        /* Transparent forms skip casting via opacity / vertex alpha in the shadow path.
+         * Color-track paint/blend/grade must not disable Form.shaderShadow. */
         if (!this.form.shaderShadow.get() && BBSRendering.isIrisShadowPass())
+        {
+            return;
+        }
+
+        if (!this.form.render.get())
         {
             return;
         }
 
         this.form.applyStates(context.transition);
 
-        int light = context.light;
-        boolean visible = this.form.visible.get();
-
-        if (!visible)
+        if (!this.form.visible.get())
         {
+            this.form.unapplyStates();
+
             return;
         }
 
+        int light = context.light;
+        int savedColor = context.color;
         boolean isPicking = context.stencilMap != null;
 
-        context.stack.pushPose();
-        this.applyTransforms(context.stack, false, context.getTransition());
-
-        float lf = 1F - MathUtils.clamp(this.form.lighting.get(), 0F, 1F);
-        int u = context.light & '\uffff';
-        int v = context.light >> 16 & '\uffff';
-
-        u = (int) Lerps.lerp(u, 240, lf);
-        context.light = u | v << 16;
-
-        this.render3D(context);
-
-        if (isPicking)
+        context.stack.push();
+        if (context.world != null)
         {
-            this.updateStencilMap(context);
+            context.world.push();
         }
 
-        this.renderBodyParts(context);
+        try
+        {
+            this.applyTransforms(context.stack, false, context.getTransition());
+            if (context.world != null)
+            {
+                this.applyTransforms(context.world, false, context.getTransition());
+            }
 
-        context.stack.popPose();
+            float lf = 1F - MathUtils.clamp(this.form.lighting.get(), 0F, 1F);
+            int u = context.light & '\uffff';
+            int v = context.light >> 16 & '\uffff';
 
-        context.light = light;
+            u = (int) Lerps.lerp(u, LightmapTextureManager.MAX_BLOCK_LIGHT_COORDINATE, lf);
+            context.light = u | v << 16;
 
-        this.form.unapplyStates();
+            this.render3D(context);
+
+            if (isPicking)
+            {
+                this.updateStencilMap(context);
+            }
+
+            this.renderBodyParts(context);
+        }
+        finally
+        {
+            context.stack.pop();
+            if (context.world != null)
+            {
+                context.world.pop();
+            }
+
+            context.light = light;
+            context.color = savedColor;
+
+            this.form.unapplyStates();
+        }
     }
 
-    protected void applyTransforms(PoseStack stack, boolean origin, float transition)
+    protected void applyTransforms(MatrixStack stack, boolean origin, float transition)
     {
         Transform transform = this.createTransform();
 
@@ -182,11 +273,11 @@ public abstract class FormRenderer <T extends Form>
         transform.pivot.add(overlay.pivot);
     }
 
-    protected Supplier<GlProgram> getShader(FormRenderingContext context, Supplier<GlProgram> normal, Supplier<GlProgram> picking)
+    protected Supplier<RenderPipeline> getShader(FormRenderingContext context, Supplier<RenderPipeline> normal, Supplier<RenderPipeline> picking)
     {
         if (context.isPicking())
         {
-            GlProgram program = picking.get();
+            RenderPipeline program = picking.get();
 
             if (program == null)
             {
@@ -201,44 +292,12 @@ public abstract class FormRenderer <T extends Form>
         return normal;
     }
 
-    protected void setupTarget(FormRenderingContext context, GlProgram program)
+    protected void setupTarget(FormRenderingContext context, RenderPipeline program)
     {
         if (program == null)
         {
             return;
         }
-
-        bindShaderProgram(program);
-
-        Uniform target = program.getUniform("Target");
-
-        if (target != null)
-        {
-            int pickingIndex = context.getPickingIndex();
-
-            /* no-op uniform */ // target.set(pickingIndex);
-        }
-    }
-
-    private static void bindShaderProgram(GlProgram program)
-    {
-        try
-        {
-            Method setShader = RenderSystem.class.getMethod("setShader", Supplier.class);
-            setShader.invoke(null, (Supplier<GlProgram>) () -> program);
-
-            return;
-        }
-        catch (Exception ignored)
-        {}
-
-        try
-        {
-            Method setShaderProgram = RenderSystem.class.getMethod("setShaderProgram", GlProgram.class);
-            setShaderProgram.invoke(null, program);
-        }
-        catch (Exception ignored)
-        {}
     }
 
     protected void updateStencilMap(FormRenderingContext context)
@@ -251,10 +310,27 @@ public abstract class FormRenderer <T extends Form>
 
     public void renderBodyParts(FormRenderingContext context)
     {
-        for (BodyPart part : this.form.parts.getAllTyped())
+        if (this.form.parts.getAllTyped().isEmpty())
+        {
+            return;
+        }
+
+        List<BodyPart> parts = this.getSortedBodyParts(context);
+
+        if (ItemBodyPartBatch.renderBodyParts(this, parts, context))
+        {
+            return;
+        }
+
+        for (BodyPart part : parts)
         {
             this.renderBodyPart(part, context);
         }
+    }
+
+    protected List<BodyPart> getSortedBodyParts(FormRenderingContext context)
+    {
+        return new ArrayList<>(this.form.parts.getAllTyped());
     }
 
     protected void renderBodyPart(BodyPart part, FormRenderingContext context)
@@ -265,12 +341,33 @@ public abstract class FormRenderer <T extends Form>
 
         if (part.getForm() != null)
         {
-            context.stack.pushPose();
-            MatrixStackUtils.applyTransform(context.stack, part.transform.get());
+            context.stack.push();
 
-            FormUtilsClient.render(part.getForm(), context);
+            if (context.world != null)
+            {
+                context.world.push();
+            }
 
-            context.stack.popPose();
+            try
+            {
+                MatrixStackUtils.applyTransform(context.stack, part.transform.get());
+
+                if (context.world != null)
+                {
+                    MatrixStackUtils.applyTransform(context.world, part.transform.get());
+                }
+
+                FormUtilsClient.render(part.getForm(), context);
+            }
+            finally
+            {
+                context.stack.pop();
+
+                if (context.world != null)
+                {
+                    context.world.pop();
+                }
+            }
         }
 
         context.entity = oldEntity;
@@ -279,26 +376,26 @@ public abstract class FormRenderer <T extends Form>
     public MatrixCache collectMatrices(IEntity entity, float transition)
     {
         MatrixCache map = new MatrixCache();
-        PoseStack stack = new PoseStack();
+        MatrixStack stack = new MatrixStack();
 
         this.collectMatrices(entity, stack, map, "", transition);
 
         return map;
     }
 
-    public void collectMatrices(IEntity entity, PoseStack stack, MatrixCache matrices, String prefix, float transition)
+    public void collectMatrices(IEntity entity, MatrixStack stack, MatrixCache matrices, String prefix, float transition)
     {
         Matrix4f mm = new Matrix4f();
         Matrix4f oo = new Matrix4f();
 
-        stack.pushPose();
+        stack.push();
         this.applyTransforms(stack, true, transition);
-        oo.set(new Matrix4f());
-        stack.popPose();
+        oo.set(stack.peek().getPositionMatrix());
+        stack.pop();
 
-        stack.pushPose();
+        stack.push();
         this.applyTransforms(stack, false, transition);
-        mm.set(new Matrix4f());
+        mm.set(stack.peek().getPositionMatrix());
 
         matrices.put(prefix, mm, oo);
 
@@ -310,18 +407,17 @@ public abstract class FormRenderer <T extends Form>
 
             if (form != null)
             {
-                stack.pushPose();
+                stack.push();
                 MatrixStackUtils.applyTransform(stack, part.transform.get());
 
                 FormUtilsClient.getRenderer(form).collectMatrices(entity, stack, matrices, StringUtils.combinePaths(prefix, String.valueOf(i)), transition);
 
-                stack.popPose();
+                stack.pop();
             }
 
             i += 1;
         }
 
-        stack.popPose();
+        stack.pop();
     }
 }
-

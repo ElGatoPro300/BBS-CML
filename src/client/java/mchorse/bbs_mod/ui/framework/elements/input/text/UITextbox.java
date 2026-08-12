@@ -217,6 +217,11 @@ public class UITextbox extends UIBaseTextbox implements ITextColoring
     @Override
     public void render(UIContext context)
     {
+        if (this.area.isInside(context))
+        {
+            context.requestCursor(GLFW.GLFW_IBEAM_CURSOR);
+        }
+
         this.textbox.render(context);
 
         this.renderLockedArea(context);
