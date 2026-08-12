@@ -1034,8 +1034,69 @@ public class FormProperties extends ValueGroup
         this.dualWritePaintToLegacy(data);
         this.dualWriteGlowToLegacy(data);
         this.dualWriteStructureLightToLegacy(data);
+        this.rewriteLightingBrightnessToLegacy(data);
         this.flattenColorKeyframeValuesToInt(data);
         this.stripUnsafeKeyframeTypes(data);
+    }
+
+    /**
+     * Older builds only know {@code float} lighting (world-influence). Rewrite modern
+     * brightness channels so values and type match that format.
+     */
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    private void rewriteLightingBrightnessToLegacy(MapType data)
+    {
+        ArrayList<String> keys = new ArrayList<>();
+
+        for (String key : data.keys())
+        {
+            if (isWorldLightingChannelKey(key))
+            {
+                keys.add(key);
+            }
+        }
+
+        for (String key : keys)
+        {
+            MapType channelData = data.getMap(key);
+
+            if (channelData.isEmpty() || !"lighting_brightness".equals(channelData.getString("type")))
+            {
+                continue;
+            }
+
+            KeyframeChannel live = this.properties.get(key);
+
+            if (live == null || live.getFactory() != KeyframeFactories.LIGHTING_BRIGHTNESS)
+            {
+                continue;
+            }
+
+            KeyframeChannel<Float> legacy = new KeyframeChannel<>(key, KeyframeFactories.FLOAT);
+
+            legacy.setModel(true);
+
+            for (Object object : live.getKeyframes())
+            {
+                Keyframe keyframe = (Keyframe) object;
+                Object raw = keyframe.getValue();
+                float brightness = raw instanceof Number ? ((Number) raw).floatValue() : 0F;
+                int index = legacy.insert(keyframe.getTick(), FormLighting.brightnessToLegacy(brightness));
+                Keyframe<Float> out = legacy.get(index);
+
+                if (out != null)
+                {
+                    out.getInterpolation().copy(keyframe.getInterpolation());
+                    out.setDuration(keyframe.getDuration());
+                    out.lx = keyframe.lx;
+                    out.ly = keyframe.ly;
+                    out.rx = keyframe.rx;
+                    out.ry = keyframe.ry;
+                }
+            }
+
+            data.put(key, legacy.toData());
+        }
     }
 
     private void dualWritePaintToLegacy(MapType data)

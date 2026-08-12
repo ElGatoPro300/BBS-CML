@@ -37,4 +37,12 @@ public final class FormLighting
 
         return 1F - legacy;
     }
+
+    /**
+     * Convert brightness back to the legacy world-influence float for older builds.
+     */
+    public static float brightnessToLegacy(float brightness)
+    {
+        return 1F - clampBrightness(brightness);
+    }
 }

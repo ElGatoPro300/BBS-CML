@@ -161,7 +161,7 @@
     "bbs.config.chroma_sky.title": "Cielo cromático",
     "bbs.config.chroma_sky.tooltip": "Opciones relacionadas con el cielo cromático",
     "bbs.config.compatibility.save_as_compatible": "Guardar como compatible",
-    "bbs.config.compatibility.save_as_compatible-comment": "Si está activado, las películas guardan también datos compatibles con versiones antiguas para campos float nuevos (por ejemplo altura de línea y ancho máximo de subtítulos), de modo que builds antiguos puedan abrirlas. Desactívalo para guardar solo el formato float moderno.",
+    "bbs.config.compatibility.save_as_compatible-comment": "Si está activado, las películas se reescriben al guardar para que builds antiguos puedan abrirlas: la opacidad se refleja en el alpha de Color, paint/glow/luz usan tracks legacy, el brillo de iluminación de forms se guarda como el float antiguo de influencia del mundo, y se omiten tipos de keyframe desconocidos.",
     "bbs.config.compatibility.title": "Compatibilidad",
     "bbs.config.compatibility.tooltip": "Opciones para guardar películas en un formato compatible con versiones antiguas de BBS",
     "bbs.config.dc.enabled": "Activado",

@@ -657,7 +657,21 @@ public abstract class Form extends ValueGroup
         {
             BBSMod.getForms().appendId(this, map);
             map.remove("opacity");
-            map.putBool("lighting_v2", true);
+
+            /* ShapeForm replaces lighting with a boolean; only rewrite form float lighting. */
+            if (this.get("lighting") instanceof ValueFloat valueFloat)
+            {
+                if (BBSSettings.isSaveAsCompatible())
+                {
+                    /* Older builds expect world-influence lighting and ignore lighting_v2. */
+                    map.putFloat("lighting", FormLighting.brightnessToLegacy(valueFloat.get()));
+                    map.remove("lighting_v2");
+                }
+                else
+                {
+                    map.putBool("lighting_v2", true);
+                }
+            }
         }
 
         return data;
