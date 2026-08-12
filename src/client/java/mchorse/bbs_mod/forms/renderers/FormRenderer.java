@@ -64,7 +64,16 @@ public abstract class FormRenderer <T extends Form>
         context.batcher.flush();
         GL11.glClear(GL11.GL_DEPTH_BUFFER_BIT);
 
-        this.renderInUI(context, x1, y1, x2, y2);
+        try
+        {
+            this.renderInUI(context, x1, y1, x2, y2);
+        }
+        finally
+        {
+            /* Soft GUI restore only — never unbind VAO/EBO here. Doing so blanks Batcher2D
+             * chrome and can null-deref in atio6axx on the next glDrawElements. */
+            BBSRendering.restoreGuiRenderState();
+        }
 
         context.batcher.flush();
         GL11.glClear(GL11.GL_DEPTH_BUFFER_BIT);

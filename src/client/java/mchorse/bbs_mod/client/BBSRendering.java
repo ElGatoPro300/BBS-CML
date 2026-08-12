@@ -338,6 +338,10 @@ public class BBSRendering
     /**
      * Reset GL state after mid-UI 3D form/model draws so later Batcher2D text is not
      * left with additive blend / depthMask false / grade uniforms (white doubled glyphs).
+     *
+     * Never unbind VAO / ARRAY_BUFFER / ELEMENT_ARRAY_BUFFER here. On AMD (atio6axx)
+     * that leaves Batcher2D's next glDrawElements with a null index path (hard crash)
+     * or silently skips card chrome while form previews still draw through their own VAO.
      */
     public static void restoreGuiRenderState()
     {
