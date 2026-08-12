@@ -5,6 +5,7 @@ import mchorse.bbs_mod.client.renderer.MorphFireRenderer;
 import mchorse.bbs_mod.cubic.render.vanilla.ArmorRenderer;
 import mchorse.bbs_mod.entity.ActorEntity;
 import mchorse.bbs_mod.forms.FormUtilsClient;
+import mchorse.bbs_mod.forms.forms.MobForm;
 import mchorse.bbs_mod.forms.renderers.FormRenderType;
 import mchorse.bbs_mod.forms.renderers.FormRenderingContext;
 import mchorse.bbs_mod.utils.iris.IrisUtils;
@@ -167,7 +168,7 @@ public class ActorEntityRenderer extends EntityRenderer<ActorEntity, ActorEntity
             matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(-bodyYaw));
         }
 
-        if (entity.deathTime > 0)
+        if (entity.deathTime > 0 && !(entity.getForm() instanceof MobForm))
         {
             float deathAngle = (entity.deathTime + tickDelta - 1F) / 20F * 1.6F;
 

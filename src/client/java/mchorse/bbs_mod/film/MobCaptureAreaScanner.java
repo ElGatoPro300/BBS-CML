@@ -1,5 +1,6 @@
 package mchorse.bbs_mod.film;
 
+import mchorse.bbs_mod.entity.ActorEntity;
 import mchorse.bbs_mod.forms.forms.Form;
 import mchorse.bbs_mod.morphing.Morph;
 import mchorse.bbs_mod.ui.UIKeys;
@@ -172,7 +173,9 @@ public final class MobCaptureAreaScanner
 
     private static boolean canScan(Entity entity)
     {
-        return !(entity instanceof PlayerEntity);
+        /* Film ActorEntity bodies are already replays — capturing them creates
+         * phantom "actor" entries with leftover nametag/shadow at the death spot. */
+        return !(entity instanceof PlayerEntity) && !(entity instanceof ActorEntity);
     }
 
     public static double horizontalDistanceSq(Entity entity, double originX, double originZ)

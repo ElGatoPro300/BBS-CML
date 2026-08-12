@@ -230,7 +230,7 @@ public class UIFilmUndoHandler extends UIFormUndoHandler
             return;
         }
 
-        BaseValue value = panel.getData().getRecursively(change.getName());
+        BaseValue value = panel.getData().getRecursivelyOrNull(change.getName());
 
         if (value != null && this.isReplayActions(value))
         {

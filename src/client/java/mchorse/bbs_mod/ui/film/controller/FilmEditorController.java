@@ -282,9 +282,10 @@ public class FilmEditorController extends BaseFilmController
     }
 
     /**
-     * Actor mode: prefer the live {@link ActorEntity} for
-     * gizmo capture (no StubEntity ghost). If the physical actor is not spawned
-     * yet, fall back to a normal stub draw so editing still works.
+     * Actor mode: draw gizmos from the live {@link ActorEntity} only.
+     * Never fall back to the stub body — after combat death the physical actor
+     * is removed and a stub fallback looked like a revived corpse following
+     * the remaining keyframes. Scrub keeps world clips; combat HP is silent.
      */
     private void renderActorModeEntity(WorldRenderContext context, Replay replay, IEntity stub)
     {
@@ -297,21 +298,22 @@ public class FilmEditorController extends BaseFilmController
 
         IEntity physical = this.getPhysicalActorEntity(replay);
 
+        if (physical == null || this.isActorPickingBlocked(replay))
+        {
+            return;
+        }
+
         /* Keep bone selection from the stub (isCurrent), then swap to the physical
          * actor so pose matrices match what ActorEntityRenderer draws. */
         FilmControllerContext filmContext = this.getFilmControllerContext(context, replay, stub);
 
-        if (physical != null)
+        if (filmContext.bone == null && filmContext.bone2 == null)
         {
-            if (filmContext.bone == null && filmContext.bone2 == null)
-            {
-                return;
-            }
-
-            filmContext.entity = physical;
-            filmContext.physicalActor(true);
+            return;
         }
 
+        filmContext.entity = physical;
+        filmContext.physicalActor(true);
         filmContext.transition = this.getTransition(stub, MinecraftClient.getInstance().getRenderTickCounter().getTickProgress(false));
         filmContext.stack.push();
 

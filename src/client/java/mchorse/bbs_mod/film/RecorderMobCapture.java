@@ -4,6 +4,7 @@ import mchorse.bbs_mod.BBSModClient;
 import mchorse.bbs_mod.BBSSettings;
 import mchorse.bbs_mod.actions.types.MobDeathActionClip;
 import mchorse.bbs_mod.actions.types.item.ItemDropActionClip;
+import mchorse.bbs_mod.entity.ActorEntity;
 import mchorse.bbs_mod.film.MobCemItemCapture;
 import mchorse.bbs_mod.film.MobCemPoseCapture;
 import mchorse.bbs_mod.film.replays.MountLink;
@@ -56,6 +57,9 @@ public final class RecorderMobCapture
 {
     private static final int DEATH_ANIMATION_TICKS = 20;
     private static final double DROP_SCAN_RADIUS = 2D;
+    private static final double CONVERSION_SCAN_RADIUS = 1.5D;
+    private static final int CONVERSION_PENDING_TICKS = 40;
+    private static final int CONVERSION_SUCCESSOR_MAX_AGE = 5;
 
     public static final class Session
     {
@@ -97,10 +101,49 @@ public final class RecorderMobCapture
         }
     }
 
+    private static final class PendingConversion
+    {
+        public final String groupPath;
+        public final boolean vanillaPlayback;
+        public int ticksRemaining;
+
+        public PendingConversion(String groupPath, boolean vanillaPlayback)
+        {
+            this.groupPath = groupPath == null ? "" : groupPath;
+            this.vanillaPlayback = vanillaPlayback;
+            this.ticksRemaining = CONVERSION_PENDING_TICKS;
+        }
+    }
+
+    private static final class PendingConversionScan
+    {
+        public final double x;
+        public final double y;
+        public final double z;
+        public final String groupPath;
+        public final boolean vanillaPlayback;
+        public int ticksRemaining;
+
+        public PendingConversionScan(double x, double y, double z, String groupPath, boolean vanillaPlayback)
+        {
+            this.x = x;
+            this.y = y;
+            this.z = z;
+            this.groupPath = groupPath == null ? "" : groupPath;
+            this.vanillaPlayback = vanillaPlayback;
+            this.ticksRemaining = CONVERSION_PENDING_TICKS;
+        }
+    }
+
     private final List<Session> sessions = new ArrayList<>();
     private final Set<Integer> capturedEntityIds = new HashSet<>();
     private final Map<Integer, Integer> entityReplayIndices = new HashMap<>();
     private final Set<Integer> vanillaPlaybackEntityIds = new HashSet<>();
+    private final Map<Integer, PendingConversion> pendingConversions = new HashMap<>();
+    private final List<PendingConversionScan> pendingConversionScans = new ArrayList<>();
+    private final Map<Integer, PendingConversion> recentSilentRemovals = new HashMap<>();
+    private Film lastFilm;
+    private int lastTick;
 
     public void applyRecordingSetup(MobCaptureRecordingSetup setup)
     {
@@ -137,6 +180,11 @@ public final class RecorderMobCapture
         this.capturedEntityIds.clear();
         this.entityReplayIndices.clear();
         this.vanillaPlaybackEntityIds.clear();
+        this.pendingConversions.clear();
+        this.pendingConversionScans.clear();
+        this.recentSilentRemovals.clear();
+        this.lastFilm = null;
+        this.lastTick = 0;
     }
 
     public Set<Integer> getCapturedEntityIds()
@@ -188,14 +236,14 @@ public final class RecorderMobCapture
             mountIndex = RecorderMobCapture.resolveReplayIndexForEntity(vehicle.getId());
         }
 
-        riderKeyframes.riding.insert(tick, mountIndex >= 0 ? 1D : 0D);
+        riderKeyframes.riding.insertIfChanged(tick, mountIndex >= 0 ? 1D : 0D);
 
         if (mountIndex >= 0 && replays != null && mountIndex < replays.size())
         {
             Replay mountReplay = replays.get(mountIndex);
             MountLink ridden = new MountLink(true, riderIndex);
 
-            mountReplay.keyframes.ridden.insert(tick, ridden);
+            mountReplay.keyframes.ridden.insertIfChanged(tick, ridden);
         }
     }
 
@@ -222,6 +270,28 @@ public final class RecorderMobCapture
         return films.getEditorMobCapture().getReplayIndexForEntity(entityId);
     }
 
+    /**
+     * Server {@code MobEntity.convertTo} → hide the old autocaptured replay (no death
+     * animation) and start capturing the successor entity.
+     */
+    public static void handleServerConversion(int oldEntityId, int newEntityId)
+    {
+        Films films = BBSModClient.getFilms();
+        Recorder recorder = films.getRecorder();
+
+        if (recorder != null && !recorder.hasNotStarted())
+        {
+            recorder.getMobCapture().onEntityConverted(recorder.film, recorder.getTick(), oldEntityId, newEntityId, recorder);
+        }
+
+        RecorderMobCapture editor = films.getEditorMobCapture();
+
+        if (!editor.isEmpty() && editor.lastFilm != null)
+        {
+            editor.onEntityConverted(editor.lastFilm, editor.lastTick, oldEntityId, newEntityId, null);
+        }
+    }
+
     public boolean tryCapture(Recorder recorder, Entity target)
     {
         return this.tryCapture(recorder, target, "");
@@ -229,7 +299,7 @@ public final class RecorderMobCapture
 
     public boolean tryCapture(Recorder recorder, Entity target, String groupPath)
     {
-        if (target == null || target instanceof PlayerEntity)
+        if (target == null || target instanceof PlayerEntity || target instanceof ActorEntity)
         {
             return false;
         }
@@ -355,7 +425,7 @@ public final class RecorderMobCapture
                         continue;
                     }
 
-                    if (this.capturedEntityIds.contains(entity.getId()))
+                    if (this.capturedEntityIds.contains(entity.getId()) || entity instanceof ActorEntity)
                     {
                         continue;
                     }
@@ -410,10 +480,13 @@ public final class RecorderMobCapture
 
     public void recordTickForFilm(Film film, int tick)
     {
-        if (this.sessions.isEmpty())
+        if (this.sessions.isEmpty() && this.pendingConversions.isEmpty() && this.pendingConversionScans.isEmpty())
         {
             return;
         }
+
+        this.lastFilm = film;
+        this.lastTick = tick;
 
         MinecraftClient mc = MinecraftClient.getInstance();
         ClientWorld world = mc.world;
@@ -422,6 +495,8 @@ public final class RecorderMobCapture
         {
             return;
         }
+
+        this.processPendingConversions(film, tick, world, null);
 
         Iterator<Session> iterator = this.sessions.iterator();
 
@@ -440,12 +515,12 @@ public final class RecorderMobCapture
 
             if (session.recordingDeath)
             {
-                session.deathTickIndex += 1;
-                this.recordDeathEntity(replay, session, tick, Math.min(session.deathTickIndex, DEATH_ANIMATION_TICKS));
+                this.advanceDeathRecording(replay, session, entity, tick);
 
                 if (session.deathTickIndex >= DEATH_ANIMATION_TICKS)
                 {
                     this.applyDeathVisibilityKeyframes(replay, tick);
+                    this.addMobDeathClip(replay, tick);
                     iterator.remove();
                 }
 
@@ -454,22 +529,7 @@ public final class RecorderMobCapture
 
             if (entity == null)
             {
-                if (!session.livingEntity)
-                {
-                    this.applyDeathVisibilityKeyframes(replay, tick);
-                    iterator.remove();
-                }
-                else if (session.deathHandled)
-                {
-                    session.recordingDeath = true;
-                    session.deathTickIndex = 1;
-                    this.recordDeathEntity(replay, session, tick, 1);
-                }
-                else
-                {
-                    iterator.remove();
-                }
-
+                this.onCapturedEntityMissing(film, replay, session, tick, world, iterator, null);
                 continue;
             }
 
@@ -507,11 +567,12 @@ public final class RecorderMobCapture
                         session.deathTickIndex = living.deathTime > 0 ? living.deathTime : 1;
                     }
 
-                    this.recordDeathEntity(replay, session, tick, Math.min(session.deathTickIndex, DEATH_ANIMATION_TICKS));
+                    this.recordDeathEntity(replay, session, living, tick, Math.min(session.deathTickIndex, DEATH_ANIMATION_TICKS));
 
                     if (session.deathTickIndex >= DEATH_ANIMATION_TICKS)
                     {
                         this.applyDeathVisibilityKeyframes(replay, tick);
+                        this.addMobDeathClip(replay, tick);
                         iterator.remove();
                     }
                     else
@@ -524,11 +585,11 @@ public final class RecorderMobCapture
             {
                 session.recordingDeath = true;
                 session.deathTickIndex = 1;
-                this.recordDeathEntity(replay, session, tick, 1);
+                this.recordDeathEntity(replay, session, null, tick, 1);
             }
             else if (session.livingEntity)
             {
-                iterator.remove();
+                this.onCapturedEntityMissing(film, replay, session, tick, world, iterator, null);
             }
         }
     }
@@ -563,12 +624,6 @@ public final class RecorderMobCapture
 
         BaseValue.edit(replay.actions, (actions) ->
         {
-            MobDeathActionClip deathClip = new MobDeathActionClip();
-
-            deathClip.tick.set(tick);
-            deathClip.duration.set(1);
-            actions.addClip(deathClip);
-
             if (!this.captureNearbyDrops(replay, tick, session.deathX, session.deathY, session.deathZ, world))
             {
                 this.captureEquipmentDrops(replay, living, tick, session.deathX, session.deathY, session.deathZ);
@@ -598,7 +653,7 @@ public final class RecorderMobCapture
     {
         this.capturePlayerVehicle(recorder);
 
-        if (this.sessions.isEmpty())
+        if (this.sessions.isEmpty() && this.pendingConversions.isEmpty() && this.pendingConversionScans.isEmpty())
         {
             return;
         }
@@ -613,6 +668,11 @@ public final class RecorderMobCapture
 
         int tick = recorder.getTick();
         Film film = recorder.film;
+
+        this.lastFilm = film;
+        this.lastTick = tick;
+        this.processPendingConversions(film, tick, world, recorder);
+
         Iterator<Session> iterator = this.sessions.iterator();
 
         while (iterator.hasNext())
@@ -630,8 +690,7 @@ public final class RecorderMobCapture
 
             if (session.recordingDeath)
             {
-                session.deathTickIndex += 1;
-                this.recordDeathEntity(replay, session, tick, Math.min(session.deathTickIndex, DEATH_ANIMATION_TICKS));
+                this.advanceDeathRecording(replay, session, entity, tick);
 
                 if (session.deathTickIndex >= DEATH_ANIMATION_TICKS)
                 {
@@ -643,22 +702,7 @@ public final class RecorderMobCapture
 
             if (entity == null)
             {
-                if (!session.livingEntity)
-                {
-                    this.applyDeathVisibilityKeyframes(replay, tick);
-                    iterator.remove();
-                }
-                else if (session.deathHandled)
-                {
-                    session.recordingDeath = true;
-                    session.deathTickIndex = 1;
-                    this.recordDeathEntity(replay, session, tick, 1);
-                }
-                else
-                {
-                    iterator.remove();
-                }
-
+                this.onCapturedEntityMissing(film, replay, session, tick, world, iterator, recorder);
                 continue;
             }
 
@@ -696,7 +740,7 @@ public final class RecorderMobCapture
                         session.deathTickIndex = living.deathTime > 0 ? living.deathTime : 1;
                     }
 
-                    this.recordDeathEntity(replay, session, tick, Math.min(session.deathTickIndex, DEATH_ANIMATION_TICKS));
+                    this.recordDeathEntity(replay, session, living, tick, Math.min(session.deathTickIndex, DEATH_ANIMATION_TICKS));
 
                     if (session.deathTickIndex >= DEATH_ANIMATION_TICKS)
                     {
@@ -712,17 +756,19 @@ public final class RecorderMobCapture
             {
                 session.recordingDeath = true;
                 session.deathTickIndex = 1;
-                this.recordDeathEntity(replay, session, tick, 1);
+                this.recordDeathEntity(replay, session, null, tick, 1);
             }
             else if (session.livingEntity)
             {
-                iterator.remove();
+                this.onCapturedEntityMissing(film, replay, session, tick, world, iterator, recorder);
             }
         }
     }
 
     public void simplify(Film film)
     {
+        this.finishOpenDeathSessions(film);
+
         for (Session session : this.sessions)
         {
             if (session.replayIndex >= 0 && session.replayIndex < film.replays.getList().size())
@@ -744,11 +790,71 @@ public final class RecorderMobCapture
         }
     }
 
+    /**
+     * If recording stops mid-death, still hide the corpse and spawn death particles.
+     */
+    private void finishOpenDeathSessions(Film film)
+    {
+        int tick = -1;
+        Recorder recorder = BBSModClient.getFilms().getRecorder();
+
+        if (recorder != null)
+        {
+            tick = recorder.getTick();
+        }
+
+        for (Session session : this.sessions)
+        {
+            if ((!session.recordingDeath && !session.deathHandled)
+                || session.replayIndex < 0
+                || session.replayIndex >= film.replays.getList().size())
+            {
+                continue;
+            }
+
+            Replay replay = film.replays.getList().get(session.replayIndex);
+            int disappearTick = tick >= 0 ? tick : session.deathTickIndex;
+
+            if (disappearTick < 0)
+            {
+                disappearTick = 0;
+            }
+
+            while (session.deathTickIndex < DEATH_ANIMATION_TICKS)
+            {
+                session.deathTickIndex += 1;
+                disappearTick += 1;
+                this.recordDeathEntity(replay, session, null, disappearTick, Math.min(session.deathTickIndex, DEATH_ANIMATION_TICKS));
+            }
+
+            this.applyDeathVisibilityKeyframes(replay, disappearTick);
+            this.addMobDeathClip(replay, disappearTick);
+        }
+    }
+
     private void finishDeathRecording(Recorder recorder, Replay replay, int disappearTick, Iterator<Session> iterator)
     {
         this.applyDeathVisibilityKeyframes(replay, disappearTick);
+        this.addMobDeathClip(replay, disappearTick);
         iterator.remove();
         this.refreshFilmUi(recorder);
+    }
+
+    private void addMobDeathClip(Replay replay, int tick)
+    {
+        if (tick < 0)
+        {
+            return;
+        }
+
+        BaseValue.edit(replay.actions, (actions) ->
+        {
+            MobDeathActionClip deathClip = new MobDeathActionClip();
+
+            deathClip.tick.set(tick);
+            deathClip.duration.set(1);
+            actions.addClip(deathClip);
+        });
     }
 
     private void applyDeathVisibilityKeyframes(Replay replay, int disappearTick)
@@ -780,6 +886,37 @@ public final class RecorderMobCapture
         });
     }
 
+    /**
+     * Conversion successors must stay invisible until the tick they appear, otherwise
+     * the first recorded pose holds and the new MobForm shows from film start.
+     */
+    private void applyAppearVisibilityKeyframes(Replay replay, int appearTick)
+    {
+        Form form = replay.form.get();
+
+        if (form == null || appearTick < 0)
+        {
+            return;
+        }
+
+        BaseValue.edit(replay.properties, (properties) ->
+        {
+            KeyframeChannel channel = properties.getOrCreate(form, "render");
+
+            if (channel == null)
+            {
+                return;
+            }
+
+            if (appearTick > 0)
+            {
+                channel.insert(0, Boolean.FALSE);
+            }
+
+            channel.insert(appearTick, Boolean.TRUE);
+        });
+    }
+
     private void applyDeathEffectKeyframes(Replay replay, Session session, int deathTick)
     {
         if (deathTick < 0)
@@ -800,13 +937,13 @@ public final class RecorderMobCapture
 
         if (session.lastFire == null || session.lastFire.booleanValue() != fire)
         {
-            replay.keyframes.fire.insert(tick, fire ? 1D : 0D);
+            replay.keyframes.fire.insertIfChanged(tick, fire ? 1D : 0D);
             session.lastFire = fire;
         }
 
         if (session.lastParticles == null || session.lastParticles.booleanValue() != particles)
         {
-            replay.keyframes.particles.insert(tick, particles ? 1D : 0D);
+            replay.keyframes.particles.insertIfChanged(tick, particles ? 1D : 0D);
             session.lastParticles = particles;
         }
     }
@@ -879,8 +1016,50 @@ public final class RecorderMobCapture
         mobForm.mobNBT.set(nbt);
     }
 
-    private void recordDeathEntity(Replay replay, Session session, int tick, int deathTime)
+    /**
+     * While the corpse still exists, keep sampling live pose (knockback hop, etc.).
+     * After despawn, hold the last sampled pose and only advance {@code death_time}.
+     */
+    private void advanceDeathRecording(Replay replay, Session session, Entity entity, int tick)
     {
+        if (entity instanceof LivingEntity living && living.deathTime > 0)
+        {
+            session.deathTickIndex = living.deathTime;
+        }
+        else
+        {
+            session.deathTickIndex += 1;
+        }
+
+        this.recordDeathEntity(replay, session, entity, tick, Math.min(session.deathTickIndex, DEATH_ANIMATION_TICKS));
+    }
+
+    private void recordDeathEntity(Replay replay, Session session, Entity entity, int tick, int deathTime)
+    {
+        if (entity != null)
+        {
+            this.updateSessionState(session, entity);
+            session.deathX = session.lastX;
+            session.deathY = session.lastY;
+            session.deathZ = session.lastZ;
+            session.deathYaw = session.lastYaw;
+            session.deathPitch = session.lastPitch;
+            session.deathHeadYaw = session.lastHeadYaw;
+            session.deathBodyYaw = session.lastBodyYaw;
+
+            MCEntity wrapper = new MCEntity(entity);
+
+            wrapper.update();
+            /* Keep ambient morph particles off while dying; MobDeathActionClip
+             * spawns the single vanilla-style poof burst at despawn. */
+            wrapper.setParticlesEnabled(false);
+            replay.keyframes.record(tick, wrapper, null);
+            replay.keyframes.deathTime.insertIfChanged(tick, (double) deathTime);
+            replay.keyframes.particles.insertIfChanged(tick, 0D);
+
+            return;
+        }
+
         StubEntity wrapper = new StubEntity(MinecraftClient.getInstance().world);
 
         wrapper.setPosition(session.deathX, session.deathY, session.deathZ);
@@ -901,8 +1080,10 @@ public final class RecorderMobCapture
         wrapper.setSprinting(false);
         wrapper.setOnGround(true);
         wrapper.setVelocity(0F, 0F, 0F);
+        wrapper.setParticlesEnabled(false);
 
         replay.keyframes.record(tick, wrapper, null);
+        replay.keyframes.particles.insertIfChanged(tick, 0D);
     }
 
     private void updateSessionState(Session session, Entity entity)
@@ -955,12 +1136,6 @@ public final class RecorderMobCapture
 
         BaseValue.edit(replay.actions, (actions) ->
         {
-            MobDeathActionClip deathClip = new MobDeathActionClip();
-
-            deathClip.tick.set(tick);
-            deathClip.duration.set(1);
-            actions.addClip(deathClip);
-
             if (!this.captureNearbyDrops(replay, tick, session.deathX, session.deathY, session.deathZ, world))
             {
                 this.captureEquipmentDrops(replay, living, tick, session.deathX, session.deathY, session.deathZ);
@@ -1048,7 +1223,366 @@ public final class RecorderMobCapture
         return entity.getName().getString();
     }
 
-    private void refreshFilmUi(Recorder recorder)
+    private void onCapturedEntityMissing(Film film, Replay replay, Session session, int tick, ClientWorld world, Iterator<Session> iterator, Recorder recorder)
+    {
+        if (!session.livingEntity)
+        {
+            this.applyDeathVisibilityKeyframes(replay, tick);
+            this.forgetEntity(session.entityId);
+            iterator.remove();
+            return;
+        }
+
+        if (session.deathHandled)
+        {
+            session.recordingDeath = true;
+            session.deathTickIndex = 1;
+            this.recordDeathEntity(replay, session, null, tick, 1);
+            return;
+        }
+
+        /* Conversion / silent despawn: hide without death roll or MobDeath particles. */
+        this.finishSilentRemoval(film, replay, session, tick, world, iterator, recorder);
+    }
+
+    private void finishSilentRemoval(Film film, Replay replay, Session session, int tick, ClientWorld world, Iterator<Session> iterator, Recorder recorder)
+    {
+        this.applyDeathVisibilityKeyframes(replay, tick);
+
+        String groupPath = replay.group.get();
+        boolean vanilla = replay.vanillaMobPlayback.get();
+        int oldEntityId = session.entityId;
+
+        this.recentSilentRemovals.put(oldEntityId, new PendingConversion(groupPath, vanilla));
+        this.forgetEntity(oldEntityId);
+        iterator.remove();
+
+        Entity successor = this.findConversionSuccessor(world, session);
+
+        if (successor != null)
+        {
+            this.recentSilentRemovals.remove(oldEntityId);
+            this.captureSuccessor(film, tick, successor, groupPath, vanilla, recorder);
+            return;
+        }
+
+        this.pendingConversionScans.add(new PendingConversionScan(session.lastX, session.lastY, session.lastZ, groupPath, vanilla));
+    }
+
+    private void onEntityConverted(Film film, int tick, int oldEntityId, int newEntityId, Recorder recorder)
+    {
+        if (film == null || newEntityId < 0)
+        {
+            return;
+        }
+
+        String groupPath = "";
+        boolean vanilla = false;
+        boolean known = false;
+        Session session = this.findSession(oldEntityId);
+
+        if (session != null && session.replayIndex >= 0 && session.replayIndex < film.replays.getList().size())
+        {
+            Replay oldReplay = film.replays.getList().get(session.replayIndex);
+
+            groupPath = oldReplay.group.get();
+            vanilla = oldReplay.vanillaMobPlayback.get();
+            known = true;
+
+            if (!session.deathHandled && !session.recordingDeath)
+            {
+                this.applyDeathVisibilityKeyframes(oldReplay, tick);
+            }
+
+            this.sessions.remove(session);
+            this.forgetEntity(oldEntityId);
+            this.recentSilentRemovals.remove(oldEntityId);
+        }
+        else
+        {
+            PendingConversion recent = this.recentSilentRemovals.remove(oldEntityId);
+
+            if (recent != null)
+            {
+                groupPath = recent.groupPath;
+                vanilla = recent.vanillaPlayback;
+                known = true;
+            }
+        }
+
+        if (!known)
+        {
+            return;
+        }
+
+        MinecraftClient mc = MinecraftClient.getInstance();
+        ClientWorld world = mc.world;
+        Entity successor = world == null ? null : world.getEntityById(newEntityId);
+
+        if (successor != null)
+        {
+            this.captureSuccessor(film, tick, successor, groupPath, vanilla, recorder);
+            return;
+        }
+
+        this.pendingConversions.put(newEntityId, new PendingConversion(groupPath, vanilla));
+    }
+
+    private Session findSession(int entityId)
+    {
+        for (Session session : this.sessions)
+        {
+            if (session.entityId == entityId)
+            {
+                return session;
+            }
+        }
+
+        return null;
+    }
+
+    private void forgetEntity(int entityId)
+    {
+        this.capturedEntityIds.remove(entityId);
+        this.entityReplayIndices.remove(entityId);
+    }
+
+    private Entity findConversionSuccessor(ClientWorld world, Session session)
+    {
+        Box box = new Box(
+            session.lastX - CONVERSION_SCAN_RADIUS,
+            session.lastY - CONVERSION_SCAN_RADIUS,
+            session.lastZ - CONVERSION_SCAN_RADIUS,
+            session.lastX + CONVERSION_SCAN_RADIUS,
+            session.lastY + CONVERSION_SCAN_RADIUS + 1D,
+            session.lastZ + CONVERSION_SCAN_RADIUS
+        );
+        Entity best = null;
+        double bestDist = Double.MAX_VALUE;
+
+        for (Entity entity : world.getOtherEntities(null, box, this::canCaptureConversionSuccessor))
+        {
+            if (entity.age > CONVERSION_SUCCESSOR_MAX_AGE)
+            {
+                continue;
+            }
+
+            double dist = entity.squaredDistanceTo(session.lastX, session.lastY, session.lastZ);
+
+            if (dist < bestDist)
+            {
+                bestDist = dist;
+                best = entity;
+            }
+        }
+
+        return best;
+    }
+
+    private boolean canCaptureConversionSuccessor(Entity entity)
+    {
+        if (entity == null || entity instanceof PlayerEntity || entity instanceof ActorEntity)
+        {
+            return false;
+        }
+
+        if (!(entity instanceof LivingEntity))
+        {
+            return false;
+        }
+
+        return !this.capturedEntityIds.contains(entity.getId());
+    }
+
+    private void processPendingConversions(Film film, int tick, ClientWorld world, Recorder recorder)
+    {
+        if (!this.pendingConversions.isEmpty())
+        {
+            Iterator<Map.Entry<Integer, PendingConversion>> iterator = this.pendingConversions.entrySet().iterator();
+
+            while (iterator.hasNext())
+            {
+                Map.Entry<Integer, PendingConversion> entry = iterator.next();
+                PendingConversion pending = entry.getValue();
+                Entity successor = world.getEntityById(entry.getKey());
+
+                if (successor != null)
+                {
+                    this.captureSuccessor(film, tick, successor, pending.groupPath, pending.vanillaPlayback, recorder);
+                    iterator.remove();
+                    continue;
+                }
+
+                pending.ticksRemaining -= 1;
+
+                if (pending.ticksRemaining <= 0)
+                {
+                    iterator.remove();
+                }
+            }
+        }
+
+        if (!this.pendingConversionScans.isEmpty())
+        {
+            Iterator<PendingConversionScan> scanIterator = this.pendingConversionScans.iterator();
+
+            while (scanIterator.hasNext())
+            {
+                PendingConversionScan scan = scanIterator.next();
+                Session probe = new Session(-1, -1, true);
+
+                probe.lastX = scan.x;
+                probe.lastY = scan.y;
+                probe.lastZ = scan.z;
+
+                Entity successor = this.findConversionSuccessor(world, probe);
+
+                if (successor != null)
+                {
+                    this.captureSuccessor(film, tick, successor, scan.groupPath, scan.vanillaPlayback, recorder);
+                    scanIterator.remove();
+                    continue;
+                }
+
+                scan.ticksRemaining -= 1;
+
+                if (scan.ticksRemaining <= 0)
+                {
+                    scanIterator.remove();
+                }
+            }
+        }
+
+        if (!this.recentSilentRemovals.isEmpty())
+        {
+            Iterator<Map.Entry<Integer, PendingConversion>> recentIterator = this.recentSilentRemovals.entrySet().iterator();
+
+            while (recentIterator.hasNext())
+            {
+                PendingConversion pending = recentIterator.next().getValue();
+
+                pending.ticksRemaining -= 1;
+
+                if (pending.ticksRemaining <= 0)
+                {
+                    recentIterator.remove();
+                }
+            }
+        }
+    }
+
+    private void captureSuccessor(Film film, int tick, Entity successor, String groupPath, boolean vanilla, Recorder recorder)
+    {
+        if (successor == null || this.capturedEntityIds.contains(successor.getId()))
+        {
+            return;
+        }
+
+        if (vanilla)
+        {
+            this.vanillaPlaybackEntityIds.add(successor.getId());
+        }
+
+        boolean captured;
+
+        if (recorder != null)
+        {
+            captured = this.tryCapture(recorder, successor, groupPath);
+        }
+        else
+        {
+            captured = this.tryCaptureOnFilm(film, tick, successor, groupPath);
+        }
+
+        if (!captured)
+        {
+            return;
+        }
+
+        int replayIndex = this.getReplayIndexForEntity(successor.getId());
+
+        if (replayIndex < 0 || replayIndex >= film.replays.getList().size())
+        {
+            return;
+        }
+
+        this.applyAppearVisibilityKeyframes(film.replays.getList().get(replayIndex), tick);
+    }
+
+    private boolean tryCaptureOnFilm(Film film, int tick, Entity target, String groupPath)
+    {
+        if (target == null || target instanceof PlayerEntity || target instanceof ActorEntity)
+        {
+            return false;
+        }
+
+        if (this.capturedEntityIds.contains(target.getId()))
+        {
+            return false;
+        }
+
+        MinecraftClient mc = MinecraftClient.getInstance();
+        ClientPlayerEntity player = mc.player;
+
+        if (player == null || film == null)
+        {
+            return false;
+        }
+
+        Form captured = Morph.captureFormFromEntity(player, target);
+
+        if (captured == null)
+        {
+            return false;
+        }
+
+        Form form = FormUtils.copy(captured);
+        int[] replayIndex = new int[] {-1};
+
+        BaseValue.edit(film.replays, (replays) ->
+        {
+            Replay replay = replays.addReplay();
+
+            replay.form.set(form);
+            replay.label.set(this.getEntityLabel(target, form));
+            this.applyVanillaMobPlayback(replay, this.vanillaPlaybackEntityIds.contains(target.getId()));
+
+            if (groupPath != null && !groupPath.isEmpty())
+            {
+                replay.group.set(groupPath);
+            }
+
+            this.recordEntity(replay, target, tick);
+            replayIndex[0] = replays.getList().indexOf(replay);
+        });
+
+        if (replayIndex[0] < 0)
+        {
+            return false;
+        }
+
+        Session session = new Session(target.getId(), replayIndex[0], target instanceof LivingEntity);
+
+        if (target instanceof LivingEntity living)
+        {
+            session.tracksSnowTrail = this.isSnowGolem(form, living);
+            this.updateSessionState(session, living);
+            this.recordFireAndParticlesIfChanged(film.replays.getList().get(replayIndex[0]), session, living, tick);
+        }
+        else
+        {
+            this.updateSessionState(session, target);
+        }
+
+        this.sessions.add(session);
+        this.capturedEntityIds.add(target.getId());
+        this.entityReplayIndices.put(target.getId(), replayIndex[0]);
+        this.refreshFilmUi(film);
+
+        return true;
+    }
+
+    private void refreshFilmUi(Film film)
     {
         MinecraftClient.getInstance().execute(() ->
         {
@@ -1061,7 +1595,7 @@ public final class RecorderMobCapture
 
             UIFilmPanel panel = dashboard.getPanel(UIFilmPanel.class);
 
-            if (panel == null || panel.getData() != recorder.film || !(UIScreen.getCurrentMenu() instanceof UIDashboard))
+            if (panel == null || panel.getData() != film || !(UIScreen.getCurrentMenu() instanceof UIDashboard))
             {
                 return;
             }
@@ -1070,5 +1604,15 @@ public final class RecorderMobCapture
             panel.replayEditor.updateChannelsList();
             panel.getController().refreshEntities();
         });
+    }
+
+    private void refreshFilmUi(Recorder recorder)
+    {
+        if (recorder == null)
+        {
+            return;
+        }
+
+        this.refreshFilmUi(recorder.film);
     }
 }

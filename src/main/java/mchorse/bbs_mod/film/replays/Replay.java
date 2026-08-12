@@ -3,6 +3,7 @@ package mchorse.bbs_mod.film.replays;
 import mchorse.bbs_mod.BBSMod;
 import mchorse.bbs_mod.actions.SuperFakePlayer;
 import mchorse.bbs_mod.actions.types.ActionClip;
+import mchorse.bbs_mod.actions.types.MobDeathActionClip;
 import mchorse.bbs_mod.actions.types.SwipeActionClip;
 import mchorse.bbs_mod.camera.data.Point;
 import mchorse.bbs_mod.camera.values.ValuePoint;
@@ -165,6 +166,11 @@ public class Replay extends ValueGroup
 
     public void applyActions(LivingEntity actor, SuperFakePlayer fakePlayer, Film film, int tick)
     {
+        if (actor != null && (actor.isDead() || actor.getHealth() <= 0F || actor.deathTime > 0))
+        {
+            return;
+        }
+
         List<Clip> clips = this.actions.getClips(tick);
 
         for (Clip clip : clips)
@@ -179,12 +185,18 @@ public class Replay extends ValueGroup
 
         SwipeActionClip.noteClientFilmTick(entity, tick);
 
+        boolean dead = entity != null && entity.getDeathTime() > 0;
         List<Clip> clips = this.actions.getClips(tick);
 
         for (Clip clip : clips)
         {
             if (clip instanceof ActionClip actionClip && actionClip.isClient())
             {
+                if (dead && !(clip instanceof MobDeathActionClip))
+                {
+                    continue;
+                }
+
                 actionClip.applyClient(entity, film, this, tick);
             }
         }

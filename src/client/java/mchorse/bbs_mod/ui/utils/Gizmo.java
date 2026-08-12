@@ -968,6 +968,15 @@ public class Gizmo
 
     private void updateFlipSigns(float camX, float camY, float camZ)
     {
+        if (BBSSettings.gizmoFlipAxes != null && !BBSSettings.gizmoFlipAxes.get())
+        {
+            this.lastSx = 1F;
+            this.lastSy = 1F;
+            this.lastSz = 1F;
+
+            return;
+        }
+
         if (this.index == -1)
         {
             this.lastSx = camX >= 0 ? 1F : -1F;

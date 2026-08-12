@@ -372,6 +372,51 @@ public class KeyframeChannel <T> extends ValueList<Keyframe<T>>
     }
 
     /**
+     * Insert a keyframe only when {@code value} differs from the keyframe at or
+     * before {@code tick}. When the value changes after a gap longer than one tick,
+     * also inserts a hold keyframe at {@code tick - 1} so linear interpolation matches
+     * what {@link #simplify()} would keep after per-tick recording.
+     *
+     * @return index of the inserted/updated keyframe, or {@code -1} if skipped
+     */
+    public int insertIfChanged(float tick, T value)
+    {
+        Keyframe<T> previous = null;
+
+        for (Keyframe<T> frame : this.list)
+        {
+            if (frame.getTick() > tick)
+            {
+                break;
+            }
+
+            previous = frame;
+        }
+
+        if (previous == null)
+        {
+            return this.insert(tick, value);
+        }
+
+        if (this.factory.compare(previous.getValue(), value))
+        {
+            if (previous.getTick() == tick)
+            {
+                return this.insert(tick, value);
+            }
+
+            return -1;
+        }
+
+        if (tick > previous.getTick() + 1F)
+        {
+            this.insert(tick - 1F, this.factory.copy(previous.getValue()));
+        }
+
+        return this.insert(tick, value);
+    }
+
+    /**
      * Insert a keyframe at {@code tick} with the channel value interpolated at
      * that tick (not the current runtime / entity state).
      */

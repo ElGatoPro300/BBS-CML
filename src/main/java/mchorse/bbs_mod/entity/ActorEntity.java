@@ -27,6 +27,7 @@ import net.minecraft.nbt.NbtCompound;
 import net.minecraft.nbt.NbtElement;
 import net.minecraft.nbt.NbtOps;
 import net.minecraft.network.packet.s2c.play.ItemPickupAnimationS2CPacket;
+import net.minecraft.particle.ParticleTypes;
 import net.minecraft.registry.RegistryOps;
 import net.minecraft.registry.RegistryWrapper;
 import net.minecraft.server.network.ServerPlayerEntity;
@@ -36,6 +37,7 @@ import net.minecraft.storage.WriteView;
 import net.minecraft.text.Text;
 import net.minecraft.util.Arm;
 import net.minecraft.util.math.Box;
+import net.minecraft.util.math.random.Random;
 import net.minecraft.world.World;
 
 import java.util.ArrayList;
@@ -135,6 +137,21 @@ public class ActorEntity extends LivingEntity implements IEntityFormProvider
         this.currentTick = tick;
         this.initializeRuntimeInventory();
         this.syncNameTag(replay);
+    }
+
+    public Film getFilm()
+    {
+        return this.film;
+    }
+
+    public Replay getReplay()
+    {
+        return this.replay;
+    }
+
+    public int getCurrentTick()
+    {
+        return this.currentTick;
     }
 
     /**
@@ -485,7 +502,11 @@ public class ActorEntity extends LivingEntity implements IEntityFormProvider
     @Override
     public void tick()
     {
-        if (this.pauseNaturalAnimations)
+        /* Timeline freeze must not stall vanilla death: otherwise corpses never
+         * finish deathTime removal and leave permanent shadow/nametag ghosts. */
+        boolean dying = this.isDead() || this.getHealth() <= 0F || this.deathTime > 0;
+
+        if (this.pauseNaturalAnimations && !dying)
         {
             /* Hold limbs / emoticon clocks; still allow swipe hand-swing progress. */
             this.tickHandSwing();
@@ -499,12 +520,18 @@ public class ActorEntity extends LivingEntity implements IEntityFormProvider
             return;
         }
 
+        /* Poof burst on the last living death tick — same timing as MobDeathActionClip. */
+        if (this.getWorld().isClient() && dying && this.deathTime == 19)
+        {
+            this.spawnDeathBurstParticles();
+        }
+
         super.tick();
 
         this.tickHandSwing();
         this.updateHitboxDimensions();
 
-        if (this.form != null)
+        if (this.form != null && !dying)
         {
             this.form.update(this.entity);
         }
@@ -512,6 +539,27 @@ public class ActorEntity extends LivingEntity implements IEntityFormProvider
         if (!this.getEntityWorld().isClient())
         {
             this.tickItemPickup();
+        }
+    }
+
+    private void spawnDeathBurstParticles()
+    {
+        Random random = this.getWorld().getRandom();
+        double x = this.getX();
+        double y = this.getY() + this.getEyeHeight(this.getPose()) * 0.5D;
+        double z = this.getZ();
+        float width = 0.6F;
+
+        for (int i = 0; i < 20; i++)
+        {
+            double offsetX = (random.nextDouble() - 0.5D) * width;
+            double offsetY = random.nextDouble() * 0.5D;
+            double offsetZ = (random.nextDouble() - 0.5D) * width;
+            double velocityX = random.nextGaussian() * 0.02D;
+            double velocityY = random.nextGaussian() * 0.02D;
+            double velocityZ = random.nextGaussian() * 0.02D;
+
+            this.getWorld().addParticle(ParticleTypes.POOF, x + offsetX, y + offsetY, z + offsetZ, velocityX, velocityY, velocityZ);
         }
     }
 
@@ -659,6 +707,19 @@ public class ActorEntity extends LivingEntity implements IEntityFormProvider
     }
 
 
+
+    @Override
+    public void takeKnockback(double strength, double x, double z)
+    {
+        /* Film actors are pose-driven by keyframes; vanilla hit knockback causes
+         * a visible hop on lethal hits. */
+        if (this.replay != null)
+        {
+            return;
+        }
+
+        super.takeKnockback(strength, x, z);
+    }
 
     @Override
     public void onDeath(DamageSource damageSource)

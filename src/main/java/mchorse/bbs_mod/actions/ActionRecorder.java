@@ -5,6 +5,7 @@ import mchorse.bbs_mod.BBSSettings;
 import mchorse.bbs_mod.actions.types.ActionClip;
 import mchorse.bbs_mod.actions.types.AttackActionClip;
 import mchorse.bbs_mod.actions.types.SwipeActionClip;
+import mchorse.bbs_mod.actions.AttackDamage;
 import mchorse.bbs_mod.film.Film;
 import mchorse.bbs_mod.utils.clips.Clips;
 
@@ -82,7 +83,7 @@ public class ActionRecorder
             {
                 AttackActionClip clip = new AttackActionClip();
 
-                clip.damage.set(2F);
+                clip.damage.set(AttackDamage.fromAttacker(player, null));
                 this.add(clip);
             }
         }

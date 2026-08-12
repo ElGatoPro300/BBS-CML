@@ -89,6 +89,7 @@ public class BBSSettings
     public static ValueBoolean disablePivotTransform;
     public static ValueBoolean gizmos;
     public static ValueBoolean gizmosWorldRendering;
+    public static ValueBoolean gizmoFlipAxes;
     public static ValueBoolean gizmoYAxisHorizontal;
     public static ValueBoolean gizmoTrackball;
     public static ValueInt gizmoTrackballScale;
@@ -195,6 +196,7 @@ public class BBSSettings
     public static ValueBoolean recordingSwipeDamage;
     public static ValueBoolean recordingAutoCaptureMobs;
     public static ValueBoolean recordingAutoCaptureProjectiles;
+    public static ValueBoolean recordingAutoCaptureMobActions;
     public static ValueBoolean recordingMobCaptureOnAlt;
     public static ValueBoolean recordingOverlays;
     public static ValueInt recordingPoseTransformOverlays;
@@ -655,6 +657,8 @@ public class BBSSettings
         /* Floor in Math.max(floor, dist * 0.12). 0 disables the floor so it can keep shrinking when close. */
         gizmoConstantSizeMin = builder.getFloat("gizmo_constant_size_min", 0.5F, 0F, 10F);
         disablePivotTransform = builder.getBoolean("disable_pivot_transform", false);
+        /* When enabled, translate/scale handles flip toward the camera; when disabled, stay on +X/+Y/+Z. */
+        gizmoFlipAxes = builder.getBoolean("gizmo_flip_axes", true);
         gizmoYAxisHorizontal = builder.getBoolean("gizmo_y_axis_horizontal", true);
         gizmoTrackball = builder.getBoolean("gizmo_trackball", true);
         gizmoTrackballScale = builder.getInt("gizmo_trackball_scale", 1, 1, 5);
@@ -799,6 +803,7 @@ public class BBSSettings
         recordingSwipeDamage = builder.getBoolean("swipe_damage", false);
         recordingAutoCaptureMobs = builder.getBoolean("auto_capture_mobs", true);
         recordingAutoCaptureProjectiles = builder.getBoolean("auto_capture_projectiles", true);
+        recordingAutoCaptureMobActions = builder.getBoolean("auto_capture_mob_actions", true);
         recordingMobCaptureOnAlt = builder.getBoolean("mob_capture_on_alt", false);
         recordingOverlays = builder.getBoolean("overlays", true);
         recordingPoseTransformOverlays = builder.getInt("pose_transform_overlays", 0, 0, 42);

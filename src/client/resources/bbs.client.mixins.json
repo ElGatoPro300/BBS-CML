@@ -21,6 +21,7 @@
         "LivingEntityMixin",
         "LivingEntityUpdateMixin",
         "LivingEntityRendererMixin",
+        "VillagerClothingFeatureRendererMixin",
         "iris.SystemTimeUniformsTimerMixin",
         "InGameHudMixin",
         "KeyboardMixin",

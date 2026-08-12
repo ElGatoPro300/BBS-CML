@@ -220,20 +220,20 @@ public final class ActorReplayStateSync
         actor.setLivingFlag(2, offHand && usingItem);
         actor.setLivingFlag(4, riptide);
 
-        if (!mounted && actor.limbAnimator instanceof LimbAnimatorAccessor limb)
+        if (!mounted && actor.limbAnimator instanceof LimbAnimatorAccessor)
         {
             if (advanceLimbs)
             {
+                /* Same horizontal target as ActionPlayer forward playback velocity, with
+                 * vanilla LimbAnimator lerp (0.4) — not an instant setSpeed/setPos snap. */
                 double x = keyframes.x.interpolate(tick);
                 double z = keyframes.z.interpolate(tick);
-                double prevX = keyframes.x.interpolate(tick - 1F);
-                double prevZ = keyframes.z.interpolate(tick - 1F);
-                float delta = (float) MathHelper.magnitude(x - prevX, 0D, z - prevZ);
+                double nextX = keyframes.x.interpolate(tick + 1F);
+                double nextZ = keyframes.z.interpolate(tick + 1F);
+                float delta = (float) MathHelper.magnitude(nextX - x, 0D, nextZ - z);
                 float speed = Math.min(delta * 4F, 1F);
 
-                limb.setPrevSpeed(limb.getSpeed());
-                limb.setSpeed(speed);
-                limb.setPos(limb.getPos() + speed);
+                actor.limbAnimator.updateLimbs(speed, 0.4F, 1F);
             }
             else if (settleWhenPaused)
             {
@@ -251,8 +251,11 @@ public final class ActorReplayStateSync
                 float delta = (float) MathHelper.magnitude(x - prevX, 0D, z - prevZ);
                 float speed = Math.min(delta * 4F, 1F);
 
-                limb.setPrevSpeed(limb.getSpeed());
-                limb.setSpeed(speed);
+                if (actor.limbAnimator instanceof LimbAnimatorAccessor limb)
+                {
+                    limb.setPrevSpeed(limb.getSpeed());
+                    limb.setSpeed(speed);
+                }
             }
         }
         else if (mounted && actor.limbAnimator instanceof LimbAnimatorAccessor limb)
@@ -286,11 +289,12 @@ public final class ActorReplayStateSync
     }
 
     /**
-     * Merge keyframed damage/death with any live combat on {@link ActorEntity}.
+     * Merge keyframed damage with any live combat on {@link ActorEntity}.
      * ActionPlayer used to assign keyframe values every tick, which wiped vanilla
-     * {@code hurtTime}/{@code deathTime} and made actors look immune after a few hits.
+     * {@code hurtTime} and made actors look immune after a few hits.
      * <p>
-     * Death always takes the max so a real kill can finish its animation.
+     * Actor death is Attack/combat-driven at playback — {@code death_time} keyframes
+     * must not force-kill an actor (or keep them dead when Attack clips are disabled).
      * Live {@code hurtTime} is kept when damage flash and/or damage animation is enabled.
      */
     private static void applyHurtAndDeath(LivingEntity actor, int keyframeHurt, int keyframeDeath)
@@ -303,7 +307,6 @@ public final class ActorReplayStateSync
             return;
         }
 
-        actor.deathTime = Math.max(actor.deathTime, keyframeDeath);
         actorEntity.setKeyframeHurtActive(keyframeHurt > 0);
 
         if (BBSSettings.shouldKeepActorLiveHurtTime())
