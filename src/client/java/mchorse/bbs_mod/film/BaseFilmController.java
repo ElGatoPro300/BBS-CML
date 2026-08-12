@@ -63,7 +63,6 @@ import mchorse.bbs_mod.utils.pose.Transform;
 import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderContext;
 
 import net.minecraft.client.MinecraftClient;
-import com.mojang.blaze3d.opengl.GlStateManager;
 import net.minecraft.client.font.TextRenderer;
 import net.minecraft.client.network.ClientPlayerEntity;
 import net.minecraft.client.render.Camera;
@@ -95,8 +94,6 @@ import org.joml.Vector3d;
 import org.joml.Vector3f;
 
 import com.mojang.blaze3d.opengl.GlStateManager;
-import org.lwjgl.opengl.GL11;
-
 import com.mojang.blaze3d.systems.RenderSystem;
 
 import org.lwjgl.opengl.GL11;

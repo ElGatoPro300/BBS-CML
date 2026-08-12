@@ -11,8 +11,6 @@ import mchorse.bbs_mod.utils.clips.Clip;
 import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderContext;
 
 import net.minecraft.client.MinecraftClient;
-
-import net.minecraft.client.MinecraftClient;
 import net.minecraft.entity.Entity;
 
 import java.util.List;

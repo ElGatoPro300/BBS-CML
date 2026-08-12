@@ -69,6 +69,7 @@ import org.lwjgl.BufferUtils;
 import org.lwjgl.opengl.GL11;
 
 import java.io.File;
+import java.nio.ByteBuffer;
 import java.nio.FloatBuffer;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -978,7 +979,7 @@ public class UIFilmPreview extends UIElement
                     return;
                 }
 
-                java.nio.ByteBuffer pixelData = BufferUtils.createByteBuffer((int) samples);
+                ByteBuffer pixelData = BufferUtils.createByteBuffer((int) samples);
 
                 GL11.glGetTexImage(viewportTexture.target, 0, GL11.GL_RGBA, GL11.GL_UNSIGNED_BYTE, pixelData);
                 viewportTexture.unbind();
