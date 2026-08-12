@@ -5,7 +5,9 @@ import mchorse.bbs_mod.BBSSettings;
 import mchorse.bbs_mod.film.Film;
 import mchorse.bbs_mod.film.replays.ActorReplayStateSync;
 import mchorse.bbs_mod.film.replays.Replay;
+import mchorse.bbs_mod.film.replays.ReplayKeyframes;
 import mchorse.bbs_mod.forms.entities.MCEntity;
+import mchorse.bbs_mod.forms.entities.StubEntity;
 import mchorse.bbs_mod.forms.forms.Form;
 import mchorse.bbs_mod.mixin.LimbAnimatorAccessor;
 import mchorse.bbs_mod.network.ServerNetwork;
@@ -227,7 +229,7 @@ public class ActorEntity extends LivingEntity implements IEntityFormProvider
      * Lock limb swing to the walk phase implied by keyframe motion up to {@code tick}.
      * Same pose every time you scrub to that tick (no accumulating jitter).
      */
-    public void applyTimelineLimbPhase(mchorse.bbs_mod.film.replays.ReplayKeyframes keyframes, int tick, boolean mounted)
+    public void applyTimelineLimbPhase(ReplayKeyframes keyframes, int tick, boolean mounted)
     {
         if (!(this.limbAnimator instanceof LimbAnimatorAccessor limb))
         {
@@ -350,7 +352,7 @@ public class ActorEntity extends LivingEntity implements IEntityFormProvider
 
     /**
      * One natural walk/form step for timeline scrub: limb swing from horizontal
-     * delta (same formula as {@link mchorse.bbs_mod.forms.entities.StubEntity#update})
+     * delta (same formula as {@link StubEntity#update})
      * plus one form animator tick.
      */
     public void advanceNaturalMotionStep(double fromX, double fromZ, double toX, double toZ)
