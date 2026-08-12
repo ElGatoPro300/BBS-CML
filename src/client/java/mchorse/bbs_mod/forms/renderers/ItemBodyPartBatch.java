@@ -7,6 +7,7 @@ import mchorse.bbs_mod.forms.entities.IEntity;
 import mchorse.bbs_mod.forms.forms.BodyPart;
 import mchorse.bbs_mod.forms.forms.Form;
 import mchorse.bbs_mod.forms.forms.ItemForm;
+import mchorse.bbs_mod.forms.forms.utils.FormLighting;
 import mchorse.bbs_mod.forms.forms.utils.GlowSettings;
 import mchorse.bbs_mod.forms.forms.utils.PaintSettings;
 import mchorse.bbs_mod.forms.renderers.utils.FormColorEffects;
@@ -243,7 +244,7 @@ public final class ItemBodyPartBatch
 
     private static void applyLighting(ItemForm item, FormRenderingContext context)
     {
-        float lf = 1F - MathUtils.clamp(item.lighting.get(), 0F, 1F);
+        float lf = FormLighting.clampBrightness(item.lighting.get());
         int u = context.light & '\uffff';
         int v = context.light >> 16 & '\uffff';
 

@@ -9,6 +9,7 @@ import mchorse.bbs_mod.forms.FormUtils;
 import mchorse.bbs_mod.forms.ITickable;
 import mchorse.bbs_mod.forms.entities.IEntity;
 import mchorse.bbs_mod.forms.forms.utils.Anchor;
+import mchorse.bbs_mod.forms.forms.utils.FormLighting;
 import mchorse.bbs_mod.forms.forms.utils.GlowSettings;
 import mchorse.bbs_mod.forms.forms.utils.Illusion;
 import mchorse.bbs_mod.forms.forms.utils.InverseKinematics;
@@ -52,7 +53,7 @@ public abstract class Form extends ValueGroup
     public final ValueBoolean render = new ValueBoolean("render", true);
     public final ValueBoolean animatable = new ValueBoolean("animatable", true);
     public final ValueString trackName = new ValueString("track_name", "");
-    public final ValueFloat lighting = new ValueFloat("lighting", 1F);
+    public final ValueFloat lighting = new ValueFloat("lighting", 0F);
     public final ValueString name = new ValueString("name", "");
     public final ValueTransform transform = new ValueTransform("transform", new Transform());
     public final ValueTransform transformOverlay = new ValueTransform("transform_overlay", new Transform());
@@ -488,6 +489,17 @@ public abstract class Form extends ValueGroup
 
         if (data instanceof MapType map)
         {
+            /* Legacy lighting was world-influence (1=natural, 0/neg=full bright). */
+            if (!map.getBool("lighting_v2") && map.has("lighting"))
+            {
+                BaseType lightingData = map.get("lighting");
+
+                if (lightingData != null && lightingData.isNumeric())
+                {
+                    this.lighting.set(FormLighting.legacyToBrightness(lightingData.asNumeric().floatValue()));
+                }
+            }
+
             if (map.has("glow"))
             {
                 MapType glowMap = map.getMap("glow");
@@ -645,6 +657,7 @@ public abstract class Form extends ValueGroup
         {
             BBSMod.getForms().appendId(this, map);
             map.remove("opacity");
+            map.putBool("lighting_v2", true);
         }
 
         return data;

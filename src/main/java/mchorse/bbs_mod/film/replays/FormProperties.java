@@ -9,6 +9,7 @@ import mchorse.bbs_mod.forms.FormUtils;
 import mchorse.bbs_mod.forms.forms.Form;
 import mchorse.bbs_mod.forms.forms.ModelForm;
 import mchorse.bbs_mod.forms.forms.utils.EffectTransform;
+import mchorse.bbs_mod.forms.forms.utils.FormLighting;
 import mchorse.bbs_mod.forms.forms.utils.GlowSettings;
 import mchorse.bbs_mod.forms.forms.utils.Illusion;
 import mchorse.bbs_mod.forms.forms.utils.PaintSettings;
@@ -144,6 +145,11 @@ public class FormProperties extends ValueGroup
         return path.equals("color_grade") || path.endsWith("/color_grade");
     }
 
+    private static boolean isWorldLightingChannelKey(String key)
+    {
+        return key != null && (key.equals("lighting") || key.endsWith("/lighting"));
+    }
+
     public static String colorPropertyPathForGrade(String gradeKey)
     {
         int colon = gradeKey.indexOf(':');
@@ -180,7 +186,14 @@ public class FormProperties extends ValueGroup
 
             if (allowed)
             {
-                KeyframeChannel channel = new KeyframeChannel(key, keyframeFactoryValue.getFactory());
+                IKeyframeFactory factory = keyframeFactoryValue.getFactory();
+
+                if (isWorldLightingChannelKey(key) && factory == KeyframeFactories.FLOAT)
+                {
+                    factory = KeyframeFactories.LIGHTING_BRIGHTNESS;
+                }
+
+                KeyframeChannel channel = new KeyframeChannel(key, factory);
 
                 channel.setModel(true);
                 this.properties.put(key, channel);
@@ -1396,9 +1409,9 @@ public class FormProperties extends ValueGroup
                 property.fromData(mapType);
 
             /* Patch 1.1.1 changes to lighting property */
-            if (key.endsWith("lighting") && property.getFactory() == KeyframeFactories.BOOLEAN)
+            if (isWorldLightingChannelKey(key) && property.getFactory() == KeyframeFactories.BOOLEAN)
             {
-                KeyframeChannel newProperty = new KeyframeChannel(key, KeyframeFactories.FLOAT);
+                KeyframeChannel newProperty = new KeyframeChannel(key, KeyframeFactories.LIGHTING_BRIGHTNESS);
 
                 newProperty.setModel(true);
 
@@ -1407,7 +1420,27 @@ public class FormProperties extends ValueGroup
                     Keyframe kf = (Keyframe) keyframe;
                     Boolean v = (Boolean) kf.getValue();
 
-                    newProperty.insert(kf.getTick(), v ? 1F : 0F);
+                    /* Legacy boolean true = world lighting → brightness 0; false = full bright → 1. */
+                    newProperty.insert(kf.getTick(), v ? 0F : 1F);
+                }
+
+                property = newProperty;
+            }
+
+            /* Legacy float lighting was world-influence; migrate to brightness 0–1. */
+            if (isWorldLightingChannelKey(key) && property.getFactory() == KeyframeFactories.FLOAT)
+            {
+                KeyframeChannel newProperty = new KeyframeChannel(key, KeyframeFactories.LIGHTING_BRIGHTNESS);
+
+                newProperty.setModel(true);
+
+                for (Object keyframe : property.getKeyframes())
+                {
+                    Keyframe kf = (Keyframe) keyframe;
+                    Object raw = kf.getValue();
+                    float legacy = raw instanceof Number ? ((Number) raw).floatValue() : 1F;
+
+                    newProperty.insert(kf.getTick(), FormLighting.legacyToBrightness(legacy));
                 }
 
                 property = newProperty;

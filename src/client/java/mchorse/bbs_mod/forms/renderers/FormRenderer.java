@@ -5,6 +5,7 @@ import mchorse.bbs_mod.forms.FormUtilsClient;
 import mchorse.bbs_mod.forms.entities.IEntity;
 import mchorse.bbs_mod.forms.forms.BodyPart;
 import mchorse.bbs_mod.forms.forms.Form;
+import mchorse.bbs_mod.forms.forms.utils.FormLighting;
 import mchorse.bbs_mod.forms.renderers.utils.MatrixCache;
 import mchorse.bbs_mod.settings.values.core.ValueTransform;
 import mchorse.bbs_mod.ui.framework.UIContext;
@@ -151,7 +152,7 @@ public abstract class FormRenderer <T extends Form>
                 this.applyTransforms(context.world, false, context.getTransition());
             }
 
-            float lf = 1F - MathUtils.clamp(this.form.lighting.get(), 0F, 1F);
+            float lf = FormLighting.clampBrightness(this.form.lighting.get());
             int u = context.light & '\uffff';
             int v = context.light >> 16 & '\uffff';
 

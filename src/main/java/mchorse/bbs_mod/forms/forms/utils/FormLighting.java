@@ -1,0 +1,40 @@
+package mchorse.bbs_mod.forms.forms.utils;
+
+import mchorse.bbs_mod.utils.MathUtils;
+
+/**
+ * Form {@code lighting} brightness helpers.
+ * <p>
+ * Legacy BBS used world-lighting influence: {@code 1} = natural, {@code 0} = full bright
+ * (negatives/`&gt;1` clamped to those). Current semantic is brightness override:
+ * {@code 0} = natural world lighting, {@code 1} = full bright.
+ */
+public final class FormLighting
+{
+    private FormLighting()
+    {
+    }
+
+    public static float clampBrightness(float value)
+    {
+        return MathUtils.clamp(value, 0F, 1F);
+    }
+
+    /**
+     * Convert a legacy lighting float to brightness ({@code 0} natural … {@code 1} full bright).
+     */
+    public static float legacyToBrightness(float legacy)
+    {
+        if (legacy < 0F)
+        {
+            return 1F;
+        }
+
+        if (legacy > 1F)
+        {
+            return 0F;
+        }
+
+        return 1F - legacy;
+    }
+}

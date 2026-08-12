@@ -7,6 +7,7 @@ import mchorse.bbs_mod.forms.CustomVertexConsumerProvider;
 import mchorse.bbs_mod.forms.FormUtilsClient;
 import mchorse.bbs_mod.forms.forms.BlockForm;
 import mchorse.bbs_mod.forms.forms.utils.EffectTransform;
+import mchorse.bbs_mod.forms.forms.utils.FormLighting;
 import mchorse.bbs_mod.forms.forms.utils.GlowSettings;
 import mchorse.bbs_mod.forms.forms.utils.PaintSettings;
 import mchorse.bbs_mod.forms.renderers.utils.BlockEffectOverlayUniforms;
@@ -359,7 +360,7 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
         }
 
         int sampled = WorldRenderer.getLightmapCoordinates(world, blockPos);
-        float lf = 1F - MathUtils.clamp(this.form.lighting.get(), 0F, 1F);
+        float lf = FormLighting.clampBrightness(this.form.lighting.get());
         int u = sampled & '\uffff';
         int v = sampled >> 16 & '\uffff';
 
