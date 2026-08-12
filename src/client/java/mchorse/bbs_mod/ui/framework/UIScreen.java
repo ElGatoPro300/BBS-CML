@@ -80,10 +80,10 @@ public class UIScreen extends Screen implements IFileDropListener
         this.menu.renderInWorld(context);
     }
 
-    @Override
+    /* @Override */
     public void filesDragged(List<Path> paths)
     {
-        super.filesDragged(paths);
+        /* super.filesDragged(paths); */
 
         String[] filePaths = new String[paths.size()];
         int i = 0;

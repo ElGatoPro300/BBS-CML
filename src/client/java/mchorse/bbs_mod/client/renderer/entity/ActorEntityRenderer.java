@@ -19,6 +19,8 @@ import net.minecraft.client.render.entity.LivingEntityRenderer;
 import net.minecraft.client.render.entity.model.ArmorEntityModel;
 import net.minecraft.client.render.entity.model.ElytraEntityModel;
 import net.minecraft.client.render.entity.model.EntityModelLayers;
+import net.minecraft.client.render.entity.state.EntityRenderState;
+import net.minecraft.client.render.entity.state.LivingEntityRenderState;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.entity.EntityPose;
 import net.minecraft.util.Identifier;
@@ -29,8 +31,17 @@ import com.mojang.blaze3d.systems.RenderSystem;
 
 import org.lwjgl.opengl.GL11;
 
-public class ActorEntityRenderer extends EntityRenderer<ActorEntity>
+public class ActorEntityRenderer extends EntityRenderer<ActorEntity, ActorEntityRenderer.ActorEntityState>
 {
+    public static class ActorEntityState extends LivingEntityRenderState {
+        public ActorEntity entity;
+        public float tickDelta;
+        public float bodyYaw;
+        public float prevBodyYaw;
+        public float deathTime;
+        public boolean isSleeping;
+    }
+
     public static ArmorRenderer armorRenderer;
 
     public ActorEntityRenderer(EntityRendererFactory.Context ctx)
@@ -44,7 +55,7 @@ public class ActorEntityRenderer extends EntityRenderer<ActorEntity>
             ctx.getModelManager()
         );
 
-        this.shadowRadius = 0.5F;
+        // this.shadowRadius = 0.5F;
     }
 
     /**
@@ -59,7 +70,7 @@ public class ActorEntityRenderer extends EntityRenderer<ActorEntity>
             return;
         }
 
-        EntityRenderer<?> renderer = MinecraftClient.getInstance().getEntityRenderDispatcher().getRenderer(entity);
+        EntityRenderer<?, ?> renderer = MinecraftClient.getInstance().getEntityRenderDispatcher().getRenderer(entity);
 
         if (renderer instanceof ActorEntityRenderer actorRenderer)
         {
@@ -68,19 +79,39 @@ public class ActorEntityRenderer extends EntityRenderer<ActorEntity>
     }
 
     @Override
-    public Identifier getTexture(ActorEntity entity)
-    {
-        return Identifier.of("minecraft:textures/entity/player/wide/steve.png");
+    public ActorEntityState createRenderState() {
+        return new ActorEntityState();
     }
 
     @Override
-    public void render(ActorEntity livingEntity, float yaw, float tickDelta, MatrixStack matrices, VertexConsumerProvider vertexConsumers, int light)
+    public void updateRenderState(ActorEntity entity, ActorEntityState state, float tickDelta) {
+        super.updateRenderState(entity, state, tickDelta);
+        state.entity = entity;
+        state.tickDelta = tickDelta;
+        state.bodyYaw = entity.bodyYaw;
+        state.prevBodyYaw = entity.prevBodyYaw;
+        state.deathTime = (float)entity.deathTime;
+        state.isSleeping = entity.isInPose(EntityPose.SLEEPING);
+    }
+
+    public Identifier getTexture(ActorEntityState state)
     {
+        return Identifier.of("minecraft", "textures/entity/player/wide/steve.png");
+    }
+
+    @Override
+    public void render(ActorEntityState state, MatrixStack matrices, VertexConsumerProvider vertexConsumers, int light)
+    {
+        ActorEntity livingEntity = state.entity;
+        if (livingEntity == null) return;
+
+        float tickDelta = state.tickDelta;
+        
         matrices.push();
 
-        float bodyYaw = MathHelper.lerpAngleDegrees(tickDelta, livingEntity.prevBodyYaw, livingEntity.bodyYaw);
+        float bodyYaw = MathHelper.lerpAngleDegrees(tickDelta, state.prevBodyYaw, state.bodyYaw);
         int overlay = livingEntity.shouldShowDamageFlashOverlay()
-            ? LivingEntityRenderer.getOverlay(livingEntity, 0F)
+            ? LivingEntityRenderer.getOverlay(state, 0F)
             : OverlayTexture.DEFAULT_UV;
         float animDelta = livingEntity.areNaturalAnimationsPaused() ? 0F : tickDelta;
 
@@ -112,11 +143,11 @@ public class ActorEntityRenderer extends EntityRenderer<ActorEntity>
 
         matrices.pop();
 
-        super.render(livingEntity, yaw, tickDelta, matrices, vertexConsumers, light);
+        super.render(state, matrices, vertexConsumers, light);
     }
 
     @Override
-    protected boolean hasLabel(ActorEntity entity)
+    protected boolean hasLabel(ActorEntity entity, double squaredDistanceToCamera)
     {
         /* Same visibility rules as stub film nametags / vanilla labels. */
         return entity.hasCustomName();

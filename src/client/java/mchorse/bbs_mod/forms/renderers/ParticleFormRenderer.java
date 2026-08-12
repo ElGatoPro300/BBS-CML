@@ -16,6 +16,7 @@ import mchorse.bbs_mod.utils.joml.Vectors;
 
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gl.ShaderProgram;
+import net.minecraft.client.gl.ShaderProgramKeys;
 import net.minecraft.client.render.GameRenderer;
 import net.minecraft.client.render.VertexFormat;
 import net.minecraft.client.render.VertexFormats;
@@ -197,8 +198,8 @@ public class ParticleFormRenderer extends FormRenderer<ParticleForm> implements 
 
                 VertexFormat format = billboard ? VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL : VertexFormats.POSITION_TEXTURE_COLOR_LIGHT;
                 Supplier<ShaderProgram> shader = billboard
-                    ? this.getShader(context, GameRenderer::getRenderTypeEntityTranslucentProgram, BBSShaders::getPickerBillboardProgram)
-                    : this.getShader(context, GameRenderer::getParticleProgram, BBSShaders::getPickerParticlesProgram);
+                    ? this.getShader(context, () -> { RenderSystem.setShader(ShaderProgramKeys.RENDERTYPE_ENTITY_TRANSLUCENT); return RenderSystem.getShader(); }, BBSShaders::getPickerBillboardProgram)
+                    : this.getShader(context, () -> { RenderSystem.setShader(ShaderProgramKeys.PARTICLE); return RenderSystem.getShader(); }, BBSShaders::getPickerParticlesProgram);
 
                 emitter.render(format, shader, context.stack, context.overlay, context.getTransition());
             }

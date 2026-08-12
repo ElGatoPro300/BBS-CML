@@ -2,6 +2,7 @@ package mchorse.bbs_mod.ui.film;
 
 import mchorse.bbs_mod.BBSModClient;
 import mchorse.bbs_mod.camera.clips.misc.ImageOverlay;
+import mchorse.bbs_mod.client.BBSShaders;
 import mchorse.bbs_mod.forms.renderers.utils.FormTextureBlendRenderer;
 import mchorse.bbs_mod.graphics.texture.Texture;
 import mchorse.bbs_mod.ui.framework.elements.utils.Batcher2D;
@@ -18,8 +19,8 @@ import org.joml.Matrix4f;
 import org.joml.Vector4f;
 
 import com.mojang.blaze3d.platform.GlStateManager;
+import com.mojang.blaze3d.systems.ProjectionType;
 import com.mojang.blaze3d.systems.RenderSystem;
-import com.mojang.blaze3d.systems.VertexSorter;
 
 import org.lwjgl.opengl.GL11;
 
@@ -39,17 +40,16 @@ public class UIImageRenderer
             return;
         }
 
-        /* Use the vanilla textured program so subtitle Blur/TextureSize uniforms
-         * never leak into image overlays when both share the HUD pass. */
-        Supplier<ShaderProgram> supplier = GameRenderer::getPositionTexColorProgram;
+        ShaderProgram program = BBSShaders.getSubtitlesProgram();
 
         net.minecraft.client.gl.Framebuffer fb = MinecraftClient.getInstance().getFramebuffer();
         int width = fb.textureWidth / 2;
         int height = fb.textureHeight / 2;
         Matrix4f cache = new Matrix4f(RenderSystem.getProjectionMatrix());
+        ProjectionType savedProjType = RenderSystem.getProjectionType();
         Matrix4f ortho = new Matrix4f().ortho(0, width, height, 0, -100, 100);
 
-        RenderSystem.setProjectionMatrix(ortho, VertexSorter.BY_Z);
+        RenderSystem.setProjectionMatrix(ortho, ProjectionType.ORTHOGRAPHIC);
         RenderSystem.depthFunc(GL11.GL_ALWAYS);
         RenderSystem.disableCull();
         RenderSystem.enableBlend();
@@ -99,14 +99,14 @@ public class UIImageRenderer
                 stack.translate(x, y, 0);
 
                 texture.setFilterMipmap(overlay.linear, overlay.mipmap);
-                batcher.texturedBox(supplier, texture.id, color, drawX, drawY, fw, fh, uv[0], uv[1], uv[2], uv[3], texture.width, texture.height);
+                batcher.texturedBox(program, texture.id, color, drawX, drawY, fw, fh, uv[0], uv[1], uv[2], uv[3], texture.width, texture.height);
                 texture.setFilterMipmap(false, false);
 
                 stack.pop();
             });
         }
 
-        RenderSystem.setProjectionMatrix(cache, VertexSorter.BY_Z);
+        RenderSystem.setProjectionMatrix(cache, savedProjType);
         RenderSystem.enableCull();
     }
 
