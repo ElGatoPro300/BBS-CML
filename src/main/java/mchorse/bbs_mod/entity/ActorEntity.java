@@ -636,6 +636,8 @@ public class ActorEntity extends LivingEntity implements IEntityFormProvider
     @Override
     public void tick()
     {
+        this.clearStaleCombatDeathIfAlive();
+
         /* Timeline freeze must not stall vanilla death: otherwise corpses never
          * finish deathTime removal and leave permanent shadow/nametag ghosts. */
         boolean dying = this.isDead() || this.getHealth() <= 0F || this.deathTime > 0;
@@ -960,6 +962,26 @@ public class ActorEntity extends LivingEntity implements IEntityFormProvider
     public void setKeyframeHurtActive(boolean active)
     {
         this.keyframeHurtActive = active;
+    }
+
+    /**
+     * {@code deathTime} is not a synced field. After {@code ActionPlayer.goTo} restores HP
+     * on scrub, the client can keep a leftover death tip / red corpse flash. Only clear when
+     * {@code deathTime} is still &gt; 0 while already alive — do not touch live {@code hurtTime}
+     * damage flash.
+     */
+    public void clearStaleCombatDeathIfAlive()
+    {
+        if (this.deathTime <= 0 || this.getHealth() <= 0F || this.isDead())
+        {
+            return;
+        }
+
+        this.deathTime = 0;
+        this.hurtTime = 0;
+        this.maxHurtTime = 0;
+        this.keyframeHurtActive = false;
+        this.pendingHurtAnimation = false;
     }
 
     private void setLimbSwingSpeed(float speed)

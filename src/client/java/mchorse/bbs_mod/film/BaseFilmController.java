@@ -1472,6 +1472,9 @@ public abstract class BaseFilmController
                             Integer previousEntityId = this.lastSeenActorEntityIds.put(replay.getId(), entityId);
                             boolean actorEntityJustBound = !Objects.equals(previousEntityId, entityId);
 
+                            /* HP syncs on scrub revive; deathTime does not — clear leftover corpse visuals. */
+                            actor.clearStaleCombatDeathIfAlive();
+
                             boolean combatDead = actor.isDead() || actor.getHealth() <= 0F || actor.deathTime > 0;
 
                             if (combatDead)
