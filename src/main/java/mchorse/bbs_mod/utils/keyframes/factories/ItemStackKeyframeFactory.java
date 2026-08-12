@@ -6,12 +6,12 @@ import mchorse.bbs_mod.data.types.BaseType;
 import mchorse.bbs_mod.data.types.MapType;
 import mchorse.bbs_mod.utils.interps.IInterp;
 
-import net.minecraft.item.ItemStack;
-import net.minecraft.nbt.NbtCompound;
-import net.minecraft.nbt.NbtElement;
+import net.minecraft.core.HolderLookup;
+import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.NbtOps;
-import net.minecraft.registry.RegistryOps;
-import net.minecraft.registry.RegistryWrapper;
+import net.minecraft.nbt.Tag;
+import net.minecraft.resources.RegistryOps;
+import net.minecraft.world.item.ItemStack;
 
 import com.mojang.datafixers.util.Pair;
 import com.mojang.serialization.DynamicOps;
@@ -28,8 +28,8 @@ public class ItemStackKeyframeFactory implements IKeyframeFactory<ItemStack>
             return ItemStack.EMPTY;
         }
 
-        NbtElement nbt = DataStorageUtils.toNbt(data);
-        RegistryWrapper.WrapperLookup registries = BBSMod.getRegistryManager();
+        Tag nbt = DataStorageUtils.toNbt(data);
+        HolderLookup.Provider registries = BBSMod.getRegistryManager();
 
         if (registries == null)
         {
@@ -37,7 +37,7 @@ public class ItemStackKeyframeFactory implements IKeyframeFactory<ItemStack>
             return ItemStack.EMPTY;
         }
 
-        DynamicOps<NbtElement> ops = RegistryOps.of(NbtOps.INSTANCE, registries);
+        DynamicOps<Tag> ops = RegistryOps.create(NbtOps.INSTANCE, registries);
         Optional<ItemStack> decoded = ItemStack.CODEC.decode(ops, nbt).result().map(Pair::getFirst);
 
         if (decoded.isPresent())
@@ -46,7 +46,7 @@ public class ItemStackKeyframeFactory implements IKeyframeFactory<ItemStack>
         }
 
         /* Legacy / partially corrupted entries still often decode via fromNbt. */
-        if (nbt instanceof NbtCompound compound)
+        if (nbt instanceof CompoundTag compound)
         {
             return ItemStack.EMPTY;
         }
@@ -62,7 +62,7 @@ public class ItemStackKeyframeFactory implements IKeyframeFactory<ItemStack>
             return new MapType();
         }
 
-        RegistryWrapper.WrapperLookup registries = BBSMod.getRegistryManager();
+        HolderLookup.Provider registries = BBSMod.getRegistryManager();
 
         if (registries == null)
         {
@@ -71,8 +71,8 @@ public class ItemStackKeyframeFactory implements IKeyframeFactory<ItemStack>
             return new MapType();
         }
 
-        DynamicOps<NbtElement> ops = RegistryOps.of(NbtOps.INSTANCE, registries);
-        Optional<NbtElement> result = ItemStack.CODEC.encodeStart(ops, value).result();
+        DynamicOps<Tag> ops = RegistryOps.create(NbtOps.INSTANCE, registries);
+        Optional<Tag> result = ItemStack.CODEC.encodeStart(ops, value).result();
 
         return result.map(DataStorageUtils::fromNbt).orElse(new MapType());
     }
@@ -88,7 +88,7 @@ public class ItemStackKeyframeFactory implements IKeyframeFactory<ItemStack>
     {
         if (a instanceof ItemStack itemA && b instanceof ItemStack itemB)
         {
-            return ItemStack.areEqual(itemA, itemB);
+            return ItemStack.matches(itemA, itemB);
         }
 
         return false;
@@ -113,7 +113,7 @@ public class ItemStackKeyframeFactory implements IKeyframeFactory<ItemStack>
             return x < 1F ? a : b;
         }
 
-        if (!ItemStack.areItemsAndComponentsEqual(a, b))
+        if (!ItemStack.isSameItemSameComponents(a, b))
         {
             return x < 1F ? a : b;
         }

@@ -8,9 +8,9 @@ import mchorse.bbs_mod.forms.forms.Form;
 import mchorse.bbs_mod.utils.keyframes.factories.KeyframeFactories;
 import mchorse.bbs_mod.utils.pose.Transform;
 
-import net.minecraft.entity.EquipmentSlot;
-import net.minecraft.item.ItemDisplayContext;
-import net.minecraft.item.ItemStack;
+import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.item.ItemDisplayContext;
+import net.minecraft.world.item.ItemStack;
 
 public class ModelProperties implements IMapSerializable
 {

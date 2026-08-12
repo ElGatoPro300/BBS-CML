@@ -4,85 +4,83 @@ import mchorse.bbs_mod.BBSMod;
 import mchorse.bbs_mod.blocks.entities.TriggerBlockEntity;
 import mchorse.bbs_mod.network.ServerNetwork;
 
-import net.minecraft.block.Block;
-import net.minecraft.block.BlockEntityProvider;
-import net.minecraft.block.BlockRenderType;
-import net.minecraft.block.BlockState;
-import net.minecraft.block.ShapeContext;
-import net.minecraft.block.entity.BlockEntity;
-import net.minecraft.block.entity.BlockEntityTicker;
-import net.minecraft.block.entity.BlockEntityType;
-import net.minecraft.component.DataComponentTypes;
-import net.minecraft.entity.TypedEntityData;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.item.ItemStack;
-import net.minecraft.nbt.NbtCompound;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.util.ActionResult;
-import net.minecraft.util.Hand;
-import net.minecraft.util.hit.BlockHitResult;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.shape.VoxelShape;
-import net.minecraft.util.shape.VoxelShapes;
-import net.minecraft.world.BlockView;
-import net.minecraft.world.World;
-import net.minecraft.world.WorldView;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.component.DataComponents;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.component.TypedEntityData;
+import net.minecraft.world.level.BlockGetter;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.LevelReader;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.EntityBlock;
+import net.minecraft.world.level.block.RenderShape;
+import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.block.entity.BlockEntityTicker;
+import net.minecraft.world.level.block.entity.BlockEntityType;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.shapes.CollisionContext;
+import net.minecraft.world.phys.shapes.Shapes;
+import net.minecraft.world.phys.shapes.VoxelShape;
 
 import org.joml.Vector3f;
 
 import org.jetbrains.annotations.Nullable;
 
-public class TriggerBlock extends Block implements BlockEntityProvider
+public class TriggerBlock extends Block implements EntityBlock
 {
-    public TriggerBlock(Settings settings)
+    public TriggerBlock(Properties settings)
     {
         super(settings);
     }
 
     @Override
-    public ItemStack getPickStack(WorldView world, BlockPos pos, BlockState state, boolean includeData)
+    public ItemStack getCloneItemStack(LevelReader world, BlockPos pos, BlockState state, boolean includeData)
     {
         BlockEntity entity = world.getBlockEntity(pos);
 
         if (entity instanceof TriggerBlockEntity triggerBlock)
         {
             ItemStack stack = new ItemStack(this);
-            stack.set(DataComponentTypes.BLOCK_ENTITY_DATA, TypedEntityData.create(BBSMod.TRIGGER_BLOCK_ENTITY, triggerBlock.createNbt(world.getRegistryManager())));
+            stack.set(DataComponents.BLOCK_ENTITY_DATA, TypedEntityData.of(BBSMod.TRIGGER_BLOCK_ENTITY, triggerBlock.saveWithoutMetadata(world.registryAccess())));
 
             return stack;
         }
 
-        return super.getPickStack(world, pos, state, includeData);
+        return super.getCloneItemStack(world, pos, state, includeData);
     }
 
     @Override
-    public BlockRenderType getRenderType(BlockState state)
+    public RenderShape getRenderShape(BlockState state)
     {
-        return BlockRenderType.INVISIBLE;
+        return RenderShape.INVISIBLE;
     }
 
     @Override
-    public float getAmbientOcclusionLightLevel(BlockState state, BlockView world, BlockPos pos)
+    public float getShadeBrightness(BlockState state, BlockGetter world, BlockPos pos)
     {
         return 1.0F;
     }
 
-    public boolean isTransparent(BlockState state, BlockView world, BlockPos pos)
+    public boolean isTransparent(BlockState state, BlockGetter world, BlockPos pos)
     {
         return true;
     }
 
     @Nullable
     @Override
-    public BlockEntity createBlockEntity(BlockPos pos, BlockState state)
+    public BlockEntity newBlockEntity(BlockPos pos, BlockState state)
     {
         return new TriggerBlockEntity(pos, state);
     }
 
     @Override
-    public void onBlockBreakStart(BlockState state, World world, BlockPos pos, PlayerEntity player)
+    public void attack(BlockState state, Level world, BlockPos pos, Player player)
     {
-        if (!world.isClient() && player instanceof ServerPlayerEntity serverPlayer && !player.isCreative())
+        if (!world.isClientSide() && player instanceof ServerPlayer serverPlayer && !player.isCreative())
         {
             BlockEntity be = world.getBlockEntity(pos);
 
@@ -92,17 +90,17 @@ public class TriggerBlock extends Block implements BlockEntityProvider
             }
         }
 
-        super.onBlockBreakStart(state, world, pos, player);
+        super.attack(state, world, pos, player);
     }
 
     @Override
-    public ActionResult onUse(BlockState state, World world, BlockPos pos, PlayerEntity player, BlockHitResult hit)
+    public InteractionResult useWithoutItem(BlockState state, Level world, BlockPos pos, Player player, BlockHitResult hit)
     {
-        if (player.getMainHandStack().isEmpty())
+        if (player.getMainHandItem().isEmpty())
         {
-            if (!world.isClient() && player instanceof ServerPlayerEntity serverPlayer)
+            if (!world.isClientSide() && player instanceof ServerPlayer serverPlayer)
             {
-                if (!player.isCreative() || (player.isCreative() && player.isSneaking()))
+                if (!player.isCreative() || (player.isCreative() && player.isShiftKeyDown()))
                 {
                     BlockEntity be = world.getBlockEntity(pos);
 
@@ -110,31 +108,31 @@ public class TriggerBlock extends Block implements BlockEntityProvider
                     {
                         triggerBlock.trigger(serverPlayer, true);
 
-                        return ActionResult.SUCCESS;
+                        return InteractionResult.SUCCESS;
                     }
                 }
                 else
                 {
                     ServerNetwork.sendClickedTriggerBlock(serverPlayer, pos);
 
-                    return ActionResult.SUCCESS;
+                    return InteractionResult.SUCCESS;
                 }
             }
 
-            return ActionResult.SUCCESS;
+            return InteractionResult.SUCCESS;
         }
 
-        return super.onUse(state, world, pos, player, hit);
+        return super.useWithoutItem(state, world, pos, player, hit);
     }
 
     @Override
-    public VoxelShape getOutlineShape(BlockState state, BlockView world, BlockPos pos, ShapeContext context)
+    public VoxelShape getShape(BlockState state, BlockGetter world, BlockPos pos, CollisionContext context)
     {
         return this.getShape(world, pos);
     }
 
     @Override
-    public VoxelShape getCollisionShape(BlockState state, BlockView world, BlockPos pos, ShapeContext context)
+    public VoxelShape getCollisionShape(BlockState state, BlockGetter world, BlockPos pos, CollisionContext context)
     {
         try
         {
@@ -144,7 +142,7 @@ public class TriggerBlock extends Block implements BlockEntityProvider
             {
                 if (!trigger.collidable.get())
                 {
-                    return VoxelShapes.empty();
+                    return Shapes.empty();
                 }
 
                 return this.getShape(world, pos);
@@ -156,10 +154,10 @@ public class TriggerBlock extends Block implements BlockEntityProvider
 
         /* Never fall back to a solid full cube for a non-solid block: an exception or
          * a missing block entity here must not eject the player through the world. */
-        return VoxelShapes.empty();
+        return Shapes.empty();
     }
 
-    private VoxelShape getShape(BlockView world, BlockPos pos)
+    private VoxelShape getShape(BlockGetter world, BlockPos pos)
     {
         try
         {
@@ -172,7 +170,7 @@ public class TriggerBlock extends Block implements BlockEntityProvider
 
                 if (min == null || max == null)
                 {
-                    return VoxelShapes.empty();
+                    return Shapes.empty();
                 }
 
                 double minX = Math.max(0D, Math.min(min.x, max.x));
@@ -184,7 +182,7 @@ public class TriggerBlock extends Block implements BlockEntityProvider
 
                 if (minX < maxX && minY < maxY && minZ < maxZ)
                 {
-                    return VoxelShapes.cuboid(minX, minY, minZ, maxX, maxY, maxZ);
+                    return Shapes.box(minX, minY, minZ, maxX, maxY, maxZ);
                 }
             }
         }
@@ -192,12 +190,12 @@ public class TriggerBlock extends Block implements BlockEntityProvider
         {
         }
 
-        return VoxelShapes.empty();
+        return Shapes.empty();
     }
 
     @Nullable
     @Override
-    public <T extends BlockEntity> BlockEntityTicker<T> getTicker(World world, BlockState state, BlockEntityType<T> type)
+    public <T extends BlockEntity> BlockEntityTicker<T> getTicker(Level world, BlockState state, BlockEntityType<T> type)
     {
         return type == BBSMod.TRIGGER_BLOCK_ENTITY ? (BlockEntityTicker<T>) (BlockEntityTicker<TriggerBlockEntity>) (w, p, s, e) -> TriggerBlockEntity.tick(w, p, s, e) : null;
     }

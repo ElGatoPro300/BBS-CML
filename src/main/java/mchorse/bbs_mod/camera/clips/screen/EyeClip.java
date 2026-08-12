@@ -11,7 +11,7 @@ import mchorse.bbs_mod.utils.colors.Colors;
 import mchorse.bbs_mod.utils.keyframes.KeyframeChannel;
 import mchorse.bbs_mod.utils.keyframes.factories.KeyframeFactories;
 
-import net.minecraft.util.math.MathHelper;
+import net.minecraft.util.Mth;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -166,7 +166,7 @@ public class EyeClip extends CameraClip
         /* "Blink" drives closedness: 0 = fully open (nothing drawn), 1 = fully closed
            (whole screen covered by the eyelid color). The envelope only fades opacity. */
         float blink = this.height.isEmpty() ? 0F : (float) (double) this.height.interpolate(t);
-        blink = MathHelper.clamp(blink, 0F, 1F);
+        blink = Mth.clamp(blink, 0F, 1F);
 
         if (blink <= 0F)
         {

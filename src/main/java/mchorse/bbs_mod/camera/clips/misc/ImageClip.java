@@ -20,7 +20,7 @@ import mchorse.bbs_mod.utils.keyframes.KeyframeSegment;
 import mchorse.bbs_mod.utils.keyframes.factories.KeyframeFactories;
 import mchorse.bbs_mod.utils.resources.LinkUtils;
 
-import net.minecraft.util.math.MathHelper;
+import net.minecraft.util.Mth;
 
 import org.joml.Vector4f;
 
@@ -176,8 +176,8 @@ public class ImageClip extends CameraClip
     {
         this.clampChannel(this.blend, BLEND_MIN, BLEND_MAX);
         this.clampChannel(this.opacity, OPACITY_MIN, OPACITY_MAX);
-        this.uniform.blend.set(MathHelper.clamp(this.uniform.blend.get(), BLEND_MIN, BLEND_MAX));
-        this.uniform.opacity.set(MathHelper.clamp(this.uniform.opacity.get(), OPACITY_MIN, OPACITY_MAX));
+        this.uniform.blend.set(Mth.clamp(this.uniform.blend.get(), BLEND_MIN, BLEND_MAX));
+        this.uniform.opacity.set(Mth.clamp(this.uniform.opacity.get(), OPACITY_MIN, OPACITY_MAX));
     }
 
     private void clampChannel(KeyframeChannel<Double> channel, double min, double max)
@@ -185,7 +185,7 @@ public class ImageClip extends CameraClip
         for (Keyframe<Double> keyframe : channel.getKeyframes())
         {
             double value = keyframe.getValue();
-            double clamped = MathHelper.clamp(value, min, max);
+            double clamped = Mth.clamp(value, min, max);
 
             if (clamped != value)
             {
@@ -212,7 +212,7 @@ public class ImageClip extends CameraClip
 
         List<ImageOverlay> images = getImages(context);
         float factor = this.envelope.factorEnabled(this.duration.get(), t);
-        float alpha = factor * (float) MathHelper.clamp(this.valueDouble(this.opacity, this.uniform.opacity, t, 1D), OPACITY_MIN, OPACITY_MAX);
+        float alpha = factor * (float) Mth.clamp(this.valueDouble(this.opacity, this.uniform.opacity, t, 1D), OPACITY_MIN, OPACITY_MAX);
 
         if (alpha <= 0F)
         {
@@ -265,7 +265,7 @@ public class ImageClip extends CameraClip
         this.uniform.offsetX.set(this.interp(this.offsetX, tick, 0D));
         this.uniform.offsetY.set(this.interp(this.offsetY, tick, 0D));
         this.uniform.rotation.set(this.interp(this.rotation, tick, 0D));
-        this.uniform.blend.set(MathHelper.clamp(this.interp(this.blend, tick, 0D), BLEND_MIN, BLEND_MAX));
+        this.uniform.blend.set(Mth.clamp(this.interp(this.blend, tick, 0D), BLEND_MIN, BLEND_MAX));
         this.uniform.x.set(this.interp(this.x, tick, 0D));
         this.uniform.y.set(this.interp(this.y, tick, 0D));
         this.uniform.width.set(this.interp(this.width, tick, 100D));
@@ -274,7 +274,7 @@ public class ImageClip extends CameraClip
         this.uniform.anchorY.set(this.interp(this.anchorY, tick, 0.5D));
         this.uniform.windowX.set(this.interp(this.windowX, tick, 0.5D));
         this.uniform.windowY.set(this.interp(this.windowY, tick, 0.5D));
-        this.uniform.opacity.set(MathHelper.clamp(this.interp(this.opacity, tick, 1D), OPACITY_MIN, OPACITY_MAX));
+        this.uniform.opacity.set(Mth.clamp(this.interp(this.opacity, tick, 1D), OPACITY_MIN, OPACITY_MAX));
         this.uniform.color.set(this.interpColor(this.color, tick, DEFAULT_COLOR).copy());
         this.uniformSeeded.set(true);
     }
@@ -290,7 +290,7 @@ public class ImageClip extends CameraClip
         this.seedDouble(this.offsetX, this.uniform.offsetX.get());
         this.seedDouble(this.offsetY, this.uniform.offsetY.get());
         this.seedDouble(this.rotation, this.uniform.rotation.get());
-        this.seedDouble(this.blend, MathHelper.clamp(this.uniform.blend.get(), BLEND_MIN, BLEND_MAX));
+        this.seedDouble(this.blend, Mth.clamp(this.uniform.blend.get(), BLEND_MIN, BLEND_MAX));
         this.seedDouble(this.x, this.uniform.x.get());
         this.seedDouble(this.y, this.uniform.y.get());
         this.seedDouble(this.width, this.uniform.width.get());
@@ -299,7 +299,7 @@ public class ImageClip extends CameraClip
         this.seedDouble(this.anchorY, this.uniform.anchorY.get());
         this.seedDouble(this.windowX, this.uniform.windowX.get());
         this.seedDouble(this.windowY, this.uniform.windowY.get());
-        this.seedDouble(this.opacity, MathHelper.clamp(this.uniform.opacity.get(), OPACITY_MIN, OPACITY_MAX));
+        this.seedDouble(this.opacity, Mth.clamp(this.uniform.opacity.get(), OPACITY_MIN, OPACITY_MAX));
         this.seedColor(this.color, this.uniform.color.get());
     }
 
@@ -331,7 +331,7 @@ public class ImageClip extends CameraClip
 
     private TextureBlend getTextureBlend(float t)
     {
-        float blendValue = (float) MathHelper.clamp(this.valueDouble(this.blend, this.uniform.blend, t, 0D), BLEND_MIN, BLEND_MAX);
+        float blendValue = (float) Mth.clamp(this.valueDouble(this.blend, this.uniform.blend, t, 0D), BLEND_MIN, BLEND_MAX);
 
         if (blendValue > 0F)
         {

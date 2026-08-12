@@ -6,12 +6,12 @@ import mchorse.bbs_mod.film.Film;
 import mchorse.bbs_mod.network.ServerNetwork;
 import mchorse.bbs_mod.utils.DataPath;
 
-import net.minecraft.block.BlockState;
-import net.minecraft.block.entity.BlockEntity;
-import net.minecraft.entity.Entity;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.util.math.BlockPos;
+import net.minecraft.core.BlockPos;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.block.state.BlockState;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -23,8 +23,8 @@ import java.util.function.Supplier;
 public class ActionManager
 {
     private List<ActionPlayer> players = new ArrayList<>();
-    private Map<ServerPlayerEntity, ActionRecorder> recorders = new HashMap<>();
-    private Map<ServerWorld, DamageControl> dc = new HashMap<>();
+    private Map<ServerPlayer, ActionRecorder> recorders = new HashMap<>();
+    private Map<ServerLevel, DamageControl> dc = new HashMap<>();
 
     public void reset()
     {
@@ -52,7 +52,7 @@ public class ActionManager
             return tick;
         });
 
-        for (Map.Entry<ServerPlayerEntity, ActionRecorder> entry : this.recorders.entrySet())
+        for (Map.Entry<ServerPlayer, ActionRecorder> entry : this.recorders.entrySet())
         {
             entry.getValue().tick(entry.getKey());
         }
@@ -84,17 +84,17 @@ public class ActionManager
         return null;
     }
 
-    public ActionPlayer play(ServerPlayerEntity serverPlayer, ServerWorld world, Film film, int tick)
+    public ActionPlayer play(ServerPlayer serverPlayer, ServerLevel world, Film film, int tick)
     {
         return this.play(serverPlayer, world, film, tick, 0, -1, PlayerType.NORMAL);
     }
 
-    public ActionPlayer play(ServerPlayerEntity serverPlayer, ServerWorld world, Film film, int tick, PlayerType type)
+    public ActionPlayer play(ServerPlayer serverPlayer, ServerLevel world, Film film, int tick, PlayerType type)
     {
         return this.play(serverPlayer, world, film, tick, 0, -1, type);
     }
 
-    public ActionPlayer play(ServerPlayerEntity serverPlayer, ServerWorld world, Film film, int tick, int countdown, int exception, PlayerType type)
+    public ActionPlayer play(ServerPlayer serverPlayer, ServerLevel world, Film film, int tick, int countdown, int exception, PlayerType type)
     {
         if (film != null)
         {
@@ -128,16 +128,16 @@ public class ActionManager
 
     /* Actions recording */
 
-    public void startRecording(Film film, ServerPlayerEntity entity, int tick, int countdown, int replayId)
+    public void startRecording(Film film, ServerPlayer entity, int tick, int countdown, int replayId)
     {
-        ActionPlayer play = this.play(entity, entity.getEntityWorld(), film, tick, countdown, replayId, PlayerType.RECORDING);
+        ActionPlayer play = this.play(entity, entity.level(), film, tick, countdown, replayId, PlayerType.RECORDING);
 
         play.stopDamage = false;
 
         this.recorders.put(entity, new ActionRecorder(film, entity, tick, countdown));
     }
 
-    public void addAction(ServerPlayerEntity entity, Supplier<ActionClip> supplier)
+    public void addAction(ServerPlayer entity, Supplier<ActionClip> supplier)
     {
         ActionRecorder recorder = this.recorders.get(entity);
 
@@ -152,16 +152,16 @@ public class ActionManager
         }
     }
 
-    public boolean hasActiveRecorders(ServerWorld world)
+    public boolean hasActiveRecorders(ServerLevel world)
     {
         if (this.recorders.isEmpty())
         {
             return false;
         }
 
-        for (ServerPlayerEntity player : this.recorders.keySet())
+        for (ServerPlayer player : this.recorders.keySet())
         {
-            if (player != null && player.getEntityWorld() == world)
+            if (player != null && player.level() == world)
             {
                 return true;
             }
@@ -173,11 +173,11 @@ public class ActionManager
     /**
      * Notify recording clients so autocapture can place combat clips on mob replays.
      */
-    public void broadcastMobCombatHit(ServerWorld world, int victimEntityId, int sourceEntityId, float amount, byte kind)
+    public void broadcastMobCombatHit(ServerLevel world, int victimEntityId, int sourceEntityId, float amount, byte kind)
     {
-        for (ServerPlayerEntity player : this.recorders.keySet())
+        for (ServerPlayer player : this.recorders.keySet())
         {
-            if (player != null && player.getEntityWorld() == world)
+            if (player != null && player.level() == world)
             {
                 ServerNetwork.sendMobCombatAction(player, victimEntityId, sourceEntityId, amount, kind);
             }
@@ -187,30 +187,30 @@ public class ActionManager
     /**
      * Notify recording clients so autocapture can follow vanilla mob conversions.
      */
-    public void broadcastMobConversion(ServerWorld world, int oldEntityId, int newEntityId)
+    public void broadcastMobConversion(ServerLevel world, int oldEntityId, int newEntityId)
     {
-        for (ServerPlayerEntity player : this.recorders.keySet())
+        for (ServerPlayer player : this.recorders.keySet())
         {
-            if (player != null && player.getEntityWorld() == world)
+            if (player != null && player.level() == world)
             {
                 ServerNetwork.sendMobConversion(player, oldEntityId, newEntityId);
             }
         }
     }
 
-    public ActionRecorder stopRecording(ServerPlayerEntity entity)
+    public ActionRecorder stopRecording(ServerPlayer entity)
     {
         ActionRecorder remove = this.recorders.remove(entity);
 
         this.stop(remove.getFilm().getId());
-        this.stopDamage(entity.getEntityWorld());
+        this.stopDamage(entity.level());
 
         return remove;
     }
 
     /* Damage control */
 
-    public void trackDamage(ServerWorld world)
+    public void trackDamage(ServerLevel world)
     {
         DamageControl damageControl = this.dc.get(world);
 
@@ -224,7 +224,7 @@ public class ActionManager
         }
     }
 
-    public void stopDamage(ServerWorld world)
+    public void stopDamage(ServerLevel world)
     {
         DamageControl damageControl = this.dc.get(world);
 
@@ -242,7 +242,7 @@ public class ActionManager
         }
     }
 
-    public void resetDamage(ServerWorld world)
+    public void resetDamage(ServerLevel world)
     {
         DamageControl dc = this.dc.remove(world);
 
@@ -256,7 +256,7 @@ public class ActionManager
      * Puts captured blocks/entities back while keeping damage control armed
      * for further film playback.
      */
-    public void restoreDamage(ServerWorld world)
+    public void restoreDamage(ServerLevel world)
     {
         DamageControl damageControl = this.dc.get(world);
 

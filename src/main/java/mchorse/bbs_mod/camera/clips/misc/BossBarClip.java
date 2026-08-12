@@ -11,7 +11,7 @@ import mchorse.bbs_mod.utils.colors.Colors;
 import mchorse.bbs_mod.utils.keyframes.KeyframeChannel;
 import mchorse.bbs_mod.utils.keyframes.factories.KeyframeFactories;
 
-import net.minecraft.util.math.MathHelper;
+import net.minecraft.util.Mth;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -212,7 +212,7 @@ public class BossBarClip extends CameraClip
         state.width = Math.max(0.05F, this.interpDouble(this.width, t, 1D).floatValue());
         state.height = Math.max(0.05F, this.toHeightFactor(this.interpDouble(this.height, t, DEFAULT_HEIGHT)));
         state.zoom = Math.max(0.05F, this.interpDouble(this.bossZoom, t, DEFAULT_ZOOM).floatValue());
-        state.progress = MathHelper.clamp(this.interpDouble(this.progress, t, 1D).floatValue(), 0F, 1F);
+        state.progress = Mth.clamp(this.interpDouble(this.progress, t, 1D).floatValue(), 0F, 1F);
         state.color = Colors.setA(this.interpColor(this.color, t, DEFAULT_COLOR).getARGBColor(), alpha);
         state.textColor = Colors.setA(this.interpColor(this.textColor, t, DEFAULT_TEXT_COLOR).getARGBColor(), alpha);
         state.textSize = Math.max(0.05F, this.interpDouble(this.textSize, t, DEFAULT_TEXT_SIZE).floatValue());

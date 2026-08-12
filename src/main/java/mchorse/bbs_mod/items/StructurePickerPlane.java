@@ -1,7 +1,7 @@
 package mchorse.bbs_mod.items;
 
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.core.BlockPos;
+import net.minecraft.world.phys.Vec3;
 
 public enum StructurePickerPlane
 {
@@ -68,7 +68,7 @@ public enum StructurePickerPlane
         return axis.write(new BlockPos(x, y, z), depth);
     }
 
-    public StructurePickerAxis defaultDepthAxis(Vec3d look)
+    public StructurePickerAxis defaultDepthAxis(Vec3 look)
     {
         return switch (this)
         {

@@ -11,18 +11,18 @@ import mchorse.bbs_mod.forms.entities.StubEntity;
 import mchorse.bbs_mod.forms.forms.Form;
 import mchorse.bbs_mod.forms.forms.LightForm;
 
-import net.minecraft.block.Block;
-import net.minecraft.block.BlockState;
-import net.minecraft.block.entity.BlockEntity;
-import net.minecraft.nbt.NbtCompound;
-import net.minecraft.network.listener.ClientPlayPacketListener;
-import net.minecraft.network.packet.Packet;
-import net.minecraft.network.packet.s2c.play.BlockEntityUpdateS2CPacket;
-import net.minecraft.registry.RegistryWrapper.WrapperLookup;
-import net.minecraft.storage.ReadView;
-import net.minecraft.storage.WriteView;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.world.World;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.HolderLookup.Provider;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.network.protocol.Packet;
+import net.minecraft.network.protocol.game.ClientGamePacketListener;
+import net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.storage.ValueInput;
+import net.minecraft.world.level.storage.ValueOutput;
 
 import org.jetbrains.annotations.Nullable;
 
@@ -42,7 +42,7 @@ public class ModelBlockEntity extends BlockEntity
 
     public String getName()
     {
-        BlockPos pos = this.getPos();
+        BlockPos pos = this.getBlockPos();
         Form form = this.getProperties().getForm();
         String s = "(" + pos.getX() + ", " + pos.getY() + ", " + pos.getZ() + ")";
         String customName = this.getProperties().getName();
@@ -107,7 +107,7 @@ public class ModelBlockEntity extends BlockEntity
         this.currentYaw = currentYaw;
     }
 
-    public static void tick(World world, BlockPos pos, BlockState state, ModelBlockEntity blockEntity)
+    public static void tick(Level world, BlockPos pos, BlockState state, ModelBlockEntity blockEntity)
     {
         ModelBlockEntityUpdateCallback.EVENT.invoker().update(blockEntity);
         /* Asegura que el StubEntity tenga posición y mundo correctos para cálculos de luz/bioma.
@@ -153,7 +153,7 @@ public class ModelBlockEntity extends BlockEntity
 
         blockEntity.entity.update();
         blockEntity.properties.update(blockEntity.entity);
-        if (!world.isClient())
+        if (!world.isClientSide())
         {
             int target = blockEntity.properties.getLightLevel();
             Form form = blockEntity.properties.getForm();
@@ -181,7 +181,7 @@ public class ModelBlockEntity extends BlockEntity
 
                 try
                 {
-                    world.setBlockState(pos, state.with(ModelBlock.LIGHT_LEVEL, target), Block.NOTIFY_LISTENERS);
+                    world.setBlock(pos, state.setValue(ModelBlock.LIGHT_LEVEL, target), Block.UPDATE_CLIENTS);
                 }
                 catch (Exception e) {}
             }
@@ -190,38 +190,38 @@ public class ModelBlockEntity extends BlockEntity
 
     @Nullable
     @Override
-    public Packet<ClientPlayPacketListener> toUpdatePacket()
+    public Packet<ClientGamePacketListener> getUpdatePacket()
     {
-        return BlockEntityUpdateS2CPacket.create(this);
+        return ClientboundBlockEntityDataPacket.create(this);
     }
 
     @Override
-    public NbtCompound toInitialChunkDataNbt(WrapperLookup registryLookup)
+    public CompoundTag getUpdateTag(Provider registryLookup)
     {
-        return this.createNbt(registryLookup);
+        return this.saveWithoutMetadata(registryLookup);
     }
 
     @Override
-    protected void writeData(WriteView view)
+    protected void saveAdditional(ValueOutput view)
     {
-        super.writeData(view);
+        super.saveAdditional(view);
 
         MapType data = this.properties.toData();
-        NbtCompound nbt = new NbtCompound();
+        CompoundTag nbt = new CompoundTag();
 
         DataStorageUtils.writeToNbtCompound(nbt, "Properties", data);
 
-        view.put("Properties", NbtCompound.CODEC, nbt.getCompoundOrEmpty("Properties"));
+        view.store("Properties", CompoundTag.CODEC, nbt.getCompoundOrEmpty("Properties"));
     }
 
     @Override
-    protected void readData(ReadView view)
+    protected void loadAdditional(ValueInput view)
     {
-        super.readData(view);
+        super.loadAdditional(view);
 
-        NbtCompound nbt = new NbtCompound();
+        CompoundTag nbt = new CompoundTag();
 
-        view.read("Properties", NbtCompound.CODEC).ifPresent((compound) -> nbt.put("Properties", compound));
+        view.read("Properties", CompoundTag.CODEC).ifPresent((compound) -> nbt.put("Properties", compound));
 
         BaseType baseType = DataStorageUtils.readFromNbtCompound(nbt, "Properties");
 
@@ -230,41 +230,41 @@ public class ModelBlockEntity extends BlockEntity
             this.properties.fromData(mapType);
         }
         /* Ensure block state reflects stored light level when chunk/block is loaded */
-        if (this.world != null && !this.world.isClient())
+        if (this.level != null && !this.level.isClientSide())
         {
             try
             {
                 int level = this.properties.getLightLevel();
-                BlockPos pos = this.getPos();
-                BlockState state = this.world.getBlockState(pos);
+                BlockPos pos = this.getBlockPos();
+                BlockState state = this.level.getBlockState(pos);
 
                 if (state.getBlock() instanceof Block)
                 {
-                    this.world.setBlockState(pos, state.with(ModelBlock.LIGHT_LEVEL, level), Block.NOTIFY_LISTENERS);
+                    this.level.setBlock(pos, state.setValue(ModelBlock.LIGHT_LEVEL, level), Block.UPDATE_CLIENTS);
                 }
             }
             catch (Exception e) {}
         }
     }
 
-    public void updateForm(MapType data, World world)
+    public void updateForm(MapType data, Level world)
     {
         this.properties.fromData(data);
 
-        BlockPos pos = this.getPos();
+        BlockPos pos = this.getBlockPos();
         BlockState blockState = world.getBlockState(pos);
         int level = this.properties.getLightLevel();
-        BlockState newState = blockState.with(ModelBlock.LIGHT_LEVEL, level);
+        BlockState newState = blockState.setValue(ModelBlock.LIGHT_LEVEL, level);
 
-        world.markDirty(pos);
+        world.blockEntityChanged(pos);
 
         if (blockState != newState)
         {
-            world.setBlockState(pos, newState, Block.NOTIFY_LISTENERS);
+            world.setBlock(pos, newState, Block.UPDATE_CLIENTS);
         }
         else
         {
-            world.updateListeners(pos, blockState, newState, Block.NOTIFY_LISTENERS);
+            world.sendBlockUpdated(pos, blockState, newState, Block.UPDATE_CLIENTS);
         }
     }
 }

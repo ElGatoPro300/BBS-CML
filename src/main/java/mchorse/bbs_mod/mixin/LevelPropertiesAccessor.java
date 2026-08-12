@@ -1,14 +1,14 @@
 package mchorse.bbs_mod.mixin;
 
-import net.minecraft.world.level.LevelInfo;
-import net.minecraft.world.level.LevelProperties;
+import net.minecraft.world.level.LevelSettings;
+import net.minecraft.world.level.storage.PrimaryLevelData;
 
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.gen.Accessor;
 
-@Mixin(LevelProperties.class)
+@Mixin(PrimaryLevelData.class)
 public interface LevelPropertiesAccessor
 {
-    @Accessor("levelInfo")
-    public void bbs$setLevelInfo(LevelInfo info);
+    @Accessor("settings")
+    public void bbs$setLevelInfo(LevelSettings info);
 }

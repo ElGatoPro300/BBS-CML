@@ -12,7 +12,7 @@ import mchorse.bbs_mod.cubic.animation.gecko.routes.GeckoLimbRole;
 import mchorse.bbs_mod.cubic.data.model.ModelGroup;
 import mchorse.bbs_mod.forms.entities.IEntity;
 
-import net.minecraft.util.math.MathHelper;
+import net.minecraft.util.Mth;
 
 import java.util.EnumMap;
 import java.util.HashSet;
@@ -43,7 +43,7 @@ public class GeckoAnimationService
     {
         GeckoStateBlend blend = this.blends.computeIfAbsent(entity, key -> new GeckoStateBlend());
         Map<GeckoAnimationState, Float> targets = this.blendService.resolveTargets(context);
-        float factor = MathHelper.clamp(config.transitionSpeed, 0F, 1F);
+        float factor = Mth.clamp(config.transitionSpeed, 0F, 1F);
         blend.blendTo(targets, factor);
         Map<GeckoAnimationState, Float> weights = blend.snapshot();
 

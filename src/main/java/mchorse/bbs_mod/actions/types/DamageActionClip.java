@@ -6,8 +6,8 @@ import mchorse.bbs_mod.film.replays.Replay;
 import mchorse.bbs_mod.settings.values.numeric.ValueFloat;
 import mchorse.bbs_mod.utils.clips.Clip;
 
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.server.world.ServerWorld;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.entity.LivingEntity;
 
 public class DamageActionClip extends ActionClip
 {
@@ -34,9 +34,9 @@ public class DamageActionClip extends ActionClip
 
         if (actor != null)
         {
-            ServerWorld serverWorld = player.getEntityWorld();
+            ServerLevel serverWorld = player.level();
 
-            actor.damage(serverWorld, serverWorld.getDamageSources().mobAttack(player), damage);
+            actor.hurtServer(serverWorld, serverWorld.damageSources().mobAttack(player), damage);
         }
     }
 

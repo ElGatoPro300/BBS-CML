@@ -2,11 +2,11 @@ package mchorse.bbs_mod.mixin;
 
 import mchorse.bbs_mod.BBSMod;
 
-import net.minecraft.entity.EntityType;
-import net.minecraft.entity.SpawnReason;
-import net.minecraft.entity.conversion.EntityConversionContext;
-import net.minecraft.entity.mob.MobEntity;
-import net.minecraft.server.world.ServerWorld;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.entity.ConversionParams;
+import net.minecraft.world.entity.EntitySpawnReason;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.Mob;
 
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
@@ -18,11 +18,11 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
  * (villager → zombie villager, hoglin → zoglin, etc.) so autocapture can
  * hide the old replay and start a new one for the successor.
  */
-@Mixin(MobEntity.class)
+@Mixin(Mob.class)
 public class MobEntityMixin
 {
     @Inject(method = "convertTo", at = @At("RETURN"))
-    private <T extends MobEntity> void bbs$onConvertTo(EntityType<T> entityType, EntityConversionContext context, SpawnReason reason, EntityConversionContext.Finalizer<T> finalizer, CallbackInfoReturnable<T> cir)
+    private <T extends Mob> void bbs$onConvertTo(EntityType<T> entityType, ConversionParams context, EntitySpawnReason reason, ConversionParams.AfterConversion<T> finalizer, CallbackInfoReturnable<T> cir)
     {
         T converted = cir.getReturnValue();
 
@@ -31,9 +31,9 @@ public class MobEntityMixin
             return;
         }
 
-        MobEntity self = (MobEntity) (Object) this;
+        Mob self = (Mob) (Object) this;
 
-        if (!(self.getEntityWorld() instanceof ServerWorld serverWorld))
+        if (!(self.level() instanceof ServerLevel serverWorld))
         {
             return;
         }

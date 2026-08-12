@@ -5,9 +5,9 @@ import mchorse.bbs_mod.film.replays.Replay;
 import mchorse.bbs_mod.forms.entities.IEntity;
 import mchorse.bbs_mod.utils.clips.Clip;
 
-import net.minecraft.particle.ParticleTypes;
-import net.minecraft.util.math.random.Random;
-import net.minecraft.world.World;
+import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.util.RandomSource;
+import net.minecraft.world.level.Level;
 
 public class MobDeathActionClip extends ActionClip
 {
@@ -20,14 +20,14 @@ public class MobDeathActionClip extends ActionClip
     @Override
     protected void applyClientAction(IEntity entity, Film film, Replay replay, int tick)
     {
-        World world = entity.getWorld();
+        Level world = entity.getWorld();
 
-        if (world == null || !world.isClient())
+        if (world == null || !world.isClientSide())
         {
             return;
         }
 
-        Random random = world.getRandom();
+        RandomSource random = world.getRandom();
         double x = entity.getX();
         double y = entity.getY() + entity.getEyeHeight() * 0.5D;
         double z = entity.getZ();
@@ -42,7 +42,7 @@ public class MobDeathActionClip extends ActionClip
             double velocityY = random.nextGaussian() * 0.02D;
             double velocityZ = random.nextGaussian() * 0.02D;
 
-            world.addParticleClient(ParticleTypes.POOF, x + offsetX, y + offsetY, z + offsetZ, velocityX, velocityY, velocityZ);
+            world.addParticle(ParticleTypes.POOF, x + offsetX, y + offsetY, z + offsetZ, velocityX, velocityY, velocityZ);
         }
     }
 

@@ -1,6 +1,6 @@
 package mchorse.bbs_mod.camera.clips.misc;
 
-import net.minecraft.item.ItemStack;
+import net.minecraft.world.item.ItemStack;
 
 public class HotbarState
 {
