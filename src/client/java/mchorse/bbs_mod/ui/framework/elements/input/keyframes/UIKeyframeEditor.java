@@ -128,6 +128,10 @@ public class UIKeyframeEditor extends UIElement
         if (this.target == target)
         {
             this.view.resetFlex().full(this).w(1F);
+            /* Same host — still re-apply factory layout/resize. Needed when the
+             * properties tab was already active and only a light host sync runs. */
+            this.applyLayout();
+            this.resize();
 
             return this;
         }

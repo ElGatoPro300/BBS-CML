@@ -2956,8 +2956,10 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
                 keyframes.setPresetsPreview(new UIReplayPresetPreview(this::getReplay));
 
                 return keyframes;
-            }).target(this.filmPanel.editArea);
+            }).target(this.filmPanel.getReplayKeyframePropertiesHost());
             this.keyframeEditor.setUndoId("replay_keyframe_editor");
+            /* Retarget after rebuild in case layout redirect (unified vs editArea) changed. */
+            this.filmPanel.updateTargets();
 
             /* Reset */
             if (lastEditor != null)

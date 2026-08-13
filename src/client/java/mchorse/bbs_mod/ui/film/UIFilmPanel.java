@@ -2611,6 +2611,67 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
         {
             this.setupEditorFlex(true, false, true);
         }
+        else
+        {
+            /* Properties tab already active (common after film load restores active_tab).
+             * Still retarget hosts and resize so a freshly mounted keyframe factory is not
+             * left on the wrong/zero-sized panel until the user re-picks the keyframe. */
+            this.syncKeyframePropertiesHosts();
+        }
+    }
+
+    /**
+     * Retarget clip/replay keyframe property hosts and force a layout pass on them.
+     * Used when the properties tab is already visible so {@link #setupEditorFlex} was skipped.
+     */
+    private void syncKeyframePropertiesHosts()
+    {
+        this.updateTargets();
+
+        UIElement cameraHost = this.getPropertiesHostElement(this.resolveCameraPropertiesPanelId());
+        UIElement actionHost = this.getPropertiesHostElement(this.resolveActionPropertiesPanelId());
+        UIElement replayHost = this.getPropertiesHostElement(this.resolveReplayPropertiesPanelId());
+
+        if (cameraHost == null)
+        {
+            cameraHost = this.cameraEditArea;
+        }
+
+        if (actionHost == null)
+        {
+            actionHost = this.actionEditArea;
+        }
+
+        if (replayHost == null)
+        {
+            replayHost = this.editArea;
+        }
+
+        if (cameraHost != null)
+        {
+            cameraHost.resize();
+        }
+
+        if (actionHost != null)
+        {
+            actionHost.resize();
+        }
+
+        if (replayHost != null)
+        {
+            replayHost.resize();
+        }
+    }
+
+    /**
+     * Host panel where replay keyframe factories are mounted ({@code unifiedEditArea}
+     * when redirected, otherwise {@code editArea}).
+     */
+    public UIElement getReplayKeyframePropertiesHost()
+    {
+        UIElement host = this.getPropertiesHostElement(this.resolveReplayPropertiesPanelId());
+
+        return host != null ? host : this.editArea;
     }
 
     private String getLinkedPropertiesPanelId(String panelId)
@@ -2945,6 +3006,8 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
         String panelId = this.shouldRedirectProperties() ? "unifiedEditArea" : "editArea";
 
         this.focusPanelTab(panelId);
+        /* Same edge case as {@link #focusLinkedPropertiesTab}: tab may already be active. */
+        this.syncKeyframePropertiesHosts();
     }
 
     /**
@@ -2977,6 +3040,10 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
         if (changed || needsRefresh)
         {
             this.setupEditorFlex(true, false, false);
+        }
+        else
+        {
+            this.syncKeyframePropertiesHosts();
         }
     }
 
