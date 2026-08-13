@@ -29,7 +29,7 @@ public class UIChatActionClip extends UIActionClip<ChatActionClip>
     {
         super.registerPanels();
 
-        this.panels.add(UI.label(UIKeys.ACTIONS_CHAT_MESSAGE).marginTop(12), this.message);
+        this.panels.add(this.section(UIKeys.ACTIONS_CHAT_MESSAGE, this.message));
     }
 
     @Override

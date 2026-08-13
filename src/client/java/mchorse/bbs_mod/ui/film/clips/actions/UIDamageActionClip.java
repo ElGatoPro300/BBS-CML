@@ -29,7 +29,7 @@ public class UIDamageActionClip extends UIActionClip<DamageActionClip>
     {
         super.registerPanels();
 
-        this.panels.add(UI.label(UIKeys.ACTIONS_ATTACK_DAMAGE).marginTop(12), this.damage);
+        this.panels.add(this.section(UIKeys.ACTIONS_ATTACK_DAMAGE, this.damage));
     }
 
     @Override

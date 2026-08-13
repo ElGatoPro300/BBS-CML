@@ -29,7 +29,7 @@ public class UITranslateClip extends UIClip<TranslateClip>
     {
         super.registerPanels();
 
-        this.panels.add(this.point.marginTop(12), this.active);
+        this.panels.add(this.point, this.active);
     }
 
     @Override
