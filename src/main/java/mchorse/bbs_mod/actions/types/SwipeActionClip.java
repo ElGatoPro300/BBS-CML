@@ -108,9 +108,10 @@ public class SwipeActionClip extends ActionClip
             return;
         }
 
-        /* Stubs have no server LivingEntity swingHand(true) fallback. Guard by film
-         * tick (not isHandSwinging) so a later swipe clip can restart mid-swing,
-         * while parked scrubbing on the same tick still only fires once. */
+        /* Stubs have no server LivingEntity swingHand(true) fallback. One-shot while
+         * parked on this tick; StubEntity.swingArm mirrors LivingEntity.swingHand
+         * (restart after ~half swing, no progress wipe) so consecutive swipe clips
+         * keep actor-like smoothness without ignoring valid follow-up swipes. */
         if (entity instanceof StubEntity stub)
         {
             boolean loopWhileParked = BBSSettings.editorActorPausedSwipeLoop != null
