@@ -124,6 +124,12 @@ public abstract class BaseFilmController
      */
     private final Map<String, Integer> lastStepSoundTicks = new HashMap<>();
 
+    /**
+     * Last resolved physical actor entity id per replay. Used to one-shot snap
+     * world position when Actor mode binds a new entity (toggle on / respawn).
+     */
+    private final Map<String, Integer> lastSeenActorEntityIds = new HashMap<>();
+
     /* Rendering helpers */
 
     public static void renderEntity(FilmControllerContext context)
@@ -411,14 +417,16 @@ public abstract class BaseFilmController
 
             if (shadowOpacity > 0F)
             {
+                /* X/Z offset moves the ground sample; Y offset must lift the PNG via matrix
+                 * translate — putting it into entity Y only fades the vanilla blob in place. */
                 double sx = position.x + context.shadowOffsetX;
-                double sy = position.y + context.shadowOffsetY;
+                double sy = position.y;
                 double sz = position.z + context.shadowOffsetZ;
 
                 stack.push();
                 stack.translate(sx - cx, sy - cy, sz - cz);
 
-                ModelBlockEntityRenderer.renderShadow(context.consumers, stack, transition, sx, sy, sz, 0F, 0F, 0F, context.shadowRadiusX, context.shadowRadiusZ, shadowOpacity);
+                ModelBlockEntityRenderer.renderShadow(context.consumers, stack, transition, sx, sy, sz, 0F, context.shadowOffsetY, 0F, context.shadowRadiusX, context.shadowRadiusZ, shadowOpacity);
 
                 stack.pop();
             }
@@ -1142,6 +1150,7 @@ public abstract class BaseFilmController
         this.entities.clear();
         this.replayMap.clear();
         this.lastStepSoundTicks.clear();
+        this.lastSeenActorEntityIds.clear();
 
         if (this.film == null)
         {
@@ -1432,12 +1441,24 @@ public abstract class BaseFilmController
                 {
                     Integer entityId = actors.get(replay.getId());
 
-                    if (entityId != null)
+                    if (entityId == null)
+                    {
+                        this.lastSeenActorEntityIds.remove(replay.getId());
+                    }
+                    else
                     {
                         Entity anEntity = MinecraftClient.getInstance().world.getEntityById(entityId);
 
                         if (anEntity instanceof ActorEntity actor)
                         {
+                            /* Record only once the entity exists — otherwise a late spawn
+                             * after the actors packet would skip the one-shot position snap. */
+                            Integer previousEntityId = this.lastSeenActorEntityIds.put(replay.getId(), entityId);
+                            boolean actorEntityJustBound = !Objects.equals(previousEntityId, entityId);
+
+                            /* HP syncs on scrub revive; deathTime does not — clear leftover corpse visuals. */
+                            actor.clearStaleCombatDeathIfAlive();
+
                             boolean combatDead = actor.isDead() || actor.getHealth() <= 0F || actor.deathTime > 0;
 
                             if (combatDead)
@@ -1447,7 +1468,14 @@ public abstract class BaseFilmController
                                 actor.setPauseNaturalAnimations(false);
                                 actor.setVelocity(0D, 0D, 0D);
                                 actor.syncNameTag(replay);
-                                replay.applyClientActions(replayTick, new MCEntity(anEntity), this.film);
+                                actor.syncShadow(replay.shadow.get(), BaseFilmController.resolveShadowSettings(replay, replayTick));
+
+                                /* Same as live control: the puppeteer owns swings / client clips. */
+                                if (this.shouldEmitReplayMotionFx(entity) && this.shouldApplyClientActions(entity))
+                                {
+                                    replay.applyClientActions(replayTick, new MCEntity(anEntity), this.film);
+                                }
+
                                 spawned = true;
                             }
                             else
@@ -1484,9 +1512,15 @@ public abstract class BaseFilmController
                                 this.syncActorEquipmentFromStub(actor, entity);
                                 /* Only gate vanilla sprint dust — do not clear sprinting (run anim). */
                                 actor.setSuppressSprintParticles(controlling);
-                                /* Iris packs cast mesh shadows; drop the vanilla blob then so
-                                 * actor ground circles are not stacked darker. */
-                                ActorEntityRenderer.updateShadowRadius(actor);
+
+                                if (actorEntityJustBound)
+                                {
+                                    /* One-shot: Actor toggle / respawn can leave the body at an
+                                     * old server pose while yaw/limbs already follow the stub.
+                                     * Do not heal every tick — that fights walk velocity. */
+                                    this.syncActorWorldPositionFromStub(actor, entity);
+                                    actor.setVelocity(0D, 0D, 0D);
+                                }
 
                                 if (pauseAnims)
                                 {
@@ -1500,10 +1534,7 @@ public abstract class BaseFilmController
                                      * integrating it on top of the snap (and creative-flight
                                      * residual looks like ice). Limbs already come from the
                                      * player via syncLimbs above. */
-                                    actor.setPosition(entity.getX(), entity.getY(), entity.getZ());
-                                    actor.prevX = entity.getPrevX();
-                                    actor.prevY = entity.getPrevY();
-                                    actor.prevZ = entity.getPrevZ();
+                                    this.syncActorWorldPositionFromStub(actor, entity);
                                     actor.setVelocity(0D, 0D, 0D);
                                 }
                                 else if (!this.isActorPlaybackActive())
@@ -1528,7 +1559,17 @@ public abstract class BaseFilmController
 
                                 /* Keep label in sync while editing name_tag in the film UI. */
                                 actor.syncNameTag(replay);
-                                replay.applyClientActions(replayTick, new MCEntity(anEntity), this.film);
+                                /* Same shadow toggle / size / offset as stub film blobs. */
+                                actor.syncShadow(replay.shadow.get(), BaseFilmController.resolveShadowSettings(replay, replayTick));
+                                ActorEntityRenderer.updateShadowRadius(actor);
+
+                                /* While actor-controlling (incl. viewport record), do not replay
+                                 * timeline Swipe/etc. on the puppet — Outside uses exception for
+                                 * the same idea. Other replays still play their clips. */
+                                if (!controlling && this.shouldApplyClientActions(entity))
+                                {
+                                    replay.applyClientActions(replayTick, new MCEntity(anEntity), this.film);
+                                }
 
                                 spawned = true;
                             }
@@ -1714,6 +1755,21 @@ public abstract class BaseFilmController
         actor.equipStack(EquipmentSlot.FEET, stub.getEquipmentStack(EquipmentSlot.FEET));
     }
 
+    /**
+     * Copy world position from the client stub onto the visible actor (toggle bind /
+     * actor-control). Not used every playback tick — continuous snaps fight walk velocity.
+     */
+    private void syncActorWorldPositionFromStub(ActorEntity actor, IEntity stub)
+    {
+        actor.setPosition(stub.getX(), stub.getY(), stub.getZ());
+        actor.prevX = stub.getPrevX();
+        actor.prevY = stub.getPrevY();
+        actor.prevZ = stub.getPrevZ();
+        actor.lastRenderX = stub.getPrevX();
+        actor.lastRenderY = stub.getPrevY();
+        actor.lastRenderZ = stub.getPrevZ();
+    }
+
     private void spawnSprintParticles(Replay replay, int ticks, Entity entity)
     {
         this.spawnSprintParticles(replay, ticks, entity, false);
@@ -1789,6 +1845,15 @@ public abstract class BaseFilmController
      * entity currently under actor-control so dust is not sprayed at the parked pose.
      */
     protected boolean shouldEmitReplayMotionFx(IEntity entity)
+    {
+        return true;
+    }
+
+    /**
+     * Whether timeline client action clips (swipe, etc.) may run for this entity.
+     * Film editor suppresses one pass after soft-seeking back from a viewport record.
+     */
+    protected boolean shouldApplyClientActions(IEntity entity)
     {
         return true;
     }

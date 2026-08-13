@@ -67,8 +67,9 @@ public class UIModelPartsSection extends UIModelSection
         });
         
         /* Drag signs come from UIModelEditorRenderer.prepareGizmoDrag. Do not enable the legacy
-         * setModel() path — it permanently forces X/Z ring invert and fights that prepare. */
-        this.poseEditor = new UIPoseEditor()
+         * setModel() path — it permanently forces X/Z ring invert and fights that prepare.
+         * Form appearance extras (paint/glow/grade/noshading) stay on ModelForm / form pose. */
+        this.poseEditor = new UIPoseEditor(false)
         {
             @Override
             protected boolean useModelGizmoDrag()

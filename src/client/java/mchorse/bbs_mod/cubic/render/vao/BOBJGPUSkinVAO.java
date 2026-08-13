@@ -128,6 +128,8 @@ public class BOBJGPUSkinVAO extends BOBJModelVAO
             BBSRendering.calculateTangents(this.baseTangents, this.data.posData, this.data.normData, this.data.texData);
         }
 
+        int previousVAO = GL30.glGetInteger(GL30.GL_VERTEX_ARRAY_BINDING);
+
         this.staticVao = GL30.glGenVertexArrays();
         GL30.glBindVertexArray(this.staticVao);
 
@@ -161,7 +163,7 @@ public class BOBJGPUSkinVAO extends BOBJModelVAO
         GL30.glVertexAttribIPointer(4, 4, GL30.GL_INT, 0, 0);
         GL30.glEnableVertexAttribArray(4);
 
-        GL30.glBindVertexArray(0);
+        GL30.glBindVertexArray(previousVAO);
         GL30.glBindBuffer(GL30.GL_ARRAY_BUFFER, 0);
     }
 

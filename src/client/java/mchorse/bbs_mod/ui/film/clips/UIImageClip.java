@@ -449,20 +449,16 @@ public class UIImageClip extends UIClip<ImageClip>
     {
         super.registerPanels();
 
-        this.panels.add(UI.column(UIClip.label(UIKeys.CAMERA_PANELS_IMAGE_TEXTURE), this.pickTexture, UI.row(this.linear, this.mipmap), this.color).marginTop(6));
-        this.panels.add(UI.column(UIClip.label(UIKeys.CAMERA_PANELS_IMAGE_CROP), this.openCrop, this.resizeCrop).marginTop(6));
-        this.panels.add(UI.column(UIClip.label(UIKeys.CAMERA_PANELS_IMAGE_UV_SHIFT), UI.row(this.offsetX, this.offsetY), this.rotation).marginTop(6));
-        this.panels.add(UI.column(UIClip.label(UIKeys.CAMERA_PANELS_IMAGE_BLEND), UI.row(this.pickBlendFrom, this.pickBlendTo), this.blend).marginTop(6));
-        this.panels.add(UI.column(UIClip.label(UIKeys.CAMERA_PANELS_IMAGE_OFFSET), UI.row(this.x, this.y)).marginTop(6));
-        this.panels.add(UI.column(
-            UIClip.label(UIKeys.CAMERA_PANELS_IMAGE_SIZE),
-            UI.row(this.width, this.uniformSize, this.height),
-            this.resetNativeSize
-        ).marginTop(6));
-        this.panels.add(UI.column(UIClip.label(UIKeys.CAMERA_PANELS_IMAGE_ANCHOR), UI.row(this.anchorX, this.anchorY)).marginTop(6));
-        this.panels.add(UI.column(UIClip.label(UIKeys.CAMERA_PANELS_IMAGE_WINDOW), UI.row(this.windowX, this.windowY)).marginTop(6));
-        this.panels.add(UI.column(UIClip.label(UIKeys.CAMERA_PANELS_IMAGE_OPACITY), this.opacity).marginTop(6));
-        this.panels.add(UI.column(UIClip.label(UIKeys.SCREEN_PANELS_KEYFRAMES), this.useKeyframes, this.edit).marginTop(6));
+        this.panels.add(this.section(UIKeys.CAMERA_PANELS_IMAGE_TEXTURE, this.pickTexture, UI.row(this.linear, this.mipmap), this.color));
+        this.panels.add(this.section(UIKeys.CAMERA_PANELS_IMAGE_CROP, this.openCrop, this.resizeCrop));
+        this.panels.add(this.section(UIKeys.CAMERA_PANELS_IMAGE_UV_SHIFT, UI.row(this.offsetX, this.offsetY), this.rotation));
+        this.panels.add(this.section(UIKeys.CAMERA_PANELS_IMAGE_BLEND, UI.row(this.pickBlendFrom, this.pickBlendTo), this.blend));
+        this.panels.add(this.section(UIKeys.CAMERA_PANELS_IMAGE_OFFSET, UI.row(this.x, this.y)));
+        this.panels.add(this.section(UIKeys.CAMERA_PANELS_IMAGE_SIZE, UI.row(this.width, this.uniformSize, this.height), this.resetNativeSize));
+        this.panels.add(this.section(UIKeys.CAMERA_PANELS_IMAGE_ANCHOR, UI.row(this.anchorX, this.anchorY)));
+        this.panels.add(this.section(UIKeys.CAMERA_PANELS_IMAGE_WINDOW, UI.row(this.windowX, this.windowY)));
+        this.panels.add(this.section(UIKeys.CAMERA_PANELS_IMAGE_OPACITY, this.opacity));
+        this.panels.add(this.section(UIKeys.SCREEN_PANELS_KEYFRAMES, this.useKeyframes, this.edit));
     }
 
     @Override

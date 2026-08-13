@@ -591,6 +591,15 @@ public class ClientNetwork
 
     public static void sendActionRecording(String filmId, int replayId, int tick, int countdown, boolean state)
     {
+        sendActionRecording(filmId, replayId, tick, countdown, state, false);
+    }
+
+    /**
+     * @param recorderOnly true = film-editor viewport (keep FILM_EDITOR ActionPlayer);
+     *                     false = Outside/world recording (spawn RECORDING ActionPlayer).
+     */
+    public static void sendActionRecording(String filmId, int replayId, int tick, int countdown, boolean state, boolean recorderOnly)
+    {
         PacketByteBuf buf = PacketByteBufs.create();
 
         buf.writeString(filmId);
@@ -598,6 +607,7 @@ public class ClientNetwork
         buf.writeInt(tick);
         buf.writeInt(countdown);
         buf.writeBoolean(state);
+        buf.writeBoolean(recorderOnly);
 
         ClientPlayNetworking.send(ServerNetwork.SERVER_ACTION_RECORDING, buf);
     }

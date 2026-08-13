@@ -2,6 +2,7 @@ package mchorse.bbs_mod.ui.film.replays.overlays;
 
 import mchorse.bbs_mod.BBSMod;
 import mchorse.bbs_mod.BBSSettings;
+import mchorse.bbs_mod.actions.ActionState;
 import mchorse.bbs_mod.film.BaseFilmController;
 import mchorse.bbs_mod.film.Film;
 import mchorse.bbs_mod.film.MobCemPoseCapture;
@@ -233,6 +234,8 @@ public class UIReplaysOverlayPanel extends UIOverlayPanel
         this.looping.limit(0).integer().tooltip(UIKeys.FILM_REPLAY_LOOPING_TOOLTIP);
         this.actor = new UIToggle(UIKeys.FILM_REPLAY_ACTOR, (b) ->
         {
+            /* Sync server tick first so combat HP rebuild matches the film cursor. */
+            this.filmPanel.notifyServer(ActionState.SEEK);
             this.edit((replay) ->
             {
                 replay.actor.set(b.getValue());
@@ -245,6 +248,8 @@ public class UIReplaysOverlayPanel extends UIOverlayPanel
             });
             this.updateRelativeAvailability(b.getValue());
             this.filmPanel.replayEditor.updateChannelsList();
+            /* Rebuild client stubs at the current tick. Server combat state is
+             * refreshed via syncData → ActionPlayer.goTo(tick) when "actor" syncs. */
             this.filmPanel.getController().createEntities();
         });
         this.actor.tooltip(UIKeys.FILM_REPLAY_ACTOR_TOOLTIP);

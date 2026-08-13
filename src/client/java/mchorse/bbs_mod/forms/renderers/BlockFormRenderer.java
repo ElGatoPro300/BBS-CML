@@ -11,6 +11,7 @@ import mchorse.bbs_mod.forms.forms.utils.GlowSettings;
 import mchorse.bbs_mod.forms.forms.utils.PaintSettings;
 import mchorse.bbs_mod.forms.renderers.utils.BlockEffectOverlayUniforms;
 import mchorse.bbs_mod.forms.renderers.utils.FormColorEffects;
+import mchorse.bbs_mod.forms.renderers.utils.FormLightingRender;
 import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.utils.MathUtils;
 import mchorse.bbs_mod.utils.MatrixStackUtils;
@@ -359,13 +360,8 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
         }
 
         int sampled = WorldRenderer.getLightmapCoordinates(world, blockPos);
-        float lf = 1F - MathUtils.clamp(this.form.lighting.get(), 0F, 1F);
-        int u = sampled & '\uffff';
-        int v = sampled >> 16 & '\uffff';
 
-        u = (int) Lerps.lerp(u, LightmapTextureManager.MAX_BLOCK_LIGHT_COORDINATE, lf);
-
-        return u | v << 16;
+        return FormLightingRender.apply(sampled, this.form.lightingSettings, this.form.lighting.get());
     }
 
     private BlockPos getRepeatBlockWorldPos(FormRenderingContext context, int localX, int localY, int localZ)
