@@ -476,11 +476,11 @@ public class UIGeneralFormPanel extends UIFormPanel
 
         this.illusionIndependentParticles.setVisible(customParticleForm);
         this.illusionDistributeParticles.setVisible(particleForm);
+        this.illusionDelayRow.setVisible(particleForm || meshIllusionOptions);
         this.illusionOpacityRow.setVisible(meshIllusionOptions);
         this.illusionOpacityFlagsRow.setVisible(meshIllusionOptions);
         this.illusionDistortRow.setVisible(meshIllusionOptions);
         this.illusionDistortFlagsRow.setVisible(meshIllusionOptions);
-        this.illusionDelayRow.setVisible(meshIllusionOptions);
         this.illusionGlowRow.setVisible(meshIllusionOptions);
         this.illusionGlowFlagsRow.setVisible(meshIllusionOptions);
         this.illusionTexturesRow.setVisible(meshIllusionOptions);

@@ -159,11 +159,27 @@ public final class FormIllusionRenderer
     {
         List<Integer> keys = new ArrayList<>();
 
-        keys.add(0);
+        for (EmissionTrailSite site : collectEmissionTrailSites(form))
+        {
+            keys.add(site.trailInstance);
+        }
+
+        return keys;
+    }
+
+    /**
+     * Same keys as {@link #collectEmissionTrailKeys} plus per-copy film delay lag in ticks
+     * ({@code delay * (copyIndex + 1)}), so independent particle emitters can stay staggered.
+     */
+    public static List<EmissionTrailSite> collectEmissionTrailSites(Form form)
+    {
+        List<EmissionTrailSite> sites = new ArrayList<>();
+
+        sites.add(new EmissionTrailSite(0, 0));
 
         if (form == null)
         {
-            return keys;
+            return sites;
         }
 
         List<Illusion> layers = collectIllusionLayers(form);
@@ -185,14 +201,29 @@ public final class FormIllusionRenderer
             }
 
             int liftKeyBase = layer * 10000;
+            float delay = Math.max(0F, illusion.delay);
 
             for (int i = 0; i < illusion.count; i++)
             {
-                keys.add(liftKeyBase + i + 1);
+                int lag = Math.round(delay * (i + 1));
+
+                sites.add(new EmissionTrailSite(liftKeyBase + i + 1, Math.max(0, lag)));
             }
         }
 
-        return keys;
+        return sites;
+    }
+
+    public static final class EmissionTrailSite
+    {
+        public final int trailInstance;
+        public final int delayLagTicks;
+
+        public EmissionTrailSite(int trailInstance, int delayLagTicks)
+        {
+            this.trailInstance = trailInstance;
+            this.delayLagTicks = delayLagTicks;
+        }
     }
 
     public static void render(Form form, FormRenderingContext formContext, Extras extras)

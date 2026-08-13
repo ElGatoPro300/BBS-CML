@@ -1441,7 +1441,7 @@
     "bbs.ui.forms.editors.general.illusion_connected-tooltip": "Places the illusions right next to each other (the gap equals the model's own size), so they don't overlap.",
     "bbs.ui.forms.editors.general.illusion_count": "Count",
     "bbs.ui.forms.editors.general.illusion_delay": "Delay",
-    "bbs.ui.forms.editors.general.illusion_delay-tooltip": "Staggers the animation across the illusions: each illusion lags behind the main model by this many ticks more than the previous one (e.g. when the head turns, the illusions' heads turn one after another). Set to 0 to disable.",
+    "bbs.ui.forms.editors.general.illusion_delay-tooltip": "Staggers across illusions: each copy lags the main form by this many ticks more than the previous one. For models this delays pose/property tracks; for custom particles with Independent particles it also delays each focus's emitter. Set to 0 to disable.",
     "bbs.ui.forms.editors.general.illusion_distort": "Distortion",
     "bbs.ui.forms.editors.general.illusion_distort-tooltip": "Disintegrates the illusions into horizontal streaks. By default the effect is strongest on the first illusion and fades towards the last. Set to 0 to disable.",
     "bbs.ui.forms.editors.general.illusion_distort_invert": "Invert distortion",

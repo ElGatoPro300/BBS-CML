@@ -8,6 +8,7 @@ import mchorse.bbs_mod.forms.entities.IEntity;
 import mchorse.bbs_mod.forms.forms.ParticleForm;
 import mchorse.bbs_mod.particles.ParticleScheme;
 import mchorse.bbs_mod.particles.emitter.ParticleEmitter;
+import mchorse.bbs_mod.resources.Link;
 import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.utils.MatrixStackUtils;
 import mchorse.bbs_mod.utils.colors.Color;
@@ -27,20 +28,37 @@ import org.joml.Vector3d;
 import org.joml.Vector3f;
 
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
 import java.util.function.Supplier;
 
+/**
+ * Renders / ticks {@link ParticleForm}. With illusion
+ * {@link mchorse.bbs_mod.forms.forms.utils.Illusion#independentParticles}, each focus keeps its
+ * own emitter so streams stay in sync (scheme, pause, texture, user vars, film delay lag).
+ */
 public class ParticleFormRenderer extends FormRenderer<ParticleForm> implements ITickable
 {
     public static long lastUpdate = 0L;
 
+    /** Soft cap on independent emitters (main + illusion copies) to avoid runaway cost. */
+    public static final int MAX_INDEPENDENT_EMITTERS = 48;
+
+    /** Max catch-up updates when a lagged illusion emitter is created mid-lifetime. */
+    private static final int MAX_AGE_CATCH_UP = 40;
+
     private ParticleEmitter emitter;
     private final Map<Integer, ParticleEmitter> illusionEmitters = new HashMap<>();
+    private final Map<Integer, Integer> illusionDelayLags = new HashMap<>();
     private boolean checked;
     private boolean restart;
+    private boolean wasPaused;
     private long lastParticleUpdate = lastUpdate;
+    private String loadedEffect;
 
     public ParticleFormRenderer(ParticleForm form)
     {
@@ -54,34 +72,65 @@ public class ParticleFormRenderer extends FormRenderer<ParticleForm> implements 
 
     public void ensureEmitter(World world, float transition)
     {
+        this.ensureEmitter(world, false);
+    }
+
+    /**
+     * @param applySimulationState when true (tick path), sync pause across all emitters.
+     *        Render path leaves simulation alone so film illusion delay can override
+     *        appearance for one focus without pausing every emitter.
+     */
+    private void ensureEmitter(World world, boolean applySimulationState)
+    {
         if (this.lastParticleUpdate < lastUpdate)
         {
             this.lastParticleUpdate = lastUpdate;
             this.checked = false;
         }
 
+        String effect = this.form.effect.get();
+
+        if (!Objects.equals(effect, this.loadedEffect))
+        {
+            this.checked = false;
+        }
+
         if (!this.checked)
         {
-            ParticleScheme scheme = BBSModClient.getParticles().load(this.form.effect.get());
-
-            this.illusionEmitters.clear();
-
-            if (scheme != null)
-            {
-                this.emitter = new ParticleEmitter();
-                this.emitter.setScheme(scheme);
-                this.emitter.setWorld(world);
-            }
-            else
-            {
-                this.emitter = null;
-            }
-
+            this.rebuildPrimaryEmitter(world, effect);
             this.checked = true;
+        }
+        else if (this.emitter != null)
+        {
+            this.emitter.setWorld(world);
         }
 
         this.syncIllusionEmitters(world);
-        this.applyEmitterRuntimeState();
+
+        if (applySimulationState)
+        {
+            this.applySimulationStateToAll();
+        }
+    }
+
+    private void rebuildPrimaryEmitter(World world, String effect)
+    {
+        this.illusionEmitters.clear();
+        this.illusionDelayLags.clear();
+        this.loadedEffect = effect;
+
+        ParticleScheme scheme = BBSModClient.getParticles().load(effect);
+
+        if (scheme != null)
+        {
+            this.emitter = new ParticleEmitter();
+            this.emitter.setScheme(scheme);
+            this.emitter.setWorld(world);
+        }
+        else
+        {
+            this.emitter = null;
+        }
     }
 
     private void syncIllusionEmitters(World world)
@@ -89,6 +138,7 @@ public class ParticleFormRenderer extends FormRenderer<ParticleForm> implements 
         if (this.emitter == null)
         {
             this.illusionEmitters.clear();
+            this.illusionDelayLags.clear();
 
             return;
         }
@@ -98,17 +148,39 @@ public class ParticleFormRenderer extends FormRenderer<ParticleForm> implements 
         if (!independent)
         {
             this.illusionEmitters.clear();
+            this.illusionDelayLags.clear();
             this.emitter.spawnRateScale = 1F;
 
             return;
         }
 
-        List<Integer> keys = FormIllusionRenderer.collectEmissionTrailKeys(this.form);
-        float scale = FormIllusionRenderer.shouldDistributeParticles(this.form) && keys.size() > 1
-            ? 1F / keys.size()
+        List<FormIllusionRenderer.EmissionTrailSite> sites = FormIllusionRenderer.collectEmissionTrailSites(this.form);
+        int siteCount = Math.min(sites.size(), MAX_INDEPENDENT_EMITTERS);
+        float scale = FormIllusionRenderer.shouldDistributeParticles(this.form) && siteCount > 1
+            ? 1F / siteCount
             : 1F;
 
         this.emitter.spawnRateScale = scale;
+
+        Set<Integer> keep = new HashSet<>();
+
+        keep.add(0);
+
+        for (int s = 0; s < siteCount; s++)
+        {
+            FormIllusionRenderer.EmissionTrailSite site = sites.get(s);
+
+            if (site.trailInstance == 0)
+            {
+                this.illusionDelayLags.put(0, 0);
+
+                continue;
+            }
+
+            keep.add(site.trailInstance);
+            this.illusionDelayLags.put(site.trailInstance, site.delayLagTicks);
+            this.ensureSiteEmitter(site.trailInstance, world, scale);
+        }
 
         Iterator<Map.Entry<Integer, ParticleEmitter>> it = this.illusionEmitters.entrySet().iterator();
 
@@ -116,45 +188,75 @@ public class ParticleFormRenderer extends FormRenderer<ParticleForm> implements 
         {
             Map.Entry<Integer, ParticleEmitter> entry = it.next();
 
-            if (!keys.contains(entry.getKey()) || entry.getKey() == 0)
+            if (!keep.contains(entry.getKey()))
             {
+                entry.getValue().stop();
+                this.illusionDelayLags.remove(entry.getKey());
                 it.remove();
             }
         }
+    }
 
+    private void ensureSiteEmitter(int trailInstance, World world, float spawnRateScale)
+    {
         ParticleScheme scheme = this.emitter.scheme;
+        ParticleEmitter siteEmitter = this.illusionEmitters.get(trailInstance);
+        boolean created = false;
 
-        for (Integer key : keys)
+        if (siteEmitter == null)
         {
-            if (key == null || key == 0)
-            {
-                continue;
-            }
+            siteEmitter = new ParticleEmitter();
+            siteEmitter.setScheme(scheme);
+            siteEmitter.setWorld(world);
+            this.illusionEmitters.put(trailInstance, siteEmitter);
+            created = true;
+        }
+        else
+        {
+            siteEmitter.setWorld(world);
 
-            ParticleEmitter siteEmitter = this.illusionEmitters.get(key);
-
-            if (siteEmitter == null)
+            if (siteEmitter.scheme != scheme)
             {
-                siteEmitter = new ParticleEmitter();
                 siteEmitter.setScheme(scheme);
-                siteEmitter.setWorld(world);
-                this.illusionEmitters.put(key, siteEmitter);
+                created = true;
             }
-            else
-            {
-                siteEmitter.setWorld(world);
+        }
 
-                if (siteEmitter.scheme != scheme)
-                {
-                    siteEmitter.setScheme(scheme);
-                }
-            }
+        siteEmitter.spawnRateScale = spawnRateScale;
+        this.syncEmitterAppearance(siteEmitter, null);
 
-            siteEmitter.spawnRateScale = scale;
+        if (created)
+        {
+            this.catchUpEmitterAge(siteEmitter, this.lagFor(trailInstance));
         }
     }
 
-    private void applyEmitterRuntimeState()
+    private int lagFor(int trailInstance)
+    {
+        Integer lag = this.illusionDelayLags.get(trailInstance);
+
+        return lag == null ? 0 : lag;
+    }
+
+    private void catchUpEmitterAge(ParticleEmitter siteEmitter, int lag)
+    {
+        if (this.emitter == null || siteEmitter == null)
+        {
+            return;
+        }
+
+        int desiredAge = Math.max(0, this.emitter.age - lag);
+        int steps = Math.min(desiredAge - siteEmitter.age, MAX_AGE_CATCH_UP);
+
+        for (int i = 0; i < steps; i++)
+        {
+            this.syncEmitterAppearance(siteEmitter, null);
+            siteEmitter.paused = this.form.paused.get();
+            siteEmitter.update();
+        }
+    }
+
+    private void applySimulationStateToAll()
     {
         if (this.emitter == null || BBSRendering.isIrisShadowPass())
         {
@@ -163,24 +265,44 @@ public class ParticleFormRenderer extends FormRenderer<ParticleForm> implements 
 
         boolean paused = this.form.paused.get();
 
-        this.applyPaused(this.emitter, paused);
-
-        for (ParticleEmitter siteEmitter : this.illusionEmitters.values())
-        {
-            this.applyPaused(siteEmitter, paused);
-        }
-    }
-
-    private void applyPaused(ParticleEmitter emitter, boolean paused)
-    {
-        boolean lastPaused = emitter.paused;
-
-        emitter.paused = paused;
-
-        if (lastPaused != emitter.paused && !emitter.paused && emitter.age > 0 && !this.restart)
+        if (this.wasPaused && !paused)
         {
             this.restart = true;
         }
+
+        this.wasPaused = paused;
+        this.emitter.paused = paused;
+
+        for (ParticleEmitter siteEmitter : this.illusionEmitters.values())
+        {
+            siteEmitter.paused = paused;
+        }
+    }
+
+    private void syncEmitterAppearance(ParticleEmitter emitter, FormRenderingContext context)
+    {
+        if (emitter == null)
+        {
+            return;
+        }
+
+        emitter.setUserVariables(
+            this.form.user1.get(),
+            this.form.user2.get(),
+            this.form.user3.get(),
+            this.form.user4.get(),
+            this.form.user5.get(),
+            this.form.user6.get()
+        );
+
+        Link texture = this.form.texture.get();
+
+        if (context != null && context.textureOverride != null)
+        {
+            texture = context.textureOverride;
+        }
+
+        emitter.texture = texture;
     }
 
     private ParticleEmitter emitterForTrail(int trailInstance)
@@ -198,7 +320,7 @@ public class ParticleFormRenderer extends FormRenderer<ParticleForm> implements 
     @Override
     public void renderInUI(UIContext context, int x1, int y1, int x2, int y2)
     {
-        this.ensureEmitter(MinecraftClient.getInstance().world, context.getTransition());
+        this.ensureEmitter(MinecraftClient.getInstance().world, false);
 
         ParticleEmitter emitter = this.emitter;
 
@@ -211,7 +333,7 @@ public class ParticleFormRenderer extends FormRenderer<ParticleForm> implements 
             stack.translate((x2 + x1) / 2, (y2 + y1) / 2, 40);
             MatrixStackUtils.scaleStack(stack, scale, scale, scale);
 
-            this.updateTexture(emitter, context.getTransition());
+            this.syncEmitterAppearance(emitter, null);
             emitter.lastGlobal.set(new Vector3f(0, 0, 0));
             emitter.rotation.identity();
 
@@ -226,22 +348,14 @@ public class ParticleFormRenderer extends FormRenderer<ParticleForm> implements 
     @Override
     public void render3D(FormRenderingContext context)
     {
-        this.ensureEmitter(MinecraftClient.getInstance().world, context.transition);
+        this.ensureEmitter(MinecraftClient.getInstance().world, false);
 
         ParticleEmitter emitter = this.emitterForTrail(context.trailInstance);
 
         if (emitter != null)
         {
-            emitter.setUserVariables(
-                this.form.user1.get(),
-                this.form.user2.get(),
-                this.form.user3.get(),
-                this.form.user4.get(),
-                this.form.user5.get(),
-                this.form.user6.get()
-            );
-
-            this.updateTexture(emitter, context.transition);
+            /* Film illusion delay may have just applied form properties for this copy. */
+            this.syncEmitterAppearance(emitter, context);
 
             boolean useGameCamera = !context.modelRenderer && context.type != FormRenderType.PREVIEW;
 
@@ -323,59 +437,49 @@ public class ParticleFormRenderer extends FormRenderer<ParticleForm> implements 
         }
     }
 
-    private void updateTexture(ParticleEmitter emitter, float transition)
-    {
-        if (emitter != null)
-        {
-            emitter.texture = this.form.texture.get();
-        }
-    }
-
     @Override
     public void tick(IEntity entity)
     {
-        this.ensureEmitter(entity.getWorld(), 0F);
+        this.ensureEmitter(entity.getWorld(), true);
 
-        if (this.emitter != null)
+        if (this.emitter == null)
         {
-            /* Rewind emitters if paused and resumed in order to make
-             * particle effects with once emitter */
-            if (this.restart)
+            return;
+        }
+
+        /* Rewind emitters if paused and resumed so once-style schemes replay. */
+        if (this.restart)
+        {
+            this.restartEmitter(this.emitter);
+
+            for (ParticleEmitter siteEmitter : this.illusionEmitters.values())
             {
-                this.restartEmitter(this.emitter);
-
-                for (ParticleEmitter siteEmitter : this.illusionEmitters.values())
-                {
-                    this.restartEmitter(siteEmitter);
-                }
-
-                this.restart = false;
+                this.restartEmitter(siteEmitter);
             }
 
-            this.emitter.setUserVariables(
-                this.form.user1.get(),
-                this.form.user2.get(),
-                this.form.user3.get(),
-                this.form.user4.get(),
-                this.form.user5.get(),
-                this.form.user6.get()
-            );
-            this.emitter.update();
+            this.restart = false;
+        }
 
-            if (FormIllusionRenderer.shouldUseIndependentParticles(this.form))
+        this.syncEmitterAppearance(this.emitter, null);
+        this.emitter.update();
+
+        if (!FormIllusionRenderer.shouldUseIndependentParticles(this.form))
+        {
+            return;
+        }
+
+        int mainAge = this.emitter.age;
+
+        for (Map.Entry<Integer, ParticleEmitter> entry : this.illusionEmitters.entrySet())
+        {
+            ParticleEmitter siteEmitter = entry.getValue();
+            int lag = this.lagFor(entry.getKey());
+
+            this.syncEmitterAppearance(siteEmitter, null);
+
+            if (mainAge > lag)
             {
-                for (ParticleEmitter siteEmitter : this.illusionEmitters.values())
-                {
-                    siteEmitter.setUserVariables(
-                        this.form.user1.get(),
-                        this.form.user2.get(),
-                        this.form.user3.get(),
-                        this.form.user4.get(),
-                        this.form.user5.get(),
-                        this.form.user6.get()
-                    );
-                    siteEmitter.update();
-                }
+                siteEmitter.update();
             }
         }
     }
@@ -384,5 +488,7 @@ public class ParticleFormRenderer extends FormRenderer<ParticleForm> implements 
     {
         emitter.stop();
         emitter.start();
+        this.syncEmitterAppearance(emitter, null);
+        emitter.paused = this.form.paused.get();
     }
 }
