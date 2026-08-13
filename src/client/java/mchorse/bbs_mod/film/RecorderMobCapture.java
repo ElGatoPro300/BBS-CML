@@ -868,19 +868,12 @@ public final class RecorderMobCapture
 
         BaseValue.edit(replay.properties, (properties) ->
         {
-            KeyframeChannel channel = properties.getOrCreate(form, "render");
-
-            if (channel == null)
-            {
-                return;
-            }
-
             if (visibleTick >= 0)
             {
-                channel.insert(visibleTick, Boolean.TRUE);
+                properties.insertVisibleRenderEnabled(form, visibleTick, true);
             }
 
-            channel.insert(disappearTick, Boolean.FALSE);
+            properties.insertVisibleRenderEnabled(form, disappearTick, false);
         });
     }
 
@@ -899,19 +892,12 @@ public final class RecorderMobCapture
 
         BaseValue.edit(replay.properties, (properties) ->
         {
-            KeyframeChannel channel = properties.getOrCreate(form, "render");
-
-            if (channel == null)
-            {
-                return;
-            }
-
             if (appearTick > 0)
             {
-                channel.insert(0, Boolean.FALSE);
+                properties.insertVisibleRenderEnabled(form, 0, false);
             }
 
-            channel.insert(appearTick, Boolean.TRUE);
+            properties.insertVisibleRenderEnabled(form, appearTick, true);
         });
     }
 
