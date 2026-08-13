@@ -2,7 +2,6 @@ package mchorse.bbs_mod.ui.forms.editors.utils;
 
 import mchorse.bbs_mod.BBSSettings;
 import mchorse.bbs_mod.forms.FormUtilsClient;
-import mchorse.bbs_mod.forms.ITickable;
 import mchorse.bbs_mod.forms.entities.IEntity;
 import mchorse.bbs_mod.forms.forms.Form;
 import mchorse.bbs_mod.forms.forms.ModelForm;
@@ -416,17 +415,15 @@ public class UIPickableFormRenderer extends UIFormRenderer implements GizmoSurfa
     {
         super.update();
 
-        if (this.update && this.target != null)
-        {
-            this.form.update(this.entity);
-
-            FormRenderer renderer = FormUtilsClient.getRenderer(this.form);
-
-            if (renderer instanceof ITickable tickable)
-            {
-                tickable.tick(this.entity);
-            }
-        }
+        /* Do not call form.update() here when model-block editing set a target.
+         * That path shares the live Form with ModelBlockEntity, which already ticks it
+         * each world tick (panel canPause=false). A second form.update() here ran
+         * ParticleForm emitters at ~2x (~3–4x before the extra ITickable.tick was removed).
+         * Vanilla particles looked closer to correct because MC ages them once per world
+         * tick; custom emitters age on every form.update().
+         *
+         * Other editors leave target null and rely on Morph / film / owning systems for
+         * shared forms — ticking here would double those clocks too. */
     }
 
     @Override
