@@ -13,7 +13,6 @@ import mchorse.bbs_mod.forms.FormUtilsClient;
 import mchorse.bbs_mod.forms.ITickable;
 import mchorse.bbs_mod.forms.entities.IEntity;
 import mchorse.bbs_mod.forms.forms.MobForm;
-import mchorse.bbs_mod.forms.renderers.utils.FormDeathTilt;
 import mchorse.bbs_mod.mixin.LimbAnimatorAccessor;
 import mchorse.bbs_mod.resources.Link;
 import mchorse.bbs_mod.ui.framework.UIContext;
@@ -373,7 +372,10 @@ public class MobFormRenderer extends FormRenderer<MobForm> implements ITickable
             living.setSprinting(source.getMountTarget() == null && source.isSprinting());
             this.applyMorphRotation(living, source);
             this.applyLivingAnimationState(living, source);
-            living.deathTime = this.resolveDeathTimeForRender(source);
+            /* Tip is FormDeathTilt with float death_time. Keep morph.deathTime at 0 so
+             * LivingEntityRenderer does not add tickDelta on a held mid value (shake)
+             * or double-tip recorded deaths. */
+            living.deathTime = 0;
             living.hurtTime = source.getHurtTimer();
             living.maxHurtTime = source.getHurtTimer() > 0 ? Math.max(source.getHurtTimer(), living.maxHurtTime) : 0;
             living.equipStack(EquipmentSlot.MAINHAND, source.getEquipmentStack(EquipmentSlot.MAINHAND));
@@ -559,10 +561,9 @@ public class MobFormRenderer extends FormRenderer<MobForm> implements ITickable
                 if (context.entity != null)
                 {
                     detachedRiding = this.prepareMorphRenderState(livingMorph, context.entity);
-                    /* Tip comes from LivingEntityRenderer via morph.deathTime. Sample
-                     * keyframed death_time for ActorEntity+MobForm here only — never
-                     * write it onto ActorEntity (that stuck the red overlay on scrub). */
-                    livingMorph.deathTime = this.resolveDeathTimeForRender(context.entity);
+                    /* Tip is FormDeathTilt (float sample). Zero morph.deathTime to avoid
+                     * LivingEntityRenderer(deathTime + tickDelta) wobble / double tip. */
+                    livingMorph.deathTime = 0;
                     ItemUseRenderState.syncEquipment(livingMorph, context.entity);
                     this.applyLivingAnimationState(livingMorph, context.entity);
 
@@ -688,7 +689,7 @@ public class MobFormRenderer extends FormRenderer<MobForm> implements ITickable
 
                 if (this.entity instanceof LivingEntity livingEntity)
                 {
-                    livingEntity.deathTime = this.resolveDeathTimeForRender(entity);
+                    livingEntity.deathTime = 0;
                     this.applyMorphRotation(livingEntity, entity);
 
                     /* Limb swing is so ugly */
@@ -809,17 +810,6 @@ public class MobFormRenderer extends FormRenderer<MobForm> implements ITickable
         livingMorph.prevBodyYaw = 0F;
         livingMorph.prevHeadYaw = relativePrevHeadYaw;
         livingMorph.prevPitch = source.getPrevPitch();
-    }
-
-    /**
-     * Death tip for mob morphs is driven by {@code livingMorph.deathTime} inside
-     * vanilla {@code LivingEntityRenderer}. For film actors, also honor keyframed
-     * {@code death_time} without mutating {@link mchorse.bbs_mod.entity.ActorEntity#deathTime}
-     * (writing that field stuck the damage-red overlay across timeline scrubs).
-     */
-    private int resolveDeathTimeForRender(IEntity source)
-    {
-        return FormDeathTilt.resolveDeathTime(source);
     }
 
     /**

@@ -148,6 +148,20 @@ public abstract class BaseFilmController
             return;
         }
 
+        FormDeathTilt.pushSample(context.replay, context.propertyTick);
+
+        try
+        {
+            renderEntityBody(context, entities, entity, camera, stack, transition, form);
+        }
+        finally
+        {
+            FormDeathTilt.popSample();
+        }
+    }
+
+    private static void renderEntityBody(FilmControllerContext context, IntObjectMap<IEntity> entities, IEntity entity, Camera camera, MatrixStack stack, float transition, Form form)
+    {
         applyGroupPaintGlow(form, context.groupPaint, context.groupGlow);
         applyGroupColorGrade(form, context.groupColorGrade);
         applyGroupIllusion(form, context.groupIllusion);
@@ -1092,8 +1106,7 @@ public abstract class BaseFilmController
 
         matrix.translate((float) x, (float) y, (float) z);
         matrix.rotateY(MathUtils.toRad(-bodyYaw));
-        /* Non-MobForm death tip from keyframed death_time (stubs / film matrix path).
-         * MobForm tips inside LivingEntityRenderer via morph.deathTime. */
+        /* Float death_time tip (film sample or actor keyframes / combat). */
         FormDeathTilt.apply(matrix, entity, entity.getForm(), tickDelta);
 
         return matrix;

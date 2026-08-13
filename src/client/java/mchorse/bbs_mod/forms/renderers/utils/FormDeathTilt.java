@@ -5,7 +5,6 @@ import mchorse.bbs_mod.film.replays.Replay;
 import mchorse.bbs_mod.forms.entities.IEntity;
 import mchorse.bbs_mod.forms.entities.MCEntity;
 import mchorse.bbs_mod.forms.forms.Form;
-import mchorse.bbs_mod.forms.forms.MobForm;
 import mchorse.bbs_mod.utils.MathUtils;
 
 import net.minecraft.client.util.math.MatrixStack;
@@ -15,75 +14,110 @@ import net.minecraft.util.math.RotationAxis;
 import org.joml.Matrix4f;
 
 /**
- * Vanilla-style death tip (Z roll) for film forms that are not {@link MobForm}.
- * Mob morphs already tip inside LivingEntityRenderer via morph.deathTime.
+ * Vanilla-style death tip (Z roll) driven by float {@code death_time} progress.
  * <p>
- * Samples keyframed {@code death_time} for actors without writing
- * {@link ActorEntity#deathTime} (combat death stays Attack-driven).
+ * Film render pushes a continuous sample tick ({@code replayTick + transition}) so
+ * keyframe transitions stay smooth. Progress is used directly — do not add render
+ * {@code tickDelta} on top of a held integer, or the tip oscillates every frame.
+ * <p>
+ * For recorded MobForm deaths (1…20 per tick), {@code interpolate(tick + delta)}
+ * matches LivingEntityRenderer's {@code deathTime + tickDelta} tip. Morph
+ * {@code deathTime} stays 0 so vanilla does not double-apply tipDelta.
  */
 public final class FormDeathTilt
 {
+    private static final ThreadLocal<Sample> SAMPLE = new ThreadLocal<>();
+
     private FormDeathTilt()
     {}
 
-    public static boolean supportsFormTip(Form form)
+    public static void pushSample(Replay replay, float tick)
     {
-        return form != null && !(form instanceof MobForm);
+        if (replay == null || Float.isNaN(tick))
+        {
+            return;
+        }
+
+        SAMPLE.set(new Sample(replay, tick));
+    }
+
+    public static void popSample()
+    {
+        SAMPLE.remove();
     }
 
     /**
-     * Death progress for render. Prefers the entity field; for film actors also
-     * honors keyframed {@code death_time} without mutating combat state.
+     * Death tip progress in vanilla deathTime units (0 = upright, ~20 = fully tipped).
      */
-    public static int resolveDeathTime(IEntity source)
+    public static float resolveDeathProgress(IEntity source, float tickDelta)
     {
-        int deathTime = source == null ? 0 : source.getDeathTime();
+        Sample sample = SAMPLE.get();
 
-        if (!(source instanceof MCEntity mcEntity) || !(mcEntity.getMcEntity() instanceof ActorEntity actor))
+        if (sample != null && sample.replay.keyframes != null && !sample.replay.keyframes.deathTime.isEmpty())
         {
-            return deathTime;
+            return sample.replay.keyframes.deathTime.interpolate(sample.tick).floatValue();
         }
 
-        Replay replay = actor.getReplay();
-
-        if (replay != null && replay.keyframes != null)
+        if (source instanceof MCEntity mcEntity && mcEntity.getMcEntity() instanceof ActorEntity actor)
         {
-            int keyDeath = replay.keyframes.deathTime.interpolate((float) actor.getCurrentTick()).intValue();
+            float progress = 0F;
+            Replay replay = actor.getReplay();
 
-            if (keyDeath > 0)
+            if (replay != null && replay.keyframes != null && !replay.keyframes.deathTime.isEmpty())
             {
-                deathTime = Math.max(deathTime, keyDeath);
+                progress = replay.keyframes.deathTime.interpolate((float) actor.getCurrentTick() + tickDelta).floatValue();
             }
+
+            /* Combat death still advances LivingEntity.deathTime — keep vanilla sub-tick ease. */
+            if (actor.deathTime > 0 || actor.isDead() || actor.getHealth() <= 0F)
+            {
+                progress = Math.max(progress, actor.deathTime + tickDelta);
+            }
+
+            return progress;
         }
 
-        if (deathTime <= 0 && (actor.isDead() || actor.getHealth() <= 0F))
-        {
-            deathTime = Math.max(1, actor.deathTime);
-        }
-
-        return deathTime;
-    }
-
-    public static float tipDegrees(int deathTime, float tickDelta)
-    {
-        if (deathTime <= 0)
+        if (source == null)
         {
             return 0F;
         }
 
-        float deathAngle = (deathTime + tickDelta - 1F) / 20F * 1.6F;
+        /* Stub fallback when no film sample is pushed (no extra tickDelta wobble). */
+        return source.getDeathTime();
+    }
+
+    public static int resolveDeathTime(IEntity source)
+    {
+        return MathHelper.floor(resolveDeathProgress(source, 0F));
+    }
+
+    public static float tipDegrees(float deathProgress)
+    {
+        if (deathProgress <= 0F)
+        {
+            return 0F;
+        }
+
+        /* Same curve as LivingEntityRenderer: (deathTime + tickDelta - 1) / 20 * 1.6
+         * with progress already equal to deathTime + fractional tick. */
+        float deathAngle = (deathProgress - 1F) / 20F * 1.6F;
+
+        if (deathAngle <= 0F)
+        {
+            return 0F;
+        }
 
         return Math.min(MathHelper.sqrt(deathAngle), 1F) * 90F;
     }
 
     public static void apply(MatrixStack matrices, IEntity entity, Form form, float tickDelta)
     {
-        if (!supportsFormTip(form))
+        if (form == null || entity == null)
         {
             return;
         }
 
-        float degrees = tipDegrees(resolveDeathTime(entity), tickDelta);
+        float degrees = tipDegrees(resolveDeathProgress(entity, tickDelta));
 
         if (degrees != 0F)
         {
@@ -93,16 +127,28 @@ public final class FormDeathTilt
 
     public static void apply(Matrix4f matrix, IEntity entity, Form form, float tickDelta)
     {
-        if (!supportsFormTip(form))
+        if (form == null || entity == null)
         {
             return;
         }
 
-        float degrees = tipDegrees(resolveDeathTime(entity), tickDelta);
+        float degrees = tipDegrees(resolveDeathProgress(entity, tickDelta));
 
         if (degrees != 0F)
         {
             matrix.rotateZ(MathUtils.toRad(degrees));
+        }
+    }
+
+    private static final class Sample
+    {
+        private final Replay replay;
+        private final float tick;
+
+        private Sample(Replay replay, float tick)
+        {
+            this.replay = replay;
+            this.tick = tick;
         }
     }
 }

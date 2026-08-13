@@ -201,7 +201,7 @@ public class ActorEntityRenderer extends EntityRenderer<ActorEntity>
             matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(-bodyYaw));
         }
 
-        /* Honor keyframed death_time for ModelForm/etc. without writing actor.deathTime. */
+        /* Float death_time tip for ModelForm and MobForm (morph.deathTime stays 0). */
         FormDeathTilt.apply(matrices, entity.getEntity(), entity.getForm(), tickDelta);
     }
 }
