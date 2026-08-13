@@ -389,6 +389,8 @@
     "bbs.config.replays.actor_damage_flash-comment": "When enabled, actor-mode replays flash red when hit by players during film playback (in addition to any damage keyframes). Off by default",
     "bbs.config.replays.actor_damage_animation": "Play damage animation on actors",
     "bbs.config.replays.actor_damage_animation-comment": "When enabled (default), hitting an actor-mode replay during world playback plays its damage reaction (hurt action on emoticon/BOBJ, limb-swing boost on player forms). Disable to keep the film pose and ignore live-hit damage animation",
+    "bbs.config.replays.sync_death_timeline": "Sync deaths with timeline",
+    "bbs.config.replays.sync_death_timeline-comment": "When enabled (default), scrubbing before a combat death brings actor-mode replays back. When disabled, dead actors stay removed until Restart actions (Alt+R)",
     "bbs.config.replays.title": "Replays",
     "bbs.config.replays.tooltip": "Options related to actor replays and animations",
     "bbs.config.scrollbars.sensitivity": "Scrolling sensitivity",

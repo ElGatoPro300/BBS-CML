@@ -357,6 +357,8 @@
     "bbs.config.replays.actor_damage_flash-comment": "Si está activo, los replays en modo actor parpadean en rojo al recibir golpes durante la reproducción (además de los keyframes de daño). Desactivado por defecto",
     "bbs.config.replays.actor_damage_animation": "Reproducir animación de daño en actores",
     "bbs.config.replays.actor_damage_animation-comment": "Si está activo (por defecto), al golpear un replay en modo actor durante la reproducción en el mundo se reproduce la reacción de daño (acción hurt en emoticon/BOBJ, boost del swing en forms de player). Desactívalo para mantener la pose de la película e ignorar la animación de daño por golpes en vivo",
+    "bbs.config.replays.sync_death_timeline": "Sincronizar muertes con la línea de tiempo",
+    "bbs.config.replays.sync_death_timeline-comment": "Si está activo (por defecto), al hacer scrub antes de una muerte en combate los replays en modo actor reaparecen. Si está desactivado, los actores muertos no vuelven hasta Reiniciar acciones (Alt+R)",
     "bbs.config.replays.title": "Reproducciones",
     "bbs.config.replays.tooltip": "Opciones relacionadas con reproducciones de actores y animaciones",
     "bbs.config.scrollbars.sensitivity": "Sensibilidad de desplazamiento",

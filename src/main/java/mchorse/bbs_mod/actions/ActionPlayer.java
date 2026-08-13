@@ -766,7 +766,13 @@ public class ActionPlayer
          * damage taken before the scrub window (fixes “final hit doesn’t kill”). */
         Map<String, Float> health = this.computeSilentHealth(tick);
 
-        this.combatFinishedIds.clear();
+        /* Default: rebuild finished-death set from timeline HP so scrubbing before
+         * a kill revives actors. Off = legacy: once dead this session, stay gone
+         * until Alt+R / updateReplayEntities clears the set. */
+        if (this.isReplayDeathTimelineSyncEnabled())
+        {
+            this.combatFinishedIds.clear();
+        }
 
         for (Map.Entry<String, Float> entry : health.entrySet())
         {
@@ -798,6 +804,11 @@ public class ActionPlayer
         }
 
         this.reapplyActors();
+    }
+
+    private boolean isReplayDeathTimelineSyncEnabled()
+    {
+        return BBSSettings.replayDeathTimelineSync == null || BBSSettings.replayDeathTimelineSync.get();
     }
 
     /**
