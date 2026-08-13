@@ -47,6 +47,11 @@ public class BBSShaders
 
     private static final RenderPipeline PARTICLES = registerParticles();
 
+    private static final RenderPipeline BLOCK_PAINT_OVERLAY = registerOverlay("block_paint_overlay", false);
+    private static final RenderPipeline FLAT_PAINT_OVERLAY = registerOverlay("flat_paint_overlay", false);
+    private static final RenderPipeline BLOCK_COLOR_TINT_OVERLAY = registerOverlay("block_color_tint_overlay", true);
+    private static final RenderPipeline FLAT_COLOR_TINT_OVERLAY = registerOverlay("flat_color_tint_overlay", true);
+
     private static RenderLayer modelLayer;
     private static RenderLayer multiLinkLayer;
     private static RenderLayer subtitlesLayer;
@@ -197,22 +202,22 @@ public class BBSShaders
 
     public static RenderPipeline getBlockPaintOverlayProgram()
     {
-        return MODEL;
+        return BLOCK_PAINT_OVERLAY;
     }
 
     public static RenderPipeline getBlockColorTintOverlayProgram()
     {
-        return MODEL;
+        return BLOCK_COLOR_TINT_OVERLAY;
     }
 
     public static RenderPipeline getFlatColorTintOverlayProgram()
     {
-        return MODEL;
+        return FLAT_COLOR_TINT_OVERLAY;
     }
 
     public static RenderPipeline getFlatPaintOverlayProgram()
     {
-        return MODEL;
+        return FLAT_PAINT_OVERLAY;
     }
 
     public static RenderPipeline getModelProgram()
@@ -321,6 +326,33 @@ public class BBSShaders
             .withUniform("Projection", UniformType.UNIFORM_BUFFER)
             .withUniform(PICKER_UNIFORM, UniformType.UNIFORM_BUFFER)
             .withSampler("Sampler0");
+
+        return RenderPipelines.register(builder.build());
+    }
+
+    private static RenderPipeline registerOverlay(String name, boolean hasSampler3)
+    {
+        Identifier shader = Identifier.of(BBSMod.MOD_ID, "core/" + name);
+
+        RenderPipeline.Builder builder = RenderPipeline.builder()
+            .withLocation(Identifier.of(BBSMod.MOD_ID, "pipeline/" + name))
+            .withVertexShader(shader)
+            .withFragmentShader(shader)
+            .withVertexFormat(VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL, VertexFormat.DrawMode.QUADS)
+            .withBlend(BLEND)
+            .withDepthTestFunction(DepthTestFunction.LEQUAL_DEPTH_TEST)
+            .withCull(false)
+            .withUniform("DynamicTransforms", UniformType.UNIFORM_BUFFER)
+            .withUniform("Projection", UniformType.UNIFORM_BUFFER)
+            .withUniform("Fog", UniformType.UNIFORM_BUFFER)
+            .withUniform("Lighting", UniformType.UNIFORM_BUFFER)
+            .withSampler("Sampler0")
+            .withSampler("Sampler2");
+
+        if (hasSampler3)
+        {
+            builder.withSampler("Sampler3");
+        }
 
         return RenderPipelines.register(builder.build());
     }
