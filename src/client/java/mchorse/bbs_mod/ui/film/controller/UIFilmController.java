@@ -2262,12 +2262,15 @@ public class UIFilmController extends UIElement
 
                 IEntity renderEntity = this.editorController.getRenderEntity(replay, entry.getValue());
                 boolean physicalActor = renderEntity != entry.getValue();
+                float transition = isPlaying ? renderContext.tickCounter().getTickDelta(false) : 0F;
+                float propertyTick = replay.getTick(cursorTick) + transition;
 
                 BaseFilmController.renderEntity(FilmControllerContext.instance
                     .setup(this.getEntities(), renderEntity, replay, renderContext)
                     .film(this.panel.getData())
                     .filmTick(cursorTick)
-                    .transition(isPlaying ? renderContext.tickCounter().getTickDelta(false) : 0)
+                    .propertyTick(propertyTick)
+                    .transition(transition)
                     .stencil(this.stencilMap)
                     .relative(replay.isCameraRelative())
                     .physicalActor(physicalActor));
@@ -2338,11 +2341,15 @@ public class UIFilmController extends UIElement
                         }
                     }
 
+                    float transition = isPlaying ? renderContext.tickCounter().getTickDelta(false) : 0F;
+                    float propertyTick = currentReplay.getTick(cursorTick) + transition;
+
                     BaseFilmController.renderEntity(FilmControllerContext.instance
                         .setup(this.getEntities(), renderEntity, currentReplay, renderContext)
                         .film(this.panel.getData())
                         .filmTick(cursorTick)
-                        .transition(isPlaying ? renderContext.tickCounter().getTickDelta(false) : 0)
+                        .propertyTick(propertyTick)
+                        .transition(transition)
                         .stencil(this.stencilMap)
                         .relative(currentReplay.relative.get())
                         .physicalActor(physicalActor)

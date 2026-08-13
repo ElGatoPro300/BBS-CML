@@ -1,6 +1,7 @@
 package mchorse.bbs_mod.forms.renderers.utils;
 
 import mchorse.bbs_mod.entity.ActorEntity;
+import mchorse.bbs_mod.film.FilmControllerContext;
 import mchorse.bbs_mod.film.replays.Replay;
 import mchorse.bbs_mod.forms.entities.IEntity;
 import mchorse.bbs_mod.forms.entities.MCEntity;
@@ -39,6 +40,32 @@ public final class FormDeathTilt
         }
 
         SAMPLE.set(new Sample(replay, tick));
+    }
+
+    /**
+     * Prefer {@link FilmControllerContext#propertyTick}; if missing (stencil / pick passes),
+     * rebuild {@code replayTick + transition} from filmTick so death tip matches the body.
+     */
+    public static void pushSample(FilmControllerContext context)
+    {
+        if (context == null || context.replay == null)
+        {
+            return;
+        }
+
+        float tick = context.propertyTick;
+
+        if (Float.isNaN(tick))
+        {
+            if (context.filmTick < 0)
+            {
+                return;
+            }
+
+            tick = context.replay.getTick(context.filmTick) + context.transition;
+        }
+
+        pushSample(context.replay, tick);
     }
 
     public static void popSample()

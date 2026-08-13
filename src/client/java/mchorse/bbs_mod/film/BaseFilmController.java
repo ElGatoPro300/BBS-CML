@@ -148,7 +148,7 @@ public abstract class BaseFilmController
             return;
         }
 
-        FormDeathTilt.pushSample(context.replay, context.propertyTick);
+        FormDeathTilt.pushSample(context);
 
         try
         {
