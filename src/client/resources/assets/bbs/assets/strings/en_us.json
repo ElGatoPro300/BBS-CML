@@ -1448,6 +1448,8 @@
     "bbs.ui.forms.editors.general.illusion_distort_invert-tooltip": "Reverses the distortion gradient: it's strongest on the last illusion and fades towards the first one.",
     "bbs.ui.forms.editors.general.illusion_distort_uniform": "Uniform distortion",
     "bbs.ui.forms.editors.general.illusion_distort_uniform-tooltip": "All illusions get the same distortion instead of fading from the first one to the last.",
+    "bbs.ui.forms.editors.general.illusion_distribute_particles": "Distribute particles",
+    "bbs.ui.forms.editors.general.illusion_distribute_particles-tooltip": "When enabled, the particle count is shared across the main form and every illusion focus. When disabled, each focus emits the full particle count. Applies to vanilla particle forms (custom particles still visually replicate at each focus).",
     "bbs.ui.forms.editors.general.illusion_down": "Down",
     "bbs.ui.forms.editors.general.illusion_front": "Front",
     "bbs.ui.forms.editors.general.illusion_glow": "Glow",

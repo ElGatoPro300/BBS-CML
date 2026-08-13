@@ -63,6 +63,13 @@ public class Illusion implements IMapSerializable
     public boolean glowUniform;
     public boolean glowInvert;
 
+    /**
+     * When true, particle forms split their spawn count across the main form and every
+     * illusion focus. When false (default), each focus emits the full particle count.
+     * Used by {@code VanillaParticleForm}; custom particle forms still visually replicate.
+     */
+    public boolean distributeParticles;
+
     public Illusion()
     {}
 
@@ -81,6 +88,7 @@ public class Illusion implements IMapSerializable
             && this.glowInvert == illusion.glowInvert
             && this.distortUniform == illusion.distortUniform
             && this.distortInvert == illusion.distortInvert
+            && this.distributeParticles == illusion.distributeParticles
             && this.textures.equals(illusion.textures);
     }
 
@@ -110,6 +118,7 @@ public class Illusion implements IMapSerializable
         illusion.glow = this.glow;
         illusion.glowUniform = this.glowUniform;
         illusion.glowInvert = this.glowInvert;
+        illusion.distributeParticles = this.distributeParticles;
 
         return illusion;
     }
@@ -171,6 +180,7 @@ public class Illusion implements IMapSerializable
         this.glow = data.getFloat("glow", 0F);
         this.glowUniform = data.getBool("glow_uniform", false);
         this.glowInvert = data.getBool("glow_invert", false);
+        this.distributeParticles = data.getBool("distribute_particles", false);
         this.textures.clear();
 
         /* Legacy enable toggles: zero out when explicitly disabled in older saves */
@@ -224,6 +234,7 @@ public class Illusion implements IMapSerializable
         data.putFloat("glow", this.glow);
         data.putBool("glow_uniform", this.glowUniform);
         data.putBool("glow_invert", this.glowInvert);
+        data.putBool("distribute_particles", this.distributeParticles);
 
         if (!this.textures.isEmpty())
         {

@@ -797,6 +797,8 @@ public class UIKeys
     public static final IKey FORMS_EDITORS_GENERAL_ILLUSION_GLOW_UNIFORM_TOOLTIP = L10n.lang("bbs.ui.forms.editors.general.illusion_glow_uniform-tooltip");
     public static final IKey FORMS_EDITORS_GENERAL_ILLUSION_GLOW_INVERT = L10n.lang("bbs.ui.forms.editors.general.illusion_glow_invert");
     public static final IKey FORMS_EDITORS_GENERAL_ILLUSION_GLOW_INVERT_TOOLTIP = L10n.lang("bbs.ui.forms.editors.general.illusion_glow_invert-tooltip");
+    public static final IKey FORMS_EDITORS_GENERAL_ILLUSION_DISTRIBUTE_PARTICLES = L10n.lang("bbs.ui.forms.editors.general.illusion_distribute_particles");
+    public static final IKey FORMS_EDITORS_GENERAL_ILLUSION_DISTRIBUTE_PARTICLES_TOOLTIP = L10n.lang("bbs.ui.forms.editors.general.illusion_distribute_particles-tooltip");
     public static final IKey FORMS_EDITORS_GENERAL_SHADER_SHADOW = L10n.lang("bbs.ui.forms.editors.general.shader_shadow");
     public static final IKey FORMS_EDITORS_GENERAL_STEP_HEIGHT = L10n.lang("bbs.ui.forms.editors.general.step_height");
     public static final IKey FORMS_EDITORS_GENERAL_TRACK_NAME_TOOLTIP = L10n.lang("bbs.ui.forms.editors.general.track_name-tooltip");

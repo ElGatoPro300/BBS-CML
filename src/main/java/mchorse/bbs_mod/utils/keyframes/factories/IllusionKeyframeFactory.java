@@ -59,6 +59,7 @@ public class IllusionKeyframeFactory implements IKeyframeFactory<Illusion>
             illusion.glowInvert = a.glowInvert;
             illusion.gradual = a.gradual;
             illusion.gradualInvert = a.gradualInvert;
+            illusion.distributeParticles = a.distributeParticles;
             illusion.transform.lerp(a.transform, a.transform, b.transform, b.transform, interpolation, x);
         }
 
