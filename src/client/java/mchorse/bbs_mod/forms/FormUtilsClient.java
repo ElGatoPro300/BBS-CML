@@ -85,11 +85,21 @@ public class FormUtilsClient
         register(LightForm.class, LightFormRenderer::new);
     }
 
+    /**
+     * Private Immediate for form/item/armor/block draws.
+     * <p>
+     * Must NOT wrap {@code getEntityVertexConsumers()}: model blocks and forms call
+     * {@link CustomVertexConsumerProvider#draw()} after {@code ModelForm} turns the lightmap
+     * off, which would flush pending vanilla entity layers (enchanted armor + glint) black
+     * and z-fighting. MobForm world morphs already use {@link #getMobMorphProvider()}.
+     */
     public static CustomVertexConsumerProvider getProvider()
     {
         if (customVertexConsumerProvider == null)
         {
-            customVertexConsumerProvider = new CustomVertexConsumerProvider(MinecraftClient.getInstance().getBufferBuilders().getEntityVertexConsumers());
+            customVertexConsumerProvider = new CustomVertexConsumerProvider(
+                VertexConsumerProvider.immediate(new BufferBuilder(512 * 1024))
+            );
         }
 
         return customVertexConsumerProvider;

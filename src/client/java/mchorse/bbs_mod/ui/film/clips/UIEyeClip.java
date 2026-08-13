@@ -139,23 +139,10 @@ public class UIEyeClip extends UIClip<EyeClip>
     {
         super.registerPanels();
 
-        this.panels.add(UI.column(
-            UIClip.label(UIKeys.SCREEN_PANELS_EYE_COLOR),
-            this.color,
-            this.colorOpacity
-        ).marginTop(6));
-        this.panels.add(UI.column(
-            UIClip.label(UIKeys.SCREEN_PANELS_EYE_TILT),
-            this.rotation,
-            this.zoom,
-            this.width,
-            this.height
-        ).marginTop(6));
-        this.panels.add(UI.column(
-            UIClip.label(UIKeys.SCREEN_PANELS_EYE_OFFSET),
-            UI.row(this.offsetX, this.offsetY)
-        ).marginTop(6));
-        this.panels.add(UI.column(UIClip.label(UIKeys.SCREEN_PANELS_KEYFRAMES), this.edit).marginTop(6));
+        this.panels.add(this.section(UIKeys.SCREEN_PANELS_EYE_COLOR, this.color, this.colorOpacity));
+        this.panels.add(this.section(UIKeys.SCREEN_PANELS_EYE_TILT, this.rotation, this.zoom, this.width, this.height));
+        this.panels.add(this.section(UIKeys.SCREEN_PANELS_EYE_OFFSET, UI.row(this.offsetX, this.offsetY)));
+        this.panels.add(this.section(UIKeys.SCREEN_PANELS_KEYFRAMES, this.edit));
     }
 
     @Override

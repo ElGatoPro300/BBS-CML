@@ -37,7 +37,7 @@ public class UIIdleClip extends UIClip<IdleClip>
     {
         super.registerPanels();
 
-        this.panels.add(this.point.marginTop(12), this.angle.marginTop(6));
+        this.panels.add(this.point, this.angle);
         this.panels.context((menu) -> UICameraUtils.positionContextMenu(menu, this.editor, this.clip.position));
     }
 

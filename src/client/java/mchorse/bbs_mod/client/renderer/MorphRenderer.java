@@ -106,9 +106,6 @@ public class MorphRenderer
                 matrixStack.pop();
 
                 BBSRendering.restoreWorldRenderState();
-                /* Prior morph pipeline left depth disabled after the form draw; keep that so
-                 * GPU-skinned BOBJ / procedural limbs keep matching the working entity pass. */
-                RenderSystem.disableDepthTest();
             }
 
             return true;
@@ -187,7 +184,6 @@ public class MorphRenderer
             matrixStack.pop();
 
             BBSRendering.restoreWorldRenderState();
-            RenderSystem.disableDepthTest();
 
             return true;
         }

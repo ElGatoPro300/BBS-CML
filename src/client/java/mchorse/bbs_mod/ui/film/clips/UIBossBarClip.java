@@ -185,20 +185,11 @@ public class UIBossBarClip extends UIClip<BossBarClip>
     {
         super.registerPanels();
 
-        this.panels.add(UI.column(
-            UIClip.label(UIKeys.CAMERA_PANELS_BOSS_BAR_TITLE),
-            this.textColor,
-            this.textSize
-        ).marginTop(6));
-        this.panels.add(UI.column(UIClip.label(UIKeys.CAMERA_PANELS_BOSS_BAR_POSITION), UI.row(this.x, this.y)).marginTop(6));
-        this.panels.add(UI.column(
-            UIClip.label(UIKeys.CAMERA_PANELS_BOSS_BAR_SIZE),
-            UI.row(this.width, this.height),
-            this.zoom,
-            this.progress
-        ).marginTop(6));
-        this.panels.add(UI.column(UIClip.label(UIKeys.CAMERA_PANELS_BOSS_BAR_COLOR), this.color, this.colorPresets).marginTop(6));
-        this.panels.add(UI.column(UIClip.label(UIKeys.SCREEN_PANELS_KEYFRAMES), this.edit).marginTop(6));
+        this.panels.add(this.section(UIKeys.CAMERA_PANELS_BOSS_BAR_TITLE, this.textColor, this.textSize));
+        this.panels.add(this.section(UIKeys.CAMERA_PANELS_BOSS_BAR_POSITION, UI.row(this.x, this.y)));
+        this.panels.add(this.section(UIKeys.CAMERA_PANELS_BOSS_BAR_SIZE, UI.row(this.width, this.height), this.zoom, this.progress));
+        this.panels.add(this.section(UIKeys.CAMERA_PANELS_BOSS_BAR_COLOR, this.color, this.colorPresets));
+        this.panels.add(this.section(UIKeys.SCREEN_PANELS_KEYFRAMES, this.edit));
     }
 
     @Override

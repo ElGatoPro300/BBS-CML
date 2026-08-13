@@ -108,7 +108,7 @@ public class UIGeneralFormPanel extends UIFormPanel
         this.animatable.tooltip(UIKeys.FORMS_EDITORS_GENERAL_ANIMATABLE_TOOLTIP);
         this.trackName = new UITextbox(120, (t) -> this.form.trackName.set(t));
         this.trackName.tooltip(UIKeys.FORMS_EDITORS_GENERAL_TRACK_NAME_TOOLTIP);
-        this.lighting = new UIToggle(UIKeys.FORMS_EDITORS_GENERAL_LIGHTING, (b) -> this.form.lighting.set(b.getValue() ? 1F : 0F));
+        this.lighting = new UIToggle(UIKeys.FORMS_EDITORS_GENERAL_LIGHTING, (b) -> this.form.lighting.set(b.getValue() ? 0F : 1F));
         this.lighting.tooltip(UIKeys.FORMS_EDITORS_GENERAL_LIGHTING_TOOLTIP);
         this.shaderShadow = new UIToggle(UIKeys.FORMS_EDITORS_GENERAL_SHADER_SHADOW, (b) -> this.form.shaderShadow.set(b.getValue()));
         this.lookAt = new UILookAtEditor();
@@ -339,7 +339,7 @@ public class UIGeneralFormPanel extends UIFormPanel
         this.visible.setValue(form.visible.get());
         this.animatable.setValue(form.animatable.get());
         this.trackName.setText(form.trackName.get());
-        this.lighting.setValue(form.lighting.get() > 0F);
+        this.lighting.setValue(form.lighting.get() < 0.5F);
         this.shaderShadow.setValue(form.shaderShadow.get());
         /* Look At / IK need film replay actors as targets — hide in model-block form editing. */
         this.updateFilmOnlySectionsVisibility();

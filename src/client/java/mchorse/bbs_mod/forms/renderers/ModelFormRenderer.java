@@ -620,6 +620,11 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
 
             this.captureMatrices(model);
 
+            if (!ui && BBSRendering.isRenderingWorld())
+            {
+                BBSRendering.restoreWorldRenderState();
+            }
+
             return;
         }
 
@@ -1714,11 +1719,20 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
             RenderSystem.enableCull();
         }
 
-        /* Render items */
+        /* Render items — re-enable lightmap first so armor/glint and any shared Immediate
+         * flush do not draw vanilla-style layers black. */
         this.captureMatrices(model);
 
         if (stencilMap == null && renderEquipment)
         {
+            if (!ui)
+            {
+                gameRenderer.getLightmapTextureManager().enable();
+                gameRenderer.getOverlayTexture().setupOverlayColor();
+                RenderSystem.enableDepthTest();
+                RenderSystem.depthFunc(GL11.GL_LEQUAL);
+            }
+
             this.renderItems(target, model, stack, EquipmentSlot.MAINHAND, ModelTransformationMode.THIRD_PERSON_RIGHT_HAND, model.itemsMain, model.itemsMainTransform, color, overlay, light);
             this.renderItems(target, model, stack, EquipmentSlot.OFFHAND, ModelTransformationMode.THIRD_PERSON_LEFT_HAND, model.itemsOff, model.itemsOffTransform, color, overlay, light);
 
@@ -1728,6 +1742,11 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
             }
 
             this.resetPostEquipmentRenderState();
+        }
+
+        if (!ui && BBSRendering.isRenderingWorld())
+        {
+            BBSRendering.restoreWorldRenderState();
         }
     }
 

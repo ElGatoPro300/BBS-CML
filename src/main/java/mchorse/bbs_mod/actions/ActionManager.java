@@ -130,9 +130,38 @@ public class ActionManager
 
     public void startRecording(Film film, ServerPlayerEntity entity, int tick, int countdown, int replayId)
     {
-        ActionPlayer play = this.play(entity, entity.getServerWorld(), film, tick, countdown, replayId, PlayerType.RECORDING);
+        this.startRecording(film, entity, tick, countdown, replayId, false);
+    }
 
-        play.stopDamage = false;
+    /**
+     * @param recorderOnly when true (film-editor viewport), keep any existing
+     *        {@link ActionPlayer} (FILM_EDITOR actors / puppet) and only attach
+     *        an {@link ActionRecorder}. Outside/world recording uses false.
+     */
+    public void startRecording(Film film, ServerPlayerEntity entity, int tick, int countdown, int replayId, boolean recorderOnly)
+    {
+        if (recorderOnly)
+        {
+            ActionPlayer existing = this.getPlayer(film.getId());
+
+            if (existing == null)
+            {
+                existing = this.play(entity, entity.getServerWorld(), film, tick, PlayerType.FILM_EDITOR);
+                existing.syncing = true;
+                existing.playing = false;
+            }
+
+            if (replayId >= 0)
+            {
+                existing.controlledReplay = replayId;
+            }
+        }
+        else
+        {
+            ActionPlayer play = this.play(entity, entity.getServerWorld(), film, tick, countdown, replayId, PlayerType.RECORDING);
+
+            play.stopDamage = false;
+        }
 
         this.recorders.put(entity, new ActionRecorder(film, entity, tick, countdown));
     }
@@ -200,10 +229,27 @@ public class ActionManager
 
     public ActionRecorder stopRecording(ServerPlayerEntity entity)
     {
+        return this.stopRecording(entity, false);
+    }
+
+    /**
+     * @param recorderOnly when true, detach the recorder and return clips without
+     *        tearing down the film's {@link ActionPlayer} (viewport recording).
+     */
+    public ActionRecorder stopRecording(ServerPlayerEntity entity, boolean recorderOnly)
+    {
         ActionRecorder remove = this.recorders.remove(entity);
 
-        this.stop(remove.getFilm().getId());
-        this.stopDamage(entity.getServerWorld());
+        if (remove == null)
+        {
+            return null;
+        }
+
+        if (!recorderOnly)
+        {
+            this.stop(remove.getFilm().getId());
+            this.stopDamage(entity.getServerWorld());
+        }
 
         return remove;
     }

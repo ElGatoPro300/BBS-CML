@@ -189,4 +189,46 @@ public class AttackActionClip extends ActionClip
     {
         return new AttackActionClip();
     }
+
+    /**
+     * After paste/dupe, rewrite bound actor targets so clips still point at the
+     * copies created in the same batch (old replay id → new replay id).
+     */
+    public static void remapTargets(Iterable<Replay> replays, Map<String, String> oldToNewId)
+    {
+        if (replays == null || oldToNewId == null || oldToNewId.isEmpty())
+        {
+            return;
+        }
+
+        for (Replay replay : replays)
+        {
+            if (replay == null || replay.actions == null)
+            {
+                continue;
+            }
+
+            for (Clip clip : replay.actions.get())
+            {
+                if (!(clip instanceof AttackActionClip attack))
+                {
+                    continue;
+                }
+
+                String targetId = attack.target.get();
+
+                if (targetId == null || targetId.isEmpty())
+                {
+                    continue;
+                }
+
+                String mapped = oldToNewId.get(targetId);
+
+                if (mapped != null && !mapped.isEmpty())
+                {
+                    attack.target.set(mapped);
+                }
+            }
+        }
+    }
 }

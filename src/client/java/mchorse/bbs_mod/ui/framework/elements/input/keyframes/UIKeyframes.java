@@ -55,6 +55,8 @@ import mchorse.bbs_mod.utils.keyframes.KeyframeChannel;
 import mchorse.bbs_mod.utils.keyframes.KeyframeSegment;
 import mchorse.bbs_mod.utils.keyframes.factories.IKeyframeFactory;
 import mchorse.bbs_mod.utils.keyframes.factories.KeyframeFactories;
+import mchorse.bbs_mod.utils.keyframes.factories.LightingSettingsKeyframeFactory;
+import mchorse.bbs_mod.forms.forms.utils.LightingSettings;
 import mchorse.bbs_mod.utils.presets.PresetManager;
 
 import org.lwjgl.glfw.GLFW;
@@ -412,7 +414,17 @@ public class UIKeyframes extends UIElement
 
             for (Keyframe keyframe : selected)
             {
-                keyframe.setValue(sheet.clampValue(factory.yToValue(factory.getY(keyframe.getValue()) + difference)));
+                Object current = keyframe.getValue();
+                double newY = factory.getY(current) + difference;
+
+                if (factory == KeyframeFactories.LIGHTING_SETTINGS && current instanceof LightingSettings lighting)
+                {
+                    keyframe.setValue(LightingSettingsKeyframeFactory.applyGraphY(lighting, newY));
+                }
+                else
+                {
+                    keyframe.setValue(sheet.clampValue(factory.yToValue(newY)));
+                }
             }
 
             sheet.channel.postNotify();
@@ -2467,7 +2479,7 @@ public class UIKeyframes extends UIElement
     {
         context.batcher.box(this.area.x, this.area.y, this.area.ex(), this.area.ey(), 0xee0b0d12);
         context.batcher.box(this.area.x, this.area.y, this.area.ex(), this.area.y + RULER_HEIGHT, 0xff111115);
-        context.batcher.box(this.area.x, this.area.y + RULER_HEIGHT - 1, this.area.ex(), this.area.y + RULER_HEIGHT, 0x44ffffff);
+        context.batcher.box(this.area.x, this.area.y + RULER_HEIGHT - 1, this.area.ex(), this.area.y + RULER_HEIGHT, 0x22ffffff);
 
         int duration = this.getDuration();
 

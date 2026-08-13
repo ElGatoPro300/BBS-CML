@@ -274,8 +274,9 @@ public class BBSSettings
 
     /**
      * When enabled (default), films dual-write legacy-friendly data for fields
-     * that newer builds store differently (subtitle lineHeight/maxWidth, and
-     * Opacity mirrored into Color alpha for older builds).
+     * that newer builds store differently (subtitle lineHeight/maxWidth, Opacity
+     * mirrored into Color alpha, form lighting brightness rewritten as legacy
+     * world-influence floats, etc.).
      */
     public static boolean isSaveAsCompatible()
     {

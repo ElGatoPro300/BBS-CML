@@ -27,6 +27,7 @@ import mchorse.bbs_mod.events.TriggerBlockEntityUpdateCallback;
 import mchorse.bbs_mod.film.BaseFilmController;
 import mchorse.bbs_mod.film.WorldFilmController;
 import mchorse.bbs_mod.film.replays.Replay;
+import mchorse.bbs_mod.forms.CustomVertexConsumerProvider;
 import mchorse.bbs_mod.forms.FormUtilsClient;
 import mchorse.bbs_mod.forms.forms.Form;
 import mchorse.bbs_mod.forms.renderers.FormRenderer;
@@ -339,6 +340,10 @@ public class BBSRendering
     /**
      * Reset GL state after mid-UI 3D form/model draws so later Batcher2D text is not
      * left with additive blend / depthMask false / grade uniforms (white doubled glyphs).
+     *
+     * Never unbind VAO / ARRAY_BUFFER / ELEMENT_ARRAY_BUFFER here. On AMD (atio6axx)
+     * that leaves Batcher2D's next glDrawElements with a null index path (hard crash)
+     * or silently skips card chrome while form previews still draw through their own VAO.
      */
     public static void restoreGuiRenderState()
     {
@@ -355,10 +360,9 @@ public class BBSRendering
     }
 
     /**
-     * Soft-opacity / glow / equipment can leave depthMask/blend/shader color wrong and poison
-     * later Model Block / Iris shadow draws. Only sanitize leaky state — do not force depth-test
-     * on or rewrite level lights (that changed the post-morph entity pipeline and froze
-     * GPU-skinned / procedural limb motion).
+     * Soft-opacity / glow / form draws can leave depthMask, blend, depth test, lightmap,
+     * or overlay wrong. After model-block forms that also matters for WorldRenderer's later
+     * flush of buffered vanilla entity layers (enchanted armor). Do not rewrite level lights.
      */
     public static void restoreWorldRenderState()
     {
@@ -367,6 +371,19 @@ public class BBSRendering
         RenderSystem.enableBlend();
         RenderSystem.defaultBlendFunc();
         RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
+        RenderSystem.enableDepthTest();
+        RenderSystem.depthFunc(GL11.GL_LEQUAL);
+        GL11.glPolygonOffset(0F, 0F);
+        GL11.glDisable(GL11.GL_POLYGON_OFFSET_FILL);
+        CustomVertexConsumerProvider.clearRunnables();
+
+        MinecraftClient client = MinecraftClient.getInstance();
+
+        if (client != null && client.gameRenderer != null)
+        {
+            client.gameRenderer.getLightmapTextureManager().enable();
+            client.gameRenderer.getOverlayTexture().setupOverlayColor();
+        }
     }
 
     /** Vanilla level diffuse basis shared by morphs and editor previews. */

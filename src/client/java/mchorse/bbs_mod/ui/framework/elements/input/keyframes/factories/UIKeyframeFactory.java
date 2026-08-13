@@ -63,6 +63,8 @@ public abstract class UIKeyframeFactory <T> extends UIElement
         register(KeyframeFactories.BOOLEAN, UIBooleanKeyframeFactory::new);
         register(KeyframeFactories.COLOR, UIColorKeyframeFactory::new);
         register(KeyframeFactories.FLOAT, UIFloatKeyframeFactory::new);
+        register(KeyframeFactories.LIGHTING_BRIGHTNESS, UIFloatKeyframeFactory::new);
+        register(KeyframeFactories.LIGHTING_SETTINGS, UILightingKeyframeFactory::new);
         register(KeyframeFactories.DOUBLE, UIDoubleKeyframeFactory::new);
         register(KeyframeFactories.INTEGER, UIIntegerKeyframeFactory::new);
         register(KeyframeFactories.LINK, UILinkKeyframeFactory::new);

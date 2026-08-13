@@ -925,6 +925,12 @@ public class UIKeys
     public static final IKey FILM_REPLAY_TRACK_RENDER_ENABLED = L10n.lang("bbs.ui.film.replay.track.render.enabled");
     public static final IKey FILM_REPLAY_TRACK_RENDER_ENABLED_TOOLTIP = L10n.lang("bbs.ui.film.replay.track.render.enabled-tooltip");
     public static final IKey FILM_REPLAY_TRACK_LIGHTING = L10n.lang("bbs.ui.film.replay.track.lighting");
+    public static final IKey FILM_REPLAY_TRACK_LIGHTING_VALUE_TOOLTIP = L10n.lang("bbs.ui.film.replay.track.lighting.value-tooltip");
+    public static final IKey FILM_REPLAY_TRACK_LIGHTING_FIXED = L10n.lang("bbs.ui.film.replay.track.lighting.fixed");
+    public static final IKey FILM_REPLAY_TRACK_LIGHTING_FIXED_TOOLTIP = L10n.lang("bbs.ui.film.replay.track.lighting.fixed-tooltip");
+    public static final IKey FILM_REPLAY_TRACK_LIGHTING_LEVEL_TOOLTIP = L10n.lang("bbs.ui.film.replay.track.lighting.level-tooltip");
+    public static final IKey FILM_REPLAY_TRACK_LIGHTING_TRUNCATE = L10n.lang("bbs.ui.film.replay.track.lighting.truncate");
+    public static final IKey FILM_REPLAY_TRACK_LIGHTING_TRUNCATE_TOOLTIP = L10n.lang("bbs.ui.film.replay.track.lighting.truncate-tooltip");
     public static final IKey FILM_REPLAY_TRACK_TRANSFORM = L10n.lang("bbs.ui.film.replay.track.transform");
     public static final IKey FILM_REPLAY_TRACK_ANCHOR = L10n.lang("bbs.ui.film.replay.track.anchor");
     public static final IKey FILM_REPLAY_TRACK_COLOR = L10n.lang("bbs.ui.film.replay.track.color");

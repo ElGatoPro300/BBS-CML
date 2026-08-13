@@ -6623,6 +6623,16 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
     @Override
     public void setCursor(int value)
     {
+        this.setCursor(value, true);
+    }
+
+    /**
+     * @param applyWorldActions when false, soft-sync the server tick without
+     *        walking {@link mchorse.bbs_mod.actions.ActionPlayer#goTo} (avoids
+     *        re-firing swipe / break / drop clips on a programmatic restore).
+     */
+    public void setCursor(int value, boolean applyWorldActions)
+    {
         this.flightEditTime.mark();
         this.lastPosition.set(Position.ZERO);
 
@@ -6630,7 +6640,7 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
 
         this.runner.ticks = Math.max(0, value);
 
-        this.notifyServer(ActionState.SEEK);
+        this.notifyServer(applyWorldActions ? ActionState.SEEK : ActionState.SYNC);
 
         if (previous != this.runner.ticks)
         {
