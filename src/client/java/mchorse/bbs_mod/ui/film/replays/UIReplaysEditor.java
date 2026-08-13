@@ -823,7 +823,7 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
 
         context.batcher.clip(area, context);
 
-        /* First pass: Render selected clip background */
+        /* Selected clip: a color wash on the keyframe ruler, not a replica of the clip bar. */
         for (Clip clip : camera.get())
         {
             if (clip == selectedClip && !(clip instanceof AudioClip))
@@ -831,23 +831,21 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
                 float offset = clip.tick.get() - clipOffset;
                 int x1 = (int) scale.to(offset);
                 int x2 = (int) scale.to(offset + clip.duration.get());
-                int y = keyframes.area.y + 15;
-                int h = 20;
 
                 if (x2 > keyframes.area.x && x1 < keyframes.area.ex())
                 {
                     ClipFactoryData data = camera.getFactory().getData(clip);
                     int color = data.color;
-                    int primary = BBSSettings.primaryColor.get();
+                    int rulerBottom = keyframes.area.y + 16;
+                    int top = Colors.setA(color, 0.5F);
+                    int mid = Colors.setA(color, 0.16F);
+                    int fade = Colors.setA(color, 0F);
 
-                    context.batcher.dropShadow(x1 + 2, y + 2, x2 - 2, y + h - 2, 8, Colors.A75 + primary, primary);
-                    context.batcher.box(x1, y, x2, y + h, color | Colors.A100);
-                    context.batcher.outline(x1, y, x2, y + h, Colors.WHITE);
+                    x1 = Math.max(x1, area.x);
+                    x2 = Math.min(x2, area.ex());
 
-                    if (x2 - x1 > 20)
-                    {
-                        context.batcher.icon(data.icon, Colors.mulA(Colors.mulRGB(Colors.WHITE, 0.75F), 0.5F), x2 - 2, y + h / 2, 1F, 0.5F);
-                    }
+                    context.batcher.gradientVBox(x1, keyframes.area.y, x2, rulerBottom, top, mid);
+                    context.batcher.gradientVBox(x1, rulerBottom, x2, keyframes.area.ey(), mid, fade);
 
                     renderedOnce = true;
                 }

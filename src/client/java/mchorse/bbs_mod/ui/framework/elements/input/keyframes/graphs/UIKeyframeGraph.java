@@ -445,7 +445,7 @@ public class UIKeyframeGraph implements IUIKeyframeGraph
             int tickBottom = area.y + RULER_HEIGHT;
             int tickHeight = majorTick ? 8 : 4;
 
-            context.batcher.box(x, area.y, x + 1, area.ey(), majorTick ? 0x44ffffff : 0x18ffffff);
+            context.batcher.box(x, area.y, x + 1, area.ey(), majorTick ? 0x1cffffff : 0x0affffff);
             context.batcher.box(x, tickBottom - tickHeight, x + 1, tickBottom, majorTick ? 0xddffffff : 0x77ffffff);
 
             if (majorTick)
@@ -474,7 +474,7 @@ public class UIKeyframeGraph implements IUIKeyframeGraph
                 continue;
             }
 
-            context.batcher.box(area.x, y, area.ex(), y + 1, 0x24ffffff);
+            context.batcher.box(area.x, y, area.ex(), y + 1, 0x10ffffff);
             context.batcher.text(String.valueOf(min + j * mult), area.x + 4, y + 4);
         }
     }
