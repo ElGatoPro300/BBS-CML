@@ -98,7 +98,7 @@ public class FormUtilsClient
         if (customVertexConsumerProvider == null)
         {
             customVertexConsumerProvider = new CustomVertexConsumerProvider(
-                VertexConsumerProvider.immediate(new BufferAllocator(512 * 1024))
+                VertexConsumerProvider.immediate(new BufferBuilder(512 * 1024))
             );
         }
 
