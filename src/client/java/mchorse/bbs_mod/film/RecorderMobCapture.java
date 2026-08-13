@@ -1037,6 +1037,9 @@ public final class RecorderMobCapture
             wrapper.setParticlesEnabled(false);
             replay.keyframes.record(tick, wrapper, null);
             replay.keyframes.deathTime.insertIfChanged(tick, (double) deathTime);
+            /* Keep damage flash on for the whole death tip — live hurtTime decays early,
+             * and playback must stay driven only by the damage track. */
+            replay.keyframes.damage.insertIfChanged(tick, 10D);
             replay.keyframes.particles.insertIfChanged(tick, 0D);
 
             return;
@@ -1057,7 +1060,7 @@ public final class RecorderMobCapture
         wrapper.setPrevHeadYaw(session.deathHeadYaw);
         wrapper.setPrevBodyYaw(session.deathBodyYaw);
         wrapper.setDeathTime(deathTime);
-        wrapper.setHurtTimer(0);
+        wrapper.setHurtTimer(10);
         wrapper.setSneaking(false);
         wrapper.setSprinting(false);
         wrapper.setOnGround(true);
@@ -1065,6 +1068,7 @@ public final class RecorderMobCapture
         wrapper.setParticlesEnabled(false);
 
         replay.keyframes.record(tick, wrapper, null);
+        replay.keyframes.damage.insertIfChanged(tick, 10D);
         replay.keyframes.particles.insertIfChanged(tick, 0D);
     }
 
