@@ -109,6 +109,29 @@ public class UISection extends UIElement
             this.fields.removeFromParent();
         }
 
+        this.resizeClipPanels();
+    }
+
+    /**
+     * Reflow the owning clip property scroll (multi-column layout). Resizing only this
+     * section can leave sibling widgets (e.g. Additive) on a stale column cursor.
+     */
+    private void resizeClipPanels()
+    {
+        UIElement element = this;
+
+        while (element != null)
+        {
+            if (element instanceof UIScrollView)
+            {
+                element.resize();
+
+                return;
+            }
+
+            element = element.getParent();
+        }
+
         if (this.getParent() != null)
         {
             this.getParent().resize();
