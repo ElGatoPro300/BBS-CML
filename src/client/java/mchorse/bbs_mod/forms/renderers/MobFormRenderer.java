@@ -345,6 +345,36 @@ public class MobFormRenderer extends FormRenderer<MobForm> implements ITickable
         return this.entity;
     }
 
+    /**
+     * Copy walk-cycle limb phase from a replay stub (or other source) onto the morph.
+     * Must include {@code prevSpeed}: vanilla {@code getPos(tickDelta)} / {@code getSpeed(tickDelta)}
+     * lerp with it, and omitting it after {@link Entity#tick()} made non-actor MobForms look stepped.
+     */
+    private static void copyLimbAnimator(LimbAnimatorAccessor target, LimbAnimatorAccessor source)
+    {
+        target.setPrevSpeed(source.getPrevSpeed());
+        target.setSpeed(source.getSpeed());
+        target.setPos(source.getPos());
+    }
+
+    private static void copyLimbAnimator(LivingEntity target, IEntity source)
+    {
+        if (target != null && target.limbAnimator instanceof LimbAnimatorAccessor morphLimb
+            && source != null && source.getLimbAnimator() instanceof LimbAnimatorAccessor sourceLimb)
+        {
+            copyLimbAnimator(morphLimb, sourceLimb);
+        }
+    }
+
+    private static void zeroLimbAnimator(LivingEntity target)
+    {
+        if (target != null && target.limbAnimator instanceof LimbAnimatorAccessor limb)
+        {
+            limb.setPrevSpeed(0F);
+            limb.setSpeed(0F);
+        }
+    }
+
     @SuppressWarnings("unchecked")
     public static void setLivingAngles(EntityModel<?> model, LivingEntity living, float animPos, float animSpeed, float transition, float headYaw, float pitch)
     {
@@ -390,10 +420,9 @@ public class MobFormRenderer extends FormRenderer<MobForm> implements ITickable
 
             this.prevHandSwing = handSwingProgress;
 
-            if (living.limbAnimator instanceof LimbAnimatorAccessor morphLimb && source.getMountTarget() == null && source.getLimbAnimator() instanceof LimbAnimatorAccessor sourceLimb)
+            if (source.getMountTarget() == null)
             {
-                morphLimb.setPos(sourceLimb.getPos());
-                morphLimb.setSpeed(sourceLimb.getSpeed());
+                copyLimbAnimator(living, source);
             }
         }
 
@@ -578,20 +607,21 @@ public class MobFormRenderer extends FormRenderer<MobForm> implements ITickable
                     livingMorph.maxHurtTime = hurtTimer > 0 ? Math.max(hurtTimer, livingMorph.maxHurtTime) : 0;
                 }
 
-                if (livingMorph.limbAnimator instanceof LimbAnimatorAccessor morphLimb && context.entity != null && context.entity.getMountTarget() == null && context.entity.getLimbAnimator() instanceof LimbAnimatorAccessor sourceLimb)
+                if (context.entity != null && context.entity.getMountTarget() != null)
                 {
-                    morphLimb.setPos(sourceLimb.getPos());
-                    morphLimb.setSpeed(sourceLimb.getSpeed());
+                    zeroLimbAnimator(livingMorph);
                 }
-                else if (sourceLiving != null && livingMorph.limbAnimator instanceof LimbAnimatorAccessor morphLimb && sourceLiving.limbAnimator instanceof LimbAnimatorAccessor sourceLimb && context.entity != null && context.entity.getMountTarget() == null)
+                else if (context.entity != null)
                 {
-                    morphLimb.setPos(sourceLimb.getPos());
-                    morphLimb.setSpeed(sourceLimb.getSpeed());
+                    copyLimbAnimator(livingMorph, context.entity);
                 }
-                else if (context.entity != null && context.entity.getMountTarget() != null && livingMorph.limbAnimator instanceof LimbAnimatorAccessor morphLimb)
+                else if (sourceLiving != null)
                 {
-                    morphLimb.setPrevSpeed(0F);
-                    morphLimb.setSpeed(0F);
+                    if (livingMorph.limbAnimator instanceof LimbAnimatorAccessor morphLimb
+                        && sourceLiving.limbAnimator instanceof LimbAnimatorAccessor sourceLimb)
+                    {
+                        copyLimbAnimator(morphLimb, sourceLimb);
+                    }
                 }
             }
 
@@ -692,17 +722,15 @@ public class MobFormRenderer extends FormRenderer<MobForm> implements ITickable
                     livingEntity.deathTime = 0;
                     this.applyMorphRotation(livingEntity, entity);
 
-                    /* Limb swing is so ugly */
-                    if (mounted && livingEntity.limbAnimator instanceof LimbAnimatorAccessor mountedLimb)
+                    /* Stub already ran updateLimbs; morph.tick() would advance again and
+                     * leave prevSpeed out of sync — restore the stub phase for smooth walk. */
+                    if (mounted)
                     {
-                        mountedLimb.setPrevSpeed(0F);
-                        mountedLimb.setSpeed(0F);
+                        zeroLimbAnimator(livingEntity);
                     }
-                    else if (livingEntity.limbAnimator instanceof LimbAnimatorAccessor a && entity.getLimbAnimator() instanceof LimbAnimatorAccessor b)
+                    else
                     {
-                        a.setPrevSpeed(b.getPrevSpeed());
-                        a.setSpeed(b.getSpeed());
-                        a.setPos(b.getPos());
+                        copyLimbAnimator(livingEntity, entity);
                     }
 
                     /* Arm swing */
@@ -774,10 +802,14 @@ public class MobFormRenderer extends FormRenderer<MobForm> implements ITickable
 
                 if (this.entity instanceof LivingEntity livingAfterTick)
                 {
-                    if (mounted && livingAfterTick.limbAnimator instanceof LimbAnimatorAccessor mountedLimb)
+                    /* LivingEntity.tick() calls updateLimbs again; keep stub limb phase. */
+                    if (mounted)
                     {
-                        mountedLimb.setPrevSpeed(0F);
-                        mountedLimb.setSpeed(0F);
+                        zeroLimbAnimator(livingAfterTick);
+                    }
+                    else
+                    {
+                        copyLimbAnimator(livingAfterTick, entity);
                     }
 
                     this.applyMorphRotation(livingAfterTick, entity);
