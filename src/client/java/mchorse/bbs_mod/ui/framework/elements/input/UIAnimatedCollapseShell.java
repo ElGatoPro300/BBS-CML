@@ -337,8 +337,10 @@ public class UIAnimatedCollapseShell extends UIElement
             }
         }
 
-        /* Outer shells follow nested Transform height both up and down. */
-        if (this.open && !this.animating)
+        /* Outer shells follow nested Transform height both up and down.
+         * Also follow while open after settle: wrapping toggles grow on first
+         * render and would otherwise stay clipped once the shell unregisters. */
+        if (this.open)
         {
             if (this.remeasureQueued)
             {
@@ -361,17 +363,15 @@ public class UIAnimatedCollapseShell extends UIElement
         {
             this.detachIfClosed();
         }
-        else if (this.animating || this.hasNestedActiveShell())
+        else if (this.open || this.animating || this.hasNestedActiveShell())
         {
+            /* Stay active while open so followLiveContentHeight can catch post-measure
+             * growth (e.g. wrapping toggles) instead of permanently clipping the body. */
             this.registerActive();
-        }
-        else if (this.open)
-        {
-            this.unregisterActive();
         }
         else
         {
-            this.registerActive();
+            this.unregisterActive();
         }
     }
 

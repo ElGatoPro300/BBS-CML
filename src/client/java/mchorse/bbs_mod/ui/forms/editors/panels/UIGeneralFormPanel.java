@@ -386,8 +386,6 @@ public class UIGeneralFormPanel extends UIFormPanel
             this.inverseKinematics.refresh();
         }
 
-        this.options.resize();
-
         Illusion illusion = form.illusion.get();
 
         this.illusionCount.setValue(illusion.count);
@@ -418,7 +416,9 @@ public class UIGeneralFormPanel extends UIFormPanel
         this.illusionDistributeParticles.setValue(illusion.distributeParticles);
         this.illusionIndependentParticles.setValue(illusion.independentParticles);
         this.illusionTransformEditor.setTransform(illusion.transform);
+        /* Visibility before resize so ColumnResizer.getH matches the laid-out children. */
         this.updateIllusionParticleOptions(form);
+        this.options.resize();
         this.uiScale.setValue(form.uiScale.get());
         this.name.setText(form.name.get());
         this.transform.setTransform(form.transform.get());
@@ -485,6 +485,11 @@ public class UIGeneralFormPanel extends UIFormPanel
         this.illusionGlowFlagsRow.setVisible(meshIllusionOptions);
         this.illusionTexturesRow.setVisible(meshIllusionOptions);
         this.illusionReal.setVisible(meshIllusionOptions);
+
+        if (this.illusionSection != null && this.illusionSection.getShell() != null)
+        {
+            this.illusionSection.getShell().queueRemeasure();
+        }
     }
 
     private boolean isModelBlockFormContext()

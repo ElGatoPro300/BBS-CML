@@ -176,15 +176,23 @@ public class ColumnResizer extends AutomaticResizer
         if (this.vertical && !this.scroll)
         {
             int y = this.padding * 2;
+            boolean added = false;
 
             for (ChildResizer child : this.getResizers())
             {
+                /* Match apply(): invisible children take no space */
+                if (!child.element.isVisible())
+                {
+                    continue;
+                }
+
                 int h = child.resizer == null ? 0 : child.resizer.getH();
 
                 y += (h == 0 ? this.height : h) + this.margin + child.element.margin.vertical();
+                added = true;
             }
 
-            return y - this.margin;
+            return added ? y - this.margin : y;
         }
 
         return super.getH();
