@@ -1,6 +1,7 @@
 package mchorse.bbs_mod.ui.framework.elements.input.keyframes.graphs;
 
 import mchorse.bbs_mod.data.types.MapType;
+import mchorse.bbs_mod.forms.forms.utils.LightingSettings;
 import mchorse.bbs_mod.settings.values.base.BaseValueBasic;
 import mchorse.bbs_mod.ui.film.replays.UIReplaysEditorUtils;
 import mchorse.bbs_mod.ui.framework.UIContext;
@@ -14,6 +15,7 @@ import mchorse.bbs_mod.utils.keyframes.Keyframe;
 import mchorse.bbs_mod.utils.keyframes.KeyframeChannel;
 import mchorse.bbs_mod.utils.keyframes.KeyframeSegment;
 import mchorse.bbs_mod.utils.keyframes.factories.IKeyframeFactory;
+import mchorse.bbs_mod.utils.keyframes.factories.KeyframeFactories;
 
 import java.util.List;
 
@@ -149,6 +151,26 @@ public interface IUIKeyframeGraph
             else if ("shadow_opacity".equals(sheet.id))
             {
                 value = 1D;
+            }
+            else if (sheet.channel.getFactory() == KeyframeFactories.LIGHTING_SETTINGS)
+            {
+                if (segment != null)
+                {
+                    value = segment.createInterpolated();
+                    extra = segment.a;
+                }
+                else if (property != null && property.get() instanceof Number number)
+                {
+                    value = LightingSettings.fromBrightness(number.floatValue());
+                }
+                else if (sheet.defaultInsertValue instanceof LightingSettings settings)
+                {
+                    value = sheet.channel.getFactory().copy(settings);
+                }
+                else
+                {
+                    value = sheet.channel.getFactory().createEmpty();
+                }
             }
             else if (segment != null)
             {

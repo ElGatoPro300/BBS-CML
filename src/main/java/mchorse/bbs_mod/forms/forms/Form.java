@@ -13,6 +13,7 @@ import mchorse.bbs_mod.forms.forms.utils.FormLighting;
 import mchorse.bbs_mod.forms.forms.utils.GlowSettings;
 import mchorse.bbs_mod.forms.forms.utils.Illusion;
 import mchorse.bbs_mod.forms.forms.utils.InverseKinematics;
+import mchorse.bbs_mod.forms.forms.utils.LightingSettings;
 import mchorse.bbs_mod.forms.forms.utils.LookAt;
 import mchorse.bbs_mod.forms.forms.utils.PaintSettings;
 import mchorse.bbs_mod.forms.forms.utils.TextureBlend;
@@ -124,6 +125,12 @@ public abstract class Form extends ValueGroup
 
     /** Runtime texture crossfade between illusion keyframes with bend enabled. */
     public transient TextureBlend illusionTextureBlend;
+
+    /**
+     * Film lighting-track override. When non-null, renderers use this instead of only
+     * {@link #lighting} (supports fixed absolute light levels).
+     */
+    public transient LightingSettings lightingSettings;
 
     private final List<StatePlayer> statePlayers = new ArrayList<>();
 

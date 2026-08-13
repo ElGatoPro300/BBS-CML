@@ -7,10 +7,10 @@ import mchorse.bbs_mod.forms.entities.IEntity;
 import mchorse.bbs_mod.forms.forms.BodyPart;
 import mchorse.bbs_mod.forms.forms.Form;
 import mchorse.bbs_mod.forms.forms.ItemForm;
-import mchorse.bbs_mod.forms.forms.utils.FormLighting;
 import mchorse.bbs_mod.forms.forms.utils.GlowSettings;
 import mchorse.bbs_mod.forms.forms.utils.PaintSettings;
 import mchorse.bbs_mod.forms.renderers.utils.FormColorEffects;
+import mchorse.bbs_mod.forms.renderers.utils.FormLightingRender;
 import mchorse.bbs_mod.settings.values.core.ValueTransform;
 import mchorse.bbs_mod.utils.MathUtils;
 import mchorse.bbs_mod.utils.MatrixStackUtils;
@@ -244,12 +244,7 @@ public final class ItemBodyPartBatch
 
     private static void applyLighting(ItemForm item, FormRenderingContext context)
     {
-        float lf = FormLighting.clampBrightness(item.lighting.get());
-        int u = context.light & '\uffff';
-        int v = context.light >> 16 & '\uffff';
-
-        u = (int) Lerps.lerp(u, LightmapTextureManager.MAX_BLOCK_LIGHT_COORDINATE, lf);
-        context.light = u | v << 16;
+        context.light = FormLightingRender.apply(context.light, item.lightingSettings, item.lighting.get());
     }
 
     private static boolean hasOverlayBodyParts(List<BodyPart> parts)

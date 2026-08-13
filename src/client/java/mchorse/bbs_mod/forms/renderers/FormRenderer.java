@@ -5,7 +5,7 @@ import mchorse.bbs_mod.forms.FormUtilsClient;
 import mchorse.bbs_mod.forms.entities.IEntity;
 import mchorse.bbs_mod.forms.forms.BodyPart;
 import mchorse.bbs_mod.forms.forms.Form;
-import mchorse.bbs_mod.forms.forms.utils.FormLighting;
+import mchorse.bbs_mod.forms.renderers.utils.FormLightingRender;
 import mchorse.bbs_mod.forms.renderers.utils.MatrixCache;
 import mchorse.bbs_mod.settings.values.core.ValueTransform;
 import mchorse.bbs_mod.ui.framework.UIContext;
@@ -152,12 +152,7 @@ public abstract class FormRenderer <T extends Form>
                 this.applyTransforms(context.world, false, context.getTransition());
             }
 
-            float lf = FormLighting.clampBrightness(this.form.lighting.get());
-            int u = context.light & '\uffff';
-            int v = context.light >> 16 & '\uffff';
-
-            u = (int) Lerps.lerp(u, LightmapTextureManager.MAX_BLOCK_LIGHT_COORDINATE, lf);
-            context.light = u | v << 16;
+            context.light = FormLightingRender.apply(context.light, this.form.lightingSettings, this.form.lighting.get());
 
             this.render3D(context);
 

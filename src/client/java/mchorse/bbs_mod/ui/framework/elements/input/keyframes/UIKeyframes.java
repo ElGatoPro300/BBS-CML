@@ -55,6 +55,8 @@ import mchorse.bbs_mod.utils.keyframes.KeyframeChannel;
 import mchorse.bbs_mod.utils.keyframes.KeyframeSegment;
 import mchorse.bbs_mod.utils.keyframes.factories.IKeyframeFactory;
 import mchorse.bbs_mod.utils.keyframes.factories.KeyframeFactories;
+import mchorse.bbs_mod.utils.keyframes.factories.LightingSettingsKeyframeFactory;
+import mchorse.bbs_mod.forms.forms.utils.LightingSettings;
 import mchorse.bbs_mod.utils.presets.PresetManager;
 
 import org.lwjgl.glfw.GLFW;
@@ -412,7 +414,17 @@ public class UIKeyframes extends UIElement
 
             for (Keyframe keyframe : selected)
             {
-                keyframe.setValue(sheet.clampValue(factory.yToValue(factory.getY(keyframe.getValue()) + difference)));
+                Object current = keyframe.getValue();
+                double newY = factory.getY(current) + difference;
+
+                if (factory == KeyframeFactories.LIGHTING_SETTINGS && current instanceof LightingSettings lighting)
+                {
+                    keyframe.setValue(LightingSettingsKeyframeFactory.applyGraphY(lighting, newY));
+                }
+                else
+                {
+                    keyframe.setValue(sheet.clampValue(factory.yToValue(newY)));
+                }
             }
 
             sheet.channel.postNotify();
