@@ -78,6 +78,12 @@ public class ParticleEmitter
     public boolean playing = true;
     public boolean paused;
 
+    /**
+     * Multiplier applied to scheme spawn rate / instant particle counts (used when
+     * illusion foci distribute emission across several emitters).
+     */
+    public float spawnRateScale = 1F;
+
     public float random1 = (float) Math.random();
     public float random2 = (float) Math.random();
     public float random3 = (float) Math.random();

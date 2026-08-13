@@ -26,8 +26,10 @@ import org.joml.Matrix4f;
 import org.joml.Vector3d;
 import org.joml.Vector3f;
 
-import com.mojang.blaze3d.systems.RenderSystem;
-
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
 import java.util.function.Supplier;
 
 public class ParticleFormRenderer extends FormRenderer<ParticleForm> implements ITickable
@@ -35,6 +37,7 @@ public class ParticleFormRenderer extends FormRenderer<ParticleForm> implements 
     public static long lastUpdate = 0L;
 
     private ParticleEmitter emitter;
+    private final Map<Integer, ParticleEmitter> illusionEmitters = new HashMap<>();
     private boolean checked;
     private boolean restart;
     private long lastParticleUpdate = lastUpdate;
@@ -61,27 +64,135 @@ public class ParticleFormRenderer extends FormRenderer<ParticleForm> implements 
         {
             ParticleScheme scheme = BBSModClient.getParticles().load(this.form.effect.get());
 
+            this.illusionEmitters.clear();
+
             if (scheme != null)
             {
                 this.emitter = new ParticleEmitter();
                 this.emitter.setScheme(scheme);
                 this.emitter.setWorld(world);
             }
+            else
+            {
+                this.emitter = null;
+            }
 
             this.checked = true;
         }
 
-        if (this.emitter != null && !BBSRendering.isIrisShadowPass())
+        this.syncIllusionEmitters(world);
+        this.applyEmitterRuntimeState();
+    }
+
+    private void syncIllusionEmitters(World world)
+    {
+        if (this.emitter == null)
         {
-            boolean lastPaused = this.emitter.paused;
+            this.illusionEmitters.clear();
 
-            this.emitter.paused = this.form.paused.get();
+            return;
+        }
 
-            if (lastPaused != this.emitter.paused && !this.emitter.paused && this.emitter.age > 0 && !this.restart)
+        boolean independent = FormIllusionRenderer.shouldUseIndependentParticles(this.form);
+
+        if (!independent)
+        {
+            this.illusionEmitters.clear();
+            this.emitter.spawnRateScale = 1F;
+
+            return;
+        }
+
+        List<Integer> keys = FormIllusionRenderer.collectEmissionTrailKeys(this.form);
+        float scale = FormIllusionRenderer.shouldDistributeParticles(this.form) && keys.size() > 1
+            ? 1F / keys.size()
+            : 1F;
+
+        this.emitter.spawnRateScale = scale;
+
+        Iterator<Map.Entry<Integer, ParticleEmitter>> it = this.illusionEmitters.entrySet().iterator();
+
+        while (it.hasNext())
+        {
+            Map.Entry<Integer, ParticleEmitter> entry = it.next();
+
+            if (!keys.contains(entry.getKey()) || entry.getKey() == 0)
             {
-                this.restart = true;
+                it.remove();
             }
         }
+
+        ParticleScheme scheme = this.emitter.scheme;
+
+        for (Integer key : keys)
+        {
+            if (key == null || key == 0)
+            {
+                continue;
+            }
+
+            ParticleEmitter siteEmitter = this.illusionEmitters.get(key);
+
+            if (siteEmitter == null)
+            {
+                siteEmitter = new ParticleEmitter();
+                siteEmitter.setScheme(scheme);
+                siteEmitter.setWorld(world);
+                this.illusionEmitters.put(key, siteEmitter);
+            }
+            else
+            {
+                siteEmitter.setWorld(world);
+
+                if (siteEmitter.scheme != scheme)
+                {
+                    siteEmitter.setScheme(scheme);
+                }
+            }
+
+            siteEmitter.spawnRateScale = scale;
+        }
+    }
+
+    private void applyEmitterRuntimeState()
+    {
+        if (this.emitter == null || BBSRendering.isIrisShadowPass())
+        {
+            return;
+        }
+
+        boolean paused = this.form.paused.get();
+
+        this.applyPaused(this.emitter, paused);
+
+        for (ParticleEmitter siteEmitter : this.illusionEmitters.values())
+        {
+            this.applyPaused(siteEmitter, paused);
+        }
+    }
+
+    private void applyPaused(ParticleEmitter emitter, boolean paused)
+    {
+        boolean lastPaused = emitter.paused;
+
+        emitter.paused = paused;
+
+        if (lastPaused != emitter.paused && !emitter.paused && emitter.age > 0 && !this.restart)
+        {
+            this.restart = true;
+        }
+    }
+
+    private ParticleEmitter emitterForTrail(int trailInstance)
+    {
+        if (trailInstance == 0 || !FormIllusionRenderer.shouldUseIndependentParticles(this.form))
+        {
+            return this.emitter;
+        }
+
+        ParticleEmitter siteEmitter = this.illusionEmitters.get(trailInstance);
+
+        return siteEmitter != null ? siteEmitter : this.emitter;
     }
 
     @Override
@@ -100,7 +211,7 @@ public class ParticleFormRenderer extends FormRenderer<ParticleForm> implements 
             stack.translate((x2 + x1) / 2, (y2 + y1) / 2, 40);
             MatrixStackUtils.scaleStack(stack, scale, scale, scale);
 
-            this.updateTexture(context.getTransition());
+            this.updateTexture(emitter, context.getTransition());
             emitter.lastGlobal.set(new Vector3f(0, 0, 0));
             emitter.rotation.identity();
 
@@ -117,7 +228,7 @@ public class ParticleFormRenderer extends FormRenderer<ParticleForm> implements 
     {
         this.ensureEmitter(MinecraftClient.getInstance().world, context.transition);
 
-        ParticleEmitter emitter = this.emitter;
+        ParticleEmitter emitter = this.emitterForTrail(context.trailInstance);
 
         if (emitter != null)
         {
@@ -130,10 +241,10 @@ public class ParticleFormRenderer extends FormRenderer<ParticleForm> implements 
                 this.form.user6.get()
             );
 
-            this.updateTexture(context.getTransition());
+            this.updateTexture(emitter, context.transition);
 
             boolean useGameCamera = !context.modelRenderer && context.type != FormRenderType.PREVIEW;
-            
+
             if (useGameCamera)
             {
                 /* For game rendering, use the main camera for emitter properties to ensure
@@ -168,7 +279,7 @@ public class ParticleFormRenderer extends FormRenderer<ParticleForm> implements 
             Matrix4f modelMatrix = new Matrix4f(context.stack.peek().getPositionMatrix());
 
             Vector3d translation = new Vector3d(modelMatrix.getTranslation(Vectors.TEMP_3F));
-            
+
             if (!context.modelRenderer)
             {
                 translation.add(context.camera.position.x, context.camera.position.y, context.camera.position.z);
@@ -189,7 +300,7 @@ public class ParticleFormRenderer extends FormRenderer<ParticleForm> implements 
             Color glowTint = Colors.COLOR.set(context.color, true);
 
             emitter.setGlow(this.form.glowSettings.get(), this.form.glowingColor.get(), glowTint.a);
-            
+
             if (!BBSRendering.isIrisShadowPass())
             {
                 boolean shadersEnabled = BBSRendering.isIrisShadersEnabled();
@@ -212,11 +323,11 @@ public class ParticleFormRenderer extends FormRenderer<ParticleForm> implements 
         }
     }
 
-    private void updateTexture(float transition)
+    private void updateTexture(ParticleEmitter emitter, float transition)
     {
-        if (this.emitter != null)
+        if (emitter != null)
         {
-            this.emitter.texture = this.form.texture.get();
+            emitter.texture = this.form.texture.get();
         }
     }
 
@@ -227,17 +338,51 @@ public class ParticleFormRenderer extends FormRenderer<ParticleForm> implements 
 
         if (this.emitter != null)
         {
-            /* Rewind the emitter if it was paused and resumed in order to make
+            /* Rewind emitters if paused and resumed in order to make
              * particle effects with once emitter */
             if (this.restart)
             {
-                this.emitter.stop();
-                this.emitter.start();
+                this.restartEmitter(this.emitter);
+
+                for (ParticleEmitter siteEmitter : this.illusionEmitters.values())
+                {
+                    this.restartEmitter(siteEmitter);
+                }
 
                 this.restart = false;
             }
 
+            this.emitter.setUserVariables(
+                this.form.user1.get(),
+                this.form.user2.get(),
+                this.form.user3.get(),
+                this.form.user4.get(),
+                this.form.user5.get(),
+                this.form.user6.get()
+            );
             this.emitter.update();
+
+            if (FormIllusionRenderer.shouldUseIndependentParticles(this.form))
+            {
+                for (ParticleEmitter siteEmitter : this.illusionEmitters.values())
+                {
+                    siteEmitter.setUserVariables(
+                        this.form.user1.get(),
+                        this.form.user2.get(),
+                        this.form.user3.get(),
+                        this.form.user4.get(),
+                        this.form.user5.get(),
+                        this.form.user6.get()
+                    );
+                    siteEmitter.update();
+                }
+            }
         }
+    }
+
+    private void restartEmitter(ParticleEmitter emitter)
+    {
+        emitter.stop();
+        emitter.start();
     }
 }

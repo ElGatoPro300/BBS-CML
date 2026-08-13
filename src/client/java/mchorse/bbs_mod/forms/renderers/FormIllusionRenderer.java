@@ -146,6 +146,55 @@ public final class FormIllusionRenderer
         return form != null && form.illusion.get().distributeParticles;
     }
 
+    public static boolean shouldUseIndependentParticles(Form form)
+    {
+        return form != null && form.illusion.get().independentParticles;
+    }
+
+    /**
+     * Trail-instance keys used by illusion copies ({@code 0} = main form). Matches
+     * {@link #renderIllusionLayer} so particle renderers can map emitters 1:1.
+     */
+    public static List<Integer> collectEmissionTrailKeys(Form form)
+    {
+        List<Integer> keys = new ArrayList<>();
+
+        keys.add(0);
+
+        if (form == null)
+        {
+            return keys;
+        }
+
+        List<Illusion> layers = collectIllusionLayers(form);
+
+        for (int layer = 0; layer < layers.size(); layer++)
+        {
+            Illusion illusion = layers.get(layer);
+
+            if (illusion == null || illusion.count <= 0)
+            {
+                continue;
+            }
+
+            List<Vector3f> directions = getIllusionDirections(illusion.directions);
+
+            if (directions.isEmpty())
+            {
+                continue;
+            }
+
+            int liftKeyBase = layer * 10000;
+
+            for (int i = 0; i < illusion.count; i++)
+            {
+                keys.add(liftKeyBase + i + 1);
+            }
+        }
+
+        return keys;
+    }
+
     public static void render(Form form, FormRenderingContext formContext, Extras extras)
     {
         if (form == null || formContext == null || formContext.stack == null)

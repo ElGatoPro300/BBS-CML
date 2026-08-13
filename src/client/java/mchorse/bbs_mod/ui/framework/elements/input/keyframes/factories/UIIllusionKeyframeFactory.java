@@ -88,6 +88,8 @@ public class UIIllusionKeyframeFactory extends UIKeyframeFactory<Illusion>
 
     private UIToggle distributeParticles;
 
+    private UIToggle independentParticles;
+
 
 
     /**
@@ -544,6 +546,12 @@ public class UIIllusionKeyframeFactory extends UIKeyframeFactory<Illusion>
 
         this.distributeParticles.tooltip(UIKeys.FORMS_EDITORS_GENERAL_ILLUSION_DISTRIBUTE_PARTICLES_TOOLTIP);
 
+        this.independentParticles = new UIToggle(UIKeys.FORMS_EDITORS_GENERAL_ILLUSION_INDEPENDENT_PARTICLES, (b) -> this.editIllusion((i) -> i.independentParticles = b.getValue()));
+
+        this.independentParticles.setValue(illusion.independentParticles);
+
+        this.independentParticles.tooltip(UIKeys.FORMS_EDITORS_GENERAL_ILLUSION_INDEPENDENT_PARTICLES_TOOLTIP);
+
 
 
         this.updateDirections(illusion.directions);
@@ -565,6 +573,8 @@ public class UIIllusionKeyframeFactory extends UIKeyframeFactory<Illusion>
         this.scroll.add(this.spacing);
 
         this.scroll.add(UI.label(UIKeys.FORMS_EDITORS_GENERAL_ILLUSION_OFFSET), this.offset);
+
+        this.scroll.add(this.independentParticles);
 
         this.scroll.add(this.distributeParticles);
 
@@ -665,6 +675,8 @@ public class UIIllusionKeyframeFactory extends UIKeyframeFactory<Illusion>
 
             illusion.distributeParticles = defaults.distributeParticles;
 
+            illusion.independentParticles = defaults.independentParticles;
+
         });
 
         this.update();
@@ -760,6 +772,8 @@ public class UIIllusionKeyframeFactory extends UIKeyframeFactory<Illusion>
         this.glowInvert.setValue(illusion.glowInvert);
 
         this.distributeParticles.setValue(illusion.distributeParticles);
+
+        this.independentParticles.setValue(illusion.independentParticles);
 
         this.updateDirections(illusion.directions);
 

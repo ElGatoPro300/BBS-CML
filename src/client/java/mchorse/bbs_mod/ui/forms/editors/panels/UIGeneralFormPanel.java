@@ -77,6 +77,7 @@ public class UIGeneralFormPanel extends UIFormPanel
     public UIToggle illusionGradual;
     public UIToggle illusionGradualInvert;
     public UIToggle illusionDistributeParticles;
+    public UIToggle illusionIndependentParticles;
     public UITrackpad uiScale;
     public UITextbox name;
     public UIPropTransform transform;
@@ -187,6 +188,8 @@ public class UIGeneralFormPanel extends UIFormPanel
         this.illusionGradualInvert.tooltip(UIKeys.FORMS_EDITORS_GENERAL_ILLUSION_GRADUAL_INVERT_TOOLTIP);
         this.illusionDistributeParticles = new UIToggle(UIKeys.FORMS_EDITORS_GENERAL_ILLUSION_DISTRIBUTE_PARTICLES, (b) -> this.editIllusion((illusion) -> illusion.distributeParticles = b.getValue()));
         this.illusionDistributeParticles.tooltip(UIKeys.FORMS_EDITORS_GENERAL_ILLUSION_DISTRIBUTE_PARTICLES_TOOLTIP);
+        this.illusionIndependentParticles = new UIToggle(UIKeys.FORMS_EDITORS_GENERAL_ILLUSION_INDEPENDENT_PARTICLES, (b) -> this.editIllusion((illusion) -> illusion.independentParticles = b.getValue()));
+        this.illusionIndependentParticles.tooltip(UIKeys.FORMS_EDITORS_GENERAL_ILLUSION_INDEPENDENT_PARTICLES_TOOLTIP);
         this.uiScale = new UITrackpad((v) -> this.form.uiScale.set(v.floatValue()));
         this.uiScale.limit(0.01D, 100D);
         this.name = new UITextbox(120, (t) ->
@@ -249,6 +252,7 @@ public class UIGeneralFormPanel extends UIFormPanel
             this.illusionUniform,
             this.illusionSpacing,
             UI.row(UI.label(UIKeys.FORMS_EDITORS_GENERAL_ILLUSION_OFFSET), this.illusionOffset),
+            this.illusionIndependentParticles,
             this.illusionDistributeParticles,
             this.illusionOpacityRow,
             this.illusionOpacityFlagsRow,
@@ -412,6 +416,7 @@ public class UIGeneralFormPanel extends UIFormPanel
         this.illusionGradual.setValue(illusion.gradual);
         this.illusionGradualInvert.setValue(illusion.gradualInvert);
         this.illusionDistributeParticles.setValue(illusion.distributeParticles);
+        this.illusionIndependentParticles.setValue(illusion.independentParticles);
         this.illusionTransformEditor.setTransform(illusion.transform);
         this.updateIllusionParticleOptions(form);
         this.uiScale.setValue(form.uiScale.get());
@@ -466,8 +471,10 @@ public class UIGeneralFormPanel extends UIFormPanel
     private void updateIllusionParticleOptions(Form form)
     {
         boolean particleForm = form instanceof ParticleForm || form instanceof VanillaParticleForm;
+        boolean customParticleForm = form instanceof ParticleForm;
         boolean meshIllusionOptions = !particleForm;
 
+        this.illusionIndependentParticles.setVisible(customParticleForm);
         this.illusionDistributeParticles.setVisible(particleForm);
         this.illusionOpacityRow.setVisible(meshIllusionOptions);
         this.illusionOpacityFlagsRow.setVisible(meshIllusionOptions);
