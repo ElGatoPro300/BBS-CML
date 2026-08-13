@@ -5246,8 +5246,8 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
 
         if (recorder == null || recorder.hasNotStarted())
         {
-            this.notifyServer(ActionState.RESTART);
-
+            /* Actor playback is started in appear() so a selected film does not
+             * respawn actors when the dashboard opens onto another panel. */
             return;
         }
 
@@ -5343,6 +5343,7 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
         }
 
         this.fullscreenPlaybackBar.attachToRoot();
+        this.syncFilmActorPlayback(true);
     }
 
     @Override
@@ -5389,6 +5390,24 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
 
         this.disableContext();
         this.fullscreenPlaybackBar.removeFromParent();
+        this.syncFilmActorPlayback(false);
+    }
+
+    /**
+     * FILM_EDITOR actors must only exist while this panel is showing a film.
+     * Dashboard {@code open()} runs for every panel, so restarting there made
+     * paused actors reappear when opening model/trigger blocks from the world.
+     */
+    private void syncFilmActorPlayback(boolean visible)
+    {
+        if (visible && this.data != null && !this.showingHomePage)
+        {
+            this.notifyServer(ActionState.RESTART);
+
+            return;
+        }
+
+        this.notifyServer(ActionState.STOP);
     }
 
     private void disableContext()
