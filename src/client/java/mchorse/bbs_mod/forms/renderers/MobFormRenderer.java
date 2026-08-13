@@ -6,16 +6,14 @@ import mchorse.bbs_mod.client.BBSShaders;
 import mchorse.bbs_mod.client.ItemUseRenderState;
 import mchorse.bbs_mod.client.MobTextureOverride;
 import mchorse.bbs_mod.client.renderer.MorphMobParticles;
-import mchorse.bbs_mod.entity.ActorEntity;
 import mchorse.bbs_mod.film.MobItemStats;
 import mchorse.bbs_mod.film.MorphMountSync;
-import mchorse.bbs_mod.film.replays.Replay;
 import mchorse.bbs_mod.forms.CustomVertexConsumerProvider;
 import mchorse.bbs_mod.forms.FormUtilsClient;
 import mchorse.bbs_mod.forms.ITickable;
 import mchorse.bbs_mod.forms.entities.IEntity;
-import mchorse.bbs_mod.forms.entities.MCEntity;
 import mchorse.bbs_mod.forms.forms.MobForm;
+import mchorse.bbs_mod.forms.renderers.utils.FormDeathTilt;
 import mchorse.bbs_mod.mixin.LimbAnimatorAccessor;
 import mchorse.bbs_mod.resources.Link;
 import mchorse.bbs_mod.ui.framework.UIContext;
@@ -816,36 +814,12 @@ public class MobFormRenderer extends FormRenderer<MobForm> implements ITickable
     /**
      * Death tip for mob morphs is driven by {@code livingMorph.deathTime} inside
      * vanilla {@code LivingEntityRenderer}. For film actors, also honor keyframed
-     * {@code death_time} without mutating {@link ActorEntity#deathTime} (writing
-     * that field stuck the damage-red overlay across timeline scrubs).
+     * {@code death_time} without mutating {@link mchorse.bbs_mod.entity.ActorEntity#deathTime}
+     * (writing that field stuck the damage-red overlay across timeline scrubs).
      */
     private int resolveDeathTimeForRender(IEntity source)
     {
-        int deathTime = source == null ? 0 : source.getDeathTime();
-
-        if (!(source instanceof MCEntity mcEntity) || !(mcEntity.getMcEntity() instanceof ActorEntity actor))
-        {
-            return deathTime;
-        }
-
-        Replay replay = actor.getReplay();
-
-        if (replay != null && replay.keyframes != null)
-        {
-            int keyDeath = replay.keyframes.deathTime.interpolate((float) actor.getCurrentTick()).intValue();
-
-            if (keyDeath > 0)
-            {
-                deathTime = Math.max(deathTime, keyDeath);
-            }
-        }
-
-        if (deathTime <= 0 && (actor.isDead() || actor.getHealth() <= 0F))
-        {
-            deathTime = Math.max(1, actor.deathTime);
-        }
-
-        return deathTime;
+        return FormDeathTilt.resolveDeathTime(source);
     }
 
     /**

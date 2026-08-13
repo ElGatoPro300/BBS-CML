@@ -32,6 +32,7 @@ import mchorse.bbs_mod.forms.renderers.FormRenderingContext;
 import mchorse.bbs_mod.forms.renderers.ModelFormRenderer;
 import mchorse.bbs_mod.forms.renderers.utils.MatrixCache;
 import mchorse.bbs_mod.forms.renderers.utils.MatrixCacheEntry;
+import mchorse.bbs_mod.forms.renderers.utils.FormDeathTilt;
 import mchorse.bbs_mod.graphics.Draw;
 import mchorse.bbs_mod.mixin.client.ClientPlayerEntityAccessor;
 import mchorse.bbs_mod.morphing.Morph;
@@ -1091,6 +1092,9 @@ public abstract class BaseFilmController
 
         matrix.translate((float) x, (float) y, (float) z);
         matrix.rotateY(MathUtils.toRad(-bodyYaw));
+        /* Non-MobForm death tip from keyframed death_time (stubs / film matrix path).
+         * MobForm tips inside LivingEntityRenderer via morph.deathTime. */
+        FormDeathTilt.apply(matrix, entity, entity.getForm(), tickDelta);
 
         return matrix;
     }
