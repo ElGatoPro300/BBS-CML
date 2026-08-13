@@ -544,7 +544,10 @@ public class ActionPlayer
 
         for (int i = 0; i < list.size(); i++)
         {
-            if (i == this.exception)
+            /* Outside RECORDING uses exception; editor puppet / viewport record uses
+             * controlledReplay — both must skip pre-recorded Attack/Swipe/etc. so the
+             * live player is the only source of those clips for that replay. */
+            if (i == this.exception || i == this.controlledReplay)
             {
                 continue;
             }
@@ -614,7 +617,13 @@ public class ActionPlayer
                 || baseValue.getId().equals("enabled")
                 || baseValue.getId().equals("replays"))
             {
+                int keepTick = this.tick;
+
                 this.updateReplayEntities();
+                /* updateReplayEntities clears combatFinishedIds and respawns at full HP.
+                 * Re-run silent combat at the current film tick so dead actors stay dead
+                 * and the next hit still kills when it should. */
+                this.goTo(keepTick);
             }
             else
             {

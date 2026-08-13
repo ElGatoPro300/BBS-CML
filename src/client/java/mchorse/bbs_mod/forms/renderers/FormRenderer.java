@@ -6,6 +6,7 @@ import mchorse.bbs_mod.forms.FormUtilsClient;
 import mchorse.bbs_mod.forms.entities.IEntity;
 import mchorse.bbs_mod.forms.forms.BodyPart;
 import mchorse.bbs_mod.forms.forms.Form;
+import mchorse.bbs_mod.forms.renderers.utils.FormLightingRender;
 import mchorse.bbs_mod.forms.renderers.utils.MatrixCache;
 import mchorse.bbs_mod.settings.values.core.ValueTransform;
 import mchorse.bbs_mod.ui.framework.UIContext;
@@ -115,7 +116,16 @@ public abstract class FormRenderer <T extends Form>
             }
         }
 
-        this.renderInUI(context, x1, y1, x2, y2);
+        try
+        {
+            this.renderInUI(context, x1, y1, x2, y2);
+        }
+        finally
+        {
+            /* Soft GUI restore only — never unbind VAO/EBO here. Doing so blanks Batcher2D
+             * chrome and can null-deref in atio6axx on the next glDrawElements. */
+            BBSRendering.restoreGuiRenderState();
+        }
 
         context.batcher.flush();
         GL11.glClear(GL11.GL_DEPTH_BUFFER_BIT);
@@ -198,12 +208,7 @@ public abstract class FormRenderer <T extends Form>
                 this.applyTransforms(context.world, false, context.getTransition());
             }
 
-            float lf = 1F - MathUtils.clamp(this.form.lighting.get(), 0F, 1F);
-            int u = context.light & '\uffff';
-            int v = context.light >> 16 & '\uffff';
-
-            u = (int) Lerps.lerp(u, LightmapTextureManager.MAX_BLOCK_LIGHT_COORDINATE, lf);
-            context.light = u | v << 16;
+            context.light = FormLightingRender.apply(context.light, this.form.lightingSettings, this.form.lighting.get());
 
             this.render3D(context);
 

@@ -198,6 +198,20 @@ public class StubEntity implements IEntity
         return this.handSwinging;
     }
 
+    /**
+     * Film editor stubs stop {@link #update()} while paused, so {@code prevHandSwingProgress}
+     * can stay high after a swipe ends. {@link #getHandSwingProgress(float)} then wraps toward
+     * 1 forever (actors keep ticking {@code LivingEntity}), which blocks procedural/Gecko idle.
+     * Call while the playhead is parked — does not advance an in-progress swipe.
+     */
+    public void settleFinishedHandSwing()
+    {
+        if (!this.handSwinging && this.handSwingProgress == 0F)
+        {
+            this.prevHandSwingProgress = 0F;
+        }
+    }
+
     @Override
     public float getHandSwingProgress(float tickDelta)
     {
@@ -214,6 +228,13 @@ public class StubEntity implements IEntity
          * the arm snap back for one playhead step after the swipe started. */
         if (tickDelta <= 0F)
         {
+            /* Also drop a finished-swipe prev so idle cannot stay suppressed while
+             * parked (wrap would never run its follow-up update). */
+            if (!this.handSwinging && this.handSwingProgress == 0F)
+            {
+                this.prevHandSwingProgress = 0F;
+            }
+
             return this.handSwingProgress;
         }
 

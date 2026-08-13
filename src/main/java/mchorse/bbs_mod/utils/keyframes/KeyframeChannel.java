@@ -253,6 +253,18 @@ public class KeyframeChannel <T> extends ValueList<Keyframe<T>>
         this.postNotify();
     }
 
+    /**
+     * Drop every keyframe at {@code tick} or later (used when viewport "All groups"
+     * recording starts so old future poses do not lerp into the capture).
+     */
+    public void removeFrom(float tick)
+    {
+        this.preNotify();
+        this.list.removeIf((next) -> next.getTick() >= tick);
+        this.sync();
+        this.postNotify();
+    }
+
     public boolean removeSilently(Keyframe<T> keyframe)
     {
         if (keyframe == null)

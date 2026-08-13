@@ -25,6 +25,9 @@ import mchorse.bbs_mod.utils.keyframes.KeyframeChannel;
 import mchorse.bbs_mod.utils.keyframes.KeyframeSegment;
 import mchorse.bbs_mod.utils.keyframes.KeyframeShape;
 import mchorse.bbs_mod.utils.keyframes.factories.IKeyframeFactory;
+import mchorse.bbs_mod.utils.keyframes.factories.KeyframeFactories;
+import mchorse.bbs_mod.utils.keyframes.factories.LightingSettingsKeyframeFactory;
+import mchorse.bbs_mod.forms.forms.utils.LightingSettings;
 
 import net.minecraft.client.gl.ShaderProgramKeys;
 import net.minecraft.client.render.BufferBuilder;
@@ -366,7 +369,10 @@ public class UIKeyframeGraph implements IUIKeyframeGraph
             double offsetY = this.fromGraphY(originalY) - factory.getY(originalV);
 
             float fx = (float) this.keyframes.fromGraphX(context.mouseX) - offsetX;
-            Object fy = factory.yToValue(this.fromGraphY(context.mouseY) - offsetY);
+            double graphY = this.fromGraphY(context.mouseY) - offsetY;
+            Object fy = factory == KeyframeFactories.LIGHTING_SETTINGS && originalV instanceof LightingSettings lighting
+                ? LightingSettingsKeyframeFactory.applyGraphY(lighting, graphY)
+                : factory.yToValue(graphY);
 
             if (!Window.isShiftPressed())
             {
