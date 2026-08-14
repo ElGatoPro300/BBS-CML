@@ -95,6 +95,7 @@ import mchorse.bbs_mod.ui.film.replays.UIMobCaptureRecordOverlayPanel;
 import mchorse.bbs_mod.ui.film.replays.overlays.UIQuickReplayOverlayPanel;
 import mchorse.bbs_mod.ui.film.toolbar.TimelineToolbarDockSync;
 import mchorse.bbs_mod.ui.forms.editors.UIFormEditor;
+import mchorse.bbs_mod.ui.framework.BbsGuiScale;
 import mchorse.bbs_mod.ui.framework.UIBaseMenu;
 import mchorse.bbs_mod.ui.framework.UIScreen;
 import mchorse.bbs_mod.ui.framework.elements.input.keyframes.factories.UIKeyframeFactory;
@@ -137,6 +138,7 @@ import net.fabricmc.loader.api.metadata.ModMetadata;
 import net.fabricmc.loader.api.metadata.Person;
 
 import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.network.ClientPlayerEntity;
 import net.minecraft.client.option.KeyBinding;
 import net.minecraft.client.render.BufferBuilder;
@@ -1256,10 +1258,22 @@ public class BBSModClient implements ClientModInitializer
 
         if (menu != null && mc != null)
         {
-            int desiredScale = getGUIScale();
-            mc.options.getGuiScale().setValue(desiredScale);
-            mc.onResolutionChanged();
-            menu.resize(mc.getWindow().getScaledWidth(), mc.getWindow().getScaledHeight());
+            Screen screen = mc.currentScreen;
+
+            if (screen instanceof UIScreen uiScreen)
+            {
+                uiScreen.reapplyScale();
+            }
+            else if (BbsGuiScale.isLinkedToGame())
+            {
+                mc.options.getGuiScale().setValue(getGUIScale());
+                mc.onResolutionChanged();
+                menu.resize(mc.getWindow().getScaledWidth(), mc.getWindow().getScaledHeight());
+            }
+            else
+            {
+                BbsGuiScale.resizeMenu(menu);
+            }
         }
     }
 
@@ -1273,9 +1287,22 @@ public class BBSModClient implements ClientModInitializer
 
         if (menu != null && mc != null)
         {
-            mc.options.getGuiScale().setValue(getGUIScale());
-            mc.onResolutionChanged();
-            menu.resize(mc.getWindow().getScaledWidth(), mc.getWindow().getScaledHeight());
+            Screen screen = mc.currentScreen;
+
+            if (screen instanceof UIScreen uiScreen)
+            {
+                uiScreen.reapplyScale();
+            }
+            else if (BbsGuiScale.isLinkedToGame())
+            {
+                mc.options.getGuiScale().setValue(getGUIScale());
+                mc.onResolutionChanged();
+                menu.resize(mc.getWindow().getScaledWidth(), mc.getWindow().getScaledHeight());
+            }
+            else
+            {
+                BbsGuiScale.resizeMenu(menu);
+            }
         }
     }
 

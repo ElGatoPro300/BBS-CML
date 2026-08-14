@@ -62,6 +62,7 @@ public class BBSSettings
     public static ValueBoolean welcomePanelAcceptedBeta1;
     public static ValueBoolean hideSettingDescriptions;
     public static ValueFloat userIntefaceScale;
+    public static ValueBoolean linkUiScaleToGame;
     public static ValueString uiFont;
     public static ValueFloat uiFontSize;
     public static ValueInt tooltipStyle;
@@ -421,6 +422,15 @@ public class BBSSettings
         return userIntefaceScale.get();
     }
 
+    /**
+     * When true, BBS writes Minecraft's GUI scale (legacy). Default false keeps BBS
+     * scale independent of the game's GUI scale / hotbar / vanilla menus.
+     */
+    public static boolean isUiScaleLinkedToGame()
+    {
+        return linkUiScaleToGame != null && linkUiScaleToGame.get();
+    }
+
     public static boolean hasColoredBackground()
     {
         return coloredBackground == null || coloredBackground.get();
@@ -613,6 +623,7 @@ public class BBSSettings
         welcomePanelAcceptedBeta1 = builder.getBoolean("welcome_panel_accepted_beta1", false);
         welcomePanelAcceptedBeta1.invisible();
         userIntefaceScale = builder.getFloat("ui_scale", 2F, 0.1F, 4F);
+        linkUiScaleToGame = builder.getBoolean("link_ui_scale_to_game", false);
         uiFont = builder.getString("ui_font", "");
         uiFontSize = builder.getFloat("ui_font_size", 1F, 0.25F, 4F);
         tooltipStyle = builder.getInt("tooltip_style", 1);
