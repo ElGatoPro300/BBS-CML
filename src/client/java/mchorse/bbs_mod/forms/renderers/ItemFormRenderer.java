@@ -475,29 +475,21 @@ public class ItemFormRenderer extends FormRenderer<ItemForm>
         ItemStack itemStack = this.form.stack.get();
         MinecraftClient client = MinecraftClient.getInstance();
         BakedModel cachedModel = ItemBodyPartBatch.getCachedModel();
-        MatrixStack.Entry parent = stack.peek();
 
-        try
+        if (cachedModel != null)
         {
-            if (cachedModel != null)
-            {
-                client.getItemRenderer().renderItem(itemStack, mode, leftHand, stack, consumers, light, overlay, cachedModel);
+            client.getItemRenderer().renderItem(itemStack, mode, leftHand, stack, consumers, light, overlay, cachedModel);
 
-                return;
-            }
-
-            if (context == null || context.entity == null)
-            {
-                client.getItemRenderer().renderItem(itemStack, mode, light, overlay, stack, consumers, client.world, 0);
-            }
-            else
-            {
-                client.getItemRenderer().renderItem(itemEntity, itemStack, mode, leftHand, stack, consumers, context.entity.getWorld(), light, overlay, 0);
-            }
+            return;
         }
-        finally
+
+        if (context == null || context.entity == null)
         {
-            MatrixStackUtils.popUntil(stack, parent);
+            client.getItemRenderer().renderItem(itemStack, mode, light, overlay, stack, consumers, client.world, 0);
+        }
+        else
+        {
+            client.getItemRenderer().renderItem(itemEntity, itemStack, mode, leftHand, stack, consumers, context.entity.getWorld(), light, overlay, 0);
         }
     }
 

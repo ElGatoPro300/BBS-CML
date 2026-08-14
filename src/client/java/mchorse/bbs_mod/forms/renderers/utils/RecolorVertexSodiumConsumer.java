@@ -1,7 +1,6 @@
 package mchorse.bbs_mod.forms.renderers.utils;
 
 import mchorse.bbs_mod.utils.colors.Color;
-import mchorse.bbs_mod.utils.sodium.SodiumUtils;
 
 import net.minecraft.client.render.VertexConsumer;
 import net.minecraft.client.render.VertexFormat;
@@ -26,14 +25,11 @@ public class RecolorVertexSodiumConsumer extends RecolorVertexConsumer implement
     }
 
     @Override
-    public boolean canUseIntrinsics()
-    {
-        return SodiumUtils.canUseIntrinsics(this.consumer);
-    }
-
-    @Override
     public void push(MemoryStack memoryStack, long l, int i, VertexFormat vertexFormat)
     {
-        SodiumUtils.push(this.consumer, memoryStack, l, i, vertexFormat);
+        if (this.consumer instanceof VertexBufferWriter writer)
+        {
+            writer.push(memoryStack, l, i, vertexFormat);
+        }
     }
 }
