@@ -7,8 +7,6 @@ import mchorse.bbs_mod.mixin.client.iris.IrisRenderingPipelineAccessor;
 
 import net.minecraft.client.MinecraftClient;
 
-import net.irisshaders.iris.gl.blending.AlphaTest;
-import net.irisshaders.iris.gl.blending.AlphaTestFunction;
 import net.irisshaders.iris.gl.texture.DepthCopyStrategy;
 import net.irisshaders.iris.helpers.OptionalBoolean;
 import net.irisshaders.iris.pipeline.IrisRenderingPipeline;
@@ -29,38 +27,14 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 import java.util.function.Consumer;
-import java.util.regex.Pattern;
-
-import it.unimi.dsi.fastutil.objects.Object2ObjectMap;
 
 /**
- * Runtime soft-opacity queue (Complementary / BSL patch optional).
- * Soft opacity draws after translucent terrain with depth writes — fluids stay, limbs do
- * not X-ray — whether or not the pack patch is active. Near-opaque stays on the live path
- * for pack lighting.
+ * Runtime soft-opacity queue. Soft forms draw after translucent terrain with depth writes
+ * (fluids stay, limbs do not X-ray). Pack GLSL / shaders.properties are left vanilla —
+ * Complementary light shafts sample the same shadow map those patches used to rewrite.
  */
 public class ShaderOpacityPatch
 {
-    public static final float LOW_ALPHA_TEST_REF = 0.0001F;
-
-    private static final Pattern ALPHA_TEST_REF_COMPARE = Pattern.compile(
-        "\\b([A-Za-z_][\\w.]*)\\.a\\s*<\\s*alphaTestRef\\b"
-    );
-    private static final Pattern LITERAL_POINT_ONE_COMPARE = Pattern.compile(
-        "\\b([A-Za-z_][\\w.]*)\\.a\\s*<\\s*0\\.1\\b"
-    );
-
-    private static final String[] ALPHA_TEST_PASSES = {
-        "gbuffers_entities",
-        "gbuffers_entities_translucent",
-        "gbuffers_block",
-        "gbuffers_block_translucent",
-        /* Billboard/shape deferred draws use position_tex_color → Iris basic/textured. */
-        "gbuffers_basic",
-        "gbuffers_textured",
-        "gbuffers_textured_lit"
-    };
-
     private static final List<PostDeferredEntry> postDeferredForms = new ArrayList<>();
     private static boolean postDeferredPhase;
     private static boolean flushingPostDeferred;
@@ -120,7 +94,8 @@ public class ShaderOpacityPatch
     }
 
     /**
-     * Global Iris translucency pipeline (post-deferred queue + generic Iris property patches).
+     * Settings toggle for the Iris opacity-fix path. Pack GLSL is no longer rewritten
+     * ({@link #shouldApplyPackGlslPatches}); soft forms use the post-deferred queue either way.
      */
     public static boolean isActive()
     {
@@ -141,19 +116,13 @@ public class ShaderOpacityPatch
     }
 
     /**
-     * Pack-specific GLSL string rewrites (shadow caster dither, shadow opacity scaling).
-     * Only Complementary / BSL source layouts are known; other packs skip these.
+     * Pack GLSL / shaders.properties rewrites. Always off: Complementary 5.8 light shafts
+     * share shadowtex with lighting, and the old wrap / alpha-test / separateEntityDraws
+     * patches leaked god rays through solid terrain.
      */
     public static boolean shouldApplyPackGlslPatches()
     {
-        if (!isActive())
-        {
-            return false;
-        }
-
-        String pack = resolvePackName();
-
-        return isComplementaryPack(pack) || isBslPack(pack);
+        return false;
     }
 
     private static String resolvePackName()
@@ -590,72 +559,26 @@ public class ShaderOpacityPatch
 
     public static String patchPropertiesContents(String contents)
     {
-        if (!isActive() || contents == null)
-        {
-            return contents;
-        }
-
-        if (contents.contains("separateEntityDraws"))
-        {
-            return contents.replaceAll("(?m)^\\s*separateEntityDraws\\s*=.*$", "separateEntityDraws=true");
-        }
-
-        return "separateEntityDraws=true\n" + contents;
+        /* Pack shaders.properties stay vanilla. Forcing separateEntityDraws and rewriting
+         * GLSL/alpha tests is what the opacity-fix toggle used to do, and it leaks
+         * Complementary light shafts through solid terrain. Soft forms already use the
+         * post-deferred queue without mutating the pack. */
+        return contents;
     }
 
     public static void applyAlphaTestOverrides(ShaderProperties properties)
     {
-        if (!isActive() || properties == null)
-        {
-            return;
-        }
-
-        Object2ObjectMap<String, AlphaTest> map = properties.getAlphaTestOverrides();
-        AlphaTest low = new AlphaTest(AlphaTestFunction.GREATER, LOW_ALPHA_TEST_REF);
-
-        for (String pass : ALPHA_TEST_PASSES)
-        {
-            map.put(pass, low);
-        }
+        /* No-op: hardware alphaTest GREATER 0.0001 on gbuffers was part of the VL leak. */
     }
 
     public static void applySeparateEntityDraws(Consumer<OptionalBoolean> setter)
     {
-        if (!isActive() || setter == null)
-        {
-            return;
-        }
-
-        setter.accept(OptionalBoolean.TRUE);
+        /* No-op: Complementary does not set separateEntityDraws. */
     }
 
     public static String processSource(String source)
     {
-        if (!isActive() || source == null || source.isEmpty())
-        {
-            return source;
-        }
-
-        String patched = source;
-
-        /* Shadow casters: skip alpha-test rewrites (those hole foliage/terrain shadows), but
-         * keep vertex-alpha dither so per-actor Opacity / shadow_opacity can fade ground
-         * shadows on otherwise binary Iris shadow maps. */
-        if (isShadowCasterSource(source))
-        {
-            return processShadowCasterAlpha(patched);
-        }
-
-        /* Only relax alpha discards on entity/block/textured/basic paths. Applying this to
-         * every non-caster program rewrote Complementary terrain's
-         * {@code if (glColorRaw.a < 0.1) glColorRaw.a = 1.0} remap. */
-        if (shouldRelaxAlphaTest(patched))
-        {
-            patched = ALPHA_TEST_REF_COMPARE.matcher(patched).replaceAll("$1.a < " + LOW_ALPHA_TEST_REF);
-            patched = LITERAL_POINT_ONE_COMPARE.matcher(patched).replaceAll("$1.a < " + LOW_ALPHA_TEST_REF);
-        }
-
-        return patched;
+        return source;
     }
 
     public static boolean isShadowCasterSourcePublic(String source)
@@ -668,73 +591,6 @@ public class ShaderOpacityPatch
         return source.contains("DoNaturalShadowCalculation")
             || source.contains("float premult = float(mat > 0.98")
             || source.contains("BBS_SHADOW_CASTER_DITHER");
-    }
-
-    private static boolean shouldRelaxAlphaTest(String source)
-    {
-        return source.contains("GBUFFERS_ENTITIES")
-            || source.contains("GBUFFERS_BLOCK")
-            || source.contains("GBUFFERS_TEXTURED")
-            || source.contains("GBUFFERS_BASIC")
-            || source.contains("GBUFFERS_WEATHER");
-    }
-
-    /**
-     * Complementary/BSL shadow map programs: dither-discard by <b>vertex color alpha only</b>
-     * so form Opacity and replay shadow_opacity fade per-actor ground shadows linearly
-     * (coverage ≈ alpha). Does not multiply texture alpha (that made leaves/grass holey).
-     */
-    public static String processShadowCasterAlpha(String source)
-    {
-        if (!isActive() || source == null || source.isEmpty())
-        {
-            return source;
-        }
-
-        if (source.contains("BBS_SHADOW_CASTER_DITHER"))
-        {
-            return source;
-        }
-
-        /* Complementary shadow.glsl */
-        if (source.contains("DoNaturalShadowCalculation") && source.contains("gl_FragData[0] = color1;"))
-        {
-            String dither =
-                "/* BBS_SHADOW_CASTER_DITHER */\n"
-                    + "    {\n"
-                    + "        float bbsCasterAlpha = glColor.a;\n"
-                    + "        if (bbsCasterAlpha < 0.999){\n"
-                    + "            float bbsShadowDither = fract(sin(dot(gl_FragCoord.xy, vec2(12.9898, 78.233))) * 43758.5453);\n"
-                    + "            if (bbsShadowDither > bbsCasterAlpha) discard;\n"
-                    + "        }\n"
-                    + "    }\n";
-
-            return source.replace(
-                "    /* DRAWBUFFERS:0 */\n    gl_FragData[0] = color1; // Shadow Color",
-                dither + "    /* DRAWBUFFERS:0 */\n    gl_FragData[0] = color1; // Shadow Color"
-            );
-        }
-
-        /* BSL shadow.glsl */
-        if (source.contains("float premult = float(mat > 0.98") && source.contains("gl_FragData[0] = albedo;"))
-        {
-            String dither =
-                "\t/* BBS_SHADOW_CASTER_DITHER */\n"
-                    + "\t{\n"
-                    + "\t\tfloat bbsCasterAlpha = color.a;\n"
-                    + "\t\tif (bbsCasterAlpha < 0.999){\n"
-                    + "\t\t\tfloat bbsShadowDither = fract(sin(dot(gl_FragCoord.xy, vec2(12.9898, 78.233))) * 43758.5453);\n"
-                    + "\t\t\tif (bbsShadowDither > bbsCasterAlpha) discard;\n"
-                    + "\t\t}\n"
-                    + "\t}\n";
-
-            if (source.contains("\tgl_FragData[0] = albedo;"))
-            {
-                return source.replace("\tgl_FragData[0] = albedo;", dither + "\tgl_FragData[0] = albedo;");
-            }
-        }
-
-        return source;
     }
 
     public static void ensureShadowOpacityVariable()

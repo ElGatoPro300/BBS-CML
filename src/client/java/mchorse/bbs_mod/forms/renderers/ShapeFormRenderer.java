@@ -22,7 +22,6 @@ import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.utils.MathUtils;
 import mchorse.bbs_mod.utils.MatrixStackUtils;
 import mchorse.bbs_mod.utils.colors.Color;
-import mchorse.bbs_mod.utils.interps.Lerps;
 import mchorse.bbs_mod.utils.iris.ShaderCurves;
 import mchorse.bbs_mod.utils.iris.ShaderOpacityPatch;
 import mchorse.bbs_mod.utils.math.Noise;
@@ -235,14 +234,11 @@ public class ShapeFormRenderer extends FormRenderer<ShapeForm>
         stack.scale(this.form.sizeX.get(), this.form.sizeY.get(), this.form.sizeZ.get());
 
         ShapeForm.ShapeType type = this.form.type.get();
-        boolean opacityPatch = ShaderOpacityPatch.isActive();
         boolean shadowPass = BBSRendering.isIrisShadowPass();
         /* Under Iris, flats must defer — live path washes them. Opaque (#ff) is skipped by
-         * needsIrisTranslucentFlatDeferral; with the opacity patch that live opaque path also
-         * vanishes, so defer every world shape while the patch is active. */
+         * needsIrisTranslucentFlatDeferral. */
         boolean deferTranslucent = !shadowPass
-            && (BBSRendering.needsIrisTranslucentFlatDeferral(c.a)
-                || (opacityPatch && BBSRendering.isIrisWorldModelPass()));
+            && BBSRendering.needsIrisTranslucentFlatDeferral(c.a);
 
         if (deferTranslucent)
         {
@@ -258,24 +254,8 @@ public class ShapeFormRenderer extends FormRenderer<ShapeForm>
             GlowSettings glowSettingsSnapshot = glowSettings;
             Color legacyGlowSnapshot = legacyGlow;
             boolean lighting = this.form.lighting.get();
-            /* Noshading opacity: redraw after paint via BBS translucent queue, not Iris post-deferred. */
-            boolean noshadingPaintPath = BBSRendering.needsIrisNoshadingOpacityDeferral(c.a, this.form.noshadingOpacity.get());
-            boolean afterFluids = ShaderOpacityPatch.shouldFlushAfterFluids(c.a);
             /* Soft-opacity depth write stays opacity-based. */
             boolean depthWrite = ShaderOpacityPatch.shouldWriteDepthForOpacity(c.a);
-            double distanceSq = 0D;
-
-            if (renderContext != null && renderContext.entity != null && renderContext.camera != null)
-            {
-                double x = Lerps.lerp(renderContext.entity.getPrevX(), renderContext.entity.getX(), renderContext.getTransition());
-                double y = Lerps.lerp(renderContext.entity.getPrevY(), renderContext.entity.getY(), renderContext.getTransition());
-                double z = Lerps.lerp(renderContext.entity.getPrevZ(), renderContext.entity.getZ(), renderContext.getTransition());
-                double dx = x - renderContext.camera.position.x;
-                double dy = y - renderContext.camera.position.y;
-                double dz = z - renderContext.camera.position.z;
-
-                distanceSq = dx * dx + dy * dy + dz * dz;
-            }
 
             Runnable deferredDraw = () ->
             {
@@ -301,14 +281,7 @@ public class ShapeFormRenderer extends FormRenderer<ShapeForm>
                 );
             };
 
-            if (opacityPatch && !noshadingPaintPath)
-            {
-                ShaderOpacityPatch.submitPostDeferredBbsForm(0D, distanceSq, depthWrite, afterFluids, deferredDraw);
-            }
-            else
-            {
-                ModelVAORenderer.submitDeferredTranslucentModel(deferredDraw, depthWrite);
-            }
+            ModelVAORenderer.submitDeferredTranslucentModel(deferredDraw, depthWrite);
         }
         else
         {

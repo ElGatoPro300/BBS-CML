@@ -950,18 +950,10 @@ public class BBSRendering
     /**
      * True when Iris would discard/mis-composite very low form opacity; queue a BBS redraw
      * after compositing. Slight opacity (e.g. {@code #e7}/{@code #fc}) stays on Iris.
-     * When the Complementary/BSL opacity patch is active, never take this BBS handoff —
-     * translucency stays on Iris and is flushed post-deferred after VL clouds (smooth
-     * fade through {@code #1c}/28 with lighting and render depth intact).
      */
     public static boolean needsIrisTranslucentModelDeferral(float alpha)
     {
         if (!isIrisWorldModelPass() || isIrisShadowPass())
-        {
-            return false;
-        }
-
-        if (ShaderOpacityPatch.isActive())
         {
             return false;
         }

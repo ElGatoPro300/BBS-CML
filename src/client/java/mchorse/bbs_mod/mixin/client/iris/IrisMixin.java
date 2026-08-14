@@ -32,7 +32,6 @@ public class IrisMixin
         ShaderCurves.reset();
         FormColorGradePatch.resetPackState();
         ShaderOpacityPatch.setLoadingPackName(name);
-        ShaderOpacityPatch.ensureShadowOpacityVariable();
         ShaderCurves.ensureSunPathRotationVariable();
     }
 
