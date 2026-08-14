@@ -37,6 +37,7 @@ import mchorse.bbs_mod.forms.renderers.StructureFormRenderer;
 import mchorse.bbs_mod.forms.renderers.TrailFormRenderer;
 import mchorse.bbs_mod.forms.renderers.VanillaParticleFormRenderer;
 import mchorse.bbs_mod.ui.framework.UIContext;
+import mchorse.bbs_mod.utils.MatrixStackUtils;
 
 import net.minecraft.client.render.RenderLayer;
 import net.minecraft.client.render.TexturedRenderLayers;
@@ -44,6 +45,7 @@ import net.minecraft.client.render.VertexConsumerProvider;
 import net.minecraft.client.render.entity.model.TridentEntityModel;
 import net.minecraft.client.render.model.ModelLoader;
 import net.minecraft.client.util.BufferAllocator;
+import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.util.Util;
 
 import java.util.Collections;
@@ -232,14 +234,24 @@ public class FormUtilsClient
         {
             currentForm.push(form);
 
+            MatrixStack.Entry stackParent = context != null && context.stack != null
+                ? context.stack.peek()
+                : null;
+
             try
             {
                 renderer.render(context);
             }
             catch (Exception e)
-            {}
-
-            currentForm.pop();
+            {
+                /* Swallowed so one bad form (piglin+trident) does not abort the frame;
+                 * popUntil restores ModelPart pushes vanilla never pops on throw. */
+            }
+            finally
+            {
+                currentForm.pop();
+                MatrixStackUtils.popUntil(context != null ? context.stack : null, stackParent);
+            }
 
             if (illusionDepth == 0)
             {

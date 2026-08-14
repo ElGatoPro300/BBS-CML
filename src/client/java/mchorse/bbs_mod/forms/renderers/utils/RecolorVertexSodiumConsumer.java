@@ -27,7 +27,9 @@ public class RecolorVertexSodiumConsumer extends RecolorVertexConsumer implement
     @Override
     public boolean canUseIntrinsics()
     {
-        return this.consumer instanceof VertexBufferWriter writer && writer.canUseIntrinsics();
+        /* Never claim Sodium's fast path. Trident/shield ModelParts write ENTITY
+         * vertices; a mismatch after push leaves WorldRenderer's pose stack dirty. */
+        return false;
     }
 
     @Override

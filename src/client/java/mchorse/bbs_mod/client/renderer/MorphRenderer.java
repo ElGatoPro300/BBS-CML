@@ -16,6 +16,7 @@ import mchorse.bbs_mod.ui.dashboard.panels.UIDashboardPanel;
 import mchorse.bbs_mod.ui.framework.UIBaseMenu;
 import mchorse.bbs_mod.ui.framework.UIScreen;
 import mchorse.bbs_mod.ui.morphing.UIMorphingPanel;
+import mchorse.bbs_mod.utils.MatrixStackUtils;
 import mchorse.bbs_mod.utils.interps.Lerps;
 
 import net.minecraft.client.MinecraftClient;
@@ -82,30 +83,35 @@ public class MorphRenderer
 
                 float bodyYaw = Lerps.lerp(player.prevBodyYaw, player.bodyYaw, g);
                 int overlay = LivingEntityRenderer.getOverlay(player, 0F);
+                MatrixStack.Entry stackParent = matrixStack.peek();
 
                 matrixStack.push();
                 matrixStack.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(-bodyYaw));
 
-                FormUtilsClient.render(morph.getForm(), new FormRenderingContext()
-                    .set(FormRenderType.ENTITY, morph.entity, matrixStack, i, overlay, g)
-                    .camera(MinecraftClient.getInstance().gameRenderer.getCamera()));
-
-                if (morph.entity.getFireTicks() > 0)
+                try
                 {
-                    MorphFireRenderer.render(
-                        matrixStack,
-                        vertexConsumerProvider,
-                        morph.entity,
-                        morph.getForm(),
-                        g,
-                        MinecraftClient.getInstance().gameRenderer.getCamera(),
-                        false
-                    );
+                    FormUtilsClient.render(morph.getForm(), new FormRenderingContext()
+                        .set(FormRenderType.ENTITY, morph.entity, matrixStack, i, overlay, g)
+                        .camera(MinecraftClient.getInstance().gameRenderer.getCamera()));
+
+                    if (morph.entity.getFireTicks() > 0)
+                    {
+                        MorphFireRenderer.render(
+                            matrixStack,
+                            vertexConsumerProvider,
+                            morph.entity,
+                            morph.getForm(),
+                            g,
+                            MinecraftClient.getInstance().gameRenderer.getCamera(),
+                            false
+                        );
+                    }
                 }
-
-                matrixStack.pop();
-
-                BBSRendering.restoreWorldRenderState();
+                finally
+                {
+                    MatrixStackUtils.popUntil(matrixStack, stackParent);
+                    BBSRendering.restoreWorldRenderState();
+                }
             }
 
             return true;
@@ -160,30 +166,35 @@ public class MorphRenderer
             RenderSystem.enableDepthTest();
 
             float bodyYaw = Lerps.lerp(livingEntity.prevBodyYaw, livingEntity.bodyYaw, g);
+            MatrixStack.Entry stackParent = matrixStack.peek();
 
             matrixStack.push();
             matrixStack.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(-bodyYaw));
 
-            FormUtilsClient.render(form, new FormRenderingContext()
-                .set(FormRenderType.ENTITY, owner.entity, matrixStack, i, o, g)
-                .camera(MinecraftClient.getInstance().gameRenderer.getCamera()));
-
-            if (owner.entity.getFireTicks() > 0)
+            try
             {
-                MorphFireRenderer.render(
-                    matrixStack,
-                    vertexConsumerProvider,
-                    owner.entity,
-                    form,
-                    g,
-                    MinecraftClient.getInstance().gameRenderer.getCamera(),
-                    false
-                );
+                FormUtilsClient.render(form, new FormRenderingContext()
+                    .set(FormRenderType.ENTITY, owner.entity, matrixStack, i, o, g)
+                    .camera(MinecraftClient.getInstance().gameRenderer.getCamera()));
+
+                if (owner.entity.getFireTicks() > 0)
+                {
+                    MorphFireRenderer.render(
+                        matrixStack,
+                        vertexConsumerProvider,
+                        owner.entity,
+                        form,
+                        g,
+                        MinecraftClient.getInstance().gameRenderer.getCamera(),
+                        false
+                    );
+                }
             }
-
-            matrixStack.pop();
-
-            BBSRendering.restoreWorldRenderState();
+            finally
+            {
+                MatrixStackUtils.popUntil(matrixStack, stackParent);
+                BBSRendering.restoreWorldRenderState();
+            }
 
             return true;
         }
