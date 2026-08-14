@@ -1,5 +1,6 @@
 package mchorse.bbs_mod.forms;
 
+import mchorse.bbs_mod.client.BBSRendering;
 import mchorse.bbs_mod.forms.forms.AnchorForm;
 import mchorse.bbs_mod.forms.forms.BillboardForm;
 import mchorse.bbs_mod.forms.forms.BlockForm;
@@ -38,12 +39,15 @@ import mchorse.bbs_mod.forms.renderers.TrailFormRenderer;
 import mchorse.bbs_mod.forms.renderers.VanillaParticleFormRenderer;
 import mchorse.bbs_mod.ui.framework.UIContext;
 
+import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.render.RenderLayer;
 import net.minecraft.client.render.TexturedRenderLayers;
 import net.minecraft.client.render.VertexConsumerProvider;
 import net.minecraft.client.render.entity.model.TridentEntityModel;
 import net.minecraft.client.render.model.ModelLoader;
+import net.minecraft.client.render.model.json.ModelTransformationMode;
 import net.minecraft.client.util.BufferAllocator;
+import net.minecraft.item.ItemStack;
 import net.minecraft.util.Util;
 
 import java.util.Collections;
@@ -159,6 +163,101 @@ public class FormUtilsClient
     private static void assignBuffer(SequencedMap<RenderLayer, BufferAllocator> storage, RenderLayer layer)
     {
         storage.put(layer, new BufferAllocator(layer.getExpectedBufferSize()));
+    }
+
+    /**
+     * Trident/shield/skulls use {@code BuiltinModelItemRenderer} (entity ModelParts).
+     * Those meshes tessellate on the world entity Immediate — same path as a vanilla
+     * player. Do not {@code draw()} that Immediate from here (Iris would duplicate).
+     */
+    public static boolean usesBuiltinItemRenderer(ItemStack stack, ModelTransformationMode mode)
+    {
+        if (stack == null || stack.isEmpty())
+        {
+            return false;
+        }
+
+        try
+        {
+            return MinecraftClient.getInstance().getItemRenderer().getModel(stack, null, null, 0).isBuiltin();
+        }
+        catch (Exception e)
+        {
+            return false;
+        }
+    }
+
+    public static VertexConsumerProvider routeMobFormBuiltinItemConsumers(ItemStack stack, ModelTransformationMode mode, VertexConsumerProvider fallback)
+    {
+        if (fallback == null || !BBSRendering.isRenderingWorld() || BBSRendering.isIrisShadowPass())
+        {
+            return fallback;
+        }
+
+        if (!(getCurrentForm() instanceof MobForm))
+        {
+            return fallback;
+        }
+
+        if (!usesBuiltinItemRenderer(stack, mode))
+        {
+            return fallback;
+        }
+
+        return MinecraftClient.getInstance().getBufferBuilders().getEntityVertexConsumers();
+    }
+
+    public static boolean isMobFormEquipmentLayer(RenderLayer layer)
+    {
+        if (layer == null)
+        {
+            return false;
+        }
+
+        String name = layer.toString();
+
+        if (name == null || name.isEmpty())
+        {
+            return false;
+        }
+
+        String lower = name.toLowerCase();
+
+        return lower.contains("armor")
+            || lower.contains("glint")
+            || lower.contains("trident")
+            || lower.contains("shield");
+    }
+
+    public static boolean shouldFlushMobFormFeatureLayers()
+    {
+        return getCurrentForm() instanceof MobForm
+            && BBSRendering.isRenderingWorld()
+            && !BBSRendering.isIrisShadowPass();
+    }
+
+    /**
+     * Armor/clothing use per-texture layers that live in Immediate's fallback buffer.
+     * Flush after the feature so a later throw (trident) cannot skip {@code draw()}
+     * and drop the last armor piece.
+     */
+    public static void flushMobFormFeatureLayers(VertexConsumerProvider vertexConsumers)
+    {
+        if (!shouldFlushMobFormFeatureLayers() || vertexConsumers == null)
+        {
+            return;
+        }
+
+        BBSRendering.prepareVanillaEntityLighting();
+
+        if (vertexConsumers instanceof CustomVertexConsumerProvider custom)
+        {
+            custom.drawCurrentLayer();
+        }
+        else if (vertexConsumers instanceof VertexConsumerProvider.Immediate immediate)
+        {
+            immediate.drawCurrentLayer();
+        }
     }
 
     public static <T extends Form> void register(Class<T> clazz, IFormRendererFactory<T> function)

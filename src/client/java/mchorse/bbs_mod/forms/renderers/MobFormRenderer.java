@@ -562,19 +562,22 @@ public class MobFormRenderer extends FormRenderer<MobForm> implements ITickable
             {
                 CustomVertexConsumerProvider.hijackVertexFormat((layer) ->
                 {
-                    if (!first.bool)
+                    if (first.bool || FormUtilsClient.isMobFormEquipmentLayer(layer))
                     {
-                        this.bindTexture();
-
-                        first.bool = true;
+                        return;
                     }
+
+                    this.bindTexture();
+                    first.bool = true;
                 });
             }
 
-            try
-            {
+            MatrixStack.Entry stackMarker = context.stack.peek();
+
             context.stack.push();
 
+            try
+            {
             if (this.form.mobID.get().equals("minecraft:ender_dragon"))
             {
                 context.stack.multiply(RotationAxis.POSITIVE_Y.rotation(MathUtils.PI));
@@ -667,30 +670,34 @@ public class MobFormRenderer extends FormRenderer<MobForm> implements ITickable
             {
                 livingMorphForFire.setFireTicks(savedFireTicks);
             }
-
-            currentPose = currentPoseOverlay = null;
-
-            if (prepareLighting)
-            {
-                BBSRendering.prepareVanillaEntityLighting();
-            }
-
-            consumers.draw();
-            CustomVertexConsumerProvider.clearRunnables();
-
-            if (prepareLighting)
-            {
-                MinecraftClient.getInstance().gameRenderer.getOverlayTexture().teardownOverlayColor();
-                BBSRendering.restoreWorldRenderState();
-            }
-
-            context.stack.pop();
-
-            RenderSystem.enableDepthTest();
             }
             finally
             {
+                currentPose = currentPoseOverlay = null;
+                CustomVertexConsumerProvider.clearRunnables();
                 forceZeroPickLight = false;
+
+                if (prepareLighting)
+                {
+                    BBSRendering.prepareVanillaEntityLighting();
+                }
+
+                try
+                {
+                    consumers.draw();
+                }
+                catch (Exception ignored)
+                {
+                }
+
+                if (prepareLighting)
+                {
+                    MinecraftClient.getInstance().gameRenderer.getOverlayTexture().teardownOverlayColor();
+                    BBSRendering.restoreWorldRenderState();
+                }
+
+                MatrixStackUtils.popUntil(context.stack, stackMarker);
+                RenderSystem.enableDepthTest();
             }
         }
     }
