@@ -137,7 +137,6 @@ public abstract class FormRenderer <T extends Form>
         int light = context.light;
         int savedColor = context.color;
         boolean isPicking = context.stencilMap != null;
-        MatrixStack.Entry stackParent = context.stack.peek();
 
         context.stack.push();
         if (context.world != null)
@@ -166,7 +165,7 @@ public abstract class FormRenderer <T extends Form>
         }
         finally
         {
-            MatrixStackUtils.popUntil(context.stack, stackParent);
+            context.stack.pop();
             if (context.world != null)
             {
                 context.world.pop();

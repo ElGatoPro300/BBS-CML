@@ -468,8 +468,6 @@ public class MobFormRenderer extends FormRenderer<MobForm> implements ITickable
         {
             MatrixStack stack = context.batcher.getContext().getMatrices();
 
-            MatrixStack.Entry stackParent = stack.peek();
-
             stack.push();
 
             Matrix4f uiMatrix = ModelFormRenderer.getUIMatrix(context, x1, y1, x2, y2);
@@ -516,13 +514,17 @@ public class MobFormRenderer extends FormRenderer<MobForm> implements ITickable
             finally
             {
                 MobTextureOverride.end();
-                consumers.draw();
-                consumers.setUI(false);
-                CustomVertexConsumerProvider.clearRunnables();
-                DiffuseLighting.disableGuiDepthLighting();
-                MatrixStackUtils.popUntil(stack, stackParent);
-                RenderSystem.depthFunc(GL11.GL_ALWAYS);
             }
+            consumers.draw();
+            consumers.setUI(false);
+
+            CustomVertexConsumerProvider.clearRunnables();
+
+            DiffuseLighting.disableGuiDepthLighting();
+
+            stack.pop();
+
+            RenderSystem.depthFunc(GL11.GL_ALWAYS);
         }
     }
 
@@ -571,12 +573,8 @@ public class MobFormRenderer extends FormRenderer<MobForm> implements ITickable
 
             try
             {
-            MatrixStack.Entry stackMarker = context.stack.peek();
-
             context.stack.push();
 
-            try
-            {
             if (this.form.mobID.get().equals("minecraft:ender_dragon"))
             {
                 context.stack.multiply(RotationAxis.POSITIVE_Y.rotation(MathUtils.PI));
@@ -686,14 +684,9 @@ public class MobFormRenderer extends FormRenderer<MobForm> implements ITickable
                 BBSRendering.restoreWorldRenderState();
             }
 
+            context.stack.pop();
+
             RenderSystem.enableDepthTest();
-            }
-            finally
-            {
-                currentPose = currentPoseOverlay = null;
-                CustomVertexConsumerProvider.clearRunnables();
-                MatrixStackUtils.popUntil(context.stack, stackMarker);
-            }
             }
             finally
             {
