@@ -64,6 +64,7 @@ import net.minecraft.client.render.DiffuseLighting;
 import net.minecraft.client.render.GameRenderer;
 import net.minecraft.client.render.LightmapTextureManager;
 import net.minecraft.client.render.OverlayTexture;
+import net.minecraft.client.render.VertexConsumerProvider;
 import net.minecraft.client.render.model.json.ModelTransformationMode;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.entity.EquipmentSlot;
@@ -3118,7 +3119,11 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
 
             if (matrix != null)
             {
-                CustomVertexConsumerProvider consumers = FormUtilsClient.getProvider();
+                CustomVertexConsumerProvider privateConsumers = FormUtilsClient.getProvider();
+                boolean builtin = BBSRendering.isRenderingWorld() && FormUtilsClient.usesBuiltinItemRenderer(itemStack, mode);
+                VertexConsumerProvider consumers = builtin
+                    ? FormUtilsClient.tintWorldEntityConsumers(BBSRendering.getColorConsumer(color))
+                    : privateConsumers;
 
                 stack.push();
                 MatrixStackUtils.multiply(stack, matrix);
@@ -3141,24 +3146,33 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
 
                 CustomVertexConsumerProvider.hijackVertexFormat((l) -> RenderSystem.enableBlend());
 
-                consumers.setSubstitute(BBSRendering.getColorConsumer(color));
-
-                /* For some reason, due to Sodium and my color consumer, in some cases items like Trident,
-                 * shield, etc. not get rendered, but if in another arm there is another item, it does render...
-                 * So, I render a 0 size oak button to circumvent that bug! */
-                if (model.model instanceof BOBJModel)
+                if (!builtin)
                 {
-                    stack.push();
-                    stack.scale(0F, 0F, 0F);
-                    MinecraftClient.getInstance().getItemRenderer().renderItem(null, new ItemStack(Items.OAK_BUTTON), mode, mode == ModelTransformationMode.THIRD_PERSON_LEFT_HAND, stack, consumers, target.getWorld(), light, overlay, 0);
-                    consumers.draw();
-                    stack.pop();
+                    privateConsumers.setSubstitute(BBSRendering.getColorConsumer(color));
+
+                    /* For some reason, due to Sodium and my color consumer, in some cases items like Trident,
+                     * shield, etc. not get rendered, but if in another arm there is another item, it does render...
+                     * So, I render a 0 size oak button to circumvent that bug! */
+                    if (model.model instanceof BOBJModel)
+                    {
+                        stack.push();
+                        stack.scale(0F, 0F, 0F);
+                        MinecraftClient.getInstance().getItemRenderer().renderItem(null, new ItemStack(Items.OAK_BUTTON), mode, mode == ModelTransformationMode.THIRD_PERSON_LEFT_HAND, stack, privateConsumers, target.getWorld(), light, overlay, 0);
+                        privateConsumers.draw();
+                        stack.pop();
+                    }
                 }
 
                 MinecraftClient.getInstance().getItemRenderer().renderItem(itemEntity, itemStack, mode, mode == ModelTransformationMode.THIRD_PERSON_LEFT_HAND, stack, consumers, target.getWorld(), light, overlay, 0);
-                consumers.draw();
-                consumers.setSubstitute(null);
 
+                /* Builtin meshes stay in the world Immediate until WorldRenderer flushes
+                 * them; drawing that Immediate here is the enchanted-armor black bug. */
+                if (!builtin)
+                {
+                    privateConsumers.draw();
+                }
+
+                privateConsumers.setSubstitute(null);
                 CustomVertexConsumerProvider.clearRunnables();
 
                 stack.pop();

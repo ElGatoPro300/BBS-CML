@@ -42,9 +42,13 @@ import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.render.BufferBuilder;
 import net.minecraft.client.render.RenderLayer;
 import net.minecraft.client.render.TexturedRenderLayers;
+import net.minecraft.client.render.VertexConsumer;
 import net.minecraft.client.render.VertexConsumerProvider;
 import net.minecraft.client.render.model.ModelLoader;
+import net.minecraft.client.render.model.json.ModelTransformationMode;
 import net.minecraft.client.util.BufferAllocator;
+import net.minecraft.item.ItemStack;
+import net.minecraft.item.Items;
 import net.minecraft.util.Util;
 
 import java.util.Collections;
@@ -53,6 +57,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.SortedMap;
 import java.util.Stack;
+import java.util.function.Function;
 
 import it.unimi.dsi.fastutil.objects.Object2ObjectLinkedOpenHashMap;
 
@@ -104,6 +109,51 @@ public class FormUtilsClient
         }
 
         return customVertexConsumerProvider;
+    }
+
+    /**
+     * Trident/shield/etc. use vanilla {@code ModelPart} + Sodium's entity vertex path.
+     * That only works on the world entity Immediate (the setup before f3e3a39).
+     * Do not {@code draw()} this — that flush with the lightmap off is what turned
+     * vanilla enchanted armor black. WorldRenderer draws it later with lightmap on.
+     */
+    public static VertexConsumerProvider tintWorldEntityConsumers(Function<VertexConsumer, VertexConsumer> substitute)
+    {
+        VertexConsumerProvider.Immediate world = MinecraftClient.getInstance().getBufferBuilders().getEntityVertexConsumers();
+
+        if (substitute == null)
+        {
+            return world;
+        }
+
+        return (layer) ->
+        {
+            VertexConsumer buffer = world.getBuffer(layer);
+            VertexConsumer apply = substitute.apply(buffer);
+
+            return apply != null ? apply : buffer;
+        };
+    }
+
+    /**
+     * Same special case as {@code ItemRenderer.renderItem}: trident is a 2D inventory
+     * model but the third-person renderer uses the builtin entity mesh.
+     */
+    public static boolean usesBuiltinItemRenderer(ItemStack stack, ModelTransformationMode mode)
+    {
+        if (stack == null || stack.isEmpty())
+        {
+            return false;
+        }
+
+        if (stack.isOf(Items.TRIDENT))
+        {
+            return mode != ModelTransformationMode.GUI
+                && mode != ModelTransformationMode.GROUND
+                && mode != ModelTransformationMode.FIXED;
+        }
+
+        return MinecraftClient.getInstance().getItemRenderer().getModel(stack, null, null, 0).isBuiltin();
     }
 
     /**
