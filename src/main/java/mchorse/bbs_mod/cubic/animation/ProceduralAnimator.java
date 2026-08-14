@@ -471,6 +471,11 @@ public class ProceduralAnimator implements IAnimator
                 }
             }
 
+            if (!riding && leftArm != null && rightArm != null)
+            {
+                ProceduralItemUsePoses.applyModel(target, leftArm, rightArm, main, offhand, pitch, yaw, transition);
+            }
+
             if (!riding && handSwingProgress > 0F && leftArm != null && rightArm != null)
             {
                 float swingFactor = handSwingProgress;
@@ -702,6 +707,11 @@ public class ProceduralAnimator implements IAnimator
                         }
                     }
                 }
+            }
+
+            if (!riding && bobjLeftArm != null && bobjRightArm != null)
+            {
+                ProceduralItemUsePoses.applyBobj(target, bobjLeftArm, bobjRightArm, main, offhand, pitch, yaw, transition);
             }
 
             if (!riding && handSwingProgress > 0F && bobjLeftArm != null && bobjRightArm != null)
