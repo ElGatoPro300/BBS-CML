@@ -2,6 +2,7 @@ package mchorse.bbs_mod.film;
 
 import mchorse.bbs_mod.BBSSettings;
 import mchorse.bbs_mod.client.BBSRendering;
+import mchorse.bbs_mod.client.ItemUseRenderState;
 import mchorse.bbs_mod.client.renderer.ModelBlockEntityRenderer;
 import mchorse.bbs_mod.client.renderer.MorphFireRenderer;
 import mchorse.bbs_mod.client.renderer.entity.ActorEntityRenderer;
@@ -78,10 +79,12 @@ import net.minecraft.entity.EquipmentSlot;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.MovementType;
 import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.item.ItemStack;
 import net.minecraft.particle.BlockStateParticleEffect;
 import net.minecraft.particle.ParticleTypes;
 import net.minecraft.sound.SoundCategory;
 import net.minecraft.text.Text;
+import net.minecraft.util.Hand;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Vec3d;
 import net.minecraft.world.LightType;
@@ -1543,6 +1546,14 @@ public abstract class BaseFilmController
                                  * already received applyReplay; without this, actor toggle can
                                  * show empty armor until the server respawns the actor. */
                                 this.syncActorEquipmentFromStub(actor, entity);
+
+                                if (controlling)
+                                {
+                                    /* Live item-use (bow pull, crossbow charge, eating) lives on
+                                     * the player; flags-only sync leaves remaining use-time at 0. */
+                                    this.syncActorItemUseFromSource(actor, entity);
+                                }
+
                                 /* Only gate vanilla sprint dust — do not clear sprinting (run anim). */
                                 actor.setSuppressSprintParticles(controlling);
 
@@ -1786,6 +1797,19 @@ public abstract class BaseFilmController
         actor.equipStack(EquipmentSlot.CHEST, stub.getEquipmentStack(EquipmentSlot.CHEST));
         actor.equipStack(EquipmentSlot.LEGS, stub.getEquipmentStack(EquipmentSlot.LEGS));
         actor.equipStack(EquipmentSlot.FEET, stub.getEquipmentStack(EquipmentSlot.FEET));
+    }
+
+    /**
+     * Copy live item-use remaining time onto the actor so vanilla item predicates
+     * (bow pull, crossbow charge, trident) match the puppeteer.
+     */
+    private void syncActorItemUseFromSource(ActorEntity actor, IEntity source)
+    {
+        Hand hand = source.getActiveHand();
+        EquipmentSlot slot = hand == Hand.OFF_HAND ? EquipmentSlot.OFFHAND : EquipmentSlot.MAINHAND;
+        ItemStack stack = source.getEquipmentStack(slot);
+
+        ItemUseRenderState.syncItemUse(actor, source, hand, stack);
     }
 
     /**

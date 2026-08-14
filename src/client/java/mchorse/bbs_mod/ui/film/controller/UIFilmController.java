@@ -1100,7 +1100,7 @@ public class UIFilmController extends UIElement
         }
 
         player.swingHand(Hand.MAIN_HAND);
-        this.swingVisibleActor();
+        this.swingVisibleActor(Hand.MAIN_HAND);
     }
 
     /**
@@ -1121,6 +1121,8 @@ public class UIFilmController extends UIElement
 
                 if (atLocation.isAccepted())
                 {
+                    this.finishControlUse(player, hand, atLocation);
+
                     return;
                 }
 
@@ -1128,6 +1130,8 @@ public class UIFilmController extends UIElement
 
                 if (onEntity.isAccepted())
                 {
+                    this.finishControlUse(player, hand, onEntity);
+
                     return;
                 }
             }
@@ -1137,6 +1141,8 @@ public class UIFilmController extends UIElement
 
                 if (onBlock.isAccepted())
                 {
+                    this.finishControlUse(player, hand, onBlock);
+
                     return;
                 }
             }
@@ -1145,6 +1151,8 @@ public class UIFilmController extends UIElement
 
             if (onItem.isAccepted())
             {
+                this.finishControlUse(player, hand, onItem);
+
                 return;
             }
         }
@@ -1215,10 +1223,23 @@ public class UIFilmController extends UIElement
     }
 
     /**
-     * Actor-mode bodies are a separate {@link ActorEntity};
-     * mirror the live player swing so the visible actor animates the attack.
+     * Vanilla {@code interact*} may already swing the player. Always mirror a
+     * {@code shouldSwingHand} result onto the actor-mode body (place, use, etc.).
      */
-    private void swingVisibleActor()
+    private void finishControlUse(ClientPlayerEntity player, Hand hand, ActionResult result)
+    {
+        if (result.shouldSwingHand())
+        {
+            player.swingHand(hand);
+            this.swingVisibleActor(hand);
+        }
+    }
+
+    /**
+     * Actor-mode bodies are a separate {@link ActorEntity};
+     * mirror the live player swing so the visible actor plays swipe / place.
+     */
+    private void swingVisibleActor(Hand hand)
     {
         if (this.actors == null || this.panel.getData() == null)
         {
@@ -1243,7 +1264,7 @@ public class UIFilmController extends UIElement
 
         if (entity instanceof LivingEntity living)
         {
-            living.swingHand(Hand.MAIN_HAND);
+            living.swingHand(hand);
         }
     }
 
