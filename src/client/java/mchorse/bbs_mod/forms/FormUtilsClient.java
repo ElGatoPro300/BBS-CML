@@ -1,5 +1,6 @@
 package mchorse.bbs_mod.forms;
 
+import mchorse.bbs_mod.client.BBSRendering;
 import mchorse.bbs_mod.forms.forms.AnchorForm;
 import mchorse.bbs_mod.forms.forms.BillboardForm;
 import mchorse.bbs_mod.forms.forms.BlockForm;
@@ -36,7 +37,9 @@ import mchorse.bbs_mod.forms.renderers.ShapeFormRenderer;
 import mchorse.bbs_mod.forms.renderers.StructureFormRenderer;
 import mchorse.bbs_mod.forms.renderers.TrailFormRenderer;
 import mchorse.bbs_mod.forms.renderers.VanillaParticleFormRenderer;
+import mchorse.bbs_mod.forms.renderers.utils.RecolorVertexConsumer;
 import mchorse.bbs_mod.ui.framework.UIContext;
+import mchorse.bbs_mod.utils.colors.Color;
 
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.render.BufferBuilder;
@@ -44,6 +47,7 @@ import net.minecraft.client.render.RenderLayer;
 import net.minecraft.client.render.TexturedRenderLayers;
 import net.minecraft.client.render.VertexConsumer;
 import net.minecraft.client.render.VertexConsumerProvider;
+import net.minecraft.client.render.entity.model.TridentEntityModel;
 import net.minecraft.client.render.model.ModelLoader;
 import net.minecraft.client.render.model.json.ModelTransformationMode;
 import net.minecraft.client.util.BufferAllocator;
@@ -157,6 +161,102 @@ public class FormUtilsClient
     }
 
     /**
+     * Piglin/etc. MobForms draw through a private Immediate. Builtin held items
+     * (trident) must still use the world entity Immediate with the Sodium-safe
+     * tint wrapper — same path as {@link ModelFormRenderer} player-form items.
+     * Do not {@code draw()} the world side.
+     */
+    public static VertexConsumerProvider deferBuiltinItemLayers(VertexConsumerProvider body)
+    {
+        VertexConsumerProvider world = FormUtilsClient.tintWorldEntityConsumers(
+            BBSRendering.getColorConsumer(Color.white())
+        );
+
+        return (layer) ->
+        {
+            if (FormUtilsClient.isDeferredBuiltinItemLayer(layer))
+            {
+                return world.getBuffer(layer);
+            }
+
+            return body.getBuffer(layer);
+        };
+    }
+
+    /**
+     * Swap MobForm held-item consumers onto {@link #tintWorldEntityConsumers}
+     * for builtin meshes (trident/shield). Call {@link #clearBuiltinItemTint}
+     * after the item draw.
+     */
+    public static VertexConsumerProvider routeMobFormBuiltinItemConsumers(ItemStack stack, ModelTransformationMode mode, VertexConsumerProvider fallback)
+    {
+        if (fallback == null || !BBSRendering.isRenderingWorld())
+        {
+            return fallback;
+        }
+
+        if (!(FormUtilsClient.getCurrentForm() instanceof MobForm))
+        {
+            return fallback;
+        }
+
+        if (!FormUtilsClient.usesBuiltinItemRenderer(stack, mode))
+        {
+            return fallback;
+        }
+
+        return FormUtilsClient.tintWorldEntityConsumers(BBSRendering.getColorConsumer(Color.white()));
+    }
+
+    public static void clearBuiltinItemTint()
+    {
+        RecolorVertexConsumer.newColor = null;
+        RecolorVertexConsumer.newPaintColor = null;
+    }
+
+    /**
+     * Trident/shield {@code ModelPart} layers. Iris/Sodium often wrap the layer
+     * so {@code toString()} is no longer exactly {@code entity_solid}.
+     */
+    public static boolean isDeferredBuiltinItemLayer(RenderLayer layer)
+    {
+        if (layer == null)
+        {
+            return false;
+        }
+
+        if (layer == RenderLayer.getEntitySolid(TridentEntityModel.TEXTURE))
+        {
+            return true;
+        }
+
+        String name = layer.toString();
+
+        if (name == null || name.isEmpty())
+        {
+            return false;
+        }
+
+        String lower = name.toLowerCase();
+
+        if (lower.contains("entity_solid"))
+        {
+            return true;
+        }
+
+        /* Keep armor glint on the mob Immediate; only item glint is deferred. */
+        if (lower.contains("armor"))
+        {
+            return false;
+        }
+
+        return lower.contains("entity_glint")
+            || lower.contains("glint_direct")
+            || lower.contains("glint_translucent")
+            || "glint".equals(lower);
+    }
+
+    /**
      * Private Immediate for MobForm morph geometry. Villager clothing uses several dynamic
      * cutout layers; flushing them on the shared world Immediate mixed in leftover entity
      * layers and deferred the last clothing pass past held-item/shadow with bad lighting.
@@ -166,7 +266,7 @@ public class FormUtilsClient
         if (mobMorphVertexConsumerProvider == null)
         {
             mobMorphVertexConsumerProvider = new CustomVertexConsumerProvider(
-                VertexConsumerProvider.immediate(new BufferAllocator(2048))
+                VertexConsumerProvider.immediate(new BufferAllocator(512 * 1024))
             );
         }
 
