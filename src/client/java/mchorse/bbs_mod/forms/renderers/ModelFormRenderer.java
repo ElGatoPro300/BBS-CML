@@ -27,6 +27,7 @@ import mchorse.bbs_mod.forms.CustomVertexConsumerProvider;
 import mchorse.bbs_mod.forms.FormUtilsClient;
 import mchorse.bbs_mod.forms.ITickable;
 import mchorse.bbs_mod.forms.entities.IEntity;
+import mchorse.bbs_mod.forms.entities.MCEntity;
 import mchorse.bbs_mod.forms.entities.StubEntity;
 import mchorse.bbs_mod.forms.forms.BodyPart;
 import mchorse.bbs_mod.forms.forms.Form;
@@ -36,6 +37,7 @@ import mchorse.bbs_mod.forms.forms.utils.EffectTransformMath;
 import mchorse.bbs_mod.forms.forms.utils.GlowSettings;
 import mchorse.bbs_mod.forms.forms.utils.PaintSettings;
 import mchorse.bbs_mod.forms.forms.utils.TextureBlend;
+import mchorse.bbs_mod.forms.renderers.utils.BbsHeadItemSpace;
 import mchorse.bbs_mod.forms.renderers.utils.FormColorEffects;
 import mchorse.bbs_mod.forms.renderers.utils.MatrixCache;
 import mchorse.bbs_mod.forms.renderers.utils.MatrixCacheEntry;
@@ -70,7 +72,9 @@ import net.minecraft.entity.EquipmentSlot;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.Items;
+import net.minecraft.util.Arm;
 import net.minecraft.util.Hand;
+import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.RotationAxis;
 
 import org.joml.Matrix3f;
@@ -3112,6 +3116,17 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
             return;
         }
 
+        Hand activeHand = target.getActiveHand();
+        EquipmentSlot activeSlot = activeHand == Hand.OFF_HAND ? EquipmentSlot.OFFHAND : EquipmentSlot.MAINHAND;
+
+        /* Vanilla keeps the arm posed to the eye while parenting the spyglass item to the
+         * head (clamped pitch) — that mismatch is the “slide through the hand” look. */
+        if (this.isActiveSpyglass(target, itemStack, slot, activeSlot)
+            && this.renderSpyglassOnHead(target, model, stack, slot, itemStack, color, overlay, light))
+        {
+            return;
+        }
+
         for (ArmorSlot armorSlot : items)
         {
             Matrix4f matrix = this.bones.get(armorSlot.group.get()).matrix();
@@ -3133,8 +3148,6 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
 
                 MatrixStackUtils.applyTransform(stack, armorSlot.transform);
 
-                Hand activeHand = target.getActiveHand();
-                EquipmentSlot activeSlot = activeHand == Hand.OFF_HAND ? EquipmentSlot.OFFHAND : EquipmentSlot.MAINHAND;
                 LivingEntity itemEntity = slot == activeSlot
                     ? ItemUseRenderState.prepareProxy(target.getWorld(), target, slot, itemStack)
                     : null;
@@ -3165,6 +3178,82 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
                 RenderSystem.enableDepthTest();
             }
         }
+    }
+
+    private boolean isActiveSpyglass(IEntity target, ItemStack itemStack, EquipmentSlot slot, EquipmentSlot activeSlot)
+    {
+        return itemStack != null
+            && itemStack.isOf(Items.SPYGLASS)
+            && target.isUsingItem()
+            && slot == activeSlot
+            && target.getHandSwingProgress(0F) == 0F;
+    }
+
+    /**
+     * Active spyglass on player ModelForms via {@link BbsHeadItemSpace} (BBS adaptation of
+     * vanilla head + {@link ModelTransformationMode#HEAD}). Arm pose stays on
+     * {@code ProceduralItemUsePoses.applySpyglass}.
+     */
+    private boolean renderSpyglassOnHead(IEntity target, ModelInstance model, MatrixStack stack, EquipmentSlot slot, ItemStack itemStack, Color color, int overlay, int light)
+    {
+        Matrix4f matrix = this.bones.get(model.getHeadBone()).matrix();
+
+        if (matrix == null)
+        {
+            return false;
+        }
+
+        float transition = MinecraftClient.getInstance().getRenderTickCounter().getTickDelta(true);
+        float pitch = (float) Lerps.lerp(target.getPrevPitch(), target.getPitch(), transition);
+        boolean leftArm = this.getArmForEquipmentSlot(target, slot) == Arm.LEFT;
+        ModelTransformationMode mode = BbsHeadItemSpace.spyglassTransformationMode();
+        boolean leftHanded = BbsHeadItemSpace.spyglassLeftHanded();
+
+        CustomVertexConsumerProvider consumers = FormUtilsClient.getProvider();
+        LivingEntity itemEntity = ItemUseRenderState.prepareProxy(target.getWorld(), target, slot, itemStack);
+
+        stack.push();
+        MatrixStackUtils.multiply(stack, matrix);
+        BbsHeadItemSpace.applySpyglass(stack, pitch, leftArm);
+
+        CustomVertexConsumerProvider.hijackVertexFormat((l) -> RenderSystem.enableBlend());
+        consumers.setSubstitute(BBSRendering.getColorConsumer(color));
+
+        if (model.model instanceof BOBJModel)
+        {
+            stack.push();
+            stack.scale(0F, 0F, 0F);
+            MinecraftClient.getInstance().getItemRenderer().renderItem(null, new ItemStack(Items.OAK_BUTTON), mode, leftHanded, stack, consumers, target.getWorld(), light, overlay, 0);
+            consumers.draw();
+            stack.pop();
+        }
+
+        MinecraftClient.getInstance().getItemRenderer().renderItem(itemEntity, itemStack, mode, leftHanded, stack, consumers, target.getWorld(), light, overlay, 0);
+        consumers.draw();
+        consumers.setSubstitute(null);
+        CustomVertexConsumerProvider.clearRunnables();
+
+        stack.pop();
+        RenderSystem.enableDepthTest();
+
+        return true;
+    }
+
+    private Arm getArmForEquipmentSlot(IEntity target, EquipmentSlot slot)
+    {
+        Arm main = Arm.RIGHT;
+
+        if (target instanceof MCEntity mc && mc.getMcEntity() instanceof LivingEntity living)
+        {
+            main = living.getMainArm();
+        }
+
+        if (slot == EquipmentSlot.MAINHAND)
+        {
+            return main;
+        }
+
+        return main.getOpposite();
     }
 
     @Override

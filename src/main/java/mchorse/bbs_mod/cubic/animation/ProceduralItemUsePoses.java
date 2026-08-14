@@ -177,11 +177,16 @@ public final class ProceduralItemUsePoses
 
     private static void applySpyglass(ArmRotations arm, float pitchDeg, float yawDeg, boolean rightHand, boolean sneaking)
     {
+        /* Vanilla BipedEntityModel (radians):
+         *   arm.pitch = clamp(head.pitch - 1.9198622 - sneak15°, -2.4, 3.3)
+         *   arm.yaw   = head.yaw ∓ 0.2617994   (right subtracts, left adds)
+         * BBS arm X is opposite ModelPart pitch (positive X = arm forward). */
         float sneak = sneaking ? 15F : 0F;
-        float pitch = MathHelper.clamp(pitchDeg - 110F - sneak, -189F, 137.5F);
+        float vanillaArmPitchDeg = MathHelper.clamp(pitchDeg - 110F - sneak, -137.5F, 189F);
+        float yawOffset = rightHand ? 15F : -15F;
 
         /* Vanilla skips swingArm for SPYGLASS — no idle on that arm. */
-        arm.lock(-pitch, (rightHand ? 15F : -15F) - yawDeg, 0F);
+        arm.lock(-vanillaArmPitchDeg, yawOffset - yawDeg, 0F);
     }
 
     private static void applyHorn(ArmRotations arm, float pitchDeg, float yawDeg, boolean rightHand)
