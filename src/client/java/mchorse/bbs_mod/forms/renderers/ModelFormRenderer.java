@@ -107,6 +107,8 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
     /** Per-form live copy so pose/IK/physics do not mutate the shared ModelManager instance. */
     private ModelInstance cachedModel;
     private String cachedModelId;
+    /** Global manager instance the cache was built from; replaced on model editor save/reload. */
+    private ModelInstance cachedGlobalSource;
     private boolean ikAppliedThisRender;
     private boolean physicsAppliedThisRender;
     private boolean constraintsAppliedThisRender;
@@ -202,6 +204,7 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
         }
 
         this.cachedModelId = null;
+        this.cachedGlobalSource = null;
         this.lastModel = null;
         this.animator = null;
         this.lastConfigs = null;
@@ -227,7 +230,9 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
             return null;
         }
 
-        if (this.cachedModel != null && modelId.equals(this.cachedModelId))
+        /* ModelManager.loadModel() replaces the global instance (and deletes its VAOs).
+         * Keep the cache only while that same instance is still current. */
+        if (this.cachedModel != null && modelId.equals(this.cachedModelId) && global == this.cachedGlobalSource)
         {
             return this.cachedModel;
         }
@@ -237,6 +242,7 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
         /* Deep-copy CPU/pose graph; borrow GPU VAOs from the manager instance. */
         this.cachedModel = global.copy();
         this.cachedModelId = modelId;
+        this.cachedGlobalSource = global;
 
         if (global.model instanceof BOBJModel)
         {
