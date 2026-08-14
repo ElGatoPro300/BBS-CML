@@ -28,7 +28,6 @@ import net.minecraft.client.model.ModelPart;
 import net.minecraft.client.network.OtherClientPlayerEntity;
 import net.minecraft.client.render.DiffuseLighting;
 import net.minecraft.client.render.LightmapTextureManager;
-import net.minecraft.client.render.VertexConsumerProvider;
 import net.minecraft.client.render.entity.EntityRenderDispatcher;
 import net.minecraft.client.render.entity.LivingEntityRenderer;
 import net.minecraft.client.render.entity.model.EntityModel;
@@ -563,11 +562,6 @@ public class MobFormRenderer extends FormRenderer<MobForm> implements ITickable
             {
                 CustomVertexConsumerProvider.hijackVertexFormat((layer) ->
                 {
-                    if (FormUtilsClient.isDeferredBuiltinItemLayer(layer))
-                    {
-                        return;
-                    }
-
                     if (!first.bool)
                     {
                         this.bindTexture();
@@ -577,11 +571,10 @@ public class MobFormRenderer extends FormRenderer<MobForm> implements ITickable
                 });
             }
 
-            MatrixStack.Entry stackMarker = context.stack.peek();
-
-            context.stack.push();
             try
             {
+            context.stack.push();
+
             if (this.form.mobID.get().equals("minecraft:ender_dragon"))
             {
                 context.stack.multiply(RotationAxis.POSITIVE_Y.rotation(MathUtils.PI));
@@ -657,15 +650,7 @@ public class MobFormRenderer extends FormRenderer<MobForm> implements ITickable
                 /* Film draws its own ground shadow; nested vanilla shadow on the morph can
                  * defer the last clothing layer until a late draw with a bad light basis. */
                 dispatcher.setRenderShadows(false);
-
-                VertexConsumerProvider renderConsumers = consumers;
-
-                if (prepareLighting)
-                {
-                    renderConsumers = FormUtilsClient.deferBuiltinItemLayers(consumers);
-                }
-
-                dispatcher.render(this.entity, 0D, 0D, 0D, 0F, context.getTransition(), context.stack, renderConsumers, light);
+                dispatcher.render(this.entity, 0D, 0D, 0D, 0F, context.getTransition(), context.stack, consumers, light);
             }
             finally
             {
@@ -692,7 +677,6 @@ public class MobFormRenderer extends FormRenderer<MobForm> implements ITickable
 
             consumers.draw();
             CustomVertexConsumerProvider.clearRunnables();
-            FormUtilsClient.clearBuiltinItemTint();
 
             if (prepareLighting)
             {
@@ -700,14 +684,13 @@ public class MobFormRenderer extends FormRenderer<MobForm> implements ITickable
                 BBSRendering.restoreWorldRenderState();
             }
 
+            context.stack.pop();
+
             RenderSystem.enableDepthTest();
             }
             finally
             {
-                currentPose = currentPoseOverlay = null;
-                CustomVertexConsumerProvider.clearRunnables();
                 forceZeroPickLight = false;
-                MatrixStackUtils.popUntil(context.stack, stackMarker);
             }
         }
     }

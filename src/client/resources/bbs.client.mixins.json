@@ -19,7 +19,6 @@
         "LivingEntityMixin",
         "LivingEntityUpdateMixin",
         "LivingEntityRendererMixin",
-        "HeldItemFeatureRendererMixin",
         "VillagerClothingFeatureRendererMixin",
         "iris.SystemTimeUniformsTimerMixin",
         "InGameHudMixin",
