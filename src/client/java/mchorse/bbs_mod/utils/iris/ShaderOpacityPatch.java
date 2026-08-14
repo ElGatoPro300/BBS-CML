@@ -643,14 +643,19 @@ public class ShaderOpacityPatch
          * shadows on otherwise binary Iris shadow maps. */
         if (isShadowCasterSource(source))
         {
-            return processShadowOpacity(processShadowCasterAlpha(patched));
+            return processShadowCasterAlpha(patched);
         }
 
-        /* Only relax alpha discards on gbuffer/entity paths. Do not rewrite translucentMult. */
-        patched = ALPHA_TEST_REF_COMPARE.matcher(patched).replaceAll("$1.a < " + LOW_ALPHA_TEST_REF);
-        patched = LITERAL_POINT_ONE_COMPARE.matcher(patched).replaceAll("$1.a < " + LOW_ALPHA_TEST_REF);
+        /* Only relax alpha discards on entity/block/textured/basic paths. Applying this to
+         * every non-caster program rewrote Complementary terrain's
+         * {@code if (glColorRaw.a < 0.1) glColorRaw.a = 1.0} remap. */
+        if (shouldRelaxAlphaTest(patched))
+        {
+            patched = ALPHA_TEST_REF_COMPARE.matcher(patched).replaceAll("$1.a < " + LOW_ALPHA_TEST_REF);
+            patched = LITERAL_POINT_ONE_COMPARE.matcher(patched).replaceAll("$1.a < " + LOW_ALPHA_TEST_REF);
+        }
 
-        return processShadowOpacity(patched);
+        return patched;
     }
 
     public static boolean isShadowCasterSourcePublic(String source)
@@ -663,6 +668,15 @@ public class ShaderOpacityPatch
         return source.contains("DoNaturalShadowCalculation")
             || source.contains("float premult = float(mat > 0.98")
             || source.contains("BBS_SHADOW_CASTER_DITHER");
+    }
+
+    private static boolean shouldRelaxAlphaTest(String source)
+    {
+        return source.contains("GBUFFERS_ENTITIES")
+            || source.contains("GBUFFERS_BLOCK")
+            || source.contains("GBUFFERS_TEXTURED")
+            || source.contains("GBUFFERS_BASIC")
+            || source.contains("GBUFFERS_WEATHER");
     }
 
     /**
@@ -723,36 +737,6 @@ public class ShaderOpacityPatch
         return source;
     }
 
-    /**
-     * Injects {@code bbs_shader_shadow_opacity} into Complementary/BSL shaders that sample
-     * shadow maps and scales sampled shadow visibility: 1 = full shadows, 0 = no shadows.
-     */
-    public static String processShadowOpacity(String source)
-    {
-        if (!shouldApplyPackGlslPatches() || source == null || source.isEmpty())
-        {
-            return source;
-        }
-
-        if (!containsShadowSampler(source))
-        {
-            return source;
-        }
-
-        ensureShadowOpacityVariable();
-
-        String patched = insertShadowOpacityHelpers(source);
-
-        patched = wrapShadowTextureCalls(patched, "texture");
-        patched = wrapShadowTextureCalls(patched, "texture2D");
-        patched = wrapShadowTextureCalls(patched, "textureLod");
-        patched = wrapShadowTextureCalls(patched, "textureGrad");
-        patched = wrapShadowTextureCalls(patched, "shadow2D");
-        patched = wrapShadowTextureCalls(patched, "shadow2DLod");
-
-        return patched;
-    }
-
     public static void ensureShadowOpacityVariable()
     {
         if (!shouldApplyPackGlslPatches())
@@ -791,231 +775,5 @@ public class ShaderOpacityPatch
         }
 
         variable.defaultValue = Math.max(0F, Math.min(1F, value));
-    }
-
-    private static boolean containsShadowSampler(String source)
-    {
-        return source.contains("shadowtex0")
-            || source.contains("shadowtex1")
-            || source.contains("shadowtex0HW")
-            || source.contains("shadowtex1HW")
-            || source.contains("waterShadow");
-    }
-
-    private static String insertShadowOpacityHelpers(String source)
-    {
-        String uniform = "bbs_" + ShaderCurves.SHADER_SHADOW_OPACITY;
-
-        if (source.contains(uniform))
-        {
-            return source;
-        }
-
-        int version = source.indexOf("#version");
-
-        if (version < 0)
-        {
-            return source;
-        }
-
-        int nextNewLine = source.indexOf('\n', version);
-
-        if (nextNewLine < 0)
-        {
-            return source;
-        }
-
-        String helpers =
-            "uniform float " + uniform + ";\n"
-                + "#ifndef BBS_SHADOW_OPACITY_HELPERS\n"
-                + "#define BBS_SHADOW_OPACITY_HELPERS\n"
-                + "float bbsApplyShadowOpacity(float s){return mix(1.0,s," + uniform + ");}\n"
-                + "vec2 bbsApplyShadowOpacity(vec2 s){return mix(vec2(1.0),s," + uniform + ");}\n"
-                + "vec3 bbsApplyShadowOpacity(vec3 s){return mix(vec3(1.0),s," + uniform + ");}\n"
-                + "vec4 bbsApplyShadowOpacity(vec4 s){return mix(vec4(1.0),s," + uniform + ");}\n"
-                + "#endif\n";
-
-        return source.substring(0, nextNewLine + 1) + helpers + source.substring(nextNewLine + 1);
-    }
-
-    /**
-     * Wraps {@code func(shadowtexN...)} calls with {@code bbsApplyShadowOpacity(...)} so pack
-     * lighting still runs, but shadow darkness scales with the BBS uniform / curve.
-     */
-    private static String wrapShadowTextureCalls(String source, String functionName)
-    {
-        String marker = "bbsApplyShadowOpacity(";
-        StringBuilder out = new StringBuilder(source.length() + 64);
-        int i = 0;
-
-        while (i < source.length())
-        {
-            int found = indexOfIdentifierCall(source, functionName, i);
-
-            if (found < 0)
-            {
-                out.append(source, i, source.length());
-                break;
-            }
-
-            out.append(source, i, found);
-
-            int open = found + functionName.length();
-
-            while (open < source.length() && Character.isWhitespace(source.charAt(open)))
-            {
-                open++;
-            }
-
-            if (open >= source.length() || source.charAt(open) != '(')
-            {
-                out.append(source, found, found + functionName.length());
-                i = found + functionName.length();
-                continue;
-            }
-
-            int close = findMatchingParen(source, open);
-
-            if (close < 0)
-            {
-                out.append(source, found, source.length());
-                break;
-            }
-
-            String call = source.substring(found, close + 1);
-            String args = source.substring(open + 1, close).trim();
-
-            if (isShadowSamplerArg(args) && !isAlreadyWrapped(source, found, marker))
-            {
-                out.append(marker).append(call).append(')');
-            }
-            else
-            {
-                out.append(call);
-            }
-
-            i = close + 1;
-        }
-
-        return out.toString();
-    }
-
-    private static boolean isAlreadyWrapped(String source, int callStart, String marker)
-    {
-        int lookBehind = Math.max(0, callStart - marker.length() - 8);
-        String before = source.substring(lookBehind, callStart);
-
-        return before.contains(marker);
-    }
-
-    private static boolean isShadowSamplerArg(String args)
-    {
-        if (args.isEmpty())
-        {
-            return false;
-        }
-
-        int comma = findTopLevelComma(args);
-        String sampler = (comma < 0 ? args : args.substring(0, comma)).trim();
-
-        return sampler.equals("shadowtex0")
-            || sampler.equals("shadowtex1")
-            || sampler.equals("shadowtex0HW")
-            || sampler.equals("shadowtex1HW")
-            || sampler.equals("waterShadow");
-    }
-
-    private static int findTopLevelComma(String args)
-    {
-        int depth = 0;
-
-        for (int i = 0; i < args.length(); i++)
-        {
-            char c = args.charAt(i);
-
-            if (c == '(')
-            {
-                depth++;
-            }
-            else if (c == ')')
-            {
-                depth--;
-            }
-            else if (c == ',' && depth == 0)
-            {
-                return i;
-            }
-        }
-
-        return -1;
-    }
-
-    private static int indexOfIdentifierCall(String source, String name, int from)
-    {
-        int index = from;
-
-        while (index < source.length())
-        {
-            int found = source.indexOf(name, index);
-
-            if (found < 0)
-            {
-                return -1;
-            }
-
-            boolean startOk = found == 0 || !isIdentChar(source.charAt(found - 1));
-            int after = found + name.length();
-            boolean endOk = after >= source.length() || !isIdentChar(source.charAt(after));
-
-            if (startOk && endOk)
-            {
-                int probe = after;
-
-                while (probe < source.length() && Character.isWhitespace(source.charAt(probe)))
-                {
-                    probe++;
-                }
-
-                if (probe < source.length() && source.charAt(probe) == '(')
-                {
-                    return found;
-                }
-            }
-
-            index = found + 1;
-        }
-
-        return -1;
-    }
-
-    private static boolean isIdentChar(char c)
-    {
-        return Character.isLetterOrDigit(c) || c == '_';
-    }
-
-    private static int findMatchingParen(String source, int openIndex)
-    {
-        int depth = 0;
-
-        for (int i = openIndex; i < source.length(); i++)
-        {
-            char c = source.charAt(i);
-
-            if (c == '(')
-            {
-                depth++;
-            }
-            else if (c == ')')
-            {
-                depth--;
-
-                if (depth == 0)
-                {
-                    return i;
-                }
-            }
-        }
-
-        return -1;
     }
 }
