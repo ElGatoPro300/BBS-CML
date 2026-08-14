@@ -81,7 +81,7 @@ public final class ProceduralItemUsePoses
 
         if (action == UseAction.BOW)
         {
-            applyBow(left, right, pitchDeg, yawDeg, rightHand);
+            applyBow(left, right, target, pitchDeg, yawDeg, rightHand, transition);
         }
         else if (action == UseAction.CROSSBOW)
         {
@@ -89,7 +89,7 @@ public final class ProceduralItemUsePoses
         }
         else if (action == UseAction.SPEAR)
         {
-            applySpear(activeArm(left, right, rightHand));
+            applySpear(activeArm(left, right, rightHand), target, rightHand, transition);
         }
         else if (action == UseAction.SPYGLASS)
         {
@@ -115,14 +115,16 @@ public final class ProceduralItemUsePoses
         return true;
     }
 
-    private static void applyBow(ArmRotations left, ArmRotations right, float pitchDeg, float yawDeg, boolean rightHand)
+    private static void applyBow(ArmRotations left, ArmRotations right, IEntity target, float pitchDeg, float yawDeg, boolean rightHand, float transition)
     {
         float pitch = 90F - pitchDeg;
         float pull = rightHand ? 22.918F : 0F;
         float other = rightHand ? 0F : 22.918F;
+        float age = target.getAge() + transition;
 
-        right.set(pitch, 5.73F - yawDeg + other, 0F);
-        left.set(pitch, -5.73F - yawDeg - pull, 0F);
+        /* Vanilla swingArm runs after BOW_AND_ARROW on both arms (pitch + roll). */
+        right.set(pitch + idlePitchX(true, age), 5.73F - yawDeg + other, 0F);
+        left.set(pitch + idlePitchX(false, age), -5.73F - yawDeg - pull, 0F);
     }
 
     private static void applyCrossbowHold(ArmRotations left, ArmRotations right, float pitchDeg, float yawDeg, boolean rightHand)
@@ -164,10 +166,13 @@ public final class ProceduralItemUsePoses
         }
     }
 
-    private static void applySpear(ArmRotations arm)
+    private static void applySpear(ArmRotations arm, IEntity target, boolean rightHand, float transition)
     {
-        /* Vanilla THROW_SPEAR: pitch = pitch * 0.5 - PI, yaw = 0, roll untouched. */
-        arm.set(arm.getX() * 0.5F + 180F, 0F, 0F);
+        /* Vanilla applies CrossbowPosing.swingArm after THROW_SPEAR, so idle
+         * pitch (X) and roll (Z) both remain. Z is already on the arm from walk. */
+        float age = target.getAge() + transition;
+
+        arm.set(180F + idlePitchX(rightHand, age), 0F, 0F);
     }
 
     private static void applySpyglass(ArmRotations arm, float pitchDeg, float yawDeg, boolean rightHand, boolean sneaking)
@@ -175,7 +180,8 @@ public final class ProceduralItemUsePoses
         float sneak = sneaking ? 15F : 0F;
         float pitch = MathHelper.clamp(pitchDeg - 110F - sneak, -189F, 137.5F);
 
-        arm.set(-pitch, (rightHand ? 15F : -15F) - yawDeg, 0F);
+        /* Vanilla skips swingArm for SPYGLASS — no idle on that arm. */
+        arm.lock(-pitch, (rightHand ? 15F : -15F) - yawDeg, 0F);
     }
 
     private static void applyHorn(ArmRotations arm, float pitchDeg, float yawDeg, boolean rightHand)
@@ -202,6 +208,13 @@ public final class ProceduralItemUsePoses
     private static ArmRotations activeArm(ArmRotations left, ArmRotations right, boolean rightHand)
     {
         return rightHand ? right : left;
+    }
+
+    private static float idlePitchX(boolean rightHand, float age)
+    {
+        float sigma = rightHand ? 1F : -1F;
+
+        return MathUtils.toDeg(sigma * MathHelper.sin(-age * 0.067F) * 0.05F);
     }
 
     private static ArmRotations wrap(ModelGroup group)
@@ -261,11 +274,12 @@ public final class ProceduralItemUsePoses
     {
         public void set(float xDeg, float yDeg, float zDeg);
 
-        public float getX();
+        public void lock(float xDeg, float yDeg, float zDeg);
     }
 
     /**
      * Vanilla item poses overwrite pitch/yaw and leave arm roll, so idle Z stays.
+     * {@link #lock} also replaces roll (spyglass skips idle entirely).
      */
     private static class ModelArm implements ArmRotations
     {
@@ -285,9 +299,9 @@ public final class ProceduralItemUsePoses
         }
 
         @Override
-        public float getX()
+        public void lock(float xDeg, float yDeg, float zDeg)
         {
-            return this.group.current.rotate.x;
+            this.group.current.rotate.set(xDeg, yDeg, zDeg);
         }
     }
 
@@ -309,9 +323,9 @@ public final class ProceduralItemUsePoses
         }
 
         @Override
-        public float getX()
+        public void lock(float xDeg, float yDeg, float zDeg)
         {
-            return MathUtils.toDeg(this.bone.transform.rotate.x);
+            this.bone.transform.rotate.set(MathUtils.toRad(xDeg), MathUtils.toRad(yDeg), MathUtils.toRad(zDeg));
         }
     }
 }
