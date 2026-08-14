@@ -69,7 +69,6 @@ import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.entity.EquipmentSlot;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.item.ItemStack;
-import net.minecraft.item.Items;
 import net.minecraft.util.Hand;
 import net.minecraft.util.math.RotationAxis;
 
@@ -3085,21 +3084,24 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
             CustomVertexConsumerProvider consumers = FormUtilsClient.getProvider();
 
             stack.push();
-            MatrixStackUtils.multiply(stack, matrix);
-            MatrixStackUtils.applyTransform(stack, armorSlot.transform);
-            stack.multiply(RotationAxis.POSITIVE_X.rotationDegrees(180F));
+            try
+            {
+                MatrixStackUtils.multiply(stack, matrix);
+                MatrixStackUtils.applyTransform(stack, armorSlot.transform);
+                stack.multiply(RotationAxis.POSITIVE_X.rotationDegrees(180F));
 
-            CustomVertexConsumerProvider.hijackVertexFormat((l) -> RenderSystem.enableBlend());
+                CustomVertexConsumerProvider.hijackVertexFormat((l) -> RenderSystem.enableBlend());
 
-            ActorEntityRenderer.armorRenderer.renderArmorSlot(stack, consumers, target, type.slot, type, light);
-            consumers.draw();
-
-            CustomVertexConsumerProvider.clearRunnables();
-
-            stack.pop();
-
-            RenderSystem.enableBlend();
-            RenderSystem.enableDepthTest();
+                ActorEntityRenderer.armorRenderer.renderArmorSlot(stack, consumers, target, type.slot, type, light);
+                consumers.draw();
+            }
+            finally
+            {
+                CustomVertexConsumerProvider.clearRunnables();
+                stack.pop();
+                RenderSystem.enableBlend();
+                RenderSystem.enableDepthTest();
+            }
         }
     }
 
@@ -3119,51 +3121,41 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
             if (matrix != null)
             {
                 CustomVertexConsumerProvider consumers = FormUtilsClient.getProvider();
+                MatrixStack.Entry parent = stack.peek();
 
                 stack.push();
-                MatrixStackUtils.multiply(stack, matrix);
-                stack.multiply(RotationAxis.POSITIVE_X.rotationDegrees(90F));
-                stack.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(180F));
-                stack.translate(0F, 0.125F, 0F);
-
-                if (globalTransform != null)
+                try
                 {
-                    MatrixStackUtils.applyTransform(stack, globalTransform.transform);
-                }
+                    MatrixStackUtils.multiply(stack, matrix);
+                    stack.multiply(RotationAxis.POSITIVE_X.rotationDegrees(90F));
+                    stack.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(180F));
+                    stack.translate(0F, 0.125F, 0F);
 
-                MatrixStackUtils.applyTransform(stack, armorSlot.transform);
+                    if (globalTransform != null)
+                    {
+                        MatrixStackUtils.applyTransform(stack, globalTransform.transform);
+                    }
 
-                Hand activeHand = target.getActiveHand();
-                EquipmentSlot activeSlot = activeHand == Hand.OFF_HAND ? EquipmentSlot.OFFHAND : EquipmentSlot.MAINHAND;
-                LivingEntity itemEntity = slot == activeSlot
-                    ? ItemUseRenderState.prepareProxy(target.getWorld(), target, slot, itemStack)
-                    : null;
+                    MatrixStackUtils.applyTransform(stack, armorSlot.transform);
 
-                CustomVertexConsumerProvider.hijackVertexFormat((l) -> RenderSystem.enableBlend());
+                    Hand activeHand = target.getActiveHand();
+                    EquipmentSlot activeSlot = activeHand == Hand.OFF_HAND ? EquipmentSlot.OFFHAND : EquipmentSlot.MAINHAND;
+                    LivingEntity itemEntity = slot == activeSlot
+                        ? ItemUseRenderState.prepareProxy(target.getWorld(), target, slot, itemStack)
+                        : null;
 
-                consumers.setSubstitute(BBSRendering.getColorConsumer(color));
-
-                /* For some reason, due to Sodium and my color consumer, in some cases items like Trident,
-                 * shield, etc. not get rendered, but if in another arm there is another item, it does render...
-                 * So, I render a 0 size oak button to circumvent that bug! */
-                if (model.model instanceof BOBJModel)
-                {
-                    stack.push();
-                    stack.scale(0F, 0F, 0F);
-                    MinecraftClient.getInstance().getItemRenderer().renderItem(null, new ItemStack(Items.OAK_BUTTON), mode, mode == ModelTransformationMode.THIRD_PERSON_LEFT_HAND, stack, consumers, target.getWorld(), light, overlay, 0);
+                    CustomVertexConsumerProvider.hijackVertexFormat((l) -> RenderSystem.enableBlend());
+                    consumers.setSubstitute(BBSRendering.getColorConsumer(color));
+                    MinecraftClient.getInstance().getItemRenderer().renderItem(itemEntity, itemStack, mode, mode == ModelTransformationMode.THIRD_PERSON_LEFT_HAND, stack, consumers, target.getWorld(), light, overlay, 0);
                     consumers.draw();
-                    stack.pop();
                 }
-
-                MinecraftClient.getInstance().getItemRenderer().renderItem(itemEntity, itemStack, mode, mode == ModelTransformationMode.THIRD_PERSON_LEFT_HAND, stack, consumers, target.getWorld(), light, overlay, 0);
-                consumers.draw();
-                consumers.setSubstitute(null);
-
-                CustomVertexConsumerProvider.clearRunnables();
-
-                stack.pop();
-
-                RenderSystem.enableDepthTest();
+                finally
+                {
+                    consumers.setSubstitute(null);
+                    CustomVertexConsumerProvider.clearRunnables();
+                    MatrixStackUtils.popUntil(stack, parent);
+                    RenderSystem.enableDepthTest();
+                }
             }
         }
     }

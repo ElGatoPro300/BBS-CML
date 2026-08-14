@@ -571,10 +571,9 @@ public class MobFormRenderer extends FormRenderer<MobForm> implements ITickable
                 });
             }
 
+            context.stack.push();
             try
             {
-            context.stack.push();
-
             if (this.form.mobID.get().equals("minecraft:ender_dragon"))
             {
                 context.stack.multiply(RotationAxis.POSITIVE_Y.rotation(MathUtils.PI));
@@ -656,6 +655,7 @@ public class MobFormRenderer extends FormRenderer<MobForm> implements ITickable
             {
                 dispatcher.setRenderShadows(true);
                 MobTextureOverride.end();
+                currentPose = currentPoseOverlay = null;
             }
 
             if (detachedRiding && context.entity != null)
@@ -668,15 +668,12 @@ public class MobFormRenderer extends FormRenderer<MobForm> implements ITickable
                 livingMorphForFire.setFireTicks(savedFireTicks);
             }
 
-            currentPose = currentPoseOverlay = null;
-
             if (prepareLighting)
             {
                 BBSRendering.prepareVanillaEntityLighting();
             }
 
             consumers.draw();
-            CustomVertexConsumerProvider.clearRunnables();
 
             if (prepareLighting)
             {
@@ -684,13 +681,14 @@ public class MobFormRenderer extends FormRenderer<MobForm> implements ITickable
                 BBSRendering.restoreWorldRenderState();
             }
 
-            context.stack.pop();
-
             RenderSystem.enableDepthTest();
             }
             finally
             {
+                currentPose = currentPoseOverlay = null;
+                CustomVertexConsumerProvider.clearRunnables();
                 forceZeroPickLight = false;
+                context.stack.pop();
             }
         }
     }

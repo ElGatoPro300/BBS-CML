@@ -37,6 +37,7 @@ import mchorse.bbs_mod.forms.renderers.StructureFormRenderer;
 import mchorse.bbs_mod.forms.renderers.TrailFormRenderer;
 import mchorse.bbs_mod.forms.renderers.VanillaParticleFormRenderer;
 import mchorse.bbs_mod.ui.framework.UIContext;
+import mchorse.bbs_mod.utils.MatrixStackUtils;
 
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.render.BufferBuilder;
@@ -45,7 +46,12 @@ import net.minecraft.client.render.TexturedRenderLayers;
 import net.minecraft.client.render.VertexConsumerProvider;
 import net.minecraft.client.render.model.ModelLoader;
 import net.minecraft.client.util.BufferAllocator;
+import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.util.Util;
+
+import com.mojang.logging.LogUtils;
+
+import org.slf4j.Logger;
 
 import java.util.Collections;
 import java.util.HashMap;
@@ -58,6 +64,7 @@ import it.unimi.dsi.fastutil.objects.Object2ObjectLinkedOpenHashMap;
 
 public class FormUtilsClient
 {
+    private static final Logger LOGGER = LogUtils.getLogger();
     private static Map<Class, IFormRendererFactory> map = new HashMap<>();
     private static CustomVertexConsumerProvider customVertexConsumerProvider;
     /** Isolated Immediate for MobForm morph draws — avoids flushing world entity leftovers. */
@@ -116,7 +123,7 @@ public class FormUtilsClient
         if (mobMorphVertexConsumerProvider == null)
         {
             mobMorphVertexConsumerProvider = new CustomVertexConsumerProvider(
-                VertexConsumerProvider.immediate(new BufferAllocator(2048))
+                VertexConsumerProvider.immediate(new BufferAllocator(512 * 1024))
             );
         }
 
@@ -194,12 +201,19 @@ public class FormUtilsClient
         {
             currentForm.push(form);
 
+            MatrixStack.Entry stackMarker = context.stack == null ? null : context.stack.peek();
+            MatrixStack.Entry worldMarker = context.world == null ? null : context.world.peek();
+
             try
             {
                 renderer.render(context);
             }
             catch (Exception e)
-            {}
+            {
+                LOGGER.error("Failed to render form {}", form.getClass().getSimpleName(), e);
+                MatrixStackUtils.popUntil(context.stack, stackMarker);
+                MatrixStackUtils.popUntil(context.world, worldMarker);
+            }
 
             currentForm.pop();
 
