@@ -68,6 +68,7 @@ public class FormUtilsClient
     private static Stack<Form> currentForm = new Stack<>();
     /** Guards against recursive illusion copies spawning more illusions. */
     private static int illusionDepth;
+    private static final ThreadLocal<Boolean> UI_PREVIEW_ANIMATE = ThreadLocal.withInitial(() -> Boolean.FALSE);
 
     static
     {
@@ -296,22 +297,55 @@ public class FormUtilsClient
         return null;
     }
 
+    public static boolean isUIPreviewAnimate()
+    {
+        return Boolean.TRUE.equals(UI_PREVIEW_ANIMATE.get());
+    }
+
     public static void renderUI(Form form, UIContext context, int x1, int y1, int x2, int y2)
+    {
+        /* List / morph thumbnails default to a frozen pose (no idle). Pass true to animate. */
+        renderUI(form, context, x1, y1, x2, y2, false);
+    }
+
+    public static void renderUI(Form form, UIContext context, int x1, int y1, int x2, int y2, boolean animate)
     {
         FormRenderer renderer = getRenderer(form);
 
         if (renderer != null)
         {
-            renderer.renderUI(context, x1, y1, x2, y2);
+            UI_PREVIEW_ANIMATE.set(animate);
+
+            try
+            {
+                context.batcher.flush();
+                renderer.renderUI(context, x1, y1, x2, y2);
+                context.batcher.flush();
+            }
+            finally
+            {
+                UI_PREVIEW_ANIMATE.set(Boolean.FALSE);
+                BBSRendering.restoreGuiRenderState();
+            }
         }
     }
 
     /**
      * Cached variant of {@link #renderUI} for list thumbnails and HUD overlays.
+     * Always renders a static pose into the cache (mouse orbit still updates via angle buckets).
      */
     public static void renderUICached(Form form, UIContext context, int x1, int y1, int x2, int y2)
     {
-        FormUIPreviewCache.render(form, context, x1, y1, x2, y2);
+        FormUIPreviewCache.render(form, context, x1, y1, x2, y2, true);
+    }
+
+    /**
+     * Cached thumbnail at a fixed orbit angle — for category cards that must not
+     * refill on every mouse move.
+     */
+    public static void renderUICachedStatic(Form form, UIContext context, int x1, int y1, int x2, int y2)
+    {
+        FormUIPreviewCache.render(form, context, x1, y1, x2, y2, false);
     }
 
     public static void render(Form form, FormRenderingContext context)

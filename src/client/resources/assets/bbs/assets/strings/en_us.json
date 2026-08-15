@@ -35,6 +35,8 @@
     "bbs.config.appearance.fov-comment": "This option controls FOV for camera in world menu and animation panel",
     "bbs.config.appearance.freeze_models": "Freeze models",
     "bbs.config.appearance.freeze_models-comment": "When enabled, models in form picker won't follow the mouse",
+    "bbs.config.appearance.optimized_morph_menu": "Optimized morph menu",
+    "bbs.config.appearance.optimized_morph_menu-comment": "When enabled, the morph / form picker uses cached thumbnails for much smoother scrolling (selected form still animates live)",
     "bbs.config.appearance.hide_setting_descriptions": "Hide setting descriptions",
     "bbs.config.appearance.hide_setting_descriptions-comment": "Hides setting descriptions for a cleaner and more compact appearance.",
     "bbs.config.appearance.hsv_color_picker": "HSV picker",
