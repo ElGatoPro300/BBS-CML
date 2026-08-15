@@ -5,7 +5,6 @@ import mchorse.bbs_mod.camera.clips.misc.ImageOverlay;
 import mchorse.bbs_mod.forms.renderers.utils.FormTextureBlendRenderer;
 import mchorse.bbs_mod.graphics.texture.Texture;
 import mchorse.bbs_mod.ui.framework.elements.utils.Batcher2D;
-import mchorse.bbs_mod.utils.MathUtils;
 import mchorse.bbs_mod.utils.Quad;
 import mchorse.bbs_mod.utils.colors.Color;
 
@@ -13,6 +12,7 @@ import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gl.ShaderProgram;
 import net.minecraft.client.render.GameRenderer;
 import net.minecraft.client.util.math.MatrixStack;
+import net.minecraft.util.math.RotationAxis;
 
 import org.joml.Matrix4f;
 import org.joml.Vector4f;
@@ -98,6 +98,13 @@ public class UIImageRenderer
                 stack.push();
                 stack.translate(x, y, 0);
 
+                /* Rotate the on-screen quad around the image anchor — not the UVs.
+                 * UV-space rotation was collapsed to an AABB and looked like a zoom. */
+                if (overlay.rotation != 0F)
+                {
+                    stack.multiply(RotationAxis.POSITIVE_Z.rotationDegrees(overlay.rotation));
+                }
+
                 texture.setFilterMipmap(overlay.linear, overlay.mipmap);
                 batcher.texturedBox(supplier, texture.id, color, drawX, drawY, fw, fh, uv[0], uv[1], uv[2], uv[3], texture.width, texture.height);
                 texture.setFilterMipmap(false, false);
@@ -150,16 +157,11 @@ public class UIImageRenderer
             uvQuad.p4.set(uvBRx, uvBRy, 0);
         }
 
-        if (overlay.offsetX != 0F || overlay.offsetY != 0F || overlay.rotation != 0F)
+        /* UV shift only — image rotation is applied in screen space above. */
+        if (overlay.offsetX != 0F || overlay.offsetY != 0F)
         {
-            float centerX = (crop.x + (ow - crop.z)) / 2F / ow;
-            float centerY = (crop.y + (oh - crop.w)) / 2F / oh;
-
             matrix.identity()
-                .translate(centerX, centerY, 0)
-                .rotateZ(MathUtils.toRad(overlay.rotation))
-                .translate(overlay.offsetX / ow, overlay.offsetY / oh, 0)
-                .translate(-centerX, -centerY, 0);
+                .translate(overlay.offsetX / ow, overlay.offsetY / oh, 0);
 
             uvQuad.transform(matrix);
         }
