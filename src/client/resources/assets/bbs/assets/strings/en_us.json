@@ -252,7 +252,7 @@
     "bbs.config.editor.minutes_backup-comment": "The data will be saved every 10 minutes instead of every hour",
     "bbs.config.editor.mute_render_audio_clips": "Mute clip audio while rendering",
     "bbs.config.editor.mute_render_audio_clips-comment": "Prevent camera audio clips from playing in real time during video render",
-    "bbs.config.editor.periodic_save": "Pereodic save",
+    "bbs.config.editor.periodic_save": "Periodic save",
     "bbs.config.editor.periodic_save-comment": "Number of seconds that triggers automatic save repeatedly. To disable periodic saving, set the option to 0",
     "bbs.config.editor.realtime_keyframes": "Realtime keyframes",
     "bbs.config.editor.realtime_keyframes-comment": "Generate a keyframe in realtime when moving pose values and cursor is on a different tick",
