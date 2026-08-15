@@ -47,7 +47,10 @@ public class UIImageRenderer
         int width = fb.textureWidth / 2;
         int height = fb.textureHeight / 2;
         Matrix4f cache = new Matrix4f(RenderSystem.getProjectionMatrix());
-        Matrix4f ortho = new Matrix4f().ortho(0, width, height, 0, -100, 100);
+        /* X/Y rotations move quad corners into Z. The old ±100 near/far clipped
+         * those sides as angle increased; size the depth range for screen-scale quads. */
+        float zExtent = Math.max(1000F, Math.max(width, height) * 8F);
+        Matrix4f ortho = new Matrix4f().ortho(0, width, height, 0, -zExtent, zExtent);
 
         RenderSystem.setProjectionMatrix(ortho, VertexSorter.BY_Z);
         RenderSystem.depthFunc(GL11.GL_ALWAYS);
