@@ -327,6 +327,12 @@ public class UIImageClip extends UIClip<ImageClip>
             {
                 sheet.limit(0D, 1D);
             }
+            else
+            {
+                /* Clear any stale bounds so percent-sized tracks (width/height ≈ 100)
+                 * are not left clamped from another clip's sheet reuse path. */
+                sheet.limit(null, null);
+            }
         }
     }
 

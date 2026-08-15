@@ -117,7 +117,9 @@ public abstract class UIKeyframeFactory <T> extends UIElement
         {
             UIKeyframeSheet sheet = editor.getGraph().getSheet(keyframe);
 
-            if (sheet != null && "height".equals(sheet.id) && editor.getGraph().getSheet("color") != null)
+            /* Eye clip blink amount only — require color_opacity so Image/BossBar/Letterbox
+             * height tracks (which also sit next to a color track) keep unbounded editing. */
+            if (sheet != null && "height".equals(sheet.id) && editor.getGraph().getSheet("color_opacity") != null)
             {
                 @SuppressWarnings("unchecked")
                 Keyframe<Double> doubleKeyframe = (Keyframe<Double>) keyframe;
