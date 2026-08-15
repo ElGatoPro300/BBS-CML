@@ -1399,9 +1399,9 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
     /**
      * Expand collapsed nested-form track groups so bone picks on body parts can
      * reach that form's pose sheet. Does <b>not</b> expand the pose/limb group
-     * itself — limb sheets stay hidden until the user opens pose (default), so
-     * picking a bone selects the nearest pose keyframe instead of inserting a
-     * provisional limb keyframe.
+     * itself — limb sheets stay hidden until the user opens pose (default). With
+     * an empty pose track, bone picks insert a provisional keyframe on the main
+     * pose sheet instead of expanding limbs.
      */
     private void ensureTracksVisibleForFormBone(Form form, String bone)
     {
@@ -4220,8 +4220,7 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
             }
         }
 
-        /* Redirección al sheet anclado si el hueso seleccionado está anclado y no hay override */
-        /* Redirección a la pista de limb track si existe */
+        /* Limb track only when pose is already expanded (limbs visible). */
         if (bone != null && !bone.isEmpty())
         {
             String limbTrackId = key + ":" + bone;
@@ -4285,6 +4284,11 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
         }
 
         Keyframe provisionalKeyframe = this.ensureAutomaticLimbKeyframe(sheet, bone, tick);
+
+        if (provisionalKeyframe == null)
+        {
+            provisionalKeyframe = this.ensureAutomaticPoseKeyframe(sheet, bone, tick);
+        }
 
         KeyframeSegment segment = sheet.channel.find(tick);
         Keyframe closest = null;
@@ -4367,16 +4371,22 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
             return false;
         }
 
-        int colon = sheet.id.indexOf(':');
-
-        if (colon == -1)
+        if (keyframe.getColor().a >= 0.99F)
         {
             return false;
         }
 
+        int colon = sheet.id.indexOf(':');
+
+        if (colon == -1)
+        {
+            /* Provisional preview on the main pose track (pose group collapsed). */
+            return this.isPoseTrackId(sheet.id);
+        }
+
         String propertyId = sheet.id.substring(0, colon);
 
-        return this.isPoseTrackId(propertyId) && keyframe.getColor().a < 0.99F;
+        return this.isPoseTrackId(propertyId);
     }
 
     private void cleanupUntouchedAutomaticKeyframe(Keyframe previous, Keyframe current)
@@ -4400,6 +4410,11 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
         }
     }
 
+    /**
+     * When the pose group is already expanded, bone picks use {@code pose:bone}
+     * limb sheets. Insert a transparent Transform keyframe at the playhead so the
+     * property panel can open; first edit promotes it, leaving it untouched removes it.
+     */
     private Keyframe ensureAutomaticLimbKeyframe(UIKeyframeSheet sheet, String bone, int tick)
     {
         if (sheet == null || !BBSSettings.autoKeyframes.get())
@@ -4467,6 +4482,51 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
                 keyframe.getInterpolation().copy(source.getInterpolation());
             }
 
+            keyframe.setColor(Color.rgba(Colors.setA(sheet.color, 0.35F)));
+        }
+
+        return keyframe;
+    }
+
+    /**
+     * When the pose group is collapsed (limb sheets hidden) and the main pose
+     * track has no keyframes yet, insert a transparent Pose keyframe so limb
+     * picks can open the pose property panel without expanding limbs.
+     */
+    private Keyframe ensureAutomaticPoseKeyframe(UIKeyframeSheet sheet, String bone, int tick)
+    {
+        if (sheet == null || !BBSSettings.autoKeyframes.get())
+        {
+            return null;
+        }
+
+        if (bone == null || bone.isEmpty())
+        {
+            return null;
+        }
+
+        if (sheet.id.indexOf(':') != -1 || !this.isPoseTrackId(sheet.id))
+        {
+            return null;
+        }
+
+        if (!sheet.channel.isEmpty())
+        {
+            return null;
+        }
+
+        Object poseValue = sheet.channel.getFactory().createEmpty();
+
+        if (sheet.property != null && sheet.property.get() instanceof Pose formPose)
+        {
+            poseValue = sheet.channel.getFactory().copy(formPose);
+        }
+
+        int index = sheet.channel.insert(tick, poseValue);
+        Keyframe keyframe = (Keyframe) sheet.channel.get(index);
+
+        if (keyframe != null)
+        {
             keyframe.setColor(Color.rgba(Colors.setA(sheet.color, 0.35F)));
         }
 
