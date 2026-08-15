@@ -17,6 +17,8 @@ public class ImageUniform extends ValueGroup
     public final ValueBoolean resizeCrop = new ValueBoolean("resizeCrop", false);
     public final ValueDouble offsetX = new ValueDouble("offsetX", 0D);
     public final ValueDouble offsetY = new ValueDouble("offsetY", 0D);
+    public final ValueDouble rotationX = new ValueDouble("rotationX", 0D);
+    public final ValueDouble rotationY = new ValueDouble("rotationY", 0D);
     public final ValueDouble rotation = new ValueDouble("rotation", 0D);
     public final ValueDouble blend = new ValueDouble("blend", 0D, 0D, 1D);
     public final ValueDouble x = new ValueDouble("x", 0D);
@@ -39,6 +41,8 @@ public class ImageUniform extends ValueGroup
         this.add(this.resizeCrop);
         this.add(this.offsetX);
         this.add(this.offsetY);
+        this.add(this.rotationX);
+        this.add(this.rotationY);
         this.add(this.rotation);
         this.add(this.blend);
         this.add(this.x);

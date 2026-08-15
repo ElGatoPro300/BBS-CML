@@ -47,6 +47,8 @@ public class UIImageClip extends UIClip<ImageClip>
     public UIColor color;
     public UITrackpad offsetX;
     public UITrackpad offsetY;
+    public UITrackpad rotationX;
+    public UITrackpad rotationY;
     public UITrackpad rotation;
     public UIButton pickBlendFrom;
     public UIButton pickBlendTo;
@@ -116,7 +118,9 @@ public class UIImageClip extends UIClip<ImageClip>
 
         this.offsetX = this.createDoubleTrackpad(this.clip.offsetX, this.clip.uniform.offsetX, UIKeys.CAMERA_PANELS_IMAGE_UV_OFFSET_X, false, null, null);
         this.offsetY = this.createDoubleTrackpad(this.clip.offsetY, this.clip.uniform.offsetY, UIKeys.CAMERA_PANELS_IMAGE_UV_OFFSET_Y, false, null, null);
-        this.rotation = this.createDoubleTrackpad(this.clip.rotation, this.clip.uniform.rotation, UIKeys.FORMS_EDITORS_BILLBOARD_ROTATION, false, null, null);
+        this.rotationX = this.createDoubleTrackpad(this.clip.rotationX, this.clip.uniform.rotationX, UIKeys.CAMERA_PANELS_IMAGE_ROTATION_X, false, null, null);
+        this.rotationY = this.createDoubleTrackpad(this.clip.rotationY, this.clip.uniform.rotationY, UIKeys.CAMERA_PANELS_IMAGE_ROTATION_Y, false, null, null);
+        this.rotation = this.createDoubleTrackpad(this.clip.rotation, this.clip.uniform.rotation, UIKeys.CAMERA_PANELS_IMAGE_ROTATION_Z, false, null, null);
 
         this.pickBlendFrom = new UIButton(UIKeys.CAMERA_PANELS_IMAGE_BLEND_FROM, (b) ->
         {
@@ -471,7 +475,8 @@ public class UIImageClip extends UIClip<ImageClip>
 
         this.panels.add(this.section(UIKeys.CAMERA_PANELS_IMAGE_TEXTURE, this.pickTexture, this.linear, this.mipmap, this.color));
         this.panels.add(this.section(UIKeys.CAMERA_PANELS_IMAGE_CROP, this.openCrop, this.resizeCrop));
-        this.panels.add(this.section(UIKeys.CAMERA_PANELS_IMAGE_UV_SHIFT, UI.row(this.offsetX, this.offsetY), this.rotation));
+        this.panels.add(this.section(UIKeys.CAMERA_PANELS_IMAGE_UV_SHIFT, UI.row(this.offsetX, this.offsetY)));
+        this.panels.add(this.section(UIKeys.CAMERA_PANELS_IMAGE_ROTATION, UI.row(this.rotationX, this.rotationY, this.rotation)));
         this.panels.add(this.section(UIKeys.CAMERA_PANELS_IMAGE_BLEND, UI.row(this.pickBlendFrom, this.pickBlendTo), this.blend));
         this.panels.add(this.section(UIKeys.CAMERA_PANELS_IMAGE_OFFSET, UI.row(this.x, this.y)));
         this.panels.add(this.section(UIKeys.CAMERA_PANELS_IMAGE_SIZE, UI.row(this.width, this.uniformSize, this.height), this.resetNativeSize));
@@ -492,6 +497,8 @@ public class UIImageClip extends UIClip<ImageClip>
         this.color.setColor(this.getColorValue(this.clip.color, this.clip.uniform.color, Color.white()).getARGBColor());
         this.offsetX.setValue(this.getChannelValue(this.clip.offsetX, this.clip.uniform.offsetX, 0D));
         this.offsetY.setValue(this.getChannelValue(this.clip.offsetY, this.clip.uniform.offsetY, 0D));
+        this.rotationX.setValue(this.getChannelValue(this.clip.rotationX, this.clip.uniform.rotationX, 0D));
+        this.rotationY.setValue(this.getChannelValue(this.clip.rotationY, this.clip.uniform.rotationY, 0D));
         this.rotation.setValue(this.getChannelValue(this.clip.rotation, this.clip.uniform.rotation, 0D));
         this.blend.setValue(this.getChannelValue(this.clip.blend, this.clip.uniform.blend, 0D));
         this.x.setValue(this.getChannelValue(this.clip.x, this.clip.uniform.x, 0D));
@@ -596,7 +603,9 @@ public class UIImageClip extends UIClip<ImageClip>
             case "resizeCrop" -> UIKeys.FORMS_EDITORS_BILLBOARD_RESIZE_CROP;
             case "offsetX" -> UIKeys.CAMERA_PANELS_IMAGE_UV_OFFSET_X;
             case "offsetY" -> UIKeys.CAMERA_PANELS_IMAGE_UV_OFFSET_Y;
-            case "rotation" -> UIKeys.FORMS_EDITORS_BILLBOARD_ROTATION;
+            case "rotationX" -> UIKeys.CAMERA_PANELS_IMAGE_ROTATION_X;
+            case "rotationY" -> UIKeys.CAMERA_PANELS_IMAGE_ROTATION_Y;
+            case "rotation" -> UIKeys.CAMERA_PANELS_IMAGE_ROTATION_Z;
             case "x" -> UIKeys.CAMERA_PANELS_IMAGE_POSITION_X;
             case "y" -> UIKeys.CAMERA_PANELS_IMAGE_POSITION_Y;
             case "width" -> UIKeys.CAMERA_PANELS_IMAGE_WIDTH;

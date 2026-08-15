@@ -98,8 +98,18 @@ public class UIImageRenderer
                 stack.push();
                 stack.translate(x, y, 0);
 
-                /* Rotate the on-screen quad around the image anchor — not the UVs.
-                 * UV-space rotation was collapsed to an AABB and looked like a zoom. */
+                /* Rotate around the image anchor in XYZ. Legacy "rotation" is Z
+                 * (in-plane); rotationX/Y are additive and default to 0 for old films. */
+                if (overlay.rotationX != 0F)
+                {
+                    stack.multiply(RotationAxis.POSITIVE_X.rotationDegrees(overlay.rotationX));
+                }
+
+                if (overlay.rotationY != 0F)
+                {
+                    stack.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(overlay.rotationY));
+                }
+
                 if (overlay.rotation != 0F)
                 {
                     stack.multiply(RotationAxis.POSITIVE_Z.rotationDegrees(overlay.rotation));

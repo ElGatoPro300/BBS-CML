@@ -46,6 +46,9 @@ public class ImageClip extends CameraClip
     public final KeyframeChannel<Boolean> resizeCrop = new KeyframeChannel<>("resizeCrop", KeyframeFactories.BOOLEAN);
     public final KeyframeChannel<Double> offsetX = new KeyframeChannel<>("offsetX", KeyframeFactories.DOUBLE);
     public final KeyframeChannel<Double> offsetY = new KeyframeChannel<>("offsetY", KeyframeFactories.DOUBLE);
+    public final KeyframeChannel<Double> rotationX = new KeyframeChannel<>("rotationX", KeyframeFactories.DOUBLE);
+    public final KeyframeChannel<Double> rotationY = new KeyframeChannel<>("rotationY", KeyframeFactories.DOUBLE);
+    /* Legacy id "rotation" = Z / in-plane axis — keep for older films. */
     public final KeyframeChannel<Double> rotation = new KeyframeChannel<>("rotation", KeyframeFactories.DOUBLE);
     public final KeyframeChannel<Double> blend = new KeyframeChannel<>("blend", KeyframeFactories.DOUBLE);
     public final KeyframeChannel<Double> x = new KeyframeChannel<>("x", KeyframeFactories.DOUBLE);
@@ -95,6 +98,8 @@ public class ImageClip extends CameraClip
             this.height,
             this.offsetX,
             this.offsetY,
+            this.rotationX,
+            this.rotationY,
             this.rotation,
             this.blend
         };
@@ -110,6 +115,8 @@ public class ImageClip extends CameraClip
         this.add(this.resizeCrop);
         this.add(this.offsetX);
         this.add(this.offsetY);
+        this.add(this.rotationX);
+        this.add(this.rotationY);
         this.add(this.rotation);
         this.add(this.blend);
         this.add(this.x);
@@ -277,6 +284,8 @@ public class ImageClip extends CameraClip
             tinted,
             (float) this.valueDouble(this.offsetX, this.uniform.offsetX, t, 0D),
             (float) this.valueDouble(this.offsetY, this.uniform.offsetY, t, 0D),
+            (float) this.valueDouble(this.rotationX, this.uniform.rotationX, t, 0D),
+            (float) this.valueDouble(this.rotationY, this.uniform.rotationY, t, 0D),
             (float) this.valueDouble(this.rotation, this.uniform.rotation, t, 0D),
             textureBlend
         );
@@ -311,6 +320,8 @@ public class ImageClip extends CameraClip
         this.uniform.resizeCrop.set(this.interpBoolean(this.resizeCrop, tick, false));
         this.uniform.offsetX.set(this.interp(this.offsetX, tick, 0D));
         this.uniform.offsetY.set(this.interp(this.offsetY, tick, 0D));
+        this.uniform.rotationX.set(this.interp(this.rotationX, tick, 0D));
+        this.uniform.rotationY.set(this.interp(this.rotationY, tick, 0D));
         this.uniform.rotation.set(this.interp(this.rotation, tick, 0D));
         this.uniform.blend.set(MathHelper.clamp(this.interp(this.blend, tick, 0D), BLEND_MIN, BLEND_MAX));
         this.uniform.x.set(this.interp(this.x, tick, 0D));
@@ -339,6 +350,8 @@ public class ImageClip extends CameraClip
         this.seedBoolean(this.resizeCrop, this.uniform.resizeCrop.get());
         this.seedDouble(this.offsetX, this.uniform.offsetX.get());
         this.seedDouble(this.offsetY, this.uniform.offsetY.get());
+        this.seedDouble(this.rotationX, this.uniform.rotationX.get());
+        this.seedDouble(this.rotationY, this.uniform.rotationY.get());
         this.seedDouble(this.rotation, this.uniform.rotation.get());
         this.seedDouble(this.blend, MathHelper.clamp(this.uniform.blend.get(), BLEND_MIN, BLEND_MAX));
         this.seedDouble(this.x, this.uniform.x.get());

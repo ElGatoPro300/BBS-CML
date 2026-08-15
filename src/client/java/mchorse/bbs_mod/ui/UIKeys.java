@@ -219,6 +219,10 @@ public class UIKeys
     public static final IKey CAMERA_PANELS_IMAGE_OFFSET = L10n.lang("bbs.ui.camera.panels.image.offset");
     public static final IKey CAMERA_PANELS_IMAGE_UV_OFFSET_X = L10n.lang("bbs.ui.camera.panels.image.uv_offset_x");
     public static final IKey CAMERA_PANELS_IMAGE_UV_OFFSET_Y = L10n.lang("bbs.ui.camera.panels.image.uv_offset_y");
+    public static final IKey CAMERA_PANELS_IMAGE_ROTATION = L10n.lang("bbs.ui.camera.panels.image.rotation");
+    public static final IKey CAMERA_PANELS_IMAGE_ROTATION_X = L10n.lang("bbs.ui.camera.panels.image.rotation_x");
+    public static final IKey CAMERA_PANELS_IMAGE_ROTATION_Y = L10n.lang("bbs.ui.camera.panels.image.rotation_y");
+    public static final IKey CAMERA_PANELS_IMAGE_ROTATION_Z = L10n.lang("bbs.ui.camera.panels.image.rotation_z");
     public static final IKey CAMERA_PANELS_IMAGE_POSITION_X = L10n.lang("bbs.ui.camera.panels.image.position_x");
     public static final IKey CAMERA_PANELS_IMAGE_POSITION_Y = L10n.lang("bbs.ui.camera.panels.image.position_y");
     public static final IKey CAMERA_PANELS_IMAGE_SIZE = L10n.lang("bbs.ui.camera.panels.image.size");
