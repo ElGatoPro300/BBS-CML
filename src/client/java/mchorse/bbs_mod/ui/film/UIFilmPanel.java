@@ -28,6 +28,7 @@ import mchorse.bbs_mod.events.register.RegisterFilmSyncEvent;
 import mchorse.bbs_mod.film.CrossWorldFilmEntry;
 import mchorse.bbs_mod.film.Film;
 import mchorse.bbs_mod.film.FilmContributor;
+import mchorse.bbs_mod.film.Films;
 import mchorse.bbs_mod.film.Recorder;
 import mchorse.bbs_mod.film.RecordingPauseHelper;
 import mchorse.bbs_mod.film.replays.Replay;
@@ -5412,6 +5413,8 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
 
         this.fullscreenPlaybackBar.attachToRoot();
         this.syncFilmActorPlayback(true);
+        /* Dashboard close must not clear the out-of-editor HUD; re-assert after appear. */
+        this.syncSelectedReplayHud();
     }
 
     @Override
@@ -5443,21 +5446,10 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
 
         this.notifyServer(ActionState.STOP);
 
-        /* End out-of-editor session: clear replay HUD target and stop Right-Alt recording
-         * so closing the dashboard does not leave a live film session in the world. */
-        if (this.controller != null)
-        {
-            this.controller.stopRecording();
-        }
-
-        Recorder recorder = BBSModClient.getFilms().stopRecording();
-
-        if (recorder != null && !recorder.hasNotStarted() && this.data != null)
-        {
-            this.applyRecordedKeyframes(recorder, this.data);
-        }
-
-        BBSModClient.setSelectedReplay(null);
+        /* Keep selectedReplay / Right-Alt session while the film stays loaded.
+         * Clearing here hid the top-left HUD after closing BBS with 0 even though
+         * the film was still open. Session ends only when the film is closed
+         * (home / fill(null)) via {@link #endOutOfEditorFilmSession}. */
     }
 
     @Override
@@ -5641,6 +5633,87 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
         return this.showingHomePage;
     }
 
+    /**
+     * Film is loaded and not on the film home/browser page — out-of-editor HUD,
+     * Right-Alt recording and Right-Ctrl playback may run.
+     */
+    public boolean hasActiveFilmSession()
+    {
+        return this.data != null && !this.showingHomePage;
+    }
+
+    /** Re-publish the current replay for the top-left HUD after BBS is closed/reopened. */
+    private void syncSelectedReplayHud()
+    {
+        if (!this.hasActiveFilmSession() || this.replayEditor == null)
+        {
+            return;
+        }
+
+        Replay replay = this.replayEditor.getReplay();
+
+        if (replay != null)
+        {
+            BBSModClient.setSelectedReplay(replay);
+        }
+    }
+
+    /**
+     * Tear down out-of-editor recording/HUD when the film itself is closed
+     * (home tab / fill(null) / document-bar film tab closed), not when merely
+     * closing the BBS dashboard.
+     */
+    private void endOutOfEditorFilmSession(Film film)
+    {
+        if (this.controller != null)
+        {
+            this.controller.stopRecording();
+        }
+
+        Recorder recorder = BBSModClient.getFilms().stopRecording();
+
+        if (recorder != null && !recorder.hasNotStarted() && film != null)
+        {
+            this.applyRecordedKeyframes(recorder, film);
+            this.save();
+        }
+
+        BBSModClient.setSelectedReplay(null);
+
+        if (film != null)
+        {
+            Films.stopFilm(film.getId());
+        }
+    }
+
+    /**
+     * Document-bar film tab was closed. If it was the film currently loaded in this
+     * panel, clear data + HUD so P / Right Alt cannot keep using a closed film.
+     */
+    public void onDocumentFilmTabClosed(String closedTabId)
+    {
+        if (this.data == null || closedTabId == null)
+        {
+            return;
+        }
+
+        boolean matchesLoaded = closedTabId.equals(this.loadedFilmTabKey);
+
+        if (!matchesLoaded)
+        {
+            CrossWorldFilmEntry decoded = CrossWorldFilmEntry.decodeKey(closedTabId);
+
+            matchesLoaded = closedTabId.equals(this.data.getId())
+                || (decoded != null && decoded.filmId.equals(this.data.getId())
+                    && (this.loadedFilmTabKey == null || closedTabId.equals(this.loadedFilmTabKey)));
+        }
+
+        if (matchesLoaded)
+        {
+            this.fill(null);
+        }
+    }
+
     private void syncViewportRenderMode()
     {
         boolean needsViewport = this.needsViewportRender();
@@ -5761,6 +5834,12 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
     @Override
     public void fill(Film data)
     {
+        /* End HUD / Right-Alt session before clearing data so recording can still be applied. */
+        if (data == null && this.data != null)
+        {
+            this.endOutOfEditorFilmSession(this.data);
+        }
+
         this.notifyServer(ActionState.STOP);
         super.fill(data);
         this.editor.setVisible(true);
@@ -5828,7 +5907,7 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
         else
         {
             this.undoHandler = null;
-            BBSModClient.setSelectedReplay(null);
+            /* selectedReplay is cleared in endOutOfEditorFilmSession via fill(null). */
         }
 
         this.toggleHorizontal.setEnabled(data != null);

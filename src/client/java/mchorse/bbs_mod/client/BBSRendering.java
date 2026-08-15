@@ -796,6 +796,19 @@ public class BBSRendering
             return;
         }
 
+        /* P toggles visibility, but the HUD must only show while a film session is active. */
+        UIDashboard dashboard = BBSModClient.getDashboard();
+
+        if (dashboard != null)
+        {
+            UIFilmPanel filmPanel = dashboard.getPanel(UIFilmPanel.class);
+
+            if (filmPanel == null || !filmPanel.hasActiveFilmSession())
+            {
+                return;
+            }
+        }
+
         Form form = replay.form.get();
         String label = getReplayHudLabel(replay);
         boolean hasLabel = BBSSettings.editorReplayHudDisplayName.get() && !label.isEmpty();

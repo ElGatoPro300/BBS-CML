@@ -1051,7 +1051,7 @@ public class BBSModClient implements ClientModInitializer
     {
         UIFilmPanel panel = getDashboard().getPanel(UIFilmPanel.class);
 
-        if (panel.getData() != null)
+        if (panel != null && panel.hasActiveFilmSession())
         {
             Films.playFilm(panel.getData().getId(), false);
         }
@@ -1061,7 +1061,7 @@ public class BBSModClient implements ClientModInitializer
     {
         UIFilmPanel panel = getDashboard().getPanel(UIFilmPanel.class);
 
-        if (panel.getData() != null)
+        if (panel != null && panel.hasActiveFilmSession())
         {
             Films.pauseFilm(panel.getData().getId());
         }
@@ -1072,7 +1072,7 @@ public class BBSModClient implements ClientModInitializer
         UIDashboard dashboard = getDashboard();
         UIFilmPanel panel = dashboard.getPanel(UIFilmPanel.class);
 
-        if (panel != null && panel.getData() != null)
+        if (panel != null && panel.hasActiveFilmSession())
         {
             Recorder recorder = getFilms().getRecorder();
 
@@ -1080,7 +1080,7 @@ public class BBSModClient implements ClientModInitializer
             {
                 recorder = BBSModClient.getFilms().stopRecording();
 
-                if (recorder == null || recorder.hasNotStarted() || panel.getData() == null)
+                if (recorder == null || recorder.hasNotStarted() || !panel.hasActiveFilmSession())
                 {
                     return;
                 }
@@ -1100,7 +1100,7 @@ public class BBSModClient implements ClientModInitializer
 
                 UIFilmPanel filmPanel = dashboard.getPanel(UIFilmPanel.class);
 
-                if (filmPanel == null || filmPanel.getData() == null)
+                if (filmPanel == null || !filmPanel.hasActiveFilmSession())
                 {
                     return;
                 }
@@ -1109,7 +1109,7 @@ public class BBSModClient implements ClientModInitializer
                 {
                     UIMobCaptureRecordOverlayPanel.openInGame((setup) ->
                     {
-                        if (filmPanel.getData() == null)
+                        if (!filmPanel.hasActiveFilmSession())
                         {
                             return;
                         }
@@ -1191,7 +1191,7 @@ public class BBSModClient implements ClientModInitializer
     {
         Replay selected = getSelectedReplay();
         UIFilmPanel panel = dashboard.getPanel(UIFilmPanel.class);
-        Film film = panel == null ? null : panel.getData();
+        Film film = panel != null && panel.hasActiveFilmSession() ? panel.getData() : null;
 
         if (this.isFilmUsableForQuickSelection(film, selected))
         {
@@ -1203,6 +1203,12 @@ public class BBSModClient implements ClientModInitializer
         if (recorder != null && this.isFilmUsableForQuickSelection(recorder.film, selected))
         {
             return recorder.film;
+        }
+
+        /* Only fall back to playing controllers when a film session is still active. */
+        if (panel == null || !panel.hasActiveFilmSession())
+        {
+            return null;
         }
 
         for (BaseFilmController controller : getFilms().getControllers())
