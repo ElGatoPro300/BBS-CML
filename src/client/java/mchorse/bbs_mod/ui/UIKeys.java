@@ -394,6 +394,7 @@ public class UIKeys
     public static final IKey FILM_GIZMO_COMBINED = L10n.lang("bbs.ui.film.gizmo.combined");
     public static final IKey FILM_GIZMO_TOP = L10n.lang("bbs.ui.film.gizmo.top");
     public static final IKey FILM_GIZMO_SIZE = L10n.lang("bbs.ui.film.gizmo.size");
+    public static final IKey FILM_GIZMO_THICKNESS = L10n.lang("bbs.ui.film.gizmo.thickness");
     public static final IKey FILM_GIZMO_TRANSLATE_SPEED = L10n.lang("bbs.ui.film.gizmo.translate_speed");
     public static final IKey FILM_GIZMO_BODY_PART = L10n.lang("bbs.ui.film.gizmo.body_part");
     public static final IKey FILM_GIZMO_TRANSFORM = L10n.lang("bbs.ui.film.gizmo.transform");

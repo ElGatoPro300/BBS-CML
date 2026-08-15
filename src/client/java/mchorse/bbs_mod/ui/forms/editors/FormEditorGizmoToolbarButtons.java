@@ -45,6 +45,10 @@ public final class FormEditorGizmoToolbarButtons
         {
             return Icons.MAXIMIZE;
         }
+        else if (ValueFormEditorGizmoToolbar.THICKNESS.equals(id))
+        {
+            return Icons.LINE;
+        }
         else if (ValueFormEditorGizmoToolbar.TRANSLATE_SPEED.equals(id))
         {
             return Icons.FORWARD;
@@ -86,6 +90,10 @@ public final class FormEditorGizmoToolbarButtons
         else if (ValueFormEditorGizmoToolbar.SIZE.equals(id))
         {
             return UIKeys.FILM_GIZMO_SIZE;
+        }
+        else if (ValueFormEditorGizmoToolbar.THICKNESS.equals(id))
+        {
+            return UIKeys.FILM_GIZMO_THICKNESS;
         }
         else if (ValueFormEditorGizmoToolbar.TRANSLATE_SPEED.equals(id))
         {

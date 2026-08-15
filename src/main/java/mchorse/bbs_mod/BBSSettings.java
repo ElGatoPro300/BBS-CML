@@ -664,7 +664,8 @@ public class BBSSettings
         /* Keep form-editor gizmos / bone picking while model-block F7 world rendering is on. */
         gizmosWorldRendering = builder.getBoolean("gizmos_world_rendering", true);
         axesScale = builder.getFloat("axes_scale", 1.5F, 0F, 100F);
-        axesThickness = builder.getFloat("axes_thickness", 0.7F, 0.25F, 3F);
+        /* Default >1 so arrows/rings are easier to pick; floor keeps thickness off zero. */
+        axesThickness = builder.getFloat("axes_thickness", 1.2F, 0.25F, 6F);
         /* Multiplier applied only to the invisible picking pass, so the clickable area can be
          * fatter than the visible handles (or thinner) independently of axes_thickness. */
         gizmoHitbox = builder.getFloat("gizmo_hitbox", 1.5F, 0.25F, 5F);
