@@ -145,28 +145,14 @@ public class PaintSettings
     }
 
     /**
-     * Returns paint intensity, or a default when only a legacy paint_color tint is set.
-     * When paint settings already carry a custom color, {@link #intensity} (including 0)
-     * is authoritative so editing paint color alone cannot force full-strength paint.
+     * Returns paint intensity. {@link #intensity} is always authoritative (including {@code 0} =
+     * paint off). Legacy {@code paint_color} alpha is migrated into {@link #intensity} in
+     * {@code Form.fromData} / FormProperties — do not re-interpret it at render time, or white
+     * {@code paint_color} with alpha 1 (common after color-system saves) forces full-strength paint.
      */
     public float resolveIntensity(Color legacy)
     {
-        if (this.intensity != 0F || this.r != 1F || this.g != 1F || this.b != 1F)
-        {
-            return clampIntensity(this.intensity);
-        }
-
-        if (legacy != null && legacy.a != 0F)
-        {
-            return clampIntensity(legacy.a);
-        }
-
-        if (legacy != null && (legacy.r != 1F || legacy.g != 1F || legacy.b != 1F))
-        {
-            return 1F;
-        }
-
-        return 0F;
+        return clampIntensity(this.intensity);
     }
 
     public boolean resolveSync()

@@ -524,8 +524,23 @@ public abstract class Form extends ValueGroup
                     settings.r = glowing.r;
                     settings.g = glowing.g;
                     settings.b = glowing.b;
+                    if (!glowMap.has("intensity"))
+                    {
+                        settings.intensity = this.resolveLegacyGlowIntensity(glowing);
+                    }
                     this.glowSettings.set(settings);
                 }
+            }
+            else if (map.has("glowing_color") && !map.has("glow_intensity"))
+            {
+                GlowSettings settings = this.glowSettings.get().copy();
+                Color glowing = this.glowingColor.get();
+
+                settings.r = glowing.r;
+                settings.g = glowing.g;
+                settings.b = glowing.b;
+                settings.intensity = this.resolveLegacyGlowIntensity(glowing);
+                this.glowSettings.set(settings);
             }
 
             if (map.has("paint"))
@@ -555,6 +570,9 @@ public abstract class Form extends ValueGroup
                 settings.intensity = PaintSettings.resolveLegacyPaintIntensity(legacy);
                 this.paintSettings.set(settings);
             }
+
+            /* Keep legacy color alphas in sync with modern intensity (0 = effect off). */
+            this.syncLegacyPaintAndGlowColors();
 
             /* Compatibility with state triggers */
             FormUtils.readOldStateTriggers(this, map);
@@ -591,6 +609,53 @@ public abstract class Form extends ValueGroup
                 }
             }
         }
+    }
+
+    /**
+     * Writes modern paint/glow intensity back into legacy color alphas so bone checks and
+     * old UI paths that still read {@code paint_color.a} / glowing alpha stay consistent.
+     * Intensity {@code 0} clears legacy alpha so white paint_color cannot revive full paint.
+     */
+    private void syncLegacyPaintAndGlowColors()
+    {
+        PaintSettings paint = this.paintSettings.get();
+        Color paintLegacy = this.paintColor.get().copy();
+        float paintIntensity = PaintSettings.clampIntensity(paint.intensity);
+
+        paintLegacy.r = paint.r;
+        paintLegacy.g = paint.g;
+        paintLegacy.b = paint.b;
+        paintLegacy.a = paintIntensity;
+        this.paintColor.set(paintLegacy);
+
+        GlowSettings glow = this.glowSettings.get();
+        Color glowLegacy = this.glowingColor.get().copy();
+
+        glowLegacy.r = glow.r;
+        glowLegacy.g = glow.g;
+        glowLegacy.b = glow.b;
+        glowLegacy.a = 1F;
+        this.glowingColor.set(glowLegacy);
+    }
+
+    private float resolveLegacyGlowIntensity(Color glowing)
+    {
+        if (glowing == null)
+        {
+            return 0F;
+        }
+
+        if (glowing.r == 1F && glowing.g == 1F && glowing.b == 1F)
+        {
+            return 0F;
+        }
+
+        if (glowing.a > 0F && glowing.a < 1F)
+        {
+            return glowing.a;
+        }
+
+        return 1F;
     }
 
     public float getFormOpacity()

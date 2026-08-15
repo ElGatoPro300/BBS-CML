@@ -1489,42 +1489,51 @@ public class FormProperties extends ValueGroup
             if (paintColorChannel != null)
             {
                 KeyframeChannel<?> mergedAny = this.properties.get("paint");
-                @SuppressWarnings("unchecked")
-                KeyframeChannel<PaintSettings> merged = mergedAny != null
-                    ? (KeyframeChannel<PaintSettings>) mergedAny
-                    : new KeyframeChannel<>("paint", KeyframeFactories.PAINT_SETTINGS);
 
-                if (mergedAny == null)
+                if (mergedAny != null && mergedAny.getFactory() == KeyframeFactories.PAINT_SETTINGS && !mergedAny.isEmpty())
                 {
-                    merged.setModel(true);
-                    this.properties.put("paint", merged);
-                    this.add(merged);
+                    /* Modern paint channel already owns intensity; drop dual-written paint_color. */
+                    this.remove(paintColorChannel);
                 }
-
-                for (Object kfObj : paintColorChannel.getKeyframes())
+                else
                 {
-                    Keyframe<?> kf = (Keyframe<?>) kfObj;
-                    float t = kf.getTick();
-                    PaintSettings settings = this.getPaintSettingsAt(merged, t);
-                    Object v = kf.getValue();
+                    @SuppressWarnings("unchecked")
+                    KeyframeChannel<PaintSettings> merged = mergedAny != null
+                        ? (KeyframeChannel<PaintSettings>) mergedAny
+                        : new KeyframeChannel<>("paint", KeyframeFactories.PAINT_SETTINGS);
 
-                    if (v instanceof Color color)
+                    if (mergedAny == null)
                     {
-                        settings.r = color.r;
-                        settings.g = color.g;
-                        settings.b = color.b;
-                        settings.intensity = color.a;
-
-                        if (color.transform != null && color.transform.isActive())
-                        {
-                            settings.transform = color.transform.copy();
-                        }
+                        merged.setModel(true);
+                        this.properties.put("paint", merged);
+                        this.add(merged);
                     }
 
-                    merged.insert(t, settings);
-                }
+                    for (Object kfObj : paintColorChannel.getKeyframes())
+                    {
+                        Keyframe<?> kf = (Keyframe<?>) kfObj;
+                        float t = kf.getTick();
+                        PaintSettings settings = this.getPaintSettingsAt(merged, t);
+                        Object v = kf.getValue();
 
-                this.remove(paintColorChannel);
+                        if (v instanceof Color color)
+                        {
+                            settings.r = color.r;
+                            settings.g = color.g;
+                            settings.b = color.b;
+                            settings.intensity = PaintSettings.resolveLegacyPaintIntensity(color);
+
+                            if (color.transform != null && color.transform.isActive())
+                            {
+                                settings.transform = color.transform.copy();
+                            }
+                        }
+
+                        merged.insert(t, settings);
+                    }
+
+                    this.remove(paintColorChannel);
+                }
             }
         }
         catch (Throwable ignored) {}
