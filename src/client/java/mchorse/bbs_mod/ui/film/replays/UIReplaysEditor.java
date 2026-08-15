@@ -4423,6 +4423,11 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
      * Drop untouched auto-inserted pose/limb previews so they are never written to disk.
      * Semi-transparent color is the provisional marker; serialization stores RGB only and
      * reloads opaque, which made previews look like confirmed keyframes after reopen.
+     * <p>
+     * Only call when leaving the film context (close / switch film). Running this during
+     * periodic autosave removed the live channel from {@link FormProperties} via
+     * {@code cleanUp()} while timeline sheets still referenced it, so later pose edits
+     * mutated an orphaned channel and the form stopped updating until world reload.
      */
     public void discardUntouchedAutomaticKeyframes()
     {
@@ -4442,7 +4447,12 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
 
         if (removed && this.keyframeEditor != null)
         {
-            this.keyframeEditor.view.getGraph().pickSelected();
+            for (UIKeyframeSheet sheet : this.keyframeEditor.view.getGraph().getSheets())
+            {
+                sheet.selection.clear();
+            }
+
+            this.keyframeEditor.view.getGraph().pickKeyframe(null);
         }
     }
 
@@ -4481,7 +4491,9 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
             }
         }
 
-        if (removed)
+        /* Skip cleanUp while this replay's sheets are still mounted — removing an empty
+         * channel from the map orphans the sheet's KeyframeChannel reference. */
+        if (removed && !(this.keyframeEditor != null && this.replay == replay))
         {
             replay.properties.cleanUp();
         }

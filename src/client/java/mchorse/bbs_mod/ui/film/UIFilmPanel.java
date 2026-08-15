@@ -4433,6 +4433,7 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
     {
         if (this.getData() != null && !this.overlay.namesList.hasInHierarchy(name))
         {
+            this.discardProvisionalPosePreviews();
             this.save();
             this.overlay.namesList.addFile(name);
 
@@ -5416,6 +5417,9 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
     @Override
     public void close()
     {
+        /* Drop untouched pose/limb previews before persist so they never hit disk.
+         * Must not run on periodic autosave — that orphaned live sheet channels mid-edit. */
+        this.discardProvisionalPosePreviews();
         this.requestThumbnailCapture();
         this.save();
         lastShowingHomePage = this.showingHomePage;
@@ -5555,6 +5559,7 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
             return;
         }
 
+        this.discardProvisionalPosePreviews();
         this.requestThumbnailCapture();
         this.save();
         this.openFilmInDocumentTabs(tabId);
@@ -5567,15 +5572,21 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
         RecentAssetsTracker.add(this.getType(), id);
     }
 
-    @Override
-    public void save()
+    /**
+     * Remove untouched auto-inserted pose/limb previews from the in-memory film.
+     * Call before persisting when leaving the current film context (close / switch tab).
+     */
+    private void discardProvisionalPosePreviews()
     {
-        /* Strip untouched pose/limb auto-previews before any write (close, autosave, manual). */
         if (this.replayEditor != null)
         {
             this.replayEditor.discardUntouchedAutomaticKeyframes();
         }
+    }
 
+    @Override
+    public void save()
+    {
         this.requestThumbnailCapture();
         super.save();
     }
@@ -7472,6 +7483,7 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
 
         if (this.data != null && this.activeFilmDocumentTab != index)
         {
+            this.discardProvisionalPosePreviews();
             this.save();
         }
 
