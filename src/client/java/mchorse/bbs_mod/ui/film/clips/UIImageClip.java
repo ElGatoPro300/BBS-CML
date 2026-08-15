@@ -469,7 +469,7 @@ public class UIImageClip extends UIClip<ImageClip>
     {
         super.registerPanels();
 
-        this.panels.add(this.section(UIKeys.CAMERA_PANELS_IMAGE_TEXTURE, this.pickTexture, UI.row(this.linear, this.mipmap), this.color));
+        this.panels.add(this.section(UIKeys.CAMERA_PANELS_IMAGE_TEXTURE, this.pickTexture, this.linear, this.mipmap, this.color));
         this.panels.add(this.section(UIKeys.CAMERA_PANELS_IMAGE_CROP, this.openCrop, this.resizeCrop));
         this.panels.add(this.section(UIKeys.CAMERA_PANELS_IMAGE_UV_SHIFT, UI.row(this.offsetX, this.offsetY), this.rotation));
         this.panels.add(this.section(UIKeys.CAMERA_PANELS_IMAGE_BLEND, UI.row(this.pickBlendFrom, this.pickBlendTo), this.blend));
