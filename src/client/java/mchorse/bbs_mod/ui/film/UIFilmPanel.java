@@ -5438,6 +5438,22 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
         this.replayEditor.close();
 
         this.notifyServer(ActionState.STOP);
+
+        /* End out-of-editor session: clear replay HUD target and stop Right-Alt recording
+         * so closing the dashboard does not leave a live film session in the world. */
+        if (this.controller != null)
+        {
+            this.controller.stopRecording();
+        }
+
+        Recorder recorder = BBSModClient.getFilms().stopRecording();
+
+        if (recorder != null && !recorder.hasNotStarted() && this.data != null)
+        {
+            this.applyRecordedKeyframes(recorder, this.data);
+        }
+
+        BBSModClient.setSelectedReplay(null);
     }
 
     @Override
