@@ -8,6 +8,7 @@ import mchorse.bbs_mod.graphics.texture.Texture;
 import mchorse.bbs_mod.l10n.keys.IKey;
 import mchorse.bbs_mod.resources.Link;
 import mchorse.bbs_mod.settings.values.core.ValueColor;
+import mchorse.bbs_mod.settings.values.numeric.ValueBoolean;
 import mchorse.bbs_mod.settings.values.numeric.ValueDouble;
 import mchorse.bbs_mod.ui.Keys;
 import mchorse.bbs_mod.ui.UIKeys;
@@ -98,23 +99,14 @@ public class UIImageClip extends UIClip<ImageClip>
             });
         });
 
-        this.linear = new UIToggle(UIKeys.TEXTURES_LINEAR, (b) -> this.editor.editMultiple(this.clip.linear, (value) ->
-        {
-            value.set(b.getValue());
-        }));
-        this.mipmap = new UIToggle(UIKeys.TEXTURES_MIPMAP, (b) -> this.editor.editMultiple(this.clip.mipmap, (value) ->
-        {
-            value.set(b.getValue());
-        }));
+        this.linear = this.createBooleanField(this.clip.linear, this.clip.uniform.linear, UIKeys.TEXTURES_LINEAR);
+        this.mipmap = this.createBooleanField(this.clip.mipmap, this.clip.uniform.mipmap, UIKeys.TEXTURES_MIPMAP);
 
         this.openCrop = new UIButton(UIKeys.FORMS_EDITORS_BILLBOARD_EDIT_CROP, (b) ->
         {
             UIOverlay.addOverlay(this.getContext(), new UICropOverlayPanel(this.clip.texture.get(), this.clip.crop.get()), 0.5F, 0.5F);
         });
-        this.resizeCrop = new UIToggle(UIKeys.FORMS_EDITORS_BILLBOARD_RESIZE_CROP, (b) -> this.editor.editMultiple(this.clip.resizeCrop, (value) ->
-        {
-            value.set(b.getValue());
-        }));
+        this.resizeCrop = this.createBooleanField(this.clip.resizeCrop, this.clip.uniform.resizeCrop, UIKeys.FORMS_EDITORS_BILLBOARD_RESIZE_CROP);
 
         this.color = new UIColor((c) ->
         {
@@ -242,6 +234,15 @@ public class UIImageClip extends UIClip<ImageClip>
         return trackpad;
     }
 
+    private UIToggle createBooleanField(KeyframeChannel<Boolean> channel, ValueBoolean uniform, IKey label)
+    {
+        return new UIToggle(label, (b) ->
+        {
+            this.writeBoolean(channel, uniform, b.getValue());
+            this.fillData();
+        });
+    }
+
     private void writeDouble(KeyframeChannel<Double> channel, ValueDouble uniform, double value)
     {
         if (channel == this.clip.blend)
@@ -253,6 +254,19 @@ public class UIImageClip extends UIClip<ImageClip>
             value = MathHelper.clamp(value, ImageClip.OPACITY_MIN, ImageClip.OPACITY_MAX);
         }
 
+        if (this.clip.useKeyframes.get())
+        {
+            channel.insert(this.getClipTick(), value);
+        }
+        else
+        {
+            this.clip.uniformSeeded.set(true);
+            uniform.set(value);
+        }
+    }
+
+    private void writeBoolean(KeyframeChannel<Boolean> channel, ValueBoolean uniform, boolean value)
+    {
         if (this.clip.useKeyframes.get())
         {
             channel.insert(this.getClipTick(), value);
@@ -472,9 +486,9 @@ public class UIImageClip extends UIClip<ImageClip>
     {
         super.fillData();
 
-        this.linear.setValue(this.clip.linear.get());
-        this.mipmap.setValue(this.clip.mipmap.get());
-        this.resizeCrop.setValue(this.clip.resizeCrop.get());
+        this.linear.setValue(this.getBooleanValue(this.clip.linear, this.clip.uniform.linear, false));
+        this.mipmap.setValue(this.getBooleanValue(this.clip.mipmap, this.clip.uniform.mipmap, false));
+        this.resizeCrop.setValue(this.getBooleanValue(this.clip.resizeCrop, this.clip.uniform.resizeCrop, false));
         this.color.setColor(this.getColorValue(this.clip.color, this.clip.uniform.color, Color.white()).getARGBColor());
         this.offsetX.setValue(this.getChannelValue(this.clip.offsetX, this.clip.uniform.offsetX, 0D));
         this.offsetY.setValue(this.getChannelValue(this.clip.offsetY, this.clip.uniform.offsetY, 0D));
@@ -534,6 +548,21 @@ public class UIImageClip extends UIClip<ImageClip>
         return fallback;
     }
 
+    private boolean getBooleanValue(KeyframeChannel<Boolean> channel, ValueBoolean uniform, boolean fallback)
+    {
+        if (!this.clip.useKeyframes.get())
+        {
+            return uniform.get();
+        }
+
+        if (channel.isEmpty())
+        {
+            return this.clip.uniformSeeded.get() ? uniform.get() : fallback;
+        }
+
+        return channel.interpolate(this.getClipTick(), fallback);
+    }
+
     private Color getColorValue(KeyframeChannel<Color> channel, ValueColor uniform, Color fallback)
     {
         if (!this.clip.useKeyframes.get())
@@ -562,6 +591,9 @@ public class UIImageClip extends UIClip<ImageClip>
         return switch (id)
         {
             case "texture_track" -> UIKeys.CAMERA_PANELS_IMAGE_TEXTURE;
+            case "linear" -> UIKeys.TEXTURES_LINEAR;
+            case "mipmap" -> UIKeys.TEXTURES_MIPMAP;
+            case "resizeCrop" -> UIKeys.FORMS_EDITORS_BILLBOARD_RESIZE_CROP;
             case "offsetX" -> UIKeys.CAMERA_PANELS_IMAGE_UV_OFFSET_X;
             case "offsetY" -> UIKeys.CAMERA_PANELS_IMAGE_UV_OFFSET_Y;
             case "rotation" -> UIKeys.FORMS_EDITORS_BILLBOARD_ROTATION;

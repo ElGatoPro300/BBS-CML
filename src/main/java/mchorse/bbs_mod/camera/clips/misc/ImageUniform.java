@@ -2,6 +2,7 @@ package mchorse.bbs_mod.camera.clips.misc;
 
 import mchorse.bbs_mod.settings.values.core.ValueColor;
 import mchorse.bbs_mod.settings.values.core.ValueGroup;
+import mchorse.bbs_mod.settings.values.numeric.ValueBoolean;
 import mchorse.bbs_mod.settings.values.numeric.ValueDouble;
 import mchorse.bbs_mod.utils.colors.Color;
 
@@ -11,6 +12,9 @@ import mchorse.bbs_mod.utils.colors.Color;
  */
 public class ImageUniform extends ValueGroup
 {
+    public final ValueBoolean linear = new ValueBoolean("linear", false);
+    public final ValueBoolean mipmap = new ValueBoolean("mipmap", false);
+    public final ValueBoolean resizeCrop = new ValueBoolean("resizeCrop", false);
     public final ValueDouble offsetX = new ValueDouble("offsetX", 0D);
     public final ValueDouble offsetY = new ValueDouble("offsetY", 0D);
     public final ValueDouble rotation = new ValueDouble("rotation", 0D);
@@ -30,6 +34,9 @@ public class ImageUniform extends ValueGroup
     {
         super(id);
 
+        this.add(this.linear);
+        this.add(this.mipmap);
+        this.add(this.resizeCrop);
         this.add(this.offsetX);
         this.add(this.offsetY);
         this.add(this.rotation);

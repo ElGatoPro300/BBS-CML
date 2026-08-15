@@ -35,15 +35,15 @@ public class ImageClip extends CameraClip
     public static final double OPACITY_MAX = 1D;
 
     public ValueLink texture = new ValueLink("texture", null);
-    public ValueBoolean linear = new ValueBoolean("linear", false);
-    public ValueBoolean mipmap = new ValueBoolean("mipmap", false);
     public ValueVector4f crop = new ValueVector4f("crop", new Vector4f(0, 0, 0, 0));
-    public ValueBoolean resizeCrop = new ValueBoolean("resizeCrop", false);
     public ValueLink blendFrom = new ValueLink("blend_from", null);
     public ValueLink blendTo = new ValueLink("blend_to", null);
     public ValueBoolean uniformSize = new ValueBoolean("uniform_size", true);
 
     public final KeyframeChannel<Link> textureTrack = new KeyframeChannel<>("texture_track", KeyframeFactories.LINK);
+    public final KeyframeChannel<Boolean> linear = new KeyframeChannel<>("linear", KeyframeFactories.BOOLEAN);
+    public final KeyframeChannel<Boolean> mipmap = new KeyframeChannel<>("mipmap", KeyframeFactories.BOOLEAN);
+    public final KeyframeChannel<Boolean> resizeCrop = new KeyframeChannel<>("resizeCrop", KeyframeFactories.BOOLEAN);
     public final KeyframeChannel<Double> offsetX = new KeyframeChannel<>("offsetX", KeyframeFactories.DOUBLE);
     public final KeyframeChannel<Double> offsetY = new KeyframeChannel<>("offsetY", KeyframeFactories.DOUBLE);
     public final KeyframeChannel<Double> rotation = new KeyframeChannel<>("rotation", KeyframeFactories.DOUBLE);
@@ -80,6 +80,9 @@ public class ImageClip extends CameraClip
         this.channels = new KeyframeChannel[]
         {
             this.textureTrack,
+            this.linear,
+            this.mipmap,
+            this.resizeCrop,
             this.x,
             this.y,
             this.width,
@@ -97,14 +100,14 @@ public class ImageClip extends CameraClip
         };
 
         this.add(this.texture);
-        this.add(this.linear);
-        this.add(this.mipmap);
         this.add(this.crop);
-        this.add(this.resizeCrop);
         this.add(this.blendFrom);
         this.add(this.blendTo);
         this.add(this.uniformSize);
         this.add(this.textureTrack);
+        this.add(this.linear);
+        this.add(this.mipmap);
+        this.add(this.resizeCrop);
         this.add(this.offsetX);
         this.add(this.offsetY);
         this.add(this.rotation);
@@ -128,6 +131,9 @@ public class ImageClip extends CameraClip
     public void fromData(BaseType data)
     {
         BaseType legacyColor = null;
+        BaseType legacyLinear = null;
+        BaseType legacyMipmap = null;
+        BaseType legacyResizeCrop = null;
         boolean hasUseKeyframes = data != null && data.isMap() && data.asMap().has("use_keyframes");
 
         if (data != null && data.isMap())
@@ -140,6 +146,11 @@ public class ImageClip extends CameraClip
             {
                 legacyColor = colorData;
             }
+
+            /* Same for former top-level ValueBoolean texture flags. */
+            legacyLinear = this.takeLegacyScalar(map, "linear");
+            legacyMipmap = this.takeLegacyScalar(map, "mipmap");
+            legacyResizeCrop = this.takeLegacyScalar(map, "resizeCrop");
         }
 
         super.fromData(data);
@@ -165,7 +176,40 @@ public class ImageClip extends CameraClip
             }
         }
 
+        this.migrateLegacyBoolean(legacyLinear, this.linear, this.uniform.linear);
+        this.migrateLegacyBoolean(legacyMipmap, this.mipmap, this.uniform.mipmap);
+        this.migrateLegacyBoolean(legacyResizeCrop, this.resizeCrop, this.uniform.resizeCrop);
+
         this.clampLimitedValues();
+    }
+
+    private BaseType takeLegacyScalar(MapType map, String key)
+    {
+        BaseType value = map.get(key);
+
+        if (value != null && !this.isKeyframeChannelData(value))
+        {
+            return value;
+        }
+
+        return null;
+    }
+
+    private void migrateLegacyBoolean(BaseType data, KeyframeChannel<Boolean> channel, ValueBoolean uniform)
+    {
+        if (data == null || !channel.isEmpty() || !data.isNumeric())
+        {
+            return;
+        }
+
+        boolean value = data.asNumeric().boolValue();
+
+        uniform.set(value);
+
+        if (this.useKeyframes.get())
+        {
+            channel.insert(0, value);
+        }
     }
 
     /**
@@ -226,9 +270,9 @@ public class ImageClip extends CameraClip
 
         this.overlay.updateTexture(
             link,
-            this.linear.get(),
-            this.mipmap.get(),
-            this.resizeCrop.get(),
+            this.valueBoolean(this.linear, this.uniform.linear, t, false),
+            this.valueBoolean(this.mipmap, this.uniform.mipmap, t, false),
+            this.valueBoolean(this.resizeCrop, this.uniform.resizeCrop, t, false),
             this.crop.get(),
             tinted,
             (float) this.valueDouble(this.offsetX, this.uniform.offsetX, t, 0D),
@@ -262,6 +306,9 @@ public class ImageClip extends CameraClip
             return;
         }
 
+        this.uniform.linear.set(this.interpBoolean(this.linear, tick, false));
+        this.uniform.mipmap.set(this.interpBoolean(this.mipmap, tick, false));
+        this.uniform.resizeCrop.set(this.interpBoolean(this.resizeCrop, tick, false));
         this.uniform.offsetX.set(this.interp(this.offsetX, tick, 0D));
         this.uniform.offsetY.set(this.interp(this.offsetY, tick, 0D));
         this.uniform.rotation.set(this.interp(this.rotation, tick, 0D));
@@ -287,6 +334,9 @@ public class ImageClip extends CameraClip
     {
         this.ensureUniformSeeded(tick);
 
+        this.seedBoolean(this.linear, this.uniform.linear.get());
+        this.seedBoolean(this.mipmap, this.uniform.mipmap.get());
+        this.seedBoolean(this.resizeCrop, this.uniform.resizeCrop.get());
         this.seedDouble(this.offsetX, this.uniform.offsetX.get());
         this.seedDouble(this.offsetY, this.uniform.offsetY.get());
         this.seedDouble(this.rotation, this.uniform.rotation.get());
@@ -304,6 +354,14 @@ public class ImageClip extends CameraClip
     }
 
     private void seedDouble(KeyframeChannel<Double> channel, double value)
+    {
+        if (channel.isEmpty())
+        {
+            channel.insert(0, value);
+        }
+    }
+
+    private void seedBoolean(KeyframeChannel<Boolean> channel, boolean value)
     {
         if (channel.isEmpty())
         {
@@ -372,6 +430,21 @@ public class ImageClip extends CameraClip
         return this.interp(channel, t, fallback);
     }
 
+    private boolean valueBoolean(KeyframeChannel<Boolean> channel, ValueBoolean uniform, float t, boolean fallback)
+    {
+        if (!this.useKeyframes.get())
+        {
+            return uniform.get();
+        }
+
+        if (channel.isEmpty())
+        {
+            return this.uniformSeeded.get() ? uniform.get() : fallback;
+        }
+
+        return this.interpBoolean(channel, t, fallback);
+    }
+
     private Color valueColor(KeyframeChannel<Color> channel, ValueColor uniform, float t, Color fallback)
     {
         if (!this.useKeyframes.get())
@@ -395,6 +468,16 @@ public class ImageClip extends CameraClip
         }
 
         return channel.interpolate(t);
+    }
+
+    private boolean interpBoolean(KeyframeChannel<Boolean> channel, float t, boolean fallback)
+    {
+        if (channel.isEmpty())
+        {
+            return fallback;
+        }
+
+        return channel.interpolate(t, fallback);
     }
 
     private Color interpColor(KeyframeChannel<Color> channel, float t, Color fallback)
