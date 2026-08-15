@@ -4364,9 +4364,23 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
         return property.equals("pose") || property.startsWith("pose_overlay");
     }
 
-    private boolean isProvisionalAutomaticKeyframe(Keyframe keyframe, UIKeyframeSheet sheet)
+    /** Main pose / pose_overlay tracks and their {@code pose:bone} limb channels. */
+    private boolean isProvisionalPoseChannelId(String id)
     {
-        if (keyframe == null || sheet == null || keyframe.getColor() == null)
+        if (id == null || id.isEmpty())
+        {
+            return false;
+        }
+
+        int colon = id.indexOf(':');
+        String propertyId = colon == -1 ? id : id.substring(0, colon);
+
+        return this.isPoseTrackId(propertyId);
+    }
+
+    private boolean isProvisionalAutomaticKeyframe(Keyframe keyframe, String channelId)
+    {
+        if (keyframe == null || keyframe.getColor() == null)
         {
             return false;
         }
@@ -4376,17 +4390,12 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
             return false;
         }
 
-        int colon = sheet.id.indexOf(':');
+        return this.isProvisionalPoseChannelId(channelId);
+    }
 
-        if (colon == -1)
-        {
-            /* Provisional preview on the main pose track (pose group collapsed). */
-            return this.isPoseTrackId(sheet.id);
-        }
-
-        String propertyId = sheet.id.substring(0, colon);
-
-        return this.isPoseTrackId(propertyId);
+    private boolean isProvisionalAutomaticKeyframe(Keyframe keyframe, UIKeyframeSheet sheet)
+    {
+        return sheet != null && this.isProvisionalAutomaticKeyframe(keyframe, sheet.id);
     }
 
     private void cleanupUntouchedAutomaticKeyframe(Keyframe previous, Keyframe current)
@@ -4408,6 +4417,76 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
         {
             graph.pickSelected();
         }
+    }
+
+    /**
+     * Drop untouched auto-inserted pose/limb previews so they are never written to disk.
+     * Semi-transparent color is the provisional marker; serialization stores RGB only and
+     * reloads opaque, which made previews look like confirmed keyframes after reopen.
+     */
+    public void discardUntouchedAutomaticKeyframes()
+    {
+        if (this.film == null)
+        {
+            return;
+        }
+
+        boolean removed = false;
+
+        for (Replay replay : this.film.replays.getList())
+        {
+            removed |= this.discardUntouchedAutomaticKeyframes(replay);
+        }
+
+        this.lastPickedKeyframe = null;
+
+        if (removed && this.keyframeEditor != null)
+        {
+            this.keyframeEditor.view.getGraph().pickSelected();
+        }
+    }
+
+    private boolean discardUntouchedAutomaticKeyframes(Replay replay)
+    {
+        if (replay == null)
+        {
+            return false;
+        }
+
+        boolean removed = false;
+        List<Keyframe> pending = new ArrayList<>();
+
+        for (KeyframeChannel<?> channel : replay.properties.properties.values())
+        {
+            if (!this.isProvisionalPoseChannelId(channel.getId()))
+            {
+                continue;
+            }
+
+            pending.clear();
+
+            for (Object entry : channel.getList())
+            {
+                Keyframe keyframe = (Keyframe) entry;
+
+                if (this.isProvisionalAutomaticKeyframe(keyframe, channel.getId()))
+                {
+                    pending.add(keyframe);
+                }
+            }
+
+            for (Keyframe keyframe : pending)
+            {
+                removed |= channel.removeSilently(keyframe);
+            }
+        }
+
+        if (removed)
+        {
+            replay.properties.cleanUp();
+        }
+
+        return removed;
     }
 
     /**
@@ -4705,6 +4784,8 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
 
     public void close()
     {
+        this.discardUntouchedAutomaticKeyframes();
+
         if (this.film != null)
         {
             lastFilm = this.film.getId();

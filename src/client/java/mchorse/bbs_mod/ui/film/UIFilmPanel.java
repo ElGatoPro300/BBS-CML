@@ -5570,6 +5570,12 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
     @Override
     public void save()
     {
+        /* Strip untouched pose/limb auto-previews before any write (close, autosave, manual). */
+        if (this.replayEditor != null)
+        {
+            this.replayEditor.discardUntouchedAutomaticKeyframes();
+        }
+
         this.requestThumbnailCapture();
         super.save();
     }
