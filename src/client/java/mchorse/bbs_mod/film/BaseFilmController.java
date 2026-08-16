@@ -1764,6 +1764,25 @@ public abstract class BaseFilmController
                             }
 
                             player.fallDistance = replay.keyframes.fall.interpolate(replayTick).floatValue();
+
+                            /* Vanilla hurt camera / overlay read the local player's hurtTime.
+                             * FP hides the stub body, so push keyframe (+ live) damage onto the
+                             * bound player or shake never appears in first-person playback. */
+                            int hurtTimer = entity.getHurtTimer();
+
+                            if (BBSSettings.shouldKeepActorLiveHurtTime())
+                            {
+                                player.hurtTime = Math.max(player.hurtTime, hurtTimer);
+                            }
+                            else
+                            {
+                                player.hurtTime = hurtTimer;
+                            }
+
+                            if (player.hurtTime > 0 && player.maxHurtTime < player.hurtTime)
+                            {
+                                player.maxHurtTime = Math.max(10, player.hurtTime);
+                            }
                         }
                     }
                 }
