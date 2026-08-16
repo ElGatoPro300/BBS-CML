@@ -78,6 +78,9 @@ public final class BbsHeadItemSpace
      * Call after {@code MatrixStackUtils.multiply(stack, headBoneMatrix)}.
      * Stack is then ready for {@link #spyglassTransformationMode()} with
      * {@link #spyglassLeftHanded()}.
+     * <p>
+     * Keeps the dedicated EYE_Y placement path (not {@link #applyHeadItem}) so the spyglass
+     * stays at the eye — only an extra self-axis roll is corrected for texture alignment.
      *
      * @param lookPitchDeg entity look pitch in degrees (positive = look down)
      * @param leftArm whether the active arm is the left (main-arm aware)
@@ -99,6 +102,10 @@ public final class BbsHeadItemSpace
         /* Arm bias: vanilla uses −2.5/16 for left and +2.5/16 for right before the hat
          * scales; BBS captureMatrices Y180 + negative hat scale flip X, so signs swap. */
         stack.translate(leftArm ? ARM_BIAS : -ARM_BIAS, HAT_Y, 0F);
+
+        /* Placement matches vanilla; baked Ry(PI) + hat scale leave a 180° self-roll on the
+         * barrel/texture — cancel it without moving the eyepiece. */
+        stack.multiply(RotationAxis.POSITIVE_Z.rotationDegrees(180F));
     }
 
     /**
