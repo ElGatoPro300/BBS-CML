@@ -1760,7 +1760,7 @@ public abstract class BaseFilmController
 
                             if (player instanceof ClientPlayerEntity playerEntity)
                             {
-                                playerEntity.input.sneaking = sneaking;
+                                /* playerEntity.input.sneaking = sneaking; */
                             }
 
                             player.fallDistance = replay.keyframes.fall.interpolate(replayTick).floatValue();

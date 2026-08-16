@@ -18,6 +18,7 @@ import mchorse.bbs_mod.utils.colors.Colors;
 
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawContext;
+import net.minecraft.client.render.RenderLayer;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.util.Identifier;
 
@@ -118,9 +119,10 @@ public class UIWelcomePanel extends UIElement {
         batcher.box(x2 - 1, y1, x2, y2, color);
     }
 
-    private void drawPlayerHead(DrawContext drawContext, Identifier skinTexture, int x, int y, int size) {
-        drawContext.drawTexture(skinTexture, x, y, size, size, 8.0F, 8.0F, 8, 8, 64, 64);
-        drawContext.drawTexture(skinTexture, x, y, size, size, 40.0F, 8.0F, 8, 8, 64, 64);
+    private void drawPlayerHead(DrawContext drawContext, Identifier skinTexture, int x, int y, int size)
+    {
+        drawContext.drawTexture(RenderLayer::getGuiTextured, skinTexture, x, y, 8F, 8F, size, size, 8, 8, 64, 64);
+        drawContext.drawTexture(RenderLayer::getGuiTextured, skinTexture, x, y, 40F, 8F, size, size, 8, 8, 64, 64);
     }
 
     @Override

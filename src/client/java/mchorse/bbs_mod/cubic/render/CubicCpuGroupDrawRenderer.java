@@ -131,7 +131,7 @@ public class CubicCpuGroupDrawRenderer extends CubicCubeRenderer
         try
         {
             this.shader.bind();
-            ModelVAORenderer.setupUniformsCpuPretransformed(this.shader);
+            ModelVAORenderer.setupUniforms(stack, this.shader);
             BufferRenderer.drawWithGlobalProgram(groupBuilder.end());
             this.shader.unbind();
         }
