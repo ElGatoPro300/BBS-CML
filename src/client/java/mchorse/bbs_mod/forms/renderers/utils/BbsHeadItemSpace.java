@@ -79,8 +79,10 @@ public final class BbsHeadItemSpace
      * Stack is then ready for {@link #spyglassTransformationMode()} with
      * {@link #spyglassLeftHanded()}.
      * <p>
-     * Keeps the dedicated EYE_Y placement path (not {@link #applyHeadItem}) so the spyglass
-     * stays at the eye — only an extra self-axis roll is corrected for texture alignment.
+     * Spyglass must keep the dedicated eye placement path. Reusing {@link #applyHeadItem}'s
+     * {@code Rx(180)} + negative hat scale inverts {@link ModelTransformationMode#HEAD} local
+     * space and parks the barrel behind the head. Texture self-roll is fixed with {@code Rz(180)}
+     * after placement instead.
      *
      * @param lookPitchDeg entity look pitch in degrees (positive = look down)
      * @param leftArm whether the active arm is the left (main-arm aware)
@@ -92,19 +94,16 @@ public final class BbsHeadItemSpace
         /* captureMatrices attachment space: M_want = M * Rx(clamped − actual). */
         stack.multiply(RotationAxis.POSITIVE_X.rotationDegrees(clamped - lookPitchDeg));
 
-        /* Neck → eye. Do not use HeadFeatureRenderer's T(0,−0.25) here. */
+        /* Neck → eye. Do not use HeadFeatureRenderer's T(0,−0.25) / applyHeadItem here. */
         stack.translate(0F, EYE_Y, 0F);
 
         /* Remainder of HeadFeatureRenderer.translate. Y180 is omitted because
-         * captureMatrices already baked rotateY(PI) onto the bone matrix — adding
-         * another would face the spyglass the wrong way. */
+         * captureMatrices already baked rotateY(PI) onto the bone matrix. */
         stack.scale(HAT_SCALE, -HAT_SCALE, -HAT_SCALE);
-        /* Arm bias: vanilla uses −2.5/16 for left and +2.5/16 for right before the hat
-         * scales; BBS captureMatrices Y180 + negative hat scale flip X, so signs swap. */
+        /* Arm bias: vanilla left − / right +; BBS bake + negative hat scale flip X. */
         stack.translate(leftArm ? ARM_BIAS : -ARM_BIAS, HAT_Y, 0F);
 
-        /* Placement matches vanilla; baked Ry(PI) + hat scale leave a 180° self-roll on the
-         * barrel/texture — cancel it without moving the eyepiece. */
+        /* Cancel extra 180° barrel/texture roll without moving the eyepiece. */
         stack.multiply(RotationAxis.POSITIVE_Z.rotationDegrees(180F));
     }
 
