@@ -48,7 +48,7 @@ public class ItemStackKeyframeFactory implements IKeyframeFactory<ItemStack>
         /* Legacy / partially corrupted entries still often decode via fromNbt. */
         if (nbt instanceof NbtCompound compound)
         {
-            return ItemStack.fromNbtOrEmpty(registries, compound);
+            return ItemStack.fromNbt(compound);
         }
 
         return ItemStack.EMPTY;
@@ -113,7 +113,7 @@ public class ItemStackKeyframeFactory implements IKeyframeFactory<ItemStack>
             return x < 1F ? a : b;
         }
 
-        if (!ItemStack.areItemsAndComponentsEqual(a, b))
+        if (!ItemStack.canCombine(a, b))
         {
             return x < 1F ? a : b;
         }

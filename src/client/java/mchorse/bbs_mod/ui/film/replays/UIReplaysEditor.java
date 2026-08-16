@@ -1026,7 +1026,7 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
         px = MathUtils.clamp(px, 0, renderW - 1);
         py = MathUtils.clamp(py, 0, renderH - 1);
 
-        Vector3f direction = camera.getMouseDirectionFov(px, py, 0, 0, renderW, renderH);
+        Vector3f direction = camera.getMouseDirection(px, py, 0, 0, renderW, renderH);
 
         if (direction.lengthSquared() <= 1.0E-12F)
         {

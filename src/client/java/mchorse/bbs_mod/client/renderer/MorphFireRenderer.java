@@ -119,7 +119,7 @@ public final class MorphFireRenderer
     {
         if (form instanceof MobForm mobForm)
         {
-            EntityType<?> type = Registries.ENTITY_TYPE.get(Identifier.of(mobForm.mobID.get()));
+            EntityType<?> type = Registries.ENTITY_TYPE.get(new Identifier(mobForm.mobID.get()));
 
             if (type != null)
             {
@@ -130,7 +130,7 @@ public final class MorphFireRenderer
                     dimensions = dimensions.scaled(0.8F);
                 }
 
-                return new float[] {dimensions.width(), dimensions.height()};
+                return new float[] {dimensions.width, dimensions.height};
             }
         }
 

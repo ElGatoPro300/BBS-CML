@@ -44,7 +44,6 @@ import net.minecraft.client.render.RenderLayer;
 import net.minecraft.client.render.TexturedRenderLayers;
 import net.minecraft.client.render.VertexConsumerProvider;
 import net.minecraft.client.render.model.ModelLoader;
-import net.minecraft.client.util.BufferAllocator;
 import net.minecraft.util.Util;
 
 import java.util.Collections;
@@ -106,7 +105,7 @@ public class FormUtilsClient
         if (mobMorphVertexConsumerProvider == null)
         {
             mobMorphVertexConsumerProvider = new CustomVertexConsumerProvider(
-                VertexConsumerProvider.immediate(new BufferAllocator(2048))
+                VertexConsumerProvider.immediate(new BufferBuilder(2048))
             );
         }
 

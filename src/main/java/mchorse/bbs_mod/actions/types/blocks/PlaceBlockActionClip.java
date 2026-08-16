@@ -53,7 +53,7 @@ public class PlaceBlockActionClip extends BlockActionClip
                     nbt.putInt("x", pos.getX());
                     nbt.putInt("y", pos.getY());
                     nbt.putInt("z", pos.getZ());
-                    BlockEntity created = BlockEntity.createFromNbt(pos, this.state.get(), nbt, player.getWorld().getRegistryManager());
+                    BlockEntity created = BlockEntity.createFromNbt(pos, this.state.get(), nbt);
 
                     if (created != null)
                     {

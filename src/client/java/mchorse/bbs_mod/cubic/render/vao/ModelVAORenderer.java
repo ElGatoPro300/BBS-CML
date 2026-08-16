@@ -476,12 +476,12 @@ public class ModelVAORenderer
         {
             RenderSystem.setProjectionMatrix(savedProjection, VertexSorter.BY_Z);
 
-            Matrix4fStack modelViewStack = RenderSystem.getModelViewStack();
+            MatrixStack modelViewStack = RenderSystem.getModelViewStack();
 
-            modelViewStack.pushMatrix();
-            modelViewStack.set(savedModelView);
+            modelViewStack.push();
+            modelViewStack.peek().getPositionMatrix().set(savedModelView);
             RenderSystem.applyModelViewMatrix();
-            modelViewStack.popMatrix();
+            modelViewStack.pop();
             RenderSystem.applyModelViewMatrix();
 
             gameRenderer.getLightmapTextureManager().disable();
@@ -1805,6 +1805,16 @@ public class ModelVAORenderer
             {
                 normalUniform.set(stack.peek().getNormalMatrix());
             }
+        }
+
+        if (shader.viewRotationMat != null)
+        {
+            shader.viewRotationMat.set(RenderSystem.getInverseViewRotationMatrix());
+        }
+
+        if (shader.viewRotationMat != null)
+        {
+            shader.viewRotationMat.set(RenderSystem.getInverseViewRotationMatrix());
         }
 
         GlUniform paintUniform = shader.getUniform("PaintColor");

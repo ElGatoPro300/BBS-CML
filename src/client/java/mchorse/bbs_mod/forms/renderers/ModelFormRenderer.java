@@ -26,6 +26,7 @@ import mchorse.bbs_mod.cubic.render.vao.ModelVAORenderer;
 import mchorse.bbs_mod.forms.CustomVertexConsumerProvider;
 import mchorse.bbs_mod.forms.FormUtilsClient;
 import mchorse.bbs_mod.forms.ITickable;
+import net.minecraft.client.render.DiffuseLighting;
 import mchorse.bbs_mod.forms.entities.IEntity;
 import mchorse.bbs_mod.forms.entities.StubEntity;
 import mchorse.bbs_mod.forms.forms.BodyPart;
@@ -60,7 +61,6 @@ import mchorse.bbs_mod.utils.resources.LinkUtils;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gl.ShaderProgram;
 import net.minecraft.client.network.AbstractClientPlayerEntity;
-import net.minecraft.client.render.DiffuseLighting;
 import net.minecraft.client.render.GameRenderer;
 import net.minecraft.client.render.LightmapTextureManager;
 import net.minecraft.client.render.OverlayTexture;
@@ -484,7 +484,7 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
 
             Vector3f light0 = new Vector3f(0.85F, 0.85F, -1F).normalize();
             Vector3f light1 = new Vector3f(-0.85F, 0.85F, 1F).normalize();
-            RenderSystem.setupLevelDiffuseLighting(light0, light1);
+            RenderSystem.setupLevelDiffuseLighting(light0, light1, stack.peek().getPositionMatrix());
 
             Supplier<ShaderProgram> mainShader = this.getModelShader(model);
 
@@ -501,7 +501,6 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
             stack.pop();
             stack.pop();
 
-            DiffuseLighting.disableGuiDepthLighting();
             RenderSystem.depthFunc(GL11.GL_ALWAYS);
             BBSRendering.restoreGuiRenderState();
         }
@@ -3152,7 +3151,7 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
     @Override
     public boolean renderArm(MatrixStack matrices, int light, AbstractClientPlayerEntity player, Hand hand)
     {
-        this.ensureAnimator(MinecraftClient.getInstance().getRenderTickCounter().getTickDelta(true));
+        this.ensureAnimator(MinecraftClient.getInstance().getTickDelta());
         ModelInstance model = this.getModel();
 
         if (this.animator != null && model != null)
