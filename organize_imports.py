@@ -2,13 +2,15 @@ import os
 import re
 import glob
 import subprocess
+import sys
 
 # -----------------------------------------------------------------------------
 # Console Command: python organize_imports.py
 # -----------------------------------------------------------------------------
 
 # Configuration
-PROJECT_ROOT = os.getcwd()
+# Use the directory where the script is located as the project root
+PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
 JAVA_SRC_DIR = os.path.join(PROJECT_ROOT, "src")
 
 # Import groups order
@@ -16,12 +18,15 @@ IMPORT_GROUPS = [
     "mchorse.bbs_mod",
     "net.fabricmc",
     "net.minecraft",
+    "net.irisshaders",
+    "net.caffeinemc",
     "org.joml",
     "com.mojang",
     "com.google",
     "org.lwjgl",
     "java",
-    "javax"
+    "javax",
+    "dev"
 ]
 
 # Classes that should remain fully qualified to avoid ambiguity
@@ -37,11 +42,32 @@ WHITELIST = [
     "mchorse.bbs_mod.utils.colors.Color",
     "java.awt.Color",
     "java.util.Random",
-    "net.minecraftforge.common.MinecraftForge"
+    "net.minecraftforge.common.MinecraftForge",
+    # Iris API / Core conflicts
+    "net.irisshaders.iris.api.v0.Iris",
+    "net.irisshaders.iris.Iris",
+    "net.irisshaders.iris.api.v0.ShaderPack",
+    "net.irisshaders.iris.shaderpack.ShaderPack",
+    "net.irisshaders.iris.api.v0.CustomUniforms",
+    "net.irisshaders.iris.uniforms.custom.CustomUniforms",
+    "net.irisshaders.iris.pbr.PBRType",
+    "net.irisshaders.iris.pbr.texture.PBRType",
+    "net.irisshaders.iris.texture.pbr.PBRType",
+    "net.irisshaders.iris.pbr.TextureTracker",
+    "net.irisshaders.iris.texture.TextureTracker",
+    "net.irisshaders.iris.texture.tracking.TextureTracker",
+    "net.irisshaders.iris.pbr.loader.PBRTextureLoader",
+    "net.irisshaders.iris.texture.pbr.loader.PBRTextureLoader",
+    "net.irisshaders.iris.pbr.loader.PBRTextureLoaderRegistry",
+    "net.irisshaders.iris.texture.pbr.loader.PBRTextureLoaderRegistry",
+    "net.irisshaders.iris.targets.backed.NativeImageBackedSingleColorTexture",
+    "net.irisshaders.iris.compat.sodium.impl.vertex_format.entity_xhfp.EntityVertex"
 ]
 
 # Regex for finding fully qualified names (FQNs)
-FQN_REGEX = r'\b((?:mchorse|net|com|org|java|javax)\.(?:[a-z0-9_]+\.)+[A-Z][a-zA-Z0-9_]*)\b'
+# Group 1: String literals (to be ignored)
+# Group 2: FQNs
+FQN_REGEX = r'("(?:\\.|[^"\\])*")|\b((?:mchorse|net|com|org|java|javax|dev|joptsimple)\.(?:[a-z0-9_]+\.)+[A-Z][a-zA-Z0-9_]*)\b'
 
 def get_all_java_files():
     """Get all Java files in the project's src directory."""
@@ -121,7 +147,11 @@ def process_file(filepath):
         
         # 2. Find and replace FQNs in the body
         def replace_fqn(match):
-            fqn = match.group(1)
+            string_literal = match.group(1)
+            fqn = match.group(2)
+            
+            if string_literal:
+                return string_literal
             
             # If FQN is whitelisted, KEEP it as FQN and don't add to imports
             if fqn in WHITELIST:
