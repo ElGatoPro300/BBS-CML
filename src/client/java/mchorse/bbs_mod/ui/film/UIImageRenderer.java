@@ -119,7 +119,43 @@ public class UIImageRenderer
                 }
 
                 texture.setFilterMipmap(overlay.linear, overlay.mipmap);
+                if (overlay.blendMode != 0)
+                {
+                    batcher.flushDraw();
+                    switch (overlay.blendMode)
+                    {
+                        case 1: /* Multiply — src*dst, matches Premiere Pro Multiply */
+                            RenderSystem.blendFunc(GL11.GL_DST_COLOR, GL11.GL_ZERO);
+                            break;
+                        case 2: /* Screen — 1-(1-src)*(1-dst), matches Premiere Pro Screen */
+                            RenderSystem.blendFunc(GL11.GL_ONE, GL11.GL_ONE_MINUS_SRC_COLOR);
+                            break;
+                        case 3: /* Add / Linear Dodge — src+dst, matches Premiere Pro Add */
+                            RenderSystem.blendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE);
+                            break;
+                        case 4: /* Saturation — modulates dest saturation via src color channels */
+                            RenderSystem.blendFunc(GL11.GL_SRC_COLOR, GL11.GL_ONE_MINUS_SRC_COLOR);
+                            break;
+                        case 5: /* Incrustation (Silhouette Luma) — bright src punches hole in dest */
+                            RenderSystem.blendFunc(GL11.GL_ZERO, GL11.GL_ONE_MINUS_SRC_COLOR);
+                            break;
+                        case 6: /* Exclusion — src*(1-dst) + dst*(1-src) = src+dst-2*src*dst */
+                            RenderSystem.blendFunc(GL11.GL_ONE_MINUS_DST_COLOR, GL11.GL_ONE_MINUS_SRC_COLOR);
+                            break;
+                        case 7: /* Overlay (Approx) / Vivid Multiply — 2*src*dst */
+                            RenderSystem.blendFunc(GL11.GL_DST_COLOR, GL11.GL_SRC_COLOR);
+                            break;
+                        case 8: /* Color Dodge — src*src + dst */
+                            RenderSystem.blendFunc(GL11.GL_SRC_COLOR, GL11.GL_ONE);
+                            break;
+                    }
+                }
                 batcher.texturedBox(supplier, texture.id, color, drawX, drawY, fw, fh, uv[0], uv[1], uv[2], uv[3], texture.width, texture.height);
+                if (overlay.blendMode != 0)
+                {
+                    batcher.flushDraw();
+                    RenderSystem.blendFuncSeparate(GlStateManager.SrcFactor.SRC_ALPHA, GlStateManager.DstFactor.ONE_MINUS_SRC_ALPHA, GlStateManager.SrcFactor.ONE, GlStateManager.DstFactor.ONE_MINUS_SRC_ALPHA);
+                }
                 texture.setFilterMipmap(false, false);
 
                 stack.pop();
