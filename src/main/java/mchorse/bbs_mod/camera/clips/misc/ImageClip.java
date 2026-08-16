@@ -11,6 +11,7 @@ import mchorse.bbs_mod.settings.values.core.ValueLink;
 import mchorse.bbs_mod.settings.values.misc.ValueVector4f;
 import mchorse.bbs_mod.settings.values.numeric.ValueBoolean;
 import mchorse.bbs_mod.settings.values.numeric.ValueDouble;
+import mchorse.bbs_mod.settings.values.numeric.ValueInt;
 import mchorse.bbs_mod.utils.clips.Clip;
 import mchorse.bbs_mod.utils.clips.ClipContext;
 import mchorse.bbs_mod.utils.colors.Color;
@@ -38,6 +39,7 @@ public class ImageClip extends CameraClip
     public ValueVector4f crop = new ValueVector4f("crop", new Vector4f(0, 0, 0, 0));
     public ValueLink blendFrom = new ValueLink("blend_from", null);
     public ValueLink blendTo = new ValueLink("blend_to", null);
+    public ValueInt blendMode = new ValueInt("blend_mode", 0);
     public ValueBoolean uniformSize = new ValueBoolean("uniform_size", true);
 
     public final KeyframeChannel<Link> textureTrack = new KeyframeChannel<>("texture_track", KeyframeFactories.LINK);
@@ -108,6 +110,7 @@ public class ImageClip extends CameraClip
         this.add(this.crop);
         this.add(this.blendFrom);
         this.add(this.blendTo);
+        this.add(this.blendMode);
         this.add(this.uniformSize);
         this.add(this.textureTrack);
         this.add(this.linear);
@@ -287,7 +290,7 @@ public class ImageClip extends CameraClip
             (float) this.valueDouble(this.rotationX, this.uniform.rotationX, t, 0D),
             (float) this.valueDouble(this.rotationY, this.uniform.rotationY, t, 0D),
             (float) this.valueDouble(this.rotation, this.uniform.rotation, t, 0D),
-            textureBlend
+            textureBlend, this.blendMode.get()
         );
         this.overlay.updateLayout(
             (float) this.valueDouble(this.x, this.uniform.x, t, 0D),
