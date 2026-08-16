@@ -714,7 +714,7 @@ public class FluidFormRenderer extends FormRenderer<FluidForm> implements ITicka
                .texture(u, v)
                .overlay(overlay)
                .light(light)
-               .normal(tn.x, tn.y, tn.z);
+               .normal(tn.x, tn.y, tn.z)
                .next();
     }
     
