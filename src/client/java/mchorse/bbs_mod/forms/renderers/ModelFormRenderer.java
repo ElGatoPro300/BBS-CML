@@ -26,7 +26,6 @@ import mchorse.bbs_mod.cubic.render.vao.ModelVAORenderer;
 import mchorse.bbs_mod.forms.CustomVertexConsumerProvider;
 import mchorse.bbs_mod.forms.FormUtilsClient;
 import mchorse.bbs_mod.forms.ITickable;
-import net.minecraft.client.render.DiffuseLighting;
 import mchorse.bbs_mod.forms.entities.IEntity;
 import mchorse.bbs_mod.forms.entities.MCEntity;
 import mchorse.bbs_mod.forms.entities.StubEntity;
@@ -66,6 +65,7 @@ import net.minecraft.block.SkullBlock;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gl.ShaderProgram;
 import net.minecraft.client.network.AbstractClientPlayerEntity;
+import net.minecraft.client.render.DiffuseLighting;
 import net.minecraft.client.render.GameRenderer;
 import net.minecraft.client.render.LightmapTextureManager;
 import net.minecraft.client.render.OverlayTexture;
@@ -81,6 +81,8 @@ import net.minecraft.item.BlockItem;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.Items;
+import net.minecraft.nbt.NbtElement;
+import net.minecraft.nbt.NbtHelper;
 import net.minecraft.util.Arm;
 import net.minecraft.util.Hand;
 import net.minecraft.util.math.MathHelper;
@@ -91,6 +93,7 @@ import org.joml.Matrix4f;
 import org.joml.Quaternionf;
 import org.joml.Vector3f;
 
+import com.mojang.authlib.GameProfile;
 import com.mojang.blaze3d.systems.RenderSystem;
 
 import org.lwjgl.opengl.GL11;
@@ -3365,10 +3368,10 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
             return;
         }
 
-        com.mojang.authlib.GameProfile profile = null;
-        if (itemStack.hasNbt() && itemStack.getNbt().contains("SkullOwner", net.minecraft.nbt.NbtElement.COMPOUND_TYPE))
+        GameProfile profile = null;
+        if (itemStack.hasNbt() && itemStack.getNbt().contains("SkullOwner", NbtElement.COMPOUND_TYPE))
         {
-            profile = net.minecraft.nbt.NbtHelper.toGameProfile(itemStack.getNbt().getCompound("SkullOwner"));
+            profile = NbtHelper.toGameProfile(itemStack.getNbt().getCompound("SkullOwner"));
         }
         RenderLayer renderLayer = SkullBlockEntityRenderer.getRenderLayer(skullType, profile);
 

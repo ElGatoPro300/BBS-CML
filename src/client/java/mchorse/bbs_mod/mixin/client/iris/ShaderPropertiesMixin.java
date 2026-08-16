@@ -5,7 +5,6 @@ import mchorse.bbs_mod.utils.iris.ShaderOpacityPatch;
 import net.irisshaders.iris.helpers.OptionalBoolean;
 import net.irisshaders.iris.shaderpack.option.ShaderPackOptions;
 import net.irisshaders.iris.shaderpack.properties.ShaderProperties;
-
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;

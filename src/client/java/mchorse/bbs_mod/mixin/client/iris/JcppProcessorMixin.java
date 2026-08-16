@@ -5,7 +5,6 @@ import mchorse.bbs_mod.utils.iris.ShaderCurves;
 import mchorse.bbs_mod.utils.iris.ShaderOpacityPatch;
 
 import net.irisshaders.iris.shaderpack.preprocessor.JcppProcessor;
-
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.ModifyVariable;

@@ -44,6 +44,8 @@ import net.minecraft.client.render.RenderLayer;
 import net.minecraft.client.render.TexturedRenderLayers;
 import net.minecraft.client.render.VertexConsumerProvider;
 import net.minecraft.client.render.model.ModelLoader;
+import net.minecraft.client.render.model.json.ModelTransformationMode;
+import net.minecraft.item.ItemStack;
 import net.minecraft.util.Util;
 
 import java.util.Collections;
@@ -266,7 +268,7 @@ public class FormUtilsClient
     {
     }
 
-    public static VertexConsumerProvider routeMobFormBuiltinItemConsumers(net.minecraft.item.ItemStack stack, net.minecraft.client.render.model.json.ModelTransformationMode mode, VertexConsumerProvider consumers)
+    public static VertexConsumerProvider routeMobFormBuiltinItemConsumers(ItemStack stack, ModelTransformationMode mode, VertexConsumerProvider consumers)
     {
         return consumers;
     }

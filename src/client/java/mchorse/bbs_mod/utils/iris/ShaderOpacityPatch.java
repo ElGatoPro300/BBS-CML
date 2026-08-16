@@ -8,13 +8,6 @@ import mchorse.bbs_mod.mixin.client.iris.IrisRenderingPipelineAccessor;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.util.math.MatrixStack;
 
-import net.irisshaders.iris.gl.texture.DepthCopyStrategy;
-import net.irisshaders.iris.helpers.OptionalBoolean;
-import net.irisshaders.iris.pipeline.IrisRenderingPipeline;
-import net.irisshaders.iris.pipeline.WorldRenderingPipeline;
-import net.irisshaders.iris.shaderpack.properties.ShaderProperties;
-import net.irisshaders.iris.targets.RenderTargets;
-
 import org.joml.Matrix4f;
 import org.joml.Matrix4fStack;
 
@@ -28,6 +21,14 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 import java.util.function.Consumer;
+
+import net.irisshaders.iris.Iris;
+import net.irisshaders.iris.gl.texture.DepthCopyStrategy;
+import net.irisshaders.iris.helpers.OptionalBoolean;
+import net.irisshaders.iris.pipeline.IrisRenderingPipeline;
+import net.irisshaders.iris.pipeline.WorldRenderingPipeline;
+import net.irisshaders.iris.shaderpack.properties.ShaderProperties;
+import net.irisshaders.iris.targets.RenderTargets;
 
 /**
  * Runtime soft-opacity queue. Soft forms draw after translucent terrain with depth writes
@@ -135,7 +136,7 @@ public class ShaderOpacityPatch
 
         try
         {
-            String current = net.irisshaders.iris.Iris.getCurrentPackName();
+            String current = Iris.getCurrentPackName();
 
             return current == null ? "" : current;
         }
@@ -470,7 +471,7 @@ public class ShaderOpacityPatch
             BBSRendering.ensurePaintOverlayTargetFramebuffer();
 
             WorldRenderingPipeline pipeline =
-                net.irisshaders.iris.Iris.getPipelineManager().getPipelineNullable();
+                Iris.getPipelineManager().getPipelineNullable();
 
             if (!(pipeline instanceof IrisRenderingPipeline irisPipeline))
             {
