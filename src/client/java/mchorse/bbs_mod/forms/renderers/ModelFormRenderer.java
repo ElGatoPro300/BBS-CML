@@ -73,8 +73,10 @@ import net.minecraft.client.render.OverlayTexture;
 import net.minecraft.client.render.RenderLayer;
 import net.minecraft.client.render.block.entity.SkullBlockEntityModel;
 import net.minecraft.client.render.block.entity.SkullBlockEntityRenderer;
+import net.minecraft.client.render.entity.model.LoadedEntityModels;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.component.DataComponentTypes;
+import net.minecraft.component.type.EquippableComponent;
 import net.minecraft.component.type.ProfileComponent;
 import net.minecraft.entity.EquipmentSlot;
 import net.minecraft.entity.LivingEntity;
@@ -3276,7 +3278,7 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
         }
 
         Item item = itemStack.getItem();
-        net.minecraft.component.type.EquippableComponent equippable = itemStack.get(DataComponentTypes.EQUIPPABLE);
+        EquippableComponent equippable = itemStack.get(DataComponentTypes.EQUIPPABLE);
 
         if (equippable != null && equippable.slot() == EquipmentSlot.HEAD)
         {
@@ -3392,7 +3394,7 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
         if (skullModels == null)
         {
             skullModels = new HashMap<>();
-            net.minecraft.client.render.entity.model.LoadedEntityModels loaded = MinecraftClient.getInstance().getLoadedEntityModels();
+            LoadedEntityModels loaded = MinecraftClient.getInstance().getLoadedEntityModels();
 
             for (SkullBlock.Type type : SkullBlock.Type.values())
             {
