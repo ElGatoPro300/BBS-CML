@@ -12,6 +12,7 @@ import net.minecraft.client.render.RenderLayer;
 import net.minecraft.client.render.TexturedRenderLayers;
 import net.minecraft.client.render.VertexConsumer;
 import net.minecraft.client.render.VertexConsumerProvider;
+import net.minecraft.client.render.VertexConsumers;
 import net.minecraft.client.render.entity.model.BipedEntityModel;
 import net.minecraft.client.render.entity.model.ElytraEntityModel;
 import net.minecraft.client.render.model.BakedModelManager;
@@ -135,24 +136,19 @@ public class ArmorRenderer
 
                 ArmorTrim trim = itemStack.get(DataComponentTypes.TRIM);
                 boolean hasTrim = trim != null;
+                boolean hasGlint = itemStack.hasGlint();
 
                 if (hasTrim)
                 {
-                    this.renderTrim(part, armorItem.getMaterial(), matrices, vertexConsumers, light, trim, innerModel);
+                    /* Trim glint is a separate EQUAL pass fed the same verts as the trim
+                     * shells (union), not a second scaled ModelPart.render — that desync
+                     * was the trim↔glint z-fight. Base armor still gets its own 1.0 glint. */
+                    this.renderTrim(part, armorItem.getMaterial(), matrices, vertexConsumers, light, trim, innerModel, hasGlint);
                 }
 
-                if (itemStack.hasGlint())
+                if (hasGlint)
                 {
-                    /* ArmorEntityGlint uses EQUAL depth: trim shells must already be in the
-                     * depth buffer (Immediate draws trim layers before glint — see
-                     * FormUtilsClient.createIsolatedProvider). Scaled passes match dual-shell trim. */
                     this.renderGlint(part, matrices, vertexConsumers, light);
-
-                    if (hasTrim)
-                    {
-                        this.renderGlintScaled(part, matrices, vertexConsumers, light, TRIM_OUTER_SCALE);
-                        this.renderGlintScaled(part, matrices, vertexConsumers, light, TRIM_INNER_SCALE);
-                    }
                 }
             }
         }
@@ -193,10 +189,13 @@ public class ArmorRenderer
         part.render(matrices, vertexConsumer, light, OverlayTexture.DEFAULT_UV);
     }
 
-    private void renderTrim(ModelPart part, RegistryEntry<ArmorMaterial> material, MatrixStack matrices, VertexConsumerProvider vertexConsumers, int light, ArmorTrim trim, boolean leggings)
+    private void renderTrim(ModelPart part, RegistryEntry<ArmorMaterial> material, MatrixStack matrices, VertexConsumerProvider vertexConsumers, int light, ArmorTrim trim, boolean leggings, boolean withGlint)
     {
         Sprite sprite = this.armorTrimsAtlas.getSprite(leggings ? trim.getLeggingsModelId(material) : trim.getGenericModelId(material));
-        VertexConsumer vertexConsumer = sprite.getTextureSpecificVertexConsumer(vertexConsumers.getBuffer(TexturedRenderLayers.getArmorTrims(trim.getPattern().value().decal())));
+        VertexConsumer trimConsumer = sprite.getTextureSpecificVertexConsumer(vertexConsumers.getBuffer(TexturedRenderLayers.getArmorTrims(trim.getPattern().value().decal())));
+        VertexConsumer vertexConsumer = withGlint
+            ? VertexConsumers.union(trimConsumer, vertexConsumers.getBuffer(RenderLayer.getArmorEntityGlint()))
+            : trimConsumer;
 
         /* Armor + trim share the same ModelPart. Uniform 1.005 alone hides inner faces
          * (shell expands away from the cavity). Dual shells keep film/world z-fight fix
@@ -210,11 +209,6 @@ public class ArmorRenderer
     private void renderGlint(ModelPart part, MatrixStack matrices, VertexConsumerProvider vertexConsumers, int light)
     {
         part.render(matrices, vertexConsumers.getBuffer(RenderLayer.getArmorEntityGlint()), light, OverlayTexture.DEFAULT_UV);
-    }
-
-    private void renderGlintScaled(ModelPart part, MatrixStack matrices, VertexConsumerProvider vertexConsumers, int light, float scale)
-    {
-        this.renderScaledPart(part, matrices, vertexConsumers.getBuffer(RenderLayer.getArmorEntityGlint()), light, scale);
     }
 
     private void renderScaledPart(ModelPart part, MatrixStack matrices, VertexConsumer vertexConsumer, int light, float scale)
