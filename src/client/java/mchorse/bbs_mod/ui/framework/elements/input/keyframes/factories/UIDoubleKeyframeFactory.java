@@ -28,11 +28,12 @@ public class UIDoubleKeyframeFactory extends UIKeyframeFactory<Double>
     {
         UIKeyframeSheet sheet = this.findSheet();
 
-        if (sheet == null || (sheet.minValue == null && sheet.maxValue == null))
+        if (sheet == null)
         {
             return;
         }
 
+        /* Always sync trackpad bounds to the sheet (including clearing stale 0–1 limits). */
         double min = sheet.minValue != null ? sheet.minValue : Double.NEGATIVE_INFINITY;
         double max = sheet.maxValue != null ? sheet.maxValue : Double.POSITIVE_INFINITY;
 

@@ -4,6 +4,7 @@ import mchorse.bbs_mod.BBS;
 import mchorse.bbs_mod.BBSMod;
 import mchorse.bbs_mod.BBSModClient;
 import mchorse.bbs_mod.BBSSettings;
+import mchorse.bbs_mod.actions.ActionPlayer;
 import mchorse.bbs_mod.actions.ActionState;
 import mchorse.bbs_mod.camera.Camera;
 import mchorse.bbs_mod.camera.clips.modifiers.TranslateClip;
@@ -28,6 +29,7 @@ import mchorse.bbs_mod.events.register.RegisterFilmSyncEvent;
 import mchorse.bbs_mod.film.CrossWorldFilmEntry;
 import mchorse.bbs_mod.film.Film;
 import mchorse.bbs_mod.film.FilmContributor;
+import mchorse.bbs_mod.film.Films;
 import mchorse.bbs_mod.film.Recorder;
 import mchorse.bbs_mod.film.RecordingPauseHelper;
 import mchorse.bbs_mod.film.replays.Replay;
@@ -2612,6 +2614,67 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
         {
             this.setupEditorFlex(true, false, true);
         }
+        else
+        {
+            /* Properties tab already active (common after film load restores active_tab).
+             * Still retarget hosts and resize so a freshly mounted keyframe factory is not
+             * left on the wrong/zero-sized panel until the user re-picks the keyframe. */
+            this.syncKeyframePropertiesHosts();
+        }
+    }
+
+    /**
+     * Retarget clip/replay keyframe property hosts and force a layout pass on them.
+     * Used when the properties tab is already visible so {@link #setupEditorFlex} was skipped.
+     */
+    private void syncKeyframePropertiesHosts()
+    {
+        this.updateTargets();
+
+        UIElement cameraHost = this.getPropertiesHostElement(this.resolveCameraPropertiesPanelId());
+        UIElement actionHost = this.getPropertiesHostElement(this.resolveActionPropertiesPanelId());
+        UIElement replayHost = this.getPropertiesHostElement(this.resolveReplayPropertiesPanelId());
+
+        if (cameraHost == null)
+        {
+            cameraHost = this.cameraEditArea;
+        }
+
+        if (actionHost == null)
+        {
+            actionHost = this.actionEditArea;
+        }
+
+        if (replayHost == null)
+        {
+            replayHost = this.editArea;
+        }
+
+        if (cameraHost != null)
+        {
+            cameraHost.resize();
+        }
+
+        if (actionHost != null)
+        {
+            actionHost.resize();
+        }
+
+        if (replayHost != null)
+        {
+            replayHost.resize();
+        }
+    }
+
+    /**
+     * Host panel where replay keyframe factories are mounted ({@code unifiedEditArea}
+     * when redirected, otherwise {@code editArea}).
+     */
+    public UIElement getReplayKeyframePropertiesHost()
+    {
+        UIElement host = this.getPropertiesHostElement(this.resolveReplayPropertiesPanelId());
+
+        return host != null ? host : this.editArea;
     }
 
     private String getLinkedPropertiesPanelId(String panelId)
@@ -2946,6 +3009,8 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
         String panelId = this.shouldRedirectProperties() ? "unifiedEditArea" : "editArea";
 
         this.focusPanelTab(panelId);
+        /* Same edge case as {@link #focusLinkedPropertiesTab}: tab may already be active. */
+        this.syncKeyframePropertiesHosts();
     }
 
     /**
@@ -2978,6 +3043,10 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
         if (changed || needsRefresh)
         {
             this.setupEditorFlex(true, false, false);
+        }
+        else
+        {
+            this.syncKeyframePropertiesHosts();
         }
     }
 
@@ -4367,6 +4436,7 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
     {
         if (this.getData() != null && !this.overlay.namesList.hasInHierarchy(name))
         {
+            this.discardProvisionalPosePreviews();
             this.save();
             this.overlay.namesList.addFile(name);
 
@@ -5247,8 +5317,8 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
 
         if (recorder == null || recorder.hasNotStarted())
         {
-            this.notifyServer(ActionState.RESTART);
-
+            /* Actor playback is started in appear() so a selected film does not
+             * respawn actors when the dashboard opens onto another panel. */
             return;
         }
 
@@ -5344,11 +5414,17 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
         }
 
         this.fullscreenPlaybackBar.attachToRoot();
+        this.syncFilmActorPlayback(true);
+        /* Dashboard close must not clear the out-of-editor HUD; re-assert after appear. */
+        this.syncSelectedReplayHud();
     }
 
     @Override
     public void close()
     {
+        /* Drop untouched pose/limb previews before persist so they never hit disk.
+         * Must not run on periodic autosave — that orphaned live sheet channels mid-edit. */
+        this.discardProvisionalPosePreviews();
         this.requestThumbnailCapture();
         this.save();
         lastShowingHomePage = this.showingHomePage;
@@ -5371,6 +5447,11 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
         this.replayEditor.close();
 
         this.notifyServer(ActionState.STOP);
+
+        /* Keep selectedReplay / Right-Alt session while the film stays loaded.
+         * Clearing here hid the top-left HUD after closing BBS with 0 even though
+         * the film was still open. Session ends only when the film is closed
+         * (home / fill(null)) via {@link #endOutOfEditorFilmSession}. */
     }
 
     @Override
@@ -5390,6 +5471,24 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
 
         this.disableContext();
         this.fullscreenPlaybackBar.removeFromParent();
+        this.syncFilmActorPlayback(false);
+    }
+
+    /**
+     * FILM_EDITOR actors must only exist while this panel is showing a film.
+     * Dashboard {@code open()} runs for every panel, so restarting there made
+     * paused actors reappear when opening model/trigger blocks from the world.
+     */
+    private void syncFilmActorPlayback(boolean visible)
+    {
+        if (visible && this.data != null && !this.showingHomePage)
+        {
+            this.notifyServer(ActionState.RESTART);
+
+            return;
+        }
+
+        this.notifyServer(ActionState.STOP);
     }
 
     private void disableContext()
@@ -5454,6 +5553,7 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
             return;
         }
 
+        this.discardProvisionalPosePreviews();
         this.requestThumbnailCapture();
         this.save();
         this.openFilmInDocumentTabs(tabId);
@@ -5464,6 +5564,18 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
     {
         this.openFilmTab(id);
         RecentAssetsTracker.add(this.getType(), id);
+    }
+
+    /**
+     * Remove untouched auto-inserted pose/limb previews from the in-memory film.
+     * Call before persisting when leaving the current film context (close / switch tab).
+     */
+    private void discardProvisionalPosePreviews()
+    {
+        if (this.replayEditor != null)
+        {
+            this.replayEditor.discardUntouchedAutomaticKeyframes();
+        }
     }
 
     @Override
@@ -5521,6 +5633,87 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
     public boolean isShowingHomePage()
     {
         return this.showingHomePage;
+    }
+
+    /**
+     * Film is loaded and not on the film home/browser page — out-of-editor HUD,
+     * Right-Alt recording and Right-Ctrl playback may run.
+     */
+    public boolean hasActiveFilmSession()
+    {
+        return this.data != null && !this.showingHomePage;
+    }
+
+    /** Re-publish the current replay for the top-left HUD after BBS is closed/reopened. */
+    private void syncSelectedReplayHud()
+    {
+        if (!this.hasActiveFilmSession() || this.replayEditor == null)
+        {
+            return;
+        }
+
+        Replay replay = this.replayEditor.getReplay();
+
+        if (replay != null)
+        {
+            BBSModClient.setSelectedReplay(replay);
+        }
+    }
+
+    /**
+     * Tear down out-of-editor recording/HUD when the film itself is closed
+     * (home tab / fill(null) / document-bar film tab closed), not when merely
+     * closing the BBS dashboard.
+     */
+    private void endOutOfEditorFilmSession(Film film)
+    {
+        if (this.controller != null)
+        {
+            this.controller.stopRecording();
+        }
+
+        Recorder recorder = BBSModClient.getFilms().stopRecording();
+
+        if (recorder != null && !recorder.hasNotStarted() && film != null)
+        {
+            this.applyRecordedKeyframes(recorder, film);
+            this.save();
+        }
+
+        BBSModClient.setSelectedReplay(null);
+
+        if (film != null)
+        {
+            Films.stopFilm(film.getId());
+        }
+    }
+
+    /**
+     * Document-bar film tab was closed. If it was the film currently loaded in this
+     * panel, clear data + HUD so P / Right Alt cannot keep using a closed film.
+     */
+    public void onDocumentFilmTabClosed(String closedTabId)
+    {
+        if (this.data == null || closedTabId == null)
+        {
+            return;
+        }
+
+        boolean matchesLoaded = closedTabId.equals(this.loadedFilmTabKey);
+
+        if (!matchesLoaded)
+        {
+            CrossWorldFilmEntry decoded = CrossWorldFilmEntry.decodeKey(closedTabId);
+
+            matchesLoaded = closedTabId.equals(this.data.getId())
+                || (decoded != null && decoded.filmId.equals(this.data.getId())
+                    && (this.loadedFilmTabKey == null || closedTabId.equals(this.loadedFilmTabKey)));
+        }
+
+        if (matchesLoaded)
+        {
+            this.fill(null);
+        }
     }
 
     private void syncViewportRenderMode()
@@ -5643,6 +5836,12 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
     @Override
     public void fill(Film data)
     {
+        /* End HUD / Right-Alt session before clearing data so recording can still be applied. */
+        if (data == null && this.data != null)
+        {
+            this.endOutOfEditorFilmSession(this.data);
+        }
+
         this.notifyServer(ActionState.STOP);
         super.fill(data);
         this.editor.setVisible(true);
@@ -5710,7 +5909,7 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
         else
         {
             this.undoHandler = null;
-            BBSModClient.setSelectedReplay(null);
+            /* selectedReplay is cleared in endOutOfEditorFilmSession via fill(null). */
         }
 
         this.toggleHorizontal.setEnabled(data != null);
@@ -6637,7 +6836,7 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
 
     /**
      * @param applyWorldActions when false, soft-sync the server tick without
-     *        walking {@link mchorse.bbs_mod.actions.ActionPlayer#goTo} (avoids
+     *        walking {@link ActionPlayer#goTo} (avoids
      *        re-firing swipe / break / drop clips on a programmatic restore).
      */
     public void setCursor(int value, boolean applyWorldActions)
@@ -7365,6 +7564,7 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
 
         if (this.data != null && this.activeFilmDocumentTab != index)
         {
+            this.discardProvisionalPosePreviews();
             this.save();
         }
 

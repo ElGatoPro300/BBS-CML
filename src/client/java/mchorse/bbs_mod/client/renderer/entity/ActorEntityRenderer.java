@@ -6,10 +6,9 @@ import mchorse.bbs_mod.client.renderer.MorphFireRenderer;
 import mchorse.bbs_mod.cubic.render.vanilla.ArmorRenderer;
 import mchorse.bbs_mod.entity.ActorEntity;
 import mchorse.bbs_mod.forms.FormUtilsClient;
-import mchorse.bbs_mod.forms.forms.MobForm;
 import mchorse.bbs_mod.forms.renderers.FormRenderType;
 import mchorse.bbs_mod.forms.renderers.FormRenderingContext;
-import mchorse.bbs_mod.utils.iris.IrisUtils;
+import mchorse.bbs_mod.forms.renderers.utils.FormDeathTilt;
 
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.model.Dilation;
@@ -92,7 +91,7 @@ public class ActorEntityRenderer extends EntityRenderer<ActorEntity, ActorEntity
 
         float radius = Math.max(entity.getFilmShadowRadiusX(), entity.getFilmShadowRadiusZ());
 
-        if (IrisUtils.isShaderPackEnabled())
+        if (BBSRendering.isIrisShadersEnabled())
         {
             /* Packs that still draw the vanilla shadow texture honor this; Comp/BSL
              * mesh shadows are separate and stay as they are for stubs. */
@@ -182,7 +181,7 @@ public class ActorEntityRenderer extends EntityRenderer<ActorEntity, ActorEntity
     private boolean shouldDrawCustomGroundShadow(ActorEntity entity)
     {
         return entity.shouldRenderFilmGroundShadow()
-            && !IrisUtils.isShaderPackEnabled()
+            && !BBSRendering.isIrisShadersEnabled()
             && !BBSRendering.isIrisShadowPass();
     }
 
@@ -230,11 +229,7 @@ public class ActorEntityRenderer extends EntityRenderer<ActorEntity, ActorEntity
             matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(-bodyYaw));
         }
 
-        if (entity.deathTime > 0 && !(entity.getForm() instanceof MobForm))
-        {
-            float deathAngle = (entity.deathTime + tickDelta - 1F) / 20F * 1.6F;
-
-            matrices.multiply(RotationAxis.POSITIVE_Z.rotationDegrees(Math.min(MathHelper.sqrt(deathAngle), 1F) * 90F));
-        }
+        /* Float death_time tip for ModelForm and MobForm (morph.deathTime stays 0). */
+        FormDeathTilt.apply(matrices, entity.getEntity(), entity.getForm(), tickDelta);
     }
 }

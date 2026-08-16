@@ -8,6 +8,7 @@ import mchorse.bbs_mod.graphics.texture.Texture;
 import mchorse.bbs_mod.l10n.keys.IKey;
 import mchorse.bbs_mod.resources.Link;
 import mchorse.bbs_mod.settings.values.core.ValueColor;
+import mchorse.bbs_mod.settings.values.numeric.ValueBoolean;
 import mchorse.bbs_mod.settings.values.numeric.ValueDouble;
 import mchorse.bbs_mod.ui.Keys;
 import mchorse.bbs_mod.ui.UIKeys;
@@ -24,6 +25,7 @@ import mchorse.bbs_mod.ui.framework.elements.input.UITexturePicker;
 import mchorse.bbs_mod.ui.framework.elements.input.UITrackpad;
 import mchorse.bbs_mod.ui.framework.elements.input.keyframes.UIKeyframeEditor;
 import mchorse.bbs_mod.ui.framework.elements.input.keyframes.UIKeyframeSheet;
+import mchorse.bbs_mod.ui.framework.elements.input.list.UIStringList;
 import mchorse.bbs_mod.ui.framework.elements.overlay.UIOverlay;
 import mchorse.bbs_mod.ui.framework.elements.utils.Batcher2D;
 import mchorse.bbs_mod.ui.utils.UI;
@@ -46,6 +48,8 @@ public class UIImageClip extends UIClip<ImageClip>
     public UIColor color;
     public UITrackpad offsetX;
     public UITrackpad offsetY;
+    public UITrackpad rotationX;
+    public UITrackpad rotationY;
     public UITrackpad rotation;
     public UIButton pickBlendFrom;
     public UIButton pickBlendTo;
@@ -54,6 +58,7 @@ public class UIImageClip extends UIClip<ImageClip>
     public UITrackpad y;
     public UITrackpad width;
     public UIIcon uniformSize;
+    public UIStringList blendModeList;
     public UITrackpad height;
     public UIButton resetNativeSize;
     public UITrackpad anchorX;
@@ -98,23 +103,14 @@ public class UIImageClip extends UIClip<ImageClip>
             });
         });
 
-        this.linear = new UIToggle(UIKeys.TEXTURES_LINEAR, (b) -> this.editor.editMultiple(this.clip.linear, (value) ->
-        {
-            value.set(b.getValue());
-        }));
-        this.mipmap = new UIToggle(UIKeys.TEXTURES_MIPMAP, (b) -> this.editor.editMultiple(this.clip.mipmap, (value) ->
-        {
-            value.set(b.getValue());
-        }));
+        this.linear = this.createBooleanField(this.clip.linear, this.clip.uniform.linear, UIKeys.TEXTURES_LINEAR);
+        this.mipmap = this.createBooleanField(this.clip.mipmap, this.clip.uniform.mipmap, UIKeys.TEXTURES_MIPMAP);
 
         this.openCrop = new UIButton(UIKeys.FORMS_EDITORS_BILLBOARD_EDIT_CROP, (b) ->
         {
             UIOverlay.addOverlay(this.getContext(), new UICropOverlayPanel(this.clip.texture.get(), this.clip.crop.get()), 0.5F, 0.5F);
         });
-        this.resizeCrop = new UIToggle(UIKeys.FORMS_EDITORS_BILLBOARD_RESIZE_CROP, (b) -> this.editor.editMultiple(this.clip.resizeCrop, (value) ->
-        {
-            value.set(b.getValue());
-        }));
+        this.resizeCrop = this.createBooleanField(this.clip.resizeCrop, this.clip.uniform.resizeCrop, UIKeys.FORMS_EDITORS_BILLBOARD_RESIZE_CROP);
 
         this.color = new UIColor((c) ->
         {
@@ -124,7 +120,9 @@ public class UIImageClip extends UIClip<ImageClip>
 
         this.offsetX = this.createDoubleTrackpad(this.clip.offsetX, this.clip.uniform.offsetX, UIKeys.CAMERA_PANELS_IMAGE_UV_OFFSET_X, false, null, null);
         this.offsetY = this.createDoubleTrackpad(this.clip.offsetY, this.clip.uniform.offsetY, UIKeys.CAMERA_PANELS_IMAGE_UV_OFFSET_Y, false, null, null);
-        this.rotation = this.createDoubleTrackpad(this.clip.rotation, this.clip.uniform.rotation, UIKeys.FORMS_EDITORS_BILLBOARD_ROTATION, false, null, null);
+        this.rotationX = this.createDoubleTrackpad(this.clip.rotationX, this.clip.uniform.rotationX, UIKeys.CAMERA_PANELS_IMAGE_ROTATION_X, false, null, null);
+        this.rotationY = this.createDoubleTrackpad(this.clip.rotationY, this.clip.uniform.rotationY, UIKeys.CAMERA_PANELS_IMAGE_ROTATION_Y, false, null, null);
+        this.rotation = this.createDoubleTrackpad(this.clip.rotation, this.clip.uniform.rotation, UIKeys.CAMERA_PANELS_IMAGE_ROTATION_Z, false, null, null);
 
         this.pickBlendFrom = new UIButton(UIKeys.CAMERA_PANELS_IMAGE_BLEND_FROM, (b) ->
         {
@@ -172,6 +170,28 @@ public class UIImageClip extends UIClip<ImageClip>
         });
         this.opacity.limit(0, 100);
         this.opacity.tooltip(UIKeys.CAMERA_PANELS_IMAGE_OPACITY);
+        this.blendModeList = new UIStringList((items) ->
+        {
+            if (!items.isEmpty())
+            {
+                int index = this.blendModeList.getIndex();
+                this.editor.editMultiple(this.clip.blendMode, (value) ->
+                {
+                    value.set(index);
+                });
+            }
+        });
+        this.blendModeList.background();
+        this.blendModeList.add(UIKeys.CAMERA_PANELS_IMAGE_BLEND_MODE_NORMAL.get());
+        this.blendModeList.add(UIKeys.CAMERA_PANELS_IMAGE_BLEND_MODE_MULTIPLY.get());
+        this.blendModeList.add(UIKeys.CAMERA_PANELS_IMAGE_BLEND_MODE_SCREEN.get());
+        this.blendModeList.add(UIKeys.CAMERA_PANELS_IMAGE_BLEND_MODE_ADD.get());
+        this.blendModeList.add(UIKeys.CAMERA_PANELS_IMAGE_BLEND_MODE_SATURATION.get());
+        this.blendModeList.add(UIKeys.CAMERA_PANELS_IMAGE_BLEND_MODE_INCRUSTATION.get());
+        this.blendModeList.add(UIKeys.CAMERA_PANELS_IMAGE_BLEND_MODE_EXCLUSION.get());
+        this.blendModeList.add(UIKeys.CAMERA_PANELS_IMAGE_BLEND_MODE_OVERLAY.get());
+        this.blendModeList.add(UIKeys.CAMERA_PANELS_IMAGE_BLEND_MODE_COLOR_DODGE.get());
+        this.blendModeList.tooltip(UIKeys.CAMERA_PANELS_IMAGE_OPACITY_STYLE);
 
         this.useKeyframes = new UIToggle(UIKeys.SCREEN_PANELS_USE_KEYFRAMES, (b) ->
         {
@@ -242,6 +262,15 @@ public class UIImageClip extends UIClip<ImageClip>
         return trackpad;
     }
 
+    private UIToggle createBooleanField(KeyframeChannel<Boolean> channel, ValueBoolean uniform, IKey label)
+    {
+        return new UIToggle(label, (b) ->
+        {
+            this.writeBoolean(channel, uniform, b.getValue());
+            this.fillData();
+        });
+    }
+
     private void writeDouble(KeyframeChannel<Double> channel, ValueDouble uniform, double value)
     {
         if (channel == this.clip.blend)
@@ -253,6 +282,19 @@ public class UIImageClip extends UIClip<ImageClip>
             value = MathHelper.clamp(value, ImageClip.OPACITY_MIN, ImageClip.OPACITY_MAX);
         }
 
+        if (this.clip.useKeyframes.get())
+        {
+            channel.insert(this.getClipTick(), value);
+        }
+        else
+        {
+            this.clip.uniformSeeded.set(true);
+            uniform.set(value);
+        }
+    }
+
+    private void writeBoolean(KeyframeChannel<Boolean> channel, ValueBoolean uniform, boolean value)
+    {
         if (this.clip.useKeyframes.get())
         {
             channel.insert(this.getClipTick(), value);
@@ -326,6 +368,12 @@ public class UIImageClip extends UIClip<ImageClip>
             if ("blend".equals(sheet.id) || "opacity".equals(sheet.id))
             {
                 sheet.limit(0D, 1D);
+            }
+            else
+            {
+                /* Clear any stale bounds so percent-sized tracks (width/height ≈ 100)
+                 * are not left clamped from another clip's sheet reuse path. */
+                sheet.limit(null, null);
             }
         }
     }
@@ -449,15 +497,17 @@ public class UIImageClip extends UIClip<ImageClip>
     {
         super.registerPanels();
 
-        this.panels.add(this.section(UIKeys.CAMERA_PANELS_IMAGE_TEXTURE, this.pickTexture, UI.row(this.linear, this.mipmap), this.color));
+        this.panels.add(this.section(UIKeys.CAMERA_PANELS_IMAGE_TEXTURE, this.pickTexture, this.linear, this.mipmap, this.color));
         this.panels.add(this.section(UIKeys.CAMERA_PANELS_IMAGE_CROP, this.openCrop, this.resizeCrop));
-        this.panels.add(this.section(UIKeys.CAMERA_PANELS_IMAGE_UV_SHIFT, UI.row(this.offsetX, this.offsetY), this.rotation));
+        this.panels.add(this.section(UIKeys.CAMERA_PANELS_IMAGE_UV_SHIFT, UI.row(this.offsetX, this.offsetY)));
+        this.panels.add(this.section(UIKeys.CAMERA_PANELS_IMAGE_ROTATION, UI.row(this.rotationX, this.rotationY, this.rotation)));
         this.panels.add(this.section(UIKeys.CAMERA_PANELS_IMAGE_BLEND, UI.row(this.pickBlendFrom, this.pickBlendTo), this.blend));
         this.panels.add(this.section(UIKeys.CAMERA_PANELS_IMAGE_OFFSET, UI.row(this.x, this.y)));
         this.panels.add(this.section(UIKeys.CAMERA_PANELS_IMAGE_SIZE, UI.row(this.width, this.uniformSize, this.height), this.resetNativeSize));
         this.panels.add(this.section(UIKeys.CAMERA_PANELS_IMAGE_ANCHOR, UI.row(this.anchorX, this.anchorY)));
         this.panels.add(this.section(UIKeys.CAMERA_PANELS_IMAGE_WINDOW, UI.row(this.windowX, this.windowY)));
         this.panels.add(this.section(UIKeys.CAMERA_PANELS_IMAGE_OPACITY, this.opacity));
+        this.panels.add(this.section(IKey.raw("Opacity Style"), this.blendModeList.h(128)));
         this.panels.add(this.section(UIKeys.SCREEN_PANELS_KEYFRAMES, this.useKeyframes, this.edit));
     }
 
@@ -466,12 +516,14 @@ public class UIImageClip extends UIClip<ImageClip>
     {
         super.fillData();
 
-        this.linear.setValue(this.clip.linear.get());
-        this.mipmap.setValue(this.clip.mipmap.get());
-        this.resizeCrop.setValue(this.clip.resizeCrop.get());
+        this.linear.setValue(this.getBooleanValue(this.clip.linear, this.clip.uniform.linear, false));
+        this.mipmap.setValue(this.getBooleanValue(this.clip.mipmap, this.clip.uniform.mipmap, false));
+        this.resizeCrop.setValue(this.getBooleanValue(this.clip.resizeCrop, this.clip.uniform.resizeCrop, false));
         this.color.setColor(this.getColorValue(this.clip.color, this.clip.uniform.color, Color.white()).getARGBColor());
         this.offsetX.setValue(this.getChannelValue(this.clip.offsetX, this.clip.uniform.offsetX, 0D));
         this.offsetY.setValue(this.getChannelValue(this.clip.offsetY, this.clip.uniform.offsetY, 0D));
+        this.rotationX.setValue(this.getChannelValue(this.clip.rotationX, this.clip.uniform.rotationX, 0D));
+        this.rotationY.setValue(this.getChannelValue(this.clip.rotationY, this.clip.uniform.rotationY, 0D));
         this.rotation.setValue(this.getChannelValue(this.clip.rotation, this.clip.uniform.rotation, 0D));
         this.blend.setValue(this.getChannelValue(this.clip.blend, this.clip.uniform.blend, 0D));
         this.x.setValue(this.getChannelValue(this.clip.x, this.clip.uniform.x, 0D));
@@ -483,6 +535,7 @@ public class UIImageClip extends UIClip<ImageClip>
         this.windowX.setValue(this.getChannelValue(this.clip.windowX, this.clip.uniform.windowX, 0.5D));
         this.windowY.setValue(this.getChannelValue(this.clip.windowY, this.clip.uniform.windowY, 0.5D));
         this.opacity.setValue(this.getChannelValue(this.clip.opacity, this.clip.uniform.opacity, 1D) * 100F);
+        this.blendModeList.setIndex(this.clip.blendMode.get());
         this.uniformSize.active(this.clip.uniformSize.get());
         this.useKeyframes.setValue(this.clip.useKeyframes.get());
         this.updateKeyframesControls();
@@ -528,6 +581,21 @@ public class UIImageClip extends UIClip<ImageClip>
         return fallback;
     }
 
+    private boolean getBooleanValue(KeyframeChannel<Boolean> channel, ValueBoolean uniform, boolean fallback)
+    {
+        if (!this.clip.useKeyframes.get())
+        {
+            return uniform.get();
+        }
+
+        if (channel.isEmpty())
+        {
+            return this.clip.uniformSeeded.get() ? uniform.get() : fallback;
+        }
+
+        return channel.interpolate(this.getClipTick(), fallback);
+    }
+
     private Color getColorValue(KeyframeChannel<Color> channel, ValueColor uniform, Color fallback)
     {
         if (!this.clip.useKeyframes.get())
@@ -556,9 +624,14 @@ public class UIImageClip extends UIClip<ImageClip>
         return switch (id)
         {
             case "texture_track" -> UIKeys.CAMERA_PANELS_IMAGE_TEXTURE;
+            case "linear" -> UIKeys.TEXTURES_LINEAR;
+            case "mipmap" -> UIKeys.TEXTURES_MIPMAP;
+            case "resizeCrop" -> UIKeys.FORMS_EDITORS_BILLBOARD_RESIZE_CROP;
             case "offsetX" -> UIKeys.CAMERA_PANELS_IMAGE_UV_OFFSET_X;
             case "offsetY" -> UIKeys.CAMERA_PANELS_IMAGE_UV_OFFSET_Y;
-            case "rotation" -> UIKeys.FORMS_EDITORS_BILLBOARD_ROTATION;
+            case "rotationX" -> UIKeys.CAMERA_PANELS_IMAGE_ROTATION_X;
+            case "rotationY" -> UIKeys.CAMERA_PANELS_IMAGE_ROTATION_Y;
+            case "rotation" -> UIKeys.CAMERA_PANELS_IMAGE_ROTATION_Z;
             case "x" -> UIKeys.CAMERA_PANELS_IMAGE_POSITION_X;
             case "y" -> UIKeys.CAMERA_PANELS_IMAGE_POSITION_Y;
             case "width" -> UIKeys.CAMERA_PANELS_IMAGE_WIDTH;
@@ -572,6 +645,12 @@ public class UIImageClip extends UIClip<ImageClip>
             case "blend" -> UIKeys.CAMERA_PANELS_IMAGE_BLEND;
             default -> IKey.constant(id);
         };
+    }
+
+    @Override
+    protected UIKeyframeEditor resolveClipEmbeddableView(String undoId)
+    {
+        return undoId.equals(this.keyframes.getUndoId()) ? this.keyframes : null;
     }
 
     @Override

@@ -23,7 +23,6 @@ import mchorse.bbs_mod.utils.MatrixStackUtils;
 import mchorse.bbs_mod.utils.Quad;
 import mchorse.bbs_mod.utils.colors.Color;
 import mchorse.bbs_mod.utils.colors.Colors;
-import mchorse.bbs_mod.utils.interps.Lerps;
 import mchorse.bbs_mod.utils.iris.ShaderOpacityPatch;
 import mchorse.bbs_mod.utils.joml.Vectors;
 
@@ -382,12 +381,9 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
         RenderSystem.disableCull();
 
         /* Under Iris, billboards must defer to a BBS redraw — live entity_translucent often
-         * washes or discards them. needsIrisTranslucentFlatDeferral skips fully opaque (#ff);
-         * with the Complementary/BSL opacity patch that live opaque path also vanishes, so
-         * defer every world billboard while the patch is active.
+         * washes or discards them. needsIrisTranslucentFlatDeferral skips fully opaque (#ff).
          * Color Grade: never use ColorGradeOverlay on billboards — scene capture misses the
          * thin plane and the overlay paints background (looks invisible). Defer + FormColorGrade. */
-        boolean opacityPatch = ShaderOpacityPatch.isActive();
         /* Paint / color-tint overlays must not write into the shadow map (same as Structure/Block). */
         boolean positivePaint = !shadowPass && FormColorEffects.hasPositivePaint(paintSettings, legacyPaint);
         Color resolvedPaint = positivePaint ? FormColorEffects.resolvePaintColor(paintSettings, legacyPaint) : null;
@@ -395,7 +391,6 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
         boolean deferForColorGrade = hasColorAdjustments && irisWorld;
         boolean deferTranslucent = !modelRenderer && !shadowPass
             && (BBSRendering.needsIrisTranslucentFlatDeferral(color.a)
-                || (opacityPatch && BBSRendering.isIrisWorldModelPass())
                 || deferForColorGrade);
 
         if (deferTranslucent)
@@ -417,12 +412,8 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
             GlowSettings glowSettingsSnapshot = glowSettings;
             Color legacyGlowSnapshot = legacyGlow;
             boolean emitGlowSnapshot = glowIntensity > 0F && !glowSettings.resolvePaintOnly();
-            /* Noshading opacity: redraw after paint via BBS translucent queue, not Iris post-deferred. */
-            boolean noshadingPaintPath = BBSRendering.needsIrisNoshadingOpacityDeferral(color.a, this.form.noshadingOpacity.get());
-            boolean afterFluids = ShaderOpacityPatch.shouldFlushAfterFluids(color.a);
             /* Soft-opacity depth write stays opacity-based. */
             boolean depthWrite = ShaderOpacityPatch.shouldWriteDepthForOpacity(color.a);
-            double distanceSq = 0D;
             /* Iris deferred: apply FormColorGrade in model.fsh on the post-deferred BBS draw. */
             VertexFormat deferredFormat = VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL;
             boolean gradeOnDeferredDraw = useFormColorGrade || irisDeferredColorGrade;
@@ -435,18 +426,6 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
             float gradeSaturationSnapshot = storedFormColor.saturation;
             boolean gradeActiveSnapshot = gradeOnDeferredDraw;
             Color gradeSourceSnapshot = storedFormColor;
-
-            if (deferContext != null && deferContext.entity != null && deferContext.camera != null)
-            {
-                double x = Lerps.lerp(deferContext.entity.getPrevX(), deferContext.entity.getX(), transition);
-                double y = Lerps.lerp(deferContext.entity.getPrevY(), deferContext.entity.getY(), transition);
-                double z = Lerps.lerp(deferContext.entity.getPrevZ(), deferContext.entity.getZ(), transition);
-                double dx = x - deferContext.camera.position.x;
-                double dy = y - deferContext.camera.position.y;
-                double dz = z - deferContext.camera.position.z;
-
-                distanceSq = dx * dx + dy * dy + dz * dz;
-            }
 
             Runnable deferredDraw = () ->
             {
@@ -548,15 +527,7 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
                 }
             };
 
-            if (opacityPatch && !noshadingPaintPath)
-            {
-                /* Same sorted post-deferred queue as models — render depth low→high, before VL. */
-                ShaderOpacityPatch.submitPostDeferredBbsForm(0D, distanceSq, depthWrite, afterFluids, deferredDraw);
-            }
-            else
-            {
-                ModelVAORenderer.submitDeferredTranslucentModel(deferredDraw, depthWrite, false);
-            }
+            ModelVAORenderer.submitDeferredTranslucentModel(deferredDraw, depthWrite, false);
         }
         else
         {

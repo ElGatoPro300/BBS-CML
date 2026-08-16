@@ -44,6 +44,7 @@ import mchorse.bbs_mod.utils.MatrixStackUtils;
 import mchorse.bbs_mod.utils.Pair;
 import mchorse.bbs_mod.utils.colors.Color;
 import mchorse.bbs_mod.utils.colors.Colors;
+import mchorse.bbs_mod.utils.pose.Pose;
 
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gl.ShaderProgramKeys;
@@ -166,7 +167,27 @@ public class UIModelEditorRenderer extends UIModelRenderer implements GizmoSurfa
         {
             this.previewModel.applyConfig((MapType) config.toData());
             this.previewModel.form = this.form;
+            this.syncPreviewParts(this.previewModel);
         }
+    }
+
+    /**
+     * Prefer the live {@link ModelConfig#parts} pose over a toData/fromData round-trip so
+     * bone paint / glow / grade (and their transforms) stay in sync while editing.
+     */
+    private void syncPreviewParts(ModelInstance model)
+    {
+        if (model == null || this.config == null)
+        {
+            return;
+        }
+
+        if (model.parts == null)
+        {
+            model.parts = new Pose();
+        }
+
+        model.parts.copy(this.config.parts.get());
     }
 
     public void setCallback(Consumer<String> callback)
@@ -872,6 +893,7 @@ public class UIModelEditorRenderer extends UIModelRenderer implements GizmoSurfa
                 model.applyConfig((MapType) this.config.toData());
                 model.texture = this.config.texture.get();
                 model.color = this.config.color.get();
+                this.syncPreviewParts(model);
                 this.syncSolverConfig(this.config);
 
                 if (wasProcedural != model.procedural)
@@ -927,6 +949,7 @@ public class UIModelEditorRenderer extends UIModelRenderer implements GizmoSurfa
                         this.previewModel.applyConfig((MapType) this.config.toData());
                         this.previewModel.texture = this.config.texture.get();
                         this.previewModel.color = this.config.color.get();
+                        this.syncPreviewParts(this.previewModel);
                         this.syncSolverConfig(this.config);
                     }
                     catch (Exception e)

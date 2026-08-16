@@ -117,7 +117,9 @@ public abstract class UIKeyframeFactory <T> extends UIElement
         {
             UIKeyframeSheet sheet = editor.getGraph().getSheet(keyframe);
 
-            if (sheet != null && "height".equals(sheet.id) && editor.getGraph().getSheet("color") != null)
+            /* Eye clip blink amount only — require color_opacity so Image/BossBar/Letterbox
+             * height tracks (which also sit next to a color track) keep unbounded editing. */
+            if (sheet != null && "height".equals(sheet.id) && editor.getGraph().getSheet("color_opacity") != null)
             {
                 @SuppressWarnings("unchecked")
                 Keyframe<Double> doubleKeyframe = (Keyframe<Double>) keyframe;
@@ -393,7 +395,10 @@ public abstract class UIKeyframeFactory <T> extends UIElement
 
             if (!movedSelection || Math.abs(this.keyframe.getTick() - time) > 1.0E-5F)
             {
-                this.keyframe.setTick(time, !movedSelection);
+                /* While cache/submit is open, stay silent — submitKeyframes owns the undo. */
+                boolean dirty = !movedSelection && !this.editor.hasKeyframeCache();
+
+                this.keyframe.setTick(time, dirty);
             }
         }
 
@@ -407,7 +412,7 @@ public abstract class UIKeyframeFactory <T> extends UIElement
     public void setDuration(float value)
     {
         this.rebindKeyframe();
-        this.editor.getGraph().setDuration(value);
+        this.editor.getGraph().setDuration(value, !this.editor.hasKeyframeCache());
 
         if (!this.duration.isActivelyEditing() && !this.duration.isDragging())
         {
@@ -418,7 +423,9 @@ public abstract class UIKeyframeFactory <T> extends UIElement
     public void setValue(Object value)
     {
         this.rebindKeyframe();
-        this.editor.getGraph().setValue(value, true);
+        /* Trackpads register cache on DragStart and submit on DragEnd. Notifying
+         * here as well duplicated the same edit (visible Ctrl+Z that does nothing). */
+        this.editor.getGraph().setValue(value, !this.editor.hasKeyframeCache());
         this.editor.triggerChange();
     }
 

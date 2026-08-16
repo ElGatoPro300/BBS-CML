@@ -2,6 +2,7 @@ package mchorse.bbs_mod.mixin.client;
 
 import mchorse.bbs_mod.BBSModClient;
 import mchorse.bbs_mod.client.BBSRendering;
+import mchorse.bbs_mod.ui.framework.BbsGuiScale;
 import mchorse.bbs_mod.ui.framework.UIScreen;
 
 import net.minecraft.client.MinecraftClient;
@@ -19,8 +20,9 @@ public class WindowMixin
 {
     /**
      * Apply BBS's UI scale as a fractional value (e.g. 1.6). Minecraft's GUI scale is integer-only,
-     * so when a non-whole BBS scale is configured and a BBS screen is open, override the window's
-     * scale factor with the exact value. Whole-number and "auto" scales keep Minecraft's normal
+     * so when a non-whole BBS scale is configured and a BBS screen is open in linked (legacy) mode,
+     * override the window's scale factor with the exact value. Independent BBS scale never
+     * mutates Minecraft's GUI scale; whole-number and "auto" scales keep Minecraft's normal
      * (clamped) behaviour.
      */
     @ModifyVariable(method = "setScaleFactor", at = @At("HEAD"), argsOnly = true)
@@ -28,7 +30,8 @@ public class WindowMixin
     {
         double uiScale = BBSModClient.getUIScaleFactor();
 
-        if (uiScale > 0D && uiScale != Math.floor(uiScale) && MinecraftClient.getInstance().currentScreen instanceof UIScreen)
+        if (uiScale > 0D && uiScale != Math.floor(uiScale) && MinecraftClient.getInstance().currentScreen instanceof UIScreen
+            && BbsGuiScale.isLinkedToGame() && !BbsGuiScale.isRestoringGameScale())
         {
             return uiScale;
         }

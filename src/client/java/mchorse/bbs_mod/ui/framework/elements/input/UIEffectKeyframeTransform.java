@@ -15,7 +15,7 @@ import java.util.function.Consumer;
 
 /**
  * {@link UIPropTransform} wired to {@link EffectTransform} for color / paint / glow masks.
- * Hides rotate2 and pivot rows — those fields are not stored or applied by effect masks.
+ * Hides rotate2 (unused for masks). Pivot is the local rotation center of the mask volume.
  */
 public class UIEffectKeyframeTransform extends UIPropTransform
 {
@@ -34,26 +34,20 @@ public class UIEffectKeyframeTransform extends UIPropTransform
     }
 
     /**
-     * Effect masks only use translate / scale / rotate. Drop rotate2 + pivot so they
-     * are not confused with pose-limb transforms that do use those fields.
+     * Effect masks use translate / scale / rotate / pivot. Drop rotate2 only —
+     * that field belongs to pose-limb transforms, not paint masks.
      */
     private void removeUnusedEffectRows()
     {
         UIElement rotate2Row = this.iconR2.getParent();
-        UIElement pivotRow = this.iconP.getParent();
 
         if (rotate2Row != null && rotate2Row != this)
         {
             rotate2Row.removeFromParent();
         }
 
-        if (pivotRow != null && pivotRow != this)
-        {
-            pivotRow.removeFromParent();
-        }
-
-        /* UITransform defaults to 90px for five rows; keep three rows compact. */
-        this.h(UIConstants.CONTROL_HEIGHT * 3);
+        /* Four rows: translate, scale, rotate, pivot. */
+        this.h(UIConstants.CONTROL_HEIGHT * 4);
     }
 
     public void registerUndo(UIKeyframes editor)
@@ -82,6 +76,7 @@ public class UIEffectKeyframeTransform extends UIPropTransform
             MathUtils.toRad(value.rotateY),
             MathUtils.toRad(value.rotateZ)
         );
+        display.pivot.set(value.pivotX, value.pivotY, value.pivotZ);
 
         this.filling = true;
 
@@ -130,6 +125,9 @@ public class UIEffectKeyframeTransform extends UIPropTransform
             effect.rotateX = MathUtils.toDeg(display.rotate.x);
             effect.rotateY = MathUtils.toDeg(display.rotate.y);
             effect.rotateZ = MathUtils.toDeg(display.rotate.z);
+            effect.pivotX = display.pivot.x;
+            effect.pivotY = display.pivot.y;
+            effect.pivotZ = display.pivot.z;
         });
     }
 

@@ -160,19 +160,7 @@ public class UIEyeClip extends UIClip<EyeClip>
         this.offsetY.setValue(this.getChannelValue(this.clip.offsetY, 0D));
 
         this.keyframes.setChannels(this.clip.channels);
-
-        for (UIKeyframeSheet sheet : this.keyframes.view.getGraph().getSheets())
-        {
-            if ("color".equals(sheet.id))
-            {
-                sheet.defaultInsertValue = DEFAULT_COLOR.copy();
-            }
-            else if ("width".equals(sheet.id) || "zoom".equals(sheet.id))
-            {
-                sheet.defaultInsertValue = 1D;
-            }
-        }
-
+        this.applySheetLimits();
         this.updateTrackTitles(this.keyframes);
     }
 
@@ -200,6 +188,37 @@ public class UIEyeClip extends UIClip<EyeClip>
         return channel.interpolate(tick, fallback);
     }
 
+    /**
+     * Match keyframe graph/trackpad clamps to the property panel limits.
+     */
+    private void applySheetLimits()
+    {
+        for (UIKeyframeSheet sheet : this.keyframes.view.getGraph().getSheets())
+        {
+            if ("color".equals(sheet.id))
+            {
+                sheet.defaultInsertValue = DEFAULT_COLOR.copy();
+            }
+            else if ("color_opacity".equals(sheet.id) || "height".equals(sheet.id))
+            {
+                sheet.limit(0D, 1D);
+            }
+            else if ("width".equals(sheet.id) || "zoom".equals(sheet.id))
+            {
+                sheet.defaultInsertValue = 1D;
+
+                if ("zoom".equals(sheet.id))
+                {
+                    sheet.limit(0.1D, 10D);
+                }
+            }
+            else if ("rotation".equals(sheet.id))
+            {
+                sheet.limit(-45D, 45D);
+            }
+        }
+    }
+
     private void updateTrackTitles(UIKeyframeEditor editor)
     {
         for (UIKeyframeSheet sheet : editor.view.getGraph().getSheets())
@@ -222,6 +241,12 @@ public class UIEyeClip extends UIClip<EyeClip>
             case "zoom" -> UIKeys.SCREEN_PANELS_EYE_ZOOM;
             default -> IKey.constant(id);
         };
+    }
+
+    @Override
+    protected UIKeyframeEditor resolveClipEmbeddableView(String undoId)
+    {
+        return undoId.equals(this.keyframes.getUndoId()) ? this.keyframes : null;
     }
 
     @Override
