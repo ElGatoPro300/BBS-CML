@@ -6,6 +6,7 @@ import mchorse.bbs_mod.client.renderer.MorphFireRenderer;
 import mchorse.bbs_mod.cubic.render.vanilla.ArmorRenderer;
 import mchorse.bbs_mod.entity.ActorEntity;
 import mchorse.bbs_mod.forms.FormUtilsClient;
+import mchorse.bbs_mod.forms.entities.MCEntity;
 import mchorse.bbs_mod.forms.renderers.FormRenderType;
 import mchorse.bbs_mod.forms.renderers.FormRenderingContext;
 import mchorse.bbs_mod.forms.renderers.utils.FormDeathTilt;
@@ -140,7 +141,7 @@ public class ActorEntityRenderer extends EntityRenderer<ActorEntity, ActorEntity
 
         if (this.shouldDrawCustomGroundShadow(livingEntity))
         {
-            this.renderFilmGroundShadow(livingEntity, tickDelta, matrices, vertexConsumers);
+            this.renderFilmGroundShadow(livingEntity, tickDelta, matrices, MinecraftClient.getInstance().getBufferBuilders().getEntityVertexConsumers());
         }
         matrices.push();
 
@@ -190,9 +191,9 @@ public class ActorEntityRenderer extends EntityRenderer<ActorEntity, ActorEntity
 
     private void renderFilmGroundShadow(ActorEntity entity, float tickDelta, MatrixStack matrices, VertexConsumerProvider vertexConsumers)
     {
-        double x = MathHelper.lerp(tickDelta, entity.prevX, entity.getX()) + entity.getFilmShadowOffsetX();
-        double y = MathHelper.lerp(tickDelta, entity.prevY, entity.getY());
-        double z = MathHelper.lerp(tickDelta, entity.prevZ, entity.getZ()) + entity.getFilmShadowOffsetZ();
+        double x = MathHelper.lerp(tickDelta, entity.lastRenderX, entity.getX()) + entity.getFilmShadowOffsetX();
+        double y = MathHelper.lerp(tickDelta, entity.lastRenderY, entity.getY());
+        double z = MathHelper.lerp(tickDelta, entity.lastRenderZ, entity.getZ()) + entity.getFilmShadowOffsetZ();
 
         matrices.push();
         /* X/Z follow the sample point; Y lifts the PNG (entity Y stays at feet to avoid fade). */
@@ -233,6 +234,6 @@ public class ActorEntityRenderer extends EntityRenderer<ActorEntity, ActorEntity
         }
 
         /* Float death_time tip for ModelForm and MobForm (morph.deathTime stays 0). */
-        FormDeathTilt.apply(matrices, entity.getEntity(), entity.getForm(), tickDelta);
+        FormDeathTilt.apply(matrices, new MCEntity(entity), entity.getForm(), tickDelta);
     }
 }

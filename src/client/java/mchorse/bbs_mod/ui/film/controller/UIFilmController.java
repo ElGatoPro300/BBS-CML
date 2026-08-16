@@ -2270,7 +2270,7 @@ public class UIFilmController extends UIElement
 
                 IEntity renderEntity = this.editorController.getRenderEntity(replay, entry.getValue());
                 boolean physicalActor = renderEntity != entry.getValue();
-                float transition = isPlaying ? renderContext.tickCounter().getTickDelta(false) : 0F;
+                float transition = isPlaying ? MinecraftClient.getInstance().getRenderTickCounter().getTickProgress(false) : 0F;
                 float propertyTick = replay.getTick(cursorTick) + transition;
 
                 BaseFilmController.renderEntity(FilmControllerContext.instance
@@ -2349,7 +2349,7 @@ public class UIFilmController extends UIElement
                         }
                     }
 
-                    float transition = isPlaying ? renderContext.tickCounter().getTickDelta(false) : 0F;
+                    float transition = isPlaying ? MinecraftClient.getInstance().getRenderTickCounter().getTickProgress(false) : 0F;
                     float propertyTick = currentReplay.getTick(cursorTick) + transition;
 
                     BaseFilmController.renderEntity(FilmControllerContext.instance

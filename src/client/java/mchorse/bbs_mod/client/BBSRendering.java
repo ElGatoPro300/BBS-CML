@@ -440,13 +440,6 @@ public class BBSRendering
     {
         MinecraftClient client = MinecraftClient.getInstance();
 
-        if (client != null && client.world != null && client.world.getDimensionEffects().isDarkened())
-        {
-            DiffuseLighting.enableForLevel();
-
-            return;
-        }
-
         setupWorldLevelDiffuseLighting();
     }
 

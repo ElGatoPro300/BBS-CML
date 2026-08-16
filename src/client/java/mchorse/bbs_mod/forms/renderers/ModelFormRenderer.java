@@ -1,5 +1,7 @@
 package mchorse.bbs_mod.forms.renderers;
 
+import com.mojang.blaze3d.opengl.GlStateManager;
+import net.minecraft.client.render.RenderLayers;
 import mchorse.bbs_mod.BBSModClient;
 import mchorse.bbs_mod.BBSSettings;
 import mchorse.bbs_mod.bobj.BOBJBone;
@@ -76,7 +78,6 @@ import net.minecraft.component.DataComponentTypes;
 import net.minecraft.component.type.ProfileComponent;
 import net.minecraft.entity.EquipmentSlot;
 import net.minecraft.entity.LivingEntity;
-import net.minecraft.item.ArmorItem;
 import net.minecraft.item.BlockItem;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemDisplayContext;
@@ -3199,7 +3200,7 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
         {
             if (item instanceof BlockItem blockItem && blockItem.getBlock() instanceof AbstractSkullBlock skullBlock)
             {
-                float tickDelta = MinecraftClient.getInstance().getRenderTickCounter().getTickDelta(true);
+                float tickDelta = MinecraftClient.getInstance().getRenderTickCounter().getTickProgress(true);
                 float animationProgress = this.resolveSkullAnimationProgress(target, tickDelta);
 
                 BbsHeadItemSpace.applySkull(stack);
@@ -3207,25 +3208,25 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
             }
             else
             {
-                ModelTransformationMode mode = BbsHeadItemSpace.headItemTransformationMode();
+                ItemDisplayContext mode = BbsHeadItemSpace.headItemTransformationMode();
                 boolean leftHanded = BbsHeadItemSpace.headItemLeftHanded();
                 LivingEntity itemEntity = ItemUseRenderState.prepareProxy(target.getWorld(), target, EquipmentSlot.HEAD, itemStack);
 
                 BbsHeadItemSpace.applyHeadItem(stack);
 
-                CustomVertexConsumerProvider.hijackVertexFormat((l) -> RenderSystem.enableBlend());
+                CustomVertexConsumerProvider.hijackVertexFormat((l) -> GlStateManager._enableBlend());
                 consumers.setSubstitute(BBSRendering.getColorConsumer(color));
 
                 if (model.model instanceof BOBJModel)
                 {
                     stack.push();
                     stack.scale(0F, 0F, 0F);
-                    MinecraftClient.getInstance().getItemRenderer().renderItem(null, new ItemStack(Items.OAK_BUTTON), mode, leftHanded, stack, consumers, target.getWorld(), light, overlay, 0);
+                    ItemRenderHelper.renderItem(new ItemStack(Items.OAK_BUTTON), mode, stack, light, overlay, target.getWorld(), null);
                     consumers.draw();
                     stack.pop();
                 }
 
-                MinecraftClient.getInstance().getItemRenderer().renderItem(itemEntity, itemStack, mode, leftHanded, stack, consumers, target.getWorld(), light, overlay, 0);
+                ItemRenderHelper.renderItem(itemStack, mode, stack, light, overlay, target.getWorld(), itemEntity);
                 consumers.draw();
                 consumers.setSubstitute(null);
                 CustomVertexConsumerProvider.clearRunnables();
@@ -3233,7 +3234,7 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
         }
 
         stack.pop();
-        RenderSystem.enableDepthTest();
+        GlStateManager._enableDepthTest();
     }
 
     /**
@@ -3246,10 +3247,10 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
         {
             if (living.getVehicle() instanceof LivingEntity vehicle)
             {
-                return vehicle.limbAnimator.getPos(tickDelta);
+                return vehicle.limbAnimator.getAnimationProgress(tickDelta);
             }
 
-            return living.limbAnimator.getPos(tickDelta);
+            return living.limbAnimator.getAnimationProgress(tickDelta);
         }
 
         return target.getLimbPos(tickDelta);
@@ -3266,11 +3267,11 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
         }
 
         ProfileComponent profile = itemStack.get(DataComponentTypes.PROFILE);
-        RenderLayer renderLayer = SkullBlockEntityRenderer.getRenderLayer(skullType, profile);
+        RenderLayer renderLayer = RenderLayers.cutout();
 
-        CustomVertexConsumerProvider.hijackVertexFormat((l) -> RenderSystem.enableBlend());
+        CustomVertexConsumerProvider.hijackVertexFormat((l) -> GlStateManager._enableBlend());
         consumers.setSubstitute(BBSRendering.getColorConsumer(color));
-        SkullBlockEntityRenderer.renderSkull(null, 180.0F, animationProgress, stack, consumers, light, skullModel, renderLayer);
+        skullModel.render(stack, consumers.getBuffer(renderLayer), light, OverlayTexture.DEFAULT_UV);
         consumers.draw();
         consumers.setSubstitute(null);
         CustomVertexConsumerProvider.clearRunnables();
@@ -3311,10 +3312,10 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
             return false;
         }
 
-        float transition = MinecraftClient.getInstance().getRenderTickCounter().getTickDelta(true);
+        float transition = MinecraftClient.getInstance().getRenderTickCounter().getTickProgress(true);
         float pitch = (float) Lerps.lerp(target.getPrevPitch(), target.getPitch(), transition);
         boolean leftArm = this.getArmForEquipmentSlot(target, slot) == Arm.LEFT;
-        ModelTransformationMode mode = BbsHeadItemSpace.spyglassTransformationMode();
+        ItemDisplayContext mode = BbsHeadItemSpace.spyglassTransformationMode();
         boolean leftHanded = BbsHeadItemSpace.spyglassLeftHanded();
 
         CustomVertexConsumerProvider consumers = FormUtilsClient.getProvider();
@@ -3324,25 +3325,25 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
         MatrixStackUtils.multiply(stack, matrix);
         BbsHeadItemSpace.applySpyglass(stack, pitch, leftArm);
 
-        CustomVertexConsumerProvider.hijackVertexFormat((l) -> RenderSystem.enableBlend());
+        CustomVertexConsumerProvider.hijackVertexFormat((l) -> GlStateManager._enableBlend());
         consumers.setSubstitute(BBSRendering.getColorConsumer(color));
 
         if (model.model instanceof BOBJModel)
         {
             stack.push();
             stack.scale(0F, 0F, 0F);
-            MinecraftClient.getInstance().getItemRenderer().renderItem(null, new ItemStack(Items.OAK_BUTTON), mode, leftHanded, stack, consumers, target.getWorld(), light, overlay, 0);
+            ItemRenderHelper.renderItem(new ItemStack(Items.OAK_BUTTON), mode, stack, light, overlay, target.getWorld(), null);
             consumers.draw();
             stack.pop();
         }
 
-        MinecraftClient.getInstance().getItemRenderer().renderItem(itemEntity, itemStack, mode, leftHanded, stack, consumers, target.getWorld(), light, overlay, 0);
+        ItemRenderHelper.renderItem(itemStack, mode, stack, light, overlay, target.getWorld(), itemEntity);
         consumers.draw();
         consumers.setSubstitute(null);
         CustomVertexConsumerProvider.clearRunnables();
 
         stack.pop();
-        RenderSystem.enableDepthTest();
+        GlStateManager._enableDepthTest();
 
         return true;
     }

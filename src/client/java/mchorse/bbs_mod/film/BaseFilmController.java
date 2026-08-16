@@ -1835,9 +1835,6 @@ public abstract class BaseFilmController
     private void syncActorWorldPositionFromStub(ActorEntity actor, IEntity stub)
     {
         actor.setPosition(stub.getX(), stub.getY(), stub.getZ());
-        actor.prevX = stub.getPrevX();
-        actor.prevY = stub.getPrevY();
-        actor.prevZ = stub.getPrevZ();
         actor.lastRenderX = stub.getPrevX();
         actor.lastRenderY = stub.getPrevY();
         actor.lastRenderZ = stub.getPrevZ();

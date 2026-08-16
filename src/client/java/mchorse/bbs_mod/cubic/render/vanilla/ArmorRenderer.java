@@ -210,7 +210,7 @@ public class ArmorRenderer
         Sprite sprite = this.armorTrimsAtlas.getSprite(this.getTrimTexture(trim, armorAssetKey, leggings));
         VertexConsumer trimConsumer = sprite.getTextureSpecificVertexConsumer(vertexConsumers.getBuffer(TexturedRenderLayers.getArmorTrims(trim.pattern().value().decal())));
         VertexConsumer vertexConsumer = withGlint
-            ? VertexConsumers.union(trimConsumer, vertexConsumers.getBuffer(RenderLayer.getArmorEntityGlint()))
+            ? VertexConsumers.union(trimConsumer, vertexConsumers.getBuffer(RenderLayers.armorEntityGlint()))
             : trimConsumer;
 
         /* Armor + trim share the same ModelPart. Uniform 1.005 alone hides inner faces

@@ -61,11 +61,11 @@ public class VanillaParticleFormRenderer extends FormRenderer<VanillaParticleFor
 
     private static class TrackedParticle
     {
-        public Particle particle;
+        public BillboardParticle particle;
         public mchorse.bbs_mod.utils.colors.Color startColor;
         public mchorse.bbs_mod.utils.colors.Color endColor;
 
-        public TrackedParticle(Particle particle, mchorse.bbs_mod.utils.colors.Color startColor, mchorse.bbs_mod.utils.colors.Color endColor)
+        public TrackedParticle(BillboardParticle particle, mchorse.bbs_mod.utils.colors.Color startColor, mchorse.bbs_mod.utils.colors.Color endColor)
         {
             this.particle = particle;
             this.startColor = startColor.copy();
@@ -356,8 +356,6 @@ public class VanillaParticleFormRenderer extends FormRenderer<VanillaParticleFor
                             }
                         }
                     }
-                        }
-                    }
 
                     this.tick = frequency;
                 }
@@ -460,19 +458,19 @@ public class VanillaParticleFormRenderer extends FormRenderer<VanillaParticleFor
         MinecraftClient mc = MinecraftClient.getInstance();
         Particle particleObj = (mc.world != null && mc.particleManager != null) ? mc.particleManager.addParticle(effect, x, y, z, v.x, v.y, v.z) : null;
 
-        if (particleObj != null && pR >= 0F)
+        if (particleObj instanceof net.minecraft.client.particle.BillboardParticle bbp && pR >= 0F)
         {
-            particleObj.setColor(pR, pG, pB);
-            particleObj.setAlpha(pA);
+            bbp.setColor(pR, pG, pB);
+            bbp.setAlpha(pA);
 
             if (colorMode == 1 && color1 != null && color2 != null)
             {
-                this.trackedParticles.add(new TrackedParticle(particleObj, color1, color2));
+                this.trackedParticles.add(new TrackedParticle(bbp, color1, color2));
             }
         }
-        else if (particleObj == null && world != null)
+        else if (particleObj == null && world instanceof net.minecraft.client.world.ClientWorld clientWorld)
         {
-            world.addImportantParticle(effect, x, y, z, v.x, v.y, v.z);
+            clientWorld.addImportantParticleClient(effect, x, y, z, v.x, v.y, v.z);
         }
     }
 }

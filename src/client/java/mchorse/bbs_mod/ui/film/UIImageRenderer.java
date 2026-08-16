@@ -111,28 +111,28 @@ public class UIImageRenderer
                     switch (overlay.blendMode)
                     {
                         case 1: /* Multiply */
-                            GlStateManager._blendFunc(GL11.GL_DST_COLOR, GL11.GL_ZERO);
+                            GlStateManager._blendFuncSeparate(GL11.GL_DST_COLOR, GL11.GL_ZERO, 1, 0);
                             break;
                         case 2: /* Screen */
-                            GlStateManager._blendFunc(GL11.GL_ONE, GL11.GL_ONE_MINUS_SRC_COLOR);
+                            GlStateManager._blendFuncSeparate(GL11.GL_ONE, GL11.GL_ONE_MINUS_SRC_COLOR, 1, 0);
                             break;
                         case 3: /* Add */
-                            GlStateManager._blendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE);
+                            GlStateManager._blendFuncSeparate(GL11.GL_SRC_ALPHA, GL11.GL_ONE, 1, 0);
                             break;
                         case 4: /* Saturation */
-                            GlStateManager._blendFunc(GL11.GL_SRC_COLOR, GL11.GL_ONE_MINUS_SRC_COLOR);
+                            GlStateManager._blendFuncSeparate(GL11.GL_SRC_COLOR, GL11.GL_ONE_MINUS_SRC_COLOR, 1, 0);
                             break;
                         case 5: /* Incrustation */
-                            GlStateManager._blendFunc(GL11.GL_ZERO, GL11.GL_ONE_MINUS_SRC_COLOR);
+                            GlStateManager._blendFuncSeparate(GL11.GL_ZERO, GL11.GL_ONE_MINUS_SRC_COLOR, 1, 0);
                             break;
                         case 6: /* Exclusion */
-                            GlStateManager._blendFunc(GL11.GL_ONE_MINUS_DST_COLOR, GL11.GL_ONE_MINUS_SRC_COLOR);
+                            GlStateManager._blendFuncSeparate(GL11.GL_ONE_MINUS_DST_COLOR, GL11.GL_ONE_MINUS_SRC_COLOR, 1, 0);
                             break;
                         case 7: /* Overlay */
-                            GlStateManager._blendFunc(GL11.GL_DST_COLOR, GL11.GL_SRC_COLOR);
+                            GlStateManager._blendFuncSeparate(GL11.GL_DST_COLOR, GL11.GL_SRC_COLOR, 1, 0);
                             break;
                         case 8: /* Color Dodge */
-                            GlStateManager._blendFunc(GL11.GL_SRC_COLOR, GL11.GL_ONE);
+                            GlStateManager._blendFuncSeparate(GL11.GL_SRC_COLOR, GL11.GL_ONE, 1, 0);
                             break;
                     }
                 }

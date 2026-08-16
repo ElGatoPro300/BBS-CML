@@ -709,10 +709,9 @@ public class MobFormRenderer extends FormRenderer<MobForm> implements ITickable
             }
 
                 MatrixStackUtils.popUntil(context.stack, stackMarker);
-                RenderSystem.enableDepthTest();
+                GlStateManager._enableDepthTest();
             }
         }
-    }
 
     @Override
     public void tick(IEntity entity)
