@@ -3,11 +3,12 @@ package mchorse.bbs_mod.forms.renderers.utils;
 import mchorse.bbs_mod.utils.colors.Color;
 
 import net.minecraft.client.render.VertexConsumer;
-import net.minecraft.client.render.VertexFormat;
+import net.caffeinemc.mods.sodium.api.vertex.buffer.VertexBufferWriter;
+import net.caffeinemc.mods.sodium.api.vertex.format.VertexFormatDescription;
 
 import org.lwjgl.system.MemoryStack;
 
-public class RecolorVertexSodiumConsumer extends RecolorVertexConsumer
+public class RecolorVertexSodiumConsumer extends RecolorVertexConsumer implements VertexBufferWriter
 {
     public RecolorVertexSodiumConsumer(VertexConsumer consumer, Color color)
     {
@@ -17,5 +18,23 @@ public class RecolorVertexSodiumConsumer extends RecolorVertexConsumer
     public RecolorVertexSodiumConsumer(VertexConsumer consumer, Color color, Color paintColor)
     {
         super(consumer, color, paintColor);
+
+        newColor = color;
+        newPaintColor = paintColor != null && paintColor.a != 0F ? paintColor : null;
+    }
+
+    @Override
+    public boolean canUseIntrinsics()
+    {
+        return this.consumer instanceof VertexBufferWriter writer && writer.canUseIntrinsics();
+    }
+
+    @Override
+    public void push(MemoryStack memoryStack, long l, int i, VertexFormatDescription format)
+    {
+        if (this.consumer instanceof VertexBufferWriter writer)
+        {
+            writer.push(memoryStack, l, i, format);
+        }
     }
 }

@@ -68,8 +68,9 @@ public class UIModelPartsSection extends UIModelSection
         
         /* Drag signs come from UIModelEditorRenderer.prepareGizmoDrag. Do not enable the legacy
          * setModel() path — it permanently forces X/Z ring invert and fights that prepare.
-         * Form appearance extras (paint/glow/grade/noshading) stay on ModelForm / form pose. */
-        this.poseEditor = new UIPoseEditor(false)
+         * Bone Color extras (paint/glow/grade/noshading) live on ModelConfig.parts — same
+         * PoseTransform path as tint + color masks, applied via ModelFormRenderer.getPose(). */
+        this.poseEditor = new UIPoseEditor()
         {
             @Override
             protected boolean useModelGizmoDrag()

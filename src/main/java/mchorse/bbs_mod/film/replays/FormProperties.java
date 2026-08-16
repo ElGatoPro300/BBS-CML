@@ -2055,6 +2055,13 @@ public class FormProperties extends ValueGroup
         }
         catch (Throwable ignored) {}
 
+        /* Migration: orphan render keys get visible twins so Enabled is editable on Visible. */
+        try
+        {
+            this.migrateOrphanRenderToVisiblePairs();
+        }
+        catch (Throwable ignored) {}
+
         /* Migration: move Color Grade fields off the shared Color channel into color_grade. */
         try
         {
@@ -2078,6 +2085,114 @@ public class FormProperties extends ValueGroup
             }
         }
         catch (Throwable ignored) {}
+    }
+
+    /**
+     * Insert a Visible keyframe (always {@code true}) paired with a Render/Enabled value
+     * at the same tick — same shape the Visible track UI edits via its Render toggle.
+     */
+    @SuppressWarnings("unchecked")
+    public void insertVisibleRenderEnabled(Form form, float tick, boolean renderEnabled)
+    {
+        if (form == null || tick < 0F)
+        {
+            return;
+        }
+
+        KeyframeChannel visibleAny = this.getOrCreate(form, "visible");
+        KeyframeChannel renderAny = this.getOrCreate(form, "render");
+
+        if (visibleAny != null && visibleAny.getFactory() == KeyframeFactories.BOOLEAN)
+        {
+            ((KeyframeChannel<Boolean>) visibleAny).insert(tick, Boolean.TRUE);
+        }
+
+        if (renderAny != null && renderAny.getFactory() == KeyframeFactories.BOOLEAN)
+        {
+            ((KeyframeChannel<Boolean>) renderAny).insert(tick, renderEnabled);
+        }
+    }
+
+    /**
+     * Autocapture / older films wrote only {@code render}. Pair each render key with a
+     * Visible keyframe so Enabled can be edited from the Visible track.
+     */
+    @SuppressWarnings("unchecked")
+    private void migrateOrphanRenderToVisiblePairs()
+    {
+        ArrayList<String> renderKeys = new ArrayList<>();
+
+        for (String key : this.properties.keySet())
+        {
+            if (FormUtils.isRenderPropertyPath(key))
+            {
+                renderKeys.add(key);
+            }
+        }
+
+        for (String renderKey : renderKeys)
+        {
+            KeyframeChannel<?> renderAny = this.properties.get(renderKey);
+
+            if (renderAny == null || renderAny.getFactory() != KeyframeFactories.BOOLEAN || renderAny.isEmpty())
+            {
+                continue;
+            }
+
+            String visibleKey = FormUtils.getVisiblePropertyPath(renderKey);
+            KeyframeChannel<?> visibleAny = this.properties.get(visibleKey);
+
+            if (visibleAny == null)
+            {
+                KeyframeChannel<Boolean> created = new KeyframeChannel<>(visibleKey, KeyframeFactories.BOOLEAN);
+
+                created.setModel(true);
+                this.properties.put(visibleKey, created);
+                this.add(created);
+                visibleAny = created;
+            }
+
+            if (visibleAny.getFactory() != KeyframeFactories.BOOLEAN)
+            {
+                continue;
+            }
+
+            KeyframeChannel<Boolean> visible = (KeyframeChannel<Boolean>) visibleAny;
+            KeyframeChannel<Boolean> render = (KeyframeChannel<Boolean>) renderAny;
+
+            for (Keyframe<Boolean> renderKeyframe : render.getKeyframes())
+            {
+                if (renderKeyframe == null)
+                {
+                    continue;
+                }
+
+                float tick = renderKeyframe.getTick();
+
+                if (this.findBooleanKeyframeAtTick(visible, tick) == null)
+                {
+                    visible.insert(tick, Boolean.TRUE);
+                }
+            }
+        }
+    }
+
+    private Keyframe<Boolean> findBooleanKeyframeAtTick(KeyframeChannel<Boolean> channel, float tick)
+    {
+        if (channel == null)
+        {
+            return null;
+        }
+
+        for (Keyframe<Boolean> keyframe : channel.getKeyframes())
+        {
+            if (keyframe != null && Math.abs(keyframe.getTick() - tick) < 0.0001F)
+            {
+                return keyframe;
+            }
+        }
+
+        return null;
     }
 
     /**

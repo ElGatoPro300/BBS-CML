@@ -941,7 +941,7 @@ public class Gizmo
 
     private float resolveThickness(boolean stencil)
     {
-        float thickness = BBSSettings.axesThickness == null ? 1F : BBSSettings.axesThickness.get();
+        float thickness = BBSSettings.axesThickness == null ? 1.2F : BBSSettings.axesThickness.get();
         boolean constantSize = BBSSettings.gizmoConstantSize == null || BBSSettings.gizmoConstantSize.get();
 
         if (!constantSize)
@@ -959,7 +959,7 @@ public class Gizmo
 
     private void updateFlipSigns(float camX, float camY, float camZ)
     {
-        if (BBSSettings.gizmoFlipAxes != null && !BBSSettings.gizmoFlipAxes.get())
+        if (!this.shouldFlipAxesTowardCamera())
         {
             this.lastSx = 1F;
             this.lastSy = 1F;
@@ -1547,6 +1547,8 @@ public class Gizmo
     /**
      * Draws an XYZ rotation ring: camera-facing 180° arc by default, or a full 360° circle
      * when {@link BBSSettings#gizmoFullRotationRings} is enabled. Visual and pick thickness match.
+     * When {@link BBSSettings#gizmoFlipAxes} is off, half-rings stay fixed (no camera reorient),
+     * matching translate/scale handles that stay on +X/+Y/+Z.
      */
     private void drawAxisRotationRing(BufferBuilder builder, MatrixStack stack, Axis axis, float radius, float ringThickness, float[] color, boolean stencil)
     {
@@ -1557,9 +1559,16 @@ public class Gizmo
             return;
         }
 
-        float startDeg = this.cameraFacingRingStartDeg(axis);
+        float startDeg = this.shouldFlipAxesTowardCamera()
+            ? this.cameraFacingRingStartDeg(axis)
+            : 0F;
 
         Draw.arc3D(builder, stack, axis, radius, ringThickness, color[0], color[1], color[2], startDeg, 180F, stencil);
+    }
+
+    private boolean shouldFlipAxesTowardCamera()
+    {
+        return BBSSettings.gizmoFlipAxes == null || BBSSettings.gizmoFlipAxes.get();
     }
 
     /**

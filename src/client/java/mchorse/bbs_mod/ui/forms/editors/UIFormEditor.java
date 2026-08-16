@@ -34,6 +34,7 @@ import mchorse.bbs_mod.ui.UIKeys;
 import mchorse.bbs_mod.ui.dashboard.UIDashboard;
 import mchorse.bbs_mod.ui.film.ICursor;
 import mchorse.bbs_mod.ui.film.controller.UIGizmoSizeContextMenu;
+import mchorse.bbs_mod.ui.film.controller.UIGizmoThicknessContextMenu;
 import mchorse.bbs_mod.ui.film.controller.UIGizmoTranslateSpeedContextMenu;
 import mchorse.bbs_mod.ui.film.replays.UIReplaysEditorUtils;
 import mchorse.bbs_mod.ui.forms.IUIFormList;
@@ -151,6 +152,7 @@ public class UIFormEditor extends UIElement implements IUIFormList, ICursor
     public UIIcon gizmoCombined;
     public UIIcon gizmoTop;
     public UIIcon gizmoVisualSize;
+    public UIIcon gizmoThickness;
     public UIIcon gizmoTranslateSpeed;
 
     private final Map<String, UIIcon> gizmoButtonMap = new HashMap<>();
@@ -389,6 +391,15 @@ public class UIFormEditor extends UIElement implements IUIFormList, ICursor
         });
         this.gizmoVisualSize.tooltip(UIKeys.FILM_GIZMO_SIZE);
 
+        this.gizmoThickness = new UIIcon(Icons.LINE, (b) ->
+        {
+            if (this.getContext() != null)
+            {
+                this.getContext().replaceContextMenu(new UIGizmoThicknessContextMenu());
+            }
+        });
+        this.gizmoThickness.tooltip(UIKeys.FILM_GIZMO_THICKNESS);
+
         this.gizmoTranslateSpeed = new UIIcon(Icons.FORWARD, (b) ->
         {
             if (this.getContext() != null)
@@ -406,6 +417,7 @@ public class UIFormEditor extends UIElement implements IUIFormList, ICursor
         this.gizmoButtonMap.put(ValueFormEditorGizmoToolbar.COMBINED, this.gizmoCombined);
         this.gizmoButtonMap.put(ValueFormEditorGizmoToolbar.TOP, this.gizmoTop);
         this.gizmoButtonMap.put(ValueFormEditorGizmoToolbar.SIZE, this.gizmoVisualSize);
+        this.gizmoButtonMap.put(ValueFormEditorGizmoToolbar.THICKNESS, this.gizmoThickness);
         this.gizmoButtonMap.put(ValueFormEditorGizmoToolbar.TRANSLATE_SPEED, this.gizmoTranslateSpeed);
 
         UIRenderable toolbarBackground = new UIRenderable((context) ->

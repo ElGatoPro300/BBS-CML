@@ -113,15 +113,17 @@ public class ClientNetwork
             }
 
             UIDashboard dashboard = BBSModClient.getDashboard();
+            UITriggerBlockPanel panel = dashboard.getPanel(UITriggerBlockPanel.class);
+
+            /* Switch before opening so dashboard onOpen does not restore the last
+             * film panel (which would restart paused actor replays). */
+            dashboard.setPanel(panel);
 
             if (!(client.currentScreen instanceof UIScreen screen) || screen.getMenu() != dashboard)
             {
                 UIScreen.open(dashboard);
             }
 
-            UITriggerBlockPanel panel = dashboard.getPanel(UITriggerBlockPanel.class);
-
-            dashboard.setPanel(panel);
             panel.fill((TriggerBlockEntity) entity, true);
         });
     }
@@ -141,15 +143,17 @@ public class ClientNetwork
 
             UIBaseMenu menu = UIScreen.getCurrentMenu();
             UIDashboard dashboard = BBSModClient.getDashboard();
+            UIModelBlockPanel panel = dashboard.getPanels().getPanel(UIModelBlockPanel.class);
+
+            /* Switch before opening so dashboard onOpen does not restore the last
+             * film panel (which would restart paused actor replays). */
+            dashboard.setPanel(panel);
 
             if (menu != dashboard)
             {
                 UIScreen.open(dashboard);
             }
 
-            UIModelBlockPanel panel = dashboard.getPanels().getPanel(UIModelBlockPanel.class);
-
-            dashboard.setPanel(panel);
             panel.fill((ModelBlockEntity) entity, true);
         });
     }

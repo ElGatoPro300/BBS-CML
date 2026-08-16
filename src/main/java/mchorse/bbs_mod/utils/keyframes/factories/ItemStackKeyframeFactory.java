@@ -23,21 +23,26 @@ public class ItemStackKeyframeFactory implements IKeyframeFactory<ItemStack>
     @Override
     public ItemStack fromData(BaseType data)
     {
+        return this.fromData(data, BBSMod.getRegistryManager());
+    }
+
+    public ItemStack fromData(BaseType data, RegistryWrapper.WrapperLookup registries)
+    {
         if (data == null)
         {
             return ItemStack.EMPTY;
         }
 
         NbtElement nbt = DataStorageUtils.toNbt(data);
-        RegistryWrapper.WrapperLookup registries = BBSMod.getRegistryManager();
+        RegistryWrapper.WrapperLookup lookup = registries != null ? registries : BBSMod.getRegistryManager();
 
-        if (registries == null)
+        if (lookup == null)
         {
             /* Without RegistryOps, enchanted components cannot be restored safely. */
             return ItemStack.EMPTY;
         }
 
-        DynamicOps<NbtElement> ops = RegistryOps.of(NbtOps.INSTANCE, registries);
+        DynamicOps<NbtElement> ops = RegistryOps.of(NbtOps.INSTANCE, lookup);
         Optional<ItemStack> decoded = ItemStack.CODEC.decode(ops, nbt).result().map(Pair::getFirst);
 
         if (decoded.isPresent())
@@ -62,19 +67,15 @@ public class ItemStackKeyframeFactory implements IKeyframeFactory<ItemStack>
             return new MapType();
         }
 
-        RegistryWrapper.WrapperLookup registries = BBSMod.getRegistryManager();
+        NbtCompound nbt = new NbtCompound();
 
-        if (registries == null)
-        {
-            /* Never encode with plain NbtOps — it drops enchantment components on
-             * 1.20.5+ and corrupts actor equipment keyframes on sync/save/undo. */
-            return new MapType();
-        }
+        value.writeNbt(nbt);
+        return DataStorageUtils.fromNbt(nbt);
+    }
 
-        DynamicOps<NbtElement> ops = RegistryOps.of(NbtOps.INSTANCE, registries);
-        Optional<NbtElement> result = ItemStack.CODEC.encodeStart(ops, value).result();
-
-        return result.map(DataStorageUtils::fromNbt).orElse(new MapType());
+    public BaseType toData(ItemStack value, RegistryWrapper.WrapperLookup registries)
+    {
+        return this.toData(value);
     }
 
     @Override

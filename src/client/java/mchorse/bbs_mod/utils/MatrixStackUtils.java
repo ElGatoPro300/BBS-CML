@@ -154,6 +154,26 @@ public class MatrixStackUtils
         RenderSystem.applyModelViewMatrix();
     }
 
+    /**
+     * Pop leaked {@link MatrixStack} entries until {@code parent} is on top again.
+     * Vanilla {@code ModelPart.render} has no try/finally; a throw after {@code push}
+     * otherwise trips WorldRenderer "Pose stack not empty".
+     */
+    public static void popUntil(MatrixStack stack, MatrixStack.Entry parent)
+    {
+        if (stack == null || parent == null)
+        {
+            return;
+        }
+
+        int guard = 32;
+
+        while (guard-- > 0 && !stack.isEmpty() && stack.peek() != parent)
+        {
+            stack.pop();
+        }
+    }
+
     public static void applyTransform(MatrixStack stack, Transform transform)
     {
         stack.translate(transform.translate.x, transform.translate.y, transform.translate.z);

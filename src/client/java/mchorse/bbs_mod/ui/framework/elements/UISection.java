@@ -8,6 +8,8 @@ import mchorse.bbs_mod.ui.utils.Area;
 import mchorse.bbs_mod.ui.utils.UIConstants;
 import mchorse.bbs_mod.ui.utils.icons.Icon;
 import mchorse.bbs_mod.ui.utils.icons.Icons;
+import mchorse.bbs_mod.BBSSettings;
+import mchorse.bbs_mod.ui.framework.elements.input.UIAnimatedCollapseShell;
 import mchorse.bbs_mod.utils.colors.Colors;
 
 /**
@@ -24,6 +26,7 @@ public class UISection extends UIElement
 
     public UILabel title;
     public UIElement fields;
+    private UIAnimatedCollapseShell shell;
 
     private boolean open = true;
 
@@ -48,9 +51,11 @@ public class UISection extends UIElement
 
         this.fields = new UIElement();
         this.fields.column().stretch().vertical().height(20);
+        this.shell = new UIAnimatedCollapseShell(this.fields);
 
         this.column(UIConstants.MARGIN).stretch().vertical().padding(2);
-        this.add(this.title, this.fields);
+        this.add(this.title);
+        this.shell.setExpanded(true, this.title, false);
     }
 
     @Override
@@ -100,13 +105,31 @@ public class UISection extends UIElement
 
         this.open = expanded;
 
-        if (expanded)
+        boolean animate = BBSSettings.editorSimplifyAnimations != null && !BBSSettings.editorSimplifyAnimations.get();
+
+        this.shell.setExpanded(expanded, this.title, animate);
+
+        this.resizeClipPanels();
+    }
+
+    /**
+     * Reflow the owning clip property scroll (multi-column layout). Resizing only this
+     * section can leave sibling widgets (e.g. Additive) on a stale column cursor.
+     */
+    private void resizeClipPanels()
+    {
+        UIElement element = this;
+
+        while (element != null)
         {
-            this.add(this.fields);
-        }
-        else
-        {
-            this.fields.removeFromParent();
+            if (element instanceof UIScrollView)
+            {
+                element.resize();
+
+                return;
+            }
+
+            element = element.getParent();
         }
 
         if (this.getParent() != null)

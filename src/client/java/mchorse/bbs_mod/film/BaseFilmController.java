@@ -2,6 +2,7 @@ package mchorse.bbs_mod.film;
 
 import mchorse.bbs_mod.BBSSettings;
 import mchorse.bbs_mod.client.BBSRendering;
+import mchorse.bbs_mod.client.ItemUseRenderState;
 import mchorse.bbs_mod.client.renderer.ModelBlockEntityRenderer;
 import mchorse.bbs_mod.client.renderer.MorphFireRenderer;
 import mchorse.bbs_mod.client.renderer.entity.ActorEntityRenderer;
@@ -32,6 +33,7 @@ import mchorse.bbs_mod.forms.renderers.FormRenderingContext;
 import mchorse.bbs_mod.forms.renderers.ModelFormRenderer;
 import mchorse.bbs_mod.forms.renderers.utils.MatrixCache;
 import mchorse.bbs_mod.forms.renderers.utils.MatrixCacheEntry;
+import mchorse.bbs_mod.forms.renderers.utils.FormDeathTilt;
 import mchorse.bbs_mod.graphics.Draw;
 import mchorse.bbs_mod.mixin.client.ClientPlayerEntityAccessor;
 import mchorse.bbs_mod.morphing.Morph;
@@ -51,7 +53,6 @@ import mchorse.bbs_mod.utils.StringUtils;
 import mchorse.bbs_mod.utils.colors.Color;
 import mchorse.bbs_mod.utils.colors.Colors;
 import mchorse.bbs_mod.utils.interps.Lerps;
-import mchorse.bbs_mod.utils.iris.IrisUtils;
 import mchorse.bbs_mod.utils.joml.Matrices;
 import mchorse.bbs_mod.utils.joml.Vectors;
 import mchorse.bbs_mod.utils.keyframes.Keyframe;
@@ -77,10 +78,12 @@ import net.minecraft.entity.EquipmentSlot;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.MovementType;
 import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.item.ItemStack;
 import net.minecraft.particle.BlockStateParticleEffect;
 import net.minecraft.particle.ParticleTypes;
 import net.minecraft.sound.SoundCategory;
 import net.minecraft.text.Text;
+import net.minecraft.util.Hand;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Vec3d;
 import net.minecraft.world.LightType;
@@ -147,6 +150,20 @@ public abstract class BaseFilmController
             return;
         }
 
+        FormDeathTilt.pushSample(context);
+
+        try
+        {
+            renderEntityBody(context, entities, entity, camera, stack, transition, form);
+        }
+        finally
+        {
+            FormDeathTilt.popSample();
+        }
+    }
+
+    private static void renderEntityBody(FilmControllerContext context, IntObjectMap<IEntity> entities, IEntity entity, Camera camera, MatrixStack stack, float transition, Form form)
+    {
         applyGroupPaintGlow(form, context.groupPaint, context.groupGlow);
         applyGroupColorGrade(form, context.groupColorGrade);
         applyGroupIllusion(form, context.groupIllusion);
@@ -411,7 +428,7 @@ public abstract class BaseFilmController
         if (drawBody && !relative && context.map == null && opacity > 0F
             && (context.shadowRadiusX > 0F || context.shadowRadiusZ > 0F)
             && form.render.get() && form.visible.get()
-            && !context.isShadowPass && !IrisUtils.isShaderPackEnabled())
+            && !context.isShadowPass && !BBSRendering.isIrisShadersEnabled())
         {
             float shadowOpacity = MathUtils.clamp(opacity * context.shadowOpacity, 0F, 1F);
 
@@ -1075,6 +1092,8 @@ public abstract class BaseFilmController
 
         matrix.translate((float) x, (float) y, (float) z);
         matrix.rotateY(MathUtils.toRad(-bodyYaw));
+        /* Float death_time tip (film sample or actor keyframes / combat). */
+        FormDeathTilt.apply(matrix, entity, entity.getForm(), tickDelta);
 
         return matrix;
     }
@@ -1510,6 +1529,14 @@ public abstract class BaseFilmController
                                  * already received applyReplay; without this, actor toggle can
                                  * show empty armor until the server respawns the actor. */
                                 this.syncActorEquipmentFromStub(actor, entity);
+
+                                if (controlling)
+                                {
+                                    /* Live item-use (bow pull, crossbow charge, eating) lives on
+                                     * the player; flags-only sync leaves remaining use-time at 0. */
+                                    this.syncActorItemUseFromSource(actor, entity);
+                                }
+
                                 /* Only gate vanilla sprint dust — do not clear sprinting (run anim). */
                                 actor.setSuppressSprintParticles(controlling);
 
@@ -1721,6 +1748,25 @@ public abstract class BaseFilmController
                             }
 
                             player.fallDistance = replay.keyframes.fall.interpolate(replayTick).floatValue();
+
+                            /* Vanilla hurt camera / overlay read the local player's hurtTime.
+                             * FP hides the stub body, so push keyframe (+ live) damage onto the
+                             * bound player or shake never appears in first-person playback. */
+                            int hurtTimer = entity.getHurtTimer();
+
+                            if (BBSSettings.shouldKeepActorLiveHurtTime())
+                            {
+                                player.hurtTime = Math.max(player.hurtTime, hurtTimer);
+                            }
+                            else
+                            {
+                                player.hurtTime = hurtTimer;
+                            }
+
+                            if (player.hurtTime > 0 && player.maxHurtTime < player.hurtTime)
+                            {
+                                player.maxHurtTime = Math.max(10, player.hurtTime);
+                            }
                         }
                     }
                 }
@@ -1753,6 +1799,19 @@ public abstract class BaseFilmController
         actor.equipStack(EquipmentSlot.CHEST, stub.getEquipmentStack(EquipmentSlot.CHEST));
         actor.equipStack(EquipmentSlot.LEGS, stub.getEquipmentStack(EquipmentSlot.LEGS));
         actor.equipStack(EquipmentSlot.FEET, stub.getEquipmentStack(EquipmentSlot.FEET));
+    }
+
+    /**
+     * Copy live item-use remaining time onto the actor so vanilla item predicates
+     * (bow pull, crossbow charge, trident) match the puppeteer.
+     */
+    private void syncActorItemUseFromSource(ActorEntity actor, IEntity source)
+    {
+        Hand hand = source.getActiveHand();
+        EquipmentSlot slot = hand == Hand.OFF_HAND ? EquipmentSlot.OFFHAND : EquipmentSlot.MAINHAND;
+        ItemStack stack = source.getEquipmentStack(slot);
+
+        ItemUseRenderState.syncItemUse(actor, source, hand, stack);
     }
 
     /**

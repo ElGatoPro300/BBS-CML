@@ -230,6 +230,47 @@ public class FormUtilsClient
         return Collections.emptyList();
     }
 
+    public static void renderUI(Form form, UIContext context, int x1, int y1, int x2, int y2, boolean allowCached)
+    {
+        if (allowCached)
+        {
+            renderUICached(form, context, x1, y1, x2, y2);
+        }
+        else
+        {
+            renderUI(form, context, x1, y1, x2, y2);
+        }
+    }
+
+    public static void renderUICachedStatic(Form form, UIContext context, int x1, int y1, int x2, int y2)
+    {
+        renderUICached(form, context, x1, y1, x2, y2);
+    }
+
+    public static boolean isUIPreviewAnimate()
+    {
+        return false;
+    }
+
+    public static boolean isMobFormEquipmentLayer(RenderLayer layer)
+    {
+        return false;
+    }
+
+    public static boolean shouldFlushMobFormFeatureLayers()
+    {
+        return false;
+    }
+
+    public static void flushMobFormFeatureLayers(VertexConsumerProvider consumers)
+    {
+    }
+
+    public static VertexConsumerProvider routeMobFormBuiltinItemConsumers(net.minecraft.item.ItemStack stack, net.minecraft.client.render.model.json.ModelTransformationMode mode, VertexConsumerProvider consumers)
+    {
+        return consumers;
+    }
+
     public static interface IFormRendererFactory <T extends Form>
     {
         public FormRenderer<T> create(T form);

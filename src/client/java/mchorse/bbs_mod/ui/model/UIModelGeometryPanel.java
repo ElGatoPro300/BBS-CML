@@ -17,6 +17,7 @@ import mchorse.bbs_mod.l10n.keys.IKey;
 import mchorse.bbs_mod.resources.Link;
 import mchorse.bbs_mod.ui.UIKeys;
 import mchorse.bbs_mod.ui.film.controller.UIGizmoSizeContextMenu;
+import mchorse.bbs_mod.ui.film.controller.UIGizmoThicknessContextMenu;
 import mchorse.bbs_mod.ui.film.controller.UIGizmoTranslateSpeedContextMenu;
 import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.ui.framework.elements.UIElement;
@@ -97,6 +98,7 @@ public class UIModelGeometryPanel extends UIElement
     private final UIIcon gizmoCombined;
     private final UIIcon gizmoTop;
     private final UIIcon gizmoVisualSize;
+    private final UIIcon gizmoThickness;
     private final UIIcon gizmoTranslateSpeed;
     private final Set<String> collapsedGroupIds = new HashSet<>();
     private ModelGroup copiedGroup;
@@ -440,6 +442,15 @@ public class UIModelGeometryPanel extends UIElement
         });
         this.gizmoVisualSize.tooltip(UIKeys.FILM_GIZMO_SIZE);
 
+        this.gizmoThickness = new UIIcon(Icons.LINE, (b) ->
+        {
+            if (this.getContext() != null)
+            {
+                this.getContext().replaceContextMenu(new UIGizmoThicknessContextMenu());
+            }
+        });
+        this.gizmoThickness.tooltip(UIKeys.FILM_GIZMO_THICKNESS);
+
         this.gizmoTranslateSpeed = new UIIcon(Icons.FORWARD, (b) ->
         {
             if (this.getContext() != null)
@@ -451,7 +462,7 @@ public class UIModelGeometryPanel extends UIElement
 
         UIElement gizmoToolbar = new UIElement();
         gizmoToolbar.row(0);
-        gizmoToolbar.relative(this).x(0.5F).y(4).wh(140, 20).anchorX(0.5F);
+        gizmoToolbar.relative(this).x(0.5F).y(4).wh(160, 20).anchorX(0.5F);
 
         UIRenderable toolbarBackground = new UIRenderable((context) ->
         {
@@ -466,7 +477,7 @@ public class UIModelGeometryPanel extends UIElement
             this.gizmoTop.active(gizmoMode == Gizmo.Mode.TOP);
         });
 
-        gizmoToolbar.add(this.gizmoMove, this.gizmoScale, this.gizmoRotate, this.gizmoCombined, this.gizmoTop, this.gizmoVisualSize, this.gizmoTranslateSpeed);
+        gizmoToolbar.add(this.gizmoMove, this.gizmoScale, this.gizmoRotate, this.gizmoCombined, this.gizmoTop, this.gizmoVisualSize, this.gizmoThickness, this.gizmoTranslateSpeed);
 
         this.add(backgroundRenderable, this.leftPanel, this.rightPanel, leftDraggable, rightDraggable, this.gizmoTransform, toolbarBackground, gizmoToolbar);
 

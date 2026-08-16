@@ -242,13 +242,16 @@ public class ModelBlockEntity extends BlockEntity
 
     public void updateForm(MapType data, World world)
     {
-        this.properties.fromData(data);
+        WrapperLookup registries = world != null ? world.getRegistryManager() : null;
+
+        this.properties.fromData(data, registries);
 
         BlockPos pos = this.getPos();
         BlockState blockState = world.getBlockState(pos);
         int level = this.properties.getLightLevel();
         BlockState newState = blockState.with(ModelBlock.LIGHT_LEVEL, level);
 
+        this.markDirty();
         world.markDirty(pos);
 
         if (blockState != newState)

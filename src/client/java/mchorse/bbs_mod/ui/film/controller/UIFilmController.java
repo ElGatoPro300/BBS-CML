@@ -100,6 +100,7 @@ import net.minecraft.world.World;
 
 import org.joml.Matrix3f;
 import org.joml.Matrix4f;
+import org.joml.Matrix4fStack;
 import org.joml.Vector2f;
 import org.joml.Vector2i;
 import org.joml.Vector3d;
@@ -1099,7 +1100,7 @@ public class UIFilmController extends UIElement
         }
 
         player.swingHand(Hand.MAIN_HAND);
-        this.swingVisibleActor();
+        this.swingVisibleActor(Hand.MAIN_HAND);
     }
 
     /**
@@ -1120,6 +1121,8 @@ public class UIFilmController extends UIElement
 
                 if (atLocation.isAccepted())
                 {
+                    this.finishControlUse(player, hand, atLocation);
+
                     return;
                 }
 
@@ -1127,6 +1130,8 @@ public class UIFilmController extends UIElement
 
                 if (onEntity.isAccepted())
                 {
+                    this.finishControlUse(player, hand, onEntity);
+
                     return;
                 }
             }
@@ -1136,6 +1141,8 @@ public class UIFilmController extends UIElement
 
                 if (onBlock.isAccepted())
                 {
+                    this.finishControlUse(player, hand, onBlock);
+
                     return;
                 }
             }
@@ -1144,6 +1151,8 @@ public class UIFilmController extends UIElement
 
             if (onItem.isAccepted())
             {
+                this.finishControlUse(player, hand, onItem);
+
                 return;
             }
         }
@@ -1217,10 +1226,23 @@ public class UIFilmController extends UIElement
     }
 
     /**
-     * Actor-mode bodies are a separate {@link ActorEntity};
-     * mirror the live player swing so the visible actor animates the attack.
+     * Vanilla {@code interact*} may already swing the player. Always mirror a
+     * {@code shouldSwingHand} result onto the actor-mode body (place, use, etc.).
      */
-    private void swingVisibleActor()
+    private void finishControlUse(ClientPlayerEntity player, Hand hand, ActionResult result)
+    {
+        if (result.shouldSwingHand())
+        {
+            player.swingHand(hand);
+            this.swingVisibleActor(hand);
+        }
+    }
+
+    /**
+     * Actor-mode bodies are a separate {@link ActorEntity};
+     * mirror the live player swing so the visible actor plays swipe / place.
+     */
+    private void swingVisibleActor(Hand hand)
     {
         if (this.actors == null || this.panel.getData() == null)
         {
@@ -1245,7 +1267,7 @@ public class UIFilmController extends UIElement
 
         if (entity instanceof LivingEntity living)
         {
-            living.swingHand(Hand.MAIN_HAND);
+            living.swingHand(hand);
         }
     }
 
@@ -1886,16 +1908,30 @@ public class UIFilmController extends UIElement
         MatrixStackUtils.cacheMatrices();
 
         RenderSystem.setProjectionMatrix(this.panel.lastProjection, VertexSorter.BY_Z);
-        RenderSystem.setInverseViewRotationMatrix(new Matrix3f(this.panel.lastView).invert());
 
         /* Render the stencil */
         MatrixStack worldStack = this.worldRenderContext.matrixStack();
+        if (worldStack != null)
+        {
+            worldStack.push();
+            worldStack.loadIdentity();
+            MatrixStackUtils.multiply(worldStack, BBSRendering.camera);
+            this.renderStencil(this.worldRenderContext, context, altPressed);
+            worldStack.pop();
+        }
+        else
+        {
+            MatrixStack mvStack = RenderSystem.getModelViewStack();
+            mvStack.push();
+            mvStack.loadIdentity();
+            MatrixStackUtils.multiply(mvStack, BBSRendering.camera);
+            RenderSystem.applyModelViewMatrix();
 
-        worldStack.push();
-        worldStack.loadIdentity();
-        MatrixStackUtils.multiply(worldStack, this.panel.lastView);
-        this.renderStencil(this.worldRenderContext, this.getContext(), altPressed);
-        worldStack.pop();
+            this.renderStencil(this.worldRenderContext, context, altPressed);
+
+            mvStack.pop();
+            RenderSystem.applyModelViewMatrix();
+        }
 
         /* Return back to orthographic projection */
         MatrixStackUtils.restoreMatrices();
@@ -2066,7 +2102,9 @@ public class UIFilmController extends UIElement
         double cx = context.camera().getPos().x;
         double cy = context.camera().getPos().y;
         double cz = context.camera().getPos().z;
-        BufferBuilder builder = Tessellator.getInstance().getBuffer();
+        Tessellator tessellator = Tessellator.getInstance();
+        BufferBuilder builder = tessellator.getBuffer();
+        builder.begin(VertexFormat.DrawMode.TRIANGLES, VertexFormats.POSITION_COLOR);
 
         /* Preview path follows ItemEntity-like drag and gravity and stops on first block hit. */
         int primaryColor = BBSSettings.primaryColor.get() & 0x00FFFFFF;
@@ -2078,7 +2116,6 @@ public class UIFilmController extends UIElement
         RenderSystem.depthMask(false);
         RenderSystem.setShader(GameRenderer::getPositionColorProgram);
         RenderSystem.enableBlend();
-        builder.begin(VertexFormat.DrawMode.TRIANGLES, VertexFormats.POSITION_COLOR);
         MatrixStack stack = context.matrixStack();
 
         final int maxSteps = 80;
@@ -2250,12 +2287,15 @@ public class UIFilmController extends UIElement
 
                 IEntity renderEntity = this.editorController.getRenderEntity(replay, entry.getValue());
                 boolean physicalActor = renderEntity != entry.getValue();
+                float transition = isPlaying ? renderContext.tickDelta() : 0F;
+                float propertyTick = replay.getTick(cursorTick) + transition;
 
                 BaseFilmController.renderEntity(FilmControllerContext.instance
                     .setup(this.getEntities(), renderEntity, replay, renderContext)
                     .film(this.panel.getData())
                     .filmTick(cursorTick)
-                    .transition(isPlaying ? renderContext.tickDelta() : 0)
+                    .propertyTick(propertyTick)
+                    .transition(transition)
                     .stencil(this.stencilMap)
                     .relative(replay.isCameraRelative())
                     .physicalActor(physicalActor));
@@ -2326,11 +2366,15 @@ public class UIFilmController extends UIElement
                         }
                     }
 
+                    float transition = isPlaying ? renderContext.tickDelta() : 0F;
+                    float propertyTick = currentReplay.getTick(cursorTick) + transition;
+
                     BaseFilmController.renderEntity(FilmControllerContext.instance
                         .setup(this.getEntities(), renderEntity, currentReplay, renderContext)
                         .film(this.panel.getData())
                         .filmTick(cursorTick)
-                        .transition(isPlaying ? renderContext.tickDelta() : 0)
+                        .propertyTick(propertyTick)
+                        .transition(transition)
                         .stencil(this.stencilMap)
                         .relative(currentReplay.relative.get())
                         .physicalActor(physicalActor)
