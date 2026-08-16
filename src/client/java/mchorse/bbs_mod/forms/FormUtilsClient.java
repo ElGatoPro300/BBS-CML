@@ -61,6 +61,13 @@ import it.unimi.dsi.fastutil.objects.Object2ObjectLinkedOpenHashMap;
 
 public class FormUtilsClient
 {
+    /**
+     * Bump when {@link #createIsolatedProvider()} layer order changes so cached
+     * Immediates are rebuilt (trim must draw before armor glint for EQUAL depth).
+     */
+    private static final int PROVIDER_LAYER_LAYOUT = 2;
+    private static int activeProviderLayerLayout = -1;
+
     private static Map<Class, IFormRendererFactory> map = new HashMap<>();
     private static CustomVertexConsumerProvider customVertexConsumerProvider;
     /** Isolated Immediate for MobForm morph draws (clothing / held items). */
@@ -101,6 +108,8 @@ public class FormUtilsClient
      */
     public static CustomVertexConsumerProvider getProvider()
     {
+        FormUtilsClient.ensureProviderLayout();
+
         if (customVertexConsumerProvider == null)
         {
             customVertexConsumerProvider = FormUtilsClient.createIsolatedProvider();
@@ -116,6 +125,8 @@ public class FormUtilsClient
      */
     public static CustomVertexConsumerProvider getMobMorphProvider()
     {
+        FormUtilsClient.ensureProviderLayout();
+
         if (mobMorphVertexConsumerProvider == null)
         {
             mobMorphVertexConsumerProvider = FormUtilsClient.createIsolatedProvider();
@@ -124,9 +135,24 @@ public class FormUtilsClient
         return mobMorphVertexConsumerProvider;
     }
 
+    private static void ensureProviderLayout()
+    {
+        if (activeProviderLayerLayout == PROVIDER_LAYER_LAYOUT)
+        {
+            return;
+        }
+
+        customVertexConsumerProvider = null;
+        mobMorphVertexConsumerProvider = null;
+        activeProviderLayerLayout = PROVIDER_LAYER_LAYOUT;
+    }
+
     /**
      * Original BBS layer map, plus the glint layers vanilla keeps on the entity
      * Immediate and the trident solid layer (per-texture, not in the atlas map).
+     * <p>
+     * Armor trim atlas layers must come <b>before</b> {@link RenderLayer#getArmorEntityGlint()}:
+     * glint uses equal-depth and only appears where trim/armor already wrote depth.
      */
     private static CustomVertexConsumerProvider createIsolatedProvider()
     {
@@ -146,6 +172,10 @@ public class FormUtilsClient
             FormUtilsClient.assignBuffer(map, TexturedRenderLayers.getSign());
             FormUtilsClient.assignBuffer(map, TexturedRenderLayers.getHangingSign());
             map.put(TexturedRenderLayers.getChest(), new BufferAllocator(786432));
+            /* Trim before glint — ArmorEntityGlint is EQUAL depth (vanilla BufferBuilderStorage
+             * has no trim entry; our dual-shell trim must depth-write first). */
+            FormUtilsClient.assignBuffer(map, TexturedRenderLayers.getArmorTrims(false));
+            FormUtilsClient.assignBuffer(map, TexturedRenderLayers.getArmorTrims(true));
             FormUtilsClient.assignBuffer(map, RenderLayer.getArmorEntityGlint());
             FormUtilsClient.assignBuffer(map, RenderLayer.getGlint());
             FormUtilsClient.assignBuffer(map, RenderLayer.getGlintTranslucent());
