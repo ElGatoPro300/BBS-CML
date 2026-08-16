@@ -115,7 +115,7 @@
     "bbs.config.axes.gizmo_constant_size_min": "Suelo mínimo de escala",
     "bbs.config.axes.gizmo_constant_size_min-comment": "Evita que el gizmo siga encogiéndose al acercarte mucho (0 = sin límite). Solo se usa con el tamaño constante activado. El valor por defecto 0.5 es el que estaba hardcodeado antes",
     "bbs.config.axes.gizmo_flip_axes": "Invertir ejes hacia la cámara",
-    "bbs.config.axes.gizmo_flip_axes-comment": "Si está activado (por defecto), los mangos de traslación y escala del gizmo se invierten para mirar hacia la cámara. Si está desactivado, se quedan en los ejes X/Y/Z positivos y dejan de voltearse al mover la cámara o el limb seleccionado",
+    "bbs.config.axes.gizmo_flip_axes-comment": "Si está activado (por defecto), los mangos de traslación/escala y los semi-anillos de rotación se reorientan hacia la cámara. Si está desactivado, se quedan en los ejes X/Y/Z positivos y los semi-anillos dejan de voltearse al mover la cámara o el limb seleccionado",
     "bbs.config.axes.gizmo_trackball": "Rotación de trackball",
     "bbs.config.axes.gizmo_trackball-comment": "Si el control de esfera de trackball (rotación libre) está habilitado en los modos de gizmo rotar y combinado",
     "bbs.config.axes.gizmo_trackball_scale": "Tamaño de la esfera del trackball",

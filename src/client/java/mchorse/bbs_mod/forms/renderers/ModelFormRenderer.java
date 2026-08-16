@@ -1789,8 +1789,11 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
 
         if (stencilMap == null && renderEquipment)
         {
-            /* World entity pass only — inventory morphs keep InventoryScreen.method_34742 lights. */
-            if (!ui && BBSRendering.isRenderingWorld())
+            /* World morphs + editor model-renderer previews (model block / form edit). Inventory
+             * morphs stay on InventoryScreen.method_34742 lights (no prepareVanilla here). */
+            boolean previewEquipment = renderContext != null && renderContext.modelRenderer;
+
+            if (!ui && (BBSRendering.isRenderingWorld() || previewEquipment))
             {
                 BBSRendering.prepareVanillaEntityLighting();
                 RenderSystem.enableDepthTest();

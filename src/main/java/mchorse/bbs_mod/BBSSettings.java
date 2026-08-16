@@ -674,7 +674,8 @@ public class BBSSettings
         /* Floor in Math.max(floor, dist * 0.12). 0 disables the floor so it can keep shrinking when close. */
         gizmoConstantSizeMin = builder.getFloat("gizmo_constant_size_min", 0.5F, 0F, 10F);
         disablePivotTransform = builder.getBoolean("disable_pivot_transform", false);
-        /* When enabled, translate/scale handles flip toward the camera; when disabled, stay on +X/+Y/+Z. */
+        /* When enabled, translate/scale handles and half rotation rings reorient toward the camera;
+         * when disabled, stay on +X/+Y/+Z with fixed half-rings. */
         gizmoFlipAxes = builder.getBoolean("gizmo_flip_axes", true);
         gizmoYAxisHorizontal = builder.getBoolean("gizmo_y_axis_horizontal", true);
         gizmoTrackball = builder.getBoolean("gizmo_trackball", true);
