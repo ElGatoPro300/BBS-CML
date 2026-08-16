@@ -408,7 +408,7 @@ public class BBSRendering
 
         if (client != null && client.world != null && client.world.getDimensionEffects().isDarkened())
         {
-            DiffuseLighting.enableForLevel();
+            DiffuseLighting.enableForLevel(new Matrix4f());
 
             return;
         }

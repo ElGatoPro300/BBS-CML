@@ -4,7 +4,6 @@ import mchorse.bbs_mod.cubic.model.ArmorType;
 import mchorse.bbs_mod.forms.entities.IEntity;
 import mchorse.bbs_mod.forms.renderers.utils.RecolorVertexConsumer;
 import mchorse.bbs_mod.utils.colors.Color;
-import mchorse.bbs_mod.utils.iris.IrisArmorHooks;
 
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.model.ModelPart;
@@ -13,40 +12,32 @@ import net.minecraft.client.render.RenderLayer;
 import net.minecraft.client.render.TexturedRenderLayers;
 import net.minecraft.client.render.VertexConsumer;
 import net.minecraft.client.render.VertexConsumerProvider;
-import net.minecraft.client.render.VertexConsumers;
 import net.minecraft.client.render.entity.model.BipedEntityModel;
 import net.minecraft.client.render.entity.model.ElytraEntityModel;
 import net.minecraft.client.render.model.BakedModelManager;
 import net.minecraft.client.texture.Sprite;
 import net.minecraft.client.texture.SpriteAtlasTexture;
 import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.component.DataComponentTypes;
-import net.minecraft.component.type.DyedColorComponent;
 import net.minecraft.entity.EquipmentSlot;
 import net.minecraft.item.ArmorItem;
 import net.minecraft.item.ArmorMaterial;
+import net.minecraft.item.DyeableArmorItem;
 import net.minecraft.item.ElytraItem;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.Items;
 import net.minecraft.item.trim.ArmorTrim;
-import net.minecraft.registry.entry.RegistryEntry;
 import net.minecraft.util.Identifier;
 import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.RotationAxis;
 
-import com.google.common.collect.Maps;
-
+import java.util.HashMap;
 import java.util.Map;
 
 public class ArmorRenderer
 {
-    private static final Map<String, Identifier> ARMOR_TEXTURE_CACHE = Maps.newHashMap();
-    private static final Identifier ELYTRA_TEXTURE = Identifier.of("minecraft", "textures/entity/elytra.png");
-    /** Outward shell — avoids coplanar z-fight with armor in film/world cameras (044b2f4a6). */
-    private static final float TRIM_OUTER_SCALE = 1.005F;
-    /** Inward shell — uniform outer scale alone hides trim on inner armor faces. */
-    private static final float TRIM_INNER_SCALE = 0.995F;
+    private static final Map<String, Identifier> ARMOR_TEXTURE_CACHE = new HashMap<>();
+    private static final Identifier ELYTRA_TEXTURE = new Identifier("minecraft", "textures/entity/elytra.png");
     private final BipedEntityModel innerModel;
     private final BipedEntityModel outerModel;
     private final ElytraEntityModel elytraModel;
@@ -60,20 +51,17 @@ public class ArmorRenderer
         this.armorTrimsAtlas = bakery.getAtlas(TexturedRenderLayers.ARMOR_TRIMS_ATLAS_TEXTURE);
     }
 
-    public void renderArmorSlot(MatrixStack matrices, VertexConsumerProvider vertexConsumers, IEntity entity, EquipmentSlot armorSlot, ArmorType type, int light)
+    public void renderArmorSlot(MatrixStack matrices, VertexConsumerProvider vertexConsumers, IEntity entity, EquipmentSlot slot, ArmorType type, int light)
     {
-        ItemStack itemStack = entity.getEquipmentStack(armorSlot);
-        Item item = itemStack.getItem();
-        VertexConsumerProvider buffers = IrisArmorHooks.wrapEntityBuffers(vertexConsumers);
+        ItemStack itemStack = entity.getEquipmentStack(slot);
 
-        try (IrisArmorHooks.Scope ignored = IrisArmorHooks.beginArmorPiece(entity, item))
+        if (itemStack == null || itemStack.isEmpty())
         {
-            this.renderArmorSlotInner(matrices, buffers, entity, armorSlot, type, light, itemStack, item);
+            return;
         }
-    }
 
-    private void renderArmorSlotInner(MatrixStack matrices, VertexConsumerProvider vertexConsumers, IEntity entity, EquipmentSlot armorSlot, ArmorType type, int light, ItemStack itemStack, Item item)
-    {
+        Item item = itemStack.getItem();
+
         if (item instanceof ElytraItem || itemStack.isOf(Items.ELYTRA))
         {
             if (type == ArmorType.CHEST && this.elytraModel != null)
@@ -91,7 +79,7 @@ public class ArmorRenderer
                 this.elytraModel.rightWing.pivotY = 0.0F;
                 this.elytraModel.rightWing.pivotZ = 0.0F;
 
-                float transition = MinecraftClient.getInstance().getRenderTickCounter().getTickDelta(true);
+                float transition = MinecraftClient.getInstance().getTickDelta();
                 float flyProgress = entity != null ? entity.getFallFlyingProgress(transition) : 0F;
 
                 this.elytraModel.leftWing.pitch = MathHelper.lerp(flyProgress, 0.2617994F, 0.35F);
@@ -102,11 +90,11 @@ public class ArmorRenderer
                 this.elytraModel.rightWing.roll = -this.elytraModel.leftWing.roll;
 
                 VertexConsumer consumer = vertexConsumers.getBuffer(RenderLayer.getArmorCutoutNoCull(ELYTRA_TEXTURE));
-                this.elytraModel.render(matrices, consumer, light, OverlayTexture.DEFAULT_UV);
+                this.elytraModel.render(matrices, consumer, light, OverlayTexture.DEFAULT_UV, 1F, 1F, 1F, 1F);
 
                 if (itemStack.hasGlint())
                 {
-                    this.elytraModel.render(matrices, vertexConsumers.getBuffer(RenderLayer.getArmorEntityGlint()), light, OverlayTexture.DEFAULT_UV);
+                    this.elytraModel.render(matrices, vertexConsumers.getBuffer(RenderLayer.getArmorEntityGlint()), light, OverlayTexture.DEFAULT_UV, 1F, 1F, 1F, 1F);
                 }
 
                 matrices.pop();
@@ -116,11 +104,17 @@ public class ArmorRenderer
 
         if (item instanceof ArmorItem armorItem)
         {
-            if (armorItem.getSlotType() == armorSlot)
+            if (armorItem.getSlotType() == slot)
             {
-                boolean innerModel = this.usesInnerModel(armorSlot);
-                BipedEntityModel bipedModel = this.getModel(armorSlot);
+                BipedEntityModel bipedModel = this.usesInnerModel(slot) ? this.innerModel : this.outerModel;
                 ModelPart part = this.getPart(bipedModel, type);
+
+                if (part == null)
+                {
+                    return;
+                }
+
+                boolean innerModel = this.usesInnerModel(slot);
 
                 bipedModel.setVisible(true);
 
@@ -128,10 +122,9 @@ public class ArmorRenderer
                 part.pitch = part.yaw = part.roll = 0F;
                 part.xScale = part.yScale = part.zScale = 1F;
 
-                DyedColorComponent dyed = itemStack.get(DataComponentTypes.DYED_COLOR);
-                if (dyed != null)
+                if (armorItem instanceof DyeableArmorItem dyeable && dyeable.hasColor(itemStack))
                 {
-                    int color = dyed.rgb();
+                    int color = dyeable.getColor(itemStack);
                     float r = (float)(color >> 16 & 255) / 255.0F;
                     float g = (float)(color >> 8 & 255) / 255.0F;
                     float b = (float)(color & 255) / 255.0F;
@@ -144,19 +137,13 @@ public class ArmorRenderer
                     this.renderArmorParts(part, matrices, vertexConsumers, light, armorItem, innerModel, 1F, 1F, 1F, null);
                 }
 
-                ArmorTrim trim = itemStack.get(DataComponentTypes.TRIM);
-                boolean hasTrim = trim != null;
-                boolean hasGlint = itemStack.hasGlint();
-
-                if (hasTrim)
+                ArmorTrim trim = ArmorTrim.getTrim(MinecraftClient.getInstance().world.getRegistryManager(), itemStack, true).orElse(null);
+                if (trim != null)
                 {
-                    /* Trim glint is a separate EQUAL pass fed the same verts as the trim
-                     * shells (union), not a second scaled ModelPart.render — that desync
-                     * was the trim↔glint z-fight. Base armor still gets its own 1.0 glint. */
-                    this.renderTrim(part, armorItem.getMaterial(), matrices, vertexConsumers, light, trim, innerModel, hasGlint);
+                    this.renderTrim(part, armorItem.getMaterial(), matrices, vertexConsumers, light, trim, innerModel);
                 }
 
-                if (hasGlint)
+                if (itemStack.hasGlint())
                 {
                     this.renderGlint(part, matrices, vertexConsumers, light);
                 }
@@ -171,7 +158,10 @@ public class ArmorRenderer
             case HELMET -> {
                 return bipedModel.head;
             }
-            case CHEST, LEGGINGS -> {
+            case CHEST -> {
+                return bipedModel.body;
+            }
+            case LEGGINGS -> {
                 return bipedModel.body;
             }
             case LEFT_ARM -> {
@@ -188,59 +178,37 @@ public class ArmorRenderer
             }
         }
 
-        return bipedModel.head;
+        return null;
     }
 
-    private void renderArmorParts(ModelPart part, MatrixStack matrices, VertexConsumerProvider vertexConsumers, int light, ArmorItem item, boolean secondTextureLayer, float red, float green, float blue, String overlay)
+    private void renderArmorParts(ModelPart part, MatrixStack matrices, VertexConsumerProvider vertexConsumers, int light, ArmorItem armorItem, boolean secondLayer, float r, float g, float b, String overlay)
     {
-        VertexConsumer base = vertexConsumers.getBuffer(RenderLayer.getArmorCutoutNoCull(this.getArmorTexture(item, secondTextureLayer, overlay)));
-        VertexConsumer vertexConsumer = new RecolorVertexConsumer(base, new Color(red, green, blue, 1F));
+        Identifier texture = this.getArmorTexture(armorItem, secondLayer, overlay);
+        VertexConsumer vertexConsumer = vertexConsumers.getBuffer(RenderLayer.getArmorCutoutNoCull(texture));
 
-        part.render(matrices, vertexConsumer, light, OverlayTexture.DEFAULT_UV);
+        part.render(matrices, vertexConsumer, light, OverlayTexture.DEFAULT_UV, r, g, b, 1F);
     }
 
-    private void renderTrim(ModelPart part, RegistryEntry<ArmorMaterial> material, MatrixStack matrices, VertexConsumerProvider vertexConsumers, int light, ArmorTrim trim, boolean leggings, boolean withGlint)
+    private void renderTrim(ModelPart part, ArmorMaterial armorMaterial, MatrixStack matrices, VertexConsumerProvider vertexConsumers, int light, ArmorTrim trim, boolean innerModel)
     {
-        Sprite sprite = this.armorTrimsAtlas.getSprite(leggings ? trim.getLeggingsModelId(material) : trim.getGenericModelId(material));
-        VertexConsumer trimConsumer = sprite.getTextureSpecificVertexConsumer(vertexConsumers.getBuffer(TexturedRenderLayers.getArmorTrims(trim.getPattern().value().decal())));
-        VertexConsumer vertexConsumer = withGlint
-            ? VertexConsumers.union(trimConsumer, vertexConsumers.getBuffer(RenderLayer.getArmorEntityGlint()))
-            : trimConsumer;
+        BakedModelManager bakedModelManager = MinecraftClient.getInstance().getBakedModelManager();
+        Sprite sprite = bakedModelManager.getAtlas(TexturedRenderLayers.ARMOR_TRIMS_ATLAS_TEXTURE).getSprite(innerModel ? trim.getLeggingsModelId(armorMaterial) : trim.getGenericModelId(armorMaterial));
 
-        /* Armor + trim share the same ModelPart. Uniform 1.005 alone hides inner faces
-         * (shell expands away from the cavity). Dual shells keep film/world z-fight fix
-         * (044b2f4a6) while restoring inside trim like vanilla coplanar NoCull geometry.
-         * Scale is baked into vertices — draw is deferred, so GL polygon-offset at submit
-         * would not stick through consumers.draw(). */
-        IrisArmorHooks.beginTrim(trim);
-
-        try
-        {
-            this.renderScaledPart(part, matrices, vertexConsumer, light, TRIM_OUTER_SCALE);
-            this.renderScaledPart(part, matrices, vertexConsumer, light, TRIM_INNER_SCALE);
-        }
-        finally
-        {
-            IrisArmorHooks.endTrim();
-        }
+        VertexConsumer vertexConsumer = sprite.getTextureSpecificVertexConsumer(vertexConsumers.getBuffer(TexturedRenderLayers.getArmorTrims(trim.getPattern().value().decal())));
+        /* Armor + trim share the same ModelPart. In GUI / model-block previews the
+         * near depth range hides coplanar fighting; film/world cameras do not.
+         * Bake a tiny scale into the trim vertices (draw is deferred, so GL
+         * polygon-offset at submit time would not stick through consumers.draw()). */
+        matrices.push();
+        matrices.scale(1.005F, 1.005F, 1.005F);
+        part.render(matrices, vertexConsumer, light, OverlayTexture.DEFAULT_UV, 1F, 1F, 1F, 1F);
+        matrices.pop();
     }
 
     private void renderGlint(ModelPart part, MatrixStack matrices, VertexConsumerProvider vertexConsumers, int light)
     {
-        part.render(matrices, vertexConsumers.getBuffer(RenderLayer.getArmorEntityGlint()), light, OverlayTexture.DEFAULT_UV);
-    }
-
-    private void renderScaledPart(ModelPart part, MatrixStack matrices, VertexConsumer vertexConsumer, int light, float scale)
-    {
-        matrices.push();
-        matrices.scale(scale, scale, scale);
-        part.render(matrices, vertexConsumer, light, OverlayTexture.DEFAULT_UV);
-        matrices.pop();
-    }
-
-    private BipedEntityModel getModel(EquipmentSlot slot)
-    {
-        return this.usesInnerModel(slot) ? this.innerModel : this.outerModel;
+        VertexConsumer vertexConsumer = vertexConsumers.getBuffer(RenderLayer.getArmorEntityGlint());
+        part.render(matrices, vertexConsumer, light, OverlayTexture.DEFAULT_UV, 1F, 1F, 1F, 1F);
     }
 
     private boolean usesInnerModel(EquipmentSlot slot)
@@ -250,13 +218,13 @@ public class ArmorRenderer
 
     private Identifier getArmorTexture(ArmorItem item, boolean secondLayer, String overlay)
     {
-        String materialName = item.getMaterial().getKey().map(k -> k.getValue().getPath()).orElse("unknown");
+        String materialName = item.getMaterial().getName();
         String id = "textures/models/armor/" + materialName + "_layer_" + (secondLayer ? 2 : 1) + (overlay == null ? "" : "_" + overlay) + ".png";
 
         Identifier found = ARMOR_TEXTURE_CACHE.get(id);
         if (found == null)
         {
-            found = Identifier.of("minecraft", id);
+            found = new Identifier("minecraft", id);
             ARMOR_TEXTURE_CACHE.put(id, found);
         }
 

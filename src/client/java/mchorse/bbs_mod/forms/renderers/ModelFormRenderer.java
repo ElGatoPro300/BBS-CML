@@ -74,8 +74,6 @@ import net.minecraft.client.render.block.entity.SkullBlockEntityModel;
 import net.minecraft.client.render.block.entity.SkullBlockEntityRenderer;
 import net.minecraft.client.render.model.json.ModelTransformationMode;
 import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.component.DataComponentTypes;
-import net.minecraft.component.type.ProfileComponent;
 import net.minecraft.entity.EquipmentSlot;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.item.ArmorItem;
@@ -3301,7 +3299,7 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
         {
             if (item instanceof BlockItem blockItem && blockItem.getBlock() instanceof AbstractSkullBlock skullBlock)
             {
-                float tickDelta = MinecraftClient.getInstance().getRenderTickCounter().getTickDelta(true);
+                float tickDelta = MinecraftClient.getInstance().getTickDelta();
                 float animationProgress = this.resolveSkullAnimationProgress(target, tickDelta);
 
                 BbsHeadItemSpace.applySkull(stack);
@@ -3367,7 +3365,11 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
             return;
         }
 
-        ProfileComponent profile = itemStack.get(DataComponentTypes.PROFILE);
+        com.mojang.authlib.GameProfile profile = null;
+        if (itemStack.hasNbt() && itemStack.getNbt().contains("SkullOwner", net.minecraft.nbt.NbtElement.COMPOUND_TYPE))
+        {
+            profile = net.minecraft.nbt.NbtHelper.toGameProfile(itemStack.getNbt().getCompound("SkullOwner"));
+        }
         RenderLayer renderLayer = SkullBlockEntityRenderer.getRenderLayer(skullType, profile);
 
         CustomVertexConsumerProvider.hijackVertexFormat((l) -> RenderSystem.enableBlend());
@@ -3402,7 +3404,7 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
             return false;
         }
 
-        float transition = MinecraftClient.getInstance().getRenderTickCounter().getTickDelta(true);
+        float transition = MinecraftClient.getInstance().getTickDelta();
         float pitch = (float) Lerps.lerp(target.getPrevPitch(), target.getPitch(), transition);
         boolean leftArm = this.getArmForEquipmentSlot(target, slot) == Arm.LEFT;
         ModelTransformationMode mode = BbsHeadItemSpace.spyglassTransformationMode();

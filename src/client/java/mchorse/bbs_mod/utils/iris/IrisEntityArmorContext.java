@@ -4,7 +4,6 @@ import mchorse.bbs_mod.client.BBSRendering;
 import mchorse.bbs_mod.forms.entities.IEntity;
 import mchorse.bbs_mod.forms.entities.MCEntity;
 
-import net.irisshaders.iris.helpers.EntityState;
 import net.irisshaders.iris.shaderpack.materialmap.NamespacedId;
 import net.irisshaders.iris.shaderpack.materialmap.WorldRenderingSettings;
 import net.irisshaders.iris.uniforms.CapturedRenderingState;
@@ -169,22 +168,10 @@ public final class IrisEntityArmorContext
 
     public static void beginTrim(ArmorTrim trim)
     {
-        if (!isActive() || trim == null)
-        {
-            return;
-        }
-
-        EntityState.interposeItemId(resolveTrimItemId(trim));
     }
 
     public static void endTrim()
     {
-        if (!isActive())
-        {
-            return;
-        }
-
-        EntityState.restoreItemId();
     }
 
     public static final class Scope implements AutoCloseable
@@ -229,8 +216,6 @@ public final class IrisEntityArmorContext
             {
                 state.setCurrentEntity(this.prevEntity);
             }
-
-            EntityState.restoreItemId();
         }
     }
 }

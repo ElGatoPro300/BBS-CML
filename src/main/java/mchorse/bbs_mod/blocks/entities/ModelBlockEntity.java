@@ -206,9 +206,7 @@ public class ModelBlockEntity extends BlockEntity
     {
         super.writeNbt(nbt);
 
-        /* Pass registryLookup — chunk load/save can run before BBSMod.getRegistryManager()
-         * is set; without it ItemStack decode/encode returns EMPTY and wipes equipment. */
-        MapType data = this.properties.toData(registryLookup);
+        MapType data = this.properties.toData();
 
         DataStorageUtils.writeToNbtCompound(nbt, "Properties", data);
     }
@@ -222,7 +220,7 @@ public class ModelBlockEntity extends BlockEntity
 
         if (baseType instanceof MapType mapType)
         {
-            this.properties.fromData(mapType, registryLookup);
+            this.properties.fromData(mapType);
         }
         /* Ensure block state reflects stored light level when chunk/block is loaded */
         if (this.world != null && !this.world.isClient)
