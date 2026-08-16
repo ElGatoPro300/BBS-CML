@@ -136,7 +136,7 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
 
         Vector3f light0 = new Vector3f(0.85F, 0.85F, -1F).normalize();
         Vector3f light1 = new Vector3f(-0.85F, 0.85F, 1F).normalize();
-        RenderSystem.setupLevelDiffuseLighting(light0, light1, RenderSystem.getModelViewMatrix());
+        RenderSystem.setupLevelDiffuseLighting(light0, light1);
 
         this.checkLightState();
 
@@ -788,12 +788,12 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
                 BlockPos worldPos = info.anchor.add(dx, dy, dz);
                 BlockEntity be = ((BlockEntityProvider) block).createBlockEntity(worldPos, entry.state);
 
-        if (be != null)
-        {
-            if (entry.nbt != null)
-            {
-                be.readNbt(entry.nbt);
-            }
+                if (be != null)
+                {
+                    if (entry.nbt != null)
+                    {
+                        be.readNbt(entry.nbt, MinecraftClient.getInstance().world.getRegistryManager());
+                    }
 
                     if (MinecraftClient.getInstance().world != null)
                     {
@@ -1031,7 +1031,7 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
             {
                 if (entry.nbt != null)
                 {
-                    be.readNbt(entry.nbt);
+                    be.readNbt(entry.nbt, MinecraftClient.getInstance().world.getRegistryManager());
                 }
 
                 if (MinecraftClient.getInstance().world != null)
@@ -1158,23 +1158,6 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
         }
 
         @Override
-        public void next()
-        {
-            this.parent.next();
-        }
-
-        @Override
-        public void unfixColor()
-        {
-            this.parent.unfixColor();
-        }
-
-        @Override
-        public void fixedColor(int red, int green, int blue, int alpha)
-        {
-            this.parent.fixedColor(red, green, blue, alpha);
-        }
-
         public VertexConsumer vertex(float x, float y, float z)
         {
             float nx = x - this.offset.getX();
@@ -1187,12 +1170,6 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
 
             this.parent.vertex(tx, ty, tz);
             return this;
-        }
-
-        @Override
-        public VertexConsumer vertex(double x, double y, double z)
-        {
-            return this.vertex((float) x, (float) y, (float) z);
         }
 
         @Override

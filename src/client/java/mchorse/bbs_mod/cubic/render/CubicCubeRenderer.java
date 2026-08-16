@@ -260,7 +260,7 @@ public class CubicCubeRenderer implements ICubicRenderer
             builder.light(u, v);
         }
 
-        builder.normal(normal.x, normal.y, normal.z).next();
+        builder.normal(normal.x, normal.y, normal.z);
     }
 
     protected float resolveEffectiveGlowStrength(ModelGroup group)

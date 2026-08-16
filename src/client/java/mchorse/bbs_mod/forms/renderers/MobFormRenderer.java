@@ -281,7 +281,7 @@ public class MobFormRenderer extends FormRenderer<MobForm> implements ITickable
         catch (Exception e)
         {}
 
-        this.entity = Registries.ENTITY_TYPE.get(new Identifier(id)).create(world);
+        this.entity = Registries.ENTITY_TYPE.get(Identifier.of(id)).create(world);
 
         if (this.entity == null && this.form.isPlayer())
         {
@@ -326,7 +326,7 @@ public class MobFormRenderer extends FormRenderer<MobForm> implements ITickable
 
             if (!stack.isEmpty())
             {
-                stats.itemUseElapsed = Math.max(0, stack.getMaxUseTime() - living.getItemUseTimeLeft());
+                stats.itemUseElapsed = Math.max(0, stack.getMaxUseTime(living) - living.getItemUseTimeLeft());
             }
         }
 
@@ -503,7 +503,7 @@ public class MobFormRenderer extends FormRenderer<MobForm> implements ITickable
 
             Vector3f light0 = new Vector3f(0.85F, 0.85F, -1F).normalize();
             Vector3f light1 = new Vector3f(-0.85F, 0.85F, 1F).normalize();
-            RenderSystem.setupLevelDiffuseLighting(light0, light1, stack.peek().getPositionMatrix());
+            RenderSystem.setupLevelDiffuseLighting(light0, light1);
 
             consumers.setUI(true);
             MobTextureOverride.begin(this.form.texture.get());

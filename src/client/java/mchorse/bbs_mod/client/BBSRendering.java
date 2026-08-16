@@ -173,7 +173,6 @@ public class BBSRendering
     private static Texture texture;
     private static CloudRenderMode cachedCloudRenderMode;
     private static boolean cloudsForced;
-    public static Matrix4f positionMatrix;
 
     public static int getMotionBlur()
     {
@@ -393,7 +392,7 @@ public class BBSRendering
     /** Vanilla level diffuse basis shared by morphs and editor previews. */
     public static void setupWorldLevelDiffuseLighting()
     {
-        RenderSystem.setupLevelDiffuseLighting(WORLD_LEVEL_LIGHT_0, WORLD_LEVEL_LIGHT_1, RenderSystem.getModelViewMatrix());
+        RenderSystem.setupLevelDiffuseLighting(WORLD_LEVEL_LIGHT_0, WORLD_LEVEL_LIGHT_1);
     }
 
     /**
@@ -408,7 +407,7 @@ public class BBSRendering
 
         if (client != null && client.world != null && client.world.getDimensionEffects().isDarkened())
         {
-            DiffuseLighting.enableForLevel(new Matrix4f());
+            DiffuseLighting.enableForLevel();
 
             return;
         }
@@ -621,13 +620,13 @@ public class BBSRendering
         }
 
         MinecraftClient mc = MinecraftClient.getInstance();
-        BBSModClient.getFilms().startRenderFrame(mc.getTickDelta());
+        BBSModClient.getFilms().startRenderFrame(mc.getRenderTickCounter().getTickDelta(false));
 
         UIBaseMenu menu = UIScreen.getCurrentMenu();
 
         if (menu != null)
         {
-            menu.startRenderFrame(mc.getTickDelta());
+            menu.startRenderFrame(mc.getRenderTickCounter().getTickDelta(false));
         }
 
         RenderSystem.depthFunc(GL11.GL_LEQUAL);
@@ -780,9 +779,9 @@ public class BBSRendering
         MinecraftClient mc = MinecraftClient.getInstance();
 
         worldRenderContext.prepare(
-            mc.worldRenderer, stack, mc.getTickDelta(), mc.getRenderTime(), false,
+            mc.worldRenderer, mc.getRenderTickCounter(), false,
             mc.gameRenderer.getCamera(), mc.gameRenderer, mc.gameRenderer.getLightmapTextureManager(),
-            RenderSystem.getProjectionMatrix(), mc.getBufferBuilders().getEntityVertexConsumers(), null, false, mc.world
+            RenderSystem.getProjectionMatrix(), RenderSystem.getModelViewMatrix(), mc.getBufferBuilders().getEntityVertexConsumers(), mc.getProfiler(), false, mc.world
         );
 
         if (!isIrisShadersEnabled())

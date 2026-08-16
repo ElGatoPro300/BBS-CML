@@ -4,7 +4,6 @@ import mchorse.bbs_mod.items.MobKillerItem;
 
 import net.minecraft.enchantment.EnchantmentHelper;
 import net.minecraft.entity.Entity;
-import net.minecraft.entity.EntityGroup;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.attribute.EntityAttributes;
 import net.minecraft.entity.damage.DamageSource;
@@ -92,8 +91,7 @@ public final class AttackDamage
             source = serverWorld.getDamageSources().playerAttack(player);
         }
 
-        EntityGroup group = target instanceof LivingEntity living ? living.getGroup() : EntityGroup.DEFAULT;
-        float enchanted = base + EnchantmentHelper.getAttackDamage(stack, group);
+        float enchanted = EnchantmentHelper.getDamage(serverWorld, stack, target, source, base);
 
         return scaleForAttacker(attacker, Math.max(0F, Math.max(base, enchanted)));
     }

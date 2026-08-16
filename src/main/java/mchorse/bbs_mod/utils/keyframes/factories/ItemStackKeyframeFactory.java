@@ -53,7 +53,7 @@ public class ItemStackKeyframeFactory implements IKeyframeFactory<ItemStack>
         /* Legacy / partially corrupted entries still often decode via fromNbt. */
         if (nbt instanceof NbtCompound compound)
         {
-            return ItemStack.fromNbt(compound);
+            return ItemStack.fromNbtOrEmpty(lookup, compound);
         }
 
         return ItemStack.EMPTY;
@@ -62,20 +62,29 @@ public class ItemStackKeyframeFactory implements IKeyframeFactory<ItemStack>
     @Override
     public BaseType toData(ItemStack value)
     {
+        return this.toData(value, BBSMod.getRegistryManager());
+    }
+
+    public BaseType toData(ItemStack value, RegistryWrapper.WrapperLookup registries)
+    {
         if (value == null || value.isEmpty())
         {
             return new MapType();
         }
 
-        NbtCompound nbt = new NbtCompound();
+        RegistryWrapper.WrapperLookup lookup = registries != null ? registries : BBSMod.getRegistryManager();
 
-        value.writeNbt(nbt);
-        return DataStorageUtils.fromNbt(nbt);
-    }
+        if (lookup == null)
+        {
+            /* Never encode with plain NbtOps — it drops enchantment components on
+             * 1.20.5+ and corrupts actor equipment keyframes on sync/save/undo. */
+            return new MapType();
+        }
 
-    public BaseType toData(ItemStack value, RegistryWrapper.WrapperLookup registries)
-    {
-        return this.toData(value);
+        DynamicOps<NbtElement> ops = RegistryOps.of(NbtOps.INSTANCE, lookup);
+        Optional<NbtElement> result = ItemStack.CODEC.encodeStart(ops, value).result();
+
+        return result.map(DataStorageUtils::fromNbt).orElse(new MapType());
     }
 
     @Override
@@ -114,7 +123,7 @@ public class ItemStackKeyframeFactory implements IKeyframeFactory<ItemStack>
             return x < 1F ? a : b;
         }
 
-        if (!ItemStack.canCombine(a, b))
+        if (!ItemStack.areItemsAndComponentsEqual(a, b))
         {
             return x < 1F ? a : b;
         }

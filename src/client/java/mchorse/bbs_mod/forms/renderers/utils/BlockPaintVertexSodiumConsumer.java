@@ -6,7 +6,6 @@ import net.minecraft.client.render.VertexConsumer;
 import net.minecraft.client.render.VertexFormat;
 
 import net.caffeinemc.mods.sodium.api.vertex.buffer.VertexBufferWriter;
-import net.caffeinemc.mods.sodium.api.vertex.format.VertexFormatDescription;
 
 import org.lwjgl.system.MemoryStack;
 
@@ -21,7 +20,7 @@ public class BlockPaintVertexSodiumConsumer extends BlockPaintVertexConsumer imp
     }
 
     @Override
-    public void push(MemoryStack memoryStack, long l, int i, VertexFormatDescription vertexFormat)
+    public void push(MemoryStack memoryStack, long l, int i, VertexFormat vertexFormat)
     {
         if (this.consumer instanceof VertexBufferWriter writer)
         {

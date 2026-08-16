@@ -863,12 +863,12 @@ public class Gizmo
         {
             RenderSystem.setProjectionMatrix(savedProjection, VertexSorter.BY_Z);
 
-            MatrixStack mvStack = RenderSystem.getModelViewStack();
+            Matrix4fStack mvStack = RenderSystem.getModelViewStack();
 
-            mvStack.push();
-            mvStack.peek().getPositionMatrix().set(savedModelView);
+            mvStack.pushMatrix();
+            mvStack.set(savedModelView);
             RenderSystem.applyModelViewMatrix();
-            mvStack.pop();
+            mvStack.popMatrix();
             RenderSystem.applyModelViewMatrix();
         }
 
@@ -997,8 +997,7 @@ public class Gizmo
             return;
         }
 
-        BufferBuilder builder = Tessellator.getInstance().getBuffer();
-        builder.begin(VertexFormat.DrawMode.TRIANGLES, VertexFormats.POSITION_COLOR);
+        BufferBuilder builder = Tessellator.getInstance().begin(VertexFormat.DrawMode.TRIANGLES, VertexFormats.POSITION_COLOR);
 
         if (this.mode == Mode.ROTATE) this.drawRotate(builder, stack, scale, thickness, false, null);
         else if (this.mode == Mode.SCALE) this.drawScale(builder, stack, scale, thickness, false, null);
@@ -1021,22 +1020,18 @@ public class Gizmo
         RenderSystem.disableDepthTest();
         RenderSystem.depthMask(false);
 
-        MatrixStack mvStack = RenderSystem.getModelViewStack();
-
         if (BBSRendering.isIrisShadersEnabled())
         {
-            mvStack.push();
-            mvStack.peek().getPositionMatrix().identity();
-            mvStack.peek().getNormalMatrix().identity();
-            RenderSystem.applyModelViewMatrix();
+            /* Vertex positions already include the full gizmo transform; Iris leaves a
+             * stale terrain model-view on the global stack at WorldRenderEvents.LAST. */
+            MatrixStackUtils.pushIdentityModelView();
         }
 
         this.drawBufferIfNotEmpty(builder);
 
         if (BBSRendering.isIrisShadersEnabled())
         {
-            mvStack.pop();
-            RenderSystem.applyModelViewMatrix();
+            MatrixStackUtils.popModelView();
         }
 
         RenderSystem.depthMask(true);
@@ -1060,8 +1055,7 @@ public class Gizmo
         float scale = this.computeScale(stack);
         float thickness = this.resolveThickness(true);
 
-        BufferBuilder builder = Tessellator.getInstance().getBuffer();
-        builder.begin(VertexFormat.DrawMode.TRIANGLES, VertexFormats.POSITION_COLOR);
+        BufferBuilder builder = Tessellator.getInstance().begin(VertexFormat.DrawMode.TRIANGLES, VertexFormats.POSITION_COLOR);
 
         if (this.mode == Mode.ROTATE) this.drawRotate(builder, stack, scale, thickness, true, map);
         else if (this.mode == Mode.SCALE) this.drawScale(builder, stack, scale, thickness, true, map);
@@ -1074,22 +1068,16 @@ public class Gizmo
         RenderSystem.disableDepthTest();
         RenderSystem.depthMask(false);
 
-        MatrixStack mvStack = RenderSystem.getModelViewStack();
-
         if (BBSRendering.isIrisShadersEnabled())
         {
-            mvStack.push();
-            mvStack.peek().getPositionMatrix().identity();
-            mvStack.peek().getNormalMatrix().identity();
-            RenderSystem.applyModelViewMatrix();
+            MatrixStackUtils.pushIdentityModelView();
         }
 
         this.drawBufferIfNotEmpty(builder);
 
         if (BBSRendering.isIrisShadersEnabled())
         {
-            mvStack.pop();
-            RenderSystem.applyModelViewMatrix();
+            MatrixStackUtils.popModelView();
         }
 
         RenderSystem.depthMask(true);

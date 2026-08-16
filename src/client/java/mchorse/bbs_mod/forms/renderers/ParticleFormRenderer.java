@@ -364,11 +364,7 @@ public class ParticleFormRenderer extends FormRenderer<ParticleForm> implements 
             {
                 /* For game rendering, use the main camera for emitter properties to ensure
                  * correct yaw/pitch for billboards (avoiding 180 degree flip in Camera wrapper) */
-                net.minecraft.client.render.Camera mcCamera = MinecraftClient.getInstance().gameRenderer.getCamera();
-                mchorse.bbs_mod.camera.Camera camera = new mchorse.bbs_mod.camera.Camera();
-                camera.position.set(mcCamera.getPos().x, mcCamera.getPos().y, mcCamera.getPos().z);
-                camera.rotation.set((float) Math.toRadians(mcCamera.getPitch()), (float) Math.toRadians(mcCamera.getYaw()), 0F);
-                emitter.setupCameraProperties(camera);
+                emitter.setupCameraProperties(MinecraftClient.getInstance().gameRenderer.getCamera());
             }
             else
             {
