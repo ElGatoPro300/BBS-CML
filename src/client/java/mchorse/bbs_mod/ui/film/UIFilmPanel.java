@@ -4,6 +4,7 @@ import mchorse.bbs_mod.BBS;
 import mchorse.bbs_mod.BBSMod;
 import mchorse.bbs_mod.BBSModClient;
 import mchorse.bbs_mod.BBSSettings;
+import mchorse.bbs_mod.actions.ActionPlayer;
 import mchorse.bbs_mod.actions.ActionState;
 import mchorse.bbs_mod.camera.Camera;
 import mchorse.bbs_mod.camera.clips.modifiers.TranslateClip;
@@ -6826,7 +6827,7 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
 
     /**
      * @param applyWorldActions when false, soft-sync the server tick without
-     *        walking {@link mchorse.bbs_mod.actions.ActionPlayer#goTo} (avoids
+     *        walking {@link ActionPlayer#goTo} (avoids
      *        re-firing swipe / break / drop clips on a programmatic restore).
      */
     public void setCursor(int value, boolean applyWorldActions)

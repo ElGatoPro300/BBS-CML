@@ -3,6 +3,7 @@ package mchorse.bbs_mod.ui.film.controller;
 import mchorse.bbs_mod.BBSModClient;
 import mchorse.bbs_mod.BBSSettings;
 import mchorse.bbs_mod.actions.ActionState;
+import mchorse.bbs_mod.actions.types.SwipeActionClip;
 import mchorse.bbs_mod.actions.types.item.ItemDropActionClip;
 import mchorse.bbs_mod.camera.Camera;
 import mchorse.bbs_mod.camera.controller.RunnerCameraController;
@@ -1080,7 +1081,7 @@ public class UIFilmController extends UIElement
      * Attack / break whatever is in front of the controlled player body.
      * Film-camera {@code crosshairTarget} is useless here (orbit / path look).
      * {@code swingHand} syncs to the server so {@code ActionRecorder} (started with
-     * viewport recording) can write {@link mchorse.bbs_mod.actions.types.SwipeActionClip}.
+     * viewport recording) can write {@link SwipeActionClip}.
      */
     private void performControlAttack(MinecraftClient client)
     {
