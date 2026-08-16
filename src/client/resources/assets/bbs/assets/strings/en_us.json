@@ -148,6 +148,8 @@
     "bbs.config.axes.gizmos-comment": "Whether grab-able axes elements for translation, scale and rotation are enabled",
     "bbs.config.axes.gizmos_world_rendering": "Gizmos with world rendering",
     "bbs.config.axes.gizmos_world_rendering-comment": "When enabled, form editor gizmos and bone picking stay available while world rendering (F7) is toggled on in the model block editor",
+    "bbs.config.axes.preview_equipment": "Equipment in preview editors",
+    "bbs.config.axes.preview_equipment-comment": "When enabled (default), armor, held items, skulls and other equipped pieces render in form and model-block preview editors. Disable to hide them in those previews only (world / F7 still shows equipment)",
     "bbs.config.axes.title": "Axes/Gizmos",
     "bbs.config.axes.tooltip": "Options related to axes and gizmo behavior",
     "bbs.config.background.color": "Color",

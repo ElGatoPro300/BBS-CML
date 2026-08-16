@@ -132,6 +132,8 @@
     "bbs.config.axes.gizmos-comment": "Si están habilitados los elementos de ejes agarrables para la traslación, escala y rotación",
     "bbs.config.axes.gizmos_world_rendering": "Gizmos con renderizado del mundo",
     "bbs.config.axes.gizmos_world_rendering-comment": "Si está activado, los gizmos del editor de formas y la selección de huesos siguen disponibles mientras el renderizado del mundo (F7) está activado en el editor de bloques de modelo",
+    "bbs.config.axes.preview_equipment": "Equipamiento en editores de preview",
+    "bbs.config.axes.preview_equipment-comment": "Si está activado (por defecto), las armaduras, objetos en mano, calaveras y demás piezas equipadas se renderizan en los editores de formas y bloques de modelo. Desactívalo para ocultarlos solo en esos previews (el mundo / F7 sigue mostrando el equipamiento)",
     "bbs.config.axes.title": "Ejes/Gizmos",
     "bbs.config.axes.tooltip": "Opciones relacionadas con los ejes y el comportamiento del gizmo",
     "bbs.config.background.color": "Color",

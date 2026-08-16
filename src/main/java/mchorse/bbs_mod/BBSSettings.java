@@ -92,6 +92,7 @@ public class BBSSettings
     public static ValueBoolean disablePivotTransform;
     public static ValueBoolean gizmos;
     public static ValueBoolean gizmosWorldRendering;
+    public static ValueBoolean previewEquipment;
     public static ValueBoolean gizmoFlipAxes;
     public static ValueBoolean gizmoYAxisHorizontal;
     public static ValueBoolean gizmoTrackball;
@@ -663,6 +664,8 @@ public class BBSSettings
         gizmos = builder.getBoolean("gizmos", true);
         /* Keep form-editor gizmos / bone picking while model-block F7 world rendering is on. */
         gizmosWorldRendering = builder.getBoolean("gizmos_world_rendering", true);
+        /* Armor, held items, skulls, etc. in form / model-block preview editors. */
+        previewEquipment = builder.getBoolean("preview_equipment", true);
         axesScale = builder.getFloat("axes_scale", 1.5F, 0F, 100F);
         /* Default >1 so arrows/rings are easier to pick; floor keeps thickness off zero. */
         axesThickness = builder.getFloat("axes_thickness", 1.2F, 0.25F, 6F);

@@ -202,7 +202,8 @@ public class UIPickableFormRenderer extends UIFormRenderer implements GizmoSurfa
         FormRenderingContext formContext = new FormRenderingContext()
             .set(FormRenderType.PREVIEW, previewEntity, context.batcher.getContext().getMatrices(), previewLight, OverlayTexture.DEFAULT_UV, context.getTransition())
             .camera(this.camera)
-            .modelRenderer();
+            .modelRenderer()
+            .equipment(BBSSettings.previewEquipment == null || BBSSettings.previewEquipment.get());
 
         boolean renderMesh = this.shouldRenderFormMesh();
 
