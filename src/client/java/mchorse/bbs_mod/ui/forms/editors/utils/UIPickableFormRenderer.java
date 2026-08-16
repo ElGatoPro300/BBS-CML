@@ -1,6 +1,7 @@
 package mchorse.bbs_mod.ui.forms.editors.utils;
 
 import mchorse.bbs_mod.BBSSettings;
+import mchorse.bbs_mod.client.BBSRendering;
 import mchorse.bbs_mod.forms.FormUtilsClient;
 import mchorse.bbs_mod.forms.entities.IEntity;
 import mchorse.bbs_mod.forms.forms.Form;
@@ -194,11 +195,15 @@ public class UIPickableFormRenderer extends UIFormRenderer implements GizmoSurfa
 
         this.formEditor.preFormRender(context, this.form);
 
+        IEntity previewEntity = this.target == null ? this.entity : this.target;
+        int previewLight = BBSRendering.resolveEntityBlockLight(
+            previewEntity, LightmapTextureManager.pack(15, 15));
+
         FormRenderingContext formContext = new FormRenderingContext()
-            .set(FormRenderType.PREVIEW, this.target == null ? this.entity : this.target, context.batcher.getContext().getMatrices(), LightmapTextureManager.pack(15, 15), OverlayTexture.DEFAULT_UV, context.getTransition())
+            .set(FormRenderType.PREVIEW, previewEntity, context.batcher.getContext().getMatrices(), previewLight, OverlayTexture.DEFAULT_UV, context.getTransition())
             .camera(this.camera)
             .modelRenderer()
-            .equipment(false);
+            .equipment(BBSSettings.previewEquipment == null || BBSSettings.previewEquipment.get());
 
         boolean renderMesh = this.shouldRenderFormMesh();
 
