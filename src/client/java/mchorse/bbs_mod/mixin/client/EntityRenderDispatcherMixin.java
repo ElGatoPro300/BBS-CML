@@ -22,11 +22,12 @@ import org.spongepowered.asm.mixin.injection.At;
 public class EntityRenderDispatcherMixin
 {
     @WrapOperation(
-        method = "render(Lnet/minecraft/entity/Entity;DDDFLnet/minecraft/client/util/math/MatrixStack;Lnet/minecraft/client/render/VertexConsumerProvider;ILnet/minecraft/client/render/entity/EntityRenderer;)V",
+        method = "render*",
         at = @At(
             value = "INVOKE",
             target = "Lnet/minecraft/client/render/entity/EntityRenderer;render(Lnet/minecraft/client/render/entity/state/EntityRenderState;Lnet/minecraft/client/util/math/MatrixStack;Lnet/minecraft/client/render/VertexConsumerProvider;I)V"
-        )
+        ),
+        require = 0
     )
     private void wrapRender(
         EntityRenderer renderer, EntityRenderState state,
