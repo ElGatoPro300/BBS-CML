@@ -1,7 +1,5 @@
 package mchorse.bbs_mod.mixin.client.iris;
 
-import net.irisshaders.iris.uniforms.custom.CustomUniforms;
-
 import java.util.List;
 
 import net.irisshaders.iris.uniforms.custom.CustomUniforms;

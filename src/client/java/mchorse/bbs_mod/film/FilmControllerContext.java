@@ -20,9 +20,9 @@ import net.minecraft.client.util.math.MatrixStack;
 
 import org.joml.Matrix4f;
 
-import io.netty.util.collection.IntObjectMap;
-
 import com.mojang.blaze3d.systems.RenderSystem;
+
+import io.netty.util.collection.IntObjectMap;
 
 public class FilmControllerContext
 {
