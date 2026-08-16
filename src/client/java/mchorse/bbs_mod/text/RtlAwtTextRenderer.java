@@ -439,9 +439,7 @@ public final class RtlAwtTextRenderer
             ImageIO.write(image, "png", output);
             NativeImage nativeImage = NativeImage.read(new ByteArrayInputStream(output.toByteArray()));
             NativeImageBackedTexture texture = new NativeImageBackedTexture(nativeImage);
-            String key = "bbs_rtl_text_" + textureSerial++;
-            Identifier id = Identifier.of("bbs", key);
-            MinecraftClient.getInstance().getTextureManager().registerTexture(id, texture);
+            Identifier id = MinecraftClient.getInstance().getTextureManager().registerDynamicTexture("bbs_rtl_text_" + textureSerial++, texture);
 
             return new CachedText(id, displayWidth, displayHeight, textureWidth, textureHeight, texture);
         }

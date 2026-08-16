@@ -2,7 +2,6 @@ package mchorse.bbs_mod.client.gui;
 
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.widget.ButtonWidget;
-import net.minecraft.client.render.RenderLayer;
 import net.minecraft.text.Text;
 import net.minecraft.util.Identifier;
 
@@ -47,7 +46,7 @@ public class BBSLogoButtonWidget extends ButtonWidget
         RenderSystem.defaultBlendFunc();
         RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
 
-        context.drawTexture(RenderLayer::getGuiTextured, LOGO, logoX, logoY, 0F, 0F, logoSize, logoSize, logoSize, logoSize);
+        context.drawTexture(LOGO, logoX, logoY, 0, 0, logoSize, logoSize, logoSize, logoSize);
 
         RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
     }

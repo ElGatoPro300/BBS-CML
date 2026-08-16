@@ -7,7 +7,6 @@ import mchorse.bbs_mod.utils.Axis;
 import mchorse.bbs_mod.utils.MathUtils;
 import mchorse.bbs_mod.utils.MatrixStackUtils;
 
-import net.minecraft.client.gl.ShaderProgramKeys;
 import net.minecraft.client.render.BufferBuilder;
 import net.minecraft.client.render.BufferRenderer;
 import net.minecraft.client.render.GameRenderer;
@@ -23,7 +22,6 @@ import net.minecraft.util.math.RotationAxis;
 
 import org.joml.Matrix4f;
 
-import com.mojang.blaze3d.systems.ProjectionType;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.systems.VertexSorter;
 
@@ -72,7 +70,7 @@ public class Draw
         float t = 1 / 96F + (float) (Math.sqrt(w * w + h + h + d + d) / 2000);
 
         BufferBuilder builder = Tessellator.getInstance().begin(VertexFormat.DrawMode.TRIANGLES, VertexFormats.POSITION_COLOR);
-        RenderSystem.setShader(ShaderProgramKeys.POSITION_COLOR);
+        RenderSystem.setShader(GameRenderer::getPositionColorProgram);
 
         /* Pillars: fillBox(builder, -t, -t, -t, t, t, t, r, g, b, a); */
         fillBox(builder, stack, -t, -t, -t, t, t + fh, t, r, g, b, a);
@@ -181,7 +179,7 @@ public class Draw
 
         RenderSystem.disableBlend();
         RenderSystem.disableDepthTest();
-        RenderSystem.setShader(ShaderProgramKeys.POSITION_COLOR);
+        RenderSystem.setShader(GameRenderer::getPositionColorProgram);
         /* Pack compositing can leave a non-white shader color multiplier before LAST. */
         RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
         MatrixStackUtils.pushIdentityModelView();
@@ -191,7 +189,7 @@ public class Draw
             for (IrisBox box : irisBoxQueue)
             {
                 /* LAST no longer carries the solid-pass projection; rebind what was captured. */
-                RenderSystem.setProjectionMatrix(box.projection, ProjectionType.ORTHOGRAPHIC);
+                RenderSystem.setProjectionMatrix(box.projection, VertexSorter.BY_Z);
                 stack.push();
                 stack.peek().getPositionMatrix().set(box.matrix);
                 renderBoxSolidEdges(stack, box.w, box.h, box.d, box.r, box.g, box.b);
@@ -200,7 +198,7 @@ public class Draw
         }
         finally
         {
-            RenderSystem.setProjectionMatrix(savedProjection, ProjectionType.ORTHOGRAPHIC);
+            RenderSystem.setProjectionMatrix(savedProjection, VertexSorter.BY_Z);
             MatrixStackUtils.popModelView();
             irisBoxQueue.clear();
             RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
@@ -255,7 +253,7 @@ public class Draw
         boolean savedBlend = GL11.glIsEnabled(GL11.GL_BLEND);
 
         RenderSystem.disableBlend();
-        RenderSystem.setShader(ShaderProgramKeys.POSITION_COLOR);
+        RenderSystem.setShader(GameRenderer::getPositionColorProgram);
         RenderSystem.lineWidth(2F);
 
         BufferBuilder builder = Tessellator.getInstance().begin(VertexFormat.DrawMode.DEBUG_LINES, VertexFormats.POSITION_COLOR);
@@ -398,7 +396,7 @@ public class Draw
         fillBox(builder, stack, -axisOffset, -axisOffset, 0, axisOffset, axisOffset, axisSize, 0, 0, 1);
         fillBox(builder, stack, -axisOffset, -axisOffset, -axisOffset, axisOffset, axisOffset, axisOffset, 1, 1, 1);
 
-        RenderSystem.setShader(ShaderProgramKeys.POSITION_COLOR);
+        RenderSystem.setShader(GameRenderer::getPositionColorProgram);
         RenderSystem.disableDepthTest();
 
         BufferRenderer.drawWithGlobalProgram(builder.end());

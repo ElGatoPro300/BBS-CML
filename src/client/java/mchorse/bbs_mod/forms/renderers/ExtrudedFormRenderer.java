@@ -25,13 +25,10 @@ import mchorse.bbs_mod.utils.joml.Vectors;
 
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gl.ShaderProgram;
-import net.minecraft.client.gl.ShaderProgramKeys;
 import net.minecraft.client.render.DiffuseLighting;
 import net.minecraft.client.render.GameRenderer;
 import net.minecraft.client.render.LightmapTextureManager;
 import net.minecraft.client.render.OverlayTexture;
-import net.minecraft.client.render.VertexFormat;
-import net.minecraft.client.render.VertexFormats;
 import net.minecraft.client.util.math.MatrixStack;
 
 import org.joml.Matrix3f;
@@ -144,7 +141,7 @@ public class ExtrudedFormRenderer extends FormRenderer<ExtrudedForm>
         boolean useShadedFormat = shading
             || ((paintStrength != 0F || hasColorGrade) && !irisWorldModelPass);
         Supplier<ShaderProgram> shader = this.getShader(context,
-            useShadedFormat ? (irisWorldModelPass ? () -> { RenderSystem.setShader(ShaderProgramKeys.RENDERTYPE_ENTITY_TRANSLUCENT); return RenderSystem.getShader(); } : BBSShaders::getModel) : () -> { RenderSystem.setShader(ShaderProgramKeys.POSITION_TEX_COLOR); return RenderSystem.getShader(); },
+            useShadedFormat ? (irisWorldModelPass ? GameRenderer::getRenderTypeEntityTranslucentProgram : BBSShaders::getModel) : GameRenderer::getPositionTexColorProgram,
             shading ? BBSShaders::getPickerBillboardProgram : BBSShaders::getPickerBillboardNoShadingProgram
         );
 

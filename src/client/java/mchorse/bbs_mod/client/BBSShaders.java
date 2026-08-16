@@ -3,15 +3,17 @@ package mchorse.bbs_mod.client;
 import mchorse.bbs_mod.BBSMod;
 
 import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gl.Defines;
-import net.minecraft.client.gl.ShaderLoader;
 import net.minecraft.client.gl.ShaderProgram;
-import net.minecraft.client.gl.ShaderProgramKey;
 import net.minecraft.client.render.VertexFormats;
+import net.minecraft.resource.Resource;
+import net.minecraft.resource.ResourceFactory;
+import net.minecraft.resource.ResourceManager;
 import net.minecraft.util.Identifier;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 public class BBSShaders
 {
@@ -110,41 +112,32 @@ public class BBSShaders
             flatColorTintOverlay = null;
         }
 
-        ShaderLoader loader = MinecraftClient.getInstance().getShaderLoader();
-        Defines defines = Defines.EMPTY;
-
-        ShaderProgramKey modelKey = new ShaderProgramKey(Identifier.of(BBSMod.MOD_ID, "core/model"), VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL, defines);
-        ShaderProgramKey multiLinkKey = new ShaderProgramKey(Identifier.of(BBSMod.MOD_ID, "core/multilink"), VertexFormats.POSITION_TEXTURE_COLOR, defines);
-        ShaderProgramKey subtitlesKey = new ShaderProgramKey(Identifier.of(BBSMod.MOD_ID, "core/subtitles"), VertexFormats.POSITION_TEXTURE_COLOR, defines);
-
-        ShaderProgramKey pickerPreviewKey = new ShaderProgramKey(Identifier.of(BBSMod.MOD_ID, "core/picker_preview"), VertexFormats.POSITION_TEXTURE_COLOR, defines);
-        ShaderProgramKey pickerBillboardKey = new ShaderProgramKey(Identifier.of(BBSMod.MOD_ID, "core/picker_billboard"), VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL, defines);
-        ShaderProgramKey pickerBillboardNoShadingKey = new ShaderProgramKey(Identifier.of(BBSMod.MOD_ID, "core/picker_billboard_no_shading"), VertexFormats.POSITION_TEXTURE_LIGHT_COLOR, defines);
-        ShaderProgramKey pickerParticlesKey = new ShaderProgramKey(Identifier.of(BBSMod.MOD_ID, "core/picker_particles"), VertexFormats.POSITION_COLOR_TEXTURE_LIGHT, defines);
-        ShaderProgramKey pickerModelsKey = new ShaderProgramKey(Identifier.of(BBSMod.MOD_ID, "core/picker_models"), VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL, defines);
-
-        ShaderProgramKey blockPaintOverlayKey = new ShaderProgramKey(Identifier.of(BBSMod.MOD_ID, "core/block_paint_overlay"), VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL, defines);
-        ShaderProgramKey flatPaintOverlayKey = new ShaderProgramKey(Identifier.of(BBSMod.MOD_ID, "core/flat_paint_overlay"), VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL, defines);
-        ShaderProgramKey blockColorTintOverlayKey = new ShaderProgramKey(Identifier.of(BBSMod.MOD_ID, "core/block_color_tint_overlay"), VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL, defines);
-        ShaderProgramKey flatColorTintOverlayKey = new ShaderProgramKey(Identifier.of(BBSMod.MOD_ID, "core/flat_color_tint_overlay"), VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL, defines);
-
-        model = loader.getOrCreateProgram(modelKey);
-        multiLink = loader.getOrCreateProgram(multiLinkKey);
-        subtitles = loader.getOrCreateProgram(subtitlesKey);
-
-        pickerPreview = loader.getOrCreateProgram(pickerPreviewKey);
-        pickerBillboard = loader.getOrCreateProgram(pickerBillboardKey);
-        pickerBillboardNoShading = loader.getOrCreateProgram(pickerBillboardNoShadingKey);
-        pickerParticles = loader.getOrCreateProgram(pickerParticlesKey);
-        pickerModels = loader.getOrCreateProgram(pickerModelsKey);
-        blockPaintOverlay = loader.getOrCreateProgram(blockPaintOverlayKey);
-        flatPaintOverlay = loader.getOrCreateProgram(flatPaintOverlayKey);
-        blockColorTintOverlay = loader.getOrCreateProgram(blockColorTintOverlayKey);
-        flatColorTintOverlay = loader.getOrCreateProgram(flatColorTintOverlayKey);
-
-        for (Runnable runnable : LOADERS)
+        try
         {
-            runnable.run();
+            ResourceFactory factory = new ProxyResourceFactory(MinecraftClient.getInstance().getResourceManager());
+
+            model = new ShaderProgram(factory, "model", VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL);
+            multiLink = new ShaderProgram(factory, "multilink", VertexFormats.POSITION_TEXTURE_COLOR);
+            subtitles = new ShaderProgram(factory, "subtitles", VertexFormats.POSITION_TEXTURE_COLOR);
+
+            pickerPreview = new ShaderProgram(factory, "picker_preview", VertexFormats.POSITION_TEXTURE_COLOR);
+            pickerBillboard = new ShaderProgram(factory, "picker_billboard", VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL);
+            pickerBillboardNoShading = new ShaderProgram(factory, "picker_billboard_no_shading", VertexFormats.POSITION_TEXTURE_LIGHT_COLOR);
+            pickerParticles = new ShaderProgram(factory, "picker_particles", VertexFormats.POSITION_COLOR_TEXTURE_LIGHT);
+            pickerModels = new ShaderProgram(factory, "picker_models", VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL);
+            blockPaintOverlay = new ShaderProgram(factory, "block_paint_overlay", VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL);
+            flatPaintOverlay = new ShaderProgram(factory, "flat_paint_overlay", VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL);
+            blockColorTintOverlay = new ShaderProgram(factory, "block_color_tint_overlay", VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL);
+            flatColorTintOverlay = new ShaderProgram(factory, "flat_color_tint_overlay", VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL);
+        
+            for (Runnable runnable : LOADERS)
+            {
+                runnable.run();
+            }
+        }
+        catch (IOException e)
+        {
+            e.printStackTrace();
         }
     }
 
@@ -211,5 +204,26 @@ public class BBSShaders
     public static ShaderProgram getFlatColorTintOverlayProgram()
     {
         return flatColorTintOverlay;
+    }
+
+    private static class ProxyResourceFactory implements ResourceFactory
+    {
+        private ResourceManager manager;
+
+        public ProxyResourceFactory(ResourceManager manager)
+        {
+            this.manager = manager;
+        }
+
+        @Override
+        public Optional<Resource> getResource(Identifier id)
+        {
+            if (id.getPath().contains("/core/"))
+            {
+                return this.manager.getResource(Identifier.of(BBSMod.MOD_ID, id.getPath()));
+            }
+
+            return this.manager.getResource(id);
+        }
     }
 }

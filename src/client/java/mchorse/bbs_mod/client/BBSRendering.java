@@ -88,13 +88,10 @@ import net.irisshaders.iris.uniforms.custom.cached.CachedUniform;
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
 
-import com.mojang.blaze3d.platform.GlStateManager;
-import com.mojang.blaze3d.systems.ProjectionType;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.systems.VertexSorter;
 
 import org.lwjgl.opengl.GL11;
-import org.lwjgl.opengl.GL13;
 import org.lwjgl.opengl.GL30;
 
 import java.io.File;
@@ -304,11 +301,6 @@ public class BBSRendering
         return customSize;
     }
 
-    public static boolean isFramebufferToggled()
-    {
-        return toggleFramebuffer;
-    }
-
     public static void setCustomSize(boolean customSize)
     {
         setCustomSize(customSize, 0, 0);
@@ -506,7 +498,7 @@ public class BBSRendering
             return;
         }
 
-        framebuffer.resize(w, h);
+        framebuffer.resize(w, h, MinecraftClient.IS_SYSTEM_MAC);
     }
 
     public static void toggleFramebuffer(boolean toggleFramebuffer)
@@ -530,14 +522,12 @@ public class BBSRendering
 
             if (framebuffer.textureWidth != w || framebuffer.textureHeight != h)
             {
-                framebuffer.resize(w, h);
+                framebuffer.resize(w, h, MinecraftClient.IS_SYSTEM_MAC);
             }
 
             clientFramebuffer = mc.getFramebuffer();
 
             reassignFramebuffer(framebuffer);
-
-            mc.worldRenderer.onResized(w, h);
 
             framebuffer.beginWrite(true);
         }
@@ -617,27 +607,22 @@ public class BBSRendering
         MinecraftClient mc = MinecraftClient.getInstance();
         UIBaseMenu currentMenu = UIScreen.getCurrentMenu();
 
-        Matrix4f cache = new Matrix4f(RenderSystem.getProjectionMatrix());
-        ProjectionType cacheType = RenderSystem.getProjectionType();
-
         if (BBSModClient.getCameraController().getCurrent() instanceof PlayCameraController controller)
         {
             DrawContext drawContext = new DrawContext(mc, mc.getBufferBuilders().getEntityVertexConsumers());
             Batcher2D batcher = new Batcher2D(drawContext);
             Window window = mc.getWindow();
             Area area = new Area(0, 0, window.getScaledWidth(), window.getScaledHeight());
+            Matrix4f cache = new Matrix4f(RenderSystem.getProjectionMatrix());
             Matrix4f ortho = new Matrix4f().ortho(0, area.w, area.h, 0, -1000, 3000);
 
-            RenderSystem.setProjectionMatrix(ortho, ProjectionType.ORTHOGRAPHIC);
-            renderHudOverlays(batcher, controller.getContext(), area.w, area.h);
+            RenderSystem.setProjectionMatrix(ortho, VertexSorter.BY_Z);
             VideoRenderer.renderClips(batcher.getContext().getMatrices(), batcher, controller.getContext().clips.getClips(controller.getContext().relativeTick), controller.getContext().relativeTick, true, area, area, null, area.w, area.h, false);
 
             ScreenEffectRenderer.render(batcher, controller.getContext(), area.w, area.h);
             renderHudOverlays(batcher, controller.getContext(), area.w, area.h);
 
-            drawContext.draw();
-
-            RenderSystem.setProjectionMatrix(cache, cacheType);
+            RenderSystem.setProjectionMatrix(cache, VertexSorter.BY_Z);
         }
 
         if (BBSModClient.getVideoRecorder().isRecording() && BBSModClient.getCameraController().getCurrent() instanceof CameraWorkCameraController controller)
@@ -647,8 +632,6 @@ public class BBSRendering
             Window window = mc.getWindow();
 
             renderHudOverlays(batcher, controller.getContext(), window.getScaledWidth(), window.getScaledHeight());
-
-            drawContext.draw();
         }
 
         if (!customSize)
@@ -666,19 +649,17 @@ public class BBSRendering
                 Batcher2D offscreenBatcher = new Batcher2D(drawContext);
 
                 Window window = mc.getWindow();
-                Area fullScreen = new Area(0, 0, window.getScaledWidth(), window.getScaledHeight());
+                Matrix4f cache = new Matrix4f(RenderSystem.getProjectionMatrix());
                 Matrix4f ortho = new Matrix4f().ortho(0, window.getScaledWidth(), window.getScaledHeight(), 0, -1000, 3000);
 
-                RenderSystem.setProjectionMatrix(ortho, ProjectionType.ORTHOGRAPHIC);
-                renderHudOverlays(offscreenBatcher, panel.getRunner().getContext(), fullScreen.w, fullScreen.h);
+                RenderSystem.setProjectionMatrix(ortho, VertexSorter.BY_Z);
+                Area fullScreen = new Area(0, 0, window.getScaledWidth(), window.getScaledHeight());
                 VideoRenderer.renderClips(new MatrixStack(), offscreenBatcher, panel.getData().camera.getClips(panel.getCursor()), panel.getCursor(), panel.getRunner().isRunning(), fullScreen, fullScreen, null, window.getScaledWidth(), window.getScaledHeight(), false);
 
                 ScreenEffectRenderer.render(offscreenBatcher, panel.getRunner().getContext(), window.getScaledWidth(), window.getScaledHeight());
                 renderHudOverlays(offscreenBatcher, panel.getRunner().getContext(), fullScreen.w, fullScreen.h);
 
-                drawContext.draw();
-
-                RenderSystem.setProjectionMatrix(cache, cacheType);
+                RenderSystem.setProjectionMatrix(cache, VertexSorter.BY_Z);
             }
         }
 
@@ -720,19 +701,15 @@ public class BBSRendering
             return;
         }
 
-        int activeTexture = GL11.glGetInteger(GL13.GL_ACTIVE_TEXTURE);
-        int lastTexture = RenderSystem.getShaderTexture(0);
         Texture texture = getTexture();
         int prevRead = GL30.glGetInteger(GL30.GL_READ_FRAMEBUFFER_BINDING);
 
         framebuffer.beginRead();
 
-        GlStateManager._activeTexture(GL13.GL_TEXTURE0);
-        GlStateManager._bindTexture(texture.id);
+        texture.bind();
         texture.setSize(framebuffer.textureWidth, framebuffer.textureHeight);
         GL11.glCopyTexSubImage2D(GL11.GL_TEXTURE_2D, 0, 0, 0, 0, 0, framebuffer.textureWidth, framebuffer.textureHeight);
-        GlStateManager._bindTexture(lastTexture);
-        GlStateManager._activeTexture(activeTexture);
+        texture.unbind();
 
         GL30.glBindFramebuffer(GL30.GL_READ_FRAMEBUFFER, prevRead);
 
@@ -746,8 +723,8 @@ public class BBSRendering
 
         worldRenderContext.prepare(
             mc.worldRenderer, mc.getRenderTickCounter(), false,
-            mc.gameRenderer.getCamera(), mc.gameRenderer,
-            RenderSystem.getProjectionMatrix(), RenderSystem.getModelViewMatrix(), mc.getBufferBuilders().getEntityVertexConsumers(), false, mc.world
+            mc.gameRenderer.getCamera(), mc.gameRenderer, mc.gameRenderer.getLightmapTextureManager(),
+            RenderSystem.getProjectionMatrix(), RenderSystem.getModelViewMatrix(), mc.getBufferBuilders().getEntityVertexConsumers(), mc.getProfiler(), false, mc.world
         );
 
         if (!isIrisShadersEnabled())

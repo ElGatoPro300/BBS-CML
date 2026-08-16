@@ -72,7 +72,7 @@ public final class AttackDamage
             return MOB_KILLER_DAMAGE;
         }
 
-        float base = (float) attacker.getAttributeValue(EntityAttributes.ATTACK_DAMAGE);
+        float base = (float) attacker.getAttributeValue(EntityAttributes.GENERIC_ATTACK_DAMAGE);
 
         if (stack.isEmpty() || !(attacker.getWorld() instanceof ServerWorld serverWorld))
         {
@@ -134,9 +134,9 @@ public final class AttackDamage
 
         if (isMobKiller(stack) || clipDamage >= MOB_KILLER_DAMAGE)
         {
-            if (target instanceof LivingEntity living && !(living instanceof PlayerEntity) && attacker.getWorld() instanceof ServerWorld serverWorld)
+            if (target instanceof LivingEntity living && !(living instanceof PlayerEntity))
             {
-                living.kill(serverWorld);
+                living.kill();
             }
 
             return;
@@ -149,9 +149,6 @@ public final class AttackDamage
             return;
         }
 
-        if (attacker.getWorld() instanceof ServerWorld serverWorld)
-        {
-            target.damage(serverWorld, serverWorld.getDamageSources().mobAttack(attacker), damage);
-        }
+        target.damage(attacker.getWorld().getDamageSources().mobAttack(attacker), damage);
     }
 }

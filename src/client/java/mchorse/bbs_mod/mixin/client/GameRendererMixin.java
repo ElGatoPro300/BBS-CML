@@ -106,13 +106,13 @@ public class GameRendererMixin
      * This injection replaces the camera FOV when camera controller takes over
      */
     @Inject(method = "getFov", at = @At("RETURN"), cancellable = true)
-    public void onGetFov(CallbackInfoReturnable<Float> info)
+    public void onGetFov(CallbackInfoReturnable<Double> info)
     {
         GunZoom gunZoom = BBSModClient.getGunZoom();
 
         if (gunZoom != null)
         {
-            info.setReturnValue(gunZoom.getFOV(info.getReturnValue()));
+            info.setReturnValue((double) gunZoom.getFOV(info.getReturnValue().floatValue()));
 
             return;
         }
@@ -121,7 +121,7 @@ public class GameRendererMixin
 
         if (controller.getCurrent() != null && !BBSRendering.isIrisShadowPass())
         {
-            info.setReturnValue((float) controller.getFOV());
+            info.setReturnValue(controller.getFOV());
         }
     }
 

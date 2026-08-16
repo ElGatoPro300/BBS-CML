@@ -74,7 +74,6 @@ import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
 
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.Mouse;
-import net.minecraft.client.gl.ShaderProgramKeys;
 import net.minecraft.client.network.ClientPlayerEntity;
 import net.minecraft.client.network.ClientPlayerInteractionManager;
 import net.minecraft.client.option.GameOptions;
@@ -107,7 +106,6 @@ import org.joml.Vector2i;
 import org.joml.Vector3d;
 import org.joml.Vector3f;
 
-import com.mojang.blaze3d.systems.ProjectionType;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.systems.VertexSorter;
 
@@ -1769,7 +1767,7 @@ public class UIFilmController extends UIElement
         /* Cache the global stuff */
         MatrixStackUtils.cacheMatrices();
 
-        RenderSystem.setProjectionMatrix(this.panel.lastProjection, ProjectionType.ORTHOGRAPHIC);
+        RenderSystem.setProjectionMatrix(this.panel.lastProjection, VertexSorter.BY_Z);
 
         /* Render the stencil */
         MatrixStack worldStack = this.worldRenderContext.matrixStack();
@@ -1787,12 +1785,12 @@ public class UIFilmController extends UIElement
             mvStack.pushMatrix();
             mvStack.identity();
             mvStack.set(BBSRendering.camera);
-            MatrixStackUtils.applyModelViewMatrix();
+            RenderSystem.applyModelViewMatrix();
 
             this.renderStencil(this.worldRenderContext, context, altPressed);
 
             mvStack.popMatrix();
-            MatrixStackUtils.applyModelViewMatrix();
+            RenderSystem.applyModelViewMatrix();
         }
 
         /* Return back to orthographic projection */
@@ -1975,7 +1973,7 @@ public class UIFilmController extends UIElement
 
         RenderSystem.disableDepthTest();
         RenderSystem.depthMask(false);
-        RenderSystem.setShader(ShaderProgramKeys.POSITION_COLOR);
+        RenderSystem.setShader(GameRenderer::getPositionColorProgram);
         RenderSystem.enableBlend();
         MatrixStack stack = context.matrixStack();
 

@@ -15,8 +15,6 @@ import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.font.TextRenderer;
 import net.minecraft.client.gl.GlUniform;
 import net.minecraft.client.gl.ShaderProgram;
-import net.minecraft.client.gl.ShaderProgramKey;
-import net.minecraft.client.gl.ShaderProgramKeys;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.render.BufferBuilder;
 import net.minecraft.client.render.BufferRenderer;
@@ -94,7 +92,7 @@ public class Batcher2D
 
     public void clip(int x, int y, int w, int h, UIContext context)
     {
-        this.clip(x, y, w, h, context.menu.width, context.menu.height);
+        this.clip(context.globalX(x), context.globalY(y), w, h, context.menu.width, context.menu.height);
     }
 
     /**
@@ -107,7 +105,7 @@ public class Batcher2D
 
     public void unclip(UIContext context)
     {
-        this.context.disableScissor();
+        this.unclip(context.menu.width, context.menu.height);
     }
 
     public void unclip(int sw, int sh)
@@ -145,7 +143,7 @@ public class Batcher2D
         this.fillRect(builder, matrix4f, x, y, w, h, color1, color2, color3, color4);
 
         RenderSystem.enableBlend();
-        RenderSystem.setShader(ShaderProgramKeys.POSITION_COLOR);
+        RenderSystem.setShader(GameRenderer::getPositionColorProgram);
         this.flushDraw();
         BufferRenderer.drawWithGlobalProgram(builder.end());
     }
@@ -190,7 +188,7 @@ public class Batcher2D
         builder.vertex(matrix4f, x2a, y2a, 0).color(color);
 
         RenderSystem.enableBlend();
-        RenderSystem.setShader(ShaderProgramKeys.POSITION_COLOR);
+        RenderSystem.setShader(GameRenderer::getPositionColorProgram);
         BufferRenderer.drawWithGlobalProgram(builder.end());
 
         this.context.draw();
@@ -250,7 +248,7 @@ public class Batcher2D
         builder.vertex(matrix4f,right, top, 0).color(shadow);
 
         RenderSystem.enableBlend();
-        RenderSystem.setShader(ShaderProgramKeys.POSITION_COLOR);
+        RenderSystem.setShader(GameRenderer::getPositionColorProgram);
         BufferRenderer.drawWithGlobalProgram(builder.end());
     }
 
@@ -281,7 +279,7 @@ public class Batcher2D
             builder.vertex(matrix4f, (float) (x - Math.cos(a) * radius), (float) (y + Math.sin(a) * radius), 0F).color(shadow);
         }
         RenderSystem.enableBlend();
-        RenderSystem.setShader(ShaderProgramKeys.POSITION_COLOR);
+        RenderSystem.setShader(GameRenderer::getPositionColorProgram);
         BufferRenderer.drawWithGlobalProgram(builder.end());
     }
 
@@ -299,7 +297,7 @@ public class Batcher2D
         BufferBuilder builder = Tessellator.getInstance().begin(VertexFormat.DrawMode.TRIANGLE_FAN, VertexFormats.POSITION_COLOR);
 
         RenderSystem.enableBlend();
-        RenderSystem.setShader(ShaderProgramKeys.POSITION_COLOR);
+        RenderSystem.setShader(GameRenderer::getPositionColorProgram);
 
         /* Draw opaque base */
         
@@ -448,7 +446,7 @@ public class Batcher2D
         Matrix4f matrix = this.context.getMatrices().peek().getPositionMatrix();
         BufferBuilder builder = Tessellator.getInstance().begin(VertexFormat.DrawMode.TRIANGLES, VertexFormats.POSITION_TEXTURE_COLOR);
 
-        RenderSystem.setShader(ShaderProgramKeys.POSITION_TEX_COLOR);
+        RenderSystem.setShader(GameRenderer::getPositionTexColorProgram);
 
         
         this.fillTexturedBox(builder, matrix, color, x, y, w, h, u1, v1, u2, v2, textureW, textureH);
@@ -458,33 +456,11 @@ public class Batcher2D
 
     public void texturedBox(int texture, int color, float x, float y, float w, float h, float u1, float v1, float u2, float v2, int textureW, int textureH)
     {
-        this.texturedBox(ShaderProgramKeys.POSITION_TEX_COLOR, texture, color, x, y, w, h, u1, v1, u2, v2, textureW, textureH);
+        this.texturedBox(GameRenderer::getPositionTexColorProgram, texture, color, x, y, w, h, u1, v1, u2, v2, textureW, textureH);
     }
 
-    public void texturedBox(ShaderProgramKey shader, int texture, int color, float x, float y, float w, float h, float u1, float v1, float u2, float v2, int textureW, int textureH)
+    public void texturedBox(Supplier<ShaderProgram> shader, int texture, int color, float x, float y, float w, float h, float u1, float v1, float u2, float v2, int textureW, int textureH)
     {
-        int lastTexture = RenderSystem.getShaderTexture(0);
-
-        RenderSystem.setShaderTexture(0, texture);
-
-        Matrix4f matrix = this.context.getMatrices().peek().getPositionMatrix();
-        BufferBuilder builder = Tessellator.getInstance().begin(VertexFormat.DrawMode.TRIANGLES, VertexFormats.POSITION_TEXTURE_COLOR);
-        
-        RenderSystem.setShader(shader);
-
-        
-        this.fillTexturedBox(builder, matrix, color, x, y, w, h, u1, v1, u2, v2, textureW, textureH);
-
-        BufferRenderer.drawWithGlobalProgram(builder.end());
-
-        RenderSystem.setShader(ShaderProgramKeys.POSITION_TEX_COLOR);
-        RenderSystem.setShaderTexture(0, lastTexture);
-    }
-
-    public void texturedBox(ShaderProgram shader, int texture, int color, float x, float y, float w, float h, float u1, float v1, float u2, float v2, int textureW, int textureH)
-    {
-        int lastTexture = RenderSystem.getShaderTexture(0);
-
         RenderSystem.setShaderTexture(0, texture);
 
         Matrix4f matrix = this.context.getMatrices().peek().getPositionMatrix();
@@ -496,9 +472,6 @@ public class Batcher2D
         this.fillTexturedBox(builder, matrix, color, x, y, w, h, u1, v1, u2, v2, textureW, textureH);
 
         BufferRenderer.drawWithGlobalProgram(builder.end());
-
-        RenderSystem.setShader(ShaderProgramKeys.POSITION_TEX_COLOR);
-        RenderSystem.setShaderTexture(0, lastTexture);
     }
 
     /**
@@ -515,7 +488,7 @@ public class Batcher2D
         }
 
         RenderSystem.setShaderTexture(0, texture);
-        RenderSystem.setShader(program);
+        RenderSystem.setShader(() -> program);
 
         GlUniform targetUniform = program.getUniform("Target");
 
@@ -578,7 +551,7 @@ public class Batcher2D
         Matrix4f matrix = this.context.getMatrices().peek().getPositionMatrix();
         BufferBuilder builder = Tessellator.getInstance().begin(VertexFormat.DrawMode.TRIANGLES, VertexFormats.POSITION_TEXTURE_COLOR);
 
-        RenderSystem.setShader(ShaderProgramKeys.POSITION_TEX_COLOR);
+        RenderSystem.setShader(GameRenderer::getPositionTexColorProgram);
         RenderSystem.setShaderTexture(0, texture.id);
 
         for (int i = 0; i < c; i ++)
