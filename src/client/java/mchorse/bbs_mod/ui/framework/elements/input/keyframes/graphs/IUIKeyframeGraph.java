@@ -269,9 +269,14 @@ public interface IUIKeyframeGraph
 
     public default void setDuration(float duration)
     {
+        this.setDuration(duration, true);
+    }
+
+    public default void setDuration(float duration, boolean dirty)
+    {
         for (UIKeyframeSheet sheet : this.getSheets())
         {
-            sheet.setDuration(duration);
+            sheet.setDuration(duration, dirty);
         }
     }
 

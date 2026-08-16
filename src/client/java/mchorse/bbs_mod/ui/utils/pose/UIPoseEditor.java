@@ -112,8 +112,9 @@ public class UIPoseEditor extends UIElement
     private UIIcon showOnlyMarkedButton;
     private String currentBone;
     /**
-     * Paint / glow / color-grade / noshading belong on forms (and form pose keyframes).
-     * Base model editor edits {@code ModelConfig.parts} only — hide those controls there.
+     * When true, pose footer shows Color extras (paint / glow / grade) and noshading.
+     * Used for ModelForm pose and model Parts ({@code ModelConfig.parts}); both store the
+     * same per-bone {@link mchorse.bbs_mod.utils.pose.PoseTransform} appearance fields.
      */
     private final boolean formAppearanceExtras;
 
@@ -1355,7 +1356,7 @@ public class UIPoseEditor extends UIElement
 
     /**
      * Bone appearance controls above the transform grid:
-     * section label, bone texture, color + lighting; form-only Extra (glow/paint/grade) when enabled.
+     * section label, bone texture, color + lighting; Color extras (glow/paint/grade) when enabled.
      */
     public UIElement createPoseFooter()
     {

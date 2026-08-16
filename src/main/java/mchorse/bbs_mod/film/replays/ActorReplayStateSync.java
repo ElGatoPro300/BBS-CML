@@ -296,13 +296,34 @@ public final class ActorReplayStateSync
      * Actor death is Attack/combat-driven at playback — {@code death_time} keyframes
      * must not force-kill an actor (or keep them dead when Attack clips are disabled).
      * Live {@code hurtTime} is kept when damage flash and/or damage animation is enabled.
+     * <p>
+     * First-person playback binds the real {@link PlayerEntity} as the actor body; that
+     * path must keep the same live/keyframe merge or Attack/Damage clips never produce
+     * camera shake / hurt overlay in FP view.
      */
     private static void applyHurtAndDeath(LivingEntity actor, int keyframeHurt, int keyframeDeath)
     {
         if (!(actor instanceof ActorEntity actorEntity))
         {
-            actor.hurtTime = keyframeHurt;
-            actor.deathTime = keyframeDeath;
+            if (BBSSettings.shouldKeepActorLiveHurtTime())
+            {
+                actor.hurtTime = Math.max(actor.hurtTime, keyframeHurt);
+            }
+            else
+            {
+                actor.hurtTime = keyframeHurt;
+            }
+
+            if (actor.hurtTime > 0 && actor.maxHurtTime < actor.hurtTime)
+            {
+                actor.maxHurtTime = Math.max(10, actor.hurtTime);
+            }
+
+            /* Never force deathTime onto the real FP player from keyframes. */
+            if (!(actor instanceof PlayerEntity))
+            {
+                actor.deathTime = keyframeDeath;
+            }
 
             return;
         }

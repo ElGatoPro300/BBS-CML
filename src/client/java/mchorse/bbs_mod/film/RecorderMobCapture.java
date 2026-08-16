@@ -868,19 +868,12 @@ public final class RecorderMobCapture
 
         BaseValue.edit(replay.properties, (properties) ->
         {
-            KeyframeChannel channel = properties.getOrCreate(form, "render");
-
-            if (channel == null)
-            {
-                return;
-            }
-
             if (visibleTick >= 0)
             {
-                channel.insert(visibleTick, Boolean.TRUE);
+                properties.insertVisibleRenderEnabled(form, visibleTick, true);
             }
 
-            channel.insert(disappearTick, Boolean.FALSE);
+            properties.insertVisibleRenderEnabled(form, disappearTick, false);
         });
     }
 
@@ -899,19 +892,12 @@ public final class RecorderMobCapture
 
         BaseValue.edit(replay.properties, (properties) ->
         {
-            KeyframeChannel channel = properties.getOrCreate(form, "render");
-
-            if (channel == null)
-            {
-                return;
-            }
-
             if (appearTick > 0)
             {
-                channel.insert(0, Boolean.FALSE);
+                properties.insertVisibleRenderEnabled(form, 0, false);
             }
 
-            channel.insert(appearTick, Boolean.TRUE);
+            properties.insertVisibleRenderEnabled(form, appearTick, true);
         });
     }
 
@@ -1051,6 +1037,9 @@ public final class RecorderMobCapture
             wrapper.setParticlesEnabled(false);
             replay.keyframes.record(tick, wrapper, null);
             replay.keyframes.deathTime.insertIfChanged(tick, (double) deathTime);
+            /* Keep damage flash on for the whole death tip — live hurtTime decays early,
+             * and playback must stay driven only by the damage track. */
+            replay.keyframes.damage.insertIfChanged(tick, 10D);
             replay.keyframes.particles.insertIfChanged(tick, 0D);
 
             return;
@@ -1071,7 +1060,7 @@ public final class RecorderMobCapture
         wrapper.setPrevHeadYaw(session.deathHeadYaw);
         wrapper.setPrevBodyYaw(session.deathBodyYaw);
         wrapper.setDeathTime(deathTime);
-        wrapper.setHurtTimer(0);
+        wrapper.setHurtTimer(10);
         wrapper.setSneaking(false);
         wrapper.setSprinting(false);
         wrapper.setOnGround(true);
@@ -1079,6 +1068,7 @@ public final class RecorderMobCapture
         wrapper.setParticlesEnabled(false);
 
         replay.keyframes.record(tick, wrapper, null);
+        replay.keyframes.damage.insertIfChanged(tick, 10D);
         replay.keyframes.particles.insertIfChanged(tick, 0D);
     }
 

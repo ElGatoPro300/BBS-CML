@@ -59,10 +59,6 @@ public class UILightingKeyframeFactory extends UIKeyframeFactory<LightingSetting
 
         this.handles = new UIBezierHandles(keyframe);
 
-        /* Start hidden so the first parent layout pass matches blend mode. */
-        this.level.setVisible(false);
-        this.truncate.setVisible(false);
-
         this.scroll.add(this.brightness, this.fixed, this.level, this.truncate, this.handles.createColumn());
         this.update();
     }
@@ -76,7 +72,7 @@ public class UILightingKeyframeFactory extends UIKeyframeFactory<LightingSetting
 
         this.fixed.setValue(value.fixed);
         this.truncate.setValue(value.truncate);
-        this.updateFieldVisibility();
+        this.updateFieldEnabled();
         /* Integer mode must be updated before setValue — otherwise float levels get truncated. */
         this.updateLevelIntegerMode();
 
@@ -94,26 +90,17 @@ public class UILightingKeyframeFactory extends UIKeyframeFactory<LightingSetting
         this.handles.update();
     }
 
-    private void updateFieldVisibility()
+    /**
+     * Keep blend and fixed fields always laid out; disable the ones that do not apply
+     * to the current mode instead of hiding them (avoids layout jumps).
+     */
+    private void updateFieldEnabled()
     {
-        LightingSettings value = this.getOrCreate(this.keyframe.getValue());
-        boolean fixed = value.fixed;
-        boolean changed = this.brightness.isVisible() != !fixed
-            || this.level.isVisible() != fixed
-            || this.truncate.isVisible() != fixed;
+        boolean fixed = this.getOrCreate(this.keyframe.getValue()).fixed;
 
-        this.brightness.setVisible(!fixed);
-        this.level.setVisible(fixed);
-        this.truncate.setVisible(fixed);
-
-        /* ColumnResizer skips invisible children. Reflow when flags change, or when fixed
-         * fields are visible but still have a stale zero-sized area (resize ran before parent). */
-        boolean needsReflow = changed || (fixed && this.level.area.h <= 0);
-
-        if (needsReflow && this.hasParent())
-        {
-            this.resize();
-        }
+        this.brightness.setEnabled(!fixed);
+        this.level.setEnabled(fixed);
+        this.truncate.setEnabled(fixed);
     }
 
     private void updateLevelIntegerMode()

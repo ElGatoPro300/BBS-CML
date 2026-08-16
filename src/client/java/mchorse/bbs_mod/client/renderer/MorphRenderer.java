@@ -68,16 +68,19 @@ public class MorphRenderer
             {
                 RenderSystem.enableDepthTest();
 
-                /* InventoryScreen.drawEntity already set GUI diffuse lighting for the vanilla
-                 * player — override only there so forms match that preview. In the world, use
-                 * the same level lights as model blocks / editor previews. */
-                if (BBSRendering.isRenderingWorld())
+                boolean worldPass = BBSRendering.isRenderingWorld();
+
+                /* InventoryScreen.drawEntity uses DiffuseLighting.method_34742() for the player
+                 * preview, then enableGuiDepthLighting() after. Forms must keep those same
+                 * entity lights — enableGuiDepthLighting() here overwrote them and mismatched
+                 * vanilla inventory lighting. World morphs keep level diffuse like model blocks. */
+                if (worldPass)
                 {
                     BBSRendering.setupWorldLevelDiffuseLighting();
                 }
                 else
                 {
-                    DiffuseLighting.enableGuiDepthLighting();
+                    DiffuseLighting.method_34742();
                 }
 
                 float bodyYaw = Lerps.lerp(player.prevBodyYaw, player.bodyYaw, g);
@@ -105,7 +108,18 @@ public class MorphRenderer
 
                 matrixStack.pop();
 
-                BBSRendering.restoreWorldRenderState();
+                if (worldPass)
+                {
+                    BBSRendering.restoreWorldRenderState();
+                }
+                else
+                {
+                    /* Same post-draw sequence as InventoryScreen.drawEntity. restoreWorld
+                     * re-enables lightmap/overlay left disabled by form mesh draws without
+                     * touching diffuse lights (already set to GUI 3D above). */
+                    DiffuseLighting.enableGuiDepthLighting();
+                    BBSRendering.restoreWorldRenderState();
+                }
             }
 
             return true;

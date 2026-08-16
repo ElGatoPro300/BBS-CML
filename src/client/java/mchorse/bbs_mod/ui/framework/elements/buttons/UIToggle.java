@@ -12,6 +12,7 @@ import mchorse.bbs_mod.ui.framework.theme.UIThemeManager;
 import mchorse.bbs_mod.ui.utils.icons.Icons;
 import mchorse.bbs_mod.utils.colors.Colors;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.function.Consumer;
@@ -170,7 +171,7 @@ public class UIToggle extends UIClickable<UIToggle> implements ITextColoring
         }
         else if (this.wrapping)
         {
-            lines = font.wrap(text, maxWidth);
+            lines = this.limitWrappedLines(font, font.wrap(text, maxWidth), maxWidth);
         }
         else
         {
@@ -197,6 +198,22 @@ public class UIToggle extends UIClickable<UIToggle> implements ITextColoring
         this.wrappedLines = lines;
         this.lastWrappedText = text;
         this.lastWrapWidth = maxWidth;
+    }
+
+    private List<String> limitWrappedLines(FontRenderer font, List<String> lines, int maxWidth)
+    {
+        int maxLines = Math.max(1, UIButton.MAX_LABEL_LINES);
+
+        if (lines.size() <= maxLines)
+        {
+            return lines;
+        }
+
+        List<String> limited = new ArrayList<>(lines.subList(0, maxLines));
+
+        limited.set(maxLines - 1, font.limitToWidth(limited.get(maxLines - 1), maxWidth));
+
+        return limited;
     }
 
     @Override

@@ -83,6 +83,15 @@ public class UIValueMap
                 return Arrays.asList(UIValueFactory.column(toggle, value));
             }
 
+            if (value == BBSSettings.linkUiScaleToGame)
+            {
+                UIToggle toggle = UIValueFactory.booleanUINoLabel(value, (t) -> BBSModClient.applyUIScaleLive());
+
+                toggle.w(18);
+
+                return Arrays.asList(UIValueFactory.column(toggle, value));
+            }
+
             UIToggle toggle = UIValueFactory.booleanUINoLabel(value, null);
 
             toggle.w(18);

@@ -219,6 +219,10 @@ public class UIKeys
     public static final IKey CAMERA_PANELS_IMAGE_OFFSET = L10n.lang("bbs.ui.camera.panels.image.offset");
     public static final IKey CAMERA_PANELS_IMAGE_UV_OFFSET_X = L10n.lang("bbs.ui.camera.panels.image.uv_offset_x");
     public static final IKey CAMERA_PANELS_IMAGE_UV_OFFSET_Y = L10n.lang("bbs.ui.camera.panels.image.uv_offset_y");
+    public static final IKey CAMERA_PANELS_IMAGE_ROTATION = L10n.lang("bbs.ui.camera.panels.image.rotation");
+    public static final IKey CAMERA_PANELS_IMAGE_ROTATION_X = L10n.lang("bbs.ui.camera.panels.image.rotation_x");
+    public static final IKey CAMERA_PANELS_IMAGE_ROTATION_Y = L10n.lang("bbs.ui.camera.panels.image.rotation_y");
+    public static final IKey CAMERA_PANELS_IMAGE_ROTATION_Z = L10n.lang("bbs.ui.camera.panels.image.rotation_z");
     public static final IKey CAMERA_PANELS_IMAGE_POSITION_X = L10n.lang("bbs.ui.camera.panels.image.position_x");
     public static final IKey CAMERA_PANELS_IMAGE_POSITION_Y = L10n.lang("bbs.ui.camera.panels.image.position_y");
     public static final IKey CAMERA_PANELS_IMAGE_SIZE = L10n.lang("bbs.ui.camera.panels.image.size");
@@ -233,6 +237,16 @@ public class UIKeys
     public static final IKey CAMERA_PANELS_IMAGE_WINDOW_X = L10n.lang("bbs.ui.camera.panels.image.window_x");
     public static final IKey CAMERA_PANELS_IMAGE_WINDOW_Y = L10n.lang("bbs.ui.camera.panels.image.window_y");
     public static final IKey CAMERA_PANELS_IMAGE_OPACITY = L10n.lang("bbs.ui.camera.panels.image.opacity");
+    public static final IKey CAMERA_PANELS_IMAGE_OPACITY_STYLE = L10n.lang("bbs.ui.camera.panels.image.opacity_style");
+    public static final IKey CAMERA_PANELS_IMAGE_BLEND_MODE_NORMAL = L10n.lang("bbs.ui.camera.panels.image.blend_mode.normal");
+    public static final IKey CAMERA_PANELS_IMAGE_BLEND_MODE_MULTIPLY = L10n.lang("bbs.ui.camera.panels.image.blend_mode.multiply");
+    public static final IKey CAMERA_PANELS_IMAGE_BLEND_MODE_SCREEN = L10n.lang("bbs.ui.camera.panels.image.blend_mode.screen");
+    public static final IKey CAMERA_PANELS_IMAGE_BLEND_MODE_ADD = L10n.lang("bbs.ui.camera.panels.image.blend_mode.add");
+    public static final IKey CAMERA_PANELS_IMAGE_BLEND_MODE_SATURATION = L10n.lang("bbs.ui.camera.panels.image.blend_mode.saturation");
+    public static final IKey CAMERA_PANELS_IMAGE_BLEND_MODE_INCRUSTATION = L10n.lang("bbs.ui.camera.panels.image.blend_mode.incrustation");
+    public static final IKey CAMERA_PANELS_IMAGE_BLEND_MODE_EXCLUSION = L10n.lang("bbs.ui.camera.panels.image.blend_mode.exclusion");
+    public static final IKey CAMERA_PANELS_IMAGE_BLEND_MODE_OVERLAY = L10n.lang("bbs.ui.camera.panels.image.blend_mode.overlay");
+    public static final IKey CAMERA_PANELS_IMAGE_BLEND_MODE_COLOR_DODGE = L10n.lang("bbs.ui.camera.panels.image.blend_mode.color_dodge");
     public static final IKey CAMERA_PANELS_IMAGE_COLOR = L10n.lang("bbs.ui.camera.panels.image.color");
     public static final IKey CAMERA_PANELS_TARGET = L10n.lang("bbs.ui.camera.panels.target");
     public static final IKey CAMERA_PANELS_TARGET_TITLE = L10n.lang("bbs.ui.camera.panels.target-title");
@@ -394,6 +408,7 @@ public class UIKeys
     public static final IKey FILM_GIZMO_COMBINED = L10n.lang("bbs.ui.film.gizmo.combined");
     public static final IKey FILM_GIZMO_TOP = L10n.lang("bbs.ui.film.gizmo.top");
     public static final IKey FILM_GIZMO_SIZE = L10n.lang("bbs.ui.film.gizmo.size");
+    public static final IKey FILM_GIZMO_THICKNESS = L10n.lang("bbs.ui.film.gizmo.thickness");
     public static final IKey FILM_GIZMO_TRANSLATE_SPEED = L10n.lang("bbs.ui.film.gizmo.translate_speed");
     public static final IKey FILM_GIZMO_BODY_PART = L10n.lang("bbs.ui.film.gizmo.body_part");
     public static final IKey FILM_GIZMO_TRANSFORM = L10n.lang("bbs.ui.film.gizmo.transform");
@@ -797,6 +812,10 @@ public class UIKeys
     public static final IKey FORMS_EDITORS_GENERAL_ILLUSION_GLOW_UNIFORM_TOOLTIP = L10n.lang("bbs.ui.forms.editors.general.illusion_glow_uniform-tooltip");
     public static final IKey FORMS_EDITORS_GENERAL_ILLUSION_GLOW_INVERT = L10n.lang("bbs.ui.forms.editors.general.illusion_glow_invert");
     public static final IKey FORMS_EDITORS_GENERAL_ILLUSION_GLOW_INVERT_TOOLTIP = L10n.lang("bbs.ui.forms.editors.general.illusion_glow_invert-tooltip");
+    public static final IKey FORMS_EDITORS_GENERAL_ILLUSION_DISTRIBUTE_PARTICLES = L10n.lang("bbs.ui.forms.editors.general.illusion_distribute_particles");
+    public static final IKey FORMS_EDITORS_GENERAL_ILLUSION_DISTRIBUTE_PARTICLES_TOOLTIP = L10n.lang("bbs.ui.forms.editors.general.illusion_distribute_particles-tooltip");
+    public static final IKey FORMS_EDITORS_GENERAL_ILLUSION_INDEPENDENT_PARTICLES = L10n.lang("bbs.ui.forms.editors.general.illusion_independent_particles");
+    public static final IKey FORMS_EDITORS_GENERAL_ILLUSION_INDEPENDENT_PARTICLES_TOOLTIP = L10n.lang("bbs.ui.forms.editors.general.illusion_independent_particles-tooltip");
     public static final IKey FORMS_EDITORS_GENERAL_SHADER_SHADOW = L10n.lang("bbs.ui.forms.editors.general.shader_shadow");
     public static final IKey FORMS_EDITORS_GENERAL_STEP_HEIGHT = L10n.lang("bbs.ui.forms.editors.general.step_height");
     public static final IKey FORMS_EDITORS_GENERAL_TRACK_NAME_TOOLTIP = L10n.lang("bbs.ui.forms.editors.general.track_name-tooltip");
