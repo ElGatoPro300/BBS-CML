@@ -1782,16 +1782,15 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
             RenderSystem.enableCull();
         }
 
-        /* Render items — re-enable lightmap first so armor/glint and any shared Immediate
-         * flush do not draw vanilla-style layers black. */
+        /* Render items — restore vanilla entity lighting (diffuse + lightmap + overlay)
+         * like MobForm / ArmorFeatureRendererMixin so Iris pack shading matches player armor. */
         this.captureMatrices(model);
 
         if (stencilMap == null && renderEquipment)
         {
             if (!ui)
             {
-                gameRenderer.getLightmapTextureManager().enable();
-                gameRenderer.getOverlayTexture().setupOverlayColor();
+                BBSRendering.prepareVanillaEntityLighting();
                 RenderSystem.enableDepthTest();
                 RenderSystem.depthFunc(GL11.GL_LEQUAL);
             }
