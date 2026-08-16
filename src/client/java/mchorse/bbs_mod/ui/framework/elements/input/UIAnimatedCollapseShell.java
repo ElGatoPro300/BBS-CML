@@ -6,6 +6,7 @@ import mchorse.bbs_mod.ui.framework.elements.UIElement;
 import mchorse.bbs_mod.ui.framework.elements.UIScrollView;
 import mchorse.bbs_mod.ui.utils.Area;
 import mchorse.bbs_mod.ui.utils.Scroll;
+import mchorse.bbs_mod.ui.utils.ScrollDirection;
 import mchorse.bbs_mod.ui.utils.resizers.AutomaticResizer;
 import mchorse.bbs_mod.utils.MathUtils;
 import mchorse.bbs_mod.utils.interps.Interpolations;
@@ -527,7 +528,7 @@ public class UIAnimatedCollapseShell extends UIElement
 
         if (scroll != null)
         {
-            if (shrinkPx > 0)
+            if (scroll.direction == ScrollDirection.VERTICAL && shrinkPx > 0)
             {
                 /* Keep lower widgets from snapping when max-scroll shrinks. */
                 scroll.setScroll(scrollBefore - shrinkPx);
