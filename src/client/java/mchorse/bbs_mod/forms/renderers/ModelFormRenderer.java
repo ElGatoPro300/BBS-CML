@@ -1,7 +1,5 @@
 package mchorse.bbs_mod.forms.renderers;
 
-import com.mojang.blaze3d.opengl.GlStateManager;
-import net.minecraft.client.render.RenderLayers;
 import mchorse.bbs_mod.BBSModClient;
 import mchorse.bbs_mod.BBSSettings;
 import mchorse.bbs_mod.bobj.BOBJBone;
@@ -71,10 +69,13 @@ import net.minecraft.client.render.GameRenderer;
 import net.minecraft.client.render.LightmapTextureManager;
 import net.minecraft.client.render.OverlayTexture;
 import net.minecraft.client.render.RenderLayer;
+import net.minecraft.client.render.RenderLayers;
 import net.minecraft.client.render.block.entity.SkullBlockEntityModel;
 import net.minecraft.client.render.block.entity.SkullBlockEntityRenderer;
+import net.minecraft.client.render.entity.model.LoadedEntityModels;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.component.DataComponentTypes;
+import net.minecraft.component.type.EquippableComponent;
 import net.minecraft.component.type.ProfileComponent;
 import net.minecraft.entity.EquipmentSlot;
 import net.minecraft.entity.LivingEntity;
@@ -93,6 +94,7 @@ import org.joml.Matrix4f;
 import org.joml.Quaternionf;
 import org.joml.Vector3f;
 
+import com.mojang.blaze3d.opengl.GlStateManager;
 import com.mojang.blaze3d.pipeline.RenderPipeline;
 import com.mojang.blaze3d.systems.RenderSystem;
 
@@ -3166,7 +3168,7 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
         }
 
         Item item = itemStack.getItem();
-        net.minecraft.component.type.EquippableComponent equippable = itemStack.get(DataComponentTypes.EQUIPPABLE);
+        EquippableComponent equippable = itemStack.get(DataComponentTypes.EQUIPPABLE);
 
         if (equippable != null && equippable.slot() == EquipmentSlot.HEAD)
         {
@@ -3282,7 +3284,7 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
         if (skullModels == null)
         {
             skullModels = new HashMap<>();
-            net.minecraft.client.render.entity.model.LoadedEntityModels loaded = MinecraftClient.getInstance().getLoadedEntityModels();
+            LoadedEntityModels loaded = MinecraftClient.getInstance().getLoadedEntityModels();
 
             for (SkullBlock.Type type : SkullBlock.Type.values())
             {

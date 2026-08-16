@@ -39,14 +39,18 @@ import mchorse.bbs_mod.forms.renderers.TrailFormRenderer;
 import mchorse.bbs_mod.forms.renderers.VanillaParticleFormRenderer;
 import mchorse.bbs_mod.ui.framework.UIContext;
 
+import net.minecraft.block.AbstractSkullBlock;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.render.RenderLayer;
 import net.minecraft.client.render.RenderLayers;
 import net.minecraft.client.render.TexturedRenderLayers;
 import net.minecraft.client.render.VertexConsumerProvider;
+import net.minecraft.client.render.entity.TridentEntityRenderer;
 import net.minecraft.client.util.BufferAllocator;
-import net.minecraft.item.ItemStack;
+import net.minecraft.item.BlockItem;
 import net.minecraft.item.ItemDisplayContext;
+import net.minecraft.item.ItemStack;
+import net.minecraft.item.Items;
 import net.minecraft.util.Util;
 
 import java.util.Collections;
@@ -180,7 +184,7 @@ public class FormUtilsClient
             FormUtilsClient.assignBuffer(map, RenderLayers.glintTranslucent());
             FormUtilsClient.assignBuffer(map, RenderLayers.entityGlint());
             FormUtilsClient.assignBuffer(map, RenderLayers.waterMask());
-            FormUtilsClient.assignBuffer(map, RenderLayers.entitySolid(net.minecraft.client.render.entity.TridentEntityRenderer.TEXTURE));
+            FormUtilsClient.assignBuffer(map, RenderLayers.entitySolid(TridentEntityRenderer.TEXTURE));
         });
 
         return new CustomVertexConsumerProvider(
@@ -205,12 +209,12 @@ public class FormUtilsClient
             return false;
         }
 
-        return stack.isOf(net.minecraft.item.Items.TRIDENT)
-            || stack.isOf(net.minecraft.item.Items.SHIELD)
-            || stack.getItem() instanceof net.minecraft.item.BlockItem blockItem && blockItem.getBlock() instanceof net.minecraft.block.AbstractSkullBlock;
+        return stack.isOf(Items.TRIDENT)
+            || stack.isOf(Items.SHIELD)
+            || stack.getItem() instanceof BlockItem blockItem && blockItem.getBlock() instanceof AbstractSkullBlock;
     }
 
-    public static VertexConsumerProvider routeMobFormBuiltinItemConsumers(ItemStack stack, net.minecraft.item.ItemDisplayContext mode, VertexConsumerProvider fallback)
+    public static VertexConsumerProvider routeMobFormBuiltinItemConsumers(ItemStack stack, ItemDisplayContext mode, VertexConsumerProvider fallback)
     {
         if (fallback == null || !BBSRendering.isRenderingWorld() || BBSRendering.isIrisShadowPass())
         {

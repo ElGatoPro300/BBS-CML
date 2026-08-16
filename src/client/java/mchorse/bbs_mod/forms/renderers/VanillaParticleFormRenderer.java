@@ -19,6 +19,7 @@ import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.particle.BillboardParticle;
 import net.minecraft.client.particle.Particle;
 import net.minecraft.client.render.Camera;
+import net.minecraft.client.world.ClientWorld;
 import net.minecraft.command.argument.ParticleEffectArgumentType;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
@@ -458,7 +459,7 @@ public class VanillaParticleFormRenderer extends FormRenderer<VanillaParticleFor
         MinecraftClient mc = MinecraftClient.getInstance();
         Particle particleObj = (mc.world != null && mc.particleManager != null) ? mc.particleManager.addParticle(effect, x, y, z, v.x, v.y, v.z) : null;
 
-        if (particleObj instanceof net.minecraft.client.particle.BillboardParticle bbp && pR >= 0F)
+        if (particleObj instanceof BillboardParticle bbp && pR >= 0F)
         {
             bbp.setColor(pR, pG, pB);
             bbp.setAlpha(pA);
@@ -468,7 +469,7 @@ public class VanillaParticleFormRenderer extends FormRenderer<VanillaParticleFor
                 this.trackedParticles.add(new TrackedParticle(bbp, color1, color2));
             }
         }
-        else if (particleObj == null && world instanceof net.minecraft.client.world.ClientWorld clientWorld)
+        else if (particleObj == null && world instanceof ClientWorld clientWorld)
         {
             clientWorld.addImportantParticleClient(effect, x, y, z, v.x, v.y, v.z);
         }
