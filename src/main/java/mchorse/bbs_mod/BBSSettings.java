@@ -92,6 +92,7 @@ public class BBSSettings
     public static ValueBoolean disablePivotTransform;
     public static ValueBoolean gizmos;
     public static ValueBoolean gizmosWorldRendering;
+    public static ValueBoolean previewEquipment;
     public static ValueBoolean gizmoFlipAxes;
     public static ValueBoolean gizmoYAxisHorizontal;
     public static ValueBoolean gizmoTrackball;
@@ -663,6 +664,8 @@ public class BBSSettings
         gizmos = builder.getBoolean("gizmos", true);
         /* Keep form-editor gizmos / bone picking while model-block F7 world rendering is on. */
         gizmosWorldRendering = builder.getBoolean("gizmos_world_rendering", true);
+        /* Armor, held items, skulls, etc. in form / model-block preview editors. */
+        previewEquipment = builder.getBoolean("preview_equipment", true);
         axesScale = builder.getFloat("axes_scale", 1.5F, 0F, 100F);
         /* Default >1 so arrows/rings are easier to pick; floor keeps thickness off zero. */
         axesThickness = builder.getFloat("axes_thickness", 1.2F, 0.25F, 6F);
@@ -674,7 +677,8 @@ public class BBSSettings
         /* Floor in Math.max(floor, dist * 0.12). 0 disables the floor so it can keep shrinking when close. */
         gizmoConstantSizeMin = builder.getFloat("gizmo_constant_size_min", 0.5F, 0F, 10F);
         disablePivotTransform = builder.getBoolean("disable_pivot_transform", false);
-        /* When enabled, translate/scale handles flip toward the camera; when disabled, stay on +X/+Y/+Z. */
+        /* When enabled, translate/scale handles and half rotation rings reorient toward the camera;
+         * when disabled, stay on +X/+Y/+Z with fixed half-rings. */
         gizmoFlipAxes = builder.getBoolean("gizmo_flip_axes", true);
         gizmoYAxisHorizontal = builder.getBoolean("gizmo_y_axis_horizontal", true);
         gizmoTrackball = builder.getBoolean("gizmo_trackball", true);

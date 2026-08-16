@@ -173,6 +173,7 @@ public class ModelBlockEntityRenderer implements BlockEntityRenderer<ModelBlockE
             Camera camera = mc.gameRenderer.getCamera();
 
             RenderSystem.enableDepthTest();
+            BBSRendering.setupMatchingWorldDiffuseLighting();
 
             FormRenderingContext formContext = new FormRenderingContext()
                 .set(FormRenderType.MODEL_BLOCK, entity.getEntity(), matrices, lightAbove, overlay, tickDelta)
