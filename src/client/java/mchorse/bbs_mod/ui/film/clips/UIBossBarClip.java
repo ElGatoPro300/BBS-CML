@@ -361,6 +361,12 @@ public class UIBossBarClip extends UIClip<BossBarClip>
     }
 
     @Override
+    protected UIKeyframeEditor resolveClipEmbeddableView(String undoId)
+    {
+        return undoId.equals(this.keyframes.getUndoId()) ? this.keyframes : null;
+    }
+
+    @Override
     public void applyUndoData(MapType data)
     {
         super.applyUndoData(data);
