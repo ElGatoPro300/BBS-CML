@@ -6,6 +6,7 @@ import mchorse.bbs_mod.client.BBSShaders;
 import mchorse.bbs_mod.forms.ITickable;
 import mchorse.bbs_mod.forms.entities.IEntity;
 import mchorse.bbs_mod.forms.forms.ParticleForm;
+import mchorse.bbs_mod.forms.forms.utils.Illusion;
 import mchorse.bbs_mod.particles.ParticleScheme;
 import mchorse.bbs_mod.particles.emitter.ParticleEmitter;
 import mchorse.bbs_mod.resources.Link;
@@ -38,7 +39,7 @@ import java.util.function.Supplier;
 
 /**
  * Renders / ticks {@link ParticleForm}. With illusion
- * {@link mchorse.bbs_mod.forms.forms.utils.Illusion#independentParticles}, each focus keeps its
+ * {@link Illusion#independentParticles}, each focus keeps its
  * own emitter so streams stay in sync (scheme, pause, texture, user vars, film delay lag).
  */
 public class ParticleFormRenderer extends FormRenderer<ParticleForm> implements ITickable

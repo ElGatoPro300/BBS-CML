@@ -4,11 +4,7 @@ import mchorse.bbs_mod.client.BBSRendering;
 import mchorse.bbs_mod.forms.entities.IEntity;
 import mchorse.bbs_mod.forms.entities.MCEntity;
 
-import net.irisshaders.iris.helpers.EntityState;
-import net.irisshaders.iris.shaderpack.materialmap.NamespacedId;
-import net.irisshaders.iris.shaderpack.materialmap.WorldRenderingSettings;
-import net.irisshaders.iris.uniforms.CapturedRenderingState;
-
+import net.minecraft.block.BlockState;
 import net.minecraft.client.render.VertexConsumerProvider;
 import net.minecraft.entity.Entity;
 import net.minecraft.item.BlockItem;
@@ -17,7 +13,11 @@ import net.minecraft.item.ItemStack;
 import net.minecraft.item.trim.ArmorTrim;
 import net.minecraft.registry.Registries;
 import net.minecraft.util.Identifier;
-import net.minecraft.block.BlockState;
+
+import net.irisshaders.iris.helpers.EntityState;
+import net.irisshaders.iris.shaderpack.materialmap.NamespacedId;
+import net.irisshaders.iris.shaderpack.materialmap.WorldRenderingSettings;
+import net.irisshaders.iris.uniforms.CapturedRenderingState;
 
 import it.unimi.dsi.fastutil.objects.Object2IntFunction;
 import it.unimi.dsi.fastutil.objects.Object2IntMap;

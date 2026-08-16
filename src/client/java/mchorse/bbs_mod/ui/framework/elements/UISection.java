@@ -1,15 +1,15 @@
 package mchorse.bbs_mod.ui.framework.elements;
 
+import mchorse.bbs_mod.BBSSettings;
 import mchorse.bbs_mod.l10n.keys.IKey;
 import mchorse.bbs_mod.ui.framework.UIContext;
+import mchorse.bbs_mod.ui.framework.elements.input.UIAnimatedCollapseShell;
 import mchorse.bbs_mod.ui.framework.elements.utils.FontRenderer;
 import mchorse.bbs_mod.ui.framework.elements.utils.UILabel;
 import mchorse.bbs_mod.ui.utils.Area;
 import mchorse.bbs_mod.ui.utils.UIConstants;
 import mchorse.bbs_mod.ui.utils.icons.Icon;
 import mchorse.bbs_mod.ui.utils.icons.Icons;
-import mchorse.bbs_mod.BBSSettings;
-import mchorse.bbs_mod.ui.framework.elements.input.UIAnimatedCollapseShell;
 import mchorse.bbs_mod.utils.colors.Colors;
 
 /**
