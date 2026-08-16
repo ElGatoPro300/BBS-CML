@@ -140,31 +140,21 @@ public class SoundManager implements IWatchDogListener
 
     public SoundBuffer get(Link link, boolean includeWaveform)
     {
-        if (link == null)
-        {
-            return null;
-        }
-
         if (!this.buffers.containsKey(link))
         {
             return this.load(link, includeWaveform);
         }
 
-        SoundBuffer buffer = this.buffers.get(link);
+        SoundBuffer player = this.buffers.get(link);
 
-        if (buffer != null && includeWaveform && buffer.getWaveform() == null)
+        if (player != null && includeWaveform && player.getWaveform() == null)
         {
-            /* Drop unique/live players before freeing the AL buffer — otherwise
-             * playUnique() can return a SoundPlayer whose buffer was deleted
-             * (common when opening cross-world films then pasting/playing audio). */
-            this.stop(link);
-            buffer.delete();
-            this.buffers.remove(link);
+            player.delete();
 
             return this.load(link, true);
         }
 
-        return buffer;
+        return player;
     }
 
     public SoundPlayer play(Link link)
@@ -186,35 +176,9 @@ public class SoundManager implements IWatchDogListener
 
     public SoundPlayer playUnique(Link link)
     {
-        if (link == null)
+        for (SoundPlayer player : this.sounds)
         {
-            return null;
-        }
-
-        Iterator<SoundPlayer> it = this.sounds.iterator();
-
-        while (it.hasNext())
-        {
-            SoundPlayer player = it.next();
-
-            if (!player.isUnique())
-            {
-                continue;
-            }
-
-            SoundBuffer buffer = player.getBuffer();
-
-            /* Stale unique players after buffer reload / deleteSounds races. */
-            if (buffer == null || !buffer.isValid())
-            {
-                player.stop();
-                player.delete();
-                it.remove();
-
-                continue;
-            }
-
-            if (link.equals(buffer.getId()))
+            if (player.isUnique() && player.getBuffer().getId().equals(link))
             {
                 return player;
             }
@@ -238,28 +202,17 @@ public class SoundManager implements IWatchDogListener
 
     public void stop(Link link)
     {
-        if (link == null)
-        {
-            return;
-        }
-
         Iterator<SoundPlayer> it = this.sounds.iterator();
 
         while (it.hasNext())
         {
             SoundPlayer player = it.next();
-            SoundBuffer buffer = player.getBuffer();
 
-            if (buffer != null && link.equals(buffer.getId()))
+            if (player.getBuffer().getId().equals(link))
             {
                 player.stop();
                 player.delete();
 
-                it.remove();
-            }
-            else if (buffer == null)
-            {
-                player.delete();
                 it.remove();
             }
         }
@@ -314,11 +267,11 @@ public class SoundManager implements IWatchDogListener
         {
             Iterator<SoundPlayer> it = this.sounds.iterator();
 
-            while (it.hasNext())
+            if (it.hasNext())
             {
                 SoundPlayer player = it.next();
 
-                if (player.getBuffer() == buffer || player.getBuffer() == null)
+                if (player.getBuffer() == buffer)
                 {
                     it.remove();
                     player.delete();

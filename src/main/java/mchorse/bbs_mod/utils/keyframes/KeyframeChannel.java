@@ -1,21 +1,16 @@
 package mchorse.bbs_mod.utils.keyframes;
 
-import mchorse.bbs_mod.BBSSettings;
 import mchorse.bbs_mod.data.types.BaseType;
-import mchorse.bbs_mod.data.types.ListType;
 import mchorse.bbs_mod.data.types.MapType;
 import mchorse.bbs_mod.settings.values.base.BaseValue;
 import mchorse.bbs_mod.settings.values.core.ValueList;
 import mchorse.bbs_mod.utils.CollectionUtils;
-import mchorse.bbs_mod.utils.interps.IInterp;
 import mchorse.bbs_mod.utils.interps.Interpolations;
-import mchorse.bbs_mod.utils.keyframes.KeyframeShape;
 import mchorse.bbs_mod.utils.keyframes.factories.IKeyframeFactory;
 import mchorse.bbs_mod.utils.keyframes.factories.KeyframeFactories;
 
 import java.util.Collections;
 import java.util.List;
-import java.util.Map;
 
 /**
  * Keyframe channel
@@ -27,9 +22,6 @@ public class KeyframeChannel <T> extends ValueList<Keyframe<T>>
 {
     private IKeyframeFactory<T> factory;
 
-    /* When true, newly created keyframes use the "default model interpolation" setting instead of the "default world interpolation" one */
-    private boolean model;
-
     public KeyframeChannel(String id, IKeyframeFactory<T> factory)
     {
         super(id);
@@ -40,68 +32,6 @@ public class KeyframeChannel <T> extends ValueList<Keyframe<T>>
     public IKeyframeFactory<T> getFactory()
     {
         return this.factory;
-    }
-
-    public void setFactory(IKeyframeFactory<T> factory)
-    {
-        this.factory = factory;
-    }
-
-    public boolean isModel()
-    {
-        return this.model;
-    }
-
-    public KeyframeChannel<T> setModel(boolean model)
-    {
-        this.model = model;
-
-        return this;
-    }
-
-    private void applyDefaultShape(Keyframe<T> kf)
-    {
-        if (BBSSettings.defaultKeyframeShape == null)
-        {
-            return;
-        }
-
-        int idx = BBSSettings.defaultKeyframeShape.get();
-        KeyframeShape[] shapes = KeyframeShape.values();
-
-        if (idx >= 0 && idx < shapes.length)
-        {
-            kf.setShape(shapes[idx]);
-        }
-    }
-
-    private void applyDefaultInterpolation(Keyframe<T> kf)
-    {
-        if (this.factory == KeyframeFactories.BOOLEAN)
-        {
-            kf.getInterpolation().setInterp(Interpolations.CONST);
-
-            return;
-        }
-
-        if ((this.model ? BBSSettings.defaultModelInterpolation : BBSSettings.defaultInterpolation) == null)
-        {
-            return;
-        }
-
-        int idx = (this.model ? BBSSettings.defaultModelInterpolation : BBSSettings.defaultInterpolation).get();
-        int i = 0;
-
-        for (Map.Entry<String, IInterp> e : Interpolations.MAP.entrySet())
-        {
-            if (i == idx)
-            {
-                kf.getInterpolation().setInterp(e.getValue());
-                break;
-            }
-
-            i++;
-        }
     }
 
     /* Read only */
@@ -253,26 +183,6 @@ public class KeyframeChannel <T> extends ValueList<Keyframe<T>>
         this.postNotify();
     }
 
-    public boolean removeSilently(Keyframe<T> keyframe)
-    {
-        if (keyframe == null)
-        {
-            return false;
-        }
-
-        int index = this.list.indexOf(keyframe);
-
-        if (index < 0)
-        {
-            return false;
-        }
-
-        this.list.remove(index);
-        this.sync();
-
-        return true;
-    }
-
     public void insertSpace(int where, int ticks)
     {
         KeyframeSegment<T> segment = this.findSegment(where);
@@ -330,11 +240,7 @@ public class KeyframeChannel <T> extends ValueList<Keyframe<T>>
 
             if (tick < prev.getTick())
             {
-                Keyframe<T> kf = new Keyframe<>("", this.factory, tick, value);
-                this.applyDefaultInterpolation(kf);
-                this.applyDefaultShape(kf);
-
-                this.add(0, kf);
+                this.add(0, new Keyframe<>("", this.factory, tick, value));
                 this.sort();
 
                 this.postNotify();
@@ -365,95 +271,9 @@ public class KeyframeChannel <T> extends ValueList<Keyframe<T>>
             prev = frame;
         }
 
-        Keyframe<T> kf = new Keyframe<T>("", this.factory, tick, value);
-
-        this.applyDefaultInterpolation(kf);
-        this.applyDefaultShape(kf);
-
-        this.add(index, kf);
+        this.add(index, new Keyframe<T>("", this.factory, tick, value));
         this.sort();
         this.postNotify();
-
-        return index;
-    }
-
-    /**
-     * Insert a keyframe only when {@code value} differs from the keyframe at or
-     * before {@code tick}. When the value changes after a gap longer than one tick,
-     * also inserts a hold keyframe at {@code tick - 1} so linear interpolation matches
-     * what {@link #simplify()} would keep after per-tick recording.
-     *
-     * @return index of the inserted/updated keyframe, or {@code -1} if skipped
-     */
-    public int insertIfChanged(float tick, T value)
-    {
-        Keyframe<T> previous = null;
-
-        for (Keyframe<T> frame : this.list)
-        {
-            if (frame.getTick() > tick)
-            {
-                break;
-            }
-
-            previous = frame;
-        }
-
-        if (previous == null)
-        {
-            return this.insert(tick, value);
-        }
-
-        if (this.factory.compare(previous.getValue(), value))
-        {
-            if (previous.getTick() == tick)
-            {
-                return this.insert(tick, value);
-            }
-
-            return -1;
-        }
-
-        if (tick > previous.getTick() + 1F)
-        {
-            this.insert(tick - 1F, this.factory.copy(previous.getValue()));
-        }
-
-        return this.insert(tick, value);
-    }
-
-    /**
-     * Insert a keyframe at {@code tick} with the channel value interpolated at
-     * that tick (not the current runtime / entity state).
-     */
-    public int insertInterpolated(float tick)
-    {
-        KeyframeSegment<T> segment = this.find(tick);
-        T value;
-
-        if (segment != null)
-        {
-            value = this.factory.copy(segment.createInterpolated());
-        }
-        else
-        {
-            T interpolated = this.interpolate(tick);
-
-            value = interpolated != null ? this.factory.copy(interpolated) : this.factory.createEmpty();
-        }
-
-        int index = this.insert(tick, value);
-
-        if (segment != null)
-        {
-            Keyframe<T> keyframe = this.get(index);
-
-            if (keyframe != null)
-            {
-                keyframe.getInterpolation().copy(segment.a.getInterpolation());
-                keyframe.copyOverExtra(segment.a);
-            }
-        }
 
         return index;
     }
@@ -514,12 +334,7 @@ public class KeyframeChannel <T> extends ValueList<Keyframe<T>>
     @Override
     protected Keyframe<T> create(String id)
     {
-        Keyframe<T> kf = new Keyframe<>(id, this.factory);
-
-        this.applyDefaultInterpolation(kf);
-        this.applyDefaultShape(kf);
-
-        return kf;
+        return new Keyframe<>(id, this.factory);
     }
 
     @Override
@@ -542,65 +357,13 @@ public class KeyframeChannel <T> extends ValueList<Keyframe<T>>
         }
 
         MapType map = data.asMap();
-        IKeyframeFactory<T> constructed = this.factory;
-        IKeyframeFactory fromFile = KeyframeFactories.FACTORIES.get(map.getString("type"));
+        IKeyframeFactory<T> factory = KeyframeFactories.FACTORIES.get(map.getString("type"));
 
-        /* Keep the constructor factory if the saved type is missing/unknown. */
-        if (fromFile != null)
-        {
-            this.factory = fromFile;
-        }
+        this.factory = factory;
 
         super.fromData(map.getList("keyframes"));
 
-        /* Channels constructed as DOUBLE must stay DOUBLE. Older films may have
-         * saved the same id as integer/float; keeping that factory causes
-         * ClassCastException when UI reads interpolated values as Double. */
-        if (constructed == KeyframeFactories.DOUBLE && this.factory != KeyframeFactories.DOUBLE
-            && (this.factory == KeyframeFactories.INTEGER || this.factory == KeyframeFactories.FLOAT))
-        {
-            this.promoteNumericKeyframesToDouble();
-        }
-
         this.sort();
-    }
-
-    @SuppressWarnings({"rawtypes", "unchecked"})
-    private void promoteNumericKeyframesToDouble()
-    {
-        ListType keyframesData = new ListType();
-
-        for (Object object : this.list)
-        {
-            Keyframe keyframe = (Keyframe) object;
-            BaseType raw = keyframe.toData();
-
-            if (raw == null || !raw.isMap())
-            {
-                continue;
-            }
-
-            MapType data = raw.asMap();
-            Object value = keyframe.getValue();
-            double number = value instanceof Number ? ((Number) value).doubleValue() : 0D;
-
-            data.putDouble("value", number);
-            keyframesData.add(data);
-        }
-
-        this.factory = (IKeyframeFactory<T>) KeyframeFactories.DOUBLE;
-        this.list.clear();
-
-        for (int i = 0; i < keyframesData.size(); i++)
-        {
-            Keyframe<T> keyframe = this.create(String.valueOf(i));
-
-            this.list.add(keyframe);
-            keyframe.setParent(this);
-            keyframe.fromData(keyframesData.get(i));
-        }
-
-        this.sync();
     }
 
     public void copyKeyframes(KeyframeChannel<T> channel)
@@ -612,7 +375,7 @@ public class KeyframeChannel <T> extends ValueList<Keyframe<T>>
             Keyframe<T> value = new Keyframe<>(keyframe.getId(), keyframe.getFactory());
 
             value.copy(keyframe);
-            this.list.add(value);
+            this.add(value);
         }
 
         this.sort();

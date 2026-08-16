@@ -7,14 +7,14 @@ import mchorse.bbs_mod.particles.ParticleCurve;
 import mchorse.bbs_mod.particles.ParticleCurveType;
 import mchorse.bbs_mod.ui.UIKeys;
 import mchorse.bbs_mod.ui.framework.elements.UIElement;
+import mchorse.bbs_mod.ui.framework.elements.buttons.UIButton;
+import mchorse.bbs_mod.ui.framework.elements.buttons.UICirculate;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIIcon;
-import mchorse.bbs_mod.ui.framework.elements.buttons.UIIcons;
 import mchorse.bbs_mod.ui.framework.elements.overlay.UIOverlay;
 import mchorse.bbs_mod.ui.framework.elements.overlay.UIPromptOverlayPanel;
 import mchorse.bbs_mod.ui.framework.elements.utils.UILabel;
 import mchorse.bbs_mod.ui.particles.sections.UIParticleSchemeSection;
 import mchorse.bbs_mod.ui.utils.UI;
-import mchorse.bbs_mod.ui.utils.icons.Icon;
 import mchorse.bbs_mod.ui.utils.icons.Icons;
 
 import java.util.Map;
@@ -26,10 +26,10 @@ public class UICurveEditor extends UIElement
     public UILabel name;
     public UIIcon rename;
     public UIIcon delete;
-    public UIIcons type;
+    public UICirculate type;
     public UICurve curve;
-    public UIMolangExpression input;
-    public UIMolangExpression range;
+    public UIButton input;
+    public UIButton range;
 
     private ParticleCurve particleCurve;
 
@@ -42,30 +42,23 @@ public class UICurveEditor extends UIElement
         this.rename.tooltip(UIKeys.SNOWSTORM_CURVES_RENAME);
         this.delete = new UIIcon(Icons.REMOVE, this::remove);
         this.delete.tooltip(UIKeys.SNOWSTORM_CURVES_REMOVE);
-        this.type = new UIIcons((b) -> this.changeType(b.getValue()));
+        this.type = new UICirculate((b) -> this.changeType(b.getValue()));
 
         for (ParticleCurveType type : ParticleCurveType.values())
         {
-            this.type.add(curveTypeIcon(type), UIKeys.C_CURVE_TYPE.get(type.id));
+            this.type.addLabel(UIKeys.C_CURVE_TYPE.get(type.id));
         }
 
         this.curve = new UICurve(section);
-        this.input = new UIMolangExpression(() -> this.particleCurve == null ? null : this.particleCurve.input, (b) -> this.section.editMoLang("curve." + this.particleCurve.variable.getName() + ".input", (str) -> this.particleCurve.input = this.section.parse(str, this.particleCurve.input), this.particleCurve.input));
-        this.input.icon(Icons.IN).tooltip(UIKeys.SNOWSTORM_CURVES_INPUT);
-        this.range = new UIMolangExpression(() -> this.particleCurve == null ? null : this.particleCurve.range, (b) -> this.section.editMoLang("curve." + this.particleCurve.variable.getName() + ".range", (str) -> this.particleCurve.range = this.section.parse(str, this.particleCurve.range), this.particleCurve.range));
-        this.range.icon(Icons.OUT).tooltip(UIKeys.SNOWSTORM_CURVES_RANGE);
+        this.input = new UIButton(UIKeys.SNOWSTORM_CURVES_INPUT, (b) -> this.section.editMoLang("curve." + this.particleCurve.variable.getName() + ".input", (str) -> this.particleCurve.input = this.section.parse(str, this.particleCurve.input), this.particleCurve.input));
+        this.range = new UIButton(UIKeys.SNOWSTORM_CURVES_RANGE, (b) -> this.section.editMoLang("curve." + this.particleCurve.variable.getName() + ".range", (str) -> this.particleCurve.range = this.section.parse(str, this.particleCurve.range), this.particleCurve.range));
 
         this.curve.h(100);
 
         this.column().vertical().stretch();
         this.add(UI.row(0, this.name, this.rename, this.delete));
         this.add(UI.row(UI.label(UIKeys.SNOWSTORM_CURVES_TYPE, 20).labelAnchor(0, 0.5F), this.type));
-        this.add(this.curve, this.input, this.range);
-    }
-
-    private static Icon curveTypeIcon(ParticleCurveType type)
-    {
-        return type == ParticleCurveType.HERMITE ? Icons.CURVES : Icons.INTERP_LINEAR;
+        this.add(this.curve, UI.row(this.input, this.range));
     }
 
     private void rename(UIIcon b)

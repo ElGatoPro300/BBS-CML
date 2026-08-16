@@ -16,9 +16,6 @@ import java.io.OutputStreamWriter;
 import java.nio.Buffer;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.AtomicMoveNotSupportedException;
-import java.nio.file.Files;
-import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Scanner;
@@ -52,61 +49,20 @@ public class IOUtils
      */
     public static String readText(InputStream in)
     {
-        try (Scanner scanner = new Scanner(new InputStreamReader(in, StandardCharsets.UTF_8)))
-        {
-            scanner.useDelimiter("\\A");
+        Scanner scanner = new Scanner(new InputStreamReader(in, StandardCharsets.UTF_8));
+        String result = scanner.useDelimiter("\\A").next();
 
-            /* Empty/corrupt config files must not crash startup via next(). */
-            return scanner.hasNext() ? scanner.next() : "";
-        }
+        scanner.close();
+
+        return result;
     }
 
     public static void writeText(File file, String string) throws IOException
     {
-        if (file == null)
-        {
-            return;
-        }
+        BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(file), StandardCharsets.UTF_8));
 
-        File parent = file.getParentFile();
-
-        if (parent != null && !parent.isDirectory())
-        {
-            parent.mkdirs();
-        }
-
-        /* Write to a temp file first. Opening the real path with FileOutputStream
-         * truncates immediately — a crash mid-write left bbs.json at 0 bytes and
-         * the next launch overwrote user settings with defaults. */
-        File temp = new File(file.getAbsolutePath() + ".tmp");
-
-        try (BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(temp), StandardCharsets.UTF_8)))
-        {
-            writer.write(string);
-        }
-
-        if (file.isFile() && file.length() > 0)
-        {
-            File backup = new File(file.getAbsolutePath() + ".bak");
-
-            try
-            {
-                Files.copy(file.toPath(), backup.toPath(), StandardCopyOption.REPLACE_EXISTING);
-            }
-            catch (IOException e)
-            {
-                e.printStackTrace();
-            }
-        }
-
-        try
-        {
-            Files.move(temp.toPath(), file.toPath(), StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
-        }
-        catch (AtomicMoveNotSupportedException e)
-        {
-            Files.move(temp.toPath(), file.toPath(), StandardCopyOption.REPLACE_EXISTING);
-        }
+        writer.write(string);
+        writer.close();
     }
 
     /**
@@ -172,44 +128,6 @@ public class IOUtils
         buffer.flush();
 
         return buffer.toByteArray();
-    }
-
-    public static void copyFolder(File source, File destination) throws IOException
-    {
-        if (source.isDirectory())
-        {
-            if (!destination.exists())
-            {
-                destination.mkdirs();
-            }
-
-            String[] files = source.list();
-
-            if (files != null)
-            {
-                for (String file : files)
-                {
-                    File sourceFile = new File(source, file);
-                    File destinationFile = new File(destination, file);
-
-                    copyFolder(sourceFile, destinationFile);
-                }
-            }
-        }
-        else
-        {
-            try (FileInputStream in = new FileInputStream(source);
-                 FileOutputStream out = new FileOutputStream(destination))
-            {
-                byte[] buffer = new byte[1024];
-                int length;
-
-                while ((length = in.read(buffer)) > 0)
-                {
-                    out.write(buffer, 0, length);
-                }
-            }
-        }
     }
 
     public static void deleteFolder(File folder)

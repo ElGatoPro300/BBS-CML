@@ -92,7 +92,7 @@ public class AnimationPart implements IMapSerializable
         }
         catch (Exception e)
         {
-            System.err.println("Failed to parse Molang expression: '" + ((StringType) element).value + "' (" + e.getMessage() + ")");
+            e.printStackTrace();
         }
 
         return defaultValue;

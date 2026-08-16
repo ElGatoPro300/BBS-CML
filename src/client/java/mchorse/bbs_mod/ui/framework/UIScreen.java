@@ -2,24 +2,19 @@ package mchorse.bbs_mod.ui.framework;
 
 import mchorse.bbs_mod.BBSModClient;
 import mchorse.bbs_mod.client.BBSRendering;
-import mchorse.bbs_mod.discord.DiscordPresenceManager;
 import mchorse.bbs_mod.importers.IImportPathProvider;
 import mchorse.bbs_mod.importers.ImporterContext;
 import mchorse.bbs_mod.importers.Importers;
 import mchorse.bbs_mod.importers.types.IImporter;
 import mchorse.bbs_mod.ui.UIKeys;
-import mchorse.bbs_mod.ui.framework.elements.overlay.UIOverlay;
 import mchorse.bbs_mod.ui.utils.IFileDropListener;
 import mchorse.bbs_mod.ui.utils.UIUtils;
 import mchorse.bbs_mod.utils.FFMpegUtils;
-
 import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
-
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.text.Text;
-
 import org.lwjgl.glfw.GLFW;
 
 import java.io.File;
@@ -99,59 +94,35 @@ public class UIScreen extends Screen implements IFileDropListener
     @Override
     public void removed()
     {
-        this.restoreGuiScale();
+        MinecraftClient.getInstance().options.getGuiScale().setValue(this.lastGuiScale);
+        MinecraftClient.getInstance().onResolutionChanged();
 
         super.removed();
 
-        /* Force overlay teardown so deferred close animations cannot skip onClose
-         * (e.g. RecordingPauseHelper.pop) when setScreen(null) replaces this UI. */
-        if (this.menu != null && this.menu.overlay != null)
-        {
-            for (UIOverlay overlay : this.menu.overlay.getChildren(UIOverlay.class))
-            {
-                overlay.forceClose();
-            }
-        }
-
         this.menu.onClose(null);
-        DiscordPresenceManager.INSTANCE.onBbsUiClosed();
 
-        MinecraftClient.getInstance().options.hudHidden = false;
+        if (this.menu.canHideHUD())
+        {
+            MinecraftClient.getInstance().options.hudHidden = false;
+        }
     }
 
     @Override
     public void onDisplayed()
     {
-        MinecraftClient client = MinecraftClient.getInstance();
+        this.lastGuiScale = MinecraftClient.getInstance().options.getGuiScale().getValue();
 
-        this.lastGuiScale = client.options.getGuiScale().getValue();
-        this.applyGuiScale(BBSModClient.getGUIScale());
+        MinecraftClient.getInstance().options.getGuiScale().setValue(BBSModClient.getGUIScale());
+        MinecraftClient.getInstance().onResolutionChanged();
 
         super.onDisplayed();
 
         this.menu.onOpen(null);
-        DiscordPresenceManager.INSTANCE.onBbsUiOpened(this.menu);
 
-        client.options.hudHidden = this.menu.canHideHUD();
-    }
-
-    private void applyGuiScale(int scale)
-    {
-        MinecraftClient client = MinecraftClient.getInstance();
-        int current = client.options.getGuiScale().getValue();
-
-        if (current == scale)
+        if (this.menu.canHideHUD())
         {
-            return;
+            MinecraftClient.getInstance().options.hudHidden = true;
         }
-
-        client.options.getGuiScale().setValue(scale);
-        client.onResolutionChanged();
-    }
-
-    private void restoreGuiScale()
-    {
-        this.applyGuiScale(this.lastGuiScale);
     }
 
     @Override
@@ -226,7 +197,6 @@ public class UIScreen extends Screen implements IFileDropListener
         this.menu.context.setTransition(this.client.getTickDelta());
         this.menu.renderMenu(this.context, mouseX, mouseY);
         this.menu.context.render.executeRunnables();
-        this.client.options.hudHidden = this.menu.canHideHUD();
     }
 
     @Override

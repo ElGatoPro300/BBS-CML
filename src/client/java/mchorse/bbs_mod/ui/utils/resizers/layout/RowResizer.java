@@ -52,7 +52,7 @@ public class RowResizer extends AutomaticResizer
 
     public RowResizer preferred(int index)
     {
-        this.preferred = index;
+        this.preferred = i;
 
         return this;
     }
@@ -88,13 +88,6 @@ public class RowResizer extends AutomaticResizer
 
         for (ChildResizer resizer : resizers)
         {
-            /* Skip invisible children — they take no space */
-            if (!resizer.element.isVisible())
-            {
-                this.count--;
-                continue;
-            }
-
             int w = Math.max(resizer.resizer == null ? 0 : resizer.resizer.getW(), 0);
 
             if (w > 0)
@@ -108,12 +101,6 @@ public class RowResizer extends AutomaticResizer
     @Override
     public void apply(Area area, IResizer resizer, ChildResizer child)
     {
-        /* Invisible children take no space — leave their area unchanged */
-        if (!child.element.isVisible())
-        {
-            return;
-        }
-
         List<ChildResizer> resizers = this.getResizers();
         int c = resizers.size();
         int original = this.parent.area.w - this.padding * 2 - this.margin * (c - 1);
@@ -168,18 +155,10 @@ public class RowResizer extends AutomaticResizer
         if (this.resize)
         {
             List<ChildResizer> resizers = this.getResizers();
-            /* Count only visible children for width calculation */
-            long visibleCount = resizers.stream().filter((r) -> r.element.isVisible()).count();
-            int w = visibleCount == 0 ? 0 : -this.margin;
+            int w = resizers.isEmpty() ? 0 : -this.margin;
 
             for (ChildResizer resizer : resizers)
             {
-                /* Invisible children do not contribute width */
-                if (!resizer.element.isVisible())
-                {
-                    continue;
-                }
-
                 int cw = resizer.resizer == null ? 0 : resizer.resizer.getW();
 
                 if (cw == 0 && this.width > 0)

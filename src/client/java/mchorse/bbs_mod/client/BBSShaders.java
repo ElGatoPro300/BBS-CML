@@ -1,7 +1,6 @@
 package mchorse.bbs_mod.client;
 
 import mchorse.bbs_mod.BBSMod;
-
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gl.ShaderProgram;
 import net.minecraft.client.render.VertexFormats;
@@ -11,14 +10,10 @@ import net.minecraft.resource.ResourceManager;
 import net.minecraft.util.Identifier;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Optional;
 
 public class BBSShaders
 {
-    public static final List<Runnable> LOADERS = new ArrayList<>();
-
     private static ShaderProgram model;
     private static ShaderProgram multiLink;
     private static ShaderProgram subtitles;
@@ -28,10 +23,6 @@ public class BBSShaders
     private static ShaderProgram pickerBillboardNoShading;
     private static ShaderProgram pickerParticles;
     private static ShaderProgram pickerModels;
-    private static ShaderProgram blockPaintOverlay;
-    private static ShaderProgram flatPaintOverlay;
-    private static ShaderProgram blockColorTintOverlay;
-    private static ShaderProgram flatColorTintOverlay;
 
     static
     {
@@ -40,77 +31,15 @@ public class BBSShaders
 
     public static void setup()
     {
-        if (model != null)
-        {
-            model.close();
-            model = null;
-        }
+        if (model != null) model.close();
+        if (subtitles != null) subtitles.close();
+        if (subtitles != null) subtitles.close();
 
-        if (multiLink != null)
-        {
-            multiLink.close();
-            multiLink = null;
-        }
-
-        if (subtitles != null)
-        {
-            subtitles.close();
-            subtitles = null;
-        }
-
-        if (pickerPreview != null)
-        {
-            pickerPreview.close();
-            pickerPreview = null;
-        }
-
-        if (pickerBillboard != null)
-        {
-            pickerBillboard.close();
-            pickerBillboard = null;
-        }
-
-        if (pickerBillboardNoShading != null)
-        {
-            pickerBillboardNoShading.close();
-            pickerBillboardNoShading = null;
-        }
-
-        if (pickerParticles != null)
-        {
-            pickerParticles.close();
-            pickerParticles = null;
-        }
-
-        if (pickerModels != null)
-        {
-            pickerModels.close();
-            pickerModels = null;
-        }
-
-        if (blockPaintOverlay != null)
-        {
-            blockPaintOverlay.close();
-            blockPaintOverlay = null;
-        }
-
-        if (flatPaintOverlay != null)
-        {
-            flatPaintOverlay.close();
-            flatPaintOverlay = null;
-        }
-
-        if (blockColorTintOverlay != null)
-        {
-            blockColorTintOverlay.close();
-            blockColorTintOverlay = null;
-        }
-
-        if (flatColorTintOverlay != null)
-        {
-            flatColorTintOverlay.close();
-            flatColorTintOverlay = null;
-        }
+        if (pickerPreview != null) pickerPreview.close();
+        if (pickerBillboard != null) pickerBillboard.close();
+        if (pickerBillboardNoShading != null) pickerBillboardNoShading.close();
+        if (pickerParticles != null) pickerParticles.close();
+        if (pickerModels != null) pickerModels.close();
 
         try
         {
@@ -125,15 +54,6 @@ public class BBSShaders
             pickerBillboardNoShading = new ShaderProgram(factory, "picker_billboard_no_shading", VertexFormats.POSITION_TEXTURE_LIGHT_COLOR);
             pickerParticles = new ShaderProgram(factory, "picker_particles", VertexFormats.POSITION_COLOR_TEXTURE_LIGHT);
             pickerModels = new ShaderProgram(factory, "picker_models", VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL);
-            blockPaintOverlay = new ShaderProgram(factory, "block_paint_overlay", VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL);
-            flatPaintOverlay = new ShaderProgram(factory, "flat_paint_overlay", VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL);
-            blockColorTintOverlay = new ShaderProgram(factory, "block_color_tint_overlay", VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL);
-            flatColorTintOverlay = new ShaderProgram(factory, "flat_color_tint_overlay", VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL);
-        
-            for (Runnable runnable : LOADERS)
-            {
-                runnable.run();
-            }
         }
         catch (IOException e)
         {
@@ -143,11 +63,6 @@ public class BBSShaders
 
     public static ShaderProgram getModel()
     {
-        if (model == null)
-        {
-            setup();
-        }
-
         return model;
     }
 
@@ -184,26 +99,6 @@ public class BBSShaders
     public static ShaderProgram getPickerModelsProgram()
     {
         return pickerModels;
-    }
-
-    public static ShaderProgram getBlockPaintOverlayProgram()
-    {
-        return blockPaintOverlay;
-    }
-
-    public static ShaderProgram getFlatPaintOverlayProgram()
-    {
-        return flatPaintOverlay;
-    }
-
-    public static ShaderProgram getBlockColorTintOverlayProgram()
-    {
-        return blockColorTintOverlay;
-    }
-
-    public static ShaderProgram getFlatColorTintOverlayProgram()
-    {
-        return flatColorTintOverlay;
     }
 
     private static class ProxyResourceFactory implements ResourceFactory

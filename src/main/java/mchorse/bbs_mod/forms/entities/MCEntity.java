@@ -1,10 +1,8 @@
 package mchorse.bbs_mod.forms.entities;
 
-import mchorse.bbs_mod.entity.IEntityFormProvider;
 import mchorse.bbs_mod.forms.forms.Form;
 import mchorse.bbs_mod.morphing.Morph;
 import mchorse.bbs_mod.utils.AABB;
-
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityPose;
 import net.minecraft.entity.EquipmentSlot;
@@ -13,7 +11,6 @@ import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.item.ItemStack;
 import net.minecraft.util.Hand;
-import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.Vec3d;
 import net.minecraft.world.World;
 
@@ -26,12 +23,6 @@ public class MCEntity implements IEntity
 
     private float[] extraVariables = new float[10];
     private float[] prevExtraVariables = new float[10];
-    private boolean particlesEnabled = true;
-    private IEntity mountTarget;
-    private IEntity riderTarget;
-    private boolean sitting;
-    private float fallFlyingTicks;
-    private float prevFallFlyingTicks;
 
     public MCEntity(Entity mcEntity)
     {
@@ -56,11 +47,6 @@ public class MCEntity implements IEntity
     @Override
     public Form getForm()
     {
-        if (this.mcEntity instanceof IEntityFormProvider provider)
-        {
-            return provider.getForm();
-        }
-
         Morph morph = Morph.getMorph(this.mcEntity);
 
         return morph == null ? null : morph.getForm();
@@ -69,13 +55,6 @@ public class MCEntity implements IEntity
     @Override
     public void setForm(Form form)
     {
-        if (this.mcEntity instanceof IEntityFormProvider provider)
-        {
-            provider.setForm(form);
-
-            return;
-        }
-
         Morph morph = Morph.getMorph(this.mcEntity);
 
         if (morph != null)
@@ -212,110 +191,6 @@ public class MCEntity implements IEntity
         if (this.mcEntity instanceof LivingEntity living)
         {
             living.hurtTime = hurtTimer;
-        }
-    }
-
-    @Override
-    public int getDeathTime()
-    {
-        if (this.mcEntity instanceof LivingEntity living)
-        {
-            return living.deathTime;
-        }
-
-        return 0;
-    }
-
-    @Override
-    public void setDeathTime(int deathTime)
-    {
-        if (this.mcEntity instanceof LivingEntity living)
-        {
-            living.deathTime = deathTime;
-        }
-    }
-
-    @Override
-    public boolean isUsingItem()
-    {
-        if (this.mcEntity instanceof LivingEntity living)
-        {
-            return living.isUsingItem();
-        }
-
-        return false;
-    }
-
-    @Override
-    public void setUsingItem(boolean usingItem)
-    {
-        if (this.mcEntity instanceof LivingEntity living)
-        {
-            living.setLivingFlag(1, usingItem);
-        }
-    }
-
-    @Override
-    public int getItemUseTimeLeft()
-    {
-        if (this.mcEntity instanceof LivingEntity living)
-        {
-            return living.getItemUseTimeLeft();
-        }
-
-        return 0;
-    }
-
-    @Override
-    public void setItemUseTimeLeft(int itemUseTimeLeft)
-    {
-        if (this.mcEntity instanceof LivingEntity living && itemUseTimeLeft > 0)
-        {
-            living.setLivingFlag(1, true);
-        }
-    }
-
-    @Override
-    public int getFireTicks()
-    {
-        return this.mcEntity.getFireTicks();
-    }
-
-    @Override
-    public void setFireTicks(int fireTicks)
-    {
-        this.mcEntity.setFireTicks(fireTicks);
-    }
-
-    @Override
-    public boolean isParticlesEnabled()
-    {
-        return this.particlesEnabled;
-    }
-
-    @Override
-    public void setParticlesEnabled(boolean particlesEnabled)
-    {
-        this.particlesEnabled = particlesEnabled;
-    }
-
-    @Override
-    public Hand getActiveHand()
-    {
-        if (this.mcEntity instanceof LivingEntity living && living.isUsingItem())
-        {
-            return living.getActiveHand();
-        }
-
-        return Hand.MAIN_HAND;
-    }
-
-    @Override
-    public void setActiveHand(Hand hand)
-    {
-        if (this.mcEntity instanceof LivingEntity living)
-        {
-            living.setLivingFlag(2, hand == Hand.OFF_HAND && living.isUsingItem());
         }
     }
 
@@ -565,17 +440,6 @@ public class MCEntity implements IEntity
         {
             this.prevExtraVariables[i] = this.extraVariables[i];
         }
-
-        this.prevFallFlyingTicks = this.fallFlyingTicks;
-
-        if (this.isFallFlying())
-        {
-            this.fallFlyingTicks = Math.min(10F, this.fallFlyingTicks + 1F);
-        }
-        else
-        {
-            this.fallFlyingTicks = Math.max(0F, this.fallFlyingTicks - 1F);
-        }
     }
 
     @Override
@@ -631,86 +495,18 @@ public class MCEntity implements IEntity
     @Override
     public EntityPose getEntityPose()
     {
-        if ((this.mountTarget != null || this.sitting) && this.mcEntity.getPose() == EntityPose.STANDING)
-        {
-            return EntityPose.SITTING;
-        }
-
         return this.mcEntity.getPose();
-    }
-
-    @Override
-    public IEntity getMountTarget()
-    {
-        return this.mountTarget;
-    }
-
-    @Override
-    public void setMountTarget(IEntity mountTarget)
-    {
-        this.mountTarget = mountTarget;
-    }
-
-    @Override
-    public boolean isSitting()
-    {
-        return this.sitting;
-    }
-
-    @Override
-    public void setSitting(boolean sitting)
-    {
-        this.sitting = sitting;
-    }
-
-    @Override
-    public IEntity getRiderTarget()
-    {
-        return this.riderTarget;
-    }
-
-    @Override
-    public void setRiderTarget(IEntity riderTarget)
-    {
-        this.riderTarget = riderTarget;
     }
 
     @Override
     public int getRoll()
     {
-        return (int) this.fallFlyingTicks;
-    }
-
-    @Override
-    public boolean isSwimming()
-    {
-        return this.mcEntity.isSwimming();
-    }
-
-    @Override
-    public void setSwimming(boolean swimming)
-    {
-        this.mcEntity.setSwimming(swimming);
-    }
-
-    @Override
-    public boolean isFlying()
-    {
-        if (this.mcEntity instanceof PlayerEntity player)
+        if (this.mcEntity instanceof LivingEntity living)
         {
-            return player.getAbilities().flying;
+            return living.getRoll();
         }
 
-        return false;
-    }
-
-    @Override
-    public void setFlying(boolean flying)
-    {
-        if (this.mcEntity instanceof PlayerEntity player)
-        {
-            player.getAbilities().flying = flying;
-        }
+        return 0;
     }
 
     @Override
@@ -722,22 +518,6 @@ public class MCEntity implements IEntity
         }
 
         return false;
-    }
-
-    @Override
-    public void setFallFlying(boolean fallFlying)
-    {
-        /* Flag 7 is fall flying (elytra) in Minecraft */
-        this.mcEntity.setFlag(7, fallFlying);
-    }
-
-    @Override
-    public float getFallFlyingProgress(float transition)
-    {
-        float ticks = MathHelper.lerp(transition, this.prevFallFlyingTicks, this.fallFlyingTicks);
-        float progress = MathHelper.clamp(ticks / 10F, 0F, 1F);
-
-        return progress * progress;
     }
 
     @Override
@@ -761,86 +541,5 @@ public class MCEntity implements IEntity
         }
 
         return false;
-    }
-
-    @Override
-    public void setRiptide(boolean riptide)
-    {
-        if (this.mcEntity instanceof LivingEntity living)
-        {
-            /* Flag 4 is Riptide spin attack in LivingEntity */
-            living.setLivingFlag(4, riptide);
-        }
-    }
-
-    @Override
-    public boolean isCrawling()
-    {
-        return this.mcEntity.getPose() == EntityPose.SWIMMING && !this.mcEntity.isTouchingWater();
-    }
-
-    @Override
-    public void setCrawling(boolean crawling)
-    {
-        if (crawling)
-        {
-            this.mcEntity.setPose(EntityPose.SWIMMING);
-        }
-    }
-
-    @Override
-    public boolean isClimbing()
-    {
-        if (this.mcEntity instanceof LivingEntity living)
-        {
-            return living.isClimbing();
-        }
-
-        return false;
-    }
-
-    @Override
-    public void setClimbing(boolean climbing)
-    {}
-
-    @Override
-    public boolean isBlocking()
-    {
-        if (this.mcEntity instanceof LivingEntity living)
-        {
-            return living.isBlocking();
-        }
-
-        return false;
-    }
-
-    @Override
-    public void setBlocking(boolean blocking)
-    {
-        if (this.mcEntity instanceof LivingEntity living)
-        {
-            /* LivingFlag 1 is using item (e.g. blocking with shield) */
-            living.setLivingFlag(1, blocking);
-        }
-    }
-
-    @Override
-    public boolean isSleeping()
-    {
-        if (this.mcEntity instanceof LivingEntity living)
-        {
-            return living.isSleeping();
-        }
-
-        return false;
-    }
-
-    @Override
-    public void setSleeping(boolean sleeping)
-    {
-        if (sleeping)
-        {
-            this.mcEntity.setPose(EntityPose.SLEEPING);
-        }
     }
 }

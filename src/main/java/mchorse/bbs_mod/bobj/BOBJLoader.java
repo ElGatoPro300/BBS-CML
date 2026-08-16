@@ -1,7 +1,7 @@
 package mchorse.bbs_mod.bobj;
 
 import mchorse.bbs_mod.utils.IOUtils;
-
+import org.apache.commons.lang3.ArrayUtils;
 import org.joml.Matrix4f;
 import org.joml.Vector2d;
 import org.joml.Vector3f;
@@ -12,8 +12,6 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-
-import org.apache.commons.lang3.ArrayUtils;
 
 /**
  * OBJ file parser and loader

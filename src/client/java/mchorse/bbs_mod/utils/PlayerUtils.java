@@ -1,15 +1,13 @@
 package mchorse.bbs_mod.utils;
 
+import com.mojang.authlib.GameProfile;
 import mchorse.bbs_mod.network.ClientNetwork;
-
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.network.ClientPlayerEntity;
 import net.minecraft.entity.data.TrackedData;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.world.World;
-
-import com.mojang.authlib.GameProfile;
 
 public class PlayerUtils
 {

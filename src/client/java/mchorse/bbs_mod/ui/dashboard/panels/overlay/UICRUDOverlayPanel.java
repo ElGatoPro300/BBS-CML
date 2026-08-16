@@ -13,7 +13,6 @@ import mchorse.bbs_mod.ui.framework.elements.overlay.UIOverlayPanel;
 import mchorse.bbs_mod.ui.framework.elements.overlay.UIPromptOverlayPanel;
 import mchorse.bbs_mod.ui.utils.icons.Icons;
 import mchorse.bbs_mod.utils.DataPath;
-import mchorse.bbs_mod.utils.Direction;
 
 import java.util.function.Consumer;
 
@@ -50,11 +49,6 @@ public abstract class UICRUDOverlayPanel extends UIOverlayPanel
         this.rename = new UIIcon(Icons.EDIT, this::renameData);
         this.remove = new UIIcon(Icons.REMOVE, this::removeData);
 
-        this.add.tooltip(UIKeys.FILM_CRUD_ADD, Direction.LEFT);
-        this.dupe.tooltip(UIKeys.FILM_CRUD_DUPE, Direction.LEFT);
-        this.rename.tooltip(UIKeys.FILM_CRUD_RENAME, Direction.LEFT);
-        this.remove.tooltip(UIKeys.FILM_CRUD_REMOVE, Direction.LEFT);
-
         this.names = new UISearchList<>(new UIDataPathList((list) ->
         {
             if (this.callback != null)
@@ -68,14 +62,6 @@ public abstract class UICRUDOverlayPanel extends UIOverlayPanel
         this.content.add(this.names);
 
         this.icons.add(this.add, this.dupe, this.rename, this.remove);
-    }
-
-    public void setTooltips(IKey add, IKey dupe, IKey rename, IKey remove)
-    {
-        this.add.tooltip(add, Direction.LEFT);
-        this.dupe.tooltip(dupe, Direction.LEFT);
-        this.rename.tooltip(rename, Direction.LEFT);
-        this.remove.tooltip(remove, Direction.LEFT);
     }
 
     private String getNextAutoId()

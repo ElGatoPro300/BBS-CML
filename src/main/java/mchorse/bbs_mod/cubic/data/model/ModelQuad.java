@@ -27,12 +27,4 @@ public class ModelQuad
 
         return this;
     }
-
-    public ModelQuad copy()
-    {
-        ModelQuad q = new ModelQuad();
-        q.normal.set(this.normal);
-        for (ModelVertex v : this.vertices) q.vertices.add(v.copy());
-        return q;
-    }
 }

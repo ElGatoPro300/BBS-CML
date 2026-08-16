@@ -29,17 +29,7 @@ public class MatrixCache
 
     public void put(String path, Matrix4f matrix, Matrix4f origin)
     {
-        MatrixCacheEntry existing = this.entries.get(path);
-
-        if (existing == null)
-        {
-            this.entries.put(path, new MatrixCacheEntry(new Matrix4f(matrix), new Matrix4f(origin)));
-        }
-        else
-        {
-            existing.matrix().set(matrix);
-            existing.origin().set(origin);
-        }
+        this.entries.put(path, new MatrixCacheEntry(matrix, origin));
     }
 
     public Set<String> keySet()

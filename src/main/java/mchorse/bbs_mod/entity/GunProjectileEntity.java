@@ -8,11 +8,10 @@ import mchorse.bbs_mod.forms.forms.Form;
 import mchorse.bbs_mod.items.GunProperties;
 import mchorse.bbs_mod.network.ServerNetwork;
 import mchorse.bbs_mod.utils.MathUtils;
-
 import net.fabricmc.fabric.api.networking.v1.PlayerLookup;
-
 import net.minecraft.block.BlockState;
 import net.minecraft.block.Blocks;
+import net.minecraft.enchantment.EnchantmentHelper;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityType;
 import net.minecraft.entity.LivingEntity;
@@ -346,6 +345,12 @@ public class GunProjectileEntity extends ProjectileEntity implements IEntityForm
                     {
                         livingEntity.addVelocity(punchVector.x, 0.1D, punchVector.z);
                     }
+                }
+
+                if (owner instanceof LivingEntity)
+                {
+                    EnchantmentHelper.onUserDamaged(livingEntity, owner);
+                    EnchantmentHelper.onTargetDamaged((LivingEntity)owner, livingEntity);
                 }
 
                 this.onHit(livingEntity);

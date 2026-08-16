@@ -2,7 +2,6 @@ package mchorse.bbs_mod.utils.undo;
 
 import java.util.LinkedList;
 import java.util.List;
-import java.util.function.Predicate;
 
 /**
  * Undo manager
@@ -75,11 +74,6 @@ public class UndoManager<T>
     public int getCurrentUndoIndex()
     {
         return this.position;
-    }
-
-    public void setPosition(int position)
-    {
-        this.position = position;
     }
 
     public int getTotalUndos()
@@ -185,37 +179,6 @@ public class UndoManager<T>
     }
 
     /**
-     * Undo while skipping entries matched by {@code defer}. Skipped entries stay on
-     * the stack and remain redoable.
-     */
-    public boolean undoNext(T context, Predicate<IUndo<T>> defer)
-    {
-        int index = this.position;
-
-        while (index >= 0)
-        {
-            if (!defer.test(this.undos.get(index)))
-            {
-                IUndo<T> undo = this.undos.get(index);
-
-                undo.undo(context);
-                this.position = index - 1;
-
-                if (this.callback != null)
-                {
-                    this.callback.handleUndo(undo, false);
-                }
-
-                return true;
-            }
-
-            index -= 1;
-        }
-
-        return false;
-    }
-
-    /**
      * Redo changes done to context
      */
     public boolean redo(T context)
@@ -236,36 +199,5 @@ public class UndoManager<T>
         }
 
         return true;
-    }
-
-    /**
-     * Redo while skipping entries matched by {@code defer}. Skipped entries stay on
-     * the stack and remain undoable.
-     */
-    public boolean redoNext(T context, Predicate<IUndo<T>> defer)
-    {
-        int index = this.position + 1;
-
-        while (index < this.undos.size())
-        {
-            if (!defer.test(this.undos.get(index)))
-            {
-                IUndo<T> undo = this.undos.get(index);
-
-                undo.redo(context);
-                this.position = index;
-
-                if (this.callback != null)
-                {
-                    this.callback.handleUndo(undo, true);
-                }
-
-                return true;
-            }
-
-            index += 1;
-        }
-
-        return false;
     }
 }

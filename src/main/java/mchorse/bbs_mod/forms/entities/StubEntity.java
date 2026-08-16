@@ -2,13 +2,10 @@ package mchorse.bbs_mod.forms.entities;
 
 import mchorse.bbs_mod.forms.forms.Form;
 import mchorse.bbs_mod.utils.AABB;
-
 import net.minecraft.entity.EntityPose;
 import net.minecraft.entity.EquipmentSlot;
 import net.minecraft.entity.LimbAnimator;
-import net.minecraft.entity.LivingEntity;
 import net.minecraft.item.ItemStack;
-import net.minecraft.util.Hand;
 import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.Vec3d;
 import net.minecraft.world.World;
@@ -24,25 +21,9 @@ public class StubEntity implements IEntity
     private Form form;
     private boolean sneaking;
     private boolean sprinting;
-    private boolean swimming;
-    private boolean flying;
-    private boolean fallFlying;
-    private boolean crawling;
-    private boolean climbing;
-    private boolean blocking;
-    private boolean sleeping;
-    private boolean riptide;
     private boolean onGround = true;
     private float fallDistance;
     private int hurtTimer;
-    private int deathTime;
-    private boolean usingItem;
-    private int itemUseTimeLeft;
-    private int fireTicks;
-    private boolean particlesEnabled = true;
-    private Hand activeHand = Hand.MAIN_HAND;
-    private float fallFlyingTicks;
-    private float prevFallFlyingTicks;
 
     private double prevX;
     private double prevY;
@@ -62,34 +43,19 @@ public class StubEntity implements IEntity
     private float pitch;
     private float bodyYaw;
 
-    /** Matches {@link LivingEntity} hand-swing duration. */
-    private static final int HAND_SWING_DURATION = 6;
-    private boolean handSwinging;
-    private int handSwingTicks;
-    private float handSwingProgress;
-    private float prevHandSwingProgress;
+    private int armSwing;
 
     private Vec3d velocity = Vec3d.ZERO;
 
     private float[] extraVariables = new float[10];
     private float[] prevExtraVariables = new float[10];
-    private boolean externalPrevPosition;
-    private boolean externalPrevRotation;
 
     private LimbAnimator limbAnimator = new LimbAnimator();
     private final Map<EquipmentSlot, ItemStack> items = new HashMap<>();
-    private IEntity mountTarget;
-    private IEntity riderTarget;
-    private boolean sitting;
 
     public StubEntity(World world)
     {
         this.world = world;
-
-        for (EquipmentSlot value : EquipmentSlot.values())
-        {
-            this.items.put(value, ItemStack.EMPTY);
-        }
     }
 
     public StubEntity()
@@ -186,69 +152,13 @@ public class StubEntity implements IEntity
     @Override
     public void swingArm()
     {
-        this.handSwinging = true;
-        /* LivingEntity.swingHand starts at -1 so the first tickHandSwing lands on 0. */
-        this.handSwingTicks = -1;
-        this.prevHandSwingProgress = 0F;
-        this.handSwingProgress = 0F;
-    }
-
-    public boolean isHandSwinging()
-    {
-        return this.handSwinging;
+        this.armSwing = 6;
     }
 
     @Override
     public float getHandSwingProgress(float tickDelta)
     {
-        /* Just started, update() not run yet: expose the first step so paused /
-         * transition-0 scrubbing is not stuck at progress 0. */
-        if (this.handSwinging && this.handSwingTicks < 0 && this.handSwingProgress == 0F)
-        {
-            float start = tickDelta > 0F ? tickDelta : 1F;
-
-            return start / HAND_SWING_DURATION;
-        }
-
-        /* Paused film scrubbing passes tickDelta 0. Interpolating from prev made
-         * the arm snap back for one playhead step after the swipe started. */
-        if (tickDelta <= 0F)
-        {
-            return this.handSwingProgress;
-        }
-
-        float delta = this.handSwingProgress - this.prevHandSwingProgress;
-
-        if (delta < 0F)
-        {
-            delta += 1F;
-        }
-
-        return this.prevHandSwingProgress + delta * tickDelta;
-    }
-
-    private void tickHandSwing()
-    {
-        this.prevHandSwingProgress = this.handSwingProgress;
-
-        if (this.handSwinging)
-        {
-            this.handSwingTicks += 1;
-
-            if (this.handSwingTicks >= HAND_SWING_DURATION)
-            {
-                this.handSwingTicks = 0;
-                this.handSwinging = false;
-            }
-        }
-        else
-        {
-            this.handSwingTicks = 0;
-        }
-
-        this.handSwingProgress = this.handSwingTicks < 0
-            ? 0F
-            : (float) this.handSwingTicks / (float) HAND_SWING_DURATION;
+        return this.armSwing <= 0 ? 0F : 1F - (this.armSwing - tickDelta) / 6F;
     }
 
     @Override
@@ -288,78 +198,6 @@ public class StubEntity implements IEntity
     }
 
     @Override
-    public int getDeathTime()
-    {
-        return this.deathTime;
-    }
-
-    @Override
-    public void setDeathTime(int deathTime)
-    {
-        this.deathTime = deathTime;
-    }
-
-    @Override
-    public boolean isUsingItem()
-    {
-        return this.usingItem;
-    }
-
-    @Override
-    public void setUsingItem(boolean usingItem)
-    {
-        this.usingItem = usingItem;
-    }
-
-    @Override
-    public int getItemUseTimeLeft()
-    {
-        return this.itemUseTimeLeft;
-    }
-
-    @Override
-    public void setItemUseTimeLeft(int itemUseTimeLeft)
-    {
-        this.itemUseTimeLeft = itemUseTimeLeft;
-    }
-
-    @Override
-    public int getFireTicks()
-    {
-        return this.fireTicks;
-    }
-
-    @Override
-    public void setFireTicks(int fireTicks)
-    {
-        this.fireTicks = fireTicks;
-    }
-
-    @Override
-    public boolean isParticlesEnabled()
-    {
-        return this.particlesEnabled;
-    }
-
-    @Override
-    public void setParticlesEnabled(boolean particlesEnabled)
-    {
-        this.particlesEnabled = particlesEnabled;
-    }
-
-    @Override
-    public Hand getActiveHand()
-    {
-        return this.activeHand;
-    }
-
-    @Override
-    public void setActiveHand(Hand hand)
-    {
-        this.activeHand = hand == null ? Hand.MAIN_HAND : hand;
-    }
-
-    @Override
     public double getX()
     {
         return this.x;
@@ -375,7 +213,6 @@ public class StubEntity implements IEntity
     public void setPrevX(double x)
     {
         this.prevX = x;
-        this.externalPrevPosition = true;
     }
 
     @Override
@@ -394,7 +231,6 @@ public class StubEntity implements IEntity
     public void setPrevY(double y)
     {
         this.prevY = y;
-        this.externalPrevPosition = true;
     }
 
     @Override
@@ -413,7 +249,6 @@ public class StubEntity implements IEntity
     public void setPrevZ(double z)
     {
         this.prevZ = z;
-        this.externalPrevPosition = true;
     }
 
     @Override
@@ -464,7 +299,6 @@ public class StubEntity implements IEntity
     public void setPrevYaw(float prevYaw)
     {
         this.prevYaw = prevYaw;
-        this.externalPrevRotation = true;
     }
 
     @Override
@@ -489,7 +323,6 @@ public class StubEntity implements IEntity
     public void setPrevHeadYaw(float prevHeadYaw)
     {
         this.prevHeadYaw = prevHeadYaw;
-        this.externalPrevRotation = true;
     }
 
     @Override
@@ -514,7 +347,6 @@ public class StubEntity implements IEntity
     public void setPrevPitch(float prevPitch)
     {
         this.prevPitch = prevPitch;
-        this.externalPrevRotation = true;
     }
 
     @Override
@@ -545,14 +377,12 @@ public class StubEntity implements IEntity
     public void setPrevBodyYaw(float prevBodyYaw)
     {
         this.prevBodyYaw = prevBodyYaw;
-        this.externalPrevRotation = true;
     }
 
     @Override
     public void setPrevPrevBodyYaw(float prevPrevBodyYaw)
     {
         this.prevPrevBodyYaw = prevPrevBodyYaw;
-        this.externalPrevRotation = true;
     }
 
     @Override
@@ -594,38 +424,19 @@ public class StubEntity implements IEntity
 
         this.limbAnimator.updateLimbs(speed, 0.4F);
 
-        this.tickHandSwing();
+        this.armSwing -= 1;
         this.age += 1;
 
-        this.prevFallFlyingTicks = this.fallFlyingTicks;
+        this.prevX = this.x;
+        this.prevY = this.y;
+        this.prevZ = this.z;
 
-        if (this.fallFlying)
-        {
-            this.fallFlyingTicks = Math.min(10F, this.fallFlyingTicks + 1F);
-        }
-        else
-        {
-            this.fallFlyingTicks = Math.max(0F, this.fallFlyingTicks - 1F);
-        }
+        this.prevPrevBodyYaw = this.prevBodyYaw;
 
-        if (!this.externalPrevPosition)
-        {
-            this.prevX = this.x;
-            this.prevY = this.y;
-            this.prevZ = this.z;
-        }
-
-        if (!this.externalPrevRotation && this.mountTarget == null)
-        {
-            this.prevPrevBodyYaw = this.prevBodyYaw;
-            this.prevYaw = this.yaw;
-            this.prevHeadYaw = this.headYaw;
-            this.prevPitch = this.pitch;
-            this.prevBodyYaw = this.bodyYaw;
-        }
-
-        this.externalPrevPosition = false;
-        this.externalPrevRotation = false;
+        this.prevYaw = this.yaw;
+        this.prevHeadYaw = this.headYaw;
+        this.prevPitch = this.pitch;
+        this.prevBodyYaw = this.bodyYaw;
 
         for (int i = 0; i < this.extraVariables.length; i++)
         {
@@ -666,104 +477,19 @@ public class StubEntity implements IEntity
     @Override
     public EntityPose getEntityPose()
     {
-        if (this.mountTarget != null || this.sitting)
-        {
-            return EntityPose.SITTING;
-        }
-
-        if (this.sneaking)
-        {
-            return EntityPose.CROUCHING;
-        }
-
         return EntityPose.STANDING;
-    }
-
-    @Override
-    public IEntity getMountTarget()
-    {
-        return this.mountTarget;
-    }
-
-    @Override
-    public void setMountTarget(IEntity mountTarget)
-    {
-        this.mountTarget = mountTarget;
-    }
-
-    @Override
-    public IEntity getRiderTarget()
-    {
-        return this.riderTarget;
-    }
-
-    @Override
-    public void setRiderTarget(IEntity riderTarget)
-    {
-        this.riderTarget = riderTarget;
-    }
-
-    @Override
-    public boolean isSitting()
-    {
-        return this.sitting;
-    }
-
-    @Override
-    public void setSitting(boolean sitting)
-    {
-        this.sitting = sitting;
     }
 
     @Override
     public int getRoll()
     {
-        return (int) this.fallFlyingTicks;
-    }
-
-    @Override
-    public boolean isSwimming()
-    {
-        return this.swimming;
-    }
-
-    @Override
-    public void setSwimming(boolean swimming)
-    {
-        this.swimming = swimming;
-    }
-
-    @Override
-    public boolean isFlying()
-    {
-        return this.flying;
-    }
-
-    @Override
-    public void setFlying(boolean flying)
-    {
-        this.flying = flying;
+        return 0;
     }
 
     @Override
     public boolean isFallFlying()
     {
-        return this.fallFlying;
-    }
-
-    @Override
-    public void setFallFlying(boolean fallFlying)
-    {
-        this.fallFlying = fallFlying;
-    }
-
-    @Override
-    public float getFallFlyingProgress(float transition)
-    {
-        float ticks = MathHelper.lerp(transition, this.prevFallFlyingTicks, this.fallFlyingTicks);
-        float progress = MathHelper.clamp(ticks / 10F, 0F, 1F);
-
-        return progress * progress;
+        return false;
     }
 
     @Override
@@ -781,60 +507,6 @@ public class StubEntity implements IEntity
     @Override
     public boolean isUsingRiptide()
     {
-        return this.riptide;
-    }
-
-    @Override
-    public void setRiptide(boolean riptide)
-    {
-        this.riptide = riptide;
-    }
-
-    @Override
-    public boolean isCrawling()
-    {
-        return this.crawling;
-    }
-
-    @Override
-    public void setCrawling(boolean crawling)
-    {
-        this.crawling = crawling;
-    }
-
-    @Override
-    public boolean isClimbing()
-    {
-        return this.climbing;
-    }
-
-    @Override
-    public void setClimbing(boolean climbing)
-    {
-        this.climbing = climbing;
-    }
-
-    @Override
-    public boolean isBlocking()
-    {
-        return this.blocking;
-    }
-
-    @Override
-    public void setBlocking(boolean blocking)
-    {
-        this.blocking = blocking;
-    }
-
-    @Override
-    public boolean isSleeping()
-    {
-        return this.sleeping;
-    }
-
-    @Override
-    public void setSleeping(boolean sleeping)
-    {
-        this.sleeping = sleeping;
+        return false;
     }
 }

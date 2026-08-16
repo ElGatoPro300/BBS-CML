@@ -1,7 +1,6 @@
 package mchorse.bbs_mod.utils.joml;
 
 import mchorse.bbs_mod.utils.Axis;
-
 import org.joml.Intersectiond;
 import org.joml.Vector2d;
 import org.joml.Vector2f;

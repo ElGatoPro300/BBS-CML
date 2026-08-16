@@ -66,19 +66,19 @@ public class WaveReader extends BinaryReader
                         /* Discarding extra data */
                         if (chunk.size > 16)
                         {
-                            this.skip(stream, chunk.size - 16);
+                            stream.skip(chunk.size - 16);
                         }
                     }
                     else if (chunk.id.equals("data"))
                     {
                         data = new byte[chunk.size];
-                        this.readFully(stream, data, data.length);
+                        stream.read(data);
                     }
                     /* https://www.recordingblogs.com/wiki/list-chunk-of-a-wave-file */
                     else if (chunk.id.equals("LIST"))
                     {
                         byte[] listData = new byte[chunk.size];
-                        this.readFully(stream, listData, listData.length);
+                        stream.read(listData);
 
                         try
                         {
@@ -109,7 +109,7 @@ public class WaveReader extends BinaryReader
                     else if (chunk.id.equals("cue "))
                     {
                         byte[] cueData = new byte[chunk.size];
-                        this.readFully(stream, cueData, cueData.length);
+                        stream.read(cueData);
 
                         ByteArrayInputStream bytes = new ByteArrayInputStream(cueData);
 

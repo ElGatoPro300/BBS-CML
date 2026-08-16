@@ -2,7 +2,6 @@ package mchorse.bbs_mod.ui.film.clips.renderer;
 
 import mchorse.bbs_mod.BBSSettings;
 import mchorse.bbs_mod.camera.clips.ClipFactoryData;
-import mchorse.bbs_mod.ui.UIKeys;
 import mchorse.bbs_mod.ui.film.UIClips;
 import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.ui.framework.elements.utils.FontRenderer;
@@ -15,13 +14,11 @@ import mchorse.bbs_mod.utils.colors.Color;
 import mchorse.bbs_mod.utils.colors.Colors;
 import mchorse.bbs_mod.utils.keyframes.Keyframe;
 import mchorse.bbs_mod.utils.keyframes.KeyframeChannel;
-
 import net.minecraft.client.render.BufferBuilder;
 import net.minecraft.client.render.BufferRenderer;
 import net.minecraft.client.render.Tessellator;
 import net.minecraft.client.render.VertexFormat;
 import net.minecraft.client.render.VertexFormats;
-
 import org.joml.Matrix4f;
 import org.joml.Vector2f;
 
@@ -69,23 +66,7 @@ public class UIClipRenderer <T extends Clip> implements IUIClipRenderer<T>
         }
 
         FontRenderer font = context.batcher.getFont();
-        String baseTitle = clip.title.get();
-        String typeLabel = UIKeys.C_CLIP.get(clips.getFactory().getType(clip)).get();
-        String label = baseTitle;
-
-        if (baseTitle.isEmpty() || BBSSettings.editorClipTypeLabels.get())
-        {
-            if (baseTitle.isEmpty())
-            {
-                label = typeLabel;
-            }
-            else
-            {
-                label = typeLabel + " - " + baseTitle;
-            }
-        }
-
-        label = font.limitToWidth(label, right - 6 - left);
+        String label = font.limitToWidth(clip.title.get(), right - 6 - left);
 
         if (right - left >= 20)
         {

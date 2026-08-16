@@ -1,5 +1,7 @@
 package mchorse.bbs_mod.cubic.model.loaders;
 
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import mchorse.bbs_mod.BBSMod;
 import mchorse.bbs_mod.cubic.ModelInstance;
 import mchorse.bbs_mod.cubic.data.animation.Animations;
@@ -10,9 +12,6 @@ import mchorse.bbs_mod.cubic.model.ModelManager;
 import mchorse.bbs_mod.data.types.MapType;
 import mchorse.bbs_mod.resources.Link;
 import mchorse.bbs_mod.utils.IOUtils;
-
-import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
 
 import java.io.InputStream;
 import java.util.Collection;

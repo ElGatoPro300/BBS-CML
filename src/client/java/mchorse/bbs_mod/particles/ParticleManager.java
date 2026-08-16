@@ -34,9 +34,10 @@ public class ParticleManager extends BaseManager<ParticleScheme>
                 e.printStackTrace();
             }
         }
-
-        /* Ensure runtime component lists are always initialized, even if parsing failed. */
-        scheme.setup();
+        else
+        {
+            scheme.setup();
+        }
 
         return scheme;
     }

@@ -1,6 +1,7 @@
 package mchorse.bbs_mod.ui.framework.elements.input.list;
 
-import mchorse.bbs_mod.BBSSettings;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import mchorse.bbs_mod.audio.AudioCacheManager;
 import mchorse.bbs_mod.audio.SoundLikeManager;
 import mchorse.bbs_mod.ui.framework.UIContext;
@@ -8,9 +9,7 @@ import mchorse.bbs_mod.ui.framework.elements.buttons.UIIcon;
 import mchorse.bbs_mod.ui.utils.icons.Icons;
 import mchorse.bbs_mod.utils.IOUtils;
 import mchorse.bbs_mod.utils.colors.Colors;
-
 import net.fabricmc.loader.api.FabricLoader;
-
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.registry.Registries;
 import net.minecraft.registry.Registry;
@@ -18,9 +17,6 @@ import net.minecraft.resource.Resource;
 import net.minecraft.resource.ResourceManager;
 import net.minecraft.sound.SoundEvent;
 import net.minecraft.util.Identifier;
-
-import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
 
 import java.io.File;
 import java.io.InputStream;
@@ -244,7 +240,7 @@ public class UIVanillaSoundList extends UIStringList
     /**
      * Find all actual sound file paths from cached sounds.json (skip event references)
      */
-    private List<String> findAllSoundFilesFromCache(Identifier soundId)
+    private List<String> findAllSoundFilesFromCache(net.minecraft.util.Identifier soundId)
     {
         if (this.cachedSoundsJson == null)
         {
@@ -508,9 +504,8 @@ public class UIVanillaSoundList extends UIStringList
         try
         {
             String originalName = this.removePrefix(displayName);
-            VanillaSoundAsset asset = this.soundAssetMap.get(originalName);
 
-            File gameDir = FabricLoader.getInstance().getGameDir().toFile();
+            File gameDir = net.fabricmc.loader.api.FabricLoader.getInstance().getGameDir().toFile();
             File audioDir = new File(gameDir, "config/bbs/assets/audio");
 
             if (!audioDir.exists() || !audioDir.isDirectory())
@@ -523,17 +518,6 @@ public class UIVanillaSoundList extends UIStringList
             if (!flatFileName.endsWith(".ogg"))
             {
                 flatFileName += ".ogg";
-            }
-
-            if (this.isMediaFoldersEnhancementsEnabled() && asset != null && asset.category != null && !asset.category.isEmpty())
-            {
-                String categoryFolderName = this.sanitizeCategoryName(asset.category);
-                File categoryFile = new File(new File(audioDir, categoryFolderName), flatFileName);
-
-                if (categoryFile.exists())
-                {
-                    return "assets:audio/" + categoryFolderName + "/" + flatFileName;
-                }
             }
 
             File exactMatch = new File(audioDir, flatFileName);
@@ -662,20 +646,6 @@ public class UIVanillaSoundList extends UIStringList
                 audioDir.mkdirs();
             }
 
-            boolean categoryFolders = this.isMediaFoldersEnhancementsEnabled();
-            String categoryFolderName = this.sanitizeCategoryName(asset.category);
-            File targetDir = audioDir;
-
-            if (categoryFolders)
-            {
-                targetDir = new File(audioDir, categoryFolderName);
-
-                if (!targetDir.exists())
-                {
-                    targetDir.mkdirs();
-                }
-            }
-
             if (asset.actualSoundPaths != null && !asset.actualSoundPaths.isEmpty())
             {
                 String soundPath = asset.actualSoundPaths.get(0);
@@ -691,15 +661,15 @@ public class UIVanillaSoundList extends UIStringList
 
                 if (resource.isPresent())
                 {
-                    String newSoundName = this.generateSoundName(originalName, targetDir);
-                    File targetFile = new File(targetDir, newSoundName + ".ogg");
+                    String newSoundName = this.generateSoundName(originalName, audioDir);
+                    File targetFile = new File(audioDir, newSoundName + ".ogg");
 
                     try (InputStream inputStream = resource.get().getInputStream())
                     {
                         Files.copy(inputStream, targetFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
                     }
 
-                    return categoryFolders ? categoryFolderName + "/" + newSoundName : newSoundName;
+                    return newSoundName;
                 }
             }
         }
@@ -709,21 +679,6 @@ public class UIVanillaSoundList extends UIStringList
         }
 
         return null;
-    }
-
-    private String sanitizeCategoryName(String category)
-    {
-        if (category == null || category.isEmpty())
-        {
-            return "Other";
-        }
-
-        return category.replaceAll("[\\\\/:*?\"<>|]", "_");
-    }
-
-    private boolean isMediaFoldersEnhancementsEnabled()
-    {
-        return true;
     }
 
     /**

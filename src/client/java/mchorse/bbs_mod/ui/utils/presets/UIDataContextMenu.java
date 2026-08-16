@@ -10,9 +10,6 @@ import mchorse.bbs_mod.ui.framework.elements.buttons.UIIcon;
 import mchorse.bbs_mod.ui.framework.elements.context.UIContextMenu;
 import mchorse.bbs_mod.ui.framework.elements.input.list.UISearchList;
 import mchorse.bbs_mod.ui.framework.elements.input.list.UIStringList;
-import mchorse.bbs_mod.ui.framework.elements.overlay.UIConfirmOverlayPanel;
-import mchorse.bbs_mod.ui.framework.elements.overlay.UIOverlay;
-import mchorse.bbs_mod.ui.framework.elements.overlay.UIPromptOverlayPanel;
 import mchorse.bbs_mod.ui.utils.UI;
 import mchorse.bbs_mod.ui.utils.icons.Icons;
 import mchorse.bbs_mod.utils.presets.DataManager;
@@ -26,9 +23,7 @@ public class UIDataContextMenu extends UIContextMenu
     public UIIcon copy;
     public UIIcon paste;
     public UIIcon reset;
-    public UIIcon rename;
     public UIIcon save;
-    public UIIcon remove;
 
     public UISearchList<String> entries;
 
@@ -47,7 +42,7 @@ public class UIDataContextMenu extends UIContextMenu
         this.callback = callback;
         this.data = this.manager.getData(group);
 
-        this.copy = new UIIcon(Icons.COPY, (b) -> Window.setInMemoryClipboard(this.supplier.get(), this.copyGroup));
+        this.copy = new UIIcon(Icons.COPY, (b) -> Window.setClipboard(this.supplier.get(), this.copyGroup));
         this.copy.tooltip(UIKeys.POSE_CONTEXT_COPY);
         this.paste = new UIIcon(Icons.PASTE, (b) ->
         {
@@ -61,8 +56,6 @@ public class UIDataContextMenu extends UIContextMenu
         this.paste.tooltip(UIKeys.POSE_CONTEXT_PASTE);
         this.reset = new UIIcon(Icons.REFRESH, (b) -> this.send(new MapType()));
         this.reset.tooltip(UIKeys.POSE_CONTEXT_RESET);
-        this.rename = new UIIcon(Icons.EDIT, (b) -> this.renameEntry());
-        this.rename.tooltip(UIKeys.GENERAL_RENAME);
         this.save = new UIIcon(Icons.SAVED, (b) ->
         {
             String name = this.entries.search.getText();
@@ -78,14 +71,12 @@ public class UIDataContextMenu extends UIContextMenu
             }
         });
         this.save.tooltip(UIKeys.POSE_CONTEXT_SAVE);
-        this.remove = new UIIcon(Icons.REMOVE, (b) -> this.removeEntry());
-        this.remove.tooltip(UIKeys.GENERAL_REMOVE);
 
         this.entries = new UISearchList<>(new UIStringList((l) -> this.send(this.data.getMap(l.get(0)))));
         this.entries.search.filename();
         this.entries.search.placeholder(UIKeys.POSE_CONTEXT_NAME);
 
-        this.row = UI.row(this.copy, this.paste, this.rename, this.reset, this.save, this.remove);
+        this.row = UI.row(this.copy, this.paste, this.reset, this.save);
 
         this.row.relative(this).xy(5, 5).w(1F, -10).h(20);
         this.entries.relative(this).xy(5, 25).w(1F, -10).hTo(this.area, 1F, -5);
@@ -123,74 +114,6 @@ public class UIDataContextMenu extends UIContextMenu
         this.entries.list.sort();
     }
 
-    private void removeEntry()
-    {
-        String key = this.getSelectedKey();
-
-        if (key == null || key.isEmpty())
-        {
-            return;
-        }
-
-        final String finalKey = key;
-
-        UIOverlay.addOverlay(this.getContext(), new UIConfirmOverlayPanel(
-            UIKeys.GENERAL_REMOVE,
-            UIKeys.PANELS_MODALS_REMOVE,
-            (confirm) ->
-            {
-                if (confirm)
-                {
-                    this.manager.removeData(this.group, finalKey);
-                    this.data = this.manager.getData(this.group);
-                    this.entries.search.setText("");
-                    this.fillPoses();
-                }
-            }
-        ));
-    }
-
-    private void renameEntry()
-    {
-        String key = this.getSelectedKey();
-
-        if (key == null || key.isEmpty())
-        {
-            return;
-        }
-
-        final String finalKey = key;
-
-        UIPromptOverlayPanel panel = new UIPromptOverlayPanel(
-            UIKeys.GENERAL_RENAME,
-            UIKeys.PANELS_MODALS_RENAME,
-            (newKey) ->
-            {
-                this.manager.renameData(this.group, finalKey, newKey);
-                this.data = this.manager.getData(this.group);
-                this.entries.search.setText("");
-                this.fillPoses();
-            }
-        );
-
-        panel.text.setText(finalKey);
-        panel.text.filename();
-
-        UIOverlay.addOverlay(this.getContext(), panel);
-    }
-
-    private String getSelectedKey()
-    {
-        String key = this.entries.list.getCurrentFirst();
-
-        if ((key == null || key.isEmpty()) && this.data.has(this.entries.search.getText()))
-        {
-            key = this.entries.search.getText();
-        }
-
-        return key;
-    }
-
     @Override
     public boolean isEmpty()
     {
@@ -200,12 +123,11 @@ public class UIDataContextMenu extends UIContextMenu
     @Override
     public void setMouse(UIContext context)
     {
-        /* Padding from both side + icon row width */
+        /* Padding from both side + 4 icon 20px + 3 margin 5px */
         int size = this.row.getChildren().size();
 
         int i = size * 20 + (size - 1) * 5;
 
         this.xy(context.mouseX(), context.mouseY()).w(10 + i).h(10 + 40 + UIStringList.DEFAULT_HEIGHT * 12).bounds(context.menu.overlay, 5);
-        this.resize();
     }
 }

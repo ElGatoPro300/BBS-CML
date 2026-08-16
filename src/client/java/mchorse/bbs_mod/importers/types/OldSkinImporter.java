@@ -7,7 +7,6 @@ import mchorse.bbs_mod.math.Operation;
 import mchorse.bbs_mod.ui.UIKeys;
 import mchorse.bbs_mod.utils.PNGEncoder;
 import mchorse.bbs_mod.utils.resources.Pixels;
-
 import org.joml.Vector2i;
 
 import java.io.File;

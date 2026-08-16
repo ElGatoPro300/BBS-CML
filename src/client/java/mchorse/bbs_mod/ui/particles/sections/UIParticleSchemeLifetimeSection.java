@@ -6,28 +6,25 @@ import mchorse.bbs_mod.particles.components.lifetime.ParticleComponentLifetimeEx
 import mchorse.bbs_mod.particles.components.lifetime.ParticleComponentLifetimeLooping;
 import mchorse.bbs_mod.particles.components.lifetime.ParticleComponentLifetimeOnce;
 import mchorse.bbs_mod.ui.UIKeys;
-import mchorse.bbs_mod.ui.framework.elements.buttons.UIIcons;
+import mchorse.bbs_mod.ui.framework.elements.buttons.UIButton;
+import mchorse.bbs_mod.ui.framework.elements.buttons.UICirculate;
 import mchorse.bbs_mod.ui.particles.UIParticleSchemePanel;
-import mchorse.bbs_mod.ui.particles.utils.UIMolangExpression;
-import mchorse.bbs_mod.ui.utils.icons.Icons;
 
 public class UIParticleSchemeLifetimeSection extends UIParticleSchemeModeSection<ParticleComponentLifetime>
 {
-    public UIMolangExpression active;
-    public UIMolangExpression expiration;
+    public UIButton active;
+    public UIButton expiration;
 
     public UIParticleSchemeLifetimeSection(UIParticleSchemePanel parent)
     {
         super(parent);
 
-        this.active = new UIMolangExpression(() -> this.component.activeTime, (b) ->
+        this.active = new UIButton(UIKeys.SNOWSTORM_LIFETIME_TIME, (b) ->
         {
             this.editMoLang("lifetime.active_time", (str) -> this.component.activeTime = this.parse(str, this.component.activeTime), this.component.activeTime);
         });
-        this.active.icon(Icons.TIME).tooltip(IKey.EMPTY);
-        this.expiration = new UIMolangExpression(() -> this.component instanceof ParticleComponentLifetimeLooping
-            ? ((ParticleComponentLifetimeLooping) this.component).sleepTime
-            : ((ParticleComponentLifetimeExpression) this.component).expiration, (b) ->
+        this.active.tooltip(IKey.EMPTY);
+        this.expiration = new UIButton(UIKeys.SNOWSTORM_EXPRESSION, (b) ->
         {
             if (this.component instanceof ParticleComponentLifetimeLooping)
             {
@@ -44,7 +41,7 @@ public class UIParticleSchemeLifetimeSection extends UIParticleSchemeModeSection
 
             this.editor.dirty();
         });
-        this.expiration.icon(Icons.STOPWATCH).tooltip(IKey.EMPTY);
+        this.expiration.tooltip(IKey.EMPTY);
 
         this.fields.add(this.active);
     }
@@ -56,11 +53,11 @@ public class UIParticleSchemeLifetimeSection extends UIParticleSchemeModeSection
     }
 
     @Override
-    protected void fillModes(UIIcons button)
+    protected void fillModes(UICirculate button)
     {
-        button.add(Icons.CODE, UIKeys.SNOWSTORM_LIFETIME_EXPRESSION);
-        button.add(Icons.REFRESH, UIKeys.SNOWSTORM_LIFETIME_LOOPING);
-        button.add(Icons.STOP, UIKeys.SNOWSTORM_LIFETIME_ONCE);
+        button.addLabel(UIKeys.SNOWSTORM_LIFETIME_EXPRESSION);
+        button.addLabel(UIKeys.SNOWSTORM_LIFETIME_LOOPING);
+        button.addLabel(UIKeys.SNOWSTORM_LIFETIME_ONCE);
     }
 
     @Override

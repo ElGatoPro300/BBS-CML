@@ -6,7 +6,6 @@ import mchorse.bbs_mod.vox.data.VoxGroup;
 import mchorse.bbs_mod.vox.data.VoxLayer;
 import mchorse.bbs_mod.vox.data.VoxShape;
 import mchorse.bbs_mod.vox.data.VoxTransform;
-
 import org.joml.Matrix3f;
 import org.joml.Matrix4f;
 import org.joml.Vector3f;

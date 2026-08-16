@@ -10,7 +10,6 @@ import mchorse.bbs_mod.ui.framework.elements.utils.Batcher2D;
 import mchorse.bbs_mod.ui.framework.elements.utils.FontRenderer;
 import mchorse.bbs_mod.utils.StringUtils;
 import mchorse.bbs_mod.utils.colors.Colors;
-
 import org.lwjgl.system.MemoryUtil;
 
 import java.io.File;
@@ -144,31 +143,11 @@ public class AudioRenderer
 
                 if (wave != null)
                 {
-                    float clipDurationSec = TimeUtils.toSeconds(clip.duration.get());
-                    float clipStartSec = TimeUtils.toSeconds(clip.tick.get());
-                    float sourceStartSec = TimeUtils.toSeconds(clip.offset.get());
-
-                    final float stepSec = 0.01F;
-
-                    for (float t = 0F; t < clipDurationSec; t += stepSec)
-                    {
-                        float chunkSec = Math.min(stepSec, clipDurationSec - t);
-                        float tickWithinClip = (t * 20F);
-                        float factor = clip.envelope.factorEnabled(clip.duration.get(), tickWithinClip);
-                        float gain = (clip.volume.get() / 100F) * factor;
-
-                        if (gain <= 0F)
-                        {
-                            continue;
-                        }
-
                     finalWave.add(buffer, wave,
-                        TimeUtils.toSeconds(clip.tick.get()) + t,
-                        TimeUtils.toSeconds(clip.offset.get()) + t,
-                        chunkSec,
-                        gain
+                        TimeUtils.toSeconds(clip.tick.get()),
+                        TimeUtils.toSeconds(clip.offset.get()),
+                        TimeUtils.toSeconds(clip.duration.get())
                     );
-                    }
                 }
             }
             catch (Exception e)

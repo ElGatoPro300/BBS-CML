@@ -7,17 +7,16 @@ import mchorse.bbs_mod.particles.components.expiration.ParticleComponentExpireNo
 import mchorse.bbs_mod.particles.components.expiration.ParticleComponentKillPlane;
 import mchorse.bbs_mod.particles.components.expiration.ParticleComponentParticleLifetime;
 import mchorse.bbs_mod.ui.UIKeys;
-import mchorse.bbs_mod.ui.framework.elements.buttons.UIIcons;
+import mchorse.bbs_mod.ui.framework.elements.buttons.UIButton;
+import mchorse.bbs_mod.ui.framework.elements.buttons.UICirculate;
 import mchorse.bbs_mod.ui.framework.elements.input.UITrackpad;
 import mchorse.bbs_mod.ui.particles.UIParticleSchemePanel;
-import mchorse.bbs_mod.ui.particles.utils.UIMolangExpression;
 import mchorse.bbs_mod.ui.utils.UI;
-import mchorse.bbs_mod.ui.utils.icons.Icons;
 
 public class UIParticleSchemeExpirationSection extends UIParticleSchemeSection
 {
-    public UIIcons mode;
-    public UIMolangExpression expression;
+    public UICirculate mode;
+    public UIButton expression;
 
     public UITrackpad a;
     public UITrackpad b;
@@ -33,20 +32,20 @@ public class UIParticleSchemeExpirationSection extends UIParticleSchemeSection
     {
         super(parent);
 
-        this.mode = new UIIcons((b) ->
+        this.mode = new UICirculate((b) ->
         {
             this.lifetime.max = this.mode.getValue() == 1;
             this.updateTooltip();
             this.editor.dirty();
         });
-        this.mode.add(Icons.CODE, UIKeys.SNOWSTORM_EXPIRATION_EXPRESSION);
-        this.mode.add(Icons.STOPWATCH, UIKeys.SNOWSTORM_EXPIRATION_MAX);
+        this.mode.addLabel(UIKeys.SNOWSTORM_EXPIRATION_EXPRESSION);
+        this.mode.addLabel(UIKeys.SNOWSTORM_EXPIRATION_MAX);
 
-        this.expression = new UIMolangExpression(() -> this.lifetime.expression, (b) ->
+        this.expression = new UIButton(UIKeys.SNOWSTORM_EXPRESSION, (b) ->
         {
             this.editMoLang("expiration.lifetime", (str) -> this.lifetime.expression = this.parse(str, this.lifetime.expression), this.lifetime.expression);
         });
-        this.expression.icon(Icons.SKULL).tooltip(IKey.EMPTY);
+        this.expression.tooltip(IKey.EMPTY);
 
         this.a = new UITrackpad((value) ->
         {

@@ -1,7 +1,6 @@
 package mchorse.bbs_mod.audio;
 
 import mchorse.bbs_mod.resources.Link;
-
 import org.lwjgl.openal.AL10;
 import org.lwjgl.system.MemoryUtil;
 
@@ -52,24 +51,15 @@ public class SoundBuffer
         return this.waveform;
     }
 
-    public boolean isValid()
-    {
-        return this.buffer > 0;
-    }
-
     public void delete()
     {
-        if (this.buffer > 0)
-        {
-            AL10.alDeleteBuffers(this.buffer);
-        }
+        AL10.alDeleteBuffers(this.buffer);
 
         this.buffer = -1;
 
         if (this.waveform != null)
         {
             this.waveform.delete();
-            this.waveform = null;
         }
     }
 }

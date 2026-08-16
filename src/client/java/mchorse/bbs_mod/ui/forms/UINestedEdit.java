@@ -29,16 +29,16 @@ public class UINestedEdit extends UIElement
 
     public UINestedEdit keybinds()
     {
-        this.keys().register(Keys.FORMS_PICK, () -> this.pick.clickItself()).inside();
-        this.keys().register(Keys.FORMS_EDIT, () -> this.edit.clickItself()).inside();
+        this.keys().register(Keys.FORMS_PICK, () -> this.pick.clickItself());
+        this.keys().register(Keys.FORMS_EDIT, () -> this.edit.clickItself());
 
         return this;
     }
 
     public UINestedEdit alternativeKeybinds()
     {
-        this.keys().register(Keys.FORMS_PICK_ALT, () -> this.pick.clickItself()).inside();
-        this.keys().register(Keys.FORMS_EDIT_ALT, () -> this.edit.clickItself()).inside();
+        this.keys().register(Keys.FORMS_PICK_ALT, () -> this.pick.clickItself());
+        this.keys().register(Keys.FORMS_EDIT_ALT, () -> this.edit.clickItself());
 
         return this;
     }

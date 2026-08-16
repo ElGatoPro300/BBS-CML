@@ -5,13 +5,10 @@ import mchorse.bbs_mod.BBSModClient;
 import mchorse.bbs_mod.BBSResources;
 import mchorse.bbs_mod.BBSSettings;
 import mchorse.bbs_mod.client.BBSShaders;
-import mchorse.bbs_mod.forms.FormUIPreviewCache;
-import mchorse.bbs_mod.l10n.L10n;
 import mchorse.bbs_mod.l10n.L10nUtils;
 import mchorse.bbs_mod.l10n.keys.IKey;
 import mchorse.bbs_mod.ui.UIKeys;
 import mchorse.bbs_mod.ui.dashboard.panels.UIDashboardPanels;
-import mchorse.bbs_mod.ui.film.UIFilmPanel;
 import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.ui.framework.elements.UIScrollView;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIButton;
@@ -28,7 +25,6 @@ import mchorse.bbs_mod.ui.utils.icons.Icons;
 import mchorse.bbs_mod.utils.Pair;
 import mchorse.bbs_mod.utils.StringUtils;
 import mchorse.bbs_mod.utils.resources.CDNAssetSyncService;
-
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.util.Window;
 
@@ -38,9 +34,6 @@ import java.util.List;
 
 public class UIUtilityOverlayPanel extends UIOverlayPanel
 {
-    private static final String VIDEO_FOLDER = "videos";
-    private static final String LEGACY_VIDEO_FOLDER = "video";
-
     public Runnable callback;
 
     public UIScrollView view;
@@ -56,19 +49,12 @@ public class UIUtilityOverlayPanel extends UIOverlayPanel
         this.window = MinecraftClient.getInstance().getWindow();
         this.callback = callback;
 
-        /* Use the full panel width under the title bar. The default overlay content
-         * reserves a 20px strip for the icon column, which leaves an empty gap beside
-         * the scrollbar when this panel only has the close button. */
-        this.content.relative(this).xy(0, 20).w(1F).h(1F, -20);
-        this.icons.relative(this).x(1F, -20).y(0).w(20).h(20);
-
-        this.view = UI.scrollView(5, 10);
+        this.view = UI.scrollView(5, 10, 140);
         this.view.full(this.content);
 
         UIButton openGameDirectory = new UIButton(UIKeys.UTILITY_OPEN_GAME_FOLDER, (b) -> this.openFolder(BBSMod.getGameFolder()));
         UIButton openAudioDirectory = new UIButton(UIKeys.UTILITY_OPEN_AUDIO_FOLDER, (b) -> this.openFolder(BBSMod.getAudioFolder()));
         UIButton openModelsDirectory = new UIButton(UIKeys.UTILITY_OPEN_MODELS_FOLDER, (b) -> this.openFolder(BBSMod.getAssetsPath("models")));
-        UIButton openVideoDirectory = new UIButton(UIKeys.UTILITY_OPEN_VIDEO_FOLDER, (b) -> this.openFolder(this.getAssetsVideoFolder()));
 
         UIIcon textures = new UIIcon(Icons.MATERIAL, (b) ->
         {
@@ -188,16 +174,13 @@ public class UIUtilityOverlayPanel extends UIOverlayPanel
             thread.start();
         });
 
-        this.view.add(UI.label(UIKeys.UTILITY_OPEN_FOLDER), UI.row(openGameDirectory, openModelsDirectory, openAudioDirectory, openVideoDirectory).marginBottom(8));
+        this.view.add(UI.label(UIKeys.UTILITY_OPEN_FOLDER), UI.row(openGameDirectory, openModelsDirectory, openAudioDirectory).marginBottom(8));
         this.view.add(UI.label(UIKeys.UTILITY_RELOAD_LABEL), UI.row(textures, language, models, sounds, terrain));
         this.view.add(defaultCommands.marginBottom(8));
         this.view.add(UI.column(UI.label(UIKeys.UTILITY_RESIZE_WINDOW), UI.row(this.width, this.height)).marginBottom(8));
         this.view.add(UI.label(UIKeys.UTILITY_LANG_LABEL), UI.row(analyze, compile), langEditor.marginBottom(8));
         this.view.add(UI.label(UIKeys.UTILITY_AUDIO), openAudioEditor.marginBottom(8));
-        UIButton clearThumbnailCache = new UIButton(UIKeys.UTILITY_CLEAR_THUMBNAIL_CACHE, (b) -> this.clearThumbnailCache());
-
-        this.view.add(UI.label(UIKeys.RAW_CACHE), clearThumbnailCache.marginBottom(8));
-        this.view.add(UI.label(UIKeys.RAW_CDN), UI.row(cdnDownload, cdnUpload));
+        this.view.add(UI.label(IKey.raw("CDN")), UI.row(cdnDownload, cdnUpload));
         this.content.add(this.view);
     }
 
@@ -218,46 +201,11 @@ public class UIUtilityOverlayPanel extends UIOverlayPanel
         }
     }
 
-    private void clearThumbnailCache()
-    {
-        FormUIPreviewCache.clear();
-
-        for (UIDashboardPanels child : this.getContext().menu.getRoot().getChildren(UIDashboardPanels.class))
-        {
-            UIFilmPanel filmPanel = child.getPanel(UIFilmPanel.class);
-
-            if (filmPanel != null)
-            {
-                filmPanel.clearThumbnailCache();
-            }
-        }
-
-        this.print("Cleared thumbnail cache!");
-    }
-
     private void openFolder(File gameFolder)
     {
         gameFolder.mkdirs();
 
         UIUtils.openFolder(gameFolder);
-    }
-
-    private File getAssetsVideoFolder()
-    {
-        File videos = BBSMod.getAssetsPath(VIDEO_FOLDER);
-        File legacyVideo = BBSMod.getAssetsPath(LEGACY_VIDEO_FOLDER);
-
-        if (videos.exists())
-        {
-            return videos;
-        }
-
-        if (legacyVideo.exists())
-        {
-            return legacyVideo;
-        }
-
-        return videos;
     }
 
     private void openLangEditor()

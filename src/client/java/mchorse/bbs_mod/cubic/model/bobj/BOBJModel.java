@@ -7,7 +7,6 @@ import mchorse.bbs_mod.cubic.IModel;
 import mchorse.bbs_mod.cubic.MolangHelper;
 import mchorse.bbs_mod.cubic.data.animation.Animation;
 import mchorse.bbs_mod.cubic.data.model.ModelGroup;
-import mchorse.bbs_mod.cubic.render.vao.BOBJGPUSkinVAO;
 import mchorse.bbs_mod.cubic.render.vao.BOBJModelSimpleVAO;
 import mchorse.bbs_mod.cubic.render.vao.BOBJModelVAO;
 import mchorse.bbs_mod.forms.entities.IEntity;
@@ -18,7 +17,6 @@ import mchorse.bbs_mod.utils.pose.Transform;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -26,49 +24,16 @@ import java.util.Set;
 public class BOBJModel implements IModel
 {
     private BOBJArmature armature;
-    private List<BOBJLoader.CompiledData> meshes;
+    private BOBJLoader.CompiledData meshData;
 
-    /* One VAO per mesh; each mesh's name is its material for per-mesh texture selection. */
-    private List<BOBJModelVAO> vaos = new ArrayList<>();
+    private BOBJModelVAO vao;
     private boolean simple;
-    private Set<Integer> deformingBones;
 
-    public BOBJModel(BOBJArmature armature, List<BOBJLoader.CompiledData> meshes, boolean simple)
+    public BOBJModel(BOBJArmature armature, BOBJLoader.CompiledData meshData, boolean simple)
     {
         this.armature = armature;
-        this.meshes = meshes;
+        this.meshData = meshData;
         this.simple = simple;
-    }
-
-    /**
-     * Whether any mesh vertex is weighted to this bone. Bare reach-marker bones
-     * return false so IK stretch ends on the last deforming bone.
-     */
-    public boolean boneDeformsMesh(int boneIndex)
-    {
-        if (this.deformingBones == null)
-        {
-            this.deformingBones = new HashSet<>();
-
-            for (BOBJLoader.CompiledData mesh : this.meshes)
-            {
-                if (mesh != null && mesh.boneIndexData != null && mesh.weightData != null)
-                {
-                    int[] indices = mesh.boneIndexData;
-                    float[] weights = mesh.weightData;
-
-                    for (int i = 0; i < indices.length; i++)
-                    {
-                        if (indices[i] >= 0 && weights[i] > 0F)
-                        {
-                            this.deformingBones.add(indices[i]);
-                        }
-                    }
-                }
-            }
-        }
-
-        return this.deformingBones.contains(boneIndex);
     }
 
     public BOBJArmature getArmature()
@@ -76,36 +41,31 @@ public class BOBJModel implements IModel
         return this.armature;
     }
 
-    public List<BOBJModelVAO> getVaos()
+    public BOBJLoader.CompiledData getMeshData()
     {
-        return this.vaos;
+        return this.meshData;
     }
 
-    public List<BOBJLoader.CompiledData> getMeshes()
+    public BOBJModelVAO getVao()
     {
-        return this.meshes;
+        return this.vao;
     }
 
     public void delete()
     {
-        for (BOBJModelVAO vao : this.vaos)
+        if (this.vao != null)
         {
-            vao.delete();
-        }
+            this.vao.delete();
 
-        this.vaos.clear();
+            this.vao = null;
+        }
     }
 
     public void setup()
     {
-        this.delete();
-
-        for (BOBJLoader.CompiledData mesh : this.meshes)
-        {
-            this.vaos.add(this.simple
-                ? new BOBJModelSimpleVAO(mesh, this.armature)
-                : new BOBJGPUSkinVAO(mesh, this.armature));
-        }
+        this.vao = this.simple
+            ? new BOBJModelSimpleVAO(this.meshData)
+            : new BOBJModelVAO(this.meshData);
 
         this.armature.setupMatrices();
     }
@@ -158,25 +118,13 @@ public class BOBJModel implements IModel
                 bone.transform.lerp(Transform.DEFAULT, transform.fix);
             }
 
-            bone.lighting = transform.lighting;
-            bone.color.copy(transform.color);
-            bone.texture = transform.texture;
-            bone.textureBlend = transform.textureBlend;
+            // TODO: bone.lighting = transform.lighting;
+            // TODO: bone.color.copy(transform.color);
             bone.transform.translate.add(transform.translate);
             bone.transform.scale.add(transform.scale).sub(1, 1, 1);
             bone.transform.rotate.add(transform.rotate);
             bone.transform.rotate2.add(transform.rotate2);
         }
-    }
-
-    @Override
-    public IModel copy()
-    {
-        BOBJModel model = new BOBJModel(this.armature.copy(), this.meshes, this.simple);
-        
-        model.setup();
-        
-        return model;
     }
 
     @Override
@@ -270,58 +218,6 @@ public class BOBJModel implements IModel
         }
 
         return groups;
-    }
-
-    @Override
-    public String getParentGroupKey(String key)
-    {
-        BOBJBone bone = this.armature.bones.get(key);
-
-        if (bone == null || bone.parentBone == null)
-        {
-            return null;
-        }
-
-        return bone.parentBone.name;
-    }
-
-    @Override
-    public Collection<String> getRootGroupKeys()
-    {
-        List<String> roots = new ArrayList<>();
-
-        for (BOBJBone bone : this.armature.orderedBones)
-        {
-            if (bone.parentBone == null)
-            {
-                roots.add(bone.name);
-            }
-        }
-
-        return roots;
-    }
-
-    @Override
-    public Collection<String> getDirectChildrenKeys(String key)
-    {
-        BOBJBone parent = this.armature.bones.get(key);
-
-        if (parent == null)
-        {
-            return Collections.emptyList();
-        }
-
-        List<String> children = new ArrayList<>();
-
-        for (BOBJBone bone : this.armature.orderedBones)
-        {
-            if (bone.parentBone == parent)
-            {
-                children.add(bone.name);
-            }
-        }
-
-        return children;
     }
 
     @Override

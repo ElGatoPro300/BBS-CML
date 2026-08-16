@@ -1,7 +1,6 @@
 package mchorse.bbs_mod.ui.film.audio;
 
 import mchorse.bbs_mod.audio.Wave;
-
 import org.lwjgl.BufferUtils;
 import org.lwjgl.openal.AL10;
 import org.lwjgl.openal.ALC10;

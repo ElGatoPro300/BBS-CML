@@ -97,15 +97,10 @@ public class InterpolationRenderer
         for (int i = 0; i <= iterations; i++)
         {
             float factor = i / iterations;
-            double value = 1 - interp.interpolate(0, 1, factor);
-
-            // Handle NaN or Infinity cases
-            if (Double.isNaN(value) || Double.isInfinite(value)) {
-                value = 1 - factor; // Fallback to linear
-            }
+            float value = 1 - interp.interpolate(0, 1, factor);
 
             float x1 = x + factor * w;
-            float y1 = y + padding + (float)value * (h - padding * 2F);
+            float y1 = y + padding + value * (h - padding * 2F);
 
             line.add(x1, y1);
         }
@@ -118,13 +113,7 @@ public class InterpolationRenderer
         float tick = context.getTickTransition() % (duration + 20);
         float factor = MathUtils.clamp(tick / (float) duration, 0, 1);
         int px = x + w + 5;
-        double currentValue = 1 - interp.interpolate(0, 1, factor);
-        
-        if (Double.isNaN(currentValue) || Double.isInfinite(currentValue)) {
-            currentValue = 1 - factor;
-        }
-
-        int py = y + padding + (int) (currentValue * (h - padding * 2F));
+        int py = y + padding + (int) ((1 - interp.interpolate(0, 1, factor)) * (h - padding * 2F));
 
         context.batcher.box(px - 2, py - 2, px + 2, py + 2, Colors.A100 + fg.getRGBColor());
         context.batcher.unclip(context);

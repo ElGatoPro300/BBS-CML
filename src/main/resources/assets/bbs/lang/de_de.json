@@ -6,7 +6,7 @@
     "block.bbs.chroma_cyan": "Cyanes Chroma",
     "block.bbs.chroma_magenta": "Magentanes Chroma",
     "block.bbs.chroma_yellow": "Gelbes Chroma",
-    "block.bbs.chroma_black": "Schwarzes Chroma",
+    "block.bbs.chroma_black": "Schwarzes Chrona",
     "block.bbs.chroma_white": "Weißes Chroma",
     "item.bbs.gun": "BBS Pistole",
     "itemGroup.bbs.main": "BBS Mod",
@@ -24,8 +24,5 @@
     "key.bbs.zoom": "Zoom (BBS Pistole)",
     "category.bbs.main": "BBS Mod",
 
-    "gamerule.bbsEditing": "BBS Mod's Bearbeitungs Berechtigungen",
-    "command.getskin.success": "✅ Skin wurde auf alle Spieler angewendet",
-    "command.getskin.error": "❌ Fehler: %s",
-    "command.getskin.downloading": "🔄 Skin wird heruntergeladen..."
+    "gamerule.bbsEditing": "BBS Mod's Bearbeitungs Berechtigungen"
 }

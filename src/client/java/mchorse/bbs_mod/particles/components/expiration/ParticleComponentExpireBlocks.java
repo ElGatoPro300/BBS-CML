@@ -7,10 +7,8 @@ import mchorse.bbs_mod.math.molang.MolangParser;
 import mchorse.bbs_mod.particles.components.ParticleComponentBase;
 import mchorse.bbs_mod.particles.emitter.Particle;
 import mchorse.bbs_mod.particles.emitter.ParticleEmitter;
-
 import net.minecraft.block.BlockState;
 import net.minecraft.util.math.BlockPos;
-
 import org.joml.Vector3d;
 
 import java.util.ArrayList;

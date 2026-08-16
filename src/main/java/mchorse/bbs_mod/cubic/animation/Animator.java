@@ -1,13 +1,9 @@
 package mchorse.bbs_mod.cubic.animation;
 
-import mchorse.bbs_mod.BBSSettings;
 import mchorse.bbs_mod.cubic.IModelInstance;
 import mchorse.bbs_mod.cubic.data.animation.Animation;
 import mchorse.bbs_mod.cubic.data.animation.Animations;
-import mchorse.bbs_mod.entity.ActorEntity;
 import mchorse.bbs_mod.forms.entities.IEntity;
-import mchorse.bbs_mod.forms.entities.MCEntity;
-
 import net.minecraft.util.math.Vec3d;
 
 import java.util.ArrayList;
@@ -29,22 +25,8 @@ public class Animator implements IAnimator
     public ActionPlayback sprinting;
     public ActionPlayback crouching;
     public ActionPlayback crouchingIdle;
-    public ActionPlayback riding;
-    public ActionPlayback ridingIdle;
     public ActionPlayback dying;
     public ActionPlayback falling;
-    public ActionPlayback swimming;
-    public ActionPlayback swimmingIdle;
-    public ActionPlayback flying;
-    public ActionPlayback flyingIdle;
-    public ActionPlayback gliding;
-    public ActionPlayback crawling;
-    public ActionPlayback crawlingIdle;
-    public ActionPlayback climbing;
-    public ActionPlayback climbingIdle;
-    public ActionPlayback blocking;
-    public ActionPlayback sleeping;
-    public ActionPlayback riptide;
 
     public ActionPlayback jump1;
     public ActionPlayback jump2;
@@ -66,7 +48,6 @@ public class Animator implements IAnimator
     public double prevZ = Float.MAX_VALUE;
     public double prevMY;
     public float prevHandSwing;
-    public int prevHurtTimer;
 
     /* States */
     public boolean wasOnGround = true;
@@ -78,10 +59,8 @@ public class Animator implements IAnimator
     public List<String> getActions()
     {
         return Arrays.asList(
-            "idle", "running", "sprinting", "crouching", "crouching_idle", "riding", "riding_idle", "dying", "falling",
-            "swipe", "jump", "hurt", "land", "shoot", "consume", "base_pre", "base_post",
-            "swimming", "swimming_idle", "flying", "flying_idle", "gliding",
-            "crawling", "crawling_idle", "climbing", "climbing_idle", "blocking", "sleeping", "riptide"
+            "idle", "running", "sprinting", "crouching", "crouching_idle", "dying", "falling",
+            "swipe", "jump", "hurt", "land", "shoot", "consume", "base_pre", "base_post"
         );
     }
 
@@ -95,22 +74,8 @@ public class Animator implements IAnimator
         this.sprinting = this.createAction(this.sprinting, actions.getConfig("sprinting"), true);
         this.crouching = this.createAction(this.crouching, actions.getConfig("crouching"), true);
         this.crouchingIdle = this.createAction(this.crouchingIdle, actions.getConfig("crouching_idle"), true);
-        this.riding = this.createAction(this.riding, actions.getConfig("riding"), true);
-        this.ridingIdle = this.createAction(this.ridingIdle, actions.getConfig("riding_idle"), true);
         this.dying = this.createAction(this.dying, actions.getConfig("dying"), false);
         this.falling = this.createAction(this.falling, actions.getConfig("falling"), true);
-        this.swimming = this.createAction(this.swimming, actions.getConfig("swimming"), true);
-        this.swimmingIdle = this.createAction(this.swimmingIdle, actions.getConfig("swimming_idle"), true);
-        this.flying = this.createAction(this.flying, actions.getConfig("flying"), true);
-        this.flyingIdle = this.createAction(this.flyingIdle, actions.getConfig("flying_idle"), true);
-        this.gliding = this.createAction(this.gliding, actions.getConfig("gliding"), true);
-        this.crawling = this.createAction(this.crawling, actions.getConfig("crawling"), true);
-        this.crawlingIdle = this.createAction(this.crawlingIdle, actions.getConfig("crawling_idle"), true);
-        this.climbing = this.createAction(this.climbing, actions.getConfig("climbing"), true);
-        this.climbingIdle = this.createAction(this.climbingIdle, actions.getConfig("climbing_idle"), true);
-        this.blocking = this.createAction(this.blocking, actions.getConfig("blocking"), true);
-        this.sleeping = this.createAction(this.sleeping, actions.getConfig("sleeping"), true);
-        this.riptide = this.createAction(this.riptide, actions.getConfig("riptide"), true);
 
         this.swipe = this.createAction(this.swipe, actions.getConfig("swipe"), false);
         this.jump1 = this.createAction(this.jump1, actions.getConfig("jump"), false, 2);
@@ -275,78 +240,7 @@ public class Animator implements IAnimator
         }
         else
         {
-            if (target.isSleeping())
-            {
-                this.setActiveAction(this.sleeping);
-            }
-            else if (target.isUsingRiptide())
-            {
-                this.setActiveAction(this.riptide);
-            }
-            else if (target.isRiding() || target.isSitting())
-            {
-                IEntity mount = target.getMountTarget();
-                boolean mountMoves = false;
-
-                if (mount != null)
-                {
-                    double mdx = mount.getX() - mount.getPrevX();
-                    double mdz = mount.getZ() - mount.getPrevZ();
-
-                    mountMoves = Math.abs(mdx) > threshold || Math.abs(mdz) > threshold;
-                }
-
-                ActionPlayback ridingAction = !mountMoves && this.ridingIdle != null ? this.ridingIdle : this.riding;
-
-                if (ridingAction != null)
-                {
-                    this.setActiveAction(ridingAction);
-                }
-                else if (!mountMoves && this.crouchingIdle != null)
-                {
-                    this.setActiveAction(this.crouchingIdle);
-                }
-                else if (this.crouching != null)
-                {
-                    this.setActiveAction(this.crouching);
-                }
-                else
-                {
-                    this.setActiveAction(this.idle);
-                }
-            }
-            else if (target.isFallFlying())
-            {
-                if (this.gliding != null)
-                {
-                    this.setActiveAction(this.gliding);
-                }
-                else
-                {
-                    this.setActiveAction(!moves && this.flyingIdle != null ? this.flyingIdle : this.flying);
-                }
-            }
-            else if (target.isSwimming())
-            {
-                this.setActiveAction(!moves && this.swimmingIdle != null ? this.swimmingIdle : this.swimming);
-            }
-            else if (target.isFlying())
-            {
-                this.setActiveAction(!moves && this.flyingIdle != null ? this.flyingIdle : this.flying);
-            }
-            else if (target.isCrawling())
-            {
-                this.setActiveAction(!moves && this.crawlingIdle != null ? this.crawlingIdle : this.crawling);
-            }
-            else if (target.isClimbing())
-            {
-                this.setActiveAction(!moves && this.climbingIdle != null ? this.climbingIdle : this.climbing);
-            }
-            else if (target.isBlocking())
-            {
-                this.setActiveAction(this.blocking);
-            }
-            else if (target.isSneaking())
+            if (target.isSneaking())
             {
                 this.setActiveAction(!moves ? this.crouchingIdle : this.crouching);
             }
@@ -396,24 +290,10 @@ public class Animator implements IAnimator
             this.addAction(this.swipe);
         }
 
-        int hurtTimer = target.getHurtTimer();
-        ActorEntity actor = target instanceof MCEntity mcEntity && mcEntity.getMcEntity() instanceof ActorEntity a
-            ? a
-            : null;
-        boolean allowHurt = actor == null || BBSSettings.shouldPlayActorDamageAnimation();
-        boolean risingHurt = hurtTimer > 0 && this.prevHurtTimer <= 0;
-        boolean pendingHurt = actor != null && actor.consumePendingHurtAnimation();
-
-        if (allowHurt && (risingHurt || pendingHurt))
-        {
-            this.addAction(this.hurt);
-        }
-
         this.prevX = target.getX();
         this.prevZ = target.getZ();
         this.prevMY = velocity.y;
         this.prevHandSwing = handSwingProgress;
-        this.prevHurtTimer = hurtTimer;
 
         this.wasOnGround = target.isOnGround();
     }

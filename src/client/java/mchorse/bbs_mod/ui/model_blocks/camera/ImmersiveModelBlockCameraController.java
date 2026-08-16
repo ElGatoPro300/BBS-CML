@@ -3,37 +3,25 @@ package mchorse.bbs_mod.ui.model_blocks.camera;
 import mchorse.bbs_mod.blocks.entities.ModelBlockEntity;
 import mchorse.bbs_mod.camera.Camera;
 import mchorse.bbs_mod.camera.controller.ICameraController;
-import mchorse.bbs_mod.ui.forms.editors.UIFormEditor;
 import mchorse.bbs_mod.ui.framework.elements.utils.UIModelRenderer;
 import mchorse.bbs_mod.utils.pose.Transform;
-
 import net.minecraft.util.math.BlockPos;
 
 public class ImmersiveModelBlockCameraController implements ICameraController
 {
-    private final UIFormEditor formEditor;
-    private final ModelBlockEntity modelBlock;
+    private UIModelRenderer modelRenderer;
+    private ModelBlockEntity modelBlock;
 
-    public ImmersiveModelBlockCameraController(UIFormEditor formEditor, ModelBlockEntity modelBlock)
+    public ImmersiveModelBlockCameraController(UIModelRenderer modelRenderer, ModelBlockEntity modelBlock)
     {
-        this.formEditor = formEditor;
+        this.modelRenderer = modelRenderer;
         this.modelBlock = modelBlock;
-    }
-
-    private UIModelRenderer getActiveRenderer()
-    {
-        if (this.formEditor.modelSettingsEditor != null && this.formEditor.modelSettingsEditor.isVisible())
-        {
-            return this.formEditor.modelSettingsEditor.renderer;
-        }
-
-        return this.formEditor.renderer;
     }
 
     @Override
     public void setup(Camera camera, float transition)
     {
-        UIModelRenderer renderer = this.getActiveRenderer();
+        UIModelRenderer renderer = this.modelRenderer;
         Transform transform = this.modelBlock.getProperties().getTransform();
 
         renderer.setupPosition();

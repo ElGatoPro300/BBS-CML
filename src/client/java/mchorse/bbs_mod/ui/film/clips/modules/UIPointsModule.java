@@ -10,7 +10,6 @@ import mchorse.bbs_mod.ui.utils.Scroll;
 import mchorse.bbs_mod.ui.utils.ScrollDirection;
 import mchorse.bbs_mod.ui.utils.icons.Icons;
 import mchorse.bbs_mod.utils.MathUtils;
-import mchorse.bbs_mod.utils.colors.Color;
 import mchorse.bbs_mod.utils.colors.Colors;
 
 import java.util.function.Consumer;
@@ -207,7 +206,6 @@ public class UIPointsModule extends UIAbstractModule
         int x = this.area.x;
         int y = this.area.y;
         int c = this.path.size();
-        int mutedColor = this.desaturate(0xffff2280, 0.35F);
 
         /* Draw background and buttons */
         context.batcher.box(x, y, x + this.area.w, y + this.area.h, Colors.A50);
@@ -219,7 +217,7 @@ public class UIPointsModule extends UIAbstractModule
             int xx = this.area.x + i * this.scroll.scrollItemSize - (int) this.scroll.getScroll();
             int w = context.batcher.getFont().getWidth(label);
 
-            context.batcher.box(xx, y, xx + 20, y + 20, this.index == i ? 0xffcc1170 : mutedColor);
+            context.batcher.box(xx, y, xx + 20, y + 20, this.index == i ? 0xffcc1170 : 0xffff2280);
             context.batcher.box(xx + 19, y, xx + 20, y + 20, Colors.A12);
             context.batcher.textShadow(label, xx + 10 - w / 2, y + 6);
         }
@@ -249,15 +247,5 @@ public class UIPointsModule extends UIAbstractModule
         }
 
         super.render(context);
-    }
-
-    private int desaturate(int color, float saturationFactor)
-    {
-        Color rgb = new Color().set(color, true);
-        Color hsv = Colors.RGBtoHSV(rgb.r, rgb.g, rgb.b);
-        hsv.g *= saturationFactor;
-        Color out = Colors.HSVtoRGB(hsv.r, hsv.g, hsv.b);
-        out.a = rgb.a;
-        return out.getARGBColor();
     }
 }

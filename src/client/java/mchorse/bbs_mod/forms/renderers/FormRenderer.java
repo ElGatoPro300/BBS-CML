@@ -16,32 +16,20 @@ import mchorse.bbs_mod.utils.StringUtils;
 import mchorse.bbs_mod.utils.colors.Colors;
 import mchorse.bbs_mod.utils.interps.Lerps;
 import mchorse.bbs_mod.utils.pose.Transform;
-
 import net.minecraft.client.gl.GlUniform;
 import net.minecraft.client.gl.ShaderProgram;
 import net.minecraft.client.network.AbstractClientPlayerEntity;
 import net.minecraft.client.render.LightmapTextureManager;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.util.Hand;
-
 import org.joml.Matrix4f;
 
-import org.lwjgl.opengl.GL11;
-
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.function.Supplier;
 
 public abstract class FormRenderer <T extends Form>
 {
-    private static boolean suppressFormDisplayName;
-
-    public static void setSuppressFormDisplayName(boolean suppress)
-    {
-        suppressFormDisplayName = suppress;
-    }
-
     protected T form;
 
     public FormRenderer(T form)
@@ -61,18 +49,12 @@ public abstract class FormRenderer <T extends Form>
 
     public final void renderUI(UIContext context, int x1, int y1, int x2, int y2)
     {
-        context.batcher.flush();
-        GL11.glClear(GL11.GL_DEPTH_BUFFER_BIT);
-
         this.renderInUI(context, x1, y1, x2, y2);
-
-        context.batcher.flush();
-        GL11.glClear(GL11.GL_DEPTH_BUFFER_BIT);
 
         FontRenderer font = context.batcher.getFont();
         String name = this.form.name.get();
 
-        if (!suppressFormDisplayName && !name.isEmpty())
+        if (!name.isEmpty())
         {
             name = font.limitToWidth(name, x2 - x1 - 3);
 
@@ -103,74 +85,47 @@ public abstract class FormRenderer <T extends Form>
 
     public final void render(FormRenderingContext context)
     {
-        /* Transparent forms skip casting via opacity / vertex alpha in the shadow path.
-         * Color-track paint/blend/grade must not disable Form.shaderShadow. */
         if (!this.form.shaderShadow.get() && BBSRendering.isIrisShadowPass())
-        {
-            return;
-        }
-
-        if (!this.form.render.get())
         {
             return;
         }
 
         this.form.applyStates(context.transition);
 
-        if (!this.form.visible.get())
-        {
-            this.form.unapplyStates();
+        int light = context.light;
+        boolean visible = this.form.visible.get();
 
+        if (!visible)
+        {
             return;
         }
 
-        int light = context.light;
-        int savedColor = context.color;
         boolean isPicking = context.stencilMap != null;
 
         context.stack.push();
-        if (context.world != null)
+        this.applyTransforms(context.stack, false, context.getTransition());
+
+        float lf = 1F - MathUtils.clamp(this.form.lighting.get(), 0F, 1F);
+        int u = context.light & '\uffff';
+        int v = context.light >> 16 & '\uffff';
+
+        u = (int) Lerps.lerp(u, LightmapTextureManager.MAX_BLOCK_LIGHT_COORDINATE, lf);
+        context.light = u | v << 16;
+
+        this.render3D(context);
+
+        if (isPicking)
         {
-            context.world.push();
+            this.updateStencilMap(context);
         }
 
-        try
-        {
-            this.applyTransforms(context.stack, false, context.getTransition());
-            if (context.world != null)
-            {
-                this.applyTransforms(context.world, false, context.getTransition());
-            }
+        this.renderBodyParts(context);
 
-            float lf = 1F - MathUtils.clamp(this.form.lighting.get(), 0F, 1F);
-            int u = context.light & '\uffff';
-            int v = context.light >> 16 & '\uffff';
+        context.stack.pop();
 
-            u = (int) Lerps.lerp(u, LightmapTextureManager.MAX_BLOCK_LIGHT_COORDINATE, lf);
-            context.light = u | v << 16;
+        context.light = light;
 
-            this.render3D(context);
-
-            if (isPicking)
-            {
-                this.updateStencilMap(context);
-            }
-
-            this.renderBodyParts(context);
-        }
-        finally
-        {
-            context.stack.pop();
-            if (context.world != null)
-            {
-                context.world.pop();
-            }
-
-            context.light = light;
-            context.color = savedColor;
-
-            this.form.unapplyStates();
-        }
+        this.form.unapplyStates();
     }
 
     protected void applyTransforms(MatrixStack stack, boolean origin, float transition)
@@ -213,7 +168,6 @@ public abstract class FormRenderer <T extends Form>
         transform.scale.add(overlay.scale).sub(1, 1, 1);
         transform.rotate.add(overlay.rotate);
         transform.rotate2.add(overlay.rotate2);
-        transform.pivot.add(overlay.pivot);
     }
 
     protected Supplier<ShaderProgram> getShader(FormRenderingContext context, Supplier<ShaderProgram> normal, Supplier<ShaderProgram> picking)
@@ -250,27 +204,10 @@ public abstract class FormRenderer <T extends Form>
 
     public void renderBodyParts(FormRenderingContext context)
     {
-        if (this.form.parts.getAllTyped().isEmpty())
-        {
-            return;
-        }
-
-        List<BodyPart> parts = this.getSortedBodyParts(context);
-
-        if (ItemBodyPartBatch.renderBodyParts(this, parts, context))
-        {
-            return;
-        }
-
-        for (BodyPart part : parts)
+        for (BodyPart part : this.form.parts.getAllTyped())
         {
             this.renderBodyPart(part, context);
         }
-    }
-
-    protected List<BodyPart> getSortedBodyParts(FormRenderingContext context)
-    {
-        return new ArrayList<>(this.form.parts.getAllTyped());
     }
 
     protected void renderBodyPart(BodyPart part, FormRenderingContext context)
@@ -282,32 +219,11 @@ public abstract class FormRenderer <T extends Form>
         if (part.getForm() != null)
         {
             context.stack.push();
+            MatrixStackUtils.applyTransform(context.stack, part.transform.get());
 
-            if (context.world != null)
-            {
-                context.world.push();
-            }
+            FormUtilsClient.render(part.getForm(), context);
 
-            try
-            {
-                MatrixStackUtils.applyTransform(context.stack, part.transform.get());
-
-                if (context.world != null)
-                {
-                    MatrixStackUtils.applyTransform(context.world, part.transform.get());
-                }
-
-                FormUtilsClient.render(part.getForm(), context);
-            }
-            finally
-            {
-                context.stack.pop();
-
-                if (context.world != null)
-                {
-                    context.world.pop();
-                }
-            }
+            context.stack.pop();
         }
 
         context.entity = oldEntity;

@@ -17,7 +17,6 @@ uniform mat4 ModelViewMat;
 uniform mat3 NormalMat;
 uniform mat4 ProjMat;
 uniform mat3 IViewRotMat;
-uniform mat4 FormRootInverse;
 uniform int FogShape;
 
 uniform vec3 Light0_Direction;
@@ -25,25 +24,20 @@ uniform vec3 Light1_Direction;
 
 out float vertexDistance;
 out vec4 vertexColor;
-out vec4 rawVertexColor;
 out vec4 lightMapColor;
 out vec4 overlayColor;
 out vec2 texCoord0;
 out vec4 normal;
-out vec3 formRootPos;
 
 void main()
 {
     gl_Position = ProjMat * ModelViewMat * vec4(Position, 1.0);
+
     vertexDistance = fog_distance(ModelViewMat, IViewRotMat * Position, FogShape);
-    vec3 n = NormalMat * Normal;
-    float nLen2 = dot(n, n);
-    vec3 fixNormal = nLen2 > 1.0e-8 ? n * inversesqrt(nLen2) : vec3(0.0, 0.0, 1.0);
-    rawVertexColor = Color;
+    vec3 fixNormal = normalize(NormalMat * Normal);
     vertexColor = minecraft_mix_light(Light0_Direction, Light1_Direction, fixNormal, Color);
     lightMapColor = texelFetch(Sampler2, UV2 / 16, 0);
     overlayColor = texelFetch(Sampler1, UV1, 0);
     texCoord0 = UV0;
     normal = ProjMat * ModelViewMat * vec4(Normal, 0.0);
-    formRootPos = (FormRootInverse * vec4(Position, 1.0)).xyz;
 }

@@ -1,10 +1,8 @@
 package mchorse.bbs_mod.graphics.texture;
 
-import mchorse.bbs_mod.utils.resources.Pixels;
-
 import com.mojang.blaze3d.platform.GlStateManager;
 import com.mojang.blaze3d.platform.TextureUtil;
-
+import mchorse.bbs_mod.utils.resources.Pixels;
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL30;
 import org.lwjgl.system.MemoryUtil;

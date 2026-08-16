@@ -24,8 +24,5 @@
     "key.bbs.zoom": "Прицелиться (ББС ружьё)",
     "category.bbs.main": "ББС мод",
 
-    "gamerule.bbsEditing": "Привелегии редактирование ББС мода",
-    "command.getskin.success": "✅ Скин применён ко всем игрокам",
-    "command.getskin.error": "❌ Ошибка: %s",
-    "command.getskin.downloading": "🔄 Скин загружается..."
+    "gamerule.bbsEditing": "Привелегии редактирование ББС мода"
 }

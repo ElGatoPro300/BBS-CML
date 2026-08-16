@@ -1,5 +1,7 @@
 package mchorse.bbs_mod.camera.clips.misc;
 
+import mchorse.bbs_mod.utils.pose.Transform;
+
 public class Subtitle
 {
     public String label = "";
@@ -17,9 +19,11 @@ public class Subtitle
     public float shadow;
     public boolean shadowOpaque;
 
-    public float lineHeight;
-    public float maxWidth;
-    public int renderOrder;
+    public Transform transform;
+    public float factor;
+
+    public int lineHeight;
+    public int maxWidth;
 
     public void update(String label, int x, int y, float size, float anchorX, float anchorY, int color, boolean textShadow)
     {
@@ -47,7 +51,13 @@ public class Subtitle
         this.shadowOpaque = shadowOpaque;
     }
 
-    public void updateConstraints(float lineHeight, float maxWidth)
+    public void updateTransform(Transform transform, float factor)
+    {
+        this.transform = transform;
+        this.factor = factor;
+    }
+
+    public void updateConstraints(int lineHeight, int maxWidth)
     {
         this.lineHeight = lineHeight;
         this.maxWidth = maxWidth;

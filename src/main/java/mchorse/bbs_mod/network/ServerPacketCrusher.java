@@ -1,7 +1,6 @@
 package mchorse.bbs_mod.network;
 
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
-
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.network.PacketByteBuf;
 import net.minecraft.server.network.ServerPlayerEntity;

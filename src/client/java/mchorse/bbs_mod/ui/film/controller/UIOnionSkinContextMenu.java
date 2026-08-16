@@ -14,7 +14,6 @@ import mchorse.bbs_mod.ui.framework.elements.input.UIColor;
 import mchorse.bbs_mod.ui.framework.elements.input.UITrackpad;
 import mchorse.bbs_mod.ui.utils.UI;
 import mchorse.bbs_mod.ui.utils.icons.Icons;
-import mchorse.bbs_mod.utils.Direction;
 
 public class UIOnionSkinContextMenu extends UIContextMenu
 {
@@ -105,12 +104,12 @@ public class UIOnionSkinContextMenu extends UIContextMenu
 
         if (this.onionSkin.enabled.get())
         {
-            UIDashboardPanels.renderHighlight(context.batcher, this.enable.area, Direction.BOTTOM);
+            UIDashboardPanels.renderHighlight(context.batcher, this.enable.area);
         }
 
         if (this.onionSkin.all.get())
         {
-            UIDashboardPanels.renderHighlight(context.batcher, this.all.area, Direction.BOTTOM);
+            UIDashboardPanels.renderHighlight(context.batcher, this.all.area);
         }
     }
 }

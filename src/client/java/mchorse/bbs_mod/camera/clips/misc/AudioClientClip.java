@@ -5,7 +5,6 @@ import mchorse.bbs_mod.audio.SoundPlayer;
 import mchorse.bbs_mod.camera.data.Position;
 import mchorse.bbs_mod.camera.utils.TimeUtils;
 import mchorse.bbs_mod.resources.Link;
-import mchorse.bbs_mod.utils.LoopbackAudioController;
 import mchorse.bbs_mod.utils.clips.Clip;
 import mchorse.bbs_mod.utils.clips.ClipContext;
 
@@ -24,35 +23,16 @@ public class AudioClientClip extends AudioClip
         return context.clipData.get("audio", ConcurrentHashMap::new);
     }
 
-    public static Map<Link, Float> getVolumes(ClipContext context)
-    {
-        return context.clipData.get("audio_gain", ConcurrentHashMap::new);
-    }
-
     public static void manageSounds(ClipContext context)
     {
         Map<Link, Float> playback = getPlayback(context);
-        Map<Link, Float> volumes = getVolumes(context);
-
-        if (LoopbackAudioController.isFilmClipPlaybackSuppressed())
-        {
-            for (Link link : playback.keySet())
-            {
-                BBSModClient.getSounds().stop(link);
-            }
-
-            playback.clear();
-            volumes.clear();
-
-            return;
-        }
 
         for (Map.Entry<Link, Float> entry : playback.entrySet())
         {
             float tickTime = entry.getValue();
             SoundPlayer player = BBSModClient.getSounds().playUnique(entry.getKey());
 
-            if (player == null || player.getBuffer() == null || !player.getBuffer().isValid())
+            if (player == null)
             {
                 continue;
             }
@@ -83,12 +63,7 @@ public class AudioClientClip extends AudioClip
             {
                 player.setPlaybackPosition(tickTime);
             }
-
-            float gain = Math.min(100F, Math.max(0F, volumes.getOrDefault(entry.getKey(), 0F)));
-            player.setVolume(gain);
         }
-
-        volumes.clear();
     }
 
     @Override
@@ -117,14 +92,13 @@ public class AudioClientClip extends AudioClip
         {
             SoundPlayer player = BBSModClient.getSounds().playUnique(link);
 
-            if (player == null || player.getBuffer() == null || !player.getBuffer().isValid())
+            if (player == null)
             {
                 return;
             }
 
             float tickTime = (context.relativeTick + context.transition) / 20F;
             Map<Link, Float> playback = getPlayback(context);
-            Map<Link, Float> volumes = getVolumes(context);
 
             if (context.relativeTick >= this.duration.get() || tickTime < 0)
             {
@@ -133,10 +107,6 @@ public class AudioClientClip extends AudioClip
             else
             {
                 playback.put(link, TimeUtils.toSeconds(this.offset.get()) + tickTime);
-
-                float factor = this.envelope.factorEnabled(this.duration.get(), context.relativeTick + context.transition);
-                float gain = (this.volume.get() / 100F) * factor;
-                volumes.merge(link, gain, Float::sum);
             }
         }
     }

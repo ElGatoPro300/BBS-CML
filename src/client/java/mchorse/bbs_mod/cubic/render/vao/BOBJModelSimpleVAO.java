@@ -4,7 +4,6 @@ import mchorse.bbs_mod.bobj.BOBJArmature;
 import mchorse.bbs_mod.bobj.BOBJBone;
 import mchorse.bbs_mod.bobj.BOBJLoader;
 import mchorse.bbs_mod.utils.MathUtils;
-
 import org.joml.Vector4f;
 
 import java.util.ArrayList;
@@ -18,9 +17,9 @@ public class BOBJModelSimpleVAO extends BOBJModelVAO
     public Joint legRight;
     public Joint body;
 
-    public BOBJModelSimpleVAO(BOBJLoader.CompiledData data, BOBJArmature armature)
+    public BOBJModelSimpleVAO(BOBJLoader.CompiledData data)
     {
-        super(data, armature);
+        super(data);
 
         this.armLeft = new Joint(this.armature.bones.get("left_arm"), this.armature.bones.get("low_left_arm"));
         this.armRight = new Joint(this.armature.bones.get("right_arm"), this.armature.bones.get("low_right_arm"));

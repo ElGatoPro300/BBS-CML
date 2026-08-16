@@ -1,7 +1,6 @@
 package mchorse.bbs_mod.graphics;
 
 import mchorse.bbs_mod.graphics.texture.Texture;
-
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL30;
 

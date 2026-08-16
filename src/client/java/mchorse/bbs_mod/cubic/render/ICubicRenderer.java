@@ -2,51 +2,32 @@ package mchorse.bbs_mod.cubic.render;
 
 import mchorse.bbs_mod.cubic.data.model.Model;
 import mchorse.bbs_mod.cubic.data.model.ModelGroup;
-import mchorse.bbs_mod.utils.MathUtils;
 import mchorse.bbs_mod.utils.MatrixStackUtils;
-
+import mchorse.bbs_mod.utils.MathUtils;
 import net.minecraft.client.render.BufferBuilder;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.util.math.RotationAxis;
-
 import org.joml.Vector3f;
 
 public interface ICubicRenderer
 {
-    public static void offsetGroup(MatrixStack stack, ModelGroup group)
-    {
-        Vector3f offset = group.offset;
-
-        if (offset != null)
-        {
-            stack.translate(offset.x, offset.y, offset.z);
-        }
-    }
-
     public static void translateGroup(MatrixStack stack, ModelGroup group)
     {
         Vector3f translate = group.current.translate;
-        Vector3f pivot = group.current.pivot;
+        Vector3f pivot = group.initial.translate;
 
         stack.translate(-(translate.x - pivot.x) / 16F, (translate.y - pivot.y) / 16F, (translate.z - pivot.z) / 16F);
     }
 
     public static void moveToGroupPivot(MatrixStack stack, ModelGroup group)
     {
-        Vector3f pivot = group.current.pivot;
+        Vector3f pivot = group.initial.translate;
 
         stack.translate(pivot.x / 16F, pivot.y / 16F, pivot.z / 16F);
     }
 
     public static void rotateGroup(MatrixStack stack, ModelGroup group)
     {
-        if (group.orient != null)
-        {
-            stack.multiply(group.orient);
-
-            return;
-        }
-
         if (group.current.rotate.z != 0F) stack.multiply(RotationAxis.POSITIVE_Z.rotation(MathUtils.toRad(group.current.rotate.z)));
         if (group.current.rotate.y != 0F) stack.multiply(RotationAxis.POSITIVE_Y.rotation(MathUtils.toRad(group.current.rotate.y)));
         if (group.current.rotate.x != 0F) stack.multiply(RotationAxis.POSITIVE_X.rotation(MathUtils.toRad(group.current.rotate.x)));
@@ -65,14 +46,13 @@ public interface ICubicRenderer
 
     public static void moveBackFromGroupPivot(MatrixStack stack, ModelGroup group)
     {
-        Vector3f pivot = group.current.pivot;
+        Vector3f pivot = group.initial.translate;
 
         stack.translate(-pivot.x / 16F, -pivot.y / 16F, -pivot.z / 16F);
     }
 
     public default void applyGroupTransformations(MatrixStack stack, ModelGroup group)
     {
-        offsetGroup(stack, group);
         translateGroup(stack, group);
         moveToGroupPivot(stack, group);
         rotateGroup(stack, group);
