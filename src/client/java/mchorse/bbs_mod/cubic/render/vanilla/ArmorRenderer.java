@@ -4,6 +4,7 @@ import mchorse.bbs_mod.cubic.model.ArmorType;
 import mchorse.bbs_mod.forms.entities.IEntity;
 import mchorse.bbs_mod.forms.renderers.utils.RecolorVertexConsumer;
 import mchorse.bbs_mod.utils.colors.Color;
+import mchorse.bbs_mod.utils.iris.IrisEntityArmorContext;
 
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.model.ModelPart;
@@ -63,7 +64,16 @@ public class ArmorRenderer
     {
         ItemStack itemStack = entity.getEquipmentStack(armorSlot);
         Item item = itemStack.getItem();
+        VertexConsumerProvider buffers = IrisEntityArmorContext.wrapEntityBuffers(vertexConsumers);
 
+        try (IrisEntityArmorContext.Scope ignored = IrisEntityArmorContext.beginArmorPiece(entity, item))
+        {
+            this.renderArmorSlotInner(matrices, buffers, entity, armorSlot, type, light, itemStack, item);
+        }
+    }
+
+    private void renderArmorSlotInner(MatrixStack matrices, VertexConsumerProvider vertexConsumers, IEntity entity, EquipmentSlot armorSlot, ArmorType type, int light, ItemStack itemStack, Item item)
+    {
         if (item instanceof ElytraItem || itemStack.isOf(Items.ELYTRA))
         {
             if (type == ArmorType.CHEST && this.elytraModel != null)
@@ -202,8 +212,17 @@ public class ArmorRenderer
          * (044b2f4a6) while restoring inside trim like vanilla coplanar NoCull geometry.
          * Scale is baked into vertices — draw is deferred, so GL polygon-offset at submit
          * would not stick through consumers.draw(). */
-        this.renderScaledPart(part, matrices, vertexConsumer, light, TRIM_OUTER_SCALE);
-        this.renderScaledPart(part, matrices, vertexConsumer, light, TRIM_INNER_SCALE);
+        IrisEntityArmorContext.beginTrim(trim);
+
+        try
+        {
+            this.renderScaledPart(part, matrices, vertexConsumer, light, TRIM_OUTER_SCALE);
+            this.renderScaledPart(part, matrices, vertexConsumer, light, TRIM_INNER_SCALE);
+        }
+        finally
+        {
+            IrisEntityArmorContext.endTrim();
+        }
     }
 
     private void renderGlint(ModelPart part, MatrixStack matrices, VertexConsumerProvider vertexConsumers, int light)
