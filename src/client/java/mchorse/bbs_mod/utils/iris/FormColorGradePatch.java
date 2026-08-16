@@ -2,6 +2,11 @@ package mchorse.bbs_mod.utils.iris;
 
 import mchorse.bbs_mod.utils.colors.ColorAdjustments;
 
+import net.irisshaders.iris.Iris;
+import net.irisshaders.iris.gl.uniform.UniformUpdateFrequency;
+import net.irisshaders.iris.uniforms.custom.cached.CachedUniform;
+import net.irisshaders.iris.uniforms.custom.cached.FloatCachedUniform;
+
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL20;
 
@@ -9,11 +14,6 @@ import java.util.List;
 import java.util.Locale;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-
-import net.irisshaders.iris.Iris;
-import net.irisshaders.iris.gl.uniform.UniformUpdateFrequency;
-import net.irisshaders.iris.uniforms.custom.cached.CachedUniform;
-import net.irisshaders.iris.uniforms.custom.cached.FloatCachedUniform;
 
 /**
  * Patches Complementary / BSL entity (and block) gbuffer fragment shaders so form

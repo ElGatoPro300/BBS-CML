@@ -88,6 +88,8 @@ import net.minecraft.client.util.Window;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.util.math.BlockPos;
 
+import net.irisshaders.iris.uniforms.custom.cached.CachedUniform;
+
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
 
@@ -105,8 +107,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
-
-import net.irisshaders.iris.uniforms.custom.cached.CachedUniform;
 
 public class BBSRendering
 {

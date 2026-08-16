@@ -2,13 +2,14 @@ package mchorse.bbs_mod.mixin.client.iris;
 
 import mchorse.bbs_mod.client.SunPathRotation;
 
+import net.irisshaders.iris.uniforms.CelestialUniforms;
+
 import org.joml.Matrix4f;
 import org.joml.Matrix4fc;
 import org.joml.Vector4f;
 
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
-import net.irisshaders.iris.uniforms.CelestialUniforms;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
