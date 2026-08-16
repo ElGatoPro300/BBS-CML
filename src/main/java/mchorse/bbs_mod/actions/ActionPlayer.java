@@ -18,6 +18,7 @@ import mchorse.bbs_mod.morphing.Morph;
 import mchorse.bbs_mod.network.ServerNetwork;
 import mchorse.bbs_mod.settings.values.base.BaseValue;
 import mchorse.bbs_mod.settings.values.base.BaseValueGroup;
+import mchorse.bbs_mod.settings.values.core.ValueForm;
 import mchorse.bbs_mod.utils.CollectionUtils;
 import mchorse.bbs_mod.utils.DataPath;
 import mchorse.bbs_mod.utils.MathUtils;
@@ -544,7 +545,10 @@ public class ActionPlayer
 
         for (int i = 0; i < list.size(); i++)
         {
-            if (i == this.exception)
+            /* Outside RECORDING uses exception; editor puppet / viewport record uses
+             * controlledReplay — both must skip pre-recorded Attack/Swipe/etc. so the
+             * live player is the only source of those clips for that replay. */
+            if (i == this.exception || i == this.controlledReplay)
             {
                 continue;
             }
@@ -614,13 +618,70 @@ public class ActionPlayer
                 || baseValue.getId().equals("enabled")
                 || baseValue.getId().equals("replays"))
             {
+                int keepTick = this.tick;
+
                 this.updateReplayEntities();
+                /* updateReplayEntities clears combatFinishedIds and respawns at full HP.
+                 * Re-run silent combat at the current film tick so dead actors stay dead
+                 * and the next hit still kills when it should. */
+                this.goTo(keepTick);
+            }
+            else if (baseValue instanceof ValueForm || baseValue.getId().equals("form"))
+            {
+                /* Form swaps must update ActorEntity / FP morph copies. reapplyActors alone
+                 * keeps the old mesh (and gizmo bone matrices) until Alt+R. */
+                this.syncActorFormsFromReplays();
+                this.reapplyActors();
             }
             else
             {
-                /* Keyframes / properties / form data: keep live actors on the
+                /* Keyframes / properties: keep live actors on the
                  * updated timeline without discarding entities. */
                 this.reapplyActors();
+            }
+        }
+    }
+
+    /**
+     * Push {@link Replay#form} onto live actor bodies and notify clients.
+     * Stubs are rebuilt client-side via {@code createEntities}; actors are not.
+     */
+    private void syncActorFormsFromReplays()
+    {
+        Replay fpReplay = this.film.getFirstPersonReplay();
+
+        for (Map.Entry<String, LivingEntity> entry : this.actors.entrySet())
+        {
+            Replay replay = (Replay) this.film.replays.get(entry.getKey());
+            LivingEntity actor = entry.getValue();
+
+            if (replay == null || actor == null || actor.isRemoved())
+            {
+                continue;
+            }
+
+            Form formCopy = FormUtils.copy(replay.form.get());
+
+            if (actor instanceof ActorEntity actorEntity)
+            {
+                actorEntity.setForm(formCopy);
+
+                for (ServerPlayerEntity player : this.world.getPlayers())
+                {
+                    ServerNetwork.sendEntityForm(player, actorEntity);
+                }
+            }
+            else if (this.serverPlayer != null && actor == this.serverPlayer
+                && fpReplay != null && replay.getId().equals(fpReplay.getId()))
+            {
+                Morph morph = Morph.getMorph(this.serverPlayer);
+
+                if (morph != null)
+                {
+                    morph.setForm(formCopy);
+                }
+
+                ServerNetwork.sendMorphToTracked(this.serverPlayer, formCopy);
             }
         }
     }
@@ -757,7 +818,13 @@ public class ActionPlayer
          * damage taken before the scrub window (fixes “final hit doesn’t kill”). */
         Map<String, Float> health = this.computeSilentHealth(tick);
 
-        this.combatFinishedIds.clear();
+        /* Default: rebuild finished-death set from timeline HP so scrubbing before
+         * a kill revives actors. Off = legacy: once dead this session, stay gone
+         * until Alt+R / updateReplayEntities clears the set. */
+        if (this.isReplayDeathTimelineSyncEnabled())
+        {
+            this.combatFinishedIds.clear();
+        }
 
         for (Map.Entry<String, Float> entry : health.entrySet())
         {
@@ -789,6 +856,11 @@ public class ActionPlayer
         }
 
         this.reapplyActors();
+    }
+
+    private boolean isReplayDeathTimelineSyncEnabled()
+    {
+        return BBSSettings.replayDeathTimelineSync == null || BBSSettings.replayDeathTimelineSync.get();
     }
 
     /**

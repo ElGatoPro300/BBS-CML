@@ -161,15 +161,17 @@ public class ClientNetwork
             }
 
             UIDashboard dashboard = BBSModClient.getDashboard();
+            UITriggerBlockPanel panel = dashboard.getPanel(UITriggerBlockPanel.class);
+
+            /* Switch before opening so dashboard onOpen does not restore the last
+             * film panel (which would restart paused actor replays). */
+            dashboard.setPanel(panel);
 
             if (!(client.currentScreen instanceof UIScreen screen) || screen.getMenu() != dashboard)
             {
                 UIScreen.open(dashboard);
             }
 
-            UITriggerBlockPanel panel = dashboard.getPanel(UITriggerBlockPanel.class);
-
-            dashboard.setPanel(panel);
             panel.fill((TriggerBlockEntity) entity, true);
         });
     }
@@ -189,15 +191,17 @@ public class ClientNetwork
 
             UIBaseMenu menu = UIScreen.getCurrentMenu();
             UIDashboard dashboard = BBSModClient.getDashboard();
+            UIModelBlockPanel panel = dashboard.getPanels().getPanel(UIModelBlockPanel.class);
+
+            /* Switch before opening so dashboard onOpen does not restore the last
+             * film panel (which would restart paused actor replays). */
+            dashboard.setPanel(panel);
 
             if (menu != dashboard)
             {
                 UIScreen.open(dashboard);
             }
 
-            UIModelBlockPanel panel = dashboard.getPanels().getPanel(UIModelBlockPanel.class);
-
-            dashboard.setPanel(panel);
             panel.fill((ModelBlockEntity) entity, true);
         });
     }
@@ -641,6 +645,15 @@ public class ClientNetwork
 
     public static void sendActionRecording(String filmId, int replayId, int tick, int countdown, boolean state)
     {
+        sendActionRecording(filmId, replayId, tick, countdown, state, false);
+    }
+
+    /**
+     * @param recorderOnly true = film-editor viewport (keep FILM_EDITOR ActionPlayer);
+     *                     false = Outside/world recording (spawn RECORDING ActionPlayer).
+     */
+    public static void sendActionRecording(String filmId, int replayId, int tick, int countdown, boolean state, boolean recorderOnly)
+    {
         PacketByteBuf buf = PacketByteBufs.create();
 
         buf.writeString(filmId);
@@ -648,6 +661,7 @@ public class ClientNetwork
         buf.writeInt(tick);
         buf.writeInt(countdown);
         buf.writeBoolean(state);
+        buf.writeBoolean(recorderOnly);
 
         ClientPlayNetworking.send(ServerNetwork.BufPayload.from(buf, ServerNetwork.idFor(ServerNetwork.SERVER_ACTION_RECORDING)));
     }

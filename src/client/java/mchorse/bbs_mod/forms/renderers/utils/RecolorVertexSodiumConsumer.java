@@ -26,6 +26,12 @@ public class RecolorVertexSodiumConsumer extends RecolorVertexConsumer implement
     }
 
     @Override
+    public boolean canUseIntrinsics()
+    {
+        return this.consumer instanceof VertexBufferWriter writer && writer.canUseIntrinsics();
+    }
+
+    @Override
     public void push(MemoryStack memoryStack, long l, int i, VertexFormat vertexFormat)
     {
         if (this.consumer instanceof VertexBufferWriter writer)

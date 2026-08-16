@@ -11,6 +11,7 @@ import mchorse.bbs_mod.utils.pose.Transform;
 import net.minecraft.entity.EquipmentSlot;
 import net.minecraft.item.ItemDisplayContext;
 import net.minecraft.item.ItemStack;
+import net.minecraft.registry.RegistryWrapper;
 
 public class ModelProperties implements IMapSerializable
 {
@@ -329,6 +330,11 @@ public class ModelProperties implements IMapSerializable
     @Override
     public void fromData(MapType data)
     {
+        this.fromData(data, null);
+    }
+
+    public void fromData(MapType data, RegistryWrapper.WrapperLookup registries)
+    {
         this.name = data.getString("name", "").trim();
         this.form = this.processForm(FormUtils.fromData(data.getMap("form")));
         this.formThirdPerson = this.processForm(FormUtils.fromData(data.getMap("formThirdPerson")));
@@ -339,12 +345,12 @@ public class ModelProperties implements IMapSerializable
         this.transformThirdPerson.fromData(data.getMap("transformThirdPerson"));
         this.transformInventory.fromData(data.getMap("transformInventory"));
         this.transformFirstPerson.fromData(data.getMap("transformFirstPerson"));
-        this.setItemMainHand(data.has("item_main_hand") ? KeyframeFactories.ITEM_STACK.fromData(data.get("item_main_hand")) : ItemStack.EMPTY);
-        this.setItemOffHand(data.has("item_off_hand") ? KeyframeFactories.ITEM_STACK.fromData(data.get("item_off_hand")) : ItemStack.EMPTY);
-        this.setArmorHead(data.has("item_head") ? KeyframeFactories.ITEM_STACK.fromData(data.get("item_head")) : ItemStack.EMPTY);
-        this.setArmorChest(data.has("item_chest") ? KeyframeFactories.ITEM_STACK.fromData(data.get("item_chest")) : ItemStack.EMPTY);
-        this.setArmorLegs(data.has("item_legs") ? KeyframeFactories.ITEM_STACK.fromData(data.get("item_legs")) : ItemStack.EMPTY);
-        this.setArmorFeet(data.has("item_feet") ? KeyframeFactories.ITEM_STACK.fromData(data.get("item_feet")) : ItemStack.EMPTY);
+        this.setItemMainHand(data.has("item_main_hand") ? KeyframeFactories.ITEM_STACK.fromData(data.get("item_main_hand"), registries) : ItemStack.EMPTY);
+        this.setItemOffHand(data.has("item_off_hand") ? KeyframeFactories.ITEM_STACK.fromData(data.get("item_off_hand"), registries) : ItemStack.EMPTY);
+        this.setArmorHead(data.has("item_head") ? KeyframeFactories.ITEM_STACK.fromData(data.get("item_head"), registries) : ItemStack.EMPTY);
+        this.setArmorChest(data.has("item_chest") ? KeyframeFactories.ITEM_STACK.fromData(data.get("item_chest"), registries) : ItemStack.EMPTY);
+        this.setArmorLegs(data.has("item_legs") ? KeyframeFactories.ITEM_STACK.fromData(data.get("item_legs"), registries) : ItemStack.EMPTY);
+        this.setArmorFeet(data.has("item_feet") ? KeyframeFactories.ITEM_STACK.fromData(data.get("item_feet"), registries) : ItemStack.EMPTY);
 
         if (data.has("enabled")) this.enabled = data.getBool("enabled");
         this.shadow = data.getBool("shadow");
@@ -368,6 +374,20 @@ public class ModelProperties implements IMapSerializable
     @Override
     public void toData(MapType data)
     {
+        this.toData(data, null);
+    }
+
+    public MapType toData(RegistryWrapper.WrapperLookup registries)
+    {
+        MapType map = new MapType();
+
+        this.toData(map, registries);
+
+        return map;
+    }
+
+    public void toData(MapType data, RegistryWrapper.WrapperLookup registries)
+    {
         data.putString("name", this.name);
         data.put("form", FormUtils.toData(this.form));
         data.put("formThirdPerson", FormUtils.toData(this.formThirdPerson));
@@ -378,12 +398,12 @@ public class ModelProperties implements IMapSerializable
         data.put("transformThirdPerson", this.transformThirdPerson.toData());
         data.put("transformInventory", this.transformInventory.toData());
         data.put("transformFirstPerson", this.transformFirstPerson.toData());
-        data.put("item_main_hand", KeyframeFactories.ITEM_STACK.toData(this.itemMainHand));
-        data.put("item_off_hand", KeyframeFactories.ITEM_STACK.toData(this.itemOffHand));
-        data.put("item_head", KeyframeFactories.ITEM_STACK.toData(this.armorHead));
-        data.put("item_chest", KeyframeFactories.ITEM_STACK.toData(this.armorChest));
-        data.put("item_legs", KeyframeFactories.ITEM_STACK.toData(this.armorLegs));
-        data.put("item_feet", KeyframeFactories.ITEM_STACK.toData(this.armorFeet));
+        data.put("item_main_hand", KeyframeFactories.ITEM_STACK.toData(this.itemMainHand, registries));
+        data.put("item_off_hand", KeyframeFactories.ITEM_STACK.toData(this.itemOffHand, registries));
+        data.put("item_head", KeyframeFactories.ITEM_STACK.toData(this.armorHead, registries));
+        data.put("item_chest", KeyframeFactories.ITEM_STACK.toData(this.armorChest, registries));
+        data.put("item_legs", KeyframeFactories.ITEM_STACK.toData(this.armorLegs, registries));
+        data.put("item_feet", KeyframeFactories.ITEM_STACK.toData(this.armorFeet, registries));
 
         data.putBool("enabled", this.enabled);
         data.putBool("shadow", this.shadow);

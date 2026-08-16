@@ -109,6 +109,11 @@ public class ModelVAO implements IModelVAO
             return;
         }
 
+        /* Restore previous binding — glBindVertexArray(0) leaves no array object active,
+         * so the next Batcher2D/Sodium BufferBuilder path spam GL_INVALID_OPERATION
+         * ("Array object is not active") once per form-list preview. */
+        int previousVAO = GL30.glGetInteger(GL30.GL_VERTEX_ARRAY_BINDING);
+
         GL30.glBindVertexArray(vao);
 
         if (vao == this.vao)
@@ -135,7 +140,7 @@ public class ModelVAO implements IModelVAO
         else GL30.glDisableVertexAttribArray(Attributes.TANGENTS);
 
         GL30.glDrawArrays(GL30.GL_TRIANGLES, 0, this.count);
-        GL30.glBindVertexArray(0);
+        GL30.glBindVertexArray(previousVAO);
     }
 
     public static boolean isShadersEnabled()

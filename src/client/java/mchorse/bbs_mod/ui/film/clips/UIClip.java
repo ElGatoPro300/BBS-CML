@@ -66,6 +66,7 @@ import mchorse.bbs_mod.ui.film.clips.widgets.UIEnvelope;
 import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.ui.framework.elements.UIElement;
 import mchorse.bbs_mod.ui.framework.elements.UIScrollView;
+import mchorse.bbs_mod.ui.framework.elements.UISection;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIToggle;
 import mchorse.bbs_mod.ui.framework.elements.input.UITrackpad;
 import mchorse.bbs_mod.ui.framework.elements.input.text.UITextbox;
@@ -227,14 +228,22 @@ public abstract class UIClip <T extends Clip> extends UIElement
 
     protected void registerPanels()
     {
-        this.panels.add(UIClip.label(UIKeys.CAMERA_PANELS_TITLE), this.title);
-        this.panels.add(this.enabled.marginBottom(6));
-        this.panels.add(UI.column(UIClip.label(UIKeys.CAMERA_PANELS_METRICS), UI.row(this.layer, this.tick), this.duration));
+        this.panels.add(this.section(UIKeys.CAMERA_PANELS_TITLE, this.title, this.enabled));
+        this.panels.add(this.section(UIKeys.CAMERA_PANELS_METRICS, UI.row(this.layer, this.tick), this.duration));
     }
 
     protected void addEnvelopes()
     {
-        this.panels.add(UI.column(UIClip.label(UIKeys.CAMERA_PANELS_ENVELOPES_TITLE), this.envelope).marginTop(12));
+        this.panels.add(this.section(UIKeys.CAMERA_PANELS_ENVELOPES_TITLE, this.envelope));
+    }
+
+    protected UISection section(IKey title, UIElement... fields)
+    {
+        UISection group = new UISection(title);
+
+        group.fields.add(fields);
+
+        return group;
     }
 
     public void handleUndo(IUndo<ValueGroup> undo, boolean redo)

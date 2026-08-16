@@ -82,16 +82,19 @@ public class MorphRenderer
                 /* 1.21.11: GlStateManager._enableDepthTest() removed */
                 // GlStateManager._enableDepthTest();
 
-                /* InventoryScreen.drawEntity already set GUI diffuse lighting for the vanilla
-                 * player — override only there so forms match that preview. In the world, use
-                 * the same level lights as model blocks / editor previews. */
-                if (BBSRendering.isRenderingWorld())
+                boolean worldPass = BBSRendering.isRenderingWorld();
+
+                /* InventoryScreen.drawEntity uses DiffuseLighting.method_34742() for the player
+                 * preview, then enableGuiDepthLighting() after. Forms must keep those same
+                 * entity lights — enableGuiDepthLighting() here overwrote them and mismatched
+                 * vanilla inventory lighting. World morphs keep level diffuse like model blocks. */
+                if (worldPass)
                 {
                     BBSRendering.setupWorldLevelDiffuseLighting();
                 }
                 else
                 {
-                    // DiffuseLighting.enableGuiDepthLighting();
+                    // DiffuseLighting.setupGuiFlatLighting();
                 }
 
                 float bodyYaw = /* 1.21.11: prevBodyYaw removed */ player.bodyYaw;
@@ -120,9 +123,6 @@ public class MorphRenderer
                 matrixStack.pop();
 
                 BBSRendering.restoreWorldRenderState();
-                /* Prior morph pipeline left depth disabled after the form draw; keep that so
-                 * GPU-skinned BOBJ / procedural limbs keep matching the working entity pass. */
-                GlStateManager._disableDepthTest();
             }
 
             return true;
@@ -307,7 +307,7 @@ public class MorphRenderer
             matrixStack.pop();
 
             BBSRendering.restoreWorldRenderState();
-            GlStateManager._disableDepthTest();
+
 
             return true;
         }

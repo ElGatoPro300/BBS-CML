@@ -324,6 +324,8 @@ public abstract class UIModelRenderer extends UIElement
         this.lightDirA.set(LIGHT_A);
         this.lightDirB.set(LIGHT_B);
 
+        BBSRendering.setupMatchingWorldDiffuseLighting();
+
         try (MemoryStack stack = MemoryStack.stackPush())
         {
             ByteBuffer data = Std140Builder.onStack(stack, DiffuseLighting.UBO_SIZE)

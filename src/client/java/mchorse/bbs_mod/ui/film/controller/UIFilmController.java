@@ -3,6 +3,7 @@ package mchorse.bbs_mod.ui.film.controller;
 import mchorse.bbs_mod.BBSModClient;
 import mchorse.bbs_mod.BBSSettings;
 import mchorse.bbs_mod.actions.ActionState;
+import mchorse.bbs_mod.actions.types.SwipeActionClip;
 import mchorse.bbs_mod.actions.types.item.ItemDropActionClip;
 import mchorse.bbs_mod.camera.Camera;
 import mchorse.bbs_mod.camera.controller.RunnerCameraController;
@@ -151,8 +152,15 @@ public class UIFilmController extends UIElement
     private int recordingCountdown;
     private List<String> recordingGroups;
     private BaseType recordingOld;
+    private int recordingReplayIndex = -1;
+    private boolean recordingKeyframesPrepared;
     private boolean instantKeyframes;
     private boolean countdownControl;
+    /**
+     * After viewport record stop, soft-seek lands on this tick without wanting
+     * another Swipe/etc. pass. Cleared when the playhead leaves the tick.
+     */
+    private int suppressClientActionsAtTick = -1;
 
     private boolean wasFlying;
     private boolean wasAllowFlying;
@@ -750,6 +758,27 @@ public class UIFilmController extends UIElement
         return this.recordingGroups;
     }
 
+    /**
+     * True while parked on the tick restored after viewport record stop — skips
+     * one client action pass (swipe) that would otherwise re-fire on soft-seek.
+     */
+    public boolean shouldSuppressClientActions(int tick)
+    {
+        if (this.suppressClientActionsAtTick < 0)
+        {
+            return false;
+        }
+
+        if (tick != this.suppressClientActionsAtTick)
+        {
+            this.suppressClientActionsAtTick = -1;
+
+            return false;
+        }
+
+        return true;
+    }
+
     public void startRecording(List<String> groups)
     {
         if (this.panel.getData() == null)
@@ -797,8 +826,13 @@ public class UIFilmController extends UIElement
         this.recording = true;
         this.recordingCountdown = 30;
         this.recordingGroups = groups;
+        this.recordingKeyframesPrepared = false;
+        this.suppressClientActionsAtTick = -1;
 
-        this.recordingOld = this.getReplay().keyframes.toData();
+        Replay recordReplay = this.getReplay();
+
+        this.recordingOld = recordReplay.keyframes.toData();
+        this.recordingReplayIndex = this.panel.getData().replays.getList().indexOf(recordReplay);
 
         if (groups != null)
         {
@@ -858,6 +892,9 @@ public class UIFilmController extends UIElement
             player.sendAbilitiesUpdate();
         }
 
+        /* After control/puppet is armed — keep FILM_EDITOR actors, only attach ActionRecorder. */
+        this.startViewportActionRecording();
+
         this.toggleMousePointer(this.controlled != null);
     }
 
@@ -870,6 +907,7 @@ public class UIFilmController extends UIElement
 
         this.recording = false;
         this.recordingGroups = null;
+        this.recordingKeyframesPrepared = false;
 
         if (this.controlled != null)
         {
@@ -892,7 +930,10 @@ public class UIFilmController extends UIElement
             }
         }
 
-        this.panel.setCursor(this.recordingTick);
+        /* Soft restore — SEEK goTo would re-fire swipe / break / drops while
+         * walking back from the end of the take to the start tick. */
+        this.suppressClientActionsAtTick = this.recordingTick;
+        this.panel.setCursor(this.recordingTick, false);
 
         if (this.panel.getRunner().isRunning())
         {
@@ -901,6 +942,8 @@ public class UIFilmController extends UIElement
 
         if (this.recordingCountdown > 0)
         {
+            this.stopViewportActionRecording();
+
             /* Capture already added replays during setup — refresh once so they show up. */
             MinecraftClient.getInstance().execute(this::refreshEntities);
 
@@ -935,10 +978,60 @@ public class UIFilmController extends UIElement
         BBSModClient.getFilms().getEditorMobCapture().clear();
         BBSModClient.getFilms().getEditorProjectileCapture().clear();
 
+        /* Merge Swipe/Attack/block clips via receiveActions; keep FILM_EDITOR ActionPlayer. */
+        this.stopViewportActionRecording();
+
         this.setMouseMode(ClientNetwork.isIsBBSModOnServer() ? 0 : 1);
 
         /* One-shot rebuild after capture — same effect as toggling VA, without per-tick updates. */
         MinecraftClient.getInstance().execute(this::refreshEntities);
+    }
+
+    private void startViewportActionRecording()
+    {
+        Film film = this.panel.getData();
+
+        if (!ClientNetwork.isIsBBSModOnServer() || film == null || this.recordingReplayIndex < 0)
+        {
+            return;
+        }
+
+        /* Keep FILM_EDITOR ActionPlayer (actors stay visible). Only attach ActionRecorder.
+         * Full RECORDING ActionPlayer used exception=replay and hid actor-mode bodies. */
+        ClientNetwork.sendActionRecording(film.getId(), this.recordingReplayIndex, this.recordingTick, this.recordingCountdown, true, true);
+
+        if (this.controlled != null)
+        {
+            this.notifyActorPuppet(this.recordingReplayIndex);
+        }
+
+        EditorSpectatorHelper.ensurePlayableForControl();
+    }
+
+    private void stopViewportActionRecording()
+    {
+        Film film = this.panel.getData();
+        int replayIndex = this.recordingReplayIndex;
+        int tick = this.recordingTick;
+
+        this.recordingReplayIndex = -1;
+
+        if (!ClientNetwork.isIsBBSModOnServer() || film == null || replayIndex < 0)
+        {
+            return;
+        }
+
+        ClientNetwork.sendActionRecording(film.getId(), replayIndex, tick, 0, false, true);
+
+        /* Keep puppet if still controlling after the capture ends. */
+        if (this.controlled != null)
+        {
+            this.notifyActorPuppet(replayIndex);
+        }
+        else
+        {
+            this.notifyActorPuppet(-1);
+        }
     }
 
     /* Input handling */
@@ -989,6 +1082,8 @@ public class UIFilmController extends UIElement
     /**
      * Attack / break whatever is in front of the controlled player body.
      * Film-camera {@code crosshairTarget} is useless here (orbit / path look).
+     * {@code swingHand} syncs to the server so {@code ActionRecorder} (started with
+     * viewport recording) can write {@link SwipeActionClip}.
      */
     private void performControlAttack(MinecraftClient client)
     {
@@ -1008,7 +1103,7 @@ public class UIFilmController extends UIElement
         }
 
         player.swingHand(Hand.MAIN_HAND);
-        this.swingVisibleActor();
+        this.swingVisibleActor(Hand.MAIN_HAND);
     }
 
     /**
@@ -1029,6 +1124,8 @@ public class UIFilmController extends UIElement
 
                 if (atLocation.isAccepted())
                 {
+                    this.finishControlUse(player, hand, atLocation);
+
                     return;
                 }
 
@@ -1036,6 +1133,8 @@ public class UIFilmController extends UIElement
 
                 if (onEntity.isAccepted())
                 {
+                    this.finishControlUse(player, hand, onEntity);
+
                     return;
                 }
             }
@@ -1045,6 +1144,8 @@ public class UIFilmController extends UIElement
 
                 if (onBlock.isAccepted())
                 {
+                    this.finishControlUse(player, hand, onBlock);
+
                     return;
                 }
             }
@@ -1053,6 +1154,8 @@ public class UIFilmController extends UIElement
 
             if (onItem.isAccepted())
             {
+                this.finishControlUse(player, hand, onItem);
+
                 return;
             }
         }
@@ -1123,10 +1226,23 @@ public class UIFilmController extends UIElement
     }
 
     /**
-     * Actor-mode bodies are a separate {@link ActorEntity};
-     * mirror the live player swing so the visible actor animates the attack.
+     * Vanilla {@code interact*} may already swing the player. Always mirror a
+     * {@code shouldSwingHand} result onto the actor-mode body (place, use, etc.).
      */
-    private void swingVisibleActor()
+    private void finishControlUse(ClientPlayerEntity player, Hand hand, ActionResult result)
+    {
+        if (result.isAccepted())
+        {
+            player.swingHand(hand);
+            this.swingVisibleActor(hand);
+        }
+    }
+
+    /**
+     * Actor-mode bodies are a separate {@link ActorEntity};
+     * mirror the live player swing so the visible actor plays swipe / place.
+     */
+    private void swingVisibleActor(Hand hand)
     {
         if (this.actors == null || this.panel.getData() == null)
         {
@@ -1151,7 +1267,7 @@ public class UIFilmController extends UIElement
 
         if (entity instanceof LivingEntity living)
         {
-            living.swingHand(Hand.MAIN_HAND);
+            living.swingHand(hand);
         }
     }
 
@@ -1573,6 +1689,7 @@ public class UIFilmController extends UIElement
 
                 if (this.recordingCountdown <= 0)
                 {
+                    this.prepareRecordingKeyframes();
                     this.panel.togglePlayback();
                 }
             }
@@ -1599,6 +1716,27 @@ public class UIFilmController extends UIElement
                 }
             }
         }
+    }
+
+    /**
+     * Drop leftover keyframes from the capture start so All-groups (and other)
+     * viewport recording does not blend into old future poses while capturing.
+     */
+    private void prepareRecordingKeyframes()
+    {
+        if (this.recordingKeyframesPrepared)
+        {
+            return;
+        }
+
+        Replay replay = this.getReplay();
+
+        if (replay != null)
+        {
+            replay.keyframes.clearFrom(this.recordingTick, this.recordingGroups);
+        }
+
+        this.recordingKeyframesPrepared = true;
     }
 
     private void updateControls()
@@ -2132,12 +2270,15 @@ public class UIFilmController extends UIElement
 
                 IEntity renderEntity = this.editorController.getRenderEntity(replay, entry.getValue());
                 boolean physicalActor = renderEntity != entry.getValue();
+                float transition = isPlaying ? renderContext.tickCounter().getTickDelta(false) : 0F;
+                float propertyTick = replay.getTick(cursorTick) + transition;
 
                 BaseFilmController.renderEntity(FilmControllerContext.instance
                     .setup(this.getEntities(), renderEntity, replay, renderContext)
                     .film(this.panel.getData())
                     .filmTick(cursorTick)
-                    .transition(isPlaying ? MinecraftClient.getInstance().getRenderTickCounter().getTickProgress(false) : 0)
+                    .propertyTick(propertyTick)
+                    .transition(transition)
                     .stencil(this.stencilMap)
                     .relative(replay.isCameraRelative())
                     .physicalActor(physicalActor));
@@ -2208,11 +2349,15 @@ public class UIFilmController extends UIElement
                         }
                     }
 
+                    float transition = isPlaying ? renderContext.tickCounter().getTickDelta(false) : 0F;
+                    float propertyTick = currentReplay.getTick(cursorTick) + transition;
+
                     BaseFilmController.renderEntity(FilmControllerContext.instance
                         .setup(this.getEntities(), renderEntity, currentReplay, renderContext)
                         .film(this.panel.getData())
                         .filmTick(cursorTick)
-                        .transition(isPlaying ? MinecraftClient.getInstance().getRenderTickCounter().getTickProgress(false) : 0)
+                        .propertyTick(propertyTick)
+                        .transition(transition)
                         .stencil(this.stencilMap)
                         .relative(currentReplay.relative.get())
                         .physicalActor(physicalActor)

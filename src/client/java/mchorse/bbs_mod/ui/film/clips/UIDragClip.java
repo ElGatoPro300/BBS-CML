@@ -50,8 +50,8 @@ public class UIDragClip extends UIClip<DragClip>
     {
         super.registerPanels();
 
-        this.panels.add(UI.column(UIClip.label(UIKeys.C_CLIP.get("bbs:drag")), this.deterministic).marginTop(12));
-        this.panels.add(UI.column(UIClip.label(UIKeys.CAMERA_PANELS_FACTOR), this.factor).marginTop(6), this.rate, this.active);
+        this.panels.add(this.section(UIKeys.C_CLIP.get("bbs:drag"), this.deterministic));
+        this.panels.add(this.section(UIKeys.CAMERA_PANELS_FACTOR, this.factor, this.rate), this.active);
     }
 
     @Override

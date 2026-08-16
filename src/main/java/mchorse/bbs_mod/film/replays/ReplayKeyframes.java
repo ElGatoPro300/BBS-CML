@@ -446,6 +446,103 @@ public class ReplayKeyframes extends ValueGroup
         }
     }
 
+    /**
+     * Remove keyframes at {@code tick} and later from channels that
+     * {@link #record} will write, so viewport capture does not lerp into
+     * leftover future poses (especially "All groups").
+     */
+    public void clearFrom(float tick, List<String> groups)
+    {
+        boolean empty = groups == null || groups.isEmpty();
+        boolean position = empty || groups.contains(GROUP_POSITION);
+        boolean rotation = empty || groups.contains(GROUP_ROTATION);
+        boolean leftStick = empty || groups.contains(GROUP_LEFT_STICK);
+        boolean rightStick = empty || groups.contains(GROUP_RIGHT_STICK);
+        boolean triggers = empty || groups.contains(GROUP_TRIGGERS);
+        boolean extra1 = empty || groups.contains(GROUP_EXTRA1);
+        boolean extra2 = empty || groups.contains(GROUP_EXTRA2);
+
+        if (position)
+        {
+            this.x.removeFrom(tick);
+            this.y.removeFrom(tick);
+            this.z.removeFrom(tick);
+            this.vX.removeFrom(tick);
+            this.vY.removeFrom(tick);
+            this.vZ.removeFrom(tick);
+            this.fall.removeFrom(tick);
+        }
+
+        /* Pose flags are always captured by record(). */
+        this.sneaking.removeFrom(tick);
+        this.sprinting.removeFrom(tick);
+        this.swimming.removeFrom(tick);
+        this.flying.removeFrom(tick);
+        this.fallFlying.removeFrom(tick);
+        this.crawling.removeFrom(tick);
+        this.climbing.removeFrom(tick);
+        this.blocking.removeFrom(tick);
+        this.sleeping.removeFrom(tick);
+        this.riptide.removeFrom(tick);
+        this.grounded.removeFrom(tick);
+        this.damage.removeFrom(tick);
+        this.deathTime.removeFrom(tick);
+        this.usingItem.removeFrom(tick);
+        this.itemUseTime.removeFrom(tick);
+        this.fire.removeFrom(tick);
+        this.particles.removeFrom(tick);
+        this.activeHand.removeFrom(tick);
+
+        if (rotation)
+        {
+            this.yaw.removeFrom(tick);
+            this.pitch.removeFrom(tick);
+            this.headYaw.removeFrom(tick);
+            this.bodyYaw.removeFrom(tick);
+        }
+
+        if (leftStick)
+        {
+            this.stickLeftX.removeFrom(tick);
+            this.stickLeftY.removeFrom(tick);
+        }
+
+        if (rightStick)
+        {
+            this.stickRightX.removeFrom(tick);
+            this.stickRightY.removeFrom(tick);
+        }
+
+        if (triggers)
+        {
+            this.triggerLeft.removeFrom(tick);
+            this.triggerRight.removeFrom(tick);
+        }
+
+        if (extra1)
+        {
+            this.extra1X.removeFrom(tick);
+            this.extra1Y.removeFrom(tick);
+        }
+
+        if (extra2)
+        {
+            this.extra2X.removeFrom(tick);
+            this.extra2Y.removeFrom(tick);
+        }
+
+        if (empty)
+        {
+            this.mainHand.removeFrom(tick);
+            this.offHand.removeFrom(tick);
+            this.armorHead.removeFrom(tick);
+            this.armorChest.removeFrom(tick);
+            this.armorLegs.removeFrom(tick);
+            this.armorFeet.removeFrom(tick);
+            this.selectedSlot.removeFrom(tick);
+        }
+    }
+
     public void record(float tick, IEntity entity, List<String> groups)
     {
         boolean empty = groups == null || groups.isEmpty();

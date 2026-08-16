@@ -28,7 +28,9 @@ import mchorse.bbs_mod.events.TriggerBlockEntityUpdateCallback;
 import mchorse.bbs_mod.film.BaseFilmController;
 import mchorse.bbs_mod.film.WorldFilmController;
 import mchorse.bbs_mod.film.replays.Replay;
+import mchorse.bbs_mod.forms.CustomVertexConsumerProvider;
 import mchorse.bbs_mod.forms.FormUtilsClient;
+import mchorse.bbs_mod.forms.entities.IEntity;
 import mchorse.bbs_mod.forms.forms.Form;
 import mchorse.bbs_mod.forms.renderers.FormRenderer;
 import mchorse.bbs_mod.forms.renderers.utils.BlockPaintOverlayVertexConsumer;
@@ -80,10 +82,13 @@ import net.minecraft.client.gl.WindowFramebuffer;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.render.state.GuiRenderState;
 import net.minecraft.client.option.CloudRenderMode;
+import net.minecraft.client.render.DiffuseLighting;
 import net.minecraft.client.render.VertexConsumer;
 import net.minecraft.client.texture.GlTexture;
+import net.minecraft.client.render.WorldRenderer;
 import net.minecraft.client.util.Window;
 import net.minecraft.client.util.math.MatrixStack;
+import net.minecraft.util.math.BlockPos;
 
 import net.irisshaders.iris.uniforms.custom.cached.CachedUniform;
 
@@ -383,6 +388,10 @@ public class BBSRendering
     /**
      * Reset GL state after mid-UI 3D form/model draws so later Batcher2D text is not
      * left with additive blend / depthMask false / grade uniforms (white doubled glyphs).
+     *
+     * Never unbind VAO / ARRAY_BUFFER / ELEMENT_ARRAY_BUFFER here. On AMD (atio6axx)
+     * that leaves Batcher2D's next glDrawElements with a null index path (hard crash)
+     * or silently skips card chrome while form previews still draw through their own VAO.
      */
     public static void restoreGuiRenderState()
     {
@@ -398,10 +407,9 @@ public class BBSRendering
     }
 
     /**
-     * Soft-opacity / glow / equipment can leave depthMask/blend/shader color wrong and poison
-     * later Model Block / Iris shadow draws. Only sanitize leaky state — do not force depth-test
-     * on or rewrite level lights (that changed the post-morph entity pipeline and froze
-     * GPU-skinned / procedural limb motion).
+     * Soft-opacity / glow / form draws can leave depthMask, blend, depth test, lightmap,
+     * or overlay wrong. After model-block forms that also matters for WorldRenderer's later
+     * flush of buffered vanilla entity layers (enchanted armor). Do not rewrite level lights.
      */
     public static void restoreWorldRenderState()
     {
@@ -409,13 +417,53 @@ public class BBSRendering
         GlStateManager._colorMask(true, true, true, true);
         GlStateManager._enableBlend();
         GlStateManager._blendFuncSeparate(770, 771, 1, 0);
-        // RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
+        GlStateManager._enableDepthTest();
+        GlStateManager._depthFunc(GL11.GL_LEQUAL);
+        GL11.glPolygonOffset(0F, 0F);
+        GL11.glDisable(GL11.GL_POLYGON_OFFSET_FILL);
+        CustomVertexConsumerProvider.clearRunnables();
     }
 
     /** Vanilla level diffuse basis shared by morphs and editor previews. */
     public static void setupWorldLevelDiffuseLighting()
     {
         // RenderSystem.setupLevelDiffuseLighting(WORLD_LEVEL_LIGHT_0, WORLD_LEVEL_LIGHT_1);
+    }
+
+    /**
+     * Same diffuse choice {@link WorldRenderer} uses before entities:
+     * {@link DiffuseLighting#enableForLevel()} in darkened dimensions, otherwise the shared
+     * {@link #setupWorldLevelDiffuseLighting()} basis (matches {@link DiffuseLighting#disableForLevel()}).
+     * Keeps model-block F7 world draws and editor UI previews on one lighting basis.
+     */
+    public static void setupMatchingWorldDiffuseLighting()
+    {
+        MinecraftClient client = MinecraftClient.getInstance();
+
+        if (client != null && client.world != null && client.world.getDimensionEffects().isDarkened())
+        {
+            DiffuseLighting.enableForLevel();
+
+            return;
+        }
+
+        setupWorldLevelDiffuseLighting();
+    }
+
+    /**
+     * Block/sky lightmap at an entity position, or {@code fallback} when the entity has no world
+     * (pure UI stubs). Used so form editor / model-block previews match F7 world shading.
+     */
+    public static int resolveEntityBlockLight(IEntity entity, int fallback)
+    {
+        if (entity == null || entity.getWorld() == null)
+        {
+            return fallback;
+        }
+
+        BlockPos pos = BlockPos.ofFloored(entity.getX(), entity.getY(), entity.getZ());
+
+        return WorldRenderer.getLightmapCoordinates(entity.getWorld(), pos);
     }
 
     /**
@@ -431,7 +479,7 @@ public class BBSRendering
             return;
         }
 
-        setupWorldLevelDiffuseLighting();
+        setupMatchingWorldDiffuseLighting();
     }
 
     public static Texture getTexture()
@@ -845,6 +893,19 @@ public class BBSRendering
             return;
         }
 
+        /* P toggles visibility, but the HUD must only show while a film session is active. */
+        UIDashboard dashboard = BBSModClient.getDashboard();
+
+        if (dashboard != null)
+        {
+            UIFilmPanel filmPanel = dashboard.getPanel(UIFilmPanel.class);
+
+            if (filmPanel == null || !filmPanel.hasActiveFilmSession())
+            {
+                return;
+            }
+        }
+
         Form form = replay.form.get();
         String label = getReplayHudLabel(replay);
         boolean hasLabel = BBSSettings.editorReplayHudDisplayName.get() && !label.isEmpty();
@@ -997,18 +1058,10 @@ public class BBSRendering
     /**
      * True when Iris would discard/mis-composite very low form opacity; queue a BBS redraw
      * after compositing. Slight opacity (e.g. {@code #e7}/{@code #fc}) stays on Iris.
-     * When the Complementary/BSL opacity patch is active, never take this BBS handoff —
-     * translucency stays on Iris and is flushed post-deferred after VL clouds (smooth
-     * fade through {@code #1c}/28 with lighting and render depth intact).
      */
     public static boolean needsIrisTranslucentModelDeferral(float alpha)
     {
         if (!isIrisWorldModelPass() || isIrisShadowPass())
-        {
-            return false;
-        }
-
-        if (ShaderOpacityPatch.isActive())
         {
             return false;
         }

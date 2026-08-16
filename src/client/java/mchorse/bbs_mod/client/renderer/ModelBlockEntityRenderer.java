@@ -66,6 +66,10 @@ public class ModelBlockEntityRenderer implements BlockEntityRenderer<ModelBlockE
     /**
      * Vanilla ground blob. Minecraft only exposes a single radius, so non-uniform size is
      * done by scaling the matrix (same idea as Iris caster scale in {@code BaseFilmController}).
+     *
+     * {@code x/y/z} is the entity sample point used for ground projection and height fade —
+     * keep {@code y} at feet / ground. Lift the drawn PNG with {@code ty} (and shift with
+     * {@code tx}/{@code tz}) so artistic Y offset floats the blob instead of washing it out.
      */
     public static void renderShadow(VertexConsumerProvider provider, MatrixStack matrices, float tickDelta, double x, double y, double z, float tx, float ty, float tz, float radiusX, float radiusZ, float opacity)
     {
@@ -201,7 +205,8 @@ public class ModelBlockEntityRenderer implements BlockEntityRenderer<ModelBlockE
             int lightAbove = resolveModelBlockLight(entity, properties, transform, light);
             Camera camera = mc.gameRenderer.getCamera();
 
-            GL11.glEnable(GL11.GL_DEPTH_TEST);
+            GlStateManager._enableDepthTest();
+            BBSRendering.setupMatchingWorldDiffuseLighting();
 
             FormRenderingContext formContext = new FormRenderingContext()
                 .set(FormRenderType.MODEL_BLOCK, entity.getEntity(), matrices, lightAbove, overlay, tickDelta)
@@ -211,10 +216,6 @@ public class ModelBlockEntityRenderer implements BlockEntityRenderer<ModelBlockE
 
             FormUtilsClient.render(form, formContext);
 
-            if (!formContext.isShadowPass)
-            {
-                GL11.glDisable(GL11.GL_DEPTH_TEST);
-            }
 
             if (!formContext.isShadowPass && this.canRenderAxes(entity) && UIBaseMenu.renderAxes)
             {
@@ -224,12 +225,14 @@ public class ModelBlockEntityRenderer implements BlockEntityRenderer<ModelBlockE
                 matrices.pop();
             }
 
-            matrices.pop();
-        }
+            /* ModelForm tears down lightmap; do not leave depth off — WorldRenderer may still
+             * flush buffered vanilla entity layers (enchanted armor) after block entities. */
+            if (!formContext.isShadowPass)
+            {
+                BBSRendering.restoreWorldRenderState();
+            }
 
-        if (!BBSRendering.isIrisShadowPass())
-        {
-            GL11.glDisable(GL11.GL_DEPTH_TEST);
+            matrices.pop();
         }
 
         if (mc.getDebugHud().shouldShowDebugHud())

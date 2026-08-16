@@ -186,16 +186,35 @@ public class StubEntity implements IEntity
     @Override
     public void swingArm()
     {
-        this.handSwinging = true;
-        /* LivingEntity.swingHand starts at -1 so the first tickHandSwing lands on 0. */
-        this.handSwingTicks = -1;
-        this.prevHandSwingProgress = 0F;
-        this.handSwingProgress = 0F;
+        /* Match LivingEntity.swingHand: restart is allowed from ~half the swing
+         * (~3 ticks with duration 6), same window actors get from vanilla.
+         * Do not wipe progress / prev — zeroing snapped torso and arms when a
+         * second swipe clip fired while the previous swing was still blending. */
+        if (!this.handSwinging || this.handSwingTicks >= HAND_SWING_DURATION / 2 || this.handSwingTicks < 0)
+        {
+            this.handSwinging = true;
+            /* Starts at -1 so the first tickHandSwing lands on 0. */
+            this.handSwingTicks = -1;
+        }
     }
 
     public boolean isHandSwinging()
     {
         return this.handSwinging;
+    }
+
+    /**
+     * Film editor stubs stop {@link #update()} while paused, so {@code prevHandSwingProgress}
+     * can stay high after a swipe ends. {@link #getHandSwingProgress(float)} then wraps toward
+     * 1 forever (actors keep ticking {@code LivingEntity}), which blocks procedural/Gecko idle.
+     * Call while the playhead is parked — does not advance an in-progress swipe.
+     */
+    public void settleFinishedHandSwing()
+    {
+        if (!this.handSwinging && this.handSwingProgress == 0F)
+        {
+            this.prevHandSwingProgress = 0F;
+        }
     }
 
     @Override
@@ -214,6 +233,13 @@ public class StubEntity implements IEntity
          * the arm snap back for one playhead step after the swipe started. */
         if (tickDelta <= 0F)
         {
+            /* Also drop a finished-swipe prev so idle cannot stay suppressed while
+             * parked (wrap would never run its follow-up update). */
+            if (!this.handSwinging && this.handSwingProgress == 0F)
+            {
+                this.prevHandSwingProgress = 0F;
+            }
+
             return this.handSwingProgress;
         }
 

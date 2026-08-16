@@ -40,7 +40,9 @@ void main()
     vec3 fixNormal = nLen2 > 1.0e-8 ? n * inversesqrt(nLen2) : vec3(0.0, 0.0, 1.0);
     rawVertexColor = Color;
     vertexColor = minecraft_mix_light(Light0_Direction, Light1_Direction, fixNormal, Color);
-    lightMapColor = texelFetch(Sampler2, UV2 / 16, 0);
+    /* Filtered sample (not texelFetch): continuous lightmap UVs keep float lighting
+     * intermediates (brightness 0–1 and fixed levels 0–15 without truncate). */
+    lightMapColor = minecraft_sample_lightmap(Sampler2, UV2);
     overlayColor = texelFetch(Sampler1, UV1, 0);
     texCoord0 = UV0;
     normal = ProjMat * ModelViewMat * vec4(Normal, 0.0);

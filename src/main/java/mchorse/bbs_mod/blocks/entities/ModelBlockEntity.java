@@ -206,7 +206,9 @@ public class ModelBlockEntity extends BlockEntity
     {
         super.writeData(view);
 
-        MapType data = this.properties.toData();
+        /* Pass registryLookup — chunk load/save can run before BBSMod.getRegistryManager()
+         * is set; without it ItemStack decode/encode returns EMPTY and wipes equipment. */
+        MapType data = this.properties.toData(BBSMod.getRegistryManager());
         NbtCompound nbt = new NbtCompound();
 
         DataStorageUtils.writeToNbtCompound(nbt, "Properties", data);
@@ -227,7 +229,7 @@ public class ModelBlockEntity extends BlockEntity
 
         if (baseType instanceof MapType mapType)
         {
-            this.properties.fromData(mapType);
+            this.properties.fromData(mapType, BBSMod.getRegistryManager());
         }
         /* Ensure block state reflects stored light level when chunk/block is loaded */
         if (this.world != null && !this.world.isClient())
@@ -249,13 +251,16 @@ public class ModelBlockEntity extends BlockEntity
 
     public void updateForm(MapType data, World world)
     {
-        this.properties.fromData(data);
+        WrapperLookup registries = world != null ? world.getRegistryManager() : null;
+
+        this.properties.fromData(data, registries);
 
         BlockPos pos = this.getPos();
         BlockState blockState = world.getBlockState(pos);
         int level = this.properties.getLightLevel();
         BlockState newState = blockState.with(ModelBlock.LIGHT_LEVEL, level);
 
+        this.markDirty();
         world.markDirty(pos);
 
         if (blockState != newState)

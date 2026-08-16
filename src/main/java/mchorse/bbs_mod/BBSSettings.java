@@ -62,6 +62,7 @@ public class BBSSettings
     public static ValueBoolean welcomePanelAcceptedBeta1;
     public static ValueBoolean hideSettingDescriptions;
     public static ValueFloat userIntefaceScale;
+    public static ValueBoolean linkUiScaleToGame;
     public static ValueString uiFont;
     public static ValueFloat uiFontSize;
     public static ValueInt tooltipStyle;
@@ -69,6 +70,8 @@ public class BBSSettings
     public static ValueBoolean hsvColorPicker;
     public static ValueBoolean forceQwerty;
     public static ValueBoolean freezeModels;
+    /** Cached form-picker thumbnails (morph menu). Off by default — opt in for lighter UI. */
+    public static ValueBoolean optimizedMorphMenu;
     public static ValueGizmoToolbar editorGizmoToolbar;
     public static ValueBoolean editorGizmoToolbarHorizontal;
     public static ValueFloat axesScale;
@@ -89,6 +92,7 @@ public class BBSSettings
     public static ValueBoolean disablePivotTransform;
     public static ValueBoolean gizmos;
     public static ValueBoolean gizmosWorldRendering;
+    public static ValueBoolean previewEquipment;
     public static ValueBoolean gizmoFlipAxes;
     public static ValueBoolean gizmoYAxisHorizontal;
     public static ValueBoolean gizmoTrackball;
@@ -169,6 +173,7 @@ public class BBSSettings
     public static ValueBoolean editorActorPausedRunInPlace;
     public static ValueBoolean actorDamageFlash;
     public static ValueBoolean actorDamageAnimation;
+    public static ValueBoolean replayDeathTimelineSync;
     public static ValueBoolean editorSimplifyAnimations;
     public static ValueBoolean editorMuteRenderAudioClips;
     public static ValueInt editorTimeMode;
@@ -274,8 +279,9 @@ public class BBSSettings
 
     /**
      * When enabled (default), films dual-write legacy-friendly data for fields
-     * that newer builds store differently (subtitle lineHeight/maxWidth, and
-     * Opacity mirrored into Color alpha for older builds).
+     * that newer builds store differently (subtitle lineHeight/maxWidth, Opacity
+     * mirrored into Color alpha, form lighting brightness rewritten as legacy
+     * world-influence floats, etc.).
      */
     public static boolean isSaveAsCompatible()
     {
@@ -417,6 +423,15 @@ public class BBSSettings
         }
 
         return userIntefaceScale.get();
+    }
+
+    /**
+     * When true, BBS writes Minecraft's GUI scale (legacy). Default false keeps BBS
+     * scale independent of the game's GUI scale / hotbar / vanilla menus.
+     */
+    public static boolean isUiScaleLinkedToGame()
+    {
+        return linkUiScaleToGame != null && linkUiScaleToGame.get();
     }
 
     public static boolean hasColoredBackground()
@@ -611,6 +626,7 @@ public class BBSSettings
         welcomePanelAcceptedBeta1 = builder.getBoolean("welcome_panel_accepted_beta1", false);
         welcomePanelAcceptedBeta1.invisible();
         userIntefaceScale = builder.getFloat("ui_scale", 2F, 0.1F, 4F);
+        linkUiScaleToGame = builder.getBoolean("link_ui_scale_to_game", false);
         uiFont = builder.getString("ui_font", "");
         uiFontSize = builder.getFloat("ui_font_size", 1F, 0.25F, 4F);
         tooltipStyle = builder.getInt("tooltip_style", 1);
@@ -623,6 +639,7 @@ public class BBSSettings
         hsvColorPicker = builder.getBoolean("hsv_color_picker", true);
         forceQwerty = builder.getBoolean("force_qwerty", false);
         freezeModels = builder.getBoolean("freeze_models", false);
+        optimizedMorphMenu = builder.getBoolean("optimized_morph_menu", false);
         uniformScale = builder.getBoolean("uniform_scale", false);
         clickSound = builder.getBoolean("click_sound", false);
         pickLimbTexture = builder.getBoolean("pick_limb_texture", true);
@@ -647,8 +664,11 @@ public class BBSSettings
         gizmos = builder.getBoolean("gizmos", true);
         /* Keep form-editor gizmos / bone picking while model-block F7 world rendering is on. */
         gizmosWorldRendering = builder.getBoolean("gizmos_world_rendering", true);
+        /* Armor, held items, skulls, etc. in form / model-block preview editors. */
+        previewEquipment = builder.getBoolean("preview_equipment", true);
         axesScale = builder.getFloat("axes_scale", 1.5F, 0F, 100F);
-        axesThickness = builder.getFloat("axes_thickness", 0.7F, 0.25F, 3F);
+        /* Default >1 so arrows/rings are easier to pick; floor keeps thickness off zero. */
+        axesThickness = builder.getFloat("axes_thickness", 1.2F, 0.25F, 6F);
         /* Multiplier applied only to the invisible picking pass, so the clickable area can be
          * fatter than the visible handles (or thinner) independently of axes_thickness. */
         gizmoHitbox = builder.getFloat("gizmo_hitbox", 1.5F, 0.25F, 5F);
@@ -657,7 +677,8 @@ public class BBSSettings
         /* Floor in Math.max(floor, dist * 0.12). 0 disables the floor so it can keep shrinking when close. */
         gizmoConstantSizeMin = builder.getFloat("gizmo_constant_size_min", 0.5F, 0F, 10F);
         disablePivotTransform = builder.getBoolean("disable_pivot_transform", false);
-        /* When enabled, translate/scale handles flip toward the camera; when disabled, stay on +X/+Y/+Z. */
+        /* When enabled, translate/scale handles and half rotation rings reorient toward the camera;
+         * when disabled, stay on +X/+Y/+Z with fixed half-rings. */
         gizmoFlipAxes = builder.getBoolean("gizmo_flip_axes", true);
         gizmoYAxisHorizontal = builder.getBoolean("gizmo_y_axis_horizontal", true);
         gizmoTrackball = builder.getBoolean("gizmo_trackball", true);
@@ -778,6 +799,7 @@ public class BBSSettings
         editorActorPausedRunInPlace = builder.getBoolean("actor_paused_run_in_place", false);
         actorDamageFlash = builder.getBoolean("actor_damage_flash", false);
         actorDamageAnimation = builder.getBoolean("actor_damage_animation", true);
+        replayDeathTimelineSync = builder.getBoolean("sync_death_timeline", true);
         replayMarkedBonesOnly = builder.getBoolean("replay_marked_bones_only", false);
         editorReplayEditorTitleLimit = builder.getInt("replay_editor_title_limit", 12, 0, 64);
         replayFpBobbingIntensity = builder.getFloat("replay_fp_bobbing_intensity", 0.25F, 0F, 2F);
