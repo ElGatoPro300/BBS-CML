@@ -237,6 +237,16 @@ public class UIKeys
     public static final IKey CAMERA_PANELS_IMAGE_WINDOW_X = L10n.lang("bbs.ui.camera.panels.image.window_x");
     public static final IKey CAMERA_PANELS_IMAGE_WINDOW_Y = L10n.lang("bbs.ui.camera.panels.image.window_y");
     public static final IKey CAMERA_PANELS_IMAGE_OPACITY = L10n.lang("bbs.ui.camera.panels.image.opacity");
+    public static final IKey CAMERA_PANELS_IMAGE_OPACITY_STYLE = L10n.lang("bbs.ui.camera.panels.image.opacity_style");
+    public static final IKey CAMERA_PANELS_IMAGE_BLEND_MODE_NORMAL = L10n.lang("bbs.ui.camera.panels.image.blend_mode.normal");
+    public static final IKey CAMERA_PANELS_IMAGE_BLEND_MODE_MULTIPLY = L10n.lang("bbs.ui.camera.panels.image.blend_mode.multiply");
+    public static final IKey CAMERA_PANELS_IMAGE_BLEND_MODE_SCREEN = L10n.lang("bbs.ui.camera.panels.image.blend_mode.screen");
+    public static final IKey CAMERA_PANELS_IMAGE_BLEND_MODE_ADD = L10n.lang("bbs.ui.camera.panels.image.blend_mode.add");
+    public static final IKey CAMERA_PANELS_IMAGE_BLEND_MODE_SATURATION = L10n.lang("bbs.ui.camera.panels.image.blend_mode.saturation");
+    public static final IKey CAMERA_PANELS_IMAGE_BLEND_MODE_INCRUSTATION = L10n.lang("bbs.ui.camera.panels.image.blend_mode.incrustation");
+    public static final IKey CAMERA_PANELS_IMAGE_BLEND_MODE_EXCLUSION = L10n.lang("bbs.ui.camera.panels.image.blend_mode.exclusion");
+    public static final IKey CAMERA_PANELS_IMAGE_BLEND_MODE_OVERLAY = L10n.lang("bbs.ui.camera.panels.image.blend_mode.overlay");
+    public static final IKey CAMERA_PANELS_IMAGE_BLEND_MODE_COLOR_DODGE = L10n.lang("bbs.ui.camera.panels.image.blend_mode.color_dodge");
     public static final IKey CAMERA_PANELS_IMAGE_COLOR = L10n.lang("bbs.ui.camera.panels.image.color");
     public static final IKey CAMERA_PANELS_TARGET = L10n.lang("bbs.ui.camera.panels.target");
     public static final IKey CAMERA_PANELS_TARGET_TITLE = L10n.lang("bbs.ui.camera.panels.target-title");

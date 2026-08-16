@@ -182,16 +182,16 @@ public class UIImageClip extends UIClip<ImageClip>
             }
         });
         this.blendModeList.background();
-        this.blendModeList.add("Normal");
-        this.blendModeList.add("Multiply");
-        this.blendModeList.add("Screen");
-        this.blendModeList.add("Add");
-        this.blendModeList.add("Saturation");
-        this.blendModeList.add("Incrustation");
-        this.blendModeList.add("Exclusion");
-        this.blendModeList.add("Overlay");
-        this.blendModeList.add("Color Dodge");
-        this.blendModeList.tooltip(IKey.raw("Opacity Style"));
+        this.blendModeList.add(UIKeys.CAMERA_PANELS_IMAGE_BLEND_MODE_NORMAL.get());
+        this.blendModeList.add(UIKeys.CAMERA_PANELS_IMAGE_BLEND_MODE_MULTIPLY.get());
+        this.blendModeList.add(UIKeys.CAMERA_PANELS_IMAGE_BLEND_MODE_SCREEN.get());
+        this.blendModeList.add(UIKeys.CAMERA_PANELS_IMAGE_BLEND_MODE_ADD.get());
+        this.blendModeList.add(UIKeys.CAMERA_PANELS_IMAGE_BLEND_MODE_SATURATION.get());
+        this.blendModeList.add(UIKeys.CAMERA_PANELS_IMAGE_BLEND_MODE_INCRUSTATION.get());
+        this.blendModeList.add(UIKeys.CAMERA_PANELS_IMAGE_BLEND_MODE_EXCLUSION.get());
+        this.blendModeList.add(UIKeys.CAMERA_PANELS_IMAGE_BLEND_MODE_OVERLAY.get());
+        this.blendModeList.add(UIKeys.CAMERA_PANELS_IMAGE_BLEND_MODE_COLOR_DODGE.get());
+        this.blendModeList.tooltip(UIKeys.CAMERA_PANELS_IMAGE_OPACITY_STYLE);
 
         this.useKeyframes = new UIToggle(UIKeys.SCREEN_PANELS_USE_KEYFRAMES, (b) ->
         {
