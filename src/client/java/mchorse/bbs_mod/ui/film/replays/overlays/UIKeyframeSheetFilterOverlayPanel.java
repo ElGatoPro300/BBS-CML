@@ -27,7 +27,7 @@ public class UIKeyframeSheetFilterOverlayPanel extends UIOverlayPanel
 
         for (String key : keys)
         {
-            UIToggle toggle = new UICoolToggle(key, IKey.constant(key), (b) ->
+            UIToggle toggle = new UICoolToggle(key, UIReplaysEditor.resolveTrackTitle(key), (b) ->
             {
                 if (disabled.contains(key))
                 {
@@ -64,11 +64,15 @@ public class UIKeyframeSheetFilterOverlayPanel extends UIOverlayPanel
             int w = this.area.w;
             int h = this.area.h;
             Icon icon = UIReplaysEditor.getIcon(this.key);
-            int color = UIReplaysEditor.getColor(key);
+            int color = UIReplaysEditor.getColor(this.key);
 
             context.batcher.box(x, y, x + 2, y + h, Colors.A100 | color);
             context.batcher.gradientHBox(x + 2, y, x + 24, y + h, Colors.A25 | color, color);
-            context.batcher.icon(icon, x + 2, y + h / 2, 0F, 0.5F);
+
+            if (icon != null)
+            {
+                context.batcher.icon(icon, x + 2, y + h / 2, 0F, 0.5F);
+            }
 
             this.area.x += 20;
             this.area.w -= 20;

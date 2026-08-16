@@ -19,9 +19,9 @@ import java.util.function.Supplier;
 
 public class UISupportersPanel extends UIDashboardPanel
 {
-    public UIElement ccSupporters;
-    public UIElement superSupporters;
-    public UIElement bbsEarlyAccessSupporters;
+    public UIElement cmlSupporters;
+    public UIElement cmlDevelopers;
+    public UIElement specialThanksSupporters;
 
     private Supporters supporters = new Supporters();
 
@@ -31,12 +31,12 @@ public class UISupportersPanel extends UIDashboardPanel
 
         this.supporters.setup();
 
-        this.ccSupporters = new UIElement();
-        this.ccSupporters.grid(5).items(3);
-        this.superSupporters = new UIElement();
-        this.superSupporters.grid(5).items(3);
-        this.bbsEarlyAccessSupporters = new UIElement();
-        this.bbsEarlyAccessSupporters.grid(5).items(3);
+        this.cmlSupporters = new UIElement();
+        this.cmlSupporters.grid(5).items(3);
+        this.cmlDevelopers = new UIElement();
+        this.cmlDevelopers.grid(5).items(3);
+        this.specialThanksSupporters = new UIElement();
+        this.specialThanksSupporters.grid(5).items(3);
 
         UIScrollView scrollView = UI.scrollView(0, 0);
         UIElement column = UI.column(5, 10);
@@ -45,33 +45,37 @@ public class UISupportersPanel extends UIDashboardPanel
 
         /* Resources */
         Supplier<Integer> color = () -> BBSSettings.primaryColor(Colors.A50);
+        Supplier<Integer> orangeColor = () -> 0xFF_FF8C00; // Orange color for CML section
+        Supplier<Integer> purpleColor = () -> 0xFF_9932CC; // Purple color for Developers section
+        Supplier<Integer> blueColor = () -> 0xFF_1E90FF; // Blue color for Special Thanks section
 
-        column.add(UI.label(UIKeys.SUPPORTERS_GRATITUDE));
-        column.add(UI.label(UIKeys.SUPPORTERS_CC).background(color).marginTop(6).marginBottom(6));
-        column.add(this.ccSupporters);
-        column.add(UI.label(UIKeys.SUPPORTERS_SUPER_SUPPORTERS).background(color).marginTop(12).marginBottom(6));
-        column.add(this.superSupporters);
-        column.add(UI.label(UIKeys.SUPPORTERS_EARLY_ACCESS).background(color).marginTop(12).marginBottom(6));
-        column.add(this.bbsEarlyAccessSupporters.marginBottom(12));
+        /* column.add(UI.label(UIKeys.SUPPORTERS_GRATITUDE)); */
+        column.add(UI.label(UIKeys.SUPPORTERS_CML_INTRO).marginTop(6));
+        column.add(UI.label(UIKeys.SUPPORTERS_CML_DEVELOPERS).background(purpleColor).marginTop(12).marginBottom(6));
+        column.add(this.cmlDevelopers);
+        column.add(UI.label(UIKeys.SUPPORTERS_CML_ANIMATORS).background(orangeColor).marginTop(6).marginBottom(6));
+        column.add(this.cmlSupporters);
+        column.add(UI.label(UIKeys.SUPPORTERS_SPECIAL_THANKS).background(blueColor).marginTop(12).marginBottom(6));
+        column.add(this.specialThanksSupporters);
         column.w(500);
 
         UIElement row = UI.row(0, 0, new UIElement(), column, new UIElement());
 
         /* Fill in */
 
-        for (Supporter supporter : this.supporters.getCCSupporters())
+        for (Supporter supporter : this.supporters.getCMLDevelopers())
         {
-            this.ccSupporters.add(this.createSupporter(supporter));
+            this.cmlDevelopers.add(this.createSupporter(supporter));
         }
 
-        for (Supporter supporter : this.supporters.getSuperSupporters())
+        for (Supporter supporter : this.supporters.getCMLSupporters())
         {
-            this.superSupporters.add(this.createSupporter(supporter));
+            this.cmlSupporters.add(this.createSupporter(supporter));
         }
 
-        for (Supporter supporter : this.supporters.getBBSEarlyAccessSupporters())
+        for (Supporter supporter : this.supporters.getSpecialThanksSupporters())
         {
-            this.bbsEarlyAccessSupporters.add(this.createSupporter(supporter));
+            this.specialThanksSupporters.add(this.createSupporter(supporter));
         }
 
         scrollView.add(row);

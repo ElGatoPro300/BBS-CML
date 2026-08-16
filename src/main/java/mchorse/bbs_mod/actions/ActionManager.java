@@ -3,7 +3,9 @@ package mchorse.bbs_mod.actions;
 import mchorse.bbs_mod.actions.types.ActionClip;
 import mchorse.bbs_mod.data.types.BaseType;
 import mchorse.bbs_mod.film.Film;
+import mchorse.bbs_mod.network.ServerNetwork;
 import mchorse.bbs_mod.utils.DataPath;
+
 import net.minecraft.block.BlockState;
 import net.minecraft.block.entity.BlockEntity;
 import net.minecraft.entity.Entity;
@@ -128,9 +130,38 @@ public class ActionManager
 
     public void startRecording(Film film, ServerPlayerEntity entity, int tick, int countdown, int replayId)
     {
-        ActionPlayer play = this.play(entity, entity.getServerWorld(), film, tick, countdown, replayId, PlayerType.RECORDING);
+        this.startRecording(film, entity, tick, countdown, replayId, false);
+    }
 
-        play.stopDamage = false;
+    /**
+     * @param recorderOnly when true (film-editor viewport), keep any existing
+     *        {@link ActionPlayer} (FILM_EDITOR actors / puppet) and only attach
+     *        an {@link ActionRecorder}. Outside/world recording uses false.
+     */
+    public void startRecording(Film film, ServerPlayerEntity entity, int tick, int countdown, int replayId, boolean recorderOnly)
+    {
+        if (recorderOnly)
+        {
+            ActionPlayer existing = this.getPlayer(film.getId());
+
+            if (existing == null)
+            {
+                existing = this.play(entity, entity.getServerWorld(), film, tick, PlayerType.FILM_EDITOR);
+                existing.syncing = true;
+                existing.playing = false;
+            }
+
+            if (replayId >= 0)
+            {
+                existing.controlledReplay = replayId;
+            }
+        }
+        else
+        {
+            ActionPlayer play = this.play(entity, entity.getServerWorld(), film, tick, countdown, replayId, PlayerType.RECORDING);
+
+            play.stopDamage = false;
+        }
 
         this.recorders.put(entity, new ActionRecorder(film, entity, tick, countdown));
     }
@@ -150,12 +181,75 @@ public class ActionManager
         }
     }
 
+    public boolean hasActiveRecorders(ServerWorld world)
+    {
+        if (this.recorders.isEmpty())
+        {
+            return false;
+        }
+
+        for (ServerPlayerEntity player : this.recorders.keySet())
+        {
+            if (player != null && player.getServerWorld() == world)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Notify recording clients so autocapture can place combat clips on mob replays.
+     */
+    public void broadcastMobCombatHit(ServerWorld world, int victimEntityId, int sourceEntityId, float amount, byte kind)
+    {
+        for (ServerPlayerEntity player : this.recorders.keySet())
+        {
+            if (player != null && player.getServerWorld() == world)
+            {
+                ServerNetwork.sendMobCombatAction(player, victimEntityId, sourceEntityId, amount, kind);
+            }
+        }
+    }
+
+    /**
+     * Notify recording clients so autocapture can follow vanilla mob conversions.
+     */
+    public void broadcastMobConversion(ServerWorld world, int oldEntityId, int newEntityId)
+    {
+        for (ServerPlayerEntity player : this.recorders.keySet())
+        {
+            if (player != null && player.getServerWorld() == world)
+            {
+                ServerNetwork.sendMobConversion(player, oldEntityId, newEntityId);
+            }
+        }
+    }
+
     public ActionRecorder stopRecording(ServerPlayerEntity entity)
+    {
+        return this.stopRecording(entity, false);
+    }
+
+    /**
+     * @param recorderOnly when true, detach the recorder and return clips without
+     *        tearing down the film's {@link ActionPlayer} (viewport recording).
+     */
+    public ActionRecorder stopRecording(ServerPlayerEntity entity, boolean recorderOnly)
     {
         ActionRecorder remove = this.recorders.remove(entity);
 
-        this.stop(remove.getFilm().getId());
-        this.stopDamage(entity.getServerWorld());
+        if (remove == null)
+        {
+            return null;
+        }
+
+        if (!recorderOnly)
+        {
+            this.stop(remove.getFilm().getId());
+            this.stopDamage(entity.getServerWorld());
+        }
 
         return remove;
     }
@@ -201,6 +295,20 @@ public class ActionManager
         if (dc != null)
         {
             dc.restore();
+        }
+    }
+
+    /**
+     * Puts captured blocks/entities back while keeping damage control armed
+     * for further film playback.
+     */
+    public void restoreDamage(ServerWorld world)
+    {
+        DamageControl damageControl = this.dc.get(world);
+
+        if (damageControl != null)
+        {
+            damageControl.restore();
         }
     }
 

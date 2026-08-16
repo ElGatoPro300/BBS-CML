@@ -1,8 +1,8 @@
 package mchorse.bbs_mod.utils;
 
-import sun.misc.Unsafe;
-
 import java.lang.reflect.Field;
+
+import sun.misc.Unsafe;
 
 public class UnsafeUtils
 {

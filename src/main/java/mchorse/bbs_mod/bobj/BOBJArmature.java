@@ -106,4 +106,19 @@ public class BOBJArmature
 
         Collections.sort(this.orderedBones, (o1, o2) -> o1.index - o2.index);
     }
+
+    public BOBJArmature copy()
+    {
+        BOBJArmature armature = new BOBJArmature(this.name);
+        
+        for (BOBJBone bone : this.orderedBones)
+        {
+            armature.addBone(bone.copy());
+        }
+        
+        armature.initArmature();
+        armature.setupMatrices();
+        
+        return armature;
+    }
 }

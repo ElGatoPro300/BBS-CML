@@ -1,21 +1,27 @@
 package mchorse.bbs_mod.forms;
 
-import com.mojang.blaze3d.systems.RenderSystem;
+import mchorse.bbs_mod.forms.renderers.utils.BlockPaintOverlayVertexConsumer;
+import mchorse.bbs_mod.forms.renderers.utils.GlowEmissionVertexConsumer;
 import mchorse.bbs_mod.forms.renderers.utils.RecolorVertexConsumer;
+
 import net.minecraft.client.render.BufferBuilder;
 import net.minecraft.client.render.RenderLayer;
 import net.minecraft.client.render.VertexConsumer;
 import net.minecraft.client.render.VertexConsumerProvider;
+
+import com.mojang.blaze3d.systems.RenderSystem;
+
 import org.lwjgl.opengl.GL11;
 
 import java.util.Map;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
-public class CustomVertexConsumerProvider extends VertexConsumerProvider.Immediate
+public class CustomVertexConsumerProvider implements VertexConsumerProvider
 {
     private static Consumer<RenderLayer> runnables;
 
+    private final VertexConsumerProvider.Immediate delegate;
     private Function<VertexConsumer, VertexConsumer> substitute;
     private boolean ui;
 
@@ -37,9 +43,14 @@ public class CustomVertexConsumerProvider extends VertexConsumerProvider.Immedia
         runnables = null;
     }
 
-    public CustomVertexConsumerProvider(BufferBuilder fallback, Map<RenderLayer, BufferBuilder> layers)
+    public CustomVertexConsumerProvider(VertexConsumerProvider.Immediate delegate)
     {
-        super(fallback, layers);
+        this.delegate = delegate;
+    }
+
+    public Function<VertexConsumer, VertexConsumer> getSubstitute()
+    {
+        return this.substitute;
     }
 
     public void setSubstitute(Function<VertexConsumer, VertexConsumer> substitute)
@@ -49,6 +60,9 @@ public class CustomVertexConsumerProvider extends VertexConsumerProvider.Immedia
         if (this.substitute == null)
         {
             RecolorVertexConsumer.newColor = null;
+            RecolorVertexConsumer.newPaintColor = null;
+            GlowEmissionVertexConsumer.emissionColor = null;
+            BlockPaintOverlayVertexConsumer.paintOverlayColor = null;
         }
     }
 
@@ -60,7 +74,7 @@ public class CustomVertexConsumerProvider extends VertexConsumerProvider.Immedia
     @Override
     public VertexConsumer getBuffer(RenderLayer renderLayer)
     {
-        VertexConsumer buffer = super.getBuffer(renderLayer);
+        VertexConsumer buffer = this.delegate.getBuffer(renderLayer);
 
         if (this.substitute != null)
         {
@@ -77,7 +91,7 @@ public class CustomVertexConsumerProvider extends VertexConsumerProvider.Immedia
 
     public void draw()
     {
-        super.draw();
+        this.delegate.draw();
 
         if (this.ui)
         {
@@ -86,5 +100,14 @@ public class CustomVertexConsumerProvider extends VertexConsumerProvider.Immedia
              * is designed  */
             RenderSystem.depthFunc(GL11.GL_ALWAYS);
         }
+    }
+
+    /**
+     * Flushes only the active dynamic layer (e.g. last villager clothing pass) without
+     * iterating fixed world layerBuffers.
+     */
+    public void drawCurrentLayer()
+    {
+        this.delegate.drawCurrentLayer();
     }
 }

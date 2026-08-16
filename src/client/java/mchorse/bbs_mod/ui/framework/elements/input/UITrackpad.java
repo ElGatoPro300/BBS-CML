@@ -14,12 +14,13 @@ import mchorse.bbs_mod.ui.framework.elements.events.UITrackpadDragStartEvent;
 import mchorse.bbs_mod.ui.framework.elements.input.text.UIBaseTextbox;
 import mchorse.bbs_mod.ui.framework.elements.utils.FontRenderer;
 import mchorse.bbs_mod.ui.utils.Area;
-import mchorse.bbs_mod.ui.utils.icons.Icons;
 import mchorse.bbs_mod.utils.Factor;
 import mchorse.bbs_mod.utils.MathUtils;
 import mchorse.bbs_mod.utils.Timer;
 import mchorse.bbs_mod.utils.colors.Colors;
+
 import net.minecraft.client.MinecraftClient;
+
 import org.lwjgl.glfw.GLFW;
 
 import java.math.RoundingMode;
@@ -45,6 +46,9 @@ public class UITrackpad extends UIBaseTextbox
     });
 
     private static final DecimalFormat FORMAT;
+    private static final DecimalFormat FORMAT_2;
+    private static final DecimalFormat FORMAT_1;
+    private static final DecimalFormat FORMAT_0;
 
     public Consumer<Double> callback;
 
@@ -63,6 +67,7 @@ public class UITrackpad extends UIBaseTextbox
 
     public boolean relative;
     public boolean allowCanceling = true;
+    public boolean fitFormat = true;
     public IKey forcedLabel;
 
     /* Value dragging fields */
@@ -85,6 +90,21 @@ public class UITrackpad extends UIBaseTextbox
         FORMAT.setRoundingMode(RoundingMode.HALF_EVEN);
         FORMAT.setGroupingUsed(false);
         FORMAT.setDecimalFormatSymbols(new DecimalFormatSymbols(Locale.ENGLISH));
+
+        FORMAT_2 = new DecimalFormat("#.##");
+        FORMAT_2.setRoundingMode(RoundingMode.HALF_EVEN);
+        FORMAT_2.setGroupingUsed(false);
+        FORMAT_2.setDecimalFormatSymbols(new DecimalFormatSymbols(Locale.ENGLISH));
+
+        FORMAT_1 = new DecimalFormat("#.#");
+        FORMAT_1.setRoundingMode(RoundingMode.HALF_EVEN);
+        FORMAT_1.setGroupingUsed(false);
+        FORMAT_1.setDecimalFormatSymbols(new DecimalFormatSymbols(Locale.ENGLISH));
+
+        FORMAT_0 = new DecimalFormat("#");
+        FORMAT_0.setRoundingMode(RoundingMode.HALF_EVEN);
+        FORMAT_0.setGroupingUsed(false);
+        FORMAT_0.setDecimalFormatSymbols(new DecimalFormatSymbols(Locale.ENGLISH));
     }
 
     public static void updateAmplifier(UIContext context)
@@ -217,6 +237,16 @@ public class UITrackpad extends UIBaseTextbox
         return this;
     }
 
+    /**
+     * Show the full formatted value; skip scientific / compact shortening when the field is narrow.
+     */
+    public UITrackpad plainFormat()
+    {
+        this.fitFormat = false;
+
+        return this;
+    }
+
     public UITrackpad disableCanceling()
     {
         this.allowCanceling = false;
@@ -260,13 +290,46 @@ public class UITrackpad extends UIBaseTextbox
     }
 
     /**
-     * Set the value of the field. The input value would be rounded up to 3
-     * decimal places.
+     * Set the value of the field. Always updates the numeric value. While this
+     * trackpad is the active text editor, keep the textbox contents intact so
+     * mid-typing refreshes cannot clobber input.
      */
     public void setValue(double value)
     {
         this.setValueInternal(value);
-        this.updateTextField();
+
+        if (!this.isActivelyEditing())
+        {
+            this.updateTextField();
+        }
+    }
+
+    /**
+     * True when this trackpad both shows a focused textbox and is the context's
+     * active element (real keyboard target).
+     */
+    public boolean isActivelyEditing()
+    {
+        if (!this.textbox.isFocused())
+        {
+            return false;
+        }
+
+        UIContext context = this.getContext();
+
+        return context != null && context.activeElement == this;
+    }
+
+    /**
+     * If the textbox focus flag drifted from the UI context (e.g. after an
+     * embedded layout toggle), clear it so clicks/drags work again.
+     */
+    private void syncStaleTextFocus(UIContext context)
+    {
+        if (this.textbox.isFocused() && (context == null || context.activeElement != this))
+        {
+            this.textbox.setFocused(false);
+        }
     }
 
     private void updateTextField()
@@ -301,8 +364,15 @@ public class UITrackpad extends UIBaseTextbox
     {
         double oldValue = this.value;
 
-        this.setValue(value);
-        this.accept(value, oldValue);
+        this.setValueInternal(value);
+        this.updateTextField();
+
+        if (this.isActivelyEditing())
+        {
+            this.textbox.moveCursorToEnd();
+        }
+
+        this.accept(this.value, oldValue);
     }
 
     private void accept(double value, double oldValue)
@@ -326,6 +396,23 @@ public class UITrackpad extends UIBaseTextbox
     @Override
     public void unfocus(UIContext context)
     {
+        String text = this.textbox.getText().trim();
+
+        if (text.isEmpty())
+        {
+            double oldValue = this.value;
+
+            this.setValueInternal(0D);
+
+            super.unfocus(context);
+
+            this.textbox.setFocused(false);
+            this.updateTextField();
+            this.accept(this.value, oldValue);
+
+            return;
+        }
+        
         this.evaluate();
 
         super.unfocus(context);
@@ -351,13 +438,15 @@ public class UITrackpad extends UIBaseTextbox
     {
         super.resize();
 
-        int w = this.area.w < 60 ? 12 : 20;
+        /* Increment buttons sit on opposite edges. */
+        int w = this.area.w < 60 ? 10 : 13;
 
         this.textbox.area.copy(this.area);
         this.plusOne.copy(this.area);
         this.minusOne.copy(this.area);
         this.plusOne.w = this.minusOne.w = w;
         this.plusOne.x = this.area.ex() - w;
+        this.minusOne.x = this.area.x;
     }
 
     /**
@@ -389,6 +478,8 @@ public class UITrackpad extends UIBaseTextbox
 
         if (context.mouseButton == 0)
         {
+            this.syncStaleTextFocus(context);
+
             if (this.textbox.isFocused())
             {
                 this.textbox.mouseClicked(context.mouseX, context.mouseY, context.mouseButton);
@@ -412,10 +503,12 @@ public class UITrackpad extends UIBaseTextbox
                 this.dragging = true;
                 this.initialX = context.mouseX;
                 this.initialY = context.mouseY;
-                this.lastValue = this.value;
                 this.time = System.currentTimeMillis();
 
+                /* Emit before caching lastValue so listeners can re-sync the
+                 * numeric value from the model (e.g. keyframe tick). */
                 this.getEvents().emit(new UITrackpadDragStartEvent(this));
+                this.lastValue = this.value;
             }
         }
 
@@ -440,8 +533,9 @@ public class UITrackpad extends UIBaseTextbox
         }
 
         this.textbox.mouseReleased(context.mouseX, context.mouseY, context.mouseButton);
+        this.syncStaleTextFocus(context);
 
-        if (context.mouseButton == 0 && !this.isDraggingTime() && !this.textbox.isFocused())
+        if (context.mouseButton == 0 && !this.isDraggingTime() && !this.isActivelyEditing())
         {
             if (this.wasInside)
             {
@@ -513,7 +607,9 @@ public class UITrackpad extends UIBaseTextbox
     @Override
     public boolean subKeyPressed(UIContext context)
     {
-        if (this.isFocused())
+        this.syncStaleTextFocus(context);
+
+        if (this.isActivelyEditing())
         {
             if (context.isHeld(GLFW.GLFW_KEY_UP))
             {
@@ -541,7 +637,9 @@ public class UITrackpad extends UIBaseTextbox
             }
             else if (context.isPressed(GLFW.GLFW_KEY_ENTER))
             {
-                context.focus(null);
+                context.unfocus();
+
+                return true;
             }
         }
         else if (this.area.isInside(context))
@@ -560,11 +658,16 @@ public class UITrackpad extends UIBaseTextbox
 
         if (this.textbox.isFocused() && !text.equals(old))
         {
+            if (text.isEmpty())
+            {
+                return result;
+            }
+
             try
             {
                 double oldValue = this.value;
 
-                this.setValueInternal(text.isEmpty() ? 0 : Double.parseDouble(text));
+                this.setValueInternal(Double.parseDouble(text));
 
                 if (!this.delayedInput)
                 {
@@ -620,11 +723,16 @@ public class UITrackpad extends UIBaseTextbox
 
         if (this.textbox.isFocused() && !text.equals(old))
         {
+            if (text.isEmpty())
+            {
+                return result;
+            }
+
             try
             {
                 double oldValue = this.value;
 
-                this.setValueInternal(text.isEmpty() ? 0 : Double.parseDouble(text));
+                this.setValueInternal(Double.parseDouble(text));
 
                 if (!this.delayedInput)
                 {
@@ -652,6 +760,8 @@ public class UITrackpad extends UIBaseTextbox
     @Override
     public void render(UIContext context)
     {
+        this.syncStaleTextFocus(context);
+
         int x = this.area.x;
         int y = this.area.y;
         int w = this.area.w;
@@ -659,41 +769,73 @@ public class UITrackpad extends UIBaseTextbox
         int padding = 0;
 
         boolean dragging = this.isDraggingTime();
-        boolean plus = !dragging && this.plusOne.isInside(context);
-        boolean minus = !dragging && this.minusOne.isInside(context);
+        boolean hovered = this.isEnabled() && this.area.isInside(context);
+        int accent = 0xFF000000 | BBSSettings.primaryColor.get();
+        FontRenderer font = context.batcher.getFont();
+        boolean wantsArrows = this.isEnabled() && BBSSettings.enableTrackpadIncrements.get() && hovered;
+        boolean showArrows = wantsArrows && this.area.w >= this.minusOne.w + this.plusOne.w + 6;
+        boolean showMinusArrow = showArrows;
+        boolean showPlusArrow = showArrows;
+        boolean plus = !dragging && showPlusArrow && this.plusOne.isInside(context);
+        boolean minus = !dragging && showMinusArrow && this.minusOne.isInside(context);
 
-        if (this.textbox.isFocused())
+        if (this.isActivelyEditing())
         {
             this.textbox.render(context);
+
+            /* Accent border while editing the value. */
+            context.batcher.outline(x, y, x + w, y + h, accent);
         }
         else
         {
-            this.area.render(context.batcher, Colors.A100);
+            /* Flat dark background. */
+            context.batcher.box(x, y, x + w, y + h, 0xFF1A1A20);
 
             if (dragging)
             {
-                /* Draw filling background */
-                int color = BBSSettings.primaryColor.get();
+                /* Draw the drag-delta fill from the grab point to the cursor. */
                 int fx = MathUtils.clamp(context.mouseX, this.area.x + padding, this.area.ex() - padding);
 
-                context.batcher.box(Math.min(fx, this.initialX), this.area.y + padding, Math.max(fx, this.initialX), this.area.ey() - padding, Colors.A100 | color);
+                context.batcher.box(Math.min(fx, this.initialX), this.area.y + padding, Math.max(fx, this.initialX), this.area.ey() - padding, accent);
             }
 
-            FontRenderer font = context.batcher.getFont();
-            String label = this.forcedLabel == null ? format(this.value) : this.forcedLabel.get();
-            int lx = this.area.mx(font.getWidth(label));
+            /* Value label — centered, clipped so it never runs under the
+               increment buttons. */
+            int textLeft = this.area.x + (showMinusArrow ? this.minusOne.w + 4 : 2);
+            int textRight = this.area.ex() - (showPlusArrow ? this.plusOne.w + 4 : 2);
+            int availableTextWidth = Math.max(1, textRight - textLeft);
+            String raw = this.forcedLabel != null
+                ? this.forcedLabel.get()
+                : (this.fitFormat ? this.formatToFit(font, this.value, availableTextWidth) : format(this.value));
+            String label = this.truncateToWidth(font, raw, availableTextWidth);
+
+            int lx = textLeft + Math.max(0, (availableTextWidth - font.getWidth(label)) / 2);
             int ly = this.area.my() - font.getHeight() / 2;
 
             context.batcher.text(label, lx, ly, this.textbox.getColor());
 
-            if (BBSSettings.enableTrackpadIncrements.get() || this.area.isInside(context))
+            /* Increment / decrement chevrons appear only on the hovered side. */
+            if (showMinusArrow)
             {
-                this.plusOne.render(context.batcher, plus ? 0x22ffffff : 0x0affffff, padding);
-                this.minusOne.render(context.batcher, minus ? 0x22ffffff : 0x0affffff, padding);
+                this.minusOne.render(context.batcher, minus ? 0x28FFFFFF : 0x10FFFFFF, padding);
 
-                context.batcher.icon(Icons.MOVE_LEFT, minus ? Colors.WHITE : Colors.setA(Colors.WHITE, 0.5F), x + (this.plusOne.w - Icons.MOVE_LEFT.w) / 2, y + (h - 16) / 2);
-                context.batcher.icon(Icons.MOVE_RIGHT, plus ? Colors.WHITE : Colors.setA(Colors.WHITE, 0.5F), x + w - this.minusOne.w + (this.minusOne.w - Icons.MOVE_RIGHT.w) / 2, y + (h - 16) / 2);
+                int mColor = minus ? Colors.WHITE : Colors.setA(Colors.WHITE, 0.5F);
+
+                drawChevron(context, this.minusOne.mx(), this.minusOne.my(), true, mColor);
             }
+
+            if (showPlusArrow)
+            {
+                this.plusOne.render(context.batcher, plus ? 0x28FFFFFF : 0x10FFFFFF, padding);
+
+                int pColor = plus ? Colors.WHITE : Colors.setA(Colors.WHITE, 0.5F);
+
+                drawChevron(context, this.plusOne.mx(), this.plusOne.my(), false, pColor);
+            }
+
+            /* Border — accent when hovered or dragging, subtle grey otherwise. */
+            int border = (dragging || hovered) ? accent : 0xFF3C3C3C;
+            context.batcher.outline(x, y, x + w, y + h, border);
         }
 
         if (dragging)
@@ -766,9 +908,147 @@ public class UITrackpad extends UIBaseTextbox
             context.batcher.outlineCenter(this.initialX, this.initialY, 4, Colors.WHITE);
         }
 
-        this.renderLockedArea(context);
+        if (!this.isEnabled())
+        {
+            /* Soft dim without lock icon — number fields read better greyed-out. */
+            context.batcher.box(x, y, x + w, y + h, 0x99000000);
+        }
 
         super.render(context);
+    }
+
+    /* Draws a small 5px-tall chevron from stacked 2px box rows. pointLeft =
+       true renders "<", false renders ">". */
+    private static void drawChevron(UIContext context, int cx, int cy, boolean pointLeft, int color)
+    {
+        for (int i = -2; i <= 2; i++)
+        {
+            int depth = Math.abs(i);
+            int bx = pointLeft ? (cx - 1 + depth) : (cx - 1 - depth);
+
+            context.batcher.box(bx, cy + i, bx + 2, cy + i + 1, color);
+        }
+    }
+
+    private String formatToFit(FontRenderer font, double value, int maxWidth)
+    {
+        String raw = format(value);
+
+        if (font.getWidth(raw) <= maxWidth)
+        {
+            return raw;
+        }
+
+        String raw2 = FORMAT_2.format(value).replace(',', '.');
+
+        if (font.getWidth(raw2) <= maxWidth)
+        {
+            return raw2;
+        }
+
+        String raw1 = FORMAT_1.format(value).replace(',', '.');
+
+        if (font.getWidth(raw1) <= maxWidth)
+        {
+            return raw1;
+        }
+
+        String raw0 = FORMAT_0.format(value).replace(',', '.');
+
+        if (raw0.isEmpty())
+        {
+            raw0 = "0";
+        }
+
+        if (font.getWidth(raw0) <= maxWidth)
+        {
+            return raw0;
+        }
+
+        String compact = this.formatCompact(value);
+
+        if (!compact.isEmpty() && font.getWidth(compact) <= maxWidth)
+        {
+            return compact;
+        }
+
+        String exp2 = String.format(Locale.ENGLISH, "%.2e", value);
+
+        if (font.getWidth(exp2) <= maxWidth)
+        {
+            return exp2;
+        }
+
+        String exp1 = String.format(Locale.ENGLISH, "%.1e", value);
+
+        if (font.getWidth(exp1) <= maxWidth)
+        {
+            return exp1;
+        }
+
+        return String.format(Locale.ENGLISH, "%.0e", value);
+    }
+
+    private String truncateToWidth(FontRenderer font, String text, int maxWidth)
+    {
+        if (text == null || text.isEmpty())
+        {
+            return "";
+        }
+
+        if (maxWidth <= 0)
+        {
+            return text.substring(0, 1);
+        }
+
+        if (font.getWidth(text) <= maxWidth)
+        {
+            return text;
+        }
+
+        int end = text.length();
+
+        while (end > 1 && font.getWidth(text.substring(0, end)) > maxWidth)
+        {
+            end--;
+        }
+
+        return text.substring(0, end);
+    }
+
+    private String formatCompact(double value)
+    {
+        double abs = Math.abs(value);
+
+        if (abs < 1000D)
+        {
+            return "";
+        }
+
+        String suffix;
+        double scaled;
+
+        if (abs >= 1_000_000_000D)
+        {
+            suffix = "B";
+            scaled = value / 1_000_000_000D;
+        }
+        else if (abs >= 1_000_000D)
+        {
+            suffix = "M";
+            scaled = value / 1_000_000D;
+        }
+        else
+        {
+            suffix = "k";
+            scaled = value / 1000D;
+        }
+
+        String f2 = String.format(Locale.ENGLISH, "%.2f", scaled) + suffix;
+        String f1 = String.format(Locale.ENGLISH, "%.1f", scaled) + suffix;
+        String f0 = String.format(Locale.ENGLISH, "%.0f", scaled) + suffix;
+
+        return f2.length() <= f1.length() ? (f2.length() <= f0.length() ? f2 : f0) : (f1.length() <= f0.length() ? f1 : f0);
     }
 
     public double getValueModifier()

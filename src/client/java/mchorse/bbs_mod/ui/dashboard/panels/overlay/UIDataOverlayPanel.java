@@ -4,23 +4,44 @@ import mchorse.bbs_mod.data.types.MapType;
 import mchorse.bbs_mod.graphics.window.Window;
 import mchorse.bbs_mod.l10n.keys.IKey;
 import mchorse.bbs_mod.settings.values.core.ValueGroup;
+import mchorse.bbs_mod.ui.ContentType;
 import mchorse.bbs_mod.ui.UIKeys;
 import mchorse.bbs_mod.ui.dashboard.panels.UIDataDashboardPanel;
+import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.ui.utils.UIUtils;
 import mchorse.bbs_mod.ui.utils.icons.Icons;
+import mchorse.bbs_mod.utils.IOUtils;
 
 import java.io.File;
+import java.io.IOException;
 import java.util.function.Consumer;
 
 public class UIDataOverlayPanel <T extends ValueGroup> extends UICRUDOverlayPanel
 {
     protected UIDataDashboardPanel<T> panel;
 
+    @Override
+    public UIContext getContext()
+    {
+        UIContext context = super.getContext();
+
+        return context == null && this.panel != null ? this.panel.getContext() : context;
+    }
+
     public UIDataOverlayPanel(IKey title, UIDataDashboardPanel<T> panel, Consumer<String> callback)
     {
         super(title, callback);
 
         this.panel = panel;
+
+        if (this.panel.getType() == ContentType.MODELS)
+        {
+            this.setTooltips(UIKeys.MODELS_CRUD_ADD, UIKeys.MODELS_CRUD_DUPE, UIKeys.MODELS_CRUD_RENAME, UIKeys.MODELS_CRUD_REMOVE);
+        }
+        else if (this.panel.getType() == ContentType.PARTICLES)
+        {
+            this.setTooltips(UIKeys.PARTICLES_CRUD_ADD, UIKeys.PARTICLES_CRUD_DUPE, UIKeys.PARTICLES_CRUD_RENAME, UIKeys.PARTICLES_CRUD_REMOVE);
+        }
 
         this.namesList.context((menu) ->
         {
@@ -57,7 +78,7 @@ public class UIDataOverlayPanel <T extends ValueGroup> extends UICRUDOverlayPane
 
     private void copy()
     {
-        Window.setClipboard(this.panel.getData().toData().asMap(), "_ContentType_" + this.panel.getType().getId());
+        Window.setInMemoryClipboard(this.panel.getData().toData().asMap(), "_ContentType_" + this.panel.getType().getId());
     }
 
     private void paste(MapType data)
@@ -96,6 +117,8 @@ public class UIDataOverlayPanel <T extends ValueGroup> extends UICRUDOverlayPane
             }
 
             this.panel.fill(data);
+            this.panel.save();
+            this.panel.requestNames();
         }
     }
 
@@ -136,12 +159,25 @@ public class UIDataOverlayPanel <T extends ValueGroup> extends UICRUDOverlayPane
         if (this.panel.getData() != null && !this.namesList.hasInHierarchy(name))
         {
             this.panel.save();
+
+            File folder = this.panel.getType().getRepository().getFolder();
+            File source = new File(folder, this.panel.getData().getId());
+            File destination = new File(folder, name);
+
+            if (source.isDirectory())
+            {
+                try
+                {
+                    IOUtils.copyFolder(source, destination);
+                }
+                catch (IOException e)
+                {
+                    e.printStackTrace();
+                }
+            }
+
             this.panel.getType().getRepository().save(name, this.panel.getData().toData().asMap());
-            this.namesList.addFile(name);
-
-            T data = (T) this.panel.getType().getRepository().create(name, this.panel.getData().toData().asMap());
-
-            this.panel.fill(data);
+            this.namesList.addFile(name, false);
         }
     }
 
@@ -157,10 +193,16 @@ public class UIDataOverlayPanel <T extends ValueGroup> extends UICRUDOverlayPane
 
         if (this.panel.getData() != null && !this.namesList.hasInHierarchy(name))
         {
-            this.panel.getType().getRepository().rename(this.panel.getData().getId(), name);
+            String oldId = this.panel.getData().getId();
+            this.panel.getType().getRepository().rename(oldId, name);
 
-            this.namesList.removeFile(this.panel.getData().getId());
+            this.namesList.removeFile(oldId);
             this.namesList.addFile(name);
+
+            if (this.panel != null && this.panel.dashboard != null && this.panel.dashboard.documentTabsBar != null)
+            {
+                this.panel.dashboard.documentTabsBar.renameTab(this.panel.getType(), oldId, name);
+            }
 
             this.panel.getData().setId(name);
         }
@@ -199,9 +241,16 @@ public class UIDataOverlayPanel <T extends ValueGroup> extends UICRUDOverlayPane
     {
         if (this.panel.getData() != null)
         {
-            this.panel.getType().getRepository().delete(this.panel.getData().getId());
+            String id = this.panel.getData().getId();
+            this.panel.getType().getRepository().delete(id);
 
-            this.namesList.removeFile(this.panel.getData().getId());
+            this.namesList.removeFile(id);
+
+            if (this.panel != null && this.panel.dashboard != null && this.panel.dashboard.documentTabsBar != null)
+            {
+                this.panel.dashboard.documentTabsBar.closeTab(this.panel.getType(), id);
+            }
+
             this.panel.fill(null);
         }
     }

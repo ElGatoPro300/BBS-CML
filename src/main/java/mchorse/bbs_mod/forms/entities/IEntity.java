@@ -2,10 +2,12 @@ package mchorse.bbs_mod.forms.entities;
 
 import mchorse.bbs_mod.forms.forms.Form;
 import mchorse.bbs_mod.utils.AABB;
+
 import net.minecraft.entity.EntityPose;
 import net.minecraft.entity.EquipmentSlot;
 import net.minecraft.entity.LimbAnimator;
 import net.minecraft.item.ItemStack;
+import net.minecraft.util.Hand;
 import net.minecraft.util.math.Vec3d;
 import net.minecraft.world.World;
 
@@ -56,6 +58,30 @@ public interface IEntity
     public int getHurtTimer();
 
     public void setHurtTimer(int hurtTimer);
+
+    public int getDeathTime();
+
+    public void setDeathTime(int deathTime);
+
+    public boolean isUsingItem();
+
+    public void setUsingItem(boolean usingItem);
+
+    public int getItemUseTimeLeft();
+
+    public void setItemUseTimeLeft(int itemUseTimeLeft);
+
+    public int getFireTicks();
+
+    public void setFireTicks(int fireTicks);
+
+    public boolean isParticlesEnabled();
+
+    public void setParticlesEnabled(boolean particlesEnabled);
+
+    public Hand getActiveHand();
+
+    public void setActiveHand(Hand hand);
 
     public double getX();
 
@@ -133,9 +159,23 @@ public interface IEntity
 
         this.setSneaking(entity.isSneaking());
         this.setSprinting(entity.isSprinting());
+        this.setSwimming(entity.isSwimming());
+        this.setFlying(entity.isFlying());
+        this.setFallFlying(entity.isFallFlying());
+        this.setCrawling(entity.isCrawling());
+        this.setClimbing(entity.isClimbing());
+        this.setBlocking(entity.isBlocking());
+        this.setSleeping(entity.isSleeping());
+        this.setRiptide(entity.isUsingRiptide());
         this.setOnGround(entity.isOnGround());
         this.setFallDistance(entity.getFallDistance());
         this.setHurtTimer(entity.getHurtTimer());
+        this.setDeathTime(entity.getDeathTime());
+        this.setUsingItem(entity.isUsingItem());
+        this.setItemUseTimeLeft(entity.getItemUseTimeLeft());
+        this.setFireTicks(entity.getFireTicks());
+        this.setParticlesEnabled(entity.isParticlesEnabled());
+        this.setActiveHand(entity.getActiveHand());
 
         this.setPrevX(entity.getPrevX());
         this.setPrevY(entity.getPrevY());
@@ -171,7 +211,15 @@ public interface IEntity
 
     public float getLimbSpeed(float tickDelta);
 
-    /* Swimming */
+    /* Swimming & Flight */
+
+    public boolean isSwimming();
+
+    public void setSwimming(boolean swimming);
+
+    public boolean isFlying();
+
+    public void setFlying(boolean flying);
 
     public float getLeaningPitch(float tickDelta);
 
@@ -183,9 +231,48 @@ public interface IEntity
 
     public boolean isFallFlying();
 
+    public void setFallFlying(boolean fallFlying);
+
+    public float getFallFlyingProgress(float transition);
+
     public Vec3d getRotationVec(float transition);
 
     public Vec3d lerpVelocity(float transition);
 
     public boolean isUsingRiptide();
+
+    public void setRiptide(boolean riptide);
+
+    public boolean isCrawling();
+
+    public void setCrawling(boolean crawling);
+
+    public boolean isClimbing();
+
+    public void setClimbing(boolean climbing);
+
+    public boolean isBlocking();
+
+    public void setBlocking(boolean blocking);
+
+    public boolean isSleeping();
+
+    public void setSleeping(boolean sleeping);
+    
+    public IEntity getMountTarget();
+
+    public void setMountTarget(IEntity mountTarget);
+
+    public IEntity getRiderTarget();
+
+    public void setRiderTarget(IEntity riderTarget);
+
+    public boolean isSitting();
+
+    public void setSitting(boolean sitting);
+
+    public default boolean isRiding()
+    {
+        return this.getMountTarget() != null;
+    }
 }

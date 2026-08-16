@@ -9,6 +9,8 @@ import mchorse.bbs_mod.utils.CollectionUtils;
 import mchorse.bbs_mod.utils.colors.Color;
 import mchorse.bbs_mod.utils.resources.Pixels;
 
+import net.minecraft.client.render.VertexFormats;
+
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -19,7 +21,7 @@ public class TextureExtruder
     private Map<Link, ModelVAO> extruded = new HashMap<>();
 
     /**
-     * Fill a quad for {@link net.minecraft.client.render.VertexFormats#POSITION_TEXTURE_COLOR_NORMAL}. Points should
+     * Fill a quad for {@link VertexFormats#POSITION_TEXTURE_COLOR_NORMAL}. Points should
      * be supplied in this order:
      *
      *     3 -------> 4

@@ -3,17 +3,23 @@ package mchorse.bbs_mod.actions.types.blocks;
 import mchorse.bbs_mod.actions.SuperFakePlayer;
 import mchorse.bbs_mod.film.Film;
 import mchorse.bbs_mod.film.replays.Replay;
+import mchorse.bbs_mod.settings.values.core.ValueString;
 import mchorse.bbs_mod.settings.values.mc.ValueBlockState;
 import mchorse.bbs_mod.settings.values.numeric.ValueBoolean;
 import mchorse.bbs_mod.utils.clips.Clip;
+
 import net.minecraft.block.Blocks;
+import net.minecraft.block.entity.BlockEntity;
 import net.minecraft.entity.LivingEntity;
+import net.minecraft.nbt.NbtCompound;
+import net.minecraft.nbt.StringNbtReader;
 import net.minecraft.util.math.BlockPos;
 
 public class PlaceBlockActionClip extends BlockActionClip
 {
     public final ValueBlockState state = new ValueBlockState("state");
     public final ValueBoolean drop = new ValueBoolean("drop", false);
+    public final ValueString blockEntityNbt = new ValueString("block_entity_nbt", "");
 
     public PlaceBlockActionClip()
     {
@@ -21,6 +27,7 @@ public class PlaceBlockActionClip extends BlockActionClip
 
         this.add(this.state);
         this.add(this.drop);
+        this.add(this.blockEntityNbt);
     }
 
     @Override
@@ -35,6 +42,30 @@ public class PlaceBlockActionClip extends BlockActionClip
         else
         {
             player.getWorld().setBlockState(pos, this.state.get());
+
+            String nbtString = this.blockEntityNbt.get();
+
+            if (!nbtString.isEmpty())
+            {
+                try
+                {
+                    NbtCompound nbt = StringNbtReader.parse(nbtString);
+                    nbt.putInt("x", pos.getX());
+                    nbt.putInt("y", pos.getY());
+                    nbt.putInt("z", pos.getZ());
+                    BlockEntity created = BlockEntity.createFromNbt(pos, this.state.get(), nbt);
+
+                    if (created != null)
+                    {
+                        player.getWorld().removeBlockEntity(pos);
+                        player.getWorld().addBlockEntity(created);
+                        created.markDirty();
+                        player.getWorld().updateListeners(pos, this.state.get(), this.state.get(), 3);
+                    }
+                }
+                catch (Exception ignored)
+                {}
+            }
         }
     }
 

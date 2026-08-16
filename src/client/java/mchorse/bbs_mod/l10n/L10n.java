@@ -66,12 +66,26 @@ public class L10n
 
     public static IKey lang(String key)
     {
-        return BBSModClient.getL10n().getKey(key);
+        L10n l10n = BBSModClient.getL10n();
+
+        if (l10n == null)
+        {
+            return new LangKey(null, key, key);
+        }
+
+        return l10n.getKey(key);
     }
 
     public static IKey lang(String key, String content, IKey reference)
     {
-        LangKey langKey = BBSModClient.getL10n().getKey(key, content);
+        L10n l10n = BBSModClient.getL10n();
+
+        if (l10n == null)
+        {
+            return new LangKey(null, key, content);
+        }
+
+        LangKey langKey = l10n.getKey(key, content);
 
         if (reference instanceof LangKey)
         {

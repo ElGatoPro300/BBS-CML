@@ -1,12 +1,16 @@
 package mchorse.bbs_mod.ui.utils;
 
 import mchorse.bbs_mod.BBSSettings;
+import mchorse.bbs_mod.graphics.window.Window;
 import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.ui.framework.elements.utils.Batcher2D;
 import mchorse.bbs_mod.utils.MathUtils;
 import mchorse.bbs_mod.utils.colors.Colors;
 import mchorse.bbs_mod.utils.interps.Lerps;
+
 import net.minecraft.client.MinecraftClient;
+
+import org.lwjgl.glfw.GLFW;
 
 /**
  * Scroll
@@ -69,6 +73,7 @@ public class Scroll
 
     private float scrollbarRatio;
     private double targetScroll;
+    private boolean contentFitAnimating;
 
     public static void bar(Batcher2D batcher, int x1, int y1, int x2, int y2, int color)
     {
@@ -79,9 +84,9 @@ public class Scroll
 
         batcher.dropShadow(x1, y1, x2, y2, 5, color, Colors.setA(color, 0F));
 
-        batcher.box(x1, y1, x2, y2, 0xffeeeeee);
-        batcher.box(x1 + 1, y1 + 1, x2, y2, 0xff666666);
-        batcher.box(x1 + 1, y1 + 1, x2 - 1, y2 - 1, 0xffaaaaaa);
+        batcher.box(x1, y1, x2, y2, 0xFF2A2A2A);
+        batcher.box(x1 + 1, y1 + 1, x2, y2, 0xFF1A1A1A);
+        batcher.box(x1 + 1, y1 + 1, x2 - 1, y2 - 1, 0xFF333333);
 
         int dx = x2 - x1;
         int dy = y2 - y1;
@@ -171,6 +176,7 @@ public class Scroll
     public void setScroll(double x)
     {
         this.scroll = this.targetScroll = x;
+        this.contentFitAnimating = false;
 
         this.clamp();
     }
@@ -196,6 +202,40 @@ public class Scroll
     public void scrollToEnd()
     {
         this.setScroll(Integer.MAX_VALUE);
+    }
+
+    /**
+     * After content height changes, keep the viewport within bounds.
+     * When {@code animate} is true (and UI animations are not simplified),
+     * only the target is clamped so {@link #drag} can ease the view into place.
+     */
+    public void fitAfterContentResize(boolean animate)
+    {
+        int view = this.direction.getSide(this.area);
+        double max = this.scrollSize <= view ? 0D : (double) (this.scrollSize - view);
+
+        if (animate && BBSSettings.editorSimplifyAnimations != null && !BBSSettings.editorSimplifyAnimations.get())
+        {
+            if (this.targetScroll > max)
+            {
+                this.targetScroll = max;
+                this.contentFitAnimating = true;
+            }
+            else if (this.scroll > max)
+            {
+                this.targetScroll = max;
+                this.contentFitAnimating = true;
+            }
+            else
+            {
+                this.contentFitAnimating = false;
+            }
+        }
+        else
+        {
+            this.contentFitAnimating = false;
+            this.clamp();
+        }
     }
 
     public void scrollIntoView(int x)
@@ -247,7 +287,8 @@ public class Scroll
     {
         this.scroll = scroll.scroll;
         this.targetScroll = scroll.targetScroll;
-        this.scrollSize = scroll.scrollSize;
+        this.contentFitAnimating = false;
+        /* Do not copy scrollSize — the new content owner must set it, then fit. */
     }
 
     /**
@@ -448,17 +489,29 @@ public class Scroll
      */
     public void drag(int x, int y)
     {
-        if (BBSSettings.scrollingSmoothness.get())
+        if (this.dragging && !Window.isMouseButtonPressed(GLFW.GLFW_MOUSE_BUTTON_LEFT))
+        {
+            this.dragging = false;
+        }
+
+        if (BBSSettings.scrollingSmoothness.get() || this.contentFitAnimating)
         {
             float delta = MinecraftClient.getInstance().getLastFrameDuration();
 
             /* The higher the FPS, the smaller the lerp factor is,
              * the lower the FPS, the bigger the factor is */
             this.scroll = Lerps.lerp(this.scroll, this.targetScroll, Math.min(1F, delta / 2.5F));
+
+            if (this.contentFitAnimating && Math.abs(this.scroll - this.targetScroll) < 0.5D)
+            {
+                this.scroll = this.targetScroll;
+                this.contentFitAnimating = false;
+            }
         }
         else
         {
             this.scroll = this.targetScroll;
+            this.contentFitAnimating = false;
         }
 
         if (this.dragging)

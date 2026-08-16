@@ -3,6 +3,7 @@ package mchorse.bbs_mod.mixin;
 import mchorse.bbs_mod.BBSMod;
 import mchorse.bbs_mod.actions.types.item.UseBlockItemActionClip;
 import mchorse.bbs_mod.actions.types.item.UseItemActionClip;
+
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.ItemUsageContext;
@@ -11,6 +12,7 @@ import net.minecraft.util.ActionResult;
 import net.minecraft.util.Hand;
 import net.minecraft.util.TypedActionResult;
 import net.minecraft.world.World;
+
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
@@ -24,11 +26,17 @@ public class ItemStackMixin
     {
         if (user instanceof ServerPlayerEntity player)
         {
+            ItemStack stack = user.getStackInHand(hand);
+
+            if (stack.getMaxUseTime() > 0)
+            {
+                return;
+            }
             BBSMod.getActions().addAction(player, () ->
             {
                 UseItemActionClip clip = new UseItemActionClip();
 
-                clip.itemStack.set(user.getStackInHand(hand).copy());
+                clip.itemStack.set(stack.copy());
                 clip.hand.set(hand == Hand.MAIN_HAND);
 
                 return clip;

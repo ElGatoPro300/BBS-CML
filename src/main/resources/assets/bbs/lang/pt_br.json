@@ -21,5 +21,8 @@
     "key.bbs.record_video": "Gravar vídeo",
     "key.bbs.teleport": "Teletransportar para a reprodução atual",
     "key.bbs.zoom": "Zoom (Arma BBS)",
-    "category.bbs.main": "BBS mod"
+    "category.bbs.main": "BBS mod",
+    "command.getskin.success": "Skin aplicada a todos os jogadores",
+    "command.getskin.error": "Erro: %s",
+    "command.getskin.downloading": "Baixando skin..."
 }

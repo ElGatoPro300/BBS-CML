@@ -10,6 +10,7 @@ import mchorse.bbs_mod.ui.framework.elements.UIScrollView;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIButton;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIToggle;
 import mchorse.bbs_mod.ui.framework.elements.input.UIPropTransform;
+import mchorse.bbs_mod.ui.framework.elements.input.list.UISearchList;
 import mchorse.bbs_mod.ui.framework.elements.input.list.UIStringList;
 import mchorse.bbs_mod.ui.utils.UI;
 import mchorse.bbs_mod.utils.Pair;
@@ -19,6 +20,7 @@ public class UIBodyPartEditor extends UIScrollView
     public UIButton pick;
     public UIToggle useTarget;
     public UIStringList bone;
+    public UISearchList<String> boneSearch;
     public UIPropTransform transform;
 
     private final UIFormEditor editor;
@@ -53,11 +55,20 @@ public class UIBodyPartEditor extends UIScrollView
 
         this.useTarget = new UIToggle(UIKeys.FORMS_EDITOR_USE_TARGET, (b) ->
         {
-            this.part.useTarget.set(b.getValue());
+            for (UIForms.FormEntry entry : this.editor.formsList.getCurrent())
+            {
+                if (entry.part != null)
+                {
+                    entry.part.useTarget.set(b.getValue());
+                }
+            }
         });
 
         this.bone = new UIStringList((l) -> this.part.bone.set(l.get(0)));
         this.bone.background().h(16 * 6);
+        this.boneSearch = new UISearchList<>(this.bone);
+        this.boneSearch.label(UIKeys.GENERAL_SEARCH);
+        this.boneSearch.h(16 * 6 + 20);
 
         this.transform = new UIPropTransform().callbacks(() -> this.part.transform);
 
@@ -65,6 +76,11 @@ public class UIBodyPartEditor extends UIScrollView
 
         this.column(5).vertical().stretch().scroll().padding(10);
         this.scroll.cancelScrolling();
+    }
+
+    public BodyPart getPart()
+    {
+        return this.part;
     }
 
     public void setPart(BodyPart part, Form form)
@@ -81,7 +97,7 @@ public class UIBodyPartEditor extends UIScrollView
 
         if (!this.bone.getList().isEmpty())
         {
-            this.add(this.pick, this.useTarget, UI.label(UIKeys.FORMS_EDITOR_BONE).marginTop(8), this.bone, this.transform);
+            this.add(this.pick, this.useTarget, UI.label(UIKeys.FORMS_EDITOR_BONE).marginTop(8), this.boneSearch, this.transform);
         }
         else
         {

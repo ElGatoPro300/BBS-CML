@@ -11,9 +11,17 @@ public class InterpContext
     /* Hermite */
     public double a0;
     public double b0;
+    public boolean isStart;
+    public boolean isEnd;
 
     /* Extra variables */
     public final EasingArgs args = new EasingArgs();
+    
+    /* NURBS Weights */
+    public double w0;
+    public double w1;
+    public double w2;
+    public double w3;
 
     public InterpContext set(double a, double b, double x)
     {
@@ -27,9 +35,30 @@ public class InterpContext
         this.b = b;
         this.b0 = b0;
         this.x = x;
+        this.isStart = false;
+        this.isEnd = false;
 
         this.args.v1 = this.args.v2 = this.args.v3 = this.args.v4 = 0D;
+        this.w0 = this.w1 = this.w2 = this.w3 = 1.0D;
 
+        return this;
+    }
+
+    public InterpContext weights(double w0, double w1, double w2, double w3)
+    {
+        this.w0 = w0;
+        this.w1 = w1;
+        this.w2 = w2;
+        this.w3 = w3;
+        
+        return this;
+    }
+
+    public InterpContext setBoundary(boolean isStart, boolean isEnd)
+    {
+        this.isStart = isStart;
+        this.isEnd = isEnd;
+        
         return this;
     }
 

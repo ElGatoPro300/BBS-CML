@@ -58,6 +58,14 @@ public class FormCategory implements IMapSerializable
         }
     }
 
+    public void addForm(int index, Form form)
+    {
+        if (form != null && index >= 0 && index <= this.forms.size())
+        {
+            this.forms.add(index, form);
+        }
+    }
+
     public void replaceForm(int index, Form form)
     {
         if (form != null && CollectionUtils.inRange(this.forms, index))

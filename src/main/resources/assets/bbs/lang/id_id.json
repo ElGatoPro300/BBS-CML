@@ -9,5 +9,8 @@
     "key.bbs.play_film": "Putar film",
     "key.bbs.record_replay": "Rekam ulang rekaman saat ini",
     "key.bbs.record_video": "Rekam video",
-    "category.bbs.main": "Mod BBS"
+    "category.bbs.main": "Mod BBS",
+    "command.getskin.success": "Skin diterapkan ke semua pemain",
+    "command.getskin.error": "Kesalahan: %s",
+    "command.getskin.downloading": "Mengunduh skin..."
 }

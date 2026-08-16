@@ -9,10 +9,13 @@ import mchorse.bbs_mod.data.IMapSerializable;
 import mchorse.bbs_mod.data.types.ListType;
 import mchorse.bbs_mod.data.types.MapType;
 import mchorse.bbs_mod.forms.entities.IEntity;
+import mchorse.bbs_mod.forms.forms.utils.PaintSettings;
 import mchorse.bbs_mod.math.molang.MolangParser;
+import mchorse.bbs_mod.resources.Link;
 import mchorse.bbs_mod.utils.MathUtils;
 import mchorse.bbs_mod.utils.pose.Pose;
 import mchorse.bbs_mod.utils.pose.PoseTransform;
+import mchorse.bbs_mod.utils.resources.LinkUtils;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -103,6 +106,7 @@ public class Model implements IMapSerializable, IModel
 
             poseTransform.copy(group.current);
             poseTransform.translate.sub(group.initial.translate);
+            poseTransform.pivot.sub(group.initial.pivot);
             poseTransform.rotate.sub(group.initial.rotate);
 
             poseTransform.rotate.x = MathUtils.toRad(poseTransform.rotate.x);
@@ -146,9 +150,21 @@ public class Model implements IMapSerializable, IModel
             }
 
             group.lighting = transform.lighting;
+            group.noshadingOpacity = transform.noshadingOpacity;
             group.color.copy(transform.color);
+            group.paintColor.copy(transform.paintColor);
+            group.glowingColor.copy(transform.glowingColor);
+            group.glowIntensity = transform.glowIntensity;
+            group.glowRadius = transform.glowRadius;
+            group.shaderShadow = PaintSettings.resolveAutoShaderShadowForPoseAlpha(transform.paintColor.a);
+            Link texture = transform.texture;
+            group.textureOverride = texture != null ? LinkUtils.copy(texture) : null;
+            group.textureBlend = transform.textureBlend;
+            group.textureBlendTo = transform.textureBlendTo != null ? LinkUtils.copy(transform.textureBlendTo) : null;
             group.current.translate.add(transform.translate);
             group.current.scale.add(transform.scale).sub(1, 1, 1);
+            group.current.translate.add(transform.pivot);
+            group.current.pivot.add(transform.pivot);
             group.current.rotate.add(
                 (float) Math.toDegrees(transform.rotate.x),
                 (float) Math.toDegrees(transform.rotate.y),
@@ -238,6 +254,52 @@ public class Model implements IMapSerializable, IModel
     }
 
     @Override
+    public String getParentGroupKey(String key)
+    {
+        ModelGroup group = this.namedGroups.get(key);
+
+        if (group == null || group.parent == null)
+        {
+            return null;
+        }
+
+        return group.parent.id;
+    }
+
+    @Override
+    public Collection<String> getRootGroupKeys()
+    {
+        List<String> roots = new ArrayList<>();
+
+        for (ModelGroup group : this.topGroups)
+        {
+            roots.add(group.id);
+        }
+
+        return roots;
+    }
+
+    @Override
+    public Collection<String> getDirectChildrenKeys(String key)
+    {
+        ModelGroup group = this.namedGroups.get(key);
+
+        if (group == null)
+        {
+            return Collections.emptyList();
+        }
+
+        List<String> children = new ArrayList<>();
+
+        for (ModelGroup child : group.children)
+        {
+            children.add(child.id);
+        }
+
+        return children;
+    }
+
+    @Override
     public void apply(IEntity target, Animation action, float tick, float blend, float transition, boolean skipInitial)
     {
         MolangHelper.setMolangVariables(this.parser, target, tick, transition);
@@ -249,6 +311,22 @@ public class Model implements IMapSerializable, IModel
     {
         MolangHelper.setMolangVariables(this.parser, target, tick, transition);
         CubicModelAnimator.postAnimate(this, action, tick);
+    }
+
+    public Model copy()
+    {
+        Model model = new Model(this.parser);
+        model.textureWidth = this.textureWidth;
+        model.textureHeight = this.textureHeight;
+
+        for (ModelGroup group : this.topGroups)
+        {
+            model.topGroups.add(group.copy(model, null));
+        }
+
+        model.initialize();
+
+        return model;
     }
 
     /* Deserialization / Serialization */

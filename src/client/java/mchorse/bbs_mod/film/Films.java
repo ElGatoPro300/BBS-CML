@@ -1,6 +1,5 @@
 package mchorse.bbs_mod.film;
 
-import com.mojang.blaze3d.systems.RenderSystem;
 import mchorse.bbs_mod.BBSModClient;
 import mchorse.bbs_mod.BBSSettings;
 import mchorse.bbs_mod.audio.AudioRenderer;
@@ -15,13 +14,21 @@ import mchorse.bbs_mod.network.ClientNetwork;
 import mchorse.bbs_mod.ui.ContentType;
 import mchorse.bbs_mod.ui.UIKeys;
 import mchorse.bbs_mod.ui.framework.elements.utils.Batcher2D;
+import mchorse.bbs_mod.ui.utils.Gizmo;
 import mchorse.bbs_mod.ui.utils.icons.Icons;
 import mchorse.bbs_mod.utils.CollectionUtils;
 import mchorse.bbs_mod.utils.clips.Clip;
 import mchorse.bbs_mod.utils.colors.Colors;
 import mchorse.bbs_mod.utils.keyframes.KeyframeChannel;
+
 import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
+
 import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.network.ClientPlayerEntity;
+
+import com.mojang.blaze3d.systems.RenderSystem;
+
+import org.lwjgl.opengl.GL11;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -33,6 +40,8 @@ public class Films
 {
     private List<BaseFilmController> controllers = new ArrayList<BaseFilmController>();
     private Recorder recorder;
+    private final RecorderMobCapture editorMobCapture = new RecorderMobCapture();
+    private final RecorderProjectileCapture editorProjectileCapture = new RecorderProjectileCapture();
 
     public Map<String, Map<String, Integer>> actors = new HashMap<>();
 
@@ -132,16 +141,97 @@ public class Films
         return null;
     }
 
+    public List<BaseFilmController> getControllers()
+    {
+        return this.controllers;
+    }
+
     public Recorder getRecorder()
     {
         return this.recorder;
     }
 
+    public RecorderMobCapture getEditorMobCapture()
+    {
+        return this.editorMobCapture;
+    }
+
+    public RecorderProjectileCapture getEditorProjectileCapture()
+    {
+        return this.editorProjectileCapture;
+    }
+
+    public FirstPersonBobbingSample getFirstPersonBobbingSample(float tickDelta)
+    {
+        ClientPlayerEntity player = MinecraftClient.getInstance().player;
+
+        if (player == null)
+        {
+            return null;
+        }
+
+        for (BaseFilmController controller : this.controllers)
+        {
+            if (controller == null || controller.film == null)
+            {
+                continue;
+            }
+
+            Map<String, Integer> actors = this.actors.get(controller.film.getId());
+
+            if (actors == null || actors.isEmpty())
+            {
+                continue;
+            }
+
+            for (Replay replay : controller.film.replays.getList())
+            {
+                if (replay == null || !replay.enabled.get() || !replay.fp.get())
+                {
+                    continue;
+                }
+
+                Integer actorId = actors.get(replay.getId());
+
+                if (actorId == null || actorId != player.getId())
+                {
+                    continue;
+                }
+
+                float tick = replay.getTick(controller.getTick()) + tickDelta;
+                float vX = replay.keyframes.vX.interpolate(tick).floatValue();
+                float vZ = replay.keyframes.vZ.interpolate(tick).floatValue();
+                boolean grounded = replay.keyframes.grounded.interpolate(tick) > 0D;
+
+                return new FirstPersonBobbingSample(vX, vZ, grounded, controller.paused);
+            }
+        }
+
+        return null;
+    }
+
     public void startRecording(Film film, int replayId, int tick)
     {
+        /* Safety: never leave integrated-server ticks blocked after recording starts. */
+        RecordingPauseHelper.reset();
+
         Morph morph = Morph.getMorph(MinecraftClient.getInstance().player);
 
         this.recorder = new Recorder(film, morph == null ? null : morph.getForm(), replayId, tick);
+
+        MobCaptureRecordingSetup setup = MobCaptureRecordingSetup.pending;
+
+        if (setup != null)
+        {
+            this.recorder.getMobCapture().applyRecordingSetup(setup);
+
+            if (setup.shouldCapture())
+            {
+                this.recorder.getMobCapture().bulkCapture(film, tick, setup, null);
+            }
+
+            MobCaptureRecordingSetup.pending = null;
+        }
 
         if (ClientNetwork.isIsBBSModOnServer())
         {
@@ -152,12 +242,15 @@ public class Films
 
         if (replay != null)
         {
+            MobCemPoseCapture.syncReplay(replay);
             ClientNetwork.sendPlayerForm(replay.form.get());
         }
     }
 
     public Recorder stopRecording()
     {
+        RecordingPauseHelper.reset();
+
         Recorder recorder = this.recorder;
 
         this.recorder = null;
@@ -169,12 +262,17 @@ public class Films
                 channel.simplify();
             }
 
+            recorder.getMobCapture().simplify(recorder.film);
+            recorder.getProjectileCapture().simplify(recorder.film);
+
             if (ClientNetwork.isIsBBSModOnServer())
             {
                 ClientNetwork.sendActionRecording(recorder.film.getId(), recorder.exception, recorder.initialTick, 0, false);
             }
 
             recorder.shutdown();
+            recorder.getMobCapture().clear();
+            recorder.getProjectileCapture().clear();
         }
 
         return recorder;
@@ -266,6 +364,8 @@ public class Films
 
     public void render(WorldRenderContext context)
     {
+        Gizmo.INSTANCE.clearVisual();
+
         RenderSystem.enableDepthTest();
 
         for (BaseFilmController controller : this.controllers)
@@ -278,7 +378,9 @@ public class Films
             this.recorder.render(context);
         }
 
-        RenderSystem.disableDepthTest();
+        /* Leave world depth usable for later translucent / particle passes. */
+        RenderSystem.enableDepthTest();
+        RenderSystem.depthFunc(GL11.GL_LEQUAL);
     }
 
     public void renderHud(Batcher2D batcher2D, float tickDelta)
@@ -324,5 +426,21 @@ public class Films
         controllers.clear();
 
         recorder = null;
+    }
+
+    public static class FirstPersonBobbingSample
+    {
+        public final float vX;
+        public final float vZ;
+        public final boolean grounded;
+        public final boolean paused;
+
+        public FirstPersonBobbingSample(float vX, float vZ, boolean grounded, boolean paused)
+        {
+            this.vX = vX;
+            this.vZ = vZ;
+            this.grounded = grounded;
+            this.paused = paused;
+        }
     }
 }

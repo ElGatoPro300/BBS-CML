@@ -12,6 +12,7 @@ import mchorse.bbs_mod.utils.interps.IInterp;
 import mchorse.bbs_mod.utils.interps.Interpolation;
 import mchorse.bbs_mod.utils.interps.Interpolations;
 import mchorse.bbs_mod.utils.joml.Matrices;
+
 import org.joml.Vector3f;
 
 public class DollyClip extends IdleClip

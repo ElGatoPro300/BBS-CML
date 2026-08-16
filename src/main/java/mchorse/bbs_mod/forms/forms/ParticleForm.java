@@ -1,9 +1,9 @@
 package mchorse.bbs_mod.forms.forms;
 
-import mchorse.bbs_mod.settings.values.numeric.ValueBoolean;
-import mchorse.bbs_mod.settings.values.numeric.ValueFloat;
 import mchorse.bbs_mod.settings.values.core.ValueLink;
 import mchorse.bbs_mod.settings.values.core.ValueString;
+import mchorse.bbs_mod.settings.values.numeric.ValueBoolean;
+import mchorse.bbs_mod.settings.values.numeric.ValueFloat;
 
 public class ParticleForm extends Form
 {

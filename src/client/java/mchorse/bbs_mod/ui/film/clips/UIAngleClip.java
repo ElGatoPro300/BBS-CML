@@ -29,7 +29,7 @@ public class UIAngleClip extends UIClip<AngleClip>
     {
         super.registerPanels();
 
-        this.panels.add(this.angle.marginTop(12), this.active);
+        this.panels.add(this.angle, this.active);
     }
 
     @Override

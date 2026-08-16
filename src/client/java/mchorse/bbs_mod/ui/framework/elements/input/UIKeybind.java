@@ -9,6 +9,7 @@ import mchorse.bbs_mod.ui.framework.elements.utils.FontRenderer;
 import mchorse.bbs_mod.ui.utils.keys.KeyAction;
 import mchorse.bbs_mod.ui.utils.keys.KeyCombo;
 import mchorse.bbs_mod.utils.colors.Colors;
+
 import org.lwjgl.glfw.GLFW;
 
 import java.util.function.Consumer;

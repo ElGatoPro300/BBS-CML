@@ -4,6 +4,7 @@ import mchorse.bbs_mod.forms.forms.utils.ParticleSettings;
 import mchorse.bbs_mod.ui.forms.editors.utils.UIParticleSettings;
 import mchorse.bbs_mod.ui.framework.elements.input.keyframes.UIKeyframes;
 import mchorse.bbs_mod.utils.keyframes.Keyframe;
+
 import net.minecraft.util.Identifier;
 
 public class UIParticleSettingsKeyframeFactory extends UIKeyframeFactory<ParticleSettings>

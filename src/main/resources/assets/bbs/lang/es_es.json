@@ -7,10 +7,17 @@
     "key.bbs.dashboard": "Tablero principal",
     "key.bbs.demorph": "Deshacer transformación",
     "key.bbs.open_replays": "Abrir reproducciones actuales",
+    "key.bbs.open_quick_replays": "Abrir reproducciones rápidas",
     "key.bbs.open_morphing": "Abrir menú de transformaciones",
     "key.bbs.play_film": "Reproducir película",
     "key.bbs.record_replay": "Grabar reproducción actual",
     "key.bbs.record_video": "Grabar vídeo",
     "key.bbs.teleport": "Teletransportarse a la reproducción actual",
-    "category.bbs.main": "BBS mod"
+    "key.bbs.toggle_replay_hud": "Alternar HUD de replay",
+    "category.bbs.main": "BBS mod",
+
+    "gamerule.bbsEditing": "Permisos de edición de BBS mod",
+    "command.getskin.success": "Skin aplicada a todos los jugadores",
+    "command.getskin.error": "Error: %s",
+    "command.getskin.downloading": "Descargando skin..."
 }

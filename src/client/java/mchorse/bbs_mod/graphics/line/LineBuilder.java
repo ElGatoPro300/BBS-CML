@@ -1,14 +1,17 @@
 package mchorse.bbs_mod.graphics.line;
 
-import com.mojang.blaze3d.systems.RenderSystem;
 import mchorse.bbs_mod.ui.framework.elements.utils.Batcher2D;
+
 import net.minecraft.client.render.BufferBuilder;
 import net.minecraft.client.render.BufferRenderer;
 import net.minecraft.client.render.GameRenderer;
 import net.minecraft.client.render.Tessellator;
 import net.minecraft.client.render.VertexFormat;
 import net.minecraft.client.render.VertexFormats;
+
 import org.joml.Matrix4f;
+
+import com.mojang.blaze3d.systems.RenderSystem;
 
 import java.util.ArrayList;
 import java.util.List;

@@ -1,9 +1,8 @@
 package mchorse.bbs_mod.ui.framework.elements.utils;
 
-import com.mojang.blaze3d.systems.RenderSystem;
-import com.mojang.blaze3d.systems.VertexSorter;
 import mchorse.bbs_mod.BBSModClient;
 import mchorse.bbs_mod.camera.Camera;
+import mchorse.bbs_mod.client.BBSRendering;
 import mchorse.bbs_mod.forms.entities.IEntity;
 import mchorse.bbs_mod.forms.entities.StubEntity;
 import mchorse.bbs_mod.graphics.window.Window;
@@ -12,6 +11,7 @@ import mchorse.bbs_mod.ui.framework.elements.UIElement;
 import mchorse.bbs_mod.utils.Factor;
 import mchorse.bbs_mod.utils.MathUtils;
 import mchorse.bbs_mod.utils.MatrixStackUtils;
+
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.render.BufferBuilder;
 import net.minecraft.client.render.BufferRenderer;
@@ -21,12 +21,17 @@ import net.minecraft.client.render.Tessellator;
 import net.minecraft.client.render.VertexFormat;
 import net.minecraft.client.render.VertexFormats;
 import net.minecraft.client.util.math.MatrixStack;
+
 import org.joml.Intersectiond;
 import org.joml.Matrix3d;
 import org.joml.Matrix3f;
 import org.joml.Matrix4f;
 import org.joml.Vector3d;
 import org.joml.Vector3f;
+
+import com.mojang.blaze3d.systems.RenderSystem;
+import com.mojang.blaze3d.systems.VertexSorter;
+
 import org.lwjgl.opengl.GL11;
 
 /**
@@ -60,11 +65,31 @@ public abstract class UIModelRenderer extends UIElement
     private long tick;
     private Matrix4f transform = new Matrix4f();
 
+    private boolean stencilViewport;
+    private int stencilViewportW;
+    private int stencilViewportH;
+
     public UIModelRenderer()
     {
         super();
 
         this.reset();
+    }
+
+    /**
+     * When rendering the stencil pick pass into an FBO, the GL viewport must be {@code 0,0,fboW,fboH}
+     * instead of window-relative coordinates so pick pixels align with the on-screen gizmo.
+     */
+    protected void beginStencilViewport(int fboW, int fboH)
+    {
+        this.stencilViewport = true;
+        this.stencilViewportW = fboW;
+        this.stencilViewportH = fboH;
+    }
+
+    protected void endStencilViewport()
+    {
+        this.stencilViewport = false;
     }
 
     public void setTransform(Matrix4f transform)
@@ -206,7 +231,10 @@ public abstract class UIModelRenderer extends UIElement
      */
     private void renderModel(UIContext context)
     {
+        RenderSystem.enableDepthTest();
+        RenderSystem.enableCull();
         RenderSystem.depthFunc(GL11.GL_LEQUAL);
+        RenderSystem.depthMask(true);
 
         this.setupPosition();
         this.setupViewport(context);
@@ -217,7 +245,6 @@ public abstract class UIModelRenderer extends UIElement
         MatrixStackUtils.cacheMatrices();
 
         RenderSystem.setProjectionMatrix(this.camera.projection, VertexSorter.BY_Z);
-        RenderSystem.setInverseViewRotationMatrix(new Matrix3f(this.camera.view).invert());
 
         /* Rendering begins... */
         stack.push();
@@ -225,11 +252,16 @@ public abstract class UIModelRenderer extends UIElement
         stack.translate(-this.camera.position.x, -this.camera.position.y, -this.camera.position.z);
         MatrixStackUtils.multiply(stack, this.transform);
 
-        RenderSystem.setupLevelDiffuseLighting(
-            new Vector3f(0, 0.85F, -1).normalize(),
-            new Vector3f(0, 0.85F, 1).normalize(),
-            this.camera.view
-        );
+        /* Keep diffuse normals in model/block space. Baking the orbit camera into NormalMat
+         * made face shading follow the view angle; the world / F7 pass keeps lighting tied to
+         * how the model sits in the world instead. */
+        Matrix3f lightingNormals = new Matrix3f();
+
+        this.transform.normal(lightingNormals);
+        stack.peek().getNormalMatrix().set(lightingNormals);
+
+        /* Match WorldRenderer's entity-pass diffuse (and F7 model-block draws). */
+        BBSRendering.setupMatchingWorldDiffuseLighting();
 
         if (this.grid)
         {
@@ -247,8 +279,11 @@ public abstract class UIModelRenderer extends UIElement
 
         RenderSystem.viewport(0, 0, mc.getWindow().getFramebufferWidth(), mc.getWindow().getFramebufferHeight());
         MatrixStackUtils.restoreMatrices();
+        context.resetMatrix();
 
-        RenderSystem.depthFunc(GL11.GL_ALWAYS);
+        RenderSystem.depthFunc(GL11.GL_LEQUAL);
+        RenderSystem.enableDepthTest();
+        RenderSystem.depthMask(true);
 
         this.processInputs(context);
     }
@@ -301,7 +336,7 @@ public abstract class UIModelRenderer extends UIElement
     {
         Vector3d vector = new Vector3d();
         Vector3d origin = new Vector3d(this.cachedCamera.position).sub(this.cachedPos);
-        Vector3d destination = new Vector3d(this.cachedCamera.getMouseDirection(context.mouseX, context.mouseY, this.area.x, this.area.y, this.area.w, this.area.h)).mul(this.distance.getValue() * 2).add(origin);
+        Vector3d destination = new Vector3d(this.cachedCamera.getMouseDirection(context.mouseX, context.mouseY, context.globalX(this.area.x), context.globalY(this.area.y), this.area.w, this.area.h)).mul(this.distance.getValue() * 2).add(origin);
         Intersectiond.intersectLineSegmentPlane(origin.x, origin.y, origin.z, destination.x, destination.y, destination.z, this.plane.x, this.plane.y, this.plane.z, 0, vector);
 
         return vector;
@@ -321,12 +356,23 @@ public abstract class UIModelRenderer extends UIElement
 
         MinecraftClient mc = MinecraftClient.getInstance();
 
-        float rx = (float) Math.round(mc.getWindow().getWidth() / (double) context.menu.width);
-        float ry = (float) Math.round(mc.getWindow().getHeight() / (double) context.menu.height);
+        if (this.stencilViewport)
+        {
+            RenderSystem.viewport(0, 0, this.stencilViewportW, this.stencilViewportH);
+            this.camera.updatePerspectiveProjection(this.stencilViewportW, this.stencilViewportH);
+            this.camera.updateView();
+
+            return;
+        }
+
+        /* Exact physical-to-logical ratio (the UI scale factor). Rounding this snapped fractional scales
+           like 1.5 up to 2, which offset the viewport and misaligned model/morph previews. */
+        float rx = (float) (mc.getWindow().getWidth() / (double) context.menu.width);
+        float ry = (float) (mc.getWindow().getHeight() / (double) context.menu.height);
         float size = BBSModClient.getOriginalFramebufferScale();
 
-        int vx = (int) (this.area.x * rx);
-        int vy = (int) (mc.getWindow().getHeight() - (this.area.y + this.area.h) * ry);
+        int vx = (int) (context.globalX(this.area.x) * rx);
+        int vy = (int) (mc.getWindow().getHeight() - (context.globalY(this.area.y) + this.area.h) * ry);
         int vw = (int) (this.area.w * rx);
         int vh = (int) (this.area.h * ry);
 
@@ -348,21 +394,21 @@ public abstract class UIModelRenderer extends UIElement
     {
         Matrix4f matrix4f = context.batcher.getContext().getMatrices().peek().getPositionMatrix();
         BufferBuilder builder = Tessellator.getInstance().getBuffer();
+        builder.begin(VertexFormat.DrawMode.DEBUG_LINES, VertexFormats.POSITION_COLOR);
 
         RenderSystem.setShader(GameRenderer::getPositionColorProgram);
-        builder.begin(VertexFormat.DrawMode.DEBUG_LINES, VertexFormats.POSITION_COLOR);
 
         for (int x = 0; x <= 10; x ++)
         {
             if (x == 0)
             {
-                builder.vertex(matrix4f, x - 5, 0, -5).color(0F, 0F, 1F, 1F).next();
-                builder.vertex(matrix4f, x - 5, 0, 5).color(0F, 0F, 1F, 1F).next();
+                builder.vertex(matrix4f, x - 5, 0, -5).color(0F, 0F, 1F, 1F);
+                builder.vertex(matrix4f, x - 5, 0, 5).color(0F, 0F, 1F, 1F);
             }
             else
             {
-                builder.vertex(matrix4f, x - 5, 0, -5).color(0.25F, 0.25F, 0.25F, 1F).next();
-                builder.vertex(matrix4f, x - 5, 0, 5).color(0.25F, 0.25F, 0.25F, 1F).next();
+                builder.vertex(matrix4f, x - 5, 0, -5).color(0.25F, 0.25F, 0.25F, 1F);
+                builder.vertex(matrix4f, x - 5, 0, 5).color(0.25F, 0.25F, 0.25F, 1F);
             }
         }
 
@@ -370,13 +416,13 @@ public abstract class UIModelRenderer extends UIElement
         {
             if (x == 0)
             {
-                builder.vertex(matrix4f, -5, 0, x - 5).color(1F, 0F, 0F, 1F).next();
-                builder.vertex(matrix4f, 5, 0, x - 5).color(1F, 0F, 0F, 1F).next();
+                builder.vertex(matrix4f, -5, 0, x - 5).color(1F, 0F, 0F, 1F);
+                builder.vertex(matrix4f, 5, 0, x - 5).color(1F, 0F, 0F, 1F);
             }
             else
             {
-                builder.vertex(matrix4f, -5, 0, x - 5).color(0.25F, 0.25F, 0.25F, 1F).next();
-                builder.vertex(matrix4f, 5, 0, x - 5).color(0.25F, 0.25F, 0.25F, 1F).next();
+                builder.vertex(matrix4f, -5, 0, x - 5).color(0.25F, 0.25F, 0.25F, 1F);
+                builder.vertex(matrix4f, 5, 0, x - 5).color(0.25F, 0.25F, 0.25F, 1F);
             }
         }
 

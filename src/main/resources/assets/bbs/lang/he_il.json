@@ -12,5 +12,10 @@
     "key.bbs.record_replay": "הקלט שחזור נוכחי",
     "key.bbs.record_video": "הקלט סרטון",
     "key.bbs.teleport": "טלפורט לשחזור נוכחי",
-    "category.bbs.main": "BBS מוד"
+    "category.bbs.main": "BBS מוד",
+
+    "gamerule.bbsEditing": "תנאים לעריכת מוד BBS",
+    "command.getskin.success": "סכימה מועברת לכל השחקנים",
+    "command.getskin.error": "שגיאה: %s",
+    "command.getskin.downloading": "הורדת סכימה..."
 }

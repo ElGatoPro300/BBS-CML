@@ -4,6 +4,7 @@ import mchorse.bbs_mod.resources.ISourcePack;
 import mchorse.bbs_mod.resources.Link;
 import mchorse.bbs_mod.utils.DataPath;
 import mchorse.bbs_mod.utils.StringUtils;
+
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.resource.Resource;
 import net.minecraft.resource.ResourceManager;
@@ -28,6 +29,17 @@ public class MinecraftSourcePack implements ISourcePack
         this.manager = MinecraftClient.getInstance().getResourceManager();
 
         this.setupPaths();
+    }
+    
+    private ResourceManager getEffectiveManager(Link link)
+    {
+        MinecraftClient mc = MinecraftClient.getInstance();
+        if (mc.getServer() != null && (link.path.startsWith("structures/") || link.path.endsWith(".nbt")))
+        {
+            return mc.getServer().getResourceManager();
+        }
+        
+        return this.manager;
     }
 
     public void setupPaths()
@@ -76,13 +88,39 @@ public class MinecraftSourcePack implements ISourcePack
     @Override
     public boolean hasAsset(Link link)
     {
-        return this.manager.getResource(new Identifier(link.toString())).isPresent();
+        Identifier id = new Identifier(link.toString());
+        ResourceManager effectiveManager = this.getEffectiveManager(link);
+        
+        if (effectiveManager.getResource(id).isPresent())
+        {
+            return true;
+        }
+        
+        if (!link.path.startsWith("structures/") && link.path.endsWith(".nbt"))
+        {
+             Identifier structureId = new Identifier(link.source, "structures/" + link.path);
+             if (effectiveManager.getResource(structureId).isPresent())
+             {
+                 return true;
+             }
+        }
+        
+        return false;
     }
 
     @Override
     public InputStream getAsset(Link link) throws IOException
     {
-        Optional<Resource> resource = this.manager.getResource(new Identifier(link.toString()));
+        Identifier id = new Identifier(link.toString());
+        ResourceManager effectiveManager = this.getEffectiveManager(link);
+        
+        Optional<Resource> resource = effectiveManager.getResource(id);
+
+        if (resource.isEmpty() && !link.path.startsWith("structures/") && link.path.endsWith(".nbt"))
+        {
+             Identifier structureId = new Identifier(link.source, "structures/" + link.path);
+             resource = effectiveManager.getResource(structureId);
+        }
 
         if (resource.isPresent())
         {

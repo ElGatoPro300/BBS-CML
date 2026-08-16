@@ -24,5 +24,8 @@
     "key.bbs.zoom": "Yakınlaştır (BBS silahı)",
     "category.bbs.main": "BBS mod",
 
-    "gamerule.bbsEditing": "BBS modun düzenleme izni"
+    "gamerule.bbsEditing": "BBS modun düzenleme izni",
+    "command.getskin.success": "Skin tüm oyunculara uygulandı",
+    "command.getskin.error": "Hata: %s",
+    "command.getskin.downloading": "Skin indiriliyor..."
 }

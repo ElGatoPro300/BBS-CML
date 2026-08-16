@@ -11,5 +11,10 @@ public class UIAnchorForm extends UIForm<AnchorForm>
         this.registerDefaultPanels();
 
         this.defaultPanel = this.panels.get(0);
+
+        if (this.generalPanel != null)
+        {
+            this.generalPanel.transform.setLocalMode(true);
+        }
     }
 }

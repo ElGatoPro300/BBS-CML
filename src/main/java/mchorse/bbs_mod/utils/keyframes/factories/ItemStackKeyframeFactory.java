@@ -1,14 +1,20 @@
 package mchorse.bbs_mod.utils.keyframes.factories;
 
-import com.mojang.datafixers.util.Pair;
-import com.mojang.serialization.DataResult;
+import mchorse.bbs_mod.BBSMod;
 import mchorse.bbs_mod.data.DataStorageUtils;
 import mchorse.bbs_mod.data.types.BaseType;
 import mchorse.bbs_mod.data.types.MapType;
 import mchorse.bbs_mod.utils.interps.IInterp;
+
 import net.minecraft.item.ItemStack;
+import net.minecraft.nbt.NbtCompound;
 import net.minecraft.nbt.NbtElement;
 import net.minecraft.nbt.NbtOps;
+import net.minecraft.registry.RegistryOps;
+import net.minecraft.registry.RegistryWrapper;
+
+import com.mojang.datafixers.util.Pair;
+import com.mojang.serialization.DynamicOps;
 
 import java.util.Optional;
 
@@ -17,18 +23,59 @@ public class ItemStackKeyframeFactory implements IKeyframeFactory<ItemStack>
     @Override
     public ItemStack fromData(BaseType data)
     {
-        DataResult<Pair<ItemStack, NbtElement>> decode = ItemStack.CODEC.decode(NbtOps.INSTANCE, DataStorageUtils.toNbt(data));
-        Optional<Pair<ItemStack, NbtElement>> result = decode.result();
+        return this.fromData(data, BBSMod.getRegistryManager());
+    }
 
-        return result.map(Pair::getFirst).orElse(ItemStack.EMPTY);
+    public ItemStack fromData(BaseType data, RegistryWrapper.WrapperLookup registries)
+    {
+        if (data == null)
+        {
+            return ItemStack.EMPTY;
+        }
+
+        NbtElement nbt = DataStorageUtils.toNbt(data);
+        RegistryWrapper.WrapperLookup lookup = registries != null ? registries : BBSMod.getRegistryManager();
+
+        if (lookup == null)
+        {
+            /* Without RegistryOps, enchanted components cannot be restored safely. */
+            return ItemStack.EMPTY;
+        }
+
+        DynamicOps<NbtElement> ops = RegistryOps.of(NbtOps.INSTANCE, lookup);
+        Optional<ItemStack> decoded = ItemStack.CODEC.decode(ops, nbt).result().map(Pair::getFirst);
+
+        if (decoded.isPresent())
+        {
+            return decoded.get();
+        }
+
+        /* Legacy / partially corrupted entries still often decode via fromNbt. */
+        if (nbt instanceof NbtCompound compound)
+        {
+            return ItemStack.fromNbt(compound);
+        }
+
+        return ItemStack.EMPTY;
     }
 
     @Override
     public BaseType toData(ItemStack value)
     {
-        Optional<NbtElement> result = ItemStack.CODEC.encodeStart(NbtOps.INSTANCE, value).result();
+        if (value == null || value.isEmpty())
+        {
+            return new MapType();
+        }
 
-        return result.map(DataStorageUtils::fromNbt).orElse(new MapType());
+        NbtCompound nbt = new NbtCompound();
+
+        value.writeNbt(nbt);
+        return DataStorageUtils.fromNbt(nbt);
+    }
+
+    public BaseType toData(ItemStack value, RegistryWrapper.WrapperLookup registries)
+    {
+        return this.toData(value);
     }
 
     @Override
@@ -57,6 +104,33 @@ public class ItemStackKeyframeFactory implements IKeyframeFactory<ItemStack>
     @Override
     public ItemStack interpolate(ItemStack preA, ItemStack a, ItemStack b, ItemStack postB, IInterp interpolation, float x)
     {
-        return a;
+        if (a == null || b == null)
+        {
+            return a == null ? ItemStack.EMPTY : a;
+        }
+
+        if (a.isEmpty() || b.isEmpty())
+        {
+            return x < 1F ? a : b;
+        }
+
+        if (!ItemStack.canCombine(a, b))
+        {
+            return x < 1F ? a : b;
+        }
+
+        int aCount = a.getCount();
+        int bCount = b.getCount();
+        int count = (int) Math.round(interpolation.interpolate(aCount, bCount, x));
+
+        if (count < 0)
+        {
+            count = 0;
+        }
+
+        ItemStack copy = a.copy();
+        copy.setCount(count);
+
+        return copy;
     }
 }

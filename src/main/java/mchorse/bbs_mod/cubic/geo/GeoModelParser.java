@@ -1,15 +1,17 @@
 package mchorse.bbs_mod.cubic.geo;
 
-import com.google.gson.JsonArray;
-import com.google.gson.JsonElement;
-import com.google.gson.JsonObject;
 import mchorse.bbs_mod.cubic.data.model.Model;
 import mchorse.bbs_mod.cubic.data.model.ModelCube;
 import mchorse.bbs_mod.cubic.data.model.ModelGroup;
 import mchorse.bbs_mod.cubic.data.model.ModelUV;
 import mchorse.bbs_mod.math.molang.MolangParser;
+
 import org.joml.Vector2f;
 import org.joml.Vector3f;
+
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -72,6 +74,7 @@ public class GeoModelParser
             if (boneElement.has("pivot"))
             {
                 parseVector(boneElement.get("pivot"), bone.initial.translate);
+                bone.initial.pivot.set(bone.initial.translate);
             }
 
             if (boneElement.has("scale"))
@@ -88,6 +91,7 @@ public class GeoModelParser
             }
 
             bone.initial.translate.x *= -1;
+            bone.initial.pivot.x *= -1;
 
             /* Setup cubes */
             if (boneElement.has("cubes"))

@@ -4,6 +4,7 @@ import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.ui.framework.elements.UIElement;
 import mchorse.bbs_mod.ui.utils.Area;
 import mchorse.bbs_mod.ui.utils.icons.Icons;
+
 import org.joml.Vector2i;
 
 public abstract class UICanvasEditor extends UICanvas

@@ -2,6 +2,9 @@ package mchorse.bbs_mod.ui;
 
 import mchorse.bbs_mod.BBSMod;
 import mchorse.bbs_mod.BBSModClient;
+import mchorse.bbs_mod.cubic.model.ModelConfig;
+import mchorse.bbs_mod.cubic.model.ModelRepository;
+import mchorse.bbs_mod.data.types.BaseType;
 import mchorse.bbs_mod.film.Film;
 import mchorse.bbs_mod.film.FilmManager;
 import mchorse.bbs_mod.network.ClientNetwork;
@@ -10,10 +13,12 @@ import mchorse.bbs_mod.settings.values.core.ValueGroup;
 import mchorse.bbs_mod.ui.dashboard.UIDashboard;
 import mchorse.bbs_mod.ui.dashboard.panels.UIDataDashboardPanel;
 import mchorse.bbs_mod.ui.film.UIFilmPanel;
+import mchorse.bbs_mod.ui.model.UIModelPanel;
 import mchorse.bbs_mod.ui.particles.UIParticleSchemePanel;
 import mchorse.bbs_mod.utils.repos.FilmRepository;
 import mchorse.bbs_mod.utils.repos.FolderManagerRepository;
 import mchorse.bbs_mod.utils.repos.IRepository;
+
 import net.minecraft.client.MinecraftClient;
 
 import java.io.File;
@@ -28,7 +33,10 @@ public class ContentType
     private static final IRepository<Film> FILMS_REMOTE_REPOSITORY = new FilmRepository();
 
     public static final ContentType PARTICLES = new ContentType("particles", () -> PARTICLE_REPOSITORY, (dashboard) -> dashboard.getPanel(UIParticleSchemePanel.class));
+    public static final ContentType MODELS = new ContentType("models", () -> new ModelRepository(BBSModClient.getModels()), (dashboard) -> dashboard.getPanel(UIModelPanel.class));
     public static final ContentType FILMS = new ContentType("films", ContentType::getFilmsRepository, (dashboard) -> dashboard.getPanel(UIFilmPanel.class));
+    public static final ContentType SOUNDS = new ContentType("sounds", () -> null, (dashboard) -> null);
+    public static final ContentType GRAPH = new ContentType("graph", () -> null, (dashboard) -> null);
 
     private static IRepository<? extends ValueGroup> getFilmsRepository()
     {
@@ -49,6 +57,17 @@ public class ContentType
         this.id = id;
         this.manager = manager;
         this.dashboardPanel = dashboardPanel;
+    }
+
+    public static ContentType fromId(String id)
+    {
+        if ("particles".equals(id)) return PARTICLES;
+        if ("models".equals(id)) return MODELS;
+        if ("films".equals(id)) return FILMS;
+        if ("sounds".equals(id)) return SOUNDS;
+        if ("graph".equals(id)) return GRAPH;
+
+        return null;
     }
 
     public String getId()

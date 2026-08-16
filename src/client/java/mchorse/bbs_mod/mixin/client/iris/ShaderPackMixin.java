@@ -1,8 +1,10 @@
 package mchorse.bbs_mod.mixin.client.iris;
 
 import mchorse.bbs_mod.utils.iris.IrisUtils;
+
 import net.irisshaders.iris.shaderpack.ShaderPack;
 import net.irisshaders.iris.shaderpack.properties.ShaderProperties;
+
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
@@ -18,6 +20,7 @@ public class ShaderPackMixin
         method = "<init>(Ljava/nio/file/Path;Ljava/util/Map;Lcom/google/common/collect/ImmutableList;)V",
         at = @At(value = "INVOKE", target = "Ljava/util/HashMap;<init>()V", shift = At.Shift.AFTER),
         remap = false
+        , require = 0
     )
     private void afterActiveFeaturesInit(CallbackInfo ci)
     {

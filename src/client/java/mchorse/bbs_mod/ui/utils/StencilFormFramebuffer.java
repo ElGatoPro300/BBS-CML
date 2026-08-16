@@ -9,6 +9,7 @@ import mchorse.bbs_mod.resources.Link;
 import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.ui.framework.elements.utils.StencilMap;
 import mchorse.bbs_mod.utils.Pair;
+
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL13;
 import org.lwjgl.opengl.GL30;
@@ -95,14 +96,27 @@ public class StencilFormFramebuffer
 
     public void pickGUI(UIContext context, Area area)
     {
-        this.pickGUI(context.mouseX - area.x, area.h - context.mouseY + area.y);
+        this.pickGUI(context, area, BBSModClient.getGUIScale(), BBSModClient.getGUIScale());
+    }
+
+    public void pickGUI(UIContext context, Area area, float scaleX, float scaleY)
+    {
+        int localX = context.mouseX - context.globalX(area.x);
+        int localY = context.mouseY - context.globalY(area.y);
+
+        if (localX < 0 || localY < 0 || localX >= area.w || localY >= area.h)
+        {
+            this.index = 0;
+
+            return;
+        }
+
+        this.pick(Math.round(localX * scaleX), Math.round((area.h - localY) * scaleY));
     }
 
     public void pickGUI(int x, int y)
     {
-        int scale = BBSModClient.getGUIScale();
-
-        this.pick(x * scale, y * scale);
+        this.pick(x * BBSModClient.getGUIScale(), y * BBSModClient.getGUIScale());
     }
 
     public void pick(int x, int y)

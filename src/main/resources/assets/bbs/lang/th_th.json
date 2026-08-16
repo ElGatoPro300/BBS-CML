@@ -12,5 +12,8 @@
     "key.bbs.record_replay": "บันทึกรีเพลย์ปัจจุบัน",
     "key.bbs.record_video": "บันทึกวิดิโอ",
     "key.bbs.teleport": "โทรพอร์ตไปยังรีเพลย์ปัจจุบัน",
-    "category.bbs.main": "BBS|บีบีเอส ม็อด"
+    "category.bbs.main": "BBS|บีบีเอส ม็อด",
+    "command.getskin.success": "สกินถูกนำไปใช้กับผู้เล่นทุกคนเรียบร้อยแล้ว",
+    "command.getskin.error": "ข้อผิดพลาด: %s",
+    "command.getskin.downloading": "กำลังดาวน์โหลดสกิน..."
 }

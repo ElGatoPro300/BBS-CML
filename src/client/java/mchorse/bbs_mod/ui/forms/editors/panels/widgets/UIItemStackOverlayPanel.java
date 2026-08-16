@@ -1,6 +1,6 @@
 package mchorse.bbs_mod.ui.forms.editors.panels.widgets;
 
-import com.mojang.brigadier.StringReader;
+import mchorse.bbs_mod.BBSMod;
 import mchorse.bbs_mod.ui.UIKeys;
 import mchorse.bbs_mod.ui.framework.elements.UIElement;
 import mchorse.bbs_mod.ui.framework.elements.input.UITrackpad;
@@ -10,15 +10,21 @@ import mchorse.bbs_mod.ui.framework.elements.input.text.UITextarea;
 import mchorse.bbs_mod.ui.framework.elements.input.text.UITextbox;
 import mchorse.bbs_mod.ui.framework.elements.overlay.UIOverlayPanel;
 import mchorse.bbs_mod.ui.utils.UI;
+
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NbtCompound;
+import net.minecraft.nbt.NbtElement;
 import net.minecraft.nbt.NbtOps;
 import net.minecraft.nbt.StringNbtReader;
 import net.minecraft.registry.Registries;
 import net.minecraft.registry.RegistryKey;
+import net.minecraft.registry.RegistryOps;
+import net.minecraft.registry.RegistryWrapper;
 import net.minecraft.text.Text;
 import net.minecraft.util.Identifier;
+
+import com.mojang.brigadier.StringReader;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -101,7 +107,21 @@ public class UIItemStackOverlayPanel extends UIOverlayPanel
 
     private void updateNbt()
     {
-        this.nbt.setText((ItemStack.CODEC.encodeStart(NbtOps.INSTANCE, this.stack).result().get()).asString());
+        RegistryWrapper.WrapperLookup registries = BBSMod.getRegistryManager();
+        RegistryOps<NbtElement> ops = registries != null ? RegistryOps.of(NbtOps.INSTANCE, registries) : null;
+
+        String nbtString = "{}";
+
+        if (registries != null)
+        {
+            nbtString = ItemStack.CODEC.encodeStart(ops, this.stack).result().map(NbtElement::asString).orElse("{}");
+        }
+        else
+        {
+            nbtString = ItemStack.CODEC.encodeStart(NbtOps.INSTANCE, this.stack).result().map(NbtElement::asString).orElse("{}");
+        }
+
+        this.nbt.setText(nbtString);
     }
 
     private void pickItemStack(ItemStack itemStack)

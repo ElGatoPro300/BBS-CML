@@ -8,6 +8,7 @@ import mchorse.bbs_mod.vox.data.VoxGroup;
 import mchorse.bbs_mod.vox.data.VoxLayer;
 import mchorse.bbs_mod.vox.data.VoxShape;
 import mchorse.bbs_mod.vox.data.VoxTransform;
+
 import org.joml.Matrix3f;
 import org.joml.Vector3f;
 
@@ -84,7 +85,7 @@ public class VoxReader extends BinaryReader
 
                 while (voxels > 0)
                 {
-                    stream.read(this.buf);
+                    this.readFully(stream, this.buf, 4);
 
                     int x = vox.w - 1 - (this.buf[0] & 0xff);
                     int y = this.buf[2] & 0xff;
@@ -150,12 +151,9 @@ public class VoxReader extends BinaryReader
         int size = this.readInt(stream);
         byte[] bytes = new byte[size];
 
-        if (stream.read(bytes) == size)
-        {
-            return new String(bytes, StandardCharsets.UTF_8);
-        }
+        this.readFully(stream, bytes, size);
 
-        throw new IOException("Not enough bytes for the string!");
+        return new String(bytes, StandardCharsets.UTF_8);
     }
 
     public Map<String, String> readDictionary(InputStream stream) throws Exception

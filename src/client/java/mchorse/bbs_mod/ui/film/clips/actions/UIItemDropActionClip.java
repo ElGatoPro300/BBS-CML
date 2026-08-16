@@ -17,6 +17,7 @@ public class UIItemDropActionClip extends UIActionClip<ItemDropActionClip>
     public UITrackpad velocityY;
     public UITrackpad velocityZ;
     public UIToggle relative;
+    public UIToggle trajectoryPreview;
     public UIItemStack itemStack;
 
     public UIItemDropActionClip(ItemDropActionClip clip, IUIClipsDelegate editor)
@@ -36,6 +37,7 @@ public class UIItemDropActionClip extends UIActionClip<ItemDropActionClip>
         this.velocityY = new UITrackpad((v) -> this.editor.editMultiple(this.clip.velocityY, (velocityY) -> velocityY.set(v.floatValue())));
         this.velocityZ = new UITrackpad((v) -> this.editor.editMultiple(this.clip.velocityZ, (velocityZ) -> velocityZ.set(v.floatValue())));
         this.relative = new UIToggle(UIKeys.CAMERA_PANELS_RELATIVE, (v) -> this.editor.editMultiple(this.clip.relative, (relative) -> relative.set(v.getValue())));
+        this.trajectoryPreview = new UIToggle(UIKeys.ACTIONS_ITEM_TRAJECTORY_PREVIEW, (v) -> this.editor.editMultiple(this.clip.trajectoryPreview, (trajectoryPreview) -> trajectoryPreview.set(v.getValue())));
         this.itemStack = new UIItemStack((stack) -> this.editor.editMultiple(this.clip.itemStack, (itemStack) -> itemStack.set(stack)));
     }
 
@@ -44,12 +46,9 @@ public class UIItemDropActionClip extends UIActionClip<ItemDropActionClip>
     {
         super.registerPanels();
 
-        this.panels.add(UI.label(UIKeys.ACTIONS_ITEM_POSITION).marginTop(12));
-        this.panels.add(UI.row(this.posX, this.posY, this.posZ));
-        this.panels.add(UI.row(this.relative));
-        this.panels.add(UI.label(UIKeys.ACTIONS_ITEM_VELOCITY).marginTop(12));
-        this.panels.add(UI.row(this.velocityX, this.velocityY, this.velocityZ));
-        this.panels.add(UI.label(UIKeys.ACTIONS_ITEM_STACK).marginTop(12), this.itemStack);
+        this.panels.add(this.section(UIKeys.ACTIONS_ITEM_POSITION, UI.row(this.posX, this.posY, this.posZ), this.relative));
+        this.panels.add(this.section(UIKeys.ACTIONS_ITEM_VELOCITY, UI.row(this.velocityX, this.velocityY, this.velocityZ), this.trajectoryPreview));
+        this.panels.add(this.section(UIKeys.ACTIONS_ITEM_STACK, this.itemStack));
     }
 
     @Override
@@ -64,6 +63,7 @@ public class UIItemDropActionClip extends UIActionClip<ItemDropActionClip>
         this.velocityY.setValue(this.clip.velocityY.get());
         this.velocityZ.setValue(this.clip.velocityZ.get());
         this.relative.setValue(this.clip.relative.get());
+        this.trajectoryPreview.setValue(this.clip.trajectoryPreview.get());
         this.itemStack.setStack(this.clip.itemStack.get());
     }
 }

@@ -2,6 +2,7 @@ package mchorse.bbs_mod.ui.utils.keys;
 
 import mchorse.bbs_mod.BBSSettings;
 import mchorse.bbs_mod.utils.OS;
+
 import org.lwjgl.glfw.GLFW;
 
 import java.util.HashMap;
@@ -44,9 +45,14 @@ public class KeyCodes
 
     public static String getName(int keyCode)
     {
-        if (keyCode == 0)
+        if (keyCode >= 0 && keyCode <= 2)
         {
-            return "N/A";
+            switch (keyCode)
+            {
+                case 0: return "Click";
+                case 1: return "RMB";
+                case 2: return "MMB";
+            }
         }
 
         if (keyCode < 0)
@@ -158,6 +164,11 @@ public class KeyCodes
             if (keyCode >= 290 && keyCode <= 308)
             {
                 return "F" + (keyCode - 289);
+            }
+
+            if (keyCode == 0)
+            {
+                return "Click";
             }
 
             name = "Key " + keyCode;

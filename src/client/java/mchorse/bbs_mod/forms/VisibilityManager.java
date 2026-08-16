@@ -63,7 +63,7 @@ public class VisibilityManager
         }
         catch (IOException e)
         {
-            e.printStackTrace();
+            /* First run: categories.json does not exist yet */
         }
     }
 

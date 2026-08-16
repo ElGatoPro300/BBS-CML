@@ -2,6 +2,7 @@ package mchorse.bbs_mod.forms.forms.utils;
 
 import mchorse.bbs_mod.data.IMapSerializable;
 import mchorse.bbs_mod.data.types.MapType;
+import mchorse.bbs_mod.utils.pose.Transform;
 
 public class Anchor implements IMapSerializable
 {
@@ -11,6 +12,7 @@ public class Anchor implements IMapSerializable
     public String attachment = "";
     public boolean translate = false;
     public boolean scale = false;
+    public final Transform transform = new Transform();
 
     /* Interpolation data */
     public Anchor previous;
@@ -37,9 +39,22 @@ public class Anchor implements IMapSerializable
         return this.previous != null && this.replay == Anchor.NO_ATTACHMENT && this.previous.replay != Anchor.NO_ATTACHMENT;
     }
 
+    public boolean hasSameTarget(Anchor anchor)
+    {
+        return anchor != null
+            && this.replay == anchor.replay
+            && this.attachment.equals(anchor.attachment)
+            && this.translate == anchor.translate
+            && this.scale == anchor.scale;
+    }
+
     public Anchor copy()
     {
-        return new Anchor(this.replay, this.attachment, this.translate, this.scale);
+        Anchor anchor = new Anchor(this.replay, this.attachment, this.translate, this.scale);
+
+        anchor.transform.copy(this.transform);
+
+        return anchor;
     }
 
     @Override
@@ -52,10 +67,8 @@ public class Anchor implements IMapSerializable
 
         if (obj instanceof Anchor anchor)
         {
-            return this.replay == anchor.replay
-                && this.attachment.equals(anchor.attachment)
-                && this.translate == anchor.translate
-                && this.scale == anchor.scale;
+            return this.hasSameTarget(anchor)
+                && this.transform.equals(anchor.transform);
         }
 
         return false;
@@ -68,6 +81,15 @@ public class Anchor implements IMapSerializable
         this.attachment = data.getString("attachment");
         this.translate = data.getBool("translate", false);
         this.scale = data.getBool("scale", false);
+
+        if (data.has("transform"))
+        {
+            this.transform.fromData(data.getMap("transform"));
+        }
+        else
+        {
+            this.transform.identity();
+        }
     }
 
     @Override
@@ -77,5 +99,10 @@ public class Anchor implements IMapSerializable
         data.putString("attachment", this.attachment);
         data.putBool("translate", this.translate);
         data.putBool("scale", this.scale);
+
+        if (!this.transform.isDefault())
+        {
+            data.put("transform", this.transform.toData());
+        }
     }
 }

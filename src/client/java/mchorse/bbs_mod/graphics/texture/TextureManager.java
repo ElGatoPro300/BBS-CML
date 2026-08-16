@@ -1,6 +1,5 @@
 package mchorse.bbs_mod.graphics.texture;
 
-import com.mojang.blaze3d.systems.RenderSystem;
 import mchorse.bbs_mod.BBSMod;
 import mchorse.bbs_mod.client.BBSRendering;
 import mchorse.bbs_mod.resources.AssetProvider;
@@ -12,6 +11,9 @@ import mchorse.bbs_mod.utils.resources.MultiLinkThread;
 import mchorse.bbs_mod.utils.resources.Pixels;
 import mchorse.bbs_mod.utils.watchdog.IWatchDogListener;
 import mchorse.bbs_mod.utils.watchdog.WatchDogEvent;
+
+import com.mojang.blaze3d.systems.RenderSystem;
+
 import org.lwjgl.opengl.GL11;
 
 import java.io.InputStream;
@@ -160,6 +162,15 @@ public class TextureManager implements IWatchDogListener
     {
         Pixels pixels;
 
+        if (Link.COLOR.equals(link.source))
+        {
+            pixels = Pixels.fromSize(1, 1);
+            pixels.setColor(0, 0, new Color().set((int) Long.parseLong(link.path, 16)));
+            pixels.rewindBuffer();
+
+            return pixels;
+        }
+
         if (link instanceof MultiLink)
         {
             pixels = MultiLinkThread.getStreamForMultiLink((MultiLink) link);
@@ -187,6 +198,11 @@ public class TextureManager implements IWatchDogListener
 
     public Texture getTexture(Link link, int filter, boolean silent)
     {
+        if (link == null)
+        {
+            return this.getError();
+        }
+
         Texture texture = this.get(link);
 
         if (texture == null)

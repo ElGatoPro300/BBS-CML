@@ -184,6 +184,34 @@ public class Icons
     public static final Icon SIX_STAR = register(new Icon(ATLAS, "six_star", 192, 144));
     public static final Icon LIKE = register(new Icon(ATLAS, "like", 208, 144));
     public static final Icon DISLIKE = register(new Icon(ATLAS, "dislike", 224, 144));
+    public static final Icon PICKAXE = register(new Icon(ATLAS, "pickaxe", 240, 144));
+
+    public static final Icon COLLAPSED = register(new Icon(ATLAS, "collapsed", 0, 160));
+    public static final Icon UNCOLLAPSED = register(new Icon(ATLAS, "uncollapsed", 16, 160));
+    public static final Icon NEWS = register(new Icon(ATLAS, "news", 32, 160));
+    public static final Icon NEWS_UNREAD = register(new Icon(ATLAS, "news_unread", 48, 160));
+    public static final Icon NOTIFICATION = register(new Icon(ATLAS, "notification", 64, 160));
+    public static final Icon IK = register(new Icon(ATLAS, "ik", 80, 160));
+    public static final Icon DYNAMIC_BONES = register(new Icon(ATLAS, "dynamic_bones", 96, 160));
+    public static final Icon MODELS_SETTINGS = register(new Icon(ATLAS, "models_settings", 112, 160));
+    public static final Icon LOADING_BBS_1 = register(new Icon(ATLAS, "loading_bbs_1", 128, 160));
+    public static final Icon LOADING_BBS_2 = register(new Icon(ATLAS, "loading_bbs_2", 144, 160));
+    public static final Icon LOADING_BBS_3 = register(new Icon(ATLAS, "loading_bbs_3", 160, 160));
+    public static final Icon GEOMETRY_EDITOR = register(new Icon(ATLAS, "geometry_editor", 176, 160));
+    public static final Icon CHEST = register(new Icon(ATLAS, "chest", 192, 160));
+    public static final Icon MAIN_HAND = register(new Icon(ATLAS, "main_hand", 208, 160));
+    public static final Icon SECONDARY_HAND = register(new Icon(ATLAS, "secondary_hand", 224, 160));
+    public static final Icon HELMET = register(new Icon(ATLAS, "helmet", 240, 160));
+
+    public static final Icon CHESTPLATE = register(new Icon(ATLAS, "chestplate", 0, 176));
+    public static final Icon LEGINGS = register(new Icon(ATLAS, "armor", 16, 176));
+    public static final Icon BOOTS = register(new Icon(ATLAS, "boots", 32, 176));
+    public static final Icon BRUSH = register(new Icon(ATLAS, "brush", 48, 176));
+    public static final Icon ERASER = register(new Icon(ATLAS, "eraser", 64, 176));
+    public static final Icon DROPPER = register(new Icon(ATLAS, "dropper", 80, 176));
+    public static final Icon GRADIENT = register(new Icon(ATLAS, "gradient", 96, 176));
+    public static final Icon CROSSED_OUT_EYE = register(new Icon(ATLAS, "crossed_out_eye", 112, 176));
+    public static final Icon WARNING = register(new Icon(ATLAS, "warning", 128, 176));
 
     public static final Icon INTERP_LINEAR = register(new Icon(ATLAS, "interp_linear", 0, 192));
     public static final Icon INTERP_CONST = register(new Icon(ATLAS, "interp_const", 16, 192));
@@ -199,6 +227,8 @@ public class Icons
     public static final Icon INTERP_SINE_INOUT = register(new Icon(ATLAS, "interp_sine_inout", 176, 192));
     public static final Icon INTERP_CIRCLE_INOUT = register(new Icon(ATLAS, "interp_circle_inout", 192, 192));
     public static final Icon INTERP_BEZIER = register(new Icon(ATLAS, "interp_bezier", 208, 192));
+    public static final Icon INTERP_CUSTOM = register(new Icon(ATLAS, "interp_custom", 224, 192));
+    public static final Icon INTERP_ADD = register(new Icon(ATLAS, "interp_add", 240, 192));
 
     public static final Icon INTERP_QUAD_OUT = register(new Icon(ATLAS, "interp_quad_out", 48, 208));
     public static final Icon INTERP_CUBIC_OUT = register(new Icon(ATLAS, "interp_cubic_out", 64, 208));
@@ -222,9 +252,17 @@ public class Icons
     public static final Icon INTERP_SINE_IN = register(new Icon(ATLAS, "interp_sine_in", 176, 224));
     public static final Icon INTERP_CIRCLE_IN = register(new Icon(ATLAS, "interp_circle_in", 192, 224));
 
+    public static final Icon INTERP_BSPLINE = register(new Icon(ATLAS, "interp_bspline", 0, 208));
+    public static final Icon INTERP_AKIMA = register(new Icon(ATLAS, "interp_akima", 16, 208));
+    public static final Icon INTERP_TCB = register(new Icon(ATLAS, "interp_tcb", 32, 208));
+    public static final Icon INTERP_NURBS = register(new Icon(ATLAS, "interp_nurbs", 0, 224));
+
     public static final Icon CHECKBOARD = register(new Icon(ATLAS, "checkboard", 0, 240));
     public static final Icon DISABLED = register(new Icon(ATLAS, "disabled", 16, 240));
     public static final Icon CURSOR = register(new Icon(ATLAS, "cursor", 32, 240));
+    public static final Icon VERTICAL = register(new Icon(ATLAS, "vertical", 16, 160));
+    public static final Icon HORIZONTAL = register(new Icon(ATLAS, "horizontal", 0, 160));
+    public static final Icon LAYOUT = register(new Icon(ATLAS, "layout", 240, 144));
 
     public static final Icon MOUSE_BODY = new Icon(ATLAS, "mouse_body", 241, 237, 14, 18);
     public static final Icon MOUSE_LMB = new Icon(ATLAS, "mouse_lmb", 242, 229, 6, 7);

@@ -1,9 +1,11 @@
 package mchorse.bbs_mod.ui.film.clips;
 
 import mchorse.bbs_mod.BBSModClient;
+import mchorse.bbs_mod.camera.clips.misc.ChromaSkyCurveSettings;
 import mchorse.bbs_mod.camera.clips.misc.CurveClip;
 import mchorse.bbs_mod.client.BBSRendering;
 import mchorse.bbs_mod.data.types.MapType;
+import mchorse.bbs_mod.l10n.L10n;
 import mchorse.bbs_mod.l10n.keys.IKey;
 import mchorse.bbs_mod.ui.Keys;
 import mchorse.bbs_mod.ui.UIKeys;
@@ -30,6 +32,9 @@ import java.util.function.Consumer;
 
 public class UICurveClip extends UIClip<CurveClip>
 {
+    private static final String CHROMA_SKY_ADD_ID = "__chroma_sky__";
+    private static final IKey CHROMA_SKY_TITLE = UIKeys.CAMERA_PANELS_CURVES_CHROMA_SKY;
+
     public UIKeyframeEditor keyframes;
     public UIButton edit;
 
@@ -46,7 +51,9 @@ public class UICurveClip extends UIClip<CurveClip>
 
         for (ShaderCurves.ShaderVariable value : ShaderCurves.variableMap.values())
         {
-            if (existing.contains(value.name))
+            if (existing.contains(value.name)
+                || existing.contains(CurveClip.SHADER_CURVES_PREFIX + value.name)
+                || ShaderCurves.SHADER_SHADOW_OPACITY.equals(value.name))
             {
                 continue;
             }
@@ -63,8 +70,15 @@ public class UICurveClip extends UIClip<CurveClip>
         }
 
         if (!existing.contains(ShaderCurves.BRIGHTNESS)) list.add(new Label<>(UIKeys.CAMERA_PANELS_CURVES_BRIGHTNESS, ShaderCurves.BRIGHTNESS));
-        if (!existing.contains(ShaderCurves.SUN_ROTATION)) list.add(new Label<>(UIKeys.CAMERA_PANELS_CURVES_SUN_ROTATION, ShaderCurves.SUN_ROTATION));
+        if (!existing.contains(ShaderCurves.SUN_ROTATION)) list.add(new Label<>(UIKeys.CAMERA_PANELS_CURVES_TIME_OF_DAY, ShaderCurves.SUN_ROTATION));
+        if (!existing.contains(ShaderCurves.SUN_PATH_ROTATION)) list.add(new Label<>(UIKeys.CAMERA_PANELS_CURVES_SUN_PATH_ROTATION, ShaderCurves.SUN_PATH_ROTATION));
         if (!existing.contains(ShaderCurves.WEATHER)) list.add(new Label<>(UIKeys.CAMERA_PANELS_CURVES_WEATHER, ShaderCurves.WEATHER));
+        if (!existing.contains(ShaderCurves.SHADER_SHADOW_OPACITY)
+            && !existing.contains(CurveClip.SHADER_CURVES_PREFIX + ShaderCurves.SHADER_SHADOW_OPACITY))
+        {
+            list.add(new Label<>(UIKeys.CAMERA_PANELS_CURVES_SHADER_SHADOW_OPACITY, ShaderCurves.SHADER_SHADOW_OPACITY));
+        }
+        if (!existing.contains(CHROMA_SKY_ADD_ID)) list.add(new Label<>(CHROMA_SKY_TITLE, CHROMA_SKY_ADD_ID));
 
         UILabelListOverlayPanel panel = new UILabelListOverlayPanel(UIKeys.CAMERA_PANELS_PICK_KEY, list, callback);
 
@@ -81,7 +95,7 @@ public class UICurveClip extends UIClip<CurveClip>
         this.keyframes = new UIKeyframeEditor((consumer) -> new UIFilmKeyframes(this.editor, consumer));
         this.keyframes.view.backgroundRenderer((context) ->
         {
-            UIReplaysEditor.renderBackground(context, this.keyframes.view, (Clips) this.clip.getParent(), this.clip.tick.get());
+            UIReplaysEditor.renderBackground(context, this.keyframes.view, (Clips) this.clip.getParent(), this.clip.tick.get(), this.clip);
         });
         this.keyframes.view.duration(() -> this.clip.duration.get());
         this.keyframes.setUndoId("curve_keyframes");
@@ -99,7 +113,18 @@ public class UICurveClip extends UIClip<CurveClip>
 
                 offerCurveKeys(this.getContext(), existing, (s) ->
                 {
-                    this.clip.channels.addChannel(s);
+                    if (CHROMA_SKY_ADD_ID.equals(s))
+                    {
+                        if (this.clip.chromaSky.isEmpty())
+                        {
+                            this.clip.chromaSky.insert(0F, new ChromaSkyCurveSettings());
+                        }
+                    }
+                    else
+                    {
+                        this.clip.channels.addChannel(s);
+                    }
+
                     this.fillData();
                 });
             }).order(-3);
@@ -110,7 +135,15 @@ public class UICurveClip extends UIClip<CurveClip>
             {
                 menu.action(Icons.REMOVE, UIKeys.CAMERA_PANELS_CURVE_REMOVE, Colors.RED, () ->
                 {
-                    this.clip.channels.removeChannel(sheet.channel);
+                    if (sheet.channel == this.clip.chromaSky)
+                    {
+                        this.clip.chromaSky.removeAll();
+                    }
+                    else
+                    {
+                        this.clip.channels.removeChannel(sheet.channel);
+                    }
+
                     this.fillData();
                 });
             }
@@ -125,9 +158,9 @@ public class UICurveClip extends UIClip<CurveClip>
         this.edit.keys().register(Keys.FORMS_EDIT, () -> this.edit.clickItself());
     }
 
-    private void addChannel(KeyframeChannel<Double> channel)
+    private void addChannel(KeyframeChannel<?> channel, IKey title)
     {
-        this.keyframes.view.addSheet(new UIKeyframeSheet(channel.getId(), IKey.constant(channel.getId()), channel.getId().hashCode() & Colors.RGB, false, channel, null));
+        this.keyframes.view.addSheet(new UIKeyframeSheet(channel.getId(), title, channel.getId().hashCode() & Colors.RGB, false, channel, null));
     }
 
     @Override
@@ -135,7 +168,7 @@ public class UICurveClip extends UIClip<CurveClip>
     {
         super.registerPanels();
 
-        this.panels.add(UIClip.label(UIKeys.C_CLIP.get("bbs:curve")).marginTop(12), this.edit);
+        this.panels.add(this.section(UIKeys.C_CLIP.get("bbs:curve"), this.edit));
     }
 
     @Override
@@ -145,32 +178,51 @@ public class UICurveClip extends UIClip<CurveClip>
 
         this.keyframes.view.removeAllSheets();
 
+        if (!this.clip.chromaSky.isEmpty())
+        {
+            this.addChannel(this.clip.chromaSky, CHROMA_SKY_TITLE);
+        }
+
         for (KeyframeChannel<Double> channel : this.clip.channels.getChannels())
         {
-            this.addChannel(channel);
+            this.addChannel(channel, getChannelTitle(channel.getId()));
         }
     }
 
-    @Override
-    public void applyUndoData(MapType data)
+    private static IKey getChannelTitle(String id)
     {
-        if (data.getString("embed").equals("curve"))
+        if (ShaderCurves.BRIGHTNESS.equals(id))
         {
-            this.editor.embedView(this.keyframes);
-            this.keyframes.view.resetView();
+            return UIKeys.CAMERA_PANELS_CURVES_BRIGHTNESS;
         }
 
-        super.applyUndoData(data);
+        if (ShaderCurves.SUN_ROTATION.equals(id))
+        {
+            return UIKeys.CAMERA_PANELS_CURVES_TIME_OF_DAY;
+        }
+
+        if (ShaderCurves.SUN_PATH_ROTATION.equals(id))
+        {
+            return UIKeys.CAMERA_PANELS_CURVES_SUN_PATH_ROTATION;
+        }
+
+        if (ShaderCurves.WEATHER.equals(id))
+        {
+            return UIKeys.CAMERA_PANELS_CURVES_WEATHER;
+        }
+
+        if (ShaderCurves.SHADER_SHADOW_OPACITY.equals(id)
+            || id.equals(CurveClip.SHADER_CURVES_PREFIX + ShaderCurves.SHADER_SHADOW_OPACITY))
+        {
+            return UIKeys.CAMERA_PANELS_CURVES_SHADER_SHADOW_OPACITY;
+        }
+
+        return IKey.constant(id);
     }
 
     @Override
-    public void collectUndoData(MapType data)
+    protected UIKeyframeEditor resolveClipEmbeddableView(String undoId)
     {
-        if (this.keyframes.hasParent())
-        {
-            data.putString("embed", "curve");
-        }
-
-        super.collectUndoData(data);
+        return undoId.equals(this.keyframes.getUndoId()) ? this.keyframes : null;
     }
 }

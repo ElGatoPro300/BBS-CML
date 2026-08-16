@@ -4,6 +4,7 @@ import mchorse.bbs_mod.utils.MathUtils;
 import mchorse.bbs_mod.utils.interps.easings.Easings;
 import mchorse.bbs_mod.utils.interps.types.BaseInterp;
 import mchorse.bbs_mod.utils.interps.types.EasingInterp;
+
 import org.lwjgl.glfw.GLFW;
 
 import java.util.LinkedHashMap;
@@ -109,6 +110,71 @@ public class Interpolations
         }
     };
 
+    public static final IInterp BSPLINE = new BaseInterp("bspline", GLFW.GLFW_KEY_J)
+    {
+        @Override
+        public double interpolate(InterpContext context)
+        {
+            double a0 = context.a0;
+            double b0 = context.b0;
+            
+            if (context.isStart) a0 = 2 * context.a - context.b;
+            if (context.isEnd) b0 = 2 * context.b - context.a;
+            
+            return Lerps.bSpline(a0, context.a, context.b, b0, context.x);
+        }
+    };
+
+    public static final IInterp AKIMA = new BaseInterp("akima", GLFW.GLFW_KEY_A)
+    {
+        @Override
+        public double interpolate(InterpContext context)
+        {
+            return Lerps.akima(context.a0, context.a, context.b, context.b0, context.x);
+        }
+    };
+    
+    public static final IInterp TCB = new BaseInterp("tcb", GLFW.GLFW_KEY_M)
+    {
+        @Override
+        public double interpolate(InterpContext context)
+        {
+            return Lerps.tcb(
+                context.a0, context.a, context.b, context.b0, context.x,
+                context.args.v1, context.args.v2, context.args.v3
+            );
+        }
+    };
+    
+    public static final IInterp NURBS = new BaseInterp("nurbs", GLFW.GLFW_KEY_N)
+    {
+        @Override
+        public double interpolate(InterpContext context)
+        {
+            /*
+             * Rational B-Spline interpolation (NURBS basis).
+             * 
+             * We use weights pre-calculated and stored in context.w0..w3.
+             * These weights correspond to P(i-1), P(i), P(i+1), P(i+2).
+             * 
+             * They are extracted from the respective keyframes by the KeyframeFactory.
+             */
+             
+            double w0 = context.w0;
+            double w1 = context.w1;
+            double w2 = context.w2;
+            double w3 = context.w3;
+
+            double a0 = context.a0;
+            double b0 = context.b0;
+            
+            if (context.isStart) a0 = 2 * context.a - context.b;
+            if (context.isEnd) b0 = 2 * context.b - context.a;
+
+            return Lerps.nurbs(a0, context.a, context.b, b0, context.x, w0, w1, w2, w3);
+        }
+    };
+
     static
     {
         MAP.put(LINEAR.getKey(), LINEAR);
@@ -147,6 +213,10 @@ public class Interpolations
         MAP.put(CUBIC.getKey(), CUBIC);
         MAP.put(HERMITE.getKey(), HERMITE);
         MAP.put(BEZIER.getKey(), BEZIER);
+        MAP.put(BSPLINE.getKey(), BSPLINE);
+        MAP.put(AKIMA.getKey(), AKIMA);
+        MAP.put(TCB.getKey(), TCB);
+        MAP.put(NURBS.getKey(), NURBS);
     }
 
     public static IInterp get(String name)
