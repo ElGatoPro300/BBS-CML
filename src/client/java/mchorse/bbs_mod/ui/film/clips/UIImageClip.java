@@ -18,6 +18,7 @@ import mchorse.bbs_mod.ui.film.utils.keyframes.UIFilmKeyframes;
 import mchorse.bbs_mod.ui.forms.editors.utils.UICropOverlayPanel;
 import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIButton;
+import mchorse.bbs_mod.ui.framework.elements.input.list.UIStringList;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIIcon;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIToggle;
 import mchorse.bbs_mod.ui.framework.elements.input.UIColor;
@@ -57,6 +58,7 @@ public class UIImageClip extends UIClip<ImageClip>
     public UITrackpad y;
     public UITrackpad width;
     public UIIcon uniformSize;
+    public UIStringList blendModeList;
     public UITrackpad height;
     public UIButton resetNativeSize;
     public UITrackpad anchorX;
@@ -168,6 +170,28 @@ public class UIImageClip extends UIClip<ImageClip>
         });
         this.opacity.limit(0, 100);
         this.opacity.tooltip(UIKeys.CAMERA_PANELS_IMAGE_OPACITY);
+        this.blendModeList = new UIStringList((items) ->
+        {
+            if (!items.isEmpty())
+            {
+                int index = this.blendModeList.getIndex();
+                this.editor.editMultiple(this.clip.blendMode, (value) ->
+                {
+                    value.set(index);
+                });
+            }
+        });
+        this.blendModeList.background();
+        this.blendModeList.add("Normal");
+        this.blendModeList.add("Multiply");
+        this.blendModeList.add("Screen");
+        this.blendModeList.add("Add");
+        this.blendModeList.add("Saturation");
+        this.blendModeList.add("Incrustation");
+        this.blendModeList.add("Exclusion");
+        this.blendModeList.add("Overlay");
+        this.blendModeList.add("Color Dodge");
+        this.blendModeList.tooltip(IKey.raw("Opacity Style"));
 
         this.useKeyframes = new UIToggle(UIKeys.SCREEN_PANELS_USE_KEYFRAMES, (b) ->
         {
@@ -483,6 +507,7 @@ public class UIImageClip extends UIClip<ImageClip>
         this.panels.add(this.section(UIKeys.CAMERA_PANELS_IMAGE_ANCHOR, UI.row(this.anchorX, this.anchorY)));
         this.panels.add(this.section(UIKeys.CAMERA_PANELS_IMAGE_WINDOW, UI.row(this.windowX, this.windowY)));
         this.panels.add(this.section(UIKeys.CAMERA_PANELS_IMAGE_OPACITY, this.opacity));
+        this.panels.add(this.section(IKey.raw("Opacity Style"), this.blendModeList.h(128)));
         this.panels.add(this.section(UIKeys.SCREEN_PANELS_KEYFRAMES, this.useKeyframes, this.edit));
     }
 
@@ -510,6 +535,7 @@ public class UIImageClip extends UIClip<ImageClip>
         this.windowX.setValue(this.getChannelValue(this.clip.windowX, this.clip.uniform.windowX, 0.5D));
         this.windowY.setValue(this.getChannelValue(this.clip.windowY, this.clip.uniform.windowY, 0.5D));
         this.opacity.setValue(this.getChannelValue(this.clip.opacity, this.clip.uniform.opacity, 1D) * 100F);
+        this.blendModeList.setIndex(this.clip.blendMode.get());
         this.uniformSize.active(this.clip.uniformSize.get());
         this.useKeyframes.setValue(this.clip.useKeyframes.get());
         this.updateKeyframesControls();

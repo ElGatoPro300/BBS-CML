@@ -19,6 +19,7 @@ public class ImageOverlay
     public float rotationX;
     public float rotationY;
     public float rotation;
+    public int blendMode;
     public TextureBlend textureBlend;
 
     public float x;
@@ -33,7 +34,7 @@ public class ImageOverlay
 
     public int renderOrder;
 
-    public void updateTexture(Link texture, boolean linear, boolean mipmap, boolean resizeCrop, Vector4f crop, Color color, float offsetX, float offsetY, float rotationX, float rotationY, float rotation, TextureBlend textureBlend)
+    public void updateTexture(Link texture, boolean linear, boolean mipmap, boolean resizeCrop, Vector4f crop, Color color, float offsetX, float offsetY, float rotationX, float rotationY, float rotation, TextureBlend textureBlend, int blendMode)
     {
         this.texture = texture;
         this.linear = linear;
@@ -47,6 +48,7 @@ public class ImageOverlay
         this.rotationY = rotationY;
         this.rotation = rotation;
         this.textureBlend = textureBlend;
+        this.blendMode = blendMode;
     }
 
     public void updateLayout(float x, float y, float width, float height, float anchorX, float anchorY, float windowX, float windowY, float opacity)
