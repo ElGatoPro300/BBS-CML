@@ -26,14 +26,14 @@ public class WindowMixin
      * (clamped) behaviour.
      */
     @ModifyVariable(method = "setScaleFactor", at = @At("HEAD"), argsOnly = true)
-    private double bbs_overrideUIScaleFactor(double scaleFactor)
+    private int bbs_overrideUIScaleFactor(int scaleFactor)
     {
         double uiScale = BBSModClient.getUIScaleFactor();
 
         if (uiScale > 0D && uiScale != Math.floor(uiScale) && MinecraftClient.getInstance().currentScreen instanceof UIScreen
             && BbsGuiScale.isLinkedToGame() && !BbsGuiScale.isRestoringGameScale())
         {
-            return uiScale;
+            return (int) uiScale;
         }
 
         return scaleFactor;
