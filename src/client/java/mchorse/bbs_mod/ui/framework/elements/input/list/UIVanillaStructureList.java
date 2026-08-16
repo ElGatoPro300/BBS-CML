@@ -11,7 +11,7 @@ import net.minecraft.nbt.NbtCompound;
 import net.minecraft.nbt.NbtElement;
 import net.minecraft.nbt.NbtIo;
 import net.minecraft.nbt.NbtList;
-import net.minecraft.nbt.NbtTagSizeTracker;
+import net.minecraft.nbt.NbtSizeTracker;
 import net.minecraft.resource.Resource;
 import net.minecraft.resource.ResourceManager;
 import net.minecraft.util.Identifier;
@@ -132,7 +132,7 @@ public class UIVanillaStructureList extends UIStringList
                     try (InputStream is = entry.getValue().get(0).getInputStream();
                          DataInputStream dis = new DataInputStream(is))
                     {
-                        NbtCompound nbt = NbtIo.readCompressed(dis, NbtTagSizeTracker.ofUnlimitedBytes());
+                        NbtCompound nbt = NbtIo.readCompressed(dis, NbtSizeTracker.ofUnlimitedBytes());
 
                         if (nbt.contains("size"))
                         {
