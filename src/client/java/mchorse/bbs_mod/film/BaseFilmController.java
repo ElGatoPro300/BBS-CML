@@ -1287,7 +1287,8 @@ public abstract class BaseFilmController
     /**
      * Actor-mode replays must not fall back to the stub for picking/highlight after
      * combat death — that left a standing invisible ghost (yellow form / blue limbs).
-     * Also blocks picking for the whole death animation once {@code deathTime} starts.
+     * Also blocks picking for the whole death animation once {@code deathTime} starts,
+     * including keyframed {@code death_time} (scrubbed death without combat HP).
      */
     public boolean isActorPickingBlocked(Replay replay)
     {
@@ -1317,7 +1318,24 @@ public abstract class BaseFilmController
             return true;
         }
 
-        return living.isDead() || living.getHealth() <= 0F || living.deathTime > 0;
+        if (living.isDead() || living.getHealth() <= 0F || living.deathTime > 0)
+        {
+            return true;
+        }
+
+        /* Keyframed death tip without combat death — same gizmo/pick block so FormDeathTilt
+         * cannot detach the bone gizmo while the actor is still "alive" on HP. */
+        if (replay.keyframes != null && !replay.keyframes.deathTime.isEmpty())
+        {
+            float propertyTick = replay.getTick(this.getTick());
+
+            if (replay.keyframes.deathTime.interpolate(propertyTick).floatValue() > 0F)
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     public boolean hasFinished()
