@@ -53,6 +53,7 @@ import mchorse.bbs_mod.utils.StringUtils;
 import mchorse.bbs_mod.utils.colors.Color;
 import mchorse.bbs_mod.utils.interps.Lerps;
 import mchorse.bbs_mod.utils.iris.FormColorGradePatch;
+import mchorse.bbs_mod.utils.iris.IrisEntityArmorContext;
 import mchorse.bbs_mod.utils.iris.ShaderOpacityPatch;
 import mchorse.bbs_mod.utils.joml.Vectors;
 import mchorse.bbs_mod.utils.pose.Pose;
@@ -3292,38 +3293,42 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
         stack.push();
         MatrixStackUtils.multiply(stack, matrix);
 
-        if (item instanceof BlockItem blockItem && blockItem.getBlock() instanceof AbstractSkullBlock skullBlock)
+        /* Skulls bypass ItemRenderer (Iris MixinItemRenderer); bake the same block/item IDs. */
+        try (IrisEntityArmorContext.Scope ignored = IrisEntityArmorContext.beginEquippedItem(target, itemStack))
         {
-            float tickDelta = MinecraftClient.getInstance().getRenderTickCounter().getTickDelta(true);
-            float animationProgress = this.resolveSkullAnimationProgress(target, tickDelta);
-
-            BbsHeadItemSpace.applySkull(stack);
-            this.renderSkullOnHead(itemStack, skullBlock, stack, consumers, color, light, animationProgress);
-        }
-        else
-        {
-            ModelTransformationMode mode = BbsHeadItemSpace.headItemTransformationMode();
-            boolean leftHanded = BbsHeadItemSpace.headItemLeftHanded();
-            LivingEntity itemEntity = ItemUseRenderState.prepareProxy(target.getWorld(), target, EquipmentSlot.HEAD, itemStack);
-
-            BbsHeadItemSpace.applyHeadItem(stack);
-
-            CustomVertexConsumerProvider.hijackVertexFormat((l) -> RenderSystem.enableBlend());
-            consumers.setSubstitute(BBSRendering.getColorConsumer(color));
-
-            if (model.model instanceof BOBJModel)
+            if (item instanceof BlockItem blockItem && blockItem.getBlock() instanceof AbstractSkullBlock skullBlock)
             {
-                stack.push();
-                stack.scale(0F, 0F, 0F);
-                MinecraftClient.getInstance().getItemRenderer().renderItem(null, new ItemStack(Items.OAK_BUTTON), mode, leftHanded, stack, consumers, target.getWorld(), light, overlay, 0);
-                consumers.draw();
-                stack.pop();
-            }
+                float tickDelta = MinecraftClient.getInstance().getRenderTickCounter().getTickDelta(true);
+                float animationProgress = this.resolveSkullAnimationProgress(target, tickDelta);
 
-            MinecraftClient.getInstance().getItemRenderer().renderItem(itemEntity, itemStack, mode, leftHanded, stack, consumers, target.getWorld(), light, overlay, 0);
-            consumers.draw();
-            consumers.setSubstitute(null);
-            CustomVertexConsumerProvider.clearRunnables();
+                BbsHeadItemSpace.applySkull(stack);
+                this.renderSkullOnHead(itemStack, skullBlock, stack, consumers, color, light, animationProgress);
+            }
+            else
+            {
+                ModelTransformationMode mode = BbsHeadItemSpace.headItemTransformationMode();
+                boolean leftHanded = BbsHeadItemSpace.headItemLeftHanded();
+                LivingEntity itemEntity = ItemUseRenderState.prepareProxy(target.getWorld(), target, EquipmentSlot.HEAD, itemStack);
+
+                BbsHeadItemSpace.applyHeadItem(stack);
+
+                CustomVertexConsumerProvider.hijackVertexFormat((l) -> RenderSystem.enableBlend());
+                consumers.setSubstitute(BBSRendering.getColorConsumer(color));
+
+                if (model.model instanceof BOBJModel)
+                {
+                    stack.push();
+                    stack.scale(0F, 0F, 0F);
+                    MinecraftClient.getInstance().getItemRenderer().renderItem(null, new ItemStack(Items.OAK_BUTTON), mode, leftHanded, stack, consumers, target.getWorld(), light, overlay, 0);
+                    consumers.draw();
+                    stack.pop();
+                }
+
+                MinecraftClient.getInstance().getItemRenderer().renderItem(itemEntity, itemStack, mode, leftHanded, stack, consumers, target.getWorld(), light, overlay, 0);
+                consumers.draw();
+                consumers.setSubstitute(null);
+                CustomVertexConsumerProvider.clearRunnables();
+            }
         }
 
         stack.pop();
