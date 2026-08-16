@@ -48,7 +48,7 @@ public class ItemStackKeyframeFactory implements IKeyframeFactory<ItemStack>
         /* Legacy / partially corrupted entries still often decode via fromNbt. */
         if (nbt instanceof NbtCompound compound)
         {
-            return ItemStack.EMPTY;
+            return ItemStack.fromNbtOrEmpty(registries, compound);
         }
 
         return ItemStack.EMPTY;

@@ -1,41 +1,40 @@
 package mchorse.bbs_mod.ui.framework.elements.utils;
 
+import mchorse.bbs_mod.BBSModClient;
 import mchorse.bbs_mod.camera.Camera;
-import mchorse.bbs_mod.client.BBSRendering;
 import mchorse.bbs_mod.forms.entities.IEntity;
 import mchorse.bbs_mod.forms.entities.StubEntity;
-import mchorse.bbs_mod.graphics.Draw;
-import mchorse.bbs_mod.graphics.ModelPreviewRenderer;
 import mchorse.bbs_mod.graphics.window.Window;
 import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.ui.framework.elements.UIElement;
 import mchorse.bbs_mod.utils.Factor;
 import mchorse.bbs_mod.utils.MathUtils;
 import mchorse.bbs_mod.utils.MatrixStackUtils;
-import mchorse.bbs_mod.utils.colors.Colors;
 
 import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.gl.ShaderProgramKeys;
 import net.minecraft.client.render.BufferBuilder;
+import net.minecraft.client.render.BufferRenderer;
 import net.minecraft.client.render.DiffuseLighting;
+import net.minecraft.client.render.GameRenderer;
 import net.minecraft.client.render.Tessellator;
+import net.minecraft.client.render.VertexFormat;
 import net.minecraft.client.render.VertexFormats;
+import net.minecraft.client.util.BufferAllocator;
 import net.minecraft.client.util.math.MatrixStack;
 
 import org.joml.Intersectiond;
 import org.joml.Matrix3d;
+import org.joml.Matrix3f;
 import org.joml.Matrix4f;
 import org.joml.Vector3d;
 import org.joml.Vector3f;
 
-import com.mojang.blaze3d.buffers.GpuBuffer;
-import com.mojang.blaze3d.buffers.GpuBufferSlice;
-import com.mojang.blaze3d.buffers.Std140Builder;
+import com.mojang.blaze3d.systems.ProjectionType;
 import com.mojang.blaze3d.systems.RenderSystem;
-import com.mojang.blaze3d.vertex.VertexFormat;
+import com.mojang.blaze3d.systems.VertexSorter;
 
-import org.lwjgl.system.MemoryStack;
-
-import java.nio.ByteBuffer;
+import org.lwjgl.opengl.GL11;
 
 /**
  * Model renderer GUI element
@@ -67,22 +66,6 @@ public abstract class UIModelRenderer extends UIElement
 
     private long tick;
     private Matrix4f transform = new Matrix4f();
-
-    private final ModelPreviewRenderer preview = new ModelPreviewRenderer();
-    protected int viewportW;
-    protected int viewportH;
-
-    private int previewGlId = -1;
-    private int previewVw;
-    private int previewVh;
-
-    private static final Vector3f LIGHT_A = new Vector3f(0F, 0.85F, -1F).normalize();
-    private static final Vector3f LIGHT_B = new Vector3f(0F, 0.85F, 1F).normalize();
-
-    private GpuBuffer lightsBuffer;
-    private GpuBufferSlice lights;
-    private final Vector3f lightDirA = new Vector3f();
-    private final Vector3f lightDirB = new Vector3f();
 
     private boolean stencilViewport;
     private int stencilViewportW;
@@ -245,104 +228,72 @@ public abstract class UIModelRenderer extends UIElement
         this.entity.setAge(this.timer);
     }
 
+    /**
+     * Draw currently edited model
+     */
     private void renderModel(UIContext context)
     {
-        /* The model is rendered into a GPU target; only the resulting texture is recorded in the
-         * current DrawContext. This keeps the 3D pass out of the 2D Matrix3x2fStack. */
-        this.renderModelToTexture(context);
+        RenderSystem.enableDepthTest();
+        RenderSystem.enableCull();
+        RenderSystem.depthFunc(GL11.GL_LEQUAL);
+        RenderSystem.depthMask(true);
 
-        if (this.previewGlId >= 0 && this.previewVw > 0 && this.previewVh > 0)
-        {
-            context.batcher.newRootLayer();
-            context.batcher.texturedBox(this.previewGlId, Colors.WHITE,
-                this.area.x, this.area.y, this.area.w, this.area.h,
-                0, this.previewVh, this.previewVw, 0, this.previewVw, this.previewVh);
-            context.batcher.newRootLayer();
-        }
-
-        this.processInputs(context);
-    }
-
-    /**
-     * Render the 3D preview into its own color/depth target. The caller may invoke this from the
-     * world phase to avoid mixing an immediate render pass with GUI recording.
-     */
-    public void renderModelToTexture(UIContext context)
-    {
         this.setupPosition();
         this.setupViewport(context);
 
-        int vw = this.viewportW;
-        int vh = this.viewportH;
+        MatrixStack stack = context.render.batcher.getContext().getMatrices();
 
-        this.previewGlId = -1;
+        /* Cache the global stuff */
+        MatrixStackUtils.cacheMatrices();
 
-        if (vw <= 0 || vh <= 0)
-        {
-            return;
-        }
+        RenderSystem.setProjectionMatrix(this.camera.projection, ProjectionType.ORTHOGRAPHIC);
 
-        boolean previousActive = ModelPreviewRenderer.ACTIVE;
-        ModelPreviewRenderer.ACTIVE = true;
-
-        try
-        {
-            this.preview.begin(vw, vh, this.camera.projection);
-            RenderSystem.setShaderLights(this.editorLights());
-
-            if (this.grid)
-            {
-                this.renderGrid(context);
-            }
-
-            this.renderUserModel(context);
-            this.previewGlId = this.preview.getColorGlId();
-            this.previewVw = vw;
-            this.previewVh = vh;
-        }
-        finally
-        {
-            this.preview.end();
-            ModelPreviewRenderer.ACTIVE = previousActive;
-            ModelPreviewRenderer.TEXTURE = null;
-        }
-    }
-
-    protected MatrixStack createCameraStack()
-    {
-        MatrixStack stack = new MatrixStack();
-
+        /* Rendering begins... */
+        stack.push();
         MatrixStackUtils.multiply(stack, this.camera.view);
         stack.translate(-this.camera.position.x, -this.camera.position.y, -this.camera.position.z);
         MatrixStackUtils.multiply(stack, this.transform);
 
-        return stack;
-    }
+        /* Keep diffuse normals in model/block space. Baking the orbit camera into NormalMat
+         * made face shading follow the view angle; the world / F7 pass keeps lighting tied to
+         * how the model sits in the world instead. */
+        Matrix3f lightingNormals = new Matrix3f();
 
-    private GpuBufferSlice editorLights()
-    {
-        this.lightDirA.set(LIGHT_A);
-        this.lightDirB.set(LIGHT_B);
+        this.transform.normal(lightingNormals);
+        stack.peek().getNormalMatrix().set(lightingNormals);
 
-        try (MemoryStack stack = MemoryStack.stackPush())
+        /* Vanilla level diffuse lights (same basis DiffuseLighting uses for the world pass).
+         * MorphRenderer-style (±0.85, 0.85, ∓1) over-lit X-aligned faces in the editor preview
+         * compared to model-block / F7 world shading. */
+        Vector3f light0 = new Vector3f(0.2F, 1.0F, -0.7F).normalize();
+        Vector3f light1 = new Vector3f(-0.2F, 1.0F, 0.7F).normalize();
+
+        RenderSystem.setupLevelDiffuseLighting(light0, light1);
+
+        if (this.grid)
         {
-            ByteBuffer data = Std140Builder.onStack(stack, DiffuseLighting.UBO_SIZE)
-                .putVec3(this.lightDirA)
-                .putVec3(this.lightDirB)
-                .get();
-
-            if (this.lightsBuffer == null)
-            {
-                this.lightsBuffer = RenderSystem.getDevice().createBuffer(() -> "BBS editor preview lights UBO", 136, data);
-                this.lights = this.lightsBuffer.slice(0, DiffuseLighting.UBO_SIZE);
-            }
-            else
-            {
-                RenderSystem.getDevice().createCommandEncoder().writeToBuffer(this.lights, data);
-            }
+            this.renderGrid(context);
         }
 
-        return this.lights;
+        this.renderUserModel(context);
+
+        DiffuseLighting.disableGuiDepthLighting();
+
+        stack.pop();
+
+        /* Return back to orthographic projection */
+        MinecraftClient mc = MinecraftClient.getInstance();
+
+        RenderSystem.viewport(0, 0, mc.getWindow().getFramebufferWidth(), mc.getWindow().getFramebufferHeight());
+        MatrixStackUtils.restoreMatrices();
+        context.resetMatrix();
+
+        RenderSystem.depthFunc(GL11.GL_LEQUAL);
+        RenderSystem.enableDepthTest();
+        RenderSystem.depthMask(true);
+        RenderSystem.setShader(ShaderProgramKeys.POSITION_TEX_COLOR);
+
+        this.processInputs(context);
     }
 
     protected void processInputs(UIContext context)
@@ -409,46 +360,32 @@ public abstract class UIModelRenderer extends UIElement
 
     protected void setupViewport(UIContext context)
     {
+        GL11.glClear(GL11.GL_DEPTH_BUFFER_BIT);
+
         MinecraftClient mc = MinecraftClient.getInstance();
 
         if (this.stencilViewport)
         {
-            this.viewportW = this.stencilViewportW;
-            this.viewportH = this.stencilViewportH;
-
-            if (this.viewportW > 0 && this.viewportH > 0)
-            {
-                this.camera.updatePerspectiveProjection(this.viewportW, this.viewportH);
-            }
-
+            RenderSystem.viewport(0, 0, this.stencilViewportW, this.stencilViewportH);
+            this.camera.updatePerspectiveProjection(this.stencilViewportW, this.stencilViewportH);
             this.camera.updateView();
 
             return;
         }
 
-        /* The preview target owns its viewport. Only its physical dimensions are needed here; the
-         * UI position is applied later by DrawContext when the target texture is composited. */
-        boolean previousWorldRender = BBSRendering.renderingWorld;
-        BBSRendering.renderingWorld = false;
+        /* Exact physical-to-logical ratio (the UI scale factor). Rounding this snapped fractional scales
+           like 1.5 up to 2, which offset the viewport and misaligned model/morph previews. */
+        float rx = (float) (mc.getWindow().getWidth() / (double) context.menu.width);
+        float ry = (float) (mc.getWindow().getHeight() / (double) context.menu.height);
+        float size = BBSModClient.getOriginalFramebufferScale();
 
-        try
-        {
-            float rx = (float) (mc.getWindow().getWidth() / (double) context.menu.width);
-            float ry = (float) (mc.getWindow().getHeight() / (double) context.menu.height);
+        int vx = (int) (context.globalX(this.area.x) * rx);
+        int vy = (int) (mc.getWindow().getHeight() - (context.globalY(this.area.y) + this.area.h) * ry);
+        int vw = (int) (this.area.w * rx);
+        int vh = (int) (this.area.h * ry);
 
-            this.viewportW = (int) (this.area.w * rx);
-            this.viewportH = (int) (this.area.h * ry);
-        }
-        finally
-        {
-            BBSRendering.renderingWorld = previousWorldRender;
-        }
-
-        if (this.viewportW > 0 && this.viewportH > 0)
-        {
-            this.camera.updatePerspectiveProjection(this.viewportW, this.viewportH);
-        }
-
+        RenderSystem.viewport((int) (vx * size), (int) (vy * size), (int) (vw * size), (int) (vh * size));
+        this.camera.updatePerspectiveProjection(vw, vh);
         this.camera.updateView();
     }
 
@@ -463,8 +400,10 @@ public abstract class UIModelRenderer extends UIElement
      */
     protected void renderGrid(UIContext context)
     {
-        Matrix4f matrix4f = this.createCameraStack().peek().getPositionMatrix();
+        Matrix4f matrix4f = context.batcher.getContext().getMatrices().peek().getPositionMatrix();
         BufferBuilder builder = Tessellator.getInstance().begin(VertexFormat.DrawMode.DEBUG_LINES, VertexFormats.POSITION_COLOR);
+
+        RenderSystem.setShader(ShaderProgramKeys.POSITION_COLOR);
 
         for (int x = 0; x <= 10; x ++)
         {
@@ -494,6 +433,6 @@ public abstract class UIModelRenderer extends UIElement
             }
         }
 
-        Draw.flushLines(builder);
+        BufferRenderer.drawWithGlobalProgram(builder.end());
     }
 }

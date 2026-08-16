@@ -2,7 +2,6 @@ package mchorse.bbs_mod.client;
 
 import mchorse.bbs_mod.forms.entities.IEntity;
 import mchorse.bbs_mod.forms.entities.StubEntity;
-import mchorse.bbs_mod.mixin.client.LivingEntityAccessor;
 import mchorse.bbs_mod.mixin.client.LivingEntityItemAccessor;
 
 import net.minecraft.client.network.OtherClientPlayerEntity;
@@ -27,7 +26,6 @@ public final class ItemUseRenderState
     private static final int OFF_HAND_ACTIVE_FLAG = 2;
 
     private static OtherClientPlayerEntity proxy;
-    private static ClientWorld proxyWorld;
 
     private ItemUseRenderState()
     {}
@@ -39,11 +37,10 @@ public final class ItemUseRenderState
             return null;
         }
 
-        if (proxy == null || proxyWorld != clientWorld)
+        if (proxy == null || proxy.getWorld() != clientWorld)
         {
             proxy = new OtherClientPlayerEntity(clientWorld, new GameProfile(UUID.randomUUID(), "bbs_item_use"));
             proxy.noClip = true;
-            proxyWorld = clientWorld;
         }
 
         Hand hand = slot == EquipmentSlot.OFFHAND ? Hand.OFF_HAND : Hand.MAIN_HAND;
@@ -117,8 +114,8 @@ public final class ItemUseRenderState
         if (source == null || stack == null || stack.isEmpty())
         {
             living.clearActiveItem();
-            ((LivingEntityAccessor) living).invokeSetLivingFlag(USING_ITEM_FLAG, false);
-            ((LivingEntityAccessor) living).invokeSetLivingFlag(OFF_HAND_ACTIVE_FLAG, false);
+            living.setLivingFlag(USING_ITEM_FLAG, false);
+            living.setLivingFlag(OFF_HAND_ACTIVE_FLAG, false);
 
             return;
         }
@@ -129,8 +126,8 @@ public final class ItemUseRenderState
         if (!usingItem)
         {
             living.clearActiveItem();
-            ((LivingEntityAccessor) living).invokeSetLivingFlag(USING_ITEM_FLAG, false);
-            ((LivingEntityAccessor) living).invokeSetLivingFlag(OFF_HAND_ACTIVE_FLAG, false);
+            living.setLivingFlag(USING_ITEM_FLAG, false);
+            living.setLivingFlag(OFF_HAND_ACTIVE_FLAG, false);
 
             return;
         }
@@ -142,7 +139,7 @@ public final class ItemUseRenderState
         living.setStackInHand(hand, stack);
         ((LivingEntityItemAccessor) living).setActiveItemStack(stack);
         ((LivingEntityItemAccessor) living).setItemUseTimeLeft(itemUseTimeLeft);
-        ((LivingEntityAccessor) living).invokeSetLivingFlag(USING_ITEM_FLAG, true);
-        ((LivingEntityAccessor) living).invokeSetLivingFlag(OFF_HAND_ACTIVE_FLAG, hand == Hand.OFF_HAND);
+        living.setLivingFlag(USING_ITEM_FLAG, true);
+        living.setLivingFlag(OFF_HAND_ACTIVE_FLAG, hand == Hand.OFF_HAND);
     }
 }
