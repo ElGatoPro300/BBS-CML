@@ -12,7 +12,7 @@ import net.minecraft.item.CrossbowItem;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.Items;
 import net.minecraft.util.Hand;
-import net.minecraft.util.UseAction;
+import net.minecraft.item.consume.UseAction;
 import net.minecraft.util.math.MathHelper;
 
 /**

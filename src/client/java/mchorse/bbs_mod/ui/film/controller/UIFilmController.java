@@ -1231,7 +1231,7 @@ public class UIFilmController extends UIElement
      */
     private void finishControlUse(ClientPlayerEntity player, Hand hand, ActionResult result)
     {
-        if (result.shouldSwingHand())
+        if (result.isAccepted())
         {
             player.swingHand(hand);
             this.swingVisibleActor(hand);
