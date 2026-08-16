@@ -85,8 +85,8 @@ import net.minecraft.client.render.DiffuseLighting;
 import net.minecraft.client.render.VertexConsumer;
 import net.minecraft.client.render.WorldRenderer;
 import net.minecraft.client.util.Window;
-import net.minecraft.util.math.BlockPos;
 import net.minecraft.client.util.math.MatrixStack;
+import net.minecraft.util.math.BlockPos;
 
 import net.irisshaders.iris.uniforms.custom.cached.CachedUniform;
 
@@ -396,7 +396,7 @@ public class BBSRendering
     }
 
     /**
-     * Same diffuse choice {@link net.minecraft.client.render.WorldRenderer} uses before entities:
+     * Same diffuse choice {@link WorldRenderer} uses before entities:
      * {@link DiffuseLighting#enableForLevel()} in darkened dimensions, otherwise the shared
      * {@link #setupWorldLevelDiffuseLighting()} basis (matches {@link DiffuseLighting#disableForLevel()}).
      * Keeps model-block F7 world draws and editor UI previews on one lighting basis.
