@@ -1637,6 +1637,16 @@ public class UIKeyframes extends UIElement
         this.cache = new SheetCache(this.currentGraph.getSheets());
     }
 
+    /**
+     * True while a graph/trackpad drag has an open {@link #cacheKeyframes()} session.
+     * Live edits in that window must not notify (undo is submitted once via
+     * {@link #submitKeyframes()}), matching graph drag which uses dirty=false.
+     */
+    public boolean hasKeyframeCache()
+    {
+        return this.cache != null;
+    }
+
     public void submitKeyframes()
     {
         if (this.cache == null)

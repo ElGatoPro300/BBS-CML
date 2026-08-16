@@ -127,6 +127,14 @@ public class UIKeyframeEditor extends UIElement
     {
         if (this.target == target)
         {
+            /* Side-panel mode keeps target null. Undo can detach the factory panel
+             * via removeFromParent while target stays null — re-parent it here so
+             * applyLayout alone does not leave an empty overlay. */
+            if (this.editor != null && this.target == null && this.editor.getParent() != this)
+            {
+                this.add(this.editor);
+            }
+
             this.view.resetFlex().full(this).w(1F);
             /* Same host — still re-apply factory layout/resize. Needed when the
              * properties tab was already active and only a light host sync runs. */
