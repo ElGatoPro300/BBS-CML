@@ -4,7 +4,7 @@ import mchorse.bbs_mod.cubic.model.ArmorType;
 import mchorse.bbs_mod.forms.entities.IEntity;
 import mchorse.bbs_mod.forms.renderers.utils.RecolorVertexConsumer;
 import mchorse.bbs_mod.utils.colors.Color;
-import mchorse.bbs_mod.utils.iris.IrisEntityArmorContext;
+import mchorse.bbs_mod.utils.iris.IrisArmorHooks;
 
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.model.ModelPart;
@@ -64,9 +64,9 @@ public class ArmorRenderer
     {
         ItemStack itemStack = entity.getEquipmentStack(armorSlot);
         Item item = itemStack.getItem();
-        VertexConsumerProvider buffers = IrisEntityArmorContext.wrapEntityBuffers(vertexConsumers);
+        VertexConsumerProvider buffers = IrisArmorHooks.wrapEntityBuffers(vertexConsumers);
 
-        try (IrisEntityArmorContext.Scope ignored = IrisEntityArmorContext.beginArmorPiece(entity, item))
+        try (IrisArmorHooks.Scope ignored = IrisArmorHooks.beginArmorPiece(entity, item))
         {
             this.renderArmorSlotInner(matrices, buffers, entity, armorSlot, type, light, itemStack, item);
         }
@@ -212,7 +212,7 @@ public class ArmorRenderer
          * (044b2f4a6) while restoring inside trim like vanilla coplanar NoCull geometry.
          * Scale is baked into vertices — draw is deferred, so GL polygon-offset at submit
          * would not stick through consumers.draw(). */
-        IrisEntityArmorContext.beginTrim(trim);
+        IrisArmorHooks.beginTrim(trim);
 
         try
         {
@@ -221,7 +221,7 @@ public class ArmorRenderer
         }
         finally
         {
-            IrisEntityArmorContext.endTrim();
+            IrisArmorHooks.endTrim();
         }
     }
 

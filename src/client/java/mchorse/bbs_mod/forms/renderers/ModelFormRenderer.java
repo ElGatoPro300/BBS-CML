@@ -53,7 +53,7 @@ import mchorse.bbs_mod.utils.StringUtils;
 import mchorse.bbs_mod.utils.colors.Color;
 import mchorse.bbs_mod.utils.interps.Lerps;
 import mchorse.bbs_mod.utils.iris.FormColorGradePatch;
-import mchorse.bbs_mod.utils.iris.IrisEntityArmorContext;
+import mchorse.bbs_mod.utils.iris.IrisArmorHooks;
 import mchorse.bbs_mod.utils.iris.ShaderOpacityPatch;
 import mchorse.bbs_mod.utils.joml.Vectors;
 import mchorse.bbs_mod.utils.pose.Pose;
@@ -3298,7 +3298,7 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
         MatrixStackUtils.multiply(stack, matrix);
 
         /* Skulls bypass ItemRenderer (Iris MixinItemRenderer); bake the same block/item IDs. */
-        try (IrisEntityArmorContext.Scope ignored = IrisEntityArmorContext.beginEquippedItem(target, itemStack))
+        try (IrisArmorHooks.Scope ignored = IrisArmorHooks.beginEquippedItem(target, itemStack))
         {
             if (item instanceof BlockItem blockItem && blockItem.getBlock() instanceof AbstractSkullBlock skullBlock)
             {

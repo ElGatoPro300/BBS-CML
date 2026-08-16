@@ -53,7 +53,6 @@ import mchorse.bbs_mod.utils.StringUtils;
 import mchorse.bbs_mod.utils.colors.Color;
 import mchorse.bbs_mod.utils.colors.Colors;
 import mchorse.bbs_mod.utils.interps.Lerps;
-import mchorse.bbs_mod.utils.iris.IrisUtils;
 import mchorse.bbs_mod.utils.joml.Matrices;
 import mchorse.bbs_mod.utils.joml.Vectors;
 import mchorse.bbs_mod.utils.keyframes.Keyframe;
@@ -445,7 +444,7 @@ public abstract class BaseFilmController
         if (drawBody && !relative && context.map == null && opacity > 0F
             && (context.shadowRadiusX > 0F || context.shadowRadiusZ > 0F)
             && form.render.get() && form.visible.get()
-            && !context.isShadowPass && !IrisUtils.isShaderPackEnabled())
+            && !context.isShadowPass && !BBSRendering.isIrisShadersEnabled())
         {
             float shadowOpacity = MathUtils.clamp(opacity * context.shadowOpacity, 0F, 1F);
 

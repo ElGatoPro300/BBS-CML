@@ -39,7 +39,7 @@ public final class IrisEntityArmorContext
 
     public static boolean isActive()
     {
-        return IrisUtils.isShaderPackEnabled()
+        return BBSRendering.isIrisShadersEnabled()
             && BBSRendering.isRenderingWorld()
             && !BBSRendering.isIrisShadowPass();
     }
