@@ -94,10 +94,6 @@ public class ExtrudedFormRenderer extends FormRenderer<ExtrudedForm>
         /* Shading fix */
         MatrixStackUtils.invertUiNormalY(stack);
 
-        Vector3f light0 = new Vector3f(0.85F, 0.85F, -1F).normalize();
-        Vector3f light1 = new Vector3f(-0.85F, 0.85F, 1F).normalize();
-        RenderSystem.setupGui3DDiffuseLighting(light0, light1);
-
         RenderSystem.depthFunc(GL11.GL_LEQUAL);
 
         ShaderProgram modelShader = BBSShaders.getModel();
@@ -117,8 +113,6 @@ public class ExtrudedFormRenderer extends FormRenderer<ExtrudedForm>
         }
 
         RenderSystem.depthFunc(GL11.GL_ALWAYS);
-
-        DiffuseLighting.disableGuiDepthLighting();
 
         stack.pop();
     }

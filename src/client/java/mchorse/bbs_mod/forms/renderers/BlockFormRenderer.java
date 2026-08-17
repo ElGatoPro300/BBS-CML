@@ -108,10 +108,6 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
         boolean positivePaint = FormColorEffects.hasPositivePaint(this.form.paintSettings.get(), this.form.paintColor.get());
         boolean blockEntityVisual = this.isBlockEntityVisual();
 
-        Vector3f light0 = new Vector3f(0.85F, 0.85F, -1F).normalize();
-        Vector3f light1 = new Vector3f(-0.85F, 0.85F, 1F).normalize();
-        RenderSystem.setupGui3DDiffuseLighting(light0, light1);
-
         consumers.setSubstitute(this.getBlockMainConsumer(set, resolvedPaint));
         consumers.setUI(true);
         this.renderRepeatedBlocks(null, matrices, consumers, LightmapTextureManager.MAX_BLOCK_LIGHT_COORDINATE, OverlayTexture.DEFAULT_UV, false, true, false, false);
@@ -138,8 +134,6 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
 
         consumers.setUI(false);
         consumers.setSubstitute(null);
-
-        DiffuseLighting.disableGuiDepthLighting();
 
         matrices.pop();
     }

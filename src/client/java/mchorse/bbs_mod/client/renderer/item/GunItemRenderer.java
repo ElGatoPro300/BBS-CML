@@ -90,22 +90,10 @@ public class GunItemRenderer implements BuiltinItemRendererRegistry.DynamicItemR
 
                 RenderSystem.enableDepthTest();
 
-                if (mode == ModelTransformationMode.GUI)
-                {
-                    Vector3f a = new Vector3f(0.85F, 0.85F, -1.0F).normalize();
-                    Vector3f b = new Vector3f(-0.85F, 0.85F, 1.0F).normalize();
-                    RenderSystem.setupGui3DDiffuseLighting(a, b);
-                }
-
                 int maxLight = LightmapTextureManager.MAX_BLOCK_LIGHT_COORDINATE;
                 FormUtilsClient.render(form, new FormRenderingContext()
                     .set(FormRenderType.fromModelMode(mode), item.formEntity, matrices, maxLight, overlay, MinecraftClient.getInstance().getTickDelta())
                     .camera(MinecraftClient.getInstance().gameRenderer.getCamera()));
-
-                if (mode == ModelTransformationMode.GUI)
-                {
-                    DiffuseLighting.disableGuiDepthLighting();
-                }
 
                 RenderSystem.disableDepthTest();
 

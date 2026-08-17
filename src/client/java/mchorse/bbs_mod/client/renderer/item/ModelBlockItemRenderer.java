@@ -77,21 +77,9 @@ public class ModelBlockItemRenderer implements BuiltinItemRendererRegistry.Dynam
 
                 RenderSystem.enableDepthTest();
 
-                if (mode == ModelTransformationMode.GUI)
-                {
-                    Vector3f a = new Vector3f(0.85F, 0.85F, -1.0F).normalize();
-                    Vector3f b = new Vector3f(-0.85F, 0.85F, 1.0F).normalize();
-                    RenderSystem.setupGui3DDiffuseLighting(a, b);
-                }
-
                 FormUtilsClient.render(form, new FormRenderingContext()
                     .set(FormRenderType.fromModelMode(mode), item.formEntity, matrices, light, overlay, MinecraftClient.getInstance().getTickDelta())
                     .camera(MinecraftClient.getInstance().gameRenderer.getCamera()));
-
-                if (mode == ModelTransformationMode.GUI)
-                {
-                    DiffuseLighting.disableGuiDepthLighting();
-                }
 
                 RenderSystem.disableDepthTest();
 

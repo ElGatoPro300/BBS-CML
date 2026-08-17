@@ -89,13 +89,7 @@ public class ShapeFormRenderer extends FormRenderer<ShapeForm>
         /* Shading fix for UI */
         MatrixStackUtils.invertUiNormalY(stack);
 
-        Vector3f light0 = new Vector3f(0.85F, 0.85F, -1F).normalize();
-        Vector3f light1 = new Vector3f(-0.85F, 0.85F, 1F).normalize();
-        RenderSystem.setupGui3DDiffuseLighting(light0, light1);
-
         this.renderShape(stack, GameRenderer::getRenderTypeEntityTranslucentProgram, OverlayTexture.DEFAULT_UV, LightmapTextureManager.MAX_LIGHT_COORDINATE, null);
-
-        DiffuseLighting.disableGuiDepthLighting();
 
         stack.pop();
     }

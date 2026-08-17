@@ -73,10 +73,6 @@ public class FluidFormRenderer extends FormRenderer<FluidForm> implements ITicka
         /* Shading fix for UI */
         MatrixStackUtils.invertUiNormalY(stack);
 
-        Vector3f light0 = new Vector3f(0.85F, 0.85F, -1F).normalize();
-        Vector3f light1 = new Vector3f(-0.85F, 0.85F, 1F).normalize();
-        RenderSystem.setupGui3DDiffuseLighting(light0, light1);
-
         VertexFormat format = VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL;
         
         this.renderFluid(format, GameRenderer::getRenderTypeEntityTranslucentProgram,
@@ -84,8 +80,6 @@ public class FluidFormRenderer extends FormRenderer<FluidForm> implements ITicka
             OverlayTexture.DEFAULT_UV, LightmapTextureManager.MAX_LIGHT_COORDINATE, Colors.WHITE,
             context.getTransition()
         );
-
-        DiffuseLighting.disableGuiDepthLighting();
 
         stack.pop();
     }

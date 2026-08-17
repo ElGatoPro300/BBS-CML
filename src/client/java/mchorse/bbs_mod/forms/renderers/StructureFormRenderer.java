@@ -134,10 +134,6 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
         matrices.scale(finalScale, finalScale, finalScale);
         MatrixStackUtils.invertUiNormalY(matrices);
 
-        Vector3f light0 = new Vector3f(0.85F, 0.85F, -1F).normalize();
-        Vector3f light1 = new Vector3f(-0.85F, 0.85F, 1F).normalize();
-        RenderSystem.setupGui3DDiffuseLighting(light0, light1);
-
         this.checkLightState();
 
         Color storedFormColor = this.form.color.get();
@@ -250,7 +246,6 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
             }
         }
 
-        DiffuseLighting.disableGuiDepthLighting();
         matrices.pop();
         RenderSystem.depthFunc(GL11.GL_ALWAYS);
     }

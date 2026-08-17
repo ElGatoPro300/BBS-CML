@@ -546,10 +546,6 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
             this.clearPBRTextureIntensity();
             RenderSystem.depthFunc(GL11.GL_LEQUAL);
 
-            Vector3f light0 = new Vector3f(0.85F, 0.85F, -1F).normalize();
-            Vector3f light1 = new Vector3f(-0.85F, 0.85F, 1F).normalize();
-            RenderSystem.setupGui3DDiffuseLighting(light0, light1);
-
             Supplier<ShaderProgram> mainShader = this.getModelShader(model);
 
             this.renderModel(this.entity, mainShader, stack, model, LightmapTextureManager.pack(15, 15), OverlayTexture.DEFAULT_UV, color, true, null, context.getTransition(), true, null, null);
@@ -565,7 +561,6 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
             stack.pop();
             stack.pop();
 
-            DiffuseLighting.disableGuiDepthLighting();
             RenderSystem.depthFunc(GL11.GL_ALWAYS);
             BBSRendering.restoreGuiRenderState();
         }

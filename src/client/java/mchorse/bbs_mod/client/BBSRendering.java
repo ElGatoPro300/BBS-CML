@@ -173,6 +173,7 @@ public class BBSRendering
     private static Texture texture;
     private static CloudRenderMode cachedCloudRenderMode;
     private static boolean cloudsForced;
+    public static Matrix4f positionMatrix;
 
     public static int getMotionBlur()
     {
@@ -392,7 +393,7 @@ public class BBSRendering
     /** Vanilla level diffuse basis shared by morphs and editor previews. */
     public static void setupWorldLevelDiffuseLighting()
     {
-        RenderSystem.setupGui3DDiffuseLighting(WORLD_LEVEL_LIGHT_0, WORLD_LEVEL_LIGHT_1);
+        RenderSystem.setupLevelDiffuseLighting(WORLD_LEVEL_LIGHT_0, WORLD_LEVEL_LIGHT_1, RenderSystem.getModelViewMatrix());
     }
 
     /**

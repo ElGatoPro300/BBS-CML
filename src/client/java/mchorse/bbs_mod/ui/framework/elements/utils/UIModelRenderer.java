@@ -270,8 +270,6 @@ public abstract class UIModelRenderer extends UIElement
 
         this.renderUserModel(context);
 
-        DiffuseLighting.disableGuiDepthLighting();
-
         stack.pop();
 
         /* Return back to orthographic projection */
