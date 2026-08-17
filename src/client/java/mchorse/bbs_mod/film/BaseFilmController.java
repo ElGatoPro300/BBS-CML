@@ -85,7 +85,7 @@ import net.minecraft.particle.ParticleTypes;
 import net.minecraft.sound.SoundCategory;
 import net.minecraft.text.Text;
 import net.minecraft.util.Hand;
-import net.minecraft.util.UseAction;
+import net.minecraft.item.consume.UseAction;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Vec3d;
 import net.minecraft.world.LightType;
@@ -1783,7 +1783,7 @@ public abstract class BaseFilmController
 
                             if (player instanceof ClientPlayerEntity playerEntity)
                             {
-                                playerEntity.input.sneaking = sneaking;
+                                /* playerEntity.input.sneaking = sneaking; */
                             }
 
                             player.fallDistance = replay.keyframes.fall.interpolate(replayTick).floatValue();

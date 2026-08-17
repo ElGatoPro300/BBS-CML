@@ -96,7 +96,7 @@ public class ModelBlockEntityRenderer implements BlockEntityRenderer<ModelBlockE
         matrices.translate(tx, ty, tz);
         matrices.scale(scaleX, 1F, scaleZ);
 
-        EntityRendererDispatcherInvoker.bbs$renderShadow(matrices, provider, entity, opacity, tickDelta, entity.getWorld(), baseRadius);
+        /* EntityRendererDispatcherInvoker.bbs$renderShadow(matrices, provider, entity, opacity, tickDelta, entity.getWorld(), radius); */
 
         matrices.pop();
     }
