@@ -52,14 +52,9 @@ public class StructureVAOCollector implements VertexConsumer
     }
 
     @Override
-    public VertexConsumer vertex(Matrix4f matrix, float x, float y, float z)
+    public void next()
     {
-        Vector4f v = new Vector4f(x, y, z, 1F);
-        v.mul(matrix);
-        this.vx = v.x;
-        this.vy = v.y;
-        this.vz = v.z;
-        return this;
+        /* no-op */
     }
 
     @Override
@@ -100,10 +95,6 @@ public class StructureVAOCollector implements VertexConsumer
         this.finalizeCurrent();
         return this;
     }
-
-    @Override
-    public void next()
-    {}
 
     private void finalizeCurrent()
     {

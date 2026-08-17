@@ -225,16 +225,10 @@ public class UIItemStack extends UIElement
             RenderSystem.disableDepthTest();
             consumers.setUI(true);
 
-            Vector3f light0 = new Vector3f(0.85F, 0.85F, -1.0F).normalize();
-            Vector3f light1 = new Vector3f(-0.85F, 0.85F, 1.0F).normalize();
-            RenderSystem.setupGui3DDiffuseLighting(light0, light1);
-
             context.batcher.getContext().drawItem(this.stack, stackCenterX - 8, this.area.my() - 8);
             context.batcher.getContext().drawItemInSlot(context.batcher.getFont().getRenderer(), this.stack, stackCenterX - 8, this.area.my() - 8);
 
             context.batcher.getContext().draw();
-
-            DiffuseLighting.disableGuiDepthLighting();
 
             consumers.setUI(false);
             RenderSystem.enableDepthTest();

@@ -378,16 +378,10 @@ public class UICreativeItemSelectorPanel extends UIOverlayPanel
 
                     ItemStack stack = this.items.get(index);
 
-                    Vector3f light0 = new Vector3f(0.85F, 0.85F, -1.0F).normalize();
-                    Vector3f light1 = new Vector3f(-0.85F, 0.85F, 1.0F).normalize();
-                    RenderSystem.setupGui3DDiffuseLighting(light0, light1);
-
                     context.batcher.getContext().drawItem(stack, x + ITEM_RENDER_OFFSET, y + ITEM_RENDER_OFFSET);
                     context.batcher.getContext().drawItemInSlot(context.batcher.getFont().getRenderer(), stack, x + ITEM_RENDER_OFFSET, y + ITEM_RENDER_OFFSET);
 
                     context.batcher.getContext().draw();
-
-                    DiffuseLighting.disableGuiDepthLighting();
 
                     if (hover)
                     {
@@ -480,16 +474,11 @@ public class UICreativeItemSelectorPanel extends UIOverlayPanel
 
                 if (!stack.isEmpty())
                 {
-                    Vector3f light0 = new Vector3f(0.85F, 0.85F, -1.0F).normalize();
-                    Vector3f light1 = new Vector3f(-0.85F, 0.85F, 1.0F).normalize();
-                    RenderSystem.setupGui3DDiffuseLighting(light0, light1);
-
                     context.batcher.getContext().drawItem(stack, x + ITEM_RENDER_OFFSET, y + ITEM_RENDER_OFFSET);
                     context.batcher.getContext().drawItemInSlot(context.batcher.getFont().getRenderer(), stack, x + ITEM_RENDER_OFFSET, y + ITEM_RENDER_OFFSET);
 
                     context.batcher.getContext().draw();
 
-                    DiffuseLighting.disableGuiDepthLighting();
                 }
 
                 if (hover)

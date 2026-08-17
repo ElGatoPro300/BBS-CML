@@ -29,7 +29,6 @@ import net.minecraft.util.math.RotationAxis;
 
 import org.joml.Intersectiond;
 import org.joml.Matrix4f;
-import org.joml.Matrix4fStack;
 import org.joml.Quaternionf;
 import org.joml.Vector2d;
 import org.joml.Vector3d;
@@ -866,7 +865,8 @@ public class Gizmo
             MatrixStack mvStack = RenderSystem.getModelViewStack();
 
             mvStack.push();
-            mvStack.peek().getPositionMatrix().set(savedModelView);
+            mvStack.loadIdentity();
+            MatrixStackUtils.multiply(mvStack, savedModelView);
             RenderSystem.applyModelViewMatrix();
             mvStack.pop();
             RenderSystem.applyModelViewMatrix();
@@ -1021,22 +1021,18 @@ public class Gizmo
         RenderSystem.disableDepthTest();
         RenderSystem.depthMask(false);
 
-        MatrixStack mvStack = RenderSystem.getModelViewStack();
-
         if (BBSRendering.isIrisShadersEnabled())
         {
-            mvStack.push();
-            mvStack.peek().getPositionMatrix().identity();
-            mvStack.peek().getNormalMatrix().identity();
-            RenderSystem.applyModelViewMatrix();
+            /* Vertex positions already include the full gizmo transform; Iris leaves a
+             * stale terrain model-view on the global stack at WorldRenderEvents.LAST. */
+            MatrixStackUtils.pushIdentityModelView();
         }
 
         this.drawBufferIfNotEmpty(builder);
 
         if (BBSRendering.isIrisShadersEnabled())
         {
-            mvStack.pop();
-            RenderSystem.applyModelViewMatrix();
+            MatrixStackUtils.popModelView();
         }
 
         RenderSystem.depthMask(true);
@@ -1074,22 +1070,16 @@ public class Gizmo
         RenderSystem.disableDepthTest();
         RenderSystem.depthMask(false);
 
-        MatrixStack mvStack = RenderSystem.getModelViewStack();
-
         if (BBSRendering.isIrisShadersEnabled())
         {
-            mvStack.push();
-            mvStack.peek().getPositionMatrix().identity();
-            mvStack.peek().getNormalMatrix().identity();
-            RenderSystem.applyModelViewMatrix();
+            MatrixStackUtils.pushIdentityModelView();
         }
 
         this.drawBufferIfNotEmpty(builder);
 
         if (BBSRendering.isIrisShadersEnabled())
         {
-            mvStack.pop();
-            RenderSystem.applyModelViewMatrix();
+            MatrixStackUtils.popModelView();
         }
 
         RenderSystem.depthMask(true);

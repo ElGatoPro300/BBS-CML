@@ -728,7 +728,16 @@ public class BBSModClient implements ClientModInitializer
 
                     RenderSystem.setShader(GameRenderer::getPositionColorProgram);
 
+                    MatrixStack mvStack = RenderSystem.getModelViewStack();
+                    mvStack.push();
+                    mvStack.loadIdentity();
+                    RenderSystem.applyModelViewMatrix();
+
                     BufferRenderer.drawWithGlobalProgram(builder.end());
+
+                    mvStack.pop();
+                    RenderSystem.applyModelViewMatrix();
+
                     RenderSystem.disableDepthTest();
 
                     stack.pop();
@@ -1125,7 +1134,7 @@ public class BBSModClient implements ClientModInitializer
 
                         if (index >= 0)
                         {
-                            getFilms().startRecording(filmPanel.getData(), index, 0);
+                            getFilms().startRecording(filmPanel.getData(), index, filmPanel.getCursor());
                         }
                     });
                 }
@@ -1142,7 +1151,7 @@ public class BBSModClient implements ClientModInitializer
 
                     if (index >= 0)
                     {
-                        getFilms().startRecording(filmPanel.getData(), index, 0);
+                        getFilms().startRecording(filmPanel.getData(), index, filmPanel.getCursor());
                     }
                 }
             }

@@ -11,7 +11,6 @@ import net.minecraft.util.math.MathHelper;
 import com.mojang.blaze3d.systems.RenderSystem;
 
 import java.util.List;
-import mchorse.bbs_mod.utils.colors.Colors;
 
 public class UIBossBarRenderer
 {
@@ -81,11 +80,21 @@ public class UIBossBarRenderer
 
         DrawContext context = batcher.getContext();
 
-        batcher.box(x, barY, x + displayWidth, barY + displayHeight, Colors.setA(Colors.WHITE, alpha));
+        setShaderColor(context, 1F, 1F, 1F, alpha);
+        context.drawGuiTexture(BOSS_BAR_BACKGROUND, x, barY, displayWidth, displayHeight);
 
         if (progressWidth > 0)
         {
-            batcher.box(x, barY, x + progressWidth, barY + displayHeight, applyAlpha(bossBar.color, alpha));
+            int color = bossBar.color;
+
+            setShaderColor(
+                context,
+                ((color >> 16) & 0xFF) / 255F,
+                ((color >> 8) & 0xFF) / 255F,
+                (color & 0xFF) / 255F,
+                alpha
+            );
+            context.drawGuiTexture(BOSS_BAR_PROGRESS, x, barY, progressWidth, displayHeight);
         }
 
         if (hasText)

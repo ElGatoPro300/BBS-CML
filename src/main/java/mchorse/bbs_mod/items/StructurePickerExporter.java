@@ -67,7 +67,7 @@ public class StructurePickerExporter
             NbtCompound nbt = new NbtCompound();
 
             template.writeNbt(nbt);
-            NbtIo.writeCompressed(nbt, file);
+            NbtIo.writeCompressed(nbt, file.toPath());
         }
         catch (IOException e)
         {
@@ -177,7 +177,7 @@ public class StructurePickerExporter
         {
             StructureTemplatePalettedListAccessor palette = (StructureTemplatePalettedListAccessor) (Object) list;
 
-            palette.bbs$getInfos().removeIf((info) -> !selected.contains(origin.add(info.pos())));
+            palette.bbs$getInfos().removeIf((info) -> !selected.contains(origin.add(info.pos)));
         }
 
         accessor.bbs$getBlockInfoLists().removeIf((list) -> ((StructureTemplatePalettedListAccessor) (Object) list).bbs$getInfos().isEmpty());

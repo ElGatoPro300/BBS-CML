@@ -1026,7 +1026,7 @@ public class ReplayKeyframes extends ValueGroup
 
         if (entity instanceof MCEntity mcEntity && mcEntity.getMcEntity() instanceof LivingEntity living)
         {
-            max = stack.getItem().getMaxUseTime(stack);
+            max = stack.getMaxUseTime();
         }
 
         if (max <= 0)
