@@ -20,7 +20,11 @@ public class SuperFakePlayerNetworkHandler extends ServerPlayNetworkHandler
     }
 
     @Override
-    public void send(Packet<?> packet, @Nullable PacketCallbacks callbacks)
+    public void sendPacket(Packet<?> packet, @Nullable PacketCallbacks callbacks)
+    {}
+
+    @Override
+    public void sendPacket(Packet<?> packet)
     {}
 
     private static final class FakeClientConnection extends ClientConnection
