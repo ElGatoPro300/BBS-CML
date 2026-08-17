@@ -9,6 +9,7 @@ import mchorse.bbs_mod.ui.framework.UIScreen;
 
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.input.KeyboardInput;
+import net.minecraft.util.PlayerInput;
 
 import org.lwjgl.glfw.GLFW;
 
@@ -47,6 +48,9 @@ public class KeyboardInputMixin
 
             boolean jump = Window.isKeyPressed(GLFW.GLFW_KEY_SPACE);
             boolean sneak = Window.isKeyPressed(GLFW.GLFW_KEY_LEFT_SHIFT);
+            boolean sprint = Window.isKeyPressed(GLFW.GLFW_KEY_LEFT_CONTROL);
+
+            input.playerInput = new PlayerInput(forward, back, left, right, jump, sneak, sprint);
 
             MinecraftClient.getInstance().options.jumpKey.setPressed(jump);
             MinecraftClient.getInstance().options.sneakKey.setPressed(sneak);

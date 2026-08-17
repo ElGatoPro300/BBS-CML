@@ -38,12 +38,12 @@ public class EntityRenderDispatcherMixin
     ) {
         if (entity instanceof LivingEntity livingEntity && state instanceof LivingEntityRenderState livingState)
         {
-            float whiteOverlayProgress = 0;
+            float whiteOverlayProgress = 0F;
 
-            /* if (renderer instanceof LivingEntityRendererInvoker invoker)
+            if (renderer instanceof LivingEntityRendererInvoker invoker)
             {
-                whiteOverlayProgress = invoker.bbs$getAnimationCounter(livingEntity, tickDelta);
-            } */
+                whiteOverlayProgress = invoker.bbs$getAnimationCounter(livingState);
+            }
 
             int u = OverlayTexture.getU(whiteOverlayProgress);
             int v = OverlayTexture.getV(livingEntity.hurtTime > 0 || livingEntity.deathTime > 0);
