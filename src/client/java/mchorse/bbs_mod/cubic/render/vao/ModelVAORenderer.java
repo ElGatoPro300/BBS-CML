@@ -1810,7 +1810,16 @@ public class ModelVAORenderer
             }
             else if (stack != null)
             {
-                normalUniform.set(stack.peek().getNormalMatrix());
+                if (usesCapturedModelView() || !BBSRendering.isIrisShadersEnabled())
+                {
+                    normalUniform.set(stack.peek().getNormalMatrix());
+                }
+                else
+                {
+                    Matrix3f normalMat = RenderSystem.getModelViewMatrix().normal(new Matrix3f());
+                    normalMat.mul(stack.peek().getNormalMatrix());
+                    normalUniform.set(normalMat);
+                }
             }
         }
 
