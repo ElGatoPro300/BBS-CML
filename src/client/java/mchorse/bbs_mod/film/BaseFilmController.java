@@ -1783,6 +1783,11 @@ public abstract class BaseFilmController
 
                             player.fallDistance = replay.keyframes.fall.interpolate(replayTick).floatValue();
 
+                            if (replay.fp.get())
+                            {
+                                this.syncFirstPersonItemUse(player, entity);
+                            }
+
                             /* Vanilla hurt camera / overlay read the local player's hurtTime.
                              * FP hides the stub body, so push keyframe (+ live) damage onto the
                              * bound player or shake never appears in first-person playback. */
@@ -1833,6 +1838,19 @@ public abstract class BaseFilmController
         actor.equipStack(EquipmentSlot.CHEST, stub.getEquipmentStack(EquipmentSlot.CHEST));
         actor.equipStack(EquipmentSlot.LEGS, stub.getEquipmentStack(EquipmentSlot.LEGS));
         actor.equipStack(EquipmentSlot.FEET, stub.getEquipmentStack(EquipmentSlot.FEET));
+    }
+
+    /**
+     * Push replay item-use onto the bound player so vanilla first-person
+     * eating/drinking transforms can run while the replay stub body is hidden.
+     */
+    private void syncFirstPersonItemUse(PlayerEntity player, IEntity source)
+    {
+        Hand hand = source.getActiveHand();
+        EquipmentSlot slot = hand == Hand.OFF_HAND ? EquipmentSlot.OFFHAND : EquipmentSlot.MAINHAND;
+        ItemStack stack = source.getEquipmentStack(slot);
+
+        ItemUseRenderState.syncItemUse(player, source, hand, stack);
     }
 
     /**
