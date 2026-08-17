@@ -10,6 +10,7 @@ import mchorse.bbs_mod.ui.utils.icons.Icon;
 import mchorse.bbs_mod.ui.utils.icons.Icons;
 import mchorse.bbs_mod.utils.colors.Colors;
 
+import java.util.function.Consumer;
 /**
  * Foldable group of widgets used by clip property panels.
  * Click the header to hide or show {@link #fields}.
@@ -26,6 +27,7 @@ public class UISection extends UIElement
     public UIElement fields;
 
     private boolean open = true;
+    private Consumer<Boolean> toggleCallback;
 
     public UISection()
     {
@@ -110,6 +112,18 @@ public class UISection extends UIElement
         }
 
         this.resizeClipPanels();
+
+        if (this.toggleCallback != null)
+        {
+            this.toggleCallback.accept(expanded);
+        }
+    }
+
+    public UISection onToggle(Consumer<Boolean> callback)
+    {
+        this.toggleCallback = callback;
+
+        return this;
     }
 
     /**
