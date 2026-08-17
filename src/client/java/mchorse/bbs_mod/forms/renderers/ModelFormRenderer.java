@@ -53,12 +53,15 @@ import mchorse.bbs_mod.utils.StringUtils;
 import mchorse.bbs_mod.utils.colors.Color;
 import mchorse.bbs_mod.utils.interps.Lerps;
 import mchorse.bbs_mod.utils.iris.FormColorGradePatch;
+import mchorse.bbs_mod.utils.iris.IrisArmorHooks;
 import mchorse.bbs_mod.utils.iris.ShaderOpacityPatch;
 import mchorse.bbs_mod.utils.joml.Vectors;
 import mchorse.bbs_mod.utils.pose.Pose;
 import mchorse.bbs_mod.utils.pose.PoseTransform;
 import mchorse.bbs_mod.utils.resources.LinkUtils;
 
+import net.minecraft.block.AbstractSkullBlock;
+import net.minecraft.block.SkullBlock;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gl.ShaderProgram;
 import net.minecraft.client.network.AbstractClientPlayerEntity;
@@ -66,10 +69,18 @@ import net.minecraft.client.render.DiffuseLighting;
 import net.minecraft.client.render.GameRenderer;
 import net.minecraft.client.render.LightmapTextureManager;
 import net.minecraft.client.render.OverlayTexture;
+import net.minecraft.client.render.RenderLayer;
+import net.minecraft.client.render.block.entity.SkullBlockEntityModel;
+import net.minecraft.client.render.block.entity.SkullBlockEntityRenderer;
 import net.minecraft.client.render.model.json.ModelTransformationMode;
 import net.minecraft.client.util.math.MatrixStack;
+import net.minecraft.component.DataComponentTypes;
+import net.minecraft.component.type.ProfileComponent;
 import net.minecraft.entity.EquipmentSlot;
 import net.minecraft.entity.LivingEntity;
+import net.minecraft.item.ArmorItem;
+import net.minecraft.item.BlockItem;
+import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.Items;
 import net.minecraft.util.Arm;
@@ -99,6 +110,7 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
 {
     private static Matrix4f uiMatrix = new Matrix4f();
     private static final ThreadLocal<Float> UI_ANGLE_OVERRIDE = new ThreadLocal<>();
+    private static Map<SkullBlock.SkullType, SkullBlockEntityModel> skullModels;
 
     private MatrixCache bones = new MatrixCache();
 
@@ -1771,16 +1783,19 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
             RenderSystem.enableCull();
         }
 
-        /* Render items — re-enable lightmap first so armor/glint and any shared Immediate
-         * flush do not draw vanilla-style layers black. */
+        /* Render items — restore vanilla entity lighting (diffuse + lightmap + overlay)
+         * like MobForm / ArmorFeatureRendererMixin so Iris pack shading matches player armor. */
         this.captureMatrices(model);
 
         if (stencilMap == null && renderEquipment)
         {
-            if (!ui)
+            /* World morphs + editor model-renderer previews (model block / form edit). Inventory
+             * morphs stay on InventoryScreen.method_34742 lights (no prepareVanilla here). */
+            boolean previewEquipment = renderContext != null && renderContext.modelRenderer;
+
+            if (!ui && (BBSRendering.isRenderingWorld() || previewEquipment))
             {
-                gameRenderer.getLightmapTextureManager().enable();
-                gameRenderer.getOverlayTexture().setupOverlayColor();
+                BBSRendering.prepareVanillaEntityLighting();
                 RenderSystem.enableDepthTest();
                 RenderSystem.depthFunc(GL11.GL_LEQUAL);
             }
@@ -1792,6 +1807,10 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
             {
                 this.renderArmor(target, stack, entry.getKey(), entry.getValue(), color, overlay, light);
             }
+
+            /* Non-armor HEAD items (skulls, blocks/commands hats, etc.) — ArmorItem helmets
+             * stay on ArmorRenderer above, matching vanilla HeadFeatureRenderer. */
+            this.renderHeadSlotItem(target, model, stack, color, overlay, light);
 
             this.resetPostEquipmentRenderState();
         }
@@ -3234,6 +3253,140 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
             && target.isUsingItem()
             && slot == activeSlot
             && target.getHandSwingProgress(0F) == 0F;
+    }
+
+    /**
+     * Vanilla {@code HeadFeatureRenderer} equivalent for ModelForms: any non-armor item in
+     * {@link EquipmentSlot#HEAD} (player/mob skulls, command-equipped blocks, etc.).
+     */
+    private void renderHeadSlotItem(IEntity target, ModelInstance model, MatrixStack stack, Color color, int overlay, int light)
+    {
+        ItemStack itemStack = target.getEquipmentStack(EquipmentSlot.HEAD);
+
+        if (itemStack == null || itemStack.isEmpty())
+        {
+            return;
+        }
+
+        Item item = itemStack.getItem();
+
+        if (item instanceof ArmorItem armorItem && armorItem.getSlotType() == EquipmentSlot.HEAD)
+        {
+            return;
+        }
+
+        Matrix4f matrix = this.bones.get(model.getHeadBone()).matrix();
+
+        if (matrix == null)
+        {
+            ArmorSlot helmet = model.armorSlots.get(ArmorType.HELMET);
+
+            if (helmet != null)
+            {
+                matrix = this.bones.get(helmet.group.get()).matrix();
+            }
+        }
+
+        if (matrix == null)
+        {
+            return;
+        }
+
+        CustomVertexConsumerProvider consumers = FormUtilsClient.getProvider();
+
+        stack.push();
+        MatrixStackUtils.multiply(stack, matrix);
+
+        /* Skulls bypass ItemRenderer (Iris MixinItemRenderer); bake the same block/item IDs. */
+        try (IrisArmorHooks.Scope ignored = IrisArmorHooks.beginEquippedItem(target, itemStack))
+        {
+            if (item instanceof BlockItem blockItem && blockItem.getBlock() instanceof AbstractSkullBlock skullBlock)
+            {
+                float tickDelta = MinecraftClient.getInstance().getRenderTickCounter().getTickDelta(true);
+                float animationProgress = this.resolveSkullAnimationProgress(target, tickDelta);
+
+                BbsHeadItemSpace.applySkull(stack);
+                this.renderSkullOnHead(itemStack, skullBlock, stack, consumers, color, light, animationProgress);
+            }
+            else
+            {
+                ModelTransformationMode mode = BbsHeadItemSpace.headItemTransformationMode();
+                boolean leftHanded = BbsHeadItemSpace.headItemLeftHanded();
+                LivingEntity itemEntity = ItemUseRenderState.prepareProxy(target.getWorld(), target, EquipmentSlot.HEAD, itemStack);
+
+                BbsHeadItemSpace.applyHeadItem(stack);
+
+                CustomVertexConsumerProvider.hijackVertexFormat((l) -> RenderSystem.enableBlend());
+                consumers.setSubstitute(BBSRendering.getColorConsumer(color));
+
+                if (model.model instanceof BOBJModel)
+                {
+                    stack.push();
+                    stack.scale(0F, 0F, 0F);
+                    MinecraftClient.getInstance().getItemRenderer().renderItem(null, new ItemStack(Items.OAK_BUTTON), mode, leftHanded, stack, consumers, target.getWorld(), light, overlay, 0);
+                    consumers.draw();
+                    stack.pop();
+                }
+
+                MinecraftClient.getInstance().getItemRenderer().renderItem(itemEntity, itemStack, mode, leftHanded, stack, consumers, target.getWorld(), light, overlay, 0);
+                consumers.draw();
+                consumers.setSubstitute(null);
+                CustomVertexConsumerProvider.clearRunnables();
+            }
+        }
+
+        stack.pop();
+        RenderSystem.enableDepthTest();
+    }
+
+    /**
+     * Same source as vanilla {@code HeadFeatureRenderer}: {@code LimbAnimator.getPos(tickDelta)},
+     * preferring the vehicle's limbs when mounted on another living entity.
+     */
+    private float resolveSkullAnimationProgress(IEntity target, float tickDelta)
+    {
+        if (target instanceof MCEntity mc && mc.getMcEntity() instanceof LivingEntity living)
+        {
+            if (living.getVehicle() instanceof LivingEntity vehicle)
+            {
+                return vehicle.limbAnimator.getPos(tickDelta);
+            }
+
+            return living.limbAnimator.getPos(tickDelta);
+        }
+
+        return target.getLimbPos(tickDelta);
+    }
+
+    private void renderSkullOnHead(ItemStack itemStack, AbstractSkullBlock skullBlock, MatrixStack stack, CustomVertexConsumerProvider consumers, Color color, int light, float animationProgress)
+    {
+        SkullBlock.SkullType skullType = skullBlock.getSkullType();
+        SkullBlockEntityModel skullModel = this.getSkullModels().get(skullType);
+
+        if (skullModel == null)
+        {
+            return;
+        }
+
+        ProfileComponent profile = itemStack.get(DataComponentTypes.PROFILE);
+        RenderLayer renderLayer = SkullBlockEntityRenderer.getRenderLayer(skullType, profile);
+
+        CustomVertexConsumerProvider.hijackVertexFormat((l) -> RenderSystem.enableBlend());
+        consumers.setSubstitute(BBSRendering.getColorConsumer(color));
+        SkullBlockEntityRenderer.renderSkull(null, 180.0F, animationProgress, stack, consumers, light, skullModel, renderLayer);
+        consumers.draw();
+        consumers.setSubstitute(null);
+        CustomVertexConsumerProvider.clearRunnables();
+    }
+
+    private Map<SkullBlock.SkullType, SkullBlockEntityModel> getSkullModels()
+    {
+        if (skullModels == null)
+        {
+            skullModels = SkullBlockEntityRenderer.getModels(MinecraftClient.getInstance().getEntityModelLoader());
+        }
+
+        return skullModels;
     }
 
     /**

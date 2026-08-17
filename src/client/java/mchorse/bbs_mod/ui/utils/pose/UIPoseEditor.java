@@ -114,7 +114,7 @@ public class UIPoseEditor extends UIElement
     /**
      * When true, pose footer shows Color extras (paint / glow / grade) and noshading.
      * Used for ModelForm pose and model Parts ({@code ModelConfig.parts}); both store the
-     * same per-bone {@link mchorse.bbs_mod.utils.pose.PoseTransform} appearance fields.
+     * same per-bone {@link PoseTransform} appearance fields.
      */
     private final boolean formAppearanceExtras;
 

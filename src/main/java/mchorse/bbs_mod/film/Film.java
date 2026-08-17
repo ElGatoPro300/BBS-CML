@@ -11,7 +11,6 @@ import mchorse.bbs_mod.settings.values.numeric.ValueFloat;
 import mchorse.bbs_mod.settings.values.numeric.ValueInt;
 import mchorse.bbs_mod.utils.clips.Clip;
 import mchorse.bbs_mod.utils.clips.Clips;
-import mchorse.bbs_mod.settings.values.core.ValueData;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -27,8 +26,6 @@ public class Film extends ValueGroup
     public final ValueFloat hunger = new ValueFloat("hunger", 20F);
     public final ValueInt xpLevel = new ValueInt("xp_level", 0);
     public final ValueFloat xpProgress = new ValueFloat("xp_progress", 0F);
-
-    public final ValueData projectData = new ValueData("projectData");
 
     public final ValueInt totalTimeWorked = new ValueInt("totalTimeWorked", 0);
     public final ValueList<FilmContributor> contributors = new ValueList<FilmContributor>("contributors")
@@ -53,8 +50,6 @@ public class Film extends ValueGroup
         this.add(this.hunger);
         this.add(this.xpLevel);
         this.add(this.xpProgress);
-
-        this.add(this.projectData);
 
         this.add(this.totalTimeWorked);
         this.add(this.contributors);

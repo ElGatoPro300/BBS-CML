@@ -1,7 +1,9 @@
 package mchorse.bbs_mod.ui.framework.elements;
 
+import mchorse.bbs_mod.BBSSettings;
 import mchorse.bbs_mod.l10n.keys.IKey;
 import mchorse.bbs_mod.ui.framework.UIContext;
+import mchorse.bbs_mod.ui.framework.elements.input.UIAnimatedCollapseShell;
 import mchorse.bbs_mod.ui.framework.elements.utils.FontRenderer;
 import mchorse.bbs_mod.ui.framework.elements.utils.UILabel;
 import mchorse.bbs_mod.ui.utils.Area;
@@ -25,6 +27,7 @@ public class UISection extends UIElement
 
     public UILabel title;
     public UIElement fields;
+    private UIAnimatedCollapseShell shell;
 
     private boolean open = true;
     private Consumer<Boolean> toggleCallback;
@@ -50,9 +53,11 @@ public class UISection extends UIElement
 
         this.fields = new UIElement();
         this.fields.column().stretch().vertical().height(20);
+        this.shell = new UIAnimatedCollapseShell(this.fields);
 
         this.column(UIConstants.MARGIN).stretch().vertical().padding(2);
-        this.add(this.title, this.fields);
+        this.add(this.title);
+        this.shell.setExpanded(true, this.title, false);
     }
 
     @Override
@@ -102,14 +107,9 @@ public class UISection extends UIElement
 
         this.open = expanded;
 
-        if (expanded)
-        {
-            this.add(this.fields);
-        }
-        else
-        {
-            this.fields.removeFromParent();
-        }
+        boolean animate = BBSSettings.editorSimplifyAnimations != null && !BBSSettings.editorSimplifyAnimations.get();
+
+        this.shell.setExpanded(expanded, this.title, animate);
 
         this.resizeClipPanels();
 

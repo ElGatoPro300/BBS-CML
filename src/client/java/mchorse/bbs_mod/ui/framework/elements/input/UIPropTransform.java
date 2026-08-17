@@ -10,6 +10,7 @@ import mchorse.bbs_mod.ui.UIKeys;
 import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.ui.framework.elements.UIElement;
 import mchorse.bbs_mod.ui.framework.elements.utils.FontRenderer;
+import mchorse.bbs_mod.ui.framework.elements.utils.UIModelRenderer;
 import mchorse.bbs_mod.ui.utils.Gizmo;
 import mchorse.bbs_mod.ui.utils.UIUtils;
 import mchorse.bbs_mod.ui.utils.context.ContextMenuManager;
@@ -2404,7 +2405,7 @@ public class UIPropTransform extends UITransform
     /**
      * Exact window-pixel → BBS-menu ratio. Must not ceil/round: fractional GUI scales
      * (e.g. 1.5) would snap to 2 and skew gizmo ray grab points — same rule as
-     * {@link mchorse.bbs_mod.ui.framework.elements.utils.UIModelRenderer#setupViewport}
+     * {@link UIModelRenderer#setupViewport}
      * and {@link Gizmo#renderInterface}.
      */
     private static double uiScaleX(UIContext context)

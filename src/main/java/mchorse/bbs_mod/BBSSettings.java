@@ -92,6 +92,7 @@ public class BBSSettings
     public static ValueBoolean disablePivotTransform;
     public static ValueBoolean gizmos;
     public static ValueBoolean gizmosWorldRendering;
+    public static ValueBoolean previewEquipment;
     public static ValueBoolean gizmoFlipAxes;
     public static ValueBoolean gizmoYAxisHorizontal;
     public static ValueBoolean gizmoTrackball;
@@ -172,6 +173,7 @@ public class BBSSettings
     public static ValueBoolean editorActorPausedRunInPlace;
     public static ValueBoolean actorDamageFlash;
     public static ValueBoolean actorDamageAnimation;
+    public static ValueBoolean eatingArmAnimation;
     public static ValueBoolean replayDeathTimelineSync;
     public static ValueBoolean editorSimplifyAnimations;
     public static ValueBoolean editorMuteRenderAudioClips;
@@ -316,6 +318,15 @@ public class BBSSettings
     public static boolean shouldPlayActorDamageAnimation()
     {
         return actorDamageAnimation == null || actorDamageAnimation.get();
+    }
+
+    /**
+     * Extra ModelForm arm chew while eating/drinking. Off matches vanilla
+     * third-person players (the holding arm stays in idle/walk).
+     */
+    public static boolean shouldAnimateEatingArm()
+    {
+        return eatingArmAnimation != null && eatingArmAnimation.get();
     }
 
     public static boolean shouldKeepActorLiveHurtTime()
@@ -664,6 +675,8 @@ public class BBSSettings
         gizmos = builder.getBoolean("gizmos", true);
         /* Keep form-editor gizmos / bone picking while model-block F7 world rendering is on. */
         gizmosWorldRendering = builder.getBoolean("gizmos_world_rendering", true);
+        /* Armor, held items, skulls, etc. in form / model-block preview editors. */
+        previewEquipment = builder.getBoolean("preview_equipment", true);
         axesScale = builder.getFloat("axes_scale", 1.5F, 0F, 100F);
         /* Default >1 so arrows/rings are easier to pick; floor keeps thickness off zero. */
         axesThickness = builder.getFloat("axes_thickness", 1.2F, 0.25F, 6F);
@@ -675,7 +688,8 @@ public class BBSSettings
         /* Floor in Math.max(floor, dist * 0.12). 0 disables the floor so it can keep shrinking when close. */
         gizmoConstantSizeMin = builder.getFloat("gizmo_constant_size_min", 0.5F, 0F, 10F);
         disablePivotTransform = builder.getBoolean("disable_pivot_transform", false);
-        /* When enabled, translate/scale handles flip toward the camera; when disabled, stay on +X/+Y/+Z. */
+        /* When enabled, translate/scale handles and half rotation rings reorient toward the camera;
+         * when disabled, stay on +X/+Y/+Z with fixed half-rings. */
         gizmoFlipAxes = builder.getBoolean("gizmo_flip_axes", true);
         gizmoYAxisHorizontal = builder.getBoolean("gizmo_y_axis_horizontal", true);
         gizmoTrackball = builder.getBoolean("gizmo_trackball", true);
@@ -795,8 +809,9 @@ public class BBSSettings
         editorActorPausedSwipeLoop = builder.getBoolean("actor_paused_swipe_loop", false);
         editorActorPauseAnimations = builder.getBoolean("actor_pause_animations", false);
         editorActorPausedRunInPlace = builder.getBoolean("actor_paused_run_in_place", false);
-        actorDamageFlash = builder.getBoolean("actor_damage_flash", false);
+        actorDamageFlash = builder.getBoolean("actor_damage_flash", true);
         actorDamageAnimation = builder.getBoolean("actor_damage_animation", true);
+        eatingArmAnimation = builder.getBoolean("eating_arm_animation", false);
         replayDeathTimelineSync = builder.getBoolean("sync_death_timeline", true);
         replayMarkedBonesOnly = builder.getBoolean("replay_marked_bones_only", false);
         editorReplayEditorTitleLimit = builder.getInt("replay_editor_title_limit", 12, 0, 64);

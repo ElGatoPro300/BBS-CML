@@ -31,9 +31,9 @@ import mchorse.bbs_mod.forms.renderers.FormIllusionRenderer;
 import mchorse.bbs_mod.forms.renderers.FormRenderType;
 import mchorse.bbs_mod.forms.renderers.FormRenderingContext;
 import mchorse.bbs_mod.forms.renderers.ModelFormRenderer;
+import mchorse.bbs_mod.forms.renderers.utils.FormDeathTilt;
 import mchorse.bbs_mod.forms.renderers.utils.MatrixCache;
 import mchorse.bbs_mod.forms.renderers.utils.MatrixCacheEntry;
-import mchorse.bbs_mod.forms.renderers.utils.FormDeathTilt;
 import mchorse.bbs_mod.graphics.Draw;
 import mchorse.bbs_mod.mixin.client.ClientPlayerEntityAccessor;
 import mchorse.bbs_mod.morphing.Morph;
@@ -53,7 +53,6 @@ import mchorse.bbs_mod.utils.StringUtils;
 import mchorse.bbs_mod.utils.colors.Color;
 import mchorse.bbs_mod.utils.colors.Colors;
 import mchorse.bbs_mod.utils.interps.Lerps;
-import mchorse.bbs_mod.utils.iris.IrisUtils;
 import mchorse.bbs_mod.utils.joml.Matrices;
 import mchorse.bbs_mod.utils.joml.Vectors;
 import mchorse.bbs_mod.utils.keyframes.Keyframe;
@@ -81,10 +80,12 @@ import net.minecraft.entity.MovementType;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.item.ItemStack;
 import net.minecraft.particle.BlockStateParticleEffect;
+import net.minecraft.particle.ItemStackParticleEffect;
 import net.minecraft.particle.ParticleTypes;
 import net.minecraft.sound.SoundCategory;
 import net.minecraft.text.Text;
 import net.minecraft.util.Hand;
+import net.minecraft.util.UseAction;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Vec3d;
 import net.minecraft.world.LightType;
@@ -127,6 +128,7 @@ public abstract class BaseFilmController
      * without this edge the same step tick would spam audio every client tick.
      */
     private final Map<String, Integer> lastStepSoundTicks = new HashMap<>();
+    private final Map<String, Integer> lastItemUseParticleTicks = new HashMap<>();
 
     /**
      * Last resolved physical actor entity id per replay. Used to one-shot snap
@@ -445,7 +447,7 @@ public abstract class BaseFilmController
         if (drawBody && !relative && context.map == null && opacity > 0F
             && (context.shadowRadiusX > 0F || context.shadowRadiusZ > 0F)
             && form.render.get() && form.visible.get()
-            && !context.isShadowPass && !IrisUtils.isShaderPackEnabled())
+            && !context.isShadowPass && !BBSRendering.isIrisShadersEnabled())
         {
             float shadowOpacity = MathUtils.clamp(opacity * context.shadowOpacity, 0F, 1F);
 
@@ -1186,6 +1188,7 @@ public abstract class BaseFilmController
         this.entities.clear();
         this.replayMap.clear();
         this.lastStepSoundTicks.clear();
+        this.lastItemUseParticleTicks.clear();
         this.lastSeenActorEntityIds.clear();
 
         if (this.film == null)
@@ -1288,7 +1291,8 @@ public abstract class BaseFilmController
     /**
      * Actor-mode replays must not fall back to the stub for picking/highlight after
      * combat death — that left a standing invisible ghost (yellow form / blue limbs).
-     * Also blocks picking for the whole death animation once {@code deathTime} starts.
+     * Also blocks picking for the whole death animation once {@code deathTime} starts,
+     * including keyframed {@code death_time} (scrubbed death without combat HP).
      */
     public boolean isActorPickingBlocked(Replay replay)
     {
@@ -1318,7 +1322,24 @@ public abstract class BaseFilmController
             return true;
         }
 
-        return living.isDead() || living.getHealth() <= 0F || living.deathTime > 0;
+        if (living.isDead() || living.getHealth() <= 0F || living.deathTime > 0)
+        {
+            return true;
+        }
+
+        /* Keyframed death tip without combat death — same gizmo/pick block so FormDeathTilt
+         * cannot detach the bone gizmo while the actor is still "alive" on HP. */
+        if (replay.keyframes != null && !replay.keyframes.deathTime.isEmpty())
+        {
+            float propertyTick = replay.getTick(this.getTick());
+
+            if (replay.keyframes.deathTime.interpolate(propertyTick).floatValue() > 0F)
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     public boolean hasFinished()
@@ -1654,6 +1675,7 @@ public abstract class BaseFilmController
 
                     this.spawnReplayStepSound(replay, replayTick, world);
                     this.spawnSprintParticles(replay, replayTick, world, width);
+                    this.spawnReplayItemUseParticles(replay, replayTick, entity, null);
                 }
             }
         }
@@ -1765,6 +1787,31 @@ public abstract class BaseFilmController
                             }
 
                             player.fallDistance = replay.keyframes.fall.interpolate(replayTick).floatValue();
+
+                            if (replay.fp.get())
+                            {
+                                this.syncFirstPersonItemUse(player, entity);
+                                this.spawnReplayItemUseParticles(replay, replayTick, entity, player);
+                            }
+
+                            /* Vanilla hurt camera / overlay read the local player's hurtTime.
+                             * FP hides the stub body, so push keyframe (+ live) damage onto the
+                             * bound player or shake never appears in first-person playback. */
+                            int hurtTimer = entity.getHurtTimer();
+
+                            if (BBSSettings.shouldKeepActorLiveHurtTime())
+                            {
+                                player.hurtTime = Math.max(player.hurtTime, hurtTimer);
+                            }
+                            else
+                            {
+                                player.hurtTime = hurtTimer;
+                            }
+
+                            if (player.hurtTime > 0 && player.maxHurtTime < player.hurtTime)
+                            {
+                                player.maxHurtTime = Math.max(10, player.hurtTime);
+                            }
                         }
                     }
                 }
@@ -1797,6 +1844,19 @@ public abstract class BaseFilmController
         actor.equipStack(EquipmentSlot.CHEST, stub.getEquipmentStack(EquipmentSlot.CHEST));
         actor.equipStack(EquipmentSlot.LEGS, stub.getEquipmentStack(EquipmentSlot.LEGS));
         actor.equipStack(EquipmentSlot.FEET, stub.getEquipmentStack(EquipmentSlot.FEET));
+    }
+
+    /**
+     * Push replay item-use onto the bound player so vanilla first-person
+     * eating/drinking transforms can run while the replay stub body is hidden.
+     */
+    private void syncFirstPersonItemUse(PlayerEntity player, IEntity source)
+    {
+        Hand hand = source.getActiveHand();
+        EquipmentSlot slot = hand == Hand.OFF_HAND ? EquipmentSlot.OFFHAND : EquipmentSlot.MAINHAND;
+        ItemStack stack = source.getEquipmentStack(slot);
+
+        ItemUseRenderState.syncItemUse(player, source, hand, stack);
     }
 
     /**
@@ -1894,6 +1954,92 @@ public abstract class BaseFilmController
         double z = zPos + (world.random.nextDouble() - 0.5D) * width;
 
         world.addParticle(new BlockStateParticleEffect(ParticleTypes.BLOCK, world.getBlockState(pos)), x, y, z, 0D, 0.1D, 0D);
+    }
+
+    private void spawnReplayItemUseParticles(Replay replay, int ticks, IEntity source, Entity atEntity)
+    {
+        if (this.paused || replay == null || source == null || !source.isParticlesEnabled())
+        {
+            return;
+        }
+
+        if (!this.isReplayVisible(replay, ticks))
+        {
+            return;
+        }
+
+        Hand hand = source.getActiveHand();
+        EquipmentSlot slot = hand == Hand.OFF_HAND ? EquipmentSlot.OFFHAND : EquipmentSlot.MAINHAND;
+        ItemStack stack = source.getEquipmentStack(slot);
+
+        if (stack == null || stack.isEmpty())
+        {
+            return;
+        }
+
+        UseAction action = stack.getUseAction();
+
+        if (action != UseAction.EAT && action != UseAction.DRINK)
+        {
+            return;
+        }
+
+        LivingEntity living = atEntity instanceof LivingEntity entity ? entity : null;
+        int elapsed = ItemUseRenderState.getItemUseElapsed(source, living, stack);
+
+        if (elapsed <= 0 || elapsed % 4 != 0)
+        {
+            return;
+        }
+
+        String replayId = replay.getId();
+        Integer lastTick = this.lastItemUseParticleTicks.get(replayId);
+
+        if (lastTick != null && lastTick.intValue() == ticks)
+        {
+            return;
+        }
+
+        this.lastItemUseParticleTicks.put(replayId, ticks);
+
+        World world = atEntity != null ? atEntity.getWorld() : MinecraftClient.getInstance().world;
+
+        if (world == null)
+        {
+            return;
+        }
+
+        /* Match LivingEntity.spawnItemParticles: local-space offset + velocity,
+         * then rotate by pitch/yaw so crumbs fan out from the eating pose. */
+        float pitch = atEntity != null ? atEntity.getPitch() : source.getPitch();
+        float yaw = atEntity != null ? atEntity.getYaw() : source.getYaw();
+        double originX = atEntity != null ? atEntity.getX() : source.getX();
+        double originY = atEntity != null ? atEntity.getEyeY() : source.getY() + source.getEyeHeight();
+        double originZ = atEntity != null ? atEntity.getZ() : source.getZ();
+        ItemStackParticleEffect effect = new ItemStackParticleEffect(ParticleTypes.ITEM, stack.copy());
+
+        for (int i = 0; i < 5; i++)
+        {
+            Vec3d velocity = new Vec3d(
+                ((double) world.random.nextFloat() - 0.5D) * 0.1D,
+                world.random.nextDouble() * 0.1D + 0.1D,
+                0D
+            );
+            velocity = velocity.rotateX(-MathUtils.toRad(pitch));
+            velocity = velocity.rotateY(-MathUtils.toRad(yaw));
+
+            double localY = (double) (-world.random.nextFloat()) * 0.6D - 0.3D;
+            Vec3d pos = new Vec3d(
+                ((double) world.random.nextFloat() - 0.5D) * 0.3D,
+                localY,
+                0.6D
+            );
+            pos = pos.rotateX(-MathUtils.toRad(pitch));
+            pos = pos.rotateY(-MathUtils.toRad(yaw));
+            pos = pos.add(originX, originY, originZ);
+
+            world.addParticle(effect, pos.x, pos.y, pos.z, velocity.x, velocity.y + 0.05D, velocity.z);
+        }
     }
 
     /**
