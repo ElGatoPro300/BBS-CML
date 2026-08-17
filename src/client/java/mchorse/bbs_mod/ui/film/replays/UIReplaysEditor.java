@@ -4786,6 +4786,10 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
 
         if (context.mouseButton == 0 && this.gizmoController.tryStartHandleDrag(context, editableTransform))
         {
+            /* Gizmo drag advances from UIPropTransform.render(); show the linked
+             * Properties tab so that widget is mounted/visible while dragging. */
+            this.filmPanel.focusLinkedPropertiesTab("replayTimeline");
+
             return true;
         }
 
