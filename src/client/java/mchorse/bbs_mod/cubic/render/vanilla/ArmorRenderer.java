@@ -235,7 +235,7 @@ public class ArmorRenderer
     {
         Identifier patternId = trim.pattern().value().assetId();
         String materialName = trim.material().value().assetName();
-        String suffix = leggings ? "_leggings" : "";
+        String layer = leggings ? "humanoid_leggings" : "humanoid";
 
         if (armorAssetKey != null)
         {
@@ -246,7 +246,7 @@ public class ArmorRenderer
             }
         }
 
-        return Identifier.of(patternId.getNamespace(), "trims/models/armor/" + patternId.getPath() + "_" + materialName + suffix);
+        return Identifier.of(patternId.getNamespace(), "trims/entity/" + layer + "/" + patternId.getPath() + "_" + materialName);
     }
 
     private void renderGlint(ModelPart part, MatrixStack matrices, VertexConsumerProvider vertexConsumers, int light)
