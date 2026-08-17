@@ -61,7 +61,6 @@
         "TitleScreenMixin",
         "SelectWorldScreenMixin",
         "ModelPartMixin",
-        "MatrixStackMixin",
         "YggdrasilServicesKeyInfoMixin"
     ],
     "injectors": {
