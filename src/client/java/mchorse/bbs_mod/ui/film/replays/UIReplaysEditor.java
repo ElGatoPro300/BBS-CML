@@ -2091,13 +2091,82 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
 
     public void updateChannelsList()
     {
+        this.updateChannelsList(false);
+    }
+
+    /**
+     * @param preserveKeyframeSelection when true, restore sheet / keyframe / limb after
+     *                                  rebuild (Actor toggle). Other rebuilds keep the
+     *                                  previous clear-selection behavior.
+     */
+    public void updateChannelsList(boolean preserveKeyframeSelection)
+    {
+        String keepActiveTab = null;
+
+        if (preserveKeyframeSelection && this.filmPanel != null)
+        {
+            keepActiveTab = this.captureActiveTabForChannelsRebuild();
+            this.filmPanel.beginSuppressLinkedPropertiesTabFocus();
+        }
+
+        try
+        {
+            this.rebuildChannelsList(preserveKeyframeSelection);
+        }
+        finally
+        {
+            if (preserveKeyframeSelection && this.filmPanel != null)
+            {
+                this.filmPanel.endSuppressLinkedPropertiesTabFocus();
+
+                if (keepActiveTab != null)
+                {
+                    this.filmPanel.focusPanelTab(keepActiveTab);
+                }
+            }
+        }
+    }
+
+    /**
+     * Prefer the tab group shared by Properties / Replays / General so Actor toggle
+     * cannot leave the user on Propiedades generales after a keyframe remount.
+     */
+    private String captureActiveTabForChannelsRebuild()
+    {
+        String propertiesId = this.filmPanel.shouldRedirectProperties() ? "unifiedEditArea" : "editArea";
+        String active = this.filmPanel.getActiveTabPanelId(propertiesId);
+
+        if (active != null)
+        {
+            return active;
+        }
+
+        active = this.filmPanel.getActiveTabPanelId("replaysPanel");
+
+        if (active != null)
+        {
+            return active;
+        }
+
+        return this.filmPanel.getActiveTabPanelId("replaysPropertiesPanel");
+    }
+
+    private void rebuildChannelsList(boolean preserveKeyframeSelection)
+    {
         UIKeyframes lastEditor = null;
         TimelineInteractionSnapshot interactionSnapshot = null;
+        KeyframeEditorSelectionSnapshot selectionSnapshot = null;
 
         if (this.keyframeEditor != null)
         {
             lastEditor = this.keyframeEditor.view;
             interactionSnapshot = TimelineInteractionSnapshot.capture(lastEditor);
+
+            if (preserveKeyframeSelection)
+            {
+                selectionSnapshot = KeyframeEditorSelectionSnapshot.capture(this.keyframeEditor);
+            }
+
             this.keyframeEditor.removeFromParent();
         }
 
@@ -2939,9 +3008,14 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
 
         if (!sheets.isEmpty())
         {
-            /* Rebuilding the editor drops selection; remove untouched provisional
-             * limb keyframes first or they become permanent after collapse/reopen. */
-            this.cleanupUntouchedAutomaticKeyframe(this.lastPickedKeyframe, null);
+            /* Rebuilding drops UI selection. Untouched provisional (ghost) keyframes are
+             * normally removed here so they do not become permanent after collapse/reopen.
+             * Actor toggle preserves selection — keep the ghost so restore can re-select it. */
+            if (!preserveKeyframeSelection)
+            {
+                this.cleanupUntouchedAutomaticKeyframe(this.lastPickedKeyframe, null);
+            }
+
             this.lastPickedKeyframe = null;
             this.keyframeEditor = new UIKeyframeEditor((consumer) ->
             {
@@ -3049,6 +3123,11 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
             {
                 interactionSnapshot.restore(this.keyframeEditor.view);
             }
+
+            if (selectionSnapshot != null && !selectionSnapshot.isEmpty())
+            {
+                this.restoreKeyframeSelection(selectionSnapshot);
+            }
         }
 
         this.resize();
@@ -3061,6 +3140,65 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
         if (this.keyframeEditor != null && lastEditor == null)
         {
             this.keyframeEditor.view.resetView();
+        }
+    }
+
+    /**
+     * Re-select sheet / keyframe / limb after {@link #updateChannelsList(boolean)}.
+     * Prefers the same keyframe instance when it survived provisional cleanup.
+     */
+    private void restoreKeyframeSelection(KeyframeEditorSelectionSnapshot snapshot)
+    {
+        if (this.keyframeEditor == null || snapshot == null || snapshot.isEmpty())
+        {
+            return;
+        }
+
+        IUIKeyframeGraph graph = this.keyframeEditor.view.getGraph();
+        UIKeyframeSheet sheet = graph.getSheet(snapshot.getSheetId());
+
+        if (sheet == null)
+        {
+            return;
+        }
+
+        String bone = snapshot.getBone();
+        Keyframe keyframe = snapshot.findKeyframe(sheet);
+
+        if (keyframe != null)
+        {
+            graph.selectKeyframe(keyframe);
+            this.applyRestoredBoneSelection(bone);
+
+            return;
+        }
+
+        /* Untouched provisional limb keyframes are removed during rebuild — re-pick
+         * the limb on the same sheet without inserting a permanent keyframe. */
+        if (bone != null && !bone.isEmpty())
+        {
+            this.pickProperty(bone, sheet, false);
+        }
+    }
+
+    private void applyRestoredBoneSelection(String bone)
+    {
+        if (bone == null || bone.isEmpty() || this.keyframeEditor == null)
+        {
+            return;
+        }
+
+        if (this.keyframeEditor.editor instanceof UIPoseKeyframeFactory poseFactory)
+        {
+            poseFactory.poseEditor.selectBone(bone);
+        }
+        else if (this.keyframeEditor.editor instanceof UILookAtKeyframeFactory lookAtFactory)
+        {
+            lookAtFactory.lookAtEditor.selectBone(bone);
+        }
+        else if (this.keyframeEditor.editor instanceof UIInverseKinematicsKeyframeFactory ikFactory)
+        {
+            ikFactory.ikEditor.selectBone(bone);
         }
     }
 
