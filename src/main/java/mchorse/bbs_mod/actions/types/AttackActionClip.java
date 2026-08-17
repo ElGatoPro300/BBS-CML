@@ -12,6 +12,7 @@ import mchorse.bbs_mod.utils.clips.Clip;
 
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.LivingEntity;
+import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.entity.projectile.ProjectileUtil;
 import net.minecraft.item.ItemStack;
 import net.minecraft.util.Hand;
@@ -89,7 +90,12 @@ public class AttackActionClip extends ActionClip
             return;
         }
 
-        AttackDamage.applyHit(damageSource, hit, this.damage.get());
+        /* A first-person replay is bound to the real player. When an ActorEntity hits
+         * that player, route damage through the same fake-player source as stub replays
+         * so player damage rules match both playback paths. */
+        LivingEntity damageApplier = hit instanceof PlayerEntity ? player : damageSource;
+
+        AttackDamage.applyHit(damageApplier, hit, this.damage.get());
     }
 
     private Entity resolveTarget(Film film, LivingEntity damageSource, SuperFakePlayer player, float lookYaw, float lookPitch)

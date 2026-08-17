@@ -1052,19 +1052,24 @@ public class StructurePickerClient
         StructurePickerClient.renderHudLine(batcher, screenW, screenH, lineIndex, text);
     }
 
+    private static double getPlayerReach(MinecraftClient mc)
+    {
+        return mc.interactionManager != null ? mc.interactionManager.getReachDistance() : 4.5D;
+    }
+
     private static double getPickerReach(MinecraftClient mc)
     {
         if (StructurePickerClient.clickOnAir)
         {
-            return mc.interactionManager.getReachDistance();
+            return getPlayerReach(mc);
         }
 
-        return Math.max(mc.interactionManager.getReachDistance() * REACH_MULTIPLIER, MIN_PICKER_REACH);
+        return Math.max(getPlayerReach(mc) * REACH_MULTIPLIER, MIN_PICKER_REACH);
     }
 
     private static double getAirClickReach(MinecraftClient mc)
     {
-        return mc.interactionManager.getReachDistance();
+        return getPlayerReach(mc);
     }
 
     private static BlockPos resolveTargetBlock(MinecraftClient mc)

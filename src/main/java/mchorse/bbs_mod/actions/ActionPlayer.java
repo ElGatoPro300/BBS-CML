@@ -142,19 +142,15 @@ public class ActionPlayer
         for (int i = 0; i < list.size(); i++)
         {
             Replay replay = list.get(i);
-            boolean isActor = replay.actor.get() || replay.fp.get();
 
-            if (i == this.exception || !isActor || !replay.enabled.get())
+            if (i == this.exception || !this.shouldTrackActor(replay) || !replay.enabled.get())
             {
                 continue;
             }
 
-            if (replay.fp.get() && this.serverPlayer != null)
+            if (this.shouldUseServerPlayer(replay))
             {
-                if (this.type == PlayerType.NORMAL)
-                {
-                    this.actors.put(replay.getId(), this.serverPlayer);
-                }
+                this.actors.put(replay.getId(), this.serverPlayer);
             }
             else
             {
@@ -186,6 +182,21 @@ public class ActionPlayer
         return actor;
     }
 
+    private boolean shouldUseServerPlayer(Replay replay)
+    {
+        return replay.fp.get() && this.serverPlayer != null && this.type == PlayerType.NORMAL;
+    }
+
+    private boolean shouldTrackActor(Replay replay)
+    {
+        return replay.actor.get() || this.shouldUseServerPlayer(replay);
+    }
+
+    private boolean shouldSpawnActorEntity(Replay replay)
+    {
+        return replay.actor.get() && !this.shouldUseServerPlayer(replay);
+    }
+
     private void broadcastActors()
     {
         for (ServerPlayerEntity player : this.world.getPlayers())
@@ -206,9 +217,8 @@ public class ActionPlayer
         for (int i = 0; i < list.size(); i++)
         {
             Replay replay = list.get(i);
-            boolean isActor = replay.actor.get() || replay.fp.get();
 
-            if (i == this.exception || !isActor || !replay.enabled.get() || replay.fp.get())
+            if (i == this.exception || !this.shouldTrackActor(replay) || !replay.enabled.get())
             {
                 continue;
             }
@@ -222,7 +232,9 @@ public class ActionPlayer
 
             if (existing == null || existing.isRemoved())
             {
-                this.actors.put(replay.getId(), this.spawnActor(replay));
+                LivingEntity actor = this.shouldUseServerPlayer(replay) ? this.serverPlayer : this.spawnActor(replay);
+
+                this.actors.put(replay.getId(), actor);
                 changed = true;
             }
         }
@@ -701,7 +713,7 @@ public class ActionPlayer
 
                 if (actor == null || actor.isRemoved())
                 {
-                    if (!replay.actor.get() || replay.fp.get() || this.combatFinishedIds.contains(replay.getId()))
+                    if (!this.shouldSpawnActorEntity(replay) || this.combatFinishedIds.contains(replay.getId()))
                     {
                         if (actor != null && actor.isRemoved())
                         {
@@ -816,27 +828,7 @@ public class ActionPlayer
 
         /* 1) Silent HP from all Attack/Damage clips in [0..tick] — preserves
          * damage taken before the scrub window (fixes “final hit doesn’t kill”). */
-        Map<String, Float> health = this.computeSilentHealth(tick);
-
-        /* Default: rebuild finished-death set from timeline HP so scrubbing before
-         * a kill revives actors. Off = legacy: once dead this session, stay gone
-         * until Alt+R / updateReplayEntities clears the set. */
-        if (this.isReplayDeathTimelineSyncEnabled())
-        {
-            this.combatFinishedIds.clear();
-        }
-
-        for (Map.Entry<String, Float> entry : health.entrySet())
-        {
-            if (entry.getValue() <= 0F)
-            {
-                this.combatFinishedIds.add(entry.getKey());
-            }
-        }
-
-        this.discardFinishedActors();
-        this.ensureMissingActors();
-        this.applySilentHealthToActors(health);
+        this.syncCombatState(tick);
 
         /* 2) Same delta walk as before for world clips (item drops, etc.).
          * Combat clips are skipped here to avoid hit spam; HP already matches tick. */
@@ -858,6 +850,33 @@ public class ActionPlayer
         this.reapplyActors();
     }
 
+    public void syncCombatState(int tick)
+    {
+        tick = Math.max(0, tick);
+
+        Map<String, Float> health = this.computeSilentHealth(tick);
+
+        /* Default: rebuild finished-death set from timeline HP so scrubbing before
+         * a kill revives actors. Off = legacy: once dead this session, stay gone
+         * until Alt+R / updateReplayEntities clears the set. */
+        if (this.isReplayDeathTimelineSyncEnabled())
+        {
+            this.combatFinishedIds.clear();
+        }
+
+        for (Map.Entry<String, Float> entry : health.entrySet())
+        {
+            if (entry.getValue() <= 0F)
+            {
+                this.combatFinishedIds.add(entry.getKey());
+            }
+        }
+
+        this.discardFinishedActors();
+        this.ensureMissingActors();
+        this.applySilentHealthToActors(health);
+    }
+
     private boolean isReplayDeathTimelineSyncEnabled()
     {
         return BBSSettings.replayDeathTimelineSync == null || BBSSettings.replayDeathTimelineSync.get();
@@ -875,7 +894,7 @@ public class ActionPlayer
         {
             Replay replay = list.get(i);
 
-            if (i == this.exception || !this.isCombatTrackedReplay(replay))
+            if (i == this.exception || i == this.controlledReplay || !this.isCombatTrackedReplay(replay))
             {
                 continue;
             }
@@ -892,7 +911,7 @@ public class ActionPlayer
         {
             for (int i = 0; i < list.size(); i++)
             {
-                if (i == this.exception)
+                if (i == this.exception || i == this.controlledReplay)
                 {
                     continue;
                 }

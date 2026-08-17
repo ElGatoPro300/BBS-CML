@@ -33,7 +33,7 @@ public class LambDynLightsIntegration implements DynamicLightsInitializer
         });
     }
 
-    private int getLightLevelFromForm(Form form)
+    private static int getLightLevelFromForm(Form form)
     {
         if (!(form instanceof LightForm lightForm))
         {

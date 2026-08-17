@@ -1183,7 +1183,6 @@ public class ActorEntity extends LivingEntity implements IEntityFormProvider
         if (nbt.contains("Equipment", 10))
         {
             NbtCompound equipmentNbt = nbt.getCompound("Equipment");
-            RegistryWrapper.WrapperLookup registries = this.getWorld() != null ? this.getWorld().getRegistryManager() : BBSMod.getRegistryManager();
 
             for (EquipmentSlot slot : EquipmentSlot.values())
             {
@@ -1206,21 +1205,15 @@ public class ActorEntity extends LivingEntity implements IEntityFormProvider
         nbt.putBoolean("despawn", true);
 
         NbtCompound equipmentNbt = new NbtCompound();
-        RegistryWrapper.WrapperLookup registries = this.getWorld() != null ? this.getWorld().getRegistryManager() : BBSMod.getRegistryManager();
 
         for (Map.Entry<EquipmentSlot, ItemStack> entry : this.equipment.entrySet())
         {
             if (!entry.getValue().isEmpty())
             {
                 ItemStack stack = entry.getValue();
-                NbtElement itemNbt = registries != null
-                    ? ItemStack.CODEC.encodeStart(RegistryOps.of(NbtOps.INSTANCE, registries), stack).result().orElse(null)
-                    : ItemStack.CODEC.encodeStart(NbtOps.INSTANCE, stack).result().orElse(null);
-
-                if (itemNbt instanceof NbtCompound compound)
-                {
-                    equipmentNbt.put(entry.getKey().getName(), compound);
-                }
+                NbtCompound itemNbt = new NbtCompound();
+                stack.writeNbt(itemNbt);
+                equipmentNbt.put(entry.getKey().getName(), itemNbt);
             }
         }
 

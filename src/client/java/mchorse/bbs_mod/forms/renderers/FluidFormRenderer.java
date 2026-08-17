@@ -17,6 +17,7 @@ import mchorse.bbs_mod.ui.dashboard.UIDashboard;
 import mchorse.bbs_mod.ui.film.UIFilmPanel;
 import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.utils.MatrixStackUtils;
+import mchorse.bbs_mod.utils.Pair;
 import mchorse.bbs_mod.utils.colors.Color;
 import mchorse.bbs_mod.utils.colors.Colors;
 import mchorse.bbs_mod.utils.joml.Vectors;
@@ -25,6 +26,7 @@ import mchorse.bbs_mod.utils.pose.Transform;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gl.ShaderProgram;
 import net.minecraft.client.render.*;
+import net.minecraft.client.render.DiffuseLighting;
 import net.minecraft.client.util.math.MatrixStack;
 
 import org.joml.Matrix3f;
@@ -122,6 +124,18 @@ public class FluidFormRenderer extends FormRenderer<FluidForm> implements ITicka
             Matrix4f matrix = stack.peek().getPositionMatrix();
             Matrix3f normal = stack.peek().getNormalMatrix();
             
+            float nx1 = normal.m20();
+            float ny1 = normal.m21();
+            float nz1 = normal.m22();
+
+            float nx2 = normal.m10();
+            float ny2 = normal.m11();
+            float nz2 = normal.m12();
+
+            float nx3 = normal.m00();
+            float ny3 = normal.m01();
+            float nz3 = normal.m02();
+            
             for (int i = 0; i < segments; i++)
             {
                 float a1 = (float) (i * Math.PI * 2 / segments);
@@ -133,16 +147,16 @@ public class FluidFormRenderer extends FormRenderer<FluidForm> implements ITicka
                 float s2 = (float) Math.sin(a2) * r;
                 
                 /* XY circle */
-                builder.vertex(matrix, c1, s1, 0).color(1f, 0f, 0f, 1f).normal(normal, 0, 0, 1).next();
-                builder.vertex(matrix, c2, s2, 0).color(1f, 0f, 0f, 1f).normal(normal, 0, 0, 1).next();
+                builder.vertex(matrix, c1, s1, 0).color(1f, 0f, 0f, 1f).normal(nx1, ny1, nz1).next();
+                builder.vertex(matrix, c2, s2, 0).color(1f, 0f, 0f, 1f).normal(nx1, ny1, nz1).next();
                 
                 /* XZ circle */
-                builder.vertex(matrix, c1, 0, s1).color(1f, 0f, 0f, 1f).normal(normal, 0, 1, 0).next();
-                builder.vertex(matrix, c2, 0, s2).color(1f, 0f, 0f, 1f).normal(normal, 0, 1, 0).next();
+                builder.vertex(matrix, c1, 0, s1).color(1f, 0f, 0f, 1f).normal(nx2, ny2, nz2).next();
+                builder.vertex(matrix, c2, 0, s2).color(1f, 0f, 0f, 1f).normal(nx2, ny2, nz2).next();
                 
                 /* YZ circle */
-                builder.vertex(matrix, 0, c1, s1).color(1f, 0f, 0f, 1f).normal(normal, 1, 0, 0).next();
-                builder.vertex(matrix, 0, c2, s2).color(1f, 0f, 0f, 1f).normal(normal, 1, 0, 0).next();
+                builder.vertex(matrix, 0, c1, s1).color(1f, 0f, 0f, 1f).normal(nx3, ny3, nz3).next();
+                builder.vertex(matrix, 0, c2, s2).color(1f, 0f, 0f, 1f).normal(nx3, ny3, nz3).next();
             }
             
             stack.pop();
@@ -694,12 +708,15 @@ public class FluidFormRenderer extends FormRenderer<FluidForm> implements ITicka
 
     private void addVertex(BufferBuilder builder, Matrix4f matrix, Matrix3f normal, float x, float y, float z, float u, float v, Color color, int overlay, int light, Vector3f n)
     {
+         Vector3f tn = new Vector3f(n);
+         tn.mul(normal);
+
          builder.vertex(matrix, x, y, z)
                .color((int) (color.r * 255), (int) (color.g * 255), (int) (color.b * 255), (int) (color.a * 255))
                .texture(u, v)
                .overlay(overlay)
                .light(light)
-               .normal(normal, n.x, n.y, n.z)
+               .normal(tn.x, tn.y, tn.z)
                .next();
     }
     
@@ -746,7 +763,7 @@ public class FluidFormRenderer extends FormRenderer<FluidForm> implements ITicka
 
         if (owner != null)
         {
-            var total = BaseFilmController.getTotalMatrix(owner.getEntities(), this.form.anchor.get(), defaultMatrix, 0, 0, 0, transition, 0);
+            Pair<Matrix4f, Float> total = BaseFilmController.getTotalMatrix(owner.getEntities(), this.form.anchor.get(), defaultMatrix, 0, 0, 0, transition, 0);
 
             if (total != null && total.a != null)
             {
@@ -755,7 +772,7 @@ public class FluidFormRenderer extends FormRenderer<FluidForm> implements ITicka
         }
 
         Matrix4f formMatrix = null;
-        var renderer = FormUtilsClient.getRenderer(this.form);
+        FormRenderer renderer = FormUtilsClient.getRenderer(this.form);
 
         if (renderer != null)
         {

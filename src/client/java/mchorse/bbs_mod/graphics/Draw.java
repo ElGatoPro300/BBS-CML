@@ -10,7 +10,10 @@ import mchorse.bbs_mod.utils.MatrixStackUtils;
 import net.minecraft.client.render.BufferBuilder;
 import net.minecraft.client.render.BufferRenderer;
 import net.minecraft.client.render.GameRenderer;
+import net.minecraft.client.render.RenderLayer;
+import net.minecraft.client.render.RenderLayers;
 import net.minecraft.client.render.Tessellator;
+import net.minecraft.client.render.VertexConsumer;
 import net.minecraft.client.render.VertexFormat;
 import net.minecraft.client.render.VertexFormats;
 import net.minecraft.client.util.math.MatrixStack;
@@ -66,9 +69,8 @@ public class Draw
         float t = 1 / 96F + (float) (Math.sqrt(w * w + h + h + d + d) / 2000);
 
         BufferBuilder builder = Tessellator.getInstance().getBuffer();
-        RenderSystem.setShader(GameRenderer::getPositionColorProgram);
-
         builder.begin(VertexFormat.DrawMode.TRIANGLES, VertexFormats.POSITION_COLOR);
+        RenderSystem.setShader(GameRenderer::getPositionColorProgram);
 
         /* Pillars: fillBox(builder, -t, -t, -t, t, t, t, r, g, b, a); */
         fillBox(builder, stack, -t, -t, -t, t, t + fh, t, r, g, b, a);
@@ -121,10 +123,8 @@ public class Draw
     }
 
     /**
-     * Bake a camera-relative model matrix for the Iris LAST flush. Prefer the stack alone
-     * when it already includes the view; otherwise compose with {@link BBSRendering#camera}.
-     * Never multiply {@code RenderSystem.getModelViewMatrix()} — that was double-applying
-     * the camera and parking boxes in the sky. Mirrors {@code Gizmo.composeVisualMatrix}.
+     * Bake a camera-relative model matrix for the Iris LAST flush. Uses the stack's position matrix
+     * directly which already contains the camera view transformation.
      */
     private static Matrix4f bakeIrisBoxMatrix(MatrixStack stack, double x, double y, double z)
     {
@@ -132,26 +132,7 @@ public class Draw
 
         baked.translate((float) x, (float) y, (float) z);
 
-        Matrix4f composed = new Matrix4f(BBSRendering.camera).mul(baked);
-        float bakedDist = viewOriginLengthSq(baked);
-        float composedDist = viewOriginLengthSq(composed);
-
-        /* Double-applied view: composed collapses toward the view origin. */
-        if (bakedDist > 1.0E-6F && composedDist < bakedDist * 0.49F)
-        {
-            return baked;
-        }
-
-        return composed;
-    }
-
-    private static float viewOriginLengthSq(Matrix4f view)
-    {
-        float ox = view.m30();
-        float oy = view.m31();
-        float oz = view.m32();
-
-        return ox * ox + oy * oy + oz * oz;
+        return baked;
     }
 
     private static void enqueueIrisBox(MatrixStack stack, double x, double y, double z, double w, double h, double d, float r, float g, float b)
@@ -332,6 +313,12 @@ public class Draw
 
     public static void fillBoxTo(BufferBuilder builder, MatrixStack stack, float x1, float y1, float z1, float x2, float y2, float z2, float thickness, float r, float g, float b, float a)
     {
+        if (stack == null)
+        {
+            stack = new MatrixStack();
+            MatrixStackUtils.multiply(stack, RenderSystem.getModelViewMatrix());
+        }
+
         float dx = x2 - x1;
         float dy = y2 - y1;
         float dz = z2 - z1;
@@ -379,7 +366,6 @@ public class Draw
         outlineOffset *= scale;
 
         BufferBuilder builder = Tessellator.getInstance().getBuffer();
-
         builder.begin(VertexFormat.DrawMode.TRIANGLES, VertexFormats.POSITION_COLOR);
 
         fillBox(builder, stack, 0, -outlineOffset, -outlineOffset, outlineSize, outlineOffset, outlineOffset, 0, 0, 0);

@@ -25,7 +25,8 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 public class ShadowMatricesMixin
 {
     @Inject(method = "createBaselineModelViewMatrix", at = @At("RETURN"), require = 0)
-    private static void bbs$yawShadowBaseline(MatrixStack target, float shadowAngle, float sunPathRotation, CallbackInfo ci)
+    private static void bbs$yawShadowBaseline(MatrixStack target, float shadowAngle, float sunPathRotation,
+        CallbackInfo ci)
     {
         float degrees = SunPathRotation.getLightYawDegrees();
 
