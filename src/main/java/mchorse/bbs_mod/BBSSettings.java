@@ -797,7 +797,7 @@ public class BBSSettings
         editorActorPausedSwipeLoop = builder.getBoolean("actor_paused_swipe_loop", false);
         editorActorPauseAnimations = builder.getBoolean("actor_pause_animations", false);
         editorActorPausedRunInPlace = builder.getBoolean("actor_paused_run_in_place", false);
-        actorDamageFlash = builder.getBoolean("actor_damage_flash", false);
+        actorDamageFlash = builder.getBoolean("actor_damage_flash", true);
         actorDamageAnimation = builder.getBoolean("actor_damage_animation", true);
         replayDeathTimelineSync = builder.getBoolean("sync_death_timeline", true);
         replayMarkedBonesOnly = builder.getBoolean("replay_marked_bones_only", false);

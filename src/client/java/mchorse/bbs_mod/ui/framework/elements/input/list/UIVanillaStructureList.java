@@ -97,19 +97,18 @@ public class UIVanillaStructureList extends UIStringList
      */
     private void scanInternalResources(ResourceManager manager)
     {
-        Map<Identifier, List<Resource>> resources = manager.findAllResources("structures", (id) -> 
+        Map<Identifier, List<Resource>> resources = manager.findAllResources("structure", (id) -> 
             id.getNamespace().equals("minecraft") && id.getPath().endsWith(".nbt"));
 
         for (Map.Entry<Identifier, List<Resource>> entry : resources.entrySet())
         {
             Identifier id = entry.getKey();
-            String path = id.getPath(); // e.g., "structures/village/plains/house_1.nbt"
+            String path = id.getPath(); /* e.g., "structure/village/plains/house_1.nbt" */
             
-            // Remove "structures/" prefix and ".nbt" suffix for display
             String relativePath = path;
-            if (relativePath.startsWith("structures/"))
+            if (relativePath.startsWith("structure/"))
             {
-                relativePath = relativePath.substring("structures/".length());
+                relativePath = relativePath.substring("structure/".length());
             }
             
             // For Minecraft 1.20+, structure data is often in data/minecraft/structures

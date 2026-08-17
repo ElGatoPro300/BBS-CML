@@ -728,7 +728,16 @@ public class BBSModClient implements ClientModInitializer
 
                     RenderSystem.setShader(GameRenderer::getPositionColorProgram);
 
+                    MatrixStack mvStack = RenderSystem.getModelViewStack();
+                    mvStack.push();
+                    mvStack.loadIdentity();
+                    RenderSystem.applyModelViewMatrix();
+
                     BufferRenderer.drawWithGlobalProgram(builder.end());
+
+                    mvStack.pop();
+                    RenderSystem.applyModelViewMatrix();
+
                     RenderSystem.disableDepthTest();
 
                     stack.pop();

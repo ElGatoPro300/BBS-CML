@@ -98,10 +98,10 @@ public class UIColorPicker extends UIElement
     {
         Matrix4f matrix4f = batcher.getContext().getMatrices().peek().getPositionMatrix();
         BufferBuilder builder = Tessellator.getInstance().getBuffer();
+        builder.begin(VertexFormat.DrawMode.TRIANGLES, VertexFormats.POSITION_COLOR);
 
         RenderSystem.setShader(GameRenderer::getPositionColorProgram);
         RenderSystem.enableBlend();
-        builder.begin(VertexFormat.DrawMode.TRIANGLES, VertexFormats.POSITION_COLOR);
 
         builder.vertex(matrix4f, x1, y1, 0F).color(color.r, color.g, color.b, 1).next();
         builder.vertex(matrix4f, x1, y2, 0F).color(color.r, color.g, color.b, 1).next();

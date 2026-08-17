@@ -37,6 +37,7 @@ import net.minecraft.entity.EquipmentSlot;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.item.ItemStack;
+import net.minecraft.nbt.NbtCompound;
 import net.minecraft.network.PacketByteBuf;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.network.ServerPlayerEntity;
@@ -268,8 +269,14 @@ public class ServerNetwork
                 {
                     ItemStack stack = player.getEquippedStack(EquipmentSlot.MAINHAND).copy();
 
-                    if (stack.getItem() == BBSMod.MODEL_BLOCK_ITEM) stack.getNbt().getCompound("BlockEntityTag").put("Properties", DataStorageUtils.toNbt(data));
-                    else if (stack.getItem() == BBSMod.GUN_ITEM) stack.getOrCreateNbt().put("GunData", DataStorageUtils.toNbt(data));
+                    if (stack.getItem() == BBSMod.MODEL_BLOCK_ITEM)
+                    {
+                        stack.getOrCreateSubNbt("BlockEntityTag").put("Properties", DataStorageUtils.toNbt(data));
+                    }
+                    else if (stack.getItem() == BBSMod.GUN_ITEM)
+                    {
+                        stack.getOrCreateNbt().put("GunData", DataStorageUtils.toNbt(data));
+                    }
 
                     player.equipStack(EquipmentSlot.MAINHAND, stack);
                 });
@@ -814,12 +821,12 @@ public class ServerNetwork
 
     public static void sendHandshake(MinecraftServer server, PacketSender packetSender)
     {
-        packetSender.sendPacket(ServerNetwork.CLIENT_HANDSHAKE, createHandshakeBuf(server));
+        packetSender.sendPacket(CLIENT_HANDSHAKE, createHandshakeBuf(server));
     }
 
     public static void sendHandshake(MinecraftServer server, ServerPlayerEntity player)
     {
-        ServerPlayNetworking.send(player, ServerNetwork.CLIENT_HANDSHAKE, createHandshakeBuf(server));
+        ServerPlayNetworking.send(player, CLIENT_HANDSHAKE, createHandshakeBuf(server));
     }
 
     private static PacketByteBuf createHandshakeBuf(MinecraftServer server)

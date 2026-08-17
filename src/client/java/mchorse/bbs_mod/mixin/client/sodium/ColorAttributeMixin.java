@@ -14,7 +14,7 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.ModifyVariable;
 
 @Pseudo
-@Mixin(targets = "ColorAttribute")
+@Mixin(targets = "net.caffeinemc.mods.sodium.api.vertex.attributes.common.ColorAttribute")
 public class ColorAttributeMixin
 {
     @ModifyVariable(method = "set", at = @At("HEAD"), ordinal = 0, remap = false)

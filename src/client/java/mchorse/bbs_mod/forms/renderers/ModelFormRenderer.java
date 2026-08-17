@@ -81,7 +81,7 @@ import net.minecraft.item.BlockItem;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.Items;
-import net.minecraft.nbt.NbtElement;
+import net.minecraft.nbt.NbtCompound;
 import net.minecraft.nbt.NbtHelper;
 import net.minecraft.util.Arm;
 import net.minecraft.util.Hand;
@@ -548,7 +548,7 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
 
             Vector3f light0 = new Vector3f(0.85F, 0.85F, -1F).normalize();
             Vector3f light1 = new Vector3f(-0.85F, 0.85F, 1F).normalize();
-            RenderSystem.setupLevelDiffuseLighting(light0, light1, stack.peek().getPositionMatrix());
+            RenderSystem.setupGui3DDiffuseLighting(light0, light1);
 
             Supplier<ShaderProgram> mainShader = this.getModelShader(model);
 
@@ -565,6 +565,7 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
             stack.pop();
             stack.pop();
 
+            DiffuseLighting.disableGuiDepthLighting();
             RenderSystem.depthFunc(GL11.GL_ALWAYS);
             BBSRendering.restoreGuiRenderState();
         }
@@ -3369,9 +3370,17 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
         }
 
         GameProfile profile = null;
-        if (itemStack.hasNbt() && itemStack.getNbt().contains("SkullOwner", NbtElement.COMPOUND_TYPE))
+        if (itemStack.hasNbt())
         {
-            profile = NbtHelper.toGameProfile(itemStack.getNbt().getCompound("SkullOwner"));
+            NbtCompound nbt = itemStack.getNbt();
+            if (nbt.contains("SkullOwner", 8))
+            {
+                profile = new GameProfile(null, nbt.getString("SkullOwner"));
+            }
+            else if (nbt.contains("SkullOwner", 10))
+            {
+                profile = NbtHelper.toGameProfile(nbt.getCompound("SkullOwner"));
+            }
         }
         RenderLayer renderLayer = SkullBlockEntityRenderer.getRenderLayer(skullType, profile);
 

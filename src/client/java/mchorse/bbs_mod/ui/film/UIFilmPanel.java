@@ -6763,7 +6763,15 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
         if (!BBSRendering.isIrisShadowPass())
         {
             this.lastProjection.set(RenderSystem.getProjectionMatrix());
-            this.lastView.set(context.matrixStack().peek().getPositionMatrix());
+            MatrixStack ms = context.matrixStack();
+            if (ms != null)
+            {
+                this.lastView.set(ms.peek().getPositionMatrix());
+            }
+            else
+            {
+                this.lastView.set(RenderSystem.getModelViewMatrix());
+            }
         }
 
         this.controller.renderFrame(context);
@@ -7765,11 +7773,12 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
         float segW = editorW / (float) segments;
         
         Matrix4f matrix4f = context.batcher.getContext().getMatrices().peek().getPositionMatrix();
-        BufferBuilder builder = Tessellator.getInstance().getBuffer();
+        Tessellator tessellator = Tessellator.getInstance();
+        BufferBuilder builder = tessellator.getBuffer();
+        builder.begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_COLOR);
         
         RenderSystem.enableBlend();
         RenderSystem.setShader(GameRenderer::getPositionColorProgram);
-        builder.begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_COLOR);
         
         float[] yBot1 = new float[segments + 1];
         float[] yMid1 = new float[segments + 1];
@@ -7819,33 +7828,37 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
         
         int colTop = Colors.setA(primary, 0.0F);
         int colBot = Colors.setA(primary, 0.0F);
-        float yTop1f = editorY + editorH * 0.05F;
-        float yTop2f = editorY + editorH * 0.15F;
+        float yTop1 = editorY + editorH * 0.05F;
+        float yTop2 = editorY + editorH * 0.15F;
         
         for (int i = 0; i < segments; i++)
         {
             float x1 = editorX + i * segW;
             float x2 = editorX + (i + 1) * segW;
             
-            builder.vertex(matrix4f, x1, yTop1f, 0).color(colTop).next();
+            // Layer 1 - Upper Quad (yTop1 -> yMid1)
+            builder.vertex(matrix4f, x1, yTop1, 0).color(colTop).next();
             builder.vertex(matrix4f, x1, yMid1[i], 0).color(cMid1[i]).next();
-            builder.vertex(matrix4f, x2, yMid1[i + 1], 0).color(cMid1[i + 1]).next();
-            builder.vertex(matrix4f, x2, yTop1f, 0).color(colTop).next();
+            builder.vertex(matrix4f, x2, yMid1[i+1], 0).color(cMid1[i+1]).next();
+            builder.vertex(matrix4f, x2, yTop1, 0).color(colTop).next();
             
+            // Layer 1 - Lower Quad (yMid1 -> yBot1)
             builder.vertex(matrix4f, x1, yMid1[i], 0).color(cMid1[i]).next();
             builder.vertex(matrix4f, x1, yBot1[i], 0).color(colBot).next();
-            builder.vertex(matrix4f, x2, yBot1[i + 1], 0).color(colBot).next();
-            builder.vertex(matrix4f, x2, yMid1[i + 1], 0).color(cMid1[i + 1]).next();
+            builder.vertex(matrix4f, x2, yBot1[i+1], 0).color(colBot).next();
+            builder.vertex(matrix4f, x2, yMid1[i+1], 0).color(cMid1[i+1]).next();
             
-            builder.vertex(matrix4f, x1, yTop2f, 0).color(colTop).next();
+            // Layer 2 - Upper Quad (yTop2 -> yMid2)
+            builder.vertex(matrix4f, x1, yTop2, 0).color(colTop).next();
             builder.vertex(matrix4f, x1, yMid2[i], 0).color(cMid2[i]).next();
-            builder.vertex(matrix4f, x2, yMid2[i + 1], 0).color(cMid2[i + 1]).next();
-            builder.vertex(matrix4f, x2, yTop2f, 0).color(colTop).next();
+            builder.vertex(matrix4f, x2, yMid2[i+1], 0).color(cMid2[i+1]).next();
+            builder.vertex(matrix4f, x2, yTop2, 0).color(colTop).next();
             
+            // Layer 2 - Lower Quad (yMid2 -> yBot2)
             builder.vertex(matrix4f, x1, yMid2[i], 0).color(cMid2[i]).next();
             builder.vertex(matrix4f, x1, yBot2[i], 0).color(colBot).next();
-            builder.vertex(matrix4f, x2, yBot2[i + 1], 0).color(colBot).next();
-            builder.vertex(matrix4f, x2, yMid2[i + 1], 0).color(cMid2[i + 1]).next();
+            builder.vertex(matrix4f, x2, yBot2[i+1], 0).color(colBot).next();
+            builder.vertex(matrix4f, x2, yMid2[i+1], 0).color(cMid2[i+1]).next();
         }
         
         BufferRenderer.drawWithGlobalProgram(builder.end());

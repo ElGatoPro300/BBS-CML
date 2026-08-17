@@ -31,11 +31,11 @@ public class RecolorVertexSodiumConsumer extends RecolorVertexConsumer implement
     }
 
     @Override
-    public void push(MemoryStack memoryStack, long l, int i, VertexFormatDescription format)
+    public void push(MemoryStack memoryStack, long l, int i, VertexFormatDescription vertexFormat)
     {
         if (this.consumer instanceof VertexBufferWriter writer)
         {
-            writer.push(memoryStack, l, i, format);
+            writer.push(memoryStack, l, i, vertexFormat);
         }
     }
 }

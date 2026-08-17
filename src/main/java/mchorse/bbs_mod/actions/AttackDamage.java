@@ -85,17 +85,10 @@ public final class AttackDamage
             return scaleForAttacker(attacker, Math.max(0F, base));
         }
 
-        DamageSource source = serverWorld.getDamageSources().mobAttack(attacker);
+        EntityGroup group = target instanceof LivingEntity livingTarget ? livingTarget.getGroup() : EntityGroup.DEFAULT;
+        float bonus = EnchantmentHelper.getAttackDamage(stack, group);
 
-        if (attacker instanceof PlayerEntity player)
-        {
-            source = serverWorld.getDamageSources().playerAttack(player);
-        }
-
-        EntityGroup group = target instanceof LivingEntity living ? living.getGroup() : EntityGroup.DEFAULT;
-        float enchanted = base + EnchantmentHelper.getAttackDamage(stack, group);
-
-        return scaleForAttacker(attacker, Math.max(0F, Math.max(base, enchanted)));
+        return scaleForAttacker(attacker, Math.max(0F, base + bonus));
     }
 
     private static float scaleForAttacker(LivingEntity attacker, float damage)

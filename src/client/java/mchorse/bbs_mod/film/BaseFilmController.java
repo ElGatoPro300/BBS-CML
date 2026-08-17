@@ -449,12 +449,12 @@ public abstract class BaseFilmController
             }
         }
 
-        if (drawBody && !relative && !context.nameTag.isEmpty() && context.map == null)
+        if (drawBody && !relative && !context.nameTag.isEmpty())
         {
             stack.push();
             stack.translate(position.x - cx, position.y - cy, position.z - cz);
 
-            renderNameTag(entity, Text.literal(StringUtils.processColoredText(context.nameTag)), stack, context.consumers, light);
+            renderNameTag(entity, Text.literal(StringUtils.processColoredText(context.nameTag)), stack, context.consumers, LightmapTextureManager.MAX_LIGHT_COORDINATE);
 
             stack.pop();
         }
@@ -1111,7 +1111,7 @@ public abstract class BaseFilmController
         matrices.push();
         matrices.translate(0F, hitboxH, 0F);
         matrices.multiply(MinecraftClient.getInstance().getEntityRenderDispatcher().getRotation());
-        matrices.scale(-0.025F, -0.025F, 0.025F);
+        matrices.scale(0.025F, -0.025F, 0.025F);
 
         Matrix4f matrix4f = matrices.peek().getPositionMatrix();
         TextRenderer textRenderer = MinecraftClient.getInstance().textRenderer;
@@ -1271,7 +1271,8 @@ public abstract class BaseFilmController
     /**
      * Actor-mode replays must not fall back to the stub for picking/highlight after
      * combat death — that left a standing invisible ghost (yellow form / blue limbs).
-     * Also blocks picking for the whole death animation once {@code deathTime} starts.
+     * Also blocks picking for the whole death animation once {@code deathTime} starts,
+     * including keyframed {@code death_time} (scrubbed death without combat HP).
      */
     public boolean isActorPickingBlocked(Replay replay)
     {
@@ -1301,7 +1302,24 @@ public abstract class BaseFilmController
             return true;
         }
 
-        return living.isDead() || living.getHealth() <= 0F || living.deathTime > 0;
+        if (living.isDead() || living.getHealth() <= 0F || living.deathTime > 0)
+        {
+            return true;
+        }
+
+        /* Keyframed death tip without combat death — same gizmo/pick block so FormDeathTilt
+         * cannot detach the bone gizmo while the actor is still "alive" on HP. */
+        if (replay.keyframes != null && !replay.keyframes.deathTime.isEmpty())
+        {
+            float propertyTick = replay.getTick(this.getTick());
+
+            if (replay.keyframes.deathTime.interpolate(propertyTick).floatValue() > 0F)
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     public boolean hasFinished()
@@ -2644,8 +2662,7 @@ public abstract class BaseFilmController
             return;
         }
 
-        Object val = valueColor.getRuntimeValue();
-        Color runtime = val instanceof Color ? (Color) val : null;
+        Color runtime = valueColor.getRuntimeValue();
 
         if (runtime == null)
         {

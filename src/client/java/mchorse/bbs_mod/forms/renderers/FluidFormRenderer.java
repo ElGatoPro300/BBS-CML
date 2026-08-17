@@ -17,6 +17,7 @@ import mchorse.bbs_mod.ui.dashboard.UIDashboard;
 import mchorse.bbs_mod.ui.film.UIFilmPanel;
 import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.utils.MatrixStackUtils;
+import mchorse.bbs_mod.utils.Pair;
 import mchorse.bbs_mod.utils.colors.Color;
 import mchorse.bbs_mod.utils.colors.Colors;
 import mchorse.bbs_mod.utils.joml.Vectors;
@@ -25,6 +26,7 @@ import mchorse.bbs_mod.utils.pose.Transform;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gl.ShaderProgram;
 import net.minecraft.client.render.*;
+import net.minecraft.client.render.DiffuseLighting;
 import net.minecraft.client.util.math.MatrixStack;
 
 import org.joml.Matrix3f;
@@ -71,6 +73,10 @@ public class FluidFormRenderer extends FormRenderer<FluidForm> implements ITicka
         /* Shading fix for UI */
         MatrixStackUtils.invertUiNormalY(stack);
 
+        Vector3f light0 = new Vector3f(0.85F, 0.85F, -1F).normalize();
+        Vector3f light1 = new Vector3f(-0.85F, 0.85F, 1F).normalize();
+        RenderSystem.setupGui3DDiffuseLighting(light0, light1);
+
         VertexFormat format = VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL;
         
         this.renderFluid(format, GameRenderer::getRenderTypeEntityTranslucentProgram,
@@ -78,6 +84,8 @@ public class FluidFormRenderer extends FormRenderer<FluidForm> implements ITicka
             OverlayTexture.DEFAULT_UV, LightmapTextureManager.MAX_LIGHT_COORDINATE, Colors.WHITE,
             context.getTransition()
         );
+
+        DiffuseLighting.disableGuiDepthLighting();
 
         stack.pop();
     }
@@ -761,7 +769,7 @@ public class FluidFormRenderer extends FormRenderer<FluidForm> implements ITicka
 
         if (owner != null)
         {
-            var total = BaseFilmController.getTotalMatrix(owner.getEntities(), this.form.anchor.get(), defaultMatrix, 0, 0, 0, transition, 0);
+            Pair<Matrix4f, Float> total = BaseFilmController.getTotalMatrix(owner.getEntities(), this.form.anchor.get(), defaultMatrix, 0, 0, 0, transition, 0);
 
             if (total != null && total.a != null)
             {
@@ -770,7 +778,7 @@ public class FluidFormRenderer extends FormRenderer<FluidForm> implements ITicka
         }
 
         Matrix4f formMatrix = null;
-        var renderer = FormUtilsClient.getRenderer(this.form);
+        FormRenderer renderer = FormUtilsClient.getRenderer(this.form);
 
         if (renderer != null)
         {

@@ -358,7 +358,7 @@
     "bbs.config.replays.actor_paused_run_in_place": "Mantener run/walk de actores en el sitio al pausar",
     "bbs.config.replays.actor_paused_run_in_place-comment": "Solo aplica si \"Pausar animaciones de actores con la timeline\" está desactivado. Activado: los emoticon/BOBJ en modo actor siguen el run/walk en bucle según el keyframe del playhead. Desactivado (por defecto): se asientan como un jugador parado (idle, etc.)",
     "bbs.config.replays.actor_damage_flash": "Flash de daño en actores",
-    "bbs.config.replays.actor_damage_flash-comment": "Si está activo, los replays en modo actor parpadean en rojo al recibir golpes durante la reproducción (además de los keyframes de daño). Desactivado por defecto",
+    "bbs.config.replays.actor_damage_flash-comment": "Si está activo, los replays en modo actor parpadean en rojo al recibir golpes durante la reproducción (además de los keyframes de daño). Activado por defecto",
     "bbs.config.replays.actor_damage_animation": "Reproducir animación de daño en actores",
     "bbs.config.replays.actor_damage_animation-comment": "Si está activo (por defecto), al golpear un replay en modo actor durante la reproducción en el mundo se reproduce la reacción de daño (acción hurt en emoticon/BOBJ, boost del swing en forms de player). Desactívalo para mantener la pose de la película e ignorar la animación de daño por golpes en vivo",
     "bbs.config.replays.sync_death_timeline": "Sincronizar muertes con la línea de tiempo",
