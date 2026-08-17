@@ -464,6 +464,10 @@ public class Recorder extends WorldFilmController
         this.tick = tick;
         this.countdown = TimeUtils.toTick(BBSSettings.recordingCountdown.get());
         this.initialTick = tick;
+
+        /* WorldFilmController creates stubs in super() before this tick is set.
+         * Rebuild once so other replays start recording from the same playhead. */
+        this.createEntities();
     }
 
     public boolean hasNotStarted()

@@ -1881,6 +1881,8 @@ public class UIFilmController extends UIElement
         else if (!Gizmo.INSTANCE.isDragging())
         {
             this.panel.hasLastGizmoMatrix = false;
+            Gizmo.INSTANCE.clearVisual();
+            Gizmo.INSTANCE.setHoveredIndex(-1);
         }
 
         this.renderPickingPreview(context, area);
@@ -2217,7 +2219,19 @@ public class UIFilmController extends UIElement
 
     private boolean canShowGizmo()
     {
-        return UIBaseMenu.renderAxes && !this.recording && this.getBone() != null;
+        if (!UIBaseMenu.renderAxes || this.recording || this.getBone() == null)
+        {
+            return false;
+        }
+
+        /* Actor death (combat or keyframed death_time) stops matrix capture; keep the UI
+         * gizmo hidden too so FormDeathTilt cannot make a stale bone matrix fly on screen. */
+        Replay replay = this.getReplay();
+
+        return this.editorController == null
+            || replay == null
+            || !replay.actor.get()
+            || !this.editorController.isActorPickingBlocked(replay);
     }
 
     private void renderStencil(WorldRenderContext renderContext, UIContext context, boolean altPressed)

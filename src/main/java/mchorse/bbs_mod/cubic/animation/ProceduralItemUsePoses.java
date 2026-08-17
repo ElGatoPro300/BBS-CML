@@ -1,5 +1,6 @@
 package mchorse.bbs_mod.cubic.animation;
 
+import mchorse.bbs_mod.BBSSettings;
 import mchorse.bbs_mod.bobj.BOBJBone;
 import mchorse.bbs_mod.cubic.data.model.ModelGroup;
 import mchorse.bbs_mod.forms.entities.IEntity;
@@ -105,6 +106,11 @@ public final class ProceduralItemUsePoses
         }
         else if (action == UseAction.EAT || action == UseAction.DRINK)
         {
+            if (!BBSSettings.shouldAnimateEatingArm())
+            {
+                return false;
+            }
+
             applyConsume(target, activeArm(left, right, rightHand), active, rightHand, transition);
         }
         else
