@@ -393,7 +393,9 @@ public class BBSRendering
     /** Vanilla level diffuse basis shared by morphs and editor previews. */
     public static void setupWorldLevelDiffuseLighting()
     {
-        RenderSystem.setupLevelDiffuseLighting(WORLD_LEVEL_LIGHT_0, WORLD_LEVEL_LIGHT_1, RenderSystem.getModelViewMatrix());
+        Matrix4f matrix = isRenderingWorld() ? camera : RenderSystem.getModelViewMatrix();
+
+        RenderSystem.setupLevelDiffuseLighting(WORLD_LEVEL_LIGHT_0, WORLD_LEVEL_LIGHT_1, matrix);
     }
 
     /**
@@ -408,7 +410,9 @@ public class BBSRendering
 
         if (client != null && client.world != null && client.world.getDimensionEffects().isDarkened())
         {
-            DiffuseLighting.enableForLevel(new Matrix4f());
+            Matrix4f matrix = isRenderingWorld() ? camera : new Matrix4f();
+
+            DiffuseLighting.enableForLevel(matrix);
 
             return;
         }

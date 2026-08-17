@@ -590,6 +590,11 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
         RenderSystem.enableBlend();
         RenderSystem.defaultBlendFunc();
 
+        if (!ui && BBSRendering.isRenderingWorld())
+        {
+            BBSRendering.setupMatchingWorldDiffuseLighting();
+        }
+
         GameRenderer gameRenderer = MinecraftClient.getInstance().gameRenderer;
 
         gameRenderer.getLightmapTextureManager().enable();
