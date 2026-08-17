@@ -612,6 +612,14 @@ public class BBSRendering
             {
                 framebuffer.draw(fbW, fbH);
             }
+
+            /* Extra FBs / Iris must track the window target again or film actors
+             * composite in the wrong space (models float). onResized enables depth
+             * test and binds FBO 0, which would punch through film panel chrome. */
+            mc.worldRenderer.onResized(fbW, fbH);
+            target.beginWrite(false);
+            restoreGuiRenderState();
+            RenderSystem.disableDepthTest();
         }
     }
 
