@@ -42,7 +42,7 @@ public class LivingEntityMixin
         Entity attacker = source.getAttacker();
 
         /* Player melee → ActionRecorder on the player replay (existing path). */
-        if (source.isDirect() && attacker instanceof ServerPlayerEntity player)
+        if (!source.isIndirect() && attacker instanceof ServerPlayerEntity player)
         {
             float recorded = amount;
 
@@ -113,7 +113,7 @@ public class LivingEntityMixin
                 kind = ServerNetwork.MOB_COMBAT_KIND_DAMAGE;
             }
         }
-        else if (source.isDirect() && attacker instanceof LivingEntity && !(attacker instanceof PlayerEntity))
+        else if (!source.isIndirect() && attacker instanceof LivingEntity && !(attacker instanceof PlayerEntity))
         {
             kind = ServerNetwork.MOB_COMBAT_KIND_MELEE;
             sourceEntityId = attacker.getId();

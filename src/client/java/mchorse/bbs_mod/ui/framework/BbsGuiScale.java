@@ -4,6 +4,7 @@ import mchorse.bbs_mod.BBSSettings;
 
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.util.Window;
+import net.minecraft.client.util.math.MatrixStack;
 
 import org.joml.Matrix4f;
 import org.joml.Matrix4fStack;
@@ -122,10 +123,10 @@ public final class BbsGuiScale
             RenderSystem.setProjectionMatrix(new Matrix4f().ortho(0, sw, sh, 0, -1000, 3000), VertexSorter.BY_Z);
             /* GameRenderer's GUI pass leaves modelView at z=-11000; with ortho
              * -1000..3000 that clips every vertex. Identity matches HUD overlays. */
-            Matrix4fStack modelView = RenderSystem.getModelViewStack();
+            MatrixStack modelView = RenderSystem.getModelViewStack();
 
-            modelView.pushMatrix();
-            modelView.identity();
+            modelView.push();
+            modelView.loadIdentity();
             RenderSystem.applyModelViewMatrix();
 
             try
@@ -134,7 +135,7 @@ public final class BbsGuiScale
             }
             finally
             {
-                modelView.popMatrix();
+                modelView.pop();
                 RenderSystem.applyModelViewMatrix();
             }
         }

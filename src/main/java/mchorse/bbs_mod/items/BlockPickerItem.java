@@ -23,7 +23,7 @@ public class BlockPickerItem extends HoeItem
 {
     public BlockPickerItem(Settings settings)
     {
-        super(ToolMaterials.WOOD, settings);
+        super(ToolMaterials.WOOD, 0, -3.0F, settings);
     }
 
     @Override
@@ -102,7 +102,7 @@ public class BlockPickerItem extends HoeItem
 
         if (sourceEntity != null)
         {
-            NbtCompound nbt = sourceEntity.createNbtWithId(world.getRegistryManager());
+            NbtCompound nbt = sourceEntity.createNbtWithId();
 
             nbt.putInt("x", 0);
             nbt.putInt("y", 0);

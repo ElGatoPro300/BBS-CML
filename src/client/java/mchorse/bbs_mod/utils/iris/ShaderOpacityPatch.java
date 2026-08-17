@@ -6,7 +6,9 @@ import mchorse.bbs_mod.cubic.render.vao.ModelVAORenderer;
 import mchorse.bbs_mod.mixin.client.iris.IrisRenderingPipelineAccessor;
 
 import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.util.math.MatrixStack;
 
+import net.irisshaders.iris.Iris;
 import net.irisshaders.iris.gl.texture.DepthCopyStrategy;
 import net.irisshaders.iris.helpers.OptionalBoolean;
 import net.irisshaders.iris.pipeline.IrisRenderingPipeline;
@@ -134,7 +136,7 @@ public class ShaderOpacityPatch
 
         try
         {
-            String current = net.irisshaders.iris.Iris.getCurrentPackName();
+            String current = Iris.getCurrentPackName();
 
             return current == null ? "" : current;
         }
@@ -469,7 +471,7 @@ public class ShaderOpacityPatch
             BBSRendering.ensurePaintOverlayTargetFramebuffer();
 
             WorldRenderingPipeline pipeline =
-                net.irisshaders.iris.Iris.getPipelineManager().getPipelineNullable();
+                Iris.getPipelineManager().getPipelineNullable();
 
             if (!(pipeline instanceof IrisRenderingPipeline irisPipeline))
             {
@@ -495,15 +497,7 @@ public class ShaderOpacityPatch
                     .copy(null, opaqueDepth, null, liveDepth, width, height);
             }
 
-            if (bindIrisDefault)
-            {
-                access.bbs$bindDefault();
-            }
-            else
-            {
-                /* Depth copy may have switched FBOs — return to the visible target. */
-                BBSRendering.ensurePaintOverlayTargetFramebuffer();
-            }
+            BBSRendering.ensurePaintOverlayTargetFramebuffer();
         }
         catch (Throwable ignored)
         {
@@ -514,8 +508,8 @@ public class ShaderOpacityPatch
     private static void runEntry(PostDeferredEntry entry)
     {
         Matrix4f savedProjection = new Matrix4f(RenderSystem.getProjectionMatrix());
-        Matrix4fStack modelViewStack = RenderSystem.getModelViewStack();
-        Matrix4f savedModelView = new Matrix4f(modelViewStack);
+        MatrixStack modelViewStack = RenderSystem.getModelViewStack();
+        Matrix4f savedModelView = new Matrix4f(modelViewStack.peek().getPositionMatrix());
         boolean savedDepthMask = GL11.glGetBoolean(GL11.GL_DEPTH_WRITEMASK);
         boolean beganDeferredPass = false;
 
@@ -529,12 +523,12 @@ public class ShaderOpacityPatch
              * WorldRenderer's "Pose stack not empty" check with Iris/Sodium. */
             if (entry.irisCamera)
             {
-                modelViewStack.set(entry.modelView);
+                modelViewStack.peek().getPositionMatrix().set(entry.modelView);
                 RenderSystem.applyModelViewMatrix();
             }
             else
             {
-                modelViewStack.identity();
+                modelViewStack.loadIdentity();
                 RenderSystem.applyModelViewMatrix();
                 ModelVAORenderer.beginDeferredTranslucentModelPass(entry.depthWrite, true);
                 beganDeferredPass = true;
@@ -552,7 +546,7 @@ public class ShaderOpacityPatch
 
             RenderSystem.depthMask(savedDepthMask);
             RenderSystem.setProjectionMatrix(savedProjection, VertexSorter.BY_Z);
-            modelViewStack.set(savedModelView);
+            modelViewStack.peek().getPositionMatrix().set(savedModelView);
             RenderSystem.applyModelViewMatrix();
         }
     }

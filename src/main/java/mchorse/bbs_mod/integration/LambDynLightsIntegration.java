@@ -12,12 +12,11 @@ import net.minecraft.entity.player.PlayerEntity;
 
 import dev.lambdaurora.lambdynlights.api.DynamicLightHandlers;
 import dev.lambdaurora.lambdynlights.api.DynamicLightsInitializer;
-import dev.lambdaurora.lambdynlights.api.item.ItemLightSourceManager;
 
 public class LambDynLightsIntegration implements DynamicLightsInitializer
 {
     @Override
-    public void onInitializeDynamicLights(ItemLightSourceManager itemLightSourceManager)
+    public void onInitializeDynamicLights()
     {
         DynamicLightHandlers.registerDynamicLightHandler(BBSMod.ACTOR_ENTITY, (ActorEntity entity) -> getLightLevelFromForm(entity.getForm()));
         DynamicLightHandlers.registerDynamicLightHandler(BBSMod.GUN_PROJECTILE_ENTITY, (GunProjectileEntity entity) -> getLightLevelFromForm(entity.getForm()));
@@ -34,7 +33,7 @@ public class LambDynLightsIntegration implements DynamicLightsInitializer
         });
     }
 
-    private static int getLightLevelFromForm(Form form)
+    private int getLightLevelFromForm(Form form)
     {
         if (!(form instanceof LightForm lightForm))
         {
