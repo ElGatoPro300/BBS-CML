@@ -1816,6 +1816,11 @@ public class ModelVAORenderer
             shader.viewRotationMat.set(RenderSystem.getInverseViewRotationMatrix());
         }
 
+        if (shader.viewRotationMat != null)
+        {
+            shader.viewRotationMat.set(RenderSystem.getInverseViewRotationMatrix());
+        }
+
         GlUniform paintUniform = shader.getUniform("PaintColor");
 
         if (paintUniform != null)

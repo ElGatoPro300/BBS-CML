@@ -26,8 +26,6 @@ public abstract class CameraMixin
     {
         CameraController controller = BBSModClient.getCameraController();
 
-        controller.setup(controller.camera, tickDelta);
-
         if (controller.getCurrent() != null)
         {
             Vector3d position = controller.getPosition();

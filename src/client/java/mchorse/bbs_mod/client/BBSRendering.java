@@ -393,14 +393,12 @@ public class BBSRendering
     /** Vanilla level diffuse basis shared by morphs and editor previews. */
     public static void setupWorldLevelDiffuseLighting()
     {
-        Matrix4f matrix = isRenderingWorld() ? camera : RenderSystem.getModelViewMatrix();
-
-        RenderSystem.setupLevelDiffuseLighting(WORLD_LEVEL_LIGHT_0, WORLD_LEVEL_LIGHT_1, matrix);
+        RenderSystem.setupLevelDiffuseLighting(WORLD_LEVEL_LIGHT_0, WORLD_LEVEL_LIGHT_1, RenderSystem.getModelViewMatrix());
     }
 
     /**
      * Same diffuse choice {@link WorldRenderer} uses before entities:
-     * {@link DiffuseLighting#enableForLevel(Matrix4f)} in darkened dimensions, otherwise the shared
+     * {@link DiffuseLighting#enableForLevel()} in darkened dimensions, otherwise the shared
      * {@link #setupWorldLevelDiffuseLighting()} basis (matches {@link DiffuseLighting#disableForLevel()}).
      * Keeps model-block F7 world draws and editor UI previews on one lighting basis.
      */
@@ -410,9 +408,7 @@ public class BBSRendering
 
         if (client != null && client.world != null && client.world.getDimensionEffects().isDarkened())
         {
-            Matrix4f matrix = isRenderingWorld() ? camera : new Matrix4f();
-
-            DiffuseLighting.enableForLevel(matrix);
+            DiffuseLighting.enableForLevel(new Matrix4f());
 
             return;
         }

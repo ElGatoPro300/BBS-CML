@@ -234,59 +234,23 @@ public class UIReplaysOverlayPanel extends UIOverlayPanel
         this.looping.limit(0).integer().tooltip(UIKeys.FILM_REPLAY_LOOPING_TOOLTIP);
         this.actor = new UIToggle(UIKeys.FILM_REPLAY_ACTOR, (b) ->
         {
-            String keepActiveTab = null;
-
-            if (this.filmPanel != null)
+            /* Sync server tick first so combat HP rebuild matches the film cursor. */
+            this.filmPanel.notifyServer(ActionState.SEEK);
+            this.edit((replay) ->
             {
-                String propertiesId = this.filmPanel.shouldRedirectProperties() ? "unifiedEditArea" : "editArea";
+                replay.actor.set(b.getValue());
 
-                keepActiveTab = this.filmPanel.getActiveTabPanelId(propertiesId);
-
-                if (keepActiveTab == null)
+                /* Relative is stub/camera render only — clear it with actor mode. */
+                if (b.getValue() && replay.relative.get())
                 {
-                    keepActiveTab = this.filmPanel.getActiveTabPanelId("replaysPanel");
+                    replay.relative.set(false);
                 }
-
-                if (keepActiveTab == null)
-                {
-                    keepActiveTab = this.filmPanel.getActiveTabPanelId("replaysPropertiesPanel");
-                }
-
-                this.filmPanel.beginSuppressLinkedPropertiesTabFocus();
-            }
-
-            try
-            {
-                /* Sync server tick first so combat HP rebuild matches the film cursor. */
-                this.filmPanel.notifyServer(ActionState.SEEK);
-                this.edit((replay) ->
-                {
-                    replay.actor.set(b.getValue());
-
-                    /* Relative is stub/camera render only — clear it with actor mode. */
-                    if (b.getValue() && replay.relative.get())
-                    {
-                        replay.relative.set(false);
-                    }
-                });
-                this.updateRelativeAvailability(b.getValue());
-                this.filmPanel.replayEditor.updateChannelsList(true);
-                /* Rebuild client stubs at the current tick. Server combat state is
-                 * refreshed via syncData → ActionPlayer.goTo(tick) when "actor" syncs. */
-                this.filmPanel.getController().createEntities();
-            }
-            finally
-            {
-                if (this.filmPanel != null)
-                {
-                    this.filmPanel.endSuppressLinkedPropertiesTabFocus();
-
-                    if (keepActiveTab != null)
-                    {
-                        this.filmPanel.focusPanelTab(keepActiveTab);
-                    }
-                }
-            }
+            });
+            this.updateRelativeAvailability(b.getValue());
+            this.filmPanel.replayEditor.updateChannelsList();
+            /* Rebuild client stubs at the current tick. Server combat state is
+             * refreshed via syncData → ActionPlayer.goTo(tick) when "actor" syncs. */
+            this.filmPanel.getController().createEntities();
         });
         this.actor.tooltip(UIKeys.FILM_REPLAY_ACTOR_TOOLTIP);
         this.fp = new UIToggle(UIKeys.FILM_REPLAY_FP, (b) ->

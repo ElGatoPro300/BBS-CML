@@ -134,6 +134,10 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
         matrices.scale(finalScale, finalScale, finalScale);
         MatrixStackUtils.invertUiNormalY(matrices);
 
+        Vector3f light0 = new Vector3f(0.85F, 0.85F, -1F).normalize();
+        Vector3f light1 = new Vector3f(-0.85F, 0.85F, 1F).normalize();
+        RenderSystem.setupLevelDiffuseLighting(light0, light1, RenderSystem.getModelViewMatrix());
+
         this.checkLightState();
 
         Color storedFormColor = this.form.color.get();
@@ -246,6 +250,7 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
             }
         }
 
+        DiffuseLighting.disableGuiDepthLighting();
         matrices.pop();
         RenderSystem.depthFunc(GL11.GL_ALWAYS);
     }
@@ -783,12 +788,12 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
                 BlockPos worldPos = info.anchor.add(dx, dy, dz);
                 BlockEntity be = ((BlockEntityProvider) block).createBlockEntity(worldPos, entry.state);
 
-                if (be != null)
-                {
-                    if (entry.nbt != null)
-                    {
-                        be.readNbt(entry.nbt);
-                    }
+        if (be != null)
+        {
+            if (entry.nbt != null)
+            {
+                be.readNbt(entry.nbt);
+            }
 
                     if (MinecraftClient.getInstance().world != null)
                     {
@@ -1153,18 +1158,41 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
         }
 
         @Override
-        public VertexConsumer vertex(double x, double y, double z)
+        public void next()
         {
-            double nx = x - this.offset.getX();
-            double ny = y - this.offset.getY();
-            double nz = z - this.offset.getZ();
+            this.parent.next();
+        }
 
-            double tx = this.positionMatrix.m00() * nx + this.positionMatrix.m10() * ny + this.positionMatrix.m20() * nz + this.positionMatrix.m30();
-            double ty = this.positionMatrix.m01() * nx + this.positionMatrix.m11() * ny + this.positionMatrix.m21() * nz + this.positionMatrix.m31();
-            double tz = this.positionMatrix.m02() * nx + this.positionMatrix.m12() * ny + this.positionMatrix.m22() * nz + this.positionMatrix.m32();
+        @Override
+        public void unfixColor()
+        {
+            this.parent.unfixColor();
+        }
+
+        @Override
+        public void fixedColor(int red, int green, int blue, int alpha)
+        {
+            this.parent.fixedColor(red, green, blue, alpha);
+        }
+
+        public VertexConsumer vertex(float x, float y, float z)
+        {
+            float nx = x - this.offset.getX();
+            float ny = y - this.offset.getY();
+            float nz = z - this.offset.getZ();
+
+            float tx = this.positionMatrix.m00() * nx + this.positionMatrix.m10() * ny + this.positionMatrix.m20() * nz + this.positionMatrix.m30();
+            float ty = this.positionMatrix.m01() * nx + this.positionMatrix.m11() * ny + this.positionMatrix.m21() * nz + this.positionMatrix.m31();
+            float tz = this.positionMatrix.m02() * nx + this.positionMatrix.m12() * ny + this.positionMatrix.m22() * nz + this.positionMatrix.m32();
 
             this.parent.vertex(tx, ty, tz);
             return this;
+        }
+
+        @Override
+        public VertexConsumer vertex(double x, double y, double z)
+        {
+            return this.vertex((float) x, (float) y, (float) z);
         }
 
         @Override
@@ -1208,24 +1236,6 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
 
             this.parent.normal(tx, ty, tz);
             return this;
-        }
-
-        @Override
-        public void next()
-        {
-            this.parent.next();
-        }
-
-        @Override
-        public void fixedColor(int red, int green, int blue, int alpha)
-        {
-            this.parent.fixedColor(red, green, blue, alpha);
-        }
-
-        @Override
-        public void unfixColor()
-        {
-            this.parent.unfixColor();
         }
     }
 }

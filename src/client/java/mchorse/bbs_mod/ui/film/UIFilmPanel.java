@@ -162,9 +162,6 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
     private RunnerCameraController runner;
     private boolean lastRunning;
     private boolean clearingSelections;
-    /* Actor toggle rebuild remounts keyframe factories; must not steal the active tab
-     * away from Replays / General when they share a group with Properties. */
-    private int suppressLinkedPropertiesTabFocus;
     private int lastFilledCursor = -1;
     private final Position position = new Position(0, 0, 0, 0, 0);
     private final Position lastPosition = new Position(0, 0, 0, 0, 0);
@@ -2589,46 +2586,6 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
         }
     }
 
-    public void beginSuppressLinkedPropertiesTabFocus()
-    {
-        this.suppressLinkedPropertiesTabFocus++;
-    }
-
-    public void endSuppressLinkedPropertiesTabFocus()
-    {
-        this.suppressLinkedPropertiesTabFocus = Math.max(0, this.suppressLinkedPropertiesTabFocus - 1);
-    }
-
-    /**
-     * Active panel id inside the multi-tab group that contains {@code panelId}, or
-     * {@code null} when that panel is alone / not tabbed.
-     */
-    public String getActiveTabPanelId(String panelId)
-    {
-        if (panelId == null)
-        {
-            return null;
-        }
-
-        EditorLayoutNode root = BBSSettings.editorLayoutSettings.getFilmLayoutRoot();
-        EditorLayoutNode.TabbedNode tabbed = this.findTabbedNodeContaining(root, panelId);
-
-        if (tabbed == null || tabbed.tabs.size() < 2)
-        {
-            return null;
-        }
-
-        int safeActiveTab = Math.max(0, Math.min(tabbed.tabs.size() - 1, tabbed.activeTab));
-        EditorLayoutNode activeNode = tabbed.tabs.get(safeActiveTab);
-
-        if (activeNode instanceof EditorLayoutNode.PanelNode)
-        {
-            return ((EditorLayoutNode.PanelNode) activeNode).getPanelId();
-        }
-
-        return null;
-    }
-
     public void focusLinkedPropertiesTab(String panelId)
     {
         /* Undo/redo restores keyframe selection across all editors (including the replay
@@ -2636,14 +2593,6 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
          * is editing an embedded Image/Subtitle (or other camera) keyframe view. */
         if (this.undoHandler != null && this.undoHandler.isUndoing())
         {
-            return;
-        }
-
-        if (this.suppressLinkedPropertiesTabFocus > 0)
-        {
-            /* Still remount/resize hosts so restored keyframe factories stay valid. */
-            this.syncKeyframePropertiesHosts();
-
             return;
         }
 
@@ -3053,13 +3002,6 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
     {
         if (this.undoHandler != null && this.undoHandler.isUndoing())
         {
-            return;
-        }
-
-        if (this.suppressLinkedPropertiesTabFocus > 0)
-        {
-            this.syncKeyframePropertiesHosts();
-
             return;
         }
 
@@ -6821,15 +6763,7 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
         if (!BBSRendering.isIrisShadowPass())
         {
             this.lastProjection.set(RenderSystem.getProjectionMatrix());
-            MatrixStack ms = context.matrixStack();
-            if (ms != null)
-            {
-                this.lastView.set(ms.peek().getPositionMatrix());
-            }
-            else
-            {
-                this.lastView.set(RenderSystem.getModelViewMatrix());
-            }
+            this.lastView.set(context.matrixStack().peek().getPositionMatrix());
         }
 
         this.controller.renderFrame(context);
@@ -7831,12 +7765,11 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
         float segW = editorW / (float) segments;
         
         Matrix4f matrix4f = context.batcher.getContext().getMatrices().peek().getPositionMatrix();
-        Tessellator tessellator = Tessellator.getInstance();
-        BufferBuilder builder = tessellator.getBuffer();
-        builder.begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_COLOR);
+        BufferBuilder builder = Tessellator.getInstance().getBuffer();
         
         RenderSystem.enableBlend();
         RenderSystem.setShader(GameRenderer::getPositionColorProgram);
+        builder.begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_COLOR);
         
         float[] yBot1 = new float[segments + 1];
         float[] yMid1 = new float[segments + 1];
@@ -7886,37 +7819,33 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
         
         int colTop = Colors.setA(primary, 0.0F);
         int colBot = Colors.setA(primary, 0.0F);
-        float yTop1 = editorY + editorH * 0.05F;
-        float yTop2 = editorY + editorH * 0.15F;
+        float yTop1f = editorY + editorH * 0.05F;
+        float yTop2f = editorY + editorH * 0.15F;
         
         for (int i = 0; i < segments; i++)
         {
             float x1 = editorX + i * segW;
             float x2 = editorX + (i + 1) * segW;
             
-            // Layer 1 - Upper Quad (yTop1 -> yMid1)
-            builder.vertex(matrix4f, x1, yTop1, 0).color(colTop).next();
+            builder.vertex(matrix4f, x1, yTop1f, 0).color(colTop).next();
             builder.vertex(matrix4f, x1, yMid1[i], 0).color(cMid1[i]).next();
-            builder.vertex(matrix4f, x2, yMid1[i+1], 0).color(cMid1[i+1]).next();
-            builder.vertex(matrix4f, x2, yTop1, 0).color(colTop).next();
+            builder.vertex(matrix4f, x2, yMid1[i + 1], 0).color(cMid1[i + 1]).next();
+            builder.vertex(matrix4f, x2, yTop1f, 0).color(colTop).next();
             
-            // Layer 1 - Lower Quad (yMid1 -> yBot1)
             builder.vertex(matrix4f, x1, yMid1[i], 0).color(cMid1[i]).next();
             builder.vertex(matrix4f, x1, yBot1[i], 0).color(colBot).next();
-            builder.vertex(matrix4f, x2, yBot1[i+1], 0).color(colBot).next();
-            builder.vertex(matrix4f, x2, yMid1[i+1], 0).color(cMid1[i+1]).next();
+            builder.vertex(matrix4f, x2, yBot1[i + 1], 0).color(colBot).next();
+            builder.vertex(matrix4f, x2, yMid1[i + 1], 0).color(cMid1[i + 1]).next();
             
-            // Layer 2 - Upper Quad (yTop2 -> yMid2)
-            builder.vertex(matrix4f, x1, yTop2, 0).color(colTop).next();
+            builder.vertex(matrix4f, x1, yTop2f, 0).color(colTop).next();
             builder.vertex(matrix4f, x1, yMid2[i], 0).color(cMid2[i]).next();
-            builder.vertex(matrix4f, x2, yMid2[i+1], 0).color(cMid2[i+1]).next();
-            builder.vertex(matrix4f, x2, yTop2, 0).color(colTop).next();
+            builder.vertex(matrix4f, x2, yMid2[i + 1], 0).color(cMid2[i + 1]).next();
+            builder.vertex(matrix4f, x2, yTop2f, 0).color(colTop).next();
             
-            // Layer 2 - Lower Quad (yMid2 -> yBot2)
             builder.vertex(matrix4f, x1, yMid2[i], 0).color(cMid2[i]).next();
             builder.vertex(matrix4f, x1, yBot2[i], 0).color(colBot).next();
-            builder.vertex(matrix4f, x2, yBot2[i+1], 0).color(colBot).next();
-            builder.vertex(matrix4f, x2, yMid2[i+1], 0).color(cMid2[i+1]).next();
+            builder.vertex(matrix4f, x2, yBot2[i + 1], 0).color(colBot).next();
+            builder.vertex(matrix4f, x2, yMid2[i + 1], 0).color(cMid2[i + 1]).next();
         }
         
         BufferRenderer.drawWithGlobalProgram(builder.end());

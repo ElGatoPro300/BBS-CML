@@ -38,16 +38,14 @@ public class TriggerBlock extends Block implements BlockEntityProvider
     }
 
     @Override
-    public ItemStack getPickStack(WorldView world, BlockPos pos, BlockState state)
+    public ItemStack getPickStack(BlockView world, BlockPos pos, BlockState state)
     {
         BlockEntity entity = world.getBlockEntity(pos);
 
         if (entity instanceof TriggerBlockEntity triggerBlock)
         {
             ItemStack stack = new ItemStack(this);
-            NbtCompound compound = new NbtCompound();
-            compound.put("BlockEntityTag", triggerBlock.createNbtWithId());
-            stack.setNbt(compound);
+            stack.setSubNbt("BlockEntityTag", triggerBlock.createNbtWithId());
 
             return stack;
         }

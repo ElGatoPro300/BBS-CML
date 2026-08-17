@@ -556,7 +556,7 @@ public class FormProperties extends ValueGroup
             return;
         }
 
-        Color runtime = valueColor.getRuntimeValue();
+        Color runtime = valueColor.getRuntimeValue() != null ? valueColor.getRuntimeValue() : null;
 
         if (runtime == null)
         {

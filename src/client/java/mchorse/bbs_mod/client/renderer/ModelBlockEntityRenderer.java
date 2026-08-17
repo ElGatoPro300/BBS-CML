@@ -201,7 +201,7 @@ public class ModelBlockEntityRenderer implements BlockEntityRenderer<ModelBlockE
             matrices.pop();
         }
 
-        if (mc.getDebugHud().shouldShowDebugHud())
+        if (MinecraftClient.getInstance().options.debugEnabled)
         {
             Draw.renderBox(matrices, -0.5D, 0, -0.5D, 1, 1, 1, 0, 0.5F, 1F, 0.5F);
         }

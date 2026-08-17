@@ -30,7 +30,6 @@ import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gl.ShaderProgram;
 import net.minecraft.client.render.BufferBuilder;
 import net.minecraft.client.render.BufferRenderer;
-import net.minecraft.client.render.DiffuseLighting;
 import net.minecraft.client.render.GameRenderer;
 import net.minecraft.client.render.LightmapTextureManager;
 import net.minecraft.client.render.OverlayTexture;
@@ -141,7 +140,7 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
 
         VertexFormat format = shading ? VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL : VertexFormats.POSITION_TEXTURE_COLOR;
         Supplier<ShaderProgram> shader = this.getShader(context,
-            shading ? GameRenderer::getRenderTypeEntityTranslucentProgram : GameRenderer::getPositionTexColorProgram,
+            shading ? GameRenderer::getRenderTypeEntityTranslucentProgram : GameRenderer::getPositionTexLightmapColorProgram,
             shading ? BBSShaders::getPickerBillboardProgram : BBSShaders::getPickerBillboardNoShadingProgram
         );
 
@@ -330,11 +329,9 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
         }
 
         GameRenderer gameRenderer = MinecraftClient.getInstance().gameRenderer;
-        if (format == VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL)
-        {
-            gameRenderer.getLightmapTextureManager().enable();
-            gameRenderer.getOverlayTexture().setupOverlayColor();
-        }
+
+        gameRenderer.getLightmapTextureManager().enable();
+        gameRenderer.getOverlayTexture().setupOverlayColor();
 
         this.bindFormTexture(texture);
         RenderSystem.setShader(shader);
@@ -519,22 +516,22 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
                 builder.begin(VertexFormat.DrawMode.TRIANGLES, format);
 
                 /* Front */
-                this.fill(format, builder, matrix, quad.p3.x, quad.p3.y, FACE_Z_BIAS, color, uvQuad.p3.x, uvQuad.p3.y, overlay, light, entry, 1F);
-                this.fill(format, builder, matrix, quad.p2.x, quad.p2.y, FACE_Z_BIAS, color, uvQuad.p2.x, uvQuad.p2.y, overlay, light, entry, 1F);
-                this.fill(format, builder, matrix, quad.p1.x, quad.p1.y, FACE_Z_BIAS, color, uvQuad.p1.x, uvQuad.p1.y, overlay, light, entry, 1F);
+                this.fill(format, builder, matrix, quad.p3.x, quad.p3.y, FACE_Z_BIAS, color, uvQuad.p3.x, uvQuad.p3.y, overlay, light, entry, 1F).next();
+                this.fill(format, builder, matrix, quad.p2.x, quad.p2.y, FACE_Z_BIAS, color, uvQuad.p2.x, uvQuad.p2.y, overlay, light, entry, 1F).next();
+                this.fill(format, builder, matrix, quad.p1.x, quad.p1.y, FACE_Z_BIAS, color, uvQuad.p1.x, uvQuad.p1.y, overlay, light, entry, 1F).next();
 
-                this.fill(format, builder, matrix, quad.p3.x, quad.p3.y, FACE_Z_BIAS, color, uvQuad.p3.x, uvQuad.p3.y, overlay, light, entry, 1F);
-                this.fill(format, builder, matrix, quad.p4.x, quad.p4.y, FACE_Z_BIAS, color, uvQuad.p4.x, uvQuad.p4.y, overlay, light, entry, 1F);
-                this.fill(format, builder, matrix, quad.p2.x, quad.p2.y, FACE_Z_BIAS, color, uvQuad.p2.x, uvQuad.p2.y, overlay, light, entry, 1F);
+                this.fill(format, builder, matrix, quad.p3.x, quad.p3.y, FACE_Z_BIAS, color, uvQuad.p3.x, uvQuad.p3.y, overlay, light, entry, 1F).next();
+                this.fill(format, builder, matrix, quad.p4.x, quad.p4.y, FACE_Z_BIAS, color, uvQuad.p4.x, uvQuad.p4.y, overlay, light, entry, 1F).next();
+                this.fill(format, builder, matrix, quad.p2.x, quad.p2.y, FACE_Z_BIAS, color, uvQuad.p2.x, uvQuad.p2.y, overlay, light, entry, 1F).next();
 
                 /* Back */
-                this.fill(format, builder, matrix, quad.p1.x, quad.p1.y, -FACE_Z_BIAS, color, uvQuad.p1.x, uvQuad.p1.y, overlay, light, entry, -1F);
-                this.fill(format, builder, matrix, quad.p2.x, quad.p2.y, -FACE_Z_BIAS, color, uvQuad.p2.x, uvQuad.p2.y, overlay, light, entry, -1F);
-                this.fill(format, builder, matrix, quad.p3.x, quad.p3.y, -FACE_Z_BIAS, color, uvQuad.p3.x, uvQuad.p3.y, overlay, light, entry, -1F);
+                this.fill(format, builder, matrix, quad.p1.x, quad.p1.y, -FACE_Z_BIAS, color, uvQuad.p1.x, uvQuad.p1.y, overlay, light, entry, -1F).next();
+                this.fill(format, builder, matrix, quad.p2.x, quad.p2.y, -FACE_Z_BIAS, color, uvQuad.p2.x, uvQuad.p2.y, overlay, light, entry, -1F).next();
+                this.fill(format, builder, matrix, quad.p3.x, quad.p3.y, -FACE_Z_BIAS, color, uvQuad.p3.x, uvQuad.p3.y, overlay, light, entry, -1F).next();
 
-                this.fill(format, builder, matrix, quad.p2.x, quad.p2.y, -FACE_Z_BIAS, color, uvQuad.p2.x, uvQuad.p2.y, overlay, light, entry, -1F);
-                this.fill(format, builder, matrix, quad.p4.x, quad.p4.y, -FACE_Z_BIAS, color, uvQuad.p4.x, uvQuad.p4.y, overlay, light, entry, -1F);
-                this.fill(format, builder, matrix, quad.p3.x, quad.p3.y, -FACE_Z_BIAS, color, uvQuad.p3.x, uvQuad.p3.y, overlay, light, entry, -1F);
+                this.fill(format, builder, matrix, quad.p2.x, quad.p2.y, -FACE_Z_BIAS, color, uvQuad.p2.x, uvQuad.p2.y, overlay, light, entry, -1F).next();
+                this.fill(format, builder, matrix, quad.p4.x, quad.p4.y, -FACE_Z_BIAS, color, uvQuad.p4.x, uvQuad.p4.y, overlay, light, entry, -1F).next();
+                this.fill(format, builder, matrix, quad.p3.x, quad.p3.y, -FACE_Z_BIAS, color, uvQuad.p3.x, uvQuad.p3.y, overlay, light, entry, -1F).next();
 
                 RenderSystem.enableBlend();
                 RenderSystem.defaultBlendFunc();
@@ -600,11 +597,9 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
         RenderSystem.enableCull();
 
         texture.setFilterMipmap(false, false);
-        if (format == VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL)
-        {
-            gameRenderer.getLightmapTextureManager().disable();
-            gameRenderer.getOverlayTexture().teardownOverlayColor();
-        }
+
+        gameRenderer.getLightmapTextureManager().disable();
+        gameRenderer.getOverlayTexture().teardownOverlayColor();
     }
 
     private void drawBillboardFaces(VertexFormat format, Texture texture, Supplier<ShaderProgram> shader, MatrixStack matrices, Color color, Quad drawQuad, Quad drawUvQuad, int overlay, int light, boolean linear, boolean mipmap, boolean singleSided)
@@ -613,8 +608,6 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
         MatrixStack.Entry entry = matrices.peek();
         BufferBuilder builder = Tessellator.getInstance().getBuffer();
         builder.begin(VertexFormat.DrawMode.TRIANGLES, format);
-        /* Dual-sided even during deferred translucent — that pass used to force single-face
-         * + cull and made Color Grade redraws vanish. */
 
         /* Allow both faces during deferred Iris redraw — FACE_Z_BIAS prevents front/back
          * self z-fight. Only skip dual geometry on the paint-overlay pass. */
@@ -639,23 +632,23 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
         RenderSystem.enableBlend();
         RenderSystem.defaultBlendFunc();
 
-        this.fill(format, builder, matrix, drawQuad.p3.x, drawQuad.p3.y, FACE_Z_BIAS, color, drawUvQuad.p3.x, drawUvQuad.p3.y, overlay, light, entry, 1F);
-        this.fill(format, builder, matrix, drawQuad.p2.x, drawQuad.p2.y, FACE_Z_BIAS, color, drawUvQuad.p2.x, drawUvQuad.p2.y, overlay, light, entry, 1F);
-        this.fill(format, builder, matrix, drawQuad.p1.x, drawQuad.p1.y, FACE_Z_BIAS, color, drawUvQuad.p1.x, drawUvQuad.p1.y, overlay, light, entry, 1F);
+        this.fill(format, builder, matrix, drawQuad.p3.x, drawQuad.p3.y, FACE_Z_BIAS, color, drawUvQuad.p3.x, drawUvQuad.p3.y, overlay, light, entry, 1F).next();
+        this.fill(format, builder, matrix, drawQuad.p2.x, drawQuad.p2.y, FACE_Z_BIAS, color, drawUvQuad.p2.x, drawUvQuad.p2.y, overlay, light, entry, 1F).next();
+        this.fill(format, builder, matrix, drawQuad.p1.x, drawQuad.p1.y, FACE_Z_BIAS, color, drawUvQuad.p1.x, drawUvQuad.p1.y, overlay, light, entry, 1F).next();
 
-        this.fill(format, builder, matrix, drawQuad.p3.x, drawQuad.p3.y, FACE_Z_BIAS, color, drawUvQuad.p3.x, drawUvQuad.p3.y, overlay, light, entry, 1F);
-        this.fill(format, builder, matrix, drawQuad.p4.x, drawQuad.p4.y, FACE_Z_BIAS, color, drawUvQuad.p4.x, drawUvQuad.p4.y, overlay, light, entry, 1F);
-        this.fill(format, builder, matrix, drawQuad.p2.x, drawQuad.p2.y, FACE_Z_BIAS, color, drawUvQuad.p2.x, drawUvQuad.p2.y, overlay, light, entry, 1F);
+        this.fill(format, builder, matrix, drawQuad.p3.x, drawQuad.p3.y, FACE_Z_BIAS, color, drawUvQuad.p3.x, drawUvQuad.p3.y, overlay, light, entry, 1F).next();
+        this.fill(format, builder, matrix, drawQuad.p4.x, drawQuad.p4.y, FACE_Z_BIAS, color, drawUvQuad.p4.x, drawUvQuad.p4.y, overlay, light, entry, 1F).next();
+        this.fill(format, builder, matrix, drawQuad.p2.x, drawQuad.p2.y, FACE_Z_BIAS, color, drawUvQuad.p2.x, drawUvQuad.p2.y, overlay, light, entry, 1F).next();
 
         if (dualSided)
         {
-            this.fill(format, builder, matrix, drawQuad.p1.x, drawQuad.p1.y, -FACE_Z_BIAS, color, drawUvQuad.p1.x, drawUvQuad.p1.y, overlay, light, entry, -1F);
-            this.fill(format, builder, matrix, drawQuad.p2.x, drawQuad.p2.y, -FACE_Z_BIAS, color, drawUvQuad.p2.x, drawUvQuad.p2.y, overlay, light, entry, -1F);
-            this.fill(format, builder, matrix, drawQuad.p3.x, drawQuad.p3.y, -FACE_Z_BIAS, color, drawUvQuad.p3.x, drawUvQuad.p3.y, overlay, light, entry, -1F);
+            this.fill(format, builder, matrix, drawQuad.p1.x, drawQuad.p1.y, -FACE_Z_BIAS, color, drawUvQuad.p1.x, drawUvQuad.p1.y, overlay, light, entry, -1F).next();
+            this.fill(format, builder, matrix, drawQuad.p2.x, drawQuad.p2.y, -FACE_Z_BIAS, color, drawUvQuad.p2.x, drawUvQuad.p2.y, overlay, light, entry, -1F).next();
+            this.fill(format, builder, matrix, drawQuad.p3.x, drawQuad.p3.y, -FACE_Z_BIAS, color, drawUvQuad.p3.x, drawUvQuad.p3.y, overlay, light, entry, -1F).next();
 
-            this.fill(format, builder, matrix, drawQuad.p2.x, drawQuad.p2.y, -FACE_Z_BIAS, color, drawUvQuad.p2.x, drawUvQuad.p2.y, overlay, light, entry, -1F);
-            this.fill(format, builder, matrix, drawQuad.p4.x, drawQuad.p4.y, -FACE_Z_BIAS, color, drawUvQuad.p4.x, drawUvQuad.p4.y, overlay, light, entry, -1F);
-            this.fill(format, builder, matrix, drawQuad.p3.x, drawQuad.p3.y, -FACE_Z_BIAS, color, drawUvQuad.p3.x, drawUvQuad.p3.y, overlay, light, entry, -1F);
+            this.fill(format, builder, matrix, drawQuad.p2.x, drawQuad.p2.y, -FACE_Z_BIAS, color, drawUvQuad.p2.x, drawUvQuad.p2.y, overlay, light, entry, -1F).next();
+            this.fill(format, builder, matrix, drawQuad.p4.x, drawQuad.p4.y, -FACE_Z_BIAS, color, drawUvQuad.p4.x, drawUvQuad.p4.y, overlay, light, entry, -1F).next();
+            this.fill(format, builder, matrix, drawQuad.p3.x, drawQuad.p3.y, -FACE_Z_BIAS, color, drawUvQuad.p3.x, drawUvQuad.p3.y, overlay, light, entry, -1F).next();
         }
 
         ShaderProgram bound = shader.get();
@@ -671,21 +664,19 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
         texture.setFilterMipmap(false, false);
     }
 
-    private void fill(VertexFormat format, VertexConsumer consumer, Matrix4f matrix, float x, float y, float z, Color color, float u, float v, int overlay, int light, MatrixStack.Entry entry, float nz)
+    private VertexConsumer fill(VertexFormat format, VertexConsumer consumer, Matrix4f matrix, float x, float y, float z, Color color, float u, float v, int overlay, int light, MatrixStack.Entry entry, float nz)
     {
         if (format == VertexFormats.POSITION_TEXTURE_LIGHT_COLOR)
         {
-            consumer.vertex(matrix, x, y, z).texture(u, v).light(light).color(color.r, color.g, color.b, color.a).next();
-            return;
+            return consumer.vertex(matrix, x, y, z).texture(u, v).light(light).color(color.r, color.g, color.b, color.a);
         }
 
         if (format == VertexFormats.POSITION_TEXTURE_COLOR)
         {
-            consumer.vertex(matrix, x, y, z).texture(u, v).color(color.r, color.g, color.b, color.a).next();
-            return;
+            return consumer.vertex(matrix, x, y, z).texture(u, v).color(color.r, color.g, color.b, color.a);
         }
 
-        consumer.vertex(matrix, x, y, z).color(color.r, color.g, color.b, color.a).texture(u, v).overlay(overlay).light(light).normal(entry.getNormalMatrix(), 0F, 0F, nz).next();
+        return consumer.vertex(matrix, x, y, z).color(color.r, color.g, color.b, color.a).texture(u, v).overlay(overlay).light(light).normal(entry.getNormalMatrix(), 0F, 0F, nz);
     }
 
     private void submitDeferredBillboardPaintOverlay(Texture texture, Link textureLink, Supplier<ShaderProgram> shader, MatrixStack matrices, Color resolvedPaint, float alpha, GlowSettings glowSettings, Color legacyGlow, float glowIntensity)
@@ -802,7 +793,7 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
 
     private void fillPaint(BufferBuilder builder, Matrix4f matrix, float x, float y, float z, Color color, float u, float v, int overlay, int light, MatrixStack.Entry entry, float nz)
     {
-        builder.vertex(matrix, x, y, z).color(color.r, color.g, color.b, color.a).texture(u, v).overlay(overlay).light(light).normal(entry.getNormalMatrix(), 0F, 0F, nz).next();
+        builder.vertex(matrix, x, y, z).color(color.r, color.g, color.b, color.a).texture(u, v).overlay(overlay).light(light).normal(entry.getNormalMatrix(), 0F, 0F, nz);
     }
 
     private void submitDeferredBillboardColorTintOverlay(Texture texture, Link textureLink, Supplier<ShaderProgram> shader, MatrixStack matrices, Color formTintColor, EffectTransform colorTransform)
@@ -982,7 +973,7 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
     private void fillColorTint(BufferBuilder builder, Matrix4f matrix, float x, float y, float z, float u, float v, int overlay, int light, MatrixStack.Entry entry, float nz)
     {
         /* Neutral verts — FormColorTint + spatial mask live in the fragment shader. */
-        builder.vertex(matrix, x, y, z).color(1F, 1F, 1F, 1F).texture(u, v).overlay(overlay).light(light).normal(entry.getNormalMatrix(), 0F, 0F, nz).next();
+        builder.vertex(matrix, x, y, z).color(1F, 1F, 1F, 1F).texture(u, v).overlay(overlay).light(light).normal(entry.getNormalMatrix(), 0F, 0F, nz);
     }
 
     /**
@@ -1066,7 +1057,7 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
 
     private void fillGlow(BufferBuilder builder, Matrix4f matrix, float x, float y, float z, Color color, float u, float v)
     {
-        builder.vertex(matrix, x, y, z).texture(u, v).color(color.r, color.g, color.b, color.a).next();
+        builder.vertex(matrix, x, y, z).texture(u, v).color(color.r, color.g, color.b, color.a);
     }
 
     private void applyPaintOnlyGlow(Color paintOverlay, GlowSettings glowSettings, Color legacyGlow, float glowIntensity)

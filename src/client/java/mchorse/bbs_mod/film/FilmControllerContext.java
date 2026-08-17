@@ -123,11 +123,6 @@ public class FilmControllerContext
         this.replay = replay;
         this.camera = context.camera();
         this.stack = context.matrixStack();
-        if (this.stack == null)
-        {
-            this.stack = new MatrixStack();
-            MatrixStackUtils.multiply(this.stack, RenderSystem.getModelViewMatrix());
-        }
         this.consumers = context.consumers();
         this.transition = context.tickDelta();
 

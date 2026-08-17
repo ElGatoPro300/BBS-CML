@@ -37,21 +37,9 @@ public class FixedColorVertexConsumer implements VertexConsumer
     }
 
     @Override
-    public void next()
+    public VertexConsumer vertex(Matrix4f matrix, float x, float y, float z)
     {
-        this.delegate.next();
-    }
-
-    @Override
-    public void fixedColor(int red, int green, int blue, int alpha)
-    {
-        this.delegate.fixedColor(red, green, blue, alpha);
-    }
-
-    @Override
-    public void unfixColor()
-    {
-        this.delegate.unfixColor();
+        return this.delegate.vertex(matrix, x, y, z).color(r, g, b, a);
     }
 
     @Override
@@ -82,6 +70,24 @@ public class FixedColorVertexConsumer implements VertexConsumer
     public VertexConsumer normal(float x, float y, float z)
     {
         return this.delegate.normal(x, y, z);
+    }
+
+    @Override
+    public void next()
+    {
+        this.delegate.next();
+    }
+
+    @Override
+    public void unfixColor()
+    {
+        this.delegate.unfixColor();
+    }
+
+    @Override
+    public void fixedColor(int red, int green, int blue, int alpha)
+    {
+        this.delegate.fixedColor(red, green, blue, alpha);
     }
 
 }

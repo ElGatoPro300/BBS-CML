@@ -8,7 +8,6 @@ import mchorse.bbs_mod.forms.entities.MCEntity;
 import mchorse.bbs_mod.forms.forms.Form;
 import mchorse.bbs_mod.forms.forms.MobForm;
 import mchorse.bbs_mod.mixin.client.EntityAccessor;
-import mchorse.bbs_mod.mixin.client.EntityRendererDispatcherInvoker;
 import mchorse.bbs_mod.utils.AABB;
 import mchorse.bbs_mod.utils.MathUtils;
 import mchorse.bbs_mod.utils.MatrixStackUtils;
@@ -107,8 +106,6 @@ public final class MorphFireRenderer
         }
 
         matrices.multiply(RotationAxis.POSITIVE_Y.rotation(MathUtils.toRad(bodyYaw)));
-
-        ((EntityRendererDispatcherInvoker) dispatcher).bbs$renderFire(matrices, consumers, entity, dispatcher.getRotation());
 
         matrices.pop();
 

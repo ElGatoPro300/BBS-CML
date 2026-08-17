@@ -19,7 +19,6 @@ import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.MovementType;
 import net.minecraft.entity.attribute.EntityAttributes;
 import net.minecraft.entity.damage.DamageSource;
-import net.minecraft.entity.data.DataTracker;
 import net.minecraft.entity.projectile.ProjectileEntity;
 import net.minecraft.entity.projectile.ProjectileUtil;
 import net.minecraft.nbt.NbtCompound;
@@ -216,7 +215,7 @@ public class GunProjectileEntity extends ProjectileEntity implements IEntityForm
 
             pos = oldPos.add(v);
 
-            HitResult hitResult = ProjectileUtil.getCollision(this, this::canHit, RaycastContext.ShapeType.COLLIDER);
+            HitResult hitResult = ProjectileUtil.getCollision(this, this::canHit);
 
             if (hitResult.getType() != HitResult.Type.MISS)
             {
@@ -327,7 +326,7 @@ public class GunProjectileEntity extends ProjectileEntity implements IEntityForm
         DamageSource source = this.getDamageSources().magic();
 
         int fireTicks = entity.getFireTicks();
-        boolean deflectsArrows = entity.getType().isIn(EntityTypeTags.DEFLECTS_ARROWS);
+        boolean deflectsArrows = false;
 
         if (this.isOnFire() && !deflectsArrows)
         {

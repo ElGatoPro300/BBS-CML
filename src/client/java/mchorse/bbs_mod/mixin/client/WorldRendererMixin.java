@@ -50,7 +50,7 @@ public class WorldRendererMixin
         SunPathRotation.begin(matrices.peek().getPositionMatrix());
     }
 
-    @Inject(method = "renderSky(Lnet/minecraft/client/util/math/MatrixStack;Lorg/joml/Matrix4f;FLnet/minecraft/client/render/Camera;ZLjava/lang/Runnable;)V", at = @At("RETURN"))
+    @Inject(method = "renderSky(Lnet/minecraft/client/util/math/MatrixStack;Lorg/joml/Matrix4f;FLnet/minecraft/client/render/Camera;ZLjava/lang/Runnable;)V", at = @At("RETURN"), require = 0)
     public void onRenderSkyReturn(MatrixStack matrices, Matrix4f projectionMatrix, float tickDelta, Camera camera, boolean thickFog, Runnable fogCallback, CallbackInfo info)
     {
         SunPathRotation.end(matrices.peek().getPositionMatrix());
@@ -61,25 +61,25 @@ public class WorldRendererMixin
     {
         if (BBSRendering.shouldHideChromaTerrain())
         {
-            BBSRendering.onRenderChunkLayer(matrices);
+            BBSRendering.onRenderChunkLayer(positionMatrix, RenderSystem.getProjectionMatrix());
 
             info.cancel();
         }
     }
 
     @Inject(method = "renderLayer", at = @At("TAIL"))
-    public void onRenderChunkLayer(RenderLayer layer, MatrixStack stack, double cameraX, double cameraY, double cameraZ, Matrix4f positionMatrix, CallbackInfo info)
+    public void onRenderChunkLayer(RenderLayer layer, MatrixStack stack, double x, double y, double z, Matrix4f positionMatrix, CallbackInfo info)
     {
         if (layer == RenderLayer.getSolid())
         {
-            BBSRendering.onRenderChunkLayer(stack);
+            BBSRendering.onRenderChunkLayer(positionMatrix, RenderSystem.getProjectionMatrix());
         }
     }
 
     @Inject(method = "setupFrustum", at = @At("HEAD"))
     public void onSetupFrustum(MatrixStack matrices, Vec3d vec3d, Matrix4f matrix4f, CallbackInfo info)
     {
-        BBSRendering.camera.set(matrices.peek().getPositionMatrix());
+        BBSRendering.camera.set(matrix4f);
     }
 
     @Inject(at = @At("RETURN"), method = "loadEntityOutlinePostProcessor")
@@ -97,5 +97,26 @@ public class WorldRendererMixin
         }
 
         BBSRendering.resizeExtraFramebuffers();
+    }
+
+    @Inject(method = "checkEmpty", at = @At("HEAD"), cancellable = true, require = 0)
+    private void onCheckEmpty(MatrixStack matrices, CallbackInfo info)
+    {
+        if (!matrices.isEmpty())
+        {
+            while (!matrices.isEmpty())
+            {
+                try
+                {
+                    matrices.pop();
+                }
+                catch (Throwable t)
+                {
+                    break;
+                }
+            }
+
+            info.cancel();
+        }
     }
 }

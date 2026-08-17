@@ -101,6 +101,7 @@ import net.minecraft.world.World;
 
 import org.joml.Matrix3f;
 import org.joml.Matrix4f;
+import org.joml.Matrix4fStack;
 import org.joml.Vector2f;
 import org.joml.Vector2i;
 import org.joml.Vector3d;
@@ -1164,10 +1165,11 @@ public class UIFilmController extends UIElement
      */
     private HitResult raycastControlTarget(ClientPlayerEntity player, boolean forAttack)
     {
-        double blockRange = MinecraftClient.getInstance().interactionManager != null
+        double reach = MinecraftClient.getInstance().interactionManager != null
             ? MinecraftClient.getInstance().interactionManager.getReachDistance()
             : 4.5D;
-        double entityRange = 3.0D;
+        double entityRange = reach;
+        double blockRange = reach;
         double maxRange = Math.max(entityRange, blockRange);
         Vec3d origin = player.getCameraPosVec(1F);
         Vec3d rotation = player.getRotationVec(1F);
@@ -1880,8 +1882,6 @@ public class UIFilmController extends UIElement
         else if (!Gizmo.INSTANCE.isDragging())
         {
             this.panel.hasLastGizmoMatrix = false;
-            Gizmo.INSTANCE.clearVisual();
-            Gizmo.INSTANCE.setHoveredIndex(-1);
         }
 
         this.renderPickingPreview(context, area);
@@ -1925,7 +1925,7 @@ public class UIFilmController extends UIElement
             MatrixStack mvStack = RenderSystem.getModelViewStack();
             mvStack.push();
             mvStack.loadIdentity();
-            mvStack.multiplyPositionMatrix(BBSRendering.camera);
+            MatrixStackUtils.multiply(mvStack, BBSRendering.camera);
             RenderSystem.applyModelViewMatrix();
 
             this.renderStencil(this.worldRenderContext, context, altPressed);
@@ -2219,19 +2219,7 @@ public class UIFilmController extends UIElement
 
     private boolean canShowGizmo()
     {
-        if (!UIBaseMenu.renderAxes || this.recording || this.getBone() == null)
-        {
-            return false;
-        }
-
-        /* Actor death (combat or keyframed death_time) stops matrix capture; keep the UI
-         * gizmo hidden too so FormDeathTilt cannot make a stale bone matrix fly on screen. */
-        Replay replay = this.getReplay();
-
-        return this.editorController == null
-            || replay == null
-            || !replay.actor.get()
-            || !this.editorController.isActorPickingBlocked(replay);
+        return UIBaseMenu.renderAxes && !this.recording && this.getBone() != null;
     }
 
     private void renderStencil(WorldRenderContext renderContext, UIContext context, boolean altPressed)

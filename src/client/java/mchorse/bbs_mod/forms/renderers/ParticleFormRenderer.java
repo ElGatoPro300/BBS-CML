@@ -28,8 +28,6 @@ import org.joml.Matrix4f;
 import org.joml.Vector3d;
 import org.joml.Vector3f;
 
-import com.mojang.blaze3d.systems.RenderSystem;
-
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -360,12 +358,51 @@ public class ParticleFormRenderer extends FormRenderer<ParticleForm> implements 
             /* Film illusion delay may have just applied form properties for this copy. */
             this.syncEmitterAppearance(emitter, context);
 
-            Matrix4f matrix = new Matrix4f(RenderSystem.getInverseViewRotationMatrix());
+            boolean useGameCamera = !context.modelRenderer && context.type != FormRenderType.PREVIEW;
 
-            matrix.mul(context.stack.peek().getPositionMatrix());
+            if (useGameCamera)
+            {
+                /* For game rendering, use the main camera for emitter properties to ensure
+                 * correct yaw/pitch for billboards (avoiding 180 degree flip in Camera wrapper) */
+                net.minecraft.client.render.Camera mcCamera = MinecraftClient.getInstance().gameRenderer.getCamera();
+                mchorse.bbs_mod.camera.Camera camera = new mchorse.bbs_mod.camera.Camera();
+                camera.position.set(mcCamera.getPos().x, mcCamera.getPos().y, mcCamera.getPos().z);
+                camera.rotation.set((float) Math.toRadians(mcCamera.getPitch()), (float) Math.toRadians(mcCamera.getYaw()), 0F);
+                emitter.setupCameraProperties(camera);
+            }
+            else
+            {
+                if (context.modelRenderer)
+                {
+                    float originalPitch = context.camera.rotation.x;
+                    float originalYaw = context.camera.rotation.y;
+                    double originalX = context.camera.position.x;
+                    double originalY = context.camera.position.y;
+                    double originalZ = context.camera.position.z;
 
-            Vector3d translation = new Vector3d(matrix.getTranslation(Vectors.TEMP_3F));
-            translation.add(context.camera.position.x, context.camera.position.y, context.camera.position.z);
+                    context.camera.rotation.set(0, 0, 0);
+                    context.camera.position.set(0, 0, 0);
+
+                    emitter.setupCameraProperties(context.camera);
+
+                    context.camera.rotation.x = originalPitch;
+                    context.camera.rotation.y = originalYaw;
+                    context.camera.position.set(originalX, originalY, originalZ);
+                }
+                else
+                {
+                    emitter.setupCameraProperties(context.camera);
+                }
+            }
+
+            Matrix4f modelMatrix = new Matrix4f(context.stack.peek().getPositionMatrix());
+
+            Vector3d translation = new Vector3d(modelMatrix.getTranslation(Vectors.TEMP_3F));
+
+            if (!context.modelRenderer)
+            {
+                translation.add(context.camera.position.x, context.camera.position.y, context.camera.position.z);
+            }
 
             GameRenderer gameRenderer = MinecraftClient.getInstance().gameRenderer;
 
@@ -374,10 +411,9 @@ public class ParticleFormRenderer extends FormRenderer<ParticleForm> implements 
 
             context.stack.push();
             context.stack.loadIdentity();
-            context.stack.multiplyPositionMatrix(new Matrix4f(RenderSystem.getInverseViewRotationMatrix()).invert());
 
             emitter.lastGlobal.set(translation);
-            emitter.rotation.set(matrix);
+            emitter.rotation.set(modelMatrix);
             emitter.modelRenderer = context.modelRenderer;
 
             Color glowTint = Colors.COLOR.set(context.color, true);
@@ -387,13 +423,13 @@ public class ParticleFormRenderer extends FormRenderer<ParticleForm> implements 
             if (!BBSRendering.isIrisShadowPass())
             {
                 boolean shadersEnabled = BBSRendering.isIrisShadersEnabled();
+                boolean billboard = shadersEnabled;
 
-                VertexFormat format = shadersEnabled ? VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL : VertexFormats.POSITION_TEXTURE_COLOR_LIGHT;
-                Supplier<ShaderProgram> shader = shadersEnabled
+                VertexFormat format = billboard ? VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL : VertexFormats.POSITION_TEXTURE_COLOR_LIGHT;
+                Supplier<ShaderProgram> shader = billboard
                     ? this.getShader(context, GameRenderer::getRenderTypeEntityTranslucentProgram, BBSShaders::getPickerBillboardProgram)
                     : this.getShader(context, GameRenderer::getParticleProgram, BBSShaders::getPickerParticlesProgram);
 
-                emitter.setupCameraProperties(context.camera);
                 emitter.render(format, shader, context.stack, context.overlay, context.getTransition());
             }
 

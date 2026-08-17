@@ -14,19 +14,20 @@ import org.lwjgl.stb.STBTruetype;
 import org.lwjgl.system.MemoryUtil;
 
 import java.io.File;
+import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.util.List;
 
 /**
- * Loads a user-selected TrueType (.ttf) font at runtime and exposes it as a Minecraft {@link TextRenderer}
- * so the whole BBS/CML UI can be drawn with it (see {@link Batcher2D#getDefaultTextRenderer()}).
+ * Loads a user-selected TrueType (.ttf) font at runtime using LWJGL STB bindings
+ * and exposes it as a Minecraft {@link TextRenderer} for 1.20.4 compatibility.
  */
 public class CustomFontManager
 {
-    private static final Identifier FONT_ID = new Identifier("bbs", "custom_ui_font");
+    private static final Identifier FONT_ID = Identifier.of("bbs", "custom_ui_font");
 
-    private static final Identifier BUNDLED_FONT_ID = new Identifier("bbs", "rtl_ui_font");
+    private static final Identifier BUNDLED_FONT_ID = Identifier.of("bbs", "rtl_ui_font");
 
     private static TextRenderer customRenderer;
 
@@ -211,6 +212,7 @@ public class CustomFontManager
     private static void loadFontBytes(byte[] bytes, Identifier fontId, FontLoadCallback callback)
     {
         ByteBuffer buffer = null;
+        STBTTFontinfo info = null;
         boolean ownedByFont = false;
 
         try
@@ -219,10 +221,10 @@ public class CustomFontManager
             buffer.put(bytes);
             buffer.flip();
 
-            STBTTFontinfo info = STBTTFontinfo.create();
+            info = STBTTFontinfo.malloc();
             if (!STBTruetype.stbtt_InitFont(info, buffer))
             {
-                throw new IllegalStateException("Failed to initialize STBTTFontinfo for font");
+                throw new IOException("Failed to initialize TrueType font via STB Truetype");
             }
 
             TrueTypeFont font = new TrueTypeFont(buffer, info, getFontPointSize(), 2F, 0F, 0F, "");
@@ -241,7 +243,12 @@ public class CustomFontManager
         {
             t.printStackTrace();
 
-            if (!ownedByFont && buffer != null)
+            if (info != null && !ownedByFont)
+            {
+                info.free();
+            }
+
+            if (buffer != null && !ownedByFont)
             {
                 MemoryUtil.memFree(buffer);
             }

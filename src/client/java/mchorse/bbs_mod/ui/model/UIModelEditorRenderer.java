@@ -728,10 +728,10 @@ public class UIModelEditorRenderer extends UIModelRenderer implements GizmoSurfa
             return;
         }
 
-        Tessellator tessellator = Tessellator.getInstance();
+        BufferBuilder builder = Tessellator.getInstance().getBuffer();
+
         RenderSystem.setShader(GameRenderer::getPositionColorProgram);
         RenderSystem.enableBlend();
-        BufferBuilder builder = tessellator.getBuffer();
         builder.begin(VertexFormat.DrawMode.DEBUG_LINES, VertexFormats.POSITION_COLOR);
 
         for (ModelQuad quad : this.selectedCube.quads)

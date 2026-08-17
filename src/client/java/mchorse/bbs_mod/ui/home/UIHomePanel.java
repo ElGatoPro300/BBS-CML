@@ -51,6 +51,7 @@ import net.minecraft.client.render.VertexFormats;
 import org.joml.Matrix4f;
 
 import com.mojang.blaze3d.systems.RenderSystem;
+import com.mojang.logging.LogUtils;
 
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
@@ -721,10 +722,10 @@ public class UIHomePanel extends UIDashboardPanel
         float segW = editorW / (float) segments;
 
         Matrix4f matrix4f = context.batcher.getContext().getMatrices().peek().getPositionMatrix();
+        BufferBuilder builder = Tessellator.getInstance().getBuffer();
 
         RenderSystem.enableBlend();
         RenderSystem.setShader(GameRenderer::getPositionColorProgram);
-        BufferBuilder builder = Tessellator.getInstance().getBuffer();
         builder.begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_COLOR);
 
         float[] yBot1 = new float[segments + 1];

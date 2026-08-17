@@ -2,6 +2,7 @@ package mchorse.bbs_mod.utils.iris;
 
 import mchorse.bbs_mod.utils.colors.ColorAdjustments;
 
+import net.irisshaders.iris.Iris;
 import net.irisshaders.iris.gl.uniform.UniformUpdateFrequency;
 import net.irisshaders.iris.uniforms.custom.cached.CachedUniform;
 import net.irisshaders.iris.uniforms.custom.cached.FloatCachedUniform;
@@ -154,7 +155,7 @@ public final class FormColorGradePatch
 
         try
         {
-            String current = net.irisshaders.iris.Iris.getCurrentPackName();
+            String current = Iris.getCurrentPackName();
 
             return current == null ? "" : current;
         }

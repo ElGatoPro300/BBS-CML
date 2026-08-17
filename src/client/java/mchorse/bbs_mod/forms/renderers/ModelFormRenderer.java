@@ -81,7 +81,7 @@ import net.minecraft.item.BlockItem;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.Items;
-import net.minecraft.nbt.NbtCompound;
+import net.minecraft.nbt.NbtElement;
 import net.minecraft.nbt.NbtHelper;
 import net.minecraft.util.Arm;
 import net.minecraft.util.Hand;
@@ -546,6 +546,10 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
             this.clearPBRTextureIntensity();
             RenderSystem.depthFunc(GL11.GL_LEQUAL);
 
+            Vector3f light0 = new Vector3f(0.85F, 0.85F, -1F).normalize();
+            Vector3f light1 = new Vector3f(-0.85F, 0.85F, 1F).normalize();
+            RenderSystem.setupLevelDiffuseLighting(light0, light1, stack.peek().getPositionMatrix());
+
             Supplier<ShaderProgram> mainShader = this.getModelShader(model);
 
             this.renderModel(this.entity, mainShader, stack, model, LightmapTextureManager.pack(15, 15), OverlayTexture.DEFAULT_UV, color, true, null, context.getTransition(), true, null, null);
@@ -589,11 +593,6 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
 
         RenderSystem.enableBlend();
         RenderSystem.defaultBlendFunc();
-
-        if (!ui && BBSRendering.isRenderingWorld())
-        {
-            BBSRendering.setupMatchingWorldDiffuseLighting();
-        }
 
         GameRenderer gameRenderer = MinecraftClient.getInstance().gameRenderer;
 
@@ -3370,17 +3369,9 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
         }
 
         GameProfile profile = null;
-        if (itemStack.hasNbt())
+        if (itemStack.hasNbt() && itemStack.getNbt().contains("SkullOwner", NbtElement.COMPOUND_TYPE))
         {
-            NbtCompound nbt = itemStack.getNbt();
-            if (nbt.contains("SkullOwner", 8))
-            {
-                profile = new GameProfile(null, nbt.getString("SkullOwner"));
-            }
-            else if (nbt.contains("SkullOwner", 10))
-            {
-                profile = NbtHelper.toGameProfile(nbt.getCompound("SkullOwner"));
-            }
+            profile = NbtHelper.toGameProfile(itemStack.getNbt().getCompound("SkullOwner"));
         }
         RenderLayer renderLayer = SkullBlockEntityRenderer.getRenderLayer(skullType, profile);
 

@@ -24,7 +24,7 @@ import net.minecraft.nbt.NbtCompound;
 import net.minecraft.nbt.NbtElement;
 import net.minecraft.nbt.NbtIo;
 import net.minecraft.nbt.NbtList;
-import net.minecraft.nbt.NbtSizeTracker;
+import net.minecraft.nbt.NbtTagSizeTracker;
 import net.minecraft.registry.Registries;
 import net.minecraft.state.property.Property;
 import net.minecraft.util.Identifier;
@@ -228,7 +228,7 @@ public class StructureData
         {
             try
             {
-                NbtCompound root = NbtIo.readCompressed(nbtFile.toPath(), NbtSizeTracker.ofUnlimitedBytes());
+                NbtCompound root = NbtIo.readCompressed(nbtFile);
                 this.parseStructure(root);
                 return true;
             }
@@ -242,7 +242,7 @@ public class StructureData
         {
             try
             {
-                NbtCompound root = NbtIo.readCompressed(is, NbtSizeTracker.ofUnlimitedBytes());
+                NbtCompound root = NbtIo.readCompressed(is);
                 this.parseStructure(root);
                 return true;
             }
@@ -524,7 +524,7 @@ public class StructureData
             || (b instanceof AttachedStemBlock)
             || state.isOf(Blocks.FERN)
             || state.isOf(Blocks.SUGAR_CANE)
-            || state.isOf(Blocks.SHORT_GRASS)
+            || state.isOf(Blocks.GRASS)
             || state.isOf(Blocks.TALL_GRASS)
             || state.isOf(Blocks.LARGE_FERN);
     }

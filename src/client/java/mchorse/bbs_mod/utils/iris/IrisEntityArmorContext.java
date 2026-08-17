@@ -168,20 +168,10 @@ public final class IrisEntityArmorContext
 
     public static void beginTrim(ArmorTrim trim)
     {
-        if (!isActive() || trim == null)
-        {
-            return;
-        }
-
-        CapturedRenderingState.INSTANCE.setCurrentRenderedItem(resolveTrimItemId(trim));
     }
 
     public static void endTrim()
     {
-        if (!isActive())
-        {
-            return;
-        }
     }
 
     public static final class Scope implements AutoCloseable

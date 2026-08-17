@@ -97,6 +97,10 @@ public class ItemFormRenderer extends FormRenderer<ItemForm>
         Color resolvedPaint = FormColorEffects.resolvePaintColor(this.form.paintSettings.get(), this.form.paintColor.get());
         boolean positivePaint = FormColorEffects.hasPositivePaint(this.form.paintSettings.get(), this.form.paintColor.get());
 
+        Vector3f light0 = new Vector3f(0.85F, 0.85F, -1F).normalize();
+        Vector3f light1 = new Vector3f(-0.85F, 0.85F, 1F).normalize();
+        RenderSystem.setupGui3DDiffuseLighting(light0, light1);
+
         ModelTransformationMode mode = this.form.modelTransform.get();
 
         consumers.setSubstitute(this.getMainConsumer(set, resolvedPaint));
@@ -124,6 +128,8 @@ public class ItemFormRenderer extends FormRenderer<ItemForm>
 
         consumers.setUI(false);
         consumers.setSubstitute(null);
+
+        DiffuseLighting.disableGuiDepthLighting();
 
         matrices.pop();
     }
