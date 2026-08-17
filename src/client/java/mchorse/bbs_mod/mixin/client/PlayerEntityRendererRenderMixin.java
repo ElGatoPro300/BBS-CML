@@ -1,6 +1,7 @@
 package mchorse.bbs_mod.mixin.client;
 
 import mchorse.bbs_mod.bridge.IEntityRenderState;
+import mchorse.bbs_mod.client.BBSRendering;
 import mchorse.bbs_mod.client.renderer.MorphRenderer;
 
 import net.minecraft.client.MinecraftClient;
@@ -33,7 +34,11 @@ public class PlayerEntityRendererRenderMixin
 
                 if (entity instanceof AbstractClientPlayerEntity abstractClientPlayerEntity)
                 {
-                    if (MorphRenderer.renderPlayer(abstractClientPlayerEntity, playerState.yawDegrees, MinecraftClient.getInstance().getRenderTickCounter().getTickDelta(true), matrixStack, vertexConsumerProvider, i))
+                    float tickDelta = BBSRendering.isRenderingWorld()
+                        ? MinecraftClient.getInstance().getRenderTickCounter().getTickDelta(true)
+                        : 1F;
+
+                    if (MorphRenderer.renderPlayer(abstractClientPlayerEntity, playerState.bodyYaw, tickDelta, matrixStack, vertexConsumerProvider, i))
                     {
                         info.cancel();
                     }

@@ -34,7 +34,7 @@ public class MorphRenderer
 {
     public static boolean hidePlayer = false;
 
-    public static boolean renderPlayer(AbstractClientPlayerEntity player, float f, float g, MatrixStack matrixStack, VertexConsumerProvider vertexConsumerProvider, int i)
+    public static boolean renderPlayer(AbstractClientPlayerEntity player, float bodyYaw, float g, MatrixStack matrixStack, VertexConsumerProvider vertexConsumerProvider, int i)
     {
         Morph morph = Morph.getMorph(player);
         Form playerForm = morph != null ? morph.getForm() : null;
@@ -84,7 +84,6 @@ public class MorphRenderer
                     DiffuseLighting.method_34742();
                 }
 
-                float bodyYaw = Lerps.lerp(player.prevBodyYaw, player.bodyYaw, g);
                 int overlay = OverlayTexture.DEFAULT_UV;
 
                 matrixStack.push();
@@ -157,7 +156,7 @@ public class MorphRenderer
         return dataA != null && dataA.equals(dataB);
     }
 
-    public static boolean renderLivingEntity(LivingEntity livingEntity, float f, float g, MatrixStack matrixStack, VertexConsumerProvider vertexConsumerProvider, int i, int o)
+    public static boolean renderLivingEntity(LivingEntity livingEntity, float bodyYaw, float g, MatrixStack matrixStack, VertexConsumerProvider vertexConsumerProvider, int i, int o)
     {
         if (!(livingEntity instanceof ISelectorOwnerProvider))
         {
@@ -173,8 +172,6 @@ public class MorphRenderer
         if (form != null)
         {
             RenderSystem.enableDepthTest();
-
-            float bodyYaw = Lerps.lerp(livingEntity.prevBodyYaw, livingEntity.bodyYaw, g);
 
             matrixStack.push();
             matrixStack.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(-bodyYaw));
