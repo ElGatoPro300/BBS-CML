@@ -249,7 +249,7 @@ public final class ProceduralItemUsePoses
 
         if (target instanceof MCEntity mc && mc.getMcEntity() instanceof LivingEntity living)
         {
-            pullTime = Math.max(1F, CrossbowItem.getPullTime(stack));
+            pullTime = Math.max(1F, CrossbowItem.getPullTime(stack, living));
         }
 
         return MathHelper.clamp((elapsedUse(target, stack) + transition) / pullTime, 0F, 1F);
@@ -272,7 +272,7 @@ public final class ProceduralItemUsePoses
 
         if (target instanceof MCEntity mc && mc.getMcEntity() instanceof LivingEntity living)
         {
-            max = Math.max(1, stack.getMaxUseTime());
+            max = Math.max(1, stack.getMaxUseTime(living));
         }
 
         return Math.max(0, max - stored);

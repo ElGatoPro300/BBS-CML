@@ -185,9 +185,25 @@ public abstract class BaseFilmController
 
         if (relative)
         {
-            cx = context.replay.keyframes.x.interpolate(0F) + context.replay.relativeOffset.get().x;
-            cy = context.replay.keyframes.y.interpolate(0F) + context.replay.relativeOffset.get().y;
-            cz = context.replay.keyframes.z.interpolate(0F) + context.replay.relativeOffset.get().z;
+            if (context.map != null)
+            {
+                cx = context.replay.keyframes.x.interpolate(0F) + context.replay.relativeOffset.get().x;
+                cy = context.replay.keyframes.y.interpolate(0F) + context.replay.relativeOffset.get().y;
+                cz = context.replay.keyframes.z.interpolate(0F) + context.replay.relativeOffset.get().z;
+            }
+            else
+            {
+                cx = position.x + context.replay.relativeOffset.get().x;
+                cy = position.y + context.replay.relativeOffset.get().y;
+                cz = position.z + context.replay.relativeOffset.get().z;
+            }
+
+            if (context.isShadowPass)
+            {
+                cx += camera.getPos().x;
+                cy += camera.getPos().y;
+                cz += camera.getPos().z;
+            }
         }
 
         Matrix4f target = null;
@@ -266,6 +282,10 @@ public abstract class BaseFilmController
             .stencilMap(context.map)
             .color(context.color);
 
+        formContext.relative = relative;
+        formContext.isShadowPass = context.isShadowPass;
+        formContext.viewMatrix = context.viewMatrix;
+
         /* World pass: physical ActorEntity already draws the body — only capture gizmos.
          * Stencil pass (map != null): still draw the form so bone pick/highlight match the actor. */
         boolean drawBody = !context.physicalActor || context.map != null;
@@ -276,8 +296,16 @@ public abstract class BaseFilmController
         {
             if (relative)
             {
-                stack.peek().getPositionMatrix().identity();
-                stack.peek().getNormalMatrix().identity();
+                if (!context.isShadowPass)
+                {
+                    stack.peek().getPositionMatrix().identity();
+                    stack.peek().getNormalMatrix().identity();
+                }
+
+                if (context.map == null)
+                {
+                    stack.multiply(camera.getRotation());
+                }
             }
 
             MatrixStackUtils.multiply(stack, target);
@@ -2294,7 +2322,7 @@ public abstract class BaseFilmController
         /* Farther entities first so translucency composites correctly. */
         List<Map.Entry<Integer, IEntity>> sorted = new ArrayList<>(this.entities.entrySet());
         Camera camera = context.camera();
-        float transition = context.tickDelta();
+        float transition = context.tickCounter().getTickDelta(false);
 
         sorted.sort(Comparator
             .comparing((Map.Entry<Integer, IEntity> entry) ->
@@ -2343,7 +2371,7 @@ public abstract class BaseFilmController
 
             FilmControllerContext filmContext = getFilmControllerContext(context, replay, entity);
 
-            filmContext.transition = getTransition(entity, context.tickDelta());
+            filmContext.transition = getTransition(entity, context.tickCounter().getTickDelta(false));
 
             filmContext.stack.push();
 
@@ -2760,7 +2788,9 @@ public abstract class BaseFilmController
             return;
         }
 
-        Color runtime = valueColor.getRuntimeValue();
+        Color runtime = valueColor.getRuntimeValue() instanceof Color runtimeColor
+            ? runtimeColor
+            : null;
 
         if (runtime == null)
         {
@@ -2821,7 +2851,7 @@ public abstract class BaseFilmController
 
     protected FilmControllerContext getFilmControllerContext(WorldRenderContext context, Replay replay, IEntity entity)
     {
-        float tick = replay.getTick(this.getTick()) + this.getTransition(entity, context.tickDelta());
+        float tick = replay.getTick(this.getTick()) + this.getTransition(entity, context.tickCounter().getTickDelta(false));
         ShadowSettings shadow = resolveShadowSettings(replay, tick);
 
         return FilmControllerContext.instance

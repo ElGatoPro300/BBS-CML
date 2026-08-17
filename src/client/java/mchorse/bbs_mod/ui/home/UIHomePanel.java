@@ -724,8 +724,7 @@ public class UIHomePanel extends UIDashboardPanel
 
         RenderSystem.enableBlend();
         RenderSystem.setShader(GameRenderer::getPositionColorProgram);
-        BufferBuilder builder = Tessellator.getInstance().getBuffer();
-        builder.begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_COLOR);
+        BufferBuilder builder = Tessellator.getInstance().begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_COLOR);
 
         float[] yBot1 = new float[segments + 1];
         float[] yMid1 = new float[segments + 1];
@@ -784,25 +783,25 @@ public class UIHomePanel extends UIDashboardPanel
             float x1 = editorX + i * segW;
             float x2 = editorX + (i + 1) * segW;
 
-            builder.vertex(matrix4f, x1, yTop1f, 0).color(colTop).next();
-            builder.vertex(matrix4f, x1, yMid1[i], 0).color(cMid1[i]).next();
-            builder.vertex(matrix4f, x2, yMid1[i + 1], 0).color(cMid1[i + 1]).next();
-            builder.vertex(matrix4f, x2, yTop1f, 0).color(colTop).next();
+            builder.vertex(matrix4f, x1, yTop1f, 0).color(colTop);
+            builder.vertex(matrix4f, x1, yMid1[i], 0).color(cMid1[i]);
+            builder.vertex(matrix4f, x2, yMid1[i + 1], 0).color(cMid1[i + 1]);
+            builder.vertex(matrix4f, x2, yTop1f, 0).color(colTop);
 
-            builder.vertex(matrix4f, x1, yMid1[i], 0).color(cMid1[i]).next();
-            builder.vertex(matrix4f, x1, yBot1[i], 0).color(colBot).next();
-            builder.vertex(matrix4f, x2, yBot1[i + 1], 0).color(colBot).next();
-            builder.vertex(matrix4f, x2, yMid1[i + 1], 0).color(cMid1[i + 1]).next();
+            builder.vertex(matrix4f, x1, yMid1[i], 0).color(cMid1[i]);
+            builder.vertex(matrix4f, x1, yBot1[i], 0).color(colBot);
+            builder.vertex(matrix4f, x2, yBot1[i + 1], 0).color(colBot);
+            builder.vertex(matrix4f, x2, yMid1[i + 1], 0).color(cMid1[i + 1]);
 
-            builder.vertex(matrix4f, x1, yTop2f, 0).color(colTop).next();
-            builder.vertex(matrix4f, x1, yMid2[i], 0).color(cMid2[i]).next();
-            builder.vertex(matrix4f, x2, yMid2[i + 1], 0).color(cMid2[i + 1]).next();
-            builder.vertex(matrix4f, x2, yTop2f, 0).color(colTop).next();
+            builder.vertex(matrix4f, x1, yTop2f, 0).color(colTop);
+            builder.vertex(matrix4f, x1, yMid2[i], 0).color(cMid2[i]);
+            builder.vertex(matrix4f, x2, yMid2[i + 1], 0).color(cMid2[i + 1]);
+            builder.vertex(matrix4f, x2, yTop2f, 0).color(colTop);
 
-            builder.vertex(matrix4f, x1, yMid2[i], 0).color(cMid2[i]).next();
-            builder.vertex(matrix4f, x1, yBot2[i], 0).color(colBot).next();
-            builder.vertex(matrix4f, x2, yBot2[i + 1], 0).color(colBot).next();
-            builder.vertex(matrix4f, x2, yMid2[i + 1], 0).color(cMid2[i + 1]).next();
+            builder.vertex(matrix4f, x1, yMid2[i], 0).color(cMid2[i]);
+            builder.vertex(matrix4f, x1, yBot2[i], 0).color(colBot);
+            builder.vertex(matrix4f, x2, yBot2[i + 1], 0).color(colBot);
+            builder.vertex(matrix4f, x2, yMid2[i + 1], 0).color(cMid2[i + 1]);
         }
 
         BufferRenderer.drawWithGlobalProgram(builder.end());

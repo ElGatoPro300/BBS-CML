@@ -44,7 +44,7 @@ public class PlayerEntityMixin
         }
     }
 
-    @Inject(method = "getDimensions", at = @At("RETURN"), cancellable = true)
+    @Inject(method = "getBaseDimensions", at = @At("RETURN"), cancellable = true)
     public void onGetDimensions(EntityPose pose, CallbackInfoReturnable<EntityDimensions> info)
     {
         if (this instanceof IMorphProvider provider)
@@ -57,7 +57,7 @@ public class PlayerEntityMixin
                 EntityDimensions dimensions = info.getReturnValue();
                 float height = form.hitboxHeight.get() * (player.isSneaking() ? form.hitboxSneakMultiplier.get() : 1F);
 
-                if (dimensions.fixed)
+                if (dimensions.fixed())
                 {
                     info.setReturnValue(EntityDimensions.fixed(form.hitboxWidth.get(), height));
                 }

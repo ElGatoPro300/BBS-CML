@@ -101,30 +101,12 @@ public class LabelTextTintQuadCapture implements VertexConsumerProvider, VertexC
     }
 
     @Override
-    public VertexConsumer vertex(double x, double y, double z)
+    public VertexConsumer vertex(float x, float y, float z)
     {
-        this.pendingX = (float) x;
-        this.pendingY = (float) y;
+        this.pendingX = x;
+        this.pendingY = y;
 
         return this;
-    }
-
-    @Override
-    public void next()
-    {
-        /* no-op */
-    }
-
-    @Override
-    public void fixedColor(int red, int green, int blue, int alpha)
-    {
-        /* no-op */
-    }
-
-    @Override
-    public void unfixColor()
-    {
-        /* no-op */
     }
 
     @Override

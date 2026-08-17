@@ -3,9 +3,9 @@ package mchorse.bbs_mod.forms.renderers.utils;
 import mchorse.bbs_mod.utils.colors.Color;
 
 import net.minecraft.client.render.VertexConsumer;
+import net.minecraft.client.render.VertexFormat;
 
 import net.caffeinemc.mods.sodium.api.vertex.buffer.VertexBufferWriter;
-import net.caffeinemc.mods.sodium.api.vertex.format.VertexFormatDescription;
 
 import org.lwjgl.system.MemoryStack;
 
@@ -31,7 +31,7 @@ public class RecolorVertexSodiumConsumer extends RecolorVertexConsumer implement
     }
 
     @Override
-    public void push(MemoryStack memoryStack, long l, int i, VertexFormatDescription vertexFormat)
+    public void push(MemoryStack memoryStack, long l, int i, VertexFormat vertexFormat)
     {
         if (this.consumer instanceof VertexBufferWriter writer)
         {

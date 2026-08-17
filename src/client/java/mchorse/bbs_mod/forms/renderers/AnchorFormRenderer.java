@@ -61,9 +61,15 @@ public class AnchorFormRenderer extends FormRenderer<AnchorForm>
             stack.multiply(RotationAxis.NEGATIVE_Y.rotationDegrees(180F));
             MatrixStackUtils.invertUiNormalY(stack);
 
+            Vector3f light0 = new Vector3f(0.85F, 0.85F, -1F).normalize();
+            Vector3f light1 = new Vector3f(-0.85F, 0.85F, 1F).normalize();
+            RenderSystem.setupLevelDiffuseLighting(light0, light1);
+
             this.renderBodyParts(new FormRenderingContext()
                 .set(FormRenderType.ENTITY, this.entity, stack, LightmapTextureManager.pack(15, 15), OverlayTexture.DEFAULT_UV, context.getTransition())
                 .inUI());
+
+            DiffuseLighting.disableGuiDepthLighting();
 
             stack.pop();
             RenderSystem.depthFunc(GL11.GL_ALWAYS);

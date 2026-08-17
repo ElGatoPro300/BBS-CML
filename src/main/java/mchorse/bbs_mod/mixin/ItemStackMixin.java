@@ -28,7 +28,7 @@ public class ItemStackMixin
         {
             ItemStack stack = user.getStackInHand(hand);
 
-            if (stack.getMaxUseTime() > 0)
+            if (stack.getMaxUseTime(user) > 0)
             {
                 return;
             }

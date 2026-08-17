@@ -148,6 +148,7 @@ import net.minecraft.client.render.GameRenderer;
 import net.minecraft.client.render.Tessellator;
 import net.minecraft.client.render.VertexFormat;
 import net.minecraft.client.render.VertexFormats;
+import net.minecraft.client.util.BufferAllocator;
 import net.minecraft.client.util.InputUtil;
 import net.minecraft.client.util.Window;
 import net.minecraft.client.util.math.MatrixStack;
@@ -155,6 +156,8 @@ import net.minecraft.entity.EquipmentSlot;
 import net.minecraft.item.ItemStack;
 import net.minecraft.util.ActionResult;
 import net.minecraft.util.Hand;
+
+import org.joml.Matrix4fStack;
 
 import com.mojang.blaze3d.systems.RenderSystem;
 
@@ -712,8 +715,7 @@ public class BBSModClient implements ClientModInitializer
                     stack.translate(0F, 0F, -d);
 
                     RenderSystem.enableDepthTest();
-                    BufferBuilder builder = Tessellator.getInstance().getBuffer();
-                    builder.begin(VertexFormat.DrawMode.TRIANGLES, VertexFormats.POSITION_COLOR);
+                    BufferBuilder builder = Tessellator.getInstance().begin(VertexFormat.DrawMode.TRIANGLES, VertexFormats.POSITION_COLOR);
 
                     float fov = MinecraftClient.getInstance().options.getFov().getValue();
                     float dd = d * (float) Math.pow(fov / 40F, 2F);
@@ -728,14 +730,14 @@ public class BBSModClient implements ClientModInitializer
 
                     RenderSystem.setShader(GameRenderer::getPositionColorProgram);
 
-                    MatrixStack mvStack = RenderSystem.getModelViewStack();
-                    mvStack.push();
-                    mvStack.loadIdentity();
+                    Matrix4fStack mvStack = RenderSystem.getModelViewStack();
+                    mvStack.pushMatrix();
+                    mvStack.identity();
                     RenderSystem.applyModelViewMatrix();
 
                     BufferRenderer.drawWithGlobalProgram(builder.end());
 
-                    mvStack.pop();
+                    mvStack.popMatrix();
                     RenderSystem.applyModelViewMatrix();
 
                     RenderSystem.disableDepthTest();
@@ -905,13 +907,13 @@ public class BBSModClient implements ClientModInitializer
             }
         });
 
-        HudRenderCallback.EVENT.register((drawContext, tickDelta) ->
+        HudRenderCallback.EVENT.register((drawContext, tickCounter) ->
         {
-            BBSRendering.renderHud(drawContext, tickDelta);
+            BBSRendering.renderHud(drawContext, tickCounter.getTickDelta(false));
 
             if (gunZoom != null)
             {
-                gunZoom.update(keyZoom.isPressed(), MinecraftClient.getInstance().getLastFrameDuration());
+                gunZoom.update(keyZoom.isPressed(), tickCounter.getLastFrameDuration());
 
                 if (gunZoom.canBeRemoved())
                 {

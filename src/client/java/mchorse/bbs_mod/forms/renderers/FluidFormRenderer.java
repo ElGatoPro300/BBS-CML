@@ -17,7 +17,6 @@ import mchorse.bbs_mod.ui.dashboard.UIDashboard;
 import mchorse.bbs_mod.ui.film.UIFilmPanel;
 import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.utils.MatrixStackUtils;
-import mchorse.bbs_mod.utils.Pair;
 import mchorse.bbs_mod.utils.colors.Color;
 import mchorse.bbs_mod.utils.colors.Colors;
 import mchorse.bbs_mod.utils.joml.Vectors;
@@ -73,6 +72,10 @@ public class FluidFormRenderer extends FormRenderer<FluidForm> implements ITicka
         /* Shading fix for UI */
         MatrixStackUtils.invertUiNormalY(stack);
 
+        Vector3f light0 = new Vector3f(0.85F, 0.85F, -1F).normalize();
+        Vector3f light1 = new Vector3f(-0.85F, 0.85F, 1F).normalize();
+        RenderSystem.setupLevelDiffuseLighting(light0, light1);
+
         VertexFormat format = VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL;
         
         this.renderFluid(format, GameRenderer::getRenderTypeEntityTranslucentProgram,
@@ -80,6 +83,8 @@ public class FluidFormRenderer extends FormRenderer<FluidForm> implements ITicka
             OverlayTexture.DEFAULT_UV, LightmapTextureManager.MAX_LIGHT_COORDINATE, Colors.WHITE,
             context.getTransition()
         );
+
+        DiffuseLighting.disableGuiDepthLighting();
 
         stack.pop();
     }
@@ -105,8 +110,7 @@ public class FluidFormRenderer extends FormRenderer<FluidForm> implements ITicka
         RenderSystem.setShader(GameRenderer::getRenderTypeLinesProgram);
         RenderSystem.lineWidth(2.0F);
         
-        BufferBuilder builder = Tessellator.getInstance().getBuffer();
-        builder.begin(VertexFormat.DrawMode.LINES, VertexFormats.LINES);
+        BufferBuilder builder = Tessellator.getInstance().begin(VertexFormat.DrawMode.LINES, VertexFormats.LINES);
         
         MatrixStack stack = context.stack;
         
@@ -147,16 +151,16 @@ public class FluidFormRenderer extends FormRenderer<FluidForm> implements ITicka
                 float s2 = (float) Math.sin(a2) * r;
                 
                 /* XY circle */
-                builder.vertex(matrix, c1, s1, 0).color(1f, 0f, 0f, 1f).normal(nx1, ny1, nz1).next();
-                builder.vertex(matrix, c2, s2, 0).color(1f, 0f, 0f, 1f).normal(nx1, ny1, nz1).next();
+                builder.vertex(matrix, c1, s1, 0).color(1f, 0f, 0f, 1f).normal(nx1, ny1, nz1);
+                builder.vertex(matrix, c2, s2, 0).color(1f, 0f, 0f, 1f).normal(nx1, ny1, nz1);
                 
                 /* XZ circle */
-                builder.vertex(matrix, c1, 0, s1).color(1f, 0f, 0f, 1f).normal(nx2, ny2, nz2).next();
-                builder.vertex(matrix, c2, 0, s2).color(1f, 0f, 0f, 1f).normal(nx2, ny2, nz2).next();
+                builder.vertex(matrix, c1, 0, s1).color(1f, 0f, 0f, 1f).normal(nx2, ny2, nz2);
+                builder.vertex(matrix, c2, 0, s2).color(1f, 0f, 0f, 1f).normal(nx2, ny2, nz2);
                 
                 /* YZ circle */
-                builder.vertex(matrix, 0, c1, s1).color(1f, 0f, 0f, 1f).normal(nx3, ny3, nz3).next();
-                builder.vertex(matrix, 0, c2, s2).color(1f, 0f, 0f, 1f).normal(nx3, ny3, nz3).next();
+                builder.vertex(matrix, 0, c1, s1).color(1f, 0f, 0f, 1f).normal(nx3, ny3, nz3);
+                builder.vertex(matrix, 0, c2, s2).color(1f, 0f, 0f, 1f).normal(nx3, ny3, nz3);
             }
             
             stack.pop();
@@ -196,8 +200,8 @@ public class FluidFormRenderer extends FormRenderer<FluidForm> implements ITicka
         gameRenderer.getLightmapTextureManager().enable();
         gameRenderer.getOverlayTexture().setupOverlayColor();
 
-        BufferBuilder builder = Tessellator.getInstance().getBuffer();
-        builder.begin(VertexFormat.DrawMode.TRIANGLES, format);
+        Tessellator tessellator = Tessellator.getInstance();
+        BufferBuilder builder = tessellator.begin(VertexFormat.DrawMode.TRIANGLES, format);
 
         Color color = this.form.color.get();
         Color finalColor = color.copy();
@@ -250,7 +254,7 @@ public class FluidFormRenderer extends FormRenderer<FluidForm> implements ITicka
         
         if (MinecraftClient.getInstance().player != null)
         {
-            time = (MinecraftClient.getInstance().player.age + MinecraftClient.getInstance().getTickDelta()) * speed * 0.1f;
+            time = (MinecraftClient.getInstance().player.age + MinecraftClient.getInstance().getRenderTickCounter().getTickDelta(true)) * speed * 0.1f;
         }
         else
         {
@@ -716,8 +720,7 @@ public class FluidFormRenderer extends FormRenderer<FluidForm> implements ITicka
                .texture(u, v)
                .overlay(overlay)
                .light(light)
-               .normal(tn.x, tn.y, tn.z)
-               .next();
+               .normal(tn.x, tn.y, tn.z);
     }
     
     @Override
@@ -763,7 +766,7 @@ public class FluidFormRenderer extends FormRenderer<FluidForm> implements ITicka
 
         if (owner != null)
         {
-            Pair<Matrix4f, Float> total = BaseFilmController.getTotalMatrix(owner.getEntities(), this.form.anchor.get(), defaultMatrix, 0, 0, 0, transition, 0);
+            var total = BaseFilmController.getTotalMatrix(owner.getEntities(), this.form.anchor.get(), defaultMatrix, 0, 0, 0, transition, 0);
 
             if (total != null && total.a != null)
             {
@@ -772,7 +775,7 @@ public class FluidFormRenderer extends FormRenderer<FluidForm> implements ITicka
         }
 
         Matrix4f formMatrix = null;
-        FormRenderer renderer = FormUtilsClient.getRenderer(this.form);
+        var renderer = FormUtilsClient.getRenderer(this.form);
 
         if (renderer != null)
         {

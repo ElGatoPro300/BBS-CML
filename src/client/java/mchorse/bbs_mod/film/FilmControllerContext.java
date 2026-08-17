@@ -129,7 +129,7 @@ public class FilmControllerContext
             MatrixStackUtils.multiply(this.stack, RenderSystem.getModelViewMatrix());
         }
         this.consumers = context.consumers();
-        this.transition = context.tickDelta();
+        this.transition = context.tickCounter().getTickDelta(false);
 
         return this;
     }

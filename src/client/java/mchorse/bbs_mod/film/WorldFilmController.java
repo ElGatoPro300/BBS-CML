@@ -141,13 +141,13 @@ public class WorldFilmController extends BaseFilmController
     {
         super.render(context);
 
-        this.applyCameraClips(context.tickDelta());
+        this.applyCameraClips(context.tickCounter().getTickDelta(false));
 
         if (BBSSettings.recordingCameraPreview.get())
         {
             int tick = Math.max(this.tick, 0);
 
-            Recorder.renderCameraPreviewTimeline(this.context.clips, tick, context.tickDelta(), this.duration, this.position, context.camera(), context.matrixStack());
+            Recorder.renderCameraPreviewTimeline(this.context.clips, tick, context.tickCounter().getTickDelta(true), this.duration, this.position, context.camera(), context.matrixStack());
         }
 
         AudioClientClip.manageSounds(this.context);
