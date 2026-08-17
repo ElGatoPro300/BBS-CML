@@ -6,6 +6,8 @@ import net.minecraft.client.render.entity.state.EntityRenderState;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.world.WorldView;
 
+import org.joml.Quaternionf;
+
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.gen.Invoker;
 
@@ -17,4 +19,8 @@ public interface EntityRendererDispatcherInvoker
     {
         throw new AssertionError();
     }
-}
+
+    @Invoker("renderFire")
+    public void bbs$renderFire(MatrixStack matrices, VertexConsumerProvider vertexConsumers, EntityRenderState state, Quaternionf rotation);
+}
+
