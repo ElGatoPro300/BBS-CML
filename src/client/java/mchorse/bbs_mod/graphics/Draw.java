@@ -123,10 +123,8 @@ public class Draw
     }
 
     /**
-     * Bake a camera-relative model matrix for the Iris LAST flush. Prefer the stack alone
-     * when it already includes the view; otherwise compose with {@link BBSRendering#camera}.
-     * Never multiply {@code RenderSystem.getModelViewMatrix()} — that was double-applying
-     * the camera and parking boxes in the sky. Mirrors {@code Gizmo.composeVisualMatrix}.
+     * Bake a camera-relative model matrix for the Iris LAST flush. Uses the stack's position matrix
+     * directly which already contains the camera view transformation.
      */
     private static Matrix4f bakeIrisBoxMatrix(MatrixStack stack, double x, double y, double z)
     {
@@ -134,26 +132,7 @@ public class Draw
 
         baked.translate((float) x, (float) y, (float) z);
 
-        Matrix4f composed = new Matrix4f(BBSRendering.camera).mul(baked);
-        float bakedDist = viewOriginLengthSq(baked);
-        float composedDist = viewOriginLengthSq(composed);
-
-        /* Double-applied view: composed collapses toward the view origin. */
-        if (bakedDist > 1.0E-6F && composedDist < bakedDist * 0.49F)
-        {
-            return baked;
-        }
-
-        return composed;
-    }
-
-    private static float viewOriginLengthSq(Matrix4f view)
-    {
-        float ox = view.m30();
-        float oy = view.m31();
-        float oz = view.m32();
-
-        return ox * ox + oy * oy + oz * oz;
+        return baked;
     }
 
     private static void enqueueIrisBox(MatrixStack stack, double x, double y, double z, double w, double h, double d, float r, float g, float b)
