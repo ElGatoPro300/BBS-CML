@@ -17,15 +17,17 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 public class RenderTickCounterMixin
 {
     @Shadow
-    public float tickDelta;
+    public float tickProgress;
 
     @Shadow
-    public float lastFrameDuration;
+    public float dynamicDeltaTicks;
 
     @Shadow
-    private long prevTimeMillis;
+    private long lastTimeMillis;
 
     private int heldFrames;
+
+    private long lastFrameTime;
 
     @Inject(method = "beginRenderTick", at = @At("HEAD"), cancellable = true)
     public void onBeginRenderTick(long timeMillis, boolean tick, CallbackInfoReturnable<Integer> info)
@@ -36,18 +38,18 @@ public class RenderTickCounterMixin
         {
             if (videoRecorder.getCounter() == 0)
             {
-                this.tickDelta = 0;
+                this.tickProgress = 0;
             }
 
             if (this.heldFrames == 0)
             {
-                this.lastFrameDuration = 20F / (float) BBSRendering.getVideoFrameRate();
-                this.prevTimeMillis = timeMillis;
-                this.tickDelta += this.lastFrameDuration;
+                this.dynamicDeltaTicks = 20F / (float) BBSRendering.getVideoFrameRate();
+                this.lastTimeMillis = timeMillis;
+                this.tickProgress += this.dynamicDeltaTicks;
 
-                int i = (int) this.tickDelta;
+                int i = (int) this.tickProgress;
 
-                this.tickDelta -= (float) i;
+                this.tickProgress -= (float) i;
 
                 videoRecorder.serverTicks += i;
                 BBSRendering.canRender = true;
@@ -71,6 +73,7 @@ public class RenderTickCounterMixin
         else
         {
             this.heldFrames = 0;
+            this.lastFrameTime = 0;
         }
     }
 }

@@ -1,6 +1,7 @@
 package mchorse.bbs_mod.cubic.render;
 
 import mchorse.bbs_mod.BBSModClient;
+import mchorse.bbs_mod.client.BBSShaders;
 import mchorse.bbs_mod.cubic.data.model.Model;
 import mchorse.bbs_mod.cubic.data.model.ModelGroup;
 import mchorse.bbs_mod.cubic.render.vao.ModelVAORenderer;
@@ -8,32 +9,31 @@ import mchorse.bbs_mod.obj.shapes.ShapeKeys;
 import mchorse.bbs_mod.resources.Link;
 import mchorse.bbs_mod.ui.framework.elements.utils.StencilMap;
 
-import net.minecraft.client.gl.ShaderProgram;
 import net.minecraft.client.render.BufferBuilder;
-import net.minecraft.client.render.BufferRenderer;
+import net.minecraft.client.render.BuiltBuffer;
 import net.minecraft.client.render.Tessellator;
-import net.minecraft.client.render.VertexFormat;
-import net.minecraft.client.render.VertexFormats;
 import net.minecraft.client.util.math.MatrixStack;
 
+import com.mojang.blaze3d.pipeline.RenderPipeline;
+import com.mojang.blaze3d.vertex.VertexFormat;
+
 /**
- * Shape-key CPU geometry must draw one model group per call so PaintColor, GlowingColor, and
- * per-bone texture crossfade uniforms match the group that was just meshed.
+ * Shape-key CPU geometry is submitted one model group per call so each group's texture and
+ * vertex color are resolved before its buffer is handed to the model layer.
  * <p>
- * Positions and normals are written already transformed by the render stack. Uniforms must use
- * {@link ModelVAORenderer#setupUniformsCpuPretransformed} so {@code ModelViewMat} / {@code NormalMat}
- * are not applied a second time (second ModelView hides composites; second NormalMat inverts lighting).
+ * Positions and normals are written already transformed by the render stack; the model layer
+ * supplies the active camera transform when it submits the built buffer.
  */
 public class CubicCpuGroupDrawRenderer extends CubicCubeRenderer
 {
-    private final ShaderProgram shader;
+    private final RenderPipeline pipeline;
     private final Link defaultTexture;
 
-    public CubicCpuGroupDrawRenderer(int light, int overlay, StencilMap stencilMap, ShapeKeys shapeKeys, ShaderProgram shader, Link defaultTexture)
+    public CubicCpuGroupDrawRenderer(int light, int overlay, StencilMap stencilMap, ShapeKeys shapeKeys, RenderPipeline pipeline, Link defaultTexture)
     {
         super(light, overlay, stencilMap, shapeKeys);
 
-        this.shader = shader;
+        this.pipeline = pipeline;
         this.defaultTexture = defaultTexture;
     }
 
@@ -47,7 +47,7 @@ public class CubicCpuGroupDrawRenderer extends CubicCubeRenderer
 
         CubicGroupTextureBlend textureBlend = CubicGroupTextureBlend.resolve(group, this.defaultTexture);
 
-        if (textureBlend != null && textureBlend.isPartial() && !CubicGroupTextureBlend.supportsShader(this.shader))
+        if (textureBlend != null && textureBlend.isPartial())
         {
             float fromA = this.a * (1F - textureBlend.blend);
             float toA = this.a * textureBlend.blend;
@@ -60,7 +60,7 @@ public class CubicCpuGroupDrawRenderer extends CubicCubeRenderer
         }
         else
         {
-            CubicGroupTextureBlend.bindForDraw(this.shader, textureBlend, this.defaultTexture);
+            CubicGroupTextureBlend.bindForDraw(this.pipeline, textureBlend, this.defaultTexture);
 
             try
             {
@@ -123,21 +123,15 @@ public class CubicCpuGroupDrawRenderer extends CubicCubeRenderer
 
         this.setColor(cr, cg, cb, alpha);
 
-        BufferBuilder groupBuilder = Tessellator.getInstance().begin(VertexFormat.DrawMode.TRIANGLES, VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL);
+        BufferBuilder groupBuilder = Tessellator.getInstance().begin(VertexFormat.DrawMode.TRIANGLES, this.pipeline.getVertexFormat());
 
-        ModelVAORenderer.beginCpuGeometry(this.shader);
         super.renderGroup(groupBuilder, stack, group, model);
 
-        try
+        BuiltBuffer built = groupBuilder.endNullable();
+
+        if (built != null)
         {
-            this.shader.bind();
-            ModelVAORenderer.setupUniforms(stack, this.shader);
-            BufferRenderer.drawWithGlobalProgram(groupBuilder.end());
-            this.shader.unbind();
-        }
-        catch (IllegalStateException e)
-        {
-            /* Empty or invalid buffer */
+            built.close();
         }
     }
 }

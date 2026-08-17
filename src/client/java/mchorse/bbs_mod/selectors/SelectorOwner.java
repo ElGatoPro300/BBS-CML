@@ -10,6 +10,8 @@ import mchorse.bbs_mod.forms.forms.Form;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.nbt.NbtCompound;
 import net.minecraft.nbt.NbtElement;
+import net.minecraft.storage.NbtWriteView;
+import net.minecraft.util.ErrorReporter;
 import net.minecraft.world.World;
 
 import java.util.HashSet;
@@ -42,7 +44,7 @@ public class SelectorOwner
     {
         World world = this.entity.getWorld();
 
-        if (!world.isClient)
+        if (!world.isClient())
         {
             return;
         }
@@ -65,7 +67,9 @@ public class SelectorOwner
             this.nbtCheck = 10;
 
             Set<String> keys = createWhitelist();
-            NbtCompound compound = this.mcEntity.writeNbt(new NbtCompound());
+            NbtWriteView view = NbtWriteView.create(ErrorReporter.EMPTY, this.mcEntity.getEntityWorld().getRegistryManager());
+            this.mcEntity.writeData(view);
+            NbtCompound compound = view.getNbt();
             NbtCompound newCompound = new NbtCompound();
 
             for (String key : keys)
