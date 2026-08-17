@@ -2,6 +2,7 @@ package mchorse.bbs_mod.ui.film;
 
 import mchorse.bbs_mod.camera.clips.misc.BossBarState;
 import mchorse.bbs_mod.ui.framework.elements.utils.Batcher2D;
+import mchorse.bbs_mod.utils.colors.Colors;
 
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.util.math.MatrixStack;
@@ -11,7 +12,6 @@ import net.minecraft.util.math.MathHelper;
 import com.mojang.blaze3d.systems.RenderSystem;
 
 import java.util.List;
-import mchorse.bbs_mod.utils.colors.Colors;
 
 public class UIBossBarRenderer
 {
