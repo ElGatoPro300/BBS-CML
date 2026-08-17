@@ -24,12 +24,10 @@ import net.minecraft.item.Items;
 import net.minecraft.particle.BlockStateParticleEffect;
 import net.minecraft.particle.DustColorTransitionParticleEffect;
 import net.minecraft.particle.DustParticleEffect;
-import net.minecraft.particle.EntityEffectParticleEffect;
 import net.minecraft.particle.ItemStackParticleEffect;
 import net.minecraft.particle.ParticleEffect;
 import net.minecraft.particle.ParticleType;
 import net.minecraft.particle.ParticleTypes;
-import net.minecraft.particle.SimpleParticleType;
 import net.minecraft.registry.Registries;
 import net.minecraft.registry.RegistryWrapper;
 import net.minecraft.util.Identifier;
@@ -105,40 +103,23 @@ public class VanillaParticleFormRenderer extends FormRenderer<VanillaParticleFor
             return;
         }
 
-        Matrix4f positionMatrix;
+        Camera camera = MinecraftClient.getInstance().gameRenderer.getCamera();
+        Matrix4f matrix = new Matrix4f(RenderSystem.getInverseViewRotationMatrix());
 
-        if (context.type == FormRenderType.PREVIEW)
-        {
-            net.minecraft.client.render.Camera realCamera = MinecraftClient.getInstance().gameRenderer.getCamera();
+        matrix.mul(context.stack.peek().getPositionMatrix());
 
-            positionMatrix = new Matrix4f().rotation(realCamera.getRotation());
-            positionMatrix.mul(context.stack.peek().getPositionMatrix());
+        Vector3d translation = new Vector3d(matrix.getTranslation(Vectors.TEMP_3F));
 
-            Vector3f translation = positionMatrix.getTranslation(new Vector3f());
+        translation.add(camera.getPos().x, camera.getPos().y, camera.getPos().z);
+        context.stack.push();
+        context.stack.loadIdentity();
+        context.stack.multiplyPositionMatrix(new Matrix4f(RenderSystem.getInverseViewRotationMatrix()).invert());
 
-            this.pos.set(
-                translation.x + (float) realCamera.getPos().x,
-                translation.y + (float) realCamera.getPos().y,
-                translation.z + (float) realCamera.getPos().z
-            );
-        }
-        else
-        {
-            positionMatrix = new Matrix4f(context.stack.peek().getPositionMatrix());
-
-            Vector3f translation = positionMatrix.getTranslation(new Vector3f());
-
-            this.pos.set(
-                translation.x + context.camera.position.x,
-                translation.y + context.camera.position.y,
-                translation.z + context.camera.position.z
-            );
-        }
-
-        positionMatrix.get3x3(this.rot);
-
+        this.pos.set(translation);
         this.vel.set(0F, 0F, 1F);
-        this.rot.transform(this.vel);
+        this.rot.set(matrix).transform(this.vel);
+
+        context.stack.pop();
     }
 
     @Override
@@ -247,12 +228,7 @@ public class VanillaParticleFormRenderer extends FormRenderer<VanillaParticleFor
 
                     if (colorR >= 0F)
                     {
-                        if (path.contains("effect"))
-                        {
-                            effect = EntityEffectParticleEffect.create(ParticleTypes.ENTITY_EFFECT, colorR, colorG, colorB);
-                            parsedCustom = true;
-                        }
-                        else if (path.equals("dust_color_transition"))
+                        if (path.equals("dust_color_transition"))
                         {
                             float scale = colorA > 0F ? colorA : 1F;
 
@@ -270,22 +246,15 @@ public class VanillaParticleFormRenderer extends FormRenderer<VanillaParticleFor
 
                     if (!parsedCustom)
                     {
-                        if (type instanceof SimpleParticleType simple)
+                        if (type instanceof ParticleEffect simple)
                         {
                             effect = simple;
                         }
-                        else if (registries != null)
+                        else if (type != null)
                         {
-                            String full = settings.particle.toString();
-
-                            if (!args.isEmpty())
-                            {
-                                full += " " + args;
-                            }
-
                             try
                             {
-                                effect = ParticleEffectArgumentType.readParameters(new StringReader(full), registries);
+                                effect = (ParticleEffect) ((ParticleType) type).getParametersFactory().read(type, new StringReader(" " + args));
                             }
                             catch (Exception e)
                             {

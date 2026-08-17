@@ -74,8 +74,6 @@ import net.minecraft.client.render.block.entity.SkullBlockEntityModel;
 import net.minecraft.client.render.block.entity.SkullBlockEntityRenderer;
 import net.minecraft.client.render.model.json.ModelTransformationMode;
 import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.component.DataComponentTypes;
-import net.minecraft.component.type.ProfileComponent;
 import net.minecraft.entity.EquipmentSlot;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.item.ArmorItem;
@@ -83,6 +81,8 @@ import net.minecraft.item.BlockItem;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.Items;
+import net.minecraft.nbt.NbtCompound;
+import net.minecraft.nbt.NbtHelper;
 import net.minecraft.util.Arm;
 import net.minecraft.util.Hand;
 import net.minecraft.util.math.MathHelper;
@@ -93,6 +93,7 @@ import org.joml.Matrix4f;
 import org.joml.Quaternionf;
 import org.joml.Vector3f;
 
+import com.mojang.authlib.GameProfile;
 import com.mojang.blaze3d.systems.RenderSystem;
 
 import org.lwjgl.opengl.GL11;
@@ -545,10 +546,6 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
             this.clearPBRTextureIntensity();
             RenderSystem.depthFunc(GL11.GL_LEQUAL);
 
-            Vector3f light0 = new Vector3f(0.85F, 0.85F, -1F).normalize();
-            Vector3f light1 = new Vector3f(-0.85F, 0.85F, 1F).normalize();
-            RenderSystem.setupLevelDiffuseLighting(light0, light1);
-
             Supplier<ShaderProgram> mainShader = this.getModelShader(model);
 
             this.renderModel(this.entity, mainShader, stack, model, LightmapTextureManager.pack(15, 15), OverlayTexture.DEFAULT_UV, color, true, null, context.getTransition(), true, null, null);
@@ -564,7 +561,6 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
             stack.pop();
             stack.pop();
 
-            DiffuseLighting.disableGuiDepthLighting();
             RenderSystem.depthFunc(GL11.GL_ALWAYS);
             BBSRendering.restoreGuiRenderState();
         }
@@ -593,6 +589,11 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
 
         RenderSystem.enableBlend();
         RenderSystem.defaultBlendFunc();
+
+        if (!ui && BBSRendering.isRenderingWorld())
+        {
+            BBSRendering.setupMatchingWorldDiffuseLighting();
+        }
 
         GameRenderer gameRenderer = MinecraftClient.getInstance().gameRenderer;
 
@@ -3302,7 +3303,7 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
         {
             if (item instanceof BlockItem blockItem && blockItem.getBlock() instanceof AbstractSkullBlock skullBlock)
             {
-                float tickDelta = MinecraftClient.getInstance().getRenderTickCounter().getTickDelta(true);
+                float tickDelta = MinecraftClient.getInstance().getTickDelta();
                 float animationProgress = this.resolveSkullAnimationProgress(target, tickDelta);
 
                 BbsHeadItemSpace.applySkull(stack);
@@ -3368,7 +3369,19 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
             return;
         }
 
-        ProfileComponent profile = itemStack.get(DataComponentTypes.PROFILE);
+        GameProfile profile = null;
+        if (itemStack.hasNbt())
+        {
+            NbtCompound nbt = itemStack.getNbt();
+            if (nbt.contains("SkullOwner", 8))
+            {
+                profile = new GameProfile(null, nbt.getString("SkullOwner"));
+            }
+            else if (nbt.contains("SkullOwner", 10))
+            {
+                profile = NbtHelper.toGameProfile(nbt.getCompound("SkullOwner"));
+            }
+        }
         RenderLayer renderLayer = SkullBlockEntityRenderer.getRenderLayer(skullType, profile);
 
         CustomVertexConsumerProvider.hijackVertexFormat((l) -> RenderSystem.enableBlend());
@@ -3403,7 +3416,7 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
             return false;
         }
 
-        float transition = MinecraftClient.getInstance().getRenderTickCounter().getTickDelta(true);
+        float transition = MinecraftClient.getInstance().getTickDelta();
         float pitch = (float) Lerps.lerp(target.getPrevPitch(), target.getPitch(), transition);
         boolean leftArm = this.getArmForEquipmentSlot(target, slot) == Arm.LEFT;
         ModelTransformationMode mode = BbsHeadItemSpace.spyglassTransformationMode();
@@ -3459,7 +3472,7 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
     @Override
     public boolean renderArm(MatrixStack matrices, int light, AbstractClientPlayerEntity player, Hand hand)
     {
-        this.ensureAnimator(MinecraftClient.getInstance().getRenderTickCounter().getTickDelta(true));
+        this.ensureAnimator(MinecraftClient.getInstance().getTickDelta());
         ModelInstance model = this.getModel();
 
         if (this.animator != null && model != null)

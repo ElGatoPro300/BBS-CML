@@ -6,13 +6,9 @@ import mchorse.bbs_mod.forms.forms.LightForm;
 import mchorse.bbs_mod.ui.framework.UIContext;
 
 import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.component.DataComponentTypes;
-import net.minecraft.component.type.BlockStateComponent;
 import net.minecraft.item.ItemStack;
-import net.minecraft.registry.Registries;
-import net.minecraft.util.Identifier;
-
-import java.util.Map;
+import net.minecraft.item.Items;
+import net.minecraft.nbt.NbtCompound;
 
 public class LightFormRenderer extends FormRenderer<LightForm>
 {
@@ -21,7 +17,7 @@ public class LightFormRenderer extends FormRenderer<LightForm>
     public LightFormRenderer(LightForm form)
     {
         super(form);
-        this.stack = new ItemStack(Registries.ITEM.get(Identifier.of("minecraft", "light")));
+        this.stack = new ItemStack(Items.LIGHT);
     }
 
     @Override
@@ -34,7 +30,9 @@ public class LightFormRenderer extends FormRenderer<LightForm>
 
         if (!stack.isEmpty())
         {
-            stack.set(DataComponentTypes.BLOCK_STATE, new BlockStateComponent(Map.of("level", Integer.toString(level))));
+            NbtCompound blockStateTag = new NbtCompound();
+            blockStateTag.putString("level", Integer.toString(level));
+            stack.getOrCreateNbt().put("BlockStateTag", blockStateTag);
         }
 
         if (stack.isEmpty())

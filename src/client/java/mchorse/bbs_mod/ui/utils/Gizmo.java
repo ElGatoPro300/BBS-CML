@@ -29,7 +29,6 @@ import net.minecraft.util.math.RotationAxis;
 
 import org.joml.Intersectiond;
 import org.joml.Matrix4f;
-import org.joml.Matrix4fStack;
 import org.joml.Quaternionf;
 import org.joml.Vector2d;
 import org.joml.Vector3d;
@@ -863,12 +862,13 @@ public class Gizmo
         {
             RenderSystem.setProjectionMatrix(savedProjection, VertexSorter.BY_Z);
 
-            Matrix4fStack mvStack = RenderSystem.getModelViewStack();
+            MatrixStack mvStack = RenderSystem.getModelViewStack();
 
-            mvStack.pushMatrix();
-            mvStack.set(savedModelView);
+            mvStack.push();
+            mvStack.loadIdentity();
+            MatrixStackUtils.multiply(mvStack, savedModelView);
             RenderSystem.applyModelViewMatrix();
-            mvStack.popMatrix();
+            mvStack.pop();
             RenderSystem.applyModelViewMatrix();
         }
 
@@ -997,7 +997,8 @@ public class Gizmo
             return;
         }
 
-        BufferBuilder builder = Tessellator.getInstance().begin(VertexFormat.DrawMode.TRIANGLES, VertexFormats.POSITION_COLOR);
+        BufferBuilder builder = Tessellator.getInstance().getBuffer();
+        builder.begin(VertexFormat.DrawMode.TRIANGLES, VertexFormats.POSITION_COLOR);
 
         if (this.mode == Mode.ROTATE) this.drawRotate(builder, stack, scale, thickness, false, null);
         else if (this.mode == Mode.SCALE) this.drawScale(builder, stack, scale, thickness, false, null);
@@ -1055,7 +1056,8 @@ public class Gizmo
         float scale = this.computeScale(stack);
         float thickness = this.resolveThickness(true);
 
-        BufferBuilder builder = Tessellator.getInstance().begin(VertexFormat.DrawMode.TRIANGLES, VertexFormats.POSITION_COLOR);
+        BufferBuilder builder = Tessellator.getInstance().getBuffer();
+        builder.begin(VertexFormat.DrawMode.TRIANGLES, VertexFormats.POSITION_COLOR);
 
         if (this.mode == Mode.ROTATE) this.drawRotate(builder, stack, scale, thickness, true, map);
         else if (this.mode == Mode.SCALE) this.drawScale(builder, stack, scale, thickness, true, map);

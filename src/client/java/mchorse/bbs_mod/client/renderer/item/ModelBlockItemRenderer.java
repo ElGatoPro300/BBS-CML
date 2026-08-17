@@ -20,8 +20,6 @@ import net.minecraft.client.render.LightmapTextureManager;
 import net.minecraft.client.render.VertexConsumerProvider;
 import net.minecraft.client.render.model.json.ModelTransformationMode;
 import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.component.DataComponentTypes;
-import net.minecraft.component.type.NbtComponent;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NbtCompound;
 import net.minecraft.util.math.BlockPos;
@@ -79,21 +77,9 @@ public class ModelBlockItemRenderer implements BuiltinItemRendererRegistry.Dynam
 
                 RenderSystem.enableDepthTest();
 
-                if (mode == ModelTransformationMode.GUI)
-                {
-                    Vector3f a = new Vector3f(0.85F, 0.85F, -1.0F).normalize();
-                    Vector3f b = new Vector3f(-0.85F, 0.85F, 1.0F).normalize();
-                    RenderSystem.setupGui3DDiffuseLighting(a, b);
-                }
-
                 FormUtilsClient.render(form, new FormRenderingContext()
-                    .set(FormRenderType.fromModelMode(mode), item.formEntity, matrices, light, overlay, MinecraftClient.getInstance().getRenderTickCounter().getTickDelta(false))
+                    .set(FormRenderType.fromModelMode(mode), item.formEntity, matrices, light, overlay, MinecraftClient.getInstance().getTickDelta())
                     .camera(MinecraftClient.getInstance().gameRenderer.getCamera()));
-
-                if (mode == ModelTransformationMode.GUI)
-                {
-                    DiffuseLighting.disableGuiDepthLighting();
-                }
 
                 RenderSystem.disableDepthTest();
 
@@ -114,23 +100,18 @@ public class ModelBlockItemRenderer implements BuiltinItemRendererRegistry.Dynam
             return this.map.get(stack);
         }
 
+        NbtCompound nbt = stack.getNbt();
         ModelBlockEntity entity = new ModelBlockEntity(BlockPos.ORIGIN, BBSMod.MODEL_BLOCK.getDefaultState());
         Item item = new Item(entity);
 
         this.map.put(stack, item);
 
-        NbtComponent nbtComponent = stack.get(DataComponentTypes.BLOCK_ENTITY_DATA);
-        if (nbtComponent == null)
+        if (nbt == null)
         {
             return item;
         }
 
-        NbtCompound nbt = nbtComponent.getNbt();
-        var world = MinecraftClient.getInstance().world;
-        if (world != null)
-        {
-            entity.readNbt(nbt, world.getRegistryManager());
-        }
+        entity.readNbt(nbt.getCompound("BlockEntityTag"));
 
         return item;
     }

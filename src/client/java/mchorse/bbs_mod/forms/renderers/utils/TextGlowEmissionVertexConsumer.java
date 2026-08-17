@@ -24,15 +24,27 @@ public class TextGlowEmissionVertexConsumer implements VertexConsumer
     }
 
     @Override
-    public VertexConsumer vertex(float x, float y, float z)
+    public VertexConsumer vertex(double x, double y, double z)
     {
         return this.consumer.vertex(x, y, z);
     }
 
     @Override
-    public VertexConsumer vertex(Matrix4f matrix, float x, float y, float z)
+    public void next()
     {
-        return this.consumer.vertex(matrix, x, y, z);
+        this.consumer.next();
+    }
+
+    @Override
+    public void fixedColor(int red, int green, int blue, int alpha)
+    {
+        this.consumer.fixedColor(red, green, blue, alpha);
+    }
+
+    @Override
+    public void unfixColor()
+    {
+        this.consumer.unfixColor();
     }
 
     @Override

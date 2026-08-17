@@ -16,7 +16,6 @@ import net.minecraft.client.render.Tessellator;
 import net.minecraft.client.render.VertexConsumer;
 import net.minecraft.client.render.VertexFormat;
 import net.minecraft.client.render.VertexFormats;
-import net.minecraft.client.util.BufferAllocator;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.util.math.RotationAxis;
 
@@ -69,7 +68,8 @@ public class Draw
         float fd = (float) d;
         float t = 1 / 96F + (float) (Math.sqrt(w * w + h + h + d + d) / 2000);
 
-        BufferBuilder builder = Tessellator.getInstance().begin(VertexFormat.DrawMode.TRIANGLES, VertexFormats.POSITION_COLOR);
+        BufferBuilder builder = Tessellator.getInstance().getBuffer();
+        builder.begin(VertexFormat.DrawMode.TRIANGLES, VertexFormats.POSITION_COLOR);
         RenderSystem.setShader(GameRenderer::getPositionColorProgram);
 
         /* Pillars: fillBox(builder, -t, -t, -t, t, t, t, r, g, b, a); */
@@ -123,10 +123,8 @@ public class Draw
     }
 
     /**
-     * Bake a camera-relative model matrix for the Iris LAST flush. Prefer the stack alone
-     * when it already includes the view; otherwise compose with {@link BBSRendering#camera}.
-     * Never multiply {@code RenderSystem.getModelViewMatrix()} — that was double-applying
-     * the camera and parking boxes in the sky. Mirrors {@code Gizmo.composeVisualMatrix}.
+     * Bake a camera-relative model matrix for the Iris LAST flush. Uses the stack's position matrix
+     * directly which already contains the camera view transformation.
      */
     private static Matrix4f bakeIrisBoxMatrix(MatrixStack stack, double x, double y, double z)
     {
@@ -134,26 +132,7 @@ public class Draw
 
         baked.translate((float) x, (float) y, (float) z);
 
-        Matrix4f composed = new Matrix4f(BBSRendering.camera).mul(baked);
-        float bakedDist = viewOriginLengthSq(baked);
-        float composedDist = viewOriginLengthSq(composed);
-
-        /* Double-applied view: composed collapses toward the view origin. */
-        if (bakedDist > 1.0E-6F && composedDist < bakedDist * 0.49F)
-        {
-            return baked;
-        }
-
-        return composed;
-    }
-
-    private static float viewOriginLengthSq(Matrix4f view)
-    {
-        float ox = view.m30();
-        float oy = view.m31();
-        float oz = view.m32();
-
-        return ox * ox + oy * oy + oz * oz;
+        return baked;
     }
 
     private static void enqueueIrisBox(MatrixStack stack, double x, double y, double z, double w, double h, double d, float r, float g, float b)
@@ -218,7 +197,8 @@ public class Draw
     private static void renderBoxSolidEdges(MatrixStack stack, float fw, float fh, float fd, float r, float g, float b)
     {
         float t = 1 / 96F + (float) (Math.sqrt(fw * fw + fh + fh + fd + fd) / 2000);
-        BufferBuilder builder = Tessellator.getInstance().begin(VertexFormat.DrawMode.TRIANGLES, VertexFormats.POSITION_COLOR);
+        BufferBuilder builder = Tessellator.getInstance().getBuffer();
+        builder.begin(VertexFormat.DrawMode.TRIANGLES, VertexFormats.POSITION_COLOR);
 
         fillBox(builder, stack, -t, -t, -t, t, t + fh, t, r, g, b, 1F);
         fillBox(builder, stack, -t + fw, -t, -t, t + fw, t + fh, t, r, g, b, 1F);
@@ -256,7 +236,8 @@ public class Draw
         RenderSystem.setShader(GameRenderer::getPositionColorProgram);
         RenderSystem.lineWidth(2F);
 
-        BufferBuilder builder = Tessellator.getInstance().begin(VertexFormat.DrawMode.DEBUG_LINES, VertexFormats.POSITION_COLOR);
+        BufferBuilder builder = Tessellator.getInstance().getBuffer();
+        builder.begin(VertexFormat.DrawMode.DEBUG_LINES, VertexFormats.POSITION_COLOR);
 
         wireLine(builder, matrix, x1, y1, z1, x2, y1, z1, r, g, b, a);
         wireLine(builder, matrix, x2, y1, z1, x2, y1, z2, r, g, b, a);
@@ -287,8 +268,8 @@ public class Draw
 
     private static void wireLine(BufferBuilder builder, Matrix4f matrix, float x0, float y0, float z0, float x1, float y1, float z1, float r, float g, float b, float a)
     {
-        builder.vertex(matrix, x0, y0, z0).color(r, g, b, a);
-        builder.vertex(matrix, x1, y1, z1).color(r, g, b, a);
+        builder.vertex(matrix, x0, y0, z0).color(r, g, b, a).next();
+        builder.vertex(matrix, x1, y1, z1).color(r, g, b, a).next();
     }
     /**
      * Fill a quad for {@link VertexFormats#POSITION_TEXTURE_COLOR_NORMAL}. Points should
@@ -308,13 +289,13 @@ public class Draw
         Matrix4f matrix4f = stack.peek().getPositionMatrix();
 
         /* 1 - BL, 2 - BR, 3 - TR, 4 - TL */
-        builder.vertex(matrix4f, x2, y2, z2).texture(u1, v2).color(r, g, b, a).normal(nx, ny, nz);
-        builder.vertex(matrix4f, x1, y1, z1).texture(u2, v2).color(r, g, b, a).normal(nx, ny, nz);
-        builder.vertex(matrix4f, x4, y4, z4).texture(u2, v1).color(r, g, b, a).normal(nx, ny, nz);
+        builder.vertex(matrix4f, x2, y2, z2).texture(u1, v2).color(r, g, b, a).normal(nx, ny, nz).next();
+        builder.vertex(matrix4f, x1, y1, z1).texture(u2, v2).color(r, g, b, a).normal(nx, ny, nz).next();
+        builder.vertex(matrix4f, x4, y4, z4).texture(u2, v1).color(r, g, b, a).normal(nx, ny, nz).next();
 
-        builder.vertex(matrix4f, x2, y2, z2).texture(u1, v2).color(r, g, b, a).normal(nx, ny, nz);
-        builder.vertex(matrix4f, x4, y4, z4).texture(u2, v1).color(r, g, b, a).normal(nx, ny, nz);
-        builder.vertex(matrix4f, x3, y3, z3).texture(u1, v1).color(r, g, b, a).normal(nx, ny, nz);
+        builder.vertex(matrix4f, x2, y2, z2).texture(u1, v2).color(r, g, b, a).normal(nx, ny, nz).next();
+        builder.vertex(matrix4f, x4, y4, z4).texture(u2, v1).color(r, g, b, a).normal(nx, ny, nz).next();
+        builder.vertex(matrix4f, x3, y3, z3).texture(u1, v1).color(r, g, b, a).normal(nx, ny, nz).next();
     }
 
     public static void fillQuad(BufferBuilder builder, MatrixStack stack, float x1, float y1, float z1, float x2, float y2, float z2, float x3, float y3, float z3, float x4, float y4, float z4, float r, float g, float b, float a)
@@ -322,12 +303,12 @@ public class Draw
         Matrix4f matrix4f = stack.peek().getPositionMatrix();
 
         /* 1 - BR, 2 - BL, 3 - TL, 4 - TR */
-        builder.vertex(matrix4f, x1, y1, z1).color(r, g, b, a);
-        builder.vertex(matrix4f, x2, y2, z2).color(r, g, b, a);
-        builder.vertex(matrix4f, x3, y3, z3).color(r, g, b, a);
-        builder.vertex(matrix4f, x1, y1, z1).color(r, g, b, a);
-        builder.vertex(matrix4f, x3, y3, z3).color(r, g, b, a);
-        builder.vertex(matrix4f, x4, y4, z4).color(r, g, b, a);
+        builder.vertex(matrix4f, x1, y1, z1).color(r, g, b, a).next();
+        builder.vertex(matrix4f, x2, y2, z2).color(r, g, b, a).next();
+        builder.vertex(matrix4f, x3, y3, z3).color(r, g, b, a).next();
+        builder.vertex(matrix4f, x1, y1, z1).color(r, g, b, a).next();
+        builder.vertex(matrix4f, x3, y3, z3).color(r, g, b, a).next();
+        builder.vertex(matrix4f, x4, y4, z4).color(r, g, b, a).next();
     }
 
     public static void fillBoxTo(BufferBuilder builder, MatrixStack stack, float x1, float y1, float z1, float x2, float y2, float z2, float thickness, float r, float g, float b, float a)
@@ -384,7 +365,8 @@ public class Draw
         outlineSize *= scale;
         outlineOffset *= scale;
 
-        BufferBuilder builder = Tessellator.getInstance().begin(VertexFormat.DrawMode.TRIANGLES, VertexFormats.POSITION_COLOR);
+        BufferBuilder builder = Tessellator.getInstance().getBuffer();
+        builder.begin(VertexFormat.DrawMode.TRIANGLES, VertexFormats.POSITION_COLOR);
 
         fillBox(builder, stack, 0, -outlineOffset, -outlineOffset, outlineSize, outlineOffset, outlineOffset, 0, 0, 0);
         fillBox(builder, stack, -outlineOffset, 0, -outlineOffset, outlineOffset, outlineSize, outlineOffset, 0, 0, 0);
@@ -476,13 +458,13 @@ public class Draw
             float y2 = baseY + (ry * c2 + uy * s2) * radius;
             float z2 = baseZ + (rz * c2 + uz * s2) * radius;
 
-            builder.vertex(mat, apexX, apexY, apexZ).color(r, g, b, a);
-            builder.vertex(mat, x1, y1, z1).color(r, g, b, a);
-            builder.vertex(mat, x2, y2, z2).color(r, g, b, a);
+            builder.vertex(mat, apexX, apexY, apexZ).color(r, g, b, a).next();
+            builder.vertex(mat, x1, y1, z1).color(r, g, b, a).next();
+            builder.vertex(mat, x2, y2, z2).color(r, g, b, a).next();
 
-            builder.vertex(mat, x1, y1, z1).color(r, g, b, a);
-            builder.vertex(mat, baseX, baseY, baseZ).color(r, g, b, a);
-            builder.vertex(mat, x2, y2, z2).color(r, g, b, a);
+            builder.vertex(mat, x1, y1, z1).color(r, g, b, a).next();
+            builder.vertex(mat, baseX, baseY, baseZ).color(r, g, b, a).next();
+            builder.vertex(mat, x2, y2, z2).color(r, g, b, a).next();
         }
     }
 
@@ -544,13 +526,13 @@ public class Draw
                 float y22 = y12;
                 float z22 = sv2 * su2 * radius;
 
-                builder.vertex(mat, x11, y11, z11).color(r, g, b, a);
-                builder.vertex(mat, x12, y12, z12).color(r, g, b, a);
-                builder.vertex(mat, x22, y22, z22).color(r, g, b, a);
+                builder.vertex(mat, x11, y11, z11).color(r, g, b, a).next();
+                builder.vertex(mat, x12, y12, z12).color(r, g, b, a).next();
+                builder.vertex(mat, x22, y22, z22).color(r, g, b, a).next();
 
-                builder.vertex(mat, x11, y11, z11).color(r, g, b, a);
-                builder.vertex(mat, x22, y22, z22).color(r, g, b, a);
-                builder.vertex(mat, x21, y21, z21).color(r, g, b, a);
+                builder.vertex(mat, x11, y11, z11).color(r, g, b, a).next();
+                builder.vertex(mat, x22, y22, z22).color(r, g, b, a).next();
+                builder.vertex(mat, x21, y21, z21).color(r, g, b, a).next();
             }
         }
     }
@@ -640,13 +622,13 @@ public class Draw
                 float x22 = ring2 * cu2;
                 float z22 = ring2 * su2;
 
-                builder.vertex(mat, x11, y1, z11).color(r, g, b, 1F);
-                builder.vertex(mat, x12, y2, z12).color(r, g, b, 1F);
-                builder.vertex(mat, x22, y2, z22).color(r, g, b, 1F);
+                builder.vertex(mat, x11, y1, z11).color(r, g, b, 1F).next();
+                builder.vertex(mat, x12, y2, z12).color(r, g, b, 1F).next();
+                builder.vertex(mat, x22, y2, z22).color(r, g, b, 1F).next();
 
-                builder.vertex(mat, x11, y1, z11).color(r, g, b, 1F);
-                builder.vertex(mat, x22, y2, z22).color(r, g, b, 1F);
-                builder.vertex(mat, x21, y1, z21).color(r, g, b, 1F);
+                builder.vertex(mat, x11, y1, z11).color(r, g, b, 1F).next();
+                builder.vertex(mat, x22, y2, z22).color(r, g, b, 1F).next();
+                builder.vertex(mat, x21, y1, z21).color(r, g, b, 1F).next();
             }
         }
 

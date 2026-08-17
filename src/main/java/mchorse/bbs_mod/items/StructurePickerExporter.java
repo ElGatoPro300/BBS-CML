@@ -36,8 +36,8 @@ public class StructurePickerExporter
             return null;
         }
 
-        BlockPos min = blocks.getFirst();
-        BlockPos max = blocks.getFirst();
+        BlockPos min = blocks.get(0);
+        BlockPos max = blocks.get(0);
 
         for (BlockPos pos : blocks)
         {
@@ -177,7 +177,7 @@ public class StructurePickerExporter
         {
             StructureTemplatePalettedListAccessor palette = (StructureTemplatePalettedListAccessor) (Object) list;
 
-            palette.bbs$getInfos().removeIf((info) -> !selected.contains(origin.add(info.pos())));
+            palette.bbs$getInfos().removeIf((info) -> !selected.contains(origin.add(info.pos)));
         }
 
         accessor.bbs$getBlockInfoLists().removeIf((list) -> ((StructureTemplatePalettedListAccessor) (Object) list).bbs$getInfos().isEmpty());
