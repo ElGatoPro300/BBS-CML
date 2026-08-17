@@ -158,6 +158,9 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
     private RunnerCameraController runner;
     private boolean lastRunning;
     private boolean clearingSelections;
+    /* Actor toggle rebuild remounts keyframe factories; must not steal the active tab
+     * away from Replays / General when they share a group with Properties. */
+    private int suppressLinkedPropertiesTabFocus;
     private int lastFilledCursor = -1;
     private final Position position = new Position(0, 0, 0, 0, 0);
     private final Position lastPosition = new Position(0, 0, 0, 0, 0);
@@ -2582,6 +2585,46 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
         }
     }
 
+    public void beginSuppressLinkedPropertiesTabFocus()
+    {
+        this.suppressLinkedPropertiesTabFocus++;
+    }
+
+    public void endSuppressLinkedPropertiesTabFocus()
+    {
+        this.suppressLinkedPropertiesTabFocus = Math.max(0, this.suppressLinkedPropertiesTabFocus - 1);
+    }
+
+    /**
+     * Active panel id inside the multi-tab group that contains {@code panelId}, or
+     * {@code null} when that panel is alone / not tabbed.
+     */
+    public String getActiveTabPanelId(String panelId)
+    {
+        if (panelId == null)
+        {
+            return null;
+        }
+
+        EditorLayoutNode root = BBSSettings.editorLayoutSettings.getFilmLayoutRoot();
+        EditorLayoutNode.TabbedNode tabbed = this.findTabbedNodeContaining(root, panelId);
+
+        if (tabbed == null || tabbed.tabs.size() < 2)
+        {
+            return null;
+        }
+
+        int safeActiveTab = Math.max(0, Math.min(tabbed.tabs.size() - 1, tabbed.activeTab));
+        EditorLayoutNode activeNode = tabbed.tabs.get(safeActiveTab);
+
+        if (activeNode instanceof EditorLayoutNode.PanelNode)
+        {
+            return ((EditorLayoutNode.PanelNode) activeNode).getPanelId();
+        }
+
+        return null;
+    }
+
     public void focusLinkedPropertiesTab(String panelId)
     {
         /* Undo/redo restores keyframe selection across all editors (including the replay
@@ -2589,6 +2632,14 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
          * is editing an embedded Image/Subtitle (or other camera) keyframe view. */
         if (this.undoHandler != null && this.undoHandler.isUndoing())
         {
+            return;
+        }
+
+        if (this.suppressLinkedPropertiesTabFocus > 0)
+        {
+            /* Still remount/resize hosts so restored keyframe factories stay valid. */
+            this.syncKeyframePropertiesHosts();
+
             return;
         }
 
@@ -2998,6 +3049,13 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
     {
         if (this.undoHandler != null && this.undoHandler.isUndoing())
         {
+            return;
+        }
+
+        if (this.suppressLinkedPropertiesTabFocus > 0)
+        {
+            this.syncKeyframePropertiesHosts();
+
             return;
         }
 
