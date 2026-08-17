@@ -13,6 +13,7 @@ import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.render.GameRenderer;
 import net.minecraft.client.render.RenderTickCounter;
 import net.minecraft.client.util.math.MatrixStack;
+import net.minecraft.entity.LivingEntity;
 import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.RotationAxis;
 
@@ -126,19 +127,51 @@ public class GameRendererMixin
     }
 
     /**
-     * This injection replaces the camera roll when camera controller takes over
+     * Replaces vanilla camera roll with the active BBS film/editor roll, while still
+     * applying vanilla hurt/death tilt from the camera entity. Cancelling the whole
+     * method previously removed damage shake during first-person film playback whenever
+     * a camera controller (e.g. film editor runner) was active.
      */
     @Inject(method = "tiltViewWhenHurt", at = @At("HEAD"), cancellable = true)
     public void onTiltViewWhenHurt(MatrixStack matrices, float tickDelta, CallbackInfo info)
     {
         CameraController controller = BBSModClient.getCameraController();
 
-        if (controller.getCurrent() != null && !BBSRendering.isIrisShadowPass())
+        if (controller.getCurrent() == null || BBSRendering.isIrisShadowPass())
         {
-            matrices.multiply(RotationAxis.POSITIVE_Z.rotationDegrees(controller.getRoll()));
-
-            info.cancel();
+            return;
         }
+
+        matrices.multiply(RotationAxis.POSITIVE_Z.rotationDegrees(controller.getRoll()));
+
+        MinecraftClient client = MinecraftClient.getInstance();
+
+        if (client.getCameraEntity() instanceof LivingEntity livingEntity)
+        {
+            float f = livingEntity.hurtTime - tickDelta;
+
+            if (livingEntity.isDead())
+            {
+                float deathTilt = Math.min(livingEntity.deathTime + tickDelta, 20.0F);
+
+                matrices.multiply(RotationAxis.POSITIVE_Z.rotationDegrees(40.0F - 8000.0F / (deathTilt + 200.0F)));
+            }
+
+            if (f >= 0.0F && livingEntity.maxHurtTime > 0)
+            {
+                f /= livingEntity.maxHurtTime;
+                f = MathHelper.sin(f * f * f * f * (float) Math.PI);
+
+                float tiltYaw = livingEntity.getDamageTiltYaw();
+                float strength = (float) (-f * 14.0 * client.options.getDamageTiltStrength().getValue());
+
+                matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(-tiltYaw));
+                matrices.multiply(RotationAxis.POSITIVE_Z.rotationDegrees(strength));
+                matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(tiltYaw));
+            }
+        }
+
+        info.cancel();
     }
 
     @Inject(method = "renderHand", at = @At("HEAD"), cancellable = true)

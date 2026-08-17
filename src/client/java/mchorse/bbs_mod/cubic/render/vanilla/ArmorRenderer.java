@@ -4,6 +4,7 @@ import mchorse.bbs_mod.cubic.model.ArmorType;
 import mchorse.bbs_mod.forms.entities.IEntity;
 import mchorse.bbs_mod.forms.renderers.utils.RecolorVertexConsumer;
 import mchorse.bbs_mod.utils.colors.Color;
+import mchorse.bbs_mod.utils.iris.IrisArmorHooks;
 
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.model.ModelPart;
@@ -12,6 +13,7 @@ import net.minecraft.client.render.RenderLayer;
 import net.minecraft.client.render.TexturedRenderLayers;
 import net.minecraft.client.render.VertexConsumer;
 import net.minecraft.client.render.VertexConsumerProvider;
+import net.minecraft.client.render.VertexConsumers;
 import net.minecraft.client.render.entity.model.BipedEntityModel;
 import net.minecraft.client.render.entity.model.ElytraEntityModel;
 import net.minecraft.client.render.model.BakedModelManager;
@@ -41,6 +43,10 @@ public class ArmorRenderer
 {
     private static final Map<String, Identifier> ARMOR_TEXTURE_CACHE = Maps.newHashMap();
     private static final Identifier ELYTRA_TEXTURE = Identifier.of("minecraft", "textures/entity/elytra.png");
+    /** Outward shell — avoids coplanar z-fight with armor in film/world cameras (044b2f4a6). */
+    private static final float TRIM_OUTER_SCALE = 1.005F;
+    /** Inward shell — uniform outer scale alone hides trim on inner armor faces. */
+    private static final float TRIM_INNER_SCALE = 0.995F;
     private final BipedEntityModel innerModel;
     private final BipedEntityModel outerModel;
     private final ElytraEntityModel elytraModel;
@@ -58,7 +64,16 @@ public class ArmorRenderer
     {
         ItemStack itemStack = entity.getEquipmentStack(armorSlot);
         Item item = itemStack.getItem();
+        VertexConsumerProvider buffers = IrisArmorHooks.wrapEntityBuffers(vertexConsumers);
 
+        try (IrisArmorHooks.Scope ignored = IrisArmorHooks.beginArmorPiece(entity, item))
+        {
+            this.renderArmorSlotInner(matrices, buffers, entity, armorSlot, type, light, itemStack, item);
+        }
+    }
+
+    private void renderArmorSlotInner(MatrixStack matrices, VertexConsumerProvider vertexConsumers, IEntity entity, EquipmentSlot armorSlot, ArmorType type, int light, ItemStack itemStack, Item item)
+    {
         if (item instanceof ElytraItem || itemStack.isOf(Items.ELYTRA))
         {
             if (type == ArmorType.CHEST && this.elytraModel != null)
@@ -130,12 +145,18 @@ public class ArmorRenderer
                 }
 
                 ArmorTrim trim = itemStack.get(DataComponentTypes.TRIM);
-                if (trim != null)
+                boolean hasTrim = trim != null;
+                boolean hasGlint = itemStack.hasGlint();
+
+                if (hasTrim)
                 {
-                    this.renderTrim(part, armorItem.getMaterial(), matrices, vertexConsumers, light, trim, innerModel);
+                    /* Trim glint is a separate EQUAL pass fed the same verts as the trim
+                     * shells (union), not a second scaled ModelPart.render — that desync
+                     * was the trim↔glint z-fight. Base armor still gets its own 1.0 glint. */
+                    this.renderTrim(part, armorItem.getMaterial(), matrices, vertexConsumers, light, trim, innerModel, hasGlint);
                 }
 
-                if (itemStack.hasGlint())
+                if (hasGlint)
                 {
                     this.renderGlint(part, matrices, vertexConsumers, light);
                 }
@@ -178,24 +199,43 @@ public class ArmorRenderer
         part.render(matrices, vertexConsumer, light, OverlayTexture.DEFAULT_UV);
     }
 
-    private void renderTrim(ModelPart part, RegistryEntry<ArmorMaterial> material, MatrixStack matrices, VertexConsumerProvider vertexConsumers, int light, ArmorTrim trim, boolean leggings)
+    private void renderTrim(ModelPart part, RegistryEntry<ArmorMaterial> material, MatrixStack matrices, VertexConsumerProvider vertexConsumers, int light, ArmorTrim trim, boolean leggings, boolean withGlint)
     {
         Sprite sprite = this.armorTrimsAtlas.getSprite(leggings ? trim.getLeggingsModelId(material) : trim.getGenericModelId(material));
-        VertexConsumer vertexConsumer = sprite.getTextureSpecificVertexConsumer(vertexConsumers.getBuffer(TexturedRenderLayers.getArmorTrims(trim.getPattern().value().decal())));
+        VertexConsumer trimConsumer = sprite.getTextureSpecificVertexConsumer(vertexConsumers.getBuffer(TexturedRenderLayers.getArmorTrims(trim.getPattern().value().decal())));
+        VertexConsumer vertexConsumer = withGlint
+            ? VertexConsumers.union(trimConsumer, vertexConsumers.getBuffer(RenderLayer.getArmorEntityGlint()))
+            : trimConsumer;
 
-        /* Armor + trim share the same ModelPart. In GUI / model-block previews the
-         * near depth range hides coplanar fighting; film/world cameras do not.
-         * Bake a tiny scale into the trim vertices (draw is deferred, so GL
-         * polygon-offset at submit time would not stick through consumers.draw()). */
-        matrices.push();
-        matrices.scale(1.005F, 1.005F, 1.005F);
-        part.render(matrices, vertexConsumer, light, OverlayTexture.DEFAULT_UV);
-        matrices.pop();
+        /* Armor + trim share the same ModelPart. Uniform 1.005 alone hides inner faces
+         * (shell expands away from the cavity). Dual shells keep film/world z-fight fix
+         * (044b2f4a6) while restoring inside trim like vanilla coplanar NoCull geometry.
+         * Scale is baked into vertices — draw is deferred, so GL polygon-offset at submit
+         * would not stick through consumers.draw(). */
+        IrisArmorHooks.beginTrim(trim);
+
+        try
+        {
+            this.renderScaledPart(part, matrices, vertexConsumer, light, TRIM_OUTER_SCALE);
+            this.renderScaledPart(part, matrices, vertexConsumer, light, TRIM_INNER_SCALE);
+        }
+        finally
+        {
+            IrisArmorHooks.endTrim();
+        }
     }
 
     private void renderGlint(ModelPart part, MatrixStack matrices, VertexConsumerProvider vertexConsumers, int light)
     {
         part.render(matrices, vertexConsumers.getBuffer(RenderLayer.getArmorEntityGlint()), light, OverlayTexture.DEFAULT_UV);
+    }
+
+    private void renderScaledPart(ModelPart part, MatrixStack matrices, VertexConsumer vertexConsumer, int light, float scale)
+    {
+        matrices.push();
+        matrices.scale(scale, scale, scale);
+        part.render(matrices, vertexConsumer, light, OverlayTexture.DEFAULT_UV);
+        matrices.pop();
     }
 
     private BipedEntityModel getModel(EquipmentSlot slot)

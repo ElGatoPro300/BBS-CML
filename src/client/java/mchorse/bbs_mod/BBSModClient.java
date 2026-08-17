@@ -582,13 +582,24 @@ public class BBSModClient implements ClientModInitializer
 
         if (BBSSettings.irisOpacityFix != null)
         {
-            BBSSettings.irisOpacityFix.postCallback((v, f) -> IrisUtils.reloadShaders());
+            BBSSettings.irisOpacityFix.postCallback((v, f) ->
+            {
+                if (BBSRendering.isIrisLoaded())
+                {
+                    IrisUtils.reloadShaders();
+                }
+            });
         }
 
         if (BBSSettings.shaderShadowOpacity != null)
         {
             BBSSettings.shaderShadowOpacity.postCallback((v, f) ->
-                ShaderOpacityPatch.syncShadowOpacityDefault());
+            {
+                if (BBSRendering.isIrisLoaded())
+                {
+                    ShaderOpacityPatch.syncShadowOpacityDefault();
+                }
+            });
         }
 
         if (BBSSettings.worldGammaPercent != null)
@@ -1125,7 +1136,7 @@ public class BBSModClient implements ClientModInitializer
 
                         if (index >= 0)
                         {
-                            getFilms().startRecording(filmPanel.getData(), index, 0);
+                            getFilms().startRecording(filmPanel.getData(), index, filmPanel.getCursor());
                         }
                     });
                 }
@@ -1142,7 +1153,7 @@ public class BBSModClient implements ClientModInitializer
 
                     if (index >= 0)
                     {
-                        getFilms().startRecording(filmPanel.getData(), index, 0);
+                        getFilms().startRecording(filmPanel.getData(), index, filmPanel.getCursor());
                     }
                 }
             }

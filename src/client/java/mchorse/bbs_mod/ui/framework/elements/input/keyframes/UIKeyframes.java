@@ -4,6 +4,7 @@ import mchorse.bbs_mod.BBSSettings;
 import mchorse.bbs_mod.data.types.BaseType;
 import mchorse.bbs_mod.data.types.ListType;
 import mchorse.bbs_mod.data.types.MapType;
+import mchorse.bbs_mod.forms.forms.utils.LightingSettings;
 import mchorse.bbs_mod.graphics.window.Window;
 import mchorse.bbs_mod.l10n.keys.IKey;
 import mchorse.bbs_mod.math.Operation;
@@ -56,7 +57,6 @@ import mchorse.bbs_mod.utils.keyframes.KeyframeSegment;
 import mchorse.bbs_mod.utils.keyframes.factories.IKeyframeFactory;
 import mchorse.bbs_mod.utils.keyframes.factories.KeyframeFactories;
 import mchorse.bbs_mod.utils.keyframes.factories.LightingSettingsKeyframeFactory;
-import mchorse.bbs_mod.forms.forms.utils.LightingSettings;
 import mchorse.bbs_mod.utils.presets.PresetManager;
 
 import org.lwjgl.glfw.GLFW;
@@ -1635,6 +1635,16 @@ public class UIKeyframes extends UIElement
     public void cacheKeyframes()
     {
         this.cache = new SheetCache(this.currentGraph.getSheets());
+    }
+
+    /**
+     * True while a graph/trackpad drag has an open {@link #cacheKeyframes()} session.
+     * Live edits in that window must not notify (undo is submitted once via
+     * {@link #submitKeyframes()}), matching graph drag which uses dirty=false.
+     */
+    public boolean hasKeyframeCache()
+    {
+        return this.cache != null;
     }
 
     public void submitKeyframes()

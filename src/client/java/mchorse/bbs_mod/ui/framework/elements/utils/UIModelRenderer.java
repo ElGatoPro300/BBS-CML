@@ -2,6 +2,7 @@ package mchorse.bbs_mod.ui.framework.elements.utils;
 
 import mchorse.bbs_mod.BBSModClient;
 import mchorse.bbs_mod.camera.Camera;
+import mchorse.bbs_mod.client.BBSRendering;
 import mchorse.bbs_mod.forms.entities.IEntity;
 import mchorse.bbs_mod.forms.entities.StubEntity;
 import mchorse.bbs_mod.graphics.window.Window;
@@ -260,13 +261,8 @@ public abstract class UIModelRenderer extends UIElement
         this.transform.normal(lightingNormals);
         stack.peek().getNormalMatrix().set(lightingNormals);
 
-        /* Vanilla level diffuse lights (same basis DiffuseLighting uses for the world pass).
-         * MorphRenderer-style (±0.85, 0.85, ∓1) over-lit X-aligned faces in the editor preview
-         * compared to model-block / F7 world shading. */
-        Vector3f light0 = new Vector3f(0.2F, 1.0F, -0.7F).normalize();
-        Vector3f light1 = new Vector3f(-0.2F, 1.0F, 0.7F).normalize();
-
-        RenderSystem.setupLevelDiffuseLighting(light0, light1);
+        /* Match WorldRenderer's entity-pass diffuse (and F7 model-block draws). */
+        BBSRendering.setupMatchingWorldDiffuseLighting();
 
         if (this.grid)
         {

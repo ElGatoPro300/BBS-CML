@@ -9,7 +9,6 @@ import mchorse.bbs_mod.forms.FormUtilsClient;
 import mchorse.bbs_mod.forms.renderers.FormRenderType;
 import mchorse.bbs_mod.forms.renderers.FormRenderingContext;
 import mchorse.bbs_mod.forms.renderers.utils.FormDeathTilt;
-import mchorse.bbs_mod.utils.iris.IrisUtils;
 
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.model.Dilation;
@@ -82,7 +81,7 @@ public class ActorEntityRenderer extends EntityRenderer<ActorEntity>
 
         float radius = Math.max(entity.getFilmShadowRadiusX(), entity.getFilmShadowRadiusZ());
 
-        if (IrisUtils.isShaderPackEnabled())
+        if (BBSRendering.isIrisShadersEnabled())
         {
             /* Packs that still draw the vanilla shadow texture honor this; Comp/BSL
              * mesh shadows are separate and stay as they are for stubs. */
@@ -153,7 +152,7 @@ public class ActorEntityRenderer extends EntityRenderer<ActorEntity>
     private boolean shouldDrawCustomGroundShadow(ActorEntity entity)
     {
         return entity.shouldRenderFilmGroundShadow()
-            && !IrisUtils.isShaderPackEnabled()
+            && !BBSRendering.isIrisShadersEnabled()
             && !BBSRendering.isIrisShadowPass();
     }
 
