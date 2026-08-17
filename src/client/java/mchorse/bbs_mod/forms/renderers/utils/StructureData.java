@@ -261,9 +261,9 @@ public class StructureData
 
     private void parseStructure(NbtCompound root)
     {
-        if (root.contains("size"))
+        if (root.contains("size", NbtElement.INT_ARRAY_TYPE))
         {
-            int[] sz = root.getIntArray("size").orElse(new int[0]);
+            int[] sz = root.getIntArray("size");
 
             if (sz.length >= 3)
             {
@@ -273,19 +273,19 @@ public class StructureData
 
         List<BlockState> paletteStates = new ArrayList<>();
 
-        if (root.contains("palette"))
+        if (root.contains("palette", NbtElement.LIST_TYPE))
         {
-            NbtList palette = root.getListOrEmpty("palette");
+            NbtList palette = root.getList("palette", NbtElement.COMPOUND_TYPE);
 
             for (int i = 0; i < palette.size(); i++)
             {
-                NbtCompound entry = palette.getCompoundOrEmpty(i);
+                NbtCompound entry = palette.getCompound(i);
                 BlockState state = this.readBlockState(entry);
                 paletteStates.add(state);
             }
         }
 
-        if (root.contains("blocks"))
+        if (root.contains("blocks", NbtElement.LIST_TYPE))
         {
             int minX = Integer.MAX_VALUE;
             int minY = Integer.MAX_VALUE;
@@ -293,15 +293,15 @@ public class StructureData
             int maxX = Integer.MIN_VALUE;
             int maxY = Integer.MIN_VALUE;
             int maxZ = Integer.MIN_VALUE;
-            NbtList list = root.getListOrEmpty("blocks");
+            NbtList list = root.getList("blocks", NbtElement.COMPOUND_TYPE);
 
             StructureData.syncFancyGraphicsFromOptions();
 
             for (int i = 0; i < list.size(); i++)
             {
-                NbtCompound be = list.getCompoundOrEmpty(i);
-                BlockPos pos = this.readBlockPos(be.getListOrEmpty("pos"));
-                int stateIndex = be.getInt("state", 0);
+                NbtCompound be = list.getCompound(i);
+                BlockPos pos = this.readBlockPos(be.getList("pos", NbtElement.INT_TYPE));
+                int stateIndex = be.getInt("state");
 
                 if (stateIndex >= 0 && stateIndex < paletteStates.size())
                 {
@@ -312,12 +312,14 @@ public class StructureData
                         continue;
                     }
 
-                    NbtCompound nbt = be.contains("nbt") ? be.getCompoundOrEmpty("nbt") : null;
+                    NbtCompound nbt = be.contains("nbt", NbtElement.COMPOUND_TYPE) ? be.getCompound("nbt") : null;
                     BlockEntry blockEntry = new BlockEntry(state, pos, nbt);
 
                     this.blocks.add(blockEntry);
 
-                    if (!state.isOpaque())
+                    RenderLayer baseLayer = RenderLayers.getBlockLayer(state);
+
+                    if (baseLayer == RenderLayer.getCutout() || baseLayer == RenderLayer.getCutoutMipped())
                     {
                         this.hasCutoutLayer = true;
                     }
@@ -398,12 +400,12 @@ public class StructureData
             return BlockPos.ORIGIN;
         }
 
-        return new BlockPos(list.getInt(0, 0), list.getInt(1, 0), list.getInt(2, 0));
+        return new BlockPos(list.getInt(0), list.getInt(1), list.getInt(2));
     }
 
     private BlockState readBlockState(NbtCompound entry)
     {
-        String name = entry.getString("Name", "");
+        String name = entry.getString("Name");
         Block block;
         BlockState state;
 
@@ -429,13 +431,13 @@ public class StructureData
 
         state = block.getDefaultState();
 
-        if (entry.contains("Properties"))
+        if (entry.contains("Properties", NbtElement.COMPOUND_TYPE))
         {
-            NbtCompound props = entry.getCompoundOrEmpty("Properties");
+            NbtCompound props = entry.getCompound("Properties");
 
             for (String key : props.getKeys())
             {
-                String value = props.getString(key, "");
+                String value = props.getString(key);
                 Property<?> property = block.getStateManager().getProperty(key);
 
                 if (property != null)
@@ -471,7 +473,11 @@ public class StructureData
             return false;
         }
 
-        return state.isTransparent();
+        RenderLayer layer = RenderLayers.getBlockLayer(state);
+
+        return layer == RenderLayer.getTranslucent()
+            || layer == RenderLayer.getTranslucentMovingBlock()
+            || layer == RenderLayer.getTripwire();
     }
 
     public static boolean isAnimatedTexture(BlockState state)
@@ -527,7 +533,7 @@ public class StructureData
     {
         try
         {
-            return MinecraftClient.getInstance().options.getPreset().getValue() != GraphicsMode.FAST;
+            return MinecraftClient.getInstance().options.getGraphicsMode().getValue() != GraphicsMode.FAST;
         }
         catch (Throwable ignored)
         {
@@ -537,6 +543,13 @@ public class StructureData
 
     public static void syncFancyGraphicsFromOptions()
     {
-        /* 1.21.11: RenderLayers option sync no longer required */
+        try
+        {
+            RenderLayers.setFancyGraphicsOrBetter(StructureData.isFancyGraphicsEnabled());
+        }
+        catch (Throwable ignored)
+        {
+            /* Ignore option sync errors */
+        }
     }
 }

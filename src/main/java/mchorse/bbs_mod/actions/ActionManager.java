@@ -146,7 +146,7 @@ public class ActionManager
 
             if (existing == null)
             {
-                existing = this.play(entity, entity.getEntityWorld(), film, tick, PlayerType.FILM_EDITOR);
+                existing = this.play(entity, entity.getServerWorld(), film, tick, PlayerType.FILM_EDITOR);
                 existing.syncing = true;
                 existing.playing = false;
             }
@@ -158,7 +158,7 @@ public class ActionManager
         }
         else
         {
-            ActionPlayer play = this.play(entity, entity.getEntityWorld(), film, tick, countdown, replayId, PlayerType.RECORDING);
+            ActionPlayer play = this.play(entity, entity.getServerWorld(), film, tick, countdown, replayId, PlayerType.RECORDING);
 
             play.stopDamage = false;
         }
@@ -190,7 +190,7 @@ public class ActionManager
 
         for (ServerPlayerEntity player : this.recorders.keySet())
         {
-            if (player != null && player.getEntityWorld() == world)
+            if (player != null && player.getServerWorld() == world)
             {
                 return true;
             }
@@ -206,7 +206,7 @@ public class ActionManager
     {
         for (ServerPlayerEntity player : this.recorders.keySet())
         {
-            if (player != null && player.getEntityWorld() == world)
+            if (player != null && player.getServerWorld() == world)
             {
                 ServerNetwork.sendMobCombatAction(player, victimEntityId, sourceEntityId, amount, kind);
             }
@@ -220,7 +220,7 @@ public class ActionManager
     {
         for (ServerPlayerEntity player : this.recorders.keySet())
         {
-            if (player != null && player.getEntityWorld() == world)
+            if (player != null && player.getServerWorld() == world)
             {
                 ServerNetwork.sendMobConversion(player, oldEntityId, newEntityId);
             }
@@ -248,7 +248,7 @@ public class ActionManager
         if (!recorderOnly)
         {
             this.stop(remove.getFilm().getId());
-            this.stopDamage(entity.getEntityWorld());
+            this.stopDamage(entity.getServerWorld());
         }
 
         return remove;
