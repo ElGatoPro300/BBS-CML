@@ -142,19 +142,15 @@ public class ActionPlayer
         for (int i = 0; i < list.size(); i++)
         {
             Replay replay = list.get(i);
-            boolean isActor = replay.actor.get() || replay.fp.get();
 
-            if (i == this.exception || !isActor || !replay.enabled.get())
+            if (i == this.exception || !this.shouldTrackActor(replay) || !replay.enabled.get())
             {
                 continue;
             }
 
-            if (replay.fp.get() && this.serverPlayer != null)
+            if (this.shouldUseServerPlayer(replay))
             {
-                if (this.type == PlayerType.NORMAL)
-                {
-                    this.actors.put(replay.getId(), this.serverPlayer);
-                }
+                this.actors.put(replay.getId(), this.serverPlayer);
             }
             else
             {
@@ -186,6 +182,21 @@ public class ActionPlayer
         return actor;
     }
 
+    private boolean shouldUseServerPlayer(Replay replay)
+    {
+        return replay.fp.get() && this.serverPlayer != null && this.type == PlayerType.NORMAL;
+    }
+
+    private boolean shouldTrackActor(Replay replay)
+    {
+        return replay.actor.get() || this.shouldUseServerPlayer(replay);
+    }
+
+    private boolean shouldSpawnActorEntity(Replay replay)
+    {
+        return replay.actor.get() && !this.shouldUseServerPlayer(replay);
+    }
+
     private void broadcastActors()
     {
         for (ServerPlayerEntity player : this.world.getPlayers())
@@ -206,9 +217,8 @@ public class ActionPlayer
         for (int i = 0; i < list.size(); i++)
         {
             Replay replay = list.get(i);
-            boolean isActor = replay.actor.get() || replay.fp.get();
 
-            if (i == this.exception || !isActor || !replay.enabled.get() || replay.fp.get())
+            if (i == this.exception || !this.shouldTrackActor(replay) || !replay.enabled.get())
             {
                 continue;
             }
@@ -222,7 +232,9 @@ public class ActionPlayer
 
             if (existing == null || existing.isRemoved())
             {
-                this.actors.put(replay.getId(), this.spawnActor(replay));
+                LivingEntity actor = this.shouldUseServerPlayer(replay) ? this.serverPlayer : this.spawnActor(replay);
+
+                this.actors.put(replay.getId(), actor);
                 changed = true;
             }
         }
@@ -701,7 +713,7 @@ public class ActionPlayer
 
                 if (actor == null || actor.isRemoved())
                 {
-                    if (!replay.actor.get() || replay.fp.get() || this.combatFinishedIds.contains(replay.getId()))
+                    if (!this.shouldSpawnActorEntity(replay) || this.combatFinishedIds.contains(replay.getId()))
                     {
                         if (actor != null && actor.isRemoved())
                         {
