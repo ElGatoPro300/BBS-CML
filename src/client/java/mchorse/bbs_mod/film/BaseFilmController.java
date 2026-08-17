@@ -182,9 +182,25 @@ public abstract class BaseFilmController
 
         if (relative)
         {
-            cx = context.replay.keyframes.x.interpolate(0F) + context.replay.relativeOffset.get().x;
-            cy = context.replay.keyframes.y.interpolate(0F) + context.replay.relativeOffset.get().y;
-            cz = context.replay.keyframes.z.interpolate(0F) + context.replay.relativeOffset.get().z;
+           if (context.map != null)
+            {
+                cx = context.replay.keyframes.x.interpolate(0F) + context.replay.relativeOffset.get().x;
+                cy = context.replay.keyframes.y.interpolate(0F) + context.replay.relativeOffset.get().y;
+                cz = context.replay.keyframes.z.interpolate(0F) + context.replay.relativeOffset.get().z;
+            }
+            else
+            {
+                cx = position.x + context.replay.relativeOffset.get().x;
+                cy = position.y + context.replay.relativeOffset.get().y;
+                cz = position.z + context.replay.relativeOffset.get().z;
+            }
+
+            if (context.isShadowPass)
+            {
+                cx += camera.getPos().x;
+                cy += camera.getPos().y;
+                cz += camera.getPos().z;
+            }
         }
 
         Matrix4f target = null;
