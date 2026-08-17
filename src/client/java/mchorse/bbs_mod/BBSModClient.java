@@ -1136,7 +1136,7 @@ public class BBSModClient implements ClientModInitializer
 
                         if (index >= 0)
                         {
-                            getFilms().startRecording(filmPanel.getData(), index, 0);
+                            getFilms().startRecording(filmPanel.getData(), index, filmPanel.getCursor());
                         }
                     });
                 }
@@ -1153,7 +1153,7 @@ public class BBSModClient implements ClientModInitializer
 
                     if (index >= 0)
                     {
-                        getFilms().startRecording(filmPanel.getData(), index, 0);
+                        getFilms().startRecording(filmPanel.getData(), index, filmPanel.getCursor());
                     }
                 }
             }
