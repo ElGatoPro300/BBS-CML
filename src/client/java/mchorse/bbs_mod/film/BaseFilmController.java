@@ -72,6 +72,7 @@ import net.minecraft.client.render.OverlayTexture;
 import net.minecraft.client.render.VertexConsumerProvider;
 import net.minecraft.client.render.WorldRenderer;
 import net.minecraft.client.util.math.MatrixStack;
+import net.minecraft.client.world.ClientWorld;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityPose;
 import net.minecraft.entity.EquipmentSlot;
@@ -79,13 +80,13 @@ import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.MovementType;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.item.ItemStack;
+import net.minecraft.item.consume.UseAction;
 import net.minecraft.particle.BlockStateParticleEffect;
 import net.minecraft.particle.ItemStackParticleEffect;
 import net.minecraft.particle.ParticleTypes;
 import net.minecraft.sound.SoundCategory;
 import net.minecraft.text.Text;
 import net.minecraft.util.Hand;
-import net.minecraft.item.consume.UseAction;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Vec3d;
 import net.minecraft.world.LightType;
@@ -1997,7 +1998,7 @@ public abstract class BaseFilmController
 
         this.lastItemUseParticleTicks.put(replayId, ticks);
 
-        World world = atEntity != null ? atEntity.getWorld() : MinecraftClient.getInstance().world;
+        ClientWorld world = atEntity != null ? (ClientWorld) atEntity.getEntityWorld() : MinecraftClient.getInstance().world;
 
         if (world == null)
         {
@@ -2033,7 +2034,7 @@ public abstract class BaseFilmController
             pos = pos.rotateY(-MathUtils.toRad(yaw));
             pos = pos.add(originX, originY, originZ);
 
-            world.addParticle(effect, pos.x, pos.y, pos.z, velocity.x, velocity.y + 0.05D, velocity.z);
+            world.addParticleClient(effect, pos.x, pos.y, pos.z, velocity.x, velocity.y + 0.05D, velocity.z);
         }
     }
 
