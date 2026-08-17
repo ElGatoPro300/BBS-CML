@@ -36,11 +36,11 @@ public class BlockItemMixin
                 clip.z.set(pos.getZ());
                 clip.state.set(placedState);
 
-                NbtCompound stackNbt = context.getStack().getNbt();
+                NbtCompound stackBlockEntityData = BlockItem.getBlockEntityNbt(context.getStack());
 
-                if (stackNbt != null && stackNbt.contains("BlockEntityTag"))
+                if (stackBlockEntityData != null)
                 {
-                    clip.blockEntityNbt.set(stackNbt.getCompound("BlockEntityTag").copy().toString());
+                    clip.blockEntityNbt.set(stackBlockEntityData.copy().toString());
                 }
                 else if (blockEntity != null)
                 {

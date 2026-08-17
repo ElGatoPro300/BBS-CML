@@ -12,7 +12,6 @@ import net.minecraft.util.math.RotationAxis;
 
 import org.joml.Matrix3f;
 import org.joml.Matrix4f;
-import org.joml.Matrix4fStack;
 import org.joml.Quaternionf;
 
 import com.mojang.blaze3d.systems.RenderSystem;
@@ -141,8 +140,7 @@ public class MatrixStackUtils
         MatrixStack mvStack = RenderSystem.getModelViewStack();
 
         mvStack.push();
-        mvStack.peek().getPositionMatrix().identity();
-        mvStack.peek().getNormalMatrix().identity();
+        mvStack.loadIdentity();
         RenderSystem.applyModelViewMatrix();
     }
 

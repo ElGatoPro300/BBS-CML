@@ -19,7 +19,8 @@ public class SuperFakePlayerNetworkHandler extends ServerPlayNetworkHandler
         super(player.getServer(), FAKE_CONNECTION, player);
     }
 
-    public void send(Packet<?> packet)
+    @Override
+    public void send(Packet<?> packet, @Nullable PacketCallbacks callbacks)
     {}
 
     private static final class FakeClientConnection extends ClientConnection

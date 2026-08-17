@@ -2,7 +2,6 @@ package mchorse.bbs_mod.mixin.client;
 
 import com.mojang.authlib.exceptions.MinecraftClientException;
 import com.mojang.authlib.minecraft.client.MinecraftClient;
-import com.mojang.authlib.yggdrasil.YggdrasilServicesKeyInfo;
 
 import java.net.SocketException;
 import java.net.URL;
@@ -19,7 +18,7 @@ import org.spongepowered.asm.mixin.injection.Redirect;
  * already retries in the background and falls back to an empty key set, so we retry a few times
  * and downgrade transient failures to debug logging.
  */
-@Mixin(targets = "YggdrasilServicesKeyInfo")
+@Mixin(targets = "com.mojang.authlib.yggdrasil.YggdrasilServicesKeyInfo")
 public class YggdrasilServicesKeyInfoMixin
 {
     @Unique

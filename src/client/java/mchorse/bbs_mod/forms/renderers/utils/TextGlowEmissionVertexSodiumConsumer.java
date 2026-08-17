@@ -3,7 +3,6 @@ package mchorse.bbs_mod.forms.renderers.utils;
 import mchorse.bbs_mod.utils.colors.Color;
 
 import net.minecraft.client.render.VertexConsumer;
-import net.minecraft.client.render.VertexFormat;
 
 import net.caffeinemc.mods.sodium.api.vertex.buffer.VertexBufferWriter;
 import net.caffeinemc.mods.sodium.api.vertex.format.VertexFormatDescription;
