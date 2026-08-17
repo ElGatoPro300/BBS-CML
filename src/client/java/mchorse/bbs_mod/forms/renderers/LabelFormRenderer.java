@@ -161,11 +161,6 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
             modelMatrix.m10(0).m11(1).m12(0);
             modelMatrix.m20(0).m21(0).m22(1);
 
-            if (!context.modelRenderer && !context.isPicking())
-            {
-                modelMatrix.mul(context.camera.view);
-            }
-
             modelMatrix.scale(scale);
 
             context.stack.peek().getNormalMatrix().identity();
