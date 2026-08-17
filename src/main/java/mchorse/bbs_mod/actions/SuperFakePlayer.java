@@ -7,6 +7,7 @@ import net.minecraft.entity.Entity;
 import net.minecraft.entity.damage.DamageSource;
 import net.minecraft.entity.passive.AbstractHorseEntity;
 import net.minecraft.inventory.Inventory;
+import net.minecraft.network.packet.c2s.common.SyncedClientOptions;
 import net.minecraft.scoreboard.Team;
 import net.minecraft.screen.NamedScreenHandlerFactory;
 import net.minecraft.server.network.ServerPlayerEntity;
@@ -43,7 +44,7 @@ public class SuperFakePlayer extends ServerPlayerEntity
 
     protected SuperFakePlayer(ServerWorld world, GameProfile profile)
     {
-        super(world.getServer(), world, profile);
+        super(world.getServer(), world, profile, SyncedClientOptions.createDefault());
 
         this.networkHandler = new SuperFakePlayerNetworkHandler(this);
     }
@@ -68,6 +69,10 @@ public class SuperFakePlayer extends ServerPlayerEntity
 
     @Override
     public void tick()
+    {}
+
+    @Override
+    public void setClientOptions(SyncedClientOptions settings)
     {}
 
     @Override

@@ -166,7 +166,7 @@ public class UIWelcomePanel extends UIElement {
             Identifier skinTexture = null;
             if (mc.player != null) {
                 try {
-                    skinTexture = mc.player.getSkinTexture();
+                    skinTexture = mc.getSkinProvider().getSkinTextures(mc.player.getGameProfile()).texture();
                 } catch (Exception e) {
                 }
             }
