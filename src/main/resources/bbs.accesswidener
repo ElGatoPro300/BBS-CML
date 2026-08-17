@@ -11,6 +11,8 @@ mutable field net/minecraft/client/MinecraftClient framebuffer Lnet/minecraft/cl
 
 accessible method net/minecraft/block/entity/BlockEntity readNbt (Lnet/minecraft/nbt/NbtCompound;)V
 
+accessible field net/minecraft/client/gui/widget/ClickableWidget height I
+
 accessible method net/minecraft/entity/LivingEntity setLivingFlag (IZ)V
 accessible method net/minecraft/entity/Entity setFlag (IZ)V
 

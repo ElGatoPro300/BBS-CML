@@ -246,7 +246,7 @@ public abstract class UIBaseMenu
     {
         boolean result = false;
 
-        this.context.setMouseWheel(x, y, v, h);
+        this.context.setMouseWheel(x, y, v, this.context.mouseWheelHorizontal);
 
         if (this.root.isEnabled())
         {
