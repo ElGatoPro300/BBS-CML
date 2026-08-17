@@ -173,6 +173,7 @@ public class BBSSettings
     public static ValueBoolean editorActorPausedRunInPlace;
     public static ValueBoolean actorDamageFlash;
     public static ValueBoolean actorDamageAnimation;
+    public static ValueBoolean eatingArmAnimation;
     public static ValueBoolean replayDeathTimelineSync;
     public static ValueBoolean editorSimplifyAnimations;
     public static ValueBoolean editorMuteRenderAudioClips;
@@ -316,6 +317,15 @@ public class BBSSettings
     public static boolean shouldPlayActorDamageAnimation()
     {
         return actorDamageAnimation == null || actorDamageAnimation.get();
+    }
+
+    /**
+     * Extra ModelForm arm chew while eating/drinking. Off matches vanilla
+     * third-person players (the holding arm stays in idle/walk).
+     */
+    public static boolean shouldAnimateEatingArm()
+    {
+        return eatingArmAnimation != null && eatingArmAnimation.get();
     }
 
     public static boolean shouldKeepActorLiveHurtTime()
@@ -799,6 +809,7 @@ public class BBSSettings
         editorActorPausedRunInPlace = builder.getBoolean("actor_paused_run_in_place", false);
         actorDamageFlash = builder.getBoolean("actor_damage_flash", true);
         actorDamageAnimation = builder.getBoolean("actor_damage_animation", true);
+        eatingArmAnimation = builder.getBoolean("eating_arm_animation", false);
         replayDeathTimelineSync = builder.getBoolean("sync_death_timeline", true);
         replayMarkedBonesOnly = builder.getBoolean("replay_marked_bones_only", false);
         editorReplayEditorTitleLimit = builder.getInt("replay_editor_title_limit", 12, 0, 64);

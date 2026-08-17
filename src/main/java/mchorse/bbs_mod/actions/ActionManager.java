@@ -130,23 +130,40 @@ public class ActionManager
 
     public void startRecording(Film film, ServerPlayerEntity entity, int tick, int countdown, int replayId)
     {
-        this.startRecording(film, entity, tick, countdown, replayId, false);
+        this.startRecording(film, entity, tick, tick, countdown, replayId, false);
     }
 
     /**
+     * @param tick film playhead tick used by both playback and recorder.
      * @param recorderOnly when true (film-editor viewport), keep any existing
      *        {@link ActionPlayer} (FILM_EDITOR actors / puppet) and only attach
      *        an {@link ActionRecorder}. Outside/world recording uses false.
      */
     public void startRecording(Film film, ServerPlayerEntity entity, int tick, int countdown, int replayId, boolean recorderOnly)
     {
+        this.startRecording(film, entity, tick, tick, countdown, replayId, recorderOnly);
+    }
+
+    /**
+     * @param playbackTick film playhead tick used by {@link ActionPlayer}.
+     * @param recorderTick local tick used by {@link ActionRecorder}; outside
+     *        recording uses 0 so returned clips can be copied over at the
+     *        original playhead without double-offsetting.
+     * @param recorderOnly when true (film-editor viewport), keep any existing
+     *        {@link ActionPlayer} (FILM_EDITOR actors / puppet) and only attach
+     *        an {@link ActionRecorder}. Outside/world recording uses false.
+     */
+    public void startRecording(Film film, ServerPlayerEntity entity, int playbackTick, int recorderTick, int countdown, int replayId, boolean recorderOnly)
+    {
+        ActionPlayer playback = null;
+
         if (recorderOnly)
         {
             ActionPlayer existing = this.getPlayer(film.getId());
 
             if (existing == null)
             {
-                existing = this.play(entity, entity.getServerWorld(), film, tick, PlayerType.FILM_EDITOR);
+                existing = this.play(entity, entity.getServerWorld(), film, playbackTick, PlayerType.FILM_EDITOR);
                 existing.syncing = true;
                 existing.playing = false;
             }
@@ -155,15 +172,23 @@ public class ActionManager
             {
                 existing.controlledReplay = replayId;
             }
+
+            playback = existing;
         }
         else
         {
-            ActionPlayer play = this.play(entity, entity.getServerWorld(), film, tick, countdown, replayId, PlayerType.RECORDING);
+            ActionPlayer play = this.play(entity, entity.getServerWorld(), film, playbackTick, countdown, replayId, PlayerType.RECORDING);
 
             play.stopDamage = false;
+            playback = play;
         }
 
-        this.recorders.put(entity, new ActionRecorder(film, entity, tick, countdown));
+        if (playback != null)
+        {
+            playback.syncCombatState(playbackTick);
+        }
+
+        this.recorders.put(entity, new ActionRecorder(film, entity, recorderTick, countdown));
     }
 
     public void addAction(ServerPlayerEntity entity, Supplier<ActionClip> supplier)
