@@ -239,6 +239,8 @@
     "bbs.config.editor.guides_color": "Guides color",
     "bbs.config.editor.guides_color-comment": "Color that will be used for rule of thirds and center lines (including transparency)",
     "bbs.config.editor.horizontal_clip_editor": "Horizontal clip editor",
+    "bbs.config.editor.global_clip_panels": "Remember Panel States Globally",
+    "bbs.config.editor.global_clip_panels-comment": "When enabled, clip property panel open/closed states are saved globally and applied to all clips across all projects.",
     "bbs.config.editor.horizontal_clip_editor-comment": "Determines whether clip editor's elements will be organized vertically or horizontally",
     "bbs.config.editor.horizontal_flight": "Horizontal flight",
     "bbs.config.editor.horizontal_flight-comment": "When enabled, the pitch of the camera won't affect the movement making the WASD movement cardinal (XZ plane)",
