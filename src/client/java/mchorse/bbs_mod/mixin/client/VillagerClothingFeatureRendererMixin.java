@@ -7,8 +7,8 @@ import mchorse.bbs_mod.forms.forms.MobForm;
 
 import net.minecraft.client.render.VertexConsumerProvider;
 import net.minecraft.client.render.entity.feature.VillagerClothingFeatureRenderer;
-import net.minecraft.client.render.entity.state.LivingEntityRenderState;
 import net.minecraft.client.util.math.MatrixStack;
+import net.minecraft.entity.LivingEntity;
 
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
@@ -26,16 +26,20 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 public class VillagerClothingFeatureRendererMixin
 {
     @Inject(
-        method = "render",
+        method = "render(Lnet/minecraft/client/util/math/MatrixStack;Lnet/minecraft/client/render/VertexConsumerProvider;ILnet/minecraft/entity/LivingEntity;FFFFFF)V",
         at = @At("HEAD")
     )
     private void bbs$prepareClothingLighting(
         MatrixStack matrices,
         VertexConsumerProvider vertexConsumers,
         int light,
-        LivingEntityRenderState state,
-        float armYaw,
-        float pitch,
+        LivingEntity entity,
+        float limbAngle,
+        float limbDistance,
+        float tickDelta,
+        float animationProgress,
+        float headYaw,
+        float headPitch,
         CallbackInfo info
     )
     {
@@ -48,16 +52,20 @@ public class VillagerClothingFeatureRendererMixin
     }
 
     @Inject(
-        method = "render",
+        method = "render(Lnet/minecraft/client/util/math/MatrixStack;Lnet/minecraft/client/render/VertexConsumerProvider;ILnet/minecraft/entity/LivingEntity;FFFFFF)V",
         at = @At("TAIL")
     )
     private void bbs$flushClothingLayers(
         MatrixStack matrices,
         VertexConsumerProvider vertexConsumers,
         int light,
-        LivingEntityRenderState state,
-        float armYaw,
-        float pitch,
+        LivingEntity entity,
+        float limbAngle,
+        float limbDistance,
+        float tickDelta,
+        float animationProgress,
+        float headYaw,
+        float headPitch,
         CallbackInfo info
     )
     {

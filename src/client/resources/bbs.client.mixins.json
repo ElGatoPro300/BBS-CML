@@ -9,10 +9,8 @@
         "GameRendererMixin",
         "MouseMixin",
         "EntityRendererDispatcherInvoker",
-        "EntityRenderStateMixin",
         "EntityAccessor",
         "PlayerEntityRendererMixin",
-        "PlayerEntityRendererRenderMixin",
         "RenderTickCounterMixin",
         "IntegratedServerMixin",
         "WindowMixin",
@@ -60,7 +58,6 @@
         "TitleScreenMixin",
         "SelectWorldScreenMixin",
         "ModelPartMixin",
-        "MatrixStackMixin",
         "YggdrasilServicesKeyInfoMixin"
     ],
     "injectors": {

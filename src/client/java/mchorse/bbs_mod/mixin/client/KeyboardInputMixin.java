@@ -7,7 +7,6 @@ import mchorse.bbs_mod.ui.film.controller.UIFilmController;
 import mchorse.bbs_mod.ui.framework.UIBaseMenu;
 import mchorse.bbs_mod.ui.framework.UIScreen;
 
-import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.input.KeyboardInput;
 
 import org.lwjgl.glfw.GLFW;
@@ -26,7 +25,7 @@ public class KeyboardInputMixin
     }
 
     @Inject(method = "tick", at = @At("RETURN"))
-    public void onTick(CallbackInfo info)
+    public void onTick(boolean slowDown, float slowDownFactor, CallbackInfo info)
     {
         UIBaseMenu menu = UIScreen.getCurrentMenu();
 
@@ -37,24 +36,19 @@ public class KeyboardInputMixin
         ) {
             KeyboardInput input = (KeyboardInput) (Object) this;
 
-            boolean forward = Window.isKeyPressed(GLFW.GLFW_KEY_W);
-            boolean back = Window.isKeyPressed(GLFW.GLFW_KEY_S);
-            boolean left = Window.isKeyPressed(GLFW.GLFW_KEY_A);
-            boolean right = Window.isKeyPressed(GLFW.GLFW_KEY_D);
+            input.pressingForward = Window.isKeyPressed(GLFW.GLFW_KEY_W);
+            input.pressingBack = Window.isKeyPressed(GLFW.GLFW_KEY_S);
+            input.pressingLeft = Window.isKeyPressed(GLFW.GLFW_KEY_A);
+            input.pressingRight = Window.isKeyPressed(GLFW.GLFW_KEY_D);
+            input.movementForward = getMovementMultiplier(input.pressingForward, input.pressingBack);
+            input.movementSideways = getMovementMultiplier(input.pressingLeft, input.pressingRight);
+            input.jumping = Window.isKeyPressed(GLFW.GLFW_KEY_SPACE);
+            input.sneaking = Window.isKeyPressed(GLFW.GLFW_KEY_LEFT_SHIFT);
 
-            input.movementForward = getMovementMultiplier(forward, back);
-            input.movementSideways = getMovementMultiplier(left, right);
-
-            boolean jump = Window.isKeyPressed(GLFW.GLFW_KEY_SPACE);
-            boolean sneak = Window.isKeyPressed(GLFW.GLFW_KEY_LEFT_SHIFT);
-
-            MinecraftClient.getInstance().options.jumpKey.setPressed(jump);
-            MinecraftClient.getInstance().options.sneakKey.setPressed(sneak);
-
-            if (MinecraftClient.getInstance().player != null && MinecraftClient.getInstance().player.shouldSlowDown())
+            if (slowDown)
             {
-                input.movementSideways *= 0.3F;
-                input.movementForward *= 0.3F;
+                input.movementSideways *= slowDownFactor;
+                input.movementForward *= slowDownFactor;
             }
 
             UIFilmController controller = filmPanel.getController();

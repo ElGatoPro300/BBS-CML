@@ -58,11 +58,9 @@ public class MobTextureOverride
         {
             NativeImage image = NativeImage.read(stream);
             NativeImageBackedTexture texture = new NativeImageBackedTexture(image);
-            String key = "mob_override_" + Integer.toUnsignedString(link.toString().hashCode());
-            Identifier id = Identifier.of("bbs", key);
+            String key = "bbs_mob_override_" + Integer.toUnsignedString(link.toString().hashCode());
 
-            MinecraftClient.getInstance().getTextureManager().registerTexture(id, texture);
-            return id;
+            return MinecraftClient.getInstance().getTextureManager().registerDynamicTexture(key, texture);
         }
         catch (Exception e)
         {
