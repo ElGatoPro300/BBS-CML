@@ -93,7 +93,7 @@ public class GunProjectileEntity extends ProjectileEntity implements IEntityForm
     }
 
     @Override
-    protected void initDataTracker()
+    protected void initDataTracker(DataTracker.Builder builder)
     {}
 
     public GunProperties getProperties()
@@ -327,7 +327,7 @@ public class GunProjectileEntity extends ProjectileEntity implements IEntityForm
         DamageSource source = this.getDamageSources().magic();
 
         int fireTicks = entity.getFireTicks();
-        boolean deflectsArrows = entity.getType().isIn(EntityTypeTags.DEFLECTS_ARROWS);
+        boolean deflectsArrows = entity.getType().isIn(EntityTypeTags.DEFLECTS_PROJECTILES);
 
         if (this.isOnFire() && !deflectsArrows)
         {

@@ -10,7 +10,7 @@ public class StructurePickerItem extends ShovelItem
 {
     public StructurePickerItem(Settings settings)
     {
-        super(ToolMaterials.WOOD, 1.5F, -3.0F, settings);
+        super(ToolMaterials.WOOD, settings);
     }
 
     @Override

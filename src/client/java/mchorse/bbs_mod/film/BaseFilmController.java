@@ -185,7 +185,7 @@ public abstract class BaseFilmController
 
         if (relative)
         {
-           if (context.map != null)
+            if (context.map != null)
             {
                 cx = context.replay.keyframes.x.interpolate(0F) + context.replay.relativeOffset.get().x;
                 cy = context.replay.keyframes.y.interpolate(0F) + context.replay.relativeOffset.get().y;
@@ -2322,7 +2322,7 @@ public abstract class BaseFilmController
         /* Farther entities first so translucency composites correctly. */
         List<Map.Entry<Integer, IEntity>> sorted = new ArrayList<>(this.entities.entrySet());
         Camera camera = context.camera();
-        float transition = context.tickDelta();
+        float transition = context.tickCounter().getTickDelta(false);
 
         sorted.sort(Comparator
             .comparing((Map.Entry<Integer, IEntity> entry) ->
@@ -2371,7 +2371,7 @@ public abstract class BaseFilmController
 
             FilmControllerContext filmContext = getFilmControllerContext(context, replay, entity);
 
-            filmContext.transition = getTransition(entity, context.tickDelta());
+            filmContext.transition = getTransition(entity, context.tickCounter().getTickDelta(false));
 
             filmContext.stack.push();
 
@@ -2788,7 +2788,9 @@ public abstract class BaseFilmController
             return;
         }
 
-        Color runtime = valueColor.getRuntimeValue();
+        Color runtime = valueColor.getRuntimeValue() instanceof Color runtimeColor
+            ? runtimeColor
+            : null;
 
         if (runtime == null)
         {
@@ -2849,7 +2851,7 @@ public abstract class BaseFilmController
 
     protected FilmControllerContext getFilmControllerContext(WorldRenderContext context, Replay replay, IEntity entity)
     {
-        float tick = replay.getTick(this.getTick()) + this.getTransition(entity, context.tickDelta());
+        float tick = replay.getTick(this.getTick()) + this.getTransition(entity, context.tickCounter().getTickDelta(false));
         ShadowSettings shadow = resolveShadowSettings(replay, tick);
 
         return FilmControllerContext.instance
