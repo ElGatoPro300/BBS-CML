@@ -44,6 +44,7 @@ import mchorse.bbs_mod.camera.clips.screen.ScreenNodeClip;
 import mchorse.bbs_mod.camera.clips.screen.VignetteClip;
 import mchorse.bbs_mod.camera.data.Position;
 import mchorse.bbs_mod.camera.utils.TimeUtils;
+import mchorse.bbs_mod.data.types.BaseType;
 import mchorse.bbs_mod.data.types.MapType;
 import mchorse.bbs_mod.l10n.keys.IKey;
 import mchorse.bbs_mod.settings.values.core.ValueGroup;
@@ -76,6 +77,7 @@ import mchorse.bbs_mod.ui.utils.UI;
 import mchorse.bbs_mod.utils.TimeUtilsClient;
 import mchorse.bbs_mod.utils.clips.Clip;
 import mchorse.bbs_mod.utils.colors.Colors;
+import mchorse.bbs_mod.utils.presets.PresetManager;
 import mchorse.bbs_mod.utils.undo.IUndo;
 
 import java.util.HashMap;
@@ -220,7 +222,104 @@ public abstract class UIClip <T extends Clip> extends UIElement
         /* Clip-specific options first; envelopes last so they do not bury property fields. */
         this.addEnvelopes();
 
+        this.setupSections(this.panels);
+
         this.add(this.panels);
+    }
+
+    private void setupSections(UIElement element)
+    {
+        if (element instanceof UISection)
+        {
+            UISection group = (UISection) element;
+            String id = group.title.label.get();
+            String clipType = this.clip.getClass().getSimpleName();
+
+            boolean global = BBSSettings.editorGlobalClipPanels != null && BBSSettings.editorGlobalClipPanels.get();
+
+            if (global)
+            {
+                MapType data = PresetManager.CLIPS.load("_clip_ui_sections");
+
+                if (data != null && data.has(clipType, BaseType.TYPE_MAP))
+                {
+                    MapType clipMap = data.getMap(clipType);
+
+                    if (clipMap.has(id, BaseType.TYPE_BYTE))
+                    {
+                        group.setExpanded(clipMap.getBool(id));
+                    }
+                }
+            }
+            else if (this.editor != null && this.editor.getFilm() != null)
+            {
+                BaseType data = this.editor.getFilm().projectData.get();
+
+                if (data instanceof MapType)
+                {
+                    MapType map = (MapType) data;
+
+                    if (map.has(clipType, BaseType.TYPE_MAP))
+                    {
+                        MapType clipMap = map.getMap(clipType);
+
+                        if (clipMap.has(id, BaseType.TYPE_BYTE))
+                        {
+                            group.setExpanded(clipMap.getBool(id));
+                        }
+                    }
+                }
+            }
+
+            group.onToggle((open) ->
+            {
+                if (BBSSettings.editorGlobalClipPanels != null && BBSSettings.editorGlobalClipPanels.get())
+                {
+                    MapType map = PresetManager.CLIPS.load("_clip_ui_sections");
+
+                    if (map == null)
+                    {
+                        map = new MapType();
+                    }
+
+                    if (!map.has(clipType, BaseType.TYPE_MAP))
+                    {
+                        map.put(clipType, new MapType());
+                    }
+
+                    MapType clipMap = map.getMap(clipType);
+                    clipMap.putBool(id, open);
+
+                    PresetManager.CLIPS.save("_clip_ui_sections", map);
+                }
+                else if (this.editor != null && this.editor.getFilm() != null)
+                {
+                    BaseType baseData = this.editor.getFilm().projectData.get();
+
+                    if (!(baseData instanceof MapType))
+                    {
+                        baseData = new MapType();
+                    }
+
+                    MapType map = (MapType) baseData;
+
+                    if (!map.has(clipType, BaseType.TYPE_MAP))
+                    {
+                        map.put(clipType, new MapType());
+                    }
+
+                    MapType clipMap = map.getMap(clipType);
+                    clipMap.putBool(id, open);
+
+                    this.editor.getFilm().projectData.set(baseData);
+                }
+            });
+        }
+
+        for (UIElement child : element.getChildren(UIElement.class))
+        {
+            this.setupSections(child);
+        }
     }
 
     protected void registerUI()

@@ -60,7 +60,7 @@ public class BBSSettings
 
     public static ValueBoolean enableTrackpadIncrements;
     public static ValueBoolean enableTrackpadScrolling;
-    public static ValueBoolean welcomePanelAcceptedBeta1;
+    public static ValueBoolean welcomePanelSeen21;
     public static ValueBoolean hideSettingDescriptions;
     public static ValueFloat userIntefaceScale;
     public static ValueBoolean linkUiScaleToGame;
@@ -194,6 +194,7 @@ public class BBSSettings
     public static ValueInt replayContextOptions;
     public static ValueBoolean editorRewind;
     public static ValueBoolean editorHorizontalClipEditor;
+    public static ValueBoolean editorGlobalClipPanels;
     public static ValueBoolean editorEmbeddedKeyframeSidePanel;
     public static ValueBoolean editorMinutesBackup;
     public static ValueBoolean editorTimelineToolbar;
@@ -636,8 +637,8 @@ public class BBSSettings
         enableTrackpadIncrements = builder.getBoolean("trackpad_increments", true);
         enableTrackpadScrolling = builder.getBoolean("trackpad_scrolling", true);
         hideSettingDescriptions = builder.getBoolean("hide_setting_descriptions", false);
-        welcomePanelAcceptedBeta1 = builder.getBoolean("welcome_panel_accepted_beta1", false);
-        welcomePanelAcceptedBeta1.invisible();
+        welcomePanelSeen21 = builder.getBoolean("welcome_panel_seen_2_1", false);
+        welcomePanelSeen21.invisible();
         userIntefaceScale = builder.getFloat("ui_scale", 2F, 0.1F, 4F);
         linkUiScaleToGame = builder.getBoolean("link_ui_scale_to_game", false);
         uiFont = builder.getString("ui_font", "");
@@ -758,6 +759,7 @@ public class BBSSettings
         editorCenterLines = builder.getBoolean("center_lines", false);
         editorCrosshair = builder.getBoolean("crosshair", false);
         editorFilmOverlayVisible = builder.getBoolean("film_overlay_visible", true);
+        editorGlobalClipPanels = builder.getBoolean("global_clip_panels", true);
         editorFisheyeWidenFov = builder.getBoolean("fisheye_widen_fov", true);
         editorPeriodicSave = builder.getInt("periodic_save", 60, 0, 3600);
         editorHorizontalFlight = builder.getBoolean("horizontal_flight", false);
