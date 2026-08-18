@@ -487,15 +487,14 @@ public class UIFilmPreview extends UIElement
                 continue;
             }
 
-            if (ValueViewportToolbar.TOGGLE_SHADERS.equals(id))
+            if (ValueViewportToolbar.TOGGLE_SHADERS.equals(id) && !BBSRendering.isIrisLoaded())
             {
-                button.setVisible(BBSRendering.isIrisLoaded());
-            }
-            else
-            {
-                button.setVisible(true);
+                button.setVisible(false);
+
+                continue;
             }
 
+            button.setVisible(true);
             this.icons.add(button);
 
             if (!ValueViewportToolbar.HIDE_OVERLAYS.equals(id))
@@ -504,7 +503,13 @@ public class UIFilmPreview extends UIElement
             }
         }
 
-        this.icons.row().resize();
+        int count = this.icons.getChildren().size();
+
+        this.icons.row(0);
+        this.icons.w(count * 20);
+        this.icons.h(20);
+        this.icons.setVisible(count > 0);
+        this.icons.resize();
 
         if (this.viewportButtonsHidden)
         {

@@ -579,10 +579,7 @@ public class UIValueMap
 
             editor.w(1F);
 
-            UILabel hint = UI.label(UIKeys.FILM_PREVIEW_VIEWPORT_TOOLBAR_HINT, 0).color(0x888888);
-            hint.relative(editor).w(1F);
-
-            return Arrays.asList(hint.marginBottom(4), UIValueFactory.column(editor, value));
+            return Collections.singletonList(UIValueFactory.column(editor, value));
         });
 
         register(ValueGizmoToolbar.class, (value, ui) ->
@@ -591,10 +588,7 @@ public class UIValueMap
 
             editor.w(1F);
 
-            UILabel hint = UI.label(UIKeys.FILM_PREVIEW_GIZMO_TOOLBAR_HINT, 0).color(0x888888);
-            hint.relative(editor).w(1F);
-
-            return Arrays.asList(hint.marginBottom(4), UIValueFactory.column(editor, value));
+            return Collections.singletonList(UIValueFactory.column(editor, value));
         });
 
         register(ValueFormEditorGizmoToolbar.class, (value, ui) ->
@@ -603,10 +597,7 @@ public class UIValueMap
 
             editor.w(1F);
 
-            UILabel hint = UI.label(UIKeys.FORMS_EDITOR_GIZMO_TOOLBAR_HINT, 0).color(0x888888);
-            hint.relative(editor).w(1F);
-
-            return Arrays.asList(hint.marginBottom(4), UIValueFactory.column(editor, value));
+            return Collections.singletonList(UIValueFactory.column(editor, value));
         });
     }
 
