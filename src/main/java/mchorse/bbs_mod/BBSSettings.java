@@ -59,7 +59,7 @@ public class BBSSettings
 
     public static ValueBoolean enableTrackpadIncrements;
     public static ValueBoolean enableTrackpadScrolling;
-    public static ValueBoolean welcomePanelAcceptedBeta1;
+    public static ValueBoolean welcomePanelSeen21;
     public static ValueBoolean hideSettingDescriptions;
     public static ValueFloat userIntefaceScale;
     public static ValueBoolean linkUiScaleToGame;
@@ -634,8 +634,8 @@ public class BBSSettings
         enableTrackpadIncrements = builder.getBoolean("trackpad_increments", true);
         enableTrackpadScrolling = builder.getBoolean("trackpad_scrolling", true);
         hideSettingDescriptions = builder.getBoolean("hide_setting_descriptions", false);
-        welcomePanelAcceptedBeta1 = builder.getBoolean("welcome_panel_accepted_beta1", false);
-        welcomePanelAcceptedBeta1.invisible();
+        welcomePanelSeen21 = builder.getBoolean("welcome_panel_seen_2_1", false);
+        welcomePanelSeen21.invisible();
         userIntefaceScale = builder.getFloat("ui_scale", 2F, 0.1F, 4F);
         linkUiScaleToGame = builder.getBoolean("link_ui_scale_to_game", false);
         uiFont = builder.getString("ui_font", "");

@@ -5090,7 +5090,12 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
         }
     }
 
-    private void applyFilmLayoutFromPreset(MapType data, int mouseX, int mouseY)
+    public void applyFilmLayoutFromPreset(MapType data, int mouseX, int mouseY)
+    {
+        this.applyFilmLayoutFromPreset(data);
+    }
+
+    public void applyFilmLayoutFromPreset(MapType data)
     {
         BaseType layoutData = data.get("film_layout");
         if (layoutData == null)

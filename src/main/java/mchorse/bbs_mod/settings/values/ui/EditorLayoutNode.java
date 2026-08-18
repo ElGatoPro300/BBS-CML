@@ -69,6 +69,66 @@ public abstract class EditorLayoutNode
         );
     }
 
+    public static EditorLayoutNode classicCinemaFilmLayout()
+    {
+        return new SplitterNode(
+            false,
+            0.6F,
+            new SplitterNode(
+                true,
+                0.68F,
+                new PanelNode("preview"),
+                new SplitterNode(
+                    false,
+                    0.5F,
+                    new PanelNode("cameraEditArea"),
+                    new PanelNode("editArea")
+                )
+            ),
+            new SplitterNode(
+                false,
+                0.5F,
+                new PanelNode("cameraTimeline"),
+                new SplitterNode(
+                    true,
+                    0.5F,
+                    new PanelNode("actionTimeline"),
+                    new PanelNode("replayTimeline")
+                )
+            )
+        );
+    }
+
+    public static EditorLayoutNode viewportFocusFilmLayout()
+    {
+        return new SplitterNode(
+            true,
+            0.75F,
+            new SplitterNode(
+                false,
+                0.72F,
+                new PanelNode("preview"),
+                new SplitterNode(
+                    true,
+                    0.5F,
+                    new PanelNode("cameraTimeline"),
+                    new PanelNode("actionTimeline")
+                )
+            ),
+            new SplitterNode(
+                false,
+                0.35F,
+                new PanelNode("cameraEditArea"),
+                new SplitterNode(
+                    false,
+                    0.5F,
+                    new PanelNode("editArea"),
+                    new PanelNode("replayTimeline")
+                )
+            )
+        );
+    }
+
     /**
      * Default particle layout: the section-group tabs stacked across the top, with the bottom split
      * between the preview (left) and the MoLang editor (right).

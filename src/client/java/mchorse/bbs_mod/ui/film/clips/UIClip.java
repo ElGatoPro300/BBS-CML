@@ -73,12 +73,11 @@ import mchorse.bbs_mod.ui.framework.elements.input.UITrackpad;
 import mchorse.bbs_mod.ui.framework.elements.input.text.UITextbox;
 import mchorse.bbs_mod.ui.framework.elements.utils.UILabel;
 import mchorse.bbs_mod.ui.utils.ScrollDirection;
-import mchorse.bbs_mod.data.types.BaseType;
-import mchorse.bbs_mod.utils.presets.PresetManager;
 import mchorse.bbs_mod.ui.utils.UI;
 import mchorse.bbs_mod.utils.TimeUtilsClient;
 import mchorse.bbs_mod.utils.clips.Clip;
 import mchorse.bbs_mod.utils.colors.Colors;
+import mchorse.bbs_mod.utils.presets.PresetManager;
 import mchorse.bbs_mod.utils.undo.IUndo;
 
 import java.util.HashMap;
