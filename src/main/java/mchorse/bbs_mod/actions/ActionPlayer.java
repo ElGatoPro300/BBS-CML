@@ -417,8 +417,6 @@ public class ActionPlayer
 
         this.wasPlaying = this.playing;
 
-        List<Replay> list = this.film.replays.getList();
-
         boolean actorsChanged = false;
         List<String> removeIds = new ArrayList<>();
 
@@ -428,12 +426,11 @@ public class ActionPlayer
 
             if (replay != null)
             {
-                int index = list.indexOf(replay);
-
                 /* Editor actor-control owns this body — follow the editor player and
                  * hold velocity at zero so the server entity does not keep sliding with
-                 * leftover keyframe/walk velocity while the client puppets. */
-                if (index >= 0 && index == this.controlledReplay)
+                 * leftover keyframe/walk velocity while the client puppets.
+                 * Match by replay id, not Replay.equals() (deep form/actions compare). */
+                if (this.isControlledReplay(entry.getKey()))
                 {
                     LivingEntity actor = entry.getValue();
 
@@ -533,6 +530,19 @@ public class ActionPlayer
         this.tick += 1;
 
         return !this.syncing && this.tick >= this.duration;
+    }
+
+    private boolean isControlledReplay(String replayId)
+    {
+        if (this.controlledReplay < 0 || replayId == null)
+        {
+            return false;
+        }
+
+        List<Replay> list = this.film.replays.getList();
+
+        return this.controlledReplay < list.size()
+            && replayId.equals(list.get(this.controlledReplay).getId());
     }
 
     private void applyAction()
