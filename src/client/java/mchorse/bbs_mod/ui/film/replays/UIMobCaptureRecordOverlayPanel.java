@@ -27,6 +27,7 @@ import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.font.TextRenderer;
 import net.minecraft.client.network.ClientPlayerEntity;
 import net.minecraft.entity.Entity;
+import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.util.math.Vec3d;
 
 import java.util.HashMap;
@@ -60,6 +61,9 @@ public class UIMobCaptureRecordOverlayPanel extends UIOverlayPanel
     private UIElement conditionsRight;
     private UILabel radiusLabel;
     private UITrackpad radius;
+    private UIToggle capturePlayers;
+    private UIToggle playerNametags;
+    private UIToggle playerModelForms;
     private UILabel originLabel;
     private UIElement coordsRow;
     private UIButton originMode;
@@ -192,6 +196,29 @@ public class UIMobCaptureRecordOverlayPanel extends UIOverlayPanel
         this.includeHeight.tooltip(UIKeys.FILM_MOB_CAPTURE_INCLUDE_HEIGHT_TOOLTIP);
         this.includeHeight.w(1F).h(14);
 
+        this.capturePlayers = new UIToggle(UIKeys.FILM_MOB_CAPTURE_PLAYERS, this.setup.capturePlayers, (b) ->
+        {
+            this.setup.capturePlayers = b.getValue();
+            this.refreshTypes();
+        });
+        this.capturePlayers.tooltip(UIKeys.FILM_MOB_CAPTURE_PLAYERS_TOOLTIP);
+        this.capturePlayers.w(1F).h(14);
+
+        this.playerNametags = new UIToggle(UIKeys.FILM_MOB_CAPTURE_PLAYER_NAMETAGS, this.setup.playerNametags, (b) ->
+        {
+            this.setup.playerNametags = b.getValue();
+        });
+        this.playerNametags.tooltip(UIKeys.FILM_MOB_CAPTURE_PLAYER_NAMETAGS_TOOLTIP);
+        this.playerNametags.w(1F).h(14);
+
+        this.playerModelForms = new UIToggle(UIKeys.FILM_MOB_CAPTURE_PLAYER_MODELS, this.setup.playerModelForms, (b) ->
+        {
+            this.setup.playerModelForms = b.getValue();
+            this.refreshTypes();
+        });
+        this.playerModelForms.tooltip(UIKeys.FILM_MOB_CAPTURE_PLAYER_MODELS_TOOLTIP);
+        this.playerModelForms.w(1F).h(14);
+
         this.originLabel = UI.label(UIKeys.FILM_MOB_CAPTURE_ORIGIN);
         this.originLabel.h(14);
         this.originMode = new UIButton(this.getOriginModeLabel(), (b) -> this.toggleOriginMode());
@@ -221,13 +248,13 @@ public class UIMobCaptureRecordOverlayPanel extends UIOverlayPanel
         this.originZ.w(COORD_WIDTH).h(20);
         this.coordsRow = UI.row(6, 0, 20, this.originX, this.originY, this.originZ);
 
-        this.conditionsLeft = UI.column(8, this.radiusLabel, this.radius, this.includeHeight);
-        this.conditionsRight = UI.column(8, this.originLabel, this.originMode, this.coordsRow);
+        this.conditionsLeft = UI.column(8, this.radiusLabel, this.radius, this.includeHeight, this.capturePlayers);
+        this.conditionsRight = UI.column(8, this.originLabel, this.originMode, this.coordsRow, this.playerNametags, this.playerModelForms);
         this.conditionsGrid = new UIElement();
         this.conditionsLeft.relative(this.conditionsGrid).x(0).y(0).w(0.44F);
         this.conditionsRight.relative(this.conditionsGrid).x(0.46F).y(0).w(0.54F);
         this.conditionsGrid.add(this.conditionsLeft, this.conditionsRight);
-        this.conditionsGrid.relative(this.content).x(12).w(1F, -24).h(72);
+        this.conditionsGrid.relative(this.content).x(12).w(1F, -24).h(104);
 
         this.entitiesTitle = this.createSectionLabel(UIKeys.FILM_MOB_CAPTURE_SECTION_ENTITIES);
         this.entitiesTitle.w(1F);
@@ -405,7 +432,7 @@ public class UIMobCaptureRecordOverlayPanel extends UIOverlayPanel
         y += 18;
 
         this.conditionsGrid.y(y);
-        y += 80;
+        y += 112;
 
         this.entitiesHeader.y(y);
         y += 18;
@@ -455,6 +482,9 @@ public class UIMobCaptureRecordOverlayPanel extends UIOverlayPanel
 
         this.setup.areaSize = this.radius.getValue();
         this.setup.includeHeight = this.includeHeight.getValue();
+        this.setup.capturePlayers = this.capturePlayers.getValue();
+        this.setup.playerNametags = this.playerNametags.getValue();
+        this.setup.playerModelForms = this.playerModelForms.getValue();
 
         if (!this.setup.usePlayerOrigin)
         {
@@ -487,7 +517,11 @@ public class UIMobCaptureRecordOverlayPanel extends UIOverlayPanel
 
         this.setup.areaSize = this.radius.getValue();
         this.setup.includeHeight = this.includeHeight.getValue();
+        this.setup.capturePlayers = this.capturePlayers.getValue();
+        this.setup.playerNametags = this.playerNametags.getValue();
+        this.setup.playerModelForms = this.playerModelForms.getValue();
         this.lastBuckets = MobCaptureAreaScanner.scan(this.setup);
+        this.removeDisallowedVanillaSelections();
         this.clearScrollChildren();
         this.updateColumnMetrics();
 
@@ -518,6 +552,7 @@ public class UIMobCaptureRecordOverlayPanel extends UIOverlayPanel
             String typeId = bucket.typeId;
             boolean typeExpanded = this.expandedTypes.getOrDefault(typeId, false);
             boolean typeSelected = this.isTypeFullySelected(bucket);
+            boolean typeVanillaAllowed = this.isTypeVanillaAllowed(bucket);
             String typeLabel = bucket.label + " (" + bucket.entities.size() + ")";
             UIIcon typeIcon = new UIIcon(typeExpanded ? Icons.ARROW_DOWN : Icons.ARROW_RIGHT, (b) ->
             {
@@ -540,7 +575,7 @@ public class UIMobCaptureRecordOverlayPanel extends UIOverlayPanel
             typeSelectToggle.w(this.addColumnWidth);
             typeVanillaToggle.w(this.vaColumnWidth);
             typeVanillaToggle.tooltip(UIKeys.FILM_REPLAY_VANILLA_MOB_PLAYBACK_TOOLTIP);
-            typeVanillaToggle.setEnabled(typeSelected);
+            typeVanillaToggle.setEnabled(typeSelected && typeVanillaAllowed);
 
             UIElement typeRow = UI.row(4, 0, 20, typeIcon, typeName, typeSelectToggle, typeVanillaToggle, this.createScrollbarGutter(20));
 
@@ -556,6 +591,7 @@ public class UIMobCaptureRecordOverlayPanel extends UIOverlayPanel
                 {
                     int entityId = entity.getId();
                     boolean entitySelected = this.setup.selectedEntityIds.contains(entityId);
+                    boolean entityVanillaAllowed = this.isVanillaPlaybackAllowed(entity);
                     String entityLabel = MobCaptureAreaScanner.getEntityLabel(
                         entity, index, origin.x, origin.y, origin.z, this.setup.includeHeight
                     );
@@ -592,7 +628,7 @@ public class UIMobCaptureRecordOverlayPanel extends UIOverlayPanel
                     entitySelectToggle.w(this.addColumnWidth);
                     entityVanillaToggle.w(this.vaColumnWidth);
                     entityVanillaToggle.tooltip(UIKeys.FILM_REPLAY_VANILLA_MOB_PLAYBACK_TOOLTIP);
-                    entityVanillaToggle.setEnabled(entitySelected);
+                    entityVanillaToggle.setEnabled(entitySelected && entityVanillaAllowed);
 
                     UIElement entityIndent = new UIElement();
 
@@ -720,7 +756,7 @@ public class UIMobCaptureRecordOverlayPanel extends UIOverlayPanel
         selectAllAdd.w(this.addColumnWidth);
         selectAllVanilla.w(this.vaColumnWidth);
         selectAllVanilla.tooltip(UIKeys.FILM_REPLAY_VANILLA_MOB_PLAYBACK_TOOLTIP);
-        selectAllVanilla.setEnabled(allSelected);
+        selectAllVanilla.setEnabled(allSelected && this.hasAnyVanillaPlaybackAllowed());
 
         UIElement selectAllRow = UI.row(4, 0, 20, spacer, selectAllLabel, selectAllAdd, selectAllVanilla, this.createScrollbarGutter(20));
 
@@ -756,10 +792,19 @@ public class UIMobCaptureRecordOverlayPanel extends UIOverlayPanel
             return false;
         }
 
+        boolean hasAllowed = false;
+
         for (MobCaptureAreaScanner.TypeBucket bucket : this.lastBuckets.values())
         {
             for (Entity entity : bucket.entities)
             {
+                if (!this.isVanillaPlaybackAllowed(entity))
+                {
+                    continue;
+                }
+
+                hasAllowed = true;
+
                 if (!this.setup.vanillaPlaybackEntityIds.contains(entity.getId()))
                 {
                     return false;
@@ -767,7 +812,7 @@ public class UIMobCaptureRecordOverlayPanel extends UIOverlayPanel
             }
         }
 
-        return true;
+        return hasAllowed;
     }
 
     private void setAllSelected(boolean selected)
@@ -803,10 +848,20 @@ public class UIMobCaptureRecordOverlayPanel extends UIOverlayPanel
 
         for (MobCaptureAreaScanner.TypeBucket bucket : this.lastBuckets.values())
         {
+            if (!this.isTypeVanillaAllowed(bucket))
+            {
+                continue;
+            }
+
             this.setup.vanillaPlaybackTypeIds.add(bucket.typeId);
 
             for (Entity entity : bucket.entities)
             {
+                if (!this.isVanillaPlaybackAllowed(entity))
+                {
+                    continue;
+                }
+
                 this.setup.vanillaPlaybackEntityIds.add(entity.getId());
             }
         }
@@ -865,6 +920,11 @@ public class UIMobCaptureRecordOverlayPanel extends UIOverlayPanel
 
             for (Entity entity : bucket.entities)
             {
+                if (!this.isVanillaPlaybackAllowed(entity))
+                {
+                    continue;
+                }
+
                 this.setup.vanillaPlaybackEntityIds.add(entity.getId());
             }
         }
@@ -898,15 +958,74 @@ public class UIMobCaptureRecordOverlayPanel extends UIOverlayPanel
             return false;
         }
 
+        boolean hasAllowed = false;
+
         for (Entity entity : bucket.entities)
         {
+            if (!this.isVanillaPlaybackAllowed(entity))
+            {
+                continue;
+            }
+
+            hasAllowed = true;
+
             if (!this.setup.vanillaPlaybackEntityIds.contains(entity.getId()))
             {
                 return false;
             }
         }
 
-        return true;
+        return hasAllowed;
+    }
+
+    private boolean isTypeVanillaAllowed(MobCaptureAreaScanner.TypeBucket bucket)
+    {
+        for (Entity entity : bucket.entities)
+        {
+            if (this.isVanillaPlaybackAllowed(entity))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private boolean hasAnyVanillaPlaybackAllowed()
+    {
+        for (MobCaptureAreaScanner.TypeBucket bucket : this.lastBuckets.values())
+        {
+            if (this.isTypeVanillaAllowed(bucket))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private boolean isVanillaPlaybackAllowed(Entity entity)
+    {
+        return !(entity instanceof PlayerEntity) || !this.setup.playerModelForms;
+    }
+
+    private void removeDisallowedVanillaSelections()
+    {
+        for (MobCaptureAreaScanner.TypeBucket bucket : this.lastBuckets.values())
+        {
+            for (Entity entity : bucket.entities)
+            {
+                if (!this.isVanillaPlaybackAllowed(entity))
+                {
+                    this.setup.vanillaPlaybackEntityIds.remove(entity.getId());
+                }
+            }
+
+            if (!this.isTypeFullyVanilla(bucket))
+            {
+                this.setup.vanillaPlaybackTypeIds.remove(bucket.typeId);
+            }
+        }
     }
 
     private void cancel()

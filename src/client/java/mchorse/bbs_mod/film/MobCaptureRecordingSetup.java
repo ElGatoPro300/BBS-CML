@@ -11,6 +11,9 @@ public class MobCaptureRecordingSetup
     public static MobCaptureRecordingSetup pending;
 
     public boolean captureMobs = true;
+    public boolean capturePlayers = true;
+    public boolean playerNametags = false;
+    public boolean playerModelForms = false;
     public double areaSize = 32D;
     public boolean usePlayerOrigin = true;
     public boolean includeHeight = false;

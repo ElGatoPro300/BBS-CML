@@ -75,8 +75,6 @@ public class LivingEntityMixin
 
                 return clip;
             });
-
-            return;
         }
 
         /* Mob autocapture combat clips (client places them on captured replays). */
@@ -113,7 +111,7 @@ public class LivingEntityMixin
                 kind = ServerNetwork.MOB_COMBAT_KIND_DAMAGE;
             }
         }
-        else if (source.isDirect() && attacker instanceof LivingEntity && !(attacker instanceof PlayerEntity))
+        else if (source.isDirect() && attacker instanceof LivingEntity)
         {
             kind = ServerNetwork.MOB_COMBAT_KIND_MELEE;
             sourceEntityId = attacker.getId();

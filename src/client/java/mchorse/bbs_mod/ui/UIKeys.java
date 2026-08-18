@@ -368,6 +368,12 @@ public class UIKeys
     public static final IKey FILM_MOB_CAPTURE_ORIGIN_COORDS = L10n.lang("bbs.ui.film.mob_capture.origin_coords");
     public static final IKey FILM_MOB_CAPTURE_INCLUDE_HEIGHT = L10n.lang("bbs.ui.film.mob_capture.include_height");
     public static final IKey FILM_MOB_CAPTURE_INCLUDE_HEIGHT_TOOLTIP = L10n.lang("bbs.ui.film.mob_capture.include_height-tooltip");
+    public static final IKey FILM_MOB_CAPTURE_PLAYERS = L10n.lang("bbs.ui.film.mob_capture.players");
+    public static final IKey FILM_MOB_CAPTURE_PLAYERS_TOOLTIP = L10n.lang("bbs.ui.film.mob_capture.players-tooltip");
+    public static final IKey FILM_MOB_CAPTURE_PLAYER_NAMETAGS = L10n.lang("bbs.ui.film.mob_capture.player_nametags");
+    public static final IKey FILM_MOB_CAPTURE_PLAYER_NAMETAGS_TOOLTIP = L10n.lang("bbs.ui.film.mob_capture.player_nametags-tooltip");
+    public static final IKey FILM_MOB_CAPTURE_PLAYER_MODELS = L10n.lang("bbs.ui.film.mob_capture.player_models");
+    public static final IKey FILM_MOB_CAPTURE_PLAYER_MODELS_TOOLTIP = L10n.lang("bbs.ui.film.mob_capture.player_models-tooltip");
     public static final IKey FILM_MOB_CAPTURE_REFRESH = L10n.lang("bbs.ui.film.mob_capture.refresh");
     public static final IKey FILM_MOB_CAPTURE_DISTANCE = L10n.lang("bbs.ui.film.mob_capture.distance");
     public static final IKey FILM_MOB_CAPTURE_SUMMARY = L10n.lang("bbs.ui.film.mob_capture.summary");
