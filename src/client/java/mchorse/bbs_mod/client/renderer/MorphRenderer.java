@@ -46,7 +46,7 @@ public class MorphRenderer
 {
     public static boolean hidePlayer = false;
 
-    public static boolean renderPlayer(AbstractClientPlayerEntity player, float f, float g, MatrixStack matrixStack, VertexConsumerProvider vertexConsumerProvider, int i)
+    public static boolean renderPlayer(AbstractClientPlayerEntity player, float bodyYaw, float g, MatrixStack matrixStack, VertexConsumerProvider vertexConsumerProvider, int i)
     {
         Morph morph = Morph.getMorph(player);
         Form playerForm = morph != null ? morph.getForm() : null;
@@ -97,7 +97,7 @@ public class MorphRenderer
                     // DiffuseLighting.setupGuiFlatLighting();
                 }
 
-                float bodyYaw = /* 1.21.11: prevBodyYaw removed */ player.bodyYaw;
+                bodyYaw = player.bodyYaw;
                 int overlay = OverlayTexture.DEFAULT_UV;
 
                 matrixStack.push();
@@ -264,7 +264,7 @@ public class MorphRenderer
         }
     }
 
-    public static boolean renderLivingEntity(LivingEntity livingEntity, float f, float g, MatrixStack matrixStack, VertexConsumerProvider vertexConsumerProvider, int i, int o)
+    public static boolean renderLivingEntity(LivingEntity livingEntity, float bodyYaw, float g, MatrixStack matrixStack, VertexConsumerProvider vertexConsumerProvider, int i, int o)
     {
         if (!(livingEntity instanceof ISelectorOwnerProvider))
         {
@@ -282,8 +282,7 @@ public class MorphRenderer
             /* 1.21.11: GlStateManager._enableDepthTest() removed */
             // GlStateManager._enableDepthTest();
 
-            float bodyYaw = /* 1.21.11: prevBodyYaw removed */ livingEntity.bodyYaw;
-
+            bodyYaw = livingEntity.bodyYaw;
             matrixStack.push();
             matrixStack.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(-bodyYaw));
 

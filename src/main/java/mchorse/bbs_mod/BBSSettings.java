@@ -193,6 +193,7 @@ public class BBSSettings
     public static ValueInt replayContextOptions;
     public static ValueBoolean editorRewind;
     public static ValueBoolean editorHorizontalClipEditor;
+    public static ValueBoolean editorGlobalClipPanels;
     public static ValueBoolean editorEmbeddedKeyframeSidePanel;
     public static ValueBoolean editorMinutesBackup;
     public static ValueBoolean editorTimelineToolbar;
@@ -755,6 +756,7 @@ public class BBSSettings
         editorCenterLines = builder.getBoolean("center_lines", false);
         editorCrosshair = builder.getBoolean("crosshair", false);
         editorFilmOverlayVisible = builder.getBoolean("film_overlay_visible", true);
+        editorGlobalClipPanels = builder.getBoolean("global_clip_panels", true);
         editorFisheyeWidenFov = builder.getBoolean("fisheye_widen_fov", true);
         editorPeriodicSave = builder.getInt("periodic_save", 60, 0, 3600);
         editorHorizontalFlight = builder.getBoolean("horizontal_flight", false);

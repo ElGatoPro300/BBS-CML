@@ -6,7 +6,6 @@ import mchorse.bbs_mod.blocks.entities.ModelBlockEntity;
 import mchorse.bbs_mod.blocks.entities.ModelProperties;
 import mchorse.bbs_mod.client.BBSRendering;
 import mchorse.bbs_mod.cubic.ModelInstance;
-import mchorse.bbs_mod.entity.ActorEntity;
 import mchorse.bbs_mod.forms.FormUtilsClient;
 import mchorse.bbs_mod.forms.entities.IEntity;
 import mchorse.bbs_mod.forms.forms.Form;
@@ -39,6 +38,7 @@ import net.minecraft.client.render.block.entity.state.BlockEntityRenderState;
 import net.minecraft.client.render.command.ModelCommandRenderer;
 import net.minecraft.client.render.command.OrderedRenderCommandQueue;
 import net.minecraft.client.render.state.CameraRenderState;
+import net.minecraft.client.render.entity.state.EntityRenderState;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.client.world.ClientWorld;
 import net.minecraft.util.math.BlockPos;
@@ -53,7 +53,7 @@ import org.lwjgl.opengl.GL11;
 
 public class ModelBlockEntityRenderer implements BlockEntityRenderer<ModelBlockEntity, ModelBlockEntityRenderState>
 {
-    private static ActorEntity entity;
+    private static final EntityRenderState SHADOW_RENDER_STATE = new EntityRenderState();
 
     public static void renderShadow(VertexConsumerProvider provider, MatrixStack matrices, float tickDelta, double x, double y, double z, float tx, float ty, float tz)
     {
@@ -77,18 +77,10 @@ public class ModelBlockEntityRenderer implements BlockEntityRenderer<ModelBlockE
     {
         ClientWorld world = MinecraftClient.getInstance().world;
 
-        if (entity == null || entity.getEntityWorld() != world)
+        if (world == null)
         {
-            entity = new ActorEntity(BBSMod.ACTOR_ENTITY, world);
+            return;
         }
-
-        entity.setPos(x, y, z);
-        entity.lastRenderX = x;
-        entity.lastRenderY = y;
-        entity.lastRenderZ = z;
-        entity.lastX = x;
-        entity.lastY = y;
-        entity.lastZ = z;
 
         Camera camera = MinecraftClient.getInstance().gameRenderer.getCamera();
         double dx = x - camera.getCameraPos().x;
@@ -98,15 +90,25 @@ public class ModelBlockEntityRenderer implements BlockEntityRenderer<ModelBlockE
 
         opacity = (float) ((1D - distance / 256D) * opacity);
 
+        if (opacity <= 0F)
+        {
+            return;
+        }
+
         float baseRadius = 0.5F;
         float scaleX = Math.max(0.001F, radiusX / baseRadius);
         float scaleZ = Math.max(0.001F, radiusZ / baseRadius);
+
+        SHADOW_RENDER_STATE.x = x;
+        SHADOW_RENDER_STATE.y = y;
+        SHADOW_RENDER_STATE.z = z;
 
         matrices.push();
         matrices.translate(tx, ty, tz);
         matrices.scale(scaleX, 1F, scaleZ);
 
-        /* EntityRendererDispatcherInvoker.bbs$renderShadow(matrices, provider, entity, opacity, tickDelta, entity.getWorld(), radius); */
+        /* 1.21.11 render: renderShadow handled internally by state-based pipeline */
+        // EntityRendererDispatcherInvoker.bbs$renderShadow(matrices, provider, SHADOW_RENDER_STATE, opacity, tickDelta, world, baseRadius);
 
         matrices.pop();
     }

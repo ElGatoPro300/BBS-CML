@@ -93,6 +93,11 @@ public class UIScreen extends Screen implements IFileDropListener
     {
         super.onFilesDropped(paths);
 
+        this.filesDragged(paths);
+    }
+
+    public void filesDragged(List<Path> paths)
+    {
         String[] filePaths = new String[paths.size()];
         int i = 0;
 

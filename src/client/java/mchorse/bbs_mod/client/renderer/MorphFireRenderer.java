@@ -8,6 +8,7 @@ import mchorse.bbs_mod.forms.entities.MCEntity;
 import mchorse.bbs_mod.forms.forms.Form;
 import mchorse.bbs_mod.forms.forms.MobForm;
 import mchorse.bbs_mod.mixin.client.EntityAccessor;
+import mchorse.bbs_mod.mixin.client.EntityRendererDispatcherInvoker;
 import mchorse.bbs_mod.utils.AABB;
 import mchorse.bbs_mod.utils.MathUtils;
 import mchorse.bbs_mod.utils.MatrixStackUtils;
@@ -17,6 +18,7 @@ import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.render.Camera;
 import net.minecraft.client.render.VertexConsumerProvider;
 import net.minecraft.client.render.entity.EntityRenderManager;
+import net.minecraft.client.render.entity.state.EntityRenderState;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.client.world.ClientWorld;
 import net.minecraft.entity.Entity;
@@ -36,7 +38,7 @@ import org.joml.Quaternionf;
 public final class MorphFireRenderer
 {
     private static final Quaternionf TEMP_QUATERNION = new Quaternionf();
-
+    private static final EntityRenderState FIRE_RENDER_STATE = new EntityRenderState();
     private static ActorEntity proxy;
 
     private MorphFireRenderer()
@@ -80,7 +82,6 @@ public final class MorphFireRenderer
         entity.lastY = 0D;
         entity.lastZ = 0D;
         entity.setInvisible(false);
-
         float bodyYaw = Lerps.lerp(morph.getPrevBodyYaw(), morph.getBodyYaw(), tickDelta);
         EntityRenderManager dispatcher = mc.getEntityRenderDispatcher();
         boolean irisWorld = BBSRendering.isIrisShadersEnabled() && BBSRendering.isRenderingWorld();
@@ -107,10 +108,13 @@ public final class MorphFireRenderer
 
         matrices.multiply(RotationAxis.POSITIVE_Y.rotation(MathUtils.toRad(bodyYaw)));
 
-        /* TODO 1.21.4: EntityRenderDispatcher.renderFire removed */
-        matrices.pop();
+        FIRE_RENDER_STATE.width = size[0];
+        FIRE_RENDER_STATE.height = size[1];
 
-        entity.setFireTicks(0);
+        /* 1.21.11 render: renderFire handled internally by state-based pipeline */
+        // ((EntityRendererDispatcherInvoker) dispatcher).bbs$renderFire(matrices, consumers, FIRE_RENDER_STATE, camera.getRotation());
+
+        matrices.pop();
     }
 
     private static float[] getFireDimensions(IEntity morph, Form form)

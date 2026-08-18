@@ -17,6 +17,7 @@
         "IntegratedServerMixin",
         "WindowMixin",
         "WorldRendererMixin",
+        "BackgroundRendererMixin",
         "LanguageManagerMixin",
         "LivingEntityMixin",
         "LivingEntityUpdateMixin",
@@ -66,8 +67,7 @@
         "ModelPartMixin",
         "MatrixStackMixin",
         "YggdrasilServicesKeyInfoMixin",
-        "GuiRendererMixin",
-        "audio.SoundEngineMixin"
+        "GuiRendererMixin"
     ],
     "injectors": {
         "defaultRequire": 1
