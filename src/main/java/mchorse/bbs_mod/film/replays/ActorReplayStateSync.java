@@ -59,7 +59,7 @@ public final class ActorReplayStateSync
             player.getAbilities().flying = mounted ? false : source.isFlying();
         }
 
-        boolean usingItem = source.isUsingItem() || source.getItemUseTimeLeft() > 0;
+        boolean usingItem = source.isUsingItem();
 
         actor.setLivingFlag(1, usingItem || source.isBlocking());
         actor.setLivingFlag(2, source.getActiveHand() == Hand.OFF_HAND && usingItem);
@@ -195,8 +195,7 @@ public final class ActorReplayStateSync
         boolean sleeping = !mounted && keyframes.sleeping.interpolate(tick) != 0D;
         boolean riptide = !mounted && keyframes.riptide.interpolate(tick) != 0D;
         boolean grounded = keyframes.grounded.interpolate(tick) != 0D;
-        int itemUseElapsed = keyframes.itemUseTime.interpolate(tick).intValue();
-        boolean usingItem = keyframes.usingItem.interpolate(tick) > 0D || itemUseElapsed > 0;
+        boolean usingItem = keyframes.isUsingItemAt(tick);
         boolean offHand = keyframes.activeHand.interpolate(tick) > 0D;
 
         actor.setSneaking(sneaking);
@@ -216,8 +215,13 @@ public final class ActorReplayStateSync
             player.getAbilities().flying = flying;
         }
 
-        actor.setLivingFlag(1, usingItem || blocking);
-        actor.setLivingFlag(2, offHand && usingItem);
+        /* FP binds the real player — a vanilla use would consume food and
+         * fight client input (stopUsingItem every tick). Client
+         * ItemUseRenderState drives first-person use visuals instead. */
+        boolean applyUseFlags = !(actor instanceof PlayerEntity);
+
+        actor.setLivingFlag(1, (usingItem && applyUseFlags) || blocking);
+        actor.setLivingFlag(2, offHand && usingItem && applyUseFlags);
         actor.setLivingFlag(4, riptide);
 
         if (!mounted && actor.limbAnimator instanceof LimbAnimatorAccessor)

@@ -335,28 +335,25 @@ public class ActionPlayer
         /* Apply full vanilla pose/action keyframes (sprinting, swimming, limbs, …) so
          * actor-mode procedural/Gecko animators match stub playback. */
         ActorReplayStateSync.applyFromKeyframes(replay.keyframes, tick, actor, actor.hasVehicle(), ticking);
-        actor.equipStack(EquipmentSlot.OFFHAND, replay.keyframes.offHand.interpolate(tick, ItemStack.EMPTY));
-        actor.equipStack(EquipmentSlot.HEAD, replay.keyframes.armorHead.interpolate(tick, ItemStack.EMPTY));
-        actor.equipStack(EquipmentSlot.CHEST, replay.keyframes.armorChest.interpolate(tick, ItemStack.EMPTY));
-        actor.equipStack(EquipmentSlot.LEGS, replay.keyframes.armorLegs.interpolate(tick, ItemStack.EMPTY));
-        actor.equipStack(EquipmentSlot.FEET, replay.keyframes.armorFeet.interpolate(tick, ItemStack.EMPTY));
+        ActionPlayer.equipIfChanged(actor, EquipmentSlot.OFFHAND, replay.keyframes.offHand.interpolate(tick, ItemStack.EMPTY));
+        ActionPlayer.equipIfChanged(actor, EquipmentSlot.HEAD, replay.keyframes.armorHead.interpolate(tick, ItemStack.EMPTY));
+        ActionPlayer.equipIfChanged(actor, EquipmentSlot.CHEST, replay.keyframes.armorChest.interpolate(tick, ItemStack.EMPTY));
+        ActionPlayer.equipIfChanged(actor, EquipmentSlot.LEGS, replay.keyframes.armorLegs.interpolate(tick, ItemStack.EMPTY));
+        ActionPlayer.equipIfChanged(actor, EquipmentSlot.FEET, replay.keyframes.armorFeet.interpolate(tick, ItemStack.EMPTY));
 
         if (actor instanceof ServerPlayerEntity player)
         {
             int selectedSlot = player.getInventory().selectedSlot;
-            int slot = MathUtils.clamp(replay.keyframes.selectedSlot.interpolate(this.tick), 0, 8);
+            Integer heldSlot = replay.keyframes.selectedSlot.interpolateHeld(this.tick);
+            int slot = MathUtils.clamp(heldSlot == null ? 0 : heldSlot, 0, 8);
 
             if (selectedSlot != slot)
             {
                 ServerNetwork.sendSelectedSlot(player, slot);
             }
+        }
 
-            actor.equipStack(EquipmentSlot.MAINHAND, replay.keyframes.mainHand.interpolate(tick, ItemStack.EMPTY));
-        }
-        else
-        {
-            actor.equipStack(EquipmentSlot.MAINHAND, replay.keyframes.mainHand.interpolate(tick, ItemStack.EMPTY));
-        }
+        ActionPlayer.equipIfChanged(actor, EquipmentSlot.MAINHAND, replay.keyframes.mainHand.interpolate(tick, ItemStack.EMPTY));
 
         if (actor instanceof ActorEntity actorEntity)
         {
@@ -402,6 +399,17 @@ public class ActionPlayer
         }
 
         actor.fallDistance = replay.keyframes.fall.interpolate(tick).floatValue();
+    }
+
+    private static void equipIfChanged(LivingEntity actor, EquipmentSlot slot, ItemStack stack)
+    {
+        ItemStack next = stack == null ? ItemStack.EMPTY : stack;
+        ItemStack current = actor.getEquippedStack(slot);
+
+        if (!ItemStack.areEqual(current, next))
+        {
+            actor.equipStack(slot, next);
+        }
     }
 
     public boolean tick()
