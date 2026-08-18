@@ -1,5 +1,6 @@
 package mchorse.bbs_mod.ui.film.replays;
 
+import mchorse.bbs_mod.BBSSettings;
 import mchorse.bbs_mod.film.MobCaptureAreaScanner;
 import mchorse.bbs_mod.film.MobCaptureRecordingSetup;
 import mchorse.bbs_mod.film.RecordingPauseHelper;
@@ -11,6 +12,7 @@ import mchorse.bbs_mod.ui.framework.UIScreen;
 import mchorse.bbs_mod.ui.framework.elements.UIElement;
 import mchorse.bbs_mod.ui.framework.elements.UIScrollView;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIButton;
+import mchorse.bbs_mod.ui.framework.elements.buttons.UIClickable;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIIcon;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIToggle;
 import mchorse.bbs_mod.ui.framework.elements.input.UITrackpad;
@@ -20,6 +22,8 @@ import mchorse.bbs_mod.ui.framework.elements.utils.FontRenderer;
 import mchorse.bbs_mod.ui.framework.elements.utils.UILabel;
 import mchorse.bbs_mod.ui.framework.elements.utils.UIText;
 import mchorse.bbs_mod.ui.utils.UI;
+import mchorse.bbs_mod.ui.utils.UIUtils;
+import mchorse.bbs_mod.ui.utils.icons.Icon;
 import mchorse.bbs_mod.ui.utils.icons.Icons;
 import mchorse.bbs_mod.utils.colors.Colors;
 
@@ -30,6 +34,8 @@ import net.minecraft.entity.Entity;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.util.math.Vec3d;
 
+import org.lwjgl.glfw.GLFW;
+
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -39,13 +45,20 @@ public class UIMobCaptureRecordOverlayPanel extends UIOverlayPanel
 {
     private static final int ICON_COLUMN_WIDTH = 20;
     private static final int TOGGLE_WIDTH = 28;
-    private static final int TRACKPAD_WIDTH = 90;
     private static final int COORD_WIDTH = 70;
     private static final int COLUMN_HEADER_MAX_WIDTH = 52;
     private static final int SCROLLBAR_GUTTER = 12;
     private static final int FOOTER_BUTTON_WIDTH = 100;
     private static final int FOOTER_GAP = 8;
     private static final int FOOTER_SPACE = 36;
+    private static final int TAB_HEIGHT = 20;
+    private static final int SUMMARY_LINE_HEIGHT = 12;
+
+    private enum CaptureTab
+    {
+        ENTITIES,
+        CONDITIONS
+    }
 
     private static UIMobCaptureRecordOverlayPanel opened;
 
@@ -55,10 +68,13 @@ public class UIMobCaptureRecordOverlayPanel extends UIOverlayPanel
     private boolean recordingPauseHeld;
 
     private UIText description;
+    private UIElement tabBar;
+    private OverlayTabButton entitiesTab;
+    private OverlayTabButton conditionsTab;
+    private UIElement entitiesPage;
+    private UIElement conditionsPage;
     private UILabel conditionsHeader;
-    private UIElement conditionsGrid;
-    private UIElement conditionsLeft;
-    private UIElement conditionsRight;
+    private UIScrollView conditionsScroll;
     private UILabel radiusLabel;
     private UITrackpad radius;
     private UIToggle capturePlayers;
@@ -71,12 +87,23 @@ public class UIMobCaptureRecordOverlayPanel extends UIOverlayPanel
     private UITrackpad originY;
     private UITrackpad originZ;
     private UIToggle includeHeight;
+    private UIElement conditionsSummary;
+    private UILabel conditionsSummaryHeader;
+    private UILabel summaryRadius;
+    private UILabel summaryHeight;
+    private UILabel summaryOrigin;
+    private UILabel summaryCoords;
+    private UILabel summaryPlayers;
+    private UILabel summaryNametags;
+    private UILabel summaryModels;
+    private UIElement seeMore;
     private UIElement entitiesHeader;
     private UILabel entitiesTitle;
     private UIIcon refresh;
     private UILabel summary;
     private UIScrollView scroll;
     private UIElement footer;
+    private CaptureTab currentTab = CaptureTab.ENTITIES;
 
     private int addColumnWidth = TOGGLE_WIDTH;
     private int vaColumnWidth = TOGGLE_WIDTH;
@@ -173,11 +200,21 @@ public class UIMobCaptureRecordOverlayPanel extends UIOverlayPanel
         this.description = new UIText(UIKeys.FILM_MOB_CAPTURE_DESCRIPTION).textAnchorX(0.5F);
         this.description.relative(this.content).x(0.5F).w(0.9F).h(36).anchorX(0.5F);
 
+        this.entitiesTab = new OverlayTabButton(UIKeys.FILM_MOB_CAPTURE_TAB_ENTITIES, Icons.LIST, (b) -> this.setTab(CaptureTab.ENTITIES));
+        this.conditionsTab = new OverlayTabButton(UIKeys.FILM_MOB_CAPTURE_TAB_CONDITIONS, Icons.GEAR, (b) -> this.setTab(CaptureTab.CONDITIONS));
+        this.tabBar = UI.row(0, 0, TAB_HEIGHT, this.entitiesTab, this.conditionsTab);
+        this.tabBar.relative(this.content).x(12).w(1F, -24).h(TAB_HEIGHT);
+
+        this.entitiesPage = new UIElement();
+        this.entitiesPage.relative(this.content).x(12).w(1F, -24);
+        this.conditionsPage = new UIElement();
+        this.conditionsPage.relative(this.content).x(12).w(1F, -24);
+
         this.conditionsHeader = this.createSectionLabel(UIKeys.FILM_MOB_CAPTURE_SECTION_CONDITIONS);
-        this.conditionsHeader.relative(this.content).x(12).w(1F, -24).h(14);
+        this.conditionsHeader.relative(this.conditionsPage).x(0).w(1F).h(14);
 
         this.radiusLabel = UI.label(UIKeys.FILM_MOB_CAPTURE_RADIUS);
-        this.radiusLabel.h(14);
+        this.radiusLabel.w(1F).h(14);
         this.radius = new UITrackpad((v) ->
         {
             this.setup.areaSize = v.floatValue();
@@ -185,7 +222,7 @@ public class UIMobCaptureRecordOverlayPanel extends UIOverlayPanel
         });
         this.radius.limit(16D, 256D, true).increment(4D).values(16D, 4D, 32D);
         this.radius.setValue(this.setup.areaSize);
-        this.radius.w(TRACKPAD_WIDTH).h(20);
+        this.radius.w(1F).h(20);
 
         this.includeHeight = new UIToggle(UIKeys.FILM_MOB_CAPTURE_INCLUDE_HEIGHT, this.setup.includeHeight, (b) ->
         {
@@ -194,7 +231,7 @@ public class UIMobCaptureRecordOverlayPanel extends UIOverlayPanel
             this.refreshTypes();
         });
         this.includeHeight.tooltip(UIKeys.FILM_MOB_CAPTURE_INCLUDE_HEIGHT_TOOLTIP);
-        this.includeHeight.w(1F).h(14);
+        this.includeHeight.w(1F).h(20);
 
         this.capturePlayers = new UIToggle(UIKeys.FILM_MOB_CAPTURE_PLAYERS, this.setup.capturePlayers, (b) ->
         {
@@ -202,14 +239,15 @@ public class UIMobCaptureRecordOverlayPanel extends UIOverlayPanel
             this.refreshTypes();
         });
         this.capturePlayers.tooltip(UIKeys.FILM_MOB_CAPTURE_PLAYERS_TOOLTIP);
-        this.capturePlayers.w(1F).h(14);
+        this.capturePlayers.w(1F).h(20);
 
         this.playerNametags = new UIToggle(UIKeys.FILM_MOB_CAPTURE_PLAYER_NAMETAGS, this.setup.playerNametags, (b) ->
         {
             this.setup.playerNametags = b.getValue();
+            this.updateConditionsSummary();
         });
         this.playerNametags.tooltip(UIKeys.FILM_MOB_CAPTURE_PLAYER_NAMETAGS_TOOLTIP);
-        this.playerNametags.w(1F).h(14);
+        this.playerNametags.w(1F).h(20);
 
         this.playerModelForms = new UIToggle(UIKeys.FILM_MOB_CAPTURE_PLAYER_MODELS, this.setup.playerModelForms, (b) ->
         {
@@ -217,10 +255,10 @@ public class UIMobCaptureRecordOverlayPanel extends UIOverlayPanel
             this.refreshTypes();
         });
         this.playerModelForms.tooltip(UIKeys.FILM_MOB_CAPTURE_PLAYER_MODELS_TOOLTIP);
-        this.playerModelForms.w(1F).h(14);
+        this.playerModelForms.w(1F).h(20);
 
         this.originLabel = UI.label(UIKeys.FILM_MOB_CAPTURE_ORIGIN);
-        this.originLabel.h(14);
+        this.originLabel.w(1F).h(14);
         this.originMode = new UIButton(this.getOriginModeLabel(), (b) -> this.toggleOriginMode());
         this.originMode.w(1F).h(20);
         this.originMode.tooltip(UIKeys.FILM_MOB_CAPTURE_ORIGIN_TOOLTIP);
@@ -247,27 +285,59 @@ public class UIMobCaptureRecordOverlayPanel extends UIOverlayPanel
         this.originY.w(COORD_WIDTH).h(20);
         this.originZ.w(COORD_WIDTH).h(20);
         this.coordsRow = UI.row(6, 0, 20, this.originX, this.originY, this.originZ);
+        this.coordsRow.w(1F);
 
-        this.conditionsLeft = UI.column(8, this.radiusLabel, this.radius, this.includeHeight, this.capturePlayers);
-        this.conditionsRight = UI.column(8, this.originLabel, this.originMode, this.coordsRow, this.playerNametags, this.playerModelForms);
-        this.conditionsGrid = new UIElement();
-        this.conditionsLeft.relative(this.conditionsGrid).x(0).y(0).w(0.44F);
-        this.conditionsRight.relative(this.conditionsGrid).x(0.46F).y(0).w(0.54F);
-        this.conditionsGrid.add(this.conditionsLeft, this.conditionsRight);
-        this.conditionsGrid.relative(this.content).x(12).w(1F, -24).h(104);
+        this.conditionsScroll = UI.scrollView(8, 4,
+            this.radiusLabel,
+            this.radius,
+            this.includeHeight,
+            this.originLabel,
+            this.originMode,
+            this.coordsRow,
+            this.capturePlayers,
+            this.playerNametags,
+            this.playerModelForms
+        );
+        this.conditionsScroll.relative(this.conditionsPage).x(0).w(1F);
+
+        this.conditionsSummaryHeader = this.createSectionLabel(UIKeys.FILM_MOB_CAPTURE_SECTION_CONDITIONS);
+        this.conditionsSummaryHeader.w(1F).h(14);
+        this.summaryRadius = UI.label(IKey.EMPTY, SUMMARY_LINE_HEIGHT, Colors.LIGHTER_GRAY);
+        this.summaryHeight = UI.label(IKey.EMPTY, SUMMARY_LINE_HEIGHT, Colors.LIGHTER_GRAY);
+        this.summaryOrigin = UI.label(IKey.EMPTY, SUMMARY_LINE_HEIGHT, Colors.LIGHTER_GRAY);
+        this.summaryCoords = UI.label(IKey.EMPTY, SUMMARY_LINE_HEIGHT, Colors.LIGHTER_GRAY);
+        this.summaryPlayers = UI.label(IKey.EMPTY, SUMMARY_LINE_HEIGHT, Colors.LIGHTER_GRAY);
+        this.summaryNametags = UI.label(IKey.EMPTY, SUMMARY_LINE_HEIGHT, Colors.LIGHTER_GRAY);
+        this.summaryModels = UI.label(IKey.EMPTY, SUMMARY_LINE_HEIGHT, Colors.LIGHTER_GRAY);
+        this.seeMore = this.createSeeMoreLink();
+        this.conditionsSummary = UI.column(2,
+            this.conditionsSummaryHeader,
+            this.summaryRadius,
+            this.summaryHeight,
+            this.summaryOrigin,
+            this.summaryCoords,
+            this.summaryPlayers,
+            this.summaryNametags,
+            this.summaryModels,
+            this.seeMore
+        );
+        this.conditionsSummary.relative(this.entitiesPage).x(0).w(1F);
 
         this.entitiesTitle = this.createSectionLabel(UIKeys.FILM_MOB_CAPTURE_SECTION_ENTITIES);
         this.entitiesTitle.w(1F);
         this.refresh = new UIIcon(Icons.REFRESH, (b) -> this.refreshEntityList());
         this.refresh.tooltip(UIKeys.FILM_MOB_CAPTURE_REFRESH);
         this.entitiesHeader = UI.row(4, 0, 16, this.entitiesTitle, this.refresh);
-        this.entitiesHeader.relative(this.content).x(12).w(1F, -24).h(16);
+        this.entitiesHeader.relative(this.entitiesPage).x(0).w(1F).h(16);
 
         this.summary = UI.label(IKey.EMPTY).color(Colors.LIGHTER_GRAY);
-        this.summary.relative(this.content).x(12).w(1F, -24).h(14);
+        this.summary.relative(this.entitiesPage).x(0).w(1F).h(14);
 
         this.scroll = UI.scrollView(4, 4);
-        this.scroll.relative(this.content).x(12).w(1F, -24);
+        this.scroll.relative(this.entitiesPage).x(0).w(1F);
+
+        this.entitiesPage.add(this.conditionsSummary, this.entitiesHeader, this.summary, this.scroll);
+        this.conditionsPage.add(this.conditionsHeader, this.conditionsScroll);
 
         UIButton start = new UIButton(UIKeys.FILM_MOB_CAPTURE_START, (b) -> this.submit());
         UIButton cancel = new UIButton(UIKeys.CONFIG_CANCEL, (b) -> this.cancel());
@@ -280,11 +350,9 @@ public class UIMobCaptureRecordOverlayPanel extends UIOverlayPanel
 
         this.content.add(
             this.description,
-            this.conditionsHeader,
-            this.conditionsGrid,
-            this.entitiesHeader,
-            this.summary,
-            this.scroll,
+            this.tabBar,
+            this.entitiesPage,
+            this.conditionsPage,
             this.footer
         );
 
@@ -302,8 +370,7 @@ public class UIMobCaptureRecordOverlayPanel extends UIOverlayPanel
         this.seedOriginFromPlayer();
         this.syncOriginFieldsFromSetup();
         this.updateOriginModeUi();
-        this.updateLayout();
-        this.refreshTypes();
+        this.setTab(CaptureTab.ENTITIES);
     }
 
     private void holdRecordingPause()
@@ -428,20 +495,118 @@ public class UIMobCaptureRecordOverlayPanel extends UIOverlayPanel
         this.description.y(y);
         y += 40;
 
-        this.conditionsHeader.y(y);
-        y += 18;
+        this.tabBar.y(y);
+        y += TAB_HEIGHT + 8;
 
-        this.conditionsGrid.y(y);
-        y += 112;
+        this.entitiesPage.y(y).h(1F, -(y + FOOTER_SPACE));
+        this.conditionsPage.y(y).h(1F, -(y + FOOTER_SPACE));
 
-        this.entitiesHeader.y(y);
-        y += 18;
+        int pageY = 0;
 
-        this.summary.y(y);
-        y += 16;
+        this.conditionsSummary.y(pageY).h(this.getConditionsSummaryHeight());
+        pageY += this.getConditionsSummaryHeight() + 8;
 
-        this.scroll.y(y).h(1F, -(y + FOOTER_SPACE));
+        this.entitiesHeader.y(pageY);
+        pageY += 18;
+
+        this.summary.y(pageY);
+        pageY += 16;
+
+        this.scroll.y(pageY).h(1F, -pageY);
+
+        this.conditionsHeader.y(0);
+        this.conditionsScroll.y(18).h(1F, -18);
         this.content.resize();
+    }
+
+    private int getConditionsSummaryHeight()
+    {
+        /* Header + 7 summary lines + see more, with 2px column gaps. */
+        return 14 + SUMMARY_LINE_HEIGHT * 7 + 14 + 2 * 8;
+    }
+
+    private void setTab(CaptureTab tab)
+    {
+        if (this.currentTab == CaptureTab.CONDITIONS)
+        {
+            this.commitConditionsFromUi();
+        }
+
+        this.currentTab = tab;
+        this.entitiesTab.setSelected(tab == CaptureTab.ENTITIES);
+        this.conditionsTab.setSelected(tab == CaptureTab.CONDITIONS);
+        this.entitiesPage.setVisible(tab == CaptureTab.ENTITIES);
+        this.conditionsPage.setVisible(tab == CaptureTab.CONDITIONS);
+
+        if (tab == CaptureTab.ENTITIES)
+        {
+            this.updateConditionsSummary();
+            this.refreshTypes();
+        }
+
+        this.updateLayout();
+    }
+
+    private IKey yesNo(boolean value)
+    {
+        return value ? UIKeys.FILM_MOB_CAPTURE_VALUE_YES : UIKeys.FILM_MOB_CAPTURE_VALUE_NO;
+    }
+
+    private void updateConditionsSummary()
+    {
+        this.summaryRadius.label = UIKeys.FILM_MOB_CAPTURE_SUMMARY_RADIUS.format(String.valueOf((int) this.setup.areaSize));
+        this.summaryHeight.label = UIKeys.FILM_MOB_CAPTURE_SUMMARY_HEIGHT.format(this.yesNo(this.setup.includeHeight).get());
+        this.summaryOrigin.label = UIKeys.FILM_MOB_CAPTURE_SUMMARY_ORIGIN.format(this.getOriginModeLabel().get());
+        this.summaryCoords.label = UIKeys.FILM_MOB_CAPTURE_SUMMARY_COORDS.format(
+            String.valueOf((int) this.setup.originX),
+            String.valueOf((int) this.setup.originY),
+            String.valueOf((int) this.setup.originZ)
+        );
+        this.summaryPlayers.label = UIKeys.FILM_MOB_CAPTURE_SUMMARY_PLAYERS.format(this.yesNo(this.setup.capturePlayers).get());
+        this.summaryNametags.label = UIKeys.FILM_MOB_CAPTURE_SUMMARY_NAMETAGS.format(this.yesNo(this.setup.playerNametags).get());
+        this.summaryModels.label = UIKeys.FILM_MOB_CAPTURE_SUMMARY_MODELS.format(this.yesNo(this.setup.playerModelForms).get());
+    }
+
+    private UIElement createSeeMoreLink()
+    {
+        return new UIElement()
+        {
+            @Override
+            public void render(UIContext context)
+            {
+                FontRenderer font = context.batcher.getFont();
+                String text = UIKeys.FILM_MOB_CAPTURE_SEE_MORE.get();
+                boolean hover = this.area.isInside(context);
+                int color = hover ? (0xFF000000 | BBSSettings.primaryColor.get()) : Colors.LIGHTER_GRAY;
+                int x = this.area.x;
+                int y = this.area.y(0.5F, font.getHeight());
+                int width = font.getWidth(text);
+
+                context.batcher.text(text, x, y, color, true);
+                context.batcher.box(x, y + font.getHeight(), x + width, y + font.getHeight() + 1, color);
+
+                if (hover)
+                {
+                    context.requestCursor(GLFW.GLFW_HAND_CURSOR);
+                }
+
+                super.render(context);
+            }
+
+            @Override
+            protected boolean subMouseClicked(UIContext context)
+            {
+                if (context.mouseButton == 0 && this.area.isInside(context))
+                {
+                    UIUtils.playClick();
+                    UIMobCaptureRecordOverlayPanel.this.setTab(CaptureTab.CONDITIONS);
+
+                    return true;
+                }
+
+                return super.subMouseClicked(context);
+            }
+        }.h(14);
     }
 
     @Override
@@ -450,6 +615,11 @@ public class UIMobCaptureRecordOverlayPanel extends UIOverlayPanel
         if (this.setup.usePlayerOrigin)
         {
             this.syncOriginFieldsFromPlayer();
+
+            if (this.currentTab == CaptureTab.ENTITIES)
+            {
+                this.updateConditionsSummary();
+            }
         }
 
         super.render(context);
@@ -1047,6 +1217,7 @@ public class UIMobCaptureRecordOverlayPanel extends UIOverlayPanel
     private void submit()
     {
         this.setup.captureMobs = true;
+        this.commitConditionsFromUi();
         MobCaptureRecordingSetup.pending = this.setup;
         this.releaseRecordingPause();
         this.close();
@@ -1054,6 +1225,56 @@ public class UIMobCaptureRecordOverlayPanel extends UIOverlayPanel
         if (this.callback != null)
         {
             this.callback.accept(this.setup);
+        }
+    }
+
+    private static class OverlayTabButton extends UIClickable<OverlayTabButton>
+    {
+        private final IKey label;
+        private final Icon icon;
+        private boolean selected;
+
+        public OverlayTabButton(IKey label, Icon icon, Consumer<OverlayTabButton> callback)
+        {
+            super(callback);
+
+            this.label = label;
+            this.icon = icon;
+            this.h(TAB_HEIGHT);
+            this.w(22 + MinecraftClient.getInstance().textRenderer.getWidth(label.get()) + 8);
+        }
+
+        public void setSelected(boolean selected)
+        {
+            this.selected = selected;
+        }
+
+        @Override
+        protected OverlayTabButton get()
+        {
+            return this;
+        }
+
+        @Override
+        protected void renderSkin(UIContext context)
+        {
+            int color = this.hover || this.selected ? (0xFF000000 | BBSSettings.primaryColor.get()) : Colors.WHITE;
+            int textY = this.area.y + (this.area.h - context.batcher.getFont().getHeight()) / 2;
+
+            if (this.selected)
+            {
+                context.batcher.box(this.area.x, this.area.y, this.area.ex(), this.area.ey(), 0xFF1D1D1D);
+                context.batcher.box(this.area.x, this.area.ey() - 1, this.area.ex(), this.area.ey(), 0xFF3C3C3C);
+                context.batcher.box(this.area.x, this.area.y, this.area.ex(), this.area.y + 2, 0xFF000000 | BBSSettings.primaryColor.get());
+            }
+            else
+            {
+                context.batcher.box(this.area.x, this.area.y, this.area.ex(), this.area.ey(), 0xDD17171B);
+                context.batcher.box(this.area.x, this.area.ey() - 1, this.area.ex(), this.area.ey(), 0xFF3C3C3C);
+            }
+
+            context.batcher.icon(this.icon, color, this.area.x + 11, this.area.y + this.area.h / 2, 0.5F, 0.5F);
+            context.batcher.text(this.label.get(), this.area.x + 22, textY, color);
         }
     }
 }
