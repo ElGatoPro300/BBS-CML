@@ -1986,6 +1986,7 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
         {
             BBSSettings.editorLayoutSettings.setFilmLayoutRoot(newRoot);
             this.setupEditorFlex(true, false, true);
+            this.persistFilmUILayoutSession();
         }
     }
 
@@ -8762,9 +8763,9 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
                         this.panel.tabReordering = true;
                         this.panel.tabReorderPanelId = this.panelId;
                         this.panel.tabReorderFromIndex = this.index;
-                        this.panel.tabReorderDropPreview = this.index;
                         this.panel.tabReorderTabbedNode = this.tabbedNode;
                         this.panel.tabReorderTabBar = tabBar;
+                        this.panel.tabReorderDropPreview = this.panel.getTabDropPreviewIndex(tabBar, context.mouseX);
                     }
                     else
                     {

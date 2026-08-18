@@ -229,7 +229,7 @@ public abstract class EditorLayoutNode
 
     public static EditorLayoutNode copyWithReorderedTabs(EditorLayoutNode root, String panelId, int fromIndex, int toIndex)
     {
-        if (root == null || panelId == null || fromIndex == toIndex)
+        if (root == null || panelId == null)
         {
             return root;
         }
@@ -237,43 +237,60 @@ public abstract class EditorLayoutNode
         if (root instanceof TabbedNode)
         {
             TabbedNode tabbed = (TabbedNode) root;
-            boolean contains = false;
+            int from = -1;
+            String activeId = null;
 
-            for (EditorLayoutNode tab : tabbed.tabs)
+            for (int i = 0; i < tabbed.tabs.size(); i++)
             {
-                if (tab instanceof PanelNode && ((PanelNode) tab).getPanelId().equals(panelId))
+                EditorLayoutNode tab = tabbed.tabs.get(i);
+
+                if (!(tab instanceof PanelNode))
                 {
-                    contains = true;
-                    break;
+                    continue;
+                }
+
+                String id = ((PanelNode) tab).getPanelId();
+
+                if (id.equals(panelId))
+                {
+                    from = i;
+                }
+
+                if (i == tabbed.activeTab)
+                {
+                    activeId = id;
                 }
             }
 
-            if (contains)
+            if (from >= 0)
             {
-                if (fromIndex < 0 || fromIndex >= tabbed.tabs.size() || toIndex < 0 || toIndex >= tabbed.tabs.size())
+                List<EditorLayoutNode> newTabs = new ArrayList<>(tabbed.tabs);
+                EditorLayoutNode moved = newTabs.remove(from);
+                /* toIndex is the insert slot among remaining tabs (0..count inclusive).
+                 * Count may equal the original size when dropping after the last tab. */
+                int insertAt = Math.max(0, Math.min(toIndex, newTabs.size()));
+
+                if (insertAt == from)
                 {
                     return root;
                 }
 
-                List<EditorLayoutNode> newTabs = new ArrayList<>(tabbed.tabs);
-                EditorLayoutNode moved = tabbed.tabs.get(fromIndex);
+                newTabs.add(insertAt, moved);
 
-                newTabs.remove(fromIndex);
-                newTabs.add(toIndex, moved);
+                int newActiveTab = Math.max(0, Math.min(tabbed.activeTab, newTabs.size() - 1));
 
-                int newActiveTab = tabbed.activeTab;
+                if (activeId != null)
+                {
+                    for (int i = 0; i < newTabs.size(); i++)
+                    {
+                        EditorLayoutNode tab = newTabs.get(i);
 
-                if (tabbed.activeTab == fromIndex)
-                {
-                    newActiveTab = toIndex;
-                }
-                else if (fromIndex < tabbed.activeTab && toIndex >= tabbed.activeTab)
-                {
-                    newActiveTab = tabbed.activeTab - 1;
-                }
-                else if (fromIndex > tabbed.activeTab && toIndex <= tabbed.activeTab)
-                {
-                    newActiveTab = tabbed.activeTab + 1;
+                        if (tab instanceof PanelNode && ((PanelNode) tab).getPanelId().equals(activeId))
+                        {
+                            newActiveTab = i;
+                            break;
+                        }
+                    }
                 }
 
                 return new TabbedNode(newTabs, newActiveTab);
