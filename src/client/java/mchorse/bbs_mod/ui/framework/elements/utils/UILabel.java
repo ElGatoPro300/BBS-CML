@@ -113,6 +113,23 @@ public class UILabel extends UIElement implements ITextColoring
         return this;
     }
 
+    /**
+     * Measure wrapped height from the current area width so popups can grow
+     * before the first render (otherwise titles stay ellipsized).
+     */
+    public UILabel wrapToWidth()
+    {
+        return this.wrapToWidth(Math.max(0, this.area.w - 4));
+    }
+
+    public UILabel wrapToWidth(int maxWidth)
+    {
+        this.wrapping(true);
+        this.ensureWrappedLabel(Batcher2D.getDefaultTextRenderer(), maxWidth);
+
+        return this;
+    }
+
     public UILabel label(IKey label)
     {
         this.label = label;
