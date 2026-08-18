@@ -204,6 +204,7 @@ public class BBSSettings
     public static ValueBoolean recordingAutoCaptureProjectiles;
     public static ValueBoolean recordingAutoCaptureMobActions;
     public static ValueBoolean recordingMobCaptureOnAlt;
+    public static ValueBoolean recordingMobCaptureConditionsSummary;
     public static ValueBoolean recordingOverlays;
     public static ValueInt recordingPoseTransformOverlays;
     public static ValueBoolean recordingCameraPreview;
@@ -838,6 +839,7 @@ public class BBSSettings
         recordingAutoCaptureProjectiles = builder.getBoolean("auto_capture_projectiles", true);
         recordingAutoCaptureMobActions = builder.getBoolean("auto_capture_mob_actions", true);
         recordingMobCaptureOnAlt = builder.getBoolean("mob_capture_on_alt", false);
+        recordingMobCaptureConditionsSummary = builder.getBoolean("mob_capture_conditions_summary", true);
         recordingOverlays = builder.getBoolean("overlays", true);
         recordingPoseTransformOverlays = builder.getInt("pose_transform_overlays", 0, 0, 42);
         recordingCameraPreview = builder.getBoolean("camera_preview", true);

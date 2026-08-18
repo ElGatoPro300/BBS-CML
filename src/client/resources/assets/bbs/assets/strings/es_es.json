@@ -316,6 +316,8 @@
     "bbs.config.recording.auto_capture_mobs-comment": "Al grabar un replay con Alt derecho, atacar o interactuar con mobs los añade a la película y registra su movimiento. Montar un barco o montura también autocaptura el vehículo.",
     "bbs.config.recording.auto_capture_mob_actions": "Clips de acciones en mobs autocapturados",
     "bbs.config.recording.auto_capture_mob_actions-comment": "Al autocapturar mobs, también graba clips Attack/Damage/ProjectileAttack/Swipe del combate entre mobs (daño vanilla real + swing de melee). Sirve para HP/muerte en modo Actor y animación de golpe; los replays stub/no-actor siguen basándose en keyframes para la muerte.",
+    "bbs.config.recording.mob_capture_conditions_summary": "Resumen de condiciones en criaturas cercanas",
+    "bbs.config.recording.mob_capture_conditions_summary-comment": "Si está activado, la pestaña Entidades del panel de criaturas cercanas muestra un resumen de Condiciones. Desactívalo para ganar espacio vertical; las condiciones siguen disponibles en la pestaña Condiciones.",
     "bbs.config.recording.title": "Grabación",
     "bbs.config.recording.tooltip": "Aquí está todo lo relacionado con el sistema de grabación del jugador",
     "bbs.config.replay_editor.title": "Editor de replays",

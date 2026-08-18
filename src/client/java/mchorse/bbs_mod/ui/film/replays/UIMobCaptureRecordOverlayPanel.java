@@ -526,11 +526,19 @@ public class UIMobCaptureRecordOverlayPanel extends UIOverlayPanel
         this.entitiesPage.y(y).h(1F, -(y + FOOTER_SPACE));
         this.conditionsPage.y(y).h(1F, -(y + FOOTER_SPACE));
 
-        int pageY = 0;
-        int summaryH = this.applySummaryWrapHeights();
+        boolean showSummary = BBSSettings.recordingMobCaptureConditionsSummary == null
+            || BBSSettings.recordingMobCaptureConditionsSummary.get();
 
-        this.conditionsSummary.y(pageY).h(summaryH);
-        pageY += summaryH + 8;
+        this.conditionsSummary.setVisible(showSummary);
+
+        int pageY = 0;
+        int summaryH = showSummary ? this.applySummaryWrapHeights() : 0;
+
+        if (showSummary)
+        {
+            this.conditionsSummary.y(pageY).h(summaryH);
+            pageY += summaryH + 8;
+        }
 
         this.entitiesHeader.y(pageY);
         pageY += 18;
@@ -544,18 +552,21 @@ public class UIMobCaptureRecordOverlayPanel extends UIOverlayPanel
         this.conditionsScroll.y(18).h(1F, -18);
         this.content.resize();
 
-        int resizedSummaryH = this.applySummaryWrapHeights();
-
-        if (resizedSummaryH != summaryH)
+        if (showSummary)
         {
-            this.conditionsSummary.h(resizedSummaryH);
-            pageY = resizedSummaryH + 8;
-            this.entitiesHeader.y(pageY);
-            pageY += 18;
-            this.summary.y(pageY);
-            pageY += 16;
-            this.scroll.y(pageY).h(1F, -pageY);
-            this.content.resize();
+            int resizedSummaryH = this.applySummaryWrapHeights();
+
+            if (resizedSummaryH != summaryH)
+            {
+                this.conditionsSummary.h(resizedSummaryH);
+                pageY = resizedSummaryH + 8;
+                this.entitiesHeader.y(pageY);
+                pageY += 18;
+                this.summary.y(pageY);
+                pageY += 16;
+                this.scroll.y(pageY).h(1F, -pageY);
+                this.content.resize();
+            }
         }
     }
 

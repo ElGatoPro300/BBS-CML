@@ -348,6 +348,8 @@
     "bbs.config.recording.auto_capture_projectiles-comment": "While recording, projectiles thrown by auto-captured mobs (arrows, fireballs, etc.) are added to the film and their movement is recorded",
     "bbs.config.recording.mob_capture_on_alt": "Nearby mobs panel on Alt",
     "bbs.config.recording.mob_capture_on_alt-comment": "When enabled, pressing the record replay key (Right Alt) opens the nearby mobs panel before recording. When disabled, recording starts immediately; use Record outside in the film editor to open that panel",
+    "bbs.config.recording.mob_capture_conditions_summary": "Conditions summary in nearby mobs",
+    "bbs.config.recording.mob_capture_conditions_summary-comment": "When enabled, the Entities tab of the nearby mobs panel shows a Conditions summary. Disable it to free vertical space; conditions stay available in the Conditions tab.",
     "bbs.config.recording.title": "Recording",
     "bbs.config.recording.tooltip": "Here is everything related to player recording system",
     "bbs.config.replay_editor.title": "Replay editor",
