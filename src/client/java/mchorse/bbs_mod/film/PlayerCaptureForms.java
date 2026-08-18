@@ -146,17 +146,34 @@ public final class PlayerCaptureForms
         }
 
         CompletableFuture
-            .supplyAsync(() -> downloadSkin(profile), EXECUTOR)
-            .thenAccept((file) -> MinecraftClient.getInstance().execute(() ->
+            .supplyAsync(() ->
             {
-                Link link = BBSMod.getProvider().getLink(file);
-
-                if (link != null)
+                try
                 {
-                    form.texture.set(link);
+                    return downloadSkin(profile);
                 }
-            }))
-            .exceptionally((e) -> null);
+                catch (Exception e)
+                {
+                    return null;
+                }
+            }, EXECUTOR)
+            .thenAccept((file) ->
+            {
+                if (file == null)
+                {
+                    return;
+                }
+
+                MinecraftClient.getInstance().execute(() ->
+                {
+                    Link link = BBSMod.getProvider().getLink(file);
+
+                    if (link != null)
+                    {
+                        form.texture.set(link);
+                    }
+                });
+            });
     }
 
     private static File downloadSkin(GameProfile profile) throws Exception
