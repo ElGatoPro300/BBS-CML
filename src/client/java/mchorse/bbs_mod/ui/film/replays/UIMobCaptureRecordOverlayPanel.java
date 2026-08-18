@@ -204,6 +204,7 @@ public class UIMobCaptureRecordOverlayPanel extends UIOverlayPanel
         opened = this;
         this.callback = callback;
         this.onCancel = onCancel;
+        this.setup.loadFromPreferences();
         this.resizable().minSize(400, 420);
 
         this.description = new UIText(UIKeys.FILM_MOB_CAPTURE_DESCRIPTION).textAnchorX(0.5F);
@@ -383,6 +384,8 @@ public class UIMobCaptureRecordOverlayPanel extends UIOverlayPanel
 
         this.onClose((event) ->
         {
+            this.commitConditionsFromUi();
+            this.setup.saveToPreferences();
             this.releaseRecordingPause();
 
             if (opened == this)
@@ -392,8 +395,12 @@ public class UIMobCaptureRecordOverlayPanel extends UIOverlayPanel
         });
 
         this.holdRecordingPause();
-        this.seedOriginFromPlayer();
-        this.syncOriginFieldsFromSetup();
+
+        if (this.setup.usePlayerOrigin)
+        {
+            this.seedOriginFromPlayer();
+        }
+
         this.updateOriginModeUi();
         this.setTab(CaptureTab.ENTITIES);
     }
