@@ -547,8 +547,13 @@ public class UIValueMap
                 value.height.set(w);
             });
             swapResolution.tooltip(UIKeys.VIDEO_SETTINGS_SWAP_RESOLUTION);
+            swapResolution.w(20).h(20);
 
-            list.add(customColumn(UI.row(width, swapResolution, height), UIKeys.VIDEO_SETTINGS_RESOLUTION, IKey.raw("")));
+            /* Stack the label above the inputs so long translations still fit the default settings width. */
+            UIElement resolutionInputs = UI.row(4, 0, 20, width, swapResolution, height);
+
+            resolutionInputs.w(1F);
+            list.add(customColumn(resolutionInputs, UIKeys.VIDEO_SETTINGS_RESOLUTION, IKey.raw(""), true));
 
             UITrackpad frameRate = UIValueFactory.intUI(value.frameRate, null);
             frameRate.w(90);
@@ -616,6 +621,11 @@ public class UIValueMap
 
     private static UIElement customColumn(UIElement control, IKey label, IKey tooltip)
     {
+        return customColumn(control, label, tooltip, false);
+    }
+
+    private static UIElement customColumn(UIElement control, IKey label, IKey tooltip, boolean stack)
+    {
         UIElement element = new UIElement();
         control.removeTooltip();
 
@@ -625,16 +635,24 @@ public class UIValueMap
             && !comment.startsWith("cml.settings.")
             && (BBSSettings.hideSettingDescriptions == null || !BBSSettings.hideSettingDescriptions.get());
 
-        if (hasComment)
+        if (hasComment || stack)
         {
             UILabel titleLabel = UI.label(label, 0).labelAnchor(0, 0.5F);
             titleLabel.relative(element).w(1F).h(11);
-            UIText desc = new UIText(tooltip)
-                .color(0xFF777788, true);
-            desc.relative(element).w(1F);
 
             element.column(3).vertical().padding(0).height(0);
-            element.add(titleLabel, desc.marginTop(1), control.marginTop(2));
+
+            if (hasComment)
+            {
+                UIText desc = new UIText(tooltip)
+                    .color(0xFF777788, true);
+                desc.relative(element).w(1F);
+                element.add(titleLabel, desc.marginTop(1), control.marginTop(2));
+            }
+            else
+            {
+                element.add(titleLabel, control.marginTop(2).w(1F));
+            }
         }
         else
         {

@@ -1068,6 +1068,15 @@ public class UITrackpad extends UIBaseTextbox
             value = this.weak;
         }
 
-        return value * globalFactor.getValue();
+        value *= globalFactor.getValue();
+
+        /* Integer fields truncate toward zero. A 0.25 step therefore decreases
+         * (n - 0.25 -> n - 1) but never increases (n + 0.25 -> n). */
+        if (this.integer)
+        {
+            value = Math.max(1D, Math.round(value));
+        }
+
+        return value;
     }
 }
