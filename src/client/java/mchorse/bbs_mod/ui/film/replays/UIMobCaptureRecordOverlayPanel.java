@@ -18,6 +18,7 @@ import mchorse.bbs_mod.ui.framework.elements.buttons.UIToggle;
 import mchorse.bbs_mod.ui.framework.elements.input.UITrackpad;
 import mchorse.bbs_mod.ui.framework.elements.overlay.UIOverlay;
 import mchorse.bbs_mod.ui.framework.elements.overlay.UIOverlayPanel;
+import mchorse.bbs_mod.ui.framework.elements.utils.Batcher2D;
 import mchorse.bbs_mod.ui.framework.elements.utils.FontRenderer;
 import mchorse.bbs_mod.ui.framework.elements.utils.UILabel;
 import mchorse.bbs_mod.ui.framework.elements.utils.UIText;
@@ -36,6 +37,7 @@ import net.minecraft.util.math.Vec3d;
 
 import org.lwjgl.glfw.GLFW;
 
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -52,7 +54,11 @@ public class UIMobCaptureRecordOverlayPanel extends UIOverlayPanel
     private static final int FOOTER_GAP = 8;
     private static final int FOOTER_SPACE = 36;
     private static final int TAB_HEIGHT = 20;
-    private static final int SUMMARY_LINE_HEIGHT = 12;
+    private static final int SUMMARY_LINE_HEIGHT = 8;
+    /* Shared gap between condition-summary rows and wrapped lines in that block. */
+    private static final int SUMMARY_ROW_GAP = 3;
+    private static final int TAB_UNDERLINE = 0xFF3C3C3C;
+    private static final int ENTITY_ROW_HOVER = 0x66000000;
 
     private enum CaptureTab
     {
@@ -88,6 +94,9 @@ public class UIMobCaptureRecordOverlayPanel extends UIOverlayPanel
     private UITrackpad originZ;
     private UIToggle includeHeight;
     private UIElement conditionsSummary;
+    private UIElement summaryGrid;
+    private UIElement summaryLeft;
+    private UIElement summaryRight;
     private UILabel conditionsSummaryHeader;
     private UILabel summaryRadius;
     private UILabel summaryHeight;
@@ -202,8 +211,23 @@ public class UIMobCaptureRecordOverlayPanel extends UIOverlayPanel
 
         this.entitiesTab = new OverlayTabButton(UIKeys.FILM_MOB_CAPTURE_TAB_ENTITIES, Icons.LIST, (b) -> this.setTab(CaptureTab.ENTITIES));
         this.conditionsTab = new OverlayTabButton(UIKeys.FILM_MOB_CAPTURE_TAB_CONDITIONS, Icons.GEAR, (b) -> this.setTab(CaptureTab.CONDITIONS));
-        this.tabBar = UI.row(0, 0, TAB_HEIGHT, this.entitiesTab, this.conditionsTab);
+        this.tabBar = new UIElement()
+        {
+            @Override
+            public void render(UIContext context)
+            {
+                super.render(context);
+
+                int x = UIMobCaptureRecordOverlayPanel.this.area.x;
+                int ex = UIMobCaptureRecordOverlayPanel.this.area.ex();
+
+                context.batcher.box(x, this.area.ey() - 1, ex, this.area.ey(), TAB_UNDERLINE);
+            }
+        };
         this.tabBar.relative(this.content).x(12).w(1F, -24).h(TAB_HEIGHT);
+        this.entitiesTab.relative(this.tabBar).x(0).y(0);
+        this.conditionsTab.relative(this.entitiesTab).x(1F).y(0);
+        this.tabBar.add(this.entitiesTab, this.conditionsTab);
 
         this.entitiesPage = new UIElement();
         this.entitiesPage.relative(this.content).x(12).w(1F, -24);
@@ -302,23 +326,24 @@ public class UIMobCaptureRecordOverlayPanel extends UIOverlayPanel
 
         this.conditionsSummaryHeader = this.createSectionLabel(UIKeys.FILM_MOB_CAPTURE_SECTION_CONDITIONS);
         this.conditionsSummaryHeader.w(1F).h(14);
-        this.summaryRadius = UI.label(IKey.EMPTY, SUMMARY_LINE_HEIGHT, Colors.LIGHTER_GRAY);
-        this.summaryHeight = UI.label(IKey.EMPTY, SUMMARY_LINE_HEIGHT, Colors.LIGHTER_GRAY);
-        this.summaryOrigin = UI.label(IKey.EMPTY, SUMMARY_LINE_HEIGHT, Colors.LIGHTER_GRAY);
-        this.summaryCoords = UI.label(IKey.EMPTY, SUMMARY_LINE_HEIGHT, Colors.LIGHTER_GRAY);
-        this.summaryPlayers = UI.label(IKey.EMPTY, SUMMARY_LINE_HEIGHT, Colors.LIGHTER_GRAY);
-        this.summaryNametags = UI.label(IKey.EMPTY, SUMMARY_LINE_HEIGHT, Colors.LIGHTER_GRAY);
-        this.summaryModels = UI.label(IKey.EMPTY, SUMMARY_LINE_HEIGHT, Colors.LIGHTER_GRAY);
+        this.summaryRadius = this.createSummaryLabel();
+        this.summaryHeight = this.createSummaryLabel();
+        this.summaryOrigin = this.createSummaryLabel();
+        this.summaryCoords = this.createSummaryLabel();
+        this.summaryPlayers = this.createSummaryLabel();
+        this.summaryNametags = this.createSummaryLabel();
+        this.summaryModels = this.createSummaryLabel();
         this.seeMore = this.createSeeMoreLink();
-        this.conditionsSummary = UI.column(2,
+        this.summaryLeft = UI.column(SUMMARY_ROW_GAP, this.summaryRadius, this.summaryHeight, this.summaryOrigin, this.summaryCoords);
+        this.summaryRight = UI.column(SUMMARY_ROW_GAP, this.summaryPlayers, this.summaryNametags, this.summaryModels);
+        this.summaryGrid = new UIElement();
+        this.summaryLeft.relative(this.summaryGrid).x(0).y(0).w(0.5F, -4);
+        this.summaryRight.relative(this.summaryGrid).x(0.5F, 4).y(0).w(0.5F, -4);
+        this.summaryGrid.add(this.summaryLeft, this.summaryRight);
+        this.summaryGrid.w(1F);
+        this.conditionsSummary = UI.column(SUMMARY_ROW_GAP,
             this.conditionsSummaryHeader,
-            this.summaryRadius,
-            this.summaryHeight,
-            this.summaryOrigin,
-            this.summaryCoords,
-            this.summaryPlayers,
-            this.summaryNametags,
-            this.summaryModels,
+            this.summaryGrid,
             this.seeMore
         );
         this.conditionsSummary.relative(this.entitiesPage).x(0).w(1F);
@@ -502,9 +527,10 @@ public class UIMobCaptureRecordOverlayPanel extends UIOverlayPanel
         this.conditionsPage.y(y).h(1F, -(y + FOOTER_SPACE));
 
         int pageY = 0;
+        int summaryH = this.applySummaryWrapHeights();
 
-        this.conditionsSummary.y(pageY).h(this.getConditionsSummaryHeight());
-        pageY += this.getConditionsSummaryHeight() + 8;
+        this.conditionsSummary.y(pageY).h(summaryH);
+        pageY += summaryH + 8;
 
         this.entitiesHeader.y(pageY);
         pageY += 18;
@@ -517,12 +543,74 @@ public class UIMobCaptureRecordOverlayPanel extends UIOverlayPanel
         this.conditionsHeader.y(0);
         this.conditionsScroll.y(18).h(1F, -18);
         this.content.resize();
+
+        int resizedSummaryH = this.applySummaryWrapHeights();
+
+        if (resizedSummaryH != summaryH)
+        {
+            this.conditionsSummary.h(resizedSummaryH);
+            pageY = resizedSummaryH + 8;
+            this.entitiesHeader.y(pageY);
+            pageY += 18;
+            this.summary.y(pageY);
+            pageY += 16;
+            this.scroll.y(pageY).h(1F, -pageY);
+            this.content.resize();
+        }
     }
 
-    private int getConditionsSummaryHeight()
+    private UILabel createSummaryLabel()
     {
-        /* Header + 7 summary lines + see more, with 2px column gaps. */
-        return 14 + SUMMARY_LINE_HEIGHT * 7 + 14 + 2 * 8;
+        return new SummaryLabel();
+    }
+
+    private int applySummaryWrapHeights()
+    {
+        int pageW = this.entitiesPage.area.w > 0 ? this.entitiesPage.area.w : 400;
+        int columnWidth = Math.max(40, pageW / 2 - 8);
+        int leftH = this.measureSummaryColumn(columnWidth, this.summaryRadius, this.summaryHeight, this.summaryOrigin, this.summaryCoords);
+        int rightH = this.measureSummaryColumn(columnWidth, this.summaryPlayers, this.summaryNametags, this.summaryModels);
+        int gridH = Math.max(leftH, rightH);
+
+        this.summaryLeft.h(leftH);
+        this.summaryRight.h(rightH);
+        this.summaryGrid.h(gridH);
+
+        /* Header + grid + see more, with the same gap used between summary rows. */
+        return 14 + SUMMARY_ROW_GAP + gridH + SUMMARY_ROW_GAP + 14;
+    }
+
+    private int measureSummaryColumn(int columnWidth, UILabel... labels)
+    {
+        int height = 0;
+
+        for (int i = 0; i < labels.length; i++)
+        {
+            if (i > 0)
+            {
+                height += SUMMARY_ROW_GAP;
+            }
+
+            height += this.applyWrappedHeight(labels[i], columnWidth);
+        }
+
+        return height;
+    }
+
+    private int applyWrappedHeight(UILabel label, int columnWidth)
+    {
+        FontRenderer font = Batcher2D.getDefaultTextRenderer();
+        String text = label.label == null ? "" : label.label.get();
+        List<String> lines = font.wrap(text, Math.max(1, columnWidth));
+        int lineCount = Math.max(1, lines.isEmpty() ? 1 : lines.size());
+        int wrapAdvance = SUMMARY_LINE_HEIGHT + SUMMARY_ROW_GAP;
+        int height = lineCount <= 1
+            ? SUMMARY_LINE_HEIGHT
+            : (lineCount - 1) * wrapAdvance + SUMMARY_LINE_HEIGHT;
+
+        label.h(height);
+
+        return height;
     }
 
     private void setTab(CaptureTab tab)
@@ -554,17 +642,17 @@ public class UIMobCaptureRecordOverlayPanel extends UIOverlayPanel
 
     private void updateConditionsSummary()
     {
-        this.summaryRadius.label = UIKeys.FILM_MOB_CAPTURE_SUMMARY_RADIUS.format(String.valueOf((int) this.setup.areaSize));
-        this.summaryHeight.label = UIKeys.FILM_MOB_CAPTURE_SUMMARY_HEIGHT.format(this.yesNo(this.setup.includeHeight).get());
-        this.summaryOrigin.label = UIKeys.FILM_MOB_CAPTURE_SUMMARY_ORIGIN.format(this.getOriginModeLabel().get());
-        this.summaryCoords.label = UIKeys.FILM_MOB_CAPTURE_SUMMARY_COORDS.format(
+        this.summaryRadius.label(UIKeys.FILM_MOB_CAPTURE_SUMMARY_RADIUS.format(String.valueOf((int) this.setup.areaSize)));
+        this.summaryHeight.label(UIKeys.FILM_MOB_CAPTURE_SUMMARY_HEIGHT.format(this.yesNo(this.setup.includeHeight).get()));
+        this.summaryOrigin.label(UIKeys.FILM_MOB_CAPTURE_SUMMARY_ORIGIN.format(this.getOriginModeLabel().get()));
+        this.summaryCoords.label(UIKeys.FILM_MOB_CAPTURE_SUMMARY_COORDS.format(
             String.valueOf((int) this.setup.originX),
             String.valueOf((int) this.setup.originY),
             String.valueOf((int) this.setup.originZ)
-        );
-        this.summaryPlayers.label = UIKeys.FILM_MOB_CAPTURE_SUMMARY_PLAYERS.format(this.yesNo(this.setup.capturePlayers).get());
-        this.summaryNametags.label = UIKeys.FILM_MOB_CAPTURE_SUMMARY_NAMETAGS.format(this.yesNo(this.setup.playerNametags).get());
-        this.summaryModels.label = UIKeys.FILM_MOB_CAPTURE_SUMMARY_MODELS.format(this.yesNo(this.setup.playerModelForms).get());
+        ));
+        this.summaryPlayers.label(UIKeys.FILM_MOB_CAPTURE_SUMMARY_PLAYERS.format(this.yesNo(this.setup.capturePlayers).get()));
+        this.summaryNametags.label(UIKeys.FILM_MOB_CAPTURE_SUMMARY_NAMETAGS.format(this.yesNo(this.setup.playerNametags).get()));
+        this.summaryModels.label(UIKeys.FILM_MOB_CAPTURE_SUMMARY_MODELS.format(this.yesNo(this.setup.playerModelForms).get()));
     }
 
     private UIElement createSeeMoreLink()
@@ -583,10 +671,10 @@ public class UIMobCaptureRecordOverlayPanel extends UIOverlayPanel
                 int width = font.getWidth(text);
 
                 context.batcher.text(text, x, y, color, true);
-                context.batcher.box(x, y + font.getHeight(), x + width, y + font.getHeight() + 1, color);
 
                 if (hover)
                 {
+                    context.batcher.box(x, y + font.getHeight(), x + width, y + font.getHeight() + 1, color);
                     context.requestCursor(GLFW.GLFW_HAND_CURSOR);
                 }
 
@@ -747,9 +835,8 @@ public class UIMobCaptureRecordOverlayPanel extends UIOverlayPanel
             typeVanillaToggle.tooltip(UIKeys.FILM_REPLAY_VANILLA_MOB_PLAYBACK_TOOLTIP);
             typeVanillaToggle.setEnabled(typeSelected && typeVanillaAllowed);
 
-            UIElement typeRow = UI.row(4, 0, 20, typeIcon, typeName, typeSelectToggle, typeVanillaToggle, this.createScrollbarGutter(20));
+            UIElement typeRow = this.createEntityListRow(20, typeIcon, typeName, typeSelectToggle, typeVanillaToggle, this.createScrollbarGutter(20));
 
-            typeRow.w(1F).h(20);
             this.scroll.add(typeRow);
             this.syncTypeSelection(bucket);
 
@@ -804,9 +891,8 @@ public class UIMobCaptureRecordOverlayPanel extends UIOverlayPanel
 
                     entityIndent.w(ICON_COLUMN_WIDTH).h(20);
 
-                    UIElement entityRow = UI.row(4, 0, 20, entityIndent, entityName, entitySelectToggle, entityVanillaToggle, this.createScrollbarGutter(20));
+                    UIElement entityRow = this.createEntityListRow(20, entityIndent, entityName, entitySelectToggle, entityVanillaToggle, this.createScrollbarGutter(20));
 
-                    entityRow.w(1F).h(20);
                     this.scroll.add(entityRow);
                     index += 1;
                 }
@@ -814,6 +900,29 @@ public class UIMobCaptureRecordOverlayPanel extends UIOverlayPanel
         }
 
         this.scroll.resize();
+    }
+
+    private UIElement createEntityListRow(int height, UIElement... children)
+    {
+        UIElement row = new UIElement()
+        {
+            @Override
+            public void render(UIContext context)
+            {
+                if (this.area.isInside(context))
+                {
+                    context.batcher.box(this.area.x, this.area.y, this.area.ex(), this.area.ey(), ENTITY_ROW_HOVER);
+                }
+
+                super.render(context);
+            }
+        };
+
+        row.row(4).padding(0).height(height);
+        row.add(children);
+        row.w(1F).h(height);
+
+        return row;
     }
 
     private UIElement createScrollbarGutter(int height)
@@ -928,9 +1037,8 @@ public class UIMobCaptureRecordOverlayPanel extends UIOverlayPanel
         selectAllVanilla.tooltip(UIKeys.FILM_REPLAY_VANILLA_MOB_PLAYBACK_TOOLTIP);
         selectAllVanilla.setEnabled(allSelected && this.hasAnyVanillaPlaybackAllowed());
 
-        UIElement selectAllRow = UI.row(4, 0, 20, spacer, selectAllLabel, selectAllAdd, selectAllVanilla, this.createScrollbarGutter(20));
+        UIElement selectAllRow = this.createEntityListRow(20, spacer, selectAllLabel, selectAllAdd, selectAllVanilla, this.createScrollbarGutter(20));
 
-        selectAllRow.w(1F).h(20);
         this.scroll.add(selectAllRow);
     }
 
@@ -1228,6 +1336,39 @@ public class UIMobCaptureRecordOverlayPanel extends UIOverlayPanel
         }
     }
 
+    private static class SummaryLabel extends UILabel
+    {
+        public SummaryLabel()
+        {
+            super(IKey.EMPTY, Colors.LIGHTER_GRAY);
+            this.h(SUMMARY_LINE_HEIGHT);
+            this.w(1F);
+        }
+
+        @Override
+        public void render(UIContext context)
+        {
+            FontRenderer font = context.batcher.getFont();
+            String text = this.label == null ? "" : this.label.get();
+            List<String> lines = text.isEmpty() || this.area.w <= 0
+                ? Collections.emptyList()
+                : font.wrap(text, Math.max(1, this.area.w));
+            int y = this.area.y + this.textOffsetY;
+            int wrapAdvance = SUMMARY_LINE_HEIGHT + SUMMARY_ROW_GAP;
+
+            for (String line : lines)
+            {
+                context.batcher.text(line, this.area.x, y, this.color, this.textShadow);
+                y += wrapAdvance;
+            }
+
+            if (this.tooltip != null && this.area.isInside(context))
+            {
+                context.tooltip.set(context, this);
+            }
+        }
+    }
+
     private static class OverlayTabButton extends UIClickable<OverlayTabButton>
     {
         private final IKey label;
@@ -1264,13 +1405,11 @@ public class UIMobCaptureRecordOverlayPanel extends UIOverlayPanel
             if (this.selected)
             {
                 context.batcher.box(this.area.x, this.area.y, this.area.ex(), this.area.ey(), 0xFF1D1D1D);
-                context.batcher.box(this.area.x, this.area.ey() - 1, this.area.ex(), this.area.ey(), 0xFF3C3C3C);
                 context.batcher.box(this.area.x, this.area.y, this.area.ex(), this.area.y + 2, 0xFF000000 | BBSSettings.primaryColor.get());
             }
             else
             {
                 context.batcher.box(this.area.x, this.area.y, this.area.ex(), this.area.ey(), 0xDD17171B);
-                context.batcher.box(this.area.x, this.area.ey() - 1, this.area.ex(), this.area.ey(), 0xFF3C3C3C);
             }
 
             context.batcher.icon(this.icon, color, this.area.x + 11, this.area.y + this.area.h / 2, 0.5F, 0.5F);
