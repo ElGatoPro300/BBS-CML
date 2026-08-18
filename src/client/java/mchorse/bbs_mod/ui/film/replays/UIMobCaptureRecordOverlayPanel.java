@@ -919,6 +919,17 @@ public class UIMobCaptureRecordOverlayPanel extends UIOverlayPanel
         };
 
         row.row(4).padding(0).height(height);
+
+        for (UIElement child : children)
+        {
+            child.h(height);
+
+            if (child instanceof UILabel)
+            {
+                ((UILabel) child).labelAnchor(0F, 0.5F);
+            }
+        }
+
         row.add(children);
         row.w(1F).h(height);
 
