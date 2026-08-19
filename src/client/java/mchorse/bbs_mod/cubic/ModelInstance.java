@@ -2,6 +2,7 @@ package mchorse.bbs_mod.cubic;
 
 import mchorse.bbs_mod.BBSModClient;
 import mchorse.bbs_mod.bobj.BOBJBone;
+import mchorse.bbs_mod.client.BBSShaders;
 import mchorse.bbs_mod.cubic.animation.ActionsConfig;
 import mchorse.bbs_mod.cubic.animation.ProceduralDefaults;
 import mchorse.bbs_mod.cubic.data.animation.Animations;
@@ -896,7 +897,7 @@ public class ModelInstance implements IModelInstance
             return;
         }
 
-        ShaderProgram shader = mchorse.bbs_mod.client.BBSShaders.getModel();
+        ShaderProgram shader = BBSShaders.getModel();
         Link texture = defaultTexture != null ? defaultTexture : this.texture;
         boolean disableCull = true;
 

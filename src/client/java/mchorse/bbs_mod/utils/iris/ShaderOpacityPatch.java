@@ -405,7 +405,7 @@ public class ShaderOpacityPatch
             int width = targets.getCurrentWidth();
             int height = targets.getCurrentHeight();
             int opaqueDepth = targets.getDepthTextureNoTranslucents().getTextureId();
-            int mainDepth = net.minecraft.client.MinecraftClient.getInstance().getFramebuffer().getDepthAttachment();
+            int mainDepth = MinecraftClient.getInstance().getFramebuffer().getDepthAttachment();
 
             if (width > 0 && height > 0 && opaqueDepth > 0 && mainDepth > 0)
             {
