@@ -46,7 +46,7 @@ import java.util.function.Supplier;
 
 public class UITexturePainter extends UIElement
 {
-    private static final int SIDE_PANEL_WIDTH = 186;
+    private static final int SIDE_PANEL_WIDTH = 190;
     private static final int MODEL_PREVIEW_LEFT_WIDTH = 220;
     private static final int MODEL_PREVIEW_GAP = 6;
 
@@ -63,6 +63,7 @@ public class UITexturePainter extends UIElement
     public UIButton tabLayers;
     public UIButton primarySlot;
     public UIButton secondarySlot;
+    public UIIcon swapColorsButton;
     public UIElement layerRow;
     public UIElement imageRow;
     public UITrackpad layerOpacity;
@@ -429,7 +430,7 @@ public class UITexturePainter extends UIElement
             @Override
             public void render(UIContext context)
             {
-                this.area.render(context.batcher, Colors.A25);
+                this.area.render(context.batcher, 0xFF141417);
                 context.batcher.outline(this.area.x, this.area.y, this.area.ex(), this.area.ey(), Colors.A50);
                 super.render(context);
             }
@@ -450,17 +451,11 @@ public class UITexturePainter extends UIElement
             this.updateColorSlots();
         });
         this.fixedColorPicker.setup(0, 0);
-        this.fixedColorPicker.relative(this.sidePanel).xy(8, 34).w(1F, -16);
-        this.fixedColorPicker.h(164);
 
         this.tabColor = new UIButton(UIKeys.TEXTURE_PAINTER_TAB_COLOR, (b) -> this.setTopTab(true));
         this.tabPalette = new UIButton(UIKeys.TEXTURE_PAINTER_TAB_PALETTE, (b) -> this.setTopTab(false));
-        this.tabColor.relative(this.sidePanel).xy(8, 8).w(0.5F, -10).h(20);
-        this.tabPalette.relative(this.sidePanel).x(0.5F, 2).y(8).w(0.5F, -10).h(20);
-
-        this.colorTabContent = new UIElement();
-        this.colorTabContent.relative(this.sidePanel).xy(8, 34).w(1F, -16).h(164);
-        this.fixedColorPicker.relative(this.colorTabContent).x(0).y(0).w(1F).h(1F);
+        this.tabColor.relative(this.sidePanel).xy(8, 8).w(52).h(20);
+        this.tabPalette.relative(this.sidePanel).xy(62, 8).w(52).h(20);
 
         this.primarySlot = new UIButton(IKey.EMPTY, (b) -> this.setEditingPrimary(true))
         {
@@ -476,8 +471,8 @@ public class UITexturePainter extends UIElement
                 }
             }
         };
-        this.primarySlot.wh(12, 12).tooltip(UIKeys.TEXTURE_PAINTER_PRIMARY_COLOR, Direction.TOP);
-        this.primarySlot.relative(this.colorTabContent).xy(6, 6);
+        this.primarySlot.wh(18, 20).tooltip(UIKeys.TEXTURE_PAINTER_PRIMARY_COLOR, Direction.BOTTOM);
+        this.primarySlot.relative(this.sidePanel).xy(118, 8);
 
         this.secondarySlot = new UIButton(IKey.EMPTY, (b) -> this.setEditingPrimary(false))
         {
@@ -493,22 +488,32 @@ public class UITexturePainter extends UIElement
                 }
             }
         };
-        this.secondarySlot.wh(12, 12).tooltip(UIKeys.TEXTURE_PAINTER_SECONDARY_COLOR, Direction.TOP);
-        this.secondarySlot.relative(this.colorTabContent).xy(12, 12);
+        this.secondarySlot.wh(18, 20).tooltip(UIKeys.TEXTURE_PAINTER_SECONDARY_COLOR, Direction.BOTTOM);
+        this.secondarySlot.relative(this.sidePanel).xy(138, 8);
 
-        this.colorTabContent.add(this.fixedColorPicker, this.secondarySlot, this.primarySlot);
+        this.swapColorsButton = new UIIcon(Icons.REFRESH, (b) -> this.swapColors());
+        this.swapColorsButton.wh(18, 20).tooltip(UIKeys.TEXTURES_KEYS_SWAP, Direction.BOTTOM);
+        this.swapColorsButton.relative(this.sidePanel).xy(158, 8);
+
+        this.colorTabContent = new UIElement();
+        this.colorTabContent.relative(this.sidePanel).xy(8, 32).w(1F, -16).h(238);
+        this.fixedColorPicker.relative(this.colorTabContent).xy(0, 0).w(1F).h(1F);
+        this.colorTabContent.add(this.fixedColorPicker);
 
         this.paletteTabContent = new UIElement();
-        this.paletteTabContent.relative(this.sidePanel).xy(8, 34).w(1F, -16).h(56);
+        this.paletteTabContent.relative(this.sidePanel).xy(8, 32).w(1F, -16).h(238);
 
         UIElement paletteRowOne = new UIElement();
         UIElement paletteRowTwo = new UIElement();
-        paletteRowOne.relative(this.paletteTabContent).xy(0, 0).w(1F).h(18).row(2).resize();
-        paletteRowTwo.relative(this.paletteTabContent).xy(0, 20).w(1F).h(18).row(2).resize();
+        UIElement paletteRowThree = new UIElement();
+        paletteRowOne.relative(this.paletteTabContent).xy(0, 4).w(1F).h(24).row(4).resize();
+        paletteRowTwo.relative(this.paletteTabContent).xy(0, 32).w(1F).h(24).row(4).resize();
+        paletteRowThree.relative(this.paletteTabContent).xy(0, 60).w(1F).h(24).row(4).resize();
 
         int[] swatches = new int[] {
             0x000000, 0xffffff, 0x8f3f20, 0xd87f33, 0xff0000, 0xff55ff,
-            0x00aa00, 0x55ffff, 0x3c44aa, 0x8932b8, 0xa0a0a0, 0x5a5a5a
+            0x00aa00, 0x55ffff, 0x3c44aa, 0x8932b8, 0xa0a0a0, 0x5a5a5a,
+            0x191919, 0x33ebcb, 0xea323c, 0x00bfff, 0xffd700, 0x7cfc00
         };
 
         for (int i = 0; i < swatches.length; i++)
@@ -529,27 +534,31 @@ public class UITexturePainter extends UIElement
                 this.updateColorSlots();
             });
 
-            swatch.color(color).background(true).wh(18, 18).tooltip(IKey.constant(String.format("#%06X", color)), Direction.TOP);
+            swatch.color(color).background(true).wh(24, 24).tooltip(IKey.constant(String.format("#%06X", color)), Direction.TOP);
 
             if (i < 6)
             {
                 paletteRowOne.add(swatch);
             }
-            else
+            else if (i < 12)
             {
                 paletteRowTwo.add(swatch);
             }
+            else
+            {
+                paletteRowThree.add(swatch);
+            }
         }
 
-        this.paletteTabContent.add(paletteRowOne, paletteRowTwo);
+        this.paletteTabContent.add(paletteRowOne, paletteRowTwo, paletteRowThree);
 
         this.tabImages = new UIButton(UIKeys.TEXTURE_PAINTER_TAB_IMAGES, (b) -> this.setBottomTab(false));
         this.tabLayers = new UIButton(UIKeys.TEXTURE_PAINTER_TAB_LAYERS, (b) -> this.setBottomTab(true));
-        this.tabImages.relative(this.sidePanel).x(8).y(206).w(0.5F, -10).h(18);
-        this.tabLayers.relative(this.sidePanel).x(0.5F, 2).y(206).w(0.5F, -10).h(18);
+        this.tabImages.relative(this.sidePanel).x(8).y(276).w(0.5F, -10).h(20);
+        this.tabLayers.relative(this.sidePanel).x(0.5F, 2).y(276).w(0.5F, -10).h(20);
 
         this.mediaTabContent = new UIElement();
-        this.mediaTabContent.relative(this.sidePanel).x(8).y(226).w(1F, -16).h(1F, -234);
+        this.mediaTabContent.relative(this.sidePanel).x(8).y(300).w(1F, -16).h(1F, -308);
 
         this.imageRow = new UIElement();
         this.imageRow.relative(this.mediaTabContent).full(this.mediaTabContent);
@@ -591,6 +600,9 @@ public class UITexturePainter extends UIElement
         this.sidePanel.add(
             this.tabColor,
             this.tabPalette,
+            this.primarySlot,
+            this.secondarySlot,
+            this.swapColorsButton,
             this.colorTabContent,
             this.paletteTabContent,
             this.tabImages,
