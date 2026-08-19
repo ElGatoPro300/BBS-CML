@@ -1086,13 +1086,16 @@ public class UIPixelsEditor extends UICanvasEditor
 
         context.batcher.fullTexturedBox(texture, area.x, area.y, area.w, area.h);
 
+        float halfW = this.w / 2F;
+        float halfH = this.h / 2F;
+
         /* Render active selection */
         if (this.selection != null)
         {
-            int sx1 = (int) Math.round(this.scaleX.to(this.selection.x));
-            int sy1 = (int) Math.round(this.scaleY.to(this.selection.y));
-            int sx2 = (int) Math.round(this.scaleX.to(this.selection.x + this.selection.w));
-            int sy2 = (int) Math.round(this.scaleY.to(this.selection.y + this.selection.h));
+            int sx1 = (int) Math.round(this.scaleX.to(this.selection.x - halfW));
+            int sy1 = (int) Math.round(this.scaleY.to(this.selection.y - halfH));
+            int sx2 = (int) Math.round(this.scaleX.to(this.selection.x + this.selection.w - halfW));
+            int sy2 = (int) Math.round(this.scaleY.to(this.selection.y + this.selection.h - halfH));
 
             context.batcher.box(sx1, sy1, sx2, sy2, 0x2840a0ff);
             context.batcher.outline(sx1, sy1, sx2, sy2, Colors.WHITE);
@@ -1104,30 +1107,29 @@ public class UIPixelsEditor extends UICanvasEditor
         {
             if (this.mirrorX)
             {
-                int midX = (int) Math.round(this.scaleX.to(this.pixels.width / 2F));
-                int topY = (int) Math.round(this.scaleY.to(0));
-                int botY = (int) Math.round(this.scaleY.to(this.pixels.height));
+                int midX = (int) Math.round(this.scaleX.to(0));
+                int topY = (int) Math.round(this.scaleY.to(-halfH));
+                int botY = (int) Math.round(this.scaleY.to(halfH));
 
                 context.batcher.box(midX, topY, midX + 1, botY, 0x8840a0ff);
             }
 
             if (this.mirrorY)
             {
-                int midY = (int) Math.round(this.scaleY.to(this.pixels.height / 2F));
-                int leftX = (int) Math.round(this.scaleX.to(0));
-                int rightX = (int) Math.round(this.scaleX.to(this.pixels.width));
+                int midY = (int) Math.round(this.scaleY.to(0));
+                int leftX = (int) Math.round(this.scaleX.to(-halfW));
+                int rightX = (int) Math.round(this.scaleX.to(halfW));
 
                 context.batcher.box(leftX, midY, rightX, midY + 1, 0x8840a0ff);
             }
         }
 
         /* Draw current pixel preview */
-        int pixelX = (int) Math.floor(this.scaleX.from(context.mouseX));
-        int pixelY = (int) Math.floor(this.scaleY.from(context.mouseY));
+        Vector2i hoverPixel = this.getHoverPixel(context.mouseX, context.mouseY);
 
         if (this.activeTool == Tool.BRUSH || this.activeTool == Tool.ERASER || this.activeTool == Tool.SHADING || this.activeTool == Tool.NOISE)
         {
-            this.renderBrushPreview(context, pixelX, pixelY);
+            this.renderBrushPreview(context, hoverPixel.x, hoverPixel.y);
         }
 
         /* Continuous brush dragging */
@@ -1180,19 +1182,19 @@ public class UIPixelsEditor extends UICanvasEditor
                 int minY = Math.min(y1, y2);
                 int maxY = Math.max(y1, y2) + 1;
 
-                int sx1 = (int) Math.round(this.scaleX.to(minX));
-                int sy1 = (int) Math.round(this.scaleY.to(minY));
-                int sx2 = (int) Math.round(this.scaleX.to(maxX));
-                int sy2 = (int) Math.round(this.scaleY.to(maxY));
+                int sx1 = (int) Math.round(this.scaleX.to(minX - halfW));
+                int sy1 = (int) Math.round(this.scaleY.to(minY - halfH));
+                int sx2 = (int) Math.round(this.scaleX.to(maxX - halfW));
+                int sy2 = (int) Math.round(this.scaleY.to(maxY - halfH));
 
                 context.batcher.outline(sx1, sy1, sx2, sy2, 0xff000000 | BBSSettings.primaryColor.get());
             }
             else if (this.activeTool == Tool.GRADIENT)
             {
-                int sx1 = (int) Math.round(this.scaleX.to(this.dragStartPixel.x + 0.5F));
-                int sy1 = (int) Math.round(this.scaleY.to(this.dragStartPixel.y + 0.5F));
-                int sx2 = (int) Math.round(this.scaleX.to(hover.x + 0.5F));
-                int sy2 = (int) Math.round(this.scaleY.to(hover.y + 0.5F));
+                int sx1 = (int) Math.round(this.scaleX.to(this.dragStartPixel.x + 0.5F - halfW));
+                int sy1 = (int) Math.round(this.scaleY.to(this.dragStartPixel.y + 0.5F - halfH));
+                int sx2 = (int) Math.round(this.scaleX.to(hover.x + 0.5F - halfW));
+                int sy2 = (int) Math.round(this.scaleY.to(hover.y + 0.5F - halfH));
 
                 context.batcher.box(sx1 - 2, sy1 - 2, sx1 + 2, sy1 + 2, Colors.WHITE);
                 context.batcher.box(sx2 - 2, sy2 - 2, sx2 + 2, sy2 + 2, 0xff000000 | BBSSettings.primaryColor.get());
@@ -1204,10 +1206,10 @@ public class UIPixelsEditor extends UICanvasEditor
                 int minY = Math.min(this.dragStartPixel.y, hover.y);
                 int maxY = Math.max(this.dragStartPixel.y, hover.y) + 1;
 
-                int sx1 = (int) Math.round(this.scaleX.to(minX));
-                int sy1 = (int) Math.round(this.scaleY.to(minY));
-                int sx2 = (int) Math.round(this.scaleX.to(maxX));
-                int sy2 = (int) Math.round(this.scaleY.to(maxY));
+                int sx1 = (int) Math.round(this.scaleX.to(minX - halfW));
+                int sy1 = (int) Math.round(this.scaleY.to(minY - halfH));
+                int sx2 = (int) Math.round(this.scaleX.to(maxX - halfW));
+                int sy2 = (int) Math.round(this.scaleY.to(maxY - halfH));
 
                 context.batcher.outline(sx1, sy1, sx2, sy2, 0xff000000 | BBSSettings.primaryColor.get());
                 context.batcher.box(sx1, sy1, sx2, sy2, 0x2240a0ff);
@@ -1552,6 +1554,8 @@ public class UIPixelsEditor extends UICanvasEditor
     {
         int brushMinX = pixelX - (this.brushSize - 1) / 2;
         int brushMinY = pixelY - (this.brushSize - 1) / 2;
+        float halfW = this.w / 2F;
+        float halfH = this.h / 2F;
 
         if (this.brushShape == BrushShape.SQUARE)
         {
@@ -1559,8 +1563,10 @@ public class UIPixelsEditor extends UICanvasEditor
             int brushMaxY = brushMinY + this.brushSize;
 
             context.batcher.outline(
-                (int) Math.round(this.scaleX.to(brushMinX)), (int) Math.round(this.scaleY.to(brushMinY)),
-                (int) Math.round(this.scaleX.to(brushMaxX)), (int) Math.round(this.scaleY.to(brushMaxY)),
+                (int) Math.round(this.scaleX.to(brushMinX - halfW)),
+                (int) Math.round(this.scaleY.to(brushMinY - halfH)),
+                (int) Math.round(this.scaleX.to(brushMaxX - halfW)),
+                (int) Math.round(this.scaleY.to(brushMaxY - halfH)),
                 Colors.A50
             );
 
@@ -1576,10 +1582,10 @@ public class UIPixelsEditor extends UICanvasEditor
                     continue;
                 }
 
-                int cellMinX = (int) Math.round(this.scaleX.to(brushMinX + i));
-                int cellMinY = (int) Math.round(this.scaleY.to(brushMinY + j));
-                int cellMaxX = (int) Math.round(this.scaleX.to(brushMinX + i + 1));
-                int cellMaxY = (int) Math.round(this.scaleY.to(brushMinY + j + 1));
+                int cellMinX = (int) Math.round(this.scaleX.to(brushMinX + i - halfW));
+                int cellMinY = (int) Math.round(this.scaleY.to(brushMinY + j - halfH));
+                int cellMaxX = (int) Math.round(this.scaleX.to(brushMinX + i + 1 - halfW));
+                int cellMaxY = (int) Math.round(this.scaleY.to(brushMinY + j + 1 - halfH));
 
                 if (!this.isBrushOffsetInsideBounds(i - 1, j))
                 {
