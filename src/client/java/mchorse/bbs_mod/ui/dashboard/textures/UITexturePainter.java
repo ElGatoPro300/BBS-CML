@@ -100,6 +100,15 @@ public class UITexturePainter extends UIElement
     public UIIcon toolMirrorX;
     public UIIcon toolMirrorY;
     public UIIcon toolPixelPerfect;
+    public UIIcon toolImageOps;
+    public UIButton extractPaletteButton;
+    public UIElement paletteSwatchesContainer;
+
+    private int[] paletteColors = new int[] {
+        0x000000, 0xffffff, 0x8f3f20, 0xd87f33, 0xff0000, 0xff55ff,
+        0x00aa00, 0x55ffff, 0x3c44aa, 0x8932b8, 0xa0a0a0, 0x5a5a5a,
+        0x191919, 0x33ebcb, 0xea323c, 0x00bfff, 0xffd700, 0x7cfc00
+    };
 
     private Supplier<Form> formPreviewSupplier;
     private final Set<Link> touchedPreviewTextures = new HashSet<>();
@@ -464,6 +473,20 @@ public class UITexturePainter extends UIElement
         this.toolMirrorY.tooltip(UIKeys.TEXTURE_PAINTER_TOOL_MIRROR_Y, Direction.BOTTOM);
         this.toolPixelPerfect.tooltip(UIKeys.TEXTURE_PAINTER_TOOL_PIXEL_PERFECT, Direction.BOTTOM);
 
+        this.toolImageOps = new UIIcon(Icons.CONVERT, (b) -> {});
+        this.toolImageOps.context((menu) ->
+        {
+            menu.action(Icons.ALL_DIRECTIONS, UIKeys.TEXTURE_PAINTER_FLIP_H, this::flipHorizontal);
+            menu.action(Icons.EXCHANGE, UIKeys.TEXTURE_PAINTER_FLIP_V, this::flipVertical);
+            menu.action(Icons.REFRESH, UIKeys.TEXTURE_PAINTER_ROTATE_CW, () -> this.rotate90(true));
+            menu.action(Icons.REDO, UIKeys.TEXTURE_PAINTER_ROTATE_CCW, () -> this.rotate90(false));
+            menu.action(Icons.FULLSCREEN, UIKeys.TEXTURE_PAINTER_ROTATE_180, this::rotate180);
+            menu.action(Icons.GRAPH, UIKeys.TEXTURE_PAINTER_INVERT, this::invertColors);
+            menu.action(Icons.SPHERE, UIKeys.TEXTURE_PAINTER_GRAYSCALE, this::grayscale);
+            menu.action(Icons.SUN, UIKeys.TEXTURE_PAINTER_ADJUST_COLORS, this::openAdjustColorsOverlay);
+        });
+        this.toolImageOps.tooltip(UIKeys.TEXTURE_PAINTER_OPS_IMAGE, Direction.BOTTOM);
+
         this.main = new UITextureEditor().saveCallback(saveCallback);
         this.main.renderTextureSupplier(this::getComposedEditorTexture);
         this.main.savePixelsSupplier(this::getComposedSavePixels);
@@ -489,6 +512,7 @@ public class UITexturePainter extends UIElement
         this.toolMirrorX.wh(20, 20).minW(20).maxW(20);
         this.toolMirrorY.wh(20, 20).minW(20).maxW(20);
         this.toolPixelPerfect.wh(20, 20).minW(20).maxW(20);
+        this.toolImageOps.wh(20, 20).minW(20).maxW(20);
         this.main.undo.wh(20, 20).minW(20).maxW(20);
         this.main.redo.wh(20, 20).minW(20).maxW(20);
         this.main.resize.wh(20, 20).minW(20).maxW(20);
@@ -509,6 +533,7 @@ public class UITexturePainter extends UIElement
             this.toolMirrorX,
             this.toolMirrorY,
             this.toolPixelPerfect.marginRight(8),
+            this.toolImageOps.marginRight(8),
             this.main.undo,
             this.main.redo,
             this.main.resize,
@@ -625,54 +650,15 @@ public class UITexturePainter extends UIElement
         this.paletteTabContent = new UIElement();
         this.paletteTabContent.relative(this.sidePanel).xy(8, 32).w(1F, -16).h(238);
 
-        UIElement paletteRowOne = new UIElement();
-        UIElement paletteRowTwo = new UIElement();
-        UIElement paletteRowThree = new UIElement();
-        paletteRowOne.relative(this.paletteTabContent).xy(0, 4).w(1F).h(24).row(4).resize();
-        paletteRowTwo.relative(this.paletteTabContent).xy(0, 32).w(1F).h(24).row(4).resize();
-        paletteRowThree.relative(this.paletteTabContent).xy(0, 60).w(1F).h(24).row(4).resize();
+        this.paletteSwatchesContainer = new UIElement();
+        this.paletteSwatchesContainer.relative(this.paletteTabContent).xy(0, 0).w(1F).h(88);
 
-        int[] swatches = new int[] {
-            0x000000, 0xffffff, 0x8f3f20, 0xd87f33, 0xff0000, 0xff55ff,
-            0x00aa00, 0x55ffff, 0x3c44aa, 0x8932b8, 0xa0a0a0, 0x5a5a5a,
-            0x191919, 0x33ebcb, 0xea323c, 0x00bfff, 0xffd700, 0x7cfc00
-        };
+        this.extractPaletteButton = new UIButton(UIKeys.TEXTURE_PAINTER_EXTRACT_PALETTE, (b) -> this.extractPaletteFromTexture());
+        this.extractPaletteButton.relative(this.paletteTabContent).xy(0, 92).w(1F).h(20);
+        this.extractPaletteButton.tooltip(UIKeys.TEXTURE_PAINTER_EXTRACT_PALETTE, Direction.BOTTOM);
 
-        for (int i = 0; i < swatches.length; i++)
-        {
-            final int color = swatches[i];
-            UIButton swatch = new UIButton(IKey.EMPTY, (b) ->
-            {
-                if (this.editingPrimary)
-                {
-                    this.primary.setColor(color);
-                }
-                else
-                {
-                    this.secondary.setColor(color);
-                }
-
-                this.fixedColorPicker.setColor(this.getActiveColor());
-                this.updateColorSlots();
-            });
-
-            swatch.color(color).background(true).wh(24, 24).tooltip(IKey.constant(String.format("#%06X", color)), Direction.TOP);
-
-            if (i < 6)
-            {
-                paletteRowOne.add(swatch);
-            }
-            else if (i < 12)
-            {
-                paletteRowTwo.add(swatch);
-            }
-            else
-            {
-                paletteRowThree.add(swatch);
-            }
-        }
-
-        this.paletteTabContent.add(paletteRowOne, paletteRowTwo, paletteRowThree);
+        this.paletteTabContent.add(this.paletteSwatchesContainer, this.extractPaletteButton);
+        this.refreshPaletteSwatches();
 
         this.tabImages = new UIButton(UIKeys.TEXTURE_PAINTER_TAB_IMAGES, (b) -> this.setBottomTab(false));
         this.tabLayers = new UIButton(UIKeys.TEXTURE_PAINTER_TAB_LAYERS, (b) -> this.setBottomTab(true));
@@ -1711,6 +1697,178 @@ public class UITexturePainter extends UIElement
         this.toolMirrorX.active(this.mirrorX);
         this.toolMirrorY.active(this.mirrorY);
         this.toolPixelPerfect.active(this.pixelPerfect);
+    }
+
+    public void flipHorizontal()
+    {
+        this.main.flipHorizontal();
+
+        if (this.reference != null)
+        {
+            this.reference.flipHorizontal();
+        }
+    }
+
+    public void flipVertical()
+    {
+        this.main.flipVertical();
+
+        if (this.reference != null)
+        {
+            this.reference.flipVertical();
+        }
+    }
+
+    public void rotate90(boolean clockwise)
+    {
+        this.main.rotate90(clockwise);
+
+        if (this.reference != null)
+        {
+            this.reference.rotate90(clockwise);
+        }
+    }
+
+    public void rotate180()
+    {
+        this.main.rotate180();
+
+        if (this.reference != null)
+        {
+            this.reference.rotate180();
+        }
+    }
+
+    public void invertColors()
+    {
+        this.main.invertColors();
+
+        if (this.reference != null)
+        {
+            this.reference.invertColors();
+        }
+    }
+
+    public void grayscale()
+    {
+        this.main.grayscale();
+
+        if (this.reference != null)
+        {
+            this.reference.grayscale();
+        }
+    }
+
+    public void openAdjustColorsOverlay()
+    {
+        UIAdjustColorsOverlayPanel panel = new UIAdjustColorsOverlayPanel((brightness, contrast) ->
+        {
+            this.main.adjustBrightnessContrast(brightness, contrast);
+
+            if (this.reference != null)
+            {
+                this.reference.adjustBrightnessContrast(brightness, contrast);
+            }
+        });
+
+        UIOverlay.addOverlay(this.getContext(), panel, 260, 90);
+    }
+
+    private void refreshPaletteSwatches()
+    {
+        if (this.paletteSwatchesContainer == null)
+        {
+            return;
+        }
+
+        this.paletteSwatchesContainer.removeAll();
+
+        UIElement paletteRowOne = new UIElement();
+        UIElement paletteRowTwo = new UIElement();
+        UIElement paletteRowThree = new UIElement();
+        paletteRowOne.relative(this.paletteSwatchesContainer).xy(0, 4).w(1F).h(24).row(4).resize();
+        paletteRowTwo.relative(this.paletteSwatchesContainer).xy(0, 32).w(1F).h(24).row(4).resize();
+        paletteRowThree.relative(this.paletteSwatchesContainer).xy(0, 60).w(1F).h(24).row(4).resize();
+
+        for (int i = 0; i < this.paletteColors.length; i++)
+        {
+            final int color = this.paletteColors[i];
+            UIButton swatch = new UIButton(IKey.EMPTY, (b) ->
+            {
+                if (this.editingPrimary)
+                {
+                    this.primary.setColor(color);
+                }
+                else
+                {
+                    this.secondary.setColor(color);
+                }
+
+                this.fixedColorPicker.setColor(this.getActiveColor());
+                this.updateColorSlots();
+            });
+
+            swatch.color(color).background(true).wh(24, 24).tooltip(IKey.constant(String.format("#%06X", color)), Direction.TOP);
+
+            if (i < 6)
+            {
+                paletteRowOne.add(swatch);
+            }
+            else if (i < 12)
+            {
+                paletteRowTwo.add(swatch);
+            }
+            else if (i < 18)
+            {
+                paletteRowThree.add(swatch);
+            }
+        }
+
+        this.paletteSwatchesContainer.add(paletteRowOne, paletteRowTwo, paletteRowThree);
+        this.paletteSwatchesContainer.resize();
+    }
+
+    private void extractPaletteFromTexture()
+    {
+        Pixels pixels = this.getComposedSavePixels();
+
+        if (pixels == null || pixels.width <= 0 || pixels.height <= 0)
+        {
+            return;
+        }
+
+        Map<Integer, Integer> counts = new HashMap<>();
+
+        for (int x = 0; x < pixels.width; x++)
+        {
+            for (int y = 0; y < pixels.height; y++)
+            {
+                Color c = pixels.getColor(x, y);
+
+                if (c != null && c.a > 0.1F)
+                {
+                    int rgb = c.getRGBColor() & 0xFFFFFF;
+                    counts.put(rgb, counts.getOrDefault(rgb, 0) + 1);
+                }
+            }
+        }
+
+        if (counts.isEmpty())
+        {
+            return;
+        }
+
+        List<Map.Entry<Integer, Integer>> sorted = new ArrayList<>(counts.entrySet());
+        sorted.sort((a, b) -> Integer.compare(b.getValue(), a.getValue()));
+
+        int max = Math.min(18, sorted.size());
+
+        for (int i = 0; i < max; i++)
+        {
+            this.paletteColors[i] = sorted.get(i).getKey();
+        }
+
+        this.refreshPaletteSwatches();
     }
 
     public void fillTexture(Link current)

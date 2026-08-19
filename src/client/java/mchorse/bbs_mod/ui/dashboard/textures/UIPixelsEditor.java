@@ -275,6 +275,239 @@ public class UIPixelsEditor extends UICanvasEditor
         return this;
     }
 
+    public void flipHorizontal()
+    {
+        if (this.pixels == null || this.pixels.width <= 0 || this.pixels.height <= 0)
+        {
+            return;
+        }
+
+        PixelsUndo undo = new PixelsUndo();
+
+        for (int y = 0; y < this.pixels.height; y++)
+        {
+            for (int x = 0; x < this.pixels.width / 2; x++)
+            {
+                int ox = this.pixels.width - 1 - x;
+                Color left = this.pixels.getColor(x, y);
+                Color right = this.pixels.getColor(ox, y);
+
+                undo.setColor(this.pixels, x, y, right == null ? new Color(0, 0, 0, 0) : right.copy());
+                undo.setColor(this.pixels, ox, y, left == null ? new Color(0, 0, 0, 0) : left.copy());
+            }
+        }
+
+        if (!undo.pixels.isEmpty())
+        {
+            this.undoManager.pushUndo(undo);
+            this.wasChanged();
+            this.updateTexture();
+        }
+    }
+
+    public void flipVertical()
+    {
+        if (this.pixels == null || this.pixels.width <= 0 || this.pixels.height <= 0)
+        {
+            return;
+        }
+
+        PixelsUndo undo = new PixelsUndo();
+
+        for (int x = 0; x < this.pixels.width; x++)
+        {
+            for (int y = 0; y < this.pixels.height / 2; y++)
+            {
+                int oy = this.pixels.height - 1 - y;
+                Color top = this.pixels.getColor(x, y);
+                Color bottom = this.pixels.getColor(x, oy);
+
+                undo.setColor(this.pixels, x, y, bottom == null ? new Color(0, 0, 0, 0) : bottom.copy());
+                undo.setColor(this.pixels, x, oy, top == null ? new Color(0, 0, 0, 0) : top.copy());
+            }
+        }
+
+        if (!undo.pixels.isEmpty())
+        {
+            this.undoManager.pushUndo(undo);
+            this.wasChanged();
+            this.updateTexture();
+        }
+    }
+
+    public void rotate90(boolean clockwise)
+    {
+        if (this.pixels == null || this.pixels.width <= 0 || this.pixels.height <= 0)
+        {
+            return;
+        }
+
+        Pixels copy = Pixels.fromSize(this.pixels.width, this.pixels.height);
+        copy.draw(this.pixels, 0, 0, copy.width, copy.height);
+
+        PixelsUndo undo = new PixelsUndo();
+
+        for (int x = 0; x < this.pixels.width; x++)
+        {
+            for (int y = 0; y < this.pixels.height; y++)
+            {
+                int srcX = clockwise ? y : this.pixels.width - 1 - y;
+                int srcY = clockwise ? this.pixels.height - 1 - x : x;
+
+                if (srcX >= 0 && srcX < copy.width && srcY >= 0 && srcY < copy.height)
+                {
+                    Color color = copy.getColor(srcX, srcY);
+                    undo.setColor(this.pixels, x, y, color == null ? new Color(0, 0, 0, 0) : color.copy());
+                }
+            }
+        }
+
+        copy.delete();
+
+        if (!undo.pixels.isEmpty())
+        {
+            this.undoManager.pushUndo(undo);
+            this.wasChanged();
+            this.updateTexture();
+        }
+    }
+
+    public void rotate180()
+    {
+        if (this.pixels == null || this.pixels.width <= 0 || this.pixels.height <= 0)
+        {
+            return;
+        }
+
+        Pixels copy = Pixels.fromSize(this.pixels.width, this.pixels.height);
+        copy.draw(this.pixels, 0, 0, copy.width, copy.height);
+
+        PixelsUndo undo = new PixelsUndo();
+
+        for (int x = 0; x < this.pixels.width; x++)
+        {
+            for (int y = 0; y < this.pixels.height; y++)
+            {
+                int srcX = this.pixels.width - 1 - x;
+                int srcY = this.pixels.height - 1 - y;
+                Color color = copy.getColor(srcX, srcY);
+
+                undo.setColor(this.pixels, x, y, color == null ? new Color(0, 0, 0, 0) : color.copy());
+            }
+        }
+
+        copy.delete();
+
+        if (!undo.pixels.isEmpty())
+        {
+            this.undoManager.pushUndo(undo);
+            this.wasChanged();
+            this.updateTexture();
+        }
+    }
+
+    public void invertColors()
+    {
+        if (this.pixels == null || this.pixels.width <= 0 || this.pixels.height <= 0)
+        {
+            return;
+        }
+
+        PixelsUndo undo = new PixelsUndo();
+
+        for (int x = 0; x < this.pixels.width; x++)
+        {
+            for (int y = 0; y < this.pixels.height; y++)
+            {
+                Color color = this.pixels.getColor(x, y);
+
+                if (color != null && color.a > 0F)
+                {
+                    Color inverted = new Color(1F - color.r, 1F - color.g, 1F - color.b, color.a);
+                    undo.setColor(this.pixels, x, y, inverted);
+                }
+            }
+        }
+
+        if (!undo.pixels.isEmpty())
+        {
+            this.undoManager.pushUndo(undo);
+            this.wasChanged();
+            this.updateTexture();
+        }
+    }
+
+    public void grayscale()
+    {
+        if (this.pixels == null || this.pixels.width <= 0 || this.pixels.height <= 0)
+        {
+            return;
+        }
+
+        PixelsUndo undo = new PixelsUndo();
+
+        for (int x = 0; x < this.pixels.width; x++)
+        {
+            for (int y = 0; y < this.pixels.height; y++)
+            {
+                Color color = this.pixels.getColor(x, y);
+
+                if (color != null && color.a > 0F)
+                {
+                    float lum = 0.299F * color.r + 0.587F * color.g + 0.114F * color.b;
+                    Color gray = new Color(lum, lum, lum, color.a);
+                    undo.setColor(this.pixels, x, y, gray);
+                }
+            }
+        }
+
+        if (!undo.pixels.isEmpty())
+        {
+            this.undoManager.pushUndo(undo);
+            this.wasChanged();
+            this.updateTexture();
+        }
+    }
+
+    public void adjustBrightnessContrast(float brightness, float contrast)
+    {
+        if (this.pixels == null || this.pixels.width <= 0 || this.pixels.height <= 0)
+        {
+            return;
+        }
+
+        PixelsUndo undo = new PixelsUndo();
+
+        for (int x = 0; x < this.pixels.width; x++)
+        {
+            for (int y = 0; y < this.pixels.height; y++)
+            {
+                Color color = this.pixels.getColor(x, y);
+
+                if (color != null && color.a > 0F)
+                {
+                    float r = (color.r - 0.5F) * (1F + contrast) + 0.5F + brightness;
+                    float g = (color.g - 0.5F) * (1F + contrast) + 0.5F + brightness;
+                    float b = (color.b - 0.5F) * (1F + contrast) + 0.5F + brightness;
+
+                    r = Math.max(0F, Math.min(1F, r));
+                    g = Math.max(0F, Math.min(1F, g));
+                    b = Math.max(0F, Math.min(1F, b));
+
+                    Color adjusted = new Color(r, g, b, color.a);
+                    undo.setColor(this.pixels, x, y, adjusted);
+                }
+            }
+        }
+
+        if (!undo.pixels.isEmpty())
+        {
+            this.undoManager.pushUndo(undo);
+            this.wasChanged();
+            this.updateTexture();
+        }
+    }
+
     protected void wasChanged()
     {}
 
