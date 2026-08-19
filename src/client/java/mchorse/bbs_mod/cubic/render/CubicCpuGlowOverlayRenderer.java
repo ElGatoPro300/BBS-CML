@@ -123,6 +123,7 @@ public class CubicCpuGlowOverlayRenderer extends CubicCubeRenderer
 
         try
         {
+            mchorse.bbs_mod.cubic.render.vao.ModelVAORenderer.setupUniformsCpuPretransformed(this.shader);
             this.shader.bind();
             BufferRenderer.drawWithGlobalProgram(groupBuilder.end());
             this.shader.unbind();

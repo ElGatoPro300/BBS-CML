@@ -382,6 +382,42 @@ public class ShaderOpacityPatch
         postDeferredPhase = false;
     }
 
+    public static void copyIrisDepthToMinecraftFramebuffer()
+    {
+        try
+        {
+            WorldRenderingPipeline pipeline =
+                net.irisshaders.iris.Iris.getPipelineManager().getPipelineNullable();
+
+            if (!(pipeline instanceof IrisRenderingPipeline irisPipeline))
+            {
+                return;
+            }
+
+            IrisRenderingPipelineAccessor access = (IrisRenderingPipelineAccessor) irisPipeline;
+            RenderTargets targets = access.bbs$renderTargets();
+
+            if (targets == null)
+            {
+                return;
+            }
+
+            int width = targets.getCurrentWidth();
+            int height = targets.getCurrentHeight();
+            int opaqueDepth = targets.getDepthTextureNoTranslucents().getTextureId();
+            int mainDepth = net.minecraft.client.MinecraftClient.getInstance().getFramebuffer().getDepthAttachment();
+
+            if (width > 0 && height > 0 && opaqueDepth > 0 && mainDepth > 0)
+            {
+                DepthCopyStrategy.fastest(false)
+                    .copy(null, opaqueDepth, null, mainDepth, width, height);
+            }
+        }
+        catch (Throwable ignored)
+        {
+        }
+    }
+
     public static void flushPostDeferredForms()
     {
         flushPostDeferredForms(null);

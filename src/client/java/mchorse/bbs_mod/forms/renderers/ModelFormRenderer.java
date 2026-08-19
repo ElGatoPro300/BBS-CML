@@ -1963,7 +1963,10 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
     {
         if (model.hasShapeKeys() && this.hasAnyPositiveGlow(model, glow, legacyGlow))
         {
-            this.renderShapeKeyGlowOverlay(stack, model, overlay, stencilMap, color, defaultTexture, textureBlend, glow, legacyGlow);
+            ModelVAORenderer.runWithPaintOverlayPass(false, () ->
+            {
+                this.renderShapeKeyGlowOverlay(stack, model, overlay, stencilMap, color, defaultTexture, textureBlend, glow, legacyGlow);
+            });
 
             return;
         }
