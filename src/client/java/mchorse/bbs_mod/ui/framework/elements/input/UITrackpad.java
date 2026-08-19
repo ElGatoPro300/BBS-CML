@@ -541,11 +541,11 @@ public class UITrackpad extends UIBaseTextbox
             {
                 if (this.plusOne.isInside(context))
                 {
-                    this.setValueAndNotify(this.value + this.increment);
+                    this.setValueAndNotify(this.value + this.getScrollStep());
                 }
                 else if (this.minusOne.isInside(context))
                 {
-                    this.setValueAndNotify(this.value - this.increment);
+                    this.setValueAndNotify(this.value - this.getScrollStep());
                 }
                 else
                 {
@@ -803,8 +803,8 @@ public class UITrackpad extends UIBaseTextbox
 
             /* Value label — centered, clipped so it never runs under the
                increment buttons. */
-            int textLeft = this.area.x + (showMinusArrow ? this.minusOne.w + 4 : 2);
-            int textRight = this.area.ex() - (showPlusArrow ? this.plusOne.w + 4 : 2);
+            int textLeft = this.area.x + (showMinusArrow ? this.minusOne.w + 1 : 2);
+            int textRight = this.area.ex() - (showPlusArrow ? this.plusOne.w + 1 : 2);
             int availableTextWidth = Math.max(1, textRight - textLeft);
             String raw = this.forcedLabel != null
                 ? this.forcedLabel.get()
@@ -937,6 +937,11 @@ public class UITrackpad extends UIBaseTextbox
         String raw = format(value);
 
         if (font.getWidth(raw) <= maxWidth)
+        {
+            return raw;
+        }
+
+        if (this.integer)
         {
             return raw;
         }
