@@ -873,6 +873,12 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
         RenderSystem.depthMask(false);
         RenderSystem.setShaderColor(shaderScale, shaderScale, shaderScale, 1F);
 
+        CustomVertexConsumerProvider.hijackVertexFormat((l) ->
+        {
+            RenderSystem.enableBlend();
+            RenderSystem.blendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE);
+        });
+
         consumers.setSubstitute(BBSRendering.getGlowOverlayConsumer(glowColor));
 
         try
@@ -882,6 +888,7 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
         }
         finally
         {
+            CustomVertexConsumerProvider.clearRunnables();
             consumers.setSubstitute(null);
             RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
             RenderSystem.depthMask(true);

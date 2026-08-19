@@ -896,7 +896,7 @@ public class ModelInstance implements IModelInstance
             return;
         }
 
-        ShaderProgram shader = GameRenderer.getRenderTypeEntityTranslucentCullProgram();
+        ShaderProgram shader = mchorse.bbs_mod.client.BBSShaders.getModel();
         Link texture = defaultTexture != null ? defaultTexture : this.texture;
         boolean disableCull = true;
 
