@@ -14,6 +14,7 @@ import mchorse.bbs_mod.ui.Keys;
 import mchorse.bbs_mod.ui.UIKeys;
 import mchorse.bbs_mod.ui.forms.editors.utils.UIFormRenderer;
 import mchorse.bbs_mod.ui.framework.UIContext;
+import mchorse.bbs_mod.ui.framework.elements.IUIElement;
 import mchorse.bbs_mod.ui.framework.elements.UIElement;
 import mchorse.bbs_mod.ui.framework.elements.UIScrollView;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIButton;
@@ -35,6 +36,7 @@ import mchorse.bbs_mod.utils.undo.UndoManager;
 
 import org.joml.Vector2i;
 
+import org.lwjgl.glfw.GLFW;
 import org.lwjgl.opengl.GL11;
 
 import java.util.ArrayList;
@@ -49,14 +51,18 @@ import java.util.function.Supplier;
 
 public class UITexturePainter extends UIElement
 {
-    private static final int SIDE_PANEL_WIDTH = 190;
     private static final int MODEL_PREVIEW_LEFT_WIDTH = 220;
     private static final int MODEL_PREVIEW_GAP = 6;
+
+    private int sidePanelWidth = 190;
+    private int sidePanelSplitY = 276;
 
     public UITrackpad brightness;
     public UITrackpad brush;
     public UIElement headerToolbar;
     public UIElement sidePanel;
+    public UIElement sidePanelResizer;
+    public UIElement sidePanelInnerResizer;
     public UIElement colorTabContent;
     public UIElement paletteTabContent;
     public UIElement mediaTabContent;
@@ -630,8 +636,65 @@ public class UITexturePainter extends UIElement
         this.headerToolbar.add(toolsGroup, controlsGroup);
         this.updateToolButtons();
 
+        this.sidePanelResizer = new UIElement()
+        {
+            private boolean dragging;
+
+            @Override
+            protected boolean subMouseClicked(UIContext context)
+            {
+                if (this.area.isInside(context) && context.mouseButton == 0)
+                {
+                    this.dragging = true;
+
+                    return true;
+                }
+
+                return super.subMouseClicked(context);
+            }
+
+            @Override
+            protected boolean subMouseReleased(UIContext context)
+            {
+                this.dragging = false;
+
+                return super.subMouseReleased(context);
+            }
+
+            @Override
+            public void render(UIContext context)
+            {
+                super.render(context);
+
+                if (this.dragging && !Window.isMouseButtonPressed(GLFW.GLFW_MOUSE_BUTTON_LEFT))
+                {
+                    this.dragging = false;
+                }
+
+                if (this.dragging)
+                {
+                    int newW = UITexturePainter.this.area.ex() - context.mouseX;
+                    int clampedW = Math.max(140, Math.min(UITexturePainter.this.area.w - 150, newW));
+
+                    if (clampedW != UITexturePainter.this.sidePanelWidth)
+                    {
+                        UITexturePainter.this.sidePanelWidth = clampedW;
+                        UITexturePainter.this.updateEditorsLayout();
+                        UITexturePainter.this.resize();
+                    }
+                }
+
+                if (this.area.isInside(context) || this.dragging)
+                {
+                    int color = this.dragging ? (0xff000000 | BBSSettings.primaryColor.get()) : 0x8840a0ff;
+                    context.batcher.box(this.area.x + 2, this.area.y, this.area.x + 4, this.area.ey(), color);
+                }
+            }
+        };
+
         this.add(this.main);
         this.setupSidePanel();
+        this.add(this.sidePanelResizer);
 
         this.modelPreviewArea = new UIElement();
         this.modelPreview = new UIFormRenderer();
@@ -663,7 +726,68 @@ public class UITexturePainter extends UIElement
                 super.render(context);
             }
         };
-        this.sidePanel.relative(this).x(1F, -SIDE_PANEL_WIDTH).y(0).w(SIDE_PANEL_WIDTH).h(1F);
+
+        this.sidePanelInnerResizer = new UIElement()
+        {
+            private boolean dragging;
+
+            @Override
+            protected boolean subMouseClicked(UIContext context)
+            {
+                if (this.area.isInside(context) && context.mouseButton == 0)
+                {
+                    this.dragging = true;
+
+                    return true;
+                }
+
+                return super.subMouseClicked(context);
+            }
+
+            @Override
+            protected boolean subMouseReleased(UIContext context)
+            {
+                this.dragging = false;
+
+                return super.subMouseReleased(context);
+            }
+
+            @Override
+            public void render(UIContext context)
+            {
+                super.render(context);
+
+                if (this.dragging && !Window.isMouseButtonPressed(GLFW.GLFW_MOUSE_BUTTON_LEFT))
+                {
+                    this.dragging = false;
+                }
+
+                if (this.dragging)
+                {
+                    int newSplit = context.mouseY - UITexturePainter.this.sidePanel.area.y;
+                    int clampedSplit = Math.max(150, Math.min(UITexturePainter.this.sidePanel.area.h - 80, newSplit));
+
+                    if (clampedSplit != UITexturePainter.this.sidePanelSplitY)
+                    {
+                        UITexturePainter.this.sidePanelSplitY = clampedSplit;
+                        UITexturePainter.this.updateSidePanelLayout();
+                        UITexturePainter.this.sidePanel.resize();
+                    }
+                }
+
+                int midY = this.area.y + this.area.h / 2;
+                context.batcher.box(this.area.x + 6, midY, this.area.ex() - 6, midY + 1, Colors.A50);
+
+                if (this.area.isInside(context) || this.dragging)
+                {
+                    int color = this.dragging ? (0xff000000 | BBSSettings.primaryColor.get()) : 0x8840a0ff;
+                    int midX = this.area.x + this.area.w / 2;
+
+                    context.batcher.box(this.area.x + 6, midY - 1, this.area.ex() - 6, midY + 2, color);
+                    context.batcher.box(midX - 12, midY - 2, midX + 12, midY + 3, color);
+                }
+            }
+        };
 
         this.fixedColorPicker = new UITextureInlineColorPicker((color) ->
         {
@@ -724,19 +848,16 @@ public class UITexturePainter extends UIElement
         this.swapColorsButton.relative(this.sidePanel).xy(158, 8);
 
         this.colorTabContent = new UIElement();
-        this.colorTabContent.relative(this.sidePanel).xy(8, 32).w(1F, -16).h(238);
         this.fixedColorPicker.relative(this.colorTabContent).xy(0, 0).w(1F).h(1F);
         this.colorTabContent.add(this.fixedColorPicker);
 
-        this.paletteTabContent = new UIElement();
-        this.paletteTabContent.relative(this.sidePanel).xy(8, 32).w(1F, -16).h(238);
+        this.paletteTabContent = UI.scrollView(4, 0);
 
         this.paletteSwatchesContainer = new UIElement();
-        this.paletteSwatchesContainer.relative(this.paletteTabContent).xy(0, 0).w(1F).h(88);
+        this.paletteSwatchesContainer.h(86);
 
         this.extractPaletteButton = new UIButton(UIKeys.TEXTURE_PAINTER_EXTRACT_PALETTE, (b) -> this.extractPaletteFromTexture());
-        this.extractPaletteButton.relative(this.paletteTabContent).xy(0, 92).w(1F).h(20);
-        this.extractPaletteButton.tooltip(UIKeys.TEXTURE_PAINTER_EXTRACT_PALETTE, Direction.BOTTOM);
+        this.extractPaletteButton.h(20).tooltip(UIKeys.TEXTURE_PAINTER_EXTRACT_PALETTE, Direction.BOTTOM);
 
         this.palettePresetsButton = new UIButton(UIKeys.TEXTURE_PAINTER_PALETTE_PRESETS, (b) -> {});
         this.palettePresetsButton.context((menu) ->
@@ -767,33 +888,29 @@ public class UITexturePainter extends UIElement
                 0x2b3a42, 0x3f5866, 0x56778a, 0x709bb0, 0x93c0d6, 0xc4e5f2
             }));
         });
-        this.palettePresetsButton.relative(this.paletteTabContent).xy(0, 116).w(1F).h(20);
-        this.palettePresetsButton.tooltip(UIKeys.TEXTURE_PAINTER_PALETTE_PRESETS, Direction.BOTTOM);
+        this.palettePresetsButton.h(20).tooltip(UIKeys.TEXTURE_PAINTER_PALETTE_PRESETS, Direction.BOTTOM);
 
         this.paletteImportButton = new UIButton(UIKeys.TEXTURE_PAINTER_PALETTE_IMPORT, (b) -> this.importPaletteFromClipboard());
-        this.paletteImportButton.relative(this.paletteTabContent).xy(0, 140).w(0.5F, -2).h(20);
-        this.paletteImportButton.tooltip(UIKeys.TEXTURE_PAINTER_PALETTE_IMPORT, Direction.BOTTOM);
+        this.paletteImportButton.h(20).tooltip(UIKeys.TEXTURE_PAINTER_PALETTE_IMPORT, Direction.BOTTOM);
 
         this.paletteExportButton = new UIButton(UIKeys.TEXTURE_PAINTER_PALETTE_EXPORT, (b) -> this.exportPaletteToClipboard());
-        this.paletteExportButton.relative(this.paletteTabContent).x(0.5F, 2).y(140).w(0.5F, -2).h(20);
-        this.paletteExportButton.tooltip(UIKeys.TEXTURE_PAINTER_PALETTE_EXPORT, Direction.BOTTOM);
+        this.paletteExportButton.h(20).tooltip(UIKeys.TEXTURE_PAINTER_PALETTE_EXPORT, Direction.BOTTOM);
+
+        UIElement paletteImportExportRow = UI.row(4, this.paletteImportButton, this.paletteExportButton);
+        paletteImportExportRow.h(20);
 
         this.paletteTabContent.add(
             this.paletteSwatchesContainer,
             this.extractPaletteButton,
             this.palettePresetsButton,
-            this.paletteImportButton,
-            this.paletteExportButton
+            paletteImportExportRow
         );
         this.refreshPaletteSwatches();
 
         this.tabImages = new UIButton(UIKeys.TEXTURE_PAINTER_TAB_IMAGES, (b) -> this.setBottomTab(false));
         this.tabLayers = new UIButton(UIKeys.TEXTURE_PAINTER_TAB_LAYERS, (b) -> this.setBottomTab(true));
-        this.tabImages.relative(this.sidePanel).x(8).y(276).w(0.5F, -10).h(20);
-        this.tabLayers.relative(this.sidePanel).x(0.5F, 2).y(276).w(0.5F, -10).h(20);
 
         this.mediaTabContent = new UIElement();
-        this.mediaTabContent.relative(this.sidePanel).x(8).y(300).w(1F, -16).h(1F, -308);
 
         this.imageRow = new UIElement();
         this.imageRow.relative(this.mediaTabContent).full(this.mediaTabContent);
@@ -878,6 +995,7 @@ public class UITexturePainter extends UIElement
 
         this.layerRow.add(layerButtonsGroup, this.layerOpacity, this.layerRows);
         this.mediaTabContent.add(this.imageRow, this.layerRow);
+
         this.sidePanel.add(
             this.tabColor,
             this.tabPalette,
@@ -886,10 +1004,14 @@ public class UITexturePainter extends UIElement
             this.swapColorsButton,
             this.colorTabContent,
             this.paletteTabContent,
+            this.sidePanelInnerResizer,
             this.tabImages,
             this.tabLayers,
             this.mediaTabContent
         );
+
+        this.updateSidePanelLayout();
+
         this.fixedColorPicker.setColor(this.primary.picker.color.getRGBColor());
         this.setTopTab(true);
         this.setBottomTab(true);
@@ -897,6 +1019,21 @@ public class UITexturePainter extends UIElement
         this.refreshLayerRows();
         this.updateColorSlots();
         this.add(this.sidePanel);
+    }
+
+    private void updateSidePanelLayout()
+    {
+        int topHeight = Math.max(60, this.sidePanelSplitY - 38);
+
+        this.colorTabContent.relative(this.sidePanel).xy(8, 32).w(1F, -16).h(topHeight);
+        this.paletteTabContent.relative(this.sidePanel).xy(8, 32).w(1F, -16).h(topHeight);
+
+        this.sidePanelInnerResizer.relative(this.sidePanel).xy(0, this.sidePanelSplitY - 4).w(1F).h(8);
+
+        this.tabImages.relative(this.sidePanel).x(8).y(this.sidePanelSplitY + 4).w(0.5F, -10).h(20);
+        this.tabLayers.relative(this.sidePanel).x(0.5F, 2).y(this.sidePanelSplitY + 4).w(0.5F, -10).h(20);
+
+        this.mediaTabContent.relative(this.sidePanel).x(8).y(this.sidePanelSplitY + 28).w(1F, -16).h(1F, -(this.sidePanelSplitY + 36));
     }
 
     public UITexturePainter withFormPreview(Supplier<Form> supplier)
@@ -2142,9 +2279,9 @@ public class UITexturePainter extends UIElement
         UIElement paletteRowOne = new UIElement();
         UIElement paletteRowTwo = new UIElement();
         UIElement paletteRowThree = new UIElement();
-        paletteRowOne.relative(this.paletteSwatchesContainer).xy(0, 4).w(1F).h(24).row(4).resize();
-        paletteRowTwo.relative(this.paletteSwatchesContainer).xy(0, 32).w(1F).h(24).row(4).resize();
-        paletteRowThree.relative(this.paletteSwatchesContainer).xy(0, 60).w(1F).h(24).row(4).resize();
+        paletteRowOne.relative(this.paletteSwatchesContainer).xy(0, 2).w(1F).h(26).row(4);
+        paletteRowTwo.relative(this.paletteSwatchesContainer).xy(0, 30).w(1F).h(26).row(4);
+        paletteRowThree.relative(this.paletteSwatchesContainer).xy(0, 58).w(1F).h(26).row(4);
 
         for (int i = 0; i < this.paletteColors.length; i++)
         {
@@ -2164,7 +2301,7 @@ public class UITexturePainter extends UIElement
                 this.updateColorSlots();
             });
 
-            swatch.color(color).background(true).wh(24, 24).tooltip(IKey.constant(String.format("#%06X", color)), Direction.TOP);
+            swatch.color(color).background(true).h(24).tooltip(IKey.constant(String.format("#%06X", color)), Direction.TOP);
 
             if (i < 6)
             {
@@ -2182,6 +2319,11 @@ public class UITexturePainter extends UIElement
 
         this.paletteSwatchesContainer.add(paletteRowOne, paletteRowTwo, paletteRowThree);
         this.paletteSwatchesContainer.resize();
+
+        if (this.paletteTabContent != null)
+        {
+            this.paletteTabContent.resize();
+        }
     }
 
     private void extractPaletteFromTexture()
@@ -2326,14 +2468,16 @@ public class UITexturePainter extends UIElement
     {
         boolean sidePanelVisible = this.reference == null || this.modelPreviewArea.isVisible();
         this.sidePanel.setVisible(sidePanelVisible);
+        this.sidePanelResizer.setVisible(sidePanelVisible);
 
         if (this.modelPreviewArea.isVisible())
         {
             this.modelPreviewArea.relative(this).x(0).y(6).w(MODEL_PREVIEW_LEFT_WIDTH).h(1F, -12);
-            this.sidePanel.relative(this).x(1F, -SIDE_PANEL_WIDTH).y(0).w(SIDE_PANEL_WIDTH).h(1F);
+            this.sidePanel.relative(this).x(1F, -this.sidePanelWidth).y(0).w(this.sidePanelWidth).h(1F);
+            this.sidePanelResizer.relative(this).x(1F, -this.sidePanelWidth - 3).y(0).w(6).h(1F);
             this.main.relative(this)
                 .xy(MODEL_PREVIEW_LEFT_WIDTH + MODEL_PREVIEW_GAP, 0)
-                .w(1F, -(SIDE_PANEL_WIDTH + MODEL_PREVIEW_LEFT_WIDTH + MODEL_PREVIEW_GAP + 4))
+                .w(1F, -(this.sidePanelWidth + MODEL_PREVIEW_LEFT_WIDTH + MODEL_PREVIEW_GAP + 4))
                 .h(1F);
 
             if (this.reference != null)
@@ -2348,8 +2492,9 @@ public class UITexturePainter extends UIElement
         {
             if (sidePanelVisible)
             {
-                this.main.relative(this).xy(0, 0).w(1F, -(SIDE_PANEL_WIDTH + 4)).h(1F);
-                this.sidePanel.relative(this).x(1F, -SIDE_PANEL_WIDTH).y(0).w(SIDE_PANEL_WIDTH).h(1F);
+                this.main.relative(this).xy(0, 0).w(1F, -(this.sidePanelWidth + 4)).h(1F);
+                this.sidePanel.relative(this).x(1F, -this.sidePanelWidth).y(0).w(this.sidePanelWidth).h(1F);
+                this.sidePanelResizer.relative(this).x(1F, -this.sidePanelWidth - 3).y(0).w(6).h(1F);
             }
             else
             {
