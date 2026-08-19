@@ -45,7 +45,29 @@ public class UIPixelsEditor extends UICanvasEditor
         PICK,
         FILL,
         SHAPE,
-        GRADIENT
+        GRADIENT,
+        SELECT
+    }
+
+    public static class SelectionRect
+    {
+        public int x;
+        public int y;
+        public int w;
+        public int h;
+
+        public SelectionRect(int x, int y, int w, int h)
+        {
+            this.x = x;
+            this.y = y;
+            this.w = w;
+            this.h = h;
+        }
+
+        public boolean contains(int px, int py)
+        {
+            return px >= this.x && py >= this.y && px < this.x + this.w && py < this.y + this.h;
+        }
     }
 
     public enum BrushShape
@@ -84,6 +106,7 @@ public class UIPixelsEditor extends UICanvasEditor
     private Consumer<Color> pickColorCallback;
     private BiConsumer<Vector2i, Boolean> fillColorCallback;
     private Tool activeTool = Tool.BRUSH;
+    private SelectionRect selection;
     private boolean lockAlpha = false;
     private boolean mirrorX = false;
     private boolean mirrorY = false;
@@ -275,6 +298,33 @@ public class UIPixelsEditor extends UICanvasEditor
         return this;
     }
 
+    public boolean hasSelection()
+    {
+        return this.selection != null;
+    }
+
+    public SelectionRect getSelection()
+    {
+        return this.selection;
+    }
+
+    public UIPixelsEditor setSelection(SelectionRect selection)
+    {
+        this.selection = selection;
+
+        return this;
+    }
+
+    public void clearSelection()
+    {
+        this.selection = null;
+    }
+
+    public boolean isInsideSelection(int x, int y)
+    {
+        return this.selection == null || this.selection.contains(x, y);
+    }
+
     public void flipHorizontal()
     {
         if (this.pixels == null || this.pixels.width <= 0 || this.pixels.height <= 0)
@@ -282,18 +332,30 @@ public class UIPixelsEditor extends UICanvasEditor
             return;
         }
 
+        int minX = this.selection == null ? 0 : Math.max(0, this.selection.x);
+        int maxX = this.selection == null ? this.pixels.width : Math.min(this.pixels.width, this.selection.x + this.selection.w);
+        int minY = this.selection == null ? 0 : Math.max(0, this.selection.y);
+        int maxY = this.selection == null ? this.pixels.height : Math.min(this.pixels.height, this.selection.y + this.selection.h);
+        int width = maxX - minX;
+
+        if (width <= 0 || maxY <= minY)
+        {
+            return;
+        }
+
         PixelsUndo undo = new PixelsUndo();
 
-        for (int y = 0; y < this.pixels.height; y++)
+        for (int y = minY; y < maxY; y++)
         {
-            for (int x = 0; x < this.pixels.width / 2; x++)
+            for (int x = 0; x < width / 2; x++)
             {
-                int ox = this.pixels.width - 1 - x;
-                Color left = this.pixels.getColor(x, y);
-                Color right = this.pixels.getColor(ox, y);
+                int lx = minX + x;
+                int rx = minX + width - 1 - x;
+                Color left = this.pixels.getColor(lx, y);
+                Color right = this.pixels.getColor(rx, y);
 
-                undo.setColor(this.pixels, x, y, right == null ? new Color(0, 0, 0, 0) : right.copy());
-                undo.setColor(this.pixels, ox, y, left == null ? new Color(0, 0, 0, 0) : left.copy());
+                undo.setColor(this.pixels, lx, y, right == null ? new Color(0, 0, 0, 0) : right.copy());
+                undo.setColor(this.pixels, rx, y, left == null ? new Color(0, 0, 0, 0) : left.copy());
             }
         }
 
@@ -312,18 +374,30 @@ public class UIPixelsEditor extends UICanvasEditor
             return;
         }
 
+        int minX = this.selection == null ? 0 : Math.max(0, this.selection.x);
+        int maxX = this.selection == null ? this.pixels.width : Math.min(this.pixels.width, this.selection.x + this.selection.w);
+        int minY = this.selection == null ? 0 : Math.max(0, this.selection.y);
+        int maxY = this.selection == null ? this.pixels.height : Math.min(this.pixels.height, this.selection.y + this.selection.h);
+        int height = maxY - minY;
+
+        if (maxX <= minX || height <= 0)
+        {
+            return;
+        }
+
         PixelsUndo undo = new PixelsUndo();
 
-        for (int x = 0; x < this.pixels.width; x++)
+        for (int x = minX; x < maxX; x++)
         {
-            for (int y = 0; y < this.pixels.height / 2; y++)
+            for (int y = 0; y < height / 2; y++)
             {
-                int oy = this.pixels.height - 1 - y;
-                Color top = this.pixels.getColor(x, y);
-                Color bottom = this.pixels.getColor(x, oy);
+                int ty = minY + y;
+                int by = minY + height - 1 - y;
+                Color top = this.pixels.getColor(x, ty);
+                Color bottom = this.pixels.getColor(x, by);
 
-                undo.setColor(this.pixels, x, y, bottom == null ? new Color(0, 0, 0, 0) : bottom.copy());
-                undo.setColor(this.pixels, x, oy, top == null ? new Color(0, 0, 0, 0) : top.copy());
+                undo.setColor(this.pixels, x, ty, bottom == null ? new Color(0, 0, 0, 0) : bottom.copy());
+                undo.setColor(this.pixels, x, by, top == null ? new Color(0, 0, 0, 0) : top.copy());
             }
         }
 
@@ -342,22 +416,34 @@ public class UIPixelsEditor extends UICanvasEditor
             return;
         }
 
+        int minX = this.selection == null ? 0 : Math.max(0, this.selection.x);
+        int maxX = this.selection == null ? this.pixels.width : Math.min(this.pixels.width, this.selection.x + this.selection.w);
+        int minY = this.selection == null ? 0 : Math.max(0, this.selection.y);
+        int maxY = this.selection == null ? this.pixels.height : Math.min(this.pixels.height, this.selection.y + this.selection.h);
+        int width = maxX - minX;
+        int height = maxY - minY;
+
+        if (width <= 0 || height <= 0)
+        {
+            return;
+        }
+
         Pixels copy = Pixels.fromSize(this.pixels.width, this.pixels.height);
         copy.draw(this.pixels, 0, 0, copy.width, copy.height);
 
         PixelsUndo undo = new PixelsUndo();
 
-        for (int x = 0; x < this.pixels.width; x++)
+        for (int x = 0; x < width; x++)
         {
-            for (int y = 0; y < this.pixels.height; y++)
+            for (int y = 0; y < height; y++)
             {
-                int srcX = clockwise ? y : this.pixels.width - 1 - y;
-                int srcY = clockwise ? this.pixels.height - 1 - x : x;
+                int srcX = minX + (clockwise ? y : width - 1 - y);
+                int srcY = minY + (clockwise ? height - 1 - x : x);
 
                 if (srcX >= 0 && srcX < copy.width && srcY >= 0 && srcY < copy.height)
                 {
                     Color color = copy.getColor(srcX, srcY);
-                    undo.setColor(this.pixels, x, y, color == null ? new Color(0, 0, 0, 0) : color.copy());
+                    undo.setColor(this.pixels, minX + x, minY + y, color == null ? new Color(0, 0, 0, 0) : color.copy());
                 }
             }
         }
@@ -379,20 +465,32 @@ public class UIPixelsEditor extends UICanvasEditor
             return;
         }
 
+        int minX = this.selection == null ? 0 : Math.max(0, this.selection.x);
+        int maxX = this.selection == null ? this.pixels.width : Math.min(this.pixels.width, this.selection.x + this.selection.w);
+        int minY = this.selection == null ? 0 : Math.max(0, this.selection.y);
+        int maxY = this.selection == null ? this.pixels.height : Math.min(this.pixels.height, this.selection.y + this.selection.h);
+        int width = maxX - minX;
+        int height = maxY - minY;
+
+        if (width <= 0 || height <= 0)
+        {
+            return;
+        }
+
         Pixels copy = Pixels.fromSize(this.pixels.width, this.pixels.height);
         copy.draw(this.pixels, 0, 0, copy.width, copy.height);
 
         PixelsUndo undo = new PixelsUndo();
 
-        for (int x = 0; x < this.pixels.width; x++)
+        for (int x = 0; x < width; x++)
         {
-            for (int y = 0; y < this.pixels.height; y++)
+            for (int y = 0; y < height; y++)
             {
-                int srcX = this.pixels.width - 1 - x;
-                int srcY = this.pixels.height - 1 - y;
+                int srcX = minX + width - 1 - x;
+                int srcY = minY + height - 1 - y;
                 Color color = copy.getColor(srcX, srcY);
 
-                undo.setColor(this.pixels, x, y, color == null ? new Color(0, 0, 0, 0) : color.copy());
+                undo.setColor(this.pixels, minX + x, minY + y, color == null ? new Color(0, 0, 0, 0) : color.copy());
             }
         }
 
@@ -419,6 +517,11 @@ public class UIPixelsEditor extends UICanvasEditor
         {
             for (int y = 0; y < this.pixels.height; y++)
             {
+                if (!this.isInsideSelection(x, y))
+                {
+                    continue;
+                }
+
                 Color color = this.pixels.getColor(x, y);
 
                 if (color != null && color.a > 0F)
@@ -450,6 +553,11 @@ public class UIPixelsEditor extends UICanvasEditor
         {
             for (int y = 0; y < this.pixels.height; y++)
             {
+                if (!this.isInsideSelection(x, y))
+                {
+                    continue;
+                }
+
                 Color color = this.pixels.getColor(x, y);
 
                 if (color != null && color.a > 0F)
@@ -482,6 +590,11 @@ public class UIPixelsEditor extends UICanvasEditor
         {
             for (int y = 0; y < this.pixels.height; y++)
             {
+                if (!this.isInsideSelection(x, y))
+                {
+                    continue;
+                }
+
                 Color color = this.pixels.getColor(x, y);
 
                 if (color != null && color.a > 0F)
@@ -665,7 +778,7 @@ public class UIPixelsEditor extends UICanvasEditor
 
             this.wasChanged();
         }
-        else if (this.editing && (this.activeTool == Tool.SHAPE || this.activeTool == Tool.GRADIENT) && context.mouseButton == 0)
+        else if (this.editing && (this.activeTool == Tool.SHAPE || this.activeTool == Tool.GRADIENT || this.activeTool == Tool.SELECT) && context.mouseButton == 0)
         {
             this.dragStartPixel = this.getHoverPixel(context.mouseX, context.mouseY);
         }
@@ -714,6 +827,22 @@ public class UIPixelsEditor extends UICanvasEditor
             else if (this.activeTool == Tool.GRADIENT)
             {
                 this.rasterizeGradient(this.dragStartPixel, hoverPixel);
+            }
+            else if (this.activeTool == Tool.SELECT)
+            {
+                int minX = Math.min(this.dragStartPixel.x, hoverPixel.x);
+                int minY = Math.min(this.dragStartPixel.y, hoverPixel.y);
+                int maxX = Math.max(this.dragStartPixel.x, hoverPixel.x);
+                int maxY = Math.max(this.dragStartPixel.y, hoverPixel.y);
+
+                if (minX == maxX && minY == maxY && this.selection != null)
+                {
+                    this.clearSelection();
+                }
+                else
+                {
+                    this.selection = new SelectionRect(minX, minY, maxX - minX + 1, maxY - minY + 1);
+                }
             }
 
             this.dragStartPixel = null;
@@ -772,6 +901,19 @@ public class UIPixelsEditor extends UICanvasEditor
 
         context.batcher.fullTexturedBox(texture, area.x, area.y, area.w, area.h);
 
+        /* Render active selection */
+        if (this.selection != null)
+        {
+            int sx1 = (int) Math.round(this.scaleX.to(this.selection.x));
+            int sy1 = (int) Math.round(this.scaleY.to(this.selection.y));
+            int sx2 = (int) Math.round(this.scaleX.to(this.selection.x + this.selection.w));
+            int sy2 = (int) Math.round(this.scaleY.to(this.selection.y + this.selection.h));
+
+            context.batcher.box(sx1, sy1, sx2, sy2, 0x2840a0ff);
+            context.batcher.outline(sx1, sy1, sx2, sy2, Colors.WHITE);
+            context.batcher.outline(sx1 - 1, sy1 - 1, sx2 + 1, sy2 + 1, Colors.A50);
+        }
+
         /* Render symmetry guides */
         if (this.pixels != null)
         {
@@ -826,7 +968,7 @@ public class UIPixelsEditor extends UICanvasEditor
             this.lastY = context.mouseY;
         }
 
-        /* Drag preview for Shapes and Gradients */
+        /* Drag preview for Shapes, Gradients and Selection */
         if (this.editing && this.dragging && this.dragStartPixel != null)
         {
             Vector2i hover = this.getHoverPixel(context.mouseX, context.mouseY);
@@ -869,6 +1011,21 @@ public class UIPixelsEditor extends UICanvasEditor
 
                 context.batcher.box(sx1 - 2, sy1 - 2, sx1 + 2, sy1 + 2, Colors.WHITE);
                 context.batcher.box(sx2 - 2, sy2 - 2, sx2 + 2, sy2 + 2, 0xff000000 | BBSSettings.primaryColor.get());
+            }
+            else if (this.activeTool == Tool.SELECT)
+            {
+                int minX = Math.min(this.dragStartPixel.x, hover.x);
+                int maxX = Math.max(this.dragStartPixel.x, hover.x) + 1;
+                int minY = Math.min(this.dragStartPixel.y, hover.y);
+                int maxY = Math.max(this.dragStartPixel.y, hover.y) + 1;
+
+                int sx1 = (int) Math.round(this.scaleX.to(minX));
+                int sy1 = (int) Math.round(this.scaleY.to(minY));
+                int sx2 = (int) Math.round(this.scaleX.to(maxX));
+                int sy2 = (int) Math.round(this.scaleY.to(maxY));
+
+                context.batcher.outline(sx1, sy1, sx2, sy2, 0xff000000 | BBSSettings.primaryColor.get());
+                context.batcher.box(sx1, sy1, sx2, sy2, 0x2240a0ff);
             }
         }
     }
@@ -1005,6 +1162,11 @@ public class UIPixelsEditor extends UICanvasEditor
         {
             for (int y = 0; y < this.pixels.height; y++)
             {
+                if (!this.isInsideSelection(x, y))
+                {
+                    continue;
+                }
+
                 if (this.lockAlpha)
                 {
                     Color current = this.pixels.getColor(x, y);
@@ -1055,6 +1217,11 @@ public class UIPixelsEditor extends UICanvasEditor
                 {
                     int px = minX + i;
                     int py = minY + j;
+
+                    if (!this.isInsideSelection(px, py))
+                    {
+                        continue;
+                    }
 
                     if (this.lockAlpha)
                     {

@@ -90,6 +90,7 @@ public class UITexturePainter extends UIElement
     public UIFormRenderer modelPreview;
     public UIIcon toolBrush;
     public UIIcon toolEraser;
+    public UIIcon toolSelect;
     public UIIcon toolPick;
     public UIIcon toolFill;
     public UIIcon toolShape;
@@ -134,6 +135,17 @@ public class UITexturePainter extends UIElement
     private Pixels layersCompositePixels;
     private UIElement texturePickerPopup;
 
+    public enum BlendMode
+    {
+        NORMAL,
+        MULTIPLY,
+        SCREEN,
+        OVERLAY,
+        ADD,
+        DARKEN,
+        LIGHTEN
+    }
+
     private static class TextureLayer
     {
         public String name;
@@ -141,14 +153,21 @@ public class UITexturePainter extends UIElement
         public boolean visible;
         public Pixels pixels;
         public UndoManager<Pixels> undoManager;
+        public BlendMode blendMode = BlendMode.NORMAL;
 
         public TextureLayer(String name, float opacity, boolean visible, Pixels pixels, UndoManager<Pixels> undoManager)
+        {
+            this(name, opacity, visible, pixels, undoManager, BlendMode.NORMAL);
+        }
+
+        public TextureLayer(String name, float opacity, boolean visible, Pixels pixels, UndoManager<Pixels> undoManager, BlendMode blendMode)
         {
             this.name = name;
             this.opacity = opacity;
             this.visible = visible;
             this.pixels = pixels;
             this.undoManager = undoManager;
+            this.blendMode = blendMode == null ? BlendMode.NORMAL : blendMode;
         }
     }
 
@@ -165,7 +184,7 @@ public class UITexturePainter extends UIElement
                 pixels = Pixels.fromSize(layer.pixels.width, layer.pixels.height);
             }
 
-            copy.add(new TextureLayer(layer.name, layer.opacity, layer.visible, pixels, layer.undoManager));
+            copy.add(new TextureLayer(layer.name, layer.opacity, layer.visible, pixels, layer.undoManager, layer.blendMode));
         }
 
         return copy;
@@ -323,6 +342,23 @@ public class UITexturePainter extends UIElement
                 }
             }
         };
+        this.toolSelect = new UIIcon(Icons.OUTLINE, (b) -> this.setActiveTool(UIPixelsEditor.Tool.SELECT))
+        {
+            @Override
+            protected void renderSkin(UIContext context)
+            {
+                super.renderSkin(context);
+
+                if (this.isActive())
+                {
+                    context.batcher.outline(this.area.x, this.area.y, this.area.ex(), this.area.ey(), 0xff000000 | BBSSettings.primaryColor.get());
+                }
+            }
+        };
+        this.toolSelect.context((menu) ->
+        {
+            menu.action(Icons.CLOSE, UIKeys.TEXTURE_PAINTER_DESELECT, this::clearSelection);
+        });
         this.toolPick = new UIIcon(Icons.DROPPER, (b) -> this.setActiveTool(UIPixelsEditor.Tool.PICK))
         {
             @Override
@@ -462,6 +498,7 @@ public class UITexturePainter extends UIElement
 
         this.toolBrush.tooltip(UIKeys.GENERAL_EDIT, Direction.BOTTOM);
         this.toolEraser.tooltip(UIKeys.TEXTURE_EDITOR_ERASE, Direction.BOTTOM);
+        this.toolSelect.tooltip(UIKeys.TEXTURE_PAINTER_TOOL_SELECT, Direction.BOTTOM);
         this.toolShape.tooltip(UIKeys.TEXTURE_PAINTER_TOOL_SHAPE, Direction.BOTTOM);
         this.toolGradient.tooltip(UIKeys.TEXTURE_PAINTER_TOOL_GRADIENT, Direction.BOTTOM);
         this.toolPick.tooltip(UIKeys.TEXTURES_KEYS_PICK, Direction.BOTTOM);
@@ -502,6 +539,7 @@ public class UITexturePainter extends UIElement
         this.main.save.tooltip(UIKeys.TEXTURES_SAVE, Direction.BOTTOM);
         this.toolBrush.wh(20, 20).minW(20).maxW(20);
         this.toolEraser.wh(20, 20).minW(20).maxW(20);
+        this.toolSelect.wh(20, 20).minW(20).maxW(20);
         this.toolShape.wh(20, 20).minW(20).maxW(20);
         this.toolGradient.wh(20, 20).minW(20).maxW(20);
         this.toolPick.wh(20, 20).minW(20).maxW(20);
@@ -523,6 +561,7 @@ public class UITexturePainter extends UIElement
             0,
             this.toolBrush,
             this.toolEraser,
+            this.toolSelect,
             this.toolShape,
             this.toolGradient,
             this.toolPick,
@@ -710,6 +749,13 @@ public class UITexturePainter extends UIElement
             {
                 menu.action(Icons.FULLSCREEN, UIKeys.TEXTURE_PAINTER_FLATTEN, this::flattenLayers);
             }
+            menu.action(Icons.BLOCK, UIKeys.TEXTURE_PAINTER_BLEND_NORMAL, () -> this.setLayerBlendMode(this.selectedLayerIndex, BlendMode.NORMAL));
+            menu.action(Icons.CLOSE, UIKeys.TEXTURE_PAINTER_BLEND_MULTIPLY, () -> this.setLayerBlendMode(this.selectedLayerIndex, BlendMode.MULTIPLY));
+            menu.action(Icons.SUN, UIKeys.TEXTURE_PAINTER_BLEND_SCREEN, () -> this.setLayerBlendMode(this.selectedLayerIndex, BlendMode.SCREEN));
+            menu.action(Icons.GRAPH, UIKeys.TEXTURE_PAINTER_BLEND_OVERLAY, () -> this.setLayerBlendMode(this.selectedLayerIndex, BlendMode.OVERLAY));
+            menu.action(Icons.ADD, UIKeys.TEXTURE_PAINTER_BLEND_ADD, () -> this.setLayerBlendMode(this.selectedLayerIndex, BlendMode.ADD));
+            menu.action(Icons.MOVE_DOWN, UIKeys.TEXTURE_PAINTER_BLEND_DARKEN, () -> this.setLayerBlendMode(this.selectedLayerIndex, BlendMode.DARKEN));
+            menu.action(Icons.MOVE_UP, UIKeys.TEXTURE_PAINTER_BLEND_LIGHTEN, () -> this.setLayerBlendMode(this.selectedLayerIndex, BlendMode.LIGHTEN));
             menu.action(Icons.REMOVE, UIKeys.TEXTURE_PAINTER_REMOVE_LAYER, () -> this.removeLayer(this.selectedLayerIndex));
         });
         this.layerOptionsButton.wh(18, 20).tooltip(UIKeys.TEXTURE_PAINTER_LAYER_OPTIONS, Direction.BOTTOM);
@@ -1025,6 +1071,7 @@ public class UITexturePainter extends UIElement
         if (top.pixels != null && bottom.pixels != null && top.pixels.getBuffer() != null && bottom.pixels.getBuffer() != null)
         {
             Color output = new Color();
+            BlendMode mode = top.blendMode == null ? BlendMode.NORMAL : top.blendMode;
 
             for (int x = 0; x < bottom.pixels.width; x++)
             {
@@ -1039,6 +1086,17 @@ public class UITexturePainter extends UIElement
                     }
 
                     float alpha = src.a * top.opacity;
+
+                    if (dst == null || dst.a <= 0F)
+                    {
+                        output.r = src.r;
+                        output.g = src.g;
+                        output.b = src.b;
+                        output.a = alpha;
+                        bottom.pixels.setColor(x, y, output);
+                        continue;
+                    }
+
                     float outA = alpha + dst.a * (1F - alpha);
 
                     if (outA <= 0F)
@@ -1046,10 +1104,14 @@ public class UITexturePainter extends UIElement
                         continue;
                     }
 
+                    float br = this.blendChannel(src.r, dst.r, mode);
+                    float bg = this.blendChannel(src.g, dst.g, mode);
+                    float bb = this.blendChannel(src.b, dst.b, mode);
+
                     output.a = outA;
-                    output.r = (src.r * alpha + dst.r * dst.a * (1F - alpha)) / outA;
-                    output.g = (src.g * alpha + dst.g * dst.a * (1F - alpha)) / outA;
-                    output.b = (src.b * alpha + dst.b * dst.a * (1F - alpha)) / outA;
+                    output.r = (br * alpha + dst.r * dst.a * (1F - alpha)) / outA;
+                    output.g = (bg * alpha + dst.g * dst.a * (1F - alpha)) / outA;
+                    output.b = (bb * alpha + dst.b * dst.a * (1F - alpha)) / outA;
                     bottom.pixels.setColor(x, y, output);
                 }
             }
@@ -1341,7 +1403,7 @@ public class UITexturePainter extends UIElement
             final int index = count - 1 - rowIndex;
             TextureLayer layer = this.layers.get(index);
             int opacity = Math.round(layer.opacity * 100F);
-            String text = (rowIndex + 1) + ". " + layer.name + " (" + opacity + "%)";
+            String text = (rowIndex + 1) + ". " + layer.name + " (" + opacity + "%" + (layer.blendMode != BlendMode.NORMAL ? ", " + layer.blendMode.name() : "") + ")";
 
             UIElement row = new UIElement()
             {
@@ -1393,6 +1455,13 @@ public class UITexturePainter extends UIElement
                 {
                     menu.action(Icons.FULLSCREEN, UIKeys.TEXTURE_PAINTER_FLATTEN, this::flattenLayers);
                 }
+                menu.action(Icons.BLOCK, UIKeys.TEXTURE_PAINTER_BLEND_NORMAL, () -> this.setLayerBlendMode(index, BlendMode.NORMAL));
+                menu.action(Icons.CLOSE, UIKeys.TEXTURE_PAINTER_BLEND_MULTIPLY, () -> this.setLayerBlendMode(index, BlendMode.MULTIPLY));
+                menu.action(Icons.SUN, UIKeys.TEXTURE_PAINTER_BLEND_SCREEN, () -> this.setLayerBlendMode(index, BlendMode.SCREEN));
+                menu.action(Icons.GRAPH, UIKeys.TEXTURE_PAINTER_BLEND_OVERLAY, () -> this.setLayerBlendMode(index, BlendMode.OVERLAY));
+                menu.action(Icons.ADD, UIKeys.TEXTURE_PAINTER_BLEND_ADD, () -> this.setLayerBlendMode(index, BlendMode.ADD));
+                menu.action(Icons.MOVE_DOWN, UIKeys.TEXTURE_PAINTER_BLEND_DARKEN, () -> this.setLayerBlendMode(index, BlendMode.DARKEN));
+                menu.action(Icons.MOVE_UP, UIKeys.TEXTURE_PAINTER_BLEND_LIGHTEN, () -> this.setLayerBlendMode(index, BlendMode.LIGHTEN));
                 menu.action(Icons.REMOVE, UIKeys.TEXTURE_PAINTER_REMOVE_LAYER, () -> this.removeLayer(index));
             });
 
@@ -1405,6 +1474,49 @@ public class UITexturePainter extends UIElement
         }
 
         this.layerRows.resize();
+    }
+
+    private float blendChannel(float s, float d, BlendMode mode)
+    {
+        if (mode == BlendMode.MULTIPLY)
+        {
+            return s * d;
+        }
+        else if (mode == BlendMode.SCREEN)
+        {
+            return s + d - s * d;
+        }
+        else if (mode == BlendMode.OVERLAY)
+        {
+            return d < 0.5F ? (2F * s * d) : (1F - 2F * (1F - s) * (1F - d));
+        }
+        else if (mode == BlendMode.ADD)
+        {
+            return Math.min(1F, s + d);
+        }
+        else if (mode == BlendMode.DARKEN)
+        {
+            return Math.min(s, d);
+        }
+        else if (mode == BlendMode.LIGHTEN)
+        {
+            return Math.max(s, d);
+        }
+
+        return s;
+    }
+
+    public void setLayerBlendMode(int index, BlendMode mode)
+    {
+        if (index < 0 || index >= this.layers.size())
+        {
+            return;
+        }
+
+        this.layers.get(index).blendMode = mode == null ? BlendMode.NORMAL : mode;
+        this.refreshLayerRows();
+        this.saveCurrentTextureLayers();
+        this.refreshModelPreview();
     }
 
     private Pixels composeVisibleLayers()
@@ -1446,6 +1558,8 @@ public class UITexturePainter extends UIElement
                 continue;
             }
 
+            BlendMode mode = layer.blendMode == null ? BlendMode.NORMAL : layer.blendMode;
+
             for (int x = 0; x < composed.width; x++)
             {
                 for (int y = 0; y < composed.height; y++)
@@ -1465,6 +1579,17 @@ public class UITexturePainter extends UIElement
                     }
 
                     Color dst = composed.getColor(x, y);
+
+                    if (dst == null || dst.a <= 0F)
+                    {
+                        output.r = src.r;
+                        output.g = src.g;
+                        output.b = src.b;
+                        output.a = alpha;
+                        composed.setColor(x, y, output);
+                        continue;
+                    }
+
                     float outA = alpha + dst.a * (1F - alpha);
 
                     if (outA <= 0F)
@@ -1472,10 +1597,14 @@ public class UITexturePainter extends UIElement
                         continue;
                     }
 
+                    float br = this.blendChannel(src.r, dst.r, mode);
+                    float bg = this.blendChannel(src.g, dst.g, mode);
+                    float bb = this.blendChannel(src.b, dst.b, mode);
+
                     output.a = outA;
-                    output.r = (src.r * alpha + dst.r * dst.a * (1F - alpha)) / outA;
-                    output.g = (src.g * alpha + dst.g * dst.a * (1F - alpha)) / outA;
-                    output.b = (src.b * alpha + dst.b * dst.a * (1F - alpha)) / outA;
+                    output.r = (br * alpha + dst.r * dst.a * (1F - alpha)) / outA;
+                    output.g = (bg * alpha + dst.g * dst.a * (1F - alpha)) / outA;
+                    output.b = (bb * alpha + dst.b * dst.a * (1F - alpha)) / outA;
                     composed.setColor(x, y, output);
                 }
             }
@@ -1687,6 +1816,7 @@ public class UITexturePainter extends UIElement
     {
         this.toolBrush.active(this.activeTool == UIPixelsEditor.Tool.BRUSH);
         this.toolEraser.active(this.activeTool == UIPixelsEditor.Tool.ERASER);
+        this.toolSelect.active(this.activeTool == UIPixelsEditor.Tool.SELECT);
         this.toolShape.active(this.activeTool == UIPixelsEditor.Tool.SHAPE);
         this.toolGradient.active(this.activeTool == UIPixelsEditor.Tool.GRADIENT);
         this.toolPick.active(this.activeTool == UIPixelsEditor.Tool.PICK);
@@ -1697,6 +1827,16 @@ public class UITexturePainter extends UIElement
         this.toolMirrorX.active(this.mirrorX);
         this.toolMirrorY.active(this.mirrorY);
         this.toolPixelPerfect.active(this.pixelPerfect);
+    }
+
+    public void clearSelection()
+    {
+        this.main.clearSelection();
+
+        if (this.reference != null)
+        {
+            this.reference.clearSelection();
+        }
     }
 
     public void flipHorizontal()

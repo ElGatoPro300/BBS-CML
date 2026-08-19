@@ -1934,6 +1934,16 @@ public class UIKeys
     public static final IKey TEXTURE_PAINTER_EXTRACT_PALETTE = L10n.lang("bbs.ui.texture.painter.palette.extract");
     public static final IKey TEXTURE_PAINTER_BRIGHTNESS = L10n.lang("bbs.ui.texture.painter.adjust.brightness");
     public static final IKey TEXTURE_PAINTER_CONTRAST = L10n.lang("bbs.ui.texture.painter.adjust.contrast");
+    public static final IKey TEXTURE_PAINTER_TOOL_SELECT = L10n.lang("bbs.ui.texture.painter.tool.select");
+    public static final IKey TEXTURE_PAINTER_DESELECT = L10n.lang("bbs.ui.texture.painter.deselect");
+    public static final IKey TEXTURE_PAINTER_BLEND_MODE = L10n.lang("bbs.ui.texture.painter.blend_mode");
+    public static final IKey TEXTURE_PAINTER_BLEND_NORMAL = L10n.lang("bbs.ui.texture.painter.blend.normal");
+    public static final IKey TEXTURE_PAINTER_BLEND_MULTIPLY = L10n.lang("bbs.ui.texture.painter.blend.multiply");
+    public static final IKey TEXTURE_PAINTER_BLEND_SCREEN = L10n.lang("bbs.ui.texture.painter.blend.screen");
+    public static final IKey TEXTURE_PAINTER_BLEND_OVERLAY = L10n.lang("bbs.ui.texture.painter.blend.overlay");
+    public static final IKey TEXTURE_PAINTER_BLEND_ADD = L10n.lang("bbs.ui.texture.painter.blend.add");
+    public static final IKey TEXTURE_PAINTER_BLEND_DARKEN = L10n.lang("bbs.ui.texture.painter.blend.darken");
+    public static final IKey TEXTURE_PAINTER_BLEND_LIGHTEN = L10n.lang("bbs.ui.texture.painter.blend.lighten");
     public static final IKey TEXTURE_FIND_TITLE = L10n.lang("bbs.ui.texture.find-title");
     public static final IKey TEXTURE_KEYS_FIND_ALL = L10n.lang("bbs.ui.texture.keys.find_all");
     public static final IKey TEXTURE_MULTISKIN = L10n.lang("bbs.ui.texture.multiskin");
