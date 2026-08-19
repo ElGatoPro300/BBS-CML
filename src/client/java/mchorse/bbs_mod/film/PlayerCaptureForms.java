@@ -13,9 +13,10 @@ import net.minecraft.client.util.SkinTextures;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.nbt.NbtCompound;
 
+import com.mojang.authlib.GameProfile;
+
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
-import com.mojang.authlib.GameProfile;
 
 import java.io.BufferedReader;
 import java.io.File;

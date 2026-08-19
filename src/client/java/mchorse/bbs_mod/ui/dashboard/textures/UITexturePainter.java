@@ -21,6 +21,8 @@ import mchorse.bbs_mod.ui.framework.elements.buttons.UIIcon;
 import mchorse.bbs_mod.ui.framework.elements.input.UIColor;
 import mchorse.bbs_mod.ui.framework.elements.input.UITexturePicker;
 import mchorse.bbs_mod.ui.framework.elements.input.UITrackpad;
+import mchorse.bbs_mod.ui.framework.elements.overlay.UIOverlay;
+import mchorse.bbs_mod.ui.framework.elements.overlay.UIPromptOverlayPanel;
 import mchorse.bbs_mod.ui.framework.elements.utils.EventPropagation;
 import mchorse.bbs_mod.ui.utils.UI;
 import mchorse.bbs_mod.ui.utils.icons.Icons;
@@ -36,6 +38,7 @@ import org.joml.Vector2i;
 import org.lwjgl.opengl.GL11;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -69,6 +72,11 @@ public class UITexturePainter extends UIElement
     public UITrackpad layerOpacity;
     public UIButton selectTextureButton;
     public UIIcon addLayerButton;
+    public UIIcon duplicateLayerButton;
+    public UIIcon removeLayerButton;
+    public UIIcon moveLayerUpButton;
+    public UIIcon moveLayerDownButton;
+    public UIIcon layerOptionsButton;
     public UIScrollView imageRows;
     public UIScrollView layerRows;
 
@@ -86,11 +94,13 @@ public class UITexturePainter extends UIElement
     public UIIcon toolFill;
     public UIIcon toolSquare;
     public UIIcon toolCircle;
+    public UIIcon toolLockAlpha;
 
     private Supplier<Form> formPreviewSupplier;
     private final Set<Link> touchedPreviewTextures = new HashSet<>();
     private UIPixelsEditor.Tool activeTool = UIPixelsEditor.Tool.BRUSH;
     private UIPixelsEditor.BrushShape activeBrushShape = UIPixelsEditor.BrushShape.SQUARE;
+    private boolean lockAlpha = false;
     private boolean editingPrimary = true;
     private boolean topTabColor = true;
     private boolean bottomTabLayers = true;
@@ -346,6 +356,19 @@ public class UITexturePainter extends UIElement
                 }
             }
         };
+        this.toolLockAlpha = new UIIcon(Icons.LOCKED, (b) -> this.toggleLockAlpha())
+        {
+            @Override
+            protected void renderSkin(UIContext context)
+            {
+                super.renderSkin(context);
+
+                if (this.isActive())
+                {
+                    context.batcher.outline(this.area.x, this.area.y, this.area.ex(), this.area.ey(), 0xff000000 | BBSSettings.primaryColor.get());
+                }
+            }
+        };
 
         this.toolBrush.tooltip(UIKeys.GENERAL_EDIT, Direction.BOTTOM);
         this.toolEraser.tooltip(UIKeys.TEXTURE_EDITOR_ERASE, Direction.BOTTOM);
@@ -353,6 +376,7 @@ public class UITexturePainter extends UIElement
         this.toolFill.tooltip(UIKeys.TEXTURES_KEYS_FILL, Direction.BOTTOM);
         this.toolSquare.tooltip(UIKeys.KEYFRAMES_SHAPES_SQUARE, Direction.BOTTOM);
         this.toolCircle.tooltip(UIKeys.KEYFRAMES_SHAPES_CIRCLE, Direction.BOTTOM);
+        this.toolLockAlpha.tooltip(UIKeys.TEXTURE_PAINTER_LOCK_ALPHA_TOOLTIP, Direction.BOTTOM);
 
         this.main = new UITextureEditor().saveCallback(saveCallback);
         this.main.renderTextureSupplier(this::getComposedEditorTexture);
@@ -373,6 +397,7 @@ public class UITexturePainter extends UIElement
         this.toolFill.wh(20, 20).minW(20).maxW(20);
         this.toolSquare.wh(20, 20).minW(20).maxW(20);
         this.toolCircle.wh(20, 20).minW(20).maxW(20);
+        this.toolLockAlpha.wh(20, 20).minW(20).maxW(20);
         this.main.undo.wh(20, 20).minW(20).maxW(20);
         this.main.redo.wh(20, 20).minW(20).maxW(20);
         this.main.resize.wh(20, 20).minW(20).maxW(20);
@@ -386,7 +411,8 @@ public class UITexturePainter extends UIElement
             this.toolPick,
             this.toolFill.marginRight(8),
             this.toolSquare,
-            this.toolCircle.marginRight(8),
+            this.toolCircle,
+            this.toolLockAlpha.marginRight(8),
             this.main.undo,
             this.main.redo,
             this.main.resize,
@@ -575,8 +601,36 @@ public class UITexturePainter extends UIElement
         this.layerRow.relative(this.mediaTabContent).full(this.mediaTabContent);
 
         this.addLayerButton = new UIIcon(Icons.ADD, (b) -> this.addLayer());
-        this.addLayerButton.wh(20, 20).tooltip(UIKeys.TEXTURE_PAINTER_ADD_LAYER, Direction.BOTTOM);
-        this.addLayerButton.relative(this.layerRow).xy(0, 0);
+        this.addLayerButton.wh(18, 20).tooltip(UIKeys.TEXTURE_PAINTER_ADD_LAYER, Direction.BOTTOM);
+
+        this.duplicateLayerButton = new UIIcon(Icons.DUPE, (b) -> this.duplicateLayer(this.selectedLayerIndex));
+        this.duplicateLayerButton.wh(18, 20).tooltip(UIKeys.TEXTURE_PAINTER_DUPLICATE_LAYER, Direction.BOTTOM);
+
+        this.removeLayerButton = new UIIcon(Icons.REMOVE, (b) -> this.removeLayer(this.selectedLayerIndex));
+        this.removeLayerButton.wh(18, 20).tooltip(UIKeys.TEXTURE_PAINTER_REMOVE_LAYER, Direction.BOTTOM);
+
+        this.moveLayerUpButton = new UIIcon(Icons.MOVE_UP, (b) -> this.moveLayerUp(this.selectedLayerIndex));
+        this.moveLayerUpButton.wh(18, 20).tooltip(UIKeys.TEXTURE_PAINTER_MOVE_LAYER_UP, Direction.BOTTOM);
+
+        this.moveLayerDownButton = new UIIcon(Icons.MOVE_DOWN, (b) -> this.moveLayerDown(this.selectedLayerIndex));
+        this.moveLayerDownButton.wh(18, 20).tooltip(UIKeys.TEXTURE_PAINTER_MOVE_LAYER_DOWN, Direction.BOTTOM);
+
+        this.layerOptionsButton = new UIIcon(Icons.MORE, (b) -> {});
+        this.layerOptionsButton.context((menu) ->
+        {
+            menu.action(Icons.EDIT, UIKeys.TEXTURE_PAINTER_RENAME_LAYER, () -> this.renameLayer(this.selectedLayerIndex));
+            menu.action(Icons.DUPE, UIKeys.TEXTURE_PAINTER_DUPLICATE_LAYER, () -> this.duplicateLayer(this.selectedLayerIndex));
+            if (this.selectedLayerIndex > 0)
+            {
+                menu.action(Icons.MORE, UIKeys.TEXTURE_PAINTER_MERGE_DOWN, () -> this.mergeDownLayer(this.selectedLayerIndex));
+            }
+            if (this.layers.size() > 1)
+            {
+                menu.action(Icons.FULLSCREEN, UIKeys.TEXTURE_PAINTER_FLATTEN, this::flattenLayers);
+            }
+            menu.action(Icons.REMOVE, UIKeys.TEXTURE_PAINTER_REMOVE_LAYER, () -> this.removeLayer(this.selectedLayerIndex));
+        });
+        this.layerOptionsButton.wh(18, 20).tooltip(UIKeys.TEXTURE_PAINTER_LAYER_OPTIONS, Direction.BOTTOM);
 
         this.layerOpacity = new UITrackpad((v) ->
         {
@@ -590,12 +644,23 @@ public class UITexturePainter extends UIElement
         this.layerOpacity.integer().limit(0, 100, true);
         this.layerOpacity.setValue(100);
         this.layerOpacity.tooltip(UIKeys.TEXTURE_PAINTER_LAYER_OPACITY, Direction.BOTTOM);
-        this.layerOpacity.relative(this.layerRow).x(1F, -58).y(0).w(58).h(20);
+        this.layerOpacity.relative(this.layerRow).x(1F, -46).y(0).w(46).h(20);
+
+        UIElement layerButtonsGroup = UI.row(
+            1,
+            this.addLayerButton,
+            this.duplicateLayerButton,
+            this.removeLayerButton,
+            this.moveLayerUpButton,
+            this.moveLayerDownButton,
+            this.layerOptionsButton
+        );
+        layerButtonsGroup.relative(this.layerRow).xy(0, 0).w(1F, -50).h(20);
 
         this.layerRows = UI.scrollView(2, 0);
         this.layerRows.relative(this.layerRow).xy(0, 24).w(1F).h(1F, -24);
 
-        this.layerRow.add(this.addLayerButton, this.layerOpacity, this.layerRows);
+        this.layerRow.add(layerButtonsGroup, this.layerOpacity, this.layerRows);
         this.mediaTabContent.add(this.imageRow, this.layerRow);
         this.sidePanel.add(
             this.tabColor,
@@ -766,7 +831,7 @@ public class UITexturePainter extends UIElement
         }
     }
 
-    private void addLayer()
+    public void addLayer()
     {
         this.storeActiveLayerPixels();
 
@@ -777,6 +842,202 @@ public class UITexturePainter extends UIElement
         this.layerOpacity.setValue(100);
         this.loadSelectedLayerPixels();
         this.refreshLayerRows();
+    }
+
+    public void duplicateLayer(int index)
+    {
+        if (index < 0 || index >= this.layers.size())
+        {
+            return;
+        }
+
+        this.storeActiveLayerPixels();
+
+        TextureLayer source = this.layers.get(index);
+        Pixels copy = this.copyPixels(source.pixels);
+        String name = source.name + "_copy";
+        TextureLayer duplicate = new TextureLayer(name, source.opacity, source.visible, copy, null);
+
+        this.layers.add(index + 1, duplicate);
+        this.selectedLayerIndex = index + 1;
+        this.layerOpacity.setValue(Math.round(duplicate.opacity * 100F));
+        this.loadSelectedLayerPixels();
+        this.refreshLayerRows();
+    }
+
+    public void removeLayer(int index)
+    {
+        if (index < 0 || index >= this.layers.size())
+        {
+            return;
+        }
+
+        this.storeActiveLayerPixels();
+
+        if (this.layers.size() <= 1)
+        {
+            TextureLayer layer = this.layers.get(0);
+
+            if (layer.pixels != null)
+            {
+                layer.pixels.drawRect(0, 0, layer.pixels.width, layer.pixels.height, 0);
+            }
+
+            layer.opacity = 1F;
+            layer.name = "layer";
+            this.selectedLayerIndex = 0;
+            this.layerOpacity.setValue(100);
+            this.loadSelectedLayerPixels();
+            this.refreshLayerRows();
+
+            return;
+        }
+
+        this.layers.remove(index);
+        this.selectedLayerIndex = Math.max(0, Math.min(index, this.layers.size() - 1));
+        this.layerOpacity.setValue(Math.round(this.layers.get(this.selectedLayerIndex).opacity * 100F));
+        this.loadSelectedLayerPixels();
+        this.refreshLayerRows();
+    }
+
+    public void moveLayerUp(int index)
+    {
+        if (index < 0 || index >= this.layers.size() - 1)
+        {
+            return;
+        }
+
+        this.storeActiveLayerPixels();
+        Collections.swap(this.layers, index, index + 1);
+        this.selectedLayerIndex = index + 1;
+        this.loadSelectedLayerPixels();
+        this.refreshLayerRows();
+    }
+
+    public void moveLayerDown(int index)
+    {
+        if (index <= 0 || index >= this.layers.size())
+        {
+            return;
+        }
+
+        this.storeActiveLayerPixels();
+        Collections.swap(this.layers, index, index - 1);
+        this.selectedLayerIndex = index - 1;
+        this.loadSelectedLayerPixels();
+        this.refreshLayerRows();
+    }
+
+    public void mergeDownLayer(int index)
+    {
+        if (index <= 0 || index >= this.layers.size())
+        {
+            return;
+        }
+
+        this.storeActiveLayerPixels();
+
+        TextureLayer top = this.layers.get(index);
+        TextureLayer bottom = this.layers.get(index - 1);
+
+        if (top.pixels != null && bottom.pixels != null && top.pixels.getBuffer() != null && bottom.pixels.getBuffer() != null)
+        {
+            Color output = new Color();
+
+            for (int x = 0; x < bottom.pixels.width; x++)
+            {
+                for (int y = 0; y < bottom.pixels.height; y++)
+                {
+                    Color src = top.pixels.getColor(x, y);
+                    Color dst = bottom.pixels.getColor(x, y);
+
+                    if (src == null || src.a <= 0F || top.opacity <= 0F)
+                    {
+                        continue;
+                    }
+
+                    float alpha = src.a * top.opacity;
+                    float outA = alpha + dst.a * (1F - alpha);
+
+                    if (outA <= 0F)
+                    {
+                        continue;
+                    }
+
+                    output.a = outA;
+                    output.r = (src.r * alpha + dst.r * dst.a * (1F - alpha)) / outA;
+                    output.g = (src.g * alpha + dst.g * dst.a * (1F - alpha)) / outA;
+                    output.b = (src.b * alpha + dst.b * dst.a * (1F - alpha)) / outA;
+                    bottom.pixels.setColor(x, y, output);
+                }
+            }
+        }
+
+        this.layers.remove(index);
+        this.selectedLayerIndex = index - 1;
+        this.layerOpacity.setValue(Math.round(bottom.opacity * 100F));
+        this.loadSelectedLayerPixels();
+        this.refreshLayerRows();
+    }
+
+    public void flattenLayers()
+    {
+        this.storeActiveLayerPixels();
+        Pixels composed = this.composeVisibleLayers();
+
+        if (composed == null)
+        {
+            return;
+        }
+
+        Pixels base = this.copyPixels(composed);
+
+        this.layers.clear();
+        this.layers.add(new TextureLayer("Background", 1F, true, base, null));
+        this.selectedLayerIndex = 0;
+        this.layerOpacity.setValue(100);
+        this.loadSelectedLayerPixels();
+        this.refreshLayerRows();
+    }
+
+    public void renameLayer(int index)
+    {
+        if (index < 0 || index >= this.layers.size())
+        {
+            return;
+        }
+
+        TextureLayer layer = this.layers.get(index);
+        UIPromptOverlayPanel panel = new UIPromptOverlayPanel(
+            UIKeys.TEXTURE_PAINTER_RENAME_LAYER,
+            IKey.EMPTY,
+            (name) ->
+            {
+                if (name != null && !name.trim().isEmpty())
+                {
+                    layer.name = name.trim();
+                    this.refreshLayerRows();
+                }
+            }
+        );
+
+        UIOverlay.addOverlay(this.getContext(), panel);
+        panel.text.setText(layer.name);
+        panel.text.textbox.moveCursorTo(layer.name.length());
+        panel.text.textbox.setSelection(0);
+    }
+
+    public void toggleLockAlpha()
+    {
+        this.lockAlpha = !this.lockAlpha;
+        this.main.setLockAlpha(this.lockAlpha);
+
+        if (this.reference != null)
+        {
+            this.reference.setLockAlpha(this.lockAlpha);
+        }
+
+        this.updateToolButtons();
     }
 
     private Pixels createTransparentLayerPixels()
@@ -1038,6 +1299,20 @@ public class UITexturePainter extends UIElement
             UIButton select = new UIButton(IKey.constant(text), (b) -> this.selectLayer(index));
             select.relative(row).x(24).y(0).w(1F, -44).h(24);
             select.background(false).textColor(index == this.selectedLayerIndex ? Colors.WHITE : 0xd0d0d0, false);
+            select.context((menu) ->
+            {
+                menu.action(Icons.EDIT, UIKeys.TEXTURE_PAINTER_RENAME_LAYER, () -> this.renameLayer(index));
+                menu.action(Icons.DUPE, UIKeys.TEXTURE_PAINTER_DUPLICATE_LAYER, () -> this.duplicateLayer(index));
+                if (index > 0)
+                {
+                    menu.action(Icons.MORE, UIKeys.TEXTURE_PAINTER_MERGE_DOWN, () -> this.mergeDownLayer(index));
+                }
+                if (this.layers.size() > 1)
+                {
+                    menu.action(Icons.FULLSCREEN, UIKeys.TEXTURE_PAINTER_FLATTEN, this::flattenLayers);
+                }
+                menu.action(Icons.REMOVE, UIKeys.TEXTURE_PAINTER_REMOVE_LAYER, () -> this.removeLayer(index));
+            });
 
             UIIcon visibility = new UIIcon(() -> layer.visible ? Icons.VISIBLE : Icons.INVISIBLE, (b) -> this.toggleLayerVisibility(index));
             visibility.relative(row).x(1F, -20).y(0).wh(20, 20);
@@ -1224,6 +1499,7 @@ public class UITexturePainter extends UIElement
             .onFillColor((pixel, replace) -> editor.fillColor(pixel, this.getActiveBrushColor(), replace))
             .setTool(this.activeTool)
             .setBrushShape(this.activeBrushShape)
+            .setLockAlpha(this.lockAlpha)
             .useExternalToolbar();
         editor.setBrushSize((int) this.brush.getValue());
     }
@@ -1264,6 +1540,7 @@ public class UITexturePainter extends UIElement
         this.toolFill.active(this.activeTool == UIPixelsEditor.Tool.FILL);
         this.toolSquare.active(this.activeBrushShape == UIPixelsEditor.BrushShape.SQUARE);
         this.toolCircle.active(this.activeBrushShape == UIPixelsEditor.BrushShape.CIRCLE);
+        this.toolLockAlpha.active(this.lockAlpha);
     }
 
     public void fillTexture(Link current)

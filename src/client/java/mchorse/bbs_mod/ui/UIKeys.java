@@ -1901,6 +1901,16 @@ public class UIKeys
     public static final IKey TEXTURE_PAINTER_SECONDARY_COLOR = L10n.lang("bbs.ui.texture.painter.secondary_color");
     public static final IKey TEXTURE_PAINTER_OPEN_TEXTURE_PICKER = L10n.lang("bbs.ui.texture.painter.open_texture_picker");
     public static final IKey TEXTURE_PAINTER_ADD_LAYER = L10n.lang("bbs.ui.texture.painter.add_layer");
+    public static final IKey TEXTURE_PAINTER_DUPLICATE_LAYER = L10n.lang("bbs.ui.texture.painter.duplicate_layer");
+    public static final IKey TEXTURE_PAINTER_REMOVE_LAYER = L10n.lang("bbs.ui.texture.painter.remove_layer");
+    public static final IKey TEXTURE_PAINTER_MOVE_LAYER_UP = L10n.lang("bbs.ui.texture.painter.move_layer_up");
+    public static final IKey TEXTURE_PAINTER_MOVE_LAYER_DOWN = L10n.lang("bbs.ui.texture.painter.move_layer_down");
+    public static final IKey TEXTURE_PAINTER_MERGE_DOWN = L10n.lang("bbs.ui.texture.painter.merge_down");
+    public static final IKey TEXTURE_PAINTER_FLATTEN = L10n.lang("bbs.ui.texture.painter.flatten");
+    public static final IKey TEXTURE_PAINTER_RENAME_LAYER = L10n.lang("bbs.ui.texture.painter.rename_layer");
+    public static final IKey TEXTURE_PAINTER_LOCK_ALPHA = L10n.lang("bbs.ui.texture.painter.lock_alpha");
+    public static final IKey TEXTURE_PAINTER_LOCK_ALPHA_TOOLTIP = L10n.lang("bbs.ui.texture.painter.lock_alpha-tooltip");
+    public static final IKey TEXTURE_PAINTER_LAYER_OPTIONS = L10n.lang("bbs.ui.texture.painter.layer_options");
     public static final IKey TEXTURE_PAINTER_LAYER_OPACITY = L10n.lang("bbs.ui.texture.painter.layer_opacity");
     public static final IKey TEXTURE_PAINTER_HIDE_LAYER = L10n.lang("bbs.ui.texture.painter.hide_layer");
     public static final IKey TEXTURE_PAINTER_SHOW_LAYER = L10n.lang("bbs.ui.texture.painter.show_layer");

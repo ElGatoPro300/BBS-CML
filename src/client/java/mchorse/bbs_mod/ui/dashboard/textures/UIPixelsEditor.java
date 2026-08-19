@@ -72,6 +72,7 @@ public class UIPixelsEditor extends UICanvasEditor
     private Consumer<Color> pickColorCallback;
     private BiConsumer<Vector2i, Boolean> fillColorCallback;
     private Tool activeTool = Tool.BRUSH;
+    private boolean lockAlpha = false;
     protected boolean showInternalToolbar = true;
 
     public UIPixelsEditor()
@@ -172,6 +173,18 @@ public class UIPixelsEditor extends UICanvasEditor
     public UIPixelsEditor setBrushShape(BrushShape brushShape)
     {
         this.brushShape = brushShape == null ? BrushShape.SQUARE : brushShape;
+
+        return this;
+    }
+
+    public boolean isLockAlpha()
+    {
+        return this.lockAlpha;
+    }
+
+    public UIPixelsEditor setLockAlpha(boolean lockAlpha)
+    {
+        this.lockAlpha = lockAlpha;
 
         return this;
     }
@@ -463,7 +476,20 @@ public class UIPixelsEditor extends UICanvasEditor
             {
                 if (this.isBrushOffsetInside(i, j))
                 {
-                    undo.setColor(this.pixels, minX + i, minY + j, color);
+                    int px = minX + i;
+                    int py = minY + j;
+
+                    if (this.lockAlpha)
+                    {
+                        Color current = this.pixels.getColor(px, py);
+
+                        if (current == null || current.a <= 0F)
+                        {
+                            continue;
+                        }
+                    }
+
+                    undo.setColor(this.pixels, px, py, color);
                 }
             }
         }
