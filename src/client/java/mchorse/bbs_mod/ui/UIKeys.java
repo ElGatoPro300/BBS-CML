@@ -1914,6 +1914,14 @@ public class UIKeys
     public static final IKey TEXTURE_PAINTER_LAYER_OPACITY = L10n.lang("bbs.ui.texture.painter.layer_opacity");
     public static final IKey TEXTURE_PAINTER_HIDE_LAYER = L10n.lang("bbs.ui.texture.painter.hide_layer");
     public static final IKey TEXTURE_PAINTER_SHOW_LAYER = L10n.lang("bbs.ui.texture.painter.show_layer");
+    public static final IKey TEXTURE_PAINTER_TOOL_SHAPE = L10n.lang("bbs.ui.texture.painter.tool.shape");
+    public static final IKey TEXTURE_PAINTER_TOOL_GRADIENT = L10n.lang("bbs.ui.texture.painter.tool.gradient");
+    public static final IKey TEXTURE_PAINTER_TOOL_MIRROR_X = L10n.lang("bbs.ui.texture.painter.tool.mirror_x");
+    public static final IKey TEXTURE_PAINTER_TOOL_MIRROR_Y = L10n.lang("bbs.ui.texture.painter.tool.mirror_y");
+    public static final IKey TEXTURE_PAINTER_TOOL_PIXEL_PERFECT = L10n.lang("bbs.ui.texture.painter.tool.pixel_perfect");
+    public static final IKey TEXTURE_PAINTER_SHAPE_RECTANGLE = L10n.lang("bbs.ui.texture.painter.shape.rectangle");
+    public static final IKey TEXTURE_PAINTER_SHAPE_CIRCLE = L10n.lang("bbs.ui.texture.painter.shape.circle");
+    public static final IKey TEXTURE_PAINTER_SHAPE_FILLED = L10n.lang("bbs.ui.texture.painter.shape.filled");
     public static final IKey TEXTURE_FIND_TITLE = L10n.lang("bbs.ui.texture.find-title");
     public static final IKey TEXTURE_KEYS_FIND_ALL = L10n.lang("bbs.ui.texture.keys.find_all");
     public static final IKey TEXTURE_MULTISKIN = L10n.lang("bbs.ui.texture.multiskin");

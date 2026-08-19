@@ -92,15 +92,25 @@ public class UITexturePainter extends UIElement
     public UIIcon toolEraser;
     public UIIcon toolPick;
     public UIIcon toolFill;
+    public UIIcon toolShape;
+    public UIIcon toolGradient;
     public UIIcon toolSquare;
     public UIIcon toolCircle;
     public UIIcon toolLockAlpha;
+    public UIIcon toolMirrorX;
+    public UIIcon toolMirrorY;
+    public UIIcon toolPixelPerfect;
 
     private Supplier<Form> formPreviewSupplier;
     private final Set<Link> touchedPreviewTextures = new HashSet<>();
     private UIPixelsEditor.Tool activeTool = UIPixelsEditor.Tool.BRUSH;
     private UIPixelsEditor.BrushShape activeBrushShape = UIPixelsEditor.BrushShape.SQUARE;
+    private UIPixelsEditor.ShapeType activeShapeType = UIPixelsEditor.ShapeType.RECTANGLE;
+    private boolean shapeFilled = false;
     private boolean lockAlpha = false;
+    private boolean mirrorX = false;
+    private boolean mirrorY = false;
+    private boolean pixelPerfect = false;
     private boolean editingPrimary = true;
     private boolean topTabColor = true;
     private boolean bottomTabLayers = true;
@@ -369,14 +379,90 @@ public class UITexturePainter extends UIElement
                 }
             }
         };
+        this.toolShape = new UIIcon(Icons.SHAPES, (b) -> this.setActiveTool(UIPixelsEditor.Tool.SHAPE))
+        {
+            @Override
+            protected void renderSkin(UIContext context)
+            {
+                super.renderSkin(context);
+
+                if (this.isActive())
+                {
+                    context.batcher.outline(this.area.x, this.area.y, this.area.ex(), this.area.ey(), 0xff000000 | BBSSettings.primaryColor.get());
+                }
+            }
+        };
+        this.toolShape.context((menu) ->
+        {
+            menu.action(Icons.SQUARE, UIKeys.TEXTURE_PAINTER_SHAPE_RECTANGLE, () -> this.setShapeType(UIPixelsEditor.ShapeType.RECTANGLE));
+            menu.action(Icons.CIRCLE, UIKeys.TEXTURE_PAINTER_SHAPE_CIRCLE, () -> this.setShapeType(UIPixelsEditor.ShapeType.CIRCLE));
+            menu.action(Icons.BLOCK, UIKeys.TEXTURE_PAINTER_SHAPE_FILLED, () -> this.toggleShapeFilled());
+        });
+        this.toolGradient = new UIIcon(Icons.GRAPH, (b) -> this.setActiveTool(UIPixelsEditor.Tool.GRADIENT))
+        {
+            @Override
+            protected void renderSkin(UIContext context)
+            {
+                super.renderSkin(context);
+
+                if (this.isActive())
+                {
+                    context.batcher.outline(this.area.x, this.area.y, this.area.ex(), this.area.ey(), 0xff000000 | BBSSettings.primaryColor.get());
+                }
+            }
+        };
+        this.toolMirrorX = new UIIcon(Icons.ALL_DIRECTIONS, (b) -> this.toggleMirrorX())
+        {
+            @Override
+            protected void renderSkin(UIContext context)
+            {
+                super.renderSkin(context);
+
+                if (this.isActive())
+                {
+                    context.batcher.outline(this.area.x, this.area.y, this.area.ex(), this.area.ey(), 0xff000000 | BBSSettings.primaryColor.get());
+                }
+            }
+        };
+        this.toolMirrorY = new UIIcon(Icons.EXCHANGE, (b) -> this.toggleMirrorY())
+        {
+            @Override
+            protected void renderSkin(UIContext context)
+            {
+                super.renderSkin(context);
+
+                if (this.isActive())
+                {
+                    context.batcher.outline(this.area.x, this.area.y, this.area.ex(), this.area.ey(), 0xff000000 | BBSSettings.primaryColor.get());
+                }
+            }
+        };
+        this.toolPixelPerfect = new UIIcon(Icons.MAZE, (b) -> this.togglePixelPerfect())
+        {
+            @Override
+            protected void renderSkin(UIContext context)
+            {
+                super.renderSkin(context);
+
+                if (this.isActive())
+                {
+                    context.batcher.outline(this.area.x, this.area.y, this.area.ex(), this.area.ey(), 0xff000000 | BBSSettings.primaryColor.get());
+                }
+            }
+        };
 
         this.toolBrush.tooltip(UIKeys.GENERAL_EDIT, Direction.BOTTOM);
         this.toolEraser.tooltip(UIKeys.TEXTURE_EDITOR_ERASE, Direction.BOTTOM);
+        this.toolShape.tooltip(UIKeys.TEXTURE_PAINTER_TOOL_SHAPE, Direction.BOTTOM);
+        this.toolGradient.tooltip(UIKeys.TEXTURE_PAINTER_TOOL_GRADIENT, Direction.BOTTOM);
         this.toolPick.tooltip(UIKeys.TEXTURES_KEYS_PICK, Direction.BOTTOM);
         this.toolFill.tooltip(UIKeys.TEXTURES_KEYS_FILL, Direction.BOTTOM);
         this.toolSquare.tooltip(UIKeys.KEYFRAMES_SHAPES_SQUARE, Direction.BOTTOM);
         this.toolCircle.tooltip(UIKeys.KEYFRAMES_SHAPES_CIRCLE, Direction.BOTTOM);
         this.toolLockAlpha.tooltip(UIKeys.TEXTURE_PAINTER_LOCK_ALPHA_TOOLTIP, Direction.BOTTOM);
+        this.toolMirrorX.tooltip(UIKeys.TEXTURE_PAINTER_TOOL_MIRROR_X, Direction.BOTTOM);
+        this.toolMirrorY.tooltip(UIKeys.TEXTURE_PAINTER_TOOL_MIRROR_Y, Direction.BOTTOM);
+        this.toolPixelPerfect.tooltip(UIKeys.TEXTURE_PAINTER_TOOL_PIXEL_PERFECT, Direction.BOTTOM);
 
         this.main = new UITextureEditor().saveCallback(saveCallback);
         this.main.renderTextureSupplier(this::getComposedEditorTexture);
@@ -393,11 +479,16 @@ public class UITexturePainter extends UIElement
         this.main.save.tooltip(UIKeys.TEXTURES_SAVE, Direction.BOTTOM);
         this.toolBrush.wh(20, 20).minW(20).maxW(20);
         this.toolEraser.wh(20, 20).minW(20).maxW(20);
+        this.toolShape.wh(20, 20).minW(20).maxW(20);
+        this.toolGradient.wh(20, 20).minW(20).maxW(20);
         this.toolPick.wh(20, 20).minW(20).maxW(20);
         this.toolFill.wh(20, 20).minW(20).maxW(20);
         this.toolSquare.wh(20, 20).minW(20).maxW(20);
         this.toolCircle.wh(20, 20).minW(20).maxW(20);
         this.toolLockAlpha.wh(20, 20).minW(20).maxW(20);
+        this.toolMirrorX.wh(20, 20).minW(20).maxW(20);
+        this.toolMirrorY.wh(20, 20).minW(20).maxW(20);
+        this.toolPixelPerfect.wh(20, 20).minW(20).maxW(20);
         this.main.undo.wh(20, 20).minW(20).maxW(20);
         this.main.redo.wh(20, 20).minW(20).maxW(20);
         this.main.resize.wh(20, 20).minW(20).maxW(20);
@@ -408,11 +499,16 @@ public class UITexturePainter extends UIElement
             0,
             this.toolBrush,
             this.toolEraser,
+            this.toolShape,
+            this.toolGradient,
             this.toolPick,
             this.toolFill.marginRight(8),
             this.toolSquare,
             this.toolCircle,
-            this.toolLockAlpha.marginRight(8),
+            this.toolLockAlpha,
+            this.toolMirrorX,
+            this.toolMirrorY,
+            this.toolPixelPerfect.marginRight(8),
             this.main.undo,
             this.main.redo,
             this.main.resize,
@@ -1481,6 +1577,7 @@ public class UITexturePainter extends UIElement
     {
         editor
             .colorSupplier(this::getActiveBrushColor)
+            .secondaryColorSupplier(() -> this.secondary.picker.color)
             .backgroundSupplier(() -> (float) this.brightness.getValue())
             .onPickColor((color) ->
             {
@@ -1500,8 +1597,76 @@ public class UITexturePainter extends UIElement
             .setTool(this.activeTool)
             .setBrushShape(this.activeBrushShape)
             .setLockAlpha(this.lockAlpha)
+            .setMirrorX(this.mirrorX)
+            .setMirrorY(this.mirrorY)
+            .setPixelPerfect(this.pixelPerfect)
+            .setShapeType(this.activeShapeType)
+            .setShapeFilled(this.shapeFilled)
             .useExternalToolbar();
         editor.setBrushSize((int) this.brush.getValue());
+    }
+
+    public void setShapeType(UIPixelsEditor.ShapeType shapeType)
+    {
+        this.activeShapeType = shapeType == null ? UIPixelsEditor.ShapeType.RECTANGLE : shapeType;
+        this.main.setShapeType(this.activeShapeType);
+
+        if (this.reference != null)
+        {
+            this.reference.setShapeType(this.activeShapeType);
+        }
+
+        this.setActiveTool(UIPixelsEditor.Tool.SHAPE);
+    }
+
+    public void toggleShapeFilled()
+    {
+        this.shapeFilled = !this.shapeFilled;
+        this.main.setShapeFilled(this.shapeFilled);
+
+        if (this.reference != null)
+        {
+            this.reference.setShapeFilled(this.shapeFilled);
+        }
+    }
+
+    public void toggleMirrorX()
+    {
+        this.mirrorX = !this.mirrorX;
+        this.main.setMirrorX(this.mirrorX);
+
+        if (this.reference != null)
+        {
+            this.reference.setMirrorX(this.mirrorX);
+        }
+
+        this.updateToolButtons();
+    }
+
+    public void toggleMirrorY()
+    {
+        this.mirrorY = !this.mirrorY;
+        this.main.setMirrorY(this.mirrorY);
+
+        if (this.reference != null)
+        {
+            this.reference.setMirrorY(this.mirrorY);
+        }
+
+        this.updateToolButtons();
+    }
+
+    public void togglePixelPerfect()
+    {
+        this.pixelPerfect = !this.pixelPerfect;
+        this.main.setPixelPerfect(this.pixelPerfect);
+
+        if (this.reference != null)
+        {
+            this.reference.setPixelPerfect(this.pixelPerfect);
+        }
+
+        this.updateToolButtons();
     }
 
     private void setActiveTool(UIPixelsEditor.Tool tool)
@@ -1536,11 +1701,16 @@ public class UITexturePainter extends UIElement
     {
         this.toolBrush.active(this.activeTool == UIPixelsEditor.Tool.BRUSH);
         this.toolEraser.active(this.activeTool == UIPixelsEditor.Tool.ERASER);
+        this.toolShape.active(this.activeTool == UIPixelsEditor.Tool.SHAPE);
+        this.toolGradient.active(this.activeTool == UIPixelsEditor.Tool.GRADIENT);
         this.toolPick.active(this.activeTool == UIPixelsEditor.Tool.PICK);
         this.toolFill.active(this.activeTool == UIPixelsEditor.Tool.FILL);
         this.toolSquare.active(this.activeBrushShape == UIPixelsEditor.BrushShape.SQUARE);
         this.toolCircle.active(this.activeBrushShape == UIPixelsEditor.BrushShape.CIRCLE);
         this.toolLockAlpha.active(this.lockAlpha);
+        this.toolMirrorX.active(this.mirrorX);
+        this.toolMirrorY.active(this.mirrorY);
+        this.toolPixelPerfect.active(this.pixelPerfect);
     }
 
     public void fillTexture(Link current)
