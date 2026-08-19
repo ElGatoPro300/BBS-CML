@@ -589,13 +589,15 @@ public class UITrackpad extends UIBaseTextbox
         }
         else if (area.isInside(context) && context.hasNotScrolledForMore(500) && BBSSettings.enableTrackpadScrolling.get())
         {
+            double step = this.getScrollStep();
+
             if (context.mouseWheel > 0)
             {
-                this.setValueAndNotify(this.value + this.getValueModifier());
+                this.setValueAndNotify(this.value + step);
             }
             else
             {
-                this.setValueAndNotify(this.value - this.getValueModifier());
+                this.setValueAndNotify(this.value - step);
             }
 
             return true;
@@ -613,13 +615,13 @@ public class UITrackpad extends UIBaseTextbox
         {
             if (context.isHeld(GLFW.GLFW_KEY_UP))
             {
-                this.setValueAndNotify(this.value + this.getValueModifier());
+                this.setValueAndNotify(this.value + this.getScrollStep());
 
                 return true;
             }
             else if (context.isHeld(GLFW.GLFW_KEY_DOWN))
             {
-                this.setValueAndNotify(this.value - this.getValueModifier());
+                this.setValueAndNotify(this.value - this.getScrollStep());
 
                 return true;
             }
@@ -1068,10 +1070,17 @@ public class UITrackpad extends UIBaseTextbox
             value = this.weak;
         }
 
-        value *= globalFactor.getValue();
+        return value * globalFactor.getValue();
+    }
 
-        /* Integer fields truncate toward zero. A 0.25 step therefore decreases
-         * (n - 0.25 -> n - 1) but never increases (n + 0.25 -> n). */
+    /**
+     * Wheel / keyboard step. Integer settings fields truncate toward zero when a
+     * fractional modifier is applied, so enforce at least one unit there only.
+     */
+    private double getScrollStep()
+    {
+        double value = this.getValueModifier();
+
         if (this.integer)
         {
             value = Math.max(1D, Math.round(value));
