@@ -1962,6 +1962,8 @@ public class UIKeys
     public static final IKey TEXTURE_PAINTER_PALETTE_END = L10n.lang("bbs.ui.texture.painter.palette.end");
     public static final IKey TEXTURE_PAINTER_PALETTE_PICO8 = L10n.lang("bbs.ui.texture.painter.palette.pico8");
     public static final IKey TEXTURE_PAINTER_PALETTE_NATURE = L10n.lang("bbs.ui.texture.painter.palette.nature");
+    public static final IKey TEXTURE_PAINTER_ADD_REFERENCE = L10n.lang("bbs.ui.texture.painter.add_reference");
+    public static final IKey TEXTURE_PAINTER_NO_REFERENCES = L10n.lang("bbs.ui.texture.painter.no_references");
     public static final IKey TEXTURE_FIND_TITLE = L10n.lang("bbs.ui.texture.find-title");
     public static final IKey TEXTURE_KEYS_FIND_ALL = L10n.lang("bbs.ui.texture.keys.find_all");
     public static final IKey TEXTURE_MULTISKIN = L10n.lang("bbs.ui.texture.multiskin");

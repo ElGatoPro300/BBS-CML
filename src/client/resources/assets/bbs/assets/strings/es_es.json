@@ -2898,5 +2898,7 @@
     "bbs.ui.forms.editors.vanilla_particle.color_mode.solid": "Sólido",
     "bbs.ui.forms.editors.vanilla_particle.color_mode.lifetime": "Degradado por Vida",
     "bbs.ui.forms.editors.vanilla_particle.color_mode.random": "Paleta Aleatoria",
-    "bbs.ui.forms.editors.vanilla_particle.none": "Nada"
+    "bbs.ui.forms.editors.vanilla_particle.none": "Nada",
+    "bbs.ui.texture.painter.add_reference": "Agregar imagen de referencia",
+    "bbs.ui.texture.painter.no_references": "Sin imágenes de referencia"
 }

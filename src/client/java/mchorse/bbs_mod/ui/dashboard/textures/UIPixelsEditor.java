@@ -920,7 +920,11 @@ public class UIPixelsEditor extends UICanvasEditor
 
             this.wasChanged();
         }
-        else if (this.editing && (this.activeTool == Tool.SHAPE || this.activeTool == Tool.GRADIENT || this.activeTool == Tool.SELECT) && context.mouseButton == 0)
+        else if (this.editing && (this.activeTool == Tool.SHAPE || this.activeTool == Tool.GRADIENT) && context.mouseButton == 0)
+        {
+            this.dragStartPixel = this.getHoverPixel(context.mouseX, context.mouseY);
+        }
+        else if (this.activeTool == Tool.SELECT && context.mouseButton == 0)
         {
             this.dragStartPixel = this.getHoverPixel(context.mouseX, context.mouseY);
         }
@@ -962,11 +966,11 @@ public class UIPixelsEditor extends UICanvasEditor
         {
             Vector2i hoverPixel = this.getHoverPixel(context.mouseX, context.mouseY);
 
-            if (this.activeTool == Tool.SHAPE)
+            if (this.activeTool == Tool.SHAPE && this.editing)
             {
                 this.rasterizeShape(this.dragStartPixel, hoverPixel, Window.isShiftPressed());
             }
-            else if (this.activeTool == Tool.GRADIENT)
+            else if (this.activeTool == Tool.GRADIENT && this.editing)
             {
                 this.rasterizeGradient(this.dragStartPixel, hoverPixel);
             }
@@ -996,11 +1000,12 @@ public class UIPixelsEditor extends UICanvasEditor
     @Override
     public boolean subMouseClicked(UIContext context)
     {
-        if (this.editing && this.pixels != null && this.area.isInside(context) && context.mouseButton == 0)
+        if (this.pixels != null && this.area.isInside(context))
         {
             Vector2i pixel = this.getHoverPixel(context.mouseX, context.mouseY);
+            boolean isPick = this.activeTool == Tool.PICK || Window.isAltPressed();
 
-            if (this.activeTool == Tool.PICK)
+            if (isPick && (context.mouseButton == 0 || context.mouseButton == 1))
             {
                 if (this.pickColorCallback != null)
                 {
@@ -1015,14 +1020,17 @@ public class UIPixelsEditor extends UICanvasEditor
                 return true;
             }
 
-            if (this.activeTool == Tool.FILL)
+            if (this.editing && context.mouseButton == 0)
             {
-                if (this.fillColorCallback != null)
+                if (this.activeTool == Tool.FILL)
                 {
-                    this.fillColorCallback.accept(pixel, Window.isShiftPressed());
-                }
+                    if (this.fillColorCallback != null)
+                    {
+                        this.fillColorCallback.accept(pixel, Window.isShiftPressed());
+                    }
 
-                return true;
+                    return true;
+                }
             }
         }
 
@@ -1032,7 +1040,7 @@ public class UIPixelsEditor extends UICanvasEditor
     @Override
     public boolean subKeyPressed(UIContext context)
     {
-        if (this.editing && this.area.isInside(context))
+        if (this.area.isInside(context))
         {
             if (Window.isCtrlPressed())
             {
@@ -1042,13 +1050,13 @@ public class UIPixelsEditor extends UICanvasEditor
 
                     return true;
                 }
-                else if (context.isPressed(GLFW.GLFW_KEY_X))
+                else if (this.editing && context.isPressed(GLFW.GLFW_KEY_X))
                 {
                     this.cutSelection();
 
                     return true;
                 }
-                else if (context.isPressed(GLFW.GLFW_KEY_V))
+                else if (this.editing && context.isPressed(GLFW.GLFW_KEY_V))
                 {
                     this.pasteSelection();
 

@@ -3131,5 +3131,7 @@
     "bbs.ui.forms.editors.vanilla_particle.color_mode.solid": "Solid",
     "bbs.ui.forms.editors.vanilla_particle.color_mode.lifetime": "Lifetime Gradient",
     "bbs.ui.forms.editors.vanilla_particle.color_mode.random": "Random Palette",
-    "bbs.ui.forms.editors.vanilla_particle.none": "None"
+    "bbs.ui.forms.editors.vanilla_particle.none": "None",
+    "bbs.ui.texture.painter.add_reference": "Add reference image",
+    "bbs.ui.texture.painter.no_references": "No reference images loaded"
 }

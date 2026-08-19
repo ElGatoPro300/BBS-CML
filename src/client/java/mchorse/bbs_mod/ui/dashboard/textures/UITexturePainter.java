@@ -51,11 +51,26 @@ import java.util.function.Supplier;
 
 public class UITexturePainter extends UIElement
 {
+    public static class ReferenceImage
+    {
+        public Link link;
+        public boolean visible = true;
+        public UITextureEditor editor;
+
+        public ReferenceImage(Link link, UITextureEditor editor)
+        {
+            this.link = link;
+            this.editor = editor;
+        }
+    }
+
     private static final int MODEL_PREVIEW_LEFT_WIDTH = 220;
     private static final int MODEL_PREVIEW_GAP = 6;
 
     private int sidePanelWidth = 190;
     private int sidePanelSplitY = 276;
+
+    public List<ReferenceImage> referenceImages = new ArrayList<>();
 
     public UITrackpad brightness;
     public UITrackpad brush;
@@ -309,6 +324,7 @@ public class UITexturePainter extends UIElement
             int brushSize = Math.max(1, v.intValue());
 
             this.main.setBrushSize(brushSize);
+            this.forEachReferenceEditor((editor) -> editor.setBrushSize(brushSize));
 
             if (this.reference != null)
             {
@@ -915,7 +931,7 @@ public class UITexturePainter extends UIElement
         this.imageRow = new UIElement();
         this.imageRow.relative(this.mediaTabContent).full(this.mediaTabContent);
 
-        this.selectTextureButton = new UIButton(UIKeys.TEXTURE_PICK_TEXTURE, (b) -> this.openTextureSelector());
+        this.selectTextureButton = new UIButton(UIKeys.TEXTURE_PAINTER_ADD_REFERENCE, (b) -> this.openTextureSelector());
         this.selectTextureButton.relative(this.imageRow).xy(0, 0).w(1F).h(20).tooltip(UIKeys.TEXTURE_PAINTER_OPEN_TEXTURE_PICKER, Direction.BOTTOM);
 
         this.imageRows = UI.scrollView(2, 0);
@@ -1017,6 +1033,7 @@ public class UITexturePainter extends UIElement
         this.setBottomTab(true);
         this.ensureDefaultLayer();
         this.refreshLayerRows();
+        this.refreshImageRows();
         this.updateColorSlots();
         this.add(this.sidePanel);
     }
@@ -1149,8 +1166,7 @@ public class UITexturePainter extends UIElement
                 return;
             }
 
-            this.addImageTexture(link, true);
-            this.fillTexture(link);
+            this.addReferenceImage(link);
         });
         picker.disablePixelEditor();
         picker.disableMultiSkin();
@@ -1172,6 +1188,195 @@ public class UITexturePainter extends UIElement
             this.texturePickerPopup.removeFromParent();
             this.texturePickerPopup = null;
         }
+    }
+
+    public void addReferenceImage(Link link)
+    {
+        if (link == null)
+        {
+            return;
+        }
+
+        for (ReferenceImage ref : this.referenceImages)
+        {
+            if (link.equals(ref.link))
+            {
+                ref.visible = true;
+
+                if (ref.editor != null)
+                {
+                    ref.editor.setVisible(true);
+                }
+
+                this.updateEditorsLayout();
+                this.refreshImageRows();
+                this.resize();
+
+                return;
+            }
+        }
+
+        UITextureEditor refEditor = new UITextureEditor();
+        refEditor.fillTexture(link);
+        refEditor.setEditing(false);
+        this.configureEditor(refEditor);
+        refEditor.undo.removeFromParent();
+        refEditor.redo.removeFromParent();
+        refEditor.resize.removeFromParent();
+        refEditor.extract.removeFromParent();
+        refEditor.save.removeFromParent();
+
+        this.addBefore(this.sidePanel, refEditor);
+
+        ReferenceImage refItem = new ReferenceImage(link, refEditor);
+        this.referenceImages.add(refItem);
+
+        this.updateEditorsLayout();
+        this.refreshImageRows();
+        this.resize();
+    }
+
+    public void removeReferenceImage(int index)
+    {
+        if (index >= 0 && index < this.referenceImages.size())
+        {
+            ReferenceImage ref = this.referenceImages.remove(index);
+
+            if (ref.editor != null)
+            {
+                ref.editor.removeFromParent();
+            }
+
+            this.updateEditorsLayout();
+            this.refreshImageRows();
+            this.resize();
+        }
+    }
+
+    public void toggleReferenceVisibility(int index)
+    {
+        if (index >= 0 && index < this.referenceImages.size())
+        {
+            ReferenceImage ref = this.referenceImages.get(index);
+            ref.visible = !ref.visible;
+
+            if (ref.editor != null)
+            {
+                ref.editor.setVisible(ref.visible);
+            }
+
+            this.updateEditorsLayout();
+            this.refreshImageRows();
+            this.resize();
+        }
+    }
+
+    private void refreshImageRows()
+    {
+        if (this.imageRows == null)
+        {
+            return;
+        }
+
+        this.imageRows.removeAll();
+
+        if (this.referenceImages.isEmpty())
+        {
+            UIElement emptyLabel = UI.label(UIKeys.TEXTURE_PAINTER_NO_REFERENCES, 16);
+            emptyLabel.h(40);
+            this.imageRows.add(emptyLabel);
+            this.imageRows.resize();
+
+            return;
+        }
+
+        for (int i = 0; i < this.referenceImages.size(); i++)
+        {
+            final int index = i;
+            final ReferenceImage ref = this.referenceImages.get(i);
+            final Link texture = ref.link;
+            String name = texture == null ? "reference.png" : StringUtils.fileName(texture.path);
+
+            if (name == null || name.isEmpty())
+            {
+                name = texture == null ? "reference" : texture.toString();
+            }
+
+            UIElement row = new UIElement()
+            {
+                @Override
+                public void render(UIContext context)
+                {
+                    int color = this.area.isInside(context) ? (Colors.A50 | BBSSettings.primaryColor.get()) : Colors.A25;
+                    this.area.render(context.batcher, color);
+                    super.render(context);
+                }
+            };
+            row.h(22);
+
+            UIElement preview = new UIElement()
+            {
+                @Override
+                public void render(UIContext context)
+                {
+                    super.render(context);
+
+                    context.batcher.iconArea(Icons.CHECKBOARD, Colors.A50, this.area.x, this.area.y, this.area.w, this.area.h);
+                    context.batcher.outline(this.area.x, this.area.y, this.area.ex(), this.area.ey(), Colors.A100);
+
+                    if (texture != null)
+                    {
+                        Texture thumbnail = BBSModClient.getTextures().getTexture(texture);
+
+                        if (thumbnail != null && thumbnail.isValid())
+                        {
+                            context.batcher.fullTexturedBox(thumbnail, this.area.x, this.area.y, this.area.w, this.area.h);
+                        }
+                    }
+                }
+            };
+            preview.relative(row).xy(2, 2).wh(18, 18);
+
+            UIButton nameButton = new UIButton(IKey.constant(name), (b) -> {});
+            nameButton.relative(row).x(24).y(1).w(1F, -66).h(20);
+            nameButton.background(false).textColor(ref.visible ? Colors.WHITE : 0x888888, false);
+            if (texture != null)
+            {
+                nameButton.tooltip(IKey.constant(texture.toString()), Direction.BOTTOM);
+            }
+            nameButton.context((menu) ->
+            {
+                menu.action(Icons.COPY, UIKeys.TEXTURE_PAINTER_COPY, () ->
+                {
+                    if (ref.editor != null)
+                    {
+                        ref.editor.copySelection();
+                    }
+                });
+                menu.action(Icons.VISIBLE, ref.visible ? UIKeys.TEXTURE_PAINTER_HIDE_LAYER : UIKeys.TEXTURE_PAINTER_SHOW_LAYER, () -> this.toggleReferenceVisibility(index));
+                menu.action(Icons.REMOVE, UIKeys.TEXTURE_PAINTER_REMOVE_LAYER, () -> this.removeReferenceImage(index));
+            });
+
+            UIIcon visibility = new UIIcon(
+                ref.visible ? Icons.VISIBLE : Icons.INVISIBLE,
+                (b) -> this.toggleReferenceVisibility(index)
+            );
+            visibility.wh(18, 18).tooltip(ref.visible ? UIKeys.TEXTURE_PAINTER_HIDE_LAYER : UIKeys.TEXTURE_PAINTER_SHOW_LAYER, Direction.BOTTOM);
+
+            UIIcon remove = new UIIcon(
+                Icons.REMOVE,
+                (b) -> this.removeReferenceImage(index)
+            );
+            remove.wh(18, 18).tooltip(UIKeys.TEXTURE_PAINTER_REMOVE_LAYER, Direction.BOTTOM);
+
+            UIElement buttons = UI.row(2, visibility, remove);
+            buttons.relative(row).x(1F, -40).y(2).wh(38, 18);
+
+            row.add(preview, nameButton, buttons);
+            this.imageRows.add(row);
+        }
+
+        this.imageRows.resize();
     }
 
     private void ensureDefaultLayer()
@@ -1509,107 +1714,6 @@ public class UITexturePainter extends UIElement
         return -1;
     }
 
-    private void addImageTexture(Link texture, boolean select)
-    {
-        if (texture == null)
-        {
-            return;
-        }
-
-        for (int i = 0; i < this.imageTextures.size(); i++)
-        {
-            if (texture.equals(this.imageTextures.get(i)))
-            {
-                if (select)
-                {
-                    this.selectedImageIndex = i;
-                }
-
-                this.refreshImageRows();
-
-                return;
-            }
-        }
-
-        this.imageTextures.add(texture);
-
-        if (select)
-        {
-            this.selectedImageIndex = this.imageTextures.size() - 1;
-        }
-
-        this.refreshImageRows();
-    }
-
-    private void refreshImageRows()
-    {
-        if (this.imageRows == null)
-        {
-            return;
-        }
-
-        this.imageRows.removeAll();
-
-        for (int i = 0; i < this.imageTextures.size(); i++)
-        {
-            final int index = i;
-            Link texture = this.imageTextures.get(i);
-            String name = StringUtils.fileName(texture.path);
-
-            if (name == null || name.isEmpty())
-            {
-                name = texture.toString();
-            }
-
-            UIElement row = new UIElement()
-            {
-                @Override
-                public void render(UIContext context)
-                {
-                    boolean selected = index == UITexturePainter.this.selectedImageIndex;
-                    int color = selected ? (Colors.A50 | BBSSettings.primaryColor.get()) : Colors.A25;
-
-                    this.area.render(context.batcher, color);
-                    super.render(context);
-                }
-            };
-            row.relative(this.imageRows).x(0).y(i * 22).w(1F, -8).h(20);
-
-            UIElement preview = new UIElement()
-            {
-                @Override
-                public void render(UIContext context)
-                {
-                    super.render(context);
-
-                    context.batcher.iconArea(Icons.CHECKBOARD, Colors.A50, this.area.x, this.area.y, this.area.w, this.area.h);
-                    context.batcher.outline(this.area.x, this.area.y, this.area.ex(), this.area.ey(), Colors.A100);
-
-                    Texture thumbnail = BBSModClient.getTextures().getTexture(texture);
-
-                    if (thumbnail != null && thumbnail.isValid())
-                    {
-                        context.batcher.fullTexturedBox(thumbnail, this.area.x, this.area.y, this.area.w, this.area.h);
-                    }
-                }
-            };
-            preview.relative(row).xy(2, 2).wh(16, 16);
-
-            UIButton select = new UIButton(IKey.constant(name), (b) ->
-            {
-                this.selectedImageIndex = index;
-                this.fillTexture(this.imageTextures.get(index));
-            });
-            select.relative(row).x(20).y(0).w(1F, -20).h(20);
-            select.background(false).textColor(index == this.selectedImageIndex ? Colors.WHITE : 0xd0d0d0, false);
-            select.tooltip(IKey.constant(texture.toString()), Direction.BOTTOM);
-
-            row.add(preview, select);
-            this.imageRows.add(row);
-        }
-
-        this.imageRows.resize();
-    }
 
     private void refreshLayerRows()
     {
@@ -1870,7 +1974,20 @@ public class UITexturePainter extends UIElement
 
     private UITextureEditor getHoverEditor(UIContext context)
     {
-        return this.main.area.isInside(context) ? this.main : (this.reference != null && this.reference.area.isInside(context) ? this.reference : null);
+        if (this.main.area.isInside(context))
+        {
+            return this.main;
+        }
+
+        for (ReferenceImage ref : this.referenceImages)
+        {
+            if (ref.visible && ref.editor != null && ref.editor.area.isInside(context))
+            {
+                return ref.editor;
+            }
+        }
+
+        return this.reference != null && this.reference.area.isInside(context) ? this.reference : null;
     }
 
     private void pickColor()
@@ -1946,10 +2063,22 @@ public class UITexturePainter extends UIElement
         editor.setBrushSize((int) this.brush.getValue());
     }
 
+    private void forEachReferenceEditor(Consumer<UITextureEditor> consumer)
+    {
+        for (ReferenceImage ref : this.referenceImages)
+        {
+            if (ref.editor != null)
+            {
+                consumer.accept(ref.editor);
+            }
+        }
+    }
+
     public void setShapeType(UIPixelsEditor.ShapeType shapeType)
     {
         this.activeShapeType = shapeType == null ? UIPixelsEditor.ShapeType.RECTANGLE : shapeType;
         this.main.setShapeType(this.activeShapeType);
+        this.forEachReferenceEditor((editor) -> editor.setShapeType(this.activeShapeType));
 
         if (this.reference != null)
         {
@@ -1963,6 +2092,7 @@ public class UITexturePainter extends UIElement
     {
         this.shapeFilled = !this.shapeFilled;
         this.main.setShapeFilled(this.shapeFilled);
+        this.forEachReferenceEditor((editor) -> editor.setShapeFilled(this.shapeFilled));
 
         if (this.reference != null)
         {
@@ -1974,6 +2104,7 @@ public class UITexturePainter extends UIElement
     {
         this.mirrorX = !this.mirrorX;
         this.main.setMirrorX(this.mirrorX);
+        this.forEachReferenceEditor((editor) -> editor.setMirrorX(this.mirrorX));
 
         if (this.reference != null)
         {
@@ -1987,6 +2118,7 @@ public class UITexturePainter extends UIElement
     {
         this.mirrorY = !this.mirrorY;
         this.main.setMirrorY(this.mirrorY);
+        this.forEachReferenceEditor((editor) -> editor.setMirrorY(this.mirrorY));
 
         if (this.reference != null)
         {
@@ -2000,6 +2132,7 @@ public class UITexturePainter extends UIElement
     {
         this.pixelPerfect = !this.pixelPerfect;
         this.main.setPixelPerfect(this.pixelPerfect);
+        this.forEachReferenceEditor((editor) -> editor.setPixelPerfect(this.pixelPerfect));
 
         if (this.reference != null)
         {
@@ -2014,6 +2147,7 @@ public class UITexturePainter extends UIElement
         this.activeTool = tool == null ? UIPixelsEditor.Tool.BRUSH : tool;
 
         this.main.setTool(this.activeTool);
+        this.forEachReferenceEditor((editor) -> editor.setTool(this.activeTool));
 
         if (this.reference != null)
         {
@@ -2028,6 +2162,7 @@ public class UITexturePainter extends UIElement
         this.activeBrushShape = brushShape == null ? UIPixelsEditor.BrushShape.SQUARE : brushShape;
 
         this.main.setBrushShape(this.activeBrushShape);
+        this.forEachReferenceEditor((editor) -> editor.setBrushShape(this.activeBrushShape));
 
         if (this.reference != null)
         {
@@ -2443,7 +2578,6 @@ public class UITexturePainter extends UIElement
         this.saveCurrentTextureLayers();
         this.main.fillTexture(current);
         this.main.setEditing(true);
-        this.addImageTexture(current, true);
         this.loadTextureLayers(current);
         this.loadSelectedLayerPixels();
         this.refreshLayerRows();
@@ -2466,46 +2600,96 @@ public class UITexturePainter extends UIElement
 
     private void updateEditorsLayout()
     {
-        boolean sidePanelVisible = this.reference == null || this.modelPreviewArea.isVisible();
+        boolean sidePanelVisible = true;
         this.sidePanel.setVisible(sidePanelVisible);
         this.sidePanelResizer.setVisible(sidePanelVisible);
+
+        List<UITextureEditor> allCanvases = new ArrayList<>();
+        allCanvases.add(this.main);
+
+        for (ReferenceImage ref : this.referenceImages)
+        {
+            if (ref.visible && ref.editor != null)
+            {
+                allCanvases.add(ref.editor);
+                ref.editor.setVisible(true);
+            }
+            else if (ref.editor != null)
+            {
+                ref.editor.setVisible(false);
+            }
+        }
+
+        if (this.reference != null)
+        {
+            this.reference.setVisible(false);
+        }
+
+        int N = allCanvases.size();
+        int rows = (N <= 2) ? 1 : ((N <= 6) ? 2 : (int) Math.ceil(Math.sqrt(N)));
+        int cols = (int) Math.ceil((double) N / rows);
+        float itemHFrac = 1F / rows;
+        float defaultItemWFrac = 1F / cols;
 
         if (this.modelPreviewArea.isVisible())
         {
             this.modelPreviewArea.relative(this).x(0).y(6).w(MODEL_PREVIEW_LEFT_WIDTH).h(1F, -12);
             this.sidePanel.relative(this).x(1F, -this.sidePanelWidth).y(0).w(this.sidePanelWidth).h(1F);
             this.sidePanelResizer.relative(this).x(1F, -this.sidePanelWidth - 3).y(0).w(6).h(1F);
-            this.main.relative(this)
-                .xy(MODEL_PREVIEW_LEFT_WIDTH + MODEL_PREVIEW_GAP, 0)
-                .w(1F, -(this.sidePanelWidth + MODEL_PREVIEW_LEFT_WIDTH + MODEL_PREVIEW_GAP + 4))
-                .h(1F);
 
-            if (this.reference != null)
+            int startX = MODEL_PREVIEW_LEFT_WIDTH + MODEL_PREVIEW_GAP;
+            int totalOffset = -(this.sidePanelWidth + MODEL_PREVIEW_LEFT_WIDTH + MODEL_PREVIEW_GAP + 4);
+
+            int currentIndex = 0;
+
+            for (int r = 0; r < rows && currentIndex < N; r++)
             {
-                this.reference.setVisible(false);
+                int remaining = N - currentIndex;
+                int countInThisRow = (r == rows - 1) ? remaining : Math.min(cols, remaining);
+                float startXFrac = (1F - countInThisRow * defaultItemWFrac) / 2F;
+
+                for (int c = 0; c < countInThisRow; c++)
+                {
+                    UITextureEditor canvas = allCanvases.get(currentIndex++);
+                    float xFrac = startXFrac + c * defaultItemWFrac;
+                    float yFrac = r * itemHFrac;
+
+                    canvas.relative(this)
+                        .x(xFrac, startX + (int) (xFrac * totalOffset))
+                        .y(yFrac, 0)
+                        .w(defaultItemWFrac, (int) (defaultItemWFrac * totalOffset))
+                        .h(itemHFrac, 0);
+                }
             }
 
             return;
         }
 
-        if (this.reference == null)
+        int totalOffset = -(this.sidePanelWidth + 4);
+
+        this.sidePanel.relative(this).x(1F, -this.sidePanelWidth).y(0).w(this.sidePanelWidth).h(1F);
+        this.sidePanelResizer.relative(this).x(1F, -this.sidePanelWidth - 3).y(0).w(6).h(1F);
+
+        int currentIndex = 0;
+
+        for (int r = 0; r < rows && currentIndex < N; r++)
         {
-            if (sidePanelVisible)
+            int remaining = N - currentIndex;
+            int countInThisRow = (r == rows - 1) ? remaining : Math.min(cols, remaining);
+            float startXFrac = (1F - countInThisRow * defaultItemWFrac) / 2F;
+
+            for (int c = 0; c < countInThisRow; c++)
             {
-                this.main.relative(this).xy(0, 0).w(1F, -(this.sidePanelWidth + 4)).h(1F);
-                this.sidePanel.relative(this).x(1F, -this.sidePanelWidth).y(0).w(this.sidePanelWidth).h(1F);
-                this.sidePanelResizer.relative(this).x(1F, -this.sidePanelWidth - 3).y(0).w(6).h(1F);
+                UITextureEditor canvas = allCanvases.get(currentIndex++);
+                float xFrac = startXFrac + c * defaultItemWFrac;
+                float yFrac = r * itemHFrac;
+
+                canvas.relative(this)
+                    .x(xFrac, (int) (xFrac * totalOffset))
+                    .y(yFrac, 0)
+                    .w(defaultItemWFrac, (int) (defaultItemWFrac * totalOffset))
+                    .h(itemHFrac, 0);
             }
-            else
-            {
-                this.main.relative(this).xy(0, 0).w(1F).h(1F);
-            }
-        }
-        else
-        {
-            this.main.relative(this).xy(0, 0).w(0.5F).h(1F);
-            this.reference.relative(this).xy(0.5F, 0).w(0.5F).h(1F);
-            this.reference.setVisible(true);
         }
     }
 
@@ -2596,7 +2780,7 @@ public class UITexturePainter extends UIElement
 
         UITextureEditor editor = this.getHoverEditor(context);
 
-        if (editor != null)
+        if (editor != null && editor.getPixels() != null)
         {
             Vector2i pixel = editor.getHoverPixel(context.mouseX, context.mouseY);
             Color color = editor.getPixels().getColor(pixel.x, pixel.y);
