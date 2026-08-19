@@ -77,6 +77,7 @@ public class UITrackpad extends UIBaseTextbox
     private int initialX;
     private int initialY;
     private double lastValue;
+    private double scrollAccumulator;
 
     private Timer changed = new Timer(30);
 
@@ -504,6 +505,7 @@ public class UITrackpad extends UIBaseTextbox
                 this.initialX = context.mouseX;
                 this.initialY = context.mouseY;
                 this.time = System.currentTimeMillis();
+                this.changed.reset();
 
                 /* Emit before caching lastValue so listeners can re-sync the
                  * numeric value from the model (e.g. keyframe tick). */
@@ -591,13 +593,13 @@ public class UITrackpad extends UIBaseTextbox
         {
             double step = this.getScrollStep();
 
-            if (context.mouseWheel > 0)
+            this.scrollAccumulator += context.mouseWheel;
+            int ticks = (int) this.scrollAccumulator;
+
+            if (ticks != 0)
             {
-                this.setValueAndNotify(this.value + step);
-            }
-            else
-            {
-                this.setValueAndNotify(this.value - step);
+                this.scrollAccumulator -= ticks;
+                this.setValueAndNotify(this.value + step * ticks);
             }
 
             return true;
@@ -848,13 +850,13 @@ public class UITrackpad extends UIBaseTextbox
             double factor = Math.ceil(ww / (double) context.menu.width);
             int mouseX = context.globalX(context.mouseX);
 
-            /* Mouse doesn't change immediately the next frame after Mouse.setCursorPosition(),
-             * so this is a hack that stops for double shifting */
+            /* Edge wrap uses a short cooldown so Mouse.setCursorPosition() can settle. */
+            boolean skipValueUpdate = false;
+
             if (this.changed.isTime())
             {
                 final int border = 5;
                 final int borderPadding = border + 1;
-                boolean stop = false;
 
                 if (mouseX <= border)
                 {
@@ -862,7 +864,7 @@ public class UITrackpad extends UIBaseTextbox
 
                     this.shiftX -= context.menu.width - borderPadding * 2;
                     this.changed.mark();
-                    stop = true;
+                    skipValueUpdate = true;
                 }
                 else if (mouseX >= context.menu.width - border)
                 {
@@ -870,37 +872,37 @@ public class UITrackpad extends UIBaseTextbox
 
                     this.shiftX += context.menu.width - borderPadding * 2;
                     this.changed.mark();
-                    stop = true;
+                    skipValueUpdate = true;
+                }
+            }
+
+            if (!skipValueUpdate)
+            {
+                if (this.isFocused())
+                {
+                    context.unfocus();
                 }
 
-                if (!stop)
+                int dx = (this.shiftX + context.mouseX) - this.initialX;
+
+                if (dx != 0)
                 {
-                    if (this.isFocused())
+                    double value = this.getValueModifier();
+
+                    double diff = (Math.abs(dx) - 3) * value;
+                    double newValue = this.lastValue + (dx < 0 ? -diff : diff);
+
+                    newValue = diff < 0 ? this.lastValue : newValue;
+
+                    if (this.value != newValue)
                     {
-                        context.unfocus();
-                    }
-
-                    int dx = (this.shiftX + context.mouseX) - this.initialX;
-
-                    if (dx != 0)
-                    {
-                        double value = this.getValueModifier();
-
-                        double diff = (Math.abs(dx) - 3) * value;
-                        double newValue = this.lastValue + (dx < 0 ? -diff : diff);
-
-                        newValue = diff < 0 ? this.lastValue : newValue;
-
-                        if (this.value != newValue)
+                        if (this.delayedInput)
                         {
-                            if (this.delayedInput)
-                            {
-                                this.setValue(newValue);
-                            }
-                            else
-                            {
-                                this.setValueAndNotify(newValue);
-                            }
+                            this.setValue(newValue);
+                        }
+                        else
+                        {
+                            this.setValueAndNotify(newValue);
                         }
                     }
                 }
