@@ -90,6 +90,8 @@ public class UITexturePainter extends UIElement
     public UIFormRenderer modelPreview;
     public UIIcon toolBrush;
     public UIIcon toolEraser;
+    public UIIcon toolShading;
+    public UIIcon toolNoise;
     public UIIcon toolSelect;
     public UIIcon toolPick;
     public UIIcon toolFill;
@@ -103,6 +105,9 @@ public class UITexturePainter extends UIElement
     public UIIcon toolPixelPerfect;
     public UIIcon toolImageOps;
     public UIButton extractPaletteButton;
+    public UIButton palettePresetsButton;
+    public UIButton paletteImportButton;
+    public UIButton paletteExportButton;
     public UIElement paletteSwatchesContainer;
 
     private int[] paletteColors = new int[] {
@@ -342,6 +347,32 @@ public class UITexturePainter extends UIElement
                 }
             }
         };
+        this.toolShading = new UIIcon(Icons.SUN, (b) -> this.setActiveTool(UIPixelsEditor.Tool.SHADING))
+        {
+            @Override
+            protected void renderSkin(UIContext context)
+            {
+                super.renderSkin(context);
+
+                if (this.isActive())
+                {
+                    context.batcher.outline(this.area.x, this.area.y, this.area.ex(), this.area.ey(), 0xff000000 | BBSSettings.primaryColor.get());
+                }
+            }
+        };
+        this.toolNoise = new UIIcon(Icons.SPRAY, (b) -> this.setActiveTool(UIPixelsEditor.Tool.NOISE))
+        {
+            @Override
+            protected void renderSkin(UIContext context)
+            {
+                super.renderSkin(context);
+
+                if (this.isActive())
+                {
+                    context.batcher.outline(this.area.x, this.area.y, this.area.ex(), this.area.ey(), 0xff000000 | BBSSettings.primaryColor.get());
+                }
+            }
+        };
         this.toolSelect = new UIIcon(Icons.OUTLINE, (b) -> this.setActiveTool(UIPixelsEditor.Tool.SELECT))
         {
             @Override
@@ -357,6 +388,10 @@ public class UITexturePainter extends UIElement
         };
         this.toolSelect.context((menu) ->
         {
+            menu.action(Icons.FULLSCREEN, UIKeys.TEXTURE_PAINTER_SELECT_ALL, this::selectAll);
+            menu.action(Icons.COPY, UIKeys.TEXTURE_PAINTER_COPY, this::copySelection);
+            menu.action(Icons.CUT, UIKeys.TEXTURE_PAINTER_CUT, this::cutSelection);
+            menu.action(Icons.PASTE, UIKeys.TEXTURE_PAINTER_PASTE, this::pasteSelection);
             menu.action(Icons.CLOSE, UIKeys.TEXTURE_PAINTER_DESELECT, this::clearSelection);
         });
         this.toolPick = new UIIcon(Icons.DROPPER, (b) -> this.setActiveTool(UIPixelsEditor.Tool.PICK))
@@ -498,6 +533,8 @@ public class UITexturePainter extends UIElement
 
         this.toolBrush.tooltip(UIKeys.GENERAL_EDIT, Direction.BOTTOM);
         this.toolEraser.tooltip(UIKeys.TEXTURE_EDITOR_ERASE, Direction.BOTTOM);
+        this.toolShading.tooltip(UIKeys.TEXTURE_PAINTER_TOOL_SHADING, Direction.BOTTOM);
+        this.toolNoise.tooltip(UIKeys.TEXTURE_PAINTER_TOOL_NOISE, Direction.BOTTOM);
         this.toolSelect.tooltip(UIKeys.TEXTURE_PAINTER_TOOL_SELECT, Direction.BOTTOM);
         this.toolShape.tooltip(UIKeys.TEXTURE_PAINTER_TOOL_SHAPE, Direction.BOTTOM);
         this.toolGradient.tooltip(UIKeys.TEXTURE_PAINTER_TOOL_GRADIENT, Direction.BOTTOM);
@@ -534,11 +571,14 @@ public class UITexturePainter extends UIElement
         this.main.resize.removeFromParent();
         this.main.extract.removeFromParent();
         this.main.save.removeFromParent();
+        this.main.resize.callback = (b) -> this.openResizeOverlay();
         this.main.resize.tooltip(UIKeys.TEXTURES_RESIZE, Direction.BOTTOM);
         this.main.extract.tooltip(UIKeys.TEXTURES_EXTRACT_FRAMES_TITLE, Direction.BOTTOM);
         this.main.save.tooltip(UIKeys.TEXTURES_SAVE, Direction.BOTTOM);
         this.toolBrush.wh(20, 20).minW(20).maxW(20);
         this.toolEraser.wh(20, 20).minW(20).maxW(20);
+        this.toolShading.wh(20, 20).minW(20).maxW(20);
+        this.toolNoise.wh(20, 20).minW(20).maxW(20);
         this.toolSelect.wh(20, 20).minW(20).maxW(20);
         this.toolShape.wh(20, 20).minW(20).maxW(20);
         this.toolGradient.wh(20, 20).minW(20).maxW(20);
@@ -561,6 +601,8 @@ public class UITexturePainter extends UIElement
             0,
             this.toolBrush,
             this.toolEraser,
+            this.toolShading,
+            this.toolNoise,
             this.toolSelect,
             this.toolShape,
             this.toolGradient,
@@ -696,7 +738,53 @@ public class UITexturePainter extends UIElement
         this.extractPaletteButton.relative(this.paletteTabContent).xy(0, 92).w(1F).h(20);
         this.extractPaletteButton.tooltip(UIKeys.TEXTURE_PAINTER_EXTRACT_PALETTE, Direction.BOTTOM);
 
-        this.paletteTabContent.add(this.paletteSwatchesContainer, this.extractPaletteButton);
+        this.palettePresetsButton = new UIButton(UIKeys.TEXTURE_PAINTER_PALETTE_PRESETS, (b) -> {});
+        this.palettePresetsButton.context((menu) ->
+        {
+            menu.action(Icons.BLOCK, UIKeys.TEXTURE_PAINTER_PALETTE_VANILLA, () -> this.applyPalettePreset(new int[] {
+                0x1f1f1f, 0xffffff, 0x8f3f20, 0xd87f33, 0xb02e26, 0xf9801d,
+                0x5e7c16, 0x835432, 0x3c44aa, 0x8932b8, 0x169c9c, 0x474f52,
+                0x9c9d97, 0x33ebcb, 0xea323c, 0x00bfff, 0xffd700, 0x7cfc00
+            }));
+            menu.action(Icons.SUN, UIKeys.TEXTURE_PAINTER_PALETTE_NETHER, () -> this.applyPalettePreset(new int[] {
+                0x1a0808, 0x380e0e, 0x5e1818, 0x8a2020, 0xbe2b2b, 0xf04824,
+                0xff7b00, 0xffb700, 0x301934, 0x4d134d, 0x800080, 0x9932cc,
+                0x0d3b66, 0x006494, 0x00a6fb, 0x0582ca, 0x006466, 0x065a60
+            }));
+            menu.action(Icons.SPHERE, UIKeys.TEXTURE_PAINTER_PALETTE_END, () -> this.applyPalettePreset(new int[] {
+                0x0b0813, 0x18122b, 0x271e3d, 0x392467, 0x5d3587, 0xa367b1,
+                0xdf826c, 0xebd9b4, 0xdbcfb0, 0xb8aa85, 0x8f825e, 0x61563b,
+                0x103738, 0x1b5c5e, 0x298487, 0x45b3b6, 0x72e1e4, 0xaef7f9
+            }));
+            menu.action(Icons.JOYSTICK, UIKeys.TEXTURE_PAINTER_PALETTE_PICO8, () -> this.applyPalettePreset(new int[] {
+                0x000000, 0x1d2b53, 0x7e2553, 0x008751, 0xab5236, 0x5f574f,
+                0xc2c3c7, 0xfff1e8, 0xff004d, 0xffa300, 0xffec27, 0x00e436,
+                0x29adff, 0x83769c, 0xff77a8, 0xffccaa, 0x222034, 0xffffff
+            }));
+            menu.action(Icons.TREE, UIKeys.TEXTURE_PAINTER_PALETTE_NATURE, () -> this.applyPalettePreset(new int[] {
+                0x1e3f20, 0x2d5a27, 0x3e7a33, 0x529a42, 0x6bbb55, 0x8ee06f,
+                0x3d2817, 0x5c3c21, 0x7f532f, 0xa06b3e, 0xc48954, 0xe4ab76,
+                0x2b3a42, 0x3f5866, 0x56778a, 0x709bb0, 0x93c0d6, 0xc4e5f2
+            }));
+        });
+        this.palettePresetsButton.relative(this.paletteTabContent).xy(0, 116).w(1F).h(20);
+        this.palettePresetsButton.tooltip(UIKeys.TEXTURE_PAINTER_PALETTE_PRESETS, Direction.BOTTOM);
+
+        this.paletteImportButton = new UIButton(UIKeys.TEXTURE_PAINTER_PALETTE_IMPORT, (b) -> this.importPaletteFromClipboard());
+        this.paletteImportButton.relative(this.paletteTabContent).xy(0, 140).w(0.5F, -2).h(20);
+        this.paletteImportButton.tooltip(UIKeys.TEXTURE_PAINTER_PALETTE_IMPORT, Direction.BOTTOM);
+
+        this.paletteExportButton = new UIButton(UIKeys.TEXTURE_PAINTER_PALETTE_EXPORT, (b) -> this.exportPaletteToClipboard());
+        this.paletteExportButton.relative(this.paletteTabContent).x(0.5F, 2).y(140).w(0.5F, -2).h(20);
+        this.paletteExportButton.tooltip(UIKeys.TEXTURE_PAINTER_PALETTE_EXPORT, Direction.BOTTOM);
+
+        this.paletteTabContent.add(
+            this.paletteSwatchesContainer,
+            this.extractPaletteButton,
+            this.palettePresetsButton,
+            this.paletteImportButton,
+            this.paletteExportButton
+        );
         this.refreshPaletteSwatches();
 
         this.tabImages = new UIButton(UIKeys.TEXTURE_PAINTER_TAB_IMAGES, (b) -> this.setBottomTab(false));
@@ -1816,6 +1904,8 @@ public class UITexturePainter extends UIElement
     {
         this.toolBrush.active(this.activeTool == UIPixelsEditor.Tool.BRUSH);
         this.toolEraser.active(this.activeTool == UIPixelsEditor.Tool.ERASER);
+        this.toolShading.active(this.activeTool == UIPixelsEditor.Tool.SHADING);
+        this.toolNoise.active(this.activeTool == UIPixelsEditor.Tool.NOISE);
         this.toolSelect.active(this.activeTool == UIPixelsEditor.Tool.SELECT);
         this.toolShape.active(this.activeTool == UIPixelsEditor.Tool.SHAPE);
         this.toolGradient.active(this.activeTool == UIPixelsEditor.Tool.GRADIENT);
@@ -1827,6 +1917,132 @@ public class UITexturePainter extends UIElement
         this.toolMirrorX.active(this.mirrorX);
         this.toolMirrorY.active(this.mirrorY);
         this.toolPixelPerfect.active(this.pixelPerfect);
+    }
+
+    private void openResizeOverlay()
+    {
+        Pixels pixels = this.main.getPixels();
+        int w = pixels == null ? 64 : pixels.width;
+        int h = pixels == null ? 64 : pixels.height;
+
+        UIResizeTextureOverlayPanel panel = new UIResizeTextureOverlayPanel(w, h, this::resizeTexture);
+
+        UIOverlay.addOverlay(this.getContext(), panel);
+    }
+
+    public void resizeTexture(int width, int height, boolean rescale, boolean center)
+    {
+        if (width <= 0 || height <= 0)
+        {
+            return;
+        }
+
+        this.storeActiveLayerPixels();
+
+        for (TextureLayer layer : this.layers)
+        {
+            if (layer.pixels == null)
+            {
+                layer.pixels = Pixels.fromSize(width, height);
+                continue;
+            }
+
+            Pixels old = layer.pixels;
+            Pixels resized = Pixels.fromSize(width, height);
+
+            if (rescale)
+            {
+                /* Rescale using Nearest Neighbor for crisp pixel art */
+                for (int x = 0; x < width; x++)
+                {
+                    int srcX = Math.min(old.width - 1, (int) Math.floor((float) x / width * old.width));
+
+                    for (int y = 0; y < height; y++)
+                    {
+                        int srcY = Math.min(old.height - 1, (int) Math.floor((float) y / height * old.height));
+                        Color color = old.getColor(srcX, srcY);
+
+                        if (color != null)
+                        {
+                            resized.setColor(x, y, color);
+                        }
+                    }
+                }
+            }
+            else
+            {
+                /* Canvas resize with anchor */
+                int ox = center ? (width - old.width) / 2 : 0;
+                int oy = center ? (height - old.height) / 2 : 0;
+
+                for (int x = 0; x < old.width; x++)
+                {
+                    int dx = ox + x;
+
+                    if (dx < 0 || dx >= width)
+                    {
+                        continue;
+                    }
+
+                    for (int y = 0; y < old.height; y++)
+                    {
+                        int dy = oy + y;
+
+                        if (dy < 0 || dy >= height)
+                        {
+                            continue;
+                        }
+
+                        Color color = old.getColor(x, y);
+
+                        if (color != null)
+                        {
+                            resized.setColor(dx, dy, color);
+                        }
+                    }
+                }
+            }
+
+            old.delete();
+            layer.pixels = resized;
+            layer.undoManager = null;
+        }
+
+        if (this.layersCompositePixels != null)
+        {
+            this.layersCompositePixels.delete();
+            this.layersCompositePixels = null;
+        }
+
+        this.loadSelectedLayerPixels();
+        this.refreshLayerRows();
+        this.saveCurrentTextureLayers();
+        this.refreshModelPreview();
+    }
+
+    public void selectAll()
+    {
+        this.main.selectAll();
+
+        if (this.reference != null)
+        {
+            this.reference.selectAll();
+        }
+    }
+
+    public void copySelection()
+    {
+        this.main.copySelection();
+    }
+
+    public void cutSelection()
+    {
+        this.main.cutSelection();
+    }
+
+    public void pasteSelection()
+    {
+        this.main.pasteSelection();
     }
 
     public void clearSelection()
@@ -2009,6 +2225,75 @@ public class UITexturePainter extends UIElement
         }
 
         this.refreshPaletteSwatches();
+    }
+
+    public void applyPalettePreset(int[] colors)
+    {
+        if (colors == null || colors.length == 0)
+        {
+            return;
+        }
+
+        for (int i = 0; i < Math.min(colors.length, this.paletteColors.length); i++)
+        {
+            this.paletteColors[i] = colors[i];
+        }
+
+        this.refreshPaletteSwatches();
+    }
+
+    public void exportPaletteToClipboard()
+    {
+        StringBuilder sb = new StringBuilder();
+
+        for (int color : this.paletteColors)
+        {
+            sb.append(String.format("#%06X", (color & 0xffffff))).append("\n");
+        }
+
+        Window.setClipboard(sb.toString().trim());
+    }
+
+    public void importPaletteFromClipboard()
+    {
+        String text = Window.getClipboard();
+
+        if (text == null || text.trim().isEmpty())
+        {
+            return;
+        }
+
+        List<Integer> parsed = new ArrayList<>();
+
+        for (String line : text.split("[\r\n,;]+"))
+        {
+            line = line.trim();
+
+            if (line.startsWith("#"))
+            {
+                line = line.substring(1);
+            }
+
+            if (line.length() == 6)
+            {
+                try
+                {
+                    parsed.add(Integer.parseInt(line, 16));
+                }
+                catch (Exception ignored)
+                {}
+            }
+        }
+
+        if (!parsed.isEmpty())
+        {
+            for (int i = 0; i < Math.min(parsed.size(), this.paletteColors.length); i++)
+            {
+                this.paletteColors[i] = parsed.get(i);
+            }
+
+            this.refreshPaletteSwatches();
+        }
     }
 
     public void fillTexture(Link current)
