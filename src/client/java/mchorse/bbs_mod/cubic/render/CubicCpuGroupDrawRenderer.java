@@ -109,19 +109,12 @@ public class CubicCpuGroupDrawRenderer extends CubicCubeRenderer
         ModelVAORenderer.setGroupColorEffectTransform(group.color.transform);
         ModelVAORenderer.setGroupFormColorTint(group.color);
 
-        float cr = this.r;
-        float cg = this.g;
-        float cb = this.b;
+        float savedR = this.r;
+        float savedG = this.g;
+        float savedB = this.b;
+        float savedA = this.a;
 
-        if (!group.color.hasActiveTransform())
-        {
-            cr *= group.color.r;
-            cg *= group.color.g;
-            cb *= group.color.b;
-            alpha *= group.color.a;
-        }
-
-        this.setColor(cr, cg, cb, alpha);
+        this.setColor(this.r, this.g, this.b, alpha);
 
         BufferBuilder groupBuilder = Tessellator.getInstance().begin(VertexFormat.DrawMode.TRIANGLES, this.pipeline.getVertexFormat());
 
@@ -133,5 +126,7 @@ public class CubicCpuGroupDrawRenderer extends CubicCubeRenderer
         {
             built.close();
         }
+
+        this.setColor(savedR, savedG, savedB, savedA);
     }
 }

@@ -84,6 +84,15 @@ public class KeyframeChannel <T> extends ValueList<Keyframe<T>>
             return;
         }
 
+        String id = this.getId();
+
+        if ("selected_slot".equals(id) || (id != null && id.endsWith("/selected_slot")))
+        {
+            kf.getInterpolation().setInterp(Interpolations.CONST);
+
+            return;
+        }
+
         if ((this.model ? BBSSettings.defaultModelInterpolation : BBSSettings.defaultInterpolation) == null)
         {
             return;
@@ -154,6 +163,32 @@ public class KeyframeChannel <T> extends ValueList<Keyframe<T>>
         else if (this.factory == KeyframeFactories.INTEGER) orDefault = (T) Integer.valueOf(0);
 
         return this.interpolate(ticks, orDefault);
+    }
+
+    /**
+     * Value of the last keyframe at or before {@code ticks}, ignoring interpolation.
+     * Discrete tracks (hotbar slot) must not blend across keys.
+     */
+    public T interpolateHeld(float ticks)
+    {
+        if (this.list.isEmpty())
+        {
+            return this.factory.createEmpty();
+        }
+
+        Keyframe<T> held = this.list.get(0);
+
+        for (Keyframe<T> frame : this.list)
+        {
+            if (frame.getTick() > ticks)
+            {
+                break;
+            }
+
+            held = frame;
+        }
+
+        return this.factory.copy(held.getValue());
     }
 
     public T interpolate(float ticks, T orDefault)

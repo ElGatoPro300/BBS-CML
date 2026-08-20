@@ -400,7 +400,8 @@ public class ItemFormRenderer extends FormRenderer<ItemForm>
 
     private void submitDeferredItemPaintOverlay(FormRenderingContext context, MatrixStack stack, Color resolvedPaint, float alpha, int overlay, ItemDisplayContext mode, boolean leftHand, LivingEntity itemEntity, EffectTransform transform, GlowSettings glowSettings, Color legacyGlow, float glowIntensity, boolean ui)
     {
-        Matrix4f positionMatrix = ModelVAORenderer.capturePaintOverlayRootMatrix(new Matrix4f(stack.peek().getPositionMatrix()));
+        Matrix4f exactMvm = new Matrix4f(RenderSystem.getModelViewMatrix());
+        Matrix4f exactStack = new Matrix4f(stack.peek().getPositionMatrix());
         Matrix3f normalMatrix = new Matrix3f(stack.peek().getNormalMatrix());
         Color paintOverlay = new Color(resolvedPaint.r, resolvedPaint.g, resolvedPaint.b, resolvedPaint.a);
 
@@ -411,10 +412,20 @@ public class ItemFormRenderer extends FormRenderer<ItemForm>
             CustomVertexConsumerProvider overlayConsumers = FormUtilsClient.getProvider();
             MatrixStack overlayStack = new MatrixStack();
 
-            overlayStack.peek().getPositionMatrix().set(positionMatrix);
+            overlayStack.peek().getPositionMatrix().set(exactStack);
             overlayStack.peek().getNormalMatrix().set(normalMatrix);
 
-            this.renderPaintOverlayPass(context, overlayStack, overlayConsumers, paintOverlay, overlay, ui, mode, leftHand, itemEntity, transform, glowSettings, legacyGlow, glowIntensity, alpha);
+            RenderSystem.getModelViewStack().pushMatrix();
+            RenderSystem.getModelViewStack().set(exactMvm);
+
+            try
+            {
+                this.renderPaintOverlayPass(context, overlayStack, overlayConsumers, paintOverlay, overlay, ui, mode, leftHand, itemEntity, transform, glowSettings, legacyGlow, glowIntensity, alpha);
+            }
+            finally
+            {
+                RenderSystem.getModelViewStack().popMatrix();
+            }
         });
     }
 
@@ -442,11 +453,17 @@ public class ItemFormRenderer extends FormRenderer<ItemForm>
         Matrix4f formRootInverse = new Matrix4f(stack.peek().getPositionMatrix()).invert();
 
         CustomVertexConsumerProvider.clearRunnables();
-        CustomVertexConsumerProvider.hijackVertexFormat((l) -> BlockEffectOverlayUniforms.configurePaintOverlayRenderState(formRootInverse, transform, false, glowSettings, legacyGlow, glowIntensity, alpha));
+        CustomVertexConsumerProvider.hijackVertexFormat((l) -> {
+            BlockEffectOverlayUniforms.configurePaintOverlayRenderState(formRootInverse, transform, false, glowSettings, legacyGlow, glowIntensity, alpha);
+            GL11.glDisable(GL11.GL_POLYGON_OFFSET_FILL);
+        });
 
         GlStateManager._enableBlend();
         GlStateManager._blendFuncSeparate(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA, 1, 0);
         GlStateManager._depthMask(false);
+
+        boolean wasOffset = GL11.glGetBoolean(GL11.GL_POLYGON_OFFSET_FILL);
+        if (wasOffset) GL11.glDisable(GL11.GL_POLYGON_OFFSET_FILL);
 
         consumers.setSubstitute(BBSRendering.getBlockPaintOverlayConsumer(paintOverlay));
         consumers.setUI(ui);
@@ -458,6 +475,11 @@ public class ItemFormRenderer extends FormRenderer<ItemForm>
         }
         finally
         {
+            if (wasOffset) GL11.glEnable(GL11.GL_POLYGON_OFFSET_FILL);
+            else GL11.glDisable(GL11.GL_POLYGON_OFFSET_FILL);
+
+            GL11.glPolygonOffset(0F, 0F);
+            
             consumers.setUI(false);
             consumers.setSubstitute(null);
             GlStateManager._depthMask(true);
@@ -485,6 +507,12 @@ public class ItemFormRenderer extends FormRenderer<ItemForm>
         GlStateManager._depthMask(false);
         // RenderSystem.setShaderColor(shaderScale, shaderScale, shaderScale, 1F);
 
+        CustomVertexConsumerProvider.hijackVertexFormat((l) ->
+        {
+            RenderSystem.enableBlend();
+            RenderSystem.blendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE);
+        });
+
         consumers.setSubstitute(BBSRendering.getGlowOverlayConsumer(glowColor));
 
         try
@@ -494,6 +522,7 @@ public class ItemFormRenderer extends FormRenderer<ItemForm>
         }
         finally
         {
+            CustomVertexConsumerProvider.clearRunnables();
             consumers.setSubstitute(null);
             // RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
             GlStateManager._depthMask(true);

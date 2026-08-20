@@ -28,6 +28,8 @@ import mchorse.bbs_mod.ui.utils.ScrollDirection;
 import mchorse.bbs_mod.ui.utils.TimelineRuler;
 import mchorse.bbs_mod.ui.utils.icons.Icon;
 import mchorse.bbs_mod.ui.utils.icons.Icons;
+import mchorse.bbs_mod.ui.framework.tooltips.LabelTooltip;
+import mchorse.bbs_mod.utils.Direction;
 import mchorse.bbs_mod.utils.CollectionUtils;
 import mchorse.bbs_mod.utils.MathUtils;
 import mchorse.bbs_mod.utils.Pair;
@@ -53,6 +55,8 @@ import java.util.Map;
 
 public class UIKeyframeDopeSheet implements IUIKeyframeGraph
 {
+    private UIKeyframeSheet hoveredCompactSheet;
+
     private static final int LEVEL_INDENT = 8;
     private static final int TRACK_LINE_HALF_HEIGHT = 1;
     private static final int TRACKS_BOTTOM_MARGIN = 36;
@@ -276,13 +280,12 @@ public class UIKeyframeDopeSheet implements IUIKeyframeGraph
 
     private String getSidebarTitle(String title, FontRenderer font, int availableWidth)
     {
-        if (font.getWidth(title) <= availableWidth)
+        if (availableWidth <= 0)
         {
-            return title;
+            return "";
         }
 
-        /* Horizontal sidebar scroll shows the full label. */
-        if (this.sidebarScrollMax > 0)
+        if (font.getWidth(title) <= availableWidth)
         {
             return title;
         }
@@ -370,10 +373,15 @@ public class UIKeyframeDopeSheet implements IUIKeyframeGraph
 
     public void setSidebarWidth(int sidebarWidth)
     {
-        int min = 100;
+        int min = 24;
         int max = this.keyframes.area.w > 0 ? Math.max(min, this.keyframes.area.w / 2) : Integer.MAX_VALUE;
 
         this.sidebarWidth = Math.max(min, Math.min(max, sidebarWidth));
+    }
+
+    public boolean isCompactSidebar()
+    {
+        return this.sidebarWidth < 60;
     }
 
     public int getDopeSheetY()
@@ -730,15 +738,18 @@ public class UIKeyframeDopeSheet implements IUIKeyframeGraph
             ? this.getGroupArrow(sheet)
             : (sheet.toggleExpanded != null ? (sheet.expanded ? Icons.UNCOLLAPSED : Icons.COLLAPSED) : null);
 
-        int left = this.keyframes.area.x + sheet.level * LEVEL_INDENT - this.sidebarScroll;
+        int levelIndent = this.isCompactSidebar() ? 0 : LEVEL_INDENT;
+        int left = this.keyframes.area.x + sheet.level * levelIndent - (this.isCompactSidebar() ? 0 : this.sidebarScroll);
 
-        if (sheet.groupHeader && !this.isWorldOrModelGroup(sheet) && !this.isFormGroup(sheet))
+        if (!this.isCompactSidebar() && sheet.groupHeader && !this.isWorldOrModelGroup(sheet) && !this.isFormGroup(sheet))
         {
             left += 4;
         }
 
         int iconWidth = 2 + (arrow != null ? arrow.w + 4 : 0);
-        int clickableWidth = Math.min(this.sidebarWidth - sheet.level * LEVEL_INDENT, iconWidth + font.getWidth(displayTitle) + 6);
+        int clickableWidth = this.isCompactSidebar()
+            ? this.sidebarWidth
+            : Math.min(this.sidebarWidth - sheet.level * LEVEL_INDENT, iconWidth + font.getWidth(displayTitle) + 6);
 
         clickableWidth = Math.max(0, clickableWidth);
 
@@ -1328,6 +1339,8 @@ public class UIKeyframeDopeSheet implements IUIKeyframeGraph
     @SuppressWarnings({"rawtypes", "IntegerDivisionInFloatingPointContext"})
     protected void renderGraph(UIContext context)
     {
+        this.hoveredCompactSheet = null;
+
         if (this.sheets.isEmpty())
         {
             return;
@@ -1385,12 +1398,9 @@ public class UIKeyframeDopeSheet implements IUIKeyframeGraph
                 String displayTitle = this.getSidebarTitle(title, font, availableWidth);
 
                 Icon arrow = this.getGroupArrow(sheet);
-                int iconX = sidebarX + 6 + sheet.level * LEVEL_INDENT;
-
-                if (this.isWorldOrModelGroup(sheet) || this.isFormGroup(sheet))
-                {
-                    iconX = sidebarX + 2 + sheet.level * LEVEL_INDENT;
-                }
+                int iconX = this.isCompactSidebar()
+                    ? sidebarX + (this.sidebarWidth - arrow.w) / 2
+                    : sidebarX + (this.isWorldOrModelGroup(sheet) || this.isFormGroup(sheet) ? 2 : 6) + sheet.level * LEVEL_INDENT;
 
                 int iconY = my - arrow.h / 2;
                 int textX = iconX + arrow.w + 4;
@@ -1409,8 +1419,16 @@ public class UIKeyframeDopeSheet implements IUIKeyframeGraph
 
                 context.batcher.clip(area.x, y, this.sidebarWidth, (int) this.trackHeight, context);
                 context.batcher.icon(arrow, iconX, iconY);
-                context.batcher.textShadow(displayTitle, textX, textY);
+                if (!this.isCompactSidebar())
+                {
+                    context.batcher.textShadow(displayTitle, textX, textY);
+                }
                 context.batcher.unclip(context);
+
+                if (hover && this.isCompactSidebar() && context.mouseX < area.x + this.sidebarWidth)
+                {
+                    this.hoveredCompactSheet = sheet;
+                }
 
                 continue;
             }
@@ -1607,40 +1625,58 @@ public class UIKeyframeDopeSheet implements IUIKeyframeGraph
 
             int labelMy = sheet.companion != null ? y + (int) (this.trackHeight * PRIMARY_LINE_RATIO) : my;
 
-            if (arrow != null)
+            if (this.isCompactSidebar())
             {
-                context.batcher.icon(arrow, sidebarX + 4 + sheet.level * LEVEL_INDENT, my - arrow.h / 2);
-            }
+                Icon displayIcon = icon != null ? icon : arrow;
 
-            int currentX = sidebarX + 4 + sheet.level * LEVEL_INDENT + (arrow != null ? arrow.w + 4 : 0);
-
-            if (icon != null)
-            {
-                context.batcher.icon(icon, currentX, my - icon.h / 2);
-                currentX += icon.w + 4;
-            }
-
-            if (hover)
-            {
-                context.batcher.textShadow(displayTitle, currentX, my - font.getHeight() / 2);
+                if (displayIcon != null)
+                {
+                    int iconX = sidebarX + (this.sidebarWidth - displayIcon.w) / 2;
+                    context.batcher.icon(displayIcon, iconX, labelMy - displayIcon.h / 2);
+                }
             }
             else
             {
-                context.batcher.textShadow(displayTitle, currentX, my - font.getHeight() / 2, Colors.WHITE & 0xeeffffff);
-            }
+                if (arrow != null)
+                {
+                    context.batcher.icon(arrow, sidebarX + 4 + sheet.level * LEVEL_INDENT, labelMy - arrow.h / 2);
+                }
 
-            if (sheet.companion != null)
-            {
-                int companionMy = y + (int) (this.trackHeight * COMPANION_LINE_RATIO);
-                String centerTitle = this.getEffectiveSidebarTitle(sheet.companion);
-                int centerAvailable = Math.max(1, this.sidebarWidth - (sheet.level + 1) * LEVEL_INDENT - 10);
-                String centerDisplay = this.getSidebarTitle(centerTitle, font, centerAvailable);
-                int centerX = sidebarX + 4 + (sheet.level + 1) * LEVEL_INDENT;
+                int currentX = sidebarX + 4 + sheet.level * LEVEL_INDENT + (arrow != null ? arrow.w + 4 : 0);
 
-                context.batcher.textShadow(centerDisplay, centerX, companionMy - font.getHeight() / 2, Colors.setA(Colors.WHITE, hover ? 1F : 0.85F));
+                if (icon != null)
+                {
+                    context.batcher.icon(icon, currentX, labelMy - icon.h / 2);
+                    currentX += icon.w + 4;
+                }
+
+                if (hover)
+                {
+                    context.batcher.textShadow(displayTitle, currentX, labelMy - font.getHeight() / 2);
+                }
+                else
+                {
+                    context.batcher.textShadow(displayTitle, currentX, labelMy - font.getHeight() / 2, Colors.WHITE & 0xeeffffff);
+                }
+
+                if (sheet.companion != null)
+                {
+                    int companionMy = y + (int) (this.trackHeight * COMPANION_LINE_RATIO);
+                    String centerTitle = this.getEffectiveSidebarTitle(sheet.companion);
+                    int centerAvailable = Math.max(1, this.sidebarWidth - (sheet.level + 1) * LEVEL_INDENT - 10);
+                    String centerDisplay = this.getSidebarTitle(centerTitle, font, centerAvailable);
+                    int centerX = sidebarX + 4 + (sheet.level + 1) * LEVEL_INDENT;
+
+                    context.batcher.textShadow(centerDisplay, centerX, companionMy - font.getHeight() / 2, Colors.setA(Colors.WHITE, hover ? 1F : 0.85F));
+                }
             }
 
             context.batcher.unclip(context);
+
+            if (hover && this.isCompactSidebar() && context.mouseX < area.x + this.sidebarWidth)
+            {
+                this.hoveredCompactSheet = sheet;
+            }
         }
 
         RegisterClipInteractionEvent.postDopeSheetRender(context, area);
@@ -1652,10 +1688,21 @@ public class UIKeyframeDopeSheet implements IUIKeyframeGraph
         this.dopeSheet.drag(context);
         this.dopeSheet.renderScrollbar(context.batcher);
         this.renderSidebarScrollbar(context);
+
+        if (this.isCompactSidebar() && this.hoveredCompactSheet != null)
+        {
+            context.tooltip.area.set(context.mouseX + 8, context.mouseY - 8, 0, 0);
+            new LabelTooltip(this.hoveredCompactSheet.title, Direction.RIGHT).renderTooltip(context);
+        }
     }
 
     private void renderSidebarScrollbar(UIContext context)
     {
+        if (this.isCompactSidebar())
+        {
+            return;
+        }
+
         Area area = this.keyframes.area;
         boolean inSidebar = area.isInside(context) && context.mouseX < area.x + this.sidebarWidth;
 
@@ -1687,6 +1734,14 @@ public class UIKeyframeDopeSheet implements IUIKeyframeGraph
 
     private void updateSidebarScrollLimits(UIContext context)
     {
+        if (this.isCompactSidebar())
+        {
+            this.sidebarScrollMax = 0;
+            this.sidebarScroll = 0;
+            this.sidebarScrollbar.scrollSize = this.sidebarWidth;
+            this.sidebarScrollbar.setScroll(0);
+            return;
+        }
         FontRenderer font = context.batcher.getFont();
         int maxWidth = this.sidebarWidth;
 

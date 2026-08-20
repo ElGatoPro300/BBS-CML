@@ -73,8 +73,8 @@ public class UITrackpad extends UIBaseTextbox
     /* Value dragging fields */
     private boolean wasInside;
     private boolean dragging;
-    private int shiftX;
-    private int initialX;
+    private double shiftX;
+    private double initialX;
     private int initialY;
     private double lastValue;
 
@@ -500,8 +500,11 @@ public class UITrackpad extends UIBaseTextbox
                     return true;
                 }
 
+                MinecraftClient mc = MinecraftClient.getInstance();
+                double factor = Math.ceil(mc.getWindow().getWidth() / (double) context.menu.width);
+
                 this.dragging = true;
-                this.initialX = context.mouseX;
+                this.initialX = mc.mouse.getX() / factor;
                 this.initialY = context.mouseY;
                 this.time = System.currentTimeMillis();
 
@@ -541,11 +544,11 @@ public class UITrackpad extends UIBaseTextbox
             {
                 if (this.plusOne.isInside(context))
                 {
-                    this.setValueAndNotify(this.value + this.increment);
+                    this.setValueAndNotify(this.value + this.getScrollStep());
                 }
                 else if (this.minusOne.isInside(context))
                 {
-                    this.setValueAndNotify(this.value - this.increment);
+                    this.setValueAndNotify(this.value - this.getScrollStep());
                 }
                 else
                 {
@@ -589,13 +592,15 @@ public class UITrackpad extends UIBaseTextbox
         }
         else if (area.isInside(context) && context.hasNotScrolledForMore(500) && BBSSettings.enableTrackpadScrolling.get())
         {
+            double step = this.getScrollStep();
+
             if (context.mouseWheel > 0)
             {
-                this.setValueAndNotify(this.value + this.getValueModifier());
+                this.setValueAndNotify(this.value + step);
             }
             else
             {
-                this.setValueAndNotify(this.value - this.getValueModifier());
+                this.setValueAndNotify(this.value - step);
             }
 
             return true;
@@ -613,13 +618,13 @@ public class UITrackpad extends UIBaseTextbox
         {
             if (context.isHeld(GLFW.GLFW_KEY_UP))
             {
-                this.setValueAndNotify(this.value + this.getValueModifier());
+                this.setValueAndNotify(this.value + this.getScrollStep());
 
                 return true;
             }
             else if (context.isHeld(GLFW.GLFW_KEY_DOWN))
             {
-                this.setValueAndNotify(this.value - this.getValueModifier());
+                this.setValueAndNotify(this.value - this.getScrollStep());
 
                 return true;
             }
@@ -796,13 +801,13 @@ public class UITrackpad extends UIBaseTextbox
                 /* Draw the drag-delta fill from the grab point to the cursor. */
                 int fx = MathUtils.clamp(context.mouseX, this.area.x + padding, this.area.ex() - padding);
 
-                context.batcher.box(Math.min(fx, this.initialX), this.area.y + padding, Math.max(fx, this.initialX), this.area.ey() - padding, accent);
+                context.batcher.box(Math.min(fx, (int) this.initialX), this.area.y + padding, Math.max(fx, (int) this.initialX), this.area.ey() - padding, accent);
             }
 
             /* Value label — centered, clipped so it never runs under the
                increment buttons. */
-            int textLeft = this.area.x + (showMinusArrow ? this.minusOne.w + 4 : 2);
-            int textRight = this.area.ex() - (showPlusArrow ? this.plusOne.w + 4 : 2);
+            int textLeft = this.area.x + (showMinusArrow ? this.minusOne.w + 1 : 2);
+            int textRight = this.area.ex() - (showPlusArrow ? this.plusOne.w + 1 : 2);
             int availableTextWidth = Math.max(1, textRight - textLeft);
             String raw = this.forcedLabel != null
                 ? this.forcedLabel.get()
@@ -844,7 +849,8 @@ public class UITrackpad extends UIBaseTextbox
             int ww = mc.getWindow().getWidth();
 
             double factor = Math.ceil(ww / (double) context.menu.width);
-            int mouseX = context.globalX(context.mouseX);
+            int mouseXInt = context.globalX(context.mouseX);
+            double mouseX = mc.mouse.getX() / factor;
 
             /* Mouse doesn't change immediately the next frame after Mouse.setCursorPosition(),
              * so this is a hack that stops for double shifting */
@@ -854,7 +860,7 @@ public class UITrackpad extends UIBaseTextbox
                 final int borderPadding = border + 1;
                 boolean stop = false;
 
-                if (mouseX <= border)
+                if (mouseXInt <= border)
                 {
                     Window.moveCursor(ww - (int) (factor * borderPadding), (int) mc.mouse.getY());
 
@@ -862,7 +868,7 @@ public class UITrackpad extends UIBaseTextbox
                     this.changed.mark();
                     stop = true;
                 }
-                else if (mouseX >= context.menu.width - border)
+                else if (mouseXInt >= context.menu.width - border)
                 {
                     Window.moveCursor((int) (factor * borderPadding), (int) mc.mouse.getY());
 
@@ -878,11 +884,11 @@ public class UITrackpad extends UIBaseTextbox
                         context.unfocus();
                     }
 
-                    int dx = (this.shiftX + context.mouseX) - this.initialX;
+                    double dx = (this.shiftX + mouseX) - this.initialX;
 
-                    if (dx != 0)
+                    if (Math.abs(dx) > 0)
                     {
-                        double value = this.getValueModifier();
+                        double value = this.getValueModifier() * globalFactor.getValue();
 
                         double diff = (Math.abs(dx) - 3) * value;
                         double newValue = this.lastValue + (dx < 0 ? -diff : diff);
@@ -905,7 +911,7 @@ public class UITrackpad extends UIBaseTextbox
             }
 
             /* Draw active element */
-            context.batcher.outlineCenter(this.initialX, this.initialY, 4, Colors.WHITE);
+            context.batcher.outlineCenter((int) this.initialX, this.initialY, 4, Colors.WHITE);
         }
 
         if (!this.isEnabled())
@@ -935,6 +941,11 @@ public class UITrackpad extends UIBaseTextbox
         String raw = format(value);
 
         if (font.getWidth(raw) <= maxWidth)
+        {
+            return raw;
+        }
+
+        if (this.integer)
         {
             return raw;
         }
@@ -1068,6 +1079,22 @@ public class UITrackpad extends UIBaseTextbox
             value = this.weak;
         }
 
-        return value * globalFactor.getValue();
+        return value;
+    }
+
+    /**
+     * Wheel / keyboard step. Integer settings fields truncate toward zero when a
+     * fractional modifier is applied, so enforce at least one unit there only.
+     */
+    private double getScrollStep()
+    {
+        double value = this.getValueModifier();
+
+        if (this.integer)
+        {
+            value = Math.max(1D, Math.round(value));
+        }
+
+        return value;
     }
 }

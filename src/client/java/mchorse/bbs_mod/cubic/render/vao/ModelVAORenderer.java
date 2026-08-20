@@ -595,6 +595,11 @@ public class ModelVAORenderer
                 }
             }
 
+            if (restoreFramebuffer && BBSRendering.isIrisShadersEnabled())
+            {
+                ShaderOpacityPatch.copyIrisDepthToMinecraftFramebuffer();
+            }
+
             if (needsSceneCapture)
             {
                 BBSRendering.ensurePaintOverlayTargetFramebuffer();

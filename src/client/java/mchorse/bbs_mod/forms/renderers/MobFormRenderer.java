@@ -93,6 +93,8 @@ public class MobFormRenderer extends FormRenderer<MobForm> implements ITickable
 
     private String lastId = "";
     private String lastNBT = "";
+    private String lastPlayerName = "";
+    private String lastPlayerUuid = "";
     private boolean lastSlim;
 
     public float prevHandSwing;
@@ -256,14 +258,23 @@ public class MobFormRenderer extends FormRenderer<MobForm> implements ITickable
     {
         String id = this.form.mobID.get();
         String nbt = this.form.mobNBT.get();
+        String playerName = this.form.playerName.get();
+        String playerUuid = this.form.playerUuid.get();
         boolean slim = this.form.slim.get();
 
-        if (this.entity == null || !this.lastId.equals(id) || !this.lastNBT.equals(nbt) || slim != this.lastSlim)
+        if (this.entity == null
+            || !this.lastId.equals(id)
+            || !this.lastNBT.equals(nbt)
+            || !this.lastPlayerName.equals(playerName)
+            || !this.lastPlayerUuid.equals(playerUuid)
+            || slim != this.lastSlim)
         {
             MorphMobParticles.clear(this.entity);
 
             this.lastId = id;
             this.lastNBT = nbt;
+            this.lastPlayerName = playerName;
+            this.lastPlayerUuid = playerUuid;
             this.lastSlim = slim;
             this.entity = null;
         }
@@ -293,7 +304,7 @@ public class MobFormRenderer extends FormRenderer<MobForm> implements ITickable
 
         if (this.entity == null && this.form.isPlayer())
         {
-            this.entity = new OtherClientPlayerEntity(world, slim ? SLIM : WIDE);
+            this.entity = new OtherClientPlayerEntity(world, this.getPlayerProfile(slim));
             this.entity.getDataTracker().set(PlayerUtils.ProtectedAccess.getModelParts(), (byte) 0b1111111);
         }
 
@@ -304,6 +315,24 @@ public class MobFormRenderer extends FormRenderer<MobForm> implements ITickable
             this.entity.readData(view);
             this.entity.noClip = true;
         }
+    }
+
+    private GameProfile getPlayerProfile(boolean slim)
+    {
+        String uuid = this.form.playerUuid.get();
+        String name = this.form.playerName.get();
+
+        if (!uuid.isEmpty())
+        {
+            try
+            {
+                return new GameProfile(UUID.fromString(uuid), name.isEmpty() ? null : name);
+            }
+            catch (Exception e)
+            {}
+        }
+
+        return slim ? SLIM : WIDE;
     }
 
     public MobItemStats sampleItemStats(IEntity source, float transition)

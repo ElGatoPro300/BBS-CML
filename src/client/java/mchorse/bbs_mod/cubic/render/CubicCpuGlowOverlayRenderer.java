@@ -5,6 +5,7 @@ import mchorse.bbs_mod.client.BBSShaders;
 import mchorse.bbs_mod.cubic.data.model.Model;
 import mchorse.bbs_mod.cubic.data.model.ModelGroup;
 import mchorse.bbs_mod.cubic.data.model.ModelVertex;
+import mchorse.bbs_mod.cubic.render.vao.ModelVAORenderer;
 import mchorse.bbs_mod.obj.shapes.ShapeKeys;
 import mchorse.bbs_mod.resources.Link;
 import mchorse.bbs_mod.ui.framework.elements.utils.StencilMap;

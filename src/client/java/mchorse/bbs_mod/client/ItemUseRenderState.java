@@ -5,6 +5,8 @@ import mchorse.bbs_mod.forms.entities.StubEntity;
 import mchorse.bbs_mod.mixin.client.LivingEntityAccessor;
 import mchorse.bbs_mod.mixin.client.LivingEntityItemAccessor;
 
+import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.network.ClientPlayerEntity;
 import net.minecraft.client.network.OtherClientPlayerEntity;
 import net.minecraft.client.world.ClientWorld;
 import net.minecraft.entity.EquipmentSlot;
@@ -28,9 +30,38 @@ public final class ItemUseRenderState
 
     private static OtherClientPlayerEntity proxy;
     private static ClientWorld proxyWorld;
+    private static boolean drivingLocalPlayerUse;
 
     private ItemUseRenderState()
     {}
+
+    public static boolean isDrivingLocalPlayerUse()
+    {
+        return drivingLocalPlayerUse;
+    }
+
+    /**
+     * Called at the start of {@code Films.updateEndWorld} so a missing FP replay
+     * this tick can release last tick's driven use instead of leaving it stuck.
+     */
+    public static void beginEndWorldUpdate()
+    {
+        drivingLocalPlayerUse = false;
+    }
+
+    public static void releaseLocalPlayerUse()
+    {
+        drivingLocalPlayerUse = false;
+
+        MinecraftClient client = MinecraftClient.getInstance();
+
+        if (client.player == null)
+        {
+            return;
+        }
+
+        ItemUseRenderState.clearUseFlags(client.player);
+    }
 
     public static LivingEntity prepareProxy(World world, IEntity source, EquipmentSlot slot, ItemStack stack)
     {
@@ -80,9 +111,7 @@ public final class ItemUseRenderState
             return 0;
         }
 
-        boolean usingItem = source.isUsingItem() || source.getItemUseTimeLeft() > 0;
-
-        if (!usingItem)
+        if (!source.isUsingItem())
         {
             return 0;
         }
@@ -114,35 +143,66 @@ public final class ItemUseRenderState
      */
     public static void syncItemUse(LivingEntity living, IEntity source, Hand hand, ItemStack stack)
     {
-        if (source == null || stack == null || stack.isEmpty())
+        if (living == null)
         {
-            living.clearActiveItem();
-            ((LivingEntityAccessor) living).invokeSetLivingFlag(USING_ITEM_FLAG, false);
-            ((LivingEntityAccessor) living).invokeSetLivingFlag(OFF_HAND_ACTIVE_FLAG, false);
+            return;
+        }
+
+        if (source == null || stack == null || stack.isEmpty() || !source.isUsingItem())
+        {
+            ItemUseRenderState.clearUseFlags(living);
 
             return;
         }
 
         int itemUseElapsed = ItemUseRenderState.getItemUseElapsed(source, living, stack);
-        boolean usingItem = source.isUsingItem() || itemUseElapsed > 0;
-
-        if (!usingItem)
-        {
-            living.clearActiveItem();
-            ((LivingEntityAccessor) living).invokeSetLivingFlag(USING_ITEM_FLAG, false);
-            ((LivingEntityAccessor) living).invokeSetLivingFlag(OFF_HAND_ACTIVE_FLAG, false);
-
-            return;
-        }
 
         int maxUseTime = stack.getMaxUseTime(living);
         int itemUseTimeLeft = Math.max(0, maxUseTime - itemUseElapsed);
+        boolean localPlayer = living instanceof ClientPlayerEntity;
+        ItemStack active = stack;
 
-        living.setCurrentHand(hand);
-        living.setStackInHand(hand, stack);
-        ((LivingEntityItemAccessor) living).setActiveItemStack(stack);
+        if (localPlayer)
+        {
+            /* Never write into the real hotbar — setStackInHand copies the use
+             * item into whichever slot is selected, and a new interpolate() copy
+             * every tick resets HeldItemRenderer's identity-based equip pose. */
+            drivingLocalPlayerUse = true;
+            active = living.getStackInHand(hand);
+
+            if (active.isEmpty() || !ItemStack.areItemsAndComponentsEqual(active, stack))
+            {
+                active = stack.copy();
+            }
+        }
+        else
+        {
+            ItemStack current = living.getStackInHand(hand);
+
+            if (!ItemStack.areEqual(current, stack))
+            {
+                living.setStackInHand(hand, stack.copy());
+                current = living.getStackInHand(hand);
+            }
+
+            active = current.isEmpty() ? stack.copy() : current;
+
+            if (!living.isUsingItem() || living.getActiveHand() != hand)
+            {
+                living.setCurrentHand(hand);
+            }
+        }
+
+        ((LivingEntityItemAccessor) living).setActiveItemStack(active);
         ((LivingEntityItemAccessor) living).setItemUseTimeLeft(itemUseTimeLeft);
         ((LivingEntityAccessor) living).invokeSetLivingFlag(USING_ITEM_FLAG, true);
         ((LivingEntityAccessor) living).invokeSetLivingFlag(OFF_HAND_ACTIVE_FLAG, hand == Hand.OFF_HAND);
+    }
+
+    private static void clearUseFlags(LivingEntity living)
+    {
+        living.clearActiveItem();
+        living.setLivingFlag(USING_ITEM_FLAG, false);
+        living.setLivingFlag(OFF_HAND_ACTIVE_FLAG, false);
     }
 }

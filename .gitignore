@@ -68,3 +68,4 @@ translation_workspace/
 .video_*/
 *.pyc
 __pycache__/
+.agents/rules/project-structure.md

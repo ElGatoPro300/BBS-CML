@@ -101,6 +101,7 @@ import net.minecraft.world.World;
 import org.joml.Matrix3f;
 import org.joml.Matrix4f;
 import org.joml.Matrix4fStack;
+import org.joml.Vector2d;
 import org.joml.Vector2f;
 import org.joml.Vector2i;
 import org.joml.Vector3d;
@@ -140,7 +141,7 @@ public class UIFilmController extends UIElement
 
     /* Character control */
     private IEntity controlled;
-    private final Vector2i lastMouse = new Vector2i();
+    private final Vector2d lastMouse = new Vector2d();
     private int mouseMode;
     private final Vector2f mouseStick = new Vector2f();
 
@@ -1837,7 +1838,7 @@ public class UIFilmController extends UIElement
             y += font.getHeight() + 7;
         }
 
-        if (BBSSettings.editorFilmOverlayVisible.get())
+        if (BBSSettings.editorFilmOverlayVisible.get() && area.w >= 100 && area.h >= 60)
         {
             Replay replay = this.panel.replayEditor.getReplay();
 
@@ -2034,15 +2035,15 @@ public class UIFilmController extends UIElement
         }
 
         Mouse mouse = MinecraftClient.getInstance().mouse;
-        int x = (int) mouse.getX();
-        int y = (int) mouse.getY();
+        double x = mouse.getX();
+        double y = mouse.getY();
 
         if (this.canControl())
         {
             if (this.isMouseLookMode() && ClientNetwork.isIsBBSModOnServer())
             {
-                float cursorDeltaX = (x - this.lastMouse.x) / 2F;
-                float cursorDeltaY = (y - this.lastMouse.y) / 2F;
+                float cursorDeltaX = (float) (x - this.lastMouse.x) / 2F;
+                float cursorDeltaY = (float) (y - this.lastMouse.y) / 2F;
 
                 MinecraftClient.getInstance().player.changeLookDirection(cursorDeltaX, cursorDeltaY);
             }
@@ -2051,8 +2052,8 @@ public class UIFilmController extends UIElement
                 /* Control sticks and triggers variables */
                 float sensitivity = 100F;
 
-                float xx = (y - this.lastMouse.y) / sensitivity;
-                float yy = (x - this.lastMouse.x) / sensitivity;
+                float xx = (float) (y - this.lastMouse.y) / sensitivity;
+                float yy = (float) (x - this.lastMouse.x) / sensitivity;
 
                 this.mouseStick.add(xx, yy);
                 this.mouseStick.x = MathUtils.clamp(this.mouseStick.x, -1F, 1F);
@@ -2206,7 +2207,7 @@ public class UIFilmController extends UIElement
 
     private boolean canShowGizmo()
     {
-        if (!UIBaseMenu.renderAxes || this.recording || this.getBone() == null)
+        if (!UIBaseMenu.renderAxes || this.recording || this.getBone() == null || (this.panel != null && (this.panel.preview.area.w < 100 || this.panel.preview.area.h < 60)))
         {
             return false;
         }

@@ -73,12 +73,11 @@ import mchorse.bbs_mod.ui.framework.elements.input.UITrackpad;
 import mchorse.bbs_mod.ui.framework.elements.input.text.UITextbox;
 import mchorse.bbs_mod.ui.framework.elements.utils.UILabel;
 import mchorse.bbs_mod.ui.utils.ScrollDirection;
-import mchorse.bbs_mod.data.types.BaseType;
-import mchorse.bbs_mod.utils.presets.PresetManager;
 import mchorse.bbs_mod.ui.utils.UI;
 import mchorse.bbs_mod.utils.TimeUtilsClient;
 import mchorse.bbs_mod.utils.clips.Clip;
 import mchorse.bbs_mod.utils.colors.Colors;
+import mchorse.bbs_mod.utils.presets.PresetManager;
 import mchorse.bbs_mod.utils.undo.IUndo;
 
 import java.util.HashMap;
@@ -240,7 +239,12 @@ public abstract class UIClip <T extends Clip> extends UIElement
 
             if (global)
             {
-                MapType data = PresetManager.CLIPS.load("_clip_ui_sections");
+                MapType data = PresetManager.CLIP_LAYOUTS.load("_clip_ui_sections");
+
+                if (data == null)
+                {
+                    data = PresetManager.CLIPS.load("_clip_ui_sections");
+                }
 
                 if (data != null && data.has(clipType, BaseType.TYPE_MAP))
                 {
@@ -276,7 +280,12 @@ public abstract class UIClip <T extends Clip> extends UIElement
             {
                 if (BBSSettings.editorGlobalClipPanels != null && BBSSettings.editorGlobalClipPanels.get())
                 {
-                    MapType map = PresetManager.CLIPS.load("_clip_ui_sections");
+                    MapType map = PresetManager.CLIP_LAYOUTS.load("_clip_ui_sections");
+
+                    if (map == null)
+                    {
+                        map = PresetManager.CLIPS.load("_clip_ui_sections");
+                    }
 
                     if (map == null)
                     {
@@ -291,7 +300,7 @@ public abstract class UIClip <T extends Clip> extends UIElement
                     MapType clipMap = map.getMap(clipType);
                     clipMap.putBool(id, open);
 
-                    PresetManager.CLIPS.save("_clip_ui_sections", map);
+                    PresetManager.CLIP_LAYOUTS.save("_clip_ui_sections", map);
                 }
                 else if (this.editor != null && this.editor.getFilm() != null)
                 {
