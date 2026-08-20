@@ -11,6 +11,7 @@ import mchorse.bbs_mod.ui.framework.elements.utils.StencilMap;
 import mchorse.bbs_mod.utils.MathUtils;
 import mchorse.bbs_mod.utils.interps.Lerps;
 
+import com.mojang.blaze3d.systems.RenderSystem;
 import net.minecraft.client.gl.ShaderProgram;
 import net.minecraft.client.render.BufferBuilder;
 import net.minecraft.client.render.BufferRenderer;
@@ -126,7 +127,14 @@ public class CubicCpuGroupDrawRenderer extends CubicCubeRenderer
 
         try
         {
+            RenderSystem.setShaderColor(this.r, this.g, this.b, alpha);
             this.shader.bind();
+
+            if (this.shader.colorModulator != null)
+            {
+                this.shader.colorModulator.set(this.r, this.g, this.b, alpha);
+            }
+
             ModelVAORenderer.setupUniformsCpuPretransformed(this.shader);
             BufferRenderer.drawWithGlobalProgram(groupBuilder.end());
             this.shader.unbind();
@@ -134,6 +142,15 @@ public class CubicCpuGroupDrawRenderer extends CubicCubeRenderer
         catch (IllegalStateException e)
         {
             /* Empty or invalid buffer */
+        }
+        finally
+        {
+            RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
+
+            if (this.shader.colorModulator != null)
+            {
+                this.shader.colorModulator.set(1F, 1F, 1F, 1F);
+            }
         }
 
         this.setColor(this.r, this.g, this.b, savedA);
@@ -145,21 +162,26 @@ public class CubicCpuGroupDrawRenderer extends CubicCubeRenderer
         this.vertex.set(vertex.vertex.x, vertex.vertex.y, vertex.vertex.z, 1);
         stack.peek().getPositionMatrix().transform(this.vertex);
 
-        float vr = this.r;
-        float vg = this.g;
-        float vb = this.b;
-        float va = this.a;
+        float vr = 1F;
+        float vg = 1F;
+        float vb = 1F;
+        float va = 1F;
 
         if (!group.color.hasActiveTransform())
         {
-            vr *= group.color.r;
-            vg *= group.color.g;
-            vb *= group.color.b;
-            va *= group.color.a;
+            vr = group.color.r;
+            vg = group.color.g;
+            vb = group.color.b;
+            va = group.color.a;
         }
 
         builder.vertex(this.vertex.x, this.vertex.y, this.vertex.z)
-            .color(vr, vg, vb, va)
+            .color(
+                MathUtils.clamp(vr, 0F, 1F),
+                MathUtils.clamp(vg, 0F, 1F),
+                MathUtils.clamp(vb, 0F, 1F),
+                MathUtils.clamp(va, 0F, 1F)
+            )
             .texture(vertex.uv.x, vertex.uv.y)
             .overlay(this.overlay);
 

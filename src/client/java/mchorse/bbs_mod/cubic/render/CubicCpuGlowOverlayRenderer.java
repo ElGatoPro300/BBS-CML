@@ -178,7 +178,12 @@ public class CubicCpuGlowOverlayRenderer extends CubicCubeRenderer
         stack.peek().getPositionMatrix().transform(this.vertex);
 
         builder.vertex(this.vertex.x, this.vertex.y, this.vertex.z)
-            .color(gr, gg, gb, ga)
+            .color(
+                MathUtils.clamp(gr, 0F, 1F),
+                MathUtils.clamp(gg, 0F, 1F),
+                MathUtils.clamp(gb, 0F, 1F),
+                MathUtils.clamp(ga, 0F, 1F)
+            )
             .texture(vertex.uv.x, vertex.uv.y)
             .overlay(this.overlay);
 
