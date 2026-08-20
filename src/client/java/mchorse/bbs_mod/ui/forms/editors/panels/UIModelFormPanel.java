@@ -94,6 +94,7 @@ public class UIModelFormPanel extends UIFormPanel<ModelForm>
             Color value = Color.rgba(c);
 
             color.set(value.r, value.g, value.b, value.a);
+            this.form.color.setRuntimeValue(null);
             this.form.color.set(color);
         }).withAlpha();
         this.color.direction(Direction.LEFT);

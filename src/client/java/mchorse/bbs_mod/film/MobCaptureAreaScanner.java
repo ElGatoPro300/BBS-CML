@@ -1,5 +1,6 @@
 package mchorse.bbs_mod.film;
 
+import mchorse.bbs_mod.entity.ActorEntity;
 import mchorse.bbs_mod.forms.forms.Form;
 import mchorse.bbs_mod.morphing.Morph;
 import mchorse.bbs_mod.ui.UIKeys;
@@ -49,6 +50,11 @@ public final class MobCaptureAreaScanner
 
     public static Map<String, TypeBucket> scan(double size, boolean includeHeight)
     {
+        return scan(size, includeHeight, false);
+    }
+
+    public static Map<String, TypeBucket> scan(double size, boolean includeHeight, boolean capturePlayers)
+    {
         MinecraftClient mc = MinecraftClient.getInstance();
         ClientPlayerEntity player = mc.player;
 
@@ -57,7 +63,7 @@ public final class MobCaptureAreaScanner
             return new LinkedHashMap<>();
         }
 
-        return scan(size, player.getX(), player.getY(), player.getZ(), includeHeight);
+        return scan(size, player.getX(), player.getY(), player.getZ(), includeHeight, capturePlayers);
     }
 
     public static Map<String, TypeBucket> scan(MobCaptureRecordingSetup setup)
@@ -69,10 +75,10 @@ public final class MobCaptureAreaScanner
 
         if (setup.usePlayerOrigin)
         {
-            return scan(setup.areaSize, setup.includeHeight);
+            return scan(setup.areaSize, setup.includeHeight, setup.capturePlayers);
         }
 
-        return scan(setup.areaSize, setup.originX, setup.originY, setup.originZ, setup.includeHeight);
+        return scan(setup.areaSize, setup.originX, setup.originY, setup.originZ, setup.includeHeight, setup.capturePlayers);
     }
 
     public static Map<String, TypeBucket> scan(double size, double originX, double originY, double originZ)
@@ -81,6 +87,11 @@ public final class MobCaptureAreaScanner
     }
 
     public static Map<String, TypeBucket> scan(double size, double originX, double originY, double originZ, boolean includeHeight)
+    {
+        return scan(size, originX, originY, originZ, includeHeight, false);
+    }
+
+    public static Map<String, TypeBucket> scan(double size, double originX, double originY, double originZ, boolean includeHeight, boolean capturePlayers)
     {
         Map<String, TypeBucket> buckets = new LinkedHashMap<>();
         MinecraftClient mc = MinecraftClient.getInstance();
@@ -113,7 +124,7 @@ public final class MobCaptureAreaScanner
             );
         }
 
-        for (Entity entity : world.getOtherEntities(player, box, MobCaptureAreaScanner::canScan))
+        for (Entity entity : world.getOtherEntities(player, box, (entity) -> canScan(entity, player, capturePlayers)))
         {
             if (distanceSq(entity, originX, originY, originZ, includeHeight) > radiusSq)
             {
@@ -170,9 +181,16 @@ public final class MobCaptureAreaScanner
         return sortedBuckets;
     }
 
-    private static boolean canScan(Entity entity)
+    private static boolean canScan(Entity entity, ClientPlayerEntity player, boolean capturePlayers)
     {
-        return !(entity instanceof PlayerEntity);
+        /* Film ActorEntity bodies are already replays — capturing them creates
+         * phantom "actor" entries with leftover nametag/shadow at the death spot. */
+        if (entity instanceof ActorEntity || entity == player)
+        {
+            return false;
+        }
+
+        return !(entity instanceof PlayerEntity) || capturePlayers;
     }
 
     public static double horizontalDistanceSq(Entity entity, double originX, double originZ)

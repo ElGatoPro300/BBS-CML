@@ -253,6 +253,13 @@ public class UIPoseKeyframeFactory extends UIKeyframeFactory<Pose>
                 {
                     if (kf.getValue() instanceof Pose pose)
                     {
+                        Color c = kf.getColor();
+
+                        if (c != null && c.a < 0.99F)
+                        {
+                            kf.setColor(Color.rgba((c.getRGBColor() | 0xFF000000)));
+                        }
+
                         kf.preNotify();
                         consumer.accept(pose);
                         kf.postNotify();

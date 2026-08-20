@@ -1054,6 +1054,8 @@ public class UIDocumentTabsBar extends UIControlBar
         if (index < 0 || index >= this.documentTabs.size()) return;
 
         DocumentTab removed = this.documentTabs.get(index);
+        boolean closedFilmTab = !removed.isHome && removed.type == ContentType.FILMS;
+        String closedFilmTabId = removed.id;
 
         /* Single-tab case: convert to Home rather than disappearing */
         if (this.documentTabs.size() == 1 && !removed.isHome)
@@ -1062,6 +1064,11 @@ public class UIDocumentTabsBar extends UIControlBar
             removed.type = null;
             removed.id = null;
             this.activate(0);
+
+            if (closedFilmTab)
+            {
+                this.notifyFilmTabClosed(closedFilmTabId);
+            }
 
             return;
         }
@@ -1077,6 +1084,21 @@ public class UIDocumentTabsBar extends UIControlBar
 
         this.activeTab = -1;
         this.activate(newActive);
+
+        if (closedFilmTab)
+        {
+            this.notifyFilmTabClosed(closedFilmTabId);
+        }
+    }
+
+    private void notifyFilmTabClosed(String closedTabId)
+    {
+        UIFilmPanel panel = this.dashboard.getPanel(UIFilmPanel.class);
+
+        if (panel != null)
+        {
+            panel.onDocumentFilmTabClosed(closedTabId);
+        }
     }
 
     private UIDashboardPanel resolvePanel(DocumentTab tab)

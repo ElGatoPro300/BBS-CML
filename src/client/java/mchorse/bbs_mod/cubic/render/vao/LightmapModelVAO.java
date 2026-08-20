@@ -113,6 +113,7 @@ public class LightmapModelVAO implements IModelVAO
         }
 
         boolean hasShaders = BBSRendering.isIrisShadersEnabled();
+        int previousVAO = GL30.glGetInteger(GL30.GL_VERTEX_ARRAY_BINDING);
 
         GL30.glBindVertexArray(this.vao);
 
@@ -149,6 +150,6 @@ public class LightmapModelVAO implements IModelVAO
         }
 
         GL30.glDrawArrays(GL30.GL_TRIANGLES, 0, this.count);
-        GL30.glBindVertexArray(0);
+        GL30.glBindVertexArray(previousVAO);
     }
 }

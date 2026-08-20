@@ -202,7 +202,17 @@ public class UIFormUndoHandler
         for (Map.Entry<BaseValue, BaseType> entry : this.cachedValues.entrySet())
         {
             BaseValue value = entry.getKey();
-            ValueChangeUndo undo = new ValueChangeUndo(value.getPath(), entry.getValue(), value.toData());
+            BaseType oldValue = entry.getValue();
+            BaseType newValue = value.toData();
+
+            /* Skip no-op snapshots (e.g. trackpad click that only cache/submit
+             * without changing keyframes) so Ctrl+Z is not a blank step. */
+            if (oldValue != null && oldValue.equals(newValue))
+            {
+                continue;
+            }
+
+            ValueChangeUndo undo = new ValueChangeUndo(value.getPath(), oldValue, newValue);
 
             undo.cacheAfter(this.uiElement);
             undo.cacheBefore(this.uiData);

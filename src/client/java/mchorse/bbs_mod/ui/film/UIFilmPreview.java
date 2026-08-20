@@ -26,6 +26,7 @@ import mchorse.bbs_mod.ui.UIKeys;
 import mchorse.bbs_mod.ui.dashboard.panels.UIDashboardPanels;
 import mchorse.bbs_mod.ui.film.controller.UIFilmController;
 import mchorse.bbs_mod.ui.film.controller.UIGizmoSizeContextMenu;
+import mchorse.bbs_mod.ui.film.controller.UIGizmoThicknessContextMenu;
 import mchorse.bbs_mod.ui.film.controller.UIGizmoTranslateSpeedContextMenu;
 import mchorse.bbs_mod.ui.film.controller.UIOnionSkinContextMenu;
 import mchorse.bbs_mod.ui.film.controller.UIViewportHideContextMenu;
@@ -102,6 +103,7 @@ public class UIFilmPreview extends UIElement
     public UIIcon gizmoCombined;
     public UIIcon gizmoTop;
     public UIIcon gizmoSize;
+    public UIIcon gizmoThickness;
     public UIIcon gizmoTranslateSpeed;
     public UIIcon onionSkin;
     public UIIcon hideOverlays;
@@ -140,6 +142,12 @@ public class UIFilmPreview extends UIElement
         this.gizmoSize.tooltip(UIKeys.FILM_GIZMO_SIZE);
         this.styleGizmoToolbarIcon(this.gizmoSize);
 
+        this.gizmoThickness = new UIIcon(Icons.LINE, (b) ->
+            this.getContext().replaceContextMenu(new UIGizmoThicknessContextMenu())
+        );
+        this.gizmoThickness.tooltip(UIKeys.FILM_GIZMO_THICKNESS);
+        this.styleGizmoToolbarIcon(this.gizmoThickness);
+
         this.gizmoTranslateSpeed = new UIIcon(Icons.FORWARD, (b) ->
             this.getContext().replaceContextMenu(new UIGizmoTranslateSpeedContextMenu())
         );
@@ -152,6 +160,7 @@ public class UIFilmPreview extends UIElement
         this.gizmoButtonMap.put(ValueGizmoToolbar.COMBINED, this.gizmoCombined);
         this.gizmoButtonMap.put(ValueGizmoToolbar.TOP, this.gizmoTop);
         this.gizmoButtonMap.put(ValueGizmoToolbar.SIZE, this.gizmoSize);
+        this.gizmoButtonMap.put(ValueGizmoToolbar.THICKNESS, this.gizmoThickness);
         this.gizmoButtonMap.put(ValueGizmoToolbar.TRANSLATE_SPEED, this.gizmoTranslateSpeed);
 
         this.gizmos = new UIElement();
@@ -486,15 +495,14 @@ public class UIFilmPreview extends UIElement
                 continue;
             }
 
-            if (ValueViewportToolbar.TOGGLE_SHADERS.equals(id))
+            if (ValueViewportToolbar.TOGGLE_SHADERS.equals(id) && !BBSRendering.isIrisLoaded())
             {
-                button.setVisible(BBSRendering.isIrisLoaded());
-            }
-            else
-            {
-                button.setVisible(true);
+                button.setVisible(false);
+
+                continue;
             }
 
+            button.setVisible(true);
             this.icons.add(button);
 
             if (!ValueViewportToolbar.HIDE_OVERLAYS.equals(id))
@@ -503,7 +511,13 @@ public class UIFilmPreview extends UIElement
             }
         }
 
-        this.icons.row().resize();
+        int count = this.icons.getChildren().size();
+
+        this.icons.row(0);
+        this.icons.w(count * 20);
+        this.icons.h(20);
+        this.icons.setVisible(count > 0);
+        this.icons.resize();
 
         if (this.areIconsExternallyHosted())
         {

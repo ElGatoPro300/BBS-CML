@@ -16,6 +16,7 @@ import mchorse.bbs_mod.settings.values.ui.ValueEditorLayout;
 import mchorse.bbs_mod.settings.values.ui.ValueFormEditorGizmoToolbar;
 import mchorse.bbs_mod.settings.values.ui.ValueGizmoToolbar;
 import mchorse.bbs_mod.settings.values.ui.ValueLanguage;
+import mchorse.bbs_mod.settings.values.ui.ValueMobCaptureConditions;
 import mchorse.bbs_mod.settings.values.ui.ValueOnionSkin;
 import mchorse.bbs_mod.settings.values.ui.ValueStringKeys;
 import mchorse.bbs_mod.settings.values.ui.ValueTimelineToolbarDocks;
@@ -59,9 +60,10 @@ public class BBSSettings
 
     public static ValueBoolean enableTrackpadIncrements;
     public static ValueBoolean enableTrackpadScrolling;
-    public static ValueBoolean welcomePanelAcceptedBeta1;
+    public static ValueBoolean welcomePanelSeen21;
     public static ValueBoolean hideSettingDescriptions;
     public static ValueFloat userIntefaceScale;
+    public static ValueBoolean linkUiScaleToGame;
     public static ValueString uiFont;
     public static ValueFloat uiFontSize;
     public static ValueInt tooltipStyle;
@@ -93,6 +95,8 @@ public class BBSSettings
     public static ValueBoolean disablePivotTransform;
     public static ValueBoolean gizmos;
     public static ValueBoolean gizmosWorldRendering;
+    public static ValueBoolean previewEquipment;
+    public static ValueBoolean gizmoFlipAxes;
     public static ValueBoolean gizmoYAxisHorizontal;
     public static ValueBoolean gizmoTrackball;
     public static ValueInt gizmoTrackballScale;
@@ -172,6 +176,8 @@ public class BBSSettings
     public static ValueBoolean editorActorPausedRunInPlace;
     public static ValueBoolean actorDamageFlash;
     public static ValueBoolean actorDamageAnimation;
+    public static ValueBoolean eatingArmAnimation;
+    public static ValueBoolean replayDeathTimelineSync;
     public static ValueBoolean editorSimplifyAnimations;
     public static ValueBoolean editorMuteRenderAudioClips;
     public static ValueInt editorTimeMode;
@@ -190,6 +196,7 @@ public class BBSSettings
     public static ValueInt replayContextOptions;
     public static ValueBoolean editorRewind;
     public static ValueBoolean editorHorizontalClipEditor;
+    public static ValueBoolean editorGlobalClipPanels;
     public static ValueBoolean editorEmbeddedKeyframeSidePanel;
     public static ValueBoolean editorMinutesBackup;
     public static ValueBoolean editorTimelineToolbar;
@@ -199,7 +206,10 @@ public class BBSSettings
     public static ValueBoolean recordingSwipeDamage;
     public static ValueBoolean recordingAutoCaptureMobs;
     public static ValueBoolean recordingAutoCaptureProjectiles;
+    public static ValueBoolean recordingAutoCaptureMobActions;
     public static ValueBoolean recordingMobCaptureOnAlt;
+    public static ValueBoolean recordingMobCaptureConditionsSummary;
+    public static ValueMobCaptureConditions recordingMobCaptureConditions;
     public static ValueBoolean recordingOverlays;
     public static ValueInt recordingPoseTransformOverlays;
     public static ValueBoolean recordingCameraPreview;
@@ -299,8 +309,9 @@ public class BBSSettings
 
     /**
      * When enabled (default), films dual-write legacy-friendly data for fields
-     * that newer builds store differently (subtitle lineHeight/maxWidth, and
-     * Opacity mirrored into Color alpha for older builds).
+     * that newer builds store differently (subtitle lineHeight/maxWidth, Opacity
+     * mirrored into Color alpha, form lighting brightness rewritten as legacy
+     * world-influence floats, etc.).
      */
     public static boolean isSaveAsCompatible()
     {
@@ -335,6 +346,15 @@ public class BBSSettings
     public static boolean shouldPlayActorDamageAnimation()
     {
         return actorDamageAnimation == null || actorDamageAnimation.get();
+    }
+
+    /**
+     * Extra ModelForm arm chew while eating/drinking. Off matches vanilla
+     * third-person players (the holding arm stays in idle/walk).
+     */
+    public static boolean shouldAnimateEatingArm()
+    {
+        return eatingArmAnimation != null && eatingArmAnimation.get();
     }
 
     public static boolean shouldKeepActorLiveHurtTime()
@@ -465,6 +485,15 @@ public class BBSSettings
         }
 
         return userIntefaceScale.get();
+    }
+
+    /**
+     * When true, BBS writes Minecraft's GUI scale (legacy). Default false keeps BBS
+     * scale independent of the game's GUI scale / hotbar / vanilla menus.
+     */
+    public static boolean isUiScaleLinkedToGame()
+    {
+        return linkUiScaleToGame != null && linkUiScaleToGame.get();
     }
 
     public static boolean hasColoredBackground()
@@ -681,9 +710,10 @@ public class BBSSettings
         enableTrackpadIncrements = builder.getBoolean("trackpad_increments", true);
         enableTrackpadScrolling = builder.getBoolean("trackpad_scrolling", true);
         hideSettingDescriptions = builder.getBoolean("hide_setting_descriptions", false);
-        welcomePanelAcceptedBeta1 = builder.getBoolean("welcome_panel_accepted_beta1", false);
-        welcomePanelAcceptedBeta1.invisible();
+        welcomePanelSeen21 = builder.getBoolean("welcome_panel_seen_2_1", false);
+        welcomePanelSeen21.invisible();
         userIntefaceScale = builder.getFloat("ui_scale", 2F, 0.1F, 4F);
+        linkUiScaleToGame = builder.getBoolean("link_ui_scale_to_game", false);
         uiFont = builder.getString("ui_font", "");
         uiFontSize = builder.getFloat("ui_font_size", 1F, 0.25F, 4F);
         tooltipStyle = builder.getInt("tooltip_style", 1);
@@ -722,8 +752,11 @@ public class BBSSettings
         gizmos = builder.getBoolean("gizmos", true);
         /* Keep form-editor gizmos / bone picking while model-block F7 world rendering is on. */
         gizmosWorldRendering = builder.getBoolean("gizmos_world_rendering", true);
+        /* Armor, held items, skulls, etc. in form / model-block preview editors. */
+        previewEquipment = builder.getBoolean("preview_equipment", true);
         axesScale = builder.getFloat("axes_scale", 1.5F, 0F, 100F);
-        axesThickness = builder.getFloat("axes_thickness", 0.7F, 0.25F, 3F);
+        /* Default >1 so arrows/rings are easier to pick; floor keeps thickness off zero. */
+        axesThickness = builder.getFloat("axes_thickness", 1.2F, 0.25F, 6F);
         /* Multiplier applied only to the invisible picking pass, so the clickable area can be
          * fatter than the visible handles (or thinner) independently of axes_thickness. */
         gizmoHitbox = builder.getFloat("gizmo_hitbox", 1.5F, 0.25F, 5F);
@@ -732,6 +765,9 @@ public class BBSSettings
         /* Floor in Math.max(floor, dist * 0.12). 0 disables the floor so it can keep shrinking when close. */
         gizmoConstantSizeMin = builder.getFloat("gizmo_constant_size_min", 0.5F, 0F, 10F);
         disablePivotTransform = builder.getBoolean("disable_pivot_transform", false);
+        /* When enabled, translate/scale handles and half rotation rings reorient toward the camera;
+         * when disabled, stay on +X/+Y/+Z with fixed half-rings. */
+        gizmoFlipAxes = builder.getBoolean("gizmo_flip_axes", true);
         gizmoYAxisHorizontal = builder.getBoolean("gizmo_y_axis_horizontal", true);
         gizmoTrackball = builder.getBoolean("gizmo_trackball", true);
         gizmoTrackballScale = builder.getInt("gizmo_trackball_scale", 1, 1, 5);
@@ -797,6 +833,7 @@ public class BBSSettings
         editorCenterLines = builder.getBoolean("center_lines", false);
         editorCrosshair = builder.getBoolean("crosshair", false);
         editorFilmOverlayVisible = builder.getBoolean("film_overlay_visible", true);
+        editorGlobalClipPanels = builder.getBoolean("global_clip_panels", true);
         editorFisheyeWidenFov = builder.getBoolean("fisheye_widen_fov", true);
         editorPeriodicSave = builder.getInt("periodic_save", 60, 0, 3600);
         editorHorizontalFlight = builder.getBoolean("horizontal_flight", false);
@@ -849,8 +886,10 @@ public class BBSSettings
         editorActorPausedSwipeLoop = builder.getBoolean("actor_paused_swipe_loop", false);
         editorActorPauseAnimations = builder.getBoolean("actor_pause_animations", false);
         editorActorPausedRunInPlace = builder.getBoolean("actor_paused_run_in_place", false);
-        actorDamageFlash = builder.getBoolean("actor_damage_flash", false);
+        actorDamageFlash = builder.getBoolean("actor_damage_flash", true);
         actorDamageAnimation = builder.getBoolean("actor_damage_animation", true);
+        eatingArmAnimation = builder.getBoolean("eating_arm_animation", false);
+        replayDeathTimelineSync = builder.getBoolean("sync_death_timeline", true);
         replayMarkedBonesOnly = builder.getBoolean("replay_marked_bones_only", false);
         editorReplayEditorTitleLimit = builder.getInt("replay_editor_title_limit", 12, 0, 64);
         replayFpBobbingIntensity = builder.getFloat("replay_fp_bobbing_intensity", 0.25F, 0F, 2F);
@@ -876,7 +915,11 @@ public class BBSSettings
         recordingSwipeDamage = builder.getBoolean("swipe_damage", false);
         recordingAutoCaptureMobs = builder.getBoolean("auto_capture_mobs", true);
         recordingAutoCaptureProjectiles = builder.getBoolean("auto_capture_projectiles", true);
+        recordingAutoCaptureMobActions = builder.getBoolean("auto_capture_mob_actions", true);
         recordingMobCaptureOnAlt = builder.getBoolean("mob_capture_on_alt", false);
+        recordingMobCaptureConditionsSummary = builder.getBoolean("mob_capture_conditions_summary", true);
+        builder.register(recordingMobCaptureConditions = new ValueMobCaptureConditions("mob_capture_conditions"));
+        recordingMobCaptureConditions.invisible();
         recordingOverlays = builder.getBoolean("overlays", true);
         recordingPoseTransformOverlays = builder.getInt("pose_transform_overlays", 0, 0, 42);
         recordingCameraPreview = builder.getBoolean("camera_preview", true);

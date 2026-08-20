@@ -446,6 +446,103 @@ public class ReplayKeyframes extends ValueGroup
         }
     }
 
+    /**
+     * Remove keyframes at {@code tick} and later from channels that
+     * {@link #record} will write, so viewport capture does not lerp into
+     * leftover future poses (especially "All groups").
+     */
+    public void clearFrom(float tick, List<String> groups)
+    {
+        boolean empty = groups == null || groups.isEmpty();
+        boolean position = empty || groups.contains(GROUP_POSITION);
+        boolean rotation = empty || groups.contains(GROUP_ROTATION);
+        boolean leftStick = empty || groups.contains(GROUP_LEFT_STICK);
+        boolean rightStick = empty || groups.contains(GROUP_RIGHT_STICK);
+        boolean triggers = empty || groups.contains(GROUP_TRIGGERS);
+        boolean extra1 = empty || groups.contains(GROUP_EXTRA1);
+        boolean extra2 = empty || groups.contains(GROUP_EXTRA2);
+
+        if (position)
+        {
+            this.x.removeFrom(tick);
+            this.y.removeFrom(tick);
+            this.z.removeFrom(tick);
+            this.vX.removeFrom(tick);
+            this.vY.removeFrom(tick);
+            this.vZ.removeFrom(tick);
+            this.fall.removeFrom(tick);
+        }
+
+        /* Pose flags are always captured by record(). */
+        this.sneaking.removeFrom(tick);
+        this.sprinting.removeFrom(tick);
+        this.swimming.removeFrom(tick);
+        this.flying.removeFrom(tick);
+        this.fallFlying.removeFrom(tick);
+        this.crawling.removeFrom(tick);
+        this.climbing.removeFrom(tick);
+        this.blocking.removeFrom(tick);
+        this.sleeping.removeFrom(tick);
+        this.riptide.removeFrom(tick);
+        this.grounded.removeFrom(tick);
+        this.damage.removeFrom(tick);
+        this.deathTime.removeFrom(tick);
+        this.usingItem.removeFrom(tick);
+        this.itemUseTime.removeFrom(tick);
+        this.fire.removeFrom(tick);
+        this.particles.removeFrom(tick);
+        this.activeHand.removeFrom(tick);
+
+        if (rotation)
+        {
+            this.yaw.removeFrom(tick);
+            this.pitch.removeFrom(tick);
+            this.headYaw.removeFrom(tick);
+            this.bodyYaw.removeFrom(tick);
+        }
+
+        if (leftStick)
+        {
+            this.stickLeftX.removeFrom(tick);
+            this.stickLeftY.removeFrom(tick);
+        }
+
+        if (rightStick)
+        {
+            this.stickRightX.removeFrom(tick);
+            this.stickRightY.removeFrom(tick);
+        }
+
+        if (triggers)
+        {
+            this.triggerLeft.removeFrom(tick);
+            this.triggerRight.removeFrom(tick);
+        }
+
+        if (extra1)
+        {
+            this.extra1X.removeFrom(tick);
+            this.extra1Y.removeFrom(tick);
+        }
+
+        if (extra2)
+        {
+            this.extra2X.removeFrom(tick);
+            this.extra2Y.removeFrom(tick);
+        }
+
+        if (empty)
+        {
+            this.mainHand.removeFrom(tick);
+            this.offHand.removeFrom(tick);
+            this.armorHead.removeFrom(tick);
+            this.armorChest.removeFrom(tick);
+            this.armorLegs.removeFrom(tick);
+            this.armorFeet.removeFrom(tick);
+            this.selectedSlot.removeFrom(tick);
+        }
+    }
+
     public void record(float tick, IEntity entity, List<String> groups)
     {
         boolean empty = groups == null || groups.isEmpty();
@@ -457,88 +554,89 @@ public class ReplayKeyframes extends ValueGroup
         boolean extra1 = empty || groups.contains(GROUP_EXTRA1);
         boolean extra2 = empty || groups.contains(GROUP_EXTRA2);
 
-        /* Position and rotation */
+        /* Position and rotation — insert only when values change (with hold
+         * keyframes for linear interp), matching post-simplify density. */
         if (position)
         {
-            this.x.insert(tick, entity.getX());
-            this.y.insert(tick, entity.getY());
-            this.z.insert(tick, entity.getZ());
+            this.x.insertIfChanged(tick, entity.getX());
+            this.y.insertIfChanged(tick, entity.getY());
+            this.z.insertIfChanged(tick, entity.getZ());
 
-            this.vX.insert(tick, entity.getVelocity().x);
-            this.vY.insert(tick, entity.getVelocity().y);
-            this.vZ.insert(tick, entity.getVelocity().z);
+            this.vX.insertIfChanged(tick, entity.getVelocity().x);
+            this.vY.insertIfChanged(tick, entity.getVelocity().y);
+            this.vZ.insertIfChanged(tick, entity.getVelocity().z);
 
-            this.fall.insert(tick, (double) entity.getFallDistance());
+            this.fall.insertIfChanged(tick, (double) entity.getFallDistance());
         }
 
-        this.sneaking.insert(tick, entity.isSneaking() ? 1D : 0D);
-        this.sprinting.insert(tick, entity.isSprinting() ? 1D : 0D);
-        this.swimming.insert(tick, entity.isSwimming() ? 1D : 0D);
-        this.flying.insert(tick, entity.isFlying() ? 1D : 0D);
-        this.fallFlying.insert(tick, entity.isFallFlying() ? 1D : 0D);
-        this.crawling.insert(tick, entity.isCrawling() ? 1D : 0D);
-        this.climbing.insert(tick, entity.isClimbing() ? 1D : 0D);
-        this.blocking.insert(tick, entity.isBlocking() ? 1D : 0D);
-        this.sleeping.insert(tick, entity.isSleeping() ? 1D : 0D);
-        this.riptide.insert(tick, entity.isUsingRiptide() ? 1D : 0D);
-        this.grounded.insert(tick, entity.isOnGround() ? 1D : 0D);
-        this.damage.insert(tick, (double) entity.getHurtTimer());
-        this.deathTime.insert(tick, (double) entity.getDeathTime());
-        this.usingItem.insert(tick, entity.isUsingItem() ? 1D : 0D);
-        this.itemUseTime.insert(tick, (double) this.getItemUseElapsed(entity));
-        this.fire.insert(tick, entity.getFireTicks() > 0 ? 1D : 0D);
-        this.particles.insert(tick, entity.isParticlesEnabled() ? 1D : 0D);
-        this.activeHand.insert(tick, entity.getActiveHand() == Hand.OFF_HAND ? 1D : 0D);
+        this.sneaking.insertIfChanged(tick, entity.isSneaking() ? 1D : 0D);
+        this.sprinting.insertIfChanged(tick, entity.isSprinting() ? 1D : 0D);
+        this.swimming.insertIfChanged(tick, entity.isSwimming() ? 1D : 0D);
+        this.flying.insertIfChanged(tick, entity.isFlying() ? 1D : 0D);
+        this.fallFlying.insertIfChanged(tick, entity.isFallFlying() ? 1D : 0D);
+        this.crawling.insertIfChanged(tick, entity.isCrawling() ? 1D : 0D);
+        this.climbing.insertIfChanged(tick, entity.isClimbing() ? 1D : 0D);
+        this.blocking.insertIfChanged(tick, entity.isBlocking() ? 1D : 0D);
+        this.sleeping.insertIfChanged(tick, entity.isSleeping() ? 1D : 0D);
+        this.riptide.insertIfChanged(tick, entity.isUsingRiptide() ? 1D : 0D);
+        this.grounded.insertIfChanged(tick, entity.isOnGround() ? 1D : 0D);
+        this.damage.insertIfChanged(tick, (double) entity.getHurtTimer());
+        this.deathTime.insertIfChanged(tick, (double) entity.getDeathTime());
+        this.usingItem.insertIfChanged(tick, entity.isUsingItem() ? 1D : 0D);
+        this.itemUseTime.insertIfChanged(tick, (double) this.getItemUseElapsed(entity));
+        this.fire.insertIfChanged(tick, entity.getFireTicks() > 0 ? 1D : 0D);
+        this.particles.insertIfChanged(tick, entity.isParticlesEnabled() ? 1D : 0D);
+        this.activeHand.insertIfChanged(tick, entity.getActiveHand() == Hand.OFF_HAND ? 1D : 0D);
 
         if (rotation)
         {
-            this.yaw.insert(tick, (double) entity.getYaw());
-            this.pitch.insert(tick, (double) entity.getPitch());
-            this.headYaw.insert(tick, (double) entity.getHeadYaw());
-            this.bodyYaw.insert(tick, (double) entity.getBodyYaw());
+            this.yaw.insertIfChanged(tick, (double) entity.getYaw());
+            this.pitch.insertIfChanged(tick, (double) entity.getPitch());
+            this.headYaw.insertIfChanged(tick, (double) entity.getHeadYaw());
+            this.bodyYaw.insertIfChanged(tick, (double) entity.getBodyYaw());
         }
 
         float[] sticks = entity.getExtraVariables();
 
         if (leftStick)
         {
-            this.stickLeftX.insert(tick, (double) sticks[0]);
-            this.stickLeftY.insert(tick, (double) sticks[1]);
+            this.stickLeftX.insertIfChanged(tick, (double) sticks[0]);
+            this.stickLeftY.insertIfChanged(tick, (double) sticks[1]);
         }
 
         if (rightStick)
         {
-            this.stickRightX.insert(tick, (double) sticks[2]);
-            this.stickRightY.insert(tick, (double) sticks[3]);
+            this.stickRightX.insertIfChanged(tick, (double) sticks[2]);
+            this.stickRightY.insertIfChanged(tick, (double) sticks[3]);
         }
 
         if (triggers)
         {
-            this.triggerLeft.insert(tick, (double) sticks[4]);
-            this.triggerRight.insert(tick, (double) sticks[5]);
+            this.triggerLeft.insertIfChanged(tick, (double) sticks[4]);
+            this.triggerRight.insertIfChanged(tick, (double) sticks[5]);
         }
 
         if (extra1)
         {
-            this.extra1X.insert(tick, (double) sticks[6]);
-            this.extra1Y.insert(tick, (double) sticks[7]);
+            this.extra1X.insertIfChanged(tick, (double) sticks[6]);
+            this.extra1Y.insertIfChanged(tick, (double) sticks[7]);
         }
 
         if (extra2)
         {
-            this.extra2X.insert(tick, (double) sticks[8]);
-            this.extra2Y.insert(tick, (double) sticks[9]);
+            this.extra2X.insertIfChanged(tick, (double) sticks[8]);
+            this.extra2Y.insertIfChanged(tick, (double) sticks[9]);
         }
 
         if (empty)
         {
-            this.mainHand.insert(tick, entity.getEquipmentStack(EquipmentSlot.MAINHAND).copy());
-            this.offHand.insert(tick, entity.getEquipmentStack(EquipmentSlot.OFFHAND).copy());
-            this.armorHead.insert(tick, entity.getEquipmentStack(EquipmentSlot.HEAD).copy());
-            this.armorChest.insert(tick, entity.getEquipmentStack(EquipmentSlot.CHEST).copy());
-            this.armorLegs.insert(tick, entity.getEquipmentStack(EquipmentSlot.LEGS).copy());
-            this.armorFeet.insert(tick, entity.getEquipmentStack(EquipmentSlot.FEET).copy());
-            this.selectedSlot.insert(tick, entity.getSelectedSlot());
+            this.mainHand.insertIfChanged(tick, entity.getEquipmentStack(EquipmentSlot.MAINHAND).copy());
+            this.offHand.insertIfChanged(tick, entity.getEquipmentStack(EquipmentSlot.OFFHAND).copy());
+            this.armorHead.insertIfChanged(tick, entity.getEquipmentStack(EquipmentSlot.HEAD).copy());
+            this.armorChest.insertIfChanged(tick, entity.getEquipmentStack(EquipmentSlot.CHEST).copy());
+            this.armorLegs.insertIfChanged(tick, entity.getEquipmentStack(EquipmentSlot.LEGS).copy());
+            this.armorFeet.insertIfChanged(tick, entity.getEquipmentStack(EquipmentSlot.FEET).copy());
+            this.selectedSlot.insertIfChanged(tick, entity.getSelectedSlot());
         }
     }
 
@@ -712,8 +810,8 @@ public class ReplayKeyframes extends ValueGroup
         entity.setOnGround(this.grounded.interpolate(tick) != 0D);
         entity.setHurtTimer(this.damage.interpolate(tick).intValue());
         entity.setDeathTime(this.deathTime.interpolate(tick).intValue());
-        int itemUseElapsed = this.itemUseTime.interpolate(tick).intValue();
-        boolean usingItem = this.usingItem.interpolate(tick) > 0D || itemUseElapsed > 0;
+        int itemUseElapsed = this.getItemUseElapsedAt(tick);
+        boolean usingItem = this.isUsingItemAt(tick);
 
         entity.setUsingItem(usingItem);
         entity.setItemUseTimeLeft(itemUseElapsed);
@@ -816,6 +914,30 @@ public class ReplayKeyframes extends ValueGroup
         }
 
         return this.particles.interpolate(tick) > 0D;
+    }
+
+    /**
+     * {@code using_item} wins when that track exists so leftover {@code item_use_time}
+     * after a finished eat cannot keep the use pose running for the rest of the film.
+     */
+    public boolean isUsingItemAt(float tick)
+    {
+        if (!this.usingItem.isEmpty())
+        {
+            return this.usingItem.interpolate(tick) > 0D;
+        }
+
+        return !this.itemUseTime.isEmpty() && this.itemUseTime.interpolate(tick) > 0D;
+    }
+
+    public int getItemUseElapsedAt(float tick)
+    {
+        if (!this.isUsingItemAt(tick) || this.itemUseTime.isEmpty())
+        {
+            return 0;
+        }
+
+        return Math.max(0, this.itemUseTime.interpolate(tick).intValue());
     }
 
     /**

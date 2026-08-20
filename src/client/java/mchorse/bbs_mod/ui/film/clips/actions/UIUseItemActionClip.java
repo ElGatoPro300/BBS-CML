@@ -31,8 +31,7 @@ public class UIUseItemActionClip extends UIActionClip<UseItemActionClip>
     {
         super.registerPanels();
 
-        this.panels.add(this.hand.marginTop(12));
-        this.panels.add(UI.label(UIKeys.ACTIONS_ITEM_STACK).marginTop(12), this.itemStack);
+        this.panels.add(this.section(UIKeys.ACTIONS_ITEM_STACK, this.hand, this.itemStack));
     }
 
     @Override

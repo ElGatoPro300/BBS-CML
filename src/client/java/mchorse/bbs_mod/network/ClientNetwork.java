@@ -14,6 +14,8 @@ import mchorse.bbs_mod.entity.GunProjectileEntity;
 import mchorse.bbs_mod.entity.IEntityFormProvider;
 import mchorse.bbs_mod.film.Film;
 import mchorse.bbs_mod.film.Films;
+import mchorse.bbs_mod.film.RecorderMobActionCapture;
+import mchorse.bbs_mod.film.RecorderMobCapture;
 import mchorse.bbs_mod.forms.FormUtils;
 import mchorse.bbs_mod.forms.forms.Form;
 import mchorse.bbs_mod.items.GunProperties;
@@ -95,6 +97,8 @@ public class ClientNetwork
         CustomPayload.Id<ServerNetwork.BufPayload> C_ANIM_STATE_MB_TRIGGER_ID = ServerNetwork.idFor(ServerNetwork.CLIENT_ANIMATION_STATE_MODEL_BLOCK_TRIGGER);
         CustomPayload.Id<ServerNetwork.BufPayload> C_REFRESH_MODEL_BLOCKS_ID = ServerNetwork.idFor(ServerNetwork.CLIENT_REFRESH_MODEL_BLOCKS);
         CustomPayload.Id<ServerNetwork.BufPayload> C_CLICKED_TRIGGER_BLOCK_ID = ServerNetwork.idFor(ServerNetwork.CLIENT_CLICKED_TRIGGER_BLOCK_PACKET);
+        CustomPayload.Id<ServerNetwork.BufPayload> C_MOB_COMBAT_ACTION_ID = ServerNetwork.idFor(ServerNetwork.CLIENT_MOB_COMBAT_ACTION);
+        CustomPayload.Id<ServerNetwork.BufPayload> C_MOB_CONVERSION_ID = ServerNetwork.idFor(ServerNetwork.CLIENT_MOB_CONVERSION);
 
         PayloadTypeRegistry.playS2C().register(C_CLICKED_ID, ServerNetwork.BufPayload.codecFor(C_CLICKED_ID));
         PayloadTypeRegistry.playS2C().register(C_PLAYER_FORM_ID, ServerNetwork.BufPayload.codecFor(C_PLAYER_FORM_ID));
@@ -115,6 +119,8 @@ public class ClientNetwork
         PayloadTypeRegistry.playS2C().register(C_ANIM_STATE_MB_TRIGGER_ID, ServerNetwork.BufPayload.codecFor(C_ANIM_STATE_MB_TRIGGER_ID));
         PayloadTypeRegistry.playS2C().register(C_REFRESH_MODEL_BLOCKS_ID, ServerNetwork.BufPayload.codecFor(C_REFRESH_MODEL_BLOCKS_ID));
         PayloadTypeRegistry.playS2C().register(C_CLICKED_TRIGGER_BLOCK_ID, ServerNetwork.BufPayload.codecFor(C_CLICKED_TRIGGER_BLOCK_ID));
+        PayloadTypeRegistry.playS2C().register(C_MOB_COMBAT_ACTION_ID, ServerNetwork.BufPayload.codecFor(C_MOB_COMBAT_ACTION_ID));
+        PayloadTypeRegistry.playS2C().register(C_MOB_CONVERSION_ID, ServerNetwork.BufPayload.codecFor(C_MOB_CONVERSION_ID));
 
         ClientPlayNetworking.registerGlobalReceiver(C_CLICKED_ID, (payload, context) -> handleClientModelBlockPacket(context.client(), payload.asPacketByteBuf()));
         ClientPlayNetworking.registerGlobalReceiver(C_PLAYER_FORM_ID, (payload, context) -> handlePlayerFormPacket(context.client(), payload.asPacketByteBuf()));
@@ -132,6 +138,8 @@ public class ClientNetwork
         ClientPlayNetworking.registerGlobalReceiver(C_GUN_PROPERTIES_ID, (payload, context) -> handleGunPropertiesPacket(context.client(), payload.asPacketByteBuf()));
         ClientPlayNetworking.registerGlobalReceiver(C_PAUSE_FILM_ID, (payload, context) -> handlePauseFilmPacket(context.client(), payload.asPacketByteBuf()));
         ClientPlayNetworking.registerGlobalReceiver(C_SELECTED_SLOT_ID, (payload, context) -> handleSelectedSlotPacket(context.client(), payload.asPacketByteBuf()));
+        ClientPlayNetworking.registerGlobalReceiver(C_MOB_COMBAT_ACTION_ID, (payload, context) -> handleMobCombatActionPacket(context.client(), payload.asPacketByteBuf()));
+        ClientPlayNetworking.registerGlobalReceiver(C_MOB_CONVERSION_ID, (payload, context) -> handleMobConversionPacket(context.client(), payload.asPacketByteBuf()));
         ClientPlayNetworking.registerGlobalReceiver(C_ANIM_STATE_MB_TRIGGER_ID, (payload, context) -> handleAnimationStateModelBlockPacket(context.client(), payload.asPacketByteBuf()));
         ClientPlayNetworking.registerGlobalReceiver(C_REFRESH_MODEL_BLOCKS_ID, (payload, context) -> handleRefreshModelBlocksPacket(context.client(), payload.asPacketByteBuf()));
         ClientPlayNetworking.registerGlobalReceiver(C_CLICKED_TRIGGER_BLOCK_ID, (payload, context) -> handleClickedTriggerBlockPacket(context.client(), payload.asPacketByteBuf()));
@@ -153,15 +161,17 @@ public class ClientNetwork
             }
 
             UIDashboard dashboard = BBSModClient.getDashboard();
+            UITriggerBlockPanel panel = dashboard.getPanel(UITriggerBlockPanel.class);
+
+            /* Switch before opening so dashboard onOpen does not restore the last
+             * film panel (which would restart paused actor replays). */
+            dashboard.setPanel(panel);
 
             if (!(client.currentScreen instanceof UIScreen screen) || screen.getMenu() != dashboard)
             {
                 UIScreen.open(dashboard);
             }
 
-            UITriggerBlockPanel panel = dashboard.getPanel(UITriggerBlockPanel.class);
-
-            dashboard.setPanel(panel);
             panel.fill((TriggerBlockEntity) entity, true);
         });
     }
@@ -181,15 +191,17 @@ public class ClientNetwork
 
             UIBaseMenu menu = UIScreen.getCurrentMenu();
             UIDashboard dashboard = BBSModClient.getDashboard();
+            UIModelBlockPanel panel = dashboard.getPanels().getPanel(UIModelBlockPanel.class);
+
+            /* Switch before opening so dashboard onOpen does not restore the last
+             * film panel (which would restart paused actor replays). */
+            dashboard.setPanel(panel);
 
             if (menu != dashboard)
             {
                 UIScreen.open(dashboard);
             }
 
-            UIModelBlockPanel panel = dashboard.getPanels().getPanel(UIModelBlockPanel.class);
-
-            dashboard.setPanel(panel);
             panel.fill((ModelBlockEntity) entity, true);
         });
     }
@@ -288,6 +300,30 @@ public class ClientNetwork
                     panel.receiveActions(filmId, replayId, tick, data);
                 }
             });
+        });
+    }
+
+    private static void handleMobCombatActionPacket(MinecraftClient client, PacketByteBuf buf)
+    {
+        int victimEntityId = buf.readInt();
+        int sourceEntityId = buf.readInt();
+        float amount = buf.readFloat();
+        byte kind = buf.readByte();
+
+        client.execute(() ->
+        {
+            RecorderMobActionCapture.handleServerCombat(victimEntityId, sourceEntityId, amount, kind);
+        });
+    }
+
+    private static void handleMobConversionPacket(MinecraftClient client, PacketByteBuf buf)
+    {
+        int oldEntityId = buf.readInt();
+        int newEntityId = buf.readInt();
+
+        client.execute(() ->
+        {
+            RecorderMobCapture.handleServerConversion(oldEntityId, newEntityId);
         });
     }
 
@@ -607,6 +643,15 @@ public class ClientNetwork
 
     public static void sendActionRecording(String filmId, int replayId, int tick, int countdown, boolean state)
     {
+        sendActionRecording(filmId, replayId, tick, countdown, state, false);
+    }
+
+    /**
+     * @param recorderOnly true = film-editor viewport (keep FILM_EDITOR ActionPlayer);
+     *                     false = Outside/world recording (spawn RECORDING ActionPlayer).
+     */
+    public static void sendActionRecording(String filmId, int replayId, int tick, int countdown, boolean state, boolean recorderOnly)
+    {
         PacketByteBuf buf = PacketByteBufs.create();
 
         buf.writeString(filmId);
@@ -614,6 +659,7 @@ public class ClientNetwork
         buf.writeInt(tick);
         buf.writeInt(countdown);
         buf.writeBoolean(state);
+        buf.writeBoolean(recorderOnly);
 
         ClientPlayNetworking.send(ServerNetwork.BufPayload.from(buf, ServerNetwork.idFor(ServerNetwork.SERVER_ACTION_RECORDING)));
     }

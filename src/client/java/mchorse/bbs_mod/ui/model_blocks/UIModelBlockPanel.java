@@ -319,6 +319,10 @@ public class UIModelBlockPanel extends UIDashboardPanel implements IFlightSuppor
 
             palette.resize();
 
+            /* Stop stuck WASD/flight velocity from the world view behind the palette. */
+            this.dashboard.orbit.reset();
+            this.dashboard.orbit.release();
+
             if (editing) {
                 this.addCameraController(palette);
             }
@@ -1649,7 +1653,19 @@ public class UIModelBlockPanel extends UIDashboardPanel implements IFlightSuppor
         super.appear();
 
         this.getContext().menu.main.add(this.keyDude);
-        this.dashboard.orbitKeysUI.setEnabled(() -> this.getChildren(UIFormPalette.class).isEmpty());
+        this.dashboard.orbitKeysUI.setEnabled(() ->
+        {
+            if (!this.getChildren(UIFormPalette.class).isEmpty())
+            {
+                return false;
+            }
+
+            UIContext context = this.getContext();
+
+            return context == null || !context.hasOverlayPanel();
+        });
+        /* Drop any in-flight WASD velocity immediately when entering this panel's UI. */
+        this.dashboard.orbit.reset();
 
         if (this.cameraController != null) {
             BBSModClient.getCameraController().add(this.cameraController);

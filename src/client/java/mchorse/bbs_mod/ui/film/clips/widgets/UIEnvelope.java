@@ -5,7 +5,9 @@ import mchorse.bbs_mod.ui.UIKeys;
 import mchorse.bbs_mod.ui.film.clips.UIClip;
 import mchorse.bbs_mod.ui.film.replays.UIReplaysEditor;
 import mchorse.bbs_mod.ui.film.utils.keyframes.UIFilmKeyframes;
+import mchorse.bbs_mod.ui.framework.elements.IUIElement;
 import mchorse.bbs_mod.ui.framework.elements.UIElement;
+import mchorse.bbs_mod.ui.framework.elements.UIScrollView;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIButton;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UICirculate;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIToggle;
@@ -117,14 +119,39 @@ public class UIEnvelope extends UIElement
 
         this.add(this.keyframes);
 
+        this.resizeClipPanels();
+
+        if (toggled && this.hasParent())
+        {
+            this.initiate();
+        }
+    }
+
+    /**
+     * Reflow the clip {@link UIScrollView} columns. Walking only two parents broke after
+     * sections wrapped envelopes ({@code panels → section → fields → envelope}): resizing
+     * the section alone re-entered the horizontal {@code ColumnResizer} without resetting
+     * column cursors and drifted widgets on every scrub {@link #fillData()}.
+     */
+    private void resizeClipPanels()
+    {
+        UIElement element = this;
+
+        while (element != null)
+        {
+            if (element instanceof UIScrollView)
+            {
+                element.resize();
+
+                return;
+            }
+
+            element = element.getParent();
+        }
+
         if (this.hasParent())
         {
-            this.getParent().getParent().resize();
-
-            if (toggled)
-            {
-                this.initiate();
-            }
+            this.getParent().resize();
         }
     }
 
@@ -141,14 +168,42 @@ public class UIEnvelope extends UIElement
     public void fillData()
     {
         Envelope envelope = this.get();
+        boolean keyframesOn = envelope.keyframes.get();
 
         this.enabled.setValue(envelope.enabled.get());
         this.mode.setValue(envelope.mode.get());
         this.fillIntervals();
-        this.keyframes.setValue(envelope.keyframes.get());
+        this.keyframes.setValue(keyframesOn);
         this.channel.setChannel(envelope.channel, Colors.ACTIVE);
 
-        this.toggleKeyframes(envelope.keyframes.get());
+        /* Rebuild only when the keyframe mode actually changes — scrub/fillData used to
+         * tear down and re-add children every tick, which corrupted multi-column layout. */
+        if (this.shouldRebuildKeyframesLayout(keyframesOn))
+        {
+            this.toggleKeyframes(keyframesOn);
+        }
+    }
+
+    private boolean shouldRebuildKeyframesLayout(boolean keyframesOn)
+    {
+        if (this.getChildren().isEmpty())
+        {
+            return true;
+        }
+
+        boolean showingEdit = false;
+
+        for (IUIElement child : this.getChildren())
+        {
+            if (child == this.editKeyframes)
+            {
+                showingEdit = true;
+
+                break;
+            }
+        }
+
+        return showingEdit != keyframesOn;
     }
 
     private void fillIntervals()

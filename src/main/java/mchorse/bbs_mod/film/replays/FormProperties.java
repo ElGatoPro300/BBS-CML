@@ -9,8 +9,10 @@ import mchorse.bbs_mod.forms.FormUtils;
 import mchorse.bbs_mod.forms.forms.Form;
 import mchorse.bbs_mod.forms.forms.ModelForm;
 import mchorse.bbs_mod.forms.forms.utils.EffectTransform;
+import mchorse.bbs_mod.forms.forms.utils.FormLighting;
 import mchorse.bbs_mod.forms.forms.utils.GlowSettings;
 import mchorse.bbs_mod.forms.forms.utils.Illusion;
+import mchorse.bbs_mod.forms.forms.utils.LightingSettings;
 import mchorse.bbs_mod.forms.forms.utils.PaintSettings;
 import mchorse.bbs_mod.forms.forms.utils.ShakeSettings;
 import mchorse.bbs_mod.forms.forms.utils.StructureLightSettings;
@@ -145,6 +147,11 @@ public class FormProperties extends ValueGroup
         return path.equals("color_grade") || path.endsWith("/color_grade");
     }
 
+    private static boolean isWorldLightingChannelKey(String key)
+    {
+        return key != null && (key.equals("lighting") || key.endsWith("/lighting"));
+    }
+
     public static String colorPropertyPathForGrade(String gradeKey)
     {
         int colon = gradeKey.indexOf(':');
@@ -181,7 +188,14 @@ public class FormProperties extends ValueGroup
 
             if (allowed)
             {
-                KeyframeChannel channel = new KeyframeChannel(key, keyframeFactoryValue.getFactory());
+                IKeyframeFactory factory = keyframeFactoryValue.getFactory();
+
+                if (isWorldLightingChannelKey(key) && (factory == KeyframeFactories.FLOAT || factory == KeyframeFactories.LIGHTING_BRIGHTNESS))
+                {
+                    factory = KeyframeFactories.LIGHTING_SETTINGS;
+                }
+
+                KeyframeChannel channel = new KeyframeChannel(key, factory);
 
                 channel.setModel(true);
                 this.properties.put(key, channel);
@@ -205,6 +219,8 @@ public class FormProperties extends ValueGroup
         {
             return;
         }
+
+        form.lightingSettings = null;
 
         /* Expand overlay slots if the setting grew since the form was constructed,
          * and ensure any overlay keyframe channels still have matching form fields. */
@@ -399,6 +415,13 @@ public class FormProperties extends ValueGroup
             return;
         }
 
+        if (value.getFactory() == KeyframeFactories.LIGHTING_SETTINGS)
+        {
+            this.applyLightingProperty(tick, form, property, value, blend);
+
+            return;
+        }
+
         KeyframeSegment segment = value.find(tick);
 
         if (segment != null)
@@ -458,7 +481,54 @@ public class FormProperties extends ValueGroup
                 form.noshadingOpacity.setRuntimeValue(null);
             }
 
+            if (isWorldLightingChannelKey(id))
+            {
+                form.lightingSettings = null;
+            }
+
             property.setRuntimeValue(null);
+        }
+    }
+
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    private void applyLightingProperty(float tick, Form form, BaseValueBasic property, KeyframeChannel channel, float blend)
+    {
+        KeyframeSegment segment = channel.find(tick);
+
+        if (segment == null)
+        {
+            form.lightingSettings = null;
+            property.setRuntimeValue(null);
+
+            return;
+        }
+
+        Object interpolated = segment.createInterpolated();
+        LightingSettings settings = interpolated instanceof LightingSettings lighting
+            ? lighting.copy()
+            : new LightingSettings();
+
+        if (blend < 1F)
+        {
+            LightingSettings base = form.lightingSettings != null
+                ? form.lightingSettings.copy()
+                : LightingSettings.fromBrightness(property.get() instanceof Number number ? number.floatValue() : 0F);
+            IKeyframeFactory factory = channel.getFactory();
+            Object mixed = factory.interpolate(base, base, settings, settings, Interpolations.LINEAR, MathUtils.clamp(blend, 0F, 1F));
+
+            settings = mixed instanceof LightingSettings lighting ? lighting.copy() : settings;
+        }
+
+        form.lightingSettings = settings;
+
+        if (settings.fixed)
+        {
+            /* Keep morph brightness untouched while fixed light level drives rendering. */
+            property.setRuntimeValue(null);
+        }
+        else
+        {
+            property.setRuntimeValue(FormLighting.clampBrightness(settings.brightness));
         }
     }
 
@@ -1005,8 +1075,96 @@ public class FormProperties extends ValueGroup
         this.dualWritePaintToLegacy(data);
         this.dualWriteGlowToLegacy(data);
         this.dualWriteStructureLightToLegacy(data);
+        this.rewriteLightingSettingsToLegacy(data);
         this.flattenColorKeyframeValuesToInt(data);
         this.stripUnsafeKeyframeTypes(data);
+    }
+
+    /**
+     * Older builds only know {@code float} lighting (world-influence). Rewrite modern
+     * lighting settings so values and type match that format.
+     */
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    private void rewriteLightingSettingsToLegacy(MapType data)
+    {
+        ArrayList<String> keys = new ArrayList<>();
+
+        for (String key : data.keys())
+        {
+            if (isWorldLightingChannelKey(key))
+            {
+                keys.add(key);
+            }
+        }
+
+        for (String key : keys)
+        {
+            MapType channelData = data.getMap(key);
+
+            if (channelData.isEmpty())
+            {
+                continue;
+            }
+
+            String type = channelData.getString("type");
+
+            if (!"lighting_settings".equals(type) && !"lighting_brightness".equals(type))
+            {
+                continue;
+            }
+
+            KeyframeChannel live = this.properties.get(key);
+
+            if (live == null)
+            {
+                continue;
+            }
+
+            if (live.getFactory() != KeyframeFactories.LIGHTING_SETTINGS
+                && live.getFactory() != KeyframeFactories.LIGHTING_BRIGHTNESS)
+            {
+                continue;
+            }
+
+            KeyframeChannel<Float> legacy = new KeyframeChannel<>(key, KeyframeFactories.FLOAT);
+
+            legacy.setModel(true);
+
+            for (Object object : live.getKeyframes())
+            {
+                Keyframe keyframe = (Keyframe) object;
+                Object raw = keyframe.getValue();
+                float legacyValue;
+
+                if (raw instanceof LightingSettings settings)
+                {
+                    legacyValue = FormLighting.settingsToLegacy(settings);
+                }
+                else if (raw instanceof Number number)
+                {
+                    legacyValue = FormLighting.brightnessToLegacy(number.floatValue());
+                }
+                else
+                {
+                    legacyValue = FormLighting.brightnessToLegacy(0F);
+                }
+
+                int index = legacy.insert(keyframe.getTick(), legacyValue);
+                Keyframe<Float> out = legacy.get(index);
+
+                if (out != null)
+                {
+                    out.getInterpolation().copy(keyframe.getInterpolation());
+                    out.setDuration(keyframe.getDuration());
+                    out.lx = keyframe.lx;
+                    out.ly = keyframe.ly;
+                    out.rx = keyframe.rx;
+                    out.ry = keyframe.ry;
+                }
+            }
+
+            data.put(key, legacy.toData());
+        }
     }
 
     private void dualWritePaintToLegacy(MapType data)
@@ -1379,10 +1537,10 @@ public class FormProperties extends ValueGroup
                 property.setModel(true);
                 property.fromData(mapType);
 
-            /* Patch 1.1.1 changes to lighting property */
-            if (key.endsWith("lighting") && property.getFactory() == KeyframeFactories.BOOLEAN)
+            /* Patch 1.1.1 + brightness + settings: lighting track migrations. */
+            if (isWorldLightingChannelKey(key) && property.getFactory() == KeyframeFactories.BOOLEAN)
             {
-                KeyframeChannel newProperty = new KeyframeChannel(key, KeyframeFactories.FLOAT);
+                KeyframeChannel newProperty = new KeyframeChannel(key, KeyframeFactories.LIGHTING_SETTINGS);
 
                 newProperty.setModel(true);
 
@@ -1391,7 +1549,44 @@ public class FormProperties extends ValueGroup
                     Keyframe kf = (Keyframe) keyframe;
                     Boolean v = (Boolean) kf.getValue();
 
-                    newProperty.insert(kf.getTick(), v ? 1F : 0F);
+                    /* Legacy boolean true = world lighting → brightness 0; false = full bright → 1. */
+                    newProperty.insert(kf.getTick(), LightingSettings.fromBrightness(v ? 0F : 1F));
+                }
+
+                property = newProperty;
+            }
+
+            if (isWorldLightingChannelKey(key) && property.getFactory() == KeyframeFactories.FLOAT)
+            {
+                KeyframeChannel newProperty = new KeyframeChannel(key, KeyframeFactories.LIGHTING_SETTINGS);
+
+                newProperty.setModel(true);
+
+                for (Object keyframe : property.getKeyframes())
+                {
+                    Keyframe kf = (Keyframe) keyframe;
+                    Object raw = kf.getValue();
+                    float legacy = raw instanceof Number ? ((Number) raw).floatValue() : 1F;
+
+                    newProperty.insert(kf.getTick(), LightingSettings.fromBrightness(FormLighting.legacyToBrightness(legacy)));
+                }
+
+                property = newProperty;
+            }
+
+            if (isWorldLightingChannelKey(key) && property.getFactory() == KeyframeFactories.LIGHTING_BRIGHTNESS)
+            {
+                KeyframeChannel newProperty = new KeyframeChannel(key, KeyframeFactories.LIGHTING_SETTINGS);
+
+                newProperty.setModel(true);
+
+                for (Object keyframe : property.getKeyframes())
+                {
+                    Keyframe kf = (Keyframe) keyframe;
+                    Object raw = kf.getValue();
+                    float brightness = raw instanceof Number ? ((Number) raw).floatValue() : 0F;
+
+                    newProperty.insert(kf.getTick(), LightingSettings.fromBrightness(brightness));
                 }
 
                 property = newProperty;
@@ -1991,6 +2186,13 @@ public class FormProperties extends ValueGroup
         }
         catch (Throwable ignored) {}
 
+        /* Migration: orphan render keys get visible twins so Enabled is editable on Visible. */
+        try
+        {
+            this.migrateOrphanRenderToVisiblePairs();
+        }
+        catch (Throwable ignored) {}
+
         /* Migration: move Color Grade fields off the shared Color channel into color_grade. */
         try
         {
@@ -2014,6 +2216,114 @@ public class FormProperties extends ValueGroup
             }
         }
         catch (Throwable ignored) {}
+    }
+
+    /**
+     * Insert a Visible keyframe (always {@code true}) paired with a Render/Enabled value
+     * at the same tick — same shape the Visible track UI edits via its Render toggle.
+     */
+    @SuppressWarnings("unchecked")
+    public void insertVisibleRenderEnabled(Form form, float tick, boolean renderEnabled)
+    {
+        if (form == null || tick < 0F)
+        {
+            return;
+        }
+
+        KeyframeChannel visibleAny = this.getOrCreate(form, "visible");
+        KeyframeChannel renderAny = this.getOrCreate(form, "render");
+
+        if (visibleAny != null && visibleAny.getFactory() == KeyframeFactories.BOOLEAN)
+        {
+            ((KeyframeChannel<Boolean>) visibleAny).insert(tick, Boolean.TRUE);
+        }
+
+        if (renderAny != null && renderAny.getFactory() == KeyframeFactories.BOOLEAN)
+        {
+            ((KeyframeChannel<Boolean>) renderAny).insert(tick, renderEnabled);
+        }
+    }
+
+    /**
+     * Autocapture / older films wrote only {@code render}. Pair each render key with a
+     * Visible keyframe so Enabled can be edited from the Visible track.
+     */
+    @SuppressWarnings("unchecked")
+    private void migrateOrphanRenderToVisiblePairs()
+    {
+        ArrayList<String> renderKeys = new ArrayList<>();
+
+        for (String key : this.properties.keySet())
+        {
+            if (FormUtils.isRenderPropertyPath(key))
+            {
+                renderKeys.add(key);
+            }
+        }
+
+        for (String renderKey : renderKeys)
+        {
+            KeyframeChannel<?> renderAny = this.properties.get(renderKey);
+
+            if (renderAny == null || renderAny.getFactory() != KeyframeFactories.BOOLEAN || renderAny.isEmpty())
+            {
+                continue;
+            }
+
+            String visibleKey = FormUtils.getVisiblePropertyPath(renderKey);
+            KeyframeChannel<?> visibleAny = this.properties.get(visibleKey);
+
+            if (visibleAny == null)
+            {
+                KeyframeChannel<Boolean> created = new KeyframeChannel<>(visibleKey, KeyframeFactories.BOOLEAN);
+
+                created.setModel(true);
+                this.properties.put(visibleKey, created);
+                this.add(created);
+                visibleAny = created;
+            }
+
+            if (visibleAny.getFactory() != KeyframeFactories.BOOLEAN)
+            {
+                continue;
+            }
+
+            KeyframeChannel<Boolean> visible = (KeyframeChannel<Boolean>) visibleAny;
+            KeyframeChannel<Boolean> render = (KeyframeChannel<Boolean>) renderAny;
+
+            for (Keyframe<Boolean> renderKeyframe : render.getKeyframes())
+            {
+                if (renderKeyframe == null)
+                {
+                    continue;
+                }
+
+                float tick = renderKeyframe.getTick();
+
+                if (this.findBooleanKeyframeAtTick(visible, tick) == null)
+                {
+                    visible.insert(tick, Boolean.TRUE);
+                }
+            }
+        }
+    }
+
+    private Keyframe<Boolean> findBooleanKeyframeAtTick(KeyframeChannel<Boolean> channel, float tick)
+    {
+        if (channel == null)
+        {
+            return null;
+        }
+
+        for (Keyframe<Boolean> keyframe : channel.getKeyframes())
+        {
+            if (keyframe != null && Math.abs(keyframe.getTick() - tick) < 0.0001F)
+            {
+                return keyframe;
+            }
+        }
+
+        return null;
     }
 
     /**

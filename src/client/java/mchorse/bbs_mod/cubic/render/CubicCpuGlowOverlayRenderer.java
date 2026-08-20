@@ -4,6 +4,7 @@ import mchorse.bbs_mod.BBSModClient;
 import mchorse.bbs_mod.cubic.data.model.Model;
 import mchorse.bbs_mod.cubic.data.model.ModelGroup;
 import mchorse.bbs_mod.cubic.data.model.ModelVertex;
+import mchorse.bbs_mod.cubic.render.vao.ModelVAORenderer;
 import mchorse.bbs_mod.obj.shapes.ShapeKeys;
 import mchorse.bbs_mod.resources.Link;
 import mchorse.bbs_mod.ui.framework.elements.utils.StencilMap;
@@ -123,6 +124,7 @@ public class CubicCpuGlowOverlayRenderer extends CubicCubeRenderer
 
         try
         {
+            ModelVAORenderer.setupUniformsCpuPretransformed(this.shader);
             this.shader.bind();
             BufferRenderer.drawWithGlobalProgram(groupBuilder.end());
             this.shader.unbind();

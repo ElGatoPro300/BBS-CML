@@ -2,6 +2,7 @@ package mchorse.bbs_mod.film;
 
 import mchorse.bbs_mod.BBSSettings;
 import mchorse.bbs_mod.client.BBSRendering;
+import mchorse.bbs_mod.client.ItemUseRenderState;
 import mchorse.bbs_mod.client.renderer.ModelBlockEntityRenderer;
 import mchorse.bbs_mod.client.renderer.MorphFireRenderer;
 import mchorse.bbs_mod.client.renderer.entity.ActorEntityRenderer;
@@ -30,6 +31,7 @@ import mchorse.bbs_mod.forms.renderers.FormIllusionRenderer;
 import mchorse.bbs_mod.forms.renderers.FormRenderType;
 import mchorse.bbs_mod.forms.renderers.FormRenderingContext;
 import mchorse.bbs_mod.forms.renderers.ModelFormRenderer;
+import mchorse.bbs_mod.forms.renderers.utils.FormDeathTilt;
 import mchorse.bbs_mod.forms.renderers.utils.MatrixCache;
 import mchorse.bbs_mod.forms.renderers.utils.MatrixCacheEntry;
 import mchorse.bbs_mod.graphics.Draw;
@@ -68,16 +70,22 @@ import net.minecraft.client.render.Camera;
 import net.minecraft.client.render.LightmapTextureManager;
 import net.minecraft.client.render.OverlayTexture;
 import net.minecraft.client.render.VertexConsumerProvider;
+import net.minecraft.client.render.WorldRenderer;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityPose;
 import net.minecraft.entity.EquipmentSlot;
+import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.MovementType;
 import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.item.ItemStack;
 import net.minecraft.particle.BlockStateParticleEffect;
+import net.minecraft.particle.ItemStackParticleEffect;
 import net.minecraft.particle.ParticleTypes;
 import net.minecraft.sound.SoundCategory;
 import net.minecraft.text.Text;
+import net.minecraft.util.Hand;
+import net.minecraft.util.UseAction;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Vec3d;
 import net.minecraft.world.LightType;
@@ -90,9 +98,9 @@ import org.joml.Vector2f;
 import org.joml.Vector3d;
 import org.joml.Vector3f;
 
-import org.lwjgl.opengl.GL11;
-
 import com.mojang.blaze3d.systems.RenderSystem;
+
+import org.lwjgl.opengl.GL11;
 
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -120,6 +128,13 @@ public abstract class BaseFilmController
      * without this edge the same step tick would spam audio every client tick.
      */
     private final Map<String, Integer> lastStepSoundTicks = new HashMap<>();
+    private final Map<String, Integer> lastItemUseParticleTicks = new HashMap<>();
+
+    /**
+     * Last resolved physical actor entity id per replay. Used to one-shot snap
+     * world position when Actor mode binds a new entity (toggle on / respawn).
+     */
+    private final Map<String, Integer> lastSeenActorEntityIds = new HashMap<>();
 
     /* Rendering helpers */
 
@@ -138,6 +153,20 @@ public abstract class BaseFilmController
             return;
         }
 
+        FormDeathTilt.pushSample(context);
+
+        try
+        {
+            renderEntityBody(context, entities, entity, camera, stack, transition, form);
+        }
+        finally
+        {
+            FormDeathTilt.popSample();
+        }
+    }
+
+    private static void renderEntityBody(FilmControllerContext context, IntObjectMap<IEntity> entities, IEntity entity, Camera camera, MatrixStack stack, float transition, Form form)
+    {
         applyGroupPaintGlow(form, context.groupPaint, context.groupGlow);
         applyGroupColorGrade(form, context.groupColorGrade);
         applyGroupIllusion(form, context.groupIllusion);
@@ -214,7 +243,6 @@ public abstract class BaseFilmController
             target.mul(context.localGroupTransform);
         }
 
-        BlockPos pos = BlockPos.ofFloored(position.x, position.y + 0.5D, position.z);
         World world = entity.getWorld();
 
         if (world == null)
@@ -227,9 +255,25 @@ public abstract class BaseFilmController
             return;
         }
 
-        int sky = world.getLightLevel(LightType.SKY, pos);
-        int torch = world.getLightLevel(LightType.BLOCK, pos);
-        int light = LightmapTextureManager.pack(torch, sky);
+        /* MobForm stubs must match ActorEntity / EntityRenderer.getLight (eye height +
+         * WorldRenderer). Other film forms keep the historical feet+0.5 sample. */
+        int light;
+
+        if (form instanceof MobForm)
+        {
+            BlockPos pos = BlockPos.ofFloored(position.x, position.y + entity.getEyeHeight(), position.z);
+
+            light = WorldRenderer.getLightmapCoordinates(world, pos);
+        }
+        else
+        {
+            BlockPos pos = BlockPos.ofFloored(position.x, position.y + 0.5D, position.z);
+            int sky = world.getLightLevel(LightType.SKY, pos);
+            int torch = world.getLightLevel(LightType.BLOCK, pos);
+
+            light = LightmapTextureManager.pack(torch, sky);
+        }
+
         int overlay = OverlayTexture.packUv(OverlayTexture.getU(0F), OverlayTexture.getV(entity.getHurtTimer() > 0));
 
         FormRenderingContext formContext = new FormRenderingContext()
@@ -409,14 +453,16 @@ public abstract class BaseFilmController
 
             if (shadowOpacity > 0F)
             {
+                /* X/Z offset moves the ground sample; Y offset must lift the PNG via matrix
+                 * translate — putting it into entity Y only fades the vanilla blob in place. */
                 double sx = position.x + context.shadowOffsetX;
-                double sy = position.y + context.shadowOffsetY;
+                double sy = position.y;
                 double sz = position.z + context.shadowOffsetZ;
 
                 stack.push();
                 stack.translate(sx - cx, sy - cy, sz - cz);
 
-                ModelBlockEntityRenderer.renderShadow(context.consumers, stack, transition, sx, sy, sz, 0F, 0F, 0F, context.shadowRadiusX, context.shadowRadiusZ, shadowOpacity);
+                ModelBlockEntityRenderer.renderShadow(context.consumers, stack, transition, sx, sy, sz, 0F, context.shadowOffsetY, 0F, context.shadowRadiusX, context.shadowRadiusZ, shadowOpacity);
 
                 stack.pop();
             }
@@ -1065,6 +1111,8 @@ public abstract class BaseFilmController
 
         matrix.translate((float) x, (float) y, (float) z);
         matrix.rotateY(MathUtils.toRad(-bodyYaw));
+        /* Float death_time tip (film sample or actor keyframes / combat). */
+        FormDeathTilt.apply(matrix, entity, entity.getForm(), tickDelta);
 
         return matrix;
     }
@@ -1140,6 +1188,8 @@ public abstract class BaseFilmController
         this.entities.clear();
         this.replayMap.clear();
         this.lastStepSoundTicks.clear();
+        this.lastItemUseParticleTicks.clear();
+        this.lastSeenActorEntityIds.clear();
 
         if (this.film == null)
         {
@@ -1236,6 +1286,60 @@ public abstract class BaseFilmController
         IEntity physical = this.getPhysicalActorEntity(replay);
 
         return physical != null ? physical : stub;
+    }
+
+    /**
+     * Actor-mode replays must not fall back to the stub for picking/highlight after
+     * combat death — that left a standing invisible ghost (yellow form / blue limbs).
+     * Also blocks picking for the whole death animation once {@code deathTime} starts,
+     * including keyframed {@code death_time} (scrubbed death without combat HP).
+     */
+    public boolean isActorPickingBlocked(Replay replay)
+    {
+        if (replay == null || !replay.actor.get())
+        {
+            return false;
+        }
+
+        Map<String, Integer> actors = this.getActors();
+
+        if (actors == null || MinecraftClient.getInstance().world == null)
+        {
+            return true;
+        }
+
+        Integer entityId = actors.get(replay.getId());
+
+        if (entityId == null)
+        {
+            return true;
+        }
+
+        Entity anEntity = MinecraftClient.getInstance().world.getEntityById(entityId);
+
+        if (!(anEntity instanceof LivingEntity living) || living.isRemoved())
+        {
+            return true;
+        }
+
+        if (living.isDead() || living.getHealth() <= 0F || living.deathTime > 0)
+        {
+            return true;
+        }
+
+        /* Keyframed death tip without combat death — same gizmo/pick block so FormDeathTilt
+         * cannot detach the bone gizmo while the actor is still "alive" on HP. */
+        if (replay.keyframes != null && !replay.keyframes.deathTime.isEmpty())
+        {
+            float propertyTick = replay.getTick(this.getTick());
+
+            if (replay.keyframes.deathTime.interpolate(propertyTick).floatValue() > 0F)
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     public boolean hasFinished()
@@ -1394,90 +1498,146 @@ public abstract class BaseFilmController
                 {
                     Integer entityId = actors.get(replay.getId());
 
-                    if (entityId != null)
+                    if (entityId == null)
+                    {
+                        this.lastSeenActorEntityIds.remove(replay.getId());
+                    }
+                    else
                     {
                         Entity anEntity = MinecraftClient.getInstance().world.getEntityById(entityId);
 
                         if (anEntity instanceof ActorEntity actor)
                         {
-                            boolean controlling = !this.shouldEmitReplayMotionFx(entity);
-                            boolean timelineAnims = BBSSettings.editorActorPauseAnimations != null
-                                && BBSSettings.editorActorPauseAnimations.get();
-                            boolean pauseAnims = timelineAnims
-                                && !this.isActorPlaybackActive()
-                                && !controlling;
+                            /* Record only once the entity exists — otherwise a late spawn
+                             * after the actors packet would skip the one-shot position snap. */
+                            Integer previousEntityId = this.lastSeenActorEntityIds.put(replay.getId(), entityId);
+                            boolean actorEntityJustBound = !Objects.equals(previousEntityId, entityId);
 
-                            actor.setPauseNaturalAnimations(pauseAnims);
+                            /* HP syncs on scrub revive; deathTime does not — clear leftover corpse visuals. */
+                            actor.clearStaleCombatDeathIfAlive();
 
-                            /* IEntity already has mount rotation applied by MorphMountSync */
-                            actor.setYaw(entity.getYaw());
-                            actor.setHeadYaw(entity.getHeadYaw());
-                            actor.setBodyYaw(entity.getBodyYaw());
-                            actor.setPitch(entity.getPitch());
-                            /* While playing, copy limbAnimator from the stub. ActionPlayer
-                             * teleports the physical actor so client distance-based limb
-                             * updates often stall; ProceduralAnimator then freezes walk
-                             * swing at an extreme pose (velocity restores amplitude, stuck
-                             * limbPhase does not advance). Timeline-freeze / actor-control
-                             * keep their own limb paths below.
-                             * Skip while a live hurt swing spike is active so procedural
-                             * damage uses the same limbSpeed amplification as vanilla. */
-                            boolean syncLimbs = this.isActorPlaybackActive() && !controlling && !pauseAnims
-                                && !actor.shouldPreserveLiveHurtLimbSwing();
+                            boolean combatDead = actor.isDead() || actor.getHealth() <= 0F || actor.deathTime > 0;
 
-                            ActorReplayStateSync.syncFromSource(actor, entity, syncLimbs);
-                            /* Keep keyframed equipment on the visible ActorEntity — stub
-                             * already received applyReplay; without this, actor toggle can
-                             * show empty armor until the server respawns the actor. */
-                            this.syncActorEquipmentFromStub(actor, entity);
-                            /* Only gate vanilla sprint dust — do not clear sprinting (run anim). */
-                            actor.setSuppressSprintParticles(controlling);
-                            /* Iris packs cast mesh shadows; drop the vanilla blob then so
-                             * actor ground circles are not stacked darker. */
-                            ActorEntityRenderer.updateShadowRadius(actor);
-
-                            if (pauseAnims)
+                            if (combatDead)
                             {
-                                this.applyPausedActorNaturalMotion(actor, replay, replayTick);
-                            }
-                            else if (controlling)
-                            {
-                                /* Actor-control: keep the visible ActorEntity on the live
-                                 * player pose (server ActionPlayer skips this replay via PUPPET).
-                                 * Do not copy player velocity — LivingEntity.tick would keep
-                                 * integrating it on top of the snap (and creative-flight
-                                 * residual looks like ice). Pose is fully driven here. */
-                                actor.setPosition(entity.getX(), entity.getY(), entity.getZ());
-                                actor.prevX = entity.getPrevX();
-                                actor.prevY = entity.getPrevY();
-                                actor.prevZ = entity.getPrevZ();
+                                /* Keep server combat-death pose; do not overlay alive keyframes. */
+                                actor.updateTick(replayTick);
+                                actor.setPauseNaturalAnimations(false);
                                 actor.setVelocity(0D, 0D, 0D);
-                            }
-                            else if (!this.isActorPlaybackActive())
-                            {
-                                actor.setVelocity(0D, 0D, 0D);
+                                actor.syncNameTag(replay);
+                                actor.syncShadow(replay.shadow.get(), BaseFilmController.resolveShadowSettings(replay, replayTick));
 
-                                /* Toggle off: clear sprint so emoticon/BOBJ leave run for
-                                 * idle (unless legacy run-in-place is enabled). Limb swing is
-                                 * left alone so procedural forms decay naturally. */
-                                if (!timelineAnims && BBSSettings.shouldSettleActorNaturalStopWhenPaused())
+                                /* Same as live control: the puppeteer owns swings / client clips. */
+                                if (this.shouldEmitReplayMotionFx(entity) && this.shouldApplyClientActions(entity))
                                 {
-                                    ActorReplayStateSync.settleNaturalStop(actor);
+                                    replay.applyClientActions(replayTick, new MCEntity(anEntity), this.film);
                                 }
-                            }
 
-                            /* Timeline-freeze skips ActorEntity.tick, so vanilla sprint dust
-                             * never runs — emit keyframe dust while the body clock is frozen. */
-                            if (pauseAnims && this.shouldEmitReplayMotionFx(entity))
+                                spawned = true;
+                            }
+                            else
                             {
-                                this.spawnSprintParticles(replay, replayTick, actor, true);
+                                boolean controlling = !this.shouldEmitReplayMotionFx(entity);
+                                boolean timelineAnims = BBSSettings.editorActorPauseAnimations != null
+                                    && BBSSettings.editorActorPauseAnimations.get();
+                                boolean pauseAnims = timelineAnims
+                                    && !this.isActorPlaybackActive()
+                                    && !controlling;
+
+                                actor.updateTick(replayTick);
+                                actor.setPauseNaturalAnimations(pauseAnims);
+
+                                /* IEntity already has mount rotation applied by MorphMountSync */
+                                actor.setYaw(entity.getYaw());
+                                actor.setHeadYaw(entity.getHeadYaw());
+                                actor.setBodyYaw(entity.getBodyYaw());
+                                actor.setPitch(entity.getPitch());
+                                /* Actor-control: copy the live player's LimbAnimator (vanilla).
+                                 * Playback: do not hard-copy stub limbs — that fights forward
+                                 * coast velocity and snaps swing. LivingEntity.tick + server
+                                 * applyFromKeyframes use updateLimbs(target, 0.4) toward the
+                                 * same motion as the body (vanilla stop/accel ease).
+                                 * Skip while a live hurt swing spike is active so procedural
+                                 * damage uses the same limbSpeed amplification as vanilla. */
+                                boolean syncLimbs = controlling
+                                    && !actor.shouldPreserveLiveHurtLimbSwing();
+
+                                ActorReplayStateSync.syncFromSource(actor, entity, syncLimbs);
+                                /* Keep keyframed equipment on the visible ActorEntity — stub
+                                 * already received applyReplay; without this, actor toggle can
+                                 * show empty armor until the server respawns the actor. */
+                                this.syncActorEquipmentFromStub(actor, entity);
+
+                                if (controlling)
+                                {
+                                    /* Live item-use (bow pull, crossbow charge, eating) lives on
+                                     * the player; flags-only sync leaves remaining use-time at 0. */
+                                    this.syncActorItemUseFromSource(actor, entity);
+                                }
+
+                                /* Only gate vanilla sprint dust — do not clear sprinting (run anim). */
+                                actor.setSuppressSprintParticles(controlling);
+
+                                if (actorEntityJustBound)
+                                {
+                                    /* One-shot: Actor toggle / respawn can leave the body at an
+                                     * old server pose while yaw/limbs already follow the stub.
+                                     * Do not heal every tick — that fights walk velocity. */
+                                    this.syncActorWorldPositionFromStub(actor, entity);
+                                    actor.setVelocity(0D, 0D, 0D);
+                                }
+
+                                if (pauseAnims)
+                                {
+                                    this.applyPausedActorNaturalMotion(actor, replay, replayTick);
+                                }
+                                else if (controlling)
+                                {
+                                    /* Actor-control: keep the visible ActorEntity on the live
+                                     * player pose (server ActionPlayer skips this replay via PUPPET).
+                                     * Do not copy player velocity — LivingEntity.tick would keep
+                                     * integrating it on top of the snap (and creative-flight
+                                     * residual looks like ice). Limbs already come from the
+                                     * player via syncLimbs above. */
+                                    this.syncActorWorldPositionFromStub(actor, entity);
+                                    actor.setVelocity(0D, 0D, 0D);
+                                }
+                                else if (!this.isActorPlaybackActive())
+                                {
+                                    actor.setVelocity(0D, 0D, 0D);
+
+                                    /* Toggle off: clear sprint so emoticon/BOBJ leave run for
+                                     * idle (unless legacy run-in-place is enabled). Limb swing is
+                                     * left alone so procedural forms decay naturally. */
+                                    if (!timelineAnims && BBSSettings.shouldSettleActorNaturalStopWhenPaused())
+                                    {
+                                        ActorReplayStateSync.settleNaturalStop(actor);
+                                    }
+                                }
+
+                                /* Timeline-freeze skips ActorEntity.tick, so vanilla sprint dust
+                                 * never runs — emit keyframe dust while the body clock is frozen. */
+                                if (pauseAnims && this.shouldEmitReplayMotionFx(entity))
+                                {
+                                    this.spawnSprintParticles(replay, replayTick, actor, true);
+                                }
+
+                                /* Keep label in sync while editing name_tag in the film UI. */
+                                actor.syncNameTag(replay);
+                                /* Same shadow toggle / size / offset as stub film blobs. */
+                                actor.syncShadow(replay.shadow.get(), BaseFilmController.resolveShadowSettings(replay, replayTick));
+                                ActorEntityRenderer.updateShadowRadius(actor);
+
+                                /* While actor-controlling (incl. viewport record), do not replay
+                                 * timeline Swipe/etc. on the puppet — Outside uses exception for
+                                 * the same idea. Other replays still play their clips. */
+                                if (!controlling && this.shouldApplyClientActions(entity))
+                                {
+                                    replay.applyClientActions(replayTick, new MCEntity(anEntity), this.film);
+                                }
+
+                                spawned = true;
                             }
-
-                            /* Keep label in sync while editing name_tag in the film UI. */
-                            actor.syncNameTag(replay);
-                            replay.applyClientActions(replayTick, new MCEntity(anEntity), this.film);
-
-                            spawned = true;
                         }
                         else if (anEntity instanceof PlayerEntity player)
                         {
@@ -1515,6 +1675,7 @@ public abstract class BaseFilmController
 
                     this.spawnReplayStepSound(replay, replayTick, world);
                     this.spawnSprintParticles(replay, replayTick, world, width);
+                    this.spawnReplayItemUseParticles(replay, replayTick, entity, null);
                 }
             }
         }
@@ -1626,6 +1787,31 @@ public abstract class BaseFilmController
                             }
 
                             player.fallDistance = replay.keyframes.fall.interpolate(replayTick).floatValue();
+
+                            if (replay.fp.get())
+                            {
+                                this.syncFirstPersonItemUse(player, entity);
+                                this.spawnReplayItemUseParticles(replay, replayTick, entity, player);
+                            }
+
+                            /* Vanilla hurt camera / overlay read the local player's hurtTime.
+                             * FP hides the stub body, so push keyframe (+ live) damage onto the
+                             * bound player or shake never appears in first-person playback. */
+                            int hurtTimer = entity.getHurtTimer();
+
+                            if (BBSSettings.shouldKeepActorLiveHurtTime())
+                            {
+                                player.hurtTime = Math.max(player.hurtTime, hurtTimer);
+                            }
+                            else
+                            {
+                                player.hurtTime = hurtTimer;
+                            }
+
+                            if (player.hurtTime > 0 && player.maxHurtTime < player.hurtTime)
+                            {
+                                player.maxHurtTime = Math.max(10, player.hurtTime);
+                            }
                         }
                     }
                 }
@@ -1658,6 +1844,47 @@ public abstract class BaseFilmController
         actor.equipStack(EquipmentSlot.CHEST, stub.getEquipmentStack(EquipmentSlot.CHEST));
         actor.equipStack(EquipmentSlot.LEGS, stub.getEquipmentStack(EquipmentSlot.LEGS));
         actor.equipStack(EquipmentSlot.FEET, stub.getEquipmentStack(EquipmentSlot.FEET));
+    }
+
+    /**
+     * Push replay item-use onto the bound player so vanilla first-person
+     * eating/drinking transforms can run while the replay stub body is hidden.
+     */
+    private void syncFirstPersonItemUse(PlayerEntity player, IEntity source)
+    {
+        Hand hand = source.getActiveHand();
+        EquipmentSlot slot = hand == Hand.OFF_HAND ? EquipmentSlot.OFFHAND : EquipmentSlot.MAINHAND;
+        ItemStack stack = source.getEquipmentStack(slot);
+
+        ItemUseRenderState.syncItemUse(player, source, hand, stack);
+    }
+
+    /**
+     * Copy live item-use remaining time onto the actor so vanilla item predicates
+     * (bow pull, crossbow charge, trident) match the puppeteer.
+     */
+    private void syncActorItemUseFromSource(ActorEntity actor, IEntity source)
+    {
+        Hand hand = source.getActiveHand();
+        EquipmentSlot slot = hand == Hand.OFF_HAND ? EquipmentSlot.OFFHAND : EquipmentSlot.MAINHAND;
+        ItemStack stack = source.getEquipmentStack(slot);
+
+        ItemUseRenderState.syncItemUse(actor, source, hand, stack);
+    }
+
+    /**
+     * Copy world position from the client stub onto the visible actor (toggle bind /
+     * actor-control). Not used every playback tick — continuous snaps fight walk velocity.
+     */
+    private void syncActorWorldPositionFromStub(ActorEntity actor, IEntity stub)
+    {
+        actor.setPosition(stub.getX(), stub.getY(), stub.getZ());
+        actor.prevX = stub.getPrevX();
+        actor.prevY = stub.getPrevY();
+        actor.prevZ = stub.getPrevZ();
+        actor.lastRenderX = stub.getPrevX();
+        actor.lastRenderY = stub.getPrevY();
+        actor.lastRenderZ = stub.getPrevZ();
     }
 
     private void spawnSprintParticles(Replay replay, int ticks, Entity entity)
@@ -1734,12 +1961,107 @@ public abstract class BaseFilmController
         world.addParticle(new BlockStateParticleEffect(ParticleTypes.BLOCK, world.getBlockState(pos)), x, y, z, 0D, 0.1D, 0D);
     }
 
+    private void spawnReplayItemUseParticles(Replay replay, int ticks, IEntity source, Entity atEntity)
+    {
+        if (this.paused || replay == null || source == null || !source.isParticlesEnabled())
+        {
+            return;
+        }
+
+        if (!this.isReplayVisible(replay, ticks))
+        {
+            return;
+        }
+
+        Hand hand = source.getActiveHand();
+        EquipmentSlot slot = hand == Hand.OFF_HAND ? EquipmentSlot.OFFHAND : EquipmentSlot.MAINHAND;
+        ItemStack stack = source.getEquipmentStack(slot);
+
+        if (stack == null || stack.isEmpty())
+        {
+            return;
+        }
+
+        UseAction action = stack.getUseAction();
+
+        if (action != UseAction.EAT && action != UseAction.DRINK)
+        {
+            return;
+        }
+
+        LivingEntity living = atEntity instanceof LivingEntity entity ? entity : null;
+        int elapsed = ItemUseRenderState.getItemUseElapsed(source, living, stack);
+
+        if (elapsed <= 0 || elapsed % 4 != 0)
+        {
+            return;
+        }
+
+        String replayId = replay.getId();
+        Integer lastTick = this.lastItemUseParticleTicks.get(replayId);
+
+        if (lastTick != null && lastTick.intValue() == ticks)
+        {
+            return;
+        }
+
+        this.lastItemUseParticleTicks.put(replayId, ticks);
+
+        World world = atEntity != null ? atEntity.getWorld() : MinecraftClient.getInstance().world;
+
+        if (world == null)
+        {
+            return;
+        }
+
+        /* Match LivingEntity.spawnItemParticles: local-space offset + velocity,
+         * then rotate by pitch/yaw so crumbs fan out from the eating pose. */
+        float pitch = atEntity != null ? atEntity.getPitch() : source.getPitch();
+        float yaw = atEntity != null ? atEntity.getYaw() : source.getYaw();
+        double originX = atEntity != null ? atEntity.getX() : source.getX();
+        double originY = atEntity != null ? atEntity.getEyeY() : source.getY() + source.getEyeHeight();
+        double originZ = atEntity != null ? atEntity.getZ() : source.getZ();
+        ItemStackParticleEffect effect = new ItemStackParticleEffect(ParticleTypes.ITEM, stack.copy());
+
+        for (int i = 0; i < 5; i++)
+        {
+            Vec3d velocity = new Vec3d(
+                ((double) world.random.nextFloat() - 0.5D) * 0.1D,
+                world.random.nextDouble() * 0.1D + 0.1D,
+                0D
+            );
+            velocity = velocity.rotateX(-MathUtils.toRad(pitch));
+            velocity = velocity.rotateY(-MathUtils.toRad(yaw));
+
+            double localY = (double) (-world.random.nextFloat()) * 0.6D - 0.3D;
+            Vec3d pos = new Vec3d(
+                ((double) world.random.nextFloat() - 0.5D) * 0.3D,
+                localY,
+                0.6D
+            );
+            pos = pos.rotateX(-MathUtils.toRad(pitch));
+            pos = pos.rotateY(-MathUtils.toRad(yaw));
+            pos = pos.add(originX, originY, originZ);
+
+            world.addParticle(effect, pos.x, pos.y, pos.z, velocity.x, velocity.y + 0.05D, velocity.z);
+        }
+    }
+
     /**
      * Whether film-pose motion FX (BBS keyframe sprint dust / step sounds) may emit
      * for this replay entity. Defaults to true; the film editor turns it off for the
      * entity currently under actor-control so dust is not sprayed at the parked pose.
      */
     protected boolean shouldEmitReplayMotionFx(IEntity entity)
+    {
+        return true;
+    }
+
+    /**
+     * Whether timeline client action clips (swipe, etc.) may run for this entity.
+     * Film editor suppresses one pass after soft-seeking back from a viewport record.
+     */
+    protected boolean shouldApplyClientActions(IEntity entity)
     {
         return true;
     }

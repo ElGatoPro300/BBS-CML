@@ -75,8 +75,8 @@ public class UIColorClip extends UIClip<ColorClip>
     {
         super.registerPanels();
 
-        this.panels.add(UI.column(UIClip.label(UIKeys.SCREEN_PANELS_OVERLAY_COLOR), this.overlayColor).marginTop(6));
-        this.panels.add(UI.column(UIClip.label(UIKeys.SCREEN_PANELS_KEYFRAMES), this.edit).marginTop(6));
+        this.panels.add(this.section(UIKeys.SCREEN_PANELS_OVERLAY_COLOR, this.overlayColor));
+        this.panels.add(this.section(UIKeys.SCREEN_PANELS_KEYFRAMES, this.edit));
     }
 
     @Override

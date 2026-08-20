@@ -23,13 +23,17 @@ import mchorse.bbs_mod.ui.film.utils.FilmProjectHandler;
 import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.ui.framework.elements.UIElement;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIButton;
+import mchorse.bbs_mod.ui.framework.elements.context.UIContextMenu;
+import mchorse.bbs_mod.ui.framework.elements.context.UISimpleContextMenu;
 import mchorse.bbs_mod.ui.framework.elements.events.UIRemovedEvent;
 import mchorse.bbs_mod.ui.framework.elements.overlay.UICreateAssetOverlayPanel;
 import mchorse.bbs_mod.ui.framework.elements.overlay.UIOverlay;
 import mchorse.bbs_mod.ui.framework.elements.overlay.UIPromptOverlayPanel;
+import mchorse.bbs_mod.ui.framework.elements.utils.FontRenderer;
 import mchorse.bbs_mod.ui.model_blocks.UIModelBlockPanel;
 import mchorse.bbs_mod.ui.selectors.UISelectorsOverlayPanel;
 import mchorse.bbs_mod.ui.triggers.UITriggerBlockPanel;
+import mchorse.bbs_mod.ui.utils.context.ContextAction;
 import mchorse.bbs_mod.ui.utils.context.ContextMenuManager;
 import mchorse.bbs_mod.ui.utils.context.ContextSeparatorAction;
 import mchorse.bbs_mod.ui.utils.icons.Icon;
@@ -150,11 +154,16 @@ public class UIMainMenuBar extends UIElement
         UIContext context = this.getContext();
 
         this.activeWorldButton = null;
-        context.replaceContextMenu((menu) ->
-        {
-            consumer.accept(menu);
-            menu.onClose((e) -> this.activeButton = null);
-        });
+
+        ContextMenuManager manager = new ContextMenuManager();
+        UICascadingMenu customMenu = new UICascadingMenu();
+        manager.custom(customMenu);
+
+        consumer.accept(manager);
+        manager.create();
+        customMenu.getEvents().register(UIRemovedEvent.class, (e) -> this.activeButton = null);
+
+        context.replaceContextMenu(customMenu);
 
         if (context.contextMenu != null)
         {
@@ -306,28 +315,278 @@ public class UIMainMenuBar extends UIElement
         }
         else if (this.dashboard.panels.panel instanceof UIFilmPanel film)
         {
-            for (String panelId : film.getWindowPanelIds())
-            {
-                menu.action(film.isWindowPanelVisible(panelId) ? Icons.CHECKMARK : Icons.NONE, film.getWindowPanelTitle(panelId), () ->
-                {
-                    film.setWindowPanelVisible(panelId, !film.isWindowPanelVisible(panelId));
-                });
-            }
-
-            menu.action(new ContextSeparatorAction());
-            menu.action(Icons.REFRESH, UIKeys.DASHBOARD_MENU_RESET_LAYOUT, film::resetLayout);
-            menu.action(film.isLayoutLocked() ? Icons.LOCKED : Icons.UNLOCKED, film.isLayoutLocked() ? UIKeys.FILM_LAYOUT_UNLOCK : UIKeys.FILM_LAYOUT_LOCK, film::toggleLayoutLockFromMenu);
-            menu.action(Icons.SAVED, UIKeys.FILM_LAYOUT_PRESETS, () ->
-            {
-                int x = this.activeButton == null ? this.area.x : this.activeButton.area.x;
-                int y = this.activeButton == null ? this.area.ey() : this.activeButton.area.ey();
-
-                film.openLayoutPresetsFromMenu(x, y);
-            });
+            this.buildWindowMenuForFilm(menu, film);
         }
         else
         {
             menu.action(Icons.NONE, UIKeys.DASHBOARD_MENU_NO_WINDOWS, () -> {});
+        }
+    }
+
+    private void buildWindowMenuForFilm(ContextMenuManager menu, UIFilmPanel film)
+    {
+        UICascadingMenu mainMenu = (UICascadingMenu) menu.menu;
+
+        menu.action(this.createHoverSubmenuAction(Icons.COLLAPSED, UIKeys.RAW_TIMELINE, mainMenu, (y) ->
+        {
+            this.openWindowTimelineSubmenuCascading(film, mainMenu, y);
+        }));
+
+        menu.action(this.createHoverSubmenuAction(Icons.COLLAPSED, UIKeys.RAW_PROPERTIES, mainMenu, (y) ->
+        {
+            this.openWindowPropertiesSubmenuCascading(film, mainMenu, y);
+        }));
+
+        menu.action(new ContextSeparatorAction());
+
+        menu.action(this.createNormalWindowAction(film.isWindowPanelVisible("preview") ? Icons.CHECKMARK : Icons.NONE, UIKeys.RAW_VIEWPORT, mainMenu, () ->
+        {
+            film.setWindowPanelVisible("preview", !film.isWindowPanelVisible("preview"));
+            this.openWindowMenu(film);
+        }));
+
+        menu.action(this.createNormalWindowAction(film.isWindowPanelVisible("replaysPanel") ? Icons.CHECKMARK : Icons.NONE, UIKeys.FILM_REPLAY_TITLE, mainMenu, () ->
+        {
+            film.setWindowPanelVisible("replaysPanel", !film.isWindowPanelVisible("replaysPanel"));
+            this.openWindowMenu(film);
+        }));
+
+        if (BBSSettings.editorSeparateReplayPropertiesPanel == null || BBSSettings.editorSeparateReplayPropertiesPanel.get())
+        {
+            menu.action(this.createNormalWindowAction(film.isWindowPanelVisible("replaysPropertiesPanel") ? Icons.CHECKMARK : Icons.NONE, UIKeys.FILM_REPLAY_SECTION_GENERAL, mainMenu, () ->
+            {
+                film.setWindowPanelVisible("replaysPropertiesPanel", !film.isWindowPanelVisible("replaysPropertiesPanel"));
+                this.openWindowMenu(film);
+            }));
+        }
+
+        menu.action(new ContextSeparatorAction());
+        menu.action(this.createNormalWindowAction(Icons.REFRESH, UIKeys.DASHBOARD_MENU_RESET_LAYOUT, mainMenu, film::resetLayout));
+        menu.action(this.createNormalWindowAction(film.isLayoutLocked() ? Icons.LOCKED : Icons.UNLOCKED, film.isLayoutLocked() ? UIKeys.FILM_LAYOUT_UNLOCK : UIKeys.FILM_LAYOUT_LOCK, mainMenu, film::toggleLayoutLockFromMenu));
+        menu.action(this.createNormalWindowAction(Icons.SAVED, UIKeys.FILM_LAYOUT_PRESETS, mainMenu, () ->
+        {
+            int x = this.activeButton == null ? this.area.x : this.activeButton.area.x;
+            int y = this.activeButton == null ? this.area.ey() : this.activeButton.area.ey();
+
+            film.openLayoutPresetsFromMenu(x, y);
+        }));
+    }
+
+    private void openWindowMenu(UIFilmPanel film)
+    {
+        UIContextMenu oldMenu = this.getContext().contextMenu;
+
+        ContextMenuManager manager = new ContextMenuManager();
+        UICascadingMenu customMenu = new UICascadingMenu()
+        {
+            @Override
+            public void setMouse(UIContext context)
+            {
+                int w = 100;
+                for (ContextAction action : this.actions.getList())
+                {
+                    w = Math.max(action.getWidth(context.batcher.getFont()), w);
+                }
+
+                int posX = oldMenu == null ? context.mouseX() : oldMenu.area.x;
+                int posY = oldMenu == null ? context.mouseY() : oldMenu.area.y;
+
+                this.set(posX, posY, w, 0).h(this.actions.scroll.scrollSize).maxH(context.menu.height - 10).bounds(context.menu.overlay, 5);
+            }
+        };
+
+        manager.custom(customMenu);
+        this.buildWindowMenuForFilm(manager, film);
+        manager.create();
+
+        this.getContext().replaceContextMenu(customMenu);
+    }
+
+    private void openWindowTimelineSubmenuCascading(UIFilmPanel film, UICascadingMenu mainMenu, int itemY)
+    {
+        if (mainMenu.submenu != null)
+        {
+            mainMenu.submenu.removeFromParent();
+        }
+
+        ContextMenuManager manager = new ContextMenuManager();
+        UISimpleContextMenu submenu = new UISimpleContextMenu()
+        {
+            @Override
+            public void setMouse(UIContext context)
+            {
+                int w = 100;
+                for (ContextAction action : this.actions.getList())
+                {
+                    w = Math.max(action.getWidth(context.batcher.getFont()), w);
+                }
+
+                int posX = mainMenu.area.ex();
+                int posY = itemY;
+
+                this.set(posX, posY, w, 0).h(this.actions.scroll.scrollSize).maxH(context.menu.height - 10).bounds(context.menu.overlay, 5);
+            }
+
+            @Override
+            public boolean subMouseClicked(UIContext context)
+            {
+                if (!this.area.isInside(context) && !mainMenu.area.isInside(context))
+                {
+                    this.removeFromParent();
+                    mainMenu.removeFromParent();
+                }
+                return super.subMouseClicked(context);
+            }
+        };
+
+        manager.custom(submenu);
+
+        manager.action(film.isWindowPanelVisible("cameraTimeline") ? Icons.CHECKMARK : Icons.NONE, UIKeys.FILM_WORKSPACE_CAMERA, () ->
+        {
+            film.setWindowPanelVisible("cameraTimeline", !film.isWindowPanelVisible("cameraTimeline"));
+            this.openWindowTimelineSubmenuCascading(film, mainMenu, itemY);
+        });
+        manager.action(film.isWindowPanelVisible("replayTimeline") ? Icons.CHECKMARK : Icons.NONE, UIKeys.FILM_WORKSPACE_REPLAY, () ->
+        {
+            film.setWindowPanelVisible("replayTimeline", !film.isWindowPanelVisible("replayTimeline"));
+            this.openWindowTimelineSubmenuCascading(film, mainMenu, itemY);
+        });
+        manager.action(film.isWindowPanelVisible("actionTimeline") ? Icons.CHECKMARK : Icons.NONE, UIKeys.FILM_WORKSPACE_ACTION, () ->
+        {
+            film.setWindowPanelVisible("actionTimeline", !film.isWindowPanelVisible("actionTimeline"));
+            this.openWindowTimelineSubmenuCascading(film, mainMenu, itemY);
+        });
+
+        manager.create();
+        submenu.setMouse(this.getContext());
+        submenu.resize();
+
+        mainMenu.submenu = submenu;
+        this.getContext().menu.overlay.add(submenu);
+    }
+
+    private void openWindowPropertiesSubmenuCascading(UIFilmPanel film, UICascadingMenu mainMenu, int itemY)
+    {
+        if (mainMenu.submenu != null)
+        {
+            mainMenu.submenu.removeFromParent();
+        }
+
+        ContextMenuManager manager = new ContextMenuManager();
+        UISimpleContextMenu submenu = new UISimpleContextMenu()
+        {
+            @Override
+            public void setMouse(UIContext context)
+            {
+                int w = 100;
+                for (ContextAction action : this.actions.getList())
+                {
+                    w = Math.max(action.getWidth(context.batcher.getFont()), w);
+                }
+
+                int posX = mainMenu.area.ex();
+                int posY = itemY;
+
+                this.set(posX, posY, w, 0).h(this.actions.scroll.scrollSize).maxH(context.menu.height - 10).bounds(context.menu.overlay, 5);
+            }
+
+            @Override
+            public boolean subMouseClicked(UIContext context)
+            {
+                if (!this.area.isInside(context) && !mainMenu.area.isInside(context))
+                {
+                    this.removeFromParent();
+                    mainMenu.removeFromParent();
+                }
+                return super.subMouseClicked(context);
+            }
+        };
+
+        manager.custom(submenu);
+
+        manager.action(film.isWindowPanelVisible("unifiedEditArea") ? Icons.CHECKMARK : Icons.NONE, UIKeys.FILM_REPLAY_SECTION_GENERAL, () ->
+        {
+            film.setWindowPanelVisible("unifiedEditArea", !film.isWindowPanelVisible("unifiedEditArea"));
+            this.openWindowPropertiesSubmenuCascading(film, mainMenu, itemY);
+        });
+        manager.action(film.isWindowPanelVisible("editArea") ? Icons.CHECKMARK : Icons.NONE, UIKeys.FILM_WORKSPACE_REPLAY, () ->
+        {
+            film.setWindowPanelVisible("editArea", !film.isWindowPanelVisible("editArea"));
+            this.openWindowPropertiesSubmenuCascading(film, mainMenu, itemY);
+        });
+        manager.action(film.isWindowPanelVisible("cameraEditArea") ? Icons.CHECKMARK : Icons.NONE, UIKeys.FILM_WORKSPACE_CAMERA, () ->
+        {
+            film.setWindowPanelVisible("cameraEditArea", !film.isWindowPanelVisible("cameraEditArea"));
+            this.openWindowPropertiesSubmenuCascading(film, mainMenu, itemY);
+        });
+        manager.action(film.isWindowPanelVisible("actionEditArea") ? Icons.CHECKMARK : Icons.NONE, UIKeys.FILM_WORKSPACE_ACTION, () ->
+        {
+            film.setWindowPanelVisible("actionEditArea", !film.isWindowPanelVisible("actionEditArea"));
+            this.openWindowPropertiesSubmenuCascading(film, mainMenu, itemY);
+        });
+
+        manager.create();
+        submenu.setMouse(this.getContext());
+        submenu.resize();
+
+        mainMenu.submenu = submenu;
+        this.getContext().menu.overlay.add(submenu);
+    }
+
+    private ContextAction createHoverSubmenuAction(Icon icon, IKey label, UICascadingMenu mainMenu, Consumer<Integer> onHover)
+    {
+        return new ContextAction(icon, label, () -> {})
+        {
+            private boolean wasHovered = false;
+
+            @Override
+            public void render(UIContext context, FontRenderer font, int x, int y, int w, int h, boolean hover, boolean selected)
+            {
+                super.render(context, font, x, y, w, h, hover, selected);
+
+                if (hover && !this.wasHovered)
+                {
+                    this.wasHovered = true;
+                    onHover.accept(y);
+                }
+                else if (!hover)
+                {
+                    this.wasHovered = false;
+                }
+            }
+        };
+    }
+
+    private ContextAction createNormalWindowAction(Icon icon, IKey label, UICascadingMenu mainMenu, Runnable onClick)
+    {
+        return new ContextAction(icon, label, onClick)
+        {
+            @Override
+            public void render(UIContext context, FontRenderer font, int x, int y, int w, int h, boolean hover, boolean selected)
+            {
+                super.render(context, font, x, y, w, h, hover, selected);
+
+                if (hover && mainMenu.submenu != null)
+                {
+                    mainMenu.submenu.removeFromParent();
+                    mainMenu.submenu = null;
+                }
+            }
+        };
+    }
+
+    public static class UICascadingMenu extends UISimpleContextMenu
+    {
+        public UIContextMenu submenu;
+
+        @Override
+        public void removeFromParent()
+        {
+            super.removeFromParent();
+            if (this.submenu != null)
+            {
+                this.submenu.removeFromParent();
+            }
         }
     }
 

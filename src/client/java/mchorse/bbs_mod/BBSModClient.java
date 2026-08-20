@@ -99,6 +99,7 @@ import mchorse.bbs_mod.ui.film.replays.UIMobCaptureRecordOverlayPanel;
 import mchorse.bbs_mod.ui.film.replays.overlays.UIQuickReplayOverlayPanel;
 import mchorse.bbs_mod.ui.film.toolbar.TimelineToolbarDockSync;
 import mchorse.bbs_mod.ui.forms.editors.UIFormEditor;
+import mchorse.bbs_mod.ui.framework.BbsGuiScale;
 import mchorse.bbs_mod.ui.framework.UIBaseMenu;
 import mchorse.bbs_mod.ui.framework.UIScreen;
 import mchorse.bbs_mod.ui.framework.elements.input.keyframes.factories.UIKeyframeFactory;
@@ -141,6 +142,7 @@ import net.fabricmc.loader.api.metadata.ModMetadata;
 import net.fabricmc.loader.api.metadata.Person;
 
 import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.network.ClientPlayerEntity;
 import net.minecraft.client.option.KeyBinding;
 import net.minecraft.client.render.BufferBuilder;
@@ -657,7 +659,12 @@ public class BBSModClient implements ClientModInitializer
         if (BBSSettings.shaderShadowOpacity != null)
         {
             BBSSettings.shaderShadowOpacity.postCallback((v, f) ->
-                ShaderOpacityPatch.syncShadowOpacityDefault());
+            {
+                if (BBSRendering.isIrisLoaded())
+                {
+                    ShaderOpacityPatch.syncShadowOpacityDefault();
+                }
+            });
         }
 
         if (BBSSettings.worldGammaPercent != null)
@@ -1173,7 +1180,7 @@ public class BBSModClient implements ClientModInitializer
     {
         UIFilmPanel panel = getDashboard().getPanel(UIFilmPanel.class);
 
-        if (panel.getData() != null)
+        if (panel != null && panel.hasActiveFilmSession())
         {
             Films.playFilm(panel.getData().getId(), false);
         }
@@ -1183,7 +1190,7 @@ public class BBSModClient implements ClientModInitializer
     {
         UIFilmPanel panel = getDashboard().getPanel(UIFilmPanel.class);
 
-        if (panel.getData() != null)
+        if (panel != null && panel.hasActiveFilmSession())
         {
             Films.pauseFilm(panel.getData().getId());
         }
@@ -1194,7 +1201,7 @@ public class BBSModClient implements ClientModInitializer
         UIDashboard dashboard = getDashboard();
         UIFilmPanel panel = dashboard.getPanel(UIFilmPanel.class);
 
-        if (panel != null && panel.getData() != null)
+        if (panel != null && panel.hasActiveFilmSession())
         {
             Recorder recorder = getFilms().getRecorder();
 
@@ -1202,7 +1209,7 @@ public class BBSModClient implements ClientModInitializer
             {
                 recorder = BBSModClient.getFilms().stopRecording();
 
-                if (recorder == null || recorder.hasNotStarted() || panel.getData() == null)
+                if (recorder == null || recorder.hasNotStarted() || !panel.hasActiveFilmSession())
                 {
                     return;
                 }
@@ -1222,16 +1229,18 @@ public class BBSModClient implements ClientModInitializer
 
                 UIFilmPanel filmPanel = dashboard.getPanel(UIFilmPanel.class);
 
-                if (filmPanel == null || filmPanel.getData() == null)
+                if (filmPanel == null || !filmPanel.hasActiveFilmSession())
                 {
                     return;
                 }
 
                 if (BBSSettings.recordingMobCaptureOnAlt.get())
                 {
+                    int cursorTick = filmPanel.getCursor();
+
                     UIMobCaptureRecordOverlayPanel.openInGame((setup) ->
                     {
-                        if (filmPanel.getData() == null)
+                        if (!filmPanel.hasActiveFilmSession())
                         {
                             return;
                         }
@@ -1247,7 +1256,7 @@ public class BBSModClient implements ClientModInitializer
 
                         if (index >= 0)
                         {
-                            getFilms().startRecording(filmPanel.getData(), index, 0);
+                            getFilms().startRecording(filmPanel.getData(), index, cursorTick);
                         }
                     });
                 }
@@ -1264,7 +1273,7 @@ public class BBSModClient implements ClientModInitializer
 
                     if (index >= 0)
                     {
-                        getFilms().startRecording(filmPanel.getData(), index, 0);
+                        getFilms().startRecording(filmPanel.getData(), index, filmPanel.getCursor());
                     }
                 }
             }
@@ -1313,7 +1322,7 @@ public class BBSModClient implements ClientModInitializer
     {
         Replay selected = getSelectedReplay();
         UIFilmPanel panel = dashboard.getPanel(UIFilmPanel.class);
-        Film film = panel == null ? null : panel.getData();
+        Film film = panel != null && panel.hasActiveFilmSession() ? panel.getData() : null;
 
         if (this.isFilmUsableForQuickSelection(film, selected))
         {
@@ -1325,6 +1334,12 @@ public class BBSModClient implements ClientModInitializer
         if (recorder != null && this.isFilmUsableForQuickSelection(recorder.film, selected))
         {
             return recorder.film;
+        }
+
+        /* Only fall back to playing controllers when a film session is still active. */
+        if (panel == null || !panel.hasActiveFilmSession())
+        {
+            return null;
         }
 
         for (BaseFilmController controller : getFilms().getControllers())
@@ -1390,10 +1405,22 @@ public class BBSModClient implements ClientModInitializer
 
         if (menu != null && mc != null)
         {
-            int desiredScale = getGUIScale();
-            mc.options.getGuiScale().setValue(desiredScale);
-            mc.onResolutionChanged();
-            menu.resize(mc.getWindow().getScaledWidth(), mc.getWindow().getScaledHeight());
+            Screen screen = mc.currentScreen;
+
+            if (screen instanceof UIScreen uiScreen)
+            {
+                uiScreen.reapplyScale();
+            }
+            else if (BbsGuiScale.isLinkedToGame())
+            {
+                mc.options.getGuiScale().setValue(getGUIScale());
+                mc.onResolutionChanged();
+                menu.resize(mc.getWindow().getScaledWidth(), mc.getWindow().getScaledHeight());
+            }
+            else
+            {
+                BbsGuiScale.resizeMenu(menu);
+            }
         }
     }
 
@@ -1407,9 +1434,22 @@ public class BBSModClient implements ClientModInitializer
 
         if (menu != null && mc != null)
         {
-            mc.options.getGuiScale().setValue(getGUIScale());
-            mc.onResolutionChanged();
-            menu.resize(mc.getWindow().getScaledWidth(), mc.getWindow().getScaledHeight());
+            Screen screen = mc.currentScreen;
+
+            if (screen instanceof UIScreen uiScreen)
+            {
+                uiScreen.reapplyScale();
+            }
+            else if (BbsGuiScale.isLinkedToGame())
+            {
+                mc.options.getGuiScale().setValue(getGUIScale());
+                mc.onResolutionChanged();
+                menu.resize(mc.getWindow().getScaledWidth(), mc.getWindow().getScaledHeight());
+            }
+            else
+            {
+                BbsGuiScale.resizeMenu(menu);
+            }
         }
     }
 

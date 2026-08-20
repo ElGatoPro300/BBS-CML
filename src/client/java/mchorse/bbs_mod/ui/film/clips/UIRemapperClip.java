@@ -52,7 +52,7 @@ public class UIRemapperClip extends UIClip<RemapperClip>
     {
         super.registerPanels();
 
-        this.panels.add(UI.column(UIClip.label(UIKeys.C_CLIP.get("bbs:remapper")), this.edit).marginTop(12));
+        this.panels.add(this.section(UIKeys.C_CLIP.get("bbs:remapper"), this.edit));
     }
 
     @Override

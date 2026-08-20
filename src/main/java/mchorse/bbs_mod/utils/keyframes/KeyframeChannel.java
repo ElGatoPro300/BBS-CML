@@ -79,6 +79,15 @@ public class KeyframeChannel <T> extends ValueList<Keyframe<T>>
 
     private void applyDefaultInterpolation(Keyframe<T> kf)
     {
+        String id = this.getId();
+
+        if ("selected_slot".equals(id) || (id != null && id.endsWith("/selected_slot")))
+        {
+            kf.getInterpolation().setInterp(Interpolations.CONST);
+
+            return;
+        }
+
         ValueInt setting = this.resolveDefaultInterpolationSetting();
 
         if (setting == null)
@@ -190,6 +199,32 @@ public class KeyframeChannel <T> extends ValueList<Keyframe<T>>
         return this.interpolate(ticks, orDefault);
     }
 
+    /**
+     * Value of the last keyframe at or before {@code ticks}, ignoring interpolation.
+     * Discrete tracks (hotbar slot) must not blend across keys.
+     */
+    public T interpolateHeld(float ticks)
+    {
+        if (this.list.isEmpty())
+        {
+            return this.factory.createEmpty();
+        }
+
+        Keyframe<T> held = this.list.get(0);
+
+        for (Keyframe<T> frame : this.list)
+        {
+            if (frame.getTick() > ticks)
+            {
+                break;
+            }
+
+            held = frame;
+        }
+
+        return this.factory.copy(held.getValue());
+    }
+
     public T interpolate(float ticks, T orDefault)
     {
         KeyframeSegment<T> segment = this.findSegment(ticks);
@@ -283,6 +318,18 @@ public class KeyframeChannel <T> extends ValueList<Keyframe<T>>
 
         this.preNotify();
         this.list.remove(index);
+        this.sync();
+        this.postNotify();
+    }
+
+    /**
+     * Drop every keyframe at {@code tick} or later (used when viewport "All groups"
+     * recording starts so old future poses do not lerp into the capture).
+     */
+    public void removeFrom(float tick)
+    {
+        this.preNotify();
+        this.list.removeIf((next) -> next.getTick() >= tick);
         this.sync();
         this.postNotify();
     }
@@ -417,6 +464,51 @@ public class KeyframeChannel <T> extends ValueList<Keyframe<T>>
         this.postNotify();
 
         return index;
+    }
+
+    /**
+     * Insert a keyframe only when {@code value} differs from the keyframe at or
+     * before {@code tick}. When the value changes after a gap longer than one tick,
+     * also inserts a hold keyframe at {@code tick - 1} so linear interpolation matches
+     * what {@link #simplify()} would keep after per-tick recording.
+     *
+     * @return index of the inserted/updated keyframe, or {@code -1} if skipped
+     */
+    public int insertIfChanged(float tick, T value)
+    {
+        Keyframe<T> previous = null;
+
+        for (Keyframe<T> frame : this.list)
+        {
+            if (frame.getTick() > tick)
+            {
+                break;
+            }
+
+            previous = frame;
+        }
+
+        if (previous == null)
+        {
+            return this.insert(tick, value);
+        }
+
+        if (this.factory.compare(previous.getValue(), value))
+        {
+            if (previous.getTick() == tick)
+            {
+                return this.insert(tick, value);
+            }
+
+            return -1;
+        }
+
+        if (tick > previous.getTick() + 1F)
+        {
+            this.insert(tick - 1F, this.factory.copy(previous.getValue()));
+        }
+
+        return this.insert(tick, value);
     }
 
     /**
