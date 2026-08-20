@@ -1,6 +1,5 @@
 package mchorse.bbs_mod.cubic.render;
 
-import mchorse.bbs_mod.client.BBSRendering;
 import mchorse.bbs_mod.cubic.ModelInstance;
 import mchorse.bbs_mod.forms.forms.utils.GlowSettings;
 import mchorse.bbs_mod.forms.renderers.utils.FlatGlowOverlayPass;
@@ -24,7 +23,7 @@ public final class ShapeKeyGlowPass
 
     public static boolean shouldUseGlowOverlay(ModelInstance model, boolean hasPositiveGlow, boolean glowDeferredToOverlay)
     {
-        return model != null && model.hasShapeKeys() && hasPositiveGlow && !glowDeferredToOverlay && !BBSRendering.isIrisWorldModelPass();
+        return model != null && model.hasShapeKeys() && hasPositiveGlow && !glowDeferredToOverlay;
     }
 
     public static void renderOverlay(GlowSettings glowSettings, Color legacyGlow, float alpha, float glowIntensity, Consumer<Color> drawLayer)

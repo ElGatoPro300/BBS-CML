@@ -827,7 +827,7 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
         /* Low-alpha Iris redraw: albedo deferred; additive overlay if somehow deferred with glow. */
         boolean emitGlowAfterDeferred = deferTranslucentModel && model.supportsBbsModelShaderEffects() && hasEmissiveGlow;
         boolean deferGlowToOverlay = shaderOverlay;
-        boolean shapeKeyPositiveOverlay = model.hasShapeKeys() && this.hasAnyPositiveGlow(model, glow, legacyGlow) && !BBSRendering.isIrisWorldModelPass();
+        boolean shapeKeyPositiveOverlay = model.hasShapeKeys() && this.hasAnyPositiveGlow(model, glow, legacyGlow);
         boolean glowDeferredToOverlay = deferGlowToOverlay || emitGlowAfterDeferred || (deferPaintToOverlay && hasGlow && !paintOnlyGlow);
         boolean stripMainPassGlow = deferGlowToOverlay || emitGlowAfterDeferred || (deferPaintToOverlay && hasGlow && paintOnlyGlow);
         GlowSettings mainPassGlow = this.resolveMainPassGlow(glow, legacyGlow, stripMainPassGlow, shapeKeyPositiveOverlay);
@@ -1961,7 +1961,7 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
 
     private void renderDeferredGlowEmission(MatrixStack stack, ModelInstance model, int light, int overlay, StencilMap stencilMap, Color color, Link defaultTexture, TextureBlend textureBlend, GlowSettings glow, Color glowColor, Color legacyGlow)
     {
-        if (model.hasShapeKeys() && this.hasAnyPositiveGlow(model, glow, legacyGlow) && !BBSRendering.isIrisWorldModelPass())
+        if (model.hasShapeKeys() && this.hasAnyPositiveGlow(model, glow, legacyGlow))
         {
             ModelVAORenderer.runWithPaintOverlayPass(false, () ->
             {
