@@ -124,6 +124,7 @@ public class UIModelGeometryPanel extends UIElement
     private final UIIcon gizmoTranslateSpeed;
     private final UIIcon gizmoCoordinateSpace;
     private final UIIcon gizmoSnap;
+    private final UIIcon gizmoViewportMode;
     private boolean snapEnabled = true;
     private float positionSnap = 1.0F;
     private float rotationSnap = 15.0F;
@@ -613,9 +614,12 @@ public class UIModelGeometryPanel extends UIElement
         this.gizmoSnap = new UIIcon(Icons.BLOCK, (b) -> this.openSnapContextMenu(this.getContext()));
         this.gizmoSnap.tooltip(UIKeys.MODELS_GEOMETRY_SNAP);
 
+        this.gizmoViewportMode = new UIIcon(Icons.MATERIAL, (b) -> this.openViewportModeContextMenu(this.getContext()));
+        this.gizmoViewportMode.tooltip(UIKeys.MODELS_GEOMETRY_VIEWPORT_MODE);
+
         UIElement gizmoToolbar = new UIElement();
         gizmoToolbar.row(0);
-        gizmoToolbar.relative(this).x(0.5F).y(4).wh(200, 20).anchorX(0.5F);
+        gizmoToolbar.relative(this).x(0.5F).y(4).wh(220, 20).anchorX(0.5F);
 
         UIRenderable toolbarBackground = new UIRenderable((context) ->
         {
@@ -630,9 +634,16 @@ public class UIModelGeometryPanel extends UIElement
             this.gizmoTop.active(gizmoMode == Gizmo.Mode.TOP);
             this.gizmoCoordinateSpace.active(this.coordinateSpace == TransformOrientation.GLOBAL);
             this.gizmoSnap.active(this.snapEnabled);
+
+            UIModelRenderer mr = this.parent.getModelRenderer();
+
+            if (mr instanceof UIModelEditorRenderer editorRenderer)
+            {
+                this.gizmoViewportMode.active(editorRenderer.viewportMode != UIModelEditorRenderer.ViewportMode.TEXTURED);
+            }
         });
 
-        gizmoToolbar.add(this.gizmoMove, this.gizmoScale, this.gizmoRotate, this.gizmoCombined, this.gizmoTop, this.gizmoCoordinateSpace, this.gizmoSnap, this.gizmoVisualSize, this.gizmoThickness, this.gizmoTranslateSpeed);
+        gizmoToolbar.add(this.gizmoMove, this.gizmoScale, this.gizmoRotate, this.gizmoCombined, this.gizmoTop, this.gizmoCoordinateSpace, this.gizmoSnap, this.gizmoViewportMode, this.gizmoVisualSize, this.gizmoThickness, this.gizmoTranslateSpeed);
 
         this.add(backgroundRenderable, this.leftPanel, this.rightPanel, this.uvPanel, leftDraggable, rightDraggable, this.gizmoTransform, toolbarBackground, gizmoToolbar);
 
@@ -813,6 +824,15 @@ public class UIModelGeometryPanel extends UIElement
                 {
                     this.deleteSelection();
                     UIUtils.playClick();
+                    return true;
+                }
+            }
+
+            if (Window.isCtrlPressed() && Window.isShiftPressed() && context.isPressed(GLFW.GLFW_KEY_D))
+            {
+                if (!this.hierarchyList.getCurrent().isEmpty())
+                {
+                    this.duplicateAndMirrorX();
                     return true;
                 }
             }
@@ -1456,6 +1476,8 @@ public class UIModelGeometryPanel extends UIElement
             menu.action(Icons.COPY, UIKeys.GENERAL_COPY, () -> this.copyEntry(entry));
             menu.action(Icons.PASTE, UIKeys.GENERAL_PASTE, () -> this.pasteEntry(entry));
             menu.action(Icons.DUPE, UIKeys.GENERAL_DUPE, () -> this.duplicateSelection());
+            menu.action(Icons.ALL_DIRECTIONS, UIKeys.MODELS_GEOMETRY_FLIP_X, () -> this.flipSelectedX());
+            menu.action(Icons.DUPE, UIKeys.MODELS_GEOMETRY_DUPE_MIRROR_X, () -> this.duplicateAndMirrorX());
             menu.action(Icons.EDIT, UIKeys.GENERAL_RENAME, () -> this.renameEntry(entry));
             menu.action(this.isEntryVisible(entry) ? Icons.INVISIBLE : Icons.VISIBLE, this.isEntryVisible(entry) ? IKey.raw("Hide") : IKey.raw("Show"), () -> this.toggleVisibility(entry));
             menu.action(this.isLocked(entry) ? Icons.UNLOCKED : Icons.LOCKED, this.isLocked(entry) ? IKey.raw("Unlock") : IKey.raw("Lock"), () -> this.toggleLock(entry));
@@ -2054,6 +2076,175 @@ public class UIModelGeometryPanel extends UIElement
         this.refreshCubeRenderAndSave();
         this.fillCubeControls();
         UIUtils.playClick();
+    }
+
+    public void openViewportModeContextMenu(UIContext context)
+    {
+        if (context == null)
+        {
+            return;
+        }
+
+        UIModelRenderer mr = this.parent.getModelRenderer();
+
+        if (!(mr instanceof UIModelEditorRenderer renderer))
+        {
+            return;
+        }
+
+        context.replaceContextMenu((menu) ->
+        {
+            menu.action(renderer.viewportMode == UIModelEditorRenderer.ViewportMode.TEXTURED ? Icons.SAVED : Icons.NONE, UIKeys.MODELS_GEOMETRY_VIEWPORT_TEXTURED, () ->
+            {
+                renderer.viewportMode = UIModelEditorRenderer.ViewportMode.TEXTURED;
+            });
+            menu.action(renderer.viewportMode == UIModelEditorRenderer.ViewportMode.WIREFRAME ? Icons.SAVED : Icons.NONE, UIKeys.MODELS_GEOMETRY_VIEWPORT_WIREFRAME, () ->
+            {
+                renderer.viewportMode = UIModelEditorRenderer.ViewportMode.WIREFRAME;
+            });
+            menu.action(renderer.viewportMode == UIModelEditorRenderer.ViewportMode.XRAY ? Icons.SAVED : Icons.NONE, UIKeys.MODELS_GEOMETRY_VIEWPORT_XRAY, () ->
+            {
+                renderer.viewportMode = UIModelEditorRenderer.ViewportMode.XRAY;
+            });
+        });
+    }
+
+    public void flipSelectedX()
+    {
+        if (this.instance == null || !(this.instance.model instanceof Model model) || this.isCurrentSelectionLocked())
+        {
+            return;
+        }
+
+        if (this.selectedCube != null)
+        {
+            this.flipCubeX(this.selectedCube, model);
+        }
+        else if (this.selectedGroup != null)
+        {
+            this.flipGroupTreeX(this.selectedGroup, model);
+        }
+
+        model.initialize();
+        this.refreshCubeRenderAndSave();
+        this.fillControls();
+        this.fillCubeControls();
+        UIUtils.playClick();
+    }
+
+    private void flipCubeX(ModelCube cube, Model model)
+    {
+        cube.origin.x = -cube.origin.x - cube.size.x;
+        cube.pivot.x = -cube.pivot.x;
+        cube.rotate.y = -cube.rotate.y;
+        cube.rotate.z = -cube.rotate.z;
+
+        if (!this.isCustomFaceUV(cube))
+        {
+            boolean mirror = !this.isCubeMirrored(cube);
+            cube.setupBoxUV(this.getBoxUV(cube), mirror);
+        }
+        else
+        {
+            ModelUV temp = cube.left;
+            cube.left = cube.right;
+            cube.right = temp;
+        }
+
+        cube.generateQuads(model.textureWidth, model.textureHeight);
+    }
+
+    private void flipGroupTreeX(ModelGroup group, Model model)
+    {
+        group.initial.translate.x = -group.initial.translate.x;
+        group.initial.rotate.y = -group.initial.rotate.y;
+        group.initial.rotate.z = -group.initial.rotate.z;
+        group.initial.pivot.x = -group.initial.pivot.x;
+        group.current.copy(group.initial);
+
+        for (ModelCube cube : group.cubes)
+        {
+            this.flipCubeX(cube, model);
+        }
+
+        for (ModelGroup child : group.children)
+        {
+            this.flipGroupTreeX(child, model);
+        }
+    }
+
+    public void duplicateAndMirrorX()
+    {
+        if (this.instance == null || !(this.instance.model instanceof Model model) || this.isCurrentSelectionLocked())
+        {
+            return;
+        }
+
+        if (this.selectedCube != null && this.selectedGroup != null)
+        {
+            ModelCube clone = this.selectedCube.copy();
+            this.flipCubeX(clone, model);
+            clone.name = this.getMirroredName(clone.name);
+            int insertIndex = this.selectedGroup.cubes.indexOf(this.selectedCube) + 1;
+
+            if (insertIndex <= 0 || insertIndex > this.selectedGroup.cubes.size())
+            {
+                insertIndex = this.selectedGroup.cubes.size();
+            }
+
+            this.selectedGroup.cubes.add(insertIndex, clone);
+            GeometryEntry entry = new GeometryEntry(GeometryEntryType.CUBE, this.selectedGroup.id, insertIndex, 0, this.getCubeLabel(clone), false);
+
+            model.initialize();
+            this.reloadHierarchyPreserveSelection(entry);
+            this.refreshCubeRenderAndSave();
+            UIUtils.playClick();
+        }
+        else if (this.selectedGroup != null)
+        {
+            Set<String> used = new HashSet<>(model.getAllGroupKeys());
+            String newId = this.makeUniqueGroupId(this.getMirroredName(this.selectedGroup.id), used);
+            ModelGroup clone = this.cloneGroupTree(this.selectedGroup, this.selectedGroup.parent, newId, true, used);
+
+            this.flipGroupTreeX(clone, model);
+
+            if (this.selectedGroup.parent != null)
+            {
+                this.selectedGroup.parent.children.add(clone);
+            }
+            else
+            {
+                model.topGroups.add(clone);
+            }
+
+            GeometryEntry entry = new GeometryEntry(GeometryEntryType.BONE, clone.id, -1, 0, clone.id, true);
+
+            model.initialize();
+            this.reloadHierarchyPreserveSelection(entry);
+            this.refreshCubeRenderAndSave();
+            UIUtils.playClick();
+        }
+    }
+
+    public String getMirroredName(String name)
+    {
+        if (name == null || name.isEmpty())
+        {
+            return "mirrored";
+        }
+
+        if (name.contains("_right")) return name.replace("_right", "_left");
+        if (name.contains("_left")) return name.replace("_left", "_right");
+        if (name.contains("_r")) return name.replace("_r", "_l");
+        if (name.contains("_l")) return name.replace("_l", "_r");
+        if (name.contains("right")) return name.replace("right", "left");
+        if (name.contains("left")) return name.replace("left", "right");
+        if (name.contains("Right")) return name.replace("Right", "Left");
+        if (name.contains("Left")) return name.replace("Left", "Right");
+        if (name.contains("_der")) return name.replace("_der", "_izq");
+        if (name.contains("_izq")) return name.replace("_izq", "_der");
+
+        return name + "_mirror";
     }
 
     private void addFolder()

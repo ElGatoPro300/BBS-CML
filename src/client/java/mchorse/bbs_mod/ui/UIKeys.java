@@ -1553,6 +1553,12 @@ public class UIKeys
     public static final IKey MODELS_GEOMETRY_PIVOT_BOTTOM = L10n.lang("bbs.ui.models.geometry_pivot_bottom");
     public static final IKey MODELS_GEOMETRY_PIVOT_RESET = L10n.lang("bbs.ui.models.geometry_pivot_reset");
     public static final IKey MODELS_GEOMETRY_PIVOT_CENTER_BONE = L10n.lang("bbs.ui.models.geometry_pivot_center_bone");
+    public static final IKey MODELS_GEOMETRY_FLIP_X = L10n.lang("bbs.ui.models.geometry_flip_x");
+    public static final IKey MODELS_GEOMETRY_DUPE_MIRROR_X = L10n.lang("bbs.ui.models.geometry_dupe_mirror_x");
+    public static final IKey MODELS_GEOMETRY_VIEWPORT_MODE = L10n.lang("bbs.ui.models.geometry_viewport_mode");
+    public static final IKey MODELS_GEOMETRY_VIEWPORT_TEXTURED = L10n.lang("bbs.ui.models.geometry_viewport_textured");
+    public static final IKey MODELS_GEOMETRY_VIEWPORT_WIREFRAME = L10n.lang("bbs.ui.models.geometry_viewport_wireframe");
+    public static final IKey MODELS_GEOMETRY_VIEWPORT_XRAY = L10n.lang("bbs.ui.models.geometry_viewport_xray");
     public static final IKey MODELS_UI_SCALE = L10n.lang("bbs.ui.models.ui_scale");
     public static final IKey MORPHING_DEMORPH = L10n.lang("bbs.ui.morphing.demorph");
     public static final IKey MORPHING_FROM_MOB = L10n.lang("bbs.ui.morphing.from_mob");
