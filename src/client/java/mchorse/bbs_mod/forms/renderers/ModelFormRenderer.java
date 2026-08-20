@@ -818,15 +818,20 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
         /* Multiply tint for color spatial mask only — Color Grade uses FormColorGrade / overlay. */
         boolean deferColorTintToOverlay = colorTransformWanted && irisWorldPaintDeferral && !deferTranslucentModel && !bakeSoftIrisBlend;
         boolean colorTransformActive = colorTransformWanted && (bbsModelShader || deferTranslucentModel || deferColorTintToOverlay);
+
+        EffectTransform glowEffectTransform = this.resolveGlowEffectTransform(glow, legacyGlow);
+        boolean hasGlowTransform = (glowEffectTransform != null && glowEffectTransform.isActive()) || this.hasAnyBoneGlowTransform(model);
+        boolean glowHasSpatialMask = hasGlowTransform;
+
         /* Paint stays on the Iris frame-end overlay (keeps pack body shadows with Noshading off).
          * Do not redraw soft+paint with model.fsh on the Iris post-deferred path — wrong MVP
          * made actors fully invisible. Overlay outAlpha already multiplies form vertex alpha. */
         boolean deferPaintToOverlay = model.supportsBbsModelShaderEffects() && paintActive && irisWorldPaintDeferral && !deferTranslucentModel;
-        boolean shaderOverlay = model.supportsBbsModelShaderEffects() && irisWorldPaintDeferral && syncedGlow && !paintActive && !deferTranslucentModel;
+        boolean shaderOverlay = model.supportsBbsModelShaderEffects() && irisWorldPaintDeferral && (syncedGlow || glowHasSpatialMask) && !paintActive && !deferTranslucentModel;
 
         /* Low-alpha Iris redraw: albedo deferred; additive overlay if somehow deferred with glow. */
         boolean emitGlowAfterDeferred = deferTranslucentModel && model.supportsBbsModelShaderEffects() && hasEmissiveGlow;
-        boolean deferGlowToOverlay = shaderOverlay;
+        boolean deferGlowToOverlay = shaderOverlay || (irisWorldPaintDeferral && glowHasSpatialMask && model.supportsBbsModelShaderEffects());
         boolean shapeKeyPositiveOverlay = false;
         boolean glowDeferredToOverlay = deferGlowToOverlay || emitGlowAfterDeferred || (deferPaintToOverlay && hasGlow && !paintOnlyGlow);
         boolean stripMainPassGlow = deferGlowToOverlay || emitGlowAfterDeferred || (deferPaintToOverlay && hasGlow && paintOnlyGlow);
@@ -839,12 +844,12 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
             color.a = BBSRendering.easeIrisModelAlpha(formOpacityAlpha);
         }
 
-        if (irisWorldPaintDeferral && hasEmissiveGlow && !deferTranslucentModel)
+        if (irisWorldPaintDeferral && hasEmissiveGlow && !deferTranslucentModel && !glowHasSpatialMask)
         {
             /* Must hit the Iris entity/gbuffer pass — post-composite BBS additive never blooms. */
             FormColorEffects.blendFormGlowBrighten(color, glow, legacyGlow);
         }
-        else if (!bbsModelShader && !shaderOverlay && !deferPaintToOverlay && !paintOnlyGlow && !deferTranslucentModel)
+        else if (!bbsModelShader && !shaderOverlay && !deferPaintToOverlay && !paintOnlyGlow && !deferTranslucentModel && !glowHasSpatialMask)
         {
             FormColorEffects.blendFormGlowBrighten(color, glow, legacyGlow);
         }
@@ -855,7 +860,6 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
         Vector3f paintMaskHalf = new Vector3f();
         Vector3f colorMaskHalf = new Vector3f();
         Vector3f glowMaskHalf = new Vector3f();
-        EffectTransform glowEffectTransform = this.resolveGlowEffectTransform(glow, legacyGlow);
 
         EffectTransformMath.resolveModelMaskHalfExtents(paint.transform, paintMaskHalf);
         EffectTransformMath.resolveModelMaskHalfExtents(formColor.transform, colorMaskHalf);
@@ -1717,7 +1721,7 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
                 float transitionSnapshot = transition;
                 int overlayLight = light;
                 int overlayOverlay = overlay;
-                boolean applyPoseSnapshot = syncedGlow;
+                boolean applyPoseSnapshot = syncedGlow || glowHasSpatialMask;
                 Link defaultTextureSnapshot = defaultTexture;
 
                 ModelVAORenderer.submitPaintOverlay(false, () ->
@@ -1751,6 +1755,41 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
                         ModelVAORenderer.clearGlowEffectTransform();
                         ModelVAORenderer.clearPaint();
                         ModelVAORenderer.clearGlowing();
+                    }
+                });
+            }
+            else if (deferColorTintToOverlay)
+            {
+                Matrix4f positionMatrix = ModelVAORenderer.capturePaintOverlayRootMatrix(new Matrix4f(newStack.peek().getPositionMatrix()));
+                Matrix3f normalMatrix = new Matrix3f(newStack.peek().getNormalMatrix());
+                Matrix4f baseTransformSnapshot = baseTransform == null ? null : new Matrix4f(baseTransform);
+                Color colorSnapshot = color.copy();
+                Pose poseSnapshot = this.getPose().copy();
+                float transitionSnapshot = transition;
+                int overlayLight = light;
+                int overlayOverlay = overlay;
+                Link defaultTextureSnapshot = defaultTexture;
+
+                ModelVAORenderer.submitPaintOverlay(false, () ->
+                {
+                    this.applyOverlayPosePipeline(target, model, transitionSnapshot, poseSnapshot, baseTransformSnapshot);
+
+                    try
+                    {
+                        ModelVAORenderer.setColorEffectTransform(new Matrix4f().identity(), colorTransformSnapshot, colorMaskHalfSnapshot);
+                        ModelVAORenderer.setFormColorTint(formColorSnapshot.r, formColorSnapshot.g, formColorSnapshot.b, formColorSnapshot.a);
+
+                        MatrixStack overlayStack = new MatrixStack();
+
+                        overlayStack.peek().getPositionMatrix().set(positionMatrix);
+                        overlayStack.peek().getNormalMatrix().set(normalMatrix);
+
+                        this.renderModelGeometry(overlayStack, BBSShaders::getModel, model, overlayLight, overlayOverlay, stencilMap, colorSnapshot, defaultTextureSnapshot, textureBlendSnapshot);
+                    }
+                    finally
+                    {
+                        ModelVAORenderer.clearColorEffectTransform();
+                        ModelVAORenderer.clearFormColorTint();
                     }
                 });
             }
@@ -3031,6 +3070,27 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
         for (ModelGroup group : model.getModel().getAllGroups())
         {
             if (group.color != null && group.color.hasActiveTransform())
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Whether any pose bone has an active glow spatial mask (shape / offset / scale / rotate).
+     */
+    private boolean hasAnyBoneGlowTransform(ModelInstance model)
+    {
+        if (model == null || model.getModel() == null)
+        {
+            return false;
+        }
+
+        for (ModelGroup group : model.getModel().getAllGroups())
+        {
+            if (group.glowingColor != null && group.glowingColor.transform != null && group.glowingColor.transform.isActive())
             {
                 return true;
             }

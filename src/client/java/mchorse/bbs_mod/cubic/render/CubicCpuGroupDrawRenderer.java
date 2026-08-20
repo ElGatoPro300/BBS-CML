@@ -23,6 +23,7 @@ import net.minecraft.client.render.VertexFormat;
 import net.minecraft.client.render.VertexFormats;
 import net.minecraft.client.util.math.MatrixStack;
 
+import org.joml.Matrix4f;
 import org.joml.Vector3f;
 
 /**
@@ -37,14 +38,21 @@ public class CubicCpuGroupDrawRenderer extends CubicCubeRenderer
 {
     private final ShaderProgram shader;
     private final Link defaultTexture;
+    private final Matrix4f rootInverse;
     private int currentGroupLight;
 
     public CubicCpuGroupDrawRenderer(int light, int overlay, StencilMap stencilMap, ShapeKeys shapeKeys, ShaderProgram shader, Link defaultTexture)
+    {
+        this(light, overlay, stencilMap, shapeKeys, shader, defaultTexture, null);
+    }
+
+    public CubicCpuGroupDrawRenderer(int light, int overlay, StencilMap stencilMap, ShapeKeys shapeKeys, ShaderProgram shader, Link defaultTexture, Matrix4f rootInverse)
     {
         super(light, overlay, stencilMap, shapeKeys);
 
         this.shader = shader;
         this.defaultTexture = defaultTexture;
+        this.rootInverse = rootInverse;
     }
 
     @Override
@@ -119,9 +127,11 @@ public class CubicCpuGroupDrawRenderer extends CubicCubeRenderer
         float b = this.b;
         float a = alpha;
 
+        boolean boneGlowMaskActive = group.glowingColor != null && group.glowingColor.transform != null && group.glowingColor.transform.isActive();
+
         if (!ModelVAORenderer.isGlowingUniformActive())
         {
-            if (effectiveGlowStrength != 0F)
+            if (effectiveGlowStrength != 0F && !boneGlowMaskActive && !ModelVAORenderer.isGlowEffectActive())
             {
                 Color groupColor = new Color().set(r, g, b, a);
                 Color glowColor = new Color().set(this.resolveEffectiveGlowR(group), this.resolveEffectiveGlowG(group), this.resolveEffectiveGlowB(group), 1F);
@@ -137,7 +147,7 @@ public class CubicCpuGroupDrawRenderer extends CubicCubeRenderer
 
         int groupLight = this.light;
 
-        if (effectiveGlowStrength != 0F && !ModelVAORenderer.isGlowingUniformActive() && !ModelVAORenderer.isPaintOverlayPass())
+        if (effectiveGlowStrength != 0F && !ModelVAORenderer.isGlowingUniformActive() && !ModelVAORenderer.isPaintOverlayPass() && !boneGlowMaskActive && !ModelVAORenderer.isGlowEffectActive())
         {
             float glowLightT = MathUtils.clamp(Math.abs(effectiveGlowStrength), 0F, 1F);
             int baseU = groupLight & '\uffff';
@@ -180,7 +190,7 @@ public class CubicCpuGroupDrawRenderer extends CubicCubeRenderer
                 this.shader.colorModulator.set(r, g, b, a);
             }
 
-            ModelVAORenderer.setupUniformsCpuPretransformed(this.shader);
+            ModelVAORenderer.setupUniformsCpuPretransformed(this.shader, this.rootInverse);
             BufferRenderer.drawWithGlobalProgram(groupBuilder.end());
             this.shader.unbind();
         }
