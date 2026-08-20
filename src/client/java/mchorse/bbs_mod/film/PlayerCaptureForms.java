@@ -9,7 +9,6 @@ import mchorse.bbs_mod.resources.Link;
 
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.network.PlayerListEntry;
-import net.minecraft.client.util.SkinTextures;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.nbt.NbtCompound;
 
@@ -67,7 +66,7 @@ public final class PlayerCaptureForms
 
         PlayerListEntry entry = mc.getNetworkHandler().getPlayerListEntry(target.getUuid());
 
-        return entry != null && entry.getSkinTextures().model() == SkinTextures.Model.SLIM;
+        return entry != null && "slim".equals(entry.getModel());
     }
 
     private static MobForm createMobForm(PlayerEntity target)
