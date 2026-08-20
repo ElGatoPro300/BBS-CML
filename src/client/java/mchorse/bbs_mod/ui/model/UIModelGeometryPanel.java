@@ -35,6 +35,7 @@ import mchorse.bbs_mod.ui.framework.elements.overlay.UIOverlay;
 import mchorse.bbs_mod.ui.framework.elements.overlay.UIPromptOverlayPanel;
 import mchorse.bbs_mod.ui.framework.elements.utils.UIDraggable;
 import mchorse.bbs_mod.ui.framework.elements.utils.UILabel;
+import mchorse.bbs_mod.ui.framework.elements.utils.UIModelRenderer;
 import mchorse.bbs_mod.ui.framework.elements.utils.UIRenderable;
 import mchorse.bbs_mod.ui.utils.Gizmo;
 import mchorse.bbs_mod.ui.utils.UI;
@@ -57,8 +58,10 @@ import org.lwjgl.glfw.GLFW;
 
 import java.io.File;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.function.Consumer;
 
@@ -119,6 +122,8 @@ public class UIModelGeometryPanel extends UIElement
     private final UIIcon gizmoThickness;
     private final UIIcon gizmoTranslateSpeed;
     private final Set<String> collapsedGroupIds = new HashSet<>();
+    private final Set<String> lockedGroupIds = new HashSet<>();
+    private final Set<String> lockedCubeKeys = new HashSet<>();
     private ModelGroup copiedGroup;
     private ModelCube copiedCube;
 
@@ -181,6 +186,11 @@ public class UIModelGeometryPanel extends UIElement
                 int offset = element.depth * 10;
                 int arrowX = x + 2 + offset;
                 int iconX = x + 18 + offset;
+                int w = this.area.w - (this.scroll.hasScrollbar() ? this.scroll.scrollSize : 0);
+                int eyeX = x + w - 34;
+                int lockX = x + w - 18;
+                boolean isVis = UIModelGeometryPanel.this.isEntryVisible(element);
+                boolean isLock = UIModelGeometryPanel.this.isLocked(element);
                 Icon icon = element.type == GeometryEntryType.BONE ? Icons.FOLDER : Icons.BLOCK;
 
                 if (element.expandable)
@@ -188,8 +198,27 @@ public class UIModelGeometryPanel extends UIElement
                     context.batcher.icon(UIModelGeometryPanel.this.collapsedGroupIds.contains(element.groupId) ? Icons.COLLAPSED : Icons.UNCOLLAPSED, arrowX, y + 1);
                 }
 
-                context.batcher.icon(icon, iconX, y + 1);
-                context.batcher.textShadow(element.label, x + 36 + offset, textY, hover ? Colors.HIGHLIGHT : Colors.WHITE);
+                int mainIconColor = isVis ? (isLock ? 0xfff59e0b : Colors.WHITE) : Colors.A25;
+                context.batcher.icon(icon, mainIconColor, iconX, y + 1);
+
+                int maxTextW = Math.max(10, eyeX - (x + 36 + offset) - 4);
+                String label = context.batcher.getFont().limitToWidth(element.label, maxTextW);
+                int textColor = hover ? Colors.HIGHLIGHT : (!isVis ? Colors.A50 : (isLock ? 0xfff59e0b : Colors.WHITE));
+
+                context.batcher.textShadow(label, x + 36 + offset, textY, textColor);
+
+                /* Visibility Icon (Eye) */
+                Icon eyeIcon = isVis ? Icons.VISIBLE : Icons.INVISIBLE;
+                int eyeColor = isVis ? (hover ? Colors.WHITE : Colors.A50) : 0xffff4444;
+                context.batcher.icon(eyeIcon, eyeColor, eyeX, y + 1);
+
+                /* Lock Icon (Padlock) */
+                if (isLock || hover)
+                {
+                    Icon lockIcon = isLock ? Icons.LOCKED : Icons.UNLOCKED;
+                    int lockColor = isLock ? 0xfff59e0b : Colors.A50;
+                    context.batcher.icon(lockIcon, lockColor, lockX, y + 1);
+                }
             }
 
             @Override
@@ -207,7 +236,7 @@ public class UIModelGeometryPanel extends UIElement
             @Override
             public boolean subMouseClicked(UIContext context)
             {
-                if (!this.isFiltering() && this.area.isInside(context) && context.mouseButton == 0)
+                if (this.area.isInside(context) && context.mouseButton == 0)
                 {
                     int visibleIndex = this.scroll.getIndex(context.mouseX, context.mouseY);
 
@@ -217,10 +246,29 @@ public class UIModelGeometryPanel extends UIElement
                         int y = this.area.y + visibleIndex * this.scroll.scrollItemSize - (int) this.scroll.getScroll();
                         int offset = entry.depth * 10;
                         int arrowX = this.area.x + 2 + offset;
+                        int w = this.area.w - (this.scroll.hasScrollbar() ? this.scroll.scrollSize : 0);
+                        int eyeX = this.area.x + w - 34;
+                        int lockX = this.area.x + w - 18;
 
-                        if (entry.expandable && context.mouseX >= arrowX && context.mouseX < arrowX + 16 && context.mouseY >= y + 1 && context.mouseY < y + 17)
+                        if (!this.isFiltering() && entry.expandable && context.mouseX >= arrowX && context.mouseX < arrowX + 16 && context.mouseY >= y + 1 && context.mouseY < y + 17)
                         {
                             UIModelGeometryPanel.this.toggleGroupCollapsed(entry.groupId);
+
+                            return true;
+                        }
+
+                        if (context.mouseX >= eyeX && context.mouseX < eyeX + 16 && context.mouseY >= y && context.mouseY < y + 18)
+                        {
+                            UIModelGeometryPanel.this.toggleVisibility(entry);
+                            UIUtils.playClick();
+
+                            return true;
+                        }
+
+                        if (context.mouseX >= lockX && context.mouseX < lockX + 16 && context.mouseY >= y && context.mouseY < y + 18)
+                        {
+                            UIModelGeometryPanel.this.toggleLock(entry);
+                            UIUtils.playClick();
 
                             return true;
                         }
@@ -235,8 +283,12 @@ public class UIModelGeometryPanel extends UIElement
                     {
                         GeometryEntry entry = this.getList().get(visibleIndex);
 
-                        this.setCurrentDirect(entry);
-                        UIModelGeometryPanel.this.selectCurrentHierarchyEntry();
+                        if (!this.getCurrent().contains(entry))
+                        {
+                            this.setCurrentDirect(entry);
+                            UIModelGeometryPanel.this.selectCurrentHierarchyEntry();
+                        }
+
                         UIModelGeometryPanel.this.openHierarchyContextMenu(context, entry);
 
                         return true;
@@ -246,6 +298,7 @@ public class UIModelGeometryPanel extends UIElement
                 return super.subMouseClicked(context);
             }
         };
+        this.hierarchyList.multi();
         this.hierarchyList.background();
         this.hierarchyList.sorting();
         this.hierarchyList.scroll.scrollItemSize = 18;
@@ -586,6 +639,8 @@ public class UIModelGeometryPanel extends UIElement
     {
         this.filling = true;
 
+        boolean locked = this.isCurrentSelectionLocked();
+
         if (this.selectedCube == null && this.selectedGroup == null)
         {
             this.cubeMirrorValue = false;
@@ -607,6 +662,7 @@ public class UIModelGeometryPanel extends UIElement
             this.uvFaceW.setEnabled(false);
             this.uvFaceH.setEnabled(false);
             this.uvResetToBoxButton.setEnabled(false);
+            this.unifiedTransform.setEnabled(false);
         }
         else if (this.selectedCube != null)
         {
@@ -618,12 +674,13 @@ public class UIModelGeometryPanel extends UIElement
             this.cubeUvX.setValue(uv.x);
             this.cubeUvY.setValue(uv.y);
             this.cubeMirror.setValue(this.cubeMirrorValue);
-            this.cubeInflate.setEnabled(true);
-            this.cubeUvX.setEnabled(true);
-            this.cubeUvY.setEnabled(true);
-            this.cubeMirror.setEnabled(true);
-            this.uvModeButton.setEnabled(true);
+            this.cubeInflate.setEnabled(!locked);
+            this.cubeUvX.setEnabled(!locked);
+            this.cubeUvY.setEnabled(!locked);
+            this.cubeMirror.setEnabled(!locked);
+            this.uvModeButton.setEnabled(!locked);
             this.toggleUVEditorButton.setEnabled(true);
+            this.unifiedTransform.setEnabled(!locked);
 
             this.uvModeButton.label = this.faceUVMode ? UIKeys.MODELS_GEOMETRY_UV_FACE : UIKeys.MODELS_GEOMETRY_UV_BOX;
             this.uvBoxRow.setVisible(!this.faceUVMode);
@@ -645,13 +702,13 @@ public class UIModelGeometryPanel extends UIElement
                     this.uvFaceH.setValue(faceUV.size.y);
                 }
 
-                this.uvFaceSelectButton.setEnabled(true);
-                this.uvFaceRotateButton.setEnabled(true);
-                this.uvFaceX.setEnabled(true);
-                this.uvFaceY.setEnabled(true);
-                this.uvFaceW.setEnabled(true);
-                this.uvFaceH.setEnabled(true);
-                this.uvResetToBoxButton.setEnabled(true);
+                this.uvFaceSelectButton.setEnabled(!locked);
+                this.uvFaceRotateButton.setEnabled(!locked);
+                this.uvFaceX.setEnabled(!locked);
+                this.uvFaceY.setEnabled(!locked);
+                this.uvFaceW.setEnabled(!locked);
+                this.uvFaceH.setEnabled(!locked);
+                this.uvResetToBoxButton.setEnabled(!locked);
             }
         }
         else
@@ -674,6 +731,7 @@ public class UIModelGeometryPanel extends UIElement
             this.uvFaceW.setEnabled(false);
             this.uvFaceH.setEnabled(false);
             this.uvResetToBoxButton.setEnabled(false);
+            this.unifiedTransform.setEnabled(!locked);
         }
 
         this.uvPanel.setVisible(this.uvEditorVisible && this.selectedCube != null);
@@ -726,6 +784,67 @@ public class UIModelGeometryPanel extends UIElement
             }
 
             return ok;
+        }
+
+        if (!context.isFocused())
+        {
+            if (context.isPressed(GLFW.GLFW_KEY_DELETE) || context.isPressed(GLFW.GLFW_KEY_BACKSPACE))
+            {
+                if (!this.hierarchyList.getCurrent().isEmpty())
+                {
+                    this.deleteSelection();
+                    UIUtils.playClick();
+                    return true;
+                }
+            }
+
+            if (Window.isCtrlPressed() && context.isPressed(GLFW.GLFW_KEY_D))
+            {
+                if (!this.hierarchyList.getCurrent().isEmpty())
+                {
+                    this.duplicateSelection();
+                    UIUtils.playClick();
+                    return true;
+                }
+            }
+
+            if (context.isPressed(GLFW.GLFW_KEY_F2))
+            {
+                GeometryEntry first = this.hierarchyList.getCurrentFirst();
+
+                if (first != null)
+                {
+                    this.renameEntry(first);
+                    return true;
+                }
+            }
+
+            if (context.isPressed(GLFW.GLFW_KEY_F))
+            {
+                this.focusSelection();
+                return true;
+            }
+
+            if (context.isPressed(GLFW.GLFW_KEY_G) || context.isPressed(GLFW.GLFW_KEY_T))
+            {
+                Gizmo.INSTANCE.setMode(Gizmo.Mode.TRANSLATE);
+                UIUtils.playClick();
+                return true;
+            }
+
+            if (context.isPressed(GLFW.GLFW_KEY_R))
+            {
+                Gizmo.INSTANCE.setMode(Gizmo.Mode.ROTATE);
+                UIUtils.playClick();
+                return true;
+            }
+
+            if (context.isPressed(GLFW.GLFW_KEY_S))
+            {
+                Gizmo.INSTANCE.setMode(Gizmo.Mode.SCALE);
+                UIUtils.playClick();
+                return true;
+            }
         }
 
         return super.subKeyPressed(context);
@@ -952,6 +1071,11 @@ public class UIModelGeometryPanel extends UIElement
 
     private void applyGizmoChange(int type, Axis axis, double x, double y, double z)
     {
+        if (this.isCurrentSelectionLocked())
+        {
+            return;
+        }
+
         if (axis == null)
         {
             this.updateTransformVector(type, 0, (float) x);
@@ -995,7 +1119,7 @@ public class UIModelGeometryPanel extends UIElement
 
     private void updateTransformVector(int type, int axis, float value)
     {
-        if (this.filling || (this.selectedGroup == null && this.selectedCube == null))
+        if (this.filling || (this.selectedGroup == null && this.selectedCube == null) || this.isCurrentSelectionLocked())
         {
             return;
         }
@@ -1288,9 +1412,12 @@ public class UIModelGeometryPanel extends UIElement
         {
             menu.action(Icons.COPY, UIKeys.GENERAL_COPY, () -> this.copyEntry(entry));
             menu.action(Icons.PASTE, UIKeys.GENERAL_PASTE, () -> this.pasteEntry(entry));
-            menu.action(Icons.DUPE, UIKeys.GENERAL_DUPE, () -> this.duplicateEntry(entry));
+            menu.action(Icons.DUPE, UIKeys.GENERAL_DUPE, () -> this.duplicateSelection());
             menu.action(Icons.EDIT, UIKeys.GENERAL_RENAME, () -> this.renameEntry(entry));
-            menu.action(Icons.REMOVE, UIKeys.GENERAL_REMOVE, () -> this.deleteEntry(entry));
+            menu.action(this.isEntryVisible(entry) ? Icons.INVISIBLE : Icons.VISIBLE, this.isEntryVisible(entry) ? IKey.raw("Hide") : IKey.raw("Show"), () -> this.toggleVisibility(entry));
+            menu.action(this.isLocked(entry) ? Icons.UNLOCKED : Icons.LOCKED, this.isLocked(entry) ? IKey.raw("Unlock") : IKey.raw("Lock"), () -> this.toggleLock(entry));
+            menu.action(Icons.MOVE_TO, IKey.raw("Focus"), () -> this.focusSelection());
+            menu.action(Icons.REMOVE, UIKeys.GENERAL_REMOVE, () -> this.deleteSelection());
         });
     }
 
@@ -1463,6 +1590,247 @@ public class UIModelGeometryPanel extends UIElement
         model.initialize();
         this.reloadHierarchyPreserveSelection(null);
         this.refreshCubeRenderAndSave();
+    }
+
+    public boolean isEntryVisible(GeometryEntry entry)
+    {
+        if (entry == null || this.instance == null || !(this.instance.model instanceof Model model))
+        {
+            return true;
+        }
+
+        ModelGroup group = model.getGroup(entry.groupId);
+
+        if (group == null)
+        {
+            return true;
+        }
+
+        if (entry.type == GeometryEntryType.BONE)
+        {
+            return group.visible;
+        }
+        else if (entry.type == GeometryEntryType.CUBE && entry.cubeIndex >= 0 && entry.cubeIndex < group.cubes.size())
+        {
+            ModelCube cube = group.cubes.get(entry.cubeIndex);
+
+            return cube.visible && group.visible;
+        }
+
+        return true;
+    }
+
+    public void toggleVisibility(GeometryEntry entry)
+    {
+        if (entry == null || this.instance == null || !(this.instance.model instanceof Model model))
+        {
+            return;
+        }
+
+        ModelGroup group = model.getGroup(entry.groupId);
+
+        if (group == null)
+        {
+            return;
+        }
+
+        if (entry.type == GeometryEntryType.BONE)
+        {
+            group.visible = !group.visible;
+        }
+        else if (entry.type == GeometryEntryType.CUBE && entry.cubeIndex >= 0 && entry.cubeIndex < group.cubes.size())
+        {
+            ModelCube cube = group.cubes.get(entry.cubeIndex);
+            cube.visible = !cube.visible;
+        }
+
+        this.refreshCubeRenderAndSave();
+    }
+
+    public boolean isLocked(GeometryEntry entry)
+    {
+        if (entry == null)
+        {
+            return false;
+        }
+
+        if (this.lockedGroupIds.contains(entry.groupId))
+        {
+            return true;
+        }
+
+        if (entry.type == GeometryEntryType.CUBE)
+        {
+            return this.lockedCubeKeys.contains(entry.groupId + ":" + entry.cubeIndex);
+        }
+
+        return false;
+    }
+
+    public void toggleLock(GeometryEntry entry)
+    {
+        if (entry == null)
+        {
+            return;
+        }
+
+        if (entry.type == GeometryEntryType.BONE)
+        {
+            if (this.lockedGroupIds.contains(entry.groupId))
+            {
+                this.lockedGroupIds.remove(entry.groupId);
+            }
+            else
+            {
+                this.lockedGroupIds.add(entry.groupId);
+            }
+        }
+        else
+        {
+            String key = entry.groupId + ":" + entry.cubeIndex;
+
+            if (this.lockedCubeKeys.contains(key))
+            {
+                this.lockedCubeKeys.remove(key);
+            }
+            else
+            {
+                this.lockedCubeKeys.add(key);
+            }
+        }
+
+        this.fillControls();
+        this.fillCubeControls();
+    }
+
+    public boolean isCurrentSelectionLocked()
+    {
+        GeometryEntry entry = this.hierarchyList.getCurrentFirst();
+
+        return this.isLocked(entry);
+    }
+
+    public void focusSelection()
+    {
+        if (this.instance == null || this.selectedGroup == null)
+        {
+            return;
+        }
+
+        Vector3f target = new Vector3f();
+
+        if (this.selectedCube != null)
+        {
+            target.set(
+                this.selectedCube.origin.x + this.selectedCube.size.x / 2F,
+                this.selectedCube.origin.y + this.selectedCube.size.y / 2F,
+                this.selectedCube.origin.z + this.selectedCube.size.z / 2F
+            );
+        }
+        else
+        {
+            target.set(this.selectedGroup.initial.translate);
+        }
+
+        UIModelRenderer renderer = this.parent.getModelRenderer();
+
+        if (renderer != null)
+        {
+            renderer.pos.set(-target.x / 16F, -target.y / 16F, -target.z / 16F);
+            UIUtils.playClick();
+        }
+    }
+
+    public void deleteSelection()
+    {
+        List<GeometryEntry> selected = new ArrayList<>(this.hierarchyList.getCurrent());
+
+        if (selected.isEmpty())
+        {
+            return;
+        }
+
+        if (selected.size() == 1)
+        {
+            this.deleteEntry(selected.get(0));
+            return;
+        }
+
+        if (this.instance == null || !(this.instance.model instanceof Model model))
+        {
+            return;
+        }
+
+        /* 1. Delete cubes grouped by ModelGroup in descending order of indices */
+        Map<ModelGroup, List<Integer>> cubesPerGroup = new HashMap<>();
+
+        for (GeometryEntry entry : selected)
+        {
+            if (entry.type == GeometryEntryType.CUBE)
+            {
+                ModelGroup group = model.getGroup(entry.groupId);
+
+                if (group != null)
+                {
+                    cubesPerGroup.computeIfAbsent(group, (k) -> new ArrayList<>()).add(entry.cubeIndex);
+                }
+            }
+        }
+
+        for (Map.Entry<ModelGroup, List<Integer>> pair : cubesPerGroup.entrySet())
+        {
+            ModelGroup group = pair.getKey();
+            List<Integer> indices = pair.getValue();
+            indices.sort((a, b) -> Integer.compare(b, a));
+
+            for (int idx : indices)
+            {
+                if (idx >= 0 && idx < group.cubes.size())
+                {
+                    group.cubes.remove(idx);
+                }
+            }
+        }
+
+        /* 2. Delete bones */
+        for (GeometryEntry entry : selected)
+        {
+            if (entry.type == GeometryEntryType.BONE)
+            {
+                ModelGroup group = model.getGroup(entry.groupId);
+
+                if (group != null)
+                {
+                    this.removeGroupFromParent(model, group);
+                }
+            }
+        }
+
+        model.initialize();
+        this.reloadHierarchyPreserveSelection(null);
+        this.refreshCubeRenderAndSave();
+    }
+
+    public void duplicateSelection()
+    {
+        List<GeometryEntry> selected = new ArrayList<>(this.hierarchyList.getCurrent());
+
+        if (selected.isEmpty())
+        {
+            return;
+        }
+
+        if (selected.size() == 1)
+        {
+            this.duplicateEntry(selected.get(0));
+            return;
+        }
+
+        for (GeometryEntry entry : selected)
+        {
+            this.copyEntry(entry);
+            this.pasteEntry(entry);
+        }
     }
 
     private void addFolder()
