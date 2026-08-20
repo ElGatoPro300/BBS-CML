@@ -1,5 +1,6 @@
 package mchorse.bbs_mod.mixin.client;
 
+import mchorse.bbs_mod.client.ItemUseRenderState;
 import mchorse.bbs_mod.film.RecorderMobCapture;
 
 import net.minecraft.client.network.ClientPlayerInteractionManager;
@@ -34,5 +35,14 @@ public class ClientPlayerInteractionManagerMixin
     private void bbs$onInteractEntityAtLocation(PlayerEntity player, Entity entity, EntityHitResult hitResult, Hand hand, CallbackInfoReturnable<ActionResult> info)
     {
         RecorderMobCapture.onEntityInteraction(entity);
+    }
+
+    @Inject(method = "stopUsingItem", at = @At("HEAD"), cancellable = true)
+    private void bbs$keepFirstPersonReplayItemUse(PlayerEntity player, CallbackInfo info)
+    {
+        if (ItemUseRenderState.isDrivingLocalPlayerUse())
+        {
+            info.cancel();
+        }
     }
 }

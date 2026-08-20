@@ -1140,6 +1140,8 @@ public class BBSModClient implements ClientModInitializer
 
                 if (BBSSettings.recordingMobCaptureOnAlt.get())
                 {
+                    int cursorTick = filmPanel.getCursor();
+
                     UIMobCaptureRecordOverlayPanel.openInGame((setup) ->
                     {
                         if (!filmPanel.hasActiveFilmSession())
@@ -1158,7 +1160,7 @@ public class BBSModClient implements ClientModInitializer
 
                         if (index >= 0)
                         {
-                            getFilms().startRecording(filmPanel.getData(), index, filmPanel.getCursor());
+                            getFilms().startRecording(filmPanel.getData(), index, cursorTick);
                         }
                     });
                 }
