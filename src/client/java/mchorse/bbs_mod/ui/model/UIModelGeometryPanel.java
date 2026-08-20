@@ -90,7 +90,6 @@ public class UIModelGeometryPanel extends UIElement
     private final UIButton saveButton;
     private final UITrackpad cubeInflate;
     private final UIButton uvModeButton;
-    private final UIIcon toggleUVEditorButton;
     private final UIElement uvBoxRow;
     private final UITrackpad cubeUvX;
     private final UITrackpad cubeUvY;
@@ -105,10 +104,7 @@ public class UIModelGeometryPanel extends UIElement
     private final UITrackpad uvFaceH;
     private final UIButton uvResetToBoxButton;
     private final UIModelUVEditor uvEditor;
-    private final UIElement uvPanel;
-    private final UIDraggable uvDraggable;
     private boolean faceUVMode;
-    private boolean uvEditorVisible = true;
     private final UIIcon addCubeIcon;
     private final UIIcon addFolderIcon;
     private final UIIcon addIKLocatorIcon;
@@ -150,12 +146,12 @@ public class UIModelGeometryPanel extends UIElement
         this.parent = parent;
         this.relative(parent.getMainView()).w(1F).h(1F);
 
-        int leftWidth = 200;
-        int rightWidth = 200;
+        int leftWidth = 220;
+        int rightWidth = 230;
         if (BBSSettings.uiLayoutPreferences != null)
         {
-            leftWidth = (int) BBSSettings.uiLayoutPreferences.getFormPanelWidth("UIModelPanel_left", 200F);
-            rightWidth = (int) BBSSettings.uiLayoutPreferences.getFormPanelWidth("UIModelPanel_right", 200F);
+            leftWidth = (int) BBSSettings.uiLayoutPreferences.getFormPanelWidth("UIModelPanel_left", 220F);
+            rightWidth = (int) BBSSettings.uiLayoutPreferences.getFormPanelWidth("UIModelPanel_right", 230F);
         }
 
         this.leftPanel = new UIElement();
@@ -164,168 +160,70 @@ public class UIModelGeometryPanel extends UIElement
         this.rightPanel = new UIElement();
         this.rightPanel.relative(this).x(1F, -rightWidth).y(0).w(rightWidth).h(1F);
 
-        UILabel hierarchyTitle = UI.label(UIKeys.MODELS_GEOMETRY_BONE_HIERARCHY).background();
-        hierarchyTitle.relative(this.leftPanel).x(10).y(10).w(1F, -20).h(12);
+        /* ==================== LEFT PANEL: UV & TEXTURES ==================== */
+        UILabel uvTitle = UI.label(UIKeys.MODELS_GEOMETRY_UV_TITLE).background();
+        uvTitle.relative(this.leftPanel).x(10).y(8).w(1F, -20).h(12);
 
-        this.addCubeIcon = new UIIcon(Icons.BLOCK, (b) -> this.addCube());
-        this.addFolderIcon = new UIIcon(Icons.FOLDER, (b) -> this.addFolder());
-        this.addIKLocatorIcon = new UIIcon(Icons.POSE, (b) -> this.addIKLocator());
-        this.addCubeIcon.tooltip(UIKeys.MODELS_GEOMETRY_ADD_CUBE);
-        this.addFolderIcon.tooltip(UIKeys.MODELS_GEOMETRY_ADD_FOLDER);
-        this.addIKLocatorIcon.tooltip(UIKeys.MODELS_IK_CREATE_LOCATOR_TOOLTIP);
+        this.uvEditor = new UIModelUVEditor(this);
+        this.uvEditor.relative(this.leftPanel).x(10).y(24).w(1F, -20).h(180);
 
-        UIElement actionButtonsRow = BBSFeatures.MODEL_IK_UI
-            ? UI.row(this.addCubeIcon, this.addFolderIcon, this.addIKLocatorIcon)
-            : UI.row(this.addCubeIcon, this.addFolderIcon);
-        actionButtonsRow.relative(hierarchyTitle).y(1F, 4).w(1F).h(20);
+        UILabel texturePropsTitle = UI.label(UIKeys.MODELS_GEOMETRY_UV_PROPERTIES).background();
+        texturePropsTitle.relative(this.leftPanel).x(10).y(210).w(1F, -20).h(12);
 
-        this.hierarchyList = new UIList<>((l) -> this.selectCurrentHierarchyEntry())
-        {
-            @Override
-            protected boolean sortElements()
-            {
-                return false;
-            }
+        /* UV Mode Header Row */
+        this.uvModeButton = new UIButton(UIKeys.MODELS_GEOMETRY_UV_BOX, (b) -> this.toggleUVMode());
+        this.uvModeButton.w(1F).h(20);
+        UIElement uvHeaderRow = UI.row(this.uvModeButton);
+        uvHeaderRow.relative(this.leftPanel).x(10).y(226).w(1F, -20).h(20);
 
-            @Override
-            protected void renderElementPart(UIContext context, GeometryEntry element, int i, int x, int y, boolean hover, boolean selected)
-            {
-                int textY = y + (this.scroll.scrollItemSize - context.batcher.getFont().getHeight()) / 2;
-                int offset = element.depth * 10;
-                int arrowX = x + 2 + offset;
-                int iconX = x + 18 + offset;
-                int w = this.area.w - (this.scroll.hasScrollbar() ? this.scroll.scrollSize : 0);
-                int eyeX = x + w - 34;
-                int lockX = x + w - 18;
-                boolean isVis = UIModelGeometryPanel.this.isEntryVisible(element);
-                boolean isLock = UIModelGeometryPanel.this.isLocked(element);
-                Icon icon = element.type == GeometryEntryType.BONE ? Icons.FOLDER : Icons.BLOCK;
+        /* Box UV Row */
+        UILabel cubeUvLabel = UI.label(UIKeys.MODELS_GEOMETRY_CUBE_UV);
+        cubeUvLabel.w(0.25F, -4).h(20);
+        this.cubeUvX = this.trackpad((v) -> this.updateCubeUV(0, v.floatValue()));
+        this.cubeUvY = this.trackpad((v) -> this.updateCubeUV(1, v.floatValue()));
+        this.cubeMirror = new UIToggle(UIKeys.MODELS_GEOMETRY_CUBE_MIRROR, (b) -> this.updateCubeMirror(b.getValue()));
+        this.cubeUvX.w(0.25F, -3);
+        this.cubeUvY.w(0.25F, -3);
+        this.cubeMirror.w(0.25F, -3).h(20);
+        this.uvBoxRow = UI.row(4, cubeUvLabel, this.cubeUvX, this.cubeUvY, this.cubeMirror);
+        this.uvBoxRow.relative(this.leftPanel).x(10).y(250).w(1F, -20).h(20);
 
-                if (element.expandable)
-                {
-                    context.batcher.icon(UIModelGeometryPanel.this.collapsedGroupIds.contains(element.groupId) ? Icons.COLLAPSED : Icons.UNCOLLAPSED, arrowX, y + 1);
-                }
+        /* Face UV Controls Rows */
+        this.uvFaceSelectButton = new UIButton(UIKeys.MODELS_GEOMETRY_UV_FACE_FRONT, (b) -> this.openFaceSelectionMenu(b.getContext()));
+        this.uvFaceSelectButton.w(0.75F, -4).h(20);
+        this.uvFaceRotateButton = new UIIcon(Icons.REFRESH, (b) -> this.rotateSelectedFaceUV());
+        this.uvFaceRotateButton.tooltip(UIKeys.MODELS_GEOMETRY_UV_ROTATE);
+        this.uvFaceRotateButton.w(0.25F).h(20);
+        this.uvFaceSelectRow = UI.row(4, this.uvFaceSelectButton, this.uvFaceRotateButton);
+        this.uvFaceSelectRow.relative(this.leftPanel).x(10).y(250).w(1F, -20).h(20);
 
-                int mainIconColor = isVis ? (isLock ? 0xfff59e0b : Colors.WHITE) : Colors.A25;
-                context.batcher.icon(icon, mainIconColor, iconX, y + 1);
+        this.uvFaceX = this.trackpad((v) -> this.updateFaceUVCoord(0, v.floatValue()));
+        this.uvFaceY = this.trackpad((v) -> this.updateFaceUVCoord(1, v.floatValue()));
+        this.uvFaceW = this.trackpad((v) -> this.updateFaceUVCoord(2, v.floatValue()));
+        this.uvFaceH = this.trackpad((v) -> this.updateFaceUVCoord(3, v.floatValue()));
+        this.uvFaceX.w(0.25F, -3);
+        this.uvFaceY.w(0.25F, -3);
+        this.uvFaceW.w(0.25F, -3);
+        this.uvFaceH.w(0.25F, -3);
+        this.uvFaceCoordsRow = UI.row(4, this.uvFaceX, this.uvFaceY, this.uvFaceW, this.uvFaceH);
+        this.uvFaceCoordsRow.relative(this.leftPanel).x(10).y(274).w(1F, -20).h(20);
 
-                int maxTextW = Math.max(10, eyeX - (x + 36 + offset) - 4);
-                String label = context.batcher.getFont().limitToWidth(element.label, maxTextW);
-                int textColor = hover ? Colors.HIGHLIGHT : (!isVis ? Colors.A50 : (isLock ? 0xfff59e0b : Colors.WHITE));
+        this.uvResetToBoxButton = new UIButton(UIKeys.MODELS_GEOMETRY_UV_RESET_TO_BOX, (b) -> this.resetToBoxUV());
+        this.uvResetToBoxButton.relative(this.leftPanel).x(10).y(298).w(1F, -20).h(20);
 
-                context.batcher.textShadow(label, x + 36 + offset, textY, textColor);
+        this.leftPanel.add(uvTitle, this.uvEditor, texturePropsTitle, uvHeaderRow, this.uvBoxRow, this.uvFaceSelectRow, this.uvFaceCoordsRow, this.uvResetToBoxButton);
 
-                /* Visibility Icon (Eye) */
-                Icon eyeIcon = isVis ? Icons.VISIBLE : Icons.INVISIBLE;
-                int eyeColor = isVis ? (hover ? Colors.WHITE : Colors.A50) : 0xffff4444;
-                context.batcher.icon(eyeIcon, eyeColor, eyeX, y + 1);
-
-                /* Lock Icon (Padlock) */
-                if (isLock || hover)
-                {
-                    Icon lockIcon = isLock ? Icons.LOCKED : Icons.UNLOCKED;
-                    int lockColor = isLock ? 0xfff59e0b : Colors.A50;
-                    context.batcher.icon(lockIcon, lockColor, lockX, y + 1);
-                }
-            }
-
-            @Override
-            protected String elementToString(UIContext context, int i, GeometryEntry element)
-            {
-                return element.label + " " + element.groupId;
-            }
-
-            @Override
-            protected void handleSwap(int from, int to)
-            {
-                UIModelGeometryPanel.this.handleHierarchySwap(from, to);
-            }
-
-            @Override
-            public boolean subMouseClicked(UIContext context)
-            {
-                if (this.area.isInside(context) && context.mouseButton == 0)
-                {
-                    int visibleIndex = this.scroll.getIndex(context.mouseX, context.mouseY);
-
-                    if (this.exists(visibleIndex))
-                    {
-                        GeometryEntry entry = this.getList().get(visibleIndex);
-                        int y = this.area.y + visibleIndex * this.scroll.scrollItemSize - (int) this.scroll.getScroll();
-                        int offset = entry.depth * 10;
-                        int arrowX = this.area.x + 2 + offset;
-                        int w = this.area.w - (this.scroll.hasScrollbar() ? this.scroll.scrollSize : 0);
-                        int eyeX = this.area.x + w - 34;
-                        int lockX = this.area.x + w - 18;
-
-                        if (!this.isFiltering() && entry.expandable && context.mouseX >= arrowX && context.mouseX < arrowX + 16 && context.mouseY >= y + 1 && context.mouseY < y + 17)
-                        {
-                            UIModelGeometryPanel.this.toggleGroupCollapsed(entry.groupId);
-
-                            return true;
-                        }
-
-                        if (context.mouseX >= eyeX && context.mouseX < eyeX + 16 && context.mouseY >= y && context.mouseY < y + 18)
-                        {
-                            UIModelGeometryPanel.this.toggleVisibility(entry);
-                            UIUtils.playClick();
-
-                            return true;
-                        }
-
-                        if (context.mouseX >= lockX && context.mouseX < lockX + 16 && context.mouseY >= y && context.mouseY < y + 18)
-                        {
-                            UIModelGeometryPanel.this.toggleLock(entry);
-                            UIUtils.playClick();
-
-                            return true;
-                        }
-                    }
-                }
-
-                if (this.area.isInside(context) && context.mouseButton == 1)
-                {
-                    int visibleIndex = this.scroll.getIndex(context.mouseX, context.mouseY);
-
-                    if (this.exists(visibleIndex))
-                    {
-                        GeometryEntry entry = this.getList().get(visibleIndex);
-
-                        if (!this.getCurrent().contains(entry))
-                        {
-                            this.setCurrentDirect(entry);
-                            UIModelGeometryPanel.this.selectCurrentHierarchyEntry();
-                        }
-
-                        UIModelGeometryPanel.this.openHierarchyContextMenu(context, entry);
-
-                        return true;
-                    }
-                }
-
-                return super.subMouseClicked(context);
-            }
-        };
-        this.hierarchyList.multi();
-        this.hierarchyList.background();
-        this.hierarchyList.sorting();
-        this.hierarchyList.scroll.scrollItemSize = 18;
-        this.hierarchySearch = new UISearchList<>(this.hierarchyList);
-        this.hierarchySearch.label(UIKeys.GENERAL_SEARCH);
-        this.hierarchySearch.relative(this.leftPanel).x(10).y(52).w(1F, -20).h(1F, -62);
-
-        this.leftPanel.add(hierarchyTitle, actionButtonsRow, this.hierarchySearch);
-
-        UILabel editorTitle = UI.label(UIKeys.MODELS_GEOMETRY_EDITOR).background();
-        editorTitle.relative(this.rightPanel).x(10).y(10).w(1F, -20).h(12);
+        /* ==================== RIGHT PANEL: TRANSFORM & HIERARCHY ==================== */
+        UILabel editorTitle = UI.label(UIKeys.MODELS_GEOMETRY_TRANSFORM_TITLE).background();
+        editorTitle.relative(this.rightPanel).x(10).y(8).w(1F, -20).h(12);
 
         this.selectedBoneLabel = UI.label(IKey.raw("-"));
-        this.selectedBoneLabel.relative(editorTitle).y(1F, 4).w(1F).h(12);
+        this.selectedBoneLabel.relative(this.rightPanel).x(10).y(22).w(1F, -20).h(12);
 
         this.unifiedTransform = new UITransform()
         {
             {
-                UIElement row = this.r2x.getParentContainer();
+                UIElement row = this.r2x.getParent();
 
                 if (row != null)
                 {
@@ -370,7 +268,7 @@ public class UIModelGeometryPanel extends UIElement
                 UIModelGeometryPanel.this.applyGizmoChange(2, axis, x, y, z);
             }
         };
-        this.unifiedTransform.relative(this.selectedBoneLabel).y(1F, 6).w(1F).h(104);
+        this.unifiedTransform.relative(this.rightPanel).x(10).y(38).w(1F, -20).h(92);
         this.gizmoTransform = new UIPropTransform()
         {
             @Override
@@ -419,63 +317,169 @@ public class UIModelGeometryPanel extends UIElement
         this.scaleY = this.unifiedTransform.sy;
         this.scaleZ = this.unifiedTransform.sz;
 
-        this.saveButton = new UIButton(UIKeys.GENERAL_SAVE, (b) -> this.saveModelFile());
-        this.saveButton.w(1F).h(20);
-        UIElement buttons = UI.row(this.saveButton);
-        buttons.relative(this.unifiedTransform).y(1F, 10).w(1F).h(20);
-
         UILabel cubeInflateLabel = UI.label(UIKeys.MODELS_GEOMETRY_CUBE_INFLATE);
         cubeInflateLabel.w(0.4F, -4).h(20);
         this.cubeInflate = this.trackpad((v) -> this.updateCubeInflate(v.floatValue()));
         this.cubeInflate.w(0.6F, -2);
         UIElement cubeInflateRow = UI.row(6, cubeInflateLabel, this.cubeInflate);
-        cubeInflateRow.relative(buttons).y(1F, 8).w(1F).h(20);
+        cubeInflateRow.relative(this.rightPanel).x(10).y(138).w(1F, -20).h(20);
 
-        /* UV Mode & Visibility Header Row */
-        this.uvModeButton = new UIButton(UIKeys.MODELS_GEOMETRY_UV_BOX, (b) -> this.toggleUVMode());
-        this.uvModeButton.w(0.7F, -4).h(20);
-        this.toggleUVEditorButton = new UIIcon(Icons.IMAGE, (b) -> this.toggleUVEditorVisible());
-        this.toggleUVEditorButton.tooltip(UIKeys.MODELS_GEOMETRY_UV_EDITOR_TOGGLE);
-        this.toggleUVEditorButton.w(0.3F).h(20);
-        UIElement uvHeaderRow = UI.row(4, this.uvModeButton, this.toggleUVEditorButton);
-        uvHeaderRow.relative(cubeInflateRow).y(1F, 8).w(1F).h(20);
+        this.saveButton = new UIButton(UIKeys.GENERAL_SAVE, (b) -> this.saveModelFile());
+        this.saveButton.w(1F).h(20);
+        UIElement buttons = UI.row(this.saveButton);
+        buttons.relative(this.rightPanel).x(10).y(164).w(1F, -20).h(20);
 
-        /* Box UV Row */
-        UILabel cubeUvLabel = UI.label(UIKeys.MODELS_GEOMETRY_CUBE_UV);
-        cubeUvLabel.w(0.25F, -4).h(20);
-        this.cubeUvX = this.trackpad((v) -> this.updateCubeUV(0, v.floatValue()));
-        this.cubeUvY = this.trackpad((v) -> this.updateCubeUV(1, v.floatValue()));
-        this.cubeMirror = new UIToggle(UIKeys.MODELS_GEOMETRY_CUBE_MIRROR, (b) -> this.updateCubeMirror(b.getValue()));
-        this.cubeUvX.w(0.25F, -3);
-        this.cubeUvY.w(0.25F, -3);
-        this.cubeMirror.w(0.25F, -3).h(20);
-        this.uvBoxRow = UI.row(4, cubeUvLabel, this.cubeUvX, this.cubeUvY, this.cubeMirror);
-        this.uvBoxRow.relative(uvHeaderRow).y(1F, 6).w(1F).h(20);
+        /* Hierarchy / Outliner */
+        UILabel hierarchyTitle = UI.label(UIKeys.MODELS_GEOMETRY_OUTLINE_TITLE).background();
+        hierarchyTitle.relative(this.rightPanel).x(10).y(192).w(1F, -20).h(12);
 
-        /* Face UV Controls Rows */
-        this.uvFaceSelectButton = new UIButton(UIKeys.MODELS_GEOMETRY_UV_FACE_FRONT, (b) -> this.openFaceSelectionMenu(b.getContext()));
-        this.uvFaceSelectButton.w(0.7F, -4).h(20);
-        this.uvFaceRotateButton = new UIIcon(Icons.REFRESH, (b) -> this.rotateSelectedFaceUV());
-        this.uvFaceRotateButton.tooltip(UIKeys.MODELS_GEOMETRY_UV_ROTATE);
-        this.uvFaceRotateButton.w(0.3F).h(20);
-        this.uvFaceSelectRow = UI.row(4, this.uvFaceSelectButton, this.uvFaceRotateButton);
-        this.uvFaceSelectRow.relative(uvHeaderRow).y(1F, 6).w(1F).h(20);
+        this.addCubeIcon = new UIIcon(Icons.BLOCK, (b) -> this.addCube());
+        this.addFolderIcon = new UIIcon(Icons.FOLDER, (b) -> this.addFolder());
+        this.addIKLocatorIcon = new UIIcon(Icons.POSE, (b) -> this.addIKLocator());
+        this.addCubeIcon.tooltip(UIKeys.MODELS_GEOMETRY_ADD_CUBE);
+        this.addFolderIcon.tooltip(UIKeys.MODELS_GEOMETRY_ADD_FOLDER);
+        this.addIKLocatorIcon.tooltip(UIKeys.MODELS_IK_CREATE_LOCATOR_TOOLTIP);
 
-        this.uvFaceX = this.trackpad((v) -> this.updateFaceUVCoord(0, v.floatValue()));
-        this.uvFaceY = this.trackpad((v) -> this.updateFaceUVCoord(1, v.floatValue()));
-        this.uvFaceW = this.trackpad((v) -> this.updateFaceUVCoord(2, v.floatValue()));
-        this.uvFaceH = this.trackpad((v) -> this.updateFaceUVCoord(3, v.floatValue()));
-        this.uvFaceX.w(0.25F, -3);
-        this.uvFaceY.w(0.25F, -3);
-        this.uvFaceW.w(0.25F, -3);
-        this.uvFaceH.w(0.25F, -3);
-        this.uvFaceCoordsRow = UI.row(4, this.uvFaceX, this.uvFaceY, this.uvFaceW, this.uvFaceH);
-        this.uvFaceCoordsRow.relative(this.uvFaceSelectRow).y(1F, 6).w(1F).h(20);
+        UIElement actionButtonsRow = BBSFeatures.MODEL_IK_UI
+            ? UI.row(this.addCubeIcon, this.addFolderIcon, this.addIKLocatorIcon)
+            : UI.row(this.addCubeIcon, this.addFolderIcon);
+        actionButtonsRow.relative(this.rightPanel).x(10).y(208).w(1F, -20).h(20);
 
-        this.uvResetToBoxButton = new UIButton(UIKeys.MODELS_GEOMETRY_UV_RESET_TO_BOX, (b) -> this.resetToBoxUV());
-        this.uvResetToBoxButton.relative(this.uvFaceCoordsRow).y(1F, 6).w(1F).h(20);
+        this.hierarchyList = new UIList<>((l) -> this.selectCurrentHierarchyEntry())
+        {
+            @Override
+            protected boolean sortElements()
+            {
+                return false;
+            }
 
-        this.rightPanel.add(editorTitle, this.selectedBoneLabel, this.unifiedTransform, buttons, cubeInflateRow, uvHeaderRow, this.uvBoxRow, this.uvFaceSelectRow, this.uvFaceCoordsRow, this.uvResetToBoxButton);
+            @Override
+            protected void renderElementPart(UIContext context, GeometryEntry element, int i, int x, int y, boolean hover, boolean selected)
+            {
+                int textY = y + (this.scroll.scrollItemSize - context.batcher.getFont().getHeight()) / 2;
+                int offset = element.depth * 8;
+                int arrowX = x + 2 + offset;
+                int iconX = x + (element.expandable ? 16 : 4) + offset;
+                int textX = iconX + 16;
+                int w = this.area.w - (this.scroll.hasScrollbar() ? this.scroll.scrollSize : 0);
+                int eyeX = x + w - 30;
+                int lockX = x + w - 16;
+                boolean isVis = UIModelGeometryPanel.this.isEntryVisible(element);
+                boolean isLock = UIModelGeometryPanel.this.isLocked(element);
+                Icon icon = element.type == GeometryEntryType.BONE ? Icons.FOLDER : Icons.BLOCK;
+
+                if (element.expandable)
+                {
+                    context.batcher.icon(UIModelGeometryPanel.this.collapsedGroupIds.contains(element.groupId) ? Icons.COLLAPSED : Icons.UNCOLLAPSED, arrowX, y + 1);
+                }
+
+                int mainIconColor = isVis ? (isLock ? 0xfff59e0b : Colors.WHITE) : Colors.A25;
+                context.batcher.icon(icon, mainIconColor, iconX, y + 1);
+
+                int textColor = hover ? Colors.HIGHLIGHT : (!isVis ? Colors.A50 : (isLock ? 0xfff59e0b : Colors.WHITE));
+
+                context.batcher.textShadow(element.label, textX, textY, textColor);
+
+                /* Visibility Icon (Eye) */
+                Icon eyeIcon = isVis ? Icons.VISIBLE : Icons.INVISIBLE;
+                int eyeColor = isVis ? (hover ? Colors.WHITE : Colors.A50) : 0xffff4444;
+                context.batcher.icon(eyeIcon, eyeColor, eyeX, y + 1);
+
+                /* Lock Icon (Padlock) */
+                if (isLock || hover)
+                {
+                    Icon lockIcon = isLock ? Icons.LOCKED : Icons.UNLOCKED;
+                    int lockColor = isLock ? 0xfff59e0b : Colors.A50;
+                    context.batcher.icon(lockIcon, lockColor, lockX, y + 1);
+                }
+            }
+
+            @Override
+            protected String elementToString(UIContext context, int i, GeometryEntry element)
+            {
+                return element.label + " " + element.groupId;
+            }
+
+            @Override
+            protected void handleSwap(int from, int to)
+            {
+                UIModelGeometryPanel.this.handleHierarchySwap(from, to);
+            }
+
+            @Override
+            public boolean subMouseClicked(UIContext context)
+            {
+                if (this.area.isInside(context) && context.mouseButton == 0)
+                {
+                    int visibleIndex = this.scroll.getIndex(context.mouseX, context.mouseY);
+
+                    if (this.exists(visibleIndex))
+                    {
+                        GeometryEntry entry = this.getList().get(visibleIndex);
+                        int y = this.area.y + visibleIndex * this.scroll.scrollItemSize - (int) this.scroll.getScroll();
+                        int offset = entry.depth * 8;
+                        int arrowX = this.area.x + 2 + offset;
+                        int w = this.area.w - (this.scroll.hasScrollbar() ? this.scroll.scrollSize : 0);
+                        int eyeX = this.area.x + w - 30;
+                        int lockX = this.area.x + w - 16;
+
+                        if (!this.isFiltering() && entry.expandable && context.mouseX >= arrowX && context.mouseX < arrowX + 16 && context.mouseY >= y + 1 && context.mouseY < y + 17)
+                        {
+                            UIModelGeometryPanel.this.toggleGroupCollapsed(entry.groupId);
+
+                            return true;
+                        }
+
+                        if (context.mouseX >= eyeX && context.mouseX < eyeX + 16 && context.mouseY >= y + 1 && context.mouseY < y + 17)
+                        {
+                            UIModelGeometryPanel.this.toggleVisibility(entry);
+                            UIUtils.playClick();
+
+                            return true;
+                        }
+
+                        if (context.mouseX >= lockX && context.mouseX < lockX + 16 && context.mouseY >= y + 1 && context.mouseY < y + 17)
+                        {
+                            UIModelGeometryPanel.this.toggleLock(entry);
+                            UIUtils.playClick();
+
+                            return true;
+                        }
+                    }
+                }
+
+                if (this.area.isInside(context) && context.mouseButton == 1)
+                {
+                    int visibleIndex = this.scroll.getIndex(context.mouseX, context.mouseY);
+
+                    if (this.exists(visibleIndex))
+                    {
+                        GeometryEntry entry = this.getList().get(visibleIndex);
+
+                        if (!this.getCurrent().contains(entry))
+                        {
+                            this.setCurrentDirect(entry);
+                            UIModelGeometryPanel.this.selectCurrentHierarchyEntry();
+                        }
+
+                        UIModelGeometryPanel.this.openHierarchyContextMenu(context, entry);
+
+                        return true;
+                    }
+                }
+
+                return super.subMouseClicked(context);
+            }
+        };
+        this.hierarchyList.multi();
+        this.hierarchyList.background();
+        this.hierarchyList.sorting();
+        this.hierarchyList.scroll.scrollItemSize = 18;
+        this.hierarchySearch = new UISearchList<>(this.hierarchyList);
+        this.hierarchySearch.label(UIKeys.GENERAL_SEARCH);
+        this.hierarchySearch.relative(this.rightPanel).x(10).y(234).w(1F, -20).h(1F, -242);
+
+        this.rightPanel.add(editorTitle, this.selectedBoneLabel, this.unifiedTransform, cubeInflateRow, buttons, hierarchyTitle, actionButtonsRow, this.hierarchySearch);
 
         UIDraggable leftDraggable = new UIDraggable((context) ->
         {
@@ -519,32 +523,6 @@ public class UIModelGeometryPanel extends UIElement
             context.batcher.box(rightDraggable.area.x + 2, rightDraggable.area.y, rightDraggable.area.x + 4, rightDraggable.area.ey(), color);
         });
 
-        /* UV 2D Canvas Panel (docked bottom-left of viewport) */
-        this.uvPanel = new UIElement();
-        int uvPanelW = 280;
-        int uvPanelH = 220;
-        this.uvPanel.relative(this).x(leftWidth + 10).y(1F, -uvPanelH - 10).wh(uvPanelW, uvPanelH);
-
-        this.uvEditor = new UIModelUVEditor(this);
-        this.uvEditor.relative(this.uvPanel).x(0).y(0).w(1F).h(1F);
-        this.uvPanel.add(this.uvEditor);
-
-        this.uvDraggable = new UIDraggable((context) ->
-        {
-            int newW = MathUtils.clamp(context.mouseX - this.uvPanel.area.x, 160, Math.max(200, this.area.w - 300));
-            int newH = MathUtils.clamp(this.area.ey() - 10 - context.mouseY, 140, Math.max(160, this.area.h - 100));
-            this.uvPanel.wh(newW, newH).y(1F, -newH - 10);
-            this.resize();
-        });
-        this.uvDraggable.relative(this.uvPanel).x(1F, -8).y(0).wh(8, 8);
-        this.uvDraggable.hoverOnly().rendering((context) ->
-        {
-            int color = this.uvDraggable.isDragging() ? BBSSettings.primaryColor.get() | Colors.A100 : Colors.A50;
-            context.batcher.box(this.uvDraggable.area.x, this.uvDraggable.area.y, this.uvDraggable.area.ex(), this.uvDraggable.area.ey(), color);
-        });
-
-        this.uvPanel.add(this.uvDraggable);
-
         UIRenderable backgroundRenderable = new UIRenderable((context) ->
         {
             if (!this.isVisible())
@@ -562,17 +540,11 @@ public class UIModelGeometryPanel extends UIElement
             int rightX2 = this.rightPanel.area.ex();
             int rightY2 = this.rightPanel.area.ey();
 
-            context.batcher.box(leftX1, leftY1, leftX2, leftY2, 0xFF111115);
-            context.batcher.outline(leftX1 - 1, leftY1 - 1, leftX2 + 1, leftY2 + 1, 0xFF5A5A5A);
+            context.batcher.box(leftX1, leftY1, leftX2, leftY2, 0xFF181A1F);
+            context.batcher.outline(leftX1 - 1, leftY1 - 1, leftX2 + 1, leftY2 + 1, 0xFF2A2D35);
 
-            context.batcher.box(rightX1, rightY1, rightX2, rightY2, 0xFF111115);
-            context.batcher.outline(rightX1 - 1, rightY1 - 1, rightX2 + 1, rightY2 + 1, 0xFF5A5A5A);
-
-            if (this.uvEditorVisible && this.selectedCube != null)
-            {
-                context.batcher.box(this.uvPanel.area.x, this.uvPanel.area.y, this.uvPanel.area.ex(), this.uvPanel.area.ey(), 0xFF111115);
-                context.batcher.outline(this.uvPanel.area.x - 1, this.uvPanel.area.y - 1, this.uvPanel.area.ex() + 1, this.uvPanel.area.ey() + 1, 0xFF5A5A5A);
-            }
+            context.batcher.box(rightX1, rightY1, rightX2, rightY2, 0xFF181A1F);
+            context.batcher.outline(rightX1 - 1, rightY1 - 1, rightX2 + 1, rightY2 + 1, 0xFF2A2D35);
         });
 
         /* Gizmo Toolbar */
@@ -645,7 +617,7 @@ public class UIModelGeometryPanel extends UIElement
 
         gizmoToolbar.add(this.gizmoMove, this.gizmoScale, this.gizmoRotate, this.gizmoCombined, this.gizmoTop, this.gizmoCoordinateSpace, this.gizmoSnap, this.gizmoViewportMode, this.gizmoVisualSize, this.gizmoThickness, this.gizmoTranslateSpeed);
 
-        this.add(backgroundRenderable, this.leftPanel, this.rightPanel, this.uvPanel, leftDraggable, rightDraggable, this.gizmoTransform, toolbarBackground, gizmoToolbar);
+        this.add(backgroundRenderable, this.leftPanel, this.rightPanel, leftDraggable, rightDraggable, this.gizmoTransform, toolbarBackground, gizmoToolbar);
 
         this.fillControls();
         this.fillCubeControls();
@@ -684,7 +656,6 @@ public class UIModelGeometryPanel extends UIElement
             this.cubeUvY.setEnabled(false);
             this.cubeMirror.setEnabled(false);
             this.uvModeButton.setEnabled(false);
-            this.toggleUVEditorButton.setEnabled(false);
             this.uvFaceSelectButton.setEnabled(false);
             this.uvFaceRotateButton.setEnabled(false);
             this.uvFaceX.setEnabled(false);
@@ -709,7 +680,6 @@ public class UIModelGeometryPanel extends UIElement
             this.cubeUvY.setEnabled(!locked);
             this.cubeMirror.setEnabled(!locked);
             this.uvModeButton.setEnabled(!locked);
-            this.toggleUVEditorButton.setEnabled(true);
             this.unifiedTransform.setEnabled(!locked);
 
             this.uvModeButton.label = this.faceUVMode ? UIKeys.MODELS_GEOMETRY_UV_FACE : UIKeys.MODELS_GEOMETRY_UV_BOX;
@@ -753,7 +723,6 @@ public class UIModelGeometryPanel extends UIElement
             this.cubeUvY.setEnabled(false);
             this.cubeMirror.setEnabled(false);
             this.uvModeButton.setEnabled(false);
-            this.toggleUVEditorButton.setEnabled(false);
             this.uvFaceSelectButton.setEnabled(false);
             this.uvFaceRotateButton.setEnabled(false);
             this.uvFaceX.setEnabled(false);
@@ -763,9 +732,6 @@ public class UIModelGeometryPanel extends UIElement
             this.uvResetToBoxButton.setEnabled(false);
             this.unifiedTransform.setEnabled(!locked);
         }
-
-        this.uvPanel.setVisible(this.uvEditorVisible && this.selectedCube != null);
-        this.toggleUVEditorButton.active(this.uvEditorVisible && this.selectedCube != null);
 
         this.filling = false;
         this.syncGizmoTransformFromSelection();
@@ -1320,9 +1286,7 @@ public class UIModelGeometryPanel extends UIElement
 
     public void toggleUVEditorVisible()
     {
-        this.uvEditorVisible = !this.uvEditorVisible;
-        this.uvPanel.setVisible(this.uvEditorVisible && this.selectedCube != null);
-        this.toggleUVEditorButton.active(this.uvEditorVisible && this.selectedCube != null);
+        this.uvEditor.setVisible(!this.uvEditor.isVisible());
     }
 
     public void rotateSelectedFaceUV()
@@ -1479,9 +1443,9 @@ public class UIModelGeometryPanel extends UIElement
             menu.action(Icons.ALL_DIRECTIONS, UIKeys.MODELS_GEOMETRY_FLIP_X, () -> this.flipSelectedX());
             menu.action(Icons.DUPE, UIKeys.MODELS_GEOMETRY_DUPE_MIRROR_X, () -> this.duplicateAndMirrorX());
             menu.action(Icons.EDIT, UIKeys.GENERAL_RENAME, () -> this.renameEntry(entry));
-            menu.action(this.isEntryVisible(entry) ? Icons.INVISIBLE : Icons.VISIBLE, this.isEntryVisible(entry) ? IKey.raw("Hide") : IKey.raw("Show"), () -> this.toggleVisibility(entry));
-            menu.action(this.isLocked(entry) ? Icons.UNLOCKED : Icons.LOCKED, this.isLocked(entry) ? IKey.raw("Unlock") : IKey.raw("Lock"), () -> this.toggleLock(entry));
-            menu.action(Icons.MOVE_TO, IKey.raw("Focus"), () -> this.focusSelection());
+            menu.action(this.isEntryVisible(entry) ? Icons.INVISIBLE : Icons.VISIBLE, this.isEntryVisible(entry) ? UIKeys.MODELS_GEOMETRY_HIDE : UIKeys.MODELS_GEOMETRY_SHOW, () -> this.toggleVisibility(entry));
+            menu.action(this.isLocked(entry) ? Icons.UNLOCKED : Icons.LOCKED, this.isLocked(entry) ? UIKeys.MODELS_GEOMETRY_UNLOCK : UIKeys.MODELS_GEOMETRY_LOCK, () -> this.toggleLock(entry));
+            menu.action(Icons.MOVE_TO, UIKeys.MODELS_GEOMETRY_FOCUS, () -> this.focusSelection());
             menu.action(Icons.REMOVE, UIKeys.GENERAL_REMOVE, () -> this.deleteSelection());
         });
     }
@@ -1915,53 +1879,53 @@ public class UIModelGeometryPanel extends UIElement
 
         context.replaceContextMenu((menu) ->
         {
-            menu.action(this.snapEnabled ? Icons.SAVED : Icons.NONE, IKey.raw("Snap: " + (this.snapEnabled ? "ON" : "OFF")), () ->
+            menu.action(this.snapEnabled ? Icons.SAVED : Icons.NONE, this.snapEnabled ? UIKeys.MODELS_GEOMETRY_SNAP_ON : UIKeys.MODELS_GEOMETRY_SNAP_OFF, () ->
             {
                 this.snapEnabled = !this.snapEnabled;
             });
 
-            menu.action(this.positionSnap == 1.0F ? Icons.SAVED : Icons.NONE, IKey.raw("Pos Grid: 1.0 (1px)"), () ->
+            menu.action(this.positionSnap == 1.0F ? Icons.SAVED : Icons.NONE, UIKeys.MODELS_GEOMETRY_SNAP_POS_1, () ->
             {
                 this.positionSnap = 1.0F;
                 this.snapEnabled = true;
             });
-            menu.action(this.positionSnap == 0.5F ? Icons.SAVED : Icons.NONE, IKey.raw("Pos Grid: 0.5 (1/2px)"), () ->
+            menu.action(this.positionSnap == 0.5F ? Icons.SAVED : Icons.NONE, UIKeys.MODELS_GEOMETRY_SNAP_POS_05, () ->
             {
                 this.positionSnap = 0.5F;
                 this.snapEnabled = true;
             });
-            menu.action(this.positionSnap == 0.25F ? Icons.SAVED : Icons.NONE, IKey.raw("Pos Grid: 0.25 (1/4px)"), () ->
+            menu.action(this.positionSnap == 0.25F ? Icons.SAVED : Icons.NONE, UIKeys.MODELS_GEOMETRY_SNAP_POS_025, () ->
             {
                 this.positionSnap = 0.25F;
                 this.snapEnabled = true;
             });
-            menu.action(this.positionSnap == 0.125F ? Icons.SAVED : Icons.NONE, IKey.raw("Pos Grid: 0.125 (1/8px)"), () ->
+            menu.action(this.positionSnap == 0.125F ? Icons.SAVED : Icons.NONE, UIKeys.MODELS_GEOMETRY_SNAP_POS_0125, () ->
             {
                 this.positionSnap = 0.125F;
                 this.snapEnabled = true;
             });
-            menu.action(this.positionSnap == 0.0625F ? Icons.SAVED : Icons.NONE, IKey.raw("Pos Grid: 0.0625 (1/16 block)"), () ->
+            menu.action(this.positionSnap == 0.0625F ? Icons.SAVED : Icons.NONE, UIKeys.MODELS_GEOMETRY_SNAP_POS_00625, () ->
             {
                 this.positionSnap = 0.0625F;
                 this.snapEnabled = true;
             });
 
-            menu.action(this.rotationSnap == 15.0F ? Icons.SAVED : Icons.NONE, IKey.raw("Angle Snap: 15°"), () ->
+            menu.action(this.rotationSnap == 15.0F ? Icons.SAVED : Icons.NONE, UIKeys.MODELS_GEOMETRY_SNAP_ANGLE_15, () ->
             {
                 this.rotationSnap = 15.0F;
                 this.snapEnabled = true;
             });
-            menu.action(this.rotationSnap == 22.5F ? Icons.SAVED : Icons.NONE, IKey.raw("Angle Snap: 22.5°"), () ->
+            menu.action(this.rotationSnap == 22.5F ? Icons.SAVED : Icons.NONE, UIKeys.MODELS_GEOMETRY_SNAP_ANGLE_225, () ->
             {
                 this.rotationSnap = 22.5F;
                 this.snapEnabled = true;
             });
-            menu.action(this.rotationSnap == 45.0F ? Icons.SAVED : Icons.NONE, IKey.raw("Angle Snap: 45°"), () ->
+            menu.action(this.rotationSnap == 45.0F ? Icons.SAVED : Icons.NONE, UIKeys.MODELS_GEOMETRY_SNAP_ANGLE_45, () ->
             {
                 this.rotationSnap = 45.0F;
                 this.snapEnabled = true;
             });
-            menu.action(this.rotationSnap == 90.0F ? Icons.SAVED : Icons.NONE, IKey.raw("Angle Snap: 90°"), () ->
+            menu.action(this.rotationSnap == 90.0F ? Icons.SAVED : Icons.NONE, UIKeys.MODELS_GEOMETRY_SNAP_ANGLE_90, () ->
             {
                 this.rotationSnap = 90.0F;
                 this.snapEnabled = true;
