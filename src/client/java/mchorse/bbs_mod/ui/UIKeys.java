@@ -1545,6 +1545,14 @@ public class UIKeys
     public static final IKey MODELS_GEOMETRY_UV_RESET_VIEW = L10n.lang("bbs.ui.models.geometry_uv_reset_view");
     public static final IKey MODELS_GEOMETRY_UV_RESET_TO_BOX = L10n.lang("bbs.ui.models.geometry_uv_reset_to_box");
     public static final IKey MODELS_GEOMETRY_UV_EDITOR_TOGGLE = L10n.lang("bbs.ui.models.geometry_uv_editor_toggle");
+    public static final IKey MODELS_GEOMETRY_SNAP = L10n.lang("bbs.ui.models.geometry_snap");
+    public static final IKey MODELS_GEOMETRY_SPACE = L10n.lang("bbs.ui.models.geometry_space");
+    public static final IKey MODELS_GEOMETRY_SPACE_LOCAL = L10n.lang("bbs.ui.models.geometry_space_local");
+    public static final IKey MODELS_GEOMETRY_SPACE_GLOBAL = L10n.lang("bbs.ui.models.geometry_space_global");
+    public static final IKey MODELS_GEOMETRY_PIVOT_CENTER = L10n.lang("bbs.ui.models.geometry_pivot_center");
+    public static final IKey MODELS_GEOMETRY_PIVOT_BOTTOM = L10n.lang("bbs.ui.models.geometry_pivot_bottom");
+    public static final IKey MODELS_GEOMETRY_PIVOT_RESET = L10n.lang("bbs.ui.models.geometry_pivot_reset");
+    public static final IKey MODELS_GEOMETRY_PIVOT_CENTER_BONE = L10n.lang("bbs.ui.models.geometry_pivot_center_bone");
     public static final IKey MODELS_UI_SCALE = L10n.lang("bbs.ui.models.ui_scale");
     public static final IKey MORPHING_DEMORPH = L10n.lang("bbs.ui.morphing.demorph");
     public static final IKey MORPHING_FROM_MOB = L10n.lang("bbs.ui.morphing.from_mob");

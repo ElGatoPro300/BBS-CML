@@ -41,6 +41,7 @@ import mchorse.bbs_mod.ui.utils.Gizmo;
 import mchorse.bbs_mod.ui.utils.UI;
 import mchorse.bbs_mod.ui.utils.UIUtils;
 import mchorse.bbs_mod.ui.utils.context.ContextMenuManager;
+import mchorse.bbs_mod.ui.utils.gizmo.TransformOrientation;
 import mchorse.bbs_mod.ui.utils.icons.Icon;
 import mchorse.bbs_mod.ui.utils.icons.Icons;
 import mchorse.bbs_mod.utils.Axis;
@@ -121,6 +122,12 @@ public class UIModelGeometryPanel extends UIElement
     private final UIIcon gizmoVisualSize;
     private final UIIcon gizmoThickness;
     private final UIIcon gizmoTranslateSpeed;
+    private final UIIcon gizmoCoordinateSpace;
+    private final UIIcon gizmoSnap;
+    private boolean snapEnabled = true;
+    private float positionSnap = 1.0F;
+    private float rotationSnap = 15.0F;
+    private TransformOrientation coordinateSpace = TransformOrientation.LOCAL;
     private final Set<String> collapsedGroupIds = new HashSet<>();
     private final Set<String> lockedGroupIds = new HashSet<>();
     private final Set<String> lockedCubeKeys = new HashSet<>();
@@ -328,6 +335,10 @@ public class UIModelGeometryPanel extends UIElement
                 this.r2x.setEnabled(false);
                 this.r2y.setEnabled(false);
                 this.r2z.setEnabled(false);
+
+                this.iconP.setEnabled(true);
+                this.iconP.callback = (b) -> UIModelGeometryPanel.this.openPivotContextMenu(UIModelGeometryPanel.this.getContext());
+                this.iconP.tooltip(UIKeys.MODELS_GEOMETRY_PIVOT_CENTER);
             }
 
             @Override
@@ -596,9 +607,15 @@ public class UIModelGeometryPanel extends UIElement
         });
         this.gizmoTranslateSpeed.tooltip(UIKeys.FILM_GIZMO_TRANSLATE_SPEED);
 
+        this.gizmoCoordinateSpace = new UIIcon(Icons.SPHERE, (b) -> this.toggleCoordinateSpace());
+        this.gizmoCoordinateSpace.tooltip(UIKeys.MODELS_GEOMETRY_SPACE);
+
+        this.gizmoSnap = new UIIcon(Icons.BLOCK, (b) -> this.openSnapContextMenu(this.getContext()));
+        this.gizmoSnap.tooltip(UIKeys.MODELS_GEOMETRY_SNAP);
+
         UIElement gizmoToolbar = new UIElement();
         gizmoToolbar.row(0);
-        gizmoToolbar.relative(this).x(0.5F).y(4).wh(160, 20).anchorX(0.5F);
+        gizmoToolbar.relative(this).x(0.5F).y(4).wh(200, 20).anchorX(0.5F);
 
         UIRenderable toolbarBackground = new UIRenderable((context) ->
         {
@@ -611,9 +628,11 @@ public class UIModelGeometryPanel extends UIElement
             this.gizmoRotate.active(gizmoMode == Gizmo.Mode.ROTATE);
             this.gizmoCombined.active(gizmoMode == Gizmo.Mode.COMBINED);
             this.gizmoTop.active(gizmoMode == Gizmo.Mode.TOP);
+            this.gizmoCoordinateSpace.active(this.coordinateSpace == TransformOrientation.GLOBAL);
+            this.gizmoSnap.active(this.snapEnabled);
         });
 
-        gizmoToolbar.add(this.gizmoMove, this.gizmoScale, this.gizmoRotate, this.gizmoCombined, this.gizmoTop, this.gizmoVisualSize, this.gizmoThickness, this.gizmoTranslateSpeed);
+        gizmoToolbar.add(this.gizmoMove, this.gizmoScale, this.gizmoRotate, this.gizmoCombined, this.gizmoTop, this.gizmoCoordinateSpace, this.gizmoSnap, this.gizmoVisualSize, this.gizmoThickness, this.gizmoTranslateSpeed);
 
         this.add(backgroundRenderable, this.leftPanel, this.rightPanel, this.uvPanel, leftDraggable, rightDraggable, this.gizmoTransform, toolbarBackground, gizmoToolbar);
 
@@ -1074,6 +1093,30 @@ public class UIModelGeometryPanel extends UIElement
         if (this.isCurrentSelectionLocked())
         {
             return;
+        }
+
+        boolean snap = this.snapEnabled ^ Window.isShiftPressed();
+
+        if (snap)
+        {
+            if (type == 0 || type == 2 || type == 3)
+            {
+                if (this.positionSnap > 0F)
+                {
+                    x = Math.round(x / this.positionSnap) * this.positionSnap;
+                    y = Math.round(y / this.positionSnap) * this.positionSnap;
+                    z = Math.round(z / this.positionSnap) * this.positionSnap;
+                }
+            }
+            else if (type == 1)
+            {
+                if (this.rotationSnap > 0F)
+                {
+                    x = Math.round(x / this.rotationSnap) * this.rotationSnap;
+                    y = Math.round(y / this.rotationSnap) * this.rotationSnap;
+                    z = Math.round(z / this.rotationSnap) * this.rotationSnap;
+                }
+            }
         }
 
         if (axis == null)
@@ -1831,6 +1874,186 @@ public class UIModelGeometryPanel extends UIElement
             this.copyEntry(entry);
             this.pasteEntry(entry);
         }
+    }
+
+    public void toggleCoordinateSpace()
+    {
+        this.coordinateSpace = this.coordinateSpace == TransformOrientation.LOCAL ? TransformOrientation.GLOBAL : TransformOrientation.LOCAL;
+        this.gizmoTransform.setOrientation(this.coordinateSpace);
+        Gizmo.INSTANCE.setActiveOrientation(this.coordinateSpace);
+        UIUtils.playClick();
+    }
+
+    public void openSnapContextMenu(UIContext context)
+    {
+        if (context == null)
+        {
+            return;
+        }
+
+        context.replaceContextMenu((menu) ->
+        {
+            menu.action(this.snapEnabled ? Icons.SAVED : Icons.NONE, IKey.raw("Snap: " + (this.snapEnabled ? "ON" : "OFF")), () ->
+            {
+                this.snapEnabled = !this.snapEnabled;
+            });
+
+            menu.action(this.positionSnap == 1.0F ? Icons.SAVED : Icons.NONE, IKey.raw("Pos Grid: 1.0 (1px)"), () ->
+            {
+                this.positionSnap = 1.0F;
+                this.snapEnabled = true;
+            });
+            menu.action(this.positionSnap == 0.5F ? Icons.SAVED : Icons.NONE, IKey.raw("Pos Grid: 0.5 (1/2px)"), () ->
+            {
+                this.positionSnap = 0.5F;
+                this.snapEnabled = true;
+            });
+            menu.action(this.positionSnap == 0.25F ? Icons.SAVED : Icons.NONE, IKey.raw("Pos Grid: 0.25 (1/4px)"), () ->
+            {
+                this.positionSnap = 0.25F;
+                this.snapEnabled = true;
+            });
+            menu.action(this.positionSnap == 0.125F ? Icons.SAVED : Icons.NONE, IKey.raw("Pos Grid: 0.125 (1/8px)"), () ->
+            {
+                this.positionSnap = 0.125F;
+                this.snapEnabled = true;
+            });
+            menu.action(this.positionSnap == 0.0625F ? Icons.SAVED : Icons.NONE, IKey.raw("Pos Grid: 0.0625 (1/16 block)"), () ->
+            {
+                this.positionSnap = 0.0625F;
+                this.snapEnabled = true;
+            });
+
+            menu.action(this.rotationSnap == 15.0F ? Icons.SAVED : Icons.NONE, IKey.raw("Angle Snap: 15°"), () ->
+            {
+                this.rotationSnap = 15.0F;
+                this.snapEnabled = true;
+            });
+            menu.action(this.rotationSnap == 22.5F ? Icons.SAVED : Icons.NONE, IKey.raw("Angle Snap: 22.5°"), () ->
+            {
+                this.rotationSnap = 22.5F;
+                this.snapEnabled = true;
+            });
+            menu.action(this.rotationSnap == 45.0F ? Icons.SAVED : Icons.NONE, IKey.raw("Angle Snap: 45°"), () ->
+            {
+                this.rotationSnap = 45.0F;
+                this.snapEnabled = true;
+            });
+            menu.action(this.rotationSnap == 90.0F ? Icons.SAVED : Icons.NONE, IKey.raw("Angle Snap: 90°"), () ->
+            {
+                this.rotationSnap = 90.0F;
+                this.snapEnabled = true;
+            });
+        });
+    }
+
+    public void openPivotContextMenu(UIContext context)
+    {
+        if (context == null)
+        {
+            return;
+        }
+
+        context.replaceContextMenu((menu) ->
+        {
+            if (this.selectedCube != null)
+            {
+                menu.action(Icons.SPHERE, UIKeys.MODELS_GEOMETRY_PIVOT_CENTER, () -> this.centerPivotToSelection());
+                menu.action(Icons.MOVE_TO, UIKeys.MODELS_GEOMETRY_PIVOT_BOTTOM, () -> this.bottomCenterPivotToSelection());
+                menu.action(Icons.REFRESH, UIKeys.MODELS_GEOMETRY_PIVOT_RESET, () -> this.resetPivot());
+            }
+            else if (this.selectedGroup != null)
+            {
+                menu.action(Icons.SPHERE, UIKeys.MODELS_GEOMETRY_PIVOT_CENTER_BONE, () -> this.centerBonePivotToCubes());
+                menu.action(Icons.REFRESH, UIKeys.MODELS_GEOMETRY_PIVOT_RESET, () -> this.resetPivot());
+            }
+        });
+    }
+
+    public void centerPivotToSelection()
+    {
+        if (this.selectedCube == null || this.isCurrentSelectionLocked())
+        {
+            return;
+        }
+
+        this.selectedCube.pivot.set(
+            this.selectedCube.origin.x + this.selectedCube.size.x / 2F,
+            this.selectedCube.origin.y + this.selectedCube.size.y / 2F,
+            this.selectedCube.origin.z + this.selectedCube.size.z / 2F
+        );
+
+        this.refreshCubeRenderAndSave();
+        this.fillCubeControls();
+        UIUtils.playClick();
+    }
+
+    public void bottomCenterPivotToSelection()
+    {
+        if (this.selectedCube == null || this.isCurrentSelectionLocked())
+        {
+            return;
+        }
+
+        this.selectedCube.pivot.set(
+            this.selectedCube.origin.x + this.selectedCube.size.x / 2F,
+            this.selectedCube.origin.y,
+            this.selectedCube.origin.z + this.selectedCube.size.z / 2F
+        );
+
+        this.refreshCubeRenderAndSave();
+        this.fillCubeControls();
+        UIUtils.playClick();
+    }
+
+    public void resetPivot()
+    {
+        if (this.isCurrentSelectionLocked())
+        {
+            return;
+        }
+
+        if (this.selectedCube != null)
+        {
+            this.selectedCube.pivot.set(0, 0, 0);
+        }
+        else if (this.selectedGroup != null)
+        {
+            this.selectedGroup.initial.pivot.set(0, 0, 0);
+            this.selectedGroup.current.pivot.set(0, 0, 0);
+        }
+
+        this.refreshCubeRenderAndSave();
+        this.fillCubeControls();
+        UIUtils.playClick();
+    }
+
+    public void centerBonePivotToCubes()
+    {
+        if (this.selectedGroup == null || this.selectedGroup.cubes.isEmpty() || this.isCurrentSelectionLocked())
+        {
+            return;
+        }
+
+        float minX = Float.POSITIVE_INFINITY, minY = Float.POSITIVE_INFINITY, minZ = Float.POSITIVE_INFINITY;
+        float maxX = Float.NEGATIVE_INFINITY, maxY = Float.NEGATIVE_INFINITY, maxZ = Float.NEGATIVE_INFINITY;
+
+        for (ModelCube cube : this.selectedGroup.cubes)
+        {
+            minX = Math.min(minX, cube.origin.x);
+            minY = Math.min(minY, cube.origin.y);
+            minZ = Math.min(minZ, cube.origin.z);
+            maxX = Math.max(maxX, cube.origin.x + cube.size.x);
+            maxY = Math.max(maxY, cube.origin.y + cube.size.y);
+            maxZ = Math.max(maxZ, cube.origin.z + cube.size.z);
+        }
+
+        this.selectedGroup.initial.pivot.set((minX + maxX) / 2F, (minY + maxY) / 2F, (minZ + maxZ) / 2F);
+        this.selectedGroup.current.pivot.set(this.selectedGroup.initial.pivot);
+
+        this.refreshCubeRenderAndSave();
+        this.fillCubeControls();
+        UIUtils.playClick();
     }
 
     private void addFolder()
