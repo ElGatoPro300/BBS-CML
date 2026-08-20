@@ -109,6 +109,7 @@ import org.joml.Vector2i;
 import org.joml.Vector3d;
 import org.joml.Vector3f;
 
+import com.mojang.blaze3d.platform.GlStateManager;
 import com.mojang.blaze3d.systems.ProjectionType;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.systems.VertexSorter;
@@ -2274,135 +2275,151 @@ public class UIFilmController extends UIElement
         int[] prevViewport = new int[4];
 
         GL11.glGetIntegerv(GL11.GL_VIEWPORT, prevViewport);
-        this.stencil.apply();
-
-        /* Closest bone along the cursor ray must win; glow/gizmo passes can leave depthMask off. */
-        RenderSystem.enableDepthTest();
-        RenderSystem.depthFunc(GL11.GL_LEQUAL);
-        RenderSystem.depthMask(true);
-
-        if (altPressed)
+        boolean scissorWasEnabled = GL11.glIsEnabled(GL11.GL_SCISSOR_TEST);
+        if (scissorWasEnabled)
         {
-            for (Map.Entry<Integer, IEntity> entry : this.getEntities().entrySet())
-            {
-                Replay replay = CollectionUtils.getSafe(this.panel.getData().replays.getList(), entry.getKey());
-
-                if (replay == null || this.editorController == null || !this.editorController.isReplayVisible(replay, replay.getTick(cursorTick)))
-                {
-                    continue;
-                }
-
-                if (this.editorController.isActorPickingBlocked(replay))
-                {
-                    continue;
-                }
-
-                this.stencilMap.objectIndex = entry.getKey() + Gizmo.STENCIL_HANDLE_MAX + 1;
-
-                IEntity renderEntity = this.editorController.getRenderEntity(replay, entry.getValue());
-                boolean physicalActor = renderEntity != entry.getValue();
-                float transition = isPlaying ? renderContext.tickCounter().getTickDelta(false) : 0F;
-                float propertyTick = replay.getTick(cursorTick) + transition;
-
-                BaseFilmController.renderEntity(FilmControllerContext.instance
-                    .setup(this.getEntities(), renderEntity, replay, renderContext)
-                    .film(this.panel.getData())
-                    .filmTick(cursorTick)
-                    .propertyTick(propertyTick)
-                    .transition(transition)
-                    .stencil(this.stencilMap)
-                    .relative(replay.isCameraRelative())
-                    .physicalActor(physicalActor));
-            }
+            GlStateManager._disableScissorTest();
         }
-        else
+
+        try
         {
-            /* Bone pick only the selected replay. Without Alt, limbs on other actors
-             * must not be clickable (Alt is the way to target/switch other replays). */
-            Pair<String, TransformOrientation> bone = this.getBone();
-            int currentIndex = this.panel.replayEditor.replays.replays.getIndex();
-            Replay currentReplay = CollectionUtils.getSafe(this.panel.getData().replays.getList(), currentIndex);
-            boolean markedBonesOnly = BBSSettings.replayMarkedBonesOnly.get() && !Window.isShiftPressed();
+            this.stencil.apply();
 
-            if (currentReplay != null && this.editorController != null
-                && this.editorController.isReplayVisible(currentReplay, currentReplay.getTick(cursorTick))
-                && !this.editorController.isActorPickingBlocked(currentReplay))
+            /* Closest bone along the cursor ray must win; glow/gizmo passes can leave depthMask off. */
+            RenderSystem.enableDepthTest();
+            RenderSystem.depthFunc(GL11.GL_LEQUAL);
+            RenderSystem.depthMask(true);
+
+            if (altPressed)
             {
-                IEntity currentEntity = this.getEntities().get(currentIndex);
-
-                if (currentEntity != null)
+                for (Map.Entry<Integer, IEntity> entry : this.getEntities().entrySet())
                 {
-                    this.stencilMap.allowedBones = null;
+                    Replay replay = CollectionUtils.getSafe(this.panel.getData().replays.getList(), entry.getKey());
 
-                    if (markedBonesOnly)
+                    if (replay == null || this.editorController == null || !this.editorController.isReplayVisible(replay, replay.getTick(cursorTick)))
                     {
-                        Form form = currentReplay.form.get();
-
-                        if (form instanceof ModelForm modelForm)
-                        {
-                            ModelInstance model = ModelFormRenderer.getModel(modelForm);
-                            String poseGroup = model == null ? modelForm.model.get() : model.poseGroup;
-
-                            if (poseGroup == null || poseGroup.isEmpty())
-                            {
-                                poseGroup = model == null ? modelForm.model.get() : model.id;
-                            }
-
-                            if (UIPoseEditor.hasMarkedBones(poseGroup))
-                            {
-                                this.stencilMap.allowedBones = UIPoseEditor.getMarkedBones(poseGroup);
-                            }
-                        }
+                        continue;
                     }
 
-                    IEntity renderEntity = this.editorController.getRenderEntity(currentReplay, currentEntity);
-                    boolean physicalActor = renderEntity != currentEntity;
-
-                    /* Prefer the physical actor's form for marked-bone filtering when Actor is on. */
-                    if (physicalActor && markedBonesOnly)
+                    if (this.editorController.isActorPickingBlocked(replay))
                     {
-                        Form actorForm = renderEntity.getForm();
-
-                        if (actorForm instanceof ModelForm modelForm)
-                        {
-                            ModelInstance model = ModelFormRenderer.getModel(modelForm);
-                            String poseGroup = model == null ? modelForm.model.get() : model.poseGroup;
-
-                            if (poseGroup == null || poseGroup.isEmpty())
-                            {
-                                poseGroup = model == null ? modelForm.model.get() : model.id;
-                            }
-
-                            if (UIPoseEditor.hasMarkedBones(poseGroup))
-                            {
-                                this.stencilMap.allowedBones = UIPoseEditor.getMarkedBones(poseGroup);
-                            }
-                        }
+                        continue;
                     }
 
+                    this.stencilMap.objectIndex = entry.getKey() + Gizmo.STENCIL_HANDLE_MAX + 1;
+
+                    IEntity renderEntity = this.editorController.getRenderEntity(replay, entry.getValue());
+                    boolean physicalActor = renderEntity != entry.getValue();
                     float transition = isPlaying ? renderContext.tickCounter().getTickDelta(false) : 0F;
-                    float propertyTick = currentReplay.getTick(cursorTick) + transition;
+                    float propertyTick = replay.getTick(cursorTick) + transition;
 
                     BaseFilmController.renderEntity(FilmControllerContext.instance
-                        .setup(this.getEntities(), renderEntity, currentReplay, renderContext)
+                        .setup(this.getEntities(), renderEntity, replay, renderContext)
                         .film(this.panel.getData())
                         .filmTick(cursorTick)
                         .propertyTick(propertyTick)
                         .transition(transition)
                         .stencil(this.stencilMap)
-                        .relative(currentReplay.relative.get())
-                        .physicalActor(physicalActor)
-                        .bone(bone != null ? bone.a : null, bone != null ? bone.b : TransformOrientation.PARENT));
+                        .relative(replay.isCameraRelative())
+                        .physicalActor(physicalActor));
                 }
             }
+            else
+            {
+                /* Bone pick only the selected replay. Without Alt, limbs on other actors
+                 * must not be clickable (Alt is the way to target/switch other replays). */
+                Pair<String, TransformOrientation> bone = this.getBone();
+                int currentIndex = this.panel.replayEditor.replays.replays.getIndex();
+                Replay currentReplay = CollectionUtils.getSafe(this.panel.getData().replays.getList(), currentIndex);
+                boolean markedBonesOnly = BBSSettings.replayMarkedBonesOnly.get() && !Window.isShiftPressed();
+
+                if (currentReplay != null && this.editorController != null
+                    && this.editorController.isReplayVisible(currentReplay, currentReplay.getTick(cursorTick))
+                    && !this.editorController.isActorPickingBlocked(currentReplay))
+                {
+                    IEntity currentEntity = this.getEntities().get(currentIndex);
+
+                    if (currentEntity != null)
+                    {
+                        this.stencilMap.allowedBones = null;
+
+                        if (markedBonesOnly)
+                        {
+                            Form form = currentReplay.form.get();
+
+                            if (form instanceof ModelForm modelForm)
+                            {
+                                ModelInstance model = ModelFormRenderer.getModel(modelForm);
+                                String poseGroup = model == null ? modelForm.model.get() : model.poseGroup;
+
+                                if (poseGroup == null || poseGroup.isEmpty())
+                                {
+                                    poseGroup = model == null ? modelForm.model.get() : model.id;
+                                }
+
+                                if (UIPoseEditor.hasMarkedBones(poseGroup))
+                                {
+                                    this.stencilMap.allowedBones = UIPoseEditor.getMarkedBones(poseGroup);
+                                }
+                            }
+                        }
+
+                        IEntity renderEntity = this.editorController.getRenderEntity(currentReplay, currentEntity);
+                        boolean physicalActor = renderEntity != currentEntity;
+
+                        /* Prefer the physical actor's form for marked-bone filtering when Actor is on. */
+                        if (physicalActor && markedBonesOnly)
+                        {
+                            Form actorForm = renderEntity.getForm();
+
+                            if (actorForm instanceof ModelForm modelForm)
+                            {
+                                ModelInstance model = ModelFormRenderer.getModel(modelForm);
+                                String poseGroup = model == null ? modelForm.model.get() : model.poseGroup;
+
+                                if (poseGroup == null || poseGroup.isEmpty())
+                                {
+                                    poseGroup = model == null ? modelForm.model.get() : model.id;
+                                }
+
+                                if (UIPoseEditor.hasMarkedBones(poseGroup))
+                                {
+                                    this.stencilMap.allowedBones = UIPoseEditor.getMarkedBones(poseGroup);
+                                }
+                            }
+                        }
+
+                        float transition = isPlaying ? renderContext.tickCounter().getTickDelta(false) : 0F;
+                        float propertyTick = currentReplay.getTick(cursorTick) + transition;
+
+                        BaseFilmController.renderEntity(FilmControllerContext.instance
+                            .setup(this.getEntities(), renderEntity, currentReplay, renderContext)
+                            .film(this.panel.getData())
+                            .filmTick(cursorTick)
+                            .propertyTick(propertyTick)
+                            .transition(transition)
+                            .stencil(this.stencilMap)
+                            .relative(currentReplay.relative.get())
+                            .physicalActor(physicalActor)
+                            .bone(bone != null ? bone.a : null, bone != null ? bone.b : TransformOrientation.PARENT));
+                    }
+                }
+            }
+
+            int x = (int) ((context.mouseX() - viewport.x) / (float) viewport.w * mainTexture.width);
+            int y = (int) ((1F - (context.mouseY() - viewport.y) / (float) viewport.h) * mainTexture.height);
+
+            this.stencil.pick(x, y);
+            this.stencil.unbind(this.stencilMap);
+            this.panel.replayEditor.updateGizmoHover();
         }
-
-        int x = (int) ((context.mouseX() - viewport.x) / (float) viewport.w * mainTexture.width);
-        int y = (int) ((1F - (context.mouseY() - viewport.y) / (float) viewport.h) * mainTexture.height);
-
-        this.stencil.pick(x, y);
-        this.stencil.unbind(this.stencilMap);
-        this.panel.replayEditor.updateGizmoHover();
+        finally
+        {
+            if (scissorWasEnabled)
+            {
+                GlStateManager._enableScissorTest();
+            }
+        }
 
         /* Rebind the main target without clearing — beginWrite(true) wiped the film
          * preview every mouse move over the viewport (deferred translucents looked like flicker).

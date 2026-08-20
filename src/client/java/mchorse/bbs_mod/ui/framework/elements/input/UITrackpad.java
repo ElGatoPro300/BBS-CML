@@ -544,11 +544,11 @@ public class UITrackpad extends UIBaseTextbox
             {
                 if (this.plusOne.isInside(context))
                 {
-                    this.setValueAndNotify(this.value + this.getScrollStep());
+                    this.setValueAndNotify(this.value + this.getArrowStep());
                 }
                 else if (this.minusOne.isInside(context))
                 {
-                    this.setValueAndNotify(this.value - this.getScrollStep());
+                    this.setValueAndNotify(this.value - this.getArrowStep());
                 }
                 else
                 {
@@ -1080,6 +1080,27 @@ public class UITrackpad extends UIBaseTextbox
         }
 
         return value;
+    }
+
+    private double getArrowStep()
+    {
+        double step = this.increment;
+
+        if (Window.isShiftPressed())
+        {
+            step = this.increment * 10D;
+        }
+        else if (Window.isAltPressed())
+        {
+            step = this.increment / 10D;
+        }
+
+        if (this.integer)
+        {
+            step = Math.max(1D, Math.round(step));
+        }
+
+        return step;
     }
 
     /**
