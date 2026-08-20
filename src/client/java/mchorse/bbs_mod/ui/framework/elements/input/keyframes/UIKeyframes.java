@@ -317,10 +317,24 @@ public class UIKeyframes extends UIElement
             }
         }.rendering((context) ->
         {
-            float alpha = (this.sidebarResizer.isDragging() || this.sidebarResizer.area.isInside(context)) ? 0.75F : 0.5F;
-            int color = Colors.setA(BBSSettings.primaryColor.get(), alpha);
+            boolean hovered = this.sidebarResizer.area.isInside(context) || this.sidebarResizer.isDragging();
+            int primary = BBSSettings.primaryColor.get();
 
-            context.batcher.box(this.sidebarResizer.area.x, this.sidebarResizer.area.y, this.sidebarResizer.area.ex(), this.sidebarResizer.area.ey(), color);
+            int handleBg = hovered ? (primary | Colors.A100) : Colors.setA(primary, 0.85F);
+            int border = hovered ? Colors.WHITE : Colors.setA(0x000000, 0.6F);
+
+            Area rx = this.sidebarResizer.area;
+
+            context.batcher.box(rx.x - 1, rx.y - 1, rx.ex() + 1, rx.ey() + 1, border);
+            context.batcher.box(rx.x, rx.y, rx.ex(), rx.ey(), handleBg);
+
+            int cx = rx.mx();
+            int cy = rx.my();
+            int dotColor = hovered ? Colors.WHITE : Colors.setA(Colors.WHITE, 0.9F);
+
+            context.batcher.box(cx - 1, cy - 8, cx + 1, cy - 6, dotColor);
+            context.batcher.box(cx - 1, cy - 1, cx + 1, cy + 1, dotColor);
+            context.batcher.box(cx - 1, cy + 6, cx + 1, cy + 8, dotColor);
         }).dragEnd(this::persistSidebarWidth);
         this.add(this.sidebarResizer);
 
@@ -2530,10 +2544,10 @@ public class UIKeyframes extends UIElement
 
         this.dopeSheet.setSidebarWidth(this.dopeSheet.getSidebarWidth());
 
-        int x = this.area.x + this.dopeSheet.getSidebarWidth() - 3;
-        int y = this.area.my() - 20;
+        int x = this.area.x + this.dopeSheet.getSidebarWidth() - 4;
+        int y = this.area.my() - 24;
 
-        this.sidebarResizer.relative(this).x(x - this.area.x).y(y - this.area.y).w(6).h(40);
+        this.sidebarResizer.relative(this).x(x - this.area.x).y(y - this.area.y).w(8).h(48);
         this.sidebarResizer.resize();
     }
 
