@@ -820,7 +820,7 @@ public class ModelInstance implements IModelInstance
             }
             else
             {
-                ShaderProgram shader = BBSShaders.getModel();
+                ShaderProgram shader = program.get();
                 Link texture = textureResolver.apply("");
                 if (texture == null)
                 {
@@ -830,7 +830,7 @@ public class ModelInstance implements IModelInstance
                     && !ModelVAORenderer.isDeferredTranslucentPass()
                     && !ModelVAORenderer.isPaintOverlayPass();
 
-                RenderSystem.setShader(() -> shader);
+                RenderSystem.setShader(program);
 
                 if (texture != null)
                 {
