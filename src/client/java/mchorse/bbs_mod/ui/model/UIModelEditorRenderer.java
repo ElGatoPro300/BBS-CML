@@ -521,10 +521,8 @@ public class UIModelEditorRenderer extends UIModelRenderer implements GizmoSurfa
 
         if (this.viewportMode == ViewportMode.XRAY)
         {
-            RenderSystem.enableBlend();
-            RenderSystem.setShaderColor(1F, 1F, 1F, 0.35F);
+            GlStateManager._enableBlend();
             this.renderer.render(formContext);
-            RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
         }
         else if (this.viewportMode == ViewportMode.TEXTURED)
         {
@@ -761,7 +759,7 @@ public class UIModelEditorRenderer extends UIModelRenderer implements GizmoSurfa
         }
 
         Matrix4f cubeMatrix = this.getCubePivotMatrix(cache, group, this.selectedCube);
-        Matrix4f uiMatrix = context.batcher.getContext().getMatrices().peek().getPositionMatrix();
+        Matrix4f uiMatrix = new Matrix4f();
 
         if (cubeMatrix == null)
         {
@@ -817,10 +815,9 @@ public class UIModelEditorRenderer extends UIModelRenderer implements GizmoSurfa
             return;
         }
 
-        Matrix4f uiMatrix = context.batcher.getContext().getMatrices().peek().getPositionMatrix();
+        Matrix4f uiMatrix = new Matrix4f();
         Tessellator tessellator = Tessellator.getInstance();
-        RenderSystem.setShader(ShaderProgramKeys.POSITION_COLOR);
-        RenderSystem.enableBlend();
+        GlStateManager._enableBlend();
         BufferBuilder builder = tessellator.begin(VertexFormat.DrawMode.DEBUG_LINES, VertexFormats.POSITION_COLOR);
 
         for (ModelGroup group : model.getAllGroups())
@@ -873,7 +870,7 @@ public class UIModelEditorRenderer extends UIModelRenderer implements GizmoSurfa
             }
         }
 
-        BufferRenderer.drawWithGlobalProgram(builder.end());
+        Draw.flushLines(builder);
     }
 
     public Matrix4f getCubePivotMatrix(MatrixCache cache)

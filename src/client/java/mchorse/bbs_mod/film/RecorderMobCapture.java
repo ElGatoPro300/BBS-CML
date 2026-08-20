@@ -407,7 +407,7 @@ public final class RecorderMobCapture
 
         if (target instanceof PlayerEntity player && this.playerNametags)
         {
-            replay.nameTag.set(player.getGameProfile().getName());
+            replay.nameTag.set(player.getGameProfile().name());
         }
 
         if (!(target instanceof PlayerEntity) || !this.playerModelForms)

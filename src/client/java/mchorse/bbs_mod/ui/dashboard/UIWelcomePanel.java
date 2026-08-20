@@ -553,7 +553,7 @@ public class UIWelcomePanel extends UIElement
         {
             try
             {
-                skinTexture = mc.getSkinProvider().supplySkinTextures(mc.player.getGameProfile(), true).get().texture();
+                skinTexture = mc.getSkinProvider().supplySkinTextures(mc.player.getGameProfile(), true).get().body().id();
             }
             catch (Exception e)
             {}
@@ -576,9 +576,9 @@ public class UIWelcomePanel extends UIElement
         float drawX = (realX / scale) - (totalW / 2.0F);
         float drawY = greetRealY / scale;
 
-        MatrixStack matrices = context.batcher.getContext().getMatrices();
-        matrices.push();
-        matrices.scale(scale, scale, 1.0F);
+        Matrix3x2fStack matrices = context.batcher.getContext().getMatrices();
+        matrices.pushMatrix();
+        matrices.scale(scale, scale);
 
         context.batcher.textShadow(welcomePart1, drawX, drawY, Colors.setA(Colors.WHITE, alpha));
         float headX = drawX + w1;
@@ -594,7 +594,7 @@ public class UIWelcomePanel extends UIElement
         }
 
         context.batcher.textShadow(welcomePart2, headX + headSize + gapText, drawY, Colors.setA(Colors.WHITE, alpha));
-        matrices.pop();
+        matrices.popMatrix();
 
         String subtitle = UIKeys.WELCOME_SUBTITLE.get();
         int subWidth = 380;
@@ -619,11 +619,11 @@ public class UIWelcomePanel extends UIElement
         float titleX = (this.area.mx() / titleScale) - (titleW / 2.0F);
         float titleY = (this.area.y + 24) / titleScale;
 
-        MatrixStack matrices = context.batcher.getContext().getMatrices();
-        matrices.push();
-        matrices.scale(titleScale, titleScale, 1.0F);
+        Matrix3x2fStack matrices = context.batcher.getContext().getMatrices();
+        matrices.pushMatrix();
+        matrices.scale(titleScale, titleScale);
         context.batcher.textShadow(title, titleX, titleY, Colors.setA(Colors.WHITE, alpha));
-        matrices.pop();
+        matrices.popMatrix();
 
         String desc = UIKeys.WELCOME_LAYOUT_DESC.get();
         int descWidth = 460;
@@ -675,11 +675,11 @@ public class UIWelcomePanel extends UIElement
         float titleX = (this.area.mx() / titleScale) - (titleW / 2.0F);
         float titleY = (this.area.y + 24) / titleScale;
 
-        MatrixStack matrices = context.batcher.getContext().getMatrices();
-        matrices.push();
-        matrices.scale(titleScale, titleScale, 1.0F);
+        Matrix3x2fStack matrices = context.batcher.getContext().getMatrices();
+        matrices.pushMatrix();
+        matrices.scale(titleScale, titleScale);
         context.batcher.textShadow(title, titleX, titleY, Colors.setA(Colors.WHITE, alpha));
-        matrices.pop();
+        matrices.popMatrix();
 
         String desc = String.format(UIKeys.WELCOME_CONFIRM_DESC.get(), this.selectedPreset.title.get());
         int descWidth = 480;
@@ -884,11 +884,11 @@ public class UIWelcomePanel extends UIElement
         if (w >= 18 && hdrH >= 5)
         {
             float scale = isLarge ? 0.55F : 0.38F;
-            MatrixStack matrices = batcher.getContext().getMatrices();
-            matrices.push();
-            matrices.scale(scale, scale, 1.0F);
+            Matrix3x2fStack matrices = batcher.getContext().getMatrices();
+            matrices.pushMatrix();
+            matrices.scale(scale, scale);
             batcher.textShadow(title.get(), (x + 3) / scale, (y + (isLarge ? 2.5F : 1.5F)) / scale, 0xFFE0E0E0);
-            matrices.pop();
+            matrices.popMatrix();
         }
 
         /* Body content */
@@ -950,11 +950,11 @@ public class UIWelcomePanel extends UIElement
             if (tabW >= 16)
             {
                 float scale = isLarge ? 0.50F : 0.35F;
-                MatrixStack matrices = batcher.getContext().getMatrices();
-                matrices.push();
-                matrices.scale(scale, scale, 1.0F);
+                Matrix3x2fStack matrices = batcher.getContext().getMatrices();
+                matrices.pushMatrix();
+                matrices.scale(scale, scale);
                 batcher.textShadow(tabs[i].get(), (tx + 3) / scale, (y + (isLarge ? 2.5F : 1.5F)) / scale, isActive ? 0xFFFFFFFF : 0xFF7A7A85);
-                matrices.pop();
+                matrices.popMatrix();
             }
         }
 

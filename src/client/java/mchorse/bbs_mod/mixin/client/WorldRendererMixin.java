@@ -8,7 +8,6 @@ import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gl.Framebuffer;
 import net.minecraft.client.option.CloudRenderMode;
 import net.minecraft.client.render.Camera;
-
 import net.minecraft.client.render.FrameGraphBuilder;
 import net.minecraft.client.render.Frustum;
 import net.minecraft.client.render.RenderLayer;

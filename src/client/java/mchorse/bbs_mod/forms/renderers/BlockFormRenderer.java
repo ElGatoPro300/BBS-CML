@@ -869,8 +869,8 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
 
         CustomVertexConsumerProvider.hijackVertexFormat((l) ->
         {
-            RenderSystem.enableBlend();
-            RenderSystem.blendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE);
+            GlStateManager._enableBlend();
+            GlStateManager._blendFuncSeparate(GL11.GL_SRC_ALPHA, GL11.GL_ONE, 1, 0);
         });
 
         consumers.setSubstitute(BBSRendering.getGlowOverlayConsumer(glowColor));
