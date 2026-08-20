@@ -1,7 +1,9 @@
 package mchorse.bbs_mod.mixin.client;
 
+import mchorse.bbs_mod.client.ItemUseRenderState;
 import mchorse.bbs_mod.selectors.ISelectorOwnerProvider;
 
+import net.minecraft.client.network.ClientPlayerEntity;
 import net.minecraft.entity.LivingEntity;
 
 import org.spongepowered.asm.mixin.Mixin;
@@ -16,5 +18,14 @@ public class LivingEntityUpdateMixin
     public void onBaseTick(CallbackInfo info)
     {
         ((ISelectorOwnerProvider) this).getOwner().update();
+    }
+
+    @Inject(method = "tickActiveItemStack", at = @At("HEAD"), cancellable = true)
+    private void bbs$skipDrivenFirstPersonItemUse(CallbackInfo info)
+    {
+        if ((Object) this instanceof ClientPlayerEntity && ItemUseRenderState.isDrivingLocalPlayerUse())
+        {
+            info.cancel();
+        }
     }
 }

@@ -810,8 +810,8 @@ public class ReplayKeyframes extends ValueGroup
         entity.setOnGround(this.grounded.interpolate(tick) != 0D);
         entity.setHurtTimer(this.damage.interpolate(tick).intValue());
         entity.setDeathTime(this.deathTime.interpolate(tick).intValue());
-        int itemUseElapsed = this.itemUseTime.interpolate(tick).intValue();
-        boolean usingItem = this.usingItem.interpolate(tick) > 0D || itemUseElapsed > 0;
+        int itemUseElapsed = this.getItemUseElapsedAt(tick);
+        boolean usingItem = this.isUsingItemAt(tick);
 
         entity.setUsingItem(usingItem);
         entity.setItemUseTimeLeft(itemUseElapsed);
@@ -914,6 +914,30 @@ public class ReplayKeyframes extends ValueGroup
         }
 
         return this.particles.interpolate(tick) > 0D;
+    }
+
+    /**
+     * {@code using_item} wins when that track exists so leftover {@code item_use_time}
+     * after a finished eat cannot keep the use pose running for the rest of the film.
+     */
+    public boolean isUsingItemAt(float tick)
+    {
+        if (!this.usingItem.isEmpty())
+        {
+            return this.usingItem.interpolate(tick) > 0D;
+        }
+
+        return !this.itemUseTime.isEmpty() && this.itemUseTime.interpolate(tick) > 0D;
+    }
+
+    public int getItemUseElapsedAt(float tick)
+    {
+        if (!this.isUsingItemAt(tick) || this.itemUseTime.isEmpty())
+        {
+            return 0;
+        }
+
+        return Math.max(0, this.itemUseTime.interpolate(tick).intValue());
     }
 
     /**

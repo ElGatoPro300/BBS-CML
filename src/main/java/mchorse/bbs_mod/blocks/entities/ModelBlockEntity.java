@@ -206,9 +206,26 @@ public class ModelBlockEntity extends BlockEntity
     {
         super.writeNbt(nbt);
 
-        MapType data = this.properties.toData();
+        /* Pass registryLookup — chunk load/save can run before BBSMod.getRegistryManager()
+         * is set; without it ItemStack decode/encode returns EMPTY and wipes equipment. */
+        WrapperLookup prev = BBSMod.getRegistryManager();
+        if (registryLookup != null && prev != registryLookup)
+        {
+            BBSMod.setRegistryManager(registryLookup);
+        }
 
-        DataStorageUtils.writeToNbtCompound(nbt, "Properties", data);
+        try
+        {
+            MapType data = this.properties.toData(registryLookup);
+            DataStorageUtils.writeToNbtCompound(nbt, "Properties", data);
+        }
+        finally
+        {
+            if (registryLookup != null && prev != registryLookup)
+            {
+                BBSMod.setRegistryManager(prev);
+            }
+        }
     }
 
     @Override
@@ -220,7 +237,23 @@ public class ModelBlockEntity extends BlockEntity
 
         if (baseType instanceof MapType mapType)
         {
-            this.properties.fromData(mapType);
+            WrapperLookup prev = BBSMod.getRegistryManager();
+            if (registryLookup != null && prev != registryLookup)
+            {
+                BBSMod.setRegistryManager(registryLookup);
+            }
+
+            try
+            {
+                this.properties.fromData(mapType, registryLookup);
+            }
+            finally
+            {
+                if (registryLookup != null && prev != registryLookup)
+                {
+                    BBSMod.setRegistryManager(prev);
+                }
+            }
         }
         /* Ensure block state reflects stored light level when chunk/block is loaded */
         if (this.world != null && !this.world.isClient)
@@ -244,7 +277,23 @@ public class ModelBlockEntity extends BlockEntity
     {
         WrapperLookup registries = world != null ? world.getRegistryManager() : null;
 
-        this.properties.fromData(data, registries);
+        WrapperLookup prev = BBSMod.getRegistryManager();
+        if (registries != null && prev != registries)
+        {
+            BBSMod.setRegistryManager(registries);
+        }
+
+        try
+        {
+            this.properties.fromData(data, registries);
+        }
+        finally
+        {
+            if (registries != null && prev != registries)
+            {
+                BBSMod.setRegistryManager(prev);
+            }
+        }
 
         BlockPos pos = this.getPos();
         BlockState blockState = world.getBlockState(pos);

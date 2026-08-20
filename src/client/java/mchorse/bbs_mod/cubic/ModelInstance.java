@@ -2,6 +2,7 @@ package mchorse.bbs_mod.cubic;
 
 import mchorse.bbs_mod.BBSModClient;
 import mchorse.bbs_mod.bobj.BOBJBone;
+import mchorse.bbs_mod.client.BBSShaders;
 import mchorse.bbs_mod.cubic.animation.ActionsConfig;
 import mchorse.bbs_mod.cubic.animation.ProceduralDefaults;
 import mchorse.bbs_mod.cubic.data.animation.Animations;
@@ -588,7 +589,14 @@ public class ModelInstance implements IModelInstance
     {
         if (this.model instanceof BOBJModel model)
         {
-            MinecraftClient.getInstance().execute(model::setup);
+            if (RenderSystem.isOnRenderThread())
+            {
+                model.setup();
+            }
+            else
+            {
+                MinecraftClient.getInstance().execute(model::setup);
+            }
         }
 
         /* VAOs should be only generated if there are no shape keys */
@@ -599,10 +607,17 @@ public class ModelInstance implements IModelInstance
 
         if (this.model instanceof Model model && !this.onCpu)
         {
-            MinecraftClient.getInstance().execute(() ->
+            if (RenderSystem.isOnRenderThread())
             {
                 CubicRenderer.processRenderModel(new CubicVAOBuilderRenderer(this.vaos), null, new MatrixStack(), model);
-            });
+            }
+            else
+            {
+                MinecraftClient.getInstance().execute(() ->
+                {
+                    CubicRenderer.processRenderModel(new CubicVAOBuilderRenderer(this.vaos), null, new MatrixStack(), model);
+                });
+            }
         }
     }
 
@@ -895,7 +910,7 @@ public class ModelInstance implements IModelInstance
             return;
         }
 
-        ShaderProgram shader = GameRenderer.getRenderTypeEntityTranslucentCullProgram();
+        ShaderProgram shader = BBSShaders.getModel();
         Link texture = defaultTexture != null ? defaultTexture : this.texture;
         boolean disableCull = true;
 

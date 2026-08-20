@@ -16,6 +16,7 @@ import mchorse.bbs_mod.settings.values.ui.ValueEditorLayout;
 import mchorse.bbs_mod.settings.values.ui.ValueFormEditorGizmoToolbar;
 import mchorse.bbs_mod.settings.values.ui.ValueGizmoToolbar;
 import mchorse.bbs_mod.settings.values.ui.ValueLanguage;
+import mchorse.bbs_mod.settings.values.ui.ValueMobCaptureConditions;
 import mchorse.bbs_mod.settings.values.ui.ValueOnionSkin;
 import mchorse.bbs_mod.settings.values.ui.ValueStringKeys;
 import mchorse.bbs_mod.settings.values.ui.ValueTimelineToolbarDocks;
@@ -59,7 +60,7 @@ public class BBSSettings
 
     public static ValueBoolean enableTrackpadIncrements;
     public static ValueBoolean enableTrackpadScrolling;
-    public static ValueBoolean welcomePanelAcceptedBeta1;
+    public static ValueBoolean welcomePanelSeen21;
     public static ValueBoolean hideSettingDescriptions;
     public static ValueFloat userIntefaceScale;
     public static ValueBoolean linkUiScaleToGame;
@@ -193,6 +194,7 @@ public class BBSSettings
     public static ValueInt replayContextOptions;
     public static ValueBoolean editorRewind;
     public static ValueBoolean editorHorizontalClipEditor;
+    public static ValueBoolean editorGlobalClipPanels;
     public static ValueBoolean editorEmbeddedKeyframeSidePanel;
     public static ValueBoolean editorMinutesBackup;
     public static ValueBoolean editorTimelineToolbar;
@@ -204,6 +206,8 @@ public class BBSSettings
     public static ValueBoolean recordingAutoCaptureProjectiles;
     public static ValueBoolean recordingAutoCaptureMobActions;
     public static ValueBoolean recordingMobCaptureOnAlt;
+    public static ValueBoolean recordingMobCaptureConditionsSummary;
+    public static ValueMobCaptureConditions recordingMobCaptureConditions;
     public static ValueBoolean recordingOverlays;
     public static ValueInt recordingPoseTransformOverlays;
     public static ValueBoolean recordingCameraPreview;
@@ -633,8 +637,8 @@ public class BBSSettings
         enableTrackpadIncrements = builder.getBoolean("trackpad_increments", true);
         enableTrackpadScrolling = builder.getBoolean("trackpad_scrolling", true);
         hideSettingDescriptions = builder.getBoolean("hide_setting_descriptions", false);
-        welcomePanelAcceptedBeta1 = builder.getBoolean("welcome_panel_accepted_beta1", false);
-        welcomePanelAcceptedBeta1.invisible();
+        welcomePanelSeen21 = builder.getBoolean("welcome_panel_seen_2_1", false);
+        welcomePanelSeen21.invisible();
         userIntefaceScale = builder.getFloat("ui_scale", 2F, 0.1F, 4F);
         linkUiScaleToGame = builder.getBoolean("link_ui_scale_to_game", false);
         uiFont = builder.getString("ui_font", "");
@@ -755,6 +759,7 @@ public class BBSSettings
         editorCenterLines = builder.getBoolean("center_lines", false);
         editorCrosshair = builder.getBoolean("crosshair", false);
         editorFilmOverlayVisible = builder.getBoolean("film_overlay_visible", true);
+        editorGlobalClipPanels = builder.getBoolean("global_clip_panels", true);
         editorFisheyeWidenFov = builder.getBoolean("fisheye_widen_fov", true);
         editorPeriodicSave = builder.getInt("periodic_save", 60, 0, 3600);
         editorHorizontalFlight = builder.getBoolean("horizontal_flight", false);
@@ -838,6 +843,9 @@ public class BBSSettings
         recordingAutoCaptureProjectiles = builder.getBoolean("auto_capture_projectiles", true);
         recordingAutoCaptureMobActions = builder.getBoolean("auto_capture_mob_actions", true);
         recordingMobCaptureOnAlt = builder.getBoolean("mob_capture_on_alt", false);
+        recordingMobCaptureConditionsSummary = builder.getBoolean("mob_capture_conditions_summary", true);
+        builder.register(recordingMobCaptureConditions = new ValueMobCaptureConditions("mob_capture_conditions"));
+        recordingMobCaptureConditions.invisible();
         recordingOverlays = builder.getBoolean("overlays", true);
         recordingPoseTransformOverlays = builder.getInt("pose_transform_overlays", 0, 0, 42);
         recordingCameraPreview = builder.getBoolean("camera_preview", true);
