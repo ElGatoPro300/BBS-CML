@@ -9,6 +9,7 @@ import mchorse.bbs_mod.cubic.ModelInstance;
 import mchorse.bbs_mod.cubic.data.model.Model;
 import mchorse.bbs_mod.cubic.data.model.ModelCube;
 import mchorse.bbs_mod.cubic.data.model.ModelGroup;
+import mchorse.bbs_mod.cubic.data.model.ModelUV;
 import mchorse.bbs_mod.cubic.model.ModelConfig;
 import mchorse.bbs_mod.data.DataToString;
 import mchorse.bbs_mod.data.types.MapType;
@@ -84,9 +85,26 @@ public class UIModelGeometryPanel extends UIElement
     private final UITrackpad scaleZ;
     private final UIButton saveButton;
     private final UITrackpad cubeInflate;
+    private final UIButton uvModeButton;
+    private final UIIcon toggleUVEditorButton;
+    private final UIElement uvBoxRow;
     private final UITrackpad cubeUvX;
     private final UITrackpad cubeUvY;
     private final UIToggle cubeMirror;
+    private final UIElement uvFaceSelectRow;
+    private final UIButton uvFaceSelectButton;
+    private final UIIcon uvFaceRotateButton;
+    private final UIElement uvFaceCoordsRow;
+    private final UITrackpad uvFaceX;
+    private final UITrackpad uvFaceY;
+    private final UITrackpad uvFaceW;
+    private final UITrackpad uvFaceH;
+    private final UIButton uvResetToBoxButton;
+    private final UIModelUVEditor uvEditor;
+    private final UIElement uvPanel;
+    private final UIDraggable uvDraggable;
+    private boolean faceUVMode;
+    private boolean uvEditorVisible = true;
     private final UIIcon addCubeIcon;
     private final UIIcon addFolderIcon;
     private final UIIcon addIKLocatorIcon;
@@ -348,6 +366,16 @@ public class UIModelGeometryPanel extends UIElement
         UIElement cubeInflateRow = UI.row(6, cubeInflateLabel, this.cubeInflate);
         cubeInflateRow.relative(buttons).y(1F, 8).w(1F).h(20);
 
+        /* UV Mode & Visibility Header Row */
+        this.uvModeButton = new UIButton(UIKeys.MODELS_GEOMETRY_UV_BOX, (b) -> this.toggleUVMode());
+        this.uvModeButton.w(0.7F, -4).h(20);
+        this.toggleUVEditorButton = new UIIcon(Icons.IMAGE, (b) -> this.toggleUVEditorVisible());
+        this.toggleUVEditorButton.tooltip(UIKeys.MODELS_GEOMETRY_UV_EDITOR_TOGGLE);
+        this.toggleUVEditorButton.w(0.3F).h(20);
+        UIElement uvHeaderRow = UI.row(4, this.uvModeButton, this.toggleUVEditorButton);
+        uvHeaderRow.relative(cubeInflateRow).y(1F, 8).w(1F).h(20);
+
+        /* Box UV Row */
         UILabel cubeUvLabel = UI.label(UIKeys.MODELS_GEOMETRY_CUBE_UV);
         cubeUvLabel.w(0.25F, -4).h(20);
         this.cubeUvX = this.trackpad((v) -> this.updateCubeUV(0, v.floatValue()));
@@ -356,10 +384,33 @@ public class UIModelGeometryPanel extends UIElement
         this.cubeUvX.w(0.25F, -3);
         this.cubeUvY.w(0.25F, -3);
         this.cubeMirror.w(0.25F, -3).h(20);
-        UIElement cubeUvRow = UI.row(4, cubeUvLabel, this.cubeUvX, this.cubeUvY, this.cubeMirror);
-        cubeUvRow.relative(cubeInflateRow).y(1F, 6).w(1F).h(20);
+        this.uvBoxRow = UI.row(4, cubeUvLabel, this.cubeUvX, this.cubeUvY, this.cubeMirror);
+        this.uvBoxRow.relative(uvHeaderRow).y(1F, 6).w(1F).h(20);
 
-        this.rightPanel.add(editorTitle, this.selectedBoneLabel, this.unifiedTransform, buttons, cubeInflateRow, cubeUvRow);
+        /* Face UV Controls Rows */
+        this.uvFaceSelectButton = new UIButton(UIKeys.MODELS_GEOMETRY_UV_FACE_FRONT, (b) -> this.openFaceSelectionMenu(b.getContext()));
+        this.uvFaceSelectButton.w(0.7F, -4).h(20);
+        this.uvFaceRotateButton = new UIIcon(Icons.REFRESH, (b) -> this.rotateSelectedFaceUV());
+        this.uvFaceRotateButton.tooltip(UIKeys.MODELS_GEOMETRY_UV_ROTATE);
+        this.uvFaceRotateButton.w(0.3F).h(20);
+        this.uvFaceSelectRow = UI.row(4, this.uvFaceSelectButton, this.uvFaceRotateButton);
+        this.uvFaceSelectRow.relative(uvHeaderRow).y(1F, 6).w(1F).h(20);
+
+        this.uvFaceX = this.trackpad((v) -> this.updateFaceUVCoord(0, v.floatValue()));
+        this.uvFaceY = this.trackpad((v) -> this.updateFaceUVCoord(1, v.floatValue()));
+        this.uvFaceW = this.trackpad((v) -> this.updateFaceUVCoord(2, v.floatValue()));
+        this.uvFaceH = this.trackpad((v) -> this.updateFaceUVCoord(3, v.floatValue()));
+        this.uvFaceX.w(0.25F, -3);
+        this.uvFaceY.w(0.25F, -3);
+        this.uvFaceW.w(0.25F, -3);
+        this.uvFaceH.w(0.25F, -3);
+        this.uvFaceCoordsRow = UI.row(4, this.uvFaceX, this.uvFaceY, this.uvFaceW, this.uvFaceH);
+        this.uvFaceCoordsRow.relative(this.uvFaceSelectRow).y(1F, 6).w(1F).h(20);
+
+        this.uvResetToBoxButton = new UIButton(UIKeys.MODELS_GEOMETRY_UV_RESET_TO_BOX, (b) -> this.resetToBoxUV());
+        this.uvResetToBoxButton.relative(this.uvFaceCoordsRow).y(1F, 6).w(1F).h(20);
+
+        this.rightPanel.add(editorTitle, this.selectedBoneLabel, this.unifiedTransform, buttons, cubeInflateRow, uvHeaderRow, this.uvBoxRow, this.uvFaceSelectRow, this.uvFaceCoordsRow, this.uvResetToBoxButton);
 
         UIDraggable leftDraggable = new UIDraggable((context) ->
         {
@@ -403,6 +454,32 @@ public class UIModelGeometryPanel extends UIElement
             context.batcher.box(rightDraggable.area.x + 2, rightDraggable.area.y, rightDraggable.area.x + 4, rightDraggable.area.ey(), color);
         });
 
+        /* UV 2D Canvas Panel (docked bottom-left of viewport) */
+        this.uvPanel = new UIElement();
+        int uvPanelW = 280;
+        int uvPanelH = 220;
+        this.uvPanel.relative(this).x(leftWidth + 10).y(1F, -uvPanelH - 10).wh(uvPanelW, uvPanelH);
+
+        this.uvEditor = new UIModelUVEditor(this);
+        this.uvEditor.relative(this.uvPanel).x(0).y(0).w(1F).h(1F);
+        this.uvPanel.add(this.uvEditor);
+
+        this.uvDraggable = new UIDraggable((context) ->
+        {
+            int newW = MathUtils.clamp(context.mouseX - this.uvPanel.area.x, 160, Math.max(200, this.area.w - 300));
+            int newH = MathUtils.clamp(this.area.ey() - 10 - context.mouseY, 140, Math.max(160, this.area.h - 100));
+            this.uvPanel.wh(newW, newH).y(1F, -newH - 10);
+            this.resize();
+        });
+        this.uvDraggable.relative(this.uvPanel).x(1F, -8).y(0).wh(8, 8);
+        this.uvDraggable.hoverOnly().rendering((context) ->
+        {
+            int color = this.uvDraggable.isDragging() ? BBSSettings.primaryColor.get() | Colors.A100 : Colors.A50;
+            context.batcher.box(this.uvDraggable.area.x, this.uvDraggable.area.y, this.uvDraggable.area.ex(), this.uvDraggable.area.ey(), color);
+        });
+
+        this.uvPanel.add(this.uvDraggable);
+
         UIRenderable backgroundRenderable = new UIRenderable((context) ->
         {
             if (!this.isVisible())
@@ -425,6 +502,12 @@ public class UIModelGeometryPanel extends UIElement
 
             context.batcher.box(rightX1, rightY1, rightX2, rightY2, 0xFF111115);
             context.batcher.outline(rightX1 - 1, rightY1 - 1, rightX2 + 1, rightY2 + 1, 0xFF5A5A5A);
+
+            if (this.uvEditorVisible && this.selectedCube != null)
+            {
+                context.batcher.box(this.uvPanel.area.x, this.uvPanel.area.y, this.uvPanel.area.ex(), this.uvPanel.area.ey(), 0xFF111115);
+                context.batcher.outline(this.uvPanel.area.x - 1, this.uvPanel.area.y - 1, this.uvPanel.area.ex() + 1, this.uvPanel.area.ey() + 1, 0xFF5A5A5A);
+            }
         });
 
         /* Gizmo Toolbar */
@@ -479,7 +562,7 @@ public class UIModelGeometryPanel extends UIElement
 
         gizmoToolbar.add(this.gizmoMove, this.gizmoScale, this.gizmoRotate, this.gizmoCombined, this.gizmoTop, this.gizmoVisualSize, this.gizmoThickness, this.gizmoTranslateSpeed);
 
-        this.add(backgroundRenderable, this.leftPanel, this.rightPanel, leftDraggable, rightDraggable, this.gizmoTransform, toolbarBackground, gizmoToolbar);
+        this.add(backgroundRenderable, this.leftPanel, this.rightPanel, this.uvPanel, leftDraggable, rightDraggable, this.gizmoTransform, toolbarBackground, gizmoToolbar);
 
         this.fillControls();
         this.fillCubeControls();
@@ -515,6 +598,15 @@ public class UIModelGeometryPanel extends UIElement
             this.cubeUvX.setEnabled(false);
             this.cubeUvY.setEnabled(false);
             this.cubeMirror.setEnabled(false);
+            this.uvModeButton.setEnabled(false);
+            this.toggleUVEditorButton.setEnabled(false);
+            this.uvFaceSelectButton.setEnabled(false);
+            this.uvFaceRotateButton.setEnabled(false);
+            this.uvFaceX.setEnabled(false);
+            this.uvFaceY.setEnabled(false);
+            this.uvFaceW.setEnabled(false);
+            this.uvFaceH.setEnabled(false);
+            this.uvResetToBoxButton.setEnabled(false);
         }
         else if (this.selectedCube != null)
         {
@@ -530,6 +622,37 @@ public class UIModelGeometryPanel extends UIElement
             this.cubeUvX.setEnabled(true);
             this.cubeUvY.setEnabled(true);
             this.cubeMirror.setEnabled(true);
+            this.uvModeButton.setEnabled(true);
+            this.toggleUVEditorButton.setEnabled(true);
+
+            this.uvModeButton.label = this.faceUVMode ? UIKeys.MODELS_GEOMETRY_UV_FACE : UIKeys.MODELS_GEOMETRY_UV_BOX;
+            this.uvBoxRow.setVisible(!this.faceUVMode);
+            this.uvFaceSelectRow.setVisible(this.faceUVMode);
+            this.uvFaceCoordsRow.setVisible(this.faceUVMode);
+            this.uvResetToBoxButton.setVisible(this.faceUVMode);
+
+            if (this.faceUVMode)
+            {
+                int faceIdx = this.uvEditor.getSelectedFace();
+                this.uvFaceSelectButton.label = this.getFaceKey(faceIdx);
+                ModelUV faceUV = this.uvEditor.getFaceUV(this.selectedCube, faceIdx);
+
+                if (faceUV != null)
+                {
+                    this.uvFaceX.setValue(faceUV.origin.x);
+                    this.uvFaceY.setValue(faceUV.origin.y);
+                    this.uvFaceW.setValue(faceUV.size.x);
+                    this.uvFaceH.setValue(faceUV.size.y);
+                }
+
+                this.uvFaceSelectButton.setEnabled(true);
+                this.uvFaceRotateButton.setEnabled(true);
+                this.uvFaceX.setEnabled(true);
+                this.uvFaceY.setEnabled(true);
+                this.uvFaceW.setEnabled(true);
+                this.uvFaceH.setEnabled(true);
+                this.uvResetToBoxButton.setEnabled(true);
+            }
         }
         else
         {
@@ -542,10 +665,23 @@ public class UIModelGeometryPanel extends UIElement
             this.cubeUvX.setEnabled(false);
             this.cubeUvY.setEnabled(false);
             this.cubeMirror.setEnabled(false);
+            this.uvModeButton.setEnabled(false);
+            this.toggleUVEditorButton.setEnabled(false);
+            this.uvFaceSelectButton.setEnabled(false);
+            this.uvFaceRotateButton.setEnabled(false);
+            this.uvFaceX.setEnabled(false);
+            this.uvFaceY.setEnabled(false);
+            this.uvFaceW.setEnabled(false);
+            this.uvFaceH.setEnabled(false);
+            this.uvResetToBoxButton.setEnabled(false);
         }
+
+        this.uvPanel.setVisible(this.uvEditorVisible && this.selectedCube != null);
+        this.toggleUVEditorButton.active(this.uvEditorVisible && this.selectedCube != null);
 
         this.filling = false;
         this.syncGizmoTransformFromSelection();
+        this.syncUVEditor();
     }
 
     private UITrackpad trackpad(Consumer<Double> callback)
@@ -725,6 +861,11 @@ public class UIModelGeometryPanel extends UIElement
         }
 
         this.parent.getModelRenderer().setSelectedCube(this.selectedCube);
+
+        if (this.selectedCube != null)
+        {
+            this.faceUVMode = this.isCustomFaceUV(this.selectedCube);
+        }
 
         if (this.parent.getMainView().getChildren().contains(this))
         {
@@ -934,6 +1075,7 @@ public class UIModelGeometryPanel extends UIElement
 
         this.selectedCube.setupBoxUV(uv, this.cubeMirrorValue);
         this.refreshCubeRenderAndSave();
+        this.syncUVEditor();
     }
 
     private void updateCubeMirror(boolean mirror)
@@ -946,6 +1088,198 @@ public class UIModelGeometryPanel extends UIElement
         this.cubeMirrorValue = mirror;
         this.selectedCube.setupBoxUV(this.getBoxUV(this.selectedCube), this.cubeMirrorValue);
         this.refreshCubeRenderAndSave();
+        this.syncUVEditor();
+    }
+
+    public boolean isFaceUVMode()
+    {
+        return this.faceUVMode;
+    }
+
+    public void toggleUVMode()
+    {
+        if (this.selectedCube == null)
+        {
+            return;
+        }
+
+        if (!this.faceUVMode)
+        {
+            this.selectedCube.setupBoxUV(this.getBoxUV(this.selectedCube), this.cubeMirrorValue);
+            this.faceUVMode = true;
+        }
+        else
+        {
+            this.faceUVMode = false;
+            this.selectedCube.setupBoxUV(this.getBoxUV(this.selectedCube), this.cubeMirrorValue);
+        }
+
+        this.refreshCubeRenderAndSave();
+        this.fillCubeControls();
+    }
+
+    public void resetToBoxUV()
+    {
+        if (this.selectedCube == null)
+        {
+            return;
+        }
+
+        this.faceUVMode = false;
+        this.selectedCube.setupBoxUV(this.getBoxUV(this.selectedCube), this.cubeMirrorValue);
+        this.refreshCubeRenderAndSave();
+        this.fillCubeControls();
+    }
+
+    public void toggleUVEditorVisible()
+    {
+        this.uvEditorVisible = !this.uvEditorVisible;
+        this.uvPanel.setVisible(this.uvEditorVisible && this.selectedCube != null);
+        this.toggleUVEditorButton.active(this.uvEditorVisible && this.selectedCube != null);
+    }
+
+    public void rotateSelectedFaceUV()
+    {
+        if (this.selectedCube == null)
+        {
+            return;
+        }
+
+        if (!this.faceUVMode)
+        {
+            this.selectedCube.setupBoxUV(this.getBoxUV(this.selectedCube), this.cubeMirrorValue);
+            this.faceUVMode = true;
+        }
+
+        ModelUV uv = this.uvEditor.getFaceUV(this.selectedCube, this.uvEditor.getSelectedFace());
+
+        if (uv != null)
+        {
+            uv.rotation = (uv.rotation + 90F) % 360F;
+            this.refreshCubeRenderAndSave();
+            this.fillCubeControls();
+        }
+    }
+
+    public void onUVFaceSelected(int faceIndex)
+    {
+        this.uvEditor.setSelectedFace(faceIndex);
+        this.fillCubeControls();
+    }
+
+    public void recordUVUndo()
+    {
+        this.recordUndoState();
+    }
+
+    public void refreshCubeRenderAndSyncControls()
+    {
+        this.refreshCubeRenderAndSave();
+        this.fillCubeControls();
+    }
+
+    public void setBoxUVDirect(float x, float y)
+    {
+        if (this.selectedCube == null)
+        {
+            return;
+        }
+
+        this.selectedCube.setupBoxUV(new Vector2f(x, y), this.cubeMirrorValue);
+        this.refreshCubeRenderAndSave();
+        this.fillCubeControls();
+    }
+
+    public void syncUVEditor()
+    {
+        if (this.uvEditor == null)
+        {
+            return;
+        }
+
+        Link textureLink = this.config != null ? this.config.texture.get() : null;
+        Model model = this.instance != null && this.instance.model instanceof Model m ? m : null;
+
+        this.uvEditor.setModelAndCube(model, this.selectedCube, textureLink, this.faceUVMode);
+    }
+
+    private void openFaceSelectionMenu(UIContext context)
+    {
+        context.replaceContextMenu((menu) ->
+        {
+            for (int i = 0; i < 6; i++)
+            {
+                final int faceIndex = i;
+                menu.action(this.getFaceKey(faceIndex), () -> this.onUVFaceSelected(faceIndex));
+            }
+        });
+    }
+
+    private void updateFaceUVCoord(int coord, float value)
+    {
+        if (this.filling || this.selectedCube == null)
+        {
+            return;
+        }
+
+        ModelUV uv = this.uvEditor.getFaceUV(this.selectedCube, this.uvEditor.getSelectedFace());
+
+        if (uv != null)
+        {
+            if (coord == 0)
+            {
+                uv.origin.x = value;
+            }
+            else if (coord == 1)
+            {
+                uv.origin.y = value;
+            }
+            else if (coord == 2)
+            {
+                uv.size.x = value;
+            }
+            else if (coord == 3)
+            {
+                uv.size.y = value;
+            }
+
+            this.refreshCubeRenderAndSave();
+            this.syncUVEditor();
+        }
+    }
+
+    public IKey getFaceKey(int index)
+    {
+        switch (index)
+        {
+            case UIModelUVEditor.FACE_FRONT: return UIKeys.MODELS_GEOMETRY_UV_FACE_FRONT;
+            case UIModelUVEditor.FACE_BACK: return UIKeys.MODELS_GEOMETRY_UV_FACE_BACK;
+            case UIModelUVEditor.FACE_RIGHT: return UIKeys.MODELS_GEOMETRY_UV_FACE_RIGHT;
+            case UIModelUVEditor.FACE_LEFT: return UIKeys.MODELS_GEOMETRY_UV_FACE_LEFT;
+            case UIModelUVEditor.FACE_TOP: return UIKeys.MODELS_GEOMETRY_UV_FACE_TOP;
+            case UIModelUVEditor.FACE_BOTTOM: return UIKeys.MODELS_GEOMETRY_UV_FACE_BOTTOM;
+            default: return UIKeys.MODELS_GEOMETRY_UV_FACE_FRONT;
+        }
+    }
+
+    public boolean isCustomFaceUV(ModelCube cube)
+    {
+        if (cube == null)
+        {
+            return false;
+        }
+
+        if ((cube.front != null && cube.front.rotation != 0) ||
+            (cube.back != null && cube.back.rotation != 0) ||
+            (cube.right != null && cube.right.rotation != 0) ||
+            (cube.left != null && cube.left.rotation != 0) ||
+            (cube.top != null && cube.top.rotation != 0) ||
+            (cube.bottom != null && cube.bottom.rotation != 0))
+        {
+            return true;
+        }
+
+        return false;
     }
 
     private void openHierarchyContextMenu(UIContext context, GeometryEntry entry)
@@ -1704,12 +2038,12 @@ public class UIModelGeometryPanel extends UIElement
         }
     }
 
-    private boolean isCubeMirrored(ModelCube cube)
+    public boolean isCubeMirrored(ModelCube cube)
     {
         return cube.front != null && cube.front.size.x < 0;
     }
 
-    private Vector2f getBoxUV(ModelCube cube)
+    public Vector2f getBoxUV(ModelCube cube)
     {
         Vector2f uv = new Vector2f();
 
