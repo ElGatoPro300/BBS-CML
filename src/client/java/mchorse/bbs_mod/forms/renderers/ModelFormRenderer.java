@@ -805,18 +805,8 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
         Color formColor = (uploadFormGradeToShader || useColorGradeOverlay)
             ? storedFormColor.copyDeferringColorGrade()
             : storedFormColor.copyBakingColorGrade();
-        boolean bakeSoftIrisBlend = softOpacityIrisPath && colorTransformWanted;
-
-        if (bakeSoftIrisBlend)
-        {
-            /* Uniform mesh tint only — spatial Color transforms need the overlay path / Noshading. */
-            color.r *= formColor.r;
-            color.g *= formColor.g;
-            color.b *= formColor.b;
-        }
-
         /* Multiply tint for color spatial mask only — Color Grade uses FormColorGrade / overlay. */
-        boolean deferColorTintToOverlay = colorTransformWanted && irisWorldPaintDeferral && !deferTranslucentModel && !bakeSoftIrisBlend;
+        boolean deferColorTintToOverlay = colorTransformWanted && irisWorldPaintDeferral && !deferTranslucentModel;
         boolean colorTransformActive = colorTransformWanted && (bbsModelShader || deferTranslucentModel || deferColorTintToOverlay);
 
         EffectTransform glowEffectTransform = this.resolveGlowEffectTransform(glow, legacyGlow);
@@ -1770,7 +1760,7 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
                 int overlayOverlay = overlay;
                 Link defaultTextureSnapshot = defaultTexture;
 
-                ModelVAORenderer.submitPaintOverlay(false, () ->
+                ModelVAORenderer.submitColorTintOverlay(() ->
                 {
                     this.applyOverlayPosePipeline(target, model, transitionSnapshot, poseSnapshot, baseTransformSnapshot);
 
