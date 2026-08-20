@@ -5,10 +5,12 @@ import mchorse.bbs_mod.cubic.data.model.Model;
 import mchorse.bbs_mod.cubic.data.model.ModelGroup;
 import mchorse.bbs_mod.cubic.data.model.ModelVertex;
 import mchorse.bbs_mod.cubic.render.vao.ModelVAORenderer;
+import mchorse.bbs_mod.forms.renderers.utils.FormColorEffects;
 import mchorse.bbs_mod.obj.shapes.ShapeKeys;
 import mchorse.bbs_mod.resources.Link;
 import mchorse.bbs_mod.ui.framework.elements.utils.StencilMap;
 import mchorse.bbs_mod.utils.MathUtils;
+import mchorse.bbs_mod.utils.colors.Color;
 import mchorse.bbs_mod.utils.interps.Lerps;
 
 import com.mojang.blaze3d.systems.RenderSystem;
@@ -26,7 +28,7 @@ import org.joml.Vector3f;
 /**
  * Shape-key CPU geometry must draw one model group per call so PaintColor, GlowingColor, and
  * per-bone texture crossfade uniforms match the group that was just meshed.
- * <p>
+ *
  * Positions and normals are written already transformed by the render stack. Uniforms must use
  * {@link ModelVAORenderer#setupUniformsCpuPretransformed} so {@code ModelViewMat} / {@code NormalMat}
  * are not applied a second time (second ModelView hides composites; second NormalMat inverts lighting).
@@ -35,6 +37,7 @@ public class CubicCpuGroupDrawRenderer extends CubicCubeRenderer
 {
     private final ShaderProgram shader;
     private final Link defaultTexture;
+    private int currentGroupLight;
 
     public CubicCpuGroupDrawRenderer(int light, int overlay, StencilMap stencilMap, ShapeKeys shapeKeys, ShaderProgram shader, Link defaultTexture)
     {
@@ -93,11 +96,6 @@ public class CubicCpuGroupDrawRenderer extends CubicCubeRenderer
         float effectivePaintStrength = this.resolveEffectivePaintStrength(group);
         float effectiveGlowStrength = this.resolveEffectiveGlowStrength(group);
 
-        if (ModelVAORenderer.isSuppressShapeKeyMainPassGlow() && effectiveGlowStrength > 0F)
-        {
-            effectiveGlowStrength = 0F;
-        }
-
         ModelVAORenderer.setGroupPaint(
             this.resolveEffectivePaintR(group),
             this.resolveEffectivePaintG(group),
@@ -116,6 +114,53 @@ public class CubicCpuGroupDrawRenderer extends CubicCubeRenderer
         ModelVAORenderer.setGroupColorEffectTransform(group.color.transform);
         ModelVAORenderer.setGroupFormColorTint(group.color);
 
+        float r = this.r;
+        float g = this.g;
+        float b = this.b;
+        float a = alpha;
+
+        if (!ModelVAORenderer.isGlowingUniformActive())
+        {
+            if (effectiveGlowStrength != 0F)
+            {
+                Color groupColor = new Color().set(r, g, b, a);
+                Color glowColor = new Color().set(this.resolveEffectiveGlowR(group), this.resolveEffectiveGlowG(group), this.resolveEffectiveGlowB(group), 1F);
+
+                FormColorEffects.blendBrighten(groupColor, glowColor, effectiveGlowStrength);
+
+                r = groupColor.r;
+                g = groupColor.g;
+                b = groupColor.b;
+                a = groupColor.a;
+            }
+        }
+
+        int groupLight = this.light;
+
+        if (effectiveGlowStrength != 0F && !ModelVAORenderer.isGlowingUniformActive() && !ModelVAORenderer.isPaintOverlayPass())
+        {
+            float glowLightT = MathUtils.clamp(Math.abs(effectiveGlowStrength), 0F, 1F);
+            int baseU = groupLight & '\uffff';
+            int u = (int) Lerps.lerp(baseU, LightmapTextureManager.MAX_BLOCK_LIGHT_COORDINATE, glowLightT);
+            int v = groupLight >> 16 & '\uffff';
+
+            groupLight = u | v << 16;
+        }
+
+        if (this.stencilMap != null)
+        {
+            groupLight = this.stencilMap.increment ? group.index : 0;
+        }
+        else
+        {
+            int u = (int) Lerps.lerp(groupLight & '\uffff', LightmapTextureManager.MAX_BLOCK_LIGHT_COORDINATE, MathUtils.clamp(group.lighting, 0F, 1F));
+            int v = groupLight >> 16 & '\uffff';
+
+            groupLight = u | v << 16;
+        }
+
+        this.currentGroupLight = groupLight;
+
         float savedA = this.a;
 
         this.setColor(this.r, this.g, this.b, alpha);
@@ -127,12 +172,12 @@ public class CubicCpuGroupDrawRenderer extends CubicCubeRenderer
 
         try
         {
-            RenderSystem.setShaderColor(this.r, this.g, this.b, alpha);
+            RenderSystem.setShaderColor(r, g, b, a);
             this.shader.bind();
 
             if (this.shader.colorModulator != null)
             {
-                this.shader.colorModulator.set(this.r, this.g, this.b, alpha);
+                this.shader.colorModulator.set(r, g, b, a);
             }
 
             ModelVAORenderer.setupUniformsCpuPretransformed(this.shader);
@@ -187,14 +232,11 @@ public class CubicCpuGroupDrawRenderer extends CubicCubeRenderer
 
         if (this.stencilMap != null)
         {
-            builder.light(this.stencilMap.increment ? group.index : 0, 0);
+            builder.light(this.currentGroupLight, 0);
         }
         else
         {
-            int u = (int) Lerps.lerp(this.light & '\uffff', LightmapTextureManager.MAX_BLOCK_LIGHT_COORDINATE, MathUtils.clamp(group.lighting, 0F, 1F));
-            int v = this.light >> 16 & '\uffff';
-
-            builder.light(u, v);
+            builder.light(this.currentGroupLight & '\uffff', this.currentGroupLight >> 16 & '\uffff');
         }
 
         builder.normal(normal.x, normal.y, normal.z);

@@ -827,10 +827,10 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
         /* Low-alpha Iris redraw: albedo deferred; additive overlay if somehow deferred with glow. */
         boolean emitGlowAfterDeferred = deferTranslucentModel && model.supportsBbsModelShaderEffects() && hasEmissiveGlow;
         boolean deferGlowToOverlay = shaderOverlay;
-        boolean shapeKeyPositiveOverlay = model.hasShapeKeys() && this.hasAnyPositiveGlow(model, glow, legacyGlow) && !BBSRendering.isIrisWorldModelPass();
+        boolean shapeKeyPositiveOverlay = false;
         boolean glowDeferredToOverlay = deferGlowToOverlay || emitGlowAfterDeferred || (deferPaintToOverlay && hasGlow && !paintOnlyGlow);
         boolean stripMainPassGlow = deferGlowToOverlay || emitGlowAfterDeferred || (deferPaintToOverlay && hasGlow && paintOnlyGlow);
-        GlowSettings mainPassGlow = this.resolveMainPassGlow(glow, legacyGlow, stripMainPassGlow, shapeKeyPositiveOverlay);
+        GlowSettings mainPassGlow = this.resolveMainPassGlow(glow, legacyGlow, stripMainPassGlow, false);
         /* Opacity defer replaces the live Iris mesh. Color-grade overlay keeps Iris live. */
         boolean drawIrisLive = !deferTranslucentModel;
 
@@ -844,7 +844,7 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
             /* Must hit the Iris entity/gbuffer pass — post-composite BBS additive never blooms. */
             FormColorEffects.blendFormGlowBrighten(color, glow, legacyGlow);
         }
-        else if (!bbsModelShader && !shaderOverlay && !deferPaintToOverlay && !paintOnlyGlow && !shapeKeyPositiveOverlay && !deferTranslucentModel)
+        else if (!bbsModelShader && !shaderOverlay && !deferPaintToOverlay && !paintOnlyGlow && !deferTranslucentModel)
         {
             FormColorEffects.blendFormGlowBrighten(color, glow, legacyGlow);
         }
@@ -1961,16 +1961,6 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
 
     private void renderDeferredGlowEmission(MatrixStack stack, ModelInstance model, int light, int overlay, StencilMap stencilMap, Color color, Link defaultTexture, TextureBlend textureBlend, GlowSettings glow, Color glowColor, Color legacyGlow)
     {
-        if (model.hasShapeKeys() && this.hasAnyPositiveGlow(model, glow, legacyGlow) && !BBSRendering.isIrisWorldModelPass())
-        {
-            ModelVAORenderer.runWithPaintOverlayPass(false, () ->
-            {
-                this.renderShapeKeyGlowOverlay(stack, model, overlay, stencilMap, color, defaultTexture, textureBlend, glow, legacyGlow);
-            });
-
-            return;
-        }
-
         ModelVAORenderer.runWithPaintOverlayPass(false, () ->
         {
             ModelVAORenderer.setPaint(0F, 0F, 0F, 0F);
