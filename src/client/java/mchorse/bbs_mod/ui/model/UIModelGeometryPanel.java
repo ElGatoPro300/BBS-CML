@@ -866,11 +866,53 @@ public class UIModelGeometryPanel extends UIElement
         return super.subMouseReleased(context);
     }
 
+    public void selectCube(String groupId, int cubeIndex)
+    {
+        if (groupId == null || groupId.isEmpty())
+        {
+            return;
+        }
+
+        /* If the parent group is collapsed, uncollapse it so the cube entry is visible and selectable */
+        if (this.collapsedGroupIds.contains(groupId))
+        {
+            this.collapsedGroupIds.remove(groupId);
+            this.reloadModelData();
+        }
+
+        for (GeometryEntry entry : this.hierarchyList.getList())
+        {
+            if (entry.type == GeometryEntryType.CUBE && entry.groupId.equals(groupId) && entry.cubeIndex == cubeIndex)
+            {
+                this.hierarchyList.setCurrentDirect(entry);
+                this.selectCurrentHierarchyEntry();
+
+                return;
+            }
+        }
+
+        this.selectBone(groupId);
+    }
+
     public void selectBone(String bone)
     {
         if (bone == null || bone.isEmpty())
         {
             return;
+        }
+
+        UIContext context = this.getContext();
+
+        if (context != null)
+        {
+            UIModelEditorRenderer.PickedCube pickedCube = this.parent.getModelRenderer().pickCubeAt(context);
+
+            if (pickedCube != null)
+            {
+                this.selectCube(pickedCube.groupId, pickedCube.cubeIndex);
+
+                return;
+            }
         }
 
         for (GeometryEntry entry : this.hierarchyList.getList())
@@ -1004,15 +1046,21 @@ public class UIModelGeometryPanel extends UIElement
     {
         this.filling = true;
 
-        if (this.selectedGroup == null)
+        if (this.selectedCube != null && this.selectedGroup != null)
         {
-            this.selectedBoneLabel.label = IKey.raw("-");
-            this.setPads(new Vector3f(), new Vector3f(), new Vector3f(), new Vector3f(1F, 1F, 1F));
+            String cubeName = this.selectedCube.name.isBlank() ? "Cubo" : this.selectedCube.name;
+            this.selectedBoneLabel.label = IKey.raw(this.selectedGroup.id + " / " + cubeName);
+            this.setPads(this.selectedCube.origin, this.selectedCube.rotate, this.selectedCube.pivot, this.selectedCube.size);
         }
-        else
+        else if (this.selectedGroup != null)
         {
             this.selectedBoneLabel.label = IKey.raw(this.selectedGroup.id);
             this.setPads(this.selectedGroup.initial.translate, this.selectedGroup.initial.rotate, this.selectedGroup.initial.pivot, this.selectedGroup.initial.scale);
+        }
+        else
+        {
+            this.selectedBoneLabel.label = IKey.raw("-");
+            this.setPads(new Vector3f(), new Vector3f(), new Vector3f(), new Vector3f(1F, 1F, 1F));
         }
 
         this.filling = false;
@@ -2322,7 +2370,30 @@ public class UIModelGeometryPanel extends UIElement
 
     private void refreshCubeRenderAndSave()
     {
-        if (this.selectedCube != null && this.selectedGroup != null && this.selectedGroup.owner != null)
+        if (this.instance != null && this.instance.model instanceof Model model)
+        {
+            int tw = Math.max(1, model.textureWidth);
+            int th = Math.max(1, model.textureHeight);
+
+            if (this.selectedCube != null)
+            {
+                this.selectedCube.generateQuads(tw, th);
+            }
+
+            for (GeometryEntry entry : this.hierarchyList.getCurrent())
+            {
+                if (entry.type == GeometryEntryType.CUBE)
+                {
+                    ModelGroup grp = model.getGroup(entry.groupId);
+
+                    if (grp != null && entry.cubeIndex >= 0 && entry.cubeIndex < grp.cubes.size())
+                    {
+                        grp.cubes.get(entry.cubeIndex).generateQuads(tw, th);
+                    }
+                }
+            }
+        }
+        else if (this.selectedCube != null && this.selectedGroup != null && this.selectedGroup.owner != null)
         {
             int tw = Math.max(1, this.selectedGroup.owner.textureWidth);
             int th = Math.max(1, this.selectedGroup.owner.textureHeight);
@@ -2338,6 +2409,17 @@ public class UIModelGeometryPanel extends UIElement
 
         this.parent.dirty();
         this.recordUndoState();
+    }
+
+    public void onPanelClosed()
+    {
+        this.parent.getModelRenderer().setSelectedCube(null);
+        this.parent.getModelRenderer().viewportMode = UIModelEditorRenderer.ViewportMode.TEXTURED;
+    }
+
+    public void onPanelOpened()
+    {
+        this.reloadModelData();
     }
 
     private void toggleGroupCollapsed(String groupId)

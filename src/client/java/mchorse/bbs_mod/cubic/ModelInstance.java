@@ -590,7 +590,14 @@ public class ModelInstance implements IModelInstance
     {
         if (this.model instanceof BOBJModel model)
         {
-            MinecraftClient.getInstance().execute(model::setup);
+            if (RenderSystem.isOnRenderThread())
+            {
+                model.setup();
+            }
+            else
+            {
+                MinecraftClient.getInstance().execute(model::setup);
+            }
         }
 
         /* VAOs should be only generated if there are no shape keys */
@@ -601,10 +608,17 @@ public class ModelInstance implements IModelInstance
 
         if (this.model instanceof Model model && !this.onCpu)
         {
-            MinecraftClient.getInstance().execute(() ->
+            if (RenderSystem.isOnRenderThread())
             {
                 CubicRenderer.processRenderModel(new CubicVAOBuilderRenderer(this.vaos), null, new MatrixStack(), model);
-            });
+            }
+            else
+            {
+                MinecraftClient.getInstance().execute(() ->
+                {
+                    CubicRenderer.processRenderModel(new CubicVAOBuilderRenderer(this.vaos), null, new MatrixStack(), model);
+                });
+            }
         }
     }
 

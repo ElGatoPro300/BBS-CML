@@ -63,6 +63,7 @@ import net.minecraft.item.ItemStack;
 import net.minecraft.util.math.RotationAxis;
 
 import org.joml.Matrix4f;
+import org.joml.Vector3d;
 import org.joml.Vector3f;
 
 import com.mojang.blaze3d.platform.GlStateManager;
@@ -102,6 +103,7 @@ public class UIModelEditorRenderer extends UIModelRenderer implements GizmoSurfa
     private ModelFormRenderer renderer;
     private ModelConfig config;
     private Consumer<String> callback;
+    private Consumer<PickedCube> cubeCallback;
     private boolean pickingEnabled = true;
     private String selectedBone;
     private ModelCube selectedCube;
@@ -201,6 +203,11 @@ public class UIModelEditorRenderer extends UIModelRenderer implements GizmoSurfa
     public void setCallback(Consumer<String> callback)
     {
         this.callback = callback;
+    }
+
+    public void setCubeCallback(Consumer<PickedCube> cubeCallback)
+    {
+        this.cubeCallback = cubeCallback;
     }
 
     public void setPickingEnabled(boolean pickingEnabled)
@@ -425,6 +432,14 @@ public class UIModelEditorRenderer extends UIModelRenderer implements GizmoSurfa
 
         if (this.gizmoController.tryStartHandleDrag(context, this.transform))
         {
+            return true;
+        }
+
+        PickedCube pickedCube = this.pickCubeAt(context);
+
+        if (pickedCube != null && this.cubeCallback != null)
+        {
+            this.cubeCallback.accept(pickedCube);
             return true;
         }
 
@@ -921,6 +936,125 @@ public class UIModelEditorRenderer extends UIModelRenderer implements GizmoSurfa
         CubicCubeRenderer.moveToPivot(cubeStack, cube.pivot);
 
         return new Matrix4f(cubeStack.peek().getPositionMatrix());
+    }
+
+    public static class PickedCube
+    {
+        public final String groupId;
+        public final int cubeIndex;
+        public final ModelCube cube;
+
+        public PickedCube(String groupId, int cubeIndex, ModelCube cube)
+        {
+            this.groupId = groupId;
+            this.cubeIndex = cubeIndex;
+            this.cube = cube;
+        }
+    }
+
+    public PickedCube pickCubeAt(UIContext context)
+    {
+        ModelInstance instance = this.getPreviewModelInstance();
+
+        if (instance == null || !(instance.model instanceof Model model))
+        {
+            return null;
+        }
+
+        Vector3f rayDir = this.camera.getMouseDirection(
+            context.mouseX,
+            context.mouseY,
+            context.globalX(this.area.x),
+            context.globalY(this.area.y),
+            this.area.w,
+            this.area.h
+        );
+
+        if (rayDir == null || rayDir.lengthSquared() < 1e-6F)
+        {
+            return null;
+        }
+
+        Vector3f rayOrigin = new Vector3f(
+            (float) this.camera.position.x,
+            (float) this.camera.position.y,
+            (float) this.camera.position.z
+        );
+
+        MatrixCache cache = this.renderer.collectMatrices(this.entity, context.getTransition());
+        PickedCube closest = null;
+        float minDistance = Float.MAX_VALUE;
+
+        for (ModelGroup group : model.getAllGroups())
+        {
+            if (!group.visible)
+            {
+                continue;
+            }
+
+            for (int i = 0; i < group.cubes.size(); i++)
+            {
+                ModelCube cube = group.cubes.get(i);
+
+                if (!cube.visible)
+                {
+                    continue;
+                }
+
+                Matrix4f cubePivotMatrix = this.getCubePivotMatrix(cache, group, cube);
+
+                if (cubePivotMatrix == null)
+                {
+                    continue;
+                }
+
+                MatrixStack cubeStack = new MatrixStack();
+
+                MatrixStackUtils.multiply(cubeStack, cubePivotMatrix);
+                CubicCubeRenderer.rotate(cubeStack, cube.rotate);
+                CubicCubeRenderer.moveBackFromPivot(cubeStack, cube.pivot);
+
+                Matrix4f worldMatrix = new Matrix4f(cubeStack.peek().getPositionMatrix());
+                Matrix4f invMatrix = new Matrix4f(worldMatrix).invert();
+
+                Vector3f localOrigin = new Vector3f((float) rayOrigin.x, (float) rayOrigin.y, (float) rayOrigin.z);
+                Vector3f localDir = new Vector3f(rayDir);
+
+                invMatrix.transformPosition(localOrigin);
+                invMatrix.transformDirection(localDir).normalize();
+
+                float minX = (cube.origin.x - cube.inflate) / 16F;
+                float minY = (cube.origin.y - cube.inflate) / 16F;
+                float minZ = (cube.origin.z - cube.inflate) / 16F;
+                float maxX = (cube.origin.x + cube.size.x + cube.inflate) / 16F;
+                float maxY = (cube.origin.y + cube.size.y + cube.inflate) / 16F;
+                float maxZ = (cube.origin.z + cube.size.z + cube.inflate) / 16F;
+
+                /* Ray-AABB intersection slab test */
+                float t1 = (minX - localOrigin.x) / (localDir.x != 0 ? localDir.x : 1e-6F);
+                float t2 = (maxX - localOrigin.x) / (localDir.x != 0 ? localDir.x : 1e-6F);
+                float t3 = (minY - localOrigin.y) / (localDir.y != 0 ? localDir.y : 1e-6F);
+                float t4 = (maxY - localOrigin.y) / (localDir.y != 0 ? localDir.y : 1e-6F);
+                float t5 = (minZ - localOrigin.z) / (localDir.z != 0 ? localDir.z : 1e-6F);
+                float t6 = (maxZ - localOrigin.z) / (localDir.z != 0 ? localDir.z : 1e-6F);
+
+                float tmin = Math.max(Math.max(Math.min(t1, t2), Math.min(t3, t4)), Math.min(t5, t6));
+                float tmax = Math.min(Math.min(Math.max(t1, t2), Math.max(t3, t4)), Math.max(t5, t6));
+
+                if (tmax >= 0 && tmin <= tmax)
+                {
+                    float hitDist = tmin >= 0 ? tmin : tmax;
+
+                    if (hitDist < minDistance)
+                    {
+                        minDistance = hitDist;
+                        closest = new PickedCube(group.id, i, cube);
+                    }
+                }
+            }
+        }
+
+        return closest;
     }
 
     private void line(BufferBuilder builder, Matrix4f matrix, Vector3f a, Vector3f b, float r, float g, float bl, float alpha)
