@@ -2276,41 +2276,7 @@ public class UIFilmController extends UIElement
         boolean scissorWasEnabled = GL11.glIsEnabled(GL11.GL_SCISSOR_TEST);
         if (scissorWasEnabled)
         {
-<<<<<<< HEAD
-            for (Map.Entry<Integer, IEntity> entry : this.getEntities().entrySet())
-            {
-                Replay replay = CollectionUtils.getSafe(this.panel.getData().replays.getList(), entry.getKey());
-
-                if (replay == null || this.editorController == null || !this.editorController.isReplayVisible(replay, replay.getTick(cursorTick)))
-                {
-                    continue;
-                }
-
-                if (this.editorController.isActorPickingBlocked(replay))
-                {
-                    continue;
-                }
-
-                this.stencilMap.objectIndex = entry.getKey() + Gizmo.STENCIL_HANDLE_MAX + 1;
-
-                IEntity renderEntity = this.editorController.getRenderEntity(replay, entry.getValue());
-                boolean physicalActor = renderEntity != entry.getValue();
-                float transition = isPlaying ? renderContext.tickDelta() : 0F;
-                float propertyTick = replay.getTick(cursorTick) + transition;
-
-                BaseFilmController.renderEntity(FilmControllerContext.instance
-                    .setup(this.getEntities(), renderEntity, replay, renderContext)
-                    .film(this.panel.getData())
-                    .filmTick(cursorTick)
-                    .propertyTick(propertyTick)
-                    .transition(transition)
-                    .stencil(this.stencilMap)
-                    .relative(replay.isCameraRelative())
-                    .physicalActor(physicalActor));
-            }
-=======
             GlStateManager._disableScissorTest();
->>>>>>> master
         }
 
         try
@@ -2338,17 +2304,12 @@ public class UIFilmController extends UIElement
                         continue;
                     }
 
-<<<<<<< HEAD
-                    float transition = isPlaying ? renderContext.tickDelta() : 0F;
-                    float propertyTick = currentReplay.getTick(cursorTick) + transition;
-=======
                     this.stencilMap.objectIndex = entry.getKey() + Gizmo.STENCIL_HANDLE_MAX + 1;
 
                     IEntity renderEntity = this.editorController.getRenderEntity(replay, entry.getValue());
                     boolean physicalActor = renderEntity != entry.getValue();
-                    float transition = isPlaying ? renderContext.tickCounter().getTickDelta(false) : 0F;
+                    float transition = isPlaying ? renderContext.tickDelta() : 0F;
                     float propertyTick = replay.getTick(cursorTick) + transition;
->>>>>>> master
 
                     BaseFilmController.renderEntity(FilmControllerContext.instance
                         .setup(this.getEntities(), renderEntity, replay, renderContext)
@@ -2426,7 +2387,7 @@ public class UIFilmController extends UIElement
                             }
                         }
 
-                        float transition = isPlaying ? renderContext.tickCounter().getTickDelta(false) : 0F;
+                        float transition = isPlaying ? renderContext.tickDelta() : 0F;
                         float propertyTick = currentReplay.getTick(cursorTick) + transition;
 
                         BaseFilmController.renderEntity(FilmControllerContext.instance
