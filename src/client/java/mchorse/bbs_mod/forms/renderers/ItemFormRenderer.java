@@ -421,7 +421,6 @@ public class ItemFormRenderer extends FormRenderer<ItemForm>
 
             RenderSystem.getModelViewStack().pushMatrix();
             RenderSystem.getModelViewStack().set(exactMvm);
-            RenderSystem.applyModelViewMatrix();
 
             try
             {
@@ -430,7 +429,6 @@ public class ItemFormRenderer extends FormRenderer<ItemForm>
             finally
             {
                 RenderSystem.getModelViewStack().popMatrix();
-                RenderSystem.applyModelViewMatrix();
             }
         });
     }

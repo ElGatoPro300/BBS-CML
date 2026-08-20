@@ -824,7 +824,7 @@ public class UIModelEditorRenderer extends UIModelRenderer implements GizmoSurfa
 
         Matrix4f uiMatrix = context.batcher.getContext().getMatrices().peek().getPositionMatrix();
         Tessellator tessellator = Tessellator.getInstance();
-        RenderSystem.setShader(GameRenderer::getPositionColorProgram);
+        RenderSystem.setShader(ShaderProgramKeys.POSITION_COLOR);
         RenderSystem.enableBlend();
         BufferBuilder builder = tessellator.begin(VertexFormat.DrawMode.DEBUG_LINES, VertexFormats.POSITION_COLOR);
 
