@@ -80,6 +80,20 @@ public class UIToggle extends UIClickable<UIToggle> implements ITextColoring
         return this;
     }
 
+    /**
+     * Measure wrapped height from the current area so popup menus can grow
+     * around long toggle labels before the first render.
+     */
+    public UIToggle wrapToWidth()
+    {
+        int labelWidth = Math.max(0, this.area.w - SWITCH_WIDTH - 8);
+
+        this.wrapping(true);
+        this.ensureWrappedLabel(Batcher2D.getDefaultTextRenderer(), labelWidth);
+
+        return this;
+    }
+
     public UIToggle setValue(boolean value)
     {
         this.value = value;

@@ -246,7 +246,8 @@ public class CubicCubeRenderer implements ICubicRenderer
         builder.vertex(this.vertex.x, this.vertex.y, this.vertex.z)
             .color(this.r * group.color.r, this.g * group.color.g, this.b * group.color.b, this.a * group.color.a)
             .texture(vertex.uv.x, vertex.uv.y)
-            .overlay(this.overlay);
+            .overlay(this.overlay)
+            .next();
 
         if (this.stencilMap != null)
         {

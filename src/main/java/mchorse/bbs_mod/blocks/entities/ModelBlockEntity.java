@@ -244,7 +244,23 @@ public class ModelBlockEntity extends BlockEntity
     {
         WrapperLookup registries = world != null ? world.getRegistryManager() : null;
 
-        this.properties.fromData(data, registries);
+        WrapperLookup prev = BBSMod.getRegistryManager();
+        if (registries != null && prev != registries)
+        {
+            BBSMod.setRegistryManager(registries);
+        }
+
+        try
+        {
+            this.properties.fromData(data, registries);
+        }
+        finally
+        {
+            if (registries != null && prev != registries)
+            {
+                BBSMod.setRegistryManager(prev);
+            }
+        }
 
         BlockPos pos = this.getPos();
         BlockState blockState = world.getBlockState(pos);
