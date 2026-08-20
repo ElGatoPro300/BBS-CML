@@ -1,14 +1,23 @@
 package mchorse.bbs_mod.utils.iris;
 
+import mchorse.bbs_mod.BBSSettings;
 import mchorse.bbs_mod.client.BBSRendering;
+import mchorse.bbs_mod.mixin.client.iris.IrisRenderingPipelineAccessor;
+import mchorse.bbs_mod.utils.MatrixStackUtils;
+
+import net.minecraft.block.BlockState;
+import net.minecraft.client.MinecraftClient;
+import net.minecraft.fluid.FluidState;
 
 import net.irisshaders.iris.gl.uniform.UniformUpdateFrequency;
+import net.irisshaders.iris.pipeline.IrisRenderingPipeline;
 import net.irisshaders.iris.pipeline.WorldRenderingPhase;
 import net.irisshaders.iris.pipeline.WorldRenderingPipeline;
+import net.irisshaders.iris.shaderpack.materialmap.WorldRenderingSettings;
 import net.irisshaders.iris.uniforms.custom.cached.CachedUniform;
 import net.irisshaders.iris.uniforms.custom.cached.FloatCachedUniform;
-
-import net.minecraft.client.MinecraftClient;
+import net.irisshaders.iris.vertices.BlockSensitiveBufferBuilder;
+import net.irisshaders.iris.vertices.ExtendedDataHelper;
 
 import org.joml.Matrix4f;
 
@@ -121,8 +130,8 @@ public final class FormFluidShaderPatch
 
     public static boolean shouldPatchPack()
     {
-        if (mchorse.bbs_mod.BBSSettings.irisFormFluidPatch != null
-            && !mchorse.bbs_mod.BBSSettings.irisFormFluidPatch.get())
+        if (BBSSettings.irisFormFluidPatch != null
+            && !BBSSettings.irisFormFluidPatch.get())
         {
             return false;
         }
@@ -254,7 +263,7 @@ public final class FormFluidShaderPatch
                 RenderSystem.depthMask(entry.fluidMode > 1.5F);
 
                 RenderSystem.setProjectionMatrix(entry.projection, VertexSorter.BY_Z);
-                mchorse.bbs_mod.utils.MatrixStackUtils.pushIdentityModelView();
+                MatrixStackUtils.pushIdentityModelView();
 
                 try
                 {
@@ -262,7 +271,7 @@ public final class FormFluidShaderPatch
                 }
                 finally
                 {
-                    mchorse.bbs_mod.utils.MatrixStackUtils.popModelView();
+                    MatrixStackUtils.popModelView();
                 }
             }
         }
@@ -332,7 +341,7 @@ public final class FormFluidShaderPatch
                 uploadToCurrentProgram();
 
                 RenderSystem.setProjectionMatrix(entry.projection, VertexSorter.BY_Z);
-                mchorse.bbs_mod.utils.MatrixStackUtils.pushIdentityModelView();
+                MatrixStackUtils.pushIdentityModelView();
 
                 try
                 {
@@ -341,7 +350,7 @@ public final class FormFluidShaderPatch
                 }
                 finally
                 {
-                    mchorse.bbs_mod.utils.MatrixStackUtils.popModelView();
+                    MatrixStackUtils.popModelView();
                 }
             }
         }
@@ -367,13 +376,13 @@ public final class FormFluidShaderPatch
     {
         try
         {
-            if (!(pipeline instanceof net.irisshaders.iris.pipeline.IrisRenderingPipeline irisPipeline))
+            if (!(pipeline instanceof IrisRenderingPipeline irisPipeline))
             {
                 return;
             }
 
-            mchorse.bbs_mod.mixin.client.iris.IrisRenderingPipelineAccessor access =
-                (mchorse.bbs_mod.mixin.client.iris.IrisRenderingPipelineAccessor) irisPipeline;
+            IrisRenderingPipelineAccessor access =
+                (IrisRenderingPipelineAccessor) irisPipeline;
 
             /* Keep the live depth (terrain + entities + world water) so form water occludes
              * exactly like world water. Copying opaque depth here made it draw over everything. */
@@ -392,9 +401,9 @@ public final class FormFluidShaderPatch
      *
      * @return true when the buffer was tagged and {@link #endFluidBlockTag(Object)} must be called.
      */
-    public static boolean beginFluidBlockTag(Object buffer, net.minecraft.fluid.FluidState fluidState, int luminance)
+    public static boolean beginFluidBlockTag(Object buffer, FluidState fluidState, int luminance)
     {
-        if (!(buffer instanceof net.irisshaders.iris.vertices.BlockSensitiveBufferBuilder sensitive))
+        if (!(buffer instanceof BlockSensitiveBufferBuilder sensitive))
         {
             return false;
         }
@@ -403,7 +412,7 @@ public final class FormFluidShaderPatch
         {
             int id = resolveBlockId(fluidState.getBlockState());
 
-            sensitive.beginBlock(id, (byte) net.irisshaders.iris.vertices.ExtendedDataHelper.FLUID_RENDER_TYPE, (byte) luminance, 0, 0, 0);
+            sensitive.beginBlock(id, (byte) ExtendedDataHelper.FLUID_RENDER_TYPE, (byte) luminance, 0, 0, 0);
 
             return true;
         }
@@ -417,9 +426,9 @@ public final class FormFluidShaderPatch
      * Tag Iris vertices with the real pack block id so Complementary shadow/gbuffer materials
      * match terrain (solids stay solid — not foliage dither).
      */
-    public static boolean beginSolidBlockTag(Object buffer, net.minecraft.block.BlockState state)
+    public static boolean beginSolidBlockTag(Object buffer, BlockState state)
     {
-        if (state == null || !(buffer instanceof net.irisshaders.iris.vertices.BlockSensitiveBufferBuilder sensitive))
+        if (state == null || !(buffer instanceof BlockSensitiveBufferBuilder sensitive))
         {
             return false;
         }
@@ -450,7 +459,7 @@ public final class FormFluidShaderPatch
 
     public static void endBlockTag(Object buffer)
     {
-        if (buffer instanceof net.irisshaders.iris.vertices.BlockSensitiveBufferBuilder sensitive)
+        if (buffer instanceof BlockSensitiveBufferBuilder sensitive)
         {
             try
             {
@@ -464,12 +473,12 @@ public final class FormFluidShaderPatch
     /**
      * Pack block id from block.properties (Complementary: water states → 32000).
      */
-    private static int resolveBlockId(net.minecraft.block.BlockState state)
+    private static int resolveBlockId(BlockState state)
     {
         try
         {
-            it.unimi.dsi.fastutil.objects.Object2IntMap<net.minecraft.block.BlockState> ids =
-                net.irisshaders.iris.shaderpack.materialmap.WorldRenderingSettings.INSTANCE.getBlockStateIds();
+            it.unimi.dsi.fastutil.objects.Object2IntMap<BlockState> ids =
+                WorldRenderingSettings.INSTANCE.getBlockStateIds();
 
             if (ids == null || ids.isEmpty() || !ids.containsKey(state))
             {

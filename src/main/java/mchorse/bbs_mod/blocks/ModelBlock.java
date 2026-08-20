@@ -3,6 +3,7 @@ package mchorse.bbs_mod.blocks;
 import mchorse.bbs_mod.BBSMod;
 import mchorse.bbs_mod.blocks.entities.ModelBlockEntity;
 import mchorse.bbs_mod.forms.forms.Form;
+import mchorse.bbs_mod.forms.structure.ModelBlockSolidCollisions;
 import mchorse.bbs_mod.network.ServerNetwork;
 
 import net.minecraft.block.Block;
@@ -139,7 +140,7 @@ public class ModelBlock extends Block implements BlockEntityProvider, Waterlogga
                 if (be instanceof ModelBlockEntity model)
                 {
                     /* Solid structure/model hitbox uses injected multi-block shapes — avoid a wrong 1×1 cube. */
-                    if (mchorse.bbs_mod.forms.structure.ModelBlockSolidCollisions.hasSolidFormHitbox(model))
+                    if (ModelBlockSolidCollisions.hasSolidFormHitbox(model))
                     {
                         return VoxelShapes.empty();
                     }

@@ -390,8 +390,7 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
             /* Soft-opacity depth write stays opacity-based. */
             boolean depthWrite = ShaderOpacityPatch.shouldWriteDepthForOpacity(color.a);
             boolean gradeOnDeferredDraw = useFormColorGrade || irisDeferredColorGrade;
-            /* Same split as Extruded/ModelForm: Iris restores camera ModelView + entity stack;
-             * BBS path bakes ModelView×stack and draws with identity ModelView. */
+            boolean opacityPatch = ShaderOpacityPatch.isActive();
             boolean irisCamera = opacityPatch && BBSRendering.isIrisWorldModelPass() && !noshadingPaintPath && !gradeOnDeferredDraw;
             Matrix4f positionMatrix = irisCamera
                 ? new Matrix4f(matrix)
@@ -413,8 +412,6 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
             Color legacyGlowSnapshot = legacyGlow;
             boolean emitGlowSnapshot = glowIntensity > 0F && !glowSettings.resolvePaintOnly();
             double distanceSq = 0D;
-            /* Soft-opacity depth write stays opacity-based. */
-            boolean depthWrite = ShaderOpacityPatch.shouldWriteDepthForOpacity(color.a);
             /* Iris deferred: apply FormColorGrade in model.fsh on the post-deferred BBS draw. */
             VertexFormat deferredFormat = VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL;
             Supplier<ShaderProgram> deferredShader = irisCamera
@@ -551,7 +548,7 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
             {
                 ShaderOpacityPatch.submitPostDeferredForm(0D, distanceSq, depthWrite, afterFluids, deferredDraw);
             }
-            else if (opacityPatch && !noshadingPaintPath)
+            else if (ShaderOpacityPatch.isActive() && !noshadingPaintPath)
             {
                 /* Same sorted post-deferred queue as models — render depth low→high, before VL. */
                 ShaderOpacityPatch.submitPostDeferredBbsForm(0D, distanceSq, depthWrite, afterFluids, deferredDraw);

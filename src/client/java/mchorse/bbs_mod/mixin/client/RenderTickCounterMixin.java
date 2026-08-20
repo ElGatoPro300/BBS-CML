@@ -10,13 +10,13 @@ import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.render.RenderTickCounter;
 import net.minecraft.server.MinecraftServer;
 
+import java.util.concurrent.TimeUnit;
+
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
-
-import java.util.concurrent.TimeUnit;
 
 @Mixin(RenderTickCounter.Dynamic.class)
 public class RenderTickCounterMixin

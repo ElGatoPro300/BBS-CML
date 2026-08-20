@@ -298,7 +298,6 @@ public class BOBJModelLoader implements IModelLoader
             System.err.println("Emoticons default animation library is empty; will retry on next load.");
         }
     }
-    }
 
     private Animations convertAnimations(BOBJLoader.BOBJData bobjData, Animations animations)
     {

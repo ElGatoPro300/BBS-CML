@@ -40,6 +40,8 @@ import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.network.ClientPlayerEntity;
 import net.minecraft.util.math.BlockPos;
 
+import org.lwjgl.glfw.GLFW;
+
 import java.util.List;
 
 /**
@@ -634,8 +636,8 @@ public class UIStructurePickerPanel extends UIOverlayPanel
         }
 
         long window = MinecraftClient.getInstance().getWindow().getHandle();
-        boolean lmb = org.lwjgl.glfw.GLFW.glfwGetMouseButton(window, org.lwjgl.glfw.GLFW.GLFW_MOUSE_BUTTON_LEFT) == org.lwjgl.glfw.GLFW.GLFW_PRESS;
-        boolean rmb = org.lwjgl.glfw.GLFW.glfwGetMouseButton(window, org.lwjgl.glfw.GLFW.GLFW_MOUSE_BUTTON_RIGHT) == org.lwjgl.glfw.GLFW.GLFW_PRESS;
+        boolean lmb = GLFW.glfwGetMouseButton(window, GLFW.GLFW_MOUSE_BUTTON_LEFT) == GLFW.GLFW_PRESS;
+        boolean rmb = GLFW.glfwGetMouseButton(window, GLFW.GLFW_MOUSE_BUTTON_RIGHT) == GLFW.GLFW_PRESS;
         boolean overUi = this.isOverSidePanels(context);
         boolean toolDrag = StructurePickerClient.isScaleDragging() || StructurePickerClient.isPlacementDragging();
         boolean trackpadDrag = this.isCoordTrackpadDragging();

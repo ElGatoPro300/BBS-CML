@@ -1,10 +1,11 @@
 package mchorse.bbs_mod.utils;
 
+import mchorse.bbs_mod.camera.clips.modifiers.ShakeClip;
 import mchorse.bbs_mod.camera.data.Position;
 import mchorse.bbs_mod.utils.pose.Transform;
 
 /**
- * Shared shake math for camera {@link mchorse.bbs_mod.camera.clips.modifiers.ShakeClip}
+ * Shared shake math for camera {@link ShakeClip}
  * and model form shake tracks.
  */
 public final class ShakeApplicator

@@ -3,6 +3,7 @@ package mchorse.bbs_mod.ui.framework.elements.input.keyframes.factories;
 import mchorse.bbs_mod.forms.forms.utils.ShakeSettings;
 import mchorse.bbs_mod.ui.UIKeys;
 import mchorse.bbs_mod.ui.film.clips.UIClip;
+import mchorse.bbs_mod.ui.film.clips.UIShakeClip;
 import mchorse.bbs_mod.ui.film.clips.widgets.UIBitToggle;
 import mchorse.bbs_mod.ui.film.replays.UIReplaysEditorUtils;
 import mchorse.bbs_mod.ui.framework.elements.input.UITrackpad;
@@ -14,7 +15,7 @@ import mchorse.bbs_mod.utils.keyframes.Keyframe;
 import java.util.function.Consumer;
 
 /**
- * Keyframe editor for the model {@code shake} track — same layout as {@link mchorse.bbs_mod.ui.film.clips.UIShakeClip}.
+ * Keyframe editor for the model {@code shake} track — same layout as {@link UIShakeClip}.
  */
 public class UIShakeSettingsKeyframeFactory extends UIKeyframeFactory<ShakeSettings>
 {

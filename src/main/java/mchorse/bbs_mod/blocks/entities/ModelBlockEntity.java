@@ -11,6 +11,7 @@ import mchorse.bbs_mod.forms.entities.StubEntity;
 import mchorse.bbs_mod.forms.forms.BillboardForm;
 import mchorse.bbs_mod.forms.forms.Form;
 import mchorse.bbs_mod.forms.forms.LightForm;
+import mchorse.bbs_mod.forms.structure.ModelBlockSolidCollisions;
 import mchorse.bbs_mod.resources.Link;
 
 import net.minecraft.block.Block;
@@ -121,7 +122,7 @@ public class ModelBlockEntity extends BlockEntity
 
         blockEntity.entity.setPosition(x, y, z);
 
-        mchorse.bbs_mod.forms.structure.ModelBlockSolidCollisions.updateRegistration(blockEntity);
+        ModelBlockSolidCollisions.updateRegistration(blockEntity);
 
         /* Initialize previous position/yaw on the very first tick to avoid
          * a huge movement delta (spike) when the block is placed. */
@@ -304,7 +305,7 @@ public class ModelBlockEntity extends BlockEntity
 
         this.markDirty();
         world.markDirty(pos);
-        mchorse.bbs_mod.forms.structure.ModelBlockSolidCollisions.updateRegistration(this);
+        ModelBlockSolidCollisions.updateRegistration(this);
 
         if (blockState != newState)
         {
@@ -319,7 +320,7 @@ public class ModelBlockEntity extends BlockEntity
     @Override
     public void markRemoved()
     {
-        mchorse.bbs_mod.forms.structure.ModelBlockSolidCollisions.unregister(this);
+        ModelBlockSolidCollisions.unregister(this);
         super.markRemoved();
     }
 }

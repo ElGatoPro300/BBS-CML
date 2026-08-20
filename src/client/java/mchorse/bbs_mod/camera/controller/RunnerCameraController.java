@@ -1,5 +1,6 @@
 package mchorse.bbs_mod.camera.controller;
 
+import mchorse.bbs_mod.BBSModClient;
 import mchorse.bbs_mod.camera.Camera;
 import mchorse.bbs_mod.camera.data.Position;
 import mchorse.bbs_mod.ui.film.UIFilmPanel;
@@ -60,7 +61,7 @@ public class RunnerCameraController extends CameraWorkCameraController
     @Override
     public void update()
     {
-        if (mchorse.bbs_mod.BBSModClient.getVideoRecorder().isSettling())
+        if (BBSModClient.getVideoRecorder().isSettling())
         {
             return;
         }

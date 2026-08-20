@@ -39,6 +39,7 @@ import mchorse.bbs_mod.utils.keyframes.KeyframeShape;
 
 import net.minecraft.client.render.BufferBuilder;
 import net.minecraft.client.render.BufferRenderer;
+import net.minecraft.client.render.BuiltBuffer;
 import net.minecraft.client.render.GameRenderer;
 import net.minecraft.client.render.Tessellator;
 import net.minecraft.client.render.VertexFormat;
@@ -2064,7 +2065,7 @@ public class UIKeyframeDopeSheet implements IUIKeyframeGraph
     /** 1.21+ crashes if {@link BufferBuilder#end()} is called with no vertices. */
     private void drawBufferIfAny(BufferBuilder builder)
     {
-        net.minecraft.client.render.BuiltBuffer built = builder.endNullable();
+        BuiltBuffer built = builder.endNullable();
 
         if (built != null)
         {

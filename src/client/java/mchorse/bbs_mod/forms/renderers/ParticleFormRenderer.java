@@ -3,6 +3,7 @@ package mchorse.bbs_mod.forms.renderers;
 import mchorse.bbs_mod.BBSModClient;
 import mchorse.bbs_mod.client.BBSRendering;
 import mchorse.bbs_mod.client.BBSShaders;
+import mchorse.bbs_mod.client.ExportParticleFreeze;
 import mchorse.bbs_mod.forms.ITickable;
 import mchorse.bbs_mod.forms.entities.IEntity;
 import mchorse.bbs_mod.forms.forms.ParticleForm;
@@ -441,7 +442,7 @@ public class ParticleFormRenderer extends FormRenderer<ParticleForm> implements 
     @Override
     public void tick(IEntity entity)
     {
-        if (mchorse.bbs_mod.client.ExportParticleFreeze.isFrozen())
+        if (ExportParticleFreeze.isFrozen())
         {
             return;
         }

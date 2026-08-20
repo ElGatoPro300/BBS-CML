@@ -10,6 +10,7 @@ import mchorse.bbs_mod.events.register.RegisterFilmControllerInteractionEvent;
 import mchorse.bbs_mod.events.register.RegisterFilmEditorFactoriesEvent;
 import mchorse.bbs_mod.events.register.RegisterFilmPreviewEvent;
 import mchorse.bbs_mod.events.register.RegisterFilmSyncEvent;
+import mchorse.bbs_mod.events.register.RegisterFilmUiAddonEvent;
 import mchorse.bbs_mod.events.register.RegisterFormBlendEvent;
 import mchorse.bbs_mod.events.register.RegisterFormCategoriesEvent;
 import mchorse.bbs_mod.events.register.RegisterFormEditorSectionEvent;
@@ -124,12 +125,12 @@ public abstract class BBSClientAddon implements BBSAddonMod
     {}
 
     @Subscribe
-    public void onRegisterFilmUiAddon(mchorse.bbs_mod.events.register.RegisterFilmUiAddonEvent event)
+    public void onRegisterFilmUiAddon(RegisterFilmUiAddonEvent event)
     {
         this.registerFilmUiAddon(event);
     }
 
-    protected void registerFilmUiAddon(mchorse.bbs_mod.events.register.RegisterFilmUiAddonEvent event)
+    protected void registerFilmUiAddon(RegisterFilmUiAddonEvent event)
     {}
 
     @Subscribe

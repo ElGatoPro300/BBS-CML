@@ -5,6 +5,7 @@ import mchorse.bbs_mod.data.types.BaseType;
 import mchorse.bbs_mod.data.types.MapType;
 import mchorse.bbs_mod.events.register.RegisterBBSSettingsEvent;
 import mchorse.bbs_mod.settings.SettingsBuilder;
+import mchorse.bbs_mod.settings.UiStyleCapabilities;
 import mchorse.bbs_mod.settings.values.core.ValueLink;
 import mchorse.bbs_mod.settings.values.core.ValueString;
 import mchorse.bbs_mod.settings.values.numeric.ValueBoolean;
@@ -217,7 +218,7 @@ public class BBSSettings
 
     /**
      * Optional film-UI skin settings (filled by the Minecut addon via
-     * {@link mchorse.bbs_mod.events.register.RegisterBBSSettingsEvent}). Null without the addon.
+     * {@link RegisterBBSSettingsEvent}). Null without the addon.
      */
     public static ValueBoolean minecutDefaultTrackPose;
     public static ValueBoolean minecutDefaultTrackTransform;
@@ -390,9 +391,9 @@ public class BBSSettings
      */
     public static boolean isMinecutUiStyle()
     {
-        return mchorse.bbs_mod.settings.UiStyleCapabilities.isMinecutStyleAvailable()
+        return UiStyleCapabilities.isMinecutStyleAvailable()
             && uiStyle != null
-            && uiStyle.get() == mchorse.bbs_mod.settings.UiStyleCapabilities.MINECUT;
+            && uiStyle.get() == UiStyleCapabilities.MINECUT;
     }
 
     public static int modelEditorHoverColor(float alpha)

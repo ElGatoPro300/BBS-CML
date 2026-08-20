@@ -1,5 +1,7 @@
 package mchorse.bbs_mod.utils.iris;
 
+import mchorse.bbs_mod.BBSSettings;
+
 import java.util.Locale;
 
 /**
@@ -43,8 +45,8 @@ public final class ComplementaryFormGlowPatch
 
     public static boolean isComplementaryPack()
     {
-        if (mchorse.bbs_mod.BBSSettings.irisFormGlowBloomPatch != null
-            && !mchorse.bbs_mod.BBSSettings.irisFormGlowBloomPatch.get())
+        if (BBSSettings.irisFormGlowBloomPatch != null
+            && !BBSSettings.irisFormGlowBloomPatch.get())
         {
             return false;
         }

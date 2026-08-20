@@ -17,10 +17,9 @@ import mchorse.bbs_mod.utils.MathUtils;
 import mchorse.bbs_mod.utils.MatrixStackUtils;
 import mchorse.bbs_mod.utils.colors.Color;
 import mchorse.bbs_mod.utils.interps.Lerps;
+import mchorse.bbs_mod.utils.iris.FormFluidShaderPatch;
 import mchorse.bbs_mod.utils.joml.Vectors;
 import mchorse.bbs_mod.utils.pose.Transform;
-
-import mchorse.bbs_mod.utils.iris.FormFluidShaderPatch;
 
 import net.minecraft.block.BlockEntityProvider;
 import net.minecraft.block.BlockRenderType;
@@ -29,6 +28,7 @@ import net.minecraft.block.Blocks;
 import net.minecraft.block.ShapeContext;
 import net.minecraft.block.entity.BlockEntity;
 import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.color.world.BiomeColors;
 import net.minecraft.client.render.DiffuseLighting;
 import net.minecraft.client.render.LightmapTextureManager;
 import net.minecraft.client.render.OverlayTexture;
@@ -807,7 +807,7 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
             return 0x3F76E4;
         }
 
-        return world.getColor(sample, net.minecraft.client.color.world.BiomeColors.WATER_COLOR);
+        return world.getColor(sample, BiomeColors.WATER_COLOR);
     }
 
     /**
@@ -1570,7 +1570,7 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
         @Override
         public int getColor(BlockPos pos, ColorResolver colorResolver)
         {
-            if (colorResolver == net.minecraft.client.color.world.BiomeColors.WATER_COLOR)
+            if (colorResolver == BiomeColors.WATER_COLOR)
             {
                 return this.cachedBiomeColor;
             }

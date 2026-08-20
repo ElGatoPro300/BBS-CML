@@ -4,7 +4,9 @@ import mchorse.bbs_mod.BBSMod;
 import mchorse.bbs_mod.BBSModClient;
 import mchorse.bbs_mod.BBSSettings;
 import mchorse.bbs_mod.client.BBSRendering;
+import mchorse.bbs_mod.client.ExportChunkSettle;
 import mchorse.bbs_mod.ui.utils.UIUtils;
+import mchorse.bbs_mod.utils.ExportWorldFxFreeze;
 
 import net.minecraft.client.MinecraftClient;
 
@@ -90,8 +92,8 @@ public class VideoRecorder
         /* Chunk wait: freeze drops + particles. Bloom: both run like vanilla (fall / spray). */
         boolean frozen = this.settling && this.settleParticlesFrozen;
 
-        mchorse.bbs_mod.utils.ExportWorldFxFreeze.setParticlesFrozen(frozen);
-        mchorse.bbs_mod.utils.ExportWorldFxFreeze.setItemPhysicsFrozen(frozen);
+        ExportWorldFxFreeze.setParticlesFrozen(frozen);
+        ExportWorldFxFreeze.setItemPhysicsFrozen(frozen);
     }
 
     /**
@@ -173,7 +175,7 @@ public class VideoRecorder
             return false;
         }
 
-        mchorse.bbs_mod.client.ExportChunkSettle.pumpUploads();
+        ExportChunkSettle.pumpUploads();
 
         /* Bloom: terrain ready — unfreeze items + particles so drops fall like vanilla. */
         if (this.settleBloomFramesRemaining > 0)
@@ -209,7 +211,7 @@ public class VideoRecorder
         long now = System.currentTimeMillis();
         boolean softTimedOut = now >= this.settleDeadlineMs;
         boolean hardTimedOut = now >= this.settleHardDeadlineMs;
-        boolean terrainIdle = mchorse.bbs_mod.client.ExportChunkSettle.isTerrainSettled();
+        boolean terrainIdle = ExportChunkSettle.isTerrainSettled();
 
         if (this.settleMinFramesRemaining <= 0 && terrainIdle)
         {

@@ -1730,7 +1730,7 @@ public class UITexturePainter extends UIElement
                     this.selectedImageIndex = i;
                 }
 
-                this.refreshImageRows();
+                this.refreshImageTextureRows();
 
                 return;
             }
@@ -1743,10 +1743,10 @@ public class UITexturePainter extends UIElement
             this.selectedImageIndex = this.imageTextures.size() - 1;
         }
 
-        this.refreshImageRows();
+        this.refreshImageTextureRows();
     }
 
-    private void refreshImageRows()
+    private void refreshImageTextureRows()
     {
         if (this.imageRows == null)
         {

@@ -16,6 +16,7 @@ import mchorse.bbs_mod.cubic.model.loaders.VoxModelLoader;
 import mchorse.bbs_mod.data.DataToString;
 import mchorse.bbs_mod.data.types.BaseType;
 import mchorse.bbs_mod.data.types.MapType;
+import mchorse.bbs_mod.forms.structure.ModelCollisionData;
 import mchorse.bbs_mod.math.molang.MolangParser;
 import mchorse.bbs_mod.resources.AssetProvider;
 import mchorse.bbs_mod.resources.Link;
@@ -319,7 +320,7 @@ public class ModelManager implements IWatchDogListener
 
             this.failedModels.remove(id);
             this.models.put(id, model);
-            mchorse.bbs_mod.forms.structure.ModelCollisionData.invalidate(id);
+            ModelCollisionData.invalidate(id);
         }
 
         return model;
@@ -380,7 +381,7 @@ public class ModelManager implements IWatchDogListener
 
         this.models.clear();
         this.failedModels.clear();
-        mchorse.bbs_mod.forms.structure.ModelCollisionData.invalidateAll();
+        ModelCollisionData.invalidateAll();
         PoseManager.INSTANCE.clear();
         ShapeKeysManager.INSTANCE.clear();
         this.setupLoaders();

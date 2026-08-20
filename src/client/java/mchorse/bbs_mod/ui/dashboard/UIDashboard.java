@@ -7,6 +7,9 @@ import mchorse.bbs_mod.camera.Camera;
 import mchorse.bbs_mod.camera.OrbitCamera;
 import mchorse.bbs_mod.camera.controller.OrbitCameraController;
 import mchorse.bbs_mod.client.BBSRendering;
+import mchorse.bbs_mod.client.video.VideoFormEngine;
+import mchorse.bbs_mod.client.video.VideoFormPlayback;
+import mchorse.bbs_mod.client.video.VideoRenderer;
 import mchorse.bbs_mod.discord.DiscordPresenceManager;
 import mchorse.bbs_mod.events.register.RegisterDashboardPanelsEvent;
 import mchorse.bbs_mod.events.register.RegisterDockLayoutEvent;
@@ -309,9 +312,9 @@ public class UIDashboard extends UIBaseMenu
         BBSModClient.getCameraController().remove(this.camera);
 
         /* Escape/close often skips panel.disappear() — free VLC/ffmpeg caches here too. */
-        mchorse.bbs_mod.client.video.VideoRenderer.releaseAllPlayers();
-        mchorse.bbs_mod.client.video.VideoFormEngine.releaseAll();
-        mchorse.bbs_mod.client.video.VideoFormPlayback.releaseAll();
+        VideoRenderer.releaseAllPlayers();
+        VideoFormEngine.releaseAll();
+        VideoFormPlayback.releaseAll();
 
         MinecraftClient.getInstance().options.setPerspective(this.lastPerspective);
     }

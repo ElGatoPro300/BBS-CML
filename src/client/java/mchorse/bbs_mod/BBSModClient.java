@@ -14,14 +14,15 @@ import mchorse.bbs_mod.client.BBSRendering;
 import mchorse.bbs_mod.client.BBSShaders;
 import mchorse.bbs_mod.client.PendingFilmLaunch;
 import mchorse.bbs_mod.client.StructurePickerClient;
-import mchorse.bbs_mod.client.video.VideoFormEngine;
-import mchorse.bbs_mod.client.video.VideoRenderer;
+import mchorse.bbs_mod.client.StructurePickerRenderer;
 import mchorse.bbs_mod.client.renderer.ModelBlockEntityRenderer;
 import mchorse.bbs_mod.client.renderer.TriggerBlockEntityRenderer;
 import mchorse.bbs_mod.client.renderer.entity.ActorEntityRenderer;
 import mchorse.bbs_mod.client.renderer.entity.GunProjectileEntityRenderer;
 import mchorse.bbs_mod.client.renderer.item.GunItemRenderer;
 import mchorse.bbs_mod.client.renderer.item.ModelBlockItemRenderer;
+import mchorse.bbs_mod.client.video.VideoFormEngine;
+import mchorse.bbs_mod.client.video.VideoRenderer;
 import mchorse.bbs_mod.cubic.model.ModelManager;
 import mchorse.bbs_mod.discord.DiscordPresenceManager;
 import mchorse.bbs_mod.events.BBSAddonMod;
@@ -32,6 +33,7 @@ import mchorse.bbs_mod.events.register.RegisterDockLayoutEvent;
 import mchorse.bbs_mod.events.register.RegisterFilmControllerInteractionEvent;
 import mchorse.bbs_mod.events.register.RegisterFilmPreviewEvent;
 import mchorse.bbs_mod.events.register.RegisterFilmSyncEvent;
+import mchorse.bbs_mod.events.register.RegisterFilmUiAddonEvent;
 import mchorse.bbs_mod.events.register.RegisterFormBlendEvent;
 import mchorse.bbs_mod.events.register.RegisterFormCategoriesEvent;
 import mchorse.bbs_mod.events.register.RegisterFormEditorSectionEvent;
@@ -67,6 +69,7 @@ import mchorse.bbs_mod.forms.FormUIPreviewCache;
 import mchorse.bbs_mod.forms.FormUtilsClient;
 import mchorse.bbs_mod.forms.categories.UserFormCategory;
 import mchorse.bbs_mod.forms.forms.Form;
+import mchorse.bbs_mod.forms.structure.ModelCollisionLiveBake;
 import mchorse.bbs_mod.graphics.Draw;
 import mchorse.bbs_mod.graphics.FramebufferManager;
 import mchorse.bbs_mod.graphics.texture.TextureManager;
@@ -86,6 +89,7 @@ import mchorse.bbs_mod.resources.packs.URLSourcePack;
 import mchorse.bbs_mod.resources.packs.URLTextureErrorCallback;
 import mchorse.bbs_mod.selectors.EntitySelectors;
 import mchorse.bbs_mod.settings.Settings;
+import mchorse.bbs_mod.settings.UiStyleCapabilities;
 import mchorse.bbs_mod.settings.ui.UISettingsOverlayPanel;
 import mchorse.bbs_mod.settings.ui.UIValueMap;
 import mchorse.bbs_mod.settings.values.IValueListener;
@@ -94,6 +98,7 @@ import mchorse.bbs_mod.ui.UIKeys;
 import mchorse.bbs_mod.ui.dashboard.UIDashboard;
 import mchorse.bbs_mod.ui.dashboard.WorldPropertiesHelper;
 import mchorse.bbs_mod.ui.dashboard.panels.UIDashboardPanel;
+import mchorse.bbs_mod.ui.film.FilmUiCapabilities;
 import mchorse.bbs_mod.ui.film.UIFilmPanel;
 import mchorse.bbs_mod.ui.film.replays.UIMobCaptureRecordOverlayPanel;
 import mchorse.bbs_mod.ui.film.replays.overlays.UIQuickReplayOverlayPanel;
@@ -105,6 +110,7 @@ import mchorse.bbs_mod.ui.framework.UIScreen;
 import mchorse.bbs_mod.ui.framework.elements.input.keyframes.factories.UIKeyframeFactory;
 import mchorse.bbs_mod.ui.framework.elements.input.keyframes.shapes.KeyframeShapeRenderers;
 import mchorse.bbs_mod.ui.framework.elements.utils.CustomFontManager;
+import mchorse.bbs_mod.ui.framework.styles.UIStyle;
 import mchorse.bbs_mod.ui.model.UIModelPanel;
 import mchorse.bbs_mod.ui.model_blocks.UIModelBlockEditorMenu;
 import mchorse.bbs_mod.ui.morphing.UIMorphingPanel;
@@ -137,6 +143,7 @@ import net.fabricmc.fabric.api.event.player.AttackBlockCallback;
 import net.fabricmc.fabric.api.event.player.UseBlockCallback;
 import net.fabricmc.fabric.impl.client.rendering.BlockEntityRendererRegistryImpl;
 import net.fabricmc.loader.api.FabricLoader;
+import net.fabricmc.loader.api.entrypoint.EntrypointContainer;
 import net.fabricmc.loader.api.metadata.ContactInformation;
 import net.fabricmc.loader.api.metadata.ModMetadata;
 import net.fabricmc.loader.api.metadata.Person;
@@ -157,6 +164,7 @@ import net.minecraft.client.util.Window;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.entity.EquipmentSlot;
 import net.minecraft.item.ItemStack;
+import net.minecraft.server.MinecraftServer;
 import net.minecraft.util.ActionResult;
 import net.minecraft.util.Hand;
 
@@ -169,8 +177,12 @@ import org.lwjgl.glfw.GLFW;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
+import java.util.concurrent.TimeUnit;
+import java.util.function.Consumer;
 
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
@@ -273,7 +285,7 @@ public class BBSModClient implements ClientModInitializer
         }
 
         MinecraftClient client = MinecraftClient.getInstance();
-        net.minecraft.server.MinecraftServer server = client.getServer();
+        MinecraftServer server = client.getServer();
 
         if (server == null)
         {
@@ -284,7 +296,7 @@ public class BBSModClient implements ClientModInitializer
 
         try
         {
-            server.submit(() -> BBSMod.getActions().syncActionsTo(filmTime)).get(100L, java.util.concurrent.TimeUnit.MILLISECONDS);
+            server.submit(() -> BBSMod.getActions().syncActionsTo(filmTime)).get(100L, TimeUnit.MILLISECONDS);
         }
         catch (Exception e)
         {
@@ -473,7 +485,7 @@ public class BBSModClient implements ClientModInitializer
     @Override
     public void onInitializeClient()
     {
-        mchorse.bbs_mod.forms.structure.ModelCollisionLiveBake.register();
+        ModelCollisionLiveBake.register();
 
         AttackBlockCallback.EVENT.register((player, world, hand, pos, direction) ->
         {
@@ -562,7 +574,7 @@ public class BBSModClient implements ClientModInitializer
         BBSMod.events.post(new RegisterStencilMapEvent());
         BBSMod.events.post(new RegisterRayTracingEvent());
         BBSMod.events.post(new RegisterFilmPreviewEvent());
-        BBSMod.events.post(new mchorse.bbs_mod.events.register.RegisterFilmUiAddonEvent());
+        BBSMod.events.post(new RegisterFilmUiAddonEvent());
         BBSMod.events.post(new RegisterReplayListContextMenuEvent());
         BBSMod.events.post(new RegisterReplayPanelEvent());
         BBSMod.events.post(new RegisterUIThemeEvent());
@@ -709,8 +721,8 @@ public class BBSModClient implements ClientModInitializer
         );
         BBSSettings.uiStyle.modes(UIKeys.ENGINE_UI_STYLE_CLASSIC);
 
-        if (mchorse.bbs_mod.settings.UiStyleCapabilities.isMinecutStyleAvailable()
-            || mchorse.bbs_mod.ui.film.FilmUiCapabilities.hasAddon())
+        if (UiStyleCapabilities.isMinecutStyleAvailable()
+            || FilmUiCapabilities.hasAddon())
         {
             BBSSettings.uiStyle.modes(
                 UIKeys.ENGINE_UI_STYLE_CLASSIC,
@@ -724,7 +736,7 @@ public class BBSModClient implements ClientModInitializer
 
         BBSSettings.uiStyle.postCallback((v, f) ->
         {
-            mchorse.bbs_mod.ui.framework.styles.UIStyle.invalidateMinecutCache();
+            UIStyle.invalidateMinecutCache();
 
             if (dashboard != null)
             {
@@ -858,8 +870,8 @@ public class BBSModClient implements ClientModInitializer
             Draw.flushIrisBoxes();
 
             /* After clouds / translucents / model blocks so selection+gizmos stay on top. */
-            mchorse.bbs_mod.client.StructurePickerRenderer.render(context);
-            mchorse.bbs_mod.graphics.Draw.flushIrisBoxes();
+            StructurePickerRenderer.render(context);
+            Draw.flushIrisBoxes();
 
             if (Gizmo.INSTANCE.hasDeferred())
             {
@@ -1067,9 +1079,9 @@ public class BBSModClient implements ClientModInitializer
         ClientNetwork.setup();
 
         /* Register addons from FabricLoader (common + client-only entrypoints). */
-        java.util.Set<String> registeredAddonIds = new java.util.HashSet<>();
+        Set<String> registeredAddonIds = new HashSet<>();
 
-        java.util.function.Consumer<net.fabricmc.loader.api.entrypoint.EntrypointContainer<BBSAddonMod>> registerCatalog =
+        Consumer<EntrypointContainer<BBSAddonMod>> registerCatalog =
             (container) ->
             {
                 ModMetadata meta = container.getProvider().getMetadata();

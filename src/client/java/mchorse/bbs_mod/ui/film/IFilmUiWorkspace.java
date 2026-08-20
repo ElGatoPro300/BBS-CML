@@ -1,5 +1,6 @@
 package mchorse.bbs_mod.ui.film;
 
+import mchorse.bbs_mod.ui.film.FilmUiCapabilities;
 import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.ui.framework.elements.UIElement;
 
@@ -7,7 +8,7 @@ import java.util.Map;
 
 /**
  * Optional Minecut (or other) film chrome remounted around classic film widgets.
- * Provided by a Fabric addon via {@link mchorse.bbs_mod.ui.film.FilmUiCapabilities}.
+ * Provided by a Fabric addon via {@link FilmUiCapabilities}.
  */
 public interface IFilmUiWorkspace
 {

@@ -1,7 +1,9 @@
 package mchorse.bbs_mod.forms.forms.utils;
 
+import mchorse.bbs_mod.forms.forms.VideoForm;
+
 /**
- * Decode / display resolution presets for {@link mchorse.bbs_mod.forms.forms.VideoForm}.
+ * Decode / display resolution presets for {@link VideoForm}.
  * {@code 0} means native (no artificial downscale). Other values are max long-side pixels.
  */
 public final class VideoResolution

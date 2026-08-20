@@ -1016,7 +1016,7 @@ public class ActionPlayer
             return false;
         }
 
-        int relative = tick - actionClip.tick.get();
+        int relative = tick - actionClip.getTickInt();
         int frequency = actionClip.frequency.get();
 
         if (frequency == 0)
@@ -1153,6 +1153,19 @@ public class ActionPlayer
             this.serverPlayer.experienceProgress = this.cacheXpProgress;
             this.serverPlayer.setExperienceLevel(this.cacheXpLevel);
         }
+    }
+
+    private boolean isControlledReplay(String replayId)
+    {
+        if (this.controlledReplay < 0 || replayId == null)
+        {
+            return false;
+        }
+
+        List<Replay> list = this.film.replays.getList();
+
+        return this.controlledReplay < list.size()
+            && replayId.equals(list.get(this.controlledReplay).getId());
     }
 
     public void toggle()

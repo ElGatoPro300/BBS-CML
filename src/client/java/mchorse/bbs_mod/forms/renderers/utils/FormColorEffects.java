@@ -4,6 +4,7 @@ import mchorse.bbs_mod.forms.forms.utils.GlowSettings;
 import mchorse.bbs_mod.forms.forms.utils.PaintSettings;
 import mchorse.bbs_mod.utils.MathUtils;
 import mchorse.bbs_mod.utils.colors.Color;
+import mchorse.bbs_mod.utils.iris.FormGlowBloomPatch;
 
 public class FormColorEffects
 {
@@ -91,12 +92,12 @@ public class FormColorEffects
             return;
         }
 
-        mchorse.bbs_mod.utils.iris.FormGlowBloomPatch.setFromGlow(glow, fallback);
+        FormGlowBloomPatch.setFromGlow(glow, fallback);
 
         if (intensity > 0F)
         {
             /* Complementary/BSL: FormGlowBloomPatch drives pack emission — keep form Color intact. */
-            if (mchorse.bbs_mod.utils.iris.FormGlowBloomPatch.shouldSkipAlbedoBrighten())
+            if (FormGlowBloomPatch.shouldSkipAlbedoBrighten())
             {
                 return;
             }

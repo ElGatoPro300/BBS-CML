@@ -8,12 +8,9 @@ import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.sound.PositionedSoundInstance;
 import net.minecraft.sound.SoundEvents;
 
-import javax.swing.JFileChooser;
-import javax.swing.UIManager;
-import javax.swing.filechooser.FileNameExtensionFilter;
-
 import java.awt.FileDialog;
 import java.awt.Frame;
+import java.awt.Toolkit;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
@@ -22,6 +19,10 @@ import java.nio.charset.StandardCharsets;
 import java.util.Locale;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
+
+import javax.swing.JFileChooser;
+import javax.swing.UIManager;
+import javax.swing.filechooser.FileNameExtensionFilter;
 
 public class UIUtils
 {
@@ -380,7 +381,7 @@ public class UIUtils
         try
         {
             System.setProperty("java.awt.headless", "false");
-            java.awt.Toolkit.getDefaultToolkit();
+            Toolkit.getDefaultToolkit();
             AWT_READY.set(true);
         }
         catch (Throwable t)

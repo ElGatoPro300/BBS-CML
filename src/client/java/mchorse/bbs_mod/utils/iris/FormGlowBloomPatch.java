@@ -1,5 +1,6 @@
 package mchorse.bbs_mod.utils.iris;
 
+import mchorse.bbs_mod.BBSSettings;
 import mchorse.bbs_mod.forms.forms.utils.GlowSettings;
 import mchorse.bbs_mod.utils.colors.Color;
 
@@ -153,8 +154,8 @@ public final class FormGlowBloomPatch
 
     public static boolean shouldPatchPack()
     {
-        if (mchorse.bbs_mod.BBSSettings.irisFormGlowBloomPatch != null
-            && !mchorse.bbs_mod.BBSSettings.irisFormGlowBloomPatch.get())
+        if (BBSSettings.irisFormGlowBloomPatch != null
+            && !BBSSettings.irisFormGlowBloomPatch.get())
         {
             return false;
         }

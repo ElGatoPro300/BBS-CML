@@ -1,6 +1,7 @@
 package mchorse.bbs_mod.ui;
 
 import mchorse.bbs_mod.BBSMod;
+import mchorse.bbs_mod.items.StructurePickerMode;
 import mchorse.bbs_mod.l10n.L10n;
 import mchorse.bbs_mod.l10n.keys.IKey;
 import mchorse.bbs_mod.l10n.keys.KeyCollection;
@@ -1213,7 +1214,7 @@ public class UIKeys
     public static final IKey STRUCTURE_PICKER_PLACE_CANCEL = L10n.lang("bbs.ui.items.structure_picker.place_cancel");
     public static final IKey STRUCTURE_PICKER_PLACE_HINT = L10n.lang("bbs.ui.items.structure_picker.place_hint");
     public static final IKey STRUCTURE_PICKER_BROWSE_TITLE = L10n.lang("bbs.ui.items.structure_picker.browse_title");
-    /** Indexed by {@link mchorse.bbs_mod.items.StructurePickerMode#index}. */
+    /** Indexed by {@link StructurePickerMode#index}. */
     public static final IKey[] STRUCTURE_PICKER_MODE_LABELS = new IKey[]
     {
         STRUCTURE_PICKER_MODE_BLOCK,

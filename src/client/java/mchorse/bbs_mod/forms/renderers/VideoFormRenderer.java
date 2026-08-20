@@ -7,6 +7,7 @@ import mchorse.bbs_mod.client.BBSShaders;
 import mchorse.bbs_mod.client.video.VideoFormEngine;
 import mchorse.bbs_mod.client.video.VideoFormPlayback;
 import mchorse.bbs_mod.client.video.VideoRenderer;
+import mchorse.bbs_mod.film.replays.Replay;
 import mchorse.bbs_mod.forms.ITickable;
 import mchorse.bbs_mod.forms.entities.IEntity;
 import mchorse.bbs_mod.forms.forms.VideoForm;
@@ -37,10 +38,11 @@ import net.minecraft.client.util.math.MatrixStack;
 
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
-import org.lwjgl.opengl.GL11;
-import org.lwjgl.opengl.GL13;
 
 import com.mojang.blaze3d.systems.RenderSystem;
+
+import org.lwjgl.opengl.GL11;
+import org.lwjgl.opengl.GL13;
 
 import java.io.File;
 import java.util.function.Supplier;
@@ -335,7 +337,7 @@ public class VideoFormRenderer extends FormRenderer<VideoForm> implements ITicka
 
         try
         {
-            mchorse.bbs_mod.film.replays.Replay replay = filmPanel.replayEditor.getReplay();
+            Replay replay = filmPanel.replayEditor.getReplay();
 
             if (replay == null || replay.properties == null)
             {

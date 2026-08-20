@@ -3909,8 +3909,11 @@ public class UIFormList extends UIElement
                         int py = previewAreaY + (i / CATEGORY_PREVIEW_COLUMNS) * (cellH + CATEGORY_PREVIEW_GAP);
 
                         context.batcher.box(px, py, px + cellW, py + cellH, Colors.A25);
+                        Form form = forms.get(i);
+                        FavoriteMarker marker = UIFormList.this.getFavoriteMarker(form);
+
                         context.batcher.clip(px, py, cellW, cellH, context);
-                        UIFormList.this.renderFormThumbnailStatic(context, forms.get(i), px, py, px + cellW, py + cellH);
+                        UIFormList.this.renderFormThumbnailStatic(context, form, px, py, px + cellW, py + cellH);
                         context.batcher.unclip(context);
 
                         if (marker != null)

@@ -27,6 +27,7 @@ import net.minecraft.util.math.Vec3i;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -321,7 +322,7 @@ public class StructurePickerExporter
 
         form.structureFile.set(structurePath);
 
-        net.minecraft.block.BlockState modelState = BBSMod.MODEL_BLOCK.getDefaultState()
+        BlockState modelState = BBSMod.MODEL_BLOCK.getDefaultState()
             .with(Properties.WATERLOGGED, world.getFluidState(center).isOf(Fluids.WATER))
             .with(ModelBlock.LIGHT_LEVEL, 0);
 
@@ -556,7 +557,7 @@ public class StructurePickerExporter
                 return NbtIo.readCompressed(file.toPath(), NbtSizeTracker.ofUnlimitedBytes());
             }
 
-            try (java.io.InputStream stream = BBSMod.getProvider().getAsset(link))
+            try (InputStream stream = BBSMod.getProvider().getAsset(link))
             {
                 if (stream == null)
                 {

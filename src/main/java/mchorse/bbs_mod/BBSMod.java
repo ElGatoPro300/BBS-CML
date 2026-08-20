@@ -80,7 +80,6 @@ import mchorse.bbs_mod.film.FilmManager;
 import mchorse.bbs_mod.forms.FormArchitect;
 import mchorse.bbs_mod.forms.forms.AnchorForm;
 import mchorse.bbs_mod.forms.forms.BillboardForm;
-import mchorse.bbs_mod.forms.forms.VideoForm;
 import mchorse.bbs_mod.forms.forms.BlockForm;
 import mchorse.bbs_mod.forms.forms.ExtrudedForm;
 import mchorse.bbs_mod.forms.forms.FluidForm;
@@ -95,6 +94,7 @@ import mchorse.bbs_mod.forms.forms.ShapeForm;
 import mchorse.bbs_mod.forms.forms.StructureForm;
 import mchorse.bbs_mod.forms.forms.TrailForm;
 import mchorse.bbs_mod.forms.forms.VanillaParticleForm;
+import mchorse.bbs_mod.forms.forms.VideoForm;
 import mchorse.bbs_mod.items.BlockPickerItem;
 import mchorse.bbs_mod.items.GunItem;
 import mchorse.bbs_mod.items.MobKillerItem;
@@ -168,6 +168,8 @@ import net.minecraft.world.GameRules;
 
 import java.io.File;
 import java.io.InputStream;
+import java.nio.file.Files;
+import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -438,7 +440,7 @@ public class BBSMod implements ModInitializer
                     return;
                 }
 
-                java.nio.file.Files.copy(stream, out.toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                Files.copy(stream, out.toPath(), StandardCopyOption.REPLACE_EXISTING);
                 System.out.println("Extracted bundled asset to " + out.getAbsolutePath());
             }
         }

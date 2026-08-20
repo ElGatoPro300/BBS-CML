@@ -7,6 +7,7 @@ import mchorse.bbs_mod.ui.film.toolbar.TimelineInteractionHints;
 import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.ui.framework.elements.UIElement;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIIcon;
+import mchorse.bbs_mod.ui.utils.icons.Icon;
 import mchorse.bbs_mod.ui.utils.icons.Icons;
 import mchorse.bbs_mod.utils.colors.Colors;
 
@@ -93,7 +94,7 @@ public class UIFilmStatusIcons extends UIElement
         }
     }
 
-    public void applyCoreIcons(mchorse.bbs_mod.ui.utils.icons.Icon warning, mchorse.bbs_mod.ui.utils.icons.Icon loop, mchorse.bbs_mod.ui.utils.icons.Icon save)
+    public void applyCoreIcons(Icon warning, Icon loop, Icon save)
     {
         if (warning != null)
         {
