@@ -156,9 +156,11 @@ import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
+import mchorse.bbs_mod.utils.iris.IrisUtils;
 
 public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSupported, IUIOrbitKeysHandler, ICursor
 {
+    private static boolean hasSyncedShaders;
     private RunnerCameraController runner;
     private boolean lastRunning;
     private boolean clearingSelections;
@@ -5462,6 +5464,20 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
         this.syncFilmActorPlayback(true);
         /* Dashboard close must not clear the out-of-editor HUD; re-assert after appear. */
         this.syncSelectedReplayHud();
+
+        this.syncIrisShaderState(true);
+    }
+
+    private void syncIrisShaderState(boolean inFilmEditor)
+    {
+        if (BBSRendering.isIrisShadersEnabled())
+        {
+            if (hasSyncedShaders != inFilmEditor)
+            {
+                hasSyncedShaders = inFilmEditor;
+                IrisUtils.reloadShaders();
+            }
+        }
     }
 
     @Override
@@ -5493,6 +5509,8 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
 
         this.notifyServer(ActionState.STOP);
 
+        this.syncIrisShaderState(false);
+
         /* Keep selectedReplay / Right-Alt session while the film stays loaded.
          * Clearing here hid the top-left HUD after closing BBS with 0 even though
          * the film was still open. Session ends only when the film is closed
@@ -5517,6 +5535,7 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
         this.disableContext();
         this.fullscreenPlaybackBar.removeFromParent();
         this.syncFilmActorPlayback(false);
+        this.syncIrisShaderState(false);
     }
 
     /**
