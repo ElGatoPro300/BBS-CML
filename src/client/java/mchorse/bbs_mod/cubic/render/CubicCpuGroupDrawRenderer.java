@@ -3,18 +3,24 @@ package mchorse.bbs_mod.cubic.render;
 import mchorse.bbs_mod.BBSModClient;
 import mchorse.bbs_mod.cubic.data.model.Model;
 import mchorse.bbs_mod.cubic.data.model.ModelGroup;
+import mchorse.bbs_mod.cubic.data.model.ModelVertex;
 import mchorse.bbs_mod.cubic.render.vao.ModelVAORenderer;
 import mchorse.bbs_mod.obj.shapes.ShapeKeys;
 import mchorse.bbs_mod.resources.Link;
 import mchorse.bbs_mod.ui.framework.elements.utils.StencilMap;
+import mchorse.bbs_mod.utils.MathUtils;
+import mchorse.bbs_mod.utils.interps.Lerps;
 
 import net.minecraft.client.gl.ShaderProgram;
 import net.minecraft.client.render.BufferBuilder;
 import net.minecraft.client.render.BufferRenderer;
+import net.minecraft.client.render.LightmapTextureManager;
 import net.minecraft.client.render.Tessellator;
 import net.minecraft.client.render.VertexFormat;
 import net.minecraft.client.render.VertexFormats;
 import net.minecraft.client.util.math.MatrixStack;
+
+import org.joml.Vector3f;
 
 /**
  * Shape-key CPU geometry must draw one model group per call so PaintColor, GlowingColor, and
@@ -109,24 +115,9 @@ public class CubicCpuGroupDrawRenderer extends CubicCubeRenderer
         ModelVAORenderer.setGroupColorEffectTransform(group.color.transform);
         ModelVAORenderer.setGroupFormColorTint(group.color);
 
-        float savedR = this.r;
-        float savedG = this.g;
-        float savedB = this.b;
         float savedA = this.a;
 
-        float cr = this.r;
-        float cg = this.g;
-        float cb = this.b;
-
-        if (!group.color.hasActiveTransform())
-        {
-            cr *= group.color.r;
-            cg *= group.color.g;
-            cb *= group.color.b;
-            alpha *= group.color.a;
-        }
-
-        this.setColor(cr, cg, cb, alpha);
+        this.setColor(this.r, this.g, this.b, alpha);
 
         BufferBuilder groupBuilder = Tessellator.getInstance().begin(VertexFormat.DrawMode.TRIANGLES, VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL);
 
@@ -145,6 +136,45 @@ public class CubicCpuGroupDrawRenderer extends CubicCubeRenderer
             /* Empty or invalid buffer */
         }
 
-        this.setColor(savedR, savedG, savedB, savedA);
+        this.setColor(this.r, this.g, this.b, savedA);
+    }
+
+    @Override
+    protected void writeVertex(BufferBuilder builder, MatrixStack stack, ModelGroup group, ModelVertex vertex, Vector3f normal)
+    {
+        this.vertex.set(vertex.vertex.x, vertex.vertex.y, vertex.vertex.z, 1);
+        stack.peek().getPositionMatrix().transform(this.vertex);
+
+        float vr = this.r;
+        float vg = this.g;
+        float vb = this.b;
+        float va = this.a;
+
+        if (!group.color.hasActiveTransform())
+        {
+            vr *= group.color.r;
+            vg *= group.color.g;
+            vb *= group.color.b;
+            va *= group.color.a;
+        }
+
+        builder.vertex(this.vertex.x, this.vertex.y, this.vertex.z)
+            .color(vr, vg, vb, va)
+            .texture(vertex.uv.x, vertex.uv.y)
+            .overlay(this.overlay);
+
+        if (this.stencilMap != null)
+        {
+            builder.light(this.stencilMap.increment ? group.index : 0, 0);
+        }
+        else
+        {
+            int u = (int) Lerps.lerp(this.light & '\uffff', LightmapTextureManager.MAX_BLOCK_LIGHT_COORDINATE, MathUtils.clamp(group.lighting, 0F, 1F));
+            int v = this.light >> 16 & '\uffff';
+
+            builder.light(u, v);
+        }
+
+        builder.normal(normal.x, normal.y, normal.z);
     }
 }

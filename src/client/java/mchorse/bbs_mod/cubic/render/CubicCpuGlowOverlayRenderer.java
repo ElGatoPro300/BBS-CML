@@ -11,6 +11,7 @@ import mchorse.bbs_mod.ui.framework.elements.utils.StencilMap;
 import mchorse.bbs_mod.utils.MathUtils;
 import mchorse.bbs_mod.utils.colors.Color;
 
+import net.minecraft.client.gl.GlUniform;
 import net.minecraft.client.gl.ShaderProgram;
 import net.minecraft.client.render.BufferBuilder;
 import net.minecraft.client.render.BufferRenderer;
@@ -125,6 +126,21 @@ public class CubicCpuGlowOverlayRenderer extends CubicCubeRenderer
         try
         {
             ModelVAORenderer.setupUniformsCpuPretransformed(this.shader);
+
+            GlUniform glowing = this.shader.getUniform("GlowingColor");
+
+            if (glowing != null)
+            {
+                glowing.set(0F, 0F, 0F, 0F);
+            }
+
+            GlUniform paint = this.shader.getUniform("PaintColor");
+
+            if (paint != null)
+            {
+                paint.set(0F, 0F, 0F, 0F);
+            }
+
             this.shader.bind();
             BufferRenderer.drawWithGlobalProgram(groupBuilder.end());
             this.shader.unbind();
