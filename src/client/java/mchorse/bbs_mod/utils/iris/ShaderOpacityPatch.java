@@ -422,7 +422,6 @@ public class ShaderOpacityPatch
         {
         }
     }
-
     public static void flushPostDeferredForms()
     {
         flushPostDeferredForms(null);

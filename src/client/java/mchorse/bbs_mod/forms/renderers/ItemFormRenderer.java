@@ -374,10 +374,16 @@ public class ItemFormRenderer extends FormRenderer<ItemForm>
         Matrix4f formRootInverse = new Matrix4f(stack.peek().getPositionMatrix()).invert();
 
         CustomVertexConsumerProvider.clearRunnables();
-        CustomVertexConsumerProvider.hijackVertexFormat((l) -> BlockEffectOverlayUniforms.configureColorTintOverlayRenderState(formRootInverse, formColor.transform, false, formColor, 0.5F, gradeSource));
+        CustomVertexConsumerProvider.hijackVertexFormat((l) -> {
+            BlockEffectOverlayUniforms.configureColorTintOverlayRenderState(formRootInverse, formColor.transform, false, formColor, 0.5F, gradeSource);
+            GL11.glDisable(GL11.GL_POLYGON_OFFSET_FILL);
+        });
 
         GlStateManager._enableBlend();
         GlStateManager._depthMask(false);
+
+        boolean wasOffset = GL11.glGetBoolean(GL11.GL_POLYGON_OFFSET_FILL);
+        if (wasOffset) GL11.glDisable(GL11.GL_POLYGON_OFFSET_FILL);
 
         consumers.setSubstitute(BBSRendering.getBlockColorTintOverlayConsumer());
         consumers.setUI(ui);
@@ -389,6 +395,11 @@ public class ItemFormRenderer extends FormRenderer<ItemForm>
         }
         finally
         {
+            if (wasOffset) GL11.glEnable(GL11.GL_POLYGON_OFFSET_FILL);
+            else GL11.glDisable(GL11.GL_POLYGON_OFFSET_FILL);
+
+            GL11.glPolygonOffset(0F, 0F);
+
             consumers.setUI(false);
             consumers.setSubstitute(null);
             GlStateManager._depthMask(true);
@@ -479,7 +490,7 @@ public class ItemFormRenderer extends FormRenderer<ItemForm>
             else GL11.glDisable(GL11.GL_POLYGON_OFFSET_FILL);
 
             GL11.glPolygonOffset(0F, 0F);
-            
+
             consumers.setUI(false);
             consumers.setSubstitute(null);
             GlStateManager._depthMask(true);
