@@ -2272,9 +2272,9 @@ public class UIFilmController extends UIElement
             this.stencil.apply();
 
             /* Closest bone along the cursor ray must win; glow/gizmo passes can leave depthMask off. */
-            RenderSystem.enableDepthTest();
-            RenderSystem.depthFunc(GL11.GL_LEQUAL);
-            RenderSystem.depthMask(true);
+            GlStateManager._enableDepthTest();
+            GlStateManager._depthFunc(GL11.GL_LEQUAL);
+            GlStateManager._depthMask(true);
 
             if (altPressed)
             {
@@ -2375,7 +2375,7 @@ public class UIFilmController extends UIElement
                             }
                         }
 
-                        float transition = isPlaying ? renderContext.tickCounter().getTickDelta(false) : 0F;
+                        float transition = isPlaying ? MinecraftClient.getInstance().getRenderTickCounter().getTickProgress(false) : 0F;
                         float propertyTick = currentReplay.getTick(cursorTick) + transition;
 
                         BaseFilmController.renderEntity(FilmControllerContext.instance
