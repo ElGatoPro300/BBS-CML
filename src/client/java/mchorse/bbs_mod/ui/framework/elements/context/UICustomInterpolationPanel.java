@@ -7,6 +7,7 @@ import mchorse.bbs_mod.l10n.keys.IKey;
 import mchorse.bbs_mod.ui.UIKeys;
 import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.ui.framework.elements.UIElement;
+import mchorse.bbs_mod.ui.framework.elements.UIScrollView;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIButton;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIIcon;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIToggle;
@@ -54,6 +55,7 @@ public class UICustomInterpolationPanel extends UIOverlayPanel
     public UIButton useBase;
     public UICustomInterpolationKeyframes keyframes;
     public UIButton save;
+    public UIScrollView sidebar;
 
     private CustomInterpolation interpolation;
     private boolean firstResize = true;
@@ -66,6 +68,7 @@ public class UICustomInterpolationPanel extends UIOverlayPanel
     {
         super(UIKeys.INTERPOLATIONS_CUSTOM_TITLE);
 
+        this.minSize(320, 200);
         this.interpolation = new CustomInterpolation("custom");
         this.undoManager = new UndoManager<>(50);
 
@@ -108,12 +111,12 @@ public class UICustomInterpolationPanel extends UIOverlayPanel
         this.save = new UIButton(UIKeys.INTERPOLATIONS_CUSTOM_SAVE, (b) -> this.saveInterpolation());
 
         UILabel label = UI.label(UIKeys.INTERPOLATIONS_CUSTOM_NAME).color(Colors.WHITE, true);
-        UIElement sidebar = UI.column(5, 10, label, this.name, this.continuous, this.samples, this.clamp, this.useBase, this.save);
+        this.sidebar = UI.scrollView(5, 10, label, this.name, this.continuous, this.samples, this.clamp, this.useBase, this.save);
 
-        sidebar.relative(this.content).x(1F).y(0).w(140).h(1F).anchorX(1F);
+        this.sidebar.relative(this.content).x(1F).y(0).w(140).h(1F).anchorX(1F);
         this.keyframes.relative(this.content).x(0).y(0).w(1F, -140).h(1F);
 
-        this.content.add(sidebar, this.keyframes);
+        this.content.add(this.sidebar, this.keyframes);
         
         this.lastState = new MapType();
         this.lastState.put("channel", channel.toData());

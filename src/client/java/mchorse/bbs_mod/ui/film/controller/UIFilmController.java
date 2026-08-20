@@ -1836,7 +1836,7 @@ public class UIFilmController extends UIElement
             y += font.getHeight() + 7;
         }
 
-        if (BBSSettings.editorFilmOverlayVisible.get())
+        if (BBSSettings.editorFilmOverlayVisible.get() && area.w >= 100 && area.h >= 60)
         {
             Replay replay = this.panel.replayEditor.getReplay();
 
@@ -2218,7 +2218,7 @@ public class UIFilmController extends UIElement
 
     private boolean canShowGizmo()
     {
-        if (!UIBaseMenu.renderAxes || this.recording || this.getBone() == null)
+        if (!UIBaseMenu.renderAxes || this.recording || this.getBone() == null || (this.panel != null && (this.panel.preview.area.w < 100 || this.panel.preview.area.h < 60)))
         {
             return false;
         }
