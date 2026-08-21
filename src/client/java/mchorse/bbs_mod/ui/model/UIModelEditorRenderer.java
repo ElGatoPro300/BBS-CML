@@ -786,8 +786,7 @@ public class UIModelEditorRenderer extends UIModelRenderer implements GizmoSurfa
         Tessellator tessellator = Tessellator.getInstance();
         RenderSystem.setShader(GameRenderer::getPositionColorProgram);
         RenderSystem.enableBlend();
-        BufferBuilder builder = tessellator.getBuffer();
-        builder.begin(VertexFormat.DrawMode.DEBUG_LINES, VertexFormats.POSITION_COLOR);
+        BufferBuilder builder = tessellator.begin(VertexFormat.DrawMode.DEBUG_LINES, VertexFormats.POSITION_COLOR);
 
         for (ModelQuad quad : this.selectedCube.quads)
         {
@@ -826,8 +825,7 @@ public class UIModelEditorRenderer extends UIModelRenderer implements GizmoSurfa
         Tessellator tessellator = Tessellator.getInstance();
         RenderSystem.setShader(GameRenderer::getPositionColorProgram);
         RenderSystem.enableBlend();
-        BufferBuilder builder = tessellator.getBuffer();
-        builder.begin(VertexFormat.DrawMode.DEBUG_LINES, VertexFormats.POSITION_COLOR);
+        BufferBuilder builder = tessellator.begin(VertexFormat.DrawMode.DEBUG_LINES, VertexFormats.POSITION_COLOR);
 
         for (ModelGroup group : model.getAllGroups())
         {
@@ -1061,8 +1059,8 @@ public class UIModelEditorRenderer extends UIModelRenderer implements GizmoSurfa
 
     private void line(BufferBuilder builder, Matrix4f matrix, Vector3f a, Vector3f b, float r, float g, float bl, float alpha)
     {
-        builder.vertex(matrix, a.x, a.y, a.z).color(r, g, bl, alpha).next();
-        builder.vertex(matrix, b.x, b.y, b.z).color(r, g, bl, alpha).next();
+        builder.vertex(matrix, a.x, a.y, a.z).color(r, g, bl, alpha);
+        builder.vertex(matrix, b.x, b.y, b.z).color(r, g, bl, alpha);
     }
 
     private int getBoneStencilId(String bone)

@@ -196,31 +196,64 @@ public class ModelBlockEntity extends BlockEntity
     }
 
     @Override
-    public NbtCompound toInitialChunkDataNbt()
+    public NbtCompound toInitialChunkDataNbt(WrapperLookup registryLookup)
     {
-        return this.createNbtWithId();
+        return this.createNbtWithId(registryLookup);
     }
 
     @Override
-    protected void writeNbt(NbtCompound nbt)
+    protected void writeNbt(NbtCompound nbt, WrapperLookup registryLookup)
     {
-        super.writeNbt(nbt);
+        super.writeNbt(nbt, registryLookup);
 
-        MapType data = this.properties.toData();
+        /* Pass registryLookup — chunk load/save can run before BBSMod.getRegistryManager()
+         * is set; without it ItemStack decode/encode returns EMPTY and wipes equipment. */
+        WrapperLookup prev = BBSMod.getRegistryManager();
+        if (registryLookup != null && prev != registryLookup)
+        {
+            BBSMod.setRegistryManager(registryLookup);
+        }
 
-        DataStorageUtils.writeToNbtCompound(nbt, "Properties", data);
+        try
+        {
+            MapType data = this.properties.toData(registryLookup);
+            DataStorageUtils.writeToNbtCompound(nbt, "Properties", data);
+        }
+        finally
+        {
+            if (registryLookup != null && prev != registryLookup)
+            {
+                BBSMod.setRegistryManager(prev);
+            }
+        }
     }
 
     @Override
-    public void readNbt(NbtCompound nbt)
+    public void readNbt(NbtCompound nbt, WrapperLookup registryLookup)
     {
-        super.readNbt(nbt);
+        super.readNbt(nbt, registryLookup);
 
         BaseType baseType = DataStorageUtils.readFromNbtCompound(nbt, "Properties");
 
         if (baseType instanceof MapType mapType)
         {
-            this.properties.fromData(mapType);
+            WrapperLookup prev = BBSMod.getRegistryManager();
+            if (registryLookup != null && prev != registryLookup)
+            {
+                BBSMod.setRegistryManager(registryLookup);
+            }
+
+            try
+            {
+                this.properties.fromData(mapType, registryLookup);
+            }
+            finally
+            {
+                if (registryLookup != null && prev != registryLookup)
+                {
+                    BBSMod.setRegistryManager(prev);
+                }
+            }
         }
         /* Ensure block state reflects stored light level when chunk/block is loaded */
         if (this.world != null && !this.world.isClient)

@@ -20,6 +20,7 @@ import net.minecraft.client.render.Tessellator;
 import net.minecraft.client.render.VertexConsumer;
 import net.minecraft.client.render.VertexFormat;
 import net.minecraft.client.render.VertexFormats;
+import net.minecraft.client.util.BufferAllocator;
 import net.minecraft.client.util.math.MatrixStack;
 
 import org.joml.Matrix3f;
@@ -98,9 +99,8 @@ public class FramebufferFormRenderer extends FormRenderer<FramebufferForm>
         GL30.glCullFace(GL30.GL_FRONT);
         RenderSystem.setShaderLights(new Vector3f(0F, 0F, 1F), new Vector3f(0F, 0F, 1F));
         RenderSystem.setProjectionMatrix(new Matrix4f().setOrtho(-1F, 1F, 1F, -1F, -500F, 500F), VertexSorter.BY_Z);
-        MatrixStack mvStack = RenderSystem.getModelViewStack();
-        mvStack.push();
-        mvStack.loadIdentity();
+        RenderSystem.getModelViewStack().pushMatrix();
+        RenderSystem.getModelViewStack().identity();
         RenderSystem.applyModelViewMatrix();
 
         framebuffer.apply();
@@ -125,7 +125,7 @@ public class FramebufferFormRenderer extends FormRenderer<FramebufferForm>
         GL30.glViewport(0, 0, width, height);
 
         RenderSystem.setShaderLights(light0, light1);
-        mvStack.pop();
+        RenderSystem.getModelViewStack().popMatrix();
         RenderSystem.applyModelViewMatrix();
         RenderSystem.setProjectionMatrix(projectionMatrix, VertexSorter.BY_Z);
         GL30.glCullFace(GL30.GL_BACK);
@@ -172,8 +172,7 @@ public class FramebufferFormRenderer extends FormRenderer<FramebufferForm>
 
     private void renderQuad(VertexFormat format, Texture texture, Supplier<ShaderProgram> shader, MatrixStack matrices, int overlay, int light, int overlayColor, float transition)
     {
-        BufferBuilder builder = Tessellator.getInstance().getBuffer();
-        builder.begin(VertexFormat.DrawMode.TRIANGLES, format);
+        BufferBuilder builder = Tessellator.getInstance().begin(VertexFormat.DrawMode.TRIANGLES, format);
         Color color = Color.white();
         MatrixStack.Entry entry = matrices.peek();
         Matrix4f matrix = entry.getPositionMatrix();
@@ -222,20 +221,18 @@ public class FramebufferFormRenderer extends FormRenderer<FramebufferForm>
         }
     }
 
-    private void fill(VertexFormat format, VertexConsumer consumer, Matrix4f matrix, float x, float y, Color color, float u, float v, int overlay, int light, MatrixStack.Entry entry, float nz)
+    private VertexConsumer fill(VertexFormat format, VertexConsumer consumer, Matrix4f matrix, float x, float y, Color color, float u, float v, int overlay, int light, MatrixStack.Entry entry, float nz)
     {
         if (format == VertexFormats.POSITION_TEXTURE_LIGHT_COLOR)
         {
-            consumer.vertex(matrix, x, y, 0F).texture(u, v).light(light).color(color.r, color.g, color.b, color.a).next();
-            return;
+            return consumer.vertex(matrix, x, y, 0F).texture(u, v).light(light).color(color.r, color.g, color.b, color.a);
         }
 
         if (format == VertexFormats.POSITION_TEXTURE_COLOR)
         {
-            consumer.vertex(matrix, x, y, 0F).texture(u, v).color(color.r, color.g, color.b, color.a).next();
-            return;
+            return consumer.vertex(matrix, x, y, 0F).texture(u, v).color(color.r, color.g, color.b, color.a);
         }
 
-        consumer.vertex(matrix, x, y, 0F).color(color.r, color.g, color.b, color.a).texture(u, v).overlay(overlay).light(light).normal(entry.getNormalMatrix(), 0F, 0F, nz).next();
+        return consumer.vertex(matrix, x, y, 0F).color(color.r, color.g, color.b, color.a).texture(u, v).overlay(overlay).light(light).normal(entry, 0F, 0F, nz);
     }
 }

@@ -251,8 +251,7 @@ public class CubicCubeRenderer implements ICubicRenderer
                 MathUtils.clamp(this.a * group.color.a, 0F, 1F)
             )
             .texture(vertex.uv.x, vertex.uv.y)
-            .overlay(this.overlay)
-            .next();
+            .overlay(this.overlay);
 
         if (this.stencilMap != null)
         {
@@ -266,7 +265,7 @@ public class CubicCubeRenderer implements ICubicRenderer
             builder.light(u, v);
         }
 
-        builder.normal(normal.x, normal.y, normal.z).next();
+        builder.normal(normal.x, normal.y, normal.z);
     }
 
     protected float resolveEffectiveGlowStrength(ModelGroup group)
