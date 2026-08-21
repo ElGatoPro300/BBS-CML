@@ -631,8 +631,6 @@ public class BBSRendering
                 framebuffer.blitToScreen();
             }
 
-            /* beginWrite() used to re-bind the window FBO; without this the UI keeps
-             * drawing into the video-resolution buffer and distorts with export size. */
             if (target != null && target != framebuffer)
             {
                 reassignFramebuffer(target);

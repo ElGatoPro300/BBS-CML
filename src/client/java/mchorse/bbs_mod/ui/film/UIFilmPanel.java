@@ -5466,7 +5466,8 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
 
     private void syncIrisShaderState(boolean inFilmEditor)
     {
-        if (BBSRendering.isIrisShadersEnabled())
+        if (BBSRendering.isIrisShadersEnabled() && IrisUtils.isExternalLODRenderingActive()
+            && (BBSSettings.lodShaderReloadFix == null || BBSSettings.lodShaderReloadFix.get()))
         {
             if (hasSyncedShaders != inFilmEditor)
             {
@@ -5772,6 +5773,9 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
 
         if (matchesLoaded)
         {
+            this.discardProvisionalPosePreviews();
+            this.requestThumbnailCapture();
+            this.save();
             this.fill(null);
         }
     }
