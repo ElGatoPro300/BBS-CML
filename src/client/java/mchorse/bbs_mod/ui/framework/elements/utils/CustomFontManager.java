@@ -4,23 +4,19 @@ import mchorse.bbs_mod.BBSSettings;
 
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.font.Font;
-import net.minecraft.client.font.FontFilterType;
 import net.minecraft.client.font.FontStorage;
-import net.minecraft.client.font.FreeTypeUtil;
 import net.minecraft.client.font.TextRenderer;
 import net.minecraft.client.font.TrueTypeFont;
 import net.minecraft.util.Identifier;
 
-import org.lwjgl.PointerBuffer;
+import org.lwjgl.stb.STBTTFontinfo;
+import org.lwjgl.stb.STBTruetype;
 import org.lwjgl.system.MemoryUtil;
-import org.lwjgl.util.freetype.FT_Face;
-import org.lwjgl.util.freetype.FreeType;
 
 import java.io.File;
 import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.util.List;
-import java.util.Set;
 
 /**
  * Loads a user-selected TrueType (.ttf) font at runtime and exposes it as a Minecraft {@link TextRenderer}
@@ -28,9 +24,9 @@ import java.util.Set;
  */
 public class CustomFontManager
 {
-    private static final Identifier FONT_ID = Identifier.of("bbs", "custom_ui_font");
+    private static final Identifier FONT_ID = new Identifier("bbs", "custom_ui_font");
 
-    private static final Identifier BUNDLED_FONT_ID = Identifier.of("bbs", "rtl_ui_font");
+    private static final Identifier BUNDLED_FONT_ID = new Identifier("bbs", "rtl_ui_font");
 
     private static TextRenderer customRenderer;
 
@@ -223,31 +219,19 @@ public class CustomFontManager
             buffer.put(bytes);
             buffer.flip();
 
-            FT_Face face;
-
-            synchronized (FreeTypeUtil.LOCK)
+            STBTTFontinfo info = STBTTFontinfo.create();
+            if (!STBTruetype.stbtt_InitFont(info, buffer))
             {
-                long library = FreeTypeUtil.initialize();
-                PointerBuffer pointer = MemoryUtil.memAllocPointer(1);
-
-                try
-                {
-                    FreeTypeUtil.checkFatalError(FreeType.FT_New_Memory_Face(library, buffer, 0L, pointer), "Initializing font face");
-                    face = FT_Face.create(pointer.get(0));
-                }
-                finally
-                {
-                    MemoryUtil.memFree(pointer);
-                }
+                throw new IllegalStateException("Failed to initialize STBTTFontinfo for font");
             }
 
-            TrueTypeFont font = new TrueTypeFont(buffer, face, getFontPointSize(), 2F, 0F, 0F, "");
+            TrueTypeFont font = new TrueTypeFont(buffer, info, getFontPointSize(), 2F, 0F, 0F, "");
 
             ownedByFont = true;
 
             FontStorage storage = new FontStorage(MinecraftClient.getInstance().getTextureManager(), fontId);
 
-            storage.setFonts(List.of(new Font.FontFilterPair(font, FontFilterType.FilterMap.NO_FILTER)), Set.of());
+            storage.setFonts(List.of(font));
 
             TextRenderer renderer = new TextRenderer((id) -> storage, false);
 

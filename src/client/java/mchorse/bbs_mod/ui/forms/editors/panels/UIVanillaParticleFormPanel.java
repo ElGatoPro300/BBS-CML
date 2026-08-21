@@ -146,7 +146,7 @@ public class UIVanillaParticleFormPanel extends UIFormPanel<VanillaParticleForm>
                 }
                 else
                 {
-                    this.setEffect(Identifier.of(l));
+                    this.setEffect(new Identifier(l));
                 }
             });
 

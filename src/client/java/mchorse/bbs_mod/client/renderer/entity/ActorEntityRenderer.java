@@ -97,7 +97,7 @@ public class ActorEntityRenderer extends EntityRenderer<ActorEntity>
     @Override
     public Identifier getTexture(ActorEntity entity)
     {
-        return Identifier.of("minecraft:textures/entity/player/wide/steve.png");
+        return new Identifier("minecraft", "textures/entity/player/wide/steve.png");
     }
 
     @Override
@@ -120,6 +120,7 @@ public class ActorEntityRenderer extends EntityRenderer<ActorEntity>
 
         this.setupTransforms(livingEntity, matrices, bodyYaw, animDelta);
 
+        BBSRendering.setupMatchingWorldDiffuseLighting();
         RenderSystem.enableBlend();
         RenderSystem.enableDepthTest();
         FormUtilsClient.render(livingEntity.getForm(), new FormRenderingContext()

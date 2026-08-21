@@ -279,8 +279,9 @@ public final class FormUIPreviewCache
             new Matrix4f().ortho(0F, renderW, renderH, 0F, -1000F, 3000F),
             VertexSorter.BY_Z
         );
-        RenderSystem.getModelViewStack().pushMatrix();
-        RenderSystem.getModelViewStack().identity();
+        MatrixStack mvStack = RenderSystem.getModelViewStack();
+        mvStack.push();
+        mvStack.loadIdentity();
         RenderSystem.applyModelViewMatrix();
         matrices.push();
         matrices.peek().getPositionMatrix().identity();
@@ -312,7 +313,7 @@ public final class FormUIPreviewCache
         scratchFramebuffer.unbind();
 
         matrices.pop();
-        RenderSystem.getModelViewStack().popMatrix();
+        mvStack.pop();
         RenderSystem.applyModelViewMatrix();
         RenderSystem.setProjectionMatrix(previousProjection, VertexSorter.BY_Z);
 

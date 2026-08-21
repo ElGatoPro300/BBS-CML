@@ -20,11 +20,10 @@ import net.minecraft.client.render.model.BakedModelManager;
 import net.minecraft.client.texture.Sprite;
 import net.minecraft.client.texture.SpriteAtlasTexture;
 import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.component.DataComponentTypes;
-import net.minecraft.component.type.DyedColorComponent;
 import net.minecraft.entity.EquipmentSlot;
 import net.minecraft.item.ArmorItem;
 import net.minecraft.item.ArmorMaterial;
+import net.minecraft.item.DyeableArmorItem;
 import net.minecraft.item.ElytraItem;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
@@ -42,7 +41,7 @@ import java.util.Map;
 public class ArmorRenderer
 {
     private static final Map<String, Identifier> ARMOR_TEXTURE_CACHE = Maps.newHashMap();
-    private static final Identifier ELYTRA_TEXTURE = Identifier.of("minecraft", "textures/entity/elytra.png");
+    private static final Identifier ELYTRA_TEXTURE = new Identifier("minecraft", "textures/entity/elytra.png");
     /** Outward shell — avoids coplanar z-fight with armor in film/world cameras (044b2f4a6). */
     private static final float TRIM_OUTER_SCALE = 1.005F;
     /** Inward shell — uniform outer scale alone hides trim on inner armor faces. */
@@ -91,7 +90,7 @@ public class ArmorRenderer
                 this.elytraModel.rightWing.pivotY = 0.0F;
                 this.elytraModel.rightWing.pivotZ = 0.0F;
 
-                float transition = MinecraftClient.getInstance().getRenderTickCounter().getTickDelta(true);
+                float transition = MinecraftClient.getInstance().getTickDelta();
                 float flyProgress = entity != null ? entity.getFallFlyingProgress(transition) : 0F;
 
                 this.elytraModel.leftWing.pitch = MathHelper.lerp(flyProgress, 0.2617994F, 0.35F);
@@ -102,11 +101,11 @@ public class ArmorRenderer
                 this.elytraModel.rightWing.roll = -this.elytraModel.leftWing.roll;
 
                 VertexConsumer consumer = vertexConsumers.getBuffer(RenderLayer.getArmorCutoutNoCull(ELYTRA_TEXTURE));
-                this.elytraModel.render(matrices, consumer, light, OverlayTexture.DEFAULT_UV);
+                this.elytraModel.render(matrices, consumer, light, OverlayTexture.DEFAULT_UV, 1F, 1F, 1F, 1F);
 
                 if (itemStack.hasGlint())
                 {
-                    this.elytraModel.render(matrices, vertexConsumers.getBuffer(RenderLayer.getArmorEntityGlint()), light, OverlayTexture.DEFAULT_UV);
+                    this.elytraModel.render(matrices, vertexConsumers.getBuffer(RenderLayer.getArmorEntityGlint()), light, OverlayTexture.DEFAULT_UV, 1F, 1F, 1F, 1F);
                 }
 
                 matrices.pop();
@@ -128,10 +127,9 @@ public class ArmorRenderer
                 part.pitch = part.yaw = part.roll = 0F;
                 part.xScale = part.yScale = part.zScale = 1F;
 
-                DyedColorComponent dyed = itemStack.get(DataComponentTypes.DYED_COLOR);
-                if (dyed != null)
+                if (armorItem instanceof DyeableArmorItem dyeableArmorItem)
                 {
-                    int color = dyed.rgb();
+                    int color = dyeableArmorItem.getColor(itemStack);
                     float r = (float)(color >> 16 & 255) / 255.0F;
                     float g = (float)(color >> 8 & 255) / 255.0F;
                     float b = (float)(color & 255) / 255.0F;
@@ -144,7 +142,7 @@ public class ArmorRenderer
                     this.renderArmorParts(part, matrices, vertexConsumers, light, armorItem, innerModel, 1F, 1F, 1F, null);
                 }
 
-                ArmorTrim trim = itemStack.get(DataComponentTypes.TRIM);
+                ArmorTrim trim = entity != null && entity.getWorld() != null ? ArmorTrim.getTrim(entity.getWorld().getRegistryManager(), itemStack, true).orElse(null) : null;
                 boolean hasTrim = trim != null;
                 boolean hasGlint = itemStack.hasGlint();
 
@@ -199,7 +197,7 @@ public class ArmorRenderer
         part.render(matrices, vertexConsumer, light, OverlayTexture.DEFAULT_UV);
     }
 
-    private void renderTrim(ModelPart part, RegistryEntry<ArmorMaterial> material, MatrixStack matrices, VertexConsumerProvider vertexConsumers, int light, ArmorTrim trim, boolean leggings, boolean withGlint)
+    private void renderTrim(ModelPart part, ArmorMaterial material, MatrixStack matrices, VertexConsumerProvider vertexConsumers, int light, ArmorTrim trim, boolean leggings, boolean withGlint)
     {
         Sprite sprite = this.armorTrimsAtlas.getSprite(leggings ? trim.getLeggingsModelId(material) : trim.getGenericModelId(material));
         VertexConsumer trimConsumer = sprite.getTextureSpecificVertexConsumer(vertexConsumers.getBuffer(TexturedRenderLayers.getArmorTrims(trim.getPattern().value().decal())));
@@ -250,13 +248,13 @@ public class ArmorRenderer
 
     private Identifier getArmorTexture(ArmorItem item, boolean secondLayer, String overlay)
     {
-        String materialName = item.getMaterial().getKey().map(k -> k.getValue().getPath()).orElse("unknown");
+        String materialName = item.getMaterial().getName();
         String id = "textures/models/armor/" + materialName + "_layer_" + (secondLayer ? 2 : 1) + (overlay == null ? "" : "_" + overlay) + ".png";
 
         Identifier found = ARMOR_TEXTURE_CACHE.get(id);
         if (found == null)
         {
-            found = Identifier.of("minecraft", id);
+            found = new Identifier("minecraft", id);
             ARMOR_TEXTURE_CACHE.put(id, found);
         }
 

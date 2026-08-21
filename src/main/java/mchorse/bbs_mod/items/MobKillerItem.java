@@ -10,7 +10,7 @@ public class MobKillerItem extends SwordItem
 {
     public MobKillerItem(Settings settings)
     {
-        super(ToolMaterials.WOOD, settings);
+        super(ToolMaterials.WOOD, 3, -2.4F, settings);
     }
 
     @Override

@@ -117,7 +117,8 @@ public class CubicCpuGlowOverlayRenderer extends CubicCubeRenderer
 
         this.setColor(1F, 1F, 1F, alpha);
 
-        BufferBuilder groupBuilder = Tessellator.getInstance().begin(VertexFormat.DrawMode.TRIANGLES, VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL);
+        BufferBuilder groupBuilder = Tessellator.getInstance().getBuffer();
+        groupBuilder.begin(VertexFormat.DrawMode.TRIANGLES, VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL);
 
         super.renderGroup(groupBuilder, stack, group, model);
 
@@ -173,6 +174,6 @@ public class CubicCpuGlowOverlayRenderer extends CubicCubeRenderer
             builder.light(LightmapTextureManager.MAX_LIGHT_COORDINATE);
         }
 
-        builder.normal(normal.x, normal.y, normal.z);
+        builder.normal(normal.x, normal.y, normal.z).next();
     }
 }

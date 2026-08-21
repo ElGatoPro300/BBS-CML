@@ -26,7 +26,7 @@ public class ShadowMatricesMixin
 {
     @Inject(method = "createBaselineModelViewMatrix", at = @At("RETURN"), require = 0)
     private static void bbs$yawShadowBaseline(MatrixStack target, float shadowAngle, float sunPathRotation,
-        float nearPlane, float farPlane, CallbackInfo ci)
+        CallbackInfo ci)
     {
         float degrees = SunPathRotation.getLightYawDegrees();
 
