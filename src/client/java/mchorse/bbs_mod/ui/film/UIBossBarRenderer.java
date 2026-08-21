@@ -2,6 +2,7 @@ package mchorse.bbs_mod.ui.film;
 
 import mchorse.bbs_mod.camera.clips.misc.BossBarState;
 import mchorse.bbs_mod.ui.framework.elements.utils.Batcher2D;
+import mchorse.bbs_mod.utils.colors.Colors;
 
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.util.math.MatrixStack;
@@ -80,21 +81,11 @@ public class UIBossBarRenderer
 
         DrawContext context = batcher.getContext();
 
-        setShaderColor(context, 1F, 1F, 1F, alpha);
-        context.drawGuiTexture(BOSS_BAR_BACKGROUND, x, barY, displayWidth, displayHeight);
+        batcher.box(x, barY, x + displayWidth, barY + displayHeight, Colors.setA(Colors.WHITE, alpha));
 
         if (progressWidth > 0)
         {
-            int color = bossBar.color;
-
-            setShaderColor(
-                context,
-                ((color >> 16) & 0xFF) / 255F,
-                ((color >> 8) & 0xFF) / 255F,
-                (color & 0xFF) / 255F,
-                alpha
-            );
-            context.drawGuiTexture(BOSS_BAR_PROGRESS, x, barY, progressWidth, displayHeight);
+            batcher.box(x, barY, x + progressWidth, barY + displayHeight, applyAlpha(bossBar.color, alpha));
         }
 
         if (hasText)

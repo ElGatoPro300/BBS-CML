@@ -173,8 +173,7 @@ public class FormUtilsClient
             map.put(TexturedRenderLayers.getChest(), new BufferBuilder(786432));
             /* Trim before glint — ArmorEntityGlint is EQUAL depth (vanilla BufferBuilderStorage
              * has no trim entry; our dual-shell trim must depth-write first). */
-            FormUtilsClient.assignBuffer(map, TexturedRenderLayers.getArmorTrims(false));
-            FormUtilsClient.assignBuffer(map, TexturedRenderLayers.getArmorTrims(true));
+            FormUtilsClient.assignBuffer(map, TexturedRenderLayers.getArmorTrims());
             FormUtilsClient.assignBuffer(map, RenderLayer.getArmorEntityGlint());
             FormUtilsClient.assignBuffer(map, RenderLayer.getGlint());
             FormUtilsClient.assignBuffer(map, RenderLayer.getGlintTranslucent());

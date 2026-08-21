@@ -1,6 +1,7 @@
 package mchorse.bbs_mod.client;
 
 import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.server.integrated.IntegratedServerLoader;
 import net.minecraft.util.WorldSavePath;
 import net.minecraft.world.level.storage.LevelStorage;
@@ -52,6 +53,6 @@ public class WorldLaunchHelper
 
         IntegratedServerLoader loader = client.createIntegratedServerLoader();
 
-        loader.start(worldFolder, PendingFilmLaunch::clear);
+        loader.start(null, worldFolder);
     }
 }
