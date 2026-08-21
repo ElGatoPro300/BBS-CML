@@ -244,7 +244,12 @@ public class CubicCubeRenderer implements ICubicRenderer
         stack.peek().getPositionMatrix().transform(this.vertex);
 
         builder.vertex(this.vertex.x, this.vertex.y, this.vertex.z)
-            .color(this.r * group.color.r, this.g * group.color.g, this.b * group.color.b, this.a * group.color.a)
+            .color(
+                MathUtils.clamp(this.r * group.color.r, 0F, 1F),
+                MathUtils.clamp(this.g * group.color.g, 0F, 1F),
+                MathUtils.clamp(this.b * group.color.b, 0F, 1F),
+                MathUtils.clamp(this.a * group.color.a, 0F, 1F)
+            )
             .texture(vertex.uv.x, vertex.uv.y)
             .overlay(this.overlay)
             .next();

@@ -12,7 +12,8 @@ import org.lwjgl.glfw.GLFW;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 
-public class UIDraggable extends UIElement {
+public class UIDraggable extends UIElement
+{
     private Consumer<UIContext> callback;
     private Consumer<UIContext> render;
     private Supplier<Vector2i> reference;
@@ -32,61 +33,71 @@ public class UIDraggable extends UIElement {
     private int threshold;
     private boolean thresholdMet;
 
-    public UIDraggable(Consumer<UIContext> callback) {
+    public UIDraggable(Consumer<UIContext> callback)
+    {
         this.callback = callback;
     }
 
-    public UIDraggable hoverOnly() {
+    public UIDraggable hoverOnly()
+    {
         this.hover = true;
 
         return this;
     }
 
-    public UIDraggable rendering(Consumer<UIContext> render) {
+    public UIDraggable rendering(Consumer<UIContext> render)
+    {
         this.render = render;
 
         return this;
     }
 
-    public UIDraggable reference(Supplier<Vector2i> reference) {
+    public UIDraggable reference(Supplier<Vector2i> reference)
+    {
         this.reference = reference;
 
         return this;
     }
 
-    public UIDraggable referenceAxis(boolean x, boolean y) {
+    public UIDraggable referenceAxis(boolean x, boolean y)
+    {
         this.referenceX = x;
         this.referenceY = y;
 
         return this;
     }
 
-    public UIDraggable dragEnd(Runnable callback) {
+    public UIDraggable dragEnd(Runnable callback)
+    {
         this.dragEndCallback = callback;
 
         return this;
     }
 
-    public UIDraggable cursor(int cursor) {
+    public UIDraggable cursor(int cursor)
+    {
         this.hoverCursor = cursor;
 
         return this;
     }
 
-    public UIDraggable dragCursor(int cursor) {
+    public UIDraggable dragCursor(int cursor)
+    {
         this.dragCursor = cursor;
 
         return this;
     }
 
-    public UIDraggable cursors(int hoverCursor, int dragCursor) {
+    public UIDraggable cursors(int hoverCursor, int dragCursor)
+    {
         this.hoverCursor = hoverCursor;
         this.dragCursor = dragCursor;
 
         return this;
     }
 
-    public UIDraggable threshold(int threshold) {
+    public UIDraggable threshold(int threshold)
+    {
         this.threshold = threshold;
 
         return this;
@@ -99,17 +110,20 @@ public class UIDraggable extends UIElement {
      * as if the handle
      * weren't there. Defaults to always enabled.
      */
-    public UIDraggable enabled(Supplier<Boolean> enabled) {
+    public UIDraggable enabled(Supplier<Boolean> enabled)
+    {
         this.enabled = enabled != null ? enabled : () -> true;
 
         return this;
     }
 
-    public boolean isDragging() {
+    public boolean isDragging()
+    {
         return this.dragging;
     }
 
-    public boolean isActivelyDragging() {
+    public boolean isActivelyDragging()
+    {
         return this.dragging && this.thresholdMet;
     }
 
@@ -118,18 +132,23 @@ public class UIDraggable extends UIElement {
      * (e.g. its panel was torn out into a floating window), because a hidden
      * element never receives the mouse release that would normally reset it.
      */
-    public void resetDrag() {
+    public void resetDrag()
+    {
         this.dragging = false;
         this.thresholdMet = false;
     }
 
-    public void updateDrag(UIContext context) {
-        if (this.dragging && this.callback != null) {
-            if (!this.thresholdMet) {
+    public void updateDrag(UIContext context)
+    {
+        if (this.dragging && this.callback != null)
+        {
+            if (!this.thresholdMet)
+            {
                 int dx = context.mouseX - this.mouseX;
                 int dy = context.mouseY - this.mouseY;
 
-                if (Math.abs(dx) < this.threshold && Math.abs(dy) < this.threshold) {
+                if (Math.abs(dx) < this.threshold && Math.abs(dy) < this.threshold)
+                {
                     return;
                 }
 
@@ -139,12 +158,15 @@ public class UIDraggable extends UIElement {
             int mouseX = context.mouseX;
             int mouseY = context.mouseY;
 
-            if (this.referenceMouse != null) {
-                if (this.referenceX) {
+            if (this.referenceMouse != null)
+            {
+                if (this.referenceX)
+                {
                     context.mouseX = this.referenceMouse.x + (mouseX - this.mouseX);
                 }
 
-                if (this.referenceY) {
+                if (this.referenceY)
+                {
                     context.mouseY = this.referenceMouse.y + (mouseY - this.mouseY);
                 }
             }
@@ -157,14 +179,17 @@ public class UIDraggable extends UIElement {
     }
 
     @Override
-    protected boolean subMouseClicked(UIContext context) {
-        if (this.enabled.get() && this.area.isInside(context) && context.mouseButton == 0) {
+    protected boolean subMouseClicked(UIContext context)
+    {
+        if (this.enabled.get() && this.area.isInside(context) && context.mouseButton == 0)
+        {
             this.mouseX = context.mouseX;
             this.mouseY = context.mouseY;
             this.dragging = true;
             this.thresholdMet = this.threshold <= 0;
 
-            if (this.reference != null) {
+            if (this.reference != null)
+            {
                 this.referenceMouse = this.reference.get();
             }
 
@@ -175,14 +200,16 @@ public class UIDraggable extends UIElement {
     }
 
     @Override
-    protected boolean subMouseReleased(UIContext context) {
+    protected boolean subMouseReleased(UIContext context)
+    {
         boolean wasDragging = this.dragging;
         boolean fireEnd = wasDragging && this.thresholdMet;
 
         this.dragging = false;
         this.thresholdMet = false;
 
-        if (fireEnd && this.dragEndCallback != null) {
+        if (fireEnd && this.dragEndCallback != null)
+        {
             this.dragEndCallback.run();
         }
 
@@ -190,7 +217,8 @@ public class UIDraggable extends UIElement {
     }
 
     @Override
-    public void render(UIContext context) {
+    public void render(UIContext context)
+    {
         super.render(context);
 
         /*
@@ -199,18 +227,26 @@ public class UIDraggable extends UIElement {
          */
         this.updateDrag(context);
 
-        if (this.enabled.get()) {
-            if (this.dragging) {
+        if (this.enabled.get())
+        {
+            if (this.dragging)
+            {
                 context.requestCursor(this.dragCursor);
-            } else if (this.area.isInside(context)) {
+            }
+            else if (this.area.isInside(context))
+            {
                 context.requestCursor(this.hoverCursor);
             }
         }
 
-        if (!this.hover || this.area.isInside(context) || this.dragging) {
-            if (this.render != null) {
+        if (!this.hover || this.area.isInside(context) || this.dragging)
+        {
+            if (this.render != null)
+            {
                 this.render.accept(context);
-            } else {
+            }
+            else
+            {
                 Scroll.bar(context.batcher, this.area.x, this.area.y, this.area.ex(), this.area.ey(), Colors.A50);
             }
         }
