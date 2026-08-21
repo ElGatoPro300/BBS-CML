@@ -194,39 +194,22 @@ public class ProceduralAnimator implements IAnimator
             {
                 float synthesized = MathHelper.clamp(horizontalSpeed / 4F, 0F, 1F);
 
-                if (filmActor)
-                {
-                    /* Soft-fill like one vanilla updateLimbs(0.4) step from real
-                     * displacement only — complements the void without a phase jump. */
-                    limbSpeed = synthesized * 0.4F;
-                    limbPhase = limbPhase + limbSpeed;
+                /* Soft-fill like one vanilla updateLimbs(0.4) step from real
+                 * motion — complements the void without a phase jump. */
+                limbSpeed = synthesized * 0.4F;
+                limbPhase = limbPhase + limbSpeed;
 
-                    if (displacementHorizontalSpeed > 10F)
-                    {
-                        limbPhase = age * 0.6662F;
-                    }
-                }
-                else
+                if (displacementHorizontalSpeed > 10F)
                 {
-                    limbSpeed = synthesized;
-                    /* Synthesizing amplitude from motion must also drive phase. Leaving a
-                     * non-zero stuck limbPos (teleported actors) freezes limbs at walk extremes. */
                     limbPhase = age * 0.6662F;
                 }
             }
             else if (limbPhase == 0F && horizontalSpeed > 0.08F)
             {
-                if (filmActor)
-                {
-                    float synthesized = MathHelper.clamp(horizontalSpeed / 4F, 0F, 1F);
+                float synthesized = MathHelper.clamp(horizontalSpeed / 4F, 0F, 1F);
 
-                    limbSpeed = Math.max(limbSpeed, synthesized * 0.4F);
-                    limbPhase = limbPhase + Math.max(limbSpeed, 0.01F);
-                }
-                else
-                {
-                    limbPhase = age * 0.6662F;
-                }
+                limbSpeed = Math.max(limbSpeed, synthesized * 0.4F);
+                limbPhase = limbPhase + Math.max(limbSpeed, 0.01F);
             }
         }
         else
