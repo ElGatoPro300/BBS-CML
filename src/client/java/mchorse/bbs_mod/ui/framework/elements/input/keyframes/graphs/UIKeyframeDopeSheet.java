@@ -284,17 +284,7 @@ public class UIKeyframeDopeSheet implements IUIKeyframeGraph
 
     private String getSidebarTitle(String title, FontRenderer font, int availableWidth)
     {
-        if (availableWidth <= 0)
-        {
-            return "";
-        }
-
-        if (font.getWidth(title) <= availableWidth)
-        {
-            return title;
-        }
-
-        return font.limitToWidth(title, availableWidth);
+        return title == null ? "" : title;
     }
 
     private int getSidebarIconWidth(UIKeyframeSheet sheet)
