@@ -819,6 +819,7 @@ public final class TimelineToolbarWiring
         BooleanSupplier hasSelected = () -> keyframes.isModifyingKeyframes() && keyframes.hasSelectedKeyframes();
         BooleanSupplier canSpread = keyframes::canSpreadSelectedKeyframes;
         BooleanSupplier canAdjust = keyframes::canAdjustSelectedValues;
+        BooleanSupplier canScale = keyframes::canScaleSelectedKeyframes;
 
         bindLabel(toolbar, UIKeys.KEYFRAMES_CONTEXT_INTERPOLATION_LINEAR,
             () -> keyframes.toolbarApplyInterpolation(Interpolations.LINEAR), hasSelected);
@@ -834,7 +835,7 @@ public final class TimelineToolbarWiring
             () -> keyframes.toolbarAdjustValues(false), canAdjust);
         bindLabel(toolbar, UIKeys.KEYFRAMES_CONTEXT_ADJUST_VALUES_RIGHT,
             () -> keyframes.toolbarAdjustValues(true), canAdjust);
-        bindShortcut(toolbar, Keys.KEYFRAMES_SCALE_TIME, keyframes::toolbarScaleTime, () -> keyframes.isModifyingKeyframes());
+        bindShortcut(toolbar, Keys.KEYFRAMES_SCALE_TIME, keyframes::toolbarScaleTime, canScale);
         bindShortcut(toolbar, Keys.KEYFRAMES_STACK_KEYFRAMES, keyframes::toolbarStackKeyframes, hasSelected);
         bindShortcut(toolbar, Keys.KEYFRAMES_INTERP, keyframes::toolbarToggleInterpolation, hasSelected);
     }
@@ -849,6 +850,8 @@ public final class TimelineToolbarWiring
             && editor.keyframeEditor.view.canSpreadSelectedKeyframes();
         BooleanSupplier canAdjust = () -> editor.keyframeEditor != null
             && editor.keyframeEditor.view.canAdjustSelectedValues();
+        BooleanSupplier canScale = () -> editor.keyframeEditor != null
+            && editor.keyframeEditor.view.canScaleSelectedKeyframes();
 
         bindLabel(toolbar, UIKeys.KEYFRAMES_CONTEXT_INTERPOLATION_LINEAR, () ->
         {
@@ -912,7 +915,7 @@ public final class TimelineToolbarWiring
             {
                 editor.keyframeEditor.view.toolbarScaleTime();
             }
-        }, canModify);
+        }, canScale);
         bindShortcut(toolbar, Keys.KEYFRAMES_STACK_KEYFRAMES, () ->
         {
             if (editor.keyframeEditor != null)

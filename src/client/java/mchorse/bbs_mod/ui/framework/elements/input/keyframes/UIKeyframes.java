@@ -596,6 +596,11 @@ public class UIKeyframes extends UIElement
             return;
         }
 
+        if (!this.canScaleSelectedKeyframes())
+        {
+            return;
+        }
+
         UIContext context = this.getContext();
 
         this.scaling = true;
@@ -803,6 +808,28 @@ public class UIKeyframes extends UIElement
                 {
                     return true;
                 }
+            }
+        }
+
+        return false;
+    }
+
+    public boolean canScaleSelectedKeyframes()
+    {
+        if (!this.isModifyingKeyframes())
+        {
+            return false;
+        }
+
+        int count = 0;
+
+        for (UIKeyframeSheet sheet : this.getGraph().getSheets())
+        {
+            count += sheet.selection.getSelected().size();
+
+            if (count >= 2)
+            {
+                return true;
             }
         }
 
@@ -1400,6 +1427,11 @@ public class UIKeyframes extends UIElement
 
     public void toolbarScaleTime()
     {
+        if (!this.canScaleSelectedKeyframes())
+        {
+            return;
+        }
+
         this.cancelTrackInteraction();
         this.scaleTime(true);
     }
