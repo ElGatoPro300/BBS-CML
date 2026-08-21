@@ -15,23 +15,22 @@ import mchorse.bbs_mod.utils.colors.Color;
 import mchorse.bbs_mod.utils.interps.Lerps;
 
 import net.minecraft.client.gl.ShaderProgram;
+import net.minecraft.client.gl.ShaderProgramKeys;
 import net.minecraft.client.render.BufferBuilder;
 import net.minecraft.client.render.LightmapTextureManager;
 import net.minecraft.client.render.VertexFormats;
 import net.minecraft.client.util.math.MatrixStack;
-
-import com.mojang.blaze3d.pipeline.RenderPipeline;
 
 import java.util.Map;
 import java.util.function.Function;
 
 public class CubicVAORenderer extends CubicCubeRenderer
 {
-    private RenderPipeline program;
+    private ShaderProgram program;
     private ModelInstance model;
     private Function<String, Link> textureResolver;
 
-    public CubicVAORenderer(RenderPipeline program, ModelInstance model, int light, int overlay, StencilMap stencilMap, ShapeKeys shapeKeys, Function<String, Link> textureResolver)
+    public CubicVAORenderer(ShaderProgram program, ModelInstance model, int light, int overlay, StencilMap stencilMap, ShapeKeys shapeKeys, Function<String, Link> textureResolver)
     {
         super(light, overlay, stencilMap, shapeKeys);
 

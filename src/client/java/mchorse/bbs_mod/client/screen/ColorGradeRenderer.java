@@ -8,7 +8,6 @@ import mchorse.bbs_mod.ui.framework.elements.utils.Batcher2D;
 
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.texture.AbstractTexture;
-import net.minecraft.client.texture.GlTexture;
 import net.minecraft.util.Identifier;
 
 import com.mojang.blaze3d.systems.RenderSystem;
@@ -644,6 +643,7 @@ public class ColorGradeRenderer
             tempTex.setWrap(GL12.GL_CLAMP_TO_EDGE);
         }
 
+        fb.beginRead();
         tempTex.bind();
 
         if (tempTex.width != fbW || tempTex.height != fbH)
@@ -651,19 +651,9 @@ public class ColorGradeRenderer
             tempTex.setSize(fbW, fbH);
         }
 
-        /* 1.21.11: Framebuffer.beginRead removed — copy from color attachment via temp read FBO if needed. */
-        int previousRead = GL11.glGetInteger(GL30.GL_READ_FRAMEBUFFER_BINDING);
-        int sourceId = ((GlTexture) fb.getColorAttachment()).getGlId();
-        int captureFbo = GL30.glGenFramebuffers();
-
-        GL30.glBindFramebuffer(GL30.GL_READ_FRAMEBUFFER, captureFbo);
-        GL30.glFramebufferTexture2D(GL30.GL_READ_FRAMEBUFFER, GL30.GL_COLOR_ATTACHMENT0, GL11.GL_TEXTURE_2D, sourceId, 0);
-        GL30.glReadBuffer(GL30.GL_COLOR_ATTACHMENT0);
         GL11.glCopyTexSubImage2D(GL11.GL_TEXTURE_2D, 0, 0, 0, 0, 0, fbW, fbH);
-        GL30.glBindFramebuffer(GL30.GL_READ_FRAMEBUFFER, previousRead);
-        GL30.glDeleteFramebuffers(captureFbo);
         tempTex.unbind();
-        // fb.beginWrite(false);
+        fb.beginWrite(false);
 
         /* Accumulate color effects */
         float vigStr = 0F;
@@ -877,7 +867,7 @@ public class ColorGradeRenderer
         tempTex.unbind();
         GL11.glEnable(GL11.GL_BLEND);
         GL11.glViewport(prevViewport[0], prevViewport[1], prevViewport[2], prevViewport[3]);
-        // fb.beginWrite(false);
+        fb.beginWrite(false);
     }
 
     /**
@@ -897,20 +887,20 @@ public class ColorGradeRenderer
 
         MinecraftClient mc = MinecraftClient.getInstance();
 
-        // mc.getFramebuffer().beginWrite(false);
+        mc.getFramebuffer().beginWrite(false);
 
-        GL11.glEnable(GL11.GL_BLEND);
-        GL11.glBlendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
+        RenderSystem.enableBlend();
+        RenderSystem.defaultBlendFunc();
+        RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
 
         /*
          * Invalidate unit 0 so the following textured draw must call glBindTexture.
          * A PositionColor-only box is not enough — text needs a live Sampler0 bind path.
          */
-        GL13.glActiveTexture(GL13.GL_TEXTURE0);
-        GL11.glBindTexture(GL11.GL_TEXTURE_2D, 0);
+        RenderSystem.setShaderTexture(0, 0);
 
         AbstractTexture atlas = mc.getTextureManager().getTexture(Identifier.of("minecraft", "textures/atlas/blocks.png"));
-        int textureId = atlas == null ? 0 : ((GlTexture) atlas.getGlTexture()).getGlId();
+        int textureId = atlas == null ? 0 : atlas.getGlId();
 
         if (textureId != 0)
         {
