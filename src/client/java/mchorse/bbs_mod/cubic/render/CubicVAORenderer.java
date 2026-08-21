@@ -81,9 +81,11 @@ public class CubicVAORenderer extends CubicCubeRenderer
                 a = this.a * group.color.a;
             }
 
+            boolean boneGlowMaskActive = group.glowingColor != null && group.glowingColor.transform != null && group.glowingColor.transform.isActive();
+
             if (!ModelVAORenderer.isGlowingUniformActive())
             {
-                if (effectiveGlowStrength != 0F)
+                if (effectiveGlowStrength != 0F && !boneGlowMaskActive && !ModelVAORenderer.isGlowEffectActive())
                 {
                     Color groupColor = new Color().set(r, g, b, a);
                     Color glowColor = new Color().set(effectiveGlowR, effectiveGlowG, effectiveGlowB, 1F);
@@ -99,7 +101,7 @@ public class CubicVAORenderer extends CubicCubeRenderer
 
             int groupLight = this.light;
 
-            if (effectiveGlowStrength != 0F && !ModelVAORenderer.isGlowingUniformActive() && !ModelVAORenderer.isPaintOverlayPass())
+            if (effectiveGlowStrength != 0F && !ModelVAORenderer.isGlowingUniformActive() && !ModelVAORenderer.isPaintOverlayPass() && !boneGlowMaskActive && !ModelVAORenderer.isGlowEffectActive())
             {
                 float glowLightT = MathUtils.clamp(Math.abs(effectiveGlowStrength), 0F, 1F);
                 int baseU = groupLight & '\uffff';
