@@ -249,6 +249,7 @@ public class BBSSettings
     public static ValueBoolean bslOpacityFix;
     public static ValueBoolean shaderOpacityPatchesDefaultOnMigrated;
     public static ValueFloat shaderShadowOpacity;
+    public static ValueBoolean lodShaderReloadFix;
 
     public static ValueBoolean audioWaveformVisible;
     public static ValueInt audioWaveformDensity;
@@ -881,6 +882,7 @@ public class BBSSettings
         shaderOpacityPatchesDefaultOnMigrated = builder.getBoolean("opacity_patches_default_on_migrated", false);
         shaderOpacityPatchesDefaultOnMigrated.invisible();
         shaderShadowOpacity = builder.getFloat("shader_shadow_opacity", 1F, 0F, 1F);
+        lodShaderReloadFix = builder.getBoolean("lod_shader_reload_fix", true);
 
         builder.category("fluid_simulation");
         fluidRealisticModelInteraction = builder.getBoolean("realistic_model_interaction", false);

@@ -389,6 +389,8 @@
     "bbs.config.shader_curves.enabled-comment": "Si las curvas de sombreado (shader curves) están habilitadas",
     "bbs.config.shader_curves.iris_opacity_fix": "Arreglo de opacidad Iris",
     "bbs.config.shader_curves.iris_opacity_fix-comment": "Para cualquier pack de shaders Iris: mantiene la iluminación del form en la ruta Iris cuando es casi opaco, y redibuja la translucidez suave después de nubes/niebla para que no agujeree el cielo. Complementary/BSL reciben ayudas GLSL de sombra automáticamente si se detectan. Recarga los shaders al cambiar.",
+    "bbs.config.shader_curves.lod_shader_reload_fix": "Recargar shaders para mods de LOD (DH / Voxy)",
+    "bbs.config.shader_curves.lod_shader_reload_fix-comment": "Cuando está activado (por defecto), recarga automáticamente los shaders de Iris al entrar o salir del Film Editor si hay mods de LOD o terreno lejano (como Distant Horizons o Voxy) instalados. Esto previene artefactos de rayos X. Desactivarlo evita tirones o congelamientos al entrar o salir del editor, pero puede introducir errores visuales de renderizado con dichos mods.",
     "bbs.config.shader_curves.shader_shadow_opacity": "Opacidad de sombra del shader",
     "bbs.config.shader_curves.shader_shadow_opacity-comment": "Escala la fuerza de las sombras del mundo cuando el arreglo de opacidad Iris está activo y se usa Complementary/BSL (1 = sombras completas, 0 = sin sombras). También se puede animar con un clip Curve. No recarga shaders.",
     "bbs.config.shader_curves.soft_transparency_backfaces": "Caras traseras en transparencia suave",
