@@ -1,5 +1,13 @@
 package mchorse.bbs_mod.client.screen;
 
+import mchorse.bbs_mod.camera.clips.misc.BossBarClip;
+import mchorse.bbs_mod.camera.clips.misc.BossBarState;
+import mchorse.bbs_mod.camera.clips.misc.HotbarClip;
+import mchorse.bbs_mod.camera.clips.misc.HotbarState;
+import mchorse.bbs_mod.camera.clips.misc.ImageClip;
+import mchorse.bbs_mod.camera.clips.misc.ImageOverlay;
+import mchorse.bbs_mod.camera.clips.misc.Subtitle;
+import mchorse.bbs_mod.camera.clips.misc.SubtitleClip;
 import mchorse.bbs_mod.camera.clips.screen.ColorClip;
 import mchorse.bbs_mod.camera.clips.screen.ColorEffect;
 import mchorse.bbs_mod.camera.clips.screen.EyeClip;
@@ -9,14 +17,23 @@ import mchorse.bbs_mod.camera.clips.screen.GrainEffect;
 import mchorse.bbs_mod.camera.clips.screen.LetterboxClip;
 import mchorse.bbs_mod.camera.clips.screen.LetterboxEffect;
 import mchorse.bbs_mod.camera.clips.screen.ScreenNodeEffect;
+import mchorse.bbs_mod.ui.film.UIBossBarRenderer;
+import mchorse.bbs_mod.ui.film.UIHotbarRenderer;
+import mchorse.bbs_mod.ui.film.UIImageRenderer;
+import mchorse.bbs_mod.ui.film.UISubtitleRenderer;
 import mchorse.bbs_mod.ui.framework.elements.utils.Batcher2D;
 import mchorse.bbs_mod.utils.MathUtils;
 import mchorse.bbs_mod.utils.clips.ClipContext;
 import mchorse.bbs_mod.utils.colors.Colors;
 
+import com.mojang.blaze3d.systems.RenderSystem;
+
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.util.math.RotationAxis;
 
+import org.lwjgl.opengl.GL11;
+
+import java.util.ArrayList;
 import java.util.List;
 
 public class ScreenEffectRenderer
@@ -27,13 +44,164 @@ public class ScreenEffectRenderer
         List<LetterboxEffect> letterboxEffects = LetterboxClip.getEffects(context);
         List<GrainEffect> grainEffects = GrainClip.getEffects(context);
         List<EyeEffect> eyeEffects = EyeClip.getEffects(context);
+        List<Subtitle> subtitles = SubtitleClip.getSubtitles(context);
+        List<HotbarState> hotbars = HotbarClip.getHotbars(context);
+        List<ImageOverlay> images = ImageClip.getImages(context);
+        List<BossBarState> bossBars = BossBarClip.getBossBars(context);
 
-        /* Convert ScreenNodeEffect entries into the standard effect structs */
+        convertNodeEffects(context, effects, grainEffects, letterboxEffects);
+
+        if (effects.isEmpty() && letterboxEffects.isEmpty() && grainEffects.isEmpty() && eyeEffects.isEmpty()
+            && subtitles.isEmpty() && hotbars.isEmpty() && images.isEmpty() && bossBars.isEmpty())
+        {
+            return;
+        }
+
+        /* Safety net: Subtitle's text FBO can shrink glViewport; restore after the pass. */
+        int[] prevViewport = new int[4];
+
+        GL11.glGetIntegerv(GL11.GL_VIEWPORT, prevViewport);
+        RenderSystem.disableDepthTest();
+
+        MatrixStack matrices = batcher.getContext().getMatrices();
+        int effectIndex = 0;
+        int letterboxIndex = 0;
+        int grainIndex = 0;
+        int eyeIndex = 0;
+        int subtitleIndex = 0;
+        int hotbarIndex = 0;
+        int imageIndex = 0;
+        int bossBarIndex = 0;
+
+        List<ColorEffect> pendingShaderEffects = new ArrayList<>();
+        List<GrainEffect> pendingGrainEffects = new ArrayList<>();
+
+        while (effectIndex < effects.size()
+            || letterboxIndex < letterboxEffects.size()
+            || grainIndex < grainEffects.size()
+            || eyeIndex < eyeEffects.size()
+            || subtitleIndex < subtitles.size()
+            || hotbarIndex < hotbars.size()
+            || imageIndex < images.size()
+            || bossBarIndex < bossBars.size())
+        {
+            int effOrder = effectIndex < effects.size() ? effects.get(effectIndex).renderOrder : Integer.MAX_VALUE;
+            int letOrder = letterboxIndex < letterboxEffects.size() ? letterboxEffects.get(letterboxIndex).renderOrder : Integer.MAX_VALUE;
+            int grnOrder = grainIndex < grainEffects.size() ? grainEffects.get(grainIndex).renderOrder : Integer.MAX_VALUE;
+            int eyeOrder = eyeIndex < eyeEffects.size() ? eyeEffects.get(eyeIndex).renderOrder : Integer.MAX_VALUE;
+            int subOrder = subtitleIndex < subtitles.size() ? subtitles.get(subtitleIndex).renderOrder : Integer.MAX_VALUE;
+            int hotOrder = hotbarIndex < hotbars.size() ? hotbars.get(hotbarIndex).renderOrder : Integer.MAX_VALUE;
+            int imgOrder = imageIndex < images.size() ? images.get(imageIndex).renderOrder : Integer.MAX_VALUE;
+            int bosOrder = bossBarIndex < bossBars.size() ? bossBars.get(bossBarIndex).renderOrder : Integer.MAX_VALUE;
+
+            int nextOrder = Math.min(
+                Math.min(Math.min(effOrder, letOrder), Math.min(grnOrder, eyeOrder)),
+                Math.min(Math.min(subOrder, hotOrder), Math.min(imgOrder, bosOrder))
+            );
+
+            boolean hasDirectDraw = (imgOrder == nextOrder)
+                || (subOrder == nextOrder)
+                || (hotOrder == nextOrder)
+                || (bosOrder == nextOrder)
+                || (eyeOrder == nextOrder)
+                || (letOrder == nextOrder)
+                || (effOrder == nextOrder && effects.get(effectIndex).hasOverlay);
+
+            if (hasDirectDraw && (!pendingShaderEffects.isEmpty() || !pendingGrainEffects.isEmpty()))
+            {
+                batcher.flushDraw();
+                ColorGradeRenderer.apply(pendingShaderEffects, pendingGrainEffects);
+                ColorGradeRenderer.resyncMinecraftState(batcher);
+                pendingShaderEffects.clear();
+                pendingGrainEffects.clear();
+            }
+
+            if (eyeOrder == nextOrder)
+            {
+                renderEye(batcher, eyeEffects.get(eyeIndex), screenW, screenH);
+                eyeIndex += 1;
+            }
+            else if (effOrder == nextOrder)
+            {
+                ColorEffect effect = effects.get(effectIndex);
+
+                if (effect.hasOverlay)
+                {
+                    batcher.box(0, 0, screenW, screenH, effect.overlayColor);
+                }
+
+                if (effect.hasGrade || effect.hasVignette || effect.hasDistort || effect.hasCinematic)
+                {
+                    pendingShaderEffects.add(effect);
+                }
+
+                effectIndex += 1;
+            }
+            else if (grnOrder == nextOrder)
+            {
+                GrainEffect grain = grainEffects.get(grainIndex);
+
+                if (grain.strength > 0F)
+                {
+                    pendingGrainEffects.add(grain);
+                }
+
+                grainIndex += 1;
+            }
+            else if (imgOrder == nextOrder)
+            {
+                UIImageRenderer.renderImage(matrices, batcher, images.get(imageIndex));
+                imageIndex += 1;
+            }
+            else if (subOrder == nextOrder)
+            {
+                UISubtitleRenderer.renderSubtitle(matrices, batcher, subtitles.get(subtitleIndex));
+                subtitleIndex += 1;
+            }
+            else if (hotOrder == nextOrder)
+            {
+                UIHotbarRenderer.renderHotbar(matrices, batcher, hotbars.get(hotbarIndex), 0, 0, screenW, screenH);
+                hotbarIndex += 1;
+            }
+            else if (bosOrder == nextOrder)
+            {
+                UIBossBarRenderer.renderBossBar(matrices, batcher, bossBars.get(bossBarIndex), 0, 0, screenW, screenH);
+                bossBarIndex += 1;
+            }
+            else if (letOrder == nextOrder)
+            {
+                renderLetterbox(batcher, letterboxEffects.get(letterboxIndex), screenW, screenH);
+                letterboxIndex += 1;
+            }
+        }
+
+        if (!pendingShaderEffects.isEmpty() || !pendingGrainEffects.isEmpty())
+        {
+            batcher.flushDraw();
+            ColorGradeRenderer.apply(pendingShaderEffects, pendingGrainEffects);
+            ColorGradeRenderer.resyncMinecraftState(batcher);
+            pendingShaderEffects.clear();
+            pendingGrainEffects.clear();
+        }
+
+        effects.clear();
+        letterboxEffects.clear();
+        grainEffects.clear();
+        eyeEffects.clear();
+        bossBars.clear();
+
+        GL11.glViewport(prevViewport[0], prevViewport[1], prevViewport[2], prevViewport[3]);
+        RenderSystem.enableDepthTest();
+    }
+
+    private static void convertNodeEffects(ClipContext context, List<ColorEffect> effects, List<GrainEffect> grainEffects, List<LetterboxEffect> letterboxEffects)
+    {
         List<ScreenNodeEffect> nodeEffects = ScreenNodeEffect.getEffects(context);
 
         for (ScreenNodeEffect ne : nodeEffects)
         {
             ColorEffect ce = new ColorEffect();
+            ce.renderOrder = ne.renderOrder;
 
             if (ne.brightness != 0F || ne.contrast != 0F || ne.saturation != 0F)
             {
@@ -72,54 +240,23 @@ public class ScreenEffectRenderer
             if (ne.grainStrength > 0F)
             {
                 GrainEffect ge = new GrainEffect();
-                ge.strength = ne.grainStrength;
-                ge.size     = ne.grainSize;
+                ge.renderOrder = ne.renderOrder;
+                ge.strength    = ne.grainStrength;
+                ge.size        = ne.grainSize;
                 grainEffects.add(ge);
             }
 
             if (ne.letterboxSize > 0F)
             {
                 LetterboxEffect le = new LetterboxEffect();
-                le.size  = ne.letterboxSize;
-                le.color = ne.letterboxColor;
+                le.renderOrder = ne.renderOrder;
+                le.size        = ne.letterboxSize;
+                le.color       = ne.letterboxColor;
                 letterboxEffects.add(le);
             }
         }
 
         nodeEffects.clear();
-
-        for (EyeEffect eye : eyeEffects)
-        {
-            renderEye(batcher, eye, screenW, screenH);
-        }
-
-        eyeEffects.clear();
-
-        /* Overlay color pass */
-        for (ColorEffect effect : effects)
-        {
-            if (effect.hasOverlay)
-            {
-                batcher.box(0, 0, screenW, screenH, effect.overlayColor);
-            }
-        }
-
-        /* Vignette, color grade and film grain via shader pass */
-        ColorGradeRenderer.apply(effects, grainEffects);
-        /* Must run even when letterbox follows — letterbox is PositionColor only and
-         * does not repair the texture-unit desync that breaks Subtitle text baking. */
-        ColorGradeRenderer.resyncMinecraftState(batcher);
-
-        /* Letterbox bars */
-        for (LetterboxEffect effect : letterboxEffects)
-        {
-            renderLetterbox(batcher, effect, screenW, screenH);
-        }
-
-        /* Clear all effect lists to prevent accumulation across frames */
-        effects.clear();
-        letterboxEffects.clear();
-        grainEffects.clear();
     }
 
     private static void renderLetterbox(Batcher2D batcher, LetterboxEffect effect, int screenW, int screenH)
