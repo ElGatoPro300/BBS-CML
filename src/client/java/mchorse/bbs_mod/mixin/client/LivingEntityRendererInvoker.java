@@ -9,6 +9,6 @@ import org.spongepowered.asm.mixin.gen.Invoker;
 @Mixin(LivingEntityRenderer.class)
 public interface LivingEntityRendererInvoker
 {
-    /* @Invoker("getAnimationCounter")
-    public float bbs$getAnimationCounter(LivingEntity entity, float tickDelta); */
+    @Invoker("getAnimationCounter")
+    public float bbs$getAnimationCounter(LivingEntity entity, float tickDelta);
 }

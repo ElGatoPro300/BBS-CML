@@ -17,8 +17,8 @@ import net.irisshaders.iris.targets.RenderTargets;
 import org.joml.Matrix4f;
 import org.joml.Matrix4fStack;
 
-import com.mojang.blaze3d.systems.ProjectionType;
 import com.mojang.blaze3d.systems.RenderSystem;
+import com.mojang.blaze3d.systems.VertexSorter;
 
 import org.lwjgl.opengl.GL11;
 
@@ -521,7 +521,7 @@ public class ShaderOpacityPatch
 
         try
         {
-            RenderSystem.setProjectionMatrix(entry.projection, ProjectionType.ORTHOGRAPHIC);
+            RenderSystem.setProjectionMatrix(entry.projection, VertexSorter.BY_Z);
             flushingDepthWrite = entry.depthWrite;
             RenderSystem.depthMask(entry.depthWrite);
 
@@ -530,10 +530,12 @@ public class ShaderOpacityPatch
             if (entry.irisCamera)
             {
                 modelViewStack.set(entry.modelView);
+                RenderSystem.applyModelViewMatrix();
             }
             else
             {
                 modelViewStack.identity();
+                RenderSystem.applyModelViewMatrix();
                 ModelVAORenderer.beginDeferredTranslucentModelPass(entry.depthWrite, true);
                 beganDeferredPass = true;
             }
@@ -549,8 +551,9 @@ public class ShaderOpacityPatch
             }
 
             RenderSystem.depthMask(savedDepthMask);
-            RenderSystem.setProjectionMatrix(savedProjection, ProjectionType.ORTHOGRAPHIC);
+            RenderSystem.setProjectionMatrix(savedProjection, VertexSorter.BY_Z);
             modelViewStack.set(savedModelView);
+            RenderSystem.applyModelViewMatrix();
         }
     }
 

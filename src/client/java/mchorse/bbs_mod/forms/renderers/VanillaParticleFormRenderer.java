@@ -255,17 +255,15 @@ public class VanillaParticleFormRenderer extends FormRenderer<VanillaParticleFor
                         else if (path.equals("dust_color_transition"))
                         {
                             float scale = colorA > 0F ? colorA : 1F;
-                            int rgb = new mchorse.bbs_mod.utils.colors.Color(colorR, colorG, colorB).getRGBColor();
 
-                            effect = new DustColorTransitionParticleEffect(rgb, rgb, scale);
+                            effect = new DustColorTransitionParticleEffect(new Vector3f(colorR, colorG, colorB), new Vector3f(colorR, colorG, colorB), scale);
                             parsedCustom = true;
                         }
                         else if (path.contains("dust"))
                         {
                             float scale = colorA > 0F ? colorA : 1F;
-                            int rgb = new mchorse.bbs_mod.utils.colors.Color(colorR, colorG, colorB).getRGBColor();
 
-                            effect = new DustParticleEffect(rgb, scale);
+                            effect = new DustParticleEffect(new Vector3f(colorR, colorG, colorB), scale);
                             parsedCustom = true;
                         }
                     }
@@ -466,7 +464,7 @@ public class VanillaParticleFormRenderer extends FormRenderer<VanillaParticleFor
         }
         else if (particleObj == null && world != null)
         {
-            world.addImportantParticle(effect, x, y, z, v.x, v.y, v.z);
+            world.addParticle(effect, true, x, y, z, v.x, v.y, v.z);
         }
     }
 }
