@@ -613,6 +613,13 @@ public class BBSRendering
                 framebuffer.draw(fbW, fbH);
             }
 
+            /* framebuffer.draw() leaves its color-attachment texture bound on TU0
+             * inside GlStateManager / RenderSystem.shaderTextures[0].  If we don't
+             * clear it, every subsequent draw (chunks, forms, HUD) that queries
+             * getShaderTexture(0) reads a stale id and renders black. */
+            GlStateManager._activeTexture(GL13.GL_TEXTURE0);
+            GlStateManager._bindTexture(0);
+
             /* Extra FBs / Iris must track the window target again or film actors
              * composite in the wrong space (models float). onResized enables depth
              * test and binds FBO 0, which would punch through film panel chrome. */
