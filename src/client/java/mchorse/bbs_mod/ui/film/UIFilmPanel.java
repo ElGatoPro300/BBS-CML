@@ -110,6 +110,7 @@ import mchorse.bbs_mod.utils.clips.Clip;
 import mchorse.bbs_mod.utils.clips.Clips;
 import mchorse.bbs_mod.utils.colors.Colors;
 import mchorse.bbs_mod.utils.interps.Interpolations;
+import mchorse.bbs_mod.utils.iris.IrisUtils;
 import mchorse.bbs_mod.utils.joml.Vectors;
 import mchorse.bbs_mod.utils.keyframes.Keyframe;
 import mchorse.bbs_mod.utils.keyframes.KeyframeChannel;
@@ -159,6 +160,7 @@ import java.util.function.Supplier;
 
 public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSupported, IUIOrbitKeysHandler, ICursor
 {
+    private static boolean hasSyncedShaders;
     private RunnerCameraController runner;
     private boolean lastRunning;
     private boolean clearingSelections;
@@ -1986,31 +1988,14 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
         {
             BBSSettings.editorLayoutSettings.setFilmLayoutRoot(newRoot);
             this.setupEditorFlex(true, false, true);
+            this.persistFilmUILayoutSession();
         }
     }
 
     private void startTabReorderFromFloat(String panelId, int mouseX, int mouseY)
     {
-        UITabBar tabBar = this.tabReorderTabBar != null ? this.tabReorderTabBar : this.findTabBarForPanel(panelId);
-
-        if (tabBar != null)
-        {
-            for (IUIElement child : tabBar.getChildren())
-            {
-                if (child instanceof UITab)
-                {
-                    UITab tab = (UITab) child;
-
-                    if (tab.getPanelId().equals(panelId))
-                    {
-                        this.dragOffsetX = mouseX - tab.area.x;
-                        this.dragOffsetY = mouseY - tab.area.y;
-                        break;
-                    }
-                }
-            }
-        }
-
+        /* Keep the grab offset captured when reorder started. The dragged tab is
+         * parked off-screen during reorder, so its area is not a valid origin. */
         this.clearTabReorderState();
         this.startPanelDrag(panelId);
         this.ensurePanelFloatingForDrag(panelId, mouseX, mouseY);
@@ -5090,7 +5075,12 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
         }
     }
 
-    private void applyFilmLayoutFromPreset(MapType data, int mouseX, int mouseY)
+    public void applyFilmLayoutFromPreset(MapType data, int mouseX, int mouseY)
+    {
+        this.applyFilmLayoutFromPreset(data);
+    }
+
+    public void applyFilmLayoutFromPreset(MapType data)
     {
         BaseType layoutData = data.get("film_layout");
         if (layoutData == null)
@@ -5474,6 +5464,20 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
         this.syncFilmActorPlayback(true);
         /* Dashboard close must not clear the out-of-editor HUD; re-assert after appear. */
         this.syncSelectedReplayHud();
+
+        this.syncIrisShaderState(true);
+    }
+
+    private void syncIrisShaderState(boolean inFilmEditor)
+    {
+        if (BBSRendering.isIrisShadersEnabled())
+        {
+            if (hasSyncedShaders != inFilmEditor)
+            {
+                hasSyncedShaders = inFilmEditor;
+                IrisUtils.reloadShaders();
+            }
+        }
     }
 
     @Override
@@ -5505,6 +5509,8 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
 
         this.notifyServer(ActionState.STOP);
 
+        this.syncIrisShaderState(false);
+
         /* Keep selectedReplay / Right-Alt session while the film stays loaded.
          * Clearing here hid the top-left HUD after closing BBS with 0 even though
          * the film was still open. Session ends only when the film is closed
@@ -5529,6 +5535,7 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
         this.disableContext();
         this.fullscreenPlaybackBar.removeFromParent();
         this.syncFilmActorPlayback(false);
+        this.syncIrisShaderState(false);
     }
 
     /**
@@ -8411,8 +8418,8 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
             context.batcher.clip(this.area, context);
             this.renderDropGap(context);
             super.render(context);
-            this.renderDragGhost(context);
             context.batcher.unclip(context);
+            this.renderDragGhost(context);
         }
 
         private void renderDropGap(UIContext context)
@@ -8458,7 +8465,7 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
 
             int w = Math.max(this.panel.tabReorderGapW, 40);
             int h = this.area.h;
-            int x = context.mouseX - w / 2;
+            int x = context.mouseX - this.panel.dragOffsetX;
             int y = this.area.y;
 
             context.batcher.box(x, y, x + w, y + h, 0xCC2A2A30);
@@ -8776,12 +8783,14 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
                     if (tabBar != null && this.panel.isInsideTabBarArea(tabBar, context.mouseX, context.mouseY) && !layout.isLayoutLocked())
                     {
                         this.panel.mouseHeldPanelId = null;
+                        this.panel.dragOffsetX = context.mouseX - this.area.x;
+                        this.panel.dragOffsetY = context.mouseY - this.area.y;
                         this.panel.tabReordering = true;
                         this.panel.tabReorderPanelId = this.panelId;
                         this.panel.tabReorderFromIndex = this.index;
-                        this.panel.tabReorderDropPreview = this.index;
                         this.panel.tabReorderTabbedNode = this.tabbedNode;
                         this.panel.tabReorderTabBar = tabBar;
+                        this.panel.tabReorderDropPreview = this.panel.getTabDropPreviewIndex(tabBar, context.mouseX);
                     }
                     else
                     {

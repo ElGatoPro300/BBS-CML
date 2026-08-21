@@ -9,6 +9,7 @@ import mchorse.bbs_mod.cubic.ModelInstance;
 import mchorse.bbs_mod.cubic.data.model.Model;
 import mchorse.bbs_mod.cubic.data.model.ModelCube;
 import mchorse.bbs_mod.cubic.data.model.ModelGroup;
+import mchorse.bbs_mod.cubic.data.model.ModelUV;
 import mchorse.bbs_mod.cubic.model.ModelConfig;
 import mchorse.bbs_mod.data.DataToString;
 import mchorse.bbs_mod.data.types.MapType;
@@ -34,11 +35,13 @@ import mchorse.bbs_mod.ui.framework.elements.overlay.UIOverlay;
 import mchorse.bbs_mod.ui.framework.elements.overlay.UIPromptOverlayPanel;
 import mchorse.bbs_mod.ui.framework.elements.utils.UIDraggable;
 import mchorse.bbs_mod.ui.framework.elements.utils.UILabel;
+import mchorse.bbs_mod.ui.framework.elements.utils.UIModelRenderer;
 import mchorse.bbs_mod.ui.framework.elements.utils.UIRenderable;
 import mchorse.bbs_mod.ui.utils.Gizmo;
 import mchorse.bbs_mod.ui.utils.UI;
 import mchorse.bbs_mod.ui.utils.UIUtils;
 import mchorse.bbs_mod.ui.utils.context.ContextMenuManager;
+import mchorse.bbs_mod.ui.utils.gizmo.TransformOrientation;
 import mchorse.bbs_mod.ui.utils.icons.Icon;
 import mchorse.bbs_mod.ui.utils.icons.Icons;
 import mchorse.bbs_mod.utils.Axis;
@@ -56,8 +59,10 @@ import org.lwjgl.glfw.GLFW;
 
 import java.io.File;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.function.Consumer;
 
@@ -84,9 +89,22 @@ public class UIModelGeometryPanel extends UIElement
     private final UITrackpad scaleZ;
     private final UIButton saveButton;
     private final UITrackpad cubeInflate;
+    private final UIButton uvModeButton;
+    private final UIElement uvBoxRow;
     private final UITrackpad cubeUvX;
     private final UITrackpad cubeUvY;
     private final UIToggle cubeMirror;
+    private final UIElement uvFaceSelectRow;
+    private final UIButton uvFaceSelectButton;
+    private final UIIcon uvFaceRotateButton;
+    private final UIElement uvFaceCoordsRow;
+    private final UITrackpad uvFaceX;
+    private final UITrackpad uvFaceY;
+    private final UITrackpad uvFaceW;
+    private final UITrackpad uvFaceH;
+    private final UIButton uvResetToBoxButton;
+    private final UIModelUVEditor uvEditor;
+    private boolean faceUVMode;
     private final UIIcon addCubeIcon;
     private final UIIcon addFolderIcon;
     private final UIIcon addIKLocatorIcon;
@@ -100,7 +118,16 @@ public class UIModelGeometryPanel extends UIElement
     private final UIIcon gizmoVisualSize;
     private final UIIcon gizmoThickness;
     private final UIIcon gizmoTranslateSpeed;
+    private final UIIcon gizmoCoordinateSpace;
+    private final UIIcon gizmoSnap;
+    private final UIIcon gizmoViewportMode;
+    private boolean snapEnabled = true;
+    private float positionSnap = 1.0F;
+    private float rotationSnap = 15.0F;
+    private TransformOrientation coordinateSpace = TransformOrientation.LOCAL;
     private final Set<String> collapsedGroupIds = new HashSet<>();
+    private final Set<String> lockedGroupIds = new HashSet<>();
+    private final Set<String> lockedCubeKeys = new HashSet<>();
     private ModelGroup copiedGroup;
     private ModelCube copiedCube;
 
@@ -119,12 +146,12 @@ public class UIModelGeometryPanel extends UIElement
         this.parent = parent;
         this.relative(parent.getMainView()).w(1F).h(1F);
 
-        int leftWidth = 200;
-        int rightWidth = 200;
+        int leftWidth = 220;
+        int rightWidth = 230;
         if (BBSSettings.uiLayoutPreferences != null)
         {
-            leftWidth = (int) BBSSettings.uiLayoutPreferences.getFormPanelWidth("UIModelPanel_left", 200F);
-            rightWidth = (int) BBSSettings.uiLayoutPreferences.getFormPanelWidth("UIModelPanel_right", 200F);
+            leftWidth = (int) BBSSettings.uiLayoutPreferences.getFormPanelWidth("UIModelPanel_left", 220F);
+            rightWidth = (int) BBSSettings.uiLayoutPreferences.getFormPanelWidth("UIModelPanel_right", 230F);
         }
 
         this.leftPanel = new UIElement();
@@ -133,120 +160,70 @@ public class UIModelGeometryPanel extends UIElement
         this.rightPanel = new UIElement();
         this.rightPanel.relative(this).x(1F, -rightWidth).y(0).w(rightWidth).h(1F);
 
-        UILabel hierarchyTitle = UI.label(UIKeys.MODELS_GEOMETRY_BONE_HIERARCHY).background();
-        hierarchyTitle.relative(this.leftPanel).x(10).y(10).w(1F, -20).h(12);
+        /* ==================== LEFT PANEL: UV & TEXTURES ==================== */
+        UILabel uvTitle = UI.label(UIKeys.MODELS_GEOMETRY_UV_TITLE).background();
+        uvTitle.relative(this.leftPanel).x(10).y(8).w(1F, -20).h(12);
 
-        this.addCubeIcon = new UIIcon(Icons.BLOCK, (b) -> this.addCube());
-        this.addFolderIcon = new UIIcon(Icons.FOLDER, (b) -> this.addFolder());
-        this.addIKLocatorIcon = new UIIcon(Icons.POSE, (b) -> this.addIKLocator());
-        this.addCubeIcon.tooltip(UIKeys.MODELS_GEOMETRY_ADD_CUBE);
-        this.addFolderIcon.tooltip(UIKeys.MODELS_GEOMETRY_ADD_FOLDER);
-        this.addIKLocatorIcon.tooltip(UIKeys.MODELS_IK_CREATE_LOCATOR_TOOLTIP);
+        this.uvEditor = new UIModelUVEditor(this);
+        this.uvEditor.relative(this.leftPanel).x(10).y(24).w(1F, -20).h(180);
 
-        UIElement actionButtonsRow = BBSFeatures.MODEL_IK_UI
-            ? UI.row(this.addCubeIcon, this.addFolderIcon, this.addIKLocatorIcon)
-            : UI.row(this.addCubeIcon, this.addFolderIcon);
-        actionButtonsRow.relative(hierarchyTitle).y(1F, 4).w(1F).h(20);
+        UILabel texturePropsTitle = UI.label(UIKeys.MODELS_GEOMETRY_UV_PROPERTIES).background();
+        texturePropsTitle.relative(this.leftPanel).x(10).y(210).w(1F, -20).h(12);
 
-        this.hierarchyList = new UIList<>((l) -> this.selectCurrentHierarchyEntry())
-        {
-            @Override
-            protected boolean sortElements()
-            {
-                return false;
-            }
+        /* UV Mode Header Row */
+        this.uvModeButton = new UIButton(UIKeys.MODELS_GEOMETRY_UV_BOX, (b) -> this.toggleUVMode());
+        this.uvModeButton.w(1F).h(20);
+        UIElement uvHeaderRow = UI.row(this.uvModeButton);
+        uvHeaderRow.relative(this.leftPanel).x(10).y(226).w(1F, -20).h(20);
 
-            @Override
-            protected void renderElementPart(UIContext context, GeometryEntry element, int i, int x, int y, boolean hover, boolean selected)
-            {
-                int textY = y + (this.scroll.scrollItemSize - context.batcher.getFont().getHeight()) / 2;
-                int offset = element.depth * 10;
-                int arrowX = x + 2 + offset;
-                int iconX = x + 18 + offset;
-                Icon icon = element.type == GeometryEntryType.BONE ? Icons.FOLDER : Icons.BLOCK;
+        /* Box UV Row */
+        UILabel cubeUvLabel = UI.label(UIKeys.MODELS_GEOMETRY_CUBE_UV);
+        cubeUvLabel.w(0.25F, -4).h(20);
+        this.cubeUvX = this.trackpad((v) -> this.updateCubeUV(0, v.floatValue()));
+        this.cubeUvY = this.trackpad((v) -> this.updateCubeUV(1, v.floatValue()));
+        this.cubeMirror = new UIToggle(UIKeys.MODELS_GEOMETRY_CUBE_MIRROR, (b) -> this.updateCubeMirror(b.getValue()));
+        this.cubeUvX.w(0.25F, -3);
+        this.cubeUvY.w(0.25F, -3);
+        this.cubeMirror.w(0.25F, -3).h(20);
+        this.uvBoxRow = UI.row(4, cubeUvLabel, this.cubeUvX, this.cubeUvY, this.cubeMirror);
+        this.uvBoxRow.relative(this.leftPanel).x(10).y(250).w(1F, -20).h(20);
 
-                if (element.expandable)
-                {
-                    context.batcher.icon(UIModelGeometryPanel.this.collapsedGroupIds.contains(element.groupId) ? Icons.COLLAPSED : Icons.UNCOLLAPSED, arrowX, y + 1);
-                }
+        /* Face UV Controls Rows */
+        this.uvFaceSelectButton = new UIButton(UIKeys.MODELS_GEOMETRY_UV_FACE_FRONT, (b) -> this.openFaceSelectionMenu(b.getContext()));
+        this.uvFaceSelectButton.w(0.75F, -4).h(20);
+        this.uvFaceRotateButton = new UIIcon(Icons.REFRESH, (b) -> this.rotateSelectedFaceUV());
+        this.uvFaceRotateButton.tooltip(UIKeys.MODELS_GEOMETRY_UV_ROTATE);
+        this.uvFaceRotateButton.w(0.25F).h(20);
+        this.uvFaceSelectRow = UI.row(4, this.uvFaceSelectButton, this.uvFaceRotateButton);
+        this.uvFaceSelectRow.relative(this.leftPanel).x(10).y(250).w(1F, -20).h(20);
 
-                context.batcher.icon(icon, iconX, y + 1);
-                context.batcher.textShadow(element.label, x + 36 + offset, textY, hover ? Colors.HIGHLIGHT : Colors.WHITE);
-            }
+        this.uvFaceX = this.trackpad((v) -> this.updateFaceUVCoord(0, v.floatValue()));
+        this.uvFaceY = this.trackpad((v) -> this.updateFaceUVCoord(1, v.floatValue()));
+        this.uvFaceW = this.trackpad((v) -> this.updateFaceUVCoord(2, v.floatValue()));
+        this.uvFaceH = this.trackpad((v) -> this.updateFaceUVCoord(3, v.floatValue()));
+        this.uvFaceX.w(0.25F, -3);
+        this.uvFaceY.w(0.25F, -3);
+        this.uvFaceW.w(0.25F, -3);
+        this.uvFaceH.w(0.25F, -3);
+        this.uvFaceCoordsRow = UI.row(4, this.uvFaceX, this.uvFaceY, this.uvFaceW, this.uvFaceH);
+        this.uvFaceCoordsRow.relative(this.leftPanel).x(10).y(274).w(1F, -20).h(20);
 
-            @Override
-            protected String elementToString(UIContext context, int i, GeometryEntry element)
-            {
-                return element.label + " " + element.groupId;
-            }
+        this.uvResetToBoxButton = new UIButton(UIKeys.MODELS_GEOMETRY_UV_RESET_TO_BOX, (b) -> this.resetToBoxUV());
+        this.uvResetToBoxButton.relative(this.leftPanel).x(10).y(298).w(1F, -20).h(20);
 
-            @Override
-            protected void handleSwap(int from, int to)
-            {
-                UIModelGeometryPanel.this.handleHierarchySwap(from, to);
-            }
+        this.leftPanel.add(uvTitle, this.uvEditor, texturePropsTitle, uvHeaderRow, this.uvBoxRow, this.uvFaceSelectRow, this.uvFaceCoordsRow, this.uvResetToBoxButton);
 
-            @Override
-            public boolean subMouseClicked(UIContext context)
-            {
-                if (!this.isFiltering() && this.area.isInside(context) && context.mouseButton == 0)
-                {
-                    int visibleIndex = this.scroll.getIndex(context.mouseX, context.mouseY);
-
-                    if (this.exists(visibleIndex))
-                    {
-                        GeometryEntry entry = this.getList().get(visibleIndex);
-                        int y = this.area.y + visibleIndex * this.scroll.scrollItemSize - (int) this.scroll.getScroll();
-                        int offset = entry.depth * 10;
-                        int arrowX = this.area.x + 2 + offset;
-
-                        if (entry.expandable && context.mouseX >= arrowX && context.mouseX < arrowX + 16 && context.mouseY >= y + 1 && context.mouseY < y + 17)
-                        {
-                            UIModelGeometryPanel.this.toggleGroupCollapsed(entry.groupId);
-
-                            return true;
-                        }
-                    }
-                }
-
-                if (this.area.isInside(context) && context.mouseButton == 1)
-                {
-                    int visibleIndex = this.scroll.getIndex(context.mouseX, context.mouseY);
-
-                    if (this.exists(visibleIndex))
-                    {
-                        GeometryEntry entry = this.getList().get(visibleIndex);
-
-                        this.setCurrentDirect(entry);
-                        UIModelGeometryPanel.this.selectCurrentHierarchyEntry();
-                        UIModelGeometryPanel.this.openHierarchyContextMenu(context, entry);
-
-                        return true;
-                    }
-                }
-
-                return super.subMouseClicked(context);
-            }
-        };
-        this.hierarchyList.background();
-        this.hierarchyList.sorting();
-        this.hierarchyList.scroll.scrollItemSize = 18;
-        this.hierarchySearch = new UISearchList<>(this.hierarchyList);
-        this.hierarchySearch.label(UIKeys.GENERAL_SEARCH);
-        this.hierarchySearch.relative(this.leftPanel).x(10).y(52).w(1F, -20).h(1F, -62);
-
-        this.leftPanel.add(hierarchyTitle, actionButtonsRow, this.hierarchySearch);
-
-        UILabel editorTitle = UI.label(UIKeys.MODELS_GEOMETRY_EDITOR).background();
-        editorTitle.relative(this.rightPanel).x(10).y(10).w(1F, -20).h(12);
+        /* ==================== RIGHT PANEL: TRANSFORM & HIERARCHY ==================== */
+        UILabel editorTitle = UI.label(UIKeys.MODELS_GEOMETRY_TRANSFORM_TITLE).background();
+        editorTitle.relative(this.rightPanel).x(10).y(8).w(1F, -20).h(12);
 
         this.selectedBoneLabel = UI.label(IKey.raw("-"));
-        this.selectedBoneLabel.relative(editorTitle).y(1F, 4).w(1F).h(12);
+        this.selectedBoneLabel.relative(this.rightPanel).x(10).y(22).w(1F, -20).h(12);
 
         this.unifiedTransform = new UITransform()
         {
             {
-                UIElement row = this.r2x.getParentContainer();
+                UIElement row = this.r2x.getParent();
 
                 if (row != null)
                 {
@@ -257,6 +234,10 @@ public class UIModelGeometryPanel extends UIElement
                 this.r2x.setEnabled(false);
                 this.r2y.setEnabled(false);
                 this.r2z.setEnabled(false);
+
+                this.iconP.setEnabled(true);
+                this.iconP.callback = (b) -> UIModelGeometryPanel.this.openPivotContextMenu(UIModelGeometryPanel.this.getContext());
+                this.iconP.tooltip(UIKeys.MODELS_GEOMETRY_PIVOT_CENTER);
             }
 
             @Override
@@ -287,7 +268,7 @@ public class UIModelGeometryPanel extends UIElement
                 UIModelGeometryPanel.this.applyGizmoChange(2, axis, x, y, z);
             }
         };
-        this.unifiedTransform.relative(this.selectedBoneLabel).y(1F, 6).w(1F).h(104);
+        this.unifiedTransform.relative(this.rightPanel).x(10).y(38).w(1F, -20).h(92);
         this.gizmoTransform = new UIPropTransform()
         {
             @Override
@@ -336,30 +317,169 @@ public class UIModelGeometryPanel extends UIElement
         this.scaleY = this.unifiedTransform.sy;
         this.scaleZ = this.unifiedTransform.sz;
 
-        this.saveButton = new UIButton(UIKeys.GENERAL_SAVE, (b) -> this.saveModelFile());
-        this.saveButton.w(1F).h(20);
-        UIElement buttons = UI.row(this.saveButton);
-        buttons.relative(this.unifiedTransform).y(1F, 10).w(1F).h(20);
-
         UILabel cubeInflateLabel = UI.label(UIKeys.MODELS_GEOMETRY_CUBE_INFLATE);
         cubeInflateLabel.w(0.4F, -4).h(20);
         this.cubeInflate = this.trackpad((v) -> this.updateCubeInflate(v.floatValue()));
         this.cubeInflate.w(0.6F, -2);
         UIElement cubeInflateRow = UI.row(6, cubeInflateLabel, this.cubeInflate);
-        cubeInflateRow.relative(buttons).y(1F, 8).w(1F).h(20);
+        cubeInflateRow.relative(this.rightPanel).x(10).y(138).w(1F, -20).h(20);
 
-        UILabel cubeUvLabel = UI.label(UIKeys.MODELS_GEOMETRY_CUBE_UV);
-        cubeUvLabel.w(0.25F, -4).h(20);
-        this.cubeUvX = this.trackpad((v) -> this.updateCubeUV(0, v.floatValue()));
-        this.cubeUvY = this.trackpad((v) -> this.updateCubeUV(1, v.floatValue()));
-        this.cubeMirror = new UIToggle(UIKeys.MODELS_GEOMETRY_CUBE_MIRROR, (b) -> this.updateCubeMirror(b.getValue()));
-        this.cubeUvX.w(0.25F, -3);
-        this.cubeUvY.w(0.25F, -3);
-        this.cubeMirror.w(0.25F, -3).h(20);
-        UIElement cubeUvRow = UI.row(4, cubeUvLabel, this.cubeUvX, this.cubeUvY, this.cubeMirror);
-        cubeUvRow.relative(cubeInflateRow).y(1F, 6).w(1F).h(20);
+        this.saveButton = new UIButton(UIKeys.GENERAL_SAVE, (b) -> this.saveModelFile());
+        this.saveButton.w(1F).h(20);
+        UIElement buttons = UI.row(this.saveButton);
+        buttons.relative(this.rightPanel).x(10).y(164).w(1F, -20).h(20);
 
-        this.rightPanel.add(editorTitle, this.selectedBoneLabel, this.unifiedTransform, buttons, cubeInflateRow, cubeUvRow);
+        /* Hierarchy / Outliner */
+        UILabel hierarchyTitle = UI.label(UIKeys.MODELS_GEOMETRY_OUTLINE_TITLE).background();
+        hierarchyTitle.relative(this.rightPanel).x(10).y(192).w(1F, -20).h(12);
+
+        this.addCubeIcon = new UIIcon(Icons.BLOCK, (b) -> this.addCube());
+        this.addFolderIcon = new UIIcon(Icons.FOLDER, (b) -> this.addFolder());
+        this.addIKLocatorIcon = new UIIcon(Icons.POSE, (b) -> this.addIKLocator());
+        this.addCubeIcon.tooltip(UIKeys.MODELS_GEOMETRY_ADD_CUBE);
+        this.addFolderIcon.tooltip(UIKeys.MODELS_GEOMETRY_ADD_FOLDER);
+        this.addIKLocatorIcon.tooltip(UIKeys.MODELS_IK_CREATE_LOCATOR_TOOLTIP);
+
+        UIElement actionButtonsRow = BBSFeatures.MODEL_IK_UI
+            ? UI.row(this.addCubeIcon, this.addFolderIcon, this.addIKLocatorIcon)
+            : UI.row(this.addCubeIcon, this.addFolderIcon);
+        actionButtonsRow.relative(this.rightPanel).x(10).y(208).w(1F, -20).h(20);
+
+        this.hierarchyList = new UIList<>((l) -> this.selectCurrentHierarchyEntry())
+        {
+            @Override
+            protected boolean sortElements()
+            {
+                return false;
+            }
+
+            @Override
+            protected void renderElementPart(UIContext context, GeometryEntry element, int i, int x, int y, boolean hover, boolean selected)
+            {
+                int textY = y + (this.scroll.scrollItemSize - context.batcher.getFont().getHeight()) / 2;
+                int offset = element.depth * 8;
+                int arrowX = x + 2 + offset;
+                int iconX = x + (element.expandable ? 16 : 4) + offset;
+                int textX = iconX + 16;
+                int w = this.area.w - (this.scroll.hasScrollbar() ? this.scroll.scrollSize : 0);
+                int eyeX = x + w - 30;
+                int lockX = x + w - 16;
+                boolean isVis = UIModelGeometryPanel.this.isEntryVisible(element);
+                boolean isLock = UIModelGeometryPanel.this.isLocked(element);
+                Icon icon = element.type == GeometryEntryType.BONE ? Icons.FOLDER : Icons.BLOCK;
+
+                if (element.expandable)
+                {
+                    context.batcher.icon(UIModelGeometryPanel.this.collapsedGroupIds.contains(element.groupId) ? Icons.COLLAPSED : Icons.UNCOLLAPSED, arrowX, y + 1);
+                }
+
+                int mainIconColor = isVis ? (isLock ? 0xfff59e0b : Colors.WHITE) : Colors.A25;
+                context.batcher.icon(icon, mainIconColor, iconX, y + 1);
+
+                int textColor = hover ? Colors.HIGHLIGHT : (!isVis ? Colors.A50 : (isLock ? 0xfff59e0b : Colors.WHITE));
+
+                context.batcher.textShadow(element.label, textX, textY, textColor);
+
+                /* Visibility Icon (Eye) */
+                Icon eyeIcon = isVis ? Icons.VISIBLE : Icons.INVISIBLE;
+                int eyeColor = isVis ? (hover ? Colors.WHITE : Colors.A50) : 0xffff4444;
+                context.batcher.icon(eyeIcon, eyeColor, eyeX, y + 1);
+
+                /* Lock Icon (Padlock) */
+                if (isLock || hover)
+                {
+                    Icon lockIcon = isLock ? Icons.LOCKED : Icons.UNLOCKED;
+                    int lockColor = isLock ? 0xfff59e0b : Colors.A50;
+                    context.batcher.icon(lockIcon, lockColor, lockX, y + 1);
+                }
+            }
+
+            @Override
+            protected String elementToString(UIContext context, int i, GeometryEntry element)
+            {
+                return element.label + " " + element.groupId;
+            }
+
+            @Override
+            protected void handleSwap(int from, int to)
+            {
+                UIModelGeometryPanel.this.handleHierarchySwap(from, to);
+            }
+
+            @Override
+            public boolean subMouseClicked(UIContext context)
+            {
+                if (this.area.isInside(context) && context.mouseButton == 0)
+                {
+                    int visibleIndex = this.scroll.getIndex(context.mouseX, context.mouseY);
+
+                    if (this.exists(visibleIndex))
+                    {
+                        GeometryEntry entry = this.getList().get(visibleIndex);
+                        int y = this.area.y + visibleIndex * this.scroll.scrollItemSize - (int) this.scroll.getScroll();
+                        int offset = entry.depth * 8;
+                        int arrowX = this.area.x + 2 + offset;
+                        int w = this.area.w - (this.scroll.hasScrollbar() ? this.scroll.scrollSize : 0);
+                        int eyeX = this.area.x + w - 30;
+                        int lockX = this.area.x + w - 16;
+
+                        if (!this.isFiltering() && entry.expandable && context.mouseX >= arrowX && context.mouseX < arrowX + 16 && context.mouseY >= y + 1 && context.mouseY < y + 17)
+                        {
+                            UIModelGeometryPanel.this.toggleGroupCollapsed(entry.groupId);
+
+                            return true;
+                        }
+
+                        if (context.mouseX >= eyeX && context.mouseX < eyeX + 16 && context.mouseY >= y + 1 && context.mouseY < y + 17)
+                        {
+                            UIModelGeometryPanel.this.toggleVisibility(entry);
+                            UIUtils.playClick();
+
+                            return true;
+                        }
+
+                        if (context.mouseX >= lockX && context.mouseX < lockX + 16 && context.mouseY >= y + 1 && context.mouseY < y + 17)
+                        {
+                            UIModelGeometryPanel.this.toggleLock(entry);
+                            UIUtils.playClick();
+
+                            return true;
+                        }
+                    }
+                }
+
+                if (this.area.isInside(context) && context.mouseButton == 1)
+                {
+                    int visibleIndex = this.scroll.getIndex(context.mouseX, context.mouseY);
+
+                    if (this.exists(visibleIndex))
+                    {
+                        GeometryEntry entry = this.getList().get(visibleIndex);
+
+                        if (!this.getCurrent().contains(entry))
+                        {
+                            this.setCurrentDirect(entry);
+                            UIModelGeometryPanel.this.selectCurrentHierarchyEntry();
+                        }
+
+                        UIModelGeometryPanel.this.openHierarchyContextMenu(context, entry);
+
+                        return true;
+                    }
+                }
+
+                return super.subMouseClicked(context);
+            }
+        };
+        this.hierarchyList.multi();
+        this.hierarchyList.background();
+        this.hierarchyList.sorting();
+        this.hierarchyList.scroll.scrollItemSize = 18;
+        this.hierarchySearch = new UISearchList<>(this.hierarchyList);
+        this.hierarchySearch.label(UIKeys.GENERAL_SEARCH);
+        this.hierarchySearch.relative(this.rightPanel).x(10).y(234).w(1F, -20).h(1F, -242);
+
+        this.rightPanel.add(editorTitle, this.selectedBoneLabel, this.unifiedTransform, cubeInflateRow, buttons, hierarchyTitle, actionButtonsRow, this.hierarchySearch);
 
         UIDraggable leftDraggable = new UIDraggable((context) ->
         {
@@ -420,11 +540,11 @@ public class UIModelGeometryPanel extends UIElement
             int rightX2 = this.rightPanel.area.ex();
             int rightY2 = this.rightPanel.area.ey();
 
-            context.batcher.box(leftX1, leftY1, leftX2, leftY2, 0xFF111115);
-            context.batcher.outline(leftX1 - 1, leftY1 - 1, leftX2 + 1, leftY2 + 1, 0xFF5A5A5A);
+            context.batcher.box(leftX1, leftY1, leftX2, leftY2, 0xFF181A1F);
+            context.batcher.outline(leftX1 - 1, leftY1 - 1, leftX2 + 1, leftY2 + 1, 0xFF2A2D35);
 
-            context.batcher.box(rightX1, rightY1, rightX2, rightY2, 0xFF111115);
-            context.batcher.outline(rightX1 - 1, rightY1 - 1, rightX2 + 1, rightY2 + 1, 0xFF5A5A5A);
+            context.batcher.box(rightX1, rightY1, rightX2, rightY2, 0xFF181A1F);
+            context.batcher.outline(rightX1 - 1, rightY1 - 1, rightX2 + 1, rightY2 + 1, 0xFF2A2D35);
         });
 
         /* Gizmo Toolbar */
@@ -460,9 +580,18 @@ public class UIModelGeometryPanel extends UIElement
         });
         this.gizmoTranslateSpeed.tooltip(UIKeys.FILM_GIZMO_TRANSLATE_SPEED);
 
+        this.gizmoCoordinateSpace = new UIIcon(Icons.SPHERE, (b) -> this.toggleCoordinateSpace());
+        this.gizmoCoordinateSpace.tooltip(UIKeys.MODELS_GEOMETRY_SPACE);
+
+        this.gizmoSnap = new UIIcon(Icons.BLOCK, (b) -> this.openSnapContextMenu(this.getContext()));
+        this.gizmoSnap.tooltip(UIKeys.MODELS_GEOMETRY_SNAP);
+
+        this.gizmoViewportMode = new UIIcon(Icons.MATERIAL, (b) -> this.openViewportModeContextMenu(this.getContext()));
+        this.gizmoViewportMode.tooltip(UIKeys.MODELS_GEOMETRY_VIEWPORT_MODE);
+
         UIElement gizmoToolbar = new UIElement();
         gizmoToolbar.row(0);
-        gizmoToolbar.relative(this).x(0.5F).y(4).wh(160, 20).anchorX(0.5F);
+        gizmoToolbar.relative(this).x(0.5F).y(4).wh(220, 20).anchorX(0.5F);
 
         UIRenderable toolbarBackground = new UIRenderable((context) ->
         {
@@ -475,9 +604,18 @@ public class UIModelGeometryPanel extends UIElement
             this.gizmoRotate.active(gizmoMode == Gizmo.Mode.ROTATE);
             this.gizmoCombined.active(gizmoMode == Gizmo.Mode.COMBINED);
             this.gizmoTop.active(gizmoMode == Gizmo.Mode.TOP);
+            this.gizmoCoordinateSpace.active(this.coordinateSpace == TransformOrientation.GLOBAL);
+            this.gizmoSnap.active(this.snapEnabled);
+
+            UIModelRenderer mr = this.parent.getModelRenderer();
+
+            if (mr instanceof UIModelEditorRenderer editorRenderer)
+            {
+                this.gizmoViewportMode.active(editorRenderer.viewportMode != UIModelEditorRenderer.ViewportMode.TEXTURED);
+            }
         });
 
-        gizmoToolbar.add(this.gizmoMove, this.gizmoScale, this.gizmoRotate, this.gizmoCombined, this.gizmoTop, this.gizmoVisualSize, this.gizmoThickness, this.gizmoTranslateSpeed);
+        gizmoToolbar.add(this.gizmoMove, this.gizmoScale, this.gizmoRotate, this.gizmoCombined, this.gizmoTop, this.gizmoCoordinateSpace, this.gizmoSnap, this.gizmoViewportMode, this.gizmoVisualSize, this.gizmoThickness, this.gizmoTranslateSpeed);
 
         this.add(backgroundRenderable, this.leftPanel, this.rightPanel, leftDraggable, rightDraggable, this.gizmoTransform, toolbarBackground, gizmoToolbar);
 
@@ -503,6 +641,8 @@ public class UIModelGeometryPanel extends UIElement
     {
         this.filling = true;
 
+        boolean locked = this.isCurrentSelectionLocked();
+
         if (this.selectedCube == null && this.selectedGroup == null)
         {
             this.cubeMirrorValue = false;
@@ -515,6 +655,15 @@ public class UIModelGeometryPanel extends UIElement
             this.cubeUvX.setEnabled(false);
             this.cubeUvY.setEnabled(false);
             this.cubeMirror.setEnabled(false);
+            this.uvModeButton.setEnabled(false);
+            this.uvFaceSelectButton.setEnabled(false);
+            this.uvFaceRotateButton.setEnabled(false);
+            this.uvFaceX.setEnabled(false);
+            this.uvFaceY.setEnabled(false);
+            this.uvFaceW.setEnabled(false);
+            this.uvFaceH.setEnabled(false);
+            this.uvResetToBoxButton.setEnabled(false);
+            this.unifiedTransform.setEnabled(false);
         }
         else if (this.selectedCube != null)
         {
@@ -526,10 +675,41 @@ public class UIModelGeometryPanel extends UIElement
             this.cubeUvX.setValue(uv.x);
             this.cubeUvY.setValue(uv.y);
             this.cubeMirror.setValue(this.cubeMirrorValue);
-            this.cubeInflate.setEnabled(true);
-            this.cubeUvX.setEnabled(true);
-            this.cubeUvY.setEnabled(true);
-            this.cubeMirror.setEnabled(true);
+            this.cubeInflate.setEnabled(!locked);
+            this.cubeUvX.setEnabled(!locked);
+            this.cubeUvY.setEnabled(!locked);
+            this.cubeMirror.setEnabled(!locked);
+            this.uvModeButton.setEnabled(!locked);
+            this.unifiedTransform.setEnabled(!locked);
+
+            this.uvModeButton.label = this.faceUVMode ? UIKeys.MODELS_GEOMETRY_UV_FACE : UIKeys.MODELS_GEOMETRY_UV_BOX;
+            this.uvBoxRow.setVisible(!this.faceUVMode);
+            this.uvFaceSelectRow.setVisible(this.faceUVMode);
+            this.uvFaceCoordsRow.setVisible(this.faceUVMode);
+            this.uvResetToBoxButton.setVisible(this.faceUVMode);
+
+            if (this.faceUVMode)
+            {
+                int faceIdx = this.uvEditor.getSelectedFace();
+                this.uvFaceSelectButton.label = this.getFaceKey(faceIdx);
+                ModelUV faceUV = this.uvEditor.getFaceUV(this.selectedCube, faceIdx);
+
+                if (faceUV != null)
+                {
+                    this.uvFaceX.setValue(faceUV.origin.x);
+                    this.uvFaceY.setValue(faceUV.origin.y);
+                    this.uvFaceW.setValue(faceUV.size.x);
+                    this.uvFaceH.setValue(faceUV.size.y);
+                }
+
+                this.uvFaceSelectButton.setEnabled(!locked);
+                this.uvFaceRotateButton.setEnabled(!locked);
+                this.uvFaceX.setEnabled(!locked);
+                this.uvFaceY.setEnabled(!locked);
+                this.uvFaceW.setEnabled(!locked);
+                this.uvFaceH.setEnabled(!locked);
+                this.uvResetToBoxButton.setEnabled(!locked);
+            }
         }
         else
         {
@@ -542,10 +722,20 @@ public class UIModelGeometryPanel extends UIElement
             this.cubeUvX.setEnabled(false);
             this.cubeUvY.setEnabled(false);
             this.cubeMirror.setEnabled(false);
+            this.uvModeButton.setEnabled(false);
+            this.uvFaceSelectButton.setEnabled(false);
+            this.uvFaceRotateButton.setEnabled(false);
+            this.uvFaceX.setEnabled(false);
+            this.uvFaceY.setEnabled(false);
+            this.uvFaceW.setEnabled(false);
+            this.uvFaceH.setEnabled(false);
+            this.uvResetToBoxButton.setEnabled(false);
+            this.unifiedTransform.setEnabled(!locked);
         }
 
         this.filling = false;
         this.syncGizmoTransformFromSelection();
+        this.syncUVEditor();
     }
 
     private UITrackpad trackpad(Consumer<Double> callback)
@@ -592,6 +782,76 @@ public class UIModelGeometryPanel extends UIElement
             return ok;
         }
 
+        if (!context.isFocused())
+        {
+            if (context.isPressed(GLFW.GLFW_KEY_DELETE) || context.isPressed(GLFW.GLFW_KEY_BACKSPACE))
+            {
+                if (!this.hierarchyList.getCurrent().isEmpty())
+                {
+                    this.deleteSelection();
+                    UIUtils.playClick();
+                    return true;
+                }
+            }
+
+            if (Window.isCtrlPressed() && Window.isShiftPressed() && context.isPressed(GLFW.GLFW_KEY_D))
+            {
+                if (!this.hierarchyList.getCurrent().isEmpty())
+                {
+                    this.duplicateAndMirrorX();
+                    return true;
+                }
+            }
+
+            if (Window.isCtrlPressed() && context.isPressed(GLFW.GLFW_KEY_D))
+            {
+                if (!this.hierarchyList.getCurrent().isEmpty())
+                {
+                    this.duplicateSelection();
+                    UIUtils.playClick();
+                    return true;
+                }
+            }
+
+            if (context.isPressed(GLFW.GLFW_KEY_F2))
+            {
+                GeometryEntry first = this.hierarchyList.getCurrentFirst();
+
+                if (first != null)
+                {
+                    this.renameEntry(first);
+                    return true;
+                }
+            }
+
+            if (context.isPressed(GLFW.GLFW_KEY_F))
+            {
+                this.focusSelection();
+                return true;
+            }
+
+            if (context.isPressed(GLFW.GLFW_KEY_G) || context.isPressed(GLFW.GLFW_KEY_T))
+            {
+                Gizmo.INSTANCE.setMode(Gizmo.Mode.TRANSLATE);
+                UIUtils.playClick();
+                return true;
+            }
+
+            if (context.isPressed(GLFW.GLFW_KEY_R))
+            {
+                Gizmo.INSTANCE.setMode(Gizmo.Mode.ROTATE);
+                UIUtils.playClick();
+                return true;
+            }
+
+            if (context.isPressed(GLFW.GLFW_KEY_S))
+            {
+                Gizmo.INSTANCE.setMode(Gizmo.Mode.SCALE);
+                UIUtils.playClick();
+                return true;
+            }
+        }
+
         return super.subKeyPressed(context);
     }
 
@@ -606,11 +866,53 @@ public class UIModelGeometryPanel extends UIElement
         return super.subMouseReleased(context);
     }
 
+    public void selectCube(String groupId, int cubeIndex)
+    {
+        if (groupId == null || groupId.isEmpty())
+        {
+            return;
+        }
+
+        /* If the parent group is collapsed, uncollapse it so the cube entry is visible and selectable */
+        if (this.collapsedGroupIds.contains(groupId))
+        {
+            this.collapsedGroupIds.remove(groupId);
+            this.reloadModelData();
+        }
+
+        for (GeometryEntry entry : this.hierarchyList.getList())
+        {
+            if (entry.type == GeometryEntryType.CUBE && entry.groupId.equals(groupId) && entry.cubeIndex == cubeIndex)
+            {
+                this.hierarchyList.setCurrentDirect(entry);
+                this.selectCurrentHierarchyEntry();
+
+                return;
+            }
+        }
+
+        this.selectBone(groupId);
+    }
+
     public void selectBone(String bone)
     {
         if (bone == null || bone.isEmpty())
         {
             return;
+        }
+
+        UIContext context = this.getContext();
+
+        if (context != null)
+        {
+            UIModelEditorRenderer.PickedCube pickedCube = this.parent.getModelRenderer().pickCubeAt(context);
+
+            if (pickedCube != null)
+            {
+                this.selectCube(pickedCube.groupId, pickedCube.cubeIndex);
+
+                return;
+            }
         }
 
         for (GeometryEntry entry : this.hierarchyList.getList())
@@ -726,6 +1028,11 @@ public class UIModelGeometryPanel extends UIElement
 
         this.parent.getModelRenderer().setSelectedCube(this.selectedCube);
 
+        if (this.selectedCube != null)
+        {
+            this.faceUVMode = this.isCustomFaceUV(this.selectedCube);
+        }
+
         if (this.parent.getMainView().getChildren().contains(this))
         {
             this.parent.getModelRenderer().transform = this.gizmoTransform;
@@ -739,15 +1046,21 @@ public class UIModelGeometryPanel extends UIElement
     {
         this.filling = true;
 
-        if (this.selectedGroup == null)
+        if (this.selectedCube != null && this.selectedGroup != null)
         {
-            this.selectedBoneLabel.label = IKey.raw("-");
-            this.setPads(new Vector3f(), new Vector3f(), new Vector3f(), new Vector3f(1F, 1F, 1F));
+            String cubeName = this.selectedCube.name.isBlank() ? "Cubo" : this.selectedCube.name;
+            this.selectedBoneLabel.label = IKey.raw(this.selectedGroup.id + " / " + cubeName);
+            this.setPads(this.selectedCube.origin, this.selectedCube.rotate, this.selectedCube.pivot, this.selectedCube.size);
         }
-        else
+        else if (this.selectedGroup != null)
         {
             this.selectedBoneLabel.label = IKey.raw(this.selectedGroup.id);
             this.setPads(this.selectedGroup.initial.translate, this.selectedGroup.initial.rotate, this.selectedGroup.initial.pivot, this.selectedGroup.initial.scale);
+        }
+        else
+        {
+            this.selectedBoneLabel.label = IKey.raw("-");
+            this.setPads(new Vector3f(), new Vector3f(), new Vector3f(), new Vector3f(1F, 1F, 1F));
         }
 
         this.filling = false;
@@ -811,6 +1124,35 @@ public class UIModelGeometryPanel extends UIElement
 
     private void applyGizmoChange(int type, Axis axis, double x, double y, double z)
     {
+        if (this.isCurrentSelectionLocked())
+        {
+            return;
+        }
+
+        boolean snap = this.snapEnabled ^ Window.isShiftPressed();
+
+        if (snap)
+        {
+            if (type == 0 || type == 2 || type == 3)
+            {
+                if (this.positionSnap > 0F)
+                {
+                    x = Math.round(x / this.positionSnap) * this.positionSnap;
+                    y = Math.round(y / this.positionSnap) * this.positionSnap;
+                    z = Math.round(z / this.positionSnap) * this.positionSnap;
+                }
+            }
+            else if (type == 1)
+            {
+                if (this.rotationSnap > 0F)
+                {
+                    x = Math.round(x / this.rotationSnap) * this.rotationSnap;
+                    y = Math.round(y / this.rotationSnap) * this.rotationSnap;
+                    z = Math.round(z / this.rotationSnap) * this.rotationSnap;
+                }
+            }
+        }
+
         if (axis == null)
         {
             this.updateTransformVector(type, 0, (float) x);
@@ -854,7 +1196,7 @@ public class UIModelGeometryPanel extends UIElement
 
     private void updateTransformVector(int type, int axis, float value)
     {
-        if (this.filling || (this.selectedGroup == null && this.selectedCube == null))
+        if (this.filling || (this.selectedGroup == null && this.selectedCube == null) || this.isCurrentSelectionLocked())
         {
             return;
         }
@@ -934,6 +1276,7 @@ public class UIModelGeometryPanel extends UIElement
 
         this.selectedCube.setupBoxUV(uv, this.cubeMirrorValue);
         this.refreshCubeRenderAndSave();
+        this.syncUVEditor();
     }
 
     private void updateCubeMirror(boolean mirror)
@@ -946,6 +1289,196 @@ public class UIModelGeometryPanel extends UIElement
         this.cubeMirrorValue = mirror;
         this.selectedCube.setupBoxUV(this.getBoxUV(this.selectedCube), this.cubeMirrorValue);
         this.refreshCubeRenderAndSave();
+        this.syncUVEditor();
+    }
+
+    public boolean isFaceUVMode()
+    {
+        return this.faceUVMode;
+    }
+
+    public void toggleUVMode()
+    {
+        if (this.selectedCube == null)
+        {
+            return;
+        }
+
+        if (!this.faceUVMode)
+        {
+            this.selectedCube.setupBoxUV(this.getBoxUV(this.selectedCube), this.cubeMirrorValue);
+            this.faceUVMode = true;
+        }
+        else
+        {
+            this.faceUVMode = false;
+            this.selectedCube.setupBoxUV(this.getBoxUV(this.selectedCube), this.cubeMirrorValue);
+        }
+
+        this.refreshCubeRenderAndSave();
+        this.fillCubeControls();
+    }
+
+    public void resetToBoxUV()
+    {
+        if (this.selectedCube == null)
+        {
+            return;
+        }
+
+        this.faceUVMode = false;
+        this.selectedCube.setupBoxUV(this.getBoxUV(this.selectedCube), this.cubeMirrorValue);
+        this.refreshCubeRenderAndSave();
+        this.fillCubeControls();
+    }
+
+    public void toggleUVEditorVisible()
+    {
+        this.uvEditor.setVisible(!this.uvEditor.isVisible());
+    }
+
+    public void rotateSelectedFaceUV()
+    {
+        if (this.selectedCube == null)
+        {
+            return;
+        }
+
+        if (!this.faceUVMode)
+        {
+            this.selectedCube.setupBoxUV(this.getBoxUV(this.selectedCube), this.cubeMirrorValue);
+            this.faceUVMode = true;
+        }
+
+        ModelUV uv = this.uvEditor.getFaceUV(this.selectedCube, this.uvEditor.getSelectedFace());
+
+        if (uv != null)
+        {
+            uv.rotation = (uv.rotation + 90F) % 360F;
+            this.refreshCubeRenderAndSave();
+            this.fillCubeControls();
+        }
+    }
+
+    public void onUVFaceSelected(int faceIndex)
+    {
+        this.uvEditor.setSelectedFace(faceIndex);
+        this.fillCubeControls();
+    }
+
+    public void recordUVUndo()
+    {
+        this.recordUndoState();
+    }
+
+    public void refreshCubeRenderAndSyncControls()
+    {
+        this.refreshCubeRenderAndSave();
+        this.fillCubeControls();
+    }
+
+    public void setBoxUVDirect(float x, float y)
+    {
+        if (this.selectedCube == null)
+        {
+            return;
+        }
+
+        this.selectedCube.setupBoxUV(new Vector2f(x, y), this.cubeMirrorValue);
+        this.refreshCubeRenderAndSave();
+        this.fillCubeControls();
+    }
+
+    public void syncUVEditor()
+    {
+        if (this.uvEditor == null)
+        {
+            return;
+        }
+
+        Link textureLink = this.config != null ? this.config.texture.get() : null;
+        Model model = this.instance != null && this.instance.model instanceof Model m ? m : null;
+
+        this.uvEditor.setModelAndCube(model, this.selectedCube, textureLink, this.faceUVMode);
+    }
+
+    private void openFaceSelectionMenu(UIContext context)
+    {
+        context.replaceContextMenu((menu) ->
+        {
+            for (int i = 0; i < 6; i++)
+            {
+                final int faceIndex = i;
+                menu.action(this.getFaceKey(faceIndex), () -> this.onUVFaceSelected(faceIndex));
+            }
+        });
+    }
+
+    private void updateFaceUVCoord(int coord, float value)
+    {
+        if (this.filling || this.selectedCube == null)
+        {
+            return;
+        }
+
+        ModelUV uv = this.uvEditor.getFaceUV(this.selectedCube, this.uvEditor.getSelectedFace());
+
+        if (uv != null)
+        {
+            if (coord == 0)
+            {
+                uv.origin.x = value;
+            }
+            else if (coord == 1)
+            {
+                uv.origin.y = value;
+            }
+            else if (coord == 2)
+            {
+                uv.size.x = value;
+            }
+            else if (coord == 3)
+            {
+                uv.size.y = value;
+            }
+
+            this.refreshCubeRenderAndSave();
+            this.syncUVEditor();
+        }
+    }
+
+    public IKey getFaceKey(int index)
+    {
+        switch (index)
+        {
+            case UIModelUVEditor.FACE_FRONT: return UIKeys.MODELS_GEOMETRY_UV_FACE_FRONT;
+            case UIModelUVEditor.FACE_BACK: return UIKeys.MODELS_GEOMETRY_UV_FACE_BACK;
+            case UIModelUVEditor.FACE_RIGHT: return UIKeys.MODELS_GEOMETRY_UV_FACE_RIGHT;
+            case UIModelUVEditor.FACE_LEFT: return UIKeys.MODELS_GEOMETRY_UV_FACE_LEFT;
+            case UIModelUVEditor.FACE_TOP: return UIKeys.MODELS_GEOMETRY_UV_FACE_TOP;
+            case UIModelUVEditor.FACE_BOTTOM: return UIKeys.MODELS_GEOMETRY_UV_FACE_BOTTOM;
+            default: return UIKeys.MODELS_GEOMETRY_UV_FACE_FRONT;
+        }
+    }
+
+    public boolean isCustomFaceUV(ModelCube cube)
+    {
+        if (cube == null)
+        {
+            return false;
+        }
+
+        if ((cube.front != null && cube.front.rotation != 0) ||
+            (cube.back != null && cube.back.rotation != 0) ||
+            (cube.right != null && cube.right.rotation != 0) ||
+            (cube.left != null && cube.left.rotation != 0) ||
+            (cube.top != null && cube.top.rotation != 0) ||
+            (cube.bottom != null && cube.bottom.rotation != 0))
+        {
+            return true;
+        }
+
+        return false;
     }
 
     private void openHierarchyContextMenu(UIContext context, GeometryEntry entry)
@@ -954,9 +1487,14 @@ public class UIModelGeometryPanel extends UIElement
         {
             menu.action(Icons.COPY, UIKeys.GENERAL_COPY, () -> this.copyEntry(entry));
             menu.action(Icons.PASTE, UIKeys.GENERAL_PASTE, () -> this.pasteEntry(entry));
-            menu.action(Icons.DUPE, UIKeys.GENERAL_DUPE, () -> this.duplicateEntry(entry));
+            menu.action(Icons.DUPE, UIKeys.GENERAL_DUPE, () -> this.duplicateSelection());
+            menu.action(Icons.ALL_DIRECTIONS, UIKeys.MODELS_GEOMETRY_FLIP_X, () -> this.flipSelectedX());
+            menu.action(Icons.DUPE, UIKeys.MODELS_GEOMETRY_DUPE_MIRROR_X, () -> this.duplicateAndMirrorX());
             menu.action(Icons.EDIT, UIKeys.GENERAL_RENAME, () -> this.renameEntry(entry));
-            menu.action(Icons.REMOVE, UIKeys.GENERAL_REMOVE, () -> this.deleteEntry(entry));
+            menu.action(this.isEntryVisible(entry) ? Icons.INVISIBLE : Icons.VISIBLE, this.isEntryVisible(entry) ? UIKeys.MODELS_GEOMETRY_HIDE : UIKeys.MODELS_GEOMETRY_SHOW, () -> this.toggleVisibility(entry));
+            menu.action(this.isLocked(entry) ? Icons.UNLOCKED : Icons.LOCKED, this.isLocked(entry) ? UIKeys.MODELS_GEOMETRY_UNLOCK : UIKeys.MODELS_GEOMETRY_LOCK, () -> this.toggleLock(entry));
+            menu.action(Icons.MOVE_TO, UIKeys.MODELS_GEOMETRY_FOCUS, () -> this.focusSelection());
+            menu.action(Icons.REMOVE, UIKeys.GENERAL_REMOVE, () -> this.deleteSelection());
         });
     }
 
@@ -1131,6 +1669,596 @@ public class UIModelGeometryPanel extends UIElement
         this.refreshCubeRenderAndSave();
     }
 
+    public boolean isEntryVisible(GeometryEntry entry)
+    {
+        if (entry == null || this.instance == null || !(this.instance.model instanceof Model model))
+        {
+            return true;
+        }
+
+        ModelGroup group = model.getGroup(entry.groupId);
+
+        if (group == null)
+        {
+            return true;
+        }
+
+        if (entry.type == GeometryEntryType.BONE)
+        {
+            return group.visible;
+        }
+        else if (entry.type == GeometryEntryType.CUBE && entry.cubeIndex >= 0 && entry.cubeIndex < group.cubes.size())
+        {
+            ModelCube cube = group.cubes.get(entry.cubeIndex);
+
+            return cube.visible && group.visible;
+        }
+
+        return true;
+    }
+
+    public void toggleVisibility(GeometryEntry entry)
+    {
+        if (entry == null || this.instance == null || !(this.instance.model instanceof Model model))
+        {
+            return;
+        }
+
+        ModelGroup group = model.getGroup(entry.groupId);
+
+        if (group == null)
+        {
+            return;
+        }
+
+        if (entry.type == GeometryEntryType.BONE)
+        {
+            group.visible = !group.visible;
+        }
+        else if (entry.type == GeometryEntryType.CUBE && entry.cubeIndex >= 0 && entry.cubeIndex < group.cubes.size())
+        {
+            ModelCube cube = group.cubes.get(entry.cubeIndex);
+            cube.visible = !cube.visible;
+        }
+
+        this.refreshCubeRenderAndSave();
+    }
+
+    public boolean isLocked(GeometryEntry entry)
+    {
+        if (entry == null)
+        {
+            return false;
+        }
+
+        if (this.lockedGroupIds.contains(entry.groupId))
+        {
+            return true;
+        }
+
+        if (entry.type == GeometryEntryType.CUBE)
+        {
+            return this.lockedCubeKeys.contains(entry.groupId + ":" + entry.cubeIndex);
+        }
+
+        return false;
+    }
+
+    public void toggleLock(GeometryEntry entry)
+    {
+        if (entry == null)
+        {
+            return;
+        }
+
+        if (entry.type == GeometryEntryType.BONE)
+        {
+            if (this.lockedGroupIds.contains(entry.groupId))
+            {
+                this.lockedGroupIds.remove(entry.groupId);
+            }
+            else
+            {
+                this.lockedGroupIds.add(entry.groupId);
+            }
+        }
+        else
+        {
+            String key = entry.groupId + ":" + entry.cubeIndex;
+
+            if (this.lockedCubeKeys.contains(key))
+            {
+                this.lockedCubeKeys.remove(key);
+            }
+            else
+            {
+                this.lockedCubeKeys.add(key);
+            }
+        }
+
+        this.fillControls();
+        this.fillCubeControls();
+    }
+
+    public boolean isCurrentSelectionLocked()
+    {
+        GeometryEntry entry = this.hierarchyList.getCurrentFirst();
+
+        return this.isLocked(entry);
+    }
+
+    public void focusSelection()
+    {
+        if (this.instance == null || this.selectedGroup == null)
+        {
+            return;
+        }
+
+        Vector3f target = new Vector3f();
+
+        if (this.selectedCube != null)
+        {
+            target.set(
+                this.selectedCube.origin.x + this.selectedCube.size.x / 2F,
+                this.selectedCube.origin.y + this.selectedCube.size.y / 2F,
+                this.selectedCube.origin.z + this.selectedCube.size.z / 2F
+            );
+        }
+        else
+        {
+            target.set(this.selectedGroup.initial.translate);
+        }
+
+        UIModelRenderer renderer = this.parent.getModelRenderer();
+
+        if (renderer != null)
+        {
+            renderer.pos.set(-target.x / 16F, -target.y / 16F, -target.z / 16F);
+            UIUtils.playClick();
+        }
+    }
+
+    public void deleteSelection()
+    {
+        List<GeometryEntry> selected = new ArrayList<>(this.hierarchyList.getCurrent());
+
+        if (selected.isEmpty())
+        {
+            return;
+        }
+
+        if (selected.size() == 1)
+        {
+            this.deleteEntry(selected.get(0));
+            return;
+        }
+
+        if (this.instance == null || !(this.instance.model instanceof Model model))
+        {
+            return;
+        }
+
+        /* 1. Delete cubes grouped by ModelGroup in descending order of indices */
+        Map<ModelGroup, List<Integer>> cubesPerGroup = new HashMap<>();
+
+        for (GeometryEntry entry : selected)
+        {
+            if (entry.type == GeometryEntryType.CUBE)
+            {
+                ModelGroup group = model.getGroup(entry.groupId);
+
+                if (group != null)
+                {
+                    cubesPerGroup.computeIfAbsent(group, (k) -> new ArrayList<>()).add(entry.cubeIndex);
+                }
+            }
+        }
+
+        for (Map.Entry<ModelGroup, List<Integer>> pair : cubesPerGroup.entrySet())
+        {
+            ModelGroup group = pair.getKey();
+            List<Integer> indices = pair.getValue();
+            indices.sort((a, b) -> Integer.compare(b, a));
+
+            for (int idx : indices)
+            {
+                if (idx >= 0 && idx < group.cubes.size())
+                {
+                    group.cubes.remove(idx);
+                }
+            }
+        }
+
+        /* 2. Delete bones */
+        for (GeometryEntry entry : selected)
+        {
+            if (entry.type == GeometryEntryType.BONE)
+            {
+                ModelGroup group = model.getGroup(entry.groupId);
+
+                if (group != null)
+                {
+                    this.removeGroupFromParent(model, group);
+                }
+            }
+        }
+
+        model.initialize();
+        this.reloadHierarchyPreserveSelection(null);
+        this.refreshCubeRenderAndSave();
+    }
+
+    public void duplicateSelection()
+    {
+        List<GeometryEntry> selected = new ArrayList<>(this.hierarchyList.getCurrent());
+
+        if (selected.isEmpty())
+        {
+            return;
+        }
+
+        if (selected.size() == 1)
+        {
+            this.duplicateEntry(selected.get(0));
+            return;
+        }
+
+        for (GeometryEntry entry : selected)
+        {
+            this.copyEntry(entry);
+            this.pasteEntry(entry);
+        }
+    }
+
+    public void toggleCoordinateSpace()
+    {
+        this.coordinateSpace = this.coordinateSpace == TransformOrientation.LOCAL ? TransformOrientation.GLOBAL : TransformOrientation.LOCAL;
+        this.gizmoTransform.setOrientation(this.coordinateSpace);
+        Gizmo.INSTANCE.setActiveOrientation(this.coordinateSpace);
+        UIUtils.playClick();
+    }
+
+    public void openSnapContextMenu(UIContext context)
+    {
+        if (context == null)
+        {
+            return;
+        }
+
+        context.replaceContextMenu((menu) ->
+        {
+            menu.action(this.snapEnabled ? Icons.SAVED : Icons.NONE, this.snapEnabled ? UIKeys.MODELS_GEOMETRY_SNAP_ON : UIKeys.MODELS_GEOMETRY_SNAP_OFF, () ->
+            {
+                this.snapEnabled = !this.snapEnabled;
+            });
+
+            menu.action(this.positionSnap == 1.0F ? Icons.SAVED : Icons.NONE, UIKeys.MODELS_GEOMETRY_SNAP_POS_1, () ->
+            {
+                this.positionSnap = 1.0F;
+                this.snapEnabled = true;
+            });
+            menu.action(this.positionSnap == 0.5F ? Icons.SAVED : Icons.NONE, UIKeys.MODELS_GEOMETRY_SNAP_POS_05, () ->
+            {
+                this.positionSnap = 0.5F;
+                this.snapEnabled = true;
+            });
+            menu.action(this.positionSnap == 0.25F ? Icons.SAVED : Icons.NONE, UIKeys.MODELS_GEOMETRY_SNAP_POS_025, () ->
+            {
+                this.positionSnap = 0.25F;
+                this.snapEnabled = true;
+            });
+            menu.action(this.positionSnap == 0.125F ? Icons.SAVED : Icons.NONE, UIKeys.MODELS_GEOMETRY_SNAP_POS_0125, () ->
+            {
+                this.positionSnap = 0.125F;
+                this.snapEnabled = true;
+            });
+            menu.action(this.positionSnap == 0.0625F ? Icons.SAVED : Icons.NONE, UIKeys.MODELS_GEOMETRY_SNAP_POS_00625, () ->
+            {
+                this.positionSnap = 0.0625F;
+                this.snapEnabled = true;
+            });
+
+            menu.action(this.rotationSnap == 15.0F ? Icons.SAVED : Icons.NONE, UIKeys.MODELS_GEOMETRY_SNAP_ANGLE_15, () ->
+            {
+                this.rotationSnap = 15.0F;
+                this.snapEnabled = true;
+            });
+            menu.action(this.rotationSnap == 22.5F ? Icons.SAVED : Icons.NONE, UIKeys.MODELS_GEOMETRY_SNAP_ANGLE_225, () ->
+            {
+                this.rotationSnap = 22.5F;
+                this.snapEnabled = true;
+            });
+            menu.action(this.rotationSnap == 45.0F ? Icons.SAVED : Icons.NONE, UIKeys.MODELS_GEOMETRY_SNAP_ANGLE_45, () ->
+            {
+                this.rotationSnap = 45.0F;
+                this.snapEnabled = true;
+            });
+            menu.action(this.rotationSnap == 90.0F ? Icons.SAVED : Icons.NONE, UIKeys.MODELS_GEOMETRY_SNAP_ANGLE_90, () ->
+            {
+                this.rotationSnap = 90.0F;
+                this.snapEnabled = true;
+            });
+        });
+    }
+
+    public void openPivotContextMenu(UIContext context)
+    {
+        if (context == null)
+        {
+            return;
+        }
+
+        context.replaceContextMenu((menu) ->
+        {
+            if (this.selectedCube != null)
+            {
+                menu.action(Icons.SPHERE, UIKeys.MODELS_GEOMETRY_PIVOT_CENTER, () -> this.centerPivotToSelection());
+                menu.action(Icons.MOVE_TO, UIKeys.MODELS_GEOMETRY_PIVOT_BOTTOM, () -> this.bottomCenterPivotToSelection());
+                menu.action(Icons.REFRESH, UIKeys.MODELS_GEOMETRY_PIVOT_RESET, () -> this.resetPivot());
+            }
+            else if (this.selectedGroup != null)
+            {
+                menu.action(Icons.SPHERE, UIKeys.MODELS_GEOMETRY_PIVOT_CENTER_BONE, () -> this.centerBonePivotToCubes());
+                menu.action(Icons.REFRESH, UIKeys.MODELS_GEOMETRY_PIVOT_RESET, () -> this.resetPivot());
+            }
+        });
+    }
+
+    public void centerPivotToSelection()
+    {
+        if (this.selectedCube == null || this.isCurrentSelectionLocked())
+        {
+            return;
+        }
+
+        this.selectedCube.pivot.set(
+            this.selectedCube.origin.x + this.selectedCube.size.x / 2F,
+            this.selectedCube.origin.y + this.selectedCube.size.y / 2F,
+            this.selectedCube.origin.z + this.selectedCube.size.z / 2F
+        );
+
+        this.refreshCubeRenderAndSave();
+        this.fillCubeControls();
+        UIUtils.playClick();
+    }
+
+    public void bottomCenterPivotToSelection()
+    {
+        if (this.selectedCube == null || this.isCurrentSelectionLocked())
+        {
+            return;
+        }
+
+        this.selectedCube.pivot.set(
+            this.selectedCube.origin.x + this.selectedCube.size.x / 2F,
+            this.selectedCube.origin.y,
+            this.selectedCube.origin.z + this.selectedCube.size.z / 2F
+        );
+
+        this.refreshCubeRenderAndSave();
+        this.fillCubeControls();
+        UIUtils.playClick();
+    }
+
+    public void resetPivot()
+    {
+        if (this.isCurrentSelectionLocked())
+        {
+            return;
+        }
+
+        if (this.selectedCube != null)
+        {
+            this.selectedCube.pivot.set(0, 0, 0);
+        }
+        else if (this.selectedGroup != null)
+        {
+            this.selectedGroup.initial.pivot.set(0, 0, 0);
+            this.selectedGroup.current.pivot.set(0, 0, 0);
+        }
+
+        this.refreshCubeRenderAndSave();
+        this.fillCubeControls();
+        UIUtils.playClick();
+    }
+
+    public void centerBonePivotToCubes()
+    {
+        if (this.selectedGroup == null || this.selectedGroup.cubes.isEmpty() || this.isCurrentSelectionLocked())
+        {
+            return;
+        }
+
+        float minX = Float.POSITIVE_INFINITY, minY = Float.POSITIVE_INFINITY, minZ = Float.POSITIVE_INFINITY;
+        float maxX = Float.NEGATIVE_INFINITY, maxY = Float.NEGATIVE_INFINITY, maxZ = Float.NEGATIVE_INFINITY;
+
+        for (ModelCube cube : this.selectedGroup.cubes)
+        {
+            minX = Math.min(minX, cube.origin.x);
+            minY = Math.min(minY, cube.origin.y);
+            minZ = Math.min(minZ, cube.origin.z);
+            maxX = Math.max(maxX, cube.origin.x + cube.size.x);
+            maxY = Math.max(maxY, cube.origin.y + cube.size.y);
+            maxZ = Math.max(maxZ, cube.origin.z + cube.size.z);
+        }
+
+        this.selectedGroup.initial.pivot.set((minX + maxX) / 2F, (minY + maxY) / 2F, (minZ + maxZ) / 2F);
+        this.selectedGroup.current.pivot.set(this.selectedGroup.initial.pivot);
+
+        this.refreshCubeRenderAndSave();
+        this.fillCubeControls();
+        UIUtils.playClick();
+    }
+
+    public void openViewportModeContextMenu(UIContext context)
+    {
+        if (context == null)
+        {
+            return;
+        }
+
+        UIModelRenderer mr = this.parent.getModelRenderer();
+
+        if (!(mr instanceof UIModelEditorRenderer renderer))
+        {
+            return;
+        }
+
+        context.replaceContextMenu((menu) ->
+        {
+            menu.action(renderer.viewportMode == UIModelEditorRenderer.ViewportMode.TEXTURED ? Icons.SAVED : Icons.NONE, UIKeys.MODELS_GEOMETRY_VIEWPORT_TEXTURED, () ->
+            {
+                renderer.viewportMode = UIModelEditorRenderer.ViewportMode.TEXTURED;
+            });
+            menu.action(renderer.viewportMode == UIModelEditorRenderer.ViewportMode.WIREFRAME ? Icons.SAVED : Icons.NONE, UIKeys.MODELS_GEOMETRY_VIEWPORT_WIREFRAME, () ->
+            {
+                renderer.viewportMode = UIModelEditorRenderer.ViewportMode.WIREFRAME;
+            });
+            menu.action(renderer.viewportMode == UIModelEditorRenderer.ViewportMode.XRAY ? Icons.SAVED : Icons.NONE, UIKeys.MODELS_GEOMETRY_VIEWPORT_XRAY, () ->
+            {
+                renderer.viewportMode = UIModelEditorRenderer.ViewportMode.XRAY;
+            });
+        });
+    }
+
+    public void flipSelectedX()
+    {
+        if (this.instance == null || !(this.instance.model instanceof Model model) || this.isCurrentSelectionLocked())
+        {
+            return;
+        }
+
+        if (this.selectedCube != null)
+        {
+            this.flipCubeX(this.selectedCube, model);
+        }
+        else if (this.selectedGroup != null)
+        {
+            this.flipGroupTreeX(this.selectedGroup, model);
+        }
+
+        model.initialize();
+        this.refreshCubeRenderAndSave();
+        this.fillControls();
+        this.fillCubeControls();
+        UIUtils.playClick();
+    }
+
+    private void flipCubeX(ModelCube cube, Model model)
+    {
+        cube.origin.x = -cube.origin.x - cube.size.x;
+        cube.pivot.x = -cube.pivot.x;
+        cube.rotate.y = -cube.rotate.y;
+        cube.rotate.z = -cube.rotate.z;
+
+        if (!this.isCustomFaceUV(cube))
+        {
+            boolean mirror = !this.isCubeMirrored(cube);
+            cube.setupBoxUV(this.getBoxUV(cube), mirror);
+        }
+        else
+        {
+            ModelUV temp = cube.left;
+            cube.left = cube.right;
+            cube.right = temp;
+        }
+
+        cube.generateQuads(model.textureWidth, model.textureHeight);
+    }
+
+    private void flipGroupTreeX(ModelGroup group, Model model)
+    {
+        group.initial.translate.x = -group.initial.translate.x;
+        group.initial.rotate.y = -group.initial.rotate.y;
+        group.initial.rotate.z = -group.initial.rotate.z;
+        group.initial.pivot.x = -group.initial.pivot.x;
+        group.current.copy(group.initial);
+
+        for (ModelCube cube : group.cubes)
+        {
+            this.flipCubeX(cube, model);
+        }
+
+        for (ModelGroup child : group.children)
+        {
+            this.flipGroupTreeX(child, model);
+        }
+    }
+
+    public void duplicateAndMirrorX()
+    {
+        if (this.instance == null || !(this.instance.model instanceof Model model) || this.isCurrentSelectionLocked())
+        {
+            return;
+        }
+
+        if (this.selectedCube != null && this.selectedGroup != null)
+        {
+            ModelCube clone = this.selectedCube.copy();
+            this.flipCubeX(clone, model);
+            clone.name = this.getMirroredName(clone.name);
+            int insertIndex = this.selectedGroup.cubes.indexOf(this.selectedCube) + 1;
+
+            if (insertIndex <= 0 || insertIndex > this.selectedGroup.cubes.size())
+            {
+                insertIndex = this.selectedGroup.cubes.size();
+            }
+
+            this.selectedGroup.cubes.add(insertIndex, clone);
+            GeometryEntry entry = new GeometryEntry(GeometryEntryType.CUBE, this.selectedGroup.id, insertIndex, 0, this.getCubeLabel(clone), false);
+
+            model.initialize();
+            this.reloadHierarchyPreserveSelection(entry);
+            this.refreshCubeRenderAndSave();
+            UIUtils.playClick();
+        }
+        else if (this.selectedGroup != null)
+        {
+            Set<String> used = new HashSet<>(model.getAllGroupKeys());
+            String newId = this.makeUniqueGroupId(this.getMirroredName(this.selectedGroup.id), used);
+            ModelGroup clone = this.cloneGroupTree(this.selectedGroup, this.selectedGroup.parent, newId, true, used);
+
+            this.flipGroupTreeX(clone, model);
+
+            if (this.selectedGroup.parent != null)
+            {
+                this.selectedGroup.parent.children.add(clone);
+            }
+            else
+            {
+                model.topGroups.add(clone);
+            }
+
+            GeometryEntry entry = new GeometryEntry(GeometryEntryType.BONE, clone.id, -1, 0, clone.id, true);
+
+            model.initialize();
+            this.reloadHierarchyPreserveSelection(entry);
+            this.refreshCubeRenderAndSave();
+            UIUtils.playClick();
+        }
+    }
+
+    public String getMirroredName(String name)
+    {
+        if (name == null || name.isEmpty())
+        {
+            return "mirrored";
+        }
+
+        if (name.contains("_right")) return name.replace("_right", "_left");
+        if (name.contains("_left")) return name.replace("_left", "_right");
+        if (name.contains("_r")) return name.replace("_r", "_l");
+        if (name.contains("_l")) return name.replace("_l", "_r");
+        if (name.contains("right")) return name.replace("right", "left");
+        if (name.contains("left")) return name.replace("left", "right");
+        if (name.contains("Right")) return name.replace("Right", "Left");
+        if (name.contains("Left")) return name.replace("Left", "Right");
+        if (name.contains("_der")) return name.replace("_der", "_izq");
+        if (name.contains("_izq")) return name.replace("_izq", "_der");
+
+        return name + "_mirror";
+    }
+
     private void addFolder()
     {
         if (this.instance == null || !(this.instance.model instanceof Model model))
@@ -1242,7 +2370,30 @@ public class UIModelGeometryPanel extends UIElement
 
     private void refreshCubeRenderAndSave()
     {
-        if (this.selectedCube != null && this.selectedGroup != null && this.selectedGroup.owner != null)
+        if (this.instance != null && this.instance.model instanceof Model model)
+        {
+            int tw = Math.max(1, model.textureWidth);
+            int th = Math.max(1, model.textureHeight);
+
+            if (this.selectedCube != null)
+            {
+                this.selectedCube.generateQuads(tw, th);
+            }
+
+            for (GeometryEntry entry : this.hierarchyList.getCurrent())
+            {
+                if (entry.type == GeometryEntryType.CUBE)
+                {
+                    ModelGroup grp = model.getGroup(entry.groupId);
+
+                    if (grp != null && entry.cubeIndex >= 0 && entry.cubeIndex < grp.cubes.size())
+                    {
+                        grp.cubes.get(entry.cubeIndex).generateQuads(tw, th);
+                    }
+                }
+            }
+        }
+        else if (this.selectedCube != null && this.selectedGroup != null && this.selectedGroup.owner != null)
         {
             int tw = Math.max(1, this.selectedGroup.owner.textureWidth);
             int th = Math.max(1, this.selectedGroup.owner.textureHeight);
@@ -1258,6 +2409,17 @@ public class UIModelGeometryPanel extends UIElement
 
         this.parent.dirty();
         this.recordUndoState();
+    }
+
+    public void onPanelClosed()
+    {
+        this.parent.getModelRenderer().setSelectedCube(null);
+        this.parent.getModelRenderer().viewportMode = UIModelEditorRenderer.ViewportMode.TEXTURED;
+    }
+
+    public void onPanelOpened()
+    {
+        this.reloadModelData();
     }
 
     private void toggleGroupCollapsed(String groupId)
@@ -1704,12 +2866,12 @@ public class UIModelGeometryPanel extends UIElement
         }
     }
 
-    private boolean isCubeMirrored(ModelCube cube)
+    public boolean isCubeMirrored(ModelCube cube)
     {
         return cube.front != null && cube.front.size.x < 0;
     }
 
-    private Vector2f getBoxUV(ModelCube cube)
+    public Vector2f getBoxUV(ModelCube cube)
     {
         Vector2f uv = new Vector2f();
 

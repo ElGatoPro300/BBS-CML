@@ -10,6 +10,8 @@ public class MobForm extends Form
 {
     public final ValueString mobID = new ValueString("mobId", "minecraft:chicken");
     public final ValueString mobNBT = new ValueString("mobNbt", "");
+    public final ValueString playerName = new ValueString("playerName", "");
+    public final ValueString playerUuid = new ValueString("playerUuid", "");
 
     public final ValueLink texture = new ValueLink("texture", null);
     public final ValueBoolean slim = new ValueBoolean("slim", false);
@@ -23,6 +25,8 @@ public class MobForm extends Form
 
         this.add(this.mobID);
         this.add(this.mobNBT);
+        this.add(this.playerName);
+        this.add(this.playerUuid);
         this.add(this.pose);
         this.add(this.poseOverlay);
         this.add(this.texture);

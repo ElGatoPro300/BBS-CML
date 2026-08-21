@@ -335,28 +335,25 @@ public class ActionPlayer
         /* Apply full vanilla pose/action keyframes (sprinting, swimming, limbs, …) so
          * actor-mode procedural/Gecko animators match stub playback. */
         ActorReplayStateSync.applyFromKeyframes(replay.keyframes, tick, actor, actor.hasVehicle(), ticking);
-        actor.equipStack(EquipmentSlot.OFFHAND, replay.keyframes.offHand.interpolate(tick, ItemStack.EMPTY));
-        actor.equipStack(EquipmentSlot.HEAD, replay.keyframes.armorHead.interpolate(tick, ItemStack.EMPTY));
-        actor.equipStack(EquipmentSlot.CHEST, replay.keyframes.armorChest.interpolate(tick, ItemStack.EMPTY));
-        actor.equipStack(EquipmentSlot.LEGS, replay.keyframes.armorLegs.interpolate(tick, ItemStack.EMPTY));
-        actor.equipStack(EquipmentSlot.FEET, replay.keyframes.armorFeet.interpolate(tick, ItemStack.EMPTY));
+        ActionPlayer.equipIfChanged(actor, EquipmentSlot.OFFHAND, replay.keyframes.offHand.interpolate(tick, ItemStack.EMPTY));
+        ActionPlayer.equipIfChanged(actor, EquipmentSlot.HEAD, replay.keyframes.armorHead.interpolate(tick, ItemStack.EMPTY));
+        ActionPlayer.equipIfChanged(actor, EquipmentSlot.CHEST, replay.keyframes.armorChest.interpolate(tick, ItemStack.EMPTY));
+        ActionPlayer.equipIfChanged(actor, EquipmentSlot.LEGS, replay.keyframes.armorLegs.interpolate(tick, ItemStack.EMPTY));
+        ActionPlayer.equipIfChanged(actor, EquipmentSlot.FEET, replay.keyframes.armorFeet.interpolate(tick, ItemStack.EMPTY));
 
         if (actor instanceof ServerPlayerEntity player)
         {
             int selectedSlot = player.getInventory().selectedSlot;
-            int slot = MathUtils.clamp(replay.keyframes.selectedSlot.interpolate(this.tick), 0, 8);
+            Integer heldSlot = replay.keyframes.selectedSlot.interpolateHeld(this.tick);
+            int slot = MathUtils.clamp(heldSlot == null ? 0 : heldSlot, 0, 8);
 
             if (selectedSlot != slot)
             {
                 ServerNetwork.sendSelectedSlot(player, slot);
             }
+        }
 
-            actor.equipStack(EquipmentSlot.MAINHAND, replay.keyframes.mainHand.interpolate(tick, ItemStack.EMPTY));
-        }
-        else
-        {
-            actor.equipStack(EquipmentSlot.MAINHAND, replay.keyframes.mainHand.interpolate(tick, ItemStack.EMPTY));
-        }
+        ActionPlayer.equipIfChanged(actor, EquipmentSlot.MAINHAND, replay.keyframes.mainHand.interpolate(tick, ItemStack.EMPTY));
 
         if (actor instanceof ActorEntity actorEntity)
         {
@@ -404,6 +401,17 @@ public class ActionPlayer
         actor.fallDistance = replay.keyframes.fall.interpolate(tick).floatValue();
     }
 
+    private static void equipIfChanged(LivingEntity actor, EquipmentSlot slot, ItemStack stack)
+    {
+        ItemStack next = stack == null ? ItemStack.EMPTY : stack;
+        ItemStack current = actor.getEquippedStack(slot);
+
+        if (!ItemStack.areEqual(current, next))
+        {
+            actor.equipStack(slot, next);
+        }
+    }
+
     public boolean tick()
     {
         if (this.countdown > 0)
@@ -417,8 +425,6 @@ public class ActionPlayer
 
         this.wasPlaying = this.playing;
 
-        List<Replay> list = this.film.replays.getList();
-
         boolean actorsChanged = false;
         List<String> removeIds = new ArrayList<>();
 
@@ -428,12 +434,11 @@ public class ActionPlayer
 
             if (replay != null)
             {
-                int index = list.indexOf(replay);
-
                 /* Editor actor-control owns this body — follow the editor player and
                  * hold velocity at zero so the server entity does not keep sliding with
-                 * leftover keyframe/walk velocity while the client puppets. */
-                if (index >= 0 && index == this.controlledReplay)
+                 * leftover keyframe/walk velocity while the client puppets.
+                 * Match by replay id, not Replay.equals() (deep form/actions compare). */
+                if (this.isControlledReplay(entry.getKey()))
                 {
                     LivingEntity actor = entry.getValue();
 
@@ -533,6 +538,19 @@ public class ActionPlayer
         this.tick += 1;
 
         return !this.syncing && this.tick >= this.duration;
+    }
+
+    private boolean isControlledReplay(String replayId)
+    {
+        if (this.controlledReplay < 0 || replayId == null)
+        {
+            return false;
+        }
+
+        List<Replay> list = this.film.replays.getList();
+
+        return this.controlledReplay < list.size()
+            && replayId.equals(list.get(this.controlledReplay).getId());
     }
 
     private void applyAction()
