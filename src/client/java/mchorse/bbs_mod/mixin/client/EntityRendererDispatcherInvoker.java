@@ -1,26 +1,14 @@
 package mchorse.bbs_mod.mixin.client;
 
-import net.minecraft.client.render.VertexConsumerProvider;
-import net.minecraft.client.render.entity.EntityRenderDispatcher;
-import net.minecraft.client.render.entity.state.EntityRenderState;
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.world.WorldView;
-
-import org.joml.Quaternionf;
+import net.minecraft.client.render.entity.EntityRenderManager;
 
 import org.spongepowered.asm.mixin.Mixin;
-import org.spongepowered.asm.mixin.gen.Invoker;
 
-@Mixin(EntityRenderDispatcher.class)
+/* TODO(1.21.11 render): EntityRenderManager (formerly EntityRenderDispatcher)
+ * no longer has a renderShadow method or the old render(Entity,...) overload.
+ * Shadow rendering is now handled internally by the state-based render pipeline.
+ * This mixin is an empty stub until shadow-rendering hooks are re-ported. */
+@Mixin(EntityRenderManager.class)
 public interface EntityRendererDispatcherInvoker
 {
-    @Invoker("renderShadow")
-    public static void bbs$renderShadow(MatrixStack matrices, VertexConsumerProvider vertexConsumers, EntityRenderState state, float opacity, float tickDelta, WorldView world, float radius)
-    {
-        throw new AssertionError();
-    }
-
-    @Invoker("renderFire")
-    public void bbs$renderFire(MatrixStack matrices, VertexConsumerProvider vertexConsumers, EntityRenderState state, Quaternionf rotation);
 }
-

@@ -8,24 +8,16 @@ import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gl.Framebuffer;
 import net.minecraft.client.option.CloudRenderMode;
 import net.minecraft.client.render.Camera;
-import net.minecraft.client.render.DefaultFramebufferSet;
-import net.minecraft.client.render.Fog;
 import net.minecraft.client.render.FrameGraphBuilder;
+import net.minecraft.client.render.Frustum;
 import net.minecraft.client.render.RenderLayer;
-import net.minecraft.client.render.RenderPass;
 import net.minecraft.client.render.WorldRenderer;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.util.math.Vec3d;
 
-import org.joml.Matrix3f;
 import org.joml.Matrix4f;
 
-import com.mojang.blaze3d.systems.RenderSystem;
-
-import org.lwjgl.opengl.GL11;
-
 import org.spongepowered.asm.mixin.Mixin;
-import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
@@ -34,57 +26,12 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 @Mixin(WorldRenderer.class)
 public class WorldRendererMixin
 {
-    @Shadow
-    private DefaultFramebufferSet framebufferSet;
 
-    @Inject(method = "renderSky(Lnet/minecraft/client/render/FrameGraphBuilder;Lnet/minecraft/client/render/Camera;FLnet/minecraft/client/render/Fog;)V", at = @At("HEAD"), cancellable = true, require = 0)
-    public void onRenderSky(FrameGraphBuilder frameGraphBuilder, Camera camera, float tickDelta, Fog fog, CallbackInfo info)
-    {
-        if (BBSRendering.isChromaSkyEnabled())
-        {
-            RenderPass pass = frameGraphBuilder.createPass("sky");
-
-            this.framebufferSet.mainFramebuffer = pass.transfer(this.framebufferSet.mainFramebuffer);
-            pass.setRenderer(() -> {
-                Color color = Color.rgb(BBSRendering.getChromaSkyColor());
-
-                RenderSystem.clearColor(color.r, color.g, color.b, 1F);
-                RenderSystem.clear(GL11.GL_COLOR_BUFFER_BIT);
-            });
-
-            info.cancel();
-
-            return;
-        }
-
-        SunPathRotation.begin(new Matrix4f());
-    }
-
-    @Inject(method = "renderSky(Lnet/minecraft/client/render/FrameGraphBuilder;Lnet/minecraft/client/render/Camera;FLnet/minecraft/client/render/Fog;)V", at = @At("RETURN"), require = 0)
-    public void onRenderSkyReturn(FrameGraphBuilder frameGraphBuilder, Camera camera, float tickDelta, Fog fog, CallbackInfo info)
-    {
-        SunPathRotation.end(new Matrix4f());
-    }
-
-    @Inject(method = "renderClouds", at = @At("HEAD"), cancellable = true, require = 0)
-    public void onRenderClouds(FrameGraphBuilder frameGraphBuilder, Matrix4f modelViewMatrix, Matrix4f projectionMatrix, CloudRenderMode cloudRenderMode, Vec3d cameraPos, float tickDelta, int color, float cloudHeight, CallbackInfo info)
-    {
-        if (BBSRendering.isChromaSkyEnabled() && !BBSRendering.isChromaSkyClouds())
-        {
-            info.cancel();
-        }
-    }
-
-    @Inject(method = "renderWeather", at = @At("HEAD"), cancellable = true, require = 0)
-    public void onRenderWeather(FrameGraphBuilder frameGraphBuilder, Vec3d cameraPos, float tickDelta, Fog fog, CallbackInfo info)
-    {
-        if (BBSRendering.shouldHideChromaTerrain())
-        {
-            info.cancel();
-        }
-    }
-
-    @Inject(method = "renderLayer", at = @At("HEAD"), cancellable = true)
+    /* TODO(1.21.11 render): WorldRenderer#renderLayer was removed by the FrameGraphBuilder/
+     * OrderedRenderCommandQueue terrain rewrite (per-RenderLayer submission is now handled through
+     * renderBlockLayers/SectionRenderState with no simple cancellation point). require = 0 keeps this
+     * injector inert instead of crashing until the chroma-sky-terrain occlusion is re-ported. */
+    @Inject(method = "renderLayer", at = @At("HEAD"), cancellable = true, require = 0)
     public void onRenderLayer(RenderLayer renderLayer, double cameraX, double cameraY, double cameraZ, Matrix4f positionMatrix, Matrix4f projectionMatrix, CallbackInfo info)
     {
         if (BBSRendering.shouldHideChromaTerrain())
@@ -95,19 +42,20 @@ public class WorldRendererMixin
         }
     }
 
-    @Inject(method = "renderLayer", at = @At("TAIL"))
+    @Inject(method = "renderLayer", at = @At("TAIL"), require = 0)
     public void onRenderChunkLayer(RenderLayer layer, double cameraX, double cameraY, double cameraZ, Matrix4f positionMatrix, Matrix4f projectionMatrix, CallbackInfo info)
     {
-        if (layer == RenderLayer.getSolid())
+        /* TODO 1.21.11: RenderLayer.getSolid() removed — re-port later */
+        if (false)
         {
             BBSRendering.onRenderChunkLayer(positionMatrix, projectionMatrix);
         }
     }
 
     @Inject(method = "setupFrustum", at = @At("HEAD"))
-    public void onSetupFrustum(Vec3d vec3d, Matrix4f matrix4f, Matrix4f positionMatrix, CallbackInfo info)
+    public void onSetupFrustum(Matrix4f posMatrix, Matrix4f projMatrix, Vec3d pos, CallbackInfoReturnable<Frustum> info)
     {
-        BBSRendering.camera.set(matrix4f);
+        BBSRendering.camera.set(posMatrix);
     }
 
     @Inject(at = @At("RETURN"), method = "loadEntityOutlinePostProcessor")
@@ -127,5 +75,20 @@ public class WorldRendererMixin
         */
 
         BBSRendering.resizeExtraFramebuffers();
+    }
+    /* 1.21.11 MatrixStack keeps a reusable List plus stackDepth; size() is not the
+     * logical depth. isEmpty() is true iff only the identity entry remains. */
+    @Inject(method = "checkEmpty", at = @At("HEAD"), cancellable = true, require = 0)
+    private void onCheckEmpty(MatrixStack matrices, CallbackInfo info)
+    {
+        if (matrices != null)
+        {
+            while (!matrices.isEmpty())
+            {
+                matrices.pop();
+            }
+        }
+
+        info.cancel();
     }
 }

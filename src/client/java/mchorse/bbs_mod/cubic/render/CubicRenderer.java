@@ -13,6 +13,8 @@ import org.joml.Vector3f;
 
 import com.mojang.blaze3d.systems.RenderSystem;
 
+import org.lwjgl.opengl.GL11;
+
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -51,8 +53,8 @@ public class CubicRenderer
      */
     public static void renderStencilPickPriority(ICubicRenderer renderProcessor, BufferBuilder builder, MatrixStack stack, Model model, Collection<String> boneIds)
     {
-        RenderSystem.enableDepthTest();
-        RenderSystem.depthMask(true);
+        GL11.glEnable(GL11.GL_DEPTH_TEST);
+        GL11.glDepthMask(true);
 
         for (String boneId : boneIds)
         {

@@ -112,35 +112,15 @@ public final class BbsGuiScale
         MinecraftClient mc = MinecraftClient.getInstance();
         Window window = mc.getWindow();
         double saved = window.getScaleFactor();
-        ProjectionType savedProjectionType = RenderSystem.getProjectionType();
-        Matrix4f savedProjection = new Matrix4f(RenderSystem.getProjectionMatrix());
 
         try
         {
-            window.setScaleFactor(getFactor());
-            int sw = window.getScaledWidth();
-            int sh = window.getScaledHeight();
-            RenderSystem.setProjectionMatrix(new Matrix4f().ortho(0, sw, sh, 0, -1000, 3000), ProjectionType.ORTHOGRAPHIC);
-            /* GameRenderer's GUI pass leaves modelView at z=-11000; with ortho
-             * -1000..3000 that clips every vertex. Identity matches HUD overlays. */
-            Matrix4fStack modelView = RenderSystem.getModelViewStack();
-
-            modelView.pushMatrix();
-            modelView.identity();
-
-            try
-            {
-                draw.run();
-            }
-            finally
-            {
-                modelView.popMatrix();
-            }
+            window.setScaleFactor((int) getFactor());
+            draw.run();
         }
         finally
         {
-            restoringGameScale(() -> window.setScaleFactor(saved));
-            RenderSystem.setProjectionMatrix(savedProjection, savedProjectionType);
+            restoringGameScale(() -> window.setScaleFactor((int) saved));
         }
     }
 

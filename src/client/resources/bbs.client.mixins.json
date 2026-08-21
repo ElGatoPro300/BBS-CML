@@ -17,7 +17,6 @@
         "IntegratedServerMixin",
         "WindowMixin",
         "WorldRendererMixin",
-        "BackgroundRendererMixin",
         "LanguageManagerMixin",
         "LivingEntityMixin",
         "LivingEntityUpdateMixin",
@@ -36,8 +35,12 @@
         "KeyboardInputMixin",
         "MinecraftClientInvoker",
         "EntityRendererMixin",
+        "EntityRenderStateMixin",
+        "LivingEntityRendererMorphMixin",
+        "LivingEntityRendererInvoker",
         "ClientPlayerEntityAccessor",
         "LivingEntityItemAccessor",
+        "LivingEntityAccessor",
         "FireworkRocketEntityAccessor",
         "iris.IrisRenderingPipelineAccessor",
         "iris.IrisRenderingPipelineMixin",
@@ -61,7 +64,9 @@
         "TitleScreenMixin",
         "SelectWorldScreenMixin",
         "ModelPartMixin",
-        "YggdrasilServicesKeyInfoMixin"
+        "MatrixStackMixin",
+        "YggdrasilServicesKeyInfoMixin",
+        "GuiRendererMixin"
     ],
     "injectors": {
         "defaultRequire": 1

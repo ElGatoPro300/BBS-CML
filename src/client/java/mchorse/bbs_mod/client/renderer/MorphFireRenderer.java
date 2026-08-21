@@ -1,10 +1,13 @@
 package mchorse.bbs_mod.client.renderer;
 
+import mchorse.bbs_mod.BBSMod;
 import mchorse.bbs_mod.client.BBSRendering;
+import mchorse.bbs_mod.entity.ActorEntity;
 import mchorse.bbs_mod.forms.entities.IEntity;
 import mchorse.bbs_mod.forms.entities.MCEntity;
 import mchorse.bbs_mod.forms.forms.Form;
 import mchorse.bbs_mod.forms.forms.MobForm;
+import mchorse.bbs_mod.mixin.client.EntityAccessor;
 import mchorse.bbs_mod.mixin.client.EntityRendererDispatcherInvoker;
 import mchorse.bbs_mod.utils.AABB;
 import mchorse.bbs_mod.utils.MathUtils;
@@ -14,12 +17,13 @@ import mchorse.bbs_mod.utils.interps.Lerps;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.render.Camera;
 import net.minecraft.client.render.VertexConsumerProvider;
-import net.minecraft.client.render.entity.EntityRenderDispatcher;
+import net.minecraft.client.render.entity.EntityRenderManager;
 import net.minecraft.client.render.entity.state.EntityRenderState;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.client.world.ClientWorld;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityDimensions;
+import net.minecraft.entity.EntityPose;
 import net.minecraft.entity.EntityType;
 import net.minecraft.registry.Registries;
 import net.minecraft.util.Identifier;
@@ -35,6 +39,7 @@ public final class MorphFireRenderer
 {
     private static final Quaternionf TEMP_QUATERNION = new Quaternionf();
     private static final EntityRenderState FIRE_RENDER_STATE = new EntityRenderState();
+    private static ActorEntity proxy;
 
     private MorphFireRenderer()
     {}
@@ -54,9 +59,31 @@ public final class MorphFireRenderer
             return;
         }
 
+        if (MorphFireRenderer.proxy == null || MorphFireRenderer.proxy.getEntityWorld() != world)
+        {
+            MorphFireRenderer.proxy = new ActorEntity(BBSMod.ACTOR_ENTITY, world);
+        }
+
+        ActorEntity entity = MorphFireRenderer.proxy;
         float[] size = MorphFireRenderer.getFireDimensions(morph, form);
+        EntityPose pose = morph.isSneaking() ? EntityPose.CROUCHING : EntityPose.STANDING;
+
+        entity.setFireTicks(morph.getFireTicks());
+        entity.age = Math.max(entity.age, morph.getAge());
+        entity.setPose(pose);
+        entity.setSneaking(morph.isSneaking());
+        ((EntityAccessor) entity).bbs$setDimensions(EntityDimensions.fixed(size[0], size[1]));
+        entity.calculateDimensions();
+        entity.setPos(0D, 0D, 0D);
+        entity.lastRenderX = 0D;
+        entity.lastRenderY = 0D;
+        entity.lastRenderZ = 0D;
+        entity.lastX = 0D;
+        entity.lastY = 0D;
+        entity.lastZ = 0D;
+        entity.setInvisible(false);
         float bodyYaw = Lerps.lerp(morph.getPrevBodyYaw(), morph.getBodyYaw(), tickDelta);
-        EntityRenderDispatcher dispatcher = mc.getEntityRenderDispatcher();
+        EntityRenderManager dispatcher = mc.getEntityRenderDispatcher();
         boolean irisWorld = BBSRendering.isIrisShadersEnabled() && BBSRendering.isRenderingWorld();
 
         matrices.push();
@@ -84,7 +111,8 @@ public final class MorphFireRenderer
         FIRE_RENDER_STATE.width = size[0];
         FIRE_RENDER_STATE.height = size[1];
 
-        ((EntityRendererDispatcherInvoker) dispatcher).bbs$renderFire(matrices, consumers, FIRE_RENDER_STATE, dispatcher.getRotation());
+        /* 1.21.11 render: renderFire handled internally by state-based pipeline */
+        // ((EntityRendererDispatcherInvoker) dispatcher).bbs$renderFire(matrices, consumers, FIRE_RENDER_STATE, camera.getRotation());
 
         matrices.pop();
     }

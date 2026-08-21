@@ -1,6 +1,7 @@
 package mchorse.bbs_mod.cubic.render;
 
 import mchorse.bbs_mod.BBSModClient;
+import mchorse.bbs_mod.client.BBSShaders;
 import mchorse.bbs_mod.cubic.data.model.Model;
 import mchorse.bbs_mod.cubic.data.model.ModelGroup;
 import mchorse.bbs_mod.cubic.data.model.ModelVertex;
@@ -13,44 +14,42 @@ import mchorse.bbs_mod.utils.MathUtils;
 import mchorse.bbs_mod.utils.colors.Color;
 import mchorse.bbs_mod.utils.interps.Lerps;
 
-import com.mojang.blaze3d.systems.RenderSystem;
-import net.minecraft.client.gl.ShaderProgram;
 import net.minecraft.client.render.BufferBuilder;
-import net.minecraft.client.render.BufferRenderer;
+import net.minecraft.client.render.BuiltBuffer;
 import net.minecraft.client.render.LightmapTextureManager;
 import net.minecraft.client.render.Tessellator;
-import net.minecraft.client.render.VertexFormat;
-import net.minecraft.client.render.VertexFormats;
 import net.minecraft.client.util.math.MatrixStack;
+
+import com.mojang.blaze3d.pipeline.RenderPipeline;
+import com.mojang.blaze3d.vertex.VertexFormat;
 
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
 
 /**
- * Shape-key CPU geometry must draw one model group per call so PaintColor, GlowingColor, and
- * per-bone texture crossfade uniforms match the group that was just meshed.
- *
- * Positions and normals are written already transformed by the render stack. Uniforms must use
- * {@link ModelVAORenderer#setupUniformsCpuPretransformed} so {@code ModelViewMat} / {@code NormalMat}
- * are not applied a second time (second ModelView hides composites; second NormalMat inverts lighting).
+ * Shape-key CPU geometry is submitted one model group per call so each group's texture and
+ * vertex color are resolved before its buffer is handed to the model layer.
+ * <p>
+ * Positions and normals are written already transformed by the render stack; the model layer
+ * supplies the active camera transform when it submits the built buffer.
  */
 public class CubicCpuGroupDrawRenderer extends CubicCubeRenderer
 {
-    private final ShaderProgram shader;
+    private final RenderPipeline pipeline;
     private final Link defaultTexture;
     private final Matrix4f rootInverse;
     private int currentGroupLight;
 
-    public CubicCpuGroupDrawRenderer(int light, int overlay, StencilMap stencilMap, ShapeKeys shapeKeys, ShaderProgram shader, Link defaultTexture)
+    public CubicCpuGroupDrawRenderer(int light, int overlay, StencilMap stencilMap, ShapeKeys shapeKeys, RenderPipeline pipeline, Link defaultTexture)
     {
-        this(light, overlay, stencilMap, shapeKeys, shader, defaultTexture, null);
+        this(light, overlay, stencilMap, shapeKeys, pipeline, defaultTexture, null);
     }
 
-    public CubicCpuGroupDrawRenderer(int light, int overlay, StencilMap stencilMap, ShapeKeys shapeKeys, ShaderProgram shader, Link defaultTexture, Matrix4f rootInverse)
+    public CubicCpuGroupDrawRenderer(int light, int overlay, StencilMap stencilMap, ShapeKeys shapeKeys, RenderPipeline pipeline, Link defaultTexture, Matrix4f rootInverse)
     {
         super(light, overlay, stencilMap, shapeKeys);
 
-        this.shader = shader;
+        this.pipeline = pipeline;
         this.defaultTexture = defaultTexture;
         this.rootInverse = rootInverse;
     }
@@ -65,7 +64,7 @@ public class CubicCpuGroupDrawRenderer extends CubicCubeRenderer
 
         CubicGroupTextureBlend textureBlend = CubicGroupTextureBlend.resolve(group, this.defaultTexture);
 
-        if (textureBlend != null && textureBlend.isPartial() && !CubicGroupTextureBlend.supportsShader(this.shader))
+        if (textureBlend != null && textureBlend.isPartial())
         {
             float fromA = this.a * (1F - textureBlend.blend);
             float toA = this.a * textureBlend.blend;
@@ -78,7 +77,7 @@ public class CubicCpuGroupDrawRenderer extends CubicCubeRenderer
         }
         else
         {
-            CubicGroupTextureBlend.bindForDraw(this.shader, textureBlend, this.defaultTexture);
+            CubicGroupTextureBlend.bindForDraw(this.pipeline, textureBlend, this.defaultTexture);
 
             try
             {
@@ -175,36 +174,15 @@ public class CubicCpuGroupDrawRenderer extends CubicCubeRenderer
 
         this.setColor(this.r, this.g, this.b, alpha);
 
-        BufferBuilder groupBuilder = Tessellator.getInstance().begin(VertexFormat.DrawMode.TRIANGLES, VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL);
+        BufferBuilder groupBuilder = Tessellator.getInstance().begin(VertexFormat.DrawMode.TRIANGLES, this.pipeline.getVertexFormat());
 
-        ModelVAORenderer.beginCpuGeometry(this.shader);
         super.renderGroup(groupBuilder, stack, group, model);
 
-        try
-        {
-            RenderSystem.setShaderColor(r, g, b, a);
-            this.shader.bind();
-            if (this.shader.colorModulator != null)
-            {
-                this.shader.colorModulator.set(r, g, b, a);
-            }
+        BuiltBuffer built = groupBuilder.endNullable();
 
-            ModelVAORenderer.setupUniformsCpuPretransformed(this.shader, this.rootInverse);
-            BufferRenderer.drawWithGlobalProgram(groupBuilder.end());
-            this.shader.unbind();
-        }
-        catch (IllegalStateException e)
+        if (built != null)
         {
-            /* Empty or invalid buffer */
-        }
-        finally
-        {
-            RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
-
-            if (this.shader.colorModulator != null)
-            {
-                this.shader.colorModulator.set(1F, 1F, 1F, 1F);
-            }
+            built.close();
         }
 
         this.setColor(this.r, this.g, this.b, savedA);
