@@ -387,7 +387,6 @@ public class BOBJModelVAO
     protected void rebindShaderSamplers(RenderPipeline shader, MatrixStack stack, float r, float g, float b, float a, int light, int overlay)
     {
         ModelVAORenderer.setupUniforms(stack, shader);
-        // GlStateManager._glUseProgram(shader.getGlRef());
         GL30.glBindVertexArray(this.vao);
 
         GL30.glDisableVertexAttribArray(Attributes.COLOR);
@@ -412,13 +411,7 @@ public class BOBJModelVAO
         }
 
         ModelVAORenderer.setupUniforms(stack, shader);
-
-        // GlStateManager._glUseProgram(shader.getGlRef());
         FormColorGradePatch.uploadToCurrentProgram();
-
-        // int textureID = RenderSystem.getShaderTexture(0);
-        // GlStateManager._activeTexture(GL30.GL_TEXTURE0);
-        // GlStateManager._bindTexture(textureID);
 
         GL30.glBindVertexArray(this.vao);
 
@@ -520,8 +513,6 @@ public class BOBJModelVAO
         if (stencilMap != null) GL30.glDisableVertexAttribArray(Attributes.LIGHTMAP_UV);
         if (hasShaders) GL30.glDisableVertexAttribArray(Attributes.TANGENTS);
         if (hasShaders) GL30.glDisableVertexAttribArray(Attributes.MID_TEXTURE_UV);
-
-        GlStateManager._glUseProgram(0);
 
         GL30.glBindVertexArray(currentVAO);
 

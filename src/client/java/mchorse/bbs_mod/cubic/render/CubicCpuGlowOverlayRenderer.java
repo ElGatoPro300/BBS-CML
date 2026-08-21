@@ -58,7 +58,7 @@ public class CubicCpuGlowOverlayRenderer extends CubicCubeRenderer
             return false;
         }
 
-        if (this.targetGroupId != null && !this.targetGroupId.equals(group.id))
+        if (this.targetGroupId != null && !this.targetGroupId.isEmpty() && !this.targetGroupId.equals(group.id))
         {
             return false;
         }
@@ -82,7 +82,7 @@ public class CubicCpuGlowOverlayRenderer extends CubicCubeRenderer
 
         CubicGroupTextureBlend textureBlend = CubicGroupTextureBlend.resolve(group, this.defaultTexture);
 
-        if (textureBlend != null && textureBlend.isPartial())
+        if (textureBlend != null && textureBlend.isPartial() && !CubicGroupTextureBlend.supportsShader(this.pipeline))
         {
             float fromA = this.a * (1F - textureBlend.blend);
             float toA = this.a * textureBlend.blend;
@@ -127,7 +127,8 @@ public class CubicCpuGlowOverlayRenderer extends CubicCubeRenderer
 
         if (built != null)
         {
-            built.close();
+            ModelVAORenderer.setupUniformsCpuPretransformed(this.pipeline);
+            BBSShaders.getModelLayer().draw(built);
         }
     }
 

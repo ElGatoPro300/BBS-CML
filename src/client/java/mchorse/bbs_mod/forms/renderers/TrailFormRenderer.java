@@ -354,7 +354,7 @@ public class TrailFormRenderer extends FormRenderer<TrailForm> implements ITicka
         paintOverlay.a *= alpha;
 
         ModelVAORenderer.submitPaintOverlay(
-            RenderSystem.getProjectionMatrixBuffer(),
+            BBSRendering.camera != null ? new Matrix4f(BBSRendering.camera) : new Matrix4f(),
             new Matrix4f(RenderSystem.getModelViewMatrix()),
             false,
             () ->

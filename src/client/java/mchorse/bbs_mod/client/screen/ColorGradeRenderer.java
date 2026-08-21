@@ -663,7 +663,6 @@ public class ColorGradeRenderer
         GL30.glBindFramebuffer(GL30.GL_READ_FRAMEBUFFER, previousRead);
         GL30.glDeleteFramebuffers(captureFbo);
         tempTex.unbind();
-        // fb.beginWrite(false);
 
         /* Accumulate color effects */
         float vigStr = 0F;
@@ -877,7 +876,6 @@ public class ColorGradeRenderer
         tempTex.unbind();
         GL11.glEnable(GL11.GL_BLEND);
         GL11.glViewport(prevViewport[0], prevViewport[1], prevViewport[2], prevViewport[3]);
-        // fb.beginWrite(false);
     }
 
     /**
@@ -896,8 +894,6 @@ public class ColorGradeRenderer
         }
 
         MinecraftClient mc = MinecraftClient.getInstance();
-
-        // mc.getFramebuffer().beginWrite(false);
 
         GL11.glEnable(GL11.GL_BLEND);
         GL11.glBlendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);

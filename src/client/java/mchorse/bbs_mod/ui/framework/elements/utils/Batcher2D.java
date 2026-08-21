@@ -247,6 +247,37 @@ public class Batcher2D
         this.box(x1, y1, x2 - x1, y2 - y1, color, color, color, color);
     }
 
+    public void line(int x1, int y1, int x2, int y2, float width, int color)
+    {
+        this.line((float) x1, (float) y1, (float) x2, (float) y2, width, color);
+    }
+
+    public void line(float x1, float y1, float x2, float y2, float width, int color)
+    {
+        float dx = x2 - x1;
+        float dy = y2 - y1;
+        float len = (float) Math.sqrt(dx * dx + dy * dy);
+
+        if (len <= 0F)
+        {
+            return;
+        }
+
+        float half = width / 2F;
+        float nx = -dy / len * half;
+        float ny = dx / len * half;
+
+        GuiQuadMesh mesh = new GuiQuadMesh();
+        Matrix3x2fc matrix = this.matrix();
+
+        mesh.vertex(matrix, x1 - nx, y1 - ny).color(color);
+        mesh.vertex(matrix, x1 + nx, y1 + ny).color(color);
+        mesh.vertex(matrix, x2 + nx, y2 + ny).color(color);
+        mesh.vertex(matrix, x2 - nx, y2 - ny).color(color);
+
+        this.drawQuadMesh(mesh);
+    }
+
     public void box(float x, float y, float w, float h, int color1, int color2, int color3, int color4)
     {
         int x1 = (int) x;

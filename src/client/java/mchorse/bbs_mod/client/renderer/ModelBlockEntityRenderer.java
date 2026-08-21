@@ -16,7 +16,6 @@ import mchorse.bbs_mod.forms.renderers.FormRenderingContext;
 import mchorse.bbs_mod.forms.renderers.ModelFormRenderer;
 import mchorse.bbs_mod.forms.renderers.utils.MatrixCache;
 import mchorse.bbs_mod.graphics.Draw;
-import mchorse.bbs_mod.mixin.client.EntityRendererDispatcherInvoker;
 import mchorse.bbs_mod.ui.dashboard.UIDashboard;
 import mchorse.bbs_mod.ui.framework.UIBaseMenu;
 import mchorse.bbs_mod.ui.framework.UIScreen;
@@ -83,10 +82,7 @@ public class ModelBlockEntityRenderer implements BlockEntityRenderer<ModelBlockE
         }
 
         Camera camera = MinecraftClient.getInstance().gameRenderer.getCamera();
-        double dx = x - camera.getCameraPos().x;
-        double dy = y - camera.getCameraPos().y;
-        double dz = z - camera.getCameraPos().z;
-        double distance = dx * dx + dy * dy + dz * dz;
+        double distance = camera != null && camera.getCameraPos() != null ? camera.getCameraPos().squaredDistanceTo(x, y, z) : 0D;
 
         opacity = (float) ((1D - distance / 256D) * opacity);
 
@@ -106,9 +102,6 @@ public class ModelBlockEntityRenderer implements BlockEntityRenderer<ModelBlockE
         matrices.push();
         matrices.translate(tx, ty, tz);
         matrices.scale(scaleX, 1F, scaleZ);
-
-        /* 1.21.11 render: renderShadow handled internally by state-based pipeline */
-        // EntityRendererDispatcherInvoker.bbs$renderShadow(matrices, provider, SHADOW_RENDER_STATE, opacity, tickDelta, world, baseRadius);
 
         matrices.pop();
     }
@@ -219,7 +212,6 @@ public class ModelBlockEntityRenderer implements BlockEntityRenderer<ModelBlockE
             formContext.isShadowPass = BBSRendering.isIrisShadowPass();
 
             FormUtilsClient.render(form, formContext);
-
 
             if (!formContext.isShadowPass && this.canRenderAxes(entity) && UIBaseMenu.renderAxes)
             {

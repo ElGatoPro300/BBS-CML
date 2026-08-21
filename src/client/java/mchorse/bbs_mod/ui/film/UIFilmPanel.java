@@ -118,11 +118,12 @@ import mchorse.bbs_mod.utils.keyframes.KeyframeSegment;
 import mchorse.bbs_mod.utils.presets.PresetManager;
 import mchorse.bbs_mod.utils.resources.Pixels;
 
+import mchorse.bbs_mod.graphics.GuiQuadMesh;
+
 import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderContext;
 
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.network.ClientPlayerEntity;
-import net.minecraft.client.render.BufferBuilder;
 import net.minecraft.client.render.GameRenderer;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.util.math.Vec3d;
@@ -6827,6 +6828,7 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
 
         if (!BBSRendering.isIrisShadowPass())
         {
+            this.lastProjection.set(BBSRendering.camera);
             MatrixStack ms = context.matrices();
             if (ms != null)
             {
@@ -7836,62 +7838,91 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
         int segments = 40;
         float segW = editorW / (float) segments;
         
+        GuiQuadMesh mesh = new GuiQuadMesh();
+        org.joml.Matrix3x2fc matrix = context.batcher.getContext().getMatrices();
+
         float[] yBot1 = new float[segments + 1];
         float[] yMid1 = new float[segments + 1];
         int[] cMid1 = new int[segments + 1];
-        
+
         float[] yBot2 = new float[segments + 1];
         float[] yMid2 = new float[segments + 1];
         int[] cMid2 = new int[segments + 1];
-        
+
         for (int i = 0; i <= segments; i++)
         {
             float nx = (float) i / segments;
-            
+
             float w1 = (float) Math.sin(tick * 1.2F + nx * 8F);
             float w2 = (float) Math.sin(tick * 0.7F + nx * 15F);
             float w3 = (float) Math.cos(tick * 0.4F - nx * 12F);
             float comb1 = (w1 + w2 + w3) / 3F;
-            
+
             float curtainYTop = editorY + editorH * 0.05F;
             float curtainYBot = editorY + editorH * 0.5F + comb1 * (editorH * 0.35F);
-            
+
             if (curtainYBot < curtainYTop + 10) curtainYBot = curtainYTop + 10;
-            
+
             float transitionY = curtainYBot - editorH * 0.3F;
             if (transitionY < curtainYTop) transitionY = curtainYTop;
-            
+
             yBot1[i] = curtainYBot;
             yMid1[i] = transitionY;
             cMid1[i] = Colors.setA(primary, 0.15F + Math.max(0, comb1) * 0.2F);
-            
+
             float w4 = (float) Math.sin(tick * 1.5F - nx * 10F);
             float w5 = (float) Math.cos(tick * 0.9F + nx * 18F);
             float comb2 = (w4 + w5) / 2F;
-            
+
             float curtain2YTop = editorY + editorH * 0.15F;
             float curtain2YBot = editorY + editorH * 0.75F + comb2 * (editorH * 0.25F);
-            
+
             if (curtain2YBot < curtain2YTop + 10) curtain2YBot = curtain2YTop + 10;
-            
+
             float transition2Y = curtain2YBot - editorH * 0.25F;
             if (transition2Y < curtain2YTop) transition2Y = curtain2YTop;
-            
+
             yBot2[i] = curtain2YBot;
             yMid2[i] = transition2Y;
             cMid2[i] = Colors.setA(Colors.mulRGB(primary, 0.8F), 0.1F + Math.max(0, comb2) * 0.15F);
         }
-        
+
+        int colTop = Colors.setA(primary, 0.0F);
+        int colBot = Colors.setA(primary, 0.0F);
         float yTop1 = editorY + editorH * 0.05F;
         float yTop2 = editorY + editorH * 0.15F;
-        
+
         for (int i = 0; i < segments; i++)
         {
             float x1 = editorX + i * segW;
             float x2 = editorX + (i + 1) * segW;
-            context.batcher.box(x1, yTop1, x2, yBot1[i], cMid1[i]);
-            context.batcher.box(x1, yTop2, x2, yBot2[i], cMid2[i]);
+
+            /* Layer 1 - Upper Quad (yTop1 -> yMid1) */
+            mesh.vertex(matrix, x1, yTop1).color(colTop);
+            mesh.vertex(matrix, x1, yMid1[i]).color(cMid1[i]);
+            mesh.vertex(matrix, x2, yMid1[i+1]).color(cMid1[i+1]);
+            mesh.vertex(matrix, x2, yTop1).color(colTop);
+
+            /* Layer 1 - Lower Quad (yMid1 -> yBot1) */
+            mesh.vertex(matrix, x1, yMid1[i]).color(cMid1[i]);
+            mesh.vertex(matrix, x1, yBot1[i]).color(colBot);
+            mesh.vertex(matrix, x2, yBot1[i+1]).color(colBot);
+            mesh.vertex(matrix, x2, yMid1[i+1]).color(cMid1[i+1]);
+
+            /* Layer 2 - Upper Quad (yTop2 -> yMid2) */
+            mesh.vertex(matrix, x1, yTop2).color(colTop);
+            mesh.vertex(matrix, x1, yMid2[i]).color(cMid2[i]);
+            mesh.vertex(matrix, x2, yMid2[i+1]).color(cMid2[i+1]);
+            mesh.vertex(matrix, x2, yTop2).color(colTop);
+
+            /* Layer 2 - Lower Quad (yMid2 -> yBot2) */
+            mesh.vertex(matrix, x1, yMid2[i]).color(cMid2[i]);
+            mesh.vertex(matrix, x1, yBot2[i]).color(colBot);
+            mesh.vertex(matrix, x2, yBot2[i+1]).color(colBot);
+            mesh.vertex(matrix, x2, yMid2[i+1]).color(cMid2[i+1]);
         }
+
+        context.batcher.drawQuadMesh(mesh);
 
         UIHomePanel home = this.dashboard.getPanel(UIHomePanel.class);
         if (home != null)

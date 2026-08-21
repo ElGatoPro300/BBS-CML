@@ -52,6 +52,7 @@ import net.minecraft.util.math.RotationAxis;
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
 
+import com.mojang.blaze3d.opengl.GlStateManager;
 import com.mojang.blaze3d.pipeline.RenderPipeline;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.VertexFormat;
@@ -795,38 +796,22 @@ public class ModelInstance implements IModelInstance
         }
     }
 
-    /**
-     * Renders the CPU cubic path with the model RenderPipeline. VAO and BOBJ rendering stays in
-     * {@link #renderLegacy} until that path is migrated separately.
-     */
     public void render(MatrixStack stack, Supplier<RenderPipeline> pipeline, Color color, int light, int overlay, StencilMap stencilMap, ShapeKeys keys, Function<String, Link> textureResolver)
     {
         if (this.model instanceof Model model)
         {
+            boolean isVao = this.isVAORendered();
             Color c = new Color().set(this.color);
             float cr = color.r * c.r;
             float cg = color.g * c.g;
             float cb = color.b * c.b;
             float ca = color.a * c.a;
 
-            Link texture = textureResolver.apply("");
-
-            if (texture == null)
+            if (isVao)
             {
-                texture = this.texture;
-            }
+                CubicCubeRenderer renderProcessor = new CubicVAORenderer(pipeline.get(), this, light, overlay, stencilMap, keys, textureResolver);
 
-            if (texture != null)
-            {
-                BBSModClient.getTextures().bindTexture(texture);
-            }
-
-            CubicCpuGroupDrawRenderer renderProcessor = new CubicCpuGroupDrawRenderer(light, overlay, stencilMap, keys, pipeline.get(), texture);
-
-            renderProcessor.setColor(cr, cg, cb, ca);
-
-            try
-            {
+                renderProcessor.setColor(cr, cg, cb, ca);
                 CubicRenderer.processRenderModel(renderProcessor, null, stack, model);
 
                 if (stencilMap != null)
@@ -834,29 +819,50 @@ public class ModelInstance implements IModelInstance
                     CubicRenderer.renderStencilPickPriority(renderProcessor, null, stack, model, CubicRenderer.STENCIL_PICK_PRIORITY_BONES);
                 }
             }
-            finally
-            {}
-        }
-    }
-
-    /**
-     * Legacy direct VAO/BOBJ rendering. This is intentionally separate from the CPU pipeline
-     * overload so the two render APIs cannot be mixed accidentally.
-     */
-    public void renderLegacy(MatrixStack stack, Supplier<RenderPipeline> program, Color color, int light, int overlay, StencilMap stencilMap, ShapeKeys keys, Function<String, Link> textureResolver)
-    {
-        if (this.model instanceof Model model && this.isVAORendered())
-        {
-            CubicCubeRenderer renderProcessor = new CubicVAORenderer(program.get(), this, light, overlay, stencilMap, keys, textureResolver);
-
-            Color c = new Color().set(this.color);
-
-            renderProcessor.setColor(color.r * c.r, color.g * c.g, color.b * c.b, color.a * c.a);
-            CubicRenderer.processRenderModel(renderProcessor, null, stack, model);
-
-            if (stencilMap != null)
+            else
             {
-                CubicRenderer.renderStencilPickPriority(renderProcessor, null, stack, model, CubicRenderer.STENCIL_PICK_PRIORITY_BONES);
+                RenderPipeline renderPipeline = pipeline.get();
+                Link texture = textureResolver.apply("");
+                if (texture == null)
+                {
+                    texture = this.texture;
+                }
+                boolean disableCull = this.hasShapeKeys()
+                    && !ModelVAORenderer.isDeferredTranslucentPass()
+                    && !ModelVAORenderer.isPaintOverlayPass();
+
+                if (texture != null)
+                {
+                    BBSModClient.getTextures().bindTexture(texture);
+                }
+
+                if (disableCull)
+                {
+                    GlStateManager._disableCull();
+                }
+
+                Matrix4f rootInverse = new Matrix4f(stack.peek().getPositionMatrix()).invert();
+                CubicCpuGroupDrawRenderer renderProcessor = new CubicCpuGroupDrawRenderer(light, overlay, stencilMap, keys, renderPipeline, texture, rootInverse);
+
+                renderProcessor.setColor(cr, cg, cb, ca);
+                ModelVAORenderer.beginCpuGeometry(renderPipeline);
+
+                try
+                {
+                    CubicRenderer.processRenderModel(renderProcessor, null, stack, model);
+
+                    if (stencilMap != null)
+                    {
+                        CubicRenderer.renderStencilPickPriority(renderProcessor, null, stack, model, CubicRenderer.STENCIL_PICK_PRIORITY_BONES);
+                    }
+                }
+                finally
+                {
+                    if (disableCull && this.culling)
+                    {
+                        GlStateManager._enableCull();
+                    }
+                }
             }
         }
         else if (this.model instanceof BOBJModel model)
@@ -880,7 +886,7 @@ public class ModelInstance implements IModelInstance
                     }
 
                     vao.updateMesh(stencilMap);
-                    vao.render(program.get(), stack, color.r, color.g, color.b, color.a, stencilMap, light, overlay, texture);
+                    vao.render(pipeline.get(), stack, color.r, color.g, color.b, color.a, stencilMap, light, overlay, texture);
                 }
 
                 stack.pop();
@@ -907,10 +913,16 @@ public class ModelInstance implements IModelInstance
 
         RenderPipeline pipeline = BBSShaders.getModel();
         Link texture = defaultTexture != null ? defaultTexture : this.texture;
+        boolean disableCull = true;
 
         if (texture != null)
         {
             BBSModClient.getTextures().bindTexture(texture);
+        }
+
+        if (disableCull)
+        {
+            GlStateManager._disableCull();
         }
 
         CubicCpuGlowOverlayRenderer renderProcessor = new CubicCpuGlowOverlayRenderer(
@@ -944,6 +956,11 @@ public class ModelInstance implements IModelInstance
             }
         }
         finally
-        {}
+        {
+            if (disableCull && this.culling)
+            {
+                GlStateManager._enableCull();
+            }
+        }
     }
 }

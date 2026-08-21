@@ -1596,10 +1596,7 @@ public abstract class BaseFilmController
                                      * integrating it on top of the snap (and creative-flight
                                      * residual looks like ice). Limbs already come from the
                                      * player via syncLimbs above. */
-                                    actor.setPosition(entity.getX(), entity.getY(), entity.getZ());
-                                    actor.lastRenderX = entity.getPrevX();
-                                    actor.lastRenderY = entity.getPrevY();
-                                    actor.lastRenderZ = entity.getPrevZ();
+                                    this.syncActorWorldPositionFromStub(actor, entity);
                                     actor.setVelocity(0D, 0D, 0D);
                                 }
                                 else if (!this.isActorPlaybackActive())
@@ -2289,6 +2286,10 @@ public abstract class BaseFilmController
                         player.setHeadYaw(yawHead);
                         player.setPitch(pitch);
                         player.setBodyYaw(yawBody);
+                        player.lastYaw = yawHead;
+                        player.lastHeadYaw = yawHead;
+                        player.lastPitch = pitch;
+                        player.lastBodyYaw = yawBody;
                     }
                 }
             }

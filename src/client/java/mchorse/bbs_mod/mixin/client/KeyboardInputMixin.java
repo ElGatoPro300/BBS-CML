@@ -44,9 +44,8 @@ public class KeyboardInputMixin
             boolean left = Window.isKeyPressed(GLFW.GLFW_KEY_A);
             boolean right = Window.isKeyPressed(GLFW.GLFW_KEY_D);
 
-            float fMul = getMovementMultiplier(forward, back);
-            float sMul = getMovementMultiplier(left, right);
-            Vec2f movement = new Vec2f(sMul, fMul).normalize();
+            float forwardMulti = getMovementMultiplier(forward, back);
+            float sidewaysMulti = getMovementMultiplier(left, right);
 
             boolean jump = Window.isKeyPressed(GLFW.GLFW_KEY_SPACE);
             boolean sneak = Window.isKeyPressed(GLFW.GLFW_KEY_LEFT_SHIFT);
@@ -59,13 +58,14 @@ public class KeyboardInputMixin
 
             if (MinecraftClient.getInstance().player != null && MinecraftClient.getInstance().player.shouldSlowDown())
             {
-                movement = new Vec2f(movement.x * 0.3F, movement.y * 0.3F);
+                sidewaysMulti *= 0.3F;
+                forwardMulti *= 0.3F;
             }
 
-            input.movementVector = movement;
+            input.movementVector = new Vec2f(sidewaysMulti, forwardMulti);
 
             UIFilmController controller = filmPanel.getController();
-            boolean moving = movement.x != 0F || movement.y != 0F;
+            boolean moving = forwardMulti != 0F || sidewaysMulti != 0F;
 
             controller.dampenActorControlDrift(moving);
         }

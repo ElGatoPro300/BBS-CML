@@ -57,11 +57,7 @@ public class PlayerUtils
     {
         public static TrackedData<Byte> getModelParts()
         {
-            /* TODO(1.21.11 render): PlayerEntity.PLAYER_MODEL_PARTS tracked-data was removed; the
-             * cosmetic model-parts (cape/jacket/sleeves) byte is no longer exposed via the data
-             * tracker. This accessor is currently unused; returns null until the new player-model/
-             * skin-config path is ported (see MobFormRenderer for the matching TODO). */
-            return null;
+            return PLAYER_MODE_CUSTOMIZATION_ID;
         }
 
         public ProtectedAccess(World world, GameProfile gameProfile)

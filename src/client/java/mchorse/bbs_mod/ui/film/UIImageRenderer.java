@@ -106,8 +106,6 @@ public class UIImageRenderer
 
                 texture.setFilterMipmap(overlay.linear, overlay.mipmap);
 
-
-
                 if (overlay.blendMode != 0)
                 {
                     batcher.flushDraw();

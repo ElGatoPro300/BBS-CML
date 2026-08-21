@@ -28,6 +28,7 @@ public class BBSShaders
     private static final RenderPipeline MODEL = registerModel();
     private static final RenderPipeline MULTILINK = registerMultilink();
     private static final RenderPipeline SUBTITLES = registerSubtitles();
+    private static final RenderPipeline IMAGE_OVERLAY = registerOverlay("image_overlay", false);
 
     private static final RenderPipeline PICKER_PREVIEW = registerPicker(
         "picker_preview", VertexFormats.POSITION_TEXTURE_COLOR
@@ -55,12 +56,17 @@ public class BBSShaders
     private static RenderLayer modelLayer;
     private static RenderLayer multiLinkLayer;
     private static RenderLayer subtitlesLayer;
+    private static RenderLayer imageOverlayLayer;
     private static RenderLayer pickerPreviewLayer;
     private static RenderLayer pickerBillboardLayer;
     private static RenderLayer pickerBillboardNoShadingLayer;
     private static RenderLayer pickerParticlesLayer;
     private static RenderLayer pickerModelsLayer;
     private static RenderLayer particlesLayer;
+    private static RenderLayer blockPaintOverlayLayer;
+    private static RenderLayer flatPaintOverlayLayer;
+    private static RenderLayer blockColorTintOverlayLayer;
+    private static RenderLayer flatColorTintOverlayLayer;
 
     public static void setup()
     {
@@ -83,6 +89,11 @@ public class BBSShaders
     public static RenderPipeline getSubtitlesProgram()
     {
         return SUBTITLES;
+    }
+
+    public static RenderPipeline getImageOverlayProgram()
+    {
+        return IMAGE_OVERLAY;
     }
 
     public static RenderPipeline getPickerPreviewProgram()
@@ -115,6 +126,36 @@ public class BBSShaders
         return PARTICLES;
     }
 
+    public static RenderPipeline getBlockPaintOverlayProgram()
+    {
+        return BLOCK_PAINT_OVERLAY;
+    }
+
+    public static RenderPipeline getFlatPaintOverlayProgram()
+    {
+        return FLAT_PAINT_OVERLAY;
+    }
+
+    public static RenderPipeline getBlockColorTintOverlayProgram()
+    {
+        return BLOCK_COLOR_TINT_OVERLAY;
+    }
+
+    public static RenderPipeline getFlatColorTintOverlayProgram()
+    {
+        return FLAT_COLOR_TINT_OVERLAY;
+    }
+
+    public static RenderLayer getModelLayer()
+    {
+        if (modelLayer == null)
+        {
+            modelLayer = layer("model", MODEL, true);
+        }
+
+        return modelLayer;
+    }
+
     public static RenderLayer getMultilinkLayer()
     {
         if (multiLinkLayer == null)
@@ -133,6 +174,16 @@ public class BBSShaders
         }
 
         return subtitlesLayer;
+    }
+
+    public static RenderLayer getImageOverlayLayer()
+    {
+        if (imageOverlayLayer == null)
+        {
+            imageOverlayLayer = layer("image_overlay", IMAGE_OVERLAY, true);
+        }
+
+        return imageOverlayLayer;
     }
 
     public static RenderLayer getPickerPreviewLayer()
@@ -200,29 +251,44 @@ public class BBSShaders
         return particlesLayer;
     }
 
-    public static RenderPipeline getBlockPaintOverlayProgram()
+    public static RenderLayer getBlockPaintOverlayLayer()
     {
-        return BLOCK_PAINT_OVERLAY;
+        if (blockPaintOverlayLayer == null)
+        {
+            blockPaintOverlayLayer = layer("block_paint_overlay", BLOCK_PAINT_OVERLAY, true);
+        }
+
+        return blockPaintOverlayLayer;
     }
 
-    public static RenderPipeline getBlockColorTintOverlayProgram()
+    public static RenderLayer getFlatPaintOverlayLayer()
     {
-        return BLOCK_COLOR_TINT_OVERLAY;
+        if (flatPaintOverlayLayer == null)
+        {
+            flatPaintOverlayLayer = layer("flat_paint_overlay", FLAT_PAINT_OVERLAY, true);
+        }
+
+        return flatPaintOverlayLayer;
     }
 
-    public static RenderPipeline getFlatColorTintOverlayProgram()
+        public static RenderLayer getBlockColorTintOverlayLayer()
     {
-        return FLAT_COLOR_TINT_OVERLAY;
+        if (blockColorTintOverlayLayer == null)
+        {
+            blockColorTintOverlayLayer = layer("block_color_tint_overlay", BLOCK_COLOR_TINT_OVERLAY, true);
+        }
+
+        return blockColorTintOverlayLayer;
     }
 
-    public static RenderPipeline getFlatPaintOverlayProgram()
+    public static RenderLayer getFlatColorTintOverlayLayer()
     {
-        return FLAT_PAINT_OVERLAY;
-    }
+        if (flatColorTintOverlayLayer == null)
+        {
+            flatColorTintOverlayLayer = layer("flat_color_tint_overlay", FLAT_COLOR_TINT_OVERLAY, true);
+        }
 
-    public static RenderPipeline getModelProgram()
-    {
-        return MODEL;
+        return flatColorTintOverlayLayer;
     }
 
     private static RenderPipeline registerModel()
@@ -243,27 +309,6 @@ public class BBSShaders
             .withUniform("Lighting", UniformType.UNIFORM_BUFFER)
             .withSampler("Sampler0")
             .withSampler("Sampler1")
-            .withSampler("Sampler2");
-
-        return RenderPipelines.register(builder.build());
-    }
-
-    private static RenderPipeline registerParticles()
-    {
-        Identifier shader = Identifier.of(BBSMod.MOD_ID, "core/particles");
-
-        RenderPipeline.Builder builder = RenderPipeline.builder()
-            .withLocation(Identifier.of(BBSMod.MOD_ID, "pipeline/particles"))
-            .withVertexShader(shader)
-            .withFragmentShader(shader)
-            .withVertexFormat(VertexFormats.POSITION_TEXTURE_COLOR_LIGHT, VertexFormat.DrawMode.QUADS)
-            .withBlend(BLEND)
-            .withDepthTestFunction(DepthTestFunction.LEQUAL_DEPTH_TEST)
-            .withCull(false)
-            .withUniform("DynamicTransforms", UniformType.UNIFORM_BUFFER)
-            .withUniform("Projection", UniformType.UNIFORM_BUFFER)
-            .withUniform("Fog", UniformType.UNIFORM_BUFFER)
-            .withSampler("Sampler0")
             .withSampler("Sampler2");
 
         return RenderPipelines.register(builder.build());
@@ -326,6 +371,27 @@ public class BBSShaders
             .withUniform("Projection", UniformType.UNIFORM_BUFFER)
             .withUniform(PICKER_UNIFORM, UniformType.UNIFORM_BUFFER)
             .withSampler("Sampler0");
+
+        return RenderPipelines.register(builder.build());
+    }
+
+    private static RenderPipeline registerParticles()
+    {
+        Identifier shader = Identifier.of(BBSMod.MOD_ID, "core/particles");
+
+        RenderPipeline.Builder builder = RenderPipeline.builder()
+            .withLocation(Identifier.of(BBSMod.MOD_ID, "pipeline/particles"))
+            .withVertexShader(shader)
+            .withFragmentShader(shader)
+            .withVertexFormat(VertexFormats.POSITION_TEXTURE_COLOR_LIGHT, VertexFormat.DrawMode.QUADS)
+            .withBlend(BLEND)
+            .withDepthTestFunction(DepthTestFunction.LEQUAL_DEPTH_TEST)
+            .withCull(false)
+            .withUniform("DynamicTransforms", UniformType.UNIFORM_BUFFER)
+            .withUniform("Projection", UniformType.UNIFORM_BUFFER)
+            .withUniform("Fog", UniformType.UNIFORM_BUFFER)
+            .withSampler("Sampler0")
+            .withSampler("Sampler2");
 
         return RenderPipelines.register(builder.build());
     }

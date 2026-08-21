@@ -14,14 +14,14 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Mixin(SkyRendering.class)
 public class SkyRenderingMixin
 {
-    @Inject(method = "renderCelestialBodies", at = @At("HEAD"), require = 0)
-    private void bbs$applySunPathToCelestialBodies(MatrixStack matrices, float sunAngle, float moonAngle, float starAngle, MoonPhase moonPhase, float alpha, float starBrightness, CallbackInfo info)
+    @Inject(method = "renderCelestialBodies", at = @At("HEAD"))
+    private void bbs$applySunPathToCelestialBodies(MatrixStack matrices, float skyAngle, float moonPhaseProgress, float skyDarkness, MoonPhase moonPhase, float starBrightness, float sunBrightness, CallbackInfo info)
     {
         SunPathRotation.applyY(matrices.peek().getPositionMatrix());
     }
 
-    @Inject(method = "renderGlowingSky", at = @At("HEAD"), require = 0)
-    private void bbs$applySunPathToGlowingSky(MatrixStack matrices, float solarAngle, int color, CallbackInfo info)
+    @Inject(method = "renderGlowingSky", at = @At("HEAD"))
+    private void bbs$applySunPathToGlowingSky(MatrixStack matrices, float skyAngle, int color, CallbackInfo info)
     {
         SunPathRotation.applyY(matrices.peek().getPositionMatrix());
     }

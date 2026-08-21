@@ -309,6 +309,7 @@ public class VanillaParticleFormRenderer extends FormRenderer<VanillaParticleFor
                             }
                             catch (Exception e)
                             {
+                                /* Manual fallbacks for common complex particles using direct registry lookups */
                                 if (!args.isEmpty())
                                 {
                                     try
@@ -317,6 +318,7 @@ public class VanillaParticleFormRenderer extends FormRenderer<VanillaParticleFor
 
                                         if (id != null)
                                         {
+                                            /* Try to find as block first */
                                             Block block = Registries.BLOCK.get(id);
 
                                             if (block != Blocks.AIR)
@@ -325,6 +327,7 @@ public class VanillaParticleFormRenderer extends FormRenderer<VanillaParticleFor
                                             }
                                             else
                                             {
+                                                /* Try to find as item */
                                                 Item item = Registries.ITEM.get(id);
 
                                                 if (item != Items.AIR)

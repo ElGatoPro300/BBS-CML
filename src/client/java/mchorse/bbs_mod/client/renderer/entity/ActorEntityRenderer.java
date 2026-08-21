@@ -61,6 +61,8 @@ public class ActorEntityRenderer extends EntityRenderer<ActorEntity, ActorEntity
             new ElytraEntityModel(ctx.getPart(EntityModelLayers.ELYTRA)),
             MinecraftClient.getInstance().getAtlasManager().getAtlasTexture(Atlases.ARMOR_TRIMS)
         );
+
+        // this.shadowRadius = 0.5F;
     }
 
     /**

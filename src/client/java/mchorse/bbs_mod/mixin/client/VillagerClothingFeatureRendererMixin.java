@@ -1,6 +1,7 @@
 package mchorse.bbs_mod.mixin.client;
 
 import mchorse.bbs_mod.client.BBSRendering;
+import mchorse.bbs_mod.forms.CustomVertexConsumerProvider;
 import mchorse.bbs_mod.forms.FormUtilsClient;
 import mchorse.bbs_mod.forms.forms.MobForm;
 
@@ -14,6 +15,13 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
+/**
+ * Villager type/profession layers are separate dynamic cutouts. On film stubs
+ * ({@code AFTER_ENTITIES}) the last clothing layer was deferred until a late
+ * {@code Immediate.draw()} after held-item/shadow, with the wrong light basis.
+ * Restore vanilla entity lights before clothing, then flush the pending layer
+ * as soon as the clothing feature finishes.
+ */
 @Mixin(VillagerClothingFeatureRenderer.class)
 public class VillagerClothingFeatureRendererMixin
 {
@@ -26,7 +34,7 @@ public class VillagerClothingFeatureRendererMixin
         OrderedRenderCommandQueue queue,
         int light,
         LivingEntityRenderState state,
-        float yaw,
+        float armYaw,
         float pitch,
         CallbackInfo info
     )
@@ -48,7 +56,7 @@ public class VillagerClothingFeatureRendererMixin
         OrderedRenderCommandQueue queue,
         int light,
         LivingEntityRenderState state,
-        float yaw,
+        float armYaw,
         float pitch,
         CallbackInfo info
     )

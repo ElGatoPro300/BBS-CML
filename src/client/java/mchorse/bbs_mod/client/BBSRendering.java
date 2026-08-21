@@ -77,6 +77,8 @@ import net.fabricmc.loader.api.FabricLoader;
 
 import net.minecraft.block.entity.BlockEntity;
 import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.render.DiffuseLighting;
+import net.minecraft.client.render.GameRenderer;
 import net.minecraft.client.gl.Framebuffer;
 import net.minecraft.client.gl.WindowFramebuffer;
 import net.minecraft.client.gui.DrawContext;
@@ -422,25 +424,40 @@ public class BBSRendering
         GL11.glPolygonOffset(0F, 0F);
         GL11.glDisable(GL11.GL_POLYGON_OFFSET_FILL);
         CustomVertexConsumerProvider.clearRunnables();
+
+        MinecraftClient client = MinecraftClient.getInstance();
+
+        if (client != null && client.gameRenderer != null)
+        {
+            /* In 1.21.11, lightmap & overlay textures are managed via UBOs / shader pipelines automatically */
+        }
     }
 
     /** Vanilla level diffuse basis shared by morphs and editor previews. */
     public static void setupWorldLevelDiffuseLighting()
     {
-        // RenderSystem.setupLevelDiffuseLighting(WORLD_LEVEL_LIGHT_0, WORLD_LEVEL_LIGHT_1);
+        MinecraftClient client = MinecraftClient.getInstance();
+
+        if (client != null && client.gameRenderer != null)
+        {
+            client.gameRenderer.getDiffuseLighting().setShaderLights(DiffuseLighting.Type.LEVEL);
+        }
     }
 
     /**
      * Same diffuse choice {@link WorldRenderer} uses before entities:
-     * {@link DiffuseLighting#enableForLevel()} in darkened dimensions, otherwise the shared
-     * {@link #setupWorldLevelDiffuseLighting()} basis (matches {@link DiffuseLighting#disableForLevel()}).
+     * {@link DiffuseLighting.Type#LEVEL} in level dimensions, otherwise the shared
+     * {@link #setupWorldLevelDiffuseLighting()} basis.
      * Keeps model-block F7 world draws and editor UI previews on one lighting basis.
      */
     public static void setupMatchingWorldDiffuseLighting()
     {
         MinecraftClient client = MinecraftClient.getInstance();
 
-        setupWorldLevelDiffuseLighting();
+        if (client != null && client.world != null && client.gameRenderer != null)
+        {
+            client.gameRenderer.getDiffuseLighting().setShaderLights(DiffuseLighting.Type.LEVEL);
+        }
     }
 
     /**
@@ -573,8 +590,8 @@ public class BBSRendering
         }
 
         MinecraftClient mc = MinecraftClient.getInstance();
-        int w = mc.getWindow().getFramebufferWidth();
-        int h = mc.getWindow().getFramebufferHeight();
+        int w = Math.max(2, mc.getWindow().getFramebufferWidth());
+        int h = Math.max(2, mc.getWindow().getFramebufferHeight());
 
         if (framebuffer.textureWidth == w && framebuffer.textureHeight == h)
         {
@@ -598,8 +615,8 @@ public class BBSRendering
 
         if (toggleFramebuffer)
         {
-            int w = mc.getWindow().getFramebufferWidth();
-            int h = mc.getWindow().getFramebufferHeight();
+            int w = Math.max(2, mc.getWindow().getFramebufferWidth());
+            int h = Math.max(2, mc.getWindow().getFramebufferHeight());
 
             resizeExtraFramebuffers();
 
@@ -636,6 +653,13 @@ public class BBSRendering
                 reassignFramebuffer(target);
             }
 
+            /* framebuffer.draw() leaves its color-attachment texture bound on TU0
+             * inside GlStateManager / RenderSystem.shaderTextures[0].  If we don't
+             * clear it, every subsequent draw (chunks, forms, HUD) that queries
+             * getShaderTexture(0) reads a stale id and renders black. */
+            GlStateManager._activeTexture(GL13.GL_TEXTURE0);
+            GlStateManager._bindTexture(0);
+            
             bindMainFramebuffer(false);
 
             int realW = window.getFramebufferWidth();
@@ -676,6 +700,7 @@ public class BBSRendering
         GL11.glDisable(GL11.GL_POLYGON_OFFSET_FILL);
 
         renderingWorld = true;
+        ShaderOpacityPatch.onWorldRenderBegin();
         updateCloudRenderMode(mc);
         ModelVAORenderer.clearPaintOverlayQueue();
 

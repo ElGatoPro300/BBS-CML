@@ -725,7 +725,7 @@ public class BBSModClient implements ClientModInitializer
 
                 if (d > 0)
                 {
-                     MatrixStack stack = context.matrices();
+                    MatrixStack stack = context.matrices();
                     Color color = Colors.COLOR.set(BBSRendering.getChromaSkyColor());
 
                     stack.push();
@@ -781,7 +781,7 @@ public class BBSModClient implements ClientModInitializer
              * depth-occluded. Iris already flushed; paint overlays still run at world end. */
             ShaderOpacityPatch.onAfterVanillaClouds();
 
-            // Draw.flushIrisBoxes();
+            Draw.flushIrisBoxes();
 
             if (Gizmo.INSTANCE.hasDeferred())
             {

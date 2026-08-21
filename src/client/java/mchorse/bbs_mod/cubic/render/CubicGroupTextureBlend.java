@@ -60,16 +60,9 @@ public final class CubicGroupTextureBlend
         return null;
     }
 
-    public static boolean supportsShader(ShaderProgram shader)
+    public static boolean supportsShader(RenderPipeline pipeline)
     {
-        if (shader == null)
-        {
-            return false;
-        }
-
-        GlUniform uniform = shader.getUniform("TextureBlendActive");
-
-        return uniform != null;
+        return pipeline != null;
     }
 
     public static Link resolveDrawTexture(CubicGroupTextureBlend state, Link defaultTexture)
@@ -95,7 +88,7 @@ public final class CubicGroupTextureBlend
     /**
      * Binds the active texture and, when supported, enables single-pass shader crossfade.
      */
-    public static void bindForDraw(ShaderProgram shader, CubicGroupTextureBlend state, Link defaultTexture)
+    public static void bindForDraw(RenderPipeline pipeline, CubicGroupTextureBlend state, Link defaultTexture)
     {
         if (state == null)
         {
@@ -115,40 +108,15 @@ public final class CubicGroupTextureBlend
             ModelVAORenderer.clearTextureBlend();
             BBSModClient.getTextures().bindTexture(state.from);
         }
-        else if (supportsShader(shader))
+        else if (supportsShader(pipeline))
         {
             BBSModClient.getTextures().bindTexture(state.from);
+            BBSModClient.getTextures().bindTexture(state.to, 3);
             ModelVAORenderer.setTextureBlend(state.to, state.blend);
         }
         else
         {
             ModelVAORenderer.clearTextureBlend();
-            BBSModClient.getTextures().bindTexture(state.from);
-        }
-    }
-
-    /**
-     * Binds a CPU group's texture for a RenderLayer draw. Partial blends are rendered by the
-     * caller as two alpha passes because RenderLayer does not expose mutable shader uniforms.
-     */
-    public static void bindForDraw(RenderPipeline pipeline, CubicGroupTextureBlend state, Link defaultTexture)
-    {
-        if (state == null)
-        {
-            ModelVAORenderer.clearTextureBlend();
-            BBSModClient.getTextures().bindTexture(defaultTexture);
-
-            return;
-        }
-
-        ModelVAORenderer.clearTextureBlend();
-
-        if (state.blend >= 1F)
-        {
-            BBSModClient.getTextures().bindTexture(state.to);
-        }
-        else
-        {
             BBSModClient.getTextures().bindTexture(state.from);
         }
     }
