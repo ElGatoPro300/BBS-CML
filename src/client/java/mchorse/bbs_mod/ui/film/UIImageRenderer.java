@@ -2,6 +2,7 @@ package mchorse.bbs_mod.ui.film;
 
 import mchorse.bbs_mod.BBSModClient;
 import mchorse.bbs_mod.camera.clips.misc.ImageOverlay;
+import mchorse.bbs_mod.client.BBSShaders;
 import mchorse.bbs_mod.forms.renderers.utils.FormTextureBlendRenderer;
 import mchorse.bbs_mod.graphics.texture.Texture;
 import mchorse.bbs_mod.ui.framework.elements.utils.Batcher2D;
@@ -9,6 +10,7 @@ import mchorse.bbs_mod.utils.Quad;
 import mchorse.bbs_mod.utils.colors.Color;
 
 import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.gl.GlUniform;
 import net.minecraft.client.gl.ShaderProgram;
 import net.minecraft.client.render.GameRenderer;
 import net.minecraft.client.util.math.MatrixStack;
@@ -38,10 +40,6 @@ public class UIImageRenderer
         {
             return;
         }
-
-        /* Use the vanilla textured program so subtitle Blur/TextureSize uniforms
-         * never leak into image overlays when both share the HUD pass. */
-        Supplier<ShaderProgram> supplier = GameRenderer::getPositionTexColorProgram;
 
         net.minecraft.client.gl.Framebuffer fb = MinecraftClient.getInstance().getFramebuffer();
         int width = fb.textureWidth / 2;
@@ -119,19 +117,34 @@ public class UIImageRenderer
                 }
 
                 texture.setFilterMipmap(overlay.linear, overlay.mipmap);
+
+                ShaderProgram program = BBSShaders.getImageOverlayProgram();
+
+                if (program != null)
+                {
+                    GlUniform blendModeUniform = program.getUniform("BlendMode");
+
+                    if (blendModeUniform != null)
+                    {
+                        blendModeUniform.set(overlay.blendMode);
+                    }
+                }
+
+                Supplier<ShaderProgram> supplier = program != null ? () -> program : GameRenderer::getPositionTexColorProgram;
+
                 if (overlay.blendMode != 0)
                 {
                     batcher.flushDraw();
                     switch (overlay.blendMode)
                     {
-                        case 1: /* Multiply — src*dst, matches Premiere Pro Multiply */
-                            RenderSystem.blendFunc(GL11.GL_DST_COLOR, GL11.GL_ZERO);
+                        case 1: /* Multiply — src*dst, smoothly fades to dst with alpha */
+                            RenderSystem.blendFunc(GL11.GL_DST_COLOR, GL11.GL_ONE_MINUS_SRC_ALPHA);
                             break;
-                        case 2: /* Screen — 1-(1-src)*(1-dst), matches Premiere Pro Screen */
+                        case 2: /* Screen — 1-(1-src)*(1-dst), smoothly fades to dst with alpha */
                             RenderSystem.blendFunc(GL11.GL_ONE, GL11.GL_ONE_MINUS_SRC_COLOR);
                             break;
-                        case 3: /* Add / Linear Dodge — src+dst, matches Premiere Pro Add */
-                            RenderSystem.blendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE);
+                        case 3: /* Add / Linear Dodge — src+dst */
+                            RenderSystem.blendFunc(GL11.GL_ONE, GL11.GL_ONE);
                             break;
                         case 4: /* Saturation — modulates dest saturation via src color channels */
                             RenderSystem.blendFunc(GL11.GL_SRC_COLOR, GL11.GL_ONE_MINUS_SRC_COLOR);
@@ -143,7 +156,7 @@ public class UIImageRenderer
                             RenderSystem.blendFunc(GL11.GL_ONE_MINUS_DST_COLOR, GL11.GL_ONE_MINUS_SRC_COLOR);
                             break;
                         case 7: /* Overlay (Approx) / Vivid Multiply — 2*src*dst */
-                            RenderSystem.blendFunc(GL11.GL_DST_COLOR, GL11.GL_SRC_COLOR);
+                            RenderSystem.blendFunc(GL11.GL_DST_COLOR, GL11.GL_ONE_MINUS_SRC_ALPHA);
                             break;
                         case 8: /* Color Dodge — src*src + dst */
                             RenderSystem.blendFunc(GL11.GL_SRC_COLOR, GL11.GL_ONE);
