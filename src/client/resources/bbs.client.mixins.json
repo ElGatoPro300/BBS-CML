@@ -17,6 +17,8 @@
         "IntegratedServerMixin",
         "WindowMixin",
         "WorldRendererMixin",
+        "SkyRenderingMixin",
+        "BackgroundRendererMixin",
         "LanguageManagerMixin",
         "LivingEntityMixin",
         "LivingEntityUpdateMixin",

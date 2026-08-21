@@ -27,10 +27,43 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 public class WorldRendererMixin
 {
 
-    /* TODO(1.21.11 render): WorldRenderer#renderLayer was removed by the FrameGraphBuilder/
-     * OrderedRenderCommandQueue terrain rewrite (per-RenderLayer submission is now handled through
-     * renderBlockLayers/SectionRenderState with no simple cancellation point). require = 0 keeps this
-     * injector inert instead of crashing until the chroma-sky-terrain occlusion is re-ported. */
+    @Inject(method = "renderSky(Lnet/minecraft/client/render/FrameGraphBuilder;Lnet/minecraft/client/render/Camera;FLnet/minecraft/client/render/Fog;)V", at = @At("HEAD"), cancellable = true, require = 0)
+    public void onRenderSky(FrameGraphBuilder frameGraphBuilder, Camera camera, float tickDelta, Fog fog, CallbackInfo info)
+    {
+        if (BBSRendering.isChromaSkyEnabled())
+        {
+            RenderPass pass = frameGraphBuilder.createPass("sky");
+
+            this.framebufferSet.mainFramebuffer = pass.transfer(this.framebufferSet.mainFramebuffer);
+            pass.setRenderer(() -> {
+                Color color = Color.rgb(BBSRendering.getChromaSkyColor());
+
+                RenderSystem.clearColor(color.r, color.g, color.b, 1F);
+                RenderSystem.clear(GL11.GL_COLOR_BUFFER_BIT);
+            });
+
+            info.cancel();
+        }
+    }
+
+    @Inject(method = "renderClouds", at = @At("HEAD"), cancellable = true, require = 0)
+    public void onRenderClouds(FrameGraphBuilder frameGraphBuilder, Matrix4f modelViewMatrix, Matrix4f projectionMatrix, CloudRenderMode cloudRenderMode, Vec3d cameraPos, float tickDelta, int color, float cloudHeight, CallbackInfo info)
+    {
+        if (BBSRendering.isChromaSkyEnabled() && !BBSRendering.isChromaSkyClouds())
+        {
+            info.cancel();
+        }
+    }
+
+    @Inject(method = "renderWeather", at = @At("HEAD"), cancellable = true, require = 0)
+    public void onRenderWeather(FrameGraphBuilder frameGraphBuilder, Vec3d cameraPos, float tickDelta, Fog fog, CallbackInfo info)
+    {
+        if (BBSRendering.shouldHideChromaTerrain())
+        {
+            info.cancel();
+        }
+    }
+
     @Inject(method = "renderLayer", at = @At("HEAD"), cancellable = true, require = 0)
     public void onRenderLayer(RenderLayer renderLayer, double cameraX, double cameraY, double cameraZ, Matrix4f positionMatrix, Matrix4f projectionMatrix, CallbackInfo info)
     {
