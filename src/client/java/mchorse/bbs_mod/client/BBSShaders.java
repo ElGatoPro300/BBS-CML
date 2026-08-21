@@ -139,6 +139,7 @@ public class BBSShaders
         model = loader.getOrCreateProgram(modelKey);
         multiLink = loader.getOrCreateProgram(multiLinkKey);
         subtitles = loader.getOrCreateProgram(subtitlesKey);
+        imageOverlay = loader.getOrCreateProgram(imageOverlayKey);
 
         pickerPreview = loader.getOrCreateProgram(pickerPreviewKey);
         pickerBillboard = loader.getOrCreateProgram(pickerBillboardKey);

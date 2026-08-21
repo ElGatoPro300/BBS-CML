@@ -12,7 +12,7 @@ import mchorse.bbs_mod.utils.colors.Color;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gl.GlUniform;
 import net.minecraft.client.gl.ShaderProgram;
-import net.minecraft.client.render.GameRenderer;
+import net.minecraft.client.gl.ShaderProgramKeys;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.util.math.RotationAxis;
 
@@ -131,7 +131,12 @@ public class UIImageRenderer
                     }
                 }
 
-                Supplier<ShaderProgram> supplier = program != null ? () -> program : GameRenderer::getPositionTexColorProgram;
+                Supplier<ShaderProgram> supplier = program != null ? () -> program : () ->
+                {
+                    RenderSystem.setShader(ShaderProgramKeys.POSITION_TEX_COLOR);
+
+                    return RenderSystem.getShader();
+                };
 
                 if (overlay.blendMode != 0)
                 {
