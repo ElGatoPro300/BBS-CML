@@ -5777,6 +5777,9 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
 
         if (matchesLoaded)
         {
+            this.discardProvisionalPosePreviews();
+            this.requestThumbnailCapture();
+            this.save();
             this.fill(null);
         }
     }
