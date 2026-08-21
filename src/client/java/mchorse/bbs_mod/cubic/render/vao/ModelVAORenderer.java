@@ -1059,6 +1059,21 @@ public class ModelVAORenderer
         return paintPass;
     }
 
+    public static boolean isGlowEffectActive()
+    {
+        return glowEffectActive;
+    }
+
+    public static boolean isPaintEffectActive()
+    {
+        return paintEffectActive;
+    }
+
+    public static boolean isColorEffectActive()
+    {
+        return colorEffectActive;
+    }
+
     public static float getBasePaintR()
     {
         return baseR;
