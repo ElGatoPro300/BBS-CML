@@ -303,16 +303,7 @@ public class UIFormList extends UIElement
 
         if (matched != null)
         {
-            this.expandedCategory = matched;
-
-            if (matched.category instanceof ModelFormCategory.Folder folder)
-            {
-                this.activeExpandedFolder = folder;
-            }
-            else
-            {
-                this.activeExpandedFolder = null;
-            }
+            this.categoryCards.expandCategory(matched, matched.category instanceof ModelFormCategory.Folder folder ? folder : null);
         }
         else
         {
@@ -2424,6 +2415,10 @@ public class UIFormList extends UIElement
                 {
                     this.activeExpandedFolder = null;
                 }
+                if (this.categoryCards != null)
+                {
+                    this.categoryCards.expandCategory(category, this.activeExpandedFolder);
+                }
             }
         }
 
@@ -2435,6 +2430,12 @@ public class UIFormList extends UIElement
             this.recent.select(copy, false);
             this.expandedCategory = this.recent;
             this.activeExpandedFolder = null;
+
+            if (this.categoryCards != null)
+            {
+                this.categoryCards.expandCategory(this.recent, null);
+            }
+
             this.refreshCategoryCards();
         }
     }
@@ -2588,6 +2589,23 @@ public class UIFormList extends UIElement
             this.invalidateCache();
         }
 
+        public void expandCategory(UIFormCategory category, ModelFormCategory.Folder folder)
+        {
+            UIFormList.this.expandedCategory = category;
+            UIFormList.this.activeExpandedFolder = folder;
+            this.targetExpansion = 1F;
+
+            boolean simplify = BBSSettings.editorSimplifyAnimations != null && BBSSettings.editorSimplifyAnimations.get();
+
+            if (simplify)
+            {
+                this.expansionTransition = 1F;
+                this.folderTransition = 1F;
+            }
+
+            this.invalidateCache();
+        }
+
         private void navigateFolder(ModelFormCategory.Folder targetFolder, boolean goingDeeper)
         {
             if (BBSSettings.editorSimplifyAnimations != null && BBSSettings.editorSimplifyAnimations.get())
@@ -2630,13 +2648,14 @@ public class UIFormList extends UIElement
                     this.invalidateCache();
                 }
 
-                return;
-            }
+                if (this.expansionTransition == 0F && this.targetExpansion == 0F && UIFormList.this.expandedCategory != null)
+                {
+                    UIFormList.this.expandedCategory = null;
+                    UIFormList.this.activeExpandedFolder = null;
+                    this.invalidateCache();
+                }
 
-            if (UIFormList.this.expandedCategory != null && this.targetExpansion == 0F && this.expansionTransition == 0F)
-            {
-                this.targetExpansion = 1F;
-                this.expansionTransition = 0F;
+                return;
             }
 
             if (this.expansionTransition < this.targetExpansion)
@@ -2773,7 +2792,16 @@ public class UIFormList extends UIElement
 
             if (UIFormList.this.expandedCategory == cell.category)
             {
-                this.targetExpansion = 0F;
+                boolean simplify = BBSSettings.editorSimplifyAnimations != null && BBSSettings.editorSimplifyAnimations.get();
+
+                if (simplify)
+                {
+                    this.collapseExpandedCategoryInstantly();
+                }
+                else
+                {
+                    this.collapseExpandedCategory();
+                }
             }
             else
             {
@@ -2793,25 +2821,15 @@ public class UIFormList extends UIElement
                     this.transitionDirection = newIdx > oldIdx ? 1 : -1;
                 }
 
-                UIFormList.this.expandedCategory = cell.category;
-                this.targetExpansion = 1F;
+                ModelFormCategory.Folder folder = cell.category.category instanceof ModelFormCategory.Folder f ? f : null;
 
-                if (!wasExpanded)
-                {
-                    this.expansionTransition = simplify ? 1F : 0F;
-                }
+                this.expandCategory(cell.category, folder);
 
-                if (cell.category.category instanceof ModelFormCategory.Folder folder)
+                if (!wasExpanded && !simplify)
                 {
-                    UIFormList.this.activeExpandedFolder = folder;
-                }
-                else
-                {
-                    UIFormList.this.activeExpandedFolder = null;
+                    this.expansionTransition = 0F;
                 }
             }
-
-            this.invalidateCache();
 
             return true;
         }
