@@ -209,6 +209,8 @@ public class VanillaParticleFormRenderer extends FormRenderer<VanillaParticleFor
                     float colorB = -1F;
                     float colorA = 1F;
 
+                    boolean hasExplicitArgColor = false;
+
                     if (!args.isEmpty())
                     {
                         try
@@ -220,6 +222,7 @@ public class VanillaParticleFormRenderer extends FormRenderer<VanillaParticleFor
                                 colorR = Float.parseFloat(split[0]);
                                 colorG = Float.parseFloat(split[1]);
                                 colorB = Float.parseFloat(split[2]);
+                                hasExplicitArgColor = true;
 
                                 if (split.length >= 4)
                                 {
@@ -235,7 +238,14 @@ public class VanillaParticleFormRenderer extends FormRenderer<VanillaParticleFor
                     mchorse.bbs_mod.utils.colors.Color color2 = this.form.color2.get();
                     int colorMode = this.form.colorMode.get();
 
-                    if (colorR < 0F && color1 != null)
+                    boolean isEffect = path.contains("effect");
+                    boolean isDust = path.contains("dust");
+                    boolean hasCustomRgb = colorMode != 0
+                        || hasExplicitArgColor
+                        || (color1 != null && (color1.r != 1F || color1.g != 1F || color1.b != 1F));
+                    boolean hasCustomAlpha = (color1 != null && color1.a != 1F) || (hasExplicitArgColor && colorA != 1F);
+
+                    if (colorR < 0F && color1 != null && (hasCustomRgb || hasCustomAlpha || isEffect || isDust))
                     {
                         colorR = color1.r;
                         colorG = color1.g;
@@ -247,7 +257,7 @@ public class VanillaParticleFormRenderer extends FormRenderer<VanillaParticleFor
 
                     if (colorR >= 0F)
                     {
-                        if (path.contains("effect"))
+                        if (isEffect)
                         {
                             effect = EntityEffectParticleEffect.create(ParticleTypes.ENTITY_EFFECT, colorR, colorG, colorB);
                             parsedCustom = true;
@@ -259,7 +269,7 @@ public class VanillaParticleFormRenderer extends FormRenderer<VanillaParticleFor
                             effect = new DustColorTransitionParticleEffect(new Vector3f(colorR, colorG, colorB), new Vector3f(colorR, colorG, colorB), scale);
                             parsedCustom = true;
                         }
-                        else if (path.contains("dust"))
+                        else if (isDust)
                         {
                             float scale = colorA > 0F ? colorA : 1F;
 
@@ -294,7 +304,7 @@ public class VanillaParticleFormRenderer extends FormRenderer<VanillaParticleFor
                                 {
                                     try
                                     {
-                                        Identifier id = Identifier.tryParse(args);
+                                        Identifier id = Identifier.tryParse(args.contains(":") ? args : "minecraft:" + args);
 
                                         if (id != null)
                                         {
@@ -335,7 +345,7 @@ public class VanillaParticleFormRenderer extends FormRenderer<VanillaParticleFor
                         for (int i = 0; i < count; i++)
                         {
                             this.resolveEmissionSite(sites.get(i % sites.size()), siteRot, siteForward, siteOrigin);
-                            this.spawnParticle(world, effect, path, velocity, colorR, colorG, colorB, colorA, color1, color2, colorMode, siteRot, siteForward, siteOrigin, m, v, temp3f);
+                            this.spawnParticle(world, effect, path, velocity, colorR, colorG, colorB, colorA, color1, color2, colorMode, hasCustomRgb, hasCustomAlpha, siteRot, siteForward, siteOrigin, m, v, temp3f);
                         }
                     }
                     else
@@ -346,7 +356,7 @@ public class VanillaParticleFormRenderer extends FormRenderer<VanillaParticleFor
 
                             for (int i = 0; i < count; i++)
                             {
-                                this.spawnParticle(world, effect, path, velocity, colorR, colorG, colorB, colorA, color1, color2, colorMode, siteRot, siteForward, siteOrigin, m, v, temp3f);
+                                this.spawnParticle(world, effect, path, velocity, colorR, colorG, colorB, colorA, color1, color2, colorMode, hasCustomRgb, hasCustomAlpha, siteRot, siteForward, siteOrigin, m, v, temp3f);
                             }
                         }
                     }
@@ -385,7 +395,7 @@ public class VanillaParticleFormRenderer extends FormRenderer<VanillaParticleFor
         siteRot.transform(siteForward);
     }
 
-    private void spawnParticle(World world, ParticleEffect effect, String path, float velocity, float colorR, float colorG, float colorB, float colorA, mchorse.bbs_mod.utils.colors.Color color1, mchorse.bbs_mod.utils.colors.Color color2, int colorMode, Matrix3f siteRot, Vector3f siteForward, Vector3f siteOrigin, Matrix3f m, Vector3f v, Vector3f temp3f)
+    private void spawnParticle(World world, ParticleEffect effect, String path, float velocity, float colorR, float colorG, float colorB, float colorA, mchorse.bbs_mod.utils.colors.Color color1, mchorse.bbs_mod.utils.colors.Color color2, int colorMode, boolean hasCustomRgb, boolean hasCustomAlpha, Matrix3f siteRot, Vector3f siteForward, Vector3f siteOrigin, Matrix3f m, Vector3f v, Vector3f temp3f)
     {
         float velocityX = siteForward.x * velocity;
         float velocityY = siteForward.y * velocity;
@@ -452,10 +462,17 @@ public class VanillaParticleFormRenderer extends FormRenderer<VanillaParticleFor
         MinecraftClient mc = MinecraftClient.getInstance();
         Particle particleObj = (mc.world != null && mc.particleManager != null) ? mc.particleManager.addParticle(effect, x, y, z, v.x, v.y, v.z) : null;
 
-        if (particleObj != null && pR >= 0F)
+        if (particleObj != null)
         {
-            particleObj.setColor(pR, pG, pB);
-            particleObj.setAlpha(pA);
+            if (hasCustomRgb && pR >= 0F)
+            {
+                particleObj.setColor(pR, pG, pB);
+            }
+
+            if (hasCustomAlpha && pA >= 0F)
+            {
+                particleObj.setAlpha(pA);
+            }
 
             if (colorMode == 1 && color1 != null && color2 != null)
             {
