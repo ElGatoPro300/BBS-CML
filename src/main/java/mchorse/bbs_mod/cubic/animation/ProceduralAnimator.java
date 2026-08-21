@@ -347,7 +347,7 @@ public class ProceduralAnimator implements IAnimator
                         }
                         else if (target.isSwimming())
                         {
-                            float swimProgress = (age + transition) * 0.12F + limbPhase * 0.2F;
+                            float swimProgress = age * 0.12F + limbPhase * 0.2F;
                             float strokePhase = (float) (Math.sin(swimProgress) * 0.5F + 0.5F);
                             float armPitch = 180F - strokePhase * 90F;
                             float armSweep = strokePhase * 90F;
@@ -389,7 +389,7 @@ public class ProceduralAnimator implements IAnimator
                         }
                         else if (target.isSwimming())
                         {
-                            float swimProgress = (age + transition) * 0.12F + limbPhase * 0.2F;
+                            float swimProgress = age * 0.12F + limbPhase * 0.2F;
                             float strokePhase = (float) (Math.sin(swimProgress) * 0.5F + 0.5F);
                             float armPitch = 180F - strokePhase * 90F;
                             float armSweep = strokePhase * 90F;
@@ -435,7 +435,7 @@ public class ProceduralAnimator implements IAnimator
                         }
                         else if (target.isSwimming())
                         {
-                            float swimProgress = (age + transition) * 0.15F + limbPhase * 0.2F;
+                            float swimProgress = age * 0.15F + limbPhase * 0.2F;
                             group.current.rotate.x = (float) Math.cos(swimProgress * 0.5F) * 18F;
                             group.current.rotate.y = 0F;
                             group.current.rotate.z = 0F;
@@ -458,7 +458,7 @@ public class ProceduralAnimator implements IAnimator
                         }
                         else if (target.isSwimming())
                         {
-                            float swimProgress = (age + transition) * 0.15F + limbPhase * 0.2F;
+                            float swimProgress = age * 0.15F + limbPhase * 0.2F;
                             group.current.rotate.x = -(float) Math.cos(swimProgress * 0.5F) * 18F;
                             group.current.rotate.y = 0F;
                             group.current.rotate.z = 0F;
@@ -589,7 +589,7 @@ public class ProceduralAnimator implements IAnimator
                         }
                         else if (target.isSwimming())
                         {
-                            float swimProgress = (age + transition) * 0.12F + limbPhase * 0.2F;
+                            float swimProgress = age * 0.12F + limbPhase * 0.2F;
                             float strokePhase = (float) (Math.sin(swimProgress) * 0.5F + 0.5F);
                             float armPitch = 180F - strokePhase * 90F;
                             float armSweep = strokePhase * 90F;
@@ -631,7 +631,7 @@ public class ProceduralAnimator implements IAnimator
                         }
                         else if (target.isSwimming())
                         {
-                            float swimProgress = (age + transition) * 0.12F + limbPhase * 0.2F;
+                            float swimProgress = age * 0.12F + limbPhase * 0.2F;
                             float strokePhase = (float) (Math.sin(swimProgress) * 0.5F + 0.5F);
                             float armPitch = 180F - strokePhase * 90F;
                             float armSweep = strokePhase * 90F;
@@ -673,7 +673,7 @@ public class ProceduralAnimator implements IAnimator
                         }
                         else if (target.isSwimming())
                         {
-                            float swimProgress = (age + transition) * 0.15F + limbPhase * 0.2F;
+                            float swimProgress = age * 0.15F + limbPhase * 0.2F;
                             bone.transform.rotate.x = MathUtils.toRad((float) Math.cos(swimProgress * 0.5F) * 18F);
                             bone.transform.rotate.y = 0F;
                             bone.transform.rotate.z = 0F;
@@ -696,7 +696,7 @@ public class ProceduralAnimator implements IAnimator
                         }
                         else if (target.isSwimming())
                         {
-                            float swimProgress = (age + transition) * 0.15F + limbPhase * 0.2F;
+                            float swimProgress = age * 0.15F + limbPhase * 0.2F;
                             bone.transform.rotate.x = -MathUtils.toRad((float) Math.cos(swimProgress * 0.5F) * 18F);
                             bone.transform.rotate.y = 0F;
                             bone.transform.rotate.z = 0F;
