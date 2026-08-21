@@ -9,21 +9,15 @@ import com.mojang.blaze3d.systems.RenderSystem;
 
 public class BBSLogoButtonWidget extends ButtonWidget
 {
-    private static final Identifier LOGO = new Identifier("bbs", "textures/gui/cml_icon.png");
+    private static final Identifier LOGO = Identifier.of("bbs", "textures/gui/cml_icon.png");
 
     public BBSLogoButtonWidget(int x, int y, int width, int height, PressAction onPress)
     {
         super(x, y, width, height, Text.empty(), onPress, DEFAULT_NARRATION_SUPPLIER);
     }
 
-    public void setSize(int size)
-    {
-        this.setWidth(size);
-        this.height = size;
-    }
-
     @Override
-    public void renderButton(DrawContext context, int mouseX, int mouseY, float delta)
+    protected void renderWidget(DrawContext context, int mouseX, int mouseY, float delta)
     {
         int x1 = this.getX();
         int y1 = this.getY();

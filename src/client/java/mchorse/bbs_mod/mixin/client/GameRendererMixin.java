@@ -32,14 +32,6 @@ public class GameRendererMixin
     private float bbs$fpBobStride;
     private float bbs$fpBobPrevStride;
 
-    @Inject(method = "renderWorld", at = @At("HEAD"))
-    public void onRenderWorld(float tickDelta, long limitTime, MatrixStack matrices, CallbackInfo info)
-    {
-        CameraController controller = BBSModClient.getCameraController();
-
-        controller.setup(controller.camera, tickDelta);
-    }
-
     /**
      * This injection cancels bobbing when camera controller takes over
      */
