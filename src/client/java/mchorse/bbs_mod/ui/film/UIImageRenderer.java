@@ -137,8 +137,8 @@ public class UIImageRenderer
                     batcher.flushDraw();
                     switch (overlay.blendMode)
                     {
-                        case 1: /* Multiply — src*dst, smoothly fades to dst with alpha */
-                            RenderSystem.blendFunc(GL11.GL_DST_COLOR, GL11.GL_ONE_MINUS_SRC_ALPHA);
+                        case 1: /* Multiply — (1 - a*(1-src))*dst = a*src*dst + (1-a)*dst */
+                            RenderSystem.blendFunc(GL11.GL_DST_COLOR, GL11.GL_ZERO);
                             break;
                         case 2: /* Screen — 1-(1-src)*(1-dst), smoothly fades to dst with alpha */
                             RenderSystem.blendFunc(GL11.GL_ONE, GL11.GL_ONE_MINUS_SRC_COLOR);
@@ -155,8 +155,8 @@ public class UIImageRenderer
                         case 6: /* Exclusion — src*(1-dst) + dst*(1-src) = src+dst-2*src*dst */
                             RenderSystem.blendFunc(GL11.GL_ONE_MINUS_DST_COLOR, GL11.GL_ONE_MINUS_SRC_COLOR);
                             break;
-                        case 7: /* Overlay (Approx) / Vivid Multiply — 2*src*dst */
-                            RenderSystem.blendFunc(GL11.GL_DST_COLOR, GL11.GL_ONE_MINUS_SRC_ALPHA);
+                        case 7: /* Overlay / Vivid Multiply — (1 + a*(2*src-1))*dst = a*(2*src*dst) + (1-a)*dst */
+                            RenderSystem.blendFunc(GL11.GL_DST_COLOR, GL11.GL_ZERO);
                             break;
                         case 8: /* Color Dodge — src*src + dst */
                             RenderSystem.blendFunc(GL11.GL_SRC_COLOR, GL11.GL_ONE);

@@ -24,17 +24,27 @@ void main()
 
     if (BlendMode == 0)
     {
-        /* Normal: standard un-premultiplied output for standard alpha blending */
+        /* 0: Normal — standard un-premultiplied color for standard alpha blending */
         fragColor = vec4(baseRgb, alpha);
+    }
+    else if (BlendMode == 1)
+    {
+        /* 1: Multiply — lerp between 1.0 (no change) and baseRgb (multiply) */
+        fragColor = vec4(mix(vec3(1.0), baseRgb, alpha), alpha);
     }
     else if (BlendMode == 7)
     {
-        /* Overlay / Vivid Multiply: 2.0 * baseRgb * alpha */
-        fragColor = vec4(2.0 * baseRgb * alpha, alpha);
+        /* 7: Overlay / Vivid Multiply — lerp between 1.0 (no change) and 2.0 * baseRgb */
+        fragColor = vec4(mix(vec3(1.0), 2.0 * baseRgb, alpha), alpha);
+    }
+    else if (BlendMode == 8)
+    {
+        /* 8: Color Dodge — baseRgb * sqrt(alpha) so src*src gives baseRgb^2 * alpha */
+        fragColor = vec4(baseRgb * sqrt(alpha), alpha);
     }
     else
     {
-        /* Multiply, Screen, Add, Saturation, Incrustation, Exclusion, Color Dodge:
+        /* 2: Screen, 3: Add, 4: Saturation, 5: Incrustation, 6: Exclusion:
          * Premultiplying base RGB by alpha ensures both vertex/opacity alpha and
          * base PNG texture transparency smoothly blend with the background */
         fragColor = vec4(baseRgb * alpha, alpha);
