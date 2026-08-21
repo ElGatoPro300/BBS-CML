@@ -106,24 +106,7 @@ public class UIImageRenderer
 
                 texture.setFilterMipmap(overlay.linear, overlay.mipmap);
 
-                ShaderProgram program = BBSShaders.getImageOverlayProgram();
 
-                if (program != null)
-                {
-                    GlUniform blendModeUniform = program.getUniform("BlendMode");
-
-                    if (blendModeUniform != null)
-                    {
-                        blendModeUniform.set(overlay.blendMode);
-                    }
-                }
-
-                Supplier<ShaderProgram> supplier = program != null ? () -> program : () ->
-                {
-                    RenderSystem.setShader(ShaderProgramKeys.POSITION_TEX_COLOR);
-
-                    return RenderSystem.getShader();
-                };
 
                 if (overlay.blendMode != 0)
                 {
