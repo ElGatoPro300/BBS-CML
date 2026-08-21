@@ -53,17 +53,7 @@ public class WorldRendererMixin
             });
 
             info.cancel();
-
-            return;
         }
-
-        SunPathRotation.begin(new Matrix4f());
-    }
-
-    @Inject(method = "renderSky(Lnet/minecraft/client/render/FrameGraphBuilder;Lnet/minecraft/client/render/Camera;FLnet/minecraft/client/render/Fog;)V", at = @At("RETURN"), require = 0)
-    public void onRenderSkyReturn(FrameGraphBuilder frameGraphBuilder, Camera camera, float tickDelta, Fog fog, CallbackInfo info)
-    {
-        SunPathRotation.end(new Matrix4f());
     }
 
     @Inject(method = "renderClouds", at = @At("HEAD"), cancellable = true, require = 0)
