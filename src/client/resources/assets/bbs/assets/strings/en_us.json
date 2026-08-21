@@ -924,6 +924,7 @@
     "bbs.ui.camera.timeline.context.cut": "Cut clip(s)",
     "bbs.ui.camera.timeline.context.from_player_recording": "From player recording...",
     "bbs.ui.camera.timeline.context.paste": "Paste clip(s)",
+    "bbs.ui.camera.timeline.context.maximize": "View all clips",
     "bbs.ui.camera.timeline.context.record_microphone": "Record microphone...",
     "bbs.ui.camera.timeline.context.record_microphone-description": "Type in the filename for the recorded audio track:",
     "bbs.ui.camera.timeline.context.record_microphone-label": "Recording... %.2f",
