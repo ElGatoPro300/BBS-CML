@@ -267,6 +267,7 @@ public class UIKeys
     public static final IKey CAMERA_TIMELINE_CONTEXT_CUT = L10n.lang("bbs.ui.camera.timeline.context.cut");
     public static final IKey CAMERA_TIMELINE_CONTEXT_FROM_PLAYER_RECORDING = L10n.lang("bbs.ui.camera.timeline.context.from_player_recording");
     public static final IKey CAMERA_TIMELINE_CONTEXT_PASTE = L10n.lang("bbs.ui.camera.timeline.context.paste");
+    public static final IKey CAMERA_TIMELINE_CONTEXT_MAXIMIZE = L10n.lang("bbs.ui.camera.timeline.context.maximize");
     public static final IKey CAMERA_TIMELINE_CONTEXT_RECORD_MICROPHONE = L10n.lang("bbs.ui.camera.timeline.context.record_microphone");
     public static final IKey CAMERA_TIMELINE_CONTEXT_RECORD_MICROPHONE_DESCRIPTION = L10n.lang("bbs.ui.camera.timeline.context.record_microphone-description");
     public static final IKey CAMERA_TIMELINE_CONTEXT_RECORD_MICROPHONE_LABEL = L10n.lang("bbs.ui.camera.timeline.context.record_microphone-label");

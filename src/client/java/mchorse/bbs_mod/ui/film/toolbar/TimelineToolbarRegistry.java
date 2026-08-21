@@ -226,6 +226,10 @@ public final class TimelineToolbarRegistry
             .icon(Icons.MORE)
             .shortcut(Keys.PRESETS));
         s.add(ToolbarItem.separator());
+        s.add(ToolbarItem.action(UIKeys.CAMERA_TIMELINE_CONTEXT_MAXIMIZE)
+            .icon(Icons.MAXIMIZE)
+            .shortcut(Keys.KEYFRAMES_MAXIMIZE));
+        s.add(ToolbarItem.separator());
         s.add(ToolbarItem.action(UIKeys.CAMERA_TIMELINE_CONTEXT_CUT)
             .icon(Icons.CUT)
             .shortcut(Keys.CLIP_CUT));

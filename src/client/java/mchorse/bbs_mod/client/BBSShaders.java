@@ -20,6 +20,7 @@ public class BBSShaders
     private static ShaderProgram model;
     private static ShaderProgram multiLink;
     private static ShaderProgram subtitles;
+    private static ShaderProgram imageOverlay;
 
     private static ShaderProgram pickerPreview;
     private static ShaderProgram pickerBillboard;
@@ -54,6 +55,12 @@ public class BBSShaders
         {
             subtitles.close();
             subtitles = null;
+        }
+
+        if (imageOverlay != null)
+        {
+            imageOverlay.close();
+            imageOverlay = null;
         }
 
         if (pickerPreview != null)
@@ -116,6 +123,7 @@ public class BBSShaders
         ShaderProgramKey modelKey = new ShaderProgramKey(Identifier.of(BBSMod.MOD_ID, "core/model"), VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL, defines);
         ShaderProgramKey multiLinkKey = new ShaderProgramKey(Identifier.of(BBSMod.MOD_ID, "core/multilink"), VertexFormats.POSITION_TEXTURE_COLOR, defines);
         ShaderProgramKey subtitlesKey = new ShaderProgramKey(Identifier.of(BBSMod.MOD_ID, "core/subtitles"), VertexFormats.POSITION_TEXTURE_COLOR, defines);
+        ShaderProgramKey imageOverlayKey = new ShaderProgramKey(Identifier.of(BBSMod.MOD_ID, "core/image_overlay"), VertexFormats.POSITION_TEXTURE_COLOR, defines);
 
         ShaderProgramKey pickerPreviewKey = new ShaderProgramKey(Identifier.of(BBSMod.MOD_ID, "core/picker_preview"), VertexFormats.POSITION_TEXTURE_COLOR, defines);
         ShaderProgramKey pickerBillboardKey = new ShaderProgramKey(Identifier.of(BBSMod.MOD_ID, "core/picker_billboard"), VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL, defines);
@@ -166,6 +174,16 @@ public class BBSShaders
     public static ShaderProgram getSubtitlesProgram()
     {
         return subtitles;
+    }
+
+    public static ShaderProgram getImageOverlayProgram()
+    {
+        if (imageOverlay == null)
+        {
+            setup();
+        }
+
+        return imageOverlay;
     }
 
     public static ShaderProgram getPickerPreviewProgram()

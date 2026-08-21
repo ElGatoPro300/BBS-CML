@@ -845,6 +845,7 @@
     "bbs.ui.camera.timeline.context.cut": "Cortar clip(s)",
     "bbs.ui.camera.timeline.context.from_player_recording": "Desde grabación del jugador...",
     "bbs.ui.camera.timeline.context.paste": "Pegar clip(s)",
+    "bbs.ui.camera.timeline.context.maximize": "Ver todos los clips",
     "bbs.ui.camera.timeline.context.record_microphone": "Grabar micrófono...",
     "bbs.ui.camera.timeline.context.record_microphone-description": "Escribe el nombre del archivo de la pista de audio grabada:",
     "bbs.ui.camera.timeline.context.record_microphone-label": "Grabando... %.2f",
