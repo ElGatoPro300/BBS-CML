@@ -266,22 +266,17 @@ public final class FormUIPreviewCache
 
         context.batcher.flush();
 
-        /* Morph list cells clip with screen-space scissors. Those scissors do not
-         * overlap the scratch FBO viewport (0,0,w,h), so leaving them on caches black. */
         if (scissorWasEnabled)
         {
             GlStateManager._disableScissorTest();
         }
 
-        /* Preview fill uses cell-local coords. Match GUI Y-down ortho to the supersampled
-         * target so getUIMatrix scale fills the thumbnail instead of a screen speck. */
         RenderSystem.setProjectionMatrix(
-            new Matrix4f().ortho(0F, renderW, renderH, 0F, -1000F, 3000F),
-            VertexSorter.BY_Z
+                new Matrix4f().ortho(0F, renderW, renderH, 0F, -1000F, 3000F),
+                VertexSorter.BY_Z
         );
-        MatrixStack mvStack = RenderSystem.getModelViewStack();
-        mvStack.push();
-        mvStack.loadIdentity();
+        RenderSystem.getModelViewStack().push();
+        RenderSystem.getModelViewStack().peek().getPositionMatrix().identity();
         RenderSystem.applyModelViewMatrix();
         matrices.push();
         matrices.peek().getPositionMatrix().identity();
@@ -291,13 +286,19 @@ public final class FormUIPreviewCache
         scratchFramebuffer.applyClear();
         FormRenderer.setSuppressFormDisplayName(true);
 
+        boolean bakeSucceeded = true;
+
         try
         {
-            /* Bake with the keyed yaw — scratch FBO coords would otherwise use
-             * screen mouseX and face the wrong way. */
             ModelFormRenderer.setUIAngleOverride(angleFromBucket(angleBucket));
             FormUtilsClient.renderUI(form, context, 0, 0, renderW, renderH);
             context.batcher.flush();
+        }
+        catch (Exception e)
+        {
+            /* Bake failed mid-draw (e.g. bad GL state) — do not commit this as a
+             * valid cache entry, or the broken/garbage texture gets reused forever. */
+            bakeSucceeded = false;
         }
         finally
         {
@@ -305,21 +306,23 @@ public final class FormUIPreviewCache
             FormRenderer.setSuppressFormDisplayName(false);
         }
 
-        entry.ensure(renderW, renderH);
-        entry.texture.bind();
-        GL11.glCopyTexSubImage2D(GL11.GL_TEXTURE_2D, 0, 0, 0, 0, 0, renderW, renderH);
-        entry.texture.unbind();
+        if (bakeSucceeded)
+        {
+            entry.ensure(renderW, renderH);
+            entry.texture.bind();
+            GL11.glCopyTexSubImage2D(GL11.GL_TEXTURE_2D, 0, 0, 0, 0, 0, renderW, renderH);
+            entry.texture.unbind();
+        }
 
         scratchFramebuffer.unbind();
 
         matrices.pop();
-        mvStack.pop();
+        RenderSystem.getModelViewStack().pop();
         RenderSystem.applyModelViewMatrix();
         RenderSystem.setProjectionMatrix(previousProjection, VertexSorter.BY_Z);
 
         if (client != null && client.getFramebuffer() != null)
         {
-            /* Do not clear — wiping the main FB mid-UI causes white wash / text corruption. */
             BBSRendering.ensureMainFramebuffer();
             client.getFramebuffer().beginWrite(false);
         }
@@ -333,11 +336,14 @@ public final class FormUIPreviewCache
 
         BBSRendering.restoreGuiRenderState();
 
-        entry.revision = revision;
-        entry.angleBucket = angleBucket;
-        entry.width = width;
-        entry.height = height;
-        entry.formKey = System.identityHashCode(form);
+        if (bakeSucceeded)
+        {
+            entry.revision = revision;
+            entry.angleBucket = angleBucket;
+            entry.width = width;
+            entry.height = height;
+            entry.formKey = System.identityHashCode(form);
+        }
     }
 
     private static void ensureScratchFramebuffer(int width, int height)
