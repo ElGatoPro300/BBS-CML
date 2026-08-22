@@ -267,6 +267,7 @@ public class UIKeys
     public static final IKey CAMERA_TIMELINE_CONTEXT_CUT = L10n.lang("bbs.ui.camera.timeline.context.cut");
     public static final IKey CAMERA_TIMELINE_CONTEXT_FROM_PLAYER_RECORDING = L10n.lang("bbs.ui.camera.timeline.context.from_player_recording");
     public static final IKey CAMERA_TIMELINE_CONTEXT_PASTE = L10n.lang("bbs.ui.camera.timeline.context.paste");
+    public static final IKey CAMERA_TIMELINE_CONTEXT_MAXIMIZE = L10n.lang("bbs.ui.camera.timeline.context.maximize");
     public static final IKey CAMERA_TIMELINE_CONTEXT_RECORD_MICROPHONE = L10n.lang("bbs.ui.camera.timeline.context.record_microphone");
     public static final IKey CAMERA_TIMELINE_CONTEXT_RECORD_MICROPHONE_DESCRIPTION = L10n.lang("bbs.ui.camera.timeline.context.record_microphone-description");
     public static final IKey CAMERA_TIMELINE_CONTEXT_RECORD_MICROPHONE_LABEL = L10n.lang("bbs.ui.camera.timeline.context.record_microphone-label");
@@ -2145,6 +2146,7 @@ public class UIKeys
     public static final IKey WORLD_TIME_NIGHT = L10n.lang("bbs.ui.world.time.night");
     public static final IKey WORLD_TIME_MIDNIGHT = L10n.lang("bbs.ui.world.time.midnight");
     public static final IKey WORLD_SECTION_GAMMA = L10n.lang("bbs.ui.world.section.gamma");
+    public static final IKey WORLD_GAMMA_OVERRIDE = L10n.lang("bbs.ui.world.gamma.override");
     public static final IKey WORLD_GAMMA_LABEL = L10n.lang("bbs.ui.world.gamma.label");
     public static final IKey WORLD_GAMMA_NORMAL = L10n.lang("bbs.ui.world.gamma.normal");
     public static final IKey WORLD_GAMMA_SEMI = L10n.lang("bbs.ui.world.gamma.semi");

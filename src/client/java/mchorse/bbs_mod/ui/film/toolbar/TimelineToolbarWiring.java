@@ -147,6 +147,7 @@ public final class TimelineToolbarWiring
         BooleanSupplier canUse = () -> clips.canUseToolbarKeybinds();
         BooleanSupplier hasSelection = () -> canUse.getAsBoolean() && !clips.getSelection().isEmpty();
 
+        bindShortcut(toolbar, Keys.KEYFRAMES_MAXIMIZE, clips::toolbarResetView, canUse);
         bindShortcut(toolbar, Keys.CLIP_ENABLE, clips::toolbarToggleEnabled, hasSelection);
     }
 

@@ -145,14 +145,15 @@ public class ImageClip extends CameraClip
         BaseType legacyMipmap = null;
         BaseType legacyResizeCrop = null;
         boolean hasUseKeyframes = data != null && data.isMap() && data.asMap().has("use_keyframes");
+        boolean hasUniform = data != null && data.isMap() && data.asMap().has("uniform");
 
         if (data != null && data.isMap())
         {
             MapType map = data.asMap();
             BaseType colorData = map.get("color");
 
-            /* Old clips stored a plain ValueColor (int/map), not a keyframe channel. */
-            if (colorData != null && !this.isKeyframeChannelData(colorData))
+            /* Old clips stored a plain ValueColor (int/map), not a keyframe channel (list). */
+            if (colorData != null && !colorData.isList())
             {
                 legacyColor = colorData;
             }
@@ -171,9 +172,19 @@ public class ImageClip extends CameraClip
             this.useKeyframes.set(true);
         }
 
-        if (legacyColor != null && this.color.isEmpty())
+        /* Migrate legacy scalar color into uniform/keyframe channel only for older films without a uniform group. */
+        if (!hasUniform && legacyColor != null && this.color.isEmpty())
         {
-            Color migrated = KeyframeFactories.COLOR.fromData(legacyColor);
+            Color migrated = null;
+
+            if (legacyColor.isNumeric())
+            {
+                migrated = Color.rgba(legacyColor.asNumeric().intValue());
+            }
+            else if (legacyColor.isMap())
+            {
+                migrated = KeyframeFactories.COLOR.fromData(legacyColor);
+            }
 
             if (migrated != null)
             {
@@ -186,9 +197,12 @@ public class ImageClip extends CameraClip
             }
         }
 
-        this.migrateLegacyBoolean(legacyLinear, this.linear, this.uniform.linear);
-        this.migrateLegacyBoolean(legacyMipmap, this.mipmap, this.uniform.mipmap);
-        this.migrateLegacyBoolean(legacyResizeCrop, this.resizeCrop, this.uniform.resizeCrop);
+        if (!hasUniform)
+        {
+            this.migrateLegacyBoolean(legacyLinear, this.linear, this.uniform.linear);
+            this.migrateLegacyBoolean(legacyMipmap, this.mipmap, this.uniform.mipmap);
+            this.migrateLegacyBoolean(legacyResizeCrop, this.resizeCrop, this.uniform.resizeCrop);
+        }
 
         this.clampLimitedValues();
     }
@@ -197,7 +211,7 @@ public class ImageClip extends CameraClip
     {
         BaseType value = map.get(key);
 
-        if (value != null && !this.isKeyframeChannelData(value))
+        if (value != null && !value.isList())
         {
             return value;
         }
@@ -246,11 +260,6 @@ public class ImageClip extends CameraClip
                 keyframe.setValue(clamped);
             }
         }
-    }
-
-    private boolean isKeyframeChannelData(BaseType data)
-    {
-        return data.isMap() && data.asMap().has("keyframes");
     }
 
     @Override

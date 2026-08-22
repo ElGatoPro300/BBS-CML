@@ -261,6 +261,7 @@ public class CinematicClip extends CameraClip
             this.effect.heatSpeed = hsp * factor;
             this.effect.heatScale = hsc * factor;
             this.effect.time = t / 20.0F; /* Convert timeline ticks to seconds */
+            this.effect.renderOrder = context.applied;
 
             ColorClip.getEffects(context).add(this.effect);
         }

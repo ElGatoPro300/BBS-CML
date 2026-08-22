@@ -599,9 +599,13 @@ public class BBSModClient implements ClientModInitializer
             });
         }
 
-        if (BBSSettings.worldGammaPercent != null)
+        if (BBSSettings.worldGammaOverride != null && BBSSettings.worldGammaOverride.get() && BBSSettings.worldGammaPercent != null)
         {
             WorldPropertiesHelper.setGammaPercent(BBSSettings.worldGammaPercent.get());
+        }
+        else
+        {
+            WorldPropertiesHelper.clearGammaOverride();
         }
 
         IValueListener refreshModelHover = (v, f) ->
