@@ -370,9 +370,11 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
         Color resolvedPaint = positivePaint ? FormColorEffects.resolvePaintColor(paintSettings, legacyPaint) : null;
         boolean applyColorTint = colorTransformWanted && !shadowPass;
         boolean deferForColorGrade = hasColorAdjustments && irisWorld;
+        boolean deferNoshading = irisWorld && BBSRendering.needsIrisNoshadingOpacityDeferral(color.a, this.form.noshadingOpacity.get());
         boolean deferTranslucent = !modelRenderer && !shadowPass
             && (BBSRendering.needsIrisTranslucentFlatDeferral(color.a)
-                || deferForColorGrade);
+                || deferForColorGrade
+                || deferNoshading);
 
         if (deferTranslucent)
         {

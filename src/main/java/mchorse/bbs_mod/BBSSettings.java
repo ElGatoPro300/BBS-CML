@@ -237,6 +237,7 @@ public class BBSSettings
 
     public static ValueBoolean shaderCurvesEnabled;
     public static ValueBoolean irisOpacityFix;
+    public static ValueBoolean noshadingOpaqueForms;
     /**
      * Soft form/limb transparency under Iris only: ON draws backfaces (two-pass; may darken),
      * OFF culls backfaces (cleaner colors). Default ON. Without shaders, {@code model.culling} applies.
@@ -876,6 +877,7 @@ public class BBSSettings
         builder.category("shader_curves");
         shaderCurvesEnabled = builder.getBoolean("enabled", true);
         irisOpacityFix = builder.getBoolean("iris_opacity_fix", true);
+        noshadingOpaqueForms = builder.getBoolean("noshading_opaque_forms", true);
         softTransparencyBackfaces = builder.getBoolean("soft_transparency_backfaces", true);
         complementaryOpacityFix = builder.getBoolean("complementary_opacity_fix", true);
         complementaryOpacityFix.invisible();

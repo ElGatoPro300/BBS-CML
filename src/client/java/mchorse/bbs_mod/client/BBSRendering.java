@@ -1009,10 +1009,11 @@ public class BBSRendering
     }
 
     /**
-     * Opt-in Opacity-track "No shading": redraw this soft form on the BBS deferred queue
-     * after paint overlays (paint visible through soft; pack body sun shadows lost).
-     * When off, soft forms stay on Iris post-deferred (body shadows kept; paint clipped).
-     * Still applies when the Complementary/BSL opacity patch is active.
+     * Opt-in "No shading": redraw this form on the BBS deferred queue
+     * after Iris composite.
+     * When off, forms stay on Iris live pipeline with pack shaders and lighting.
+     * When on, forms are deferred and drawn with vanilla/BBS shader (no pack lighting/shadows).
+     * Controlled by {@link BBSSettings#noshadingOpaqueForms} (default true).
      */
     public static boolean needsIrisNoshadingOpacityDeferral(float alpha, boolean noshadingOpacity)
     {
@@ -1021,7 +1022,9 @@ public class BBSRendering
             return false;
         }
 
-        return alpha > 0.001F && alpha < 0.999F;
+        boolean allowOpaque = BBSSettings.noshadingOpaqueForms == null || BBSSettings.noshadingOpaqueForms.get();
+
+        return alpha > 0.001F && (allowOpaque || alpha < 0.999F);
     }
 
     /**

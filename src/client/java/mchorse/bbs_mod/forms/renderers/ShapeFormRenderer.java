@@ -236,9 +236,9 @@ public class ShapeFormRenderer extends FormRenderer<ShapeForm>
         ShapeForm.ShapeType type = this.form.type.get();
         boolean shadowPass = BBSRendering.isIrisShadowPass();
         /* Under Iris, flats must defer — live path washes them. Opaque (#ff) is skipped by
-         * needsIrisTranslucentFlatDeferral. */
-        boolean deferTranslucent = !shadowPass
-            && BBSRendering.needsIrisTranslucentFlatDeferral(c.a);
+         * needsIrisTranslucentFlatDeferral unless noshading is enabled. */
+        boolean noshadingDefer = !shadowPass && BBSRendering.needsIrisNoshadingOpacityDeferral(c.a, this.form.noshadingOpacity.get());
+        boolean deferTranslucent = (!shadowPass && BBSRendering.needsIrisTranslucentFlatDeferral(c.a)) || noshadingDefer;
 
         if (deferTranslucent)
         {
