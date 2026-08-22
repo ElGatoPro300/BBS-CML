@@ -3655,6 +3655,17 @@ public class UIFormList extends UIElement
                 }
             }
 
+            if (UIFormList.this.expandedCategory != null && !this.filteredCategories.contains(UIFormList.this.expandedCategory))
+            {
+                UIFormList.this.expandedCategory = null;
+                UIFormList.this.activeExpandedFolder = null;
+                this.targetExpansion = 0F;
+                this.expansionTransition = 0F;
+                this.expandedPanelH = 0;
+                this.expandedItems.clear();
+                this.oldExpandedItems.clear();
+            }
+
             int step = CATEGORY_CARD_HEIGHT + CATEGORY_CARD_GAP;
             int currentY = this.area.y + CATEGORY_CARD_GAP;
             boolean firstGroup = true;

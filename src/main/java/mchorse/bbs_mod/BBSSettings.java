@@ -227,6 +227,7 @@ public class BBSSettings
     public static ValueBoolean coloredBackground;
     public static ValueFloat backgroundBrightness;
     public static ValueDouble worldGammaPercent;
+    public static ValueBoolean worldGammaOverride;
     public static ValueFloat worldSunPathRotation;
     public static ValueBoolean interfaceShadows;
 
@@ -236,6 +237,7 @@ public class BBSSettings
 
     public static ValueBoolean shaderCurvesEnabled;
     public static ValueBoolean irisOpacityFix;
+    public static ValueBoolean noshadingOpaqueForms;
     /**
      * Soft form/limb transparency under Iris only: ON draws backfaces (two-pass; may darken),
      * OFF culls backfaces (cleaner colors). Default ON. Without shaders, {@code model.culling} applies.
@@ -648,6 +650,7 @@ public class BBSSettings
         coloredBackground = builder.getBoolean("colored_background", true);
         backgroundBrightness = builder.getFloat("background_brightness", 1F, 0.5F, 1.5F);
         worldGammaPercent = builder.getDouble("world_gamma_percent", 100D, 0D, 1500D);
+        worldGammaOverride = builder.getBoolean("world_gamma_override", false);
         worldSunPathRotation = builder.getFloat("world_sun_path_rotation", 0F, -180F, 180F);
         interfaceShadows = builder.getBoolean("interface_shadows", true);
         fov = builder.getFloat("fov", 40, 0, 180);
@@ -874,6 +877,7 @@ public class BBSSettings
         builder.category("shader_curves");
         shaderCurvesEnabled = builder.getBoolean("enabled", true);
         irisOpacityFix = builder.getBoolean("iris_opacity_fix", true);
+        noshadingOpaqueForms = builder.getBoolean("noshading_opaque_forms", true);
         softTransparencyBackfaces = builder.getBoolean("soft_transparency_backfaces", true);
         complementaryOpacityFix = builder.getBoolean("complementary_opacity_fix", true);
         complementaryOpacityFix.invisible();

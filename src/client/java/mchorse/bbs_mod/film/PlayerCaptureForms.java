@@ -1,7 +1,7 @@
 package mchorse.bbs_mod.film;
 
 import mchorse.bbs_mod.BBSMod;
-import mchorse.bbs_mod.bay4lly.SkinManager;
+import mchorse.bbs_mod.utils.skin.SkinManager;
 import mchorse.bbs_mod.forms.forms.Form;
 import mchorse.bbs_mod.forms.forms.MobForm;
 import mchorse.bbs_mod.forms.forms.ModelForm;

@@ -1,6 +1,6 @@
 package mchorse.bbs_mod;
 
-import mchorse.bbs_mod.bay4lly.SkinCommands;
+import mchorse.bbs_mod.utils.skin.SkinCommands;
 import mchorse.bbs_mod.blocks.entities.ModelBlockEntity;
 import mchorse.bbs_mod.data.DataToString;
 import mchorse.bbs_mod.data.types.BaseType;
