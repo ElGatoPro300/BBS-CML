@@ -34,11 +34,6 @@ import net.minecraft.util.shape.VoxelShape;
 import net.minecraft.util.shape.VoxelShapes;
 import net.minecraft.world.BlockView;
 import net.minecraft.world.World;
-import net.minecraft.world.WorldView;
-
-import org.joml.Vector3f;
-
-import java.util.Map;
 
 import org.jetbrains.annotations.Nullable;
 
@@ -55,7 +50,7 @@ public class ModelBlock extends Block implements BlockEntityProvider, Waterlogga
     {
         super(settings);
 
-        this.setDefaultState(getDefaultState()
+        this.setDefaultState(this.getDefaultState()
             .with(Properties.WATERLOGGED, false)
             .with(LIGHT_LEVEL, 0));
     }
@@ -82,10 +77,12 @@ public class ModelBlock extends Block implements BlockEntityProvider, Waterlogga
         if (entity instanceof ModelBlockEntity modelBlock)
         {
             ItemStack stack = new ItemStack(this);
-            NbtCompound compound = new NbtCompound();
+            NbtCompound nbt = stack.getOrCreateNbt();
+            NbtCompound stateTag = new NbtCompound();
 
-            compound.put("BlockEntityTag", modelBlock.createNbtWithId());
-            stack.setNbt(compound);
+            nbt.put("BlockEntityTag", modelBlock.createNbtWithId());
+            stateTag.putString("light_level", String.valueOf(modelBlock.getProperties().getLightLevel()));
+            nbt.put("BlockStateTag", stateTag);
 
             return stack;
         }
@@ -200,10 +197,12 @@ public class ModelBlock extends Block implements BlockEntityProvider, Waterlogga
             if (be instanceof ModelBlockEntity model)
             {
                 ItemStack stack = new ItemStack(this);
-                NbtCompound wrapper = new NbtCompound();
+                NbtCompound nbt = stack.getOrCreateNbt();
+                NbtCompound stateTag = new NbtCompound();
 
-                wrapper.put("BlockEntityTag", model.createNbtWithId());
-                stack.setNbt(wrapper);
+                nbt.put("BlockEntityTag", model.createNbtWithId());
+                stateTag.putString("light_level", String.valueOf(model.getProperties().getLightLevel()));
+                nbt.put("BlockStateTag", stateTag);
 
                 ItemScatterer.spawn(world, pos, DefaultedList.ofSize(1, stack));
             }
