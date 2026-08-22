@@ -3395,7 +3395,7 @@ public class UIFormList extends UIElement
                 this.dragFormStart = -1L;
             }
 
-            if (this.dragFormIndex != -1 && !this.draggingForm && UIFormList.this.expandedCategory.category instanceof UserFormCategory && System.currentTimeMillis() - this.dragFormStart > POPUP_DRAG_DELAY_MS)
+            if (this.dragFormIndex != -1 && !this.draggingForm && UIFormList.this.expandedCategory != null && UIFormList.this.expandedCategory.category instanceof UserFormCategory && System.currentTimeMillis() - this.dragFormStart > POPUP_DRAG_DELAY_MS)
             {
                 this.draggingForm = true;
             }

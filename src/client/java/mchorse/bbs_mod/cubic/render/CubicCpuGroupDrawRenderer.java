@@ -250,6 +250,6 @@ public class CubicCpuGroupDrawRenderer extends CubicCubeRenderer
             builder.light(this.currentGroupLight & '\uffff', this.currentGroupLight >> 16 & '\uffff');
         }
 
-        builder.normal(normal.x, normal.y, normal.z);
+        builder.normal(normal.x, normal.y, normal.z).next();
     }
 }

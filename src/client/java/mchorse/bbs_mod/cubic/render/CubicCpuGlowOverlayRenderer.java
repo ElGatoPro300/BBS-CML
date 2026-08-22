@@ -186,8 +186,7 @@ public class CubicCpuGlowOverlayRenderer extends CubicCubeRenderer
                 MathUtils.clamp(ga, 0F, 1F)
             )
             .texture(vertex.uv.x, vertex.uv.y)
-            .overlay(this.overlay)
-            .next();
+            .overlay(this.overlay);
 
         if (this.stencilMap != null)
         {
