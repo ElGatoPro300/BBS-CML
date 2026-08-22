@@ -49,7 +49,10 @@ public class ModelBlock extends Block implements BlockEntityProvider, Waterlogga
     public ModelBlock(Settings settings)
     {
         super(settings);
-        this.setDefaultState(this.stateManager.getDefaultState().with(Properties.WATERLOGGED, false).with(LIGHT_LEVEL, 0));
+
+        this.setDefaultState(this.getDefaultState()
+            .with(Properties.WATERLOGGED, false)
+            .with(LIGHT_LEVEL, 0));
     }
 
     @Override
@@ -166,7 +169,7 @@ public class ModelBlock extends Block implements BlockEntityProvider, Waterlogga
     @Override
     public ActionResult onUse(BlockState state, World world, BlockPos pos, PlayerEntity player, Hand hand, BlockHitResult hit)
     {
-        if (player instanceof ServerPlayerEntity serverPlayer)
+        if (hand == Hand.MAIN_HAND && player instanceof ServerPlayerEntity serverPlayer)
         {
             ServerNetwork.sendClickedModelBlock(serverPlayer, pos);
         }
