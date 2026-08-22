@@ -151,7 +151,11 @@ public class Colors
             color = color.substring(1);
         }
 
-        if (color.length() == 6 || color.length() == 8)
+        if (color.length() == 6)
+        {
+            return 0xFF000000 | StringUtils.parseHex(color);
+        }
+        else if (color.length() == 8)
         {
             return StringUtils.parseHex(color);
         }

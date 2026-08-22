@@ -37,6 +37,7 @@ import net.minecraft.entity.EquipmentSlot;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.item.ItemStack;
+import net.minecraft.nbt.NbtCompound;
 import net.minecraft.network.PacketByteBuf;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.network.ServerPlayerEntity;
@@ -76,6 +77,12 @@ public class ServerNetwork
     public static final Identifier CLIENT_REFRESH_MODEL_BLOCKS = new Identifier(BBSMod.MOD_ID, "c17");
     public static final Identifier CLIENT_CLICKED_TRIGGER_BLOCK_PACKET = new Identifier(BBSMod.MOD_ID, "c18");
     public static final Identifier CLIENT_BAY4LLY_SKIN = new Identifier(BBSMod.MOD_ID, "c19");
+    public static final Identifier CLIENT_MOB_COMBAT_ACTION = new Identifier(BBSMod.MOD_ID, "c20");
+    public static final Identifier CLIENT_MOB_CONVERSION = new Identifier(BBSMod.MOD_ID, "c21");
+
+    public static final byte MOB_COMBAT_KIND_MELEE = 0;
+    public static final byte MOB_COMBAT_KIND_PROJECTILE = 1;
+    public static final byte MOB_COMBAT_KIND_DAMAGE = 2;
 
     public static final Identifier SERVER_MODEL_BLOCK_FORM_PACKET = new Identifier(BBSMod.MOD_ID, "s1");
     public static final Identifier SERVER_MODEL_BLOCK_TRANSFORMS_PACKET = new Identifier(BBSMod.MOD_ID, "s2");
@@ -262,8 +269,14 @@ public class ServerNetwork
                 {
                     ItemStack stack = player.getEquippedStack(EquipmentSlot.MAINHAND).copy();
 
-                    if (stack.getItem() == BBSMod.MODEL_BLOCK_ITEM) stack.getNbt().getCompound("BlockEntityTag").put("Properties", DataStorageUtils.toNbt(data));
-                    else if (stack.getItem() == BBSMod.GUN_ITEM) stack.getOrCreateNbt().put("GunData", DataStorageUtils.toNbt(data));
+                    if (stack.getItem() == BBSMod.MODEL_BLOCK_ITEM)
+                    {
+                        stack.getOrCreateSubNbt("BlockEntityTag").put("Properties", DataStorageUtils.toNbt(data));
+                    }
+                    else if (stack.getItem() == BBSMod.GUN_ITEM)
+                    {
+                        stack.getOrCreateNbt().put("GunData", DataStorageUtils.toNbt(data));
+                    }
 
                     player.equipStack(EquipmentSlot.MAINHAND, stack);
                 });
@@ -375,6 +388,7 @@ public class ServerNetwork
         int tick = buf.readInt();
         int countdown = buf.readInt();
         boolean recording = buf.readBoolean();
+        boolean recorderOnly = buf.isReadable() && buf.readBoolean();
 
         server.execute(() ->
         {
@@ -384,12 +398,18 @@ public class ServerNetwork
 
                 if (film != null)
                 {
-                    BBSMod.getActions().startRecording(film, player, 0, countdown, replayId);
+                    BBSMod.getActions().startRecording(film, player, tick, 0, countdown, replayId, recorderOnly);
                 }
             }
             else
             {
-                ActionRecorder recorder = BBSMod.getActions().stopRecording(player);
+                ActionRecorder recorder = BBSMod.getActions().stopRecording(player, recorderOnly);
+
+                if (recorder == null)
+                {
+                    return;
+                }
+
                 Clips clips = recorder.composeClips();
 
                 /* Send recorded clips to the client */
@@ -451,13 +471,24 @@ public class ServerNetwork
                     actionPlayer.goTo(tick);
                 }
             }
+            else if (state == ActionState.SYNC)
+            {
+                ActionPlayer actionPlayer = actions.getPlayer(filmId);
+
+                if (actionPlayer != null)
+                {
+                    /* Soft tick move — same as Play/Pause; no world-clip walk. */
+                    actionPlayer.syncPlaybackTick(tick);
+                }
+            }
             else if (state == ActionState.PLAY)
             {
                 ActionPlayer actionPlayer = actions.getPlayer(filmId);
 
                 if (actionPlayer != null)
                 {
-                    actionPlayer.goTo(tick);
+                    /* Soft sync — do not rebuild combat / re-fire clips on play. */
+                    actionPlayer.syncPlaybackTick(tick);
                     actionPlayer.playing = true;
                 }
             }
@@ -467,7 +498,8 @@ public class ServerNetwork
 
                 if (actionPlayer != null)
                 {
-                    actionPlayer.goTo(tick);
+                    /* Soft sync — do not revive combat-dead actors on pause. */
+                    actionPlayer.syncPlaybackTick(tick);
                     actionPlayer.playing = false;
                 }
             }
@@ -496,11 +528,8 @@ public class ServerNetwork
                 {
                     actionPlayer.syncing = true;
                     actionPlayer.playing = false;
-
-                    if (tick != 0)
-                    {
-                        actionPlayer.goTo(0, tick);
-                    }
+                    /* Always sync HP + world clips from 0..cursor (incl. tick 0). */
+                    actionPlayer.goTo(0, tick);
                 }
 
                 sendStopFilm(player, filmId);
@@ -768,14 +797,36 @@ public class ServerNetwork
         });
     }
 
+    public static void sendMobCombatAction(ServerPlayerEntity player, int victimEntityId, int sourceEntityId, float amount, byte kind)
+    {
+        PacketByteBuf buf = PacketByteBufs.create();
+
+        buf.writeInt(victimEntityId);
+        buf.writeInt(sourceEntityId);
+        buf.writeFloat(amount);
+        buf.writeByte(kind);
+
+        ServerPlayNetworking.send(player, CLIENT_MOB_COMBAT_ACTION, buf);
+    }
+
+    public static void sendMobConversion(ServerPlayerEntity player, int oldEntityId, int newEntityId)
+    {
+        PacketByteBuf buf = PacketByteBufs.create();
+
+        buf.writeInt(oldEntityId);
+        buf.writeInt(newEntityId);
+
+        ServerPlayNetworking.send(player, CLIENT_MOB_CONVERSION, buf);
+    }
+
     public static void sendHandshake(MinecraftServer server, PacketSender packetSender)
     {
-        packetSender.sendPacket(ServerNetwork.CLIENT_HANDSHAKE, createHandshakeBuf(server));
+        packetSender.sendPacket(CLIENT_HANDSHAKE, createHandshakeBuf(server));
     }
 
     public static void sendHandshake(MinecraftServer server, ServerPlayerEntity player)
     {
-        ServerPlayNetworking.send(player, ServerNetwork.CLIENT_HANDSHAKE, createHandshakeBuf(server));
+        ServerPlayNetworking.send(player, CLIENT_HANDSHAKE, createHandshakeBuf(server));
     }
 
     private static PacketByteBuf createHandshakeBuf(MinecraftServer server)
@@ -800,7 +851,7 @@ public class ServerNetwork
 
         buf.writeBoolean(cheats);
 
-        ServerPlayNetworking.send(player, ServerNetwork.CLIENT_CHEATS_PERMISSION, buf);
+        ServerPlayNetworking.send(player, CLIENT_CHEATS_PERMISSION, buf);
     }
 
     public static void sendSharedForm(ServerPlayerEntity player, MapType data)

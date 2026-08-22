@@ -28,9 +28,21 @@ public class GlowEmissionVertexConsumer implements VertexConsumer
     }
 
     @Override
-    public VertexConsumer vertex(Matrix4f matrix, float x, float y, float z)
+    public void next()
     {
-        return this.consumer.vertex(matrix, x, y, z);
+        this.consumer.next();
+    }
+
+    @Override
+    public void fixedColor(int red, int green, int blue, int alpha)
+    {
+        this.consumer.fixedColor(red, green, blue, alpha);
+    }
+
+    @Override
+    public void unfixColor()
+    {
+        this.consumer.unfixColor();
     }
 
     @Override
@@ -66,23 +78,5 @@ public class GlowEmissionVertexConsumer implements VertexConsumer
     public VertexConsumer normal(float x, float y, float z)
     {
         return this.consumer.normal(x, y, z);
-    }
-
-    @Override
-    public void next()
-    {
-        this.consumer.next();
-    }
-
-    @Override
-    public void unfixColor()
-    {
-        this.consumer.unfixColor();
-    }
-
-    @Override
-    public void fixedColor(int red, int green, int blue, int alpha)
-    {
-        this.consumer.fixedColor(red, green, blue, alpha);
     }
 }

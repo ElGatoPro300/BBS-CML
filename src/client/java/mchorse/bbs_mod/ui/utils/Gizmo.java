@@ -29,7 +29,6 @@ import net.minecraft.util.math.RotationAxis;
 
 import org.joml.Intersectiond;
 import org.joml.Matrix4f;
-import org.joml.Matrix4fStack;
 import org.joml.Quaternionf;
 import org.joml.Vector2d;
 import org.joml.Vector3d;
@@ -655,23 +654,9 @@ public class Gizmo
      * the camera (vanilla). Do <b>not</b> fall back via NDC frustum tests: at steep orbits
      * the correct origin can leave the pad while the double-camera origin stays centered,
      * which used to detach the gizmo from the model.
-     */
     public static Matrix4f composeVisualMatrix(Matrix4f captured, Matrix4f cameraMatrix, Matrix4f projection, Matrix4f dest)
     {
-        Matrix4f baked = new Matrix4f(captured);
-        Matrix4f composed = new Matrix4f(cameraMatrix).mul(captured);
-        float bakedDist = viewOriginLengthSq(baked);
-        float composedDist = viewOriginLengthSq(composed);
-
-        /* Double-applied view: composed collapses toward the view origin. */
-        if (bakedDist > 1.0E-6F && composedDist < bakedDist * 0.49F)
-        {
-            dest.set(baked);
-        }
-        else
-        {
-            dest.set(composed);
-        }
+        dest.set(captured);
 
         return dest;
     }
@@ -866,7 +851,8 @@ public class Gizmo
             MatrixStack mvStack = RenderSystem.getModelViewStack();
 
             mvStack.push();
-            mvStack.peek().getPositionMatrix().set(savedModelView);
+            mvStack.loadIdentity();
+            MatrixStackUtils.multiply(mvStack, savedModelView);
             RenderSystem.applyModelViewMatrix();
             mvStack.pop();
             RenderSystem.applyModelViewMatrix();
@@ -941,7 +927,7 @@ public class Gizmo
 
     private float resolveThickness(boolean stencil)
     {
-        float thickness = BBSSettings.axesThickness == null ? 1F : BBSSettings.axesThickness.get();
+        float thickness = BBSSettings.axesThickness == null ? 1.2F : BBSSettings.axesThickness.get();
         boolean constantSize = BBSSettings.gizmoConstantSize == null || BBSSettings.gizmoConstantSize.get();
 
         if (!constantSize)
@@ -959,6 +945,15 @@ public class Gizmo
 
     private void updateFlipSigns(float camX, float camY, float camZ)
     {
+        if (!this.shouldFlipAxesTowardCamera())
+        {
+            this.lastSx = 1F;
+            this.lastSy = 1F;
+            this.lastSz = 1F;
+
+            return;
+        }
+
         if (this.index == -1)
         {
             this.lastSx = camX >= 0 ? 1F : -1F;
@@ -1012,22 +1007,18 @@ public class Gizmo
         RenderSystem.disableDepthTest();
         RenderSystem.depthMask(false);
 
-        MatrixStack mvStack = RenderSystem.getModelViewStack();
-
         if (BBSRendering.isIrisShadersEnabled())
         {
-            mvStack.push();
-            mvStack.peek().getPositionMatrix().identity();
-            mvStack.peek().getNormalMatrix().identity();
-            RenderSystem.applyModelViewMatrix();
+            /* Vertex positions already include the full gizmo transform; Iris leaves a
+             * stale terrain model-view on the global stack at WorldRenderEvents.LAST. */
+            MatrixStackUtils.pushIdentityModelView();
         }
 
         this.drawBufferIfNotEmpty(builder);
 
         if (BBSRendering.isIrisShadersEnabled())
         {
-            mvStack.pop();
-            RenderSystem.applyModelViewMatrix();
+            MatrixStackUtils.popModelView();
         }
 
         RenderSystem.depthMask(true);
@@ -1065,22 +1056,16 @@ public class Gizmo
         RenderSystem.disableDepthTest();
         RenderSystem.depthMask(false);
 
-        MatrixStack mvStack = RenderSystem.getModelViewStack();
-
         if (BBSRendering.isIrisShadersEnabled())
         {
-            mvStack.push();
-            mvStack.peek().getPositionMatrix().identity();
-            mvStack.peek().getNormalMatrix().identity();
-            RenderSystem.applyModelViewMatrix();
+            MatrixStackUtils.pushIdentityModelView();
         }
 
         this.drawBufferIfNotEmpty(builder);
 
         if (BBSRendering.isIrisShadersEnabled())
         {
-            mvStack.pop();
-            RenderSystem.applyModelViewMatrix();
+            MatrixStackUtils.popModelView();
         }
 
         RenderSystem.depthMask(true);
@@ -1538,6 +1523,8 @@ public class Gizmo
     /**
      * Draws an XYZ rotation ring: camera-facing 180° arc by default, or a full 360° circle
      * when {@link BBSSettings#gizmoFullRotationRings} is enabled. Visual and pick thickness match.
+     * When {@link BBSSettings#gizmoFlipAxes} is off, half-rings stay fixed (no camera reorient),
+     * matching translate/scale handles that stay on +X/+Y/+Z.
      */
     private void drawAxisRotationRing(BufferBuilder builder, MatrixStack stack, Axis axis, float radius, float ringThickness, float[] color, boolean stencil)
     {
@@ -1548,9 +1535,16 @@ public class Gizmo
             return;
         }
 
-        float startDeg = this.cameraFacingRingStartDeg(axis);
+        float startDeg = this.shouldFlipAxesTowardCamera()
+            ? this.cameraFacingRingStartDeg(axis)
+            : 0F;
 
         Draw.arc3D(builder, stack, axis, radius, ringThickness, color[0], color[1], color[2], startDeg, 180F, stencil);
+    }
+
+    private boolean shouldFlipAxesTowardCamera()
+    {
+        return BBSSettings.gizmoFlipAxes == null || BBSSettings.gizmoFlipAxes.get();
     }
 
     /**

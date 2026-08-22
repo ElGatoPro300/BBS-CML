@@ -56,8 +56,8 @@ public class UIVignetteClip extends UIClip<VignetteClip>
     {
         super.registerPanels();
 
-        this.panels.add(UI.column(UIClip.label(UIKeys.SCREEN_PANELS_VIGNETTE_COLOR), this.color).marginTop(6));
-        this.panels.add(UI.column(UIClip.label(UIKeys.SCREEN_PANELS_KEYFRAMES), this.edit).marginTop(6));
+        this.panels.add(this.section(UIKeys.SCREEN_PANELS_VIGNETTE_COLOR, this.color));
+        this.panels.add(this.section(UIKeys.SCREEN_PANELS_KEYFRAMES, this.edit));
     }
 
     @Override

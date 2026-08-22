@@ -12,6 +12,7 @@ import mchorse.bbs_mod.utils.iris.FormColorGradePatch;
 import mchorse.bbs_mod.utils.joml.Matrices;
 
 import net.minecraft.client.gl.ShaderProgram;
+import net.minecraft.client.render.GameRenderer;
 import net.minecraft.client.util.math.MatrixStack;
 
 import org.joml.Matrix4f;
@@ -70,6 +71,8 @@ public class BOBJModelVAO
      */
     protected void initBuffers()
     {
+        int previousVAO = GL30.glGetInteger(GL30.GL_VERTEX_ARRAY_BINDING);
+
         this.vao = GL30.glGenVertexArrays();
 
         GL30.glBindVertexArray(this.vao);
@@ -114,7 +117,7 @@ public class BOBJModelVAO
         GL30.glVertexAttribPointer(Attributes.MID_TEXTURE_UV, 2, GL30.GL_FLOAT, false, 0, 0);
 
         GL30.glBindBuffer(GL30.GL_ARRAY_BUFFER, 0);
-        GL30.glBindVertexArray(0);
+        GL30.glBindVertexArray(previousVAO);
     }
 
     /**
@@ -516,6 +519,12 @@ public class BOBJModelVAO
         shader.unbind();
 
         GL30.glBindVertexArray(currentVAO);
-        GL30.glBindBuffer(GL30.GL_ELEMENT_ARRAY_BUFFER, currentElementArrayBuffer);
+
+        /* ELEMENT_ARRAY_BUFFER binding is VAO state; binding it with VAO 0 raises
+         * GL_INVALID_OPERATION ("Array object is not active") under OpenGL debug. */
+        if (currentVAO != 0)
+        {
+            GL30.glBindBuffer(GL30.GL_ELEMENT_ARRAY_BUFFER, currentElementArrayBuffer);
+        }
     }
 }

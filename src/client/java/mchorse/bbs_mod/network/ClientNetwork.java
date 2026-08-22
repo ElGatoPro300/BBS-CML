@@ -2,7 +2,7 @@ package mchorse.bbs_mod.network;
 
 import mchorse.bbs_mod.BBSModClient;
 import mchorse.bbs_mod.actions.ActionState;
-import mchorse.bbs_mod.bay4lly.SkinManager;
+import mchorse.bbs_mod.utils.skin.SkinManager;
 import mchorse.bbs_mod.blocks.entities.ModelBlockEntity;
 import mchorse.bbs_mod.blocks.entities.ModelProperties;
 import mchorse.bbs_mod.blocks.entities.TriggerBlockEntity;
@@ -14,6 +14,8 @@ import mchorse.bbs_mod.entity.GunProjectileEntity;
 import mchorse.bbs_mod.entity.IEntityFormProvider;
 import mchorse.bbs_mod.film.Film;
 import mchorse.bbs_mod.film.Films;
+import mchorse.bbs_mod.film.RecorderMobActionCapture;
+import mchorse.bbs_mod.film.RecorderMobCapture;
 import mchorse.bbs_mod.forms.FormUtils;
 import mchorse.bbs_mod.forms.forms.Form;
 import mchorse.bbs_mod.items.GunProperties;
@@ -73,7 +75,6 @@ public class ClientNetwork
     public static void setup()
     {
         ClientPlayNetworking.registerGlobalReceiver(ServerNetwork.CLIENT_CLICKED_MODEL_BLOCK_PACKET, (client, handler, buf, responseSender) -> handleClientModelBlockPacket(client, buf));
-        ClientPlayNetworking.registerGlobalReceiver(ServerNetwork.CLIENT_CLICKED_TRIGGER_BLOCK_PACKET, (client, handler, buf, responseSender) -> handleClickedTriggerBlockPacket(client, buf));
         ClientPlayNetworking.registerGlobalReceiver(ServerNetwork.CLIENT_PLAYER_FORM_PACKET, (client, handler, buf, responseSender) -> handlePlayerFormPacket(client, buf));
         ClientPlayNetworking.registerGlobalReceiver(ServerNetwork.CLIENT_BAY4LLY_SKIN, (client, handler, buf, responseSender) -> handleBay4llySkinPacket(client, buf));
         ClientPlayNetworking.registerGlobalReceiver(ServerNetwork.CLIENT_PLAY_FILM_PACKET, (client, handler, buf, responseSender) -> handlePlayFilmPacket(client, buf));
@@ -89,8 +90,11 @@ public class ClientNetwork
         ClientPlayNetworking.registerGlobalReceiver(ServerNetwork.CLIENT_GUN_PROPERTIES, (client, handler, buf, responseSender) -> handleGunPropertiesPacket(client, buf));
         ClientPlayNetworking.registerGlobalReceiver(ServerNetwork.CLIENT_PAUSE_FILM, (client, handler, buf, responseSender) -> handlePauseFilmPacket(client, buf));
         ClientPlayNetworking.registerGlobalReceiver(ServerNetwork.CLIENT_SELECTED_SLOT, (client, handler, buf, responseSender) -> handleSelectedSlotPacket(client, buf));
+        ClientPlayNetworking.registerGlobalReceiver(ServerNetwork.CLIENT_MOB_COMBAT_ACTION, (client, handler, buf, responseSender) -> handleMobCombatActionPacket(client, buf));
+        ClientPlayNetworking.registerGlobalReceiver(ServerNetwork.CLIENT_MOB_CONVERSION, (client, handler, buf, responseSender) -> handleMobConversionPacket(client, buf));
         ClientPlayNetworking.registerGlobalReceiver(ServerNetwork.CLIENT_ANIMATION_STATE_MODEL_BLOCK_TRIGGER, (client, handler, buf, responseSender) -> handleAnimationStateModelBlockPacket(client, buf));
         ClientPlayNetworking.registerGlobalReceiver(ServerNetwork.CLIENT_REFRESH_MODEL_BLOCKS, (client, handler, buf, responseSender) -> handleRefreshModelBlocksPacket(client, buf));
+        ClientPlayNetworking.registerGlobalReceiver(ServerNetwork.CLIENT_CLICKED_TRIGGER_BLOCK_PACKET, (client, handler, buf, responseSender) -> handleClickedTriggerBlockPacket(client, buf));
     }
 
     /* Handlers */
@@ -109,15 +113,17 @@ public class ClientNetwork
             }
 
             UIDashboard dashboard = BBSModClient.getDashboard();
+            UITriggerBlockPanel panel = dashboard.getPanel(UITriggerBlockPanel.class);
+
+            /* Switch before opening so dashboard onOpen does not restore the last
+             * film panel (which would restart paused actor replays). */
+            dashboard.setPanel(panel);
 
             if (!(client.currentScreen instanceof UIScreen screen) || screen.getMenu() != dashboard)
             {
                 UIScreen.open(dashboard);
             }
 
-            UITriggerBlockPanel panel = dashboard.getPanel(UITriggerBlockPanel.class);
-
-            dashboard.setPanel(panel);
             panel.fill((TriggerBlockEntity) entity, true);
         });
     }
@@ -246,6 +252,30 @@ public class ClientNetwork
                     panel.receiveActions(filmId, replayId, tick, data);
                 }
             });
+        });
+    }
+
+    private static void handleMobCombatActionPacket(MinecraftClient client, PacketByteBuf buf)
+    {
+        int victimEntityId = buf.readInt();
+        int sourceEntityId = buf.readInt();
+        float amount = buf.readFloat();
+        byte kind = buf.readByte();
+
+        client.execute(() ->
+        {
+            RecorderMobActionCapture.handleServerCombat(victimEntityId, sourceEntityId, amount, kind);
+        });
+    }
+
+    private static void handleMobConversionPacket(MinecraftClient client, PacketByteBuf buf)
+    {
+        int oldEntityId = buf.readInt();
+        int newEntityId = buf.readInt();
+
+        client.execute(() ->
+        {
+            RecorderMobCapture.handleServerConversion(oldEntityId, newEntityId);
         });
     }
 
@@ -565,6 +595,15 @@ public class ClientNetwork
 
     public static void sendActionRecording(String filmId, int replayId, int tick, int countdown, boolean state)
     {
+        sendActionRecording(filmId, replayId, tick, countdown, state, false);
+    }
+
+    /**
+     * @param recorderOnly true = film-editor viewport (keep FILM_EDITOR ActionPlayer);
+     *                     false = Outside/world recording (spawn RECORDING ActionPlayer).
+     */
+    public static void sendActionRecording(String filmId, int replayId, int tick, int countdown, boolean state, boolean recorderOnly)
+    {
         PacketByteBuf buf = PacketByteBufs.create();
 
         buf.writeString(filmId);
@@ -572,6 +611,7 @@ public class ClientNetwork
         buf.writeInt(tick);
         buf.writeInt(countdown);
         buf.writeBoolean(state);
+        buf.writeBoolean(recorderOnly);
 
         ClientPlayNetworking.send(ServerNetwork.SERVER_ACTION_RECORDING, buf);
     }

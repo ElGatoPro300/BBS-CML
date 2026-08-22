@@ -19,6 +19,7 @@ import net.minecraft.fluid.FluidState;
 import net.minecraft.fluid.Fluids;
 import net.minecraft.item.ItemPlacementContext;
 import net.minecraft.item.ItemStack;
+import net.minecraft.nbt.NbtCompound;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.state.StateManager;
 import net.minecraft.state.property.IntProperty;
@@ -77,8 +78,12 @@ public class ModelBlock extends Block implements BlockEntityProvider, Waterlogga
         if (entity instanceof ModelBlockEntity modelBlock)
         {
             ItemStack stack = new ItemStack(this);
-            stack.setSubNbt("BlockEntityTag", modelBlock.createNbtWithId());
-            stack.getOrCreateSubNbt("BlockStateTag").putString("light_level", String.valueOf(modelBlock.getProperties().getLightLevel()));
+            NbtCompound nbt = stack.getOrCreateNbt();
+            NbtCompound stateTag = new NbtCompound();
+
+            nbt.put("BlockEntityTag", modelBlock.createNbtWithId());
+            stateTag.putString("light_level", String.valueOf(modelBlock.getProperties().getLightLevel()));
+            nbt.put("BlockStateTag", stateTag);
 
             return stack;
         }
@@ -193,8 +198,12 @@ public class ModelBlock extends Block implements BlockEntityProvider, Waterlogga
             if (be instanceof ModelBlockEntity model)
             {
                 ItemStack stack = new ItemStack(this);
-                stack.setSubNbt("BlockEntityTag", model.createNbtWithId());
-                stack.getOrCreateSubNbt("BlockStateTag").putString("light_level", String.valueOf(model.getProperties().getLightLevel()));
+                NbtCompound nbt = stack.getOrCreateNbt();
+                NbtCompound stateTag = new NbtCompound();
+
+                nbt.put("BlockEntityTag", model.createNbtWithId());
+                stateTag.putString("light_level", String.valueOf(model.getProperties().getLightLevel()));
+                nbt.put("BlockStateTag", stateTag);
 
                 ItemScatterer.spawn(world, pos, DefaultedList.ofSize(1, stack));
             }

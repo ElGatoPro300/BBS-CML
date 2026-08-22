@@ -12,12 +12,12 @@
         "ItemStackMixin",
         "WorldMixin",
         "LivingEntityMixin",
+        "MobEntityMixin",
         "ServerPlayerEntityMixin",
         "LimbAnimatorAccessor",
         "LevelPropertiesAccessor",
         "StructureTemplateAccessor",
-        "StructureTemplatePalettedListAccessor",
-        "EntityMixin"
+        "StructureTemplatePalettedListAccessor"
     ],
     "injectors": {
         "defaultRequire": 1

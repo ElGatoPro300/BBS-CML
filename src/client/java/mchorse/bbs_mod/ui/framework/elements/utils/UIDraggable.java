@@ -104,8 +104,10 @@ public class UIDraggable extends UIElement
     }
 
     /**
-     * Gate interactivity: when the supplier returns {@code false} the draggable is inert &mdash; it
-     * neither claims clicks nor requests a hover/drag cursor, so the area behaves as if the handle
+     * Gate interactivity: when the supplier returns {@code false} the draggable is
+     * inert &mdash; it
+     * neither claims clicks nor requests a hover/drag cursor, so the area behaves
+     * as if the handle
      * weren't there. Defaults to always enabled.
      */
     public UIDraggable enabled(Supplier<Boolean> enabled)
@@ -219,6 +221,12 @@ public class UIDraggable extends UIElement
     {
         super.render(context);
 
+        /*
+         * Update drag state first so position changes from the callback
+         * are reflected in this same frame's visual rendering
+         */
+        this.updateDrag(context);
+
         if (this.enabled.get())
         {
             if (this.dragging)
@@ -242,7 +250,5 @@ public class UIDraggable extends UIElement
                 Scroll.bar(context.batcher, this.area.x, this.area.y, this.area.ex(), this.area.ey(), Colors.A50);
             }
         }
-
-        this.updateDrag(context);
     }
 }

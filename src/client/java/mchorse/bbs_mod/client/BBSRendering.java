@@ -4,16 +4,8 @@ import mchorse.bbs_mod.BBSMod;
 import mchorse.bbs_mod.BBSModClient;
 import mchorse.bbs_mod.BBSSettings;
 import mchorse.bbs_mod.blocks.entities.ModelBlockEntity;
-import mchorse.bbs_mod.camera.clips.misc.BossBarClip;
-import mchorse.bbs_mod.camera.clips.misc.BossBarState;
 import mchorse.bbs_mod.camera.clips.misc.ChromaSkyCurveSettings;
 import mchorse.bbs_mod.camera.clips.misc.CurveClip;
-import mchorse.bbs_mod.camera.clips.misc.HotbarClip;
-import mchorse.bbs_mod.camera.clips.misc.HotbarState;
-import mchorse.bbs_mod.camera.clips.misc.ImageClip;
-import mchorse.bbs_mod.camera.clips.misc.ImageOverlay;
-import mchorse.bbs_mod.camera.clips.misc.Subtitle;
-import mchorse.bbs_mod.camera.clips.misc.SubtitleClip;
 import mchorse.bbs_mod.camera.controller.CameraWorkCameraController;
 import mchorse.bbs_mod.camera.controller.PlayCameraController;
 import mchorse.bbs_mod.camera.data.Position;
@@ -27,7 +19,9 @@ import mchorse.bbs_mod.events.TriggerBlockEntityUpdateCallback;
 import mchorse.bbs_mod.film.BaseFilmController;
 import mchorse.bbs_mod.film.WorldFilmController;
 import mchorse.bbs_mod.film.replays.Replay;
+import mchorse.bbs_mod.forms.CustomVertexConsumerProvider;
 import mchorse.bbs_mod.forms.FormUtilsClient;
+import mchorse.bbs_mod.forms.entities.IEntity;
 import mchorse.bbs_mod.forms.forms.Form;
 import mchorse.bbs_mod.forms.renderers.FormRenderer;
 import mchorse.bbs_mod.forms.renderers.utils.BlockPaintOverlayVertexConsumer;
@@ -45,11 +39,7 @@ import mchorse.bbs_mod.ui.UIKeys;
 import mchorse.bbs_mod.ui.dashboard.UIDashboard;
 import mchorse.bbs_mod.ui.dashboard.WorldPropertiesHelper;
 import mchorse.bbs_mod.ui.dashboard.panels.UIDashboardPanel;
-import mchorse.bbs_mod.ui.film.UIBossBarRenderer;
 import mchorse.bbs_mod.ui.film.UIFilmPanel;
-import mchorse.bbs_mod.ui.film.UIHotbarRenderer;
-import mchorse.bbs_mod.ui.film.UIImageRenderer;
-import mchorse.bbs_mod.ui.film.UISubtitleRenderer;
 import mchorse.bbs_mod.ui.framework.UIBaseMenu;
 import mchorse.bbs_mod.ui.framework.UIRenderingContext;
 import mchorse.bbs_mod.ui.framework.UIScreen;
@@ -79,9 +69,14 @@ import net.minecraft.client.gl.Framebuffer;
 import net.minecraft.client.gl.WindowFramebuffer;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.option.CloudRenderMode;
+import net.minecraft.client.render.DiffuseLighting;
 import net.minecraft.client.render.VertexConsumer;
+import net.minecraft.client.render.WorldRenderer;
 import net.minecraft.client.util.Window;
 import net.minecraft.client.util.math.MatrixStack;
+import net.minecraft.util.math.BlockPos;
+
+import net.irisshaders.iris.uniforms.custom.cached.CachedUniform;
 
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
@@ -100,8 +95,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
-
-import net.irisshaders.iris.uniforms.custom.cached.CachedUniform;
 
 public class BBSRendering
 {
@@ -339,6 +332,10 @@ public class BBSRendering
     /**
      * Reset GL state after mid-UI 3D form/model draws so later Batcher2D text is not
      * left with additive blend / depthMask false / grade uniforms (white doubled glyphs).
+     *
+     * Never unbind VAO / ARRAY_BUFFER / ELEMENT_ARRAY_BUFFER here. On AMD (atio6axx)
+     * that leaves Batcher2D's next glDrawElements with a null index path (hard crash)
+     * or silently skips card chrome while form previews still draw through their own VAO.
      */
     public static void restoreGuiRenderState()
     {
@@ -355,10 +352,9 @@ public class BBSRendering
     }
 
     /**
-     * Soft-opacity / glow / equipment can leave depthMask/blend/shader color wrong and poison
-     * later Model Block / Iris shadow draws. Only sanitize leaky state — do not force depth-test
-     * on or rewrite level lights (that changed the post-morph entity pipeline and froze
-     * GPU-skinned / procedural limb motion).
+     * Soft-opacity / glow / form draws can leave depthMask, blend, depth test, lightmap,
+     * or overlay wrong. After model-block forms that also matters for WorldRenderer's later
+     * flush of buffered vanilla entity layers (enchanted armor). Do not rewrite level lights.
      */
     public static void restoreWorldRenderState()
     {
@@ -367,12 +363,83 @@ public class BBSRendering
         RenderSystem.enableBlend();
         RenderSystem.defaultBlendFunc();
         RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
+        RenderSystem.enableDepthTest();
+        RenderSystem.depthFunc(GL11.GL_LEQUAL);
+        GL11.glPolygonOffset(0F, 0F);
+        GL11.glDisable(GL11.GL_POLYGON_OFFSET_FILL);
+        CustomVertexConsumerProvider.clearRunnables();
+
+        MinecraftClient client = MinecraftClient.getInstance();
+
+        if (client != null && client.gameRenderer != null)
+        {
+            client.gameRenderer.getLightmapTextureManager().enable();
+            client.gameRenderer.getOverlayTexture().setupOverlayColor();
+        }
     }
 
     /** Vanilla level diffuse basis shared by morphs and editor previews. */
     public static void setupWorldLevelDiffuseLighting()
     {
-        RenderSystem.setupLevelDiffuseLighting(WORLD_LEVEL_LIGHT_0, WORLD_LEVEL_LIGHT_1, RenderSystem.getModelViewMatrix());
+        Matrix4f matrix = isRenderingWorld() ? camera : RenderSystem.getModelViewMatrix();
+
+        RenderSystem.setupLevelDiffuseLighting(WORLD_LEVEL_LIGHT_0, WORLD_LEVEL_LIGHT_1, matrix);
+    }
+
+    /**
+     * Same diffuse choice {@link WorldRenderer} uses before entities:
+     * {@link DiffuseLighting#enableForLevel(Matrix4f)} in darkened dimensions, otherwise the shared
+     * {@link #setupWorldLevelDiffuseLighting()} basis (matches {@link DiffuseLighting#disableForLevel()}).
+     * Keeps model-block F7 world draws and editor UI previews on one lighting basis.
+     */
+    public static void setupMatchingWorldDiffuseLighting()
+    {
+        MinecraftClient client = MinecraftClient.getInstance();
+
+        if (client != null && client.world != null && client.world.getDimensionEffects().isDarkened())
+        {
+            Matrix4f matrix = isRenderingWorld() ? camera : new Matrix4f();
+
+            DiffuseLighting.enableForLevel(matrix);
+
+            return;
+        }
+
+        setupWorldLevelDiffuseLighting();
+    }
+
+    /**
+     * Block/sky lightmap at an entity position, or {@code fallback} when the entity has no world
+     * (pure UI stubs). Used so form editor / model-block previews match F7 world shading.
+     */
+    public static int resolveEntityBlockLight(IEntity entity, int fallback)
+    {
+        if (entity == null || entity.getWorld() == null)
+        {
+            return fallback;
+        }
+
+        BlockPos pos = BlockPos.ofFloored(entity.getX(), entity.getY(), entity.getZ());
+
+        return WorldRenderer.getLightmapCoordinates(entity.getWorld(), pos);
+    }
+
+    /**
+     * Level diffuse + lightmap + overlay expected by LivingEntityRenderer cutout layers.
+     * Used for MobForm morph draws (private Immediate) and villager clothing flush.
+     */
+    public static void prepareVanillaEntityLighting()
+    {
+        MinecraftClient client = MinecraftClient.getInstance();
+
+        if (client == null || client.gameRenderer == null)
+        {
+            return;
+        }
+
+        setupMatchingWorldDiffuseLighting();
+        client.gameRenderer.getLightmapTextureManager().enable();
+        client.gameRenderer.getOverlayTexture().setupOverlayColor();
     }
 
     public static Texture getTexture()
@@ -603,18 +670,25 @@ public class BBSRendering
             VideoRenderer.renderClips(batcher.getContext().getMatrices(), batcher, controller.getContext().clips.getClips(controller.getContext().relativeTick), controller.getContext().relativeTick, true, area, area, null, area.w, area.h, false);
 
             ScreenEffectRenderer.render(batcher, controller.getContext(), area.w, area.h);
-            renderHudOverlays(batcher, controller.getContext(), area.w, area.h);
 
             RenderSystem.setProjectionMatrix(cache, VertexSorter.BY_Z);
         }
 
-        if (BBSModClient.getVideoRecorder().isRecording() && BBSModClient.getCameraController().getCurrent() instanceof CameraWorkCameraController controller)
+        if (!customSize && BBSModClient.getVideoRecorder().isRecording() && BBSModClient.getCameraController().getCurrent() instanceof CameraWorkCameraController controller)
         {
             DrawContext drawContext = new DrawContext(mc, mc.getBufferBuilders().getEntityVertexConsumers());
             Batcher2D batcher = new Batcher2D(drawContext);
             Window window = mc.getWindow();
+            Area area = new Area(0, 0, window.getScaledWidth(), window.getScaledHeight());
+            Matrix4f cache = new Matrix4f(RenderSystem.getProjectionMatrix());
+            Matrix4f ortho = new Matrix4f().ortho(0, area.w, area.h, 0, -1000, 3000);
 
-            renderHudOverlays(batcher, controller.getContext(), window.getScaledWidth(), window.getScaledHeight());
+            RenderSystem.setProjectionMatrix(ortho, VertexSorter.BY_Z);
+            VideoRenderer.renderClips(batcher.getContext().getMatrices(), batcher, controller.getContext().clips.getClips(controller.getContext().relativeTick), controller.getContext().relativeTick, true, area, area, null, area.w, area.h, false);
+
+            ScreenEffectRenderer.render(batcher, controller.getContext(), area.w, area.h);
+
+            RenderSystem.setProjectionMatrix(cache, VertexSorter.BY_Z);
         }
 
         if (!customSize)
@@ -640,7 +714,6 @@ public class BBSRendering
                 VideoRenderer.renderClips(new MatrixStack(), offscreenBatcher, panel.getData().camera.getClips(panel.getCursor()), panel.getCursor(), panel.getRunner().isRunning(), fullScreen, fullScreen, null, window.getScaledWidth(), window.getScaledHeight(), false);
 
                 ScreenEffectRenderer.render(offscreenBatcher, panel.getRunner().getContext(), window.getScaledWidth(), window.getScaledHeight());
-                renderHudOverlays(offscreenBatcher, panel.getRunner().getContext(), fullScreen.w, fullScreen.h);
 
                 RenderSystem.setProjectionMatrix(cache, VertexSorter.BY_Z);
             }
@@ -760,6 +833,19 @@ public class BBSRendering
         if (replay == null)
         {
             return;
+        }
+
+        /* P toggles visibility, but the HUD must only show while a film session is active. */
+        UIDashboard dashboard = BBSModClient.getDashboard();
+
+        if (dashboard != null)
+        {
+            UIFilmPanel filmPanel = dashboard.getPanel(UIFilmPanel.class);
+
+            if (filmPanel == null || !filmPanel.hasActiveFilmSession())
+            {
+                return;
+            }
         }
 
         Form form = replay.form.get();
@@ -916,9 +1002,6 @@ public class BBSRendering
     /**
      * True when Iris would discard/mis-composite very low form opacity; queue a BBS redraw
      * after compositing. Slight opacity (e.g. {@code #e7}/{@code #fc}) stays on Iris.
-     * When the Complementary/BSL opacity patch is active, never take this BBS handoff —
-     * translucency stays on Iris and is flushed post-deferred after VL clouds (smooth
-     * fade through {@code #1c}/28 with lighting and render depth intact).
      */
     public static boolean needsIrisTranslucentModelDeferral(float alpha)
     {
@@ -927,19 +1010,15 @@ public class BBSRendering
             return false;
         }
 
-        if (ShaderOpacityPatch.isActive())
-        {
-            return false;
-        }
-
         return alpha < TRANSLUCENT_ALPHA_DISCARD_REF;
     }
 
     /**
-     * Opt-in Opacity-track "No shading": redraw this soft form on the BBS deferred queue
-     * after paint overlays (paint visible through soft; pack body sun shadows lost).
-     * When off, soft forms stay on Iris post-deferred (body shadows kept; paint clipped).
-     * Still applies when the Complementary/BSL opacity patch is active.
+     * Opt-in "No shading": redraw this form on the BBS deferred queue
+     * after Iris composite.
+     * When off, forms stay on Iris live pipeline with pack shaders and lighting.
+     * When on, forms are deferred and drawn with vanilla/BBS shader (no pack lighting/shadows).
+     * Controlled by {@link BBSSettings#noshadingOpaqueForms} (default true).
      */
     public static boolean needsIrisNoshadingOpacityDeferral(float alpha, boolean noshadingOpacity)
     {
@@ -948,7 +1027,9 @@ public class BBSRendering
             return false;
         }
 
-        return alpha > 0.001F && alpha < 0.999F;
+        boolean allowOpaque = BBSSettings.noshadingOpaqueForms == null || BBSSettings.noshadingOpaqueForms.get();
+
+        return alpha > 0.001F && (allowOpaque || alpha < 0.999F);
     }
 
     /**
@@ -1420,7 +1501,14 @@ public class BBSRendering
 
     public static Double getBrightness()
     {
-        return getCurveValue(ShaderCurves.BRIGHTNESS);
+        Double v = getCurveValue(ShaderCurves.BRIGHTNESS);
+
+        if (v != null)
+        {
+            return Math.max(0D, v) / 100D;
+        }
+
+        return null;
     }
 
     public static Double getWeather()
@@ -1504,65 +1592,5 @@ public class BBSRendering
     public static Function<VertexConsumer, VertexConsumer> getBlockColorTintOverlayConsumer()
     {
         return getColorConsumer(Color.white());
-    }
-
-    private static void renderHudOverlays(Batcher2D batcher, ClipContext context, int width, int height)
-    {
-        List<Subtitle> subtitles = SubtitleClip.getSubtitles(context);
-        List<HotbarState> hotbars = HotbarClip.getHotbars(context);
-        List<ImageOverlay> images = ImageClip.getImages(context);
-        List<BossBarState> bossBars = BossBarClip.getBossBars(context);
-
-        if (subtitles.isEmpty() && hotbars.isEmpty() && images.isEmpty() && bossBars.isEmpty())
-        {
-            return;
-        }
-
-        /* Safety net: Subtitle's text FBO can shrink glViewport; restore after the pass. */
-        int[] prevViewport = new int[4];
-
-        GL11.glGetIntegerv(GL11.GL_VIEWPORT, prevViewport);
-        RenderSystem.disableDepthTest();
-
-        MatrixStack matrices = batcher.getContext().getMatrices();
-        int subtitleIndex = 0;
-        int hotbarIndex = 0;
-        int imageIndex = 0;
-        int bossBarIndex = 0;
-
-        while (subtitleIndex < subtitles.size() || hotbarIndex < hotbars.size() || imageIndex < images.size() || bossBarIndex < bossBars.size())
-        {
-            int subtitleOrder = subtitleIndex < subtitles.size() ? subtitles.get(subtitleIndex).renderOrder : Integer.MAX_VALUE;
-            int hotbarOrder = hotbarIndex < hotbars.size() ? hotbars.get(hotbarIndex).renderOrder : Integer.MAX_VALUE;
-            int imageOrder = imageIndex < images.size() ? images.get(imageIndex).renderOrder : Integer.MAX_VALUE;
-            int bossBarOrder = bossBarIndex < bossBars.size() ? bossBars.get(bossBarIndex).renderOrder : Integer.MAX_VALUE;
-            int nextOrder = Math.min(Math.min(subtitleOrder, hotbarOrder), Math.min(imageOrder, bossBarOrder));
-
-            /* Draw lowest renderOrder first so higher timeline layers end up on top. */
-            if (subtitleOrder == nextOrder)
-            {
-                UISubtitleRenderer.renderSubtitle(matrices, batcher, subtitles.get(subtitleIndex));
-                subtitleIndex += 1;
-            }
-            else if (hotbarOrder == nextOrder)
-            {
-                UIHotbarRenderer.renderHotbar(matrices, batcher, hotbars.get(hotbarIndex), 0, 0, width, height);
-                hotbarIndex += 1;
-            }
-            else if (imageOrder == nextOrder)
-            {
-                UIImageRenderer.renderImage(matrices, batcher, images.get(imageIndex));
-                imageIndex += 1;
-            }
-            else
-            {
-                UIBossBarRenderer.renderBossBar(matrices, batcher, bossBars.get(bossBarIndex), 0, 0, width, height);
-                bossBarIndex += 1;
-            }
-        }
-
-        bossBars.clear();
-        GL11.glViewport(prevViewport[0], prevViewport[1], prevViewport[2], prevViewport[3]);
-        RenderSystem.enableDepthTest();
     }
 }

@@ -101,4 +101,13 @@ public class CustomVertexConsumerProvider implements VertexConsumerProvider
             RenderSystem.depthFunc(GL11.GL_ALWAYS);
         }
     }
+
+    /**
+     * Flushes only the active dynamic layer (e.g. last villager clothing pass) without
+     * iterating fixed world layerBuffers.
+     */
+    public void drawCurrentLayer()
+    {
+        this.delegate.drawCurrentLayer();
+    }
 }

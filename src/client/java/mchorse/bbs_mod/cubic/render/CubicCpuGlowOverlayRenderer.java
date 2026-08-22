@@ -4,12 +4,14 @@ import mchorse.bbs_mod.BBSModClient;
 import mchorse.bbs_mod.cubic.data.model.Model;
 import mchorse.bbs_mod.cubic.data.model.ModelGroup;
 import mchorse.bbs_mod.cubic.data.model.ModelVertex;
+import mchorse.bbs_mod.cubic.render.vao.ModelVAORenderer;
 import mchorse.bbs_mod.obj.shapes.ShapeKeys;
 import mchorse.bbs_mod.resources.Link;
 import mchorse.bbs_mod.ui.framework.elements.utils.StencilMap;
 import mchorse.bbs_mod.utils.MathUtils;
 import mchorse.bbs_mod.utils.colors.Color;
 
+import net.minecraft.client.gl.GlUniform;
 import net.minecraft.client.gl.ShaderProgram;
 import net.minecraft.client.render.BufferBuilder;
 import net.minecraft.client.render.BufferRenderer;
@@ -124,6 +126,22 @@ public class CubicCpuGlowOverlayRenderer extends CubicCubeRenderer
 
         try
         {
+            ModelVAORenderer.setupUniformsCpuPretransformed(this.shader);
+
+            GlUniform glowing = this.shader.getUniform("GlowingColor");
+
+            if (glowing != null)
+            {
+                glowing.set(0F, 0F, 0F, 0F);
+            }
+
+            GlUniform paint = this.shader.getUniform("PaintColor");
+
+            if (paint != null)
+            {
+                paint.set(0F, 0F, 0F, 0F);
+            }
+
             this.shader.bind();
             BufferRenderer.drawWithGlobalProgram(groupBuilder.end());
             this.shader.unbind();
@@ -161,9 +179,15 @@ public class CubicCpuGlowOverlayRenderer extends CubicCubeRenderer
         stack.peek().getPositionMatrix().transform(this.vertex);
 
         builder.vertex(this.vertex.x, this.vertex.y, this.vertex.z)
-            .color(gr, gg, gb, ga)
+            .color(
+                MathUtils.clamp(gr, 0F, 1F),
+                MathUtils.clamp(gg, 0F, 1F),
+                MathUtils.clamp(gb, 0F, 1F),
+                MathUtils.clamp(ga, 0F, 1F)
+            )
             .texture(vertex.uv.x, vertex.uv.y)
-            .overlay(this.overlay);
+            .overlay(this.overlay)
+            .next();
 
         if (this.stencilMap != null)
         {

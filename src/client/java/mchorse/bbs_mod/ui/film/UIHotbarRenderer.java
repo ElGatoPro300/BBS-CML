@@ -10,9 +10,9 @@ import net.minecraft.item.ItemStack;
 import net.minecraft.util.Identifier;
 import net.minecraft.util.math.MathHelper;
 
-import com.mojang.blaze3d.systems.RenderSystem;
-
 import org.joml.Vector3f;
+
+import com.mojang.blaze3d.systems.RenderSystem;
 
 import java.util.List;
 import java.util.Random;
@@ -29,46 +29,46 @@ public class UIHotbarRenderer
     private static final float SCALE_PIVOT_Y = 0.5F;
     private static final int MAX_HEALTH_ROWS = 60;
     private static final float MAX_HEALTH_CONTAINER = MAX_HEALTH_ROWS * 10F * 2F;
-    private static final Identifier HOTBAR = new Identifier("minecraft", "hud/hotbar");
-    private static final Identifier HOTBAR_SELECTION = new Identifier("minecraft", "hud/hotbar_selection");
-    private static final Identifier HOTBAR_OFFHAND_LEFT = new Identifier("minecraft", "hud/hotbar_offhand_left");
-    private static final Identifier HOTBAR_OFFHAND_RIGHT = new Identifier("minecraft", "hud/hotbar_offhand_right");
-    private static final Identifier HOTBAR_ATTACK_INDICATOR_BACKGROUND = new Identifier("minecraft", "hud/hotbar_attack_indicator_background");
-    private static final Identifier HOTBAR_ATTACK_INDICATOR_PROGRESS = new Identifier("minecraft", "hud/hotbar_attack_indicator_progress");
-    private static final Identifier HEART_CONTAINER = new Identifier("minecraft", "hud/heart/container");
-    private static final Identifier HEART_HARDCORE_CONTAINER = new Identifier("minecraft", "hud/heart/container_hardcore");
-    private static final Identifier HEART_VEHICLE_CONTAINER = new Identifier("minecraft", "hud/heart/vehicle_container");
-    private static final Identifier HEART_VEHICLE_FULL = new Identifier("minecraft", "hud/heart/vehicle_full");
-    private static final Identifier HEART_VEHICLE_HALF = new Identifier("minecraft", "hud/heart/vehicle_half");
+    private static final Identifier HOTBAR = Identifier.of("minecraft", "hud/hotbar");
+    private static final Identifier HOTBAR_SELECTION = Identifier.of("minecraft", "hud/hotbar_selection");
+    private static final Identifier HOTBAR_OFFHAND_LEFT = Identifier.of("minecraft", "hud/hotbar_offhand_left");
+    private static final Identifier HOTBAR_OFFHAND_RIGHT = Identifier.of("minecraft", "hud/hotbar_offhand_right");
+    private static final Identifier HOTBAR_ATTACK_INDICATOR_BACKGROUND = Identifier.of("minecraft", "hud/hotbar_attack_indicator_background");
+    private static final Identifier HOTBAR_ATTACK_INDICATOR_PROGRESS = Identifier.of("minecraft", "hud/hotbar_attack_indicator_progress");
+    private static final Identifier HEART_CONTAINER = Identifier.of("minecraft", "hud/heart/container");
+    private static final Identifier HEART_HARDCORE_CONTAINER = Identifier.of("minecraft", "hud/heart/container_hardcore");
+    private static final Identifier HEART_VEHICLE_CONTAINER = Identifier.of("minecraft", "hud/heart/vehicle_container");
+    private static final Identifier HEART_VEHICLE_FULL = Identifier.of("minecraft", "hud/heart/vehicle_full");
+    private static final Identifier HEART_VEHICLE_HALF = Identifier.of("minecraft", "hud/heart/vehicle_half");
     private static final Identifier[][] HEART_HALVES = {
-        {new Identifier("minecraft", "hud/heart/half"), new Identifier("minecraft", "hud/heart/hardcore_half")},
-        {new Identifier("minecraft", "hud/heart/poisoned_half"), new Identifier("minecraft", "hud/heart/poisoned_hardcore_half")},
-        {new Identifier("minecraft", "hud/heart/withered_half"), new Identifier("minecraft", "hud/heart/withered_hardcore_half")},
-        {new Identifier("minecraft", "hud/heart/absorbing_half"), new Identifier("minecraft", "hud/heart/absorbing_hardcore_half")},
-        {new Identifier("minecraft", "hud/heart/frozen_half"), new Identifier("minecraft", "hud/heart/frozen_hardcore_half")}
+        {Identifier.of("minecraft", "hud/heart/half"), Identifier.of("minecraft", "hud/heart/hardcore_half")},
+        {Identifier.of("minecraft", "hud/heart/poisoned_half"), Identifier.of("minecraft", "hud/heart/poisoned_hardcore_half")},
+        {Identifier.of("minecraft", "hud/heart/withered_half"), Identifier.of("minecraft", "hud/heart/withered_hardcore_half")},
+        {Identifier.of("minecraft", "hud/heart/absorbing_half"), Identifier.of("minecraft", "hud/heart/absorbing_hardcore_half")},
+        {Identifier.of("minecraft", "hud/heart/frozen_half"), Identifier.of("minecraft", "hud/heart/frozen_hardcore_half")}
     };
     private static final Identifier[][] HEART_FULLS = {
-        {new Identifier("minecraft", "hud/heart/full"), new Identifier("minecraft", "hud/heart/hardcore_full")},
-        {new Identifier("minecraft", "hud/heart/poisoned_full"), new Identifier("minecraft", "hud/heart/poisoned_hardcore_full")},
-        {new Identifier("minecraft", "hud/heart/withered_full"), new Identifier("minecraft", "hud/heart/withered_hardcore_full")},
-        {new Identifier("minecraft", "hud/heart/absorbing_full"), new Identifier("minecraft", "hud/heart/absorbing_hardcore_full")},
-        {new Identifier("minecraft", "hud/heart/frozen_full"), new Identifier("minecraft", "hud/heart/frozen_hardcore_full")}
+        {Identifier.of("minecraft", "hud/heart/full"), Identifier.of("minecraft", "hud/heart/hardcore_full")},
+        {Identifier.of("minecraft", "hud/heart/poisoned_full"), Identifier.of("minecraft", "hud/heart/poisoned_hardcore_full")},
+        {Identifier.of("minecraft", "hud/heart/withered_full"), Identifier.of("minecraft", "hud/heart/withered_hardcore_full")},
+        {Identifier.of("minecraft", "hud/heart/absorbing_full"), Identifier.of("minecraft", "hud/heart/absorbing_hardcore_full")},
+        {Identifier.of("minecraft", "hud/heart/frozen_full"), Identifier.of("minecraft", "hud/heart/frozen_hardcore_full")}
     };
-    private static final Identifier ARMOR_EMPTY = new Identifier("minecraft", "hud/armor_empty");
-    private static final Identifier ARMOR_FULL = new Identifier("minecraft", "hud/armor_full");
-    private static final Identifier ARMOR_HALF = new Identifier("minecraft", "hud/armor_half");
-    private static final Identifier FOOD_EMPTY = new Identifier("minecraft", "hud/food_empty");
-    private static final Identifier FOOD_FULL = new Identifier("minecraft", "hud/food_full");
-    private static final Identifier FOOD_HALF = new Identifier("minecraft", "hud/food_half");
-    private static final Identifier FOOD_EMPTY_HUNGER = new Identifier("minecraft", "hud/food_empty_hunger");
-    private static final Identifier FOOD_FULL_HUNGER = new Identifier("minecraft", "hud/food_full_hunger");
-    private static final Identifier FOOD_HALF_HUNGER = new Identifier("minecraft", "hud/food_half_hunger");
-    private static final Identifier AIR = new Identifier("minecraft", "hud/air");
-    private static final Identifier AIR_BURSTING = new Identifier("minecraft", "hud/air_bursting");
-    private static final Identifier EXPERIENCE_BAR_BACKGROUND_TEXTURE = new Identifier("minecraft", "textures/gui/sprites/hud/experience_bar_background.png");
-    private static final Identifier EXPERIENCE_BAR_PROGRESS_TEXTURE = new Identifier("minecraft", "textures/gui/sprites/hud/experience_bar_progress.png");
-    private static final Identifier JUMP_BAR_BACKGROUND_TEXTURE = new Identifier("minecraft", "textures/gui/sprites/hud/jump_bar_background.png");
-    private static final Identifier JUMP_BAR_PROGRESS_TEXTURE = new Identifier("minecraft", "textures/gui/sprites/hud/jump_bar_progress.png");
+    private static final Identifier ARMOR_EMPTY = Identifier.of("minecraft", "hud/armor_empty");
+    private static final Identifier ARMOR_FULL = Identifier.of("minecraft", "hud/armor_full");
+    private static final Identifier ARMOR_HALF = Identifier.of("minecraft", "hud/armor_half");
+    private static final Identifier FOOD_EMPTY = Identifier.of("minecraft", "hud/food_empty");
+    private static final Identifier FOOD_FULL = Identifier.of("minecraft", "hud/food_full");
+    private static final Identifier FOOD_HALF = Identifier.of("minecraft", "hud/food_half");
+    private static final Identifier FOOD_EMPTY_HUNGER = Identifier.of("minecraft", "hud/food_empty_hunger");
+    private static final Identifier FOOD_FULL_HUNGER = Identifier.of("minecraft", "hud/food_full_hunger");
+    private static final Identifier FOOD_HALF_HUNGER = Identifier.of("minecraft", "hud/food_half_hunger");
+    private static final Identifier AIR = Identifier.of("minecraft", "hud/air");
+    private static final Identifier AIR_BURSTING = Identifier.of("minecraft", "hud/air_bursting");
+    private static final Identifier EXPERIENCE_BAR_BACKGROUND_TEXTURE = Identifier.of("minecraft", "textures/gui/sprites/hud/experience_bar_background.png");
+    private static final Identifier EXPERIENCE_BAR_PROGRESS_TEXTURE = Identifier.of("minecraft", "textures/gui/sprites/hud/experience_bar_progress.png");
+    private static final Identifier JUMP_BAR_BACKGROUND_TEXTURE = Identifier.of("minecraft", "textures/gui/sprites/hud/jump_bar_background.png");
+    private static final Identifier JUMP_BAR_PROGRESS_TEXTURE = Identifier.of("minecraft", "textures/gui/sprites/hud/jump_bar_progress.png");
     private static boolean wasHeartRegenerationEnabled;
     private static long heartRegenerationStartTick;
 
@@ -271,10 +271,6 @@ public class UIHotbarRenderer
             RenderSystem.enableDepthTest();
             RenderSystem.depthMask(true);
 
-            Vector3f light0 = new Vector3f(0.85F, 0.85F, -1.0F).normalize();
-            Vector3f light1 = new Vector3f(-0.85F, 0.85F, 1.0F).normalize();
-            RenderSystem.setupGui3DDiffuseLighting(light0, light1);
-
             for (int i = 0; i < 9; i++)
             {
                 ItemStack stackItem = hotbar.items[i];
@@ -302,8 +298,6 @@ public class UIHotbarRenderer
         }
 
         batcher.getContext().draw();
-
-        DiffuseLighting.disableGuiDepthLighting();
 
         RenderSystem.disableDepthTest();
         RenderSystem.depthMask(false);

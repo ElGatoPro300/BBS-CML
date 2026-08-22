@@ -33,6 +33,7 @@ public class UIScreen extends Screen implements IFileDropListener
     private UIRenderingContext context;
 
     private int lastGuiScale;
+    private boolean appliedGameScale;
 
     public static void open(UIBaseMenu menu)
     {
@@ -56,6 +57,8 @@ public class UIScreen extends Screen implements IFileDropListener
         super(title);
 
         MinecraftClient mc = MinecraftClient.getInstance();
+
+        this.client = mc;
 
         this.menu = menu;
         this.context = new UIRenderingContext(new DrawContext(mc, mc.getBufferBuilders().getEntityVertexConsumers()));
@@ -125,7 +128,7 @@ public class UIScreen extends Screen implements IFileDropListener
         MinecraftClient client = MinecraftClient.getInstance();
 
         this.lastGuiScale = client.options.getGuiScale().getValue();
-        this.applyGuiScale(BBSModClient.getGUIScale());
+        this.reapplyScale();
 
         super.onDisplayed();
 
@@ -135,15 +138,34 @@ public class UIScreen extends Screen implements IFileDropListener
         client.options.hudHidden = this.menu.canHideHUD();
     }
 
-    private void applyGuiScale(int scale)
+    /**
+     * Apply BBS scale for the current link-to-game setting. Independent mode never
+     * writes Minecraft's GUI scale; linked mode always forces a window recalc so a
+     * fractional BBS value (1.8 vs game 2) is not skipped by an int early-return.
+     */
+    public void reapplyScale()
+    {
+        if (BbsGuiScale.isLinkedToGame())
+        {
+            if (!this.appliedGameScale)
+            {
+                this.lastGuiScale = MinecraftClient.getInstance().options.getGuiScale().getValue();
+            }
+
+            this.applyGameGuiScale(BBSModClient.getGUIScale());
+            this.appliedGameScale = true;
+            this.menu.resize(this.client.getWindow().getScaledWidth(), this.client.getWindow().getScaledHeight());
+        }
+        else
+        {
+            this.restoreGuiScale();
+            BbsGuiScale.resizeMenu(this.menu);
+        }
+    }
+
+    private void applyGameGuiScale(int scale)
     {
         MinecraftClient client = MinecraftClient.getInstance();
-        int current = client.options.getGuiScale().getValue();
-
-        if (current == scale)
-        {
-            return;
-        }
 
         client.options.getGuiScale().setValue(scale);
         client.onResolutionChanged();
@@ -151,7 +173,13 @@ public class UIScreen extends Screen implements IFileDropListener
 
     private void restoreGuiScale()
     {
-        this.applyGuiScale(this.lastGuiScale);
+        if (!this.appliedGameScale)
+        {
+            return;
+        }
+
+        this.appliedGameScale = false;
+        BbsGuiScale.restoringGameScale(() -> this.applyGameGuiScale(this.lastGuiScale));
     }
 
     @Override
@@ -165,7 +193,14 @@ public class UIScreen extends Screen implements IFileDropListener
     {
         super.init();
 
-        this.menu.resize(this.width, this.height);
+        if (BbsGuiScale.isLinkedToGame())
+        {
+            this.menu.resize(this.width, this.height);
+        }
+        else
+        {
+            BbsGuiScale.resizeMenu(this.menu);
+        }
     }
 
     @Override
@@ -173,25 +208,32 @@ public class UIScreen extends Screen implements IFileDropListener
     {
         super.resize(client, width, height);
 
-        this.menu.resize(width, height);
+        if (BbsGuiScale.isLinkedToGame())
+        {
+            this.menu.resize(width, height);
+        }
+        else
+        {
+            BbsGuiScale.resizeMenu(this.menu);
+        }
     }
 
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button)
     {
-        return this.menu.mouseClicked((int) mouseX, (int) mouseY, button);
+        return this.menu.mouseClicked(BbsGuiScale.toBbsMouseX(mouseX), BbsGuiScale.toBbsMouseY(mouseY), button);
     }
 
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double horizontalAmount, double verticalAmount)
     {
-        return this.menu.mouseScrolled((int) mouseX, (int) mouseY, horizontalAmount, verticalAmount);
+        return this.menu.mouseScrolled(BbsGuiScale.toBbsMouseX(mouseX), BbsGuiScale.toBbsMouseY(mouseY), horizontalAmount, verticalAmount);
     }
 
     @Override
     public boolean mouseReleased(double mouseX, double mouseY, int button)
     {
-        return this.menu.mouseReleased((int) mouseX, (int) mouseY, button);
+        return this.menu.mouseReleased(BbsGuiScale.toBbsMouseX(mouseX), BbsGuiScale.toBbsMouseY(mouseY), button);
     }
 
     @Override
@@ -223,9 +265,15 @@ public class UIScreen extends Screen implements IFileDropListener
     {
         super.render(context, mouseX, mouseY, delta);
 
-        this.menu.context.setTransition(this.client.getTickDelta());
-        this.menu.renderMenu(this.context, mouseX, mouseY);
-        this.menu.context.render.executeRunnables();
+        int bbsMouseX = BbsGuiScale.toBbsMouseX(mouseX);
+        int bbsMouseY = BbsGuiScale.toBbsMouseY(mouseY);
+
+        BbsGuiScale.withBbsWindowScale(() ->
+        {
+            this.menu.context.setTransition(this.client.getTickDelta());
+            this.menu.renderMenu(this.context, bbsMouseX, bbsMouseY);
+            this.menu.context.render.executeRunnables();
+        });
         this.client.options.hudHidden = this.menu.canHideHUD();
     }
 

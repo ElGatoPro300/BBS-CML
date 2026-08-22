@@ -22,7 +22,6 @@ import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.utils.MathUtils;
 import mchorse.bbs_mod.utils.MatrixStackUtils;
 import mchorse.bbs_mod.utils.colors.Color;
-import mchorse.bbs_mod.utils.interps.Lerps;
 import mchorse.bbs_mod.utils.iris.ShaderCurves;
 import mchorse.bbs_mod.utils.iris.ShaderOpacityPatch;
 import mchorse.bbs_mod.utils.math.Noise;
@@ -90,13 +89,7 @@ public class ShapeFormRenderer extends FormRenderer<ShapeForm>
         /* Shading fix for UI */
         MatrixStackUtils.invertUiNormalY(stack);
 
-        Vector3f light0 = new Vector3f(0.85F, 0.85F, -1F).normalize();
-        Vector3f light1 = new Vector3f(-0.85F, 0.85F, 1F).normalize();
-        RenderSystem.setupGui3DDiffuseLighting(light0, light1);
-
         this.renderShape(stack, GameRenderer::getRenderTypeEntityTranslucentProgram, OverlayTexture.DEFAULT_UV, LightmapTextureManager.MAX_LIGHT_COORDINATE, null);
-
-        DiffuseLighting.disableGuiDepthLighting();
 
         stack.pop();
     }
@@ -235,14 +228,11 @@ public class ShapeFormRenderer extends FormRenderer<ShapeForm>
         stack.scale(this.form.sizeX.get(), this.form.sizeY.get(), this.form.sizeZ.get());
 
         ShapeForm.ShapeType type = this.form.type.get();
-        boolean opacityPatch = ShaderOpacityPatch.isActive();
         boolean shadowPass = BBSRendering.isIrisShadowPass();
         /* Under Iris, flats must defer — live path washes them. Opaque (#ff) is skipped by
-         * needsIrisTranslucentFlatDeferral; with the opacity patch that live opaque path also
-         * vanishes, so defer every world shape while the patch is active. */
-        boolean deferTranslucent = !shadowPass
-            && (BBSRendering.needsIrisTranslucentFlatDeferral(c.a)
-                || (opacityPatch && BBSRendering.isIrisWorldModelPass()));
+         * needsIrisTranslucentFlatDeferral unless noshading is enabled. */
+        boolean noshadingDefer = !shadowPass && BBSRendering.needsIrisNoshadingOpacityDeferral(c.a, this.form.noshadingOpacity.get());
+        boolean deferTranslucent = (!shadowPass && BBSRendering.needsIrisTranslucentFlatDeferral(c.a)) || noshadingDefer;
 
         if (deferTranslucent)
         {
@@ -258,24 +248,8 @@ public class ShapeFormRenderer extends FormRenderer<ShapeForm>
             GlowSettings glowSettingsSnapshot = glowSettings;
             Color legacyGlowSnapshot = legacyGlow;
             boolean lighting = this.form.lighting.get();
-            /* Noshading opacity: redraw after paint via BBS translucent queue, not Iris post-deferred. */
-            boolean noshadingPaintPath = BBSRendering.needsIrisNoshadingOpacityDeferral(c.a, this.form.noshadingOpacity.get());
-            boolean afterFluids = ShaderOpacityPatch.shouldFlushAfterFluids(c.a);
             /* Soft-opacity depth write stays opacity-based. */
             boolean depthWrite = ShaderOpacityPatch.shouldWriteDepthForOpacity(c.a);
-            double distanceSq = 0D;
-
-            if (renderContext != null && renderContext.entity != null && renderContext.camera != null)
-            {
-                double x = Lerps.lerp(renderContext.entity.getPrevX(), renderContext.entity.getX(), renderContext.getTransition());
-                double y = Lerps.lerp(renderContext.entity.getPrevY(), renderContext.entity.getY(), renderContext.getTransition());
-                double z = Lerps.lerp(renderContext.entity.getPrevZ(), renderContext.entity.getZ(), renderContext.getTransition());
-                double dx = x - renderContext.camera.position.x;
-                double dy = y - renderContext.camera.position.y;
-                double dz = z - renderContext.camera.position.z;
-
-                distanceSq = dx * dx + dy * dy + dz * dz;
-            }
 
             Runnable deferredDraw = () ->
             {
@@ -301,14 +275,7 @@ public class ShapeFormRenderer extends FormRenderer<ShapeForm>
                 );
             };
 
-            if (opacityPatch && !noshadingPaintPath)
-            {
-                ShaderOpacityPatch.submitPostDeferredBbsForm(0D, distanceSq, depthWrite, afterFluids, deferredDraw);
-            }
-            else
-            {
-                ModelVAORenderer.submitDeferredTranslucentModel(deferredDraw, depthWrite);
-            }
+            ModelVAORenderer.submitDeferredTranslucentModel(deferredDraw, depthWrite);
         }
         else
         {
@@ -343,7 +310,7 @@ public class ShapeFormRenderer extends FormRenderer<ShapeForm>
                 this.unshadedVertices = true;
 
                 BufferBuilder glowBuilder = tessellator.getBuffer();
-            glowBuilder.begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_TEXTURE_COLOR);
+                glowBuilder.begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_TEXTURE_COLOR);
 
                 this.buildShapeGeometry(glowBuilder, stack, type, glowColor, overlay, LightmapTextureManager.MAX_LIGHT_COORDINATE);
 
@@ -637,16 +604,16 @@ public class ShapeFormRenderer extends FormRenderer<ShapeForm>
         }
         
         // Quad 1
-        builder.vertex(matrix, x - hs, y - hs, z - hs).color(c.r, c.g, c.b, c.a).texture(0, 0).overlay(overlay).light(light).normal(normalMatrix, 0, 1, 0).next();
-        builder.vertex(matrix, x + hs, y - hs, z + hs).color(c.r, c.g, c.b, c.a).texture(1, 0).overlay(overlay).light(light).normal(normalMatrix, 0, 1, 0).next();
-        builder.vertex(matrix, x + hs, y + hs, z + hs).color(c.r, c.g, c.b, c.a).texture(1, 1).overlay(overlay).light(light).normal(normalMatrix, 0, 1, 0).next();
-        builder.vertex(matrix, x - hs, y + hs, z - hs).color(c.r, c.g, c.b, c.a).texture(0, 1).overlay(overlay).light(light).normal(normalMatrix, 0, 1, 0).next();
+        this.vertex(builder, matrix, normalMatrix, x - hs, y - hs, z - hs, 0, 0, 0, 1, 0, c, overlay, light);
+        this.vertex(builder, matrix, normalMatrix, x + hs, y - hs, z + hs, 1, 0, 0, 1, 0, c, overlay, light);
+        this.vertex(builder, matrix, normalMatrix, x + hs, y + hs, z + hs, 1, 1, 0, 1, 0, c, overlay, light);
+        this.vertex(builder, matrix, normalMatrix, x - hs, y + hs, z - hs, 0, 1, 0, 1, 0, c, overlay, light);
         
         // Quad 2
-        builder.vertex(matrix, x - hs, y - hs, z + hs).color(c.r, c.g, c.b, c.a).texture(0, 0).overlay(overlay).light(light).normal(normalMatrix, 0, 1, 0).next();
-        builder.vertex(matrix, x + hs, y - hs, z - hs).color(c.r, c.g, c.b, c.a).texture(1, 0).overlay(overlay).light(light).normal(normalMatrix, 0, 1, 0).next();
-        builder.vertex(matrix, x + hs, y + hs, z - hs).color(c.r, c.g, c.b, c.a).texture(1, 1).overlay(overlay).light(light).normal(normalMatrix, 0, 1, 0).next();
-        builder.vertex(matrix, x - hs, y + hs, z + hs).color(c.r, c.g, c.b, c.a).texture(0, 1).overlay(overlay).light(light).normal(normalMatrix, 0, 1, 0).next();
+        this.vertex(builder, matrix, normalMatrix, x - hs, y - hs, z + hs, 0, 0, 0, 1, 0, c, overlay, light);
+        this.vertex(builder, matrix, normalMatrix, x + hs, y - hs, z - hs, 1, 0, 0, 1, 0, c, overlay, light);
+        this.vertex(builder, matrix, normalMatrix, x + hs, y + hs, z - hs, 1, 1, 0, 1, 0, c, overlay, light);
+        this.vertex(builder, matrix, normalMatrix, x - hs, y + hs, z + hs, 0, 1, 0, 1, 0, c, overlay, light);
     }
     
     private void renderBlockParticle(BufferBuilder builder, Matrix4f matrix, Matrix3f normal, float x, float y, float z, float size, Color c, int overlay, int light)
@@ -664,40 +631,40 @@ public class ShapeFormRenderer extends FormRenderer<ShapeForm>
         }
         
         // Front
-        builder.vertex(matrix, x - hs, y - hs, z + hs).color(c.r, c.g, c.b, c.a).texture(0, 1).overlay(overlay).light(light).normal(normal, 0, 0, 1).next();
-        builder.vertex(matrix, x + hs, y - hs, z + hs).color(c.r, c.g, c.b, c.a).texture(1, 1).overlay(overlay).light(light).normal(normal, 0, 0, 1).next();
-        builder.vertex(matrix, x + hs, y + hs, z + hs).color(c.r, c.g, c.b, c.a).texture(1, 0).overlay(overlay).light(light).normal(normal, 0, 0, 1).next();
-        builder.vertex(matrix, x - hs, y + hs, z + hs).color(c.r, c.g, c.b, c.a).texture(0, 0).overlay(overlay).light(light).normal(normal, 0, 0, 1).next();
+        this.vertex(builder, matrix, normal, x - hs, y - hs, z + hs, 0, 1, 0, 0, 1, c, overlay, light);
+        this.vertex(builder, matrix, normal, x + hs, y - hs, z + hs, 1, 1, 0, 0, 1, c, overlay, light);
+        this.vertex(builder, matrix, normal, x + hs, y + hs, z + hs, 1, 0, 0, 0, 1, c, overlay, light);
+        this.vertex(builder, matrix, normal, x - hs, y + hs, z + hs, 0, 0, 0, 0, 1, c, overlay, light);
         
         // Back
-        builder.vertex(matrix, x + hs, y - hs, z - hs).color(c.r, c.g, c.b, c.a).texture(0, 1).overlay(overlay).light(light).normal(normal, 0, 0, -1).next();
-        builder.vertex(matrix, x - hs, y - hs, z - hs).color(c.r, c.g, c.b, c.a).texture(1, 1).overlay(overlay).light(light).normal(normal, 0, 0, -1).next();
-        builder.vertex(matrix, x - hs, y + hs, z - hs).color(c.r, c.g, c.b, c.a).texture(1, 0).overlay(overlay).light(light).normal(normal, 0, 0, -1).next();
-        builder.vertex(matrix, x + hs, y + hs, z - hs).color(c.r, c.g, c.b, c.a).texture(0, 0).overlay(overlay).light(light).normal(normal, 0, 0, -1).next();
+        this.vertex(builder, matrix, normal, x + hs, y - hs, z - hs, 0, 1, 0, 0, -1, c, overlay, light);
+        this.vertex(builder, matrix, normal, x - hs, y - hs, z - hs, 1, 1, 0, 0, -1, c, overlay, light);
+        this.vertex(builder, matrix, normal, x - hs, y + hs, z - hs, 1, 0, 0, 0, -1, c, overlay, light);
+        this.vertex(builder, matrix, normal, x + hs, y + hs, z - hs, 0, 0, 0, 0, -1, c, overlay, light);
         
         // Top
-        builder.vertex(matrix, x - hs, y + hs, z + hs).color(c.r, c.g, c.b, c.a).texture(0, 1).overlay(overlay).light(light).normal(normal, 0, 1, 0).next();
-        builder.vertex(matrix, x + hs, y + hs, z + hs).color(c.r, c.g, c.b, c.a).texture(1, 1).overlay(overlay).light(light).normal(normal, 0, 1, 0).next();
-        builder.vertex(matrix, x + hs, y + hs, z - hs).color(c.r, c.g, c.b, c.a).texture(1, 0).overlay(overlay).light(light).normal(normal, 0, 1, 0).next();
-        builder.vertex(matrix, x - hs, y + hs, z - hs).color(c.r, c.g, c.b, c.a).texture(0, 0).overlay(overlay).light(light).normal(normal, 0, 1, 0).next();
+        this.vertex(builder, matrix, normal, x - hs, y + hs, z + hs, 0, 1, 0, 1, 0, c, overlay, light);
+        this.vertex(builder, matrix, normal, x + hs, y + hs, z + hs, 1, 1, 0, 1, 0, c, overlay, light);
+        this.vertex(builder, matrix, normal, x + hs, y + hs, z - hs, 1, 0, 0, 1, 0, c, overlay, light);
+        this.vertex(builder, matrix, normal, x - hs, y + hs, z - hs, 0, 0, 0, 1, 0, c, overlay, light);
         
         // Bottom
-        builder.vertex(matrix, x - hs, y - hs, z - hs).color(c.r, c.g, c.b, c.a).texture(0, 1).overlay(overlay).light(light).normal(normal, 0, -1, 0).next();
-        builder.vertex(matrix, x + hs, y - hs, z - hs).color(c.r, c.g, c.b, c.a).texture(1, 1).overlay(overlay).light(light).normal(normal, 0, -1, 0).next();
-        builder.vertex(matrix, x + hs, y - hs, z + hs).color(c.r, c.g, c.b, c.a).texture(1, 0).overlay(overlay).light(light).normal(normal, 0, -1, 0).next();
-        builder.vertex(matrix, x - hs, y - hs, z + hs).color(c.r, c.g, c.b, c.a).texture(0, 0).overlay(overlay).light(light).normal(normal, 0, -1, 0).next();
+        this.vertex(builder, matrix, normal, x - hs, y - hs, z - hs, 0, 1, 0, -1, 0, c, overlay, light);
+        this.vertex(builder, matrix, normal, x + hs, y - hs, z - hs, 1, 1, 0, -1, 0, c, overlay, light);
+        this.vertex(builder, matrix, normal, x + hs, y - hs, z + hs, 1, 0, 0, -1, 0, c, overlay, light);
+        this.vertex(builder, matrix, normal, x - hs, y - hs, z + hs, 0, 0, 0, -1, 0, c, overlay, light);
         
         // Right
-        builder.vertex(matrix, x + hs, y - hs, z + hs).color(c.r, c.g, c.b, c.a).texture(0, 1).overlay(overlay).light(light).normal(normal, 1, 0, 0).next();
-        builder.vertex(matrix, x + hs, y - hs, z - hs).color(c.r, c.g, c.b, c.a).texture(1, 1).overlay(overlay).light(light).normal(normal, 1, 0, 0).next();
-        builder.vertex(matrix, x + hs, y + hs, z - hs).color(c.r, c.g, c.b, c.a).texture(1, 0).overlay(overlay).light(light).normal(normal, 1, 0, 0).next();
-        builder.vertex(matrix, x + hs, y + hs, z + hs).color(c.r, c.g, c.b, c.a).texture(0, 0).overlay(overlay).light(light).normal(normal, 1, 0, 0).next();
+        this.vertex(builder, matrix, normal, x + hs, y - hs, z + hs, 0, 1, 1, 0, 0, c, overlay, light);
+        this.vertex(builder, matrix, normal, x + hs, y - hs, z - hs, 1, 1, 1, 0, 0, c, overlay, light);
+        this.vertex(builder, matrix, normal, x + hs, y + hs, z - hs, 1, 0, 1, 0, 0, c, overlay, light);
+        this.vertex(builder, matrix, normal, x + hs, y + hs, z + hs, 0, 0, 1, 0, 0, c, overlay, light);
         
         // Left
-        builder.vertex(matrix, x - hs, y - hs, z - hs).color(c.r, c.g, c.b, c.a).texture(0, 1).overlay(overlay).light(light).normal(normal, -1, 0, 0).next();
-        builder.vertex(matrix, x - hs, y - hs, z + hs).color(c.r, c.g, c.b, c.a).texture(1, 1).overlay(overlay).light(light).normal(normal, -1, 0, 0).next();
-        builder.vertex(matrix, x - hs, y + hs, z + hs).color(c.r, c.g, c.b, c.a).texture(1, 0).overlay(overlay).light(light).normal(normal, -1, 0, 0).next();
-        builder.vertex(matrix, x - hs, y + hs, z - hs).color(c.r, c.g, c.b, c.a).texture(0, 0).overlay(overlay).light(light).normal(normal, -1, 0, 0).next();
+        this.vertex(builder, matrix, normal, x - hs, y - hs, z - hs, 0, 1, -1, 0, 0, c, overlay, light);
+        this.vertex(builder, matrix, normal, x - hs, y - hs, z + hs, 1, 1, -1, 0, 0, c, overlay, light);
+        this.vertex(builder, matrix, normal, x - hs, y + hs, z + hs, 1, 0, -1, 0, 0, c, overlay, light);
+        this.vertex(builder, matrix, normal, x - hs, y + hs, z - hs, 0, 0, -1, 0, 0, c, overlay, light);
     }
 
     private void renderSphereParticle(BufferBuilder builder, Matrix4f matrix, Matrix3f normalMatrix, float x, float y, float z, float size, Color c, int overlay, int light)
@@ -740,10 +707,10 @@ public class ShapeFormRenderer extends FormRenderer<ShapeForm>
                 float v0 = (float) i / subdivisions;
                 float v1 = (float) (i + 1) / subdivisions;
                 
-                builder.vertex(matrix, x + x0 * zr0 * radius, y + z0 * radius, z + y0 * zr0 * radius).color(c.r, c.g, c.b, c.a).texture(u0, v0).overlay(overlay).light(light).normal(normalMatrix, x0 * zr0, z0, y0 * zr0).next();
-                builder.vertex(matrix, x + x0 * zr1 * radius, y + z1 * radius, z + y0 * zr1 * radius).color(c.r, c.g, c.b, c.a).texture(u0, v1).overlay(overlay).light(light).normal(normalMatrix, x0 * zr1, z1, y0 * zr1).next();
-                builder.vertex(matrix, x + x1 * zr1 * radius, y + z1 * radius, z + y1 * zr1 * radius).color(c.r, c.g, c.b, c.a).texture(u1, v1).overlay(overlay).light(light).normal(normalMatrix, x1 * zr1, z1, y1 * zr1).next();
-                builder.vertex(matrix, x + x1 * zr0 * radius, y + z0 * radius, z + y1 * zr0 * radius).color(c.r, c.g, c.b, c.a).texture(u1, v0).overlay(overlay).light(light).normal(normalMatrix, x1 * zr0, z0, y1 * zr0).next();
+                this.vertex(builder, matrix, normalMatrix, x + x0 * zr0 * radius, y + z0 * radius, z + y0 * zr0 * radius, u0, v0, x0 * zr0, z0, y0 * zr0, c, overlay, light);
+                this.vertex(builder, matrix, normalMatrix, x + x0 * zr1 * radius, y + z1 * radius, z + y0 * zr1 * radius, u0, v1, x0 * zr1, z1, y0 * zr1, c, overlay, light);
+                this.vertex(builder, matrix, normalMatrix, x + x1 * zr1 * radius, y + z1 * radius, z + y1 * zr1 * radius, u1, v1, x1 * zr1, z1, y1 * zr1, c, overlay, light);
+                this.vertex(builder, matrix, normalMatrix, x + x1 * zr0 * radius, y + z0 * radius, z + y1 * zr0 * radius, u1, v0, x1 * zr0, z0, y1 * zr0, c, overlay, light);
             }
         }
     }
@@ -786,10 +753,10 @@ public class ShapeFormRenderer extends FormRenderer<ShapeForm>
         float y4 = y + uy;
         float z4 = z - rz + uz;
         
-        builder.vertex(matrix, x1, y1, z1).color(c.r, c.g, c.b, c.a).texture(0, 0).overlay(overlay).light(light).normal(normalMatrix, 0, 1, 0).next();
-        builder.vertex(matrix, x2, y2, z2).color(c.r, c.g, c.b, c.a).texture(1, 0).overlay(overlay).light(light).normal(normalMatrix, 0, 1, 0).next();
-        builder.vertex(matrix, x3, y3, z3).color(c.r, c.g, c.b, c.a).texture(1, 1).overlay(overlay).light(light).normal(normalMatrix, 0, 1, 0).next();
-        builder.vertex(matrix, x4, y4, z4).color(c.r, c.g, c.b, c.a).texture(0, 1).overlay(overlay).light(light).normal(normalMatrix, 0, 1, 0).next();
+        this.vertex(builder, matrix, normalMatrix, x1, y1, z1, 0, 0, 0, 1, 0, c, overlay, light);
+        this.vertex(builder, matrix, normalMatrix, x2, y2, z2, 1, 0, 0, 1, 0, c, overlay, light);
+        this.vertex(builder, matrix, normalMatrix, x3, y3, z3, 1, 1, 0, 1, 0, c, overlay, light);
+        this.vertex(builder, matrix, normalMatrix, x4, y4, z4, 0, 1, 0, 1, 0, c, overlay, light);
     }
 
     private void renderBox(BufferBuilder builder, MatrixStack stack, Color c, int overlay, int light)
@@ -1173,8 +1140,8 @@ public class ShapeFormRenderer extends FormRenderer<ShapeForm>
             maskHalf,
             () ->
             {
-                BufferBuilder builder = Tessellator.getInstance().getBuffer();
-
+                Tessellator tessellator = Tessellator.getInstance();
+                BufferBuilder builder = tessellator.getBuffer();
                 builder.begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL);
                 int paintLight = LightmapTextureManager.MAX_LIGHT_COORDINATE;
 
@@ -1240,8 +1207,8 @@ public class ShapeFormRenderer extends FormRenderer<ShapeForm>
             formTintColor,
             () ->
             {
-                BufferBuilder builder = Tessellator.getInstance().getBuffer();
-
+                Tessellator tessellator = Tessellator.getInstance();
+                BufferBuilder builder = tessellator.getBuffer();
                 builder.begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL);
                 int tintLight = LightmapTextureManager.MAX_LIGHT_COORDINATE;
 

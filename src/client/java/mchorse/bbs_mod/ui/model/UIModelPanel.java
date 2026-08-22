@@ -154,6 +154,7 @@ public class UIModelPanel extends UIDataDashboardPanel<ModelConfig> implements I
         this.renderer = new UIModelEditorRenderer();
         this.renderer.relative(this).wTo(this.iconBar.getFlex()).h(1F);
         this.renderer.setCallback(this::pickBone);
+        this.renderer.setCubeCallback(this::pickCube);
 
         this.editor.resetFlex().relative(this).w(1F).h(1F);
 
@@ -1450,6 +1451,11 @@ public class UIModelPanel extends UIDataDashboardPanel<ModelConfig> implements I
 
     public void setPanel(UIElement panel)
     {
+        if (this.geometryPanel != null && panel != this.geometryPanel)
+        {
+            this.geometryPanel.onPanelClosed();
+        }
+
         this.mainView.removeAll();
         this.mainView.add(panel);
         this.resetEditorScrolls();
@@ -1463,6 +1469,7 @@ public class UIModelPanel extends UIDataDashboardPanel<ModelConfig> implements I
         else if (panel == this.geometryPanel)
         {
             this.renderer.transform = this.geometryPanel.getGizmoTransformEditor();
+            this.geometryPanel.onPanelOpened();
         }
         else if (panel == this.ikPanel)
         {
@@ -1737,10 +1744,27 @@ public class UIModelPanel extends UIDataDashboardPanel<ModelConfig> implements I
             {
                 this.constraintsPanel.onBoneSelected(bone);
             }
+
+            if (this.geometryPanel != null && this.geometryPanel.hasParent())
+            {
+                this.geometryPanel.selectBone(bone);
+            }
         }
         finally
         {
             this.pickingBone = false;
+        }
+    }
+
+    private void pickCube(UIModelEditorRenderer.PickedCube pickedCube)
+    {
+        if (this.geometryPanel != null && this.geometryPanel.hasParent() && pickedCube != null)
+        {
+            this.geometryPanel.selectCube(pickedCube.groupId, pickedCube.cubeIndex);
+        }
+        else if (pickedCube != null)
+        {
+            this.pickBone(pickedCube.groupId);
         }
     }
     

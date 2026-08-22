@@ -10,6 +10,7 @@ import mchorse.bbs_mod.ui.UIKeys;
 import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.ui.framework.elements.UIElement;
 import mchorse.bbs_mod.ui.framework.elements.utils.FontRenderer;
+import mchorse.bbs_mod.ui.framework.elements.utils.UIModelRenderer;
 import mchorse.bbs_mod.ui.utils.Gizmo;
 import mchorse.bbs_mod.ui.utils.UIUtils;
 import mchorse.bbs_mod.ui.utils.context.ContextMenuManager;
@@ -1087,12 +1088,7 @@ public class UIPropTransform extends UITransform
         }
 
         GLFW.glfwGetCursorPos(Window.getWindow(), CURSOR_X, CURSOR_Y);
-
-        MinecraftClient mc = MinecraftClient.getInstance();
-        double fx = Math.ceil(mc.getWindow().getWidth() / (double) context.menu.width);
-        double fy = Math.ceil(mc.getWindow().getHeight() / (double) context.menu.height);
-
-        this.updateRayDragMouse(fx, fy);
+        this.updateRayDragMouse(context);
     }
 
     /** Re-read cursor position into ray/UI mouse fields without touching drag anchors. */
@@ -1105,13 +1101,9 @@ public class UIPropTransform extends UITransform
 
         GLFW.glfwGetCursorPos(Window.getWindow(), CURSOR_X, CURSOR_Y);
 
-        MinecraftClient mc = MinecraftClient.getInstance();
-        double fx = Math.ceil(mc.getWindow().getWidth() / (double) context.menu.width);
-        double fy = Math.ceil(mc.getWindow().getHeight() / (double) context.menu.height);
-
         if (this.gizmoRayProvider != null)
         {
-            this.updateRayDragMouse(fx, fy);
+            this.updateRayDragMouse(context);
         }
     }
 
@@ -1143,10 +1135,6 @@ public class UIPropTransform extends UITransform
             return;
         }
 
-        MinecraftClient mc = MinecraftClient.getInstance();
-        double fx = Math.ceil(mc.getWindow().getWidth() / (double) context.menu.width);
-        double fy = Math.ceil(mc.getWindow().getHeight() / (double) context.menu.height);
-
         int dragMouseX;
         int dragMouseY;
 
@@ -1157,6 +1145,9 @@ public class UIPropTransform extends UITransform
         }
         else
         {
+            double fx = uiScaleX(context);
+            double fy = uiScaleY(context);
+
             dragMouseX = (int) Math.round(CURSOR_X[0] / fx);
             dragMouseY = (int) Math.round(CURSOR_Y[0] / fy);
         }
@@ -2101,10 +2092,8 @@ public class UIPropTransform extends UITransform
 
         double rawX = CURSOR_X[0];
         double rawY = CURSOR_Y[0];
-        double fx = Math.ceil(w / (double) context.menu.width);
-        double fy = Math.ceil(h / (double) context.menu.height);
 
-        this.updateRayDragMouse(fx, fy);
+        this.updateRayDragMouse(context);
 
         int border = 5;
         int borderPadding = border + 1;
@@ -2413,10 +2402,30 @@ public class UIPropTransform extends UITransform
         this.lastY = dragMouseY;
     }
 
-    private void updateRayDragMouse(double fx, double fy)
+    /**
+     * Exact window-pixel → BBS-menu ratio. Must not ceil/round: fractional GUI scales
+     * (e.g. 1.5) would snap to 2 and skew gizmo ray grab points — same rule as
+     * {@link UIModelRenderer#setupViewport}
+     * and {@link Gizmo#renderInterface}.
+     */
+    private static double uiScaleX(UIContext context)
     {
-        this.rayDragMouseX = (int) Math.round(CURSOR_X[0] / fx);
-        this.rayDragMouseY = (int) Math.round(CURSOR_Y[0] / fy);
+        int menuW = context.menu.width;
+
+        return menuW <= 0 ? 1D : MinecraftClient.getInstance().getWindow().getWidth() / (double) menuW;
+    }
+
+    private static double uiScaleY(UIContext context)
+    {
+        int menuH = context.menu.height;
+
+        return menuH <= 0 ? 1D : MinecraftClient.getInstance().getWindow().getHeight() / (double) menuH;
+    }
+
+    private void updateRayDragMouse(UIContext context)
+    {
+        this.rayDragMouseX = (int) Math.round(CURSOR_X[0] / uiScaleX(context));
+        this.rayDragMouseY = (int) Math.round(CURSOR_Y[0] / uiScaleY(context));
     }
 
     private int resolveDragMouseX(UIContext context)

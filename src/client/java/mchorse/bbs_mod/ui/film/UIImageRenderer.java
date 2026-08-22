@@ -2,17 +2,19 @@ package mchorse.bbs_mod.ui.film;
 
 import mchorse.bbs_mod.BBSModClient;
 import mchorse.bbs_mod.camera.clips.misc.ImageOverlay;
+import mchorse.bbs_mod.client.BBSShaders;
 import mchorse.bbs_mod.forms.renderers.utils.FormTextureBlendRenderer;
 import mchorse.bbs_mod.graphics.texture.Texture;
 import mchorse.bbs_mod.ui.framework.elements.utils.Batcher2D;
-import mchorse.bbs_mod.utils.MathUtils;
 import mchorse.bbs_mod.utils.Quad;
 import mchorse.bbs_mod.utils.colors.Color;
 
 import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.gl.GlUniform;
 import net.minecraft.client.gl.ShaderProgram;
 import net.minecraft.client.render.GameRenderer;
 import net.minecraft.client.util.math.MatrixStack;
+import net.minecraft.util.math.RotationAxis;
 
 import org.joml.Matrix4f;
 import org.joml.Vector4f;
@@ -39,15 +41,14 @@ public class UIImageRenderer
             return;
         }
 
-        /* Use the vanilla textured program so subtitle Blur/TextureSize uniforms
-         * never leak into image overlays when both share the HUD pass. */
-        Supplier<ShaderProgram> supplier = GameRenderer::getPositionTexColorProgram;
-
         net.minecraft.client.gl.Framebuffer fb = MinecraftClient.getInstance().getFramebuffer();
         int width = fb.textureWidth / 2;
         int height = fb.textureHeight / 2;
         Matrix4f cache = new Matrix4f(RenderSystem.getProjectionMatrix());
-        Matrix4f ortho = new Matrix4f().ortho(0, width, height, 0, -100, 100);
+        /* X/Y rotations move quad corners into Z. The old ±100 near/far clipped
+         * those sides as angle increased; size the depth range for screen-scale quads. */
+        float zExtent = Math.max(1000F, Math.max(width, height) * 8F);
+        Matrix4f ortho = new Matrix4f().ortho(0, width, height, 0, -zExtent, zExtent);
 
         RenderSystem.setProjectionMatrix(ortho, VertexSorter.BY_Z);
         RenderSystem.depthFunc(GL11.GL_ALWAYS);
@@ -98,8 +99,76 @@ public class UIImageRenderer
                 stack.push();
                 stack.translate(x, y, 0);
 
+                /* Rotate around the image anchor in XYZ. Legacy "rotation" is Z
+                 * (in-plane); rotationX/Y are additive and default to 0 for old films. */
+                if (overlay.rotationX != 0F)
+                {
+                    stack.multiply(RotationAxis.POSITIVE_X.rotationDegrees(overlay.rotationX));
+                }
+
+                if (overlay.rotationY != 0F)
+                {
+                    stack.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(overlay.rotationY));
+                }
+
+                if (overlay.rotation != 0F)
+                {
+                    stack.multiply(RotationAxis.POSITIVE_Z.rotationDegrees(overlay.rotation));
+                }
+
                 texture.setFilterMipmap(overlay.linear, overlay.mipmap);
+
+                ShaderProgram program = BBSShaders.getImageOverlayProgram();
+
+                if (program != null)
+                {
+                    GlUniform blendModeUniform = program.getUniform("BlendMode");
+
+                    if (blendModeUniform != null)
+                    {
+                        blendModeUniform.set(overlay.blendMode);
+                    }
+                }
+
+                Supplier<ShaderProgram> supplier = program != null ? () -> program : GameRenderer::getPositionTexColorProgram;
+
+                if (overlay.blendMode != 0)
+                {
+                    batcher.flushDraw();
+                    switch (overlay.blendMode)
+                    {
+                        case 1: /* Multiply — (1 - a*(1-src))*dst = a*src*dst + (1-a)*dst */
+                            RenderSystem.blendFunc(GL11.GL_DST_COLOR, GL11.GL_ZERO);
+                            break;
+                        case 2: /* Screen — 1-(1-src)*(1-dst), smoothly fades to dst with alpha */
+                            RenderSystem.blendFunc(GL11.GL_ONE, GL11.GL_ONE_MINUS_SRC_COLOR);
+                            break;
+                        case 3: /* Add / Linear Dodge — src+dst */
+                            RenderSystem.blendFunc(GL11.GL_ONE, GL11.GL_ONE);
+                            break;
+                        case 4: /* Saturation — modulates dest saturation via src color channels */
+                            RenderSystem.blendFunc(GL11.GL_SRC_COLOR, GL11.GL_ONE_MINUS_SRC_COLOR);
+                            break;
+                        case 5: /* Incrustation (Silhouette Luma) — bright src punches hole in dest */
+                            RenderSystem.blendFunc(GL11.GL_ZERO, GL11.GL_ONE_MINUS_SRC_COLOR);
+                            break;
+                        case 6: /* Exclusion — src*(1-dst) + dst*(1-src) = src+dst-2*src*dst */
+                            RenderSystem.blendFunc(GL11.GL_ONE_MINUS_DST_COLOR, GL11.GL_ONE_MINUS_SRC_COLOR);
+                            break;
+                        case 7: /* Overlay / Vivid Multiply — (1 + a*(2*src-1))*dst = a*(2*src*dst) + (1-a)*dst */
+                            RenderSystem.blendFunc(GL11.GL_DST_COLOR, GL11.GL_ZERO);
+                            break;
+                        case 8: /* Color Dodge — src*src + dst */
+                            RenderSystem.blendFunc(GL11.GL_SRC_COLOR, GL11.GL_ONE);
+                            break;
+                    }
+                }
                 batcher.texturedBox(supplier, texture.id, color, drawX, drawY, fw, fh, uv[0], uv[1], uv[2], uv[3], texture.width, texture.height);
+                if (overlay.blendMode != 0)
+                {
+                    batcher.flushDraw();
+                    RenderSystem.blendFuncSeparate(GlStateManager.SrcFactor.SRC_ALPHA, GlStateManager.DstFactor.ONE_MINUS_SRC_ALPHA, GlStateManager.SrcFactor.ONE, GlStateManager.DstFactor.ONE_MINUS_SRC_ALPHA);
+                }
                 texture.setFilterMipmap(false, false);
 
                 stack.pop();
@@ -150,16 +219,11 @@ public class UIImageRenderer
             uvQuad.p4.set(uvBRx, uvBRy, 0);
         }
 
-        if (overlay.offsetX != 0F || overlay.offsetY != 0F || overlay.rotation != 0F)
+        /* UV shift only — image rotation is applied in screen space above. */
+        if (overlay.offsetX != 0F || overlay.offsetY != 0F)
         {
-            float centerX = (crop.x + (ow - crop.z)) / 2F / ow;
-            float centerY = (crop.y + (oh - crop.w)) / 2F / oh;
-
             matrix.identity()
-                .translate(centerX, centerY, 0)
-                .rotateZ(MathUtils.toRad(overlay.rotation))
-                .translate(overlay.offsetX / ow, overlay.offsetY / oh, 0)
-                .translate(-centerX, -centerY, 0);
+                .translate(overlay.offsetX / ow, overlay.offsetY / oh, 0);
 
             uvQuad.transform(matrix);
         }

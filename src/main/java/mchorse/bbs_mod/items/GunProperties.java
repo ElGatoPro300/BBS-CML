@@ -104,7 +104,7 @@ public class GunProperties extends ModelProperties
         Transform tp = properties.getTransformThirdPerson();
         Transform fp = properties.getTransformFirstPerson();
 
-        value.particle = new Identifier("minecraft:falling_water");
+        value.particle = Identifier.of("minecraft", "falling_water");
         projectileForm.settings.set(value);
         projectileForm.frequency.set(1);
         projectileForm.offsetX.set(0.1F);

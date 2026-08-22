@@ -93,6 +93,55 @@ public class ModelManager implements IWatchDogListener
         this.registerRelodableSuffix("/" + DYNAMIC_CONFIG_FILE);
     }
 
+    /**
+     * Warm the shared Emoticons clip library so the first heavy {@code emoticons/alex}
+     * / {@code steve} load on low-end machines does not contend with parsing actions.bobj.
+     */
+    public void ensureEmoticonDefaultAnimations()
+    {
+        for (IModelLoader loader : this.loaders)
+        {
+            if (loader instanceof BOBJModelLoader bobjLoader)
+            {
+                bobjLoader.ensureDefaultAnimations(this.provider, this.parser);
+            }
+            else if (loader instanceof FBXModelLoader fbxLoader)
+            {
+                fbxLoader.ensureDefaultAnimations(this.provider, this.parser);
+            }
+        }
+    }
+
+    /**
+     * If an already-loaded emoticons model somehow has no clips (failed first-time
+     * actions.bobj parse), merge the shared library in place.
+     */
+    public void ensureEmoticonAnimations(ModelInstance model)
+    {
+        if (model == null || model.id == null || !model.id.startsWith("emoticons/"))
+        {
+            return;
+        }
+
+        if (model.animations != null && !model.animations.animations.isEmpty())
+        {
+            return;
+        }
+
+        this.ensureEmoticonDefaultAnimations();
+
+        for (IModelLoader loader : this.loaders)
+        {
+            if (loader instanceof BOBJModelLoader bobjLoader)
+            {
+                bobjLoader.ensureDefaultAnimations(this.provider, this.parser);
+                bobjLoader.mergeDefaultAnimationsInto(model);
+
+                break;
+            }
+        }
+    }
+
     public void registerLoader(IModelLoader loader)
     {
         if (loader == null)
@@ -243,6 +292,7 @@ public class ModelManager implements IWatchDogListener
             System.out.println("Model \"" + id + "\" was loaded!");
 
             ProceduralDefaults.ensureForModelInstance(model, this.provider, this.parser);
+            this.ensureEmoticonAnimations(model);
             model.setup();
 
             ModelInstance existing = this.models.get(id);

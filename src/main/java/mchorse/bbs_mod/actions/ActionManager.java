@@ -3,6 +3,7 @@ package mchorse.bbs_mod.actions;
 import mchorse.bbs_mod.actions.types.ActionClip;
 import mchorse.bbs_mod.data.types.BaseType;
 import mchorse.bbs_mod.film.Film;
+import mchorse.bbs_mod.network.ServerNetwork;
 import mchorse.bbs_mod.utils.DataPath;
 
 import net.minecraft.block.BlockState;
@@ -129,11 +130,65 @@ public class ActionManager
 
     public void startRecording(Film film, ServerPlayerEntity entity, int tick, int countdown, int replayId)
     {
-        ActionPlayer play = this.play(entity, entity.getServerWorld(), film, tick, countdown, replayId, PlayerType.RECORDING);
+        this.startRecording(film, entity, tick, tick, countdown, replayId, false);
+    }
 
-        play.stopDamage = false;
+    /**
+     * @param tick film playhead tick used by both playback and recorder.
+     * @param recorderOnly when true (film-editor viewport), keep any existing
+     *        {@link ActionPlayer} (FILM_EDITOR actors / puppet) and only attach
+     *        an {@link ActionRecorder}. Outside/world recording uses false.
+     */
+    public void startRecording(Film film, ServerPlayerEntity entity, int tick, int countdown, int replayId, boolean recorderOnly)
+    {
+        this.startRecording(film, entity, tick, tick, countdown, replayId, recorderOnly);
+    }
 
-        this.recorders.put(entity, new ActionRecorder(film, entity, tick, countdown));
+    /**
+     * @param playbackTick film playhead tick used by {@link ActionPlayer}.
+     * @param recorderTick local tick used by {@link ActionRecorder}; outside
+     *        recording uses 0 so returned clips can be copied over at the
+     *        original playhead without double-offsetting.
+     * @param recorderOnly when true (film-editor viewport), keep any existing
+     *        {@link ActionPlayer} (FILM_EDITOR actors / puppet) and only attach
+     *        an {@link ActionRecorder}. Outside/world recording uses false.
+     */
+    public void startRecording(Film film, ServerPlayerEntity entity, int playbackTick, int recorderTick, int countdown, int replayId, boolean recorderOnly)
+    {
+        ActionPlayer playback = null;
+
+        if (recorderOnly)
+        {
+            ActionPlayer existing = this.getPlayer(film.getId());
+
+            if (existing == null)
+            {
+                existing = this.play(entity, entity.getServerWorld(), film, playbackTick, PlayerType.FILM_EDITOR);
+                existing.syncing = true;
+                existing.playing = false;
+            }
+
+            if (replayId >= 0)
+            {
+                existing.controlledReplay = replayId;
+            }
+
+            playback = existing;
+        }
+        else
+        {
+            ActionPlayer play = this.play(entity, entity.getServerWorld(), film, playbackTick, countdown, replayId, PlayerType.RECORDING);
+
+            play.stopDamage = false;
+            playback = play;
+        }
+
+        if (playback != null)
+        {
+            playback.syncCombatState(playbackTick);
+        }
+
+        this.recorders.put(entity, new ActionRecorder(film, entity, recorderTick, countdown));
     }
 
     public void addAction(ServerPlayerEntity entity, Supplier<ActionClip> supplier)
@@ -151,12 +206,75 @@ public class ActionManager
         }
     }
 
+    public boolean hasActiveRecorders(ServerWorld world)
+    {
+        if (this.recorders.isEmpty())
+        {
+            return false;
+        }
+
+        for (ServerPlayerEntity player : this.recorders.keySet())
+        {
+            if (player != null && player.getServerWorld() == world)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Notify recording clients so autocapture can place combat clips on mob replays.
+     */
+    public void broadcastMobCombatHit(ServerWorld world, int victimEntityId, int sourceEntityId, float amount, byte kind)
+    {
+        for (ServerPlayerEntity player : this.recorders.keySet())
+        {
+            if (player != null && player.getServerWorld() == world)
+            {
+                ServerNetwork.sendMobCombatAction(player, victimEntityId, sourceEntityId, amount, kind);
+            }
+        }
+    }
+
+    /**
+     * Notify recording clients so autocapture can follow vanilla mob conversions.
+     */
+    public void broadcastMobConversion(ServerWorld world, int oldEntityId, int newEntityId)
+    {
+        for (ServerPlayerEntity player : this.recorders.keySet())
+        {
+            if (player != null && player.getServerWorld() == world)
+            {
+                ServerNetwork.sendMobConversion(player, oldEntityId, newEntityId);
+            }
+        }
+    }
+
     public ActionRecorder stopRecording(ServerPlayerEntity entity)
+    {
+        return this.stopRecording(entity, false);
+    }
+
+    /**
+     * @param recorderOnly when true, detach the recorder and return clips without
+     *        tearing down the film's {@link ActionPlayer} (viewport recording).
+     */
+    public ActionRecorder stopRecording(ServerPlayerEntity entity, boolean recorderOnly)
     {
         ActionRecorder remove = this.recorders.remove(entity);
 
-        this.stop(remove.getFilm().getId());
-        this.stopDamage(entity.getServerWorld());
+        if (remove == null)
+        {
+            return null;
+        }
+
+        if (!recorderOnly)
+        {
+            this.stop(remove.getFilm().getId());
+            this.stopDamage(entity.getServerWorld());
+        }
 
         return remove;
     }

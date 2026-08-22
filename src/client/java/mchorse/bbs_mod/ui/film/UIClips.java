@@ -249,6 +249,7 @@ public class UIClips extends UIElement
                 menu.action(Icons.SHIFT_TO, UIKeys.CAMERA_TIMELINE_CONTEXT_SHIFT_DURATION, this::shiftDurationToCursor);
             }
 
+            menu.action(Icons.MAXIMIZE, UIKeys.CAMERA_TIMELINE_CONTEXT_MAXIMIZE, this::resetView);
             menu.action(Icons.EXCHANGE, UIKeys.CAMERA_TIMELINE_CONTEXT_REORGANIZE, () -> this.clips.sortLayers());
 
             if (hasSelected)
@@ -1111,6 +1112,14 @@ public class UIClips extends UIElement
     public void toolbarDeselectAll()
     {
         this.pickClip(null);
+    }
+
+    /**
+     * Toolbar action: reset horizontal view scale to fit all clips in the timeline.
+     */
+    public void toolbarResetView()
+    {
+        this.resetView();
     }
 
     /**
@@ -2281,7 +2290,7 @@ public class UIClips extends UIElement
 
         batcher.box(this.area.x, this.area.y, this.area.ex(), this.area.ey(), 0xee0b0d12);
         batcher.box(this.area.x, this.area.y, this.area.ex(), this.area.y + RULER_HEIGHT, 0xff111115);
-        batcher.box(this.area.x, this.area.y + RULER_HEIGHT - 1, this.area.ex(), this.area.y + RULER_HEIGHT, 0x44ffffff);
+        batcher.box(this.area.x, this.area.y + RULER_HEIGHT - 1, this.area.ex(), this.area.y + RULER_HEIGHT, 0x22ffffff);
 
         batcher.clip(this.vertical.area, context);
 
@@ -2388,7 +2397,7 @@ public class UIClips extends UIElement
         {
             int xx = this.toGraphX(j);
             boolean majorTick = j % major == 0;
-            int lineColor = majorTick ? 0x44ffffff : 0x18ffffff;
+            int lineColor = majorTick ? 0x1cffffff : 0x0affffff;
             int tickBottom = this.area.y + RULER_HEIGHT;
             int tickHeight = majorTick ? 8 : 4;
 

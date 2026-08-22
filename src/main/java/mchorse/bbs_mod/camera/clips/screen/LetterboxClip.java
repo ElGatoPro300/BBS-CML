@@ -176,6 +176,7 @@ public class LetterboxClip extends CameraClip
             this.effect.zoom = Math.max(0.01F, zm);
             this.effect.offsetX = offX;
             this.effect.offsetY = offY;
+            this.effect.renderOrder = context.applied;
 
             getEffects(context).add(this.effect);
         }

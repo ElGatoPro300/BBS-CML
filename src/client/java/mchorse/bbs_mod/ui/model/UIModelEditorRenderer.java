@@ -44,6 +44,7 @@ import mchorse.bbs_mod.utils.MatrixStackUtils;
 import mchorse.bbs_mod.utils.Pair;
 import mchorse.bbs_mod.utils.colors.Color;
 import mchorse.bbs_mod.utils.colors.Colors;
+import mchorse.bbs_mod.utils.pose.Pose;
 
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.network.ClientPlayerEntity;
@@ -62,6 +63,7 @@ import net.minecraft.item.ItemStack;
 import net.minecraft.util.math.RotationAxis;
 
 import org.joml.Matrix4f;
+import org.joml.Vector3d;
 import org.joml.Vector3f;
 
 import com.mojang.blaze3d.platform.GlStateManager;
@@ -86,12 +88,22 @@ public class UIModelEditorRenderer extends UIModelRenderer implements GizmoSurfa
 
     public UIPropTransform transform;
 
+    public enum ViewportMode
+    {
+        TEXTURED,
+        WIREFRAME,
+        XRAY
+    }
+
+    public ViewportMode viewportMode = ViewportMode.TEXTURED;
+
     private final GizmoController gizmoController = new GizmoController(this);
 
     private ModelForm form = new ModelForm();
     private ModelFormRenderer renderer;
     private ModelConfig config;
     private Consumer<String> callback;
+    private Consumer<PickedCube> cubeCallback;
     private boolean pickingEnabled = true;
     private String selectedBone;
     private ModelCube selectedCube;
@@ -165,12 +177,37 @@ public class UIModelEditorRenderer extends UIModelRenderer implements GizmoSurfa
         {
             this.previewModel.applyConfig((MapType) config.toData());
             this.previewModel.form = this.form;
+            this.syncPreviewParts(this.previewModel);
         }
+    }
+
+    /**
+     * Prefer the live {@link ModelConfig#parts} pose over a toData/fromData round-trip so
+     * bone paint / glow / grade (and their transforms) stay in sync while editing.
+     */
+    private void syncPreviewParts(ModelInstance model)
+    {
+        if (model == null || this.config == null)
+        {
+            return;
+        }
+
+        if (model.parts == null)
+        {
+            model.parts = new Pose();
+        }
+
+        model.parts.copy(this.config.parts.get());
     }
 
     public void setCallback(Consumer<String> callback)
     {
         this.callback = callback;
+    }
+
+    public void setCubeCallback(Consumer<PickedCube> cubeCallback)
+    {
+        this.cubeCallback = cubeCallback;
     }
 
     public void setPickingEnabled(boolean pickingEnabled)
@@ -398,6 +435,14 @@ public class UIModelEditorRenderer extends UIModelRenderer implements GizmoSurfa
             return true;
         }
 
+        PickedCube pickedCube = this.pickCubeAt(context);
+
+        if (pickedCube != null && this.cubeCallback != null)
+        {
+            this.cubeCallback.accept(pickedCube);
+            return true;
+        }
+
         if (this.stencil.hasPicked())
         {
             Pair<Form, String> picked = this.stencil.getPicked();
@@ -476,8 +521,25 @@ public class UIModelEditorRenderer extends UIModelRenderer implements GizmoSurfa
             .camera(this.camera)
             .modelRenderer();
 
-        this.renderer.render(formContext);
+        if (this.viewportMode == ViewportMode.XRAY)
+        {
+            RenderSystem.enableBlend();
+            RenderSystem.setShaderColor(1F, 1F, 1F, 0.35F);
+            this.renderer.render(formContext);
+            RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
+        }
+        else if (this.viewportMode == ViewportMode.TEXTURED)
+        {
+            this.renderer.render(formContext);
+        }
+
         MatrixCache matrixCache = this.renderer.collectMatrices(this.entity, context.getTransition());
+
+        if (this.viewportMode == ViewportMode.WIREFRAME || this.viewportMode == ViewportMode.XRAY)
+        {
+            this.renderAllCubesWireframe(context, matrixCache, 0.4F, 0.7F, 1F, 0.75F);
+        }
+
         this.renderSelectedCubeVisualizer(context, matrixCache);
 
         if (fpHandPreview && fpGroupId != null && !fpGroupId.isEmpty())
@@ -686,7 +748,21 @@ public class UIModelEditorRenderer extends UIModelRenderer implements GizmoSurfa
             return;
         }
 
-        Matrix4f cubeMatrix = this.getCubePivotMatrix(cache);
+        ModelInstance instance = this.getPreviewModelInstance();
+
+        if (instance == null || !(instance.model instanceof Model model))
+        {
+            return;
+        }
+
+        ModelGroup group = model.getGroup(this.selectedBone);
+
+        if (group == null)
+        {
+            return;
+        }
+
+        Matrix4f cubeMatrix = this.getCubePivotMatrix(cache, group, this.selectedCube);
         Matrix4f uiMatrix = context.batcher.getContext().getMatrices().peek().getPositionMatrix();
 
         if (cubeMatrix == null)
@@ -707,10 +783,10 @@ public class UIModelEditorRenderer extends UIModelRenderer implements GizmoSurfa
             return;
         }
 
-        BufferBuilder builder = Tessellator.getInstance().getBuffer();
-
+        Tessellator tessellator = Tessellator.getInstance();
         RenderSystem.setShader(GameRenderer::getPositionColorProgram);
         RenderSystem.enableBlend();
+        BufferBuilder builder = tessellator.getBuffer();
         builder.begin(VertexFormat.DrawMode.DEBUG_LINES, VertexFormats.POSITION_COLOR);
 
         for (ModelQuad quad : this.selectedCube.quads)
@@ -737,7 +813,76 @@ public class UIModelEditorRenderer extends UIModelRenderer implements GizmoSurfa
         BufferRenderer.drawWithGlobalProgram(builder.end());
     }
 
-    private Matrix4f getCubePivotMatrix(MatrixCache cache)
+    private void renderAllCubesWireframe(UIContext context, MatrixCache cache, float r, float g, float bl, float alpha)
+    {
+        ModelInstance instance = this.getPreviewModelInstance();
+
+        if (instance == null || !(instance.model instanceof Model model))
+        {
+            return;
+        }
+
+        Matrix4f uiMatrix = context.batcher.getContext().getMatrices().peek().getPositionMatrix();
+        Tessellator tessellator = Tessellator.getInstance();
+        RenderSystem.setShader(GameRenderer::getPositionColorProgram);
+        RenderSystem.enableBlend();
+        BufferBuilder builder = tessellator.getBuffer();
+        builder.begin(VertexFormat.DrawMode.DEBUG_LINES, VertexFormats.POSITION_COLOR);
+
+        for (ModelGroup group : model.getAllGroups())
+        {
+            if (!group.visible)
+            {
+                continue;
+            }
+
+            for (ModelCube cube : group.cubes)
+            {
+                if (!cube.visible || cube.quads.isEmpty())
+                {
+                    continue;
+                }
+
+                Matrix4f cubeMatrix = this.getCubePivotMatrix(cache, group, cube);
+
+                if (cubeMatrix == null)
+                {
+                    continue;
+                }
+
+                MatrixStack cubeStack = new MatrixStack();
+                MatrixStackUtils.multiply(cubeStack, cubeMatrix);
+                CubicCubeRenderer.rotate(cubeStack, cube.rotate);
+                CubicCubeRenderer.moveBackFromPivot(cubeStack, cube.pivot);
+                Matrix4f finalMatrix = new Matrix4f(cubeStack.peek().getPositionMatrix());
+
+                for (ModelQuad quad : cube.quads)
+                {
+                    if (quad.vertices.size() != 4)
+                    {
+                        continue;
+                    }
+
+                    for (int i = 0; i < 4; i++)
+                    {
+                        ModelVertex va = quad.vertices.get(i);
+                        ModelVertex vb = quad.vertices.get((i + 1) % 4);
+                        Vector3f a = new Vector3f(va.vertex);
+                        Vector3f b = new Vector3f(vb.vertex);
+
+                        finalMatrix.transformPosition(a);
+                        finalMatrix.transformPosition(b);
+
+                        this.line(builder, uiMatrix, a, b, r, g, bl, alpha);
+                    }
+                }
+            }
+        }
+
+        BufferRenderer.drawWithGlobalProgram(builder.end());
+    }
+
+    public Matrix4f getCubePivotMatrix(MatrixCache cache)
     {
         if (this.selectedCube == null || this.selectedBone == null || this.selectedBone.isEmpty())
         {
@@ -753,7 +898,12 @@ public class UIModelEditorRenderer extends UIModelRenderer implements GizmoSurfa
 
         ModelGroup group = model.getGroup(this.selectedBone);
 
-        if (group == null)
+        return this.getCubePivotMatrix(cache, group, this.selectedCube);
+    }
+
+    public Matrix4f getCubePivotMatrix(MatrixCache cache, ModelGroup group, ModelCube cube)
+    {
+        if (cube == null || group == null)
         {
             return null;
         }
@@ -785,9 +935,128 @@ public class UIModelEditorRenderer extends UIModelRenderer implements GizmoSurfa
             ICubicRenderer.moveBackFromGroupPivot(cubeStack, element);
         }
 
-        CubicCubeRenderer.moveToPivot(cubeStack, this.selectedCube.pivot);
+        CubicCubeRenderer.moveToPivot(cubeStack, cube.pivot);
 
         return new Matrix4f(cubeStack.peek().getPositionMatrix());
+    }
+
+    public static class PickedCube
+    {
+        public final String groupId;
+        public final int cubeIndex;
+        public final ModelCube cube;
+
+        public PickedCube(String groupId, int cubeIndex, ModelCube cube)
+        {
+            this.groupId = groupId;
+            this.cubeIndex = cubeIndex;
+            this.cube = cube;
+        }
+    }
+
+    public PickedCube pickCubeAt(UIContext context)
+    {
+        ModelInstance instance = this.getPreviewModelInstance();
+
+        if (instance == null || !(instance.model instanceof Model model))
+        {
+            return null;
+        }
+
+        Vector3f rayDir = this.camera.getMouseDirection(
+            context.mouseX,
+            context.mouseY,
+            context.globalX(this.area.x),
+            context.globalY(this.area.y),
+            this.area.w,
+            this.area.h
+        );
+
+        if (rayDir == null || rayDir.lengthSquared() < 1e-6F)
+        {
+            return null;
+        }
+
+        Vector3f rayOrigin = new Vector3f(
+            (float) this.camera.position.x,
+            (float) this.camera.position.y,
+            (float) this.camera.position.z
+        );
+
+        MatrixCache cache = this.renderer.collectMatrices(this.entity, context.getTransition());
+        PickedCube closest = null;
+        float minDistance = Float.MAX_VALUE;
+
+        for (ModelGroup group : model.getAllGroups())
+        {
+            if (!group.visible)
+            {
+                continue;
+            }
+
+            for (int i = 0; i < group.cubes.size(); i++)
+            {
+                ModelCube cube = group.cubes.get(i);
+
+                if (!cube.visible)
+                {
+                    continue;
+                }
+
+                Matrix4f cubePivotMatrix = this.getCubePivotMatrix(cache, group, cube);
+
+                if (cubePivotMatrix == null)
+                {
+                    continue;
+                }
+
+                MatrixStack cubeStack = new MatrixStack();
+
+                MatrixStackUtils.multiply(cubeStack, cubePivotMatrix);
+                CubicCubeRenderer.rotate(cubeStack, cube.rotate);
+                CubicCubeRenderer.moveBackFromPivot(cubeStack, cube.pivot);
+
+                Matrix4f worldMatrix = new Matrix4f(cubeStack.peek().getPositionMatrix());
+                Matrix4f invMatrix = new Matrix4f(worldMatrix).invert();
+
+                Vector3f localOrigin = new Vector3f((float) rayOrigin.x, (float) rayOrigin.y, (float) rayOrigin.z);
+                Vector3f localDir = new Vector3f(rayDir);
+
+                invMatrix.transformPosition(localOrigin);
+                invMatrix.transformDirection(localDir).normalize();
+
+                float minX = (cube.origin.x - cube.inflate) / 16F;
+                float minY = (cube.origin.y - cube.inflate) / 16F;
+                float minZ = (cube.origin.z - cube.inflate) / 16F;
+                float maxX = (cube.origin.x + cube.size.x + cube.inflate) / 16F;
+                float maxY = (cube.origin.y + cube.size.y + cube.inflate) / 16F;
+                float maxZ = (cube.origin.z + cube.size.z + cube.inflate) / 16F;
+
+                /* Ray-AABB intersection slab test */
+                float t1 = (minX - localOrigin.x) / (localDir.x != 0 ? localDir.x : 1e-6F);
+                float t2 = (maxX - localOrigin.x) / (localDir.x != 0 ? localDir.x : 1e-6F);
+                float t3 = (minY - localOrigin.y) / (localDir.y != 0 ? localDir.y : 1e-6F);
+                float t4 = (maxY - localOrigin.y) / (localDir.y != 0 ? localDir.y : 1e-6F);
+                float t5 = (minZ - localOrigin.z) / (localDir.z != 0 ? localDir.z : 1e-6F);
+                float t6 = (maxZ - localOrigin.z) / (localDir.z != 0 ? localDir.z : 1e-6F);
+
+                float tmin = Math.max(Math.max(Math.min(t1, t2), Math.min(t3, t4)), Math.min(t5, t6));
+                float tmax = Math.min(Math.min(Math.max(t1, t2), Math.max(t3, t4)), Math.max(t5, t6));
+
+                if (tmax >= 0 && tmin <= tmax)
+                {
+                    float hitDist = tmin >= 0 ? tmin : tmax;
+
+                    if (hitDist < minDistance)
+                    {
+                        minDistance = hitDist;
+                        closest = new PickedCube(group.id, i, cube);
+                    }
+                }
+            }
+        }
+
+        return closest;
     }
 
     private void line(BufferBuilder builder, Matrix4f matrix, Vector3f a, Vector3f b, float r, float g, float bl, float alpha)
@@ -872,6 +1141,7 @@ public class UIModelEditorRenderer extends UIModelRenderer implements GizmoSurfa
                 model.applyConfig((MapType) this.config.toData());
                 model.texture = this.config.texture.get();
                 model.color = this.config.color.get();
+                this.syncPreviewParts(model);
                 this.syncSolverConfig(this.config);
 
                 if (wasProcedural != model.procedural)
@@ -927,6 +1197,7 @@ public class UIModelEditorRenderer extends UIModelRenderer implements GizmoSurfa
                         this.previewModel.applyConfig((MapType) this.config.toData());
                         this.previewModel.texture = this.config.texture.get();
                         this.previewModel.color = this.config.color.get();
+                        this.syncPreviewParts(this.previewModel);
                         this.syncSolverConfig(this.config);
                     }
                     catch (Exception e)

@@ -319,6 +319,10 @@ public class UIModelBlockPanel extends UIDashboardPanel implements IFlightSuppor
 
             palette.resize();
 
+            /* Stop stuck WASD/flight velocity from the world view behind the palette. */
+            this.dashboard.orbit.reset();
+            this.dashboard.orbit.release();
+
             if (editing) {
                 this.addCameraController(palette);
             }
@@ -1649,7 +1653,19 @@ public class UIModelBlockPanel extends UIDashboardPanel implements IFlightSuppor
         super.appear();
 
         this.getContext().menu.main.add(this.keyDude);
-        this.dashboard.orbitKeysUI.setEnabled(() -> this.getChildren(UIFormPalette.class).isEmpty());
+        this.dashboard.orbitKeysUI.setEnabled(() ->
+        {
+            if (!this.getChildren(UIFormPalette.class).isEmpty())
+            {
+                return false;
+            }
+
+            UIContext context = this.getContext();
+
+            return context == null || !context.hasOverlayPanel();
+        });
+        /* Drop any in-flight WASD velocity immediately when entering this panel's UI. */
+        this.dashboard.orbit.reset();
 
         if (this.cameraController != null) {
             BBSModClient.getCameraController().add(this.cameraController);
@@ -2240,19 +2256,10 @@ public class UIModelBlockPanel extends UIDashboardPanel implements IFlightSuppor
         super.renderInWorld(context);
 
         MatrixStack matrices = context.matrixStack();
-        boolean shaderPath = BBSRendering.isIrisShadersEnabled();
 
-        if (shaderPath)
+        if (matrices == null)
         {
-            if (matrices == null)
-            {
-                return;
-            }
-        }
-        else
-        {
-            /* AFTER_ENTITIES has no reliable stack; draw block overlays in absolute world space. */
-            matrices = new MatrixStack();
+            return;
         }
 
         Camera camera = context.camera();
@@ -2275,41 +2282,27 @@ public class UIModelBlockPanel extends UIDashboardPanel implements IFlightSuppor
 
             if (!this.isEditing(entity)) {
                 matrices.push();
+                matrices.translate(blockPos.getX() - pos.x, blockPos.getY() - pos.y,
+                        blockPos.getZ() - pos.z);
 
-                if (shaderPath)
-                {
-                    matrices.translate(blockPos.getX() - pos.x, blockPos.getY() - pos.y,
-                            blockPos.getZ() - pos.z);
-
-                    if (this.hovered == entity || entity == this.modelBlock) {
-                        Draw.renderBox(matrices, 0D, 0D, 0D, 1D, 1D, 1D, 0, 0.5F, 1F);
-                    } else {
-                        Draw.renderBox(matrices, 0D, 0D, 0D, 1D, 1D, 1D);
-                    }
-                }
-                else
-                {
-                    matrices.translate(-pos.x, -pos.y, -pos.z);
-
-                    if (this.hovered == entity || entity == this.modelBlock) {
-                        Draw.renderBox(matrices, blockPos.getX(), blockPos.getY(), blockPos.getZ(), 1D, 1D, 1D, 0, 0.5F, 1F);
-                    } else {
-                        Draw.renderBox(matrices, blockPos.getX(), blockPos.getY(), blockPos.getZ(), 1D, 1D, 1D);
-                    }
+                if (this.hovered == entity || entity == this.modelBlock) {
+                    Draw.renderBox(matrices, 0D, 0D, 0D, 1D, 1D, 1D, 0, 0.5F, 1F);
+                } else {
+                    Draw.renderBox(matrices, 0D, 0D, 0D, 1D, 1D, 1D);
                 }
 
                 matrices.pop();
             }
         }
 
-        this.renderSelectedHitbox(matrices, pos, shaderPath);
+        this.renderSelectedHitbox(matrices, pos);
         this.renderGizmo(context, pos, matrices);
 
         RenderSystem.enableDepthTest();
     }
 
     /** Draws the selected block's form hitbox wireframe in world space. */
-    private void renderSelectedHitbox(MatrixStack matrices, Vec3d cameraPos, boolean shaderPath)
+    private void renderSelectedHitbox(MatrixStack matrices, Vec3d cameraPos)
     {
         if (this.modelBlock == null || this.isEditing(this.modelBlock))
         {
@@ -2342,19 +2335,9 @@ public class UIModelBlockPanel extends UIDashboardPanel implements IFlightSuppor
         BlockPos blockPos = this.modelBlock.getPos();
 
         matrices.push();
-
-        if (shaderPath)
-        {
-            matrices.translate(blockPos.getX() - cameraPos.x + 0.5D, blockPos.getY() - cameraPos.y,
-                    blockPos.getZ() - cameraPos.z + 0.5D);
-            MatrixStackUtils.applyTransform(matrices, blockTransform);
-        }
-        else
-        {
-            matrices.translate(-cameraPos.x, -cameraPos.y, -cameraPos.z);
-            matrices.translate(blockPos.getX() + 0.5D, blockPos.getY(), blockPos.getZ() + 0.5D);
-            MatrixStackUtils.applyTransform(matrices, blockTransform);
-        }
+        matrices.translate(blockPos.getX() - cameraPos.x + 0.5D, blockPos.getY() - cameraPos.y,
+                blockPos.getZ() - cameraPos.z + 0.5D);
+        MatrixStackUtils.applyTransform(matrices, blockTransform);
 
         Draw.renderBox(matrices, -hitboxW / 2D, 0D, -hitboxW / 2D, hitboxW, hitboxH, hitboxW, 0F, 0.5F, 1F);
         matrices.pop();
@@ -2395,20 +2378,7 @@ public class UIModelBlockPanel extends UIDashboardPanel implements IFlightSuppor
         this.hasGizmo = true;
         this.gizmoProjection.set(RenderSystem.getProjectionMatrix());
 
-        MatrixStack gizmoStack;
-
-        if (BBSRendering.isIrisShadersEnabled())
-        {
-            /* Films#render clears Gizmo#hasGizmoMatrix after this pass, so keep a local
-             * copy for the deferred UI draw + stencil pick. */
-            gizmoStack = stack;
-        }
-        else
-        {
-            /* Without shaders the world stack is unreliable; capture only the camera-relative
-             * block transform and premultiply BBSRendering.camera in applyGizmoCaptureToSingleton. */
-            gizmoStack = new MatrixStack();
-        }
+        MatrixStack gizmoStack = stack;
 
         gizmoStack.push();
         gizmoStack.translate(px - cameraPos.x, py - cameraPos.y, pz - cameraPos.z);
@@ -2440,10 +2410,7 @@ public class UIModelBlockPanel extends UIDashboardPanel implements IFlightSuppor
 
     private void applyGizmoCaptureToSingleton()
     {
-        /* Whether the captured matrix already bakes BBSRendering.camera depends on the
-         * render path (Iris pack vs. vanilla). composeVisualMatrix detects double-camera
-         * by view-space origin distance and keeps the gizmo on the block. */
-        Gizmo.composeVisualMatrix(this.gizmoInterfaceMatrix, BBSRendering.camera, this.gizmoProjection, Gizmo.INSTANCE.lastGizmoMatrix);
+        Gizmo.INSTANCE.lastGizmoMatrix.set(this.gizmoInterfaceMatrix);
         Gizmo.INSTANCE.hasGizmoMatrix = true;
     }
 
