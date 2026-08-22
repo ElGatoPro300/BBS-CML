@@ -2146,6 +2146,7 @@ public class UIKeys
     public static final IKey WORLD_TIME_NIGHT = L10n.lang("bbs.ui.world.time.night");
     public static final IKey WORLD_TIME_MIDNIGHT = L10n.lang("bbs.ui.world.time.midnight");
     public static final IKey WORLD_SECTION_GAMMA = L10n.lang("bbs.ui.world.section.gamma");
+    public static final IKey WORLD_GAMMA_OVERRIDE = L10n.lang("bbs.ui.world.gamma.override");
     public static final IKey WORLD_GAMMA_LABEL = L10n.lang("bbs.ui.world.gamma.label");
     public static final IKey WORLD_GAMMA_NORMAL = L10n.lang("bbs.ui.world.gamma.normal");
     public static final IKey WORLD_GAMMA_SEMI = L10n.lang("bbs.ui.world.gamma.semi");

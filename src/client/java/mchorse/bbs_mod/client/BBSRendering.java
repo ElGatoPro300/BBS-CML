@@ -1493,7 +1493,14 @@ public class BBSRendering
 
     public static Double getBrightness()
     {
-        return getCurveValue(ShaderCurves.BRIGHTNESS);
+        Double v = getCurveValue(ShaderCurves.BRIGHTNESS);
+
+        if (v != null)
+        {
+            return Math.max(0D, v) / 100D;
+        }
+
+        return null;
     }
 
     public static Double getWeather()
