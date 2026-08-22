@@ -137,15 +137,17 @@ public class ClientNetwork
 
             UIBaseMenu menu = UIScreen.getCurrentMenu();
             UIDashboard dashboard = BBSModClient.getDashboard();
+            UIModelBlockPanel panel = dashboard.getPanels().getPanel(UIModelBlockPanel.class);
+
+            /* Switch before opening so dashboard onOpen does not restore the last
+             * film panel (which would restart paused actor replays). */
+            dashboard.setPanel(panel);
 
             if (menu != dashboard)
             {
                 UIScreen.open(dashboard);
             }
 
-            UIModelBlockPanel panel = dashboard.getPanels().getPanel(UIModelBlockPanel.class);
-
-            dashboard.setPanel(panel);
             panel.fill((ModelBlockEntity) entity, true);
         });
     }
