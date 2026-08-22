@@ -17,7 +17,9 @@ import mchorse.bbs_mod.cubic.data.animation.Animation;
 import mchorse.bbs_mod.cubic.data.animation.Animations;
 import mchorse.bbs_mod.cubic.data.model.Model;
 import mchorse.bbs_mod.cubic.data.model.ModelGroup;
+import mchorse.bbs_mod.entity.ActorEntity;
 import mchorse.bbs_mod.forms.entities.IEntity;
+import mchorse.bbs_mod.forms.entities.MCEntity;
 import mchorse.bbs_mod.forms.entities.StubEntity;
 import mchorse.bbs_mod.utils.MathUtils;
 import mchorse.bbs_mod.utils.interps.Lerps;
@@ -172,19 +174,42 @@ public class ProceduralAnimator implements IAnimator
         float velocityForwardSpeed = ((float) entityVelocity.x * forwardX + (float) entityVelocity.z * forwardZ) * 20F;
         float displacementForwardSpeed = ((float) dx * forwardX + (float) dz * forwardZ) * 20F;
         float forwardSpeed = Math.abs(velocityForwardSpeed) >= Math.abs(displacementForwardSpeed) ? velocityForwardSpeed : displacementForwardSpeed;
+        /* Film actors: ActionPlayer lookahead velocity creates a one-frame void
+         * (velocity says walking, LimbAnimator still idle). Filling that void from
+         * velocity + age*0.6662 caused the idle→walk microsnap. Gate swing/gecko
+         * motion on real prev→pos displacement instead; keep LimbAnimator for the
+         * rest of the walk once it catches up. */
+        boolean filmActor = target instanceof MCEntity mcEntity
+            && mcEntity.getMcEntity() instanceof ActorEntity;
+
+        if (filmActor)
+        {
+            horizontalSpeed = displacementHorizontalSpeed;
+            forwardSpeed = displacementForwardSpeed;
+        }
 
         if (!target.isRiding() && !target.isSitting())
         {
             if (limbSpeed < 0.01F && horizontalSpeed > 0.08F)
             {
-                limbSpeed = MathHelper.clamp(horizontalSpeed / 4F, 0F, 1F);
-                /* Synthesizing amplitude from motion must also drive phase. Leaving a
-                 * non-zero stuck limbPos (teleported actors) freezes limbs at walk extremes. */
-                limbPhase = age * 0.6662F;
+                float synthesized = MathHelper.clamp(horizontalSpeed / 4F, 0F, 1F);
+
+                /* Soft-fill like one vanilla updateLimbs(0.4) step from real
+                 * motion — complements the void without a phase jump. */
+                limbSpeed = synthesized * 0.4F;
+                limbPhase = limbPhase + limbSpeed;
+
+                if (displacementHorizontalSpeed > 10F)
+                {
+                    limbPhase = age * 0.6662F;
+                }
             }
             else if (limbPhase == 0F && horizontalSpeed > 0.08F)
             {
-                limbPhase = age * 0.6662F;
+                float synthesized = MathHelper.clamp(horizontalSpeed / 4F, 0F, 1F);
+
+                limbSpeed = Math.max(limbSpeed, synthesized * 0.4F);
+                limbPhase = limbPhase + Math.max(limbSpeed, 0.01F);
             }
         }
         else
@@ -305,7 +330,7 @@ public class ProceduralAnimator implements IAnimator
                         }
                         else if (target.isSwimming())
                         {
-                            float swimProgress = (age + transition) * 0.12F + limbPhase * 0.2F;
+                            float swimProgress = age * 0.12F + limbPhase * 0.2F;
                             float strokePhase = (float) (Math.sin(swimProgress) * 0.5F + 0.5F);
                             float armPitch = 180F - strokePhase * 90F;
                             float armSweep = strokePhase * 90F;
@@ -347,7 +372,7 @@ public class ProceduralAnimator implements IAnimator
                         }
                         else if (target.isSwimming())
                         {
-                            float swimProgress = (age + transition) * 0.12F + limbPhase * 0.2F;
+                            float swimProgress = age * 0.12F + limbPhase * 0.2F;
                             float strokePhase = (float) (Math.sin(swimProgress) * 0.5F + 0.5F);
                             float armPitch = 180F - strokePhase * 90F;
                             float armSweep = strokePhase * 90F;
@@ -393,7 +418,7 @@ public class ProceduralAnimator implements IAnimator
                         }
                         else if (target.isSwimming())
                         {
-                            float swimProgress = (age + transition) * 0.15F + limbPhase * 0.2F;
+                            float swimProgress = age * 0.15F + limbPhase * 0.2F;
                             group.current.rotate.x = (float) Math.cos(swimProgress * 0.5F) * 18F;
                             group.current.rotate.y = 0F;
                             group.current.rotate.z = 0F;
@@ -416,7 +441,7 @@ public class ProceduralAnimator implements IAnimator
                         }
                         else if (target.isSwimming())
                         {
-                            float swimProgress = (age + transition) * 0.15F + limbPhase * 0.2F;
+                            float swimProgress = age * 0.15F + limbPhase * 0.2F;
                             group.current.rotate.x = -(float) Math.cos(swimProgress * 0.5F) * 18F;
                             group.current.rotate.y = 0F;
                             group.current.rotate.z = 0F;
@@ -427,6 +452,11 @@ public class ProceduralAnimator implements IAnimator
                         }
                     }
                 }
+            }
+
+            if (!riding && leftArm != null && rightArm != null)
+            {
+                ProceduralItemUsePoses.applyModel(target, leftArm, rightArm, main, offhand, pitch, yaw, transition);
             }
 
             if (!riding && handSwingProgress > 0F && leftArm != null && rightArm != null)
@@ -542,7 +572,7 @@ public class ProceduralAnimator implements IAnimator
                         }
                         else if (target.isSwimming())
                         {
-                            float swimProgress = (age + transition) * 0.12F + limbPhase * 0.2F;
+                            float swimProgress = age * 0.12F + limbPhase * 0.2F;
                             float strokePhase = (float) (Math.sin(swimProgress) * 0.5F + 0.5F);
                             float armPitch = 180F - strokePhase * 90F;
                             float armSweep = strokePhase * 90F;
@@ -584,7 +614,7 @@ public class ProceduralAnimator implements IAnimator
                         }
                         else if (target.isSwimming())
                         {
-                            float swimProgress = (age + transition) * 0.12F + limbPhase * 0.2F;
+                            float swimProgress = age * 0.12F + limbPhase * 0.2F;
                             float strokePhase = (float) (Math.sin(swimProgress) * 0.5F + 0.5F);
                             float armPitch = 180F - strokePhase * 90F;
                             float armSweep = strokePhase * 90F;
@@ -626,7 +656,7 @@ public class ProceduralAnimator implements IAnimator
                         }
                         else if (target.isSwimming())
                         {
-                            float swimProgress = (age + transition) * 0.15F + limbPhase * 0.2F;
+                            float swimProgress = age * 0.15F + limbPhase * 0.2F;
                             bone.transform.rotate.x = MathUtils.toRad((float) Math.cos(swimProgress * 0.5F) * 18F);
                             bone.transform.rotate.y = 0F;
                             bone.transform.rotate.z = 0F;
@@ -649,7 +679,7 @@ public class ProceduralAnimator implements IAnimator
                         }
                         else if (target.isSwimming())
                         {
-                            float swimProgress = (age + transition) * 0.15F + limbPhase * 0.2F;
+                            float swimProgress = age * 0.15F + limbPhase * 0.2F;
                             bone.transform.rotate.x = -MathUtils.toRad((float) Math.cos(swimProgress * 0.5F) * 18F);
                             bone.transform.rotate.y = 0F;
                             bone.transform.rotate.z = 0F;
@@ -660,6 +690,11 @@ public class ProceduralAnimator implements IAnimator
                         }
                     }
                 }
+            }
+
+            if (!riding && bobjLeftArm != null && bobjRightArm != null)
+            {
+                ProceduralItemUsePoses.applyBobj(target, bobjLeftArm, bobjRightArm, main, offhand, pitch, yaw, transition);
             }
 
             if (!riding && handSwingProgress > 0F && bobjLeftArm != null && bobjRightArm != null)

@@ -38,8 +38,7 @@ public class UIMathClip extends UIClip<MathClip>
     {
         super.registerPanels();
 
-        this.panels.add(UI.column(UIClip.label(UIKeys.CAMERA_PANELS_EXPRESSION), this.expression).marginTop(12));
-        this.panels.add(this.active);
+        this.panels.add(this.section(UIKeys.CAMERA_PANELS_EXPRESSION, this.expression), this.active);
     }
 
     @Override

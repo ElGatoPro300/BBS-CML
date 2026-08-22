@@ -168,7 +168,7 @@ public class UICurveClip extends UIClip<CurveClip>
     {
         super.registerPanels();
 
-        this.panels.add(UIClip.label(UIKeys.C_CLIP.get("bbs:curve")).marginTop(12), this.edit);
+        this.panels.add(this.section(UIKeys.C_CLIP.get("bbs:curve"), this.edit));
     }
 
     @Override

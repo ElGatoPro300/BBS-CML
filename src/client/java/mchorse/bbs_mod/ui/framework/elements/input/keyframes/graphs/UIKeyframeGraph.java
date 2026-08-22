@@ -3,6 +3,7 @@ package mchorse.bbs_mod.ui.framework.elements.input.keyframes.graphs;
 import mchorse.bbs_mod.BBSSettings;
 import mchorse.bbs_mod.camera.utils.TimeUtils;
 import mchorse.bbs_mod.data.types.MapType;
+import mchorse.bbs_mod.forms.forms.utils.LightingSettings;
 import mchorse.bbs_mod.graphics.line.LineBuilder;
 import mchorse.bbs_mod.graphics.line.SolidColorLineRenderer;
 import mchorse.bbs_mod.graphics.window.Window;
@@ -25,6 +26,8 @@ import mchorse.bbs_mod.utils.keyframes.KeyframeChannel;
 import mchorse.bbs_mod.utils.keyframes.KeyframeSegment;
 import mchorse.bbs_mod.utils.keyframes.KeyframeShape;
 import mchorse.bbs_mod.utils.keyframes.factories.IKeyframeFactory;
+import mchorse.bbs_mod.utils.keyframes.factories.KeyframeFactories;
+import mchorse.bbs_mod.utils.keyframes.factories.LightingSettingsKeyframeFactory;
 
 import net.minecraft.client.render.BufferBuilder;
 import net.minecraft.client.render.BufferRenderer;
@@ -364,7 +367,10 @@ public class UIKeyframeGraph implements IUIKeyframeGraph
             double offsetY = this.fromGraphY(originalY) - factory.getY(originalV);
 
             float fx = (float) this.keyframes.fromGraphX(context.mouseX) - offsetX;
-            Object fy = factory.yToValue(this.fromGraphY(context.mouseY) - offsetY);
+            double graphY = this.fromGraphY(context.mouseY) - offsetY;
+            Object fy = factory == KeyframeFactories.LIGHTING_SETTINGS && originalV instanceof LightingSettings lighting
+                ? LightingSettingsKeyframeFactory.applyGraphY(lighting, graphY)
+                : factory.yToValue(graphY);
 
             if (!Window.isShiftPressed())
             {
@@ -437,7 +443,7 @@ public class UIKeyframeGraph implements IUIKeyframeGraph
             int tickBottom = area.y + RULER_HEIGHT;
             int tickHeight = majorTick ? 8 : 4;
 
-            context.batcher.box(x, area.y, x + 1, area.ey(), majorTick ? 0x44ffffff : 0x18ffffff);
+            context.batcher.box(x, area.y, x + 1, area.ey(), majorTick ? 0x1cffffff : 0x0affffff);
             context.batcher.box(x, tickBottom - tickHeight, x + 1, tickBottom, majorTick ? 0xddffffff : 0x77ffffff);
 
             if (majorTick)
@@ -466,7 +472,7 @@ public class UIKeyframeGraph implements IUIKeyframeGraph
                 continue;
             }
 
-            context.batcher.box(area.x, y, area.ex(), y + 1, 0x24ffffff);
+            context.batcher.box(area.x, y, area.ex(), y + 1, 0x10ffffff);
             context.batcher.text(String.valueOf(min + j * mult), area.x + 4, y + 4);
         }
     }
@@ -590,12 +596,12 @@ public class UIKeyframeGraph implements IUIKeyframeGraph
 
         preview.setShape(shape);
 
-        Matrix4f matrix = context.batcher.getContext().getMatrices().peek().getPositionMatrix();
         BufferBuilder builder = Tessellator.getInstance().getBuffer();
         builder.begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_COLOR);
 
         RenderSystem.enableBlend();
         RenderSystem.setShader(GameRenderer::getPositionColorProgram);
+        Matrix4f matrix = context.batcher.getContext().getMatrices().peek().getPositionMatrix();
         UIKeyframeDopeSheet.renderShape(preview, context, builder, matrix, x, y, 3, c);
         BufferRenderer.drawWithGlobalProgram(builder.end());
     }
@@ -606,7 +612,6 @@ public class UIKeyframeGraph implements IUIKeyframeGraph
     @SuppressWarnings({"rawtypes", "IntegerDivisionInFloatingPointContext"})
     protected void renderGraph(UIContext context)
     {
-        BufferBuilder builder = Tessellator.getInstance().getBuffer();
         Matrix4f matrix = context.batcher.getContext().getMatrices().peek().getPositionMatrix();
 
         UIKeyframeSheet sheet = this.sheet;
@@ -706,6 +711,7 @@ public class UIKeyframeGraph implements IUIKeyframeGraph
         }
 
         /* Render track bars (horizontal lines) */
+        BufferBuilder builder = Tessellator.getInstance().getBuffer();
         builder.begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_COLOR);
 
         /* Draw keyframe handles (outer) */

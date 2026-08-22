@@ -192,31 +192,12 @@ public class UIVideoClip extends UIClip<VideoClip>
         UIElement disclaimer = UI.label(UIKeys.CAMERA_PANELS_VIDEO_DISCLAIMER, 12, Colors.LIGHTER_GRAY)
             .color(Colors.LIGHTER_GRAY, false)
             .tooltip(UIKeys.CAMERA_PANELS_VIDEO_DISCLAIMER);
-        this.panels.add(UI.column(disclaimer).marginTop(12));
-        this.panels.add(UI.column(UIClip.label(UIKeys.C_CLIP.get("bbs:video")), UI.row(this.pickVideo, this.extendDuration, this.openFolder)).marginTop(12));
-        this.panels.add(UI.column(UIClip.label(UIKeys.CAMERA_PANELS_VIDEO_VOLUME).marginTop(6), this.volume).marginTop(12));
-        this.panels.add(UI.row(
-            UI.column(UIClip.label(UIKeys.C_CLIP.get("bbs:video_opacity")).marginTop(6), this.opacity),
-            UI.column(UIClip.label(UIKeys.CAMERA_PANELS_VIDEO_OFFSET).marginTop(6), this.offset)
-        ).marginTop(12));
-        this.panels.add(UI.row(
-            UI.column(UIClip.label(UIKeys.C_CLIP.get("bbs:x")), this.x),
-            UI.column(UIClip.label(UIKeys.C_CLIP.get("bbs:y")), this.y)
-        ).marginTop(12));
-        this.panels.add(UI.row(
-            UI.column(UIClip.label(UIKeys.C_CLIP.get("bbs:width")), this.width),
-            this.aspectLock,
-            UI.column(UIClip.label(UIKeys.C_CLIP.get("bbs:height")), this.height)
-        ).marginTop(12));
-        this.panels.add(UI.row(
-            UI.column(UIClip.label(UIKeys.C_CLIP.get("bbs:crop_x")), this.cropX),
-            UI.column(UIClip.label(UIKeys.C_CLIP.get("bbs:crop_y")), this.cropY)
-        ).marginTop(12));
-        this.panels.add(UI.row(
-            UI.column(UIClip.label(UIKeys.C_CLIP.get("bbs:crop_width")), this.cropWidth),
-            UI.column(UIClip.label(UIKeys.C_CLIP.get("bbs:crop_height")), this.cropHeight)
-        ).marginTop(12));
-        this.panels.add(UI.row(this.loops, this.global).marginTop(12));
+        this.panels.add(disclaimer);
+        this.panels.add(this.section(UIKeys.C_CLIP.get("bbs:video"), UI.row(this.pickVideo, this.extendDuration, this.openFolder), this.loops, this.global));
+        this.panels.add(this.section(UIKeys.CAMERA_PANELS_VIDEO_VOLUME, this.volume));
+        this.panels.add(this.section(UIKeys.C_CLIP.get("bbs:video_opacity"), this.opacity, this.offset));
+        this.panels.add(this.section(UIKeys.CAMERA_PANELS_IMAGE_OFFSET, UI.row(this.x, this.y), UI.row(this.width, this.aspectLock, this.height)));
+        this.panels.add(this.section(UIKeys.CAMERA_PANELS_IMAGE_CROP, UI.row(this.cropX, this.cropY), UI.row(this.cropWidth, this.cropHeight)));
     }
 
     @Override

@@ -1053,6 +1053,21 @@ public class ModelVAORenderer
         return paintPass;
     }
 
+    public static boolean isGlowEffectActive()
+    {
+        return glowEffectActive;
+    }
+
+    public static boolean isPaintEffectActive()
+    {
+        return paintEffectActive;
+    }
+
+    public static boolean isColorEffectActive()
+    {
+        return colorEffectActive;
+    }
+
     public static float getBasePaintR()
     {
         return baseR;
@@ -1717,7 +1732,11 @@ public class ModelVAORenderer
         shader.unbind();
 
         GL30.glBindVertexArray(currentVAO);
-        GL30.glBindBuffer(GL30.GL_ELEMENT_ARRAY_BUFFER, currentElementArrayBuffer);
+
+        if (currentVAO != 0)
+        {
+            GL30.glBindBuffer(GL30.GL_ELEMENT_ARRAY_BUFFER, currentElementArrayBuffer);
+        }
     }
 
     public static void setupUniforms(MatrixStack stack, ShaderProgram shader)
@@ -1733,7 +1752,7 @@ public class ModelVAORenderer
         }
 
 
-        setupUniforms(stack, shader, false);
+        setupUniforms(stack, shader, false, null);
     }
 
     /**
@@ -1744,15 +1763,20 @@ public class ModelVAORenderer
      */
     public static void setupUniformsCpuPretransformed(ShaderProgram shader)
     {
+        setupUniformsCpuPretransformed(shader, null);
+    }
+
+    public static void setupUniformsCpuPretransformed(ShaderProgram shader, Matrix4f rootInverse)
+    {
         if (shader == null)
         {
             return;
         }
 
-        setupUniforms(null, shader, true);
+        setupUniforms(null, shader, true, rootInverse);
     }
 
-    private static void setupUniforms(MatrixStack stack, ShaderProgram shader, boolean cpuPretransformed)
+    private static void setupUniforms(MatrixStack stack, ShaderProgram shader, boolean cpuPretransformed, Matrix4f rootInverse)
     {
         if (shader == null)
         {
@@ -1812,11 +1836,6 @@ public class ModelVAORenderer
             shader.viewRotationMat.set(RenderSystem.getInverseViewRotationMatrix());
         }
 
-        if (shader.viewRotationMat != null)
-        {
-            shader.viewRotationMat.set(RenderSystem.getInverseViewRotationMatrix());
-        }
-
         GlUniform paintUniform = shader.getUniform("PaintColor");
 
         if (paintUniform != null)
@@ -1865,7 +1884,14 @@ public class ModelVAORenderer
 
         if (formRootInverseUniform != null)
         {
-            formRootInverseUniform.set(overlayFormRootInverse());
+            if (cpuPretransformed && rootInverse != null)
+            {
+                formRootInverseUniform.set(rootInverse);
+            }
+            else
+            {
+                formRootInverseUniform.set(overlayFormRootInverse());
+            }
         }
 
         GlUniform paintEffectInverseUniform = shader.getUniform("PaintEffectInverse");

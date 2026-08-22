@@ -3,12 +3,14 @@ package mchorse.bbs_mod.ui.film.controller;
 import mchorse.bbs_mod.BBSModClient;
 import mchorse.bbs_mod.BBSSettings;
 import mchorse.bbs_mod.actions.ActionState;
+import mchorse.bbs_mod.actions.types.SwipeActionClip;
 import mchorse.bbs_mod.actions.types.item.ItemDropActionClip;
 import mchorse.bbs_mod.camera.Camera;
 import mchorse.bbs_mod.camera.controller.RunnerCameraController;
 import mchorse.bbs_mod.client.BBSRendering;
 import mchorse.bbs_mod.cubic.ModelInstance;
 import mchorse.bbs_mod.data.types.BaseType;
+import mchorse.bbs_mod.entity.ActorEntity;
 import mchorse.bbs_mod.film.BaseFilmController;
 import mchorse.bbs_mod.film.Film;
 import mchorse.bbs_mod.film.FilmControllerContext;
@@ -28,7 +30,6 @@ import mchorse.bbs_mod.graphics.Draw;
 import mchorse.bbs_mod.graphics.texture.Texture;
 import mchorse.bbs_mod.graphics.window.Window;
 import mchorse.bbs_mod.l10n.keys.IKey;
-import mchorse.bbs_mod.entity.ActorEntity;
 import mchorse.bbs_mod.morphing.Morph;
 import mchorse.bbs_mod.network.ClientNetwork;
 import mchorse.bbs_mod.resources.Link;
@@ -86,6 +87,7 @@ import net.minecraft.client.render.VertexFormats;
 import net.minecraft.client.util.InputUtil;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.entity.Entity;
+import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.projectile.ProjectileUtil;
 import net.minecraft.util.ActionResult;
 import net.minecraft.util.Hand;
@@ -99,11 +101,14 @@ import net.minecraft.world.World;
 
 import org.joml.Matrix3f;
 import org.joml.Matrix4f;
+import org.joml.Matrix4fStack;
+import org.joml.Vector2d;
 import org.joml.Vector2f;
 import org.joml.Vector2i;
 import org.joml.Vector3d;
 import org.joml.Vector3f;
 
+import com.mojang.blaze3d.platform.GlStateManager;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.systems.VertexSorter;
 
@@ -135,7 +140,7 @@ public class UIFilmController extends UIElement
 
     /* Character control */
     private IEntity controlled;
-    private final Vector2i lastMouse = new Vector2i();
+    private final Vector2d lastMouse = new Vector2d();
     private int mouseMode;
     private final Vector2f mouseStick = new Vector2f();
 
@@ -147,8 +152,15 @@ public class UIFilmController extends UIElement
     private int recordingCountdown;
     private List<String> recordingGroups;
     private BaseType recordingOld;
+    private int recordingReplayIndex = -1;
+    private boolean recordingKeyframesPrepared;
     private boolean instantKeyframes;
     private boolean countdownControl;
+    /**
+     * After viewport record stop, soft-seek lands on this tick without wanting
+     * another Swipe/etc. pass. Cleared when the playhead leaves the tick.
+     */
+    private int suppressClientActionsAtTick = -1;
 
     private boolean wasFlying;
     private boolean wasAllowFlying;
@@ -746,6 +758,27 @@ public class UIFilmController extends UIElement
         return this.recordingGroups;
     }
 
+    /**
+     * True while parked on the tick restored after viewport record stop — skips
+     * one client action pass (swipe) that would otherwise re-fire on soft-seek.
+     */
+    public boolean shouldSuppressClientActions(int tick)
+    {
+        if (this.suppressClientActionsAtTick < 0)
+        {
+            return false;
+        }
+
+        if (tick != this.suppressClientActionsAtTick)
+        {
+            this.suppressClientActionsAtTick = -1;
+
+            return false;
+        }
+
+        return true;
+    }
+
     public void startRecording(List<String> groups)
     {
         if (this.panel.getData() == null)
@@ -793,8 +826,13 @@ public class UIFilmController extends UIElement
         this.recording = true;
         this.recordingCountdown = 30;
         this.recordingGroups = groups;
+        this.recordingKeyframesPrepared = false;
+        this.suppressClientActionsAtTick = -1;
 
-        this.recordingOld = this.getReplay().keyframes.toData();
+        Replay recordReplay = this.getReplay();
+
+        this.recordingOld = recordReplay.keyframes.toData();
+        this.recordingReplayIndex = this.panel.getData().replays.getList().indexOf(recordReplay);
 
         if (groups != null)
         {
@@ -854,6 +892,9 @@ public class UIFilmController extends UIElement
             player.sendAbilitiesUpdate();
         }
 
+        /* After control/puppet is armed — keep FILM_EDITOR actors, only attach ActionRecorder. */
+        this.startViewportActionRecording();
+
         this.toggleMousePointer(this.controlled != null);
     }
 
@@ -866,6 +907,7 @@ public class UIFilmController extends UIElement
 
         this.recording = false;
         this.recordingGroups = null;
+        this.recordingKeyframesPrepared = false;
 
         if (this.controlled != null)
         {
@@ -888,7 +930,10 @@ public class UIFilmController extends UIElement
             }
         }
 
-        this.panel.setCursor(this.recordingTick);
+        /* Soft restore — SEEK goTo would re-fire swipe / break / drops while
+         * walking back from the end of the take to the start tick. */
+        this.suppressClientActionsAtTick = this.recordingTick;
+        this.panel.setCursor(this.recordingTick, false);
 
         if (this.panel.getRunner().isRunning())
         {
@@ -897,6 +942,8 @@ public class UIFilmController extends UIElement
 
         if (this.recordingCountdown > 0)
         {
+            this.stopViewportActionRecording();
+
             /* Capture already added replays during setup — refresh once so they show up. */
             MinecraftClient.getInstance().execute(this::refreshEntities);
 
@@ -931,10 +978,60 @@ public class UIFilmController extends UIElement
         BBSModClient.getFilms().getEditorMobCapture().clear();
         BBSModClient.getFilms().getEditorProjectileCapture().clear();
 
+        /* Merge Swipe/Attack/block clips via receiveActions; keep FILM_EDITOR ActionPlayer. */
+        this.stopViewportActionRecording();
+
         this.setMouseMode(ClientNetwork.isIsBBSModOnServer() ? 0 : 1);
 
         /* One-shot rebuild after capture — same effect as toggling VA, without per-tick updates. */
         MinecraftClient.getInstance().execute(this::refreshEntities);
+    }
+
+    private void startViewportActionRecording()
+    {
+        Film film = this.panel.getData();
+
+        if (!ClientNetwork.isIsBBSModOnServer() || film == null || this.recordingReplayIndex < 0)
+        {
+            return;
+        }
+
+        /* Keep FILM_EDITOR ActionPlayer (actors stay visible). Only attach ActionRecorder.
+         * Full RECORDING ActionPlayer used exception=replay and hid actor-mode bodies. */
+        ClientNetwork.sendActionRecording(film.getId(), this.recordingReplayIndex, this.recordingTick, this.recordingCountdown, true, true);
+
+        if (this.controlled != null)
+        {
+            this.notifyActorPuppet(this.recordingReplayIndex);
+        }
+
+        EditorSpectatorHelper.ensurePlayableForControl();
+    }
+
+    private void stopViewportActionRecording()
+    {
+        Film film = this.panel.getData();
+        int replayIndex = this.recordingReplayIndex;
+        int tick = this.recordingTick;
+
+        this.recordingReplayIndex = -1;
+
+        if (!ClientNetwork.isIsBBSModOnServer() || film == null || replayIndex < 0)
+        {
+            return;
+        }
+
+        ClientNetwork.sendActionRecording(film.getId(), replayIndex, tick, 0, false, true);
+
+        /* Keep puppet if still controlling after the capture ends. */
+        if (this.controlled != null)
+        {
+            this.notifyActorPuppet(replayIndex);
+        }
+        else
+        {
+            this.notifyActorPuppet(-1);
+        }
     }
 
     /* Input handling */
@@ -985,6 +1082,8 @@ public class UIFilmController extends UIElement
     /**
      * Attack / break whatever is in front of the controlled player body.
      * Film-camera {@code crosshairTarget} is useless here (orbit / path look).
+     * {@code swingHand} syncs to the server so {@code ActionRecorder} (started with
+     * viewport recording) can write {@link SwipeActionClip}.
      */
     private void performControlAttack(MinecraftClient client)
     {
@@ -1004,7 +1103,7 @@ public class UIFilmController extends UIElement
         }
 
         player.swingHand(Hand.MAIN_HAND);
-        this.swingVisibleActor();
+        this.swingVisibleActor(Hand.MAIN_HAND);
     }
 
     /**
@@ -1025,6 +1124,8 @@ public class UIFilmController extends UIElement
 
                 if (atLocation.isAccepted())
                 {
+                    this.finishControlUse(player, hand, atLocation);
+
                     return;
                 }
 
@@ -1032,6 +1133,8 @@ public class UIFilmController extends UIElement
 
                 if (onEntity.isAccepted())
                 {
+                    this.finishControlUse(player, hand, onEntity);
+
                     return;
                 }
             }
@@ -1041,6 +1144,8 @@ public class UIFilmController extends UIElement
 
                 if (onBlock.isAccepted())
                 {
+                    this.finishControlUse(player, hand, onBlock);
+
                     return;
                 }
             }
@@ -1049,6 +1154,8 @@ public class UIFilmController extends UIElement
 
             if (onItem.isAccepted())
             {
+                this.finishControlUse(player, hand, onItem);
+
                 return;
             }
         }
@@ -1060,11 +1167,10 @@ public class UIFilmController extends UIElement
      */
     private HitResult raycastControlTarget(ClientPlayerEntity player, boolean forAttack)
     {
-        double reach = MinecraftClient.getInstance().interactionManager != null
+        double blockRange = MinecraftClient.getInstance().interactionManager != null
             ? MinecraftClient.getInstance().interactionManager.getReachDistance()
             : 4.5D;
-        double entityRange = reach;
-        double blockRange = reach;
+        double entityRange = 3.0D;
         double maxRange = Math.max(entityRange, blockRange);
         Vec3d origin = player.getCameraPosVec(1F);
         Vec3d rotation = player.getRotationVec(1F);
@@ -1122,10 +1228,23 @@ public class UIFilmController extends UIElement
     }
 
     /**
-     * Actor-mode bodies are a separate {@link ActorEntity};
-     * mirror the live player swing so the visible actor animates the attack.
+     * Vanilla {@code interact*} may already swing the player. Always mirror a
+     * {@code shouldSwingHand} result onto the actor-mode body (place, use, etc.).
      */
-    private void swingVisibleActor()
+    private void finishControlUse(ClientPlayerEntity player, Hand hand, ActionResult result)
+    {
+        if (result.shouldSwingHand())
+        {
+            player.swingHand(hand);
+            this.swingVisibleActor(hand);
+        }
+    }
+
+    /**
+     * Actor-mode bodies are a separate {@link ActorEntity};
+     * mirror the live player swing so the visible actor plays swipe / place.
+     */
+    private void swingVisibleActor(Hand hand)
     {
         if (this.actors == null || this.panel.getData() == null)
         {
@@ -1148,9 +1267,9 @@ public class UIFilmController extends UIElement
 
         Entity entity = MinecraftClient.getInstance().world.getEntityById(entityId);
 
-        if (entity instanceof net.minecraft.entity.LivingEntity living)
+        if (entity instanceof LivingEntity living)
         {
-            living.swingHand(Hand.MAIN_HAND);
+            living.swingHand(hand);
         }
     }
 
@@ -1227,11 +1346,7 @@ public class UIFilmController extends UIElement
         int index = CollectionUtils.getKey(this.getEntities(), entity);
 
         this.panel.replayEditor.setReplay(this.panel.getData().replays.getList().get(index));
-
-        /* Switch to the replay/keyframes tab even when another timeline tab is active. */
-        this.panel.focusPanelTab("replayTimeline");
-        this.panel.focusLinkedPropertiesTab("replayTimeline");
-        this.panel.showPanel(this.panel.replayEditor);
+        this.panel.focusAfterAltReplayPick();
     }
 
     @Override
@@ -1576,6 +1691,7 @@ public class UIFilmController extends UIElement
 
                 if (this.recordingCountdown <= 0)
                 {
+                    this.prepareRecordingKeyframes();
                     this.panel.togglePlayback();
                 }
             }
@@ -1602,6 +1718,27 @@ public class UIFilmController extends UIElement
                 }
             }
         }
+    }
+
+    /**
+     * Drop leftover keyframes from the capture start so All-groups (and other)
+     * viewport recording does not blend into old future poses while capturing.
+     */
+    private void prepareRecordingKeyframes()
+    {
+        if (this.recordingKeyframesPrepared)
+        {
+            return;
+        }
+
+        Replay replay = this.getReplay();
+
+        if (replay != null)
+        {
+            replay.keyframes.clearFrom(this.recordingTick, this.recordingGroups);
+        }
+
+        this.recordingKeyframesPrepared = true;
     }
 
     private void updateControls()
@@ -1702,7 +1839,7 @@ public class UIFilmController extends UIElement
             y += font.getHeight() + 7;
         }
 
-        if (BBSSettings.editorFilmOverlayVisible.get())
+        if (BBSSettings.editorFilmOverlayVisible.get() && area.w >= 100 && area.h >= 60)
         {
             Replay replay = this.panel.replayEditor.getReplay();
 
@@ -1735,10 +1872,7 @@ public class UIFilmController extends UIElement
         {
             if (this.panel.hasLastGizmoMatrix)
             {
-                /* Resolve camera-baked vs camera-free capture so the colored gizmo stays
-                 * on the bone instead of sticking to the screen when orbiting. */
-                Gizmo.composeVisualMatrix(this.panel.lastGizmoMatrix, BBSRendering.camera, this.panel.lastProjection, this.gizmoInterfaceMatrix);
-                Gizmo.INSTANCE.lastGizmoMatrix.set(this.gizmoInterfaceMatrix);
+                Gizmo.INSTANCE.lastGizmoMatrix.set(this.panel.lastGizmoMatrix);
                 Gizmo.INSTANCE.hasGizmoMatrix = true;
                 Gizmo.INSTANCE.renderInterface(context, this.panel.lastProjection, this.panel.preview.getViewport());
             }
@@ -1746,6 +1880,8 @@ public class UIFilmController extends UIElement
         else if (!Gizmo.INSTANCE.isDragging())
         {
             this.panel.hasLastGizmoMatrix = false;
+            Gizmo.INSTANCE.clearVisual();
+            Gizmo.INSTANCE.setHoveredIndex(-1);
         }
 
         this.renderPickingPreview(context, area);
@@ -1773,16 +1909,30 @@ public class UIFilmController extends UIElement
         MatrixStackUtils.cacheMatrices();
 
         RenderSystem.setProjectionMatrix(this.panel.lastProjection, VertexSorter.BY_Z);
-        RenderSystem.setInverseViewRotationMatrix(new Matrix3f(this.panel.lastView).invert());
 
         /* Render the stencil */
         MatrixStack worldStack = this.worldRenderContext.matrixStack();
+        if (worldStack != null)
+        {
+            worldStack.push();
+            worldStack.loadIdentity();
+            MatrixStackUtils.multiply(worldStack, BBSRendering.camera);
+            this.renderStencil(this.worldRenderContext, context, altPressed);
+            worldStack.pop();
+        }
+        else
+        {
+            MatrixStack mvStack = RenderSystem.getModelViewStack();
+            mvStack.push();
+            mvStack.loadIdentity();
+            mvStack.multiplyPositionMatrix(BBSRendering.camera);
+            RenderSystem.applyModelViewMatrix();
 
-        worldStack.push();
-        worldStack.loadIdentity();
-        MatrixStackUtils.multiply(worldStack, this.panel.lastView);
-        this.renderStencil(this.worldRenderContext, this.getContext(), altPressed);
-        worldStack.pop();
+            this.renderStencil(this.worldRenderContext, context, altPressed);
+
+            mvStack.pop();
+            RenderSystem.applyModelViewMatrix();
+        }
 
         /* Return back to orthographic projection */
         MatrixStackUtils.restoreMatrices();
@@ -1889,15 +2039,15 @@ public class UIFilmController extends UIElement
         }
 
         Mouse mouse = MinecraftClient.getInstance().mouse;
-        int x = (int) mouse.getX();
-        int y = (int) mouse.getY();
+        double x = mouse.getX();
+        double y = mouse.getY();
 
         if (this.canControl())
         {
             if (this.isMouseLookMode() && ClientNetwork.isIsBBSModOnServer())
             {
-                float cursorDeltaX = (x - this.lastMouse.x) / 2F;
-                float cursorDeltaY = (y - this.lastMouse.y) / 2F;
+                float cursorDeltaX = (float) (x - this.lastMouse.x) / 2F;
+                float cursorDeltaY = (float) (y - this.lastMouse.y) / 2F;
 
                 MinecraftClient.getInstance().player.changeLookDirection(cursorDeltaX, cursorDeltaY);
             }
@@ -1906,8 +2056,8 @@ public class UIFilmController extends UIElement
                 /* Control sticks and triggers variables */
                 float sensitivity = 100F;
 
-                float xx = (y - this.lastMouse.y) / sensitivity;
-                float yy = (x - this.lastMouse.x) / sensitivity;
+                float xx = (float) (y - this.lastMouse.y) / sensitivity;
+                float yy = (float) (x - this.lastMouse.x) / sensitivity;
 
                 this.mouseStick.add(xx, yy);
                 this.mouseStick.x = MathUtils.clamp(this.mouseStick.x, -1F, 1F);
@@ -1953,7 +2103,9 @@ public class UIFilmController extends UIElement
         double cx = context.camera().getPos().x;
         double cy = context.camera().getPos().y;
         double cz = context.camera().getPos().z;
-        BufferBuilder builder = Tessellator.getInstance().getBuffer();
+        Tessellator tessellator = Tessellator.getInstance();
+        BufferBuilder builder = tessellator.getBuffer();
+        builder.begin(VertexFormat.DrawMode.TRIANGLES, VertexFormats.POSITION_COLOR);
 
         /* Preview path follows ItemEntity-like drag and gravity and stops on first block hit. */
         int primaryColor = BBSSettings.primaryColor.get() & 0x00FFFFFF;
@@ -1965,7 +2117,6 @@ public class UIFilmController extends UIElement
         RenderSystem.depthMask(false);
         RenderSystem.setShader(GameRenderer::getPositionColorProgram);
         RenderSystem.enableBlend();
-        builder.begin(VertexFormat.DrawMode.TRIANGLES, VertexFormats.POSITION_COLOR);
         MatrixStack stack = context.matrixStack();
 
         final int maxSteps = 80;
@@ -2068,7 +2219,19 @@ public class UIFilmController extends UIElement
 
     private boolean canShowGizmo()
     {
-        return UIBaseMenu.renderAxes && !this.recording && this.getBone() != null;
+        if (!UIBaseMenu.renderAxes || this.recording || this.getBone() == null || (this.panel != null && (this.panel.preview.area.w < 100 || this.panel.preview.area.h < 60)))
+        {
+            return false;
+        }
+
+        /* Actor death (combat or keyframed death_time) stops matrix capture; keep the UI
+         * gizmo hidden too so FormDeathTilt cannot make a stale bone matrix fly on screen. */
+        Replay replay = this.getReplay();
+
+        return this.editorController == null
+            || replay == null
+            || !replay.actor.get()
+            || !this.editorController.isActorPickingBlocked(replay);
     }
 
     private void renderStencil(WorldRenderContext renderContext, UIContext context, boolean altPressed)
@@ -2110,122 +2273,151 @@ public class UIFilmController extends UIElement
         int[] prevViewport = new int[4];
 
         GL11.glGetIntegerv(GL11.GL_VIEWPORT, prevViewport);
-        this.stencil.apply();
-
-        /* Closest bone along the cursor ray must win; glow/gizmo passes can leave depthMask off. */
-        RenderSystem.enableDepthTest();
-        RenderSystem.depthFunc(GL11.GL_LEQUAL);
-        RenderSystem.depthMask(true);
-
-        if (altPressed)
+        boolean scissorWasEnabled = GL11.glIsEnabled(GL11.GL_SCISSOR_TEST);
+        if (scissorWasEnabled)
         {
-            for (Map.Entry<Integer, IEntity> entry : this.getEntities().entrySet())
-            {
-                Replay replay = CollectionUtils.getSafe(this.panel.getData().replays.getList(), entry.getKey());
-
-                if (replay == null || this.editorController == null || !this.editorController.isReplayVisible(replay, replay.getTick(cursorTick)))
-                {
-                    continue;
-                }
-
-                this.stencilMap.objectIndex = entry.getKey() + Gizmo.STENCIL_HANDLE_MAX + 1;
-
-                IEntity renderEntity = this.editorController.getRenderEntity(replay, entry.getValue());
-                boolean physicalActor = renderEntity != entry.getValue();
-
-                BaseFilmController.renderEntity(FilmControllerContext.instance
-                    .setup(this.getEntities(), renderEntity, replay, renderContext)
-                    .film(this.panel.getData())
-                    .filmTick(cursorTick)
-                    .transition(isPlaying ? renderContext.tickDelta() : 0)
-                    .stencil(this.stencilMap)
-                    .relative(replay.isCameraRelative())
-                    .physicalActor(physicalActor));
-            }
+            GlStateManager._disableScissorTest();
         }
-        else
+
+        try
         {
-            /* Bone pick only the selected replay. Without Alt, limbs on other actors
-             * must not be clickable (Alt is the way to target/switch other replays). */
-            Pair<String, TransformOrientation> bone = this.getBone();
-            int currentIndex = this.panel.replayEditor.replays.replays.getIndex();
-            Replay currentReplay = CollectionUtils.getSafe(this.panel.getData().replays.getList(), currentIndex);
-            boolean markedBonesOnly = BBSSettings.replayMarkedBonesOnly.get() && !Window.isShiftPressed();
+            this.stencil.apply();
 
-            if (currentReplay != null && this.editorController != null
-                && this.editorController.isReplayVisible(currentReplay, currentReplay.getTick(cursorTick)))
+            /* Closest bone along the cursor ray must win; glow/gizmo passes can leave depthMask off. */
+            RenderSystem.enableDepthTest();
+            RenderSystem.depthFunc(GL11.GL_LEQUAL);
+            RenderSystem.depthMask(true);
+
+            if (altPressed)
             {
-                IEntity currentEntity = this.getEntities().get(currentIndex);
-
-                if (currentEntity != null)
+                for (Map.Entry<Integer, IEntity> entry : this.getEntities().entrySet())
                 {
-                    this.stencilMap.allowedBones = null;
+                    Replay replay = CollectionUtils.getSafe(this.panel.getData().replays.getList(), entry.getKey());
 
-                    if (markedBonesOnly)
+                    if (replay == null || this.editorController == null || !this.editorController.isReplayVisible(replay, replay.getTick(cursorTick)))
                     {
-                        Form form = currentReplay.form.get();
-
-                        if (form instanceof ModelForm modelForm)
-                        {
-                            ModelInstance model = ModelFormRenderer.getModel(modelForm);
-                            String poseGroup = model == null ? modelForm.model.get() : model.poseGroup;
-
-                            if (poseGroup == null || poseGroup.isEmpty())
-                            {
-                                poseGroup = model == null ? modelForm.model.get() : model.id;
-                            }
-
-                            if (UIPoseEditor.hasMarkedBones(poseGroup))
-                            {
-                                this.stencilMap.allowedBones = UIPoseEditor.getMarkedBones(poseGroup);
-                            }
-                        }
+                        continue;
                     }
 
-                    IEntity renderEntity = this.editorController.getRenderEntity(currentReplay, currentEntity);
-                    boolean physicalActor = renderEntity != currentEntity;
-
-                    /* Prefer the physical actor's form for marked-bone filtering when Actor is on. */
-                    if (physicalActor && markedBonesOnly)
+                    if (this.editorController.isActorPickingBlocked(replay))
                     {
-                        Form actorForm = renderEntity.getForm();
-
-                        if (actorForm instanceof ModelForm modelForm)
-                        {
-                            ModelInstance model = ModelFormRenderer.getModel(modelForm);
-                            String poseGroup = model == null ? modelForm.model.get() : model.poseGroup;
-
-                            if (poseGroup == null || poseGroup.isEmpty())
-                            {
-                                poseGroup = model == null ? modelForm.model.get() : model.id;
-                            }
-
-                            if (UIPoseEditor.hasMarkedBones(poseGroup))
-                            {
-                                this.stencilMap.allowedBones = UIPoseEditor.getMarkedBones(poseGroup);
-                            }
-                        }
+                        continue;
                     }
+
+                    this.stencilMap.objectIndex = entry.getKey() + Gizmo.STENCIL_HANDLE_MAX + 1;
+
+                    IEntity renderEntity = this.editorController.getRenderEntity(replay, entry.getValue());
+                    boolean physicalActor = renderEntity != entry.getValue();
+                    float transition = isPlaying ? renderContext.tickDelta() : 0F;
+                    float propertyTick = replay.getTick(cursorTick) + transition;
 
                     BaseFilmController.renderEntity(FilmControllerContext.instance
-                        .setup(this.getEntities(), renderEntity, currentReplay, renderContext)
+                        .setup(this.getEntities(), renderEntity, replay, renderContext)
                         .film(this.panel.getData())
                         .filmTick(cursorTick)
-                        .transition(isPlaying ? renderContext.tickDelta() : 0)
+                        .propertyTick(propertyTick)
+                        .transition(transition)
                         .stencil(this.stencilMap)
-                        .relative(currentReplay.relative.get())
-                        .physicalActor(physicalActor)
-                        .bone(bone != null ? bone.a : null, bone != null ? bone.b : TransformOrientation.PARENT));
+                        .relative(replay.isCameraRelative())
+                        .physicalActor(physicalActor));
                 }
             }
+            else
+            {
+                /* Bone pick only the selected replay. Without Alt, limbs on other actors
+                 * must not be clickable (Alt is the way to target/switch other replays). */
+                Pair<String, TransformOrientation> bone = this.getBone();
+                int currentIndex = this.panel.replayEditor.replays.replays.getIndex();
+                Replay currentReplay = CollectionUtils.getSafe(this.panel.getData().replays.getList(), currentIndex);
+                boolean markedBonesOnly = BBSSettings.replayMarkedBonesOnly.get() && !Window.isShiftPressed();
+
+                if (currentReplay != null && this.editorController != null
+                    && this.editorController.isReplayVisible(currentReplay, currentReplay.getTick(cursorTick))
+                    && !this.editorController.isActorPickingBlocked(currentReplay))
+                {
+                    IEntity currentEntity = this.getEntities().get(currentIndex);
+
+                    if (currentEntity != null)
+                    {
+                        this.stencilMap.allowedBones = null;
+
+                        if (markedBonesOnly)
+                        {
+                            Form form = currentReplay.form.get();
+
+                            if (form instanceof ModelForm modelForm)
+                            {
+                                ModelInstance model = ModelFormRenderer.getModel(modelForm);
+                                String poseGroup = model == null ? modelForm.model.get() : model.poseGroup;
+
+                                if (poseGroup == null || poseGroup.isEmpty())
+                                {
+                                    poseGroup = model == null ? modelForm.model.get() : model.id;
+                                }
+
+                                if (UIPoseEditor.hasMarkedBones(poseGroup))
+                                {
+                                    this.stencilMap.allowedBones = UIPoseEditor.getMarkedBones(poseGroup);
+                                }
+                            }
+                        }
+
+                        IEntity renderEntity = this.editorController.getRenderEntity(currentReplay, currentEntity);
+                        boolean physicalActor = renderEntity != currentEntity;
+
+                        /* Prefer the physical actor's form for marked-bone filtering when Actor is on. */
+                        if (physicalActor && markedBonesOnly)
+                        {
+                            Form actorForm = renderEntity.getForm();
+
+                            if (actorForm instanceof ModelForm modelForm)
+                            {
+                                ModelInstance model = ModelFormRenderer.getModel(modelForm);
+                                String poseGroup = model == null ? modelForm.model.get() : model.poseGroup;
+
+                                if (poseGroup == null || poseGroup.isEmpty())
+                                {
+                                    poseGroup = model == null ? modelForm.model.get() : model.id;
+                                }
+
+                                if (UIPoseEditor.hasMarkedBones(poseGroup))
+                                {
+                                    this.stencilMap.allowedBones = UIPoseEditor.getMarkedBones(poseGroup);
+                                }
+                            }
+                        }
+
+                        float transition = isPlaying ? renderContext.tickDelta() : 0F;
+                        float propertyTick = currentReplay.getTick(cursorTick) + transition;
+
+                        BaseFilmController.renderEntity(FilmControllerContext.instance
+                            .setup(this.getEntities(), renderEntity, currentReplay, renderContext)
+                            .film(this.panel.getData())
+                            .filmTick(cursorTick)
+                            .propertyTick(propertyTick)
+                            .transition(transition)
+                            .stencil(this.stencilMap)
+                            .relative(currentReplay.relative.get())
+                            .physicalActor(physicalActor)
+                            .bone(bone != null ? bone.a : null, bone != null ? bone.b : TransformOrientation.PARENT));
+                    }
+                }
+            }
+
+            int x = (int) ((context.mouseX() - viewport.x) / (float) viewport.w * mainTexture.width);
+            int y = (int) ((1F - (context.mouseY() - viewport.y) / (float) viewport.h) * mainTexture.height);
+
+            this.stencil.pick(x, y);
+            this.stencil.unbind(this.stencilMap);
+            this.panel.replayEditor.updateGizmoHover();
         }
-
-        int x = (int) ((context.mouseX() - viewport.x) / (float) viewport.w * mainTexture.width);
-        int y = (int) ((1F - (context.mouseY() - viewport.y) / (float) viewport.h) * mainTexture.height);
-
-        this.stencil.pick(x, y);
-        this.stencil.unbind(this.stencilMap);
-        this.panel.replayEditor.updateGizmoHover();
+        finally
+        {
+            if (scissorWasEnabled)
+            {
+                GlStateManager._enableScissorTest();
+            }
+        }
 
         /* Rebind the main target without clearing — beginWrite(true) wiped the film
          * preview every mouse move over the viewport (deferred translucents looked like flicker).

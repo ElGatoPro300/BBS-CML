@@ -3,12 +3,14 @@ package mchorse.bbs_mod.ui.film.utils.undo;
 import mchorse.bbs_mod.data.types.BaseType;
 import mchorse.bbs_mod.data.types.ListType;
 import mchorse.bbs_mod.data.types.MapType;
+import mchorse.bbs_mod.film.replays.FormProperties;
 import mchorse.bbs_mod.settings.values.base.BaseValue;
 import mchorse.bbs_mod.settings.values.core.ValueGroup;
 import mchorse.bbs_mod.settings.values.core.ValueList;
 import mchorse.bbs_mod.ui.framework.elements.UIElement;
 import mchorse.bbs_mod.utils.DataPath;
 import mchorse.bbs_mod.utils.clips.Clips;
+import mchorse.bbs_mod.utils.keyframes.KeyframeChannel;
 import mchorse.bbs_mod.utils.undo.IUndo;
 
 public class ValueChangeUndo extends FilmEditorUndo
@@ -99,7 +101,19 @@ public class ValueChangeUndo extends FilmEditorUndo
 
     private void apply(ValueGroup context, BaseType data)
     {
-        BaseValue value = context.getRecursively(this.name);
+        BaseValue value = context.getRecursivelyOrNull(this.name);
+
+        if (value == null)
+        {
+            value = this.tryRestoreMissingValue(context, data);
+        }
+
+        if (value == null)
+        {
+            /* Path no longer exists (dynamic channel cleaned up, replay removed, etc.).
+             * Skip instead of crashing the editor on Ctrl+Z / Ctrl+Y. */
+            return;
+        }
 
         if (value.getPath().equals(this.name))
         {
@@ -114,6 +128,42 @@ public class ValueChangeUndo extends FilmEditorUndo
             value.fromData(normalizedData);
             value.postNotify();
         }
+    }
+
+    /**
+     * FormProperties keyframe channels are created on demand and may be removed when empty
+     * ({@code cleanUp}) or when the parent properties group is rebuilt from data. Recreate
+     * the missing channel so undo/redo can still apply the cached snapshot.
+     */
+    private BaseValue tryRestoreMissingValue(ValueGroup context, BaseType data)
+    {
+        if (data == null || this.name.size() < 2)
+        {
+            return null;
+        }
+
+        BaseValue parent = context.getRecursivelyOrNull(this.name.getParent());
+
+        if (!(parent instanceof FormProperties formProperties))
+        {
+            return null;
+        }
+
+        String key = this.name.getLast();
+        BaseValue existing = formProperties.get(key);
+
+        if (existing != null)
+        {
+            return existing;
+        }
+
+        KeyframeChannel channel = new KeyframeChannel(key, null);
+
+        channel.setModel(true);
+        formProperties.properties.put(key, channel);
+        formProperties.add(channel);
+
+        return channel;
     }
 
     private BaseType normalizeData(BaseValue value, BaseType data)

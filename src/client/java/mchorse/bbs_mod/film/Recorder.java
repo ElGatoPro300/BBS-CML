@@ -39,6 +39,7 @@ import net.minecraft.client.render.VertexFormat;
 import net.minecraft.client.render.VertexFormats;
 import net.minecraft.client.util.math.MatrixStack;
 
+import org.joml.Matrix4f;
 import org.joml.Quaternionf;
 import org.joml.Vector3d;
 import org.joml.Vector4f;
@@ -151,9 +152,9 @@ public class Recorder extends WorldFilmController
         Vector4f forward = new Vector4f(fx * (distance + 100F), fy * (distance + 100F), fz * (distance + 100F), 1F);
 
         BufferBuilder builder = Tessellator.getInstance().getBuffer();
+        builder.begin(VertexFormat.DrawMode.TRIANGLES, VertexFormats.POSITION_COLOR);
 
         RenderSystem.setShader(GameRenderer::getPositionColorProgram);
-        builder.begin(VertexFormat.DrawMode.TRIANGLES, VertexFormats.POSITION_COLOR);
 
         fillPreviewSegment(builder, stack, x, y, z, x + topRight.x, y + topRight.y, z + topRight.z, thickness, r, g, b, a);
         fillPreviewSegment(builder, stack, x, y, z, x + topLeft.x, y + topLeft.y, z + topLeft.z, thickness, r, g, b, a);
@@ -462,6 +463,10 @@ public class Recorder extends WorldFilmController
         this.tick = tick;
         this.countdown = TimeUtils.toTick(BBSSettings.recordingCountdown.get());
         this.initialTick = tick;
+
+        /* WorldFilmController creates stubs in super() before this tick is set.
+         * Rebuild once so other replays start recording from the same playhead. */
+        this.createEntities();
     }
 
     public boolean hasNotStarted()

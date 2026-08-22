@@ -377,49 +377,30 @@ public class UIHotbarClip extends UIClip<HotbarClip>
     {
         super.registerPanels();
 
-        this.panels.add(UI.column(
-            UIClip.label(UIKeys.CAMERA_CLIPS_GROUP_LAYOUT),
-            UI.row(this.layoutX, this.layoutY),
-            this.layoutScale,
-            this.rightOffhand
-        ).marginTop(6));
-        this.panels.add(UI.column(
-            UIClip.label(UIKeys.CAMERA_CLIPS_GROUP_INVENTORY),
-            this.selectedSlot
-        ).marginTop(6));
-        this.panels.add(UI.column(
-            UIClip.label(UIKeys.CAMERA_CLIPS_GROUP_HEALTH),
+        this.panels.add(this.section(UIKeys.CAMERA_CLIPS_GROUP_LAYOUT, UI.row(this.layoutX, this.layoutY), this.layoutScale, this.rightOffhand));
+        this.panels.add(this.section(UIKeys.CAMERA_CLIPS_GROUP_INVENTORY, this.selectedSlot));
+        this.panels.add(this.section(UIKeys.CAMERA_CLIPS_GROUP_HEALTH,
             UI.row(this.health, this.healthContainer),
             UI.row(this.absorption, this.absorptionContainer),
             this.armor,
             this.hardcore,
-            this.heartRegeneration
-        ).marginTop(6));
-        this.panels.add(UI.column(
-            UIClip.label(UIKeys.CAMERA_CLIPS_GROUP_HUNGER),
-            this.hunger,
-            this.hungerEffect,
-            this.air
-        ).marginTop(6));
-        this.panels.add(UI.column(
-            UIClip.label(UIKeys.CAMERA_CLIPS_GROUP_EXPERIENCE),
+            this.heartRegeneration));
+        this.panels.add(this.section(UIKeys.CAMERA_CLIPS_GROUP_HUNGER, this.hunger, this.hungerEffect, this.air));
+        this.panels.add(this.section(UIKeys.CAMERA_CLIPS_GROUP_EXPERIENCE,
             UI.row(this.experience, this.experienceLevel),
             UI.row(this.mountHealth, this.mountHealthContainer),
             this.horseJump,
             this.showHorseJump,
             this.attackCooldown,
-            this.showAttackCooldown
-        ).marginTop(6));
-        this.panels.add(UI.column(
-            UIClip.label(UIKeys.CAMERA_CLIPS_GROUP_VISIBILITY),
+            this.showAttackCooldown));
+        this.panels.add(this.section(UIKeys.CAMERA_CLIPS_GROUP_VISIBILITY,
             this.showHotbar,
             this.showHealth,
             this.showArmor,
             this.showHunger,
             this.showAir,
-            this.showExperience
-        ).marginTop(6));
-        this.panels.add(UI.column(UIClip.label(UIKeys.SCREEN_PANELS_KEYFRAMES), this.useKeyframes, this.edit).marginTop(6));
+            this.showExperience));
+        this.panels.add(this.section(UIKeys.SCREEN_PANELS_KEYFRAMES, this.useKeyframes, this.edit));
     }
 
     @Override

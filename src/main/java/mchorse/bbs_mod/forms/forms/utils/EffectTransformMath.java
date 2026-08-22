@@ -176,7 +176,8 @@ public class EffectTransformMath
     }
 
     /**
-     * Inverse of translate + rotate only. Scale is applied via mask half-extents.
+     * Inverse of translate + pivot rotation. Scale is applied via mask half-extents.
+     * Order matches limb transforms: T(offset) · T(pivot) · R · T(-pivot).
      */
     public static void buildInverseMatrix(EffectTransform transform, Matrix4f dest)
     {
@@ -189,7 +190,9 @@ public class EffectTransformMath
 
         MATRIX.identity()
             .translate(transform.offsetX, transform.offsetY, transform.offsetZ)
-            .rotateXYZ(MathUtils.toRad(transform.rotateX), MathUtils.toRad(transform.rotateY), MathUtils.toRad(transform.rotateZ));
+            .translate(transform.pivotX, transform.pivotY, transform.pivotZ)
+            .rotateXYZ(MathUtils.toRad(transform.rotateX), MathUtils.toRad(transform.rotateY), MathUtils.toRad(transform.rotateZ))
+            .translate(-transform.pivotX, -transform.pivotY, -transform.pivotZ);
 
         dest.set(MATRIX);
         dest.invert();

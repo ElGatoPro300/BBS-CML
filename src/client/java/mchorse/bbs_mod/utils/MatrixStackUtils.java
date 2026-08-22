@@ -12,7 +12,6 @@ import net.minecraft.util.math.RotationAxis;
 
 import org.joml.Matrix3f;
 import org.joml.Matrix4f;
-import org.joml.Matrix4fStack;
 import org.joml.Quaternionf;
 
 import com.mojang.blaze3d.systems.RenderSystem;
@@ -141,8 +140,7 @@ public class MatrixStackUtils
         MatrixStack mvStack = RenderSystem.getModelViewStack();
 
         mvStack.push();
-        mvStack.peek().getPositionMatrix().identity();
-        mvStack.peek().getNormalMatrix().identity();
+        mvStack.loadIdentity();
         RenderSystem.applyModelViewMatrix();
     }
 
@@ -152,6 +150,26 @@ public class MatrixStackUtils
 
         mvStack.pop();
         RenderSystem.applyModelViewMatrix();
+    }
+
+    /**
+     * Pop leaked {@link MatrixStack} entries until {@code parent} is on top again.
+     * Vanilla {@code ModelPart.render} has no try/finally; a throw after {@code push}
+     * otherwise trips WorldRenderer "Pose stack not empty".
+     */
+    public static void popUntil(MatrixStack stack, MatrixStack.Entry parent)
+    {
+        if (stack == null || parent == null)
+        {
+            return;
+        }
+
+        int guard = 32;
+
+        while (guard-- > 0 && !stack.isEmpty() && stack.peek() != parent)
+        {
+            stack.pop();
+        }
     }
 
     public static void applyTransform(MatrixStack stack, Transform transform)

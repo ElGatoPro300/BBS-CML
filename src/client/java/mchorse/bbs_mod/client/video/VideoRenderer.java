@@ -431,18 +431,18 @@ public class VideoRenderer
 
             Tessellator tessellator = Tessellator.getInstance();
             BufferBuilder buffer = tessellator.getBuffer();
+            buffer.begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_TEXTURE);
             Matrix4f matrix = stack.peek().getPositionMatrix();
 
             /* Desplazar por recorte de izquierda/arriba para mantener el contenido en su lugar. */
             int drawX = x + Math.round(absW * left) * wSign;
             int drawY = y + Math.round(absH * top) * hSign;
 
-            buffer.begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_TEXTURE);
             buffer.vertex(matrix, drawX, drawY + drawH, 0).texture(u0, v1).next();
             buffer.vertex(matrix, drawX + drawW, drawY + drawH, 0).texture(u1, v1).next();
             buffer.vertex(matrix, drawX + drawW, drawY, 0).texture(u1, v0).next();
             buffer.vertex(matrix, drawX, drawY, 0).texture(u0, v0).next();
-            tessellator.draw();
+            BufferRenderer.drawWithGlobalProgram(buffer.end());
             
             RenderSystem.enableCull();
             RenderSystem.depthMask(true);

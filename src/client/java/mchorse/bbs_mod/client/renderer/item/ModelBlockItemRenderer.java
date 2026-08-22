@@ -15,6 +15,7 @@ import mchorse.bbs_mod.utils.pose.Transform;
 import net.fabricmc.fabric.api.client.rendering.v1.BuiltinItemRendererRegistry;
 
 import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.render.DiffuseLighting;
 import net.minecraft.client.render.LightmapTextureManager;
 import net.minecraft.client.render.VertexConsumerProvider;
 import net.minecraft.client.render.model.json.ModelTransformationMode;
@@ -22,6 +23,8 @@ import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NbtCompound;
 import net.minecraft.util.math.BlockPos;
+
+import org.joml.Vector3f;
 
 import com.mojang.blaze3d.systems.RenderSystem;
 
@@ -73,9 +76,11 @@ public class ModelBlockItemRenderer implements BuiltinItemRendererRegistry.Dynam
                 MatrixStackUtils.applyTransform(matrices, transform);
 
                 RenderSystem.enableDepthTest();
+
                 FormUtilsClient.render(form, new FormRenderingContext()
                     .set(FormRenderType.fromModelMode(mode), item.formEntity, matrices, light, overlay, MinecraftClient.getInstance().getTickDelta())
                     .camera(MinecraftClient.getInstance().gameRenderer.getCamera()));
+
                 RenderSystem.disableDepthTest();
 
                 matrices.pop();
@@ -95,18 +100,18 @@ public class ModelBlockItemRenderer implements BuiltinItemRendererRegistry.Dynam
             return this.map.get(stack);
         }
 
+        NbtCompound nbt = stack.getNbt();
         ModelBlockEntity entity = new ModelBlockEntity(BlockPos.ORIGIN, BBSMod.MODEL_BLOCK.getDefaultState());
         Item item = new Item(entity);
 
         this.map.put(stack, item);
 
-        NbtCompound nbt = stack.getSubNbt("BlockEntityTag");
         if (nbt == null)
         {
             return item;
         }
 
-        entity.readNbt(nbt);
+        entity.readNbt(nbt.getCompound("BlockEntityTag"));
 
         return item;
     }

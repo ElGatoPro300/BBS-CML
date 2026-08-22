@@ -280,14 +280,14 @@ public class UISubtitleClip extends UIClip<SubtitleClip>
     {
         super.registerPanels();
 
-        this.panels.add(UI.column(UIClip.label(UIKeys.CAMERA_PANELS_SUBTITLE_OFFSET), UI.row(this.x, this.y)).marginTop(6));
-        this.panels.add(UI.column(UIClip.label(UIKeys.CAMERA_PANELS_SUBTITLE_SIZE), this.size, this.color, this.textShadow).marginTop(6));
-        this.panels.add(UI.column(UIClip.label(UIKeys.CAMERA_PANELS_SUBTITLE_ANCHOR), UI.row(this.anchorX, this.anchorY)).marginTop(6));
-        this.panels.add(UI.column(UIClip.label(UIKeys.CAMERA_PANELS_SUBTITLE_WINDOW), UI.row(this.windowX, this.windowY)).marginTop(6));
-        this.panels.add(UI.column(UIClip.label(UIKeys.CAMERA_PANELS_SUBTITLE_BACKGROUND), this.background, this.backgroundOffset).marginTop(6));
-        this.panels.add(UI.column(UIClip.label(UIKeys.CAMERA_PANELS_SUBTITLE_SHADOW), this.shadow, this.shadowOpaque).marginTop(6));
-        this.panels.add(UI.column(UIClip.label(UIKeys.CAMERA_PANELS_SUBTITLE_CONSTRAINT), UI.row(this.lineHeight, this.maxWidth)).marginTop(6));
-        this.panels.add(UI.column(UIClip.label(UIKeys.SCREEN_PANELS_KEYFRAMES), this.useKeyframes, this.edit).marginTop(6));
+        this.panels.add(this.section(UIKeys.CAMERA_PANELS_SUBTITLE_OFFSET, UI.row(this.x, this.y)));
+        this.panels.add(this.section(UIKeys.CAMERA_PANELS_SUBTITLE_SIZE, this.size, this.color, this.textShadow));
+        this.panels.add(this.section(UIKeys.CAMERA_PANELS_SUBTITLE_ANCHOR, UI.row(this.anchorX, this.anchorY)));
+        this.panels.add(this.section(UIKeys.CAMERA_PANELS_SUBTITLE_WINDOW, UI.row(this.windowX, this.windowY)));
+        this.panels.add(this.section(UIKeys.CAMERA_PANELS_SUBTITLE_BACKGROUND, this.background, this.backgroundOffset));
+        this.panels.add(this.section(UIKeys.CAMERA_PANELS_SUBTITLE_SHADOW, this.shadow, this.shadowOpaque));
+        this.panels.add(this.section(UIKeys.CAMERA_PANELS_SUBTITLE_CONSTRAINT, UI.row(this.lineHeight, this.maxWidth)));
+        this.panels.add(this.section(UIKeys.SCREEN_PANELS_KEYFRAMES, this.useKeyframes, this.edit));
     }
 
     @Override
@@ -465,6 +465,12 @@ public class UISubtitleClip extends UIClip<SubtitleClip>
             case "maxWidth" -> UIKeys.CAMERA_PANELS_SUBTITLE_MAX_WIDTH;
             default -> IKey.constant(id);
         };
+    }
+
+    @Override
+    protected UIKeyframeEditor resolveClipEmbeddableView(String undoId)
+    {
+        return undoId.equals(this.keyframes.getUndoId()) ? this.keyframes : null;
     }
 
     @Override

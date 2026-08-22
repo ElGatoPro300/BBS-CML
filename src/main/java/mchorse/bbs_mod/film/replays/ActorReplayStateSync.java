@@ -59,7 +59,7 @@ public final class ActorReplayStateSync
             player.getAbilities().flying = mounted ? false : source.isFlying();
         }
 
-        boolean usingItem = source.isUsingItem() || source.getItemUseTimeLeft() > 0;
+        boolean usingItem = source.isUsingItem();
 
         actor.setLivingFlag(1, usingItem || source.isBlocking());
         actor.setLivingFlag(2, source.getActiveHand() == Hand.OFF_HAND && usingItem);
@@ -167,7 +167,7 @@ public final class ActorReplayStateSync
      * pose/action flags {@link ReplayKeyframes#apply} would set on a stub.
      *
      * @param advanceLimbs when true (playing), drive limb swing from keyframe motion like
-     *                     {@link mchorse.bbs_mod.forms.entities.StubEntity#update}; when false
+     *                     {@link StubEntity#update}; when false
      *                     (paused), settle limbs/sprint so emoticon/BOBJ can leave run for idle
      *                     (timeline-freeze mode freezes the form clock separately).
      */
@@ -195,8 +195,7 @@ public final class ActorReplayStateSync
         boolean sleeping = !mounted && keyframes.sleeping.interpolate(tick) != 0D;
         boolean riptide = !mounted && keyframes.riptide.interpolate(tick) != 0D;
         boolean grounded = keyframes.grounded.interpolate(tick) != 0D;
-        int itemUseElapsed = keyframes.itemUseTime.interpolate(tick).intValue();
-        boolean usingItem = keyframes.usingItem.interpolate(tick) > 0D || itemUseElapsed > 0;
+        boolean usingItem = keyframes.isUsingItemAt(tick);
         boolean offHand = keyframes.activeHand.interpolate(tick) > 0D;
 
         actor.setSneaking(sneaking);
@@ -216,24 +215,29 @@ public final class ActorReplayStateSync
             player.getAbilities().flying = flying;
         }
 
-        actor.setLivingFlag(1, usingItem || blocking);
-        actor.setLivingFlag(2, offHand && usingItem);
+        /* FP binds the real player — a vanilla use would consume food and
+         * fight client input (stopUsingItem every tick). Client
+         * ItemUseRenderState drives first-person use visuals instead. */
+        boolean applyUseFlags = !(actor instanceof PlayerEntity);
+
+        actor.setLivingFlag(1, (usingItem && applyUseFlags) || blocking);
+        actor.setLivingFlag(2, offHand && usingItem && applyUseFlags);
         actor.setLivingFlag(4, riptide);
 
-        if (!mounted && actor.limbAnimator instanceof LimbAnimatorAccessor limb)
+        if (!mounted && actor.limbAnimator instanceof LimbAnimatorAccessor)
         {
             if (advanceLimbs)
             {
+                /* Same horizontal target as ActionPlayer forward playback velocity, with
+                 * vanilla LimbAnimator lerp (0.4) — not an instant setSpeed/setPos snap. */
                 double x = keyframes.x.interpolate(tick);
                 double z = keyframes.z.interpolate(tick);
-                double prevX = keyframes.x.interpolate(tick - 1F);
-                double prevZ = keyframes.z.interpolate(tick - 1F);
-                float delta = (float) MathHelper.magnitude(x - prevX, 0D, z - prevZ);
+                double nextX = keyframes.x.interpolate(tick + 1F);
+                double nextZ = keyframes.z.interpolate(tick + 1F);
+                float delta = (float) MathHelper.magnitude(nextX - x, 0D, nextZ - z);
                 float speed = Math.min(delta * 4F, 1F);
 
-                limb.setPrevSpeed(limb.getSpeed());
-                limb.setSpeed(speed);
-                limb.setPos(limb.getPos() + speed);
+                actor.limbAnimator.updateLimbs(speed, 0.4F);
             }
             else if (settleWhenPaused)
             {
@@ -251,8 +255,11 @@ public final class ActorReplayStateSync
                 float delta = (float) MathHelper.magnitude(x - prevX, 0D, z - prevZ);
                 float speed = Math.min(delta * 4F, 1F);
 
-                limb.setPrevSpeed(limb.getSpeed());
-                limb.setSpeed(speed);
+                if (actor.limbAnimator instanceof LimbAnimatorAccessor limb)
+                {
+                    limb.setPrevSpeed(limb.getSpeed());
+                    limb.setSpeed(speed);
+                }
             }
         }
         else if (mounted && actor.limbAnimator instanceof LimbAnimatorAccessor limb)
@@ -286,24 +293,45 @@ public final class ActorReplayStateSync
     }
 
     /**
-     * Merge keyframed damage/death with any live combat on {@link ActorEntity}.
+     * Merge keyframed damage with any live combat on {@link ActorEntity}.
      * ActionPlayer used to assign keyframe values every tick, which wiped vanilla
-     * {@code hurtTime}/{@code deathTime} and made actors look immune after a few hits.
+     * {@code hurtTime} and made actors look immune after a few hits.
      * <p>
-     * Death always takes the max so a real kill can finish its animation.
+     * Actor death is Attack/combat-driven at playback — {@code death_time} keyframes
+     * must not force-kill an actor (or keep them dead when Attack clips are disabled).
      * Live {@code hurtTime} is kept when damage flash and/or damage animation is enabled.
+     * <p>
+     * First-person playback binds the real {@link PlayerEntity} as the actor body; that
+     * path must keep the same live/keyframe merge or Attack/Damage clips never produce
+     * camera shake / hurt overlay in FP view.
      */
     private static void applyHurtAndDeath(LivingEntity actor, int keyframeHurt, int keyframeDeath)
     {
         if (!(actor instanceof ActorEntity actorEntity))
         {
-            actor.hurtTime = keyframeHurt;
-            actor.deathTime = keyframeDeath;
+            if (BBSSettings.shouldKeepActorLiveHurtTime())
+            {
+                actor.hurtTime = Math.max(actor.hurtTime, keyframeHurt);
+            }
+            else
+            {
+                actor.hurtTime = keyframeHurt;
+            }
+
+            if (actor.hurtTime > 0 && actor.maxHurtTime < actor.hurtTime)
+            {
+                actor.maxHurtTime = Math.max(10, actor.hurtTime);
+            }
+
+            /* Never force deathTime onto the real FP player from keyframes. */
+            if (!(actor instanceof PlayerEntity))
+            {
+                actor.deathTime = keyframeDeath;
+            }
 
             return;
         }
 
-        actor.deathTime = Math.max(actor.deathTime, keyframeDeath);
         actorEntity.setKeyframeHurtActive(keyframeHurt > 0);
 
         if (BBSSettings.shouldKeepActorLiveHurtTime())

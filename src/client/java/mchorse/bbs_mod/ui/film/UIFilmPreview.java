@@ -26,6 +26,7 @@ import mchorse.bbs_mod.ui.UIKeys;
 import mchorse.bbs_mod.ui.dashboard.panels.UIDashboardPanels;
 import mchorse.bbs_mod.ui.film.controller.UIFilmController;
 import mchorse.bbs_mod.ui.film.controller.UIGizmoSizeContextMenu;
+import mchorse.bbs_mod.ui.film.controller.UIGizmoThicknessContextMenu;
 import mchorse.bbs_mod.ui.film.controller.UIGizmoTranslateSpeedContextMenu;
 import mchorse.bbs_mod.ui.film.controller.UIOnionSkinContextMenu;
 import mchorse.bbs_mod.ui.film.controller.UIViewportHideContextMenu;
@@ -100,6 +101,7 @@ public class UIFilmPreview extends UIElement
     public UIIcon gizmoCombined;
     public UIIcon gizmoTop;
     public UIIcon gizmoSize;
+    public UIIcon gizmoThickness;
     public UIIcon gizmoTranslateSpeed;
     public UIIcon onionSkin;
     public UIIcon hideOverlays;
@@ -138,6 +140,12 @@ public class UIFilmPreview extends UIElement
         this.gizmoSize.tooltip(UIKeys.FILM_GIZMO_SIZE);
         this.styleGizmoToolbarIcon(this.gizmoSize);
 
+        this.gizmoThickness = new UIIcon(Icons.LINE, (b) ->
+            this.getContext().replaceContextMenu(new UIGizmoThicknessContextMenu())
+        );
+        this.gizmoThickness.tooltip(UIKeys.FILM_GIZMO_THICKNESS);
+        this.styleGizmoToolbarIcon(this.gizmoThickness);
+
         this.gizmoTranslateSpeed = new UIIcon(Icons.FORWARD, (b) ->
             this.getContext().replaceContextMenu(new UIGizmoTranslateSpeedContextMenu())
         );
@@ -150,6 +158,7 @@ public class UIFilmPreview extends UIElement
         this.gizmoButtonMap.put(ValueGizmoToolbar.COMBINED, this.gizmoCombined);
         this.gizmoButtonMap.put(ValueGizmoToolbar.TOP, this.gizmoTop);
         this.gizmoButtonMap.put(ValueGizmoToolbar.SIZE, this.gizmoSize);
+        this.gizmoButtonMap.put(ValueGizmoToolbar.THICKNESS, this.gizmoThickness);
         this.gizmoButtonMap.put(ValueGizmoToolbar.TRANSLATE_SPEED, this.gizmoTranslateSpeed);
 
         this.gizmos = new UIElement();
@@ -477,15 +486,14 @@ public class UIFilmPreview extends UIElement
                 continue;
             }
 
-            if (ValueViewportToolbar.TOGGLE_SHADERS.equals(id))
+            if (ValueViewportToolbar.TOGGLE_SHADERS.equals(id) && !BBSRendering.isIrisLoaded())
             {
-                button.setVisible(BBSRendering.isIrisLoaded());
-            }
-            else
-            {
-                button.setVisible(true);
+                button.setVisible(false);
+
+                continue;
             }
 
+            button.setVisible(true);
             this.icons.add(button);
 
             if (!ValueViewportToolbar.HIDE_OVERLAYS.equals(id))
@@ -494,7 +502,13 @@ public class UIFilmPreview extends UIElement
             }
         }
 
-        this.icons.row().resize();
+        int count = this.icons.getChildren().size();
+
+        this.icons.row(0);
+        this.icons.w(count * 20);
+        this.icons.h(20);
+        this.icons.setVisible(count > 0);
+        this.icons.resize();
 
         if (this.viewportButtonsHidden)
         {
@@ -595,16 +609,14 @@ public class UIFilmPreview extends UIElement
      * Extra bottom offset so viewport hints sit above the preview icon row when it
      * overlaps the letterboxed viewport.
      */
-    private int getViewportHintBottomReserve(Area viewport)
+    private int getViewportHintBottomReserve(Area area)
     {
-        Area icons = this.icons.area;
-
-        if (icons.ey() <= viewport.y || icons.y >= viewport.ey())
+        if (this.viewportButtonsHidden || !this.icons.isVisible() || this.icons.getChildren().isEmpty())
         {
             return 0;
         }
 
-        return icons.h + TimelineToolbarSettings.INTERACTION_HINT_MARGIN;
+        return this.icons.area.h + TimelineToolbarSettings.INTERACTION_HINT_MARGIN;
     }
 
     @Override
@@ -702,6 +714,8 @@ public class UIFilmPreview extends UIElement
     @Override
     public void render(UIContext context)
     {
+        context.batcher.clip(this.area, context);
+
         if (this.joinWorld != null)
         {
             this.joinWorld.setVisible(this.panel.canShowJoinWorld());
@@ -893,15 +907,15 @@ public class UIFilmPreview extends UIElement
             context.batcher.textCard(s, a.mx(w), a.y - height - 5);
         }
 
-        context.batcher.clip(this.area, context);
         super.render(context);
-        context.batcher.unclip(context);
 
-        if (this.panel.replayEditor.isViewportInteractionActive())
+        if (!this.viewportButtonsHidden && this.panel.replayEditor.isViewportInteractionActive())
         {
             this.panel.replayEditor.renderViewportInteractionHint(context, area,
                 this.getViewportHintBottomReserve(area));
         }
+
+        context.batcher.unclip(context);
     }
 
     private void renderCursor(UIContext context)
