@@ -43,6 +43,7 @@ import mchorse.bbs_mod.ui.framework.UIBaseMenu;
 import mchorse.bbs_mod.ui.framework.elements.utils.StencilMap;
 import mchorse.bbs_mod.ui.utils.Gizmo;
 import mchorse.bbs_mod.ui.utils.gizmo.GizmoMatrixUtils;
+import mchorse.bbs_mod.utils.iris.ShaderOpacityPatch;
 import mchorse.bbs_mod.ui.utils.gizmo.TransformOrientation;
 import mchorse.bbs_mod.utils.AABB;
 import mchorse.bbs_mod.utils.CollectionUtils;
@@ -380,12 +381,27 @@ public abstract class BaseFilmController
 
             if (drawBody)
             {
-                /* Illusions are drawn inside FormUtilsClient for model blocks / morphs / preview too. */
-                FormUtilsClient.render(form, formContext, context.map == null ? illusionExtras : null);
-
-                if (!context.isShadowPass && context.map == null && entity.getFireTicks() > 0)
+                if (context.isShadowPass)
                 {
-                    MorphFireRenderer.render(stack, context.consumers, entity, form, transition, camera, relative);
+                    ShaderOpacityPatch.beginShadowForm();
+                }
+
+                try
+                {
+                    /* Illusions are drawn inside FormUtilsClient for model blocks / morphs / preview too. */
+                    FormUtilsClient.render(form, formContext, context.map == null ? illusionExtras : null);
+
+                    if (!context.isShadowPass && context.map == null && entity.getFireTicks() > 0)
+                    {
+                        MorphFireRenderer.render(stack, context.consumers, entity, form, transition, camera, relative);
+                    }
+                }
+                finally
+                {
+                    if (context.isShadowPass)
+                    {
+                        ShaderOpacityPatch.endShadowForm();
+                    }
                 }
             }
 

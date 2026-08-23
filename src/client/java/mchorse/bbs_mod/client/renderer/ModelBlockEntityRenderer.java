@@ -388,7 +388,15 @@ public class ModelBlockEntityRenderer implements BlockEntityRenderer<ModelBlockE
         formContext.isShadowPass = true;
 
         RenderSystem.enableDepthTest();
-        FormUtilsClient.render(form, formContext);
+        mchorse.bbs_mod.utils.iris.ShaderOpacityPatch.beginShadowForm();
+        try
+        {
+            FormUtilsClient.render(form, formContext);
+        }
+        finally
+        {
+            mchorse.bbs_mod.utils.iris.ShaderOpacityPatch.endShadowForm();
+        }
         shadowStack.pop();
     }
 

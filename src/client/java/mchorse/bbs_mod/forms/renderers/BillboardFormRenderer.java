@@ -517,6 +517,11 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
                 ModelVAORenderer.setGradeEffectTransforms(storedFormColor);
             }
 
+            if (shadowPass)
+            {
+                ShaderOpacityPatch.beginShadowForm();
+            }
+
             try
             {
                 BufferBuilder builder = Tessellator.getInstance().begin(VertexFormat.DrawMode.TRIANGLES, format);
@@ -555,6 +560,11 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
             }
             finally
             {
+                if (shadowPass)
+                {
+                    ShaderOpacityPatch.endShadowForm();
+                }
+
                 if (useFormColorGrade)
                 {
                     ModelVAORenderer.clearFormColorGrade();

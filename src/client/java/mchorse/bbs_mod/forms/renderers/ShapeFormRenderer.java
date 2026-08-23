@@ -292,14 +292,30 @@ public class ShapeFormRenderer extends FormRenderer<ShapeForm>
             }
 
             RenderSystem.enableDepthTest();
-            RenderSystem.depthMask(true);
+            RenderSystem.depthMask(shadowPass || c.a >= ShaderOpacityPatch.LIVE_DEPTH_WRITE_ALPHA);
 
             Tessellator tessellator = Tessellator.getInstance();
-            BufferBuilder builder = tessellator.begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL);
 
-            this.buildShapeGeometry(builder, stack, type, c, overlay, light);
+            if (shadowPass)
+            {
+                ShaderOpacityPatch.beginShadowForm();
+            }
 
-            BufferRenderer.drawWithGlobalProgram(builder.end());
+            try
+            {
+                BufferBuilder builder = tessellator.begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL);
+
+                this.buildShapeGeometry(builder, stack, type, c, overlay, light);
+
+                BufferRenderer.drawWithGlobalProgram(builder.end());
+            }
+            finally
+            {
+                if (shadowPass)
+                {
+                    ShaderOpacityPatch.endShadowForm();
+                }
+            }
 
             if (positiveGlow)
             {
