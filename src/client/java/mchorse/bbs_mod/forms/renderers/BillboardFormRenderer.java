@@ -370,10 +370,9 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
         Color resolvedPaint = positivePaint ? FormColorEffects.resolvePaintColor(paintSettings, legacyPaint) : null;
         boolean applyColorTint = colorTransformWanted && !shadowPass;
         boolean deferForColorGrade = hasColorAdjustments && irisWorld;
-        boolean deferNoshading = irisWorld && BBSRendering.needsIrisNoshadingOpacityDeferral(color.a, this.form.noshadingOpacity.get());
+        boolean deferNoshading = irisWorld && (BBSRendering.needsIrisNoshadingOpacityDeferral(color.a, this.form.noshadingOpacity.get()) || !this.form.shading.get());
         boolean deferTranslucent = !modelRenderer && !shadowPass
-            && (BBSRendering.needsIrisTranslucentFlatDeferral(color.a)
-                || deferForColorGrade
+            && (deferForColorGrade
                 || deferNoshading);
 
         if (deferTranslucent)
@@ -437,11 +436,6 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
                 gameRenderer.getLightmapTextureManager().enable();
                 gameRenderer.getOverlayTexture().setupOverlayColor();
 
-                boolean savedPolygonOffsetFill = GL11.glGetBoolean(GL11.GL_POLYGON_OFFSET_FILL);
-
-                GL11.glEnable(GL11.GL_POLYGON_OFFSET_FILL);
-                GL11.glPolygonOffset(FlatPaintOverlayPass.POLYGON_OFFSET_FACTOR, FlatPaintOverlayPass.POLYGON_OFFSET_UNITS);
-
                 try
                 {
                     /* beginDeferredTranslucentModelPass enables cull; camera-facing quads then
@@ -460,10 +454,8 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
                         ModelVAORenderer.setupUniforms(gradeStack, gradeShader);
                     }
 
-
                     /* Dual-sided: FACE_Z_BIAS separates front/back; single-sided + cull left
                      * the reverse face permanently invisible under Iris deferred redraw. */
-
                     this.drawBillboardFaces(
                         deferredFormat,
                         deferredTexture,
@@ -500,30 +492,23 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
                     {
                         ModelVAORenderer.clearFormColorGrade();
                     }
-
-                    GL11.glPolygonOffset(0F, 0F);
-
-                    if (!savedPolygonOffsetFill)
-                    {
-                        GL11.glDisable(GL11.GL_POLYGON_OFFSET_FILL);
-                    }
                 }
             };
 
-            ModelVAORenderer.submitDeferredTranslucentModel(deferredDraw, depthWrite, false);
+            ModelVAORenderer.submitDeferredTranslucentModel(deferredDraw, depthWrite);
         }
         else
         {
             /* Live path — opaque / no-shader / Iris without deferral. */
             if (format == VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL)
             {
-                if (useFormColorGrade || BBSRendering.needsBbsModelForLowOpacity(color.a))
+                if (!irisWorld && (useFormColorGrade || BBSRendering.needsBbsModelForLowOpacity(color.a)))
                 {
                     RenderSystem.setShader(BBSShaders::getModel);
                 }
 
                 RenderSystem.enableDepthTest();
-                RenderSystem.depthMask(true);
+                RenderSystem.depthMask(ShaderOpacityPatch.shouldWriteDepthForOpacity(color.a));
             }
 
             if (useFormColorGrade)
