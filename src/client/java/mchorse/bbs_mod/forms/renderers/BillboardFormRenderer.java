@@ -23,6 +23,7 @@ import mchorse.bbs_mod.utils.MatrixStackUtils;
 import mchorse.bbs_mod.utils.Quad;
 import mchorse.bbs_mod.utils.colors.Color;
 import mchorse.bbs_mod.utils.colors.Colors;
+import mchorse.bbs_mod.utils.interps.Lerps;
 import mchorse.bbs_mod.utils.iris.ShaderOpacityPatch;
 import mchorse.bbs_mod.utils.joml.Vectors;
 
@@ -526,23 +527,59 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
             {
                 BufferBuilder builder = Tessellator.getInstance().begin(VertexFormat.DrawMode.TRIANGLES, format);
 
-                /* Front */
-                this.fill(format, builder, matrix, quad.p3.x, quad.p3.y, FACE_Z_BIAS, color, uvQuad.p3.x, uvQuad.p3.y, overlay, light, entry, 1F);
-                this.fill(format, builder, matrix, quad.p2.x, quad.p2.y, FACE_Z_BIAS, color, uvQuad.p2.x, uvQuad.p2.y, overlay, light, entry, 1F);
-                this.fill(format, builder, matrix, quad.p1.x, quad.p1.y, FACE_Z_BIAS, color, uvQuad.p1.x, uvQuad.p1.y, overlay, light, entry, 1F);
+                float quadWidth = Math.abs(quad.p2.x - quad.p1.x);
+                float quadHeight = Math.abs(quad.p1.y - quad.p3.y);
+                Vector3f worldScale = new Vector3f();
 
-                this.fill(format, builder, matrix, quad.p3.x, quad.p3.y, FACE_Z_BIAS, color, uvQuad.p3.x, uvQuad.p3.y, overlay, light, entry, 1F);
-                this.fill(format, builder, matrix, quad.p4.x, quad.p4.y, FACE_Z_BIAS, color, uvQuad.p4.x, uvQuad.p4.y, overlay, light, entry, 1F);
-                this.fill(format, builder, matrix, quad.p2.x, quad.p2.y, FACE_Z_BIAS, color, uvQuad.p2.x, uvQuad.p2.y, overlay, light, entry, 1F);
+                matrix.getScale(worldScale);
 
-                /* Back */
-                this.fill(format, builder, matrix, quad.p1.x, quad.p1.y, -FACE_Z_BIAS, color, uvQuad.p1.x, uvQuad.p1.y, overlay, light, entry, -1F);
-                this.fill(format, builder, matrix, quad.p2.x, quad.p2.y, -FACE_Z_BIAS, color, uvQuad.p2.x, uvQuad.p2.y, overlay, light, entry, -1F);
-                this.fill(format, builder, matrix, quad.p3.x, quad.p3.y, -FACE_Z_BIAS, color, uvQuad.p3.x, uvQuad.p3.y, overlay, light, entry, -1F);
+                float worldWidth = quadWidth * Math.abs(worldScale.x);
+                float worldHeight = quadHeight * Math.abs(worldScale.y);
 
-                this.fill(format, builder, matrix, quad.p2.x, quad.p2.y, -FACE_Z_BIAS, color, uvQuad.p2.x, uvQuad.p2.y, overlay, light, entry, -1F);
-                this.fill(format, builder, matrix, quad.p4.x, quad.p4.y, -FACE_Z_BIAS, color, uvQuad.p4.x, uvQuad.p4.y, overlay, light, entry, -1F);
-                this.fill(format, builder, matrix, quad.p3.x, quad.p3.y, -FACE_Z_BIAS, color, uvQuad.p3.x, uvQuad.p3.y, overlay, light, entry, -1F);
+                /* Subdivide into 1-block segments so non-linear shadow distortion in shaders (Complementary/BSL)
+                 * curves accurately per-vertex instead of cutting a straight chord across huge billboards. */
+                int segmentsX = Math.min(64, Math.max(1, (int) Math.ceil(worldWidth / 1.0F)));
+                int segmentsY = Math.min(64, Math.max(1, (int) Math.ceil(worldHeight / 1.0F)));
+
+                for (int ix = 0; ix < segmentsX; ix++)
+                {
+                    float fx0 = (float) ix / segmentsX;
+                    float fx1 = (float) (ix + 1) / segmentsX;
+
+                    float x0 = Lerps.lerp(quad.p1.x, quad.p2.x, fx0);
+                    float x1 = Lerps.lerp(quad.p1.x, quad.p2.x, fx1);
+                    float u0 = Lerps.lerp(uvQuad.p1.x, uvQuad.p2.x, fx0);
+                    float u1 = Lerps.lerp(uvQuad.p1.x, uvQuad.p2.x, fx1);
+
+                    for (int iy = 0; iy < segmentsY; iy++)
+                    {
+                        float fy0 = (float) iy / segmentsY;
+                        float fy1 = (float) (iy + 1) / segmentsY;
+
+                        float y0 = Lerps.lerp(quad.p1.y, quad.p3.y, fy0);
+                        float y1 = Lerps.lerp(quad.p1.y, quad.p3.y, fy1);
+                        float v0 = Lerps.lerp(uvQuad.p1.y, uvQuad.p3.y, fy0);
+                        float v1 = Lerps.lerp(uvQuad.p1.y, uvQuad.p3.y, fy1);
+
+                        /* Front */
+                        this.fill(format, builder, matrix, x0, y1, FACE_Z_BIAS, color, u0, v1, overlay, light, entry, 1F);
+                        this.fill(format, builder, matrix, x1, y0, FACE_Z_BIAS, color, u1, v0, overlay, light, entry, 1F);
+                        this.fill(format, builder, matrix, x0, y0, FACE_Z_BIAS, color, u0, v0, overlay, light, entry, 1F);
+
+                        this.fill(format, builder, matrix, x0, y1, FACE_Z_BIAS, color, u0, v1, overlay, light, entry, 1F);
+                        this.fill(format, builder, matrix, x1, y1, FACE_Z_BIAS, color, u1, v1, overlay, light, entry, 1F);
+                        this.fill(format, builder, matrix, x1, y0, FACE_Z_BIAS, color, u1, v0, overlay, light, entry, 1F);
+
+                        /* Back */
+                        this.fill(format, builder, matrix, x0, y0, -FACE_Z_BIAS, color, u0, v0, overlay, light, entry, -1F);
+                        this.fill(format, builder, matrix, x1, y0, -FACE_Z_BIAS, color, u1, v0, overlay, light, entry, -1F);
+                        this.fill(format, builder, matrix, x0, y1, -FACE_Z_BIAS, color, u0, v1, overlay, light, entry, -1F);
+
+                        this.fill(format, builder, matrix, x1, y0, -FACE_Z_BIAS, color, u1, v0, overlay, light, entry, -1F);
+                        this.fill(format, builder, matrix, x1, y1, -FACE_Z_BIAS, color, u1, v1, overlay, light, entry, -1F);
+                        this.fill(format, builder, matrix, x0, y1, -FACE_Z_BIAS, color, u0, v1, overlay, light, entry, -1F);
+                    }
+                }
 
                 RenderSystem.enableBlend();
                 RenderSystem.defaultBlendFunc();
