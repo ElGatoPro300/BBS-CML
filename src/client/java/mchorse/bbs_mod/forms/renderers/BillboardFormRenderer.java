@@ -286,7 +286,7 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
 
         FormColorEffects.applyShadowPassColorFix(color, this.form.color.get(), this.form.paintSettings.get(), this.form.paintColor.get(), shadowPass);
 
-        if (color.a <= 0.001F && !shadowPass)
+        if (color.a <= 0.001F)
         {
             return;
         }
@@ -394,8 +394,8 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
             GlowSettings glowSettingsSnapshot = glowSettings;
             Color legacyGlowSnapshot = legacyGlow;
             boolean emitGlowSnapshot = glowIntensity > 0F && !glowSettings.resolvePaintOnly();
-            /* Soft-opacity depth write stays opacity-based. */
-            boolean depthWrite = ShaderOpacityPatch.shouldWriteDepthForOpacity(color.a);
+            /* Soft-opacity skips depth write to avoid SSAO halos and preserve alpha blending. */
+            boolean depthWrite = color.a >= ShaderOpacityPatch.LIVE_DEPTH_WRITE_ALPHA;
             /* Iris deferred: apply FormColorGrade in model.fsh on the post-deferred BBS draw. */
             VertexFormat deferredFormat = VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL;
             boolean gradeOnDeferredDraw = useFormColorGrade || irisDeferredColorGrade;
@@ -508,7 +508,7 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
                 }
 
                 RenderSystem.enableDepthTest();
-                RenderSystem.depthMask(ShaderOpacityPatch.shouldWriteDepthForOpacity(color.a));
+                RenderSystem.depthMask(shadowPass || color.a >= ShaderOpacityPatch.LIVE_DEPTH_WRITE_ALPHA);
             }
 
             if (useFormColorGrade)

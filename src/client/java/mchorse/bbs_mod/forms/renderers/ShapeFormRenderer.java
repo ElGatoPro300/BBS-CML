@@ -187,7 +187,7 @@ public class ShapeFormRenderer extends FormRenderer<ShapeForm>
 
         this.form.applyFormOpacity(finalColor);
 
-        if (finalColor.a <= 0.001F && !BBSRendering.isIrisShadowPass())
+        if (finalColor.a <= 0.001F)
         {
             return;
         }
