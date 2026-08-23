@@ -413,6 +413,7 @@ public class BOBJModelVAO
 
         RenderSystem.setShader(() -> shader);
         shader.bind();
+        mchorse.bbs_mod.utils.iris.ShaderOpacityPatch.uploadShadowFormUniform();
         FormColorGradePatch.uploadToCurrentProgram();
 
         GL30.glBindVertexArray(this.vao);
