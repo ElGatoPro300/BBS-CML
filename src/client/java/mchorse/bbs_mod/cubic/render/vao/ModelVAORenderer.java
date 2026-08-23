@@ -296,8 +296,8 @@ public class ModelVAORenderer
     }
 
     /**
-     * @param depthTest false for zero-thickness billboards — post-Iris depth does not match
-     *                  captured matrices and LEQUAL produces stippled grass bleed-through.
+     * @param depthWrite true to write depth, false to leave depth buffer unchanged
+     * @param depthTest  true to enable depth testing against world geometry
      */
     public static void submitDeferredTranslucentModel(Runnable draw, boolean depthWrite, boolean depthTest)
     {
@@ -905,8 +905,7 @@ public class ModelVAORenderer
     /**
      * Full translucent redraw after Iris composite — BBS model shader keeps low form alpha.
      * {@code depthWrite} true matches the no-shader path so render-depth panels can occlude
-     * forms behind them. {@code depthTest} false for zero-thickness billboards whose captured
-     * depth does not match the post-Iris depth buffer (stippled bleed-through).
+     * forms behind them. {@code depthTest} true enables depth testing against world geometry.
      */
     public static void beginDeferredTranslucentModelPass(boolean depthWrite)
     {

@@ -493,21 +493,21 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
                 }
             };
 
-            ModelVAORenderer.submitDeferredTranslucentModel(deferredDraw, depthWrite, false);
+            ModelVAORenderer.submitDeferredTranslucentModel(deferredDraw, depthWrite);
         }
         else
         {
             /* Live path — opaque / no-shader / Iris without deferral. */
-            if (format == VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL)
+            if (useFormColorGrade || BBSRendering.needsBbsModelForLowOpacity(color.a))
             {
-                if (useFormColorGrade || BBSRendering.needsBbsModelForLowOpacity(color.a))
+                if (format == VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL)
                 {
                     RenderSystem.setShader(BBSShaders::getModel);
                 }
-
-                RenderSystem.enableDepthTest();
-                RenderSystem.depthMask(true);
             }
+
+            RenderSystem.enableDepthTest();
+            RenderSystem.depthMask(true);
 
             if (useFormColorGrade)
             {
