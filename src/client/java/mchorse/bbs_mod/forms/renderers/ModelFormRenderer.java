@@ -717,9 +717,10 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
          * World + film (ENTITY): post-deferred queue so soft depth stamps land after
          * translucent terrain/clouds (immediate soft in AFTER_ENTITIES erased them).
          * UI / form / model-block edit preview: immediate sorted draws (queues never flush). */
+        boolean hasPerBoneNoshading = !this.form.noshadingOpacity.get() && this.hasAnyBoneNoshadingOpacity(model);
         boolean limbOnlySoftCapable = !shadowPass
             && formOpacityAlpha >= ShaderOpacityPatch.LIVE_DEPTH_WRITE_ALPHA
-            && boneOpacityAlpha < ShaderOpacityPatch.LIVE_DEPTH_WRITE_ALPHA;
+            && (boneOpacityAlpha < ShaderOpacityPatch.LIVE_DEPTH_WRITE_ALPHA || hasPerBoneNoshading);
         boolean limbOnlySoftImmediate = limbOnlySoftCapable && localPreview;
         boolean limbOnlySoftDeferred = limbOnlySoftCapable && !localPreview;
         boolean limbOnlySoft = limbOnlySoftImmediate || limbOnlySoftDeferred;
@@ -2489,6 +2490,8 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
             return;
         }
 
+        boolean formNoshading = this.form.noshadingOpacity.get();
+
         for (ModelGroup group : model.getModel().getAllGroups())
         {
             if (!this.groupHasDrawableGeometry(model, group))
@@ -2502,7 +2505,7 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
             {
                 group.visible = false;
             }
-            else if (boneAlpha < ShaderOpacityPatch.LIVE_DEPTH_WRITE_ALPHA)
+            else if (boneAlpha < ShaderOpacityPatch.LIVE_DEPTH_WRITE_ALPHA || (!formNoshading && group.noshadingOpacity))
             {
                 group.visible = showSoft;
             }
@@ -2525,16 +2528,23 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
             return soft;
         }
 
+        boolean formNoshading = this.form.noshadingOpacity.get();
+
         for (ModelGroup group : model.getModel().getAllGroups())
         {
-            if (!this.groupHasDrawableGeometry(model, group) || group.color == null)
+            if (!this.groupHasDrawableGeometry(model, group))
             {
                 continue;
             }
 
-            float boneAlpha = group.color.a;
+            float boneAlpha = group.color == null ? 1F : group.color.a;
 
-            if (boneAlpha > 0.001F && boneAlpha < ShaderOpacityPatch.LIVE_DEPTH_WRITE_ALPHA)
+            if (boneAlpha <= 0.001F)
+            {
+                continue;
+            }
+
+            if (boneAlpha < ShaderOpacityPatch.LIVE_DEPTH_WRITE_ALPHA || (!formNoshading && group.noshadingOpacity))
             {
                 soft.add(group);
             }
@@ -2709,7 +2719,7 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
         {
             this.applyOnlySoftBoneVisible(draw.model, softSubmit.group);
 
-            this.renderSoftTransparencyGeometry(softStack, softProgram, draw.model, draw.light, draw.overlay, draw.color, draw.defaultTexture, draw.textureBlend, draw.glow, draw.glowColor, draw.legacyGlow, draw.paint, draw.glowDeferred, softPositionMatrix);
+            this.renderSoftTransparencyGeometry(softStack, softProgram, draw.model, softSubmit.group, draw.light, draw.overlay, draw.color, draw.defaultTexture, draw.textureBlend, draw.glow, draw.glowColor, draw.legacyGlow, draw.paint, draw.glowDeferred, softPositionMatrix);
         }
     }
 
@@ -2718,8 +2728,15 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
      * With Iris: {@link BBSSettings#softTransparencyBackfaces} (default ON = backfaces).
      * Without shaders: {@code model.culling} (false = show backfaces).
      */
-    private static boolean showSoftTransparencyBackfaces(ModelInstance model)
+    private static boolean showSoftTransparencyBackfaces(ModelInstance model, ModelGroup group)
     {
+        float boneAlpha = (group == null || group.color == null) ? 1F : group.color.a;
+
+        if (boneAlpha >= ShaderOpacityPatch.LIVE_DEPTH_WRITE_ALPHA)
+        {
+            return model != null && !model.culling;
+        }
+
         if (BBSRendering.isIrisShadersEnabled())
         {
             return BBSSettings.softTransparencyBackfaces == null || BBSSettings.softTransparencyBackfaces.get();
@@ -2730,7 +2747,12 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
 
     private void renderSoftTransparencyGeometry(MatrixStack stack, Supplier<RenderPipeline> program, ModelInstance model, int light, int overlay, Color color, Link defaultTexture, TextureBlend textureBlend, GlowSettings glow, Color glowColor, Color legacyGlow, Color paint, boolean glowDeferredToOverlay, Matrix4f positionMatrix)
     {
-        if (showSoftTransparencyBackfaces(model))
+        this.renderSoftTransparencyGeometry(stack, program, model, null, light, overlay, color, defaultTexture, textureBlend, glow, glowColor, legacyGlow, paint, glowDeferredToOverlay, positionMatrix);
+    }
+
+    private void renderSoftTransparencyGeometry(MatrixStack stack, Supplier<ShaderProgram> program, ModelInstance model, ModelGroup group, int light, int overlay, Color color, Link defaultTexture, TextureBlend textureBlend, GlowSettings glow, Color glowColor, Color legacyGlow, Color paint, boolean glowDeferredToOverlay, Matrix4f positionMatrix)
+    {
+        if (showSoftTransparencyBackfaces(model, group))
         {
             this.renderSoftLimbGeometryTwoSided(stack, program, model, light, overlay, color, defaultTexture, textureBlend, glow, glowColor, legacyGlow, paint, glowDeferredToOverlay, positionMatrix);
 
@@ -3543,7 +3565,24 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
                 return;
             }
 
-            this.renderModel(context.entity, shader, context.stack, model, context.light, context.overlay, color, false, context.stencilMap, context.getTransition(), context.renderEquipment, context.world, context);
+            boolean shadowPass = context.isShadowPass || BBSRendering.isIrisShadowPass();
+
+            if (shadowPass)
+            {
+                ShaderOpacityPatch.beginShadowForm();
+            }
+
+            try
+            {
+                this.renderModel(context.entity, shader, context.stack, model, context.light, context.overlay, color, false, context.stencilMap, context.getTransition(), context.renderEquipment, context.world, context);
+            }
+            finally
+            {
+                if (shadowPass)
+                {
+                    ShaderOpacityPatch.endShadowForm();
+                }
+            }
         }
     }
 

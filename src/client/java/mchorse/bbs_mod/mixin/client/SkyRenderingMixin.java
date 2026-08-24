@@ -23,6 +23,13 @@ public class SkyRenderingMixin
     @Inject(method = "renderGlowingSky", at = @At("HEAD"))
     private void bbs$applySunPathToGlowingSky(MatrixStack matrices, float skyAngle, int color, CallbackInfo info)
     {
+        matrices.push();
         SunPathRotation.applyY(matrices.peek().getPositionMatrix());
+    }
+
+    @Inject(method = "renderGlowingSky", at = @At("RETURN"))
+    private void bbs$popSunPathFromGlowingSky(MatrixStack matrices, VertexConsumerProvider.Immediate vertexConsumers, float skyAngle, int color, CallbackInfo info)
+    {
+        matrices.pop();
     }
 }

@@ -13,6 +13,7 @@ import mchorse.bbs_mod.ui.UIKeys;
 import mchorse.bbs_mod.ui.dashboard.UIWelcomePanel.Step;
 import mchorse.bbs_mod.ui.film.UIFilmPanel;
 import mchorse.bbs_mod.ui.framework.UIContext;
+import mchorse.bbs_mod.ui.framework.elements.IUIElement;
 import mchorse.bbs_mod.ui.framework.elements.UIElement;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIButton;
 import mchorse.bbs_mod.ui.framework.elements.utils.Batcher2D;
@@ -99,6 +100,12 @@ public class UIWelcomePanel extends UIElement
         {
             this.finishSetup();
         });
+
+        this.buttonStart.culled = false;
+        this.buttonBack.culled = false;
+        this.buttonConfirmStep.culled = false;
+        this.buttonChangeLayout.culled = false;
+        this.buttonFinish.culled = false;
 
         this.add(this.buttonStart, this.buttonBack, this.buttonConfirmStep, this.buttonChangeLayout, this.buttonFinish);
         this.setStep(Step.WELCOME);
@@ -419,17 +426,71 @@ public class UIWelcomePanel extends UIElement
         return super.subKeyPressed(context);
     }
 
+    private static final float REF_WIDTH = 810F;
+    private static final float REF_HEIGHT = 440F;
+
+    private float getUiScale()
+    {
+        if (this.area.w <= 0 || this.area.h <= 0)
+        {
+            return 1F;
+        }
+
+        float scaleX = (float) this.area.w / REF_WIDTH;
+        float scaleY = (float) this.area.h / REF_HEIGHT;
+
+        return Math.min(1F, Math.min(scaleX, scaleY));
+    }
+
+    private float getVirtualX()
+    {
+        float scale = this.getUiScale();
+
+        return scale > 0F ? (this.area.w / scale - REF_WIDTH) / 2F : 0F;
+    }
+
+    private float getVirtualY()
+    {
+        float scale = this.getUiScale();
+
+        return scale > 0F ? (this.area.h / scale - REF_HEIGHT) / 2F : 0F;
+    }
+
+    private float getVirtualWidth()
+    {
+        return REF_WIDTH;
+    }
+
+    private float getVirtualHeight()
+    {
+        return REF_HEIGHT;
+    }
+
     @Override
     public boolean subMouseClicked(UIContext context)
     {
+        float scale = this.getUiScale();
+        int mouseX = context.mouseX;
+        int mouseY = context.mouseY;
+
+        if (scale < 1F && scale > 0F)
+        {
+            mouseX = (int) (context.mouseX / scale);
+            mouseY = (int) (context.mouseY / scale);
+        }
+
         if (this.step == Step.LAYOUT_PICKER)
         {
-            int cardW = Math.min(185, (this.area.w - 70) / 4);
-            int cardH = Math.min(225, this.area.h - 120);
+            float vX = this.getVirtualX();
+            float vY = this.getVirtualY();
+            float vMx = vX + REF_WIDTH / 2F;
+
+            int cardW = 175;
+            int cardH = 225;
             int gap = 12;
             int totalW = cardW * 4 + gap * 3;
-            int startX = this.area.mx() - totalW / 2;
-            int startY = this.area.y + 70;
+            int startX = (int) (vMx - totalW / 2F);
+            int startY = (int) (vY + 70);
 
             LayoutPreset[] presets = LayoutPreset.values();
 
@@ -438,8 +499,8 @@ public class UIWelcomePanel extends UIElement
                 int cardX = startX + i * (cardW + gap);
                 int cardY = startY;
 
-                if (context.mouseX >= cardX && context.mouseX <= cardX + cardW
-                    && context.mouseY >= cardY && context.mouseY <= cardY + cardH)
+                if (mouseX >= cardX && mouseX <= cardX + cardW
+                    && mouseY >= cardY && mouseY <= cardY + cardH)
                 {
                     this.selectedPreset = presets[i];
                     return true;
@@ -451,22 +512,92 @@ public class UIWelcomePanel extends UIElement
     }
 
     @Override
+    protected IUIElement childrenMouseClicked(UIContext context)
+    {
+        float scale = this.getUiScale();
+
+        if (scale < 1F && scale > 0F)
+        {
+            int origX = context.mouseX;
+            int origY = context.mouseY;
+            context.mouseX = (int) (origX / scale);
+            context.mouseY = (int) (origY / scale);
+
+            IUIElement res = super.childrenMouseClicked(context);
+
+            context.mouseX = origX;
+            context.mouseY = origY;
+            return res;
+        }
+
+        return super.childrenMouseClicked(context);
+    }
+
+    @Override
+    protected IUIElement childrenMouseReleased(UIContext context)
+    {
+        float scale = this.getUiScale();
+
+        if (scale < 1F && scale > 0F)
+        {
+            int origX = context.mouseX;
+            int origY = context.mouseY;
+            context.mouseX = (int) (origX / scale);
+            context.mouseY = (int) (origY / scale);
+
+            IUIElement res = super.childrenMouseReleased(context);
+
+            context.mouseX = origX;
+            context.mouseY = origY;
+            return res;
+        }
+
+        return super.childrenMouseReleased(context);
+    }
+
+    @Override
+    protected IUIElement childrenMouseScrolled(UIContext context)
+    {
+        float scale = this.getUiScale();
+
+        if (scale < 1F && scale > 0F)
+        {
+            int origX = context.mouseX;
+            int origY = context.mouseY;
+            context.mouseX = (int) (origX / scale);
+            context.mouseY = (int) (origY / scale);
+
+            IUIElement res = super.childrenMouseScrolled(context);
+
+            context.mouseX = origX;
+            context.mouseY = origY;
+            return res;
+        }
+
+        return super.childrenMouseScrolled(context);
+    }
+
+    @Override
     public void resize()
     {
         int btnW = 180;
         int btnH = 22;
 
+        float vX = this.getVirtualX();
+        float vY = this.getVirtualY();
+        float vMx = vX + REF_WIDTH / 2F;
+
         if (this.step == Step.WELCOME)
         {
-            this.buttonStart.resetFlex().relative(this).x(0.5F).y(0.5F, 65).wh(btnW, btnH).anchorX(0.5F);
+            this.buttonStart.resetFlex().set((int) (vMx - btnW / 2F), (int) (vY + 310), btnW, btnH);
         }
         else if (this.step == Step.LAYOUT_PICKER)
         {
             int gap = 16;
             int totalW = 120 + gap + btnW;
 
-            this.buttonBack.resetFlex().relative(this).x(0.5F, -totalW / 2).y(1.0F, -36).wh(120, btnH);
-            this.buttonConfirmStep.resetFlex().relative(this).x(0.5F, -totalW / 2 + 120 + gap).y(1.0F, -36).wh(btnW, btnH);
+            this.buttonBack.resetFlex().set((int) (vMx - totalW / 2F), (int) (vY + 380), 120, btnH);
+            this.buttonConfirmStep.resetFlex().set((int) (vMx - totalW / 2F + 120 + gap), (int) (vY + 380), btnW, btnH);
         }
         else if (this.step == Step.CONFIRMATION)
         {
@@ -474,8 +605,8 @@ public class UIWelcomePanel extends UIElement
             int gap = 16;
             int totalW = 130 + gap + finishW;
 
-            this.buttonChangeLayout.resetFlex().relative(this).x(0.5F, -totalW / 2).y(1.0F, -36).wh(130, btnH);
-            this.buttonFinish.resetFlex().relative(this).x(0.5F, -totalW / 2 + 130 + gap).y(1.0F, -36).wh(finishW, btnH);
+            this.buttonChangeLayout.resetFlex().set((int) (vMx - totalW / 2F), (int) (vY + 380), 130, btnH);
+            this.buttonFinish.resetFlex().set((int) (vMx - totalW / 2F + 130 + gap), (int) (vY + 380), finishW, btnH);
         }
 
         super.resize();
@@ -513,6 +644,24 @@ public class UIWelcomePanel extends UIElement
         float stepElapsed = (now - this.stepStartTime) / 1000.0F;
         float stepAlpha = Math.min(stepElapsed / 0.35F, 1.0F);
 
+        float scale = this.getUiScale();
+        int origMouseX = context.mouseX;
+        int origMouseY = context.mouseY;
+
+        if (scale < 1.0F && scale > 0.0F)
+        {
+            context.mouseX = (int) (origMouseX / scale);
+            context.mouseY = (int) (origMouseY / scale);
+        }
+
+        MatrixStack matrices = context.batcher.getContext().getMatrices();
+        matrices.push();
+
+        if (scale < 1.0F && scale > 0.0F)
+        {
+            matrices.scale(scale, scale, 1.0F);
+        }
+
         if (this.step == Step.WELCOME)
         {
             this.renderWelcomeStep(context, elapsed, stepAlpha);
@@ -527,10 +676,20 @@ public class UIWelcomePanel extends UIElement
         }
 
         super.render(context);
+
+        matrices.pop();
+
+        context.mouseX = origMouseX;
+        context.mouseY = origMouseY;
     }
 
     private void renderWelcomeStep(UIContext context, float elapsed, float alpha)
     {
+        float vX = this.getVirtualX();
+        float vY = this.getVirtualY();
+        float vMx = vX + REF_WIDTH / 2F;
+        float vMy = vY + REF_HEIGHT / 2F;
+
         float floatOffset = (float) Math.sin(elapsed * 2.5F) * 5.0F;
         Texture logo = BBSModClient.getTextures().getTexture(Link.assets("textures/bbs_cml.png"));
 
@@ -538,8 +697,8 @@ public class UIWelcomePanel extends UIElement
         {
             float logoW = logo.width * 4.5F;
             float logoH = logo.height * 4.5F;
-            float logoX = this.area.mx() - logoW / 2.0F;
-            float logoY = this.area.my() - 130 + floatOffset;
+            float logoX = vMx - logoW / 2.0F;
+            float logoY = vMy - 130 + floatOffset;
 
             context.batcher.texturedBox(logo, Colors.setA(Colors.WHITE, alpha), logoX, logoY, logoW, logoH, 0, 0,
                 logo.width, logo.height);
@@ -569,16 +728,16 @@ public class UIWelcomePanel extends UIElement
         int w2 = font.getWidth(welcomePart2);
         int totalW = w1 + headSize + gapText + w2;
 
-        float scale = 1.25F;
-        float realX = this.area.mx();
-        float greetRealY = this.area.my() - 10;
+        float titleScale = 1.25F;
+        float realX = vMx;
+        float greetRealY = vMy - 10;
 
-        float drawX = (realX / scale) - (totalW / 2.0F);
-        float drawY = greetRealY / scale;
+        float drawX = (realX / titleScale) - (totalW / 2.0F);
+        float drawY = greetRealY / titleScale;
 
-        Matrix3x2fStack matrices = context.batcher.getContext().getMatrices();
-        matrices.pushMatrix();
-        matrices.scale(scale, scale);
+        MatrixStack matrices = context.batcher.getContext().getMatrices();
+        matrices.push();
+        matrices.scale(titleScale, titleScale, 1.0F);
 
         context.batcher.textShadow(welcomePart1, drawX, drawY, Colors.setA(Colors.WHITE, alpha));
         float headX = drawX + w1;
@@ -594,12 +753,12 @@ public class UIWelcomePanel extends UIElement
         }
 
         context.batcher.textShadow(welcomePart2, headX + headSize + gapText, drawY, Colors.setA(Colors.WHITE, alpha));
-        matrices.popMatrix();
+        matrices.pop();
 
         String subtitle = UIKeys.WELCOME_SUBTITLE.get();
         int subWidth = 380;
-        int subX = this.area.mx() - subWidth / 2;
-        int subY = this.area.my() + 18;
+        int subX = (int) (vMx - subWidth / 2.0F);
+        int subY = (int) (vMy + 18);
 
         context.batcher.wallText(subtitle, subX, subY, Colors.setA(0xCCCCCC, alpha), subWidth, 12, 0.5F, 0.0F);
 
@@ -610,34 +769,38 @@ public class UIWelcomePanel extends UIElement
 
     private void renderLayoutPickerStep(UIContext context, float alpha)
     {
+        float vX = this.getVirtualX();
+        float vY = this.getVirtualY();
+        float vMx = vX + REF_WIDTH / 2F;
+
         FontRenderer font = context.batcher.getFont();
 
         /* Top Header */
         String title = UIKeys.WELCOME_LAYOUT_TITLE.get();
         float titleScale = 1.3F;
         float titleW = font.getWidth(title);
-        float titleX = (this.area.mx() / titleScale) - (titleW / 2.0F);
-        float titleY = (this.area.y + 24) / titleScale;
+        float titleX = (vMx / titleScale) - (titleW / 2F);
+        float titleY = (vY + 24) / titleScale;
 
-        Matrix3x2fStack matrices = context.batcher.getContext().getMatrices();
-        matrices.pushMatrix();
-        matrices.scale(titleScale, titleScale);
+        MatrixStack matrices = context.batcher.getContext().getMatrices();
+        matrices.push();
+        matrices.scale(titleScale, titleScale, 1F);
         context.batcher.textShadow(title, titleX, titleY, Colors.setA(Colors.WHITE, alpha));
-        matrices.popMatrix();
+        matrices.pop();
 
         String desc = UIKeys.WELCOME_LAYOUT_DESC.get();
         int descWidth = 460;
-        int descX = this.area.mx() - descWidth / 2;
-        int descY = this.area.y + 44;
-        context.batcher.wallText(desc, descX, descY, Colors.setA(0xAAAAAA, alpha), descWidth, 11, 0.5F, 0.0F);
+        int descX = (int) (vMx - descWidth / 2F);
+        int descY = (int) (vY + 44);
+        context.batcher.wallText(desc, descX, descY, Colors.setA(0xAAAAAA, alpha), descWidth, 11, 0.5F, 0F);
 
         /* 4 Layout Cards starting comfortably below description */
-        int cardW = Math.min(185, (this.area.w - 70) / 4);
-        int cardH = Math.min(225, this.area.h - 120);
+        int cardW = 175;
+        int cardH = 225;
         int gap = 12;
         int totalW = cardW * 4 + gap * 3;
-        int startX = this.area.mx() - totalW / 2;
-        int startY = this.area.y + 70;
+        int startX = (int) (vMx - totalW / 2F);
+        int startY = (int) (vY + 70);
 
         LayoutPreset[] presets = LayoutPreset.values();
 
@@ -666,32 +829,36 @@ public class UIWelcomePanel extends UIElement
 
     private void renderConfirmationStep(UIContext context, float alpha)
     {
+        float vX = this.getVirtualX();
+        float vY = this.getVirtualY();
+        float vMx = vX + REF_WIDTH / 2F;
+
         FontRenderer font = context.batcher.getFont();
 
         /* Top Header */
         String title = UIKeys.WELCOME_CONFIRM_TITLE.get();
         float titleScale = 1.35F;
         float titleW = font.getWidth(title);
-        float titleX = (this.area.mx() / titleScale) - (titleW / 2.0F);
-        float titleY = (this.area.y + 24) / titleScale;
+        float titleX = (vMx / titleScale) - (titleW / 2F);
+        float titleY = (vY + 24) / titleScale;
 
-        Matrix3x2fStack matrices = context.batcher.getContext().getMatrices();
-        matrices.pushMatrix();
-        matrices.scale(titleScale, titleScale);
+        MatrixStack matrices = context.batcher.getContext().getMatrices();
+        matrices.push();
+        matrices.scale(titleScale, titleScale, 1F);
         context.batcher.textShadow(title, titleX, titleY, Colors.setA(Colors.WHITE, alpha));
-        matrices.popMatrix();
+        matrices.pop();
 
         String desc = String.format(UIKeys.WELCOME_CONFIRM_DESC.get(), this.selectedPreset.title.get());
         int descWidth = 480;
-        int descX = this.area.mx() - descWidth / 2;
-        int descY = this.area.y + 44;
-        context.batcher.wallText(desc, descX, descY, Colors.setA(0xAAAAAA, alpha), descWidth, 11, 0.5F, 0.0F);
+        int descX = (int) (vMx - descWidth / 2F);
+        int descY = (int) (vY + 44);
+        context.batcher.wallText(desc, descX, descY, Colors.setA(0xAAAAAA, alpha), descWidth, 11, 0.5F, 0F);
 
         /* Large Preview Box starting comfortably below description */
-        int previewW = Math.min(420, this.area.w - 60);
-        int previewH = Math.min(200, this.area.h - 120);
-        int previewX = this.area.mx() - previewW / 2;
-        int previewY = this.area.y + 68;
+        int previewW = 420;
+        int previewH = 250;
+        int previewX = (int) (vMx - previewW / 2F);
+        int previewY = (int) (vY + 68);
 
         context.batcher.box(previewX, previewY, previewX + previewW, previewY + previewH, 0xFA16161A);
         int primary = BBSSettings.primaryColor.get() | Colors.A100;

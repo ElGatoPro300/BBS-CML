@@ -53,6 +53,40 @@ public class WorldPropertiesHelper
         clientTimeOverride = -1L;
     }
 
+    public static boolean isGammaOverrideEnabled()
+    {
+        return gammaOverride >= 0D;
+    }
+
+    public static void setGammaOverrideEnabled(boolean enabled)
+    {
+        if (BBSSettings.worldGammaOverride != null)
+        {
+            BBSSettings.worldGammaOverride.set(enabled);
+        }
+
+        if (enabled)
+        {
+            double percent = BBSSettings.worldGammaPercent != null ? BBSSettings.worldGammaPercent.get() : 100D;
+
+            setGammaPercent(percent);
+        }
+        else
+        {
+            clearGammaOverride();
+        }
+    }
+
+    public static void clearGammaOverride()
+    {
+        gammaOverride = -1D;
+
+        if (BBSSettings.worldGammaOverride != null)
+        {
+            BBSSettings.worldGammaOverride.set(false);
+        }
+    }
+
     public static void setGammaPercent(double percent)
     {
         gammaOverride = Math.max(0D, percent) / 100D;
@@ -60,6 +94,11 @@ public class WorldPropertiesHelper
         if (BBSSettings.worldGammaPercent != null)
         {
             BBSSettings.worldGammaPercent.set(percent);
+        }
+
+        if (BBSSettings.worldGammaOverride != null)
+        {
+            BBSSettings.worldGammaOverride.set(true);
         }
     }
 

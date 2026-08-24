@@ -1,4 +1,4 @@
-package mchorse.bbs_mod.bay4lly;
+package mchorse.bbs_mod.utils.skin;
 
 import mchorse.bbs_mod.BBSMod;
 

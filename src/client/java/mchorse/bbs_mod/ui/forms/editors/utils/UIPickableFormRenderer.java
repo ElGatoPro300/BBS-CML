@@ -22,6 +22,7 @@ import mchorse.bbs_mod.ui.framework.elements.utils.StencilMap;
 import mchorse.bbs_mod.ui.utils.Gizmo;
 import mchorse.bbs_mod.ui.utils.StencilFormFramebuffer;
 import mchorse.bbs_mod.ui.utils.gizmo.GizmoController;
+import mchorse.bbs_mod.ui.utils.gizmo.GizmoMatrixUtils;
 import mchorse.bbs_mod.ui.utils.gizmo.GizmoRayFrame;
 import mchorse.bbs_mod.ui.utils.gizmo.GizmoSurface;
 import mchorse.bbs_mod.utils.MatrixStackUtils;
@@ -51,6 +52,7 @@ public class UIPickableFormRenderer extends UIFormRenderer implements GizmoSurfa
     private StencilFormFramebuffer stencil = new StencilFormFramebuffer();
     private StencilMap stencilMap = new StencilMap();
     private final Matrix4f lastGizmoMatrix = new Matrix4f();
+    private final Matrix4f unscaledGizmoMatrix = new Matrix4f();
     private boolean hasGizmoMatrix;
 
     private final GizmoController gizmoController = new GizmoController(this);
@@ -257,8 +259,10 @@ public class UIPickableFormRenderer extends UIFormRenderer implements GizmoSurfa
                 MatrixStackUtils.multiply(stack, matrix);
             }
 
-            /* Full drawn MV so drag matches film (view-space rays ↔ view-space gizmo). */
-            this.lastGizmoMatrix.set(stack.peek().getPositionMatrix());
+            this.unscaledGizmoMatrix.set(stack.peek().getPositionMatrix());
+
+            Matrix4f normalized = GizmoMatrixUtils.normalizeBasis(new Matrix4f(stack.peek().getPositionMatrix()));
+            stack.peek().getPositionMatrix().set(normalized);
 
             if (Gizmo.isInteractive())
             {
@@ -317,8 +321,13 @@ public class UIPickableFormRenderer extends UIFormRenderer implements GizmoSurfa
             MatrixStackUtils.multiply(stack, matrix);
         }
 
+        this.unscaledGizmoMatrix.set(stack.peek().getPositionMatrix());
+
+        Matrix4f normalized = GizmoMatrixUtils.normalizeBasis(new Matrix4f(stack.peek().getPositionMatrix()));
+        stack.peek().getPositionMatrix().set(normalized);
+
         /* Full drawn MV so drag matches film (view-space rays ↔ view-space gizmo). */
-        this.lastGizmoMatrix.set(stack.peek().getPositionMatrix());
+        this.lastGizmoMatrix.set(normalized);
 
         /* Draw axes */
         if (UIBaseMenu.renderAxes)
@@ -376,7 +385,7 @@ public class UIPickableFormRenderer extends UIFormRenderer implements GizmoSurfa
             transform.setGizmoRayProvider(GizmoRayFrame.fromFilmStyle(
                 this.camera,
                 this.area,
-                () -> this.hasGizmoMatrix ? this.lastGizmoMatrix : null
+                () -> this.hasGizmoMatrix ? this.unscaledGizmoMatrix : null
             ));
 
             return;
@@ -400,7 +409,7 @@ public class UIPickableFormRenderer extends UIFormRenderer implements GizmoSurfa
         transform.setGizmoRayProvider(GizmoRayFrame.fromFilmStyle(
             this.camera,
             this.area,
-            () -> this.hasGizmoMatrix ? this.lastGizmoMatrix : null
+            () -> this.hasGizmoMatrix ? this.unscaledGizmoMatrix : null
         ));
     }
 

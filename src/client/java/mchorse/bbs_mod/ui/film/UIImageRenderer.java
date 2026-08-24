@@ -129,8 +129,8 @@ public class UIImageRenderer
                         case 6: /* Exclusion */
                             GlStateManager._blendFuncSeparate(GL11.GL_ONE_MINUS_DST_COLOR, GL11.GL_ONE_MINUS_SRC_COLOR, 1, 0);
                             break;
-                        case 7: /* Overlay */
-                            GlStateManager._blendFuncSeparate(GL11.GL_DST_COLOR, GL11.GL_SRC_COLOR, 1, 0);
+                        case 7: /* Overlay / Vivid Multiply — 2*src*dst (white doubles/brightens, 50% gray neutral, black darkens) */
+                            RenderSystem.blendFunc(GL11.GL_DST_COLOR, GL11.GL_SRC_COLOR);
                             break;
                         case 8: /* Color Dodge */
                             GlStateManager._blendFuncSeparate(GL11.GL_SRC_COLOR, GL11.GL_ONE, 1, 0);
