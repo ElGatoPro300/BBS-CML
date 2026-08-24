@@ -17,6 +17,7 @@ import org.joml.Matrix4f;
 import org.joml.Vector4f;
 
 import com.mojang.blaze3d.opengl.GlStateManager;
+import com.mojang.blaze3d.systems.RenderSystem;
 
 import org.lwjgl.opengl.GL11;
 
@@ -130,7 +131,7 @@ public class UIImageRenderer
                             GlStateManager._blendFuncSeparate(GL11.GL_ONE_MINUS_DST_COLOR, GL11.GL_ONE_MINUS_SRC_COLOR, 1, 0);
                             break;
                         case 7: /* Overlay / Vivid Multiply — 2*src*dst (white doubles/brightens, 50% gray neutral, black darkens) */
-                            RenderSystem.blendFunc(GL11.GL_DST_COLOR, GL11.GL_SRC_COLOR);
+                            GlStateManager._blendFuncSeparate(GL11.GL_DST_COLOR, GL11.GL_SRC_COLOR, 1, 0);
                             break;
                         case 8: /* Color Dodge */
                             GlStateManager._blendFuncSeparate(GL11.GL_SRC_COLOR, GL11.GL_ONE, 1, 0);

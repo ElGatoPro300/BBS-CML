@@ -654,12 +654,12 @@ public class UIWelcomePanel extends UIElement
             context.mouseY = (int) (origMouseY / scale);
         }
 
-        MatrixStack matrices = context.batcher.getContext().getMatrices();
-        matrices.push();
+        Matrix3x2fStack matrices = context.batcher.getContext().getMatrices();
+        matrices.pushMatrix();
 
         if (scale < 1.0F && scale > 0.0F)
         {
-            matrices.scale(scale, scale, 1.0F);
+            matrices.scale(scale, scale);
         }
 
         if (this.step == Step.WELCOME)
@@ -677,7 +677,7 @@ public class UIWelcomePanel extends UIElement
 
         super.render(context);
 
-        matrices.pop();
+        matrices.popMatrix();
 
         context.mouseX = origMouseX;
         context.mouseY = origMouseY;
@@ -735,9 +735,9 @@ public class UIWelcomePanel extends UIElement
         float drawX = (realX / titleScale) - (totalW / 2.0F);
         float drawY = greetRealY / titleScale;
 
-        MatrixStack matrices = context.batcher.getContext().getMatrices();
-        matrices.push();
-        matrices.scale(titleScale, titleScale, 1.0F);
+        Matrix3x2fStack matrices = context.batcher.getContext().getMatrices();
+        matrices.pushMatrix();
+        matrices.scale(titleScale, titleScale);
 
         context.batcher.textShadow(welcomePart1, drawX, drawY, Colors.setA(Colors.WHITE, alpha));
         float headX = drawX + w1;
@@ -753,7 +753,7 @@ public class UIWelcomePanel extends UIElement
         }
 
         context.batcher.textShadow(welcomePart2, headX + headSize + gapText, drawY, Colors.setA(Colors.WHITE, alpha));
-        matrices.pop();
+        matrices.popMatrix();
 
         String subtitle = UIKeys.WELCOME_SUBTITLE.get();
         int subWidth = 380;
@@ -782,11 +782,11 @@ public class UIWelcomePanel extends UIElement
         float titleX = (vMx / titleScale) - (titleW / 2F);
         float titleY = (vY + 24) / titleScale;
 
-        MatrixStack matrices = context.batcher.getContext().getMatrices();
-        matrices.push();
-        matrices.scale(titleScale, titleScale, 1F);
+        Matrix3x2fStack matrices = context.batcher.getContext().getMatrices();
+        matrices.pushMatrix();
+        matrices.scale(titleScale, titleScale);
         context.batcher.textShadow(title, titleX, titleY, Colors.setA(Colors.WHITE, alpha));
-        matrices.pop();
+        matrices.popMatrix();
 
         String desc = UIKeys.WELCOME_LAYOUT_DESC.get();
         int descWidth = 460;
@@ -842,11 +842,11 @@ public class UIWelcomePanel extends UIElement
         float titleX = (vMx / titleScale) - (titleW / 2F);
         float titleY = (vY + 24) / titleScale;
 
-        MatrixStack matrices = context.batcher.getContext().getMatrices();
-        matrices.push();
-        matrices.scale(titleScale, titleScale, 1F);
+        Matrix3x2fStack matrices = context.batcher.getContext().getMatrices();
+        matrices.pushMatrix();
+        matrices.scale(titleScale, titleScale);
         context.batcher.textShadow(title, titleX, titleY, Colors.setA(Colors.WHITE, alpha));
-        matrices.pop();
+        matrices.popMatrix();
 
         String desc = String.format(UIKeys.WELCOME_CONFIRM_DESC.get(), this.selectedPreset.title.get());
         int descWidth = 480;

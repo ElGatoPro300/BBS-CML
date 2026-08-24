@@ -412,8 +412,6 @@ public class BOBJModelVAO
         }
 
         ModelVAORenderer.setupUniforms(stack, shader);
-        RenderSystem.setShader(shader);
-        shader.bind();
         ShaderOpacityPatch.uploadShadowFormUniform();
         FormColorGradePatch.uploadToCurrentProgram();
 

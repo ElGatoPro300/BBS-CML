@@ -498,13 +498,8 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
             /* Live path — opaque / no-shader / Iris without deferral. */
             if (format == VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL)
             {
-                if (!irisWorld && (useFormColorGrade || BBSRendering.needsBbsModelForLowOpacity(color.a)))
-                {
-                    RenderSystem.setShader(BBSShaders.getModel());
-                }
-
-                RenderSystem.enableDepthTest();
-                RenderSystem.depthMask(shadowPass || color.a >= ShaderOpacityPatch.LIVE_DEPTH_WRITE_ALPHA);
+                GlStateManager._enableDepthTest();
+                GlStateManager._depthMask(shadowPass || color.a >= ShaderOpacityPatch.LIVE_DEPTH_WRITE_ALPHA);
             }
 
             if (useFormColorGrade)

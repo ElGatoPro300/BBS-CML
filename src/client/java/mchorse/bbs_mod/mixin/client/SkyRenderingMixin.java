@@ -28,7 +28,7 @@ public class SkyRenderingMixin
     }
 
     @Inject(method = "renderGlowingSky", at = @At("RETURN"))
-    private void bbs$popSunPathFromGlowingSky(MatrixStack matrices, VertexConsumerProvider.Immediate vertexConsumers, float skyAngle, int color, CallbackInfo info)
+    private void bbs$popSunPathFromGlowingSky(MatrixStack matrices, float skyAngle, int color, CallbackInfo info)
     {
         matrices.pop();
     }

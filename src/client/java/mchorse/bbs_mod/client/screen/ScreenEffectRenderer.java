@@ -26,6 +26,8 @@ import mchorse.bbs_mod.utils.MathUtils;
 import mchorse.bbs_mod.utils.clips.ClipContext;
 import mchorse.bbs_mod.utils.colors.Colors;
 
+import net.minecraft.client.util.math.MatrixStack;
+
 import org.joml.Matrix3x2fStack;
 
 import com.mojang.blaze3d.systems.RenderSystem;
@@ -60,9 +62,9 @@ public class ScreenEffectRenderer
         int[] prevViewport = new int[4];
 
         GL11.glGetIntegerv(GL11.GL_VIEWPORT, prevViewport);
-        RenderSystem.disableDepthTest();
+        GL11.glDisable(GL11.GL_DEPTH_TEST);
 
-        MatrixStack matrices = batcher.getContext().getMatrices();
+        Matrix3x2fStack matrices = batcher.getContext().getMatrices();
         int effectIndex = 0;
         int letterboxIndex = 0;
         int grainIndex = 0;
@@ -149,22 +151,22 @@ public class ScreenEffectRenderer
             }
             else if (imgOrder == nextOrder)
             {
-                UIImageRenderer.renderImage(matrices, batcher, images.get(imageIndex));
+                UIImageRenderer.renderImage(new MatrixStack(), batcher, images.get(imageIndex));
                 imageIndex += 1;
             }
             else if (subOrder == nextOrder)
             {
-                UISubtitleRenderer.renderSubtitle(matrices, batcher, subtitles.get(subtitleIndex));
+                UISubtitleRenderer.renderSubtitle(new MatrixStack(), batcher, subtitles.get(subtitleIndex));
                 subtitleIndex += 1;
             }
             else if (hotOrder == nextOrder)
             {
-                UIHotbarRenderer.renderHotbar(matrices, batcher, hotbars.get(hotbarIndex), 0, 0, screenW, screenH);
+                UIHotbarRenderer.renderHotbar(new MatrixStack(), batcher, hotbars.get(hotbarIndex), 0, 0, screenW, screenH);
                 hotbarIndex += 1;
             }
             else if (bosOrder == nextOrder)
             {
-                UIBossBarRenderer.renderBossBar(matrices, batcher, bossBars.get(bossBarIndex), 0, 0, screenW, screenH);
+                UIBossBarRenderer.renderBossBar(new MatrixStack(), batcher, bossBars.get(bossBarIndex), 0, 0, screenW, screenH);
                 bossBarIndex += 1;
             }
             else if (letOrder == nextOrder)
@@ -190,7 +192,7 @@ public class ScreenEffectRenderer
         bossBars.clear();
 
         GL11.glViewport(prevViewport[0], prevViewport[1], prevViewport[2], prevViewport[3]);
-        RenderSystem.enableDepthTest();
+        GL11.glEnable(GL11.GL_DEPTH_TEST);
     }
 
     private static void convertNodeEffects(ClipContext context, List<ColorEffect> effects, List<GrainEffect> grainEffects, List<LetterboxEffect> letterboxEffects)

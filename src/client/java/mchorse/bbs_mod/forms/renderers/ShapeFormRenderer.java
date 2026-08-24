@@ -272,14 +272,8 @@ public class ShapeFormRenderer extends FormRenderer<ShapeForm>
         }
         else
         {
-            /* No-shader / opaque Iris path: depthMask true like vanilla. */
-            if (BBSRendering.needsBbsModelForLowOpacity(c.a))
-            {
-                RenderSystem.setShader(BBSShaders.getModel());
-            }
-
-            RenderSystem.enableDepthTest();
-            RenderSystem.depthMask(shadowPass || c.a >= ShaderOpacityPatch.LIVE_DEPTH_WRITE_ALPHA);
+            GlStateManager._enableDepthTest();
+            GlStateManager._depthMask(shadowPass || c.a >= ShaderOpacityPatch.LIVE_DEPTH_WRITE_ALPHA);
 
             Tessellator tessellator = Tessellator.getInstance();
 
@@ -294,7 +288,7 @@ public class ShapeFormRenderer extends FormRenderer<ShapeForm>
 
                 this.buildShapeGeometry(builder, stack, type, c, overlay, light);
 
-                BufferRenderer.drawWithGlobalProgram(builder.end());
+                builder.end().close();
             }
             finally
             {

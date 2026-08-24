@@ -296,9 +296,9 @@ public class UIWorldDropdownMenu extends UIContextMenu
         this.time.setValue(this.lastSentTime);
         WorldPropertiesHelper.setClientTimeOverride(timeOfDay);
 
-        this.freezeTime.setValue(!WorldPropertiesHelper.readGamerule(GameRules.DO_DAYLIGHT_CYCLE, true));
-        this.pauseWeather.setValue(!WorldPropertiesHelper.readGamerule(GameRules.DO_WEATHER_CYCLE, true));
-        this.mobSpawning.setValue(WorldPropertiesHelper.readGamerule(GameRules.DO_MOB_SPAWNING, true));
+        this.freezeTime.setValue(!WorldPropertiesHelper.readGamerule("doDaylightCycle", true));
+        this.pauseWeather.setValue(!WorldPropertiesHelper.readGamerule("doWeatherCycle", true));
+        this.mobSpawning.setValue(WorldPropertiesHelper.readGamerule("doMobSpawning", true));
         this.overrideGamma.setValue(WorldPropertiesHelper.isGammaOverrideEnabled());
         this.gamma.setEnabled(WorldPropertiesHelper.isGammaOverrideEnabled());
         this.gamma.setValue(WorldPropertiesHelper.getGammaPercent());
