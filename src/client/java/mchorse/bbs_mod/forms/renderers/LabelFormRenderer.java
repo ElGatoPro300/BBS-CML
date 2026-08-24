@@ -148,6 +148,15 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
     @Override
     public void render3D(FormRenderingContext context)
     {
+        Color contextColor = new Color().set(context.color, true);
+        Color formColor = this.form.color.get();
+        float alpha = contextColor.a * (formColor != null ? formColor.a : 1F);
+
+        if (alpha <= 0.001F)
+        {
+            return;
+        }
+
         context.stack.push();
 
         if (this.form.billboard.get())

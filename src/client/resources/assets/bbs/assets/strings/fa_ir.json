@@ -1207,6 +1207,7 @@
     "bbs.ui.film.replay.track.render.enabled-tooltip": "وقتی غیرفعال باشد، مدل این بازپخش در پخش رندر نمی‌شود؛ مانند گزینه فعال‌سازی در پنل بازپخش‌ها. قبل از اولین فریم کلیدی، رندر همچنان فعال است.",
     "bbs.ui.film.replay.track.ridden": "سوار شده",
     "bbs.ui.film.replay.track.riding": "نشستن",
+    "bbs.ui.film.replay.track.same_animation_when_dropped": "انیمیشن آیتم",
     "bbs.ui.film.replay.track.scattering_pitch": "پراکندگی Pitch",
     "bbs.ui.film.replay.track.scattering_yaw": "پراکندگی Yaw",
     "bbs.ui.film.replay.track.selected_slot": "اسلات انتخاب‌شده",

@@ -243,6 +243,7 @@ public class BBSSettings
     public static ValueBoolean coloredBackground;
     public static ValueFloat backgroundBrightness;
     public static ValueDouble worldGammaPercent;
+    public static ValueBoolean worldGammaOverride;
     public static ValueFloat worldSunPathRotation;
     public static ValueBoolean interfaceShadows;
 
@@ -252,6 +253,7 @@ public class BBSSettings
 
     public static ValueBoolean shaderCurvesEnabled;
     public static ValueBoolean irisOpacityFix;
+    public static ValueBoolean noshadingOpaqueForms;
     /**
      * Soft form/limb transparency under Iris only: ON draws backfaces (two-pass; may darken),
      * OFF culls backfaces (cleaner colors). Default ON. Without shaders, {@code model.culling} applies.
@@ -275,6 +277,8 @@ public class BBSSettings
     public static ValueBoolean bslOpacityFix;
     public static ValueBoolean shaderOpacityPatchesDefaultOnMigrated;
     public static ValueFloat shaderShadowOpacity;
+    public static ValueBoolean shaderShadowDither;
+    public static ValueBoolean lodShaderReloadFix;
 
     public static ValueBoolean audioWaveformVisible;
     public static ValueInt audioWaveformDensity;
@@ -722,6 +726,7 @@ public class BBSSettings
         coloredBackground = builder.getBoolean("colored_background", true);
         backgroundBrightness = builder.getFloat("background_brightness", 1F, 0.5F, 1.5F);
         worldGammaPercent = builder.getDouble("world_gamma_percent", 100D, 0D, 1500D);
+        worldGammaOverride = builder.getBoolean("world_gamma_override", false);
         worldSunPathRotation = builder.getFloat("world_sun_path_rotation", 0F, -180F, 180F);
         interfaceShadows = builder.getBoolean("interface_shadows", true);
         fov = builder.getFloat("fov", 40, 0, 180);
@@ -948,6 +953,7 @@ public class BBSSettings
         builder.category("shader_curves");
         shaderCurvesEnabled = builder.getBoolean("enabled", true);
         irisOpacityFix = builder.getBoolean("iris_opacity_fix", true);
+        noshadingOpaqueForms = builder.getBoolean("noshading_opaque_forms", true);
         softTransparencyBackfaces = builder.getBoolean("soft_transparency_backfaces", true);
         irisFormFluidPatch = builder.getBoolean("iris_form_fluid_patch", true);
         irisFormGlowBloomPatch = builder.getBoolean("iris_form_glow_bloom_patch", true);
@@ -958,6 +964,8 @@ public class BBSSettings
         shaderOpacityPatchesDefaultOnMigrated = builder.getBoolean("opacity_patches_default_on_migrated", false);
         shaderOpacityPatchesDefaultOnMigrated.invisible();
         shaderShadowOpacity = builder.getFloat("shader_shadow_opacity", 1F, 0F, 1F);
+        shaderShadowDither = builder.getBoolean("shader_shadow_dither", true);
+        lodShaderReloadFix = builder.getBoolean("lod_shader_reload_fix", true);
 
         builder.category("fluid_simulation");
         fluidRealisticModelInteraction = builder.getBoolean("realistic_model_interaction", false);

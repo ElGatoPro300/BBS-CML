@@ -4,16 +4,8 @@ import mchorse.bbs_mod.BBSMod;
 import mchorse.bbs_mod.BBSModClient;
 import mchorse.bbs_mod.BBSSettings;
 import mchorse.bbs_mod.blocks.entities.ModelBlockEntity;
-import mchorse.bbs_mod.camera.clips.misc.BossBarClip;
-import mchorse.bbs_mod.camera.clips.misc.BossBarState;
 import mchorse.bbs_mod.camera.clips.misc.ChromaSkyCurveSettings;
 import mchorse.bbs_mod.camera.clips.misc.CurveClip;
-import mchorse.bbs_mod.camera.clips.misc.HotbarClip;
-import mchorse.bbs_mod.camera.clips.misc.HotbarState;
-import mchorse.bbs_mod.camera.clips.misc.ImageClip;
-import mchorse.bbs_mod.camera.clips.misc.ImageOverlay;
-import mchorse.bbs_mod.camera.clips.misc.Subtitle;
-import mchorse.bbs_mod.camera.clips.misc.SubtitleClip;
 import mchorse.bbs_mod.camera.controller.CameraWorkCameraController;
 import mchorse.bbs_mod.camera.controller.PlayCameraController;
 import mchorse.bbs_mod.camera.data.Position;
@@ -47,11 +39,7 @@ import mchorse.bbs_mod.ui.UIKeys;
 import mchorse.bbs_mod.ui.dashboard.UIDashboard;
 import mchorse.bbs_mod.ui.dashboard.WorldPropertiesHelper;
 import mchorse.bbs_mod.ui.dashboard.panels.UIDashboardPanel;
-import mchorse.bbs_mod.ui.film.UIBossBarRenderer;
 import mchorse.bbs_mod.ui.film.UIFilmPanel;
-import mchorse.bbs_mod.ui.film.UIHotbarRenderer;
-import mchorse.bbs_mod.ui.film.UIImageRenderer;
-import mchorse.bbs_mod.ui.film.UISubtitleRenderer;
 import mchorse.bbs_mod.ui.framework.UIBaseMenu;
 import mchorse.bbs_mod.ui.framework.UIRenderingContext;
 import mchorse.bbs_mod.ui.framework.UIScreen;
@@ -684,18 +672,25 @@ public class BBSRendering
             VideoRenderer.renderClips(batcher.getContext().getMatrices(), batcher, controller.getContext().clips.getClips(controller.getContext().relativeTick), controller.getContext().relativeTick, true, area, area, null, area.w, area.h, false);
 
             ScreenEffectRenderer.render(batcher, controller.getContext(), area.w, area.h);
-            renderHudOverlays(batcher, controller.getContext(), area.w, area.h);
 
             RenderSystem.setProjectionMatrix(cache, VertexSorter.BY_Z);
         }
 
-        if (BBSModClient.getVideoRecorder().isRecording() && BBSModClient.getCameraController().getCurrent() instanceof CameraWorkCameraController controller)
+        if (!customSize && BBSModClient.getVideoRecorder().isRecording() && BBSModClient.getCameraController().getCurrent() instanceof CameraWorkCameraController controller)
         {
             DrawContext drawContext = new DrawContext(mc, mc.getBufferBuilders().getEntityVertexConsumers());
             Batcher2D batcher = new Batcher2D(drawContext);
             Window window = mc.getWindow();
+            Area area = new Area(0, 0, window.getScaledWidth(), window.getScaledHeight());
+            Matrix4f cache = new Matrix4f(RenderSystem.getProjectionMatrix());
+            Matrix4f ortho = new Matrix4f().ortho(0, area.w, area.h, 0, -1000, 3000);
 
-            renderHudOverlays(batcher, controller.getContext(), window.getScaledWidth(), window.getScaledHeight());
+            RenderSystem.setProjectionMatrix(ortho, VertexSorter.BY_Z);
+            VideoRenderer.renderClips(batcher.getContext().getMatrices(), batcher, controller.getContext().clips.getClips(controller.getContext().relativeTick), controller.getContext().relativeTick, true, area, area, null, area.w, area.h, false);
+
+            ScreenEffectRenderer.render(batcher, controller.getContext(), area.w, area.h);
+
+            RenderSystem.setProjectionMatrix(cache, VertexSorter.BY_Z);
         }
 
         if (!customSize)
@@ -721,7 +716,6 @@ public class BBSRendering
                 VideoRenderer.renderClips(new MatrixStack(), offscreenBatcher, panel.getData().camera.getClips(panel.getCursor()), panel.getCursor(), panel.getRunner().isRunning(), fullScreen, fullScreen, null, window.getScaledWidth(), window.getScaledHeight(), false);
 
                 ScreenEffectRenderer.render(offscreenBatcher, panel.getRunner().getContext(), window.getScaledWidth(), window.getScaledHeight());
-                renderHudOverlays(offscreenBatcher, panel.getRunner().getContext(), fullScreen.w, fullScreen.h);
 
                 RenderSystem.setProjectionMatrix(cache, VertexSorter.BY_Z);
             }
@@ -1021,10 +1015,11 @@ public class BBSRendering
     }
 
     /**
-     * Opt-in Opacity-track "No shading": redraw this soft form on the BBS deferred queue
-     * after paint overlays (paint visible through soft; pack body sun shadows lost).
-     * When off, soft forms stay on Iris post-deferred (body shadows kept; paint clipped).
-     * Still applies when the Complementary/BSL opacity patch is active.
+     * Opt-in "No shading": redraw this form on the BBS deferred queue
+     * after Iris composite.
+     * When off, forms stay on Iris live pipeline with pack shaders and lighting.
+     * When on, forms are deferred and drawn with vanilla/BBS shader (no pack lighting/shadows).
+     * Controlled by {@link BBSSettings#noshadingOpaqueForms} (default true).
      */
     public static boolean needsIrisNoshadingOpacityDeferral(float alpha, boolean noshadingOpacity)
     {
@@ -1033,7 +1028,9 @@ public class BBSRendering
             return false;
         }
 
-        return alpha > 0.001F && alpha < 0.999F;
+        boolean allowOpaque = BBSSettings.noshadingOpaqueForms == null || BBSSettings.noshadingOpaqueForms.get();
+
+        return alpha > 0.001F && (allowOpaque || alpha < 0.999F);
     }
 
     /**
@@ -1505,7 +1502,14 @@ public class BBSRendering
 
     public static Double getBrightness()
     {
-        return getCurveValue(ShaderCurves.BRIGHTNESS);
+        Double v = getCurveValue(ShaderCurves.BRIGHTNESS);
+
+        if (v != null)
+        {
+            return Math.max(0D, v) / 100D;
+        }
+
+        return null;
     }
 
     public static Double getWeather()
@@ -1589,65 +1593,5 @@ public class BBSRendering
     public static Function<VertexConsumer, VertexConsumer> getBlockColorTintOverlayConsumer()
     {
         return getColorConsumer(Color.white());
-    }
-
-    private static void renderHudOverlays(Batcher2D batcher, ClipContext context, int width, int height)
-    {
-        List<Subtitle> subtitles = SubtitleClip.getSubtitles(context);
-        List<HotbarState> hotbars = HotbarClip.getHotbars(context);
-        List<ImageOverlay> images = ImageClip.getImages(context);
-        List<BossBarState> bossBars = BossBarClip.getBossBars(context);
-
-        if (subtitles.isEmpty() && hotbars.isEmpty() && images.isEmpty() && bossBars.isEmpty())
-        {
-            return;
-        }
-
-        /* Safety net: Subtitle's text FBO can shrink glViewport; restore after the pass. */
-        int[] prevViewport = new int[4];
-
-        GL11.glGetIntegerv(GL11.GL_VIEWPORT, prevViewport);
-        RenderSystem.disableDepthTest();
-
-        MatrixStack matrices = batcher.getContext().getMatrices();
-        int subtitleIndex = 0;
-        int hotbarIndex = 0;
-        int imageIndex = 0;
-        int bossBarIndex = 0;
-
-        while (subtitleIndex < subtitles.size() || hotbarIndex < hotbars.size() || imageIndex < images.size() || bossBarIndex < bossBars.size())
-        {
-            int subtitleOrder = subtitleIndex < subtitles.size() ? subtitles.get(subtitleIndex).renderOrder : Integer.MAX_VALUE;
-            int hotbarOrder = hotbarIndex < hotbars.size() ? hotbars.get(hotbarIndex).renderOrder : Integer.MAX_VALUE;
-            int imageOrder = imageIndex < images.size() ? images.get(imageIndex).renderOrder : Integer.MAX_VALUE;
-            int bossBarOrder = bossBarIndex < bossBars.size() ? bossBars.get(bossBarIndex).renderOrder : Integer.MAX_VALUE;
-            int nextOrder = Math.min(Math.min(subtitleOrder, hotbarOrder), Math.min(imageOrder, bossBarOrder));
-
-            /* Draw lowest renderOrder first so higher timeline layers end up on top. */
-            if (subtitleOrder == nextOrder)
-            {
-                UISubtitleRenderer.renderSubtitle(matrices, batcher, subtitles.get(subtitleIndex));
-                subtitleIndex += 1;
-            }
-            else if (hotbarOrder == nextOrder)
-            {
-                UIHotbarRenderer.renderHotbar(matrices, batcher, hotbars.get(hotbarIndex), 0, 0, width, height);
-                hotbarIndex += 1;
-            }
-            else if (imageOrder == nextOrder)
-            {
-                UIImageRenderer.renderImage(matrices, batcher, images.get(imageIndex));
-                imageIndex += 1;
-            }
-            else
-            {
-                UIBossBarRenderer.renderBossBar(matrices, batcher, bossBars.get(bossBarIndex), 0, 0, width, height);
-                bossBarIndex += 1;
-            }
-        }
-
-        bossBars.clear();
-        GL11.glViewport(prevViewport[0], prevViewport[1], prevViewport[2], prevViewport[3]);
-        RenderSystem.enableDepthTest();
     }
 }

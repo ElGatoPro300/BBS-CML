@@ -49,6 +49,7 @@ public class UIBillboardFormPanel extends UIFormPanel<BillboardForm>
     public UIToggle shading;
     public UITrackpad pbrNormalIntensity;
     public UITrackpad pbrSpecularIntensity;
+    public UITrackpad subdivision;
 
     public UIBillboardFormPanel(UIForm editor)
     {
@@ -155,6 +156,9 @@ public class UIBillboardFormPanel extends UIFormPanel<BillboardForm>
         this.pbrNormalIntensity.tooltip(UIKeys.FORMS_EDITOR_MODEL_PBR_NORMAL_INTENSITY);
         this.pbrSpecularIntensity = new UITrackpad((value) -> this.form.pbrSpecularIntensity.set(value.floatValue()));
         this.pbrSpecularIntensity.tooltip(UIKeys.FORMS_EDITOR_MODEL_PBR_SPECULAR_INTENSITY);
+        this.subdivision = new UITrackpad((value) -> this.form.subdivision.set(value.floatValue()));
+        this.subdivision.values(0.1D, 0.05D, 0.5D).limit(0D, 16D);
+        this.subdivision.tooltip(UIKeys.FORMS_EDITORS_BILLBOARD_SUBDIVISION);
 
         this.options.add(
             this.pick,
@@ -167,7 +171,8 @@ public class UIBillboardFormPanel extends UIFormPanel<BillboardForm>
             ).marginTop(4),
             this.billboard,
             this.linear,
-            this.mipmap
+            this.mipmap,
+            this.subdivision
         );
 
         if (BBSSettings.modelPbrPanelControls != null && BBSSettings.modelPbrPanelControls.get())
@@ -216,5 +221,6 @@ public class UIBillboardFormPanel extends UIFormPanel<BillboardForm>
         this.shading.setValue(form.shading.get());
         this.pbrNormalIntensity.setValue(form.pbrNormalIntensity.get());
         this.pbrSpecularIntensity.setValue(form.pbrSpecularIntensity.get());
+        this.subdivision.setValue(form.subdivision.get());
     }
 }

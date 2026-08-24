@@ -76,6 +76,7 @@ public class UITrackpad extends UIBaseTextbox
     private double shiftX;
     private double initialX;
     private int initialY;
+    private int grabX;
     private double lastValue;
 
     private Timer changed = new Timer(30);
@@ -506,6 +507,7 @@ public class UITrackpad extends UIBaseTextbox
                 this.dragging = true;
                 this.initialX = mc.mouse.getX() / factor;
                 this.initialY = context.mouseY;
+                this.grabX = context.mouseX;
                 this.time = System.currentTimeMillis();
 
                 /* Emit before caching lastValue so listeners can re-sync the
@@ -544,11 +546,11 @@ public class UITrackpad extends UIBaseTextbox
             {
                 if (this.plusOne.isInside(context))
                 {
-                    this.setValueAndNotify(this.value + this.getScrollStep());
+                    this.setValueAndNotify(this.value + this.getArrowStep());
                 }
                 else if (this.minusOne.isInside(context))
                 {
-                    this.setValueAndNotify(this.value - this.getScrollStep());
+                    this.setValueAndNotify(this.value - this.getArrowStep());
                 }
                 else
                 {
@@ -799,9 +801,10 @@ public class UITrackpad extends UIBaseTextbox
             if (dragging)
             {
                 /* Draw the drag-delta fill from the grab point to the cursor. */
+                int grab = MathUtils.clamp(this.grabX, this.area.x + padding, this.area.ex() - padding);
                 int fx = MathUtils.clamp(context.mouseX, this.area.x + padding, this.area.ex() - padding);
 
-                context.batcher.box(Math.min(fx, (int) this.initialX), this.area.y + padding, Math.max(fx, (int) this.initialX), this.area.ey() - padding, accent);
+                context.batcher.box(Math.min(fx, grab), this.area.y + padding, Math.max(fx, grab), this.area.ey() - padding, accent);
             }
 
             /* Value label — centered, clipped so it never runs under the
@@ -1080,6 +1083,27 @@ public class UITrackpad extends UIBaseTextbox
         }
 
         return value;
+    }
+
+    private double getArrowStep()
+    {
+        double step = this.increment;
+
+        if (Window.isShiftPressed())
+        {
+            step = this.increment * 10D;
+        }
+        else if (Window.isAltPressed())
+        {
+            step = this.increment / 10D;
+        }
+
+        if (this.integer)
+        {
+            step = Math.max(1D, Math.round(step));
+        }
+
+        return step;
     }
 
     /**

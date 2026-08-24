@@ -25,6 +25,7 @@ public class BillboardForm extends Form
     public final ValueBoolean shading = new ValueBoolean("shading", true);
     public final ValueFloat pbrNormalIntensity = new ValueFloat("pbr_normal_intensity", 1F, 0F, 4F);
     public final ValueFloat pbrSpecularIntensity = new ValueFloat("pbr_specular_intensity", 1F, 0F, 4F);
+    public final ValueFloat subdivision = new ValueFloat("subdivision", 1F, 0F, 16F);
 
     public BillboardForm()
     {
@@ -49,6 +50,7 @@ public class BillboardForm extends Form
         this.add(this.shading);
         this.add(this.pbrNormalIntensity);
         this.add(this.pbrSpecularIntensity);
+        this.add(this.subdivision);
     }
 
     @Override

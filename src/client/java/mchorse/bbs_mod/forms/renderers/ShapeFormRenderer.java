@@ -187,7 +187,7 @@ public class ShapeFormRenderer extends FormRenderer<ShapeForm>
 
         this.form.applyFormOpacity(finalColor);
 
-        if (finalColor.a <= 0.001F && !BBSRendering.isIrisShadowPass())
+        if (finalColor.a <= 0.001F)
         {
             return;
         }
@@ -236,9 +236,9 @@ public class ShapeFormRenderer extends FormRenderer<ShapeForm>
         ShapeForm.ShapeType type = this.form.type.get();
         boolean shadowPass = BBSRendering.isIrisShadowPass();
         /* Under Iris, flats must defer — live path washes them. Opaque (#ff) is skipped by
-         * needsIrisTranslucentFlatDeferral. */
-        boolean deferTranslucent = !shadowPass
-            && BBSRendering.needsIrisTranslucentFlatDeferral(c.a);
+         * needsIrisTranslucentFlatDeferral unless noshading is enabled. */
+        boolean noshadingDefer = !shadowPass && BBSRendering.needsIrisNoshadingOpacityDeferral(c.a, this.form.noshadingOpacity.get());
+        boolean deferTranslucent = (!shadowPass && BBSRendering.needsIrisTranslucentFlatDeferral(c.a)) || noshadingDefer;
 
         if (deferTranslucent)
         {
@@ -291,7 +291,7 @@ public class ShapeFormRenderer extends FormRenderer<ShapeForm>
             }
 
             RenderSystem.enableDepthTest();
-            RenderSystem.depthMask(true);
+            RenderSystem.depthMask(shadowPass || c.a >= ShaderOpacityPatch.LIVE_DEPTH_WRITE_ALPHA);
 
             Color glowResolved = new Color();
 
@@ -299,6 +299,11 @@ public class ShapeFormRenderer extends FormRenderer<ShapeForm>
             {
                 FormColorEffects.resolveGlowTint(glowSettings, legacyGlow, this.form.getFormPaintSettings(), this.form.paintColor.get(), this.form.getFormColor(), glowResolved);
                 ModelVAORenderer.setGlow(glowSettings, glowResolved.r, glowResolved.g, glowResolved.b, legacyGlow);
+            }
+
+            if (shadowPass)
+            {
+                ShaderOpacityPatch.beginShadowForm();
             }
 
             try
@@ -319,6 +324,11 @@ public class ShapeFormRenderer extends FormRenderer<ShapeForm>
             }
             finally
             {
+                if (shadowPass)
+                {
+                    ShaderOpacityPatch.endShadowForm();
+                }
+
                 if (positiveGlow)
                 {
                     ModelVAORenderer.clearGlowing();

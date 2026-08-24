@@ -31,6 +31,7 @@ import mchorse.bbs_mod.ui.framework.elements.overlay.UIOverlay;
 import mchorse.bbs_mod.ui.framework.elements.overlay.UIPromptOverlayPanel;
 import mchorse.bbs_mod.ui.framework.elements.utils.FontRenderer;
 import mchorse.bbs_mod.ui.model_blocks.UIModelBlockPanel;
+import mchorse.bbs_mod.ui.particles.UIParticleSchemePanel;
 import mchorse.bbs_mod.ui.selectors.UISelectorsOverlayPanel;
 import mchorse.bbs_mod.ui.triggers.UITriggerBlockPanel;
 import mchorse.bbs_mod.ui.utils.context.ContextAction;
@@ -317,10 +318,98 @@ public class UIMainMenuBar extends UIElement
         {
             this.buildWindowMenuForFilm(menu, film);
         }
+        else if (this.dashboard.panels.panel instanceof UIParticleSchemePanel particles)
+        {
+            this.buildWindowMenuForParticles(menu, particles);
+        }
         else
         {
             menu.action(Icons.NONE, UIKeys.DASHBOARD_MENU_NO_WINDOWS, () -> {});
         }
+    }
+
+    private void buildWindowMenuForParticles(ContextMenuManager menu, UIParticleSchemePanel particles)
+    {
+        UICascadingMenu mainMenu = (UICascadingMenu) menu.menu;
+
+        menu.action(this.createNormalWindowAction(particles.isWindowPanelVisible("preview") ? Icons.CHECKMARK : Icons.NONE, UIKeys.RAW_VIEWPORT, mainMenu, () ->
+        {
+            particles.setWindowPanelVisible("preview", !particles.isWindowPanelVisible("preview"));
+            this.openWindowMenuParticles(particles);
+        }));
+
+        menu.action(this.createNormalWindowAction(particles.isWindowPanelVisible("general") ? Icons.CHECKMARK : Icons.NONE, UIKeys.SNOWSTORM_GENERAL_TITLE, mainMenu, () ->
+        {
+            particles.setWindowPanelVisible("general", !particles.isWindowPanelVisible("general"));
+            this.openWindowMenuParticles(particles);
+        }));
+
+        menu.action(this.createNormalWindowAction(particles.isWindowPanelVisible("emitter") ? Icons.CHECKMARK : Icons.NONE, IKey.constant("Emitter"), mainMenu, () ->
+        {
+            particles.setWindowPanelVisible("emitter", !particles.isWindowPanelVisible("emitter"));
+            this.openWindowMenuParticles(particles);
+        }));
+
+        menu.action(this.createNormalWindowAction(particles.isWindowPanelVisible("particle") ? Icons.CHECKMARK : Icons.NONE, IKey.constant("Particle"), mainMenu, () ->
+        {
+            particles.setWindowPanelVisible("particle", !particles.isWindowPanelVisible("particle"));
+            this.openWindowMenuParticles(particles);
+        }));
+
+        menu.action(this.createNormalWindowAction(particles.isWindowPanelVisible("appearance") ? Icons.CHECKMARK : Icons.NONE, UIKeys.SNOWSTORM_APPEARANCE_TITLE, mainMenu, () ->
+        {
+            particles.setWindowPanelVisible("appearance", !particles.isWindowPanelVisible("appearance"));
+            this.openWindowMenuParticles(particles);
+        }));
+
+        menu.action(this.createNormalWindowAction(particles.isWindowPanelVisible("molang") ? Icons.CHECKMARK : Icons.NONE, IKey.constant("MoLang"), mainMenu, () ->
+        {
+            particles.setWindowPanelVisible("molang", !particles.isWindowPanelVisible("molang"));
+            this.openWindowMenuParticles(particles);
+        }));
+
+        menu.action(new ContextSeparatorAction());
+        menu.action(this.createNormalWindowAction(Icons.TRASH, UIKeys.SNOWSTORM_RESTART_EMITTER, mainMenu, particles::restartEmitter));
+        menu.action(new ContextSeparatorAction());
+        menu.action(this.createNormalWindowAction(Icons.REFRESH, UIKeys.DASHBOARD_MENU_RESET_LAYOUT, mainMenu, particles::resetLayout));
+        menu.action(this.createNormalWindowAction(particles.isLayoutLocked() ? Icons.LOCKED : Icons.UNLOCKED, particles.isLayoutLocked() ? UIKeys.FILM_LAYOUT_UNLOCK : UIKeys.FILM_LAYOUT_LOCK, mainMenu, particles::toggleLayoutLock));
+        menu.action(this.createNormalWindowAction(Icons.SAVED, UIKeys.FILM_LAYOUT_PRESETS, mainMenu, () ->
+        {
+            int x = this.activeButton == null ? this.area.x : this.activeButton.area.x;
+            int y = this.activeButton == null ? this.area.ey() : this.activeButton.area.ey();
+
+            particles.openLayoutPresets(x, y);
+        }));
+    }
+
+    private void openWindowMenuParticles(UIParticleSchemePanel particles)
+    {
+        UIContextMenu oldMenu = this.getContext().contextMenu;
+
+        ContextMenuManager manager = new ContextMenuManager();
+        UICascadingMenu customMenu = new UICascadingMenu()
+        {
+            @Override
+            public void setMouse(UIContext context)
+            {
+                int w = 100;
+                for (ContextAction action : this.actions.getList())
+                {
+                    w = Math.max(action.getWidth(context.batcher.getFont()), w);
+                }
+
+                int posX = oldMenu == null ? context.mouseX() : oldMenu.area.x;
+                int posY = oldMenu == null ? context.mouseY() : oldMenu.area.y;
+
+                this.set(posX, posY, w, 0).h(this.actions.scroll.scrollSize).maxH(context.menu.height - 10).bounds(context.menu.overlay, 5);
+            }
+        };
+
+        manager.custom(customMenu);
+        this.buildWindowMenuForParticles(manager, particles);
+        manager.create();
+
+        this.getContext().replaceContextMenu(customMenu);
     }
 
     private void buildWindowMenuForFilm(ContextMenuManager menu, UIFilmPanel film)

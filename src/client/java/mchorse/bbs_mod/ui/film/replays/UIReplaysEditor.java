@@ -716,10 +716,26 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
     {
         Icon icon = getIcon(key);
 
-        if (icon != null)
+        if ((icon == null || icon == Icons.NONE) && key.indexOf(':') != -1)
         {
-            sheet.icon(icon);
+            String subKey = key.substring(key.indexOf(':') + 1);
+
+            icon = getIcon(subKey);
+
+            if (icon == null || icon == Icons.NONE)
+            {
+                String parentKey = key.substring(0, key.indexOf(':'));
+
+                icon = getIcon(parentKey);
+            }
         }
+
+        if (icon == null || icon == Icons.NONE)
+        {
+            icon = Icons.PROPERTIES;
+        }
+
+        sheet.icon(icon);
 
         return sheet;
     }

@@ -842,7 +842,8 @@ public class ModelInstance implements IModelInstance
                     RenderSystem.disableCull();
                 }
 
-                CubicCpuGroupDrawRenderer renderProcessor = new CubicCpuGroupDrawRenderer(light, overlay, stencilMap, keys, shader, texture);
+                Matrix4f rootInverse = new Matrix4f(stack.peek().getPositionMatrix()).invert();
+                CubicCpuGroupDrawRenderer renderProcessor = new CubicCpuGroupDrawRenderer(light, overlay, stencilMap, keys, shader, texture, rootInverse);
 
                 renderProcessor.setColor(cr, cg, cb, ca);
                 ModelVAORenderer.beginCpuGeometry(shader);

@@ -253,6 +253,7 @@ public class UIClips extends UIElement
                 menu.action(Icons.SHIFT_TO, UIKeys.CAMERA_TIMELINE_CONTEXT_SHIFT_DURATION, this::shiftDurationToCursor);
             }
 
+            menu.action(Icons.MAXIMIZE, UIKeys.CAMERA_TIMELINE_CONTEXT_MAXIMIZE, this::resetView);
             menu.action(Icons.EXCHANGE, UIKeys.CAMERA_TIMELINE_CONTEXT_REORGANIZE, () -> this.clips.sortLayers());
 
             if (hasSelected)
@@ -1180,6 +1181,14 @@ public class UIClips extends UIElement
     public void toolbarDeselectAll()
     {
         this.pickClip(null);
+    }
+
+    /**
+     * Toolbar action: reset horizontal view scale to fit all clips in the timeline.
+     */
+    public void toolbarResetView()
+    {
+        this.resetView();
     }
 
     /**

@@ -1842,7 +1842,7 @@ public class UIFilmController extends UIElement
             y += font.getHeight() + 7;
         }
 
-        if (BBSSettings.editorFilmOverlayVisible.get())
+        if (BBSSettings.editorFilmOverlayVisible.get() && area.w >= 100 && area.h >= 60)
         {
             Replay replay = this.panel.replayEditor.getReplay();
 
@@ -2264,7 +2264,7 @@ public class UIFilmController extends UIElement
 
     private boolean canShowGizmo()
     {
-        if (!UIBaseMenu.renderAxes || this.recording || this.getBone() == null)
+        if (!UIBaseMenu.renderAxes || this.recording || this.getBone() == null || (this.panel != null && (this.panel.preview.area.w < 100 || this.panel.preview.area.h < 60)))
         {
             return false;
         }
@@ -2374,15 +2374,12 @@ public class UIFilmController extends UIElement
         int[] prevViewport = new int[4];
 
         GL11.glGetIntegerv(GL11.GL_VIEWPORT, prevViewport);
-
-        /* Minecut Player (and other panels) scissor-clip children. Model editor disables
-         * scissor before stencil FBO work — without that, the mesh is drawn only into the
-         * panel's screen rect inside the video-sized FBO and limb picks hit body/empty.
-         * Must restore the prior enabled state: forcing scissor ON in classic layout leaves
-         * a stale box and kills hover highlight / looks like picking is dead. */
         boolean scissorWasEnabled = GL11.glIsEnabled(GL11.GL_SCISSOR_TEST);
 
-        GlStateManager._disableScissorTest();
+        if (scissorWasEnabled)
+        {
+            GlStateManager._disableScissorTest();
+        }
 
         this.stencil.setFormUnderCursor(null);
 
@@ -2405,15 +2402,26 @@ public class UIFilmController extends UIElement
                         continue;
                     }
 
+                    if (this.editorController.isActorPickingBlocked(replay))
+                    {
+                        continue;
+                    }
+
                     this.stencilMap.objectIndex = entry.getKey() + Gizmo.STENCIL_HANDLE_MAX + 1;
 
+                    IEntity renderEntity = this.editorController.getRenderEntity(replay, entry.getValue());
+                    boolean physicalActor = renderEntity != entry.getValue();
+                    float propertyTick = replay.getTick(cursorTick) + transition;
+
                     BaseFilmController.renderEntity(FilmControllerContext.instance
-                        .setup(this.getEntities(), entry.getValue(), replay, renderContext)
+                        .setup(this.getEntities(), renderEntity, replay, renderContext)
                         .film(this.panel.getData())
                         .filmTick(cursorTick)
+                        .propertyTick(propertyTick)
                         .transition(transition)
                         .stencil(this.stencilMap)
-                        .relative(replay.relative.get()));
+                        .relative(replay.isCameraRelative())
+                        .physicalActor(physicalActor));
                 }
 
                 this.stencil.pick(pickX, pickY);
@@ -2422,24 +2430,33 @@ public class UIFilmController extends UIElement
             {
                 /* Bone pick only the selected replay. Without Alt, limbs on other actors
                  * must not be clickable (Alt is the way to target/switch other replays). */
-                Set<String> allowedBones = this.resolveMarkedBonesFilter(currentReplay);
+                Pair<String, TransformOrientation> bone = this.getBone();
 
                 if (currentIndex >= 0 && currentReplay != null && this.editorController != null
-                    && this.editorController.isReplayVisible(currentReplay, currentReplay.getTick(cursorTick)))
+                    && this.editorController.isReplayVisible(currentReplay, currentReplay.getTick(cursorTick))
+                    && !this.editorController.isActorPickingBlocked(currentReplay))
                 {
                     IEntity currentEntity = this.getEntities().get(currentIndex);
 
                     if (currentEntity != null)
                     {
+                        IEntity renderEntity = this.editorController.getRenderEntity(currentReplay, currentEntity);
+                        boolean physicalActor = renderEntity != currentEntity;
+                        Set<String> allowedBones = this.resolveMarkedBonesFilter(currentReplay, renderEntity);
+                        float propertyTick = currentReplay.getTick(cursorTick) + transition;
+
                         /* Mesh only (depth on): closest limb under cursor. */
                         this.beginStencilBonePass(allowedBones);
                         BaseFilmController.renderEntity(FilmControllerContext.instance
-                            .setup(this.getEntities(), currentEntity, currentReplay, renderContext)
+                            .setup(this.getEntities(), renderEntity, currentReplay, renderContext)
                             .film(this.panel.getData())
                             .filmTick(cursorTick)
+                            .propertyTick(propertyTick)
                             .transition(transition)
                             .stencil(this.stencilMap)
-                            .relative(currentReplay.relative.get()));
+                            .relative(currentReplay.isCameraRelative())
+                            .physicalActor(physicalActor)
+                            .bone(bone != null ? bone.a : null, bone != null ? bone.b : TransformOrientation.PARENT));
                         this.stencil.pick(pickX, pickY);
                         int meshIndex = this.stencil.getIndex();
 
@@ -2522,20 +2539,26 @@ public class UIFilmController extends UIElement
         this.enableStencilDepth();
     }
 
-    private Set<String> resolveMarkedBonesFilter(Replay currentReplay)
+    private Set<String> resolveMarkedBonesFilter(Replay currentReplay, IEntity renderEntity)
     {
         if (currentReplay == null || !BBSSettings.replayMarkedBonesOnly.get() || Window.isShiftPressed())
         {
             return null;
         }
 
-        Form form = currentReplay.form.get();
+        Form form = renderEntity != null ? renderEntity.getForm() : currentReplay.form.get();
 
-        if (!(form instanceof ModelForm modelForm))
+        if (!(form instanceof ModelForm))
+        {
+            form = currentReplay.form.get();
+        }
+
+        if (!(form instanceof ModelForm))
         {
             return null;
         }
 
+        ModelForm modelForm = (ModelForm) form;
         ModelInstance model = ModelFormRenderer.getModel(modelForm);
         String poseGroup = model == null ? modelForm.model.get() : model.poseGroup;
 

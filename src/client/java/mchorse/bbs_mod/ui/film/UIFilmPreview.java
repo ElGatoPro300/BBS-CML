@@ -733,16 +733,14 @@ public class UIFilmPreview extends UIElement
      * Extra bottom offset so viewport hints sit above the preview icon row when it
      * overlaps the letterboxed viewport.
      */
-    private int getViewportHintBottomReserve(Area viewport)
+    private int getViewportHintBottomReserve(Area area)
     {
-        Area icons = this.icons.area;
-
-        if (icons.ey() <= viewport.y || icons.y >= viewport.ey())
+        if (this.viewportButtonsHidden || !this.icons.isVisible() || this.icons.getChildren().isEmpty())
         {
             return 0;
         }
 
-        return icons.h + TimelineToolbarSettings.INTERACTION_HINT_MARGIN;
+        return this.icons.area.h + TimelineToolbarSettings.INTERACTION_HINT_MARGIN;
     }
 
     @Override
@@ -858,6 +856,8 @@ public class UIFilmPreview extends UIElement
     @Override
     public void render(UIContext context)
     {
+        context.batcher.clip(this.area, context);
+
         if (this.joinWorld != null)
         {
             this.joinWorld.setVisible(this.panel.canShowJoinWorld());
@@ -1017,15 +1017,15 @@ public class UIFilmPreview extends UIElement
             this.renderIconsChrome(context);
         }
 
-        context.batcher.clip(this.area, context);
         super.render(context);
-        context.batcher.unclip(context);
 
-        if (this.panel.replayEditor.isViewportInteractionActive())
+        if (!this.viewportButtonsHidden && this.panel.replayEditor.isViewportInteractionActive())
         {
             this.panel.replayEditor.renderViewportInteractionHint(context, area,
                 this.getViewportHintBottomReserve(area));
         }
+
+        context.batcher.unclip(context);
     }
 
     private void renderCursor(UIContext context)

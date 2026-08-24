@@ -621,11 +621,6 @@ public class ModelVAORenderer
                 }
             }
 
-            if (restoreFramebuffer && BBSRendering.isIrisShadersEnabled())
-            {
-                ShaderOpacityPatch.copyIrisDepthToMinecraftFramebuffer();
-            }
-
             if (needsSceneCapture)
             {
                 BBSRendering.ensurePaintOverlayTargetFramebuffer();
@@ -1084,6 +1079,21 @@ public class ModelVAORenderer
     public static boolean isPaintPass()
     {
         return paintPass;
+    }
+
+    public static boolean isGlowEffectActive()
+    {
+        return glowEffectActive;
+    }
+
+    public static boolean isPaintEffectActive()
+    {
+        return paintEffectActive;
+    }
+
+    public static boolean isColorEffectActive()
+    {
+        return colorEffectActive;
     }
 
     public static float getBasePaintR()
@@ -1747,6 +1757,7 @@ public class ModelVAORenderer
         RenderSystem.setShader(() -> shader);
         shader.bind();
         ShaderOpacityPatch.reassertPostDeferredDepthState();
+        ShaderOpacityPatch.uploadShadowFormUniform();
         FormColorGradePatch.uploadToCurrentProgram();
         FormGlowBloomPatch.uploadToCurrentProgram();
         modelVAO.render(shader.getFormat(), r, g, b, a, light, overlay);
@@ -1773,7 +1784,7 @@ public class ModelVAORenderer
         }
 
 
-        setupUniforms(stack, shader, false);
+        setupUniforms(stack, shader, false, null);
     }
 
     /**
@@ -1784,15 +1795,20 @@ public class ModelVAORenderer
      */
     public static void setupUniformsCpuPretransformed(ShaderProgram shader)
     {
+        setupUniformsCpuPretransformed(shader, null);
+    }
+
+    public static void setupUniformsCpuPretransformed(ShaderProgram shader, Matrix4f rootInverse)
+    {
         if (shader == null)
         {
             return;
         }
 
-        setupUniforms(null, shader, true);
+        setupUniforms(null, shader, true, rootInverse);
     }
 
-    private static void setupUniforms(MatrixStack stack, ShaderProgram shader, boolean cpuPretransformed)
+    private static void setupUniforms(MatrixStack stack, ShaderProgram shader, boolean cpuPretransformed, Matrix4f rootInverse)
     {
         if (shader == null)
         {
@@ -1895,7 +1911,14 @@ public class ModelVAORenderer
 
         if (formRootInverseUniform != null)
         {
-            formRootInverseUniform.set(overlayFormRootInverse());
+            if (cpuPretransformed && rootInverse != null)
+            {
+                formRootInverseUniform.set(rootInverse);
+            }
+            else
+            {
+                formRootInverseUniform.set(overlayFormRootInverse());
+            }
         }
 
         GlUniform paintEffectInverseUniform = shader.getUniform("PaintEffectInverse");

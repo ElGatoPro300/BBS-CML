@@ -17,6 +17,7 @@ import java.util.Locale;
 public class PresetManager
 {
     public static final PresetManager CLIPS = new PresetManager(BBSMod.getSettingsPath("presets/clips"));
+    public static final PresetManager CLIP_LAYOUTS = new PresetManager(BBSMod.getSettingsPath("presets/clip_layouts"));
     public static final PresetManager PARTICLE_LAYOUTS = new PresetManager(BBSMod.getSettingsPath("presets/particle_layouts"));
     public static final PresetManager BODY_PARTS = new PresetManager(BBSMod.getSettingsPath("presets/body_parts"));
     public static final PresetManager TEXTURES = new PresetManager(BBSMod.getSettingsPath("presets/textures"));
