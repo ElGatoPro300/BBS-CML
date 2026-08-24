@@ -195,7 +195,7 @@ public class ShapeFormRenderer extends FormRenderer<ShapeForm>
 
         this.form.applyFormOpacity(finalColor);
 
-        if (finalColor.a <= 0.001F && !BBSRendering.isIrisShadowPass())
+        if (finalColor.a <= 0.001F)
         {
             return;
         }
@@ -244,9 +244,9 @@ public class ShapeFormRenderer extends FormRenderer<ShapeForm>
         ShapeForm.ShapeType type = this.form.type.get();
         boolean shadowPass = BBSRendering.isIrisShadowPass();
         /* Under Iris, flats must defer — live path washes them. Opaque (#ff) is skipped by
-         * needsIrisTranslucentFlatDeferral. */
-        boolean deferTranslucent = !shadowPass
-            && BBSRendering.needsIrisTranslucentFlatDeferral(c.a);
+         * needsIrisTranslucentFlatDeferral unless noshading is enabled. */
+        boolean noshadingDefer = !shadowPass && BBSRendering.needsIrisNoshadingOpacityDeferral(c.a, this.form.noshadingOpacity.get());
+        boolean deferTranslucent = (!shadowPass && BBSRendering.needsIrisTranslucentFlatDeferral(c.a)) || noshadingDefer;
 
         if (deferTranslucent)
         {
@@ -300,14 +300,30 @@ public class ShapeFormRenderer extends FormRenderer<ShapeForm>
             }
 
             RenderSystem.enableDepthTest();
-            RenderSystem.depthMask(true);
+            RenderSystem.depthMask(shadowPass || c.a >= ShaderOpacityPatch.LIVE_DEPTH_WRITE_ALPHA);
 
             Tessellator tessellator = Tessellator.getInstance();
-            BufferBuilder builder = tessellator.begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL);
 
-            this.buildShapeGeometry(builder, stack, type, c, overlay, light);
+            if (shadowPass)
+            {
+                ShaderOpacityPatch.beginShadowForm();
+            }
 
-            BufferRenderer.drawWithGlobalProgram(builder.end());
+            try
+            {
+                BufferBuilder builder = tessellator.begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL);
+
+                this.buildShapeGeometry(builder, stack, type, c, overlay, light);
+
+                BufferRenderer.drawWithGlobalProgram(builder.end());
+            }
+            finally
+            {
+                if (shadowPass)
+                {
+                    ShaderOpacityPatch.endShadowForm();
+                }
+            }
 
             if (positiveGlow)
             {

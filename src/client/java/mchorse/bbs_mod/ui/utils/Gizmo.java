@@ -618,7 +618,7 @@ public class Gizmo
 
     public void deferRender(Matrix4f matrix, boolean stencil, StencilMap stencilMap)
     {
-        this.deferredGizmos.add(new DeferredGizmo(new Matrix4f(matrix), stencil, stencilMap));
+        this.deferredGizmos.add(new DeferredGizmo(GizmoMatrixUtils.normalizeBasis(new Matrix4f(matrix)), stencil, stencilMap));
     }
 
     /**
@@ -633,7 +633,7 @@ public class Gizmo
             return;
         }
 
-        this.lastGizmoMatrix.set(stack.peek().getPositionMatrix());
+        this.lastGizmoMatrix.set(GizmoMatrixUtils.normalizeBasis(new Matrix4f(stack.peek().getPositionMatrix())));
         GizmoMatrixUtils.applyViewCaptureAlignment(this.lastGizmoMatrix, this.activeOrientation);
         this.hasGizmoMatrix = true;
     }
@@ -984,7 +984,10 @@ public class Gizmo
             return;
         }
 
-        this.lastGizmoMatrix.set(stack.peek().getPositionMatrix());
+        Matrix4f normalized = GizmoMatrixUtils.normalizeBasis(new Matrix4f(stack.peek().getPositionMatrix()));
+        stack.peek().getPositionMatrix().set(normalized);
+
+        this.lastGizmoMatrix.set(normalized);
         this.hasGizmoMatrix = true;
 
         float scale = this.computeScale(stack);
@@ -1049,7 +1052,10 @@ public class Gizmo
             return;
         }
 
-        this.lastGizmoMatrix.set(stack.peek().getPositionMatrix());
+        Matrix4f normalized = GizmoMatrixUtils.normalizeBasis(new Matrix4f(stack.peek().getPositionMatrix()));
+        stack.peek().getPositionMatrix().set(normalized);
+
+        this.lastGizmoMatrix.set(normalized);
         this.hasGizmoMatrix = true;
 
         float scale = this.computeScale(stack);

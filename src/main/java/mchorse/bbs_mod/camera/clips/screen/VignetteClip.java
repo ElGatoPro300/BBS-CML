@@ -47,6 +47,7 @@ public class VignetteClip extends CameraClip
             this.effect.vignetteColor = this.color.get();
             this.effect.vignetteStrength = str * factor;
             this.effect.vignetteSmoothness = smooth;
+            this.effect.renderOrder = context.applied;
 
             ColorClip.getEffects(context).add(this.effect);
         }

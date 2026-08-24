@@ -21,6 +21,7 @@ import com.mojang.blaze3d.systems.ProjectionType;
 import com.mojang.blaze3d.systems.RenderSystem;
 
 import org.lwjgl.opengl.GL11;
+import org.lwjgl.opengl.GL20;
 
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -575,6 +576,146 @@ public class ShaderOpacityPatch
 
     public static String processSource(String source)
     {
+        if (source == null || source.isEmpty())
+        {
+            return source;
+        }
+
+        if (BBSSettings.shaderShadowDither != null && BBSSettings.shaderShadowDither.get())
+        {
+            return processShadowCasterAlpha(source);
+        }
+
+        return source;
+    }
+
+    public static void beginShadowForm()
+    {
+        uploadShadowFormUniform(1F);
+    }
+
+    public static void endShadowForm()
+    {
+        uploadShadowFormUniform(0F);
+    }
+
+    public static void uploadShadowFormUniform()
+    {
+        if (BBSRendering.isIrisShadowPass())
+        {
+            uploadShadowFormUniform(1F);
+        }
+    }
+
+    public static void uploadShadowFormUniform(float value)
+    {
+        int program = GL11.glGetInteger(GL20.GL_CURRENT_PROGRAM);
+
+        if (program > 0)
+        {
+            int location = GL20.glGetUniformLocation(program, "bbs_is_shadow_form");
+
+            if (location >= 0)
+            {
+                GL20.glUniform1f(location, value);
+            }
+        }
+    }
+
+    private static String insertShadowUniform(String source)
+    {
+        if (source.contains("bbs_is_shadow_form"))
+        {
+            return source;
+        }
+
+        int version = source.indexOf("#version");
+
+        if (version < 0)
+        {
+            return "uniform float bbs_is_shadow_form;\n" + source;
+        }
+
+        int nextNewLine = source.indexOf('\n', version);
+
+        if (nextNewLine < 0)
+        {
+            return source + "\nuniform float bbs_is_shadow_form;\n";
+        }
+
+        return source.substring(0, nextNewLine + 1) + "uniform float bbs_is_shadow_form;\n" + source.substring(nextNewLine + 1);
+    }
+
+    /**
+     * Experimental: apply ordered Bayer 4x4 dither discard exclusively on entity fragments
+     * (bbs_is_shadow_form > 0.5) when shader_shadow_dither setting is enabled by the user.
+     */
+    public static String processShadowCasterAlpha(String source)
+    {
+        if (source == null || source.isEmpty() || source.contains("BBS_SHADOW_CASTER_DITHER"))
+        {
+            return source;
+        }
+
+        /* Complementary shadow.glsl: only inject when bbs_is_shadow_form > 0.5 */
+        if (source.contains("DoNaturalShadowCalculation"))
+        {
+            String dither =
+                "/* BBS_SHADOW_CASTER_DITHER */\n"
+                    + "    if (bbs_is_shadow_form > 0.5 && glColor.a < 0.999) {\n"
+                    + "        const float bbsBayer4x4[16] = float[16](\n"
+                    + "            0.0625, 0.5625, 0.1875, 0.6875,\n"
+                    + "            0.8125, 0.3125, 0.9375, 0.4375,\n"
+                    + "            0.2500, 0.7500, 0.1250, 0.6250,\n"
+                    + "            1.0000, 0.5000, 0.8750, 0.3750\n"
+                    + "        );\n"
+                    + "        ivec2 bbsCoord = ivec2(mod(gl_FragCoord.xy, 4.0));\n"
+                    + "        if (glColor.a < bbsBayer4x4[bbsCoord.y * 4 + bbsCoord.x]) discard;\n"
+                    + "    }\n";
+
+            String patched = insertShadowUniform(source);
+
+            if (patched.contains("gl_FragData[0] = color1;"))
+            {
+                return patched.replace(
+                    "gl_FragData[0] = color1;",
+                    dither + "    gl_FragData[0] = color1;"
+                );
+            }
+
+            if (patched.contains("shadowColor = color1;"))
+            {
+                return patched.replace(
+                    "shadowColor = color1;",
+                    dither + "    shadowColor = color1;"
+                );
+            }
+        }
+
+        /* BSL shadow.glsl: only inject when bbs_is_shadow_form > 0.5 */
+        if (source.contains("float premult = float(mat > 0.98") && source.contains("gl_FragData[0] = albedo;"))
+        {
+            String dither =
+                "\t/* BBS_SHADOW_CASTER_DITHER */\n"
+                    + "\tif (bbs_is_shadow_form > 0.5 && color.a < 0.999) {\n"
+                    + "\t\tconst float bbsBayer4x4[16] = float[16](\n"
+                    + "\t\t\t0.0625, 0.5625, 0.1875, 0.6875,\n"
+                    + "\t\t\t0.8125, 0.3125, 0.9375, 0.4375,\n"
+                    + "\t\t\t0.2500, 0.7500, 0.1250, 0.6250,\n"
+                    + "\t\t\t1.0000, 0.5000, 0.8750, 0.3750\n"
+                    + "\t\t);\n"
+                    + "\t\tivec2 bbsCoord = ivec2(mod(gl_FragCoord.xy, 4.0));\n"
+                    + "\t\tif (color.a < bbsBayer4x4[bbsCoord.y * 4 + bbsCoord.x]) discard;\n"
+                    + "\t}\n";
+
+            String patched = insertShadowUniform(source);
+
+            return patched.replace(
+                "\tgl_FragData[0] = albedo;",
+                dither + "\tgl_FragData[0] = albedo;"
+            );
+        }
+
         return source;
     }
 

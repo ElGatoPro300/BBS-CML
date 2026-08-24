@@ -624,9 +624,24 @@ public class BBSModClient implements ClientModInitializer
             });
         }
 
-        if (BBSSettings.worldGammaPercent != null)
+        if (BBSSettings.shaderShadowDither != null)
+        {
+            BBSSettings.shaderShadowDither.postCallback((v, f) ->
+            {
+                if (BBSRendering.isIrisLoaded())
+                {
+                    IrisUtils.reloadShaders();
+                }
+            });
+        }
+
+        if (BBSSettings.worldGammaOverride != null && BBSSettings.worldGammaOverride.get() && BBSSettings.worldGammaPercent != null)
         {
             WorldPropertiesHelper.setGammaPercent(BBSSettings.worldGammaPercent.get());
+        }
+        else
+        {
+            WorldPropertiesHelper.clearGammaOverride();
         }
 
         IValueListener refreshModelHover = (v, f) ->

@@ -701,6 +701,7 @@ public class UIKeys
     public static final IKey FORMS_EDITORS_BILLBOARD_RESIZE_CROP = L10n.lang("bbs.ui.forms.editors.billboard.resize_crop");
     public static final IKey FORMS_EDITORS_BILLBOARD_ROTATION = L10n.lang("bbs.ui.forms.editors.billboard.rotation");
     public static final IKey FORMS_EDITORS_BILLBOARD_SHADING = L10n.lang("bbs.ui.forms.editors.billboard.shading");
+    public static final IKey FORMS_EDITORS_BILLBOARD_SUBDIVISION = L10n.lang("bbs.ui.forms.editors.billboard.subdivision");
     public static final IKey FORMS_EDITORS_BILLBOARD_TITLE = L10n.lang("bbs.ui.forms.editors.billboard.title");
     public static final IKey FORMS_EDITORS_BILLBOARD_UV_SHIFT = L10n.lang("bbs.ui.forms.editors.billboard.uv_shift");
     public static final IKey FORMS_EDITORS_BILLBOARD_FLUID_ENABLED = L10n.lang("bbs.ui.forms.editors.billboard.fluid_enabled");
@@ -2146,6 +2147,7 @@ public class UIKeys
     public static final IKey WORLD_TIME_NIGHT = L10n.lang("bbs.ui.world.time.night");
     public static final IKey WORLD_TIME_MIDNIGHT = L10n.lang("bbs.ui.world.time.midnight");
     public static final IKey WORLD_SECTION_GAMMA = L10n.lang("bbs.ui.world.section.gamma");
+    public static final IKey WORLD_GAMMA_OVERRIDE = L10n.lang("bbs.ui.world.gamma.override");
     public static final IKey WORLD_GAMMA_LABEL = L10n.lang("bbs.ui.world.gamma.label");
     public static final IKey WORLD_GAMMA_NORMAL = L10n.lang("bbs.ui.world.gamma.normal");
     public static final IKey WORLD_GAMMA_SEMI = L10n.lang("bbs.ui.world.gamma.semi");
