@@ -67,27 +67,34 @@ public class SelectorOwner
             this.nbtCheck = 10;
 
             Set<String> keys = createWhitelist();
-            NbtWriteView view = NbtWriteView.create(ErrorReporter.EMPTY, this.mcEntity.getEntityWorld().getRegistryManager());
-            this.mcEntity.writeData(view);
-            NbtCompound compound = view.getNbt();
-            NbtCompound newCompound = new NbtCompound();
-
-            for (String key : keys)
+            try
             {
-                NbtElement element = compound.get(key);
+                NbtWriteView view = NbtWriteView.create(ErrorReporter.EMPTY, this.mcEntity.getEntityWorld().getRegistryManager());
+                this.mcEntity.writeData(view);
+                NbtCompound compound = view.getNbt();
+                NbtCompound newCompound = new NbtCompound();
 
-                if (element != null)
+                for (String key : keys)
                 {
-                    newCompound.put(key, element);
+                    NbtElement element = compound.get(key);
+
+                    if (element != null)
+                    {
+                        newCompound.put(key, element);
+                    }
                 }
-            }
 
-            if (!Objects.equals(newCompound, this.lastNbt))
+                if (!Objects.equals(newCompound, this.lastNbt))
+                {
+                    this.check = 0;
+                }
+
+                this.lastNbt = newCompound;
+            }
+            catch (Exception e)
             {
-                this.check = 0;
+                /* Ignore vanilla client entity NBT serialization bugs (e.g. Leashable NullPointerException) */
             }
-
-            this.lastNbt = newCompound;
         }
 
         if (this.check < selectors.getLastUpdate())
