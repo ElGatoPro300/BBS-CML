@@ -297,7 +297,8 @@ public class ShapeFormRenderer extends FormRenderer<ShapeForm>
 
             try
             {
-                BufferBuilder builder = tessellator.begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL);
+                BufferBuilder builder = tessellator.getBuffer();
+                builder.begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL);
 
                 this.buildShapeGeometry(builder, stack, type, c, overlay, light);
 
