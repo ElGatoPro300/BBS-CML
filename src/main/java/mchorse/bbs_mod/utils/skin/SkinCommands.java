@@ -10,6 +10,7 @@ import net.minecraft.text.Text;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.builder.RequiredArgumentBuilder;
+import com.mojang.brigadier.context.CommandContext;
 
 import java.io.File;
 import java.nio.file.Files;
@@ -17,7 +18,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 import java.util.function.Predicate;
-
 
 public class SkinCommands
 {
@@ -49,7 +49,7 @@ public class SkinCommands
         bbs.then(getskin.requires(hasPermissions));
     }
 
-    private static int executeGetByName(com.mojang.brigadier.context.CommandContext<ServerCommandSource> ctx)
+    private static int executeGetByName(CommandContext<ServerCommandSource> ctx)
     {
         ServerCommandSource source = ctx.getSource();
         String playerName = StringArgumentType.getString(ctx, "player");
@@ -63,7 +63,7 @@ public class SkinCommands
         return 1;
     }
 
-    private static int executeGetByUrl(com.mojang.brigadier.context.CommandContext<ServerCommandSource> ctx)
+    private static int executeGetByUrl(CommandContext<ServerCommandSource> ctx)
     {
         ServerCommandSource source = ctx.getSource();
         String link = StringArgumentType.getString(ctx, "link");

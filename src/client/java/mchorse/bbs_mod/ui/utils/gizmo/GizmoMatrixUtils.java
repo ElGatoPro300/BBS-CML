@@ -7,6 +7,7 @@ import mchorse.bbs_mod.utils.pose.Transform;
 
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
+import org.joml.Vector4f;
 
 /**
  * Shared gizmo-basis helpers used to keep drag math aligned with
@@ -157,5 +158,47 @@ public final class GizmoMatrixUtils
     public static Matrix4f cameraRelativeToWorld(Matrix4f cameraView, Matrix4f cameraRelative)
     {
         return new Matrix4f(cameraView).invert().mul(cameraRelative);
+    }
+
+    /**
+     * Strips scale/skew/mirroring out of a gizmo origin matrix, leaving only position and a
+     * right-handed unit-length rotation basis. Matrices carrying parent hierarchy scale
+     * distort the gizmo into stretched ellipses/rectangles and skew the drag math.
+     */
+    public static Matrix4f normalizeBasis(Matrix4f matrix)
+    {
+        if (matrix == null)
+        {
+            return null;
+        }
+
+        Vector3f x = new Vector3f();
+        Vector3f y = new Vector3f();
+        Vector3f z = new Vector3f();
+
+        matrix.getColumn(0, x);
+        matrix.getColumn(1, y);
+        matrix.getColumn(2, z);
+
+        if (x.lengthSquared() < 1.0E-12F || y.lengthSquared() < 1.0E-12F)
+        {
+            return matrix;
+        }
+
+        x.normalize();
+        y.normalize();
+
+        /* Rebuild Z (and re-square Y) from a cross product so the basis is orthogonal and
+         * always right-handed, even if the source matrix was mirrored or non-uniformly scaled. */
+        z.set(x).cross(y).normalize();
+        y.set(z).cross(x).normalize();
+
+        Matrix4f result = new Matrix4f(matrix);
+
+        result.setColumn(0, new Vector4f(x, 0F));
+        result.setColumn(1, new Vector4f(y, 0F));
+        result.setColumn(2, new Vector4f(z, 0F));
+
+        return result;
     }
 }

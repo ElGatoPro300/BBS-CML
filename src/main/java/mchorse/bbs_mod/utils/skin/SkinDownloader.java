@@ -7,7 +7,6 @@ import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
 
-
 public class SkinDownloader
 {
     private static final int CONNECT_TIMEOUT_MS = 5000;

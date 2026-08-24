@@ -701,6 +701,7 @@ public class UIKeys
     public static final IKey FORMS_EDITORS_BILLBOARD_RESIZE_CROP = L10n.lang("bbs.ui.forms.editors.billboard.resize_crop");
     public static final IKey FORMS_EDITORS_BILLBOARD_ROTATION = L10n.lang("bbs.ui.forms.editors.billboard.rotation");
     public static final IKey FORMS_EDITORS_BILLBOARD_SHADING = L10n.lang("bbs.ui.forms.editors.billboard.shading");
+    public static final IKey FORMS_EDITORS_BILLBOARD_SUBDIVISION = L10n.lang("bbs.ui.forms.editors.billboard.subdivision");
     public static final IKey FORMS_EDITORS_BILLBOARD_TITLE = L10n.lang("bbs.ui.forms.editors.billboard.title");
     public static final IKey FORMS_EDITORS_BILLBOARD_UV_SHIFT = L10n.lang("bbs.ui.forms.editors.billboard.uv_shift");
     public static final IKey FORMS_EDITORS_BILLBOARD_FLUID_ENABLED = L10n.lang("bbs.ui.forms.editors.billboard.fluid_enabled");

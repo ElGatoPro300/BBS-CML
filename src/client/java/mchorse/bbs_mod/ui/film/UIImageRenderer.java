@@ -155,8 +155,8 @@ public class UIImageRenderer
                         case 6: /* Exclusion — src*(1-dst) + dst*(1-src) = src+dst-2*src*dst */
                             RenderSystem.blendFunc(GL11.GL_ONE_MINUS_DST_COLOR, GL11.GL_ONE_MINUS_SRC_COLOR);
                             break;
-                        case 7: /* Overlay / Vivid Multiply — (1 + a*(2*src-1))*dst = a*(2*src*dst) + (1-a)*dst */
-                            RenderSystem.blendFunc(GL11.GL_DST_COLOR, GL11.GL_ZERO);
+                        case 7: /* Overlay / Vivid Multiply — 2*src*dst (white doubles/brightens, 50% gray neutral, black darkens) */
+                            RenderSystem.blendFunc(GL11.GL_DST_COLOR, GL11.GL_SRC_COLOR);
                             break;
                         case 8: /* Color Dodge — src*src + dst */
                             RenderSystem.blendFunc(GL11.GL_SRC_COLOR, GL11.GL_ONE);

@@ -1727,6 +1727,7 @@ public class ModelVAORenderer
         RenderSystem.setShader(() -> shader);
         shader.bind();
         ShaderOpacityPatch.reassertPostDeferredDepthState();
+        ShaderOpacityPatch.uploadShadowFormUniform();
         FormColorGradePatch.uploadToCurrentProgram();
         modelVAO.render(shader.getFormat(), r, g, b, a, light, overlay);
         shader.unbind();

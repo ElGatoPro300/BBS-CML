@@ -11,6 +11,7 @@ import mchorse.bbs_mod.utils.DataPath;
 import net.fabricmc.loader.api.FabricLoader;
 import net.fabricmc.loader.api.ModContainer;
 import net.fabricmc.loader.api.metadata.ModMetadata;
+
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.texture.AbstractTexture;
 

@@ -1,6 +1,5 @@
 package mchorse.bbs_mod;
 
-import mchorse.bbs_mod.utils.skin.SkinCommands;
 import mchorse.bbs_mod.blocks.entities.ModelBlockEntity;
 import mchorse.bbs_mod.data.DataToString;
 import mchorse.bbs_mod.data.types.BaseType;
@@ -13,6 +12,7 @@ import mchorse.bbs_mod.network.ServerNetwork;
 import mchorse.bbs_mod.settings.Settings;
 import mchorse.bbs_mod.settings.values.base.BaseValue;
 import mchorse.bbs_mod.settings.values.core.ValueGroup;
+import mchorse.bbs_mod.utils.skin.SkinCommands;
 
 import net.minecraft.block.Blocks;
 import net.minecraft.block.entity.BlockEntity;

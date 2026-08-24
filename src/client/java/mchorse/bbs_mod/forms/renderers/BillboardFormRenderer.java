@@ -23,6 +23,7 @@ import mchorse.bbs_mod.utils.MatrixStackUtils;
 import mchorse.bbs_mod.utils.Quad;
 import mchorse.bbs_mod.utils.colors.Color;
 import mchorse.bbs_mod.utils.colors.Colors;
+import mchorse.bbs_mod.utils.interps.Lerps;
 import mchorse.bbs_mod.utils.iris.ShaderOpacityPatch;
 import mchorse.bbs_mod.utils.joml.Vectors;
 
@@ -279,7 +280,7 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
 
         FormColorEffects.applyShadowPassColorFix(color, this.form.color.get(), this.form.paintSettings.get(), this.form.paintColor.get(), shadowPass);
 
-        if (color.a <= 0.001F && !shadowPass)
+        if (color.a <= 0.001F)
         {
             return;
         }
@@ -353,10 +354,9 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
         Color resolvedPaint = positivePaint ? FormColorEffects.resolvePaintColor(paintSettings, legacyPaint) : null;
         boolean applyColorTint = colorTransformWanted && !shadowPass;
         boolean deferForColorGrade = hasColorAdjustments && irisWorld;
-        boolean deferNoshading = irisWorld && BBSRendering.needsIrisNoshadingOpacityDeferral(color.a, this.form.noshadingOpacity.get());
+        boolean deferNoshading = irisWorld && (BBSRendering.needsIrisNoshadingOpacityDeferral(color.a, this.form.noshadingOpacity.get()) || !this.form.shading.get());
         boolean deferTranslucent = !modelRenderer && !shadowPass
-            && (BBSRendering.needsIrisTranslucentFlatDeferral(color.a)
-                || deferForColorGrade
+            && (deferForColorGrade
                 || deferNoshading);
 
         if (deferTranslucent)
@@ -378,8 +378,8 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
             GlowSettings glowSettingsSnapshot = glowSettings;
             Color legacyGlowSnapshot = legacyGlow;
             boolean emitGlowSnapshot = glowIntensity > 0F && !glowSettings.resolvePaintOnly();
-            /* Soft-opacity depth write stays opacity-based. */
-            boolean depthWrite = ShaderOpacityPatch.shouldWriteDepthForOpacity(color.a);
+            /* Soft-opacity skips depth write to avoid SSAO halos and preserve alpha blending. */
+            boolean depthWrite = color.a >= ShaderOpacityPatch.LIVE_DEPTH_WRITE_ALPHA;
             /* Iris deferred: apply FormColorGrade in model.fsh on the post-deferred BBS draw. */
             VertexFormat deferredFormat = VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL;
             boolean gradeOnDeferredDraw = useFormColorGrade || irisDeferredColorGrade;
@@ -420,11 +420,6 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
                 gameRenderer.getLightmapTextureManager().enable();
                 gameRenderer.getOverlayTexture().setupOverlayColor();
 
-                boolean savedPolygonOffsetFill = GL11.glGetBoolean(GL11.GL_POLYGON_OFFSET_FILL);
-
-                GL11.glEnable(GL11.GL_POLYGON_OFFSET_FILL);
-                GL11.glPolygonOffset(FlatPaintOverlayPass.POLYGON_OFFSET_FACTOR, FlatPaintOverlayPass.POLYGON_OFFSET_UNITS);
-
                 try
                 {
                     /* beginDeferredTranslucentModelPass enables cull; camera-facing quads then
@@ -443,10 +438,8 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
                         ModelVAORenderer.setupUniforms(gradeStack, gradeShader);
                     }
 
-
                     /* Dual-sided: FACE_Z_BIAS separates front/back; single-sided + cull left
                      * the reverse face permanently invisible under Iris deferred redraw. */
-
                     this.drawBillboardFaces(
                         deferredFormat,
                         deferredTexture,
@@ -483,30 +476,23 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
                     {
                         ModelVAORenderer.clearFormColorGrade();
                     }
-
-                    GL11.glPolygonOffset(0F, 0F);
-
-                    if (!savedPolygonOffsetFill)
-                    {
-                        GL11.glDisable(GL11.GL_POLYGON_OFFSET_FILL);
-                    }
                 }
             };
 
-            ModelVAORenderer.submitDeferredTranslucentModel(deferredDraw, depthWrite, false);
+            ModelVAORenderer.submitDeferredTranslucentModel(deferredDraw, depthWrite);
         }
         else
         {
             /* Live path — opaque / no-shader / Iris without deferral. */
             if (format == VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL)
             {
-                if (useFormColorGrade || BBSRendering.needsBbsModelForLowOpacity(color.a))
+                if (!irisWorld && (useFormColorGrade || BBSRendering.needsBbsModelForLowOpacity(color.a)))
                 {
                     RenderSystem.setShader(BBSShaders::getModel);
                 }
 
                 RenderSystem.enableDepthTest();
-                RenderSystem.depthMask(true);
+                RenderSystem.depthMask(shadowPass || color.a >= ShaderOpacityPatch.LIVE_DEPTH_WRITE_ALPHA);
             }
 
             if (useFormColorGrade)
@@ -515,28 +501,76 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
                 ModelVAORenderer.setGradeEffectTransforms(storedFormColor);
             }
 
+            if (shadowPass)
+            {
+                ShaderOpacityPatch.beginShadowForm();
+            }
+
             try
             {
                 BufferBuilder builder = Tessellator.getInstance().getBuffer();
                 builder.begin(VertexFormat.DrawMode.TRIANGLES, format);
 
-                /* Front */
-                this.fill(format, builder, matrix, quad.p3.x, quad.p3.y, FACE_Z_BIAS, color, uvQuad.p3.x, uvQuad.p3.y, overlay, light, entry, 1F);
-                this.fill(format, builder, matrix, quad.p2.x, quad.p2.y, FACE_Z_BIAS, color, uvQuad.p2.x, uvQuad.p2.y, overlay, light, entry, 1F);
-                this.fill(format, builder, matrix, quad.p1.x, quad.p1.y, FACE_Z_BIAS, color, uvQuad.p1.x, uvQuad.p1.y, overlay, light, entry, 1F);
+                float quadWidth = Math.abs(quad.p2.x - quad.p1.x);
+                float quadHeight = Math.abs(quad.p1.y - quad.p3.y);
+                Vector3f worldScale = new Vector3f();
 
-                this.fill(format, builder, matrix, quad.p3.x, quad.p3.y, FACE_Z_BIAS, color, uvQuad.p3.x, uvQuad.p3.y, overlay, light, entry, 1F);
-                this.fill(format, builder, matrix, quad.p4.x, quad.p4.y, FACE_Z_BIAS, color, uvQuad.p4.x, uvQuad.p4.y, overlay, light, entry, 1F);
-                this.fill(format, builder, matrix, quad.p2.x, quad.p2.y, FACE_Z_BIAS, color, uvQuad.p2.x, uvQuad.p2.y, overlay, light, entry, 1F);
+                matrix.getScale(worldScale);
 
-                /* Back */
-                this.fill(format, builder, matrix, quad.p1.x, quad.p1.y, -FACE_Z_BIAS, color, uvQuad.p1.x, uvQuad.p1.y, overlay, light, entry, -1F);
-                this.fill(format, builder, matrix, quad.p2.x, quad.p2.y, -FACE_Z_BIAS, color, uvQuad.p2.x, uvQuad.p2.y, overlay, light, entry, -1F);
-                this.fill(format, builder, matrix, quad.p3.x, quad.p3.y, -FACE_Z_BIAS, color, uvQuad.p3.x, uvQuad.p3.y, overlay, light, entry, -1F);
+                float worldWidth = quadWidth * Math.abs(worldScale.x);
+                float worldHeight = quadHeight * Math.abs(worldScale.y);
 
-                this.fill(format, builder, matrix, quad.p2.x, quad.p2.y, -FACE_Z_BIAS, color, uvQuad.p2.x, uvQuad.p2.y, overlay, light, entry, -1F);
-                this.fill(format, builder, matrix, quad.p4.x, quad.p4.y, -FACE_Z_BIAS, color, uvQuad.p4.x, uvQuad.p4.y, overlay, light, entry, -1F);
-                this.fill(format, builder, matrix, quad.p3.x, quad.p3.y, -FACE_Z_BIAS, color, uvQuad.p3.x, uvQuad.p3.y, overlay, light, entry, -1F);
+                /* Subdivide into user-configured block segments so non-linear shadow distortion in shaders (Complementary/BSL)
+                 * curves accurately per-vertex instead of cutting a straight chord across huge billboards. */
+                float step = this.form.subdivision.get();
+                int segmentsX = 1;
+                int segmentsY = 1;
+
+                if (step > 0.001F)
+                {
+                    segmentsX = Math.min(64, Math.max(1, (int) Math.ceil(worldWidth / step)));
+                    segmentsY = Math.min(64, Math.max(1, (int) Math.ceil(worldHeight / step)));
+                }
+
+                for (int ix = 0; ix < segmentsX; ix++)
+                {
+                    float fx0 = (float) ix / segmentsX;
+                    float fx1 = (float) (ix + 1) / segmentsX;
+
+                    float x0 = Lerps.lerp(quad.p1.x, quad.p2.x, fx0);
+                    float x1 = Lerps.lerp(quad.p1.x, quad.p2.x, fx1);
+                    float u0 = Lerps.lerp(uvQuad.p1.x, uvQuad.p2.x, fx0);
+                    float u1 = Lerps.lerp(uvQuad.p1.x, uvQuad.p2.x, fx1);
+
+                    for (int iy = 0; iy < segmentsY; iy++)
+                    {
+                        float fy0 = (float) iy / segmentsY;
+                        float fy1 = (float) (iy + 1) / segmentsY;
+
+                        float y0 = Lerps.lerp(quad.p1.y, quad.p3.y, fy0);
+                        float y1 = Lerps.lerp(quad.p1.y, quad.p3.y, fy1);
+                        float v0 = Lerps.lerp(uvQuad.p1.y, uvQuad.p3.y, fy0);
+                        float v1 = Lerps.lerp(uvQuad.p1.y, uvQuad.p3.y, fy1);
+
+                        /* Front */
+                        this.fill(format, builder, matrix, x0, y1, FACE_Z_BIAS, color, u0, v1, overlay, light, entry, 1F);
+                        this.fill(format, builder, matrix, x1, y0, FACE_Z_BIAS, color, u1, v0, overlay, light, entry, 1F);
+                        this.fill(format, builder, matrix, x0, y0, FACE_Z_BIAS, color, u0, v0, overlay, light, entry, 1F);
+
+                        this.fill(format, builder, matrix, x0, y1, FACE_Z_BIAS, color, u0, v1, overlay, light, entry, 1F);
+                        this.fill(format, builder, matrix, x1, y1, FACE_Z_BIAS, color, u1, v1, overlay, light, entry, 1F);
+                        this.fill(format, builder, matrix, x1, y0, FACE_Z_BIAS, color, u1, v0, overlay, light, entry, 1F);
+
+                        /* Back */
+                        this.fill(format, builder, matrix, x0, y0, -FACE_Z_BIAS, color, u0, v0, overlay, light, entry, -1F);
+                        this.fill(format, builder, matrix, x1, y0, -FACE_Z_BIAS, color, u1, v0, overlay, light, entry, -1F);
+                        this.fill(format, builder, matrix, x0, y1, -FACE_Z_BIAS, color, u0, v1, overlay, light, entry, -1F);
+
+                        this.fill(format, builder, matrix, x1, y0, -FACE_Z_BIAS, color, u1, v0, overlay, light, entry, -1F);
+                        this.fill(format, builder, matrix, x1, y1, -FACE_Z_BIAS, color, u1, v1, overlay, light, entry, -1F);
+                        this.fill(format, builder, matrix, x0, y1, -FACE_Z_BIAS, color, u0, v1, overlay, light, entry, -1F);
+                    }
+                }
 
                 RenderSystem.enableBlend();
                 RenderSystem.defaultBlendFunc();
@@ -554,6 +588,11 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
             }
             finally
             {
+                if (shadowPass)
+                {
+                    ShaderOpacityPatch.endShadowForm();
+                }
+
                 if (useFormColorGrade)
                 {
                     ModelVAORenderer.clearFormColorGrade();
