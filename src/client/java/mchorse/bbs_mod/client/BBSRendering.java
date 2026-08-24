@@ -689,7 +689,6 @@ public class BBSRendering
             Matrix4f ortho = new Matrix4f().ortho(0, area.w, area.h, 0, -1000, 3000);
 
             RenderSystem.setProjectionMatrix(ortho, ProjectionType.ORTHOGRAPHIC);
-            renderHudOverlays(batcher, controller.getContext(), area.w, area.h);
             VideoRenderer.renderClips(batcher.getContext().getMatrices(), batcher, controller.getContext().clips.getClips(controller.getContext().relativeTick), controller.getContext().relativeTick, true, area, area, null, area.w, area.h, false);
 
             ScreenEffectRenderer.render(batcher, controller.getContext(), area.w, area.h);
@@ -705,7 +704,7 @@ public class BBSRendering
             Batcher2D batcher = new Batcher2D(drawContext);
             Window window = mc.getWindow();
             Area area = new Area(0, 0, window.getScaledWidth(), window.getScaledHeight());
-            Matrix4f cache = new Matrix4f(RenderSystem.getProjectionMatrix());
+            cache = new Matrix4f(RenderSystem.getProjectionMatrix());
             Matrix4f ortho = new Matrix4f().ortho(0, area.w, area.h, 0, -1000, 3000);
 
             RenderSystem.setProjectionMatrix(ortho, ProjectionType.ORTHOGRAPHIC);
@@ -735,7 +734,6 @@ public class BBSRendering
                 Matrix4f ortho = new Matrix4f().ortho(0, window.getScaledWidth(), window.getScaledHeight(), 0, -1000, 3000);
 
                 RenderSystem.setProjectionMatrix(ortho, ProjectionType.ORTHOGRAPHIC);
-                renderHudOverlays(offscreenBatcher, panel.getRunner().getContext(), fullScreen.w, fullScreen.h);
                 VideoRenderer.renderClips(new MatrixStack(), offscreenBatcher, panel.getData().camera.getClips(panel.getCursor()), panel.getCursor(), panel.getRunner().isRunning(), fullScreen, fullScreen, null, window.getScaledWidth(), window.getScaledHeight(), false);
 
                 ScreenEffectRenderer.render(offscreenBatcher, panel.getRunner().getContext(), window.getScaledWidth(), window.getScaledHeight());
