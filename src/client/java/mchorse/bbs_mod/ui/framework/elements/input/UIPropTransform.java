@@ -850,12 +850,14 @@ public class UIPropTransform extends UITransform
 
     private float getRayAxisSensitivity(float axisWorldScale)
     {
-        if (this.usesModelPixelTranslation())
+        float scale = this.getEffectiveTranslationScale();
+
+        if (axisWorldScale > 1.0E-6F)
         {
-            return this.getEffectiveTranslationScale() / axisWorldScale;
+            return scale / axisWorldScale;
         }
 
-        return this.getEffectiveTranslationScale();
+        return scale;
     }
 
     private void applyAbsoluteRayTranslate(Axis axis, float axisDelta)
@@ -1209,9 +1211,7 @@ public class UIPropTransform extends UITransform
 
     private float computePrimaryScreenAxisRaw(int dx, int dy)
     {
-        float factor = this.usesModelPixelTranslation()
-            ? this.getRayAxisSensitivity(this.rayPrimaryAxisWorldScale)
-            : this.getEffectiveTranslationScale();
+        float factor = this.getRayAxisSensitivity(this.rayPrimaryAxisWorldScale);
 
         if (this.axis == Axis.X)
         {
@@ -1233,9 +1233,7 @@ public class UIPropTransform extends UITransform
 
     private float computeSecondaryScreenAxisDelta(int dx, int dy)
     {
-        float factor = this.usesModelPixelTranslation()
-            ? this.getRayAxisSensitivity(this.raySecondaryAxisWorldScale)
-            : this.getEffectiveTranslationScale();
+        float factor = this.getRayAxisSensitivity(this.raySecondaryAxisWorldScale);
 
         return this.applyTranslateDelta(this.secondaryAxis, factor * dy);
     }
@@ -2872,23 +2870,6 @@ public class UIPropTransform extends UITransform
                     this.addAxisDelta(result, Axis.Z, this.applyTranslateDelta(Axis.Z, dz));
                     this.setT(null, result.x, result.y, result.z);
                 }
-                else
-                {
-                    Vector3f worldX = new Vector3f();
-                    Vector3f worldY = new Vector3f();
-                    Vector3f worldZ = new Vector3f();
-                    this.extractAxisWorld(Axis.X, worldX);
-                    this.extractAxisWorld(Axis.Y, worldY);
-                    this.extractAxisWorld(Axis.Z, worldZ);
-
-                    float scale = this.getEffectiveTranslationScale();
-                    Vector3f result = new Vector3f(this.getValue());
-
-                    this.addAxisDelta(result, Axis.X, this.applyTranslateDelta(Axis.X, (float) step.dot(worldX.x, worldX.y, worldX.z) * scale));
-                    this.addAxisDelta(result, Axis.Y, this.applyTranslateDelta(Axis.Y, (float) step.dot(worldY.x, worldY.y, worldY.z) * scale));
-                    this.addAxisDelta(result, Axis.Z, this.applyTranslateDelta(Axis.Z, (float) step.dot(worldZ.x, worldZ.y, worldZ.z) * scale));
-                    this.setT(null, result.x, result.y, result.z);
-                }
 
                 this.rayLastPoint.set(this.rayCurrentPoint);
             }
@@ -2901,9 +2882,7 @@ public class UIPropTransform extends UITransform
                     return false;
                 }
 
-                float sensitivity = this.usesModelPixelTranslation()
-                    ? this.getRayAxisSensitivity(this.rayPrimaryAxisWorldScale)
-                    : this.getEffectiveTranslationScale();
+                float sensitivity = this.getRayAxisSensitivity(this.rayPrimaryAxisWorldScale);
                 float delta = (float) (axisValue - this.rayDragStartAxisValue) * sensitivity;
 
                 this.applyAbsoluteRayTranslate(this.axis, delta);
@@ -2917,27 +2896,13 @@ public class UIPropTransform extends UITransform
 
                 Vector3d offset = new Vector3d(this.rayCurrentPoint).sub(this.rayDragStartPoint);
 
-                if (this.usesModelPixelTranslation())
-                {
-                    float primaryDelta = (float) offset.dot(this.rayPrimaryAxis.x, this.rayPrimaryAxis.y, this.rayPrimaryAxis.z) * this.getRayAxisSensitivity(this.rayPrimaryAxisWorldScale);
-                    float secondaryDelta = (float) offset.dot(this.raySecondaryAxis.x, this.raySecondaryAxis.y, this.raySecondaryAxis.z) * this.getRayAxisSensitivity(this.raySecondaryAxisWorldScale);
-                    Vector3f result = new Vector3f(this.rayDragStartTranslate);
+                float primaryDelta = (float) offset.dot(this.rayPrimaryAxis.x, this.rayPrimaryAxis.y, this.rayPrimaryAxis.z) * this.getRayAxisSensitivity(this.rayPrimaryAxisWorldScale);
+                float secondaryDelta = (float) offset.dot(this.raySecondaryAxis.x, this.raySecondaryAxis.y, this.raySecondaryAxis.z) * this.getRayAxisSensitivity(this.raySecondaryAxisWorldScale);
+                Vector3f result = new Vector3f(this.rayDragStartTranslate);
 
-                    this.addAxisDelta(result, this.axis, this.applyTranslateDelta(this.axis, primaryDelta));
-                    this.addAxisDelta(result, this.secondaryAxis, this.applyTranslateDelta(this.secondaryAxis, secondaryDelta));
-                    this.setT(null, result.x, result.y, result.z);
-                }
-                else
-                {
-                    float scale = this.getEffectiveTranslationScale();
-                    float primaryDelta = (float) offset.dot(this.rayPrimaryAxis.x, this.rayPrimaryAxis.y, this.rayPrimaryAxis.z) * scale;
-                    float secondaryDelta = (float) offset.dot(this.raySecondaryAxis.x, this.raySecondaryAxis.y, this.raySecondaryAxis.z) * scale;
-                    Vector3f result = new Vector3f(this.rayDragStartTranslate);
-
-                    this.addAxisDelta(result, this.axis, this.applyTranslateDelta(this.axis, primaryDelta));
-                    this.addAxisDelta(result, this.secondaryAxis, this.applyTranslateDelta(this.secondaryAxis, secondaryDelta));
-                    this.setT(null, result.x, result.y, result.z);
-                }
+                this.addAxisDelta(result, this.axis, this.applyTranslateDelta(this.axis, primaryDelta));
+                this.addAxisDelta(result, this.secondaryAxis, this.applyTranslateDelta(this.secondaryAxis, secondaryDelta));
+                this.setT(null, result.x, result.y, result.z);
             }
         }
         else if (this.mode == 1 && !this.uniformScale)
