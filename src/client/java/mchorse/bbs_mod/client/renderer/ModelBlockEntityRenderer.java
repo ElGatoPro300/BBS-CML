@@ -24,6 +24,7 @@ import mchorse.bbs_mod.ui.framework.UIScreen;
 import mchorse.bbs_mod.ui.model_blocks.UIModelBlockPanel;
 import mchorse.bbs_mod.utils.MathUtils;
 import mchorse.bbs_mod.utils.MatrixStackUtils;
+import mchorse.bbs_mod.utils.iris.ShaderOpacityPatch;
 import mchorse.bbs_mod.utils.pose.Pose;
 import mchorse.bbs_mod.utils.pose.PoseTransform;
 import mchorse.bbs_mod.utils.pose.Transform;
@@ -388,14 +389,14 @@ public class ModelBlockEntityRenderer implements BlockEntityRenderer<ModelBlockE
         formContext.isShadowPass = true;
 
         RenderSystem.enableDepthTest();
-        mchorse.bbs_mod.utils.iris.ShaderOpacityPatch.beginShadowForm();
+        ShaderOpacityPatch.beginShadowForm();
         try
         {
             FormUtilsClient.render(form, formContext);
         }
         finally
         {
-            mchorse.bbs_mod.utils.iris.ShaderOpacityPatch.endShadowForm();
+            ShaderOpacityPatch.endShadowForm();
         }
         shadowStack.pop();
     }
