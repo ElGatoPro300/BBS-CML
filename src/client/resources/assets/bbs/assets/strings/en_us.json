@@ -1469,6 +1469,7 @@
     "bbs.ui.forms.editors.billboard.resize_crop": "Resize crop",
     "bbs.ui.forms.editors.billboard.rotation": "Rotation",
     "bbs.ui.forms.editors.billboard.shading": "Shading",
+    "bbs.ui.forms.editors.billboard.subdivision": "Subdivision factor (in blocks, 0 to disable)",
     "bbs.ui.forms.editors.billboard.title": "Billboard",
     "bbs.ui.forms.editors.billboard.uv_shift": "UV shift",
     "bbs.ui.forms.editors.block.breaking": "Breaking stage",

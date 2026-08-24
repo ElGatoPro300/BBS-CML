@@ -536,10 +536,17 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
                 float worldWidth = quadWidth * Math.abs(worldScale.x);
                 float worldHeight = quadHeight * Math.abs(worldScale.y);
 
-                /* Subdivide into 1-block segments so non-linear shadow distortion in shaders (Complementary/BSL)
+                /* Subdivide into user-configured block segments so non-linear shadow distortion in shaders (Complementary/BSL)
                  * curves accurately per-vertex instead of cutting a straight chord across huge billboards. */
-                int segmentsX = Math.min(64, Math.max(1, (int) Math.ceil(worldWidth / 1.0F)));
-                int segmentsY = Math.min(64, Math.max(1, (int) Math.ceil(worldHeight / 1.0F)));
+                float step = this.form.subdivision.get();
+                int segmentsX = 1;
+                int segmentsY = 1;
+
+                if (step > 0.001F)
+                {
+                    segmentsX = Math.min(64, Math.max(1, (int) Math.ceil(worldWidth / step)));
+                    segmentsY = Math.min(64, Math.max(1, (int) Math.ceil(worldHeight / step)));
+                }
 
                 for (int ix = 0; ix < segmentsX; ix++)
                 {

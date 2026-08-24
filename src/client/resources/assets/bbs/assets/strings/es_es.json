@@ -1339,6 +1339,7 @@
     "bbs.ui.forms.editors.billboard.resize_crop": "Cambiar tamaño del recorte",
     "bbs.ui.forms.editors.billboard.rotation": "Rotación",
     "bbs.ui.forms.editors.billboard.shading": "Sombreado",
+    "bbs.ui.forms.editors.billboard.subdivision": "Factor de subdivisión (en bloques, 0 para desactivar)",
     "bbs.ui.forms.editors.billboard.title": "Imagen",
     "bbs.ui.forms.editors.billboard.uv_shift": "Desplazamiento UV",
     "bbs.ui.forms.editors.block.breaking": "Nivel de daño",
