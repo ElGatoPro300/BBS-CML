@@ -238,12 +238,7 @@ public class VanillaParticleFormRenderer extends FormRenderer<VanillaParticleFor
 
                     if (colorR >= 0F)
                     {
-                        if (isEffect)
-                        {
-                            effect = EntityEffectParticleEffect.create(ParticleTypes.ENTITY_EFFECT, colorR, colorG, colorB);
-                            parsedCustom = true;
-                        }
-                        else if (path.equals("dust_color_transition"))
+                        if (path.equals("dust_color_transition"))
                         {
                             float scale = colorA > 0F ? colorA : 1F;
 

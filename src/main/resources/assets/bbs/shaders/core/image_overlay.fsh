@@ -32,14 +32,10 @@ void main()
         /* 1: Multiply — lerp between 1.0 (no change) and baseRgb (multiply) */
         fragColor = vec4(mix(vec3(1.0), baseRgb, alpha), alpha);
     }
-    else if (BlendMode == 7)
+    else if (BlendMode == 7 || BlendMode == 8)
     {
-        /* 7: Overlay / Vivid Multiply — lerp between 1.0 (no change) and 2.0 * baseRgb */
-        fragColor = vec4(mix(vec3(1.0), 2.0 * baseRgb, alpha), alpha);
-    }
-    else if (BlendMode == 8)
-    {
-        /* 8: Color Dodge — baseRgb * sqrt(alpha) so src*src gives baseRgb^2 * alpha */
+        /* 7: Overlay (2*src*dst via DST_COLOR+SRC_COLOR) & 8: Color Dodge (src*src + dst):
+         * baseRgb * sqrt(alpha) ensures smooth alpha fading with quadratic/bilinear blend factors */
         fragColor = vec4(baseRgb * sqrt(alpha), alpha);
     }
     else
