@@ -7843,8 +7843,7 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
         
         Matrix4f matrix4f = context.batcher.getContext().getMatrices().peek().getPositionMatrix();
         Tessellator tessellator = Tessellator.getInstance();
-        BufferBuilder builder = tessellator.getBuffer();
-        builder.begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_COLOR);
+        BufferBuilder builder = tessellator.begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_COLOR);
         
         RenderSystem.enableBlend();
         RenderSystem.setShader(GameRenderer::getPositionColorProgram);
@@ -7906,28 +7905,28 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
             float x2 = editorX + (i + 1) * segW;
             
             // Layer 1 - Upper Quad (yTop1 -> yMid1)
-            builder.vertex(matrix4f, x1, yTop1, 0).color(colTop).next();
-            builder.vertex(matrix4f, x1, yMid1[i], 0).color(cMid1[i]).next();
-            builder.vertex(matrix4f, x2, yMid1[i+1], 0).color(cMid1[i+1]).next();
-            builder.vertex(matrix4f, x2, yTop1, 0).color(colTop).next();
+            builder.vertex(matrix4f, x1, yTop1, 0).color(colTop);
+            builder.vertex(matrix4f, x1, yMid1[i], 0).color(cMid1[i]);
+            builder.vertex(matrix4f, x2, yMid1[i+1], 0).color(cMid1[i+1]);
+            builder.vertex(matrix4f, x2, yTop1, 0).color(colTop);
             
             // Layer 1 - Lower Quad (yMid1 -> yBot1)
-            builder.vertex(matrix4f, x1, yMid1[i], 0).color(cMid1[i]).next();
-            builder.vertex(matrix4f, x1, yBot1[i], 0).color(colBot).next();
-            builder.vertex(matrix4f, x2, yBot1[i+1], 0).color(colBot).next();
-            builder.vertex(matrix4f, x2, yMid1[i+1], 0).color(cMid1[i+1]).next();
+            builder.vertex(matrix4f, x1, yMid1[i], 0).color(cMid1[i]);
+            builder.vertex(matrix4f, x1, yBot1[i], 0).color(colBot);
+            builder.vertex(matrix4f, x2, yBot1[i+1], 0).color(colBot);
+            builder.vertex(matrix4f, x2, yMid1[i+1], 0).color(cMid1[i+1]);
             
             // Layer 2 - Upper Quad (yTop2 -> yMid2)
-            builder.vertex(matrix4f, x1, yTop2, 0).color(colTop).next();
-            builder.vertex(matrix4f, x1, yMid2[i], 0).color(cMid2[i]).next();
-            builder.vertex(matrix4f, x2, yMid2[i+1], 0).color(cMid2[i+1]).next();
-            builder.vertex(matrix4f, x2, yTop2, 0).color(colTop).next();
+            builder.vertex(matrix4f, x1, yTop2, 0).color(colTop);
+            builder.vertex(matrix4f, x1, yMid2[i], 0).color(cMid2[i]);
+            builder.vertex(matrix4f, x2, yMid2[i+1], 0).color(cMid2[i+1]);
+            builder.vertex(matrix4f, x2, yTop2, 0).color(colTop);
             
             // Layer 2 - Lower Quad (yMid2 -> yBot2)
-            builder.vertex(matrix4f, x1, yMid2[i], 0).color(cMid2[i]).next();
-            builder.vertex(matrix4f, x1, yBot2[i], 0).color(colBot).next();
-            builder.vertex(matrix4f, x2, yBot2[i+1], 0).color(colBot).next();
-            builder.vertex(matrix4f, x2, yMid2[i+1], 0).color(cMid2[i+1]).next();
+            builder.vertex(matrix4f, x1, yMid2[i], 0).color(cMid2[i]);
+            builder.vertex(matrix4f, x1, yBot2[i], 0).color(colBot);
+            builder.vertex(matrix4f, x2, yBot2[i+1], 0).color(colBot);
+            builder.vertex(matrix4f, x2, yMid2[i+1], 0).color(cMid2[i+1]);
         }
         
         BufferRenderer.drawWithGlobalProgram(builder.end());

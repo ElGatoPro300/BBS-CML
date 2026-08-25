@@ -89,7 +89,13 @@ public class ShapeFormRenderer extends FormRenderer<ShapeForm>
         /* Shading fix for UI */
         MatrixStackUtils.invertUiNormalY(stack);
 
+        Vector3f light0 = new Vector3f(0.85F, 0.85F, -1F).normalize();
+        Vector3f light1 = new Vector3f(-0.85F, 0.85F, 1F).normalize();
+        RenderSystem.setupLevelDiffuseLighting(light0, light1);
+
         this.renderShape(stack, GameRenderer::getRenderTypeEntityTranslucentProgram, OverlayTexture.DEFAULT_UV, LightmapTextureManager.MAX_LIGHT_COORDINATE, null);
+
+        DiffuseLighting.disableGuiDepthLighting();
 
         stack.pop();
     }
@@ -297,8 +303,7 @@ public class ShapeFormRenderer extends FormRenderer<ShapeForm>
 
             try
             {
-                BufferBuilder builder = tessellator.getBuffer();
-                builder.begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL);
+                BufferBuilder builder = tessellator.begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL);
 
                 this.buildShapeGeometry(builder, stack, type, c, overlay, light);
 
@@ -325,8 +330,7 @@ public class ShapeFormRenderer extends FormRenderer<ShapeForm>
 
                 this.unshadedVertices = true;
 
-                BufferBuilder glowBuilder = tessellator.getBuffer();
-                glowBuilder.begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_TEXTURE_COLOR);
+                BufferBuilder glowBuilder = tessellator.begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_TEXTURE_COLOR);
 
                 this.buildShapeGeometry(glowBuilder, stack, type, glowColor, overlay, LightmapTextureManager.MAX_LIGHT_COORDINATE);
 
@@ -401,8 +405,7 @@ public class ShapeFormRenderer extends FormRenderer<ShapeForm>
         this.unshadedVertices = unshaded;
 
         Tessellator tessellator = Tessellator.getInstance();
-        BufferBuilder builder = tessellator.getBuffer();
-        builder.begin(
+        BufferBuilder builder = tessellator.begin(
             VertexFormat.DrawMode.QUADS,
             unshaded ? VertexFormats.POSITION_TEXTURE_COLOR : VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL
         );
@@ -422,8 +425,7 @@ public class ShapeFormRenderer extends FormRenderer<ShapeForm>
 
             this.unshadedVertices = true;
 
-            BufferBuilder glowBuilder = tessellator.getBuffer();
-            glowBuilder.begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_TEXTURE_COLOR);
+            BufferBuilder glowBuilder = tessellator.begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_TEXTURE_COLOR);
 
             this.buildShapeGeometry(glowBuilder, stack, type, glowColor, overlay, LightmapTextureManager.MAX_LIGHT_COORDINATE);
             BufferRenderer.drawWithGlobalProgram(glowBuilder.end());
@@ -1022,8 +1024,7 @@ public class ShapeFormRenderer extends FormRenderer<ShapeForm>
         {
             builder.vertex(matrix, x, y, z)
                    .texture(u, v)
-                   .color(c.r, c.g, c.b, c.a)
-                   .next();
+                   .color(c.r, c.g, c.b, c.a);
         }
         else if (this.overlayVertexMode == OverlayVertexMode.PAINT)
         {
@@ -1033,8 +1034,7 @@ public class ShapeFormRenderer extends FormRenderer<ShapeForm>
                    .texture(u, v)
                    .overlay(overlay)
                    .light(light)
-                   .normal(normal.x, normal.y, normal.z)
-                   .next();
+                   .normal(normal.x, normal.y, normal.z);
         }
         else if (this.overlayVertexMode == OverlayVertexMode.COLOR_TINT)
         {
@@ -1044,8 +1044,7 @@ public class ShapeFormRenderer extends FormRenderer<ShapeForm>
                    .texture(u, v)
                    .overlay(overlay)
                    .light(light)
-                   .normal(normal.x, normal.y, normal.z)
-                   .next();
+                   .normal(normal.x, normal.y, normal.z);
         }
         else
         {
@@ -1054,8 +1053,7 @@ public class ShapeFormRenderer extends FormRenderer<ShapeForm>
                    .texture(u, v)
                    .overlay(overlay)
                    .light(light)
-                   .normal(normal.x, normal.y, normal.z)
-                   .next();
+                   .normal(normal.x, normal.y, normal.z);
         }
     }
 
@@ -1157,8 +1155,7 @@ public class ShapeFormRenderer extends FormRenderer<ShapeForm>
             () ->
             {
                 Tessellator tessellator = Tessellator.getInstance();
-                BufferBuilder builder = tessellator.getBuffer();
-                builder.begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL);
+                BufferBuilder builder = tessellator.begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL);
                 int paintLight = LightmapTextureManager.MAX_LIGHT_COORDINATE;
 
                 RenderSystem.disableCull();
@@ -1224,8 +1221,7 @@ public class ShapeFormRenderer extends FormRenderer<ShapeForm>
             () ->
             {
                 Tessellator tessellator = Tessellator.getInstance();
-                BufferBuilder builder = tessellator.getBuffer();
-                builder.begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL);
+                BufferBuilder builder = tessellator.begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL);
                 int tintLight = LightmapTextureManager.MAX_LIGHT_COORDINATE;
 
                 RenderSystem.disableCull();
