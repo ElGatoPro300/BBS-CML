@@ -1,12 +1,12 @@
 package mchorse.bbs_mod.utils.colors;
 
 import mchorse.bbs_mod.utils.MathUtils;
-import mchorse.bbs_mod.utils.interps.Lerps;
 
 /**
  * Brightness / contrast / hue / saturation adjustments for form Color Grade.
- * Neutral values are all {@code 0}. Formulas match screen color grading
- * ({@code ColorGradeRenderer}).
+ * Neutral values are all {@code 0}. Contrast pivots around each pixel's luma so
+ * lit shadows are not lifted toward mid-gray (screen {@code ColorGradeRenderer}
+ * still uses a 0.5 pivot on the full frame).
  */
 public final class ColorAdjustments
 {
@@ -19,6 +19,8 @@ public final class ColorAdjustments
     public static final float MAX_HUE = 180F;
     public static final float MIN_SATURATION = -1F;
     public static final float MAX_SATURATION = 10F;
+    /** Lit pixels below this luma must not be brightened by contrast / saturation. */
+    private static final float SHADOW_LUMA_THRESHOLD = 0.18F;
 
     private static final Color HSV = new Color();
 
@@ -67,16 +69,34 @@ public final class ColorAdjustments
         float g = color.g + brightness;
         float b = color.b + brightness;
 
-        r = 0.5F + (1F + contrast) * (r - 0.5F);
-        g = 0.5F + (1F + contrast) * (g - 0.5F);
-        b = 0.5F + (1F + contrast) * (b - 0.5F);
-
+        float baseR = r;
+        float baseG = g;
+        float baseB = b;
         float luma = 0.2126F * r + 0.7152F * g + 0.0722F * b;
-        float satMix = 1F + saturation;
+        float contrastScale = 1F + contrast;
 
-        r = Lerps.lerp(luma, r, satMix);
-        g = Lerps.lerp(luma, g, satMix);
-        b = Lerps.lerp(luma, b, satMix);
+        r = luma + contrastScale * (r - luma);
+        g = luma + contrastScale * (g - luma);
+        b = luma + contrastScale * (b - luma);
+        float shadowScale = shadowLiftScale(baseR, baseG, baseB, r, g, b);
+
+        r *= shadowScale;
+        g *= shadowScale;
+        b *= shadowScale;
+
+        if (Math.abs(saturation) > EPSILON)
+        {
+            Colors.RGBtoHSV(HSV, r, g, b);
+            HSV.g = MathUtils.clamp(HSV.g * (1F + saturation), 0F, 1F);
+            Colors.HSVtoRGB(HSV, HSV.r, HSV.g, HSV.b);
+            r = HSV.r;
+            g = HSV.g;
+            b = HSV.b;
+            shadowScale = shadowLiftScale(baseR, baseG, baseB, r, g, b);
+            r *= shadowScale;
+            g *= shadowScale;
+            b *= shadowScale;
+        }
 
         if (Math.abs(hue) > EPSILON)
         {
@@ -99,5 +119,21 @@ public final class ColorAdjustments
         color.r = MathUtils.clamp(r, 0F, 1F);
         color.g = MathUtils.clamp(g, 0F, 1F);
         color.b = MathUtils.clamp(b, 0F, 1F);
+    }
+
+    /**
+     * Prevents contrast / saturation from lifting lit shadow pixels above their input luma.
+     */
+    private static float shadowLiftScale(float baseR, float baseG, float baseB, float r, float g, float b)
+    {
+        float baseLuma = 0.2126F * baseR + 0.7152F * baseG + 0.0722F * baseB;
+        float outputLuma = 0.2126F * r + 0.7152F * g + 0.0722F * b;
+
+        if (baseLuma < SHADOW_LUMA_THRESHOLD && outputLuma > baseLuma && outputLuma > EPSILON)
+        {
+            return baseLuma / outputLuma;
+        }
+
+        return 1F;
     }
 }
