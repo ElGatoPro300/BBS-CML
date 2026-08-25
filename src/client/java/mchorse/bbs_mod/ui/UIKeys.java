@@ -2177,6 +2177,15 @@ public class UIKeys
     public static final IKey VIDEO_SETTINGS_PRESETS_4K = L10n.lang("bbs.ui.video_settings.presets.4k");
     public static final IKey VIDEO_SETTINGS_PRESETS_720p = L10n.lang("bbs.ui.video_settings.presets.720p");
     public static final IKey VIDEO_SETTINGS_PRESETS_SHORTS_1080P = L10n.lang("bbs.ui.video_settings.presets.shorts_1080p");
+    public static final IKey VIDEO_SETTINGS_PRESETS_CINEMASCOPE_1080P = L10n.lang("bbs.ui.video_settings.presets.cinemascope_1080p");
+    public static final IKey VIDEO_SETTINGS_PRESETS_CINEMASCOPE_1440P = L10n.lang("bbs.ui.video_settings.presets.cinemascope_1440p");
+    public static final IKey VIDEO_SETTINGS_PRESETS_CINEMASCOPE_4K = L10n.lang("bbs.ui.video_settings.presets.cinemascope_4k");
+    public static final IKey VIDEO_SETTINGS_PRESETS_DCI_2K_SCOPE = L10n.lang("bbs.ui.video_settings.presets.dci_2k_scope");
+    public static final IKey VIDEO_SETTINGS_PRESETS_DCI_2K_FLAT = L10n.lang("bbs.ui.video_settings.presets.dci_2k_flat");
+    public static final IKey VIDEO_SETTINGS_PRESETS_DCI_4K_SCOPE = L10n.lang("bbs.ui.video_settings.presets.dci_4k_scope");
+    public static final IKey VIDEO_SETTINGS_PRESETS_DCI_4K_FLAT = L10n.lang("bbs.ui.video_settings.presets.dci_4k_flat");
+    public static final IKey VIDEO_SETTINGS_PRESETS_ULTRAWIDE_1080P = L10n.lang("bbs.ui.video_settings.presets.ultrawide_1080p");
+    public static final IKey VIDEO_SETTINGS_PRESETS_ULTRAWIDE_1440P = L10n.lang("bbs.ui.video_settings.presets.ultrawide_1440p");
     public static final IKey VIDEO_SETTINGS_RESOLUTION = L10n.lang("bbs.ui.video_settings.resolution");
     public static final IKey VIDEO_SETTINGS_SWAP_RESOLUTION = L10n.lang("bbs.ui.video_settings.swap_resolution");
     public static final IKey VIDEO_SETTINGS_TITLE = L10n.lang("bbs.ui.video_settings.title");
