@@ -133,6 +133,11 @@ public class UISubtitleRenderer
             int fw = (int) ((w + 10) * scale);
             int fh = (int) ((h + 10) * scale);
 
+            if (fw <= 0 || fh <= 0)
+            {
+                continue;
+            }
+
             RenderSystem.setProjectionMatrix(new Matrix4f().ortho(0, w + 10, 0, h + 10, -100, 100), ProjectionType.ORTHOGRAPHIC);
 
             framebuffer.resize(fw, fh);
@@ -195,6 +200,11 @@ public class UISubtitleRenderer
             batcher.texturedBox(program, texture.id, Colors.setA(Colors.WHITE, alpha), -fw * subtitle.anchorX, -fh * subtitle.anchorY, texture.width, texture.height, 0, 0, texture.width, texture.height, texture.width, texture.height);
 
             stack.pop();
+        }
+
+        if (blur != null)
+        {
+            blur.set(0F, 0F);
         }
 
         RenderSystem.setProjectionMatrix(cache, ProjectionType.ORTHOGRAPHIC);
