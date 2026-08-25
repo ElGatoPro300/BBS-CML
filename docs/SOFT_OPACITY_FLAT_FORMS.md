@@ -24,11 +24,11 @@ Related code (reference implementation):
 | Form type | Soft opacity today | Result |
 |-----------|-------------------|--------|
 | ModelForm / Extruded | `ShaderOpacityPatch.submitPostDeferred*` | Correct see-through, clouds/fluids timing, depth vs later draws, lighting OK |
-| Billboard | Soft stays **live** with `depthMask` off (defer only for Color Grade / noshading via paint-overlay) | Soft limbs / labels / later draws punch through; different timing than actors |
-| Shape | Iris flat deferral via **paint-overlay** queue | Not the same flush/sort as ModelForm |
-| Label | Mostly live | Same class of order bugs when soft |
+| Billboard | Phase A: soft → `ShaderOpacityPatch` + face sort key | Fixed (same contract as ModelForm soft) |
+| Shape | Iris: paint-overlay translucent queue; no-shader: live soft `depthMask` | Acceptable unless a concrete soft-order bug is filed |
+| Label | Live text path | User-validated OK with/without shaders — do **not** force post-deferred |
 
-**Root cause:** flats do not join the ModelForm soft-opacity contract (post-deferred + sort key + depth write + after-fluids flush).
+**Root cause (billboards):** soft flats did not join the ModelForm soft-opacity contract. Labels do not share that failure mode in practice.
 
 ---
 
@@ -156,48 +156,56 @@ In `BillboardFormRenderer` (world path only: `!modelRenderer`, `!shadowPass`, no
 
 ---
 
-## Phase B — Shape and Label → same pipeline (plane / form keys)
+## Phase B — Shape and Label (re-evaluated — mostly **not** needed)
 
-**Bugs fixed:** remaining flat soft order issues once billboards are correct.
+**Status:** attempted once (`0601f0fc1`), **reverted** (`700032965`) after soft limbs / soft forms went dark again. Do **not** re-apply that approach without a concrete filed bug and a safer design.
 
-### B.1 — ShapeFormRenderer
+### Investigation (post–Phase A, after revert)
 
-- Replace Iris `needsIrisTranslucentFlatDeferral` + `submitDeferredTranslucentModel` soft path with `ShaderOpacityPatch` post-deferred (same contract as Phase A).
-- Sort key: **plane or form** depth. Few explicit planes may use plane keys; dense mesh → one form-level entry (no per-triangle sort).
-- Keep shape mesh / lighting snapshots analogous to Extruded.
+| Form | Soft path today (current tree) | Depth / order in practice | Phase B needed? |
+|------|--------------------------------|---------------------------|-----------------|
+| **Label** | Live `TextRenderer` / glyph layers (`depthMask` false only during glow) | User-validated: soft labels look correct **with and without** shaders; no depth-sorting pain like old soft billboards | **No** — leave live. Moving them into `ShaderOpacityPatch` is high risk / low reward |
+| **Shape** | Iris: paint-overlay (`submitDeferredTranslucentModel` + `getModel`). No-shader: live with soft `depthMask` off | Already deferred under Iris (different queue / later flush than ModelForm soft). May still disagree with soft billboards in edge cases | **Only if** a concrete soft-shape vs soft-billboard/limb/cloud bug is filed — not by default |
+| **Billboard** | Phase A `ShaderOpacityPatch` + face key | Fixed | Keep |
 
-### B.2 — LabelFormRenderer
+### Why Phase B reintroduced dark soft limbs / forms
 
-- Soft label alpha → post-deferred submit with **label plane / form** depth key.
-- **Do not** split into per-glyph queue entries.
-- Redraw via existing label draw helpers (`render3DInternal` or split draw).
-- Keep outline/shadow ordering fixes that do not fight depth write (outline/shadow may still use temporary `depthMask(false)` *within* the deferred draw, then restore).
+Likely **queue contamination**, not “sort by plane” itself:
 
-### B.3 — Shared sort
+1. **Label** deferred redraw used the shared `CustomVertexConsumerProvider` (`hijackVertexFormat`, `clearRunnables`, text flush) **inside** the same `ShaderOpacityPatch` flush that draws soft ModelForm limbs. Leftover text/blend/`depthMask` state bleeds into the next entry → dark / wrong lighting.
+2. **Shape** deferred redraw used additive glow, `depthMask` toggles, and historically `getModel` — easy to leave GL/shader state wrong for the next soft mesh in the same sorted batch.
+3. Soft billboards (Phase A) only redraw their own quads with preserved live format/shader and **no** shared text provider — that is why A stayed clean.
 
-- All soft flats share `ShaderOpacityPatch` sorting with ModelForm soft entries (far → near). No separate unsorted paint-overlay soft queue for these forms.
+So: putting Label/Shape into the ModelForm soft queue without isolating GL + consumer state is unsafe.
 
-### B.4 — Test checklist (Phase B)
+### Revised B policy
 
-- [ ] Soft shape vs soft billboard / soft actor order.
-- [ ] Soft label vs soft billboard (near label must not redraw after farther billboard incorrectly).
-- [ ] Outline / shadow / glow on soft labels still readable.
-- [ ] Repeat Phase A cloud / wall / preview / shading checks for shape + label.
+- **B-Label:** cancelled unless a reproducible soft-label depth bug appears that Phase A billboards do not already cover.
+- **B-Shape:** optional, bug-driven only. If revisited:
+  - Prefer fixing Iris soft **within** the existing paint-overlay path, **or**
+  - Join `ShaderOpacityPatch` only with a **fully isolated** draw (no shared text provider hijacks; restore blend/depth/shader/cull after each entry; never leave `getModel`/additive glow on for the next limb).
+- Do **not** batch-redraw body parts or clear global consumer hijacks from a soft Shape/Label entry.
 
-**Exit criteria:** Phase B checklist green; no Phase A regressions.
+### B.4 — Test checklist (only if Shape is revisited)
+
+- [ ] Filed soft-shape bug reproduced on Phase A–only tree.
+- [ ] Soft shape vs soft billboard / soft limb order fixed.
+- [ ] Soft ModelForm limbs stay correctly lit (no dark transparent regression).
+- [ ] Clouds / preview / opaque shape unchanged.
 
 ---
 
 ## Phase C — Other forms (optional)
 
-Only if outliers remain after A/B.
+Only if outliers remain after A (and any bug-driven Shape fix).
 
 Candidates:
 
-- Other flat or panel-like forms that still use live soft `depthMask(false)` or paint-overlay soft deferral.
+- Other flat or panel-like forms that still use live soft `depthMask(false)` or paint-overlay soft deferral **and** show a real soft-order bug.
 - Composite cases (body-part trees mixing soft flats and soft models) — verify they only rely on the shared queue, not ad-hoc parent redraws.
 - **Block / Structure:** join ModelForm soft pipeline **only if** a concrete soft-opacity bug is filed. Default sort = form (or at most per-block for structures). **Per-face sort stays out** unless evidence shows form-level is insufficient.
 - Extruded already follows ModelForm — do not rewrite unless regressing.
+- **Label:** not a Phase C target by default (live path is acceptable).
 
 ### C.1 — Test checklist (Phase C)
 
@@ -210,15 +218,12 @@ Candidates:
 ## Implementation order
 
 ```text
-1. Phase A — Billboard + face sort key (same ShaderOpacityPatch pipeline)
-        → playtest
-2. Phase B — Label / Shape on the same queue; plane or form keys
-        (no per-glyph / no per-triangle)
-        → playtest
-3. Phase C — Block / Structure only if needed; face sort out unless evidence
+1. Phase A — Billboard + face sort key (ShaderOpacityPatch) ✅ keep
+2. Phase B — Label: skip; Shape: only if a concrete bug is filed
+3. Phase C — Block / Structure / other outliers only if needed
 ```
 
-Do not start B until A exit criteria pass. Do not broaden to C without a concrete remaining bug.
+Do not re-merge the reverted Label/Shape → `ShaderOpacityPatch` change without addressing queue-state isolation.
 
 ---
 
@@ -228,14 +233,15 @@ Do not start B until A exit criteria pass. Do not broaden to C without a concret
 |------|------------|
 | Zero-thickness quad + Iris depth mismatch | Reuse ModelForm matrix split; keep `FACE_Z_BIAS`; validate per pack; avoid disabling depth test globally |
 | Soft billboard looks fully lit | Preserve live format/shader in deferred redraw |
-| Dark limbs | Never batch-redraw body parts in a foreign BBS pass for soft-only |
+| Dark limbs | Never batch-redraw body parts in a foreign BBS pass for soft-only; **do not** run TextRenderer hijacks inside the soft post-deferred flush |
 | Double draw (live + deferred) | Skip live soft color when enqueued |
 | Preview empty/wrong | Gate enqueue with `modelRenderer` / local preview like ModelForm |
 | Soft billboard vs soft limb near / interpenetrating | Face key + shared queue; accept residual without OIT or fragment depth hacks |
-| Over-sorting labels / blocks | Stick to plane/form (label) and form-only (block/structure) policy above |
+| Over-sorting labels / blocks | Labels stay live; blocks/structures only if evidenced |
+| Shape soft vs billboard (different queues) | Accept unless a real bug is filed; then isolate carefully |
 
 ---
 
 ## Success definition
 
-Soft Billboard / Shape / Label transparency behaves **qualitatively like soft ModelForm actors**: correct see-through, coherent order vs other soft forms (billboard face keys vs soft bones), clouds/fluids timing consistent with actors, no dark-limb regression, opaque and preview paths unchanged.
+Soft **Billboard** transparency behaves like soft ModelForm actors (Phase A). Soft **Label** remains correct on the live text path. Soft **Shape** stays on its current Iris paint-overlay / live no-shader path unless a concrete regression requires a careful, isolated fix. No dark-limb regression.
