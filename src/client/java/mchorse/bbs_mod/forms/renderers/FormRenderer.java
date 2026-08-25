@@ -44,6 +44,7 @@ public abstract class FormRenderer <T extends Form>
     }
 
     protected T form;
+    protected boolean bodyPartsDeferred;
 
     public FormRenderer(T form)
     {
@@ -146,6 +147,8 @@ public abstract class FormRenderer <T extends Form>
 
         try
         {
+            this.bodyPartsDeferred = false;
+
             this.applyTransforms(context.stack, false, context.getTransition());
             if (context.world != null)
             {
@@ -161,7 +164,10 @@ public abstract class FormRenderer <T extends Form>
                 this.updateStencilMap(context);
             }
 
-            this.renderBodyParts(context);
+            if (!this.bodyPartsDeferred)
+            {
+                this.renderBodyParts(context);
+            }
         }
         finally
         {

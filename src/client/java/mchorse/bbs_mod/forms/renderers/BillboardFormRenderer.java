@@ -372,12 +372,16 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
         boolean applyColorTint = colorTransformWanted && !shadowPass;
         boolean deferForColorGrade = hasColorAdjustments && irisWorld;
         boolean deferNoshading = irisWorld && (BBSRendering.needsIrisNoshadingOpacityDeferral(color.a, this.form.noshadingOpacity.get()) || !this.form.shading.get());
+        boolean deferTranslucentFlat = !shadowPass && (BBSRendering.needsIrisTranslucentFlatDeferral(color.a) || ShaderOpacityPatch.shouldDelayUntilPostDeferred(color.a));
         boolean deferTranslucent = !modelRenderer && !shadowPass
-            && (deferForColorGrade
+            && (deferTranslucentFlat
+                || deferForColorGrade
                 || deferNoshading);
 
         if (deferTranslucent)
         {
+            this.bodyPartsDeferred = true;
+
             Matrix4f positionMatrix = ModelVAORenderer.capturePaintOverlayRootMatrix(new Matrix4f(matrix));
             Color colorSnapshot = color.copy();
             Quad localQuad = new Quad();
@@ -395,8 +399,11 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
             GlowSettings glowSettingsSnapshot = glowSettings;
             Color legacyGlowSnapshot = legacyGlow;
             boolean emitGlowSnapshot = glowIntensity > 0F && !glowSettings.resolvePaintOnly();
-            /* Soft-opacity skips depth write to avoid SSAO halos and preserve alpha blending. */
-            boolean depthWrite = color.a >= ShaderOpacityPatch.LIVE_DEPTH_WRITE_ALPHA;
+            /* Vanilla: depth write off so background shows through at low opacity (depth test stays ON —
+             * solid blocks in front still occlude). Iris: depth write on so limbs do not X-ray. */
+            boolean depthWrite = BBSRendering.isIrisShadersEnabled()
+                ? ShaderOpacityPatch.shouldWriteDepthForOpacity(color.a)
+                : (color.a >= ShaderOpacityPatch.LIVE_DEPTH_WRITE_ALPHA);
             /* Iris deferred: apply FormColorGrade in model.fsh on the post-deferred BBS draw. */
             VertexFormat deferredFormat = VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL;
             boolean gradeOnDeferredDraw = useFormColorGrade || irisDeferredColorGrade;
@@ -485,6 +492,24 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
                             localQuad,
                             localUvQuad
                         );
+                    }
+
+                    if (deferContext != null)
+                    {
+                        FormRenderingContext partsContext = new FormRenderingContext();
+
+                        partsContext.set(deferContext.type, deferContext.entity, overlayStack, lightSnapshot, overlaySnapshot, deferContext.transition);
+                        partsContext.camera(deferContext.camera);
+                        partsContext.color(deferContext.color);
+                        partsContext.ui = deferContext.ui;
+                        partsContext.modelRenderer = deferContext.modelRenderer;
+                        partsContext.isShadowPass = deferContext.isShadowPass;
+                        partsContext.renderEquipment = deferContext.renderEquipment;
+                        partsContext.textureOverride = deferContext.textureOverride;
+                        partsContext.textureBlendOverride = deferContext.textureBlendOverride;
+                        partsContext.trailInstance = deferContext.trailInstance;
+
+                        this.renderBodyParts(partsContext);
                     }
                 }
                 finally

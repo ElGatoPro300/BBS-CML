@@ -574,16 +574,15 @@ public class ModelVAORenderer
 
     public static void flushPaintOverlayQueue(boolean restoreFramebuffer)
     {
-        if (paintOverlayQueue.isEmpty())
+        while (!paintOverlayQueue.isEmpty())
         {
-            return;
-        }
+            List<PaintOverlayEntry> batch = new ArrayList<>(paintOverlayQueue);
 
-        try
-        {
+            paintOverlayQueue.clear();
+
             boolean needsSceneCapture = false;
 
-            for (PaintOverlayEntry entry : paintOverlayQueue)
+            for (PaintOverlayEntry entry : batch)
             {
                 if (entry.colorGrade)
                 {
@@ -600,22 +599,18 @@ public class ModelVAORenderer
                 if (!captureGradeSceneColor())
                 {
                     /* Keep Iris-lit mesh; skip broken regrade rather than painting black. */
-                    paintOverlayQueue.removeIf(entry -> entry.colorGrade);
+                    batch.removeIf(entry -> entry.colorGrade);
                 }
             }
 
             /* Paint/glow overlays first, then full soft-model redraws (Opacity "No shading"
              * path) so translucency composites over painted actors behind the soft form. */
-            paintOverlayQueue.sort((a, b) -> Boolean.compare(a.fullModel, b.fullModel));
+            batch.sort((a, b) -> Boolean.compare(a.fullModel, b.fullModel));
 
-            for (PaintOverlayEntry entry : paintOverlayQueue)
+            for (PaintOverlayEntry entry : batch)
             {
                 ModelVAORenderer.runPaintOverlayEntry(entry, restoreFramebuffer);
             }
-        }
-        finally
-        {
-            paintOverlayQueue.clear();
         }
     }
 
