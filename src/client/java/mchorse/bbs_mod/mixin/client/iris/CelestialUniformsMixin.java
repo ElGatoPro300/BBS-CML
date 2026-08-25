@@ -27,7 +27,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 public class CelestialUniformsMixin
 {
     @WrapOperation(
-        method = "getCelestialPosition(ZF)Lorg/joml/Vector4f;",
+        method = "getCelestialPosition",
         at = @At(value = "NEW", target = "(Lorg/joml/Matrix4fc;)Lorg/joml/Matrix4f;"),
         require = 0
     )
@@ -40,8 +40,8 @@ public class CelestialUniformsMixin
         return matrix;
     }
 
-    @Inject(method = "getCelestialPositionInWorldSpace(ZF)Lorg/joml/Vector4f;", at = @At("RETURN"), require = 0)
-    private void bbs$applySunPathToWorldPosition(boolean inverted, float y, CallbackInfoReturnable<Vector4f> info)
+    @Inject(method = "getCelestialPositionInWorldSpace", at = @At("RETURN"), require = 0)
+    private void bbs$applySunPathToWorldPosition(float y, CallbackInfoReturnable<Vector4f> info)
     {
         SunPathRotation.applyY(info.getReturnValue());
     }

@@ -1,6 +1,5 @@
 package mchorse.bbs_mod;
 
-import mchorse.bbs_mod.bay4lly.SkinCommands;
 import mchorse.bbs_mod.blocks.entities.ModelBlockEntity;
 import mchorse.bbs_mod.data.DataToString;
 import mchorse.bbs_mod.data.types.BaseType;
@@ -13,6 +12,7 @@ import mchorse.bbs_mod.network.ServerNetwork;
 import mchorse.bbs_mod.settings.Settings;
 import mchorse.bbs_mod.settings.values.base.BaseValue;
 import mchorse.bbs_mod.settings.values.core.ValueGroup;
+import mchorse.bbs_mod.utils.skin.SkinCommands;
 
 import net.minecraft.block.Blocks;
 import net.minecraft.block.entity.BlockEntity;
@@ -52,14 +52,13 @@ import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 
 import java.util.Collection;
-import java.util.List;
 import java.util.function.Predicate;
 
 public class BBSCommands
 {
     public static void register(CommandDispatcher<ServerCommandSource> dispatcher, CommandRegistryAccess registryAccess, CommandManager.RegistrationEnvironment environment)
     {
-        Predicate<ServerCommandSource> hasPermissions = CommandManager.requirePermissionLevel(CommandManager.GAMEMASTERS_CHECK);
+        Predicate<ServerCommandSource> hasPermissions = (source) -> source.hasPermissionLevel(2);
         LiteralArgumentBuilder<ServerCommandSource> bbs = CommandManager.literal("bbs").requires((source) -> true);
 
         registerMorphCommand(bbs, environment, hasPermissions);
@@ -283,7 +282,7 @@ public class BBSCommands
     {
         LiteralArgumentBuilder<ServerCommandSource> config = CommandManager.literal("config");
 
-        config.requires(CommandManager.requirePermissionLevel(CommandManager.OWNERS_CHECK)).then(
+        config.requires((ctx) -> ctx.hasPermissionLevel(4)).then(
             CommandManager.literal("set").then(
                 CommandManager.argument("option", StringArgumentType.word())
                     .suggests((ctx, builder) ->
@@ -526,7 +525,7 @@ public class BBSCommands
 
         try
         {
-            structureTemplate = structureTemplateManager.getTemplateOrBlank(Identifier.of(name));
+            structureTemplate = structureTemplateManager.getTemplateOrBlank(new Identifier(name));
         }
         catch (InvalidIdentifierException e)
         {
@@ -537,11 +536,11 @@ public class BBSCommands
         BlockPos max = new BlockPos(Math.max(from.getX(), to.getX()), Math.max(from.getY(), to.getY()), Math.max(from.getZ(), to.getZ()));
         BlockPos size = max.subtract(min).add(1, 1, 1);
 
-        structureTemplate.saveFromWorld(world, min, size, true, List.of(Blocks.STRUCTURE_VOID));
+        structureTemplate.saveFromWorld(world, min, size, true, Blocks.STRUCTURE_VOID);
 
         try
         {
-            if (structureTemplateManager.saveTemplate(Identifier.of(name)))
+            if (structureTemplateManager.saveTemplate(new Identifier(name)))
             {
                 return 1;
             }

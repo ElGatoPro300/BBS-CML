@@ -8,8 +8,6 @@ import net.minecraft.client.gl.ShaderProgram;
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
 
-import com.mojang.blaze3d.opengl.GlStateManager;
-import com.mojang.blaze3d.pipeline.RenderPipeline;
 import com.mojang.blaze3d.systems.RenderSystem;
 
 import org.lwjgl.opengl.GL11;
@@ -74,22 +72,23 @@ public class FlatPaintOverlayPass
         }
         else
         {
-            GlStateManager._enableBlend();
-            GlStateManager._blendFuncSeparate(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA, 1, 0);
-            GlStateManager._enableDepthTest();
-            GlStateManager._depthFunc(GL11.GL_LEQUAL);
-            GlStateManager._depthMask(false);
+            RenderSystem.enableBlend();
+            RenderSystem.blendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
+            RenderSystem.enableDepthTest();
+            RenderSystem.depthFunc(GL11.GL_LEQUAL);
+            RenderSystem.depthMask(false);
 
-            RenderPipeline program = BBSShaders.getFlatPaintOverlayProgram();
+            ShaderProgram program = BBSShaders.getFlatPaintOverlayProgram();
 
             if (program != null)
             {
+                RenderSystem.setShader(() -> program);
                 /* Inactive mask — full paint strength from vertex alpha. */
                 BlockEffectOverlayUniforms.bindFormRootInverse(program, null);
                 BlockEffectOverlayUniforms.bindPaintPrecomputed(program, null, bottomAnchored, maskHalf);
             }
 
-            // RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
+            RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
         }
 
         GL11.glEnable(GL11.GL_POLYGON_OFFSET_FILL);
@@ -109,8 +108,9 @@ public class FlatPaintOverlayPass
                 GL11.glDisable(GL11.GL_POLYGON_OFFSET_FILL);
             }
 
-            GlStateManager._depthMask(savedDepthMask);
-            GlStateManager._blendFuncSeparate(770, 771, 1, 0);
+            RenderSystem.depthMask(savedDepthMask);
+            RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
+            RenderSystem.defaultBlendFunc();
         }
     }
 }

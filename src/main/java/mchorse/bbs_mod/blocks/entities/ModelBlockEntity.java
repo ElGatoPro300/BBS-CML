@@ -8,8 +8,10 @@ import mchorse.bbs_mod.data.types.MapType;
 import mchorse.bbs_mod.events.ModelBlockEntityUpdateCallback;
 import mchorse.bbs_mod.forms.entities.IEntity;
 import mchorse.bbs_mod.forms.entities.StubEntity;
+import mchorse.bbs_mod.forms.forms.BillboardForm;
 import mchorse.bbs_mod.forms.forms.Form;
 import mchorse.bbs_mod.forms.forms.LightForm;
+import mchorse.bbs_mod.resources.Link;
 
 import net.minecraft.block.Block;
 import net.minecraft.block.BlockState;
@@ -19,8 +21,6 @@ import net.minecraft.network.listener.ClientPlayPacketListener;
 import net.minecraft.network.packet.Packet;
 import net.minecraft.network.packet.s2c.play.BlockEntityUpdateS2CPacket;
 import net.minecraft.registry.RegistryWrapper.WrapperLookup;
-import net.minecraft.storage.ReadView;
-import net.minecraft.storage.WriteView;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.world.World;
 
@@ -153,7 +153,7 @@ public class ModelBlockEntity extends BlockEntity
 
         blockEntity.entity.update();
         blockEntity.properties.update(blockEntity.entity);
-        if (!world.isClient())
+        if (!world.isClient)
         {
             int target = blockEntity.properties.getLightLevel();
             Form form = blockEntity.properties.getForm();
@@ -196,43 +196,34 @@ public class ModelBlockEntity extends BlockEntity
     }
 
     @Override
-    public NbtCompound toInitialChunkDataNbt(WrapperLookup registryLookup)
+    public NbtCompound toInitialChunkDataNbt()
     {
-        return this.createNbt(registryLookup);
+        return this.createNbtWithId();
     }
 
     @Override
-    protected void writeData(WriteView view)
+    protected void writeNbt(NbtCompound nbt)
     {
-        super.writeData(view);
+        super.writeNbt(nbt);
 
-        /* Pass registryLookup — chunk load/save can run before BBSMod.getRegistryManager()
-         * is set; without it ItemStack decode/encode returns EMPTY and wipes equipment. */
-        MapType data = this.properties.toData(BBSMod.getRegistryManager());
-        NbtCompound nbt = new NbtCompound();
+        MapType data = this.properties.toData();
 
         DataStorageUtils.writeToNbtCompound(nbt, "Properties", data);
-
-        view.put("Properties", NbtCompound.CODEC, nbt.getCompoundOrEmpty("Properties"));
     }
 
     @Override
-    protected void readData(ReadView view)
+    public void readNbt(NbtCompound nbt)
     {
-        super.readData(view);
-
-        NbtCompound nbt = new NbtCompound();
-
-        view.read("Properties", NbtCompound.CODEC).ifPresent((compound) -> nbt.put("Properties", compound));
+        super.readNbt(nbt);
 
         BaseType baseType = DataStorageUtils.readFromNbtCompound(nbt, "Properties");
 
         if (baseType instanceof MapType mapType)
         {
-            this.properties.fromData(mapType, BBSMod.getRegistryManager());
+            this.properties.fromData(mapType);
         }
         /* Ensure block state reflects stored light level when chunk/block is loaded */
-        if (this.world != null && !this.world.isClient())
+        if (this.world != null && !this.world.isClient)
         {
             try
             {

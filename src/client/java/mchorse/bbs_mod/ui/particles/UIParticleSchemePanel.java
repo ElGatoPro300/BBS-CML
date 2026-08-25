@@ -138,8 +138,7 @@ public class UIParticleSchemePanel extends UIDataDashboardPanel<ParticleScheme>
 
     private UIParticleMosaicGrid homeParticlesMosaic;
     private UIIcon homeViewToggle;
-
-
+    private UIParticleStatusIcons statusIcons;
 
     public static class ParticleDocumentTab
     {
@@ -153,14 +152,19 @@ public class UIParticleSchemePanel extends UIDataDashboardPanel<ParticleScheme>
         }
     }
 
-
-
     public UIParticleSchemePanel(UIDashboard dashboard)
     {
         super(dashboard);
         this.overlay.resizable().minSize(260, 220);
 
-        this.iconBar.relative(this).x(1F, -20).y(0).w(20).h(1F).column(0).stretch();
+        this.statusIcons = new UIParticleStatusIcons(this);
+        if (this.dashboard != null && this.dashboard.documentTabsBar != null)
+        {
+            this.dashboard.documentTabsBar.attachParticleStatusIcons(this.statusIcons);
+        }
+
+        this.iconBar.setVisible(false);
+        this.editor.relative(this).w(1F).h(1F);
 
         this.mainView = new UIElement();
         this.mainView.relative(this.editor).y(0).w(1F).h(1F);
@@ -196,34 +200,9 @@ public class UIParticleSchemePanel extends UIDataDashboardPanel<ParticleScheme>
         this.textEditor.add(close);
         this.overlay.namesList.setFileIcon(Icons.PARTICLE);
 
-        UIIcon restart = new UIIcon(Icons.TRASH, (b) ->
-        {
-            this.renderer.setScheme(this.data);
-        });
-        restart.tooltip(UIKeys.SNOWSTORM_RESTART_EMITTER, Direction.LEFT);
-        this.iconBar.add(restart);
-
         this.layoutPresetsController = new UICopyPasteController(PresetManager.PARTICLE_LAYOUTS, "_CopyParticleLayout")
             .supplier(this::getLayoutPresetData)
             .consumer(this::applyLayoutFromPreset);
-
-        UIIcon presets = new UIIcon(Icons.LAYOUT, (b) ->
-        {
-            UIContext context = this.getContext();
-
-            this.layoutPresetsController.openPresets(context, context.mouseX, context.mouseY);
-        });
-        presets.tooltip(UIKeys.FILM_LAYOUT_PRESETS, Direction.LEFT);
-
-        UIIcon lock = new UIIcon(() -> this.dock.isLocked() ? Icons.LOCKED : Icons.UNLOCKED, (b) -> this.dock.toggleLock());
-        lock.tooltip(() -> (this.dock.isLocked() ? UIKeys.FILM_LAYOUT_UNLOCK : UIKeys.FILM_LAYOUT_LOCK).get(), Direction.LEFT);
-
-        UIIcon resetLayout = new UIIcon(Icons.REFRESH, (b) -> this.dock.resetLayout());
-        resetLayout.tooltip(UIKeys.FILM_LAYOUT_RESET, Direction.LEFT);
-
-        this.iconBar.add(presets);
-        this.iconBar.add(lock);
-        this.iconBar.add(resetLayout);
 
         /* General tab */
         this.addSection(this.generalView, new UIParticleSchemeGeneralSection(this));
@@ -867,19 +846,16 @@ public class UIParticleSchemePanel extends UIDataDashboardPanel<ParticleScheme>
         this.showingHomePage = home;
         this.homePage.setVisible(home);
         this.mainView.setVisible(!home);
-        this.iconBar.setVisible(!home);
+        this.iconBar.setVisible(false);
 
-        if (home)
+        this.editor.resetFlex().relative(this).w(1F).h(1F);
+        if (!home && this.dock != null)
         {
-            this.editor.resetFlex().relative(this).w(1F).h(1F);
+            this.dock.setupFlex(true);
         }
-        else
+        if (this.dashboard != null && this.dashboard.documentTabsBar != null)
         {
-            this.editor.resetFlex().relative(this).wTo(this.iconBar.area).h(1F);
-            if (this.dock != null)
-            {
-                this.dock.setupFlex(true);
-            }
+            this.dashboard.documentTabsBar.layoutStatusIcons();
         }
         this.resize();
 
@@ -939,6 +915,117 @@ public class UIParticleSchemePanel extends UIDataDashboardPanel<ParticleScheme>
     public void dirty()
     {
         this.renderer.emitter.setupVariables();
+    }
+
+    @Override
+    public boolean canPause()
+    {
+        return false;
+    }
+
+    public boolean isWindowPanelVisible(String panelId)
+    {
+        if (panelId == null || this.dock == null)
+        {
+            return false;
+        }
+
+        EditorLayoutNode root = this.dock.getLayoutRoot();
+
+        return this.hasPanelInLayout(root, panelId);
+    }
+
+    public void setWindowPanelVisible(String panelId, boolean visible)
+    {
+        if (panelId == null || this.dock == null)
+        {
+            return;
+        }
+
+        EditorLayoutNode root = this.dock.getLayoutRoot();
+        boolean currentlyInLayout = this.hasPanelInLayout(root, panelId);
+
+        if (visible && !currentlyInLayout)
+        {
+            EditorLayoutNode newRoot = new EditorLayoutNode.SplitterNode(
+                false,
+                0.3F,
+                new EditorLayoutNode.PanelNode(panelId),
+                root
+            );
+
+            BBSSettings.editorLayoutSettings.setParticleLayoutRoot(newRoot);
+            this.dock.refresh();
+        }
+        else if (!visible && currentlyInLayout)
+        {
+            EditorLayoutNode newRoot = EditorLayoutNode.copyWithRemovedLeaf(root, panelId);
+
+            if (newRoot != null)
+            {
+                BBSSettings.editorLayoutSettings.setParticleLayoutRoot(newRoot);
+                this.dock.refresh();
+            }
+        }
+    }
+
+    private boolean hasPanelInLayout(EditorLayoutNode node, String panelId)
+    {
+        if (node instanceof EditorLayoutNode.PanelNode)
+        {
+            return ((EditorLayoutNode.PanelNode) node).getPanelId().equals(panelId);
+        }
+
+        if (node instanceof EditorLayoutNode.SplitterNode)
+        {
+            EditorLayoutNode.SplitterNode splitter = (EditorLayoutNode.SplitterNode) node;
+
+            return this.hasPanelInLayout(splitter.getFirst(), panelId) || this.hasPanelInLayout(splitter.getSecond(), panelId);
+        }
+
+        if (node instanceof EditorLayoutNode.TabbedNode)
+        {
+            EditorLayoutNode.TabbedNode tabbed = (EditorLayoutNode.TabbedNode) node;
+
+            for (EditorLayoutNode tab : tabbed.tabs)
+            {
+                if (this.hasPanelInLayout(tab, panelId))
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    public boolean isLayoutLocked()
+    {
+        return this.dock != null && this.dock.isLocked();
+    }
+
+    public void toggleLayoutLock()
+    {
+        if (this.dock != null)
+        {
+            this.dock.toggleLock();
+        }
+    }
+
+    public void resetLayout()
+    {
+        if (this.dock != null)
+        {
+            this.dock.resetLayout();
+        }
+    }
+
+    public void openLayoutPresets(int x, int y)
+    {
+        if (this.layoutPresetsController != null)
+        {
+            this.layoutPresetsController.openPresets(this.getContext(), x, y);
+        }
     }
 
     /**
@@ -1148,12 +1235,56 @@ public class UIParticleSchemePanel extends UIDataDashboardPanel<ParticleScheme>
         {}
     }
 
+    public UIParticleStatusIcons getStatusIcons()
+    {
+        return this.statusIcons;
+    }
+
+    public boolean isShowingHomePage()
+    {
+        return this.showingHomePage;
+    }
+
+    @Override
+    public void open()
+    {
+        super.open();
+
+        if (this.dashboard != null && this.dashboard.documentTabsBar != null && this.statusIcons != null)
+        {
+            this.dashboard.documentTabsBar.attachParticleStatusIcons(this.statusIcons);
+            this.dashboard.documentTabsBar.layoutStatusIcons();
+        }
+    }
+
+    @Override
+    public void manualSave()
+    {
+        this.save();
+    }
+
+    @Override
+    public void save()
+    {
+        super.save();
+
+        if (this.statusIcons != null)
+        {
+            this.statusIcons.flashAutosave();
+        }
+    }
+
     @Override
     public void appear()
     {
         super.appear();
 
         this.textEditor.updateHighlighter();
+
+        if (this.dashboard != null && this.dashboard.documentTabsBar != null)
+        {
+            this.dashboard.documentTabsBar.layoutStatusIcons();
+        }
     }
 
     @Override
@@ -1181,11 +1312,6 @@ public class UIParticleSchemePanel extends UIDataDashboardPanel<ParticleScheme>
     @Override
     protected void renderBackground(UIContext context)
     {
-        if (this.iconBar.isVisible())
-        {
-            this.iconBar.area.render(context.batcher, Colors.A50);
-            context.batcher.gradientHBox(this.iconBar.area.x - 6, this.iconBar.area.y, this.iconBar.area.x, this.iconBar.area.ey(), 0, 0x29000000);
-        }
     }
 
     @Override
@@ -1417,14 +1543,14 @@ public class UIParticleSchemePanel extends UIDataDashboardPanel<ParticleScheme>
                         int iconY = this.area.y + CARD_SIZE / 2;
                         Icon icon = isFolder || isParent ? Icons.FOLDER : Icons.PARTICLE;
                         
-                        context.batcher.getContext().getMatrices().pushMatrix();
-                        context.batcher.getContext().getMatrices().translate((float) iconX, (float) iconY);
-                        context.batcher.getContext().getMatrices().scale(2F, 2F);
-                        context.batcher.getContext().getMatrices().translate((float) -iconX, (float) -iconY);
+                        context.batcher.getContext().getMatrices().push();
+                        context.batcher.getContext().getMatrices().translate(iconX, iconY, 0);
+                        context.batcher.getContext().getMatrices().scale(2F, 2F, 1F);
+                        context.batcher.getContext().getMatrices().translate(-iconX, -iconY, 0);
                         
                         context.batcher.icon(icon, iconX, iconY, 0.5F, 0.5F);
                         
-                        context.batcher.getContext().getMatrices().popMatrix();
+                        context.batcher.getContext().getMatrices().pop();
 
                         String label = isParent ? "../" : path.getLast();
                         int maxW = this.area.w - 4;

@@ -1,14 +1,18 @@
 package mchorse.bbs_mod.mixin.client;
 
-import net.minecraft.client.render.entity.EntityRenderManager;
+import net.minecraft.client.render.VertexConsumerProvider;
+import net.minecraft.client.render.entity.EntityRenderDispatcher;
+import net.minecraft.client.util.math.MatrixStack;
+import net.minecraft.entity.Entity;
+import net.minecraft.world.WorldView;
 
 import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.gen.Invoker;
 
-/* TODO(1.21.11 render): EntityRenderManager (formerly EntityRenderDispatcher)
- * no longer has a renderShadow method or the old render(Entity,...) overload.
- * Shadow rendering is now handled internally by the state-based render pipeline.
- * This mixin is an empty stub until shadow-rendering hooks are re-ported. */
-@Mixin(EntityRenderManager.class)
+@Mixin(EntityRenderDispatcher.class)
 public interface EntityRendererDispatcherInvoker
 {
+    @Invoker("renderShadow")
+    public static void bbs$renderShadow(MatrixStack matrices, VertexConsumerProvider vertexConsumers, Entity entity, float opacity, float tickDelta, WorldView world, float radius)
+    {}
 }

@@ -6,12 +6,45 @@ import net.minecraft.client.render.RenderLayer;
 import net.minecraft.util.Identifier;
 
 import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.ModifyVariable;
 
-/* TODO(1.21.11 render): RenderLayer entity factory methods (getEntityCutoutNoCull,
- * getEntityCutout, getEntityTranslucent, etc.) were removed in the render pipeline
- * rewrite. The texture override mechanism needs to be re-implemented using the
- * new RenderSetup/TextureSpec system. This mixin is currently a no-op stub. */
 @Mixin(RenderLayer.class)
 public class RenderLayerTextureOverrideMixin
 {
+    @ModifyVariable(method = "getEntityCutoutNoCull", at = @At("HEAD"), argsOnly = true, require = 0)
+    private static Identifier bbs$overrideEntityCutoutNoCull(Identifier id)
+    {
+        return MobTextureOverride.getOverridden(id);
+    }
+
+    @ModifyVariable(method = "getEntityCutout", at = @At("HEAD"), argsOnly = true, require = 0)
+    private static Identifier bbs$overrideEntityCutout(Identifier id)
+    {
+        return MobTextureOverride.getOverridden(id);
+    }
+
+    @ModifyVariable(method = "getEntityTranslucent", at = @At("HEAD"), argsOnly = true, require = 0)
+    private static Identifier bbs$overrideEntityTranslucent(Identifier id)
+    {
+        return MobTextureOverride.getOverridden(id);
+    }
+
+    @ModifyVariable(method = "getEntityTranslucentCull", at = @At("HEAD"), argsOnly = true, require = 0)
+    private static Identifier bbs$overrideEntityTranslucentCull(Identifier id)
+    {
+        return MobTextureOverride.getOverridden(id);
+    }
+
+    @ModifyVariable(method = "getItemEntityTranslucentCull", at = @At("HEAD"), argsOnly = true, require = 0)
+    private static Identifier bbs$overrideItemEntityTranslucentCull(Identifier id)
+    {
+        return MobTextureOverride.getOverridden(id);
+    }
+
+    @ModifyVariable(method = "getOutline", at = @At("HEAD"), argsOnly = true, require = 0)
+    private static Identifier bbs$overrideOutline(Identifier id)
+    {
+        return MobTextureOverride.getOverridden(id);
+    }
 }

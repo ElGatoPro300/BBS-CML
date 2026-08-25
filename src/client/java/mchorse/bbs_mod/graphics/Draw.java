@@ -1,6 +1,5 @@
 package mchorse.bbs_mod.graphics;
 
-import mchorse.bbs_mod.BBSMod;
 import mchorse.bbs_mod.BBSSettings;
 import mchorse.bbs_mod.camera.data.Angle;
 import mchorse.bbs_mod.client.BBSRendering;
@@ -8,28 +7,22 @@ import mchorse.bbs_mod.utils.Axis;
 import mchorse.bbs_mod.utils.MathUtils;
 import mchorse.bbs_mod.utils.MatrixStackUtils;
 
-import net.minecraft.client.gl.RenderPipelines;
 import net.minecraft.client.render.BufferBuilder;
-import net.minecraft.client.render.BuiltBuffer;
+import net.minecraft.client.render.BufferRenderer;
+import net.minecraft.client.render.GameRenderer;
 import net.minecraft.client.render.RenderLayer;
-import net.minecraft.client.render.RenderSetup;
+import net.minecraft.client.render.RenderLayers;
 import net.minecraft.client.render.Tessellator;
+import net.minecraft.client.render.VertexConsumer;
+import net.minecraft.client.render.VertexFormat;
 import net.minecraft.client.render.VertexFormats;
 import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.util.Identifier;
 import net.minecraft.util.math.RotationAxis;
 
 import org.joml.Matrix4f;
 
-import com.mojang.blaze3d.buffers.GpuBufferSlice;
-import com.mojang.blaze3d.opengl.GlStateManager;
-import com.mojang.blaze3d.pipeline.BlendFunction;
-import com.mojang.blaze3d.pipeline.RenderPipeline;
-import com.mojang.blaze3d.platform.DepthTestFunction;
-import com.mojang.blaze3d.systems.ProjectionType;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.systems.VertexSorter;
-import com.mojang.blaze3d.vertex.VertexFormat;
 
 import org.lwjgl.opengl.GL11;
 
@@ -38,99 +31,15 @@ import java.util.List;
 
 public class Draw
 {
-    private static final float[] SCRATCH_COS_U = new float[128];
-    private static final float[] SCRATCH_SIN_U = new float[128];
-    private static final float[] SCRATCH_COS_V = new float[128];
-    private static final float[] SCRATCH_SIN_V = new float[128];
-
-    private static final BlendFunction BLEND = BlendFunction.TRANSLUCENT;
-
-    private static final RenderPipeline POSITION_COLOR_TRIS = RenderPipelines.register(
-        RenderPipeline.builder(RenderPipelines.POSITION_COLOR_SNIPPET)
-            .withLocation(Identifier.of(BBSMod.MOD_ID, "pipeline/draw_position_color"))
-            .withVertexFormat(VertexFormats.POSITION_COLOR, VertexFormat.DrawMode.TRIANGLES)
-            .withBlend(BLEND)
-            .withDepthTestFunction(DepthTestFunction.LEQUAL_DEPTH_TEST)
-            .withCull(false)
-            .build()
-    );
-
-    private static final RenderPipeline POSITION_COLOR_TRIS_NO_DEPTH = RenderPipelines.register(
-        RenderPipeline.builder(RenderPipelines.POSITION_COLOR_SNIPPET)
-            .withLocation(Identifier.of(BBSMod.MOD_ID, "pipeline/draw_position_color_no_depth"))
-            .withVertexFormat(VertexFormats.POSITION_COLOR, VertexFormat.DrawMode.TRIANGLES)
-            .withBlend(BLEND)
-            .withDepthTestFunction(DepthTestFunction.NO_DEPTH_TEST)
-            .withDepthWrite(false)
-            .withCull(false)
-            .build()
-    );
-
-    private static final RenderPipeline POSITION_COLOR_LINES = RenderPipelines.register(
-        RenderPipeline.builder(RenderPipelines.POSITION_COLOR_SNIPPET)
-            .withLocation(Identifier.of(BBSMod.MOD_ID, "pipeline/draw_position_color_lines"))
-            .withVertexFormat(VertexFormats.POSITION_COLOR, VertexFormat.DrawMode.DEBUG_LINES)
-            .withBlend(BLEND)
-            .withDepthTestFunction(DepthTestFunction.LEQUAL_DEPTH_TEST)
-            .withCull(false)
-            .build()
-    );
-
-    private static RenderLayer positionColorLayer;
-    private static RenderLayer positionColorNoDepthLayer;
-    private static RenderLayer positionColorLinesLayer;
-
-    public static RenderLayer getPositionColorLayer()
-    {
-        if (positionColorLayer == null)
-        {
-            positionColorLayer = RenderLayer.of(BBSMod.MOD_ID + "_draw_position_color",
-                RenderSetup.builder(POSITION_COLOR_TRIS).translucent().build());
-        }
-
-        return positionColorLayer;
-    }
-
-    public static RenderLayer getPositionColorNoDepthLayer()
-    {
-        if (positionColorNoDepthLayer == null)
-        {
-            positionColorNoDepthLayer = RenderLayer.of(BBSMod.MOD_ID + "_draw_position_color_no_depth",
-                RenderSetup.builder(POSITION_COLOR_TRIS_NO_DEPTH).translucent().build());
-        }
-
-        return positionColorNoDepthLayer;
-    }
-
-    public static RenderLayer getPositionColorLinesLayer()
-    {
-        if (positionColorLinesLayer == null)
-        {
-            positionColorLinesLayer = RenderLayer.of(BBSMod.MOD_ID + "_draw_position_color_lines",
-                RenderSetup.builder(POSITION_COLOR_LINES).translucent().build());
-        }
-
-        return positionColorLinesLayer;
-    }
-
-    public static void flushLines(BufferBuilder builder)
-    {
-        flush(builder, getPositionColorLinesLayer());
-    }
-
-    public static void flush(BufferBuilder builder, RenderLayer layer)
-    {
-        BuiltBuffer built = builder.endNullable();
-
-        if (built != null)
-        {
-            layer.draw(built);
-        }
-    }
+    /* Render-thread scratch for torus/sphere/cone (avoids per-frame float[] allocs). */
+    private static final float[] SCRATCH_COS_U = new float[65];
+    private static final float[] SCRATCH_SIN_U = new float[65];
+    private static final float[] SCRATCH_COS_V = new float[25];
+    private static final float[] SCRATCH_SIN_V = new float[25];
 
     public static void renderBox(MatrixStack stack, double x, double y, double z, double w, double h, double d)
     {
-        renderBox(stack, x, y, z, w, h, d, 1F, 1F, 1F);
+        renderBox(stack, x, y, z, w, h, d, 1, 1, 1);
     }
 
     public static void renderBox(MatrixStack stack, double x, double y, double z, double w, double h, double d, float r, float g, float b)
@@ -159,9 +68,11 @@ public class Draw
         float fd = (float) d;
         float t = 1 / 96F + (float) (Math.sqrt(w * w + h + h + d + d) / 2000);
 
-        BufferBuilder builder = Tessellator.getInstance().begin(VertexFormat.DrawMode.TRIANGLES, VertexFormats.POSITION_COLOR);
+        BufferBuilder builder = Tessellator.getInstance().getBuffer();
+        builder.begin(VertexFormat.DrawMode.TRIANGLES, VertexFormats.POSITION_COLOR);
+        RenderSystem.setShader(GameRenderer::getPositionColorProgram);
 
-        /* Pillars */
+        /* Pillars: fillBox(builder, -t, -t, -t, t, t, t, r, g, b, a); */
         fillBox(builder, stack, -t, -t, -t, t, t + fh, t, r, g, b, a);
         fillBox(builder, stack, -t + fw, -t, -t, t + fw, t + fh, t, r, g, b, a);
         fillBox(builder, stack, -t, -t, -t + fd, t, t + fh, t + fd, r, g, b, a);
@@ -179,7 +90,7 @@ public class Draw
         fillBox(builder, stack, -t, -t, -t, t, t, t + fd, r, g, b, a);
         fillBox(builder, stack, -t + fw, -t, -t, t + fw, t, t + fd, r, g, b, a);
 
-        flush(builder, getPositionColorLayer());
+        BufferRenderer.drawWithGlobalProgram(builder.end());
 
         stack.pop();
     }
@@ -190,7 +101,7 @@ public class Draw
     private static final class IrisBox
     {
         private final Matrix4f matrix;
-        private final GpuBufferSlice projection;
+        private final Matrix4f projection;
         private final float w;
         private final float h;
         private final float d;
@@ -198,7 +109,7 @@ public class Draw
         private final float g;
         private final float b;
 
-        private IrisBox(Matrix4f matrix, GpuBufferSlice projection, float w, float h, float d, float r, float g, float b)
+        private IrisBox(Matrix4f matrix, Matrix4f projection, float w, float h, float d, float r, float g, float b)
         {
             this.matrix = matrix;
             this.projection = projection;
@@ -212,10 +123,8 @@ public class Draw
     }
 
     /**
-     * Bake a camera-relative model matrix for the Iris LAST flush. Prefer the stack alone
-     * when it already includes the view; otherwise compose with {@link BBSRendering#camera}.
-     * Never multiply {@code RenderSystem.getModelViewMatrix()} — that was double-applying
-     * the camera and parking boxes in the sky. Mirrors {@code Gizmo.composeVisualMatrix}.
+     * Bake a camera-relative model matrix for the Iris LAST flush. Uses the stack's position matrix
+     * directly which already contains the camera view transformation.
      */
     private static Matrix4f bakeIrisBoxMatrix(MatrixStack stack, double x, double y, double z)
     {
@@ -223,32 +132,13 @@ public class Draw
 
         baked.translate((float) x, (float) y, (float) z);
 
-        Matrix4f composed = new Matrix4f(BBSRendering.camera).mul(baked);
-        float bakedDist = viewOriginLengthSq(baked);
-        float composedDist = viewOriginLengthSq(composed);
-
-        /* Double-applied view: composed collapses toward the view origin. */
-        if (bakedDist > 1.0E-6F && composedDist < bakedDist * 0.49F)
-        {
-            return baked;
-        }
-
-        return composed;
-    }
-
-    private static float viewOriginLengthSq(Matrix4f view)
-    {
-        float ox = view.m30();
-        float oy = view.m31();
-        float oz = view.m32();
-
-        return ox * ox + oy * oy + oz * oz;
+        return baked;
     }
 
     private static void enqueueIrisBox(MatrixStack stack, double x, double y, double z, double w, double h, double d, float r, float g, float b)
     {
         Matrix4f matrix = bakeIrisBoxMatrix(stack, x, y, z);
-        GpuBufferSlice projection = RenderSystem.getProjectionMatrixBuffer();
+        Matrix4f projection = new Matrix4f(RenderSystem.getProjectionMatrix());
 
         irisBoxQueue.add(new IrisBox(matrix, projection, (float) w, (float) h, (float) d, r, g, b));
     }
@@ -263,12 +153,14 @@ public class Draw
 
         boolean savedBlend = GL11.glIsEnabled(GL11.GL_BLEND);
         boolean savedDepth = GL11.glIsEnabled(GL11.GL_DEPTH_TEST);
-        GpuBufferSlice savedProjection = RenderSystem.getProjectionMatrixBuffer();
-        ProjectionType savedType = RenderSystem.getProjectionType();
+        Matrix4f savedProjection = new Matrix4f(RenderSystem.getProjectionMatrix());
         MatrixStack stack = new MatrixStack();
 
-        GlStateManager._disableBlend();
-        GlStateManager._disableDepthTest();
+        RenderSystem.disableBlend();
+        RenderSystem.disableDepthTest();
+        RenderSystem.setShader(GameRenderer::getPositionColorProgram);
+        /* Pack compositing can leave a non-white shader color multiplier before LAST. */
+        RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
         MatrixStackUtils.pushIdentityModelView();
 
         try
@@ -276,10 +168,7 @@ public class Draw
             for (IrisBox box : irisBoxQueue)
             {
                 /* LAST no longer carries the solid-pass projection; rebind what was captured. */
-                if (box.projection != null)
-                {
-                    RenderSystem.setProjectionMatrix(box.projection, ProjectionType.ORTHOGRAPHIC);
-                }
+                RenderSystem.setProjectionMatrix(box.projection, VertexSorter.BY_Z);
                 stack.push();
                 stack.peek().getPositionMatrix().set(box.matrix);
                 renderBoxSolidEdges(stack, box.w, box.h, box.d, box.r, box.g, box.b);
@@ -288,21 +177,19 @@ public class Draw
         }
         finally
         {
-            if (savedProjection != null)
-            {
-                RenderSystem.setProjectionMatrix(savedProjection, savedType);
-            }
+            RenderSystem.setProjectionMatrix(savedProjection, VertexSorter.BY_Z);
             MatrixStackUtils.popModelView();
             irisBoxQueue.clear();
+            RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
 
             if (savedDepth)
             {
-                GlStateManager._enableDepthTest();
+                RenderSystem.enableDepthTest();
             }
 
             if (savedBlend)
             {
-                GlStateManager._enableBlend();
+                RenderSystem.enableBlend();
             }
         }
     }
@@ -310,7 +197,8 @@ public class Draw
     private static void renderBoxSolidEdges(MatrixStack stack, float fw, float fh, float fd, float r, float g, float b)
     {
         float t = 1 / 96F + (float) (Math.sqrt(fw * fw + fh + fh + fd + fd) / 2000);
-        BufferBuilder builder = Tessellator.getInstance().begin(VertexFormat.DrawMode.TRIANGLES, VertexFormats.POSITION_COLOR);
+        BufferBuilder builder = Tessellator.getInstance().getBuffer();
+        builder.begin(VertexFormat.DrawMode.TRIANGLES, VertexFormats.POSITION_COLOR);
 
         fillBox(builder, stack, -t, -t, -t, t, t + fh, t, r, g, b, 1F);
         fillBox(builder, stack, -t + fw, -t, -t, t + fw, t + fh, t, r, g, b, 1F);
@@ -327,7 +215,7 @@ public class Draw
         fillBox(builder, stack, -t, -t, -t, t, t, t + fd, r, g, b, 1F);
         fillBox(builder, stack, -t + fw, -t, -t, t + fw, t, t + fd, r, g, b, 1F);
 
-        flush(builder, getPositionColorLayer());
+        BufferRenderer.drawWithGlobalProgram(builder.end());
     }
 
     private static void renderBoxWireframe(MatrixStack stack, double x, double y, double z, double w, double h, double d, float r, float g, float b, float a)
@@ -344,9 +232,12 @@ public class Draw
         float z2 = (float) d;
         boolean savedBlend = GL11.glIsEnabled(GL11.GL_BLEND);
 
-        GlStateManager._disableBlend();
+        RenderSystem.disableBlend();
+        RenderSystem.setShader(GameRenderer::getPositionColorProgram);
+        RenderSystem.lineWidth(2F);
 
-        BufferBuilder builder = Tessellator.getInstance().begin(VertexFormat.DrawMode.DEBUG_LINES, VertexFormats.POSITION_COLOR);
+        BufferBuilder builder = Tessellator.getInstance().getBuffer();
+        builder.begin(VertexFormat.DrawMode.DEBUG_LINES, VertexFormats.POSITION_COLOR);
 
         wireLine(builder, matrix, x1, y1, z1, x2, y1, z1, r, g, b, a);
         wireLine(builder, matrix, x2, y1, z1, x2, y1, z2, r, g, b, a);
@@ -363,11 +254,13 @@ public class Draw
         wireLine(builder, matrix, x2, y1, z2, x2, y2, z2, r, g, b, a);
         wireLine(builder, matrix, x1, y1, z2, x1, y2, z2, r, g, b, a);
 
-        flushLines(builder);
+        BufferRenderer.drawWithGlobalProgram(builder.end());
+
+        RenderSystem.lineWidth(1F);
 
         if (savedBlend)
         {
-            GlStateManager._enableBlend();
+            RenderSystem.enableBlend();
         }
 
         stack.pop();
@@ -375,8 +268,8 @@ public class Draw
 
     private static void wireLine(BufferBuilder builder, Matrix4f matrix, float x0, float y0, float z0, float x1, float y1, float z1, float r, float g, float b, float a)
     {
-        builder.vertex(matrix, x0, y0, z0).color(r, g, b, a);
-        builder.vertex(matrix, x1, y1, z1).color(r, g, b, a);
+        builder.vertex(matrix, x0, y0, z0).color(r, g, b, a).next();
+        builder.vertex(matrix, x1, y1, z1).color(r, g, b, a).next();
     }
     /**
      * Fill a quad for {@link VertexFormats#POSITION_TEXTURE_COLOR_NORMAL}. Points should
@@ -396,31 +289,51 @@ public class Draw
         Matrix4f matrix4f = stack.peek().getPositionMatrix();
 
         /* 1 - BL, 2 - BR, 3 - TR, 4 - TL */
-        builder.vertex(matrix4f, x2, y2, z2).texture(u1, v2).color(r, g, b, a).normal(nx, ny, nz);
-        builder.vertex(matrix4f, x1, y1, z1).texture(u2, v2).color(r, g, b, a).normal(nx, ny, nz);
-        builder.vertex(matrix4f, x4, y4, z4).texture(u2, v1).color(r, g, b, a).normal(nx, ny, nz);
+        builder.vertex(matrix4f, x2, y2, z2).texture(u1, v2).color(r, g, b, a).normal(nx, ny, nz).next();
+        builder.vertex(matrix4f, x1, y1, z1).texture(u2, v2).color(r, g, b, a).normal(nx, ny, nz).next();
+        builder.vertex(matrix4f, x4, y4, z4).texture(u2, v1).color(r, g, b, a).normal(nx, ny, nz).next();
 
-        builder.vertex(matrix4f, x2, y2, z2).texture(u1, v2).color(r, g, b, a).normal(nx, ny, nz);
-        builder.vertex(matrix4f, x4, y4, z4).texture(u2, v1).color(r, g, b, a).normal(nx, ny, nz);
-        builder.vertex(matrix4f, x3, y3, z3).texture(u1, v1).color(r, g, b, a).normal(nx, ny, nz);
+        builder.vertex(matrix4f, x2, y2, z2).texture(u1, v2).color(r, g, b, a).normal(nx, ny, nz).next();
+        builder.vertex(matrix4f, x4, y4, z4).texture(u2, v1).color(r, g, b, a).normal(nx, ny, nz).next();
+        builder.vertex(matrix4f, x3, y3, z3).texture(u1, v1).color(r, g, b, a).normal(nx, ny, nz).next();
     }
 
     public static void fillQuad(BufferBuilder builder, MatrixStack stack, float x1, float y1, float z1, float x2, float y2, float z2, float x3, float y3, float z3, float x4, float y4, float z4, float r, float g, float b, float a)
     {
-        Matrix4f mat = stack.peek().getPositionMatrix();
+        Matrix4f matrix4f = stack.peek().getPositionMatrix();
 
-        builder.vertex(mat, x1, y1, z1).color(r, g, b, a);
-        builder.vertex(mat, x2, y2, z2).color(r, g, b, a);
-        builder.vertex(mat, x3, y3, z3).color(r, g, b, a);
-
-        builder.vertex(mat, x1, y1, z1).color(r, g, b, a);
-        builder.vertex(mat, x3, y3, z3).color(r, g, b, a);
-        builder.vertex(mat, x4, y4, z4).color(r, g, b, a);
+        /* 1 - BR, 2 - BL, 3 - TL, 4 - TR */
+        builder.vertex(matrix4f, x1, y1, z1).color(r, g, b, a).next();
+        builder.vertex(matrix4f, x2, y2, z2).color(r, g, b, a).next();
+        builder.vertex(matrix4f, x3, y3, z3).color(r, g, b, a).next();
+        builder.vertex(matrix4f, x1, y1, z1).color(r, g, b, a).next();
+        builder.vertex(matrix4f, x3, y3, z3).color(r, g, b, a).next();
+        builder.vertex(matrix4f, x4, y4, z4).color(r, g, b, a).next();
     }
 
-    public static void fillBoxTo(BufferBuilder builder, MatrixStack stack, double x1, double y1, double z1, double x2, double y2, double z2, float t, float r, float g, float b, float a)
+    public static void fillBoxTo(BufferBuilder builder, MatrixStack stack, float x1, float y1, float z1, float x2, float y2, float z2, float thickness, float r, float g, float b, float a)
     {
-        fillBox(builder, stack, (float) Math.min(x1, x2) - t, (float) Math.min(y1, y2) - t, (float) Math.min(z1, z2) - t, (float) Math.max(x1, x2) + t, (float) Math.max(y1, y2) + t, (float) Math.max(z1, z2) + t, r, g, b, a);
+        if (stack == null)
+        {
+            stack = new MatrixStack();
+            MatrixStackUtils.multiply(stack, RenderSystem.getModelViewMatrix());
+        }
+
+        float dx = x2 - x1;
+        float dy = y2 - y1;
+        float dz = z2 - z1;
+        double distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
+        Angle angle = Angle.angle(dx, dy, dz);
+
+        stack.push();
+
+        stack.translate(x1, y1, z1);
+        stack.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(angle.yaw));
+        stack.multiply(RotationAxis.POSITIVE_X.rotationDegrees(angle.pitch));
+
+        fillBox(builder, stack, -thickness / 2, -thickness / 2, 0, thickness / 2, thickness / 2, (float) distance, r, g, b, a);
+
+        stack.pop();
     }
 
     public static void fillBox(BufferBuilder builder, MatrixStack stack, float x1, float y1, float z1, float x2, float y2, float z2, float r, float g, float b)
@@ -430,6 +343,8 @@ public class Draw
 
     public static void fillBox(BufferBuilder builder, MatrixStack stack, float x1, float y1, float z1, float x2, float y2, float z2, float r, float g, float b, float a)
     {
+        /* X */
+        fillQuad(builder, stack, x1, y1, z2, x1, y2, z2, x1, y2, z1, x1, y1, z1, r, g, b, a);
         fillQuad(builder, stack, x2, y1, z1, x2, y2, z1, x2, y2, z2, x2, y1, z2, r, g, b, a);
 
         /* Y */
@@ -441,11 +356,6 @@ public class Draw
         fillQuad(builder, stack, x1, y1, z2, x2, y1, z2, x2, y2, z2, x1, y2, z2, r, g, b, a);
     }
 
-    public static void coolerAxes(MatrixStack stack, float axisSize, float axisOffset)
-    {
-        coolerAxes(stack, axisSize, axisOffset, axisSize * 1.02F, axisOffset * 1.5F);
-    }
-
     public static void coolerAxes(MatrixStack stack, float axisSize, float axisOffset, float outlineSize, float outlineOffset)
     {
         float scale = BBSSettings.axesScale.get();
@@ -455,7 +365,8 @@ public class Draw
         outlineSize *= scale;
         outlineOffset *= scale;
 
-        BufferBuilder builder = Tessellator.getInstance().begin(VertexFormat.DrawMode.TRIANGLES, VertexFormats.POSITION_COLOR);
+        BufferBuilder builder = Tessellator.getInstance().getBuffer();
+        builder.begin(VertexFormat.DrawMode.TRIANGLES, VertexFormats.POSITION_COLOR);
 
         fillBox(builder, stack, 0, -outlineOffset, -outlineOffset, outlineSize, outlineOffset, outlineOffset, 0, 0, 0);
         fillBox(builder, stack, -outlineOffset, 0, -outlineOffset, outlineOffset, outlineSize, outlineOffset, 0, 0, 0);
@@ -467,7 +378,10 @@ public class Draw
         fillBox(builder, stack, -axisOffset, -axisOffset, 0, axisOffset, axisOffset, axisSize, 0, 0, 1);
         fillBox(builder, stack, -axisOffset, -axisOffset, -axisOffset, axisOffset, axisOffset, axisOffset, 1, 1, 1);
 
-        flush(builder, getPositionColorNoDepthLayer());
+        RenderSystem.setShader(GameRenderer::getPositionColorProgram);
+        RenderSystem.disableDepthTest();
+
+        BufferRenderer.drawWithGlobalProgram(builder.end());
     }
 
     /**
@@ -544,13 +458,13 @@ public class Draw
             float y2 = baseY + (ry * c2 + uy * s2) * radius;
             float z2 = baseZ + (rz * c2 + uz * s2) * radius;
 
-            builder.vertex(mat, apexX, apexY, apexZ).color(r, g, b, a);
-            builder.vertex(mat, x1, y1, z1).color(r, g, b, a);
-            builder.vertex(mat, x2, y2, z2).color(r, g, b, a);
+            builder.vertex(mat, apexX, apexY, apexZ).color(r, g, b, a).next();
+            builder.vertex(mat, x1, y1, z1).color(r, g, b, a).next();
+            builder.vertex(mat, x2, y2, z2).color(r, g, b, a).next();
 
-            builder.vertex(mat, x1, y1, z1).color(r, g, b, a);
-            builder.vertex(mat, baseX, baseY, baseZ).color(r, g, b, a);
-            builder.vertex(mat, x2, y2, z2).color(r, g, b, a);
+            builder.vertex(mat, x1, y1, z1).color(r, g, b, a).next();
+            builder.vertex(mat, baseX, baseY, baseZ).color(r, g, b, a).next();
+            builder.vertex(mat, x2, y2, z2).color(r, g, b, a).next();
         }
     }
 
@@ -612,13 +526,13 @@ public class Draw
                 float y22 = y12;
                 float z22 = sv2 * su2 * radius;
 
-                builder.vertex(mat, x11, y11, z11).color(r, g, b, a);
-                builder.vertex(mat, x12, y12, z12).color(r, g, b, a);
-                builder.vertex(mat, x22, y22, z22).color(r, g, b, a);
+                builder.vertex(mat, x11, y11, z11).color(r, g, b, a).next();
+                builder.vertex(mat, x12, y12, z12).color(r, g, b, a).next();
+                builder.vertex(mat, x22, y22, z22).color(r, g, b, a).next();
 
-                builder.vertex(mat, x11, y11, z11).color(r, g, b, a);
-                builder.vertex(mat, x22, y22, z22).color(r, g, b, a);
-                builder.vertex(mat, x21, y21, z21).color(r, g, b, a);
+                builder.vertex(mat, x11, y11, z11).color(r, g, b, a).next();
+                builder.vertex(mat, x22, y22, z22).color(r, g, b, a).next();
+                builder.vertex(mat, x21, y21, z21).color(r, g, b, a).next();
             }
         }
     }
@@ -708,13 +622,13 @@ public class Draw
                 float x22 = ring2 * cu2;
                 float z22 = ring2 * su2;
 
-                builder.vertex(mat, x11, y1, z11).color(r, g, b, 1F);
-                builder.vertex(mat, x12, y2, z12).color(r, g, b, 1F);
-                builder.vertex(mat, x22, y2, z22).color(r, g, b, 1F);
+                builder.vertex(mat, x11, y1, z11).color(r, g, b, 1F).next();
+                builder.vertex(mat, x12, y2, z12).color(r, g, b, 1F).next();
+                builder.vertex(mat, x22, y2, z22).color(r, g, b, 1F).next();
 
-                builder.vertex(mat, x11, y1, z11).color(r, g, b, 1F);
-                builder.vertex(mat, x22, y2, z22).color(r, g, b, 1F);
-                builder.vertex(mat, x21, y1, z21).color(r, g, b, 1F);
+                builder.vertex(mat, x11, y1, z11).color(r, g, b, 1F).next();
+                builder.vertex(mat, x22, y2, z22).color(r, g, b, 1F).next();
+                builder.vertex(mat, x21, y1, z21).color(r, g, b, 1F).next();
             }
         }
 

@@ -85,10 +85,15 @@ public class UIVanillaParticleFormPanel extends UIFormPanel<VanillaParticleForm>
                 a = 1.0F;
             }
 
-            String argString = String.format(Locale.ROOT, "%.2f %.2f %.2f %.1f", r, g, b, a);
+            Identifier id = this.form == null ? null : this.form.settings.get().particle;
 
-            this.settings.setArgumentsText(argString);
-            this.updateEffectLabelForColor(argString);
+            if (isEffectParticle(id) || (id != null && id.getPath().contains("dust")))
+            {
+                String argString = String.format(Locale.ROOT, "%.2f %.2f %.2f %.1f", r, g, b, a);
+
+                this.settings.setArgumentsText(argString);
+                this.updateEffectLabelForColor(argString);
+            }
         }).withAlpha();
 
         this.color2 = new UIColor((c) ->
@@ -146,7 +151,7 @@ public class UIVanillaParticleFormPanel extends UIFormPanel<VanillaParticleForm>
                 }
                 else
                 {
-                    this.setEffect(Identifier.of(l));
+                    this.setEffect(new Identifier(l));
                 }
             });
 

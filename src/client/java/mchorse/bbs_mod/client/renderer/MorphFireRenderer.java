@@ -8,7 +8,6 @@ import mchorse.bbs_mod.forms.entities.MCEntity;
 import mchorse.bbs_mod.forms.forms.Form;
 import mchorse.bbs_mod.forms.forms.MobForm;
 import mchorse.bbs_mod.mixin.client.EntityAccessor;
-import mchorse.bbs_mod.mixin.client.EntityRendererDispatcherInvoker;
 import mchorse.bbs_mod.utils.AABB;
 import mchorse.bbs_mod.utils.MathUtils;
 import mchorse.bbs_mod.utils.MatrixStackUtils;
@@ -17,8 +16,7 @@ import mchorse.bbs_mod.utils.interps.Lerps;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.render.Camera;
 import net.minecraft.client.render.VertexConsumerProvider;
-import net.minecraft.client.render.entity.EntityRenderManager;
-import net.minecraft.client.render.entity.state.EntityRenderState;
+import net.minecraft.client.render.entity.EntityRenderDispatcher;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.client.world.ClientWorld;
 import net.minecraft.entity.Entity;
@@ -38,7 +36,7 @@ import org.joml.Quaternionf;
 public final class MorphFireRenderer
 {
     private static final Quaternionf TEMP_QUATERNION = new Quaternionf();
-    private static final EntityRenderState FIRE_RENDER_STATE = new EntityRenderState();
+
     private static ActorEntity proxy;
 
     private MorphFireRenderer()
@@ -59,7 +57,7 @@ public final class MorphFireRenderer
             return;
         }
 
-        if (MorphFireRenderer.proxy == null || MorphFireRenderer.proxy.getEntityWorld() != world)
+        if (MorphFireRenderer.proxy == null || MorphFireRenderer.proxy.getWorld() != world)
         {
             MorphFireRenderer.proxy = new ActorEntity(BBSMod.ACTOR_ENTITY, world);
         }
@@ -78,12 +76,13 @@ public final class MorphFireRenderer
         entity.lastRenderX = 0D;
         entity.lastRenderY = 0D;
         entity.lastRenderZ = 0D;
-        entity.lastX = 0D;
-        entity.lastY = 0D;
-        entity.lastZ = 0D;
+        entity.prevX = 0D;
+        entity.prevY = 0D;
+        entity.prevZ = 0D;
         entity.setInvisible(false);
+
         float bodyYaw = Lerps.lerp(morph.getPrevBodyYaw(), morph.getBodyYaw(), tickDelta);
-        EntityRenderManager dispatcher = mc.getEntityRenderDispatcher();
+        EntityRenderDispatcher dispatcher = mc.getEntityRenderDispatcher();
         boolean irisWorld = BBSRendering.isIrisShadersEnabled() && BBSRendering.isRenderingWorld();
 
         matrices.push();
@@ -108,20 +107,16 @@ public final class MorphFireRenderer
 
         matrices.multiply(RotationAxis.POSITIVE_Y.rotation(MathUtils.toRad(bodyYaw)));
 
-        FIRE_RENDER_STATE.width = size[0];
-        FIRE_RENDER_STATE.height = size[1];
-
-        /* 1.21.11 render: renderFire handled internally by state-based pipeline */
-        // ((EntityRendererDispatcherInvoker) dispatcher).bbs$renderFire(matrices, consumers, FIRE_RENDER_STATE, camera.getRotation());
-
         matrices.pop();
+
+        entity.setFireTicks(0);
     }
 
     private static float[] getFireDimensions(IEntity morph, Form form)
     {
         if (form instanceof MobForm mobForm)
         {
-            EntityType<?> type = Registries.ENTITY_TYPE.get(Identifier.of(mobForm.mobID.get()));
+            EntityType<?> type = Registries.ENTITY_TYPE.get(new Identifier(mobForm.mobID.get()));
 
             if (type != null)
             {
@@ -132,7 +127,7 @@ public final class MorphFireRenderer
                     dimensions = dimensions.scaled(0.8F);
                 }
 
-                return new float[] {dimensions.width(), dimensions.height()};
+                return new float[] {dimensions.width, dimensions.height};
             }
         }
 

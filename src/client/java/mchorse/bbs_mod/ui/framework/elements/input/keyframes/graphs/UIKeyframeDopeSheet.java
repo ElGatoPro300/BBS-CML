@@ -39,15 +39,17 @@ import mchorse.bbs_mod.utils.keyframes.Keyframe;
 import mchorse.bbs_mod.utils.keyframes.KeyframeShape;
 
 import net.minecraft.client.render.BufferBuilder;
-import net.minecraft.client.render.BuiltBuffer;
-import net.minecraft.client.render.RenderLayers;
+import net.minecraft.client.render.BufferRenderer;
+import net.minecraft.client.render.GameRenderer;
 import net.minecraft.client.render.Tessellator;
+import net.minecraft.client.render.VertexFormat;
 import net.minecraft.client.render.VertexFormats;
-import net.minecraft.client.util.math.MatrixStack;
 
-import org.joml.Matrix3x2fc;
+import org.joml.Matrix4f;
 
-import com.mojang.blaze3d.vertex.VertexFormat;
+import com.mojang.blaze3d.systems.RenderSystem;
+
+import org.lwjgl.glfw.GLFW;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -80,7 +82,7 @@ public class UIKeyframeDopeSheet implements IUIKeyframeGraph
     private float sidebarDragRatio;
     private int sidebarWidth = SIDEBAR_WIDTH;
 
-    public static IKeyframeShapeRenderer renderShape(Keyframe frame, UIContext context, BufferBuilder builder, Matrix3x2fc matrix, int x, int y, int offset, int c)
+    public static IKeyframeShapeRenderer renderShape(Keyframe frame, UIContext context, BufferBuilder builder, Matrix4f matrix, int x, int y, int offset, int c)
     {
         KeyframeShape keyframeShape = frame.getShape();
         IKeyframeShapeRenderer shape = KeyframeShapeRenderers.SHAPES.get(keyframeShape);
@@ -280,17 +282,7 @@ public class UIKeyframeDopeSheet implements IUIKeyframeGraph
 
     private String getSidebarTitle(String title, FontRenderer font, int availableWidth)
     {
-        if (availableWidth <= 0)
-        {
-            return "";
-        }
-
-        if (font.getWidth(title) <= availableWidth)
-        {
-            return title;
-        }
-
-        return font.limitToWidth(title, availableWidth);
+        return title == null ? "" : title;
     }
 
     private int getSidebarIconWidth(UIKeyframeSheet sheet)
@@ -504,7 +496,7 @@ public class UIKeyframeDopeSheet implements IUIKeyframeGraph
             {
                 Keyframe keyframe = (Keyframe) keyframes.get(j);
                 int x = this.keyframes.toGraphX(keyframe.getTick());
-                int y = this.getDopeSheetY(i) + (int) this.trackHeight / 2;
+                int y = this.getTrackLineY(sheet, i);
 
                 if (this.isNear(x, y, mouseX, 0, true))
                 {
@@ -547,7 +539,7 @@ public class UIKeyframeDopeSheet implements IUIKeyframeGraph
             {
                 Keyframe keyframe = (Keyframe) keyframes.get(j);
                 int x = this.keyframes.toGraphX(keyframe.getTick());
-                int y = this.getDopeSheetY(i) + (int) this.trackHeight / 2;
+                int y = this.getTrackLineY(sheet, i);
 
                 if (area.isInside(x, y))
                 {
@@ -644,14 +636,14 @@ public class UIKeyframeDopeSheet implements IUIKeyframeGraph
         }
 
         List keyframes = sheet.channel.getKeyframes();
-        int i = this.sheets.indexOf(sheet);
+        int i = this.getRowIndex(sheet);
         double radiusSq = Window.isCtrlPressed() ? REMOVE_HIT_RADIUS_SQ : DEFAULT_HIT_RADIUS_SQ;
 
         for (int j = 0; j < keyframes.size(); j++)
         {
             Keyframe keyframe = (Keyframe) keyframes.get(j);
             int x = this.keyframes.toGraphX(keyframe.getTick());
-            int y = this.getDopeSheetY(i) + (int) this.trackHeight / 2;
+            int y = this.getTrackLineY(sheet, i);
 
             if (this.isNear(x, y, mouseX, mouseY, false, radiusSq))
             {
@@ -1059,7 +1051,7 @@ public class UIKeyframeDopeSheet implements IUIKeyframeGraph
             return;
         }
 
-        int anchor = Math.round(anchorTick);
+        float anchor = anchorTick;
 
         if (sheets.size() == 1)
         {
@@ -1158,7 +1150,7 @@ public class UIKeyframeDopeSheet implements IUIKeyframeGraph
             return;
         }
 
-        int anchor = Math.round(anchorTick);
+        float anchor = anchorTick;
 
         if (keyframes.size() == 1)
         {
@@ -1278,7 +1270,7 @@ public class UIKeyframeDopeSheet implements IUIKeyframeGraph
     private void renderPreviewKeyframe(UIContext context, UIKeyframeSheet sheet, double tick, int color)
     {
         int x = this.keyframes.toGraphX(tick);
-        int y = this.getDopeSheetY(sheet) + (int) this.trackHeight / 2;
+        int y = this.getTrackLineY(sheet, this.getRowIndex(sheet));
         Area area = this.keyframes.area;
         int minX = area.x + this.sidebarWidth;
 
@@ -1320,17 +1312,14 @@ public class UIKeyframeDopeSheet implements IUIKeyframeGraph
 
         preview.setShape(shape);
 
-        Matrix3x2fc matrix = context.batcher.getContext().getMatrices();
-        BufferBuilder builder = Tessellator.getInstance().begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_COLOR);
+        Matrix4f matrix = context.batcher.getContext().getMatrices().peek().getPositionMatrix();
+        BufferBuilder builder = Tessellator.getInstance().getBuffer();
+        builder.begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_COLOR);
 
+        RenderSystem.enableBlend();
+        RenderSystem.setShader(GameRenderer::getPositionColorProgram);
         renderShape(preview, context, builder, matrix, x, y, 3, c);
-
-        BuiltBuffer built = builder.endNullable();
-
-        if (built != null)
-        {
-            RenderLayers.debugFilledBox().draw(built);
-        }
+        BufferRenderer.drawWithGlobalProgram(builder.end());
     }
 
     /**
@@ -1351,7 +1340,7 @@ public class UIKeyframeDopeSheet implements IUIKeyframeGraph
 
         Area area = this.keyframes.area;
         this.updateSidebarScrollLimits(context);
-        Matrix3x2fc matrix = context.batcher.getContext().getMatrices();
+        Matrix4f matrix = context.batcher.getContext().getMatrices().peek().getPositionMatrix();
 
         int sidebarX = area.x - this.sidebarScroll;
 
@@ -1451,7 +1440,8 @@ public class UIKeyframeDopeSheet implements IUIKeyframeGraph
             }
 
             /* Render track bars (horizontal lines) */
-            BufferBuilder builder = Tessellator.getInstance().begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_COLOR);
+            BufferBuilder builder = Tessellator.getInstance().getBuffer();
+            builder.begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_COLOR);
 
             context.batcher.fillRect(builder, matrix, startX, my - TRACK_LINE_HALF_HEIGHT, endX - startX, TRACK_LINE_HALF_HEIGHT * 2, cc, cc, cc, cc);
 
@@ -1518,7 +1508,7 @@ public class UIKeyframeDopeSheet implements IUIKeyframeGraph
 
                     if (rx2 > rx1)
                     {
-                        int y1 = my - 8 + (forcedIndex % 2 == 1 ? -4 : 0);
+                        int y1 = my - 8 + (sheet.companion != null ? 0 : (forcedIndex % 2 == 1 ? -4 : 0));
                         int color = sheet.selection.has(j) ? Colors.WHITE :  Colors.setA(Colors.mulRGB(sheet.color, 0.9F), 0.75F);
 
                         if (rx1 == x1) context.batcher.fillRect(builder, matrix, rx1, y1 - 2, 1, 5, color, color, color, color);
@@ -1586,12 +1576,9 @@ public class UIKeyframeDopeSheet implements IUIKeyframeGraph
                 shapeResult.renderKeyframeBackground(context, builder, matrix, mx, my, 2, mc);
             }
 
-            BuiltBuffer built = builder.endNullable();
-
-            if (built != null)
-            {
-                RenderLayers.debugFilledBox().draw(built);
-            }
+            RenderSystem.enableBlend();
+            RenderSystem.setShader(GameRenderer::getPositionColorProgram);
+            BufferRenderer.drawWithGlobalProgram(builder.end());
 
             if (sheet.companion != null)
             {
@@ -1803,11 +1790,12 @@ public class UIKeyframeDopeSheet implements IUIKeyframeGraph
         this.dopeSheet.setScroll(extra.getDouble("scroll"));
     }
 
-    private void renderCompanionChannel(UIContext context, Matrix3x2fc matrix, Area area, int startX, int endX, int lineY, UIKeyframeSheet sheet, boolean rowHover)
+    private void renderCompanionChannel(UIContext context, Matrix4f matrix, Area area, int startX, int endX, int lineY, UIKeyframeSheet sheet, boolean rowHover)
     {
         List keyframes = sheet.channel.getKeyframes();
         int cc = Colors.setA(sheet.color, rowHover ? 0.65F : 0.28F);
-        BufferBuilder builder = Tessellator.getInstance().begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_COLOR);
+        BufferBuilder builder = Tessellator.getInstance().getBuffer();
+        builder.begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_COLOR);
 
         context.batcher.fillRect(builder, matrix, startX, lineY - TRACK_LINE_HALF_HEIGHT, endX - startX, TRACK_LINE_HALF_HEIGHT * 2, cc, cc, cc, cc);
 
@@ -1872,12 +1860,9 @@ public class UIKeyframeDopeSheet implements IUIKeyframeGraph
             shapeResult.renderKeyframeBackground(context, builder, matrix, mx, lineY, 2, mc);
         }
 
-        BuiltBuffer built = builder.endNullable();
-
-        if (built != null)
-        {
-            RenderLayers.debugFilledBox().draw(built);
-        }
+        RenderSystem.enableBlend();
+        RenderSystem.setShader(GameRenderer::getPositionColorProgram);
+        BufferRenderer.drawWithGlobalProgram(builder.end());
 
         RegisterFilmSyncEvent.postRenderDopeSheet(context, this.keyframes.area);
     }

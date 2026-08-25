@@ -6,18 +6,14 @@ import mchorse.bbs_mod.utils.joml.Vectors;
 import mchorse.bbs_mod.utils.pose.Transform;
 
 import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gl.GlUniform;
-import net.minecraft.client.gl.ShaderProgram;
 import net.minecraft.client.render.Camera;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.util.math.RotationAxis;
 
 import org.joml.Matrix3f;
 import org.joml.Matrix4f;
-import org.joml.Matrix4fStack;
 import org.joml.Quaternionf;
 
-import com.mojang.blaze3d.systems.ProjectionType;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.systems.VertexSorter;
 
@@ -112,41 +108,48 @@ public class MatrixStackUtils
     public static void cacheMatrices()
     {
         /* Cache the global stuff */
-        RenderSystem.backupProjectionMatrix();
+        oldProjection.set(RenderSystem.getProjectionMatrix());
         oldMV.set(RenderSystem.getModelViewMatrix());
-        oldInverse.set(new Matrix3f(RenderSystem.getModelViewMatrix()));
+        oldInverse.set(RenderSystem.getInverseViewRotationMatrix());
 
-        Matrix4fStack mvStack = RenderSystem.getModelViewStack();
-        mvStack.identity();
+        MatrixStack renderStack = RenderSystem.getModelViewStack();
+
+        renderStack.push();
+        renderStack.loadIdentity();
+        RenderSystem.applyModelViewMatrix();
+        renderStack.pop();
     }
 
     public static void restoreMatrices()
     {
         /* Return back to orthographic projection */
-        RenderSystem.restoreProjectionMatrix();
+        RenderSystem.setProjectionMatrix(oldProjection, VertexSorter.BY_Z);
+        RenderSystem.setInverseViewRotationMatrix(oldInverse);
 
-        Matrix4fStack mvStack = RenderSystem.getModelViewStack();
-        mvStack.set(oldMV);
-    }
+        MatrixStack renderStack = RenderSystem.getModelViewStack();
 
-    public static void applyModelViewMatrix()
-    {
-        /* 1.21.11: RenderPipeline handles ModelViewMat */
+        renderStack.push();
+        renderStack.loadIdentity();
+        MatrixStackUtils.multiply(renderStack, oldMV);
+        RenderSystem.applyModelViewMatrix();
+        renderStack.pop();
     }
 
     public static void pushIdentityModelView()
     {
-        Matrix4fStack mvStack = RenderSystem.getModelViewStack();
+        MatrixStack mvStack = RenderSystem.getModelViewStack();
 
-        mvStack.pushMatrix();
-        mvStack.identity();
+        mvStack.push();
+        mvStack.loadIdentity();
+        RenderSystem.applyModelViewMatrix();
     }
 
     public static void popModelView()
     {
-        Matrix4fStack mvStack = RenderSystem.getModelViewStack();
+        MatrixStack mvStack = RenderSystem.getModelViewStack();
 
-        mvStack.popMatrix();
+        mvStack.pop();
+        RenderSystem.applyModelViewMatrix();
     }
 
     /**

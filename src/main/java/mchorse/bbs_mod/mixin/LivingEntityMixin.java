@@ -5,12 +5,9 @@ import mchorse.bbs_mod.actions.AttackDamage;
 import mchorse.bbs_mod.actions.types.AttackActionClip;
 import mchorse.bbs_mod.entity.ActorEntity;
 import mchorse.bbs_mod.film.replays.Replay;
-import mchorse.bbs_mod.forms.forms.Form;
-import mchorse.bbs_mod.morphing.IMorphProvider;
 import mchorse.bbs_mod.network.ServerNetwork;
 
 import net.minecraft.entity.Entity;
-import net.minecraft.entity.EntityDimensions;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.damage.DamageSource;
 import net.minecraft.entity.damage.DamageTypes;
@@ -22,7 +19,6 @@ import net.minecraft.server.world.ServerWorld;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
-import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 @Mixin(LivingEntity.class)
@@ -35,7 +31,7 @@ public class LivingEntityMixin
      * damage ({@link AttackDamage#fromAttacker}), or spam-clicks replay as full hits.
      */
     @Inject(method = "damage", at = @At("RETURN"))
-    private void onDamage(ServerWorld world, DamageSource source, float amount, CallbackInfoReturnable<Boolean> info)
+    private void onDamage(DamageSource source, float amount, CallbackInfoReturnable<Boolean> info)
     {
         if (!Boolean.TRUE.equals(info.getReturnValue()))
         {
@@ -46,7 +42,7 @@ public class LivingEntityMixin
         Entity attacker = source.getAttacker();
 
         /* Player melee → ActionRecorder on the player replay (existing path). */
-        if (source.isDirect() && attacker instanceof ServerPlayerEntity player)
+        if (source.getSource() == source.getAttacker() && attacker instanceof ServerPlayerEntity player)
         {
             float recorded = amount;
 
@@ -82,7 +78,7 @@ public class LivingEntityMixin
         }
 
         /* Mob autocapture combat clips (client places them on captured replays). */
-        if (!(target.getEntityWorld() instanceof ServerWorld serverWorld))
+        if (!(target.getWorld() instanceof ServerWorld serverWorld))
         {
             return;
         }
@@ -115,7 +111,7 @@ public class LivingEntityMixin
                 kind = ServerNetwork.MOB_COMBAT_KIND_DAMAGE;
             }
         }
-        else if (source.isDirect() && attacker instanceof LivingEntity)
+        else if (source.getSource() == attacker && attacker instanceof LivingEntity)
         {
             kind = ServerNetwork.MOB_COMBAT_KIND_MELEE;
             sourceEntityId = attacker.getId();
@@ -127,30 +123,5 @@ public class LivingEntityMixin
         }
 
         BBSMod.getActions().broadcastMobCombatHit(serverWorld, target.getId(), sourceEntityId, recorded, kind);
-    }
-
-    @Inject(method = "getBaseDimensions", at = @At("RETURN"), cancellable = true)
-    public void onGetBaseDimensions(CallbackInfoReturnable<EntityDimensions> info)
-    {
-        if (this instanceof IMorphProvider provider)
-        {
-            Form form = provider.getMorph().getForm();
-
-            if (form != null && form.hitbox.get())
-            {
-                LivingEntity entity = (LivingEntity) (Object) this;
-                EntityDimensions dimensions = info.getReturnValue();
-                float height = form.hitboxHeight.get() * (entity.isSneaking() ? form.hitboxSneakMultiplier.get() : 1F);
-
-                if (dimensions.fixed())
-                {
-                    info.setReturnValue(EntityDimensions.fixed(form.hitboxWidth.get(), height));
-                }
-                else
-                {
-                    info.setReturnValue(EntityDimensions.changing(form.hitboxWidth.get(), height));
-                }
-            }
-        }
     }
 }

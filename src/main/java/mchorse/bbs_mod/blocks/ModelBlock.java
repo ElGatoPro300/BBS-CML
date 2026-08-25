@@ -14,9 +14,6 @@ import net.minecraft.block.Waterloggable;
 import net.minecraft.block.entity.BlockEntity;
 import net.minecraft.block.entity.BlockEntityTicker;
 import net.minecraft.block.entity.BlockEntityType;
-import net.minecraft.component.DataComponentTypes;
-import net.minecraft.component.type.BlockStateComponent;
-import net.minecraft.entity.TypedEntityData;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.fluid.FluidState;
 import net.minecraft.fluid.Fluids;
@@ -37,11 +34,6 @@ import net.minecraft.util.shape.VoxelShape;
 import net.minecraft.util.shape.VoxelShapes;
 import net.minecraft.world.BlockView;
 import net.minecraft.world.World;
-import net.minecraft.world.WorldView;
-
-import org.joml.Vector3f;
-
-import java.util.Map;
 
 import org.jetbrains.annotations.Nullable;
 
@@ -58,7 +50,7 @@ public class ModelBlock extends Block implements BlockEntityProvider, Waterlogga
     {
         super(settings);
 
-        this.setDefaultState(getDefaultState()
+        this.setDefaultState(this.getDefaultState()
             .with(Properties.WATERLOGGED, false)
             .with(LIGHT_LEVEL, 0));
     }
@@ -78,21 +70,24 @@ public class ModelBlock extends Block implements BlockEntityProvider, Waterlogga
     }
 
     @Override
-    public ItemStack getPickStack(WorldView world, BlockPos pos, BlockState state, boolean includeData)
+    public ItemStack getPickStack(BlockView world, BlockPos pos, BlockState state)
     {
         BlockEntity entity = world.getBlockEntity(pos);
 
         if (entity instanceof ModelBlockEntity modelBlock)
         {
             ItemStack stack = new ItemStack(this);
-            stack.set(DataComponentTypes.BLOCK_ENTITY_DATA, TypedEntityData.create(BBSMod.MODEL_BLOCK_ENTITY, modelBlock.createNbt(world.getRegistryManager())));
-            
-            stack.set(DataComponentTypes.BLOCK_STATE, new BlockStateComponent(Map.of("light_level", String.valueOf(modelBlock.getProperties().getLightLevel()))));
+            NbtCompound nbt = stack.getOrCreateNbt();
+            NbtCompound stateTag = new NbtCompound();
+
+            nbt.put("BlockEntityTag", modelBlock.createNbtWithId());
+            stateTag.putString("light_level", String.valueOf(modelBlock.getProperties().getLightLevel()));
+            nbt.put("BlockStateTag", stateTag);
 
             return stack;
         }
 
-        return super.getPickStack(world, pos, state, includeData);
+        return super.getPickStack(world, pos, state);
     }
 
     @Override
@@ -101,7 +96,8 @@ public class ModelBlock extends Block implements BlockEntityProvider, Waterlogga
         return BlockRenderType.INVISIBLE;
     }
 
-    protected boolean isTransparent(BlockState state, BlockView world, BlockPos pos)
+    @Override
+    public boolean isTransparent(BlockState state, BlockView world, BlockPos pos)
     {
         return true;
     }
@@ -175,9 +171,9 @@ public class ModelBlock extends Block implements BlockEntityProvider, Waterlogga
     }
 
     @Override
-    public ActionResult onUse(BlockState state, World world, BlockPos pos, PlayerEntity player, BlockHitResult hit)
+    public ActionResult onUse(BlockState state, World world, BlockPos pos, PlayerEntity player, Hand hand, BlockHitResult hit)
     {
-        if (player instanceof ServerPlayerEntity serverPlayer)
+        if (hand == Hand.MAIN_HAND && player instanceof ServerPlayerEntity serverPlayer)
         {
             ServerNetwork.sendClickedModelBlock(serverPlayer, pos);
         }
@@ -196,14 +192,17 @@ public class ModelBlock extends Block implements BlockEntityProvider, Waterlogga
     @Override
     public void afterBreak(World world, PlayerEntity player, BlockPos pos, BlockState state, BlockEntity be, ItemStack tool)
     {
-        if (!world.isClient() && !player.getAbilities().creativeMode)
+        if (!world.isClient && !player.getAbilities().creativeMode)
         {
             if (be instanceof ModelBlockEntity model)
             {
                 ItemStack stack = new ItemStack(this);
-                stack.set(DataComponentTypes.BLOCK_ENTITY_DATA, TypedEntityData.create(BBSMod.MODEL_BLOCK_ENTITY, model.createNbt(world.getRegistryManager())));
-                
-                stack.set(DataComponentTypes.BLOCK_STATE, new BlockStateComponent(Map.of("light_level", String.valueOf(model.getProperties().getLightLevel()))));
+                NbtCompound nbt = stack.getOrCreateNbt();
+                NbtCompound stateTag = new NbtCompound();
+
+                nbt.put("BlockEntityTag", model.createNbtWithId());
+                stateTag.putString("light_level", String.valueOf(model.getProperties().getLightLevel()));
+                nbt.put("BlockStateTag", stateTag);
 
                 ItemScatterer.spawn(world, pos, DefaultedList.ofSize(1, stack));
             }

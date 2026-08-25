@@ -23,7 +23,6 @@ import net.minecraft.util.math.Vec3i;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -37,8 +36,8 @@ public class StructurePickerExporter
             return null;
         }
 
-        BlockPos min = blocks.getFirst();
-        BlockPos max = blocks.getFirst();
+        BlockPos min = blocks.get(0);
+        BlockPos max = blocks.get(0);
 
         for (BlockPos pos : blocks)
         {
@@ -49,7 +48,7 @@ public class StructurePickerExporter
         Vec3i size = max.subtract(min).add(1, 1, 1);
         StructureTemplate template = new StructureTemplate();
 
-        template.saveFromWorld(world, min, size, true, Collections.singletonList(Blocks.STRUCTURE_VOID));
+        template.saveFromWorld(world, min, size, true, Blocks.STRUCTURE_VOID);
         filterTemplate(template, min, new HashSet<>(blocks));
 
         File generatedFolder = world.getServer().getSavePath(WorldSavePath.GENERATED).toFile();
@@ -68,7 +67,7 @@ public class StructurePickerExporter
             NbtCompound nbt = new NbtCompound();
 
             template.writeNbt(nbt);
-            NbtIo.writeCompressed(nbt, file.toPath());
+            NbtIo.writeCompressed(nbt, file);
         }
         catch (IOException e)
         {
@@ -178,7 +177,7 @@ public class StructurePickerExporter
         {
             StructureTemplatePalettedListAccessor palette = (StructureTemplatePalettedListAccessor) (Object) list;
 
-            palette.bbs$getInfos().removeIf((info) -> !selected.contains(origin.add(info.pos())));
+            palette.bbs$getInfos().removeIf((info) -> !selected.contains(origin.add(info.pos)));
         }
 
         accessor.bbs$getBlockInfoLists().removeIf((list) -> ((StructureTemplatePalettedListAccessor) (Object) list).bbs$getInfos().isEmpty());

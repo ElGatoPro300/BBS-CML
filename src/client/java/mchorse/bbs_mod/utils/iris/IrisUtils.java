@@ -8,6 +8,10 @@ import mchorse.bbs_mod.resources.Link;
 import mchorse.bbs_mod.utils.CollectionUtils;
 import mchorse.bbs_mod.utils.DataPath;
 
+import net.fabricmc.loader.api.FabricLoader;
+import net.fabricmc.loader.api.ModContainer;
+import net.fabricmc.loader.api.metadata.ModMetadata;
+
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.texture.AbstractTexture;
 
@@ -15,8 +19,6 @@ import net.irisshaders.iris.Iris;
 import net.irisshaders.iris.api.v0.IrisApi;
 import net.irisshaders.iris.gl.uniform.UniformUpdateFrequency;
 import net.irisshaders.iris.gui.screen.ShaderPackScreen;
-import net.irisshaders.iris.pbr.TextureTracker;
-import net.irisshaders.iris.pbr.loader.PBRTextureLoaderRegistry;
 import net.irisshaders.iris.shaderpack.LanguageMap;
 import net.irisshaders.iris.shaderpack.ShaderPack;
 import net.irisshaders.iris.shaderpack.option.menu.OptionMenuContainer;
@@ -25,6 +27,8 @@ import net.irisshaders.iris.shaderpack.option.menu.OptionMenuElementScreen;
 import net.irisshaders.iris.shaderpack.option.menu.OptionMenuLinkElement;
 import net.irisshaders.iris.shaderpack.option.menu.OptionMenuOptionElement;
 import net.irisshaders.iris.shaderpack.properties.ShaderProperties;
+import net.irisshaders.iris.texture.TextureTracker;
+import net.irisshaders.iris.texture.pbr.loader.PBRTextureLoaderRegistry;
 import net.irisshaders.iris.uniforms.custom.cached.CachedUniform;
 import net.irisshaders.iris.uniforms.custom.cached.FloatCachedUniform;
 import net.irisshaders.iris.uniforms.custom.cached.IntCachedUniform;
@@ -32,6 +36,8 @@ import net.irisshaders.iris.vertices.NormI8;
 import net.irisshaders.iris.vertices.NormalHelper;
 import net.irisshaders.iris.vertices.views.TriView;
 
+import java.lang.reflect.Field;
+import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -268,6 +274,215 @@ public class IrisUtils
         }
     }
 
+    private static Boolean hasExternalLODMods;
+
+    public static boolean hasExternalLODMods()
+    {
+        if (hasExternalLODMods == null)
+        {
+            hasExternalLODMods = detectExternalLODMods();
+        }
+
+        return hasExternalLODMods;
+    }
+
+    private static boolean detectExternalLODMods()
+    {
+        FabricLoader loader = FabricLoader.getInstance();
+
+        for (ModContainer mod : loader.getAllMods())
+        {
+            ModMetadata meta = mod.getMetadata();
+            String id = meta.getId().toLowerCase();
+            String name = meta.getName().toLowerCase();
+
+            if (id.contains("distant") || id.contains("horizon") || id.contains("voxy")
+                || id.contains("bobby") || id.contains("nvidium")
+                || id.contains("lod") || name.contains("distant horizons")
+                || name.contains("voxy") || name.contains("level of detail"))
+            {
+                return true;
+            }
+        }
+
+        String[] knownClasses = new String[] {
+            "com.seibel.distanthorizons.common.DistantHorizons",
+            "com.seibel.distanthorizons.core.api.internal.ClientApi",
+            "me.cortex.voxy.client.Voxy",
+            "de.johni0702.minecraft.bobby.Bobby"
+        };
+
+        for (String className : knownClasses)
+        {
+            try
+            {
+                Class.forName(className, false, IrisUtils.class.getClassLoader());
+
+                return true;
+            }
+            catch (ClassNotFoundException ignored)
+            {}
+        }
+
+        return false;
+    }
+
+    public static boolean isExternalLODRenderingActive()
+    {
+        if (!hasExternalLODMods())
+        {
+            return false;
+        }
+
+        boolean hasDH = isModLoadedOrClassPresent("distanthorizons", "com.seibel.distanthorizons.common.DistantHorizons");
+        boolean hasVoxy = isModLoadedOrClassPresent("voxy", "me.cortex.voxy.client.Voxy");
+        boolean hasBobby = isModLoadedOrClassPresent("bobby", "de.johni0702.minecraft.bobby.Bobby");
+
+        if (hasDH && isDistantHorizonsActive())
+        {
+            return true;
+        }
+
+        if (hasVoxy && isVoxyActive())
+        {
+            return true;
+        }
+
+        if (hasBobby && isBobbyActive())
+        {
+            return true;
+        }
+
+        /* If none of the specific known mods was found but hasExternalLODMods() was true (generic LOD mod),
+         * return true by default. If specific mods WERE present and all were inactive, return false. */
+        if (!hasDH && !hasVoxy && !hasBobby)
+        {
+            return true;
+        }
+
+        return false;
+    }
+
+    public static boolean isModLoadedOrClassPresent(String modId, String className)
+    {
+        if (FabricLoader.getInstance().isModLoaded(modId))
+        {
+            return true;
+        }
+
+        try
+        {
+            Class.forName(className, false, IrisUtils.class.getClassLoader());
+
+            return true;
+        }
+        catch (ClassNotFoundException ignored)
+        {}
+
+        return false;
+    }
+
+    private static boolean isDistantHorizonsActive()
+    {
+        try
+        {
+            Class<?> qualityClass = Class.forName("com.seibel.distanthorizons.core.config.Config$Client$Advanced$Graphics$Quality", false, IrisUtils.class.getClassLoader());
+            Field distField = qualityClass.getField("lodChunkRenderDistanceRadius");
+            Object configEntry = distField.get(null);
+
+            if (configEntry != null)
+            {
+                Method getMethod = configEntry.getClass().getMethod("get");
+                Object val = getMethod.invoke(configEntry);
+
+                if (val instanceof Number && ((Number) val).intValue() <= 0)
+                {
+                    return false;
+                }
+            }
+        }
+        catch (ClassNotFoundException ignored)
+        {}
+        catch (Throwable ignored)
+        {}
+
+        return true;
+    }
+
+    private static boolean isVoxyActive()
+    {
+        try
+        {
+            Class<?> voxyClass = Class.forName("me.cortex.voxy.client.Voxy", false, IrisUtils.class.getClassLoader());
+            Method getInstance = voxyClass.getMethod("getInstance");
+            Object instance = getInstance.invoke(null);
+
+            if (instance != null)
+            {
+                try
+                {
+                    Method isRunning = instance.getClass().getMethod("isRunning");
+                    Object res = isRunning.invoke(instance);
+
+                    if (res instanceof Boolean)
+                    {
+                        return (Boolean) res;
+                    }
+                }
+                catch (Throwable ignored)
+                {}
+            }
+
+            Class<?> voxyConfigClass = Class.forName("me.cortex.voxy.client.config.VoxyConfig", false, IrisUtils.class.getClassLoader());
+            Field configField = voxyConfigClass.getField("CONFIG");
+            Object configObj = configField.get(null);
+
+            if (configObj != null)
+            {
+                Field enabledField = configObj.getClass().getField("enabled");
+                Object enabledVal = enabledField.get(configObj);
+
+                if (enabledVal instanceof Boolean)
+                {
+                    return (Boolean) enabledVal;
+                }
+            }
+        }
+        catch (ClassNotFoundException ignored)
+        {}
+        catch (Throwable ignored)
+        {}
+
+        return true;
+    }
+
+    private static boolean isBobbyActive()
+    {
+        try
+        {
+            Class<?> bobbyClass = Class.forName("de.johni0702.minecraft.bobby.Bobby", false, IrisUtils.class.getClassLoader());
+            Method getInstance = bobbyClass.getMethod("getInstance");
+            Object instance = getInstance.invoke(null);
+
+            if (instance != null)
+            {
+                Method isEnabled = instance.getClass().getMethod("isEnabled");
+                Object res = isEnabled.invoke(instance);
+
+                if (res instanceof Boolean)
+                {
+                    return (Boolean) res;
+                }
+            }
+        }
+        catch (ClassNotFoundException ignored)
+        {}
+        catch (Throwable ignored)
+        {}
+
+        return true;
+    }
+
     public static void openShaderPackScreen()
     {
         try
@@ -319,7 +534,7 @@ public class IrisUtils
             int ou = i * 6;
             float x0 = v[oi + 0], y0 = v[oi + 1], z0 = v[oi + 2], u0 = u[ou + 0], v0 = u[ou + 1],
                   x1 = v[oi + 3], y1 = v[oi + 4], z1 = v[oi + 5], u1 = u[ou + 2], v1 = u[ou + 3],
-                  x2 = v[oi + 6], y2 = v[oi + 7], z2 = v[oi + 8], u2 = u[ou + 4], v2 = u[ou + 5];
+                  x2 = v[oi + 6], y2 = v[oi + 7], z2 = v[oi + 7], u2 = u[ou + 4], v2 = u[ou + 5];
 
             int t1 = NormalHelper.computeTangent(n[oi + 0], n[oi + 1], n[oi + 2], triangle.set(x0, y0, z0, u0, v0, x1, y1, z1, u1, v1, x2, y2, z2, u2, v2));
             int t2 = NormalHelper.computeTangent(n[oi + 3], n[oi + 4], n[oi + 5], triangle.set(x0, y0, z0, u0, v0, x1, y1, z1, u1, v1, x2, y2, z2, u2, v2));

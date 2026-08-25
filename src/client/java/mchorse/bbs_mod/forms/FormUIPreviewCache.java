@@ -20,9 +20,9 @@ import net.minecraft.client.util.math.MatrixStack;
 
 import org.joml.Matrix4f;
 
-import com.mojang.blaze3d.opengl.GlStateManager;
-import com.mojang.blaze3d.systems.ProjectionType;
+import com.mojang.blaze3d.platform.GlStateManager;
 import com.mojang.blaze3d.systems.RenderSystem;
+import com.mojang.blaze3d.systems.VertexSorter;
 
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL13;
@@ -259,19 +259,25 @@ public final class FormUIPreviewCache
         MinecraftClient client = MinecraftClient.getInstance();
         int[] viewport = new int[4];
         boolean scissorWasEnabled = GL11.glIsEnabled(GL11.GL_SCISSOR_TEST);
-        MatrixStack matrices = new MatrixStack();
+        Matrix4f previousProjection = new Matrix4f(RenderSystem.getProjectionMatrix());
+        MatrixStack matrices = context.batcher.getContext().getMatrices();
 
         GL11.glGetIntegerv(GL11.GL_VIEWPORT, viewport);
 
         context.batcher.flush();
 
-        /* Morph list cells clip with screen-space scissors. Those scissors do not
-         * clip correctly in super-sampled scratch space; clear scissor while drawing. */
         if (scissorWasEnabled)
         {
             GlStateManager._disableScissorTest();
         }
 
+        RenderSystem.setProjectionMatrix(
+                new Matrix4f().ortho(0F, renderW, renderH, 0F, -1000F, 3000F),
+                VertexSorter.BY_Z
+        );
+        RenderSystem.getModelViewStack().push();
+        RenderSystem.getModelViewStack().peek().getPositionMatrix().identity();
+        RenderSystem.applyModelViewMatrix();
         matrices.push();
         matrices.peek().getPositionMatrix().identity();
         matrices.peek().getNormalMatrix().identity();
@@ -280,13 +286,19 @@ public final class FormUIPreviewCache
         scratchFramebuffer.applyClear();
         FormRenderer.setSuppressFormDisplayName(true);
 
+        boolean bakeSucceeded = true;
+
         try
         {
-            /* Bake with the keyed yaw — scratch FBO coords would otherwise use
-             * screen mouseX and face the wrong way. */
             ModelFormRenderer.setUIAngleOverride(angleFromBucket(angleBucket));
             FormUtilsClient.renderUI(form, context, 0, 0, renderW, renderH);
             context.batcher.flush();
+        }
+        catch (Exception e)
+        {
+            /* Bake failed mid-draw (e.g. bad GL state) — do not commit this as a
+             * valid cache entry, or the broken/garbage texture gets reused forever. */
+            bakeSucceeded = false;
         }
         finally
         {
@@ -294,17 +306,26 @@ public final class FormUIPreviewCache
             FormRenderer.setSuppressFormDisplayName(false);
         }
 
-        entry.ensure(renderW, renderH);
-        entry.texture.bind();
-        GL11.glCopyTexSubImage2D(GL11.GL_TEXTURE_2D, 0, 0, 0, 0, 0, renderW, renderH);
-        entry.texture.unbind();
+        if (bakeSucceeded)
+        {
+            entry.ensure(renderW, renderH);
+            entry.texture.bind();
+            GL11.glCopyTexSubImage2D(GL11.GL_TEXTURE_2D, 0, 0, 0, 0, 0, renderW, renderH);
+            entry.texture.unbind();
+        }
 
         scratchFramebuffer.unbind();
 
         matrices.pop();
+        RenderSystem.getModelViewStack().pop();
+        RenderSystem.applyModelViewMatrix();
+        RenderSystem.setProjectionMatrix(previousProjection, VertexSorter.BY_Z);
 
-        /* Do not clear — wiping the main FB mid-UI causes white wash / text corruption. */
-        BBSRendering.ensureMainFramebuffer();
+        if (client != null && client.getFramebuffer() != null)
+        {
+            BBSRendering.ensureMainFramebuffer();
+            client.getFramebuffer().beginWrite(false);
+        }
 
         GL11.glViewport(viewport[0], viewport[1], viewport[2], viewport[3]);
 
@@ -315,11 +336,14 @@ public final class FormUIPreviewCache
 
         BBSRendering.restoreGuiRenderState();
 
-        entry.revision = revision;
-        entry.angleBucket = angleBucket;
-        entry.width = width;
-        entry.height = height;
-        entry.formKey = System.identityHashCode(form);
+        if (bakeSucceeded)
+        {
+            entry.revision = revision;
+            entry.angleBucket = angleBucket;
+            entry.width = width;
+            entry.height = height;
+            entry.formKey = System.identityHashCode(form);
+        }
     }
 
     private static void ensureScratchFramebuffer(int width, int height)

@@ -2,372 +2,246 @@ package mchorse.bbs_mod.client;
 
 import mchorse.bbs_mod.BBSMod;
 
-import net.minecraft.client.gl.RenderPipelines;
-import net.minecraft.client.gl.UniformType;
-import net.minecraft.client.render.RenderLayer;
-import net.minecraft.client.render.RenderSetup;
+import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.gl.ShaderProgram;
 import net.minecraft.client.render.VertexFormats;
+import net.minecraft.resource.Resource;
+import net.minecraft.resource.ResourceFactory;
+import net.minecraft.resource.ResourceManager;
 import net.minecraft.util.Identifier;
 
-import com.mojang.blaze3d.pipeline.BlendFunction;
-import com.mojang.blaze3d.pipeline.RenderPipeline;
-import com.mojang.blaze3d.platform.DepthTestFunction;
-import com.mojang.blaze3d.vertex.VertexFormat;
-
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 public class BBSShaders
 {
     public static final List<Runnable> LOADERS = new ArrayList<>();
 
-    private static final BlendFunction BLEND = BlendFunction.TRANSLUCENT;
+    private static ShaderProgram model;
+    private static ShaderProgram multiLink;
+    private static ShaderProgram subtitles;
+    private static ShaderProgram imageOverlay;
 
-    public static final String PICKER_UNIFORM = "BBSPicker";
+    private static ShaderProgram pickerPreview;
+    private static ShaderProgram pickerBillboard;
+    private static ShaderProgram pickerBillboardNoShading;
+    private static ShaderProgram pickerParticles;
+    private static ShaderProgram pickerModels;
+    private static ShaderProgram blockPaintOverlay;
+    private static ShaderProgram flatPaintOverlay;
+    private static ShaderProgram blockColorTintOverlay;
+    private static ShaderProgram flatColorTintOverlay;
 
-    private static final RenderPipeline MODEL = registerModel();
-    private static final RenderPipeline MULTILINK = registerMultilink();
-    private static final RenderPipeline SUBTITLES = registerSubtitles();
-
-    private static final RenderPipeline PICKER_PREVIEW = registerPicker(
-        "picker_preview", VertexFormats.POSITION_TEXTURE_COLOR
-    );
-    private static final RenderPipeline PICKER_BILLBOARD = registerPicker(
-        "picker_billboard", VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL
-    );
-    private static final RenderPipeline PICKER_BILLBOARD_NO_SHADING = registerPicker(
-        "picker_billboard_no_shading", VertexFormats.POSITION_TEXTURE_LIGHT_COLOR
-    );
-    private static final RenderPipeline PICKER_PARTICLES = registerPicker(
-        "picker_particles", VertexFormats.POSITION_COLOR_TEXTURE_LIGHT
-    );
-    private static final RenderPipeline PICKER_MODELS = registerPicker(
-        "picker_models", VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL
-    );
-
-    private static final RenderPipeline PARTICLES = registerParticles();
-
-    private static final RenderPipeline BLOCK_PAINT_OVERLAY = registerOverlay("block_paint_overlay", false);
-    private static final RenderPipeline FLAT_PAINT_OVERLAY = registerOverlay("flat_paint_overlay", false);
-    private static final RenderPipeline BLOCK_COLOR_TINT_OVERLAY = registerOverlay("block_color_tint_overlay", true);
-    private static final RenderPipeline FLAT_COLOR_TINT_OVERLAY = registerOverlay("flat_color_tint_overlay", true);
-
-    private static RenderLayer modelLayer;
-    private static RenderLayer multiLinkLayer;
-    private static RenderLayer subtitlesLayer;
-    private static RenderLayer pickerPreviewLayer;
-    private static RenderLayer pickerBillboardLayer;
-    private static RenderLayer pickerBillboardNoShadingLayer;
-    private static RenderLayer pickerParticlesLayer;
-    private static RenderLayer pickerModelsLayer;
-    private static RenderLayer particlesLayer;
+    static
+    {
+        setup();
+    }
 
     public static void setup()
     {
-        for (Runnable runnable : LOADERS)
+        if (model != null)
         {
-            runnable.run();
+            model.close();
+            model = null;
+        }
+
+        if (multiLink != null)
+        {
+            multiLink.close();
+            multiLink = null;
+        }
+
+        if (subtitles != null)
+        {
+            subtitles.close();
+            subtitles = null;
+        }
+
+        if (imageOverlay != null)
+        {
+            imageOverlay.close();
+            imageOverlay = null;
+        }
+
+        if (pickerPreview != null)
+        {
+            pickerPreview.close();
+            pickerPreview = null;
+        }
+
+        if (pickerBillboard != null)
+        {
+            pickerBillboard.close();
+            pickerBillboard = null;
+        }
+
+        if (pickerBillboardNoShading != null)
+        {
+            pickerBillboardNoShading.close();
+            pickerBillboardNoShading = null;
+        }
+
+        if (pickerParticles != null)
+        {
+            pickerParticles.close();
+            pickerParticles = null;
+        }
+
+        if (pickerModels != null)
+        {
+            pickerModels.close();
+            pickerModels = null;
+        }
+
+        if (blockPaintOverlay != null)
+        {
+            blockPaintOverlay.close();
+            blockPaintOverlay = null;
+        }
+
+        if (flatPaintOverlay != null)
+        {
+            flatPaintOverlay.close();
+            flatPaintOverlay = null;
+        }
+
+        if (blockColorTintOverlay != null)
+        {
+            blockColorTintOverlay.close();
+            blockColorTintOverlay = null;
+        }
+
+        if (flatColorTintOverlay != null)
+        {
+            flatColorTintOverlay.close();
+            flatColorTintOverlay = null;
+        }
+
+        try
+        {
+            ResourceFactory factory = new ProxyResourceFactory(MinecraftClient.getInstance().getResourceManager());
+
+            model = new ShaderProgram(factory, "model", VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL);
+            multiLink = new ShaderProgram(factory, "multilink", VertexFormats.POSITION_TEXTURE_COLOR);
+            subtitles = new ShaderProgram(factory, "subtitles", VertexFormats.POSITION_TEXTURE_COLOR);
+            imageOverlay = new ShaderProgram(factory, "image_overlay", VertexFormats.POSITION_TEXTURE_COLOR);
+
+            pickerPreview = new ShaderProgram(factory, "picker_preview", VertexFormats.POSITION_TEXTURE_COLOR);
+            pickerBillboard = new ShaderProgram(factory, "picker_billboard", VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL);
+            pickerBillboardNoShading = new ShaderProgram(factory, "picker_billboard_no_shading", VertexFormats.POSITION_TEXTURE_LIGHT_COLOR);
+            pickerParticles = new ShaderProgram(factory, "picker_particles", VertexFormats.POSITION_COLOR_TEXTURE_LIGHT);
+            pickerModels = new ShaderProgram(factory, "picker_models", VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL);
+            blockPaintOverlay = new ShaderProgram(factory, "block_paint_overlay", VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL);
+            flatPaintOverlay = new ShaderProgram(factory, "flat_paint_overlay", VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL);
+            blockColorTintOverlay = new ShaderProgram(factory, "block_color_tint_overlay", VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL);
+            flatColorTintOverlay = new ShaderProgram(factory, "flat_color_tint_overlay", VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL);
+        
+            for (Runnable runnable : LOADERS)
+            {
+                runnable.run();
+            }
+        }
+        catch (IOException e)
+        {
+            e.printStackTrace();
         }
     }
 
-    public static RenderPipeline getModel()
+    public static ShaderProgram getModel()
     {
-        return MODEL;
-    }
-
-    public static RenderPipeline getMultilinkProgram()
-    {
-        return MULTILINK;
-    }
-
-    public static RenderPipeline getSubtitlesProgram()
-    {
-        return SUBTITLES;
-    }
-
-    public static RenderPipeline getPickerPreviewProgram()
-    {
-        return PICKER_PREVIEW;
-    }
-
-    public static RenderPipeline getPickerBillboardProgram()
-    {
-        return PICKER_BILLBOARD;
-    }
-
-    public static RenderPipeline getPickerBillboardNoShadingProgram()
-    {
-        return PICKER_BILLBOARD_NO_SHADING;
-    }
-
-    public static RenderPipeline getPickerParticlesProgram()
-    {
-        return PICKER_PARTICLES;
-    }
-
-    public static RenderPipeline getPickerModelsProgram()
-    {
-        return PICKER_MODELS;
-    }
-
-    public static RenderPipeline getParticles()
-    {
-        return PARTICLES;
-    }
-
-    public static RenderLayer getMultilinkLayer()
-    {
-        if (multiLinkLayer == null)
+        if (model == null)
         {
-            multiLinkLayer = layer("multilink", MULTILINK, false);
+            setup();
         }
 
-        return multiLinkLayer;
+        return model;
     }
 
-    public static RenderLayer getSubtitlesLayer()
+    public static ShaderProgram getMultilinkProgram()
     {
-        if (subtitlesLayer == null)
+        return multiLink;
+    }
+
+    public static ShaderProgram getSubtitlesProgram()
+    {
+        return subtitles;
+    }
+
+    public static ShaderProgram getImageOverlayProgram()
+    {
+        if (imageOverlay == null)
         {
-            subtitlesLayer = layer("subtitles", SUBTITLES, false);
+            setup();
         }
 
-        return subtitlesLayer;
+        return imageOverlay;
     }
 
-    public static RenderLayer getPickerPreviewLayer()
+    public static ShaderProgram getPickerPreviewProgram()
     {
-        if (pickerPreviewLayer == null)
+        return pickerPreview;
+    }
+
+    public static ShaderProgram getPickerBillboardProgram()
+    {
+        return pickerBillboard;
+    }
+
+    public static ShaderProgram getPickerBillboardNoShadingProgram()
+    {
+        return pickerBillboardNoShading;
+    }
+
+    public static ShaderProgram getPickerParticlesProgram()
+    {
+        return pickerParticles;
+    }
+
+    public static ShaderProgram getPickerModelsProgram()
+    {
+        return pickerModels;
+    }
+
+    public static ShaderProgram getBlockPaintOverlayProgram()
+    {
+        return blockPaintOverlay;
+    }
+
+    public static ShaderProgram getFlatPaintOverlayProgram()
+    {
+        return flatPaintOverlay;
+    }
+
+    public static ShaderProgram getBlockColorTintOverlayProgram()
+    {
+        return blockColorTintOverlay;
+    }
+
+    public static ShaderProgram getFlatColorTintOverlayProgram()
+    {
+        return flatColorTintOverlay;
+    }
+
+    private static class ProxyResourceFactory implements ResourceFactory
+    {
+        private ResourceManager manager;
+
+        public ProxyResourceFactory(ResourceManager manager)
         {
-            pickerPreviewLayer = layer("picker_preview", PICKER_PREVIEW, false);
+            this.manager = manager;
         }
 
-        return pickerPreviewLayer;
-    }
-
-    public static RenderLayer getPickerBillboardLayer()
-    {
-        if (pickerBillboardLayer == null)
+        @Override
+        public Optional<Resource> getResource(Identifier id)
         {
-            pickerBillboardLayer = layer("picker_billboard", PICKER_BILLBOARD, true);
+            if (id.getPath().contains("/core/"))
+            {
+                return this.manager.getResource(Identifier.of(BBSMod.MOD_ID, id.getPath()));
+            }
+
+            return this.manager.getResource(id);
         }
-
-        return pickerBillboardLayer;
-    }
-
-    public static RenderLayer getPickerBillboardNoShadingLayer()
-    {
-        if (pickerBillboardNoShadingLayer == null)
-        {
-            pickerBillboardNoShadingLayer = layer("picker_billboard_no_shading", PICKER_BILLBOARD_NO_SHADING, true);
-        }
-
-        return pickerBillboardNoShadingLayer;
-    }
-
-    public static RenderLayer getPickerParticlesLayer()
-    {
-        if (pickerParticlesLayer == null)
-        {
-            pickerParticlesLayer = layer("picker_particles", PICKER_PARTICLES, false);
-        }
-
-        return pickerParticlesLayer;
-    }
-
-    public static RenderLayer getPickerModelsLayer()
-    {
-        if (pickerModelsLayer == null)
-        {
-            pickerModelsLayer = layer("picker_models", PICKER_MODELS, true);
-        }
-
-        return pickerModelsLayer;
-    }
-
-    public static RenderLayer getParticlesLayer()
-    {
-        if (particlesLayer == null)
-        {
-            RenderSetup.Builder setup = RenderSetup.builder(PARTICLES)
-                .expectedBufferSize(RenderLayer.field_64008)
-                .translucent()
-                .useLightmap();
-
-            particlesLayer = RenderLayer.of(BBSMod.MOD_ID + "_particles", setup.build());
-        }
-
-        return particlesLayer;
-    }
-
-    public static RenderPipeline getBlockPaintOverlayProgram()
-    {
-        return BLOCK_PAINT_OVERLAY;
-    }
-
-    public static RenderPipeline getBlockColorTintOverlayProgram()
-    {
-        return BLOCK_COLOR_TINT_OVERLAY;
-    }
-
-    public static RenderPipeline getFlatColorTintOverlayProgram()
-    {
-        return FLAT_COLOR_TINT_OVERLAY;
-    }
-
-    public static RenderPipeline getFlatPaintOverlayProgram()
-    {
-        return FLAT_PAINT_OVERLAY;
-    }
-
-    public static RenderPipeline getModelProgram()
-    {
-        return MODEL;
-    }
-
-    private static RenderPipeline registerModel()
-    {
-        Identifier shader = Identifier.of(BBSMod.MOD_ID, "core/model");
-
-        RenderPipeline.Builder builder = RenderPipeline.builder()
-            .withLocation(Identifier.of(BBSMod.MOD_ID, "pipeline/model"))
-            .withVertexShader(shader)
-            .withFragmentShader(shader)
-            .withVertexFormat(VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL, VertexFormat.DrawMode.QUADS)
-            .withBlend(BLEND)
-            .withDepthTestFunction(DepthTestFunction.LEQUAL_DEPTH_TEST)
-            .withCull(false)
-            .withUniform("DynamicTransforms", UniformType.UNIFORM_BUFFER)
-            .withUniform("Projection", UniformType.UNIFORM_BUFFER)
-            .withUniform("Fog", UniformType.UNIFORM_BUFFER)
-            .withUniform("Lighting", UniformType.UNIFORM_BUFFER)
-            .withSampler("Sampler0")
-            .withSampler("Sampler1")
-            .withSampler("Sampler2");
-
-        return RenderPipelines.register(builder.build());
-    }
-
-    private static RenderPipeline registerParticles()
-    {
-        Identifier shader = Identifier.of(BBSMod.MOD_ID, "core/particles");
-
-        RenderPipeline.Builder builder = RenderPipeline.builder()
-            .withLocation(Identifier.of(BBSMod.MOD_ID, "pipeline/particles"))
-            .withVertexShader(shader)
-            .withFragmentShader(shader)
-            .withVertexFormat(VertexFormats.POSITION_TEXTURE_COLOR_LIGHT, VertexFormat.DrawMode.QUADS)
-            .withBlend(BLEND)
-            .withDepthTestFunction(DepthTestFunction.LEQUAL_DEPTH_TEST)
-            .withCull(false)
-            .withUniform("DynamicTransforms", UniformType.UNIFORM_BUFFER)
-            .withUniform("Projection", UniformType.UNIFORM_BUFFER)
-            .withUniform("Fog", UniformType.UNIFORM_BUFFER)
-            .withSampler("Sampler0")
-            .withSampler("Sampler2");
-
-        return RenderPipelines.register(builder.build());
-    }
-
-    private static RenderPipeline registerMultilink()
-    {
-        Identifier shader = Identifier.of(BBSMod.MOD_ID, "core/multilink");
-
-        RenderPipeline.Builder builder = RenderPipeline.builder()
-            .withLocation(Identifier.of(BBSMod.MOD_ID, "pipeline/multilink"))
-            .withVertexShader(shader)
-            .withFragmentShader(shader)
-            .withVertexFormat(VertexFormats.POSITION_TEXTURE_COLOR, VertexFormat.DrawMode.QUADS)
-            .withBlend(BLEND)
-            .withDepthTestFunction(DepthTestFunction.LEQUAL_DEPTH_TEST)
-            .withCull(false)
-            .withUniform("DynamicTransforms", UniformType.UNIFORM_BUFFER)
-            .withUniform("Projection", UniformType.UNIFORM_BUFFER)
-            .withUniform("MultilinkInfo", UniformType.UNIFORM_BUFFER)
-            .withSampler("Sampler0")
-            .withSampler("Sampler3");
-
-        return RenderPipelines.register(builder.build());
-    }
-
-    private static RenderPipeline registerSubtitles()
-    {
-        Identifier shader = Identifier.of(BBSMod.MOD_ID, "core/subtitles");
-
-        RenderPipeline.Builder builder = RenderPipeline.builder()
-            .withLocation(Identifier.of(BBSMod.MOD_ID, "pipeline/subtitles"))
-            .withVertexShader(shader)
-            .withFragmentShader(shader)
-            .withVertexFormat(VertexFormats.POSITION_TEXTURE_COLOR, VertexFormat.DrawMode.QUADS)
-            .withBlend(BLEND)
-            .withDepthTestFunction(DepthTestFunction.LEQUAL_DEPTH_TEST)
-            .withCull(false)
-            .withUniform("DynamicTransforms", UniformType.UNIFORM_BUFFER)
-            .withUniform("Projection", UniformType.UNIFORM_BUFFER)
-            .withUniform("SubtitlesInfo", UniformType.UNIFORM_BUFFER)
-            .withSampler("Sampler0");
-
-        return RenderPipelines.register(builder.build());
-    }
-
-    private static RenderPipeline registerPicker(String name, VertexFormat format)
-    {
-        Identifier shader = Identifier.of(BBSMod.MOD_ID, "core/" + name);
-
-        RenderPipeline.Builder builder = RenderPipeline.builder()
-            .withLocation(Identifier.of(BBSMod.MOD_ID, "pipeline/" + name))
-            .withVertexShader(shader)
-            .withFragmentShader(shader)
-            .withVertexFormat(format, VertexFormat.DrawMode.QUADS)
-            .withBlend(BLEND)
-            .withDepthTestFunction(DepthTestFunction.LEQUAL_DEPTH_TEST)
-            .withCull(false)
-            .withUniform("DynamicTransforms", UniformType.UNIFORM_BUFFER)
-            .withUniform("Projection", UniformType.UNIFORM_BUFFER)
-            .withUniform(PICKER_UNIFORM, UniformType.UNIFORM_BUFFER)
-            .withSampler("Sampler0");
-
-        return RenderPipelines.register(builder.build());
-    }
-
-    private static RenderPipeline registerOverlay(String name, boolean hasSampler3)
-    {
-        Identifier shader = Identifier.of(BBSMod.MOD_ID, "core/" + name);
-
-        RenderPipeline.Builder builder = RenderPipeline.builder()
-            .withLocation(Identifier.of(BBSMod.MOD_ID, "pipeline/" + name))
-            .withVertexShader(shader)
-            .withFragmentShader(shader)
-            .withVertexFormat(VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL, VertexFormat.DrawMode.QUADS)
-            .withBlend(BLEND)
-            .withDepthTestFunction(DepthTestFunction.LEQUAL_DEPTH_TEST)
-            .withCull(false)
-            .withUniform("DynamicTransforms", UniformType.UNIFORM_BUFFER)
-            .withUniform("Projection", UniformType.UNIFORM_BUFFER)
-            .withUniform("Fog", UniformType.UNIFORM_BUFFER)
-            .withUniform("Lighting", UniformType.UNIFORM_BUFFER)
-            .withSampler("Sampler0")
-            .withSampler("Sampler2");
-
-        if (hasSampler3)
-        {
-            builder.withSampler("Sampler3");
-        }
-
-        return RenderPipelines.register(builder.build());
-    }
-
-    private static RenderLayer layer(String name, RenderPipeline pipeline, boolean useLightmapOverlay)
-    {
-        RenderSetup.Builder setup = RenderSetup.builder(pipeline)
-            .expectedBufferSize(RenderLayer.field_64008)
-            .translucent();
-
-        if (useLightmapOverlay)
-        {
-            setup.useLightmap().useOverlay();
-        }
-
-        return RenderLayer.of(BBSMod.MOD_ID + "_" + name, setup.build());
     }
 }

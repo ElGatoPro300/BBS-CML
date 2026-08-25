@@ -3,7 +3,7 @@ package mchorse.bbs_mod.ui.framework;
 import mchorse.bbs_mod.ui.Keys;
 import mchorse.bbs_mod.ui.film.toolbar.TimelineToolbar;
 import mchorse.bbs_mod.ui.film.toolbar.TimelineToolbarPointerBlock;
-import mchorse.bbs_mod.ui.forms.UIFormList;
+import mchorse.bbs_mod.ui.framework.elements.IFocusedUIElement;
 import mchorse.bbs_mod.ui.framework.elements.IUIElement;
 import mchorse.bbs_mod.ui.framework.elements.IViewport;
 import mchorse.bbs_mod.ui.framework.elements.UIElement;
@@ -15,11 +15,10 @@ import mchorse.bbs_mod.ui.utils.Gizmo;
 import mchorse.bbs_mod.ui.utils.renderers.InputRenderer;
 import mchorse.bbs_mod.utils.colors.Colors;
 
-import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderContext;
+import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
 
 import net.minecraft.client.MinecraftClient;
 
-import com.mojang.blaze3d.opengl.GlStateManager;
 import com.mojang.blaze3d.systems.RenderSystem;
 
 import org.lwjgl.glfw.GLFW;
@@ -34,11 +33,6 @@ import java.util.List;
 public abstract class UIBaseMenu
 {
     public static boolean renderAxes = true;
-
-    public static boolean shouldRenderAxes()
-    {
-        return renderAxes;
-    }
 
     private static InputRenderer inputRenderer = new InputRenderer();
 
@@ -60,17 +54,7 @@ public abstract class UIBaseMenu
 
         this.main = new UIElement();
         this.main.full(this.viewport);
-        this.overlay = new UIElement()
-        {
-            @Override
-            public void render(UIContext context)
-            {
-                context.batcher.getContext().getMatrices().pushMatrix();
-                context.batcher.getContext().getMatrices().translate(0F, 0F); // Z translation is not supported on 2D Matrix3x2fStack
-                super.render(context);
-                context.batcher.getContext().getMatrices().popMatrix();
-            }
-        };
+        this.overlay = new UIElement();
         this.overlay.full(this.viewport);
         this.root.add(this.main, this.overlay);
 
@@ -179,7 +163,24 @@ public abstract class UIBaseMenu
             this.context.pushViewport(this.viewport);
             TimelineToolbarPointerBlock.prepare(this.context);
 
+            IFocusedUIElement previouslyFocused = this.context.activeElement;
+
             IUIElement element = this.root.mouseClicked(this.context);
+
+            if (previouslyFocused != null && this.context.activeElement == previouslyFocused)
+            {
+                boolean clickedFocused = false;
+
+                if (element instanceof UIElement clickedElement && previouslyFocused instanceof UIElement focusedElement)
+                {
+                    clickedFocused = clickedElement == focusedElement || focusedElement.isDescendant(clickedElement);
+                }
+
+                if (!clickedFocused)
+                {
+                    this.context.unfocus();
+                }
+            }
 
             this.context.popViewport();
 
@@ -262,7 +263,7 @@ public abstract class UIBaseMenu
     {
         boolean result = false;
 
-        this.context.setMouseWheel(x, y, v, h);
+        this.context.setMouseWheel(x, y, v, this.context.mouseWheelHorizontal);
 
         if (this.root.isEnabled())
         {
@@ -372,7 +373,7 @@ public abstract class UIBaseMenu
             mouseX = mouseY = -1;
         }
 
-        GlStateManager._depthFunc(GL11.GL_ALWAYS);
+        RenderSystem.depthFunc(GL11.GL_ALWAYS);
 
         this.context.resetMatrix();
         this.context.setMouse(mouseX, mouseY);
@@ -400,6 +401,8 @@ public abstract class UIBaseMenu
         }
 
         this.context.applyCursor();
+
+        RenderSystem.depthFunc(GL11.GL_LEQUAL);
     }
 
     protected void preRenderMenu(UIRenderingContext context)

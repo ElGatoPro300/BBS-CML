@@ -128,10 +128,10 @@ public class TextureFont
         ImageIO.write(image, "png", baos);
         NativeImage nativeImage = NativeImage.read(new ByteArrayInputStream(baos.toByteArray()));
         
-        this.texture = new NativeImageBackedTexture(() -> "texture_font", nativeImage);
-        String name = "bbs_font_" + font.hashCode();
-        this.textureId = Identifier.of("bbs_mod", name.toLowerCase());
-        MinecraftClient.getInstance().getTextureManager().registerTexture(this.textureId, this.texture);
+        RenderSystem.recordRenderCall(() -> {
+            this.texture = new NativeImageBackedTexture(nativeImage);
+            this.textureId = MinecraftClient.getInstance().getTextureManager().registerDynamicTexture("bbs_font_" + font.hashCode(), this.texture);
+        });
     }
 
     public int getWidth(String text)
@@ -215,8 +215,7 @@ public class TextureFont
     {
         if (this.textureId == null) return;
 
-        VertexConsumer consumer = null;
-        /* RenderLayer.getText() was removed in 1.21.11 — reimplement later */
+        VertexConsumer consumer = consumers.getBuffer(RenderLayer.getText(this.textureId));
         float scale = 0.25f; /* Scale down because we generated at 64px */
         
         float r1 = (color >> 16 & 255) / 255.0F;
@@ -322,7 +321,7 @@ public class TextureFont
 
     private void drawVertex(VertexConsumer consumer, Matrix4f matrix, float x, float y, float z, float u, float v, float r, float g, float b, float a, int light)
     {
-        consumer.vertex(matrix, x, y, z).color(r, g, b, a).texture(u, v).light(light);
+        consumer.vertex(matrix, x, y, z).color(r, g, b, a).texture(u, v).light(light).next();
     }
 
     private static class Glyph

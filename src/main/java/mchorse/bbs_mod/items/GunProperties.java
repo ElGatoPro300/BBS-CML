@@ -16,8 +16,6 @@ import mchorse.bbs_mod.utils.interps.Interpolation;
 import mchorse.bbs_mod.utils.interps.Interpolations;
 import mchorse.bbs_mod.utils.pose.Transform;
 
-import net.minecraft.component.DataComponentTypes;
-import net.minecraft.component.type.NbtComponent;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NbtCompound;
 import net.minecraft.network.PacketByteBuf;
@@ -75,15 +73,14 @@ public class GunProperties extends ModelProperties
     public static GunProperties get(ItemStack stack)
     {
         GunProperties properties = new GunProperties();
-        NbtComponent customData = stack.get(DataComponentTypes.CUSTOM_DATA);
+        NbtCompound nbt = stack.getNbt();
 
-        if (customData == null)
+        if (nbt == null)
         {
             setupDefault(properties);
             return properties;
         }
 
-        NbtCompound nbt = customData.copyNbt();
         BaseType data = DataStorageUtils.readFromNbtCompound(nbt, "GunData");
 
         if (data != null && data.isMap())

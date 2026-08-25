@@ -6,6 +6,8 @@ import mchorse.bbs_mod.utils.colors.Color;
 import net.minecraft.client.render.LightmapTextureManager;
 import net.minecraft.client.render.VertexConsumer;
 
+import org.joml.Matrix4f;
+
 /**
  * Glow overlay for text geometry. Multiplies glow emission with per-vertex text tint
  * so label glow matches the text color (custom fonts use {@code color(float)}).
@@ -22,9 +24,27 @@ public class TextGlowEmissionVertexConsumer implements VertexConsumer
     }
 
     @Override
-    public VertexConsumer vertex(float x, float y, float z)
+    public VertexConsumer vertex(double x, double y, double z)
     {
         return this.consumer.vertex(x, y, z);
+    }
+
+    @Override
+    public void next()
+    {
+        this.consumer.next();
+    }
+
+    @Override
+    public void fixedColor(int red, int green, int blue, int alpha)
+    {
+        this.consumer.fixedColor(red, green, blue, alpha);
+    }
+
+    @Override
+    public void unfixColor()
+    {
+        this.consumer.unfixColor();
     }
 
     @Override
@@ -50,12 +70,6 @@ public class TextGlowEmissionVertexConsumer implements VertexConsumer
     }
 
     @Override
-    public VertexConsumer color(int argb)
-    {
-        return this.consumer.color(argb);
-    }
-
-    @Override
     public VertexConsumer texture(float u, float v)
     {
         return this.consumer.texture(u, v);
@@ -77,11 +91,5 @@ public class TextGlowEmissionVertexConsumer implements VertexConsumer
     public VertexConsumer normal(float x, float y, float z)
     {
         return this.consumer.normal(x, y, z);
-    }
-
-    @Override
-    public VertexConsumer lineWidth(float width)
-    {
-        return this.consumer.lineWidth(width);
     }
 }

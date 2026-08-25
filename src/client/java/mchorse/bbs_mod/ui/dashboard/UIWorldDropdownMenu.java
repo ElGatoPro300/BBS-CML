@@ -22,8 +22,7 @@ import mchorse.bbs_mod.utils.interps.Lerps;
 
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.world.ClientWorld;
-
-/* GameRules was restructured in 1.21.11; WorldPropertiesHelper.readGamerule now accepts String keys directly */
+import net.minecraft.world.GameRules;
 
 /**
  * Animated World dropdown under the main-menu World button (Time / Weather / Mobs / Gamma).
@@ -55,6 +54,7 @@ public class UIWorldDropdownMenu extends UIContextMenu
     private UIToggle pauseWeather;
     private UIToggle mobSpawning;
     private UIButton killMobs;
+    private UIToggle overrideGamma;
     private UITrackpad gamma;
     private UIToggle nightVision;
 
@@ -79,8 +79,8 @@ public class UIWorldDropdownMenu extends UIContextMenu
         this.animTo = 1F;
         this.w(MENU_WIDTH).h(MIN_HEIGHT);
 
-        this.freezeTime = new UIToggle(UIKeys.WORLD_FREEZE_TIME, !WorldPropertiesHelper.readGamerule("doDaylightCycle", true), (b) ->
-            WorldPropertiesHelper.setGamerule("doDaylightCycle", !b.getValue()));
+        this.freezeTime = new UIToggle(UIKeys.WORLD_FREEZE_TIME, !WorldPropertiesHelper.readGamerule(GameRules.DO_DAYLIGHT_CYCLE, true), (b) ->
+            WorldPropertiesHelper.setGamerule(GameRules.DO_DAYLIGHT_CYCLE, !b.getValue()));
 
         this.time = new UITrackpad((v) -> this.pendingTime = (int) v.doubleValue());
         this.time.limit(0D, 24000D, true).increment(100D).values(100D, 10D, 1000D);
@@ -103,8 +103,8 @@ public class UIWorldDropdownMenu extends UIContextMenu
             this.sunPathRotation
         );
 
-        this.pauseWeather = new UIToggle(UIKeys.WORLD_PAUSE_WEATHER, !WorldPropertiesHelper.readGamerule("doWeatherCycle", true), (b) ->
-            WorldPropertiesHelper.setGamerule("doWeatherCycle", !b.getValue()));
+        this.pauseWeather = new UIToggle(UIKeys.WORLD_PAUSE_WEATHER, !WorldPropertiesHelper.readGamerule(GameRules.DO_WEATHER_CYCLE, true), (b) ->
+            WorldPropertiesHelper.setGamerule(GameRules.DO_WEATHER_CYCLE, !b.getValue()));
 
         UIButton clear = new UIButton(UIKeys.WORLD_WEATHER_CLEAR, (b) -> WorldPropertiesHelper.setWeatherClear());
         UIButton rain = new UIButton(UIKeys.WORLD_WEATHER_RAIN, (b) -> WorldPropertiesHelper.setWeatherRain());
@@ -115,8 +115,8 @@ public class UIWorldDropdownMenu extends UIContextMenu
             UI.row(4, clear, rain, thunder)
         );
 
-        this.mobSpawning = new UIToggle(UIKeys.WORLD_MOB_SPAWN, WorldPropertiesHelper.readGamerule("doMobSpawning", true), (b) ->
-            WorldPropertiesHelper.setGamerule("doMobSpawning", b.getValue()));
+        this.mobSpawning = new UIToggle(UIKeys.WORLD_MOB_SPAWN, WorldPropertiesHelper.readGamerule(GameRules.DO_MOB_SPAWNING, true), (b) ->
+            WorldPropertiesHelper.setGamerule(GameRules.DO_MOB_SPAWNING, b.getValue()));
 
         this.killMobs = new UIButton(UIKeys.WORLD_KILL_ALL_MOBS, this::killAllMobsClicked)
         {
@@ -146,9 +146,21 @@ public class UIWorldDropdownMenu extends UIContextMenu
 
         UIElement mobsContent = UI.column(5, 0, this.mobSpawning, this.killMobs);
 
-        this.gamma = new UITrackpad((v) -> WorldPropertiesHelper.setGammaPercent(v));
+        this.overrideGamma = new UIToggle(UIKeys.WORLD_GAMMA_OVERRIDE, WorldPropertiesHelper.isGammaOverrideEnabled(), (b) ->
+        {
+            WorldPropertiesHelper.setGammaOverrideEnabled(b.getValue());
+            this.gamma.setEnabled(b.getValue());
+        });
+
+        this.gamma = new UITrackpad((v) ->
+        {
+            this.overrideGamma.setValue(true);
+            this.gamma.setEnabled(true);
+            WorldPropertiesHelper.setGammaPercent(v);
+        });
         this.gamma.limit(0D, 1500D, true).increment(50D).values(10D, 1D, 100D);
         this.gamma.setValue(WorldPropertiesHelper.getGammaPercent());
+        this.gamma.setEnabled(WorldPropertiesHelper.isGammaOverrideEnabled());
 
         UIButton gammaNormal = new UIButton(UIKeys.WORLD_GAMMA_NORMAL, (b) -> this.setGamma(100D));
         UIButton gammaSemi = new UIButton(UIKeys.WORLD_GAMMA_SEMI, (b) -> this.setGamma(750D));
@@ -158,7 +170,8 @@ public class UIWorldDropdownMenu extends UIContextMenu
             WorldPropertiesHelper.setNightVision(b.getValue()));
 
         UIElement gammaContent = UI.column(5, 0,
-            UI.label(UIKeys.WORLD_GAMMA_LABEL),
+            this.overrideGamma,
+            UI.label(UIKeys.WORLD_GAMMA_LABEL).marginTop(4),
             this.gamma,
             UI.row(4, gammaNormal, gammaSemi, gammaFull),
             this.nightVision
@@ -282,9 +295,11 @@ public class UIWorldDropdownMenu extends UIContextMenu
         this.time.setValue(this.lastSentTime);
         WorldPropertiesHelper.setClientTimeOverride(timeOfDay);
 
-        this.freezeTime.setValue(!WorldPropertiesHelper.readGamerule("doDaylightCycle", true));
-        this.pauseWeather.setValue(!WorldPropertiesHelper.readGamerule("doWeatherCycle", true));
-        this.mobSpawning.setValue(WorldPropertiesHelper.readGamerule("doMobSpawning", true));
+        this.freezeTime.setValue(!WorldPropertiesHelper.readGamerule(GameRules.DO_DAYLIGHT_CYCLE, true));
+        this.pauseWeather.setValue(!WorldPropertiesHelper.readGamerule(GameRules.DO_WEATHER_CYCLE, true));
+        this.mobSpawning.setValue(WorldPropertiesHelper.readGamerule(GameRules.DO_MOB_SPAWNING, true));
+        this.overrideGamma.setValue(WorldPropertiesHelper.isGammaOverrideEnabled());
+        this.gamma.setEnabled(WorldPropertiesHelper.isGammaOverrideEnabled());
         this.gamma.setValue(WorldPropertiesHelper.getGammaPercent());
         this.nightVision.setValue(WorldPropertiesHelper.hasNightVision());
         this.sunPathRotation.setValue(WorldPropertiesHelper.getSunPathRotation());
@@ -292,6 +307,8 @@ public class UIWorldDropdownMenu extends UIContextMenu
 
     private void setGamma(double percent)
     {
+        this.overrideGamma.setValue(true);
+        this.gamma.setEnabled(true);
         this.gamma.setValue(percent);
         WorldPropertiesHelper.setGammaPercent(percent);
     }

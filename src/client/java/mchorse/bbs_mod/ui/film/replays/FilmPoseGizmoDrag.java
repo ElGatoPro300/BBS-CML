@@ -244,9 +244,7 @@ public final class FilmPoseGizmoDrag
             return FilmPoseGizmoDrag.hasFrozenDragFrame;
         }
 
-        /* Same depth-based composition as the visual pass, so drags grab the
-         * handle exactly where it is drawn regardless of the shader path. */
-        Gizmo.composeVisualMatrix(panel.lastGizmoMatrix, BBSRendering.camera, panel.lastProjection, matrix);
+        matrix.set(panel.lastGizmoMatrix);
 
         return true;
     }
@@ -258,9 +256,8 @@ public final class FilmPoseGizmoDrag
             return;
         }
 
-        /* Same depth-based composition as the visual pass, snapshotted once at drag
-         * start so orbit / transform feedback cannot spin the ray frame. */
-        Gizmo.composeVisualMatrix(panel.lastGizmoMatrix, BBSRendering.camera, panel.lastProjection, FilmPoseGizmoDrag.FROZEN_DRAG_GIZMO);
+        /* Snapshotted once at drag start so orbit / transform feedback cannot spin the ray frame. */
+        FilmPoseGizmoDrag.FROZEN_DRAG_GIZMO.set(panel.lastGizmoMatrix);
         FilmPoseGizmoDrag.FROZEN_DRAG_VIEW.set(panel.lastView);
         FilmPoseGizmoDrag.hasFrozenDragFrame = true;
     }

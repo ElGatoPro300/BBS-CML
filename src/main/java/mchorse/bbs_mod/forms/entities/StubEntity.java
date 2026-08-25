@@ -229,18 +229,9 @@ public class StubEntity implements IEntity
             return start / HAND_SWING_DURATION;
         }
 
-        /* Paused film scrubbing passes tickDelta 0. Interpolating from prev made
-         * the arm snap back for one playhead step after the swipe started. */
-        if (tickDelta <= 0F)
+        if (!this.handSwinging && this.handSwingProgress == 0F && this.prevHandSwingProgress == 0F)
         {
-            /* Also drop a finished-swipe prev so idle cannot stay suppressed while
-             * parked (wrap would never run its follow-up update). */
-            if (!this.handSwinging && this.handSwingProgress == 0F)
-            {
-                this.prevHandSwingProgress = 0F;
-            }
-
-            return this.handSwingProgress;
+            return 0F;
         }
 
         float delta = this.handSwingProgress - this.prevHandSwingProgress;
@@ -250,7 +241,7 @@ public class StubEntity implements IEntity
             delta += 1F;
         }
 
-        return this.prevHandSwingProgress + delta * tickDelta;
+        return this.prevHandSwingProgress + delta * Math.max(0F, tickDelta);
     }
 
     private void tickHandSwing()
@@ -618,7 +609,7 @@ public class StubEntity implements IEntity
         float delta = (float) MathHelper.magnitude(this.x - this.prevX, 0D, this.z - this.prevZ);
         float speed = Math.min(delta * 4F, 1F);
 
-        this.limbAnimator.updateLimbs(speed, 0.4F, 1F);
+        this.limbAnimator.updateLimbs(speed, 0.4F);
 
         this.tickHandSwing();
         this.age += 1;
@@ -668,13 +659,13 @@ public class StubEntity implements IEntity
     @Override
     public float getLimbPos(float tickDelta)
     {
-        return this.limbAnimator.getAnimationProgress(tickDelta);
+        return this.limbAnimator.getPos(tickDelta);
     }
 
     @Override
     public float getLimbSpeed(float tickDelta)
     {
-        return this.limbAnimator.getAmplitude(tickDelta);
+        return this.limbAnimator.getSpeed(tickDelta);
     }
 
     @Override
