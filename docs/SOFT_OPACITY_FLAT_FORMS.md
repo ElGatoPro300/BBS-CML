@@ -25,6 +25,7 @@ Related code (reference implementation):
 |-----------|-------------------|--------|
 | ModelForm / Extruded | `ShaderOpacityPatch.submitPostDeferred*` | Correct see-through, clouds/fluids timing, depth vs later draws, lighting OK |
 | Billboard | Phase A: soft → `ShaderOpacityPatch` + face sort key | Fixed (same contract as ModelForm soft) |
+| Block / Structure | Phase C: soft → `ShaderOpacityPatch` (form sort); Structure translucent as separate layer | Soft depth punch + Structure glass vanishing addressed |
 | Shape | Iris: paint-overlay translucent queue; no-shader: live soft `depthMask` | Acceptable unless a concrete soft-order bug is filed |
 | Label | Live text path | User-validated OK with/without shaders — do **not** force post-deferred |
 
@@ -195,32 +196,50 @@ So: putting Label/Shape into the ModelForm soft queue without isolating GL + con
 
 ---
 
-## Phase C — Other forms (optional)
+## Phase C — Block / Structure soft opacity
 
-Only if outliers remain after A (and any bug-driven Shape fix).
+**Status:** implemented. Soft Block and Structure join `ShaderOpacityPatch` (form-level sort key). Structure translucent blocks are no longer baked into the main VAO.
 
-Candidates:
+### C.0 — Bugs addressed
 
-- Other flat or panel-like forms that still use live soft `depthMask(false)` or paint-overlay soft deferral **and** show a real soft-order bug.
-- Composite cases (body-part trees mixing soft flats and soft models) — verify they only rely on the shared queue, not ad-hoc parent redraws.
-- **Block / Structure:** join ModelForm soft pipeline **only if** a concrete soft-opacity bug is filed. Default sort = form (or at most per-block for structures). **Per-face sort stays out** unless evidence shows form-level is insufficient.
-- Extruded already follows ModelForm — do not rewrite unless regressing.
-- **Label:** not a Phase C target by default (live path is acceptable).
+| Bug | Fix |
+|-----|-----|
+| Soft Block / Structure opacity punches depth and hides forms/entities behind | Soft (`shouldDelayUntilPostDeferred`) → post-deferred queue like ModelForm/Extruded/Billboard; live soft main mesh skipped |
+| Structure: any form transparency → vanilla translucent blocks (glass, etc.) vanish | Skip translucent during main VAO capture; always draw `getTranslucentBlocks()` as a separate layer (preview + world). `StructureVaoManager.VAO_CACHE_VERSION` bumped to 4 |
 
-### C.1 — Test checklist (Phase C)
+### C.1 — Contract (Block / Structure)
 
-- [ ] Reported outlier form matches ModelForm soft behavior.
-- [ ] No new dark-limb / full-bright soft regressions.
-- [ ] If Block/Structure were touched: no per-face explosion; lighting/depth unchanged for opaque paths.
+- Gate: world path only (`!modelRenderer`, `!shadowPass`, not picking) + `shouldDelayUntilPostDeferred(alpha)`.
+- Matrices: Iris `submitPostDeferredForm` with entity-local matrix; BBS `capturePaintOverlayRootMatrix` + `submitPostDeferredBbsForm`.
+- Sort: **form origin** (film look-axis when applicable). No per-face / per-block sort.
+- Block: soft deferred draws main mesh (+ glow). Paint / color-tint overlays keep existing deferred paths. Glass morphs do not suppress depth write during post-deferred (`isTranslucentBlockState` depthMask skip is live-only).
+- Structure: soft deferred draws VAO + BE + biome + animated + translucent (+ glow). Paint / color-tint overlays stay on existing deferred paths.
+- Opaque paths unchanged aside from Structure always separating translucent from the VAO.
+
+### C.2 — Test checklist (Phase C)
+
+- [ ] Soft Block in front of soft ModelForm limbs / soft billboards → see-through / order like soft Extruded.
+- [ ] Soft Structure same.
+- [ ] Soft Structure with glass / ice / stained glass → translucent blocks stay visible (not fully gone).
+- [ ] Opaque Structure with glass → glass still visible; no VAO cache stale (reopen film / reload structure after update).
+- [ ] Soft Block glass morph → does not permanently punch an invisible hole in the world (depth owned by post-deferred).
+- [ ] Opaque Block / Structure → lighting and depth unchanged vs pre-Phase C (aside from Structure translucent layer split).
+- [ ] Preview / UI structure panel → translucent layer still draws.
+- [ ] No dark soft-limb regression from Structure/Block soft flush state.
+
+### C.3 — Still out of scope
+
+- Per-face Block/Structure sorting.
+- Label/Shape soft → `ShaderOpacityPatch` (see Phase B).
 
 ---
 
 ## Implementation order
 
 ```text
-1. Phase A — Billboard + face sort key (ShaderOpacityPatch) ✅ keep
+1. Phase A — Billboard + face sort key (ShaderOpacityPatch) ✅
 2. Phase B — Label: skip; Shape: only if a concrete bug is filed
-3. Phase C — Block / Structure / other outliers only if needed
+3. Phase C — Block / Structure soft + Structure translucent layer split ✅
 ```
 
 Do not re-merge the reverted Label/Shape → `ShaderOpacityPatch` change without addressing queue-state isolation.
@@ -237,11 +256,12 @@ Do not re-merge the reverted Label/Shape → `ShaderOpacityPatch` change without
 | Double draw (live + deferred) | Skip live soft color when enqueued |
 | Preview empty/wrong | Gate enqueue with `modelRenderer` / local preview like ModelForm |
 | Soft billboard vs soft limb near / interpenetrating | Face key + shared queue; accept residual without OIT or fragment depth hacks |
-| Over-sorting labels / blocks | Labels stay live; blocks/structures only if evidenced |
+| Over-sorting labels / blocks | Labels stay live; Block/Structure use form-level keys only |
 | Shape soft vs billboard (different queues) | Accept unless a real bug is filed; then isolate carefully |
+| Stale Structure VAO after translucent split | Cache version bump forces rebuild |
 
 ---
 
 ## Success definition
 
-Soft **Billboard** transparency behaves like soft ModelForm actors (Phase A). Soft **Label** remains correct on the live text path. Soft **Shape** stays on its current Iris paint-overlay / live no-shader path unless a concrete regression requires a careful, isolated fix. No dark-limb regression.
+Soft **Billboard** transparency behaves like soft ModelForm actors (Phase A). Soft **Block** / **Structure** join the same post-deferred contract (Phase C); Structure glass no longer vanishes under soft form opacity. Soft **Label** remains correct on the live text path. Soft **Shape** stays on its current Iris paint-overlay / live no-shader path unless a concrete regression requires a careful, isolated fix. No dark-limb regression.
