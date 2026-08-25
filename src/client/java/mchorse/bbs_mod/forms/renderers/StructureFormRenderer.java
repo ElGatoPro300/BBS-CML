@@ -434,9 +434,16 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
                         finally
                         {
                             RenderSystem.colorMask(true, true, true, true);
+                            RenderSystem.defaultBlendFunc();
+                            RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
                             ShaderOpacityPatch.setFlushingDepthWrite(depthWrite);
-                            deferredGameRenderer.getLightmapTextureManager().disable();
-                            deferredGameRenderer.getOverlayTexture().teardownOverlayColor();
+                            /* Keep lightmap/overlay up during the soft flush — disabling them
+                             * here darkens later soft ModelForm limbs (sort is position-based). */
+                            if (!ShaderOpacityPatch.isFlushingPostDeferred())
+                            {
+                                deferredGameRenderer.getLightmapTextureManager().disable();
+                                deferredGameRenderer.getOverlayTexture().teardownOverlayColor();
+                            }
                         }
                     };
 

@@ -209,6 +209,7 @@ So: putting Label/Shape into the ModelForm soft queue without isolating GL + con
 | Soft Structure: leaves/cutout biome vanish (no-shader) or near-black (Iris) | Under soft / post-deferred, draw leaves and soft special blocks with `entityTranslucentCull` instead of terrain `cutout_mipped` / `translucent` |
 | Soft Structure: solid blocks hide other blocks in the same form | Soft color is **per-block back-to-front** (depth-write off via `setFlushingDepthWrite`), then solid VAO depth stamp for world occlusion |
 | Soft Structure: leaves on top of trunk / OR leaves hidden behind soft trunk | Same sorted soft path — VAO+layer splits cannot satisfy both; per-block sort can |
+| Soft Block/Structure flush darkens nearby soft ModelForm limbs | Do not `lightmap.disable()` / teardown overlay mid-flush; `runEntry` finally re-enables lightmap + restores blend/colorMask |
 
 ### C.1 — Contract (Block / Structure)
 

@@ -282,6 +282,10 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
                         this.renderGlowOverlay(context, overlayStack, deferredConsumers, glowSettingsSnapshot, legacyGlowSnapshot, glowIntensitySnapshot, colorSnapshot.a, overlaySnapshot, false);
                     }
 
+                    /* Soft flush isolation — glow leaves additive blend / depthMask false. */
+                    RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
+                    RenderSystem.defaultBlendFunc();
+                    CustomVertexConsumerProvider.clearRunnables();
                     ShaderOpacityPatch.reassertPostDeferredDepthState(depthWrite);
                 };
 

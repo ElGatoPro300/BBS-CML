@@ -145,11 +145,6 @@ public class ShaderOpacityPatch
         }
     }
 
-    public static boolean isFlushingPostDeferred()
-    {
-        return flushingPostDeferred;
-    }
-
     public static void setForceLiveDepthWrite(boolean force)
     {
         forceLiveDepthWrite = force;
@@ -210,6 +205,16 @@ public class ShaderOpacityPatch
 
         flushingDepthWrite = depthWrite;
         reassertPostDeferredDepthState(depthWrite);
+    }
+
+    /**
+     * True while {@link #flushPostDeferredForms} is iterating queue entries.
+     * Soft Block/Structure must not tear down lightmap/overlay here — later soft limbs in the
+     * same flush still need them (player-position sort makes contamination look angle-independent).
+     */
+    public static boolean isFlushingPostDeferred()
+    {
+        return flushingPostDeferred;
     }
 
     /**
@@ -568,7 +573,28 @@ public class ShaderOpacityPatch
                 ModelVAORenderer.endDeferredTranslucentModelPass();
             }
 
+            /* Isolate entries: soft Block/Structure can leave lightmap off, additive blend,
+             * or colorMask false — that darkens soft limbs drawn later in the same flush. */
+            RenderSystem.colorMask(true, true, true, true);
+            RenderSystem.enableBlend();
+            RenderSystem.defaultBlendFunc();
+            RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
             RenderSystem.depthMask(savedDepthMask);
+
+            if (flushingPostDeferred)
+            {
+                MinecraftClient mc = MinecraftClient.getInstance();
+
+                if (mc != null && mc.gameRenderer != null)
+                {
+                    mc.gameRenderer.getLightmapTextureManager().enable();
+                    mc.gameRenderer.getOverlayTexture().setupOverlayColor();
+                }
+
+                flushingDepthWrite = entry.depthWrite;
+                reassertPostDeferredDepthState(entry.depthWrite);
+            }
+
             RenderSystem.setProjectionMatrix(savedProjection, VertexSorter.BY_Z);
             modelViewStack.set(savedModelView);
             RenderSystem.applyModelViewMatrix();
