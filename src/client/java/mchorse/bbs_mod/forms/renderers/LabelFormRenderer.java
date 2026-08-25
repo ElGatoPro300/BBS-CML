@@ -22,7 +22,6 @@ import mchorse.bbs_mod.utils.MatrixStackUtils;
 import mchorse.bbs_mod.utils.StringUtils;
 import mchorse.bbs_mod.utils.TextureFont;
 import mchorse.bbs_mod.utils.colors.Color;
-import mchorse.bbs_mod.utils.iris.ShaderOpacityPatch;
 
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.font.TextRenderer;
@@ -51,7 +50,6 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.function.Consumer;
 
 public class LabelFormRenderer extends FormRenderer<LabelForm>
 {
@@ -160,64 +158,6 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
             return;
         }
 
-        boolean shadowPass = BBSRendering.isIrisShadowPass() || context.isShadowPass;
-        boolean deferTranslucent = !context.modelRenderer && !context.isPicking() && !shadowPass
-            && (BBSRendering.needsIrisTranslucentFlatDeferral(alpha) || ShaderOpacityPatch.shouldDelayUntilPostDeferred(alpha));
-
-        if (deferTranslucent)
-        {
-            this.bodyPartsDeferred = true;
-
-            boolean irisCamera = BBSRendering.isIrisWorldModelPass();
-            /* irisCamera: runEntry restores the Iris camera matrix as GL modelview, so the vertex
-             * matrix must NOT have the camera baked in — use raw stack matrix to avoid double-apply.
-             * BBS path: capturePaintOverlayRootMatrix bakes camera so identity GL modelview works. */
-            Matrix4f positionMatrix = irisCamera
-                ? new Matrix4f(context.stack.peek().getPositionMatrix())
-                : ModelVAORenderer.capturePaintOverlayRootMatrix(new Matrix4f(context.stack.peek().getPositionMatrix()));
-            FormRenderingContext deferredContext = new FormRenderingContext();
-
-            deferredContext.set(context.type, context.entity, new MatrixStack(), context.light, context.overlay, context.transition);
-            deferredContext.camera(context.camera);
-            deferredContext.color(context.color);
-            deferredContext.ui = context.ui;
-            deferredContext.modelRenderer = context.modelRenderer;
-            deferredContext.isShadowPass = context.isShadowPass;
-            deferredContext.renderEquipment = context.renderEquipment;
-            deferredContext.textureOverride = context.textureOverride;
-            deferredContext.textureBlendOverride = context.textureBlendOverride;
-            deferredContext.trailInstance = context.trailInstance;
-
-            boolean depthWrite = ShaderOpacityPatch.shouldWriteDepthForOpacity(alpha);
-            boolean afterFluids = ShaderOpacityPatch.shouldFlushAfterFluids(alpha);
-            Matrix4f rawMatrix = new Matrix4f(context.stack.peek().getPositionMatrix());
-            double distanceSq = (double) rawMatrix.m30() * rawMatrix.m30()
-                + (double) rawMatrix.m31() * rawMatrix.m31()
-                + (double) rawMatrix.m32() * rawMatrix.m32();
-            Runnable deferredDraw = () ->
-            {
-                deferredContext.stack.peek().getPositionMatrix().set(positionMatrix);
-                this.render3DInternal(deferredContext);
-                this.renderBodyParts(deferredContext);
-            };
-
-            if (irisCamera)
-            {
-                ShaderOpacityPatch.submitPostDeferredForm(0D, distanceSq, depthWrite, afterFluids, deferredDraw);
-            }
-            else
-            {
-                ShaderOpacityPatch.submitPostDeferredBbsForm(0D, distanceSq, depthWrite, afterFluids, deferredDraw);
-            }
-
-            return;
-        }
-
-        this.render3DInternal(context);
-    }
-
-    private void render3DInternal(FormRenderingContext context)
-    {
         context.stack.push();
 
         if (this.form.billboard.get())
@@ -339,7 +279,7 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
         }
 
         context.stack.push();
-        context.stack.translate(0F, 0F, -0.002F);
+        context.stack.translate(0F, 0F, -0.05F);
 
         float sx = this.form.shadowX.get();
         float sy = this.form.shadowY.get();
@@ -544,66 +484,35 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
             return;
         }
 
-        boolean hasShadow = !isFullyTransparent(shadowColor);
-        boolean hasOutline = this.form.outline.get() && !isFullyTransparent(color);
+        this.renderTextShadow(context, consumers, renderer, customFont, content, x, y, letterSpacing, light, shadowColor);
 
-        Consumer<RenderLayer> baseHijack = context.isPicking() ? (layer) ->
+        if (this.form.outline.get() && !isFullyTransparent(color))
         {
-            RenderSystem.disableCull();
-            this.setupTarget(context, BBSShaders.getPickerModelsProgram());
-            RenderSystem.setShader(BBSShaders::getPickerModelsProgram);
-        } : (layer) ->
-        {
-            RenderSystem.disableCull();
-            RenderSystem.enableBlend();
-            RenderSystem.defaultBlendFunc();
-        };
+            Color outlineColor = this.form.outlineColor.get().copy();
+            outlineColor.a *= formOpacity;
+            int oc = toSafeTextArgb(outlineColor);
+            float ow = this.form.outlineWidth.get();
 
-        if (hasShadow || hasOutline)
-        {
-            CustomVertexConsumerProvider.hijackVertexFormat((layer) ->
+            context.stack.push();
+            context.stack.translate(0, 0, -0.025F);
+
+            if (customFont != null)
             {
-                baseHijack.accept(layer);
-                RenderSystem.depthMask(false);
-            });
-
-            if (hasShadow)
+                customFont.draw(content, x - ow, y, oc, oc, letterSpacing, 0F, context.stack.peek().getPositionMatrix(), consumers, light);
+                customFont.draw(content, x + ow, y, oc, oc, letterSpacing, 0F, context.stack.peek().getPositionMatrix(), consumers, light);
+                customFont.draw(content, x, y - ow, oc, oc, letterSpacing, 0F, context.stack.peek().getPositionMatrix(), consumers, light);
+                customFont.draw(content, x, y + ow, oc, oc, letterSpacing, 0F, context.stack.peek().getPositionMatrix(), consumers, light);
+            }
+            else
             {
-                this.renderTextShadow(context, consumers, renderer, customFont, content, x, y, letterSpacing, light, shadowColor);
+                renderer.draw(content, x - ow, y, oc, false, context.stack.peek().getPositionMatrix(), consumers, TextRenderer.TextLayerType.NORMAL, 0, light);
+                renderer.draw(content, x + ow, y, oc, false, context.stack.peek().getPositionMatrix(), consumers, TextRenderer.TextLayerType.NORMAL, 0, light);
+                renderer.draw(content, x, y - ow, oc, false, context.stack.peek().getPositionMatrix(), consumers, TextRenderer.TextLayerType.NORMAL, 0, light);
+                renderer.draw(content, x, y + ow, oc, false, context.stack.peek().getPositionMatrix(), consumers, TextRenderer.TextLayerType.NORMAL, 0, light);
             }
 
-            if (hasOutline)
-            {
-                Color outlineColor = this.form.outlineColor.get().copy();
-                outlineColor.a *= formOpacity;
-                int oc = toSafeTextArgb(outlineColor);
-                float ow = this.form.outlineWidth.get();
-
-                context.stack.push();
-                context.stack.translate(0F, 0F, -0.001F);
-
-                if (customFont != null)
-                {
-                    customFont.draw(content, x - ow, y, oc, oc, letterSpacing, 0F, context.stack.peek().getPositionMatrix(), consumers, light);
-                    customFont.draw(content, x + ow, y, oc, oc, letterSpacing, 0F, context.stack.peek().getPositionMatrix(), consumers, light);
-                    customFont.draw(content, x, y - ow, oc, oc, letterSpacing, 0F, context.stack.peek().getPositionMatrix(), consumers, light);
-                    customFont.draw(content, x, y + ow, oc, oc, letterSpacing, 0F, context.stack.peek().getPositionMatrix(), consumers, light);
-                }
-                else
-                {
-                    renderer.draw(content, x - ow, y, oc, false, context.stack.peek().getPositionMatrix(), consumers, TextRenderer.TextLayerType.NORMAL, 0, light);
-                    renderer.draw(content, x + ow, y, oc, false, context.stack.peek().getPositionMatrix(), consumers, TextRenderer.TextLayerType.NORMAL, 0, light);
-                    renderer.draw(content, x, y - ow, oc, false, context.stack.peek().getPositionMatrix(), consumers, TextRenderer.TextLayerType.NORMAL, 0, light);
-                    renderer.draw(content, x, y + ow, oc, false, context.stack.peek().getPositionMatrix(), consumers, TextRenderer.TextLayerType.NORMAL, 0, light);
-                }
-
-                context.stack.pop();
-            }
-
-            this.flushLabelConsumers(consumers);
+            context.stack.pop();
         }
-
-        CustomVertexConsumerProvider.hijackVertexFormat(baseHijack);
 
         Color gradientEnd = null;
 
@@ -756,92 +665,6 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
 
         this.tintCapture.clear();
 
-        boolean hasShadow = !isFullyTransparent(shadowColor);
-        boolean hasOutline = this.form.outline.get() && !isFullyTransparent(color);
-
-        Consumer<RenderLayer> baseHijack = context.isPicking() ? (layer) ->
-        {
-            RenderSystem.disableCull();
-            this.setupTarget(context, BBSShaders.getPickerModelsProgram());
-            RenderSystem.setShader(BBSShaders::getPickerModelsProgram);
-        } : (layer) ->
-        {
-            RenderSystem.disableCull();
-            RenderSystem.enableBlend();
-            RenderSystem.defaultBlendFunc();
-        };
-
-        if (hasShadow || hasOutline)
-        {
-            CustomVertexConsumerProvider.hijackVertexFormat((layer) ->
-            {
-                baseHijack.accept(layer);
-                RenderSystem.depthMask(false);
-            });
-
-            y = shadowY;
-
-            for (String line : lines)
-            {
-                int lw = customFont != null ? customFont.getWidth(line, letterSpacing) : renderer.getWidth(line) - 1;
-                int lx = x;
-
-                if (anchorLines)
-                {
-                    lx = (int) (-lw * anchorX);
-                }
-                else if (align == 1)
-                {
-                    lx = x + (w - lw) / 2;
-                }
-                else if (align == 2)
-                {
-                    lx = x + (w - lw);
-                }
-
-                if (hasShadow)
-                {
-                    this.renderTextShadow(context, consumers, renderer, customFont, line, lx, y, letterSpacing, light, shadowColor);
-                }
-
-                if (hasOutline)
-                {
-                    Color outlineColor = this.form.outlineColor.get().copy();
-                    outlineColor.a *= formOpacity;
-                    int oc = toSafeTextArgb(outlineColor);
-                    float ow = this.form.outlineWidth.get();
-
-                    context.stack.push();
-                    context.stack.translate(0F, 0F, -0.001F);
-
-                    if (customFont != null)
-                    {
-                        customFont.draw(line, lx - ow, y, oc, oc, letterSpacing, 0F, context.stack.peek().getPositionMatrix(), consumers, light);
-                        customFont.draw(line, lx + ow, y, oc, oc, letterSpacing, 0F, context.stack.peek().getPositionMatrix(), consumers, light);
-                        customFont.draw(line, lx, y - ow, oc, oc, letterSpacing, 0F, context.stack.peek().getPositionMatrix(), consumers, light);
-                        customFont.draw(line, lx, y + ow, oc, oc, letterSpacing, 0F, context.stack.peek().getPositionMatrix(), consumers, light);
-                    }
-                    else
-                    {
-                        renderer.draw(line, lx - ow, y, oc, false, context.stack.peek().getPositionMatrix(), consumers, TextRenderer.TextLayerType.NORMAL, 0, light);
-                        renderer.draw(line, lx + ow, y, oc, false, context.stack.peek().getPositionMatrix(), consumers, TextRenderer.TextLayerType.NORMAL, 0, light);
-                        renderer.draw(line, lx, y - ow, oc, false, context.stack.peek().getPositionMatrix(), consumers, TextRenderer.TextLayerType.NORMAL, 0, light);
-                        renderer.draw(line, lx, y + ow, oc, false, context.stack.peek().getPositionMatrix(), consumers, TextRenderer.TextLayerType.NORMAL, 0, light);
-                    }
-
-                    context.stack.pop();
-                }
-
-                y += lineHeight;
-            }
-
-            this.flushLabelConsumers(consumers);
-        }
-
-        CustomVertexConsumerProvider.hijackVertexFormat(baseHijack);
-
-        y = shadowY;
-
         for (String line : lines)
         {
             int lw = customFont != null ? customFont.getWidth(line, letterSpacing) : renderer.getWidth(line) - 1;
@@ -858,6 +681,35 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
             else if (align == 2)
             {
                 lx = x + (w - lw);
+            }
+
+            this.renderTextShadow(context, consumers, renderer, customFont, line, lx, y, letterSpacing, light, shadowColor);
+
+            if (this.form.outline.get())
+            {
+                Color outlineColor = this.form.outlineColor.get().copy();
+                outlineColor.a *= formOpacity;
+                int oc = toSafeTextArgb(outlineColor);
+                float ow = this.form.outlineWidth.get();
+
+                context.stack.push();
+                context.stack.translate(0, 0, -0.025F);
+
+                if (customFont != null)
+                {
+                    customFont.draw(line, lx - ow, y, oc, oc, letterSpacing, 0F, context.stack.peek().getPositionMatrix(), consumers, light);
+                    customFont.draw(line, lx + ow, y, oc, oc, letterSpacing, 0F, context.stack.peek().getPositionMatrix(), consumers, light);
+                    customFont.draw(line, lx, y - ow, oc, oc, letterSpacing, 0F, context.stack.peek().getPositionMatrix(), consumers, light);
+                    customFont.draw(line, lx, y + ow, oc, oc, letterSpacing, 0F, context.stack.peek().getPositionMatrix(), consumers, light);
+                }
+                else
+                {
+                    renderer.draw(line, lx - ow, y, oc, false, context.stack.peek().getPositionMatrix(), consumers, TextRenderer.TextLayerType.NORMAL, 0, light);
+                    renderer.draw(line, lx + ow, y, oc, false, context.stack.peek().getPositionMatrix(), consumers, TextRenderer.TextLayerType.NORMAL, 0, light);
+                    renderer.draw(line, lx, y - ow, oc, false, context.stack.peek().getPositionMatrix(), consumers, TextRenderer.TextLayerType.NORMAL, 0, light);
+                    renderer.draw(line, lx, y + ow, oc, false, context.stack.peek().getPositionMatrix(), consumers, TextRenderer.TextLayerType.NORMAL, 0, light);
+                }
+                context.stack.pop();
             }
 
             textArgb = this.drawLabelContent(context, consumers, renderer, customFont, line, lx, y, letterSpacing, light, color, gradientEnd);
