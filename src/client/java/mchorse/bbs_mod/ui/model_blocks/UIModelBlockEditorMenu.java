@@ -385,7 +385,7 @@ public class UIModelBlockEditorMenu extends UIBaseMenu
 
             this.setSection(CollectionUtils.getKey(this.sections, children.get(newIndex)));
             UIUtils.playClick();
-        });
+        }).allowShift();
     }
 
     private UIElement createTransform(Transform transform, Supplier<Form> formSupplier, Consumer<Form> formConsumer)

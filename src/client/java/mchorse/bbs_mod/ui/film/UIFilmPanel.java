@@ -223,6 +223,7 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
     private Timer flightEditTime = new Timer(100);
 
     private List<UIElement> panels = new ArrayList<>();
+    private int currentPanelIndex;
     private UIFilmFullscreenPlaybackBar fullscreenPlaybackBar;
 
     private boolean newFilm;
@@ -889,7 +890,7 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
         {
             this.showPanel(MathUtils.cycler(this.getPanelIndex() + (Window.isShiftPressed() ? -1 : 1), this.panels));
             UIUtils.playClick();
-        }).active(active).category(editor);
+        }).allowShift().active(active).category(editor);
 
         /* E over the camera timeline: open the keyframe editor of the selected clip */
         this.keys().register(Keys.FORMS_EDIT, () ->
@@ -4404,26 +4405,82 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
         }
     }
 
+    public String getPanelId(UIElement element)
+    {
+        if (element == null)
+        {
+            return null;
+        }
+
+        for (Map.Entry<String, UIElement> entry : this.panelById.entrySet())
+        {
+            if (entry.getValue() == element)
+            {
+                return entry.getKey();
+            }
+        }
+
+        return null;
+    }
+
     public int getPanelIndex()
     {
+        if (this.currentPanelIndex >= 0 && this.currentPanelIndex < this.panels.size() && this.panels.get(this.currentPanelIndex).isVisible())
+        {
+            return this.currentPanelIndex;
+        }
+
         for (int i = 0; i < this.panels.size(); i++)
         {
             if (this.panels.get(i).isVisible())
             {
+                this.currentPanelIndex = i;
+
                 return i;
             }
         }
 
-        return -1;
+        return this.currentPanelIndex >= 0 && this.currentPanelIndex < this.panels.size() ? this.currentPanelIndex : 0;
     }
 
     public void showPanel(int index)
     {
-        this.showPanel(this.panels.get(index));
+        if (index >= 0 && index < this.panels.size())
+        {
+            this.showPanel(this.panels.get(index));
+        }
     }
 
     public void showPanel(UIElement element)
     {
+        if (element == null)
+        {
+            return;
+        }
+
+        String panelId = this.getPanelId(element);
+
+        if (panelId != null)
+        {
+            this.hiddenPanels.remove(panelId);
+
+            EditorLayoutNode root = BBSSettings.editorLayoutSettings.getFilmLayoutRoot();
+
+            if (root != null && this.selectPanelInTabbedNode(root, panelId))
+            {
+                BBSSettings.editorLayoutSettings.setFilmLayoutRoot(root);
+            }
+
+            this.syncLinkedPropertiesTab(panelId);
+        }
+
+        int index = this.panels.indexOf(element);
+
+        if (index >= 0)
+        {
+            this.currentPanelIndex = index;
+        }
+
         element.setVisible(true);
 
         if (this.isFlying())
@@ -8866,6 +8923,18 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
             {
                 this.tabbedNode.activeTab = this.index;
                 this.panel.syncLinkedPropertiesTab(this.panelId);
+                UIElement tabElement = this.panel.panelById.get(this.panelId);
+
+                if (tabElement != null)
+                {
+                    int panelIdx = this.panel.panels.indexOf(tabElement);
+
+                    if (panelIdx >= 0)
+                    {
+                        this.panel.currentPanelIndex = panelIdx;
+                    }
+                }
+
                 ValueEditorLayout layout = BBSSettings.editorLayoutSettings;
                 layout.setFilmLayoutRoot(layout.getFilmLayoutRoot());
                 /* Keep existing tab bars so horizontal scroll is not wiped before a drag starts. */
