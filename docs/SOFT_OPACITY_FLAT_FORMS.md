@@ -158,8 +158,6 @@ In `BillboardFormRenderer` (world path only: `!modelRenderer`, `!shadowPass`, no
 
 ## Phase B — Shape and Label → same pipeline (plane / form keys)
 
-**Status:** implemented in `ShapeFormRenderer` and `LabelFormRenderer` (soft → `ShaderOpacityPatch` + form/plane sort keys; no per-glyph / per-triangle sorting).
-
 **Bugs fixed:** remaining flat soft order issues once billboards are correct.
 
 ### B.1 — ShapeFormRenderer
@@ -212,9 +210,9 @@ Candidates:
 ## Implementation order
 
 ```text
-1. Phase A — Billboard + face sort key (same ShaderOpacityPatch pipeline) ✅
+1. Phase A — Billboard + face sort key (same ShaderOpacityPatch pipeline)
         → playtest
-2. Phase B — Label / Shape on the same queue; plane or form keys ✅
+2. Phase B — Label / Shape on the same queue; plane or form keys
         (no per-glyph / no per-triangle)
         → playtest
 3. Phase C — Block / Structure only if needed; face sort out unless evidence

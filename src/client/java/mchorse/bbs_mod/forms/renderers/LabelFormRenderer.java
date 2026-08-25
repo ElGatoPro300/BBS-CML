@@ -22,7 +22,6 @@ import mchorse.bbs_mod.utils.MatrixStackUtils;
 import mchorse.bbs_mod.utils.StringUtils;
 import mchorse.bbs_mod.utils.TextureFont;
 import mchorse.bbs_mod.utils.colors.Color;
-import mchorse.bbs_mod.utils.iris.ShaderOpacityPatch;
 
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.font.TextRenderer;
@@ -38,10 +37,8 @@ import net.minecraft.client.render.VertexFormats;
 import net.minecraft.client.util.BufferAllocator;
 import net.minecraft.client.util.math.MatrixStack;
 
-import org.joml.Matrix3f;
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
-import org.joml.Vector4f;
 
 import com.mojang.blaze3d.platform.GlStateManager;
 import com.mojang.blaze3d.systems.RenderSystem;
@@ -203,98 +200,7 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
             this.nametagAlpha = 0.125F;
         }
 
-        float softAlpha = alpha * this.nametagAlpha;
-
         MatrixStackUtils.scaleStack(context.stack, scale, -scale, scale);
-
-        boolean shadowPass = BBSRendering.isIrisShadowPass() || context.isShadowPass;
-        boolean softPostDeferred = !context.modelRenderer
-            && !context.isPicking()
-            && !shadowPass
-            && ShaderOpacityPatch.shouldDelayUntilPostDeferred(softAlpha);
-
-        if (softPostDeferred)
-        {
-            /* One post-deferred entry for the whole label plane (no per-glyph sorting). */
-            boolean irisCamera = BBSRendering.isIrisWorldModelPass();
-            Matrix4f positionMatrix = irisCamera
-                ? new Matrix4f(context.stack.peek().getPositionMatrix())
-                : ModelVAORenderer.capturePaintOverlayRootMatrix(new Matrix4f(context.stack.peek().getPositionMatrix()));
-            Matrix3f normalMatrix = new Matrix3f(context.stack.peek().getNormalMatrix());
-            boolean depthWrite = ShaderOpacityPatch.shouldWriteDepthForOpacity(softAlpha);
-            boolean afterFluids = ShaderOpacityPatch.shouldFlushAfterFluids(softAlpha);
-            double planeSortKey = this.computeLabelPlaneSortKey(context.stack.peek().getPositionMatrix(), context);
-            float nametagAlphaSnapshot = this.nametagAlpha;
-            int lightSnapshot = light;
-            boolean limited = this.form.max.get() > 10;
-
-            Runnable deferredDraw = () ->
-            {
-                Matrix4f savedPos = new Matrix4f(context.stack.peek().getPositionMatrix());
-                Matrix3f savedNorm = new Matrix3f(context.stack.peek().getNormalMatrix());
-                float savedNametagAlpha = this.nametagAlpha;
-
-                context.stack.peek().getPositionMatrix().set(positionMatrix);
-                context.stack.peek().getNormalMatrix().set(normalMatrix);
-                this.nametagAlpha = nametagAlphaSnapshot;
-
-                CustomVertexConsumerProvider deferredConsumers = FormUtilsClient.getProvider();
-
-                try
-                {
-                    RenderSystem.disableCull();
-                    RenderSystem.enableDepthTest();
-                    ShaderOpacityPatch.reassertPostDeferredDepthState(depthWrite);
-
-                    CustomVertexConsumerProvider.hijackVertexFormat((layer) ->
-                    {
-                        RenderSystem.disableCull();
-                        RenderSystem.enableBlend();
-                        RenderSystem.defaultBlendFunc();
-                        ShaderOpacityPatch.reassertPostDeferredDepthState(depthWrite);
-                    });
-
-                    if (limited)
-                    {
-                        this.renderLimitedString(context, deferredConsumers, renderer, lightSnapshot);
-                    }
-                    else
-                    {
-                        this.renderString(context, deferredConsumers, renderer, lightSnapshot);
-                    }
-
-                    CustomVertexConsumerProvider.hijackVertexFormat((layer) ->
-                    {
-                        RenderSystem.disableCull();
-                        ShaderOpacityPatch.reassertPostDeferredDepthState(depthWrite);
-                    });
-                    this.flushLabelConsumers(deferredConsumers);
-                    CustomVertexConsumerProvider.clearRunnables();
-                    RenderSystem.defaultBlendFunc();
-                    ShaderOpacityPatch.reassertPostDeferredDepthState(depthWrite);
-                }
-                finally
-                {
-                    this.nametagAlpha = savedNametagAlpha;
-                    context.stack.peek().getPositionMatrix().set(savedPos);
-                    context.stack.peek().getNormalMatrix().set(savedNorm);
-                }
-            };
-
-            if (irisCamera)
-            {
-                ShaderOpacityPatch.submitPostDeferredForm(0D, planeSortKey, depthWrite, afterFluids, deferredDraw);
-            }
-            else
-            {
-                ShaderOpacityPatch.submitPostDeferredBbsForm(0D, planeSortKey, depthWrite, afterFluids, deferredDraw);
-            }
-
-            RenderSystem.enableDepthTest();
-            RenderSystem.enableCull();
-            context.stack.pop();
-            return;
-        }
 
         RenderSystem.disableCull();
 
@@ -1099,29 +1005,5 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
         }
 
         return argb;
-    }
-
-    /**
-     * Soft-opacity queue key for the label plane origin (farther first). One entry per label —
-     * never per glyph. Film ENTITY uses look-axis depth; other contexts use lengthSq.
-     */
-    private double computeLabelPlaneSortKey(Matrix4f drawMatrix, FormRenderingContext context)
-    {
-        Vector4f origin = new Vector4f(0F, 0F, 0F, 1F);
-        Matrix4f viewSpace = ModelVAORenderer.capturePaintOverlayRootMatrix(new Matrix4f(drawMatrix));
-
-        viewSpace.transform(origin);
-
-        boolean filmLookAxis = context != null
-            && context.type == FormRenderType.ENTITY
-            && context.camera != null
-            && !context.modelRenderer;
-
-        if (filmLookAxis)
-        {
-            return -origin.z;
-        }
-
-        return origin.x * origin.x + origin.y * origin.y + origin.z * origin.z;
     }
 }

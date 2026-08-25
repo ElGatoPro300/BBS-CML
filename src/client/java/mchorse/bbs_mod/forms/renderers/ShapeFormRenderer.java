@@ -43,7 +43,6 @@ import net.minecraft.util.math.RotationAxis;
 import org.joml.Matrix3f;
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
-import org.joml.Vector4f;
 
 import com.mojang.blaze3d.systems.RenderSystem;
 
@@ -235,85 +234,14 @@ public class ShapeFormRenderer extends FormRenderer<ShapeForm>
         stack.scale(this.form.sizeX.get(), this.form.sizeY.get(), this.form.sizeZ.get());
 
         ShapeForm.ShapeType type = this.form.type.get();
-        boolean shadowPass = BBSRendering.isIrisShadowPass()
-            || (renderContext != null && renderContext.isShadowPass);
-        boolean localPreview = renderContext == null
-            || renderContext.modelRenderer
-            || renderContext.isPicking();
-        /* Soft opacity: same ShaderOpacityPatch queue as ModelForm / Billboard (form sort key).
-         * Opaque Iris grade/noshading still uses paint-overlay translucent redraw below. */
-        boolean softPostDeferred = !localPreview && !shadowPass
-            && ShaderOpacityPatch.shouldDelayUntilPostDeferred(c.a);
-        boolean noshadingDefer = !softPostDeferred && !shadowPass
-            && BBSRendering.needsIrisNoshadingOpacityDeferral(c.a, this.form.noshadingOpacity.get());
-        boolean deferTranslucent = !softPostDeferred
-            && ((!shadowPass && BBSRendering.needsIrisTranslucentFlatDeferral(c.a)) || noshadingDefer);
+        boolean shadowPass = BBSRendering.isIrisShadowPass();
+        /* Under Iris, flats must defer — live path washes them. Opaque (#ff) is skipped by
+         * needsIrisTranslucentFlatDeferral unless noshading is enabled. */
+        boolean noshadingDefer = !shadowPass && BBSRendering.needsIrisNoshadingOpacityDeferral(c.a, this.form.noshadingOpacity.get());
+        boolean deferTranslucent = (!shadowPass && BBSRendering.needsIrisTranslucentFlatDeferral(c.a)) || noshadingDefer;
 
-        if (softPostDeferred)
+        if (deferTranslucent)
         {
-            boolean irisCamera = BBSRendering.isIrisWorldModelPass();
-            Matrix4f positionMatrix = irisCamera
-                ? new Matrix4f(stack.peek().getPositionMatrix())
-                : ModelVAORenderer.capturePaintOverlayRootMatrix(new Matrix4f(stack.peek().getPositionMatrix()));
-            Matrix3f normalMatrix = new Matrix3f(stack.peek().getNormalMatrix());
-            Color colorSnapshot = c.copy();
-            int lightSnapshot = light;
-            int overlaySnapshot = overlay;
-            ShapeForm.ShapeType typeSnapshot = type;
-            Link textureSnapshot = texture;
-            boolean positiveGlowSnapshot = positiveGlow;
-            float glowIntensitySnapshot = glowIntensity;
-            GlowSettings glowSettingsSnapshot = glowSettings;
-            Color legacyGlowSnapshot = legacyGlow;
-            boolean lighting = this.form.lighting.get();
-            boolean depthWrite = ShaderOpacityPatch.shouldWriteDepthForOpacity(c.a);
-            boolean afterFluids = ShaderOpacityPatch.shouldFlushAfterFluids(c.a);
-            /* Preserve live entity shader under Iris; BBS path keeps the caller's shader too. */
-            Supplier<ShaderProgram> deferredShader = shader;
-            double formSortKey = this.computeShapeFormSortKey(stack.peek().getPositionMatrix(), renderContext);
-
-            Runnable deferredDraw = () ->
-            {
-                MatrixStack overlayStack = new MatrixStack();
-
-                overlayStack.peek().getPositionMatrix().set(positionMatrix);
-                overlayStack.peek().getNormalMatrix().set(normalMatrix);
-
-                RenderSystem.enableDepthTest();
-                ShaderOpacityPatch.reassertPostDeferredDepthState(depthWrite);
-
-                this.drawDeferredShape(
-                    overlayStack,
-                    textureSnapshot,
-                    typeSnapshot,
-                    colorSnapshot,
-                    overlaySnapshot,
-                    lightSnapshot,
-                    lighting,
-                    positiveGlowSnapshot,
-                    glowSettingsSnapshot,
-                    legacyGlowSnapshot,
-                    glowIntensitySnapshot,
-                    deferredShader,
-                    false
-                );
-
-                ShaderOpacityPatch.reassertPostDeferredDepthState(depthWrite);
-            };
-
-            if (irisCamera)
-            {
-                ShaderOpacityPatch.submitPostDeferredForm(0D, formSortKey, depthWrite, afterFluids, deferredDraw);
-            }
-            else
-            {
-                ShaderOpacityPatch.submitPostDeferredBbsForm(0D, formSortKey, depthWrite, afterFluids, deferredDraw);
-            }
-        }
-        else if (deferTranslucent)
-        {
-            /* Under Iris, opaque-ish flats may still need a BBS redraw — live path washes them.
-             * Soft opacity does not enter here. */
             Matrix4f positionMatrix = ModelVAORenderer.capturePaintOverlayRootMatrix(new Matrix4f(stack.peek().getPositionMatrix()));
             Matrix3f normalMatrix = new Matrix3f(stack.peek().getNormalMatrix());
             Color colorSnapshot = c.copy();
@@ -326,6 +254,7 @@ public class ShapeFormRenderer extends FormRenderer<ShapeForm>
             GlowSettings glowSettingsSnapshot = glowSettings;
             Color legacyGlowSnapshot = legacyGlow;
             boolean lighting = this.form.lighting.get();
+            /* Soft-opacity depth write stays opacity-based. */
             boolean depthWrite = ShaderOpacityPatch.shouldWriteDepthForOpacity(c.a);
 
             Runnable deferredDraw = () ->
@@ -1317,29 +1246,5 @@ public class ShapeFormRenderer extends FormRenderer<ShapeForm>
 
         glowSettings.resolveColor(legacyGlow, glowResolved);
         FormColorEffects.blendEmission(paintOverlay, glowResolved, glowIntensity);
-    }
-
-    /**
-     * Soft-opacity queue key for the shape form origin (farther first). Film ENTITY uses
-     * look-axis depth; model-block / other uses lengthSq — same convention as soft billboards.
-     */
-    private double computeShapeFormSortKey(Matrix4f drawMatrix, FormRenderingContext context)
-    {
-        Vector4f origin = new Vector4f(0F, 0F, 0F, 1F);
-        Matrix4f viewSpace = ModelVAORenderer.capturePaintOverlayRootMatrix(new Matrix4f(drawMatrix));
-
-        viewSpace.transform(origin);
-
-        boolean filmLookAxis = context != null
-            && context.type == FormRenderType.ENTITY
-            && context.camera != null
-            && !context.modelRenderer;
-
-        if (filmLookAxis)
-        {
-            return -origin.z;
-        }
-
-        return origin.x * origin.x + origin.y * origin.y + origin.z * origin.z;
     }
 }
