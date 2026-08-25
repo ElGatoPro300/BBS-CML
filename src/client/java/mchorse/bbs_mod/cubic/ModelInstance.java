@@ -41,11 +41,9 @@ import mchorse.bbs_mod.utils.resources.LinkUtils;
 
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gl.ShaderProgram;
-import net.minecraft.client.gl.ShaderProgramKeys;
 import net.minecraft.client.render.GameRenderer;
 import net.minecraft.client.render.LightmapTextureManager;
 import net.minecraft.client.render.Tessellator;
-import net.minecraft.client.render.VertexFormat;
 import net.minecraft.client.render.VertexFormats;
 import net.minecraft.client.util.BufferAllocator;
 import net.minecraft.client.util.math.MatrixStack;
@@ -54,7 +52,10 @@ import net.minecraft.util.math.RotationAxis;
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
 
+import com.mojang.blaze3d.opengl.GlStateManager;
+import com.mojang.blaze3d.pipeline.RenderPipeline;
 import com.mojang.blaze3d.systems.RenderSystem;
+import com.mojang.blaze3d.vertex.VertexFormat;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -795,7 +796,7 @@ public class ModelInstance implements IModelInstance
         }
     }
 
-    public void render(MatrixStack stack, Supplier<ShaderProgram> program, Color color, int light, int overlay, StencilMap stencilMap, ShapeKeys keys, Function<String, Link> textureResolver)
+    public void render(MatrixStack stack, Supplier<RenderPipeline> pipeline, Color color, int light, int overlay, StencilMap stencilMap, ShapeKeys keys, Function<String, Link> textureResolver)
     {
         if (this.model instanceof Model model)
         {
@@ -808,7 +809,7 @@ public class ModelInstance implements IModelInstance
 
             if (isVao)
             {
-                CubicCubeRenderer renderProcessor = new CubicVAORenderer(program.get(), this, light, overlay, stencilMap, keys, textureResolver);
+                CubicCubeRenderer renderProcessor = new CubicVAORenderer(pipeline.get(), this, light, overlay, stencilMap, keys, textureResolver);
 
                 renderProcessor.setColor(cr, cg, cb, ca);
                 CubicRenderer.processRenderModel(renderProcessor, null, stack, model);
@@ -820,7 +821,7 @@ public class ModelInstance implements IModelInstance
             }
             else
             {
-                ShaderProgram shader = program.get();
+                RenderPipeline renderPipeline = pipeline.get();
                 Link texture = textureResolver.apply("");
                 if (texture == null)
                 {
@@ -830,8 +831,6 @@ public class ModelInstance implements IModelInstance
                     && !ModelVAORenderer.isDeferredTranslucentPass()
                     && !ModelVAORenderer.isPaintOverlayPass();
 
-                RenderSystem.setShader(shader);
-
                 if (texture != null)
                 {
                     BBSModClient.getTextures().bindTexture(texture);
@@ -839,14 +838,14 @@ public class ModelInstance implements IModelInstance
 
                 if (disableCull)
                 {
-                    RenderSystem.disableCull();
+                    GlStateManager._disableCull();
                 }
 
                 Matrix4f rootInverse = new Matrix4f(stack.peek().getPositionMatrix()).invert();
-                CubicCpuGroupDrawRenderer renderProcessor = new CubicCpuGroupDrawRenderer(light, overlay, stencilMap, keys, shader, texture, rootInverse);
+                CubicCpuGroupDrawRenderer renderProcessor = new CubicCpuGroupDrawRenderer(light, overlay, stencilMap, keys, renderPipeline, texture, rootInverse);
 
                 renderProcessor.setColor(cr, cg, cb, ca);
-                ModelVAORenderer.beginCpuGeometry(shader);
+                ModelVAORenderer.beginCpuGeometry(renderPipeline);
 
                 try
                 {
@@ -861,7 +860,7 @@ public class ModelInstance implements IModelInstance
                 {
                     if (disableCull && this.culling)
                     {
-                        RenderSystem.enableCull();
+                        GlStateManager._enableCull();
                     }
                 }
             }
@@ -887,7 +886,7 @@ public class ModelInstance implements IModelInstance
                     }
 
                     vao.updateMesh(stencilMap);
-                    vao.render(program.get(), stack, color.r, color.g, color.b, color.a, stencilMap, light, overlay, texture);
+                    vao.render(pipeline.get(), stack, color.r, color.g, color.b, color.a, stencilMap, light, overlay, texture);
                 }
 
                 stack.pop();
@@ -912,11 +911,9 @@ public class ModelInstance implements IModelInstance
             return;
         }
 
-        ShaderProgram shader = BBSShaders.getModel();
+        RenderPipeline pipeline = BBSShaders.getModel();
         Link texture = defaultTexture != null ? defaultTexture : this.texture;
         boolean disableCull = true;
-
-        RenderSystem.setShader(shader);
 
         if (texture != null)
         {
@@ -925,7 +922,7 @@ public class ModelInstance implements IModelInstance
 
         if (disableCull)
         {
-            RenderSystem.disableCull();
+            GlStateManager._disableCull();
         }
 
         CubicCpuGlowOverlayRenderer renderProcessor = new CubicCpuGlowOverlayRenderer(
@@ -933,7 +930,7 @@ public class ModelInstance implements IModelInstance
             overlay,
             stencilMap,
             keys,
-            shader,
+            pipeline,
             texture,
             glowLayerColor,
             boneGlowOnly,
@@ -962,7 +959,7 @@ public class ModelInstance implements IModelInstance
         {
             if (disableCull && this.culling)
             {
-                RenderSystem.enableCull();
+                GlStateManager._enableCull();
             }
         }
     }

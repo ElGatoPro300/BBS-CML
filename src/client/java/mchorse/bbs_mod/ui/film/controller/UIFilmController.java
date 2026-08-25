@@ -71,19 +71,17 @@ import mchorse.bbs_mod.utils.colors.Colors;
 import mchorse.bbs_mod.utils.joml.Matrices;
 import mchorse.bbs_mod.utils.keyframes.KeyframeChannel;
 
-import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
+import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderContext;
 
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.Mouse;
-import net.minecraft.client.gl.ShaderProgramKeys;
+import net.minecraft.client.input.KeyInput;
 import net.minecraft.client.network.ClientPlayerEntity;
 import net.minecraft.client.network.ClientPlayerInteractionManager;
 import net.minecraft.client.option.GameOptions;
 import net.minecraft.client.render.BufferBuilder;
-import net.minecraft.client.render.BufferRenderer;
 import net.minecraft.client.render.GameRenderer;
 import net.minecraft.client.render.Tessellator;
-import net.minecraft.client.render.VertexFormat;
 import net.minecraft.client.render.VertexFormats;
 import net.minecraft.client.util.InputUtil;
 import net.minecraft.client.util.math.MatrixStack;
@@ -109,10 +107,11 @@ import org.joml.Vector2i;
 import org.joml.Vector3d;
 import org.joml.Vector3f;
 
-import com.mojang.blaze3d.platform.GlStateManager;
+import com.mojang.blaze3d.opengl.GlStateManager;
 import com.mojang.blaze3d.systems.ProjectionType;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.systems.VertexSorter;
+import com.mojang.blaze3d.vertex.VertexFormat;
 
 import org.lwjgl.glfw.GLFW;
 import org.lwjgl.opengl.GL11;
@@ -1382,7 +1381,7 @@ public class UIFilmController extends UIElement
                 return true;
             }
 
-            InputUtil.Key utilKey = InputUtil.fromKeyCode(context.getKeyCode(), context.getScanCode());
+            InputUtil.Key utilKey = InputUtil.fromKeyCode(new KeyInput(context.getKeyCode(), context.getScanCode(), 0));
 
             if (this.canControlWithKeyboard(utilKey) && !(this.recording && this.recordingCountdown > 0 && !this.countdownControl))
             {
@@ -1906,15 +1905,12 @@ public class UIFilmController extends UIElement
 
         boolean altPressed = Window.isAltPressed();
 
-        RenderSystem.depthFunc(GL11.GL_LESS);
 
         /* Cache the global stuff */
         MatrixStackUtils.cacheMatrices();
 
-        RenderSystem.setProjectionMatrix(this.panel.lastProjection, ProjectionType.ORTHOGRAPHIC);
-
         /* Render the stencil */
-        MatrixStack worldStack = this.worldRenderContext.matrixStack();
+        MatrixStack worldStack = this.worldRenderContext.matrices();
         if (worldStack != null)
         {
             worldStack.push();
@@ -1940,7 +1936,6 @@ public class UIFilmController extends UIElement
         /* Return back to orthographic projection */
         MatrixStackUtils.restoreMatrices();
 
-        RenderSystem.depthFunc(GL11.GL_ALWAYS);
 
         this.hoveredEntity = null;
 
@@ -1971,7 +1966,6 @@ public class UIFilmController extends UIElement
             }
         }
 
-        RenderSystem.enableBlend();
 
         int paletteIndex = altPressed ? this.stencil.getIndex() - Gizmo.STENCIL_HANDLE_MAX - 1 : 0;
         int highlight = altPressed
@@ -2022,7 +2016,6 @@ public class UIFilmController extends UIElement
     {
         this.worldRenderContext = context;
 
-        RenderSystem.enableDepthTest();
 
         if (this.editorController != null)
         {
@@ -2037,7 +2030,7 @@ public class UIFilmController extends UIElement
                 int tick = runner.ticks;
                 int duration = runner.getContext().clips == null ? 0 : runner.getContext().clips.calculateDuration();
 
-                Recorder.renderCameraPreviewTimeline(runner.getContext().clips, tick, context.tickCounter().getTickDelta(true), duration, runner.getPosition(), context.camera(), context.matrixStack());
+                Recorder.renderCameraPreviewTimeline(runner.getContext().clips, tick, MinecraftClient.getInstance().getRenderTickCounter().getTickProgress(true), duration, runner.getPosition(), MinecraftClient.getInstance().gameRenderer.getCamera(), context.matrices());
             }
         }
 
@@ -2071,8 +2064,8 @@ public class UIFilmController extends UIElement
         this.lastMouse.set(x, y);
 
         BBSRendering.restoreWorldRenderState();
-        RenderSystem.enableDepthTest();
-        RenderSystem.depthFunc(GL11.GL_LEQUAL);
+        GlStateManager._enableDepthTest();
+        GlStateManager._depthFunc(GL11.GL_LEQUAL);
     }
 
     private void renderDropItemTrajectory(WorldRenderContext context)
@@ -2103,9 +2096,9 @@ public class UIFilmController extends UIElement
         double vx = itemDrop.velocityX.get();
         double vy = itemDrop.velocityY.get();
         double vz = itemDrop.velocityZ.get();
-        double cx = context.camera().getPos().x;
-        double cy = context.camera().getPos().y;
-        double cz = context.camera().getPos().z;
+        double cx = MinecraftClient.getInstance().gameRenderer.getCamera().getCameraPos().x;
+        double cy = MinecraftClient.getInstance().gameRenderer.getCamera().getCameraPos().y;
+        double cz = MinecraftClient.getInstance().gameRenderer.getCamera().getCameraPos().z;
         Tessellator tessellator = Tessellator.getInstance();
         BufferBuilder builder = tessellator.begin(VertexFormat.DrawMode.TRIANGLES, VertexFormats.POSITION_COLOR);
 
@@ -2115,11 +2108,7 @@ public class UIFilmController extends UIElement
         float baseG = ((primaryColor >> 8) & 0xFF) / 255F;
         float baseB = (primaryColor & 0xFF) / 255F;
 
-        RenderSystem.disableDepthTest();
-        RenderSystem.depthMask(false);
-        RenderSystem.setShader(ShaderProgramKeys.POSITION_COLOR);
-        RenderSystem.enableBlend();
-        MatrixStack stack = context.matrixStack();
+        MatrixStack stack = context.matrices();
 
         final int maxSteps = 80;
         final int subSteps = 4;
@@ -2199,10 +2188,7 @@ public class UIFilmController extends UIElement
             vz *= 0.98D;
         }
 
-        BufferRenderer.drawWithGlobalProgram(builder.end());
-        RenderSystem.disableBlend();
-        RenderSystem.depthMask(true);
-        RenderSystem.enableDepthTest();
+        Draw.flush(builder, Draw.getPositionColorNoDepthLayer());
     }
 
     public Pair<String, TransformOrientation> getBone()
@@ -2286,9 +2272,9 @@ public class UIFilmController extends UIElement
             this.stencil.apply();
 
             /* Closest bone along the cursor ray must win; glow/gizmo passes can leave depthMask off. */
-            RenderSystem.enableDepthTest();
-            RenderSystem.depthFunc(GL11.GL_LEQUAL);
-            RenderSystem.depthMask(true);
+            GlStateManager._enableDepthTest();
+            GlStateManager._depthFunc(GL11.GL_LEQUAL);
+            GlStateManager._depthMask(true);
 
             if (altPressed)
             {
@@ -2310,7 +2296,7 @@ public class UIFilmController extends UIElement
 
                     IEntity renderEntity = this.editorController.getRenderEntity(replay, entry.getValue());
                     boolean physicalActor = renderEntity != entry.getValue();
-                    float transition = isPlaying ? renderContext.tickCounter().getTickDelta(false) : 0F;
+                    float transition = isPlaying ? MinecraftClient.getInstance().getRenderTickCounter().getTickProgress(false) : 0F;
                     float propertyTick = replay.getTick(cursorTick) + transition;
 
                     BaseFilmController.renderEntity(FilmControllerContext.instance
@@ -2389,7 +2375,7 @@ public class UIFilmController extends UIElement
                             }
                         }
 
-                        float transition = isPlaying ? renderContext.tickCounter().getTickDelta(false) : 0F;
+                        float transition = isPlaying ? MinecraftClient.getInstance().getRenderTickCounter().getTickProgress(false) : 0F;
                         float propertyTick = currentReplay.getTick(cursorTick) + transition;
 
                         BaseFilmController.renderEntity(FilmControllerContext.instance
@@ -2425,7 +2411,7 @@ public class UIFilmController extends UIElement
          * preview every mouse move over the viewport (deferred translucents looked like flicker).
          * beginWrite(false) alone may not restore glViewport, which made the whole UI look zoomed. */
         BBSRendering.ensureMainFramebuffer();
-        MinecraftClient.getInstance().getFramebuffer().beginWrite(false);
+        GlStateManager._glBindFramebuffer(36160, 0);
         GL11.glViewport(prevViewport[0], prevViewport[1], prevViewport[2], prevViewport[3]);
     }
 

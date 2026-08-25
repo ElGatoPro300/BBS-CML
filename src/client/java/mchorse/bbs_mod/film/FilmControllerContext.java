@@ -12,8 +12,9 @@ import mchorse.bbs_mod.utils.MatrixStackUtils;
 import mchorse.bbs_mod.utils.colors.Color;
 import mchorse.bbs_mod.utils.colors.Colors;
 
-import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
+import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderContext;
 
+import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.render.Camera;
 import net.minecraft.client.render.VertexConsumerProvider;
 import net.minecraft.client.util.math.MatrixStack;
@@ -121,15 +122,15 @@ public class FilmControllerContext
         this.entities = entities;
         this.entity = entity;
         this.replay = replay;
-        this.camera = context.camera();
-        this.stack = context.matrixStack();
+        this.camera = MinecraftClient.getInstance().gameRenderer.getCamera();
+        this.stack = context.matrices();
         if (this.stack == null)
         {
             this.stack = new MatrixStack();
             MatrixStackUtils.multiply(this.stack, RenderSystem.getModelViewMatrix());
         }
         this.consumers = context.consumers();
-        this.transition = context.tickCounter().getTickDelta(false);
+        this.transition = MinecraftClient.getInstance().getRenderTickCounter().getTickProgress(false);
 
         return this;
     }

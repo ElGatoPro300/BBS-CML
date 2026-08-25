@@ -286,7 +286,7 @@ public class ClientNetwork
 
             client.execute(() ->
             {
-                UIDashboard dashboard = BBSModClient.peekDashboard();
+                UIDashboard dashboard = BBSModClient.getDashboard();
 
                 if (dashboard == null)
                 {
@@ -362,7 +362,8 @@ public class ClientNetwork
 
         client.execute(() ->
         {
-            client.player.setClientPermissionLevel(cheats ? 4 : 0);
+            /* 1.21.11: setClientPermissionLevel removed */
+            // client.player.setClientPermissionLevel(cheats ? 4 : 0);
         });
     }
 
@@ -434,7 +435,7 @@ public class ClientNetwork
 
         client.execute(() ->
         {
-            UIDashboard dashboard = BBSModClient.peekDashboard();
+            UIDashboard dashboard = BBSModClient.getDashboard();
 
             if (dashboard == null)
             {
@@ -505,7 +506,7 @@ public class ClientNetwork
 
         client.execute(() ->
         {
-            client.player.getInventory().selectedSlot = slot;
+            client.player.getInventory().setSelectedSlot(slot);
         });
     }
 
@@ -604,7 +605,8 @@ public class ClientNetwork
 
         PacketByteBuf buf = PacketByteBufs.create();
 
-        buf.writeVarInt(mode.getId());
+        /* TODO 1.21.11: GameMode.getId() returns String; use ordinal() for wire int */
+        buf.writeVarInt(mode.ordinal());
         ClientPlayNetworking.send(ServerNetwork.BufPayload.from(buf, ServerNetwork.idFor(ServerNetwork.SERVER_SET_GAME_MODE)));
     }
 

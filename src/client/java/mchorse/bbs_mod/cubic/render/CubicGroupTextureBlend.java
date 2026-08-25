@@ -9,6 +9,8 @@ import mchorse.bbs_mod.resources.Link;
 import net.minecraft.client.gl.GlUniform;
 import net.minecraft.client.gl.ShaderProgram;
 
+import com.mojang.blaze3d.opengl.GlStateManager;
+import com.mojang.blaze3d.pipeline.RenderPipeline;
 import com.mojang.blaze3d.systems.RenderSystem;
 
 import org.lwjgl.opengl.GL11;
@@ -58,16 +60,9 @@ public final class CubicGroupTextureBlend
         return null;
     }
 
-    public static boolean supportsShader(ShaderProgram shader)
+    public static boolean supportsShader(RenderPipeline pipeline)
     {
-        if (shader == null)
-        {
-            return false;
-        }
-
-        GlUniform uniform = shader.getUniform("TextureBlendActive");
-
-        return uniform != null;
+        return pipeline != null;
     }
 
     public static Link resolveDrawTexture(CubicGroupTextureBlend state, Link defaultTexture)
@@ -93,7 +88,7 @@ public final class CubicGroupTextureBlend
     /**
      * Binds the active texture and, when supported, enables single-pass shader crossfade.
      */
-    public static void bindForDraw(ShaderProgram shader, CubicGroupTextureBlend state, Link defaultTexture)
+    public static void bindForDraw(RenderPipeline pipeline, CubicGroupTextureBlend state, Link defaultTexture)
     {
         if (state == null)
         {
@@ -113,9 +108,10 @@ public final class CubicGroupTextureBlend
             ModelVAORenderer.clearTextureBlend();
             BBSModClient.getTextures().bindTexture(state.from);
         }
-        else if (supportsShader(shader))
+        else if (supportsShader(pipeline))
         {
             BBSModClient.getTextures().bindTexture(state.from);
+            BBSModClient.getTextures().bindTexture(state.to, 3);
             ModelVAORenderer.setTextureBlend(state.to, state.blend);
         }
         else
@@ -130,14 +126,14 @@ public final class CubicGroupTextureBlend
      */
     public static void drawTwoPass(Runnable fromPass, Runnable toPass, float blend)
     {
-        RenderSystem.enableBlend();
-        RenderSystem.defaultBlendFunc();
+        GlStateManager._enableBlend();
+        GlStateManager._blendFuncSeparate(770, 771, 1, 0);
 
         boolean depthMask = GL11.glGetBoolean(GL11.GL_DEPTH_WRITEMASK);
 
         fromPass.run();
 
-        RenderSystem.depthMask(false);
+        GlStateManager._depthMask(false);
 
         try
         {
@@ -145,7 +141,7 @@ public final class CubicGroupTextureBlend
         }
         finally
         {
-            RenderSystem.depthMask(depthMask);
+            GlStateManager._depthMask(depthMask);
         }
     }
 }

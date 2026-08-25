@@ -10,6 +10,7 @@ import mchorse.bbs_mod.ui.framework.UIScreen;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.input.KeyboardInput;
 import net.minecraft.util.PlayerInput;
+import net.minecraft.util.math.Vec2f;
 
 import org.lwjgl.glfw.GLFW;
 
@@ -43,8 +44,8 @@ public class KeyboardInputMixin
             boolean left = Window.isKeyPressed(GLFW.GLFW_KEY_A);
             boolean right = Window.isKeyPressed(GLFW.GLFW_KEY_D);
 
-            input.movementForward = getMovementMultiplier(forward, back);
-            input.movementSideways = getMovementMultiplier(left, right);
+            float forwardMulti = getMovementMultiplier(forward, back);
+            float sidewaysMulti = getMovementMultiplier(left, right);
 
             boolean jump = Window.isKeyPressed(GLFW.GLFW_KEY_SPACE);
             boolean sneak = Window.isKeyPressed(GLFW.GLFW_KEY_LEFT_SHIFT);
@@ -57,12 +58,14 @@ public class KeyboardInputMixin
 
             if (MinecraftClient.getInstance().player != null && MinecraftClient.getInstance().player.shouldSlowDown())
             {
-                input.movementSideways *= 0.3F;
-                input.movementForward *= 0.3F;
+                sidewaysMulti *= 0.3F;
+                forwardMulti *= 0.3F;
             }
 
+            input.movementVector = new Vec2f(sidewaysMulti, forwardMulti);
+
             UIFilmController controller = filmPanel.getController();
-            boolean moving = input.movementForward != 0F || input.movementSideways != 0F;
+            boolean moving = forwardMulti != 0F || sidewaysMulti != 0F;
 
             controller.dampenActorControlDrift(moving);
         }

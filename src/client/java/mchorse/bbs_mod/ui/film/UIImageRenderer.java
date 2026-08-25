@@ -10,24 +10,19 @@ import mchorse.bbs_mod.utils.Quad;
 import mchorse.bbs_mod.utils.colors.Color;
 
 import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gl.GlUniform;
-import net.minecraft.client.gl.ShaderProgram;
-import net.minecraft.client.gl.ShaderProgramKeys;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.util.math.RotationAxis;
 
 import org.joml.Matrix4f;
 import org.joml.Vector4f;
 
-import com.mojang.blaze3d.platform.GlStateManager;
-import com.mojang.blaze3d.systems.ProjectionType;
+import com.mojang.blaze3d.opengl.GlStateManager;
 import com.mojang.blaze3d.systems.RenderSystem;
 
 import org.lwjgl.opengl.GL11;
 
 import java.util.Collections;
 import java.util.List;
-import java.util.function.Supplier;
 
 public class UIImageRenderer
 {
@@ -44,18 +39,13 @@ public class UIImageRenderer
         net.minecraft.client.gl.Framebuffer fb = MinecraftClient.getInstance().getFramebuffer();
         int width = fb.textureWidth / 2;
         int height = fb.textureHeight / 2;
-        Matrix4f cache = new Matrix4f(RenderSystem.getProjectionMatrix());
-        ProjectionType savedProjType = RenderSystem.getProjectionType();
-        /* X/Y rotations move quad corners into Z. The old ±100 near/far clipped
-         * those sides as angle increased; size the depth range for screen-scale quads. */
         float zExtent = Math.max(1000F, Math.max(width, height) * 8F);
         Matrix4f ortho = new Matrix4f().ortho(0, width, height, 0, -zExtent, zExtent);
 
-        RenderSystem.setProjectionMatrix(ortho, ProjectionType.ORTHOGRAPHIC);
-        RenderSystem.depthFunc(GL11.GL_ALWAYS);
-        RenderSystem.disableCull();
-        RenderSystem.enableBlend();
-        RenderSystem.blendFuncSeparate(GlStateManager.SrcFactor.SRC_ALPHA, GlStateManager.DstFactor.ONE_MINUS_SRC_ALPHA, GlStateManager.SrcFactor.ONE, GlStateManager.DstFactor.ONE_MINUS_SRC_ALPHA);
+        GlStateManager._depthFunc(GL11.GL_ALWAYS);
+        GlStateManager._disableCull();
+        GlStateManager._enableBlend();
+        GlStateManager._blendFuncSeparate(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA, GL11.GL_ONE, GL11.GL_ZERO);
 
         for (ImageOverlay overlay : images)
         {
@@ -66,18 +56,16 @@ public class UIImageRenderer
 
             float widthPercent = overlay.width / 100F;
             float heightPercent = overlay.height / 100F;
-            /* Keep sub-pixel size so width/height keyframes interpolate smoothly
-             * instead of stair-stepping on whole pixels (worse over long spans). */
-            float fw = widthPercent == 0F ? 0F : width * widthPercent;
-            float fh = heightPercent == 0F ? 0F : height * heightPercent;
+            int fw = widthPercent == 0F ? 0 : Math.max(1, Math.round(width * Math.abs(widthPercent))) * (widthPercent < 0F ? -1 : 1);
+            int fh = heightPercent == 0F ? 0 : Math.max(1, Math.round(height * Math.abs(heightPercent))) * (heightPercent < 0F ? -1 : 1);
 
-            if (fw == 0F || fh == 0F)
+            if (fw == 0 || fh == 0)
             {
                 continue;
             }
 
-            float x = width * overlay.windowX + overlay.x;
-            float y = height * overlay.windowY + overlay.y;
+            int x = (int) (width * overlay.windowX + overlay.x);
+            int y = (int) (height * overlay.windowY + overlay.y);
 
             FormTextureBlendRenderer.draw(overlay.textureBlend, overlay.texture, (link, alphaFactor) ->
             {
@@ -119,61 +107,42 @@ public class UIImageRenderer
 
                 texture.setFilterMipmap(overlay.linear, overlay.mipmap);
 
-                ShaderProgram program = BBSShaders.getImageOverlayProgram();
-
-                if (program != null)
-                {
-                    GlUniform blendModeUniform = program.getUniform("BlendMode");
-
-                    if (blendModeUniform != null)
-                    {
-                        blendModeUniform.set(overlay.blendMode);
-                    }
-                }
-
-                Supplier<ShaderProgram> supplier = program != null ? () -> program : () ->
-                {
-                    RenderSystem.setShader(ShaderProgramKeys.POSITION_TEX_COLOR);
-
-                    return RenderSystem.getShader();
-                };
-
                 if (overlay.blendMode != 0)
                 {
                     batcher.flushDraw();
                     switch (overlay.blendMode)
                     {
-                        case 1: /* Multiply — (1 - a*(1-src))*dst = a*src*dst + (1-a)*dst */
-                            RenderSystem.blendFunc(GL11.GL_DST_COLOR, GL11.GL_ZERO);
+                        case 1: /* Multiply */
+                            GlStateManager._blendFuncSeparate(GL11.GL_DST_COLOR, GL11.GL_ZERO, 1, 0);
                             break;
-                        case 2: /* Screen — 1-(1-src)*(1-dst), smoothly fades to dst with alpha */
-                            RenderSystem.blendFunc(GL11.GL_ONE, GL11.GL_ONE_MINUS_SRC_COLOR);
+                        case 2: /* Screen */
+                            GlStateManager._blendFuncSeparate(GL11.GL_ONE, GL11.GL_ONE_MINUS_SRC_COLOR, 1, 0);
                             break;
-                        case 3: /* Add / Linear Dodge — src+dst */
-                            RenderSystem.blendFunc(GL11.GL_ONE, GL11.GL_ONE);
+                        case 3: /* Add */
+                            GlStateManager._blendFuncSeparate(GL11.GL_SRC_ALPHA, GL11.GL_ONE, 1, 0);
                             break;
-                        case 4: /* Saturation — modulates dest saturation via src color channels */
-                            RenderSystem.blendFunc(GL11.GL_SRC_COLOR, GL11.GL_ONE_MINUS_SRC_COLOR);
+                        case 4: /* Saturation */
+                            GlStateManager._blendFuncSeparate(GL11.GL_SRC_COLOR, GL11.GL_ONE_MINUS_SRC_COLOR, 1, 0);
                             break;
-                        case 5: /* Incrustation (Silhouette Luma) — bright src punches hole in dest */
-                            RenderSystem.blendFunc(GL11.GL_ZERO, GL11.GL_ONE_MINUS_SRC_COLOR);
+                        case 5: /* Incrustation */
+                            GlStateManager._blendFuncSeparate(GL11.GL_ZERO, GL11.GL_ONE_MINUS_SRC_COLOR, 1, 0);
                             break;
-                        case 6: /* Exclusion — src*(1-dst) + dst*(1-src) = src+dst-2*src*dst */
-                            RenderSystem.blendFunc(GL11.GL_ONE_MINUS_DST_COLOR, GL11.GL_ONE_MINUS_SRC_COLOR);
+                        case 6: /* Exclusion */
+                            GlStateManager._blendFuncSeparate(GL11.GL_ONE_MINUS_DST_COLOR, GL11.GL_ONE_MINUS_SRC_COLOR, 1, 0);
                             break;
                         case 7: /* Overlay / Vivid Multiply — 2*src*dst (white doubles/brightens, 50% gray neutral, black darkens) */
-                            RenderSystem.blendFunc(GL11.GL_DST_COLOR, GL11.GL_SRC_COLOR);
+                            GlStateManager._blendFuncSeparate(GL11.GL_DST_COLOR, GL11.GL_SRC_COLOR, 1, 0);
                             break;
-                        case 8: /* Color Dodge — src*src + dst */
-                            RenderSystem.blendFunc(GL11.GL_SRC_COLOR, GL11.GL_ONE);
+                        case 8: /* Color Dodge */
+                            GlStateManager._blendFuncSeparate(GL11.GL_SRC_COLOR, GL11.GL_ONE, 1, 0);
                             break;
                     }
                 }
-                batcher.texturedBox(program, texture.id, color, drawX, drawY, fw, fh, uv[0], uv[1], uv[2], uv[3], texture.width, texture.height);
+                batcher.texturedBox(texture.id, color, drawX, drawY, fw, fh, uv[0], uv[1], uv[2], uv[3], texture.width, texture.height);
                 if (overlay.blendMode != 0)
                 {
                     batcher.flushDraw();
-                    RenderSystem.blendFuncSeparate(GlStateManager.SrcFactor.SRC_ALPHA, GlStateManager.DstFactor.ONE_MINUS_SRC_ALPHA, GlStateManager.SrcFactor.ONE, GlStateManager.DstFactor.ONE_MINUS_SRC_ALPHA);
+                    GlStateManager._blendFuncSeparate(770, 771, 1, 0);
                 }
                 texture.setFilterMipmap(false, false);
 
@@ -181,8 +150,8 @@ public class UIImageRenderer
             });
         }
 
-        RenderSystem.setProjectionMatrix(cache, savedProjType);
-        RenderSystem.enableCull();
+        GlStateManager._enableCull();
+        GlStateManager._depthFunc(GL11.GL_LEQUAL);
     }
 
     public static void renderImage(MatrixStack stack, Batcher2D batcher, ImageOverlay overlay)
