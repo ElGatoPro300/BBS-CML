@@ -130,7 +130,10 @@ public class UISubtitleRenderer
             int fw = (int) ((w + 10) * scale);
             int fh = (int) ((h + 10) * scale);
 
-            /* TODO 1.21.11: RenderSystem.setProjectionMatrix(new Matrix4f().ortho(0, w + 10, 0, h + 10, -100, 100), ProjectionType.ORTHOGRAPHIC); */
+            if (fw <= 0 || fh <= 0)
+            {
+                continue;
+            }
 
             framebuffer.resize(fw, fh);
             /* Transparent clear — opaque world clear-color would show as a black plate
@@ -192,6 +195,11 @@ public class UISubtitleRenderer
             batcher.texturedBox((Supplier<RenderPipeline>)(Object) program, texture.id, Colors.setA(Colors.WHITE, alpha), -fw * subtitle.anchorX, -fh * subtitle.anchorY, texture.width, texture.height, 0, 0, texture.width, texture.height, texture.width, texture.height);
 
             stack.pop();
+        }
+
+        if (blur != null)
+        {
+            blur.set(0F, 0F);
         }
 
         RenderSystem.restoreProjectionMatrix();
