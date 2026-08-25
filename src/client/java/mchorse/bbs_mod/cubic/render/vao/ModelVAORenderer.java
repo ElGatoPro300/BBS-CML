@@ -593,10 +593,17 @@ public class ModelVAORenderer
                 }
             }
 
-            if (needsSceneCapture)
+            if (restoreFramebuffer)
+            {
+                ShaderOpacityPatch.syncPaintOverlayDepth();
+            }
+            else if (needsSceneCapture)
             {
                 BBSRendering.ensurePaintOverlayTargetFramebuffer();
+            }
 
+            if (needsSceneCapture)
+            {
                 if (!captureGradeSceneColor())
                 {
                     /* Keep Iris-lit mesh; skip broken regrade rather than painting black. */

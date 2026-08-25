@@ -5,7 +5,9 @@ import mchorse.bbs_mod.client.BBSRendering;
 import mchorse.bbs_mod.cubic.render.vao.ModelVAORenderer;
 import mchorse.bbs_mod.mixin.client.iris.IrisRenderingPipelineAccessor;
 
+import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.gl.Framebuffer;
 
 import net.irisshaders.iris.gl.texture.DepthCopyStrategy;
 import net.irisshaders.iris.helpers.OptionalBoolean;
@@ -23,6 +25,8 @@ import com.mojang.blaze3d.systems.VertexSorter;
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL20;
 
+import java.lang.reflect.Field;
+import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -474,6 +478,151 @@ public class ShaderOpacityPatch
             RenderSystem.depthMask(true);
             RenderSystem.colorMask(true, true, true, true);
             RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
+        }
+    }
+
+    /**
+     * Restores terrain-accurate depth on the paint overlay target before paint / grade / tint
+     * flushes ({@code depthMask false}, {@code depthTest LEQUAL}). Iris deferred packs and AAA
+     * Particles depth capture/paste can leave the visible framebuffer's depth stale or empty.
+     */
+    public static void syncPaintOverlayDepth()
+    {
+        BBSRendering.ensurePaintOverlayTargetFramebuffer();
+
+        try
+        {
+            if (BBSRendering.isIrisShadersEnabled())
+            {
+                syncIrisDepthToPaintTarget();
+            }
+            else
+            {
+                syncVanillaPaintOverlayDepth();
+            }
+        }
+        catch (Throwable ignored)
+        {
+            /* Iris API drift or optional mod reflection — still attempt overlays. */
+        }
+
+        RenderSystem.enableDepthTest();
+        RenderSystem.depthFunc(GL11.GL_LEQUAL);
+    }
+
+    private static int resolvePaintOverlayDepthAttachment()
+    {
+        Framebuffer framebuffer = BBSRendering.getPaintOverlaySourceFramebuffer();
+
+        return framebuffer != null ? framebuffer.getDepthAttachment() : 0;
+    }
+
+    private static void copyDepthTextureToPaintTarget(int sourceDepth, int width, int height)
+    {
+        int targetDepth = resolvePaintOverlayDepthAttachment();
+
+        if (sourceDepth <= 0 || targetDepth <= 0 || sourceDepth == targetDepth || width <= 0 || height <= 0)
+        {
+            return;
+        }
+
+        DepthCopyStrategy.fastest(false)
+            .copy(null, sourceDepth, null, targetDepth, width, height);
+    }
+
+    private static void syncIrisDepthToPaintTarget()
+    {
+        WorldRenderingPipeline pipeline =
+            net.irisshaders.iris.Iris.getPipelineManager().getPipelineNullable();
+
+        if (!(pipeline instanceof IrisRenderingPipeline irisPipeline))
+        {
+            return;
+        }
+
+        IrisRenderingPipelineAccessor access = (IrisRenderingPipelineAccessor) irisPipeline;
+        RenderTargets targets = access.bbs$renderTargets();
+
+        if (targets == null)
+        {
+            return;
+        }
+
+        int width = targets.getCurrentWidth();
+        int height = targets.getCurrentHeight();
+        int opaqueDepth = targets.getDepthTextureNoTranslucents().getTextureId();
+
+        if (opaqueDepth > 0)
+        {
+            copyDepthTextureToPaintTarget(opaqueDepth, width, height);
+        }
+    }
+
+    private static void syncVanillaPaintOverlayDepth()
+    {
+        MinecraftClient mc = MinecraftClient.getInstance();
+
+        if (mc == null)
+        {
+            return;
+        }
+
+        if (FabricLoader.getInstance().isModLoaded("aaa_particles"))
+        {
+            pasteAAAParticlesCapturedWorldDepth();
+        }
+
+        Framebuffer paintTarget = BBSRendering.getPaintOverlaySourceFramebuffer();
+        Framebuffer mainTarget = mc.getFramebuffer();
+
+        if (paintTarget == null || mainTarget == null)
+        {
+            return;
+        }
+
+        int paintDepth = paintTarget.getDepthAttachment();
+        int mainDepth = mainTarget.getDepthAttachment();
+
+        if (paintDepth > 0 && mainDepth > 0 && paintDepth != mainDepth)
+        {
+            copyDepthTextureToPaintTarget(mainDepth, mainTarget.textureWidth, mainTarget.textureHeight);
+        }
+    }
+
+    /**
+     * AAA Particles defers Effekseer draws and {@code pasteToCurrentDepthFrom} its captured depth
+     * mid-frame; hand/particle depth writes afterward can desync the buffer paint overlays test
+     * against. Re-paste the world snapshot onto the paint target before overlay flush.
+     */
+    private static void pasteAAAParticlesCapturedWorldDepth()
+    {
+        try
+        {
+            Class<?> captureClass = Class.forName("mod.chloeprime.aaaparticles.client.internal.RenderStateCapture");
+            Field capturedField = captureClass.getField("CAPTURED_WORLD_DEPTH_BUFFER");
+            Object capturedBuffer = capturedField.get(null);
+
+            if (capturedBuffer == null)
+            {
+                return;
+            }
+
+            Class<?> renderUtilClass = Class.forName("mod.chloeprime.aaaparticles.client.render.RenderUtil");
+
+            for (Method method : renderUtilClass.getMethods())
+            {
+                if (!method.getName().equals("pasteToCurrentDepthFrom") || method.getParameterCount() != 1)
+                {
+                    continue;
+                }
+
+                method.invoke(null, capturedBuffer);
+
+                return;
+            }
+        }
+        catch (Throwable ignored)
+        {
         }
     }
 
