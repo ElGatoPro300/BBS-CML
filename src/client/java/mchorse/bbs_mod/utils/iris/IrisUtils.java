@@ -382,22 +382,55 @@ public class IrisUtils
         return false;
     }
 
+    /**
+     * Whether Distant Horizons LOD rendering is actually on.
+     * Must follow the home-screen "Enable rendering" toggle ({@code quickEnableRendering} /
+     * API {@code renderingEnabled}), not LOD render distance — distance stays high while
+     * rendering is off and previously caused unnecessary Iris reloads in the film editor.
+     */
     private static boolean isDistantHorizonsActive()
     {
+        Boolean enabled = readDistantHorizonsRenderingEnabled();
+
+        if (enabled != null)
+        {
+            return enabled;
+        }
+
+        /* Unknown DH config layout: assume active so the film-editor x-ray fix still runs. */
+        return true;
+    }
+
+    /**
+     * @return {@code Boolean} when the Enable-rendering flag was read; {@code null} if DH
+     * config could not be resolved (caller decides fallback).
+     */
+    private static Boolean readDistantHorizonsRenderingEnabled()
+    {
+        /* Prefer the public API (stable across DH versions). */
         try
         {
-            Class<?> qualityClass = Class.forName("com.seibel.distanthorizons.core.config.Config$Client$Advanced$Graphics$Quality", false, IrisUtils.class.getClassLoader());
-            Field distField = qualityClass.getField("lodChunkRenderDistanceRadius");
-            Object configEntry = distField.get(null);
+            Class<?> delayedClass = Class.forName("com.seibel.distanthorizons.api.DhApi$Delayed", false, IrisUtils.class.getClassLoader());
+            Field configsField = delayedClass.getField("configs");
+            Object configs = configsField.get(null);
 
-            if (configEntry != null)
+            if (configs != null)
             {
-                Method getMethod = configEntry.getClass().getMethod("get");
-                Object val = getMethod.invoke(configEntry);
+                Object graphics = configs.getClass().getMethod("graphics").invoke(configs);
 
-                if (val instanceof Number && ((Number) val).intValue() <= 0)
+                if (graphics != null)
                 {
-                    return false;
+                    Object renderingEnabled = graphics.getClass().getMethod("renderingEnabled").invoke(graphics);
+
+                    if (renderingEnabled != null)
+                    {
+                        Object val = renderingEnabled.getClass().getMethod("getValue").invoke(renderingEnabled);
+
+                        if (val instanceof Boolean)
+                        {
+                            return (Boolean) val;
+                        }
+                    }
                 }
             }
         }
@@ -406,7 +439,66 @@ public class IrisUtils
         catch (Throwable ignored)
         {}
 
-        return true;
+        /* Home-page toggle: Config.Client.quickEnableRendering ("Enable rendering"). */
+        Boolean quick = readConfigEntryBoolean("com.seibel.distanthorizons.core.config.Config$Client", "quickEnableRendering");
+
+        if (quick != null)
+        {
+            return quick;
+        }
+
+        /* Linked advanced mode: DISABLED <=> Enable rendering off. */
+        try
+        {
+            Class<?> debuggingClass = Class.forName("com.seibel.distanthorizons.core.config.Config$Client$Advanced$Debugging", false, IrisUtils.class.getClassLoader());
+            Field modeField = debuggingClass.getField("rendererMode");
+            Object configEntry = modeField.get(null);
+
+            if (configEntry != null)
+            {
+                Method getMethod = configEntry.getClass().getMethod("get");
+                Object val = getMethod.invoke(configEntry);
+
+                if (val != null)
+                {
+                    return !"DISABLED".equals(String.valueOf(val));
+                }
+            }
+        }
+        catch (ClassNotFoundException ignored)
+        {}
+        catch (Throwable ignored)
+        {}
+
+        /* Very old DH builds used enableRendering under Debugging. */
+        return readConfigEntryBoolean("com.seibel.distanthorizons.core.config.Config$Client$Advanced$Debugging", "enableRendering");
+    }
+
+    private static Boolean readConfigEntryBoolean(String className, String fieldName)
+    {
+        try
+        {
+            Class<?> clazz = Class.forName(className, false, IrisUtils.class.getClassLoader());
+            Field field = clazz.getField(fieldName);
+            Object configEntry = field.get(null);
+
+            if (configEntry != null)
+            {
+                Method getMethod = configEntry.getClass().getMethod("get");
+                Object val = getMethod.invoke(configEntry);
+
+                if (val instanceof Boolean)
+                {
+                    return (Boolean) val;
+                }
+            }
+        }
+        catch (ClassNotFoundException | NoSuchFieldException ignored)
+        {}
+        catch (Throwable ignored)
+        {}
+
+        return null;
     }
 
     private static boolean isVoxyActive()
