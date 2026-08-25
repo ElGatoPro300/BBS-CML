@@ -138,7 +138,7 @@ public class UISubtitleRenderer
                 continue;
             }
 
-            RenderSystem.setProjectionMatrix(new Matrix4f().ortho(0, w + 10, 0, h + 10, -100, 100), ProjectionType.ORTHOGRAPHIC);
+            RenderSystem.setProjectionMatrix(new Matrix4f().ortho(0, w + 10, h + 10, 0, -100, 100), ProjectionType.ORTHOGRAPHIC);
 
             framebuffer.resize(fw, fh);
             /* Transparent clear — opaque world clear-color would show as a black plate
