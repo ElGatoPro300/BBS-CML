@@ -206,6 +206,9 @@ So: putting Label/Shape into the ModelForm soft queue without isolating GL + con
 |-----|-----|
 | Soft Block / Structure opacity punches depth and hides forms/entities behind | Soft (`shouldDelayUntilPostDeferred`) → post-deferred queue like ModelForm/Extruded/Billboard; live soft main mesh skipped |
 | Structure: any form transparency → vanilla translucent blocks (glass, etc.) vanish | Skip translucent during main VAO capture; always draw `getTranslucentBlocks()` as a separate layer (preview + world). `StructureVaoManager.VAO_CACHE_VERSION` bumped to 4 |
+| Soft Structure: leaves/cutout biome vanish (no-shader) or near-black (Iris) | Under soft / post-deferred, draw leaves and soft special blocks with `entityTranslucentCull` instead of terrain `cutout_mipped` / `translucent` |
+| Soft Structure: solid blocks hide other blocks in the same form | Soft color is **per-block back-to-front** (depth-write off via `setFlushingDepthWrite`), then solid VAO depth stamp for world occlusion |
+| Soft Structure: leaves on top of trunk / OR leaves hidden behind soft trunk | Same sorted soft path — VAO+layer splits cannot satisfy both; per-block sort can |
 
 ### C.1 — Contract (Block / Structure)
 
@@ -213,7 +216,8 @@ So: putting Label/Shape into the ModelForm soft queue without isolating GL + con
 - Matrices: Iris `submitPostDeferredForm` with entity-local matrix; BBS `capturePaintOverlayRootMatrix` + `submitPostDeferredBbsForm`.
 - Sort: **form origin** (film look-axis when applicable). No per-face / per-block sort.
 - Block: soft deferred draws main mesh (+ glow). Paint / color-tint overlays keep existing deferred paths. Glass morphs do not suppress depth write during post-deferred (`isTranslucentBlockState` depthMask skip is live-only).
-- Structure: soft deferred draws VAO + BE + biome + animated + translucent (+ glow). Paint / color-tint overlays stay on existing deferred paths.
+- Structure soft deferred = **sorted per-block color** (far→near, depth-write off) → BE → solid VAO depth stamp → glow. Opaque Structure still uses the fast VAO + special layers.
+- Soft Structure self-occlusion: `setFlushingDepthWrite` is required because `ModelVAORenderer.render` reasserts the queue entry's depthWrite on the depth stamp.
 - Opaque paths unchanged aside from Structure always separating translucent from the VAO.
 
 ### C.2 — Test checklist (Phase C)
@@ -221,6 +225,9 @@ So: putting Label/Shape into the ModelForm soft queue without isolating GL + con
 - [ ] Soft Block in front of soft ModelForm limbs / soft billboards → see-through / order like soft Extruded.
 - [ ] Soft Structure same.
 - [ ] Soft Structure with glass / ice / stained glass → translucent blocks stay visible (not fully gone).
+- [ ] Soft Structure with leaves / grass (biome cutout) → visible under soft opacity (not vanished without shaders / not near-black with Iris).
+- [ ] Soft Structure: solid block in front of another solid in the same form → farther block still visible (not depth-killed); world/forms behind still occluded.
+- [ ] Soft Structure tree: leaves behind soft trunk still visible through the trunk; leaves in front of trunk stay in front (not always on top / not always culled).
 - [ ] Opaque Structure with glass → glass still visible; no VAO cache stale (reopen film / reload structure after update).
 - [ ] Soft Block glass morph → does not permanently punch an invisible hole in the world (depth owned by post-deferred).
 - [ ] Opaque Block / Structure → lighting and depth unchanged vs pre-Phase C (aside from Structure translucent layer split).
