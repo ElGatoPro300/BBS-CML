@@ -63,7 +63,11 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
     private static final float LABEL_DECORATION_POLYGON_FACTOR = 1F;
     private static final float LABEL_DECORATION_POLYGON_UNITS = 8F;
     /* Extra gap between wrapped lines so descenders do not touch the next line. */
-    private static final int WRAP_LINE_EXTRA_GAP = 2;
+    private int resolveWrapLineGap()
+    {
+        return Math.max(0, this.form.wrapLineGap.get());
+    }
+
     /** Units-only bias — factor 0 avoids Iris wall punch-through on grazing label planes. */
     private static final float LABEL_COLOR_TINT_OFFSET_FACTOR = FlatPaintOverlayPass.POLYGON_OFFSET_FACTOR;
     private static final float LABEL_COLOR_TINT_OFFSET_UNITS = FlatPaintOverlayPass.POLYGON_OFFSET_UNITS;
@@ -743,7 +747,7 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
         }
 
         int fh = customFont != null ? customFont.getHeight() : renderer.fontHeight - 2;
-        int lineStep = fh + this.form.lineHeight.get().intValue() + LabelFormRenderer.WRAP_LINE_EXTRA_GAP;
+        int lineStep = fh + this.form.lineHeight.get().intValue() + this.resolveWrapLineGap();
         int totalHeight = (lines.size() - 1) * lineStep + fh;
 
         float anchorX = this.form.anchorX.get();

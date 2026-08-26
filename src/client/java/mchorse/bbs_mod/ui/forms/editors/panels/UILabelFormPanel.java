@@ -51,6 +51,7 @@ public class UILabelFormPanel extends UIFormPanel<LabelForm>
     public UIFormColorTransform glowTransform;
     public UIElement glowSection;
     public UITrackpad max;
+    public UITrackpad wrapLineGap;
     public UITrackpad anchorX;
     public UITrackpad anchorY;
     public UIToggle anchorLines;
@@ -182,6 +183,9 @@ public class UILabelFormPanel extends UIFormPanel<LabelForm>
         this.max = new UITrackpad((value) -> this.form.max.set(value.intValue()));
         this.max.limit(-1, Integer.MAX_VALUE, true).increment(10);
         this.max.tooltip(UIKeys.FORMS_EDITORS_LABEL_WRAP_WIDTH_HINT);
+        this.wrapLineGap = new UITrackpad((value) -> this.form.wrapLineGap.set(value.intValue()));
+        this.wrapLineGap.limit(0, 100, true).increment(1);
+        this.wrapLineGap.tooltip(UIKeys.FORMS_EDITORS_LABEL_WRAP_LINE_GAP_HINT);
         this.anchorX = new UITrackpad((value) -> this.form.anchorX.set(value.floatValue()));
         this.anchorX.values(0.01F);
         this.anchorY = new UITrackpad((value) -> this.form.anchorY.set(value.floatValue()));
@@ -296,7 +300,9 @@ public class UILabelFormPanel extends UIFormPanel<LabelForm>
                 UIFormColorLayout.paintColorRowWithTransform(this.paintColor, this.paintIntensity, this.paintTransform)
             ).marginTop(4),
             UI.label(UIKeys.FORMS_EDITORS_LABEL_WRAP_WIDTH),
-            this.max
+            this.max,
+            UI.label(UIKeys.FORMS_EDITORS_LABEL_WRAP_LINE_GAP),
+            this.wrapLineGap
         );
 
         this.options.add(UI.label(UIKeys.FORMS_EDITORS_LABEL_ANCHOR).marginTop(8), UI.row(this.anchorX, this.anchorY), this.anchorLines);
@@ -390,6 +396,7 @@ public class UILabelFormPanel extends UIFormPanel<LabelForm>
         this.glowIntensity.setValue(glow.intensity);
         this.glowTransform.syncFromForm();
         this.max.setValue(form.max.get());
+        this.wrapLineGap.setValue(form.wrapLineGap.get());
         this.anchorX.setValue(form.anchorX.get());
         this.anchorY.setValue(form.anchorY.get());
         this.anchorLines.setValue(form.anchorLines.get());

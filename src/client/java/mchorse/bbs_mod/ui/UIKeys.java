@@ -854,6 +854,8 @@ public class UIKeys
     public static final IKey FORMS_EDITORS_LABEL_ANCHOR_LINES = L10n.lang("bbs.ui.forms.editors.label.anchor_lines");
     public static final IKey FORMS_EDITORS_LABEL_WRAP_WIDTH = L10n.lang("bbs.ui.forms.editors.label.wrap_width");
     public static final IKey FORMS_EDITORS_LABEL_WRAP_WIDTH_HINT = L10n.lang("bbs.ui.forms.editors.label.wrap_width-tooltip");
+    public static final IKey FORMS_EDITORS_LABEL_WRAP_LINE_GAP = L10n.lang("bbs.ui.forms.editors.label.wrap_line_gap");
+    public static final IKey FORMS_EDITORS_LABEL_WRAP_LINE_GAP_HINT = L10n.lang("bbs.ui.forms.editors.label.wrap_line_gap-tooltip");
     public static final IKey FORMS_EDITORS_LABEL_BACKGROUND = L10n.lang("bbs.ui.forms.editors.label.background");
     public static final IKey FORMS_EDITORS_LABEL_LABEL = L10n.lang("bbs.ui.forms.editors.label.label");
     public static final IKey FORMS_EDITORS_LABEL_SHADOW_COLOR = L10n.lang("bbs.ui.forms.editors.label.shadow_color");

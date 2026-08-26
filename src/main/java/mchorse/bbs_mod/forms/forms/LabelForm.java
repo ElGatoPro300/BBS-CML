@@ -15,6 +15,7 @@ public class LabelForm extends Form
     public final ValueColor color = new ValueColor("color", new Color(1F, 1F, 1F, 1F));
 
     public final ValueInt max = new ValueInt("max", -1);
+    public final ValueInt wrapLineGap = new ValueInt("wrapLineGap", 2);
     public final ValueFloat anchorX = new ValueFloat("anchorX", 0.5F);
     public final ValueFloat anchorY = new ValueFloat("anchorY", 0.5F);
     public final ValueBoolean anchorLines = new ValueBoolean("anchorLines", false);
@@ -61,6 +62,7 @@ public class LabelForm extends Form
         this.add(this.nametag);
         this.add(this.color);
         this.add(this.max);
+        this.add(this.wrapLineGap);
         this.add(this.anchorX);
         this.add(this.anchorY);
         this.add(this.anchorLines);
