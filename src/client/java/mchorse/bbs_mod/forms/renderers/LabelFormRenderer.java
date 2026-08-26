@@ -22,6 +22,7 @@ import mchorse.bbs_mod.utils.MatrixStackUtils;
 import mchorse.bbs_mod.utils.StringUtils;
 import mchorse.bbs_mod.utils.TextureFont;
 import mchorse.bbs_mod.utils.colors.Color;
+import mchorse.bbs_mod.utils.iris.ShaderOpacityPatch;
 
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.font.TextRenderer;
@@ -210,6 +211,14 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
 
         this.nametagAlpha = 1F;
 
+        boolean shadowPass = this.isShadowPass(context);
+
+        if (shadowPass)
+        {
+            RenderSystem.enableDepthTest();
+            RenderSystem.depthMask(true);
+        }
+
         if (this.form.nametag.get() && context.entity != null && context.entity.isSneaking())
         {
             context.stack.translate(0F, -0.5F, 0F);
@@ -293,7 +302,17 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
             RenderSystem.disableCull();
             RenderSystem.enableBlend();
             RenderSystem.defaultBlendFunc();
+
+            if (this.isShadowPass(context))
+            {
+                ShaderOpacityPatch.uploadShadowFormUniform();
+            }
         };
+    }
+
+    private boolean isShadowPass(FormRenderingContext context)
+    {
+        return context.isShadowPass || BBSRendering.isIrisShadowPass();
     }
 
     /**
@@ -446,7 +465,7 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
 
     private void renderTextGlowOverlay(FormRenderingContext context, CustomVertexConsumerProvider consumers, TextRenderer renderer, TextureFont customFont, String content, float x, float y, float letterSpacing, GlowSettings glowSettings, Color legacyGlow, float alpha, float glowIntensity, int textColor)
     {
-        if (context.isPicking() || glowIntensity <= 0F)
+        if (context.isPicking() || this.isShadowPass(context) || glowIntensity <= 0F)
         {
             return;
         }
@@ -576,13 +595,14 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
 
         float paintStrength = paintSettings.resolveIntensity(legacyPaint);
         boolean positivePaint = FormColorEffects.hasPositivePaint(paintSettings, legacyPaint);
+        boolean shadowPass = this.isShadowPass(context);
 
-        if (!colorTransformWanted || paintStrength < 0F)
+        if (!shadowPass && (!colorTransformWanted || paintStrength < 0F))
         {
             FormColorEffects.applyPaintBlend(color, paintSettings, legacyPaint);
         }
 
-        if (glowIntensity < 0F)
+        if (!shadowPass && glowIntensity < 0F)
         {
             FormColorEffects.blendFormGlowBrighten(color, glowSettings, legacyGlow);
         }
@@ -601,13 +621,16 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
 
         if (isFullyTransparent(color) && !context.isPicking())
         {
-            this.renderShadow(context, x, y, w, h);
+            if (!shadowPass)
+            {
+                this.renderShadow(context, x, y, w, h);
+            }
 
             return;
         }
 
-        boolean hasShadow = !isFullyTransparent(shadowColor);
-        boolean hasOutline = this.form.outline.get() && !isFullyTransparent(color);
+        boolean hasShadow = !shadowPass && !isFullyTransparent(shadowColor);
+        boolean hasOutline = !shadowPass && this.form.outline.get() && !isFullyTransparent(color);
         Consumer<RenderLayer> baseHijack = this.createLabelBaseHijack(context);
         boolean savedDepthMask = GL11.glGetBoolean(GL11.GL_DEPTH_WRITEMASK);
         boolean savedPolygonOffsetFill = GL11.glGetBoolean(GL11.GL_POLYGON_OFFSET_FILL);
@@ -670,26 +693,29 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
 
             List<LabelTextTintQuadCapture.GlyphQuad> overlayQuads = null;
 
-            if (formTintColor != null)
+            if (!shadowPass)
             {
-                this.tintCapture.clear();
-                this.captureLabelGlyphs(this.tintCapture, renderer, customFont, content, x, y, letterSpacing, light);
-                overlayQuads = this.tintCapture.snapshot();
-                this.submitOrRenderLabelColorTint(context, x, y, w, h, formTintColor, colorTransform, overlayQuads);
+                if (formTintColor != null)
+                {
+                    this.tintCapture.clear();
+                    this.captureLabelGlyphs(this.tintCapture, renderer, customFont, content, x, y, letterSpacing, light);
+                    overlayQuads = this.tintCapture.snapshot();
+                    this.submitOrRenderLabelColorTint(context, x, y, w, h, formTintColor, colorTransform, overlayQuads);
+                }
+
+                if (colorTransformWanted && positivePaint && overlayQuads != null && !overlayQuads.isEmpty())
+                {
+                    Color resolvedPaint = FormColorEffects.resolvePaintColor(paintSettings, legacyPaint);
+
+                    resolvedPaint.a *= formOpacity;
+                    EffectTransform paintTransform = paintSettings.transform == null ? null : paintSettings.transform.copy();
+                    this.submitOrRenderLabelPaintOverlay(context, x, y, w, h, resolvedPaint, paintTransform, overlayQuads);
+                }
+
+                this.renderTextGlowOverlay(context, consumers, renderer, customFont, content, x, y, letterSpacing, glowSettings, legacyGlow, color.a, glowIntensity, textArgb);
+
+                this.renderShadow(context, x, y, w, h);
             }
-
-            if (colorTransformWanted && positivePaint && overlayQuads != null && !overlayQuads.isEmpty())
-            {
-                Color resolvedPaint = FormColorEffects.resolvePaintColor(paintSettings, legacyPaint);
-
-                resolvedPaint.a *= formOpacity;
-                EffectTransform paintTransform = paintSettings.transform == null ? null : paintSettings.transform.copy();
-                this.submitOrRenderLabelPaintOverlay(context, x, y, w, h, resolvedPaint, paintTransform, overlayQuads);
-            }
-
-            this.renderTextGlowOverlay(context, consumers, renderer, customFont, content, x, y, letterSpacing, glowSettings, legacyGlow, color.a, glowIntensity, textArgb);
-
-            this.renderShadow(context, x, y, w, h);
         }
         finally
         {
@@ -787,13 +813,14 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
 
         float paintStrength = paintSettings.resolveIntensity(legacyPaint);
         boolean positivePaint = FormColorEffects.hasPositivePaint(paintSettings, legacyPaint);
+        boolean shadowPass = this.isShadowPass(context);
 
-        if (!colorTransformWanted || paintStrength < 0F)
+        if (!shadowPass && (!colorTransformWanted || paintStrength < 0F))
         {
             FormColorEffects.applyPaintBlend(color, paintSettings, legacyPaint);
         }
 
-        if (glowIntensity < 0F)
+        if (!shadowPass && glowIntensity < 0F)
         {
             FormColorEffects.blendFormGlowBrighten(color, glowSettings, legacyGlow);
         }
@@ -812,7 +839,10 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
 
         if (isFullyTransparent(color) && !context.isPicking())
         {
-            this.renderShadow(context, x, shadowY, w, totalHeight);
+            if (!shadowPass)
+            {
+                this.renderShadow(context, x, shadowY, w, totalHeight);
+            }
 
             return;
         }
@@ -832,8 +862,8 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
 
         this.tintCapture.clear();
 
-        boolean hasShadow = !isFullyTransparent(shadowColor);
-        boolean hasOutline = this.form.outline.get() && !isFullyTransparent(color);
+        boolean hasShadow = !shadowPass && !isFullyTransparent(shadowColor);
+        boolean hasOutline = !shadowPass && this.form.outline.get() && !isFullyTransparent(color);
         Consumer<RenderLayer> baseHijack = this.createLabelBaseHijack(context);
         boolean savedDepthMask = GL11.glGetBoolean(GL11.GL_DEPTH_WRITEMASK);
         boolean savedPolygonOffsetFill = GL11.glGetBoolean(GL11.GL_POLYGON_OFFSET_FILL);
@@ -922,7 +952,7 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
 
                 textArgb = this.drawLabelContent(context, consumers, renderer, customFont, line, lx, y, letterSpacing, light, color, gradientEnd);
 
-                if (formTintColor != null)
+                if (!shadowPass && formTintColor != null)
                 {
                     this.captureLabelGlyphs(this.tintCapture, renderer, customFont, line, lx, y, letterSpacing, light);
                 }
@@ -934,49 +964,52 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
             RenderSystem.depthMask(true);
             this.flushLabelConsumers(consumers);
 
-            List<LabelTextTintQuadCapture.GlyphQuad> overlayQuads = null;
-
-            if (formTintColor != null)
+            if (!shadowPass)
             {
-                overlayQuads = this.tintCapture.snapshot();
-                this.submitOrRenderLabelColorTint(context, x, shadowY, w, totalHeight, formTintColor, colorTransform, overlayQuads);
-            }
+                List<LabelTextTintQuadCapture.GlyphQuad> overlayQuads = null;
 
-            if (colorTransformWanted && positivePaint && overlayQuads != null && !overlayQuads.isEmpty())
-            {
-                Color resolvedPaint = FormColorEffects.resolvePaintColor(paintSettings, legacyPaint);
-
-                resolvedPaint.a *= formOpacity;
-                EffectTransform paintTransform = paintSettings.transform == null ? null : paintSettings.transform.copy();
-                this.submitOrRenderLabelPaintOverlay(context, x, shadowY, w, totalHeight, resolvedPaint, paintTransform, overlayQuads);
-            }
-
-            y = shadowY;
-
-            for (String line : lines)
-            {
-                int lw = customFont != null ? customFont.getWidth(line, letterSpacing) : renderer.getWidth(line) - 1;
-                int lx = x;
-
-                if (anchorLines)
+                if (formTintColor != null)
                 {
-                    lx = (int) (-lw * anchorX);
-                }
-                else if (align == 1)
-                {
-                    lx = x + (w - lw) / 2;
-                }
-                else if (align == 2)
-                {
-                    lx = x + (w - lw);
+                    overlayQuads = this.tintCapture.snapshot();
+                    this.submitOrRenderLabelColorTint(context, x, shadowY, w, totalHeight, formTintColor, colorTransform, overlayQuads);
                 }
 
-                this.renderTextGlowOverlay(context, consumers, renderer, customFont, line, lx, y, letterSpacing, glowSettings, legacyGlow, color.a, glowIntensity, textArgb);
+                if (colorTransformWanted && positivePaint && overlayQuads != null && !overlayQuads.isEmpty())
+                {
+                    Color resolvedPaint = FormColorEffects.resolvePaintColor(paintSettings, legacyPaint);
 
-                y += lineStep;
+                    resolvedPaint.a *= formOpacity;
+                    EffectTransform paintTransform = paintSettings.transform == null ? null : paintSettings.transform.copy();
+                    this.submitOrRenderLabelPaintOverlay(context, x, shadowY, w, totalHeight, resolvedPaint, paintTransform, overlayQuads);
+                }
+
+                y = shadowY;
+
+                for (String line : lines)
+                {
+                    int lw = customFont != null ? customFont.getWidth(line, letterSpacing) : renderer.getWidth(line) - 1;
+                    int lx = x;
+
+                    if (anchorLines)
+                    {
+                        lx = (int) (-lw * anchorX);
+                    }
+                    else if (align == 1)
+                    {
+                        lx = x + (w - lw) / 2;
+                    }
+                    else if (align == 2)
+                    {
+                        lx = x + (w - lw);
+                    }
+
+                    this.renderTextGlowOverlay(context, consumers, renderer, customFont, line, lx, y, letterSpacing, glowSettings, legacyGlow, color.a, glowIntensity, textArgb);
+
+                    y += lineStep;
+                }
+
+                this.renderShadow(context, x, shadowY, w, totalHeight);
             }
-
-            this.renderShadow(context, x, shadowY, w, totalHeight);
         }
         finally
         {

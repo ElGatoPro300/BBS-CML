@@ -1678,6 +1678,7 @@
     "bbs.ui.forms.editors.general.movement_speed": "Velocidad",
     "bbs.ui.forms.editors.general.movement_speed-tooltip": "Esta opción no cambia la velocidad de movimiento de un actor de reproducción. ¡Solo para el jugador transformado!",
     "bbs.ui.forms.editors.general.shader_shadow": "Shader del sombreador",
+    "bbs.ui.forms.editors.general.shader_shadow-tooltip": "Con shaders Iris activos (Complementary/BSL): permite que el form proyecte sombras del mundo según la pista Shadow del replay. Desactivado = no contribuye al shadow map. No afecta las sombras blob de vanilla sin shaders, y no se nota en la vista previa del editor de forms.",
     "bbs.ui.forms.editors.general.step_height": "Altura de escalón",
     "bbs.ui.forms.editors.general.track_name-tooltip": "Cuando se especifique, se mostrará un prefijo especial en las pistas de fotogramas clave y en el selector de adjuntos en lugar de una ruta como \"0/1/2\"",
     "bbs.ui.forms.editors.general.ui_scale": "Escala de la IU",
