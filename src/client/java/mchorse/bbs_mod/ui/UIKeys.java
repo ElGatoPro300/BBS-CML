@@ -1448,6 +1448,10 @@ public class UIKeys
     public static final IKey MODELS_SETTINGS = L10n.lang("bbs.ui.models.settings");
     public static final IKey MODELS_IK_EDITOR = L10n.lang("bbs.ui.models.ik_editor");
     public static final IKey MODELS_CONSTRAINTS_EDITOR = L10n.lang("bbs.ui.models.constraints_editor");
+    public static final IKey MODELS_CONSTRAINTS_NO_SELECTION = L10n.lang("bbs.ui.models.constraints.no_selection");
+    public static final IKey MODELS_CONSTRAINTS_ACTIVE = L10n.lang("bbs.ui.models.constraints.active");
+    public static final IKey MODELS_CONSTRAINTS_MIN = L10n.lang("bbs.ui.models.constraints.min");
+    public static final IKey MODELS_CONSTRAINTS_MAX = L10n.lang("bbs.ui.models.constraints.max");
     public static final IKey MODELS_IK_SHOW_SKELETON = L10n.lang("bbs.ui.models.ik.show_skeleton");
     public static final IKey MODELS_IK_SHOW_SKELETON_TOOLTIP = L10n.lang("bbs.ui.models.ik.show_skeleton-tooltip");
     public static final IKey MODELS_IK_CHAIN_ADD = L10n.lang("bbs.ui.models.ik.chain_add");
@@ -1474,6 +1478,12 @@ public class UIKeys
     public static final IKey MODELS_IK_CREATE_LOCATOR = L10n.lang("bbs.ui.models.ik.create_locator");
     public static final IKey MODELS_IK_CREATE_LOCATOR_TOOLTIP = L10n.lang("bbs.ui.models.ik.create_locator-tooltip");
     public static final IKey MODELS_IK_NO_SELECTION = L10n.lang("bbs.ui.models.ik.no_selection");
+    public static final IKey MODELS_IK_POLE_ENABLED = L10n.lang("bbs.ui.models.ik.pole_enabled");
+    public static final IKey MODELS_IK_POLE_BONE = L10n.lang("bbs.ui.models.ik.pole_bone");
+    public static final IKey MODELS_IK_ORIENT_TIP = L10n.lang("bbs.ui.models.ik.orient_tip");
+    public static final IKey MODELS_IK_EXTENSIBLE = L10n.lang("bbs.ui.models.ik.extensible");
+    public static final IKey MODELS_IK_BEND_OFFSET = L10n.lang("bbs.ui.models.ik.bend_offset");
+    public static final IKey MODELS_IK_FLEXIBILITY = L10n.lang("bbs.ui.models.ik.flexibility");
     public static final IKey MODELS_PHYS_BONES_EDITOR = L10n.lang("bbs.ui.models.dynamic_bones");
     public static final IKey MODELS_PHYS_BONES_ADD = L10n.lang("bbs.ui.models.phys_bones.add");
     public static final IKey MODELS_PHYS_BONES_ADD_TOOLTIP = L10n.lang("bbs.ui.models.phys_bones.add-tooltip");
@@ -1526,6 +1536,20 @@ public class UIKeys
     public static final IKey MODELS_PHYS_BONES_COLLISION_RADIUS_TOOLTIP = L10n.lang("bbs.ui.models.phys_bones.collision_radius-tooltip");
     public static final IKey MODELS_PHYS_BONES_APPLY_DESCENDANTS = L10n.lang("bbs.ui.models.phys_bones.apply_descendants");
     public static final IKey MODELS_PHYS_BONES_APPLY_DESCENDANTS_TOOLTIP = L10n.lang("bbs.ui.models.phys_bones.apply_descendants-tooltip");
+    public static final IKey MODELS_PHYS_BONES_SPRING_CHAIN = L10n.lang("bbs.ui.models.phys_bones.spring_chain");
+    public static final IKey MODELS_PHYS_BONES_BODY_RELATIVE_PULL = L10n.lang("bbs.ui.models.phys_bones.body_relative_pull");
+    public static final IKey MODELS_PHYS_BONES_PULL_STRENGTH = L10n.lang("bbs.ui.models.phys_bones.pull_strength");
+    public static final IKey MODELS_PHYS_BONES_DRAG = L10n.lang("bbs.ui.models.phys_bones.drag");
+    public static final IKey MODELS_PHYS_BONES_SPRING_RETURN = L10n.lang("bbs.ui.models.phys_bones.spring_return");
+    public static final IKey MODELS_PHYS_BONES_PULL_ROTATION = L10n.lang("bbs.ui.models.phys_bones.pull_rotation");
+    public static final IKey MODELS_PHYS_BONES_INFLUENCE = L10n.lang("bbs.ui.models.phys_bones.influence");
+    public static final IKey MODELS_PHYS_BONES_WIND = L10n.lang("bbs.ui.models.phys_bones.wind");
+    public static final IKey MODELS_PHYS_BONES_WIND_MODEL_RELATIVE = L10n.lang("bbs.ui.models.phys_bones.wind_model_relative");
+    public static final IKey MODELS_PHYS_BONES_WIND_POWER = L10n.lang("bbs.ui.models.phys_bones.wind_power");
+    public static final IKey MODELS_PHYS_BONES_WIND_DIRECTION = L10n.lang("bbs.ui.models.phys_bones.wind_direction");
+    public static final IKey MODELS_PHYS_BONES_WIND_GUSTINESS = L10n.lang("bbs.ui.models.phys_bones.wind_gustiness");
+    public static final IKey MODELS_PHYS_BONES_WIND_GUST_SPEED = L10n.lang("bbs.ui.models.phys_bones.wind_gust_speed");
+    public static final IKey MODELS_PHYS_BONES_WIND_GUST_SCALE = L10n.lang("bbs.ui.models.phys_bones.wind_gust_scale");
     public static final IKey MODELS_GEOMETRY_EDITOR = L10n.lang("bbs.ui.models.geometry_editor");
     public static final IKey MODELS_GEOMETRY_BONE_HIERARCHY = L10n.lang("bbs.ui.models.geometry_bone_hierarchy");
     public static final IKey MODELS_GEOMETRY_ADD_CUBE = L10n.lang("bbs.ui.models.geometry_add_cube");
@@ -2507,6 +2531,7 @@ public class UIKeys
     public static final IKey SCREEN_NODE_SINE_WAVE = L10n.lang("bbs.ui.screen_node.sine_wave");
     public static final IKey SCREEN_NODE_SQUARE_WAVE = L10n.lang("bbs.ui.screen_node.square_wave");
     public static final IKey SCREEN_NODE_VIGNETTE = L10n.lang("bbs.ui.screen_node.vignette");
+    public static final IKey SHAPES_ATTRIBUTE = L10n.lang("bbs.ui.shapes.attribute");
 
     /* Key collections */
     public static final KeyCollection C_CLIP = new KeyCollection("bbs.ui.camera.clips.^")
