@@ -59,7 +59,8 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
     private static final Quad uvQuad = new Quad();
 
     private static final Matrix4f matrix = new Matrix4f();
-    /* Base billboard faces sit slightly off the mid-plane so front/back do not z-fight. */
+    /* Used by paint/glow camera-facing offset and face sort keys — not for dual ±Z base meshes.
+     * Base two-sided look: both windings at z=0 with cull on (see drawBillboardFaces). */
     private static final float FACE_Z_BIAS = 0.0005F;
 
     /* Paint/glow overlays sit further outward along each face normal so back faces are not
@@ -453,7 +454,7 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
 
                 try
                 {
-                    RenderSystem.disableCull();
+                    /* drawBillboardFaces enables cull for dual mid-plane windings. */
                     RenderSystem.enableDepthTest();
                     ShaderOpacityPatch.reassertPostDeferredDepthState(depthWrite);
 
@@ -581,10 +582,8 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
 
                 try
                 {
-                    /* beginDeferredTranslucentModelPass enables cull; camera-facing quads then
-                     * vanish. Match the no-shader live path: no cull, both faces, FormColorGrade. */
-                    RenderSystem.disableCull();
-
+                    /* beginDeferredTranslucentModelPass enables cull; drawBillboardFaces sets
+                     * cull for dual mid-plane windings (or disableCull for single-sided). */
                     if (gradeActiveSnapshot)
                     {
                         ModelVAORenderer.setFormColorGrade(gradeBrightnessSnapshot, gradeContrastSnapshot, gradeHueSnapshot, gradeSaturationSnapshot);
@@ -597,8 +596,7 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
                         ModelVAORenderer.setupUniforms(gradeStack, gradeShader);
                     }
 
-                    /* Dual-sided: FACE_Z_BIAS separates front/back; single-sided + cull left
-                     * the reverse face permanently invisible under Iris deferred redraw. */
+                    /* Two-sided via both windings at mid-plane + cull (not ±FACE_Z_BIAS). */
                     this.drawBillboardFaces(
                         deferredFormat,
                         deferredTexture,
@@ -710,28 +708,31 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
                         float v0 = Lerps.lerp(uvQuad.p1.y, uvQuad.p3.y, fy0);
                         float v1 = Lerps.lerp(uvQuad.p1.y, uvQuad.p3.y, fy1);
 
-                        /* Front */
-                        this.fill(format, builder, matrix, x0, y1, FACE_Z_BIAS, color, u0, v1, overlay, light, entry, 1F);
-                        this.fill(format, builder, matrix, x1, y0, FACE_Z_BIAS, color, u1, v0, overlay, light, entry, 1F);
-                        this.fill(format, builder, matrix, x0, y0, FACE_Z_BIAS, color, u0, v0, overlay, light, entry, 1F);
+                        /* Front + back windings on the same mid-plane. Cull (below) keeps
+                         * only the camera-facing winding so front/back never share depth. */
+                        this.fill(format, builder, matrix, x0, y1, 0F, color, u0, v1, overlay, light, entry, 1F);
+                        this.fill(format, builder, matrix, x1, y0, 0F, color, u1, v0, overlay, light, entry, 1F);
+                        this.fill(format, builder, matrix, x0, y0, 0F, color, u0, v0, overlay, light, entry, 1F);
 
-                        this.fill(format, builder, matrix, x0, y1, FACE_Z_BIAS, color, u0, v1, overlay, light, entry, 1F);
-                        this.fill(format, builder, matrix, x1, y1, FACE_Z_BIAS, color, u1, v1, overlay, light, entry, 1F);
-                        this.fill(format, builder, matrix, x1, y0, FACE_Z_BIAS, color, u1, v0, overlay, light, entry, 1F);
+                        this.fill(format, builder, matrix, x0, y1, 0F, color, u0, v1, overlay, light, entry, 1F);
+                        this.fill(format, builder, matrix, x1, y1, 0F, color, u1, v1, overlay, light, entry, 1F);
+                        this.fill(format, builder, matrix, x1, y0, 0F, color, u1, v0, overlay, light, entry, 1F);
 
-                        /* Back */
-                        this.fill(format, builder, matrix, x0, y0, -FACE_Z_BIAS, color, u0, v0, overlay, light, entry, -1F);
-                        this.fill(format, builder, matrix, x1, y0, -FACE_Z_BIAS, color, u1, v0, overlay, light, entry, -1F);
-                        this.fill(format, builder, matrix, x0, y1, -FACE_Z_BIAS, color, u0, v1, overlay, light, entry, -1F);
+                        this.fill(format, builder, matrix, x0, y0, 0F, color, u0, v0, overlay, light, entry, -1F);
+                        this.fill(format, builder, matrix, x1, y0, 0F, color, u1, v0, overlay, light, entry, -1F);
+                        this.fill(format, builder, matrix, x0, y1, 0F, color, u0, v1, overlay, light, entry, -1F);
 
-                        this.fill(format, builder, matrix, x1, y0, -FACE_Z_BIAS, color, u1, v0, overlay, light, entry, -1F);
-                        this.fill(format, builder, matrix, x1, y1, -FACE_Z_BIAS, color, u1, v1, overlay, light, entry, -1F);
-                        this.fill(format, builder, matrix, x0, y1, -FACE_Z_BIAS, color, u0, v1, overlay, light, entry, -1F);
+                        this.fill(format, builder, matrix, x1, y0, 0F, color, u1, v0, overlay, light, entry, -1F);
+                        this.fill(format, builder, matrix, x1, y1, 0F, color, u1, v1, overlay, light, entry, -1F);
+                        this.fill(format, builder, matrix, x0, y1, 0F, color, u0, v1, overlay, light, entry, -1F);
                     }
                 }
 
                 RenderSystem.enableBlend();
                 RenderSystem.defaultBlendFunc();
+                /* Outer path disables cull for overlays; base mesh needs it or both
+                 * windings at z=0 would z-fight identically. */
+                RenderSystem.enableCull();
 
                 if (useFormColorGrade)
                 {
@@ -806,54 +807,55 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
         }
     }
 
+    /**
+     * @param singleSided paint/tint overlays: one camera-facing plane. Otherwise both
+     *        windings share z=0 and cull keeps only the facing side (avoids ±FACE_Z_BIAS
+     *        depth fighting at distance / Iris reversed-Z).
+     */
     private void drawBillboardFaces(VertexFormat format, Texture texture, Supplier<ShaderProgram> shader, MatrixStack matrices, Color color, Quad drawQuad, Quad drawUvQuad, int overlay, int light, boolean linear, boolean mipmap, boolean singleSided)
     {
         Matrix4f matrix = matrices.peek().getPositionMatrix();
         MatrixStack.Entry entry = matrices.peek();
         BufferBuilder builder = Tessellator.getInstance().begin(VertexFormat.DrawMode.TRIANGLES, format);
-        /* Dual-sided even during deferred translucent — that pass used to force single-face
-         * + cull and made Color Grade redraws vanish. */
-
-        /* Allow both faces during deferred Iris redraw — FACE_Z_BIAS prevents front/back
-         * self z-fight. Only skip dual geometry on the paint-overlay pass. */
         boolean dualSided = !singleSided && !ModelVAORenderer.isPaintOverlayPass();
+        float faceZ = singleSided ? this.resolveOverlayFaceZ(matrix) : 0F;
+        float frontNz = faceZ >= 0F ? 1F : -1F;
 
         this.bindFormTexture(texture);
         RenderSystem.setShader(shader);
         texture.bind();
         texture.setFilterMipmap(linear, mipmap);
-        /* Never enable cull here — deferred translucent begins with cull on, and a
-         * camera-facing billboard with only the front winding then disappears. */
-        RenderSystem.disableCull();
 
         if (dualSided)
-        {
-            RenderSystem.disableCull();
-        }
-        else
         {
             RenderSystem.enableCull();
         }
+        else
+        {
+            /* Single plane must stay visible from behind (Iris deferred / paint). */
+            RenderSystem.disableCull();
+        }
+
         RenderSystem.enableBlend();
         RenderSystem.defaultBlendFunc();
 
-        this.fill(format, builder, matrix, drawQuad.p3.x, drawQuad.p3.y, FACE_Z_BIAS, color, drawUvQuad.p3.x, drawUvQuad.p3.y, overlay, light, entry, 1F);
-        this.fill(format, builder, matrix, drawQuad.p2.x, drawQuad.p2.y, FACE_Z_BIAS, color, drawUvQuad.p2.x, drawUvQuad.p2.y, overlay, light, entry, 1F);
-        this.fill(format, builder, matrix, drawQuad.p1.x, drawQuad.p1.y, FACE_Z_BIAS, color, drawUvQuad.p1.x, drawUvQuad.p1.y, overlay, light, entry, 1F);
+        this.fill(format, builder, matrix, drawQuad.p3.x, drawQuad.p3.y, faceZ, color, drawUvQuad.p3.x, drawUvQuad.p3.y, overlay, light, entry, frontNz);
+        this.fill(format, builder, matrix, drawQuad.p2.x, drawQuad.p2.y, faceZ, color, drawUvQuad.p2.x, drawUvQuad.p2.y, overlay, light, entry, frontNz);
+        this.fill(format, builder, matrix, drawQuad.p1.x, drawQuad.p1.y, faceZ, color, drawUvQuad.p1.x, drawUvQuad.p1.y, overlay, light, entry, frontNz);
 
-        this.fill(format, builder, matrix, drawQuad.p3.x, drawQuad.p3.y, FACE_Z_BIAS, color, drawUvQuad.p3.x, drawUvQuad.p3.y, overlay, light, entry, 1F);
-        this.fill(format, builder, matrix, drawQuad.p4.x, drawQuad.p4.y, FACE_Z_BIAS, color, drawUvQuad.p4.x, drawUvQuad.p4.y, overlay, light, entry, 1F);
-        this.fill(format, builder, matrix, drawQuad.p2.x, drawQuad.p2.y, FACE_Z_BIAS, color, drawUvQuad.p2.x, drawUvQuad.p2.y, overlay, light, entry, 1F);
+        this.fill(format, builder, matrix, drawQuad.p3.x, drawQuad.p3.y, faceZ, color, drawUvQuad.p3.x, drawUvQuad.p3.y, overlay, light, entry, frontNz);
+        this.fill(format, builder, matrix, drawQuad.p4.x, drawQuad.p4.y, faceZ, color, drawUvQuad.p4.x, drawUvQuad.p4.y, overlay, light, entry, frontNz);
+        this.fill(format, builder, matrix, drawQuad.p2.x, drawQuad.p2.y, faceZ, color, drawUvQuad.p2.x, drawUvQuad.p2.y, overlay, light, entry, frontNz);
 
         if (dualSided)
         {
-            this.fill(format, builder, matrix, drawQuad.p1.x, drawQuad.p1.y, -FACE_Z_BIAS, color, drawUvQuad.p1.x, drawUvQuad.p1.y, overlay, light, entry, -1F);
-            this.fill(format, builder, matrix, drawQuad.p2.x, drawQuad.p2.y, -FACE_Z_BIAS, color, drawUvQuad.p2.x, drawUvQuad.p2.y, overlay, light, entry, -1F);
-            this.fill(format, builder, matrix, drawQuad.p3.x, drawQuad.p3.y, -FACE_Z_BIAS, color, drawUvQuad.p3.x, drawUvQuad.p3.y, overlay, light, entry, -1F);
+            this.fill(format, builder, matrix, drawQuad.p1.x, drawQuad.p1.y, faceZ, color, drawUvQuad.p1.x, drawUvQuad.p1.y, overlay, light, entry, -1F);
+            this.fill(format, builder, matrix, drawQuad.p2.x, drawQuad.p2.y, faceZ, color, drawUvQuad.p2.x, drawUvQuad.p2.y, overlay, light, entry, -1F);
+            this.fill(format, builder, matrix, drawQuad.p3.x, drawQuad.p3.y, faceZ, color, drawUvQuad.p3.x, drawUvQuad.p3.y, overlay, light, entry, -1F);
 
-            this.fill(format, builder, matrix, drawQuad.p2.x, drawQuad.p2.y, -FACE_Z_BIAS, color, drawUvQuad.p2.x, drawUvQuad.p2.y, overlay, light, entry, -1F);
-            this.fill(format, builder, matrix, drawQuad.p4.x, drawQuad.p4.y, -FACE_Z_BIAS, color, drawUvQuad.p4.x, drawUvQuad.p4.y, overlay, light, entry, -1F);
-            this.fill(format, builder, matrix, drawQuad.p3.x, drawQuad.p3.y, -FACE_Z_BIAS, color, drawUvQuad.p3.x, drawUvQuad.p3.y, overlay, light, entry, -1F);
+            this.fill(format, builder, matrix, drawQuad.p2.x, drawQuad.p2.y, faceZ, color, drawUvQuad.p2.x, drawUvQuad.p2.y, overlay, light, entry, -1F);
+            this.fill(format, builder, matrix, drawQuad.p4.x, drawQuad.p4.y, faceZ, color, drawUvQuad.p4.x, drawUvQuad.p4.y, overlay, light, entry, -1F);
+            this.fill(format, builder, matrix, drawQuad.p3.x, drawQuad.p3.y, faceZ, color, drawUvQuad.p3.x, drawUvQuad.p3.y, overlay, light, entry, -1F);
         }
 
         ShaderProgram bound = shader.get();
@@ -1283,7 +1285,7 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
     {
         float cx = (quad.p1.x + quad.p2.x + quad.p3.x + quad.p4.x) * 0.25F;
         float cy = (quad.p1.y + quad.p2.y + quad.p3.y + quad.p4.y) * 0.25F;
-        Vector4f face = new Vector4f(cx, cy, FACE_Z_BIAS, 1F);
+        Vector4f face = new Vector4f(cx, cy, 0F, 1F);
         Matrix4f viewSpace = ModelVAORenderer.capturePaintOverlayRootMatrix(new Matrix4f(drawMatrix));
 
         viewSpace.transform(face);
