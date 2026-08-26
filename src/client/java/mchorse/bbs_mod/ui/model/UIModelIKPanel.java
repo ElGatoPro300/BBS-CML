@@ -11,10 +11,10 @@ import mchorse.bbs_mod.data.types.BaseType;
 import mchorse.bbs_mod.data.types.MapType;
 import mchorse.bbs_mod.l10n.keys.IKey;
 import mchorse.bbs_mod.ui.UIKeys;
+import mchorse.bbs_mod.ui.forms.editors.utils.UIDebugOverlayContextMenu;
 import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.ui.framework.elements.UIElement;
 import mchorse.bbs_mod.ui.framework.elements.UIScrollView;
-import mchorse.bbs_mod.ui.forms.editors.utils.UIDebugOverlayContextMenu;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIButton;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIIcon;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIToggle;
@@ -101,14 +101,14 @@ public class UIModelIKPanel extends UIElement
          * looking at any rig, not part of one — so it sits under the bone list rather
          * than in the per-limb fields, and stays reachable with nothing selected.
          * Right-click it, or use the gear, for the overlay's look. */
-        this.debugToggle = new UIToggle(IKey.raw("Show Debug"), (b) -> BBSSettings.ikDebug.enabled.set(b.getValue()));
+        this.debugToggle = new UIToggle(UIKeys.MODELS_DEBUG_SHOW, (b) -> BBSSettings.ikDebug.enabled.set(b.getValue()));
         this.debugToggle.setValue(BBSSettings.ikDebug.enabled.get());
-        this.debugToggle.tooltip(IKey.raw("Draw the IK bones over the model: the chain wires, its joints, and the controller and pole handles."));
+        this.debugToggle.tooltip(UIKeys.MODELS_IK_DEBUG_TOOLTIP);
         this.debugToggle.context(() -> new UIDebugOverlayContextMenu(BBSSettings.ikDebug));
 
         UIIcon debugSettings = new UIIcon(Icons.GEAR, (b) -> this.getContext().replaceContextMenu(new UIDebugOverlayContextMenu(BBSSettings.ikDebug)));
 
-        debugSettings.tooltip(IKey.raw("Configure the overlay"));
+        debugSettings.tooltip(UIKeys.MODELS_DEBUG_CONFIGURE);
 
         /* Anchored to the PANEL, not to the bone list: hung off the list it moved with
          * every list rebuild and only landed in place on the next resize, so loading a
@@ -254,7 +254,7 @@ public class UIModelIKPanel extends UIElement
             }
         });
 
-        this.classicToggle = new UIToggle(IKey.raw("Classic Solver"), (b) ->
+        this.classicToggle = new UIToggle(UIKeys.MODELS_IK_CLASSIC_SOLVER, (b) ->
         {
             LimbData data = this.getOrCreateSelected();
 
@@ -264,7 +264,7 @@ public class UIModelIKPanel extends UIElement
                 this.commitChanges();
             }
         });
-        this.classicToggle.tooltip(IKey.raw("Solve this limb with the pre-redesign two-bone solver instead of the channel-space tree. Ignores per-bone joint freedom, and falls back to the tree anyway where this limb shares bones with another."));
+        this.classicToggle.tooltip(UIKeys.MODELS_IK_CLASSIC_SOLVER_TOOLTIP);
 
         fields.add(
             this.activeToggle,
@@ -543,11 +543,11 @@ public class UIModelIKPanel extends UIElement
 
         return new UIDataContextMenu(IKPresetManager.INSTANCE, group, this::currentPreset, this::applyPreset)
             .tooltips(IKPresetManager.CLIPBOARD,
-                IKey.raw("Copy this model's IK setup"),
-                IKey.raw("Paste an IK setup"),
-                IKey.raw("Clear every limb"),
-                IKey.raw("Save the IK setup under the typed name"),
-                IKey.raw("Preset name"));
+                UIKeys.MODELS_IK_PRESET_COPY,
+                UIKeys.MODELS_IK_PRESET_PASTE,
+                UIKeys.MODELS_IK_PRESET_CLEAR,
+                UIKeys.MODELS_IK_PRESET_SAVE,
+                UIKeys.MODELS_IK_PRESET_NAME);
     }
 
     /** This model's IK setup as a preset document — the serializer's own shape. */

@@ -3,6 +3,7 @@ package mchorse.bbs_mod.ui.forms.editors.utils;
 import mchorse.bbs_mod.l10n.keys.IKey;
 import mchorse.bbs_mod.settings.values.ui.ValueDebugElement;
 import mchorse.bbs_mod.settings.values.ui.ValueModelDebug;
+import mchorse.bbs_mod.ui.UIKeys;
 import mchorse.bbs_mod.ui.dashboard.panels.UIDashboardPanels;
 import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.ui.framework.elements.UIElement;
@@ -39,11 +40,11 @@ public class UIDebugOverlayContextMenu extends UIContextMenu
         this.config = config;
 
         this.enable = new UIIcon(() -> this.config.enabled.get() ? Icons.VISIBLE : Icons.INVISIBLE, (b) -> this.config.enabled.toggle());
-        this.enable.tooltip(IKey.raw("Draw the overlay"));
+        this.enable.tooltip(UIKeys.MODELS_DEBUG_DRAW_OVERLAY);
         this.xray = new UIIcon(Icons.FADING, (b) -> this.config.xray.toggle());
-        this.xray.tooltip(IKey.raw("Draw through the model"));
+        this.xray.tooltip(UIKeys.MODELS_DEBUG_DRAW_THROUGH_MODEL);
         this.dashed = new UIIcon(Icons.LINE, (b) -> this.config.dashed.toggle());
-        this.dashed.tooltip(IKey.raw("Dashed chain lines"));
+        this.dashed.tooltip(UIKeys.MODELS_DEBUG_DASHED_LINES);
 
         this.opacity = new UITrackpad((v) -> this.config.opacity.set(v.floatValue()));
         this.opacity.limit(this.config.opacity).setValue(this.config.opacity.get());
@@ -58,7 +59,7 @@ public class UIDebugOverlayContextMenu extends UIContextMenu
             rows.add(this.row(element));
         }
 
-        rows.add(UI.label(IKey.raw("Opacity")));
+        rows.add(UI.label(UIKeys.MODELS_DEBUG_OPACITY));
         rows.add(this.opacity);
 
         this.column = UI.column(4, 8, rows.toArray(new UIElement[0]));
@@ -92,7 +93,7 @@ public class UIDebugOverlayContextMenu extends UIContextMenu
 
         UIIcon shape = new UIIcon(() -> shapeIcon(element.shape.get()), (b) -> element.shape.set((element.shape.get() + 1) % ValueDebugElement.SHAPES));
 
-        shape.tooltip(IKey.raw("Marker shape"));
+        shape.tooltip(UIKeys.MODELS_DEBUG_MARKER_SHAPE);
 
         return UI.row(shape, visible, color, size);
     }

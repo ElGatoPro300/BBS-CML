@@ -1,5 +1,6 @@
 package mchorse.bbs_mod.ui.model;
 
+import mchorse.bbs_mod.BBSSettings;
 import mchorse.bbs_mod.cubic.ModelInstance;
 import mchorse.bbs_mod.cubic.model.ModelConfig;
 import mchorse.bbs_mod.cubic.physics.SpringChainCompiler;
@@ -9,21 +10,20 @@ import mchorse.bbs_mod.cubic.physics.SpringChainsConfig;
 import mchorse.bbs_mod.cubic.physics.WindDef;
 import mchorse.bbs_mod.data.types.BaseType;
 import mchorse.bbs_mod.data.types.MapType;
-import mchorse.bbs_mod.BBSSettings;
 import mchorse.bbs_mod.l10n.keys.IKey;
-import mchorse.bbs_mod.ui.forms.editors.utils.UIDebugOverlayContextMenu;
-import mchorse.bbs_mod.ui.framework.elements.buttons.UIIcon;
-import mchorse.bbs_mod.ui.utils.icons.Icons;
 import mchorse.bbs_mod.ui.UIKeys;
+import mchorse.bbs_mod.ui.forms.editors.utils.UIDebugOverlayContextMenu;
 import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.ui.framework.elements.UIElement;
 import mchorse.bbs_mod.ui.framework.elements.UIScrollView;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIButton;
+import mchorse.bbs_mod.ui.framework.elements.buttons.UIIcon;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIToggle;
 import mchorse.bbs_mod.ui.framework.elements.input.UITrackpad;
 import mchorse.bbs_mod.ui.framework.elements.input.list.UIStringList;
 import mchorse.bbs_mod.ui.framework.elements.utils.UILabel;
 import mchorse.bbs_mod.ui.utils.UI;
+import mchorse.bbs_mod.ui.utils.icons.Icons;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -111,14 +111,14 @@ public class UIModelPhysBonePanel extends UIElement
         /* Anchored to the PANEL, not to the bone list, so rebuilding the list cannot
          * displace it. The switch is a settings value, not part of a rig, so it sits
          * outside the per-chain fields and stays reachable with nothing selected. */
-        this.debugToggle = new UIToggle(IKey.raw("Show Debug"), (b) -> BBSSettings.physicsDebug.enabled.set(b.getValue()));
+        this.debugToggle = new UIToggle(UIKeys.MODELS_DEBUG_SHOW, (b) -> BBSSettings.physicsDebug.enabled.set(b.getValue()));
         this.debugToggle.setValue(BBSSettings.physicsDebug.enabled.get());
-        this.debugToggle.tooltip(IKey.raw("Draw the dynamic bone chains over the model: the wires, the pinned root, the simulated tip, the pin target, and the wind force at each point."));
+        this.debugToggle.tooltip(UIKeys.MODELS_PHYS_BONES_DEBUG_TOOLTIP);
         this.debugToggle.context(() -> new UIDebugOverlayContextMenu(BBSSettings.physicsDebug));
 
         UIIcon debugSettings = new UIIcon(Icons.GEAR, (b) -> this.getContext().replaceContextMenu(new UIDebugOverlayContextMenu(BBSSettings.physicsDebug)));
 
-        debugSettings.tooltip(IKey.raw("Configure the overlay"));
+        debugSettings.tooltip(UIKeys.MODELS_DEBUG_CONFIGURE);
 
         UIElement debugRow = UI.row(this.debugToggle, debugSettings);
 
@@ -167,8 +167,8 @@ public class UIModelPhysBonePanel extends UIElement
                 }
             })
         );
-        this.endBoneButton.tooltip(IKey.raw("Where the chain stops. Leave it unset and physics runs from this bone down to the deepest bone under it — right-click to clear it back to that."));
-        this.endBoneButton.context((menu) -> menu.action(Icons.CLOSE, IKey.raw("Clear (auto chain)"), () ->
+        this.endBoneButton.tooltip(UIKeys.MODELS_PHYS_BONES_END_BONE_TOOLTIP);
+        this.endBoneButton.context((menu) -> menu.action(Icons.CLOSE, UIKeys.MODELS_PHYS_BONES_END_BONE_CLEAR, () ->
         {
             SpringChainData data = this.getSelectedData();
 
@@ -502,7 +502,7 @@ public class UIModelPhysBonePanel extends UIElement
         {
             /* Blank is a real setting, not a gap to fill: the chain runs to the deepest
              * bone under the root. Say so rather than showing a bare prompt. */
-            this.endBoneButton.label = IKey.raw("(auto — to the deepest bone)");
+            this.endBoneButton.label = UIKeys.MODELS_PHYS_BONES_END_BONE_AUTO;
             return;
         }
 
