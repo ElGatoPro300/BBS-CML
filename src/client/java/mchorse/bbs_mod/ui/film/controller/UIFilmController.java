@@ -402,6 +402,23 @@ public class UIFilmController extends UIElement
         this.refreshEntities();
     }
 
+    public void clearEntities()
+    {
+        this.stopRecording();
+
+        if (this.controlled != null)
+        {
+            this.toggleControl();
+        }
+
+        this.editorController = null;
+
+        if (this.panel.getData() != null)
+        {
+            this.panel.getRunner().getContext().entities.clear();
+        }
+    }
+
     /**
      * Rebuild stub actors from the current film without stopping an active recording.
      * Used as a one-shot refresh after mob capture so new MobForms are visible immediately.

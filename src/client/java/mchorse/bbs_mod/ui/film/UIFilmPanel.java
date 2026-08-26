@@ -5622,6 +5622,11 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
     @Override
     public boolean needsBackground()
     {
+        if (this.isCrossWorldPreviewInForeignWorld())
+        {
+            return true;
+        }
+
         /* HDR Mod presents the film offscreen world full-screen; opaque chrome covers the bleed. */
         return HdrModCompat.isHdrPresentationActive();
     }
@@ -5745,6 +5750,11 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
 
     public boolean needsViewportRender()
     {
+        if (this.isCrossWorldPreviewInForeignWorld())
+        {
+            return false;
+        }
+
         return this.data != null && !this.showingHomePage && this.preview != null && this.preview.isVisible();
     }
 
@@ -5992,11 +6002,12 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
             }
         }
 
-        if (data != null)
+        if (data != null && !this.isCrossWorldPreviewInForeignWorld())
         {
             this.notifyServer(ActionState.RESTART);
         }
 
+        this.syncViewportRenderMode();
         this.syncActiveDocumentTabWithData(data);
         RegisterFilmSyncEvent.postOpenFilm(data);
     }
@@ -6051,7 +6062,16 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
         this.cameraEditor.pickClip(null);
 
         this.fillData();
-        this.controller.createEntities();
+        this.syncViewportRenderMode();
+
+        if (this.isCrossWorldPreviewInForeignWorld())
+        {
+            this.controller.clearEntities();
+        }
+        else
+        {
+            this.controller.createEntities();
+        }
 
         if (this.newFilm)
         {
@@ -7351,14 +7371,7 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
             return false;
         }
 
-        MinecraftClient client = MinecraftClient.getInstance();
-
-        if (client.world != null && client.player != null)
-        {
-            return false;
-        }
-
-        return !WorldLaunchHelper.isCurrentWorld(client, entry.worldFolder);
+        return !WorldLaunchHelper.isCurrentWorld(MinecraftClient.getInstance(), entry.worldFolder);
     }
 
     private CrossWorldFilmEntry resolveCrossWorldEntryFromTab(String tabId)
@@ -7390,6 +7403,16 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
         CrossWorldFilmLoader.load(entry.worldFolder, entry.filmId, (film) -> this.fill(film));
     }
 
+    private boolean isCrossWorldPreviewInForeignWorld()
+    {
+        if (this.crossWorldPendingJoin == null)
+        {
+            return false;
+        }
+
+        return !WorldLaunchHelper.isCurrentWorld(MinecraftClient.getInstance(), this.crossWorldPendingJoin.worldFolder);
+    }
+
     public boolean canShowJoinWorld()
     {
         if (this.crossWorldPendingJoin == null || this.crossWorldPendingJoin.filmId.endsWith("/"))
@@ -7403,11 +7426,6 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
         }
 
         MinecraftClient client = MinecraftClient.getInstance();
-
-        if (client.world != null && client.player != null)
-        {
-            return false;
-        }
 
         return !WorldLaunchHelper.isCurrentWorld(client, this.crossWorldPendingJoin.worldFolder);
     }
@@ -7516,7 +7534,7 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
                     this.crossWorldPendingJoin = this.shouldSetPendingJoin(entry) ? entry : null;
                     this.crossWorldFilmEntries.put(entry.encodeKey(), entry);
                     this.crossWorldWorldLabels.put(entry.worldFolder, entry.worldLabel);
-                    this.openFilmInDocumentTabs(entry.encodeKey());
+                    FilmLaunchHelper.openCrossWorldFilm(entry);
                 }
             }
             else
