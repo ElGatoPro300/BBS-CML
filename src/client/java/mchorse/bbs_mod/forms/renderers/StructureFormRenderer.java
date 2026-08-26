@@ -346,13 +346,17 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
             }
             else
             {
+                boolean noshadingDefer = !context.modelRenderer
+                    && !shadowPass
+                    && BBSRendering.needsIrisNoshadingOpacityDeferral(mainTint3D.a, this.form.noshadingOpacity.get());
                 boolean softPostDeferred = !context.modelRenderer
                     && !shadowPass
-                    && ShaderOpacityPatch.shouldDelayUntilPostDeferred(mainTint3D.a);
+                    && ShaderOpacityPatch.shouldDelayUntilPostDeferred(mainTint3D.a)
+                    && !noshadingDefer;
 
-                if (softPostDeferred)
+                if (softPostDeferred || noshadingDefer)
                 {
-                    boolean irisCamera = BBSRendering.isIrisWorldModelPass();
+                    boolean irisCamera = BBSRendering.isIrisWorldModelPass() && !noshadingDefer;
                     Matrix4f positionMatrix = irisCamera
                         ? new Matrix4f(context.stack.peek().getPositionMatrix())
                         : ModelVAORenderer.capturePaintOverlayRootMatrix(new Matrix4f(context.stack.peek().getPositionMatrix()));
@@ -396,17 +400,20 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
                              * after the trunk. VAO depth stamp afterward still occludes the world.
                              * Solid-VAO + special-layer splits cannot satisfy both at once. */
                             ShaderOpacityPatch.setFlushingDepthWrite(false);
+                            RenderSystem.depthMask(false);
                             this.renderStructureSoftSortedColor(context, overlayStack, mainRecolorSnapshot, lightSnapshot, overlaySnapshot);
 
                             if (this.data.hasBlockEntityLayer())
                             {
                                 this.renderBlockEntitiesPass(context, overlayStack, lightSnapshot, overlaySnapshot, beTintSnapshot);
                                 ShaderOpacityPatch.setFlushingDepthWrite(false);
+                                RenderSystem.depthMask(false);
                             }
 
                             if (depthWrite)
                             {
                                 ShaderOpacityPatch.setFlushingDepthWrite(true);
+                                RenderSystem.depthMask(true);
                                 RenderSystem.colorMask(false, false, false, false);
                                 RenderSystem.disableBlend();
 
@@ -425,10 +432,12 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
                             if (positiveGlowSnapshot)
                             {
                                 ShaderOpacityPatch.setFlushingDepthWrite(false);
+                                RenderSystem.depthMask(false);
                                 this.overlayRenderer.renderStructureGlowOverlay(this.data, context, overlayStack, glowSettingsSnapshot, legacyGlowSnapshot, glowIntensitySnapshot, mainTintSnapshot.a, overlaySnapshot, true, shadersSnapshot, layer -> this.renderPaintLayer(layer, context, overlayStack, overlaySnapshot, null), null);
                             }
 
                             ShaderOpacityPatch.setFlushingDepthWrite(depthWrite);
+                            RenderSystem.depthMask(depthWrite);
                             CustomVertexConsumerProvider.clearRunnables();
                         }
                         finally
@@ -437,6 +446,7 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
                             RenderSystem.defaultBlendFunc();
                             RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
                             ShaderOpacityPatch.setFlushingDepthWrite(depthWrite);
+                            RenderSystem.depthMask(depthWrite);
                             /* Keep lightmap/overlay up during the soft flush — disabling them
                              * here darkens later soft ModelForm limbs (sort is position-based). */
                             if (!ShaderOpacityPatch.isFlushingPostDeferred())
@@ -447,7 +457,11 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
                         }
                     };
 
-                    if (irisCamera)
+                    if (noshadingDefer)
+                    {
+                        ModelVAORenderer.submitDeferredTranslucentModel(deferredDraw, depthWrite);
+                    }
+                    else if (irisCamera)
                     {
                         ShaderOpacityPatch.submitPostDeferredForm(0D, formSortKey, depthWrite, afterFluids, deferredDraw);
                     }
@@ -559,6 +573,7 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
         RenderSystem.setShaderTexture(0, PlayerScreenHandler.BLOCK_ATLAS_TEXTURE);
         StructureData.syncFancyGraphicsFromOptions();
         ShaderOpacityPatch.setFlushingDepthWrite(false);
+        RenderSystem.depthMask(false);
 
         RenderInfo info = this.calculateRenderInfo(context, false);
         List<BlockEntry> sorted = new ArrayList<>(this.data.getBlocks());

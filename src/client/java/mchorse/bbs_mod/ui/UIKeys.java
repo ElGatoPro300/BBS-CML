@@ -749,6 +749,7 @@ public class UIKeys
     public static final IKey FORMS_EDITORS_PAINT_SHAPE_TRIANGLE = L10n.lang("bbs.ui.forms.editors.paint_shape_triangle");
     public static final IKey FORMS_EDITORS_COLOR_NOSHADING_OPACITY = L10n.lang("bbs.ui.forms.editors.color_noshading_opacity");
     public static final IKey FORMS_EDITORS_COLOR_NOSHADING_OPACITY_TOOLTIP = L10n.lang("bbs.ui.forms.editors.color_noshading_opacity-tooltip");
+    public static final IKey FORMS_EDITORS_NOSHADING_SHADERS = L10n.lang("bbs.ui.forms.editors.noshading_shaders");
     public static final IKey FORMS_EDITORS_PAINT_SYNC = L10n.lang("bbs.ui.forms.editors.paint_sync");
     public static final IKey FORMS_EDITORS_PAINT_SYNC_TOOLTIP = L10n.lang("bbs.ui.forms.editors.paint_sync-tooltip");
     public static final IKey FORMS_EDITORS_COLORS_AND_GLOW = L10n.lang("bbs.ui.forms.editors.colors_and_glow");

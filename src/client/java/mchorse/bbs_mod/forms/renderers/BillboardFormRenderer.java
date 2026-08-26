@@ -363,18 +363,19 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
 
         RenderSystem.disableCull();
 
-        /* Soft opacity: same ShaderOpacityPatch post-deferred queue as ModelForm/Extruded
-         * (face sort key, after fluids, depth write). Color Grade / noshading on opaque-ish
-         * Iris billboards still use the paint-overlay translucent redraw below — never both. */
+        /* Soft opacity: ShaderOpacityPatch (Iris lighting). Noshading opts into the
+         * after-paint BBS queue instead so paint/masks show through — never both. */
         /* Paint / color-tint overlays must not write into the shadow map (same as Structure/Block). */
         boolean positivePaint = !shadowPass && FormColorEffects.hasPositivePaint(paintSettings, legacyPaint);
         Color resolvedPaint = positivePaint ? FormColorEffects.resolvePaintColor(paintSettings, legacyPaint) : null;
         boolean applyColorTint = colorTransformWanted && !shadowPass;
+        boolean noshadingAfterPaint = irisWorld && BBSRendering.needsIrisNoshadingOpacityDeferral(color.a, this.form.noshadingOpacity.get());
         boolean softPostDeferred = !modelRenderer && !shadowPass
-            && ShaderOpacityPatch.shouldDelayUntilPostDeferred(color.a);
+            && ShaderOpacityPatch.shouldDelayUntilPostDeferred(color.a)
+            && !noshadingAfterPaint;
         boolean deferForColorGrade = hasColorAdjustments && irisWorld;
-        boolean deferNoshading = irisWorld && (BBSRendering.needsIrisNoshadingOpacityDeferral(color.a, this.form.noshadingOpacity.get()) || !this.form.shading.get());
-        /* Opaque / near-opaque Iris grade+noshading only — soft already left via softPostDeferred. */
+        boolean deferNoshading = irisWorld && (noshadingAfterPaint || !this.form.shading.get());
+        /* Opaque-ish Iris grade/noshading, or soft + noshading (after paint, unshaded). */
         boolean deferTranslucent = !softPostDeferred && !modelRenderer && !shadowPass
             && (deferForColorGrade
                 || deferNoshading);
@@ -522,7 +523,8 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
         {
             /* Under Iris, opaque-ish billboards may still need a BBS redraw — live
              * entity_translucent often washes them. Color Grade: never use ColorGradeOverlay
-             * (scene capture misses the thin plane). Soft opacity does not enter here. */
+             * (scene capture misses the thin plane). Soft + noshading also lands here
+             * (after paint) instead of ShaderOpacityPatch. */
             Matrix4f positionMatrix = ModelVAORenderer.capturePaintOverlayRootMatrix(new Matrix4f(matrix));
             Color colorSnapshot = color.copy();
             Quad localQuad = new Quad();

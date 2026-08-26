@@ -1494,6 +1494,7 @@
     "bbs.ui.forms.editors.color_hue": "Hue",
     "bbs.ui.forms.editors.color_noshading_opacity": "Noshading opacity",
     "bbs.ui.forms.editors.color_noshading_opacity-tooltip": "With Iris shaders: renders this form/limb unshaded without pack lighting or shadows (vanilla unshaded appearance), and redraws it after paint overlays so paint remains visible through transparency.",
+    "bbs.ui.forms.editors.noshading_shaders": "No shading (shaders)",
     "bbs.ui.forms.editors.color_reset_all": "Reset all",
     "bbs.ui.forms.editors.color_reset_blend": "Reset color",
     "bbs.ui.forms.editors.color_reset_grade": "Reset color grade",

@@ -1353,6 +1353,7 @@
     "bbs.ui.forms.editors.color_hue": "Tono",
     "bbs.ui.forms.editors.color_noshading_opacity": "Sin sombreado",
     "bbs.ui.forms.editors.color_noshading_opacity-tooltip": "Con shaders de Iris: renderiza esta form/hueso sin sombreado de pack ni sombras (aspecto vanilla sin sombreado), y la redibuja tras el paint para que se vea a través de la transparencia.",
+    "bbs.ui.forms.editors.noshading_shaders": "Sin sombreado (shaders)",
     "bbs.ui.forms.editors.color_saturation": "Saturación",
     "bbs.ui.forms.editors.colors_and_glow": "Colores y resplandor",
     "bbs.ui.forms.editors.extruded.title": "Extruido",

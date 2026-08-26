@@ -222,14 +222,19 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
             /* Chests/beds/signs use entity textures — block atlas paint/tint overlays corrupt them.
              * Bake blend/paint/grade into ColorModulator tint instead (Iris: deferred redraw). */
             boolean blockEntityVisual = this.isBlockEntityVisual();
+            boolean noshadingDefer = !context.modelRenderer
+                && !context.isPicking()
+                && !shadowPass
+                && BBSRendering.needsIrisNoshadingOpacityDeferral(color.a, this.form.noshadingOpacity.get());
             boolean softPostDeferred = !context.modelRenderer
                 && !context.isPicking()
                 && !shadowPass
-                && ShaderOpacityPatch.shouldDelayUntilPostDeferred(color.a);
+                && ShaderOpacityPatch.shouldDelayUntilPostDeferred(color.a)
+                && !noshadingDefer;
 
-            if (softPostDeferred)
+            if (softPostDeferred || noshadingDefer)
             {
-                boolean irisCamera = BBSRendering.isIrisWorldModelPass();
+                boolean irisCamera = BBSRendering.isIrisWorldModelPass() && !noshadingDefer;
                 Matrix4f positionMatrix = irisCamera
                     ? new Matrix4f(context.stack.peek().getPositionMatrix())
                     : ModelVAORenderer.capturePaintOverlayRootMatrix(new Matrix4f(context.stack.peek().getPositionMatrix()));
@@ -256,11 +261,13 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
                     CustomVertexConsumerProvider deferredConsumers = FormUtilsClient.getProvider();
 
                     RenderSystem.enableDepthTest();
+                    RenderSystem.depthMask(depthWrite);
                     ShaderOpacityPatch.reassertPostDeferredDepthState(depthWrite);
                     CustomVertexConsumerProvider.hijackVertexFormat((layer) ->
                     {
                         RenderSystem.enableBlend();
                         RenderSystem.defaultBlendFunc();
+                        RenderSystem.depthMask(depthWrite);
                         ShaderOpacityPatch.reassertPostDeferredDepthState(depthWrite);
                     });
 
@@ -286,10 +293,15 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
                     RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
                     RenderSystem.defaultBlendFunc();
                     CustomVertexConsumerProvider.clearRunnables();
+                    RenderSystem.depthMask(depthWrite);
                     ShaderOpacityPatch.reassertPostDeferredDepthState(depthWrite);
                 };
 
-                if (irisCamera)
+                if (noshadingDefer)
+                {
+                    ModelVAORenderer.submitDeferredTranslucentModel(deferredDraw, depthWrite);
+                }
+                else if (irisCamera)
                 {
                     ShaderOpacityPatch.submitPostDeferredForm(0D, formSortKey, depthWrite, afterFluids, deferredDraw);
                 }
@@ -337,11 +349,11 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
                 this.submitDeferredBlockEntityTint(context, context.overlay);
             }
 
-            if (!softPostDeferred && positiveGlow && !glowSettings.resolvePaintOnly() && !blockEntityVisual)
+            if (!softPostDeferred && !noshadingDefer && positiveGlow && !glowSettings.resolvePaintOnly() && !blockEntityVisual)
             {
                 this.renderGlowOverlay(context, context.stack, consumers, glowSettings, legacyGlow, glowIntensity, color.a, context.overlay, false);
             }
-            else if (!softPostDeferred)
+            else if (!softPostDeferred && !noshadingDefer)
             {
                 CustomVertexConsumerProvider.clearRunnables();
             }
