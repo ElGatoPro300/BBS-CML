@@ -17,6 +17,7 @@ import mchorse.bbs_mod.client.CrossWorldFilmLoader;
 import mchorse.bbs_mod.client.CrossWorldFilmScanner;
 import mchorse.bbs_mod.client.FilmLaunchHelper;
 import mchorse.bbs_mod.client.WorldLaunchHelper;
+import mchorse.bbs_mod.client.compat.HdrModCompat;
 import mchorse.bbs_mod.client.renderer.MorphRenderer;
 import mchorse.bbs_mod.client.video.VideoRenderer;
 import mchorse.bbs_mod.data.DataToString;
@@ -5621,7 +5622,8 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
     @Override
     public boolean needsBackground()
     {
-        return false;
+        /* HDR Mod presents the film offscreen world full-screen; opaque chrome covers the bleed. */
+        return HdrModCompat.isHdrPresentationActive();
     }
 
     @Override
