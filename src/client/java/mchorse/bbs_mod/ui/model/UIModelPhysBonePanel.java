@@ -149,7 +149,7 @@ public class UIModelPhysBonePanel extends UIElement
         fields.relative(this.detailScroll).w(1F);
         fields.column().stretch().vertical().height(20).padding(4);
 
-        fields.add(UI.label(IKey.raw("SPRING CHAIN")).background());
+        fields.add(UI.label(UIKeys.MODELS_PHYS_BONES_SPRING_CHAIN).background());
 
         this.activeToggle = new UIToggle(UIKeys.MODELS_PHYS_BONES_ENABLED, (b) -> this.onActiveChanged(b.getValue()));
         this.activeToggle.tooltip(UIKeys.MODELS_PHYS_BONES_ENABLED_TOOLTIP);
@@ -241,7 +241,7 @@ public class UIModelPhysBonePanel extends UIElement
         this.relaxStepsPad.integer();
         this.relaxStepsPad.tooltip(UIKeys.MODELS_PHYS_BONES_SOLVER_STEPS_TOOLTIP);
 
-        this.bodyRelativePullToggle = new UIToggle(IKey.raw("Body Relative Pull"), (b) ->
+        this.bodyRelativePullToggle = new UIToggle(UIKeys.MODELS_PHYS_BONES_BODY_RELATIVE_PULL, (b) ->
         {
             SpringChainData data = this.getOrCreateSelected();
 
@@ -324,19 +324,19 @@ public class UIModelPhysBonePanel extends UIElement
             this.activeToggle,
             UI.label(UIKeys.MODELS_PHYS_BONES_CHAIN_END), this.endBoneButton,
             UI.label(UIKeys.MODELS_PHYS_BONES_ANCHOR_END), this.pinTargetButton,
-            UI.label(IKey.raw("Pull Strength")), this.pullStrengthPad,
-            UI.label(IKey.raw("Drag")), this.dragPad,
-            UI.label(IKey.raw("Spring Return")), this.springReturnPad,
+            UI.label(UIKeys.MODELS_PHYS_BONES_PULL_STRENGTH), this.pullStrengthPad,
+            UI.label(UIKeys.MODELS_PHYS_BONES_DRAG), this.dragPad,
+            UI.label(UIKeys.MODELS_PHYS_BONES_SPRING_RETURN), this.springReturnPad,
             UI.label(UIKeys.MODELS_PHYS_BONES_SOLVER_STEPS), this.relaxStepsPad,
             this.bodyRelativePullToggle,
-            UI.label(IKey.raw("Pull Rotation (X / Y / Z)")),
+            UI.label(UIKeys.MODELS_PHYS_BONES_PULL_ROTATION),
             UI.row(this.pullRotXPad, this.pullRotYPad, this.pullRotZPad),
             this.hitDetectionToggle,
             UI.label(UIKeys.MODELS_PHYS_BONES_COLLISION_RADIUS), this.hitRadiusPad,
-            UI.label(IKey.raw("Influence")), this.influencePad
+            UI.label(UIKeys.MODELS_PHYS_BONES_INFLUENCE), this.influencePad
         );
 
-        fields.add(UI.label(IKey.raw("WIND")).background());
+        fields.add(UI.label(UIKeys.MODELS_PHYS_BONES_WIND).background());
 
         this.windPowerPad = this.buildPad((v) ->
         {
@@ -380,19 +380,19 @@ public class UIModelPhysBonePanel extends UIElement
             this.commitChanges();
         }, 0D, 10D, 0.05D, 0.01D, 0.25D);
 
-        this.windModelRelativeToggle = new UIToggle(IKey.raw("Model Relative"), (b) ->
+        this.windModelRelativeToggle = new UIToggle(UIKeys.MODELS_PHYS_BONES_WIND_MODEL_RELATIVE, (b) ->
         {
             this.wind.modelRelative = b.getValue();
             this.commitChanges();
         });
 
         fields.add(
-            UI.label(IKey.raw("Power")), this.windPowerPad,
-            UI.label(IKey.raw("Direction (X / Y / Z)")),
+            UI.label(UIKeys.MODELS_PHYS_BONES_WIND_POWER), this.windPowerPad,
+            UI.label(UIKeys.MODELS_PHYS_BONES_WIND_DIRECTION),
             UI.row(this.windDirXPad, this.windDirYPad, this.windDirZPad),
-            UI.label(IKey.raw("Gustiness")), this.windGustinessPad,
-            UI.label(IKey.raw("Gust Speed")), this.windGustSpeedPad,
-            UI.label(IKey.raw("Gust Scale")), this.windGustScalePad,
+            UI.label(UIKeys.MODELS_PHYS_BONES_WIND_GUSTINESS), this.windGustinessPad,
+            UI.label(UIKeys.MODELS_PHYS_BONES_WIND_GUST_SPEED), this.windGustSpeedPad,
+            UI.label(UIKeys.MODELS_PHYS_BONES_WIND_GUST_SCALE), this.windGustScalePad,
             this.windModelRelativeToggle
         );
 

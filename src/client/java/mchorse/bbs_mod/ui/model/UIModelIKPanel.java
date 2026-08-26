@@ -173,7 +173,7 @@ public class UIModelIKPanel extends UIElement
         this.depthPad.integer();
         this.depthPad.tooltip(UIKeys.MODELS_IK_CHAIN_LENGTH_TOOLTIP);
 
-        this.poleEnabledToggle = new UIToggle(IKey.raw("Pole Enabled"), (b) ->
+        this.poleEnabledToggle = new UIToggle(UIKeys.MODELS_IK_POLE_ENABLED, (b) ->
         {
             LimbData data = this.getOrCreateSelected();
 
@@ -184,7 +184,7 @@ public class UIModelIKPanel extends UIElement
             }
         });
 
-        this.poleBoneButton = new UIButton(IKey.raw("Pole Bone"), (b) ->
+        this.poleBoneButton = new UIButton(UIKeys.MODELS_IK_POLE_BONE, (b) ->
             this.openBonePicker((bone) ->
             {
                 LimbData data = this.getOrCreateSelected();
@@ -232,7 +232,7 @@ public class UIModelIKPanel extends UIElement
         }, 0D, 1D, 0.05D, 0.01D, 0.1D);
         this.influencePad.tooltip(UIKeys.MODELS_IK_WEIGHT_TOOLTIP);
 
-        this.orientTipToggle = new UIToggle(IKey.raw("Orient Tip"), (b) ->
+        this.orientTipToggle = new UIToggle(UIKeys.MODELS_IK_ORIENT_TIP, (b) ->
         {
             LimbData data = this.getOrCreateSelected();
 
@@ -243,7 +243,7 @@ public class UIModelIKPanel extends UIElement
             }
         });
 
-        this.extensibleToggle = new UIToggle(IKey.raw("Extensible"), (b) ->
+        this.extensibleToggle = new UIToggle(UIKeys.MODELS_IK_EXTENSIBLE, (b) ->
         {
             LimbData data = this.getOrCreateSelected();
 
@@ -271,9 +271,9 @@ public class UIModelIKPanel extends UIElement
             UI.label(UIKeys.MODELS_IK_TARGET_BONE), this.controllerButton,
             UI.label(UIKeys.MODELS_IK_CHAIN_LENGTH), this.depthPad,
             this.poleEnabledToggle,
-            UI.label(IKey.raw("Pole Bone")), this.poleBoneButton,
-            UI.label(IKey.raw("Bend Offset")), this.bendOffsetPad,
-            UI.label(IKey.raw("Flexibility")), this.flexibilityPad,
+            UI.label(UIKeys.MODELS_IK_POLE_BONE), this.poleBoneButton,
+            UI.label(UIKeys.MODELS_IK_BEND_OFFSET), this.bendOffsetPad,
+            UI.label(UIKeys.MODELS_IK_FLEXIBILITY), this.flexibilityPad,
             UI.label(UIKeys.MODELS_IK_WEIGHT), this.influencePad,
             this.orientTipToggle,
             this.extensibleToggle,
@@ -396,7 +396,7 @@ public class UIModelIKPanel extends UIElement
 
         if (data == null || data.poleBone.isEmpty())
         {
-            this.poleBoneButton.label = IKey.raw("Pole Bone");
+            this.poleBoneButton.label = UIKeys.MODELS_IK_POLE_BONE;
             return;
         }
 
