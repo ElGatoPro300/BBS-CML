@@ -1605,6 +1605,8 @@
     "bbs.ui.forms.editors.label.advanced_text": "Advanced Text",
     "bbs.ui.forms.editors.label.anchor": "Label anchor",
     "bbs.ui.forms.editors.label.anchor_lines": "Anchor lines",
+    "bbs.ui.forms.editors.label.wrap_width": "Text wrap width",
+    "bbs.ui.forms.editors.label.wrap_width-tooltip": "Maximum line width in pixels before wrapping (-1 disables wrapping).",
     "bbs.ui.forms.editors.label.background": "Background",
     "bbs.ui.forms.editors.label.bold": "Bold",
     "bbs.ui.forms.editors.label.color_example": "Example",

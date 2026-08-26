@@ -181,6 +181,7 @@ public class UILabelFormPanel extends UIFormPanel<LabelForm>
         this.glowSection = UIFormColorLayout.createGlowSection(this.glowingColor, this.glowIntensity, this.glowTransform);
         this.max = new UITrackpad((value) -> this.form.max.set(value.intValue()));
         this.max.limit(-1, Integer.MAX_VALUE, true).increment(10);
+        this.max.tooltip(UIKeys.FORMS_EDITORS_LABEL_WRAP_WIDTH_HINT);
         this.anchorX = new UITrackpad((value) -> this.form.anchorX.set(value.floatValue()));
         this.anchorX.values(0.01F);
         this.anchorY = new UITrackpad((value) -> this.form.anchorY.set(value.floatValue()));
@@ -294,6 +295,7 @@ public class UILabelFormPanel extends UIFormPanel<LabelForm>
                 this.glowSection,
                 UIFormColorLayout.paintColorRowWithTransform(this.paintColor, this.paintIntensity, this.paintTransform)
             ).marginTop(4),
+            UI.label(UIKeys.FORMS_EDITORS_LABEL_WRAP_WIDTH),
             this.max
         );
 

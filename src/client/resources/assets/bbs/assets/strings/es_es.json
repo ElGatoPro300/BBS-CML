@@ -1701,6 +1701,8 @@
     "bbs.ui.forms.editors.label.advanced_text": "Texto avanzado",
     "bbs.ui.forms.editors.label.anchor": "Anclaje del texto",
     "bbs.ui.forms.editors.label.anchor_lines": "Líneas de anclaje",
+    "bbs.ui.forms.editors.label.wrap_width": "Ancho de ajuste de texto",
+    "bbs.ui.forms.editors.label.wrap_width-tooltip": "Ancho máximo de línea en píxeles antes de hacer salto de línea (-1 desactiva el ajuste).",
     "bbs.ui.forms.editors.label.background": "Fondo",
     "bbs.ui.forms.editors.label.bold": "Negrilla",
     "bbs.ui.forms.editors.label.color_example": "Ejemplo",

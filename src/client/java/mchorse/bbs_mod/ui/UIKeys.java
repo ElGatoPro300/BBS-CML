@@ -852,6 +852,8 @@ public class UIKeys
     public static final IKey FORMS_EDITORS_ITEM_SAME_ANIMATION_WHEN_DROPPED_TOOLTIP = L10n.lang("bbs.ui.forms.editors.item.same_animation_when_dropped-tooltip");
     public static final IKey FORMS_EDITORS_LABEL_ANCHOR = L10n.lang("bbs.ui.forms.editors.label.anchor");
     public static final IKey FORMS_EDITORS_LABEL_ANCHOR_LINES = L10n.lang("bbs.ui.forms.editors.label.anchor_lines");
+    public static final IKey FORMS_EDITORS_LABEL_WRAP_WIDTH = L10n.lang("bbs.ui.forms.editors.label.wrap_width");
+    public static final IKey FORMS_EDITORS_LABEL_WRAP_WIDTH_HINT = L10n.lang("bbs.ui.forms.editors.label.wrap_width-tooltip");
     public static final IKey FORMS_EDITORS_LABEL_BACKGROUND = L10n.lang("bbs.ui.forms.editors.label.background");
     public static final IKey FORMS_EDITORS_LABEL_LABEL = L10n.lang("bbs.ui.forms.editors.label.label");
     public static final IKey FORMS_EDITORS_LABEL_SHADOW_COLOR = L10n.lang("bbs.ui.forms.editors.label.shadow_color");
