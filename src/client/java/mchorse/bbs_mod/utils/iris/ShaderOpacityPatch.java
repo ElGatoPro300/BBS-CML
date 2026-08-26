@@ -8,6 +8,7 @@ import mchorse.bbs_mod.mixin.client.iris.IrisRenderingPipelineAccessor;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gl.Framebuffer;
+import net.minecraft.client.gl.WindowFramebuffer;
 
 import net.irisshaders.iris.gl.texture.DepthCopyStrategy;
 import net.irisshaders.iris.helpers.OptionalBoolean;
@@ -24,6 +25,7 @@ import com.mojang.blaze3d.systems.VertexSorter;
 
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL20;
+import org.lwjgl.opengl.GL30;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
@@ -48,6 +50,13 @@ public class ShaderOpacityPatch
     private static boolean suppressLiveDepthWrite;
 
     private static String loadingPackName = "";
+
+    /**
+     * Opaque Iris depth snapshotted at {@code beginTranslucents} (before AAA Particles can
+     * blit a cleared main-FB depth over the live pipeline). Used by paint overlays at frame end.
+     */
+    private static Framebuffer paintOpaqueDepthStash;
+    private static boolean paintOpaqueDepthStashValid;
 
     private static final class PostDeferredEntry
     {
@@ -359,6 +368,9 @@ public class ShaderOpacityPatch
          * Paint/blend/grade overlays stay queued until onWorldRenderEnd — Iris composites after
          * translucent terrain would overwrite an early color-tint multiply. */
         postDeferredPhase = true;
+        /* Iris has just copied opaque depth into depthtex1. Stash it before AAA Particles
+         * (Fabric + shaders) pastes a cleared main-FB depth onto the bound FBO before hand. */
+        stashIrisOpaqueDepthForPaint();
     }
 
     /**
@@ -401,6 +413,7 @@ public class ShaderOpacityPatch
         postDeferredForms.clear();
         postDeferredPhase = false;
         flushingPostDeferred = false;
+        paintOpaqueDepthStashValid = false;
     }
 
     public static void onWorldRenderEnd()
@@ -485,6 +498,11 @@ public class ShaderOpacityPatch
      * Restores terrain-accurate depth on the paint overlay target before paint / grade / tint
      * flushes ({@code depthMask false}, {@code depthTest LEQUAL}). Iris deferred packs and AAA
      * Particles depth capture/paste can leave the visible framebuffer's depth stale or empty.
+     * <p>
+     * With Iris shaders + AAA Particles (Fabric): AAA captures depth at {@code LevelRenderer}
+     * return from the bound DRAW FBO (often the composited main FB with cleared/useless depth),
+     * then {@code pasteToCurrentDepthFrom} before hand — wiping occlusion for later paint.
+     * Prefer the opaque depth stash from {@code beginTranslucents} over a live Iris query.
      */
     public static void syncPaintOverlayDepth()
     {
@@ -530,8 +548,96 @@ public class ShaderOpacityPatch
             .copy(null, sourceDepth, null, targetDepth, width, height);
     }
 
+    private static void stashIrisOpaqueDepthForPaint()
+    {
+        paintOpaqueDepthStashValid = false;
+
+        try
+        {
+            WorldRenderingPipeline pipeline =
+                net.irisshaders.iris.Iris.getPipelineManager().getPipelineNullable();
+
+            if (!(pipeline instanceof IrisRenderingPipeline irisPipeline))
+            {
+                return;
+            }
+
+            IrisRenderingPipelineAccessor access = (IrisRenderingPipelineAccessor) irisPipeline;
+            RenderTargets targets = access.bbs$renderTargets();
+
+            if (targets == null)
+            {
+                return;
+            }
+
+            int width = targets.getCurrentWidth();
+            int height = targets.getCurrentHeight();
+            int opaqueDepth = targets.getDepthTextureNoTranslucents().getTextureId();
+
+            if (width <= 0 || height <= 0 || opaqueDepth <= 0)
+            {
+                Framebuffer paint = BBSRendering.getPaintOverlaySourceFramebuffer();
+
+                if (paint != null)
+                {
+                    width = paint.textureWidth;
+                    height = paint.textureHeight;
+                }
+            }
+
+            if (width <= 0 || height <= 0 || opaqueDepth <= 0)
+            {
+                return;
+            }
+
+            ensurePaintOpaqueDepthStash(width, height);
+            DepthCopyStrategy.fastest(false)
+                .copy(null, opaqueDepth, null, paintOpaqueDepthStash.getDepthAttachment(), width, height);
+            paintOpaqueDepthStashValid = paintOpaqueDepthStash.getDepthAttachment() > 0;
+        }
+        catch (Throwable ignored)
+        {
+            paintOpaqueDepthStashValid = false;
+        }
+    }
+
+    private static void ensurePaintOpaqueDepthStash(int width, int height)
+    {
+        if (paintOpaqueDepthStash == null)
+        {
+            paintOpaqueDepthStash = new WindowFramebuffer(width, height);
+        }
+        else if (paintOpaqueDepthStash.textureWidth != width || paintOpaqueDepthStash.textureHeight != height)
+        {
+            paintOpaqueDepthStash.resize(width, height, MinecraftClient.IS_SYSTEM_MAC);
+        }
+    }
+
     private static void syncIrisDepthToPaintTarget()
     {
+        Framebuffer paintTarget = BBSRendering.getPaintOverlaySourceFramebuffer();
+        int paintWidth = paintTarget != null ? paintTarget.textureWidth : 0;
+        int paintHeight = paintTarget != null ? paintTarget.textureHeight : 0;
+
+        /* Prefer the beginTranslucents stash — survives AAA's pre-hand depth paste. */
+        if (paintOpaqueDepthStashValid && paintOpaqueDepthStash != null)
+        {
+            int stashDepth = paintOpaqueDepthStash.getDepthAttachment();
+            int width = paintOpaqueDepthStash.textureWidth;
+            int height = paintOpaqueDepthStash.textureHeight;
+
+            if (paintWidth > 0 && paintHeight > 0)
+            {
+                width = paintWidth;
+                height = paintHeight;
+            }
+
+            copyDepthTextureToPaintTarget(stashDepth, width, height);
+            blitFramebufferDepth(paintOpaqueDepthStash, paintTarget);
+
+            return;
+        }
+
         WorldRenderingPipeline pipeline =
             net.irisshaders.iris.Iris.getPipelineManager().getPipelineNullable();
 
@@ -552,9 +658,55 @@ public class ShaderOpacityPatch
         int height = targets.getCurrentHeight();
         int opaqueDepth = targets.getDepthTextureNoTranslucents().getTextureId();
 
+        if ((width <= 0 || height <= 0) && paintWidth > 0 && paintHeight > 0)
+        {
+            width = paintWidth;
+            height = paintHeight;
+        }
+
         if (opaqueDepth > 0)
         {
             copyDepthTextureToPaintTarget(opaqueDepth, width, height);
+        }
+    }
+
+    /**
+     * AAA-style depth blit between Minecraft framebuffers (restores READ/DRAW bindings).
+     * Used when Iris {@link DepthCopyStrategy} alone is not enough after AAA's own blit.
+     */
+    private static void blitFramebufferDepth(Framebuffer source, Framebuffer target)
+    {
+        if (source == null || target == null || source == target)
+        {
+            return;
+        }
+
+        int sourceDepth = source.getDepthAttachment();
+        int targetDepth = target.getDepthAttachment();
+
+        if (sourceDepth <= 0 || targetDepth <= 0 || sourceDepth == targetDepth)
+        {
+            return;
+        }
+
+        int readBackup = GL11.glGetInteger(GL30.GL_READ_FRAMEBUFFER_BINDING);
+        int drawBackup = GL11.glGetInteger(GL30.GL_DRAW_FRAMEBUFFER_BINDING);
+
+        try
+        {
+            GL30.glBindFramebuffer(GL30.GL_READ_FRAMEBUFFER, source.fbo);
+            GL30.glBindFramebuffer(GL30.GL_DRAW_FRAMEBUFFER, target.fbo);
+            GL30.glBlitFramebuffer(
+                0, 0, source.textureWidth, source.textureHeight,
+                0, 0, target.textureWidth, target.textureHeight,
+                GL11.GL_DEPTH_BUFFER_BIT,
+                GL11.GL_NEAREST
+            );
+        }
+        finally
+        {
+            GL30.glBindFramebuffer(GL30.GL_READ_FRAMEBUFFER, readBackup);
+            GL30.glBindFramebuffer(GL30.GL_DRAW_FRAMEBUFFER, drawBackup);
         }
     }
 
