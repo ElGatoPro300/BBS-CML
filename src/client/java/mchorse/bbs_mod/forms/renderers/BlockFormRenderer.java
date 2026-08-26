@@ -294,7 +294,7 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
 
                     try
                     {
-                        this.renderRepeatedBlocks(context, overlayStack, deferredConsumers, lightSnapshot, overlaySnapshot, false, false, false, false);
+                        this.renderRepeatedBlocks(context, overlayStack, deferredConsumers, lightSnapshot, overlaySnapshot, false, false, false, false, false);
                         deferredConsumers.draw();
                     }
                     finally
@@ -390,8 +390,9 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
 
             RenderSystem.defaultBlendFunc();
         }
-        finally
-        {
+    }
+    finally
+    {
             if (context.isPicking())
             {
                 RenderSystem.enableCull();

@@ -548,6 +548,11 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
             GlowSettings glowSettingsSnapshot = glowSettings;
             Color legacyGlowSnapshot = legacyGlow;
             boolean emitGlowSnapshot = glowIntensity > 0F && !glowSettings.resolvePaintOnly();
+            boolean noshadingPaintPath = BBSRendering.needsIrisNoshadingOpacityDeferral(color.a, this.form.noshadingOpacity.get());
+            boolean afterFluids = ShaderOpacityPatch.shouldFlushAfterFluids(color.a);
+            boolean gradeOnDeferredDraw = useFormColorGrade || irisDeferredColorGrade;
+            boolean irisCamera = BBSRendering.isIrisWorldModelPass() && this.form.shading.get();
+            double distanceSq = 0D;
             boolean depthWrite = color.a >= ShaderOpacityPatch.LIVE_DEPTH_WRITE_ALPHA;
             VertexFormat deferredFormat = VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL;
             Supplier<ShaderProgram> deferredShader = irisCamera
