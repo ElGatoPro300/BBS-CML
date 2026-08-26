@@ -50,6 +50,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Consumer;
 
 public class LabelFormRenderer extends FormRenderer<LabelForm>
 {
@@ -58,6 +59,9 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
      * opaque, so alpha bytes 0–3 become 255. Keep a minimum of 4 when opacity is intended.
      */
     private static final int MIN_TEXT_ALPHA_BYTE = 4;
+    /* Positive offset pushes decorations away from the camera (stable on front, back, and grazing). */
+    private static final float LABEL_DECORATION_POLYGON_FACTOR = 1F;
+    private static final float LABEL_DECORATION_POLYGON_UNITS = 8F;
 
     private float nametagAlpha = 1F;
     private int lastBoundTextTexture;
@@ -259,6 +263,79 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
         consumers.draw();
     }
 
+    private Consumer<RenderLayer> createLabelBaseHijack(FormRenderingContext context)
+    {
+        if (context.isPicking())
+        {
+            return (layer) ->
+            {
+                RenderSystem.disableCull();
+                this.setupTarget(context, BBSShaders.getPickerModelsProgram());
+                RenderSystem.setShader(BBSShaders::getPickerModelsProgram);
+            };
+        }
+
+        return (layer) ->
+        {
+            RenderSystem.disableCull();
+            RenderSystem.enableBlend();
+            RenderSystem.defaultBlendFunc();
+        };
+    }
+
+    /**
+     * Outline/shadow: depth write on + polygon offset away from the camera (not local ±Z).
+     * Local/view normal sign flips at grazing angles and put the outline in front of the fill.
+     */
+    private void beginLabelDecorationDepthPass(Consumer<RenderLayer> baseHijack)
+    {
+        RenderSystem.enableDepthTest();
+        RenderSystem.depthMask(true);
+        GL11.glEnable(GL11.GL_POLYGON_OFFSET_FILL);
+        GL11.glPolygonOffset(LABEL_DECORATION_POLYGON_FACTOR, LABEL_DECORATION_POLYGON_UNITS);
+        CustomVertexConsumerProvider.hijackVertexFormat((layer) ->
+        {
+            baseHijack.accept(layer);
+            RenderSystem.enableDepthTest();
+            RenderSystem.depthMask(true);
+            GL11.glEnable(GL11.GL_POLYGON_OFFSET_FILL);
+            GL11.glPolygonOffset(LABEL_DECORATION_POLYGON_FACTOR, LABEL_DECORATION_POLYGON_UNITS);
+        });
+    }
+
+    /**
+     * Fill glyphs at true depth (no polygon offset) so they composite over decorations.
+     */
+    private void beginLabelFillDepthPass(Consumer<RenderLayer> baseHijack)
+    {
+        RenderSystem.enableDepthTest();
+        RenderSystem.depthMask(true);
+        GL11.glPolygonOffset(0F, 0F);
+        GL11.glDisable(GL11.GL_POLYGON_OFFSET_FILL);
+        CustomVertexConsumerProvider.hijackVertexFormat((layer) ->
+        {
+            baseHijack.accept(layer);
+            RenderSystem.enableDepthTest();
+            RenderSystem.depthMask(true);
+            GL11.glPolygonOffset(0F, 0F);
+            GL11.glDisable(GL11.GL_POLYGON_OFFSET_FILL);
+        });
+    }
+
+    private void restoreLabelPolygonOffset(boolean wasEnabled)
+    {
+        GL11.glPolygonOffset(0F, 0F);
+
+        if (wasEnabled)
+        {
+            GL11.glEnable(GL11.GL_POLYGON_OFFSET_FILL);
+        }
+        else
+        {
+            GL11.glDisable(GL11.GL_POLYGON_OFFSET_FILL);
+        }
+    }
+
     private String applyStyles(String content)
     {
         StringBuilder prefix = new StringBuilder();
@@ -278,7 +355,6 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
         }
 
         context.stack.push();
-        context.stack.translate(0F, 0F, -0.05F);
 
         float sx = this.form.shadowX.get();
         float sy = this.form.shadowY.get();
@@ -487,61 +563,84 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
             return;
         }
 
-        this.renderTextShadow(context, consumers, renderer, customFont, content, x, y, letterSpacing, light, shadowColor);
+        boolean hasShadow = !isFullyTransparent(shadowColor);
+        boolean hasOutline = this.form.outline.get() && !isFullyTransparent(color);
+        Consumer<RenderLayer> baseHijack = this.createLabelBaseHijack(context);
+        boolean savedDepthMask = GL11.glGetBoolean(GL11.GL_DEPTH_WRITEMASK);
+        boolean savedPolygonOffsetFill = GL11.glGetBoolean(GL11.GL_POLYGON_OFFSET_FILL);
 
-        if (this.form.outline.get() && !isFullyTransparent(color))
+        try
         {
-            Color outlineColor = this.form.outlineColor.get().copy();
-            outlineColor.a *= formOpacity;
-            int oc = toSafeTextArgb(outlineColor);
-            float ow = this.form.outlineWidth.get();
-
-            context.stack.push();
-            context.stack.translate(0, 0, -0.025F);
-
-            if (customFont != null)
+            /* Decorations: same plane + polygon offset away from camera (no local-Z sign flip),
+             * flush, then fill at true depth. Rim still writes depth for translucents. */
+            if (hasShadow || hasOutline)
             {
-                customFont.draw(content, x - ow, y, oc, oc, letterSpacing, 0F, context.stack.peek().getPositionMatrix(), consumers, light);
-                customFont.draw(content, x + ow, y, oc, oc, letterSpacing, 0F, context.stack.peek().getPositionMatrix(), consumers, light);
-                customFont.draw(content, x, y - ow, oc, oc, letterSpacing, 0F, context.stack.peek().getPositionMatrix(), consumers, light);
-                customFont.draw(content, x, y + ow, oc, oc, letterSpacing, 0F, context.stack.peek().getPositionMatrix(), consumers, light);
+                this.beginLabelDecorationDepthPass(baseHijack);
+
+                if (hasShadow)
+                {
+                    this.renderTextShadow(context, consumers, renderer, customFont, content, x, y, letterSpacing, light, shadowColor);
+                }
+
+                if (hasOutline)
+                {
+                    Color outlineColor = this.form.outlineColor.get().copy();
+                    outlineColor.a *= formOpacity;
+                    int oc = toSafeTextArgb(outlineColor);
+                    float ow = this.form.outlineWidth.get();
+
+                    if (customFont != null)
+                    {
+                        customFont.draw(content, x - ow, y, oc, oc, letterSpacing, 0F, context.stack.peek().getPositionMatrix(), consumers, light);
+                        customFont.draw(content, x + ow, y, oc, oc, letterSpacing, 0F, context.stack.peek().getPositionMatrix(), consumers, light);
+                        customFont.draw(content, x, y - ow, oc, oc, letterSpacing, 0F, context.stack.peek().getPositionMatrix(), consumers, light);
+                        customFont.draw(content, x, y + ow, oc, oc, letterSpacing, 0F, context.stack.peek().getPositionMatrix(), consumers, light);
+                    }
+                    else
+                    {
+                        renderer.draw(content, x - ow, y, oc, false, context.stack.peek().getPositionMatrix(), consumers, TextRenderer.TextLayerType.NORMAL, 0, light);
+                        renderer.draw(content, x + ow, y, oc, false, context.stack.peek().getPositionMatrix(), consumers, TextRenderer.TextLayerType.NORMAL, 0, light);
+                        renderer.draw(content, x, y - ow, oc, false, context.stack.peek().getPositionMatrix(), consumers, TextRenderer.TextLayerType.NORMAL, 0, light);
+                        renderer.draw(content, x, y + ow, oc, false, context.stack.peek().getPositionMatrix(), consumers, TextRenderer.TextLayerType.NORMAL, 0, light);
+                    }
+                }
+
+                this.flushLabelConsumers(consumers);
             }
-            else
+
+            this.beginLabelFillDepthPass(baseHijack);
+
+            Color gradientEnd = null;
+
+            if (this.form.gradient.get() && !colorTransformWanted)
             {
-                renderer.draw(content, x - ow, y, oc, false, context.stack.peek().getPositionMatrix(), consumers, TextRenderer.TextLayerType.NORMAL, 0, light);
-                renderer.draw(content, x + ow, y, oc, false, context.stack.peek().getPositionMatrix(), consumers, TextRenderer.TextLayerType.NORMAL, 0, light);
-                renderer.draw(content, x, y - ow, oc, false, context.stack.peek().getPositionMatrix(), consumers, TextRenderer.TextLayerType.NORMAL, 0, light);
-                renderer.draw(content, x, y + ow, oc, false, context.stack.peek().getPositionMatrix(), consumers, TextRenderer.TextLayerType.NORMAL, 0, light);
+                gradientEnd = this.form.gradientEndColor.get().copy();
+                gradientEnd.a *= formOpacity;
+                gradientEnd.mul(context.color);
             }
 
-            context.stack.pop();
+            int textArgb = this.drawLabelContent(context, consumers, renderer, customFont, content, x, y, letterSpacing, light, color, gradientEnd);
+
+            RenderSystem.enableDepthTest();
+            RenderSystem.depthMask(true);
+            this.flushLabelConsumers(consumers);
+
+            if (formTintColor != null)
+            {
+                this.tintCapture.clear();
+                this.captureLabelGlyphs(this.tintCapture, renderer, customFont, content, x, y, letterSpacing, light);
+                this.submitOrRenderLabelColorTint(context, x, y, w, h, formTintColor, colorTransform, this.tintCapture.snapshot());
+            }
+
+            this.renderTextGlowOverlay(context, consumers, renderer, customFont, content, x, y, letterSpacing, glowSettings, legacyGlow, color.a, glowIntensity, textArgb);
+
+            this.renderShadow(context, x, y, w, h);
         }
-
-        Color gradientEnd = null;
-
-        if (this.form.gradient.get() && !colorTransformWanted)
+        finally
         {
-            gradientEnd = this.form.gradientEndColor.get().copy();
-            gradientEnd.a *= formOpacity;
-            gradientEnd.mul(context.color);
+            RenderSystem.depthMask(savedDepthMask);
+            this.restoreLabelPolygonOffset(savedPolygonOffsetFill);
         }
-
-        int textArgb = this.drawLabelContent(context, consumers, renderer, customFont, content, x, y, letterSpacing, light, color, gradientEnd);
-
-        RenderSystem.enableDepthTest();
-
-        this.flushLabelConsumers(consumers);
-
-        if (formTintColor != null)
-        {
-            this.tintCapture.clear();
-            this.captureLabelGlyphs(this.tintCapture, renderer, customFont, content, x, y, letterSpacing, light);
-            this.submitOrRenderLabelColorTint(context, x, y, w, h, formTintColor, colorTransform, this.tintCapture.snapshot());
-        }
-
-        this.renderTextGlowOverlay(context, consumers, renderer, customFont, content, x, y, letterSpacing, glowSettings, legacyGlow, color.a, glowIntensity, textArgb);
-
-        this.renderShadow(context, x, y, w, h);
     }
 
     private void renderLimitedString(FormRenderingContext context, CustomVertexConsumerProvider consumers, TextRenderer renderer, int light)
@@ -669,98 +768,145 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
 
         this.tintCapture.clear();
 
-        for (String line : lines)
+        boolean hasShadow = !isFullyTransparent(shadowColor);
+        boolean hasOutline = this.form.outline.get() && !isFullyTransparent(color);
+        Consumer<RenderLayer> baseHijack = this.createLabelBaseHijack(context);
+        boolean savedDepthMask = GL11.glGetBoolean(GL11.GL_DEPTH_WRITEMASK);
+        boolean savedPolygonOffsetFill = GL11.glGetBoolean(GL11.GL_POLYGON_OFFSET_FILL);
+
+        try
         {
-            int lw = customFont != null ? customFont.getWidth(line, letterSpacing) : renderer.getWidth(line) - 1;
-            int lx = x;
-
-            if (anchorLines)
+            if (hasShadow || hasOutline)
             {
-                lx = (int) (-lw * anchorX);
-            }
-            else if (align == 1)
-            {
-                lx = x + (w - lw) / 2;
-            }
-            else if (align == 2)
-            {
-                lx = x + (w - lw);
-            }
+                this.beginLabelDecorationDepthPass(baseHijack);
 
-            this.renderTextShadow(context, consumers, renderer, customFont, line, lx, y, letterSpacing, light, shadowColor);
+                y = shadowY;
 
-            if (this.form.outline.get())
-            {
-                Color outlineColor = this.form.outlineColor.get().copy();
-                outlineColor.a *= formOpacity;
-                int oc = toSafeTextArgb(outlineColor);
-                float ow = this.form.outlineWidth.get();
-
-                context.stack.push();
-                context.stack.translate(0, 0, -0.025F);
-
-                if (customFont != null)
+                for (String line : lines)
                 {
-                    customFont.draw(line, lx - ow, y, oc, oc, letterSpacing, 0F, context.stack.peek().getPositionMatrix(), consumers, light);
-                    customFont.draw(line, lx + ow, y, oc, oc, letterSpacing, 0F, context.stack.peek().getPositionMatrix(), consumers, light);
-                    customFont.draw(line, lx, y - ow, oc, oc, letterSpacing, 0F, context.stack.peek().getPositionMatrix(), consumers, light);
-                    customFont.draw(line, lx, y + ow, oc, oc, letterSpacing, 0F, context.stack.peek().getPositionMatrix(), consumers, light);
+                    int lw = customFont != null ? customFont.getWidth(line, letterSpacing) : renderer.getWidth(line) - 1;
+                    int lx = x;
+
+                    if (anchorLines)
+                    {
+                        lx = (int) (-lw * anchorX);
+                    }
+                    else if (align == 1)
+                    {
+                        lx = x + (w - lw) / 2;
+                    }
+                    else if (align == 2)
+                    {
+                        lx = x + (w - lw);
+                    }
+
+                    if (hasShadow)
+                    {
+                        this.renderTextShadow(context, consumers, renderer, customFont, line, lx, y, letterSpacing, light, shadowColor);
+                    }
+
+                    if (hasOutline)
+                    {
+                        Color outlineColor = this.form.outlineColor.get().copy();
+                        outlineColor.a *= formOpacity;
+                        int oc = toSafeTextArgb(outlineColor);
+                        float ow = this.form.outlineWidth.get();
+
+                        if (customFont != null)
+                        {
+                            customFont.draw(line, lx - ow, y, oc, oc, letterSpacing, 0F, context.stack.peek().getPositionMatrix(), consumers, light);
+                            customFont.draw(line, lx + ow, y, oc, oc, letterSpacing, 0F, context.stack.peek().getPositionMatrix(), consumers, light);
+                            customFont.draw(line, lx, y - ow, oc, oc, letterSpacing, 0F, context.stack.peek().getPositionMatrix(), consumers, light);
+                            customFont.draw(line, lx, y + ow, oc, oc, letterSpacing, 0F, context.stack.peek().getPositionMatrix(), consumers, light);
+                        }
+                        else
+                        {
+                            renderer.draw(line, lx - ow, y, oc, false, context.stack.peek().getPositionMatrix(), consumers, TextRenderer.TextLayerType.NORMAL, 0, light);
+                            renderer.draw(line, lx + ow, y, oc, false, context.stack.peek().getPositionMatrix(), consumers, TextRenderer.TextLayerType.NORMAL, 0, light);
+                            renderer.draw(line, lx, y - ow, oc, false, context.stack.peek().getPositionMatrix(), consumers, TextRenderer.TextLayerType.NORMAL, 0, light);
+                            renderer.draw(line, lx, y + ow, oc, false, context.stack.peek().getPositionMatrix(), consumers, TextRenderer.TextLayerType.NORMAL, 0, light);
+                        }
+                    }
+
+                    y += lineHeight;
                 }
-                else
-                {
-                    renderer.draw(line, lx - ow, y, oc, false, context.stack.peek().getPositionMatrix(), consumers, TextRenderer.TextLayerType.NORMAL, 0, light);
-                    renderer.draw(line, lx + ow, y, oc, false, context.stack.peek().getPositionMatrix(), consumers, TextRenderer.TextLayerType.NORMAL, 0, light);
-                    renderer.draw(line, lx, y - ow, oc, false, context.stack.peek().getPositionMatrix(), consumers, TextRenderer.TextLayerType.NORMAL, 0, light);
-                    renderer.draw(line, lx, y + ow, oc, false, context.stack.peek().getPositionMatrix(), consumers, TextRenderer.TextLayerType.NORMAL, 0, light);
-                }
-                context.stack.pop();
+
+                this.flushLabelConsumers(consumers);
             }
 
-            textArgb = this.drawLabelContent(context, consumers, renderer, customFont, line, lx, y, letterSpacing, light, color, gradientEnd);
+            this.beginLabelFillDepthPass(baseHijack);
+
+            y = shadowY;
+
+            for (String line : lines)
+            {
+                int lw = customFont != null ? customFont.getWidth(line, letterSpacing) : renderer.getWidth(line) - 1;
+                int lx = x;
+
+                if (anchorLines)
+                {
+                    lx = (int) (-lw * anchorX);
+                }
+                else if (align == 1)
+                {
+                    lx = x + (w - lw) / 2;
+                }
+                else if (align == 2)
+                {
+                    lx = x + (w - lw);
+                }
+
+                textArgb = this.drawLabelContent(context, consumers, renderer, customFont, line, lx, y, letterSpacing, light, color, gradientEnd);
+
+                if (formTintColor != null)
+                {
+                    this.captureLabelGlyphs(this.tintCapture, renderer, customFont, line, lx, y, letterSpacing, light);
+                }
+
+                y += lineHeight;
+            }
+
+            RenderSystem.enableDepthTest();
+            RenderSystem.depthMask(true);
+            this.flushLabelConsumers(consumers);
 
             if (formTintColor != null)
             {
-                this.captureLabelGlyphs(this.tintCapture, renderer, customFont, line, lx, y, letterSpacing, light);
+                this.submitOrRenderLabelColorTint(context, x, shadowY, w, totalHeight, formTintColor, colorTransform, this.tintCapture.snapshot());
             }
 
-            y += lineHeight;
+            y = shadowY;
+
+            for (String line : lines)
+            {
+                int lw = customFont != null ? customFont.getWidth(line, letterSpacing) : renderer.getWidth(line) - 1;
+                int lx = x;
+
+                if (anchorLines)
+                {
+                    lx = (int) (-lw * anchorX);
+                }
+                else if (align == 1)
+                {
+                    lx = x + (w - lw) / 2;
+                }
+                else if (align == 2)
+                {
+                    lx = x + (w - lw);
+                }
+
+                this.renderTextGlowOverlay(context, consumers, renderer, customFont, line, lx, y, letterSpacing, glowSettings, legacyGlow, color.a, glowIntensity, textArgb);
+
+                y += lineHeight;
+            }
+
+            this.renderShadow(context, x, shadowY, w, totalHeight);
         }
-
-        RenderSystem.enableDepthTest();
-
-        this.flushLabelConsumers(consumers);
-
-        if (formTintColor != null)
+        finally
         {
-            this.submitOrRenderLabelColorTint(context, x, shadowY, w, totalHeight, formTintColor, colorTransform, this.tintCapture.snapshot());
+            RenderSystem.depthMask(savedDepthMask);
+            this.restoreLabelPolygonOffset(savedPolygonOffsetFill);
         }
-
-        y = shadowY;
-
-        for (String line : lines)
-        {
-            int lw = customFont != null ? customFont.getWidth(line, letterSpacing) : renderer.getWidth(line) - 1;
-            int lx = x;
-
-            if (anchorLines)
-            {
-                lx = (int) (-lw * anchorX);
-            }
-            else if (align == 1)
-            {
-                lx = x + (w - lw) / 2;
-            }
-            else if (align == 2)
-            {
-                lx = x + (w - lw);
-            }
-
-            this.renderTextGlowOverlay(context, consumers, renderer, customFont, line, lx, y, letterSpacing, glowSettings, legacyGlow, color.a, glowIntensity, textArgb);
-
-            y += lineHeight;
-        }
-
-        this.renderShadow(context, x, shadowY, w, totalHeight);
     }
 
     /**

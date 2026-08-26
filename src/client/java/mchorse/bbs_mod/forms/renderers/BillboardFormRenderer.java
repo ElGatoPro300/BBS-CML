@@ -369,21 +369,23 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
 
         RenderSystem.disableCull();
 
-        /* Under Iris, billboards must defer to a BBS redraw — live entity_translucent often
-         * washes or discards them. needsIrisTranslucentFlatDeferral skips fully opaque (#ff).
-         * Color Grade: never use ColorGradeOverlay on billboards — scene capture misses the
-         * thin plane and the overlay paints background (looks invisible). Defer + FormColorGrade. */
+        /* Soft opacity: same ShaderOpacityPatch post-deferred queue as ModelForm/Extruded
+         * (face sort key, after fluids, depth write). Color Grade / noshading on opaque-ish
+         * Iris billboards still use the paint-overlay translucent redraw below — never both. */
         /* Paint / color-tint overlays must not write into the shadow map (same as Structure/Block). */
         boolean positivePaint = !shadowPass && FormColorEffects.hasPositivePaint(paintSettings, legacyPaint);
         Color resolvedPaint = positivePaint ? FormColorEffects.resolvePaintColor(paintSettings, legacyPaint) : null;
         boolean applyColorTint = colorTransformWanted && !shadowPass;
+        boolean softPostDeferred = !modelRenderer && !shadowPass
+            && ShaderOpacityPatch.shouldDelayUntilPostDeferred(color.a);
         boolean deferForColorGrade = hasColorAdjustments && irisWorld;
         boolean deferNoshading = irisWorld && (BBSRendering.needsIrisNoshadingOpacityDeferral(color.a, this.form.noshadingOpacity.get()) || !this.form.shading.get());
-        boolean deferTranslucent = !modelRenderer && !shadowPass
+        /* Opaque / near-opaque Iris grade+noshading only — soft already left via softPostDeferred. */
+        boolean deferTranslucent = !softPostDeferred && !modelRenderer && !shadowPass
             && (deferForColorGrade
                 || deferNoshading);
 
-        if (deferTranslucent)
+        if (softPostDeferred)
         {
             /* Noshading opacity: redraw after paint via BBS translucent queue, not Iris post-deferred. */
             boolean noshadingPaintPath = BBSRendering.needsIrisNoshadingOpacityDeferral(color.a, this.form.noshadingOpacity.get());
@@ -396,6 +398,7 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
             Matrix4f positionMatrix = irisCamera
                 ? new Matrix4f(matrix)
                 : ModelVAORenderer.capturePaintOverlayRootMatrix(new Matrix4f(matrix));
+            Matrix3f normalMatrix = new Matrix3f(matrices.peek().getNormalMatrix());
             Color colorSnapshot = color.copy();
             Quad localQuad = new Quad();
             Quad localUvQuad = new Quad();
@@ -412,8 +415,140 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
             GlowSettings glowSettingsSnapshot = glowSettings;
             Color legacyGlowSnapshot = legacyGlow;
             boolean emitGlowSnapshot = glowIntensity > 0F && !glowSettings.resolvePaintOnly();
-            double distanceSq = 0D;
-            /* Iris deferred: apply FormColorGrade in model.fsh on the post-deferred BBS draw. */
+            /* Preserve live format/shader unless Color Grade needs model.fsh. */
+            VertexFormat deferredFormat = gradeOnDeferredDraw
+                ? VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL
+                : format;
+            Supplier<ShaderProgram> deferredShader = gradeOnDeferredDraw
+                ? BBSShaders::getModel
+                : shader;
+            float gradeBrightnessSnapshot = storedFormColor.brightness;
+            float gradeContrastSnapshot = storedFormColor.contrast;
+            float gradeHueSnapshot = storedFormColor.hue;
+            float gradeSaturationSnapshot = storedFormColor.saturation;
+            boolean gradeActiveSnapshot = gradeOnDeferredDraw;
+            Color gradeSourceSnapshot = storedFormColor;
+            double faceSortKey = this.computeBillboardFaceSortKey(matrix, deferContext);
+
+            Runnable deferredDraw = () ->
+            {
+                Texture deferredTexture = texture;
+
+                if (textureLinkSnapshot != null)
+                {
+                    Texture linkedTexture = BBSModClient.getTextures().getTexture(textureLinkSnapshot);
+
+                    if (linkedTexture != null)
+                    {
+                        deferredTexture = linkedTexture;
+                    }
+                }
+
+                if (deferredTexture == null)
+                {
+                    return;
+                }
+
+                MatrixStack overlayStack = new MatrixStack();
+
+                overlayStack.peek().getPositionMatrix().set(positionMatrix);
+                overlayStack.peek().getNormalMatrix().set(normalMatrix);
+
+                if (deferredFormat == VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL)
+                {
+                    gameRenderer.getLightmapTextureManager().enable();
+                    gameRenderer.getOverlayTexture().setupOverlayColor();
+                }
+
+                try
+                {
+                    RenderSystem.disableCull();
+                    RenderSystem.enableDepthTest();
+                    ShaderOpacityPatch.reassertPostDeferredDepthState(depthWrite);
+
+                    if (gradeActiveSnapshot)
+                    {
+                        ModelVAORenderer.setFormColorGrade(gradeBrightnessSnapshot, gradeContrastSnapshot, gradeHueSnapshot, gradeSaturationSnapshot);
+                        ModelVAORenderer.setGradeEffectTransforms(gradeSourceSnapshot);
+
+                        ShaderProgram gradeShader = BBSShaders.getModel();
+                        MatrixStack gradeStack = new MatrixStack();
+
+                        RenderSystem.setShader(() -> gradeShader);
+                        ModelVAORenderer.setupUniforms(gradeStack, gradeShader);
+                    }
+
+                    this.drawBillboardFaces(
+                        deferredFormat,
+                        deferredTexture,
+                        deferredShader,
+                        overlayStack,
+                        colorSnapshot,
+                        localQuad,
+                        localUvQuad,
+                        overlaySnapshot,
+                        lightSnapshot,
+                        linear,
+                        mipmap,
+                        false
+                    );
+
+                    if (emitGlowSnapshot)
+                    {
+                        this.renderGlowOverlay(
+                            deferredTexture,
+                            GameRenderer::getPositionTexColorProgram,
+                            overlayStack,
+                            glowSettingsSnapshot,
+                            legacyGlowSnapshot,
+                            colorSnapshot.a,
+                            glowIntensitySnapshot,
+                            localQuad,
+                            localUvQuad
+                        );
+                    }
+                }
+                finally
+                {
+                    if (gradeActiveSnapshot)
+                    {
+                        ModelVAORenderer.clearFormColorGrade();
+                    }
+                }
+            };
+
+            if (irisCamera)
+            {
+                ShaderOpacityPatch.submitPostDeferredForm(0D, faceSortKey, depthWrite, afterFluids, deferredDraw);
+            }
+            else
+            {
+                ShaderOpacityPatch.submitPostDeferredBbsForm(0D, faceSortKey, depthWrite, afterFluids, deferredDraw);
+            }
+        }
+        else if (deferTranslucent)
+        {
+            /* Under Iris, opaque-ish billboards may still need a BBS redraw — live
+             * entity_translucent often washes them. Color Grade: never use ColorGradeOverlay
+             * (scene capture misses the thin plane). Soft opacity does not enter here. */
+            Matrix4f positionMatrix = ModelVAORenderer.capturePaintOverlayRootMatrix(new Matrix4f(matrix));
+            Color colorSnapshot = color.copy();
+            Quad localQuad = new Quad();
+            Quad localUvQuad = new Quad();
+
+            localQuad.copy(quad);
+            localUvQuad.copy(uvQuad);
+
+            boolean linear = this.form.linear.get();
+            boolean mipmap = this.form.mipmap.get();
+            Link textureLinkSnapshot = textureLink;
+            int overlaySnapshot = overlay;
+            int lightSnapshot = light;
+            float glowIntensitySnapshot = glowIntensity;
+            GlowSettings glowSettingsSnapshot = glowSettings;
+            Color legacyGlowSnapshot = legacyGlow;
+            boolean emitGlowSnapshot = glowIntensity > 0F && !glowSettings.resolvePaintOnly();
+            boolean depthWrite = color.a >= ShaderOpacityPatch.LIVE_DEPTH_WRITE_ALPHA;
             VertexFormat deferredFormat = VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL;
             Supplier<ShaderProgram> deferredShader = irisCamera
                 ? GameRenderer::getRenderTypeEntityTranslucentProgram
@@ -711,7 +846,7 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
         /* Color grade with Iris is handled on the deferred BBS redraw above — do not run
          * ColorGradeOverlay (scene-copy replace makes thin billboards look invisible). */
 
-        if (glowIntensity > 0F && !glowSettings.resolvePaintOnly() && !deferTranslucent && !shadowPass)
+        if (glowIntensity > 0F && !glowSettings.resolvePaintOnly() && !softPostDeferred && !deferTranslucent && !shadowPass)
         {
             this.renderGlowOverlay(texture, shader, matrices, glowSettings, legacyGlow, color.a, glowIntensity);
         }
@@ -1228,5 +1363,31 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
 
         FormColorEffects.resolveGlowTint(glowSettings, legacyGlow, this.form.getFormPaintSettings(), this.form.paintColor.get(), this.form.getFormColor(), glowResolved);
         FormColorEffects.blendEmission(paintOverlay, glowResolved, glowIntensity);
+    }
+
+    /**
+     * Soft-opacity queue key for the billboard face (farther first). Film ENTITY uses look-axis
+     * depth ({@code -z} in view space ≡ soft-limb film keys). Model-block / other: lengthSq.
+     */
+    private double computeBillboardFaceSortKey(Matrix4f drawMatrix, FormRenderingContext context)
+    {
+        float cx = (quad.p1.x + quad.p2.x + quad.p3.x + quad.p4.x) * 0.25F;
+        float cy = (quad.p1.y + quad.p2.y + quad.p3.y + quad.p4.y) * 0.25F;
+        Vector4f face = new Vector4f(cx, cy, FACE_Z_BIAS, 1F);
+        Matrix4f viewSpace = ModelVAORenderer.capturePaintOverlayRootMatrix(new Matrix4f(drawMatrix));
+
+        viewSpace.transform(face);
+
+        boolean filmLookAxis = context != null
+            && context.type == FormRenderType.ENTITY
+            && context.camera != null
+            && !context.modelRenderer;
+
+        if (filmLookAxis)
+        {
+            return -face.z;
+        }
+
+        return face.x * face.x + face.y * face.y + face.z * face.z;
     }
 }

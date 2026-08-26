@@ -21,6 +21,8 @@ public class Keybind
     public boolean inside;
     public Supplier<Boolean> active;
 
+    public boolean allowShift;
+
     public Keybind(KeyCombo combo, Runnable callback)
     {
         this.combo = combo;
@@ -30,6 +32,13 @@ public class Keybind
     public KeyCombo getCombo()
     {
         return this.combo;
+    }
+
+    public Keybind allowShift()
+    {
+        this.allowShift = true;
+
+        return this;
     }
 
     public Keybind inside()
@@ -103,7 +112,7 @@ public class Keybind
             boolean requiresCtrl = containsModifier(this.combo, GLFW.GLFW_KEY_LEFT_CONTROL, GLFW.GLFW_KEY_RIGHT_CONTROL);
             boolean requiresAlt = containsModifier(this.combo, GLFW.GLFW_KEY_LEFT_ALT, GLFW.GLFW_KEY_RIGHT_ALT);
 
-            if (Window.isShiftPressed() && !requiresShift) return false;
+            if (Window.isShiftPressed() && !requiresShift && !this.allowShift) return false;
             if (Window.isCtrlPressed() && !requiresCtrl) return false;
             if (Window.isAltPressed() && !requiresAlt) return false;
         }
@@ -139,7 +148,7 @@ public class Keybind
             boolean requiresCtrl = containsModifier(this.combo, GLFW.GLFW_KEY_LEFT_CONTROL, GLFW.GLFW_KEY_RIGHT_CONTROL);
             boolean requiresAlt = containsModifier(this.combo, GLFW.GLFW_KEY_LEFT_ALT, GLFW.GLFW_KEY_RIGHT_ALT);
 
-            if (Window.isShiftPressed() && !requiresShift) return false;
+            if (Window.isShiftPressed() && !requiresShift && !this.allowShift) return false;
             if (Window.isCtrlPressed() && !requiresCtrl) return false;
             if (Window.isAltPressed() && !requiresAlt) return false;
         }

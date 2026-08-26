@@ -205,6 +205,23 @@ public class ShaderOpacityPatch
     }
 
     /**
+     * Override {@link #flushingDepthWrite} mid-entry. Required for soft color-then-stamp:
+     * {@code ModelVAORenderer.render} calls {@link #reassertPostDeferredDepthState()} with no
+     * args and would otherwise restore the queue entry's depthWrite (undoing a local
+     * {@code depthMask(false)}).
+     */
+    public static void setFlushingDepthWrite(boolean depthWrite)
+    {
+        if (!flushingPostDeferred)
+        {
+            return;
+        }
+
+        flushingDepthWrite = depthWrite;
+        reassertPostDeferredDepthState(depthWrite);
+    }
+
+    /**
      * True while Iris is in the post-deferred translucent phase (after clouds are composited).
      */
     public static boolean isPostDeferredPhase()
