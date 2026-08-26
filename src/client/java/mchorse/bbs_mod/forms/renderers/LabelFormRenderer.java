@@ -64,6 +64,12 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
     private static final float LABEL_DECORATION_POLYGON_UNITS = 8F;
     /* Extra gap between wrapped lines so descenders do not touch the next line. */
     private static final int WRAP_LINE_EXTRA_GAP = 2;
+    /** Units-only bias — factor 0 avoids Iris wall punch-through on grazing label planes. */
+    private static final float LABEL_COLOR_TINT_OFFSET_FACTOR = FlatPaintOverlayPass.POLYGON_OFFSET_FACTOR;
+    private static final float LABEL_COLOR_TINT_OFFSET_UNITS = FlatPaintOverlayPass.POLYGON_OFFSET_UNITS;
+    private static final float LABEL_PAINT_OFFSET_FACTOR = FlatPaintOverlayPass.POLYGON_OFFSET_FACTOR;
+    private static final float LABEL_PAINT_OFFSET_UNITS = -96F;
+    private static final float LABEL_DEFERRED_PAINT_OFFSET_UNITS = -96F;
 
     private float nametagAlpha = 1F;
     private int lastBoundTextTexture;
@@ -343,11 +349,26 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
     {
         StringBuilder prefix = new StringBuilder();
 
-        if (this.form.fontWeight.get() >= 700) prefix.append("\u00A7l");
-        if (this.form.fontStyle.get() >= 1) prefix.append("\u00A7o");
-        if (this.form.underline.get()) prefix.append("\u00A7n");
-        if (this.form.strikethrough.get()) prefix.append("\u00A7m");
-        
+        if (this.form.fontWeight.get() >= 700)
+        {
+            prefix.append("\u00A7l");
+        }
+
+        if (this.form.fontStyle.get() >= 1)
+        {
+            prefix.append("\u00A7o");
+        }
+
+        if (this.form.underline.get())
+        {
+            prefix.append("\u00A7n");
+        }
+
+        if (this.form.strikethrough.get())
+        {
+            prefix.append("\u00A7m");
+        }
+
         return prefix.toString() + content;
     }
 
@@ -549,7 +570,13 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
             color.mul(storedFormColor);
         }
 
-        FormColorEffects.applyPaintBlend(color, paintSettings, legacyPaint);
+        float paintStrength = paintSettings.resolveIntensity(legacyPaint);
+        boolean positivePaint = FormColorEffects.hasPositivePaint(paintSettings, legacyPaint);
+
+        if (!colorTransformWanted || paintStrength < 0F)
+        {
+            FormColorEffects.applyPaintBlend(color, paintSettings, legacyPaint);
+        }
 
         if (glowIntensity < 0F)
         {
@@ -637,11 +664,23 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
             RenderSystem.depthMask(true);
             this.flushLabelConsumers(consumers);
 
+            List<LabelTextTintQuadCapture.GlyphQuad> overlayQuads = null;
+
             if (formTintColor != null)
             {
                 this.tintCapture.clear();
                 this.captureLabelGlyphs(this.tintCapture, renderer, customFont, content, x, y, letterSpacing, light);
-                this.submitOrRenderLabelColorTint(context, x, y, w, h, formTintColor, colorTransform, this.tintCapture.snapshot());
+                overlayQuads = this.tintCapture.snapshot();
+                this.submitOrRenderLabelColorTint(context, x, y, w, h, formTintColor, colorTransform, overlayQuads);
+            }
+
+            if (colorTransformWanted && positivePaint && overlayQuads != null && !overlayQuads.isEmpty())
+            {
+                Color resolvedPaint = FormColorEffects.resolvePaintColor(paintSettings, legacyPaint);
+
+                resolvedPaint.a *= formOpacity;
+                EffectTransform paintTransform = paintSettings.transform == null ? null : paintSettings.transform.copy();
+                this.submitOrRenderLabelPaintOverlay(context, x, y, w, h, resolvedPaint, paintTransform, overlayQuads);
             }
 
             this.renderTextGlowOverlay(context, consumers, renderer, customFont, content, x, y, letterSpacing, glowSettings, legacyGlow, color.a, glowIntensity, textArgb);
@@ -742,7 +781,13 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
             color.mul(storedFormColor);
         }
 
-        FormColorEffects.applyPaintBlend(color, paintSettings, legacyPaint);
+        float paintStrength = paintSettings.resolveIntensity(legacyPaint);
+        boolean positivePaint = FormColorEffects.hasPositivePaint(paintSettings, legacyPaint);
+
+        if (!colorTransformWanted || paintStrength < 0F)
+        {
+            FormColorEffects.applyPaintBlend(color, paintSettings, legacyPaint);
+        }
 
         if (glowIntensity < 0F)
         {
@@ -885,9 +930,21 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
             RenderSystem.depthMask(true);
             this.flushLabelConsumers(consumers);
 
+            List<LabelTextTintQuadCapture.GlyphQuad> overlayQuads = null;
+
             if (formTintColor != null)
             {
-                this.submitOrRenderLabelColorTint(context, x, shadowY, w, totalHeight, formTintColor, colorTransform, this.tintCapture.snapshot());
+                overlayQuads = this.tintCapture.snapshot();
+                this.submitOrRenderLabelColorTint(context, x, shadowY, w, totalHeight, formTintColor, colorTransform, overlayQuads);
+            }
+
+            if (colorTransformWanted && positivePaint && overlayQuads != null && !overlayQuads.isEmpty())
+            {
+                Color resolvedPaint = FormColorEffects.resolvePaintColor(paintSettings, legacyPaint);
+
+                resolvedPaint.a *= formOpacity;
+                EffectTransform paintTransform = paintSettings.transform == null ? null : paintSettings.transform.copy();
+                this.submitOrRenderLabelPaintOverlay(context, x, shadowY, w, totalHeight, resolvedPaint, paintTransform, overlayQuads);
             }
 
             y = shadowY;
@@ -983,6 +1040,83 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
             return;
         }
 
+        LabelOverlayLayout layout = this.resolveLabelOverlayLayout(x, y, w, h, quads);
+        Color tintSnapshot = formTintColor.copy();
+        EffectTransform transformSnapshot = colorTransform == null ? null : colorTransform.copy();
+        List<LabelTextTintQuadCapture.GlyphQuad> quadSnapshot = new ArrayList<>(quads);
+        boolean defer = BBSRendering.isIrisWorldModelPass() && !context.modelRenderer && !context.isPicking();
+        Matrix4f rootMatrix = this.captureLabelOverlayRootMatrix(context, layout.centerX, layout.centerY);
+
+        if (defer)
+        {
+            Matrix4f positionMatrix = ModelVAORenderer.capturePaintOverlayRootMatrix(rootMatrix);
+
+            ModelVAORenderer.submitColorTintOverlay(() ->
+            {
+                MatrixStack overlayStack = new MatrixStack();
+
+                overlayStack.peek().getPositionMatrix().set(positionMatrix);
+                this.renderLabelColorTintOverlay(overlayStack, layout.centerX, layout.centerY, layout.halfX, layout.halfY, tintSnapshot, transformSnapshot, quadSnapshot, FlatPaintOverlayPass.DEFERRED_BILLBOARD_FACTOR, FlatPaintOverlayPass.DEFERRED_BILLBOARD_UNITS);
+            });
+        }
+        else
+        {
+            MatrixStack overlayStack = new MatrixStack();
+
+            overlayStack.peek().getPositionMatrix().set(rootMatrix);
+            this.renderLabelColorTintOverlay(overlayStack, layout.centerX, layout.centerY, layout.halfX, layout.halfY, tintSnapshot, transformSnapshot, quadSnapshot, LabelFormRenderer.LABEL_COLOR_TINT_OFFSET_FACTOR, LabelFormRenderer.LABEL_COLOR_TINT_OFFSET_UNITS);
+        }
+    }
+
+    private void submitOrRenderLabelPaintOverlay(FormRenderingContext context, float x, float y, float w, float h, Color resolvedPaint, EffectTransform paintTransform, List<LabelTextTintQuadCapture.GlyphQuad> quads)
+    {
+        if (resolvedPaint == null || resolvedPaint.a <= 0.001F || quads == null || quads.isEmpty())
+        {
+            return;
+        }
+
+        LabelOverlayLayout layout = this.resolveLabelOverlayLayout(x, y, w, h, quads);
+        Color paintSnapshot = resolvedPaint.copy();
+        EffectTransform transformSnapshot = paintTransform == null ? null : paintTransform.copy();
+        List<LabelTextTintQuadCapture.GlyphQuad> quadSnapshot = new ArrayList<>(quads);
+        boolean defer = BBSRendering.isIrisWorldModelPass() && !context.modelRenderer && !context.isPicking();
+        Matrix4f rootMatrix = this.captureLabelOverlayRootMatrix(context, layout.centerX, layout.centerY);
+
+        if (defer)
+        {
+            Matrix4f positionMatrix = ModelVAORenderer.capturePaintOverlayRootMatrix(rootMatrix);
+
+            ModelVAORenderer.submitPaintOverlay(false, () ->
+            {
+                MatrixStack overlayStack = new MatrixStack();
+
+                overlayStack.peek().getPositionMatrix().set(positionMatrix);
+                this.renderLabelPaintOverlay(overlayStack, layout.centerX, layout.centerY, layout.halfX, layout.halfY, paintSnapshot, transformSnapshot, quadSnapshot, FlatPaintOverlayPass.DEFERRED_BILLBOARD_FACTOR, LabelFormRenderer.LABEL_DEFERRED_PAINT_OFFSET_UNITS);
+            });
+        }
+        else
+        {
+            MatrixStack overlayStack = new MatrixStack();
+
+            overlayStack.peek().getPositionMatrix().set(rootMatrix);
+            this.renderLabelPaintOverlay(overlayStack, layout.centerX, layout.centerY, layout.halfX, layout.halfY, paintSnapshot, transformSnapshot, quadSnapshot, LabelFormRenderer.LABEL_PAINT_OFFSET_FACTOR, LabelFormRenderer.LABEL_PAINT_OFFSET_UNITS);
+        }
+    }
+
+    private Matrix4f captureLabelOverlayRootMatrix(FormRenderingContext context, float centerX, float centerY)
+    {
+        context.stack.push();
+        context.stack.translate(centerX, centerY, 0F);
+
+        Matrix4f rootMatrix = new Matrix4f(context.stack.peek().getPositionMatrix());
+
+        context.stack.pop();
+
+        return rootMatrix;
+    }
+
+    private LabelOverlayLayout resolveLabelOverlayLayout(float x, float y, float w, float h, List<LabelTextTintQuadCapture.GlyphQuad> quads)
+    {
         /* Glyph AABB can extend past layout metrics (descenders, bearings). Keep the mask
          * origin on the label layout center (same as the form gizmo), and grow half extents
          * so every captured glyph stays inside. */
@@ -1010,40 +1144,14 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
             resolvedHalfY = Math.max(resolvedHalfY, Math.max(Math.abs(maxY - centerY), Math.abs(minY - centerY)));
         }
 
-        final float halfX = Math.max(resolvedHalfX, 0.001F);
-        final float halfY = Math.max(resolvedHalfY, 0.001F);
+        LabelOverlayLayout layout = new LabelOverlayLayout();
 
-        Color tintSnapshot = formTintColor.copy();
-        EffectTransform transformSnapshot = colorTransform == null ? null : colorTransform.copy();
-        List<LabelTextTintQuadCapture.GlyphQuad> quadSnapshot = new ArrayList<>(quads);
-        boolean defer = BBSRendering.isIrisWorldModelPass() && !context.modelRenderer && !context.isPicking();
+        layout.centerX = centerX;
+        layout.centerY = centerY;
+        layout.halfX = Math.max(resolvedHalfX, 0.001F);
+        layout.halfY = Math.max(resolvedHalfY, 0.001F);
 
-        context.stack.push();
-        context.stack.translate(centerX, centerY, 0.001F);
-
-        Matrix4f rootMatrix = new Matrix4f(context.stack.peek().getPositionMatrix());
-
-        context.stack.pop();
-
-        if (defer)
-        {
-            Matrix4f positionMatrix = ModelVAORenderer.capturePaintOverlayRootMatrix(rootMatrix);
-
-            ModelVAORenderer.submitColorTintOverlay(() ->
-            {
-                MatrixStack overlayStack = new MatrixStack();
-
-                overlayStack.peek().getPositionMatrix().set(positionMatrix);
-                this.renderLabelColorTintOverlay(overlayStack, centerX, centerY, halfX, halfY, tintSnapshot, transformSnapshot, quadSnapshot, FlatPaintOverlayPass.DEFERRED_BILLBOARD_FACTOR, FlatPaintOverlayPass.DEFERRED_BILLBOARD_UNITS);
-            });
-        }
-        else
-        {
-            MatrixStack overlayStack = new MatrixStack();
-
-            overlayStack.peek().getPositionMatrix().set(rootMatrix);
-            this.renderLabelColorTintOverlay(overlayStack, centerX, centerY, halfX, halfY, tintSnapshot, transformSnapshot, quadSnapshot, FlatPaintOverlayPass.DEFAULT_FACTOR, FlatPaintOverlayPass.DEFAULT_UNITS);
-        }
+        return layout;
     }
 
     /**
@@ -1099,6 +1207,54 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
         });
     }
 
+    private void renderLabelPaintOverlay(MatrixStack stack, float centerX, float centerY, float halfX, float halfY, Color resolvedPaint, EffectTransform paintTransform, List<LabelTextTintQuadCapture.GlyphQuad> quads, float polygonOffsetFactor, float polygonOffsetUnits)
+    {
+        Matrix4f paintMatrix = stack.peek().getPositionMatrix();
+        MatrixStack.Entry entry = stack.peek();
+        Matrix4f formRootInverse = new Matrix4f(paintMatrix).invert();
+
+        EffectTransformMath.resolveBillboardMaskHalfExtents(paintTransform, this.maskHalfExtents, halfX, halfY);
+
+        Map<RenderLayer, List<LabelTextTintQuadCapture.GlyphQuad>> byLayer = new LinkedHashMap<>();
+
+        for (LabelTextTintQuadCapture.GlyphQuad quad : quads)
+        {
+            byLayer.computeIfAbsent(quad.layer, (layer) -> new ArrayList<>()).add(quad);
+        }
+
+        FlatPaintOverlayPass.render(polygonOffsetFactor, polygonOffsetUnits, formRootInverse, paintTransform, false, this.maskHalfExtents, () ->
+        {
+            int paintLight = LightmapTextureManager.MAX_LIGHT_COORDINATE;
+            int overlay = OverlayTexture.DEFAULT_UV;
+
+            RenderSystem.disableCull();
+
+            for (Map.Entry<RenderLayer, List<LabelTextTintQuadCapture.GlyphQuad>> layerEntry : byLayer.entrySet())
+            {
+                this.bindTextLayerTexture(layerEntry.getKey());
+                BlockEffectOverlayUniforms.configureFlatPaintOverlay(formRootInverse, paintTransform, false, this.maskHalfExtents);
+                GlStateManager._bindTexture(this.lastBoundTextTexture);
+
+                BufferBuilder builder = Tessellator.getInstance().begin(VertexFormat.DrawMode.TRIANGLES, VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL);
+
+                for (LabelTextTintQuadCapture.GlyphQuad quad : layerEntry.getValue())
+                {
+                    this.fillLabelPaint(builder, paintMatrix, entry, quad.x0 - centerX, quad.y0 - centerY, quad.u0, quad.v0, overlay, paintLight, resolvedPaint);
+                    this.fillLabelPaint(builder, paintMatrix, entry, quad.x1 - centerX, quad.y1 - centerY, quad.u1, quad.v1, overlay, paintLight, resolvedPaint);
+                    this.fillLabelPaint(builder, paintMatrix, entry, quad.x2 - centerX, quad.y2 - centerY, quad.u2, quad.v2, overlay, paintLight, resolvedPaint);
+
+                    this.fillLabelPaint(builder, paintMatrix, entry, quad.x0 - centerX, quad.y0 - centerY, quad.u0, quad.v0, overlay, paintLight, resolvedPaint);
+                    this.fillLabelPaint(builder, paintMatrix, entry, quad.x2 - centerX, quad.y2 - centerY, quad.u2, quad.v2, overlay, paintLight, resolvedPaint);
+                    this.fillLabelPaint(builder, paintMatrix, entry, quad.x3 - centerX, quad.y3 - centerY, quad.u3, quad.v3, overlay, paintLight, resolvedPaint);
+                }
+
+                BufferRenderer.drawWithGlobalProgram(builder.end());
+            }
+
+            RenderSystem.enableCull();
+        });
+    }
+
     private void bindTextLayerTexture(RenderLayer layer)
     {
         this.lastBoundTextTexture = 0;
@@ -1116,6 +1272,11 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
     private void fillLabelTint(BufferBuilder builder, Matrix4f matrix, MatrixStack.Entry entry, float x, float y, float u, float v, int overlay, int light)
     {
         builder.vertex(matrix, x, y, 0F).color(1F, 1F, 1F, 1F).texture(u, v).overlay(overlay).light(light).normal(entry, 0F, 0F, 1F);
+    }
+
+    private void fillLabelPaint(BufferBuilder builder, Matrix4f matrix, MatrixStack.Entry entry, float x, float y, float u, float v, int overlay, int light, Color paintColor)
+    {
+        builder.vertex(matrix, x, y, 0F).color(paintColor.r, paintColor.g, paintColor.b, paintColor.a).texture(u, v).overlay(overlay).light(light).normal(entry, 0F, 0F, 1F);
     }
 
     private void renderShadow(FormRenderingContext context, int x, int y, int w, int h)
@@ -1170,5 +1331,13 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
         }
 
         return argb;
+    }
+
+    private static final class LabelOverlayLayout
+    {
+        private float centerX;
+        private float centerY;
+        private float halfX;
+        private float halfY;
     }
 }

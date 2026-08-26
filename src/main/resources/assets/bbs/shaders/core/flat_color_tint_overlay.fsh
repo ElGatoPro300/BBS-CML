@@ -125,7 +125,9 @@ void main()
      * before, leaving a fully saturated / “opaque” mask on a soft base). Keep src alpha at
      * 1 so DST_ALPHA multiply does not rewrite the base pass opacity. */
     float opacity = clamp(FormColorTint.a, 0.0, 1.0);
-    float strength = cmask * opacity;
+    /* Scale mask strength by glyph coverage so bold / AA fringes do not pick up
+     * partial tint at transform boundaries (multiply blend would pink-bleed otherwise). */
+    float strength = cmask * opacity * tex.a;
     vec3 tintRgb = mix(vec3(1.0), FormColorTint.rgb, strength);
 
     fragColor = vec4(tintRgb, 1.0);
