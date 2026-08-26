@@ -43,9 +43,9 @@ import java.util.function.Supplier;
 
 public class ExtrudedFormRenderer extends FormRenderer<ExtrudedForm>
 {
-    /* Milder than FlatPaintOverlayPass (-32): enough for self z-fight, not terrain punch-through. */
-    private static final float EXTRUDED_PAINT_OFFSET_FACTOR = -1F;
-    private static final float EXTRUDED_PAINT_OFFSET_UNITS = -4F;
+    /* Units-only under Iris: negative factor scales with depth slope and punches thin edges through walls. */
+    private static final float EXTRUDED_PAINT_OFFSET_FACTOR = 0F;
+    private static final float EXTRUDED_PAINT_OFFSET_UNITS = -64F;
 
     public ExtrudedFormRenderer(ExtrudedForm form)
     {
