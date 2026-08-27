@@ -610,7 +610,7 @@ public class ShaderOpacityPatch
         }
         else if (paintOpaqueDepthStash.textureWidth != width || paintOpaqueDepthStash.textureHeight != height)
         {
-            paintOpaqueDepthStash.resize(width, height, MinecraftClient.IS_SYSTEM_MAC);
+            paintOpaqueDepthStash.resize(width, height);
         }
     }
 

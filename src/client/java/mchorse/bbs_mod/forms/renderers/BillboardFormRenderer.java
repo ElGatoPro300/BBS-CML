@@ -486,7 +486,7 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
                         ShaderProgram gradeShader = BBSShaders.getModel();
                         MatrixStack gradeStack = new MatrixStack();
 
-                        RenderSystem.setShader(() -> gradeShader);
+                        RenderSystem.setShader(gradeShader);
                         ModelVAORenderer.setupUniforms(gradeStack, gradeShader);
                     }
 
@@ -509,7 +509,7 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
                     {
                         this.renderGlowOverlay(
                             deferredTexture,
-                            GameRenderer::getPositionTexColorProgram,
+                            () -> MinecraftClient.getInstance().getShaderLoader().getOrCreateProgram(ShaderProgramKeys.POSITION_TEX_COLOR),
                             overlayStack,
                             glowSettingsSnapshot,
                             legacyGlowSnapshot,

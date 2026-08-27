@@ -309,7 +309,7 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
             {
                 RenderSystem.disableCull();
                 this.setupTarget(context, BBSShaders.getPickerModelsProgram());
-                RenderSystem.setShader(BBSShaders::getPickerModelsProgram);
+                RenderSystem.setShader(BBSShaders.getPickerModelsProgram());
             };
         }
 
