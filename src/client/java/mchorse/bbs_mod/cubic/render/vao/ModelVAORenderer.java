@@ -47,6 +47,10 @@ public class ModelVAORenderer
 {
     private static final Matrix3f IDENTITY_NORMAL = new Matrix3f();
     private static final Matrix4f IDENTITY_MODEL_VIEW = new Matrix4f();
+    private static final Matrix4f SCRATCH_MODEL_VIEW = new Matrix4f();
+    private static final Matrix4f SCRATCH_FOG_MAT = new Matrix4f();
+    private static final Matrix4f SCRATCH_INV_VIEW = new Matrix4f();
+    private static final Matrix4f SCRATCH_COMPOSED = new Matrix4f();
 
     /* FS-style paint overlay uniform state (rgb + strength). Set by form renderers before a draw and reset after.
      * "base" holds the whole-form paint; "current" is what the uniform uses and can be overridden per model group (bone). */
@@ -1825,6 +1829,8 @@ public class ModelVAORenderer
             }
         }
 
+        ModelVAORenderer.uploadFogMatUniform(stack, shader, cpuPretransformed);
+
         /* NormalMat is present by default in Iris' shaders, but when there is no Iris,
          * the BBS mod's model.json shader is being used instead that provides NormalMat
          * uniform.
@@ -2113,21 +2119,97 @@ public class ModelVAORenderer
         RenderSystem.setupShaderLights(shader);
     }
 
+    private static float viewOriginLengthSq(Matrix4f view)
+    {
+        float x = view.m30();
+        float y = view.m31();
+        float z = view.m32();
+
+        return x * x + y * y + z * z;
+    }
+
+    /**
+     * Camera-relative model matrix for fog — same space vanilla bakes into entity
+     * {@code Position} and terrain {@code Position + ChunkOffset} (Y-up, no view rotation).
+     */
+    private static void uploadFogMatUniform(MatrixStack stack, ShaderProgram shader, boolean cpuPretransformed)
+    {
+        GlUniform fogMatUniform = shader.getUniform("FogMat");
+
+        if (fogMatUniform == null)
+        {
+            return;
+        }
+
+        if (cpuPretransformed || usesCapturedModelView() || stack == null)
+        {
+            /* CPU-baked verts are already in the space fog expects; captured passes disable fog. */
+            fogMatUniform.set(IDENTITY_MODEL_VIEW);
+
+            return;
+        }
+
+        Matrix4f stackMatrix = stack.peek().getPositionMatrix();
+
+        if (BBSRendering.isRenderingWorld() && !BBSRendering.isIrisShadersEnabled())
+        {
+            float bakedDist = viewOriginLengthSq(stackMatrix);
+
+            SCRATCH_COMPOSED.set(BBSRendering.camera).mul(stackMatrix);
+
+            if (bakedDist > 1.0E-6F && viewOriginLengthSq(SCRATCH_COMPOSED) < bakedDist * 0.49F)
+            {
+                /* Stack already includes view (AFTER_ENTITIES) — strip rotation for fog only. */
+                MatrixStackUtils.loadInverseViewRotationMatrix4(SCRATCH_INV_VIEW);
+                SCRATCH_FOG_MAT.set(SCRATCH_INV_VIEW).mul(stackMatrix);
+            }
+            else
+            {
+                /* Stack is camera-relative entity transform — same as WorldRenderer entity MatrixStack. */
+                SCRATCH_FOG_MAT.set(stackMatrix);
+            }
+        }
+        else
+        {
+            /* Iris / UI: best-effort strip view from composed model-view. */
+            SCRATCH_COMPOSED.set(RenderSystem.getModelViewMatrix()).mul(stackMatrix);
+            MatrixStackUtils.loadInverseViewRotationMatrix4(SCRATCH_INV_VIEW);
+            SCRATCH_FOG_MAT.set(SCRATCH_INV_VIEW).mul(SCRATCH_COMPOSED);
+        }
+
+        fogMatUniform.set(SCRATCH_FOG_MAT);
+    }
+
     private static void setModelViewUniform(MatrixStack stack, ShaderProgram shader)
     {
-        Matrix4f modelView;
-
         if (usesCapturedModelView())
         {
             /* Overlay/deferred stack already carries the full terrain + entity transform captured
              * at enqueue; RenderSystem model-view is identity during these draws. */
-            modelView = new Matrix4f(stack.peek().getPositionMatrix());
-        }
-        else
-        {
-            modelView = new Matrix4f(RenderSystem.getModelViewMatrix()).mul(stack.peek().getPositionMatrix());
+            shader.modelViewMat.set(stack.peek().getPositionMatrix());
+
+            return;
         }
 
-        shader.modelViewMat.set(modelView);
+        Matrix4f stackMatrix = stack.peek().getPositionMatrix();
+
+        if (BBSRendering.isRenderingWorld() && !BBSRendering.isIrisShadersEnabled())
+        {
+            float bakedDist = viewOriginLengthSq(stackMatrix);
+
+            SCRATCH_MODEL_VIEW.set(BBSRendering.camera).mul(stackMatrix);
+
+            if (bakedDist > 1.0E-6F && viewOriginLengthSq(SCRATCH_MODEL_VIEW) < bakedDist * 0.49F)
+            {
+                SCRATCH_MODEL_VIEW.set(stackMatrix);
+            }
+
+            shader.modelViewMat.set(SCRATCH_MODEL_VIEW);
+
+            return;
+        }
+
+        SCRATCH_MODEL_VIEW.set(RenderSystem.getModelViewMatrix()).mul(stackMatrix);
+        shader.modelViewMat.set(SCRATCH_MODEL_VIEW);
     }
 }
