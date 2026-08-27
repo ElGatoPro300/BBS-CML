@@ -213,7 +213,8 @@ public class WorldLaunchHelper
 
             IntegratedServerLoader loader = client.createIntegratedServerLoader();
 
-            loader.start(worldFolder, WorldLaunchHelper::clearPending);
+            WorldLaunchHelper.clearPending();
+            loader.start(null, worldFolder);
         });
     }
 }
