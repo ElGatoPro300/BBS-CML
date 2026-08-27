@@ -9,14 +9,11 @@ uniform float PaintEffectActive;
 uniform vec3 PaintMaskHalf;
 uniform float PaintMaskBottomAnchored;
 uniform float PaintMaskShape;
-uniform float FogStart;
-uniform float FogEnd;
-uniform vec4 FogColor;
 
-in float vertexDistance;
 in vec4 vertexColor;
 in vec2 texCoord0;
 in vec3 formRootPos;
+in float vertexDistance;
 
 out vec4 fragColor;
 

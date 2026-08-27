@@ -167,6 +167,86 @@ public class ModelVAORenderer
         activeDeferredFog = null;
     }
 
+    /**
+     * Fog + camera uniforms for flat paint/tint overlay shaders (1.20.4 {@code IViewRotMat} path).
+     */
+    public static void bindFlatOverlayFogUniforms(ShaderProgram shader)
+    {
+        if (shader == null)
+        {
+            return;
+        }
+
+        if (activeDeferredFog != null)
+        {
+            if (shader.fogStart != null)
+            {
+                shader.fogStart.set(activeDeferredFog.fogStart);
+            }
+
+            if (shader.fogEnd != null)
+            {
+                shader.fogEnd.set(activeDeferredFog.fogEnd);
+            }
+
+            if (shader.fogColor != null)
+            {
+                shader.fogColor.set(activeDeferredFog.fogColorR, activeDeferredFog.fogColorG, activeDeferredFog.fogColorB, activeDeferredFog.fogColorA);
+            }
+
+            if (shader.fogShape != null)
+            {
+                shader.fogShape.set(activeDeferredFog.fogShape);
+            }
+        }
+        else
+        {
+            if (shader.fogStart != null)
+            {
+                shader.fogStart.set(RenderSystem.getShaderFogStart());
+            }
+
+            if (shader.fogEnd != null)
+            {
+                shader.fogEnd.set(RenderSystem.getShaderFogEnd());
+            }
+
+            if (shader.fogColor != null)
+            {
+                shader.fogColor.set(RenderSystem.getShaderFogColor());
+            }
+
+            if (shader.fogShape != null)
+            {
+                shader.fogShape.set(RenderSystem.getShaderFogShape().getId());
+            }
+        }
+
+        if (shader.projectionMat != null)
+        {
+            shader.projectionMat.set(RenderSystem.getProjectionMatrix());
+        }
+
+        if (shader.modelViewMat != null)
+        {
+            shader.modelViewMat.set(RenderSystem.getModelViewMatrix());
+        }
+
+        if (shader.viewRotationMat != null)
+        {
+            shader.viewRotationMat.set(RenderSystem.getInverseViewRotationMatrix());
+        }
+        else
+        {
+            GlUniform iViewRotUniform = shader.getUniform("IViewRotMat");
+
+            if (iViewRotUniform != null)
+            {
+                iViewRotUniform.set(RenderSystem.getInverseViewRotationMatrix());
+            }
+        }
+    }
+
     private static final Matrix4f formRootInverse = new Matrix4f();
     private static final Matrix4f paintEffectInverse = new Matrix4f();
     private static final Vector3f paintMaskHalf = new Vector3f(EffectTransformMath.MODEL_MASK_HALF_BASE);
@@ -435,7 +515,7 @@ public class ModelVAORenderer
             vanillaComposite,
             depthWrite,
             depthTest,
-            fullModel ? captureCurrentFog() : null,
+            captureCurrentFog(),
             draw
         );
 
@@ -2150,11 +2230,12 @@ public class ModelVAORenderer
             colorGradeOverlayUniform.set(colorGradeOverlayPass ? 1F : 0F);
         }
 
-        /* Captured-matrix redraws (overlays / deferred soft) multiply an already-fogged base or
-         * run after Iris collapsed fog — skip distance fog so meshes stay visible. Live world
-         * draws use RenderSystem fog + entity fog_distance(ModelViewMat, IViewRotMat * Position)
-         * in model.vsh (1.20.4 mob path). */
-        if (usesCapturedModelView())
+        /* Paint/tint/grade overlays multiply an already-fogged base — skip distance fog.
+         * Full-mesh deferred redraws (soft opacity / soft limbs) use fog captured at enqueue
+         * (RenderSystem is often wrong after Iris composite or vanilla LAST). Live draws use
+         * RenderSystem fog + entity fog_distance(ModelViewMat, IViewRotMat * Position) in
+         * model.vsh (1.20.4 mob path). */
+        if (paintOverlayPass || colorTintOverlayPass || colorGradeOverlayPass)
         {
             if (shader.fogStart != null)
             {
@@ -2174,6 +2255,28 @@ public class ModelVAORenderer
             if (shader.fogShape != null)
             {
                 shader.fogShape.set(0);
+            }
+        }
+        else if (activeDeferredFog != null)
+        {
+            if (shader.fogStart != null)
+            {
+                shader.fogStart.set(activeDeferredFog.fogStart);
+            }
+
+            if (shader.fogEnd != null)
+            {
+                shader.fogEnd.set(activeDeferredFog.fogEnd);
+            }
+
+            if (shader.fogColor != null)
+            {
+                shader.fogColor.set(activeDeferredFog.fogColorR, activeDeferredFog.fogColorG, activeDeferredFog.fogColorB, activeDeferredFog.fogColorA);
+            }
+
+            if (shader.fogShape != null)
+            {
+                shader.fogShape.set(activeDeferredFog.fogShape);
             }
         }
         else
