@@ -71,10 +71,25 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
 
     /** Units-only bias — factor 0 avoids Iris wall punch-through on grazing label planes. */
     private static final float LABEL_COLOR_TINT_OFFSET_FACTOR = FlatPaintOverlayPass.POLYGON_OFFSET_FACTOR;
-    private static final float LABEL_COLOR_TINT_OFFSET_UNITS = FlatPaintOverlayPass.POLYGON_OFFSET_UNITS;
+    private static final float LABEL_COLOR_TINT_OFFSET_UNITS = -96F;
     private static final float LABEL_PAINT_OFFSET_FACTOR = FlatPaintOverlayPass.POLYGON_OFFSET_FACTOR;
-    private static final float LABEL_PAINT_OFFSET_UNITS = -96F;
-    private static final float LABEL_DEFERRED_PAINT_OFFSET_UNITS = -96F;
+    private static final float LABEL_PAINT_OFFSET_UNITS = -128F;
+    private static final float LABEL_DEFERRED_PAINT_OFFSET_UNITS = -128F;
+    /* Color/paint overlays: camera-facing local Z (same rule as BillboardFormRenderer). */
+    private static final float FACE_Z_BIAS = 0.0005F;
+    private static final float OVERLAY_FACE_EXTRA = 0.0015F;
+    /* Depth precision falls off with distance — scale overlay bias (FlatPaintOverlayPass). */
+    private static final float LABEL_OVERLAY_DISTANCE_SCALE_START = 4F;
+    private static final float LABEL_OVERLAY_DISTANCE_SCALE_LINEAR = 0.4F;
+    private static final float LABEL_OVERLAY_DISTANCE_SCALE_QUADRATIC = 0.0025F;
+    private static final float LABEL_OVERLAY_DISTANCE_SCALE_CAP = 32F;
+    private static final float LABEL_OVERLAY_SEPARATION_LINEAR = 0.0012F;
+    private static final float LABEL_OVERLAY_SEPARATION_QUADRATIC = 0.00001F;
+    private static final float LABEL_OVERLAY_SEPARATION_MAX = 2F;
+    private static final float LABEL_BASE_FILL_PULLBACK = 0.4F;
+    private static final float LABEL_OVERLAY_OFFSET_UNITS_CAP = -4096F;
+    private static final Vector3f OVERLAY_TO_CAMERA = new Vector3f();
+    private static final Vector3f OVERLAY_LOCAL_Z = new Vector3f();
 
     private float nametagAlpha = 1F;
     private int lastBoundTextTexture;
@@ -685,7 +700,20 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
                 gradientEnd.mul(context.color);
             }
 
+            float baseFillZ = colorTransformWanted ? this.resolveBaseFillFaceZ(context.stack.peek().getPositionMatrix()) : 0F;
+
+            if (baseFillZ != 0F)
+            {
+                context.stack.push();
+                context.stack.translate(0F, 0F, baseFillZ);
+            }
+
             int textArgb = this.drawLabelContent(context, consumers, renderer, customFont, content, x, y, letterSpacing, light, color, gradientEnd);
+
+            if (baseFillZ != 0F)
+            {
+                context.stack.pop();
+            }
 
             RenderSystem.enableDepthTest();
             RenderSystem.depthMask(true);
@@ -932,6 +960,14 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
 
             y = shadowY;
 
+            float baseFillZ = colorTransformWanted ? this.resolveBaseFillFaceZ(context.stack.peek().getPositionMatrix()) : 0F;
+
+            if (baseFillZ != 0F)
+            {
+                context.stack.push();
+                context.stack.translate(0F, 0F, baseFillZ);
+            }
+
             for (String line : lines)
             {
                 int lw = customFont != null ? customFont.getWidth(line, letterSpacing) : renderer.getWidth(line) - 1;
@@ -958,6 +994,11 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
                 }
 
                 y += lineStep;
+            }
+
+            if (baseFillZ != 0F)
+            {
+                context.stack.pop();
             }
 
             RenderSystem.enableDepthTest();
@@ -1210,10 +1251,14 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
             byLayer.computeIfAbsent(quad.layer, (layer) -> new ArrayList<>()).add(quad);
         }
 
-        FlatColorTintOverlayPass.render(polygonOffsetFactor, polygonOffsetUnits, formRootInverse, colorTransform, false, this.maskHalfExtents, formTintColor, () ->
+        float offsetUnits = this.resolveLabelOverlayOffsetUnits(tintMatrix, polygonOffsetUnits);
+
+        FlatColorTintOverlayPass.render(polygonOffsetFactor, offsetUnits, formRootInverse, colorTransform, false, this.maskHalfExtents, formTintColor, () ->
         {
             int tintLight = LightmapTextureManager.MAX_LIGHT_COORDINATE;
             int overlay = OverlayTexture.DEFAULT_UV;
+            float tintZ = this.resolveOverlayFaceZ(tintMatrix);
+            float tintNz = tintZ >= 0F ? 1F : -1F;
 
             RenderSystem.disableCull();
 
@@ -1228,13 +1273,13 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
 
                 for (LabelTextTintQuadCapture.GlyphQuad quad : layerEntry.getValue())
                 {
-                    this.fillLabelTint(builder, tintMatrix, entry, quad.x0 - centerX, quad.y0 - centerY, quad.u0, quad.v0, overlay, tintLight);
-                    this.fillLabelTint(builder, tintMatrix, entry, quad.x1 - centerX, quad.y1 - centerY, quad.u1, quad.v1, overlay, tintLight);
-                    this.fillLabelTint(builder, tintMatrix, entry, quad.x2 - centerX, quad.y2 - centerY, quad.u2, quad.v2, overlay, tintLight);
+                    this.fillLabelTint(builder, tintMatrix, entry, quad.x0 - centerX, quad.y0 - centerY, tintZ, quad.u0, quad.v0, overlay, tintLight, tintNz);
+                    this.fillLabelTint(builder, tintMatrix, entry, quad.x1 - centerX, quad.y1 - centerY, tintZ, quad.u1, quad.v1, overlay, tintLight, tintNz);
+                    this.fillLabelTint(builder, tintMatrix, entry, quad.x2 - centerX, quad.y2 - centerY, tintZ, quad.u2, quad.v2, overlay, tintLight, tintNz);
 
-                    this.fillLabelTint(builder, tintMatrix, entry, quad.x0 - centerX, quad.y0 - centerY, quad.u0, quad.v0, overlay, tintLight);
-                    this.fillLabelTint(builder, tintMatrix, entry, quad.x2 - centerX, quad.y2 - centerY, quad.u2, quad.v2, overlay, tintLight);
-                    this.fillLabelTint(builder, tintMatrix, entry, quad.x3 - centerX, quad.y3 - centerY, quad.u3, quad.v3, overlay, tintLight);
+                    this.fillLabelTint(builder, tintMatrix, entry, quad.x0 - centerX, quad.y0 - centerY, tintZ, quad.u0, quad.v0, overlay, tintLight, tintNz);
+                    this.fillLabelTint(builder, tintMatrix, entry, quad.x2 - centerX, quad.y2 - centerY, tintZ, quad.u2, quad.v2, overlay, tintLight, tintNz);
+                    this.fillLabelTint(builder, tintMatrix, entry, quad.x3 - centerX, quad.y3 - centerY, tintZ, quad.u3, quad.v3, overlay, tintLight, tintNz);
                 }
 
                 BufferRenderer.drawWithGlobalProgram(builder.end());
@@ -1259,10 +1304,14 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
             byLayer.computeIfAbsent(quad.layer, (layer) -> new ArrayList<>()).add(quad);
         }
 
-        FlatPaintOverlayPass.render(polygonOffsetFactor, polygonOffsetUnits, formRootInverse, paintTransform, false, this.maskHalfExtents, () ->
+        float offsetUnits = this.resolveLabelOverlayOffsetUnits(paintMatrix, polygonOffsetUnits);
+
+        FlatPaintOverlayPass.render(polygonOffsetFactor, offsetUnits, formRootInverse, paintTransform, false, this.maskHalfExtents, () ->
         {
             int paintLight = LightmapTextureManager.MAX_LIGHT_COORDINATE;
             int overlay = OverlayTexture.DEFAULT_UV;
+            float paintZ = this.resolveOverlayFaceZ(paintMatrix);
+            float paintNz = paintZ >= 0F ? 1F : -1F;
 
             RenderSystem.disableCull();
 
@@ -1276,13 +1325,13 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
 
                 for (LabelTextTintQuadCapture.GlyphQuad quad : layerEntry.getValue())
                 {
-                    this.fillLabelPaint(builder, paintMatrix, entry, quad.x0 - centerX, quad.y0 - centerY, quad.u0, quad.v0, overlay, paintLight, resolvedPaint);
-                    this.fillLabelPaint(builder, paintMatrix, entry, quad.x1 - centerX, quad.y1 - centerY, quad.u1, quad.v1, overlay, paintLight, resolvedPaint);
-                    this.fillLabelPaint(builder, paintMatrix, entry, quad.x2 - centerX, quad.y2 - centerY, quad.u2, quad.v2, overlay, paintLight, resolvedPaint);
+                    this.fillLabelPaint(builder, paintMatrix, entry, quad.x0 - centerX, quad.y0 - centerY, paintZ, quad.u0, quad.v0, overlay, paintLight, paintNz, resolvedPaint);
+                    this.fillLabelPaint(builder, paintMatrix, entry, quad.x1 - centerX, quad.y1 - centerY, paintZ, quad.u1, quad.v1, overlay, paintLight, paintNz, resolvedPaint);
+                    this.fillLabelPaint(builder, paintMatrix, entry, quad.x2 - centerX, quad.y2 - centerY, paintZ, quad.u2, quad.v2, overlay, paintLight, paintNz, resolvedPaint);
 
-                    this.fillLabelPaint(builder, paintMatrix, entry, quad.x0 - centerX, quad.y0 - centerY, quad.u0, quad.v0, overlay, paintLight, resolvedPaint);
-                    this.fillLabelPaint(builder, paintMatrix, entry, quad.x2 - centerX, quad.y2 - centerY, quad.u2, quad.v2, overlay, paintLight, resolvedPaint);
-                    this.fillLabelPaint(builder, paintMatrix, entry, quad.x3 - centerX, quad.y3 - centerY, quad.u3, quad.v3, overlay, paintLight, resolvedPaint);
+                    this.fillLabelPaint(builder, paintMatrix, entry, quad.x0 - centerX, quad.y0 - centerY, paintZ, quad.u0, quad.v0, overlay, paintLight, paintNz, resolvedPaint);
+                    this.fillLabelPaint(builder, paintMatrix, entry, quad.x2 - centerX, quad.y2 - centerY, paintZ, quad.u2, quad.v2, overlay, paintLight, paintNz, resolvedPaint);
+                    this.fillLabelPaint(builder, paintMatrix, entry, quad.x3 - centerX, quad.y3 - centerY, paintZ, quad.u3, quad.v3, overlay, paintLight, paintNz, resolvedPaint);
                 }
 
                 BufferRenderer.drawWithGlobalProgram(builder.end());
@@ -1306,14 +1355,89 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
         layer.endDrawing();
     }
 
-    private void fillLabelTint(BufferBuilder builder, Matrix4f matrix, MatrixStack.Entry entry, float x, float y, float u, float v, int overlay, int light)
+    private void fillLabelTint(BufferBuilder builder, Matrix4f matrix, MatrixStack.Entry entry, float x, float y, float z, float u, float v, int overlay, int light, float nz)
     {
-        builder.vertex(matrix, x, y, 0F).color(1F, 1F, 1F, 1F).texture(u, v).overlay(overlay).light(light).normal(entry, 0F, 0F, 1F);
+        builder.vertex(matrix, x, y, z).color(1F, 1F, 1F, 1F).texture(u, v).overlay(overlay).light(light).normal(entry, 0F, 0F, nz);
     }
 
-    private void fillLabelPaint(BufferBuilder builder, Matrix4f matrix, MatrixStack.Entry entry, float x, float y, float u, float v, int overlay, int light, Color paintColor)
+    private void fillLabelPaint(BufferBuilder builder, Matrix4f matrix, MatrixStack.Entry entry, float x, float y, float z, float u, float v, int overlay, int light, float nz, Color paintColor)
     {
-        builder.vertex(matrix, x, y, 0F).color(paintColor.r, paintColor.g, paintColor.b, paintColor.a).texture(u, v).overlay(overlay).light(light).normal(entry, 0F, 0F, 1F);
+        builder.vertex(matrix, x, y, z).color(paintColor.r, paintColor.g, paintColor.b, paintColor.a).texture(u, v).overlay(overlay).light(light).normal(entry, 0F, 0F, nz);
+    }
+
+    /**
+     * Local Z just outside the base face that points toward the camera. Same rule as
+     * {@link BillboardFormRenderer#resolveOverlayFaceZ} — fixed ±Z fails when the label
+     * plane is rotated (e.g. on X); polygon offset alone is not enough at grazing angles.
+     */
+    private float resolveOverlayFaceZ(Matrix4f viewModel)
+    {
+        return this.resolveOverlayPlaneSign(viewModel) * this.resolveLabelOverlaySeparation(viewModel);
+    }
+
+    /**
+     * Base fill sits slightly behind the mid-plane when a color-transform overlay follows,
+     * doubling the effective depth gap without relying on polygon offset alone at distance.
+     */
+    private float resolveBaseFillFaceZ(Matrix4f viewModel)
+    {
+        return -this.resolveOverlayPlaneSign(viewModel) * this.resolveLabelOverlaySeparation(viewModel) * LABEL_BASE_FILL_PULLBACK;
+    }
+
+    private float resolveOverlayPlaneSign(Matrix4f viewModel)
+    {
+        OVERLAY_TO_CAMERA.set(-viewModel.m30(), -viewModel.m31(), -viewModel.m32());
+        OVERLAY_LOCAL_Z.set(viewModel.m20(), viewModel.m21(), viewModel.m22());
+
+        float facing = OVERLAY_LOCAL_Z.dot(OVERLAY_TO_CAMERA);
+
+        return facing >= 0F ? 1F : -1F;
+    }
+
+    private float resolveOverlayViewDistance(Matrix4f viewModel)
+    {
+        float dx = viewModel.m30();
+        float dy = viewModel.m31();
+        float dz = viewModel.m32();
+
+        return (float) Math.sqrt(dx * dx + dy * dy + dz * dz);
+    }
+
+    /**
+     * Camera-facing separation in label plane space. Grows linearly and quadratically with
+     * view distance because perspective depth precision collapses coplanar passes when far.
+     */
+    private float resolveLabelOverlaySeparation(Matrix4f viewModel)
+    {
+        float distance = this.resolveOverlayViewDistance(viewModel);
+        float scale = this.resolveLabelOverlayDistanceScale(viewModel);
+        float separation = (FACE_Z_BIAS + OVERLAY_FACE_EXTRA) * scale;
+
+        separation += distance * LABEL_OVERLAY_SEPARATION_LINEAR;
+        separation += distance * distance * LABEL_OVERLAY_SEPARATION_QUADRATIC;
+
+        return Math.min(separation, LABEL_OVERLAY_SEPARATION_MAX);
+    }
+
+    /**
+     * Extra overlay separation when the label is far from the camera — float depth
+     * precision shrinks and fixed polygon offset / Z bias collapse to the base pass.
+     */
+    private float resolveLabelOverlayDistanceScale(Matrix4f viewModel)
+    {
+        float distance = this.resolveOverlayViewDistance(viewModel);
+        float beyond = Math.max(0F, distance - LABEL_OVERLAY_DISTANCE_SCALE_START);
+        float linear = beyond * LABEL_OVERLAY_DISTANCE_SCALE_LINEAR;
+        float quadratic = beyond * beyond * LABEL_OVERLAY_DISTANCE_SCALE_QUADRATIC;
+
+        return 1F + Math.min(linear + quadratic, LABEL_OVERLAY_DISTANCE_SCALE_CAP);
+    }
+
+    private float resolveLabelOverlayOffsetUnits(Matrix4f viewModel, float baseUnits)
+    {
+        float scaled = baseUnits * this.resolveLabelOverlayDistanceScale(viewModel);
+
+        return Math.max(scaled, LABEL_OVERLAY_OFFSET_UNITS_CAP);
     }
 
     private void renderShadow(FormRenderingContext context, int x, int y, int w, int h)
