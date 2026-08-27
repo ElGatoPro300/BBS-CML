@@ -2238,6 +2238,77 @@ public class ModelVAORenderer
     }
 
     /**
+     * Fog uniforms for overlays that bake {@code bakedModelMatrix} into vertex {@code Position}
+     * (flat color-tint / paint on labels & billboards). {@code FogMat} maps those positions
+     * back to camera-relative Y-up for cylindrical fog — identity when the bake was already
+     * camera-relative, inverse-view when the bake included view rotation.
+     */
+    public static void uploadCpuBakedVertexFog(ShaderProgram shader, Matrix4f bakedModelMatrix)
+    {
+        if (shader == null)
+        {
+            return;
+        }
+
+        if (shader.fogStart != null)
+        {
+            shader.fogStart.set(RenderSystem.getShaderFogStart());
+        }
+
+        if (shader.fogEnd != null)
+        {
+            shader.fogEnd.set(RenderSystem.getShaderFogEnd());
+        }
+
+        if (shader.fogColor != null)
+        {
+            shader.fogColor.set(RenderSystem.getShaderFogColor());
+        }
+
+        if (shader.fogShape != null)
+        {
+            shader.fogShape.set(RenderSystem.getShaderFogShape().getId());
+        }
+
+        GlUniform fogMatUniform = shader.getUniform("FogMat");
+
+        if (fogMatUniform == null)
+        {
+            return;
+        }
+
+        if (bakedModelMatrix == null)
+        {
+            fogMatUniform.set(IDENTITY_MODEL_VIEW);
+
+            return;
+        }
+
+        if (BBSRendering.isRenderingWorld())
+        {
+            float bakedDist = viewOriginLengthSq(bakedModelMatrix);
+
+            SCRATCH_COMPOSED.set(BBSRendering.camera).mul(bakedModelMatrix);
+
+            if (bakedDist > 1.0E-6F && viewOriginLengthSq(SCRATCH_COMPOSED) < bakedDist * 0.49F)
+            {
+                /* Bake already included view — Position is view-space; strip for fog. */
+                MatrixStackUtils.loadInverseViewRotationMatrix4(SCRATCH_INV_VIEW);
+                fogMatUniform.set(SCRATCH_INV_VIEW);
+            }
+            else
+            {
+                /* Bake was camera-relative — Position is already Y-up cam-rel. */
+                fogMatUniform.set(IDENTITY_MODEL_VIEW);
+            }
+        }
+        else
+        {
+            fogMatUniform.set(IDENTITY_MODEL_VIEW);
+        }
+    }
+
+    /**
      * Camera-relative model matrix for fog — same space vanilla bakes into entity
      * {@code Position} and terrain {@code Position + ChunkOffset} (Y-up, no view rotation).
      */
