@@ -2,8 +2,8 @@ package mchorse.bbs_mod.client;
 
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.screen.DownloadingTerrainScreen;
-import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.screen.LevelLoadingScreen;
+import net.minecraft.client.gui.screen.Screen;
 
 public class PendingFilmLaunch
 {
