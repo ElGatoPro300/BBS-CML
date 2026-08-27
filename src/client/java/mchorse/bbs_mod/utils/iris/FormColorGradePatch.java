@@ -171,10 +171,6 @@ public final class FormColorGradePatch
             return source;
         }
 
-        /* Runs for Complementary/BSL includes and gbuffers: IPBR Lab/SEUS emission resamples
-         * albedo without glColor, which dropped form Color from _s / specular glow. */
-        source = patchIpbrEmissiveVertexColor(source);
-
         if (!shouldPatchPack())
         {
             return source;
