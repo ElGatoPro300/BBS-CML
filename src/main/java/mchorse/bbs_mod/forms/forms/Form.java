@@ -351,11 +351,9 @@ public abstract class Form extends ValueGroup
             entity.setHealth(hp);
         }
         if (speed != 0.1F) entity.getAttributeInstance(EntityAttributes.GENERIC_MOVEMENT_SPEED).setBaseValue(speed);
-        /* 1.20.4 still has Entity.setStepHeight; GENERIC_STEP_HEIGHT is 1.20.5+. */
-        if (stepHeight != 0.6F)
-        {
-            entity.setStepHeight(stepHeight);
-        }
+        /* 1.20.4: Entity.setStepHeight (GENERIC_STEP_HEIGHT is 1.20.5+). Always apply so form
+         * switches reset non-default values from the previous morph. */
+        entity.setStepHeight(stepHeight);
     }
 
     public void onDemorph(LivingEntity entity)
