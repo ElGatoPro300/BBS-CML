@@ -199,7 +199,7 @@ public abstract class UIClip <T extends Clip> extends UIElement
             this.editor.editMultiple(this.clip.duration, (int) TimeUtils.fromTime(v));
             this.updateDuration((int) TimeUtils.fromTime(v));
         });
-        this.duration.limit(1, Integer.MAX_VALUE, true).tooltip(UIKeys.CAMERA_PANELS_DURATION);
+        this.duration.limit(1, Clip.MAX_DURATION_TICKS, true).tooltip(UIKeys.CAMERA_PANELS_DURATION);
         this.envelope = new UIEnvelope(this);
         this.envelope.channel.setUndoId("envelope_keyframes");
 
