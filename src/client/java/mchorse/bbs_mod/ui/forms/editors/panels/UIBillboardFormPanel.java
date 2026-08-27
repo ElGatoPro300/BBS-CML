@@ -47,6 +47,7 @@ public class UIBillboardFormPanel extends UIFormPanel<BillboardForm>
     public UITrackpad rotation;
 
     public UIToggle shading;
+    public UIToggle noShading;
     public UITrackpad pbrNormalIntensity;
     public UITrackpad pbrSpecularIntensity;
     public UITrackpad subdivision;
@@ -152,6 +153,8 @@ public class UIBillboardFormPanel extends UIFormPanel<BillboardForm>
         this.rotation.tooltip(UIKeys.FORMS_EDITORS_BILLBOARD_ROTATION);
 
         this.shading = new UIToggle(UIKeys.FORMS_EDITORS_BILLBOARD_SHADING, false, (b) -> this.form.shading.set(b.getValue()));
+        this.noShading = new UIToggle(UIKeys.FORMS_EDITORS_NOSHADING_SHADERS, false, (b) -> this.form.noshadingOpacity.set(b.getValue()));
+        this.noShading.tooltip(UIKeys.FORMS_EDITORS_COLOR_NOSHADING_OPACITY_TOOLTIP);
         this.pbrNormalIntensity = new UITrackpad((value) -> this.form.pbrNormalIntensity.set(value.floatValue()));
         this.pbrNormalIntensity.tooltip(UIKeys.FORMS_EDITOR_MODEL_PBR_NORMAL_INTENSITY);
         this.pbrSpecularIntensity = new UITrackpad((value) -> this.form.pbrSpecularIntensity.set(value.floatValue()));
@@ -181,7 +184,7 @@ public class UIBillboardFormPanel extends UIFormPanel<BillboardForm>
         }
 
         this.options.add(UI.label(UIKeys.FORMS_EDITORS_BILLBOARD_CROP).marginTop(8), this.openCrop, this.resizeCrop);
-        this.options.add(UI.label(UIKeys.FORMS_EDITORS_BILLBOARD_UV_SHIFT).marginTop(8), UI.row(this.offsetX, this.offsetY), this.rotation, this.shading);
+        this.options.add(UI.label(UIKeys.FORMS_EDITORS_BILLBOARD_UV_SHIFT).marginTop(8), UI.row(this.offsetX, this.offsetY), this.rotation, this.shading, this.noShading);
     }
 
     @Override
@@ -219,6 +222,7 @@ public class UIBillboardFormPanel extends UIFormPanel<BillboardForm>
         this.rotation.setValue(form.rotation.get());
 
         this.shading.setValue(form.shading.get());
+        this.noShading.setValue(form.noshadingOpacity.get());
         this.pbrNormalIntensity.setValue(form.pbrNormalIntensity.get());
         this.pbrSpecularIntensity.setValue(form.pbrSpecularIntensity.get());
         this.subdivision.setValue(form.subdivision.get());

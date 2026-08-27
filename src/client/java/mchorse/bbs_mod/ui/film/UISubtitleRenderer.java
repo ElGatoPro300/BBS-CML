@@ -18,6 +18,7 @@ import net.minecraft.client.gl.GlUniform;
 import net.minecraft.client.gl.ShaderProgram;
 import net.minecraft.client.gl.ShaderProgramKeys;
 import net.minecraft.client.util.math.MatrixStack;
+import net.minecraft.util.math.RotationAxis;
 
 import org.joml.Matrix4f;
 
@@ -183,6 +184,22 @@ public class UISubtitleRenderer
 
             stack.push();
             stack.translate(x, y, 0);
+
+            /* Rotate around the subtitle anchor in XYZ (same contract as Image overlays). */
+            if (subtitle.rotationX != 0F)
+            {
+                stack.multiply(RotationAxis.POSITIVE_X.rotationDegrees(subtitle.rotationX));
+            }
+
+            if (subtitle.rotationY != 0F)
+            {
+                stack.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(subtitle.rotationY));
+            }
+
+            if (subtitle.rotation != 0F)
+            {
+                stack.multiply(RotationAxis.POSITIVE_Z.rotationDegrees(subtitle.rotation));
+            }
 
             if (blur != null)
             {

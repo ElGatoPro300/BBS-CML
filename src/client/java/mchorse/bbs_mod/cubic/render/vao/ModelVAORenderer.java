@@ -592,10 +592,17 @@ public class ModelVAORenderer
                 }
             }
 
-            if (needsSceneCapture)
+            if (restoreFramebuffer)
+            {
+                ShaderOpacityPatch.syncPaintOverlayDepth();
+            }
+            else if (needsSceneCapture)
             {
                 BBSRendering.ensurePaintOverlayTargetFramebuffer();
+            }
 
+            if (needsSceneCapture)
+            {
                 if (!captureGradeSceneColor())
                 {
                     /* Keep Iris-lit mesh; skip broken regrade rather than painting black. */
@@ -651,9 +658,13 @@ public class ModelVAORenderer
         RenderSystem.depthFunc(GL11.GL_LEQUAL);
         RenderSystem.depthMask(false);
 
+        /* Match the no-shader model path: paint both front and back faces (eye sockets,
+         * hollow heads, etc.). Iris often leaves cull enabled; keeping it would skip interiors. */
+        RenderSystem.disableCull();
+
         GL11.glEnable(GL11.GL_POLYGON_OFFSET_FILL);
-        /* Flat / extruded / billboard overlays need a large units bias — factor alone is not
-         * enough for near-zero depth slope at distance (see FlatPaintOverlayPass). */
+        /* Units-only bias: a negative factor punches edge-on paint through terrain under Iris
+         * (slope-scaled offset). Facing quads need a large units value at distance. */
         GL11.glPolygonOffset(FlatPaintOverlayPass.POLYGON_OFFSET_FACTOR, FlatPaintOverlayPass.POLYGON_OFFSET_UNITS);
     }
 

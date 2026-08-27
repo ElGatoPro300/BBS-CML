@@ -807,7 +807,7 @@ public class UIShapeNodeEditor extends UIElement
                 attrMenu.action(Icons.GEAR, IKey.raw(attr.name()), () -> an.attribute = attr);
             }
 
-            menu.action(Icons.GEAR, IKey.raw("Attribute: " + an.attribute.name()), Colors.INACTIVE,
+            menu.action(Icons.GEAR, UIKeys.SHAPES_ATTRIBUTE.format(an.attribute.name()), Colors.INACTIVE,
                 () -> context.replaceContextMenu(attrMenu.create()));
         }
 

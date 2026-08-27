@@ -45,6 +45,7 @@ public class UIGeneralFormPanel extends UIFormPanel
     public UIToggle animatable;
     public UITextbox trackName;
     public UIToggle lighting;
+    public UIToggle noShading;
     public UIToggle shaderShadow;
     public UILookAtEditor lookAt;
     public UIInverseKinematicsEditor inverseKinematics;
@@ -124,7 +125,10 @@ public class UIGeneralFormPanel extends UIFormPanel
         this.trackName.tooltip(UIKeys.FORMS_EDITORS_GENERAL_TRACK_NAME_TOOLTIP);
         this.lighting = new UIToggle(UIKeys.FORMS_EDITORS_GENERAL_LIGHTING, (b) -> this.form.lighting.set(b.getValue() ? 0F : 1F));
         this.lighting.tooltip(UIKeys.FORMS_EDITORS_GENERAL_LIGHTING_TOOLTIP);
+        this.noShading = new UIToggle(UIKeys.FORMS_EDITORS_NOSHADING_SHADERS, (b) -> this.form.noshadingOpacity.set(b.getValue()));
+        this.noShading.tooltip(UIKeys.FORMS_EDITORS_COLOR_NOSHADING_OPACITY_TOOLTIP);
         this.shaderShadow = new UIToggle(UIKeys.FORMS_EDITORS_GENERAL_SHADER_SHADOW, (b) -> this.form.shaderShadow.set(b.getValue()));
+        this.shaderShadow.tooltip(UIKeys.FORMS_EDITORS_GENERAL_SHADER_SHADOW_HINT);
         this.lookAt = new UILookAtEditor();
         this.lookAt.callbacks(() -> this.form.lookAt.get(), this::editLookAt);
         this.inverseKinematics = new UIInverseKinematicsEditor();
@@ -277,7 +281,7 @@ public class UIGeneralFormPanel extends UIFormPanel
         );
 
         this.options.add(UI.label(UIKeys.FORMS_EDITORS_GENERAL_DISPLAY), this.name);
-        this.options.add(this.hotkey, this.visible, this.animatable, this.trackName, this.lighting, this.shaderShadow);
+        this.options.add(this.hotkey, this.visible, this.animatable, this.trackName, this.lighting, this.noShading, this.shaderShadow);
         this.options.add(UI.label(UIKeys.FORMS_EDITORS_GENERAL_UI_SCALE), this.uiScale);
         this.options.add(this.filmInvulnerable.marginTop(8));
         this.options.add(this.transform.marginTop(8));
@@ -370,6 +374,7 @@ public class UIGeneralFormPanel extends UIFormPanel
         this.animatable.setValue(form.animatable.get());
         this.trackName.setText(form.trackName.get());
         this.lighting.setValue(form.lighting.get() < 0.5F);
+        this.noShading.setValue(form.noshadingOpacity.get());
         this.shaderShadow.setValue(form.shaderShadow.get());
         /* Look At / IK need film replay actors as targets — hide in model-block form editing. */
         this.updateFilmOnlySectionsVisibility();
