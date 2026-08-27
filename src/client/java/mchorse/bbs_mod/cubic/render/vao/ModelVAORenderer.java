@@ -1915,8 +1915,6 @@ public class ModelVAORenderer
             }
         }
 
-        ModelVAORenderer.uploadFogMatUniform(stack, shader, cpuPretransformed);
-
         /* NormalMat is present by default in Iris' shaders, but when there is no Iris,
          * the BBS mod's model.json shader is being used instead that provides NormalMat
          * uniform.
@@ -1938,6 +1936,15 @@ public class ModelVAORenderer
         if (shader.viewRotationMat != null)
         {
             shader.viewRotationMat.set(RenderSystem.getInverseViewRotationMatrix());
+        }
+        else
+        {
+            GlUniform iViewRotUniform = shader.getUniform("IViewRotMat");
+
+            if (iViewRotUniform != null)
+            {
+                iViewRotUniform.set(RenderSystem.getInverseViewRotationMatrix());
+            }
         }
 
         GlUniform paintUniform = shader.getUniform("PaintColor");
@@ -2143,11 +2150,11 @@ public class ModelVAORenderer
             colorGradeOverlayUniform.set(colorGradeOverlayPass ? 1F : 0F);
         }
 
-        /* Paint/tint/grade overlays multiply an already-fogged base — skip distance fog.
-         * Full-mesh deferred redraws (soft opacity / soft limbs) use fog captured at enqueue
-         * (RenderSystem is often wrong after Iris composite or vanilla LAST). Live draws use
-         * current RenderSystem fog. */
-        if (paintOverlayPass || colorTintOverlayPass || colorGradeOverlayPass)
+        /* Captured-matrix redraws (overlays / deferred soft) multiply an already-fogged base or
+         * run after Iris collapsed fog — skip distance fog so meshes stay visible. Live world
+         * draws use RenderSystem fog + entity fog_distance(ModelViewMat, IViewRotMat * Position)
+         * in model.vsh (1.20.4 mob path). */
+        if (usesCapturedModelView())
         {
             if (shader.fogStart != null)
             {
@@ -2167,28 +2174,6 @@ public class ModelVAORenderer
             if (shader.fogShape != null)
             {
                 shader.fogShape.set(0);
-            }
-        }
-        else if (activeDeferredFog != null)
-        {
-            if (shader.fogStart != null)
-            {
-                shader.fogStart.set(activeDeferredFog.fogStart);
-            }
-
-            if (shader.fogEnd != null)
-            {
-                shader.fogEnd.set(activeDeferredFog.fogEnd);
-            }
-
-            if (shader.fogColor != null)
-            {
-                shader.fogColor.set(activeDeferredFog.fogColorR, activeDeferredFog.fogColorG, activeDeferredFog.fogColorB, activeDeferredFog.fogColorA);
-            }
-
-            if (shader.fogShape != null)
-            {
-                shader.fogShape.set(activeDeferredFog.fogShape);
             }
         }
         else
@@ -2393,34 +2378,22 @@ public class ModelVAORenderer
 
     private static void setModelViewUniform(MatrixStack stack, ShaderProgram shader)
     {
+        Matrix4f modelView;
+
         if (usesCapturedModelView())
         {
             /* Overlay/deferred stack already carries the full terrain + entity transform captured
              * at enqueue; RenderSystem model-view is identity during these draws. */
-            shader.modelViewMat.set(stack.peek().getPositionMatrix());
-
-            return;
+            modelView = new Matrix4f(stack.peek().getPositionMatrix());
         }
-
-        Matrix4f stackMatrix = stack.peek().getPositionMatrix();
-
-        if (BBSRendering.isRenderingWorld() && !BBSRendering.isIrisShadersEnabled())
+        else
         {
-            float bakedDist = viewOriginLengthSq(stackMatrix);
-
-            SCRATCH_MODEL_VIEW.set(BBSRendering.camera).mul(stackMatrix);
-
-            if (bakedDist > 1.0E-6F && viewOriginLengthSq(SCRATCH_MODEL_VIEW) < bakedDist * 0.49F)
-            {
-                SCRATCH_MODEL_VIEW.set(stackMatrix);
-            }
-
-            shader.modelViewMat.set(SCRATCH_MODEL_VIEW);
-
-            return;
+            /* 1.20.4 world path: vanilla entity ModelViewMat = RenderSystem MV × entity stack.
+             * Do not substitute BBSRendering.camera here — that is the 1.21.1 bake path and
+             * breaks clip-space placement for ModelVAO local Position attributes. */
+            modelView = new Matrix4f(RenderSystem.getModelViewMatrix()).mul(stack.peek().getPositionMatrix());
         }
 
-        SCRATCH_MODEL_VIEW.set(RenderSystem.getModelViewMatrix()).mul(stackMatrix);
-        shader.modelViewMat.set(SCRATCH_MODEL_VIEW);
+        shader.modelViewMat.set(modelView);
     }
 }

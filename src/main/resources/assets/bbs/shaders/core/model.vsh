@@ -15,7 +15,6 @@ uniform sampler2D Sampler2;
 
 uniform mat4 ModelViewMat;
 uniform mat3 NormalMat;
-uniform mat4 FogMat;
 uniform mat4 ProjMat;
 uniform mat3 IViewRotMat;
 uniform mat4 FormRootInverse;
@@ -36,9 +35,10 @@ out vec3 formRootPos;
 void main()
 {
     gl_Position = ProjMat * ModelViewMat * vec4(Position, 1.0);
-    /* 1.20.4 fog.glsl: fog_distance(mat4, vec3, int). Prefer FogMat when available
-     * (camera-relative), otherwise fall back to ModelViewMat + IViewRotMat. */
-    vertexDistance = fog_distance(FogMat, Position, FogShape);
+    /* Vanilla 1.20.4 mobs (rendertype_entity_translucent): Position is model-local in the
+     * VAO; ModelViewMat is view × entity at draw time. IViewRotMat strips view rotation for
+     * cylindrical fog. Do not use FogMat here — that is the 1.21.1+ mob/terrain bake path. */
+    vertexDistance = fog_distance(ModelViewMat, IViewRotMat * Position, FogShape);
     vec3 n = NormalMat * Normal;
     float nLen2 = dot(n, n);
     vec3 fixNormal = nLen2 > 1.0e-8 ? n * inversesqrt(nLen2) : vec3(0.0, 0.0, 1.0);
