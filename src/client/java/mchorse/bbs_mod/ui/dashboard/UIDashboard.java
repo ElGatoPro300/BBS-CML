@@ -152,7 +152,7 @@ public class UIDashboard extends UIBaseMenu
         /* Register keys */
         IKey category = UIKeys.DASHBOARD_CATEGORY;
 
-        this.main.keys().register(Keys.CYCLE_PANELS, this::cyclePanels).category(category);
+        this.main.keys().register(Keys.CYCLE_PANELS, this::cyclePanels).allowShift().category(category);
         this.overlay.keys().register(Keys.TOGGLE_VISIBILITY, () ->
         {
             if (this.panels.panel.canToggleVisibility())

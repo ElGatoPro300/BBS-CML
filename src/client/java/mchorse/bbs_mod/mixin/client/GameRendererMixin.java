@@ -6,6 +6,7 @@ import mchorse.bbs_mod.camera.controller.CameraController;
 import mchorse.bbs_mod.camera.controller.ICameraController;
 import mchorse.bbs_mod.camera.controller.PlayCameraController;
 import mchorse.bbs_mod.client.BBSRendering;
+import mchorse.bbs_mod.cubic.render.vao.ModelVAORenderer;
 import mchorse.bbs_mod.film.Films;
 import mchorse.bbs_mod.items.GunZoom;
 
@@ -196,6 +197,26 @@ public class GameRendererMixin
     private void onWorldRenderBegin(CallbackInfo callbackInfo)
     {
         BBSRendering.onWorldRenderBegin();
+    }
+
+    /**
+     * Flush Iris-deferred paint overlays after the world has been composited but before
+     * AAA Particles pastes a cleared depth buffer and draws Effekseer (same GETFIELD point
+     * as AAA's {@code beforeRenderHand}, earlier {@code order} so we run first).
+     */
+    @Inject(
+        method = "renderWorld",
+        at = @At(value = "FIELD", opcode = Opcodes.GETFIELD, target = "Lnet/minecraft/client/render/GameRenderer;renderHand:Z"),
+        order = 900
+    )
+    private void bbsFlushPaintOverlaysBeforeHand(CallbackInfo callbackInfo)
+    {
+        if (!BBSRendering.isIrisShadersEnabled() || !ModelVAORenderer.hasQueuedPaintOverlays())
+        {
+            return;
+        }
+
+        ModelVAORenderer.flushPaintOverlayQueue();
     }
 
     @Inject(at = @At("RETURN"), method = "renderWorld")

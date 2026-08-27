@@ -485,6 +485,17 @@ public class UIWorldFilmsBrowserPanel extends UIDashboardPanel
         {
             this.pendingJoin = entry;
             this.pendingWorld = null;
+
+            MinecraftClient client = MinecraftClient.getInstance();
+
+            if (!WorldLaunchHelper.isInLoadedWorld(client))
+            {
+                FilmLaunchHelper.openCrossWorldFilm(entry);
+            }
+            else if (WorldLaunchHelper.isCurrentWorld(client, entry.worldFolder))
+            {
+                FilmLaunchHelper.openCrossWorldFilm(entry);
+            }
         }
         else
         {
@@ -492,7 +503,6 @@ public class UIWorldFilmsBrowserPanel extends UIDashboardPanel
         }
 
         this.updateJoinButton();
-        this.openFilm(selected);
     }
 
     private void updateJoinButton()

@@ -1,5 +1,7 @@
 package mchorse.bbs_mod.ui.framework;
 
+import mchorse.bbs_mod.client.BBSRendering;
+import mchorse.bbs_mod.client.compat.HdrModCompat;
 import mchorse.bbs_mod.ui.Keys;
 import mchorse.bbs_mod.ui.film.toolbar.TimelineToolbar;
 import mchorse.bbs_mod.ui.film.toolbar.TimelineToolbarPointerBlock;
@@ -374,6 +376,11 @@ public abstract class UIBaseMenu
         }
 
         RenderSystem.depthFunc(GL11.GL_ALWAYS);
+
+        if (HdrModCompat.isHdrPresentationActive())
+        {
+            BBSRendering.prepareGuiAfterWorldPresent();
+        }
 
         this.context.resetMatrix();
         this.context.setMouse(mouseX, mouseY);

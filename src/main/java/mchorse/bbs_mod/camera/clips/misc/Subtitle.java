@@ -19,6 +19,9 @@ public class Subtitle
 
     public float lineHeight;
     public float maxWidth;
+    public float rotationX;
+    public float rotationY;
+    public float rotation;
     public int renderOrder;
 
     public void update(String label, int x, int y, float size, float anchorX, float anchorY, int color, boolean textShadow)
@@ -51,5 +54,12 @@ public class Subtitle
     {
         this.lineHeight = lineHeight;
         this.maxWidth = maxWidth;
+    }
+
+    public void updateRotation(float rotationX, float rotationY, float rotation)
+    {
+        this.rotationX = rotationX;
+        this.rotationY = rotationY;
+        this.rotation = rotation;
     }
 }
