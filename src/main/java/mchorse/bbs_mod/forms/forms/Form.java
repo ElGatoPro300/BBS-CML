@@ -102,7 +102,7 @@ public abstract class Form extends ValueGroup
     /* Morphing properties */
     public final ValueFloat hp = new ValueFloat("hp", 20F);
     public final ValueFloat speed = new ValueFloat("movement_speed", 0.1F);
-    public final ValueFloat stepHeight = new ValueFloat("step_height", 0.5F);
+    public final ValueFloat stepHeight = new ValueFloat("step_height", 0.6F);
     /**
      * Default actor-mode film invulnerability when the replay {@code invulnerable}
      * keyframe track is empty. Keyframes on that track override this.
@@ -351,7 +351,11 @@ public abstract class Form extends ValueGroup
             entity.setHealth(hp);
         }
         if (speed != 0.1F) entity.getAttributeInstance(EntityAttributes.GENERIC_MOVEMENT_SPEED).setBaseValue(speed);
-        /* if (stepHeight != 0.5F) entity.setStepHeight(stepHeight); */
+        /* 1.20.4 still has Entity.setStepHeight; GENERIC_STEP_HEIGHT is 1.20.5+. */
+        if (stepHeight != 0.6F)
+        {
+            entity.setStepHeight(stepHeight);
+        }
     }
 
     public void onDemorph(LivingEntity entity)
@@ -359,7 +363,7 @@ public abstract class Form extends ValueGroup
         entity.getAttributeInstance(EntityAttributes.GENERIC_MAX_HEALTH).setBaseValue(20F);
         entity.setHealth(20F);
         entity.getAttributeInstance(EntityAttributes.GENERIC_MOVEMENT_SPEED).setBaseValue(0.1F);
-        /* entity.setStepHeight(0.5F); */
+        entity.setStepHeight(0.6F);
     }
 
     /* ID and display name */

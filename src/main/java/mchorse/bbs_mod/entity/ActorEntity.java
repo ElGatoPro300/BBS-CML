@@ -71,6 +71,7 @@ public class ActorEntity extends LivingEntity implements IEntityFormProvider
     private float lastHitboxWidth = Float.NaN;
     private float lastHitboxHeight = Float.NaN;
     private float lastHitboxSneakMultiplier = Float.NaN;
+    private float lastHitboxEyeHeight = Float.NaN;
     private boolean lastSneaking;
 
     /**
@@ -809,18 +810,21 @@ public class ActorEntity extends LivingEntity implements IEntityFormProvider
         float width = this.form.hitboxWidth.get();
         float height = this.form.hitboxHeight.get();
         float sneakMultiplier = this.form.hitboxSneakMultiplier.get();
+        float eyeHeight = this.form.hitboxEyeHeight.get();
 
         if (enabled != this.lastHitboxEnabled
             || sneaking != this.lastSneaking
             || width != this.lastHitboxWidth
             || height != this.lastHitboxHeight
-            || sneakMultiplier != this.lastHitboxSneakMultiplier)
+            || sneakMultiplier != this.lastHitboxSneakMultiplier
+            || eyeHeight != this.lastHitboxEyeHeight)
         {
             this.lastHitboxEnabled = enabled;
             this.lastSneaking = sneaking;
             this.lastHitboxWidth = width;
             this.lastHitboxHeight = height;
             this.lastHitboxSneakMultiplier = sneakMultiplier;
+            this.lastHitboxEyeHeight = eyeHeight;
 
             this.calculateDimensions();
         }
@@ -836,6 +840,7 @@ public class ActorEntity extends LivingEntity implements IEntityFormProvider
         {
             float height = currentForm.hitboxHeight.get() * (this.isSneaking() ? currentForm.hitboxSneakMultiplier.get() : 1F);
 
+            /* 1.20.4: eye height comes from getActiveEyeHeight / PlayerEntityMixin, not withEyeHeight(). */
             return dimensions.fixed
                 ? EntityDimensions.fixed(currentForm.hitboxWidth.get(), height)
                 : EntityDimensions.changing(currentForm.hitboxWidth.get(), height);

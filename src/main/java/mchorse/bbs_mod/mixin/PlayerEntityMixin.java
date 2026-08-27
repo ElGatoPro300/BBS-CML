@@ -57,6 +57,7 @@ public class PlayerEntityMixin
                 EntityDimensions dimensions = info.getReturnValue();
                 float height = form.hitboxHeight.get() * (player.isSneaking() ? form.hitboxSneakMultiplier.get() : 1F);
 
+                /* 1.20.4: EntityDimensions.fixed is a field; eye height is handled below via getActiveEyeHeight. */
                 if (dimensions.fixed)
                 {
                     info.setReturnValue(EntityDimensions.fixed(form.hitboxWidth.get(), height));

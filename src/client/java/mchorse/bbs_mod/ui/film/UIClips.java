@@ -968,6 +968,12 @@ public class UIClips extends UIElement
         {
             int duration = clips.calculateDuration();
 
+            /* Guard against absurd spans from corrupted tick/duration data. */
+            if (duration > Clip.MAX_DURATION_TICKS * 10)
+            {
+                duration = Clip.MAX_DURATION_TICKS * 10;
+            }
+
             if (duration > 0)
             {
                 this.scale.view(0, duration);
@@ -1684,6 +1690,7 @@ public class UIClips extends UIElement
 
                     start = MathUtils.clamp(start, 0, max);
                     end = MathUtils.clamp(end, mult, max);
+                    end = this.capRulerEnd(start, end, mult);
 
                     for (int j = start; j <= end; j += mult)
                     {
@@ -2376,6 +2383,30 @@ public class UIClips extends UIElement
     }
 
     /**
+     * Keep ruler / snap loops bounded to roughly screen-width iterations.
+     * Huge clip durations used to set the view span to billions of ticks and hang here.
+     */
+    private int capRulerEnd(int start, int end, int mult)
+    {
+        if (mult <= 0)
+        {
+            return start;
+        }
+
+        int maxMarkers = Math.max(this.area.w * 2, 512) + 2;
+        long span = (long) end - (long) start;
+
+        if (span / mult > maxMarkers)
+        {
+            long capped = (long) start + (long) mult * maxMarkers;
+
+            return capped > Integer.MAX_VALUE ? Integer.MAX_VALUE : (int) capped;
+        }
+
+        return end;
+    }
+
+    /**
      * Render tick markers that help orient within camera work.
      */
     private void renderTickMarkers(UIContext context, int y, int h)
@@ -2392,6 +2423,7 @@ public class UIClips extends UIElement
 
         start = MathUtils.clamp(start, 0, max);
         end = MathUtils.clamp(end, mult, max);
+        end = this.capRulerEnd(start, end, mult);
 
         for (int j = start; j <= end; j += mult)
         {

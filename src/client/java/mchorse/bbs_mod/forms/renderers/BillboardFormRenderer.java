@@ -249,7 +249,13 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
         MatrixStack.Entry entry = matrices.peek();
         boolean shadowPassEarly = BBSRendering.isIrisShadowPass()
             || (deferContext != null && deferContext.isShadowPass);
-        boolean irisWorld = BBSRendering.isIrisWorldModelPass() && !shadowPassEarly && !modelRenderer;
+        /* Orbit UI / form preview / inventory GUI: draw soft live. World post-deferred
+         * queues never flush for those passes (same as ModelFormRenderer localPreview). */
+        boolean localPreview = modelRenderer
+            || (deferContext != null && (deferContext.ui || deferContext.modelRenderer
+                || deferContext.type == FormRenderType.PREVIEW
+                || deferContext.type == FormRenderType.ITEM_INVENTORY));
+        boolean irisWorld = BBSRendering.isIrisWorldModelPass() && !shadowPassEarly && !localPreview;
         /* No-shader: FormColorGrade in model.fsh. Iris: deferred BBS redraw with FormColorGrade
          * (ColorGradeOverlay scene-replace makes thin billboards look invisible). */
         boolean useFormColorGrade = hasColorAdjustments && !irisWorld;
@@ -353,24 +359,25 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
         Color resolvedPaint = positivePaint ? FormColorEffects.resolvePaintColor(paintSettings, legacyPaint) : null;
         boolean applyColorTint = colorTransformWanted && !shadowPass;
         boolean noshadingAfterPaint = irisWorld && BBSRendering.needsIrisNoshadingOpacityDeferral(color.a, this.form.noshadingOpacity.get());
-        boolean softPostDeferred = !modelRenderer && !shadowPass
+        boolean softPostDeferred = !localPreview && !shadowPass
             && ShaderOpacityPatch.shouldDelayUntilPostDeferred(color.a)
             && !noshadingAfterPaint;
         boolean deferForColorGrade = hasColorAdjustments && irisWorld;
         boolean deferNoshading = irisWorld && (noshadingAfterPaint || !this.form.shading.get());
         /* Opaque-ish Iris grade/noshading, or soft + noshading (after paint, unshaded). */
-        boolean deferTranslucent = !softPostDeferred && !modelRenderer && !shadowPass
+        boolean deferTranslucent = !softPostDeferred && !localPreview && !shadowPass
             && (deferForColorGrade
                 || deferNoshading);
 
         if (softPostDeferred)
         {
-            /* Iris + shaded: entity-local matrices + restore camera ModelView.
-             * Unshaded / no-shader: camera-baked matrices + BBS post-deferred path. */
-            boolean irisCamera = BBSRendering.isIrisWorldModelPass() && this.form.shading.get();
-            Matrix4f positionMatrix = irisCamera
-                ? new Matrix4f(matrix)
-                : ModelVAORenderer.capturePaintOverlayRootMatrix(new Matrix4f(matrix));
+            /* Soft fog needs camera-relative Positions: vanilla entity_translucent does
+             * fog_distance(Position), and BBS model.vsh uses FogMat×Position in the same
+             * Y-up space. Baking view into verts (capturePaintOverlayRootMatrix) + drawing
+             * with identity ModelView put vertices in view space — cylindrical fog then
+             * drifts with yaw/pitch. Always keep cam-rel verts and restore ModelView
+             * (same contract as Iris shaded soft), including vanilla / unshaded. */
+            Matrix4f positionMatrix = new Matrix4f(matrix);
             Matrix3f normalMatrix = new Matrix3f(matrices.peek().getNormalMatrix());
             Color colorSnapshot = color.copy();
             Quad localQuad = new Quad();
@@ -391,7 +398,9 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
             boolean depthWrite = ShaderOpacityPatch.shouldWriteDepthForOpacity(color.a);
             boolean afterFluids = ShaderOpacityPatch.shouldFlushAfterFluids(color.a);
             boolean gradeOnDeferredDraw = useFormColorGrade || irisDeferredColorGrade;
-            /* Preserve live format/shader unless Color Grade needs model.fsh. */
+            /* Preserve live format/shader unless Color Grade needs model.fsh.
+             * Note: unshaded soft still uses position_tex_color (no fog in that shader) —
+             * that is a separate limitation, not the yaw-dependent cylindrical-fog bug. */
             VertexFormat deferredFormat = gradeOnDeferredDraw
                 ? VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL
                 : format;
@@ -493,14 +502,7 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
                 }
             };
 
-            if (irisCamera)
-            {
-                ShaderOpacityPatch.submitPostDeferredForm(0D, faceSortKey, depthWrite, afterFluids, deferredDraw);
-            }
-            else
-            {
-                ShaderOpacityPatch.submitPostDeferredBbsForm(0D, faceSortKey, depthWrite, afterFluids, deferredDraw);
-            }
+            ShaderOpacityPatch.submitPostDeferredForm(0D, faceSortKey, depthWrite, afterFluids, deferredDraw);
         }
         else if (deferTranslucent)
         {
@@ -625,17 +627,31 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
         }
         else
         {
-            /* Live path — opaque / no-shader / Iris without deferral. */
-            if (useFormColorGrade || BBSRendering.needsBbsModelForLowOpacity(color.a))
+            /* Live path — opaque / no-shader / Iris without deferral / inventory preview.
+             * Soft alpha used to only hit this path in world when not deferred; inventory
+             * localPreview now draws soft live too — must restore depthMask (soft clears it). */
+            boolean savedDepthMask = GL11.glGetBoolean(GL11.GL_DEPTH_WRITEMASK);
+            boolean touchedDepthMask = false;
+
+            if (format == VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL)
             {
-                if (!irisWorld && format == VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL)
+                if (!irisWorld && (useFormColorGrade || BBSRendering.needsBbsModelForLowOpacity(color.a)))
                 {
                     RenderSystem.setShader(BBSShaders::getModel);
                 }
-            }
 
-            RenderSystem.enableDepthTest();
-            RenderSystem.depthMask(true);
+                RenderSystem.enableDepthTest();
+                /* Inventory/GUI preview: keep depth writes on. Soft world draws may suppress
+                 * depth; leaving depthMask false leaks into later GUI (bright undimmed hotbar). */
+                boolean writeDepth = shadowPass || localPreview
+                    || color.a >= ShaderOpacityPatch.LIVE_DEPTH_WRITE_ALPHA;
+
+                if (writeDepth != savedDepthMask)
+                {
+                    RenderSystem.depthMask(writeDepth);
+                    touchedDepthMask = true;
+                }
+            }
 
             if (useFormColorGrade)
             {
@@ -741,6 +757,11 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
                 if (useFormColorGrade)
                 {
                     ModelVAORenderer.clearFormColorGrade();
+                }
+
+                if (touchedDepthMask)
+                {
+                    RenderSystem.depthMask(savedDepthMask);
                 }
             }
         }
