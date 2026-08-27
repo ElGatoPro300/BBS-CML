@@ -638,7 +638,7 @@ public class UIPoseEditor extends UIElement
                 if (this.onChange != null) this.onChange.run();
             });
         });
-        this.noShading = new UIToggle(UIKeys.FILM_REPLAY_OPACITY_NO_SHADING, (b) ->
+        this.noShading = new UIToggle(UIKeys.FORMS_EDITORS_NOSHADING_SHADERS, (b) ->
         {
             String selectedCategory = this.categories != null ? this.categories.getCurrentFirst() : null;
 

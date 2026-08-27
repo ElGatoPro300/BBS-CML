@@ -17,6 +17,7 @@ import mchorse.bbs_mod.client.CrossWorldFilmLoader;
 import mchorse.bbs_mod.client.CrossWorldFilmScanner;
 import mchorse.bbs_mod.client.FilmLaunchHelper;
 import mchorse.bbs_mod.client.WorldLaunchHelper;
+import mchorse.bbs_mod.client.compat.HdrModCompat;
 import mchorse.bbs_mod.client.renderer.MorphRenderer;
 import mchorse.bbs_mod.client.video.VideoFormEngine;
 import mchorse.bbs_mod.client.video.VideoFormPlayback;
@@ -7100,7 +7101,13 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
     @Override
     public boolean needsBackground()
     {
-        return false;
+        if (this.isCrossWorldPreviewInForeignWorld())
+        {
+            return true;
+        }
+
+        /* HDR Mod presents the film offscreen world full-screen; opaque chrome covers the bleed. */
+        return HdrModCompat.isHdrPresentationActive();
     }
 
     @Override
@@ -7222,6 +7229,11 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
 
     public boolean needsViewportRender()
     {
+        if (this.isCrossWorldPreviewInForeignWorld())
+        {
+            return false;
+        }
+
         return this.data != null && !this.showingHomePage && this.preview != null && this.preview.isVisible();
     }
 
@@ -7469,11 +7481,12 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
             }
         }
 
-        if (data != null)
+        if (data != null && !this.isCrossWorldPreviewInForeignWorld())
         {
             this.notifyServer(ActionState.RESTART);
         }
 
+        this.syncViewportRenderMode();
         this.syncActiveDocumentTabWithData(data);
         RegisterFilmSyncEvent.postOpenFilm(data);
     }
@@ -7528,7 +7541,17 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
         this.cameraEditor.pickClip(null);
 
         this.fillData();
-        this.controller.createEntities();
+        this.syncViewportRenderMode();
+
+        if (this.isCrossWorldPreviewInForeignWorld())
+        {
+            this.controller.clearEntities();
+        }
+        else
+        {
+            this.controller.createEntities();
+        }
+
         this.syncAnchoredReplaysPanelWithFilm();
 
         if (this.minecutWorkspace != null)
@@ -8894,14 +8917,7 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
             return false;
         }
 
-        MinecraftClient client = MinecraftClient.getInstance();
-
-        if (client.world != null && client.player != null)
-        {
-            return false;
-        }
-
-        return !WorldLaunchHelper.isCurrentWorld(client, entry.worldFolder);
+        return !WorldLaunchHelper.isCurrentWorld(MinecraftClient.getInstance(), entry.worldFolder);
     }
 
     private CrossWorldFilmEntry resolveCrossWorldEntryFromTab(String tabId)
@@ -8933,6 +8949,16 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
         CrossWorldFilmLoader.load(entry.worldFolder, entry.filmId, (film) -> this.fill(film));
     }
 
+    private boolean isCrossWorldPreviewInForeignWorld()
+    {
+        if (this.crossWorldPendingJoin == null)
+        {
+            return false;
+        }
+
+        return !WorldLaunchHelper.isCurrentWorld(MinecraftClient.getInstance(), this.crossWorldPendingJoin.worldFolder);
+    }
+
     public boolean canShowJoinWorld()
     {
         if (this.crossWorldPendingJoin == null || this.crossWorldPendingJoin.filmId.endsWith("/"))
@@ -8946,11 +8972,6 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
         }
 
         MinecraftClient client = MinecraftClient.getInstance();
-
-        if (client.world != null && client.player != null)
-        {
-            return false;
-        }
 
         return !WorldLaunchHelper.isCurrentWorld(client, this.crossWorldPendingJoin.worldFolder);
     }
@@ -9059,7 +9080,7 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
                     this.crossWorldPendingJoin = this.shouldSetPendingJoin(entry) ? entry : null;
                     this.crossWorldFilmEntries.put(entry.encodeKey(), entry);
                     this.crossWorldWorldLabels.put(entry.worldFolder, entry.worldLabel);
-                    this.openFilmInDocumentTabs(entry.encodeKey());
+                    FilmLaunchHelper.openCrossWorldFilm(entry);
                 }
             }
             else

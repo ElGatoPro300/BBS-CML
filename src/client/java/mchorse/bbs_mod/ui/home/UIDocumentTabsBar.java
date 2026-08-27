@@ -1200,7 +1200,10 @@ public class UIDocumentTabsBar extends UIControlBar
         {
             UIFilmPanel panel = this.dashboard.getPanel(UIFilmPanel.class);
 
-            if (panel != null && !panel.isFilmTabLoaded(tab.id))
+            if (panel != null
+                && (!panel.isFilmTabLoaded(tab.id)
+                    || panel.getData() == null
+                    || !tab.id.equals(panel.getData().getId())))
             {
                 panel.openFilmTab(tab.id);
             }

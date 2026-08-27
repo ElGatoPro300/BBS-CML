@@ -47,6 +47,9 @@ public class UISubtitleClip extends UIClip<SubtitleClip>
     public UIToggle shadowOpaque;
     public UITrackpad lineHeight;
     public UITrackpad maxWidth;
+    public UITrackpad rotationX;
+    public UITrackpad rotationY;
+    public UITrackpad rotation;
     public UIToggle useKeyframes;
     public UIButton edit;
     public UIKeyframeEditor keyframes;
@@ -98,6 +101,10 @@ public class UISubtitleClip extends UIClip<SubtitleClip>
 
         this.maxWidth = this.createDoubleTrackpad(this.clip.maxWidth, this.clip.uniform.maxWidth, UIKeys.CAMERA_PANELS_SUBTITLE_MAX_WIDTH, false, 0F, null);
         this.maxWidth.tooltip(UIKeys.CAMERA_PANELS_SUBTITLE_MAX_WIDTH, Direction.BOTTOM);
+
+        this.rotationX = this.createDoubleTrackpad(this.clip.rotationX, this.clip.uniform.rotationX, UIKeys.CAMERA_PANELS_SUBTITLE_ROTATION_X, false, null, null);
+        this.rotationY = this.createDoubleTrackpad(this.clip.rotationY, this.clip.uniform.rotationY, UIKeys.CAMERA_PANELS_SUBTITLE_ROTATION_Y, false, null, null);
+        this.rotation = this.createDoubleTrackpad(this.clip.rotation, this.clip.uniform.rotation, UIKeys.CAMERA_PANELS_SUBTITLE_ROTATION_Z, false, null, null);
 
         this.useKeyframes = new UIToggle(UIKeys.SCREEN_PANELS_USE_KEYFRAMES, (b) ->
         {
@@ -283,6 +290,7 @@ public class UISubtitleClip extends UIClip<SubtitleClip>
         this.panels.add(this.section(UIKeys.CAMERA_PANELS_SUBTITLE_OFFSET, UI.row(this.x, this.y)));
         this.panels.add(this.section(UIKeys.CAMERA_PANELS_SUBTITLE_SIZE, this.size, this.color, this.textShadow));
         this.panels.add(this.section(UIKeys.CAMERA_PANELS_SUBTITLE_ANCHOR, UI.row(this.anchorX, this.anchorY)));
+        this.panels.add(this.section(UIKeys.CAMERA_PANELS_SUBTITLE_ROTATION, UI.row(this.rotationX, this.rotationY, this.rotation)));
         this.panels.add(this.section(UIKeys.CAMERA_PANELS_SUBTITLE_WINDOW, UI.row(this.windowX, this.windowY)));
         this.panels.add(this.section(UIKeys.CAMERA_PANELS_SUBTITLE_BACKGROUND, this.background, this.backgroundOffset));
         this.panels.add(this.section(UIKeys.CAMERA_PANELS_SUBTITLE_SHADOW, this.shadow, this.shadowOpaque));
@@ -316,6 +324,9 @@ public class UISubtitleClip extends UIClip<SubtitleClip>
         this.shadowOpaque.setValue(this.getBooleanValue(this.clip.shadowOpaque, this.clip.uniform.shadowOpaque, false));
         this.lineHeight.setValue(this.getDoubleValue(this.clip.lineHeight, this.clip.uniform.lineHeight, 12D));
         this.maxWidth.setValue(this.getDoubleValue(this.clip.maxWidth, this.clip.uniform.maxWidth, 0D));
+        this.rotationX.setValue(this.getDoubleValue(this.clip.rotationX, this.clip.uniform.rotationX, 0D));
+        this.rotationY.setValue(this.getDoubleValue(this.clip.rotationY, this.clip.uniform.rotationY, 0D));
+        this.rotation.setValue(this.getDoubleValue(this.clip.rotation, this.clip.uniform.rotation, 0D));
         this.useKeyframes.setValue(this.clip.useKeyframes.get());
         this.updateKeyframesControls();
 
@@ -463,6 +474,9 @@ public class UISubtitleClip extends UIClip<SubtitleClip>
             case "shadowOpaque" -> UIKeys.CAMERA_PANELS_SUBTITLE_OPAQUE;
             case "lineHeight" -> UIKeys.CAMERA_PANELS_SUBTITLE_LINE_HEIGHT;
             case "maxWidth" -> UIKeys.CAMERA_PANELS_SUBTITLE_MAX_WIDTH;
+            case "rotationX" -> UIKeys.CAMERA_PANELS_SUBTITLE_ROTATION_X;
+            case "rotationY" -> UIKeys.CAMERA_PANELS_SUBTITLE_ROTATION_Y;
+            case "rotation" -> UIKeys.CAMERA_PANELS_SUBTITLE_ROTATION_Z;
             default -> IKey.constant(id);
         };
     }

@@ -9,6 +9,7 @@ import mchorse.bbs_mod.camera.clips.misc.CurveClip;
 import mchorse.bbs_mod.camera.controller.CameraWorkCameraController;
 import mchorse.bbs_mod.camera.controller.PlayCameraController;
 import mchorse.bbs_mod.camera.data.Position;
+import mchorse.bbs_mod.client.compat.HdrModCompat;
 import mchorse.bbs_mod.client.renderer.ModelBlockEntityRenderer;
 import mchorse.bbs_mod.client.renderer.TriggerBlockEntityRenderer;
 import mchorse.bbs_mod.client.screen.ScreenEffectRenderer;
@@ -326,6 +327,20 @@ public class BBSRendering
         }
 
         toggleFramebuffer(false);
+    }
+
+    /**
+     * After world / film FBO present: re-bind the client framebuffer and reset GUI draw state.
+     * Used when HDR Mod's blit color-transform leaves FBO 0 / blend disabled before Batcher2D.
+     */
+    public static void prepareGuiAfterWorldPresent()
+    {
+        ensureMainFramebuffer();
+        MinecraftClient.getInstance().getFramebuffer().beginWrite(false);
+        restoreGuiRenderState();
+        RenderSystem.colorMask(true, true, true, true);
+        RenderSystem.enableBlend();
+        RenderSystem.defaultBlendFunc();
     }
 
     /**
@@ -772,6 +787,11 @@ public class BBSRendering
         GL30.glBindFramebuffer(GL30.GL_READ_FRAMEBUFFER, prevRead);
 
         toggleFramebuffer(false);
+
+        if (HdrModCompat.isHdrPresentationActive())
+        {
+            prepareGuiAfterWorldPresent();
+        }
     }
 
     public static void onRenderChunkLayer(MatrixStack stack)

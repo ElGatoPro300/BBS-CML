@@ -1393,6 +1393,7 @@
     "bbs.ui.forms.editors.color_hue": "فام (Hue)",
     "bbs.ui.forms.editors.color_noshading_opacity": "اوپسیتی بدون سایه‌زنی",
     "bbs.ui.forms.editors.color_noshading_opacity-tooltip": "با Iris opacity fix: خاموش = سایه خورشید روی فرم نرم می‌ماند (paint پشت آن بریده می‌شود). روشن = فرم بعد از paint دوباره رسم می‌شود تا paint درست دیده شود، ولی نور/سایه پک روی مش از بین می‌رود.",
+    "bbs.ui.forms.editors.noshading_shaders": "بدون سایه‌زنی (shaders)",
     "bbs.ui.forms.editors.color_reset_all": "ریست همه",
     "bbs.ui.forms.editors.color_reset_blend": "ریست رنگ ترکیب",
     "bbs.ui.forms.editors.color_reset_grade": "ریست درجه‌بندی رنگ",
