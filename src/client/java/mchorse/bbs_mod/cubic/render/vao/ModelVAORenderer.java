@@ -93,6 +93,60 @@ public class ModelVAORenderer
     /* Captured-matrix redraw after Iris (or immediate low-opacity bypass) — not the paint-overlay shader branch. */
     private static boolean deferredTranslucentPass;
 
+    /**
+     * Fog state at enqueue time for soft / deferred mesh redraws. After Iris composite (and often
+     * by vanilla LAST) {@link RenderSystem} fog is collapsed — without this snapshot soft forms
+     * either skip fog or wash to FogColor.
+     */
+    public static final class DeferredFogSnapshot
+    {
+        private final float fogStart;
+        private final float fogEnd;
+        private final float fogColorR;
+        private final float fogColorG;
+        private final float fogColorB;
+        private final float fogColorA;
+        private final int fogShape;
+
+        private DeferredFogSnapshot(float fogStart, float fogEnd, float fogColorR, float fogColorG, float fogColorB, float fogColorA, int fogShape)
+        {
+            this.fogStart = fogStart;
+            this.fogEnd = fogEnd;
+            this.fogColorR = fogColorR;
+            this.fogColorG = fogColorG;
+            this.fogColorB = fogColorB;
+            this.fogColorA = fogColorA;
+            this.fogShape = fogShape;
+        }
+    }
+
+    private static DeferredFogSnapshot activeDeferredFog;
+
+    public static DeferredFogSnapshot captureCurrentFog()
+    {
+        float[] fogColor = RenderSystem.getShaderFogColor();
+
+        return new DeferredFogSnapshot(
+            RenderSystem.getShaderFogStart(),
+            RenderSystem.getShaderFogEnd(),
+            fogColor[0],
+            fogColor[1],
+            fogColor[2],
+            fogColor[3],
+            RenderSystem.getShaderFogShape().getId()
+        );
+    }
+
+    public static void pushDeferredFog(DeferredFogSnapshot snapshot)
+    {
+        activeDeferredFog = snapshot;
+    }
+
+    public static void popDeferredFog()
+    {
+        activeDeferredFog = null;
+    }
+
     private static final Matrix4f formRootInverse = new Matrix4f();
     private static final Matrix4f paintEffectInverse = new Matrix4f();
     private static final Vector3f paintMaskHalf = new Vector3f(EffectTransformMath.MODEL_MASK_HALF_BASE);
@@ -243,9 +297,10 @@ public class ModelVAORenderer
         private final boolean vanillaComposite;
         private final boolean depthWrite;
         private final boolean depthTest;
+        private final DeferredFogSnapshot fog;
         private final Runnable draw;
 
-        private PaintOverlayEntry(Matrix4f projection, Matrix4f modelView, boolean synced, boolean fullModel, boolean colorTint, boolean colorGrade, boolean vanillaComposite, boolean depthWrite, boolean depthTest, Runnable draw)
+        private PaintOverlayEntry(Matrix4f projection, Matrix4f modelView, boolean synced, boolean fullModel, boolean colorTint, boolean colorGrade, boolean vanillaComposite, boolean depthWrite, boolean depthTest, DeferredFogSnapshot fog, Runnable draw)
         {
             this.projection = projection;
             this.modelView = modelView;
@@ -256,6 +311,7 @@ public class ModelVAORenderer
             this.vanillaComposite = vanillaComposite;
             this.depthWrite = depthWrite;
             this.depthTest = depthTest;
+            this.fog = fog;
             this.draw = draw;
         }
     }
@@ -359,6 +415,7 @@ public class ModelVAORenderer
             vanillaComposite,
             depthWrite,
             depthTest,
+            fullModel ? captureCurrentFog() : null,
             draw
         );
 
@@ -448,10 +505,20 @@ public class ModelVAORenderer
 
             try
             {
+                if (entry.fog != null)
+                {
+                    pushDeferredFog(entry.fog);
+                }
+
                 entry.draw.run();
             }
             finally
             {
+                if (entry.fog != null)
+                {
+                    popDeferredFog();
+                }
+
                 if (entry.fullModel)
                 {
                     endDeferredTranslucentModelPass();
@@ -2052,11 +2119,11 @@ public class ModelVAORenderer
             colorGradeOverlayUniform.set(colorGradeOverlayPass ? 1F : 0F);
         }
 
-        /* After Iris composite, RenderSystem fog is often collapsed (FogEnd≈1) or left as
-         * dense atmospheric fog — linear_fog then replaces the whole mesh with FogColor
-         * (featureless sky-tinted silhouette, texture gone). Captured-matrix redraws already
-         * sit on the final image; skip fog so low-opacity / render-depth fades keep albedo. */
-        if (usesCapturedModelView())
+        /* Paint/tint/grade overlays multiply an already-fogged base — skip distance fog.
+         * Full-mesh deferred redraws (soft opacity / soft limbs) use fog captured at enqueue
+         * (RenderSystem is often wrong after Iris composite or vanilla LAST). Live draws use
+         * current RenderSystem fog. */
+        if (paintOverlayPass || colorTintOverlayPass || colorGradeOverlayPass)
         {
             if (shader.fogStart != null)
             {
@@ -2076,6 +2143,28 @@ public class ModelVAORenderer
             if (shader.fogShape != null)
             {
                 shader.fogShape.set(0);
+            }
+        }
+        else if (activeDeferredFog != null)
+        {
+            if (shader.fogStart != null)
+            {
+                shader.fogStart.set(activeDeferredFog.fogStart);
+            }
+
+            if (shader.fogEnd != null)
+            {
+                shader.fogEnd.set(activeDeferredFog.fogEnd);
+            }
+
+            if (shader.fogColor != null)
+            {
+                shader.fogColor.set(activeDeferredFog.fogColorR, activeDeferredFog.fogColorG, activeDeferredFog.fogColorB, activeDeferredFog.fogColorA);
+            }
+
+            if (shader.fogShape != null)
+            {
+                shader.fogShape.set(activeDeferredFog.fogShape);
             }
         }
         else
@@ -2141,15 +2230,33 @@ public class ModelVAORenderer
             return;
         }
 
-        if (cpuPretransformed || usesCapturedModelView() || stack == null)
+        if (cpuPretransformed || stack == null)
         {
-            /* CPU-baked verts are already in the space fog expects; captured passes disable fog. */
+            fogMatUniform.set(IDENTITY_MODEL_VIEW);
+
+            return;
+        }
+
+        if (paintOverlayPass || colorTintOverlayPass || colorGradeOverlayPass)
+        {
+            /* Fog disabled for these passes — FogMat unused. */
             fogMatUniform.set(IDENTITY_MODEL_VIEW);
 
             return;
         }
 
         Matrix4f stackMatrix = stack.peek().getPositionMatrix();
+
+        if (deferredTranslucentPass)
+        {
+            /* Captured matrix is already view × camera-relative model (see capturePaintOverlayRootMatrix).
+             * Strip view so fog matches live ModelForms / vanilla mobs. */
+            MatrixStackUtils.loadInverseViewRotationMatrix4(SCRATCH_INV_VIEW);
+            SCRATCH_FOG_MAT.set(SCRATCH_INV_VIEW).mul(stackMatrix);
+            fogMatUniform.set(SCRATCH_FOG_MAT);
+
+            return;
+        }
 
         if (BBSRendering.isRenderingWorld() && !BBSRendering.isIrisShadersEnabled())
         {

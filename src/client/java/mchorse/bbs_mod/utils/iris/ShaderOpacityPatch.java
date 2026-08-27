@@ -68,9 +68,10 @@ public class ShaderOpacityPatch
         private final boolean irisCamera;
         private final Matrix4f projection;
         private final Matrix4f modelView;
+        private final ModelVAORenderer.DeferredFogSnapshot fog;
         private final Runnable draw;
 
-        private PostDeferredEntry(double renderDepth, double distanceSq, boolean depthWrite, boolean afterFluids, boolean irisCamera, Matrix4f projection, Matrix4f modelView, Runnable draw)
+        private PostDeferredEntry(double renderDepth, double distanceSq, boolean depthWrite, boolean afterFluids, boolean irisCamera, Matrix4f projection, Matrix4f modelView, ModelVAORenderer.DeferredFogSnapshot fog, Runnable draw)
         {
             this.renderDepth = renderDepth;
             this.distanceSq = distanceSq;
@@ -79,6 +80,7 @@ public class ShaderOpacityPatch
             this.irisCamera = irisCamera;
             this.projection = projection;
             this.modelView = modelView;
+            this.fog = fog;
             this.draw = draw;
         }
     }
@@ -356,6 +358,7 @@ public class ShaderOpacityPatch
             irisCamera,
             new Matrix4f(RenderSystem.getProjectionMatrix()),
             new Matrix4f(RenderSystem.getModelViewMatrix()),
+            ModelVAORenderer.captureCurrentFog(),
             draw
         ));
     }
@@ -866,7 +869,23 @@ public class ShaderOpacityPatch
             }
 
             reassertPostDeferredDepthState(entry.depthWrite);
-            entry.draw.run();
+
+            if (entry.fog != null)
+            {
+                ModelVAORenderer.pushDeferredFog(entry.fog);
+            }
+
+            try
+            {
+                entry.draw.run();
+            }
+            finally
+            {
+                if (entry.fog != null)
+                {
+                    ModelVAORenderer.popDeferredFog();
+                }
+            }
         }
         finally
         {
