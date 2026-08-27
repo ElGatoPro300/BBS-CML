@@ -171,6 +171,10 @@ public final class FormColorGradePatch
             return source;
         }
 
+        /* Run before grade early-return: Complementary GetCustomEmissionForIPBR reloads albedo
+         * without glColor when a real specular map is bound (specular.a != 0), wiping form alpha. */
+        source = restoreGlColorAfterCustomEmissionReload(source);
+
         if (!isEntityOrBlockGbufferFragment(source))
         {
             return source;
@@ -199,6 +203,37 @@ public final class FormColorGradePatch
         }
 
         return patched;
+    }
+
+    /**
+     * Complementary (IPBR emissive modes 2/3): {@code GetCustomEmissionForIPBR} does
+     * {@code color = texture2D(tex, texCoord)} when specular.a != 0, dropping {@code glColor}
+     * (form soft opacity / vertex alpha). Iris default specular uses a=0 so the early return
+     * hides the bug until a real {@code *_s.png} is assigned. Re-apply {@code glColor} after
+     * that reload.
+     */
+    private static String restoreGlColorAfterCustomEmissionReload(String source)
+    {
+        if (source.contains("BBS_PBR_EMIT_ALPHA") || !source.contains("GetCustomEmissionForIPBR"))
+        {
+            return source;
+        }
+
+        Pattern reload = Pattern.compile(
+            "(if\\s*\\(\\s*specularMap\\.a\\s*==\\s*0\\.0\\s*\\)\\s*return\\s+emission\\s*;\\s*)"
+                + "color\\s*=\\s*texture2D\\s*\\(\\s*tex\\s*,\\s*texCoord\\s*\\)\\s*;",
+            Pattern.MULTILINE
+        );
+        Matcher matcher = reload.matcher(source);
+
+        if (!matcher.find())
+        {
+            return source;
+        }
+
+        return matcher.replaceAll(
+            "$1color = texture2D(tex, texCoord); color *= glColor; /* BBS_PBR_EMIT_ALPHA */"
+        );
     }
 
     private static boolean isEntityOrBlockGbufferFragment(String source)
@@ -279,12 +314,23 @@ public final class FormColorGradePatch
                 + " float q=l<0.5?l*(1.0+s):l+s-l*s; float p=2.0*l-q;\n"
                 + " return vec3(bbsFormHue2Rgb(p,q,h+1.0/3.0),bbsFormHue2Rgb(p,q,h),bbsFormHue2Rgb(p,q,h-1.0/3.0));\n"
                 + "}\n"
+                + "vec3 bbsFormPreserveLitShadow(vec3 inputRgb, vec3 gradedRgb){\n"
+                + " float inputLuma = dot(inputRgb, vec3(0.2126, 0.7152, 0.0722));\n"
+                + " float outputLuma = dot(gradedRgb, vec3(0.2126, 0.7152, 0.0722));\n"
+                + " if(inputLuma < 0.18 && outputLuma > inputLuma){\n"
+                + "  gradedRgb *= inputLuma / max(outputLuma, 1e-5);\n"
+                + " }\n"
+                + " return gradedRgb;\n"
+                + "}\n"
                 + "vec3 " + APPLY + "(vec3 rgb){\n"
                 + " if(abs(" + U_BRIGHTNESS + ")<0.001 && abs(" + U_CONTRAST + ")<0.001 && abs(" + U_HUE + ")<0.001 && abs(" + U_SATURATION + ")<0.001) return rgb;\n"
                 + " rgb = rgb + " + U_BRIGHTNESS + ";\n"
-                + " rgb = vec3(0.5) + (1.0 + " + U_CONTRAST + ") * (rgb - vec3(0.5));\n"
-                + " float luma = dot(rgb, vec3(0.2126, 0.7152, 0.0722));\n"
-                + " rgb = mix(vec3(luma), rgb, 1.0 + " + U_SATURATION + ");\n"
+                + " vec3 gradeBase = rgb;\n"
+                + " float contrastLuma = dot(rgb, vec3(0.2126, 0.7152, 0.0722));\n"
+                + " rgb = bbsFormPreserveLitShadow(gradeBase, vec3(contrastLuma) + (1.0 + " + U_CONTRAST + ") * (rgb - vec3(contrastLuma)));\n"
+                + " vec3 satHsl = bbsFormRgb2Hsl(clamp(rgb, 0.0, 1.0));\n"
+                + " satHsl.y = clamp(satHsl.y * (1.0 + " + U_SATURATION + "), 0.0, 1.0);\n"
+                + " rgb = bbsFormPreserveLitShadow(gradeBase, bbsFormHsl2Rgb(satHsl));\n"
                 + " if(abs(" + U_HUE + ") > 0.01){\n"
                 + "  vec3 hsl = bbsFormRgb2Hsl(clamp(rgb, 0.0, 1.0));\n"
                 + "  hsl.x = fract(hsl.x + " + U_HUE + " / 360.0);\n"

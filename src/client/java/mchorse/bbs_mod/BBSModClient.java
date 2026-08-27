@@ -12,6 +12,7 @@ import mchorse.bbs_mod.camera.controller.CameraController;
 import mchorse.bbs_mod.client.BBSRendering;
 import mchorse.bbs_mod.client.BBSShaders;
 import mchorse.bbs_mod.client.PendingFilmLaunch;
+import mchorse.bbs_mod.client.WorldLaunchHelper;
 import mchorse.bbs_mod.client.StructurePickerClient;
 import mchorse.bbs_mod.client.renderer.ModelBlockEntityRenderer;
 import mchorse.bbs_mod.client.renderer.TriggerBlockEntityRenderer;
@@ -812,6 +813,7 @@ public class BBSModClient implements ClientModInitializer
             cameraController.reset();
             BBSMod.setRegistryManager(null);
             BBSMod.setClientRegistryManager(null);
+            WorldLaunchHelper.onClientDisconnected(client);
         });
 
         ClientTickEvents.START_CLIENT_TICK.register((client) ->
@@ -856,6 +858,7 @@ public class BBSModClient implements ClientModInitializer
             DiscordPresenceManager.INSTANCE.tick();
 
             PendingFilmLaunch.tick(mc);
+            WorldLaunchHelper.tick(mc);
 
             cameraController.update();
 

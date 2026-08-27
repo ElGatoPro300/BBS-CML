@@ -57,6 +57,7 @@ public class UIStructureFormPanel extends UIFormPanel<StructureForm>
     public UIFormColorTransform glowTransform;
     public UIElement glowSection;
     public UIToggle toggleLight;
+    public UIToggle noShading;
     public UITrackpad lightIntensity;
     public UITrackpad scaleX;
     public UITrackpad scaleY;
@@ -149,6 +150,8 @@ public class UIStructureFormPanel extends UIFormPanel<StructureForm>
         this.pickBiome = new UIButton(UIKeys.FORMS_EDITORS_STRUCTURE_PICK_BIOME, (b) -> this.pickBiome());
         // Inicializar con valor por defecto; se sincroniza en startEdit
         this.toggleLight = new UIToggle(UIKeys.FORMS_EDITORS_STRUCTURE_LIGHT, false, (t) -> this.toggleLight(t));
+        this.noShading = new UIToggle(UIKeys.FORMS_EDITORS_NOSHADING_SHADERS, false, (t) -> this.form.noshadingOpacity.set(t.getValue()));
+        this.noShading.tooltip(UIKeys.FORMS_EDITORS_COLOR_NOSHADING_OPACITY_TOOLTIP);
         this.lightIntensity = new UITrackpad((v) -> this.setLightIntensity(v.intValue()))
                 .integer()
                 .limit(1D, 15D);
@@ -176,6 +179,7 @@ public class UIStructureFormPanel extends UIFormPanel<StructureForm>
         this.options.add(this.pickStructure);
         this.options.add(this.pickBiome);
         this.options.add(this.toggleLight);
+        this.options.add(this.noShading);
         this.options.add(this.toggleFluid);
         this.options.add(UI.label(UIKeys.FORMS_EDITORS_STRUCTURE_LIGHT_INTENSITY_LABEL).marginTop(6), this.lightIntensity);
         this.options.add(UI.label(UIKeys.FORMS_EDITORS_STRUCTURE_SIZE).marginTop(10));
@@ -319,6 +323,7 @@ public class UIStructureFormPanel extends UIFormPanel<StructureForm>
         int intensity = (s != null) ? s.intensity : form.lightIntensity.get();
 
         this.toggleLight.setValue(enabled);
+        this.noShading.setValue(form.noshadingOpacity.get());
         this.lightIntensity.setValue((double) intensity);
         this.scaleX.setValue((double) form.scaleX.get());
         this.scaleY.setValue((double) form.scaleY.get());

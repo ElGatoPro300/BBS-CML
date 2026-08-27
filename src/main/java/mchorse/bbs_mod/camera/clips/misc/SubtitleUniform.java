@@ -35,6 +35,10 @@ public class SubtitleUniform extends ValueGroup
     public final ValueBoolean shadowOpaque = new ValueBoolean("shadowOpaque", false);
     public final ValueDouble lineHeight = new ValueDouble("lineHeight", 12D, 0D, Double.POSITIVE_INFINITY);
     public final ValueDouble maxWidth = new ValueDouble("maxWidth", 0D, 0D, Double.POSITIVE_INFINITY);
+    public final ValueDouble rotationX = new ValueDouble("rotationX", 0D);
+    public final ValueDouble rotationY = new ValueDouble("rotationY", 0D);
+    /* Z / in-plane — same id as ImageClip for consistency. */
+    public final ValueDouble rotation = new ValueDouble("rotation", 0D);
 
     public SubtitleUniform(String id)
     {
@@ -56,6 +60,9 @@ public class SubtitleUniform extends ValueGroup
         this.add(this.shadowOpaque);
         this.add(this.lineHeight);
         this.add(this.maxWidth);
+        this.add(this.rotationX);
+        this.add(this.rotationY);
+        this.add(this.rotation);
     }
 
     @Override
