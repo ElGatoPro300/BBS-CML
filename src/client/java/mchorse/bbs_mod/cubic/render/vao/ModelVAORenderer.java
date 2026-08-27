@@ -97,6 +97,12 @@ public class ModelVAORenderer
      * Fog state at enqueue time for soft / deferred mesh redraws. After Iris composite (and often
      * by vanilla LAST) {@link RenderSystem} fog is collapsed — without this snapshot soft forms
      * either skip fog or wash to FogColor.
+     * <p>
+     * {@code modelViewInverse} is the inverse of {@link RenderSystem#getModelViewMatrix()} at
+     * enqueue. Soft BBS draws bake that same ModelView into the MatrixStack
+     * ({@code capturePaintOverlayRootMatrix}); FogMat must strip with this matrix — not
+     * {@code Camera.getRotation()} — or cylindrical fog drifts with yaw/pitch when ModelView was
+     * identity (stack already camera-relative) or when the quaternion disagrees with the pose matrix.
      */
     public static final class DeferredFogSnapshot
     {
@@ -107,8 +113,9 @@ public class ModelVAORenderer
         private final float fogColorB;
         private final float fogColorA;
         private final int fogShape;
+        private final Matrix4f modelViewInverse;
 
-        private DeferredFogSnapshot(float fogStart, float fogEnd, float fogColorR, float fogColorG, float fogColorB, float fogColorA, int fogShape)
+        private DeferredFogSnapshot(float fogStart, float fogEnd, float fogColorR, float fogColorG, float fogColorB, float fogColorA, int fogShape, Matrix4f modelViewInverse)
         {
             this.fogStart = fogStart;
             this.fogEnd = fogEnd;
@@ -117,6 +124,7 @@ public class ModelVAORenderer
             this.fogColorB = fogColorB;
             this.fogColorA = fogColorA;
             this.fogShape = fogShape;
+            this.modelViewInverse = modelViewInverse;
         }
     }
 
@@ -125,6 +133,17 @@ public class ModelVAORenderer
     public static DeferredFogSnapshot captureCurrentFog()
     {
         float[] fogColor = RenderSystem.getShaderFogColor();
+        Matrix4f modelViewInverse = new Matrix4f(RenderSystem.getModelViewMatrix());
+
+        /* Identity / near-singular MV → leave identity inverse (stack is already camera-relative). */
+        if (Math.abs(modelViewInverse.determinant()) > 1.0E-8F)
+        {
+            modelViewInverse.invert();
+        }
+        else
+        {
+            modelViewInverse.identity();
+        }
 
         return new DeferredFogSnapshot(
             RenderSystem.getShaderFogStart(),
@@ -133,7 +152,8 @@ public class ModelVAORenderer
             fogColor[1],
             fogColor[2],
             fogColor[3],
-            RenderSystem.getShaderFogShape().getId()
+            RenderSystem.getShaderFogShape().getId(),
+            modelViewInverse
         );
     }
 
@@ -2249,10 +2269,19 @@ public class ModelVAORenderer
 
         if (deferredTranslucentPass)
         {
-            /* Captured matrix is already view × camera-relative model (see capturePaintOverlayRootMatrix).
-             * Strip view so fog matches live ModelForms / vanilla mobs. */
-            MatrixStackUtils.loadInverseViewRotationMatrix4(SCRATCH_INV_VIEW);
-            SCRATCH_FOG_MAT.set(SCRATCH_INV_VIEW).mul(stackMatrix);
+            /* Soft / deferred BBS path: stack is capturePaintOverlayRootMatrix = MV_enqueue × camRel
+             * (or camRel alone when MV was identity). Strip with the enqueue-time MV inverse from
+             * DeferredFogSnapshot so FogMat stays camera-relative Y-up at every yaw/pitch. */
+            if (activeDeferredFog != null)
+            {
+                SCRATCH_FOG_MAT.set(activeDeferredFog.modelViewInverse).mul(stackMatrix);
+            }
+            else
+            {
+                /* No snapshot — assume stack is already camera-relative (do not use Camera quaternion). */
+                SCRATCH_FOG_MAT.set(stackMatrix);
+            }
+
             fogMatUniform.set(SCRATCH_FOG_MAT);
 
             return;
