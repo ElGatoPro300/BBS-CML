@@ -256,7 +256,13 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
         MatrixStack.Entry entry = matrices.peek();
         boolean shadowPassEarly = BBSRendering.isIrisShadowPass()
             || (deferContext != null && deferContext.isShadowPass);
-        boolean irisWorld = BBSRendering.isIrisWorldModelPass() && !shadowPassEarly && !modelRenderer;
+        /* Orbit UI / form preview / inventory GUI: draw soft live. World post-deferred
+         * queues never flush for those passes (same as ModelFormRenderer localPreview). */
+        boolean localPreview = modelRenderer
+            || (deferContext != null && (deferContext.ui || deferContext.modelRenderer
+                || deferContext.type == FormRenderType.PREVIEW
+                || deferContext.type == FormRenderType.ITEM_INVENTORY));
+        boolean irisWorld = BBSRendering.isIrisWorldModelPass() && !shadowPassEarly && !localPreview;
         /* No-shader: FormColorGrade in model.fsh. Iris: deferred BBS redraw with FormColorGrade
          * (ColorGradeOverlay scene-replace makes thin billboards look invisible). */
         boolean useFormColorGrade = hasColorAdjustments && !irisWorld;
@@ -370,13 +376,13 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
         Color resolvedPaint = positivePaint ? FormColorEffects.resolvePaintColor(paintSettings, legacyPaint) : null;
         boolean applyColorTint = colorTransformWanted && !shadowPass;
         boolean noshadingAfterPaint = irisWorld && BBSRendering.needsIrisNoshadingOpacityDeferral(color.a, this.form.noshadingOpacity.get());
-        boolean softPostDeferred = !modelRenderer && !shadowPass
+        boolean softPostDeferred = !localPreview && !shadowPass
             && ShaderOpacityPatch.shouldDelayUntilPostDeferred(color.a)
             && !noshadingAfterPaint;
         boolean deferForColorGrade = hasColorAdjustments && irisWorld;
         boolean deferNoshading = irisWorld && (noshadingAfterPaint || !this.form.shading.get());
         /* Opaque-ish Iris grade/noshading, or soft + noshading (after paint, unshaded). */
-        boolean deferTranslucent = !softPostDeferred && !modelRenderer && !shadowPass
+        boolean deferTranslucent = !softPostDeferred && !localPreview && !shadowPass
             && (deferForColorGrade
                 || deferNoshading);
 
@@ -638,7 +644,12 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
         }
         else
         {
-            /* Live path — opaque / no-shader / Iris without deferral. */
+            /* Live path — opaque / no-shader / Iris without deferral / inventory preview.
+             * Soft alpha used to only hit this path in world when not deferred; inventory
+             * localPreview now draws soft live too — must restore depthMask (soft clears it). */
+            boolean savedDepthMask = GL11.glGetBoolean(GL11.GL_DEPTH_WRITEMASK);
+            boolean touchedDepthMask = false;
+
             if (format == VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL)
             {
                 if (!irisWorld && (useFormColorGrade || BBSRendering.needsBbsModelForLowOpacity(color.a)))
@@ -647,7 +658,16 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
                 }
 
                 RenderSystem.enableDepthTest();
-                RenderSystem.depthMask(shadowPass || color.a >= ShaderOpacityPatch.LIVE_DEPTH_WRITE_ALPHA);
+                /* Inventory/GUI preview: keep depth writes on. Soft world draws may suppress
+                 * depth; leaving depthMask false leaks into later GUI (bright undimmed hotbar). */
+                boolean writeDepth = shadowPass || localPreview
+                    || color.a >= ShaderOpacityPatch.LIVE_DEPTH_WRITE_ALPHA;
+
+                if (writeDepth != savedDepthMask)
+                {
+                    RenderSystem.depthMask(writeDepth);
+                    touchedDepthMask = true;
+                }
             }
 
             if (useFormColorGrade)
@@ -753,6 +773,11 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
                 if (useFormColorGrade)
                 {
                     ModelVAORenderer.clearFormColorGrade();
+                }
+
+                if (touchedDepthMask)
+                {
+                    RenderSystem.depthMask(savedDepthMask);
                 }
             }
         }
