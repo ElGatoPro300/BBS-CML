@@ -6,6 +6,7 @@ import mchorse.bbs_mod.cubic.render.vao.ModelVAORenderer;
 import mchorse.bbs_mod.mixin.client.iris.IrisRenderingPipelineAccessor;
 
 import net.fabricmc.loader.api.FabricLoader;
+
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gl.Framebuffer;
 import net.minecraft.client.gl.WindowFramebuffer;
