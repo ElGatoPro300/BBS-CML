@@ -382,12 +382,13 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
 
         if (softPostDeferred)
         {
-            /* Iris + shaded: entity-local matrices + restore camera ModelView.
-             * Unshaded / no-shader: camera-baked matrices + BBS post-deferred path. */
-            boolean irisCamera = BBSRendering.isIrisWorldModelPass() && this.form.shading.get();
-            Matrix4f positionMatrix = irisCamera
-                ? new Matrix4f(matrix)
-                : ModelVAORenderer.capturePaintOverlayRootMatrix(new Matrix4f(matrix));
+            /* Soft fog needs camera-relative Positions: vanilla entity_translucent does
+             * fog_distance(Position), and BBS model.vsh uses FogMat×Position in the same
+             * Y-up space. Baking view into verts (capturePaintOverlayRootMatrix) + drawing
+             * with identity ModelView put vertices in view space — cylindrical fog then
+             * drifts with yaw/pitch. Always keep cam-rel verts and restore ModelView
+             * (same contract as Iris shaded soft), including vanilla / unshaded. */
+            Matrix4f positionMatrix = new Matrix4f(matrix);
             Matrix3f normalMatrix = new Matrix3f(matrices.peek().getNormalMatrix());
             Color colorSnapshot = color.copy();
             Quad localQuad = new Quad();
@@ -408,7 +409,9 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
             boolean depthWrite = ShaderOpacityPatch.shouldWriteDepthForOpacity(color.a);
             boolean afterFluids = ShaderOpacityPatch.shouldFlushAfterFluids(color.a);
             boolean gradeOnDeferredDraw = useFormColorGrade || irisDeferredColorGrade;
-            /* Preserve live format/shader unless Color Grade needs model.fsh. */
+            /* Preserve live format/shader unless Color Grade needs model.fsh.
+             * Note: unshaded soft still uses position_tex_color (no fog in that shader) —
+             * that is a separate limitation, not the yaw-dependent cylindrical-fog bug. */
             VertexFormat deferredFormat = gradeOnDeferredDraw
                 ? VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL
                 : format;
@@ -510,14 +513,7 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
                 }
             };
 
-            if (irisCamera)
-            {
-                ShaderOpacityPatch.submitPostDeferredForm(0D, faceSortKey, depthWrite, afterFluids, deferredDraw);
-            }
-            else
-            {
-                ShaderOpacityPatch.submitPostDeferredBbsForm(0D, faceSortKey, depthWrite, afterFluids, deferredDraw);
-            }
+            ShaderOpacityPatch.submitPostDeferredForm(0D, faceSortKey, depthWrite, afterFluids, deferredDraw);
         }
         else if (deferTranslucent)
         {
