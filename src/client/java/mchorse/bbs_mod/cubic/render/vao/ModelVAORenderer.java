@@ -498,6 +498,7 @@ public class ModelVAORenderer
             true,
             false,
             true,
+            null,
             draw
         ));
     }

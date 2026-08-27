@@ -35,6 +35,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 import java.util.function.Consumer;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
@@ -51,6 +52,12 @@ public class ShaderOpacityPatch
     );
     private static final Pattern LITERAL_POINT_ONE_COMPARE = Pattern.compile(
         "\\b([A-Za-z_][\\w.]*)\\.a\\s*<\\s*0\\.1\\b"
+    );
+    private static final Pattern PHOTON_TEX_ALPHA_DISCARD = Pattern.compile(
+        "if\\s*\\(\\s*base_color\\.a\\s*<\\s*0\\.1\\s*\\)\\s*\\{\\s*discard\\s*;\\s*\\}"
+    );
+    private static final Pattern BLISS_SHADOW_FRAGDATA = Pattern.compile(
+        "gl_FragData\\[0]\\s*=\\s*vec4\\(\\s*texture2D\\(\\s*tex\\s*,\\s*texcoord\\.xy\\s*\\)\\.rgb\\s*\\*\\s*color\\.rgb\\s*,\\s*texture2DLod\\(\\s*tex\\s*,\\s*texcoord\\.xy\\s*,\\s*0\\s*\\)\\.a\\s*\\)\\s*;"
     );
     private static final List<PostDeferredEntry> postDeferredForms = new ArrayList<>();
     private static boolean postDeferredPhase;
@@ -1094,7 +1101,161 @@ public class ShaderOpacityPatch
             );
         }
 
+        /* Photon: vertex only passes tint.rgb — forward gl_Color.a for FS dither. */
+        if (isPhotonShadowVertex(source))
+        {
+            return patchPhotonShadowVertex(source);
+        }
+
+        if (isPhotonShadowFragment(source))
+        {
+            return patchPhotonShadowFragment(source);
+        }
+
+        /* Bliss: native Stochastic_Transparent_Shadows uses texture alpha; soft forms need color.a. */
+        if (isBlissShadowFragment(source))
+        {
+            return patchBlissShadowFragment(source);
+        }
+
         return source;
+    }
+
+    private static String buildShadowDitherBlock(String alphaExpr, String indent)
+    {
+        return indent + "/* BBS_SHADOW_CASTER_DITHER */\n"
+            + indent + "if (bbs_is_shadow_form > 0.5 && " + alphaExpr + " < 0.999) {\n"
+            + indent + "    const float bbsBayer4x4[16] = float[16](\n"
+            + indent + "        0.0625, 0.5625, 0.1875, 0.6875,\n"
+            + indent + "        0.8125, 0.3125, 0.9375, 0.4375,\n"
+            + indent + "        0.2500, 0.7500, 0.1250, 0.6250,\n"
+            + indent + "        1.0000, 0.5000, 0.8750, 0.3750\n"
+            + indent + "    );\n"
+            + indent + "    ivec2 bbsCoord = ivec2(mod(gl_FragCoord.xy, 4.0));\n"
+            + indent + "    if (" + alphaExpr + " < bbsBayer4x4[bbsCoord.y * 4 + bbsCoord.x]) discard;\n"
+            + indent + "}\n";
+    }
+
+    private static boolean isPhotonShadowVertex(String source)
+    {
+        return source.contains("flat out vec3 tint")
+            && source.contains("tint = gl_Color.rgb")
+            && (source.contains("distort_shadow_space") || source.contains("shadow_clip_pos") || source.contains("material_mask"));
+    }
+
+    private static boolean isPhotonShadowFragment(String source)
+    {
+        return source.contains("shadowcolor0_out")
+            && source.contains("flat in vec3 tint")
+            && source.contains("base_color.a");
+    }
+
+    private static boolean isBlissShadowFragment(String source)
+    {
+        return source.contains("Stochastic_Transparent_Shadows")
+            && source.contains("blueNoise")
+            && source.contains("texture2DLod")
+            && source.contains("gl_FragData[0]");
+    }
+
+    private static String patchPhotonShadowVertex(String source)
+    {
+        String patched = source;
+
+        if (!patched.contains("bbs_gl_color_a"))
+        {
+            if (patched.contains("flat out vec3 tint;"))
+            {
+                patched = patched.replace(
+                    "flat out vec3 tint;",
+                    "flat out vec3 tint;\nflat out float bbs_gl_color_a;"
+                );
+            }
+            else
+            {
+                return source;
+            }
+        }
+
+        if (!patched.contains("bbs_gl_color_a = gl_Color.a"))
+        {
+            if (patched.contains("tint = gl_Color.rgb;"))
+            {
+                patched = patched.replace(
+                    "tint = gl_Color.rgb;",
+                    "tint = gl_Color.rgb;\n\tbbs_gl_color_a = gl_Color.a;"
+                );
+            }
+            else
+            {
+                return source;
+            }
+        }
+
+        return patched;
+    }
+
+    private static String patchPhotonShadowFragment(String source)
+    {
+        String patched = insertShadowUniform(source);
+
+        if (!patched.contains("flat in float bbs_gl_color_a"))
+        {
+            if (patched.contains("flat in vec3 tint;"))
+            {
+                patched = patched.replace(
+                    "flat in vec3 tint;",
+                    "flat in vec3 tint;\nflat in float bbs_gl_color_a;"
+                );
+            }
+            else
+            {
+                return source;
+            }
+        }
+
+        String dither = buildShadowDitherBlock("bbs_gl_color_a", "\t");
+        Matcher matcher = PHOTON_TEX_ALPHA_DISCARD.matcher(patched);
+
+        if (!matcher.find())
+        {
+            return source;
+        }
+
+        StringBuffer buffer = new StringBuffer();
+
+        matcher.reset();
+
+        while (matcher.find())
+        {
+            matcher.appendReplacement(buffer, Matcher.quoteReplacement(matcher.group() + "\n" + dither));
+        }
+
+        matcher.appendTail(buffer);
+
+        return buffer.toString();
+    }
+
+    private static String patchBlissShadowFragment(String source)
+    {
+        Matcher matcher = BLISS_SHADOW_FRAGDATA.matcher(source);
+
+        if (!matcher.find())
+        {
+            return source;
+        }
+
+        String dither = buildShadowDitherBlock("color.a", "\t");
+        String patched = insertShadowUniform(source);
+
+        matcher = BLISS_SHADOW_FRAGDATA.matcher(patched);
+
+        if (!matcher.find())
+        {
+            return source;
+        }
+
+        return patched.substring(0, matcher.start()) + dither + matcher.group() + patched.substring(matcher.end());
     }
 
     public static boolean isShadowCasterSourcePublic(String source)
@@ -1109,7 +1270,9 @@ public class ShaderOpacityPatch
             || source.contains("float premult = float(mat > 0.98")
             || source.contains("BBS_SHADOW_CASTER_DITHER")
             || (source.contains("gl_FragData[0] = color1; // Shadow Color")
-                && source.contains("gl_FragData[1] = color2; // Light Shaft Color"));
+                && source.contains("gl_FragData[1] = color2; // Light Shaft Color"))
+            || isPhotonShadowFragment(source)
+            || isBlissShadowFragment(source);
     }
 
     /**
