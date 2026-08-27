@@ -39,7 +39,6 @@ public class UIBlockFormPanel extends UIFormPanel<BlockForm>
     public UIToggle repeatCenterX;
     public UIToggle repeatCenterY;
     public UIToggle repeatCenterZ;
-    public UIToggle noShading;
 
     public UIBlockFormPanel(UIForm editor)
     {
@@ -136,8 +135,6 @@ public class UIBlockFormPanel extends UIFormPanel<BlockForm>
         this.repeatCenterY.tooltip(UIKeys.FORMS_EDITORS_BLOCK_REPEAT_CENTER_Y_TOOLTIP);
         this.repeatCenterZ = new UIToggle(UIKeys.FORMS_EDITORS_BLOCK_REPEAT_CENTER_Z, (b) -> this.form.repeatCenterZ.set(b.getValue()));
         this.repeatCenterZ.tooltip(UIKeys.FORMS_EDITORS_BLOCK_REPEAT_CENTER_Z_TOOLTIP);
-        this.noShading = new UIToggle(UIKeys.FORMS_EDITORS_NOSHADING_SHADERS, (b) -> this.form.noshadingOpacity.set(b.getValue()));
-        this.noShading.tooltip(UIKeys.FORMS_EDITORS_COLOR_NOSHADING_OPACITY_TOOLTIP);
 
         this.options.add(
             UIFormColorLayout.sectionLabel(UIKeys.FORMS_EDITOR_FORM),
@@ -151,7 +148,6 @@ public class UIBlockFormPanel extends UIFormPanel<BlockForm>
         );
         this.options.add(UI.label(UIKeys.FORMS_EDITORS_BLOCK_REPEAT).marginTop(6), UI.row(this.repeatX, this.repeatY, this.repeatZ));
         this.options.add(UI.label(UIKeys.FORMS_EDITORS_BLOCK_REPEAT_CENTER).marginTop(6), UI.row(this.repeatCenterX, this.repeatCenterY, this.repeatCenterZ));
-        this.options.add(this.noShading);
         this.options.add(UI.label(UIKeys.FORMS_EDITORS_BLOCK_BREAKING).marginTop(6), this.breaking);
     }
 
@@ -189,6 +185,5 @@ public class UIBlockFormPanel extends UIFormPanel<BlockForm>
         this.repeatCenterX.setValue(form.repeatCenterX.get());
         this.repeatCenterY.setValue(form.repeatCenterY.get());
         this.repeatCenterZ.setValue(form.repeatCenterZ.get());
-        this.noShading.setValue(form.noshadingOpacity.get());
     }
 }
