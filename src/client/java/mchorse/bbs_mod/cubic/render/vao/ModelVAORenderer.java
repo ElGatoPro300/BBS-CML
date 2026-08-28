@@ -133,7 +133,7 @@ public class ModelVAORenderer
 
     public static DeferredFogSnapshot captureCurrentFog()
     {
-        float[] fogColor = RenderSystem.getShaderFogColor();
+        Fog fog = RenderSystem.getShaderFog();
         Matrix4f modelViewInverse = new Matrix4f(RenderSystem.getModelViewMatrix());
 
         /* Identity / near-singular MV → leave identity inverse (stack is already camera-relative). */
@@ -147,13 +147,13 @@ public class ModelVAORenderer
         }
 
         return new DeferredFogSnapshot(
-            RenderSystem.getShaderFogStart(),
-            RenderSystem.getShaderFogEnd(),
-            fogColor[0],
-            fogColor[1],
-            fogColor[2],
-            fogColor[3],
-            RenderSystem.getShaderFogShape().getId(),
+            fog.start(),
+            fog.end(),
+            fog.red(),
+            fog.green(),
+            fog.blue(),
+            fog.alpha(),
+            fog.shape().getId(),
             modelViewInverse
         );
     }
@@ -2263,24 +2263,26 @@ public class ModelVAORenderer
             return;
         }
 
+        Fog fog = RenderSystem.getShaderFog();
+
         if (shader.fogStart != null)
         {
-            shader.fogStart.set(RenderSystem.getShaderFogStart());
+            shader.fogStart.set(fog.start());
         }
 
         if (shader.fogEnd != null)
         {
-            shader.fogEnd.set(RenderSystem.getShaderFogEnd());
+            shader.fogEnd.set(fog.end());
         }
 
         if (shader.fogColor != null)
         {
-            shader.fogColor.set(RenderSystem.getShaderFogColor());
+            shader.fogColor.set(fog.red(), fog.green(), fog.blue(), fog.alpha());
         }
 
         if (shader.fogShape != null)
         {
-            shader.fogShape.set(RenderSystem.getShaderFogShape().getId());
+            shader.fogShape.set(fog.shape().getId());
         }
 
         GlUniform fogMatUniform = shader.getUniform("FogMat");

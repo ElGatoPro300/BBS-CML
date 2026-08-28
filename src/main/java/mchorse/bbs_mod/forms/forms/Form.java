@@ -351,12 +351,12 @@ public abstract class Form extends ValueGroup
             entity.getAttributeInstance(EntityAttributes.MAX_HEALTH).setBaseValue(hp);
             entity.setHealth(hp);
         }
-        if (speed != 0.1F) entity.getAttributeInstance(EntityAttributes.GENERIC_MOVEMENT_SPEED).setBaseValue(speed);
-        /* setStepHeight() was removed in 1.20.5+; step-up is GENERIC_STEP_HEIGHT now.
+        if (speed != 0.1F) entity.getAttributeInstance(EntityAttributes.MOVEMENT_SPEED).setBaseValue(speed);
+        /* setStepHeight() was removed in 1.20.5+; step-up is STEP_HEIGHT attribute now in 1.21.4.
          * Default matches vanilla living/player step height (0.6). */
         if (stepHeight != 0.6F)
         {
-            EntityAttributeInstance step = entity.getAttributeInstance(EntityAttributes.GENERIC_STEP_HEIGHT);
+            EntityAttributeInstance step = entity.getAttributeInstance(EntityAttributes.STEP_HEIGHT);
 
             if (step != null)
             {
@@ -369,9 +369,9 @@ public abstract class Form extends ValueGroup
     {
         entity.getAttributeInstance(EntityAttributes.MAX_HEALTH).setBaseValue(20F);
         entity.setHealth(20F);
-        entity.getAttributeInstance(EntityAttributes.GENERIC_MOVEMENT_SPEED).setBaseValue(0.1F);
+        entity.getAttributeInstance(EntityAttributes.MOVEMENT_SPEED).setBaseValue(0.1F);
 
-        EntityAttributeInstance step = entity.getAttributeInstance(EntityAttributes.GENERIC_STEP_HEIGHT);
+        EntityAttributeInstance step = entity.getAttributeInstance(EntityAttributes.STEP_HEIGHT);
 
         if (step != null)
         {
