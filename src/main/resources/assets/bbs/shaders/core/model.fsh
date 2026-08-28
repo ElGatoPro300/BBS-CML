@@ -352,6 +352,12 @@ void main()
         /* FormColorTint.a is traditional form opacity — fade mask tint with the form. */
         float opacity = clamp(FormColorTint.a, 0.0, 1.0);
         float strength = cmask * opacity;
+        /* DST_COLOR multiply on an already-fogged base: fade tint toward identity (white)
+         * with distance fog so masks do not recolor FogColor into a saturated silhouette. */
+        float fogValue = vertexDistance <= FogStart ? 0.0 : (vertexDistance < FogEnd ? smoothstep(FogStart, FogEnd, vertexDistance) : 1.0);
+
+        strength *= 1.0 - fogValue * FogColor.a;
+
         vec3 tintRgb = mix(vec3(1.0), FormColorTint.rgb, strength);
 
         fragColor = vec4(bbsApplyFormColorGrade(tintRgb, formRootPos), 1.0);

@@ -390,7 +390,7 @@ public class StructureFormOverlayRenderer
             overlayStack.peek().getPositionMatrix().set(positionMatrix);
             overlayStack.peek().getNormalMatrix().set(normalMatrix);
 
-            this.renderStructureColorTintOverlayPass(data, form, vao, context, overlayStack, formColorSnapshot, alpha, overlay, optimize, useEntityLayers, false, layerDraw, culledWorldDraw);
+            this.renderStructureColorTintOverlayPass(data, form, vao, context, overlayStack, formColorSnapshot, alpha, overlay, optimize, useEntityLayers, true, layerDraw, culledWorldDraw);
         });
     }
 

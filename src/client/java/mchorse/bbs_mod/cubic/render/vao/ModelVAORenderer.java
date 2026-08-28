@@ -434,7 +434,7 @@ public class ModelVAORenderer
             vanillaComposite,
             depthWrite,
             depthTest,
-            fullModel ? captureCurrentFog() : null,
+            captureCurrentFog(),
             draw
         );
 
@@ -2139,11 +2139,7 @@ public class ModelVAORenderer
             colorGradeOverlayUniform.set(colorGradeOverlayPass ? 1F : 0F);
         }
 
-        /* Paint/tint/grade overlays multiply an already-fogged base — skip distance fog.
-         * Full-mesh deferred redraws (soft opacity / soft limbs) use fog captured at enqueue
-         * (RenderSystem is often wrong after Iris composite or vanilla LAST). Live draws use
-         * current RenderSystem fog. */
-        if (paintOverlayPass || colorTintOverlayPass || colorGradeOverlayPass)
+        if (colorGradeOverlayPass)
         {
             if (shader.fogStart != null)
             {
@@ -2284,11 +2280,33 @@ public class ModelVAORenderer
             return;
         }
 
-        fogMatUniform.set(bakedModelMatrix);
+        if (BBSRendering.isRenderingWorld())
+        {
+            float bakedDist = viewOriginLengthSq(bakedModelMatrix);
+
+            SCRATCH_COMPOSED.set(BBSRendering.camera).mul(bakedModelMatrix);
+
+            if (bakedDist > 1.0E-6F && viewOriginLengthSq(SCRATCH_COMPOSED) < bakedDist * 0.49F)
+            {
+                /* Bake already included view — Position is view-space; strip for fog. */
+                MatrixStackUtils.loadInverseViewRotationMatrix4(SCRATCH_INV_VIEW);
+                fogMatUniform.set(SCRATCH_INV_VIEW);
+            }
+            else
+            {
+                /* Bake was camera-relative — Position is already Y-up cam-rel. */
+                fogMatUniform.set(IDENTITY_MODEL_VIEW);
+            }
+        }
+        else
+        {
+            fogMatUniform.set(IDENTITY_MODEL_VIEW);
+        }
     }
 
     /**
-     * Camera-relative model matrix for fog.
+     * Camera-relative model matrix for fog — same space vanilla bakes into entity
+     * {@code Position} and terrain {@code Position + ChunkOffset} (Y-up, no view rotation).
      */
     private static void uploadFogMatUniform(MatrixStack stack, ShaderProgram shader, boolean cpuPretransformed)
     {
@@ -2306,9 +2324,9 @@ public class ModelVAORenderer
             return;
         }
 
-        if (paintOverlayPass || colorTintOverlayPass || colorGradeOverlayPass)
+        if (colorGradeOverlayPass)
         {
-            /* Fog disabled for these passes — FogMat unused. */
+            /* Fog disabled for this pass — FogMat unused. */
             fogMatUniform.set(IDENTITY_MODEL_VIEW);
 
             return;
@@ -2316,7 +2334,53 @@ public class ModelVAORenderer
 
         Matrix4f stackMatrix = stack.peek().getPositionMatrix();
 
-        fogMatUniform.set(stackMatrix);
+        if (deferredTranslucentPass)
+        {
+            /* Soft / deferred BBS path: stack is capturePaintOverlayRootMatrix = MV_enqueue × camRel
+             * (or camRel alone when MV was identity). Strip with the enqueue-time MV inverse from
+             * DeferredFogSnapshot so FogMat stays camera-relative Y-up at every yaw/pitch. */
+            if (activeDeferredFog != null)
+            {
+                SCRATCH_FOG_MAT.set(activeDeferredFog.modelViewInverse).mul(stackMatrix);
+            }
+            else
+            {
+                /* No snapshot — assume stack is already camera-relative (do not use Camera quaternion). */
+                SCRATCH_FOG_MAT.set(stackMatrix);
+            }
+
+            fogMatUniform.set(SCRATCH_FOG_MAT);
+
+            return;
+        }
+
+        if (BBSRendering.isRenderingWorld() && !BBSRendering.isIrisShadersEnabled())
+        {
+            float bakedDist = viewOriginLengthSq(stackMatrix);
+
+            SCRATCH_COMPOSED.set(BBSRendering.camera).mul(stackMatrix);
+
+            if (bakedDist > 1.0E-6F && viewOriginLengthSq(SCRATCH_COMPOSED) < bakedDist * 0.49F)
+            {
+                /* Stack already includes view (AFTER_ENTITIES) — strip rotation for fog only. */
+                MatrixStackUtils.loadInverseViewRotationMatrix4(SCRATCH_INV_VIEW);
+                SCRATCH_FOG_MAT.set(SCRATCH_INV_VIEW).mul(stackMatrix);
+            }
+            else
+            {
+                /* Stack is camera-relative entity transform — same as WorldRenderer entity MatrixStack. */
+                SCRATCH_FOG_MAT.set(stackMatrix);
+            }
+        }
+        else
+        {
+            /* Iris / UI: best-effort strip view from composed model-view. */
+            SCRATCH_COMPOSED.set(RenderSystem.getModelViewMatrix()).mul(stackMatrix);
+            MatrixStackUtils.loadInverseViewRotationMatrix4(SCRATCH_INV_VIEW);
+            SCRATCH_FOG_MAT.set(SCRATCH_INV_VIEW).mul(SCRATCH_COMPOSED);
+        }
+
+        fogMatUniform.set(SCRATCH_FOG_MAT);
     }
 
     private static void setModelViewUniform(MatrixStack stack, ShaderProgram shader)
