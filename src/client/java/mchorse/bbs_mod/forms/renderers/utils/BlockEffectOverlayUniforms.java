@@ -364,7 +364,6 @@ public final class BlockEffectOverlayUniforms
             RenderSystem.setShader(() -> program);
             bindFormRootInverse(program, rootInverse);
             bindPaintPrecomputed(program, transform, bottomAnchored, maskHalf);
-            uploadFlatOverlayFog(program, rootInverse);
         }
 
         RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
@@ -641,7 +640,6 @@ public final class BlockEffectOverlayUniforms
             bindFormRootInverse(program, rootInverse);
             bindColorEffectPrecomputed(program, transform, bottomAnchored, maskHalf);
             bindFormColorTint(program, formColor);
-            uploadFlatOverlayFog(program, rootInverse);
         }
 
         RenderSystem.setShaderColor(1F, 1F, 1F, 1F);

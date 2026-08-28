@@ -74,18 +74,18 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
     private static final float LABEL_PAINT_OFFSET_FACTOR = FlatPaintOverlayPass.POLYGON_OFFSET_FACTOR;
     private static final float LABEL_PAINT_OFFSET_UNITS = -128F;
     private static final float LABEL_DEFERRED_PAINT_OFFSET_UNITS = -128F;
-    /* Color/paint overlays: camera-facing local Z (same rule as BillboardFormRenderer). */
-    private static final float FACE_Z_BIAS = 0.0005F;
-    private static final float OVERLAY_FACE_EXTRA = 0.0015F;
+    /* Color/paint overlays: camera-facing local Z in font-pixel units (1 font unit = 1/16 block). */
+    private static final float FACE_Z_BIAS = 0.01F;
+    private static final float OVERLAY_FACE_EXTRA = 0.03F;
     /* Depth precision falls off with distance — scale overlay bias (FlatPaintOverlayPass). */
     private static final float LABEL_OVERLAY_DISTANCE_SCALE_START = 4F;
     private static final float LABEL_OVERLAY_DISTANCE_SCALE_LINEAR = 0.4F;
     private static final float LABEL_OVERLAY_DISTANCE_SCALE_QUADRATIC = 0.0025F;
     private static final float LABEL_OVERLAY_DISTANCE_SCALE_CAP = 32F;
-    private static final float LABEL_OVERLAY_SEPARATION_LINEAR = 0.0012F;
-    private static final float LABEL_OVERLAY_SEPARATION_QUADRATIC = 0.00001F;
-    private static final float LABEL_OVERLAY_SEPARATION_MAX = 2F;
-    private static final float LABEL_BASE_FILL_PULLBACK = 0.4F;
+    private static final float LABEL_OVERLAY_SEPARATION_LINEAR = 0.02F;
+    private static final float LABEL_OVERLAY_SEPARATION_QUADRATIC = 0.0002F;
+    private static final float LABEL_OVERLAY_SEPARATION_MAX = 4F;
+    private static final float LABEL_BASE_FILL_PULLBACK = 0.5F;
     private static final float LABEL_OVERLAY_OFFSET_UNITS_CAP = -4096F;
     private static final Vector3f OVERLAY_TO_CAMERA = new Vector3f();
     private static final Vector3f OVERLAY_LOCAL_Z = new Vector3f();
@@ -1266,7 +1266,9 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
                 this.bindTextLayerTexture(layerEntry.getKey());
                 /* Text RenderLayer.startDrawing replaces the FlatColorTint program — restore it. */
                 BlockEffectOverlayUniforms.configureFlatColorTintOverlay(formRootInverse, colorTransform, false, this.maskHalfExtents, formTintColor);
+                RenderSystem.setShaderTexture(0, this.lastBoundTextTexture);
                 GlStateManager._bindTexture(this.lastBoundTextTexture);
+                RenderSystem.disableCull();
 
                 BufferBuilder builder = Tessellator.getInstance().getBuffer();
                 builder.begin(VertexFormat.DrawMode.TRIANGLES, VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL);
@@ -1319,7 +1321,9 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
             {
                 this.bindTextLayerTexture(layerEntry.getKey());
                 BlockEffectOverlayUniforms.configureFlatPaintOverlay(formRootInverse, paintTransform, false, this.maskHalfExtents);
+                RenderSystem.setShaderTexture(0, this.lastBoundTextTexture);
                 GlStateManager._bindTexture(this.lastBoundTextTexture);
+                RenderSystem.disableCull();
 
                 BufferBuilder builder = Tessellator.getInstance().getBuffer();
                 builder.begin(VertexFormat.DrawMode.TRIANGLES, VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL);
@@ -1352,7 +1356,13 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
         }
 
         layer.startDrawing();
-        this.lastBoundTextTexture = GL11.glGetInteger(GL11.GL_TEXTURE_BINDING_2D);
+        this.lastBoundTextTexture = RenderSystem.getShaderTexture(0);
+
+        if (this.lastBoundTextTexture == 0)
+        {
+            this.lastBoundTextTexture = GL11.glGetInteger(GL11.GL_TEXTURE_BINDING_2D);
+        }
+
         layer.endDrawing();
     }
 
