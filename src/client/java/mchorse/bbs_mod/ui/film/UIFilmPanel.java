@@ -3113,7 +3113,6 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
 
             if (tabbed != null && tabbed.tabs.size() >= 2)
             {
-                this.focusPanelTab(ANCHORED_REPLAYS_PANEL_ID);
                 focusedReplaysTab = true;
             }
         }
@@ -3121,12 +3120,26 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
         /* Switch to the replay/keyframes tab even when another timeline tab is active. */
         this.focusPanelTab("replayTimeline");
 
-        if (!focusedReplaysTab)
+        if (focusedReplaysTab)
+        {
+            this.beginSuppressLinkedPropertiesTabFocus();
+
+            try
+            {
+                this.showPanel(this.replayEditor);
+            }
+            finally
+            {
+                this.endSuppressLinkedPropertiesTabFocus();
+            }
+
+            this.focusPanelTab(ANCHORED_REPLAYS_PANEL_ID);
+        }
+        else
         {
             this.focusLinkedPropertiesTab("replayTimeline");
+            this.showPanel(this.replayEditor);
         }
-
-        this.showPanel(this.replayEditor);
     }
 
     /**
@@ -4472,7 +4485,10 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
                 BBSSettings.editorLayoutSettings.setFilmLayoutRoot(root);
             }
 
-            this.syncLinkedPropertiesTab(panelId);
+            if (this.suppressLinkedPropertiesTabFocus == 0)
+            {
+                this.syncLinkedPropertiesTab(panelId);
+            }
         }
 
         int index = this.panels.indexOf(element);
