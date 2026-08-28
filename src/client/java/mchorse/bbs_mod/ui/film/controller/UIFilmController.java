@@ -2296,6 +2296,9 @@ public class UIFilmController extends UIElement
             GlStateManager._disableScissorTest();
         }
 
+        boolean wasRenderingWorld = BBSRendering.renderingWorld;
+        BBSRendering.renderingWorld = true;
+
         try
         {
             this.stencil.apply();
@@ -2430,6 +2433,8 @@ public class UIFilmController extends UIElement
         }
         finally
         {
+            BBSRendering.renderingWorld = wasRenderingWorld;
+
             if (scissorWasEnabled)
             {
                 GlStateManager._enableScissorTest();
