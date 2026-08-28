@@ -1,10 +1,12 @@
 package mchorse.bbs_mod.forms.renderers.utils;
 
 import mchorse.bbs_mod.client.BBSShaders;
+import mchorse.bbs_mod.client.BBSRendering;
 import mchorse.bbs_mod.cubic.render.vao.ModelVAORenderer;
 import mchorse.bbs_mod.forms.forms.utils.EffectTransform;
 import mchorse.bbs_mod.forms.forms.utils.EffectTransformMath;
 import mchorse.bbs_mod.forms.forms.utils.GlowSettings;
+import mchorse.bbs_mod.utils.MatrixStackUtils;
 import mchorse.bbs_mod.utils.colors.Color;
 
 import net.minecraft.client.gl.GlUniform;
@@ -164,6 +166,16 @@ public final class BlockEffectOverlayUniforms
         {
             RenderSystem.setShader(() -> program);
             bindFormRootInverse(program, rootInverse);
+
+            if (program.projectionMat != null)
+            {
+                program.projectionMat.set(RenderSystem.getProjectionMatrix());
+            }
+
+            if (program.modelViewMat != null)
+            {
+                program.modelViewMat.set(RenderSystem.getModelViewMatrix());
+            }
 
             if (structureSized)
             {
@@ -360,7 +372,7 @@ public final class BlockEffectOverlayUniforms
             RenderSystem.setShader(() -> program);
             bindFormRootInverse(program, rootInverse);
             bindPaintPrecomputed(program, transform, bottomAnchored, maskHalf);
-            uploadFlatOverlayFog(program);
+            uploadFlatOverlayFog(program, rootInverse);
         }
 
         RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
@@ -618,6 +630,13 @@ public final class BlockEffectOverlayUniforms
      */
     public static void configureFlatColorTintOverlay(Matrix4f rootInverse, EffectTransform transform, boolean bottomAnchored, Vector3f maskHalf, Color formColor)
     {
+        ShaderProgram program = BBSShaders.getFlatColorTintOverlayProgram();
+
+        if (program == null)
+        {
+            return;
+        }
+
         RenderSystem.enableBlend();
         RenderSystem.blendFuncSeparate(
             GlStateManager.SrcFactor.DST_COLOR,
@@ -629,26 +648,60 @@ public final class BlockEffectOverlayUniforms
         RenderSystem.depthFunc(GL11.GL_LEQUAL);
         RenderSystem.depthMask(false);
 
-        ShaderProgram program = BBSShaders.getFlatColorTintOverlayProgram();
-
-        if (program != null)
-        {
-            RenderSystem.setShader(() -> program);
-            bindFormRootInverse(program, rootInverse);
-            bindColorEffectPrecomputed(program, transform, bottomAnchored, maskHalf);
-            bindFormColorTint(program, formColor);
-            uploadFlatOverlayFog(program);
-        }
+        RenderSystem.setShader(() -> program);
+        bindFormRootInverse(program, rootInverse);
+        bindColorEffectPrecomputed(program, transform, bottomAnchored, maskHalf);
+        bindFormColorTint(program, formColor);
+        uploadFlatOverlayFog(program, rootInverse);
 
         RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
     }
 
     /**
-     * Vanilla 1.20.4 fog for flat paint/tint overlays. Uses {@code fog_distance(ModelViewMat,
-     * IViewRotMat * Position)} — not the 1.21.1 {@code FogMat} bake path.
+     * Re-upload flat color-tint uniforms immediately before {@link BufferRenderer#drawWithGlobalProgram}
+     * in case the global draw pass refreshed standard matrices.
      */
-    private static void uploadFlatOverlayFog(ShaderProgram program)
+    public static void refreshFlatColorTintOverlayUniforms(Matrix4f rootInverse, EffectTransform transform, boolean bottomAnchored, Vector3f maskHalf, Color formColor)
     {
+        ShaderProgram program = BBSShaders.getFlatColorTintOverlayProgram();
+
+        if (program == null)
+        {
+            return;
+        }
+
+        bindFormRootInverse(program, rootInverse);
+        bindColorEffectPrecomputed(program, transform, bottomAnchored, maskHalf);
+        bindFormColorTint(program, formColor);
+        uploadFlatOverlayFog(program, rootInverse);
+    }
+
+    /**
+     * Flat overlay fog: UI disables mask fade; world uses baked-root FogMat when available.
+     */
+    private static void uploadFlatOverlayFog(ShaderProgram program, Matrix4f rootInverse)
+    {
+        if (program == null)
+        {
+            return;
+        }
+
+        if (!BBSRendering.isRenderingWorld())
+        {
+            ModelVAORenderer.uploadCpuBakedVertexFog(program, null);
+            ModelVAORenderer.bindFlatOverlayFogUniforms(program);
+
+            return;
+        }
+
+        Matrix4f bakedRoot = null;
+
+        if (rootInverse != null)
+        {
+            bakedRoot = MatrixStackUtils.invertFormRootMatrixForOverlay(rootInverse);
+        }
+
+        ModelVAORenderer.uploadCpuBakedVertexFog(program, bakedRoot);
         ModelVAORenderer.bindFlatOverlayFogUniforms(program);
     }
 

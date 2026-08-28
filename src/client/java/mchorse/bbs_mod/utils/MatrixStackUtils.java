@@ -24,6 +24,7 @@ public class MatrixStackUtils
     private static Matrix4f oldProjection = new Matrix4f();
     private static Matrix4f oldMV = new Matrix4f();
     private static Matrix3f oldInverse = new Matrix3f();
+    private static final Matrix4f tempInverseViewRotation4 = new Matrix4f();
     private static final Quaternionf tempQuaternion = new Quaternionf();
     /* Near-zero axis scale collapses ModelView; Iris then rebuilds normals from a singular
      * inverse-transpose and lit meshes go solid black. Keep a tiny thickness for lighting. */
@@ -96,6 +97,15 @@ public class MatrixStackUtils
                 dest.rotateZ(-MathUtils.toRad(rollDeg));
             }
         }
+    }
+
+    /**
+     * {@link RenderSystem#getInverseViewRotationMatrix()} with BBS film/orbit roll applied.
+     */
+    public static void loadInverseViewRotationMatrix3(Matrix3f dest)
+    {
+        loadInverseViewRotationMatrix4(MatrixStackUtils.tempInverseViewRotation4);
+        dest.set(MatrixStackUtils.tempInverseViewRotation4);
     }
 
     /**
@@ -191,6 +201,78 @@ public class MatrixStackUtils
         while (guard-- > 0 && !stack.isEmpty() && stack.peek() != parent)
         {
             stack.pop();
+        }
+    }
+
+    /**
+     * Safe inverse for form-root / overlay mask uniforms. Singular stacks (zero scale,
+     * degenerate UI transforms) fall back to identity instead of NaN uniforms.
+     */
+    public static Matrix4f invertMatrix4f(Matrix4f matrix)
+    {
+        Matrix4f inverse = new Matrix4f(matrix);
+
+        if (Math.abs(inverse.determinant()) > 1.0E-8F)
+        {
+            inverse.invert();
+        }
+        else
+        {
+            inverse.identity();
+        }
+
+        return inverse;
+    }
+
+    public static void invertMatrix4f(Matrix4f matrix, Matrix4f dest)
+    {
+        dest.set(matrix);
+
+        if (Math.abs(dest.determinant()) > 1.0E-8F)
+        {
+            dest.invert();
+        }
+        else
+        {
+            dest.identity();
+        }
+    }
+
+    /**
+     * Form-root inverse for paint / color-mask overlay shaders. Flat billboards and labels
+     * often collapse an axis (det ≈ 0); a plain {@link #invertMatrix4f} then falls back to
+     * identity and spatial masks never match {@code formRootPos}.
+     */
+    public static Matrix4f invertFormRootMatrixForOverlay(Matrix4f matrix)
+    {
+        Matrix4f inverse = new Matrix4f();
+
+        invertFormRootMatrixForOverlay(matrix, inverse);
+
+        return inverse;
+    }
+
+    public static void invertFormRootMatrixForOverlay(Matrix4f matrix, Matrix4f dest)
+    {
+        dest.set(matrix);
+
+        if (Math.abs(dest.determinant()) > 1.0E-8F)
+        {
+            dest.invert();
+
+            return;
+        }
+
+        /* Rotation + translation only — enough for XY spatial masks on flat forms. */
+        dest.set(stripScale(matrix));
+
+        if (Math.abs(dest.determinant()) > 1.0E-8F)
+        {
+            dest.invert();
+        }
+        else
+        {
+            dest.identity();
         }
     }
 

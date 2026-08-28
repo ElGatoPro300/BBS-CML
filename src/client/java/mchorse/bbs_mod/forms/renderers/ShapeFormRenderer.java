@@ -1142,7 +1142,7 @@ public class ShapeFormRenderer extends FormRenderer<ShapeForm>
         this.overlayVertexMode = OverlayVertexMode.PAINT;
         this.overlayTransform = paintTransform;
 
-        Matrix4f formRootInverse = new Matrix4f(stack.peek().getPositionMatrix()).invert();
+        Matrix4f formRootInverse = MatrixStackUtils.invertFormRootMatrixForOverlay(stack.peek().getPositionMatrix());
         Vector3f maskHalf = new Vector3f();
 
         EffectTransformMath.resolveBillboardMaskHalfExtents(paintTransform, maskHalf);
@@ -1208,7 +1208,7 @@ public class ShapeFormRenderer extends FormRenderer<ShapeForm>
         this.overlayVertexMode = OverlayVertexMode.COLOR_TINT;
         this.overlayTransform = colorTransform;
 
-        Matrix4f formRootInverse = new Matrix4f(stack.peek().getPositionMatrix()).invert();
+        Matrix4f formRootInverse = MatrixStackUtils.invertFormRootMatrixForOverlay(stack.peek().getPositionMatrix());
         Vector3f maskHalf = new Vector3f();
 
         EffectTransformMath.resolveBillboardMaskHalfExtents(colorTransform, maskHalf);

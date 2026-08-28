@@ -1196,22 +1196,6 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
         }
     }
 
-    private Matrix4f invertFormRootMatrix(Matrix4f matrix)
-    {
-        Matrix4f inverse = new Matrix4f(matrix);
-
-        if (Math.abs(inverse.determinant()) > 1.0E-8F)
-        {
-            inverse.invert();
-        }
-        else
-        {
-            inverse.identity();
-        }
-
-        return inverse;
-    }
-
     private LabelOverlayLayout resolveLabelOverlayLayout(float x, float y, float w, float h, List<LabelTextTintQuadCapture.GlyphQuad> quads)
     {
         /* Glyph AABB can extend past layout metrics (descenders, bearings). Keep the mask
@@ -1259,7 +1243,7 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
     {
         Matrix4f tintMatrix = stack.peek().getPositionMatrix();
         MatrixStack.Entry entry = stack.peek();
-        Matrix4f formRootInverse = this.invertFormRootMatrix(tintMatrix);
+        Matrix4f formRootInverse = MatrixStackUtils.invertFormRootMatrixForOverlay(tintMatrix);
 
         EffectTransformMath.resolveBillboardMaskHalfExtents(colorTransform, this.maskHalfExtents, halfX, halfY);
 
@@ -1313,7 +1297,7 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
     {
         Matrix4f paintMatrix = stack.peek().getPositionMatrix();
         MatrixStack.Entry entry = stack.peek();
-        Matrix4f formRootInverse = this.invertFormRootMatrix(paintMatrix);
+        Matrix4f formRootInverse = MatrixStackUtils.invertFormRootMatrixForOverlay(paintMatrix);
 
         EffectTransformMath.resolveBillboardMaskHalfExtents(paintTransform, this.maskHalfExtents, halfX, halfY);
 

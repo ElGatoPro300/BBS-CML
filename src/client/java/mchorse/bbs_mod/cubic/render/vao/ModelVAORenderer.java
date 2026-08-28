@@ -129,6 +129,7 @@ public class ModelVAORenderer
     }
 
     private static DeferredFogSnapshot activeDeferredFog;
+    private static final Matrix3f inverseViewRotationScratch = new Matrix3f();
 
     public static DeferredFogSnapshot captureCurrentFog()
     {
@@ -199,6 +200,29 @@ public class ModelVAORenderer
                 shader.fogShape.set(activeDeferredFog.fogShape);
             }
         }
+        else if (!BBSRendering.isRenderingWorld())
+        {
+            /* UI / editor previews: keep mask strength — do not fade overlays with world fog. */
+            if (shader.fogStart != null)
+            {
+                shader.fogStart.set(0F);
+            }
+
+            if (shader.fogEnd != null)
+            {
+                shader.fogEnd.set(1_000_000F);
+            }
+
+            if (shader.fogColor != null)
+            {
+                shader.fogColor.set(0F, 0F, 0F, 0F);
+            }
+
+            if (shader.fogShape != null)
+            {
+                shader.fogShape.set(0);
+            }
+        }
         else
         {
             if (shader.fogStart != null)
@@ -232,9 +256,11 @@ public class ModelVAORenderer
             shader.modelViewMat.set(RenderSystem.getModelViewMatrix());
         }
 
+        MatrixStackUtils.loadInverseViewRotationMatrix3(inverseViewRotationScratch);
+
         if (shader.viewRotationMat != null)
         {
-            shader.viewRotationMat.set(RenderSystem.getInverseViewRotationMatrix());
+            shader.viewRotationMat.set(inverseViewRotationScratch);
         }
         else
         {
@@ -242,7 +268,7 @@ public class ModelVAORenderer
 
             if (iViewRotUniform != null)
             {
-                iViewRotUniform.set(RenderSystem.getInverseViewRotationMatrix());
+                iViewRotUniform.set(inverseViewRotationScratch);
             }
         }
     }

@@ -11,6 +11,7 @@ in vec3 Normal;
 
 uniform mat4 ModelViewMat;
 uniform mat4 FormRootInverse;
+uniform mat4 FogMat;
 uniform mat4 ProjMat;
 uniform mat3 IViewRotMat;
 uniform int FogShape;
@@ -24,9 +25,10 @@ void main()
 {
     gl_Position = ProjMat * ModelViewMat * vec4(Position, 1.0);
 
-    /* 1.20.4 entity path: live draws use MV × entity-local Position; deferred paint flush
-     * bakes MV × entity into Position with identity ModelViewMat — both map to eye space here. */
-    vertexDistance = fog_distance(ModelViewMat, IViewRotMat * Position, FogShape);
+    /* Flat overlays bake the form matrix into Position; FogMat maps to camera-relative
+     * Y-up for cylindrical fog (same idea as master, 1.20.4 fog_distance signature). */
+    vec3 fogPos = (FogMat * vec4(Position, 1.0)).xyz;
+    vertexDistance = fog_distance(ModelViewMat, fogPos, FogShape);
     vertexColor = Color;
     texCoord0 = UV0;
     formRootPos = (FormRootInverse * vec4(Position, 1.0)).xyz;

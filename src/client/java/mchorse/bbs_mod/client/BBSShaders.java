@@ -154,6 +154,8 @@ public class BBSShaders
         }
     }
 
+    private static boolean overlayShadersLoadRetried;
+
     public static ShaderProgram getModel()
     {
         if (model == null && !modelLoadRetried)
@@ -222,11 +224,23 @@ public class BBSShaders
 
     public static ShaderProgram getBlockColorTintOverlayProgram()
     {
+        if (blockColorTintOverlay == null && !overlayShadersLoadRetried)
+        {
+            overlayShadersLoadRetried = true;
+            setup();
+        }
+
         return blockColorTintOverlay;
     }
 
     public static ShaderProgram getFlatColorTintOverlayProgram()
     {
+        if (flatColorTintOverlay == null && !overlayShadersLoadRetried)
+        {
+            overlayShadersLoadRetried = true;
+            setup();
+        }
+
         return flatColorTintOverlay;
     }
 
