@@ -142,7 +142,7 @@ public class ArmorRenderer
                     this.renderArmorParts(part, matrices, vertexConsumers, light, armorItem, innerModel, 1F, 1F, 1F, null);
                 }
 
-                ArmorTrim trim = entity != null && entity.getWorld() != null ? ArmorTrim.getTrim(entity.getWorld().getRegistryManager(), itemStack).orElse(null) : null;
+                ArmorTrim trim = entity != null && entity.getWorld() != null ? ArmorTrim.getTrim(entity.getWorld().getRegistryManager(), itemStack, true).orElse(null) : null;
                 boolean hasTrim = trim != null;
                 boolean hasGlint = itemStack.hasGlint();
 
@@ -200,7 +200,7 @@ public class ArmorRenderer
     private void renderTrim(ModelPart part, ArmorMaterial material, MatrixStack matrices, VertexConsumerProvider vertexConsumers, int light, ArmorTrim trim, boolean leggings, boolean withGlint)
     {
         Sprite sprite = this.armorTrimsAtlas.getSprite(leggings ? trim.getLeggingsModelId(material) : trim.getGenericModelId(material));
-        VertexConsumer trimConsumer = sprite.getTextureSpecificVertexConsumer(vertexConsumers.getBuffer(TexturedRenderLayers.getArmorTrims()));
+        VertexConsumer trimConsumer = sprite.getTextureSpecificVertexConsumer(vertexConsumers.getBuffer(TexturedRenderLayers.getArmorTrims(trim.getPattern().value().decal())));
         VertexConsumer vertexConsumer = withGlint
             ? VertexConsumers.union(trimConsumer, vertexConsumers.getBuffer(RenderLayer.getArmorEntityGlint()))
             : trimConsumer;
