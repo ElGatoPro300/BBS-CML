@@ -56,15 +56,15 @@ public class PlayerEntityMixin
                 PlayerEntity player = (PlayerEntity) (Object) this;
                 EntityDimensions dimensions = info.getReturnValue();
                 float height = form.hitboxHeight.get() * (player.isSneaking() ? form.hitboxSneakMultiplier.get() : 1F);
+                /* 1.21+ stores eye height on EntityDimensions; Camera/F3+B use standingEyeHeight
+                 * from dimensions.eyeHeight(), not Entity.getEyeHeight(pose). fixed/changing()
+                 * only bake the default (~0.85 * height), so form.hitboxEyeHeight must be applied. */
+                float eyeHeight = form.hitboxEyeHeight.get() * height;
+                EntityDimensions shaped = dimensions.fixed()
+                    ? EntityDimensions.fixed(form.hitboxWidth.get(), height)
+                    : EntityDimensions.changing(form.hitboxWidth.get(), height);
 
-                if (dimensions.fixed())
-                {
-                    info.setReturnValue(EntityDimensions.fixed(form.hitboxWidth.get(), height));
-                }
-                else
-                {
-                    info.setReturnValue(EntityDimensions.changing(form.hitboxWidth.get(), height));
-                }
+                info.setReturnValue(shaped.withEyeHeight(eyeHeight));
             }
         }
     }

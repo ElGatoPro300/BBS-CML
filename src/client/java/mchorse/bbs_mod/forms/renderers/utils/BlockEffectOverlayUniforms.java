@@ -360,6 +360,7 @@ public final class BlockEffectOverlayUniforms
             RenderSystem.setShader(program);
             bindFormRootInverse(program, rootInverse);
             bindPaintPrecomputed(program, transform, bottomAnchored, maskHalf);
+            uploadFlatOverlayFog(program, rootInverse);
         }
 
         RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
@@ -636,9 +637,31 @@ public final class BlockEffectOverlayUniforms
             bindFormRootInverse(program, rootInverse);
             bindColorEffectPrecomputed(program, transform, bottomAnchored, maskHalf);
             bindFormColorTint(program, formColor);
+            uploadFlatOverlayFog(program, rootInverse);
         }
 
         RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
+    }
+
+    private static void uploadFlatOverlayFog(ShaderProgram program, Matrix4f rootInverse)
+    {
+        Matrix4f baked = null;
+
+        if (rootInverse != null)
+        {
+            baked = new Matrix4f(rootInverse);
+
+            if (Math.abs(baked.determinant()) > 1.0E-8F)
+            {
+                baked.invert();
+            }
+            else
+            {
+                baked.identity();
+            }
+        }
+
+        ModelVAORenderer.uploadCpuBakedVertexFog(program, baked);
     }
 
     public static void bindColorEffectPrecomputed(ShaderProgram shader, EffectTransform transform, boolean bottomAnchored, Vector3f maskHalf)

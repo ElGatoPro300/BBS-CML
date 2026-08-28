@@ -81,6 +81,28 @@ public class MatrixStackUtils
     }
 
     /**
+     * Allocation-free {@link #getInverseViewRotationMatrix()} into {@code dest}.
+     */
+    public static void loadInverseViewRotationMatrix4(Matrix4f dest)
+    {
+        Camera camera = MinecraftClient.getInstance().gameRenderer.getCamera();
+
+        dest.rotation(camera.getRotation().conjugate(MatrixStackUtils.tempQuaternion));
+
+        CameraController controller = BBSModClient.getCameraController();
+
+        if (controller.getCurrent() != null)
+        {
+            float rollDeg = controller.getRoll();
+
+            if (Math.abs(rollDeg) > 1.0E-4F)
+            {
+                dest.rotateZ(-MathUtils.toRad(rollDeg));
+            }
+        }
+    }
+
+    /**
      * View rotation matrix paired with {@link #getInverseViewRotationMatrix()}.
      */
     public static Matrix4f getViewRotationMatrix()
