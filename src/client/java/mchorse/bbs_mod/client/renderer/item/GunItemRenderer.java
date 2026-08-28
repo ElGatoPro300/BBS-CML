@@ -14,25 +14,25 @@ import mchorse.bbs_mod.ui.model_blocks.UIModelBlockEditorMenu;
 import mchorse.bbs_mod.utils.MatrixStackUtils;
 import mchorse.bbs_mod.utils.pose.Transform;
 
+import net.fabricmc.fabric.api.client.rendering.v1.BuiltinItemRendererRegistry;
+
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.render.DiffuseLighting;
 import net.minecraft.client.render.LightmapTextureManager;
-import net.minecraft.client.render.command.OrderedRenderCommandQueue;
-import net.minecraft.client.render.item.model.special.SpecialModelRenderer;
+import net.minecraft.client.render.VertexConsumerProvider;
+import net.minecraft.client.render.model.json.ModelTransformationMode;
 import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.item.ItemDisplayContext;
 import net.minecraft.item.ItemStack;
 
-import org.joml.Vector3fc;
+import org.joml.Vector3f;
 
-import com.mojang.serialization.MapCodec;
+import com.mojang.blaze3d.systems.RenderSystem;
 
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
-import java.util.function.Consumer;
 
-public class GunItemRenderer implements SpecialModelRenderer<ItemStack>
+public class GunItemRenderer implements BuiltinItemRendererRegistry.DynamicItemRenderer
 {
     private Map<ItemStack, Item> map = new HashMap<>();
 
@@ -56,20 +56,9 @@ public class GunItemRenderer implements SpecialModelRenderer<ItemStack>
     }
 
     @Override
-    public ItemStack getData(ItemStack stack)
+    public void render(ItemStack stack, ModelTransformationMode mode, MatrixStack matrices, VertexConsumerProvider vertexConsumers, int light, int overlay)
     {
-        return stack;
-    }
-
-    @Override
-    public void collectVertices(Consumer<Vector3fc> consumer)
-    {
-    }
-
-    @Override
-    public void render(ItemStack data, ItemDisplayContext mode, MatrixStack matrices, OrderedRenderCommandQueue queue, int light, int overlay, boolean hasGlint, int outlineColor)
-    {
-        Item item = this.get(data);
+        Item item = this.get(stack);
 
         if (item != null)
         {
@@ -99,20 +88,14 @@ public class GunItemRenderer implements SpecialModelRenderer<ItemStack>
                 matrices.translate(0.5F, 0F, 0.5F);
                 MatrixStackUtils.applyTransform(matrices, transform);
 
-                if (mode == ItemDisplayContext.GUI)
-                {
-                    MinecraftClient.getInstance().gameRenderer.getDiffuseLighting().setShaderLights(DiffuseLighting.Type.ITEMS_3D);
-                }
+                RenderSystem.enableDepthTest();
 
                 int maxLight = LightmapTextureManager.MAX_BLOCK_LIGHT_COORDINATE;
                 FormUtilsClient.render(form, new FormRenderingContext()
-                    .set(FormRenderType.fromModelMode(mode), item.formEntity, matrices, maxLight, overlay, MinecraftClient.getInstance().getRenderTickCounter().getTickProgress(false))
+                    .set(FormRenderType.fromModelMode(mode), item.formEntity, matrices, maxLight, overlay, MinecraftClient.getInstance().getTickDelta())
                     .camera(MinecraftClient.getInstance().gameRenderer.getCamera()));
 
-                if (mode == ItemDisplayContext.GUI)
-                {
-                    MinecraftClient.getInstance().gameRenderer.getDiffuseLighting().setShaderLights(DiffuseLighting.Type.ITEMS_FLAT);
-                }
+                RenderSystem.disableDepthTest();
 
                 matrices.pop();
             }
@@ -136,23 +119,6 @@ public class GunItemRenderer implements SpecialModelRenderer<ItemStack>
         this.map.put(stack, item);
 
         return item;
-    }
-
-    public static class Unbaked implements SpecialModelRenderer.Unbaked
-    {
-        public static final MapCodec<Unbaked> CODEC = MapCodec.unit(new Unbaked());
-
-        @Override
-        public MapCodec<Unbaked> getCodec()
-        {
-            return CODEC;
-        }
-
-        @Override
-        public SpecialModelRenderer<?> bake(SpecialModelRenderer.BakeContext context)
-        {
-            return BBSModClient.getGunItemRenderer();
-        }
     }
 
     public static class Item

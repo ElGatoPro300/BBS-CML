@@ -1,6 +1,5 @@
 package mchorse.bbs_mod.forms.renderers.utils;
 
-import mchorse.bbs_mod.BBSModClient;
 import mchorse.bbs_mod.client.BBSRendering;
 import mchorse.bbs_mod.client.BBSShaders;
 import mchorse.bbs_mod.cubic.render.vao.IModelVAO;
@@ -12,23 +11,21 @@ import mchorse.bbs_mod.forms.forms.utils.EffectTransform;
 import mchorse.bbs_mod.forms.forms.utils.EffectTransformMath;
 import mchorse.bbs_mod.forms.forms.utils.GlowSettings;
 import mchorse.bbs_mod.forms.renderers.FormRenderingContext;
-import mchorse.bbs_mod.resources.Link;
+import mchorse.bbs_mod.utils.MatrixStackUtils;
 import mchorse.bbs_mod.utils.colors.Color;
 
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.render.GameRenderer;
 import net.minecraft.client.render.LightmapTextureManager;
 import net.minecraft.client.render.VertexConsumerProvider;
-import net.minecraft.client.texture.SpriteAtlasTexture;
 import net.minecraft.client.util.math.MatrixStack;
+import net.minecraft.screen.PlayerScreenHandler;
 import net.minecraft.util.math.BlockPos;
 
 import org.joml.Matrix3f;
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
 
-import com.mojang.blaze3d.opengl.GlStateManager;
-import com.mojang.blaze3d.pipeline.RenderPipeline;
 import com.mojang.blaze3d.systems.RenderSystem;
 
 import org.lwjgl.opengl.GL11;
@@ -159,6 +156,11 @@ public class StructureFormOverlayRenderer
 
     private void runStructureBlocksGlowOverlay(GlowSettings glowSettings, Color legacyGlow, float alpha, float glowIntensity, int layers, Runnable draw)
     {
+        if (draw == null)
+        {
+            return;
+        }
+
         CustomVertexConsumerProvider consumers = FormUtilsClient.getProvider();
         int savedDepthFunc = GL11.glGetInteger(GL11.GL_DEPTH_FUNC);
         boolean savedDepthMask = GL11.glGetBoolean(GL11.GL_DEPTH_WRITEMASK);
@@ -166,14 +168,14 @@ public class StructureFormOverlayRenderer
         Color glowColor = FormColorEffects.resolveGlowOverlayEmissionColor(glowSettings, legacyGlow, alpha, glowIntensity);
         float shaderScale = FormColorEffects.resolveGlowOverlayShaderScale(glowIntensity);
 
-        GlStateManager._enableBlend();
-        GlStateManager._blendFuncSeparate(GL11.GL_SRC_ALPHA, GL11.GL_ONE, 1, 0);
-        GlStateManager._enableDepthTest();
-        GlStateManager._depthFunc(GL11.GL_LEQUAL);
-        GlStateManager._depthMask(false);
+        RenderSystem.enableBlend();
+        RenderSystem.blendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE);
+        RenderSystem.enableDepthTest();
+        RenderSystem.depthFunc(GL11.GL_LEQUAL);
+        RenderSystem.depthMask(false);
         GL11.glEnable(GL11.GL_POLYGON_OFFSET_FILL);
         GL11.glPolygonOffset(-1F, -1F);
-        // RenderSystem.setShaderColor(shaderScale, shaderScale, shaderScale, 1F);
+        RenderSystem.setShaderColor(shaderScale, shaderScale, shaderScale, 1F);
 
         try
         {
@@ -184,9 +186,9 @@ public class StructureFormOverlayRenderer
         finally
         {
             consumers.setSubstitute(null);
-            // RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
-            GlStateManager._depthMask(savedDepthMask);
-            GlStateManager._depthFunc(savedDepthFunc);
+            RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
+            RenderSystem.depthMask(savedDepthMask);
+            RenderSystem.depthFunc(savedDepthFunc);
 
             if (savedPolygonOffsetFill)
             {
@@ -197,7 +199,7 @@ public class StructureFormOverlayRenderer
                 GL11.glDisable(GL11.GL_POLYGON_OFFSET_FILL);
             }
 
-            GlStateManager._blendFuncSeparate(770, 771, 1, 0);
+            RenderSystem.defaultBlendFunc();
         }
     }
 
@@ -259,42 +261,48 @@ public class StructureFormOverlayRenderer
     private void renderStructureVaoPaintOverlay(StructureData data, IModelVAO vao, MatrixStack stack, Color tint, Color paintOverlay, int light, int overlay, EffectTransform transform)
     {
         GameRenderer gameRenderer = MinecraftClient.getInstance().gameRenderer;
-        Matrix4f formRootInverse = new Matrix4f(stack.peek().getPositionMatrix()).invert();
+        Matrix4f formRootInverse = MatrixStackUtils.invertFormRootMatrixForOverlay(stack.peek().getPositionMatrix());
         Vector3f paintMaskHalf = new Vector3f();
 
         this.resolveStructureMaskHalf(data, transform, paintMaskHalf);
 
-        // MinecraftClient.getInstance().gameRenderer.getLightmapTextureManager().enable();
-        // MinecraftClient.getInstance().gameRenderer.getOverlayTexture().setupOverlayColor();
+        gameRenderer.getLightmapTextureManager().enable();
+        gameRenderer.getOverlayTexture().setupOverlayColor();
 
         try
         {
             this.clearVaoColorTint();
             ModelVAORenderer.beginPaintOverlayPass(false);
-            GL11.glPolygonOffset(-1F, -2F);
+            GL11.glPolygonOffset(FlatPaintOverlayPass.POLYGON_OFFSET_FACTOR, FlatPaintOverlayPass.POLYGON_OFFSET_UNITS);
             ModelVAORenderer.setPaint(paintOverlay.r, paintOverlay.g, paintOverlay.b, paintOverlay.a);
             ModelVAORenderer.setPaintEffectTransform(formRootInverse, transform, paintMaskHalf, true);
-            BBSModClient.getTextures().bindTexture(new Link(SpriteAtlasTexture.BLOCK_ATLAS_TEXTURE.getNamespace(), SpriteAtlasTexture.BLOCK_ATLAS_TEXTURE.getPath()));
-            GlStateManager._enableBlend();
-            GlStateManager._blendFuncSeparate(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA, 1, 0);
-            GlStateManager._depthMask(false);
+            RenderSystem.setShader(BBSShaders::getModel);
+            RenderSystem.setShaderTexture(0, PlayerScreenHandler.BLOCK_ATLAS_TEXTURE);
+            RenderSystem.enableBlend();
+            RenderSystem.blendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
+            RenderSystem.depthMask(false);
             ModelVAORenderer.render(BBSShaders.getModel(), vao, stack, tint.r, tint.g, tint.b, tint.a, light, overlay);
         }
         finally
         {
-            GlStateManager._depthMask(true);
+            RenderSystem.depthMask(true);
             ModelVAORenderer.clearPaintEffectTransform();
             ModelVAORenderer.endPaintOverlayPass();
             this.clearVaoPaint();
-            // MinecraftClient.getInstance().gameRenderer.getLightmapTextureManager().disable();
-            // MinecraftClient.getInstance().gameRenderer.getOverlayTexture().teardownOverlayColor();
+            gameRenderer.getLightmapTextureManager().disable();
+            gameRenderer.getOverlayTexture().teardownOverlayColor();
         }
     }
 
     private void runStructureBlocksPaintOverlay(StructureData data, Color paintOverlay, MatrixStack stack, EffectTransform transform, GlowSettings glowSettings, Color legacyGlow, float glowIntensity, float alpha, Runnable draw)
     {
+        if (draw == null)
+        {
+            return;
+        }
+
         CustomVertexConsumerProvider consumers = FormUtilsClient.getProvider();
-        Matrix4f formRootInverse = new Matrix4f(stack.peek().getPositionMatrix()).invert();
+        Matrix4f formRootInverse = MatrixStackUtils.invertFormRootMatrixForOverlay(stack.peek().getPositionMatrix());
         int savedDepthFunc = GL11.glGetInteger(GL11.GL_DEPTH_FUNC);
         boolean savedDepthMask = GL11.glGetBoolean(GL11.GL_DEPTH_WRITEMASK);
         boolean savedPolygonOffsetFill = GL11.glGetBoolean(GL11.GL_POLYGON_OFFSET_FILL);
@@ -305,13 +313,13 @@ public class StructureFormOverlayRenderer
         this.resolveStructureMaskSize(data, structureSize);
         CustomVertexConsumerProvider.hijackVertexFormat((l) -> BlockEffectOverlayUniforms.configurePaintOverlayRenderStateStructure(formRootInverse, transform, true, glowSettings, legacyGlow, glowIntensity, alpha, structureSize.x, structureSize.y, structureSize.z));
 
-        GlStateManager._enableBlend();
-        GlStateManager._blendFuncSeparate(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA, 1, 0);
-        GlStateManager._enableDepthTest();
-        GlStateManager._depthFunc(GL11.GL_LEQUAL);
-        GlStateManager._depthMask(false);
+        RenderSystem.enableBlend();
+        RenderSystem.blendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
+        RenderSystem.enableDepthTest();
+        RenderSystem.depthFunc(GL11.GL_LEQUAL);
+        RenderSystem.depthMask(false);
         GL11.glEnable(GL11.GL_POLYGON_OFFSET_FILL);
-        GL11.glPolygonOffset(-1F, -2F);
+        GL11.glPolygonOffset(FlatPaintOverlayPass.POLYGON_OFFSET_FACTOR, FlatPaintOverlayPass.POLYGON_OFFSET_UNITS);
 
         consumers.setSubstitute(BBSRendering.getBlockPaintOverlayConsumer(paintOverlay));
 
@@ -323,8 +331,8 @@ public class StructureFormOverlayRenderer
         finally
         {
             consumers.setSubstitute(null);
-            GlStateManager._depthMask(savedDepthMask);
-            GlStateManager._depthFunc(savedDepthFunc);
+            RenderSystem.depthMask(savedDepthMask);
+            RenderSystem.depthFunc(savedDepthFunc);
             GL11.glPolygonOffset(0F, 0F);
 
             if (savedPolygonOffsetFill)
@@ -336,7 +344,7 @@ public class StructureFormOverlayRenderer
                 GL11.glDisable(GL11.GL_POLYGON_OFFSET_FILL);
             }
 
-            // RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
+            RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
             CustomVertexConsumerProvider.clearRunnables();
         }
     }
@@ -345,9 +353,9 @@ public class StructureFormOverlayRenderer
     {
         Color stored = form.color.get();
 
-        if (stored != null && stored.hasColorAdjustments())
+        if (stored != null && (stored.hasColorAdjustments() || stored.hasActiveTransform()))
         {
-            Color tint = stored.copyDeferringColorGrade();
+            Color tint = stored.hasColorAdjustments() ? stored.copyDeferringColorGrade() : stored.copy();
 
             if (formColor != null && formColor.transform != null)
             {
@@ -359,18 +367,19 @@ public class StructureFormOverlayRenderer
             }
 
             form.applyFormOpacity(tint);
+
             return tint;
         }
 
         return formColor;
     }
 
-    public void renderStructureColorTintOverlay(StructureData data, StructureForm form, FormRenderingContext context, MatrixStack stack, Color formColor, float alpha, int overlay, boolean optimize, boolean useEntityLayers, boolean includeVao, Consumer<StructurePaintLayer> layerDraw, Runnable culledWorldDraw)
+    public void renderStructureColorTintOverlay(StructureData data, StructureForm form, IModelVAO vao, FormRenderingContext context, MatrixStack stack, Color formColor, float alpha, int overlay, boolean optimize, boolean useEntityLayers, boolean includeVao, Consumer<StructurePaintLayer> layerDraw, Runnable culledWorldDraw)
     {
-        this.renderStructureColorTintOverlayPass(data, form, context, stack, formColor, alpha, overlay, optimize, useEntityLayers, includeVao, layerDraw, culledWorldDraw);
+        this.renderStructureColorTintOverlayPass(data, form, vao, context, stack, formColor, alpha, overlay, optimize, useEntityLayers, includeVao, layerDraw, culledWorldDraw);
     }
 
-    public void submitDeferredStructureColorTintOverlay(StructureData data, StructureForm form, FormRenderingContext context, Color formColor, float alpha, int overlay, boolean optimize, boolean useEntityLayers, Consumer<StructurePaintLayer> layerDraw, Runnable culledWorldDraw)
+    public void submitDeferredStructureColorTintOverlay(StructureData data, StructureForm form, IModelVAO vao, FormRenderingContext context, Color formColor, float alpha, int overlay, boolean optimize, boolean useEntityLayers, Consumer<StructurePaintLayer> layerDraw, Runnable culledWorldDraw)
     {
         Matrix4f positionMatrix = ModelVAORenderer.capturePaintOverlayRootMatrix(new Matrix4f(context.stack.peek().getPositionMatrix()));
         Matrix3f normalMatrix = new Matrix3f(context.stack.peek().getNormalMatrix());
@@ -382,17 +391,25 @@ public class StructureFormOverlayRenderer
             overlayStack.peek().getPositionMatrix().set(positionMatrix);
             overlayStack.peek().getNormalMatrix().set(normalMatrix);
 
-            this.renderStructureColorTintOverlayPass(data, form, context, overlayStack, formColorSnapshot, alpha, overlay, optimize, useEntityLayers, false, layerDraw, culledWorldDraw);
+            this.renderStructureColorTintOverlayPass(data, form, vao, context, overlayStack, formColorSnapshot, alpha, overlay, optimize, useEntityLayers, false, layerDraw, culledWorldDraw);
         });
     }
 
-    private void renderStructureColorTintOverlayPass(StructureData data, StructureForm form, FormRenderingContext context, MatrixStack stack, Color formColor, float alpha, int overlay, boolean optimize, boolean useEntityLayers, boolean includeVao, Consumer<StructurePaintLayer> layerDraw, Runnable culledWorldDraw)
+    private void renderStructureColorTintOverlayPass(StructureData data, StructureForm form, IModelVAO vao, FormRenderingContext context, MatrixStack stack, Color formColor, float alpha, int overlay, boolean optimize, boolean useEntityLayers, boolean includeVao, Consumer<StructurePaintLayer> layerDraw, Runnable culledWorldDraw)
     {
         Color tintUniform = this.resolveStructureColorTintUniform(form, formColor);
+        int light = context == null ? LightmapTextureManager.MAX_LIGHT_COORDINATE : context.light;
 
         if (optimize)
         {
-            this.runStructureBlocksColorTintOverlay(data, form, tintUniform, stack, form.color.get(), culledWorldDraw);
+            if (vao != null && includeVao)
+            {
+                this.renderStructureVaoColorTintOverlay(data, vao, stack, tintUniform, light, overlay);
+            }
+            else if (culledWorldDraw != null)
+            {
+                this.runStructureBlocksColorTintOverlay(data, form, tintUniform, stack, form.color.get(), culledWorldDraw);
+            }
 
             if (data.hasBiomeTintedLayer())
             {
@@ -409,16 +426,60 @@ public class StructureFormOverlayRenderer
                 this.runStructureBlocksColorTintOverlay(data, form, tintUniform, stack, form.color.get(), () -> layerDraw.accept(StructurePaintLayer.TRANSLUCENT));
             }
         }
-        else
+        else if (culledWorldDraw != null)
         {
             this.runStructureBlocksColorTintOverlay(data, form, tintUniform, stack, form.color.get(), culledWorldDraw);
         }
     }
 
+    private void renderStructureVaoColorTintOverlay(StructureData data, IModelVAO vao, MatrixStack stack, Color tintUniform, int light, int overlay)
+    {
+        GameRenderer gameRenderer = MinecraftClient.getInstance().gameRenderer;
+        Matrix4f formRootInverse = MatrixStackUtils.invertFormRootMatrixForOverlay(stack.peek().getPositionMatrix());
+        Vector3f colorMaskHalf = new Vector3f();
+        EffectTransform transform = tintUniform.transform;
+
+        this.resolveStructureMaskHalf(data, transform, colorMaskHalf);
+
+        gameRenderer.getLightmapTextureManager().enable();
+        gameRenderer.getOverlayTexture().setupOverlayColor();
+
+        try
+        {
+            this.clearVaoColorTint();
+            ModelVAORenderer.beginColorTintOverlayPass();
+            GL11.glPolygonOffset(-1F, -2F);
+            ModelVAORenderer.setFormColorTint(tintUniform.r, tintUniform.g, tintUniform.b, tintUniform.a);
+            ModelVAORenderer.setColorEffectTransform(formRootInverse, transform, colorMaskHalf);
+            RenderSystem.setShader(BBSShaders::getModel);
+            RenderSystem.setShaderTexture(0, PlayerScreenHandler.BLOCK_ATLAS_TEXTURE);
+            ModelVAORenderer.render(BBSShaders.getModel(), vao, stack, 1F, 1F, 1F, 1F, light, overlay);
+        }
+        finally
+        {
+            RenderSystem.depthMask(true);
+            ModelVAORenderer.clearColorEffectTransform();
+            ModelVAORenderer.endColorTintOverlayPass();
+            this.clearVaoColorTint();
+            gameRenderer.getLightmapTextureManager().disable();
+            gameRenderer.getOverlayTexture().teardownOverlayColor();
+        }
+    }
+
     private void runStructureBlocksColorTintOverlay(StructureData data, StructureForm form, Color formColor, MatrixStack stack, Color gradeSource, Runnable draw)
     {
+        if (draw == null)
+        {
+            return;
+        }
+
+        if (!BlockEffectOverlayUniforms.hasColorTintOverlayShader())
+        {
+            return;
+        }
+
         CustomVertexConsumerProvider consumers = FormUtilsClient.getProvider();
-        Matrix4f formRootInverse = new Matrix4f(stack.peek().getPositionMatrix()).invert();
+        Matrix4f formRootInverse = MatrixStackUtils.invertFormRootMatrixForOverlay(stack.peek().getPositionMatrix());
         int savedDepthFunc = GL11.glGetInteger(GL11.GL_DEPTH_FUNC);
         boolean savedDepthMask = GL11.glGetBoolean(GL11.GL_DEPTH_WRITEMASK);
         boolean savedPolygonOffsetFill = GL11.glGetBoolean(GL11.GL_POLYGON_OFFSET_FILL);
@@ -429,10 +490,10 @@ public class StructureFormOverlayRenderer
         this.resolveStructureMaskSize(data, structureSize);
         CustomVertexConsumerProvider.hijackVertexFormat((l) -> BlockEffectOverlayUniforms.configureColorTintOverlayRenderStateStructure(formRootInverse, formColor.transform, true, formColor, gradeSource, structureSize.x, structureSize.y, structureSize.z));
 
-        GlStateManager._enableBlend();
-        GlStateManager._enableDepthTest();
-        GlStateManager._depthFunc(GL11.GL_LEQUAL);
-        GlStateManager._depthMask(false);
+        RenderSystem.enableBlend();
+        RenderSystem.enableDepthTest();
+        RenderSystem.depthFunc(GL11.GL_LEQUAL);
+        RenderSystem.depthMask(false);
         GL11.glEnable(GL11.GL_POLYGON_OFFSET_FILL);
         GL11.glPolygonOffset(-1F, -2F);
 
@@ -446,8 +507,8 @@ public class StructureFormOverlayRenderer
         finally
         {
             consumers.setSubstitute(null);
-            GlStateManager._depthMask(savedDepthMask);
-            GlStateManager._depthFunc(savedDepthFunc);
+            RenderSystem.depthMask(savedDepthMask);
+            RenderSystem.depthFunc(savedDepthFunc);
             GL11.glPolygonOffset(0F, 0F);
 
             if (savedPolygonOffsetFill)
@@ -459,8 +520,8 @@ public class StructureFormOverlayRenderer
                 GL11.glDisable(GL11.GL_POLYGON_OFFSET_FILL);
             }
 
-            // RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
-            GlStateManager._blendFuncSeparate(770, 771, 1, 0);
+            RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
+            RenderSystem.defaultBlendFunc();
             CustomVertexConsumerProvider.clearRunnables();
         }
     }

@@ -507,7 +507,7 @@ public class UIImageClip extends UIClip<ImageClip>
         this.panels.add(this.section(UIKeys.CAMERA_PANELS_IMAGE_ANCHOR, UI.row(this.anchorX, this.anchorY)));
         this.panels.add(this.section(UIKeys.CAMERA_PANELS_IMAGE_WINDOW, UI.row(this.windowX, this.windowY)));
         this.panels.add(this.section(UIKeys.CAMERA_PANELS_IMAGE_OPACITY, this.opacity));
-        this.panels.add(this.section(IKey.raw("Opacity Style"), this.blendModeList.h(128)));
+        this.panels.add(this.section(UIKeys.CAMERA_PANELS_IMAGE_OPACITY_STYLE, this.blendModeList.h(128)));
         this.panels.add(this.section(UIKeys.SCREEN_PANELS_KEYFRAMES, this.useKeyframes, this.edit));
     }
 

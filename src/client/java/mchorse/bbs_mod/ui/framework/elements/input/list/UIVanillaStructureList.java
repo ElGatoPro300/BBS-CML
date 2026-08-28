@@ -8,9 +8,10 @@ import mchorse.bbs_mod.utils.colors.Colors;
 
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.nbt.NbtCompound;
+import net.minecraft.nbt.NbtElement;
 import net.minecraft.nbt.NbtIo;
 import net.minecraft.nbt.NbtList;
-import net.minecraft.nbt.NbtSizeTracker;
+import net.minecraft.nbt.NbtTagSizeTracker;
 import net.minecraft.resource.Resource;
 import net.minecraft.resource.ResourceManager;
 import net.minecraft.util.Identifier;
@@ -130,19 +131,19 @@ public class UIVanillaStructureList extends UIStringList
                     try (InputStream is = entry.getValue().get(0).getInputStream();
                          DataInputStream dis = new DataInputStream(is))
                     {
-                        NbtCompound nbt = NbtIo.readCompressed(dis, NbtSizeTracker.ofUnlimitedBytes());
+                        NbtCompound nbt = NbtIo.readCompressed(dis);
 
                         if (nbt.contains("size"))
                         {
-                            NbtList sizeList = nbt.getList("size").orElse(new NbtList());
-                            info.sizeX = sizeList.getInt(0).orElse(0);
-                            info.sizeY = sizeList.getInt(1).orElse(0);
-                            info.sizeZ = sizeList.getInt(2).orElse(0);
+                            NbtList sizeList = nbt.getList("size", NbtElement.INT_TYPE);
+                            info.sizeX = sizeList.getInt(0);
+                            info.sizeY = sizeList.getInt(1);
+                            info.sizeZ = sizeList.getInt(2);
                         }
 
                         if (nbt.contains("blocks"))
                         {
-                            info.blockCount = nbt.getList("blocks").orElse(new NbtList()).size();
+                            info.blockCount = nbt.getList("blocks", NbtElement.COMPOUND_TYPE).size();
                         }
                     }
                 }

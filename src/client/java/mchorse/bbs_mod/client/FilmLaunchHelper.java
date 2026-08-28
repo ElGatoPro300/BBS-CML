@@ -53,6 +53,16 @@ public class FilmLaunchHelper
             return;
         }
 
+        MinecraftClient.getInstance().execute(() -> FilmLaunchHelper.openFilmNow(filmId));
+    }
+
+    public static void openFilmNow(String filmId)
+    {
+        if (filmId == null || filmId.trim().isEmpty())
+        {
+            return;
+        }
+
         UIDashboard dashboard = BBSModClient.getDashboard();
 
         UIScreen.open(dashboard);
@@ -70,6 +80,11 @@ public class FilmLaunchHelper
         {
             dashboard.documentTabsBar.closeCrossWorldFilmTabs(filmId);
             dashboard.documentTabsBar.addOrActivate(ContentType.FILMS, filmId);
+        }
+
+        if (panel != null && (panel.getData() == null || !filmId.equals(panel.getData().getId())))
+        {
+            panel.pickData(filmId);
         }
     }
 }

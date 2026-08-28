@@ -17,6 +17,7 @@ import mchorse.bbs_mod.client.CrossWorldFilmLoader;
 import mchorse.bbs_mod.client.CrossWorldFilmScanner;
 import mchorse.bbs_mod.client.FilmLaunchHelper;
 import mchorse.bbs_mod.client.WorldLaunchHelper;
+import mchorse.bbs_mod.client.compat.HdrModCompat;
 import mchorse.bbs_mod.client.renderer.MorphRenderer;
 import mchorse.bbs_mod.client.video.VideoRenderer;
 import mchorse.bbs_mod.data.DataToString;
@@ -35,7 +36,6 @@ import mchorse.bbs_mod.film.RecordingPauseHelper;
 import mchorse.bbs_mod.film.replays.Replay;
 import mchorse.bbs_mod.forms.FormUtils;
 import mchorse.bbs_mod.forms.forms.Form;
-import mchorse.bbs_mod.graphics.GuiQuadMesh;
 import mchorse.bbs_mod.graphics.texture.Texture;
 import mchorse.bbs_mod.graphics.window.Window;
 import mchorse.bbs_mod.l10n.L10n;
@@ -119,15 +119,19 @@ import mchorse.bbs_mod.utils.keyframes.KeyframeSegment;
 import mchorse.bbs_mod.utils.presets.PresetManager;
 import mchorse.bbs_mod.utils.resources.Pixels;
 
-import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderContext;
+import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
 
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.network.ClientPlayerEntity;
+import net.minecraft.client.render.BufferBuilder;
+import net.minecraft.client.render.BufferRenderer;
 import net.minecraft.client.render.GameRenderer;
+import net.minecraft.client.render.Tessellator;
+import net.minecraft.client.render.VertexFormat;
+import net.minecraft.client.render.VertexFormats;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.util.math.Vec3d;
 
-import org.joml.Matrix3x2fc;
 import org.joml.Matrix4f;
 import org.joml.Vector2i;
 import org.joml.Vector3d;
@@ -220,6 +224,7 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
     private Timer flightEditTime = new Timer(100);
 
     private List<UIElement> panels = new ArrayList<>();
+    private int currentPanelIndex;
     private UIFilmFullscreenPlaybackBar fullscreenPlaybackBar;
 
     private boolean newFilm;
@@ -886,7 +891,7 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
         {
             this.showPanel(MathUtils.cycler(this.getPanelIndex() + (Window.isShiftPressed() ? -1 : 1), this.panels));
             UIUtils.playClick();
-        }).active(active).category(editor);
+        }).allowShift().active(active).category(editor);
 
         /* E over the camera timeline: open the keyframe editor of the selected clip */
         this.keys().register(Keys.FORMS_EDIT, () ->
@@ -4401,26 +4406,82 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
         }
     }
 
+    public String getPanelId(UIElement element)
+    {
+        if (element == null)
+        {
+            return null;
+        }
+
+        for (Map.Entry<String, UIElement> entry : this.panelById.entrySet())
+        {
+            if (entry.getValue() == element)
+            {
+                return entry.getKey();
+            }
+        }
+
+        return null;
+    }
+
     public int getPanelIndex()
     {
+        if (this.currentPanelIndex >= 0 && this.currentPanelIndex < this.panels.size() && this.panels.get(this.currentPanelIndex).isVisible())
+        {
+            return this.currentPanelIndex;
+        }
+
         for (int i = 0; i < this.panels.size(); i++)
         {
             if (this.panels.get(i).isVisible())
             {
+                this.currentPanelIndex = i;
+
                 return i;
             }
         }
 
-        return -1;
+        return this.currentPanelIndex >= 0 && this.currentPanelIndex < this.panels.size() ? this.currentPanelIndex : 0;
     }
 
     public void showPanel(int index)
     {
-        this.showPanel(this.panels.get(index));
+        if (index >= 0 && index < this.panels.size())
+        {
+            this.showPanel(this.panels.get(index));
+        }
     }
 
     public void showPanel(UIElement element)
     {
+        if (element == null)
+        {
+            return;
+        }
+
+        String panelId = this.getPanelId(element);
+
+        if (panelId != null)
+        {
+            this.hiddenPanels.remove(panelId);
+
+            EditorLayoutNode root = BBSSettings.editorLayoutSettings.getFilmLayoutRoot();
+
+            if (root != null && this.selectPanelInTabbedNode(root, panelId))
+            {
+                BBSSettings.editorLayoutSettings.setFilmLayoutRoot(root);
+            }
+
+            this.syncLinkedPropertiesTab(panelId);
+        }
+
+        int index = this.panels.indexOf(element);
+
+        if (index >= 0)
+        {
+            this.currentPanelIndex = index;
+        }
+
         element.setVisible(true);
 
         if (this.isFlying())
@@ -5561,7 +5622,13 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
     @Override
     public boolean needsBackground()
     {
-        return false;
+        if (this.isCrossWorldPreviewInForeignWorld())
+        {
+            return true;
+        }
+
+        /* HDR Mod presents the film offscreen world full-screen; opaque chrome covers the bleed. */
+        return HdrModCompat.isHdrPresentationActive();
     }
 
     @Override
@@ -5683,6 +5750,11 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
 
     public boolean needsViewportRender()
     {
+        if (this.isCrossWorldPreviewInForeignWorld())
+        {
+            return false;
+        }
+
         return this.data != null && !this.showingHomePage && this.preview != null && this.preview.isVisible();
     }
 
@@ -5930,11 +6002,12 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
             }
         }
 
-        if (data != null)
+        if (data != null && !this.isCrossWorldPreviewInForeignWorld())
         {
             this.notifyServer(ActionState.RESTART);
         }
 
+        this.syncViewportRenderMode();
         this.syncActiveDocumentTabWithData(data);
         RegisterFilmSyncEvent.postOpenFilm(data);
     }
@@ -5989,7 +6062,16 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
         this.cameraEditor.pickClip(null);
 
         this.fillData();
-        this.controller.createEntities();
+        this.syncViewportRenderMode();
+
+        if (this.isCrossWorldPreviewInForeignWorld())
+        {
+            this.controller.clearEntities();
+        }
+        else
+        {
+            this.controller.createEntities();
+        }
 
         if (this.newFilm)
         {
@@ -6408,7 +6490,7 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
 
         if (player != null)
         {
-            String name = player.getGameProfile().name();
+            String name = player.getGameProfile().getName();
             FilmContributor contributor = null;
 
             for (FilmContributor c : this.data.contributors.getList())
@@ -6828,8 +6910,8 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
 
         if (!BBSRendering.isIrisShadowPass())
         {
-            this.lastProjection.set(BBSRendering.camera);
-            MatrixStack ms = context.matrices();
+            this.lastProjection.set(RenderSystem.getProjectionMatrix());
+            MatrixStack ms = context.matrixStack();
             if (ms != null)
             {
                 this.lastView.set(ms.peek().getPositionMatrix());
@@ -7289,14 +7371,7 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
             return false;
         }
 
-        MinecraftClient client = MinecraftClient.getInstance();
-
-        if (client.world != null && client.player != null)
-        {
-            return false;
-        }
-
-        return !WorldLaunchHelper.isCurrentWorld(client, entry.worldFolder);
+        return !WorldLaunchHelper.isCurrentWorld(MinecraftClient.getInstance(), entry.worldFolder);
     }
 
     private CrossWorldFilmEntry resolveCrossWorldEntryFromTab(String tabId)
@@ -7328,6 +7403,16 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
         CrossWorldFilmLoader.load(entry.worldFolder, entry.filmId, (film) -> this.fill(film));
     }
 
+    private boolean isCrossWorldPreviewInForeignWorld()
+    {
+        if (this.crossWorldPendingJoin == null)
+        {
+            return false;
+        }
+
+        return !WorldLaunchHelper.isCurrentWorld(MinecraftClient.getInstance(), this.crossWorldPendingJoin.worldFolder);
+    }
+
     public boolean canShowJoinWorld()
     {
         if (this.crossWorldPendingJoin == null || this.crossWorldPendingJoin.filmId.endsWith("/"))
@@ -7341,11 +7426,6 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
         }
 
         MinecraftClient client = MinecraftClient.getInstance();
-
-        if (client.world != null && client.player != null)
-        {
-            return false;
-        }
 
         return !WorldLaunchHelper.isCurrentWorld(client, this.crossWorldPendingJoin.worldFolder);
     }
@@ -7454,7 +7534,7 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
                     this.crossWorldPendingJoin = this.shouldSetPendingJoin(entry) ? entry : null;
                     this.crossWorldFilmEntries.put(entry.encodeKey(), entry);
                     this.crossWorldWorldLabels.put(entry.worldFolder, entry.worldLabel);
-                    this.openFilmInDocumentTabs(entry.encodeKey());
+                    FilmLaunchHelper.openCrossWorldFilm(entry);
                 }
             }
             else
@@ -7838,91 +7918,96 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
         int segments = 40;
         float segW = editorW / (float) segments;
         
-        GuiQuadMesh mesh = new GuiQuadMesh();
-        Matrix3x2fc matrix = context.batcher.getContext().getMatrices();
-
+        Matrix4f matrix4f = context.batcher.getContext().getMatrices().peek().getPositionMatrix();
+        Tessellator tessellator = Tessellator.getInstance();
+        BufferBuilder builder = tessellator.getBuffer();
+        builder.begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_COLOR);
+        
+        RenderSystem.enableBlend();
+        RenderSystem.setShader(GameRenderer::getPositionColorProgram);
+        
         float[] yBot1 = new float[segments + 1];
         float[] yMid1 = new float[segments + 1];
         int[] cMid1 = new int[segments + 1];
-
+        
         float[] yBot2 = new float[segments + 1];
         float[] yMid2 = new float[segments + 1];
         int[] cMid2 = new int[segments + 1];
-
+        
         for (int i = 0; i <= segments; i++)
         {
             float nx = (float) i / segments;
-
+            
             float w1 = (float) Math.sin(tick * 1.2F + nx * 8F);
             float w2 = (float) Math.sin(tick * 0.7F + nx * 15F);
             float w3 = (float) Math.cos(tick * 0.4F - nx * 12F);
             float comb1 = (w1 + w2 + w3) / 3F;
-
+            
             float curtainYTop = editorY + editorH * 0.05F;
             float curtainYBot = editorY + editorH * 0.5F + comb1 * (editorH * 0.35F);
-
+            
             if (curtainYBot < curtainYTop + 10) curtainYBot = curtainYTop + 10;
-
+            
             float transitionY = curtainYBot - editorH * 0.3F;
             if (transitionY < curtainYTop) transitionY = curtainYTop;
-
+            
             yBot1[i] = curtainYBot;
             yMid1[i] = transitionY;
             cMid1[i] = Colors.setA(primary, 0.15F + Math.max(0, comb1) * 0.2F);
-
+            
             float w4 = (float) Math.sin(tick * 1.5F - nx * 10F);
             float w5 = (float) Math.cos(tick * 0.9F + nx * 18F);
             float comb2 = (w4 + w5) / 2F;
-
+            
             float curtain2YTop = editorY + editorH * 0.15F;
             float curtain2YBot = editorY + editorH * 0.75F + comb2 * (editorH * 0.25F);
-
+            
             if (curtain2YBot < curtain2YTop + 10) curtain2YBot = curtain2YTop + 10;
-
+            
             float transition2Y = curtain2YBot - editorH * 0.25F;
             if (transition2Y < curtain2YTop) transition2Y = curtain2YTop;
-
+            
             yBot2[i] = curtain2YBot;
             yMid2[i] = transition2Y;
             cMid2[i] = Colors.setA(Colors.mulRGB(primary, 0.8F), 0.1F + Math.max(0, comb2) * 0.15F);
         }
-
+        
         int colTop = Colors.setA(primary, 0.0F);
         int colBot = Colors.setA(primary, 0.0F);
         float yTop1 = editorY + editorH * 0.05F;
         float yTop2 = editorY + editorH * 0.15F;
-
+        
         for (int i = 0; i < segments; i++)
         {
             float x1 = editorX + i * segW;
             float x2 = editorX + (i + 1) * segW;
-
-            /* Layer 1 - Upper Quad (yTop1 -> yMid1) */
-            mesh.vertex(matrix, x1, yTop1).color(colTop);
-            mesh.vertex(matrix, x1, yMid1[i]).color(cMid1[i]);
-            mesh.vertex(matrix, x2, yMid1[i+1]).color(cMid1[i+1]);
-            mesh.vertex(matrix, x2, yTop1).color(colTop);
-
-            /* Layer 1 - Lower Quad (yMid1 -> yBot1) */
-            mesh.vertex(matrix, x1, yMid1[i]).color(cMid1[i]);
-            mesh.vertex(matrix, x1, yBot1[i]).color(colBot);
-            mesh.vertex(matrix, x2, yBot1[i+1]).color(colBot);
-            mesh.vertex(matrix, x2, yMid1[i+1]).color(cMid1[i+1]);
-
-            /* Layer 2 - Upper Quad (yTop2 -> yMid2) */
-            mesh.vertex(matrix, x1, yTop2).color(colTop);
-            mesh.vertex(matrix, x1, yMid2[i]).color(cMid2[i]);
-            mesh.vertex(matrix, x2, yMid2[i+1]).color(cMid2[i+1]);
-            mesh.vertex(matrix, x2, yTop2).color(colTop);
-
-            /* Layer 2 - Lower Quad (yMid2 -> yBot2) */
-            mesh.vertex(matrix, x1, yMid2[i]).color(cMid2[i]);
-            mesh.vertex(matrix, x1, yBot2[i]).color(colBot);
-            mesh.vertex(matrix, x2, yBot2[i+1]).color(colBot);
-            mesh.vertex(matrix, x2, yMid2[i+1]).color(cMid2[i+1]);
+            
+            // Layer 1 - Upper Quad (yTop1 -> yMid1)
+            builder.vertex(matrix4f, x1, yTop1, 0).color(colTop).next();
+            builder.vertex(matrix4f, x1, yMid1[i], 0).color(cMid1[i]).next();
+            builder.vertex(matrix4f, x2, yMid1[i+1], 0).color(cMid1[i+1]).next();
+            builder.vertex(matrix4f, x2, yTop1, 0).color(colTop).next();
+            
+            // Layer 1 - Lower Quad (yMid1 -> yBot1)
+            builder.vertex(matrix4f, x1, yMid1[i], 0).color(cMid1[i]).next();
+            builder.vertex(matrix4f, x1, yBot1[i], 0).color(colBot).next();
+            builder.vertex(matrix4f, x2, yBot1[i+1], 0).color(colBot).next();
+            builder.vertex(matrix4f, x2, yMid1[i+1], 0).color(cMid1[i+1]).next();
+            
+            // Layer 2 - Upper Quad (yTop2 -> yMid2)
+            builder.vertex(matrix4f, x1, yTop2, 0).color(colTop).next();
+            builder.vertex(matrix4f, x1, yMid2[i], 0).color(cMid2[i]).next();
+            builder.vertex(matrix4f, x2, yMid2[i+1], 0).color(cMid2[i+1]).next();
+            builder.vertex(matrix4f, x2, yTop2, 0).color(colTop).next();
+            
+            // Layer 2 - Lower Quad (yMid2 -> yBot2)
+            builder.vertex(matrix4f, x1, yMid2[i], 0).color(cMid2[i]).next();
+            builder.vertex(matrix4f, x1, yBot2[i], 0).color(colBot).next();
+            builder.vertex(matrix4f, x2, yBot2[i+1], 0).color(colBot).next();
+            builder.vertex(matrix4f, x2, yMid2[i+1], 0).color(cMid2[i+1]).next();
         }
-
-        context.batcher.drawQuadMesh(mesh);
+        
+        BufferRenderer.drawWithGlobalProgram(builder.end());
 
         UIHomePanel home = this.dashboard.getPanel(UIHomePanel.class);
         if (home != null)
@@ -8859,6 +8944,18 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
             {
                 this.tabbedNode.activeTab = this.index;
                 this.panel.syncLinkedPropertiesTab(this.panelId);
+                UIElement tabElement = this.panel.panelById.get(this.panelId);
+
+                if (tabElement != null)
+                {
+                    int panelIdx = this.panel.panels.indexOf(tabElement);
+
+                    if (panelIdx >= 0)
+                    {
+                        this.panel.currentPanelIndex = panelIdx;
+                    }
+                }
+
                 ValueEditorLayout layout = BBSSettings.editorLayoutSettings;
                 layout.setFilmLayoutRoot(layout.getFilmLayoutRoot());
                 /* Keep existing tab bars so horizontal scroll is not wiped before a drag starts. */

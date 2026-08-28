@@ -41,8 +41,19 @@ public abstract class SelectWorldScreenMixin
         this.bbs$ensureSelectWorldBbsButton(screen);
     }
 
+    @Inject(method = "initTabNavigation", at = @At("TAIL"))
+    private void bbs$repositionSelectWorldBbsButton(CallbackInfo ci)
+    {
+        if (!((Object) this instanceof SelectWorldScreen screen))
+        {
+            return;
+        }
+
+        this.bbs$ensureSelectWorldBbsButton(screen);
+    }
+
     @Inject(method = "resize", at = @At("TAIL"))
-    private void bbs$resizeSelectWorldBbsButton(int width, int height, CallbackInfo ci)
+    private void bbs$resizeSelectWorldBbsButton(MinecraftClient client, int width, int height, CallbackInfo ci)
     {
         if (!((Object) this instanceof SelectWorldScreen screen))
         {
@@ -92,8 +103,7 @@ public abstract class SelectWorldScreenMixin
         {
             this.bbs$selectWorldLogoButton.setX(x);
             this.bbs$selectWorldLogoButton.setY(y);
-            this.bbs$selectWorldLogoButton.setWidth(size);
-            this.bbs$selectWorldLogoButton.setHeight(size);
+            this.bbs$selectWorldLogoButton.setSize(size);
         }
     }
 

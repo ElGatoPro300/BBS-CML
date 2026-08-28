@@ -17,8 +17,9 @@ import mchorse.bbs_mod.utils.colors.Colors;
 import mchorse.bbs_mod.utils.joml.Vectors;
 
 import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.gl.ShaderProgram;
 import net.minecraft.client.render.GameRenderer;
-import net.minecraft.client.render.RenderLayer;
+import net.minecraft.client.render.VertexFormat;
 import net.minecraft.client.render.VertexFormats;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.world.World;
@@ -28,7 +29,6 @@ import org.joml.Vector3d;
 import org.joml.Vector3f;
 
 import com.mojang.blaze3d.systems.RenderSystem;
-import com.mojang.blaze3d.vertex.VertexFormat;
 
 import java.util.HashMap;
 import java.util.HashSet;
@@ -329,7 +329,7 @@ public class ParticleFormRenderer extends FormRenderer<ParticleForm> implements 
 
         if (emitter != null)
         {
-            MatrixStack stack = new MatrixStack();
+            MatrixStack stack = context.batcher.getContext().getMatrices();
             int scale = (y2 - y1) / 2;
 
             stack.push();
@@ -360,58 +360,24 @@ public class ParticleFormRenderer extends FormRenderer<ParticleForm> implements 
             /* Film illusion delay may have just applied form properties for this copy. */
             this.syncEmitterAppearance(emitter, context);
 
-            boolean useGameCamera = !context.modelRenderer && context.type != FormRenderType.PREVIEW;
+            Matrix4f matrix = new Matrix4f(RenderSystem.getInverseViewRotationMatrix());
 
-            if (useGameCamera)
-            {
-                /* For game rendering, use the main camera for emitter properties to ensure
-                 * correct yaw/pitch for billboards (avoiding 180 degree flip in Camera wrapper) */
-                emitter.setupCameraProperties(MinecraftClient.getInstance().gameRenderer.getCamera());
-            }
-            else
-            {
-                if (context.modelRenderer)
-                {
-                    float originalPitch = context.camera.rotation.x;
-                    float originalYaw = context.camera.rotation.y;
-                    double originalX = context.camera.position.x;
-                    double originalY = context.camera.position.y;
-                    double originalZ = context.camera.position.z;
+            matrix.mul(context.stack.peek().getPositionMatrix());
 
-                    context.camera.rotation.set(0, 0, 0);
-                    context.camera.position.set(0, 0, 0);
-
-                    emitter.setupCameraProperties(context.camera);
-
-                    context.camera.rotation.x = originalPitch;
-                    context.camera.rotation.y = originalYaw;
-                    context.camera.position.set(originalX, originalY, originalZ);
-                }
-                else
-                {
-                    emitter.setupCameraProperties(context.camera);
-                }
-            }
-
-            Matrix4f modelMatrix = new Matrix4f(context.stack.peek().getPositionMatrix());
-
-            Vector3d translation = new Vector3d(modelMatrix.getTranslation(Vectors.TEMP_3F));
-
-            if (!context.modelRenderer)
-            {
-                translation.add(context.camera.position.x, context.camera.position.y, context.camera.position.z);
-            }
+            Vector3d translation = new Vector3d(matrix.getTranslation(Vectors.TEMP_3F));
+            translation.add(context.camera.position.x, context.camera.position.y, context.camera.position.z);
 
             GameRenderer gameRenderer = MinecraftClient.getInstance().gameRenderer;
 
-            // gameRenderer.getLightmapTextureManager().enable();
-            // gameRenderer.getOverlayTexture().setupOverlayColor();
+            gameRenderer.getLightmapTextureManager().enable();
+            gameRenderer.getOverlayTexture().setupOverlayColor();
 
             context.stack.push();
             context.stack.loadIdentity();
+            context.stack.multiplyPositionMatrix(new Matrix4f(RenderSystem.getInverseViewRotationMatrix()).invert());
 
             emitter.lastGlobal.set(translation);
-            emitter.rotation.set(modelMatrix);
+            emitter.rotation.set(matrix);
             emitter.modelRenderer = context.modelRenderer;
 
             Color glowTint = Colors.COLOR.set(context.color, true);
@@ -421,19 +387,22 @@ public class ParticleFormRenderer extends FormRenderer<ParticleForm> implements 
             if (!BBSRendering.isIrisShadowPass())
             {
                 boolean shadersEnabled = BBSRendering.isIrisShadersEnabled();
-                boolean billboard = shadersEnabled;
 
-                VertexFormat format = billboard ? VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL : VertexFormats.POSITION_TEXTURE_COLOR_LIGHT;
+                VertexFormat format = shadersEnabled ? VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL : VertexFormats.POSITION_TEXTURE_COLOR_LIGHT;
+                Supplier<ShaderProgram> shader = shadersEnabled
+                    ? this.getShader(context, GameRenderer::getRenderTypeEntityTranslucentProgram, BBSShaders::getPickerBillboardProgram)
+                    : this.getShader(context, GameRenderer::getParticleProgram, BBSShaders::getPickerParticlesProgram);
 
-                emitter.render(format, (RenderLayer) null, context.stack, context.overlay, context.getTransition());
+                emitter.setupCameraProperties(context.camera);
+                emitter.render(format, shader, context.stack, context.overlay, context.getTransition());
             }
 
             emitter.clearGlow();
 
             context.stack.pop();
 
-            // gameRenderer.getLightmapTextureManager().disable();
-            // gameRenderer.getOverlayTexture().teardownOverlayColor();
+            gameRenderer.getLightmapTextureManager().disable();
+            gameRenderer.getOverlayTexture().teardownOverlayColor();
         }
     }
 

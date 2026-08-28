@@ -58,13 +58,13 @@ import mchorse.bbs_mod.utils.colors.Colors;
 import mchorse.bbs_mod.utils.presets.PresetManager;
 
 import net.minecraft.client.render.BufferBuilder;
+import net.minecraft.client.render.BufferRenderer;
 import net.minecraft.client.render.Tessellator;
+import net.minecraft.client.render.VertexFormat;
 import net.minecraft.client.render.VertexFormats;
 
 import org.joml.Matrix4f;
 import org.joml.Vector2f;
-
-import com.mojang.blaze3d.vertex.VertexFormat;
 
 import org.lwjgl.glfw.GLFW;
 
@@ -806,7 +806,7 @@ public class UIShapeNodeEditor extends UIElement
                 attrMenu.action(Icons.GEAR, IKey.raw(attr.name()), () -> an.attribute = attr);
             }
 
-            menu.action(Icons.GEAR, IKey.raw("Attribute: " + an.attribute.name()), Colors.INACTIVE,
+            menu.action(Icons.GEAR, UIKeys.SHAPES_ATTRIBUTE.format(an.attribute.name()), Colors.INACTIVE,
                 () -> context.replaceContextMenu(attrMenu.create()));
         }
 

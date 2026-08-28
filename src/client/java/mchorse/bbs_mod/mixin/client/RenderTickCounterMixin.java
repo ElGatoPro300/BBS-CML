@@ -13,24 +13,22 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
-@Mixin(RenderTickCounter.Dynamic.class)
+@Mixin(RenderTickCounter.class)
 public class RenderTickCounterMixin
 {
     @Shadow
-    public float tickProgress;
+    public float tickDelta;
 
     @Shadow
-    public float dynamicDeltaTicks;
+    public float lastFrameDuration;
 
     @Shadow
-    private long lastTimeMillis;
+    private long prevTimeMillis;
 
     private int heldFrames;
 
-    private long lastFrameTime;
-
     @Inject(method = "beginRenderTick", at = @At("HEAD"), cancellable = true)
-    public void onBeginRenderTick(long timeMillis, boolean tick, CallbackInfoReturnable<Integer> info)
+    public void onBeginRenderTick(long timeMillis, CallbackInfoReturnable<Integer> info)
     {
         VideoRecorder videoRecorder = BBSModClient.getVideoRecorder();
 
@@ -38,18 +36,18 @@ public class RenderTickCounterMixin
         {
             if (videoRecorder.getCounter() == 0)
             {
-                this.tickProgress = 0;
+                this.tickDelta = 0;
             }
 
             if (this.heldFrames == 0)
             {
-                this.dynamicDeltaTicks = 20F / (float) BBSRendering.getVideoFrameRate();
-                this.lastTimeMillis = timeMillis;
-                this.tickProgress += this.dynamicDeltaTicks;
+                this.lastFrameDuration = 20F / (float) BBSRendering.getVideoFrameRate();
+                this.prevTimeMillis = timeMillis;
+                this.tickDelta += this.lastFrameDuration;
 
-                int i = (int) this.tickProgress;
+                int i = (int) this.tickDelta;
 
-                this.tickProgress -= (float) i;
+                this.tickDelta -= (float) i;
 
                 videoRecorder.serverTicks += i;
                 BBSRendering.canRender = true;
@@ -73,7 +71,6 @@ public class RenderTickCounterMixin
         else
         {
             this.heldFrames = 0;
-            this.lastFrameTime = 0;
         }
     }
 }

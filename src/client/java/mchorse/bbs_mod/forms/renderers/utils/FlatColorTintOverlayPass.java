@@ -1,13 +1,12 @@
 package mchorse.bbs_mod.forms.renderers.utils;
 
+import mchorse.bbs_mod.client.BBSShaders;
 import mchorse.bbs_mod.forms.forms.utils.EffectTransform;
 import mchorse.bbs_mod.utils.colors.Color;
 
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
 
-import com.mojang.blaze3d.opengl.GlStateManager;
-import com.mojang.blaze3d.pipeline.RenderPipeline;
 import com.mojang.blaze3d.systems.RenderSystem;
 
 import org.lwjgl.opengl.GL11;
@@ -39,6 +38,11 @@ public final class FlatColorTintOverlayPass
             return;
         }
 
+        if (formRootInverse != null && BBSShaders.getFlatColorTintOverlayProgram() == null)
+        {
+            return;
+        }
+
         boolean savedDepthMask = GL11.glGetBoolean(GL11.GL_DEPTH_WRITEMASK);
         boolean savedPolygonOffsetFill = GL11.glGetBoolean(GL11.GL_POLYGON_OFFSET_FILL);
 
@@ -48,12 +52,12 @@ public final class FlatColorTintOverlayPass
         }
         else
         {
-            GlStateManager._enableBlend();
-            GlStateManager._blendFuncSeparate(770, 771, 1, 0);
-            GlStateManager._enableDepthTest();
-            GlStateManager._depthFunc(GL11.GL_LEQUAL);
-            GlStateManager._depthMask(false);
-            // RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
+            RenderSystem.enableBlend();
+            RenderSystem.defaultBlendFunc();
+            RenderSystem.enableDepthTest();
+            RenderSystem.depthFunc(GL11.GL_LEQUAL);
+            RenderSystem.depthMask(false);
+            RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
         }
 
         GL11.glEnable(GL11.GL_POLYGON_OFFSET_FILL);
@@ -61,6 +65,11 @@ public final class FlatColorTintOverlayPass
 
         try
         {
+            if (formRootInverse != null)
+            {
+                BlockEffectOverlayUniforms.refreshFlatColorTintOverlayUniforms(formRootInverse, transform, bottomAnchored, maskHalf, formColor);
+            }
+
             draw.run();
         }
         finally
@@ -72,8 +81,9 @@ public final class FlatColorTintOverlayPass
                 GL11.glDisable(GL11.GL_POLYGON_OFFSET_FILL);
             }
 
-            GlStateManager._depthMask(savedDepthMask);
-            GlStateManager._blendFuncSeparate(770, 771, 1, 0);
+            RenderSystem.depthMask(savedDepthMask);
+            RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
+            RenderSystem.defaultBlendFunc();
         }
     }
 }

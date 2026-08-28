@@ -2,7 +2,6 @@ package mchorse.bbs_mod.client;
 
 import mchorse.bbs_mod.forms.entities.IEntity;
 import mchorse.bbs_mod.forms.entities.StubEntity;
-import mchorse.bbs_mod.mixin.client.LivingEntityAccessor;
 import mchorse.bbs_mod.mixin.client.LivingEntityItemAccessor;
 
 import net.minecraft.client.MinecraftClient;
@@ -29,7 +28,6 @@ public final class ItemUseRenderState
     private static final int OFF_HAND_ACTIVE_FLAG = 2;
 
     private static OtherClientPlayerEntity proxy;
-    private static ClientWorld proxyWorld;
     private static boolean drivingLocalPlayerUse;
 
     private ItemUseRenderState()
@@ -70,11 +68,10 @@ public final class ItemUseRenderState
             return null;
         }
 
-        if (proxy == null || proxyWorld != clientWorld)
+        if (proxy == null || proxy.getWorld() != clientWorld)
         {
             proxy = new OtherClientPlayerEntity(clientWorld, new GameProfile(UUID.randomUUID(), "bbs_item_use"));
             proxy.noClip = true;
-            proxyWorld = clientWorld;
         }
 
         Hand hand = slot == EquipmentSlot.OFFHAND ? Hand.OFF_HAND : Hand.MAIN_HAND;
@@ -126,7 +123,7 @@ public final class ItemUseRenderState
             return 0;
         }
 
-        int maxUseTime = stack.getMaxUseTime(living);
+        int maxUseTime = stack.getMaxUseTime();
         int remaining = source.getItemUseTimeLeft();
 
         if (maxUseTime <= 0)
@@ -156,8 +153,7 @@ public final class ItemUseRenderState
         }
 
         int itemUseElapsed = ItemUseRenderState.getItemUseElapsed(source, living, stack);
-
-        int maxUseTime = stack.getMaxUseTime(living);
+        int maxUseTime = stack.getMaxUseTime();
         int itemUseTimeLeft = Math.max(0, maxUseTime - itemUseElapsed);
         boolean localPlayer = living instanceof ClientPlayerEntity;
         ItemStack active = stack;
@@ -170,7 +166,7 @@ public final class ItemUseRenderState
             drivingLocalPlayerUse = true;
             active = living.getStackInHand(hand);
 
-            if (active.isEmpty() || !ItemStack.areItemsAndComponentsEqual(active, stack))
+            if (active.isEmpty() || !ItemStack.canCombine(active, stack))
             {
                 active = stack.copy();
             }
@@ -195,8 +191,8 @@ public final class ItemUseRenderState
 
         ((LivingEntityItemAccessor) living).setActiveItemStack(active);
         ((LivingEntityItemAccessor) living).setItemUseTimeLeft(itemUseTimeLeft);
-        ((LivingEntityAccessor) living).invokeSetLivingFlag(USING_ITEM_FLAG, true);
-        ((LivingEntityAccessor) living).invokeSetLivingFlag(OFF_HAND_ACTIVE_FLAG, hand == Hand.OFF_HAND);
+        living.setLivingFlag(USING_ITEM_FLAG, true);
+        living.setLivingFlag(OFF_HAND_ACTIVE_FLAG, hand == Hand.OFF_HAND);
     }
 
     private static void clearUseFlags(LivingEntity living)

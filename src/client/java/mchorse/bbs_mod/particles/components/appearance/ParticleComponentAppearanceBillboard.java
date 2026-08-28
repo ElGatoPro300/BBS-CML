@@ -19,6 +19,7 @@ import mchorse.bbs_mod.utils.joml.Vectors;
 
 import net.minecraft.client.render.BufferBuilder;
 import net.minecraft.client.render.LightmapTextureManager;
+import net.minecraft.client.render.VertexFormat;
 import net.minecraft.client.render.VertexFormats;
 import net.minecraft.client.render.WorldRenderer;
 import net.minecraft.util.math.BlockPos;
@@ -27,8 +28,6 @@ import org.joml.Matrix4f;
 import org.joml.Vector3d;
 import org.joml.Vector3f;
 import org.joml.Vector4f;
-
-import com.mojang.blaze3d.vertex.VertexFormat;
 
 public class ParticleComponentAppearanceBillboard extends ParticleComponentBase implements IComponentParticleRender
 {
@@ -591,7 +590,8 @@ public class ParticleComponentAppearanceBillboard extends ParticleComponentBase 
     {
         builder.vertex(matrix, vertex.x, vertex.y, vertex.z)
             .texture(u, v)
-            .color(color.r, color.g, color.b, color.a);
+            .color(color.r, color.g, color.b, color.a)
+            .next();
     }
 
     private Color resolveDisplayColor(ParticleEmitter emitter, Particle particle)
@@ -622,14 +622,16 @@ public class ParticleComponentAppearanceBillboard extends ParticleComponentBase 
             builder.vertex(matrix, vertex.x, vertex.y, vertex.z)
                 .texture(u, v)
                 .color(color.r, color.g, color.b, color.a)
-                .light(this.light);
+                .light(this.light)
+                .next();
         }
         else if (format == VertexFormats.POSITION_TEXTURE_COLOR)
         {
             /* VertexFormats.POSITION_TEXTURE_COLOR */
             builder.vertex(matrix, vertex.x, vertex.y, vertex.z)
                 .texture(u, v)
-                .color(color.r, color.g, color.b, color.a);
+                .color(color.r, color.g, color.b, color.a)
+                .next();
         }
         else
         {
@@ -639,7 +641,8 @@ public class ParticleComponentAppearanceBillboard extends ParticleComponentBase 
                 .texture(u, v)
                 .overlay(overlay)
                 .light(this.light)
-                .normal(this.n.x, this.n.y, this.n.z);
+                .normal(this.n.x, this.n.y, this.n.z)
+                .next();
         }
     }
 
@@ -691,7 +694,7 @@ public class ParticleComponentAppearanceBillboard extends ParticleComponentBase 
         builder.vertex(matrix, vertex.x, vertex.y, 0F)
             .texture(u, v)
             .color(particle.r, particle.g, particle.b, particle.a)
-            .light(LightmapTextureManager.MAX_LIGHT_COORDINATE);
+            .next();
     }
 
     public void calculateUVs(Particle particle, ParticleEmitter emitter, float transition)

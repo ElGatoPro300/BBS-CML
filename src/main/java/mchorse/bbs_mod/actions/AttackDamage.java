@@ -4,6 +4,7 @@ import mchorse.bbs_mod.items.MobKillerItem;
 
 import net.minecraft.enchantment.EnchantmentHelper;
 import net.minecraft.entity.Entity;
+import net.minecraft.entity.EntityGroup;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.attribute.EntityAttributes;
 import net.minecraft.entity.damage.DamageSource;
@@ -72,9 +73,9 @@ public final class AttackDamage
             return MOB_KILLER_DAMAGE;
         }
 
-        float base = (float) attacker.getAttributeValue(EntityAttributes.ATTACK_DAMAGE);
+        float base = (float) attacker.getAttributeValue(EntityAttributes.GENERIC_ATTACK_DAMAGE);
 
-        if (stack.isEmpty() || !(attacker.getEntityWorld() instanceof ServerWorld serverWorld))
+        if (stack.isEmpty() || !(attacker.getWorld() instanceof ServerWorld serverWorld))
         {
             return scaleForAttacker(attacker, Math.max(0F, base));
         }
@@ -84,16 +85,10 @@ public final class AttackDamage
             return scaleForAttacker(attacker, Math.max(0F, base));
         }
 
-        DamageSource source = serverWorld.getDamageSources().mobAttack(attacker);
+        EntityGroup group = target instanceof LivingEntity livingTarget ? livingTarget.getGroup() : EntityGroup.DEFAULT;
+        float bonus = EnchantmentHelper.getAttackDamage(stack, group);
 
-        if (attacker instanceof PlayerEntity player)
-        {
-            source = serverWorld.getDamageSources().playerAttack(player);
-        }
-
-        float enchanted = EnchantmentHelper.getDamage(serverWorld, stack, target, source, base);
-
-        return scaleForAttacker(attacker, Math.max(0F, Math.max(base, enchanted)));
+        return scaleForAttacker(attacker, Math.max(0F, base + bonus));
     }
 
     private static float scaleForAttacker(LivingEntity attacker, float damage)
@@ -134,9 +129,9 @@ public final class AttackDamage
 
         if (isMobKiller(stack) || clipDamage >= MOB_KILLER_DAMAGE)
         {
-            if (target instanceof LivingEntity living && !(living instanceof PlayerEntity) && attacker.getEntityWorld() instanceof ServerWorld serverWorld)
+            if (target instanceof LivingEntity living && !(living instanceof PlayerEntity))
             {
-                living.kill(serverWorld);
+                living.kill();
             }
 
             return;
@@ -149,9 +144,6 @@ public final class AttackDamage
             return;
         }
 
-        if (attacker.getEntityWorld() instanceof ServerWorld serverWorld)
-        {
-            target.damage(serverWorld, serverWorld.getDamageSources().mobAttack(attacker), damage);
-        }
+        target.damage(attacker.getWorld().getDamageSources().mobAttack(attacker), damage);
     }
 }

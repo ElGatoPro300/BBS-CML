@@ -1,6 +1,5 @@
 package mchorse.bbs_mod.forms.renderers;
 
-import mchorse.bbs_mod.client.BBSRendering;
 import mchorse.bbs_mod.forms.ITickable;
 import mchorse.bbs_mod.forms.entities.IEntity;
 import mchorse.bbs_mod.forms.forms.VanillaParticleForm;
@@ -16,10 +15,8 @@ import mchorse.bbs_mod.utils.joml.Vectors;
 import net.minecraft.block.Block;
 import net.minecraft.block.Blocks;
 import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.particle.BillboardParticle;
 import net.minecraft.client.particle.Particle;
 import net.minecraft.client.render.Camera;
-import net.minecraft.client.world.ClientWorld;
 import net.minecraft.command.argument.ParticleEffectArgumentType;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
@@ -31,8 +28,6 @@ import net.minecraft.particle.ItemStackParticleEffect;
 import net.minecraft.particle.ParticleEffect;
 import net.minecraft.particle.ParticleType;
 import net.minecraft.particle.ParticleTypes;
-import net.minecraft.particle.SimpleParticleType;
-import net.minecraft.particle.TintedParticleEffect;
 import net.minecraft.registry.Registries;
 import net.minecraft.registry.RegistryWrapper;
 import net.minecraft.util.Identifier;
@@ -62,11 +57,11 @@ public class VanillaParticleFormRenderer extends FormRenderer<VanillaParticleFor
 
     private static class TrackedParticle
     {
-        public BillboardParticle particle;
+        public Particle particle;
         public mchorse.bbs_mod.utils.colors.Color startColor;
         public mchorse.bbs_mod.utils.colors.Color endColor;
 
-        public TrackedParticle(BillboardParticle particle, mchorse.bbs_mod.utils.colors.Color startColor, mchorse.bbs_mod.utils.colors.Color endColor)
+        public TrackedParticle(Particle particle, mchorse.bbs_mod.utils.colors.Color startColor, mchorse.bbs_mod.utils.colors.Color endColor)
         {
             this.particle = particle;
             this.startColor = startColor.copy();
@@ -108,40 +103,23 @@ public class VanillaParticleFormRenderer extends FormRenderer<VanillaParticleFor
             return;
         }
 
-        Matrix4f positionMatrix;
+        Camera camera = MinecraftClient.getInstance().gameRenderer.getCamera();
+        Matrix4f matrix = new Matrix4f(RenderSystem.getInverseViewRotationMatrix());
 
-        if (context.type == FormRenderType.PREVIEW)
-        {
-            net.minecraft.client.render.Camera realCamera = MinecraftClient.getInstance().gameRenderer.getCamera();
+        matrix.mul(context.stack.peek().getPositionMatrix());
 
-            positionMatrix = new Matrix4f().rotation(realCamera.getRotation());
-            positionMatrix.mul(context.stack.peek().getPositionMatrix());
+        Vector3d translation = new Vector3d(matrix.getTranslation(Vectors.TEMP_3F));
 
-            Vector3f translation = positionMatrix.getTranslation(new Vector3f());
+        translation.add(camera.getPos().x, camera.getPos().y, camera.getPos().z);
+        context.stack.push();
+        context.stack.loadIdentity();
+        context.stack.multiplyPositionMatrix(new Matrix4f(RenderSystem.getInverseViewRotationMatrix()).invert());
 
-            this.pos.set(
-                translation.x + (float) realCamera.getCameraPos().x,
-                translation.y + (float) realCamera.getCameraPos().y,
-                translation.z + (float) realCamera.getCameraPos().z
-            );
-        }
-        else
-        {
-            positionMatrix = new Matrix4f(context.stack.peek().getPositionMatrix());
-
-            Vector3f translation = positionMatrix.getTranslation(new Vector3f());
-
-            this.pos.set(
-                translation.x + context.camera.position.x,
-                translation.y + context.camera.position.y,
-                translation.z + context.camera.position.z
-            );
-        }
-
-        positionMatrix.get3x3(this.rot);
-
+        this.pos.set(translation);
         this.vel.set(0F, 0F, 1F);
-        this.rot.transform(this.vel);
+        this.rot.set(matrix).transform(this.vel);
+
+        context.stack.pop();
     }
 
     @Override
@@ -184,11 +162,8 @@ public class VanillaParticleFormRenderer extends FormRenderer<VanillaParticleFor
                     float b = Lerps.lerp(tracked.startColor.b, tracked.endColor.b, progress);
                     float a = Lerps.lerp(tracked.startColor.a, tracked.endColor.a, progress);
 
-                    if (tracked.particle instanceof BillboardParticle bbp)
-                    {
-                        bbp.setColor(r, g, b);
-                        bbp.setAlpha(a);
-                    }
+                    tracked.particle.setColor(r, g, b);
+                    tracked.particle.setAlpha(a);
                 }
             }
 
@@ -263,49 +238,33 @@ public class VanillaParticleFormRenderer extends FormRenderer<VanillaParticleFor
 
                     if (colorR >= 0F)
                     {
-                        if (isEffect)
-                        {
-                            @SuppressWarnings("unchecked")
-                            ParticleType<TintedParticleEffect> entityEffectType = (ParticleType<TintedParticleEffect>) ParticleTypes.ENTITY_EFFECT;
-                            effect = TintedParticleEffect.create(entityEffectType, colorR, colorG, colorB);
-                            parsedCustom = true;
-                        }
-                        else if (path.equals("dust_color_transition"))
+                        if (path.equals("dust_color_transition"))
                         {
                             float scale = colorA > 0F ? colorA : 1F;
-                            int rgb = new mchorse.bbs_mod.utils.colors.Color(colorR, colorG, colorB).getRGBColor();
 
-                            effect = new DustColorTransitionParticleEffect(rgb, rgb, scale);
+                            effect = new DustColorTransitionParticleEffect(new Vector3f(colorR, colorG, colorB), new Vector3f(colorR, colorG, colorB), scale);
                             parsedCustom = true;
                         }
                         else if (isDust)
                         {
                             float scale = colorA > 0F ? colorA : 1F;
-                            int rgb = new mchorse.bbs_mod.utils.colors.Color(colorR, colorG, colorB).getRGBColor();
 
-                            effect = new DustParticleEffect(rgb, scale);
+                            effect = new DustParticleEffect(new Vector3f(colorR, colorG, colorB), scale);
                             parsedCustom = true;
                         }
                     }
 
                     if (!parsedCustom)
                     {
-                        if (type instanceof SimpleParticleType simple)
+                        if (type instanceof ParticleEffect simple)
                         {
                             effect = simple;
                         }
-                        else if (registries != null)
+                        else if (type != null)
                         {
-                            String full = settings.particle.toString();
-
-                            if (!args.isEmpty())
-                            {
-                                full += " " + args;
-                            }
-
                             try
                             {
-                                effect = ParticleEffectArgumentType.readParameters(new StringReader(full), registries);
+                                effect = (ParticleEffect) ((ParticleType) type).getParametersFactory().read(type, new StringReader(" " + args));
                             }
                             catch (Exception e)
                             {
@@ -472,21 +431,26 @@ public class VanillaParticleFormRenderer extends FormRenderer<VanillaParticleFor
         MinecraftClient mc = MinecraftClient.getInstance();
         Particle particleObj = (mc.world != null && mc.particleManager != null) ? mc.particleManager.addParticle(effect, x, y, z, v.x, v.y, v.z) : null;
 
-        if (particleObj instanceof BillboardParticle bbp)
+        if (particleObj != null)
         {
             if (hasCustomRgb && pR >= 0F)
             {
-                bbp.setColor(pR, pG, pB);
+                particleObj.setColor(pR, pG, pB);
             }
 
             if (hasCustomAlpha && pA >= 0F)
             {
-                bbp.setAlpha(pA);
+                particleObj.setAlpha(pA);
+            }
+
+            if (colorMode == 1 && color1 != null && color2 != null)
+            {
+                this.trackedParticles.add(new TrackedParticle(particleObj, color1, color2));
             }
         }
-        else if (particleObj == null && world instanceof ClientWorld clientWorld)
+        else if (particleObj == null && world != null)
         {
-            clientWorld.addImportantParticleClient(effect, x, y, z, v.x, v.y, v.z);
+            world.addParticle(effect, true, x, y, z, v.x, v.y, v.z);
         }
     }
 }

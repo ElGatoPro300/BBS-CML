@@ -193,7 +193,7 @@ public class UICreativeItemSelectorPanel extends UIOverlayPanel
 
         ItemStack normalized = stack.copy();
         normalized.setCount(1);
-        String encoded = ItemStack.CODEC.encodeStart(NbtOps.INSTANCE, normalized).result().map(Object::toString).orElse("{}");
+        String encoded = ItemStack.CODEC.encodeStart(NbtOps.INSTANCE, normalized).result().map(NbtElement::asString).orElse("{}");
         String key = Registries.ITEM.getId(stack.getItem()) + "|" + encoded;
 
         if (visited.add(key))
@@ -378,19 +378,10 @@ public class UICreativeItemSelectorPanel extends UIOverlayPanel
 
                     ItemStack stack = this.items.get(index);
 
-                    Vector3f light0 = new Vector3f(0.85F, 0.85F, -1.0F).normalize();
-                    Vector3f light1 = new Vector3f(-0.85F, 0.85F, 1.0F).normalize();
-                    /* 1.21.11: RenderSystem.setupGui3DDiffuseLighting removed */
-                    // RenderSystem.setupGui3DDiffuseLighting(light0, light1);
-
                     context.batcher.getContext().drawItem(stack, x + ITEM_RENDER_OFFSET, y + ITEM_RENDER_OFFSET);
-                    context.batcher.getContext().drawStackOverlay(context.batcher.getFont().getRenderer(), stack, x + ITEM_RENDER_OFFSET, y + ITEM_RENDER_OFFSET);
+                    context.batcher.getContext().drawItemInSlot(context.batcher.getFont().getRenderer(), stack, x + ITEM_RENDER_OFFSET, y + ITEM_RENDER_OFFSET);
 
-                    /* 1.21.11: DrawContext.draw() removed */
-                    // context.batcher.getContext().draw();
-
-                    /* 1.21.11: DiffuseLighting.disableGuiDepthLighting removed */
-                    // DiffuseLighting.disableGuiDepthLighting();
+                    context.batcher.getContext().draw();
 
                     if (hover)
                     {
@@ -483,19 +474,11 @@ public class UICreativeItemSelectorPanel extends UIOverlayPanel
 
                 if (!stack.isEmpty())
                 {
-                    Vector3f light0 = new Vector3f(0.85F, 0.85F, -1.0F).normalize();
-                    Vector3f light1 = new Vector3f(-0.85F, 0.85F, 1.0F).normalize();
-                    /* 1.21.11: RenderSystem.setupGui3DDiffuseLighting removed */
-                    // RenderSystem.setupGui3DDiffuseLighting(light0, light1);
-
                     context.batcher.getContext().drawItem(stack, x + ITEM_RENDER_OFFSET, y + ITEM_RENDER_OFFSET);
-                    context.batcher.getContext().drawStackOverlay(context.batcher.getFont().getRenderer(), stack, x + ITEM_RENDER_OFFSET, y + ITEM_RENDER_OFFSET);
+                    context.batcher.getContext().drawItemInSlot(context.batcher.getFont().getRenderer(), stack, x + ITEM_RENDER_OFFSET, y + ITEM_RENDER_OFFSET);
 
-                    /* 1.21.11: DrawContext.draw() removed */
-                    // context.batcher.getContext().draw();
+                    context.batcher.getContext().draw();
 
-                    /* 1.21.11: DiffuseLighting.disableGuiDepthLighting removed */
-                    // DiffuseLighting.disableGuiDepthLighting();
                 }
 
                 if (hover)

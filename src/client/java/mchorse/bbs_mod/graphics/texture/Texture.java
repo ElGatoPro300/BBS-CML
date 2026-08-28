@@ -2,10 +2,10 @@ package mchorse.bbs_mod.graphics.texture;
 
 import mchorse.bbs_mod.utils.resources.Pixels;
 
-import com.mojang.blaze3d.opengl.GlStateManager;
+import com.mojang.blaze3d.platform.GlStateManager;
+import com.mojang.blaze3d.platform.TextureUtil;
 
 import org.lwjgl.opengl.GL11;
-import org.lwjgl.opengl.GL13;
 import org.lwjgl.opengl.GL30;
 import org.lwjgl.system.MemoryUtil;
 
@@ -60,7 +60,7 @@ public class Texture
 
     public Texture()
     {
-        this.id = GlStateManager._genTexture();
+        this.id = TextureUtil.generateTextureId();
         this.target = GL11.GL_TEXTURE_2D;
 
         this.bind();
@@ -108,24 +108,24 @@ public class Texture
 
     public void bind()
     {
-        GlStateManager._bindTexture(this.id);
+        GL11.glBindTexture(this.target, this.id);
     }
 
-    public void bind(int unit)
+    public void bind(int texture)
     {
-        GlStateManager._activeTexture(GL13.GL_TEXTURE0 + unit);
-        GlStateManager._bindTexture(this.id);
+        GlStateManager.glActiveTexture(texture);
+        GL11.glBindTexture(this.target, this.id);
     }
 
     public void unbind()
     {
-        GlStateManager._bindTexture(0);
+        GL11.glBindTexture(this.target, 0);
     }
 
-    public void unbind(int unit)
+    public void unbind(int texture)
     {
-        GlStateManager._activeTexture(GL13.GL_TEXTURE0 + unit);
-        GlStateManager._bindTexture(0);
+        GlStateManager.glActiveTexture(texture);
+        GL11.glBindTexture(this.target, 0);
     }
 
     public void setFormat(TextureFormat format)
@@ -183,7 +183,7 @@ public class Texture
 
     public void delete()
     {
-        GlStateManager._deleteTexture(this.id);
+        GL11.glDeleteTextures(this.id);
         this.id = -1;
     }
 

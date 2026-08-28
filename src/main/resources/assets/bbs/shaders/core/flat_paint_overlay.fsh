@@ -1,5 +1,7 @@
 #version 150
 
+#moj_import <fog.glsl>
+
 uniform sampler2D Sampler0;
 
 uniform mat4 PaintEffectInverse;
@@ -11,6 +13,7 @@ uniform float PaintMaskShape;
 in vec4 vertexColor;
 in vec2 texCoord0;
 in vec3 formRootPos;
+in float vertexDistance;
 
 out vec4 fragColor;
 
@@ -105,5 +108,5 @@ void main()
         discard;
     }
 
-    fragColor = vec4(rgb, alpha);
+    fragColor = linear_fog(vec4(rgb, alpha), vertexDistance, FogStart, FogEnd, FogColor);
 }

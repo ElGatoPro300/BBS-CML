@@ -51,6 +51,7 @@ public class UILabelFormPanel extends UIFormPanel<LabelForm>
     public UIFormColorTransform glowTransform;
     public UIElement glowSection;
     public UITrackpad max;
+    public UITrackpad wrapLineGap;
     public UITrackpad anchorX;
     public UITrackpad anchorY;
     public UIToggle anchorLines;
@@ -95,7 +96,9 @@ public class UILabelFormPanel extends UIFormPanel<LabelForm>
         super(editor);
 
         this.text = new UITextbox(10000, (t) -> this.form.text.set(t));
+        this.text.tooltip(UIKeys.FORMS_EDITORS_LABEL_TEXT_HINT);
         this.billboard = new UIToggle(UIKeys.FORMS_EDITORS_BILLBOARD_TITLE, (b) -> this.form.billboard.set(b.getValue()));
+        this.billboard.tooltip(UIKeys.FORMS_EDITORS_LABEL_BILLBOARD_HINT);
         this.nametag = new UIToggle(UIKeys.FORMS_EDITORS_LABEL_NAMETAG, (b) -> this.form.nametag.set(b.getValue()));
         this.nametag.tooltip(UIKeys.FORMS_EDITORS_LABEL_NAMETAG_HINT);
         /* Preserve color transform / grade when editing RGBA (Color.rgba would wipe them). */
@@ -181,20 +184,32 @@ public class UILabelFormPanel extends UIFormPanel<LabelForm>
         this.glowSection = UIFormColorLayout.createGlowSection(this.glowingColor, this.glowIntensity, this.glowTransform);
         this.max = new UITrackpad((value) -> this.form.max.set(value.intValue()));
         this.max.limit(-1, Integer.MAX_VALUE, true).increment(10);
+        this.max.tooltip(UIKeys.FORMS_EDITORS_LABEL_WRAP_WIDTH_HINT);
+        this.wrapLineGap = new UITrackpad((value) -> this.form.wrapLineGap.set(value.intValue()));
+        this.wrapLineGap.limit(0, 100, true).increment(1);
+        this.wrapLineGap.tooltip(UIKeys.FORMS_EDITORS_LABEL_WRAP_LINE_GAP_HINT);
         this.anchorX = new UITrackpad((value) -> this.form.anchorX.set(value.floatValue()));
         this.anchorX.values(0.01F);
+        this.anchorX.tooltip(UIKeys.FORMS_EDITORS_LABEL_ANCHOR_X_HINT);
         this.anchorY = new UITrackpad((value) -> this.form.anchorY.set(value.floatValue()));
         this.anchorY.values(0.01F);
+        this.anchorY.tooltip(UIKeys.FORMS_EDITORS_LABEL_ANCHOR_Y_HINT);
         this.anchorLines = new UIToggle(UIKeys.FORMS_EDITORS_LABEL_ANCHOR_LINES, (value) -> this.form.anchorLines.set(value.getValue()));
+        this.anchorLines.tooltip(UIKeys.FORMS_EDITORS_LABEL_ANCHOR_LINES_HINT);
 
         this.shadowX = new UITrackpad((value) -> this.form.shadowX.set(value.floatValue()));
         this.shadowX.limit(-100, 100).values(0.1F, 0.01F, 0.5F).increment(0.1F);
+        this.shadowX.tooltip(UIKeys.FORMS_EDITORS_LABEL_SHADOW_X_HINT);
         this.shadowY = new UITrackpad((value) -> this.form.shadowY.set(value.floatValue()));
         this.shadowY.limit(-100, 100).values(0.1F, 0.01F, 0.5F).increment(0.1F);
+        this.shadowY.tooltip(UIKeys.FORMS_EDITORS_LABEL_SHADOW_Y_HINT);
         this.shadowColor = new UIColor((value) -> this.form.shadowColor.set(Color.rgba(value))).withAlpha();
+        this.shadowColor.tooltip(UIKeys.FORMS_EDITORS_LABEL_SHADOW_COLOR_HINT);
 
         this.background = new UIColor((value) -> this.form.background.set(Color.rgba(value))).withAlpha();
+        this.background.tooltip(UIKeys.FORMS_EDITORS_LABEL_BACKGROUND_HINT);
         this.offset = new UITrackpad((value) -> this.form.offset.set(value.floatValue()));
+        this.offset.tooltip(UIKeys.FORMS_EDITORS_LABEL_BACKGROUND_OFFSET_HINT);
 
         /* Advanced Inits */
         this.availableFonts = FontUtils.getAvailableFonts();
@@ -210,6 +225,7 @@ public class UILabelFormPanel extends UIFormPanel<LabelForm>
         {
             this.font.addLabel(IKey.raw(fontName));
         }
+        this.font.tooltip(UIKeys.FORMS_EDITORS_LABEL_FONT_HINT);
 
         this.openFontsFolder = new UIIcon(Icons.FOLDER, (b) -> {
             File fontsFolder = new File(BBSMod.getAssetsFolder(), "fonts");
@@ -232,45 +248,59 @@ public class UILabelFormPanel extends UIFormPanel<LabelForm>
                 super.renderSkin(context);
             }
         };
-        this.openFontsFolder.tooltip(UIKeys.FORMS_EDITORS_LABEL_OPEN_FONTS_FOLDER);
+        this.openFontsFolder.tooltip(UIKeys.FORMS_EDITORS_LABEL_OPEN_FONTS_FOLDER_HINT);
 
         this.fontSize = new UITrackpad((v) -> this.form.fontSize.set(v.floatValue()));
         this.fontSize.limit(0.1F, 100F).values(0.1F, 0.1F, 2F);
+        this.fontSize.tooltip(UIKeys.FORMS_EDITORS_LABEL_FONT_SIZE_HINT);
         
         this.bold = new UIToggle(UIKeys.FORMS_EDITORS_LABEL_BOLD, (b) -> this.form.fontWeight.set(b.getValue() ? 700 : 400));
+        this.bold.tooltip(UIKeys.FORMS_EDITORS_LABEL_BOLD_HINT);
         
         this.fontStyle = new UICirculate((b) -> this.form.fontStyle.set(b.getValue()));
         this.fontStyle.addLabel(UIKeys.FORMS_EDITORS_LABEL_FONT_STYLE_NORMAL);
         this.fontStyle.addLabel(UIKeys.FORMS_EDITORS_LABEL_FONT_STYLE_ITALIC);
+        this.fontStyle.tooltip(UIKeys.FORMS_EDITORS_LABEL_FONT_STYLE_HINT);
         
         this.textAlign = new UICirculate((b) -> this.form.textAlign.set(b.getValue()));
         this.textAlign.addLabel(UIKeys.FORMS_EDITORS_LABEL_TEXT_ALIGN_LEFT);
         this.textAlign.addLabel(UIKeys.FORMS_EDITORS_LABEL_TEXT_ALIGN_CENTER);
         this.textAlign.addLabel(UIKeys.FORMS_EDITORS_LABEL_TEXT_ALIGN_RIGHT);
         this.textAlign.addLabel(UIKeys.FORMS_EDITORS_LABEL_TEXT_ALIGN_JUSTIFY);
+        this.textAlign.tooltip(UIKeys.FORMS_EDITORS_LABEL_TEXT_ALIGN_HINT);
 
         this.letterSpacing = new UITrackpad((v) -> this.form.letterSpacing.set(v.floatValue()));
         this.letterSpacing.limit(-10F, 50F).values(0.1F);
+        this.letterSpacing.tooltip(UIKeys.FORMS_EDITORS_LABEL_LETTER_SPACING_HINT);
         
         this.lineHeight = new UITrackpad((v) -> this.form.lineHeight.set(v.floatValue()));
         this.lineHeight.limit(0F, 100F).values(0.1F);
+        this.lineHeight.tooltip(UIKeys.FORMS_EDITORS_LABEL_LINE_HEIGHT_HINT);
         
         this.underline = new UIToggle(UIKeys.FORMS_EDITORS_LABEL_UNDERLINE, (b) -> this.form.underline.set(b.getValue()));
+        this.underline.tooltip(UIKeys.FORMS_EDITORS_LABEL_UNDERLINE_HINT);
         this.strikethrough = new UIToggle(UIKeys.FORMS_EDITORS_LABEL_STRIKETHROUGH, (b) -> this.form.strikethrough.set(b.getValue()));
+        this.strikethrough.tooltip(UIKeys.FORMS_EDITORS_LABEL_STRIKETHROUGH_HINT);
         
         this.shadowBlur = new UITrackpad((v) -> this.form.shadowBlur.set(v.floatValue()));
         this.shadowBlur.limit(0F, 20F).values(0.1F);
+        this.shadowBlur.tooltip(UIKeys.FORMS_EDITORS_LABEL_SHADOW_BLUR_HINT);
         
         this.outline = new UIToggle(UIKeys.FORMS_EDITORS_LABEL_OUTLINE, (b) -> this.form.outline.set(b.getValue()));
+        this.outline.tooltip(UIKeys.FORMS_EDITORS_LABEL_OUTLINE_HINT);
         this.outlineColor = new UIColor((c) -> this.form.outlineColor.set(Color.rgba(c))).withAlpha();
+        this.outlineColor.tooltip(UIKeys.FORMS_EDITORS_LABEL_OUTLINE_COLOR_HINT);
         this.outlineWidth = new UITrackpad((v) -> this.form.outlineWidth.set(v.floatValue()));
         this.outlineWidth.limit(0F, 10F).values(0.1F);
+        this.outlineWidth.tooltip(UIKeys.FORMS_EDITORS_LABEL_OUTLINE_WIDTH_HINT);
         
         this.gradient = new UIToggle(UIKeys.FORMS_EDITORS_LABEL_GRADIENT, (b) -> this.form.gradient.set(b.getValue()));
+        this.gradient.tooltip(UIKeys.FORMS_EDITORS_LABEL_GRADIENT_HINT);
         this.gradientEndColor = new UIColor((c) -> this.form.gradientEndColor.set(Color.rgba(c))).withAlpha();
+        this.gradientEndColor.tooltip(UIKeys.FORMS_EDITORS_LABEL_GRADIENT_END_COLOR_HINT);
         this.gradientOffset = new UITrackpad((v) -> this.form.gradientOffset.set(v.floatValue()));
         this.gradientOffset.limit(0F, 1F).values(0.01F);
-        this.gradientOffset.tooltip(UIKeys.RAW_GRADIENT_OFFSET);
+        this.gradientOffset.tooltip(UIKeys.FORMS_EDITORS_LABEL_GRADIENT_OFFSET_HINT);
 
         this.resetGradient = new UIButton(UIKeys.RAW_RESET_GRADIENT, (b) ->
         {
@@ -282,6 +312,7 @@ public class UILabelFormPanel extends UIFormPanel<LabelForm>
             this.gradientEndColor.setColor(Colors.WHITE);
             this.gradientOffset.setValue(0.5F);
         });
+        this.resetGradient.tooltip(UIKeys.FORMS_EDITORS_LABEL_RESET_GRADIENT_HINT);
 
         this.options.add(
             UI.label(UIKeys.FORMS_EDITORS_LABEL_LABEL),
@@ -294,7 +325,10 @@ public class UILabelFormPanel extends UIFormPanel<LabelForm>
                 this.glowSection,
                 UIFormColorLayout.paintColorRowWithTransform(this.paintColor, this.paintIntensity, this.paintTransform)
             ).marginTop(4),
-            this.max
+            UI.label(UIKeys.FORMS_EDITORS_LABEL_WRAP_WIDTH),
+            this.max,
+            UI.label(UIKeys.FORMS_EDITORS_LABEL_WRAP_LINE_GAP),
+            this.wrapLineGap
         );
 
         this.options.add(UI.label(UIKeys.FORMS_EDITORS_LABEL_ANCHOR).marginTop(8), UI.row(this.anchorX, this.anchorY), this.anchorLines);
@@ -388,6 +422,7 @@ public class UILabelFormPanel extends UIFormPanel<LabelForm>
         this.glowIntensity.setValue(glow.intensity);
         this.glowTransform.syncFromForm();
         this.max.setValue(form.max.get());
+        this.wrapLineGap.setValue(form.wrapLineGap.get());
         this.anchorX.setValue(form.anchorX.get());
         this.anchorY.setValue(form.anchorY.get());
         this.anchorLines.setValue(form.anchorLines.get());

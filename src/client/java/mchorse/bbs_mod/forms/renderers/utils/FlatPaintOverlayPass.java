@@ -8,8 +8,6 @@ import net.minecraft.client.gl.ShaderProgram;
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
 
-import com.mojang.blaze3d.opengl.GlStateManager;
-import com.mojang.blaze3d.pipeline.RenderPipeline;
 import com.mojang.blaze3d.systems.RenderSystem;
 
 import org.lwjgl.opengl.GL11;
@@ -24,19 +22,25 @@ public class FlatPaintOverlayPass
     /**
      * Camera-facing quads have ~0 depth slope, so only {@code units} separates the overlay.
      * Far away, float depth precision needs a larger units bias than near-camera draws.
+     * <p>
+     * {@code factor} must stay {@code 0} for Iris world paint: OpenGL offset is
+     * {@code factor * maxDepthSlope + r * units}. Edge-on / grazing faces have huge slope, so
+     * a negative factor pulls paint toward the camera and lets it punch through walls from
+     * thin viewing angles. Units alone avoid that while still clearing self z-fight on facing
+     * surfaces.
      */
-    public static final float POLYGON_OFFSET_FACTOR = -1F;
-    public static final float POLYGON_OFFSET_UNITS = -32F;
+    public static final float POLYGON_OFFSET_FACTOR = 0F;
+    public static final float POLYGON_OFFSET_UNITS = -64F;
 
     /** Default bias — clears the camera-facing base face when close / angled. */
     public static final float DEFAULT_FACTOR = -2F;
     public static final float DEFAULT_UNITS = -4F;
     /**
-     * Stronger than deferred billboard base ({@code -1.5/-1.5}). Paint flushes after the Iris
-     * base redraw; the factor term dominates at distance and must clearly beat the base offset.
+     * Iris deferred billboard paint (flush after pack composite). Factor stays 0 — same
+     * wall punch-through rule as {@link #POLYGON_OFFSET_FACTOR}; units carry the self bias.
      */
-    public static final float DEFERRED_BILLBOARD_FACTOR = -4F;
-    public static final float DEFERRED_BILLBOARD_UNITS = -8F;
+    public static final float DEFERRED_BILLBOARD_FACTOR = 0F;
+    public static final float DEFERRED_BILLBOARD_UNITS = -64F;
 
 
     private FlatPaintOverlayPass()
@@ -74,22 +78,23 @@ public class FlatPaintOverlayPass
         }
         else
         {
-            GlStateManager._enableBlend();
-            GlStateManager._blendFuncSeparate(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA, 1, 0);
-            GlStateManager._enableDepthTest();
-            GlStateManager._depthFunc(GL11.GL_LEQUAL);
-            GlStateManager._depthMask(false);
+            RenderSystem.enableBlend();
+            RenderSystem.blendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
+            RenderSystem.enableDepthTest();
+            RenderSystem.depthFunc(GL11.GL_LEQUAL);
+            RenderSystem.depthMask(false);
 
-            RenderPipeline program = BBSShaders.getFlatPaintOverlayProgram();
+            ShaderProgram program = BBSShaders.getFlatPaintOverlayProgram();
 
             if (program != null)
             {
+                RenderSystem.setShader(() -> program);
                 /* Inactive mask — full paint strength from vertex alpha. */
                 BlockEffectOverlayUniforms.bindFormRootInverse(program, null);
                 BlockEffectOverlayUniforms.bindPaintPrecomputed(program, null, bottomAnchored, maskHalf);
             }
 
-            // RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
+            RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
         }
 
         GL11.glEnable(GL11.GL_POLYGON_OFFSET_FILL);
@@ -109,8 +114,9 @@ public class FlatPaintOverlayPass
                 GL11.glDisable(GL11.GL_POLYGON_OFFSET_FILL);
             }
 
-            GlStateManager._depthMask(savedDepthMask);
-            GlStateManager._blendFuncSeparate(770, 771, 1, 0);
+            RenderSystem.depthMask(savedDepthMask);
+            RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
+            RenderSystem.defaultBlendFunc();
         }
     }
 }

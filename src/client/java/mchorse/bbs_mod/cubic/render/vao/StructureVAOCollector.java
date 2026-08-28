@@ -2,7 +2,7 @@ package mchorse.bbs_mod.cubic.render.vao;
 
 import net.minecraft.client.render.VertexConsumer;
 
-import org.joml.Matrix4fc;
+import org.joml.Matrix4f;
 import org.joml.Vector4f;
 
 import java.util.ArrayList;
@@ -43,41 +43,24 @@ public class StructureVAOCollector implements VertexConsumer
     }
 
     @Override
-    public VertexConsumer vertex(float x, float y, float z)
+    public VertexConsumer vertex(double x, double y, double z)
     {
-        this.vx = x;
-        this.vy = y;
-        this.vz = z;
+        this.vx = (float) x;
+        this.vy = (float) y;
+        this.vz = (float) z;
         return this;
     }
 
     @Override
-    public VertexConsumer lineWidth(float width)
+    public void next()
     {
-        return this;
-    }
-
-    @Override
-    public VertexConsumer vertex(Matrix4fc matrix, float x, float y, float z)
-    {
-        Vector4f v = new Vector4f(x, y, z, 1F);
-        v.mul(matrix);
-        this.vx = v.x;
-        this.vy = v.y;
-        this.vz = v.z;
-        return this;
+        /* no-op */
     }
 
     @Override
     public VertexConsumer color(int red, int green, int blue, int alpha)
     {
         /* Per-vertex color is not used; global color is provided via shader attribute. */
-        return this;
-    }
-
-    @Override
-    public VertexConsumer color(int argb)
-    {
         return this;
     }
 

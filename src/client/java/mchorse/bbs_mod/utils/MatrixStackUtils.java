@@ -6,18 +6,14 @@ import mchorse.bbs_mod.utils.joml.Vectors;
 import mchorse.bbs_mod.utils.pose.Transform;
 
 import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gl.GlUniform;
-import net.minecraft.client.gl.ShaderProgram;
 import net.minecraft.client.render.Camera;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.util.math.RotationAxis;
 
 import org.joml.Matrix3f;
 import org.joml.Matrix4f;
-import org.joml.Matrix4fStack;
 import org.joml.Quaternionf;
 
-import com.mojang.blaze3d.systems.ProjectionType;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.systems.VertexSorter;
 
@@ -28,6 +24,7 @@ public class MatrixStackUtils
     private static Matrix4f oldProjection = new Matrix4f();
     private static Matrix4f oldMV = new Matrix4f();
     private static Matrix3f oldInverse = new Matrix3f();
+    private static final Matrix4f tempInverseViewRotation4 = new Matrix4f();
     private static final Quaternionf tempQuaternion = new Quaternionf();
     /* Near-zero axis scale collapses ModelView; Iris then rebuilds normals from a singular
      * inverse-transpose and lit meshes go solid black. Keep a tiny thickness for lighting. */
@@ -81,6 +78,37 @@ public class MatrixStackUtils
     }
 
     /**
+     * Allocation-free {@link #getInverseViewRotationMatrix()} into {@code dest}.
+     */
+    public static void loadInverseViewRotationMatrix4(Matrix4f dest)
+    {
+        Camera camera = MinecraftClient.getInstance().gameRenderer.getCamera();
+
+        dest.rotation(camera.getRotation().conjugate(MatrixStackUtils.tempQuaternion));
+
+        CameraController controller = BBSModClient.getCameraController();
+
+        if (controller.getCurrent() != null)
+        {
+            float rollDeg = controller.getRoll();
+
+            if (Math.abs(rollDeg) > 1.0E-4F)
+            {
+                dest.rotateZ(-MathUtils.toRad(rollDeg));
+            }
+        }
+    }
+
+    /**
+     * {@link RenderSystem#getInverseViewRotationMatrix()} with BBS film/orbit roll applied.
+     */
+    public static void loadInverseViewRotationMatrix3(Matrix3f dest)
+    {
+        loadInverseViewRotationMatrix4(MatrixStackUtils.tempInverseViewRotation4);
+        dest.set(MatrixStackUtils.tempInverseViewRotation4);
+    }
+
+    /**
      * View rotation matrix paired with {@link #getInverseViewRotationMatrix()}.
      */
     public static Matrix4f getViewRotationMatrix()
@@ -112,41 +140,48 @@ public class MatrixStackUtils
     public static void cacheMatrices()
     {
         /* Cache the global stuff */
-        RenderSystem.backupProjectionMatrix();
+        oldProjection.set(RenderSystem.getProjectionMatrix());
         oldMV.set(RenderSystem.getModelViewMatrix());
-        oldInverse.set(new Matrix3f(RenderSystem.getModelViewMatrix()));
+        oldInverse.set(RenderSystem.getInverseViewRotationMatrix());
 
-        Matrix4fStack mvStack = RenderSystem.getModelViewStack();
-        mvStack.identity();
+        MatrixStack renderStack = RenderSystem.getModelViewStack();
+
+        renderStack.push();
+        renderStack.loadIdentity();
+        RenderSystem.applyModelViewMatrix();
+        renderStack.pop();
     }
 
     public static void restoreMatrices()
     {
         /* Return back to orthographic projection */
-        RenderSystem.restoreProjectionMatrix();
+        RenderSystem.setProjectionMatrix(oldProjection, VertexSorter.BY_Z);
+        RenderSystem.setInverseViewRotationMatrix(oldInverse);
 
-        Matrix4fStack mvStack = RenderSystem.getModelViewStack();
-        mvStack.set(oldMV);
-    }
+        MatrixStack renderStack = RenderSystem.getModelViewStack();
 
-    public static void applyModelViewMatrix()
-    {
-        /* 1.21.11: RenderPipeline handles ModelViewMat */
+        renderStack.push();
+        renderStack.loadIdentity();
+        MatrixStackUtils.multiply(renderStack, oldMV);
+        RenderSystem.applyModelViewMatrix();
+        renderStack.pop();
     }
 
     public static void pushIdentityModelView()
     {
-        Matrix4fStack mvStack = RenderSystem.getModelViewStack();
+        MatrixStack mvStack = RenderSystem.getModelViewStack();
 
-        mvStack.pushMatrix();
-        mvStack.identity();
+        mvStack.push();
+        mvStack.loadIdentity();
+        RenderSystem.applyModelViewMatrix();
     }
 
     public static void popModelView()
     {
-        Matrix4fStack mvStack = RenderSystem.getModelViewStack();
+        MatrixStack mvStack = RenderSystem.getModelViewStack();
 
-        mvStack.popMatrix();
+        mvStack.pop();
+        RenderSystem.applyModelViewMatrix();
     }
 
     /**
@@ -166,6 +201,78 @@ public class MatrixStackUtils
         while (guard-- > 0 && !stack.isEmpty() && stack.peek() != parent)
         {
             stack.pop();
+        }
+    }
+
+    /**
+     * Safe inverse for form-root / overlay mask uniforms. Singular stacks (zero scale,
+     * degenerate UI transforms) fall back to identity instead of NaN uniforms.
+     */
+    public static Matrix4f invertMatrix4f(Matrix4f matrix)
+    {
+        Matrix4f inverse = new Matrix4f(matrix);
+
+        if (Math.abs(inverse.determinant()) > 1.0E-8F)
+        {
+            inverse.invert();
+        }
+        else
+        {
+            inverse.identity();
+        }
+
+        return inverse;
+    }
+
+    public static void invertMatrix4f(Matrix4f matrix, Matrix4f dest)
+    {
+        dest.set(matrix);
+
+        if (Math.abs(dest.determinant()) > 1.0E-8F)
+        {
+            dest.invert();
+        }
+        else
+        {
+            dest.identity();
+        }
+    }
+
+    /**
+     * Form-root inverse for paint / color-mask overlay shaders. Flat billboards and labels
+     * often collapse an axis (det ≈ 0); a plain {@link #invertMatrix4f} then falls back to
+     * identity and spatial masks never match {@code formRootPos}.
+     */
+    public static Matrix4f invertFormRootMatrixForOverlay(Matrix4f matrix)
+    {
+        Matrix4f inverse = new Matrix4f();
+
+        invertFormRootMatrixForOverlay(matrix, inverse);
+
+        return inverse;
+    }
+
+    public static void invertFormRootMatrixForOverlay(Matrix4f matrix, Matrix4f dest)
+    {
+        dest.set(matrix);
+
+        if (Math.abs(dest.determinant()) > 1.0E-8F)
+        {
+            dest.invert();
+
+            return;
+        }
+
+        /* Rotation + translation only — enough for XY spatial masks on flat forms. */
+        dest.set(stripScale(matrix));
+
+        if (Math.abs(dest.determinant()) > 1.0E-8F)
+        {
+            dest.invert();
+        }
+        else
+        {
+            dest.identity();
         }
     }
 

@@ -893,8 +893,8 @@ public class StructurePickerClient
             return;
         }
 
-        BlockPos min = blocks.getFirst();
-        BlockPos max = blocks.getFirst();
+        BlockPos min = blocks.get(0);
+        BlockPos max = blocks.get(0);
 
         for (BlockPos pos : blocks)
         {
@@ -957,7 +957,7 @@ public class StructurePickerClient
             return;
         }
 
-        RegistryKey<World> key = mc.player.getEntityWorld().getRegistryKey();
+        RegistryKey<World> key = mc.player.getWorld().getRegistryKey();
 
         mc.getServer().execute(() ->
         {
@@ -1052,19 +1052,24 @@ public class StructurePickerClient
         StructurePickerClient.renderHudLine(batcher, screenW, screenH, lineIndex, text);
     }
 
+    private static double getPlayerReach(MinecraftClient mc)
+    {
+        return mc.interactionManager != null ? mc.interactionManager.getReachDistance() : 4.5D;
+    }
+
     private static double getPickerReach(MinecraftClient mc)
     {
         if (StructurePickerClient.clickOnAir)
         {
-            return mc.player.getBlockInteractionRange();
+            return getPlayerReach(mc);
         }
 
-        return Math.max(mc.player.getBlockInteractionRange() * REACH_MULTIPLIER, MIN_PICKER_REACH);
+        return Math.max(getPlayerReach(mc) * REACH_MULTIPLIER, MIN_PICKER_REACH);
     }
 
     private static double getAirClickReach(MinecraftClient mc)
     {
-        return mc.player.getBlockInteractionRange();
+        return getPlayerReach(mc);
     }
 
     private static BlockPos resolveTargetBlock(MinecraftClient mc)
@@ -1180,7 +1185,7 @@ public class StructurePickerClient
         replay.keyframes.y.insert(0, (double) placement.getY());
         replay.keyframes.z.insert(0, placement.getZ() + 0.5D);
 
-        panel.replayEditor.replays.replays.ensureVisible(replay);
+        panel.replayEditor.replays.replays.finishImport(replay);
     }
 
     public record Region(BlockPos first, BlockPos second, StructurePickerMode mode, Direction triangleFacing)

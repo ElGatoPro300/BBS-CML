@@ -1,23 +1,19 @@
 package mchorse.bbs_mod.mixin.client;
 
 import mchorse.bbs_mod.client.BBSRendering;
+import mchorse.bbs_mod.client.SunPathRotation;
 import mchorse.bbs_mod.utils.colors.Color;
 
-import net.minecraft.client.option.CloudRenderMode;
+import net.minecraft.client.gl.Framebuffer;
+import net.minecraft.client.render.BufferBuilder;
 import net.minecraft.client.render.Camera;
-import net.minecraft.client.render.DefaultFramebufferSet;
-import net.minecraft.client.render.FrameGraphBuilder;
-import net.minecraft.client.render.FramePass;
-import net.minecraft.client.render.Frustum;
-import net.minecraft.client.render.SectionRenderState;
+import net.minecraft.client.render.RenderLayer;
 import net.minecraft.client.render.WorldRenderer;
+import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.util.math.Vec3d;
 
 import org.joml.Matrix4f;
-import org.joml.Matrix4fc;
 
-import com.mojang.blaze3d.buffers.GpuBufferSlice;
-import com.mojang.blaze3d.opengl.GlStateManager;
 import com.mojang.blaze3d.systems.RenderSystem;
 
 import org.lwjgl.opengl.GL11;
@@ -33,55 +29,57 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 public class WorldRendererMixin
 {
     @Shadow
-    private DefaultFramebufferSet framebufferSet;
+    public Framebuffer entityOutlinesFramebuffer;
 
-    @Inject(method = "renderSky(Lnet/minecraft/client/render/FrameGraphBuilder;Lnet/minecraft/client/render/Camera;Lcom/mojang/blaze3d/buffers/GpuBufferSlice;)V", at = @At("HEAD"), cancellable = true, require = 0)
-    public void onRenderSky(FrameGraphBuilder frameGraphBuilder, Camera camera, GpuBufferSlice fogBuffer, CallbackInfo info)
+    @Inject(method = "renderSky(Lnet/minecraft/client/util/math/MatrixStack;Lorg/joml/Matrix4f;FLnet/minecraft/client/render/Camera;ZLjava/lang/Runnable;)V", at = @At("HEAD"), cancellable = true)
+    public void onRenderSky(MatrixStack matrices, Matrix4f projectionMatrix, float tickDelta, Camera camera, boolean thickFog, Runnable fogCallback, CallbackInfo info)
     {
         if (BBSRendering.isChromaSkyEnabled())
         {
-            FramePass pass = frameGraphBuilder.createPass("sky");
+            Color color = Color.rgb(BBSRendering.getChromaSkyColor());
 
-            this.framebufferSet.mainFramebuffer = pass.transfer(this.framebufferSet.mainFramebuffer);
-            pass.setRenderer(() -> {
-                Color color = Color.rgb(BBSRendering.getChromaSkyColor());
-
-                GL11.glClearColor(color.r, color.g, color.b, 1F);
-                GL11.glClear(GL11.GL_COLOR_BUFFER_BIT);
-            });
+            GL11.glClearColor(color.r, color.g, color.b, 1F);
+            GL11.glClear(GL11.GL_COLOR_BUFFER_BIT);
+            RenderSystem.setShaderFogColor(color.r, color.g, color.b, 1F);
 
             info.cancel();
+
+            return;
         }
+
+        SunPathRotation.begin(matrices.peek().getPositionMatrix());
     }
 
-    @Inject(method = "renderClouds", at = @At("HEAD"), cancellable = true, require = 0)
-    public void onRenderClouds(FrameGraphBuilder frameGraphBuilder, CloudRenderMode cloudRenderMode, Vec3d cameraPos, long time, float tickDelta, int color, float cloudHeight, CallbackInfo info)
+    @Inject(method = "renderSky(Lnet/minecraft/client/util/math/MatrixStack;Lorg/joml/Matrix4f;FLnet/minecraft/client/render/Camera;ZLjava/lang/Runnable;)V", at = @At("RETURN"))
+    public void onRenderSkyReturn(MatrixStack matrices, Matrix4f projectionMatrix, float tickDelta, Camera camera, boolean thickFog, Runnable fogCallback, CallbackInfo info)
     {
-        if (BBSRendering.isChromaSkyEnabled() && !BBSRendering.isChromaSkyClouds())
-        {
-            info.cancel();
-        }
+        SunPathRotation.end(matrices.peek().getPositionMatrix());
     }
 
-    @Inject(method = "renderWeather", at = @At("HEAD"), cancellable = true, require = 0)
-    public void onRenderWeather(FrameGraphBuilder frameGraphBuilder, GpuBufferSlice fogBuffer, CallbackInfo info)
+    @Inject(method = "renderLayer", at = @At("HEAD"), cancellable = true)
+    public void onRenderLayer(RenderLayer renderLayer, MatrixStack matrices, double cameraX, double cameraY, double cameraZ, Matrix4f positionMatrix, CallbackInfo info)
     {
         if (BBSRendering.shouldHideChromaTerrain())
         {
+            BBSRendering.onRenderChunkLayer(matrices);
+
             info.cancel();
         }
     }
 
-    @Inject(method = "renderBlockLayers", at = @At("TAIL"), require = 0)
-    public void onRenderBlockLayers(Matrix4fc positionMatrix, double cameraX, double cameraY, double cameraZ, CallbackInfoReturnable<SectionRenderState> info)
+    @Inject(method = "renderLayer", at = @At("TAIL"))
+    public void onRenderChunkLayer(RenderLayer layer, MatrixStack stack, double cameraX, double cameraY, double cameraZ, Matrix4f positionMatrix, CallbackInfo info)
     {
-        BBSRendering.onRenderChunkLayer(new Matrix4f(positionMatrix), BBSRendering.camera);
+        if (layer == RenderLayer.getSolid())
+        {
+            BBSRendering.onRenderChunkLayer(stack);
+        }
     }
 
     @Inject(method = "setupFrustum", at = @At("HEAD"))
-    public void onSetupFrustum(Matrix4f positionMatrix, Matrix4f projectionMatrix, Vec3d cameraPos, CallbackInfoReturnable<Frustum> info)
+    public void onSetupFrustum(MatrixStack matrices, Vec3d vec3d, Matrix4f matrix4f, CallbackInfo info)
     {
-        BBSRendering.camera.set(projectionMatrix);
+        BBSRendering.camera.set(matrices.peek().getPositionMatrix());
     }
 
     @Inject(at = @At("RETURN"), method = "loadEntityOutlinePostProcessor")
@@ -91,8 +89,13 @@ public class WorldRendererMixin
     }
 
     @Inject(at = @At("RETURN"), method = "onResized")
-    private void onResized(int width, int height, CallbackInfo info)
+    private void onResized(CallbackInfo info)
     {
+        if (this.entityOutlinesFramebuffer == null)
+        {
+            return;
+        }
+
         BBSRendering.resizeExtraFramebuffers();
     }
 }

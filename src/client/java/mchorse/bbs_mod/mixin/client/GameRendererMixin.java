@@ -6,12 +6,12 @@ import mchorse.bbs_mod.camera.controller.CameraController;
 import mchorse.bbs_mod.camera.controller.ICameraController;
 import mchorse.bbs_mod.camera.controller.PlayCameraController;
 import mchorse.bbs_mod.client.BBSRendering;
+import mchorse.bbs_mod.cubic.render.vao.ModelVAORenderer;
 import mchorse.bbs_mod.film.Films;
 import mchorse.bbs_mod.items.GunZoom;
 
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.render.GameRenderer;
-import net.minecraft.client.render.RenderTickCounter;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.util.math.MathHelper;
@@ -32,6 +32,14 @@ public class GameRendererMixin
     private float bbs$fpBobPrevPhase;
     private float bbs$fpBobStride;
     private float bbs$fpBobPrevStride;
+
+    @Inject(method = "renderWorld", at = @At("HEAD"))
+    public void onRenderWorld(float tickDelta, long limitTime, MatrixStack matrices, CallbackInfo info)
+    {
+        CameraController controller = BBSModClient.getCameraController();
+
+        controller.setup(controller.camera, tickDelta);
+    }
 
     /**
      * This injection cancels bobbing when camera controller takes over
@@ -107,13 +115,13 @@ public class GameRendererMixin
      * This injection replaces the camera FOV when camera controller takes over
      */
     @Inject(method = "getFov", at = @At("RETURN"), cancellable = true)
-    public void onGetFov(CallbackInfoReturnable<Float> info)
+    public void onGetFov(CallbackInfoReturnable<Double> info)
     {
         GunZoom gunZoom = BBSModClient.getGunZoom();
 
         if (gunZoom != null)
         {
-            info.setReturnValue(gunZoom.getFOV(info.getReturnValue()));
+            info.setReturnValue((double) gunZoom.getFOV(info.getReturnValue().floatValue()));
 
             return;
         }
@@ -122,7 +130,7 @@ public class GameRendererMixin
 
         if (controller.getCurrent() != null && !BBSRendering.isIrisShadowPass())
         {
-            info.setReturnValue((float) controller.getFOV());
+            info.setReturnValue(controller.getFOV());
         }
     }
 
@@ -191,14 +199,34 @@ public class GameRendererMixin
         BBSRendering.onWorldRenderBegin();
     }
 
+    /**
+     * Flush Iris-deferred paint overlays after the world has been composited but before
+     * AAA Particles pastes a cleared depth buffer and draws Effekseer (same GETFIELD point
+     * as AAA's {@code beforeRenderHand}, earlier {@code order} so we run first).
+     */
+    @Inject(
+        method = "renderWorld",
+        at = @At(value = "FIELD", opcode = Opcodes.GETFIELD, target = "Lnet/minecraft/client/render/GameRenderer;renderHand:Z"),
+        order = 900
+    )
+    private void bbsFlushPaintOverlaysBeforeHand(CallbackInfo callbackInfo)
+    {
+        if (!BBSRendering.isIrisShadersEnabled() || !ModelVAORenderer.hasQueuedPaintOverlays())
+        {
+            return;
+        }
+
+        ModelVAORenderer.flushPaintOverlayQueue();
+    }
+
     @Inject(at = @At("RETURN"), method = "renderWorld")
     private void onWorldRenderEnd(CallbackInfo callbackInfo)
     {
         BBSRendering.onWorldRenderEnd();
     }
 
-    @Inject(method = "render", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/gui/hud/InGameHud;render(Lnet/minecraft/client/gui/DrawContext;Lnet/minecraft/client/render/RenderTickCounter;)V", ordinal = 0), require = 0)
-    private void onBeforeHudRendering(RenderTickCounter tickCounter, boolean tick, CallbackInfo info)
+    @Inject(method = "render", at = @At(value = "FIELD", target = "Lnet/minecraft/client/option/GameOptions;hudHidden:Z", opcode = Opcodes.GETFIELD, ordinal = 0))
+    private void onBeforeHudRendering(float tickDelta, long startTime, boolean tick, CallbackInfo info)
     {
         ICameraController current = BBSModClient.getCameraController().getCurrent();
 

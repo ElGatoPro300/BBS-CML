@@ -8,7 +8,6 @@ import net.minecraft.client.render.VertexConsumer;
 import net.minecraft.client.render.VertexConsumerProvider;
 
 import org.joml.Matrix4f;
-import org.joml.Matrix4fc;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -102,28 +101,34 @@ public class LabelTextTintQuadCapture implements VertexConsumerProvider, VertexC
     }
 
     @Override
-    public VertexConsumer vertex(float x, float y, float z)
+    public VertexConsumer vertex(double x, double y, double z)
     {
-        this.pendingX = x;
-        this.pendingY = y;
+        this.pendingX = (float) x;
+        this.pendingY = (float) y;
 
         return this;
     }
 
     @Override
-    public VertexConsumer color(int argb)
+    public void next()
     {
-        return this;
+        /* no-op */
     }
 
     @Override
-    public VertexConsumer lineWidth(float width)
+    public void fixedColor(int red, int green, int blue, int alpha)
     {
-        return this;
+        /* no-op */
     }
 
     @Override
-    public VertexConsumer vertex(Matrix4fc matrix, float x, float y, float z)
+    public void unfixColor()
+    {
+        /* no-op */
+    }
+
+    @Override
+    public VertexConsumer vertex(Matrix4f matrix, float x, float y, float z)
     {
         /* Identity / text-local capture: bake matrix so callers may pass a real stack matrix. */
         float tx = matrix.m00() * x + matrix.m10() * y + matrix.m20() * z + matrix.m30();

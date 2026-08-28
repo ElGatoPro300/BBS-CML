@@ -2,15 +2,14 @@ package mchorse.bbs_mod.ui.film;
 
 import mchorse.bbs_mod.camera.clips.misc.BossBarState;
 import mchorse.bbs_mod.ui.framework.elements.utils.Batcher2D;
+import mchorse.bbs_mod.utils.colors.Colors;
 
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.util.Identifier;
 import net.minecraft.util.math.MathHelper;
 
-import com.mojang.blaze3d.opengl.GlStateManager;
-
-import org.lwjgl.opengl.GL11;
+import com.mojang.blaze3d.systems.RenderSystem;
 
 import java.util.List;
 
@@ -75,20 +74,18 @@ public class UIBossBarRenderer
         batcher.flush();
         stack.push();
 
-        GL11.glDisable(GL11.GL_DEPTH_TEST);
-        GL11.glDepthMask(false);
-        GL11.glEnable(GL11.GL_BLEND);
-        GlStateManager._blendFuncSeparate(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA, GL11.GL_ONE, GL11.GL_ZERO);
+        RenderSystem.disableDepthTest();
+        RenderSystem.depthMask(false);
+        RenderSystem.enableBlend();
+        RenderSystem.defaultBlendFunc();
 
         DrawContext context = batcher.getContext();
 
-        context.fill(x, barY, x + displayWidth, barY + displayHeight, 0xFFFFFFFF);
+        batcher.box(x, barY, x + displayWidth, barY + displayHeight, Colors.setA(Colors.WHITE, alpha));
 
         if (progressWidth > 0)
         {
-            int color = bossBar.color;
-
-            context.fill(x, barY, x + progressWidth, barY + displayHeight, color);
+            batcher.box(x, barY, x + progressWidth, barY + displayHeight, applyAlpha(bossBar.color, alpha));
         }
 
         if (hasText)
@@ -98,6 +95,8 @@ public class UIBossBarRenderer
             int textColor = applyAlpha(bossBar.textColor, alpha);
             float textCenterX = textX + textWidth / 2F;
             float textCenterY = textY + fontHeight / 2F;
+
+            setShaderColor(context, 1F, 1F, 1F, 1F);
 
             if (textScale != 1F)
             {
@@ -115,13 +114,19 @@ public class UIBossBarRenderer
             }
         }
 
-        GL11.glDisable(GL11.GL_BLEND);
+        setShaderColor(context, 1F, 1F, 1F, 1F);
+        RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
+        RenderSystem.disableBlend();
 
         stack.pop();
         batcher.flush();
     }
 
-    /* TODO 1.21.11: RenderSystem.setShaderColor removed */
+    private static void setShaderColor(DrawContext context, float red, float green, float blue, float alpha)
+    {
+        context.setShaderColor(red, green, blue, alpha);
+        RenderSystem.setShaderColor(red, green, blue, alpha);
+    }
 
     private static float getResolutionScale(int width, int height)
     {

@@ -26,7 +26,8 @@ public class StructureVaoManager
         public IModelVAO picking;
     }
 
-    private static final int VAO_CACHE_VERSION = 3;
+    /* v4: translucent blocks excluded from main VAO (drawn as a live layer like animated/biome). */
+    private static final int VAO_CACHE_VERSION = 4;
     private static final Map<String, VaoHolder> VAO_CACHE = new HashMap<>();
     private static final int LIGHTING_REVISION = 5;
     private static int cachedLightingRevision = -1;
@@ -293,30 +294,34 @@ public class StructureVaoManager
         }
 
         @Override
-        public VertexConsumer vertex(float x, float y, float z)
+        public VertexConsumer vertex(double x, double y, double z)
         {
             this.delegate.vertex(x, y, z);
             return this;
         }
 
         @Override
+        public void next()
+        {
+            this.delegate.next();
+        }
+
+        @Override
+        public void fixedColor(int red, int green, int blue, int alpha)
+        {
+            this.delegate.fixedColor(red, green, blue, alpha);
+        }
+
+        @Override
+        public void unfixColor()
+        {
+            this.delegate.unfixColor();
+        }
+
+        @Override
         public VertexConsumer color(int red, int green, int blue, int alpha)
         {
             this.delegate.color(red, green, blue, alpha);
-            return this;
-        }
-
-        @Override
-        public VertexConsumer color(int argb)
-        {
-            this.delegate.color(argb);
-            return this;
-        }
-
-        @Override
-        public VertexConsumer lineWidth(float width)
-        {
-            this.delegate.lineWidth(width);
             return this;
         }
 

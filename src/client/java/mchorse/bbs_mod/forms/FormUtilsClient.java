@@ -39,25 +39,21 @@ import mchorse.bbs_mod.forms.renderers.TrailFormRenderer;
 import mchorse.bbs_mod.forms.renderers.VanillaParticleFormRenderer;
 import mchorse.bbs_mod.ui.framework.UIContext;
 
-import net.minecraft.block.AbstractSkullBlock;
 import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.render.BufferBuilder;
 import net.minecraft.client.render.RenderLayer;
-import net.minecraft.client.render.RenderLayers;
 import net.minecraft.client.render.TexturedRenderLayers;
 import net.minecraft.client.render.VertexConsumerProvider;
-import net.minecraft.client.render.entity.TridentEntityRenderer;
-import net.minecraft.client.util.BufferAllocator;
-import net.minecraft.item.BlockItem;
-import net.minecraft.item.ItemDisplayContext;
+import net.minecraft.client.render.entity.model.TridentEntityModel;
+import net.minecraft.client.render.model.ModelLoader;
+import net.minecraft.client.render.model.json.ModelTransformationMode;
 import net.minecraft.item.ItemStack;
-import net.minecraft.item.Items;
 import net.minecraft.util.Util;
 
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.SequencedMap;
 import java.util.Stack;
 
 import it.unimi.dsi.fastutil.objects.Object2ObjectLinkedOpenHashMap;
@@ -159,42 +155,43 @@ public class FormUtilsClient
      */
     private static CustomVertexConsumerProvider createIsolatedProvider()
     {
-        SequencedMap<RenderLayer, BufferAllocator> layers = Util.make(new Object2ObjectLinkedOpenHashMap<>(), map ->
+        Map<RenderLayer, BufferBuilder> layers = Util.make(new Object2ObjectLinkedOpenHashMap<>(), map ->
         {
-            map.put(TexturedRenderLayers.getEntitySolid(), new BufferAllocator(786432));
-            map.put(TexturedRenderLayers.getEntityCutout(), new BufferAllocator(786432));
-            map.put(TexturedRenderLayers.getBannerPatterns(), new BufferAllocator(786432));
-            map.put(TexturedRenderLayers.getItemTranslucentCull(), new BufferAllocator(786432));
-            FormUtilsClient.assignBuffer(map, RenderLayers.solid());
-            FormUtilsClient.assignBuffer(map, RenderLayers.cutout());
-            FormUtilsClient.assignBuffer(map, TexturedRenderLayers.getItemTranslucentCull());
-            FormUtilsClient.assignBuffer(map, RenderLayers.translucentMovingBlock());
+            map.put(TexturedRenderLayers.getEntitySolid(), new BufferBuilder(RenderLayer.getSolid().getExpectedBufferSize()));
+            map.put(TexturedRenderLayers.getEntityCutout(), new BufferBuilder(RenderLayer.getCutout().getExpectedBufferSize()));
+            map.put(TexturedRenderLayers.getBannerPatterns(), new BufferBuilder(RenderLayer.getCutoutMipped().getExpectedBufferSize()));
+            map.put(TexturedRenderLayers.getEntityTranslucentCull(), new BufferBuilder(RenderLayer.getTranslucent().getExpectedBufferSize()));
+            FormUtilsClient.assignBuffer(map, RenderLayer.getSolid());
+            FormUtilsClient.assignBuffer(map, RenderLayer.getCutout());
+            FormUtilsClient.assignBuffer(map, RenderLayer.getTranslucent());
+            FormUtilsClient.assignBuffer(map, RenderLayer.getCutoutMipped());
             FormUtilsClient.assignBuffer(map, TexturedRenderLayers.getShieldPatterns());
             FormUtilsClient.assignBuffer(map, TexturedRenderLayers.getBeds());
             FormUtilsClient.assignBuffer(map, TexturedRenderLayers.getShulkerBoxes());
             FormUtilsClient.assignBuffer(map, TexturedRenderLayers.getSign());
             FormUtilsClient.assignBuffer(map, TexturedRenderLayers.getHangingSign());
-            map.put(TexturedRenderLayers.getChest(), new BufferAllocator(786432));
+            map.put(TexturedRenderLayers.getChest(), new BufferBuilder(786432));
             /* Trim before glint — ArmorEntityGlint is EQUAL depth (vanilla BufferBuilderStorage
              * has no trim entry; our dual-shell trim must depth-write first). */
-            FormUtilsClient.assignBuffer(map, TexturedRenderLayers.getArmorTrims(false));
-            FormUtilsClient.assignBuffer(map, TexturedRenderLayers.getArmorTrims(true));
-            FormUtilsClient.assignBuffer(map, RenderLayers.armorEntityGlint());
-            FormUtilsClient.assignBuffer(map, RenderLayers.glint());
-            FormUtilsClient.assignBuffer(map, RenderLayers.glintTranslucent());
-            FormUtilsClient.assignBuffer(map, RenderLayers.entityGlint());
-            FormUtilsClient.assignBuffer(map, RenderLayers.waterMask());
-            FormUtilsClient.assignBuffer(map, RenderLayers.entitySolid(TridentEntityRenderer.TEXTURE));
+            FormUtilsClient.assignBuffer(map, TexturedRenderLayers.getArmorTrims());
+            FormUtilsClient.assignBuffer(map, RenderLayer.getArmorEntityGlint());
+            FormUtilsClient.assignBuffer(map, RenderLayer.getGlint());
+            FormUtilsClient.assignBuffer(map, RenderLayer.getGlintTranslucent());
+            FormUtilsClient.assignBuffer(map, RenderLayer.getEntityGlint());
+            FormUtilsClient.assignBuffer(map, RenderLayer.getDirectEntityGlint());
+            FormUtilsClient.assignBuffer(map, RenderLayer.getWaterMask());
+            FormUtilsClient.assignBuffer(map, RenderLayer.getEntitySolid(TridentEntityModel.TEXTURE));
+            ModelLoader.BLOCK_DESTRUCTION_RENDER_LAYERS.forEach((layer) -> FormUtilsClient.assignBuffer(map, layer));
         });
 
         return new CustomVertexConsumerProvider(
-            VertexConsumerProvider.immediate(layers, new BufferAllocator(512 * 1024))
+            VertexConsumerProvider.immediate(layers, new BufferBuilder(512 * 1024))
         );
     }
 
-    private static void assignBuffer(SequencedMap<RenderLayer, BufferAllocator> storage, RenderLayer layer)
+    private static void assignBuffer(Map<RenderLayer, BufferBuilder> storage, RenderLayer layer)
     {
-        storage.put(layer, new BufferAllocator(layer.getExpectedBufferSize()));
+        storage.put(layer, new BufferBuilder(layer.getExpectedBufferSize()));
     }
 
     /**
@@ -202,19 +199,24 @@ public class FormUtilsClient
      * Those meshes tessellate on the world entity Immediate — same path as a vanilla
      * player. Do not {@code draw()} that Immediate from here (Iris would duplicate).
      */
-    public static boolean usesBuiltinItemRenderer(ItemStack stack, ItemDisplayContext mode)
+    public static boolean usesBuiltinItemRenderer(ItemStack stack, ModelTransformationMode mode)
     {
         if (stack == null || stack.isEmpty())
         {
             return false;
         }
 
-        return stack.isOf(Items.TRIDENT)
-            || stack.isOf(Items.SHIELD)
-            || stack.getItem() instanceof BlockItem blockItem && blockItem.getBlock() instanceof AbstractSkullBlock;
+        try
+        {
+            return MinecraftClient.getInstance().getItemRenderer().getModel(stack, null, null, 0).isBuiltin();
+        }
+        catch (Exception e)
+        {
+            return false;
+        }
     }
 
-    public static VertexConsumerProvider routeMobFormBuiltinItemConsumers(ItemStack stack, ItemDisplayContext mode, VertexConsumerProvider fallback)
+    public static VertexConsumerProvider routeMobFormBuiltinItemConsumers(ItemStack stack, ModelTransformationMode mode, VertexConsumerProvider fallback)
     {
         if (fallback == null || !BBSRendering.isRenderingWorld() || BBSRendering.isIrisShadowPass())
         {
