@@ -73,13 +73,21 @@ public class ItemFormRenderer extends FormRenderer<ItemForm>
         Color storedFormColor = this.form.color.get();
         Color rawFormColor = storedFormColor.copyBakingColorGrade();
         Color formColor = rawFormColor.copy();
-        boolean colorTransformWanted = FormColorEffects.wantsColorTintOverlay(storedFormColor);
+        boolean colorTransformWanted = FormColorEffects.wantsColorTransformMask(storedFormColor);
         boolean colorGradeWanted = storedFormColor.hasColorAdjustments();
+        boolean colorTintOverlayReady = FormColorEffects.wantsColorTintOverlay(storedFormColor) && BlockEffectOverlayUniforms.hasColorTintOverlayShader();
         Color set = Color.white();
 
-        if (FormColorEffects.shouldBakeFormColor(storedFormColor))
+        if (!colorTintOverlayReady)
         {
-            set.mul(rawFormColor);
+            if (colorTransformWanted || colorGradeWanted)
+            {
+                set.mul(storedFormColor.copyDeferringColorGrade());
+            }
+            else if (FormColorEffects.shouldBakeFormColor(storedFormColor))
+            {
+                set.mul(rawFormColor);
+            }
         }
 
         this.form.applyFormOpacity(set);
@@ -109,7 +117,7 @@ public class ItemFormRenderer extends FormRenderer<ItemForm>
             this.submitDeferredItemPaintOverlay(null, matrices, resolvedPaint, set.a, OverlayTexture.DEFAULT_UV, mode, false, null, this.form.paintSettings.get().transform, glowSettings, legacyGlow, glowIntensity, true);
         }
 
-        if (colorTransformWanted)
+        if (colorTintOverlayReady)
         {
             Color overlayTint = colorGradeWanted ? storedFormColor.copyDeferringColorGrade() : formColor;
 
@@ -180,14 +188,22 @@ public class ItemFormRenderer extends FormRenderer<ItemForm>
             Color storedFormColor = this.form.color.get();
             Color rawFormColor = storedFormColor.copyBakingColorGrade();
             Color formColor = rawFormColor.copy();
-            boolean colorTransformWanted = FormColorEffects.wantsColorTintOverlay(storedFormColor);
+            boolean colorTransformWanted = FormColorEffects.wantsColorTransformMask(storedFormColor);
             boolean colorGradeWanted = storedFormColor.hasColorAdjustments();
+            boolean colorTintOverlayReady = FormColorEffects.wantsColorTintOverlay(storedFormColor) && BlockEffectOverlayUniforms.hasColorTintOverlayShader();
 
             BlockFormRenderer.color.set(context.color);
 
-            if (FormColorEffects.shouldBakeFormColor(storedFormColor))
+            if (!colorTintOverlayReady)
             {
-                BlockFormRenderer.color.mul(rawFormColor);
+                if (colorTransformWanted || colorGradeWanted)
+                {
+                    BlockFormRenderer.color.mul(storedFormColor.copyDeferringColorGrade());
+                }
+                else if (FormColorEffects.shouldBakeFormColor(storedFormColor))
+                {
+                    BlockFormRenderer.color.mul(rawFormColor);
+                }
             }
 
             this.form.applyFormOpacity(BlockFormRenderer.color);
@@ -250,7 +266,7 @@ public class ItemFormRenderer extends FormRenderer<ItemForm>
                 this.submitDeferredItemPaintOverlay(context, context.stack, resolvedPaint, BlockFormRenderer.color.a, context.overlay, mode, leftHand, itemEntity, paintSettings.transform, glowSettings, legacyGlow, glowIntensity, false);
             }
 
-            if (colorTransformWanted && !shadowPass && !context.isPicking())
+            if (colorTintOverlayReady && !shadowPass && !context.isPicking())
             {
                 Color overlayTint = colorGradeWanted ? storedFormColor.copyDeferringColorGrade() : formColor;
 
@@ -369,7 +385,12 @@ public class ItemFormRenderer extends FormRenderer<ItemForm>
 
     private void renderItemColorTintOverlayPass(FormRenderingContext context, MatrixStack stack, CustomVertexConsumerProvider consumers, Color formColor, float alpha, int overlay, boolean ui, ModelTransformationMode mode, boolean leftHand, LivingEntity itemEntity, Color gradeSource)
     {
-        Matrix4f formRootInverse = new Matrix4f(stack.peek().getPositionMatrix()).invert();
+        if (!BlockEffectOverlayUniforms.hasColorTintOverlayShader())
+        {
+            return;
+        }
+
+        Matrix4f formRootInverse = MatrixStackUtils.invertFormRootMatrixForOverlay(stack.peek().getPositionMatrix());
 
         CustomVertexConsumerProvider.clearRunnables();
         CustomVertexConsumerProvider.hijackVertexFormat((l) -> {
@@ -461,7 +482,7 @@ public class ItemFormRenderer extends FormRenderer<ItemForm>
 
     private void renderPaintOverlayPass(FormRenderingContext context, MatrixStack stack, CustomVertexConsumerProvider consumers, Color paintOverlay, int overlay, boolean ui, ModelTransformationMode mode, boolean leftHand, LivingEntity itemEntity, EffectTransform transform, GlowSettings glowSettings, Color legacyGlow, float glowIntensity, float alpha)
     {
-        Matrix4f formRootInverse = new Matrix4f(stack.peek().getPositionMatrix()).invert();
+        Matrix4f formRootInverse = MatrixStackUtils.invertFormRootMatrixForOverlay(stack.peek().getPositionMatrix());
 
         CustomVertexConsumerProvider.clearRunnables();
         CustomVertexConsumerProvider.hijackVertexFormat((l) -> {

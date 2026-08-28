@@ -1,5 +1,6 @@
 package mchorse.bbs_mod.forms.renderers.utils;
 
+import mchorse.bbs_mod.client.BBSShaders;
 import mchorse.bbs_mod.forms.forms.utils.EffectTransform;
 import mchorse.bbs_mod.utils.colors.Color;
 
@@ -37,6 +38,11 @@ public final class FlatColorTintOverlayPass
             return;
         }
 
+        if (formRootInverse != null && BBSShaders.getFlatColorTintOverlayProgram() == null)
+        {
+            return;
+        }
+
         boolean savedDepthMask = GL11.glGetBoolean(GL11.GL_DEPTH_WRITEMASK);
         boolean savedPolygonOffsetFill = GL11.glGetBoolean(GL11.GL_POLYGON_OFFSET_FILL);
 
@@ -59,6 +65,11 @@ public final class FlatColorTintOverlayPass
 
         try
         {
+            if (formRootInverse != null)
+            {
+                BlockEffectOverlayUniforms.refreshFlatColorTintOverlayUniforms(formRootInverse, transform, bottomAnchored, maskHalf, formColor);
+            }
+
             draw.run();
         }
         finally

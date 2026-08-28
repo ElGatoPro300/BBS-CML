@@ -34,6 +34,9 @@ public class BBSShaders
     private static ShaderProgram blockColorTintOverlay;
     private static ShaderProgram flatColorTintOverlay;
 
+    /* Avoid reloading every BBS shader on each draw when model compile fails. */
+    private static boolean modelLoadRetried;
+
     static
     {
         setup();
@@ -41,6 +44,8 @@ public class BBSShaders
 
     public static void setup()
     {
+        modelLoadRetried = false;
+
         if (model != null)
         {
             model.close();
@@ -149,10 +154,13 @@ public class BBSShaders
         }
     }
 
+    private static boolean overlayShadersLoadRetried;
+
     public static ShaderProgram getModel()
     {
-        if (model == null)
+        if (model == null && !modelLoadRetried)
         {
+            modelLoadRetried = true;
             setup();
         }
 
@@ -216,11 +224,23 @@ public class BBSShaders
 
     public static ShaderProgram getBlockColorTintOverlayProgram()
     {
+        if (blockColorTintOverlay == null && !overlayShadersLoadRetried)
+        {
+            overlayShadersLoadRetried = true;
+            setup();
+        }
+
         return blockColorTintOverlay;
     }
 
     public static ShaderProgram getFlatColorTintOverlayProgram()
     {
+        if (flatColorTintOverlay == null && !overlayShadersLoadRetried)
+        {
+            overlayShadersLoadRetried = true;
+            setup();
+        }
+
         return flatColorTintOverlay;
     }
 

@@ -1,5 +1,7 @@
 #version 150
 
+#moj_import <fog.glsl>
+
 in vec3 Position;
 in vec4 Color;
 in vec2 UV0;
@@ -9,8 +11,12 @@ in vec3 Normal;
 
 uniform mat4 ModelViewMat;
 uniform mat4 FormRootInverse;
+uniform mat4 FogMat;
 uniform mat4 ProjMat;
+uniform mat3 IViewRotMat;
+uniform int FogShape;
 
+out float vertexDistance;
 out vec4 vertexColor;
 out vec2 texCoord0;
 out vec3 formRootPos;
@@ -19,8 +25,11 @@ void main()
 {
     gl_Position = ProjMat * ModelViewMat * vec4(Position, 1.0);
 
+    /* Flat overlays bake the form matrix into Position; FogMat maps to camera-relative
+     * Y-up for cylindrical fog (same idea as master, 1.20.4 fog_distance signature). */
+    vec3 fogPos = (FogMat * vec4(Position, 1.0)).xyz;
+    vertexDistance = fog_distance(ModelViewMat, fogPos, FogShape);
     vertexColor = Color;
     texCoord0 = UV0;
-    /* Position is already stack-transformed; recover form/quad-local space for the mask. */
     formRootPos = (FormRootInverse * vec4(Position, 1.0)).xyz;
 }
