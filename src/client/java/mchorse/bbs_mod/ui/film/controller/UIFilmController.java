@@ -1184,11 +1184,9 @@ public class UIFilmController extends UIElement
      */
     private HitResult raycastControlTarget(ClientPlayerEntity player, boolean forAttack)
     {
-        double blockRange = MinecraftClient.getInstance().interactionManager != null
-            ? MinecraftClient.getInstance().interactionManager.getReachDistance()
+        double maxRange = MinecraftClient.getInstance().interactionManager != null
+            ? (double) MinecraftClient.getInstance().interactionManager.getReachDistance()
             : 4.5D;
-        double entityRange = 3.0D;
-        double maxRange = Math.max(entityRange, blockRange);
         Vec3d origin = player.getCameraPosVec(1F);
         Vec3d rotation = player.getRotationVec(1F);
         Vec3d end = origin.add(rotation.x * maxRange, rotation.y * maxRange, rotation.z * maxRange);
@@ -1204,9 +1202,8 @@ public class UIFilmController extends UIElement
         if (entityHit != null)
         {
             double entityDist = entityHit.getPos().distanceTo(origin);
-            double allowed = forAttack ? entityRange : Math.max(entityRange, blockRange);
 
-            if (entityDist <= allowed + 1.0E-4D)
+            if (entityDist <= maxRange + 1.0E-4D)
             {
                 return entityHit;
             }
@@ -1216,7 +1213,7 @@ public class UIFilmController extends UIElement
         {
             double blockDist = blockHit.getPos().distanceTo(origin);
 
-            if (blockDist <= blockRange + 1.0E-4D)
+            if (blockDist <= maxRange + 1.0E-4D)
             {
                 return blockHit;
             }
@@ -1889,7 +1886,10 @@ public class UIFilmController extends UIElement
         {
             if (this.panel.hasLastGizmoMatrix)
             {
-                Gizmo.INSTANCE.lastGizmoMatrix.set(this.panel.lastGizmoMatrix);
+                /* Resolve camera-baked vs camera-free capture so the colored gizmo stays
+                 * on the bone instead of sticking to the screen when orbiting. */
+                Gizmo.composeVisualMatrix(this.panel.lastGizmoMatrix, BBSRendering.camera, this.panel.lastProjection, this.gizmoInterfaceMatrix);
+                Gizmo.INSTANCE.lastGizmoMatrix.set(this.gizmoInterfaceMatrix);
                 Gizmo.INSTANCE.hasGizmoMatrix = true;
                 Gizmo.INSTANCE.renderInterface(context, this.panel.lastProjection, this.panel.preview.getViewport());
             }

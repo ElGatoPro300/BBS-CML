@@ -13,7 +13,6 @@ uniform mat4 ModelViewMat;
 uniform mat4 FormRootInverse;
 uniform mat4 FogMat;
 uniform mat4 ProjMat;
-uniform mat3 IViewRotMat;
 uniform int FogShape;
 
 out float vertexDistance;
@@ -25,8 +24,7 @@ void main()
 {
     gl_Position = ProjMat * ModelViewMat * vec4(Position, 1.0);
 
-    vec3 fogPos = (FogMat * vec4(Position, 1.0)).xyz;
-    vertexDistance = fog_distance(ModelViewMat, fogPos, FogShape);
+    vertexDistance = fog_distance(FogMat, Position, FogShape);
     vertexColor = Color;
     texCoord0 = UV0;
     formRootPos = (FormRootInverse * vec4(Position, 1.0)).xyz;

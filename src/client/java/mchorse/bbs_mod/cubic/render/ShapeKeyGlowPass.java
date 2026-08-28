@@ -24,7 +24,7 @@ public final class ShapeKeyGlowPass
 
     public static boolean shouldUseGlowOverlay(ModelInstance model, boolean hasPositiveGlow, boolean glowDeferredToOverlay)
     {
-        return model != null && model.hasShapeKeys() && hasPositiveGlow && !glowDeferredToOverlay && !BBSRendering.isIrisWorldModelPass();
+        return false;
     }
 
     public static void renderOverlay(GlowSettings glowSettings, Color legacyGlow, float alpha, float glowIntensity, Consumer<Color> drawLayer)

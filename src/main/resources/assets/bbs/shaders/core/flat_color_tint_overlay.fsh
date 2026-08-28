@@ -11,11 +11,14 @@ uniform float ColorMaskFalloff;
 uniform float ColorMaskBottomAnchored;
 uniform float ColorMaskShape;
 uniform vec4 FormColorTint;
+uniform float FogStart;
+uniform float FogEnd;
+uniform vec4 FogColor;
 
+in float vertexDistance;
 in vec4 vertexColor;
 in vec2 texCoord0;
 in vec3 formRootPos;
-in float vertexDistance;
 
 out vec4 fragColor;
 

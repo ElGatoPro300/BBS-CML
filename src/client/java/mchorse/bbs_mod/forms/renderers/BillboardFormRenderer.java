@@ -244,7 +244,6 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
         Color storedFormColor = this.form.color.get();
         boolean hasColorAdjustments = storedFormColor != null && storedFormColor.hasColorAdjustments();
         boolean colorTransformWanted = FormColorEffects.wantsColorTransformMask(storedFormColor);
-        boolean colorTintOverlayReady = colorTransformWanted && BBSShaders.getFlatColorTintOverlayProgram() != null;
         Color color = new Color().set(overlayColor, true);
         Matrix4f matrix = matrices.peek().getPositionMatrix();
         MatrixStack.Entry entry = matrices.peek();
@@ -264,13 +263,13 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
         Color formColor = storedFormColor.copyDeferringColorGrade().copy();
 
         /* Bake blend into vertices when FlatColorTint will not apply; grade stays in-shader / deferred. */
-        if (colorTintOverlayReady)
+        if (colorTransformWanted)
         {
             color.r = 1F;
             color.g = 1F;
             color.b = 1F;
         }
-        else if (colorTransformWanted || useFormColorGrade || irisDeferredColorGrade)
+        else if (useFormColorGrade || irisDeferredColorGrade)
         {
             color.mul(storedFormColor.copyDeferringColorGrade());
         }
@@ -322,19 +321,9 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
 
             modelMatrix.getScale(scale);
 
-            if (invertY)
-            {
-                scale.y = -scale.y;
-            }
-
             modelMatrix.m00(1).m01(0).m02(0);
             modelMatrix.m10(0).m11(1).m12(0);
             modelMatrix.m20(0).m21(0).m22(1);
-
-            if (camera != null && !modelRenderer)
-            {
-                modelMatrix.mul(camera.view);
-            }
 
             modelMatrix.scale(scale);
 
@@ -368,7 +357,7 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
         /* Paint / color-tint overlays must not write into the shadow map (same as Structure/Block). */
         boolean positivePaint = !shadowPass && FormColorEffects.hasPositivePaint(paintSettings, legacyPaint);
         Color resolvedPaint = positivePaint ? FormColorEffects.resolvePaintColor(paintSettings, legacyPaint) : null;
-        boolean applyColorTint = colorTintOverlayReady && !shadowPass;
+        boolean applyColorTint = colorTransformWanted && !shadowPass;
         boolean noshadingAfterPaint = irisWorld && BBSRendering.needsIrisNoshadingOpacityDeferral(color.a, this.form.noshadingOpacity.get());
         boolean softPostDeferred = !localPreview && !shadowPass
             && ShaderOpacityPatch.shouldDelayUntilPostDeferred(color.a)
@@ -836,11 +825,6 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
         MatrixStack.Entry entry = matrices.peek();
         BufferBuilder builder = Tessellator.getInstance().getBuffer();
         builder.begin(VertexFormat.DrawMode.TRIANGLES, format);
-        /* Dual-sided even during deferred translucent — that pass used to force single-face
-         * + cull and made Color Grade redraws vanish. */
-
-        /* Allow both faces during deferred Iris redraw — FACE_Z_BIAS prevents front/back
-         * self z-fight. Only skip dual geometry on the paint-overlay pass. */
         boolean dualSided = !singleSided && !ModelVAORenderer.isPaintOverlayPass();
         float faceZ = singleSided ? this.resolveOverlayFaceZ(matrix) : 0F;
         float frontNz = faceZ >= 0F ? 1F : -1F;
@@ -985,11 +969,9 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
 
         matrices.push();
 
-        try
-        {
-            Matrix4f paintMatrix = matrices.peek().getPositionMatrix();
-            MatrixStack.Entry entry = matrices.peek();
-            Matrix4f formRootInverse = MatrixStackUtils.invertFormRootMatrixForOverlay(paintMatrix);
+        Matrix4f paintMatrix = matrices.peek().getPositionMatrix();
+        MatrixStack.Entry entry = matrices.peek();
+        Matrix4f formRootInverse = new Matrix4f(paintMatrix).invert();
 
         this.resolveQuadMaskHalf(drawQuad, transform, MASK_HALF);
         this.bindFormTexture(texture);
@@ -1023,11 +1005,7 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
 
         texture.setFilterMipmap(false, false);
         RenderSystem.setShader(shader);
-        }
-        finally
-        {
-            matrices.pop();
-        }
+        matrices.pop();
     }
 
     private void fillPaint(BufferBuilder builder, Matrix4f matrix, float x, float y, float z, Color color, float u, float v, int overlay, int light, MatrixStack.Entry entry, float nz)
@@ -1170,49 +1148,43 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
     {
         matrices.push();
 
-        try
+        Matrix4f tintMatrix = matrices.peek().getPositionMatrix();
+        MatrixStack.Entry entry = matrices.peek();
+        Matrix4f formRootInverse = new Matrix4f(tintMatrix).invert();
+
+        this.resolveQuadMaskHalf(drawQuad, transform, MASK_HALF);
+        this.bindFormTexture(texture);
+        texture.bind();
+        texture.setFilterMipmap(this.form.linear.get(), this.form.mipmap.get());
+
+        FlatColorTintOverlayPass.render(polygonOffsetFactor, polygonOffsetUnits, formRootInverse, transform, false, MASK_HALF, formTintColor, () ->
         {
-            Matrix4f tintMatrix = matrices.peek().getPositionMatrix();
-            MatrixStack.Entry entry = matrices.peek();
-            Matrix4f formRootInverse = MatrixStackUtils.invertFormRootMatrixForOverlay(tintMatrix);
+            BufferBuilder tintBuilder = Tessellator.getInstance().getBuffer();
+            tintBuilder.begin(VertexFormat.DrawMode.TRIANGLES, VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL);
+            int tintLight = LightmapTextureManager.MAX_LIGHT_COORDINATE;
+            float tintZ = this.resolveOverlayFaceZ(tintMatrix);
+            float tintNz = tintZ >= 0F ? 1F : -1F;
 
-            this.resolveQuadMaskHalf(drawQuad, transform, MASK_HALF);
-            this.bindFormTexture(texture);
-            texture.bind();
-            texture.setFilterMipmap(this.form.linear.get(), this.form.mipmap.get());
+            /* One camera-facing plane, both sides via disableCull — same as glow/paint.
+             * Mask is evaluated per fragment in the flat_color_tint_overlay shader. */
+            RenderSystem.disableCull();
 
-            FlatColorTintOverlayPass.render(polygonOffsetFactor, polygonOffsetUnits, formRootInverse, transform, false, MASK_HALF, formTintColor, () ->
-            {
-                BufferBuilder tintBuilder = Tessellator.getInstance().getBuffer();
-                tintBuilder.begin(VertexFormat.DrawMode.TRIANGLES, VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL);
-                int tintLight = LightmapTextureManager.MAX_LIGHT_COORDINATE;
-                float tintZ = this.resolveOverlayFaceZ(tintMatrix);
-                float tintNz = tintZ >= 0F ? 1F : -1F;
+            this.fillColorTint(tintBuilder, tintMatrix, drawQuad.p3.x, drawQuad.p3.y, tintZ, drawUvQuad.p3.x, drawUvQuad.p3.y, overlay, tintLight, entry, tintNz);
+            this.fillColorTint(tintBuilder, tintMatrix, drawQuad.p2.x, drawQuad.p2.y, tintZ, drawUvQuad.p2.x, drawUvQuad.p2.y, overlay, tintLight, entry, tintNz);
+            this.fillColorTint(tintBuilder, tintMatrix, drawQuad.p1.x, drawQuad.p1.y, tintZ, drawUvQuad.p1.x, drawUvQuad.p1.y, overlay, tintLight, entry, tintNz);
 
-                /* One camera-facing plane, both sides via disableCull — same as glow/paint.
-                 * Mask is evaluated per fragment in the flat_color_tint_overlay shader. */
-                RenderSystem.disableCull();
+            this.fillColorTint(tintBuilder, tintMatrix, drawQuad.p3.x, drawQuad.p3.y, tintZ, drawUvQuad.p3.x, drawUvQuad.p3.y, overlay, tintLight, entry, tintNz);
+            this.fillColorTint(tintBuilder, tintMatrix, drawQuad.p4.x, drawQuad.p4.y, tintZ, drawUvQuad.p4.x, drawUvQuad.p4.y, overlay, tintLight, entry, tintNz);
+            this.fillColorTint(tintBuilder, tintMatrix, drawQuad.p2.x, drawQuad.p2.y, tintZ, drawUvQuad.p2.x, drawUvQuad.p2.y, overlay, tintLight, entry, tintNz);
 
-                this.fillColorTint(tintBuilder, tintMatrix, drawQuad.p3.x, drawQuad.p3.y, tintZ, drawUvQuad.p3.x, drawUvQuad.p3.y, overlay, tintLight, entry, tintNz);
-                this.fillColorTint(tintBuilder, tintMatrix, drawQuad.p2.x, drawQuad.p2.y, tintZ, drawUvQuad.p2.x, drawUvQuad.p2.y, overlay, tintLight, entry, tintNz);
-                this.fillColorTint(tintBuilder, tintMatrix, drawQuad.p1.x, drawQuad.p1.y, tintZ, drawUvQuad.p1.x, drawUvQuad.p1.y, overlay, tintLight, entry, tintNz);
+            BufferRenderer.drawWithGlobalProgram(tintBuilder.end());
 
-                this.fillColorTint(tintBuilder, tintMatrix, drawQuad.p3.x, drawQuad.p3.y, tintZ, drawUvQuad.p3.x, drawUvQuad.p3.y, overlay, tintLight, entry, tintNz);
-                this.fillColorTint(tintBuilder, tintMatrix, drawQuad.p4.x, drawQuad.p4.y, tintZ, drawUvQuad.p4.x, drawUvQuad.p4.y, overlay, tintLight, entry, tintNz);
-                this.fillColorTint(tintBuilder, tintMatrix, drawQuad.p2.x, drawQuad.p2.y, tintZ, drawUvQuad.p2.x, drawUvQuad.p2.y, overlay, tintLight, entry, tintNz);
+            RenderSystem.enableCull();
+        });
 
-                BufferRenderer.drawWithGlobalProgram(tintBuilder.end());
-
-                RenderSystem.enableCull();
-            });
-
-            texture.setFilterMipmap(false, false);
-            RenderSystem.setShader(shader);
-        }
-        finally
-        {
-            matrices.pop();
-        }
+        texture.setFilterMipmap(false, false);
+        RenderSystem.setShader(shader);
+        matrices.pop();
     }
 
     private void fillColorTint(BufferBuilder builder, Matrix4f matrix, float x, float y, float z, float u, float v, int overlay, int light, MatrixStack.Entry entry, float nz)

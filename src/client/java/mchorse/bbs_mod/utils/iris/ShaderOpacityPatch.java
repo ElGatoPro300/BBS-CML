@@ -825,11 +825,8 @@ public class ShaderOpacityPatch
                     .copy(null, opaqueDepth, null, liveDepth, width, height);
             }
 
-            if (!bindIrisDefault)
-            {
-                /* Depth copy may have switched FBOs — return to the visible target. */
-                BBSRendering.ensurePaintOverlayTargetFramebuffer();
-            }
+            /* Depth copy may have switched FBOs — return to the visible target. */
+            BBSRendering.ensurePaintOverlayTargetFramebuffer();
         }
         catch (Throwable ignored)
         {

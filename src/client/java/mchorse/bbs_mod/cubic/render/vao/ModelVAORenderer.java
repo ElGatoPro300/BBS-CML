@@ -25,7 +25,6 @@ import net.minecraft.client.util.math.MatrixStack;
 
 import org.joml.Matrix3f;
 import org.joml.Matrix4f;
-import org.joml.Matrix4fStack;
 import org.joml.Vector3f;
 
 import com.mojang.blaze3d.platform.GlStateManager;
@@ -129,7 +128,6 @@ public class ModelVAORenderer
     }
 
     private static DeferredFogSnapshot activeDeferredFog;
-    private static final Matrix3f inverseViewRotationScratch = new Matrix3f();
 
     public static DeferredFogSnapshot captureCurrentFog()
     {
@@ -166,111 +164,6 @@ public class ModelVAORenderer
     public static void popDeferredFog()
     {
         activeDeferredFog = null;
-    }
-
-    /**
-     * Fog + camera uniforms for flat paint/tint overlay shaders (1.20.4 {@code IViewRotMat} path).
-     */
-    public static void bindFlatOverlayFogUniforms(ShaderProgram shader)
-    {
-        if (shader == null)
-        {
-            return;
-        }
-
-        if (activeDeferredFog != null)
-        {
-            if (shader.fogStart != null)
-            {
-                shader.fogStart.set(activeDeferredFog.fogStart);
-            }
-
-            if (shader.fogEnd != null)
-            {
-                shader.fogEnd.set(activeDeferredFog.fogEnd);
-            }
-
-            if (shader.fogColor != null)
-            {
-                shader.fogColor.set(activeDeferredFog.fogColorR, activeDeferredFog.fogColorG, activeDeferredFog.fogColorB, activeDeferredFog.fogColorA);
-            }
-
-            if (shader.fogShape != null)
-            {
-                shader.fogShape.set(activeDeferredFog.fogShape);
-            }
-        }
-        else if (!BBSRendering.isRenderingWorld())
-        {
-            /* UI / editor previews: keep mask strength — do not fade overlays with world fog. */
-            if (shader.fogStart != null)
-            {
-                shader.fogStart.set(0F);
-            }
-
-            if (shader.fogEnd != null)
-            {
-                shader.fogEnd.set(1_000_000F);
-            }
-
-            if (shader.fogColor != null)
-            {
-                shader.fogColor.set(0F, 0F, 0F, 0F);
-            }
-
-            if (shader.fogShape != null)
-            {
-                shader.fogShape.set(0);
-            }
-        }
-        else
-        {
-            if (shader.fogStart != null)
-            {
-                shader.fogStart.set(RenderSystem.getShaderFogStart());
-            }
-
-            if (shader.fogEnd != null)
-            {
-                shader.fogEnd.set(RenderSystem.getShaderFogEnd());
-            }
-
-            if (shader.fogColor != null)
-            {
-                shader.fogColor.set(RenderSystem.getShaderFogColor());
-            }
-
-            if (shader.fogShape != null)
-            {
-                shader.fogShape.set(RenderSystem.getShaderFogShape().getId());
-            }
-        }
-
-        if (shader.projectionMat != null)
-        {
-            shader.projectionMat.set(RenderSystem.getProjectionMatrix());
-        }
-
-        if (shader.modelViewMat != null)
-        {
-            shader.modelViewMat.set(RenderSystem.getModelViewMatrix());
-        }
-
-        MatrixStackUtils.loadInverseViewRotationMatrix3(inverseViewRotationScratch);
-
-        if (shader.viewRotationMat != null)
-        {
-            shader.viewRotationMat.set(inverseViewRotationScratch);
-        }
-        else
-        {
-            GlUniform iViewRotUniform = shader.getUniform("IViewRotMat");
-
-            if (iViewRotUniform != null)
-            {
-                iViewRotUniform.set(inverseViewRotationScratch);
-            }
-        }
     }
 
     private static final Matrix4f formRootInverse = new Matrix4f();
@@ -482,8 +375,8 @@ public class ModelVAORenderer
     }
 
     /**
-     * @param depthWrite true to write depth, false to leave depth buffer unchanged
-     * @param depthTest  true to enable depth testing against world geometry
+     * @param depthTest false for zero-thickness billboards — post-Iris depth does not match
+     *                  captured matrices and LEQUAL produces stippled grass bleed-through.
      */
     public static void submitDeferredTranslucentModel(Runnable draw, boolean depthWrite, boolean depthTest)
     {
@@ -541,7 +434,7 @@ public class ModelVAORenderer
             vanillaComposite,
             depthWrite,
             depthTest,
-            captureCurrentFog(),
+            fullModel ? captureCurrentFog() : null,
             draw
         );
 
@@ -676,6 +569,7 @@ public class ModelVAORenderer
             MatrixStack modelViewStack = RenderSystem.getModelViewStack();
 
             modelViewStack.push();
+            modelViewStack.loadIdentity();
             modelViewStack.peek().getPositionMatrix().set(savedModelView);
             RenderSystem.applyModelViewMatrix();
             modelViewStack.pop();
@@ -1113,7 +1007,8 @@ public class ModelVAORenderer
     /**
      * Full translucent redraw after Iris composite — BBS model shader keeps low form alpha.
      * {@code depthWrite} true matches the no-shader path so render-depth panels can occlude
-     * forms behind them. {@code depthTest} true enables depth testing against world geometry.
+     * forms behind them. {@code depthTest} false for zero-thickness billboards whose captured
+     * depth does not match the post-Iris depth buffer (stippled bleed-through).
      */
     public static void beginDeferredTranslucentModelPass(boolean depthWrite)
     {
@@ -2021,6 +1916,8 @@ public class ModelVAORenderer
             }
         }
 
+        ModelVAORenderer.uploadFogMatUniform(stack, shader, cpuPretransformed);
+
         /* NormalMat is present by default in Iris' shaders, but when there is no Iris,
          * the BBS mod's model.json shader is being used instead that provides NormalMat
          * uniform.
@@ -2036,20 +1933,6 @@ public class ModelVAORenderer
             else
             {
                 normalUniform.set(stack.peek().getNormalMatrix());
-            }
-        }
-
-        if (shader.viewRotationMat != null)
-        {
-            shader.viewRotationMat.set(RenderSystem.getInverseViewRotationMatrix());
-        }
-        else
-        {
-            GlUniform iViewRotUniform = shader.getUniform("IViewRotMat");
-
-            if (iViewRotUniform != null)
-            {
-                iViewRotUniform.set(RenderSystem.getInverseViewRotationMatrix());
             }
         }
 
@@ -2259,8 +2142,7 @@ public class ModelVAORenderer
         /* Paint/tint/grade overlays multiply an already-fogged base — skip distance fog.
          * Full-mesh deferred redraws (soft opacity / soft limbs) use fog captured at enqueue
          * (RenderSystem is often wrong after Iris composite or vanilla LAST). Live draws use
-         * RenderSystem fog + entity fog_distance(ModelViewMat, IViewRotMat * Position) in
-         * model.vsh (1.20.4 mob path). */
+         * current RenderSystem fog. */
         if (paintOverlayPass || colorTintOverlayPass || colorGradeOverlayPass)
         {
             if (shader.fogStart != null)
@@ -2402,33 +2284,11 @@ public class ModelVAORenderer
             return;
         }
 
-        if (BBSRendering.isRenderingWorld())
-        {
-            float bakedDist = viewOriginLengthSq(bakedModelMatrix);
-
-            SCRATCH_COMPOSED.set(BBSRendering.camera).mul(bakedModelMatrix);
-
-            if (bakedDist > 1.0E-6F && viewOriginLengthSq(SCRATCH_COMPOSED) < bakedDist * 0.49F)
-            {
-                /* Bake already included view — Position is view-space; strip for fog. */
-                MatrixStackUtils.loadInverseViewRotationMatrix4(SCRATCH_INV_VIEW);
-                fogMatUniform.set(SCRATCH_INV_VIEW);
-            }
-            else
-            {
-                /* Bake was camera-relative — Position is already Y-up cam-rel. */
-                fogMatUniform.set(IDENTITY_MODEL_VIEW);
-            }
-        }
-        else
-        {
-            fogMatUniform.set(IDENTITY_MODEL_VIEW);
-        }
+        fogMatUniform.set(bakedModelMatrix);
     }
 
     /**
-     * Camera-relative model matrix for fog — same space vanilla bakes into entity
-     * {@code Position} and terrain {@code Position + ChunkOffset} (Y-up, no view rotation).
+     * Camera-relative model matrix for fog.
      */
     private static void uploadFogMatUniform(MatrixStack stack, ShaderProgram shader, boolean cpuPretransformed)
     {
@@ -2456,73 +2316,20 @@ public class ModelVAORenderer
 
         Matrix4f stackMatrix = stack.peek().getPositionMatrix();
 
-        if (deferredTranslucentPass)
-        {
-            /* Soft / deferred BBS path: stack is capturePaintOverlayRootMatrix = MV_enqueue × camRel
-             * (or camRel alone when MV was identity). Strip with the enqueue-time MV inverse from
-             * DeferredFogSnapshot so FogMat stays camera-relative Y-up at every yaw/pitch. */
-            if (activeDeferredFog != null)
-            {
-                SCRATCH_FOG_MAT.set(activeDeferredFog.modelViewInverse).mul(stackMatrix);
-            }
-            else
-            {
-                /* No snapshot — assume stack is already camera-relative (do not use Camera quaternion). */
-                SCRATCH_FOG_MAT.set(stackMatrix);
-            }
-
-            fogMatUniform.set(SCRATCH_FOG_MAT);
-
-            return;
-        }
-
-        if (BBSRendering.isRenderingWorld() && !BBSRendering.isIrisShadersEnabled())
-        {
-            float bakedDist = viewOriginLengthSq(stackMatrix);
-
-            SCRATCH_COMPOSED.set(BBSRendering.camera).mul(stackMatrix);
-
-            if (bakedDist > 1.0E-6F && viewOriginLengthSq(SCRATCH_COMPOSED) < bakedDist * 0.49F)
-            {
-                /* Stack already includes view (AFTER_ENTITIES) — strip rotation for fog only. */
-                MatrixStackUtils.loadInverseViewRotationMatrix4(SCRATCH_INV_VIEW);
-                SCRATCH_FOG_MAT.set(SCRATCH_INV_VIEW).mul(stackMatrix);
-            }
-            else
-            {
-                /* Stack is camera-relative entity transform — same as WorldRenderer entity MatrixStack. */
-                SCRATCH_FOG_MAT.set(stackMatrix);
-            }
-        }
-        else
-        {
-            /* Iris / UI: best-effort strip view from composed model-view. */
-            SCRATCH_COMPOSED.set(RenderSystem.getModelViewMatrix()).mul(stackMatrix);
-            MatrixStackUtils.loadInverseViewRotationMatrix4(SCRATCH_INV_VIEW);
-            SCRATCH_FOG_MAT.set(SCRATCH_INV_VIEW).mul(SCRATCH_COMPOSED);
-        }
-
-        fogMatUniform.set(SCRATCH_FOG_MAT);
+        fogMatUniform.set(stackMatrix);
     }
 
     private static void setModelViewUniform(MatrixStack stack, ShaderProgram shader)
     {
-        Matrix4f modelView;
-
         if (usesCapturedModelView())
         {
             /* Overlay/deferred stack already carries the full terrain + entity transform captured
              * at enqueue; RenderSystem model-view is identity during these draws. */
-            modelView = new Matrix4f(stack.peek().getPositionMatrix());
-        }
-        else
-        {
-            /* 1.20.4 world path: vanilla entity ModelViewMat = RenderSystem MV × entity stack.
-             * Do not substitute BBSRendering.camera here — that is the 1.21.1 bake path and
-             * breaks clip-space placement for ModelVAO local Position attributes. */
-            modelView = new Matrix4f(RenderSystem.getModelViewMatrix()).mul(stack.peek().getPositionMatrix());
+            shader.modelViewMat.set(stack.peek().getPositionMatrix());
+
+            return;
         }
 
-        shader.modelViewMat.set(modelView);
+        shader.modelViewMat.set(stack.peek().getPositionMatrix());
     }
 }

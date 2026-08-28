@@ -23,13 +23,12 @@ import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.entity.EquipmentSlot;
 import net.minecraft.item.ArmorItem;
 import net.minecraft.item.ArmorMaterial;
-import net.minecraft.item.DyeableArmorItem;
+import net.minecraft.item.DyeableItem;
 import net.minecraft.item.ElytraItem;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.Items;
 import net.minecraft.item.trim.ArmorTrim;
-import net.minecraft.registry.entry.RegistryEntry;
 import net.minecraft.util.Identifier;
 import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.RotationAxis;
@@ -37,11 +36,12 @@ import net.minecraft.util.math.RotationAxis;
 import com.google.common.collect.Maps;
 
 import java.util.Map;
+import java.util.Optional;
 
 public class ArmorRenderer
 {
     private static final Map<String, Identifier> ARMOR_TEXTURE_CACHE = Maps.newHashMap();
-    private static final Identifier ELYTRA_TEXTURE = new Identifier("minecraft", "textures/entity/elytra.png");
+    private static final Identifier ELYTRA_TEXTURE = Identifier.of("minecraft", "textures/entity/elytra.png");
     /** Outward shell — avoids coplanar z-fight with armor in film/world cameras (044b2f4a6). */
     private static final float TRIM_OUTER_SCALE = 1.005F;
     /** Inward shell — uniform outer scale alone hides trim on inner armor faces. */
@@ -127,9 +127,9 @@ public class ArmorRenderer
                 part.pitch = part.yaw = part.roll = 0F;
                 part.xScale = part.yScale = part.zScale = 1F;
 
-                if (armorItem instanceof DyeableArmorItem dyeableArmorItem)
+                if (item instanceof DyeableItem dyeable && dyeable.hasColor(itemStack))
                 {
-                    int color = dyeableArmorItem.getColor(itemStack);
+                    int color = dyeable.getColor(itemStack);
                     float r = (float)(color >> 16 & 255) / 255.0F;
                     float g = (float)(color >> 8 & 255) / 255.0F;
                     float b = (float)(color & 255) / 255.0F;
@@ -142,8 +142,10 @@ public class ArmorRenderer
                     this.renderArmorParts(part, matrices, vertexConsumers, light, armorItem, innerModel, 1F, 1F, 1F, null);
                 }
 
-                ArmorTrim trim = entity != null && entity.getWorld() != null ? ArmorTrim.getTrim(entity.getWorld().getRegistryManager(), itemStack).orElse(null) : null;
-                boolean hasTrim = trim != null;
+                Optional<ArmorTrim> trimOpt = MinecraftClient.getInstance().world != null
+                    ? ArmorTrim.getTrim(MinecraftClient.getInstance().world.getRegistryManager(), itemStack, true)
+                    : Optional.empty();
+                boolean hasTrim = trimOpt.isPresent();
                 boolean hasGlint = itemStack.hasGlint();
 
                 if (hasTrim)
@@ -151,7 +153,7 @@ public class ArmorRenderer
                     /* Trim glint is a separate EQUAL pass fed the same verts as the trim
                      * shells (union), not a second scaled ModelPart.render — that desync
                      * was the trim↔glint z-fight. Base armor still gets its own 1.0 glint. */
-                    this.renderTrim(part, armorItem.getMaterial(), matrices, vertexConsumers, light, trim, innerModel, hasGlint);
+                    this.renderTrim(part, armorItem.getMaterial(), matrices, vertexConsumers, light, trimOpt.get(), innerModel, hasGlint);
                 }
 
                 if (hasGlint)
@@ -254,7 +256,7 @@ public class ArmorRenderer
         Identifier found = ARMOR_TEXTURE_CACHE.get(id);
         if (found == null)
         {
-            found = new Identifier("minecraft", id);
+            found = Identifier.of("minecraft", id);
             ARMOR_TEXTURE_CACHE.put(id, found);
         }
 

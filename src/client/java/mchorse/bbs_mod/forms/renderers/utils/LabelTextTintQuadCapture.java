@@ -110,24 +110,6 @@ public class LabelTextTintQuadCapture implements VertexConsumerProvider, VertexC
     }
 
     @Override
-    public void next()
-    {
-        /* no-op */
-    }
-
-    @Override
-    public void fixedColor(int red, int green, int blue, int alpha)
-    {
-        /* no-op */
-    }
-
-    @Override
-    public void unfixColor()
-    {
-        /* no-op */
-    }
-
-    @Override
     public VertexConsumer vertex(Matrix4f matrix, float x, float y, float z)
     {
         /* Identity / text-local capture: bake matrix so callers may pass a real stack matrix. */
@@ -142,12 +124,6 @@ public class LabelTextTintQuadCapture implements VertexConsumerProvider, VertexC
 
     @Override
     public VertexConsumer color(int red, int green, int blue, int alpha)
-    {
-        return this;
-    }
-
-    @Override
-    public VertexConsumer color(float red, float green, float blue, float alpha)
     {
         return this;
     }
@@ -170,16 +146,6 @@ public class LabelTextTintQuadCapture implements VertexConsumerProvider, VertexC
     @Override
     public VertexConsumer light(int u, int v)
     {
-        this.finishVertex();
-
-        return this;
-    }
-
-    @Override
-    public VertexConsumer light(int light)
-    {
-        this.finishVertex();
-
         return this;
     }
 
@@ -188,6 +154,20 @@ public class LabelTextTintQuadCapture implements VertexConsumerProvider, VertexC
     {
         return this;
     }
+
+    @Override
+    public void next()
+    {
+        this.finishVertex();
+    }
+
+    @Override
+    public void fixedColor(int red, int green, int blue, int alpha)
+    {}
+
+    @Override
+    public void unfixColor()
+    {}
 
     private void finishVertex()
     {

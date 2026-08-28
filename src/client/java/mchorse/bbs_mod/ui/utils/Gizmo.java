@@ -654,6 +654,7 @@ public class Gizmo
      * the camera (vanilla). Do <b>not</b> fall back via NDC frustum tests: at steep orbits
      * the correct origin can leave the pad while the double-camera origin stays centered,
      * which used to detach the gizmo from the model.
+     */
     public static Matrix4f composeVisualMatrix(Matrix4f captured, Matrix4f cameraMatrix, Matrix4f projection, Matrix4f dest)
     {
         dest.set(captured);

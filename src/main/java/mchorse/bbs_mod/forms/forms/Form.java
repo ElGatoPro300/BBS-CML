@@ -42,6 +42,7 @@ import mchorse.bbs_mod.utils.keyframes.factories.ColorKeyframeFactory;
 import mchorse.bbs_mod.utils.pose.Transform;
 
 import net.minecraft.entity.LivingEntity;
+import net.minecraft.entity.attribute.EntityAttributeInstance;
 import net.minecraft.entity.attribute.EntityAttributes;
 
 import java.util.ArrayList;
@@ -351,9 +352,10 @@ public abstract class Form extends ValueGroup
             entity.setHealth(hp);
         }
         if (speed != 0.1F) entity.getAttributeInstance(EntityAttributes.GENERIC_MOVEMENT_SPEED).setBaseValue(speed);
-        /* 1.20.4: Entity.setStepHeight (GENERIC_STEP_HEIGHT is 1.20.5+). Always apply so form
-         * switches reset non-default values from the previous morph. */
-        entity.setStepHeight(stepHeight);
+        if (stepHeight != 0.6F)
+        {
+            entity.setStepHeight(stepHeight);
+        }
     }
 
     public void onDemorph(LivingEntity entity)

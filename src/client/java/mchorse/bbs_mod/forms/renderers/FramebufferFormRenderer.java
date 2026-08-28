@@ -98,9 +98,8 @@ public class FramebufferFormRenderer extends FormRenderer<FramebufferForm>
         GL30.glCullFace(GL30.GL_FRONT);
         RenderSystem.setShaderLights(new Vector3f(0F, 0F, 1F), new Vector3f(0F, 0F, 1F));
         RenderSystem.setProjectionMatrix(new Matrix4f().setOrtho(-1F, 1F, 1F, -1F, -500F, 500F), VertexSorter.BY_Z);
-        MatrixStack mvStack = RenderSystem.getModelViewStack();
-        mvStack.push();
-        mvStack.loadIdentity();
+        RenderSystem.getModelViewStack().push();
+        RenderSystem.getModelViewStack().loadIdentity();
         RenderSystem.applyModelViewMatrix();
 
         framebuffer.apply();
@@ -125,7 +124,7 @@ public class FramebufferFormRenderer extends FormRenderer<FramebufferForm>
         GL30.glViewport(0, 0, width, height);
 
         RenderSystem.setShaderLights(light0, light1);
-        mvStack.pop();
+        RenderSystem.getModelViewStack().pop();
         RenderSystem.applyModelViewMatrix();
         RenderSystem.setProjectionMatrix(projectionMatrix, VertexSorter.BY_Z);
         GL30.glCullFace(GL30.GL_BACK);
