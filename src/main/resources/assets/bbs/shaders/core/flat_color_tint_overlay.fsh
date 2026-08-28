@@ -1,5 +1,7 @@
 #version 150
 
+#moj_import <fog.glsl>
+
 uniform sampler2D Sampler0;
 
 uniform mat4 ColorEffectInverse;
@@ -9,7 +11,11 @@ uniform float ColorMaskFalloff;
 uniform float ColorMaskBottomAnchored;
 uniform float ColorMaskShape;
 uniform vec4 FormColorTint;
+uniform float FogStart;
+uniform float FogEnd;
+uniform vec4 FogColor;
 
+in float vertexDistance;
 in vec4 vertexColor;
 in vec2 texCoord0;
 in vec3 formRootPos;
@@ -105,11 +111,7 @@ void main()
 {
     vec4 tex = texture(Sampler0, texCoord0);
 
-    /* In 1.20.4, vanilla font atlases are GL_RED single-channel textures where glyph coverage
-     * is in tex.r and tex.gb are 0.0. For RGBA textures (billboards, TextureFont), tex.a is the alpha. */
-    float glyphAlpha = (tex.g == 0.0 && tex.b == 0.0 && (tex.a == 1.0 || tex.a == 0.0)) ? tex.r : tex.a;
-
-    if (glyphAlpha < 0.01)
+    if (tex.a < 0.01)
     {
         discard;
     }
@@ -131,7 +133,13 @@ void main()
     float opacity = clamp(FormColorTint.a, 0.0, 1.0);
     /* Scale mask strength by glyph coverage so bold / AA fringes do not pick up
      * partial tint at transform boundaries (multiply blend would pink-bleed otherwise). */
-    float strength = cmask * opacity * glyphAlpha;
+    float strength = cmask * opacity * tex.a;
+    /* DST_COLOR multiply on an already-fogged base: fade tint toward identity (white)
+     * with distance fog so masks do not recolor FogColor into a saturated silhouette. */
+    float fogValue = vertexDistance <= FogStart ? 0.0 : (vertexDistance < FogEnd ? smoothstep(FogStart, FogEnd, vertexDistance) : 1.0);
+
+    strength *= 1.0 - fogValue * FogColor.a;
+
     vec3 tintRgb = mix(vec3(1.0), FormColorTint.rgb, strength);
 
     fragColor = vec4(tintRgb, 1.0);

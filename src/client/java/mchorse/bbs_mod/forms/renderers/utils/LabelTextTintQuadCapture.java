@@ -9,10 +9,6 @@ import net.minecraft.client.render.VertexConsumerProvider;
 
 import org.joml.Matrix4f;
 
-import com.mojang.blaze3d.systems.RenderSystem;
-
-import org.lwjgl.opengl.GL11;
-
 import java.util.ArrayList;
 import java.util.List;
 
@@ -26,7 +22,6 @@ public class LabelTextTintQuadCapture implements VertexConsumerProvider, VertexC
     public static final class GlyphQuad
     {
         public final RenderLayer layer;
-        public final int textureGlId;
         public final float x0;
         public final float y0;
         public final float x1;
@@ -44,10 +39,9 @@ public class LabelTextTintQuadCapture implements VertexConsumerProvider, VertexC
         public final float u3;
         public final float v3;
 
-        private GlyphQuad(RenderLayer layer, int textureGlId, float[] xs, float[] ys, float[] us, float[] vs)
+        private GlyphQuad(RenderLayer layer, float[] xs, float[] ys, float[] us, float[] vs)
         {
             this.layer = layer;
-            this.textureGlId = textureGlId;
             this.x0 = xs[0];
             this.y0 = ys[0];
             this.x1 = xs[1];
@@ -74,21 +68,17 @@ public class LabelTextTintQuadCapture implements VertexConsumerProvider, VertexC
     private final float[] vs = new float[4];
 
     private RenderLayer currentLayer;
-    private int currentLayerTexture;
     private float pendingX;
     private float pendingY;
     private float pendingU;
     private float pendingV;
-    private boolean hasPendingVertex;
     private int vertexIndex;
 
     public void clear()
     {
         this.quads.clear();
         this.vertexIndex = 0;
-        this.hasPendingVertex = false;
         this.currentLayer = null;
-        this.currentLayerTexture = 0;
     }
 
     public List<GlyphQuad> getQuads()
@@ -106,7 +96,6 @@ public class LabelTextTintQuadCapture implements VertexConsumerProvider, VertexC
     {
         this.flushPartialQuad();
         this.currentLayer = layer;
-        this.currentLayerTexture = this.resolveLayerTexture(layer);
 
         return this;
     }
@@ -116,7 +105,6 @@ public class LabelTextTintQuadCapture implements VertexConsumerProvider, VertexC
     {
         this.pendingX = (float) x;
         this.pendingY = (float) y;
-        this.hasPendingVertex = true;
 
         return this;
     }
@@ -130,19 +118,12 @@ public class LabelTextTintQuadCapture implements VertexConsumerProvider, VertexC
 
         this.pendingX = tx;
         this.pendingY = ty;
-        this.hasPendingVertex = true;
 
         return this;
     }
 
     @Override
     public VertexConsumer color(int red, int green, int blue, int alpha)
-    {
-        return this;
-    }
-
-    @Override
-    public VertexConsumer color(float red, float green, float blue, float alpha)
     {
         return this;
     }
@@ -169,12 +150,6 @@ public class LabelTextTintQuadCapture implements VertexConsumerProvider, VertexC
     }
 
     @Override
-    public VertexConsumer light(int light)
-    {
-        return this;
-    }
-
-    @Override
     public VertexConsumer normal(float x, float y, float z)
     {
         return this;
@@ -194,26 +169,6 @@ public class LabelTextTintQuadCapture implements VertexConsumerProvider, VertexC
     public void unfixColor()
     {}
 
-    private int resolveLayerTexture(RenderLayer layer)
-    {
-        if (layer == null)
-        {
-            return 0;
-        }
-
-        layer.startDrawing();
-        int textureGlId = RenderSystem.getShaderTexture(0);
-
-        if (textureGlId == 0)
-        {
-            textureGlId = GL11.glGetInteger(GL11.GL_TEXTURE_BINDING_2D);
-        }
-
-        layer.endDrawing();
-
-        return textureGlId;
-    }
-
     private void finishVertex()
     {
         if (this.currentLayer == null || this.vertexIndex >= 4)
@@ -221,7 +176,6 @@ public class LabelTextTintQuadCapture implements VertexConsumerProvider, VertexC
             return;
         }
 
-        this.hasPendingVertex = false;
         this.xs[this.vertexIndex] = this.pendingX;
         this.ys[this.vertexIndex] = this.pendingY;
         this.us[this.vertexIndex] = this.pendingU;
@@ -230,7 +184,7 @@ public class LabelTextTintQuadCapture implements VertexConsumerProvider, VertexC
 
         if (this.vertexIndex >= 4)
         {
-            this.quads.add(new GlyphQuad(this.currentLayer, this.currentLayerTexture, this.xs, this.ys, this.us, this.vs));
+            this.quads.add(new GlyphQuad(this.currentLayer, this.xs, this.ys, this.us, this.vs));
             this.vertexIndex = 0;
         }
     }
@@ -238,6 +192,5 @@ public class LabelTextTintQuadCapture implements VertexConsumerProvider, VertexC
     private void flushPartialQuad()
     {
         this.vertexIndex = 0;
-        this.hasPendingVertex = false;
     }
 }

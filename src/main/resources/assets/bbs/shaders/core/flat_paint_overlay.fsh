@@ -1,5 +1,7 @@
 #version 150
 
+#moj_import <fog.glsl>
+
 uniform sampler2D Sampler0;
 
 uniform mat4 PaintEffectInverse;
@@ -7,7 +9,11 @@ uniform float PaintEffectActive;
 uniform vec3 PaintMaskHalf;
 uniform float PaintMaskBottomAnchored;
 uniform float PaintMaskShape;
+uniform float FogStart;
+uniform float FogEnd;
+uniform vec4 FogColor;
 
+in float vertexDistance;
 in vec4 vertexColor;
 in vec2 texCoord0;
 in vec3 formRootPos;
@@ -47,14 +53,13 @@ float bbsPaintEffectMask(vec3 rootPos, mat4 effectInverse, float activeFlag, vec
         local.y -= halfExtents.y;
     }
 
+    float dist;
     float maxHalf = max(halfExtents.x, max(halfExtents.y, halfExtents.z));
 
     if (maxHalf < 0.001)
     {
         return 0.0;
     }
-
-    float dist;
 
     if (shape > 1.5)
     {
@@ -72,12 +77,7 @@ float bbsPaintEffectMask(vec3 rootPos, mat4 effectInverse, float activeFlag, vec
         vec3 safeHalf = max(halfExtents, vec3(0.001));
         float radius = length(local / safeHalf);
 
-        if (radius <= 1.0)
-        {
-            return 1.0;
-        }
-
-        dist = (radius - 1.0) * length(local) / radius;
+        dist = (radius - 1.0) * maxHalf;
     }
     else
     {
@@ -86,43 +86,30 @@ float bbsPaintEffectMask(vec3 rootPos, mat4 effectInverse, float activeFlag, vec
         dist = length(max(d, 0.0)) + min(max(max(d.x, d.y), d.z), 0.0);
     }
 
-    if (dist <= 0.0)
-    {
-        return 1.0;
-    }
+    float falloff = max(maxHalf * 0.15, 0.001);
 
-    return 0.0;
+    return 1.0 - smoothstep(0.0, falloff, dist);
 }
 
 void main()
 {
     vec4 tex = texture(Sampler0, texCoord0);
 
-    /* In 1.20.4, vanilla font atlases are GL_RED single-channel textures where glyph coverage
-     * is in tex.r and tex.gb are 0.0. For RGBA textures (billboards, TextureFont), tex.a is the alpha. */
-    float glyphAlpha = (tex.g == 0.0 && tex.b == 0.0 && (tex.a == 1.0 || tex.a == 0.0)) ? tex.r : tex.a;
-
-    if (glyphAlpha < 0.01)
+    if (tex.a < 0.01)
     {
         discard;
     }
 
     vec3 maskPos = vec3(formRootPos.xy, 0.0);
-    float pmask = bbsPaintEffectMask(maskPos, PaintEffectInverse, PaintEffectActive, PaintMaskHalf, PaintMaskBottomAnchored, PaintMaskShape);
+    float mask = bbsPaintEffectMask(maskPos, PaintEffectInverse, PaintEffectActive, PaintMaskHalf, PaintMaskBottomAnchored, PaintMaskShape);
+    float paintStrength = clamp(vertexColor.a * mask, 0.0, 1.0);
+    vec3 rgb = mix(tex.rgb, vertexColor.rgb, paintStrength);
+    float alpha = tex.a * paintStrength;
 
-    if (pmask < 0.001)
+    if (alpha < 0.01)
     {
         discard;
     }
 
-    float maskAlpha = clamp(vertexColor.a, 0.0, 1.0);
-    float alpha = pmask * maskAlpha * glyphAlpha;
-    vec3 rgb = vertexColor.rgb;
-
-    if (alpha < 0.001)
-    {
-        discard;
-    }
-
-    fragColor = vec4(rgb, alpha);
+    fragColor = linear_fog(vec4(rgb, alpha), vertexDistance, FogStart, FogEnd, FogColor);
 }
