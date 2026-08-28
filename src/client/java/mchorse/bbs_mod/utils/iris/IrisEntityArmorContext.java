@@ -14,6 +14,7 @@ import net.minecraft.item.trim.ArmorTrim;
 import net.minecraft.registry.Registries;
 import net.minecraft.util.Identifier;
 
+import net.irisshaders.iris.helpers.EntityState;
 import net.irisshaders.iris.shaderpack.materialmap.NamespacedId;
 import net.irisshaders.iris.shaderpack.materialmap.WorldRenderingSettings;
 import net.irisshaders.iris.uniforms.CapturedRenderingState;
@@ -173,7 +174,7 @@ public final class IrisEntityArmorContext
             return;
         }
 
-        CapturedRenderingState.INSTANCE.setCurrentRenderedItem(resolveTrimItemId(trim));
+        EntityState.interposeItemId(resolveTrimItemId(trim));
     }
 
     public static void endTrim()
@@ -182,6 +183,8 @@ public final class IrisEntityArmorContext
         {
             return;
         }
+
+        EntityState.restoreItemId();
     }
 
     public static final class Scope implements AutoCloseable
@@ -226,6 +229,8 @@ public final class IrisEntityArmorContext
             {
                 state.setCurrentEntity(this.prevEntity);
             }
+
+            EntityState.restoreItemId();
         }
     }
 }

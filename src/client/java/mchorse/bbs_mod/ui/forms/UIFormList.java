@@ -2506,7 +2506,14 @@ public class UIFormList extends UIElement
             this.setSelected(selected);
         }
 
+        Vector3f a = new Vector3f(0.85F, 0.85F, -1F).normalize();
+        Vector3f b = new Vector3f(-0.85F, 0.85F, 1F).normalize();
+
+        RenderSystem.setupLevelDiffuseLighting(a, b);
+
         super.render(context);
+
+        DiffuseLighting.disableGuiDepthLighting();
 
     }
 
@@ -3395,7 +3402,7 @@ public class UIFormList extends UIElement
                 this.dragFormStart = -1L;
             }
 
-            if (this.dragFormIndex != -1 && !this.draggingForm && UIFormList.this.expandedCategory != null && UIFormList.this.expandedCategory.category instanceof UserFormCategory && System.currentTimeMillis() - this.dragFormStart > POPUP_DRAG_DELAY_MS)
+            if (this.dragFormIndex != -1 && !this.draggingForm && UIFormList.this.expandedCategory.category instanceof UserFormCategory && System.currentTimeMillis() - this.dragFormStart > POPUP_DRAG_DELAY_MS)
             {
                 this.draggingForm = true;
             }

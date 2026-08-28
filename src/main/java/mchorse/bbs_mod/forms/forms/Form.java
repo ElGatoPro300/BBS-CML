@@ -42,6 +42,7 @@ import mchorse.bbs_mod.utils.keyframes.factories.ColorKeyframeFactory;
 import mchorse.bbs_mod.utils.pose.Transform;
 
 import net.minecraft.entity.LivingEntity;
+import net.minecraft.entity.attribute.EntityAttributeInstance;
 import net.minecraft.entity.attribute.EntityAttributes;
 
 import java.util.ArrayList;
@@ -351,9 +352,17 @@ public abstract class Form extends ValueGroup
             entity.setHealth(hp);
         }
         if (speed != 0.1F) entity.getAttributeInstance(EntityAttributes.GENERIC_MOVEMENT_SPEED).setBaseValue(speed);
-        /* 1.20.4: Entity.setStepHeight (GENERIC_STEP_HEIGHT is 1.20.5+). Always apply so form
-         * switches reset non-default values from the previous morph. */
-        entity.setStepHeight(stepHeight);
+        /* setStepHeight() was removed in 1.20.5+; step-up is GENERIC_STEP_HEIGHT now.
+         * Default matches vanilla living/player step height (0.6). */
+        if (stepHeight != 0.6F)
+        {
+            EntityAttributeInstance step = entity.getAttributeInstance(EntityAttributes.GENERIC_STEP_HEIGHT);
+
+            if (step != null)
+            {
+                step.setBaseValue(stepHeight);
+            }
+        }
     }
 
     public void onDemorph(LivingEntity entity)
@@ -361,7 +370,14 @@ public abstract class Form extends ValueGroup
         entity.getAttributeInstance(EntityAttributes.GENERIC_MAX_HEALTH).setBaseValue(20F);
         entity.setHealth(20F);
         entity.getAttributeInstance(EntityAttributes.GENERIC_MOVEMENT_SPEED).setBaseValue(0.1F);
-        entity.setStepHeight(0.6F);
+
+        EntityAttributeInstance step = entity.getAttributeInstance(EntityAttributes.GENERIC_STEP_HEIGHT);
+
+        if (step != null)
+        {
+            /* Vanilla player / living default step height. */
+            step.setBaseValue(0.6D);
+        }
     }
 
     /* ID and display name */

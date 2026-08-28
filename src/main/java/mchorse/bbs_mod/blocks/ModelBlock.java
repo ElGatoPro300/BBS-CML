@@ -14,6 +14,9 @@ import net.minecraft.block.Waterloggable;
 import net.minecraft.block.entity.BlockEntity;
 import net.minecraft.block.entity.BlockEntityTicker;
 import net.minecraft.block.entity.BlockEntityType;
+import net.minecraft.component.DataComponentTypes;
+import net.minecraft.component.type.BlockStateComponent;
+import net.minecraft.component.type.NbtComponent;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.fluid.FluidState;
 import net.minecraft.fluid.Fluids;
@@ -25,7 +28,6 @@ import net.minecraft.state.StateManager;
 import net.minecraft.state.property.IntProperty;
 import net.minecraft.state.property.Properties;
 import net.minecraft.util.ActionResult;
-import net.minecraft.util.Hand;
 import net.minecraft.util.ItemScatterer;
 import net.minecraft.util.collection.DefaultedList;
 import net.minecraft.util.hit.BlockHitResult;
@@ -35,6 +37,10 @@ import net.minecraft.util.shape.VoxelShapes;
 import net.minecraft.world.BlockView;
 import net.minecraft.world.World;
 import net.minecraft.world.WorldView;
+
+import org.joml.Vector3f;
+
+import java.util.Map;
 
 import org.jetbrains.annotations.Nullable;
 
@@ -51,7 +57,7 @@ public class ModelBlock extends Block implements BlockEntityProvider, Waterlogga
     {
         super(settings);
 
-        this.setDefaultState(this.getDefaultState()
+        this.setDefaultState(getDefaultState()
             .with(Properties.WATERLOGGED, false)
             .with(LIGHT_LEVEL, 0));
     }
@@ -78,12 +84,9 @@ public class ModelBlock extends Block implements BlockEntityProvider, Waterlogga
         if (entity instanceof ModelBlockEntity modelBlock)
         {
             ItemStack stack = new ItemStack(this);
-            NbtCompound nbt = stack.getOrCreateNbt();
-            NbtCompound stateTag = new NbtCompound();
-
-            nbt.put("BlockEntityTag", modelBlock.createNbtWithId());
-            stateTag.putString("light_level", String.valueOf(modelBlock.getProperties().getLightLevel()));
-            nbt.put("BlockStateTag", stateTag);
+            stack.set(DataComponentTypes.BLOCK_ENTITY_DATA, NbtComponent.of(modelBlock.createNbtWithId(world.getRegistryManager())));
+            
+            stack.set(DataComponentTypes.BLOCK_STATE, new BlockStateComponent(Map.of("light_level", String.valueOf(modelBlock.getProperties().getLightLevel()))));
 
             return stack;
         }
@@ -172,9 +175,9 @@ public class ModelBlock extends Block implements BlockEntityProvider, Waterlogga
     }
 
     @Override
-    public ActionResult onUse(BlockState state, World world, BlockPos pos, PlayerEntity player, Hand hand, BlockHitResult hit)
+    public ActionResult onUse(BlockState state, World world, BlockPos pos, PlayerEntity player, BlockHitResult hit)
     {
-        if (hand == Hand.MAIN_HAND && player instanceof ServerPlayerEntity serverPlayer)
+        if (player instanceof ServerPlayerEntity serverPlayer)
         {
             ServerNetwork.sendClickedModelBlock(serverPlayer, pos);
         }
@@ -198,12 +201,9 @@ public class ModelBlock extends Block implements BlockEntityProvider, Waterlogga
             if (be instanceof ModelBlockEntity model)
             {
                 ItemStack stack = new ItemStack(this);
-                NbtCompound nbt = stack.getOrCreateNbt();
-                NbtCompound stateTag = new NbtCompound();
-
-                nbt.put("BlockEntityTag", model.createNbtWithId());
-                stateTag.putString("light_level", String.valueOf(model.getProperties().getLightLevel()));
-                nbt.put("BlockStateTag", stateTag);
+                stack.set(DataComponentTypes.BLOCK_ENTITY_DATA, NbtComponent.of(model.createNbtWithId(world.getRegistryManager())));
+                
+                stack.set(DataComponentTypes.BLOCK_STATE, new BlockStateComponent(Map.of("light_level", String.valueOf(model.getProperties().getLightLevel()))));
 
                 ItemScatterer.spawn(world, pos, DefaultedList.ofSize(1, stack));
             }

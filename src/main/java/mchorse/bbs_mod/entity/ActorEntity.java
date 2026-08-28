@@ -765,7 +765,7 @@ public class ActorEntity extends LivingEntity implements IEntityFormProvider
                     return;
                 }
             }
-            else if (ItemStack.canCombine(existing, stack) && existing.getCount() < existing.getMaxCount())
+            else if (ItemStack.areItemsAndComponentsEqual(existing, stack) && existing.getCount() < existing.getMaxCount())
             {
                 int space = existing.getMaxCount() - existing.getCount();
                 int move = Math.min(space, remaining);
@@ -831,19 +831,20 @@ public class ActorEntity extends LivingEntity implements IEntityFormProvider
     }
 
     @Override
-    public EntityDimensions getDimensions(EntityPose pose)
+    public EntityDimensions getBaseDimensions(EntityPose pose)
     {
-        EntityDimensions dimensions = super.getDimensions(pose);
+        EntityDimensions dimensions = super.getBaseDimensions(pose);
         Form currentForm = this.form;
 
         if (currentForm != null && currentForm.hitbox.get())
         {
             float height = currentForm.hitboxHeight.get() * (this.isSneaking() ? currentForm.hitboxSneakMultiplier.get() : 1F);
-
-            /* 1.20.4: eye height comes from getActiveEyeHeight / PlayerEntityMixin, not withEyeHeight(). */
-            return dimensions.fixed
+            float eyeHeight = currentForm.hitboxEyeHeight.get() * height;
+            EntityDimensions shaped = dimensions.fixed()
                 ? EntityDimensions.fixed(currentForm.hitboxWidth.get(), height)
                 : EntityDimensions.changing(currentForm.hitboxWidth.get(), height);
+
+            return shaped.withEyeHeight(eyeHeight);
         }
 
         return dimensions;
@@ -1188,13 +1189,16 @@ public class ActorEntity extends LivingEntity implements IEntityFormProvider
         if (nbt.contains("Equipment", 10))
         {
             NbtCompound equipmentNbt = nbt.getCompound("Equipment");
+            RegistryWrapper.WrapperLookup registries = this.getWorld() != null ? this.getWorld().getRegistryManager() : BBSMod.getRegistryManager();
 
             for (EquipmentSlot slot : EquipmentSlot.values())
             {
                 if (equipmentNbt.contains(slot.getName(), 10))
                 {
                     NbtCompound itemNbt = equipmentNbt.getCompound(slot.getName());
-                    ItemStack stack = ItemStack.fromNbt(itemNbt);
+                    ItemStack stack = registries != null
+                        ? ItemStack.CODEC.parse(RegistryOps.of(NbtOps.INSTANCE, registries), itemNbt).result().orElse(ItemStack.EMPTY)
+                        : ItemStack.fromNbtOrEmpty(null, itemNbt);
 
                     this.equipment.put(slot, stack);
                 }
@@ -1210,15 +1214,21 @@ public class ActorEntity extends LivingEntity implements IEntityFormProvider
         nbt.putBoolean("despawn", true);
 
         NbtCompound equipmentNbt = new NbtCompound();
+        RegistryWrapper.WrapperLookup registries = this.getWorld() != null ? this.getWorld().getRegistryManager() : BBSMod.getRegistryManager();
 
         for (Map.Entry<EquipmentSlot, ItemStack> entry : this.equipment.entrySet())
         {
             if (!entry.getValue().isEmpty())
             {
                 ItemStack stack = entry.getValue();
-                NbtCompound itemNbt = new NbtCompound();
-                stack.writeNbt(itemNbt);
-                equipmentNbt.put(entry.getKey().getName(), itemNbt);
+                NbtElement itemNbt = registries != null
+                    ? ItemStack.CODEC.encodeStart(RegistryOps.of(NbtOps.INSTANCE, registries), stack).result().orElse(null)
+                    : ItemStack.CODEC.encodeStart(NbtOps.INSTANCE, stack).result().orElse(null);
+
+                if (itemNbt instanceof NbtCompound compound)
+                {
+                    equipmentNbt.put(entry.getKey().getName(), compound);
+                }
             }
         }
 

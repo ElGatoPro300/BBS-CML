@@ -141,7 +141,7 @@ public class FilmControllerContext
         }
 
         this.consumers = context.consumers();
-        this.transition = context.tickDelta();
+        this.transition = context.tickCounter().getTickDelta(false);
 
         return this;
     }
