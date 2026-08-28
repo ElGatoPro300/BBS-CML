@@ -583,13 +583,14 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
         Color shadowColor = this.form.shadowColor.get().copy();
         Color storedFormColor = this.form.color.get();
         boolean colorTransformWanted = FormColorEffects.wantsColorTransformMask(storedFormColor) && !context.isPicking();
+        boolean colorTintOverlayReady = colorTransformWanted && BBSShaders.getFlatColorTintOverlayProgram() != null;
         Color contextColor = new Color().set(context.color, true);
         Color color = contextColor.copy();
         Color formTintColor = null;
         EffectTransform colorTransform = null;
 
         /* Spatial Color transform: bake mask per glyph (AABB overlay would tint the background). */
-        if (colorTransformWanted)
+        if (colorTintOverlayReady)
         {
             color.r = 1F;
             color.g = 1F;
@@ -816,12 +817,13 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
         Color shadowColor = this.form.shadowColor.get().copy();
         Color storedFormColor = this.form.color.get();
         boolean colorTransformWanted = FormColorEffects.wantsColorTransformMask(storedFormColor) && !context.isPicking();
+        boolean colorTintOverlayReady = colorTransformWanted && BBSShaders.getFlatColorTintOverlayProgram() != null;
         Color contextColor = new Color().set(context.color, true);
         Color color = contextColor.copy();
         Color formTintColor = null;
         EffectTransform colorTransform = null;
 
-        if (colorTransformWanted)
+        if (colorTintOverlayReady)
         {
             color.r = 1F;
             color.g = 1F;

@@ -171,7 +171,8 @@ public class ShapeFormRenderer extends FormRenderer<ShapeForm>
 
         Color rawFormColor = this.form.color.get();
         Color formColor = rawFormColor.copyBakingColorGrade();
-        boolean wantsColorTransformMask = FormColorEffects.wantsColorTintOverlay(rawFormColor);
+        boolean colorTransformWanted = FormColorEffects.wantsColorTransformMask(rawFormColor);
+        boolean colorTintOverlayReady = colorTransformWanted && BBSShaders.getFlatColorTintOverlayProgram() != null;
         PaintSettings paintSettings = this.form.paintSettings.get();
         Color legacyPaint = this.form.paintColor.get();
         boolean positivePaint = FormColorEffects.hasPositivePaint(paintSettings, legacyPaint);
@@ -351,7 +352,7 @@ public class ShapeFormRenderer extends FormRenderer<ShapeForm>
             }
         }
 
-        if (wantsColorTransformMask)
+        if (colorTintOverlayReady)
         {
             EffectTransform colorTransform = rawFormColor.transform == null ? null : rawFormColor.transform.copy();
 
@@ -1062,8 +1063,10 @@ public class ShapeFormRenderer extends FormRenderer<ShapeForm>
     private Color resolveAppearanceColor(Color rawFormColor)
     {
         Color color = rawFormColor.copyBakingColorGrade();
+        boolean colorTransformWanted = FormColorEffects.wantsColorTransformMask(rawFormColor);
+        boolean colorTintOverlayReady = colorTransformWanted && BBSShaders.getFlatColorTintOverlayProgram() != null;
 
-        if (!FormColorEffects.shouldBakeFormColor(rawFormColor))
+        if (colorTintOverlayReady)
         {
             color.r = 1F;
             color.g = 1F;

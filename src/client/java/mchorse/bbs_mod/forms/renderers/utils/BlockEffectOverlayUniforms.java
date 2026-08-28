@@ -136,6 +136,13 @@ public final class BlockEffectOverlayUniforms
 
     private static void configureColorTintOverlayRenderState(Matrix4f rootInverse, EffectTransform transform, boolean bottomAnchored, Color formColor, float maskHalfBase, Color gradeSource, boolean structureSized, float sizeX, float sizeY, float sizeZ)
     {
+        ShaderProgram program = BBSShaders.getBlockColorTintOverlayProgram();
+
+        if (program == null)
+        {
+            return;
+        }
+
         boolean wantGrade = gradeSource != null && gradeSource.hasColorAdjustments();
         boolean gradeActive = wantGrade && ModelVAORenderer.captureGradeSceneColor();
 
@@ -160,40 +167,35 @@ public final class BlockEffectOverlayUniforms
         RenderSystem.depthFunc(GL11.GL_LEQUAL);
         RenderSystem.depthMask(false);
 
-        ShaderProgram program = BBSShaders.getBlockColorTintOverlayProgram();
+        RenderSystem.setShader(() -> program);
+        bindFormRootInverse(program, rootInverse);
 
-        if (program != null)
+        if (program.projectionMat != null)
         {
-            RenderSystem.setShader(() -> program);
-            bindFormRootInverse(program, rootInverse);
+            program.projectionMat.set(RenderSystem.getProjectionMatrix());
+        }
 
-            if (program.projectionMat != null)
-            {
-                program.projectionMat.set(RenderSystem.getProjectionMatrix());
-            }
+        if (program.modelViewMat != null)
+        {
+            program.modelViewMat.set(RenderSystem.getModelViewMatrix());
+        }
 
-            if (program.modelViewMat != null)
-            {
-                program.modelViewMat.set(RenderSystem.getModelViewMatrix());
-            }
+        if (structureSized)
+        {
+            bindColorEffectStructure(program, transform, bottomAnchored, sizeX, sizeY, sizeZ);
+            bindFormColorTint(program, formColor);
+            bindFormColorGradeStructure(program, gradeActive ? gradeSource : null, bottomAnchored, sizeX, sizeY, sizeZ);
+        }
+        else
+        {
+            bindColorEffect(program, transform, bottomAnchored, maskHalfBase);
+            bindFormColorTint(program, formColor);
+            bindFormColorGrade(program, gradeActive ? gradeSource : null, bottomAnchored, maskHalfBase);
+        }
 
-            if (structureSized)
-            {
-                bindColorEffectStructure(program, transform, bottomAnchored, sizeX, sizeY, sizeZ);
-                bindFormColorTint(program, formColor);
-                bindFormColorGradeStructure(program, gradeActive ? gradeSource : null, bottomAnchored, sizeX, sizeY, sizeZ);
-            }
-            else
-            {
-                bindColorEffect(program, transform, bottomAnchored, maskHalfBase);
-                bindFormColorTint(program, formColor);
-                bindFormColorGrade(program, gradeActive ? gradeSource : null, bottomAnchored, maskHalfBase);
-            }
-
-            if (gradeActive)
-            {
-                ModelVAORenderer.bindGradeSceneColorTexture();
-            }
+        if (gradeActive)
+        {
+            ModelVAORenderer.bindGradeSceneColorTexture();
         }
 
         RenderSystem.setShaderTexture(0, PlayerScreenHandler.BLOCK_ATLAS_TEXTURE);
