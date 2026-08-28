@@ -143,7 +143,7 @@ public class ArmorRenderer
                 }
 
                 Optional<ArmorTrim> trimOpt = MinecraftClient.getInstance().world != null
-                    ? ArmorTrim.getTrim(MinecraftClient.getInstance().world.getRegistryManager(), itemStack, true)
+                    ? ArmorTrim.getTrim(MinecraftClient.getInstance().world.getRegistryManager(), itemStack)
                     : Optional.empty();
                 boolean hasTrim = trimOpt.isPresent();
                 boolean hasGlint = itemStack.hasGlint();
