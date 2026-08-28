@@ -55,10 +55,10 @@ public class ActorEntity extends LivingEntity implements IEntityFormProvider
     public static DefaultAttributeContainer.Builder createActorAttributes()
     {
         return LivingEntity.createLivingAttributes()
-            .add(EntityAttributes.GENERIC_ATTACK_DAMAGE, 1D)
-            .add(EntityAttributes.GENERIC_MOVEMENT_SPEED, 0.1D)
-            .add(EntityAttributes.GENERIC_ATTACK_SPEED)
-            .add(EntityAttributes.GENERIC_LUCK);
+            .add(EntityAttributes.ATTACK_DAMAGE, 1D)
+            .add(EntityAttributes.MOVEMENT_SPEED, 0.1D)
+            .add(EntityAttributes.ATTACK_SPEED)
+            .add(EntityAttributes.LUCK);
     }
 
     private boolean despawn;
@@ -1007,14 +1007,14 @@ public class ActorEntity extends LivingEntity implements IEntityFormProvider
      * still applies via {@link ActorReplayStateSync}.
      */
     @Override
-    public boolean isInvulnerableTo(DamageSource damageSource)
+    public boolean isInvulnerableTo(ServerWorld world, DamageSource damageSource)
     {
         if (this.isKeyframeInvulnerable())
         {
             return true;
         }
 
-        return super.isInvulnerableTo(damageSource);
+        return super.isInvulnerableTo(world, damageSource);
     }
 
     private boolean isKeyframeInvulnerable()
@@ -1235,7 +1235,6 @@ public class ActorEntity extends LivingEntity implements IEntityFormProvider
         nbt.put("Equipment", equipmentNbt);
     }
 
-    @Override
     protected int getPermissionLevel()
     {
         return 4;

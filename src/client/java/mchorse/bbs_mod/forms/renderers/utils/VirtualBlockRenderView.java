@@ -322,7 +322,7 @@ public class VirtualBlockRenderView implements BlockRenderView
             /* Resolve preferably from the client world */
             if (MinecraftClient.getInstance().world != null)
             {
-                Registry<Biome> reg = MinecraftClient.getInstance().world.getRegistryManager().get(RegistryKeys.BIOME);
+                Registry<Biome> reg = MinecraftClient.getInstance().world.getRegistryManager().getOrThrow(RegistryKeys.BIOME);
                 this.biomeOverride = reg.get(this.biomeOverrideId);
             }
             else
@@ -400,14 +400,6 @@ public class VirtualBlockRenderView implements BlockRenderView
         return Math.min(lum, this.lightIntensity);
     }
 
-    @Override
-    public int getMaxLightLevel()
-    {
-        return 15;
-    }
-
-    // BlockRenderView
-    @Override
     public float getBrightness(Direction direction, boolean shaded)
     {
         if (MinecraftClient.getInstance().world != null)
@@ -567,19 +559,16 @@ public class VirtualBlockRenderView implements BlockRenderView
     /* Method removed: now using the O(1) precomputed map */
 
     // HeightLimitView
-    @Override
     public int getBottomY()
     {
         return this.bottomY;
     }
 
-    @Override
     public int getTopY()
     {
         return this.topY;
     }
 
-    @Override
     public int getHeight()
     {
         return this.topY - this.bottomY + 1;

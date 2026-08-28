@@ -21,8 +21,8 @@ import net.irisshaders.iris.targets.RenderTargets;
 import org.joml.Matrix4f;
 import org.joml.Matrix4fStack;
 
+import com.mojang.blaze3d.systems.ProjectionType;
 import com.mojang.blaze3d.systems.RenderSystem;
-import com.mojang.blaze3d.systems.VertexSorter;
 
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL20;
@@ -615,7 +615,7 @@ public class ShaderOpacityPatch
         }
         else if (paintOpaqueDepthStash.textureWidth != width || paintOpaqueDepthStash.textureHeight != height)
         {
-            paintOpaqueDepthStash.resize(width, height, MinecraftClient.IS_SYSTEM_MAC);
+            paintOpaqueDepthStash.resize(width, height);
         }
     }
 
@@ -851,7 +851,7 @@ public class ShaderOpacityPatch
 
         try
         {
-            RenderSystem.setProjectionMatrix(entry.projection, VertexSorter.BY_Z);
+            RenderSystem.setProjectionMatrix(entry.projection, ProjectionType.ORTHOGRAPHIC);
             flushingDepthWrite = entry.depthWrite;
             RenderSystem.depthMask(entry.depthWrite);
 
@@ -860,12 +860,10 @@ public class ShaderOpacityPatch
             if (entry.irisCamera)
             {
                 modelViewStack.set(entry.modelView);
-                RenderSystem.applyModelViewMatrix();
             }
             else
             {
                 modelViewStack.identity();
-                RenderSystem.applyModelViewMatrix();
                 ModelVAORenderer.beginDeferredTranslucentModelPass(entry.depthWrite, true);
                 beganDeferredPass = true;
             }
@@ -903,7 +901,6 @@ public class ShaderOpacityPatch
             RenderSystem.defaultBlendFunc();
             RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
             RenderSystem.depthMask(savedDepthMask);
-
             if (flushingPostDeferred)
             {
                 MinecraftClient mc = MinecraftClient.getInstance();
@@ -918,9 +915,8 @@ public class ShaderOpacityPatch
                 reassertPostDeferredDepthState(entry.depthWrite);
             }
 
-            RenderSystem.setProjectionMatrix(savedProjection, VertexSorter.BY_Z);
+            RenderSystem.setProjectionMatrix(savedProjection, ProjectionType.ORTHOGRAPHIC);
             modelViewStack.set(savedModelView);
-            RenderSystem.applyModelViewMatrix();
         }
     }
 
