@@ -22,6 +22,7 @@ import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.Items;
 import net.minecraft.particle.BlockStateParticleEffect;
+import net.minecraft.particle.DefaultParticleType;
 import net.minecraft.particle.DustColorTransitionParticleEffect;
 import net.minecraft.particle.DustParticleEffect;
 import net.minecraft.particle.ItemStackParticleEffect;
@@ -238,7 +239,12 @@ public class VanillaParticleFormRenderer extends FormRenderer<VanillaParticleFor
 
                     if (colorR >= 0F)
                     {
-                        if (path.equals("dust_color_transition"))
+                        if (isEffect)
+                        {
+                            effect = ParticleTypes.ENTITY_EFFECT;
+                            parsedCustom = true;
+                        }
+                        else if (path.equals("dust_color_transition"))
                         {
                             float scale = colorA > 0F ? colorA : 1F;
 
@@ -262,6 +268,13 @@ public class VanillaParticleFormRenderer extends FormRenderer<VanillaParticleFor
                         }
                         else if (type != null)
                         {
+                            String full = settings.particle.toString();
+
+                            if (!args.isEmpty())
+                            {
+                                full += " " + args;
+                            }
+
                             try
                             {
                                 effect = (ParticleEffect) ((ParticleType) type).getParametersFactory().read(type, new StringReader(" " + args));

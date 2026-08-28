@@ -15,8 +15,8 @@ uniform sampler2D Sampler2;
 
 uniform mat4 ModelViewMat;
 uniform mat3 NormalMat;
+uniform mat4 FogMat;
 uniform mat4 ProjMat;
-uniform mat3 IViewRotMat;
 uniform mat4 FormRootInverse;
 uniform int FogShape;
 
@@ -34,17 +34,20 @@ out vec3 formRootPos;
 
 void main()
 {
+    /* Vanilla 1.21.1 mobs: VertexConsumer bakes camera-relative world into Position
+     * (Y-up, no view rotation); ModelViewMat is only the view rotation at draw time.
+     * Terrain uses the same space via Position + ChunkOffset. FogMat holds that
+     * camera-relative model transform; ModelViewMat stays view × FogMat for clip. */
     gl_Position = ProjMat * ModelViewMat * vec4(Position, 1.0);
-    /* Vanilla 1.20.4 mobs (rendertype_entity_translucent): Position is model-local in the
-     * VAO; ModelViewMat is view × entity at draw time. IViewRotMat strips view rotation for
-     * cylindrical fog. Do not use FogMat here — that is the 1.21.1+ mob/terrain bake path. */
-    vertexDistance = fog_distance(ModelViewMat, IViewRotMat * Position, FogShape);
+    vertexDistance = fog_distance(FogMat, Position, FogShape);
     vec3 n = NormalMat * Normal;
     float nLen2 = dot(n, n);
     vec3 fixNormal = nLen2 > 1.0e-8 ? n * inversesqrt(nLen2) : vec3(0.0, 0.0, 1.0);
     rawVertexColor = Color;
     vertexColor = minecraft_mix_light(Light0_Direction, Light1_Direction, fixNormal, Color);
-    lightMapColor = texelFetch(Sampler2, UV2 / 16, 0);
+    /* Filtered sample (not texelFetch): continuous lightmap UVs keep float lighting
+     * intermediates (brightness 0–1 and fixed levels 0–15 without truncate). */
+    lightMapColor = minecraft_sample_lightmap(Sampler2, UV2);
     overlayColor = texelFetch(Sampler1, UV1, 0);
     texCoord0 = UV0;
     normal = ProjMat * ModelViewMat * vec4(Normal, 0.0);

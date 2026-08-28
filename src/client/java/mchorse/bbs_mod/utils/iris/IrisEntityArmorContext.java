@@ -182,6 +182,8 @@ public final class IrisEntityArmorContext
         {
             return;
         }
+
+        CapturedRenderingState.INSTANCE.setCurrentRenderedItem(0);
     }
 
     public static final class Scope implements AutoCloseable

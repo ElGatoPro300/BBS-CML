@@ -840,13 +840,27 @@ public class ActorEntity extends LivingEntity implements IEntityFormProvider
         {
             float height = currentForm.hitboxHeight.get() * (this.isSneaking() ? currentForm.hitboxSneakMultiplier.get() : 1F);
 
-            /* 1.20.4: eye height comes from getActiveEyeHeight / PlayerEntityMixin, not withEyeHeight(). */
             return dimensions.fixed
                 ? EntityDimensions.fixed(currentForm.hitboxWidth.get(), height)
                 : EntityDimensions.changing(currentForm.hitboxWidth.get(), height);
         }
 
         return dimensions;
+    }
+
+    @Override
+    public float getActiveEyeHeight(EntityPose pose, EntityDimensions dimensions)
+    {
+        Form currentForm = this.form;
+
+        if (currentForm != null && currentForm.hitbox.get())
+        {
+            float height = currentForm.hitboxHeight.get() * (this.isSneaking() ? currentForm.hitboxSneakMultiplier.get() : 1F);
+
+            return currentForm.hitboxEyeHeight.get() * height;
+        }
+
+        return super.getActiveEyeHeight(pose, dimensions);
     }
 
 
@@ -1188,6 +1202,7 @@ public class ActorEntity extends LivingEntity implements IEntityFormProvider
         if (nbt.contains("Equipment", 10))
         {
             NbtCompound equipmentNbt = nbt.getCompound("Equipment");
+            RegistryWrapper.WrapperLookup registries = this.getWorld() != null ? this.getWorld().getRegistryManager() : BBSMod.getRegistryManager();
 
             for (EquipmentSlot slot : EquipmentSlot.values())
             {
@@ -1210,15 +1225,21 @@ public class ActorEntity extends LivingEntity implements IEntityFormProvider
         nbt.putBoolean("despawn", true);
 
         NbtCompound equipmentNbt = new NbtCompound();
+        RegistryWrapper.WrapperLookup registries = this.getWorld() != null ? this.getWorld().getRegistryManager() : BBSMod.getRegistryManager();
 
         for (Map.Entry<EquipmentSlot, ItemStack> entry : this.equipment.entrySet())
         {
             if (!entry.getValue().isEmpty())
             {
                 ItemStack stack = entry.getValue();
-                NbtCompound itemNbt = new NbtCompound();
-                stack.writeNbt(itemNbt);
-                equipmentNbt.put(entry.getKey().getName(), itemNbt);
+                NbtElement itemNbt = registries != null
+                    ? ItemStack.CODEC.encodeStart(RegistryOps.of(NbtOps.INSTANCE, registries), stack).result().orElse(null)
+                    : ItemStack.CODEC.encodeStart(NbtOps.INSTANCE, stack).result().orElse(null);
+
+                if (itemNbt instanceof NbtCompound compound)
+                {
+                    equipmentNbt.put(entry.getKey().getName(), compound);
+                }
             }
         }
 

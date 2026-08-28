@@ -81,7 +81,6 @@ import net.minecraft.item.BlockItem;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.Items;
-import net.minecraft.nbt.NbtCompound;
 import net.minecraft.nbt.NbtHelper;
 import net.minecraft.util.Arm;
 import net.minecraft.util.Hand;
@@ -590,11 +589,6 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
         RenderSystem.enableBlend();
         RenderSystem.defaultBlendFunc();
 
-        if (!ui && BBSRendering.isRenderingWorld())
-        {
-            BBSRendering.setupMatchingWorldDiffuseLighting();
-        }
-
         GameRenderer gameRenderer = MinecraftClient.getInstance().gameRenderer;
 
         gameRenderer.getLightmapTextureManager().enable();
@@ -824,10 +818,10 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
         /* Low-alpha Iris redraw: albedo deferred; additive overlay if somehow deferred with glow. */
         boolean emitGlowAfterDeferred = deferTranslucentModel && model.supportsBbsModelShaderEffects() && hasEmissiveGlow;
         boolean deferGlowToOverlay = shaderOverlay || (irisWorldPaintDeferral && glowHasSpatialMask && model.supportsBbsModelShaderEffects());
-        boolean shapeKeyPositiveOverlay = model.hasShapeKeys() && this.hasAnyPositiveGlow(model, glow, legacyGlow) && !BBSRendering.isIrisWorldModelPass();
+        boolean shapeKeyPositiveOverlay = false;
         boolean glowDeferredToOverlay = deferGlowToOverlay || emitGlowAfterDeferred || (deferPaintToOverlay && hasGlow && !paintOnlyGlow);
         boolean stripMainPassGlow = deferGlowToOverlay || emitGlowAfterDeferred || (deferPaintToOverlay && hasGlow && paintOnlyGlow);
-        GlowSettings mainPassGlow = this.resolveMainPassGlow(glow, legacyGlow, stripMainPassGlow, shapeKeyPositiveOverlay);
+        GlowSettings mainPassGlow = this.resolveMainPassGlow(glow, legacyGlow, stripMainPassGlow, false);
         /* Opacity defer replaces the live Iris mesh. Color-grade overlay keeps Iris live. */
         boolean drawIrisLive = !deferTranslucentModel;
 
@@ -1992,16 +1986,6 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
 
     private void renderDeferredGlowEmission(MatrixStack stack, ModelInstance model, int light, int overlay, StencilMap stencilMap, Color color, Link defaultTexture, TextureBlend textureBlend, GlowSettings glow, Color glowColor, Color legacyGlow)
     {
-        if (model.hasShapeKeys() && this.hasAnyPositiveGlow(model, glow, legacyGlow) && !BBSRendering.isIrisWorldModelPass())
-        {
-            ModelVAORenderer.runWithPaintOverlayPass(false, () ->
-            {
-                this.renderShapeKeyGlowOverlay(stack, model, overlay, stencilMap, color, defaultTexture, textureBlend, glow, legacyGlow);
-            });
-
-            return;
-        }
-
         ModelVAORenderer.runWithPaintOverlayPass(false, () ->
         {
             ModelVAORenderer.setPaint(0F, 0F, 0F, 0F);
@@ -3445,18 +3429,16 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
         }
 
         GameProfile profile = null;
-        if (itemStack.hasNbt())
+
+        if (itemStack.hasNbt() && itemStack.getNbt().contains("SkullOwner", 10))
         {
-            NbtCompound nbt = itemStack.getNbt();
-            if (nbt.contains("SkullOwner", 8))
-            {
-                profile = new GameProfile(null, nbt.getString("SkullOwner"));
-            }
-            else if (nbt.contains("SkullOwner", 10))
-            {
-                profile = NbtHelper.toGameProfile(nbt.getCompound("SkullOwner"));
-            }
+            profile = NbtHelper.toGameProfile(itemStack.getNbt().getCompound("SkullOwner"));
         }
+        else if (itemStack.hasNbt() && itemStack.getNbt().contains("SkullOwner", 8))
+        {
+            profile = new GameProfile(null, itemStack.getNbt().getString("SkullOwner"));
+        }
+
         RenderLayer renderLayer = SkullBlockEntityRenderer.getRenderLayer(skullType, profile);
 
         CustomVertexConsumerProvider.hijackVertexFormat((l) -> RenderSystem.enableBlend());

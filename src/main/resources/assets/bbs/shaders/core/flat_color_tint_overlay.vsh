@@ -13,7 +13,6 @@ uniform mat4 ModelViewMat;
 uniform mat4 FormRootInverse;
 uniform mat4 FogMat;
 uniform mat4 ProjMat;
-uniform mat3 IViewRotMat;
 uniform int FogShape;
 
 out float vertexDistance;
@@ -25,10 +24,8 @@ void main()
 {
     gl_Position = ProjMat * ModelViewMat * vec4(Position, 1.0);
 
-    /* Flat overlays bake the form matrix into Position; FogMat maps to camera-relative
-     * Y-up for cylindrical fog (same idea as master, 1.20.4 fog_distance signature). */
-    vec3 fogPos = (FogMat * vec4(Position, 1.0)).xyz;
-    vertexDistance = fog_distance(ModelViewMat, fogPos, FogShape);
+    /* Position is already stack-transformed; FogMat maps it to camera-relative Y-up. */
+    vertexDistance = fog_distance(FogMat, Position, FogShape);
     vertexColor = Color;
     texCoord0 = UV0;
     formRootPos = (FormRootInverse * vec4(Position, 1.0)).xyz;

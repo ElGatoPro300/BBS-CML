@@ -120,7 +120,6 @@ public class ActorEntityRenderer extends EntityRenderer<ActorEntity>
 
         this.setupTransforms(livingEntity, matrices, bodyYaw, animDelta);
 
-        BBSRendering.setupMatchingWorldDiffuseLighting();
         RenderSystem.enableBlend();
         RenderSystem.enableDepthTest();
         FormUtilsClient.render(livingEntity.getForm(), new FormRenderingContext()

@@ -129,12 +129,6 @@ public class FilmControllerContext
             this.stack = new MatrixStack();
             MatrixStackUtils.multiply(this.stack, RenderSystem.getModelViewMatrix());
         }
-        else if (!BBSRendering.isIrisShadersEnabled())
-        {
-            /* Match WorldRenderer entity pass: empty MatrixStack, then camera-relative
-             * entity transform only. View rotation stays in ModelViewMat / BBSRendering.camera. */
-            this.stack = new MatrixStack();
-        }
         else
         {
             this.stack = context.matrixStack();

@@ -118,24 +118,17 @@ public class Morph
 
     public void setForm(Form form)
     {
-        if (this.entity.getMcEntity() instanceof PlayerEntity player)
+        if (form == null && this.form != null && this.entity.getMcEntity() instanceof PlayerEntity player)
         {
-            if (this.form != null)
-            {
-                this.form.onDemorph(player);
-            }
-
-            this.form = form;
-
-            if (this.form != null)
-            {
-                this.form.onMorph(player);
-                this.form.playMain();
-            }
+            this.form.onDemorph(player);
         }
-        else
+
+        this.form = form;
+
+        if (this.form != null && this.entity.getMcEntity() instanceof PlayerEntity player)
         {
-            this.form = form;
+            this.form.onMorph(player);
+            this.form.playMain();
         }
 
         this.resetHitboxCache();

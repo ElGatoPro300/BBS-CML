@@ -140,20 +140,12 @@ public class Batcher2D
         BufferBuilder builder = Tessellator.getInstance().getBuffer();
         builder.begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_COLOR);
 
-        try
-        {
-            this.fillRect(builder, matrix4f, x, y, w, h, color1, color2, color3, color4);
+        this.fillRect(builder, matrix4f, x, y, w, h, color1, color2, color3, color4);
 
-            RenderSystem.enableBlend();
-            RenderSystem.setShader(GameRenderer::getPositionColorProgram);
-            this.flushDraw();
-            BufferRenderer.drawWithGlobalProgram(builder.end());
-        }
-        catch (Exception e)
-        {
-            builder.end();
-            throw e;
-        }
+        RenderSystem.enableBlend();
+        RenderSystem.setShader(GameRenderer::getPositionColorProgram);
+        this.flushDraw();
+        BufferRenderer.drawWithGlobalProgram(builder.end());
     }
 
     /**

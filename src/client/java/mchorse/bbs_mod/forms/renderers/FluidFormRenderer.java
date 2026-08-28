@@ -17,7 +17,6 @@ import mchorse.bbs_mod.ui.dashboard.UIDashboard;
 import mchorse.bbs_mod.ui.film.UIFilmPanel;
 import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.utils.MatrixStackUtils;
-import mchorse.bbs_mod.utils.Pair;
 import mchorse.bbs_mod.utils.colors.Color;
 import mchorse.bbs_mod.utils.colors.Colors;
 import mchorse.bbs_mod.utils.joml.Vectors;
@@ -763,7 +762,7 @@ public class FluidFormRenderer extends FormRenderer<FluidForm> implements ITicka
 
         if (owner != null)
         {
-            Pair<Matrix4f, Float> total = BaseFilmController.getTotalMatrix(owner.getEntities(), this.form.anchor.get(), defaultMatrix, 0, 0, 0, transition, 0);
+            var total = BaseFilmController.getTotalMatrix(owner.getEntities(), this.form.anchor.get(), defaultMatrix, 0, 0, 0, transition, 0);
 
             if (total != null && total.a != null)
             {
@@ -772,7 +771,7 @@ public class FluidFormRenderer extends FormRenderer<FluidForm> implements ITicka
         }
 
         Matrix4f formMatrix = null;
-        FormRenderer renderer = FormUtilsClient.getRenderer(this.form);
+        var renderer = FormUtilsClient.getRenderer(this.form);
 
         if (renderer != null)
         {

@@ -155,23 +155,13 @@ public class ExtrudedFormRenderer extends FormRenderer<ExtrudedForm>
             if (this.form.billboard.get() && (renderContext == null || !renderContext.modelRenderer))
             {
                 Matrix4f modelMatrix = matrices.peek().getPositionMatrix();
-                Vector3f scale = Vectors.TEMP_3F;
+                Vector3f scale = new Vector3f();
 
                 modelMatrix.getScale(scale);
-
-                if (invertY)
-                {
-                    scale.y = -scale.y;
-                }
 
                 modelMatrix.m00(1).m01(0).m02(0);
                 modelMatrix.m10(0).m11(1).m12(0);
                 modelMatrix.m20(0).m21(0).m22(1);
-
-                if (camera != null && !modelRenderer)
-                {
-                    modelMatrix.mul(camera.view);
-                }
 
                 modelMatrix.scale(scale);
 
