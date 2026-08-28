@@ -24,11 +24,11 @@ import net.minecraft.client.render.LightmapTextureManager;
 import net.minecraft.client.render.OverlayTexture;
 import net.minecraft.client.render.VertexConsumer;
 import net.minecraft.client.render.model.BakedModel;
+import net.minecraft.client.render.model.json.ModelTransformationMode;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.entity.EquipmentSlot;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.item.ItemStack;
-import net.minecraft.item.ModelTransformationMode;
 import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.RotationAxis;
 
@@ -158,7 +158,7 @@ public class ItemFormRenderer extends FormRenderer<ItemForm>
                     CustomVertexConsumerProvider.hijackVertexFormat((layer) ->
                     {
                         this.setupTarget(context, BBSShaders.getPickerModelsProgram());
-                        RenderSystem.setShader(BBSShaders.getPickerModelsProgram());
+                        RenderSystem.setShader(BBSShaders::getPickerModelsProgram);
                     });
 
                     light = 0;
@@ -177,7 +177,7 @@ public class ItemFormRenderer extends FormRenderer<ItemForm>
                 CustomVertexConsumerProvider.hijackVertexFormat((layer) ->
                 {
                     this.setupTarget(context, BBSShaders.getPickerModelsProgram());
-                    RenderSystem.setShader(BBSShaders.getPickerModelsProgram());
+                    RenderSystem.setShader(BBSShaders::getPickerModelsProgram);
                 });
 
                 light = 0;
@@ -432,6 +432,7 @@ public class ItemFormRenderer extends FormRenderer<ItemForm>
 
             RenderSystem.getModelViewStack().pushMatrix();
             RenderSystem.getModelViewStack().set(exactMvm);
+            RenderSystem.applyModelViewMatrix();
 
             try
             {
@@ -440,6 +441,7 @@ public class ItemFormRenderer extends FormRenderer<ItemForm>
             finally
             {
                 RenderSystem.getModelViewStack().popMatrix();
+                RenderSystem.applyModelViewMatrix();
             }
         });
     }
@@ -511,14 +513,14 @@ public class ItemFormRenderer extends FormRenderer<ItemForm>
 
         if (cachedModel != null)
         {
-            client.getItemRenderer().renderItem(null, itemStack, mode, false, stack, consumers, client.world, light, overlay, 0);
+            client.getItemRenderer().renderItem(itemStack, mode, leftHand, stack, consumers, light, overlay, cachedModel);
 
             return;
         }
 
         if (context == null || context.entity == null)
         {
-            client.getItemRenderer().renderItem(null, itemStack, mode, false, stack, consumers, client.world, light, overlay, 0);
+            client.getItemRenderer().renderItem(itemStack, mode, light, overlay, stack, consumers, client.world, 0);
         }
         else
         {

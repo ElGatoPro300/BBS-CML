@@ -4,8 +4,8 @@
         "srcrgb": "srcalpha",
         "dstrgb": "1-srcalpha"
     },
-    "vertex": "bbs:core/model",
-    "fragment": "bbs:core/model",
+    "vertex": "model",
+    "fragment": "model",
     "attributes": [
         "Position",
         "Color",

@@ -108,24 +108,24 @@ public class Texture
 
     public void bind()
     {
-        GlStateManager._bindTexture(this.id);
+        GL11.glBindTexture(this.target, this.id);
     }
 
     public void bind(int texture)
     {
-        GlStateManager._activeTexture(texture);
-        GlStateManager._bindTexture(this.id);
+        GlStateManager.glActiveTexture(texture);
+        GL11.glBindTexture(this.target, this.id);
     }
 
     public void unbind()
     {
-        GlStateManager._bindTexture(0);
+        GL11.glBindTexture(this.target, 0);
     }
 
     public void unbind(int texture)
     {
-        GlStateManager._activeTexture(texture);
-        GlStateManager._bindTexture(0);
+        GlStateManager.glActiveTexture(texture);
+        GL11.glBindTexture(this.target, 0);
     }
 
     public void setFormat(TextureFormat format)
