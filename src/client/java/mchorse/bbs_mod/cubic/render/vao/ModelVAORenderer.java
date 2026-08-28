@@ -49,6 +49,7 @@ public class ModelVAORenderer
     private static final Matrix4f SCRATCH_MODEL_VIEW = new Matrix4f();
     private static final Matrix4f SCRATCH_FOG_MAT = new Matrix4f();
     private static final Matrix4f SCRATCH_INV_VIEW = new Matrix4f();
+    private static final Matrix3f SCRATCH_INV_VIEW_ROT3 = new Matrix3f();
     private static final Matrix4f SCRATCH_COMPOSED = new Matrix4f();
 
     /* FS-style paint overlay uniform state (rgb + strength). Set by form renderers before a draw and reset after.
@@ -2268,39 +2269,43 @@ public class ModelVAORenderer
 
         GlUniform fogMatUniform = shader.getUniform("FogMat");
 
-        if (fogMatUniform == null)
+        if (fogMatUniform != null)
         {
-            return;
-        }
-
-        if (bakedModelMatrix == null)
-        {
-            fogMatUniform.set(IDENTITY_MODEL_VIEW);
-
-            return;
-        }
-
-        if (BBSRendering.isRenderingWorld())
-        {
-            float bakedDist = viewOriginLengthSq(bakedModelMatrix);
-
-            SCRATCH_COMPOSED.set(BBSRendering.camera).mul(bakedModelMatrix);
-
-            if (bakedDist > 1.0E-6F && viewOriginLengthSq(SCRATCH_COMPOSED) < bakedDist * 0.49F)
+            if (bakedModelMatrix == null)
             {
-                /* Bake already included view — Position is view-space; strip for fog. */
-                MatrixStackUtils.loadInverseViewRotationMatrix4(SCRATCH_INV_VIEW);
-                fogMatUniform.set(SCRATCH_INV_VIEW);
+                fogMatUniform.set(IDENTITY_MODEL_VIEW);
+            }
+            else if (BBSRendering.isRenderingWorld())
+            {
+                float bakedDist = viewOriginLengthSq(bakedModelMatrix);
+
+                SCRATCH_COMPOSED.set(BBSRendering.camera).mul(bakedModelMatrix);
+
+                if (bakedDist > 1.0E-6F && viewOriginLengthSq(SCRATCH_COMPOSED) < bakedDist * 0.49F)
+                {
+                    /* Bake already included view — Position is view-space; strip for fog. */
+                    MatrixStackUtils.loadInverseViewRotationMatrix4(SCRATCH_INV_VIEW);
+                    fogMatUniform.set(SCRATCH_INV_VIEW);
+                }
+                else
+                {
+                    /* Bake was camera-relative — Position is already Y-up cam-rel. */
+                    fogMatUniform.set(IDENTITY_MODEL_VIEW);
+                }
             }
             else
             {
-                /* Bake was camera-relative — Position is already Y-up cam-rel. */
                 fogMatUniform.set(IDENTITY_MODEL_VIEW);
             }
         }
-        else
+
+        GlUniform viewRotUniform = shader.getUniform("IViewRotMat");
+
+        if (viewRotUniform != null)
         {
-            fogMatUniform.set(IDENTITY_MODEL_VIEW);
+            MatrixStackUtils.loadInverseViewRotationMatrix4(SCRATCH_INV_VIEW);
+            SCRATCH_INV_VIEW_ROT3.set(SCRATCH_INV_VIEW);
+            viewRotUniform.set(SCRATCH_INV_VIEW_ROT3);
         }
     }
 

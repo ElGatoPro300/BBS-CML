@@ -903,39 +903,17 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
             return this.resolveStructureLeavesLayer(state, useEntityLayers);
         }
 
-        return useEntityLayers
-            ? RenderLayers.getEntityBlockLayer(state, false)
-            : RenderLayers.getBlockLayer(state);
+        return RenderLayers.getEntityBlockLayer(state, false);
     }
 
     private RenderLayer resolveStructureLeavesLayer(BlockState state, boolean useEntityLayers)
     {
-        if (StructureData.isFancyGraphicsEnabled())
-        {
-            try
-            {
-                RenderLayers.setFancyGraphicsOrBetter(true);
-            }
-            catch (Throwable ignored)
-            {
-            }
-
-            return RenderLayer.getCutoutMipped();
-        }
-
-        StructureData.syncFancyGraphicsFromOptions();
-
-        return useEntityLayers
-            ? RenderLayers.getEntityBlockLayer(state, false)
-            : RenderLayer.getSolid();
+        return RenderLayers.getEntityBlockLayer(state, false);
     }
 
     private void renderStructureLeaves(BlockState state, BlockPos pos, BlockRenderView view, MatrixStack stack, VertexConsumerProvider consumers, Function<VertexConsumer, VertexConsumer> recolor)
     {
         boolean fancy = StructureData.isFancyGraphicsEnabled();
-        boolean irisWorld = BBSRendering.isIrisShadersEnabled() && BBSRendering.isRenderingWorld();
-        /* Soft form opacity cannot stay on terrain cutout: post-deferred flush + cutout alpha
-         * makes leaves vanish (vanilla) or near-black (Iris). Use entity translucent like glass. */
         boolean softOpacity = this.wantsSoftStructureBlockLayers();
         RenderLayer layer;
         VertexConsumer vc;
@@ -946,26 +924,10 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
             layer = TexturedRenderLayers.getEntityTranslucentCull();
             cull = !fancy;
         }
-        else if (fancy)
-        {
-            try
-            {
-                RenderLayers.setFancyGraphicsOrBetter(true);
-            }
-            catch (Throwable ignored)
-            {
-            }
-
-            layer = RenderLayer.getCutoutMipped();
-            cull = false;
-        }
         else
         {
-            StructureData.syncFancyGraphicsFromOptions();
-            layer = irisWorld
-                ? RenderLayers.getEntityBlockLayer(state, false)
-                : RenderLayer.getSolid();
-            cull = true;
+            layer = RenderLayers.getEntityBlockLayer(state, false);
+            cull = !fancy;
         }
 
         vc = consumers.getBuffer(layer);
