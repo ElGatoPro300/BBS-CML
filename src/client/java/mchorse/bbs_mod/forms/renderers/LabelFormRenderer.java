@@ -191,96 +191,101 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
 
         context.stack.push();
 
-        if (this.form.billboard.get())
+        try
         {
-            Matrix4f modelMatrix = context.stack.peek().getPositionMatrix();
-            Vector3f scale = new Vector3f();
+            if (this.form.billboard.get())
+            {
+                Matrix4f modelMatrix = context.stack.peek().getPositionMatrix();
+                Vector3f scale = new Vector3f();
 
-            modelMatrix.getScale(scale);
+                modelMatrix.getScale(scale);
 
-            modelMatrix.m00(1).m01(0).m02(0);
-            modelMatrix.m10(0).m11(1).m12(0);
-            modelMatrix.m20(0).m21(0).m22(1);
+                modelMatrix.m00(1).m01(0).m02(0);
+                modelMatrix.m10(0).m11(1).m12(0);
+                modelMatrix.m20(0).m21(0).m22(1);
 
-            modelMatrix.scale(scale);
+                modelMatrix.scale(scale);
 
-            context.stack.peek().getNormalMatrix().identity();
-            context.stack.peek().getNormalMatrix().scale(
-                MatrixStackUtils.safeNormalScaleReciprocal(scale.x),
-                MatrixStackUtils.safeNormalScaleReciprocal(scale.y),
-                MatrixStackUtils.safeNormalScaleReciprocal(scale.z)
-            );
-        }
+                context.stack.peek().getNormalMatrix().identity();
+                context.stack.peek().getNormalMatrix().scale(
+                    MatrixStackUtils.safeNormalScaleReciprocal(scale.x),
+                    MatrixStackUtils.safeNormalScaleReciprocal(scale.y),
+                    MatrixStackUtils.safeNormalScaleReciprocal(scale.z)
+                );
+            }
 
-        TextRenderer renderer = MinecraftClient.getInstance().textRenderer;
-        CustomVertexConsumerProvider consumers = FormUtilsClient.getProvider();
-        float fontSize = this.form.fontSize.get();
-        float scale = (1F / 16F) * (fontSize <= 0 ? 1F : fontSize);
-        int light = context.light;
+            TextRenderer renderer = MinecraftClient.getInstance().textRenderer;
+            CustomVertexConsumerProvider consumers = FormUtilsClient.getProvider();
+            float fontSize = this.form.fontSize.get();
+            float scale = (1F / 16F) * (fontSize <= 0 ? 1F : fontSize);
+            int light = context.light;
 
-        this.nametagAlpha = 1F;
+            this.nametagAlpha = 1F;
 
-        boolean shadowPass = this.isShadowPass(context);
+            boolean shadowPass = this.isShadowPass(context);
 
-        if (shadowPass)
-        {
+            if (shadowPass)
+            {
+                RenderSystem.enableDepthTest();
+                RenderSystem.depthMask(true);
+            }
+
+            if (this.form.nametag.get() && context.entity != null && context.entity.isSneaking())
+            {
+                context.stack.translate(0F, -0.5F, 0F);
+                this.nametagAlpha = 0.125F;
+            }
+
+            MatrixStackUtils.scaleStack(context.stack, scale, -scale, scale);
+
+            RenderSystem.disableCull();
+
+            if (context.isPicking())
+            {
+                CustomVertexConsumerProvider.hijackVertexFormat((layer) ->
+                {
+                    /* startDrawing may re-enable culling; keep both sides of the label visible. */
+                    RenderSystem.disableCull();
+                    this.setupTarget(context, BBSShaders.getPickerModelsProgram());
+                    RenderSystem.setShader(BBSShaders::getPickerModelsProgram);
+                });
+
+                light = 0;
+            }
+            else
+            {
+                CustomVertexConsumerProvider.hijackVertexFormat((layer) ->
+                {
+                    RenderSystem.disableCull();
+                    RenderSystem.enableBlend();
+                    RenderSystem.defaultBlendFunc();
+                });
+            }
+
+            if (this.form.max.get() <= 0)
+            {
+                this.renderString(context, consumers, renderer, light);
+            }
+            else
+            {
+                this.renderLimitedString(context, consumers, renderer, light);
+            }
+
+            /* Glow overlay clears the hijack; re-apply disableCull for any leftover shared-buffer
+             * flush so the last label keeps both faces when WorldRenderer draws later. */
+            CustomVertexConsumerProvider.hijackVertexFormat((layer) -> RenderSystem.disableCull());
+            this.flushLabelConsumers(consumers);
+
+            CustomVertexConsumerProvider.clearRunnables();
+            RenderSystem.defaultBlendFunc();
+
             RenderSystem.enableDepthTest();
-            RenderSystem.depthMask(true);
+            RenderSystem.enableCull();
         }
-
-        if (this.form.nametag.get() && context.entity != null && context.entity.isSneaking())
+        finally
         {
-            context.stack.translate(0F, -0.5F, 0F);
-            this.nametagAlpha = 0.125F;
+            context.stack.pop();
         }
-
-        MatrixStackUtils.scaleStack(context.stack, scale, -scale, scale);
-
-        RenderSystem.disableCull();
-
-        if (context.isPicking())
-        {
-            CustomVertexConsumerProvider.hijackVertexFormat((layer) ->
-            {
-                /* startDrawing may re-enable culling; keep both sides of the label visible. */
-                RenderSystem.disableCull();
-                this.setupTarget(context, BBSShaders.getPickerModelsProgram());
-                RenderSystem.setShader(BBSShaders::getPickerModelsProgram);
-            });
-
-            light = 0;
-        }
-        else
-        {
-            CustomVertexConsumerProvider.hijackVertexFormat((layer) ->
-            {
-                RenderSystem.disableCull();
-                RenderSystem.enableBlend();
-                RenderSystem.defaultBlendFunc();
-            });
-        }
-
-        if (this.form.max.get() <= 0)
-        {
-            this.renderString(context, consumers, renderer, light);
-        }
-        else
-        {
-            this.renderLimitedString(context, consumers, renderer, light);
-        }
-
-        /* Glow overlay clears the hijack; re-apply disableCull for any leftover shared-buffer
-         * flush so the last label keeps both faces when WorldRenderer draws later. */
-        CustomVertexConsumerProvider.hijackVertexFormat((layer) -> RenderSystem.disableCull());
-        this.flushLabelConsumers(consumers);
-
-        CustomVertexConsumerProvider.clearRunnables();
-        RenderSystem.defaultBlendFunc();
-
-        RenderSystem.enableDepthTest();
-        RenderSystem.enableCull();
-
-        context.stack.pop();
     }
 
     /**
