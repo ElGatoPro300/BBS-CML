@@ -76,6 +76,7 @@ public final class BlockEffectOverlayUniforms
             bindFormRootInverse(program, rootInverse);
             bindPaint(program, transform, bottomAnchored, maskHalfBase);
             bindGlowOverlay(program, glow, legacyGlow, glowIntensity, alpha);
+            uploadFlatOverlayFog(program, rootInverse);
         }
 
         RenderSystem.setShaderTexture(0, PlayerScreenHandler.BLOCK_ATLAS_TEXTURE);
@@ -98,6 +99,7 @@ public final class BlockEffectOverlayUniforms
             bindFormRootInverse(program, rootInverse);
             bindPaintStructure(program, transform, bottomAnchored, sizeX, sizeY, sizeZ);
             bindGlowOverlay(program, glow, legacyGlow, glowIntensity, alpha);
+            uploadFlatOverlayFog(program, rootInverse);
         }
 
         RenderSystem.setShaderTexture(0, PlayerScreenHandler.BLOCK_ATLAS_TEXTURE);
@@ -177,6 +179,8 @@ public final class BlockEffectOverlayUniforms
                 bindFormColorTint(program, formColor);
                 bindFormColorGrade(program, gradeActive ? gradeSource : null, bottomAnchored, maskHalfBase);
             }
+
+            uploadFlatOverlayFog(program, rootInverse);
 
             if (gradeActive)
             {
