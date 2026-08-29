@@ -43,6 +43,7 @@ import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.render.BufferBuilder;
 import net.minecraft.client.render.RenderLayer;
 import net.minecraft.client.render.TexturedRenderLayers;
+import net.minecraft.client.render.model.ModelLoader;
 import net.minecraft.client.render.VertexConsumerProvider;
 import net.minecraft.client.render.entity.model.TridentEntityModel;
 import net.minecraft.client.render.model.ModelLoader;
@@ -234,6 +235,28 @@ public class FormUtilsClient
         }
 
         return MinecraftClient.getInstance().getBufferBuilders().getEntityVertexConsumers();
+    }
+
+    public static boolean isCrumblingLayer(RenderLayer layer)
+    {
+        if (layer == null)
+        {
+            return false;
+        }
+
+        if (ModelLoader.BLOCK_DESTRUCTION_RENDER_LAYERS.contains(layer))
+        {
+            return true;
+        }
+
+        String name = layer.toString();
+
+        if (name == null || name.isEmpty())
+        {
+            return false;
+        }
+
+        return name.toLowerCase().contains("crumbling");
     }
 
     public static boolean isMobFormEquipmentLayer(RenderLayer layer)
