@@ -504,7 +504,7 @@ public class UITrackpad extends UIBaseTextbox
                 }
 
                 MinecraftClient mc = MinecraftClient.getInstance();
-                double factor = Math.ceil(mc.getWindow().getWidth() / (double) context.menu.width);
+                double factor = context.menu.width <= 0 ? 1D : (double) mc.getWindow().getWidth() / context.menu.width;
 
                 this.dragging = true;
                 this.shiftX = 0D;
@@ -860,7 +860,7 @@ public class UITrackpad extends UIBaseTextbox
             MinecraftClient mc = MinecraftClient.getInstance();
             int ww = mc.getWindow().getWidth();
 
-            double factor = Math.ceil(ww / (double) context.menu.width);
+            double factor = context.menu.width <= 0 ? 1D : (double) ww / context.menu.width;
             int mouseXInt = context.globalX(context.mouseX);
             double mouseX = mc.mouse.getX() / factor;
 
