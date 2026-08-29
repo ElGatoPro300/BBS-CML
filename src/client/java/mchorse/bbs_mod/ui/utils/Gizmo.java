@@ -686,19 +686,6 @@ public class Gizmo
     }
 
     /**
-     * True when {@code captured} is camera-relative (needs {@code BBSRendering.camera} as
-     * ModelView for PositionColorProgram). False when the stack already includes the view
-     * (Iris / pre-baked camera) — same depth rule as {@link #composeVisualMatrix}.
-     */
-    private boolean stackNeedsCameraModelView(Matrix4f captured)
-    {
-        float bakedDist = viewOriginLengthSq(captured);
-        float composedDist = viewOriginLengthSq(new Matrix4f(BBSRendering.camera).mul(captured));
-
-        return !(bakedDist > 1.0E-6F && composedDist < bakedDist * 0.49F);
-    }
-
-    /**
      * Draw the captured gizmo visual in the UI pass with the same projection and
      * viewport rect as the film/model preview that rendered the world this frame.
      */
@@ -1087,31 +1074,19 @@ public class Gizmo
         RenderSystem.disableDepthTest();
         RenderSystem.depthMask(false);
 
-        boolean poppedModelView = false;
-
+        /* Iris leaves a stale terrain ModelView; verts already include the full transform.
+         * Do NOT bake BBSRendering.camera here for non-Iris: preview editors / form pickers /
+         * model-block stencil already carry their orbit (or composed) view in the stack.
+         * Multiplying the world frustum camera on top mis-picks handles. Film's empty
+         * camera-relative stack sets ModelView in UIFilmController instead. */
         if (BBSRendering.isIrisShadersEnabled())
         {
-            /* Vertex positions already include the full gizmo transform; Iris leaves a
-             * stale terrain model-view on the global stack. */
             MatrixStackUtils.pushIdentityModelView();
-            poppedModelView = true;
-        }
-        else if (this.stackNeedsCameraModelView(this.lastGizmoMatrix))
-        {
-            /* FilmControllerContext (no Iris) captures camera-relative stacks. After
-             * cacheMatrices() ModelView is identity — PositionColorProgram needs the
-             * camera here or stencil handles miss the cursor (forms use ModelVAORenderer). */
-            Matrix4fStack mvStack = RenderSystem.getModelViewStack();
-
-            mvStack.pushMatrix();
-            mvStack.set(BBSRendering.camera);
-            RenderSystem.applyModelViewMatrix();
-            poppedModelView = true;
         }
 
         this.drawBufferIfNotEmpty(builder);
 
-        if (poppedModelView)
+        if (BBSRendering.isIrisShadersEnabled())
         {
             MatrixStackUtils.popModelView();
         }
