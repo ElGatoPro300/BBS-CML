@@ -110,6 +110,8 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
         boolean positivePaint = FormColorEffects.hasPositivePaint(this.form.paintSettings.get(), this.form.paintColor.get());
         boolean blockEntityVisual = this.isBlockEntityVisual();
 
+        CustomVertexConsumerProvider.clearRunnables();
+
         Vector3f light0 = new Vector3f(0.85F, 0.85F, -1F).normalize();
         Vector3f light1 = new Vector3f(-0.85F, 0.85F, 1F).normalize();
         RenderSystem.setupLevelDiffuseLighting(light0, light1);
@@ -119,6 +121,7 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
         this.renderRepeatedBlocks(null, matrices, consumers, LightmapTextureManager.MAX_BLOCK_LIGHT_COORDINATE, OverlayTexture.DEFAULT_UV, false, true, false, false);
 
         consumers.draw();
+        CustomVertexConsumerProvider.clearRunnables();
 
         if (positivePaint && !blockEntityVisual)
         {
@@ -140,6 +143,7 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
 
         consumers.setUI(false);
         consumers.setSubstitute(null);
+        CustomVertexConsumerProvider.clearRunnables();
 
         DiffuseLighting.disableGuiDepthLighting();
 
@@ -175,6 +179,11 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
             {
                 CustomVertexConsumerProvider.hijackVertexFormat((l) ->
                 {
+                    if (FormUtilsClient.isCrumblingLayer(l))
+                    {
+                        return;
+                    }
+
                     RenderSystem.enableBlend();
                     RenderSystem.defaultBlendFunc();
                 });
@@ -265,6 +274,11 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
                     ShaderOpacityPatch.reassertPostDeferredDepthState(depthWrite);
                     CustomVertexConsumerProvider.hijackVertexFormat((layer) ->
                     {
+                        if (FormUtilsClient.isCrumblingLayer(layer))
+                        {
+                            return;
+                        }
+
                         RenderSystem.enableBlend();
                         RenderSystem.defaultBlendFunc();
                         RenderSystem.depthMask(depthWrite);
@@ -321,6 +335,7 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
 
                 consumers.draw();
                 consumers.setSubstitute(null);
+                CustomVertexConsumerProvider.clearRunnables();
             }
 
             if (positivePaint && !blockEntityVisual)
@@ -362,10 +377,11 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
         }
         finally
         {
+            CustomVertexConsumerProvider.clearRunnables();
+
             if (context.isPicking())
             {
                 RenderSystem.enableCull();
-                CustomVertexConsumerProvider.clearRunnables();
             }
 
             context.stack.pop();
