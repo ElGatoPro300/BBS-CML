@@ -1,7 +1,6 @@
 package mchorse.bbs_mod.ui.film.replays;
 
 import mchorse.bbs_mod.camera.Camera;
-import mchorse.bbs_mod.client.BBSRendering;
 import mchorse.bbs_mod.film.replays.Replay;
 import mchorse.bbs_mod.forms.FormUtils;
 import mchorse.bbs_mod.forms.forms.Form;
@@ -244,9 +243,10 @@ public final class FilmPoseGizmoDrag
             return FilmPoseGizmoDrag.hasFrozenDragFrame;
         }
 
-        /* Same depth-based composition as the visual pass, so drags grab the
-         * handle exactly where it is drawn regardless of the shader path. */
-        Gizmo.composeVisualMatrix(panel.lastGizmoMatrix, BBSRendering.camera, panel.lastProjection, matrix);
+        /* Capture already includes the film preview view (see UIFilmPanel#renderInWorld).
+         * Do not re-compose with BBSRendering.camera — that matrix is the frustum camera and
+         * often differs, which breaks both the visual and drag rays on 1.20.4. */
+        matrix.set(panel.lastGizmoMatrix);
 
         return true;
     }
@@ -258,9 +258,8 @@ public final class FilmPoseGizmoDrag
             return;
         }
 
-        /* Same depth-based composition as the visual pass, snapshotted once at drag
-         * start so orbit / transform feedback cannot spin the ray frame. */
-        Gizmo.composeVisualMatrix(panel.lastGizmoMatrix, BBSRendering.camera, panel.lastProjection, FilmPoseGizmoDrag.FROZEN_DRAG_GIZMO);
+        /* Snapshotted once at drag start so orbit / transform feedback cannot spin the ray frame. */
+        FilmPoseGizmoDrag.FROZEN_DRAG_GIZMO.set(panel.lastGizmoMatrix);
         FilmPoseGizmoDrag.FROZEN_DRAG_VIEW.set(panel.lastView);
         FilmPoseGizmoDrag.hasFrozenDragFrame = true;
     }

@@ -657,7 +657,20 @@ public class Gizmo
      */
     public static Matrix4f composeVisualMatrix(Matrix4f captured, Matrix4f cameraMatrix, Matrix4f projection, Matrix4f dest)
     {
-        dest.set(captured);
+        Matrix4f baked = new Matrix4f(captured);
+        Matrix4f composed = new Matrix4f(cameraMatrix).mul(captured);
+        float bakedDist = viewOriginLengthSq(baked);
+        float composedDist = viewOriginLengthSq(composed);
+
+        /* Double-applied view: composed collapses toward the view origin. */
+        if (bakedDist > 1.0E-6F && composedDist < bakedDist * 0.49F)
+        {
+            dest.set(baked);
+        }
+        else
+        {
+            dest.set(composed);
+        }
 
         return dest;
     }
@@ -669,19 +682,6 @@ public class Gizmo
         float z = view.m32();
 
         return x * x + y * y + z * z;
-    }
-
-    /**
-     * True when {@code captured} is camera-relative (needs {@code BBSRendering.camera} as
-     * ModelView for PositionColorProgram). False when the stack already includes the view
-     * (Iris / pre-baked camera) — same depth rule as {@link #composeVisualMatrix}.
-     */
-    private boolean stackNeedsCameraModelView(Matrix4f captured)
-    {
-        float bakedDist = viewOriginLengthSq(captured);
-        float composedDist = viewOriginLengthSq(new Matrix4f(BBSRendering.camera).mul(captured));
-
-        return !(bakedDist > 1.0E-6F && composedDist < bakedDist * 0.49F);
     }
 
     /**
@@ -1076,32 +1076,18 @@ public class Gizmo
         RenderSystem.disableDepthTest();
         RenderSystem.depthMask(false);
 
-        boolean poppedModelView = false;
-
+        /* Iris leaves a stale terrain ModelView; verts already include the full transform.
+         * On 1.20.4 film picks the stack is already view-baked (panel.lastView) and
+         * cacheMatrices() left ModelView identity — do not multiply BBSRendering.camera
+         * again (that matrix is often a different frustum camera and hides/mis-picks handles). */
         if (BBSRendering.isIrisShadersEnabled())
         {
-            /* Vertex positions already include the full gizmo transform; Iris leaves a
-             * stale terrain model-view on the global stack. */
             MatrixStackUtils.pushIdentityModelView();
-            poppedModelView = true;
-        }
-        else if (this.stackNeedsCameraModelView(this.lastGizmoMatrix))
-        {
-            /* FilmControllerContext (no Iris) captures camera-relative stacks. After
-             * cacheMatrices() ModelView is identity — PositionColorProgram needs the
-             * camera here or stencil handles miss the cursor (forms use ModelVAORenderer). */
-            MatrixStack mvStack = RenderSystem.getModelViewStack();
-
-            mvStack.push();
-            mvStack.loadIdentity();
-            MatrixStackUtils.multiply(mvStack, BBSRendering.camera);
-            RenderSystem.applyModelViewMatrix();
-            poppedModelView = true;
         }
 
         this.drawBufferIfNotEmpty(builder);
 
-        if (poppedModelView)
+        if (BBSRendering.isIrisShadersEnabled())
         {
             MatrixStackUtils.popModelView();
         }
