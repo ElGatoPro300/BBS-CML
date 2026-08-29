@@ -82,6 +82,31 @@ public final class BlockEffectOverlayUniforms
         RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
     }
 
+    public static void configureGlowOverlayRenderState(Matrix4f rootInverse, EffectTransform transform, boolean bottomAnchored, float maskHalfBase, float glowScale)
+    {
+        RenderSystem.enableBlend();
+        RenderSystem.blendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE);
+        RenderSystem.depthMask(false);
+
+        ShaderProgram program = BBSShaders.getBlockGlowOverlayProgram();
+
+        if (program != null)
+        {
+            RenderSystem.setShader(() -> program);
+            bindFormRootInverse(program, rootInverse);
+            bindPaint(program, transform, bottomAnchored, maskHalfBase);
+
+            GlUniform scaleUniform = program.getUniform("GlowScale");
+
+            if (scaleUniform != null)
+            {
+                scaleUniform.set(glowScale);
+            }
+        }
+
+        RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
+    }
+
     /**
      * Structure paint overlay: UI scale 1 covers the full AABB for box / circle / triangle.
      */
