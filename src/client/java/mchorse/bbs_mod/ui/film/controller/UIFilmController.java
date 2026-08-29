@@ -188,7 +188,6 @@ public class UIFilmController extends UIElement
     private boolean paused;
 
     private WorldRenderContext worldRenderContext;
-    private final Matrix4f gizmoInterfaceMatrix = new Matrix4f();
 
     public UIFilmController(UIFilmPanel panel)
     {
@@ -1886,10 +1885,12 @@ public class UIFilmController extends UIElement
         {
             if (this.panel.hasLastGizmoMatrix)
             {
-                /* Resolve camera-baked vs camera-free capture so the colored gizmo stays
-                 * on the bone instead of sticking to the screen when orbiting. */
-                Gizmo.composeVisualMatrix(this.panel.lastGizmoMatrix, BBSRendering.camera, this.panel.lastProjection, this.gizmoInterfaceMatrix);
-                Gizmo.INSTANCE.lastGizmoMatrix.set(this.gizmoInterfaceMatrix);
+                /* 1.20.4 film world pass already bakes the preview view into the capture
+                 * (Fabric matrixStack / lastView). Re-composing with BBSRendering.camera
+                 * (frustum camera, often a different matrix) parks the gizmo off-screen.
+                 * Master still composes because its FilmControllerContext uses an empty
+                 * camera-relative stack. */
+                Gizmo.INSTANCE.lastGizmoMatrix.set(this.panel.lastGizmoMatrix);
                 Gizmo.INSTANCE.hasGizmoMatrix = true;
                 Gizmo.INSTANCE.renderInterface(context, this.panel.lastProjection, this.panel.preview.getViewport());
             }
@@ -1927,13 +1928,14 @@ public class UIFilmController extends UIElement
 
         RenderSystem.setProjectionMatrix(this.panel.lastProjection, VertexSorter.BY_Z);
 
-        /* Render the stencil */
+        /* Render the stencil — use the same view baked into lastGizmoMatrix (panel.lastView),
+         * not BBSRendering.camera, so handle picks line up with the colored gizmo. */
         MatrixStack worldStack = this.worldRenderContext.matrixStack();
         if (worldStack != null)
         {
             worldStack.push();
             worldStack.loadIdentity();
-            MatrixStackUtils.multiply(worldStack, BBSRendering.camera);
+            MatrixStackUtils.multiply(worldStack, this.panel.lastView);
             this.renderStencil(this.worldRenderContext, context, altPressed);
             worldStack.pop();
         }
@@ -1942,7 +1944,7 @@ public class UIFilmController extends UIElement
             MatrixStack mvStack = RenderSystem.getModelViewStack();
             mvStack.push();
             mvStack.loadIdentity();
-            mvStack.multiplyPositionMatrix(BBSRendering.camera);
+            MatrixStackUtils.multiply(mvStack, this.panel.lastView);
             RenderSystem.applyModelViewMatrix();
 
             this.renderStencil(this.worldRenderContext, context, altPressed);

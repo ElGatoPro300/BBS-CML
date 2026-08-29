@@ -657,7 +657,20 @@ public class Gizmo
      */
     public static Matrix4f composeVisualMatrix(Matrix4f captured, Matrix4f cameraMatrix, Matrix4f projection, Matrix4f dest)
     {
-        dest.set(captured);
+        Matrix4f baked = new Matrix4f(captured);
+        Matrix4f composed = new Matrix4f(cameraMatrix).mul(captured);
+        float bakedDist = viewOriginLengthSq(baked);
+        float composedDist = viewOriginLengthSq(composed);
+
+        /* Double-applied view: composed collapses toward the view origin. */
+        if (bakedDist > 1.0E-6F && composedDist < bakedDist * 0.49F)
+        {
+            dest.set(baked);
+        }
+        else
+        {
+            dest.set(composed);
+        }
 
         return dest;
     }
@@ -1063,6 +1076,10 @@ public class Gizmo
         RenderSystem.disableDepthTest();
         RenderSystem.depthMask(false);
 
+        /* Iris leaves a stale terrain ModelView; verts already include the full transform.
+         * On 1.20.1/1.20.4 film picks the stack is already view-baked (panel.lastView) and
+         * cacheMatrices() left ModelView identity — do not multiply BBSRendering.camera
+         * again (that matrix is often a different frustum camera and hides/mis-picks handles). */
         if (BBSRendering.isIrisShadersEnabled())
         {
             MatrixStackUtils.pushIdentityModelView();
