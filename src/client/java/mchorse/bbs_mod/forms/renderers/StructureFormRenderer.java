@@ -241,18 +241,18 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
                 if (positivePaint)
                 {
                     EffectTransform paintTransform = this.form.paintSettings.get().transform;
-                this.overlayRenderer.renderStructurePaintOverlay(this.data, vao, passContext, matrices, resolvedPaint, tint.a, OverlayTexture.DEFAULT_UV, true, BBSRendering.isIrisShadersEnabled(), paintTransform, glowSettings, legacyGlow, glowIntensity, layer -> this.renderPaintLayer(layer, passContext, matrices, OverlayTexture.DEFAULT_UV, null), null);
+                    this.overlayRenderer.renderStructurePaintOverlay(this.data, vao, passContext, matrices, resolvedPaint, tint.a, OverlayTexture.DEFAULT_UV, true, BBSRendering.isIrisShadersEnabled(), paintTransform, glowSettings, legacyGlow, glowIntensity, (layer, stack) -> this.renderPaintLayer(layer, passContext, stack, OverlayTexture.DEFAULT_UV, null), null);
                 }
 
                 if (positiveGlow)
                 {
-                this.overlayRenderer.renderStructureGlowOverlay(this.data, passContext, matrices, glowSettings, legacyGlow, glowIntensity, tint.a, OverlayTexture.DEFAULT_UV, true, BBSRendering.isIrisShadersEnabled(), layer -> this.renderPaintLayer(layer, passContext, matrices, OverlayTexture.DEFAULT_UV, null), null);
+                    this.overlayRenderer.renderStructureGlowOverlay(this.data, passContext, matrices, glowSettings, legacyGlow, glowIntensity, tint.a, OverlayTexture.DEFAULT_UV, true, BBSRendering.isIrisShadersEnabled(), (layer, stack) -> this.renderPaintLayer(layer, passContext, stack, OverlayTexture.DEFAULT_UV, null), null);
                 }
 
                 if (colorTransformWanted)
                 {
-                this.overlayRenderer.renderStructureColorTintOverlay(this.data, this.form, passContext, matrices, formColor, tint.a, OverlayTexture.DEFAULT_UV, true, BBSRendering.isIrisShadersEnabled(), deferColorTintToOverlay, layer -> this.renderPaintLayer(layer, passContext, matrices, OverlayTexture.DEFAULT_UV, null), null);
-            }
+                    this.overlayRenderer.renderStructureColorTintOverlay(this.data, this.form, passContext, matrices, formColor, tint.a, OverlayTexture.DEFAULT_UV, true, BBSRendering.isIrisShadersEnabled(), deferColorTintToOverlay, (layer, stack) -> this.renderPaintLayer(layer, passContext, stack, OverlayTexture.DEFAULT_UV, null), null);
+                }
         }
 
         DiffuseLighting.disableGuiDepthLighting();
@@ -429,7 +429,7 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
                             {
                                 ShaderOpacityPatch.setFlushingDepthWrite(false);
                                 RenderSystem.depthMask(false);
-                                this.overlayRenderer.renderStructureGlowOverlay(this.data, context, overlayStack, glowSettingsSnapshot, legacyGlowSnapshot, glowIntensitySnapshot, mainTintSnapshot.a, overlaySnapshot, true, shadersSnapshot, layer -> this.renderPaintLayer(layer, context, overlayStack, overlaySnapshot, null), null);
+                                this.overlayRenderer.renderStructureGlowOverlay(this.data, context, overlayStack, glowSettingsSnapshot, legacyGlowSnapshot, glowIntensitySnapshot, mainTintSnapshot.a, overlaySnapshot, true, shadersSnapshot, (layer, stack) -> this.renderPaintLayer(layer, context, stack, overlaySnapshot, null), null);
                             }
 
                             ShaderOpacityPatch.setFlushingDepthWrite(depthWrite);
@@ -514,25 +514,25 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
 
                     if (positiveGlow)
                     {
-                        this.overlayRenderer.renderStructureGlowOverlay(this.data, context, context.stack, glowSettings, legacyGlow, glowIntensity, mainTint3D.a, context.overlay, true, shaders, layer -> this.renderPaintLayer(layer, context, context.stack, context.overlay, null), null);
+                        this.overlayRenderer.renderStructureGlowOverlay(this.data, context, context.stack, glowSettings, legacyGlow, glowIntensity, mainTint3D.a, context.overlay, true, shaders, (layer, stack) -> this.renderPaintLayer(layer, context, stack, context.overlay, null), null);
                     }
                 }
 
                 if (positivePaint)
                 {
                     EffectTransform paintTransform = paintSettings.transform;
-                    this.overlayRenderer.submitDeferredStructurePaintOverlay(this.data, vao, context, resolvedPaint, mainTint3D.a, context.overlay, true, shaders, paintTransform, glowSettings, legacyGlow, glowIntensity, layer -> this.renderPaintLayer(layer, context, context.stack, context.overlay, null), null);
+                    this.overlayRenderer.submitDeferredStructurePaintOverlay(this.data, vao, context, resolvedPaint, mainTint3D.a, context.overlay, true, shaders, paintTransform, glowSettings, legacyGlow, glowIntensity, (layer, stack) -> this.renderPaintLayer(layer, context, stack, context.overlay, null), null);
                 }
 
                 if (applyColorTint)
                 {
                     if (irisWorldPaintDeferral)
                     {
-                        this.overlayRenderer.submitDeferredStructureColorTintOverlay(this.data, this.form, context, formColor3D, mainTint3D.a, context.overlay, true, shaders, layer -> this.renderPaintLayer(layer, context, context.stack, context.overlay, null), null);
+                        this.overlayRenderer.submitDeferredStructureColorTintOverlay(this.data, this.form, context, formColor3D, mainTint3D.a, context.overlay, true, shaders, (layer, stack) -> this.renderPaintLayer(layer, context, stack, context.overlay, null), null);
                     }
                     else
                     {
-                        this.overlayRenderer.renderStructureColorTintOverlay(this.data, this.form, context, context.stack, formColor3D, mainTint3D.a, context.overlay, true, shaders, false, layer -> this.renderPaintLayer(layer, context, context.stack, context.overlay, null), null);
+                        this.overlayRenderer.renderStructureColorTintOverlay(this.data, this.form, context, context.stack, formColor3D, mainTint3D.a, context.overlay, true, shaders, false, (layer, stack) -> this.renderPaintLayer(layer, context, stack, context.overlay, null), null);
                     }
                 }
 
