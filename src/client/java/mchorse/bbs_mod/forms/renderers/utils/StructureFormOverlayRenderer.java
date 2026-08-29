@@ -29,6 +29,7 @@ import com.mojang.blaze3d.systems.RenderSystem;
 
 import org.lwjgl.opengl.GL11;
 
+import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
 /**
@@ -124,7 +125,7 @@ public class StructureFormOverlayRenderer
         EffectTransformMath.resolveStructureMaskHalfExtents(transform, dest, size.x, size.y, size.z);
     }
 
-    public void renderStructureGlowOverlay(StructureData data, FormRenderingContext context, MatrixStack stack, GlowSettings glowSettings, Color legacyGlow, float glowIntensity, float alpha, int overlay, boolean optimize, boolean useEntityLayers, Consumer<StructurePaintLayer> layerDraw, Runnable culledWorldDraw)
+    public void renderStructureGlowOverlay(StructureData data, FormRenderingContext context, MatrixStack stack, GlowSettings glowSettings, Color legacyGlow, float glowIntensity, float alpha, int overlay, boolean optimize, boolean useEntityLayers, BiConsumer<StructurePaintLayer, MatrixStack> layerDraw, Runnable culledWorldDraw)
     {
         int layers = FormColorEffects.resolveGlowOverlayLayers(glowIntensity);
 
@@ -134,17 +135,17 @@ public class StructureFormOverlayRenderer
 
             if (data.hasBiomeTintedLayer())
             {
-                this.runStructureBlocksGlowOverlay(glowSettings, legacyGlow, alpha, glowIntensity, layers, () -> layerDraw.accept(StructurePaintLayer.BIOME));
+                this.runStructureBlocksGlowOverlay(glowSettings, legacyGlow, alpha, glowIntensity, layers, () -> layerDraw.accept(StructurePaintLayer.BIOME, stack));
             }
 
             if (data.hasAnimatedLayer())
             {
-                this.runStructureBlocksGlowOverlay(glowSettings, legacyGlow, alpha, glowIntensity, layers, () -> layerDraw.accept(StructurePaintLayer.ANIMATED));
+                this.runStructureBlocksGlowOverlay(glowSettings, legacyGlow, alpha, glowIntensity, layers, () -> layerDraw.accept(StructurePaintLayer.ANIMATED, stack));
             }
 
             if (data.hasTranslucentLayer())
             {
-                this.runStructureBlocksGlowOverlay(glowSettings, legacyGlow, alpha, glowIntensity, layers, () -> layerDraw.accept(StructurePaintLayer.TRANSLUCENT));
+                this.runStructureBlocksGlowOverlay(glowSettings, legacyGlow, alpha, glowIntensity, layers, () -> layerDraw.accept(StructurePaintLayer.TRANSLUCENT, stack));
             }
         }
         else
@@ -202,7 +203,7 @@ public class StructureFormOverlayRenderer
         }
     }
 
-    public void renderStructurePaintOverlay(StructureData data, IModelVAO vao, FormRenderingContext context, MatrixStack stack, Color resolvedPaint, float alpha, int overlay, boolean optimize, boolean useEntityLayers, EffectTransform transform, GlowSettings glowSettings, Color legacyGlow, float glowIntensity, Consumer<StructurePaintLayer> layerDraw, Runnable culledWorldDraw)
+    public void renderStructurePaintOverlay(StructureData data, IModelVAO vao, FormRenderingContext context, MatrixStack stack, Color resolvedPaint, float alpha, int overlay, boolean optimize, boolean useEntityLayers, EffectTransform transform, GlowSettings glowSettings, Color legacyGlow, float glowIntensity, BiConsumer<StructurePaintLayer, MatrixStack> layerDraw, Runnable culledWorldDraw)
     {
         Color paintOverlay = new Color(resolvedPaint.r, resolvedPaint.g, resolvedPaint.b, resolvedPaint.a);
         paintOverlay.a *= alpha;
@@ -210,7 +211,7 @@ public class StructureFormOverlayRenderer
         this.renderStructurePaintOverlayPass(data, vao, context, stack, paintOverlay, overlay, optimize, useEntityLayers, transform, glowSettings, legacyGlow, glowIntensity, alpha, layerDraw, culledWorldDraw);
     }
 
-    public void submitDeferredStructurePaintOverlay(StructureData data, IModelVAO vao, FormRenderingContext context, Color resolvedPaint, float alpha, int overlay, boolean optimize, boolean useEntityLayers, EffectTransform transform, GlowSettings glowSettings, Color legacyGlow, float glowIntensity, Consumer<StructurePaintLayer> layerDraw, Runnable culledWorldDraw)
+    public void submitDeferredStructurePaintOverlay(StructureData data, IModelVAO vao, FormRenderingContext context, Color resolvedPaint, float alpha, int overlay, boolean optimize, boolean useEntityLayers, EffectTransform transform, GlowSettings glowSettings, Color legacyGlow, float glowIntensity, BiConsumer<StructurePaintLayer, MatrixStack> layerDraw, Runnable culledWorldDraw)
     {
         Matrix4f positionMatrix = ModelVAORenderer.capturePaintOverlayRootMatrix(new Matrix4f(context.stack.peek().getPositionMatrix()));
         Matrix3f normalMatrix = new Matrix3f(context.stack.peek().getNormalMatrix());
@@ -227,7 +228,7 @@ public class StructureFormOverlayRenderer
         });
     }
 
-    private void renderStructurePaintOverlayPass(StructureData data, IModelVAO vao, FormRenderingContext context, MatrixStack stack, Color paintOverlay, int overlay, boolean optimize, boolean useEntityLayers, EffectTransform transform, GlowSettings glowSettings, Color legacyGlow, float glowIntensity, float alpha, Consumer<StructurePaintLayer> layerDraw, Runnable culledWorldDraw)
+    private void renderStructurePaintOverlayPass(StructureData data, IModelVAO vao, FormRenderingContext context, MatrixStack stack, Color paintOverlay, int overlay, boolean optimize, boolean useEntityLayers, EffectTransform transform, GlowSettings glowSettings, Color legacyGlow, float glowIntensity, float alpha, BiConsumer<StructurePaintLayer, MatrixStack> layerDraw, Runnable culledWorldDraw)
     {
         if (optimize)
         {
@@ -238,17 +239,17 @@ public class StructureFormOverlayRenderer
 
             if (data.hasBiomeTintedLayer())
             {
-                this.runStructureBlocksPaintOverlay(data, paintOverlay, stack, transform, glowSettings, legacyGlow, glowIntensity, alpha, () -> layerDraw.accept(StructurePaintLayer.BIOME));
+                this.runStructureBlocksPaintOverlay(data, paintOverlay, stack, transform, glowSettings, legacyGlow, glowIntensity, alpha, () -> layerDraw.accept(StructurePaintLayer.BIOME, stack));
             }
 
             if (data.hasAnimatedLayer())
             {
-                this.runStructureBlocksPaintOverlay(data, paintOverlay, stack, transform, glowSettings, legacyGlow, glowIntensity, alpha, () -> layerDraw.accept(StructurePaintLayer.ANIMATED));
+                this.runStructureBlocksPaintOverlay(data, paintOverlay, stack, transform, glowSettings, legacyGlow, glowIntensity, alpha, () -> layerDraw.accept(StructurePaintLayer.ANIMATED, stack));
             }
 
             if (data.hasTranslucentLayer())
             {
-                this.runStructureBlocksPaintOverlay(data, paintOverlay, stack, transform, glowSettings, legacyGlow, glowIntensity, alpha, () -> layerDraw.accept(StructurePaintLayer.TRANSLUCENT));
+                this.runStructureBlocksPaintOverlay(data, paintOverlay, stack, transform, glowSettings, legacyGlow, glowIntensity, alpha, () -> layerDraw.accept(StructurePaintLayer.TRANSLUCENT, stack));
             }
         }
         else
@@ -373,12 +374,12 @@ public class StructureFormOverlayRenderer
         return formColor;
     }
 
-    public void renderStructureColorTintOverlay(StructureData data, StructureForm form, IModelVAO vao, FormRenderingContext context, MatrixStack stack, Color formColor, float alpha, int overlay, boolean optimize, boolean useEntityLayers, boolean includeVao, Consumer<StructurePaintLayer> layerDraw, Runnable culledWorldDraw)
+    public void renderStructureColorTintOverlay(StructureData data, StructureForm form, IModelVAO vao, FormRenderingContext context, MatrixStack stack, Color formColor, float alpha, int overlay, boolean optimize, boolean useEntityLayers, boolean includeVao, BiConsumer<StructurePaintLayer, MatrixStack> layerDraw, Runnable culledWorldDraw)
     {
         this.renderStructureColorTintOverlayPass(data, form, vao, context, stack, formColor, alpha, overlay, optimize, useEntityLayers, includeVao, layerDraw, culledWorldDraw);
     }
 
-    public void submitDeferredStructureColorTintOverlay(StructureData data, StructureForm form, IModelVAO vao, FormRenderingContext context, Color formColor, float alpha, int overlay, boolean optimize, boolean useEntityLayers, Consumer<StructurePaintLayer> layerDraw, Runnable culledWorldDraw)
+    public void submitDeferredStructureColorTintOverlay(StructureData data, StructureForm form, IModelVAO vao, FormRenderingContext context, Color formColor, float alpha, int overlay, boolean optimize, boolean useEntityLayers, BiConsumer<StructurePaintLayer, MatrixStack> layerDraw, Runnable culledWorldDraw)
     {
         Matrix4f positionMatrix = ModelVAORenderer.capturePaintOverlayRootMatrix(new Matrix4f(context.stack.peek().getPositionMatrix()));
         Matrix3f normalMatrix = new Matrix3f(context.stack.peek().getNormalMatrix());
@@ -394,7 +395,7 @@ public class StructureFormOverlayRenderer
         });
     }
 
-    private void renderStructureColorTintOverlayPass(StructureData data, StructureForm form, IModelVAO vao, FormRenderingContext context, MatrixStack stack, Color formColor, float alpha, int overlay, boolean optimize, boolean useEntityLayers, boolean includeVao, Consumer<StructurePaintLayer> layerDraw, Runnable culledWorldDraw)
+    private void renderStructureColorTintOverlayPass(StructureData data, StructureForm form, IModelVAO vao, FormRenderingContext context, MatrixStack stack, Color formColor, float alpha, int overlay, boolean optimize, boolean useEntityLayers, boolean includeVao, BiConsumer<StructurePaintLayer, MatrixStack> layerDraw, Runnable culledWorldDraw)
     {
         Color tintUniform = this.resolveStructureColorTintUniform(form, formColor);
         int light = context == null ? LightmapTextureManager.MAX_LIGHT_COORDINATE : context.light;
@@ -412,17 +413,17 @@ public class StructureFormOverlayRenderer
 
             if (data.hasBiomeTintedLayer())
             {
-                this.runStructureBlocksColorTintOverlay(data, form, tintUniform, stack, form.color.get(), () -> layerDraw.accept(StructurePaintLayer.BIOME));
+                this.runStructureBlocksColorTintOverlay(data, form, tintUniform, stack, form.color.get(), () -> layerDraw.accept(StructurePaintLayer.BIOME, stack));
             }
 
             if (data.hasAnimatedLayer())
             {
-                this.runStructureBlocksColorTintOverlay(data, form, tintUniform, stack, form.color.get(), () -> layerDraw.accept(StructurePaintLayer.ANIMATED));
+                this.runStructureBlocksColorTintOverlay(data, form, tintUniform, stack, form.color.get(), () -> layerDraw.accept(StructurePaintLayer.ANIMATED, stack));
             }
 
             if (data.hasTranslucentLayer())
             {
-                this.runStructureBlocksColorTintOverlay(data, form, tintUniform, stack, form.color.get(), () -> layerDraw.accept(StructurePaintLayer.TRANSLUCENT));
+                this.runStructureBlocksColorTintOverlay(data, form, tintUniform, stack, form.color.get(), () -> layerDraw.accept(StructurePaintLayer.TRANSLUCENT, stack));
             }
         }
         else if (culledWorldDraw != null)
