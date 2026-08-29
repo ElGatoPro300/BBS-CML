@@ -13,7 +13,6 @@ import mchorse.bbs_mod.forms.forms.utils.EffectTransform;
 import mchorse.bbs_mod.forms.forms.utils.EffectTransformMath;
 import mchorse.bbs_mod.forms.forms.utils.GlowSettings;
 import mchorse.bbs_mod.forms.forms.utils.PaintSettings;
-import mchorse.bbs_mod.forms.renderers.utils.BlockEffectOverlayUniforms;
 import mchorse.bbs_mod.forms.renderers.utils.FlatColorTintOverlayPass;
 import mchorse.bbs_mod.forms.renderers.utils.FlatPaintOverlayPass;
 import mchorse.bbs_mod.forms.renderers.utils.FormColorEffects;
@@ -182,8 +181,7 @@ public class ShapeFormRenderer extends FormRenderer<ShapeForm>
         PaintSettings paintSettings = this.form.paintSettings.get();
         Color legacyPaint = this.form.paintColor.get();
         boolean positivePaint = FormColorEffects.hasPositivePaint(paintSettings, legacyPaint);
-        Color resolvedPaint = FormColorEffects.resolvePaintColor(paintSettings, legacyPaint);
-        boolean negativePaint = resolvedPaint.a < -0.001F;
+        Color resolvedPaint = positivePaint ? FormColorEffects.resolvePaintColor(paintSettings, legacyPaint) : null;
 
         Color finalColor = this.resolveAppearanceColor(rawFormColor);
 
@@ -323,14 +321,12 @@ public class ShapeFormRenderer extends FormRenderer<ShapeForm>
             {
                 Color glowColor = FormColorEffects.resolveGlowOverlayEmissionColor(glowSettings, legacyGlow, c.a, glowIntensity);
                 float shaderScale = FormColorEffects.resolveGlowOverlayShaderScale(glowIntensity);
-                EffectTransform glowTransform = glowSettings.transform == null ? new EffectTransform() : glowSettings.transform;
-                Vector3f maskHalf = new Vector3f();
-                EffectTransformMath.resolveBillboardMaskHalfExtents(glowTransform, maskHalf);
+                Supplier<ShaderProgram> unshadedShader = GameRenderer::getPositionTexColorProgram;
 
-                BlockEffectOverlayUniforms.configureFlatGlowOverlay(null, glowTransform, false, maskHalf);
+                RenderSystem.setShader(unshadedShader);
+                RenderSystem.blendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE);
+                RenderSystem.depthMask(false);
                 RenderSystem.setShaderColor(shaderScale, shaderScale, shaderScale, 1F);
-                GL11.glEnable(GL11.GL_POLYGON_OFFSET_FILL);
-                GL11.glPolygonOffset(-1F, -1F);
 
                 this.unshadedVertices = true;
 
@@ -342,11 +338,8 @@ public class ShapeFormRenderer extends FormRenderer<ShapeForm>
 
                 this.unshadedVertices = false;
                 RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
-                GL11.glPolygonOffset(0F, 0F);
-                GL11.glDisable(GL11.GL_POLYGON_OFFSET_FILL);
                 RenderSystem.setShader(shader);
                 RenderSystem.depthMask(true);
-                RenderSystem.defaultBlendFunc();
             }
         }
 
@@ -359,20 +352,6 @@ public class ShapeFormRenderer extends FormRenderer<ShapeForm>
             else
             {
                 this.submitDeferredShapePaintOverlay(stack, texture, type, resolvedPaint, finalColor.a, paintSettings.transform, glowSettings, legacyGlow, glowIntensity);
-            }
-        }
-        else if (negativePaint)
-        {
-            Color darkenTint = new Color(0F, 0F, 0F, Math.abs(resolvedPaint.a));
-            darkenTint.transform = paintSettings.transform;
-
-            if (renderContext == null)
-            {
-                this.renderShapeColorTintOverlay(stack, texture, type, darkenTint, overlay, darkenTint.transform);
-            }
-            else
-            {
-                this.submitDeferredShapeColorTintOverlay(stack, texture, type, darkenTint, overlay, darkenTint.transform);
             }
         }
 

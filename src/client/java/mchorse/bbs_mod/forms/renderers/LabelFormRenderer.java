@@ -485,32 +485,29 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
             return;
         }
 
-        Color glowColor = FormColorEffects.resolveGlowOverlayEmissionColor(glowSettings, legacyGlow, alpha, glowIntensity);
-        float shaderScale = FormColorEffects.resolveGlowOverlayShaderScale(glowIntensity);
-        Matrix4f formRootInverse = ModelVAORenderer.capturePaintOverlayRootMatrix(new Matrix4f(context.stack.peek().getPositionMatrix()));
-        EffectTransform glowTransform = glowSettings.transform == null ? new EffectTransform() : glowSettings.transform;
-        Vector3f maskHalf = new Vector3f();
-        EffectTransformMath.resolveBillboardMaskHalfExtents(glowTransform, maskHalf);
-
         context.stack.push();
         context.stack.translate(0F, 0F, 0.002F);
-
-        BlockEffectOverlayUniforms.configureFlatGlowOverlay(formRootInverse, glowTransform, false, maskHalf);
-        RenderSystem.setShaderColor(shaderScale, shaderScale, shaderScale, 1F);
-        GL11.glEnable(GL11.GL_POLYGON_OFFSET_FILL);
-        GL11.glPolygonOffset(-1F, -1F);
 
         CustomVertexConsumerProvider.clearRunnables();
         CustomVertexConsumerProvider.hijackVertexFormat((layer) ->
         {
             RenderSystem.disableCull();
-            BlockEffectOverlayUniforms.configureFlatGlowOverlay(formRootInverse, glowTransform, false, maskHalf);
-            RenderSystem.setShaderColor(shaderScale, shaderScale, shaderScale, 1F);
+            RenderSystem.enableBlend();
+            RenderSystem.blendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE);
         });
 
+        Color glowColor = FormColorEffects.resolveGlowOverlayEmissionColor(glowSettings, legacyGlow, alpha, glowIntensity);
+        float shaderScale = FormColorEffects.resolveGlowOverlayShaderScale(glowIntensity);
         int maxLight = LightmapTextureManager.MAX_LIGHT_COORDINATE;
         boolean savedDepthMask = GL11.glGetBoolean(GL11.GL_DEPTH_WRITEMASK);
         boolean savedPolygonOffsetFill = GL11.glGetBoolean(GL11.GL_POLYGON_OFFSET_FILL);
+
+        RenderSystem.enableBlend();
+        RenderSystem.blendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE);
+        RenderSystem.depthMask(false);
+        GL11.glEnable(GL11.GL_POLYGON_OFFSET_FILL);
+        GL11.glPolygonOffset(-1F, -1F);
+        RenderSystem.setShaderColor(shaderScale, shaderScale, shaderScale, 1F);
 
         try
         {

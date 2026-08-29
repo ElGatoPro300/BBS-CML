@@ -229,11 +229,7 @@ public class TrailFormRenderer extends FormRenderer<TrailForm> implements ITicka
 
         if (paintStrength < 0F)
         {
-            if (colorTransform == null && paintTransform != null)
-            {
-                colorTransform = paintTransform;
-            }
-
+            FormColorEffects.applyPaintBlend(unblended, paintSettings, legacyPaint);
             FormColorEffects.applyPaintBlend(blended, paintSettings, legacyPaint);
         }
 
