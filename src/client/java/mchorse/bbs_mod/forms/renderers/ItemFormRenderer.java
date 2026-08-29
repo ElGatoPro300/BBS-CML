@@ -350,19 +350,33 @@ public class ItemFormRenderer extends FormRenderer<ItemForm>
 
     private void submitDeferredItemColorTintOverlay(FormRenderingContext context, MatrixStack stack, Color formColor, float alpha, int overlay, ModelTransformationMode mode, boolean leftHand, LivingEntity itemEntity, boolean ui, Color gradeSource)
     {
-        Matrix4f positionMatrix = ModelVAORenderer.capturePaintOverlayRootMatrix(new Matrix4f(stack.peek().getPositionMatrix()));
+        Matrix4f exactMvm = new Matrix4f(RenderSystem.getModelViewMatrix());
+        Matrix4f exactStack = new Matrix4f(stack.peek().getPositionMatrix());
         Matrix3f normalMatrix = new Matrix3f(stack.peek().getNormalMatrix());
         Color formColorSnapshot = formColor.copy();
         Color gradeSnapshot = gradeSource == null ? null : gradeSource.copy();
 
         ModelVAORenderer.submitColorTintOverlay(() ->
         {
+            CustomVertexConsumerProvider overlayConsumers = FormUtilsClient.getProvider();
             MatrixStack overlayStack = new MatrixStack();
 
-            overlayStack.peek().getPositionMatrix().set(positionMatrix);
+            overlayStack.peek().getPositionMatrix().set(exactStack);
             overlayStack.peek().getNormalMatrix().set(normalMatrix);
 
-            this.renderItemColorTintOverlay(context, overlayStack, formColorSnapshot, alpha, overlay, mode, leftHand, itemEntity, ui, gradeSnapshot);
+            RenderSystem.getModelViewStack().pushMatrix();
+            RenderSystem.getModelViewStack().set(exactMvm);
+            RenderSystem.applyModelViewMatrix();
+
+            try
+            {
+                this.renderItemColorTintOverlayPass(context, overlayStack, overlayConsumers, formColorSnapshot, alpha, overlay, ui, mode, leftHand, itemEntity, gradeSnapshot);
+            }
+            finally
+            {
+                RenderSystem.getModelViewStack().popMatrix();
+                RenderSystem.applyModelViewMatrix();
+            }
         });
     }
 
