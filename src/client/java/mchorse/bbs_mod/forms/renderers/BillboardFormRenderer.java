@@ -373,7 +373,8 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
          * after-paint BBS queue instead so paint/masks show through — never both. */
         /* Paint / color-tint overlays must not write into the shadow map (same as Structure/Block). */
         boolean positivePaint = !shadowPass && FormColorEffects.hasPositivePaint(paintSettings, legacyPaint);
-        Color resolvedPaint = positivePaint ? FormColorEffects.resolvePaintColor(paintSettings, legacyPaint) : null;
+        Color resolvedPaint = FormColorEffects.resolvePaintColor(paintSettings, legacyPaint);
+        boolean negativePaint = !shadowPass && resolvedPaint.a < -0.001F;
         boolean applyColorTint = colorTransformWanted && !shadowPass;
         boolean noshadingAfterPaint = irisWorld && BBSRendering.needsIrisNoshadingOpacityDeferral(color.a, this.form.noshadingOpacity.get());
         boolean softPostDeferred = !localPreview && !shadowPass
@@ -794,6 +795,20 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
                 /* After Iris base redraw (see BBSRendering.onWorldRenderEnd order) with a
                  * stronger polygon offset so paint stays in front at distance. */
                 this.submitDeferredBillboardPaintOverlay(texture, textureLink, shader, matrices, resolvedPaint, color.a, glowSettings, legacyGlow, glowIntensity);
+            }
+        }
+        else if (negativePaint)
+        {
+            Color darkenTint = new Color(0F, 0F, 0F, Math.abs(resolvedPaint.a));
+            darkenTint.transform = this.form.paintSettings.get().transform;
+
+            if (deferContext == null || modelRenderer)
+            {
+                this.renderColorTintOverlay(texture, shader, matrices, overlay, darkenTint, darkenTint.transform);
+            }
+            else
+            {
+                this.submitDeferredBillboardColorTintOverlay(texture, textureLink, shader, matrices, darkenTint, darkenTint.transform);
             }
         }
 
@@ -1254,11 +1269,16 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
         texture.bind();
         texture.setFilterMipmap(this.form.linear.get(), this.form.mipmap.get());
 
-        FlatGlowOverlayPass.render(glowSettings, legacyGlow, alpha, glowIntensity, (glowColor) ->
+        float quadHalfX = Math.abs(drawQuad.p2.x - drawQuad.p1.x) * 0.5F;
+        float quadHalfY = Math.abs(drawQuad.p1.y - drawQuad.p3.y) * 0.5F;
+        Vector3f maskHalf = new Vector3f();
+        EffectTransform glowTransform = glowSettings.transform == null ? new EffectTransform() : glowSettings.transform;
+        EffectTransformMath.resolveBillboardMaskHalfExtents(glowTransform, maskHalf, quadHalfX, quadHalfY);
+
+        FlatGlowOverlayPass.render(glowSettings, legacyGlow, alpha, glowIntensity, null, glowTransform, false, maskHalf, (glowColor) ->
         {
             BufferBuilder glowBuilder = Tessellator.getInstance().begin(VertexFormat.DrawMode.TRIANGLES, VertexFormats.POSITION_TEXTURE_COLOR);
 
-            RenderSystem.setShader(GameRenderer::getPositionTexColorProgram);
             float glowZ = this.resolveOverlayFaceZ(glowMatrix);
 
             /* One camera-facing plane, both sides via disableCull — same as paint. */

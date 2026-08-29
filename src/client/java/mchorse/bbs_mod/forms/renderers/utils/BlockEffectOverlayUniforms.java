@@ -104,6 +104,49 @@ public final class BlockEffectOverlayUniforms
         RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
     }
 
+    public static void configureGlowOverlayRenderState(Matrix4f rootInverse, EffectTransform transform, boolean bottomAnchored, float maskHalfBase)
+    {
+        RenderSystem.enableBlend();
+        RenderSystem.blendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE);
+        RenderSystem.depthMask(false);
+
+        ShaderProgram program = BBSShaders.getBlockPaintOverlayProgram();
+
+        if (program != null)
+        {
+            RenderSystem.setShader(() -> program);
+            bindFormRootInverse(program, rootInverse);
+            bindPaint(program, transform, bottomAnchored, maskHalfBase);
+            bindGlowOverlay(program, null, null, 0F, 1F);
+        }
+
+        RenderSystem.setShaderTexture(0, PlayerScreenHandler.BLOCK_ATLAS_TEXTURE);
+        RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
+    }
+
+    /**
+     * Structure glow overlay: UI scale 1 covers the full AABB for box / circle / triangle.
+     */
+    public static void configureGlowOverlayRenderStateStructure(Matrix4f rootInverse, EffectTransform transform, boolean bottomAnchored, float sizeX, float sizeY, float sizeZ)
+    {
+        RenderSystem.enableBlend();
+        RenderSystem.blendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE);
+        RenderSystem.depthMask(false);
+
+        ShaderProgram program = BBSShaders.getBlockPaintOverlayProgram();
+
+        if (program != null)
+        {
+            RenderSystem.setShader(() -> program);
+            bindFormRootInverse(program, rootInverse);
+            bindPaintStructure(program, transform, bottomAnchored, sizeX, sizeY, sizeZ);
+            bindGlowOverlay(program, null, null, 0F, 1F);
+        }
+
+        RenderSystem.setShaderTexture(0, PlayerScreenHandler.BLOCK_ATLAS_TEXTURE);
+        RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
+    }
+
     /**
      * Multiply-blend color-mask overlay (DST_COLOR / ZERO) — same semantics as Model color tint.
      * When {@code gradeSource} has Color Grade, copies the lit framebuffer and regrades those
@@ -609,6 +652,26 @@ public final class BlockEffectOverlayUniforms
 
             shapeUniform.set(shape);
         }
+    }
+
+    public static void configureFlatGlowOverlay(Matrix4f rootInverse, EffectTransform transform, boolean bottomAnchored, Vector3f maskHalf)
+    {
+        RenderSystem.enableBlend();
+        RenderSystem.blendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE);
+        RenderSystem.enableDepthTest();
+        RenderSystem.depthFunc(GL11.GL_LEQUAL);
+        RenderSystem.depthMask(false);
+
+        ShaderProgram program = BBSShaders.getFlatPaintOverlayProgram();
+
+        if (program != null)
+        {
+            RenderSystem.setShader(() -> program);
+            bindFormRootInverse(program, rootInverse);
+            bindPaintPrecomputed(program, transform, bottomAnchored, maskHalf);
+        }
+
+        RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
     }
 
     /**

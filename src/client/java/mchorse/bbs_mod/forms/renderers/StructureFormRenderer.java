@@ -201,8 +201,9 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
 
                 RenderSystem.enableCull();
 
-            this.overlayRenderer.prepareVaoPaintForMainPass(resolvedPaint);
-            this.overlayRenderer.prepareVaoGlowForMainPass(glowSettings, legacyGlow, glowIntensity);
+            EffectTransform paintTransform = this.form.paintSettings.get().transform;
+            this.overlayRenderer.prepareVaoPaintForMainPass(resolvedPaint, paintTransform, this.data);
+            this.overlayRenderer.prepareVaoGlowForMainPass(glowSettings, legacyGlow, glowIntensity, this.data);
 
                 try
                 {
@@ -244,8 +245,13 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
 
                 if (positivePaint)
                 {
-                    EffectTransform paintTransform = this.form.paintSettings.get().transform;
-                this.overlayRenderer.renderStructurePaintOverlay(this.data, vao, passContext, matrices, resolvedPaint, tint.a, OverlayTexture.DEFAULT_UV, true, BBSRendering.isIrisShadersEnabled(), paintTransform, glowSettings, legacyGlow, glowIntensity, layer -> this.renderPaintLayer(layer, passContext, matrices, OverlayTexture.DEFAULT_UV, null), null);
+                    this.overlayRenderer.renderStructurePaintOverlay(this.data, vao, passContext, matrices, resolvedPaint, tint.a, OverlayTexture.DEFAULT_UV, true, BBSRendering.isIrisShadersEnabled(), paintTransform, glowSettings, legacyGlow, glowIntensity, layer -> this.renderPaintLayer(layer, passContext, matrices, OverlayTexture.DEFAULT_UV, null), null);
+                }
+                else if (resolvedPaint != null && resolvedPaint.a < -0.001F)
+                {
+                    Color darkenTint = new Color(0F, 0F, 0F, Math.abs(resolvedPaint.a));
+                    darkenTint.transform = this.form.paintSettings.get().transform;
+                    this.overlayRenderer.renderStructureColorTintOverlay(this.data, this.form, passContext, matrices, darkenTint, tint.a, OverlayTexture.DEFAULT_UV, true, BBSRendering.isIrisShadersEnabled(), false, layer -> this.renderPaintLayer(layer, passContext, matrices, OverlayTexture.DEFAULT_UV, null), null);
                 }
 
                 if (positiveGlow)
@@ -481,8 +487,8 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
                     RenderSystem.enableBlend();
                     RenderSystem.defaultBlendFunc();
 
-                    this.overlayRenderer.prepareVaoPaintForMainPass(resolvedPaint);
-                    this.overlayRenderer.prepareVaoGlowForMainPass(glowSettings, legacyGlow, glowIntensity);
+                    this.overlayRenderer.prepareVaoPaintForMainPass(resolvedPaint, paintSettings.transform, this.data);
+                    this.overlayRenderer.prepareVaoGlowForMainPass(glowSettings, legacyGlow, glowIntensity, this.data);
 
                     try
                     {
@@ -526,6 +532,20 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
                 {
                     EffectTransform paintTransform = paintSettings.transform;
                     this.overlayRenderer.submitDeferredStructurePaintOverlay(this.data, vao, context, resolvedPaint, mainTint3D.a, context.overlay, true, shaders, paintTransform, glowSettings, legacyGlow, glowIntensity, layer -> this.renderPaintLayer(layer, context, context.stack, context.overlay, null), null);
+                }
+                else if (resolvedPaint != null && resolvedPaint.a < -0.001F)
+                {
+                    Color darkenTint = new Color(0F, 0F, 0F, Math.abs(resolvedPaint.a));
+                    darkenTint.transform = paintSettings.transform;
+
+                    if (irisWorldPaintDeferral)
+                    {
+                        this.overlayRenderer.submitDeferredStructureColorTintOverlay(this.data, this.form, context, darkenTint, mainTint3D.a, context.overlay, true, shaders, layer -> this.renderPaintLayer(layer, context, context.stack, context.overlay, null), null);
+                    }
+                    else
+                    {
+                        this.overlayRenderer.renderStructureColorTintOverlay(this.data, this.form, context, context.stack, darkenTint, mainTint3D.a, context.overlay, true, shaders, false, layer -> this.renderPaintLayer(layer, context, context.stack, context.overlay, null), null);
+                    }
                 }
 
                 if (applyColorTint)
@@ -1284,11 +1304,6 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
 
     private Function<VertexConsumer, VertexConsumer> getMainConsumer(Color color, Color resolvedPaint)
     {
-        if (resolvedPaint != null && resolvedPaint.a < 0F)
-        {
-            return BBSRendering.getBlockPaintConsumer(color, resolvedPaint);
-        }
-
         return BBSRendering.getColorConsumer(color);
     }
 
