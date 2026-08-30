@@ -16,6 +16,7 @@ import mchorse.bbs_mod.forms.renderers.utils.FormColorEffects;
 import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.utils.MatrixStackUtils;
 import mchorse.bbs_mod.utils.colors.Color;
+import mchorse.bbs_mod.utils.iris.ShaderOpacityPatch;
 import mchorse.bbs_mod.utils.joml.Vectors;
 
 import net.minecraft.client.MinecraftClient;
@@ -35,6 +36,7 @@ import net.minecraft.util.math.RotationAxis;
 import org.joml.Matrix3f;
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
+import org.joml.Vector4f;
 
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.logging.LogUtils;
@@ -233,8 +235,6 @@ public class ItemFormRenderer extends FormRenderer<ItemForm>
             Color resolvedPaint = FormColorEffects.resolvePaintColor(paintSettings, legacyPaint);
             boolean positivePaint = !context.isPicking() && !shadowPass && FormColorEffects.hasPositivePaint(paintSettings, legacyPaint);
 
-            consumers.setSubstitute(this.getMainConsumer(BlockFormRenderer.color, resolvedPaint));
-
             ItemStack itemStack = this.form.stack.get();
             double usingItemValue = this.form.usingItem.get();
             double itemUseTimeValue = this.form.itemUseTime.get();
@@ -252,21 +252,151 @@ public class ItemFormRenderer extends FormRenderer<ItemForm>
 
             boolean leftHand = mode == ModelTransformationMode.THIRD_PERSON_LEFT_HAND;
 
-            this.renderItem(context, context.stack, consumers, light, context.overlay, mode, leftHand, itemEntity);
+            boolean noshadingDefer = !context.modelRenderer
+                && !context.isPicking()
+                && !shadowPass
+                && BBSRendering.needsIrisNoshadingOpacityDeferral(BlockFormRenderer.color.a, this.form.noshadingOpacity.get());
+            boolean softPostDeferred = !context.modelRenderer
+                && !context.isPicking()
+                && !shadowPass
+                && ShaderOpacityPatch.shouldDelayUntilPostDeferred(BlockFormRenderer.color.a)
+                && !noshadingDefer;
 
-            if (!deferFlush)
+            if (softPostDeferred || noshadingDefer)
             {
-                consumers.draw();
+                boolean irisCamera = BBSRendering.isIrisWorldModelPass() && !noshadingDefer;
+                Matrix4f positionMatrix = irisCamera
+                    ? new Matrix4f(context.stack.peek().getPositionMatrix())
+                    : ModelVAORenderer.capturePaintOverlayRootMatrix(new Matrix4f(context.stack.peek().getPositionMatrix()));
+                Matrix3f normalMatrix = new Matrix3f(context.stack.peek().getNormalMatrix());
+                Color colorSnapshot = BlockFormRenderer.color.copy();
+                Color resolvedPaintSnapshot = resolvedPaint == null ? null : resolvedPaint.copy();
+                int lightSnapshot = light;
+                int overlaySnapshot = context.overlay;
+                boolean depthWrite = ShaderOpacityPatch.shouldWriteDepthForOpacity(BlockFormRenderer.color.a);
+                boolean afterFluids = ShaderOpacityPatch.shouldFlushAfterFluids(BlockFormRenderer.color.a);
+                double formSortKey = this.computeItemFormSortKey(context.stack.peek().getPositionMatrix(), context);
+                boolean positiveGlowSnapshot = positiveGlow && !glowSettings.resolvePaintOnly();
+                float glowIntensitySnapshot = glowIntensity;
+                GlowSettings glowSettingsSnapshot = glowSettings;
+                Color legacyGlowSnapshot = legacyGlow;
+                LivingEntity itemEntitySnapshot = itemEntity;
+                ModelTransformationMode modeSnapshot = mode;
+                boolean leftHandSnapshot = leftHand;
+                boolean positivePaintSnapshot = positivePaint;
+                PaintSettings paintSettingsSnapshot = paintSettings == null ? null : paintSettings.copy();
+                boolean colorTransformWantedSnapshot = colorTransformWanted;
+                Color storedFormColorSnapshot = storedFormColor == null ? null : storedFormColor.copy();
+                Color formColorSnapshot = formColor.copy();
+                boolean colorGradeWantedSnapshot = colorGradeWanted;
+
+                Runnable deferredDraw = () ->
+                {
+                    MatrixStack overlayStack = new MatrixStack();
+
+                    overlayStack.peek().getPositionMatrix().set(positionMatrix);
+                    overlayStack.peek().getNormalMatrix().set(normalMatrix);
+
+                    CustomVertexConsumerProvider deferredConsumers = FormUtilsClient.getProvider();
+
+                    RenderSystem.enableDepthTest();
+                    RenderSystem.depthMask(depthWrite);
+                    ShaderOpacityPatch.reassertPostDeferredDepthState(depthWrite);
+                    CustomVertexConsumerProvider.hijackVertexFormat((layer) ->
+                    {
+                        if (FormUtilsClient.isCrumblingLayer(layer))
+                        {
+                            return;
+                        }
+
+                        RenderSystem.enableBlend();
+                        RenderSystem.defaultBlendFunc();
+                        RenderSystem.depthMask(depthWrite);
+                        ShaderOpacityPatch.reassertPostDeferredDepthState(depthWrite);
+                    });
+
+                    deferredConsumers.setSubstitute(this.getMainConsumer(colorSnapshot, resolvedPaintSnapshot));
+
+                    try
+                    {
+                        this.renderItem(context, overlayStack, deferredConsumers, lightSnapshot, overlaySnapshot, modeSnapshot, leftHandSnapshot, itemEntitySnapshot);
+                        deferredConsumers.draw();
+                    }
+                    finally
+                    {
+                        deferredConsumers.setSubstitute(null);
+                        CustomVertexConsumerProvider.clearRunnables();
+                    }
+
+                    if (positivePaintSnapshot)
+                    {
+                        this.renderPaintOverlay(context, overlayStack, deferredConsumers, resolvedPaintSnapshot, colorSnapshot.a, overlaySnapshot, false, modeSnapshot, leftHandSnapshot, itemEntitySnapshot, paintSettingsSnapshot.transform, glowSettingsSnapshot, legacyGlowSnapshot, glowIntensitySnapshot);
+                    }
+
+                    if (colorTransformWantedSnapshot)
+                    {
+                        Color overlayTint = colorGradeWantedSnapshot ? storedFormColorSnapshot.copyDeferringColorGrade() : formColorSnapshot;
+
+                        this.form.applyFormOpacity(overlayTint);
+                        this.renderItemColorTintOverlay(context, overlayStack, overlayTint, colorSnapshot.a, overlaySnapshot, modeSnapshot, leftHandSnapshot, itemEntitySnapshot, false, storedFormColorSnapshot);
+                    }
+
+                    if (positiveGlowSnapshot)
+                    {
+                        EffectTransform glowTransform = FormColorEffects.resolveGlowEffectTransform(glowSettingsSnapshot, legacyGlowSnapshot);
+                        boolean hasGlowTransform = glowTransform != null && glowTransform.isActive();
+
+                        if (hasGlowTransform)
+                        {
+                            this.renderGlowOverlayMasked(context, overlayStack, deferredConsumers, glowSettingsSnapshot, legacyGlowSnapshot, glowIntensitySnapshot, colorSnapshot.a, overlaySnapshot, false, modeSnapshot, itemEntitySnapshot, leftHandSnapshot, glowTransform);
+                        }
+                        else
+                        {
+                            this.renderGlowOverlay(context, overlayStack, deferredConsumers, glowSettingsSnapshot, legacyGlowSnapshot, glowIntensitySnapshot, colorSnapshot.a, overlaySnapshot, false, modeSnapshot, itemEntitySnapshot, leftHandSnapshot);
+                        }
+                    }
+
+                    /* Soft flush isolation — glow leaves additive blend / depthMask false. */
+                    RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
+                    RenderSystem.defaultBlendFunc();
+                    CustomVertexConsumerProvider.clearRunnables();
+                    RenderSystem.depthMask(depthWrite);
+                    ShaderOpacityPatch.reassertPostDeferredDepthState(depthWrite);
+                };
+
+                if (noshadingDefer)
+                {
+                    ModelVAORenderer.submitDeferredTranslucentModel(deferredDraw, depthWrite);
+                }
+                else if (irisCamera)
+                {
+                    ShaderOpacityPatch.submitPostDeferredForm(0D, formSortKey, depthWrite, afterFluids, deferredDraw);
+                }
+                else
+                {
+                    ShaderOpacityPatch.submitPostDeferredBbsForm(0D, formSortKey, depthWrite, afterFluids, deferredDraw);
+                }
+            }
+            else
+            {
+                consumers.setSubstitute(this.getMainConsumer(BlockFormRenderer.color, resolvedPaint));
+
+                this.renderItem(context, context.stack, consumers, light, context.overlay, mode, leftHand, itemEntity);
+
+                if (!deferFlush)
+                {
+                    consumers.draw();
+                }
+
+                consumers.setSubstitute(null);
             }
 
-            consumers.setSubstitute(null);
-
-            if (positivePaint)
+            if (!softPostDeferred && !noshadingDefer && positivePaint)
             {
                 this.submitDeferredItemPaintOverlay(context, context.stack, resolvedPaint, BlockFormRenderer.color.a, context.overlay, mode, leftHand, itemEntity, paintSettings.transform, glowSettings, legacyGlow, glowIntensity, false);
             }
 
-            if (colorTransformWanted && !shadowPass && !context.isPicking())
+            if (!softPostDeferred && !noshadingDefer && colorTransformWanted && !shadowPass && !context.isPicking())
             {
                 Color overlayTint = colorGradeWanted ? storedFormColor.copyDeferringColorGrade() : formColor;
 
@@ -282,7 +412,7 @@ public class ItemFormRenderer extends FormRenderer<ItemForm>
                 }
             }
 
-            if (positiveGlow && !glowSettings.resolvePaintOnly())
+            if (!softPostDeferred && !noshadingDefer && positiveGlow && !glowSettings.resolvePaintOnly())
             {
                 EffectTransform glowTransform = FormColorEffects.resolveGlowEffectTransform(glowSettings, legacyGlow);
                 boolean hasGlowTransform = glowTransform != null && glowTransform.isActive();
@@ -303,7 +433,7 @@ public class ItemFormRenderer extends FormRenderer<ItemForm>
                     this.renderGlowOverlay(context, context.stack, consumers, glowSettings, legacyGlow, glowIntensity, BlockFormRenderer.color.a, context.overlay, false, mode, itemEntity, leftHand);
                 }
             }
-            else if (!deferFlush)
+            else if (!deferFlush && !softPostDeferred && !noshadingDefer)
             {
                 CustomVertexConsumerProvider.clearRunnables();
             }
@@ -363,6 +493,29 @@ public class ItemFormRenderer extends FormRenderer<ItemForm>
         int hash = this.form.stack.get().hashCode();
 
         return (hash & 65535) / 65535F * 6.2831855F;
+    }
+
+    /**
+     * Soft-opacity queue key for the item form origin (farther first).
+     */
+    private double computeItemFormSortKey(Matrix4f drawMatrix, FormRenderingContext context)
+    {
+        Vector4f origin = new Vector4f(0F, 0F, 0F, 1F);
+        Matrix4f viewSpace = ModelVAORenderer.capturePaintOverlayRootMatrix(new Matrix4f(drawMatrix));
+
+        viewSpace.transform(origin);
+
+        boolean filmLookAxis = context != null
+            && context.type == FormRenderType.ENTITY
+            && context.camera != null
+            && !context.modelRenderer;
+
+        if (filmLookAxis)
+        {
+            return -origin.z;
+        }
+
+        return origin.x * origin.x + origin.y * origin.y + origin.z * origin.z;
     }
 
     Function<VertexConsumer, VertexConsumer> getMainConsumer(Color color, Color resolvedPaint)

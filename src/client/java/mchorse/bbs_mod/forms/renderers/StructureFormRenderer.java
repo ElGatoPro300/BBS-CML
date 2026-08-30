@@ -245,18 +245,18 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
                 if (positivePaint)
                 {
                     EffectTransform paintTransform = this.form.paintSettings.get().transform;
-                this.overlayRenderer.renderStructurePaintOverlay(this.data, vao, passContext, matrices, resolvedPaint, tint.a, OverlayTexture.DEFAULT_UV, true, BBSRendering.isIrisShadersEnabled(), paintTransform, glowSettings, legacyGlow, glowIntensity, layer -> this.renderPaintLayer(layer, passContext, matrices, OverlayTexture.DEFAULT_UV, null), null);
+                    this.overlayRenderer.renderStructurePaintOverlay(this.data, vao, passContext, matrices, resolvedPaint, tint.a, OverlayTexture.DEFAULT_UV, true, BBSRendering.isIrisShadersEnabled(), paintTransform, glowSettings, legacyGlow, glowIntensity, layer -> this.renderPaintLayer(layer, passContext, matrices, OverlayTexture.DEFAULT_UV, null), (s) -> this.renderStructureCulledWorld(passContext, s, FormUtilsClient.getProvider(), LightmapTextureManager.MAX_BLOCK_LIGHT_COORDINATE, OverlayTexture.DEFAULT_UV, BBSRendering.isIrisShadersEnabled(), null, true, false));
+                }
+
+                if (colorTransformWanted)
+                {
+                    this.overlayRenderer.renderStructureColorTintOverlay(this.data, this.form, passContext, matrices, formColor, tint.a, OverlayTexture.DEFAULT_UV, true, BBSRendering.isIrisShadersEnabled(), deferColorTintToOverlay, layer -> this.renderPaintLayer(layer, passContext, matrices, OverlayTexture.DEFAULT_UV, null), (s) -> this.renderStructureCulledWorld(passContext, s, FormUtilsClient.getProvider(), LightmapTextureManager.MAX_BLOCK_LIGHT_COORDINATE, OverlayTexture.DEFAULT_UV, BBSRendering.isIrisShadersEnabled(), null, true, false));
                 }
 
                 if (positiveGlow)
                 {
                     this.overlayRenderer.renderStructureGlowOverlay(this.data, passContext, matrices, glowSettings, legacyGlow, glowIntensity, tint.a, OverlayTexture.DEFAULT_UV, false, BBSRendering.isIrisShadersEnabled(), null, (s) -> this.renderStructureCulledWorld(passContext, s, FormUtilsClient.getProvider(), LightmapTextureManager.MAX_BLOCK_LIGHT_COORDINATE, OverlayTexture.DEFAULT_UV, BBSRendering.isIrisShadersEnabled(), null, true, false));
                 }
-
-                if (colorTransformWanted)
-                {
-                this.overlayRenderer.renderStructureColorTintOverlay(this.data, this.form, passContext, matrices, formColor, tint.a, OverlayTexture.DEFAULT_UV, true, BBSRendering.isIrisShadersEnabled(), deferColorTintToOverlay, layer -> this.renderPaintLayer(layer, passContext, matrices, OverlayTexture.DEFAULT_UV, null), null);
-            }
         }
 
         DiffuseLighting.disableGuiDepthLighting();
@@ -305,56 +305,68 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
                 return;
             }
 
-        GlowSettings glowSettings = this.form.glowSettings.get();
-        Color legacyGlow = this.form.glowingColor.get();
-        float glowIntensity = glowSettings.resolveIntensity(legacyGlow);
+            GlowSettings glowSettings = this.form.glowSettings.get();
+            Color legacyGlow = this.form.glowingColor.get();
+            float glowIntensity = glowSettings.resolveIntensity(legacyGlow);
+            EffectTransform glowTransform = FormColorEffects.resolveGlowEffectTransform(glowSettings, legacyGlow);
+            boolean hasGlowTransform = glowTransform != null && glowTransform.isActive();
+            boolean positiveGlow = !picking && !shadowPass && glowIntensity > 0F;
+            boolean hasEmissiveGlow = positiveGlow && !glowSettings.resolvePaintOnly();
 
-        if (glowIntensity < 0F)
-        {
-            FormColorEffects.blendFormGlowBrighten(mainTint3D, glowSettings, legacyGlow);
-        }
+            boolean noshadingDefer = !context.modelRenderer
+                && !shadowPass
+                && BBSRendering.needsIrisNoshadingOpacityDeferral(mainTint3D.a, this.form.noshadingOpacity.get());
+            boolean softPostDeferred = !context.modelRenderer
+                && !shadowPass
+                && ShaderOpacityPatch.shouldDelayUntilPostDeferred(mainTint3D.a)
+                && !noshadingDefer;
 
-        boolean irisWorldPaintDeferral = BBSRendering.isIrisWorldPaintDeferral();
-        boolean deferColorTintToOverlay = colorTransformWanted && irisWorldPaintDeferral && !shadowPass;
-        PaintSettings paintSettings = this.form.paintSettings.get();
-        Color legacyPaint = this.form.paintColor.get();
-        Color resolvedPaint = FormColorEffects.resolvePaintColor(paintSettings, legacyPaint);
-        boolean positivePaint = !picking && !shadowPass && FormColorEffects.hasPositivePaint(paintSettings, legacyPaint);
-        boolean positiveGlow = !picking && !shadowPass && glowIntensity > 0F;
-        boolean applyColorTint = colorTransformWanted && !picking && !shadowPass;
-        Function<VertexConsumer, VertexConsumer> mainRecolor = this.getMainConsumer(mainTint3D, resolvedPaint);
+            boolean irisWorldPaintDeferral = BBSRendering.isIrisWorldPaintDeferral();
+            boolean deferColorTintToOverlay = colorTransformWanted && irisWorldPaintDeferral && !shadowPass;
+            PaintSettings paintSettings = this.form.paintSettings.get();
+            Color legacyPaint = this.form.paintColor.get();
+            Color resolvedPaint = FormColorEffects.resolvePaintColor(paintSettings, legacyPaint);
+            boolean positivePaint = !picking && !shadowPass && FormColorEffects.hasPositivePaint(paintSettings, legacyPaint);
+            boolean applyColorTint = colorTransformWanted && !picking && !shadowPass;
+
+            Color vaoTint = mainTint3D.copy();
+
+            if (glowIntensity < 0F)
+            {
+                FormColorEffects.blendFormGlowBrighten(mainTint3D, glowSettings, legacyGlow);
+                FormColorEffects.blendFormGlowBrighten(vaoTint, glowSettings, legacyGlow);
+            }
+            else if (irisWorldPaintDeferral && hasEmissiveGlow && !softPostDeferred && !noshadingDefer && !hasGlowTransform)
+            {
+                /* Must hit the Iris entity/gbuffer pass — post-composite BBS additive never blooms. */
+                FormColorEffects.blendFormGlowBrighten(vaoTint, glowSettings, legacyGlow);
+            }
+
+            Function<VertexConsumer, VertexConsumer> mainRecolor = this.getMainConsumer(mainTint3D, resolvedPaint);
             boolean shaders = BBSRendering.isIrisShadersEnabled();
 
             if (vao != null)
-        {
-            int light = context.isPicking() ? 0 : context.light;
-            GameRenderer gameRenderer = MinecraftClient.getInstance().gameRenderer;
-
-            gameRenderer.getLightmapTextureManager().enable();
-            gameRenderer.getOverlayTexture().setupOverlayColor();
-
-            if (context.isPicking())
             {
+                int light = context.isPicking() ? 0 : context.light;
+                GameRenderer gameRenderer = MinecraftClient.getInstance().gameRenderer;
+
+                gameRenderer.getLightmapTextureManager().enable();
+                gameRenderer.getOverlayTexture().setupOverlayColor();
+
+                if (context.isPicking())
+                {
                     IModelVAO pickingVao = this.getPickingVao();
 
-                this.setupTarget(context, BBSShaders.getPickerModelsProgram());
-                RenderSystem.setShader(BBSShaders::getPickerModelsProgram);
-                RenderSystem.enableBlend();
-                RenderSystem.setShaderTexture(0, PlayerScreenHandler.BLOCK_ATLAS_TEXTURE);
+                    this.setupTarget(context, BBSShaders.getPickerModelsProgram());
+                    RenderSystem.setShader(BBSShaders::getPickerModelsProgram);
+                    RenderSystem.enableBlend();
+                    RenderSystem.setShaderTexture(0, PlayerScreenHandler.BLOCK_ATLAS_TEXTURE);
 
-                ModelVAORenderer.render(BBSShaders.getPickerModelsProgram(), pickingVao, context.stack, mainTint3D.r, mainTint3D.g, mainTint3D.b, mainTint3D.a, light, context.overlay);
-            }
-            else
-            {
-                boolean noshadingDefer = !context.modelRenderer
-                    && !shadowPass
-                    && BBSRendering.needsIrisNoshadingOpacityDeferral(mainTint3D.a, this.form.noshadingOpacity.get());
-                boolean softPostDeferred = !context.modelRenderer
-                    && !shadowPass
-                    && ShaderOpacityPatch.shouldDelayUntilPostDeferred(mainTint3D.a)
-                    && !noshadingDefer;
-
-                if (softPostDeferred || noshadingDefer)
+                    ModelVAORenderer.render(BBSShaders.getPickerModelsProgram(), pickingVao, context.stack, mainTint3D.r, mainTint3D.g, mainTint3D.b, mainTint3D.a, light, context.overlay);
+                }
+                else
+                {
+                    if (softPostDeferred || noshadingDefer)
                 {
                     boolean irisCamera = BBSRendering.isIrisWorldModelPass() && !noshadingDefer;
                     Matrix4f positionMatrix = irisCamera
@@ -362,20 +374,22 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
                         : ModelVAORenderer.capturePaintOverlayRootMatrix(new Matrix4f(context.stack.peek().getPositionMatrix()));
                     Matrix3f normalMatrix = new Matrix3f(context.stack.peek().getNormalMatrix());
                     Color mainTintSnapshot = mainTint3D.copy();
+                    Color formColor3DSnapshot = formColor3D.copy();
                     Color resolvedPaintSnapshot = resolvedPaint == null ? null : resolvedPaint.copy();
+                    PaintSettings paintSettingsSnapshot = paintSettings == null ? null : paintSettings.copy();
                     int lightSnapshot = light;
                     int overlaySnapshot = context.overlay;
                     boolean depthWrite = ShaderOpacityPatch.shouldWriteDepthForOpacity(mainTint3D.a);
                     boolean afterFluids = ShaderOpacityPatch.shouldFlushAfterFluids(mainTint3D.a);
                     double formSortKey = this.computeStructureFormSortKey(context.stack.peek().getPositionMatrix(), context);
-                    boolean beTintSnapshot = !irisWorldPaintDeferral;
-                    boolean positiveGlowSnapshot = positiveGlow;
+                    boolean positiveGlowSnapshot = positiveGlow && !glowSettings.resolvePaintOnly();
                     float glowIntensitySnapshot = glowIntensity;
                     GlowSettings glowSettingsSnapshot = glowSettings;
                     Color legacyGlowSnapshot = legacyGlow;
-                    boolean shadersSnapshot = shaders;
+                    boolean positivePaintSnapshot = positivePaint;
+                    boolean applyColorTintSnapshot = applyColorTint;
                     IModelVAO vaoSnapshot = vao;
-                    Function<VertexConsumer, VertexConsumer> mainRecolorSnapshot = this.getMainConsumer(mainTintSnapshot, resolvedPaintSnapshot);
+                    boolean shadersSnapshot = shaders;
 
                     Runnable deferredDraw = () ->
                     {
@@ -390,49 +404,70 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
 
                         try
                         {
-                            RenderSystem.enableDepthTest();
-                            RenderSystem.depthFunc(GL11.GL_LEQUAL);
+                            RenderSystem.colorMask(true, true, true, true);
                             RenderSystem.enableBlend();
                             RenderSystem.defaultBlendFunc();
+                            RenderSystem.enableDepthTest();
+                            RenderSystem.depthFunc(GL11.GL_LEQUAL);
+                            RenderSystem.depthMask(depthWrite);
+                            ShaderOpacityPatch.reassertPostDeferredDepthState(depthWrite);
 
-                            /* Soft Structure: per-block back-to-front color (depth-write off) so
-                             * leaves behind soft trunks stay visible AND leaves in front composite
-                             * after the trunk. VAO depth stamp afterward still occludes the world.
-                             * Solid-VAO + special-layer splits cannot satisfy both at once. */
-                            ShaderOpacityPatch.setFlushingDepthWrite(false);
-                            RenderSystem.depthMask(false);
-                            this.renderStructureSoftSortedColor(context, overlayStack, mainRecolorSnapshot, lightSnapshot, overlaySnapshot);
+                            ShaderProgram deferredShader = (BBSRendering.isIrisShadersEnabled() && BBSRendering.isRenderingWorld())
+                                ? GameRenderer.getRenderTypeEntityTranslucentCullProgram()
+                                : BBSShaders.getModel();
+
+                            RenderSystem.setShader(() -> deferredShader);
+                            RenderSystem.setShaderTexture(0, PlayerScreenHandler.BLOCK_ATLAS_TEXTURE);
+
+                            this.overlayRenderer.prepareVaoPaintForMainPass(resolvedPaintSnapshot);
+                            this.overlayRenderer.prepareVaoGlowForMainPass(glowSettingsSnapshot, legacyGlowSnapshot, glowIntensitySnapshot);
+
+                            try
+                            {
+                                ModelVAORenderer.render(deferredShader, vaoSnapshot, overlayStack, mainTintSnapshot.r, mainTintSnapshot.g, mainTintSnapshot.b, mainTintSnapshot.a, lightSnapshot, overlaySnapshot);
+                            }
+                            finally
+                            {
+                                this.overlayRenderer.clearVaoColorTint();
+                                this.overlayRenderer.clearVaoPaint();
+                                this.overlayRenderer.clearVaoGlow();
+                            }
 
                             if (this.data.hasBlockEntityLayer())
                             {
-                                this.renderBlockEntitiesPass(context, overlayStack, lightSnapshot, overlaySnapshot, beTintSnapshot);
-                                ShaderOpacityPatch.setFlushingDepthWrite(false);
-                                RenderSystem.depthMask(false);
+                                this.renderBlockEntitiesPass(context, overlayStack, lightSnapshot, overlaySnapshot, false);
                             }
 
-                            if (depthWrite)
-                            {
-                                ShaderOpacityPatch.setFlushingDepthWrite(true);
-                                RenderSystem.depthMask(true);
-                                RenderSystem.colorMask(false, false, false, false);
-                                RenderSystem.disableBlend();
+                            Function<VertexConsumer, VertexConsumer> mainRecolorSnapshot = this.getMainConsumer(mainTintSnapshot, resolvedPaintSnapshot);
 
-                                try
-                                {
-                                    this.renderStructureSoftDepthStamp(overlayStack, vaoSnapshot, mainTintSnapshot, lightSnapshot, overlaySnapshot);
-                                }
-                                finally
-                                {
-                                    RenderSystem.enableBlend();
-                                    RenderSystem.defaultBlendFunc();
-                                    RenderSystem.colorMask(true, true, true, true);
-                                }
+                            if (this.data.hasBiomeTintedLayer())
+                            {
+                                this.renderLayerGroup(this.data.getBiomeTintedBlocks(), context, overlayStack, lightSnapshot, overlaySnapshot, mainRecolorSnapshot, true);
+                            }
+
+                            if (this.data.hasAnimatedLayer())
+                            {
+                                this.renderLayerGroup(this.data.getAnimatedBlocks(), context, overlayStack, lightSnapshot, overlaySnapshot, mainRecolorSnapshot, false);
+                            }
+
+                            if (this.data.hasTranslucentLayer())
+                            {
+                                this.renderLayerGroup(this.data.getTranslucentBlocks(), context, overlayStack, lightSnapshot, overlaySnapshot, mainRecolorSnapshot, false);
+                            }
+
+                            if (positivePaintSnapshot)
+                            {
+                                EffectTransform paintTransform = paintSettingsSnapshot.transform;
+                                this.overlayRenderer.renderStructurePaintOverlay(this.data, vaoSnapshot, context, overlayStack, resolvedPaintSnapshot, mainTintSnapshot.a, overlaySnapshot, true, shadersSnapshot, paintTransform, glowSettingsSnapshot, legacyGlowSnapshot, glowIntensitySnapshot, layer -> this.renderPaintLayer(layer, context, overlayStack, overlaySnapshot, null), (s) -> this.renderStructureCulledWorld(context, s, FormUtilsClient.getProvider(), lightSnapshot, overlaySnapshot, shadersSnapshot, null, true, false));
+                            }
+
+                            if (applyColorTintSnapshot)
+                            {
+                                this.overlayRenderer.renderStructureColorTintOverlay(this.data, this.form, context, overlayStack, formColor3DSnapshot, mainTintSnapshot.a, overlaySnapshot, true, shadersSnapshot, false, layer -> this.renderPaintLayer(layer, context, overlayStack, overlaySnapshot, null), (s) -> this.renderStructureCulledWorld(context, s, FormUtilsClient.getProvider(), lightSnapshot, overlaySnapshot, shadersSnapshot, null, true, false));
                             }
 
                             if (positiveGlowSnapshot)
                             {
-                                ShaderOpacityPatch.setFlushingDepthWrite(false);
-                                RenderSystem.depthMask(false);
                                 this.overlayRenderer.renderStructureGlowOverlay(this.data, context, overlayStack, glowSettingsSnapshot, legacyGlowSnapshot, glowIntensitySnapshot, mainTintSnapshot.a, overlaySnapshot, false, shadersSnapshot, null, (s) -> this.renderStructureCulledWorld(context, s, FormUtilsClient.getProvider(), lightSnapshot, overlaySnapshot, shadersSnapshot, null, true, false));
                             }
 
@@ -486,7 +521,7 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
 
                     try
                     {
-                        ModelVAORenderer.render(shader, vao, context.stack, mainTint3D.r, mainTint3D.g, mainTint3D.b, mainTint3D.a, light, context.overlay);
+                        ModelVAORenderer.render(shader, vao, context.stack, vaoTint.r, vaoTint.g, vaoTint.b, vaoTint.a, light, context.overlay);
                     }
                     finally
                     {
@@ -515,44 +550,41 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
                     {
                         this.renderLayerGroup(this.data.getTranslucentBlocks(), context, context.stack, light, context.overlay, mainRecolor, false);
                     }
-
-                    if (positiveGlow)
-                    {
-                        EffectTransform glowTransform = FormColorEffects.resolveGlowEffectTransform(glowSettings, legacyGlow);
-                        boolean hasGlowTransform = glowTransform != null && glowTransform.isActive();
-
-                        if (hasGlowTransform && irisWorldPaintDeferral)
-                        {
-                            this.overlayRenderer.submitDeferredStructureGlowOverlay(this.data, context, glowSettings, legacyGlow, glowIntensity, mainTint3D.a, context.overlay, false, shaders, glowTransform, null, (s) -> this.renderStructureCulledWorld(context, s, FormUtilsClient.getProvider(), light, context.overlay, shaders, null, true, false));
-                        }
-                        else
-                        {
-                            this.overlayRenderer.renderStructureGlowOverlay(this.data, context, context.stack, glowSettings, legacyGlow, glowIntensity, mainTint3D.a, context.overlay, false, shaders, null, (s) -> this.renderStructureCulledWorld(context, s, FormUtilsClient.getProvider(), light, context.overlay, shaders, null, true, false));
-                        }
-                    }
                 }
 
-                if (positivePaint)
+                if (!softPostDeferred && !noshadingDefer && positivePaint)
                 {
                     EffectTransform paintTransform = paintSettings.transform;
-                    this.overlayRenderer.submitDeferredStructurePaintOverlay(this.data, vao, context, resolvedPaint, mainTint3D.a, context.overlay, true, shaders, paintTransform, glowSettings, legacyGlow, glowIntensity, layer -> this.renderPaintLayer(layer, context, context.stack, context.overlay, null), null);
+                    this.overlayRenderer.submitDeferredStructurePaintOverlay(this.data, vao, context, resolvedPaint, mainTint3D.a, context.overlay, true, shaders, paintTransform, glowSettings, legacyGlow, glowIntensity, layer -> this.renderPaintLayer(layer, context, context.stack, context.overlay, null), (s) -> this.renderStructureCulledWorld(context, s, FormUtilsClient.getProvider(), light, context.overlay, shaders, null, true, false));
                 }
 
-                if (applyColorTint)
+                if (!softPostDeferred && !noshadingDefer && applyColorTint)
                 {
                     if (irisWorldPaintDeferral)
                     {
-                        this.overlayRenderer.submitDeferredStructureColorTintOverlay(this.data, this.form, context, formColor3D, mainTint3D.a, context.overlay, true, shaders, layer -> this.renderPaintLayer(layer, context, context.stack, context.overlay, null), null);
+                        this.overlayRenderer.submitDeferredStructureColorTintOverlay(this.data, this.form, context, formColor3D, mainTint3D.a, context.overlay, true, shaders, layer -> this.renderPaintLayer(layer, context, context.stack, context.overlay, null), (s) -> this.renderStructureCulledWorld(context, s, FormUtilsClient.getProvider(), light, context.overlay, shaders, null, true, false));
                     }
                     else
                     {
-                        this.overlayRenderer.renderStructureColorTintOverlay(this.data, this.form, context, context.stack, formColor3D, mainTint3D.a, context.overlay, true, shaders, false, layer -> this.renderPaintLayer(layer, context, context.stack, context.overlay, null), null);
+                        this.overlayRenderer.renderStructureColorTintOverlay(this.data, this.form, context, context.stack, formColor3D, mainTint3D.a, context.overlay, true, shaders, false, layer -> this.renderPaintLayer(layer, context, context.stack, context.overlay, null), (s) -> this.renderStructureCulledWorld(context, s, FormUtilsClient.getProvider(), light, context.overlay, shaders, null, true, false));
                     }
                 }
 
-                if (irisWorldPaintDeferral && this.data.hasBlockEntityLayer() && this.needsDeferredBlockEntityTint(positivePaint, applyColorTint, storedFormColor3D))
+                if (!softPostDeferred && !noshadingDefer && irisWorldPaintDeferral && this.data.hasBlockEntityLayer() && this.needsDeferredBlockEntityTint(positivePaint, applyColorTint, storedFormColor3D))
                 {
                     this.submitDeferredStructureBlockEntityTint(context, context.overlay);
+                }
+
+                if (!softPostDeferred && !noshadingDefer && positiveGlow)
+                {
+                    if (irisWorldPaintDeferral)
+                    {
+                        this.overlayRenderer.submitDeferredStructureGlowOverlay(this.data, context, glowSettings, legacyGlow, glowIntensity, mainTint3D.a, context.overlay, false, shaders, hasGlowTransform ? glowTransform : null, null, (s) -> this.renderStructureCulledWorld(context, s, FormUtilsClient.getProvider(), light, context.overlay, shaders, null, true, false));
+                    }
+                    else
+                    {
+                        this.overlayRenderer.renderStructureGlowOverlay(this.data, context, context.stack, glowSettings, legacyGlow, glowIntensity, mainTint3D.a, context.overlay, false, shaders, null, (s) -> this.renderStructureCulledWorld(context, s, FormUtilsClient.getProvider(), light, context.overlay, shaders, null, true, false));
+                    }
                 }
             }
 
@@ -1092,58 +1124,58 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
     private void renderSingleBlockEntity(BlockEntry entry, RenderInfo info, FormRenderingContext context, MatrixStack stack, int overlay)
     {
         Block block = entry.state.getBlock();
-                int dx = (int) Math.floor(entry.pos.getX() - info.pivotX);
-                int dy = (int) Math.floor(entry.pos.getY() - info.pivotY);
-                int dz = (int) Math.floor(entry.pos.getZ() - info.pivotZ);
-                BlockPos worldPos = info.anchor.add(dx, dy, dz);
-                BlockEntity be = ((BlockEntityProvider) block).createBlockEntity(worldPos, entry.state);
+        int dx = (int) Math.floor(entry.pos.getX() - info.pivotX);
+        int dy = (int) Math.floor(entry.pos.getY() - info.pivotY);
+        int dz = (int) Math.floor(entry.pos.getZ() - info.pivotZ);
+        BlockPos worldPos = info.anchor.add(dx, dy, dz);
+        BlockEntity be = ((BlockEntityProvider) block).createBlockEntity(worldPos, entry.state);
 
-                if (be != null)
-                {
-                    if (entry.nbt != null)
-                    {
-                        be.readNbt(entry.nbt, MinecraftClient.getInstance().world.getRegistryManager());
-                    }
+        if (be != null)
+        {
+            if (entry.nbt != null)
+            {
+                be.readNbt(entry.nbt, MinecraftClient.getInstance().world.getRegistryManager());
+            }
 
-                    if (MinecraftClient.getInstance().world != null)
-                    {
-                        be.setWorld(MinecraftClient.getInstance().world);
-                    }
+            if (MinecraftClient.getInstance().world != null)
+            {
+                be.setWorld(MinecraftClient.getInstance().world);
+            }
 
-                    BlockEntityRenderDispatcher beDispatcher = MinecraftClient.getInstance().getBlockEntityRenderDispatcher();
-                    BlockEntityRenderer<?> renderer = beDispatcher.get(be);
+            BlockEntityRenderDispatcher beDispatcher = MinecraftClient.getInstance().getBlockEntityRenderDispatcher();
+            BlockEntityRenderer<?> renderer = beDispatcher.get(be);
 
-                    int skyLight = info.view.getLightLevel(LightType.SKY, entry.pos);
-                    int blockLight = info.view.getLightLevel(LightType.BLOCK, entry.pos);
-                    int beLight = LightmapTextureManager.pack(blockLight, skyLight);
+            int skyLight = info.view.getLightLevel(LightType.SKY, entry.pos);
+            int blockLight = info.view.getLightLevel(LightType.BLOCK, entry.pos);
+            int beLight = LightmapTextureManager.pack(blockLight, skyLight);
 
-                    if (renderer != null)
-                    {
-                        @SuppressWarnings({"rawtypes", "unchecked"})
-                        BlockEntityRenderer raw = (BlockEntityRenderer) renderer;
+            if (renderer != null)
+            {
+                @SuppressWarnings({"rawtypes", "unchecked"})
+                BlockEntityRenderer raw = (BlockEntityRenderer) renderer;
                 CustomVertexConsumerProvider beProvider = FormUtilsClient.getProvider();
 
-                        Color beTint = this.resolveStructureBlockEntityColor();
-                        boolean beShadowPass = context.isShadowPass || BBSRendering.isIrisShadowPass();
+                Color beTint = this.resolveStructureBlockEntityColor();
+                boolean beShadowPass = context.isShadowPass || BBSRendering.isIrisShadowPass();
 
-                        this.applyBlockEntityOnlyShaderShadow(beTint, beShadowPass);
-                        beProvider.setSubstitute(BBSRendering.getColorConsumer(beTint));
+                this.applyBlockEntityOnlyShaderShadow(beTint, beShadowPass);
+                beProvider.setSubstitute(BBSRendering.getColorConsumer(beTint));
 
-                        try
-                        {
-                            RenderSystem.setShaderColor(beTint.r, beTint.g, beTint.b, beTint.a);
-                            raw.render(be, 0F, stack, beProvider, beLight, overlay);
-                        }
-                        finally
-                        {
-                            RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
-                            beProvider.draw();
-                            beProvider.setSubstitute(null);
-                            CustomVertexConsumerProvider.clearRunnables();
-                        }
-                    }
+                try
+                {
+                    RenderSystem.setShaderColor(beTint.r, beTint.g, beTint.b, beTint.a);
+                    raw.render(be, 0F, stack, beProvider, beLight, overlay);
+                }
+                finally
+                {
+                    RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
+                    beProvider.draw();
+                    beProvider.setSubstitute(null);
+                    CustomVertexConsumerProvider.clearRunnables();
                 }
             }
+        }
+    }
 
     private void renderLayerGroup(List<BlockEntry> group, FormRenderingContext context, MatrixStack stack, int light, int overlay, Function<VertexConsumer, VertexConsumer> recolor, boolean forceDrawLeaves)
     {
@@ -1198,19 +1230,19 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
 
                 fluidVc = new TransformingVertexConsumer(fluidVc, stack.peek(), entry.pos, shadersEnabled);
                 MinecraftClient.getInstance().getBlockRenderManager().renderFluid(entry.pos, info.view, fluidVc, entry.state, entry.state.getFluidState());
-                }
-
-                if (entry.state.getRenderType() != BlockRenderType.INVISIBLE)
-                {
-                    MinecraftClient.getInstance().getBlockRenderManager().renderBlock(entry.state, entry.pos, info.view, stack, vc, true, Random.create());
-                }
-
-                stack.pop();
             }
+
+            if (entry.state.getRenderType() != BlockRenderType.INVISIBLE)
+            {
+                MinecraftClient.getInstance().getBlockRenderManager().renderBlock(entry.state, entry.pos, info.view, stack, vc, true, Random.create());
+            }
+
+            stack.pop();
+        }
 
         immediateConsumers.draw();
         RenderSystem.disableBlend();
-            RecolorVertexConsumer.newColor = null;
+        RecolorVertexConsumer.newColor = null;
     }
 
     private void renderPaintLayer(StructurePaintLayer layer, FormRenderingContext context, MatrixStack stack, int overlay, Function<VertexConsumer, VertexConsumer> recolor)

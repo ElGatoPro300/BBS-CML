@@ -262,6 +262,12 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
                 float glowIntensitySnapshot = glowIntensity;
                 GlowSettings glowSettingsSnapshot = glowSettings;
                 Color legacyGlowSnapshot = legacyGlow;
+                boolean positivePaintSnapshot = positivePaint && !blockEntityVisual;
+                PaintSettings paintSettingsSnapshot = paintSettings == null ? null : paintSettings.copy();
+                boolean colorTransformWantedSnapshot = colorTransformWanted && !blockEntityVisual;
+                Color storedFormColorSnapshot = storedFormColor == null ? null : storedFormColor.copy();
+                Color formColorSnapshot = formColor.copy();
+                boolean colorGradeWantedSnapshot = colorGradeWanted;
 
                 Runnable deferredDraw = () ->
                 {
@@ -299,6 +305,19 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
                     {
                         deferredConsumers.setSubstitute(null);
                         CustomVertexConsumerProvider.clearRunnables();
+                    }
+
+                    if (positivePaintSnapshot)
+                    {
+                        this.renderPaintOverlay(context, overlayStack, deferredConsumers, resolvedPaintSnapshot, colorSnapshot.a, overlaySnapshot, false, paintSettingsSnapshot.transform, glowSettingsSnapshot, legacyGlowSnapshot, glowIntensitySnapshot);
+                    }
+
+                    if (colorTransformWantedSnapshot)
+                    {
+                        Color overlayTint = colorGradeWantedSnapshot ? storedFormColorSnapshot.copyDeferringColorGrade() : formColorSnapshot;
+
+                        this.form.applyFormOpacity(overlayTint);
+                        this.renderBlockColorTintOverlay(context, overlayStack, overlayTint, colorSnapshot.a, overlaySnapshot, false, storedFormColorSnapshot);
                     }
 
                     if (positiveGlowSnapshot)
@@ -351,12 +370,12 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
                 CustomVertexConsumerProvider.clearRunnables();
             }
 
-            if (positivePaint && !blockEntityVisual)
+            if (!softPostDeferred && !noshadingDefer && positivePaint && !blockEntityVisual)
             {
                 this.submitDeferredBlockPaintOverlay(context, context.stack, resolvedPaint, color.a, context.overlay, paintSettings.transform, glowSettings, legacyGlow, glowIntensity, false);
             }
 
-            if (colorTransformWanted && !shadowPass && !context.isPicking() && !blockEntityVisual)
+            if (!softPostDeferred && !noshadingDefer && colorTransformWanted && !shadowPass && !context.isPicking() && !blockEntityVisual)
             {
                 Color overlayTint = colorGradeWanted ? storedFormColor.copyDeferringColorGrade() : formColor;
 
