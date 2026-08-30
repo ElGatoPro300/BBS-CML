@@ -292,6 +292,17 @@ public class ExtrudedFormRenderer extends FormRenderer<ExtrudedForm>
                 ModelVAORenderer.setPaintEffectTransform(formRootInverse, paint.transform, paintMaskHalf, false);
             }
 
+            EffectTransform glowTransform = FormColorEffects.resolveGlowEffectTransform(glow, legacyGlow);
+            Vector3f glowMaskHalf = new Vector3f();
+            EffectTransformMath.resolveBillboardMaskHalfExtents(glowTransform, glowMaskHalf);
+            EffectTransform glowTransformSnapshot = glowTransform == null ? null : glowTransform.copy();
+            Vector3f glowMaskHalfSnapshot = new Vector3f(glowMaskHalf);
+
+            if (hasGlow && bbsModelShader)
+            {
+                ModelVAORenderer.setGlowEffectTransform(formRootInverse, glowTransform, glowMaskHalf, false);
+            }
+
             /* Only upload grade on the live path — deferred callback re-sets its own snapshot. */
             if (uploadGrade && !deferTranslucentModel)
             {
@@ -374,6 +385,7 @@ public class ExtrudedFormRenderer extends FormRenderer<ExtrudedForm>
 
                         if (hasGlow)
                         {
+                            ModelVAORenderer.setGlowEffectTransform(new Matrix4f().identity(), glowTransformSnapshot, glowMaskHalfSnapshot, false);
                             ModelVAORenderer.setGlow(glow, resolvedGlow.r, resolvedGlow.g, resolvedGlow.b, legacyGlow);
                         }
                         else
@@ -452,6 +464,8 @@ public class ExtrudedFormRenderer extends FormRenderer<ExtrudedForm>
                 int overlayOverlay = overlay;
                 EffectTransform paintTransformQueued = paintTransformSnapshot;
                 Vector3f paintMaskHalfQueued = paintMaskHalfSnapshot;
+                EffectTransform glowTransformQueued = glowTransformSnapshot;
+                Vector3f glowMaskHalfQueued = glowMaskHalfSnapshot;
                 boolean depthWrite = ShaderOpacityPatch.shouldWriteDepthForOpacity(opacityAlpha);
                 boolean afterFluids = ShaderOpacityPatch.shouldFlushAfterFluids(opacityAlpha);
                 boolean uploadGradeSnapshot = uploadGrade;
@@ -541,6 +555,7 @@ public class ExtrudedFormRenderer extends FormRenderer<ExtrudedForm>
                         {
                             if (hasGlowSnapshot)
                             {
+                                ModelVAORenderer.setGlowEffectTransform(new Matrix4f().identity(), glowTransformQueued, glowMaskHalfQueued, false);
                                 ModelVAORenderer.setGlow(glowSnapshot, resolvedGlowSnapshot.r, resolvedGlowSnapshot.g, resolvedGlowSnapshot.b, legacyGlowSnapshot);
                             }
                             else
@@ -564,6 +579,7 @@ public class ExtrudedFormRenderer extends FormRenderer<ExtrudedForm>
                                 if (hasGlowSnapshot && !paintOnlyGlowSnapshot)
                                 {
                                     ModelVAORenderer.setPaint(0F, 0F, 0F, 0F);
+                                    ModelVAORenderer.setGlowEffectTransform(new Matrix4f().identity(), glowTransformQueued, glowMaskHalfQueued, false);
                                     ModelVAORenderer.setGlow(glowSnapshot, resolvedGlowSnapshot.r, resolvedGlowSnapshot.g, resolvedGlowSnapshot.b, legacyGlowSnapshot);
                                     RenderSystem.enableBlend();
                                     RenderSystem.depthMask(false);
@@ -588,6 +604,7 @@ public class ExtrudedFormRenderer extends FormRenderer<ExtrudedForm>
                         else if (shaderOverlaySnapshot)
                         {
                             ModelVAORenderer.setPaint(0F, 0F, 0F, 0F);
+                            ModelVAORenderer.setGlowEffectTransform(new Matrix4f().identity(), glowTransformQueued, glowMaskHalfQueued, false);
                             ModelVAORenderer.setGlow(glowSnapshot, resolvedGlowSnapshot.r, resolvedGlowSnapshot.g, resolvedGlowSnapshot.b, legacyGlowSnapshot);
                             RenderSystem.enableBlend();
                             RenderSystem.blendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE);
@@ -726,6 +743,7 @@ public class ExtrudedFormRenderer extends FormRenderer<ExtrudedForm>
 
                         if (hasGlow)
                         {
+                            ModelVAORenderer.setGlowEffectTransform(new Matrix4f().identity(), glowTransformSnapshot, glowMaskHalfSnapshot, false);
                             ModelVAORenderer.setGlow(glow, resolvedGlow.r, resolvedGlow.g, resolvedGlow.b, legacyGlow);
                         }
                         else
@@ -754,6 +772,7 @@ public class ExtrudedFormRenderer extends FormRenderer<ExtrudedForm>
                                 ModelVAORenderer.runWithPaintOverlayPass(false, () ->
                                 {
                                     ModelVAORenderer.setPaint(0F, 0F, 0F, 0F);
+                                    ModelVAORenderer.setGlowEffectTransform(new Matrix4f().identity(), glowTransformSnapshot, glowMaskHalfSnapshot, false);
                                     ModelVAORenderer.setGlow(glow, resolvedGlow.r, resolvedGlow.g, resolvedGlow.b, legacyGlow);
 
                                     RenderSystem.enableBlend();
@@ -803,6 +822,7 @@ public class ExtrudedFormRenderer extends FormRenderer<ExtrudedForm>
                             ModelVAORenderer.runWithPaintOverlayPass(false, () ->
                             {
                                 ModelVAORenderer.setPaint(0F, 0F, 0F, 0F);
+                                ModelVAORenderer.setGlowEffectTransform(new Matrix4f().identity(), glowTransformSnapshot, glowMaskHalfSnapshot, false);
                                 ModelVAORenderer.setGlow(glow, resolvedGlow.r, resolvedGlow.g, resolvedGlow.b, legacyGlow);
 
                                 RenderSystem.enableBlend();

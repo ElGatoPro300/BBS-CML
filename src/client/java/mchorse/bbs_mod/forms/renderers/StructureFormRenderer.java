@@ -250,7 +250,7 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
 
                 if (positiveGlow)
                 {
-                this.overlayRenderer.renderStructureGlowOverlay(this.data, passContext, matrices, glowSettings, legacyGlow, glowIntensity, tint.a, OverlayTexture.DEFAULT_UV, true, BBSRendering.isIrisShadersEnabled(), layer -> this.renderPaintLayer(layer, passContext, matrices, OverlayTexture.DEFAULT_UV, null), null);
+                    this.overlayRenderer.renderStructureGlowOverlay(this.data, passContext, matrices, glowSettings, legacyGlow, glowIntensity, tint.a, OverlayTexture.DEFAULT_UV, false, BBSRendering.isIrisShadersEnabled(), null, (s) -> this.renderStructureCulledWorld(passContext, s, FormUtilsClient.getProvider(), LightmapTextureManager.MAX_BLOCK_LIGHT_COORDINATE, OverlayTexture.DEFAULT_UV, BBSRendering.isIrisShadersEnabled(), null, true, false));
                 }
 
                 if (colorTransformWanted)
@@ -433,7 +433,7 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
                             {
                                 ShaderOpacityPatch.setFlushingDepthWrite(false);
                                 RenderSystem.depthMask(false);
-                                this.overlayRenderer.renderStructureGlowOverlay(this.data, context, overlayStack, glowSettingsSnapshot, legacyGlowSnapshot, glowIntensitySnapshot, mainTintSnapshot.a, overlaySnapshot, true, shadersSnapshot, layer -> this.renderPaintLayer(layer, context, overlayStack, overlaySnapshot, null), null);
+                                this.overlayRenderer.renderStructureGlowOverlay(this.data, context, overlayStack, glowSettingsSnapshot, legacyGlowSnapshot, glowIntensitySnapshot, mainTintSnapshot.a, overlaySnapshot, false, shadersSnapshot, null, (s) -> this.renderStructureCulledWorld(context, s, FormUtilsClient.getProvider(), lightSnapshot, overlaySnapshot, shadersSnapshot, null, true, false));
                             }
 
                             ShaderOpacityPatch.setFlushingDepthWrite(depthWrite);
@@ -518,7 +518,17 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
 
                     if (positiveGlow)
                     {
-                        this.overlayRenderer.renderStructureGlowOverlay(this.data, context, context.stack, glowSettings, legacyGlow, glowIntensity, mainTint3D.a, context.overlay, true, shaders, layer -> this.renderPaintLayer(layer, context, context.stack, context.overlay, null), null);
+                        EffectTransform glowTransform = FormColorEffects.resolveGlowEffectTransform(glowSettings, legacyGlow);
+                        boolean hasGlowTransform = glowTransform != null && glowTransform.isActive();
+
+                        if (hasGlowTransform && irisWorldPaintDeferral)
+                        {
+                            this.overlayRenderer.submitDeferredStructureGlowOverlay(this.data, context, glowSettings, legacyGlow, glowIntensity, mainTint3D.a, context.overlay, false, shaders, glowTransform, null, (s) -> this.renderStructureCulledWorld(context, s, FormUtilsClient.getProvider(), light, context.overlay, shaders, null, true, false));
+                        }
+                        else
+                        {
+                            this.overlayRenderer.renderStructureGlowOverlay(this.data, context, context.stack, glowSettings, legacyGlow, glowIntensity, mainTint3D.a, context.overlay, false, shaders, null, (s) -> this.renderStructureCulledWorld(context, s, FormUtilsClient.getProvider(), light, context.overlay, shaders, null, true, false));
+                        }
                     }
                 }
 

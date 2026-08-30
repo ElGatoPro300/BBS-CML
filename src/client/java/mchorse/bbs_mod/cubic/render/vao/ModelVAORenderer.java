@@ -1298,6 +1298,7 @@ public class ModelVAORenderer
         glowB = 0F;
         glowStrength = 0F;
         glowPaintOnly = false;
+        clearGlowEffectTransform();
     }
 
     public static boolean isGlowPaintOnly()

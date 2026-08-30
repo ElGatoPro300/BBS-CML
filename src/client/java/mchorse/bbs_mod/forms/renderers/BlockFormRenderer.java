@@ -138,7 +138,10 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
 
         if (glowIntensity > 0F && !glowSettings.resolvePaintOnly() && !blockEntityVisual)
         {
-            this.renderGlowOverlay(null, matrices, consumers, glowSettings, legacyGlow, glowIntensity, set.a, OverlayTexture.DEFAULT_UV, true);
+            EffectTransform glowTransform = FormColorEffects.resolveGlowEffectTransform(glowSettings, legacyGlow);
+            boolean hasGlowTransform = glowTransform != null && glowTransform.isActive();
+
+            this.renderGlowOverlayMasked(null, matrices, consumers, glowSettings, legacyGlow, glowIntensity, set.a, OverlayTexture.DEFAULT_UV, true, hasGlowTransform ? glowTransform : null);
         }
 
         consumers.setUI(false);
@@ -300,7 +303,17 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
 
                     if (positiveGlowSnapshot)
                     {
-                        this.renderGlowOverlay(context, overlayStack, deferredConsumers, glowSettingsSnapshot, legacyGlowSnapshot, glowIntensitySnapshot, colorSnapshot.a, overlaySnapshot, false);
+                        EffectTransform glowTransform = FormColorEffects.resolveGlowEffectTransform(glowSettingsSnapshot, legacyGlowSnapshot);
+                        boolean hasGlowTransform = glowTransform != null && glowTransform.isActive();
+
+                        if (hasGlowTransform)
+                        {
+                            this.renderGlowOverlayMasked(context, overlayStack, deferredConsumers, glowSettingsSnapshot, legacyGlowSnapshot, glowIntensitySnapshot, colorSnapshot.a, overlaySnapshot, false, glowTransform);
+                        }
+                        else
+                        {
+                            this.renderGlowOverlay(context, overlayStack, deferredConsumers, glowSettingsSnapshot, legacyGlowSnapshot, glowIntensitySnapshot, colorSnapshot.a, overlaySnapshot, false);
+                        }
                     }
 
                     /* Soft flush isolation — glow leaves additive blend / depthMask false. */
@@ -366,7 +379,17 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
 
             if (!softPostDeferred && !noshadingDefer && positiveGlow && !glowSettings.resolvePaintOnly() && !blockEntityVisual)
             {
-                this.renderGlowOverlay(context, context.stack, consumers, glowSettings, legacyGlow, glowIntensity, color.a, context.overlay, false);
+                EffectTransform glowTransform = FormColorEffects.resolveGlowEffectTransform(glowSettings, legacyGlow);
+                boolean hasGlowTransform = glowTransform != null && glowTransform.isActive();
+
+                if (BBSRendering.isIrisWorldPaintDeferral())
+                {
+                    this.submitDeferredBlockGlowOverlayMasked(context, context.stack, glowSettings, legacyGlow, glowIntensity, color.a, context.overlay, hasGlowTransform ? glowTransform : null);
+                }
+                else
+                {
+                    this.renderGlowOverlayMasked(context, context.stack, consumers, glowSettings, legacyGlow, glowIntensity, color.a, context.overlay, false, hasGlowTransform ? glowTransform : null);
+                }
             }
             else if (!softPostDeferred && !noshadingDefer)
             {
@@ -998,21 +1021,65 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
 
     private void renderGlowOverlay(FormRenderingContext context, MatrixStack stack, CustomVertexConsumerProvider consumers, GlowSettings glowSettings, Color legacyGlow, float glowIntensity, float alpha, int overlay, boolean ui)
     {
+        this.renderGlowOverlayMasked(context, stack, consumers, glowSettings, legacyGlow, glowIntensity, alpha, overlay, ui, null);
+    }
+
+    private void submitDeferredBlockGlowOverlayMasked(FormRenderingContext context, MatrixStack stack, GlowSettings glowSettings, Color legacyGlow, float glowIntensity, float alpha, int overlay, EffectTransform glowTransform)
+    {
+        Matrix4f exactMvm = new Matrix4f(RenderSystem.getModelViewMatrix());
+        Matrix4f exactStack = new Matrix4f(stack.peek().getPositionMatrix());
+        Matrix3f normalMatrix = new Matrix3f(stack.peek().getNormalMatrix());
+        GlowSettings glowSnapshot = glowSettings.copy();
+        Color legacyGlowSnapshot = legacyGlow == null ? null : legacyGlow.copy();
+        EffectTransform glowTransformSnapshot = glowTransform == null ? null : glowTransform.copy();
+
+        ModelVAORenderer.submitPaintOverlay(false, () ->
+        {
+            CustomVertexConsumerProvider overlayConsumers = FormUtilsClient.getProvider();
+            MatrixStack overlayStack = new MatrixStack();
+
+            overlayStack.peek().getPositionMatrix().set(exactStack);
+            overlayStack.peek().getNormalMatrix().set(normalMatrix);
+
+            RenderSystem.getModelViewStack().pushMatrix();
+            RenderSystem.getModelViewStack().set(exactMvm);
+            RenderSystem.applyModelViewMatrix();
+
+            try
+            {
+                this.renderGlowOverlayMasked(context, overlayStack, overlayConsumers, glowSnapshot, legacyGlowSnapshot, glowIntensity, alpha, overlay, false, glowTransformSnapshot);
+            }
+            finally
+            {
+                RenderSystem.getModelViewStack().popMatrix();
+                RenderSystem.applyModelViewMatrix();
+            }
+        });
+    }
+
+    private void renderGlowOverlayMasked(FormRenderingContext context, MatrixStack stack, CustomVertexConsumerProvider consumers, GlowSettings glowSettings, Color legacyGlow, float glowIntensity, float alpha, int overlay, boolean ui, EffectTransform glowTransform)
+    {
         Color glowColor = FormColorEffects.resolveGlowOverlayEmissionColor(glowSettings, legacyGlow, alpha, glowIntensity);
         float shaderScale = FormColorEffects.resolveGlowOverlayShaderScale(glowIntensity);
+
+        Matrix4f formRootInverse = new Matrix4f(stack.peek().getPositionMatrix()).invert();
+
+        CustomVertexConsumerProvider.clearRunnables();
+        CustomVertexConsumerProvider.hijackVertexFormat((l) ->
+        {
+            BlockEffectOverlayUniforms.configureGlowOverlayRenderState(formRootInverse, glowTransform, true, 0.5F, shaderScale);
+            GL11.glDisable(GL11.GL_POLYGON_OFFSET_FILL);
+        });
 
         RenderSystem.enableBlend();
         RenderSystem.blendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE);
         RenderSystem.depthMask(false);
-        RenderSystem.setShaderColor(shaderScale, shaderScale, shaderScale, 1F);
 
-        CustomVertexConsumerProvider.hijackVertexFormat((l) ->
-        {
-            RenderSystem.enableBlend();
-            RenderSystem.blendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE);
-        });
+        boolean wasOffset = GL11.glGetBoolean(GL11.GL_POLYGON_OFFSET_FILL);
+        if (wasOffset) GL11.glDisable(GL11.GL_POLYGON_OFFSET_FILL);
 
-        consumers.setSubstitute(BBSRendering.getGlowOverlayConsumer(glowColor));
+        consumers.setSubstitute(BBSRendering.getBlockPaintOverlayConsumer(glowColor));
+        consumers.setUI(ui);
 
         try
         {
@@ -1021,11 +1088,17 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
         }
         finally
         {
-            CustomVertexConsumerProvider.clearRunnables();
+            if (wasOffset) GL11.glEnable(GL11.GL_POLYGON_OFFSET_FILL);
+            else GL11.glDisable(GL11.GL_POLYGON_OFFSET_FILL);
+
+            GL11.glPolygonOffset(0F, 0F);
+
+            consumers.setUI(false);
             consumers.setSubstitute(null);
-            RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
             RenderSystem.depthMask(true);
+            RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
             RenderSystem.defaultBlendFunc();
+            CustomVertexConsumerProvider.clearRunnables();
         }
     }
 }

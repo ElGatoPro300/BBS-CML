@@ -23,10 +23,7 @@ public class ColorAttributeMixin
         if (GlowEmissionVertexConsumer.emissionColor != null)
         {
             Colors.COLOR.set(Colors.fromAbgr(color));
-            float vertexAlpha = Colors.COLOR.a;
-
-            Colors.COLOR.copy(GlowEmissionVertexConsumer.emissionColor);
-            Colors.COLOR.a *= vertexAlpha;
+            Colors.COLOR.mul(GlowEmissionVertexConsumer.emissionColor);
 
             return Colors.toAbgr(Colors.COLOR.getARGBColor());
         }
@@ -34,10 +31,7 @@ public class ColorAttributeMixin
         if (BlockPaintOverlayVertexConsumer.paintOverlayColor != null)
         {
             Colors.COLOR.set(Colors.fromAbgr(color));
-            float vertexAlpha = Colors.COLOR.a;
-
-            Colors.COLOR.copy(BlockPaintOverlayVertexConsumer.paintOverlayColor);
-            Colors.COLOR.a *= vertexAlpha;
+            Colors.COLOR.mul(BlockPaintOverlayVertexConsumer.paintOverlayColor);
 
             return Colors.toAbgr(Colors.COLOR.getARGBColor());
         }
