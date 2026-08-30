@@ -6692,9 +6692,10 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
                 this.controller.orbit.stop();
             }
 
-            /* Marking the latest undo as unmergeable */
+            /* Flush all keyframe edits accumulated during flight as a single undo step */
             if (this.undoHandler != null && !flight)
             {
+                this.undoHandler.submitUndo();
                 this.undoHandler.getUndoManager().markLastUndoNoMerging();
             }
             else
@@ -6844,7 +6845,7 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
         context.mouseX = savedMouseX;
         context.mouseY = savedMouseY;
 
-        if (this.undoHandler != null)
+        if (this.undoHandler != null && !this.isFlying())
         {
             this.undoHandler.submitUndo();
         }
