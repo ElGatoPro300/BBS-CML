@@ -23,6 +23,7 @@ import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.render.DiffuseLighting;
 import net.minecraft.client.render.LightmapTextureManager;
 import net.minecraft.client.render.OverlayTexture;
+import net.minecraft.client.render.RenderLayer;
 import net.minecraft.client.render.VertexConsumer;
 import net.minecraft.client.render.model.BakedModel;
 import net.minecraft.client.render.model.json.ModelTransformationMode;
@@ -177,10 +178,9 @@ public class ItemFormRenderer extends FormRenderer<ItemForm>
                 }
                 else
                 {
-                    CustomVertexConsumerProvider.hijackVertexFormat((l) ->
+                    CustomVertexConsumerProvider.hijackVertexFormat((layer) ->
                     {
-                        RenderSystem.enableBlend();
-                        RenderSystem.defaultBlendFunc();
+                        this.applyItemMainPassHijackLayer(layer, null);
                     });
                 }
             }
@@ -224,6 +224,11 @@ public class ItemFormRenderer extends FormRenderer<ItemForm>
             Color legacyGlow = this.form.glowingColor.get();
             float glowIntensity = glowSettings.resolveIntensity(legacyGlow);
             boolean positiveGlow = !context.isPicking() && !shadowPass && glowIntensity > 0F;
+            EffectTransform glowTransform = FormColorEffects.resolveGlowEffectTransform(glowSettings, legacyGlow);
+            boolean hasGlowTransform = glowTransform != null && glowTransform.isActive();
+            boolean hasEmissiveGlow = positiveGlow && !glowSettings.resolvePaintOnly();
+            boolean irisWorldPaintDeferral = BBSRendering.isIrisWorldPaintDeferral();
+            final EffectTransform deferredGlowTransform = hasGlowTransform ? glowTransform.copy() : null;
 
             if (glowIntensity < 0F)
             {
@@ -261,6 +266,31 @@ public class ItemFormRenderer extends FormRenderer<ItemForm>
                 && !shadowPass
                 && ShaderOpacityPatch.shouldDelayUntilPostDeferred(BlockFormRenderer.color.a)
                 && !noshadingDefer;
+            boolean glowBakedInMainPass = irisWorldPaintDeferral && hasEmissiveGlow && !hasGlowTransform && !softPostDeferred && !noshadingDefer;
+            final Color itemRecolorSource;
+
+            if (glowBakedInMainPass)
+            {
+                itemRecolorSource = new Color(1F, 1F, 1F, BlockFormRenderer.color.a);
+            }
+            else
+            {
+                itemRecolorSource = BlockFormRenderer.color;
+            }
+
+            final Function<VertexConsumer, VertexConsumer> itemMainRecolor = this.getMainConsumer(itemRecolorSource, resolvedPaint);
+            final Color itemShaderTint;
+
+            if (glowBakedInMainPass && BBSRendering.isIrisShadersEnabled() && BBSRendering.isRenderingWorld())
+            {
+                /* Match Block/Structure forms: emission via ColorModulator, neutral vertex recolor. */
+                itemShaderTint = new Color(1F, 1F, 1F, BlockFormRenderer.color.a);
+                FormColorEffects.blendFormGlowBrighten(itemShaderTint, glowSettings, legacyGlow);
+            }
+            else
+            {
+                itemShaderTint = null;
+            }
 
             if (softPostDeferred || noshadingDefer)
             {
@@ -343,12 +373,9 @@ public class ItemFormRenderer extends FormRenderer<ItemForm>
 
                     if (positiveGlowSnapshot)
                     {
-                        EffectTransform glowTransform = FormColorEffects.resolveGlowEffectTransform(glowSettingsSnapshot, legacyGlowSnapshot);
-                        boolean hasGlowTransform = glowTransform != null && glowTransform.isActive();
-
-                        if (hasGlowTransform)
+                        if (deferredGlowTransform != null)
                         {
-                            this.renderGlowOverlayMasked(context, overlayStack, deferredConsumers, glowSettingsSnapshot, legacyGlowSnapshot, glowIntensitySnapshot, colorSnapshot.a, overlaySnapshot, false, modeSnapshot, itemEntitySnapshot, leftHandSnapshot, glowTransform);
+                            this.renderGlowOverlayMasked(context, overlayStack, deferredConsumers, glowSettingsSnapshot, legacyGlowSnapshot, glowIntensitySnapshot, colorSnapshot.a, overlaySnapshot, false, modeSnapshot, itemEntitySnapshot, leftHandSnapshot, deferredGlowTransform);
                         }
                         else
                         {
@@ -379,16 +406,34 @@ public class ItemFormRenderer extends FormRenderer<ItemForm>
             }
             else
             {
-                consumers.setSubstitute(this.getMainConsumer(BlockFormRenderer.color, resolvedPaint));
-
-                this.renderItem(context, context.stack, consumers, light, context.overlay, mode, leftHand, itemEntity);
-
-                if (!deferFlush)
+                if (itemShaderTint != null)
                 {
-                    consumers.draw();
+                    CustomVertexConsumerProvider.hijackVertexFormat((layer) ->
+                    {
+                        this.applyItemMainPassHijackLayer(layer, itemShaderTint);
+                    });
                 }
 
-                consumers.setSubstitute(null);
+                consumers.setSubstitute(itemMainRecolor);
+
+                try
+                {
+                    this.renderItem(context, context.stack, consumers, light, context.overlay, mode, leftHand, itemEntity);
+
+                    if (!deferFlush)
+                    {
+                        consumers.draw();
+                    }
+                }
+                finally
+                {
+                    if (itemShaderTint != null)
+                    {
+                        RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
+                    }
+
+                    consumers.setSubstitute(null);
+                }
             }
 
             if (!softPostDeferred && !noshadingDefer && positivePaint)
@@ -414,23 +459,13 @@ public class ItemFormRenderer extends FormRenderer<ItemForm>
 
             if (!softPostDeferred && !noshadingDefer && positiveGlow && !glowSettings.resolvePaintOnly())
             {
-                EffectTransform glowTransform = FormColorEffects.resolveGlowEffectTransform(glowSettings, legacyGlow);
-                boolean hasGlowTransform = glowTransform != null && glowTransform.isActive();
-
-                if (hasGlowTransform)
+                if (irisWorldPaintDeferral)
                 {
-                    if (BBSRendering.isIrisWorldPaintDeferral())
-                    {
-                        this.submitDeferredItemGlowOverlayMasked(context, context.stack, glowSettings, legacyGlow, glowIntensity, BlockFormRenderer.color.a, context.overlay, false, mode, itemEntity, leftHand, glowTransform);
-                    }
-                    else
-                    {
-                        this.renderGlowOverlayMasked(context, context.stack, consumers, glowSettings, legacyGlow, glowIntensity, BlockFormRenderer.color.a, context.overlay, false, mode, itemEntity, leftHand, glowTransform);
-                    }
+                    this.submitDeferredItemGlowOverlayMasked(context, context.stack, glowSettings, legacyGlow, glowIntensity, BlockFormRenderer.color.a, context.overlay, false, mode, itemEntity, leftHand, deferredGlowTransform);
                 }
                 else
                 {
-                    this.renderGlowOverlay(context, context.stack, consumers, glowSettings, legacyGlow, glowIntensity, BlockFormRenderer.color.a, context.overlay, false, mode, itemEntity, leftHand);
+                    this.renderGlowOverlayMasked(context, context.stack, consumers, glowSettings, legacyGlow, glowIntensity, BlockFormRenderer.color.a, context.overlay, false, mode, itemEntity, leftHand, deferredGlowTransform);
                 }
             }
             else if (!deferFlush && !softPostDeferred && !noshadingDefer)
@@ -516,6 +551,17 @@ public class ItemFormRenderer extends FormRenderer<ItemForm>
         }
 
         return origin.x * origin.x + origin.y * origin.y + origin.z * origin.z;
+    }
+
+    private void applyItemMainPassHijackLayer(RenderLayer layer, Color shaderTint)
+    {
+        RenderSystem.enableBlend();
+        RenderSystem.defaultBlendFunc();
+
+        if (shaderTint != null)
+        {
+            RenderSystem.setShaderColor(shaderTint.r, shaderTint.g, shaderTint.b, shaderTint.a);
+        }
     }
 
     Function<VertexConsumer, VertexConsumer> getMainConsumer(Color color, Color resolvedPaint)
