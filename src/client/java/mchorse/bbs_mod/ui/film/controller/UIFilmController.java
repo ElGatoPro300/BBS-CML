@@ -101,7 +101,6 @@ import net.minecraft.world.World;
 
 import org.joml.Matrix3f;
 import org.joml.Matrix4f;
-import org.joml.Matrix4fStack;
 import org.joml.Vector2d;
 import org.joml.Vector2f;
 import org.joml.Vector2i;

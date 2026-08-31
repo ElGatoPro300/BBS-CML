@@ -1079,7 +1079,8 @@ public class Gizmo
         /* Iris leaves a stale terrain ModelView; verts already include the full transform.
          * On 1.20.4 film picks the stack is already view-baked (panel.lastView) and
          * cacheMatrices() left ModelView identity — do not multiply BBSRendering.camera
-         * again (that matrix is often a different frustum camera and hides/mis-picks handles). */
+         * again. Preview editors / model-block stencil already carry orbit view in the stack;
+         * only Iris needs a clean ModelView here. */
         if (BBSRendering.isIrisShadersEnabled())
         {
             MatrixStackUtils.pushIdentityModelView();
