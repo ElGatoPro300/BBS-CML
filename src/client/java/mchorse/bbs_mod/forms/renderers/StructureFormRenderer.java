@@ -140,7 +140,7 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
 
         Vector3f light0 = new Vector3f(0.85F, 0.85F, -1F).normalize();
         Vector3f light1 = new Vector3f(-0.85F, 0.85F, 1F).normalize();
-        RenderSystem.setupLevelDiffuseLighting(light0, light1);
+        RenderSystem.setupLevelDiffuseLighting(light0, light1, RenderSystem.getModelViewMatrix());
 
         this.checkLightState();
 
@@ -370,34 +370,33 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
                 else
                 {
                     if (softPostDeferred || noshadingDefer)
-                {
-                    boolean irisCamera = BBSRendering.isIrisWorldModelPass() && !noshadingDefer;
-                    Matrix4f positionMatrix = irisCamera
-                        ? new Matrix4f(context.stack.peek().getPositionMatrix())
-                        : ModelVAORenderer.capturePaintOverlayRootMatrix(new Matrix4f(context.stack.peek().getPositionMatrix()));
-                    Matrix3f normalMatrix = new Matrix3f(context.stack.peek().getNormalMatrix());
-                    Color mainTintSnapshot = mainTint3D.copy();
-                    Color vaoTintSnapshot = vaoTint.copy();
-                    Color formColor3DSnapshot = formColor3D.copy();
-                    Color resolvedPaintSnapshot = resolvedPaint == null ? null : resolvedPaint.copy();
-                    PaintSettings paintSettingsSnapshot = paintSettings == null ? null : paintSettings.copy();
-                    int lightSnapshot = light;
-                    int overlaySnapshot = context.overlay;
-                    boolean depthWrite = ShaderOpacityPatch.shouldWriteDepthForOpacity(mainTint3D.a);
-                    boolean afterFluids = ShaderOpacityPatch.shouldFlushAfterFluids(mainTint3D.a);
-                    double formSortKey = this.computeStructureFormSortKey(context.stack.peek().getPositionMatrix(), context);
-                    boolean positiveGlowSnapshot = positiveGlow && !glowSettings.resolvePaintOnly();
-                    float glowIntensitySnapshot = glowIntensity;
-                    GlowSettings glowSettingsSnapshot = glowSettings;
-                    Color legacyGlowSnapshot = legacyGlow;
-                    boolean positivePaintSnapshot = positivePaint;
-                    boolean applyColorTintSnapshot = applyColorTint;
-                    boolean beTintSnapshot = !irisWorldPaintDeferral;
-                    IModelVAO vaoSnapshot = vao;
-                    boolean shadersSnapshot = shaders;
-                    Function<VertexConsumer, VertexConsumer> mainRecolorSnapshot = this.getMainConsumer(mainTintSnapshot, resolvedPaintSnapshot);
+                    {
+                        boolean irisCamera = BBSRendering.isIrisWorldModelPass() && !noshadingDefer;
+                        Matrix4f positionMatrix = irisCamera
+                            ? new Matrix4f(context.stack.peek().getPositionMatrix())
+                            : ModelVAORenderer.capturePaintOverlayRootMatrix(new Matrix4f(context.stack.peek().getPositionMatrix()));
+                        Matrix3f normalMatrix = new Matrix3f(context.stack.peek().getNormalMatrix());
+                        Color mainTintSnapshot = mainTint3D.copy();
+                        Color formColor3DSnapshot = formColor3D.copy();
+                        Color resolvedPaintSnapshot = resolvedPaint == null ? null : resolvedPaint.copy();
+                        PaintSettings paintSettingsSnapshot = paintSettings == null ? null : paintSettings.copy();
+                        int lightSnapshot = light;
+                        int overlaySnapshot = context.overlay;
+                        boolean depthWrite = ShaderOpacityPatch.shouldWriteDepthForOpacity(mainTint3D.a);
+                        boolean afterFluids = ShaderOpacityPatch.shouldFlushAfterFluids(mainTint3D.a);
+                        double formSortKey = this.computeStructureFormSortKey(context.stack.peek().getPositionMatrix(), context);
+                        boolean positiveGlowSnapshot = positiveGlow && !glowSettings.resolvePaintOnly();
+                        float glowIntensitySnapshot = glowIntensity;
+                        GlowSettings glowSettingsSnapshot = glowSettings;
+                        Color legacyGlowSnapshot = legacyGlow;
+                        boolean positivePaintSnapshot = positivePaint;
+                        boolean applyColorTintSnapshot = applyColorTint;
+                        boolean beTintSnapshot = !irisWorldPaintDeferral;
+                        IModelVAO vaoSnapshot = vao;
+                        boolean shadersSnapshot = shaders;
+                        Function<VertexConsumer, VertexConsumer> mainRecolorSnapshot = this.getMainConsumer(mainTintSnapshot, resolvedPaintSnapshot);
 
-                    Runnable deferredDraw = () ->
+                        Runnable deferredDraw = () ->
                     {
                         MatrixStack overlayStack = new MatrixStack();
                         GameRenderer deferredGameRenderer = MinecraftClient.getInstance().gameRenderer;
@@ -488,19 +487,19 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
                         }
                     };
 
-                    if (noshadingDefer)
-                    {
-                        ModelVAORenderer.submitDeferredTranslucentModel(deferredDraw, depthWrite);
+                        if (noshadingDefer)
+                        {
+                            ModelVAORenderer.submitDeferredTranslucentModel(deferredDraw, depthWrite);
+                        }
+                        else if (irisCamera)
+                        {
+                            ShaderOpacityPatch.submitPostDeferredForm(0D, formSortKey, depthWrite, afterFluids, deferredDraw);
+                        }
+                        else
+                        {
+                            ShaderOpacityPatch.submitPostDeferredBbsForm(0D, formSortKey, depthWrite, afterFluids, deferredDraw);
+                        }
                     }
-                    else if (irisCamera)
-                    {
-                        ShaderOpacityPatch.submitPostDeferredForm(0D, formSortKey, depthWrite, afterFluids, deferredDraw);
-                    }
-                    else
-                    {
-                        ShaderOpacityPatch.submitPostDeferredBbsForm(0D, formSortKey, depthWrite, afterFluids, deferredDraw);
-                    }
-                }
                 else
                 {
                     ShaderProgram shader = (BBSRendering.isIrisShadersEnabled() && BBSRendering.isRenderingWorld())
@@ -1138,7 +1137,7 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
         {
             if (entry.nbt != null)
             {
-                be.readNbt(entry.nbt, MinecraftClient.getInstance().world.getRegistryManager());
+                be.readNbt(entry.nbt);
             }
 
             if (MinecraftClient.getInstance().world != null)
@@ -1396,7 +1395,7 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
             {
                 if (entry.nbt != null)
                 {
-                    be.readNbt(entry.nbt, MinecraftClient.getInstance().world.getRegistryManager());
+                    be.readNbt(entry.nbt);
                 }
 
                 if (MinecraftClient.getInstance().world != null)
@@ -1523,15 +1522,15 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
         }
 
         @Override
-        public VertexConsumer vertex(float x, float y, float z)
+        public VertexConsumer vertex(double x, double y, double z)
         {
-            float nx = x - this.offset.getX();
-            float ny = y - this.offset.getY();
-            float nz = z - this.offset.getZ();
+            double nx = x - this.offset.getX();
+            double ny = y - this.offset.getY();
+            double nz = z - this.offset.getZ();
 
-            float tx = this.positionMatrix.m00() * nx + this.positionMatrix.m10() * ny + this.positionMatrix.m20() * nz + this.positionMatrix.m30();
-            float ty = this.positionMatrix.m01() * nx + this.positionMatrix.m11() * ny + this.positionMatrix.m21() * nz + this.positionMatrix.m31();
-            float tz = this.positionMatrix.m02() * nx + this.positionMatrix.m12() * ny + this.positionMatrix.m22() * nz + this.positionMatrix.m32();
+            double tx = this.positionMatrix.m00() * nx + this.positionMatrix.m10() * ny + this.positionMatrix.m20() * nz + this.positionMatrix.m30();
+            double ty = this.positionMatrix.m01() * nx + this.positionMatrix.m11() * ny + this.positionMatrix.m21() * nz + this.positionMatrix.m31();
+            double tz = this.positionMatrix.m02() * nx + this.positionMatrix.m12() * ny + this.positionMatrix.m22() * nz + this.positionMatrix.m32();
 
             this.parent.vertex(tx, ty, tz);
             return this;
@@ -1578,6 +1577,24 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
 
             this.parent.normal(tx, ty, tz);
             return this;
+        }
+
+        @Override
+        public void next()
+        {
+            this.parent.next();
+        }
+
+        @Override
+        public void fixedColor(int red, int green, int blue, int alpha)
+        {
+            this.parent.fixedColor(red, green, blue, alpha);
+        }
+
+        @Override
+        public void unfixColor()
+        {
+            this.parent.unfixColor();
         }
     }
 }

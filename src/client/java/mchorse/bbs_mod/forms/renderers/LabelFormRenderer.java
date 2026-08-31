@@ -549,7 +549,8 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
                 BlockEffectOverlayUniforms.configureFlatGlowOverlay(formRootInverse, glowTransform, false, this.maskHalfExtents, shaderScale);
                 GlStateManager._bindTexture(this.lastBoundTextTexture);
 
-                BufferBuilder builder = Tessellator.getInstance().begin(VertexFormat.DrawMode.TRIANGLES, VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL);
+                BufferBuilder builder = Tessellator.getInstance().getBuffer();
+                builder.begin(VertexFormat.DrawMode.TRIANGLES, VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL);
 
                 for (LabelTextTintQuadCapture.GlyphQuad quad : layerEntry.getValue())
                 {

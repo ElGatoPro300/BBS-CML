@@ -1365,7 +1365,8 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
 
         FlatGlowOverlayPass.renderMasked(polygonOffsetFactor, polygonOffsetUnits, formRootInverse, glowTransform, false, MASK_HALF, shaderScale, () ->
         {
-            BufferBuilder glowBuilder = Tessellator.getInstance().begin(VertexFormat.DrawMode.TRIANGLES, VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL);
+            BufferBuilder glowBuilder = Tessellator.getInstance().getBuffer();
+            glowBuilder.begin(VertexFormat.DrawMode.TRIANGLES, VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL);
             int glowLight = LightmapTextureManager.MAX_LIGHT_COORDINATE;
             float glowZ = this.resolveOverlayFaceZ(glowMatrix);
             float glowNz = glowZ >= 0F ? 1F : -1F;
