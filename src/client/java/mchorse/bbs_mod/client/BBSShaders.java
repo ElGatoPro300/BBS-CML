@@ -29,6 +29,7 @@ public class BBSShaders
     private static ShaderProgram pickerModels;
     private static ShaderProgram blockPaintOverlay;
     private static ShaderProgram flatPaintOverlay;
+    private static ShaderProgram blockGlowOverlay;
     private static ShaderProgram blockColorTintOverlay;
     private static ShaderProgram flatColorTintOverlay;
 
@@ -110,6 +111,12 @@ public class BBSShaders
             flatPaintOverlay = null;
         }
 
+        if (blockGlowOverlay != null)
+        {
+            blockGlowOverlay.close();
+            blockGlowOverlay = null;
+        }
+
         if (blockColorTintOverlay != null)
         {
             blockColorTintOverlay.close();
@@ -138,6 +145,7 @@ public class BBSShaders
 
         ShaderProgramKey blockPaintOverlayKey = new ShaderProgramKey(Identifier.of(BBSMod.MOD_ID, "core/block_paint_overlay"), VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL, defines);
         ShaderProgramKey flatPaintOverlayKey = new ShaderProgramKey(Identifier.of(BBSMod.MOD_ID, "core/flat_paint_overlay"), VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL, defines);
+        ShaderProgramKey blockGlowOverlayKey = new ShaderProgramKey(Identifier.of(BBSMod.MOD_ID, "core/block_glow_overlay"), VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL, defines);
         ShaderProgramKey blockColorTintOverlayKey = new ShaderProgramKey(Identifier.of(BBSMod.MOD_ID, "core/block_color_tint_overlay"), VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL, defines);
         ShaderProgramKey flatColorTintOverlayKey = new ShaderProgramKey(Identifier.of(BBSMod.MOD_ID, "core/flat_color_tint_overlay"), VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL, defines);
 
@@ -153,6 +161,7 @@ public class BBSShaders
         pickerModels = loader.getOrCreateProgram(pickerModelsKey);
         blockPaintOverlay = loader.getOrCreateProgram(blockPaintOverlayKey);
         flatPaintOverlay = loader.getOrCreateProgram(flatPaintOverlayKey);
+        blockGlowOverlay = loader.getOrCreateProgram(blockGlowOverlayKey);
         blockColorTintOverlay = loader.getOrCreateProgram(blockColorTintOverlayKey);
         flatColorTintOverlay = loader.getOrCreateProgram(flatColorTintOverlayKey);
 
@@ -226,6 +235,11 @@ public class BBSShaders
     public static ShaderProgram getFlatPaintOverlayProgram()
     {
         return flatPaintOverlay;
+    }
+
+    public static ShaderProgram getBlockGlowOverlayProgram()
+    {
+        return blockGlowOverlay;
     }
 
     public static ShaderProgram getBlockColorTintOverlayProgram()
