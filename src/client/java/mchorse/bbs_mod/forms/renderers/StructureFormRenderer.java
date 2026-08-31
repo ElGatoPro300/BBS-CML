@@ -392,8 +392,10 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
                     Color legacyGlowSnapshot = legacyGlow;
                     boolean positivePaintSnapshot = positivePaint;
                     boolean applyColorTintSnapshot = applyColorTint;
+                    boolean beTintSnapshot = !irisWorldPaintDeferral;
                     IModelVAO vaoSnapshot = vao;
                     boolean shadersSnapshot = shaders;
+                    Function<VertexConsumer, VertexConsumer> mainRecolorSnapshot = this.getMainConsumer(mainTintSnapshot, resolvedPaintSnapshot);
 
                     Runnable deferredDraw = () ->
                     {
@@ -408,62 +410,43 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
 
                         try
                         {
-                            RenderSystem.colorMask(true, true, true, true);
-                            RenderSystem.enableBlend();
-                            RenderSystem.defaultBlendFunc();
                             RenderSystem.enableDepthTest();
                             RenderSystem.depthFunc(GL11.GL_LEQUAL);
-                            RenderSystem.depthMask(depthWrite);
-                            ShaderOpacityPatch.reassertPostDeferredDepthState(depthWrite);
+                            RenderSystem.enableBlend();
+                            RenderSystem.defaultBlendFunc();
 
-                            ShaderProgram deferredShader = (BBSRendering.isIrisShadersEnabled() && BBSRendering.isRenderingWorld())
-                                ? GameRenderer.getRenderTypeEntityTranslucentCullProgram()
-                                : BBSShaders.getModel();
-
-                            RenderSystem.setShader(() -> deferredShader);
-                            RenderSystem.setShaderTexture(0, PlayerScreenHandler.BLOCK_ATLAS_TEXTURE);
-
-                            this.overlayRenderer.prepareVaoPaintForMainPass(resolvedPaintSnapshot);
-                            this.overlayRenderer.prepareVaoGlowForMainPass(glowSettingsSnapshot, legacyGlowSnapshot, glowIntensitySnapshot);
-
-                            try
-                            {
-                                ModelVAORenderer.render(deferredShader, vaoSnapshot, overlayStack, mainTintSnapshot.r, mainTintSnapshot.g, mainTintSnapshot.b, mainTintSnapshot.a, lightSnapshot, overlaySnapshot);
-                            }
-                            finally
-                            {
-                                this.overlayRenderer.clearVaoColorTint();
-                                this.overlayRenderer.clearVaoPaint();
-                                this.overlayRenderer.clearVaoGlow();
-                            }
+                            /* Soft Structure: per-block back-to-front color (depth-write off) so
+                             * leaves behind soft trunks stay visible AND leaves in front composite
+                             * after the trunk. VAO depth stamp afterward still occludes the world.
+                             * Solid-VAO + special-layer splits cannot satisfy both at once. */
+                            ShaderOpacityPatch.setFlushingDepthWrite(false);
+                            RenderSystem.depthMask(false);
+                            this.renderStructureSoftSortedColor(context, overlayStack, mainRecolorSnapshot, lightSnapshot, overlaySnapshot);
 
                             if (this.data.hasBlockEntityLayer())
                             {
-                                this.renderBlockEntitiesPass(context, overlayStack, lightSnapshot, overlaySnapshot, false);
+                                this.renderBlockEntitiesPass(context, overlayStack, lightSnapshot, overlaySnapshot, beTintSnapshot);
+                                ShaderOpacityPatch.setFlushingDepthWrite(false);
+                                RenderSystem.depthMask(false);
                             }
 
-                            Function<VertexConsumer, VertexConsumer> mainRecolorSnapshot = this.getMainConsumer(mainTintSnapshot, resolvedPaintSnapshot);
-                            Color deferredShaderTint = (shadersSnapshot) ? vaoTintSnapshot : mainTintSnapshot;
-                            Function<VertexConsumer, VertexConsumer> deferredLayerRecolor = mainRecolorSnapshot;
-
-                            if (shadersSnapshot && positiveGlowSnapshot)
+                            if (depthWrite)
                             {
-                                deferredLayerRecolor = this.getMainConsumer(new Color(1F, 1F, 1F, mainTintSnapshot.a), resolvedPaintSnapshot);
-                            }
+                                ShaderOpacityPatch.setFlushingDepthWrite(true);
+                                RenderSystem.depthMask(true);
+                                RenderSystem.colorMask(false, false, false, false);
+                                RenderSystem.disableBlend();
 
-                            if (this.data.hasBiomeTintedLayer())
-                            {
-                                this.renderLayerGroup(this.data.getBiomeTintedBlocks(), context, overlayStack, lightSnapshot, overlaySnapshot, deferredLayerRecolor, deferredShaderTint, true);
-                            }
-
-                            if (this.data.hasAnimatedLayer())
-                            {
-                                this.renderLayerGroup(this.data.getAnimatedBlocks(), context, overlayStack, lightSnapshot, overlaySnapshot, deferredLayerRecolor, deferredShaderTint, false);
-                            }
-
-                            if (this.data.hasTranslucentLayer())
-                            {
-                                this.renderLayerGroup(this.data.getTranslucentBlocks(), context, overlayStack, lightSnapshot, overlaySnapshot, deferredLayerRecolor, deferredShaderTint, false);
+                                try
+                                {
+                                    this.renderStructureSoftDepthStamp(overlayStack, vaoSnapshot, mainTintSnapshot, lightSnapshot, overlaySnapshot);
+                                }
+                                finally
+                                {
+                                    RenderSystem.enableBlend();
+                                    RenderSystem.defaultBlendFunc();
+                                    RenderSystem.colorMask(true, true, true, true);
+                                }
                             }
 
                             if (positivePaintSnapshot)
@@ -479,6 +462,8 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
 
                             if (positiveGlowSnapshot)
                             {
+                                ShaderOpacityPatch.setFlushingDepthWrite(false);
+                                RenderSystem.depthMask(false);
                                 this.overlayRenderer.renderStructureGlowOverlay(this.data, context, overlayStack, glowSettingsSnapshot, legacyGlowSnapshot, glowIntensitySnapshot, mainTintSnapshot.a, overlaySnapshot, false, shadersSnapshot, null, (s) -> this.renderStructureCulledWorld(context, s, FormUtilsClient.getProvider(), lightSnapshot, overlaySnapshot, shadersSnapshot, null, true, false));
                             }
 
