@@ -480,17 +480,38 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
 
                     if (emitGlowSnapshot)
                     {
-                        this.renderGlowOverlay(
-                            deferredTexture,
-                            GameRenderer::getPositionTexColorProgram,
-                            overlayStack,
-                            glowSettingsSnapshot,
-                            legacyGlowSnapshot,
-                            colorSnapshot.a,
-                            glowIntensitySnapshot,
-                            localQuad,
-                            localUvQuad
-                        );
+                        EffectTransform glowTransform = FormColorEffects.resolveGlowEffectTransform(glowSettingsSnapshot, legacyGlowSnapshot);
+                        boolean hasGlowTransform = glowTransform != null && glowTransform.isActive();
+
+                        if (hasGlowTransform)
+                        {
+                            this.renderGlowOverlayMasked(
+                                deferredTexture,
+                                GameRenderer::getPositionTexColorProgram,
+                                overlayStack,
+                                glowSettingsSnapshot,
+                                legacyGlowSnapshot,
+                                colorSnapshot.a,
+                                glowIntensitySnapshot,
+                                localQuad,
+                                localUvQuad,
+                                glowTransform
+                            );
+                        }
+                        else
+                        {
+                            this.renderGlowOverlay(
+                                deferredTexture,
+                                GameRenderer::getPositionTexColorProgram,
+                                overlayStack,
+                                glowSettingsSnapshot,
+                                legacyGlowSnapshot,
+                                colorSnapshot.a,
+                                glowIntensitySnapshot,
+                                localQuad,
+                                localUvQuad
+                            );
+                        }
                     }
                 }
                 finally
@@ -601,17 +622,38 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
 
                     if (emitGlowSnapshot)
                     {
-                        this.renderGlowOverlay(
-                            deferredTexture,
-                            GameRenderer::getPositionTexColorProgram,
-                            overlayStack,
-                            glowSettingsSnapshot,
-                            legacyGlowSnapshot,
-                            colorSnapshot.a,
-                            glowIntensitySnapshot,
-                            localQuad,
-                            localUvQuad
-                        );
+                        EffectTransform glowTransform = FormColorEffects.resolveGlowEffectTransform(glowSettingsSnapshot, legacyGlowSnapshot);
+                        boolean hasGlowTransform = glowTransform != null && glowTransform.isActive();
+
+                        if (hasGlowTransform)
+                        {
+                            this.renderGlowOverlayMasked(
+                                deferredTexture,
+                                GameRenderer::getPositionTexColorProgram,
+                                overlayStack,
+                                glowSettingsSnapshot,
+                                legacyGlowSnapshot,
+                                colorSnapshot.a,
+                                glowIntensitySnapshot,
+                                localQuad,
+                                localUvQuad,
+                                glowTransform
+                            );
+                        }
+                        else
+                        {
+                            this.renderGlowOverlay(
+                                deferredTexture,
+                                GameRenderer::getPositionTexColorProgram,
+                                overlayStack,
+                                glowSettingsSnapshot,
+                                legacyGlowSnapshot,
+                                colorSnapshot.a,
+                                glowIntensitySnapshot,
+                                localQuad,
+                                localUvQuad
+                            );
+                        }
                     }
                 }
                 finally
@@ -801,7 +843,24 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
 
         if (glowIntensity > 0F && !glowSettings.resolvePaintOnly() && !softPostDeferred && !deferTranslucent && !shadowPass)
         {
-            this.renderGlowOverlay(texture, shader, matrices, glowSettings, legacyGlow, color.a, glowIntensity);
+            EffectTransform glowTransform = FormColorEffects.resolveGlowEffectTransform(glowSettings, legacyGlow);
+            boolean hasGlowTransform = glowTransform != null && glowTransform.isActive();
+
+            if (hasGlowTransform)
+            {
+                if (deferContext == null || modelRenderer)
+                {
+                    this.renderGlowOverlayMasked(texture, shader, matrices, glowSettings, legacyGlow, color.a, glowIntensity, glowTransform);
+                }
+                else
+                {
+                    this.submitDeferredBillboardGlowOverlayMasked(texture, textureLink, shader, matrices, glowSettings, legacyGlow, color.a, glowIntensity, glowTransform);
+                }
+            }
+            else
+            {
+                this.renderGlowOverlay(texture, shader, matrices, glowSettings, legacyGlow, color.a, glowIntensity);
+            }
         }
 
         RenderSystem.enableCull();
@@ -1226,6 +1285,111 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
         float sign = facing >= 0F ? 1F : -1F;
 
         return sign * (FACE_Z_BIAS + OVERLAY_FACE_EXTRA);
+    }
+
+    private void submitDeferredBillboardGlowOverlayMasked(Texture texture, Link textureLink, Supplier<ShaderProgram> shader, MatrixStack matrices, GlowSettings glowSettings, Color legacyGlow, float alpha, float glowIntensity, EffectTransform glowTransform)
+    {
+        Matrix4f positionMatrix = ModelVAORenderer.capturePaintOverlayRootMatrix(new Matrix4f(matrices.peek().getPositionMatrix()));
+        Matrix3f normalMatrix = new Matrix3f(matrices.peek().getNormalMatrix());
+        GlowSettings glowSnapshot = glowSettings == null ? null : glowSettings.copy();
+        Color legacyGlowSnapshot = legacyGlow == null ? null : legacyGlow.copy();
+        EffectTransform glowTransformSnapshot = glowTransform == null ? null : glowTransform.copy();
+
+        Quad localQuad = new Quad();
+        Quad localUvQuad = new Quad();
+
+        localQuad.copy(quad);
+        localUvQuad.copy(uvQuad);
+
+        ModelVAORenderer.submitPaintOverlay(false, () ->
+        {
+            Texture deferredTexture = texture;
+
+            if (textureLink != null)
+            {
+                Texture linkedTexture = BBSModClient.getTextures().getTexture(textureLink);
+
+                if (linkedTexture != null)
+                {
+                    deferredTexture = linkedTexture;
+                }
+            }
+
+            if (deferredTexture == null)
+            {
+                return;
+            }
+
+            MatrixStack overlayStack = new MatrixStack();
+
+            overlayStack.peek().getPositionMatrix().set(positionMatrix);
+            overlayStack.peek().getNormalMatrix().set(normalMatrix);
+
+            this.renderGlowOverlayMasked(deferredTexture, shader, overlayStack, glowSnapshot, legacyGlowSnapshot, alpha, glowIntensity, localQuad, localUvQuad, glowTransformSnapshot, FlatPaintOverlayPass.DEFERRED_BILLBOARD_FACTOR, FlatPaintOverlayPass.DEFERRED_BILLBOARD_UNITS);
+        });
+    }
+
+    private void renderGlowOverlayMasked(Texture texture, Supplier<ShaderProgram> shader, MatrixStack matrices, GlowSettings glowSettings, Color legacyGlow, float alpha, float glowIntensity, EffectTransform glowTransform)
+    {
+        this.renderGlowOverlayMasked(texture, shader, matrices, glowSettings, legacyGlow, alpha, glowIntensity, quad, uvQuad, glowTransform, FlatPaintOverlayPass.DEFAULT_FACTOR, FlatPaintOverlayPass.DEFAULT_UNITS);
+    }
+
+    private void renderGlowOverlayMasked(Texture texture, Supplier<ShaderProgram> shader, MatrixStack matrices, GlowSettings glowSettings, Color legacyGlow, float alpha, float glowIntensity, Quad drawQuad, Quad drawUvQuad, EffectTransform glowTransform)
+    {
+        this.renderGlowOverlayMasked(texture, shader, matrices, glowSettings, legacyGlow, alpha, glowIntensity, drawQuad, drawUvQuad, glowTransform, FlatPaintOverlayPass.DEFAULT_FACTOR, FlatPaintOverlayPass.DEFAULT_UNITS);
+    }
+
+    private void renderGlowOverlayMasked(Texture texture, Supplier<ShaderProgram> shader, MatrixStack matrices, GlowSettings glowSettings, Color legacyGlow, float alpha, float glowIntensity, Quad drawQuad, Quad drawUvQuad, EffectTransform glowTransform, float polygonOffsetFactor, float polygonOffsetUnits)
+    {
+        Color resolvedGlow = new Color();
+        glowSettings.resolveColor(legacyGlow, resolvedGlow);
+
+        float shaderScale = FormColorEffects.resolveGlowOverlayShaderScale(glowIntensity);
+        Color glowColor = new Color(
+            resolvedGlow.r,
+            resolvedGlow.g,
+            resolvedGlow.b,
+            alpha
+        );
+
+        matrices.push();
+
+        Matrix4f glowMatrix = matrices.peek().getPositionMatrix();
+        MatrixStack.Entry entry = matrices.peek();
+        Matrix4f formRootInverse = new Matrix4f(glowMatrix).invert();
+
+        this.resolveQuadMaskHalf(drawQuad, glowTransform, MASK_HALF);
+        this.bindFormTexture(texture);
+        texture.bind();
+        texture.setFilterMipmap(this.form.linear.get(), this.form.mipmap.get());
+
+        FlatGlowOverlayPass.renderMasked(polygonOffsetFactor, polygonOffsetUnits, formRootInverse, glowTransform, false, MASK_HALF, shaderScale, () ->
+        {
+            BufferBuilder glowBuilder = Tessellator.getInstance().getBuffer();
+            glowBuilder.begin(VertexFormat.DrawMode.TRIANGLES, VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL);
+            int glowLight = LightmapTextureManager.MAX_LIGHT_COORDINATE;
+            float glowZ = this.resolveOverlayFaceZ(glowMatrix);
+            float glowNz = glowZ >= 0F ? 1F : -1F;
+
+            /* One camera-facing plane, both sides via disableCull — same as paint. */
+            RenderSystem.disableCull();
+
+            this.fillPaint(glowBuilder, glowMatrix, drawQuad.p3.x, drawQuad.p3.y, glowZ, glowColor, drawUvQuad.p3.x, drawUvQuad.p3.y, OverlayTexture.DEFAULT_UV, glowLight, entry, glowNz);
+            this.fillPaint(glowBuilder, glowMatrix, drawQuad.p2.x, drawQuad.p2.y, glowZ, glowColor, drawUvQuad.p2.x, drawUvQuad.p2.y, OverlayTexture.DEFAULT_UV, glowLight, entry, glowNz);
+            this.fillPaint(glowBuilder, glowMatrix, drawQuad.p1.x, drawQuad.p1.y, glowZ, glowColor, drawUvQuad.p1.x, drawUvQuad.p1.y, OverlayTexture.DEFAULT_UV, glowLight, entry, glowNz);
+
+            this.fillPaint(glowBuilder, glowMatrix, drawQuad.p3.x, drawQuad.p3.y, glowZ, glowColor, drawUvQuad.p3.x, drawUvQuad.p3.y, OverlayTexture.DEFAULT_UV, glowLight, entry, glowNz);
+            this.fillPaint(glowBuilder, glowMatrix, drawQuad.p4.x, drawQuad.p4.y, glowZ, glowColor, drawUvQuad.p4.x, drawUvQuad.p4.y, OverlayTexture.DEFAULT_UV, glowLight, entry, glowNz);
+            this.fillPaint(glowBuilder, glowMatrix, drawQuad.p2.x, drawQuad.p2.y, glowZ, glowColor, drawUvQuad.p2.x, drawUvQuad.p2.y, OverlayTexture.DEFAULT_UV, glowLight, entry, glowNz);
+
+            BufferRenderer.drawWithGlobalProgram(glowBuilder.end());
+
+            RenderSystem.enableCull();
+        });
+
+        texture.setFilterMipmap(false, false);
+        RenderSystem.setShader(shader);
+        matrices.pop();
     }
 
     private void renderGlowOverlay(Texture texture, Supplier<ShaderProgram> shader, MatrixStack matrices, GlowSettings glowSettings, Color legacyGlow, float alpha, float glowIntensity)

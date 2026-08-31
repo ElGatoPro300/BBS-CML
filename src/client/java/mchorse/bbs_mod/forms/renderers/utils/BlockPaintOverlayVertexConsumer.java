@@ -50,9 +50,9 @@ public class BlockPaintOverlayVertexConsumer implements VertexConsumer
     @Override
     public VertexConsumer color(int red, int green, int blue, int alpha)
     {
-        int r = MathUtils.clamp((int) (this.paintColor.r * 255F), 0, 255);
-        int g = MathUtils.clamp((int) (this.paintColor.g * 255F), 0, 255);
-        int b = MathUtils.clamp((int) (this.paintColor.b * 255F), 0, 255);
+        int r = MathUtils.clamp((int) (this.paintColor.r * red), 0, 255);
+        int g = MathUtils.clamp((int) (this.paintColor.g * green), 0, 255);
+        int b = MathUtils.clamp((int) (this.paintColor.b * blue), 0, 255);
         int a = MathUtils.clamp((int) (this.strength * alpha), 0, 255);
 
         return this.consumer.color(r, g, b, a);
