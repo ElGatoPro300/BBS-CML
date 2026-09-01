@@ -71,8 +71,6 @@ public class BBSSettings
     public static ValueBoolean hsvColorPicker;
     public static ValueBoolean forceQwerty;
     public static ValueBoolean freezeModels;
-    /** Feather per-bone color mask edges on BOBJ / emoticon skinned meshes. */
-    public static ValueBoolean bobjBoneColorMaskSoftening;
     /** Cached form-picker thumbnails (morph menu). Off by default — opt in for lighter UI. */
     public static ValueBoolean optimizedMorphMenu;
     public static ValueGizmoToolbar editorGizmoToolbar;
@@ -336,15 +334,6 @@ public class BBSSettings
     public static boolean shouldAnimateEatingArm()
     {
         return eatingArmAnimation != null && eatingArmAnimation.get();
-    }
-
-    /**
-     * Softens per-bone color mask seams on BOBJ / emoticon meshes by blending nearby bone
-     * influences at skinning boundaries.
-     */
-    public static boolean shouldSoftenBobjBoneColorMasks()
-    {
-        return bobjBoneColorMaskSoftening == null || bobjBoneColorMaskSoftening.get();
     }
 
     public static boolean shouldKeepActorLiveHurtTime()
@@ -669,7 +658,6 @@ public class BBSSettings
         hsvColorPicker = builder.getBoolean("hsv_color_picker", true);
         forceQwerty = builder.getBoolean("force_qwerty", false);
         freezeModels = builder.getBoolean("freeze_models", false);
-        bobjBoneColorMaskSoftening = builder.getBoolean("bobj_bone_color_mask_softening", true);
         optimizedMorphMenu = builder.getBoolean("optimized_morph_menu", false);
         uniformScale = builder.getBoolean("uniform_scale", false);
         clickSound = builder.getBoolean("click_sound", false);

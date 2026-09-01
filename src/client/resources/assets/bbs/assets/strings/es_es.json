@@ -35,8 +35,6 @@
     "bbs.config.appearance.fov-comment": "Esta opción controla el Campo de Visión (FOV) de la cámara en el menú global y el panel de animación",
     "bbs.config.appearance.freeze_models": "Congelar modelos",
     "bbs.config.appearance.freeze_models-comment": "Cuando está habilitado, los modelos en el selector de formas no seguirán el mouse",
-    "bbs.config.appearance.bobj_bone_color_mask_softening": "Suavizado de máscaras de color en huesos BOBJ",
-    "bbs.config.appearance.bobj_bone_color_mask_softening-comment": "Si está activo, las máscaras de color por hueso en modelos BOBJ y emoticonos se mezclan suavemente en los límites entre huesos cercanos, en lugar de mostrar costuras duras por triángulo. Activado por defecto",
     "bbs.config.appearance.hide_setting_descriptions": "Ocultar descripciones de ajustes",
     "bbs.config.appearance.hide_setting_descriptions-comment": "Oculta las descripciones de ajustes para una apariencia más limpia y compacta.",
     "bbs.config.appearance.hsv_color_picker": "Selector HSV",
