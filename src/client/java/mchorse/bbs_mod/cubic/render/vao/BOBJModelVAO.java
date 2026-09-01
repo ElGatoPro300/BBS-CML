@@ -31,6 +31,7 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.IntPredicate;
+import java.util.function.IntPredicate;
 
 public class BOBJModelVAO
 {
@@ -59,6 +60,8 @@ public class BOBJModelVAO
     private final Set<Integer> colorOverrideBones = new HashSet<>();
     private final Set<Integer> overridden = new HashSet<>();
     private final Color scratchDrawColor = new Color();
+    private boolean[] softBoundaryTriangles;
+    private boolean useColorSoftening;
 
     public BOBJModelVAO(BOBJLoader.CompiledData data, BOBJArmature armature)
     {
@@ -372,6 +375,31 @@ public class BOBJModelVAO
         }
     }
 
+    protected void drawTrianglesByTriangle(IntPredicate predicate)
+    {
+        int start = -1;
+
+        for (int i = 0; i < this.dominantBonePerTriangle.length; i++)
+        {
+            boolean draw = predicate.test(i);
+
+            if (draw && start == -1)
+            {
+                start = i;
+            }
+            else if (!draw && start != -1)
+            {
+                GL30.glDrawArrays(GL30.GL_TRIANGLES, start * 3, (i - start) * 3);
+                start = -1;
+            }
+        }
+
+        if (start != -1)
+        {
+            GL30.glDrawArrays(GL30.GL_TRIANGLES, start * 3, (this.dominantBonePerTriangle.length - start) * 3);
+        }
+    }
+
     protected void collectBoneOverrides()
     {
         this.fullOverrides.clear();
@@ -404,6 +432,32 @@ public class BOBJModelVAO
         this.overridden.addAll(this.fullOverrides.keySet());
         this.overridden.addAll(this.partialOverrides.keySet());
         this.overridden.addAll(this.colorOverrideBones);
+
+        this.useColorSoftening = BobjBoneColorSoftening.isEnabled() && !this.colorOverrideBones.isEmpty();
+
+        if (this.useColorSoftening)
+        {
+            int triangleCount = this.dominantBonePerTriangle.length;
+
+            if (this.softBoundaryTriangles == null || this.softBoundaryTriangles.length != triangleCount)
+            {
+                this.softBoundaryTriangles = new boolean[triangleCount];
+            }
+
+            for (int triangle = 0; triangle < triangleCount; triangle++)
+            {
+                this.softBoundaryTriangles[triangle] = BobjBoneColorSoftening.isSoftBoundaryTriangle(
+                    this.data,
+                    this.dominantBonePerTriangle,
+                    this.colorOverrideBones,
+                    triangle
+                );
+            }
+        }
+        else
+        {
+            this.softBoundaryTriangles = null;
+        }
     }
 
     protected void drawBoneOverride(ShaderProgram shader, MatrixStack stack, float r, float g, float b, float a, int light, int overlay, Link defaultTexture, BOBJBone bone)
@@ -452,7 +506,19 @@ public class BOBJModelVAO
         try
         {
             this.rebindShaderSamplers(shader, stack, drawR, drawG, drawB, drawA, drawLight, overlay);
-            this.drawTriangles((boneIndex) -> boneIndex == bone.index);
+
+            if (hasColor && this.useColorSoftening)
+            {
+                this.drawTrianglesByTriangle((triangle) ->
+                {
+                    return this.dominantBonePerTriangle[triangle] == bone.index
+                        && !this.softBoundaryTriangles[triangle];
+                });
+            }
+            else
+            {
+                this.drawTriangles((boneIndex) -> boneIndex == bone.index);
+            }
         }
         finally
         {
@@ -470,6 +536,70 @@ public class BOBJModelVAO
      * {@link ModelVAORenderer#setupUniforms}. Skin must be bound before that — binding after
      * leaves Sampler0 on whatever Iris left (featureless tinted silhouette, no skin).
      */
+    protected void drawSoftBoundaryTriangles(ShaderProgram shader, MatrixStack stack, float r, float g, float b, float a, int light, int overlay, Link defaultTexture)
+    {
+        if (this.softBoundaryTriangles == null || this.colorOverrideBones.isEmpty())
+        {
+            return;
+        }
+
+        if (defaultTexture != null)
+        {
+            this.bindDrawTexture(defaultTexture);
+        }
+
+        ModelVAORenderer.clearTextureBlend();
+
+        float[] weights = BobjBoneColorSoftening.borrowTriangleWeights(this.armature.matrices.length);
+
+        for (int triangle = 0; triangle < this.softBoundaryTriangles.length; triangle++)
+        {
+            if (!this.softBoundaryTriangles[triangle])
+            {
+                continue;
+            }
+
+            BobjBoneColorSoftening.computeTriangleBoneWeights(this.data, triangle, weights);
+            BobjBoneColorSoftening.applyBlendedGroupUniforms(this.armature, weights, this.colorOverrideBones);
+            BobjBoneColorSoftening.computeBlendedDrawColor(
+                this.armature,
+                weights,
+                this.colorOverrideBones,
+                r,
+                g,
+                b,
+                a,
+                this.scratchDrawColor
+            );
+
+            int drawLight = BobjBoneColorSoftening.computeBlendedDrawLight(
+                this.armature,
+                weights,
+                this.colorOverrideBones,
+                light
+            );
+
+            try
+            {
+                this.rebindShaderSamplers(
+                    shader,
+                    stack,
+                    this.scratchDrawColor.r,
+                    this.scratchDrawColor.g,
+                    this.scratchDrawColor.b,
+                    this.scratchDrawColor.a,
+                    drawLight,
+                    overlay
+                );
+                GL30.glDrawArrays(GL30.GL_TRIANGLES, triangle * 3, 3);
+            }
+            finally
+            {
+                BobjBoneDrawEffects.restoreGroupUniforms();
+            }
+        }
+    }
+
     protected void bindDrawTexture(Link texture)
     {
         if (texture != null)
@@ -543,7 +673,19 @@ public class BOBJModelVAO
             }
             else
             {
-                this.drawTriangles((bone) -> bone < 0 || !this.overridden.contains(bone));
+                if (this.useColorSoftening)
+                {
+                    this.drawTrianglesByTriangle((triangle) ->
+                    {
+                        int bone = this.dominantBonePerTriangle[triangle];
+
+                        return (bone < 0 || !this.overridden.contains(bone)) && !this.softBoundaryTriangles[triangle];
+                    });
+                }
+                else
+                {
+                    this.drawTriangles((bone) -> bone < 0 || !this.overridden.contains(bone));
+                }
 
                 for (BOBJBone bone : this.armature.orderedBones)
                 {
@@ -553,6 +695,11 @@ public class BOBJModelVAO
                     }
 
                     this.drawBoneOverride(shader, stack, r, g, b, a, light, overlay, defaultTexture, bone);
+                }
+
+                if (this.useColorSoftening)
+                {
+                    this.drawSoftBoundaryTriangles(shader, stack, r, g, b, a, light, overlay, defaultTexture);
                 }
             }
         }

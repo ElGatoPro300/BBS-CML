@@ -31,6 +31,8 @@
     "bbs.config.appearance.fov-comment": "This option controls FOV for camera in world menu and animation panel",
     "bbs.config.appearance.freeze_models": "Freeze models",
     "bbs.config.appearance.freeze_models-comment": "When enabled, models in form picker won't follow the mouse",
+    "bbs.config.appearance.bobj_bone_color_mask_softening": "BOBJ bone color mask softening",
+    "bbs.config.appearance.bobj_bone_color_mask_softening-comment": "When enabled, per-bone color masks on BOBJ and emoticon models blend softly at nearby bone boundaries instead of hard triangle seams. On by default",
     "bbs.config.appearance.hide_setting_descriptions": "Hide setting descriptions",
     "bbs.config.appearance.hide_setting_descriptions-comment": "Hides setting descriptions for a cleaner and more compact appearance.",
     "bbs.config.appearance.hsv_color_picker": "HSV picker",
