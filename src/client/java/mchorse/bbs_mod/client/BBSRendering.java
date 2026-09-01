@@ -685,6 +685,7 @@ public class BBSRendering
 
             RenderSystem.setProjectionMatrix(ortho, VertexSorter.BY_Z);
             VideoRenderer.renderClips(batcher.getContext().getMatrices(), batcher, controller.getContext().clips.getClips(controller.getContext().relativeTick), controller.getContext().relativeTick, true, area, area, null, area.w, area.h, false);
+            VideoRenderer.renderClips(batcher.getContext().getMatrices(), batcher, controller.getContext().clips.getClips(controller.getContext().relativeTick), controller.getContext().relativeTick, true, area, area, null, area.w, area.h, true);
 
             ScreenEffectRenderer.render(batcher, controller.getContext(), area.w, area.h);
 
@@ -702,6 +703,7 @@ public class BBSRendering
 
             RenderSystem.setProjectionMatrix(ortho, VertexSorter.BY_Z);
             VideoRenderer.renderClips(batcher.getContext().getMatrices(), batcher, controller.getContext().clips.getClips(controller.getContext().relativeTick), controller.getContext().relativeTick, true, area, area, null, area.w, area.h, false);
+            VideoRenderer.renderClips(batcher.getContext().getMatrices(), batcher, controller.getContext().clips.getClips(controller.getContext().relativeTick), controller.getContext().relativeTick, true, area, area, null, area.w, area.h, true);
 
             ScreenEffectRenderer.render(batcher, controller.getContext(), area.w, area.h);
 

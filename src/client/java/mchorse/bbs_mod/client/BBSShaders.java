@@ -32,6 +32,7 @@ public class BBSShaders
     private static ShaderProgram blockPaintOverlay;
     private static ShaderProgram flatPaintOverlay;
     private static ShaderProgram flatGlowOverlay;
+    private static ShaderProgram blockGlowOverlay;
     private static ShaderProgram blockColorTintOverlay;
     private static ShaderProgram flatColorTintOverlay;
 
@@ -119,6 +120,12 @@ public class BBSShaders
             flatGlowOverlay = null;
         }
 
+        if (blockGlowOverlay != null)
+        {
+            blockGlowOverlay.close();
+            blockGlowOverlay = null;
+        }
+
         if (blockColorTintOverlay != null)
         {
             blockColorTintOverlay.close();
@@ -148,6 +155,7 @@ public class BBSShaders
             blockPaintOverlay = new ShaderProgram(factory, "block_paint_overlay", VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL);
             flatPaintOverlay = new ShaderProgram(factory, "flat_paint_overlay", VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL);
             flatGlowOverlay = new ShaderProgram(factory, "flat_glow_overlay", VertexFormats.POSITION_TEXTURE_COLOR);
+            blockGlowOverlay = new ShaderProgram(factory, "block_glow_overlay", VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL);
             blockColorTintOverlay = new ShaderProgram(factory, "block_color_tint_overlay", VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL);
             flatColorTintOverlay = new ShaderProgram(factory, "flat_color_tint_overlay", VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL);
         
@@ -231,6 +239,11 @@ public class BBSShaders
     public static ShaderProgram getFlatGlowOverlayProgram()
     {
         return flatGlowOverlay;
+    }
+
+    public static ShaderProgram getBlockGlowOverlayProgram()
+    {
+        return blockGlowOverlay;
     }
 
     public static ShaderProgram getBlockColorTintOverlayProgram()

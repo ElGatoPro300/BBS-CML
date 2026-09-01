@@ -1949,14 +1949,41 @@ public class UIFilmController extends UIElement
 
         RenderSystem.setProjectionMatrix(this.panel.lastProjection, VertexSorter.BY_Z);
 
-        /* Render the stencil */
+        /* Render the stencil.
+         * Without Iris, FilmControllerContext uses an empty (camera-relative) stack and
+         * ignores worldStack — forms still land via ModelVAORenderer (renderingWorld ×
+         * BBSRendering.camera). Gizmo stencil uses PositionColorProgram + ModelView, so
+         * after cacheMatrices() (identity MV) put the camera on ModelView as well. */
         MatrixStack worldStack = this.worldRenderContext.matrixStack();
         if (worldStack != null)
         {
             worldStack.push();
             worldStack.loadIdentity();
             MatrixStackUtils.multiply(worldStack, BBSRendering.camera);
-            this.renderStencil(this.worldRenderContext, context, altPressed);
+
+            if (!BBSRendering.isIrisShadersEnabled())
+            {
+                Matrix4fStack mvStack = RenderSystem.getModelViewStack();
+
+                mvStack.pushMatrix();
+                mvStack.set(BBSRendering.camera);
+                RenderSystem.applyModelViewMatrix();
+
+                try
+                {
+                    this.renderStencil(this.worldRenderContext, context, altPressed);
+                }
+                finally
+                {
+                    mvStack.popMatrix();
+                    RenderSystem.applyModelViewMatrix();
+                }
+            }
+            else
+            {
+                this.renderStencil(this.worldRenderContext, context, altPressed);
+            }
+
             worldStack.pop();
         }
         else
@@ -2399,6 +2426,8 @@ public class UIFilmController extends UIElement
         }
 
         this.stencil.setFormUnderCursor(null);
+        boolean wasRenderingWorld = BBSRendering.renderingWorld;
+        BBSRendering.renderingWorld = true;
 
         try
         {
@@ -2500,6 +2529,8 @@ public class UIFilmController extends UIElement
         }
         finally
         {
+            BBSRendering.renderingWorld = wasRenderingWorld;
+
             if (scissorWasEnabled)
             {
                 GlStateManager._enableScissorTest();

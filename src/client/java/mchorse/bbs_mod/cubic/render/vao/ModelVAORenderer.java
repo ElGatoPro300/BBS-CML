@@ -1329,6 +1329,7 @@ public class ModelVAORenderer
         glowStrength = 0F;
         glowPaintOnly = false;
         FormGlowBloomPatch.clear();
+        clearGlowEffectTransform();
     }
 
     public static boolean isGlowPaintOnly()
