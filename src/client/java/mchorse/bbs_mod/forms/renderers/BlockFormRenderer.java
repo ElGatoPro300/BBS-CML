@@ -752,7 +752,6 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
         }
 
         return state.getRenderType() == BlockRenderType.INVISIBLE
-            || state.getRenderType() == BlockRenderType.ENTITYBLOCK_ANIMATED
             || state.getBlock() instanceof BlockEntityProvider;
     }
 
