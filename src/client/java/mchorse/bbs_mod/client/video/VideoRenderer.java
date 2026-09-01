@@ -23,93 +23,46 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import org.watermedia.api.player.PlayerAPI;
-import org.watermedia.api.player.videolan.VideoPlayer;
-import org.watermedia.videolan4j.factory.MediaPlayerFactory;
+import org.watermedia.api.media.MRL;
+import org.watermedia.api.media.MediaAPI;
+import org.watermedia.api.media.players.MediaPlayer;
 
 public class VideoRenderer
 {
     private static class PlayerWrapper
     {
-        public VideoPlayer player;
-        public long lastBbsTime = -1;
-        public long lastSeekTime = 0;
+        public MediaPlayer player;
+        public long lastBbsTime = -1L;
+        public long lastSeekTime = 0L;
         public Boolean wasPlaying = null;
         public int lastVolume = -1;
         public Boolean lastLoops = null;
-        public long lastVideoTime = -1;
-        public long lastRenderTime = 0;
+        public long lastVideoTime = -1L;
+        public long lastRenderTime = 0L;
+        public float lastSpeed = 1F;
+        public int lastMaxLongSide = 0;
+        public MediaPlayer.LodLevel lastLod = MediaPlayer.LodLevel.MAX;
         public int lastWidth;
         public int lastHeight;
 
-        public PlayerWrapper(VideoPlayer player)
+        public PlayerWrapper(MediaPlayer player)
         {
             this.player = player;
         }
     }
 
     private static final Map<String, PlayerWrapper> PLAYERS = new HashMap<>();
-    private static MediaPlayerFactory FACTORY;
-    private static boolean factoryFailed;
-    /* At most one VideoForm path fully decodes; extras show a still frame. */
-    private static final int MAX_LIVE_FORM_VIDEOS = 1;
-    private static long formPreferFrameMs;
-    private static String formPreferredPath;
-    private static float formPreferredDistSq = Float.MAX_VALUE;
-    private static final Set<String> formLivePaths = new HashSet<>();
     private static final Set<String> formStillKick = new HashSet<>();
 
     public static boolean isAvailable()
     {
-        return !factoryFailed && resolveFactory() != null;
-    }
-
-    /**
-     * Prefer a BBS software-decode VLC factory.
-     * WaterMedia's shared default enables {@code d3d11va}/{@code dxva2}, which can
-     * hard-kill the JVM (Invalid memory access) with no Minecraft crash report.
-     */
-    private static MediaPlayerFactory resolveFactory()
-    {
-        if (factoryFailed)
-        {
-            return null;
-        }
-
         try
         {
-            if (!PlayerAPI.isReady())
-            {
-                /* VLC still extracting / not ready — retry on next frame. */
-                return null;
-            }
-
-            MediaPlayerFactory soft = PlayerAPI.registerFactory("bbs:soft", new String[]{
-                "--avcodec-hw=none",
-                "--vout=none",
-                "--no-video-title-show",
-                "--quiet"
-            });
-
-            if (soft != null)
-            {
-                return soft;
-            }
-
-            /* Last resort only — may be unstable on some GPUs. */
-            return PlayerAPI.getFactory();
+            return MediaAPI.ffmpegLoaded() && !MediaAPI.ffmpegError();
         }
         catch (Throwable t)
         {
-            /* Missing WaterMedia / VLC: soft-fail forever, no spam. */
-            if (!(t instanceof ClassNotFoundException) && !(t instanceof NoClassDefFoundError) && !(t instanceof LinkageError))
-            {
-                t.printStackTrace();
-            }
-
-            factoryFailed = true;
-
-            return null;
+            return false;
         }
     }
 
@@ -261,9 +214,35 @@ public class VideoRenderer
 
     private static String resolveVideoPath(String path)
     {
+        if (path == null || path.isEmpty())
+        {
+            return null;
+        }
+
+        if (isRemoteUrl(path))
+        {
+            return path;
+        }
+
         File file = VideoFormPlayback.resolveFile(path);
 
         return file == null ? null : file.getAbsolutePath();
+    }
+
+    public static boolean isRemoteUrl(String path)
+    {
+        if (path == null)
+        {
+            return false;
+        }
+
+        String lower = path.toLowerCase();
+
+        return lower.startsWith("http://")
+            || lower.startsWith("https://")
+            || lower.startsWith("rtmp://")
+            || lower.startsWith("rtsp://")
+            || lower.startsWith("hls://");
     }
 
     public static File getResolvedVideoFile(String path)
@@ -366,37 +345,38 @@ public class VideoRenderer
      */
     public static FrameInfo prepareFrame(String path, long tickPosition, boolean playing, boolean loops, int volume)
     {
-        return prepareFrame(path, tickPosition, playing, loops, volume, false, false);
+        return prepareFrame(path, tickPosition, playing, loops, volume, false, false, 1F, 0, MediaPlayer.LodLevel.MAX);
     }
 
     private static FrameInfo prepareFrame(String path, long tickPosition, boolean playing, boolean loops, int volume, boolean formMode)
     {
-        return prepareFrame(path, tickPosition, playing, loops, volume, formMode, false);
+        return prepareFrame(path, tickPosition, playing, loops, volume, formMode, false, 1F, 0, MediaPlayer.LodLevel.MAX);
     }
 
     /**
-     * VideoForm path: muted VLC. Only the closest form stays live; others peek a still.
+     * VideoForm path: WaterMedia v3 high performance player with dynamic LODs and spatial audio.
      */
     public static FrameInfo prepareFormFrame(String path, long tickPosition, boolean loops)
     {
-        return prepareFormFrame(path, tickPosition, loops, 0F, 0, true, false);
+        return prepareFormFrame(path, tickPosition, loops, 0F, 0, true, false, 1F, 0);
     }
 
     public static FrameInfo prepareFormFrame(String path, long tickPosition, boolean loops, float distanceSq)
     {
-        return prepareFormFrame(path, tickPosition, loops, distanceSq, 0, true, false);
+        return prepareFormFrame(path, tickPosition, loops, distanceSq, 0, true, false, 1F, 0);
     }
 
     public static FrameInfo prepareFormFrame(String path, long tickPosition, boolean loops, float distanceSq, int maxLongSide)
     {
-        return prepareFormFrame(path, tickPosition, loops, distanceSq, maxLongSide, true, false);
+        return prepareFormFrame(path, tickPosition, loops, distanceSq, maxLongSide, true, false, 1F, 0);
     }
 
-    /**
-     * @param playing when false, VLC is paused and seeks to {@code tickPosition}
-     * @param filmSync when true, keep VLC locked to film ticks (no free-run)
-     */
     public static FrameInfo prepareFormFrame(String path, long tickPosition, boolean loops, float distanceSq, int maxLongSide, boolean playing, boolean filmSync)
+    {
+        return prepareFormFrame(path, tickPosition, loops, distanceSq, maxLongSide, playing, filmSync, 1F, 0);
+    }
+
+    public static FrameInfo prepareFormFrame(String path, long tickPosition, boolean loops, float distanceSq, int maxLongSide, boolean playing, boolean filmSync, float speed, int baseVolume)
     {
         String resolved = resolveVideoPath(path);
 
@@ -405,85 +385,41 @@ public class VideoRenderer
             return null;
         }
 
-        long frameMs = System.currentTimeMillis() / 50L;
+        /* Calculate distance attenuation for spatial audio if audio is enabled */
+        int volume = baseVolume;
 
-        if (frameMs != formPreferFrameMs)
+        if (volume > 0 && distanceSq > 0F)
         {
-            formPreferFrameMs = frameMs;
-            formPreferredPath = null;
-            formPreferredDistSq = Float.MAX_VALUE;
-            formLivePaths.clear();
+            float maxDist = 32F;
+            float dist = (float) Math.sqrt(distanceSq);
+            float attenuation = Math.max(0F, 1F - (dist / maxDist));
+            volume = Math.round(volume * attenuation);
         }
 
-        if (distanceSq < formPreferredDistSq)
+        /* Far away forms (> 80 blocks): freeze as still frame to save GPU/decoding bandwidth */
+        if (distanceSq > 6400F && !filmSync)
         {
-            /* Closer form wins — pause any previously preferred different path this frame. */
-            if (formPreferredPath != null && !formPreferredPath.equals(resolved))
-            {
-                pauseFormPlayer(formPreferredPath);
-                formLivePaths.remove(formPreferredPath);
-            }
-
-            formPreferredDistSq = distanceSq;
-            formPreferredPath = resolved;
+            return prepareFrame(path, tickPosition, false, loops, 0, true, false, speed, maxLongSide, MediaPlayer.LodLevel.FAR_AWAY);
         }
 
-        boolean mayLive = resolved.equals(formPreferredPath)
-            && (formLivePaths.isEmpty()
-                || formLivePaths.contains(resolved)
-                || formLivePaths.size() < MAX_LIVE_FORM_VIDEOS);
+        /* Dynamic LOD level: keep crisp MAX quality up to 48 blocks */
+        MediaPlayer.LodLevel lod = MediaPlayer.LodLevel.MAX;
 
-        if (!mayLive)
+        if (distanceSq > 4096F)
         {
-            pauseFormPlayer(resolved);
-
-            FrameInfo peeked = peekFormFrame(path);
-
-            if (peeked != null && !filmSync)
-            {
-                return peeked;
-            }
-
-            /* Cold still / film scrub: seek paused to the requested tick. */
-            return prepareFrame(path, tickPosition, false, loops, 0, true, filmSync);
+            lod = MediaPlayer.LodLevel.FAR_AWAY;
+        }
+        else if (distanceSq > 2304F)
+        {
+            lod = MediaPlayer.LodLevel.FAR;
         }
 
-        formLivePaths.add(resolved);
-
-        /* Skip GPU blit on the live path — per-frame 4K→720 blit often costs more than it saves.
-         * Resolution presets still scale ffmpeg decode; WaterMedia keeps native upload. */
-        return prepareFrame(path, tickPosition, playing, loops, 0, true, filmSync);
+        return prepareFrame(path, tickPosition, playing, loops, volume, true, filmSync, speed, maxLongSide, lod);
     }
 
-    /**
-     * True when another VideoForm path is already decoding live (blocks ffmpeg doubling load).
-     */
     public static boolean isOtherFormVideoLive(String path)
     {
-        String resolved = resolveVideoPath(path);
-
-        if (formLivePaths.isEmpty())
-        {
-            return false;
-        }
-
-        if (resolved == null || resolved.isEmpty())
-        {
-            return true;
-        }
-
-        return !formLivePaths.contains(resolved);
-    }
-
-    private static void pauseFormPlayer(String resolved)
-    {
-        PlayerWrapper wrapper = PLAYERS.get(resolved);
-
-        if (wrapper != null && wrapper.player != null && Boolean.TRUE.equals(wrapper.wasPlaying))
-        {
-            wrapper.player.pause();
-            wrapper.wasPlaying = false;
-        }
+        return false;
     }
 
     /**
@@ -506,7 +442,7 @@ public class VideoRenderer
             return null;
         }
 
-        int texture = wrapper.player.texture();
+        int texture = (int) wrapper.player.texture();
 
         if (texture <= 0)
         {
@@ -544,7 +480,7 @@ public class VideoRenderer
             return null;
         }
 
-        /* One kick-play so VLC uploads a frame, then stay paused. */
+        /* One kick-play so WaterMedia uploads a frame, then stay paused. */
         if (!formStillKick.contains(resolved))
         {
             formStillKick.add(resolved);
@@ -554,7 +490,7 @@ public class VideoRenderer
         return prepareFrame(path, tickPosition, false, loops, 0, true);
     }
 
-    private static FrameInfo prepareFrame(String path, long tickPosition, boolean playing, boolean loops, int volume, boolean formMode, boolean filmSync)
+    private static FrameInfo prepareFrame(String path, long tickPosition, boolean playing, boolean loops, int volume, boolean formMode, boolean filmSync, float speed, int maxLongSide, MediaPlayer.LodLevel lod)
     {
         String resolved = resolveVideoPath(path);
 
@@ -564,38 +500,81 @@ public class VideoRenderer
         }
 
         PlayerWrapper wrapper = PLAYERS.get(resolved);
-        VideoPlayer player;
+        MediaPlayer player;
 
         if (wrapper == null)
         {
-            if (factoryFailed)
+            if (!isAvailable())
             {
                 return null;
             }
 
-            if (FACTORY == null)
+            try
             {
-                FACTORY = resolveFactory();
+                MRL mrl = MediaAPI.mrl(resolved);
 
-                if (FACTORY == null)
+                if (mrl == null || mrl.status() == MRL.Status.ERROR)
                 {
                     return null;
                 }
-            }
 
-            try
-            {
-                /* Constructor calls native LibVLC — can throw Error (Invalid memory access), not just Exception. */
-                player = new VideoPlayer(FACTORY, MinecraftClient.getInstance());
-                player.start(new File(resolved).toURI());
-                player.setVolume(volume);
-                /* Force decode so the first form frame is not blank while dimensions are still 0. */
-                player.play();
-                player.setRepeatMode(loops);
+                if (mrl.status() == MRL.Status.FETCHING)
+                {
+                    mrl.await(50L);
+                }
+
+                MinecraftClient client = MinecraftClient.getInstance();
+                player = MediaAPI.createPlayer(
+                    mrl,
+                    () -> MediaAPI.glEngine(client.getThread(), client),
+                    () -> volume > 0 ? MediaAPI.alEngine() : null
+                );
+
+                if (player == null)
+                {
+                    return null;
+                }
+
+                player.volume(volume);
+                player.mute(volume <= 0);
+                player.repeat(loops);
+
+                if (speed > 0.01F)
+                {
+                    player.speed(speed);
+                }
+
+                if (maxLongSide > 0)
+                {
+                    player.maxSize(maxLongSide, maxLongSide);
+                }
+                else
+                {
+                    player.maxSize(MediaPlayer.NO_SIZE, MediaPlayer.NO_SIZE);
+                }
+
+                if (lod != null)
+                {
+                    player.lod(lod);
+                }
+
+                if (playing)
+                {
+                    player.start();
+                }
+                else
+                {
+                    player.start();
+                    player.pause();
+                }
+
                 wrapper = new PlayerWrapper(player);
                 wrapper.lastVolume = volume;
                 wrapper.lastLoops = loops;
-                wrapper.wasPlaying = true;
+                wrapper.wasPlaying = playing;
+                wrapper.lastSpeed = speed;
+                wrapper.lastMaxLongSide = maxLongSide;
+                wrapper.lastLod = lod;
                 PLAYERS.put(resolved, wrapper);
             }
             catch (Throwable e)
@@ -604,8 +583,6 @@ public class VideoRenderer
                 {
                     e.printStackTrace();
                 }
-
-                factoryFailed = true;
 
                 return null;
             }
@@ -616,14 +593,43 @@ public class VideoRenderer
 
             if (wrapper.lastVolume != volume)
             {
-                player.setVolume(volume);
+                player.volume(volume);
+                player.mute(volume <= 0);
                 wrapper.lastVolume = volume;
+            }
+
+            if (Math.abs(wrapper.lastSpeed - speed) > 0.01F)
+            {
+                player.speed(speed);
+                wrapper.lastSpeed = speed;
+            }
+
+            if (wrapper.lastMaxLongSide != maxLongSide)
+            {
+                if (maxLongSide > 0)
+                {
+                    player.maxSize(maxLongSide, maxLongSide);
+                }
+                else
+                {
+                    player.maxSize(MediaPlayer.NO_SIZE, MediaPlayer.NO_SIZE);
+                }
+                wrapper.lastMaxLongSide = maxLongSide;
+            }
+
+            if (wrapper.lastLod != lod)
+            {
+                if (lod != null)
+                {
+                    player.lod(lod);
+                }
+                wrapper.lastLod = lod;
             }
         }
 
         if (wrapper.lastLoops == null || wrapper.lastLoops != loops)
         {
-            player.setRepeatMode(loops);
+            player.repeat(loops);
             wrapper.lastLoops = loops;
         }
 
@@ -631,7 +637,7 @@ public class VideoRenderer
         {
             if (playing)
             {
-                player.play();
+                player.resume();
             }
             else
             {
@@ -641,17 +647,17 @@ public class VideoRenderer
             wrapper.wasPlaying = playing;
         }
 
-        long videoTime = player.getTime();
+        long videoTime = player.time();
         long bbsTime = tickPosition * 50L;
         long systemTime = System.currentTimeMillis();
         wrapper.lastRenderTime = systemTime;
-        long duration = player.getDuration();
+        long duration = player.duration();
 
         if (!playing)
         {
-            if (wrapper.lastVideoTime != -1 && videoTime != wrapper.lastVideoTime)
+            if (wrapper.lastVideoTime != -1L && videoTime != wrapper.lastVideoTime)
             {
-                if ((systemTime - wrapper.lastSeekTime) > 1000)
+                if ((systemTime - wrapper.lastSeekTime) > 1000L)
                 {
                     player.pause();
                 }
@@ -660,16 +666,16 @@ public class VideoRenderer
             wrapper.lastVideoTime = videoTime;
         }
 
-        if (loops && duration > 0 && !filmSync)
+        if (loops && duration > 0L && !filmSync)
         {
             bbsTime = bbsTime % duration;
 
-            if (bbsTime < 0)
+            if (bbsTime < 0L)
             {
                 bbsTime += duration;
             }
         }
-        else if (filmSync && duration > 0 && bbsTime > duration)
+        else if (filmSync && duration > 0L && bbsTime > duration)
         {
             /* Film past video end — clamp, do not wrap (avoids intro flash). */
             bbsTime = duration;
@@ -682,7 +688,7 @@ public class VideoRenderer
         if (!playing)
         {
             /* Still frame: seek only when the target tick changes.
-             * Chasing VLC clock drift while paused caused scrub-jitter + FPS death
+             * Chasing clock drift while paused caused scrub-jitter + FPS death
              * (especially together with Alt stencil re-draws). */
             if (wrapper.lastBbsTime != bbsTime)
             {
@@ -698,7 +704,7 @@ public class VideoRenderer
         {
             long diff = Math.abs(videoTime - bbsTime);
 
-            if (loops && duration > 0 && !filmSync)
+            if (loops && duration > 0L && !filmSync)
             {
                 long loopDiff = Math.abs(diff - duration);
                 diff = Math.min(diff, loopDiff);
@@ -712,7 +718,7 @@ public class VideoRenderer
 
         if (shouldSeek)
         {
-            player.seekTo(bbsTime);
+            player.seek(bbsTime);
             wrapper.lastSeekTime = systemTime;
             wrapper.lastBbsTime = bbsTime;
 
@@ -727,7 +733,7 @@ public class VideoRenderer
             wrapper.lastBbsTime = bbsTime;
         }
 
-        int texture = player.texture();
+        int texture = (int) player.texture();
 
         if (texture <= 0)
         {
@@ -798,28 +804,41 @@ public class VideoRenderer
 
         if (wrapper != null && wrapper.player != null)
         {
-            return wrapper.player.getDuration();
+            return wrapper.player.duration();
         }
 
-        if (factoryFailed)
+        if (!isAvailable())
         {
             return 0L;
         }
 
-        if (FACTORY == null)
+        try
         {
-            FACTORY = resolveFactory();
+            MRL mrl = MediaAPI.mrl(resolved);
 
-            if (FACTORY == null)
+            if (mrl == null || mrl.status() == MRL.Status.ERROR)
             {
                 return 0L;
             }
-        }
 
-        try
-        {
-            VideoPlayer player = new VideoPlayer(FACTORY, MinecraftClient.getInstance());
-            player.start(new File(resolved).toURI());
+            if (mrl.status() == MRL.Status.FETCHING)
+            {
+                mrl.await(100L);
+            }
+
+            MinecraftClient client = MinecraftClient.getInstance();
+            MediaPlayer player = MediaAPI.createPlayer(
+                mrl,
+                () -> MediaAPI.glEngine(client.getThread(), client),
+                () -> null
+            );
+
+            if (player == null)
+            {
+                return 0L;
+            }
+
+            player.start();
             player.pause();
 
             wrapper = new PlayerWrapper(player);
@@ -827,7 +846,7 @@ public class VideoRenderer
             wrapper.wasPlaying = false;
             PLAYERS.put(resolved, wrapper);
 
-            return player.getDuration();
+            return player.duration();
         }
         catch (Throwable e)
         {
@@ -836,7 +855,6 @@ public class VideoRenderer
                 e.printStackTrace();
             }
 
-            factoryFailed = true;
             return 0L;
         }
     }
@@ -867,7 +885,7 @@ public class VideoRenderer
             PlayerWrapper wrapper = entry.getValue();
             long diff = now - wrapper.lastRenderTime;
 
-            if (diff > 1000)
+            if (diff > 1000L)
             {
                 if (wrapper.wasPlaying != null && wrapper.wasPlaying)
                 {
@@ -876,7 +894,7 @@ public class VideoRenderer
                 }
             }
             
-            if (diff > 5000)
+            if (diff > 5000L)
             {
                 wrapper.player.release();
                 toRemove.add(entry.getKey());
@@ -903,7 +921,7 @@ public class VideoRenderer
     }
 
     /**
-     * Release every cached VLC player but keep the factory (menu open/close cycles).
+     * Release every cached player (menu open/close cycles).
      * {@link #stopAll()} only pauses — that leaked native memory when the dashboard closed.
      */
     public static void releaseAllPlayers()
@@ -923,23 +941,10 @@ public class VideoRenderer
 
         PLAYERS.clear();
         formStillKick.clear();
-        formLivePaths.clear();
     }
 
     public static void cleanup()
     {
         releaseAllPlayers();
-
-        if (FACTORY != null)
-        {
-            try
-            {
-                FACTORY.release();
-            }
-            catch (Throwable t)
-            {}
-
-            FACTORY = null;
-        }
     }
 }

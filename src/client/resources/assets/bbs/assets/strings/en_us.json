@@ -923,7 +923,7 @@
     "bbs.ui.camera.panels.title": "Title",
     "bbs.ui.camera.panels.title_tooltip": "Display name which will be displayed in the timeline",
     "bbs.ui.camera.panels.video.aspect_lock": "Lock aspect ratio for width/height",
-    "bbs.ui.camera.panels.video.disclaimer": "Requires Watermedia 2.1.37 installed to play video clips.",
+    "bbs.ui.camera.panels.video.disclaimer": "Requires WaterMedia 3.x installed to play video clips.",
     "bbs.ui.camera.panels.video.extend_duration": "Extend this clip's duration to the duration of the video",
     "bbs.ui.camera.panels.video.offset": "Video offset",
     "bbs.ui.camera.panels.video.pick_video": "Pick video...",

@@ -994,7 +994,7 @@
     "bbs.ui.camera.panels.title": "Título",
     "bbs.ui.camera.panels.title_tooltip": "Nombre a visualizar que se mostrará en la línea de tiempo",
     "bbs.ui.camera.panels.video.aspect_lock": "Bloquear la relacion de aspecto entre ancho y alto",
-    "bbs.ui.camera.panels.video.disclaimer": "Requiere Watermedia 2.1.37 instalado para que funcione el clip de video.",
+    "bbs.ui.camera.panels.video.disclaimer": "Requiere WaterMedia 3.x instalado para que funcione el clip de video.",
     "bbs.ui.camera.panels.video.extend_duration": "Extender la duracion de este clip a la duracion del video",
     "bbs.ui.camera.panels.video.offset": "Desplazamiento de video",
     "bbs.ui.camera.panels.video.pick_video": "Elige un video...",

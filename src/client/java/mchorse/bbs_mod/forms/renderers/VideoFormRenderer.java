@@ -398,8 +398,7 @@ public class VideoFormRenderer extends FormRenderer<VideoForm> implements ITicka
         boolean allowFfmpegFallback = this.allowsFfmpegFallback(deferContext);
         String ffmpegPath = FFMpegUtils.getFFMPEG();
         boolean ffmpegOk = ffmpegPath != null && !ffmpegPath.isEmpty() && new File(ffmpegPath).isFile();
-        /* WaterMedia/VLC last resort only — its player cache leaked and hard-crashed on menu open/close. */
-        boolean waterMedia = !ffmpegOk && VideoRenderer.isAvailable();
+        boolean waterMedia = VideoRenderer.isAvailable();
 
         int textureId = 0;
         float w = 16F;
@@ -410,19 +409,7 @@ public class VideoFormRenderer extends FormRenderer<VideoForm> implements ITicka
             /* Editor / inventory / item: still frame at scrubbed Time. */
             long stillTick = Math.max(0, this.form.time.get()) + this.form.offset.get();
 
-            if (ffmpegOk)
-            {
-                VideoFormEngine.Frame still = VideoFormEngine.bindStill(path, stillTick, this.form.resolution.get());
-
-                if (still != null && still.textureId > 0)
-                {
-                    textureId = still.textureId;
-                    w = Math.max(1, still.width);
-                    h = Math.max(1, still.height);
-                }
-            }
-
-            if (textureId <= 0 && waterMedia)
+            if (waterMedia)
             {
                 VideoRenderer.FrameInfo waterStill = VideoRenderer.ensureFormStillFrame(path, stillTick, this.form.loop.get());
 
@@ -431,6 +418,18 @@ public class VideoFormRenderer extends FormRenderer<VideoForm> implements ITicka
                     textureId = waterStill.textureId;
                     w = Math.max(1, waterStill.width);
                     h = Math.max(1, waterStill.height);
+                }
+            }
+
+            if (textureId <= 0 && ffmpegOk)
+            {
+                VideoFormEngine.Frame still = VideoFormEngine.bindStill(path, stillTick, this.form.resolution.get());
+
+                if (still != null && still.textureId > 0)
+                {
+                    textureId = still.textureId;
+                    w = Math.max(1, still.width);
+                    h = Math.max(1, still.height);
                 }
             }
         }
@@ -451,12 +450,29 @@ public class VideoFormRenderer extends FormRenderer<VideoForm> implements ITicka
             /* Film-driven: do not independently loop — that flashes the intro mid-timeline. */
             boolean loop = filmDriven ? false : this.form.loop.get();
             float distSq = this.getDistanceSqToCamera(deferContext);
+            float speed = this.form.speed.get();
+            int resolutionPreset = this.form.resolution.get();
+            int maxLongSide = resolutionPreset > 0 ? resolutionPreset : 0;
 
-            /* FFmpeg first; WaterMedia/VLC only if ffmpeg is missing. */
-            if (ffmpegOk)
+            /* WaterMedia v3 primary decoder (hardware-accelerated, zero-copy, dynamic LODs). */
+            if (waterMedia)
+            {
+                VideoRenderer.FrameInfo waterFrame = VideoRenderer.prepareFormFrame(
+                    path, tickPosition, loop, distSq, maxLongSide, playing, filmDriven, speed, 0);
+
+                if (waterFrame != null && waterFrame.textureId > 0)
+                {
+                    textureId = waterFrame.textureId;
+                    w = Math.max(1, waterFrame.width);
+                    h = Math.max(1, waterFrame.height);
+                }
+            }
+
+            /* Fallback to background ffmpeg engine if WaterMedia is unavailable or pending. */
+            if (textureId <= 0 && ffmpegOk)
             {
                 VideoFormEngine.Frame engineFrame = VideoFormEngine.bindFrame(
-                    path, tickPosition, 1F, loop, this.form.resolution.get(), playing);
+                    path, tickPosition, speed, loop, this.form.resolution.get(), playing);
 
                 if (engineFrame != null && engineFrame.textureId > 0)
                 {
@@ -468,9 +484,8 @@ public class VideoFormRenderer extends FormRenderer<VideoForm> implements ITicka
 
             if (textureId <= 0 && allowFfmpegFallback && ffmpegOk)
             {
-                int maxLongSide = VideoResolution.effectiveDecodeLongSide(this.form.resolution.get());
                 VideoFormPlayback playback = VideoFormPlayback.get(path, maxLongSide);
-                Texture ffmpegTexture = playback == null ? null : playback.ensureFrame(tickPosition, 1F, loop);
+                Texture ffmpegTexture = playback == null ? null : playback.ensureFrame(tickPosition, speed, loop);
 
                 if (playback != null && playback.getWidth() > 0 && playback.getHeight() > 0)
                 {
@@ -490,19 +505,6 @@ public class VideoFormRenderer extends FormRenderer<VideoForm> implements ITicka
                     {
                         textureId = last.id;
                     }
-                }
-            }
-
-            if (textureId <= 0 && waterMedia)
-            {
-                VideoRenderer.FrameInfo waterFrame = VideoRenderer.prepareFormFrame(
-                    path, tickPosition, loop, distSq, 0, playing, filmDriven);
-
-                if (waterFrame != null && waterFrame.textureId > 0)
-                {
-                    textureId = waterFrame.textureId;
-                    w = Math.max(1, waterFrame.width);
-                    h = Math.max(1, waterFrame.height);
                 }
             }
         }
@@ -637,7 +639,7 @@ public class VideoFormRenderer extends FormRenderer<VideoForm> implements ITicka
 
     private float getDistanceSqToCamera(FormRenderingContext context)
     {
-        if (context == null || context.camera == null)
+        if (context == null || context.ui || context.camera == null || context.stack == null)
         {
             return 0F;
         }
@@ -646,11 +648,8 @@ public class VideoFormRenderer extends FormRenderer<VideoForm> implements ITicka
         float x = m.m30();
         float y = m.m31();
         float z = m.m32();
-        float dx = x - (float) context.camera.position.x;
-        float dy = y - (float) context.camera.position.y;
-        float dz = z - (float) context.camera.position.z;
 
-        return dx * dx + dy * dy + dz * dz;
+        return x * x + y * y + z * z;
     }
 
     private boolean isStaticPreview(boolean modelRenderer, FormRenderingContext context)
