@@ -1982,7 +1982,7 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
         this.physicsAppliedThisRender = true;
         model.lastBaseTransform = baseTransform;
         model.form = this.form;
-        DynamicBoneOrchestrator.apply(this.form.springs, target, model, transition, baseTransform);
+        DynamicBoneOrchestrator.apply(target, model, transition, baseTransform);
     }
 
     private void applyConstraintsOnce(ModelInstance model)

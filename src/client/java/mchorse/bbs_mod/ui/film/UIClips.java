@@ -1105,11 +1105,6 @@ public class UIClips extends UIElement
         return (int) this.scale.to(value);
     }
 
-    public int toGraphX(int value)
-    {
-        return (int) this.scale.to(value);
-    }
-
     public void setLoopMin()
     {
         this.setLoopMinAt(this.delegate.getCursor());

@@ -10,7 +10,6 @@ import mchorse.bbs_mod.cubic.render.SolvedPoseApplicator;
 import mchorse.bbs_mod.data.types.MapType;
 import mchorse.bbs_mod.forms.entities.IEntity;
 import mchorse.bbs_mod.forms.forms.ModelForm;
-import mchorse.bbs_mod.settings.values.core.ValueData;
 
 import net.minecraft.world.World;
 
@@ -84,11 +83,6 @@ public final class DynamicBoneOrchestrator
         }
 
         return instance.springChains;
-    }
-
-    public static void apply(ValueData springs, IEntity entity, ModelInstance instance, float transition, Matrix4f baseTransform)
-    {
-        apply(entity, instance, transition, baseTransform);
     }
 
     public static void apply(IEntity entity, ModelInstance instance, float transition, Matrix4f baseTransform)
