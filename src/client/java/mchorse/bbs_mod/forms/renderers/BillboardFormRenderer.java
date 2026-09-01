@@ -398,6 +398,7 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
         boolean softPostDeferred = !localPreview && !shadowPass
             && ShaderOpacityPatch.shouldDelayUntilPostDeferred(color.a)
             && !noshadingAfterPaint;
+        boolean noShaderSoft = softPostDeferred && !irisWorld;
         boolean deferForColorGrade = hasColorAdjustments && irisWorld;
         boolean deferNoshading = irisWorld && (noshadingAfterPaint || !this.form.shading.get());
         /* Opaque-ish Iris grade/noshading, or soft + noshading (after paint, unshaded). */
@@ -431,6 +432,13 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
             GlowSettings glowSettingsSnapshot = glowSettings;
             Color legacyGlowSnapshot = legacyGlow;
             boolean emitGlowSnapshot = glowIntensity > 0F && !glowSettings.resolvePaintOnly();
+            boolean positivePaintSnapshot = positivePaint;
+            Color resolvedPaintSnapshot = resolvedPaint == null ? null : resolvedPaint.copy();
+            PaintSettings paintSettingsSnapshot = paintSettings == null ? null : paintSettings.copy();
+            boolean applyColorTintSnapshot = applyColorTint;
+            Color formColorSnapshot = formColor.copy();
+            EffectTransform colorTransformSnapshot = formColor.transform == null ? null : formColor.transform.copy();
+            boolean noShaderSoftSnapshot = noShaderSoft;
             boolean depthWrite = ShaderOpacityPatch.shouldWriteDepthForOpacity(color.a);
             boolean afterFluids = ShaderOpacityPatch.shouldFlushAfterFluids(color.a);
             boolean gradeOnDeferredDraw = useFormColorGrade || irisDeferredColorGrade;
@@ -513,6 +521,38 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
                         mipmap,
                         false
                     );
+
+                    if (noShaderSoftSnapshot && positivePaintSnapshot)
+                    {
+                        this.renderPaintOverlay(
+                            deferredTexture,
+                            deferredShader,
+                            overlayStack,
+                            overlaySnapshot,
+                            resolvedPaintSnapshot,
+                            colorSnapshot.a,
+                            localQuad,
+                            localUvQuad,
+                            paintSettingsSnapshot.transform,
+                            glowSettingsSnapshot,
+                            legacyGlowSnapshot,
+                            glowIntensitySnapshot
+                        );
+                    }
+
+                    if (noShaderSoftSnapshot && applyColorTintSnapshot)
+                    {
+                        this.renderColorTintOverlay(
+                            deferredTexture,
+                            deferredShader,
+                            overlayStack,
+                            overlaySnapshot,
+                            formColorSnapshot,
+                            localQuad,
+                            localUvQuad,
+                            colorTransformSnapshot
+                        );
+                    }
 
                     if (emitGlowSnapshot)
                     {
@@ -845,7 +885,7 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
             }
         }
 
-        if (positivePaint)
+        if (positivePaint && !noShaderSoft)
         {
             if (modelRenderer)
             {
@@ -860,7 +900,7 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
             }
         }
 
-        if (applyColorTint)
+        if (applyColorTint && !noShaderSoft)
         {
             EffectTransform colorTransform = formColor.transform == null ? null : formColor.transform.copy();
 

@@ -883,27 +883,33 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
         EffectTransform gradeHueTransformSnapshot = storedFormColor.hueTransform == null ? new EffectTransform() : storedFormColor.hueTransform.copy();
         EffectTransform gradeSaturationTransformSnapshot = storedFormColor.saturationTransform == null ? new EffectTransform() : storedFormColor.saturationTransform.copy();
 
-        if (paintActive && (bbsModelShader || deferTranslucentModel))
+        boolean uploadMainPassEffectUniforms = this.usesMainPassModelEffectUniforms(model, deferTranslucentModel);
+
+        if (paintActive && uploadMainPassEffectUniforms && !deferPaintToOverlay)
         {
             ModelVAORenderer.setPaintEffectTransform(formRootInverse, paint.transform, paintMaskHalf);
         }
+        else if (!deferPaintToOverlay)
+        {
+            ModelVAORenderer.clearPaintEffectTransform();
+        }
 
-        if (hasGlow && (bbsModelShader || deferTranslucentModel))
+        if (hasGlow && uploadMainPassEffectUniforms && !deferGlowToOverlay)
         {
             ModelVAORenderer.setGlowEffectTransform(formRootInverse, glowEffectTransform, glowMaskHalf);
         }
-        else
+        else if (!deferGlowToOverlay)
         {
             ModelVAORenderer.clearGlowEffectTransform();
         }
 
         /* Apply ColorEffect only on BBS model draws. Iris live uses a multiply overlay instead. */
-        if (colorTransformWanted && (bbsModelShader || deferTranslucentModel))
+        if (colorTransformWanted && uploadMainPassEffectUniforms && !deferColorTintToOverlay)
         {
             ModelVAORenderer.setColorEffectTransform(formRootInverse, formColor.transform, colorMaskHalf);
             ModelVAORenderer.setFormColorTint(formColor.r, formColor.g, formColor.b, formColor.a);
         }
-        else
+        else if (!deferColorTintToOverlay)
         {
             ModelVAORenderer.clearColorEffectTransform();
             ModelVAORenderer.clearFormColorTint();
@@ -2385,6 +2391,36 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
     }
 
     /**
+     * Upload spatial paint/glow/color mask uniforms on the live draw when it already runs
+     * {@link BBSShaders#getModel()}. On Iris, {@link #usesBbsModelShader} is false even if
+     * {@link #getModelShader} picked model.fsh (bone texture blend on BOBJ/OBJ/VAO paths) —
+     * without this, masks never reach the shader on that pass.
+     */
+    private boolean usesMainPassModelEffectUniforms(ModelInstance model, boolean deferTranslucentModel)
+    {
+        if (model == null || !model.supportsBbsModelShaderEffects())
+        {
+            return false;
+        }
+
+        if (deferTranslucentModel)
+        {
+            return true;
+        }
+
+        if (!BBSRendering.isIrisWorldPaintDeferral())
+        {
+            return true;
+        }
+
+        return this.hasAnyBoneTextureBlend(model)
+            || this.hasAnyBoneColorTransform(model)
+            || this.hasAnyBoneGlowTransform(model)
+            || this.hasAnyBoneColorGrade(model)
+            || this.hasBonePaint(model);
+    }
+
+    /**
      * Form color tint uses the BBS tint / Iris multiply-overlay path whenever RGB is tinted or a
      * spatial transform is active — same lighting-safe path as moving Transform numbers.
      */
@@ -3044,6 +3080,19 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
             return false;
         }
 
+        if (model.model instanceof BOBJModel bobj)
+        {
+            for (BOBJBone bone : bobj.getArmature().orderedBones)
+            {
+                if (bone.noshadingOpacity)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
         for (ModelGroup group : model.getModel().getAllGroups())
         {
             if (group.noshadingOpacity)
@@ -3064,6 +3113,19 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
     {
         if (model == null || model.getModel() == null)
         {
+            return false;
+        }
+
+        if (model.model instanceof BOBJModel bobj)
+        {
+            for (BOBJBone bone : bobj.getArmature().orderedBones)
+            {
+                if (bone.color != null && bone.color.hasColorAdjustments())
+                {
+                    return true;
+                }
+            }
+
             return false;
         }
 
@@ -3088,6 +3150,19 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
             return false;
         }
 
+        if (model.model instanceof BOBJModel bobj)
+        {
+            for (BOBJBone bone : bobj.getArmature().orderedBones)
+            {
+                if (bone.color != null && bone.color.hasActiveTransform())
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
         for (ModelGroup group : model.getModel().getAllGroups())
         {
             if (group.color != null && group.color.hasActiveTransform())
@@ -3106,6 +3181,19 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
     {
         if (model == null || model.getModel() == null)
         {
+            return false;
+        }
+
+        if (model.model instanceof BOBJModel bobj)
+        {
+            for (BOBJBone bone : bobj.getArmature().orderedBones)
+            {
+                if (bone.glowingColor != null && bone.glowingColor.transform != null && bone.glowingColor.transform.isActive())
+                {
+                    return true;
+                }
+            }
+
             return false;
         }
 
@@ -3196,6 +3284,19 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
     {
         if (model != null && model.getModel() != null)
         {
+            if (model.model instanceof BOBJModel bobj)
+            {
+                for (BOBJBone bone : bobj.getArmature().orderedBones)
+                {
+                    if (bone.paintColor != null && bone.paintColor.a != 0F)
+                    {
+                        return true;
+                    }
+                }
+
+                return false;
+            }
+
             for (ModelGroup group : model.getModel().getAllGroups())
             {
                 if (group.paintColor != null && group.paintColor.a != 0F)
