@@ -141,7 +141,7 @@ public class FormColorEffects
      */
     public static boolean wantsColorTransformMask(Color color)
     {
-        return color != null && color.hasActiveTransform();
+        return color != null && (color.hasActiveTransform() || color.hasActiveGradeTransform());
     }
 
     /**

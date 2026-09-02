@@ -180,14 +180,6 @@ vec3 bbsHsl2Rgb(vec3 hsl)
 
 vec3 bbsPreserveLitShadow(vec3 inputRgb, vec3 gradedRgb)
 {
-    float inputLuma = dot(inputRgb, vec3(0.2126, 0.7152, 0.0722));
-    float outputLuma = dot(gradedRgb, vec3(0.2126, 0.7152, 0.0722));
-
-    if (inputLuma < 0.18 && outputLuma > inputLuma)
-    {
-        gradedRgb *= inputLuma / max(outputLuma, 1e-5);
-    }
-
     return gradedRgb;
 }
 

@@ -122,18 +122,10 @@ public final class ColorAdjustments
     }
 
     /**
-     * Prevents contrast / saturation from lifting lit shadow pixels above their input luma.
+     * Shadow lift scaling factor.
      */
     private static float shadowLiftScale(float baseR, float baseG, float baseB, float r, float g, float b)
     {
-        float baseLuma = 0.2126F * baseR + 0.7152F * baseG + 0.0722F * baseB;
-        float outputLuma = 0.2126F * r + 0.7152F * g + 0.0722F * b;
-
-        if (baseLuma < SHADOW_LUMA_THRESHOLD && outputLuma > baseLuma && outputLuma > EPSILON)
-        {
-            return baseLuma / outputLuma;
-        }
-
         return 1F;
     }
 }

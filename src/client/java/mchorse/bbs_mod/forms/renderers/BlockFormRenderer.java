@@ -945,9 +945,7 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
     }
 
     /**
-     * Spatial color-transform overlay on entity-visual blocks, including neutral scale (1,1,1).
-     * Color Grade and uniform tint use flat BE tint because block-atlas overlays corrupt entity atlases
-     * and duplicate rendering causes z-fighting on chests / block entities.
+     * Color tint / Color Grade overlay on entity-visual blocks (chests, beds, etc.).
      */
     private boolean shouldRunBlockEntitySpatialColorOverlay(Color storedFormColor)
     {
@@ -956,7 +954,7 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
             return false;
         }
 
-        return storedFormColor.hasActiveTransform();
+        return FormColorEffects.wantsColorTintOverlay(storedFormColor);
     }
 
     /**
