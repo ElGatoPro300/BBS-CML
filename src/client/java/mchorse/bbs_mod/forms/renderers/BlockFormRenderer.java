@@ -663,7 +663,13 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
             }
             else
             {
-                MinecraftClient.getInstance().getBlockRenderManager().renderBlockAsEntity(blockState, stack, consumers, light, overlay);
+                /* ENTITYBLOCK_ANIMATED (chests, ender chests, shulker boxes, …) delegates to
+                 * BuiltinModelItemRenderer in renderBlockAsEntity, drawing a second duplicate item chest.
+                 * Only invoke renderBlockAsEntity when the block has a baked model. */
+                if (blockState.getRenderType() == BlockRenderType.MODEL)
+                {
+                    MinecraftClient.getInstance().getBlockRenderManager().renderBlockAsEntity(blockState, stack, consumers, light, overlay);
+                }
 
                 boolean skipBlockEntity = effectOverlay && !entityVisualOverlay;
 
@@ -674,7 +680,7 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
 
                 int breakingLevel = this.form.breaking.get();
 
-                if (!picking && !effectOverlay && breakingLevel > 0 && breakingLevel <= 10)
+                if (!picking && !effectOverlay && breakingLevel > 0 && breakingLevel <= 10 && blockState.getRenderType() == BlockRenderType.MODEL)
                 {
                     RenderLayer crackingLayer = ModelLoader.BLOCK_DESTRUCTION_RENDER_LAYERS.get(breakingLevel - 1);
                     VertexConsumer delegateConsumer = consumers.getBuffer(crackingLayer);
@@ -940,7 +946,8 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
 
     /**
      * Spatial color-transform overlay on entity-visual blocks, including neutral scale (1,1,1).
-     * Color Grade alone uses flat BE tint because block-atlas overlays corrupt entity atlases.
+     * Color Grade and uniform tint use flat BE tint because block-atlas overlays corrupt entity atlases
+     * and duplicate rendering causes z-fighting on chests / block entities.
      */
     private boolean shouldRunBlockEntitySpatialColorOverlay(Color storedFormColor)
     {
@@ -949,13 +956,7 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
             return false;
         }
 
-        if (FormColorEffects.wantsColorTintForAdjustments(storedFormColor, false)
-            && !FormColorEffects.wantsColorTransformMask(storedFormColor))
-        {
-            return false;
-        }
-
-        return true;
+        return storedFormColor.hasActiveTransform();
     }
 
     /**
