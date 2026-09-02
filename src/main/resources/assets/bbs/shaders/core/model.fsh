@@ -286,10 +286,10 @@ vec3 bbsApplyGlow(vec3 color, float strength)
     {
         if (strength >= 1.0)
         {
-            return color + glowRgb * strength * 8.0;
+            return color + glowRgb * strength;
         }
 
-        vec3 emissive = color + glowRgb * 8.0;
+        vec3 emissive = color + glowRgb;
 
         return mix(color, emissive, strength);
     }
