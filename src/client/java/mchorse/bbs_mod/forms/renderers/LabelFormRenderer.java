@@ -616,14 +616,14 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
             this.form.applyFormOpacity(color);
             /* Keep base + FlatColorTint opacity in sync (context alpha used to hit only the tint). */
             color.a *= contextColor.a;
-            formTintColor = storedFormColor.copyDeferringColorGrade().copy();
+            formTintColor = storedFormColor.copyBakingColorGrade().copy();
             this.form.applyFormOpacity(formTintColor);
             formTintColor.mul(contextColor);
             colorTransform = storedFormColor.transform == null ? null : storedFormColor.transform.copy();
         }
         else
         {
-            color.mul(storedFormColor);
+            color.mul(storedFormColor.copyBakingColorGrade());
         }
 
         float paintStrength = paintSettings.resolveIntensity(legacyPaint);
@@ -859,14 +859,14 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
             color.b = 1F;
             this.form.applyFormOpacity(color);
             color.a *= contextColor.a;
-            formTintColor = storedFormColor.copyDeferringColorGrade().copy();
+            formTintColor = storedFormColor.copyBakingColorGrade().copy();
             this.form.applyFormOpacity(formTintColor);
             formTintColor.mul(contextColor);
             colorTransform = storedFormColor.transform == null ? null : storedFormColor.transform.copy();
         }
         else
         {
-            color.mul(storedFormColor);
+            color.mul(storedFormColor.copyBakingColorGrade());
         }
 
         float paintStrength = paintSettings.resolveIntensity(legacyPaint);
