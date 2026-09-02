@@ -11,14 +11,14 @@ import mchorse.bbs_mod.utils.MathUtils;
 public final class ColorAdjustments
 {
     public static final float EPSILON = 0.001F;
-    public static final float MIN_BRIGHTNESS = -1F;
-    public static final float MAX_BRIGHTNESS = 1F;
-    public static final float MIN_CONTRAST = -1F;
-    public static final float MAX_CONTRAST = 10F;
-    public static final float MIN_HUE = -180F;
-    public static final float MAX_HUE = 180F;
-    public static final float MIN_SATURATION = -1F;
-    public static final float MAX_SATURATION = 10F;
+    public static final float MIN_BRIGHTNESS = Float.NEGATIVE_INFINITY;
+    public static final float MAX_BRIGHTNESS = Float.POSITIVE_INFINITY;
+    public static final float MIN_CONTRAST = Float.NEGATIVE_INFINITY;
+    public static final float MAX_CONTRAST = Float.POSITIVE_INFINITY;
+    public static final float MIN_HUE = Float.NEGATIVE_INFINITY;
+    public static final float MAX_HUE = Float.POSITIVE_INFINITY;
+    public static final float MIN_SATURATION = Float.NEGATIVE_INFINITY;
+    public static final float MAX_SATURATION = Float.POSITIVE_INFINITY;
     /** Lit pixels below this luma must not be brightened by contrast / saturation. */
     private static final float SHADOW_LUMA_THRESHOLD = 0.18F;
 
@@ -37,22 +37,22 @@ public final class ColorAdjustments
 
     public static float clampBrightness(float value)
     {
-        return MathUtils.clamp(value, MIN_BRIGHTNESS, MAX_BRIGHTNESS);
+        return Float.isFinite(value) ? value : 0F;
     }
 
     public static float clampContrast(float value)
     {
-        return MathUtils.clamp(value, MIN_CONTRAST, MAX_CONTRAST);
+        return Float.isFinite(value) ? value : 0F;
     }
 
     public static float clampHue(float value)
     {
-        return MathUtils.clamp(value, MIN_HUE, MAX_HUE);
+        return Float.isFinite(value) ? value : 0F;
     }
 
     public static float clampSaturation(float value)
     {
-        return MathUtils.clamp(value, MIN_SATURATION, MAX_SATURATION);
+        return Float.isFinite(value) ? value : 0F;
     }
 
     /**
