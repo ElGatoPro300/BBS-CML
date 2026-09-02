@@ -69,20 +69,11 @@ public final class ColorAdjustments
         float g = color.g + brightness;
         float b = color.b + brightness;
 
-        float baseR = r;
-        float baseG = g;
-        float baseB = b;
-        float luma = 0.2126F * r + 0.7152F * g + 0.0722F * b;
         float contrastScale = 1F + contrast;
 
-        r = luma + contrastScale * (r - luma);
-        g = luma + contrastScale * (g - luma);
-        b = luma + contrastScale * (b - luma);
-        float shadowScale = shadowLiftScale(baseR, baseG, baseB, r, g, b);
-
-        r *= shadowScale;
-        g *= shadowScale;
-        b *= shadowScale;
+        r = 0.5F + contrastScale * (r - 0.5F);
+        g = 0.5F + contrastScale * (g - 0.5F);
+        b = 0.5F + contrastScale * (b - 0.5F);
 
         if (Math.abs(saturation) > EPSILON)
         {
@@ -92,10 +83,6 @@ public final class ColorAdjustments
             r = HSV.r;
             g = HSV.g;
             b = HSV.b;
-            shadowScale = shadowLiftScale(baseR, baseG, baseB, r, g, b);
-            r *= shadowScale;
-            g *= shadowScale;
-            b *= shadowScale;
         }
 
         if (Math.abs(hue) > EPSILON)
