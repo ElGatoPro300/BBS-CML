@@ -84,6 +84,7 @@ public final class BlockEffectOverlayUniforms
     {
         RenderSystem.enableBlend();
         RenderSystem.blendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
+        RenderSystem.enableCull();
 
         ShaderProgram program = BBSShaders.getBlockPaintOverlayProgram();
 
@@ -113,6 +114,7 @@ public final class BlockEffectOverlayUniforms
         RenderSystem.enableBlend();
         RenderSystem.blendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE);
         RenderSystem.depthMask(false);
+        RenderSystem.enableCull();
 
         ShaderProgram program = BBSShaders.getBlockGlowOverlayProgram();
 
@@ -143,6 +145,7 @@ public final class BlockEffectOverlayUniforms
         RenderSystem.enableBlend();
         RenderSystem.blendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE);
         RenderSystem.depthMask(false);
+        RenderSystem.enableCull();
 
         ShaderProgram program = BBSShaders.getBlockGlowOverlayProgram();
 
@@ -170,6 +173,7 @@ public final class BlockEffectOverlayUniforms
     {
         RenderSystem.enableBlend();
         RenderSystem.blendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
+        RenderSystem.enableCull();
 
         ShaderProgram program = BBSShaders.getBlockPaintOverlayProgram();
 
@@ -247,6 +251,7 @@ public final class BlockEffectOverlayUniforms
         RenderSystem.enableDepthTest();
         RenderSystem.depthFunc(GL11.GL_LEQUAL);
         RenderSystem.depthMask(false);
+        RenderSystem.enableCull();
 
         ShaderProgram program = BBSShaders.getBlockColorTintOverlayProgram();
 

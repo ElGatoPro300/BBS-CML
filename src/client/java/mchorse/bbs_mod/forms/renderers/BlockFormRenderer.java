@@ -1352,6 +1352,7 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
         int savedDepthFunc = GL11.glGetInteger(GL11.GL_DEPTH_FUNC);
         boolean savedDepthMask = GL11.glGetBoolean(GL11.GL_DEPTH_WRITEMASK);
         boolean savedPolygonOffsetFill = GL11.glGetBoolean(GL11.GL_POLYGON_OFFSET_FILL);
+        boolean savedCull = GL11.glIsEnabled(GL11.GL_CULL_FACE);
 
         CustomVertexConsumerProvider.clearRunnables();
         CustomVertexConsumerProvider.hijackVertexFormat((l) ->
@@ -1364,12 +1365,15 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
             {
                 BlockEffectOverlayUniforms.configureColorTintOverlayRenderState(formRootInverse, formColor.transform, true, formColor, 0.5F, gradeSource);
             }
+
+            RenderSystem.enableCull();
         });
 
         RenderSystem.enableBlend();
         RenderSystem.enableDepthTest();
         RenderSystem.depthFunc(GL11.GL_LEQUAL);
         RenderSystem.depthMask(false);
+        RenderSystem.enableCull();
         /* Pull tint overlay toward camera so it does not z-fight the main block pass. */
         GL11.glEnable(GL11.GL_POLYGON_OFFSET_FILL);
         GL11.glPolygonOffset(-1F, -2F);
@@ -1400,6 +1404,15 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
             else
             {
                 GL11.glDisable(GL11.GL_POLYGON_OFFSET_FILL);
+            }
+
+            if (savedCull)
+            {
+                RenderSystem.enableCull();
+            }
+            else
+            {
+                RenderSystem.disableCull();
             }
 
             RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
@@ -1459,6 +1472,7 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
         }
 
         final EffectTransform maskTransform = paintTransform;
+        boolean savedCull = GL11.glIsEnabled(GL11.GL_CULL_FACE);
 
         CustomVertexConsumerProvider.clearRunnables();
         CustomVertexConsumerProvider.hijackVertexFormat((l) ->
@@ -1471,11 +1485,14 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
             {
                 BlockEffectOverlayUniforms.configurePaintOverlayRenderState(formRootInverse, maskTransform, true, glowSettings, legacyGlow, glowIntensity, alpha);
             }
+
+            RenderSystem.enableCull();
         });
 
         RenderSystem.enableBlend();
         RenderSystem.blendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
         RenderSystem.depthMask(false);
+        RenderSystem.enableCull();
 
         consumers.setSubstitute(BBSRendering.getBlockPaintOverlayConsumer(paintOverlay));
 
@@ -1492,6 +1509,16 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
 
             consumers.setSubstitute(null);
             RenderSystem.depthMask(true);
+
+            if (savedCull)
+            {
+                RenderSystem.enableCull();
+            }
+            else
+            {
+                RenderSystem.disableCull();
+            }
+
             RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
             CustomVertexConsumerProvider.clearRunnables();
         }
@@ -1550,6 +1577,7 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
         boolean entityVisual = this.shouldUseEntityVisualGlowOverlay();
 
         Matrix4f formRootInverse = new Matrix4f(stack.peek().getPositionMatrix()).invert();
+        boolean savedCull = GL11.glIsEnabled(GL11.GL_CULL_FACE);
 
         CustomVertexConsumerProvider.clearRunnables();
         CustomVertexConsumerProvider.hijackVertexFormat((l) ->
@@ -1563,12 +1591,14 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
                 BlockEffectOverlayUniforms.configureGlowOverlayRenderState(formRootInverse, maskTransform, true, 0.5F, shaderScale);
             }
 
+            RenderSystem.enableCull();
             GL11.glDisable(GL11.GL_POLYGON_OFFSET_FILL);
         });
 
         RenderSystem.enableBlend();
         RenderSystem.blendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE);
         RenderSystem.depthMask(false);
+        RenderSystem.enableCull();
 
         boolean wasOffset = GL11.glGetBoolean(GL11.GL_POLYGON_OFFSET_FILL);
         if (wasOffset) GL11.glDisable(GL11.GL_POLYGON_OFFSET_FILL);
@@ -1595,6 +1625,16 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
             consumers.setUI(false);
             consumers.setSubstitute(null);
             RenderSystem.depthMask(true);
+
+            if (savedCull)
+            {
+                RenderSystem.enableCull();
+            }
+            else
+            {
+                RenderSystem.disableCull();
+            }
+
             RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
             RenderSystem.defaultBlendFunc();
             CustomVertexConsumerProvider.clearRunnables();

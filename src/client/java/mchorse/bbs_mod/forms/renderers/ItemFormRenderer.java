@@ -616,15 +616,18 @@ public class ItemFormRenderer extends FormRenderer<ItemForm>
     private void renderItemColorTintOverlayPass(FormRenderingContext context, MatrixStack stack, CustomVertexConsumerProvider consumers, Color formColor, float alpha, int overlay, boolean ui, ModelTransformationMode mode, boolean leftHand, LivingEntity itemEntity, Color gradeSource)
     {
         Matrix4f formRootInverse = new Matrix4f(stack.peek().getPositionMatrix()).invert();
+        boolean savedCull = GL11.glIsEnabled(GL11.GL_CULL_FACE);
 
         CustomVertexConsumerProvider.clearRunnables();
         CustomVertexConsumerProvider.hijackVertexFormat((l) -> {
             BlockEffectOverlayUniforms.configureColorTintOverlayRenderState(formRootInverse, formColor.transform, false, formColor, 0.5F, gradeSource);
+            RenderSystem.enableCull();
             GL11.glDisable(GL11.GL_POLYGON_OFFSET_FILL);
         });
 
         RenderSystem.enableBlend();
         RenderSystem.depthMask(false);
+        RenderSystem.enableCull();
 
         boolean wasOffset = GL11.glGetBoolean(GL11.GL_POLYGON_OFFSET_FILL);
         if (wasOffset) GL11.glDisable(GL11.GL_POLYGON_OFFSET_FILL);
@@ -647,6 +650,16 @@ public class ItemFormRenderer extends FormRenderer<ItemForm>
             consumers.setUI(false);
             consumers.setSubstitute(null);
             RenderSystem.depthMask(true);
+
+            if (savedCull)
+            {
+                RenderSystem.enableCull();
+            }
+            else
+            {
+                RenderSystem.disableCull();
+            }
+
             RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
             RenderSystem.defaultBlendFunc();
             CustomVertexConsumerProvider.clearRunnables();
@@ -708,16 +721,19 @@ public class ItemFormRenderer extends FormRenderer<ItemForm>
     private void renderPaintOverlayPass(FormRenderingContext context, MatrixStack stack, CustomVertexConsumerProvider consumers, Color paintOverlay, int overlay, boolean ui, ModelTransformationMode mode, boolean leftHand, LivingEntity itemEntity, EffectTransform transform, GlowSettings glowSettings, Color legacyGlow, float glowIntensity, float alpha)
     {
         Matrix4f formRootInverse = new Matrix4f(stack.peek().getPositionMatrix()).invert();
+        boolean savedCull = GL11.glIsEnabled(GL11.GL_CULL_FACE);
 
         CustomVertexConsumerProvider.clearRunnables();
         CustomVertexConsumerProvider.hijackVertexFormat((l) -> {
             BlockEffectOverlayUniforms.configurePaintOverlayRenderState(formRootInverse, transform, false, glowSettings, legacyGlow, glowIntensity, alpha);
+            RenderSystem.enableCull();
             GL11.glDisable(GL11.GL_POLYGON_OFFSET_FILL);
         });
 
         RenderSystem.enableBlend();
         RenderSystem.blendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
         RenderSystem.depthMask(false);
+        RenderSystem.enableCull();
 
         boolean wasOffset = GL11.glGetBoolean(GL11.GL_POLYGON_OFFSET_FILL);
         if (wasOffset) GL11.glDisable(GL11.GL_POLYGON_OFFSET_FILL);
@@ -740,6 +756,16 @@ public class ItemFormRenderer extends FormRenderer<ItemForm>
             consumers.setUI(false);
             consumers.setSubstitute(null);
             RenderSystem.depthMask(true);
+
+            if (savedCull)
+            {
+                RenderSystem.enableCull();
+            }
+            else
+            {
+                RenderSystem.disableCull();
+            }
+
             RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
             CustomVertexConsumerProvider.clearRunnables();
         }
@@ -820,17 +846,20 @@ public class ItemFormRenderer extends FormRenderer<ItemForm>
         );
 
         Matrix4f formRootInverse = new Matrix4f(stack.peek().getPositionMatrix()).invert();
+        boolean savedCull = GL11.glIsEnabled(GL11.GL_CULL_FACE);
 
         CustomVertexConsumerProvider.clearRunnables();
         CustomVertexConsumerProvider.hijackVertexFormat((l) ->
         {
             BlockEffectOverlayUniforms.configureGlowOverlayRenderState(formRootInverse, glowTransform, false, 0.5F, shaderScale);
+            RenderSystem.enableCull();
             GL11.glDisable(GL11.GL_POLYGON_OFFSET_FILL);
         });
 
         RenderSystem.enableBlend();
         RenderSystem.blendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE);
         RenderSystem.depthMask(false);
+        RenderSystem.enableCull();
 
         boolean wasOffset = GL11.glGetBoolean(GL11.GL_POLYGON_OFFSET_FILL);
         if (wasOffset) GL11.glDisable(GL11.GL_POLYGON_OFFSET_FILL);
@@ -853,6 +882,16 @@ public class ItemFormRenderer extends FormRenderer<ItemForm>
             consumers.setUI(false);
             consumers.setSubstitute(null);
             RenderSystem.depthMask(true);
+
+            if (savedCull)
+            {
+                RenderSystem.enableCull();
+            }
+            else
+            {
+                RenderSystem.disableCull();
+            }
+
             RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
             RenderSystem.defaultBlendFunc();
             CustomVertexConsumerProvider.clearRunnables();
