@@ -379,7 +379,6 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
         boolean softPostDeferred = !localPreview && !shadowPass
             && ShaderOpacityPatch.shouldDelayUntilPostDeferred(color.a)
             && !noshadingAfterPaint;
-        boolean noShaderSoft = softPostDeferred && !irisWorld;
         boolean deferForColorGrade = hasColorAdjustments && irisWorld;
         boolean deferNoshading = irisWorld && (noshadingAfterPaint || !this.form.shading.get());
         /* Opaque-ish Iris grade/noshading, or soft + noshading (after paint, unshaded). */
@@ -419,7 +418,6 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
             boolean applyColorTintSnapshot = applyColorTint;
             Color formColorSnapshot = formColor.copy();
             EffectTransform colorTransformSnapshot = formColor.transform == null ? null : formColor.transform.copy();
-            boolean noShaderSoftSnapshot = noShaderSoft;
             boolean depthWrite = ShaderOpacityPatch.shouldWriteDepthForOpacity(color.a);
             boolean afterFluids = ShaderOpacityPatch.shouldFlushAfterFluids(color.a);
             boolean gradeOnDeferredDraw = useFormColorGrade || irisDeferredColorGrade;
@@ -503,7 +501,7 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
                         false
                     );
 
-                    if (noShaderSoftSnapshot && positivePaintSnapshot)
+                    if (positivePaintSnapshot)
                     {
                         this.renderPaintOverlay(
                             deferredTexture,
@@ -521,7 +519,7 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
                         );
                     }
 
-                    if (noShaderSoftSnapshot && applyColorTintSnapshot)
+                    if (applyColorTintSnapshot)
                     {
                         this.renderColorTintOverlay(
                             deferredTexture,
@@ -864,7 +862,7 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
             }
         }
 
-        if (positivePaint && !noShaderSoft)
+        if (positivePaint && !softPostDeferred)
         {
             if (modelRenderer)
             {
@@ -879,7 +877,7 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
             }
         }
 
-        if (applyColorTint && !noShaderSoft)
+        if (applyColorTint && !softPostDeferred)
         {
             EffectTransform colorTransform = formColor.transform == null ? null : formColor.transform.copy();
 
