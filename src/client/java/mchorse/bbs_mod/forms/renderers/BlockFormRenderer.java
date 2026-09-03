@@ -1220,8 +1220,8 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
             overlayStack.peek().getPositionMatrix().set(exactStack);
             overlayStack.peek().getNormalMatrix().set(normalMatrix);
 
-            RenderSystem.getModelViewStack().pushMatrix();
-            RenderSystem.getModelViewStack().set(exactMvm);
+            RenderSystem.getModelViewStack().push();
+            RenderSystem.getModelViewStack().peek().getPositionMatrix().set(exactMvm);
             RenderSystem.applyModelViewMatrix();
 
             try
@@ -1233,7 +1233,7 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
             {}
             finally
             {
-                RenderSystem.getModelViewStack().popMatrix();
+                RenderSystem.getModelViewStack().pop();
                 RenderSystem.applyModelViewMatrix();
                 consumers.setSubstitute(null);
                 RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
@@ -1371,8 +1371,8 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
             overlayStack.peek().getPositionMatrix().set(exactStack);
             overlayStack.peek().getNormalMatrix().set(normalMatrix);
 
-            RenderSystem.getModelViewStack().pushMatrix();
-            RenderSystem.getModelViewStack().set(exactMvm);
+            RenderSystem.getModelViewStack().push();
+            RenderSystem.getModelViewStack().peek().getPositionMatrix().set(exactMvm);
             RenderSystem.applyModelViewMatrix();
 
             try
@@ -1381,7 +1381,7 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
             }
             finally
             {
-                RenderSystem.getModelViewStack().popMatrix();
+                RenderSystem.getModelViewStack().pop();
                 RenderSystem.applyModelViewMatrix();
             }
         });
@@ -1487,8 +1487,8 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
             overlayStack.peek().getPositionMatrix().set(exactStack);
             overlayStack.peek().getNormalMatrix().set(normalMatrix);
 
-            RenderSystem.getModelViewStack().pushMatrix();
-            RenderSystem.getModelViewStack().set(exactMvm);
+            RenderSystem.getModelViewStack().push();
+            RenderSystem.getModelViewStack().peek().getPositionMatrix().set(exactMvm);
             RenderSystem.applyModelViewMatrix();
 
             try
@@ -1497,7 +1497,7 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
             }
             finally
             {
-                RenderSystem.getModelViewStack().popMatrix();
+                RenderSystem.getModelViewStack().pop();
                 RenderSystem.applyModelViewMatrix();
             }
         });
