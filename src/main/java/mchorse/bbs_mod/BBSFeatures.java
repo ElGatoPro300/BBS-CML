@@ -22,7 +22,8 @@ public final class BBSFeatures
     public static final boolean MODEL_IK_UI = true;
 
     /**
-     * Model editor procedural "Look at limb" / Gecko look-at section.
+     * Model editor procedural "Look at limb" picker (config.lookAtHead).
+     * Gecko animation settings use {@link UIModelGeckoAnimationsSection} and stay visible.
      */
     public static final boolean MODEL_PROCEDURAL_LOOK_AT_UI = false;
 
