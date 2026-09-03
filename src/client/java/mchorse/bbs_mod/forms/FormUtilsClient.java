@@ -64,7 +64,7 @@ public class FormUtilsClient
      * Bump when {@link #createIsolatedProvider()} layer order changes so cached
      * Immediates are rebuilt (trim must draw before armor glint for EQUAL depth).
      */
-    private static final int PROVIDER_LAYER_LAYOUT = 2;
+    private static final int PROVIDER_LAYER_LAYOUT = 3;
     private static int activeProviderLayerLayout = -1;
 
     private static Map<Class, IFormRendererFactory> map = new HashMap<>();
@@ -161,6 +161,7 @@ public class FormUtilsClient
             map.put(TexturedRenderLayers.getEntityCutout(), new BufferBuilder(RenderLayer.getCutout().getExpectedBufferSize()));
             map.put(TexturedRenderLayers.getBannerPatterns(), new BufferBuilder(RenderLayer.getCutoutMipped().getExpectedBufferSize()));
             map.put(TexturedRenderLayers.getEntityTranslucentCull(), new BufferBuilder(RenderLayer.getTranslucent().getExpectedBufferSize()));
+            map.put(TexturedRenderLayers.getItemEntityTranslucentCull(), new BufferBuilder(RenderLayer.getTranslucent().getExpectedBufferSize()));
             FormUtilsClient.assignBuffer(map, RenderLayer.getSolid());
             FormUtilsClient.assignBuffer(map, RenderLayer.getCutout());
             FormUtilsClient.assignBuffer(map, RenderLayer.getTranslucent());
@@ -175,8 +176,10 @@ public class FormUtilsClient
              * has no trim entry; our dual-shell trim must depth-write first). */
             FormUtilsClient.assignBuffer(map, TexturedRenderLayers.getArmorTrims(false));
             FormUtilsClient.assignBuffer(map, TexturedRenderLayers.getArmorTrims(true));
+            FormUtilsClient.assignBuffer(map, RenderLayer.getArmorGlint());
             FormUtilsClient.assignBuffer(map, RenderLayer.getArmorEntityGlint());
             FormUtilsClient.assignBuffer(map, RenderLayer.getGlint());
+            FormUtilsClient.assignBuffer(map, RenderLayer.getDirectGlint());
             FormUtilsClient.assignBuffer(map, RenderLayer.getGlintTranslucent());
             FormUtilsClient.assignBuffer(map, RenderLayer.getEntityGlint());
             FormUtilsClient.assignBuffer(map, RenderLayer.getDirectEntityGlint());
