@@ -584,12 +584,10 @@ public final class ModelTrackIds
             order.add(POSE);
         }
 
-        int transformOverlays = BBSSettings.minecutDefaultTransformOverlays != null
-            ? BBSSettings.minecutDefaultTransformOverlays.get() : 0;
-        int poseOverlays = BBSSettings.minecutDefaultPoseOverlays != null
-            ? BBSSettings.minecutDefaultPoseOverlays.get() : 0;
-        int colorOverlays = BBSSettings.minecutDefaultColorOverlays != null
-            ? BBSSettings.minecutDefaultColorOverlays.get() : 0;
+        int transformOverlays = BBSSettings.getTransformOverlaysCount();
+        int poseOverlays = BBSSettings.getPoseOverlaysCount();
+        int colorOverlays = BBSSettings.getColorOverlaysCount();
+        int illusionOverlays = BBSSettings.getIllusionOverlaysCount();
 
         for (int i = 0; i < transformOverlays; i++)
         {
@@ -604,6 +602,11 @@ public final class ModelTrackIds
         for (int i = 0; i < colorOverlays; i++)
         {
             order.add(overlayId(COLOR_OVERLAY, i));
+        }
+
+        for (int i = 0; i < illusionOverlays; i++)
+        {
+            order.add(overlayId(ILLUSION_OVERLAY, i));
         }
 
         return new ArrayList<>(order);

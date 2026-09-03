@@ -216,7 +216,10 @@ public class BBSSettings
     public static ValueBoolean recordingMobCaptureConditionsSummary;
     public static ValueMobCaptureConditions recordingMobCaptureConditions;
     public static ValueBoolean recordingOverlays;
-    public static ValueInt recordingPoseTransformOverlays;
+    public static ValueInt recordingPoseOverlays;
+    public static ValueInt recordingTransformOverlays;
+    public static ValueInt recordingColorOverlays;
+    public static ValueInt recordingIllusionOverlays;
     public static ValueBoolean recordingCameraPreview;
     public static ValueInt recordingCameraPreviewFutureCount;
 
@@ -315,6 +318,47 @@ public class BBSSettings
     public static ValueBoolean usingInMemoryClipboard;
     public static ValueBoolean discordPresence;
     public static ValueString discordApplicationId;
+
+    public static int getTransformOverlaysCount()
+    {
+        int count = recordingTransformOverlays != null ? recordingTransformOverlays.get() : 0;
+
+        if (minecutDefaultTransformOverlays != null)
+        {
+            count = Math.max(count, minecutDefaultTransformOverlays.get());
+        }
+
+        return count;
+    }
+
+    public static int getPoseOverlaysCount()
+    {
+        int count = recordingPoseOverlays != null ? recordingPoseOverlays.get() : 0;
+
+        if (minecutDefaultPoseOverlays != null)
+        {
+            count = Math.max(count, minecutDefaultPoseOverlays.get());
+        }
+
+        return count;
+    }
+
+    public static int getColorOverlaysCount()
+    {
+        int count = recordingColorOverlays != null ? recordingColorOverlays.get() : 0;
+
+        if (minecutDefaultColorOverlays != null)
+        {
+            count = Math.max(count, minecutDefaultColorOverlays.get());
+        }
+
+        return count;
+    }
+
+    public static int getIllusionOverlaysCount()
+    {
+        return recordingIllusionOverlays != null ? recordingIllusionOverlays.get() : 0;
+    }
 
     /**
      * When enabled (default), films dual-write legacy-friendly data for fields
@@ -935,7 +979,10 @@ public class BBSSettings
         builder.register(recordingMobCaptureConditions = new ValueMobCaptureConditions("mob_capture_conditions"));
         recordingMobCaptureConditions.invisible();
         recordingOverlays = builder.getBoolean("overlays", true);
-        recordingPoseTransformOverlays = builder.getInt("pose_transform_overlays", 0, 0, 42);
+        recordingPoseOverlays = builder.getInt("pose_overlays", 0, 0, 42);
+        recordingTransformOverlays = builder.getInt("transform_overlays", 0, 0, 42);
+        recordingColorOverlays = builder.getInt("color_overlays", 0, 0, 42);
+        recordingIllusionOverlays = builder.getInt("illusion_overlays", 0, 0, 42);
         recordingCameraPreview = builder.getBoolean("camera_preview", true);
         recordingCameraPreviewFutureCount = builder.getInt("camera_preview_future_count", 3, 1, 8);
 

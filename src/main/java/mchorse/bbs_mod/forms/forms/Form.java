@@ -174,7 +174,7 @@ public abstract class Form extends ValueGroup
         this.add(this.transformOverlay);
         this.add(this.shake);
 
-        for (int i = 0; i < BBSSettings.recordingPoseTransformOverlays.get(); i++)
+        for (int i = 0; i < BBSSettings.getTransformOverlaysCount(); i++)
         {
             ValueTransform valueTransform = new ValueTransform("transform_overlay" + i, new Transform());
 
@@ -202,7 +202,7 @@ public abstract class Form extends ValueGroup
         this.add(this.illusion);
         this.add(this.illusionOverlay);
 
-        for (int i = 0; i < BBSSettings.recordingPoseTransformOverlays.get(); i++)
+        for (int i = 0; i < BBSSettings.getIllusionOverlaysCount(); i++)
         {
             ValueIllusion valueIllusion = new ValueIllusion("illusion_overlay" + i, new Illusion());
 
@@ -216,7 +216,7 @@ public abstract class Form extends ValueGroup
         this.illusionTransform.invisible();
         this.illusionTransformOverlay.invisible();
 
-        for (int i = 0; i < BBSSettings.recordingPoseTransformOverlays.get(); i++)
+        for (int i = 0; i < BBSSettings.getIllusionOverlaysCount(); i++)
         {
             ValueTransform valueTransform = new ValueTransform("illusion_transform_overlay" + i, new Transform());
 
@@ -712,7 +712,7 @@ public abstract class Form extends ValueGroup
 
     /**
      * Registers {@code color_overlay} / {@code color_overlayN} tracks. Call from subclasses that
-     * expose a Color property so the count matches {@code pose_transform_overlays}.
+     * expose a Color property so the count matches the configured color overlays.
      */
     protected void registerColorOverlays()
     {
@@ -724,7 +724,7 @@ public abstract class Form extends ValueGroup
         this.colorOverlaysRegistered = true;
         this.add(this.colorOverlay);
 
-        for (int i = 0; i < BBSSettings.recordingPoseTransformOverlays.get(); i++)
+        for (int i = 0; i < BBSSettings.getColorOverlaysCount(); i++)
         {
             ValueColor overlay = new ValueColor("color_overlay" + i, new Color(1F, 1F, 1F, 0F));
 
@@ -857,55 +857,41 @@ public abstract class Form extends ValueGroup
     }
 
     /**
-     * Grow numbered overlay slots to match {@link BBSSettings#recordingPoseTransformOverlays}
-     * (and Minecut default overlay counts when higher). Forms keep the count from construction
-     * time; raising the setting expands the lists so overlay 8+ keyframes still apply.
+     * Grow numbered overlay slots to match configured overlay counts in {@link BBSSettings}.
+     * Forms keep the count from construction time; raising the settings expands the lists
+     * so overlay keyframes still apply.
      */
     public void syncOverlaySlotsFromSettings()
     {
-        int count = BBSSettings.recordingPoseTransformOverlays == null
-            ? 0
-            : BBSSettings.recordingPoseTransformOverlays.get();
+        int transformCount = BBSSettings.getTransformOverlaysCount();
+        int poseCount = BBSSettings.getPoseOverlaysCount();
+        int colorCount = BBSSettings.getColorOverlaysCount();
+        int illusionCount = BBSSettings.getIllusionOverlaysCount();
 
-        if (BBSSettings.minecutDefaultTransformOverlays != null)
+        if (transformCount > 0)
         {
-            count = Math.max(count, BBSSettings.minecutDefaultTransformOverlays.get());
+            this.ensureTransformOverlay(transformCount - 1);
         }
 
-        if (BBSSettings.minecutDefaultPoseOverlays != null)
+        if (illusionCount > 0)
         {
-            count = Math.max(count, BBSSettings.minecutDefaultPoseOverlays.get());
+            this.ensureIllusionOverlay(illusionCount - 1);
+            this.ensureIllusionTransformOverlay(illusionCount - 1);
         }
 
-        if (BBSSettings.minecutDefaultColorOverlays != null)
+        if (this.colorOverlaysRegistered && colorCount > 0)
         {
-            count = Math.max(count, BBSSettings.minecutDefaultColorOverlays.get());
+            this.ensureColorOverlay(colorCount - 1);
         }
 
-        if (count <= 0)
+        if (this.paintOverlaysRegistered && colorCount > 0)
         {
-            return;
+            this.ensurePaintOverlay(colorCount - 1);
         }
 
-        int last = count - 1;
-
-        this.ensureTransformOverlay(last);
-        this.ensureIllusionOverlay(last);
-        this.ensureIllusionTransformOverlay(last);
-
-        if (this.colorOverlaysRegistered)
+        if (this instanceof ModelForm modelForm && poseCount > 0)
         {
-            this.ensureColorOverlay(last);
-        }
-
-        if (this.paintOverlaysRegistered)
-        {
-            this.ensurePaintOverlay(last);
-        }
-
-        if (this instanceof ModelForm modelForm)
-        {
-            modelForm.ensurePoseOverlay(last);
+            modelForm.ensurePoseOverlay(poseCount - 1);
         }
     }
 

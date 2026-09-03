@@ -3009,7 +3009,7 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
         {
             List<String> properties = new ArrayList<>(GROUP_FORM_PROPERTIES);
 
-            for (int i = 0; i < BBSSettings.recordingPoseTransformOverlays.get(); i++)
+            for (int i = 0; i < BBSSettings.getTransformOverlaysCount(); i++)
             {
                 properties.add("transform_overlay" + i);
             }

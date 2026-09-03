@@ -88,7 +88,7 @@ public class ModelForm extends Form
         this.add(this.pose);
         this.add(this.poseOverlay);
 
-        for (int i = 0; i < BBSSettings.recordingPoseTransformOverlays.get(); i++)
+        for (int i = 0; i < BBSSettings.getPoseOverlaysCount(); i++)
         {
             ValuePose valuePose = new ValuePose("pose_overlay" + i, new Pose());
 

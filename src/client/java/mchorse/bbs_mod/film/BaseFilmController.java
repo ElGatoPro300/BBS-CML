@@ -2610,7 +2610,7 @@ public abstract class BaseFilmController
 
         this.applyGroupTransformOverlay(transform, groupReplay, "transform_overlay", tick);
 
-        for (int i = 0; i < BBSSettings.recordingPoseTransformOverlays.get(); i++)
+        for (int i = 0; i < BBSSettings.getTransformOverlaysCount(); i++)
         {
             this.applyGroupTransformOverlay(transform, groupReplay, "transform_overlay" + i, tick);
         }
