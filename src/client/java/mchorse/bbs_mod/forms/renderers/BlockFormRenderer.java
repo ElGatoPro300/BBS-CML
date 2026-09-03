@@ -320,6 +320,8 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
                 Color formColorSnapshot = formColor.copy();
                 boolean colorGradeWantedSnapshot = colorGradeWanted;
 
+                boolean irisWorldPaintDeferralSnapshot = irisWorldPaintDeferral;
+
                 Runnable deferredDraw = () ->
                 {
                     MatrixStack overlayStack = new MatrixStack();
@@ -358,12 +360,12 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
                         CustomVertexConsumerProvider.clearRunnables();
                     }
 
-                    if (positivePaintSnapshot)
+                    if (positivePaintSnapshot && !irisWorldPaintDeferralSnapshot)
                     {
                         this.renderPaintOverlay(context, overlayStack, deferredConsumers, resolvedPaintSnapshot, colorSnapshot.a, overlaySnapshot, false, paintSettingsSnapshot.transform, glowSettingsSnapshot, legacyGlowSnapshot, glowIntensitySnapshot);
                     }
 
-                    if (colorTransformWantedSnapshot)
+                    if (colorTransformWantedSnapshot && !irisWorldPaintDeferralSnapshot)
                     {
                         Color overlayTint = colorGradeWantedSnapshot ? storedFormColorSnapshot.copyDeferringColorGrade() : formColorSnapshot;
 
@@ -371,7 +373,7 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
                         this.renderBlockColorTintOverlay(context, overlayStack, overlayTint, colorSnapshot.a, overlaySnapshot, false, storedFormColorSnapshot);
                     }
 
-                    if (positiveGlowSnapshot)
+                    if (positiveGlowSnapshot && !irisWorldPaintDeferralSnapshot)
                     {
                         this.renderGlowOverlayMasked(context, overlayStack, deferredConsumers, glowSettingsSnapshot, legacyGlowSnapshot, glowIntensitySnapshot, colorSnapshot.a, overlaySnapshot, false, deferredGlowTransform);
                     }
@@ -429,12 +431,14 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
                 }
             }
 
-            if (!softPostDeferred && !noshadingDefer && runPaintOverlay)
+            boolean submitIrisOverlays = irisWorldPaintDeferral && !noshadingDefer;
+
+            if ((!softPostDeferred && !noshadingDefer && runPaintOverlay) || (softPostDeferred && submitIrisOverlays && runPaintOverlay))
             {
                 this.submitDeferredBlockPaintOverlay(context, context.stack, resolvedPaint, color.a, context.overlay, paintSettings.transform, glowSettings, legacyGlow, glowIntensity, false);
             }
 
-            if (!softPostDeferred && !noshadingDefer && runColorTintOverlay && !shadowPass && !context.isPicking())
+            if (((!softPostDeferred && !noshadingDefer) || (softPostDeferred && submitIrisOverlays)) && runColorTintOverlay && !shadowPass && !context.isPicking())
             {
                 Color overlayTint = colorGradeWanted ? storedFormColor.copyDeferringColorGrade() : formColor;
 
@@ -444,7 +448,7 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
                 {
                     this.submitDeferredBlockColorTintOverlay(context, context.stack, overlayTint, color.a, context.overlay, false, storedFormColor);
                 }
-                else
+                else if (!softPostDeferred)
                 {
                     this.renderBlockColorTintOverlay(context, context.stack, overlayTint, color.a, context.overlay, false, storedFormColor);
                 }
@@ -455,13 +459,13 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
                 this.submitDeferredBlockEntityTint(context, context.overlay);
             }
 
-            if (!softPostDeferred && !noshadingDefer && runGlowOverlay)
+            if ((!softPostDeferred && !noshadingDefer && runGlowOverlay) || (softPostDeferred && submitIrisOverlays && runGlowOverlay))
             {
                 if (irisWorldPaintDeferral)
                 {
                     this.submitDeferredBlockGlowOverlayMasked(context, context.stack, glowSettings, legacyGlow, glowIntensity, color.a, context.overlay, deferredGlowTransform);
                 }
-                else
+                else if (!softPostDeferred)
                 {
                     this.renderGlowOverlayMasked(context, context.stack, consumers, glowSettings, legacyGlow, glowIntensity, color.a, context.overlay, false, deferredGlowTransform);
                 }
