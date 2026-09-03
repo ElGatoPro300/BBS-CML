@@ -502,6 +502,15 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
             {
                 color.mul(this.resolveBakeFormColor(model, true));
             }
+            else
+            {
+                Color storedFormColor = this.form.color.get();
+
+                if (storedFormColor != null)
+                {
+                    color.a *= storedFormColor.a;
+                }
+            }
 
             this.form.applyFormOpacity(color);
 
@@ -3650,6 +3659,15 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
             {
                 color.mul(this.resolveBakeFormColor(model, false));
             }
+            else
+            {
+                Color storedFormColor = this.form.color.get();
+
+                if (storedFormColor != null)
+                {
+                    color.a *= storedFormColor.a;
+                }
+            }
 
             this.form.applyFormOpacity(color);
 
@@ -3725,6 +3743,15 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
             if (this.shouldBakeFormColor(model))
             {
                 color.mul(this.resolveBakeFormColor(model, false));
+            }
+            else
+            {
+                Color storedFormColor = this.form.color.get();
+
+                if (storedFormColor != null)
+                {
+                    color.a *= storedFormColor.a;
+                }
             }
 
             this.form.applyFormOpacity(color);
