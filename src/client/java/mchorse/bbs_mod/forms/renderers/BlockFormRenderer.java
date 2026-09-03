@@ -138,17 +138,17 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
         boolean hasGlowTransform = glowTransform != null && glowTransform.isActive();
         boolean runGlowOverlay = this.shouldRunBlockGlowOverlay(glowIntensity > 0F && !glowSettings.resolvePaintOnly());
 
-        if (runPaintOverlay)
-        {
-            this.submitDeferredBlockPaintOverlay(null, matrices, resolvedPaint, set.a, OverlayTexture.DEFAULT_UV, this.form.paintSettings.get().transform, glowSettings, legacyGlow, glowIntensity, true);
-        }
-
         if (runColorTintOverlay)
         {
             Color overlayTint = colorGradeWanted ? storedFormColor.copyDeferringColorGrade() : formColor;
 
             this.form.applyFormOpacity(overlayTint);
             this.renderBlockColorTintOverlay(null, matrices, overlayTint, set.a, OverlayTexture.DEFAULT_UV, true, storedFormColor);
+        }
+
+        if (runPaintOverlay)
+        {
+            this.submitDeferredBlockPaintOverlay(null, matrices, resolvedPaint, set.a, OverlayTexture.DEFAULT_UV, this.form.paintSettings.get().transform, glowSettings, legacyGlow, glowIntensity, true);
         }
 
         if (runGlowOverlay)
@@ -364,17 +364,17 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
                         CustomVertexConsumerProvider.clearRunnables();
                     }
 
-                    if (positivePaintSnapshot && !irisWorldPaintDeferralSnapshot)
-                    {
-                        this.renderPaintOverlay(context, overlayStack, deferredConsumers, resolvedPaintSnapshot, colorSnapshot.a, overlaySnapshot, false, paintSettingsSnapshot.transform, glowSettingsSnapshot, legacyGlowSnapshot, glowIntensitySnapshot);
-                    }
-
                     if (colorTransformWantedSnapshot && !irisWorldPaintDeferralSnapshot)
                     {
                         Color overlayTint = colorGradeWantedSnapshot ? storedFormColorSnapshot.copyDeferringColorGrade() : formColorSnapshot;
 
                         this.form.applyFormOpacity(overlayTint);
                         this.renderBlockColorTintOverlay(context, overlayStack, overlayTint, colorSnapshot.a, overlaySnapshot, false, storedFormColorSnapshot);
+                    }
+
+                    if (positivePaintSnapshot && !irisWorldPaintDeferralSnapshot)
+                    {
+                        this.renderPaintOverlay(context, overlayStack, deferredConsumers, resolvedPaintSnapshot, colorSnapshot.a, overlaySnapshot, false, paintSettingsSnapshot.transform, glowSettingsSnapshot, legacyGlowSnapshot, glowIntensitySnapshot);
                     }
 
                     if (positiveGlowSnapshot && !irisWorldPaintDeferralSnapshot)
@@ -455,11 +455,6 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
 
             boolean submitIrisOverlays = irisWorldPaintDeferral && !noshadingDefer;
 
-            if ((!softPostDeferred && !noshadingDefer && runPaintOverlay) || (softPostDeferred && submitIrisOverlays && runPaintOverlay))
-            {
-                this.submitDeferredBlockPaintOverlay(context, context.stack, resolvedPaint, color.a, context.overlay, paintSettings.transform, glowSettings, legacyGlow, glowIntensity, false);
-            }
-
             if (((!softPostDeferred && !noshadingDefer) || (softPostDeferred && submitIrisOverlays)) && runColorTintOverlay && !shadowPass && !context.isPicking())
             {
                 Color overlayTint = colorGradeWanted ? storedFormColor.copyDeferringColorGrade() : formColor;
@@ -474,6 +469,11 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
                 {
                     this.renderBlockColorTintOverlay(context, context.stack, overlayTint, color.a, context.overlay, false, storedFormColor);
                 }
+            }
+
+            if ((!softPostDeferred && !noshadingDefer && runPaintOverlay) || (softPostDeferred && submitIrisOverlays && runPaintOverlay))
+            {
+                this.submitDeferredBlockPaintOverlay(context, context.stack, resolvedPaint, color.a, context.overlay, paintSettings.transform, glowSettings, legacyGlow, glowIntensity, false);
             }
 
 

@@ -111,17 +111,17 @@ public class ItemFormRenderer extends FormRenderer<ItemForm>
         this.renderItem(null, matrices, consumers, LightmapTextureManager.MAX_BLOCK_LIGHT_COORDINATE, OverlayTexture.DEFAULT_UV, mode, false, null);
         consumers.draw();
 
-        if (positivePaint)
-        {
-            this.submitDeferredItemPaintOverlay(null, matrices, resolvedPaint, set.a, OverlayTexture.DEFAULT_UV, mode, false, null, this.form.paintSettings.get().transform, glowSettings, legacyGlow, glowIntensity, true);
-        }
-
         if (colorTransformWanted)
         {
             Color overlayTint = colorGradeWanted ? storedFormColor.copyDeferringColorGrade() : formColor;
 
             this.form.applyFormOpacity(overlayTint);
             this.renderItemColorTintOverlay(null, matrices, overlayTint, set.a, OverlayTexture.DEFAULT_UV, mode, false, null, true, storedFormColor);
+        }
+
+        if (positivePaint)
+        {
+            this.submitDeferredItemPaintOverlay(null, matrices, resolvedPaint, set.a, OverlayTexture.DEFAULT_UV, mode, false, null, this.form.paintSettings.get().transform, glowSettings, legacyGlow, glowIntensity, true);
         }
 
         if (glowIntensity > 0F && !glowSettings.resolvePaintOnly())
@@ -362,17 +362,17 @@ public class ItemFormRenderer extends FormRenderer<ItemForm>
                         CustomVertexConsumerProvider.clearRunnables();
                     }
 
-                    if (positivePaintSnapshot && !irisWorldPaintDeferralSnapshot)
-                    {
-                        this.renderPaintOverlay(context, overlayStack, deferredConsumers, resolvedPaintSnapshot, colorSnapshot.a, overlaySnapshot, false, modeSnapshot, leftHandSnapshot, itemEntitySnapshot, paintSettingsSnapshot.transform, glowSettingsSnapshot, legacyGlowSnapshot, glowIntensitySnapshot);
-                    }
-
                     if (colorTransformWantedSnapshot && !irisWorldPaintDeferralSnapshot)
                     {
                         Color overlayTint = colorGradeWantedSnapshot ? storedFormColorSnapshot.copyDeferringColorGrade() : formColorSnapshot;
 
                         this.form.applyFormOpacity(overlayTint);
                         this.renderItemColorTintOverlay(context, overlayStack, overlayTint, colorSnapshot.a, overlaySnapshot, modeSnapshot, leftHandSnapshot, itemEntitySnapshot, false, storedFormColorSnapshot);
+                    }
+
+                    if (positivePaintSnapshot && !irisWorldPaintDeferralSnapshot)
+                    {
+                        this.renderPaintOverlay(context, overlayStack, deferredConsumers, resolvedPaintSnapshot, colorSnapshot.a, overlaySnapshot, false, modeSnapshot, leftHandSnapshot, itemEntitySnapshot, paintSettingsSnapshot.transform, glowSettingsSnapshot, legacyGlowSnapshot, glowIntensitySnapshot);
                     }
 
                     if (positiveGlowSnapshot && !irisWorldPaintDeferralSnapshot)
@@ -461,11 +461,6 @@ public class ItemFormRenderer extends FormRenderer<ItemForm>
 
             boolean submitIrisOverlays = irisWorldPaintDeferral && !noshadingDefer;
 
-            if ((!softPostDeferred && !noshadingDefer && positivePaint) || (softPostDeferred && submitIrisOverlays && positivePaint))
-            {
-                this.submitDeferredItemPaintOverlay(context, context.stack, resolvedPaint, BlockFormRenderer.color.a, context.overlay, mode, leftHand, itemEntity, paintSettings.transform, glowSettings, legacyGlow, glowIntensity, false);
-            }
-
             if (((!softPostDeferred && !noshadingDefer) || (softPostDeferred && submitIrisOverlays)) && colorTransformWanted && !shadowPass && !context.isPicking())
             {
                 Color overlayTint = colorGradeWanted ? storedFormColor.copyDeferringColorGrade() : formColor;
@@ -480,6 +475,11 @@ public class ItemFormRenderer extends FormRenderer<ItemForm>
                 {
                     this.renderItemColorTintOverlay(context, context.stack, overlayTint, BlockFormRenderer.color.a, context.overlay, mode, leftHand, itemEntity, false, storedFormColor);
                 }
+            }
+
+            if ((!softPostDeferred && !noshadingDefer && positivePaint) || (softPostDeferred && submitIrisOverlays && positivePaint))
+            {
+                this.submitDeferredItemPaintOverlay(context, context.stack, resolvedPaint, BlockFormRenderer.color.a, context.overlay, mode, leftHand, itemEntity, paintSettings.transform, glowSettings, legacyGlow, glowIntensity, false);
             }
 
             if (((!softPostDeferred && !noshadingDefer) || (softPostDeferred && submitIrisOverlays)) && positiveGlow && !glowSettings.resolvePaintOnly())
