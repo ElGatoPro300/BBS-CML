@@ -572,10 +572,7 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
                     }
                 }
 
-                if (!softPostDeferred && !noshadingDefer && irisWorldPaintDeferral && this.data.hasBlockEntityLayer() && this.needsDeferredBlockEntityTint(positivePaint, applyColorTint, storedFormColor3D))
-                {
-                    this.submitDeferredStructureBlockEntityTint(context, context.overlay);
-                }
+
 
                 if (!softPostDeferred && !noshadingDefer && positiveGlow)
                 {
@@ -1329,7 +1326,8 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
 
     private void submitDeferredStructureBlockEntityTint(FormRenderingContext context, int overlay)
     {
-        Matrix4f positionMatrix = ModelVAORenderer.capturePaintOverlayRootMatrix(new Matrix4f(context.stack.peek().getPositionMatrix()));
+        Matrix4f exactMvm = new Matrix4f(RenderSystem.getModelViewMatrix());
+        Matrix4f exactStack = new Matrix4f(context.stack.peek().getPositionMatrix());
         Matrix3f normalMatrix = new Matrix3f(context.stack.peek().getNormalMatrix());
 
         ModelVAORenderer.submitVanillaPostComposite(() ->
@@ -1337,15 +1335,27 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
             MatrixStack overlayStack = new MatrixStack();
             CustomVertexConsumerProvider consumers = FormUtilsClient.getProvider();
 
-            overlayStack.peek().getPositionMatrix().set(positionMatrix);
+            overlayStack.peek().getPositionMatrix().set(exactStack);
             overlayStack.peek().getNormalMatrix().set(normalMatrix);
+
+            RenderSystem.getModelViewStack().pushMatrix();
+            RenderSystem.getModelViewStack().set(exactMvm);
+            RenderSystem.applyModelViewMatrix();
 
             try
             {
                 this.renderBlockEntitiesOnly(context, overlayStack, consumers, LightmapTextureManager.MAX_LIGHT_COORDINATE, overlay, true);
+                consumers.draw();
             }
             catch (Throwable ignored)
             {
+            }
+            finally
+            {
+                RenderSystem.getModelViewStack().popMatrix();
+                RenderSystem.applyModelViewMatrix();
+                consumers.setSubstitute(null);
+                RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
             }
         });
     }

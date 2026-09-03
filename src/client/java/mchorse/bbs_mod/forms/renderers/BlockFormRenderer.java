@@ -476,10 +476,7 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
                 }
             }
 
-            if (blockEntityVisual && !context.isPicking() && !shadowPass && this.needsDeferredBlockEntityTint())
-            {
-                this.submitDeferredBlockEntityTint(context, context.overlay);
-            }
+
 
             if ((!softPostDeferred && !noshadingDefer && runGlowOverlay) || (softPostDeferred && submitIrisOverlays && runGlowOverlay))
             {
@@ -1211,7 +1208,8 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
 
     private void submitDeferredBlockEntityTint(FormRenderingContext context, int overlay)
     {
-        Matrix4f positionMatrix = ModelVAORenderer.capturePaintOverlayRootMatrix(new Matrix4f(context.stack.peek().getPositionMatrix()));
+        Matrix4f exactMvm = new Matrix4f(RenderSystem.getModelViewMatrix());
+        Matrix4f exactStack = new Matrix4f(context.stack.peek().getPositionMatrix());
         Matrix3f normalMatrix = new Matrix3f(context.stack.peek().getNormalMatrix());
 
         ModelVAORenderer.submitVanillaPostComposite(() ->
@@ -1219,8 +1217,12 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
             CustomVertexConsumerProvider consumers = FormUtilsClient.getProvider();
             MatrixStack overlayStack = new MatrixStack();
 
-            overlayStack.peek().getPositionMatrix().set(positionMatrix);
+            overlayStack.peek().getPositionMatrix().set(exactStack);
             overlayStack.peek().getNormalMatrix().set(normalMatrix);
+
+            RenderSystem.getModelViewStack().pushMatrix();
+            RenderSystem.getModelViewStack().set(exactMvm);
+            RenderSystem.applyModelViewMatrix();
 
             try
             {
@@ -1231,6 +1233,8 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
             {}
             finally
             {
+                RenderSystem.getModelViewStack().popMatrix();
+                RenderSystem.applyModelViewMatrix();
                 consumers.setSubstitute(null);
                 RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
             }
@@ -1307,20 +1311,26 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
         BlockEntityRenderer raw = (BlockEntityRenderer) renderer;
         Function<VertexConsumer, VertexConsumer> previousSubstitute = consumers.getSubstitute();
         Color beTint = this.resolveBlockEntityColor();
-        boolean applyTint = (forceTint || !BBSRendering.isIrisWorldPaintDeferral()) && !effectOverlay;
+        boolean applyTint = !effectOverlay;
         Color glowEmissionBake = !forceTint && !effectOverlay ? this.blockMainPassGlowEmission : null;
         boolean glowEmissionBakeActive = glowEmissionBake != null;
 
         try
         {
-            /* Iris gbuffer ignores ColorModulator — tinted redraw runs after composite.
-             * Without Iris, bake blend/paint/grade into vertex tint (overlays break BE atlases).
-             * Glow bloom on entity-visual blocks needs vertex emission (Sodium ColorAttribute /
-             * bright vertex colors) because BER ignores the main-pass ColorModulator hijack.
-             * Effect overlay passes (paint / glow / color tint) supply their own vertex consumer substitute. */
             if (applyTint)
             {
-                consumers.setSubstitute(BBSRendering.getColorConsumer(beTint));
+                if (glowEmissionBakeActive)
+                {
+                    Function<VertexConsumer, VertexConsumer> glowWrap = BBSRendering.getGlowOverlayConsumer(glowEmissionBake);
+                    Function<VertexConsumer, VertexConsumer> colorWrap = BBSRendering.getColorConsumer(beTint);
+
+                    consumers.setSubstitute((vertexConsumer) -> glowWrap.apply(colorWrap.apply(vertexConsumer)));
+                }
+                else
+                {
+                    consumers.setSubstitute(BBSRendering.getColorConsumer(beTint));
+                }
+
                 RenderSystem.setShaderColor(beTint.r, beTint.g, beTint.b, beTint.a);
             }
             else if (glowEmissionBakeActive)
