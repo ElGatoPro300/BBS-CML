@@ -377,9 +377,12 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
         boolean applyColorTint = colorTransformWanted && !shadowPass;
         boolean noshadingAfterPaint = irisWorld && BBSRendering.needsIrisNoshadingOpacityDeferral(color.a, this.form.noshadingOpacity.get());
         /* Soft opacity always uses ShaderOpacityPatch (same queue/sort as soft limbs / blocks).
-         * Color masks stay on the frame-end paint overlay — never inline in this flush. */
+         * Iris: color masks stay on the frame-end paint overlay (not inline in soft flush).
+         * No-shader soft: paint/tint must draw in the same deferred entry after the base mesh
+         * (c86b118f) — frame-end overlays lose depth order and sit under the soft billboard. */
         boolean softPostDeferred = !localPreview && !shadowPass
             && ShaderOpacityPatch.shouldDelayUntilPostDeferred(color.a);
+        boolean noShaderSoft = softPostDeferred && !irisWorld;
         boolean deferForColorGrade = hasColorAdjustments && irisWorld;
         boolean deferNoshading = irisWorld && (noshadingAfterPaint || !this.form.shading.get());
         /* Opaque-ish Iris grade/noshading only — soft stays on ShaderOpacityPatch above. */
@@ -413,6 +416,13 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
             GlowSettings glowSettingsSnapshot = glowSettings;
             Color legacyGlowSnapshot = legacyGlow;
             boolean emitGlowSnapshot = glowIntensity > 0F && !glowSettings.resolvePaintOnly();
+            boolean positivePaintSnapshot = positivePaint;
+            Color resolvedPaintSnapshot = resolvedPaint == null ? null : resolvedPaint.copy();
+            PaintSettings paintSettingsSnapshot = paintSettings == null ? null : paintSettings.copy();
+            boolean applyColorTintSnapshot = applyColorTint;
+            Color formColorSnapshot = formColor.copy();
+            EffectTransform colorTransformSnapshot = formColor.transform == null ? null : formColor.transform.copy();
+            boolean noShaderSoftSnapshot = noShaderSoft;
             boolean depthWrite = ShaderOpacityPatch.shouldWriteDepthForOpacity(color.a);
             boolean afterFluids = ShaderOpacityPatch.shouldFlushAfterFluids(color.a);
             boolean gradeOnDeferredDraw = useFormColorGrade || irisDeferredColorGrade;
@@ -495,6 +505,41 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
                         mipmap,
                         false
                     );
+
+                    /* No-shader soft only: paint/tint in the same entry after the base mesh so
+                     * color masks sit on top at 99% opacity (c86b118f). Iris soft keeps
+                     * frame-end overlays so soft-vs-soft depth is not disturbed. */
+                    if (noShaderSoftSnapshot && positivePaintSnapshot)
+                    {
+                        this.renderPaintOverlay(
+                            deferredTexture,
+                            deferredShader,
+                            overlayStack,
+                            overlaySnapshot,
+                            resolvedPaintSnapshot,
+                            colorSnapshot.a,
+                            localQuad,
+                            localUvQuad,
+                            paintSettingsSnapshot.transform,
+                            glowSettingsSnapshot,
+                            legacyGlowSnapshot,
+                            glowIntensitySnapshot
+                        );
+                    }
+
+                    if (noShaderSoftSnapshot && applyColorTintSnapshot)
+                    {
+                        this.renderColorTintOverlay(
+                            deferredTexture,
+                            deferredShader,
+                            overlayStack,
+                            overlaySnapshot,
+                            formColorSnapshot,
+                            localQuad,
+                            localUvQuad,
+                            colorTransformSnapshot
+                        );
+                    }
 
                     if (emitGlowSnapshot)
                     {
@@ -831,7 +876,7 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
             }
         }
 
-        if (positivePaint && !localPreview && !shadowPass)
+        if (positivePaint && !noShaderSoft && !localPreview && !shadowPass)
         {
             if (modelRenderer)
             {
@@ -841,12 +886,12 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
             else
             {
                 /* After ShaderOpacityPatch soft flush / Iris base redraw (onWorldRenderEnd).
-                 * Frame-end paint keeps color masks out of the soft queue (0b19a7c contract). */
+                 * Iris soft: frame-end paint keeps masks out of the soft queue. */
                 this.submitDeferredBillboardPaintOverlay(texture, textureLink, shader, matrices, resolvedPaint, color.a, glowSettings, legacyGlow, glowIntensity);
             }
         }
 
-        if (applyColorTint && !localPreview && !shadowPass)
+        if (applyColorTint && !noShaderSoft && !localPreview && !shadowPass)
         {
             EffectTransform colorTransform = formColor.transform == null ? null : formColor.transform.copy();
 
