@@ -1,6 +1,7 @@
 package mchorse.bbs_mod.ui.framework.elements.input.keyframes.factories;
 
 import mchorse.bbs_mod.camera.utils.TimeUtils;
+import mchorse.bbs_mod.events.register.RegisterKeyframeFactoryUIEvent;
 import mchorse.bbs_mod.forms.FormUtils;
 import mchorse.bbs_mod.ui.Keys;
 import mchorse.bbs_mod.ui.UIKeys;
@@ -98,6 +99,8 @@ public abstract class UIKeyframeFactory <T> extends UIElement
 
     public static <T> UIKeyframeFactory createPanel(Keyframe<T> keyframe, UIKeyframes editor)
     {
+        UIKeyframeFactory uiEditor = null;
+
         if (keyframe.getFactory() == KeyframeFactories.BOOLEAN && editor != null)
         {
             UIKeyframeSheet sheet = editor.getGraph().getSheet(keyframe);
@@ -107,11 +110,11 @@ public abstract class UIKeyframeFactory <T> extends UIElement
                 @SuppressWarnings("unchecked")
                 Keyframe<Boolean> booleanKeyframe = (Keyframe<Boolean>) keyframe;
 
-                return new UIVisibleKeyframeFactory(booleanKeyframe, editor);
+                uiEditor = new UIVisibleKeyframeFactory(booleanKeyframe, editor);
             }
         }
 
-        if (keyframe.getFactory() == KeyframeFactories.DOUBLE && editor != null)
+        if (uiEditor == null && keyframe.getFactory() == KeyframeFactories.DOUBLE && editor != null)
         {
             UIKeyframeSheet sheet = editor.getGraph().getSheet(keyframe);
 
@@ -122,35 +125,32 @@ public abstract class UIKeyframeFactory <T> extends UIElement
                 @SuppressWarnings("unchecked")
                 Keyframe<Double> doubleKeyframe = (Keyframe<Double>) keyframe;
 
-                return new UIEyeBlinkKeyframeFactory(doubleKeyframe, editor);
+                uiEditor = new UIEyeBlinkKeyframeFactory(doubleKeyframe, editor);
             }
-
-            if (sheet != null && "particles".equals(sheet.id))
+            else if (sheet != null && "particles".equals(sheet.id))
             {
                 @SuppressWarnings("unchecked")
                 Keyframe<Double> doubleKeyframe = (Keyframe<Double>) keyframe;
 
-                return new UIParticlesKeyframeFactory(doubleKeyframe, editor);
+                uiEditor = new UIParticlesKeyframeFactory(doubleKeyframe, editor);
             }
-
-            if (sheet != null && ("using_item".equals(sheet.id) || sheet.id.endsWith("/using_item")))
+            else if (sheet != null && ("using_item".equals(sheet.id) || sheet.id.endsWith("/using_item")))
             {
                 @SuppressWarnings("unchecked")
                 Keyframe<Double> doubleKeyframe = (Keyframe<Double>) keyframe;
 
-                return new UIUsingItemKeyframeFactory(doubleKeyframe, editor);
+                uiEditor = new UIUsingItemKeyframeFactory(doubleKeyframe, editor);
             }
-
-            if (sheet != null && "target".equals(sheet.id))
+            else if (sheet != null && "target".equals(sheet.id))
             {
                 @SuppressWarnings("unchecked")
                 Keyframe<Double> doubleKeyframe = (Keyframe<Double>) keyframe;
 
-                return new UITrackerTargetKeyframeFactory(doubleKeyframe, editor);
+                uiEditor = new UITrackerTargetKeyframeFactory(doubleKeyframe, editor);
             }
         }
 
-        if (keyframe.getFactory() == KeyframeFactories.STRING && editor != null)
+        if (uiEditor == null && keyframe.getFactory() == KeyframeFactories.STRING && editor != null)
         {
             UIKeyframeSheet sheet = editor.getGraph().getSheet(keyframe);
 
@@ -159,11 +159,11 @@ public abstract class UIKeyframeFactory <T> extends UIElement
                 @SuppressWarnings("unchecked")
                 Keyframe<String> stringKeyframe = (Keyframe<String>) keyframe;
 
-                return new UITrackerAttachmentKeyframeFactory(stringKeyframe, editor);
+                uiEditor = new UITrackerAttachmentKeyframeFactory(stringKeyframe, editor);
             }
         }
 
-        if (keyframe.getFactory() == KeyframeFactories.COLOR && editor != null)
+        if (uiEditor == null && keyframe.getFactory() == KeyframeFactories.COLOR && editor != null)
         {
             UIKeyframeSheet sheet = resolveColorSheet(editor, keyframe);
 
@@ -172,10 +172,9 @@ public abstract class UIKeyframeFactory <T> extends UIElement
                 @SuppressWarnings("unchecked")
                 Keyframe<Color> colorKeyframe = (Keyframe<Color>) keyframe;
 
-                return new UIBossBarColorKeyframeFactory(colorKeyframe, editor);
+                uiEditor = new UIBossBarColorKeyframeFactory(colorKeyframe, editor);
             }
-
-            if (sheet != null)
+            else if (sheet != null)
             {
                 String name = StringUtils.fileName(sheet.id);
 
@@ -184,24 +183,27 @@ public abstract class UIKeyframeFactory <T> extends UIElement
                     @SuppressWarnings("unchecked")
                     Keyframe<Color> colorKeyframe = (Keyframe<Color>) keyframe;
 
-                    return new UIFormColorGradeKeyframeFactory(colorKeyframe, editor);
+                    uiEditor = new UIFormColorGradeKeyframeFactory(colorKeyframe, editor);
                 }
-
-                if (isFormColorTrack(name))
+                else if (isFormColorTrack(name))
                 {
                     @SuppressWarnings("unchecked")
                     Keyframe<Color> colorKeyframe = (Keyframe<Color>) keyframe;
 
-                    return new UIFormColorKeyframeFactory(colorKeyframe, editor);
+                    uiEditor = new UIFormColorKeyframeFactory(colorKeyframe, editor);
                 }
             }
         }
 
-        IUIKeyframeFactoryFactory<T> factory = FACTORIES.get(keyframe.getFactory());
-        UIKeyframeFactory uiEditor = factory == null ? null : factory.create(keyframe, editor);
+        if (uiEditor == null)
+        {
+            IUIKeyframeFactoryFactory<T> factory = FACTORIES.get(keyframe.getFactory());
+            uiEditor = factory == null ? null : factory.create(keyframe, editor);
+        }
 
         if (uiEditor != null)
         {
+            RegisterKeyframeFactoryUIEvent.post(uiEditor, editor, keyframe);
             uiEditor.scroll.scroll.setScroll(SCROLLS.getOrDefault(keyframe.getFactory(), 0));
         }
 

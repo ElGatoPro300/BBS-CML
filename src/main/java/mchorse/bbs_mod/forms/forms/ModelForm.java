@@ -6,6 +6,7 @@ import mchorse.bbs_mod.cubic.ik.LimbDynamicParams;
 import mchorse.bbs_mod.cubic.physics.SpringDynamicParams;
 import mchorse.bbs_mod.cubic.physics.WindDynamicParams;
 import mchorse.bbs_mod.data.types.MapType;
+import mchorse.bbs_mod.events.register.RegisterFormChannelsEvent;
 import mchorse.bbs_mod.forms.values.ValueActionsConfig;
 import mchorse.bbs_mod.forms.values.ValueShapeKeys;
 import mchorse.bbs_mod.obj.shapes.ShapeKeys;
@@ -109,6 +110,8 @@ public class ModelForm extends Form
         this.add(this.constraints);
         this.solidHitbox.invisible();
         this.add(this.solidHitbox);
+
+        RegisterFormChannelsEvent.postModelFormConstructed(this);
     }
 
     @Override

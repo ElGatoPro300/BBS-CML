@@ -26,6 +26,7 @@ import mchorse.bbs_mod.cubic.physics.ModelPhysicsDebug;
 import mchorse.bbs_mod.cubic.render.ShapeKeyGlowPass;
 import mchorse.bbs_mod.cubic.render.vao.ModelVAORenderer;
 import mchorse.bbs_mod.data.types.MapType;
+import mchorse.bbs_mod.events.register.RegisterFormPhysicsEvent;
 import mchorse.bbs_mod.forms.CustomVertexConsumerProvider;
 import mchorse.bbs_mod.forms.FormUtilsClient;
 import mchorse.bbs_mod.forms.ITickable;
@@ -1988,6 +1989,7 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
         this.physicsAppliedThisRender = true;
         model.lastBaseTransform = baseTransform;
         model.form = this.form;
+        RegisterFormPhysicsEvent.postRagdollPose(this, this.form, model, transition);
         DynamicBoneOrchestrator.apply(target, model, transition, baseTransform);
     }
 
@@ -4042,6 +4044,8 @@ public class ModelFormRenderer extends FormRenderer<ModelForm> implements ITicka
 
             this.animator.applyActions(entity, model, transition);
             model.model.applyPose(this.getPose());
+
+            RegisterFormPhysicsEvent.postRagdollPose(this, this.form, model, transition);
 
             stack.multiply(RotationAxis.POSITIVE_Y.rotation(MathUtils.PI));
             this.captureMatrices(model);

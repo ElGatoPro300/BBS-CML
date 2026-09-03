@@ -5,6 +5,7 @@ import mchorse.bbs_mod.BBSMod;
 import mchorse.bbs_mod.BBSSettings;
 import mchorse.bbs_mod.data.types.BaseType;
 import mchorse.bbs_mod.data.types.MapType;
+import mchorse.bbs_mod.events.register.RegisterFormChannelsEvent;
 import mchorse.bbs_mod.forms.FormUtils;
 import mchorse.bbs_mod.forms.ITickable;
 import mchorse.bbs_mod.forms.entities.IEntity;
@@ -253,6 +254,8 @@ public abstract class Form extends ValueGroup
 
         this.add(this.parts);
         this.add(this.states);
+
+        RegisterFormChannelsEvent.postFormConstructed(this);
     }
 
     public Object getRenderer()

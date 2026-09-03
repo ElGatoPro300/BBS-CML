@@ -257,6 +257,76 @@ event.register((emitter) -> {
 });
 ```
 
+### `registerReplayLifecycle(RegisterReplayLifecycleEvent event)`
+Observes lifecycle changes for replays across the film pipeline (creation, deletion, duplication, reordering):
+```java
+@Override
+protected void registerReplayLifecycle(RegisterReplayLifecycleEvent event)
+{
+    event.registerAdd((film, replay) -> {
+        System.out.println("Replay added: " + replay.getId());
+    });
+    event.registerRemove((film, replay) -> {
+        System.out.println("Replay removed: " + replay.getId());
+    });
+    event.registerReorder((film, replay, fromIndex, toIndex) -> {
+        System.out.println("Replay moved from " + fromIndex + " to " + toIndex);
+    });
+    event.registerDuplicate((original, copy) -> {
+        System.out.println("Replay duplicated: " + copy.getId());
+    });
+}
+```
+
+### `registerFormChannels(RegisterFormChannelsEvent event)`
+Allows addons to inject custom property values or keyframe channels into Forms without bytecode Mixins:
+```java
+@Override
+protected void registerFormChannels(RegisterFormChannelsEvent event)
+{
+    // Inject channels specifically into ModelForm
+    event.registerModelForm((modelForm) -> {
+        modelForm.add(new ValueSmearPose("smear_frames", new Pose()));
+    });
+
+    // Inject channels into any specific Form class
+    event.register(BillboardForm.class, (form) -> {
+        form.add(new ValueBoolean("custom_flag", true));
+    });
+}
+```
+
+### `registerUndo(RegisterUndoEvent event)`
+Observes global undo and redo events across the editor and timeline:
+```java
+@Override
+protected void registerUndo(RegisterUndoEvent event)
+{
+    event.registerPush((manager, undo) -> {
+        // Track when an undo state is pushed to history
+    });
+    event.registerUndo((manager, undo) -> {
+        // Handle undo action
+    });
+    event.registerRedo((manager, undo) -> {
+        // Handle redo action
+    });
+}
+```
+
+### `registerAudioDecoders(RegisterAudioDecodersEvent event)`
+Registers custom audio decoders to load non-standard sound formats (MP3, FLAC, QOA, etc.):
+```java
+@Override
+protected void registerAudioDecoders(RegisterAudioDecodersEvent event)
+{
+    event.register(".flac", (link, stream) -> {
+        // Decode audio stream into BBS Wave format
+        return myFlacDecoder.decode(stream);
+    });
+}
+```
+
 ## Client-Side Registration (BBSClientAddon)
 
 Override these methods in your `BBSClientAddon` subclass.
@@ -293,8 +363,75 @@ Notes:
 
 ### `registerUITheme(RegisterUIThemeEvent event)`
 Registers a custom UI style/skin provider to customize widget colors, borders, font styles, and rendering without needing Mixins.
+`IUIStyleProvider` supports overriding individual widget skins:
+- `renderButtonSkin(UIContext context, UIButton button)`
+- `renderToggleSkin(UIContext context, UIToggle toggle)`
+- `renderTrackpadSkin(UIContext context, UITrackpad trackpad)`
+- `renderTextboxSkin(UIContext context, UITextbox textbox)`
+- `renderScrollbar(Batcher2D batcher, int x1, int y1, int x2, int y2, int color)`
+- `renderTooltip(UIContext context, int x, int y, List<String> lines)`
+
 ```java
 event.register(new MyCustomUIStyleProvider());
+```
+
+### `registerDopeSheetOverlay(RegisterDopeSheetOverlayEvent event)`
+Registers custom renderers on top of the `UIKeyframeDopeSheet` timeline graph (e.g. real-time collaborator cursors, selection boxes, audio markers):
+```java
+@Override
+protected void registerDopeSheetOverlay(RegisterDopeSheetOverlayEvent event)
+{
+    // Render behind keyframes
+    event.registerBackgroundRenderer((context, area, dopeSheet) -> {
+        // Draw custom beat grid / background indicators
+    });
+
+    // Render in front of keyframes
+    event.registerForegroundRenderer((context, area, dopeSheet) -> {
+        // Draw custom selection boxes or region markers
+    });
+
+    // Render top-layer cursors
+    event.registerCursorRenderer((context, area) -> {
+        // Draw remote user cursors and names
+    });
+}
+```
+
+### `registerExtraForms(RegisterExtraFormsEvent event)`
+Adds custom forms or custom form categories directly into the `ExtraFormSection` palette without Mixins:
+```java
+@Override
+protected void registerExtraForms(RegisterExtraFormsEvent event)
+{
+    // Add directly to the built-in "Extra" category
+    event.register(new MyCustomDeformationForm());
+
+    // Or define a completely custom category in the palette
+    event.registerCategory(new FormCategory(IKey.raw("My VFX Forms"), true));
+}
+```
+
+### `registerShaderCurves(RegisterShaderCurvesEvent event)`
+Registers custom shader uniforms, Molang curve variables, and Iris shader parameters:
+```java
+@Override
+protected void registerShaderCurves(RegisterShaderCurvesEvent event)
+{
+    // Register a custom uniform curve
+    event.registerVariable("custom_bloom_intensity", "1.0", false);
+    event.registerCustomUniform("bbs_custom_bloom");
+}
+```
+
+### `registerCameraControllers(RegisterCameraControllersEvent event)`
+Registers custom camera controller modes into the BBS viewport and 3D preview:
+```java
+@Override
+protected void registerCameraControllers(RegisterCameraControllersEvent event)
+{
+    event.register(new OrbitFilmCameraController());
+}
 ```
 
 ### `registerFilmUiAddon(RegisterFilmUiAddonEvent event)`
@@ -471,6 +608,80 @@ Registers ray tracing extensions.
 
 ### `registerStencilMap(RegisterStencilMapEvent event)`
 Registers stencil effects.
+
+### `registerFilmSimulation(RegisterFilmSimulationEvent event)`
+Provides film simulation lifecycle hooks (`setup`, `tick`, `render`, `shutdown`) that execute in synchronization with `BaseFilmController`. Ideal for physics engines (rigid bodies, cloth, ragdolls) without needing Mixins:
+```java
+event.registerSetup((controller) -> {
+    // Initialize simulation scene when film entities/actors are created or rebuilt
+});
+event.registerTick((controller, ticks) -> {
+    // Step physics simulation synchronized with actor motion ticks
+});
+event.registerRender((controller, context) -> {
+    // Render physics colliders, debug overlays or particles in world render pass
+});
+event.registerShutdown((controller) -> {
+    // Release native physics scenes when film playback stops
+});
+```
+
+### `registerVideoRecording(RegisterVideoRecordingEvent event)`
+Allows addons to observe video recording and film export lifecycles (e.g. generating `.srt` subtitle files, custom telemetry, or post-processing):
+```java
+event.registerStart((movieName, exportFolder, filmAudioFile, width, height, fps) -> {
+    // Video recording started with filename and dimensions
+});
+event.registerStop((movieName, exportFolder, outputVideo) -> {
+    // Video recording completed; output file is ready
+});
+event.registerContext((recorder, cameraClips, loopStartTick) -> {
+    // Receive camera audio clips and loop range for subtitle synchronization
+});
+```
+
+### `registerTextureInvalidation(RegisterTextureInvalidationEvent event)`
+Allows addons to observe texture cache flushes and asset watchdog reloads to clear runtime or procedural texture caches (such as texture tween caches):
+```java
+event.registerInvalidateAll((textureManager) -> {
+    // Flushed on resource reloads or texture manager reset
+    MyTextureCache.invalidateAll();
+});
+event.registerInvalidatePath((textureManager, path, watchdogEvent) -> {
+    // Specific asset file changed on disk
+    MyTextureCache.invalidate(path);
+});
+```
+
+### `registerFormPhysics(RegisterFormPhysicsEvent event)`
+Allows physics engines and ragdoll systems to intercept form transforms and model bone poses during rendering without Mixins:
+```java
+event.registerStackTransform((renderer, form, stack, origin, transition) -> {
+    // Return true to substitute or blend rigid body transforms on MatrixStack
+    return applyRigidBodyStack(form, stack, origin, transition);
+});
+event.registerMatrixTransform((renderer, form, matrix, transition) -> {
+    // Return true to substitute or blend rigid body transforms on Matrix4f
+    return applyRigidBodyMatrix(form, matrix, transition);
+});
+event.registerRagdollPose((renderer, form, model, transition) -> {
+    // Apply simulated ragdoll bone poses before bone matrices are captured
+    applyRagdollToModel(form, model, transition);
+});
+```
+
+### `registerKeyframeFactoryUI(RegisterKeyframeFactoryUIEvent event)`
+Allows addons to append custom controls, toggles, and property inspectors into any Keyframe Factory panel in the timeline editor:
+```java
+event.register((factory, editor, keyframe) -> {
+    if (factory instanceof UILinkKeyframeFactory linkFactory) {
+        // Append custom widgets to the factory scroll view
+        factory.scroll.add(new UIToggle(IKey.str("Texture Tween"), (b) -> {
+            // Configure keyframe tweening
+        }));
+    }
+});
+```
 
 ## Advanced Topics
 

@@ -4,6 +4,7 @@ import mchorse.bbs_mod.BBSSettings;
 import mchorse.bbs_mod.camera.utils.TimeUtils;
 import mchorse.bbs_mod.data.types.MapType;
 import mchorse.bbs_mod.events.register.RegisterClipInteractionEvent;
+import mchorse.bbs_mod.events.register.RegisterDopeSheetOverlayEvent;
 import mchorse.bbs_mod.events.register.RegisterFilmSyncEvent;
 import mchorse.bbs_mod.forms.FormUtils;
 import mchorse.bbs_mod.graphics.window.Window;
@@ -1496,6 +1497,8 @@ public class UIKeyframeDopeSheet implements IUIKeyframeGraph
 
         int sidebarX = area.x - this.sidebarScroll;
 
+        RegisterDopeSheetOverlayEvent.postBackgroundRender(context, area, this);
+
         for (int i = 0; i < this.sheets.size(); i++)
         {
             int y = this.getDopeSheetY(i);
@@ -1853,6 +1856,7 @@ public class UIKeyframeDopeSheet implements IUIKeyframeGraph
             }
         }
 
+        RegisterDopeSheetOverlayEvent.postForegroundRender(context, area, this);
         RegisterClipInteractionEvent.postDopeSheetRender(context, area);
     }
 
@@ -1868,6 +1872,8 @@ public class UIKeyframeDopeSheet implements IUIKeyframeGraph
             context.tooltip.area.set(context.mouseX + 8, context.mouseY - 8, 0, 0);
             new LabelTooltip(this.hoveredCompactSheet.title, Direction.RIGHT).renderTooltip(context);
         }
+
+        RegisterDopeSheetOverlayEvent.postCursorRender(context, this.keyframes.area);
     }
 
     private void renderSidebarScrollbar(UIContext context)

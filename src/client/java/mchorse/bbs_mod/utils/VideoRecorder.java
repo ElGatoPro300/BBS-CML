@@ -5,6 +5,7 @@ import mchorse.bbs_mod.BBSModClient;
 import mchorse.bbs_mod.BBSSettings;
 import mchorse.bbs_mod.client.BBSRendering;
 import mchorse.bbs_mod.client.ExportChunkSettle;
+import mchorse.bbs_mod.events.register.RegisterVideoRecordingEvent;
 import mchorse.bbs_mod.ui.utils.UIUtils;
 import mchorse.bbs_mod.utils.ExportWorldFxFreeze;
 
@@ -362,11 +363,14 @@ public class VideoRecorder
 
             Path path = Paths.get(movies.toString());
             this.exportFolder = path;
+            float frameRate = (float) BBSRendering.getVideoFrameRate();
+
+            RegisterVideoRecordingEvent.postStart(this.movieName, this.exportFolder, this.filmAudioFile, width, height, (int) Math.max(1, frameRate));
+
             String params = this.filmAudioFile != null && !this.recordAmbientAudio
                 ? BBSSettings.videoSettings.argumentsAudio.get()
                 : BBSSettings.videoSettings.arguments.get();
             StringBuilder filters = new StringBuilder("vflip");
-            float frameRate = (float) BBSRendering.getVideoFrameRate();
 
             if (this.recordAmbientAudio)
             {
@@ -826,6 +830,8 @@ public class VideoRecorder
         {
             this.cleanupTemporaryAudioFiles(this.filmAudioFile, this.ambientAudioFile, this.movieName, this.exportFolder);
         }
+
+        RegisterVideoRecordingEvent.postStop(this.movieName, this.exportFolder, this.findOutputVideo());
 
         this.recording = false;
         this.filmAudioFile = null;

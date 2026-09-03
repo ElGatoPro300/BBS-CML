@@ -1,6 +1,7 @@
 package mchorse.bbs_mod.ui.framework.styles;
 
 import mchorse.bbs_mod.BBSSettings;
+import mchorse.bbs_mod.settings.UiStyleCapabilities;
 import mchorse.bbs_mod.ui.film.FilmUiCapabilities;
 import mchorse.bbs_mod.ui.framework.UIContext;
 import mchorse.bbs_mod.ui.framework.elements.utils.Batcher2D;
@@ -52,7 +53,7 @@ public abstract class UIStyle
      */
     public static boolean isAddon()
     {
-        return (FilmUiCapabilities.hasAddon() || mchorse.bbs_mod.settings.UiStyleCapabilities.isAddonStyleAvailable())
+        return (FilmUiCapabilities.hasAddon() || UiStyleCapabilities.isAddonStyleAvailable())
             && BBSSettings.uiStyle != null
             && BBSSettings.uiStyle.get() == ADDON;
     }
