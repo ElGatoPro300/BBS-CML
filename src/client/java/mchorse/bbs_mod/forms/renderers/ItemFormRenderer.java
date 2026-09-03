@@ -268,7 +268,7 @@ public class ItemFormRenderer extends FormRenderer<ItemForm>
                 && !shadowPass
                 && ShaderOpacityPatch.shouldDelayUntilPostDeferred(BlockFormRenderer.color.a)
                 && !noshadingDefer;
-            boolean glowBakedInMainPass = irisWorldPaintDeferral && hasEmissiveGlow && !hasGlowTransform && !softPostDeferred && !noshadingDefer;
+            boolean glowBakedInMainPass = irisWorldPaintDeferral && hasEmissiveGlow && !hasGlowTransform && !noshadingDefer;
             final Color itemRecolorSource;
 
             if (glowBakedInMainPass)
@@ -301,14 +301,15 @@ public class ItemFormRenderer extends FormRenderer<ItemForm>
                     ? new Matrix4f(context.stack.peek().getPositionMatrix())
                     : ModelVAORenderer.capturePaintOverlayRootMatrix(new Matrix4f(context.stack.peek().getPositionMatrix()));
                 Matrix3f normalMatrix = new Matrix3f(context.stack.peek().getNormalMatrix());
-                Color colorSnapshot = BlockFormRenderer.color.copy();
+                Color colorSnapshot = itemRecolorSource.copy();
+                Color itemShaderTintSnapshot = itemShaderTint == null ? null : itemShaderTint.copy();
                 Color resolvedPaintSnapshot = resolvedPaint == null ? null : resolvedPaint.copy();
                 int lightSnapshot = light;
                 int overlaySnapshot = context.overlay;
                 boolean depthWrite = ShaderOpacityPatch.shouldWriteDepthForOpacity(BlockFormRenderer.color.a);
                 boolean afterFluids = ShaderOpacityPatch.shouldFlushAfterFluids(BlockFormRenderer.color.a);
                 double formSortKey = this.computeItemFormSortKey(context.stack.peek().getPositionMatrix(), context);
-                boolean positiveGlowSnapshot = positiveGlow && !glowSettings.resolvePaintOnly();
+                boolean positiveGlowSnapshot = positiveGlow && !glowSettings.resolvePaintOnly() && !glowBakedInMainPass;
                 float glowIntensitySnapshot = glowIntensity;
                 GlowSettings glowSettingsSnapshot = glowSettings;
                 Color legacyGlowSnapshot = legacyGlow;
@@ -343,8 +344,15 @@ public class ItemFormRenderer extends FormRenderer<ItemForm>
                             return;
                         }
 
-                        RenderSystem.enableBlend();
-                        RenderSystem.defaultBlendFunc();
+                        if (itemShaderTintSnapshot != null)
+                        {
+                            this.applyItemMainPassHijackLayer(layer, itemShaderTintSnapshot);
+                        }
+                        else
+                        {
+                            RenderSystem.enableBlend();
+                            RenderSystem.defaultBlendFunc();
+                        }
                         RenderSystem.depthMask(depthWrite);
                         ShaderOpacityPatch.reassertPostDeferredDepthState(depthWrite);
                     });
@@ -358,6 +366,11 @@ public class ItemFormRenderer extends FormRenderer<ItemForm>
                     }
                     finally
                     {
+                        if (itemShaderTintSnapshot != null)
+                        {
+                            RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
+                        }
+
                         deferredConsumers.setSubstitute(null);
                         CustomVertexConsumerProvider.clearRunnables();
                     }
@@ -482,7 +495,7 @@ public class ItemFormRenderer extends FormRenderer<ItemForm>
                 this.submitDeferredItemPaintOverlay(context, context.stack, resolvedPaint, BlockFormRenderer.color.a, context.overlay, mode, leftHand, itemEntity, paintSettings.transform, glowSettings, legacyGlow, glowIntensity, false);
             }
 
-            if (((!softPostDeferred && !noshadingDefer) || (softPostDeferred && submitIrisOverlays)) && positiveGlow && !glowSettings.resolvePaintOnly())
+            if (((!softPostDeferred && !noshadingDefer) || (softPostDeferred && submitIrisOverlays)) && positiveGlow && !glowSettings.resolvePaintOnly() && !glowBakedInMainPass)
             {
                 if (irisWorldPaintDeferral)
                 {

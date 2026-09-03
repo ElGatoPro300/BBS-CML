@@ -242,7 +242,6 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
             boolean hasGlowTransform = glowTransform != null && glowTransform.isActive();
             boolean runPaintOverlay = this.shouldRunBlockPaintOverlay(blockEntityVisual, paintSettings, positivePaint);
             boolean runColorTintOverlay = this.shouldRunBlockColorTintOverlay(blockEntityVisual, storedFormColor);
-            boolean runGlowOverlay = this.shouldRunBlockGlowOverlay(positiveGlow && !glowSettings.resolvePaintOnly());
             boolean hasEmissiveGlow = positiveGlow && !glowSettings.resolvePaintOnly();
             boolean irisWorldPaintDeferral = BBSRendering.isIrisWorldPaintDeferral();
             final EffectTransform deferredGlowTransform = hasGlowTransform ? glowTransform.copy() : null;
@@ -261,7 +260,8 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
                 && !shadowPass
                 && ShaderOpacityPatch.shouldDelayUntilPostDeferred(color.a)
                 && !noshadingDefer;
-            boolean glowBakedInMainPass = irisWorldPaintDeferral && hasEmissiveGlow && !hasGlowTransform && !softPostDeferred && !noshadingDefer;
+            boolean glowBakedInMainPass = irisWorldPaintDeferral && hasEmissiveGlow && !hasGlowTransform && !noshadingDefer;
+            boolean runGlowOverlay = this.shouldRunBlockGlowOverlay(positiveGlow && !glowSettings.resolvePaintOnly() && !glowBakedInMainPass);
             final Color blockRecolorSource;
 
             if (glowBakedInMainPass)
@@ -306,7 +306,8 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
                     ? new Matrix4f(context.stack.peek().getPositionMatrix())
                     : ModelVAORenderer.capturePaintOverlayRootMatrix(new Matrix4f(context.stack.peek().getPositionMatrix()));
                 Matrix3f normalMatrix = new Matrix3f(context.stack.peek().getNormalMatrix());
-                Color colorSnapshot = color.copy();
+                Color colorSnapshot = blockRecolorSource.copy();
+                Color blockShaderTintSnapshot = blockShaderTint == null ? null : blockShaderTint.copy();
                 Color resolvedPaintSnapshot = resolvedPaint == null ? null : resolvedPaint.copy();
                 int lightSnapshot = light;
                 int overlaySnapshot = context.overlay;
@@ -345,8 +346,15 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
                             return;
                         }
 
-                        RenderSystem.enableBlend();
-                        RenderSystem.defaultBlendFunc();
+                        if (blockShaderTintSnapshot != null)
+                        {
+                            this.applyBlockMainPassHijackLayer(layer, blockShaderTintSnapshot);
+                        }
+                        else
+                        {
+                            RenderSystem.enableBlend();
+                            RenderSystem.defaultBlendFunc();
+                        }
                         RenderSystem.depthMask(depthWrite);
                         ShaderOpacityPatch.reassertPostDeferredDepthState(depthWrite);
                     });
@@ -360,6 +368,11 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
                     }
                     finally
                     {
+                        if (blockShaderTintSnapshot != null)
+                        {
+                            RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
+                        }
+
                         deferredConsumers.setSubstitute(null);
                         CustomVertexConsumerProvider.clearRunnables();
                     }
