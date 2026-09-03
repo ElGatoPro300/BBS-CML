@@ -112,11 +112,11 @@ void main()
     {
         if (glowStrength >= 1.0)
         {
-            color += GlowOverlayColor.rgb * glowStrength * 8.0;
+            color += GlowOverlayColor.rgb * glowStrength;
         }
         else
         {
-            vec3 emissive = color + GlowOverlayColor.rgb * 8.0;
+            vec3 emissive = color + GlowOverlayColor.rgb;
 
             color = mix(color, emissive, glowStrength);
         }

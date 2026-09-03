@@ -704,8 +704,24 @@ public class ModelVAORenderer
             }
 
             /* Paint/glow overlays first, then full soft-model redraws (Opacity "No shading"
-             * path) so translucency composites over painted actors behind the soft form. */
-            paintOverlayQueue.sort((a, b) -> Boolean.compare(a.fullModel, b.fullModel));
+             * path) so translucency composites over painted actors behind the soft form.
+             * Ensure color tint runs before paint overlays so paint covers the primary tint. */
+            paintOverlayQueue.sort((a, b) ->
+            {
+                int cmp = Boolean.compare(a.fullModel, b.fullModel);
+
+                if (cmp != 0)
+                {
+                    return cmp;
+                }
+
+                if (a.colorTint != b.colorTint)
+                {
+                    return a.colorTint ? -1 : 1;
+                }
+
+                return 0;
+            });
 
             for (PaintOverlayEntry entry : paintOverlayQueue)
             {
@@ -945,6 +961,7 @@ public class ModelVAORenderer
         try
         {
             source.beginRead();
+            GL30.glBindFramebuffer(GL30.GL_READ_FRAMEBUFFER, source.fbo);
             gradeSceneColor.bind();
 
             if (gradeSceneColor.width != width || gradeSceneColor.height != height)
@@ -959,7 +976,6 @@ public class ModelVAORenderer
             GL11.glBindTexture(GL11.GL_TEXTURE_2D, prevTex);
             GL30.glBindFramebuffer(GL30.GL_READ_FRAMEBUFFER, prevRead);
             GL30.glBindFramebuffer(GL30.GL_DRAW_FRAMEBUFFER, prevDraw);
-            BBSRendering.ensurePaintOverlayTargetFramebuffer();
         }
 
         return gradeSceneColor.isValid() && gradeSceneColor.width == width && gradeSceneColor.height == height;

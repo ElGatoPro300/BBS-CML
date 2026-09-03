@@ -43,6 +43,17 @@ public class CustomVertexConsumerProvider implements VertexConsumerProvider
         runnables = null;
     }
 
+    public static boolean isGlintLayer(RenderLayer layer)
+    {
+        return layer == RenderLayer.getArmorGlint()
+            || layer == RenderLayer.getArmorEntityGlint()
+            || layer == RenderLayer.getGlint()
+            || layer == RenderLayer.getDirectGlint()
+            || layer == RenderLayer.getGlintTranslucent()
+            || layer == RenderLayer.getEntityGlint()
+            || layer == RenderLayer.getDirectEntityGlint();
+    }
+
     public CustomVertexConsumerProvider(VertexConsumerProvider.Immediate delegate)
     {
         this.delegate = delegate;
@@ -76,7 +87,7 @@ public class CustomVertexConsumerProvider implements VertexConsumerProvider
     {
         VertexConsumer buffer = this.delegate.getBuffer(renderLayer);
 
-        if (this.substitute != null)
+        if (this.substitute != null && !isGlintLayer(renderLayer))
         {
             VertexConsumer apply = this.substitute.apply(buffer);
 

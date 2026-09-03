@@ -1,6 +1,8 @@
 #version 150
 
 uniform sampler2D Sampler0;
+uniform sampler2D Sampler1;
+uniform sampler2D Sampler2;
 
 uniform mat4 PaintEffectInverse;
 uniform float PaintEffectActive;
@@ -8,7 +10,11 @@ uniform vec3 PaintMaskHalf;
 uniform float PaintMaskBottomAnchored;
 uniform float PaintMaskShape;
 uniform float GlowScale;
+uniform float FogStart;
+uniform float FogEnd;
+uniform vec4 FogColor;
 
+in float vertexDistance;
 in vec4 vertexColor;
 in vec2 texCoord0;
 in vec3 formRootPos;
@@ -98,6 +104,9 @@ void main()
     {
         discard;
     }
+
+    float fogValue = vertexDistance <= FogStart ? 0.0 : (vertexDistance < FogEnd ? smoothstep(FogStart, FogEnd, vertexDistance) : 1.0);
+    alpha *= 1.0 - fogValue * FogColor.a;
 
     vec3 glowRgb = tex.rgb * vertexColor.rgb * GlowScale;
 
