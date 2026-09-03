@@ -131,6 +131,8 @@ public final class BlockEffectOverlayUniforms
             {
                 scaleUniform.set(glowScale);
             }
+
+            uploadFlatOverlayFog(program, rootInverse);
         }
 
         if (bindBlockAtlas)
@@ -162,6 +164,8 @@ public final class BlockEffectOverlayUniforms
             {
                 scaleUniform.set(glowScale);
             }
+
+            uploadFlatOverlayFog(program, rootInverse);
         }
 
         RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
@@ -231,25 +235,11 @@ public final class BlockEffectOverlayUniforms
     private static void configureColorTintOverlayRenderState(Matrix4f rootInverse, EffectTransform transform, boolean bottomAnchored, Color formColor, float maskHalfBase, Color gradeSource, boolean structureSized, float sizeX, float sizeY, float sizeZ, boolean bindBlockAtlas)
     {
         boolean wantGrade = gradeSource != null && gradeSource.hasColorAdjustments();
-        boolean gradeActive = wantGrade && ModelVAORenderer.captureGradeSceneColor();
+        boolean sceneCaptured = ModelVAORenderer.captureGradeSceneColor();
+        boolean gradeActive = wantGrade && sceneCaptured;
 
         RenderSystem.enableBlend();
-
-        if (gradeActive)
-        {
-            /* Replace lit pixels with graded lit pixels — never leave DST_COLOR for UI. */
-            RenderSystem.defaultBlendFunc();
-        }
-        else
-        {
-            RenderSystem.blendFuncSeparate(
-                GlStateManager.SrcFactor.DST_COLOR,
-                GlStateManager.DstFactor.ZERO,
-                GlStateManager.SrcFactor.DST_ALPHA,
-                GlStateManager.DstFactor.ZERO
-            );
-        }
-
+        RenderSystem.defaultBlendFunc();
         RenderSystem.enableDepthTest();
         RenderSystem.depthFunc(GL11.GL_LEQUAL);
         RenderSystem.depthMask(false);
@@ -277,7 +267,7 @@ public final class BlockEffectOverlayUniforms
 
             uploadFlatOverlayFog(program, rootInverse);
 
-            if (gradeActive)
+            if (sceneCaptured)
             {
                 ModelVAORenderer.bindGradeSceneColorTexture();
             }
@@ -508,6 +498,8 @@ public final class BlockEffectOverlayUniforms
             {
                 scaleUniform.set(glowScale);
             }
+
+            uploadFlatOverlayFog(program, rootInverse);
         }
 
         RenderSystem.setShaderColor(1F, 1F, 1F, 1F);

@@ -245,40 +245,16 @@ void main()
         discard;
     }
 
-    /* Regrade already-lit framebuffer pixels — keeps shading; each grade channel has its own Shape/Transform. */
-    if (ColorGradeActive > 0.5)
-    {
-        float blendMask = bbsPaintEffectMask(formRootPos, ColorEffectInverse, ColorEffectActive, ColorMaskHalf, ColorMaskBottomAnchored, ColorMaskShape);
-        ivec2 sceneSize = textureSize(Sampler3, 0);
-        vec2 sceneUv = clamp(gl_FragCoord.xy / vec2(max(sceneSize, ivec2(1))), vec2(0.0), vec2(1.0));
-        vec3 lit = textureLod(Sampler3, sceneUv, 0.0).rgb;
-        vec3 graded = bbsApplyFormColorGrade(lit, formRootPos);
-        float fogValue = vertexDistance <= FogStart ? 0.0 : (vertexDistance < FogEnd ? smoothstep(FogStart, FogEnd, vertexDistance) : 1.0);
-        blendMask *= 1.0 - fogValue * FogColor.a;
-        vec3 tintRgb = mix(vec3(1.0), FormColorTint.rgb, blendMask);
-
-        fragColor = vec4(mix(lit, graded, 1.0 - fogValue * FogColor.a) * tintRgb, 1.0);
-
-        return;
-    }
-
-    float cmask = bbsPaintEffectMask(formRootPos, ColorEffectInverse, ColorEffectActive, ColorMaskHalf, ColorMaskBottomAnchored, ColorMaskShape);
-
-    if (cmask < 0.001)
-    {
-        discard;
-    }
-
-    /* FormColorTint.a is traditional form opacity — fade mask tint with the form. */
-    float opacity = clamp(FormColorTint.a, 0.0, 1.0);
-    float strength = cmask * opacity;
-    /* DST_COLOR multiply on an already-fogged base: fade tint toward identity (white)
-     * with distance fog so masks do not recolor FogColor into a saturated silhouette. */
+    float blendMask = bbsPaintEffectMask(formRootPos, ColorEffectInverse, ColorEffectActive, ColorMaskHalf, ColorMaskBottomAnchored, ColorMaskShape);
     float fogValue = vertexDistance <= FogStart ? 0.0 : (vertexDistance < FogEnd ? smoothstep(FogStart, FogEnd, vertexDistance) : 1.0);
+    blendMask *= 1.0 - fogValue * FogColor.a;
+    vec3 tintRgb = mix(vec3(1.0), FormColorTint.rgb, blendMask * clamp(FormColorTint.a, 0.0, 1.0));
 
-    strength *= 1.0 - fogValue * FogColor.a;
+    ivec2 sceneSize = textureSize(Sampler3, 0);
+    vec2 sceneUv = clamp(gl_FragCoord.xy / vec2(max(sceneSize, ivec2(1))), vec2(0.0), vec2(1.0));
+    vec3 lit = textureLod(Sampler3, sceneUv, 0.0).rgb;
+    vec3 tinted = lit * tintRgb;
+    vec3 graded = ColorGradeActive > 0.5 ? bbsApplyFormColorGrade(tinted, formRootPos) : tinted;
 
-    vec3 tintRgb = mix(vec3(1.0), FormColorTint.rgb, strength);
-
-    fragColor = vec4(tintRgb, 1.0);
+    fragColor = vec4(mix(tinted, graded, 1.0 - fogValue * FogColor.a), 1.0);
 }

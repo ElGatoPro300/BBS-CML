@@ -961,6 +961,7 @@ public class ModelVAORenderer
         try
         {
             source.beginRead();
+            GL30.glBindFramebuffer(GL30.GL_READ_FRAMEBUFFER, source.fbo);
             gradeSceneColor.bind();
 
             if (gradeSceneColor.width != width || gradeSceneColor.height != height)
@@ -975,7 +976,6 @@ public class ModelVAORenderer
             GL11.glBindTexture(GL11.GL_TEXTURE_2D, prevTex);
             GL30.glBindFramebuffer(GL30.GL_READ_FRAMEBUFFER, prevRead);
             GL30.glBindFramebuffer(GL30.GL_DRAW_FRAMEBUFFER, prevDraw);
-            BBSRendering.ensurePaintOverlayTargetFramebuffer();
         }
 
         return gradeSceneColor.isValid() && gradeSceneColor.width == width && gradeSceneColor.height == height;
