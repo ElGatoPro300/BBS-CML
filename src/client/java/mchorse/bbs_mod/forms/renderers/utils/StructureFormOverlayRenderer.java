@@ -209,7 +209,6 @@ public class StructureFormOverlayRenderer
             RenderSystem.enableDepthTest();
             RenderSystem.depthFunc(GL11.GL_LEQUAL);
             RenderSystem.depthMask(false);
-            RenderSystem.enableCull();
             GL11.glEnable(GL11.GL_POLYGON_OFFSET_FILL);
             GL11.glPolygonOffset(-1F, -16F);
             RenderSystem.setShaderColor(shaderScale, shaderScale, shaderScale, 1F);
@@ -220,7 +219,6 @@ public class StructureFormOverlayRenderer
         RenderSystem.enableDepthTest();
         RenderSystem.depthFunc(GL11.GL_LEQUAL);
         RenderSystem.depthMask(false);
-        RenderSystem.enableCull();
         GL11.glEnable(GL11.GL_POLYGON_OFFSET_FILL);
         GL11.glPolygonOffset(-1F, -16F);
 
@@ -374,7 +372,6 @@ public class StructureFormOverlayRenderer
         CustomVertexConsumerProvider.hijackVertexFormat((l) ->
         {
             BlockEffectOverlayUniforms.configurePaintOverlayRenderStateStructure(formRootInverse, transform, true, glowSettings, legacyGlow, glowIntensity, alpha, structureSize.x, structureSize.y, structureSize.z);
-            RenderSystem.enableCull();
         });
 
         RenderSystem.enableBlend();
@@ -382,7 +379,6 @@ public class StructureFormOverlayRenderer
         RenderSystem.enableDepthTest();
         RenderSystem.depthFunc(GL11.GL_LEQUAL);
         RenderSystem.depthMask(false);
-        RenderSystem.enableCull();
         GL11.glEnable(GL11.GL_POLYGON_OFFSET_FILL);
         GL11.glPolygonOffset(FlatPaintOverlayPass.POLYGON_OFFSET_FACTOR, FlatPaintOverlayPass.POLYGON_OFFSET_UNITS);
 
@@ -516,14 +512,12 @@ public class StructureFormOverlayRenderer
         CustomVertexConsumerProvider.hijackVertexFormat((l) ->
         {
             BlockEffectOverlayUniforms.configureColorTintOverlayRenderStateStructure(formRootInverse, formColor.transform, true, formColor, gradeSource, structureSize.x, structureSize.y, structureSize.z);
-            RenderSystem.enableCull();
         });
 
         RenderSystem.enableBlend();
         RenderSystem.enableDepthTest();
         RenderSystem.depthFunc(GL11.GL_LEQUAL);
         RenderSystem.depthMask(false);
-        RenderSystem.enableCull();
         GL11.glEnable(GL11.GL_POLYGON_OFFSET_FILL);
         GL11.glPolygonOffset(-1F, -2F);
 
