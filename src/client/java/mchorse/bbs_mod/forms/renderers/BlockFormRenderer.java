@@ -1427,15 +1427,12 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
             {
                 BlockEffectOverlayUniforms.configureColorTintOverlayRenderState(formRootInverse, formColor.transform, true, formColor, 0.5F, gradeSource);
             }
-
-            RenderSystem.enableCull();
         });
 
         RenderSystem.enableBlend();
         RenderSystem.enableDepthTest();
         RenderSystem.depthFunc(GL11.GL_LEQUAL);
         RenderSystem.depthMask(false);
-        RenderSystem.enableCull();
         /* Pull tint overlay toward camera so it does not z-fight the main block pass. */
         GL11.glEnable(GL11.GL_POLYGON_OFFSET_FILL);
         GL11.glPolygonOffset(-1F, -2F);
@@ -1560,14 +1557,11 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
             {
                 BlockEffectOverlayUniforms.configurePaintOverlayRenderState(formRootInverse, maskTransform, true, glowSettings, legacyGlow, glowIntensity, alpha);
             }
-
-            RenderSystem.enableCull();
         });
 
         RenderSystem.enableBlend();
         RenderSystem.blendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
         RenderSystem.depthMask(false);
-        RenderSystem.enableCull();
 
         consumers.setSubstitute(BBSRendering.getBlockPaintOverlayConsumer(paintOverlay));
 
@@ -1667,14 +1661,12 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
                 BlockEffectOverlayUniforms.configureGlowOverlayRenderState(formRootInverse, maskTransform, true, 0.5F, shaderScale);
             }
 
-            RenderSystem.enableCull();
             GL11.glDisable(GL11.GL_POLYGON_OFFSET_FILL);
         });
 
         RenderSystem.enableBlend();
         RenderSystem.blendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE);
         RenderSystem.depthMask(false);
-        RenderSystem.enableCull();
 
         boolean wasOffset = GL11.glGetBoolean(GL11.GL_POLYGON_OFFSET_FILL);
         if (wasOffset) GL11.glDisable(GL11.GL_POLYGON_OFFSET_FILL);
