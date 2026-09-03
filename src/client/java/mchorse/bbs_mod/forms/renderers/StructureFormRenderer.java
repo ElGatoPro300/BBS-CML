@@ -553,12 +553,6 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
                     }
                 }
 
-                if (!softPostDeferred && !noshadingDefer && positivePaint)
-                {
-                    EffectTransform paintTransform = paintSettings.transform;
-                    this.overlayRenderer.submitDeferredStructurePaintOverlay(this.data, vao, context, resolvedPaint, mainTint3D.a, context.overlay, true, shaders, paintTransform, glowSettings, legacyGlow, glowIntensity, layer -> this.renderPaintLayer(layer, context, context.stack, context.overlay, null), (s) -> this.renderStructureCulledWorld(context, s, FormUtilsClient.getProvider(), light, context.overlay, shaders, null, true, false));
-                }
-
                 if (!softPostDeferred && !noshadingDefer && applyColorTint)
                 {
                     if (irisWorldPaintDeferral)
@@ -569,6 +563,12 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
                     {
                         this.overlayRenderer.renderStructureColorTintOverlay(this.data, this.form, context, context.stack, formColor3D, mainTint3D.a, context.overlay, true, shaders, false, layer -> this.renderPaintLayer(layer, context, context.stack, context.overlay, null), (s) -> this.renderStructureCulledWorld(context, s, FormUtilsClient.getProvider(), light, context.overlay, shaders, null, true, false));
                     }
+                }
+
+                if (!softPostDeferred && !noshadingDefer && positivePaint)
+                {
+                    EffectTransform paintTransform = paintSettings.transform;
+                    this.overlayRenderer.submitDeferredStructurePaintOverlay(this.data, vao, context, resolvedPaint, mainTint3D.a, context.overlay, true, shaders, paintTransform, glowSettings, legacyGlow, glowIntensity, layer -> this.renderPaintLayer(layer, context, context.stack, context.overlay, null), (s) -> this.renderStructureCulledWorld(context, s, FormUtilsClient.getProvider(), light, context.overlay, shaders, null, true, false));
                 }
 
 

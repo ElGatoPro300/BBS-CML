@@ -489,9 +489,23 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
                         false
                     );
 
-                    /* No-shader soft only: paint/tint in the same entry after the base mesh so
+                    /* No-shader soft only: tint/paint in the same entry after the base mesh so
                      * color masks sit on top at 99% opacity (c86b118f). Iris soft keeps
                      * frame-end overlays so soft-vs-soft depth is not disturbed. */
+                    if (noShaderSoftSnapshot && applyColorTintSnapshot)
+                    {
+                        this.renderColorTintOverlay(
+                            deferredTexture,
+                            deferredShader,
+                            overlayStack,
+                            overlaySnapshot,
+                            formColorSnapshot,
+                            localQuad,
+                            localUvQuad,
+                            colorTransformSnapshot
+                        );
+                    }
+
                     if (noShaderSoftSnapshot && positivePaintSnapshot)
                     {
                         this.renderPaintOverlay(
@@ -507,20 +521,6 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
                             glowSettingsSnapshot,
                             legacyGlowSnapshot,
                             glowIntensitySnapshot
-                        );
-                    }
-
-                    if (noShaderSoftSnapshot && applyColorTintSnapshot)
-                    {
-                        this.renderColorTintOverlay(
-                            deferredTexture,
-                            deferredShader,
-                            overlayStack,
-                            overlaySnapshot,
-                            formColorSnapshot,
-                            localQuad,
-                            localUvQuad,
-                            colorTransformSnapshot
                         );
                     }
 
@@ -860,21 +860,6 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
             }
         }
 
-        if (positivePaint && !noShaderSoft && !shadowPass)
-        {
-            if (localPreview)
-            {
-                /* Form editor / UI preview: draw paint immediately (no world deferral). */
-                this.renderPaintOverlay(texture, shader, matrices, OverlayTexture.DEFAULT_UV, resolvedPaint, color.a, this.form.paintSettings.get().transform, glowSettings, legacyGlow, glowIntensity);
-            }
-            else
-            {
-                /* After ShaderOpacityPatch soft flush / Iris base redraw (onWorldRenderEnd).
-                 * Iris soft: frame-end paint keeps masks out of the soft queue. */
-                this.submitDeferredBillboardPaintOverlay(texture, textureLink, shader, matrices, resolvedPaint, color.a, glowSettings, legacyGlow, glowIntensity);
-            }
-        }
-
         if (applyColorTint && !noShaderSoft && !shadowPass)
         {
             EffectTransform colorTransform = formColor.transform == null ? null : formColor.transform.copy();
@@ -887,6 +872,21 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
             else
             {
                 this.submitDeferredBillboardColorTintOverlay(texture, textureLink, shader, matrices, formColor, colorTransform);
+            }
+        }
+
+        if (positivePaint && !noShaderSoft && !shadowPass)
+        {
+            if (localPreview)
+            {
+                /* Form editor / UI preview: draw paint immediately (no world deferral). */
+                this.renderPaintOverlay(texture, shader, matrices, OverlayTexture.DEFAULT_UV, resolvedPaint, color.a, this.form.paintSettings.get().transform, glowSettings, legacyGlow, glowIntensity);
+            }
+            else
+            {
+                /* After ShaderOpacityPatch soft flush / Iris base redraw (onWorldRenderEnd).
+                 * Iris soft: frame-end paint keeps masks out of the soft queue. */
+                this.submitDeferredBillboardPaintOverlay(texture, textureLink, shader, matrices, resolvedPaint, color.a, glowSettings, legacyGlow, glowIntensity);
             }
         }
 

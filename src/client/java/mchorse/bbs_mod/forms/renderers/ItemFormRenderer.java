@@ -107,17 +107,17 @@ public class ItemFormRenderer extends FormRenderer<ItemForm>
         this.renderItem(null, matrices, consumers, LightmapTextureManager.MAX_BLOCK_LIGHT_COORDINATE, OverlayTexture.DEFAULT_UV, mode, false, null);
         consumers.draw();
 
-        if (positivePaint)
-        {
-            this.submitDeferredItemPaintOverlay(null, matrices, resolvedPaint, set.a, OverlayTexture.DEFAULT_UV, mode, false, null, this.form.paintSettings.get().transform, glowSettings, legacyGlow, glowIntensity, true);
-        }
-
         if (colorTransformWanted)
         {
             Color overlayTint = colorGradeWanted ? storedFormColor.copyDeferringColorGrade() : formColor;
 
             this.form.applyFormOpacity(overlayTint);
             this.renderItemColorTintOverlay(null, matrices, overlayTint, set.a, OverlayTexture.DEFAULT_UV, mode, false, null, true, storedFormColor);
+        }
+
+        if (positivePaint)
+        {
+            this.submitDeferredItemPaintOverlay(null, matrices, resolvedPaint, set.a, OverlayTexture.DEFAULT_UV, mode, false, null, this.form.paintSettings.get().transform, glowSettings, legacyGlow, glowIntensity, true);
         }
 
         if (glowIntensity > 0F && !glowSettings.resolvePaintOnly())
@@ -264,7 +264,7 @@ public class ItemFormRenderer extends FormRenderer<ItemForm>
                 && !shadowPass
                 && ShaderOpacityPatch.shouldDelayUntilPostDeferred(BlockFormRenderer.color.a)
                 && !noshadingDefer;
-            boolean glowBakedInMainPass = irisWorldPaintDeferral && hasEmissiveGlow && !hasGlowTransform && !softPostDeferred && !noshadingDefer;
+            boolean glowBakedInMainPass = irisWorldPaintDeferral && hasEmissiveGlow && !hasGlowTransform && !noshadingDefer;
             final Color itemRecolorSource;
 
             if (glowBakedInMainPass)
@@ -297,14 +297,15 @@ public class ItemFormRenderer extends FormRenderer<ItemForm>
                     ? new Matrix4f(context.stack.peek().getPositionMatrix())
                     : ModelVAORenderer.capturePaintOverlayRootMatrix(new Matrix4f(context.stack.peek().getPositionMatrix()));
                 Matrix3f normalMatrix = new Matrix3f(context.stack.peek().getNormalMatrix());
-                Color colorSnapshot = BlockFormRenderer.color.copy();
+                Color colorSnapshot = itemRecolorSource.copy();
+                Color itemShaderTintSnapshot = itemShaderTint == null ? null : itemShaderTint.copy();
                 Color resolvedPaintSnapshot = resolvedPaint == null ? null : resolvedPaint.copy();
                 int lightSnapshot = light;
                 int overlaySnapshot = context.overlay;
                 boolean depthWrite = ShaderOpacityPatch.shouldWriteDepthForOpacity(BlockFormRenderer.color.a);
                 boolean afterFluids = ShaderOpacityPatch.shouldFlushAfterFluids(BlockFormRenderer.color.a);
                 double formSortKey = this.computeItemFormSortKey(context.stack.peek().getPositionMatrix(), context);
-                boolean positiveGlowSnapshot = positiveGlow && !glowSettings.resolvePaintOnly();
+                boolean positiveGlowSnapshot = positiveGlow && !glowSettings.resolvePaintOnly() && !glowBakedInMainPass;
                 float glowIntensitySnapshot = glowIntensity;
                 GlowSettings glowSettingsSnapshot = glowSettings;
                 Color legacyGlowSnapshot = legacyGlow;
@@ -339,8 +340,15 @@ public class ItemFormRenderer extends FormRenderer<ItemForm>
                             return;
                         }
 
-                        RenderSystem.enableBlend();
-                        RenderSystem.defaultBlendFunc();
+                        if (itemShaderTintSnapshot != null)
+                        {
+                            this.applyItemMainPassHijackLayer(layer, itemShaderTintSnapshot);
+                        }
+                        else
+                        {
+                            RenderSystem.enableBlend();
+                            RenderSystem.defaultBlendFunc();
+                        }
                         RenderSystem.depthMask(depthWrite);
                         ShaderOpacityPatch.reassertPostDeferredDepthState(depthWrite);
                     });
@@ -354,13 +362,13 @@ public class ItemFormRenderer extends FormRenderer<ItemForm>
                     }
                     finally
                     {
+                        if (itemShaderTintSnapshot != null)
+                        {
+                            RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
+                        }
+
                         deferredConsumers.setSubstitute(null);
                         CustomVertexConsumerProvider.clearRunnables();
-                    }
-
-                    if (positivePaintSnapshot && !irisWorldPaintDeferralSnapshot)
-                    {
-                        this.renderPaintOverlay(context, overlayStack, deferredConsumers, resolvedPaintSnapshot, colorSnapshot.a, overlaySnapshot, false, modeSnapshot, leftHandSnapshot, itemEntitySnapshot, paintSettingsSnapshot.transform, glowSettingsSnapshot, legacyGlowSnapshot, glowIntensitySnapshot);
                     }
 
                     if (colorTransformWantedSnapshot && !irisWorldPaintDeferralSnapshot)
@@ -369,6 +377,11 @@ public class ItemFormRenderer extends FormRenderer<ItemForm>
 
                         this.form.applyFormOpacity(overlayTint);
                         this.renderItemColorTintOverlay(context, overlayStack, overlayTint, colorSnapshot.a, overlaySnapshot, modeSnapshot, leftHandSnapshot, itemEntitySnapshot, false, storedFormColorSnapshot);
+                    }
+
+                    if (positivePaintSnapshot && !irisWorldPaintDeferralSnapshot)
+                    {
+                        this.renderPaintOverlay(context, overlayStack, deferredConsumers, resolvedPaintSnapshot, colorSnapshot.a, overlaySnapshot, false, modeSnapshot, leftHandSnapshot, itemEntitySnapshot, paintSettingsSnapshot.transform, glowSettingsSnapshot, legacyGlowSnapshot, glowIntensitySnapshot);
                     }
 
                     if (positiveGlowSnapshot && !irisWorldPaintDeferralSnapshot)
@@ -457,11 +470,6 @@ public class ItemFormRenderer extends FormRenderer<ItemForm>
 
             boolean submitIrisOverlays = irisWorldPaintDeferral && !noshadingDefer;
 
-            if ((!softPostDeferred && !noshadingDefer && positivePaint) || (softPostDeferred && submitIrisOverlays && positivePaint))
-            {
-                this.submitDeferredItemPaintOverlay(context, context.stack, resolvedPaint, BlockFormRenderer.color.a, context.overlay, mode, leftHand, itemEntity, paintSettings.transform, glowSettings, legacyGlow, glowIntensity, false);
-            }
-
             if (((!softPostDeferred && !noshadingDefer) || (softPostDeferred && submitIrisOverlays)) && colorTransformWanted && !shadowPass && !context.isPicking())
             {
                 Color overlayTint = colorGradeWanted ? storedFormColor.copyDeferringColorGrade() : formColor;
@@ -478,7 +486,12 @@ public class ItemFormRenderer extends FormRenderer<ItemForm>
                 }
             }
 
-            if (((!softPostDeferred && !noshadingDefer) || (softPostDeferred && submitIrisOverlays)) && positiveGlow && !glowSettings.resolvePaintOnly())
+            if ((!softPostDeferred && !noshadingDefer && positivePaint) || (softPostDeferred && submitIrisOverlays && positivePaint))
+            {
+                this.submitDeferredItemPaintOverlay(context, context.stack, resolvedPaint, BlockFormRenderer.color.a, context.overlay, mode, leftHand, itemEntity, paintSettings.transform, glowSettings, legacyGlow, glowIntensity, false);
+            }
+
+            if (((!softPostDeferred && !noshadingDefer) || (softPostDeferred && submitIrisOverlays)) && positiveGlow && !glowSettings.resolvePaintOnly() && !glowBakedInMainPass)
             {
                 if (irisWorldPaintDeferral)
                 {
