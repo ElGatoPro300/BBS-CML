@@ -876,11 +876,11 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
             }
         }
 
-        if (positivePaint && !noShaderSoft && !localPreview && !shadowPass)
+        if (positivePaint && !noShaderSoft && !shadowPass)
         {
-            if (modelRenderer)
+            if (localPreview)
             {
-                /* Form editor preview: draw paint immediately (no Iris world deferral). */
+                /* Form editor / UI preview: draw paint immediately (no world deferral). */
                 this.renderPaintOverlay(texture, shader, matrices, OverlayTexture.DEFAULT_UV, resolvedPaint, color.a, this.form.paintSettings.get().transform, glowSettings, legacyGlow, glowIntensity);
             }
             else
@@ -891,13 +891,13 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
             }
         }
 
-        if (applyColorTint && !noShaderSoft && !localPreview && !shadowPass)
+        if (applyColorTint && !noShaderSoft && !shadowPass)
         {
             EffectTransform colorTransform = formColor.transform == null ? null : formColor.transform.copy();
 
-            if (deferContext == null || modelRenderer)
+            if (localPreview)
             {
-                /* UI / form editor preview: draw color tint immediately (no Iris world deferral). */
+                /* UI / form editor preview: draw color tint immediately (no world deferral). */
                 this.renderColorTintOverlay(texture, shader, matrices, overlay, formColor, colorTransform);
             }
             else
