@@ -205,15 +205,19 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
 
             color.set(context.color);
 
-            if (this.shouldBakeBlockFormColor(storedFormColor))
+            boolean shadowPass = context.isShadowPass || BBSRendering.isIrisShadowPass();
+
+            if (shadowPass)
+            {
+                color.a *= storedFormColor.a;
+            }
+            else if (this.shouldBakeBlockFormColor(storedFormColor))
             {
                 color.mul(rawFormColor);
             }
 
             this.form.applyFormOpacity(color);
             this.form.applyFormOpacity(formColor);
-
-            boolean shadowPass = context.isShadowPass || BBSRendering.isIrisShadowPass();
 
             FormColorEffects.applyShadowPassColorFix(color, storedFormColor, this.form.paintSettings.get(), this.form.paintColor.get(), shadowPass);
 
@@ -401,6 +405,11 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
             }
             else
             {
+                if (shadowPass)
+                {
+                    ShaderOpacityPatch.beginShadowForm();
+                }
+
                 if (!context.isPicking())
                 {
                     consumers.setSubstitute(blockMainRecolor);
@@ -411,6 +420,14 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
                     CustomVertexConsumerProvider.hijackVertexFormat((layer) ->
                     {
                         this.applyBlockMainPassHijackLayer(layer, blockShaderTint);
+                        ShaderOpacityPatch.uploadShadowFormUniform();
+                    });
+                }
+                else if (shadowPass)
+                {
+                    CustomVertexConsumerProvider.hijackVertexFormat((layer) ->
+                    {
+                        ShaderOpacityPatch.uploadShadowFormUniform();
                     });
                 }
 
@@ -421,6 +438,11 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
                 }
                 finally
                 {
+                    if (shadowPass)
+                    {
+                        ShaderOpacityPatch.endShadowForm();
+                    }
+
                     if (blockShaderTint != null)
                     {
                         RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
@@ -1325,19 +1347,33 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
 
     private void submitDeferredBlockColorTintOverlay(FormRenderingContext context, MatrixStack stack, Color formColor, float alpha, int overlay, boolean ui, Color gradeSource)
     {
-        Matrix4f positionMatrix = ModelVAORenderer.capturePaintOverlayRootMatrix(new Matrix4f(stack.peek().getPositionMatrix()));
+        Matrix4f exactMvm = new Matrix4f(RenderSystem.getModelViewMatrix());
+        Matrix4f exactStack = new Matrix4f(stack.peek().getPositionMatrix());
         Matrix3f normalMatrix = new Matrix3f(stack.peek().getNormalMatrix());
         Color formColorSnapshot = formColor.copy();
         Color gradeSnapshot = gradeSource == null ? null : gradeSource.copy();
 
         ModelVAORenderer.submitColorTintOverlay(() ->
         {
+            CustomVertexConsumerProvider overlayConsumers = FormUtilsClient.getProvider();
             MatrixStack overlayStack = new MatrixStack();
 
-            overlayStack.peek().getPositionMatrix().set(positionMatrix);
+            overlayStack.peek().getPositionMatrix().set(exactStack);
             overlayStack.peek().getNormalMatrix().set(normalMatrix);
 
-            this.renderBlockColorTintOverlay(context, overlayStack, formColorSnapshot, alpha, overlay, ui, gradeSnapshot);
+            RenderSystem.getModelViewStack().pushMatrix();
+            RenderSystem.getModelViewStack().set(exactMvm);
+            RenderSystem.applyModelViewMatrix();
+
+            try
+            {
+                this.renderBlockColorTintOverlay(context, overlayStack, formColorSnapshot, alpha, overlay, ui, gradeSnapshot);
+            }
+            finally
+            {
+                RenderSystem.getModelViewStack().popMatrix();
+                RenderSystem.applyModelViewMatrix();
+            }
         });
     }
 
@@ -1426,7 +1462,8 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
 
     private void submitDeferredBlockPaintOverlay(FormRenderingContext context, MatrixStack stack, Color resolvedPaint, float alpha, int overlay, EffectTransform transform, GlowSettings glowSettings, Color legacyGlow, float glowIntensity, boolean ui)
     {
-        Matrix4f positionMatrix = ModelVAORenderer.capturePaintOverlayRootMatrix(new Matrix4f(stack.peek().getPositionMatrix()));
+        Matrix4f exactMvm = new Matrix4f(RenderSystem.getModelViewMatrix());
+        Matrix4f exactStack = new Matrix4f(stack.peek().getPositionMatrix());
         Matrix3f normalMatrix = new Matrix3f(stack.peek().getNormalMatrix());
         Color paintOverlay = new Color(resolvedPaint.r, resolvedPaint.g, resolvedPaint.b, resolvedPaint.a);
 
@@ -1437,10 +1474,22 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
             CustomVertexConsumerProvider overlayConsumers = FormUtilsClient.getProvider();
             MatrixStack overlayStack = new MatrixStack();
 
-            overlayStack.peek().getPositionMatrix().set(positionMatrix);
+            overlayStack.peek().getPositionMatrix().set(exactStack);
             overlayStack.peek().getNormalMatrix().set(normalMatrix);
 
-            this.renderPaintOverlayPass(null, overlayStack, overlayConsumers, paintOverlay, overlay, ui, transform, glowSettings, legacyGlow, glowIntensity, alpha);
+            RenderSystem.getModelViewStack().pushMatrix();
+            RenderSystem.getModelViewStack().set(exactMvm);
+            RenderSystem.applyModelViewMatrix();
+
+            try
+            {
+                this.renderPaintOverlayPass(null, overlayStack, overlayConsumers, paintOverlay, overlay, ui, transform, glowSettings, legacyGlow, glowIntensity, alpha);
+            }
+            finally
+            {
+                RenderSystem.getModelViewStack().popMatrix();
+                RenderSystem.applyModelViewMatrix();
+            }
         });
     }
 
@@ -1523,6 +1572,7 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
             }
 
             RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
+            RenderSystem.defaultBlendFunc();
             CustomVertexConsumerProvider.clearRunnables();
         }
     }

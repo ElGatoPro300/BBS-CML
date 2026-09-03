@@ -287,15 +287,19 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
             boolean colorTransformWanted = FormColorEffects.wantsColorTintOverlay(storedFormColor3D);
             Color mainTint3D = new Color().set(context.color);
 
-            if (FormColorEffects.shouldBakeFormColor(storedFormColor3D))
+            boolean shadowPass = context.isShadowPass || BBSRendering.isIrisShadowPass();
+
+            if (shadowPass)
+            {
+                mainTint3D.a *= storedFormColor3D.a;
+            }
+            else if (FormColorEffects.shouldBakeFormColor(storedFormColor3D))
             {
                 mainTint3D.mul(rawFormColor3D);
             }
 
             this.form.applyFormOpacity(mainTint3D);
             this.form.applyFormOpacity(formColor3D);
-
-            boolean shadowPass = context.isShadowPass || BBSRendering.isIrisShadowPass();
 
             FormColorEffects.applyShadowPassColorFix(mainTint3D, storedFormColor3D, this.form.paintSettings.get(), this.form.paintColor.get(), shadowPass);
             this.applyBlockEntityOnlyShaderShadow(mainTint3D, shadowPass);

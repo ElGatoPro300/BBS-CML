@@ -201,17 +201,19 @@ public class ItemFormRenderer extends FormRenderer<ItemForm>
             boolean colorTransformWanted = FormColorEffects.wantsColorTintOverlay(storedFormColor);
             boolean colorGradeWanted = storedFormColor.hasColorAdjustments();
 
-            BlockFormRenderer.color.set(context.color);
+            boolean shadowPass = context.isShadowPass || BBSRendering.isIrisShadowPass();
 
-            if (FormColorEffects.shouldBakeFormColor(storedFormColor))
+            if (shadowPass)
+            {
+                BlockFormRenderer.color.a *= storedFormColor.a;
+            }
+            else if (FormColorEffects.shouldBakeFormColor(storedFormColor))
             {
                 BlockFormRenderer.color.mul(rawFormColor);
             }
 
             this.form.applyFormOpacity(BlockFormRenderer.color);
             this.form.applyFormOpacity(formColor);
-
-            boolean shadowPass = context.isShadowPass || BBSRendering.isIrisShadowPass();
 
             FormColorEffects.applyShadowPassColorFix(BlockFormRenderer.color, storedFormColor, this.form.paintSettings.get(), this.form.paintColor.get(), shadowPass);
 
@@ -408,11 +410,24 @@ public class ItemFormRenderer extends FormRenderer<ItemForm>
             }
             else
             {
+                if (shadowPass)
+                {
+                    ShaderOpacityPatch.beginShadowForm();
+                }
+
                 if (itemShaderTint != null)
                 {
                     CustomVertexConsumerProvider.hijackVertexFormat((layer) ->
                     {
                         this.applyItemMainPassHijackLayer(layer, itemShaderTint);
+                        ShaderOpacityPatch.uploadShadowFormUniform();
+                    });
+                }
+                else if (shadowPass)
+                {
+                    CustomVertexConsumerProvider.hijackVertexFormat((layer) ->
+                    {
+                        ShaderOpacityPatch.uploadShadowFormUniform();
                     });
                 }
 
@@ -429,12 +444,18 @@ public class ItemFormRenderer extends FormRenderer<ItemForm>
                 }
                 finally
                 {
+                    if (shadowPass)
+                    {
+                        ShaderOpacityPatch.endShadowForm();
+                    }
+
                     if (itemShaderTint != null)
                     {
                         RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
                     }
 
                     consumers.setSubstitute(null);
+                    CustomVertexConsumerProvider.clearRunnables();
                 }
             }
 
