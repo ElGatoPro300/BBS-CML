@@ -36,9 +36,9 @@ public class ValueEditorLayout extends BaseValue
     private boolean horizontalLayoutInverted;
     private EditorLayoutNode filmLayoutRoot = EditorLayoutNode.defaultFilmLayout();
     private final List<EditorLayoutNode.SplitterNode> filmSplitters = new ArrayList<>();
-    private EditorLayoutNode minecutLayoutRoot = EditorLayoutNode.defaultMinecutLayout();
-    private final List<EditorLayoutNode.SplitterNode> minecutSplitters = new ArrayList<>();
-    private boolean minecutLayoutRootLoaded;
+    private EditorLayoutNode addonLayoutRoot = EditorLayoutNode.defaultAddonLayout();
+    private final List<EditorLayoutNode.SplitterNode> addonSplitters = new ArrayList<>();
+    private boolean addonLayoutRootLoaded;
     /* private float newFilmSidebarSize = 0.25F;
     private float newFilmMainSizeH = 0.5F;
     private int filmLayoutMode; */
@@ -47,7 +47,7 @@ public class ValueEditorLayout extends BaseValue
     {
         super(id);
         this.rebuildFilmSplitters();
-        this.rebuildMinecutSplitters();
+        this.rebuildAddonSplitters();
         this.rebuildParticleSplitters();
     }
 
@@ -65,23 +65,50 @@ public class ValueEditorLayout extends BaseValue
         });
     }
 
-    public EditorLayoutNode getMinecutLayoutRoot()
+    public EditorLayoutNode getAddonLayoutRoot()
     {
-        return this.minecutLayoutRoot;
+        return this.addonLayoutRoot;
     }
 
-    public boolean wasMinecutLayoutRootLoaded()
+    public boolean wasAddonLayoutRootLoaded()
     {
-        return this.minecutLayoutRootLoaded;
+        return this.addonLayoutRootLoaded;
     }
 
-    public void setMinecutLayoutRoot(EditorLayoutNode root)
+    public void setAddonLayoutRoot(EditorLayoutNode root)
     {
         BaseValue.edit(this, (v) ->
         {
-            this.minecutLayoutRoot = root == null ? EditorLayoutNode.defaultMinecutLayout() : root;
-            this.rebuildMinecutSplitters();
+            this.addonLayoutRoot = root == null ? EditorLayoutNode.defaultAddonLayout() : root;
+            this.rebuildAddonSplitters();
         });
+    }
+
+    /**
+     * @deprecated Use {@link #getAddonLayoutRoot()} instead.
+     */
+    @Deprecated
+    public EditorLayoutNode getMinecutLayoutRoot()
+    {
+        return this.getAddonLayoutRoot();
+    }
+
+    /**
+     * @deprecated Use {@link #wasAddonLayoutRootLoaded()} instead.
+     */
+    @Deprecated
+    public boolean wasMinecutLayoutRootLoaded()
+    {
+        return this.wasAddonLayoutRootLoaded();
+    }
+
+    /**
+     * @deprecated Use {@link #setAddonLayoutRoot(EditorLayoutNode)} instead.
+     */
+    @Deprecated
+    public void setMinecutLayoutRoot(EditorLayoutNode root)
+    {
+        this.setAddonLayoutRoot(root);
     }
 
     public List<EditorLayoutNode.SplitterNode> getFilmSplitters()
@@ -89,9 +116,18 @@ public class ValueEditorLayout extends BaseValue
         return this.filmSplitters;
     }
 
+    public List<EditorLayoutNode.SplitterNode> getAddonSplitters()
+    {
+        return this.addonSplitters;
+    }
+
+    /**
+     * @deprecated Use {@link #getAddonSplitters()} instead.
+     */
+    @Deprecated
     public List<EditorLayoutNode.SplitterNode> getMinecutSplitters()
     {
-        return this.minecutSplitters;
+        return this.getAddonSplitters();
     }
 
     public void syncFilmSplittersFromRoot(EditorLayoutNode root)
@@ -99,27 +135,24 @@ public class ValueEditorLayout extends BaseValue
         this.syncSplittersFromRoot(root, this.filmSplitters);
     }
 
+    public void syncAddonSplittersFromRoot(EditorLayoutNode root)
+    {
+        this.syncSplittersFromRoot(root, this.addonSplitters);
+    }
+
+    /**
+     * @deprecated Use {@link #syncAddonSplittersFromRoot(EditorLayoutNode)} instead.
+     */
+    @Deprecated
     public void syncMinecutSplittersFromRoot(EditorLayoutNode root)
     {
-        this.syncSplittersFromRoot(root, this.minecutSplitters);
+        this.syncAddonSplittersFromRoot(root);
     }
 
     private void syncSplittersFromRoot(EditorLayoutNode root, List<EditorLayoutNode.SplitterNode> splitters)
     {
         splitters.clear();
-
-        if (root != null)
-        {
-            EditorLayoutNode.collectSplitters(root, splitters);
-
-            List<EditorLayoutNode.SplitterHandleInfo> handles = new ArrayList<>();
-            EditorLayoutNode.computeSplitterHandles(root, 0F, 0F, 1F, 1F, handles);
-
-            if (splitters.size() > handles.size())
-            {
-                splitters.subList(handles.size(), splitters.size()).clear();
-            }
-        }
+        EditorLayoutNode.collectSplitters(root, splitters);
     }
 
     public void setFilmSplitterRatio(int index, float ratio)
@@ -132,14 +165,23 @@ public class ValueEditorLayout extends BaseValue
         BaseValue.edit(this, (v) -> this.filmSplitters.get(index).setRatio(ratio));
     }
 
-    public void setMinecutSplitterRatio(int index, float ratio)
+    public void setAddonSplitterRatio(int index, float ratio)
     {
-        if (index < 0 || index >= this.minecutSplitters.size())
+        if (index < 0 || index >= this.addonSplitters.size())
         {
             return;
         }
 
-        BaseValue.edit(this, (v) -> this.minecutSplitters.get(index).setRatio(ratio));
+        BaseValue.edit(this, (v) -> this.addonSplitters.get(index).setRatio(ratio));
+    }
+
+    /**
+     * @deprecated Use {@link #setAddonSplitterRatio(int, float)} instead.
+     */
+    @Deprecated
+    public void setMinecutSplitterRatio(int index, float ratio)
+    {
+        this.setAddonSplitterRatio(index, ratio);
     }
 
     public void setHorizontal(boolean horizontal)
@@ -504,7 +546,8 @@ public class ValueEditorLayout extends BaseValue
         data.putBool("vertical_layout_inverted", this.verticalLayoutInverted);
         data.putBool("horizontal_layout_inverted", this.horizontalLayoutInverted);
         data.put("film_layout", this.filmLayoutRoot.toData());
-        data.put("minecut_layout_root", this.minecutLayoutRoot.toData());
+        data.put("addon_layout_root", this.addonLayoutRoot.toData());
+        data.put("minecut_layout_root", this.addonLayoutRoot.toData());
         data.put("particle_layout", this.particleLayoutRoot.toData());
         /* data.putFloat("new_film_sidebar_size", this.newFilmSidebarSize);
         data.putFloat("new_film_main_size_h", this.newFilmMainSizeH);
@@ -554,18 +597,23 @@ public class ValueEditorLayout extends BaseValue
             }
             this.rebuildFilmSplitters();
 
-            if (map.has("minecut_layout_root"))
+            if (map.has("addon_layout_root"))
             {
-                this.minecutLayoutRoot = EditorLayoutNode.fromMinecutData(map.get("minecut_layout_root"));
-                this.minecutLayoutRootLoaded = true;
+                this.addonLayoutRoot = EditorLayoutNode.fromAddonData(map.get("addon_layout_root"));
+                this.addonLayoutRootLoaded = true;
+            }
+            else if (map.has("minecut_layout_root"))
+            {
+                this.addonLayoutRoot = EditorLayoutNode.fromAddonData(map.get("minecut_layout_root"));
+                this.addonLayoutRootLoaded = true;
             }
             else
             {
-                this.minecutLayoutRoot = EditorLayoutNode.defaultMinecutLayout();
-                this.minecutLayoutRootLoaded = false;
+                this.addonLayoutRoot = EditorLayoutNode.defaultAddonLayout();
+                this.addonLayoutRootLoaded = false;
             }
 
-            this.rebuildMinecutSplitters();
+            this.rebuildAddonSplitters();
 
             if (map.has("particle_layout"))
             {
@@ -593,15 +641,24 @@ public class ValueEditorLayout extends BaseValue
         EditorLayoutNode.collectSplitters(this.filmLayoutRoot, this.filmSplitters);
     }
 
-    private void rebuildMinecutSplitters()
+    private void rebuildAddonSplitters()
     {
-        if (this.minecutLayoutRoot == null)
+        if (this.addonLayoutRoot == null)
         {
-            this.minecutLayoutRoot = EditorLayoutNode.defaultMinecutLayout();
+            this.addonLayoutRoot = EditorLayoutNode.defaultAddonLayout();
         }
 
-        this.minecutSplitters.clear();
-        EditorLayoutNode.collectSplitters(this.minecutLayoutRoot, this.minecutSplitters);
+        this.addonSplitters.clear();
+        EditorLayoutNode.collectSplitters(this.addonLayoutRoot, this.addonSplitters);
+    }
+
+    /**
+     * @deprecated Use {@link #rebuildAddonSplitters()} instead.
+     */
+    @Deprecated
+    private void rebuildMinecutSplitters()
+    {
+        this.rebuildAddonSplitters();
     }
 
     private int clampLayout(int layout)

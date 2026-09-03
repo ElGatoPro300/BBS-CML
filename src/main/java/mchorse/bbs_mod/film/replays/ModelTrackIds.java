@@ -553,27 +553,27 @@ public final class ModelTrackIds
         LinkedHashSet<String> order = new LinkedHashSet<>();
 
         /* Transform above Pose — matches classic MODEL property order. */
-        if (BBSSettings.minecutDefaultTrackTransform != null && BBSSettings.minecutDefaultTrackTransform.get())
+        if (BBSSettings.recordingDefaultTrackTransform != null && BBSSettings.recordingDefaultTrackTransform.get())
         {
             order.add(TRANSFORM);
         }
 
-        if (BBSSettings.minecutDefaultTrackPose != null && BBSSettings.minecutDefaultTrackPose.get())
+        if (BBSSettings.recordingDefaultTrackPose != null && BBSSettings.recordingDefaultTrackPose.get())
         {
             order.add(POSE);
         }
 
-        if (BBSSettings.minecutDefaultTrackVisible != null && BBSSettings.minecutDefaultTrackVisible.get())
+        if (BBSSettings.recordingDefaultTrackVisible != null && BBSSettings.recordingDefaultTrackVisible.get())
         {
             order.add(VISIBLE);
         }
 
-        if (BBSSettings.minecutDefaultTrackColor != null && BBSSettings.minecutDefaultTrackColor.get())
+        if (BBSSettings.recordingDefaultTrackColor != null && BBSSettings.recordingDefaultTrackColor.get())
         {
             order.add(COLOR);
         }
 
-        if (BBSSettings.minecutDefaultTrackOpacity != null && BBSSettings.minecutDefaultTrackOpacity.get())
+        if (BBSSettings.recordingDefaultTrackOpacity != null && BBSSettings.recordingDefaultTrackOpacity.get())
         {
             order.add(OPACITY);
         }

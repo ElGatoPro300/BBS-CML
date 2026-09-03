@@ -32,8 +32,17 @@ public final class FilmUiPanelIds
     private FilmUiPanelIds()
     {}
 
+    public static boolean isAddonPanelId(String panelId)
+    {
+        return panelId != null && (panelId.startsWith("minecut") || panelId.startsWith("addon") || panelId.startsWith("nle"));
+    }
+
+    /**
+     * @deprecated Use {@link #isAddonPanelId(String)} instead.
+     */
+    @Deprecated
     public static boolean isMinecutPanelId(String panelId)
     {
-        return panelId != null && panelId.startsWith("minecut");
+        return isAddonPanelId(panelId);
     }
 }

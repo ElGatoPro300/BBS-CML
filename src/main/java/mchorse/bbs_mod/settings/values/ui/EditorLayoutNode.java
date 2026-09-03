@@ -130,10 +130,10 @@ public abstract class EditorLayoutNode
     }
 
     /**
-     * Minecut NLE default: Media tabs | Properties tabs | Player over Timeline tabs.
+     * Addon NLE default layout: Media tabs | Properties tabs | Player over Timeline tabs.
      * Each former internal tab is a real dock leaf so it can float / reorder via classic tabs.
      */
-    public static EditorLayoutNode defaultMinecutLayout()
+    public static EditorLayoutNode defaultAddonLayout()
     {
         List<EditorLayoutNode> mediaTabs = new ArrayList<>();
 
@@ -172,11 +172,29 @@ public abstract class EditorLayoutNode
         );
     }
 
-    public static EditorLayoutNode fromMinecutData(BaseType data)
+    /**
+     * @deprecated Use {@link #defaultAddonLayout()} instead.
+     */
+    @Deprecated
+    public static EditorLayoutNode defaultMinecutLayout()
+    {
+        return defaultAddonLayout();
+    }
+
+    public static EditorLayoutNode fromAddonData(BaseType data)
     {
         EditorLayoutNode decoded = LayoutCodec.decode(data);
 
-        return decoded == null ? defaultMinecutLayout() : decoded;
+        return decoded == null ? defaultAddonLayout() : decoded;
+    }
+
+    /**
+     * @deprecated Use {@link #fromAddonData(BaseType)} instead.
+     */
+    @Deprecated
+    public static EditorLayoutNode fromMinecutData(BaseType data)
+    {
+        return fromAddonData(data);
     }
 
     /**

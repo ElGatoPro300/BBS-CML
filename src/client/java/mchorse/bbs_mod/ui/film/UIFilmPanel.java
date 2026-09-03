@@ -1185,9 +1185,18 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
         this.setupEditorFlex(resize, false, true);
     }
 
+    public boolean isAddonFilmUi()
+    {
+        return UIStyle.isAddon();
+    }
+
+    /**
+     * @deprecated Use {@link #isAddonFilmUi()} instead.
+     */
+    @Deprecated
     public boolean isMinecutFilmUi()
     {
-        return UIStyle.isMinecut();
+        return this.isAddonFilmUi();
     }
 
     /**
@@ -1498,14 +1507,14 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
     {
         ValueEditorLayout layout = BBSSettings.editorLayoutSettings;
 
-        return this.isMinecutFilmUi() ? layout.getMinecutLayoutRoot() : layout.getFilmLayoutRoot();
+        return this.isAddonFilmUi() ? layout.getAddonLayoutRoot() : layout.getFilmLayoutRoot();
     }
 
     private void setActiveDockLayoutRoot(EditorLayoutNode root)
     {
-        if (this.isMinecutFilmUi())
+        if (this.isAddonFilmUi())
         {
-            BBSSettings.editorLayoutSettings.setMinecutLayoutRoot(root);
+            BBSSettings.editorLayoutSettings.setAddonLayoutRoot(root);
         }
         else
         {
@@ -1517,9 +1526,9 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
     {
         ValueEditorLayout layout = BBSSettings.editorLayoutSettings;
 
-        if (this.isMinecutFilmUi())
+        if (this.isAddonFilmUi())
         {
-            layout.syncMinecutSplittersFromRoot(root);
+            layout.syncAddonSplittersFromRoot(root);
         }
         else
         {
@@ -1531,14 +1540,14 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
     {
         ValueEditorLayout layout = BBSSettings.editorLayoutSettings;
 
-        return this.isMinecutFilmUi() ? layout.getMinecutSplitters() : layout.getFilmSplitters();
+        return this.isAddonFilmUi() ? layout.getAddonSplitters() : layout.getFilmSplitters();
     }
 
     private void setActiveDockSplitterRatio(int index, float ratio)
     {
-        if (this.isMinecutFilmUi())
+        if (this.isAddonFilmUi())
         {
-            BBSSettings.editorLayoutSettings.setMinecutSplitterRatio(index, ratio);
+            BBSSettings.editorLayoutSettings.setAddonSplitterRatio(index, ratio);
         }
         else
         {

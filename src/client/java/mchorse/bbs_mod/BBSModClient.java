@@ -737,12 +737,12 @@ public class BBSModClient implements ClientModInitializer
         );
         BBSSettings.uiStyle.modes(UIKeys.ENGINE_UI_STYLE_CLASSIC);
 
-        if (UiStyleCapabilities.isMinecutStyleAvailable()
+        if (UiStyleCapabilities.isAddonStyleAvailable()
             || FilmUiCapabilities.hasAddon())
         {
             BBSSettings.uiStyle.modes(
                 UIKeys.ENGINE_UI_STYLE_CLASSIC,
-                UIKeys.ENGINE_UI_STYLE_MINECUT
+                UIKeys.ENGINE_UI_STYLE_ADDON
             );
         }
         else if (BBSSettings.uiStyle != null && BBSSettings.uiStyle.get() == 1)
@@ -752,7 +752,7 @@ public class BBSModClient implements ClientModInitializer
 
         BBSSettings.uiStyle.postCallback((v, f) ->
         {
-            UIStyle.invalidateMinecutCache();
+            UIStyle.invalidateAddonCache();
 
             if (dashboard != null)
             {

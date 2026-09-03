@@ -30,7 +30,7 @@ public class ValueUILayoutPreferences extends BaseValue
     private float formTreeWidth;
     private final Map<String, Float> formPanelWidths = new HashMap<>();
     private int keyframeSidebarWidth;
-    private MapType minecutLayout;
+    private MapType addonLayout;
 
     public ValueUILayoutPreferences(String id)
     {
@@ -104,14 +104,32 @@ public class ValueUILayoutPreferences extends BaseValue
         BaseValue.edit(this, (v) -> this.keyframeSidebarWidth = Math.max(0, width));
     }
 
-    public MapType getMinecutLayout()
+    public MapType getAddonLayout()
     {
-        return this.minecutLayout;
+        return this.addonLayout;
     }
 
+    public void setAddonLayout(MapType data)
+    {
+        BaseValue.edit(this, (v) -> this.addonLayout = data);
+    }
+
+    /**
+     * @deprecated Use {@link #getAddonLayout()} instead.
+     */
+    @Deprecated
+    public MapType getMinecutLayout()
+    {
+        return this.getAddonLayout();
+    }
+
+    /**
+     * @deprecated Use {@link #setAddonLayout(MapType)} instead.
+     */
+    @Deprecated
     public void setMinecutLayout(MapType data)
     {
-        BaseValue.edit(this, (v) -> this.minecutLayout = data);
+        this.setAddonLayout(data);
     }
 
     public void setFilmSession(
@@ -250,9 +268,10 @@ public class ValueUILayoutPreferences extends BaseValue
             data.putInt("keyframe_sidebar_width", this.keyframeSidebarWidth);
         }
 
-        if (this.minecutLayout != null)
+        if (this.addonLayout != null)
         {
-            data.put("minecut_layout", this.minecutLayout);
+            data.put("addon_layout", this.addonLayout);
+            data.put("minecut_layout", this.addonLayout);
         }
 
         return data;
@@ -281,11 +300,15 @@ public class ValueUILayoutPreferences extends BaseValue
         this.formTreeWidth = map.getFloat("form_tree_width", 0F);
         this.readFormPanelWidths(map);
         this.keyframeSidebarWidth = map.getInt("keyframe_sidebar_width", 0);
-        this.minecutLayout = null;
+        this.addonLayout = null;
 
-        if (map.has("minecut_layout") && map.get("minecut_layout") != null && map.get("minecut_layout").isMap())
+        if (map.has("addon_layout") && map.get("addon_layout") != null && map.get("addon_layout").isMap())
         {
-            this.minecutLayout = map.get("minecut_layout").asMap();
+            this.addonLayout = map.get("addon_layout").asMap();
+        }
+        else if (map.has("minecut_layout") && map.get("minecut_layout") != null && map.get("minecut_layout").isMap())
+        {
+            this.addonLayout = map.get("minecut_layout").asMap();
         }
     }
 

@@ -70,8 +70,10 @@ public class UIKeyframeDopeSheet implements IUIKeyframeGraph
     private static final double COMPANION_SPLIT_RATIO = 0.52D;
     private static final double PRIMARY_LINE_RATIO = 0.30D;
     private static final double COMPANION_LINE_RATIO = 0.72D;
-    /** Minecut: soft lane inset from top/bottom of the track row. */
-    private static final int MINECUT_LANE_PAD = 3;
+    /** Addon: soft lane inset from top/bottom of the track row. */
+    private static final int ADDON_LANE_PAD = 3;
+    @Deprecated
+    private static final int MINECUT_LANE_PAD = ADDON_LANE_PAD;
 
     private UIKeyframes keyframes;
 
@@ -1520,7 +1522,7 @@ public class UIKeyframeDopeSheet implements IUIKeyframeGraph
                 context.batcher.box(startX, y, endX, (float) (y + this.trackHeight), 0x26000000);
             }
 
-            if (!UIStyle.isMinecut())
+            if (!UIStyle.isAddon())
             {
                 context.batcher.box(startX, (float) (y + this.trackHeight) - 1, endX, (float) (y + this.trackHeight), 0x16000000);
             }
@@ -1607,12 +1609,12 @@ public class UIKeyframeDopeSheet implements IUIKeyframeGraph
                 context.batcher.box(startX, y, endX, (float) (y + this.trackHeight), pulseColor);
             }
 
-            /* Render track bars (horizontal lines) — Minecut uses a soft color halo, no solid center stroke. */
+            /* Render track bars (horizontal lines) — addon style uses a soft color halo, no solid center stroke. */
             BufferBuilder builder = Tessellator.getInstance().begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_COLOR);
 
-            if (UIStyle.isMinecut())
+            if (UIStyle.isAddon())
             {
-                this.renderMinecutTrackHalo(context, startX, endX, y, (int) this.trackHeight, sheet.color, hover);
+                this.renderAddonTrackHalo(context, startX, endX, y, (int) this.trackHeight, sheet.color, hover);
             }
             else
             {
@@ -1984,9 +1986,9 @@ public class UIKeyframeDopeSheet implements IUIKeyframeGraph
         this.dopeSheet.setScroll(extra.getDouble("scroll"));
     }
 
-    private void renderMinecutTrackHalo(UIContext context, int startX, int endX, int rowY, int rowH, int color, boolean hover)
+    private void renderAddonTrackHalo(UIContext context, int startX, int endX, int rowY, int rowH, int color, boolean hover)
     {
-        int pad = Math.min(MINECUT_LANE_PAD, Math.max(1, rowH / 4));
+        int pad = Math.min(ADDON_LANE_PAD, Math.max(1, rowH / 4));
         int y1 = rowY + pad;
         int y2 = rowY + rowH - pad;
 
@@ -1999,13 +2001,19 @@ public class UIKeyframeDopeSheet implements IUIKeyframeGraph
         context.batcher.box(startX, y1, endX, y2, Colors.setA(color, hover ? 0.18F : 0.10F));
     }
 
+    @Deprecated
+    private void renderMinecutTrackHalo(UIContext context, int startX, int endX, int rowY, int rowH, int color, boolean hover)
+    {
+        this.renderAddonTrackHalo(context, startX, endX, rowY, rowH, color, hover);
+    }
+
     private void renderCompanionChannel(UIContext context, Matrix4f matrix, Area area, int startX, int endX, int lineY, UIKeyframeSheet sheet, boolean rowHover)
     {
         List keyframes = sheet.channel.getKeyframes();
         int cc = Colors.setA(sheet.color, rowHover ? 0.65F : 0.28F);
         BufferBuilder builder = Tessellator.getInstance().begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_COLOR);
 
-        if (UIStyle.isMinecut())
+        if (UIStyle.isAddon())
         {
             int band = Math.max(4, (int) this.trackHeight / 4);
             int y1 = lineY - band / 2;
@@ -2028,9 +2036,9 @@ public class UIKeyframeDopeSheet implements IUIKeyframeGraph
 
             if (previous.getFactory().compare(previous.getValue(), frame.getValue()) && xxx > xx)
             {
-                if (UIStyle.isMinecut())
+                if (UIStyle.isAddon())
                 {
-                    int laneH = Math.max(4, (int) this.trackHeight / 4);
+                    int laneH = Math.max(4, (int) this.trackHeight - 2 * ADDON_LANE_PAD);
                     int half = Math.max(2, laneH / 4);
 
                     context.batcher.box(xx, lineY - half, xxx, lineY + half, 0x28FFFFFF);

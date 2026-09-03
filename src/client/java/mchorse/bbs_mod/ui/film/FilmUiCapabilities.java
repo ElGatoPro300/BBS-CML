@@ -13,7 +13,7 @@ import java.util.function.Supplier;
 public final class FilmUiCapabilities
 {
     private static Function<UIFilmPanel, IFilmUiWorkspace> workspaceFactory;
-    private static Supplier<UIStyle> minecutStyleFactory;
+    private static Supplier<UIStyle> addonStyleFactory;
     private static Function<String, Icon> trackIconResolver;
     private static boolean sparseTracksPreferred;
 
@@ -25,9 +25,18 @@ public final class FilmUiCapabilities
         workspaceFactory = factory;
     }
 
+    public static void registerAddonStyleFactory(Supplier<UIStyle> factory)
+    {
+        addonStyleFactory = factory;
+    }
+
+    /**
+     * @deprecated Use {@link #registerAddonStyleFactory(Supplier)} instead.
+     */
+    @Deprecated
     public static void registerMinecutStyleFactory(Supplier<UIStyle> factory)
     {
-        minecutStyleFactory = factory;
+        registerAddonStyleFactory(factory);
     }
 
     public static void registerTrackIconResolver(Function<String, Icon> resolver)
@@ -36,7 +45,7 @@ public final class FilmUiCapabilities
     }
 
     /**
-     * When true, sparse Model-track timeline UX is preferred while the Minecut skin is active
+     * When true, sparse Model-track timeline UX is preferred while an addon skin is active
      * (default Pose/Transform, keep tracks with keyframes, Remove track in the context menu).
      */
     public static void setSparseTracksPreferred(boolean preferred)
@@ -54,14 +63,23 @@ public final class FilmUiCapabilities
         return workspaceFactory == null ? null : workspaceFactory.apply(panel);
     }
 
+    public static UIStyle createAddonStyle()
+    {
+        return addonStyleFactory == null ? null : addonStyleFactory.get();
+    }
+
+    /**
+     * @deprecated Use {@link #createAddonStyle()} instead.
+     */
+    @Deprecated
     public static UIStyle createMinecutStyle()
     {
-        return minecutStyleFactory == null ? null : minecutStyleFactory.get();
+        return createAddonStyle();
     }
 
     public static Icon resolveTrackIcon(String trackId)
     {
-        if (trackIconResolver == null || trackId == null || !UIStyle.isMinecut())
+        if (trackIconResolver == null || trackId == null || !UIStyle.isAddon())
         {
             return null;
         }
@@ -78,7 +96,7 @@ public final class FilmUiCapabilities
     public static void clear()
     {
         workspaceFactory = null;
-        minecutStyleFactory = null;
+        addonStyleFactory = null;
         trackIconResolver = null;
         sparseTracksPreferred = false;
     }

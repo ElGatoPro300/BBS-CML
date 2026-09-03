@@ -223,18 +223,11 @@ public class BBSSettings
     public static ValueBoolean recordingCameraPreview;
     public static ValueInt recordingCameraPreviewFutureCount;
 
-    /**
-     * Optional film-UI skin settings (filled by the Minecut addon via
-     * {@link RegisterBBSSettingsEvent}). Null without the addon.
-     */
-    public static ValueBoolean minecutDefaultTrackPose;
-    public static ValueBoolean minecutDefaultTrackTransform;
-    public static ValueBoolean minecutDefaultTrackVisible;
-    public static ValueBoolean minecutDefaultTrackColor;
-    public static ValueBoolean minecutDefaultTrackOpacity;
-    public static ValueInt minecutDefaultTransformOverlays;
-    public static ValueInt minecutDefaultPoseOverlays;
-    public static ValueInt minecutDefaultColorOverlays;
+    public static ValueBoolean recordingDefaultTrackPose;
+    public static ValueBoolean recordingDefaultTrackTransform;
+    public static ValueBoolean recordingDefaultTrackVisible;
+    public static ValueBoolean recordingDefaultTrackColor;
+    public static ValueBoolean recordingDefaultTrackOpacity;
 
     public static ValueBoolean renderAllModelBlocks;
     public static ValueBoolean clickModelBlocks;
@@ -321,38 +314,17 @@ public class BBSSettings
 
     public static int getTransformOverlaysCount()
     {
-        int count = recordingTransformOverlays != null ? recordingTransformOverlays.get() : 0;
-
-        if (minecutDefaultTransformOverlays != null)
-        {
-            count = Math.max(count, minecutDefaultTransformOverlays.get());
-        }
-
-        return count;
+        return recordingTransformOverlays != null ? recordingTransformOverlays.get() : 0;
     }
 
     public static int getPoseOverlaysCount()
     {
-        int count = recordingPoseOverlays != null ? recordingPoseOverlays.get() : 0;
-
-        if (minecutDefaultPoseOverlays != null)
-        {
-            count = Math.max(count, minecutDefaultPoseOverlays.get());
-        }
-
-        return count;
+        return recordingPoseOverlays != null ? recordingPoseOverlays.get() : 0;
     }
 
     public static int getColorOverlaysCount()
     {
-        int count = recordingColorOverlays != null ? recordingColorOverlays.get() : 0;
-
-        if (minecutDefaultColorOverlays != null)
-        {
-            count = Math.max(count, minecutDefaultColorOverlays.get());
-        }
-
-        return count;
+        return recordingColorOverlays != null ? recordingColorOverlays.get() : 0;
     }
 
     public static int getIllusionOverlaysCount()
@@ -426,26 +398,35 @@ public class BBSSettings
     }
 
     /**
-     * Accent RGB used by widgets. Minecut style forces cyan when that skin is active.
+     * Accent RGB used by widgets. Addon style overrides when that skin is active.
      */
     public static int accentRgb()
     {
-        if (isMinecutUiStyle())
+        if (isAddonUiStyle())
         {
-            return 0x00C2D4;
+            return UiStyleCapabilities.getAddonAccentColor();
         }
 
         return primaryColor.get() & Colors.RGB;
     }
 
     /**
-     * True when the Minecut UI style addon is present and the user selected Minecut.
+     * True when an addon UI style is present and selected.
      */
+    public static boolean isAddonUiStyle()
+    {
+        return UiStyleCapabilities.isAddonStyleAvailable()
+            && uiStyle != null
+            && uiStyle.get() == UiStyleCapabilities.ADDON;
+    }
+
+    /**
+     * @deprecated Use {@link #isAddonUiStyle()} instead.
+     */
+    @Deprecated
     public static boolean isMinecutUiStyle()
     {
-        return UiStyleCapabilities.isMinecutStyleAvailable()
-            && uiStyle != null
-            && uiStyle.get() == UiStyleCapabilities.MINECUT;
+        return isAddonUiStyle();
     }
 
     public static int modelEditorHoverColor(float alpha)
@@ -607,9 +588,9 @@ public class BBSSettings
 
     private static int getThemeChromeSurface()
     {
-        if (isMinecutUiStyle())
+        if (isAddonUiStyle())
         {
-            return applyBackgroundBrightness(0xFF101014);
+            return applyBackgroundBrightness(UiStyleCapabilities.getAddonChromeSurface());
         }
 
         return applyBackgroundBrightness(isLightTheme() ? 0xffe6e9ef : 0xff111316);
@@ -617,9 +598,9 @@ public class BBSSettings
 
     private static int getThemeBaseSurface()
     {
-        if (isMinecutUiStyle())
+        if (isAddonUiStyle())
         {
-            return applyBackgroundBrightness(0xFF16161A);
+            return applyBackgroundBrightness(UiStyleCapabilities.getAddonBaseSurface());
         }
 
         return applyBackgroundBrightness(isLightTheme() ? 0xfff1f4f8 : 0xff171a1f);
@@ -627,9 +608,9 @@ public class BBSSettings
 
     private static int getThemeRaisedSurface()
     {
-        if (isMinecutUiStyle())
+        if (isAddonUiStyle())
         {
-            return applyBackgroundBrightness(0xFF1E1E24);
+            return applyBackgroundBrightness(UiStyleCapabilities.getAddonRaisedSurface());
         }
 
         return applyBackgroundBrightness(isLightTheme() ? 0xfff8fafd : 0xff1d2127);
@@ -637,9 +618,9 @@ public class BBSSettings
 
     private static int getThemeDeepSurface()
     {
-        if (isMinecutUiStyle())
+        if (isAddonUiStyle())
         {
-            return applyBackgroundBrightness(0xFF0A0A0C);
+            return applyBackgroundBrightness(UiStyleCapabilities.getAddonDeepSurface());
         }
 
         return applyBackgroundBrightness(isLightTheme() ? 0xffdee4ed : 0xff0f1217);
@@ -647,9 +628,9 @@ public class BBSSettings
 
     private static int getThemeDividerColor()
     {
-        if (isMinecutUiStyle())
+        if (isAddonUiStyle())
         {
-            return 0xFF00C2D4;
+            return UiStyleCapabilities.getAddonDividerColor();
         }
 
         return isLightTheme() ? 0xffc2cbd8 : 0xff30353d;
@@ -983,6 +964,11 @@ public class BBSSettings
         recordingTransformOverlays = builder.getInt("transform_overlays", 0, 0, 42);
         recordingColorOverlays = builder.getInt("color_overlays", 0, 0, 42);
         recordingIllusionOverlays = builder.getInt("illusion_overlays", 0, 0, 42);
+        recordingDefaultTrackTransform = builder.getBoolean("default_track_transform", true);
+        recordingDefaultTrackPose = builder.getBoolean("default_track_pose", true);
+        recordingDefaultTrackVisible = builder.getBoolean("default_track_visible", false);
+        recordingDefaultTrackColor = builder.getBoolean("default_track_color", false);
+        recordingDefaultTrackOpacity = builder.getBoolean("default_track_opacity", false);
         recordingCameraPreview = builder.getBoolean("camera_preview", true);
         recordingCameraPreviewFutureCount = builder.getInt("camera_preview_future_count", 3, 1, 8);
 

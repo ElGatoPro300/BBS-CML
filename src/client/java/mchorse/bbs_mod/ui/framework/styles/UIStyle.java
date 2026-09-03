@@ -13,23 +13,29 @@ import mchorse.bbs_mod.ui.utils.Area;
 public abstract class UIStyle
 {
     public static final int CLASSIC = 0;
-    public static final int MINECUT = 1;
+    public static final int ADDON = 1;
+
+    /**
+     * @deprecated Use {@link #ADDON} instead.
+     */
+    @Deprecated
+    public static final int MINECUT = ADDON;
 
     private static UIStyle classic;
-    private static UIStyle minecut;
+    private static UIStyle addon;
 
     public static UIStyle active()
     {
-        if (isMinecut())
+        if (isAddon())
         {
-            if (minecut == null)
+            if (addon == null)
             {
-                minecut = FilmUiCapabilities.createMinecutStyle();
+                addon = FilmUiCapabilities.createAddonStyle();
             }
 
-            if (minecut != null)
+            if (addon != null)
             {
-                return minecut;
+                return addon;
             }
         }
 
@@ -42,19 +48,37 @@ public abstract class UIStyle
     }
 
     /**
-     * True only when the Minecut UI addon is present and the user selected Minecut style.
+     * True only when an addon UI style is present and the user selected it.
      */
-    public static boolean isMinecut()
+    public static boolean isAddon()
     {
-        return FilmUiCapabilities.hasAddon()
+        return (FilmUiCapabilities.hasAddon() || mchorse.bbs_mod.settings.UiStyleCapabilities.isAddonStyleAvailable())
             && BBSSettings.uiStyle != null
-            && BBSSettings.uiStyle.get() == MINECUT;
+            && BBSSettings.uiStyle.get() == ADDON;
     }
 
-    /** Drop cached Minecut instance after addon reload / style switch. */
+    /**
+     * @deprecated Use {@link #isAddon()} instead.
+     */
+    @Deprecated
+    public static boolean isMinecut()
+    {
+        return isAddon();
+    }
+
+    /** Drop cached addon instance after addon reload / style switch. */
+    public static void invalidateAddonCache()
+    {
+        addon = null;
+    }
+
+    /**
+     * @deprecated Use {@link #invalidateAddonCache()} instead.
+     */
+    @Deprecated
     public static void invalidateMinecutCache()
     {
-        minecut = null;
+        invalidateAddonCache();
     }
 
     public abstract int chrome();

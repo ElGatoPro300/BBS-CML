@@ -2373,7 +2373,7 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
 
         /* Only when the addon explicitly opts in. Do not keep filtering by a saved
          * model-track order — that hid form channels (e.g. particle offset_x/y/z). */
-        return this.filmPanel != null && this.filmPanel.isMinecutFilmUi()
+        return this.filmPanel != null && this.filmPanel.isAddonFilmUi()
             && FilmUiCapabilities.prefersSparseModelTracks();
     }
 
@@ -2676,7 +2676,7 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
             return;
         }
 
-        if (this.filmPanel != null && this.filmPanel.isMinecutFilmUi()
+        if (this.filmPanel != null && this.filmPanel.isAddonFilmUi()
             && FilmUiCapabilities.prefersSparseModelTracks())
         {
             this.replay.ensureModelTrackOrder();
@@ -3879,7 +3879,7 @@ public class UIReplaysEditor extends UIElement implements GizmoSurface
                 {
                     this.cleanupUntouchedAutomaticKeyframe(this.lastPickedKeyframe, keyframe);
                     this.lastPickedKeyframe = keyframe;
-                    if (!this.filmPanel.isMinecutFilmUi())
+                    if (!this.filmPanel.isAddonFilmUi())
                     {
                         this.filmPanel.focusLinkedPropertiesTab("replayTimeline");
                     }

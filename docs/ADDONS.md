@@ -161,6 +161,31 @@ ValueBoolean toggle = new ValueBoolean("toggle", false);
 toggle.postCallback((v) -> System.out.println("Changed to: " + v.get()));
 ```
 
+#### Core BBS Settings & Generic Replay Keys (`BBSSettings`)
+
+BBS provides central, generic settings that addons can read, react to, or configure programmatically:
+
+- **Default Replay Tracks** (category `"recording"`):
+  - `BBSSettings.recordingDefaultTrackTransform` (`"default_track_transform"`): Include Transform track on newly created replays (default `true`).
+  - `BBSSettings.recordingDefaultTrackPose` (`"default_track_pose"`): Include Pose track on newly created replays (default `true`).
+  - `BBSSettings.recordingDefaultTrackVisible` (`"default_track_visible"`): Include Visible track on newly created replays (default `false`).
+  - `BBSSettings.recordingDefaultTrackColor` (`"default_track_color"`): Include Color track on newly created replays (default `false`).
+  - `BBSSettings.recordingDefaultTrackOpacity` (`"default_track_opacity"`): Include Opacity track on newly created replays (default `false`).
+
+- **Configurable Overlay Track Counts** (category `"recording"`, range 0..42):
+  - `BBSSettings.recordingPoseOverlays` (`"pose_overlays"`): Default pose overlay count.
+  - `BBSSettings.recordingTransformOverlays` (`"transform_overlays"`): Default transform overlay count.
+  - `BBSSettings.recordingColorOverlays` (`"color_overlays"`): Default color overlay count.
+  - `BBSSettings.recordingIllusionOverlays` (`"illusion_overlays"`): Default illusion overlay count.
+
+- **Centralized Getters**:
+  ```java
+  int transformOverlays = BBSSettings.getTransformOverlaysCount();
+  int poseOverlays      = BBSSettings.getPoseOverlaysCount();
+  int colorOverlays     = BBSSettings.getColorOverlaysCount();
+  int illusionOverlays  = BBSSettings.getIllusionOverlaysCount();
+  ```
+
 ### Event Bus
 
 BBS Mod has its own `EventBus` for internal events, distinct from Fabric's callbacks.
@@ -197,6 +222,19 @@ Registers global config settings (appearing in the config panel).
 event.register(Icons.GEAR, "my_addon", (builder) -> {
     builder.category("general").register(new ValueBoolean("enabled", true));
 });
+```
+
+### `registerBBSSettings(RegisterBBSSettingsEvent event)`
+Appends custom categories or settings directly into the core BBS settings tree:
+```java
+@Override
+protected void registerBBSSettings(RegisterBBSSettingsEvent event)
+{
+    SettingsBuilder builder = event.builder;
+
+    builder.category("my_addon");
+    builder.register(new ValueBoolean("custom_feature", true));
+}
 ```
 
 ### `registerCameraClips(RegisterCameraClipsEvent event)`
@@ -258,6 +296,53 @@ Registers a custom UI style/skin provider to customize widget colors, borders, f
 ```java
 event.register(new MyCustomUIStyleProvider());
 ```
+
+### `registerFilmUiAddon(RegisterFilmUiAddonEvent event)`
+Registers full custom film UI workspaces, NLE timeline layouts, and UI styles:
+
+```java
+@Override
+protected void registerFilmUiAddon(RegisterFilmUiAddonEvent event)
+{
+    // Register custom UIStyle factory
+    event.registerAddonStyleFactory(() -> new MyCustomUIStyle());
+
+    // Register custom film workspace factory
+    event.registerWorkspaceFactory((panel) -> new MyCustomWorkspace(panel));
+
+    // Opt into sparse model tracks (default Pose/Transform only)
+    event.setSparseTracksPreferred(true);
+}
+```
+
+#### Custom Addon Theme Surface Colors (`UiStyleCapabilities`)
+Addons can dynamically customize core BBS chrome, surface, and accent colors without modifying BBS core:
+
+```java
+UiStyleCapabilities.enableAddonStyle();
+UiStyleCapabilities.setAddonChromeSurface(0xFF101014);
+UiStyleCapabilities.setAddonBaseSurface(0xFF16161A);
+UiStyleCapabilities.setAddonRaisedSurface(0xFF1E1E24);
+UiStyleCapabilities.setAddonDeepSurface(0xFF0A0A0C);
+UiStyleCapabilities.setAddonDividerColor(0xFF00C2D4);
+UiStyleCapabilities.setAddonAccentColor(0x00C2D4);
+```
+
+#### Addon Workspace & Dock Layout Management
+The dock layout system supports addon-managed dock trees and splitter ratios:
+- **`BBSSettings.editorLayoutSettings` (`ValueEditorLayout`)**:
+  - `getAddonLayoutRoot()` / `setAddonLayoutRoot(EditorLayoutNode root)`
+  - `getAddonSplitters()` / `setAddonSplitterRatio(int index, float ratio)`
+  - `syncAddonSplittersFromRoot(EditorLayoutNode root)`
+  - Serialized under `"addon_layout_root"`
+- **`BBSSettings.layoutPreferences` (`ValueUILayoutPreferences`)**:
+  - `getAddonLayout()` / `setAddonLayout(MapType data)`
+  - Serialized under `"addon_layout"`
+- **`EditorLayoutNode`**:
+  - `EditorLayoutNode.defaultAddonLayout()`
+  - `EditorLayoutNode.fromAddonData(BaseType data)`
+- **`FilmUiPanelIds`**:
+  - `FilmUiPanelIds.isAddonPanelId(String panelId)`
 
 ### `registerFormEditorSection(RegisterFormEditorSectionEvent event)`
 Injects custom UI sections or controls into existing Form editor panels (`UIFormPanel`).

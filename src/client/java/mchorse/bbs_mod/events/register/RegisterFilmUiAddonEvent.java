@@ -18,9 +18,18 @@ public class RegisterFilmUiAddonEvent
         FilmUiCapabilities.registerWorkspaceFactory(factory);
     }
 
+    public void registerAddonStyleFactory(Supplier<UIStyle> factory)
+    {
+        FilmUiCapabilities.registerAddonStyleFactory(factory);
+    }
+
+    /**
+     * @deprecated Use {@link #registerAddonStyleFactory(Supplier)} instead.
+     */
+    @Deprecated
     public void registerMinecutStyleFactory(Supplier<UIStyle> factory)
     {
-        FilmUiCapabilities.registerMinecutStyleFactory(factory);
+        this.registerAddonStyleFactory(factory);
     }
 
     public void setSparseTracksPreferred(boolean preferred)

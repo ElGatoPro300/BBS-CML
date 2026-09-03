@@ -338,7 +338,8 @@ public class UIKeys
     public static final IKey ENGINE_TOOLTIP_STYLE_DARK = L10n.lang("bbs.tooltip_style.dark");
     public static final IKey ENGINE_TOOLTIP_STYLE_LIGHT = L10n.lang("bbs.tooltip_style.light");
     public static final IKey ENGINE_UI_STYLE_CLASSIC = L10n.lang("bbs.ui_style.classic");
-    public static final IKey ENGINE_UI_STYLE_MINECUT = L10n.lang("bbs.ui_style.minecut");
+    public static final IKey ENGINE_UI_STYLE_ADDON = L10n.lang("bbs.ui_style.addon");
+    public static final IKey ENGINE_UI_STYLE_MINECUT = ENGINE_UI_STYLE_ADDON;
     public static final IKey FILM_CONTROLLER_CONTROL_MODE_TOOLTIP = L10n.lang("bbs.ui.film.controller.control_mode-tooltip");
     public static final IKey FILM_CONTROLLER_INSERT_FRAME_DESCRIPTION = L10n.lang("bbs.ui.film.controller.insert_frame-description");
     public static final IKey FILM_CONTROLLER_INSERT_FRAME_TITLE = L10n.lang("bbs.ui.film.controller.insert_frame-title");
