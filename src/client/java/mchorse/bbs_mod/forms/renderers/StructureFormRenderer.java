@@ -291,15 +291,19 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
             boolean colorTransformWanted = FormColorEffects.wantsColorTintOverlay(storedFormColor3D);
             Color mainTint3D = new Color().set(context.color);
 
-            if (FormColorEffects.shouldBakeFormColor(storedFormColor3D))
+            boolean shadowPass = context.isShadowPass || BBSRendering.isIrisShadowPass();
+
+            if (shadowPass)
+            {
+                mainTint3D.a *= storedFormColor3D.a;
+            }
+            else if (FormColorEffects.shouldBakeFormColor(storedFormColor3D))
             {
                 mainTint3D.mul(rawFormColor3D);
             }
 
             this.form.applyFormOpacity(mainTint3D);
             this.form.applyFormOpacity(formColor3D);
-
-            boolean shadowPass = context.isShadowPass || BBSRendering.isIrisShadowPass();
 
             FormColorEffects.applyShadowPassColorFix(mainTint3D, storedFormColor3D, this.form.paintSettings.get(), this.form.paintColor.get(), shadowPass);
             this.applyBlockEntityOnlyShaderShadow(mainTint3D, shadowPass);
@@ -554,12 +558,6 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
                     }
                 }
 
-                if (!softPostDeferred && !noshadingDefer && positivePaint)
-                {
-                    EffectTransform paintTransform = paintSettings.transform;
-                    this.overlayRenderer.submitDeferredStructurePaintOverlay(this.data, vao, context, resolvedPaint, mainTint3D.a, context.overlay, true, shaders, paintTransform, glowSettings, legacyGlow, glowIntensity, layer -> this.renderPaintLayer(layer, context, context.stack, context.overlay, null), (s) -> this.renderStructureCulledWorld(context, s, FormUtilsClient.getProvider(), light, context.overlay, shaders, null, true, false));
-                }
-
                 if (!softPostDeferred && !noshadingDefer && applyColorTint)
                 {
                     if (irisWorldPaintDeferral)
@@ -572,10 +570,13 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
                     }
                 }
 
-                if (!softPostDeferred && !noshadingDefer && irisWorldPaintDeferral && this.data.hasBlockEntityLayer() && this.needsDeferredBlockEntityTint(positivePaint, applyColorTint, storedFormColor3D))
+                if (!softPostDeferred && !noshadingDefer && positivePaint)
                 {
-                    this.submitDeferredStructureBlockEntityTint(context, context.overlay);
+                    EffectTransform paintTransform = paintSettings.transform;
+                    this.overlayRenderer.submitDeferredStructurePaintOverlay(this.data, vao, context, resolvedPaint, mainTint3D.a, context.overlay, true, shaders, paintTransform, glowSettings, legacyGlow, glowIntensity, layer -> this.renderPaintLayer(layer, context, context.stack, context.overlay, null), (s) -> this.renderStructureCulledWorld(context, s, FormUtilsClient.getProvider(), light, context.overlay, shaders, null, true, false));
                 }
+
+
 
                 if (!softPostDeferred && !noshadingDefer && positiveGlow)
                 {
@@ -1329,7 +1330,8 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
 
     private void submitDeferredStructureBlockEntityTint(FormRenderingContext context, int overlay)
     {
-        Matrix4f positionMatrix = ModelVAORenderer.capturePaintOverlayRootMatrix(new Matrix4f(context.stack.peek().getPositionMatrix()));
+        Matrix4f exactMvm = new Matrix4f(RenderSystem.getModelViewMatrix());
+        Matrix4f exactStack = new Matrix4f(context.stack.peek().getPositionMatrix());
         Matrix3f normalMatrix = new Matrix3f(context.stack.peek().getNormalMatrix());
 
         ModelVAORenderer.submitVanillaPostComposite(() ->
@@ -1337,15 +1339,27 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
             MatrixStack overlayStack = new MatrixStack();
             CustomVertexConsumerProvider consumers = FormUtilsClient.getProvider();
 
-            overlayStack.peek().getPositionMatrix().set(positionMatrix);
+            overlayStack.peek().getPositionMatrix().set(exactStack);
             overlayStack.peek().getNormalMatrix().set(normalMatrix);
+
+            RenderSystem.getModelViewStack().pushMatrix();
+            RenderSystem.getModelViewStack().set(exactMvm);
+            RenderSystem.applyModelViewMatrix();
 
             try
             {
                 this.renderBlockEntitiesOnly(context, overlayStack, consumers, LightmapTextureManager.MAX_LIGHT_COORDINATE, overlay, true);
+                consumers.draw();
             }
             catch (Throwable ignored)
             {
+            }
+            finally
+            {
+                RenderSystem.getModelViewStack().popMatrix();
+                RenderSystem.applyModelViewMatrix();
+                consumers.setSubstitute(null);
+                RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
             }
         });
     }

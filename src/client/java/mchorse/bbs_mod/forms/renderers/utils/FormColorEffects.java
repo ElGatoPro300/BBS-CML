@@ -8,7 +8,7 @@ import mchorse.bbs_mod.utils.colors.Color;
 
 public class FormColorEffects
 {
-    public static final float EMISSION_STRENGTH = 8F;
+    public static final float EMISSION_STRENGTH = 1F;
     public static final float OVERLAY_GLOW_BOOST = EMISSION_STRENGTH;
 
     /**
@@ -141,7 +141,7 @@ public class FormColorEffects
      */
     public static boolean wantsColorTransformMask(Color color)
     {
-        return color != null && color.hasActiveTransform();
+        return color != null && (color.hasActiveTransform() || color.hasActiveGradeTransform());
     }
 
     /**

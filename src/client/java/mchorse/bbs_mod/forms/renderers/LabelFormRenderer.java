@@ -617,26 +617,26 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
             this.form.applyFormOpacity(color);
             /* Keep base + FlatColorTint opacity in sync (context alpha used to hit only the tint). */
             color.a *= contextColor.a;
-            formTintColor = storedFormColor.copyDeferringColorGrade().copy();
+            formTintColor = storedFormColor.copyBakingColorGrade().copy();
             this.form.applyFormOpacity(formTintColor);
             formTintColor.mul(contextColor);
             colorTransform = storedFormColor.transform == null ? null : storedFormColor.transform.copy();
         }
         else
         {
-            color.mul(storedFormColor);
+            color.mul(storedFormColor.copyBakingColorGrade());
         }
 
         float paintStrength = paintSettings.resolveIntensity(legacyPaint);
-        boolean positivePaint = FormColorEffects.hasPositivePaint(paintSettings, legacyPaint);
+        boolean positivePaint = !context.isPicking() && FormColorEffects.hasPositivePaint(paintSettings, legacyPaint);
         boolean shadowPass = this.isShadowPass(context);
 
-        if (!shadowPass && (!colorTransformWanted || paintStrength < 0F))
+        if (!shadowPass && !context.isPicking() && (!colorTransformWanted || paintStrength < 0F))
         {
             FormColorEffects.applyPaintBlend(color, paintSettings, legacyPaint);
         }
 
-        if (!shadowPass && glowIntensity < 0F)
+        if (!shadowPass && !context.isPicking() && glowIntensity < 0F)
         {
             FormColorEffects.blendFormGlowBrighten(color, glowSettings, legacyGlow);
         }
@@ -740,7 +740,7 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
 
             List<LabelTextTintQuadCapture.GlyphQuad> overlayQuads = null;
 
-            if (!shadowPass)
+            if (!shadowPass && !context.isPicking())
             {
                 boolean hasPositiveGlow = glowIntensity > 0F && !glowSettings.resolvePaintOnly();
                 EffectTransform glowTransform = hasPositiveGlow ? FormColorEffects.resolveGlowEffectTransform(glowSettings, legacyGlow) : null;
@@ -860,26 +860,26 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
             color.b = 1F;
             this.form.applyFormOpacity(color);
             color.a *= contextColor.a;
-            formTintColor = storedFormColor.copyDeferringColorGrade().copy();
+            formTintColor = storedFormColor.copyBakingColorGrade().copy();
             this.form.applyFormOpacity(formTintColor);
             formTintColor.mul(contextColor);
             colorTransform = storedFormColor.transform == null ? null : storedFormColor.transform.copy();
         }
         else
         {
-            color.mul(storedFormColor);
+            color.mul(storedFormColor.copyBakingColorGrade());
         }
 
         float paintStrength = paintSettings.resolveIntensity(legacyPaint);
-        boolean positivePaint = FormColorEffects.hasPositivePaint(paintSettings, legacyPaint);
+        boolean positivePaint = !context.isPicking() && FormColorEffects.hasPositivePaint(paintSettings, legacyPaint);
         boolean shadowPass = this.isShadowPass(context);
 
-        if (!shadowPass && (!colorTransformWanted || paintStrength < 0F))
+        if (!shadowPass && !context.isPicking() && (!colorTransformWanted || paintStrength < 0F))
         {
             FormColorEffects.applyPaintBlend(color, paintSettings, legacyPaint);
         }
 
-        if (!shadowPass && glowIntensity < 0F)
+        if (!shadowPass && !context.isPicking() && glowIntensity < 0F)
         {
             FormColorEffects.blendFormGlowBrighten(color, glowSettings, legacyGlow);
         }
@@ -898,7 +898,7 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
 
         if (isFullyTransparent(color) && !context.isPicking())
         {
-            if (!shadowPass)
+            if (!this.isShadowPass(context))
             {
                 this.renderShadow(context, x, shadowY, w, totalHeight);
             }
@@ -933,7 +933,7 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
             {
                 this.beginLabelDecorationDepthPass(baseHijack);
 
-                y = shadowY;
+                int outlineY = shadowY;
 
                 for (String line : lines)
                 {
@@ -955,7 +955,7 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
 
                     if (hasShadow)
                     {
-                        this.renderTextShadow(context, consumers, renderer, customFont, line, lx, y, letterSpacing, light, shadowColor);
+                        this.renderTextShadow(context, consumers, renderer, customFont, line, lx, outlineY, letterSpacing, light, shadowColor);
                     }
 
                     if (hasOutline)
@@ -967,21 +967,21 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
 
                         if (customFont != null)
                         {
-                            customFont.draw(line, lx - ow, y, oc, oc, letterSpacing, 0F, context.stack.peek().getPositionMatrix(), consumers, this.resolveLabelLight(light));
-                            customFont.draw(line, lx + ow, y, oc, oc, letterSpacing, 0F, context.stack.peek().getPositionMatrix(), consumers, this.resolveLabelLight(light));
-                            customFont.draw(line, lx, y - ow, oc, oc, letterSpacing, 0F, context.stack.peek().getPositionMatrix(), consumers, this.resolveLabelLight(light));
-                            customFont.draw(line, lx, y + ow, oc, oc, letterSpacing, 0F, context.stack.peek().getPositionMatrix(), consumers, this.resolveLabelLight(light));
+                            customFont.draw(line, lx - ow, outlineY, oc, oc, letterSpacing, 0F, context.stack.peek().getPositionMatrix(), consumers, this.resolveLabelLight(light));
+                            customFont.draw(line, lx + ow, outlineY, oc, oc, letterSpacing, 0F, context.stack.peek().getPositionMatrix(), consumers, this.resolveLabelLight(light));
+                            customFont.draw(line, lx, outlineY - ow, oc, oc, letterSpacing, 0F, context.stack.peek().getPositionMatrix(), consumers, this.resolveLabelLight(light));
+                            customFont.draw(line, lx, outlineY + ow, oc, oc, letterSpacing, 0F, context.stack.peek().getPositionMatrix(), consumers, this.resolveLabelLight(light));
                         }
                         else
                         {
-                            renderer.draw(line, lx - ow, y, oc, false, context.stack.peek().getPositionMatrix(), consumers, TextRenderer.TextLayerType.NORMAL, 0, this.resolveLabelLight(light));
-                            renderer.draw(line, lx + ow, y, oc, false, context.stack.peek().getPositionMatrix(), consumers, TextRenderer.TextLayerType.NORMAL, 0, this.resolveLabelLight(light));
-                            renderer.draw(line, lx, y - ow, oc, false, context.stack.peek().getPositionMatrix(), consumers, TextRenderer.TextLayerType.NORMAL, 0, this.resolveLabelLight(light));
-                            renderer.draw(line, lx, y + ow, oc, false, context.stack.peek().getPositionMatrix(), consumers, TextRenderer.TextLayerType.NORMAL, 0, this.resolveLabelLight(light));
+                            renderer.draw(line, lx - ow, outlineY, oc, false, context.stack.peek().getPositionMatrix(), consumers, TextRenderer.TextLayerType.NORMAL, 0, this.resolveLabelLight(light));
+                            renderer.draw(line, lx + ow, outlineY, oc, false, context.stack.peek().getPositionMatrix(), consumers, TextRenderer.TextLayerType.NORMAL, 0, this.resolveLabelLight(light));
+                            renderer.draw(line, lx, outlineY - ow, oc, false, context.stack.peek().getPositionMatrix(), consumers, TextRenderer.TextLayerType.NORMAL, 0, this.resolveLabelLight(light));
+                            renderer.draw(line, lx, outlineY + ow, oc, false, context.stack.peek().getPositionMatrix(), consumers, TextRenderer.TextLayerType.NORMAL, 0, this.resolveLabelLight(light));
                         }
                     }
 
-                    y += lineStep;
+                    outlineY += lineStep;
                 }
 
                 this.flushLabelConsumers(consumers);
@@ -990,6 +990,7 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
             this.beginLabelFillDepthPass(baseHijack);
 
             y = shadowY;
+            int textArgbFill = 0;
 
             float baseFillZ = colorTransformWanted ? this.resolveBaseFillFaceZ(context.stack.peek().getPositionMatrix()) : 0F;
 
@@ -1017,11 +1018,11 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
                     lx = x + (w - lw);
                 }
 
-                textArgb = this.drawLabelContent(context, consumers, renderer, customFont, line, lx, y, letterSpacing, light, color, gradientEnd);
+                textArgbFill = this.drawLabelContent(context, consumers, renderer, customFont, line, lx, y, letterSpacing, light, color, gradientEnd);
 
                 boolean hasPositiveGlow = glowIntensity > 0F && !glowSettings.resolvePaintOnly();
 
-                if (!shadowPass && (formTintColor != null || (colorTransformWanted && positivePaint) || hasPositiveGlow))
+                if (!shadowPass && !context.isPicking() && (formTintColor != null || (colorTransformWanted && positivePaint) || hasPositiveGlow))
                 {
                     this.captureLabelGlyphs(this.tintCapture, renderer, customFont, line, lx, y, letterSpacing, light);
                 }
@@ -1038,7 +1039,7 @@ public class LabelFormRenderer extends FormRenderer<LabelForm>
             RenderSystem.depthMask(true);
             this.flushLabelConsumers(consumers);
 
-            if (!shadowPass)
+            if (!shadowPass && !context.isPicking())
             {
                 List<LabelTextTintQuadCapture.GlyphQuad> overlayQuads = this.tintCapture.snapshot();
                 boolean hasPositiveGlow = glowIntensity > 0F && !glowSettings.resolvePaintOnly();
