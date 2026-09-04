@@ -214,12 +214,6 @@ public class UISubtitleRenderer
             stack.pop();
         }
 
-        if (blur != null)
-        {
-            blur.set(0F, 0F);
-        }
-
-        RenderSystem.restoreProjectionMatrix();
         GlStateManager._enableCull();
         GlStateManager._depthFunc(GL11.GL_LEQUAL);
         GlStateManager._blendFuncSeparate(770, 771, 1, 0);

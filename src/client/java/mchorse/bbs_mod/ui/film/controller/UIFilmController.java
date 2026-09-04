@@ -1926,14 +1926,14 @@ public class UIFilmController extends UIElement
         /* Cache the global stuff */
         MatrixStackUtils.cacheMatrices();
 
-        RenderSystem.setProjectionMatrix(this.panel.lastProjection, ProjectionType.ORTHOGRAPHIC);
+        // RenderSystem.setProjectionMatrix(this.panel.lastProjection, ProjectionType.ORTHOGRAPHIC);
 
         /* Render the stencil.
          * Without Iris, FilmControllerContext uses an empty (camera-relative) stack and
          * ignores worldStack — forms still land via ModelVAORenderer (renderingWorld ×
          * BBSRendering.camera). Gizmo stencil uses PositionColorProgram + ModelView, so
          * after cacheMatrices() (identity MV) put the camera on ModelView as well. */
-        MatrixStack worldStack = this.worldRenderContext.matrixStack();
+        MatrixStack worldStack = this.worldRenderContext.matrices();
         if (worldStack != null)
         {
             worldStack.push();

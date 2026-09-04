@@ -897,7 +897,7 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
     private float[] getOpaquePickUv()
     {
         Sprite sprite = MinecraftClient.getInstance().getAtlasManager()
-            .getAtlasTexture(PlayerScreenHandler.BLOCK_ATLAS_TEXTURE)
+            .getAtlasTexture(SpriteAtlasTexture.BLOCK_ATLAS_TEXTURE)
             .getSprite(Identifier.of("minecraft", "block/white_concrete"));
         float u = (sprite.getMinU() + sprite.getMaxU()) * 0.5F;
         float v = (sprite.getMinV() + sprite.getMaxV()) * 0.5F;
@@ -1324,7 +1324,13 @@ public class BlockFormRenderer extends FormRenderer<BlockForm>
                 consumers.setSubstitute((vertexConsumer) -> glowWrap.apply(parentSub.apply(vertexConsumer)));
             }
 
-            raw.render(blockEntity, 0F, stack, consumers, light, overlay);
+            @SuppressWarnings({"rawtypes", "unchecked"})
+            var renderState = raw.createRenderState();
+            if (renderState != null)
+            {
+                raw.updateRenderState(blockEntity, renderState, 0F, Vec3d.ZERO, null);
+                raw.render(renderState, stack, null, null);
+            }
         }
         catch (Exception e)
         {

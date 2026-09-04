@@ -9706,7 +9706,7 @@ public class UIFilmPanel extends UIDataDashboardPanel<Film> implements IFlightSu
                 context.batcher.clip(this.area, context);
 
                 VideoRenderer.renderClip(
-                    context.batcher.getContext().getMatrices(),
+                    new MatrixStack(),
                     context.batcher,
                     this.clip,
                     this.panel.getCursor(),

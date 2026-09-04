@@ -161,10 +161,10 @@ public class WorldLaunchHelper
 
         if (world != null)
         {
-            world.disconnect();
+            world.disconnect(Text.literal("Disconnecting"));
         }
 
-        client.disconnect(new TitleScreen());
+        client.disconnect(new TitleScreen(), false);
     }
 
     private static void abortPendingLaunch(MinecraftClient client)
@@ -202,7 +202,6 @@ public class WorldLaunchHelper
     private static void ensureRenderTarget(MinecraftClient client)
     {
         BBSRendering.ensureMainFramebuffer();
-        client.getFramebuffer().beginWrite(false);
     }
 
     private static void startWorldLoad(MinecraftClient client, String worldFolder)

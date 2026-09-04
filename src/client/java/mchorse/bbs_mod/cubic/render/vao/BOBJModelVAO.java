@@ -409,7 +409,7 @@ public class BOBJModelVAO
         this.overridden.addAll(this.colorOverrideBones);
     }
 
-    protected void drawBoneOverride(ShaderProgram shader, MatrixStack stack, float r, float g, float b, float a, int light, int overlay, Link defaultTexture, BOBJBone bone)
+    protected void drawBoneOverride(RenderPipeline shader, MatrixStack stack, float r, float g, float b, float a, int light, int overlay, Link defaultTexture, BOBJBone bone)
     {
         Link fullTexture = this.fullOverrides.get(bone.index);
         Float blend = this.partialOverrides.get(bone.index);

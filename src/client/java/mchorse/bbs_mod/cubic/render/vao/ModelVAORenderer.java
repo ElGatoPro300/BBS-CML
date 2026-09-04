@@ -133,7 +133,6 @@ public class ModelVAORenderer
 
     public static DeferredFogSnapshot captureCurrentFog()
     {
-        Fog fog = RenderSystem.getShaderFog();
         Matrix4f modelViewInverse = new Matrix4f(RenderSystem.getModelViewMatrix());
 
         /* Identity / near-singular MV → leave identity inverse (stack is already camera-relative). */
@@ -147,13 +146,13 @@ public class ModelVAORenderer
         }
 
         return new DeferredFogSnapshot(
-            fog.start(),
-            fog.end(),
-            fog.red(),
-            fog.green(),
-            fog.blue(),
-            fog.alpha(),
-            fog.shape().getId(),
+            0F,
+            192F,
+            1F,
+            1F,
+            1F,
+            1F,
+            0,
             modelViewInverse
         );
     }
@@ -715,7 +714,7 @@ public class ModelVAORenderer
 
         /* Match the no-shader model path: paint both front and back faces (eye sockets,
          * hollow heads, etc.). Iris often leaves cull enabled; keeping it would skip interiors. */
-        RenderSystem.disableCull();
+        GlStateManager._disableCull();
 
         GL11.glEnable(GL11.GL_POLYGON_OFFSET_FILL);
         /* Units-only bias: a negative factor punches edge-on paint through terrain under Iris

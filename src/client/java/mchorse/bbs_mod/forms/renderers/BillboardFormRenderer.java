@@ -429,7 +429,7 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
             VertexFormat deferredFormat = gradeOnDeferredDraw
                 ? VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL
                 : format;
-            Supplier<ShaderProgram> deferredShader = gradeOnDeferredDraw
+            Supplier<RenderPipeline> deferredShader = gradeOnDeferredDraw
                 ? BBSShaders::getModel
                 : shader;
             float gradeBrightnessSnapshot = storedFormColor.brightness;
@@ -475,7 +475,7 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
                         ModelVAORenderer.setFormColorGrade(gradeBrightnessSnapshot, gradeContrastSnapshot, gradeHueSnapshot, gradeSaturationSnapshot);
                         ModelVAORenderer.setGradeEffectTransforms(gradeSourceSnapshot);
 
-                        ShaderProgram gradeShader = BBSShaders.getModel();
+                        RenderPipeline gradeShader = BBSShaders.getModel();
                         MatrixStack gradeStack = new MatrixStack();
 
                         ModelVAORenderer.setupUniforms(gradeStack, gradeShader);
@@ -611,7 +611,7 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
             boolean depthWrite = color.a >= ShaderOpacityPatch.LIVE_DEPTH_WRITE_ALPHA;
             VertexFormat deferredFormat = VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL;
             boolean gradeOnDeferredDraw = useFormColorGrade || irisDeferredColorGrade;
-            Supplier<ShaderProgram> deferredShader = () -> null;
+            Supplier<RenderPipeline> deferredShader = BBSShaders::getModel;
             float gradeBrightnessSnapshot = storedFormColor.brightness;
             float gradeContrastSnapshot = storedFormColor.contrast;
             float gradeHueSnapshot = storedFormColor.hue;
@@ -898,7 +898,7 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
      *        windings share z=0 and cull keeps only the facing side (avoids ±FACE_Z_BIAS
      *        depth fighting at distance / Iris reversed-Z).
      */
-    private void drawBillboardFaces(VertexFormat format, Texture texture, Supplier<ShaderProgram> shader, MatrixStack matrices, Color color, Quad drawQuad, Quad drawUvQuad, int overlay, int light, boolean linear, boolean mipmap, boolean singleSided)
+    private void drawBillboardFaces(VertexFormat format, Texture texture, Supplier<RenderPipeline> shader, MatrixStack matrices, Color color, Quad drawQuad, Quad drawUvQuad, int overlay, int light, boolean linear, boolean mipmap, boolean singleSided)
     {
         Matrix4f matrix = matrices.peek().getPositionMatrix();
         MatrixStack.Entry entry = matrices.peek();
@@ -1311,6 +1311,26 @@ public class BillboardFormRenderer extends FormRenderer<BillboardForm>
     private void renderGlowOverlay(Texture texture, Supplier<RenderPipeline> shader, MatrixStack matrices, GlowSettings glowSettings, Color legacyGlow, float alpha, float glowIntensity)
     {
         this.renderGlowOverlay(texture, shader, matrices, glowSettings, legacyGlow, alpha, glowIntensity, quad, uvQuad);
+    }
+
+    private void renderGlowOverlayMasked(Texture texture, Supplier<RenderPipeline> shader, MatrixStack matrices, GlowSettings glowSettings, Color legacyGlow, float alpha, float glowIntensity, EffectTransform glowTransform)
+    {
+        this.renderGlowOverlay(texture, shader, matrices, glowSettings, legacyGlow, alpha, glowIntensity, quad, uvQuad);
+    }
+
+    private void renderGlowOverlayMasked(Texture texture, Supplier<RenderPipeline> shader, MatrixStack matrices, GlowSettings glowSettings, Color legacyGlow, float alpha, float glowIntensity, Quad drawQuad, Quad drawUvQuad, EffectTransform glowTransform)
+    {
+        this.renderGlowOverlay(texture, shader, matrices, glowSettings, legacyGlow, alpha, glowIntensity, drawQuad, drawUvQuad);
+    }
+
+    private void submitDeferredBillboardGlowOverlayMasked(Texture texture, Link textureLink, Supplier<RenderPipeline> shader, MatrixStack matrices, GlowSettings glowSettings, Color legacyGlow, float alpha, float glowIntensity, EffectTransform glowTransform)
+    {
+        this.submitDeferredBillboardGlowOverlay(texture, textureLink, shader, matrices, glowSettings, legacyGlow, alpha, glowIntensity);
+    }
+
+    private void submitDeferredBillboardGlowOverlay(Texture texture, Link textureLink, Supplier<RenderPipeline> shader, MatrixStack matrices, GlowSettings glowSettings, Color legacyGlow, float alpha, float glowIntensity)
+    {
+        this.renderGlowOverlay(texture, shader, matrices, glowSettings, legacyGlow, alpha, glowIntensity);
     }
 
     private void renderGlowOverlay(Texture texture, Supplier<RenderPipeline> shader, MatrixStack matrices, GlowSettings glowSettings, Color legacyGlow, float alpha, float glowIntensity, Quad drawQuad, Quad drawUvQuad)

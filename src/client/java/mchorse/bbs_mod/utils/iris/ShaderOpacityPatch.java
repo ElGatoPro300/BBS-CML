@@ -7,6 +7,7 @@ import mchorse.bbs_mod.mixin.client.iris.IrisRenderingPipelineAccessor;
 
 import net.fabricmc.loader.api.FabricLoader;
 
+import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gl.Framebuffer;
 import net.minecraft.client.gl.WindowFramebuffer;
 import net.minecraft.client.render.RawProjectionMatrix;
@@ -362,7 +363,7 @@ public class ShaderOpacityPatch
             depthWrite,
             afterFluids,
             irisCamera,
-            new Matrix4f(RenderSystem.getProjectionMatrix()),
+            new Matrix4f(),
             new Matrix4f(RenderSystem.getModelViewMatrix()),
             ModelVAORenderer.captureCurrentFog(),
             draw
@@ -454,8 +455,8 @@ public class ShaderOpacityPatch
 
             int width = targets.getCurrentWidth();
             int height = targets.getCurrentHeight();
-            int opaqueDepth = ((GlTexture) targets.getDepthTextureNoTranslucents()).getGlId();
-            int mainDepth = ((GlTexture) MinecraftClient.getInstance().getFramebuffer().getDepthAttachment()).getGlId();
+            int opaqueDepth = getTextureId(targets.getDepthTextureNoTranslucents());
+            int mainDepth = getTextureId(MinecraftClient.getInstance().getFramebuffer().getDepthAttachment());
 
             if (width > 0 && height > 0 && opaqueDepth > 0 && mainDepth > 0)
             {
@@ -568,15 +569,20 @@ public class ShaderOpacityPatch
             /* Iris API drift or optional mod reflection — still attempt overlays. */
         }
 
-        RenderSystem.enableDepthTest();
-        RenderSystem.depthFunc(GL11.GL_LEQUAL);
+        GlStateManager._enableDepthTest();
+        GlStateManager._depthFunc(GL11.GL_LEQUAL);
+    }
+
+    private static int getTextureId(Object texture)
+    {
+        return texture instanceof GlTexture gl ? gl.getGlId() : 0;
     }
 
     private static int resolvePaintOverlayDepthAttachment()
     {
         Framebuffer framebuffer = BBSRendering.getPaintOverlaySourceFramebuffer();
 
-        return framebuffer != null ? framebuffer.getDepthAttachment() : 0;
+        return framebuffer != null ? getTextureId(framebuffer.getDepthAttachment()) : 0;
     }
 
     private static void copyDepthTextureToPaintTarget(int sourceDepth, int width, int height)
@@ -616,7 +622,7 @@ public class ShaderOpacityPatch
 
             int width = targets.getCurrentWidth();
             int height = targets.getCurrentHeight();
-            int opaqueDepth = targets.getDepthTextureNoTranslucents().getTextureId();
+            int opaqueDepth = getTextureId(targets.getDepthTextureNoTranslucents());
 
             if (width <= 0 || height <= 0 || opaqueDepth <= 0)
             {
@@ -636,8 +642,8 @@ public class ShaderOpacityPatch
 
             ensurePaintOpaqueDepthStash(width, height);
             DepthCopyStrategy.fastest(false)
-                .copy(null, opaqueDepth, null, paintOpaqueDepthStash.getDepthAttachment(), width, height);
-            paintOpaqueDepthStashValid = paintOpaqueDepthStash.getDepthAttachment() > 0;
+                .copy(null, opaqueDepth, null, getTextureId(paintOpaqueDepthStash.getDepthAttachment()), width, height);
+            paintOpaqueDepthStashValid = getTextureId(paintOpaqueDepthStash.getDepthAttachment()) > 0;
         }
         catch (Throwable ignored)
         {
@@ -666,7 +672,7 @@ public class ShaderOpacityPatch
         /* Prefer the beginTranslucents stash — survives AAA's pre-hand depth paste. */
         if (paintOpaqueDepthStashValid && paintOpaqueDepthStash != null)
         {
-            int stashDepth = paintOpaqueDepthStash.getDepthAttachment();
+            int stashDepth = getTextureId(paintOpaqueDepthStash.getDepthAttachment());
             int width = paintOpaqueDepthStash.textureWidth;
             int height = paintOpaqueDepthStash.textureHeight;
 
@@ -700,7 +706,7 @@ public class ShaderOpacityPatch
 
         int width = targets.getCurrentWidth();
         int height = targets.getCurrentHeight();
-        int opaqueDepth = targets.getDepthTextureNoTranslucents().getTextureId();
+        int opaqueDepth = getTextureId(targets.getDepthTextureNoTranslucents());
 
         if ((width <= 0 || height <= 0) && paintWidth > 0 && paintHeight > 0)
         {
@@ -725,33 +731,12 @@ public class ShaderOpacityPatch
             return;
         }
 
-        int sourceDepth = source.getDepthAttachment();
-        int targetDepth = target.getDepthAttachment();
-
-        if (sourceDepth <= 0 || targetDepth <= 0 || sourceDepth == targetDepth)
+        if (source.getDepthAttachment() == null || target.getDepthAttachment() == null)
         {
             return;
         }
 
-        int readBackup = GL11.glGetInteger(GL30.GL_READ_FRAMEBUFFER_BINDING);
-        int drawBackup = GL11.glGetInteger(GL30.GL_DRAW_FRAMEBUFFER_BINDING);
-
-        try
-        {
-            GL30.glBindFramebuffer(GL30.GL_READ_FRAMEBUFFER, source.fbo);
-            GL30.glBindFramebuffer(GL30.GL_DRAW_FRAMEBUFFER, target.fbo);
-            GL30.glBlitFramebuffer(
-                0, 0, source.textureWidth, source.textureHeight,
-                0, 0, target.textureWidth, target.textureHeight,
-                GL11.GL_DEPTH_BUFFER_BIT,
-                GL11.GL_NEAREST
-            );
-        }
-        finally
-        {
-            GL30.glBindFramebuffer(GL30.GL_READ_FRAMEBUFFER, readBackup);
-            GL30.glBindFramebuffer(GL30.GL_DRAW_FRAMEBUFFER, drawBackup);
-        }
+        target.copyDepthFrom(source);
     }
 
     private static void syncVanillaPaintOverlayDepth()
@@ -776,8 +761,8 @@ public class ShaderOpacityPatch
             return;
         }
 
-        int paintDepth = paintTarget.getDepthAttachment();
-        int mainDepth = mainTarget.getDepthAttachment();
+        int paintDepth = getTextureId(paintTarget.getDepthAttachment());
+        int mainDepth = getTextureId(mainTarget.getDepthAttachment());
 
         if (paintDepth > 0 && mainDepth > 0 && paintDepth != mainDepth)
         {
@@ -934,26 +919,16 @@ public class ShaderOpacityPatch
 
             /* Isolate entries: soft Block/Structure can leave lightmap off, additive blend,
              * or colorMask false — that darkens soft limbs drawn later in the same flush. */
-            RenderSystem.colorMask(true, true, true, true);
-            RenderSystem.enableBlend();
-            RenderSystem.defaultBlendFunc();
-            RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
-            RenderSystem.depthMask(savedDepthMask);
+            GlStateManager._colorMask(true, true, true, true);
+            GlStateManager._enableBlend();
+            GlStateManager._blendFuncSeparate(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA, 1, 0);
+            GlStateManager._depthMask(savedDepthMask);
             if (flushingPostDeferred)
             {
-                MinecraftClient mc = MinecraftClient.getInstance();
-
-                if (mc != null && mc.gameRenderer != null)
-                {
-                    mc.gameRenderer.getLightmapTextureManager().enable();
-                    mc.gameRenderer.getOverlayTexture().setupOverlayColor();
-                }
-
                 flushingDepthWrite = entry.depthWrite;
                 reassertPostDeferredDepthState(entry.depthWrite);
             }
 
-            RenderSystem.setProjectionMatrix(savedProjection, ProjectionType.ORTHOGRAPHIC);
             modelViewStack.set(savedModelView);
         }
     }

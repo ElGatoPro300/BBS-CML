@@ -4,7 +4,6 @@ import mchorse.bbs_mod.BBSMod;
 import mchorse.bbs_mod.BBSModClient;
 import mchorse.bbs_mod.client.BBSRendering;
 import mchorse.bbs_mod.client.BBSShaders;
-import mchorse.bbs_mod.BBSMod;
 import mchorse.bbs_mod.cubic.render.vao.IModelVAO;
 import mchorse.bbs_mod.cubic.render.vao.LightmapModelVAO;
 import mchorse.bbs_mod.cubic.render.vao.ModelVAO;
@@ -24,8 +23,8 @@ import mchorse.bbs_mod.forms.renderers.utils.FormColorEffects;
 import mchorse.bbs_mod.forms.renderers.utils.RecolorVertexConsumer;
 import mchorse.bbs_mod.forms.renderers.utils.StructureData;
 import mchorse.bbs_mod.forms.renderers.utils.StructureFormOverlayRenderer;
+import mchorse.bbs_mod.forms.renderers.utils.StructureFormOverlayRenderer.StructurePaintLayer;
 import mchorse.bbs_mod.forms.renderers.utils.StructureVaoManager;
-import com.mojang.blaze3d.pipeline.RenderPipeline;
 import mchorse.bbs_mod.forms.renderers.utils.StructureVirtualBlockRenderView;
 import mchorse.bbs_mod.forms.renderers.utils.VirtualBlockRenderView;
 import mchorse.bbs_mod.resources.Link;
@@ -65,6 +64,8 @@ import net.minecraft.client.render.VertexConsumer;
 import net.minecraft.client.render.VertexConsumerProvider;
 import net.minecraft.client.render.block.entity.BlockEntityRenderManager;
 import net.minecraft.client.render.block.entity.BlockEntityRenderer;
+import net.minecraft.client.render.model.BlockModelPart;
+import net.minecraft.client.render.model.BlockStateModel;
 import net.minecraft.client.texture.SpriteAtlasTexture;
 import net.minecraft.client.util.BufferAllocator;
 import net.minecraft.client.util.math.MatrixStack;
@@ -93,10 +94,12 @@ import net.irisshaders.iris.api.v0.IrisApi;
 
 import org.joml.Matrix3f;
 import org.joml.Matrix4f;
+import org.joml.Matrix4fc;
 import org.joml.Vector3f;
 import org.joml.Vector4f;
 
 import com.mojang.blaze3d.opengl.GlStateManager;
+import com.mojang.blaze3d.pipeline.RenderPipeline;
 import com.mojang.blaze3d.systems.RenderSystem;
 
 import org.lwjgl.opengl.GL11;
@@ -164,12 +167,7 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
     private VirtualBlockRenderView.Entry[] entriesCache = null;
     private StructureVirtualBlockRenderView cachedView = null;
 
-    private enum StructurePaintLayer
-    {
-        BIOME,
-        ANIMATED,
-        TRANSLUCENT
-    }
+
 
     public static void clearAllCachedVaos()
     {
@@ -870,18 +868,18 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
         GlStateManager._depthMask(false);
 
         RenderInfo info = this.calculateRenderInfo(context, false);
-        List<BlockEntry> sorted = new ArrayList<>(this.data.getBlocks());
+        List<StructureData.BlockEntry> sorted = new ArrayList<>(this.data.getBlocks());
         Matrix4f drawMatrix = stack.peek().getPositionMatrix();
         boolean filmLookAxis = context != null
             && context.type == FormRenderType.ENTITY
             && context.camera != null
             && !context.modelRenderer;
 
-        sorted.sort(Comparator.comparingDouble((BlockEntry entry) -> this.computeStructureBlockSortKey(entry, info, drawMatrix, filmLookAxis)).reversed());
+        sorted.sort(Comparator.comparingDouble((StructureData.BlockEntry entry) -> this.computeStructureBlockSortKey(entry, info, drawMatrix, filmLookAxis)).reversed());
 
         VertexConsumerProvider.Immediate immediateConsumers = MinecraftClient.getInstance().getBufferBuilders().getEntityVertexConsumers();
 
-        for (BlockEntry entry : sorted)
+        for (StructureData.BlockEntry entry : sorted)
         {
             stack.push();
             stack.translate(entry.pos.getX() - info.pivotX, entry.pos.getY() - info.pivotY, entry.pos.getZ() - info.pivotZ);
@@ -895,7 +893,7 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
         ShaderOpacityPatch.setFlushingDepthWrite(false);
     }
 
-    private double computeStructureBlockSortKey(BlockEntry entry, RenderInfo info, Matrix4f drawMatrix, boolean filmLookAxis)
+    private double computeStructureBlockSortKey(StructureData.BlockEntry entry, RenderInfo info, Matrix4f drawMatrix, boolean filmLookAxis)
     {
         Vector4f center = new Vector4f(
             entry.pos.getX() - info.pivotX + 0.5F,
@@ -914,7 +912,7 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
         return center.x * center.x + center.y * center.y + center.z * center.z;
     }
 
-    private void renderStructureSoftBlock(BlockEntry entry, RenderInfo info, MatrixStack stack, VertexConsumerProvider consumers, Function<VertexConsumer, VertexConsumer> recolor)
+    private void renderStructureSoftBlock(StructureData.BlockEntry entry, RenderInfo info, MatrixStack stack, VertexConsumerProvider consumers, Function<VertexConsumer, VertexConsumer> recolor)
     {
         if (entry.state.getBlock() instanceof LeavesBlock)
         {
@@ -936,7 +934,7 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
         {
             RenderLayer fluidLayer = shadersEnabled
                 ? BlockRenderLayers.getEntityBlockLayer(entry.state)
-                : BlockRenderLayers.getFluidLayer(entry.state.getFluidState());
+                : getRenderLayerFromBlockRenderLayer(BlockRenderLayers.getFluidLayer(entry.state.getFluidState()));
             VertexConsumer fluidVc = consumers.getBuffer(fluidLayer);
 
             if (recolor != null)
@@ -950,7 +948,9 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
 
         if (entry.state.getRenderType() != BlockRenderType.INVISIBLE)
         {
-            MinecraftClient.getInstance().getBlockRenderManager().renderBlock(entry.state, entry.pos, info.view, stack, vc, true, Random.create());
+            BlockStateModel model = MinecraftClient.getInstance().getBlockRenderManager().getModel(entry.state);
+            List<BlockModelPart> parts = model.getParts(Random.create());
+            MinecraftClient.getInstance().getBlockRenderManager().renderBlock(entry.state, entry.pos, info.view, stack, vc, true, parts);
         }
     }
 
@@ -1244,7 +1244,7 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
 
         return useEntityLayers
             ? BlockRenderLayers.getEntityBlockLayer(state)
-            : BlockRenderLayers.getBlockLayer(state);
+            : getRenderLayerFromBlockRenderLayer(BlockRenderLayers.getBlockLayer(state));
     }
 
     private RenderLayer resolveStructureLeavesLayer(BlockState state, boolean useEntityLayers)
@@ -1335,7 +1335,7 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
             || ShaderOpacityPatch.isPostDeferredPhase();
     }
 
-    private void renderLayerGroup(List<BlockEntry> group, FormRenderingContext context, MatrixStack stack, int light, int overlay, Function<VertexConsumer, VertexConsumer> recolor, Color shaderTint, boolean forceDrawLeaves)
+    private void renderLayerGroup(List<StructureData.BlockEntry> group, FormRenderingContext context, MatrixStack stack, int light, int overlay, Function<VertexConsumer, VertexConsumer> recolor, Color shaderTint, boolean forceDrawLeaves)
     {
         /* Ensure block atlas is active */
         BBSModClient.getTextures().bindTextureId(SpriteAtlasTexture.BLOCK_ATLAS_TEXTURE);
@@ -1348,7 +1348,7 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
 
         try
         {
-            for (BlockEntry entry : group)
+            for (StructureData.BlockEntry entry : group)
             {
                 stack.push();
                 stack.translate(entry.pos.getX() - info.pivotX, entry.pos.getY() - info.pivotY, entry.pos.getZ() - info.pivotZ);
@@ -1377,7 +1377,7 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
                 {
                     RenderLayer fluidLayer = shadersEnabled
                         ? BlockRenderLayers.getEntityBlockLayer(entry.state)
-                        : BlockRenderLayers.getFluidLayer(entry.state.getFluidState());
+                        : getRenderLayerFromBlockRenderLayer(BlockRenderLayers.getFluidLayer(entry.state.getFluidState()));
                     VertexConsumer fluidVc = consumers.getBuffer(fluidLayer);
 
                     if (recolor != null)
@@ -1392,7 +1392,9 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
 
                 if (entry.state.getRenderType() != BlockRenderType.INVISIBLE)
                 {
-                    MinecraftClient.getInstance().getBlockRenderManager().renderBlock(entry.state, entry.pos, info.view, stack, vc, true, Collections.emptyList());
+                    BlockStateModel model = MinecraftClient.getInstance().getBlockRenderManager().getModel(entry.state);
+                    List<BlockModelPart> parts = model.getParts(Random.create());
+                    MinecraftClient.getInstance().getBlockRenderManager().renderBlock(entry.state, entry.pos, info.view, stack, vc, true, parts);
                 }
 
                 stack.pop();
@@ -1428,6 +1430,59 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
         GlStateManager._disableBlend();
         /* Reset global color state (Sodium/Iris) to avoid UI tinting */
         RecolorVertexConsumer.newColor = null;
+    }
+
+    private void renderBiomeTintedBlocksVanilla(FormRenderingContext context, MatrixStack stack, VertexConsumerProvider consumers, int light, int overlay, Function<VertexConsumer, VertexConsumer> recolor)
+    {
+        this.renderBiomeTintedBlocksVanilla(context, stack, consumers, light, overlay, recolor, StructurePaintLayer.BIOME);
+    }
+
+    private void renderAnimatedBlocksVanilla(FormRenderingContext context, MatrixStack stack, VertexConsumerProvider consumers, int light, int overlay, Function<VertexConsumer, VertexConsumer> recolor)
+    {
+        this.renderBiomeTintedBlocksVanilla(context, stack, consumers, light, overlay, recolor, StructurePaintLayer.ANIMATED);
+    }
+
+    private void renderTranslucentBlocksVanilla(FormRenderingContext context, MatrixStack stack, VertexConsumerProvider consumers, int light, int overlay, Function<VertexConsumer, VertexConsumer> recolor)
+    {
+        this.renderBiomeTintedBlocksVanilla(context, stack, consumers, light, overlay, recolor, StructurePaintLayer.TRANSLUCENT);
+    }
+
+    private static RenderLayer getRenderLayerFromBlockRenderLayer(BlockRenderLayer layer)
+    {
+        if (layer == BlockRenderLayer.CUTOUT)
+        {
+            return RenderLayers.cutout();
+        }
+        if (layer == BlockRenderLayer.TRANSLUCENT)
+        {
+            return RenderLayers.translucentMovingBlock();
+        }
+        if (layer == BlockRenderLayer.TRIPWIRE)
+        {
+            return RenderLayers.tripwire();
+        }
+        return RenderLayers.solid();
+    }
+
+    private void renderStructureCulledWorld(FormRenderingContext context, MatrixStack stack, VertexConsumerProvider consumers, int light, int overlay, boolean useEntityLayers, Function<VertexConsumer, VertexConsumer> recolor, boolean forceDrawLeaves, boolean isGlow)
+    {
+        this.renderLayerGroup(this.data.getBlocks(), context, stack, light, overlay, recolor, null, forceDrawLeaves);
+    }
+
+    private void renderStructureCulledWorld(FormRenderingContext context, MatrixStack stack, VertexConsumerProvider consumers, int light, int overlay, boolean useEntityLayers)
+    {
+        this.renderStructureCulledWorld(context, stack, consumers, light, overlay, useEntityLayers, null, false, false);
+    }
+
+    private void renderBlockEntitiesPass(FormRenderingContext context, MatrixStack stack, int light, int overlay, boolean applyColorTint)
+    {
+        this.renderBlockEntitiesOnly(context, stack, FormUtilsClient.getProvider(), light, overlay, applyColorTint);
+    }
+
+    private void renderPaintLayer(StructurePaintLayer layer, FormRenderingContext context, MatrixStack stack, int overlay, Function<VertexConsumer, VertexConsumer> recolor)
+    {
+        CustomVertexConsumerProvider consumers = FormUtilsClient.getProvider();
+        this.renderBiomeTintedBlocksVanilla(context, stack, consumers, LightmapTextureManager.MAX_LIGHT_COORDINATE, overlay, recolor, layer);
     }
 
     private Color resolveStructureBlendColor()
@@ -3142,7 +3197,7 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
         }
 
         @Override
-        public VertexConsumer vertex(org.joml.Matrix4fc matrix, float x, float y, float z)
+        public VertexConsumer vertex(Matrix4fc matrix, float x, float y, float z)
         {
             Vector4f pos = new Vector4f(x, y, z, 1F);
 

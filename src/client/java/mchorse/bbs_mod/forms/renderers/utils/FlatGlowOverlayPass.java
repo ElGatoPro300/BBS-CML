@@ -4,10 +4,11 @@ import mchorse.bbs_mod.forms.forms.utils.EffectTransform;
 import mchorse.bbs_mod.forms.forms.utils.GlowSettings;
 import mchorse.bbs_mod.utils.colors.Color;
 
-import com.mojang.blaze3d.opengl.GlStateManager;
-
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
+
+import com.mojang.blaze3d.opengl.GlStateManager;
+
 import org.lwjgl.opengl.GL11;
 
 import java.util.function.Consumer;
@@ -89,9 +90,8 @@ public class FlatGlowOverlayPass
                 GL11.glDisable(GL11.GL_POLYGON_OFFSET_FILL);
             }
 
-            RenderSystem.depthMask(savedDepthMask);
-            RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
-            RenderSystem.defaultBlendFunc();
+            GlStateManager._depthMask(savedDepthMask);
+            GlStateManager._blendFuncSeparate(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA, 1, 0);
         }
     }
 }
