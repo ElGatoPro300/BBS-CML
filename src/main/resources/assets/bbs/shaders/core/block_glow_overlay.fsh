@@ -1,7 +1,5 @@
 #version 150
 
-#moj_import <fog.glsl>
-
 uniform sampler2D Sampler0;
 
 uniform mat4 PaintEffectInverse;
@@ -9,11 +7,8 @@ uniform float PaintEffectActive;
 uniform vec3 PaintMaskHalf;
 uniform float PaintMaskBottomAnchored;
 uniform float PaintMaskShape;
-uniform float FogStart;
-uniform float FogEnd;
-uniform vec4 FogColor;
+uniform float GlowScale;
 
-in float vertexDistance;
 in vec4 vertexColor;
 in vec2 texCoord0;
 in vec3 formRootPos;
@@ -56,6 +51,7 @@ float bbsPaintEffectMask(vec3 rootPos, mat4 effectInverse, float activeFlag, vec
     float dist;
     float maxHalf = max(halfExtents.x, max(halfExtents.y, halfExtents.z));
 
+    /* Scale 0 -> empty mask. */
     if (maxHalf < 0.001)
     {
         return 0.0;
@@ -63,6 +59,7 @@ float bbsPaintEffectMask(vec3 rootPos, mat4 effectInverse, float activeFlag, vec
 
     if (shape > 1.5)
     {
+        /* Front-facing triangle in XY (apex up), thickness along Z. */
         vec2 halfXY = max(halfExtents.xy, vec2(0.001));
         vec2 a = vec2(0.0, halfXY.y);
         vec2 b = vec2(-halfXY.x, -halfXY.y);
@@ -94,22 +91,15 @@ float bbsPaintEffectMask(vec3 rootPos, mat4 effectInverse, float activeFlag, vec
 void main()
 {
     vec4 tex = texture(Sampler0, texCoord0);
+    float mask = bbsPaintEffectMask(formRootPos, PaintEffectInverse, PaintEffectActive, PaintMaskHalf, PaintMaskBottomAnchored, PaintMaskShape);
+    float alpha = tex.a * vertexColor.a * mask;
 
-    if (tex.a < 0.01)
+    if (alpha < 0.001)
     {
         discard;
     }
 
-    vec3 maskPos = vec3(formRootPos.xy, 0.0);
-    float mask = bbsPaintEffectMask(maskPos, PaintEffectInverse, PaintEffectActive, PaintMaskHalf, PaintMaskBottomAnchored, PaintMaskShape);
-    float paintStrength = clamp(vertexColor.a * mask, 0.0, 1.0);
-    vec3 rgb = mix(tex.rgb, vertexColor.rgb, paintStrength);
-    float alpha = tex.a * paintStrength;
+    vec3 glowRgb = tex.rgb * vertexColor.rgb * GlowScale;
 
-    if (alpha < 0.01)
-    {
-        discard;
-    }
-
-    fragColor = linear_fog(vec4(rgb, alpha), vertexDistance, FogStart, FogEnd, FogColor);
+    fragColor = vec4(glowRgb, alpha);
 }

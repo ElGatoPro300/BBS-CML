@@ -403,6 +403,23 @@ public class UIFilmController extends UIElement
         this.refreshEntities();
     }
 
+    public void clearEntities()
+    {
+        this.stopRecording();
+
+        if (this.controlled != null)
+        {
+            this.toggleControl();
+        }
+
+        this.editorController = null;
+
+        if (this.panel.getData() != null)
+        {
+            this.panel.getRunner().getContext().entities.clear();
+        }
+    }
+
     /**
      * Rebuild stub actors from the current film without stopping an active recording.
      * Used as a one-shot refresh after mob capture so new MobForms are visible immediately.
@@ -1909,14 +1926,43 @@ public class UIFilmController extends UIElement
         /* Cache the global stuff */
         MatrixStackUtils.cacheMatrices();
 
-        /* Render the stencil */
-        MatrixStack worldStack = this.worldRenderContext.matrices();
+        RenderSystem.setProjectionMatrix(this.panel.lastProjection, ProjectionType.ORTHOGRAPHIC);
+
+        /* Render the stencil.
+         * Without Iris, FilmControllerContext uses an empty (camera-relative) stack and
+         * ignores worldStack — forms still land via ModelVAORenderer (renderingWorld ×
+         * BBSRendering.camera). Gizmo stencil uses PositionColorProgram + ModelView, so
+         * after cacheMatrices() (identity MV) put the camera on ModelView as well. */
+        MatrixStack worldStack = this.worldRenderContext.matrixStack();
         if (worldStack != null)
         {
             worldStack.push();
             worldStack.loadIdentity();
             MatrixStackUtils.multiply(worldStack, BBSRendering.camera);
-            this.renderStencil(this.worldRenderContext, context, altPressed);
+
+            if (!BBSRendering.isIrisShadersEnabled())
+            {
+                Matrix4fStack mvStack = RenderSystem.getModelViewStack();
+
+                mvStack.pushMatrix();
+                mvStack.set(BBSRendering.camera);
+                MatrixStackUtils.applyModelViewMatrix();
+
+                try
+                {
+                    this.renderStencil(this.worldRenderContext, context, altPressed);
+                }
+                finally
+                {
+                    mvStack.popMatrix();
+                    MatrixStackUtils.applyModelViewMatrix();
+                }
+            }
+            else
+            {
+                this.renderStencil(this.worldRenderContext, context, altPressed);
+            }
+
             worldStack.pop();
         }
         else
@@ -2267,6 +2313,9 @@ public class UIFilmController extends UIElement
             GlStateManager._disableScissorTest();
         }
 
+        boolean wasRenderingWorld = BBSRendering.renderingWorld;
+        BBSRendering.renderingWorld = true;
+
         try
         {
             this.stencil.apply();
@@ -2401,6 +2450,8 @@ public class UIFilmController extends UIElement
         }
         finally
         {
+            BBSRendering.renderingWorld = wasRenderingWorld;
+
             if (scissorWasEnabled)
             {
                 GlStateManager._enableScissorTest();

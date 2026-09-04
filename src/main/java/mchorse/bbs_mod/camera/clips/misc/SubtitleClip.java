@@ -45,6 +45,10 @@ public class SubtitleClip extends CameraClip
     public final KeyframeChannel<Boolean> shadowOpaque = new KeyframeChannel<>("shadowOpaque", KeyframeFactories.BOOLEAN);
     public final KeyframeChannel<Double> lineHeight = new CompatibleDoubleKeyframeChannel("lineHeight");
     public final KeyframeChannel<Double> maxWidth = new CompatibleDoubleKeyframeChannel("maxWidth");
+    public final KeyframeChannel<Double> rotationX = new KeyframeChannel<>("rotationX", KeyframeFactories.DOUBLE);
+    public final KeyframeChannel<Double> rotationY = new KeyframeChannel<>("rotationY", KeyframeFactories.DOUBLE);
+    /* Same id as ImageClip Z axis for consistency. */
+    public final KeyframeChannel<Double> rotation = new KeyframeChannel<>("rotation", KeyframeFactories.DOUBLE);
     public final ValueBoolean useKeyframes = new ValueBoolean("use_keyframes", false);
     public final ValueBoolean uniformSeeded = new ValueBoolean("uniform_seeded", false);
     public final SubtitleUniform uniform = new SubtitleUniform("uniform");
@@ -80,7 +84,10 @@ public class SubtitleClip extends CameraClip
             this.shadow,
             this.shadowOpaque,
             this.lineHeight,
-            this.maxWidth
+            this.maxWidth,
+            this.rotationX,
+            this.rotationY,
+            this.rotation
         };
 
         for (KeyframeChannel channel : this.channels)
@@ -329,6 +336,11 @@ public class SubtitleClip extends CameraClip
             (float) Math.max(CONSTRAINT_MIN, this.valueDouble(this.lineHeight, this.uniform.lineHeight, t, 12D)),
             (float) Math.max(CONSTRAINT_MIN, this.valueDouble(this.maxWidth, this.uniform.maxWidth, t, 0D))
         );
+        this.subtitle.updateRotation(
+            (float) this.valueDouble(this.rotationX, this.uniform.rotationX, t, 0D),
+            (float) this.valueDouble(this.rotationY, this.uniform.rotationY, t, 0D),
+            (float) this.valueDouble(this.rotation, this.uniform.rotation, t, 0D)
+        );
         this.subtitle.renderOrder = context.applied;
         subtitles.add(this.subtitle);
     }
@@ -360,6 +372,9 @@ public class SubtitleClip extends CameraClip
         this.uniform.shadowOpaque.set(this.interpBoolean(this.shadowOpaque, tick, false));
         this.uniform.lineHeight.set(Math.max(CONSTRAINT_MIN, this.interpDouble(this.lineHeight, tick, 12D)));
         this.uniform.maxWidth.set(Math.max(CONSTRAINT_MIN, this.interpDouble(this.maxWidth, tick, 0D)));
+        this.uniform.rotationX.set(this.interpDouble(this.rotationX, tick, 0D));
+        this.uniform.rotationY.set(this.interpDouble(this.rotationY, tick, 0D));
+        this.uniform.rotation.set(this.interpDouble(this.rotation, tick, 0D));
         this.uniformSeeded.set(true);
     }
 
@@ -387,6 +402,9 @@ public class SubtitleClip extends CameraClip
         this.seedBoolean(this.shadowOpaque, this.uniform.shadowOpaque.get());
         this.seedDouble(this.lineHeight, Math.max(CONSTRAINT_MIN, this.uniform.lineHeight.get()));
         this.seedDouble(this.maxWidth, Math.max(CONSTRAINT_MIN, this.uniform.maxWidth.get()));
+        this.seedDouble(this.rotationX, this.uniform.rotationX.get());
+        this.seedDouble(this.rotationY, this.uniform.rotationY.get());
+        this.seedDouble(this.rotation, this.uniform.rotation.get());
     }
 
     private void seedString(KeyframeChannel<String> channel, String value, String fallback)

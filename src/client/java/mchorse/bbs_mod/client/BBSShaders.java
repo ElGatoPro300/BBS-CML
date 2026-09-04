@@ -23,6 +23,7 @@ public class BBSShaders
 
     private static final BlendFunction BLEND = BlendFunction.TRANSLUCENT;
 
+<<<<<<< HEAD
     public static final String PICKER_UNIFORM = "BBSPicker";
 
     private static final RenderPipeline MODEL = registerModel();
@@ -50,6 +51,7 @@ public class BBSShaders
 
     private static final RenderPipeline BLOCK_PAINT_OVERLAY = registerOverlay("block_paint_overlay", false);
     private static final RenderPipeline FLAT_PAINT_OVERLAY = registerOverlay("flat_paint_overlay", false);
+    private static final RenderPipeline BLOCK_GLOW_OVERLAY = registerOverlay("block_glow_overlay", false);
     private static final RenderPipeline BLOCK_COLOR_TINT_OVERLAY = registerOverlay("block_color_tint_overlay", true);
     private static final RenderPipeline FLAT_COLOR_TINT_OVERLAY = registerOverlay("flat_color_tint_overlay", true);
 
@@ -65,11 +67,135 @@ public class BBSShaders
     private static RenderLayer particlesLayer;
     private static RenderLayer blockPaintOverlayLayer;
     private static RenderLayer flatPaintOverlayLayer;
+    private static RenderLayer blockGlowOverlayLayer;
     private static RenderLayer blockColorTintOverlayLayer;
     private static RenderLayer flatColorTintOverlayLayer;
 
     public static void setup()
     {
+        modelLoadRetried = false;
+
+        if (model != null)
+        {
+            model.close();
+            model = null;
+        }
+
+        if (multiLink != null)
+        {
+            multiLink.close();
+            multiLink = null;
+        }
+
+        if (subtitles != null)
+        {
+            subtitles.close();
+            subtitles = null;
+        }
+
+        if (imageOverlay != null)
+        {
+            imageOverlay.close();
+            imageOverlay = null;
+        }
+
+        if (pickerPreview != null)
+        {
+            pickerPreview.close();
+            pickerPreview = null;
+        }
+
+        if (pickerBillboard != null)
+        {
+            pickerBillboard.close();
+            pickerBillboard = null;
+        }
+
+        if (pickerBillboardNoShading != null)
+        {
+            pickerBillboardNoShading.close();
+            pickerBillboardNoShading = null;
+        }
+
+        if (pickerParticles != null)
+        {
+            pickerParticles.close();
+            pickerParticles = null;
+        }
+
+        if (pickerModels != null)
+        {
+            pickerModels.close();
+            pickerModels = null;
+        }
+
+        if (blockPaintOverlay != null)
+        {
+            blockPaintOverlay.close();
+            blockPaintOverlay = null;
+        }
+
+        if (flatPaintOverlay != null)
+        {
+            flatPaintOverlay.close();
+            flatPaintOverlay = null;
+        }
+
+        if (blockGlowOverlay != null)
+        {
+            blockGlowOverlay.close();
+            blockGlowOverlay = null;
+        }
+
+        if (blockColorTintOverlay != null)
+        {
+            blockColorTintOverlay.close();
+            blockColorTintOverlay = null;
+        }
+
+        if (flatColorTintOverlay != null)
+        {
+            flatColorTintOverlay.close();
+            flatColorTintOverlay = null;
+        }
+
+        ShaderLoader loader = MinecraftClient.getInstance().getShaderLoader();
+        Defines defines = Defines.EMPTY;
+
+        ShaderProgramKey modelKey = new ShaderProgramKey(Identifier.of(BBSMod.MOD_ID, "core/model"), VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL, defines);
+        ShaderProgramKey multiLinkKey = new ShaderProgramKey(Identifier.of(BBSMod.MOD_ID, "core/multilink"), VertexFormats.POSITION_TEXTURE_COLOR, defines);
+        ShaderProgramKey subtitlesKey = new ShaderProgramKey(Identifier.of(BBSMod.MOD_ID, "core/subtitles"), VertexFormats.POSITION_TEXTURE_COLOR, defines);
+        ShaderProgramKey imageOverlayKey = new ShaderProgramKey(Identifier.of(BBSMod.MOD_ID, "core/image_overlay"), VertexFormats.POSITION_TEXTURE_COLOR, defines);
+
+        ShaderProgramKey pickerPreviewKey = new ShaderProgramKey(Identifier.of(BBSMod.MOD_ID, "core/picker_preview"), VertexFormats.POSITION_TEXTURE_COLOR, defines);
+        ShaderProgramKey pickerBillboardKey = new ShaderProgramKey(Identifier.of(BBSMod.MOD_ID, "core/picker_billboard"), VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL, defines);
+        ShaderProgramKey pickerBillboardNoShadingKey = new ShaderProgramKey(Identifier.of(BBSMod.MOD_ID, "core/picker_billboard_no_shading"), VertexFormats.POSITION_TEXTURE_LIGHT_COLOR, defines);
+        ShaderProgramKey pickerParticlesKey = new ShaderProgramKey(Identifier.of(BBSMod.MOD_ID, "core/picker_particles"), VertexFormats.POSITION_COLOR_TEXTURE_LIGHT, defines);
+        ShaderProgramKey pickerModelsKey = new ShaderProgramKey(Identifier.of(BBSMod.MOD_ID, "core/picker_models"), VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL, defines);
+
+        ShaderProgramKey blockPaintOverlayKey = new ShaderProgramKey(Identifier.of(BBSMod.MOD_ID, "core/block_paint_overlay"), VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL, defines);
+        ShaderProgramKey flatPaintOverlayKey = new ShaderProgramKey(Identifier.of(BBSMod.MOD_ID, "core/flat_paint_overlay"), VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL, defines);
+        ShaderProgramKey blockGlowOverlayKey = new ShaderProgramKey(Identifier.of(BBSMod.MOD_ID, "core/block_glow_overlay"), VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL, defines);
+        ShaderProgramKey blockColorTintOverlayKey = new ShaderProgramKey(Identifier.of(BBSMod.MOD_ID, "core/block_color_tint_overlay"), VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL, defines);
+        ShaderProgramKey flatColorTintOverlayKey = new ShaderProgramKey(Identifier.of(BBSMod.MOD_ID, "core/flat_color_tint_overlay"), VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL, defines);
+
+        model = loader.getOrCreateProgram(modelKey);
+        multiLink = loader.getOrCreateProgram(multiLinkKey);
+        subtitles = loader.getOrCreateProgram(subtitlesKey);
+        imageOverlay = loader.getOrCreateProgram(imageOverlayKey);
+
+        pickerPreview = loader.getOrCreateProgram(pickerPreviewKey);
+        pickerBillboard = loader.getOrCreateProgram(pickerBillboardKey);
+        pickerBillboardNoShading = loader.getOrCreateProgram(pickerBillboardNoShadingKey);
+        pickerParticles = loader.getOrCreateProgram(pickerParticlesKey);
+        pickerModels = loader.getOrCreateProgram(pickerModelsKey);
+        blockPaintOverlay = loader.getOrCreateProgram(blockPaintOverlayKey);
+        flatPaintOverlay = loader.getOrCreateProgram(flatPaintOverlayKey);
+        blockGlowOverlay = loader.getOrCreateProgram(blockGlowOverlayKey);
+        blockColorTintOverlay = loader.getOrCreateProgram(blockColorTintOverlayKey);
+        flatColorTintOverlay = loader.getOrCreateProgram(flatColorTintOverlayKey);
+
+>>>>>>> 1.21.4
         for (Runnable runnable : LOADERS)
         {
             runnable.run();
@@ -134,6 +260,11 @@ public class BBSShaders
     public static RenderPipeline getFlatPaintOverlayProgram()
     {
         return FLAT_PAINT_OVERLAY;
+    }
+
+    public static RenderPipeline getBlockGlowOverlayProgram()
+    {
+        return BLOCK_GLOW_OVERLAY;
     }
 
     public static RenderPipeline getBlockColorTintOverlayProgram()

@@ -15,6 +15,7 @@ uniform sampler2D Sampler2;
 
 uniform mat4 ModelViewMat;
 uniform mat3 NormalMat;
+uniform mat4 FogMat;
 uniform mat4 ProjMat;
 uniform mat4 FormRootInverse;
 uniform int FogShape;
@@ -33,8 +34,12 @@ out vec3 formRootPos;
 
 void main()
 {
+    /* Vanilla 1.21.1 mobs: VertexConsumer bakes camera-relative world into Position
+     * (Y-up, no view rotation); ModelViewMat is only the view rotation at draw time.
+     * Terrain uses the same space via Position + ChunkOffset. FogMat holds that
+     * camera-relative model transform; ModelViewMat stays view × FogMat for clip. */
     gl_Position = ProjMat * ModelViewMat * vec4(Position, 1.0);
-    vertexDistance = fog_distance(Position, FogShape);
+    vertexDistance = fog_distance((FogMat * vec4(Position, 1.0)).xyz, FogShape);
     vec3 n = NormalMat * Normal;
     float nLen2 = dot(n, n);
     vec3 fixNormal = nLen2 > 1.0e-8 ? n * inversesqrt(nLen2) : vec3(0.0, 0.0, 1.0);

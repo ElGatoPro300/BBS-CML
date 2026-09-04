@@ -10,6 +10,8 @@ import mchorse.bbs_mod.forms.FormUtilsClient;
 
 import net.minecraft.client.render.VertexConsumer;
 
+import org.joml.Matrix4f;
+
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
@@ -26,7 +28,8 @@ public class StructureVaoManager
         public IModelVAO picking;
     }
 
-    private static final int VAO_CACHE_VERSION = 3;
+    /* v4: translucent blocks excluded from main VAO (drawn as a live layer like animated/biome). */
+    private static final int VAO_CACHE_VERSION = 4;
     private static final Map<String, VaoHolder> VAO_CACHE = new HashMap<>();
     private static final int LIGHTING_REVISION = 5;
     private static int cachedLightingRevision = -1;
@@ -296,6 +299,13 @@ public class StructureVaoManager
         public VertexConsumer vertex(float x, float y, float z)
         {
             this.delegate.vertex(x, y, z);
+            return this;
+        }
+
+        @Override
+        public VertexConsumer vertex(Matrix4f matrix, float x, float y, float z)
+        {
+            this.delegate.vertex(matrix, x, y, z);
             return this;
         }
 

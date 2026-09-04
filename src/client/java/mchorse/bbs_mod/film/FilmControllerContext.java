@@ -1,5 +1,6 @@
 package mchorse.bbs_mod.film;
 
+import mchorse.bbs_mod.client.BBSRendering;
 import mchorse.bbs_mod.film.replays.Replay;
 import mchorse.bbs_mod.forms.entities.IEntity;
 import mchorse.bbs_mod.forms.forms.utils.GlowSettings;
@@ -122,13 +123,24 @@ public class FilmControllerContext
         this.entities = entities;
         this.entity = entity;
         this.replay = replay;
-        this.camera = MinecraftClient.getInstance().gameRenderer.getCamera();
-        this.stack = context.matrices();
-        if (this.stack == null)
+        this.camera = context.camera();
+
+        if (context.matrixStack() == null)
         {
             this.stack = new MatrixStack();
             MatrixStackUtils.multiply(this.stack, RenderSystem.getModelViewMatrix());
         }
+        else if (!BBSRendering.isIrisShadersEnabled())
+        {
+            /* Match WorldRenderer entity pass: empty MatrixStack, then camera-relative
+             * entity transform only. View rotation stays in ModelViewMat / BBSRendering.camera. */
+            this.stack = new MatrixStack();
+        }
+        else
+        {
+            this.stack = context.matrixStack();
+        }
+
         this.consumers = context.consumers();
         this.transition = MinecraftClient.getInstance().getRenderTickCounter().getTickProgress(false);
 

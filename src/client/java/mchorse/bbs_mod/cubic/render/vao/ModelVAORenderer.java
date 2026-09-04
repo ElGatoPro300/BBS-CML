@@ -48,6 +48,10 @@ public class ModelVAORenderer
     private static final RawProjectionMatrix rawProjection = new RawProjectionMatrix("bbs_model_vao_proj");
     private static final Matrix3f IDENTITY_NORMAL = new Matrix3f();
     private static final Matrix4f IDENTITY_MODEL_VIEW = new Matrix4f();
+    private static final Matrix4f SCRATCH_MODEL_VIEW = new Matrix4f();
+    private static final Matrix4f SCRATCH_FOG_MAT = new Matrix4f();
+    private static final Matrix4f SCRATCH_INV_VIEW = new Matrix4f();
+    private static final Matrix4f SCRATCH_COMPOSED = new Matrix4f();
 
     /* FS-style paint overlay uniform state (rgb + strength). Set by form renderers before a draw and reset after.
      * "base" holds the whole-form paint; "current" is what the uniform uses and can be overridden per model group (bone). */
@@ -89,6 +93,80 @@ public class ModelVAORenderer
     private static boolean colorGradeOverlayPass;
     /* Captured-matrix redraw after Iris (or immediate low-opacity bypass) — not the paint-overlay shader branch. */
     private static boolean deferredTranslucentPass;
+
+    /**
+     * Fog state at enqueue time for soft / deferred mesh redraws. After Iris composite (and often
+     * by vanilla LAST) {@link RenderSystem} fog is collapsed — without this snapshot soft forms
+     * either skip fog or wash to FogColor.
+     * <p>
+     * {@code modelViewInverse} is the inverse of {@link RenderSystem#getModelViewMatrix()} at
+     * enqueue. Soft BBS draws bake that same ModelView into the MatrixStack
+     * ({@code capturePaintOverlayRootMatrix}); FogMat must strip with this matrix — not
+     * {@code Camera.getRotation()} — or cylindrical fog drifts with yaw/pitch when ModelView was
+     * identity (stack already camera-relative) or when the quaternion disagrees with the pose matrix.
+     */
+    public static final class DeferredFogSnapshot
+    {
+        private final float fogStart;
+        private final float fogEnd;
+        private final float fogColorR;
+        private final float fogColorG;
+        private final float fogColorB;
+        private final float fogColorA;
+        private final int fogShape;
+        private final Matrix4f modelViewInverse;
+
+        private DeferredFogSnapshot(float fogStart, float fogEnd, float fogColorR, float fogColorG, float fogColorB, float fogColorA, int fogShape, Matrix4f modelViewInverse)
+        {
+            this.fogStart = fogStart;
+            this.fogEnd = fogEnd;
+            this.fogColorR = fogColorR;
+            this.fogColorG = fogColorG;
+            this.fogColorB = fogColorB;
+            this.fogColorA = fogColorA;
+            this.fogShape = fogShape;
+            this.modelViewInverse = modelViewInverse;
+        }
+    }
+
+    private static DeferredFogSnapshot activeDeferredFog;
+
+    public static DeferredFogSnapshot captureCurrentFog()
+    {
+        Fog fog = RenderSystem.getShaderFog();
+        Matrix4f modelViewInverse = new Matrix4f(RenderSystem.getModelViewMatrix());
+
+        /* Identity / near-singular MV → leave identity inverse (stack is already camera-relative). */
+        if (Math.abs(modelViewInverse.determinant()) > 1.0E-8F)
+        {
+            modelViewInverse.invert();
+        }
+        else
+        {
+            modelViewInverse.identity();
+        }
+
+        return new DeferredFogSnapshot(
+            fog.start(),
+            fog.end(),
+            fog.red(),
+            fog.green(),
+            fog.blue(),
+            fog.alpha(),
+            fog.shape().getId(),
+            modelViewInverse
+        );
+    }
+
+    public static void pushDeferredFog(DeferredFogSnapshot snapshot)
+    {
+        activeDeferredFog = snapshot;
+    }
+
+    public static void popDeferredFog()
+    {
+        activeDeferredFog = null;
+    }
 
     private static final Matrix4f formRootInverse = new Matrix4f();
     private static final Matrix4f paintEffectInverse = new Matrix4f();
@@ -206,9 +284,10 @@ public class ModelVAORenderer
         private final boolean vanillaComposite;
         private final boolean depthWrite;
         private final boolean depthTest;
+        private final DeferredFogSnapshot fog;
         private final Runnable draw;
 
-        private PaintOverlayEntry(Matrix4f projection, Matrix4f modelView, boolean synced, boolean fullModel, boolean colorTint, boolean colorGrade, boolean vanillaComposite, boolean depthWrite, boolean depthTest, Runnable draw)
+        private PaintOverlayEntry(Matrix4f projection, Matrix4f modelView, boolean synced, boolean fullModel, boolean colorTint, boolean colorGrade, boolean vanillaComposite, boolean depthWrite, boolean depthTest, DeferredFogSnapshot fog, Runnable draw)
         {
             this.projection = projection;
             this.modelView = modelView;
@@ -219,6 +298,7 @@ public class ModelVAORenderer
             this.vanillaComposite = vanillaComposite;
             this.depthWrite = depthWrite;
             this.depthTest = depthTest;
+            this.fog = fog;
             this.draw = draw;
         }
     }
@@ -322,6 +402,7 @@ public class ModelVAORenderer
             vanillaComposite,
             depthWrite,
             depthTest,
+            fullModel ? captureCurrentFog() : null,
             draw
         );
 
@@ -403,10 +484,20 @@ public class ModelVAORenderer
 
             try
             {
+                if (entry.fog != null)
+                {
+                    pushDeferredFog(entry.fog);
+                }
+
                 entry.draw.run();
             }
             finally
             {
+                if (entry.fog != null)
+                {
+                    popDeferredFog();
+                }
+
                 if (entry.fullModel)
                 {
                     endDeferredTranslucentModelPass();
@@ -540,10 +631,17 @@ public class ModelVAORenderer
                 }
             }
 
-            if (needsSceneCapture)
+            if (restoreFramebuffer)
+            {
+                ShaderOpacityPatch.syncPaintOverlayDepth();
+            }
+            else if (needsSceneCapture)
             {
                 BBSRendering.ensurePaintOverlayTargetFramebuffer();
+            }
 
+            if (needsSceneCapture)
+            {
                 if (!captureGradeSceneColor())
                 {
                     /* Keep Iris-lit mesh; skip broken regrade rather than painting black. */
@@ -552,8 +650,24 @@ public class ModelVAORenderer
             }
 
             /* Paint/glow overlays first, then full soft-model redraws (Opacity "No shading"
-             * path) so translucency composites over painted actors behind the soft form. */
-            paintOverlayQueue.sort((a, b) -> Boolean.compare(a.fullModel, b.fullModel));
+             * path) so translucency composites over painted actors behind the soft form.
+             * Ensure color tint runs before paint overlays so paint covers the primary tint. */
+            paintOverlayQueue.sort((a, b) ->
+            {
+                int cmp = Boolean.compare(a.fullModel, b.fullModel);
+
+                if (cmp != 0)
+                {
+                    return cmp;
+                }
+
+                if (a.colorTint != b.colorTint)
+                {
+                    return a.colorTint ? -1 : 1;
+                }
+
+                return 0;
+            });
 
             for (PaintOverlayEntry entry : paintOverlayQueue)
             {
@@ -599,9 +713,13 @@ public class ModelVAORenderer
         GlStateManager._depthFunc(GL11.GL_LEQUAL);
         GlStateManager._depthMask(false);
 
+        /* Match the no-shader model path: paint both front and back faces (eye sockets,
+         * hollow heads, etc.). Iris often leaves cull enabled; keeping it would skip interiors. */
+        RenderSystem.disableCull();
+
         GL11.glEnable(GL11.GL_POLYGON_OFFSET_FILL);
-        /* Flat / extruded / billboard overlays need a large units bias — factor alone is not
-         * enough for near-zero depth slope at distance (see FlatPaintOverlayPass). */
+        /* Units-only bias: a negative factor punches edge-on paint through terrain under Iris
+         * (slope-scaled offset). Facing quads need a large units value at distance. */
         GL11.glPolygonOffset(FlatPaintOverlayPass.POLYGON_OFFSET_FACTOR, FlatPaintOverlayPass.POLYGON_OFFSET_UNITS);
     }
 

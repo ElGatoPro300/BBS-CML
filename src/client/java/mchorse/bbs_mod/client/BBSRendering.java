@@ -9,6 +9,7 @@ import mchorse.bbs_mod.camera.clips.misc.CurveClip;
 import mchorse.bbs_mod.camera.controller.CameraWorkCameraController;
 import mchorse.bbs_mod.camera.controller.PlayCameraController;
 import mchorse.bbs_mod.camera.data.Position;
+import mchorse.bbs_mod.client.compat.HdrModCompat;
 import mchorse.bbs_mod.client.renderer.ModelBlockEntityRenderer;
 import mchorse.bbs_mod.client.renderer.MorphRenderer;
 import mchorse.bbs_mod.client.renderer.TriggerBlockEntityRenderer;
@@ -375,6 +376,20 @@ public class BBSRendering
     }
 
     /**
+     * After world / film FBO present: re-bind the client framebuffer and reset GUI draw state.
+     * Used when HDR Mod's blit color-transform leaves FBO 0 / blend disabled before Batcher2D.
+     */
+    public static void prepareGuiAfterWorldPresent()
+    {
+        ensureMainFramebuffer();
+        bindMainFramebuffer(false);
+        restoreGuiRenderState();
+        GlStateManager._colorMask(true, true, true, true);
+        GlStateManager._enableBlend();
+        GlStateManager._blendFuncSeparate(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA, 1, 0);
+    }
+
+    /**
      * Reset GL state after mid-UI 3D form/model draws so later Batcher2D text is not
      * left with additive blend / depthMask false / grade uniforms (white doubled glyphs).
      *
@@ -722,7 +737,8 @@ public class BBSRendering
             Window window = mc.getWindow();
             Area area = new Area(0, 0, window.getScaledWidth(), window.getScaledHeight());
 
-            VideoRenderer.renderClips(new MatrixStack(), batcher, controller.getContext().clips.getClips(controller.getContext().relativeTick), controller.getContext().relativeTick, true, area, area, null, area.w, area.h, false);
+            VideoRenderer.renderClips(batcher.getContext().getMatrices(), batcher, controller.getContext().clips.getClips(controller.getContext().relativeTick), controller.getContext().relativeTick, true, area, area, null, area.w, area.h, false);
+            VideoRenderer.renderClips(batcher.getContext().getMatrices(), batcher, controller.getContext().clips.getClips(controller.getContext().relativeTick), controller.getContext().relativeTick, true, area, area, null, area.w, area.h, true);
 
             ScreenEffectRenderer.render(batcher, controller.getContext(), area.w, area.h);
         }
@@ -734,7 +750,8 @@ public class BBSRendering
             Window window = mc.getWindow();
             Area area = new Area(0, 0, window.getScaledWidth(), window.getScaledHeight());
 
-            VideoRenderer.renderClips(new MatrixStack(), batcher, controller.getContext().clips.getClips(controller.getContext().relativeTick), controller.getContext().relativeTick, true, area, area, null, area.w, area.h, false);
+            VideoRenderer.renderClips(batcher.getContext().getMatrices(), batcher, controller.getContext().clips.getClips(controller.getContext().relativeTick), controller.getContext().relativeTick, true, area, area, null, area.w, area.h, false);
+            VideoRenderer.renderClips(batcher.getContext().getMatrices(), batcher, controller.getContext().clips.getClips(controller.getContext().relativeTick), controller.getContext().relativeTick, true, area, area, null, area.w, area.h, true);
 
             ScreenEffectRenderer.render(batcher, controller.getContext(), area.w, area.h);
         }
@@ -838,6 +855,11 @@ public class BBSRendering
 
 
         toggleFramebuffer(false);
+
+        if (HdrModCompat.isHdrPresentationActive())
+        {
+            prepareGuiAfterWorldPresent();
+        }
     }
 
     public static void onRenderChunkLayer(MatrixStack stack)

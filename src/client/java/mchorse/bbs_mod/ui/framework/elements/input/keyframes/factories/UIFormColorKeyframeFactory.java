@@ -55,7 +55,7 @@ public class UIFormColorKeyframeFactory extends UIKeyframeFactory<Color>
         this.spectrum.tooltip(UIKeys.GENERIC_KEYFRAMES_COLOR_SPECTRUM_TOOLTIP);
         this.spectrum.setValue(keyframe.isSpectrum());
 
-        this.noShading = new UIToggle(UIKeys.FILM_REPLAY_OPACITY_NO_SHADING, (b) ->
+        this.noShading = new UIToggle(UIKeys.FORMS_EDITORS_NOSHADING_SHADERS, (b) ->
         {
             if (this.fillingNoshading)
             {

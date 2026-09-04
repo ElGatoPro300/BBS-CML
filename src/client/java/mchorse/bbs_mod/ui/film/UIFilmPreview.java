@@ -783,7 +783,6 @@ public class UIFilmPreview extends UIElement
             );
 
         }
-
         this.renderCursor(context);
 
         /* Render rule of thirds */

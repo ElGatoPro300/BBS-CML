@@ -1,5 +1,6 @@
 package mchorse.bbs_mod.settings.values.base;
 
+import mchorse.bbs_mod.data.types.BaseType;
 import mchorse.bbs_mod.utils.keyframes.factories.IKeyframeFactory;
 
 public abstract class BaseValueNumber <T extends Number> extends BaseKeyframeFactoryValue<T>
@@ -34,6 +35,24 @@ public abstract class BaseValueNumber <T extends Number> extends BaseKeyframeFac
         }
 
         super.set(value, flag);
+    }
+
+    /**
+     * fromData used to assign raw factory output and skip {@link #set}/{@link #clamp}.
+     * Oversized film JSON numbers (long → truncated int) then poisoned clip duration
+     * and froze the camera timeline.
+     */
+    @Override
+    public void fromData(BaseType data)
+    {
+        T value = this.getFactory().fromData(data);
+
+        if (this.min != null && this.max != null)
+        {
+            value = this.clamp(value);
+        }
+
+        this.value = value;
     }
 
     protected abstract T clamp(T value);

@@ -37,4 +37,29 @@ public class PlayerEntityMixin
             view.read("BBSMorph", NbtCompound.CODEC).ifPresent((nbt) -> provider.getMorph().fromNbt(nbt));
         }
     }
+
+    @Inject(method = "getBaseDimensions", at = @At("RETURN"), cancellable = true)
+    public void onGetDimensions(EntityPose pose, CallbackInfoReturnable<EntityDimensions> info)
+    {
+        if (this instanceof IMorphProvider provider)
+        {
+            Form form = provider.getMorph().getForm();
+
+            if (form != null && form.hitbox.get())
+            {
+                PlayerEntity player = (PlayerEntity) (Object) this;
+                EntityDimensions dimensions = info.getReturnValue();
+                float height = form.hitboxHeight.get() * (player.isSneaking() ? form.hitboxSneakMultiplier.get() : 1F);
+                /* 1.21+ stores eye height on EntityDimensions; Camera/F3+B use standingEyeHeight
+                 * from dimensions.eyeHeight(), not Entity.getEyeHeight(pose). fixed/changing()
+                 * only bake the default (~0.85 * height), so form.hitboxEyeHeight must be applied. */
+                float eyeHeight = form.hitboxEyeHeight.get() * height;
+                EntityDimensions shaped = dimensions.fixed()
+                    ? EntityDimensions.fixed(form.hitboxWidth.get(), height)
+                    : EntityDimensions.changing(form.hitboxWidth.get(), height);
+
+                info.setReturnValue(shaped.withEyeHeight(eyeHeight));
+            }
+        }
+    }
 }
