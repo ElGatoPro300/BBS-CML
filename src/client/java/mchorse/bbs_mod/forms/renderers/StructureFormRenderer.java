@@ -1344,7 +1344,7 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
 
             RenderSystem.getModelViewStack().pushMatrix();
             RenderSystem.getModelViewStack().set(exactMvm);
-            RenderSystem.applyModelViewMatrix();
+            MatrixStackUtils.applyModelViewMatrix();
 
             try
             {
@@ -1357,7 +1357,7 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
             finally
             {
                 RenderSystem.getModelViewStack().popMatrix();
-                RenderSystem.applyModelViewMatrix();
+                MatrixStackUtils.applyModelViewMatrix();
                 consumers.setSubstitute(null);
                 RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
             }
