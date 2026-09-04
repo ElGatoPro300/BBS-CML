@@ -383,9 +383,10 @@ public class ShaderOpacityPatch
      * After translucent terrain (water/lava/portals).
      * <p>
      * Iris: flush soft forms here (pack clouds are already composited on that path).
-     * Vanilla: do <em>not</em> flush yet — Fabric draws vanilla clouds after this event;
-     * flushing with depth write here hides clouds behind soft actors. Hold until
-     * {@link #onAfterVanillaClouds()} ({@code WorldRenderEvents.LAST}).
+     * Vanilla Fancy: do <em>not</em> flush yet — wait until {@link #onAfterVanillaClouds()} so
+     * soft depth does not erase clouds.
+     * Vanilla Fabulous: flush into the translucent framebuffer <em>before</em> the translucency
+     * combine; drawing soft only at LAST often never appears on Fabulous.
      */
     public static void onAfterTranslucentTerrain()
     {
@@ -397,12 +398,18 @@ public class ShaderOpacityPatch
         }
 
         postDeferredPhase = true;
+
+        if (MinecraftClient.isFabulousGraphicsOrBetter())
+        {
+            bindVanillaSoftFlushTarget(true);
+            flushPostDeferredForms(null);
+        }
     }
 
     /**
-     * After vanilla clouds / weather ({@code WorldRenderEvents.LAST}). Soft forms kept from
-     * {@link #onAfterTranslucentTerrain()} draw here so depth writes no longer erase clouds.
-     * Iris already flushed earlier — this is a no-op safety net when the queue is empty.
+     * After vanilla clouds / weather ({@code WorldRenderEvents.LAST}).
+     * Fancy: primary soft flush (after clouds). Fabulous: leftovers onto the main target
+     * (main soft already flushed before Fabulous combine). Iris: no-op.
      */
     public static void onAfterVanillaClouds()
     {
@@ -411,7 +418,39 @@ public class ShaderOpacityPatch
             return;
         }
 
+        bindVanillaSoftFlushTarget(false);
         flushPostDeferredForms(null);
+    }
+
+    /**
+     * @param fabulousTranslucentPass {@code true} = Fabulous translucent FB before combine;
+     *                                {@code false} = visible main framebuffer.
+     */
+    private static void bindVanillaSoftFlushTarget(boolean fabulousTranslucentPass)
+    {
+        MinecraftClient mc = MinecraftClient.getInstance();
+
+        if (mc == null)
+        {
+            return;
+        }
+
+        if (fabulousTranslucentPass && mc.worldRenderer != null)
+        {
+            Framebuffer translucent = mc.worldRenderer.getTranslucentFramebuffer();
+
+            if (translucent != null)
+            {
+                translucent.beginWrite(false);
+
+                return;
+            }
+        }
+
+        if (mc.getFramebuffer() != null)
+        {
+            mc.getFramebuffer().beginWrite(false);
+        }
     }
 
     public static void onWorldRenderBegin()
