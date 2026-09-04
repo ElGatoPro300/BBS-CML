@@ -20,7 +20,7 @@ import net.minecraft.client.util.math.MatrixStack;
 
 import org.joml.Matrix4f;
 
-import com.mojang.blaze3d.platform.GlStateManager;
+import com.mojang.blaze3d.opengl.GlStateManager;
 import com.mojang.blaze3d.systems.ProjectionType;
 import com.mojang.blaze3d.systems.RenderSystem;
 
@@ -259,29 +259,19 @@ public final class FormUIPreviewCache
         MinecraftClient client = MinecraftClient.getInstance();
         int[] viewport = new int[4];
         boolean scissorWasEnabled = GL11.glIsEnabled(GL11.GL_SCISSOR_TEST);
-        ProjectionType previousProjectionType = RenderSystem.getProjectionType();
-        Matrix4f previousProjection = new Matrix4f(RenderSystem.getProjectionMatrix());
-        MatrixStack matrices = context.batcher.getContext().getMatrices();
+        MatrixStack matrices = new MatrixStack();
 
         GL11.glGetIntegerv(GL11.GL_VIEWPORT, viewport);
 
         context.batcher.flush();
 
         /* Morph list cells clip with screen-space scissors. Those scissors do not
-         * overlap the scratch FBO viewport (0,0,w,h), so leaving them on caches black. */
+         * clip correctly in super-sampled scratch space; clear scissor while drawing. */
         if (scissorWasEnabled)
         {
             GlStateManager._disableScissorTest();
         }
 
-        /* Preview fill uses cell-local coords. Match GUI Y-down ortho to the supersampled
-         * target so getUIMatrix scale fills the thumbnail instead of a screen speck. */
-        RenderSystem.setProjectionMatrix(
-            new Matrix4f().ortho(0F, renderW, renderH, 0F, -1000F, 3000F),
-            ProjectionType.ORTHOGRAPHIC
-        );
-        RenderSystem.getModelViewStack().pushMatrix();
-        RenderSystem.getModelViewStack().identity();
         matrices.push();
         matrices.peek().getPositionMatrix().identity();
         matrices.peek().getNormalMatrix().identity();
@@ -312,8 +302,6 @@ public final class FormUIPreviewCache
         scratchFramebuffer.unbind();
 
         matrices.pop();
-        RenderSystem.getModelViewStack().popMatrix();
-        RenderSystem.setProjectionMatrix(previousProjection, previousProjectionType);
 
         if (client != null && client.getFramebuffer() != null)
         {

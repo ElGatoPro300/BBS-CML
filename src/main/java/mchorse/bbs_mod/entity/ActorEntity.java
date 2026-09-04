@@ -35,6 +35,8 @@ import net.minecraft.registry.RegistryOps;
 import net.minecraft.registry.RegistryWrapper;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.server.world.ServerWorld;
+import net.minecraft.storage.ReadView;
+import net.minecraft.storage.WriteView;
 import net.minecraft.text.Text;
 import net.minecraft.util.Arm;
 import net.minecraft.util.math.Box;
@@ -64,6 +66,11 @@ public class ActorEntity extends LivingEntity implements IEntityFormProvider
     private boolean despawn;
     private MCEntity entity = new MCEntity(this);
     private Form form;
+
+    public MCEntity getBbsEntity()
+    {
+        return this.entity;
+    }
 
     private Map<EquipmentSlot, ItemStack> equipment = new HashMap<>();
 
@@ -530,7 +537,7 @@ public class ActorEntity extends LivingEntity implements IEntityFormProvider
         this.runtimeInventoryInitialized = true;
     }
 
-    public MCEntity getEntity()
+    public MCEntity getWrappingEntity()
     {
         return this.entity;
     }
@@ -554,7 +561,7 @@ public class ActorEntity extends LivingEntity implements IEntityFormProvider
 
         this.form = form;
 
-        if (!this.getWorld().isClient())
+        if (!this.getEntityWorld().isClient())
         {
             if (lastForm != null) lastForm.onDemorph(this);
             if (form != null) form.onMorph(this);
@@ -563,19 +570,16 @@ public class ActorEntity extends LivingEntity implements IEntityFormProvider
         this.updateHitboxDimensions();
     }
 
-    @Override
     public boolean isCollidable()
     {
         return this.form != null && this.form.hitbox.get();
     }
 
-    @Override
     public boolean isPushable()
     {
         return this.form == null || !this.form.hitbox.get();
     }
 
-    @Override
     public void pushAwayFrom(Entity entity)
     {
         if (this.form == null || !this.form.hitbox.get())
@@ -585,15 +589,15 @@ public class ActorEntity extends LivingEntity implements IEntityFormProvider
     }
 
     @Override
-    public void pushAway(Entity entity)
+    public boolean handleAttack(Entity attacker)
     {
         if (this.form == null || !this.form.hitbox.get())
         {
-            super.pushAway(entity);
+            return super.handleAttack(attacker);
         }
+        return false;
     }
 
-    @Override
     public boolean shouldRender(double distance)
     {
         double d = this.getBoundingBox().getAverageSideLength();
@@ -606,13 +610,11 @@ public class ActorEntity extends LivingEntity implements IEntityFormProvider
         return distance < (d * 256D) * (d * 256D);
     }
 
-    @Override
     public Iterable<ItemStack> getHandItems()
     {
         return List.of(this.getEquippedStack(EquipmentSlot.MAINHAND), this.getEquippedStack(EquipmentSlot.OFFHAND));
     }
 
-    @Override
     public Iterable<ItemStack> getArmorItems()
     {
         return List.of(this.getEquippedStack(EquipmentSlot.FEET), this.getEquippedStack(EquipmentSlot.LEGS), this.getEquippedStack(EquipmentSlot.CHEST), this.getEquippedStack(EquipmentSlot.HEAD));
@@ -651,7 +653,7 @@ public class ActorEntity extends LivingEntity implements IEntityFormProvider
             this.tickHandSwing();
             this.updateHitboxDimensions();
 
-            if (!this.getWorld().isClient())
+            if (!this.getEntityWorld().isClient())
             {
                 this.tickItemPickup();
             }
@@ -660,7 +662,7 @@ public class ActorEntity extends LivingEntity implements IEntityFormProvider
         }
 
         /* Poof burst on the last living death tick — same timing as MobDeathActionClip. */
-        if (this.getWorld().isClient() && dying && this.deathTime == 19)
+        if (this.getEntityWorld().isClient() && dying && this.deathTime == 19)
         {
             this.spawnDeathBurstParticles();
         }
@@ -675,7 +677,7 @@ public class ActorEntity extends LivingEntity implements IEntityFormProvider
             this.form.update(this.entity);
         }
 
-        if (!this.getWorld().isClient())
+        if (!this.getEntityWorld().isClient())
         {
             this.tickItemPickup();
         }
@@ -683,7 +685,7 @@ public class ActorEntity extends LivingEntity implements IEntityFormProvider
 
     private void spawnDeathBurstParticles()
     {
-        Random random = this.getWorld().getRandom();
+        Random random = this.getEntityWorld().getRandom();
         double x = this.getX();
         double y = this.getY() + this.getEyeHeight(this.getPose()) * 0.5D;
         double z = this.getZ();
@@ -698,7 +700,7 @@ public class ActorEntity extends LivingEntity implements IEntityFormProvider
             double velocityY = random.nextGaussian() * 0.02D;
             double velocityZ = random.nextGaussian() * 0.02D;
 
-            this.getWorld().addParticle(ParticleTypes.POOF, x + offsetX, y + offsetY, z + offsetZ, velocityX, velocityY, velocityZ);
+            this.getEntityWorld().addParticleClient(ParticleTypes.POOF, x + offsetX, y + offsetY, z + offsetZ, velocityX, velocityY, velocityZ);
         }
     }
 
@@ -712,7 +714,7 @@ public class ActorEntity extends LivingEntity implements IEntityFormProvider
 
         /* Pickup items */
         Box box = this.getBoundingBox().expand(1D, 0.5D, 1D);
-        List<Entity> list = this.getWorld().getOtherEntities(this, box);
+        List<Entity> list = this.getEntityWorld().getOtherEntities(this, box);
 
         for (Entity entity : list)
         {
@@ -727,7 +729,7 @@ public class ActorEntity extends LivingEntity implements IEntityFormProvider
                     this.pickedUpEntityIds.add(entityId);
                     this.addToRuntimeInventory(itemStack.copy());
                     
-                    ((ServerWorld) this.getWorld()).getChunkManager().sendToOtherNearbyPlayers(entity, new ItemPickupAnimationS2CPacket(entity.getId(), this.getId(), i));
+                    ((ServerWorld) this.getEntityWorld()).getChunkManager().sendToOtherNearbyPlayers(entity, new ItemPickupAnimationS2CPacket(entity.getId(), this.getId(), i));
                     entity.discard();
                 }
             }
@@ -870,7 +872,7 @@ public class ActorEntity extends LivingEntity implements IEntityFormProvider
     {
         super.onDeath(damageSource);
         
-        if (!this.getWorld().isClient() && !this.replayItemsDropped && this.replay != null && this.film != null && this.replay.dropItemsOnDeath.get())
+        if (!this.getEntityWorld().isClient() && !this.replayItemsDropped && this.replay != null && this.film != null && this.replay.dropItemsOnDeath.get())
         {
             this.dropReplayItems();
             this.replayItemsDropped = true;
@@ -928,7 +930,7 @@ public class ActorEntity extends LivingEntity implements IEntityFormProvider
                 this.setLimbSwingSpeed(1.5F);
             }
 
-            if (this.getWorld().isClient())
+            if (this.getEntityWorld().isClient())
             {
                 this.pendingHurtAnimation = true;
             }
@@ -1131,7 +1133,7 @@ public class ActorEntity extends LivingEntity implements IEntityFormProvider
         
         // Create item entity at actor's position
         ItemEntity itemEntity = new ItemEntity(
-            this.getWorld(),
+            this.getEntityWorld(),
             this.getX(),
             this.getY() + 0.5,
             this.getZ(),
@@ -1156,7 +1158,7 @@ public class ActorEntity extends LivingEntity implements IEntityFormProvider
         itemEntity.setVelocity(velocityX, velocityY, velocityZ);
         itemEntity.setToDefaultPickupDelay();
         
-        this.getWorld().spawnEntity(itemEntity);
+        this.getEntityWorld().spawnEntity(itemEntity);
     }
 
 
@@ -1180,25 +1182,27 @@ public class ActorEntity extends LivingEntity implements IEntityFormProvider
     }
 
     @Override
-    public void readCustomDataFromNbt(NbtCompound nbt)
+    public void readCustomData(ReadView view)
     {
-        super.readCustomDataFromNbt(nbt);
+        super.readCustomData(view);
 
-        this.despawn = nbt.getBoolean("despawn");
+        this.despawn = view.getBoolean("despawn", false);
 
-        if (nbt.contains("Equipment", 10))
+        if (view.contains("Equipment"))
         {
-            NbtCompound equipmentNbt = nbt.getCompound("Equipment");
-            RegistryWrapper.WrapperLookup registries = this.getWorld() != null ? this.getWorld().getRegistryManager() : BBSMod.getRegistryManager();
+            NbtCompound equipmentNbt = view.read("Equipment", NbtCompound.CODEC).orElse(null);
+            if (equipmentNbt == null) return;
+            RegistryWrapper.WrapperLookup registries = this.getEntityWorld() != null ? this.getEntityWorld().getRegistryManager() : BBSMod.getRegistryManager();
 
             for (EquipmentSlot slot : EquipmentSlot.values())
             {
-                if (equipmentNbt.contains(slot.getName(), 10))
+                if (equipmentNbt.contains(slot.getName()))
                 {
-                    NbtCompound itemNbt = equipmentNbt.getCompound(slot.getName());
+                    NbtCompound itemNbt = equipmentNbt.getCompound(slot.getName()).orElse(null);
+                    if (itemNbt == null) continue;
                     ItemStack stack = registries != null
                         ? ItemStack.CODEC.parse(RegistryOps.of(NbtOps.INSTANCE, registries), itemNbt).result().orElse(ItemStack.EMPTY)
-                        : ItemStack.fromNbtOrEmpty(null, itemNbt);
+                        : ItemStack.EMPTY;
 
                     this.equipment.put(slot, stack);
                 }
@@ -1207,14 +1211,14 @@ public class ActorEntity extends LivingEntity implements IEntityFormProvider
     }
 
     @Override
-    public void writeCustomDataToNbt(NbtCompound nbt)
+    public void writeCustomData(WriteView view)
     {
-        super.writeCustomDataToNbt(nbt);
+        super.writeCustomData(view);
 
-        nbt.putBoolean("despawn", true);
+        view.putBoolean("despawn", true);
 
         NbtCompound equipmentNbt = new NbtCompound();
-        RegistryWrapper.WrapperLookup registries = this.getWorld() != null ? this.getWorld().getRegistryManager() : BBSMod.getRegistryManager();
+        RegistryWrapper.WrapperLookup registries = this.getEntityWorld() != null ? this.getEntityWorld().getRegistryManager() : BBSMod.getRegistryManager();
 
         for (Map.Entry<EquipmentSlot, ItemStack> entry : this.equipment.entrySet())
         {
@@ -1232,7 +1236,7 @@ public class ActorEntity extends LivingEntity implements IEntityFormProvider
             }
         }
 
-        nbt.put("Equipment", equipmentNbt);
+        view.put("Equipment", NbtCompound.CODEC, equipmentNbt);
     }
 
     protected int getPermissionLevel()

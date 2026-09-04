@@ -36,7 +36,7 @@ import net.minecraft.client.util.math.MatrixStack;
 
 import org.joml.Matrix4f;
 
-import com.mojang.blaze3d.platform.GlStateManager;
+import com.mojang.blaze3d.opengl.GlStateManager;
 import com.mojang.blaze3d.systems.RenderSystem;
 
 import org.lwjgl.opengl.GL11;
@@ -202,7 +202,7 @@ public class UIPickableFormRenderer extends UIFormRenderer implements GizmoSurfa
             previewEntity, LightmapTextureManager.pack(15, 15));
 
         FormRenderingContext formContext = new FormRenderingContext()
-            .set(FormRenderType.PREVIEW, previewEntity, context.batcher.getContext().getMatrices(), previewLight, OverlayTexture.DEFAULT_UV, context.getTransition())
+            .set(FormRenderType.PREVIEW, previewEntity, new MatrixStack(), previewLight, OverlayTexture.DEFAULT_UV, context.getTransition())
             .camera(this.camera)
             .modelRenderer()
             .equipment(BBSSettings.previewEquipment == null || BBSSettings.previewEquipment.get());
@@ -243,14 +243,14 @@ public class UIPickableFormRenderer extends UIFormRenderer implements GizmoSurfa
             this.setupViewport(context);
 
             /* Restore depth writes so the closest bone along the cursor ray wins picking. */
-            RenderSystem.enableDepthTest();
-            RenderSystem.depthFunc(GL11.GL_LEQUAL);
-            RenderSystem.depthMask(true);
+            GlStateManager._enableDepthTest();
+            GlStateManager._depthFunc(GL11.GL_LEQUAL);
+            GlStateManager._depthMask(true);
 
             FormUtilsClient.render(this.form, formContext.stencilMap(this.stencilMap));
 
             Matrix4f matrix = this.formEditor.getOrigin(context.getTransition());
-            MatrixStack stack = context.batcher.getContext().getMatrices();
+            MatrixStack stack = new MatrixStack();
 
             stack.push();
 
@@ -266,9 +266,9 @@ public class UIPickableFormRenderer extends UIFormRenderer implements GizmoSurfa
 
             if (Gizmo.isInteractive())
             {
-                RenderSystem.disableCull();
+                GlStateManager._disableCull();
                 Gizmo.INSTANCE.renderStencil(stack, this.stencilMap);
-                RenderSystem.enableCull();
+                GlStateManager._enableCull();
             }
 
             stack.pop();
@@ -287,7 +287,7 @@ public class UIPickableFormRenderer extends UIFormRenderer implements GizmoSurfa
 
             this.endStencilViewport();
 
-            MinecraftClient.getInstance().getFramebuffer().beginWrite(true);
+            GlStateManager._glBindFramebuffer(36160, 0);
 
             GlStateManager._enableScissorTest();
         }
@@ -299,19 +299,19 @@ public class UIPickableFormRenderer extends UIFormRenderer implements GizmoSurfa
 
     private void prepareGizmoRenderState()
     {
-        RenderSystem.depthMask(true);
-        RenderSystem.colorMask(true, true, true, true);
-        RenderSystem.enableDepthTest();
-        RenderSystem.depthFunc(GL11.GL_LEQUAL);
-        RenderSystem.disableBlend();
-        RenderSystem.disableCull();
-        RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
+        GlStateManager._depthMask(true);
+        GlStateManager._colorMask(true, true, true, true);
+        GlStateManager._enableDepthTest();
+        GlStateManager._depthFunc(GL11.GL_LEQUAL);
+        GlStateManager._disableBlend();
+        GlStateManager._disableCull();
+        // RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
     }
 
     private void renderAxes(UIContext context)
     {
         Matrix4f matrix = this.formEditor.getOrigin(context.getTransition());
-        MatrixStack stack = context.batcher.getContext().getMatrices();
+        MatrixStack stack = new MatrixStack();
         this.hasGizmoMatrix = true;
 
         stack.push();
@@ -332,11 +332,11 @@ public class UIPickableFormRenderer extends UIFormRenderer implements GizmoSurfa
         /* Draw axes */
         if (UIBaseMenu.renderAxes)
         {
-            RenderSystem.disableCull();
-            RenderSystem.disableDepthTest();
+            GlStateManager._disableCull();
+            GlStateManager._disableDepthTest();
             Gizmo.INSTANCE.render(stack);
-            RenderSystem.enableDepthTest();
-            RenderSystem.enableCull();
+            GlStateManager._enableDepthTest();
+            GlStateManager._enableCull();
         }
 
         stack.pop();
@@ -421,10 +421,10 @@ public class UIPickableFormRenderer extends UIFormRenderer implements GizmoSurfa
 
         /* Draw look vector */
         final float thickness = 0.01F;
-        Draw.renderBox(context.batcher.getContext().getMatrices(), -thickness, -thickness + eyeHeight, -thickness, thickness, thickness, 2F, 1F, 0F, 0F);
+        Draw.renderBox(new MatrixStack(), -thickness, -thickness + eyeHeight, -thickness, thickness, thickness, 2F, 1F, 0F, 0F);
 
         /* Draw hitbox */
-        Draw.renderBox(context.batcher.getContext().getMatrices(), -hitboxW / 2, 0, -hitboxW / 2, hitboxW, hitboxH, hitboxW);
+        Draw.renderBox(new MatrixStack(), -hitboxW / 2, 0, -hitboxW / 2, hitboxW, hitboxH, hitboxW);
     }
 
     @Override
@@ -453,7 +453,7 @@ public class UIPickableFormRenderer extends UIFormRenderer implements GizmoSurfa
             return;
         }
 
-        RenderSystem.enableBlend();
+        GlStateManager._enableBlend();
 
         if (!this.stencil.hasPicked())
         {

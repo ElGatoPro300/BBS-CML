@@ -63,6 +63,7 @@
         "SelectWorldScreenMixin",
         "ModelPartMixin",
         "YggdrasilServicesKeyInfoMixin"
+        "GuiRendererMixin"
     ],
     "injectors": {
         "defaultRequire": 1
