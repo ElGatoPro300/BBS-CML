@@ -42,6 +42,10 @@ import java.util.regex.Pattern;
  * Runtime soft-opacity queue. Soft forms draw after translucent terrain with depth writes
  * (fluids stay, limbs do not X-ray). Pack GLSL / shaders.properties are left vanilla —
  * Complementary light shafts sample the same shadow map those patches used to rewrite.
+ * <p>
+ * Fabulous (no shaders): soft flushes into the translucent FB before combine so soft remains
+ * visible. Soft limbs viewed through soft billboards can look washed — accepted limitation;
+ * see {@code docs/SOFT_OPACITY_FABULOUS.md}.
  */
 public class ShaderOpacityPatch
 {
@@ -387,6 +391,12 @@ public class ShaderOpacityPatch
      * soft depth does not erase clouds.
      * Vanilla Fabulous: flush into the translucent framebuffer <em>before</em> the translucency
      * combine; drawing soft only at LAST often never appears on Fabulous.
+     * <p>
+     * <b>Known limitation (accepted):</b> Fabulous without shaders can wash / over-brighten soft
+     * limbs seen through soft billboards. Fancy composites soft over final main color; Fabulous
+     * layer combine is not equivalent. Moving soft to main/{@code LAST} or the entity FB fixes
+     * wash partially but regresses occlusion or soft-vs-soft — see
+     * {@code docs/SOFT_OPACITY_FABULOUS.md}. Do not re-shuffle Fabulous flush targets casually.
      */
     public static void onAfterTranslucentTerrain()
     {

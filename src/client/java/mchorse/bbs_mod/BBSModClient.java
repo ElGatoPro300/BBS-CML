@@ -764,7 +764,8 @@ public class BBSModClient implements ClientModInitializer
         });
 
         /* Soft-opacity: Iris flushes here. Vanilla Fabulous also flushes into the translucent
-         * FB before combine (otherwise soft vanishes). Vanilla Fancy waits until LAST. */
+         * FB before combine (otherwise soft vanishes). Vanilla Fancy waits until LAST.
+         * Fabulous soft-through-soft wash is an accepted limit — docs/SOFT_OPACITY_FABULOUS.md. */
         WorldRenderEvents.AFTER_TRANSLUCENT.register((context) ->
         {
             ShaderOpacityPatch.onAfterTranslucentTerrain();
