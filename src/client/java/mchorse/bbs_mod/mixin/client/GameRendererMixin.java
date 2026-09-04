@@ -199,7 +199,7 @@ public class GameRendererMixin
      */
     @Inject(
         method = "renderWorld",
-        at = @At(value = "FIELD", opcode = Opcodes.GETFIELD, target = "Lnet/minecraft/client/render/GameRenderer;renderHand:Z"),
+        at = @At(value = "INVOKE", target = "Lnet/minecraft/client/render/GameRenderer;renderHand(FZLorg/joml/Matrix4f;)V"),
         order = 900
     )
     private void bbsFlushPaintOverlaysBeforeHand(CallbackInfo callbackInfo)

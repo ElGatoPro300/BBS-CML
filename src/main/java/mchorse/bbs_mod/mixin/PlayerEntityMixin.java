@@ -1,10 +1,7 @@
 package mchorse.bbs_mod.mixin;
 
-import mchorse.bbs_mod.forms.forms.Form;
 import mchorse.bbs_mod.morphing.IMorphProvider;
 
-import net.minecraft.entity.EntityDimensions;
-import net.minecraft.entity.EntityPose;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.nbt.NbtCompound;
 import net.minecraft.storage.ReadView;
@@ -14,7 +11,6 @@ import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
-import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 /**
  * For some unknown reason to me, if these methods are used in {@link PlayerEntityMorphMixin}
@@ -39,31 +35,6 @@ public class PlayerEntityMixin
         if (this instanceof IMorphProvider provider)
         {
             view.read("BBSMorph", NbtCompound.CODEC).ifPresent((nbt) -> provider.getMorph().fromNbt(nbt));
-        }
-    }
-
-    @Inject(method = "getBaseDimensions", at = @At("RETURN"), cancellable = true)
-    public void onGetDimensions(EntityPose pose, CallbackInfoReturnable<EntityDimensions> info)
-    {
-        if (this instanceof IMorphProvider provider)
-        {
-            Form form = provider.getMorph().getForm();
-
-            if (form != null && form.hitbox.get())
-            {
-                PlayerEntity player = (PlayerEntity) (Object) this;
-                EntityDimensions dimensions = info.getReturnValue();
-                float height = form.hitboxHeight.get() * (player.isSneaking() ? form.hitboxSneakMultiplier.get() : 1F);
-                /* 1.21+ stores eye height on EntityDimensions; Camera/F3+B use standingEyeHeight
-                 * from dimensions.eyeHeight(), not Entity.getEyeHeight(pose). fixed/changing()
-                 * only bake the default (~0.85 * height), so form.hitboxEyeHeight must be applied. */
-                float eyeHeight = form.hitboxEyeHeight.get() * height;
-                EntityDimensions shaped = dimensions.fixed()
-                    ? EntityDimensions.fixed(form.hitboxWidth.get(), height)
-                    : EntityDimensions.changing(form.hitboxWidth.get(), height);
-
-                info.setReturnValue(shaped.withEyeHeight(eyeHeight));
-            }
         }
     }
 }

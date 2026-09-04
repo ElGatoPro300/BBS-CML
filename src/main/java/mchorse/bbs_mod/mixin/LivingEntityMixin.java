@@ -11,6 +11,7 @@ import mchorse.bbs_mod.network.ServerNetwork;
 
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityDimensions;
+import net.minecraft.entity.EntityPose;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.damage.DamageSource;
 import net.minecraft.entity.damage.DamageTypes;
@@ -130,7 +131,7 @@ public class LivingEntityMixin
     }
 
     @Inject(method = "getBaseDimensions", at = @At("RETURN"), cancellable = true)
-    public void onGetBaseDimensions(CallbackInfoReturnable<EntityDimensions> info)
+    public void onGetBaseDimensions(EntityPose pose, CallbackInfoReturnable<EntityDimensions> info)
     {
         if (this instanceof IMorphProvider provider)
         {
@@ -141,15 +142,15 @@ public class LivingEntityMixin
                 LivingEntity entity = (LivingEntity) (Object) this;
                 EntityDimensions dimensions = info.getReturnValue();
                 float height = form.hitboxHeight.get() * (entity.isSneaking() ? form.hitboxSneakMultiplier.get() : 1F);
+                /* 1.21+ stores eye height on EntityDimensions; Camera/F3+B use standingEyeHeight
+                 * from dimensions.eyeHeight(), not Entity.getEyeHeight(pose). fixed/changing()
+                 * only bake the default (~0.85 * height), so form.hitboxEyeHeight must be applied. */
+                float eyeHeight = form.hitboxEyeHeight.get() * height;
+                EntityDimensions shaped = dimensions.fixed()
+                    ? EntityDimensions.fixed(form.hitboxWidth.get(), height)
+                    : EntityDimensions.changing(form.hitboxWidth.get(), height);
 
-                if (dimensions.fixed())
-                {
-                    info.setReturnValue(EntityDimensions.fixed(form.hitboxWidth.get(), height));
-                }
-                else
-                {
-                    info.setReturnValue(EntityDimensions.changing(form.hitboxWidth.get(), height));
-                }
+                info.setReturnValue(shaped.withEyeHeight(eyeHeight));
             }
         }
     }
