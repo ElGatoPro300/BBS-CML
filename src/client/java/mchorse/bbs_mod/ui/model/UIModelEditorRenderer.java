@@ -1091,7 +1091,7 @@ public class UIModelEditorRenderer extends UIModelRenderer implements GizmoSurfa
 
         int index = this.stencil.getIndex();
 
-        context.batcher.drawPickerPreview(texture.id, index, BBSSettings.modelEditorHoverHighlight(), this.area.x, this.area.y, this.area.w, this.area.h, w, h);
+        context.batcher.drawPickerPreview(this.stencil.getColorView(), index, BBSSettings.modelEditorHoverHighlight(), this.area.x, this.area.y, this.area.w, this.area.h);
 
         Pair<Form, String> pair = this.stencil.getPicked();
 

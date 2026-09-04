@@ -22,7 +22,6 @@ public class BBSShaders
     private static ShaderProgram subtitles;
     private static ShaderProgram imageOverlay;
 
-    private static ShaderProgram pickerPreview;
     private static ShaderProgram pickerBillboard;
     private static ShaderProgram pickerBillboardNoShading;
     private static ShaderProgram pickerParticles;
@@ -67,12 +66,6 @@ public class BBSShaders
         {
             imageOverlay.close();
             imageOverlay = null;
-        }
-
-        if (pickerPreview != null)
-        {
-            pickerPreview.close();
-            pickerPreview = null;
         }
 
         if (pickerBillboard != null)
@@ -137,7 +130,6 @@ public class BBSShaders
         ShaderProgramKey subtitlesKey = new ShaderProgramKey(Identifier.of(BBSMod.MOD_ID, "core/subtitles"), VertexFormats.POSITION_TEXTURE_COLOR, defines);
         ShaderProgramKey imageOverlayKey = new ShaderProgramKey(Identifier.of(BBSMod.MOD_ID, "core/image_overlay"), VertexFormats.POSITION_TEXTURE_COLOR, defines);
 
-        ShaderProgramKey pickerPreviewKey = new ShaderProgramKey(Identifier.of(BBSMod.MOD_ID, "core/picker_preview"), VertexFormats.POSITION_TEXTURE_COLOR, defines);
         ShaderProgramKey pickerBillboardKey = new ShaderProgramKey(Identifier.of(BBSMod.MOD_ID, "core/picker_billboard"), VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL, defines);
         ShaderProgramKey pickerBillboardNoShadingKey = new ShaderProgramKey(Identifier.of(BBSMod.MOD_ID, "core/picker_billboard_no_shading"), VertexFormats.POSITION_TEXTURE_LIGHT_COLOR, defines);
         ShaderProgramKey pickerParticlesKey = new ShaderProgramKey(Identifier.of(BBSMod.MOD_ID, "core/picker_particles"), VertexFormats.POSITION_COLOR_TEXTURE_LIGHT, defines);
@@ -154,7 +146,6 @@ public class BBSShaders
         subtitles = loader.getOrCreateProgram(subtitlesKey);
         imageOverlay = loader.getOrCreateProgram(imageOverlayKey);
 
-        pickerPreview = loader.getOrCreateProgram(pickerPreviewKey);
         pickerBillboard = loader.getOrCreateProgram(pickerBillboardKey);
         pickerBillboardNoShading = loader.getOrCreateProgram(pickerBillboardNoShadingKey);
         pickerParticles = loader.getOrCreateProgram(pickerParticlesKey);
@@ -200,11 +191,6 @@ public class BBSShaders
         }
 
         return imageOverlay;
-    }
-
-    public static ShaderProgram getPickerPreviewProgram()
-    {
-        return pickerPreview;
     }
 
     public static ShaderProgram getPickerBillboardProgram()

@@ -62,7 +62,7 @@
         "TitleScreenMixin",
         "SelectWorldScreenMixin",
         "ModelPartMixin",
-        "YggdrasilServicesKeyInfoMixin"
+        "YggdrasilServicesKeyInfoMixin",
         "GuiRendererMixin"
     ],
     "injectors": {

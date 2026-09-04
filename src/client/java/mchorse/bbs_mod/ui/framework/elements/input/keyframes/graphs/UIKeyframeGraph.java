@@ -4,7 +4,7 @@ import mchorse.bbs_mod.BBSSettings;
 import mchorse.bbs_mod.camera.utils.TimeUtils;
 import mchorse.bbs_mod.data.types.MapType;
 import mchorse.bbs_mod.forms.forms.utils.LightingSettings;
-import mchorse.bbs_mod.graphics.Draw;
+import mchorse.bbs_mod.graphics.GuiQuadMesh;
 import mchorse.bbs_mod.graphics.line.LineBuilder;
 import mchorse.bbs_mod.graphics.line.SolidColorLineRenderer;
 import mchorse.bbs_mod.graphics.window.Window;
@@ -30,17 +30,7 @@ import mchorse.bbs_mod.utils.keyframes.factories.IKeyframeFactory;
 import mchorse.bbs_mod.utils.keyframes.factories.KeyframeFactories;
 import mchorse.bbs_mod.utils.keyframes.factories.LightingSettingsKeyframeFactory;
 
-import net.minecraft.client.render.BufferBuilder;
-import net.minecraft.client.render.BuiltBuffer;
-import net.minecraft.client.render.RenderLayers;
-import net.minecraft.client.render.Tessellator;
-import net.minecraft.client.render.VertexFormats;
-import net.minecraft.client.util.math.MatrixStack;
-
 import org.joml.Matrix3x2fc;
-import org.joml.Matrix4f;
-
-import com.mojang.blaze3d.vertex.VertexFormat;
 
 import java.util.Collections;
 import java.util.List;
@@ -599,16 +589,11 @@ public class UIKeyframeGraph implements IUIKeyframeGraph
         preview.setShape(shape);
 
         Matrix3x2fc matrix = context.batcher.getContext().getMatrices();
-        BufferBuilder builder = Tessellator.getInstance().begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_COLOR);
+        GuiQuadMesh builder = new GuiQuadMesh();
 
         UIKeyframeDopeSheet.renderShape(preview, context, builder, matrix, x, y, 3, c);
 
-        BuiltBuffer built = builder.endNullable();
-
-        if (built != null)
-        {
-            RenderLayers.debugFilledBox().draw(built);
-        }
+        context.batcher.drawQuadMesh(builder);
     }
 
     /**
@@ -716,7 +701,7 @@ public class UIKeyframeGraph implements IUIKeyframeGraph
         }
 
         /* Render track bars (horizontal lines) */
-        BufferBuilder builder = Tessellator.getInstance().begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_COLOR);
+        GuiQuadMesh builder = new GuiQuadMesh();
 
         /* Draw keyframe handles (outer) */
         int forcedIndex = 0;
@@ -820,16 +805,7 @@ public class UIKeyframeGraph implements IUIKeyframeGraph
             }
         }
 
-        // GlStateManager._enableBlend();
-        // GlStateManager._blendFuncSeparate(770, 771, 1, 0);
-        // RenderSystem.setShader(ShaderProgramKeys.POSITION_COLOR);
-
-        if (keyframes.isEmpty())
-        {
-            return;
-        }
-
-        // BufferRenderer.drawWithGlobalProgram(builder.end());
+        context.batcher.drawQuadMesh(builder);
     }
 
     @Override

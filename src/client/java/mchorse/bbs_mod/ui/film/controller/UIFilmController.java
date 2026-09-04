@@ -2018,7 +2018,7 @@ public class UIFilmController extends UIElement
             ? BBSSettings.modelEditorAltHoverHighlight(paletteIndex)
             : BBSSettings.modelEditorHoverHighlight();
 
-        context.batcher.drawPickerPreview(texture.id, index, highlight, area.x, area.y, area.w, area.h, w, h);
+        context.batcher.drawPickerPreview(this.stencil.getColorView(), index, highlight, area.x, area.y, area.w, area.h);
 
         if (altPressed)
         {

@@ -1,7 +1,6 @@
 package mchorse.bbs_mod.ui.utils;
 
 import mchorse.bbs_mod.BBSModClient;
-import mchorse.bbs_mod.client.render.picker.BBSPickerRenderer;
 import mchorse.bbs_mod.forms.forms.Form;
 import mchorse.bbs_mod.graphics.Framebuffer;
 import mchorse.bbs_mod.graphics.Renderbuffer;
@@ -23,7 +22,7 @@ import org.lwjgl.opengl.GL13;
 import org.lwjgl.opengl.GL30;
 import org.lwjgl.system.MemoryStack;
 
-import java.nio.FloatBuffer;
+import java.nio.ByteBuffer;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -45,10 +44,18 @@ public class StencilFormFramebuffer
     private int gpuHeight = -1;
 
     private int readFbo = -1;
+    private GpuTextureView previousColorView;
+    private GpuTextureView previousDepthView;
+    private boolean applied;
 
     public Framebuffer getFramebuffer()
     {
         return this.framebuffer;
+    }
+
+    public GpuTextureView getColorView()
+    {
+        return this.colorView;
     }
 
     public int getIndex()
@@ -142,7 +149,15 @@ public class StencilFormFramebuffer
         RenderSystem.getDevice().createCommandEncoder()
             .clearColorAndDepthTextures(this.colorTexture, 0x00000000, this.depthTexture, 1.0D);
 
-        BBSPickerRenderer.setRenderTarget(this.colorView, this.depthView);
+        if (!this.applied)
+        {
+            this.previousColorView = RenderSystem.outputColorTextureOverride;
+            this.previousDepthView = RenderSystem.outputDepthTextureOverride;
+            this.applied = true;
+        }
+
+        RenderSystem.outputColorTextureOverride = this.colorView;
+        RenderSystem.outputDepthTextureOverride = this.depthView;
     }
 
     public void pickGUI(UIContext context, Area area)
@@ -162,7 +177,7 @@ public class StencilFormFramebuffer
             return;
         }
 
-        this.pick(Math.round(localX * scaleX), Math.round((area.h - localY) * scaleY));
+        this.pick((int) (localX * scaleX), this.gpuHeight - 1 - (int) (localY * scaleY));
     }
 
     public void pickGUI(int x, int y)
@@ -172,7 +187,7 @@ public class StencilFormFramebuffer
 
     public void pick(int x, int y)
     {
-        if (this.colorTexture == null)
+        if (this.colorTexture == null || x < 0 || y < 0 || x >= this.gpuWidth || y >= this.gpuHeight)
         {
             this.index = 0;
 
@@ -185,25 +200,29 @@ public class StencilFormFramebuffer
         }
 
         int glId = ((GlTexture) this.colorTexture).getGlId();
-
-        GL30.glBindFramebuffer(GL30.GL_FRAMEBUFFER, this.readFbo);
-        GL30.glFramebufferTexture2D(GL30.GL_FRAMEBUFFER, GL30.GL_COLOR_ATTACHMENT0, GL11.GL_TEXTURE_2D, glId, 0);
+        int previousReadFbo = GL11.glGetInteger(GL30.GL_READ_FRAMEBUFFER_BINDING);
 
         try (MemoryStack stack = MemoryStack.stackPush())
         {
-            FloatBuffer floats = stack.mallocFloat(4);
+            GL30.glBindFramebuffer(GL30.GL_READ_FRAMEBUFFER, this.readFbo);
+            GL30.glFramebufferTexture2D(GL30.GL_READ_FRAMEBUFFER, GL30.GL_COLOR_ATTACHMENT0, GL11.GL_TEXTURE_2D, glId, 0);
+            GL11.glReadBuffer(GL30.GL_COLOR_ATTACHMENT0);
 
-            GL11.glReadPixels(x, y, 1, 1, GL11.GL_RGBA, GL11.GL_FLOAT, floats);
+            ByteBuffer pixel = stack.malloc(4);
 
-            int r = (int) (floats.get() * 255F);
-            int g = (int) (floats.get() * 255F);
-            int b = (int) (floats.get() * 255F);
-            int a = (int) (floats.get() * 255F);
+            GL11.glReadPixels(x, y, 1, 1, GL11.GL_RGBA, GL11.GL_UNSIGNED_BYTE, pixel);
 
-            this.index = a < 1F ? 0 : r | (g << 8) | (b << 16);
+            int r = Byte.toUnsignedInt(pixel.get(0));
+            int g = Byte.toUnsignedInt(pixel.get(1));
+            int b = Byte.toUnsignedInt(pixel.get(2));
+            int a = Byte.toUnsignedInt(pixel.get(3));
+
+            this.index = a == 0 ? 0 : r | (g << 8) | (b << 16);
         }
-
-        GL30.glBindFramebuffer(GL30.GL_FRAMEBUFFER, 0);
+        finally
+        {
+            GL30.glBindFramebuffer(GL30.GL_READ_FRAMEBUFFER, previousReadFbo);
+        }
     }
 
     public void unbind(StencilMap map)
@@ -216,7 +235,14 @@ public class StencilFormFramebuffer
 
     public void unbind()
     {
-        this.framebuffer.unbind();
+        if (this.applied)
+        {
+            RenderSystem.outputColorTextureOverride = this.previousColorView;
+            RenderSystem.outputDepthTextureOverride = this.previousDepthView;
+            this.previousColorView = null;
+            this.previousDepthView = null;
+            this.applied = false;
+        }
     }
 
     public void clearPicking()

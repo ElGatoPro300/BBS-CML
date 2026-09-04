@@ -5,6 +5,7 @@ import mchorse.bbs_mod.BBSModClient;
 import mchorse.bbs_mod.BBSSettings;
 import mchorse.bbs_mod.client.BBSShaders;
 import mchorse.bbs_mod.graphics.GuiQuadMesh;
+import mchorse.bbs_mod.graphics.PickerPreviewRenderState;
 import mchorse.bbs_mod.graphics.texture.AdoptedTexture;
 import mchorse.bbs_mod.graphics.texture.Texture;
 import mchorse.bbs_mod.text.RtlAwtTextRenderer;
@@ -38,6 +39,10 @@ import com.mojang.blaze3d.pipeline.BlendFunction;
 import com.mojang.blaze3d.pipeline.RenderPipeline;
 import com.mojang.blaze3d.platform.DepthTestFunction;
 import com.mojang.blaze3d.vertex.VertexFormat;
+import com.mojang.blaze3d.systems.RenderSystem;
+import com.mojang.blaze3d.textures.GpuTextureView;
+import com.mojang.blaze3d.textures.AddressMode;
+import com.mojang.blaze3d.textures.FilterMode;
 
 import java.util.List;
 import java.util.function.Supplier;
@@ -707,8 +712,22 @@ public class Batcher2D
         this.context.drawText(font.getRenderer(), label, (int) x, (int) y, color, shadow);
     }
 
-    public void drawPickerPreview(int textureId, int index, int highlightColor, int x, int y, int w, int h, int texW, int texH)
+    public void drawPickerPreview(GpuTextureView texture, int index, int highlightColor, int x, int y, int w, int h)
     {
+        if (texture == null || texture.isClosed() || index <= 0 || w <= 0 || h <= 0)
+        {
+            return;
+        }
+
+        TextureSetup setup = TextureSetup.of(texture, RenderSystem.getSamplerCache().get(
+            AddressMode.CLAMP_TO_EDGE, AddressMode.CLAMP_TO_EDGE, FilterMode.NEAREST, FilterMode.NEAREST, false));
+        PickerPreviewRenderState state = new PickerPreviewRenderState(setup, this.context.getMatrices(),
+            x, y, w, h, index, highlightColor, this.context.scissorStack.peekLast());
+
+        if (state.bounds() != null)
+        {
+            this.context.state.addSimpleElement(state);
+        }
     }
 
     public void flush()

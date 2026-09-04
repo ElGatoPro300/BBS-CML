@@ -25,7 +25,7 @@ import net.minecraft.client.util.ModelIdentifier;
 import net.minecraft.client.world.ClientWorld;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.item.ItemStack;
-import net.minecraft.item.ModelTransformationMode;
+import net.minecraft.item.ItemDisplayContext;
 import net.minecraft.registry.Registries;
 import net.minecraft.world.World;
 
@@ -92,8 +92,8 @@ public final class ItemBodyPartBatch
         boolean flushOnce = context.stencilMap == null;
         boolean isDropped = context.type == FormRenderType.ITEM;
         boolean useDroppedMode = itemRenderer.shouldUseDroppedMode(isDropped);
-        ModelTransformationMode mode = itemRenderer.getRenderMode(useDroppedMode);
-        boolean leftHand = mode == ModelTransformationMode.THIRD_PERSON_LEFT_HAND;
+        ItemDisplayContext mode = itemRenderer.getRenderMode(useDroppedMode);
+        boolean leftHand = mode == ItemDisplayContext.THIRD_PERSON_LEFT_HAND;
 
         PaintSettings paintSettings = template.paintSettings.get();
         Color resolvedPaint = FormColorEffects.resolvePaintColor(paintSettings, template.paintColor.get());
