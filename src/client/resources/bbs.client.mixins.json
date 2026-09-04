@@ -15,6 +15,7 @@
         "IntegratedServerMixin",
         "WindowMixin",
         "WorldRendererMixin",
+        "RenderSystemDepthMaskMixin",
         "LanguageManagerMixin",
         "LivingEntityMixin",
         "LivingEntityUpdateMixin",

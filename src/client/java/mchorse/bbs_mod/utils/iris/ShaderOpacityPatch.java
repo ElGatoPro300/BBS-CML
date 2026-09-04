@@ -51,6 +51,11 @@ public class ShaderOpacityPatch
     private static boolean flushingDepthWrite = true;
     private static boolean forceLiveDepthWrite;
     private static boolean suppressLiveDepthWrite;
+    /**
+     * While soft is pending, translucent terrain keeps color but must not write depth or it
+     * culls soft forms flushed later (vanilla after clouds / Iris after translucents).
+     */
+    private static boolean suppressTranslucentTerrainDepthWrite;
 
     private static String loadingPackName = "";
 
@@ -298,6 +303,65 @@ public class ShaderOpacityPatch
         return alpha > 0.001F && alpha < LIVE_DEPTH_WRITE_ALPHA;
     }
 
+    public static boolean hasPendingSoftAfterFluids()
+    {
+        for (PostDeferredEntry entry : postDeferredForms)
+        {
+            if (entry.afterFluids)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Call around world translucent terrain layers when {@link #hasPendingSoftAfterFluids()}.
+     * Glass/ice keep color blending but must not write depth or they cull soft forms drawn later.
+     * Does not change soft flush timing (clouds / soft-vs-soft stay as-is).
+     */
+    public static void beginTranslucentTerrainDepthSuppress()
+    {
+        if (!hasPendingSoftAfterFluids())
+        {
+            return;
+        }
+
+        suppressTranslucentTerrainDepthWrite = true;
+        RenderSystem.depthMask(false);
+    }
+
+    public static void endTranslucentTerrainDepthSuppress()
+    {
+        if (!suppressTranslucentTerrainDepthWrite)
+        {
+            return;
+        }
+
+        suppressTranslucentTerrainDepthWrite = false;
+        RenderSystem.depthMask(true);
+    }
+
+    public static boolean shouldSuppressTranslucentTerrainDepthWrite()
+    {
+        return suppressTranslucentTerrainDepthWrite;
+    }
+
+    /**
+     * Forces depth writes off while translucent terrain is in the soft-pending window.
+     * {@link net.minecraft.client.render.RenderPhase} may reset {@code depthMask(true)} mid-layer.
+     */
+    public static boolean filterDepthMask(boolean mask)
+    {
+        if (suppressTranslucentTerrainDepthWrite && mask)
+        {
+            return false;
+        }
+
+        return mask;
+    }
+
     /**
      * Post-deferred meshes always write depth when visible so limbs do not X-ray themselves.
      * Soft forms still keep fluids: they flush {@link #shouldFlushAfterFluids after fluids},
@@ -377,6 +441,7 @@ public class ShaderOpacityPatch
         /* Iris has just copied opaque depth into depthtex1. Stash it before AAA Particles
          * (Fabric + shaders) pastes a cleared main-FB depth onto the bound FBO before hand. */
         stashIrisOpaqueDepthForPaint();
+        beginTranslucentTerrainDepthSuppress();
     }
 
     /**
@@ -389,6 +454,8 @@ public class ShaderOpacityPatch
      */
     public static void onAfterTranslucentTerrain()
     {
+        endTranslucentTerrainDepthSuppress();
+
         if (BBSRendering.isIrisShadersEnabled())
         {
             flushPostDeferredForms(null);
@@ -419,6 +486,7 @@ public class ShaderOpacityPatch
         postDeferredForms.clear();
         postDeferredPhase = false;
         flushingPostDeferred = false;
+        suppressTranslucentTerrainDepthWrite = false;
         paintOpaqueDepthStashValid = false;
     }
 
